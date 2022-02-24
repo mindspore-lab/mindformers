@@ -20,20 +20,19 @@ GPT train script
 
 import os
 import argparse
-from mindspore import context
+from mindspore import context, DynamicLossScaleManager
 from mindspore.train.model import Model
 import mindspore.communication.management as D
 from mindspore.context import ParallelMode
 import mindspore.nn as nn
 from mindspore.train.callback import TimeMonitor, LossMonitor, ModelCheckpoint, CheckpointConfig
-from mindspore.nn.wrap.loss_scale import DynamicLossScaleUpdateCell
 from mindspore.nn.transformer.loss import CrossEntropyLoss
 from mindspore.nn.transformer.transformer import TransformerOpParallelConfig
 import mindspore.common.dtype as mstype
 from mindspore.common import set_seed
 from src.dataset import create_dataset
+from src.optimizer import get_optimizer
 from src.gpt import GPT, GPTWithLoss
-from src.gpt_wrapcell import GPTTrainOneStepWithLossScaleCell
 from src.utils import GPTConfig, LearningRate
 
 def run_train():
@@ -101,18 +100,7 @@ def run_train():
                       warmup_steps=args_opt.warmup_step,
                       decay_steps=epoch_num*step_per_epoch)
 
-    decay_filter = lambda x: 'layernorm' not in x.name.lower() and "bias" not in x.name.lower()
-    params = gpt.trainable_params()
-    decay_params = list(filter(decay_filter, params))
-    other_params = list(filter(lambda x: not decay_filter(x), params))
-    group_params = [{'params': decay_params, 'weight_decay': 1e-2},
-                    {'params': other_params, 'weight_decay': 0.0},
-                    {'order_params': params}]
-
-    if args_opt.optimizer == "lamb":
-        optimizer = nn.Lamb(group_params, learning_rate=lr)
-    else:
-        optimizer = nn.AdamWeightDecay(group_params, learning_rate=lr)
+    optimizer = get_optimizer(gpt_with_loss, lr, args_opt.optimizer)
 
     callback_size = args_opt.sink_size
     actual_epoch_num = int(epoch_num * step_per_epoch/callback_size)
@@ -123,15 +111,11 @@ def run_train():
     callback.append(ckpoint_cb)
 
 
-    update_cell = DynamicLossScaleUpdateCell(loss_scale_value=1024,
-                                             scale_factor=2,
-                                             scale_window=1000)
+    loss_scale_manager = DynamicLossScaleManager(init_loss_scale=1024,
+                                                 scale_factor=2,
+                                                 scale_window=1000)
 
-    gpt_with_grads = GPTTrainOneStepWithLossScaleCell(gpt_with_loss, optimizer=optimizer,
-                                                      scale_update_cell=update_cell)
-
-
-    model = Model(gpt_with_grads)
+    model = Model(gpt_with_loss, optimizer=optimizer, loss_scale_manager=loss_scale_manager)
     model.train(actual_epoch_num, ds, callbacks=callback, sink_size=callback_size)
 
 
