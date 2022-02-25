@@ -51,25 +51,30 @@ def run_train():
     parser.add_argument("--end_lr", type=float, default="1e-10", help="End learning rate, default is 1e-10.")
     parser.add_argument("--sink_size", type=int, default=100, help="Sink size for every iteration, default is 100")
     parser.add_argument("--model_parallel_num", type=int, default=8, help="Num of model parallel, default is 8")
+    parser.add_argument("--device_target", type=str, default="Ascend", help="device target, default is Ascend")
+    parser.add_argument("--ckpt_save_dir", type=str, default="./", help="The location of the checkpoint file")
 
 
     args_opt = parser.parse_args()
-    device_id = int(os.getenv("DEVICE_ID"))
-    context.set_context(mode=context.GRAPH_MODE, device_target="Ascend", device_id=device_id)
+    context.set_context(mode=context.GRAPH_MODE, device_target=args_opt.device_target)
     if args_opt.distribute == "true":
         D.init()
         device_num = args_opt.device_num
-        rank = device_id % device_num
-        print("device_id is {}, rank_id is {}".format(device_id, rank))
+        rank_id = D.get_rank()
+        print("rank_id is {}, device_num is {}".format(rank_id, device_num))
 
         context.reset_auto_parallel_context()
         context.set_auto_parallel_context(parallel_mode=ParallelMode.DATA_PARALLEL, gradients_mean=True,
                                           device_num=device_num)
 
     else:
-        rank = 0
+        rank_id = 0
         device_num = 1
 
+    model_parallel_num = args_opt.model_parallel_num
+    data_parallel_num = int(device_num / model_parallel_num)
+    parallel_config = TransformerOpParallelConfig(data_parallel=data_parallel_num,
+                                                  model_parallel=model_parallel_num)
     config = GPTConfig(batch_size=4,
                        seq_length=1024,
                        vocab_size=50257,
@@ -80,16 +85,14 @@ def run_train():
                        post_layernorm_residual=False,
                        dropout_rate=0.1,
                        compute_dtype=mstype.float16,
-                       use_past=False)
+                       use_past=False,
+                       use_moe=False,
+                       parallel_config=parallel_config)
     gpt = GPT(config)
-    model_parallel_num = args_opt.model_parallel_num
-    data_parallel_num = int(device_num / model_parallel_num)
-    parallel_config = TransformerOpParallelConfig(data_parallel=data_parallel_num,
-                                                  model_parallel=model_parallel_num)
     loss = CrossEntropyLoss(parallel_config.dp_mp_config)
     gpt_with_loss = GPTWithLoss(gpt, loss)
 
-    ds = create_dataset(config.batch_size, data_path=args_opt.data_path, device_num=device_num, rank=rank)
+    ds = create_dataset(config.batch_size, data_path=args_opt.data_path, device_num=device_num, rank=rank_id)
 
 
     epoch_num = args_opt.epoch_size
@@ -107,7 +110,9 @@ def run_train():
     callback = [TimeMonitor(callback_size), LossMonitor(callback_size)]
 
     config_ck = CheckpointConfig(save_checkpoint_steps=step_per_epoch, keep_checkpoint_max=1)
-    ckpoint_cb = ModelCheckpoint(prefix="GPT2", config=config_ck)
+    ckpoint_cb = ModelCheckpoint(prefix="GPT3",
+                                 directory=args_opt.ckpt_save_dir + './ckpt_{}'.format(rank_id),
+                                 config=config_ck)
     callback.append(ckpoint_cb)
 
 

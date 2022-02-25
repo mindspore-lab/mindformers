@@ -43,7 +43,10 @@ class GPTConfig:
                  post_layernorm_residual=False,
                  dropout_rate=0.1,
                  compute_dtype=mstype.float16,
-                 use_past=False):
+                 use_past=False,
+                 use_moe=False,
+                 per_dp_dim_expert_num=4,
+                 parallel_config=None):
         self.batch_size = batch_size
         self.seq_length = seq_length
         self.vocab_size = vocab_size
@@ -55,6 +58,9 @@ class GPTConfig:
         self.dropout_rate = dropout_rate
         self.compute_dtype = compute_dtype
         self.use_past = use_past
+        self.use_moe = bool(use_moe)
+        self.per_dp_dim_expert_num = per_dp_dim_expert_num
+        self.parallel_config = parallel_config
 
 
 apply_global_norm = C.MultitypeFuncGraph("apply_global_norm")
