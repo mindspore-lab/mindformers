@@ -3,8 +3,9 @@
 
 # Contents
 
+- [It is still under development](#it-is-still-under-development)
 - [Contents](#contents)
-- [GPT Description](#bert-description)
+- [GPT Description](#gpt-description)
 - [Model Architecture](#model-architecture)
 - [Dataset](#dataset)
 - [Environment Requirements](#environment-requirements)
@@ -45,11 +46,11 @@ After installing MindSpore via the official website, you can start training and 
 
 # run standalone training example
 
-bash scripts/run_standalone_train.sh 0 10 /path/dataset
+bash scripts/run_standalone_train_ascend.sh 0 10 /path/dataset
 
 # run distributed training example
 
-bash scripts/run_distribute_training.sh /path/dataset /path/hccl.json 8
+bash scripts/run_distribute_train_ascend.sh /path/dataset /path/hccl.json 8
 
 # run evaluation example, now only accuracy and perplexity for lambada and wikitext103 are supported
 
@@ -70,8 +71,10 @@ https:gitee.com/mindspore/models/tree/master/utils/hccl_tools.
 └─gpt
   ├─README.md
   ├─scripts
-    ├─run_standalone_train.sh                 # shell script for standalone training on ascend
-    ├─run_distribut_train.sh                  # shell script for distributed training on ascend
+    ├─run_standalone_train_ascend.sh          # shell script for standalone training on ascend
+    ├─run_standalone_train_gpu.sh             # shell script for standalone training on gpu
+    ├─run_distribute_train_ascend.sh          # shell script for distributed training on ascend
+    ├─run_distribute_train_gpu.sh             # shell script for distributed training on gpu
     └─run_evaluation.sh                       # shell script for evaluation of ascend
   ├─src
     ├─gpt_wrapper.py                          # backbone code of network

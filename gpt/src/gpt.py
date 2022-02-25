@@ -22,8 +22,9 @@ import mindspore.common.dtype as mstype
 from mindspore.common.initializer import TruncatedNormal, initializer
 from mindspore.ops import operations as P
 from mindspore.ops import functional as F
+from mindspore.nn.transformer import MoEConfig
 from mindspore.nn.transformer.layers import _LayerNorm
-from mindspore.nn.transformer.transformer import AttentionMask, TransformerEncoder
+from mindspore.nn.transformer.transformer import AttentionMask, Transformer
 
 
 class EmbeddingLookup(nn.Cell):
@@ -76,12 +77,19 @@ class GPT_Model(nn.Cell):
         self.position_embedding = nn.Embedding(config.seq_length, config.embedding_size,
                                                embedding_table=TruncatedNormal(0.02))
         self.blocks = nn.CellList()
-        self.encoder = TransformerEncoder(batch_size=config.batch_size,
-                                          num_layers=config.num_layers,
-                                          hidden_size=config.embedding_size,
-                                          ffn_hidden_size=config.embedding_size * 4,
-                                          seq_length=config.seq_length,
-                                          num_heads=config.num_heads,)
+        if config.use_moe:
+            moe_config = MoEConfig(expert_num=config.parallel_config.data_parallel * config.per_dp_dim_expert_num)
+        else:
+            moe_config = MoEConfig(expert_num=1)
+        self.transformer = Transformer(hidden_size=config.embedding_size,
+                                       batch_size=config.batch_size,
+                                       ffn_hidden_size=config.embedding_size * 4,
+                                       src_seq_length=config.seq_length,
+                                       tgt_seq_length=config.seq_length,
+                                       encoder_layers=config.num_layers,
+                                       decoder_layers=0,
+                                       num_heads=config.num_heads,
+                                       moe_config=moe_config)
         self.layernorm = _LayerNorm((config.embedding_size,)).to_float(config.compute_dtype)
         self.use_past = config.use_past
         self.past = tuple([None]*config.num_layers)
@@ -105,7 +113,7 @@ class GPT_Model(nn.Cell):
         hidden_states = P.Cast()(hidden_states, mstype.float16)
         attention_mask = self.get_attention_mask(input_mask)
 
-        hidden_states, present_layer = self.encoder(hidden_states, attention_mask)
+        hidden_states, present_layer, _ = self.transformer(hidden_states, attention_mask)
         output_state = self.layernorm(hidden_states)
         return output_state, present_layer, embedding_table
 
