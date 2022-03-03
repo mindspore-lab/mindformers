@@ -17,16 +17,14 @@
 GPT train script
 """
 
-
-import os
 import argparse
 from mindspore import context, DynamicLossScaleManager
 from mindspore.train.model import Model
 import mindspore.communication.management as D
 from mindspore.context import ParallelMode
-import mindspore.nn as nn
 from mindspore.train.callback import TimeMonitor, LossMonitor, ModelCheckpoint, CheckpointConfig
 from mindspore.nn.transformer.loss import CrossEntropyLoss
+from mindspore.nn.transformer import TransformerRecomputeConfig
 from mindspore.nn.transformer.transformer import TransformerOpParallelConfig
 import mindspore.common.dtype as mstype
 from mindspore.common import set_seed
@@ -50,7 +48,9 @@ def run_train():
     parser.add_argument("--start_lr", type=float, default="5e-5", help="Start learning rate, default is 5e-5.")
     parser.add_argument("--end_lr", type=float, default="1e-10", help="End learning rate, default is 1e-10.")
     parser.add_argument("--sink_size", type=int, default=100, help="Sink size for every iteration, default is 100")
-    parser.add_argument("--model_parallel_num", type=int, default=8, help="Num of model parallel, default is 8")
+    parser.add_argument("--model_parallel_num", type=int, default=1, help="Num of model parallel, default is 1")
+    parser.add_argument("--word_emb_dp", type=int, default=0,
+                        help="Whether do data parallel in word embedding, default is 0")
     parser.add_argument("--device_target", type=str, default="Ascend", help="device target, default is Ascend")
     parser.add_argument("--ckpt_save_dir", type=str, default="./", help="The location of the checkpoint file")
 
@@ -73,8 +73,14 @@ def run_train():
 
     model_parallel_num = args_opt.model_parallel_num
     data_parallel_num = int(device_num / model_parallel_num)
+    recompute_config = TransformerRecomputeConfig(recompute=True,
+                                                  parallel_optimizer_comm_recompute=True,
+                                                  mp_comm_recompute=True,
+                                                  recompute_slice_activation=True)
     parallel_config = TransformerOpParallelConfig(data_parallel=data_parallel_num,
-                                                  model_parallel=model_parallel_num)
+                                                  model_parallel=model_parallel_num,
+                                                  vocab_emb_dp=bool(args_opt.word_emb_dp),
+                                                  recompute=recompute_config)
     config = GPTConfig(batch_size=4,
                        seq_length=1024,
                        vocab_size=50257,

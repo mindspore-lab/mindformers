@@ -17,43 +17,16 @@
 
 import numpy as np
 import mindspore.nn as nn
-from mindspore.common.parameter import Parameter
 import mindspore.common.dtype as mstype
 from mindspore.common.initializer import TruncatedNormal, initializer
 from mindspore.ops import operations as P
 from mindspore.ops import functional as F
 from mindspore.nn.transformer import MoEConfig
 from mindspore.nn.transformer.layers import _LayerNorm
-from mindspore.nn.transformer.transformer import AttentionMask, Transformer
+from mindspore.nn.transformer.transformer import AttentionMask, Transformer, VocabEmbedding
 
 
-class EmbeddingLookup(nn.Cell):
-    """
-    The embedding lookup table for vocabulary
-
-    Args:
-        config(GPTConfig): the config of network
-
-    Inputs:
-        input_ids: the tokenized inputs with datatype int32
-
-    Returns:
-        output: Tensor, the embedding vector for the input with shape (batch_size, seq_length, embedding_size)
-        self.embedding_table: Tensor, the embedding table for the vocabulary
-    """
-    def __init__(self, config):
-        super(EmbeddingLookup, self).__init__()
-        self.vocab_size = config.vocab_size
-        self.embedding_size = config.embedding_size
-        self.embedding_table = Parameter(initializer(TruncatedNormal(0.02), [self.vocab_size, self.embedding_size]))
-        self.gather = P.Gather()
-        self.shape = (-1, config.seq_length, config.embedding_size)
-    def construct(self, input_ids):
-        output = self.gather(self.embedding_table, input_ids, 0)
-        return output, self.embedding_table
-
-
-class GPT_Model(nn.Cell):
+class GPTModel(nn.Cell):
     """
     The backbone of GPT network
 
@@ -71,9 +44,14 @@ class GPT_Model(nn.Cell):
         embedding_table: Tensor, the embedding table for the vocabulary
     """
     def __init__(self, config):
-        super(GPT_Model, self).__init__()
+        super(GPTModel, self).__init__()
         self.get_attention_mask = AttentionMask(seq_length=config.seq_length)
-        self.word_embedding = EmbeddingLookup(config)
+        self.word_embedding = VocabEmbedding(vocab_size=config.vocab_size,
+                                             embedding_size=config.embedding_size,
+                                             param_init=initializer("truncatedNormal",
+                                                                    [config.vocab_size, config.embedding_size],
+                                                                    dtype=config.compute_dtype),
+                                             parallel_config=config.parallel_config.embedding_dp_mp_config)
         self.position_embedding = nn.Embedding(config.seq_length, config.embedding_size,
                                                embedding_table=TruncatedNormal(0.02))
         self.blocks = nn.CellList()
@@ -89,17 +67,18 @@ class GPT_Model(nn.Cell):
                                        encoder_layers=config.num_layers,
                                        decoder_layers=0,
                                        num_heads=config.num_heads,
+                                       parallel_config=config.parallel_config,
                                        moe_config=moe_config)
         self.layernorm = _LayerNorm((config.embedding_size,)).to_float(config.compute_dtype)
+        self.layernorm.shard(((config.parallel_config.data_parallel, 1),))
+        self.add = P.Add().shard(
+            ((config.parallel_config.data_parallel, 1, 1), (config.parallel_config.data_parallel, 1, 1)))
         self.use_past = config.use_past
         self.past = tuple([None]*config.num_layers)
         self.num_layers = config.num_layers
 
-    def construct(self, input_ids, input_mask, layer_past=None):
+    def construct(self, input_ids, input_mask):
         """GPT model"""
-        if not self.use_past:
-            layer_past = self.past
-
         input_embedding, embedding_table = self.word_embedding(input_ids)
 
         batch_size, seq_length = F.shape(input_ids)
@@ -108,7 +87,7 @@ class GPT_Model(nn.Cell):
 
 
         position_embedding = self.position_embedding(input_position)
-        hidden_states = input_embedding + position_embedding
+        hidden_states = self.add(input_embedding, position_embedding)
 
         hidden_states = P.Cast()(hidden_states, mstype.float16)
         attention_mask = self.get_attention_mask(input_mask)
@@ -117,7 +96,7 @@ class GPT_Model(nn.Cell):
         output_state = self.layernorm(hidden_states)
         return output_state, present_layer, embedding_table
 
-class GPT_Head(nn.Cell):
+class GPTHead(nn.Cell):
     """
     Head for GPT to get the logits of each token in the vocab
 
@@ -131,17 +110,23 @@ class GPT_Head(nn.Cell):
     Returns:
         logits: Tensor, the logits of the corresponding inputs
     """
-    def __init__(self, config):
-        super(GPT_Head, self).__init__()
-        self.matmul = P.MatMul(transpose_b=True)
-        self.embedding_size = config.embedding_size
-        self.log_softmax = P.LogSoftmax(axis=-1)
-        self.dtype = config.compute_dtype
+    def __init__(self,
+                 embedding_size,
+                 compute_type=mstype.float16,
+                 parallel_config=None):
+        super(GPTHead, self).__init__()
+        if parallel_config.vocab_emb_dp:
+            self.matmul = P.MatMul(transpose_b=True).shard(((parallel_config.data_parallel, 1), (1, 1)))
+        else:
+            self.matmul = P.MatMul(transpose_b=True).shard(((parallel_config.data_parallel, 1), (
+                parallel_config.model_parallel, 1)))
+        self.embedding_size = embedding_size
+        self.dtype = compute_type
         self.cast = P.Cast()
 
     def construct(self, state, embedding_table):
         state = P.Reshape()(state, (-1, self.embedding_size))
-        logits = self.matmul(state, self.cast(embedding_table, self.dtype))
+        logits = self.matmul(self.cast(state, self.dtype), self.cast(embedding_table, self.dtype))
         return logits
 
 class GPT(nn.Cell):
@@ -161,11 +146,11 @@ class GPT(nn.Cell):
     """
     def __init__(self, config):
         super(GPT, self).__init__()
-        self.backbone = GPT_Model(config)
-        self.head = GPT_Head(config)
+        self.backbone = GPTModel(config)
+        self.head = GPTHead(config.embedding_size, parallel_config=config.parallel_config)
 
-    def construct(self, input_ids, input_mask, past=None):
-        output_states, _, embedding_table = self.backbone(input_ids, input_mask, past)
+    def construct(self, input_ids, input_mask):
+        output_states, _, embedding_table = self.backbone(input_ids, input_mask)
         logits = self.head(output_states, embedding_table)
         return logits
 
@@ -191,10 +176,10 @@ class GPTWithLoss(nn.Cell):
         self.loss = loss
         self.eos_token = eos_token
 
-    def construct(self, input_ids, past=None):
+    def construct(self, input_ids):
         tokens = input_ids[:, :-1]
         input_mask = F.cast(F.not_equal(tokens, self.eos_token), mstype.float32)
-        logits = self.network(tokens, input_mask, past)
+        logits = self.network(tokens, input_mask)
         labels = input_ids[:, 1:]
         labels = P.Reshape()(labels, (-1,))
         input_mask = P.Reshape()(input_mask, (-1,))
