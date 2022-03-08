@@ -1,4 +1,4 @@
-# Copyright 2021 Huawei Technologies Co., Ltd
+# Copyright 2022 Huawei Technologies Co., Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -27,7 +27,7 @@ from mindspore._checkparam import Rel
 from mindspore.nn.optim.optimizer import Optimizer
 from mindspore.nn import AdamWeightDecay, Lamb
 
-from .utils import GlobalNorm, ClipByGlobalNorm
+from transformer.global_norm import ClipByGlobalNorm
 _adam_opt = C.MultitypeFuncGraph("adam_opt")
 _scaler_one = Tensor(1, mstype.int32)
 _scaler_ten = Tensor(10, mstype.float32)
@@ -291,21 +291,20 @@ def get_optimizer(net,
     else:
         optimizer = FP32StateAdamWeightDecay
 
-    class OptimizerWithClipNorm(Optimizer):
+    class OptimizerWithClipNorm(optimizer):
+        """An global norm wrapper"""
         def __init__(self, *args, **kwargs):
-            super(Optimizer, self).__init__()
-            self.optimizer = optimizer(*args, **kwargs)
+            super(OptimizerWithClipNorm, self).__init__(*args, **kwargs)
+            self.optimizer = super(OptimizerWithClipNorm, self).construct
             self.enable_offload = enable_offload
             self.norm = ClipByGlobalNorm(enable_grad_fp16=enable_grad_fp16,
                                          clip_norm=1.0)
-            self.parameters = self.optimizer.parameters
 
         def construct(self, gradients):
             grads, norm = self.norm(gradients)
             if self.enable_offload:
                 return self.optimizer(grads, norm)
-            else:
-                return self.optimizer(grads)
+            return self.optimizer(grads)
 
     optimizer = OptimizerWithClipNorm(group_params, **optimizer_args)
     optimizer.enable_offload = enable_offload

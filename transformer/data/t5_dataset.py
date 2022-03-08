@@ -20,20 +20,17 @@ import mindspore.dataset as de
 de.config.set_seed(1)
 
 
-def create_transformer_dataset(global_batch_size, rank_size=1, rank_id=0, do_shuffle="true", dataset_path=None,
-                               bucket_boundaries=None):
+def create_dataset(batch_size, data_path,
+                   device_num=1, rank=0, drop=True,
+                   bucket_boundaries=None):
     """Create the dataset"""
-    if global_batch_size % rank_size != 0:
-        raise ValueError(f"global batch size {global_batch_size} should be mod by rank size {rank_size}, but not.")
-    sliced_batch = global_batch_size // rank_size
-
     def batch_per_bucket(bucket_len, dataset_path):
         dataset_path = dataset_path + "_" + str(bucket_len) + "_00"
         ds = de.MindDataset(dataset_path,
                             columns_list=["source_eos_ids", "source_eos_mask",
                                           "target_sos_ids", "target_sos_mask",
                                           "target_eos_ids", "target_eos_mask"],
-                            shuffle=(do_shuffle == "true"), num_shards=rank_size, shard_id=rank_id)
+                            shuffle=True, num_shards=device_num, shard_id=rank)
         type_cast_op = de.transforms.c_transforms.TypeCast(ms.int32)
         ds = ds.map(operations=type_cast_op, input_columns="source_eos_ids")
         ds = ds.map(operations=type_cast_op, input_columns="source_eos_mask")
@@ -43,17 +40,17 @@ def create_transformer_dataset(global_batch_size, rank_size=1, rank_id=0, do_shu
         ds = ds.map(operations=type_cast_op, input_columns="target_eos_mask")
 
         # apply batch operations
-
-        ds = ds.batch(sliced_batch, drop_remainder=True)
+        ds = ds.batch(batch_size, drop_remainder=drop)
         return ds
 
     for i, _ in enumerate(bucket_boundaries):
         bucket_len = bucket_boundaries[i]
-        ds_per = batch_per_bucket(bucket_len, dataset_path)
+        ds_per = batch_per_bucket(bucket_len, data_path)
         if i == 0:
             ds = ds_per
         else:
             ds = ds + ds_per
     ds = ds.shuffle(ds.get_dataset_size())
     ds.channel_name = 'transformer'
+
     return ds

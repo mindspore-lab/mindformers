@@ -11,6 +11,11 @@ device_target: Ascend
 enable_profiling: False
 
 # ==============================================================================
+# learning rate
+start_lr: 0.0001
+end_lr: 0.00001
+warmup_step: 1000
+
 # config/cfg edict
 transformer_network: 'large'
 init_loss_scale_value: 1024
@@ -20,6 +25,7 @@ optimizer: 'Adam'
 optimizer_adam_beta2: 0.997
 #lr_schedule: edict({'learning_rate': 2.0, 'warmup_steps': 8000, 'start_decay_step': 16000, 'min_lr': 0.0,})
 
+sink_size: 2
 # transformer_net_cfg
 batch_size: 96
 seq_length: 128
@@ -85,6 +91,9 @@ num_splits: 16
 clip_to_max_len: False
 max_seq_length: 128
 bucket: [16, 32, 48, 64, 128]
+
+# ckpt setting
+ckpt_save_dir: './'
 
 # TransformerOpParallelConfig
 parallel_mode: data_parallel
