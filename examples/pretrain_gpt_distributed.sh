@@ -13,39 +13,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-if [ $# != 5 ] ; then
+
 echo "=============================================================================================================="
 echo "Please run the script as: "
-echo "sh scripts/run_standalone_train.sh DEVICE_TARGET DEVICE_ID EPOCH_SIZE GRADIENT_ACCUMULATE_STEP DATA_PATH"
-echo "for example: sh run_standalone_train.sh Ascend 0 52 8 /path/ende-l128-mindrecord00"
+echo "bash examples/pretrain_gpt_distributed.sh DATA_DIR RANK_TABLE_FILE DEVICE_NUM"
+echo "for example: examples/pretrain_gpt_distributed.sh 8 hostfile /path/dataset"
 echo "It is better to use absolute path."
 echo "=============================================================================================================="
-exit 1;
-fi
 
-rm -rf run_standalone_train
-mkdir run_standalone_train
-cp -rf ./src/ train.py ./*.yaml ./run_standalone_train
-cd run_standalone_train || exit
+self_path=$(cd "$(dirname "$0")" || exit; pwd)
+RANK_SIZE=$1
+HOSTFILE=$2
+DATASET=$3
 
-export DEVICE_TARGET=$1
-DEVICE_ID=$2
-EPOCH_SIZE=$3
-GRADIENT_ACCUMULATE_STEP=$4
-DATA_PATH=$5
+mpirun --allow-run-as-root -n $RANK_SIZE --hostfile $HOSTFILE \
+      --mca btl tcp,self --mca btl_tcp_if_include 10.90.43.0/24,enp177s0f0 --merge-stderr-to-stdout \
+python -s ${self_path}/../pretrain_gpt.py  \
+    --distribute="true" \
+    --device_num=$RANK_SIZE \
+    --data_path=$DATASET \
+    --device_target="GPU" > distribute_train_gpu_log.txt 2>&1 &
 
-python train.py  \
-    --config_path="./default_config_large.yaml" \
-    --distribute="false" \
-    --epoch_size=$EPOCH_SIZE \
-    --accumulation_steps=$GRADIENT_ACCUMULATE_STEP \
-    --device_target=$DEVICE_TARGET \
-    --device_id=$DEVICE_ID \
-    --enable_save_ckpt="true" \
-    --enable_lossscale="true" \
-    --do_shuffle="true" \
-    --checkpoint_path="" \
-    --save_checkpoint_steps=2500 \
-    --save_checkpoint_num=30 \
-    --data_path=$DATA_PATH > log.txt 2>&1 &
-cd ..

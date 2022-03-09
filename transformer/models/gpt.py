@@ -14,6 +14,7 @@
 # ============================================================================
 
 """GPT model"""
+from dataclasses import dataclass
 
 import numpy as np
 import mindspore.nn as nn
@@ -21,10 +22,30 @@ import mindspore.common.dtype as mstype
 from mindspore.common.initializer import TruncatedNormal, initializer
 from mindspore.ops import operations as P
 from mindspore.ops import functional as F
-from mindspore.nn.transformer import MoEConfig
+from mindspore.nn.transformer import MoEConfig, TransformerOpParallelConfig
+from mindspore.nn.transformer.transformer import default_transformer_config
 from mindspore.nn.transformer.layers import _LayerNorm
 from mindspore.nn.transformer.transformer import AttentionMask, Transformer, VocabEmbedding
 
+@dataclass
+class GPTConfig:
+    """
+    GPT config class which defines the model size
+    """
+    batch_size: int = 32
+    seq_length: int = 1024
+    vocab_size: int = 50257
+    embedding_size: int = 768
+    num_layers: int = 12
+    num_heads: int = 12
+    expand_ratio: int = 4
+    post_layernorm_residual: bool = False
+    dropout_rate: float = 0.1
+    compute_dtype: mstype = mstype.float16
+    use_past: bool = False
+    use_moe: bool = False
+    per_dp_dim_expert_num: int = 4
+    parallel_config: TransformerOpParallelConfig = default_transformer_config
 
 class GPTModel(nn.Cell):
     """

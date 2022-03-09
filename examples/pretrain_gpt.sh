@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright 2020 Huawei Technologies Co., Ltd
+# Copyright 2022 Huawei Technologies Co., Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,18 +16,18 @@
 
 echo "=============================================================================================================="
 echo "Please run the script as: "
-echo "bash scripts/run_evaluation.sh TASK_TYPE CKPT_PATH DATA_PATH METRICS"
-echo "for example: bash scripts/run_evaluation.sh lambada /your/ckpt /your/data acc"
+echo "bash examples/pretrain_gpt.sh  DEVICE_ID EPOCH_SIZE DATA_DIR"
+echo "for example: bash examples/pretrain_gpt.sh 0 40 /path/zh-wiki/"
 echo "=============================================================================================================="
 
+DEVICE_ID=$1
+EPOCH_SIZE=$2
+DATA_DIR=$3
 
-TASK_TYPE=$1
-CKPT_PATH=$2
-DATA_PATH=$3
-METRICS=$4
-python eval.py \
-    --task_type=$TASK_TYPE \
-    --ckpt_path=$CKPT_PATH \
-    --data_path=$DATA_PATH \
-    --metrics=$METRICS
-
+python pretrain_gpt.py \
+    --distribute="false" \
+    --epoch_size=$EPOCH_SIZE \
+    --device_id=$DEVICE_ID \
+    --data_path=$DATA_DIR \
+    --optimizer="adam"  \
+    --device_target="GPU" > standalone_train_gpu_log.txt 2>&1 &

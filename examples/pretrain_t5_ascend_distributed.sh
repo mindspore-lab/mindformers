@@ -16,18 +16,23 @@
 
 echo "=============================================================================================================="
 echo "Please run the script as: "
-echo "bash scripts/run_standalone_train_gpu.sh DEVICE_ID EPOCH_SIZE DATA_DIR"
-echo "for example: bash scripts/run_standalone_train_gpu.sh 0 40 /path/zh-wiki/"
+echo "bash scripts/run_distribute_train_ascend.sh DATA_DIR RANK_TABLE_FILE DEVICE_NUM"
+echo "for example: bash scripts/run_distribute_train_ascend.sh /path/dataset /path/hccl.json 8"
+echo "It is better to use absolute path."
 echo "=============================================================================================================="
 
-DEVICE_ID=$1
-EPOCH_SIZE=$2
-DATA_DIR=$3
+ROOT_PATH=`pwd`
+DATA_DIR=$1
+export RANK_TABLE_FILE=$2
+RANK_SIZE=$3
 
-python train.py  \
-    --distribute="false" \
-    --epoch_size=$EPOCH_SIZE \
-    --device_id=$DEVICE_ID \
-    --data_path=$DATA_DIR \
-    --optimizer="adam"  \
-    --device_target="GPU" > standalone_train_gpu_log.txt 2>&1 &
+
+for((i=0;i<${RANK_SIZE};i++));
+do
+    rm ${ROOT_PATH}/device$i/ -rf
+    mkdir ${ROOT_PATH}/device$i
+    cd ${ROOT_PATH}/device$i || exit
+    export RANK_ID=$i
+    export DEVICE_ID=$i
+    python ${ROOT_PATH}/pretrain_t5.py --distribute="true" --device_num=$RANK_SIZE --data_path=$DATA_DIR --device_target="Ascend" >log$i.log 2>&1 &
+done

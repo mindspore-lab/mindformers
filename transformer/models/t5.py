@@ -243,7 +243,7 @@ class TransformerModel(nn.Cell):
             attention_dropout_rate=config.attention_probs_dropout_prob,
             hidden_dropout_rate=config.hidden_dropout_prob,
             hidden_act=config.hidden_act,
-            moe_config=config.moe_config)
+            moe_config=config.parallel_config.moe_config)
 
         self.tfm_decoder = TransformerDecoder(
             batch_size=self.batch_size,
@@ -256,7 +256,7 @@ class TransformerModel(nn.Cell):
             hidden_dropout_rate=config.hidden_dropout_prob,
             num_layers=config.num_hidden_layers,
             hidden_act=config.hidden_act,
-            moe_config=config.moe_config)
+            moe_config=config.parallel_config.moe_config)
 
         self.projection = T5Head(self.hidden_size,
                                  compute_type=ms.float16,

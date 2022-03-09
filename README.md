@@ -6,20 +6,25 @@ Gitee 是 OSCHINA 推出的基于 Git 的代码托管平台（同时支持 SVN�
 无论是个人、团队、或是企业，都能够用 Gitee 实现代码托管、项目管理、协作开发。企业项目请看 [https://gitee.com/enterprises](https://gitee.com/enterprises)}
 
 #### 软件架构
-软件架构说明
 
+tasks: 下游任务
+examples:运行脚本
 
-#### 安装教程
+#### 快速上手
 
-1.  xxxx
-2.  xxxx
-3.  xxxx
+1. 数据预处理：
 
-#### 使用说明
+2. 单卡训练gpt模型
 
-1.  xxxx
-2.  xxxx
-3.  xxxx
+```bash
+bash examples/pretrain_gpt.sh  DEVICE_ID EPOCH_SIZE DATA_DIR
+```
+
+3. 单机8卡训练gpt模型
+
+```bash
+bash examples/pretrain_gpt_distributed.sh 8 hostfile /path/dataset
+```
 
 #### 参与贡献
 
