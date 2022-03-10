@@ -34,5 +34,17 @@ do
     cd ${ROOT_PATH}/device$i || exit
     export RANK_ID=$i
     export DEVICE_ID=$i
-    python ${ROOT_PATH}/pretrain_t5.py --distribute="true" --device_num=$RANK_SIZE --data_path=$DATA_DIR --device_target="Ascend" >log$i.log 2>&1 &
+    python ${ROOT_PATH}/pretrain_t5.py --distribute="true" --device_num=$RANK_SIZE --data_path=$DATA_DIR --device_target="Ascend" \
+        --optimizer="adam" \
+        --max_seq_length=16 \
+        --max_decode_length=16 \
+        --max_position_embeddings=16 \
+        --global_batch_size=96 \
+        --vocab_size=36560 \
+        --hidden_size=1024 \
+        --num_hidden_layers=6 \
+        --parallel_mode="semi_auto_parallel" \
+        --num_attention_heads=16 \
+        --bucket_boundaries=[16] \
+        --device_target="GPU">log$i.log 2>&1 &
 done

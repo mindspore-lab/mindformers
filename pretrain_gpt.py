@@ -82,7 +82,7 @@ def get_parallel_config(opt):
 
 def get_model_config(opt):
     """Get the model config from the yaml files"""
-    config = GPTConfig(batch_size=opt.batch_size,
+    config = GPTConfig(batch_size=opt.global_batch_size,
                        seq_length=opt.max_seq_length,
                        vocab_size=opt.vocab_size,
                        embedding_size=opt.hidden_size,
@@ -109,7 +109,7 @@ def run_train():
 
     net = GPT(model_config)
     loss = CrossEntropyLoss(parallel_config.dp_mp_config)
-    net_with_loss = GPTWithLoss(net, loss)
+    net_with_loss = GPTWithLoss(net, loss, parallel_config)
 
     ds = create_dataset(opt.batch_size, data_path=opt.data_path, device_num=device_num, rank=rank_id)
 
@@ -135,9 +135,10 @@ def run_train():
 
     # CPU doest not support overflow check, so should use fixed loss scale.
     if opt.device_target == 'CPU':
-        loss_scale_manager = FixedLossScaleManager(drop_overflow_update=False)
+        loss_scale_manager = FixedLossScaleManager(loss_scale=opt.init_loss_scale_value, drop_overflow_update=False)
     else:
-        loss_scale_manager = DynamicLossScaleManager(init_loss_scale=1024, scale_factor=2, scale_window=1000)
+        loss_scale_manager = DynamicLossScaleManager(init_loss_scale=opt.init_loss_scale_value,
+                                                     scale_factor=opt.scale_factor, scale_window=opt.scale_window)
 
     model = Model(net_with_loss, optimizer=optimizer, loss_scale_manager=loss_scale_manager)
     model.train(actual_epoch_num, ds, callbacks=callback, sink_size=callback_size)

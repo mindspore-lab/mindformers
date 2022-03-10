@@ -28,9 +28,11 @@ import mindspore.common.dtype as mstype
 from mindspore.common import set_seed
 
 from transformer.optimizer import get_optimizer
+from transformer.callback import LossSummaryCallback
 from transformer.models.t5 import TransformerNetworkWithLoss, TransformerModel, TransformerConfig
 from transformer.config_parser.parser import get_config
 from transformer.learning_rate import create_dynamic_lr
+from transformer.utils import print_mode_size
 
 from transformer.data.t5_dataset import create_dataset
 
@@ -88,7 +90,7 @@ def get_parallel_config(opt):
 
 def get_model_config(opt):
     """Get the model config from the yaml files"""
-    config = TransformerConfig(batch_size=opt.batch_size,
+    config = TransformerConfig(batch_size=opt.global_batch_size,
                                seq_length=opt.max_seq_length,
                                max_decode_length=opt.max_decode_length,
                                vocab_size=opt.vocab_size,
@@ -96,8 +98,8 @@ def get_model_config(opt):
                                num_hidden_layers=opt.num_hidden_layers,
                                num_attention_heads=opt.num_attention_heads,
                                intermediate_size=4 * opt.hidden_size,
-                               hidden_dropout_prob=0.3,
-                               attention_probs_dropout_prob=0.3,
+                               hidden_dropout_prob=opt.hidden_dropout_prob,
+                               attention_probs_dropout_prob=opt.attention_probs_dropout_prob,
                                compute_type=mstype.float16)
     return config
 
@@ -117,6 +119,7 @@ def run_train():
     net_with_loss = TransformerNetworkWithLoss(network=network, loss=loss)
     net_with_loss.set_train(True)
 
+    print_mode_size(net_with_loss)
     ds = create_dataset(opt.batch_size, data_path=opt.data_path, device_num=device_num, rank=rank_id,
                         bucket_boundaries=opt.bucket_boundaries)
 
@@ -146,16 +149,20 @@ def run_train():
     callback = [TimeMonitor(callback_size), LossMonitor(callback_size)]
 
     config_ck = CheckpointConfig(save_checkpoint_steps=step_per_epoch, keep_checkpoint_max=1)
-    ckpoint_cb = ModelCheckpoint(prefix="transformer",
+    ckpoint_cb = ModelCheckpoint(prefix="t5",
                                  directory=opt.ckpt_save_dir + './ckpt_{}'.format(rank_id),
                                  config=config_ck)
     callback.append(ckpoint_cb)
 
+    loss_summary_callback = LossSummaryCallback(summary_dir=f'./summary_dir_{rank_id}')
+    callback.append(loss_summary_callback)
+
     # CPU doest not support overflow check, so should use fixed loss scale.
     if opt.device_target == 'CPU':
-        loss_scale_manager = FixedLossScaleManager(drop_overflow_update=False)
+        loss_scale_manager = FixedLossScaleManager(loss_scale=opt.init_loss_scale_value, drop_overflow_update=False)
     else:
-        loss_scale_manager = DynamicLossScaleManager(init_loss_scale=1024, scale_factor=2, scale_window=1000)
+        loss_scale_manager = DynamicLossScaleManager(init_loss_scale=opt.init_loss_scale_value,
+                                                     scale_factor=opt.scale_factor, scale_window=opt.scale_window)
 
     model = Model(net_with_loss, optimizer=optimizer, loss_scale_manager=loss_scale_manager)
     model.train(actual_epoch_num, ds, callbacks=callback, sink_size=callback_size)

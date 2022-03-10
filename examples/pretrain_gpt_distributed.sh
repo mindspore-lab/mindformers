@@ -27,10 +27,18 @@ HOSTFILE=$2
 DATASET=$3
 
 mpirun --allow-run-as-root -n $RANK_SIZE --hostfile $HOSTFILE \
+      --output-filename run_distributed_train_gpt \
       --mca btl tcp,self --mca btl_tcp_if_include 10.90.43.0/24,enp177s0f0 --merge-stderr-to-stdout \
 python -s ${self_path}/../pretrain_gpt.py  \
     --distribute="true" \
     --device_num=$RANK_SIZE \
     --data_path=$DATASET \
+    --max_seq_length=1024 \
+    --global_batch_size=4 \
+    --vocab_size=50257 \
+    --parallel_mode="semi_auto_parallel" \
+    --hidden_size=2048 \
+    --num_hidden_layers=24 \
+    --num_attention_heads=16 \
     --device_target="GPU" > distribute_train_gpu_log.txt 2>&1 &
 
