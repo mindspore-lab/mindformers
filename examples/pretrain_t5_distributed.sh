@@ -45,6 +45,6 @@ python -s ${self_path}/../pretrain_t5.py  \
     --model_parallel=1 \
     --num_hidden_layers=6 \
     --num_attention_heads=16 \
-    --bucket_boundaries=[16] \
+    --bucket_boundaries=16 \
     --device_target="GPU" > distribute_train_gpu_log.txt 2>&1 &
 

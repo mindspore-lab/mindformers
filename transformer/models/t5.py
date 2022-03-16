@@ -263,7 +263,6 @@ class TransformerModel(nn.Cell):
                                  parallel_config=config.parallel_config)
 
         # TODO: Support BeamSearch
-
         self.cast = ops.Cast()
         self.dtype = config.dtype
         self.cast_compute_type = CastWrapper(dst_type=config.compute_type)
@@ -273,7 +272,7 @@ class TransformerModel(nn.Cell):
 
         self._create_attention_mask_from_input_mask = CreateAttentionMaskFromInputMask(config.parallel_config)
 
-    def construct(self, source_ids, source_mask, target_ids=None, target_mask=None):
+    def construct(self, source_ids, source_mask, target_ids=None, target_mask=None, memory_mask=None):
         """Transformer with encoder and decoder."""
         seq_length = self.shape(source_ids)[1]
 
@@ -281,22 +280,29 @@ class TransformerModel(nn.Cell):
         src_word_embeddings, embedding_tables = self.tfm_embedding_lookup(source_ids)
         src_embedding_output = self.tfm_embedding_postprocessor_for_encoder(src_word_embeddings)
         # attention mask [batch_size, seq_length, seq_length]
-        enc_attention_mask = self._create_attention_mask_from_input_mask(source_mask)
+        if len(ops.shape(source_mask)) == 2:
+            enc_attention_mask = self._create_attention_mask_from_input_mask(source_mask)
+        else:
+            enc_attention_mask = source_mask
         # transformer encoder
         encoder_output, _ = self.tfm_encoder(self.cast_compute_type(src_embedding_output),
                                              self.cast_compute_type(enc_attention_mask))
 
-        future_mask = convert_np_to_tensor_encoder(seq_length)
         # process target sentence
         tgt_word_embeddings, _ = self.tfm_embedding_lookup(target_ids)
         tgt_embedding_output = self.tfm_embedding_postprocessor_for_decoder(tgt_word_embeddings)
         # attention mask [batch_size, seq_length, seq_length]
-        tgt_attention_mask = self._create_attention_mask_from_input_mask(target_mask)
-        tgt_attention_mask = self.multiply(tgt_attention_mask, self.expand(future_mask, 0))
+        if len(ops.shape(target_mask)) == 2:
+            future_mask = convert_np_to_tensor_encoder(seq_length)
+            tgt_attention_mask = self._create_attention_mask_from_input_mask(target_mask)
+            tgt_attention_mask = self.multiply(tgt_attention_mask, self.expand(future_mask, 0))
+        else:
+            tgt_attention_mask = target_mask
+
         # transformer decoder
         decoder_output, _ = self.tfm_decoder(self.cast_compute_type(tgt_embedding_output),
                                              self.cast_compute_type(tgt_attention_mask),
-                                             encoder_output, enc_attention_mask)
+                                             encoder_output, memory_mask)
         # calculate logits and log_probs
         log_probs = self.projection(decoder_output, embedding_tables)
 
@@ -327,9 +333,10 @@ class TransformerNetworkWithLoss(nn.Cell):
                   target_ids,
                   target_mask,
                   label_ids,
-                  label_weights):
+                  label_weights,
+                  memory_mask):
         """Transformer network with loss."""
-        prediction_scores = self.transformer(source_ids, source_mask, target_ids, target_mask)
+        prediction_scores = self.transformer(source_ids, source_mask, target_ids, target_mask, memory_mask)
         label_ids = ops.Reshape()(label_ids, (-1,))
         label_weights = ops.Reshape()(label_weights, (-1,))
         total_loss = self.loss(prediction_scores, label_ids, self.cast(label_weights, ms.float32))

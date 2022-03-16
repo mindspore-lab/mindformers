@@ -43,7 +43,7 @@ python -s ${self_path}/../pretrain_t5.py  \
     --num_hidden_layers=6 \
     --num_attention_heads=16 \
     --parallel_mode="semi_auto_parallel" \
-    --bucket_boundaries=[16] \
+    --bucket_boundaries=16 \
     --expert_num=8 \
     --data_parallel=8 \
     --model_parallel=1 \

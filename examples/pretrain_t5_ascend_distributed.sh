@@ -45,6 +45,6 @@ do
         --num_hidden_layers=6 \
         --parallel_mode="semi_auto_parallel" \
         --num_attention_heads=16 \
-        --bucket_boundaries=[16] \
+        --bucket_boundaries=16 \
         --device_target="GPU">log$i.log 2>&1 &
 done
