@@ -18,7 +18,7 @@ warmup_step: 1000
 
 # config/cfg edict
 transformer_network: 'large'
-init_loss_scale_value: 1024
+init_loss_scale_value: 4294967296
 scale_factor: 2
 scale_window: 2000
 optimizer: 'Adam'
@@ -27,6 +27,7 @@ optimizer_adam_beta2: 0.997
 
 sink_size: 2
 # transformer_net_cfg
+global_batch_size: 96
 batch_size: 96
 seq_length: 128
 vocab_size: 36560
@@ -69,7 +70,12 @@ enable_save_ckpt: "true"
 save_checkpoint_steps: 2500
 save_checkpoint_num: 30
 save_checkpoint_path: "./"
-bucket_boundaries: [16, 32, 48, 64, 128]
+bucket_boundaries:
+  - 16
+  - 32
+  - 48
+  - 64
+  - 128
 accumulation_steps: 1
 
 # export.py /eval_config - transformer export

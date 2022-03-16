@@ -52,5 +52,4 @@ def create_dataset(batch_size, data_path,
             ds = ds + ds_per
     ds = ds.shuffle(ds.get_dataset_size())
     ds.channel_name = 'transformer'
-
     return ds

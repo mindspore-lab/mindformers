@@ -14,6 +14,7 @@
 # ============================================================================
 """Callback Function"""
 import time
+from mindspore.train.summary import SummaryRecord
 from mindspore.train.callback import Callback
 
 
@@ -60,3 +61,43 @@ class LossCallBack(Callback):
                 str(cb_params.net_outputs[1].asnumpy()),
                 str(cb_params.net_outputs[2].asnumpy())))
             f.write('\n')
+
+
+class LossSummaryCallback(Callback):
+    """
+    A basic summary writer recording the loss
+
+    Args:
+        summary_dir (str) : The path to store the summary dir
+
+    """
+    def __init__(self, summary_dir):
+        self._summary_dir = summary_dir
+
+    def __enter__(self):
+        """
+        Init the summary record in here, when the train script run, it will be inited before training
+        """
+        self.summary_record = SummaryRecord(self._summary_dir)
+        return self
+
+    def __exit__(self, *exc_args):
+        """
+        Note: must close the summary record, it will release the process pool resource
+        else the training script will not exit from training.
+        """
+        self.summary_record.close()
+
+    def step_end(self, run_context):
+        """
+        Print information at the end of step
+        """
+        cb_params = run_context.original_args()
+        outputs = cb_params.net_outputs
+        if isinstance(outputs, (tuple, list)):
+            loss = outputs[0]
+        else:
+            loss = outputs
+        self.summary_record.add_value('scalar', 'loss', loss)
+        self.summary_record.record(cb_params.cur_step_num)
+        self.summary_record.flush()

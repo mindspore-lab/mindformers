@@ -30,4 +30,10 @@ python pretrain_gpt.py \
     --device_id=$DEVICE_ID \
     --data_path=$DATA_DIR \
     --optimizer="adam"  \
+    --max_seq_length=1024 \
+    --global_batch_size=4 \
+    --vocab_size=50257 \
+    --hidden_size=2048 \
+    --num_hidden_layers=24 \
+    --num_attention_heads=16 \
     --device_target="GPU" > standalone_train_gpu_log.txt 2>&1 &

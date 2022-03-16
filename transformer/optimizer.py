@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-"""AdamWeightDecay, a customized Adam for pangu alpha. Input: gradient."""
+"""AdamWeightDecay, a customized Adam for offloading."""
 import numpy as np
 
 from mindspore.common import dtype as mstype

@@ -21,6 +21,9 @@ import argparse
 from pprint import pprint, pformat
 import yaml
 
+from mindspore import log as logger
+from mindspore.context import ParallelMode
+
 class Config:
     """
     Configuration namespace. Convert dictionary to members.
@@ -54,15 +57,18 @@ def parse_cli_to_yaml(parser, cfg, helper=None, choices=None, cfg_path="default_
     helper = {} if helper is None else helper
     choices = {} if choices is None else choices
     for item in cfg:
+        help_description = helper[item] if item in helper else "Please reference to {}".format(cfg_path)
+        choice = choices[item] if item in choices else None
         if not isinstance(cfg[item], list) and not isinstance(cfg[item], dict):
-            help_description = helper[item] if item in helper else "Please reference to {}".format(cfg_path)
-            choice = choices[item] if item in choices else None
             if isinstance(cfg[item], bool):
                 parser.add_argument("--" + item, type=ast.literal_eval, default=cfg[item], choices=choice,
                                     help=help_description)
             else:
                 parser.add_argument("--" + item, type=type(cfg[item]), default=cfg[item], choices=choice,
                                     help=help_description)
+        else:
+            parser.add_argument("--" + item, type=type(cfg[item][0]), default=cfg[item], nargs='+',
+                                help=help_description)
     args = parser.parse_args()
     return args
 
@@ -109,6 +115,30 @@ def merge(args, cfg):
     return cfg
 
 
+def modify_batch_size(config):
+    """
+    When auto parallel enabled, the batch size will be overwritten by the global batch size
+    Mark the global batch size as a logic batch.
+    """
+    global_batch_size = config['global_batch_size']
+    batch_size = config['batch_size']
+    device_num = config['device_num']
+    if config['parallel_mode'] in (ParallelMode.AUTO_PARALLEL, ParallelMode.SEMI_AUTO_PARALLEL):
+        if global_batch_size % device_num != 0:
+            logger.error(f"The global batch size {global_batch_size} \
+            should be a multiplied by the {batch_size}.")
+        if global_batch_size // device_num == 0:
+            logger.warning(f"The global batch size {global_batch_size} // {device_num} \
+            should not be equal to 0.")
+        if global_batch_size % device_num == 0:
+            logger.warning("The batch size is overwritten by the global batch size // device_num.")
+            config['batch_size'] = global_batch_size // device_num
+    else:
+        if batch_size != global_batch_size:
+            logger.warning("The batch size is overwritten by the global batch size.")
+            config['batch_size'] = global_batch_size
+
+
 def get_config():
     """
     Get Config according to the yaml file and cli arguments.
@@ -119,6 +149,8 @@ def get_config():
     default, helper, choices = parse_yaml(config_path)
     args = parse_cli_to_yaml(parser=parser, cfg=default, helper=helper, choices=choices, cfg_path=config_path)
     final_config = merge(args, default)
+    modify_batch_size(final_config)
     pprint(final_config)
+    pprint(final_config['bucket_boundaries'])
     pprint("Please check the above information for the configurations")
     return Config(final_config)
