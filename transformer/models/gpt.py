@@ -22,7 +22,7 @@ import mindspore.common.dtype as mstype
 from mindspore.common.initializer import TruncatedNormal, initializer
 from mindspore.ops import operations as P
 from mindspore.ops import functional as F
-from mindspore.nn.transformer import MoEConfig, TransformerOpParallelConfig
+from mindspore.nn.transformer import TransformerOpParallelConfig
 from mindspore.nn.transformer.transformer import default_transformer_config
 from mindspore.nn.transformer.layers import _LayerNorm
 from mindspore.nn.transformer.transformer import AttentionMask, Transformer, VocabEmbedding
@@ -42,8 +42,6 @@ class GPTConfig:
     post_layernorm_residual: bool = False
     dropout_rate: float = 0.1
     compute_dtype: mstype = mstype.float16
-    use_past: bool = False
-    use_moe: bool = False
     per_dp_dim_expert_num: int = 4
     parallel_config: TransformerOpParallelConfig = default_transformer_config
 
@@ -66,7 +64,8 @@ class GPTModel(nn.Cell):
     """
     def __init__(self, config):
         super(GPTModel, self).__init__()
-        self.get_attention_mask = AttentionMask(seq_length=config.seq_length)
+        self.get_attention_mask = AttentionMask(seq_length=config.seq_length,
+                                                parallel_config=config.parallel_config.dp_mp_config)
         self.word_embedding = VocabEmbedding(vocab_size=config.vocab_size,
                                              embedding_size=config.embedding_size,
                                              param_init=initializer("truncatedNormal",
@@ -76,10 +75,7 @@ class GPTModel(nn.Cell):
         self.position_embedding = nn.Embedding(config.seq_length, config.embedding_size,
                                                embedding_table=TruncatedNormal(0.02))
         self.blocks = nn.CellList()
-        if config.use_moe:
-            moe_config = MoEConfig(expert_num=config.parallel_config.data_parallel * config.per_dp_dim_expert_num)
-        else:
-            moe_config = MoEConfig(expert_num=1)
+        moe_config = config.parallel_config.moe_config
         self.transformer = Transformer(hidden_size=config.embedding_size,
                                        batch_size=config.batch_size,
                                        ffn_hidden_size=config.embedding_size * 4,
@@ -91,12 +87,9 @@ class GPTModel(nn.Cell):
                                        parallel_config=config.parallel_config,
                                        moe_config=moe_config)
         self.layernorm = _LayerNorm((config.embedding_size,)).to_float(config.compute_dtype)
-        self.layernorm.shard(((config.parallel_config.data_parallel, 1),))
+        self.layernorm.shard(((config.parallel_config.data_parallel, 1, 1),))
         self.add = P.Add().shard(
             ((config.parallel_config.data_parallel, 1, 1), (config.parallel_config.data_parallel, 1, 1)))
-        self.use_past = config.use_past
-        self.past = tuple([None]*config.num_layers)
-        self.num_layers = config.num_layers
 
     def construct(self, input_ids, input_mask):
         """GPT model"""
@@ -196,12 +189,15 @@ class GPTWithLoss(nn.Cell):
         self.network = network
         self.loss = loss
         self.eos_token = eos_token
+        self.shape = P.Shape()
+        self.stridedslice = P.StridedSlice().shard(((1, 1),))
 
     def construct(self, input_ids):
-        tokens = input_ids[:, :-1]
+        batch_size, seq_length = self.shape(input_ids)
+        tokens = self.stridedslice(input_ids, (0, 0), (batch_size, seq_length - 1), (1, 1))
         input_mask = F.cast(F.not_equal(tokens, self.eos_token), mstype.float32)
         logits = self.network(tokens, input_mask)
-        labels = input_ids[:, 1:]
+        labels = self.stridedslice(input_ids, (0, 1), (batch_size, seq_length), (1, 1))
         labels = P.Reshape()(labels, (-1,))
         input_mask = P.Reshape()(input_mask, (-1,))
         output = self.loss(logits, labels, input_mask)

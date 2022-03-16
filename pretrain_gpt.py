@@ -56,7 +56,8 @@ def set_auto_parallel_context_env(opt):
     else:
         rank_id = 0
         device_num = 1
-
+    if opt.parallel_mode != "data_parallel":
+        context.set_auto_parallel_context(full_batch=True)
     return rank_id, device_num
 
 
@@ -91,9 +92,7 @@ def get_model_config(opt):
                        expand_ratio=4,
                        post_layernorm_residual=False,
                        dropout_rate=0.1,
-                       compute_dtype=mstype.float16,
-                       use_past=False,
-                       use_moe=False)
+                       compute_dtype=mstype.float16)
     return config
 
 
