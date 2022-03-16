@@ -108,9 +108,9 @@ def run_train():
 
     net = GPT(model_config)
     loss = CrossEntropyLoss(parallel_config.dp_mp_config)
-    net_with_loss = GPTWithLoss(net, loss, parallel_config)
+    net_with_loss = GPTWithLoss(net, loss, model_config)
 
-    ds = create_dataset(opt.batch_size, data_path=opt.data_path, device_num=device_num, rank=rank_id)
+    ds = create_dataset(opt.global_batch_size, data_path=opt.data_path, device_num=device_num, rank=rank_id)
 
     epoch_num = opt.epoch_size
     step_per_epoch = ds.get_dataset_size()
