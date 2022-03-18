@@ -35,7 +35,7 @@ python -s ${self_path}/../pretrain_gpt.py  \
     --data_path=$DATASET \
     --max_seq_length=1024 \
     --global_batch_size=4 \
-    --vocab_size=50257 \
+    --vocab_size=36560 \
     --parallel_mode="semi_auto_parallel" \
     --hidden_size=2048 \
     --num_hidden_layers=24 \

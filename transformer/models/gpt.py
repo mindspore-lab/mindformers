@@ -184,18 +184,20 @@ class GPTWithLoss(nn.Cell):
     Returns:
         output: Tensor, the loss of the network
     """
-    def __init__(self, network, loss, eos_token=50256):
+    def __init__(self, network, loss, config, eos_token=50256):
         super(GPTWithLoss, self).__init__(auto_prefix=False)
         self.network = network
         self.loss = loss
         self.eos_token = eos_token
         self.shape = P.Shape()
-        self.stridedslice = P.StridedSlice().shard(((1, 1),))
+        dp = config.parallel_config.data_parallel
+        self.stridedslice = P.StridedSlice().shard(((dp, 1),))
+        self.not_equal = P.NotEqual().shard(((dp, 1), ()))
 
     def construct(self, input_ids):
         batch_size, seq_length = self.shape(input_ids)
         tokens = self.stridedslice(input_ids, (0, 0), (batch_size, seq_length - 1), (1, 1))
-        input_mask = F.cast(F.not_equal(tokens, self.eos_token), mstype.float32)
+        input_mask = F.cast(self.not_equal(tokens, self.eos_token), mstype.float32)
         logits = self.network(tokens, input_mask)
         labels = self.stridedslice(input_ids, (0, 1), (batch_size, seq_length), (1, 1))
         labels = P.Reshape()(labels, (-1,))
