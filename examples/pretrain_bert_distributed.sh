@@ -32,11 +32,11 @@ python -s ${self_path}/../pretrain_bert.py  \
     --distribute="true" \
     --device_num=$RANK_SIZE \
     --data_path=$DATASET \
-    --max_seq_length=128 \
+    --max_seq_length=512 \
     --global_batch_size=64 \
     --vocab_size=30522 \
-    --parallel_mode="semi_auto_parallel" \
-    --hidden_size=1024 \
+    --parallel_mode="data_parallel" \
+    --hidden_size=768 \
     --num_hidden_layers=24 \
     --num_attention_heads=16 \
     --data_parallel=8 \
