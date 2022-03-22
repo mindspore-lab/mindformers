@@ -38,5 +38,5 @@ python pretrain_t5.py  \
     --hidden_size=1024 \
     --num_hidden_layers=6 \
     --num_attention_heads=16 \
-    --bucket_boundaries=[16] \
+    --bucket_boundaries=16 \
     --device_target="GPU" > standalone_train_gpu_log.txt 2>&1 &

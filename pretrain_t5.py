@@ -120,8 +120,7 @@ def run_train():
     net_with_loss.set_train(True)
 
     print_mode_size(net_with_loss)
-    ds = create_dataset(opt.batch_size, data_path=opt.data_path, device_num=device_num, rank=rank_id,
-                        bucket_boundaries=opt.bucket_boundaries)
+    ds = create_dataset(opt.batch_size, data_path=opt.data_path, device_num=device_num, rank=rank_id)
 
     epoch_num = opt.epoch_size
     step_per_epoch = ds.get_dataset_size()
