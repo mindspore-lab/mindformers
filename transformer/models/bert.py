@@ -17,6 +17,7 @@
 from dataclasses import dataclass
 import copy
 import numpy as np
+import mindspore
 import mindspore.common.dtype as mstype
 import mindspore.nn as nn
 import mindspore.ops.functional as F
@@ -25,7 +26,7 @@ from mindspore.common.initializer import TruncatedNormal, initializer
 from mindspore.ops import operations as P
 from mindspore.common.tensor import Tensor
 from mindspore.nn.transformer.layers import _LayerNorm
-from mindspore.nn.transformer.transformer import AttentionMask, Transformer, VocabEmbedding
+from mindspore.nn.transformer.transformer import Transformer, VocabEmbedding
 from mindspore.nn.transformer import MoEConfig, TransformerOpParallelConfig
 from mindspore.nn.transformer.transformer import default_transformer_config
 
@@ -34,8 +35,8 @@ class BertConfig:
     """
     BERT config class which defines the model size
     """
-    batch_size: int = 32
-    seq_length: int = 1024
+    batch_size: int = 16
+    seq_length: int = 512
     vocab_size: int = 30522
     embedding_size: int = 768
     num_layers: int = 12
@@ -46,7 +47,7 @@ class BertConfig:
     hidden_dropout_prob: float = 0.1
     attention_probs_dropout_prob: float = 0.1
     max_position_embeddings: int = 512
-    type_vocab_size: int = 16
+    type_vocab_size: int = 2
     initializer_range: float = 0.02
     use_relative_positions: bool = False
     dtype: mstype = mstype.float16
@@ -160,6 +161,25 @@ class SaturateCast(nn.Cell):
         out = self.min_op(out, self.tensor_max_type)
         return self.cast(out, self.dst_type)
 
+class CreateAttentionMaskFromInputMask(nn.Cell):
+    """
+    Create attention mask according to input mask.
+
+    Args:
+        config (Class): Configuration for BertModel.
+    """
+    def __init__(self, config):
+        super(CreateAttentionMaskFromInputMask, self).__init()
+        self.input_mask = None
+        self.cast = P.Cast()
+        self.reshape = P.Reshape()
+        self.tile = mindspore.ops.tile().shard(((config.parallel_config.data_parallel, 1, 1),))
+
+    def construct(self, input_mask):
+        seq_length = F.shape(input_mask)[1]
+        attention_mask = self.cast(self.reshape(input_mask, (-1, 1, seq_length)), mstype.float16)
+        attention_mask = self.tile(attention_mask, (1, seq_length, 1))
+
 class BertModel(nn.Cell):
     """
     Bidirectional Encoder Representations from Transformers.
@@ -179,8 +199,7 @@ class BertModel(nn.Cell):
             config.hidden_dropout_prob = 0.0
             config.attention_probs_dropout_prob = 0.0
 
-        self.get_attention_mask = AttentionMask(seq_length=config.seq_length,
-                                                parallel_config=config.parallel_config.dp_mp_config)
+        self.get_attention_mask = CreateAttentionMaskFromInputMask(config)
         self.hidden_size = config.embedding_size
         self.num_hidden_layers = config.num_layers
         self.embedding_size = config.embedding_size

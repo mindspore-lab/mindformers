@@ -40,6 +40,8 @@ def set_context_env(opt):
     if opt.device_target == "GPU":
         # Enable graph kernel
         context.set_context(enable_graph_kernel=True, graph_kernel_flags="--enable_parallel_fusion")
+        context.set_context(graph_kernel_flags="--disable_cluster_ops=Reduce_Max \
+                            --disable_expand_ops=SoftmaxCrossEntropyWithLogits,Softmax,LogSoftmax")
 
 def set_auto_parallel_context_env(opt):
     """Set the auto parallel env"""
