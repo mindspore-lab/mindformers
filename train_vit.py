@@ -16,7 +16,6 @@
 
 import os
 import time
-import socket
 import numpy as np
 
 from mindspore import context
@@ -29,15 +28,14 @@ from mindspore.profiler.profiling import Profiler
 from mindspore.train.serialization import load_checkpoint
 import mindspore.dataset as ds
 
-from transformer.models.vit import get_network, get_loss #TODO
-from transformer.data.vit_dataset import get_dataset
+from transformer.models.vit import get_network, get_loss
+from transformer.data.image_dataset import get_dataset
 from transformer.optimizer import get_optimizer
 from transformer.learning_rate import get_lr
-from transformer.evaluation.eval_engine import get_eval_engine
 from transformer.callback import StateMonitor
 from transformer.logger import get_logger
-
 from transformer.configs.vit.config import config
+from tasks.vision.eval_engine import get_eval_engine
 
 if config.device_target == "Ascend":
     try:
@@ -114,18 +112,17 @@ def set_running_context(args):
         context.set_auto_parallel_context(device_num=device_num,
                                           parallel_mode=ParallelMode.DATA_PARALLEL,
                                           gradients_mean=True)
+
+    # init graph kernel for gpu
+    if config.device_target == "GPU":
+        context.set_context(enable_graph_kernel=True,
+                            graph_kernel_flags="--disable_cluster_ops=ReduceMax "
+                                               "--disable_expand_ops=SoftmaxCrossEntropyWithLogits, Softmax, "
+                                               "LogSoftmax")
+
     # init the distribute env
     if not args.auto_tune and args.device_num > 1:
-        if config.device_target == "Ascend":
-            init()
-        elif config.device_target == "GPU":
-            context.set_context(enable_graph_kernel=True,
-                                graph_kernel_flags="--disable_cluster_ops=ReduceMax "
-                                                   "--disable_expand_ops=SoftmaxCrossEntropyWithLogits, Softmax, "
-                                                   "LogSoftmax")
-            init("nccl")
-        else:
-            raise ValueError(f"invalid device_targe: {config.device_target}")
+        init()
 
 
 def train_net():
@@ -227,13 +224,6 @@ def train_net():
     args.logger.info('training time used={:.2f}s'.format(t1 - t0))
     last_metric = 'last_metric[{}]'.format(state_cb.best_acc)
     args.logger.info(last_metric)
-
-    is_cloud = args.enable_modelarts
-    if is_cloud:
-        ip = os.getenv("BATCH_TASK_CURRENT_HOST_IP")
-    else:
-        ip = socket.gethostbyname(socket.gethostname())
-    args.logger.info('ip[{}], mean_fps[{:.2f}]'.format(ip, state_cb.mean_fps))
 
     if args.open_profiler:
         profiler.analyse()

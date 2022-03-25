@@ -13,8 +13,8 @@ eval_num_workers: 12
 pretrained: '../vit_base_patch32.ckpt'
 
 # network
-backbone: 'vit_base_patch32'
+backbone: 'vit_base'
 class_num: 1001
-vit_config_path: 'src.vit.VitConfig'
+vit_config_path: 'transformer.models.vit.VitConfig'
 
 open_profiler: 0

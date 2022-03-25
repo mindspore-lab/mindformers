@@ -14,9 +14,9 @@
 # limitations under the License.
 # ============================================================================
 
-if [ $# != 2 ]
+if [ $# != 1 ]
 then
-  echo "Usage: bash run_distribute_train.sh [HOSTFILE] [CONFIG_PATH]"
+  echo "Usage: bash run_distribute_train.sh [HOSTFILE]"
   exit 1
 fi
 
@@ -29,7 +29,7 @@ get_real_path(){
 }
 
 HOSTFILE=$(get_real_path $1)
-CONFIG_FILE=$(get_real_path $2)
+CONFIG_FILE=$(get_real_path ../transformer/configs/vit/vit_imagenet2012_config.yml)
 
 if [ ! -f $HOSTFILE ]
 then
@@ -52,6 +52,8 @@ cp ../train_vit.py ./train_parallel
 cp train_vit*.sh ./train_parallel
 cp -r ../transformer/configs/vit/*.yml ./train_parallel
 cp -r ../transformer ./train_parallel
+mkdir ./train_parallel/tasks
+cp -r ../tasks/vision ./train_parallel/tasks
 cd ./train_parallel || exit
 echo "start training"
 

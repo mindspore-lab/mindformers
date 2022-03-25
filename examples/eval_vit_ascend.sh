@@ -14,9 +14,9 @@
 # limitations under the License.
 # ============================================================================
 
-if [ $# != 2 ]
+if [ $# != 1 ]
 then
-    echo "Usage: bash run_eval.sh [RANK_TABLE_FILE] [CONFIG_PATH]"
+    echo "Usage: bash run_eval.sh [RANK_TABLE_FILE]"
 exit 1
 fi
 
@@ -29,7 +29,7 @@ get_real_path(){
 }
 
 PATH1=$(get_real_path $1)
-CONFIG_FILE=$(get_real_path $2)
+CONFIG_FILE=$(get_real_path ../transformer/configs/vit/vit_eval.yml)
 
 if [ ! -f $PATH1 ]
 then
@@ -64,17 +64,19 @@ do
     export RANK_ID=$((rank_start + i))
     rm -rf ./eval$i
     mkdir ./eval$i
-    cp ../*.py ./eval$i
-    cp *.sh ./eval$i
-    cp -r ../config/*.yml ./eval$i
-    cp -r ../src ./eval$i
+    cp ../tasks/vision/*vit*.py ./eval$i
+    cp *vit*.sh ./eval$i
+    cp -r ../transformer/configs/vit/*.yml ./eval$i
+    cp -r ../transformer ./eval$i
+    mkdir ./eval$i/tasks
+    cp -r ../tasks/vision ./eval$i/tasks
     cd ./eval$i || exit
-    echo "start training for rank $RANK_ID, device $DEVICE_ID"
+    echo "start evaluation for rank $RANK_ID, device $DEVICE_ID"
     env > env.log
 
-    if [ $# == 2 ]
+    if [ $# == 1 ]
     then
-        taskset -c $cmdopt python eval.py --config_path=$CONFIG_FILE &> log &
+        taskset -c $cmdopt python eval_vit.py --config_path=$CONFIG_FILE &> log &
     fi
 
     cd ..

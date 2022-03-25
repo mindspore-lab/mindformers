@@ -116,7 +116,7 @@ def get_config():
     parser = argparse.ArgumentParser(description="default name", add_help=False)
     current_dir = os.path.dirname(os.path.abspath(__file__))
     parser.add_argument("--config_path", type=str,
-                        default=os.path.join(current_dir, "../../vit_patch32_imagenet2012_config.yml"),
+                        default=os.path.join(current_dir, "../../vit_imagenet2012_config.yml"),
                         help="Config file path")
     parser.add_argument("--device_target", type=str, default="Ascend")
     path_args, _ = parser.parse_known_args()

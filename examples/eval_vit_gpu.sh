@@ -14,9 +14,9 @@
 # limitations under the License.
 # ============================================================================
 
-if [ $# != 2 ]
+if [ $# != 1 ]
 then
-  echo "Usage: bash run_distribute_train.sh [HOSTFILE] [CONFIG_PATH]"
+  echo "Usage: bash run_distribute_train.sh [HOSTFILE]"
   exit 1
 fi
 
@@ -29,7 +29,7 @@ get_real_path(){
 }
 
 HOSTFILE=$(get_real_path $1)
-CONFIG_FILE=$(get_real_path $2)
+CONFIG_FILE=$(get_real_path ../transformer/configs/vit/vit_eval.yml)
 
 if [ ! -f $HOSTFILE ]
 then
@@ -48,11 +48,14 @@ export RANK_SIZE=8
 
 rm -rf ./eval
 mkdir ./eval
-cp ../*.py ./eval
-cp *.sh ./eval
-cp -r ../config/*.yml ./eval
-cp -r ../src ./eval
+cp ../tasks/vision/*vit*.py ./eval
+cp *vit*.sh ./eval
+cp -r ../transformer/configs/vit/*.yml ./eval
+cp -r ../transformer ./eval
+mkdir ./eval/tasks
+cp -r ../tasks/vision ./eval/tasks
+echo "start evaluation"
 cd ./eval || exit
 
-mpirun --allow-run-as-root -n 8 --hostfile $HOSTFILE python eval.py --config_path=$CONFIG_FILE \
+mpirun --allow-run-as-root -n 8 --hostfile $HOSTFILE python eval_vit.py --config_path=$CONFIG_FILE \
        --device_target=GPU &> log &
