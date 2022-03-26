@@ -69,7 +69,6 @@ def add_static_args(args):
     args.dataset_name = 'imagenet'
     args.save_checkpoint_path = './outputs'
     args.eval_engine = 'imagenet'
-    args.auto_tune = 0
     args.seed = 1
 
     args.device_id = device_id
@@ -90,11 +89,7 @@ def eval_net():
                         device_target=config.device_target,
                         save_graphs=False)
 
-    if args.auto_tune:
-        context.set_context(auto_tune_mode='GA')
-    elif args.device_num == 1:
-        pass
-    else:
+    if args.device_num > 1:
         context.set_auto_parallel_context(device_num=device_num,
                                           parallel_mode=ParallelMode.DATA_PARALLEL,
                                           gradients_mean=True)
@@ -106,11 +101,10 @@ def eval_net():
     if config.device_target == "GPU":
         context.set_context(enable_graph_kernel=True,
                             graph_kernel_flags="--disable_cluster_ops=ReduceMax "
-                                               "--disable_expand_ops=SoftmaxCrossEntropyWithLogits, Softmax, "
-                                               "LogSoftmax")
+                                               "--disable_expand_ops=SoftmaxCrossEntropyWithLogits,Softmax,LogSoftmax")
 
     # init the distribute env
-    if not args.auto_tune and args.device_num > 1:
+    if args.device_num > 1:
         init()
 
     # network
@@ -128,7 +122,7 @@ def eval_net():
     opt = get_optimizer(optimizer_name='adamw', net=net, lr=1.0, args=args)
 
     # evaluation engine
-    if args.auto_tune or args.open_profiler or eval_dataset is None:
+    if args.open_profiler or eval_dataset is None:
         args.eval_engine = ''
     eval_engine = get_eval_engine(args.eval_engine, net, eval_dataset, args)
 

@@ -81,7 +81,7 @@ def origin_head(vit_config):
     d_model = vit_config.configs.d_model
     num_classes = vit_config.configs.num_classes
     initialization = vit_config.head_init
-    dense = Dense(d_model, num_classes)
+    dense = Dense(d_model, num_classes).to_float(mstype.float16)
     dense.weight.set_data(initializer(initialization, [num_classes, d_model]))
     return SequentialCell([dense])
 
@@ -92,7 +92,7 @@ class BatchDense(Cell):
     def __init__(self, in_features, out_features, initialization, has_bias=True):
         super().__init__()
         self.out_features = out_features
-        self.dense = Dense(in_features, out_features, has_bias=has_bias)
+        self.dense = Dense(in_features, out_features, has_bias=has_bias).to_float(mstype.float16)
         self.dense.weight.set_data(initializer(initialization, [out_features, in_features]))
         self.reshape = P.Reshape()
 
@@ -212,12 +212,14 @@ class ViT(Cell):
         x = self.stem(img)
         bs, seq_len, _ = x.shape
 
+        pos_embedding = F.cast(self.pos_embedding, mstype.float16)
         if self.pool == "cls":
             cls_tokens = self.tile(self.cls_token, (bs, 1, 1))
-            x = self.cat_1((cls_tokens, x)) # now x has shape = (bs, seq_len+1, d)
-            x += self.pos_embedding[:, :(seq_len + 1)]
+            cls_tokens = F.cast(cls_tokens, mstype.float16)
+            x = self.cat_1((cls_tokens, x))  # now x has shape = (bs, seq_len+1, d)
+            x += pos_embedding[:, :(seq_len + 1)]
         else:
-            x += self.pos_embedding[:, :seq_len]
+            x += pos_embedding[:, :seq_len]
 
         y = self.cast(x, mstype.float32)
         y = self.dropout(y)
@@ -226,6 +228,7 @@ class ViT(Cell):
         x = self.body(x)
 
         if self.norm is not None:
+            x = F.cast(x, mstype.float32)
             x = self.norm(x)
 
         if self.pool == "cls":
@@ -233,7 +236,8 @@ class ViT(Cell):
         else:
             x = self.mean(x, (-2,))
 
-        return self.head(x)
+        out = self.head(x)
+        return F.cast(out, mstype.float32)
 
 
 def load_function(func_name):
