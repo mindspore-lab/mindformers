@@ -22,7 +22,7 @@ from mindspore import context
 from mindspore import Tensor
 from mindspore.train.model import Model, ParallelMode
 from mindspore.train.callback import ModelCheckpoint, CheckpointConfig
-from mindspore.train.loss_scale_manager import FixedLossScaleManager
+from mindspore.train.loss_scale_manager import DynamicLossScaleManager
 from mindspore.communication import init, get_rank
 from mindspore.profiler.profiling import Profiler
 from mindspore.train.serialization import load_checkpoint
@@ -71,7 +71,6 @@ def add_static_args(args):
     args.poly_power = 2
     args.aux_factor = 0.4
     args.seed = 1
-    args.auto_tune = 0
 
     if args.eval_offset < 0:
         args.eval_offset = args.max_epoch % args.eval_interval
@@ -104,11 +103,8 @@ def set_running_context(args):
                         mode=context.GRAPH_MODE,
                         device_target=config.device_target,
                         save_graphs=False)
-    if args.auto_tune:
-        context.set_context(auto_tune_mode='GA')
-    elif args.device_num == 1:
-        pass
-    else:
+
+    if args.device_num > 1:
         context.set_auto_parallel_context(device_num=device_num,
                                           parallel_mode=ParallelMode.DATA_PARALLEL,
                                           gradients_mean=True)
@@ -117,11 +113,10 @@ def set_running_context(args):
     if config.device_target == "GPU":
         context.set_context(enable_graph_kernel=True,
                             graph_kernel_flags="--disable_cluster_ops=ReduceMax "
-                                               "--disable_expand_ops=SoftmaxCrossEntropyWithLogits, Softmax, "
-                                               "LogSoftmax")
+                                               "--disable_expand_ops=SoftmaxCrossEntropyWithLogits,Softmax,LogSoftmax")
 
     # init the distribute env
-    if not args.auto_tune and args.device_num > 1:
+    if args.device_num > 1:
         init()
 
 
@@ -169,12 +164,12 @@ def train_net():
                                args=args)
 
     # evaluation engine
-    if args.auto_tune or args.open_profiler or eval_dataset is None or args.device_num == 1:
+    if args.open_profiler or eval_dataset is None or args.device_num == 1:
         args.eval_engine = ''
     eval_engine = get_eval_engine(args.eval_engine, net, eval_dataset, args)
 
     # loss scale
-    loss_scale = FixedLossScaleManager(args.loss_scale, drop_overflow_update=False)
+    loss_scale = DynamicLossScaleManager(init_loss_scale=65536, scale_factor=2, scale_window=2000)
 
     # learning rate
     lr_array = get_lr(global_step=0, lr_init=args.lr_init, lr_end=args.lr_min, lr_max=args.lr_max,
@@ -186,10 +181,9 @@ def train_net():
     opt = get_optimizer(optimizer_name=args.opt, net=net, lr=lr, args=args)
 
     # model
-    amp_level = "O0" if config.device_target == "GPU" else "O3"  # turn off amp on GPU
     model = Model(net, loss_fn=loss, optimizer=opt,
                   metrics=eval_engine.metric, eval_network=eval_engine.eval_network,
-                  loss_scale_manager=loss_scale, amp_level=amp_level)
+                  loss_scale_manager=loss_scale, amp_level="O0")
     eval_engine.set_model(model)
     args.logger.save_args(args)
 
