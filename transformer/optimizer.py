@@ -56,7 +56,7 @@ def scale_grad(gradients, reciprocal_scale):
     return gradients
 
 
-@_adam_opt.register("Function", "Tensor", "Tensor", "Tensor", "Tensor", "Tensor", "Number", "Tensor", "Tensor",
+@_adam_opt.register("Function", "Tensor", "Tensor", "Tensor", "Tensor", "Tensor", "Tensor", "Tensor", "Tensor",
                     "Tensor", "Tensor", "Bool", "Bool")
 def _update_run_kernel(opt, clip_value, beta1, beta2, eps, lr, weight_decay,
                        param, m, v, gradient, decay_flags, optim_filter):
@@ -75,7 +75,7 @@ def _update_run_kernel(opt, clip_value, beta1, beta2, eps, lr, weight_decay,
     return success
 
 
-@_adam_opt.register("Tensor", "Tensor", "Tensor", "Tensor", "Tensor", "Tensor", "Number", "Tensor", "Tensor", "Tensor",
+@_adam_opt.register("Tensor", "Tensor", "Tensor", "Tensor", "Tensor", "Tensor", "Tensor", "Tensor", "Tensor", "Tensor",
                     "Tensor", "Bool", "Bool")
 def _update_run_op(beta1_power, beta2_power, beta1, beta2, eps, lr, weight_decay, param, \
                    m, v, gradient, decay_flag, optim_filter):

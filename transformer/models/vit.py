@@ -262,33 +262,8 @@ vit_cfg = edict({
 })
 
 
-def vit_base_patch16(args):
-    """vit_base_patch16"""
-    vit_cfg.d_model = 768
-    vit_cfg.depth = 12
-    vit_cfg.heads = 12
-    vit_cfg.mlp_dim = 3072
-    vit_cfg.dim_head = vit_cfg.d_model // vit_cfg.heads
-    vit_cfg.patch_size = 16
-    vit_cfg.normalized_shape = vit_cfg.d_model
-    vit_cfg.image_size = args.train_image_size
-    vit_cfg.num_classes = args.class_num
-    vit_cfg.batch_size = args.batch_size
-    vit_cfg.decoder_layers = 0
-
-    if args.vit_config_path != '':
-        print("get vit_config_path")
-        vit_config = load_function(args.vit_config_path)(vit_cfg)
-    else:
-        print("get default_vit_cfg")
-        vit_config = VitConfig(vit_cfg)
-
-    model = vit_config.network(vit_config)
-    return model
-
-
-def vit_base_patch32(args):
-    """vit_base_patch32"""
+def vit_base(args):
+    """vit_base"""
     vit_cfg.d_model = 768
     vit_cfg.depth = 12
     vit_cfg.heads = 12
@@ -298,7 +273,7 @@ def vit_base_patch32(args):
     vit_cfg.normalized_shape = vit_cfg.d_model
     vit_cfg.image_size = args.train_image_size
     vit_cfg.num_classes = args.class_num
-    vit_cfg.batch_size = args.batch_size
+    vit_cfg.batch_size = args.batch_size if hasattr(args, "batch_size") else args.eval_batch_size
     vit_cfg.decoder_layers = 0
 
     if args.vit_config_path != '':
@@ -397,10 +372,8 @@ class CrossEntropyIgnore(Loss):
 
 def get_network(backbone_name, args):
     """get_network"""
-    if backbone_name == 'vit_base_patch32':
-        backbone = vit_base_patch32(args=args)
-    elif backbone_name == 'vit_base_patch16':
-        backbone = vit_base_patch16(args=args)
+    if backbone_name == 'vit_base':
+        backbone = vit_base(args=args)
     else:
         raise NotImplementedError
     return backbone

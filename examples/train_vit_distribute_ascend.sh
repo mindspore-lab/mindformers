@@ -14,9 +14,9 @@
 # limitations under the License.
 # ============================================================================
 
-if [ $# != 2 ]
+if [ $# != 1 ]
 then
-  echo "Usage: bash run_distribute_train.sh [RANK_TABLE_FILE] [CONFIG_PATH]"
+  echo "Usage: bash run_distribute_train.sh [RANK_TABLE_FILE]"
   exit 1
 fi
 
@@ -29,7 +29,7 @@ get_real_path(){
 }
 
 PATH1=$(get_real_path $1)
-CONFIG_FILE=$(get_real_path $2)
+CONFIG_FILE=$(get_real_path ../transformer/configs/vit/vit_imagenet2012_config.yml)
 
 if [ ! -f $PATH1 ]
 then
@@ -68,11 +68,13 @@ do
     cp train_vit*.sh ./train_parallel$i
     cp -r ../transformer/configs/vit/*.yml ./train_parallel$i
     cp -r ../transformer ./train_parallel$i
+    mkdir ./train_parallel$i/tasks
+    cp -r ../tasks/vision ./train_parallel$i/tasks
     cd ./train_parallel$i || exit
     echo "start training for rank $RANK_ID, device $DEVICE_ID"
     env > env.log
 
-    if [ $# == 2 ]
+    if [ $# == 1 ]
     then
         taskset -c $cmdopt python train_vit.py --config_path=$CONFIG_FILE &> log &
     fi
