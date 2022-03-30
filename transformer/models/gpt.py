@@ -83,6 +83,7 @@ class GPTModel(nn.Cell):
                                        tgt_seq_length=config.seq_length,
                                        encoder_layers=config.num_layers,
                                        decoder_layers=0,
+                                       param_init_type=config.compute_dtype,
                                        num_heads=config.num_heads,
                                        parallel_config=config.parallel_config,
                                        moe_config=moe_config)
