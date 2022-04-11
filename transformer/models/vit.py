@@ -23,7 +23,8 @@ from mindspore import nn
 from mindspore import Tensor
 from mindspore.common.initializer import initializer
 from mindspore.common.parameter import Parameter
-from mindspore.nn import Cell, Dense, Dropout, SequentialCell
+from mindspore.nn import Cell, Dropout, SequentialCell
+from mindspore.nn.transformer.layers import _Linear
 from mindspore.ops import operations as P
 from mindspore.ops import functional as F
 import mindspore.common.dtype as mstype
@@ -44,6 +45,7 @@ class VitConfig:
     """
     def __init__(self, configs):
         self.configs = configs
+        self.parallel_config = configs.parallel_config
 
         # network init
         self.network_norm = mindspore.nn.LayerNorm((configs.normalized_shape,))
@@ -57,7 +59,7 @@ class VitConfig:
         self.stem = VitStem
 
         # body
-        self.body_norm = mindspore.nn.LayerNorm
+        # self.body_norm = mindspore.nn.LayerNorm
         self.body = TransformerWrapper
 
         # body attention
@@ -72,7 +74,7 @@ class VitConfig:
         self.head = origin_head
         self.head_init = mindspore.common.initializer.XavierUniform()
         self.head_dropout_rate = 0.1
-        self.head_norm = mindspore.nn.LayerNorm((configs.normalized_shape,))
+        # self.head_norm = mindspore.nn.LayerNorm((configs.normalized_shape,))
         self.head_activation = mindspore.nn.GELU()
 
 
@@ -81,26 +83,38 @@ def origin_head(vit_config):
     d_model = vit_config.configs.d_model
     num_classes = vit_config.configs.num_classes
     initialization = vit_config.head_init
-    dense = Dense(d_model, num_classes).to_float(mstype.float16)
+    dense = _Linear(d_model, num_classes).to_float(mstype.float16)
     dense.weight.set_data(initializer(initialization, [num_classes, d_model]))
+
+    dp = vit_config.parallel_config.data_parallel
+    mp = vit_config.parallel_config.model_parallel
+    dense.shard(strategy_matmul=((dp, 1), (1, mp)), strategy_bias=((dp, 1), (1,)))
+
     return SequentialCell([dense])
 
 
 class BatchDense(Cell):
     """BatchDense module."""
 
-    def __init__(self, in_features, out_features, initialization, has_bias=True):
+    def __init__(self, in_features, out_features, initialization, has_bias=True, vit_config=None):
         super().__init__()
         self.out_features = out_features
-        self.dense = Dense(in_features, out_features, has_bias=has_bias).to_float(mstype.float16)
+        self.dense = _Linear(in_features, out_features, has_bias=has_bias).to_float(mstype.float16)
         self.dense.weight.set_data(initializer(initialization, [out_features, in_features]))
         self.reshape = P.Reshape()
+        self.add = P.Add()
+        self.add.add_prim_attr("keep_alive", True)
+
+        dp = vit_config.parallel_config.data_parallel
+        mp = vit_config.parallel_config.model_parallel
+        self.dense.shard(strategy_matmul=((dp, 1), (mp, 1)), strategy_bias=((dp, mp), (mp,)))
 
     def construct(self, x):
         bs, seq_len, d_model = x.shape
         out = self.reshape(x, (bs * seq_len, d_model))
         out = self.dense(out)
         out = self.reshape(out, (bs, seq_len, self.out_features))
+        out = self.add(out, 0)
         return out
 
 
@@ -122,8 +136,8 @@ class VitStem(Cell):
 
         self.patch_size = patch_size
         self.reshape = P.Reshape()
-        self.transpose = P.Transpose()
-        self.patch_to_embedding = BatchDense(patch_dim, d_model, initialization, has_bias=True)
+        self.transpose = P.Transpose().shard(((vit_config.parallel_config.data_parallel, 1, 1, 1, 1, 1),))
+        self.patch_to_embedding = BatchDense(patch_dim, d_model, initialization, has_bias=True, vit_config=vit_config)
 
     def construct(self, img):
         p = self.patch_size
@@ -142,11 +156,11 @@ class TransformerWrapper(Cell):
         super().__init__()
 
         batch_size = vit_config.configs.batch_size
-        src_seq_length = (vit_config.configs.image_size // vit_config.configs.patch_size) ** 2 + 1
+        src_seq_length = (vit_config.configs.image_size // vit_config.configs.patch_size) ** 2 + 1  # patch32: 50
 
         self.transformer = Transformer(
             hidden_size=vit_config.configs.heads * vit_config.configs.dim_head,
-            batch_size=batch_size,
+            batch_size=batch_size * vit_config.parallel_config.data_parallel,
             ffn_hidden_size=vit_config.configs.mlp_dim,
             src_seq_length=src_seq_length,
             tgt_seq_length=src_seq_length,
@@ -155,10 +169,11 @@ class TransformerWrapper(Cell):
             num_heads=vit_config.configs.heads,
             attention_dropout_rate=vit_config.attention_dropout_rate,
             hidden_dropout_rate=vit_config.feedforward_dropout_rate,
-            hidden_act=vit_config.feedforward_activation
+            hidden_act=vit_config.feedforward_activation,
+            parallel_config=vit_config.parallel_config
         )
-        self.attention_mask = mindspore.Tensor(np.ones((batch_size, src_seq_length, src_seq_length)),
-                                               dtype=mindspore.dtype.float32)
+        self.attention_mask = mindspore.Tensor(np.ones((batch_size * vit_config.parallel_config.data_parallel,
+                                                        src_seq_length, src_seq_length)), dtype=mindspore.dtype.float32)
 
     def construct(self, x):
         out, _, _ = self.transformer(x, self.attention_mask)
@@ -200,8 +215,16 @@ class ViT(Cell):
             self.mean = P.ReduceMean(keep_dims=False)
         self.pool = pool
 
+        dp = vit_config.parallel_config.data_parallel
+
         self.cast = P.Cast()
+        self.slice1 = P.Slice().shard(((1, 1, 1),))
         self.dropout = Dropout(keep_prob=(1. - dropout_rate))
+        self.transpose = P.Transpose().shard(((dp, 1, 1),))
+        self.slice2 = P.Slice().shard(((1, dp, 1),))
+        self.squeeze = P.Squeeze(0).shard(((1, dp, 1),))
+        self.add = P.Add().shard(((dp, 1, 1), (1, 1, 1)))
+
         self.stem = stem
         self.body = body
         self.head = head
@@ -210,16 +233,18 @@ class ViT(Cell):
     def construct(self, img):
         """construct"""
         x = self.stem(img)
-        bs, seq_len, _ = x.shape
+        bs, seq_len, d_model = x.shape  # 2048, 49, 768
 
         pos_embedding = F.cast(self.pos_embedding, mstype.float16)
         if self.pool == "cls":
             cls_tokens = self.tile(self.cls_token, (bs, 1, 1))
             cls_tokens = F.cast(cls_tokens, mstype.float16)
-            x = self.cat_1((cls_tokens, x))  # now x has shape = (bs, seq_len+1, d)
-            x += pos_embedding[:, :(seq_len + 1)]
+            x = self.cat_1((cls_tokens, x))  # now x has shape = (bs, seq_len+1, d_model)
+            sliced_embedding = self.slice1(pos_embedding, (0, 0, 0), (1, seq_len + 1, d_model))
+            x = self.add(x, sliced_embedding)
         else:
-            x += pos_embedding[:, :seq_len]
+            sliced_embedding = self.slice1(pos_embedding, (0, 0, 0), (1, seq_len, d_model))
+            x = self.add(x, sliced_embedding)
 
         y = self.cast(x, mstype.float32)
         y = self.dropout(y)
@@ -232,7 +257,9 @@ class ViT(Cell):
             x = self.norm(x)
 
         if self.pool == "cls":
-            x = x[:, 0]
+            x = self.transpose(x, (1, 0, 2))
+            x = self.slice2(x, (0, 0, 0), (1, bs, d_model))
+            x = self.squeeze(x)
         else:
             x = self.mean(x, (-2,))
 
@@ -262,7 +289,8 @@ vit_cfg = edict({
     'image_size': 224,
     'num_classes': 1001,
     'batch_size': 256,
-    'decoder_layers': 0
+    'decoder_layers': 0,
+    'parallel_config': None
 })
 
 
@@ -279,6 +307,34 @@ def vit_base(args):
     vit_cfg.num_classes = args.class_num
     vit_cfg.batch_size = args.batch_size if hasattr(args, "batch_size") else args.eval_batch_size
     vit_cfg.decoder_layers = 0
+    vit_cfg.parallel_config = args.parallel_config
+
+    if args.vit_config_path != '':
+        print("get vit_config_path")
+        vit_config = load_function(args.vit_config_path)(vit_cfg)
+    else:
+        print("get default_vit_cfg")
+        vit_config = VitConfig(vit_cfg)
+
+    model = vit_config.network(vit_config)
+
+    return model
+
+
+def vit_large(args):
+    """vit_base"""
+    vit_cfg.d_model = 1024
+    vit_cfg.depth = 24
+    vit_cfg.heads = 16
+    vit_cfg.mlp_dim = 4096
+    vit_cfg.dim_head = vit_cfg.d_model // vit_cfg.heads
+    vit_cfg.patch_size = 32
+    vit_cfg.normalized_shape = vit_cfg.d_model
+    vit_cfg.image_size = args.train_image_size
+    vit_cfg.num_classes = args.class_num
+    vit_cfg.batch_size = args.batch_size if hasattr(args, "batch_size") else args.eval_batch_size
+    vit_cfg.decoder_layers = 0
+    vit_cfg.parallel_config = args.parallel_config
 
     if args.vit_config_path != '':
         print("get vit_config_path")
@@ -378,6 +434,8 @@ def get_network(backbone_name, args):
     """get_network"""
     if backbone_name == 'vit_base':
         backbone = vit_base(args=args)
+    elif backbone_name == 'vit_large':
+        backbone = vit_large(args=args)
     else:
         raise NotImplementedError
     return backbone

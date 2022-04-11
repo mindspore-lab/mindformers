@@ -16,7 +16,6 @@
 
 import numpy as np
 
-from mindspore.communication.management import GlobalComm
 from mindspore.ops import operations as P
 import mindspore.nn as nn
 import mindspore.common.dtype as mstype
@@ -33,7 +32,6 @@ class ClassifyCorrectWithCache(nn.Cell):
         self.equal = P.Equal()
         self.cast = P.Cast()
         self.reduce_sum = P.ReduceSum()
-        self.allreduce = P.AllReduce(P.ReduceOp.SUM, GlobalComm.WORLD_COMM_GROUP)
         self.assign_add = P.AssignAdd()
         self.assign = P.Assign()
         self._correct_num = Parameter(Tensor(0.0, mstype.float32), name="correct_num", requires_grad=False)
@@ -63,11 +61,9 @@ class ClassifyCorrectWithCache(nn.Cell):
             y_correct = self.equal(y_pred, label)
             y_correct = self.cast(y_correct, mstype.float32)
             y_correct_sum = self.reduce_sum(y_correct)
-            self._correct_num += y_correct_sum #self.assign(self._correct_num, y_correct_sum)
+            self.assign_add(self._correct_num, y_correct_sum) #self.assign(self._correct_num, y_correct_sum)
             index = index + 1
-        total_correct = self.allreduce(self._correct_num)
-        return total_correct
-
+        return self._correct_num
 
 class ClassifyCorrectCell(nn.Cell):
     """ClassifyCorrectCell"""
@@ -78,7 +74,6 @@ class ClassifyCorrectCell(nn.Cell):
         self.equal = P.Equal()
         self.cast = P.Cast()
         self.reduce_sum = P.ReduceSum()
-        self.allreduce = P.AllReduce(P.ReduceOp.SUM, GlobalComm.WORLD_COMM_GROUP)
 
     def construct(self, data, label):
         outputs = self._network(data)
@@ -87,8 +82,7 @@ class ClassifyCorrectCell(nn.Cell):
         y_correct = self.equal(y_pred, label)
         y_correct = self.cast(y_correct, mstype.float32)
         y_correct = self.reduce_sum(y_correct)
-        total_correct = self.allreduce(y_correct)
-        return (total_correct,)
+        return (y_correct,)
 
 
 class DistAccuracy(nn.Metric):
