@@ -1,11 +1,3 @@
-enable_modelarts: 0
-
-# Url for modelarts
-data_url: ""
-train_url: ""
-checkpoint_url: ""
-output_path: "/cache/train"
-
 # train datasets
 dataset_path: '/ms_test1/mindspore_dataset/ImageNet2012/train/'
 train_image_size: 224

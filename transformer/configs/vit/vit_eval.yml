@@ -1,5 +1,3 @@
-enable_modelarts: 0
-
 # eval datasets
 interpolation: 'BILINEAR'
 eval_path: '/opt/npu/datasets/imagenet/val'

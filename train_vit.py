@@ -26,6 +26,7 @@ from mindspore.train.loss_scale_manager import DynamicLossScaleManager
 from mindspore.communication import init, get_rank
 from mindspore.profiler.profiling import Profiler
 from mindspore.train.serialization import load_checkpoint
+from mindspore.parallel.nn.transformer import TransformerOpParallelConfig
 import mindspore.dataset as ds
 
 from transformer.models.vit import get_network, get_loss
@@ -35,6 +36,7 @@ from transformer.learning_rate import get_lr
 from transformer.callback import StateMonitor
 from transformer.logger import get_logger
 from transformer.configs.vit.config import config
+from transformer.utils import print_mode_size
 from tasks.vision.eval_engine import get_eval_engine
 
 if config.device_target == "Ascend":
@@ -106,7 +108,7 @@ def set_running_context(args):
 
     if args.device_num > 1:
         context.set_auto_parallel_context(device_num=device_num,
-                                          parallel_mode=ParallelMode.DATA_PARALLEL,
+                                          parallel_mode=ParallelMode.SEMI_AUTO_PARALLEL,
                                           gradients_mean=True)
 
     # init graph kernel for gpu
@@ -120,6 +122,21 @@ def set_running_context(args):
         init()
 
 
+def set_parallel_config(args):
+    """parallel configuration"""
+    data_parallel = 8
+    model_parallel = 1
+    expert_parallel = 1
+    pipeline_stage = 1
+    micro_batch_num = 1  # micro size for pipeline training
+    grad_agg_group = 4  # The fusion group size
+    parallel_config = TransformerOpParallelConfig(data_parallel=data_parallel, model_parallel=model_parallel,
+                                                  expert_parallel=expert_parallel, pipeline_stage=pipeline_stage,
+                                                  micro_batch_num=micro_batch_num, recompute=False,
+                                                  optimizer_shard=False, gradient_aggregation_group=grad_agg_group)
+    args.parallel_config = parallel_config
+
+
 def train_net():
     """train_net"""
     args = add_static_args(config)
@@ -130,12 +147,15 @@ def train_net():
         profiler = Profiler(output_path="data_{}".format(local_rank))
 
     set_running_context(args)
+    set_parallel_config(args)
 
     # network
     net = get_network(backbone_name=args.backbone, args=args)
 
     # set grad allreduce split point
     parameters = [param for param in net.trainable_params()]
+    print_mode_size(net)
+
     parameter_len = len(parameters)
     try_split(args, parameter_len, parameters)
 
