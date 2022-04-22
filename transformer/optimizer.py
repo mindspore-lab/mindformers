@@ -28,6 +28,7 @@ from mindspore.nn.optim.optimizer import Optimizer, opt_init_args_register
 from mindspore.nn import AdamWeightDecay, Lamb
 
 from transformer.global_norm import ClipByGlobalNorm
+
 _adam_opt = C.MultitypeFuncGraph("adam_opt")
 _scaler_one = Tensor(1, mstype.int32)
 _scaler_ten = Tensor(10, mstype.float32)
@@ -58,20 +59,39 @@ def scale_grad(gradients, reciprocal_scale):
 
 @_adam_opt.register("Function", "Tensor", "Tensor", "Tensor", "Tensor", "Tensor", "Tensor", "Tensor", "Tensor",
                     "Tensor", "Tensor", "Bool", "Bool")
-def _update_run_kernel(opt, clip_value, beta1, beta2, eps, lr, weight_decay,
-                       param, m, v, gradient, decay_flags, optim_filter):
+def _fused_update_with_global_norm(opt, global_norm, beta1, beta2, eps, lr, weight_decay,
+                                   param, m, v, gradient, decay_flags, optim_filter):
     """
-    Update parameters by AdamWeightDecay op.
+    Update parameters by FusedAdamWeightDecay.
     """
     success = True
     if optim_filter:
         if decay_flags:
             next_param = opt(param, m, v, lr, beta1, beta2, eps, weight_decay,
-                             P.Cast()(gradient, mstype.float16), clip_value)
+                             P.Cast()(gradient, mstype.float16), global_norm)
         else:
             next_param = opt(param, m, v, lr, beta1, beta2, eps, 0.0,
-                             P.Cast()(gradient, mstype.float16), clip_value)
+                             P.Cast()(gradient, mstype.float16), global_norm)
         return F.depend(success, next_param)
+    return success
+
+
+@_adam_opt.register("Function", "Tensor", "Tensor", "Tensor", "Tensor", "Tensor", "Tensor", "Tensor",
+                    "Tensor", "Tensor", "Bool", "Bool")
+def _fused_update(opt, beta1, beta2, eps, lr, weight_decay,
+                  param, m, v, gradient, decay_flags, optim_filter):
+    """
+    Update parameters by FusedAdamWeightDecay.
+    """
+    success = True
+    op_cast = P.Cast()
+    if optim_filter:
+        param_fp32 = op_cast(param, mstype.float32)
+        if decay_flags:
+            opt(param_fp32, m, v, lr, beta1, beta2, eps, weight_decay, op_cast(gradient, mstype.float32))
+        else:
+            opt(param_fp32, m, v, lr, beta1, beta2, eps, 0.0, op_cast(gradient, mstype.float32))
+        return F.depend(success, F.assign(param, op_cast(param_fp32, F.dtype(param))))
     return success
 
 
@@ -145,7 +165,52 @@ def _check_param_value(beta1, beta2, eps, prim_name):
     validator.check_positive_float(eps, "eps", prim_name)
 
 
-class AdamWeightDecayOp(Optimizer):
+class BaseAdamOptimizer(Optimizer):
+    """
+    Base class for FusedAdamWeightDecay
+    """
+
+    def __init__(self, params, learning_rate=1e-3, beta1=0.9, beta2=0.999, eps=1e-6, weight_decay=0.0):
+        super(BaseAdamOptimizer, self).__init__(learning_rate, params, weight_decay)
+        _check_param_value(beta1, beta2, eps, self.cls_name)
+        self.beta1 = Tensor(np.array([beta1]).astype(np.float32))
+        self.beta2 = Tensor(np.array([beta2]).astype(np.float32))
+        self.eps = Tensor(np.array([eps]).astype(np.float32))
+        self.moments1 = self.clone_param32(prefix="adam_m", init='zeros')
+        self.moments2 = self.clone_param32(prefix="adam_v", init='zeros')
+
+    def clone_param32(self, prefix, init=None):
+        """
+        Clone the parameters in ParameterTuple element-wisely to generate a new ParameterTuple with float32 data type.
+        Inputs:
+            prefix (str): The prefix name of the parameters.
+            init (Union[Tensor, str, numbers.Number]): Initialize the shape and dtype of the parameters.
+                The definition of `init` is the same as in `Parameter` API. If `init` is 'same', the
+                parameters in the new parameter tuple are the same as those in the original parameter tuple.
+                Default: 'same'.
+        Returns:
+            Tuple, the new Parameter tuple.
+        """
+        new = []
+        for old_param in self.parameters:
+            param_init = init
+            if init is None:
+                param_init = old_param.init
+            new_state = Parameter(initializer(param_init, shape=old_param.shape, dtype=mstype.float32))
+            new_state.param_info = old_param.param_info.clone()
+            new_state.is_init = False
+            new_state.is_param_ps = old_param.is_param_ps
+            new_state.init_in_server = old_param.init_in_server
+            new_state.cache_enable = old_param.cache_enable
+            new_state.requires_aggr = old_param.requires_aggr
+            if old_param.cache_shape:
+                new_state.cache_shape = old_param.cache_shape
+            new_state.name = prefix + '.' + new_state.name
+            new.append(new_state)
+        return ParameterTuple(new)
+
+
+class FusedAdamWeightDecay(BaseAdamOptimizer):
     """
     Implements the Adam algorithm to fix the weight decay. It is a complete operator, not a combination of other ops.
 
@@ -201,7 +266,7 @@ class AdamWeightDecayOp(Optimizer):
     Examples:
         >>> net = Net()
         >>> #1) All parameters use the same learning rate and weight decay
-        >>> optim = AdamWeightDecayOp(params=net.trainable_params())
+        >>> optim = FusedAdamWeightDecay(params=net.trainable_params())
         >>>
         >>> #2) Use parameter groups and set different values
         >>> conv_params = list(filter(lambda x: 'conv' in x.name, net.trainable_params()))
@@ -209,7 +274,7 @@ class AdamWeightDecayOp(Optimizer):
         >>> group_params = [{'params': conv_params, 'weight_decay': 0.01},
         ...                 {'params': no_conv_params, 'lr': 0.01},
         ...                 {'order_params': net.trainable_params()}]
-        >>> optim = AdamWeightDecayOp(group_params, learning_rate=0.1, weight_decay=0.0)
+        >>> optim = FusedAdamWeightDecay(group_params, learning_rate=0.1, weight_decay=0.0)
         >>> # The conv_params's parameters will use default learning rate of 0.1 and weight decay of 0.01.
         >>> # The no_conv_params's parameters will use learning rate of 0.01 and default weight decay of 0.0.
         >>> # The final parameters order in which the optimizer will be followed is the value of 'order_params'.
@@ -217,45 +282,30 @@ class AdamWeightDecayOp(Optimizer):
         >>> loss = nn.SoftmaxCrossEntropyWithLogits()
         >>> model = Model(net, loss_fn=loss, optimizer=optim)
    """
-    def __init__(self, params, learning_rate=1e-3, beta1=0.9, beta2=0.999, eps=1e-6, weight_decay=0.0,
-                 clip_norm=1.0, param_init_type=mstype.float32):
-        super(AdamWeightDecayOp, self).__init__(learning_rate, params, weight_decay)
-        _check_param_value(beta1, beta2, eps, self.cls_name)
-        self.beta1 = Tensor(np.array([beta1]).astype(np.float32))
-        self.beta2 = Tensor(np.array([beta2]).astype(np.float32))
-        self.eps = Tensor(np.array([eps]).astype(np.float32))
-        self.clip_norm = Tensor([clip_norm], mstype.float32)
-        self.enable_init_fp16 = (param_init_type == mstype.float16)
-        if self.enable_init_fp16:
-            self.moments1 = self.clone_param32(prefix="adam_m", init='zeros')
-            self.moments2 = self.clone_param32(prefix="adam_v", init='zeros')
-            self.opt = P.FusedCastAdamWeightDecay()
-        else:
-            self.moments1 = self.parameters.clone(prefix="adam_m", init='zeros')
-            self.moments2 = self.parameters.clone(prefix="adam_v", init='zeros')
-            self.opt = P.AdamWeightDecay()
-        self.hyper_map = C.HyperMap()
-        self.opt.add_prim_attr("primitive_target", "CPU")
 
-    def construct(self, gradients, clip_value):
-        """AdamWeightDecayOp"""
+    def __init__(self, params, learning_rate=1e-3, beta1=0.9, beta2=0.999, eps=1e-6, weight_decay=0.0,
+                 offload=False):
+        super(FusedAdamWeightDecay, self).__init__(params, learning_rate, beta1, beta2, eps, weight_decay)
+        self.opt = P.AdamWeightDecay()
+        if offload:
+            self.opt.add_prim_attr("primitive_target", "CPU")
+
+    def construct(self, gradients):
+        """construct with gradients"""
         lr = self.get_lr()
-        cond = P.GreaterEqual()(clip_value, self.clip_norm)
-        global_norm = F.select(cond, clip_value, self.clip_norm)
-        global_norm = P.Cast()(global_norm, mstype.float16)
         if self.is_group:
             if self.is_group_lr:
-                optim_result = self.map_reverse(F.partial(_adam_opt, self.opt, global_norm,
+                optim_result = self.map_reverse(F.partial(_adam_opt, self.opt,
                                                           self.beta1, self.beta2, self.eps),
                                                 lr, self.weight_decay, self.parameters, self.moments1, self.moments2,
                                                 gradients, self.decay_flags, self.optim_filter)
             else:
-                optim_result = self.map_reverse(F.partial(_adam_opt, self.opt, global_norm,
+                optim_result = self.map_reverse(F.partial(_adam_opt, self.opt,
                                                           self.beta1, self.beta2, self.eps, lr),
                                                 self.weight_decay, self.parameters, self.moments1, self.moments2,
                                                 gradients, self.decay_flags, self.optim_filter)
         else:
-            optim_result = self.map_reverse(F.partial(_adam_opt, self.opt, global_norm,
+            optim_result = self.map_reverse(F.partial(_adam_opt, self.opt,
                                                       self.beta1, self.beta2, self.eps, lr,
                                                       self.weight_decay), self.parameters, self.moments1, self.moments2,
                                             gradients, self.decay_flags, self.optim_filter)
@@ -263,35 +313,44 @@ class AdamWeightDecayOp(Optimizer):
             self.broadcast_params(optim_result)
         return optim_result
 
-    def clone_param32(self, prefix, init=None):
-        """
-        Clone the parameters in ParameterTuple element-wisely to generate a new ParameterTuple with float32 data type.
-        Inputs:
-            prefix (str): The prefix name of the parameters.
-            init (Union[Tensor, str, numbers.Number]): Initialize the shape and dtype of the parameters.
-                The definition of `init` is the same as in `Parameter` API. If `init` is 'same', the
-                parameters in the new parameter tuple are the same as those in the original parameter tuple.
-                Default: 'same'.
-        Returns:
-            Tuple, the new Parameter tuple.
-        """
-        new = []
-        for old_param in self.parameters:
-            param_init = init
-            if init is None:
-                param_init = old_param.init
-            new_state = Parameter(initializer(param_init, shape=old_param.shape, dtype=mstype.float32))
-            new_state.param_info = old_param.param_info.clone()
-            new_state.is_init = False
-            new_state.is_param_ps = old_param.is_param_ps
-            new_state.init_in_server = old_param.init_in_server
-            new_state.cache_enable = old_param.cache_enable
-            new_state.requires_aggr = old_param.requires_aggr
-            if old_param.cache_shape:
-                new_state.cache_shape = old_param.cache_shape
-            new_state.name = prefix + '.' + new_state.name
-            new.append(new_state)
-        return ParameterTuple(new)
+
+class FusedAdamWeightDecayWithGlobalNorm(BaseAdamOptimizer):
+    """
+    Implements the gradient clipping by global norm for a AdamWeightDecay optimizer.
+    """
+
+    def __init__(self, params, learning_rate=1e-3, beta1=0.9, beta2=0.999, eps=1e-6, weight_decay=0.0,
+                 offload=False, clip_norm=1.0):
+        super(FusedAdamWeightDecayWithGlobalNorm, self).__init__(params, learning_rate, beta1, beta2, eps, weight_decay)
+        self.clip_norm = Tensor([clip_norm], mstype.float32)
+        self.opt = P.FusedCastAdamWeightDecay()
+        if offload:
+            self.opt.add_prim_attr("primitive_target", "CPU")
+
+    def construct(self, gradients, global_norm):
+        """construct with gradients and lobal norm"""
+        lr = self.get_lr()
+        cond = P.GreaterEqual()(global_norm, self.clip_norm)
+        clip_global_norm = F.select(cond, global_norm, self.clip_norm)
+        if self.is_group:
+            if self.is_group_lr:
+                optim_result = self.map_reverse(F.partial(_adam_opt, self.opt, clip_global_norm,
+                                                          self.beta1, self.beta2, self.eps),
+                                                lr, self.weight_decay, self.parameters, self.moments1, self.moments2,
+                                                gradients, self.decay_flags, self.optim_filter)
+            else:
+                optim_result = self.map_reverse(F.partial(_adam_opt, self.opt, clip_global_norm,
+                                                          self.beta1, self.beta2, self.eps, lr),
+                                                self.weight_decay, self.parameters, self.moments1, self.moments2,
+                                                gradients, self.decay_flags, self.optim_filter)
+        else:
+            optim_result = self.map_reverse(F.partial(_adam_opt, self.opt, clip_global_norm,
+                                                      self.beta1, self.beta2, self.eps, lr, self.weight_decay),
+                                            self.parameters, self.moments1, self.moments2,
+                                            gradients, self.decay_flags, self.optim_filter)
+        if self.use_parallel:
+            self.broadcast_params(optim_result)
+        return optim_result
 
 
 class FP32StateAdamWeightDecay(AdamWeightDecay):
@@ -334,6 +393,7 @@ class AdamWithScale(Optimizer):
     """
     Implements the gradient clipping by norm for a AdamWeightDecay optimizer.
     """
+
     @opt_init_args_register
     def __init__(self, params, learning_rate=1e-3, beta1=0.9, beta2=0.999, eps=1e-8, \
                  weight_decay=0.0, loss_scale=1.0, clip=False):
@@ -366,17 +426,17 @@ class AdamWithScale(Optimizer):
         if self.is_group:
             if self.is_group_lr:
                 optim_result = self.hyper_map(F.partial(_adam_opt, beta1_power, beta2_power, \
-                                              self.beta1, self.beta2, self.eps),
+                                                        self.beta1, self.beta2, self.eps),
                                               lr, self.weight_decay, self.parameters, self.moments1, self.moments2,
                                               gradients, self.decay_flags, self.optim_filter)
             else:
                 optim_result = self.hyper_map(F.partial(_adam_opt, beta1_power, beta2_power, \
-                                              self.beta1, self.beta2, self.eps, lr),
+                                                        self.beta1, self.beta2, self.eps, lr),
                                               self.weight_decay, self.parameters, self.moments1, self.moments2,
                                               gradients, self.decay_flags, self.optim_filter)
         else:
             optim_result = self.hyper_map(F.partial(_adam_opt, beta1_power, beta2_power, self.beta1, self.beta2, \
-                                          self.eps, lr, self.weight_decay),
+                                                    self.eps, lr, self.weight_decay),
                                           self.parameters, self.moments1, self.moments2,
                                           gradients, self.decay_flags, self.optim_filter)
         if self.use_parallel:
@@ -401,7 +461,7 @@ def paramter_group(network, weight_decay, no_weight_decay_filter, gc_flag):
                         {'order_params': network.trainable_params()}]
     else:
         group_params = [{'params': network.trainable_params(), \
-                        'weight_decay': weight_decay, 'grad_centralization': gc_flag},
+                         'weight_decay': weight_decay, 'grad_centralization': gc_flag},
                         {'order_params': network.trainable_params()}]
 
     return group_params
@@ -431,6 +491,7 @@ def get_optimizer(net,
                   optimizer_name,
                   args=None,
                   stage_num=1,
+                  fused=True,
                   param_init_type=mstype.float32,
                   opt_offload=False):
     """ Get the optimizer according to the args_opt and the net"""
@@ -444,36 +505,39 @@ def get_optimizer(net,
 
     enable_offload = bool(opt_offload)
 
-    enable_grad_fp16 = enable_offload and param_init_type == mstype.float16
+    offload_grad_fp16 = enable_offload and param_init_type == mstype.float16
 
     group_params = set_weight_decay(params)
 
     optimizer_args = dict(learning_rate=lr, eps=1e-8, beta1=0.9, beta2=0.95)
+    if enable_offload:
+        optimizer_args['offload'] = True
 
     if optimizer_name == "lamb":
         optimizer = Lamb
-    elif enable_offload:
-        optimizer = AdamWeightDecayOp
-        optimizer_args['param_init_type'] = param_init_type
+    elif offload_grad_fp16:
+        optimizer = FusedAdamWeightDecayWithGlobalNorm
+    elif fused:
+        optimizer = FusedAdamWeightDecay
     else:
         optimizer = FP32StateAdamWeightDecay
 
     class OptimizerWithClipNorm(optimizer):
         """An global norm wrapper"""
+
         def __init__(self, *args, **kwargs):
             super(OptimizerWithClipNorm, self).__init__(*args, **kwargs)
             self.optimizer = super(OptimizerWithClipNorm, self).construct
-            self.enable_offload = enable_offload
-            self.norm = ClipByGlobalNorm(enable_grad_fp16=enable_grad_fp16,
+            self.norm = ClipByGlobalNorm(enable_grad_fp16=offload_grad_fp16,
                                          clip_norm=1.0)
 
         def construct(self, gradients):
             grads, norm = self.norm(gradients)
-            if self.enable_offload:
+            if self.fuse_global_norm:
                 return self.optimizer(grads, norm)  # pylint: disable=too-many-function-args
             return self.optimizer(grads)
 
     optimizer = OptimizerWithClipNorm(group_params, **optimizer_args)
-    optimizer.enable_offload = enable_offload
+    optimizer.fuse_global_norm = enable_offload
 
     return optimizer
