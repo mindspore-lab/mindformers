@@ -86,12 +86,10 @@ def _fused_update(opt, beta1, beta2, eps, lr, weight_decay,
     success = True
     op_cast = P.Cast()
     if optim_filter:
-        param_fp32 = op_cast(param, mstype.float32)
         if decay_flags:
-            opt(param_fp32, m, v, lr, beta1, beta2, eps, weight_decay, op_cast(gradient, mstype.float32))
+            opt(param, m, v, lr, beta1, beta2, eps, weight_decay, op_cast(gradient, F.dtype(param)))
         else:
-            opt(param_fp32, m, v, lr, beta1, beta2, eps, 0.0, op_cast(gradient, mstype.float32))
-        return F.depend(success, F.assign(param, op_cast(param_fp32, F.dtype(param))))
+            opt(param, m, v, lr, beta1, beta2, eps, 0.0, op_cast(gradient, F.dtype(param)))
     return success
 
 
@@ -328,7 +326,7 @@ class FusedAdamWeightDecayWithGlobalNorm(BaseAdamOptimizer):
             self.opt.add_prim_attr("primitive_target", "CPU")
 
     def construct(self, gradients, global_norm):
-        """construct with gradients and lobal norm"""
+        """construct with gradients and global norm"""
         lr = self.get_lr()
         cond = P.GreaterEqual()(global_norm, self.clip_norm)
         clip_global_norm = F.select(cond, global_norm, self.clip_norm)

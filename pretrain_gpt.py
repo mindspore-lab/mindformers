@@ -31,6 +31,7 @@ from transformer.optimizer import get_optimizer
 from transformer.models.gpt import GPTWithLoss, GPTConfig, GPT
 from transformer.config_parser.parser import get_config
 from transformer.learning_rate import LearningRate
+from transformer.utils import download_data
 
 
 def set_context_env(opt):
@@ -100,6 +101,18 @@ def get_model_config(opt):
     return config
 
 
+def get_dataset(args_opt, rank_id, device_num):
+    """get dataset from local or obs"""
+    if args_opt.data_from_obs:
+        # copy data from the cloud to the /cache/Data
+        cache_url = '/cache/Data/'
+        download_data(src_data_url=args_opt.data_url, tgt_data_path=cache_url, rank=rank_id)
+    else:
+        cache_url = args_opt.data_path
+    ds = create_dataset(args_opt.global_batch_size, data_path=cache_url, device_num=device_num, rank=rank_id)
+    return ds
+
+
 def run_train():
     """Main training process"""
     opt = get_config()
@@ -114,7 +127,7 @@ def run_train():
     loss = CrossEntropyLoss(parallel_config.dp_mp_config)
     net_with_loss = GPTWithLoss(net, loss, model_config)
 
-    ds = create_dataset(opt.global_batch_size, data_path=opt.data_path, device_num=device_num, rank=rank_id)
+    ds = get_dataset(opt, rank_id, device_num)
 
     epoch_num = opt.epoch_size
     step_per_epoch = ds.get_dataset_size()
@@ -122,12 +135,12 @@ def run_train():
     lr = LearningRate(learning_rate=opt.start_lr,
                       end_learning_rate=opt.end_lr,
                       warmup_steps=opt.warmup_step,
-                      decay_steps=epoch_num*step_per_epoch)
+                      decay_steps=epoch_num * step_per_epoch)
 
     optimizer = get_optimizer(net_with_loss, lr, opt.optimizer)
 
     callback_size = opt.sink_size
-    actual_epoch_num = int(epoch_num * step_per_epoch/callback_size)
+    actual_epoch_num = int(epoch_num * step_per_epoch / callback_size)
     callback = [TimeMonitor(callback_size), LossMonitor(callback_size)]
 
     config_ck = CheckpointConfig(save_checkpoint_steps=step_per_epoch, keep_checkpoint_max=1)

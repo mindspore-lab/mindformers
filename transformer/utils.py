@@ -56,3 +56,31 @@ def print_mode_size(net: nn.Cell):
           f"{'Model size':}:{net_size.size:.1E} {net_size.size_unit}", flush=True)
     print(f"{'The number of trainable Parameters':<40}:{trainable_net_size.parameters:.1E},\t "
           f"{'Model size':<2}:{trainable_net_size.size:.1E} {net_size.size_unit}", flush=True)
+
+
+def download_data(src_data_url, tgt_data_path, rank):
+    """
+        Download the dataset from the obs.
+        src_data_url (Str): should be the dataset path in the obs
+        tgt_data_path (Str): the local dataset path
+        rank (Int): the current rank id
+
+    """
+    cache_url = tgt_data_path
+    tmp_path = '/tmp'
+    if rank % 8 == 0:
+        import moxing as mox
+        print("Modify the time out from 300 to 30000")
+        print("begin download dataset", flush=True)
+
+        if not os.path.exists(cache_url):
+            os.makedirs(cache_url, exist_ok=True)
+        mox.file.copy_parallel(src_url=src_data_url,
+                               dst_url=cache_url)
+        print("Dataset download succeed!", flush=True)
+
+        f = open("%s/install.txt" % (tmp_path), 'w')
+        f.close()
+    # stop
+    while not os.path.exists("%s/install.txt" % (tmp_path)):
+        time.sleep(1)
