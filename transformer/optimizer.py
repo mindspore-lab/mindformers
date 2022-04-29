@@ -513,7 +513,7 @@ def get_optimizer(net,
 
     if optimizer_name == "lamb":
         optimizer = Lamb
-    elif offload_grad_fp16:
+    elif enable_offload:
         optimizer = FusedAdamWeightDecayWithGlobalNorm
     elif fused:
         optimizer = FusedAdamWeightDecay
