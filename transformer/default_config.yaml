@@ -62,6 +62,7 @@ length_penalty_weight: 1.0
 # ==============================================================================
 # train.py / Argparse init.
 distribute: "false"
+data_from_obs: "false"
 epoch_size: 20
 device_id: 0
 device_num: 1
@@ -133,6 +134,7 @@ model_file: '/your/path/checkpoint_file'
 output_file: './output_eval.txt'
 
 distribute: "Run distribute, default is false."
+data_from_obs: "Download data from obs, default is false."
 epoch_size: "Epoch size, default is 52."
 device_id: "Device id, default is 0."
 device_num: "Use device nums, default is 1."
@@ -175,6 +177,7 @@ per_token_num_experts_chosen: "per_token_num_experts_chosen"
 device_target: ["Ascend", "GPU", "CPU"]
 file_format: ["AIR", "ONNX", "MINDIR"]
 distribute: ['true', 'false']
+data_from_obs: ['true', 'false']
 enable_lossscale: ['true', 'false']
 do_shuffle: ['true', 'false']
 enable_save_ckpt: ['true', 'false']
