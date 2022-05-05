@@ -51,7 +51,7 @@ def set_auto_parallel_context_env(opt):
     """Set the auto parallel env"""
     if opt.distribute == "true":
         D.init()
-        device_num = opt.device_num
+        device_num = D.get_group_size()
         rank_id = D.get_rank()
         print("rank_id is {}, device_num is {}".format(rank_id, device_num))
 
@@ -103,12 +103,12 @@ def get_model_config(opt):
 
 def get_dataset(args_opt, rank_id, device_num):
     """get dataset from local or obs"""
-    if args_opt.data_from_obs == "false":
-        cache_url = args_opt.data_path
-    else:
+    if args_opt.data_from_obs == "true":
         # copy data from the cloud to the /cache/Data
         cache_url = '/cache/Data/'
         download_data(src_data_url=args_opt.data_url, tgt_data_path=cache_url, rank=rank_id)
+    else:
+        cache_url = args_opt.data_path
     ds = create_dataset(args_opt.global_batch_size, data_path=cache_url, device_num=device_num, rank=rank_id)
     return ds
 

@@ -14,8 +14,9 @@
 # ============================================================================
 """Some basic usage functions """
 from dataclasses import dataclass
+import os
+import time
 import numpy as np
-
 from mindspore import nn, dtype
 
 
