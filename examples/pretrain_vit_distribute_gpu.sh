@@ -48,8 +48,8 @@ export RANK_SIZE=8
 
 rm -rf ./train_parallel
 mkdir ./train_parallel
-cp ../train_vit.py ./train_parallel
-cp train_vit*.sh ./train_parallel
+cp ../pretrain_vit.py ./train_parallel
+cp pretrain_vit*.sh ./train_parallel
 cp -r ../transformer/configs/vit/*.yml ./train_parallel
 cp -r ../transformer ./train_parallel
 mkdir ./train_parallel/tasks
@@ -57,5 +57,5 @@ cp -r ../tasks/vision ./train_parallel/tasks
 cd ./train_parallel || exit
 echo "start training"
 
-mpirun --allow-run-as-root -n 8 --hostfile $HOSTFILE --output-filename log_output python train_vit.py --config_path=$CONFIG_FILE \
+mpirun --allow-run-as-root -n 8 --hostfile $HOSTFILE --output-filename log_output python pretrain_vit.py --config_path=$CONFIG_FILE \
        --device_target=GPU &> log &

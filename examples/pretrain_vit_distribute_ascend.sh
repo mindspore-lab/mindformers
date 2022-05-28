@@ -64,8 +64,8 @@ do
     export RANK_ID=$((rank_start + i))
     rm -rf ./train_parallel$i
     mkdir ./train_parallel$i
-    cp ../train_vit.py ./train_parallel$i
-    cp train_vit*.sh ./train_parallel$i
+    cp ../pretrain_vit.py ./train_parallel$i
+    cp pretrain_vit*.sh ./train_parallel$i
     cp -r ../transformer/configs/vit/*.yml ./train_parallel$i
     cp -r ../transformer ./train_parallel$i
     mkdir ./train_parallel$i/tasks
@@ -76,7 +76,7 @@ do
 
     if [ $# == 1 ]
     then
-        taskset -c $cmdopt python train_vit.py --config_path=$CONFIG_FILE &> log &
+        taskset -c $cmdopt python pretrain_vit.py --config_path=$CONFIG_FILE &> log &
     fi
 
     cd ..
