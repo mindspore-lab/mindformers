@@ -17,6 +17,11 @@ from dataclasses import dataclass
 import os
 import time
 import numpy as np
+
+from mindspore.common import dtype as mstype
+from mindspore.common.initializer import initializer
+from mindspore.common.parameter import Parameter, ParameterTuple
+
 from mindspore import nn, dtype
 
 
@@ -57,6 +62,32 @@ def print_mode_size(net: nn.Cell):
           f"{'Model size':}:{net_size.size:.1E} {net_size.size_unit}", flush=True)
     print(f"{'The number of trainable Parameters':<40}:{trainable_net_size.parameters:.1E},\t "
           f"{'Model size':<2}:{trainable_net_size.size:.1E} {net_size.size_unit}", flush=True)
+
+
+def clone_state(parameter_tuple, prefix, init):
+    r"""
+        Clone the float32 copies of the parameter
+        parameter_tuple: ParameterTuple. The parameters of the network
+        prefix: str. The prefix name of the parameters
+        init: str. The initialization method
+    """
+    new = []
+    for old_param in parameter_tuple:
+        param_init = init
+        if init is None:
+            param_init = old_param.init
+        new_state = Parameter(initializer(param_init, shape=old_param.shape, dtype=mstype.float32))
+        new_state.param_info = old_param.param_info.clone()
+        new_state.is_init = False
+        new_state.is_param_ps = old_param.is_param_ps
+        new_state.init_in_server = old_param.init_in_server
+        new_state.cache_enable = old_param.cache_enable
+        new_state.requires_aggr = old_param.requires_aggr
+        if old_param.cache_shape:
+            new_state.cache_shape = old_param.cache_shape
+        new_state.name = prefix + '.' + new_state.name
+        new.append(new_state)
+    return ParameterTuple(new)
 
 
 def download_data(src_data_url, tgt_data_path, rank):

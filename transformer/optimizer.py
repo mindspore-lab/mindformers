@@ -21,13 +21,14 @@ from mindspore.ops import composite as C
 from mindspore.ops import functional as F
 from mindspore.common.initializer import initializer
 from mindspore.common.tensor import Tensor
-from mindspore.common.parameter import Parameter, ParameterTuple
+from mindspore.common.parameter import Parameter
 from mindspore._checkparam import Validator as validator
 from mindspore._checkparam import Rel
 from mindspore.nn.optim.optimizer import Optimizer, opt_init_args_register
 from mindspore.nn import AdamWeightDecay, Lamb
 
 from transformer.global_norm import ClipByGlobalNorm
+from transformer.utils import clone_state
 
 _adam_opt = C.MultitypeFuncGraph("adam_opt")
 _scaler_one = Tensor(1, mstype.int32)
@@ -174,38 +175,8 @@ class BaseAdamOptimizer(Optimizer):
         self.beta1 = Tensor(np.array([beta1]).astype(np.float32))
         self.beta2 = Tensor(np.array([beta2]).astype(np.float32))
         self.eps = Tensor(np.array([eps]).astype(np.float32))
-        self.moments1 = self.clone_param32(prefix="adam_m", init='zeros')
-        self.moments2 = self.clone_param32(prefix="adam_v", init='zeros')
-
-    def clone_param32(self, prefix, init=None):
-        """
-        Clone the parameters in ParameterTuple element-wisely to generate a new ParameterTuple with float32 data type.
-        Inputs:
-            prefix (str): The prefix name of the parameters.
-            init (Union[Tensor, str, numbers.Number]): Initialize the shape and dtype of the parameters.
-                The definition of `init` is the same as in `Parameter` API. If `init` is 'same', the
-                parameters in the new parameter tuple are the same as those in the original parameter tuple.
-                Default: 'same'.
-        Returns:
-            Tuple, the new Parameter tuple.
-        """
-        new = []
-        for old_param in self._parameters:
-            param_init = init
-            if init is None:
-                param_init = old_param.init
-            new_state = Parameter(initializer(param_init, shape=old_param.shape, dtype=mstype.float32))
-            new_state.param_info = old_param.param_info.clone()
-            new_state.is_init = False
-            new_state.is_param_ps = old_param.is_param_ps
-            new_state.init_in_server = old_param.init_in_server
-            new_state.cache_enable = old_param.cache_enable
-            new_state.requires_aggr = old_param.requires_aggr
-            if old_param.cache_shape:
-                new_state.cache_shape = old_param.cache_shape
-            new_state.name = prefix + '.' + new_state.name
-            new.append(new_state)
-        return ParameterTuple(new)
+        self.moments1 = clone_state(self._parameters, prefix="adam_m", init='zeros')
+        self.moments2 = clone_state(self._parameters, prefix="adam_v", init='zeros')
 
 
 class FusedAdamWeightDecay(BaseAdamOptimizer):
@@ -367,25 +338,8 @@ class FP32StateAdamWeightDecay(AdamWeightDecay):
                                                        beta2=beta2,
                                                        eps=eps,
                                                        weight_decay=weight_decay)
-
-        self.moments1 = self.clone_state(self._parameters, prefix='adam_m', init='zeros')
-        self.moments2 = self.clone_state(self._parameters, prefix='adam_v', init='zeros')
-
-    def clone_state(self, parameter_tuple, prefix, init):
-        r"""
-            parameter_tuple: ParameterTuple. The parameters of the network
-            prefix: str. The prefix name of the parameters
-            init: str. The initialization method
-        """
-        new = []
-        for old_param in parameter_tuple:
-            new_state = Parameter(initializer(init, shape=old_param.shape, dtype=mstype.float32))
-            new_state.param_info = old_param.param_info.clone()
-            new_state.is_init = False
-            new_state.set_data(initializer(init, shape=old_param.shape, dtype=mstype.float32))
-            new_state.name = prefix + '.' + new_state.name
-            new.append(new_state)
-        return ParameterTuple(new)
+        self.moments1 = clone_state(self._parameters, prefix='adam_m', init='zeros')
+        self.moments2 = clone_state(self._parameters, prefix='adam_v', init='zeros')
 
 
 class AdamWithScale(Optimizer):
