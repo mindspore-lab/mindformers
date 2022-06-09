@@ -190,7 +190,7 @@ class BaseAdamOptimizer(Optimizer):
             Tuple, the new Parameter tuple.
         """
         new = []
-        for old_param in self.parameters:
+        for old_param in self._parameters:
             param_init = init
             if init is None:
                 param_init = old_param.init
@@ -295,17 +295,18 @@ class FusedAdamWeightDecay(BaseAdamOptimizer):
             if self.is_group_lr:
                 optim_result = self.map_reverse(F.partial(_adam_opt, self.opt,
                                                           self.beta1, self.beta2, self.eps),
-                                                lr, self.weight_decay, self.parameters, self.moments1, self.moments2,
+                                                lr, self.weight_decay, self._parameters, self.moments1, self.moments2,
                                                 gradients, self.decay_flags, self.optim_filter)
             else:
                 optim_result = self.map_reverse(F.partial(_adam_opt, self.opt,
                                                           self.beta1, self.beta2, self.eps, lr),
-                                                self.weight_decay, self.parameters, self.moments1, self.moments2,
+                                                self.weight_decay, self._parameters, self.moments1, self.moments2,
                                                 gradients, self.decay_flags, self.optim_filter)
         else:
             optim_result = self.map_reverse(F.partial(_adam_opt, self.opt,
                                                       self.beta1, self.beta2, self.eps, lr,
-                                                      self.weight_decay), self.parameters, self.moments1, self.moments2,
+                                                      self.weight_decay), self._parameters, self.moments1,
+                                            self.moments2,
                                             gradients, self.decay_flags, self.optim_filter)
         if self.use_parallel:
             self.broadcast_params(optim_result)
@@ -334,17 +335,17 @@ class FusedAdamWeightDecayWithGlobalNorm(BaseAdamOptimizer):
             if self.is_group_lr:
                 optim_result = self.map_reverse(F.partial(_adam_opt, self.opt, clip_global_norm,
                                                           self.beta1, self.beta2, self.eps),
-                                                lr, self.weight_decay, self.parameters, self.moments1, self.moments2,
+                                                lr, self.weight_decay, self._parameters, self.moments1, self.moments2,
                                                 gradients, self.decay_flags, self.optim_filter)
             else:
                 optim_result = self.map_reverse(F.partial(_adam_opt, self.opt, clip_global_norm,
                                                           self.beta1, self.beta2, self.eps, lr),
-                                                self.weight_decay, self.parameters, self.moments1, self.moments2,
+                                                self.weight_decay, self._parameters, self.moments1, self.moments2,
                                                 gradients, self.decay_flags, self.optim_filter)
         else:
             optim_result = self.map_reverse(F.partial(_adam_opt, self.opt, clip_global_norm,
                                                       self.beta1, self.beta2, self.eps, lr, self.weight_decay),
-                                            self.parameters, self.moments1, self.moments2,
+                                            self._parameters, self.moments1, self.moments2,
                                             gradients, self.decay_flags, self.optim_filter)
         if self.use_parallel:
             self.broadcast_params(optim_result)
@@ -367,8 +368,8 @@ class FP32StateAdamWeightDecay(AdamWeightDecay):
                                                        eps=eps,
                                                        weight_decay=weight_decay)
 
-        self.moments1 = self.clone_state(self.parameters, prefix='adam_m', init='zeros')
-        self.moments2 = self.clone_state(self.parameters, prefix='adam_v', init='zeros')
+        self.moments1 = self.clone_state(self._parameters, prefix='adam_m', init='zeros')
+        self.moments2 = self.clone_state(self._parameters, prefix='adam_v', init='zeros')
 
     def clone_state(self, parameter_tuple, prefix, init):
         r"""
@@ -400,8 +401,8 @@ class AdamWithScale(Optimizer):
         self.beta1 = Tensor(np.array([beta1]).astype(np.float32))
         self.beta2 = Tensor(np.array([beta2]).astype(np.float32))
         self.eps = Tensor(np.array([eps]).astype(np.float32))
-        self.moments1 = self.parameters.clone(prefix="adam_m", init='zeros')
-        self.moments2 = self.parameters.clone(prefix="adam_v", init='zeros')
+        self.moments1 = self._parameters.clone(prefix="adam_m", init='zeros')
+        self.moments2 = self._parameters.clone(prefix="adam_v", init='zeros')
         self.hyper_map = C.HyperMap()
         self.beta1_power = Parameter(initializer(1, [1], mstype.float32), name="beta1_power")
         self.beta2_power = Parameter(initializer(1, [1], mstype.float32), name="beta2_power")
@@ -490,8 +491,8 @@ def get_optimizer(net,
                   args=None,
                   stage_num=1,
                   fused=True,
-                  param_init_type=mstype.float32,
-                  opt_offload=False):
+                  opt_offload=False,
+                  flatten_weights=False):
     """ Get the optimizer according to the args_opt and the net"""
     if optimizer_name == "adamw":
         no_weight_decay_filter = [x for x in args.no_weight_decay_filter.split(",") if x]
@@ -501,11 +502,12 @@ def get_optimizer(net,
 
     params = net.trainable_params() if stage_num <= 1 else net.infer_param_pipeline_stage()
 
-    enable_offload = bool(opt_offload)
+    enable_offload = opt_offload
 
-    offload_grad_fp16 = enable_offload and param_init_type == mstype.float16
-
-    group_params = set_weight_decay(params)
+    if flatten_weights:
+        group_params = params
+    else:
+        group_params = set_weight_decay(params)
 
     optimizer_args = dict(learning_rate=lr, eps=1e-8, beta1=0.9, beta2=0.95)
     if enable_offload:
@@ -526,10 +528,11 @@ def get_optimizer(net,
         def __init__(self, *args, **kwargs):
             super(OptimizerWithClipNorm, self).__init__(*args, **kwargs)
             self.optimizer = super(OptimizerWithClipNorm, self).construct
-            self.norm = ClipByGlobalNorm(enable_grad_fp16=offload_grad_fp16,
+            self.norm = ClipByGlobalNorm(enable_grad_fp16=enable_offload,
                                          clip_norm=1.0)
 
         def construct(self, gradients):
+            gradients = self.flatten_gradients(gradients)
             grads, norm = self.norm(gradients)
             if self.fuse_global_norm:
                 return self.optimizer(grads, norm)  # pylint: disable=too-many-function-args

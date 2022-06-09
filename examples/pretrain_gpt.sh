@@ -26,6 +26,8 @@ DATA_DIR=$3
 
 python pretrain_gpt.py \
     --distribute="false" \
+    --opt_offload="false" \
+    --flatten_weights="false" \
     --epoch_size=$EPOCH_SIZE \
     --device_id=$DEVICE_ID \
     --data_path=$DATA_DIR \
