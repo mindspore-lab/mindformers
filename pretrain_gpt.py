@@ -117,6 +117,12 @@ def run_train():
     """Main training process"""
     opt = get_config()
     set_context_env(opt)
+    opt_offload = False
+    if opt.opt_offload == "true":
+        opt_offload = True
+    flatten_weights = False
+    if opt.flatten_weights == "true":
+        flatten_weights = True
     rank_id, device_num = set_auto_parallel_context_env(opt)
     parallel_config = get_parallel_config(opt)
 
@@ -126,7 +132,8 @@ def run_train():
     net = GPT(model_config)
     loss = CrossEntropyLoss(parallel_config.dp_mp_config)
     net_with_loss = GPTWithLoss(net, loss, model_config)
-
+    if flatten_weights:
+        net_with_loss.flatten_weights()
     ds = get_dataset(opt, rank_id, device_num)
 
     epoch_num = opt.epoch_size
@@ -137,7 +144,14 @@ def run_train():
                       warmup_steps=opt.warmup_step,
                       decay_steps=epoch_num * step_per_epoch)
 
-    optimizer = get_optimizer(net_with_loss, lr, opt.optimizer)
+    optimizer = get_optimizer(net=net_with_loss,
+                              lr=lr,
+                              optimizer_name=opt.optimizer,
+                              args=None,
+                              stage_num=1,
+                              fused=True,
+                              opt_offload=opt_offload,
+                              flatten_weights=flatten_weights)
 
     callback_size = opt.sink_size
     actual_epoch_num = int(epoch_num * step_per_epoch / callback_size)
