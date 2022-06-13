@@ -58,6 +58,7 @@ attention_probs_dropout_prob_ev: 0.0
 beam_width: 4
 max_decode_length: 80
 length_penalty_weight: 1.0
+micro_batch_num: 1
 
 # ==============================================================================
 # train.py / Argparse init.
@@ -112,6 +113,9 @@ model_parallel: 1
 pipeline_stage: 1
 micro_batch_num: 1
 recompute: False
+parallel_comm_recompute: False
+mp_comm_recompute: False
+recompute_slice_activation: False
 optimizer_shard: False
 gradient_aggregation_group: 1
 vocab_emb_dp: True

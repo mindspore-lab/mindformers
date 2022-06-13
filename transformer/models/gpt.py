@@ -84,9 +84,12 @@ class GPTModel(nn.Cell):
                                        encoder_layers=config.num_layers,
                                        decoder_layers=0,
                                        param_init_type=config.compute_dtype,
+                                       layernorm_compute_type=config.compute_dtype,
+                                       softmax_compute_type=config.compute_dtype,
                                        num_heads=config.num_heads,
                                        parallel_config=config.parallel_config,
                                        moe_config=moe_config)
+        self.use_moe = (moe_config.expert_num > 1)
         self.layernorm = _LayerNorm((config.embedding_size,)).to_float(config.compute_dtype)
         self.layernorm.shard(((config.parallel_config.data_parallel, 1, 1),))
         self.add = P.Add().shard(
@@ -106,9 +109,14 @@ class GPTModel(nn.Cell):
 
         hidden_states = P.Cast()(hidden_states, mstype.float16)
         attention_mask = self.get_attention_mask(input_mask)
-
-        hidden_states, present_layer, _ = self.transformer(hidden_states, attention_mask)
+        moe_loss = 0
+        if self.use_moe:
+            hidden_states, present_layer, _, moe_loss = self.transformer(hidden_states, attention_mask)
+        else:
+            hidden_states, present_layer, _ = self.transformer(hidden_states, attention_mask)
         output_state = self.layernorm(hidden_states)
+        if self.use_moe:
+            return output_state, present_layer, embedding_table, moe_loss
         return output_state, present_layer, embedding_table
 
 class GPTHead(nn.Cell):
@@ -163,8 +171,12 @@ class GPT(nn.Cell):
         super(GPT, self).__init__()
         self.backbone = GPTModel(config)
         self.head = GPTHead(config.embedding_size, parallel_config=config.parallel_config)
-
+        self.use_moe = self.backbone.use_moe
     def construct(self, input_ids, input_mask):
+        if self.use_moe:
+            output_states, _, embedding_table, moe_loss = self.backbone(input_ids, input_mask)
+            logits = self.head(output_states, embedding_table)
+            return logits, moe_loss
         output_states, _, embedding_table = self.backbone(input_ids, input_mask)
         logits = self.head(output_states, embedding_table)
         return logits
@@ -194,16 +206,24 @@ class GPTWithLoss(nn.Cell):
         dp = config.parallel_config.data_parallel
         self.stridedslice = P.StridedSlice().shard(((dp, 1),))
         self.not_equal = P.NotEqual().shard(((dp, 1), ()))
-
+        self.use_moe = self.network.use_moe
+        self.add = P.Add().shard(((1,), ()))
     def construct(self, input_ids):
+        """GPT model with loss"""
+        moe_loss = 0
         batch_size, seq_length = self.shape(input_ids)
         tokens = self.stridedslice(input_ids, (0, 0), (batch_size, seq_length - 1), (1, 1))
         input_mask = F.cast(self.not_equal(tokens, self.eos_token), mstype.float32)
-        logits = self.network(tokens, input_mask)
+        if self.use_moe:
+            logits, moe_loss = self.network(tokens, input_mask)
+        else:
+            logits = self.network(tokens, input_mask)
         labels = self.stridedslice(input_ids, (0, 1), (batch_size, seq_length), (1, 1))
         labels = P.Reshape()(labels, (-1,))
         input_mask = P.Reshape()(input_mask, (-1,))
         output = self.loss(logits, labels, input_mask)
+        if self.use_moe:
+            return self.add(output, moe_loss)
         return output
 
 class EvalNet(nn.Cell):

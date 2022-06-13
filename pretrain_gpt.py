@@ -25,7 +25,7 @@ from mindspore.nn.transformer.loss import CrossEntropyLoss
 from mindspore.nn.transformer import TransformerRecomputeConfig, MoEConfig, TransformerOpParallelConfig
 import mindspore.common.dtype as mstype
 from mindspore.common import set_seed
-
+from mindspore.nn.wrap.cell_wrapper import MicroBatchInterleaved
 from transformer.data.dataset import create_dataset
 from transformer.optimizer import get_optimizer
 from transformer.models.gpt import GPTWithLoss, GPTConfig, GPT
@@ -42,9 +42,7 @@ def set_context_env(opt):
         # Enable graph kernel
         context.set_context(enable_graph_kernel=True)
         context.set_context(graph_kernel_flags="--enable_parallel_fusion=true\
-                            --parallel_ops_level=1\
-                            --disable_cluster_ops=ReduceMax \
-                            --disable_expand_ops=SoftmaxCrossEntropyWithLogits,Softmax,LogSoftmax")
+                             --disable_expand_ops=Softmax")
 
 
 def set_auto_parallel_context_env(opt):
@@ -71,9 +69,9 @@ def get_parallel_config(opt):
     model_parallel_num = opt.model_parallel
     data_parallel_num = opt.data_parallel
     recompute_config = TransformerRecomputeConfig(recompute=opt.recompute,
-                                                  parallel_optimizer_comm_recompute=True,
-                                                  mp_comm_recompute=True,
-                                                  recompute_slice_activation=True)
+                                                  parallel_optimizer_comm_recompute=opt.parallel_comm_recompute,
+                                                  mp_comm_recompute=opt.mp_comm_recompute,
+                                                  recompute_slice_activation=opt.recompute_slice_activation)
     parallel_config = TransformerOpParallelConfig(data_parallel=data_parallel_num,
                                                   model_parallel=model_parallel_num,
                                                   vocab_emb_dp=bool(opt.vocab_emb_dp),
@@ -88,7 +86,11 @@ def get_parallel_config(opt):
 
 def get_model_config(opt):
     """Get the model config from the yaml files"""
-    config = GPTConfig(batch_size=opt.global_batch_size,
+    micro_batch_interleaved = opt.micro_batch_num
+    if opt.global_batch_size % micro_batch_interleaved != 0:
+        raise ValueError(f"global_batch_size:{opt.global_batch_size} must be a multiple of micro_batch_interleaved:"
+                         f"{micro_batch_interleaved}.")
+    config = GPTConfig(batch_size=int(opt.global_batch_size/micro_batch_interleaved),
                        seq_length=opt.max_seq_length,
                        vocab_size=opt.vocab_size,
                        embedding_size=opt.hidden_size,
@@ -132,6 +134,8 @@ def run_train():
     net = GPT(model_config)
     loss = CrossEntropyLoss(parallel_config.dp_mp_config)
     net_with_loss = GPTWithLoss(net, loss, model_config)
+    if opt.micro_batch_num > 1:
+        net_with_loss = MicroBatchInterleaved(net_with_loss, opt.micro_batch_num)
     if flatten_weights:
         net_with_loss.flatten_weights()
     ds = get_dataset(opt, rank_id, device_num)
