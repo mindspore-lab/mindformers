@@ -40,8 +40,8 @@ def create_dataset(batch_size, data_path, device_num=1, rank=0, drop=True):
     home_path = os.path.join(os.getcwd(), data_path)
     data = [os.path.join(home_path, name) for name in os.listdir(data_path) if name.endswith("mindrecord")]
     print(data)
-    dataset = ds.MindDataset(data, columns_list=["input_ids"], shuffle=True, num_shards=device_num, shard_id=rank)
+    dataset = ds.MindDataset(data, columns_list=["text"], shuffle=True, num_shards=device_num, shard_id=rank)
     type_cast_op = C.TypeCast(mstype.int32)
-    dataset = dataset.map(input_columns="input_ids", operations=type_cast_op)
+    dataset = dataset.map(input_columns="text", operations=type_cast_op)
     dataset = dataset.batch(batch_size, drop_remainder=drop)
     return dataset

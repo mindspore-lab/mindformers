@@ -27,7 +27,7 @@ from mindspore.ops import operations as P
 from mindspore.common.tensor import Tensor
 from mindspore.nn.transformer.layers import _LayerNorm
 from mindspore.nn.transformer.transformer import Transformer, VocabEmbedding
-from mindspore.nn.transformer import MoEConfig, TransformerOpParallelConfig
+from mindspore.nn.transformer import TransformerOpParallelConfig
 from mindspore.nn.transformer.transformer import default_transformer_config
 
 @dataclass
@@ -173,12 +173,13 @@ class CreateAttentionMaskFromInputMask(nn.Cell):
         self.input_mask = None
         self.cast = P.Cast()
         self.reshape = P.Reshape()
-        self.tile = mindspore.ops.tile().shard(((config.parallel_config.data_parallel, 1, 1),))
+        self.tile = mindspore.ops.Tile().shard(((config.parallel_config.data_parallel, 1, 1),))
 
     def construct(self, input_mask):
         seq_length = F.shape(input_mask)[1]
         attention_mask = self.cast(self.reshape(input_mask, (-1, 1, seq_length)), mstype.float16)
         attention_mask = self.tile(attention_mask, (1, seq_length, 1))
+        return attention_mask
 
 class BertModel(nn.Cell):
     """
@@ -204,7 +205,7 @@ class BertModel(nn.Cell):
         self.num_hidden_layers = config.num_layers
         self.embedding_size = config.embedding_size
         self.token_type_ids = None
-        self.use_moe = config.use_moe
+        self.use_moe = (config.parallel_config.moe_config.expert_num > 1)
 
         self.word_embedding = VocabEmbedding(vocab_size=config.vocab_size,
                                              embedding_size=config.embedding_size,
@@ -213,11 +214,7 @@ class BertModel(nn.Cell):
                                                                     dtype=mstype.float32),
                                              parallel_config=config.parallel_config.embedding_dp_mp_config)
 
-        if config.use_moe:
-            moe_config = MoEConfig(expert_num=config.parallel_config.expert_num)
-        else:
-            moe_config = MoEConfig(expert_num=1)
-
+        moe_config = config.parallel_config.moe_config
         output_embedding_shape = [-1, config.seq_length, self.embedding_size]
 
         self.embedding_postprocessor = EmbeddingPostprocessor(config,
@@ -276,6 +273,7 @@ class BertModel(nn.Cell):
         first_token = self.squeeze_1(sequence_slice)
         pooled_output = self.dense(first_token)
         pooled_output = self.cast(pooled_output, self.dtype)
+        moe_loss = 0
         if self.use_moe:
             moe_loss = encoder_output[-1]
             return sequence_output, pooled_output, embedding_tables, moe_loss
@@ -299,13 +297,14 @@ class BertPreTraining(nn.Cell):
         self.bert = BertModel(config, is_training, use_one_hot_embeddings)
         self.mlmloss = GetMaskedLMOutput(config)
         self.nsploss = GetNextSentenceOutput(config)
-        self.use_moe = config.use_moe
+        self.use_moe = (config.parallel_config.moe_config.expert_num > 1)
+
     def construct(self, input_ids, input_mask, token_type_id,
                   masked_lm_positions):
         """connect backbone and heads."""
         moe_loss = 0
         if self.use_moe:
-            sequence_output, pooled_output, embedding_table, moe_loss = \
+            sequence_output, pooled_output, embedding_table, _ = \
                 self.bert(input_ids, token_type_id, input_mask)
         else:
             sequence_output, pooled_output, embedding_table = \
@@ -331,20 +330,22 @@ class BertPretrainingLoss(nn.Cell):
     def __init__(self, config):
         super(BertPretrainingLoss, self).__init__()
         self.vocab_size = config.vocab_size
-        self.onehot = P.OneHot().shard(((config.parallel_config.data_parallel,),))
+        self.onehot = P.OneHot().shard(((config.parallel_config.data_parallel, 1), (), ()))
         self.on_value = Tensor(1.0, mstype.float32)
         self.off_value = Tensor(0.0, mstype.float32)
         self.reduce_sum = P.ReduceSum().shard(((config.parallel_config.data_parallel,),))
         self.reduce_sum1 = P.ReduceSum().shard(((config.parallel_config.data_parallel, 1),))
         self.reduce_mean = P.ReduceMean().shard(((config.parallel_config.data_parallel,),))
+        self.reduce_mean2 = P.ReduceMean().shard(((1,),))
         self.reshape = P.Reshape()
         self.last_idx = (-1,)
         self.neg = P.Neg().shard(((config.parallel_config.data_parallel,),))
         self.cast = P.Cast()
-        self.div = P.RealDiv().shard(((config.parallel_config.data_parallel,),
-                                      (config.parallel_config.data_parallel,)))
-        self.add = P.Add().shard(((config.parallel_config.data_parallel,),
-                                  (config.parallel_config.data_parallel,)))
+        self.div = P.RealDiv().shard(((), (1,)))
+        self.add = P.Add().shard(((1,), ()))
+        self.mul = P.Mul().shard(((config.parallel_config.data_parallel, 1), (config.parallel_config.data_parallel, 1)))
+        self.mul2 = P.Mul().shard(((config.parallel_config.data_parallel,), (config.parallel_config.data_parallel,)))
+
     def construct(self, prediction_scores, seq_relationship_score, masked_lm_ids,
                   masked_lm_weights, next_sentence_labels):
         """Defines the computation performed."""
@@ -352,8 +353,8 @@ class BertPretrainingLoss(nn.Cell):
         label_weights = self.cast(self.reshape(masked_lm_weights, self.last_idx), mstype.float32)
         one_hot_labels = self.onehot(label_ids, self.vocab_size, self.on_value, self.off_value)
 
-        per_example_loss = self.neg(self.reduce_sum1(prediction_scores * one_hot_labels, self.last_idx))
-        numerator = self.reduce_sum(label_weights * per_example_loss, ())
+        per_example_loss = self.neg(self.reduce_sum1(self.mul(prediction_scores, one_hot_labels), self.last_idx))
+        numerator = self.reduce_sum(self.mul2(label_weights, per_example_loss), ())
         denominator = self.reduce_sum(label_weights, ()) + self.cast(F.tuple_to_array((1e-5,)), mstype.float32)
         masked_lm_loss = self.div(numerator, denominator)
 
@@ -361,9 +362,8 @@ class BertPretrainingLoss(nn.Cell):
         labels = self.reshape(next_sentence_labels, self.last_idx)
         one_hot_labels = self.onehot(labels, 2, self.on_value, self.off_value)
         per_example_loss = self.neg(self.reduce_sum1(
-            one_hot_labels * seq_relationship_score, self.last_idx))
-        next_sentence_loss = self.reduce_mean(per_example_loss, self.last_idx)
-
+            self.mul(one_hot_labels, seq_relationship_score), self.last_idx))
+        next_sentence_loss = self.reduce_mean2(per_example_loss, self.last_idx)
         # total_loss
         total_loss = self.add(masked_lm_loss, next_sentence_loss)
 
@@ -387,7 +387,8 @@ class BertNetworkWithLoss(nn.Cell):
         self.bert = BertPreTraining(config, is_training, use_one_hot_embeddings)
         self.loss = BertPretrainingLoss(config)
         self.cast = P.Cast()
-
+        self.use_moe = (config.parallel_config.moe_config.expert_num > 1)
+        self.add = P.Add().shard(((1,), ()))
     def construct(self,
                   input_ids,
                   input_mask,
@@ -401,7 +402,8 @@ class BertNetworkWithLoss(nn.Cell):
             self.bert(input_ids, input_mask, token_type_id, masked_lm_positions)
         total_loss = self.loss(prediction_scores, seq_relationship_score,
                                masked_lm_ids, masked_lm_weights, next_sentence_labels)
-        total_loss += moe_loss
+        if self.use_moe:
+            total_loss = self.add(total_loss, moe_loss)
         return self.cast(total_loss, mstype.float32)
 
 class GetMaskedLMOutput(nn.Cell):
