@@ -32,6 +32,8 @@ from transformer.models.gpt import GPTWithLoss, GPTConfig, GPT
 from transformer.config_parser.parser import get_config
 from transformer.learning_rate import LearningRate
 from transformer.utils import download_data
+from transformer.model_warpper import AccModel
+from transformer.cell_wrapper import TrainAccuStepsWithLossScaleCell
 
 
 def set_context_env(opt):
@@ -55,7 +57,7 @@ def set_auto_parallel_context_env(opt):
 
         context.reset_auto_parallel_context()
         context.set_auto_parallel_context(parallel_mode=opt.parallel_mode, gradients_mean=True,
-                                          device_num=device_num)
+                                          device_num=device_num, grad_accumulation_step=opt.acc_step)
     else:
         rank_id = 0
         device_num = 1
@@ -173,9 +175,15 @@ def run_train():
     else:
         loss_scale_manager = DynamicLossScaleManager(init_loss_scale=opt.init_loss_scale_value,
                                                      scale_factor=opt.scale_factor, scale_window=opt.scale_window)
-
-    model = Model(net_with_loss, optimizer=optimizer, loss_scale_manager=loss_scale_manager)
-    model.train(actual_epoch_num, ds, callbacks=callback, sink_size=callback_size)
+    if opt.acc_step > 1:
+        accu_net_wrapper = TrainAccuStepsWithLossScaleCell(net_with_loss, optimizer=optimizer,
+                                                           scale_update_cell=loss_scale_manager.get_update_cell())
+        model = AccModel(accu_net_wrapper)
+        # Note: If accumulation is enabled, it only supports dataset sink mode
+        model.train(actual_epoch_num, ds, callbacks=callback, dataset_sink_mode=True)
+    else:
+        model = Model(net_with_loss, optimizer=optimizer, loss_scale_manager=loss_scale_manager)
+        model.train(actual_epoch_num, ds, callbacks=callback, sink_size=callback_size)
 
 
 if __name__ == "__main__":

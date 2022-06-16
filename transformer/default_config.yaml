@@ -122,6 +122,7 @@ vocab_emb_dp: True
 expert_parallel_num: 1
 expert_num: 1
 per_token_num_experts_chosen: 1
+acc_step: 1
 
 
 ---
@@ -180,6 +181,7 @@ vocab_emb_dp: "WordEmbedding"
 expert_parallel_num: "expert_parallel_num"
 expert_num: "The total expert number"
 per_token_num_experts_chosen: "per_token_num_experts_chosen"
+acc_step: "An int. Used for controlling the steps of gradient accumulation. If it's 1, the gradient accumulation will be disabled. If it's greater than 1, The model will accumulate acc_step-1 steps and then be updated in step acc_step. Default 1"
 
 ---
 device_target: ["Ascend", "GPU", "CPU"]

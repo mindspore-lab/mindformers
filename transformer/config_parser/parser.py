@@ -151,6 +151,5 @@ def get_config():
     final_config = merge(args, default)
     modify_batch_size(final_config)
     pprint(final_config)
-    pprint(final_config['bucket_boundaries'])
     pprint("Please check the above information for the configurations")
     return Config(final_config)
