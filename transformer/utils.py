@@ -64,19 +64,26 @@ def print_mode_size(net: nn.Cell):
           f"{'Model size':<2}:{trainable_net_size.size:.1E} {net_size.size_unit}", flush=True)
 
 
-def clone_state(parameter_tuple, prefix, init):
+def clone_state(parameter_tuple, prefix, init, forced_dtype=mstype.float32, is_follow=False):
     r"""
-        Clone the float32 copies of the parameter
+        Clone the parameters
         parameter_tuple: ParameterTuple. The parameters of the network
         prefix: str. The prefix name of the parameters
         init: str. The initialization method
+        forced_dtype: mstype. The except the dtype to be cloned. If is_follow is True, forced_dtype will be ignored.
+               Default: mstype.float32
+        is_follow: bool. Is clone the parameters with the original dtype. If is_follow is True, the forced_dtype
+               argument will be ignored. Default: False.
     """
     new = []
     for old_param in parameter_tuple:
         param_init = init
         if init is None:
             param_init = old_param.init
-        new_state = Parameter(initializer(param_init, shape=old_param.shape, dtype=mstype.float32))
+        cur_dtype = forced_dtype
+        if is_follow:
+            cur_dtype = old_param.dtype
+        new_state = Parameter(initializer(param_init, shape=old_param.shape, dtype=cur_dtype))
         new_state.param_info = old_param.param_info.clone()
         new_state.is_init = False
         new_state.is_param_ps = old_param.is_param_ps

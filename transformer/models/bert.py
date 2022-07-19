@@ -169,7 +169,7 @@ class CreateAttentionMaskFromInputMask(nn.Cell):
         config (Class): Configuration for BertModel.
     """
     def __init__(self, config):
-        super(CreateAttentionMaskFromInputMask, self).__init()
+        super(CreateAttentionMaskFromInputMask, self).__init__()
         self.input_mask = None
         self.cast = P.Cast()
         self.reshape = P.Reshape()
@@ -239,7 +239,9 @@ class BertModel(nn.Cell):
             parallel_config=config.parallel_config,
             decoder_layers=0,
             moe_config=moe_config,
-            param_init_type=config.dtype)
+            param_init_type=config.compute_dtype,
+            layernorm_compute_type=config.compute_dtype,
+            softmax_compute_type=config.compute_dtype)
 
         self.cast = P.Cast()
         self.dtype = config.dtype
