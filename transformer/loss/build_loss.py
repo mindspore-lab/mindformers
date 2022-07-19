@@ -1,7 +1,3 @@
-# Copyright 2022 Huawei Technologies Co., Ltd
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
 # http://www.apache.org/licenses/LICENSE-2.0
@@ -13,6 +9,10 @@
 # limitations under the License.
 # ============================================================================
 """
-Data operations
+Loss operations
 """
-from .build_dataset import build_dataset
+from mindspore.nn.transformer import CrossEntropyLoss
+
+
+def build_loss(_, parallel_config):
+    return CrossEntropyLoss(parallel_config)

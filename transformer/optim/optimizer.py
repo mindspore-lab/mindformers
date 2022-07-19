@@ -439,14 +439,14 @@ def set_weight_decay(params):
     return group_params
 
 
-def get_optimizer(net,
-                  lr,
-                  optimizer_name,
-                  args=None,
-                  stage_num=1,
-                  fused=True,
-                  opt_offload=False,
-                  flatten_weights=False):
+def build_optimizer(net,
+                    lr,
+                    optimizer_name,
+                    args=None,
+                    stage_num=1,
+                    fused=True,
+                    opt_offload=False,
+                    flatten_weights=False):
     """ Get the optimizer according to the args_opt and the net"""
     if optimizer_name == "adamw":
         no_weight_decay_filter = [x for x in args.no_weight_decay_filter.split(",") if x]

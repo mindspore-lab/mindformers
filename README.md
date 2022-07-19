@@ -91,11 +91,11 @@ python tasks/glue/generate_records.py  \
 3. 单卡训练gpt模型
 
 ```bash
-bash examples/pretrain_gpt.sh  DEVICE_ID EPOCH_SIZE DATA_DIR
+bash examples/pretrain/pretrain_gpt.sh  DEVICE_ID EPOCH_SIZE DATA_DIR
 ```
 
 3. 单机8卡训练gpt模型
 
 ```bash
-bash examples/pretrain_gpt_distributed.sh 8 hostfile /path/dataset
+bash examples/pretrain/pretrain_gpt_distributed.sh 8 hostfile /path/dataset
 ```

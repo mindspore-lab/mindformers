@@ -27,6 +27,7 @@ from mindspore.nn.transformer import TransformerOpParallelConfig
 from mindspore.nn.transformer.transformer import default_transformer_config
 from mindspore.nn.transformer.layers import _LayerNorm
 from mindspore.nn.transformer.transformer import AttentionMask, Transformer, VocabEmbedding
+from mindspore.nn.transformer.loss import CrossEntropyLoss
 
 @dataclass
 class GPTConfig:
@@ -43,7 +44,6 @@ class GPTConfig:
     post_layernorm_residual: bool = False
     dropout_rate: float = 0.1
     compute_dtype: mstype = mstype.float16
-    per_dp_dim_expert_num: int = 4
     parallel_config: TransformerOpParallelConfig = default_transformer_config
 
 class GPTModel(nn.Cell):
@@ -207,13 +207,13 @@ class GPTWithLoss(nn.Cell):
     Returns:
         output: Tensor, the loss of the network
     """
-    def __init__(self, network, loss, config, eos_token=50256):
+    def __init__(self, network, loss, parallel_config, eos_token=50256):
         super(GPTWithLoss, self).__init__(auto_prefix=False)
         self.network = network
         self.loss = loss
         self.eos_token = eos_token
         self.shape = P.Shape()
-        dp = config.parallel_config.data_parallel
+        dp = parallel_config.data_parallel
         self.stridedslice = P.StridedSlice().shard(((dp, 1),))
         self.not_equal = P.NotEqual().shard(((dp, 1), ()))
         self.use_moe = self.network.use_moe
@@ -268,3 +268,10 @@ class EvalNet(nn.Cell):
         else:
             outputs = self.argmax(logits)
         return outputs
+
+
+def get_gpt_network(_, model_config):
+    loss = CrossEntropyLoss(model_config.parallel_config.dp_mp_config)
+    net = GPT(model_config)
+    net_with_loss = GPTWithLoss(net, loss, model_config.parallel_config)
+    return net_with_loss

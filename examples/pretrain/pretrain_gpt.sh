@@ -16,23 +16,23 @@
 
 echo "=============================================================================================================="
 echo "Please run the script as: "
-echo "bash examples/pretrain_gpt.sh  DEVICE_ID EPOCH_SIZE DATA_DIR"
-echo "for example: bash examples/pretrain_gpt.sh 0 40 /path/zh-wiki/"
+echo "bash examples/pretrain/pretrain_gpt.sh  DEVICE_ID EPOCH_SIZE DATA_DIR"
+echo "for example: bash examples/pretrain/pretrain_gpt.sh 0 40 /path/zh-wiki/"
 echo "=============================================================================================================="
-
+export GLOG_v=3
 DEVICE_ID=$1
 EPOCH_SIZE=$2
 DATA_DIR=$3
 
-python pretrain_gpt.py \
-    --distribute="false" \
-    --opt_offload="false" \
-    --flatten_weights="false" \
+python ./transformer/train.py \
+    --config='./transformer/configs/gpt/gpt_base.yaml' \
+    --opt_offload=False \
+    --flatten_weights=False \
     --epoch_size=$EPOCH_SIZE \
-    --device_id=$DEVICE_ID \
-    --data_path=$DATA_DIR \
+    --data_url=$DATA_DIR \
     --optimizer="adam"  \
     --max_seq_length=1024 \
+    --parallel_mode="stand_alone" \
     --global_batch_size=4 \
     --vocab_size=50257 \
     --hidden_size=2048 \

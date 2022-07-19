@@ -25,7 +25,7 @@ from mindspore.train.serialization import load_checkpoint
 
 from transformer.models.vit import get_network
 from transformer.data.image_dataset import get_dataset
-from transformer.optimizer import get_optimizer
+from transformer.optim.optimizer import build_optimizer
 from transformer.logger import get_logger
 from transformer.configs.vit.config import config
 from tasks.vision.eval_engine import get_eval_engine
@@ -119,7 +119,7 @@ def eval_net():
                                dataset_path=args.eval_path,
                                args=args)
 
-    opt = get_optimizer(optimizer_name='adamw', net=net, lr=1.0, args=args)
+    opt = build_optimizer(optimizer_name='adamw', net=net, lr=1.0, args=args)
 
     # evaluation engine
     if args.open_profiler or eval_dataset is None:

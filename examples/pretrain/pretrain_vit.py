@@ -26,12 +26,12 @@ from mindspore.train.loss_scale_manager import DynamicLossScaleManager
 from mindspore.communication import init, get_rank
 from mindspore.profiler.profiling import Profiler
 from mindspore.train.serialization import load_checkpoint
-from mindspore.parallel.nn.transformer import TransformerOpParallelConfig
+from mindspore.nn.transformer import TransformerOpParallelConfig
 import mindspore.dataset as ds
 
 from transformer.models.vit import get_network, get_loss
 from transformer.data.image_dataset import get_dataset
-from transformer.optimizer import get_optimizer
+from transformer.optim.optimizer import build_optimizer
 from transformer.learning_rate import get_lr
 from transformer.callback import StateMonitor
 from transformer.logger import get_logger
@@ -198,7 +198,7 @@ def train_net():
     lr = Tensor(lr_array)
 
     # optimizer, group_params used in grad freeze
-    opt = get_optimizer(optimizer_name=args.opt, net=net, lr=lr, args=args)
+    opt = build_optimizer(optimizer_name=args.opt, net=net, lr=lr, args=args)
 
     # model
     model = Model(net, loss_fn=loss, optimizer=opt,

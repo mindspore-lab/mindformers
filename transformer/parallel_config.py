@@ -13,6 +13,15 @@
 # limitations under the License.
 # ============================================================================
 """
-Data operations
+Parallel Config initialization
 """
-from .build_dataset import build_dataset
+from mindspore.nn.transformer import TransformerRecomputeConfig, MoEConfig, TransformerOpParallelConfig
+
+
+def build_parallel_config(opt):
+    """Get the parallel config from the yaml file"""
+    recompute_config = TransformerRecomputeConfig(**opt.recompute_config)
+    parallel_config = TransformerOpParallelConfig(**opt.parallel_config,
+                                                  recompute=recompute_config)
+    parallel_config.moe_config = MoEConfig(**opt.moe_config)
+    return parallel_config
