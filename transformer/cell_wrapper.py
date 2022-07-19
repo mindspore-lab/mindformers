@@ -1,4 +1,18 @@
-
+# Copyright 2022 Huawei Technologies Co., Ltd
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ============================================================================
+"""Used for gradient accumulation."""
 import numpy as np
 from mindspore.ops import operations as P
 from mindspore.ops import composite as C
@@ -23,7 +37,7 @@ update_accu_grads = C.MultitypeFuncGraph("update_accu_grads")
 @update_accu_grads.register("Tensor", "Tensor")
 def _update_accu_grads(accu_grad, grad):
     succ = True
-    return F.depend(succ, F.assign_add(accu_grad, cast(grad, mstype.float32)))
+    return F.depend(succ, F.assign_add(accu_grad, cast(grad, F.dtype(accu_grad))))
 
 zeroslike = P.ZerosLike()
 
@@ -67,7 +81,7 @@ class TrainAccuStepsWithLossScaleCell(TrainOneStepWithLossScaleCell):
         self.accumulation_steps = context.get_auto_parallel_context("grad_accumulation_step")
         self.one = Tensor(np.array([1]).astype(np.int32))
         self.zero = Tensor(np.array([0]).astype(np.int32))
-        self.accu_grads = clone_state(self.weights, prefix="accu_grads", init="zeros")
+        self.accu_grads = clone_state(self.weights, prefix="accu_grads", init="zeros", is_follow=True)
         self.accu_overflow = Parameter(initializer(0, [1], mstype.int32))
         self.accu_loss = Parameter(initializer(0, [1], mstype.float32))
         self.cast = P.Cast()
@@ -126,5 +140,3 @@ class TrainAccuStepsWithLossScaleCell(TrainOneStepWithLossScaleCell):
 
         ret = (loss, overflow, scaling_sens)
         return ret
-
-

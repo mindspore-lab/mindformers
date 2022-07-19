@@ -14,6 +14,7 @@
 # ============================================================================
 
 """GPT model"""
+import copy
 from dataclasses import dataclass
 
 import numpy as np
@@ -72,8 +73,16 @@ class GPTModel(nn.Cell):
                                                                     [config.vocab_size, config.embedding_size],
                                                                     dtype=config.compute_dtype),
                                              parallel_config=config.parallel_config.embedding_dp_mp_config)
-        self.position_embedding = nn.Embedding(config.seq_length, config.embedding_size,
-                                               embedding_table=TruncatedNormal(0.02))
+
+        new_parallel_config = copy.deepcopy(config.parallel_config.embedding_dp_mp_config)
+        new_parallel_config.vocab_emb_dp = True
+
+        self.position_embedding = VocabEmbedding(vocab_size=config.seq_length,
+                                                 embedding_size=config.embedding_size,
+                                                 param_init=initializer(TruncatedNormal(0.02),
+                                                                        [config.seq_length, config.embedding_size],
+                                                                        dtype=config.compute_dtype),
+                                                 parallel_config=new_parallel_config)
         self.blocks = nn.CellList()
         moe_config = config.parallel_config.moe_config
         self.transformer = Transformer(hidden_size=config.embedding_size,
@@ -82,6 +91,8 @@ class GPTModel(nn.Cell):
                                        src_seq_length=config.seq_length,
                                        tgt_seq_length=config.seq_length,
                                        encoder_layers=config.num_layers,
+                                       attention_dropout_rate=config.dropout_rate,
+                                       hidden_dropout_rate=config.dropout_rate,
                                        decoder_layers=0,
                                        param_init_type=config.compute_dtype,
                                        layernorm_compute_type=config.compute_dtype,
@@ -103,8 +114,7 @@ class GPTModel(nn.Cell):
         input_position = F.tuple_to_array(F.make_range(seq_length))
         input_position = P.Tile()(input_position, (batch_size, 1))
 
-
-        position_embedding = self.position_embedding(input_position)
+        position_embedding, _ = self.position_embedding(input_position)
         hidden_states = self.add(input_embedding, position_embedding)
 
         hidden_states = P.Cast()(hidden_states, mstype.float16)
