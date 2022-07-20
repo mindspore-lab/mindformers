@@ -23,7 +23,7 @@ import mindspore
 from mindspore import context, DynamicLossScaleManager, FixedLossScaleManager
 from mindspore.train.model import Model
 import mindspore.communication.management as D
-from mindspore.train.callback import TimeMonitor, LossMonitor, ModelCheckpoint, CheckpointConfig
+from mindspore.train.callback import ModelCheckpoint, CheckpointConfig
 from mindspore.common import set_seed
 from mindspore.nn.wrap.cell_wrapper import MicroBatchInterleaved
 from transformer.data import build_dataset
@@ -32,8 +32,10 @@ from transformer.models import build_model
 from transformer.parallel_config import build_parallel_config
 from transformer.utils import parse_with_config
 from transformer.learning_rate import LearningRate
-from transformer.trainer.acc_model import AccModel
-from transformer.trainer.acc_trainer import TrainAccuStepsWithLossScaleCell
+from transformer.trainer.grad_accu_model import AccModel
+from transformer.trainer import build_trainer
+from transformer.modules import override_attention
+from transformer.callback import LossCallBack
 
 
 def set_context_env(config):
@@ -45,10 +47,10 @@ def set_context_env(config):
 
 
 def set_fused_kernel(config):
-    if config.speed_up['fused_kernel']:
+    if config.speed_up.get('fused_kernel', False):
         pwd = os.path.dirname(os.path.abspath(__file__))
-        src_path = os.path.join(pwd, './models/fused_kernel/aot_scale_masked_softmax.cu')
-        os.environ["FUSED_SOFTMAX_KERNEL"] = src_path
+        softmax_kernel_path = os.path.join(pwd, './models/fused_kernel/aot_scale_masked_softmax.cu')
+        override_attention(softmax_kernel_path)
 
 
 def set_auto_parallel_context_env(config):
@@ -73,7 +75,8 @@ def run_train(opt):
     set_context_env(opt)
     rank_id, device_num = set_auto_parallel_context_env(opt)
     parallel_config = build_parallel_config(opt)
-
+    # This should be called before any cell construction
+    set_fused_kernel(opt)
     # Build the model with loss
     net_with_loss = build_model(opt, parallel_config)
     micro_batch_num = opt.speed_up['micro_batch_num']
@@ -101,9 +104,9 @@ def run_train(opt):
                                 opt_offload=opt.opt_offload,
                                 flatten_weights=flatten_weights)
 
-    callback_size = opt.sink_size
+    callback_size = opt.sink_size if opt.acc_step <= 1 else opt.acc_step
     actual_epoch_num = int(epoch_num * step_per_epoch / callback_size)
-    callback = [TimeMonitor(callback_size), LossMonitor(callback_size)]
+    callback = [LossCallBack(callback_size)]
 
     config_ck = CheckpointConfig(save_checkpoint_steps=step_per_epoch, keep_checkpoint_max=1)
     ckpoint_cb = ModelCheckpoint(prefix="GPT3",
@@ -117,14 +120,15 @@ def run_train(opt):
     else:
         loss_scale_manager = DynamicLossScaleManager(init_loss_scale=opt.init_loss_scale_value,
                                                      scale_factor=opt.scale_factor, scale_window=opt.scale_window)
+    # Build the TrainOneStepCell
+    net_wrapper = build_trainer(opt, net_with_loss, optim=optimizer,
+                                update_cell=loss_scale_manager.get_update_cell())
     if opt.acc_step > 1:
-        accu_net_wrapper = TrainAccuStepsWithLossScaleCell(net_with_loss, optimizer=optimizer,
-                                                           scale_update_cell=loss_scale_manager.get_update_cell())
-        model = AccModel(accu_net_wrapper)
+        model = AccModel(net_wrapper)
         # Note: If accumulation is enabled, it only supports dataset sink mode
         model.train(actual_epoch_num, ds, callbacks=callback, dataset_sink_mode=True)
     else:
-        model = Model(net_with_loss, optimizer=optimizer, loss_scale_manager=loss_scale_manager)
+        model = Model(net_wrapper)
         model.train(actual_epoch_num, ds, callbacks=callback, sink_size=callback_size)
 
 

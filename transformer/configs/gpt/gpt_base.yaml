@@ -10,7 +10,7 @@ model:
   expand_ratio: 4
   post_layernorm_residual: False
   dropout_rate: 0.1
-  compute_dtype: mstype.float16
+  compute_dtype: fp16
 
 seed: 1234
 context:
@@ -24,6 +24,7 @@ parallel_mode: "semi_auto_parallel"
 speed_up:
   micro_batch_num: 1
   flatten_weights: False
+  fused_kernel: False
 
 moe_config:
   expert_num: 1
@@ -47,6 +48,7 @@ parallel_config:
 optimizer: adam
 
 acc_step: 1
+grad_sync_dtype: fp16
 data_url: /your/data/path
 epoch_size: 1
 start_lr: 1e-4

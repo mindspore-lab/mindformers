@@ -19,10 +19,6 @@ from mindspore.train.summary import SummaryRecord
 from mindspore.train.callback import Callback
 from mindspore.common.tensor import Tensor
 
-def get_ms_timestamp():
-    t = time.time()
-    return int(round(t * 1000))
-
 
 class LossCallBack(Callback):
     """
@@ -40,28 +36,21 @@ class LossCallBack(Callback):
             raise ValueError("print_step must be int and >= 0.")
         self._per_print_times = per_print_times
         self.rank_id = rank_id
-        self.time_stamp_first = get_ms_timestamp()
+        self.time_stamp_first = time.time()
+        self.last_step = 0
 
     def step_end(self, run_context):
         """Monitor the loss in training."""
-        time_stamp_current = get_ms_timestamp()
+        time_stamp_current = time.time()
         cb_params = run_context.original_args()
-        print("time: {}, epoch: {}, step: {}, outputs are {}".format(time_stamp_current - self.time_stamp_first,
-                                                                     cb_params.cur_epoch_num,
-                                                                     cb_params.cur_step_num,
-                                                                     str(cb_params.net_outputs)))
-
-        loss_file = "./loss_{}.log"
-
-        with open(loss_file.format(self.rank_id), "a+") as f:
-            f.write("time: {} ms, epoch: {}, step: {}, loss: {}, overflow: {}, loss_scale: {}".format(
-                time_stamp_current - self.time_stamp_first,
-                cb_params.cur_epoch_num,
-                cb_params.cur_step_num,
-                str(cb_params.net_outputs[0].asnumpy()),
-                str(cb_params.net_outputs[1].asnumpy()),
-                str(cb_params.net_outputs[2].asnumpy())))
-            f.write('\n')
+        diff_step = max(cb_params.cur_step_num - self.last_step, 1)
+        print("Time per step: {:.4f} s, epoch: {}, step: {}, outputs are {}".format(
+            (time_stamp_current - self.time_stamp_first) / diff_step,
+            cb_params.cur_epoch_num,
+            cb_params.cur_step_num,
+            str(cb_params.net_outputs)))
+        self.last_step = cb_params.cur_step_num
+        self.time_stamp_first = time.time()
 
 
 # callback with loss and accuracy

@@ -37,7 +37,6 @@ python -s ./transformer/train.py  \
     --global_batch_size=4 \
     --vocab_size=50304 \
     --parallel_mode="semi_auto_parallel" \
-    --fused_kernel=True \
     --hidden_size=2048 \
     --num_hidden_layers=24 \
     --num_attention_heads=16 \

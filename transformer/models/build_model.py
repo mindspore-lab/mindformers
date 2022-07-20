@@ -29,7 +29,7 @@ def get_model_config(opt):
     global_batch_size = opt.model.pop('global_batch_size')
     micro_batch_size = opt.model.pop('micro_batch_size')
     compute_dtype = opt.model.pop('compute_dtype')
-    compute_dtype = mstype.float16 if compute_dtype == "mstype.float16" else mstype.float32
+    compute_dtype = mstype.float16 if compute_dtype == "fp16" else mstype.float32
     if global_batch_size % micro_batch_interleaved != 0:
         raise ValueError(f"global_batch_size:{global_batch_size} must be a multiple of micro_batch_interleaved:"
                          f"{micro_batch_interleaved}.")
