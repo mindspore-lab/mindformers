@@ -1,0 +1,60 @@
+arch: 'gpt'
+model:
+  micro_batch_size: 4
+  global_batch_size: 4
+  seq_length: 1024
+  vocab_size: 50304
+  embedding_size: 1024
+  num_layers: 2
+  num_heads: 32
+  expand_ratio: 4
+  post_layernorm_residual: False
+  dropout_rate: 0.1
+  compute_dtype: mstype.float16
+
+seed: 1234
+context:
+  device_target: 'GPU'
+  save_graphs: False
+  mode: 0
+  graph_kernel_flags: "--disable_expand_ops=Softmax,Dropout --enable_parallel_fusion=true --reduce_fuse_depth=8 --enable_auto_tensor_inplace=true"
+
+parallel_mode: "semi_auto_parallel"
+
+speed_up:
+  micro_batch_num: 1
+  flatten_weights: False
+
+moe_config:
+  expert_num: 1
+  capacity_factor: 1.05
+  aux_loss_factor: 0.05
+  num_experts_chosen: 1
+
+recompute_config:
+  recompute: False
+  parallel_optimizer_comm_recompute: False
+  mp_comm_recompute: True
+  recompute_slice_activation: False
+
+parallel_config:
+  data_parallel: 1
+  model_parallel: 1
+  pipeline_stage: 1
+  micro_batch_num: 1
+  expert_parallel: 1
+
+optimizer: adam
+
+acc_step: 1
+data_url: /your/data/path
+epoch_size: 1
+start_lr: 1e-4
+end_lr: 1e-5
+warmup_step: 1000
+opt_offload: False
+sink_size: 10
+ckpt_save_dir: ./ckpt
+init_loss_scale_value: 65536
+scale_factor: 2
+scale_window: 1000

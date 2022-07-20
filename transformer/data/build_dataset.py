@@ -13,6 +13,21 @@
 # limitations under the License.
 # ============================================================================
 """
-Data operations
+Data operations.
 """
-from .build_dataset import build_dataset
+from transformer.utils import download_data
+
+from .dataset import create_dataset
+
+def build_dataset(opt, rank_id, device_num):
+    """get dataset from local or obs"""
+    if opt.data_url.startswith == "s3://":
+        # copy data from the cloud to the /cache/Data
+        cache_url = '/cache/Data/'
+        download_data(src_data_url=opt.data_url, tgt_data_path=cache_url, rank=rank_id)
+    else:
+        cache_url = opt.data_url
+
+    ds = create_dataset(opt.model['global_batch_size'], data_path=cache_url, device_num=device_num, rank=rank_id)
+
+    return ds

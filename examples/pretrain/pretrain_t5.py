@@ -27,7 +27,7 @@ from mindspore.nn.transformer import TransformerRecomputeConfig, TransformerOpPa
 import mindspore.common.dtype as mstype
 from mindspore.common import set_seed
 
-from transformer.optimizer import get_optimizer
+from transformer.optim.optimizer import build_optimizer
 from transformer.callback import LossSummaryCallback
 from transformer.models.t5 import TransformerNetworkWithLoss, TransformerModel, TransformerConfig
 from transformer.config_parser.parser import get_config
@@ -141,7 +141,7 @@ def run_train():
                                   start_decay_step=opt.lr_schedule.start_decay_step,
                                   min_lr=opt.lr_schedule.min_lr), mstype.float32)
 
-    optimizer = get_optimizer(net_with_loss, lr, opt.optimizer)
+    optimizer = build_optimizer(net_with_loss, lr, opt.optimizer)
 
     callback_size = opt.sink_size
     actual_epoch_num = int(epoch_num * step_per_epoch/callback_size)

@@ -12,7 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
+
 """
-Data operations
+Model operators
 """
-from .build_dataset import build_dataset
+from .build_model import build_model

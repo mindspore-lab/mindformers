@@ -16,13 +16,52 @@
 from dataclasses import dataclass
 import os
 import time
+import json
+
+import yaml
 import numpy as np
+
 
 from mindspore.common import dtype as mstype
 from mindspore.common.initializer import initializer
 from mindspore.common.parameter import Parameter, ParameterTuple
 
 from mindspore import nn, dtype
+
+
+def parse_with_config(parser):
+    """Parse with config"""
+    config_parser, unknown = parser.parse_known_args()
+    for item in unknown:
+        source = item.split('=')
+        if len(source) != 2:
+            raise ValueError("You should add = to the passed arguments. "
+                             "For example --seed=123, the store_true action is not supported yet.")
+        k, v = item.split('=')
+        parser.add_argument(k)
+    args = parser.parse_args(unknown)
+    if config_parser.config is not None:
+        config_args = yaml.load(open(config_parser.config), Loader=yaml.FullLoader)
+        for k, v in config_args.items():
+            if not hasattr(args, k):
+                setattr(args, k, v)
+            else:
+                # convert the type
+                setattr(args, k, type(v)(getattr(args, k)))
+            # print(v, isinstance(v, dict), type(v))
+            if isinstance(v, dict):
+                for sub_k, _ in v.items():
+                    if hasattr(args, sub_k):
+                        v[sub_k] = type(v[sub_k])(getattr(args, sub_k))
+                        delattr(args, sub_k)
+        del args.config
+    else:
+        raise RuntimeError("The config file cannot be loaded, as the accepted config is None. "
+                           "To fix this, you should add --config='./transformer/configs/gpt/gpt_base.yaml "
+                           "to your running scripts as the first argument.")
+    print("Training Arguments are as follows:")
+    print(json.dumps({k: v for k, v in args.__dict__.items()}, indent=4))
+    return args
 
 
 @dataclass

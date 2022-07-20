@@ -13,6 +13,6 @@
 # limitations under the License.
 # ============================================================================
 """
-Data operations
+GPT model imports
 """
-from .build_dataset import build_dataset
+from .gpt import *

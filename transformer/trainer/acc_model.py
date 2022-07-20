@@ -17,9 +17,7 @@
 import math
 from mindspore.train.callback import RunContext
 from mindspore import context
-from mindspore.context import ParallelMode
 from mindspore import Model
-from mindspore.train.dataset_helper import connect_network_with_dataset
 from mindspore.parallel._utils import _need_to_full, _to_full_tensor
 from mindspore.common.dtype import pytype_to_dtype
 from mindspore._c_expression import init_exec_dataset
@@ -130,6 +128,8 @@ class AccModel(Model):
             cb_params (_InternalCallbackParam): Callback parameters. Default: None.
             sink_size (int): Control the amount of data in each sink. Default: -1.
         """
+        if valid_infos:
+            raise RuntimeError("Not supported to the situation when valid_infos are passed")
         if sink_size == -1:
             epoch_num = epoch - initial_epoch
         else:

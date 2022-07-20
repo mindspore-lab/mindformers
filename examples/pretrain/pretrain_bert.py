@@ -26,7 +26,7 @@ from mindspore.context import ParallelMode
 from mindspore import context, FixedLossScaleManager, DynamicLossScaleManager
 from mindspore.train.model import Model
 from transformer.data.bert_dataset import create_bert_dataset
-from transformer.optimizer import get_optimizer
+from transformer.optim.optimizer import build_optimizer
 from transformer.models.bert import BertNetworkWithLoss, BertConfig
 from transformer.config_parser.parser import get_config
 from transformer.learning_rate import LearningRate
@@ -132,7 +132,7 @@ def run_train():
                       warmup_steps=opt.warmup_step,
                       decay_steps=epoch_num*step_per_epoch)
 
-    optimizer = get_optimizer(net_with_loss, lr, opt.optimizer)
+    optimizer = build_optimizer(net_with_loss, lr, opt.optimizer)
 
     callback_size = opt.sink_size
     actual_epoch_num = int(epoch_num * step_per_epoch/callback_size)

@@ -13,6 +13,6 @@
 # limitations under the License.
 # ============================================================================
 """
-Data operations
+Loss operations
 """
-from .build_dataset import build_dataset
+from .build_loss import build_loss

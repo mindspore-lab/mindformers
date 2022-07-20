@@ -28,7 +28,7 @@ from mindspore.nn.transformer.layers import _Linear
 from mindspore.ops import operations as P
 from mindspore.ops import functional as F
 import mindspore.common.dtype as mstype
-from mindspore.parallel.nn.transformer import Transformer
+from mindspore.nn.transformer import Transformer
 try:
     from mindspore.nn.loss.loss import Loss
 except ImportError:
