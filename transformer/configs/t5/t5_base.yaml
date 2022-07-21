@@ -1,15 +1,22 @@
-arch: 'gpt'
+arch: 't5'
 model:
   micro_batch_size: 4
   global_batch_size: 4
   seq_length: 1024
   vocab_size: 50304
   hidden_size: 1024
-  num_layers: 2
+  intermediate_size: 4096
+  hidden_dropout_prob: 0.3
+  attention_probs_dropout_prob: 0.3
+  max_position_embeddings: 128
+  initializer_range: 0.02
+  label_smoothing: 0.1
+  beam_width: 4
+  max_decode_length: 80
+  length_penalty_weight: 1.0
+  hidden_act: relu
+  num_hidden_layers: 2
   num_heads: 32
-  expand_ratio: 4
-  post_layernorm_residual: False
-  dropout_rate: 0.1
   compute_dtype: fp16
 
 seed: 1234
@@ -18,7 +25,6 @@ context:
   save_graphs: False
   mode: 0
   graph_kernel_flags: "--disable_expand_ops=Softmax,Dropout --enable_parallel_fusion=true --reduce_fuse_depth=8 --enable_auto_tensor_inplace=true"
-  enable_graph_kernel: True
 
 parallel_mode: "semi_auto_parallel"
 
@@ -34,7 +40,7 @@ moe_config:
   num_experts_chosen: 1
 
 recompute_config:
-  recompute: True
+  recompute: False
   parallel_optimizer_comm_recompute: False
   mp_comm_recompute: True
   recompute_slice_activation: False
@@ -45,7 +51,6 @@ parallel_config:
   pipeline_stage: 1
   micro_batch_num: 1
   expert_parallel: 1
-  vocab_emb_dp: False
 
 optimizer: adam
 
@@ -53,9 +58,14 @@ acc_step: 1
 grad_sync_dtype: fp16
 data_url: /your/data/path
 epoch_size: 1
-start_lr: 1e-4
-end_lr: 1e-5
-warmup_step: 1000
+
+# Learning Rate
+learning_rate: 2.0
+warmup_step: 8000
+start_decay_step: 16000
+min_lr: 0.0
+
+
 opt_offload: False
 sink_size: 10
 ckpt_save_dir: ./ckpt

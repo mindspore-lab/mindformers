@@ -73,8 +73,9 @@ class LOGGER(logging.Logger):
         self.info('')
 
 
-def get_logger(path, rank=0):
+def get_logger(path=None, rank=0):
     """get_logger"""
     logger = LOGGER(logger_name, rank)
-    logger.setup_logging_file(path, rank)
+    if path:
+        logger.setup_logging_file(path, rank)
     return logger

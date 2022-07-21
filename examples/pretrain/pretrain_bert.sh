@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright 2020 Huawei Technologies Co., Ltd
+# Copyright 2022 Huawei Technologies Co., Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,16 +16,26 @@
 
 echo "=============================================================================================================="
 echo "Please run the script as: "
-echo "bash script/pre_process.sh \"INPUT_GLOB\" DATASET_TYPE OUTPUT_FILE"
-echo "for example: bash script/pre_process.sh \"dataset/*.output\" openwebtext ./output/openwebtext.mindrecord"
+echo "bash examples/pretrain/pretrain_bert.sh DEVICE_ID EPOCH_SIZE DATA_DIR SCHEMA_DIR"
+echo "for example: bash examples/pretrain/pretrain_bert.sh 0 40 /path/zh-wiki/ [/path/Schema.json](optional)"
 echo "=============================================================================================================="
 
-INPUT_GLOB=$1
-DATASET_TYPE=$2
-OUTPUT_FILE=$3
+DEVICE_ID=$1
+EPOCH_SIZE=$2
+DATA_DIR=$3
 
-python ./src/pre_process.py  \
-    --input_glob=$INPUT_GLOB \
-    --dataset_type=$DATASET_TYPE \
-    --output_file=$OUTPUT_FILE \
-    --file_partition=4
+python ./transformer/train.py \
+    --config='./transformer/configs/bert/bert_base.yaml' \
+    --epoch_size=$EPOCH_SIZE \
+    --device_id=$DEVICE_ID \
+    --data_url=$DATA_DIR \
+    --optimizer="adam" \
+    --max_seq_length=128 \
+    --max_position_embeddings=128 \
+    --parallel_mode="stand_alone" \
+    --global_batch_size=64 \
+    --vocab_size=30522 \
+    --hidden_size=1024 \
+    --num_hidden_layers=24 \
+    --num_attention_heads=16 \
+    --device_target="GPU" > standalone_train_gpu_log.txt 2>&1 &

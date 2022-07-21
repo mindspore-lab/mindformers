@@ -37,8 +37,11 @@ python -s ./transformer/train.py  \
     --global_batch_size=4 \
     --vocab_size=50304 \
     --parallel_mode="semi_auto_parallel" \
-    --hidden_size=2048 \
-    --num_hidden_layers=24 \
-    --num_attention_heads=16 \
+    --hidden_size=5120 \
+    --recompute=True \
+    --num_layers=24 \
+    --data_parallel=2 \
+    --model_parallel=4 \
+    --num_attention_heads=40 \
     --device_target="GPU" > distribute_train_gpu_log.txt 2>&1 &
 

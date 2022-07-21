@@ -37,7 +37,7 @@ class GPTConfig:
     batch_size: int = 32
     seq_length: int = 1024
     vocab_size: int = 50257
-    embedding_size: int = 768
+    hidden_size: int = 768
     num_layers: int = 12
     num_heads: int = 12
     expand_ratio: int = 4
@@ -68,9 +68,9 @@ class GPTModel(nn.Cell):
         self.get_attention_mask = AttentionMask(seq_length=config.seq_length,
                                                 parallel_config=config.parallel_config.dp_mp_config)
         self.word_embedding = VocabEmbedding(vocab_size=config.vocab_size,
-                                             embedding_size=config.embedding_size,
+                                             embedding_size=config.hidden_size,
                                              param_init=initializer("truncatedNormal",
-                                                                    [config.vocab_size, config.embedding_size],
+                                                                    [config.vocab_size, config.hidden_size],
                                                                     dtype=config.compute_dtype),
                                              parallel_config=config.parallel_config.embedding_dp_mp_config)
 
@@ -78,16 +78,16 @@ class GPTModel(nn.Cell):
         new_parallel_config.vocab_emb_dp = True
 
         self.position_embedding = VocabEmbedding(vocab_size=config.seq_length,
-                                                 embedding_size=config.embedding_size,
+                                                 embedding_size=config.hidden_size,
                                                  param_init=initializer(TruncatedNormal(0.02),
-                                                                        [config.seq_length, config.embedding_size],
+                                                                        [config.seq_length, config.hidden_size],
                                                                         dtype=config.compute_dtype),
                                                  parallel_config=new_parallel_config)
         self.blocks = nn.CellList()
         moe_config = config.parallel_config.moe_config
-        self.transformer = Transformer(hidden_size=config.embedding_size,
+        self.transformer = Transformer(hidden_size=config.hidden_size,
                                        batch_size=config.batch_size,
-                                       ffn_hidden_size=config.embedding_size * 4,
+                                       ffn_hidden_size=config.hidden_size * 4,
                                        src_seq_length=config.seq_length,
                                        tgt_seq_length=config.seq_length,
                                        encoder_layers=config.num_layers,
@@ -101,7 +101,7 @@ class GPTModel(nn.Cell):
                                        parallel_config=config.parallel_config,
                                        moe_config=moe_config)
         self.use_moe = (moe_config.expert_num > 1)
-        self.layernorm = _LayerNorm((config.embedding_size,)).to_float(config.compute_dtype)
+        self.layernorm = _LayerNorm((config.hidden_size,)).to_float(config.compute_dtype)
         self.layernorm.shard(((config.parallel_config.data_parallel, 1, 1),))
         self.add = P.Add().shard(
             ((config.parallel_config.data_parallel, 1, 1), (config.parallel_config.data_parallel, 1, 1)))
@@ -144,7 +144,7 @@ class GPTHead(nn.Cell):
         logits: Tensor, the logits of the corresponding inputs
     """
     def __init__(self,
-                 embedding_size,
+                 hidden_size,
                  compute_type=mstype.float16,
                  parallel_config=None):
         super(GPTHead, self).__init__()
@@ -153,12 +153,12 @@ class GPTHead(nn.Cell):
         else:
             self.matmul = P.MatMul(transpose_b=True).shard(((parallel_config.data_parallel, 1), (
                 parallel_config.model_parallel, 1)))
-        self.embedding_size = embedding_size
+        self.hidden_size = hidden_size
         self.dtype = compute_type
         self.cast = P.Cast()
 
     def construct(self, state, embedding_table):
-        state = P.Reshape()(state, (-1, self.embedding_size))
+        state = P.Reshape()(state, (-1, self.hidden_size))
         logits = self.matmul(self.cast(state, self.dtype), self.cast(embedding_table, self.dtype))
         return logits
 
@@ -180,7 +180,7 @@ class GPT(nn.Cell):
     def __init__(self, config):
         super(GPT, self).__init__()
         self.backbone = GPTModel(config)
-        self.head = GPTHead(config.embedding_size, parallel_config=config.parallel_config)
+        self.head = GPTHead(config.hidden_size, parallel_config=config.parallel_config)
         self.use_moe = self.backbone.use_moe
     def construct(self, input_ids, input_mask):
         if self.use_moe:

@@ -25,11 +25,14 @@ from mindspore.nn.learning_rate_schedule import LearningRateSchedule, Polynomial
 def linear_warmup(warmup_steps, current_step):
     return min([1.0, float(current_step)/float(warmup_steps)])
 
+
 def rsqrt_decay(warmup_steps, current_step):
     return float(max([current_step, warmup_steps])) ** -0.5
 
+
 def rsqrt_hidden(hidden_size):
     return float(hidden_size) ** -0.5
+
 
 def create_dynamic_lr(schedule, training_steps, learning_rate, warmup_steps, hidden_size,
                       start_decay_step=0, min_lr=0.):
@@ -98,6 +101,7 @@ def linear_warmup_lr(current_step, warmup_steps, base_lr, init_lr):
     lr_inc = (float(base_lr) - float(init_lr)) / float(warmup_steps)
     lr = float(init_lr) + lr_inc * current_step
     return lr
+
 
 def get_lr(global_step, lr_init, lr_end, lr_max, warmup_epochs, \
            total_epochs, steps_per_epoch, lr_decay_mode, poly_power=2.0):
@@ -168,3 +172,27 @@ def get_lr(global_step, lr_init, lr_end, lr_max, warmup_epochs, \
     learning_rate = lr_each_step[current_step:]
 
     return learning_rate
+
+
+def build_lr(config, epoch_num, step_per_epoch):
+    """Build the learning rate according to the input arguments"""
+    model_name = config.arch
+    lr = None
+    if model_name in ['bert', 'gpt']:
+        lr = LearningRate(learning_rate=float(config.start_lr),
+                          end_learning_rate=float(config.end_lr),
+                          warmup_steps=config.warmup_step,
+                          decay_steps=epoch_num * step_per_epoch)
+    elif model_name in ['t5']:
+        learning_rate = config.learning_rate if config.context['device_target'] == "Ascend" else 1.0
+        lr = Tensor(create_dynamic_lr(schedule="constant*rsqrt_hidden*linear_warmup*rsqrt_decay",
+                                      training_steps=step_per_epoch*epoch_num,
+                                      learning_rate=learning_rate,
+                                      warmup_steps=config.warmup_steps,
+                                      hidden_size=config.hidden_size,
+                                      start_decay_step=config.start_decay_step,
+                                      min_lr=config.min_lr), mstype.float32)
+    else:
+        raise RuntimeError(f"Model name {model_name} is not supported yet.")
+
+    return lr

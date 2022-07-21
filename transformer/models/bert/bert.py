@@ -391,6 +391,7 @@ class BertNetworkWithLoss(nn.Cell):
         self.cast = P.Cast()
         self.use_moe = (config.parallel_config.moe_config.expert_num > 1)
         self.add = P.Add().shard(((1,), ()))
+
     def construct(self,
                   input_ids,
                   input_mask,
@@ -511,3 +512,8 @@ class GetNextSentenceOutput(nn.Cell):
         logits = self.cast(logits, self.dtype)
         log_prob = self.log_softmax(logits)
         return log_prob
+
+
+def get_bert_network(_, model_config):
+    net_with_loss = BertNetworkWithLoss(model_config, True)
+    return net_with_loss

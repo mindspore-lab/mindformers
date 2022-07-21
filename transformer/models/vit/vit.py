@@ -430,7 +430,7 @@ class CrossEntropyIgnore(Loss):
         return loss
 
 
-def get_network(backbone_name, args):
+def get_vit_network(backbone_name, args):
     """get_network"""
     if backbone_name == 'vit_base':
         backbone = vit_base(args=args)

@@ -20,7 +20,7 @@ echo "bash examples/pretrain/pretrain_gpt.sh  DEVICE_ID EPOCH_SIZE DATA_DIR"
 echo "for example: bash examples/pretrain/pretrain_gpt.sh 0 40 /path/zh-wiki/"
 echo "=============================================================================================================="
 export GLOG_v=3
-DEVICE_ID=$1
+export DEVICE_ID=$1
 EPOCH_SIZE=$2
 DATA_DIR=$3
 
@@ -36,6 +36,6 @@ python ./transformer/train.py \
     --global_batch_size=4 \
     --vocab_size=50257 \
     --hidden_size=2048 \
-    --num_hidden_layers=24 \
+    --num_layers=24 \
     --num_attention_heads=16 \
     --device_target="GPU" > standalone_train_gpu_log.txt 2>&1 &

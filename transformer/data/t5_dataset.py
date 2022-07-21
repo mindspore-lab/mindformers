@@ -37,7 +37,6 @@ def generate_memory_mask(source_mask, target_mask):
     return source_mask, target_mask, memory_mask.astype(np.float16)
 
 
-
 def create_buckets_dataset(batch_size, data_path,
                            device_num=1, rank=0, drop=True,
                            bucket_boundaries=None):
@@ -73,8 +72,8 @@ def create_buckets_dataset(batch_size, data_path,
     return ds
 
 
-def create_dataset(batch_size, data_path,
-                   device_num=1, rank=0, drop=True):
+def create_t5_dataset(batch_size, data_path,
+                      device_num=1, rank=0, drop=True):
     """Create the dataset"""
     data = [os.path.join(data_path, name) for name in os.listdir(data_path) if name.endswith("mindrecord")]
     ds = de.MindDataset(data,
