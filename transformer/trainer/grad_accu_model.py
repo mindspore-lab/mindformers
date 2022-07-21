@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-"""Model."""
+"""Accumulation Model."""
 
 import math
 from mindspore.train.callback import RunContext
@@ -129,7 +129,7 @@ class AccModel(Model):
             sink_size (int): Control the amount of data in each sink. Default: -1.
         """
         if valid_infos:
-            raise RuntimeError("Not supported to the situation when valid_infos are passed")
+            print("Currently valid_infos are ignored")
         if sink_size == -1:
             epoch_num = epoch - initial_epoch
         else:
@@ -179,10 +179,8 @@ class AccModel(Model):
                         self._train_network.phase = 'train0'
                         outputs = self._train_network(*inputs)
                         cb_params.net_outputs = outputs
-                        list_callback.step_end(run_context)
                         index_first_order += 1
 
-                    cb_params.cur_step_num += 1
                     if train_network_init_flag:
                         self._train_network.add_flags_recursive(accumulation=False)
                         train_network_init_flag = False
@@ -190,6 +188,7 @@ class AccModel(Model):
                     outputs = self._train_network(*inputs)
                     cb_params.net_outputs = outputs
                     index_first_order = 0
+                    cb_params.cur_step_num += self._frequency
                     list_callback.step_end(run_context)
                 else:
                     if train_network_init_flag:

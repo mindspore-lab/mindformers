@@ -26,6 +26,8 @@ from mindspore.common.initializer import initializer
 
 from transformer.utils import clone_state
 
+__all__ = ["TrainAccuStepsWithLossScaleCell"]
+
 grad_scale = C.MultitypeFuncGraph("grad_scale")
 reciprocal = P.Reciprocal()
 
@@ -91,8 +93,53 @@ class TrainAccuStepsWithLossScaleCell(TrainOneStepWithLossScaleCell):
         self.reshape = P.Reshape()
         self.hyper_map = C.HyperMap()
 
-    def construct(self, *inputs):
-        """Defines the computation performed."""
+    def _detect_overflow_last_step(self, *inputs):
+        """Check the overflow at the last step, as the GPU will check nan for each gradient"""
+        weights = self.weights
+        loss = self.network(*inputs)
+        scaling_sens = self.scale_sense
+
+        # alloc status and clear should be right before grad operation
+        status, scaling_sens = self.start_overflow_check(loss, scaling_sens)
+        scaling_sens_filled = C.ones_like(loss) * F.cast(scaling_sens, F.dtype(loss))
+        grads = self.grad(self.network,
+                          weights)(*inputs,
+                                   scaling_sens_filled)
+
+        if self.accumulation and self.accumulation_steps > 1:
+            accu_succ = self.hyper_map(update_accu_grads, self.accu_grads, grads)
+            loss = F.depend(loss, accu_succ)
+        ret = None
+        if not self.accumulation:
+            grads = self.grad_reducer(grads)
+
+            overflow = self.get_overflow_status(status, grads)
+            accu_overflow = self.select(overflow, self.one, self.zero)
+            scaling = scaling_sens * self.accumulation_steps
+            grads = self.hyper_map(
+                F.partial(grad_scale, scaling), grads)
+            accu_overflow = self.allreduce(accu_overflow)
+
+            overflow = self.less_equal(self.base, accu_overflow)
+            accu_grads = F.depend(self.accu_grads, grads)
+
+            accu_succ = self.hyper_map(reset_accu_grads, accu_grads)
+            overflow = F.depend(overflow, accu_succ)
+
+            overflow = self.reshape(overflow, (()))
+            overflow = self.process_loss_scale(overflow)
+
+            if not overflow:
+                self.optimizer(grads)
+
+            ret = (loss, overflow, scaling_sens)
+        else:
+            ret = (loss, False, scaling_sens)
+
+        return ret
+
+    def _detect_overflow_every_step(self, *inputs):
+        """Check the overflow at the every step, as the NPU will check overflow flag for each gradient"""
         weights = self.weights
         loss = self.network(*inputs)
         scaling_sens = self.scale_sense
@@ -139,4 +186,13 @@ class TrainAccuStepsWithLossScaleCell(TrainOneStepWithLossScaleCell):
                 self.optimizer(grads)
 
         ret = (loss, overflow, scaling_sens)
+        return ret
+
+    def construct(self, *inputs):
+        """Defines the computation performed."""
+        if self.gpu_target:
+            ret = self._detect_overflow_last_step(*inputs)
+        else:
+            ret = self._detect_overflow_every_step(*inputs)
+
         return ret
