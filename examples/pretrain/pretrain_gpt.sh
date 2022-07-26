@@ -26,8 +26,6 @@ DATA_DIR=$3
 
 python ./transformer/train.py \
     --config='./transformer/configs/gpt/gpt_base.yaml' \
-    --opt_offload=False \
-    --flatten_weights=False \
     --epoch_size=$EPOCH_SIZE \
     --data_url=$DATA_DIR \
     --optimizer="adam"  \

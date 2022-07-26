@@ -482,7 +482,7 @@ def build_optimizer(net,
         def __init__(self, *args, **kwargs):
             super(OptimizerWithClipNorm, self).__init__(*args, **kwargs)
             self.optimizer = super(OptimizerWithClipNorm, self).construct
-            self.norm = ClipByGlobalNorm(enable_grad_fp16=enable_offload,
+            self.norm = ClipByGlobalNorm(enable_offload=enable_offload,
                                          clip_norm=1.0)
 
         def construct(self, gradients):
