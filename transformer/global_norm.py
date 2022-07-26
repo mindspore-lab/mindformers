@@ -23,16 +23,15 @@ from mindspore.common.tensor import Tensor
 from mindspore.ops.composite.clip_ops import get_square_sum
 
 apply_global_norm = C.MultitypeFuncGraph("apply_global_norm")
+apply_clip_norm = C.MultitypeFuncGraph("apply_clip_norm")
 
+@apply_global_norm.register("Tensor", "Tensor", "Tensor")
+def _apply_global_norm(clip_norm, global_norm, grad):
+    return grad * clip_norm / global_norm
 
-@apply_global_norm.register("Bool", "Tensor", "Tensor", "Tensor")
-def _apply_global_norm(enable_grad_fp16, clip_norm, global_norm, grad):
-    if enable_grad_fp16:
-        grad = P.Cast()(grad * clip_norm / global_norm, mstype.float16)
-    else:
-        grad = grad * clip_norm / global_norm
-    return grad
-
+@apply_clip_norm.register("Tensor", "Tensor")
+def _apply_clip_norm(clip_norm, grad):
+    return P.Cast()(grad * clip_norm, mstype.float16)
 
 class GlobalNorm(nn.Cell):
     """
@@ -57,17 +56,20 @@ class ClipByGlobalNorm(nn.Cell):
 
     """
 
-    def __init__(self, enable_grad_fp16, clip_norm=1.0):
+    def __init__(self, enable_offload, clip_norm=1.0):
         super(ClipByGlobalNorm, self).__init__()
         self.global_norm = GlobalNorm()
         self.clip_norm = Tensor([clip_norm], mstype.float32)
         self.hyper_map = C.HyperMap()
-        self.enable_grad_fp16 = enable_grad_fp16
+        self.enable_offload = enable_offload
 
     def construct(self, grads):
         """Clip grads by global norm construct"""
         grads, global_norm_value = self.global_norm(grads)
         cond = P.GreaterEqual()(global_norm_value, self.clip_norm)
         global_norm = F.select(cond, global_norm_value, self.clip_norm)
-        grads = self.hyper_map(F.partial(apply_global_norm, self.enable_grad_fp16, self.clip_norm, global_norm), grads)
-        return grads, global_norm_value
+        if self.enable_offload:
+            grads = self.hyper_map(F.partial(apply_clip_norm, self.clip_norm, global_norm), grads)
+        else:
+            grads = self.hyper_map(F.partial(apply_global_norm, self.clip_norm), grads)
+        return grads, global_norm
