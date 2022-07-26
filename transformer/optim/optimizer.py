@@ -290,9 +290,8 @@ class FusedAdamWeightDecayWithGlobalNorm(BaseAdamOptimizer):
     """
 
     def __init__(self, params, learning_rate=1e-3, beta1=0.9, beta2=0.999, eps=1e-6, weight_decay=0.0,
-                 offload=False, clip_norm=1.0):
+                 offload=False):
         super(FusedAdamWeightDecayWithGlobalNorm, self).__init__(params, learning_rate, beta1, beta2, eps, weight_decay)
-        self.clip_norm = Tensor([clip_norm], mstype.float32)
         self.opt = P.FusedCastAdamWeightDecay()
         if offload:
             self.opt.add_prim_attr("primitive_target", "CPU")
@@ -300,21 +299,19 @@ class FusedAdamWeightDecayWithGlobalNorm(BaseAdamOptimizer):
     def construct(self, gradients, global_norm):
         """construct with gradients and global norm"""
         lr = self.get_lr()
-        cond = P.GreaterEqual()(global_norm, self.clip_norm)
-        clip_global_norm = F.select(cond, global_norm, self.clip_norm)
         if self.is_group:
             if self.is_group_lr:
-                optim_result = self.map_reverse(F.partial(_adam_opt, self.opt, clip_global_norm,
+                optim_result = self.map_reverse(F.partial(_adam_opt, self.opt, global_norm,
                                                           self.beta1, self.beta2, self.eps),
                                                 lr, self.weight_decay, self._parameters, self.moments1, self.moments2,
                                                 gradients, self.decay_flags, self.optim_filter)
             else:
-                optim_result = self.map_reverse(F.partial(_adam_opt, self.opt, clip_global_norm,
+                optim_result = self.map_reverse(F.partial(_adam_opt, self.opt, global_norm,
                                                           self.beta1, self.beta2, self.eps, lr),
                                                 self.weight_decay, self._parameters, self.moments1, self.moments2,
                                                 gradients, self.decay_flags, self.optim_filter)
         else:
-            optim_result = self.map_reverse(F.partial(_adam_opt, self.opt, clip_global_norm,
+            optim_result = self.map_reverse(F.partial(_adam_opt, self.opt, global_norm,
                                                       self.beta1, self.beta2, self.eps, lr, self.weight_decay),
                                             self._parameters, self.moments1, self.moments2,
                                             gradients, self.decay_flags, self.optim_filter)
