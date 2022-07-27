@@ -17,6 +17,7 @@ Data operations.
 """
 from transformer.utils import download_data
 
+from mindspore import context
 from .gpt_dataset import create_dataset
 from .bert_dataset import create_bert_dataset
 from .t5_dataset import create_t5_dataset
@@ -37,6 +38,14 @@ def build_dataset(opt, rank_id, device_num):
 
     opt.logger.info("Start to build the dataset.")
     ds = None
+
+    if context.get_auto_parallel_context('full_batch'):
+        opt.logger.info("Detect the full_batch import is true, modify the shard_num and shard_id to be 1 and 0."
+                        "So each card will receive the same input data with "
+                        "batch size: {opt.model['global_batch_size']}")
+        device_num = 1
+        rank_id = 0
+
     if model_name == 'gpt':
         ds = create_dataset(opt.model['global_batch_size'], data_path=cache_url, device_num=device_num, rank=rank_id)
     elif model_name == 'bert':

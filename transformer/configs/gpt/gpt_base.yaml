@@ -21,6 +21,7 @@ context:
   enable_graph_kernel: True
 
 parallel_mode: "semi_auto_parallel"
+enable_parallel_optimizer: False
 
 speed_up:
   micro_batch_num: 1
@@ -36,7 +37,7 @@ moe_config:
 recompute_config:
   recompute: True
   parallel_optimizer_comm_recompute: False
-  mp_comm_recompute: True
+  mp_comm_recompute: False
   recompute_slice_activation: False
 
 parallel_config:
@@ -59,6 +60,6 @@ warmup_step: 1000
 opt_offload: False
 sink_size: 10
 ckpt_save_dir: ./ckpt
-init_loss_scale_value: 65536
+init_loss_scale_value: 4294967296
 scale_factor: 2
 scale_window: 1000

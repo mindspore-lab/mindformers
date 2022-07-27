@@ -69,7 +69,7 @@ class ClipByGlobalNorm(nn.Cell):
         cond = P.GreaterEqual()(global_norm_value, self.clip_norm)
         global_norm = F.select(cond, global_norm_value, self.clip_norm)
         if self.enable_offload:
-            grads = self.hyper_map(F.partial(apply_clip_norm, self.clip_norm, global_norm), grads)
+            grads = self.hyper_map(F.partial(apply_global_norm, self.clip_norm, global_norm), grads)
         else:
-            grads = self.hyper_map(F.partial(apply_global_norm, self.clip_norm), grads)
+            grads = self.hyper_map(F.partial(apply_clip_norm, self.clip_norm), grads)
         return grads, global_norm
