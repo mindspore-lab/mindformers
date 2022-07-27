@@ -1,4 +1,4 @@
-# Copyright 2021 Huawei Technologies Co., Ltd
+# Copyright 2020 Huawei Technologies Co., Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,69 +19,6 @@ Tokenization.
 
 import unicodedata
 import collections
-import six
-import sentencepiece as spm
-
-SPIECE_UNDERLINE = u"▁"
-
-
-def preprocess_text(inputs, remove_space=True, do_lower_case=True):
-    """preprocess text"""
-    if remove_space:
-        outputs = ' '.join(inputs.strip().split())
-    else:
-        outputs = inputs
-    outputs = outputs.replace("``", '"').replace("''", '"')
-    if six.PY2 and isinstance(outputs, str):
-        outputs = outputs.decode('utf-8')
-    outputs = unicodedata.normalize("NFKD", outputs)
-    outputs = "".join([c for c in outputs if not unicodedata.combining(c)])
-    if do_lower_case:
-        outputs = outputs.lower()
-    return outputs
-
-
-def encode_pieces(sp_model, text, return_unicode=True, sample=False):
-    """turn sentences into word pieces."""
-    text = preprocess_text(text,)
-    if six.PY2 and isinstance(text, unicode):
-        text = text.encode('utf-8')
-    if not sample:
-        pieces = sp_model.EncodeAsPieces(text)
-    else:
-        pieces = sp_model.SampleEncodeAsPieces(text, 64, 0.1)
-    new_pieces = []
-    for piece in pieces:
-        if len(piece) > 1 and piece[-1] == ',' and piece[-2].isdigit():
-            cur_pieces = sp_model.EncodeAsPieces(
-                piece[:-1].replace(SPIECE_UNDERLINE, ''))
-            if piece[0] != SPIECE_UNDERLINE and cur_pieces[0][0] == SPIECE_UNDERLINE:
-                if len(cur_pieces[0]) == 1:
-                    cur_pieces = cur_pieces[1:]
-                else:
-                    cur_pieces[0] = cur_pieces[0][1:]
-            cur_pieces.append(piece[-1])
-            new_pieces.extend(cur_pieces)
-        else:
-            new_pieces.append(piece)
-
-    # note(zhiliny): convert back to unicode for py2
-    if six.PY2 and return_unicode:
-        ret_pieces = []
-        for piece in new_pieces:
-            if isinstance(piece, str):
-                piece = piece.decode(piece, "utf-8")
-            ret_pieces.append(piece)
-        new_pieces = ret_pieces
-
-    return new_pieces
-
-
-def encode_ids(sp_model, text, sample=False):
-    pieces = encode_pieces(sp_model, text, return_unicode=False, sample=sample)
-    ids = [sp_model.PieceToId(piece) for piece in pieces]
-    return ids
-
 
 def convert_to_unicode(text):
     """
@@ -177,24 +114,13 @@ def convert_ids_to_tokens(vocab_file, ids):
 
 class FullTokenizer():
     """
-    Full tokenization
+    Full tokenizer
     """
-
-    def __init__(self, vocab_file, do_lower_case=True, spm_model_file=None):
-        self.vocab_dict = None
-        self.sp_model = None
-        if spm_model_file:
-            self.sp_model = spm.SentencePieceProcessor()
-            self.sp_model.Load(spm_model_file)
-            # # Note(mingdachen): For the purpose of consistent API, we are
-            # # generating a vocabulary for the sentence piece tokenization.
-            self.vocab_dict = {self.sp_model.IdToPiece(i): i for i
-                               in range(self.sp_model.GetPieceSize())}
-        else:
-            self.vocab_dict = vocab_to_dict_key_token(vocab_file)
-            self.do_lower_case = do_lower_case
-            self.basic_tokenize = BasicTokenizer(do_lower_case)
-            self.wordpiece_tokenize = WordpieceTokenizer(self.vocab_dict)
+    def __init__(self, vocab_file, do_lower_case=True):
+        self.vocab_dict = vocab_to_dict_key_token(vocab_file)
+        self.do_lower_case = do_lower_case
+        self.basic_tokenize = BasicTokenizer(do_lower_case)
+        self.wordpiece_tokenize = WordpieceTokenizer(self.vocab_dict)
 
     def tokenize(self, text):
         """
@@ -205,42 +131,18 @@ class FullTokenizer():
         Returns:
             list of tokens.
         """
-        if self.sp_model:
-            tokens_ret = encode_pieces(self.sp_model, text, return_unicode=False)
-        else:
-            tokens_ret = []
-            text = convert_to_unicode(text)  #
-            for tokens in self.basic_tokenize.tokenize(text):
-                wordpiece_tokens = self.wordpiece_tokenize.tokenize(tokens)
-                tokens_ret.extend(wordpiece_tokens)
+        tokens_ret = []
+        text = convert_to_unicode(text)
+        for tokens in self.basic_tokenize.tokenize(text):
+            wordpiece_tokens = self.wordpiece_tokenize.tokenize(tokens)
+            tokens_ret.extend(wordpiece_tokens)
         return tokens_ret
 
-    def convert_tokens_to_ids(self, tokens):
-        if self.sp_model:
-            output = [self.sp_model.PieceToId(token) for token in tokens]
-        else:
-            # vocab_dict = vocab_to_dict_key_token(self.vocab_dict)
-            output = []
-            for token in tokens:
-                output.append(self.vocab_dict[token])
-        return output
 
-    def convert_ids_to_tokens(self, ids):
-        if self.sp_model:
-            output = [self.sp_model.IdToPiece(id_) for id_ in ids]
-        else:
-            # vocab_dict = vocab_to_dict_key_id(self.vocab_dict)
-            output = []
-            for item in ids:
-                output.append(self.vocab_dict[item])
-        return output
-
-
-class BasicTokenizer():  # ---
+class BasicTokenizer():
     """
-    Basic tokenization
+    Basic tokenizer
     """
-
     def __init__(self, do_lower_case=True):
         self.do_lower_case = do_lower_case
 
@@ -347,9 +249,8 @@ class BasicTokenizer():  # ---
 
 class WordpieceTokenizer():
     """
-    Wordpiece tokenization
+    Wordpiece tokenizer
     """
-
     def __init__(self, vocab):
         self.vocab_dict = vocab
 
@@ -426,62 +327,3 @@ def _is_punctuation(char):
     if cat.startswith("P"):
         return True
     return False
-
-
-def printable_text(text):
-    """Returns text encoded in a way suitable for print or `tf.logging`."""
-    if isinstance(text, str):
-        t = text
-    elif isinstance(text, bytes):
-        t = text.encode("utf-8", "ignore")
-    else:
-        raise ValueError("Unsupported string type: %s" % (type(text)))
-    return t
-
-
-def tokenize_chinese_chars(text):
-    """Adds whitespace around any CJK character."""
-
-    def _is_chinese_char(cp):
-        """Checks whether CP is the codepoint of a CJK character."""
-        # This defines a "chinese character" as anything in the CJK Unicode block:
-        #     https://en.wikipedia.org/wiki/CJK_Unified_Ideographs_(Unicode_block)
-        #
-        # Note that the CJK Unicode block is NOT all Japanese and Korean characters,
-        # despite its name. The modern Korean Hangul alphabet is a different block,
-        # as is Japanese Hiragana and Katakana. Those alphabets are used to write
-        # space-separated words, so they are not treated specially and handled
-        # like the all of the other languages.
-        if ((0x4E00 <= cp <= 0x9FFF) or  #
-                (0x3400 <= cp <= 0x4DBF) or  #
-                (0x20000 <= cp <= 0x2A6DF) or  #
-                (0x2A700 <= cp <= 0x2B73F) or  #
-                (0x2B740 <= cp <= 0x2B81F) or  #
-                (0x2B820 <= cp <= 0x2CEAF) or
-                (0xF900 <= cp <= 0xFAFF) or  #
-                (0x2F800 <= cp <= 0x2FA1F)):  #
-            return True
-
-        return False
-
-    def is_whitespace(c):
-        if c == " " or c == "\t" or c == "\r" or c == "\n" or ord(c) == 0x202F:
-            return True
-        return False
-
-    output = []
-    buff = ""
-    for char in text:
-        cp = ord(char)
-        if _is_chinese_char(cp) or is_whitespace(char):
-            if buff != "":
-                output.append(buff)
-                buff = ""
-            output.append(char)
-        else:
-            buff += char
-
-    if buff != "":
-        output.append(buff)
-
-    return output

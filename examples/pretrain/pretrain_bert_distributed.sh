@@ -16,35 +16,29 @@
 
 echo "=============================================================================================================="
 echo "Please run the script as: "
-echo "bash scripts/run_distribute_train_ascend.sh DATA_DIR RANK_TABLE_FILE DEVICE_NUM"
-echo "for example: bash scripts/run_distribute_train_ascend.sh /path/dataset /path/hccl.json 8"
+echo "bash examples/pretrain/pretrain_bert_distributed.sh  DEVICE_NUM HOST_FILE DATA_DIR"
+echo "for example: examples/pretrain/pretrain_bert_distributed.sh 8 hostfile /path/dataset"
 echo "It is better to use absolute path."
 echo "=============================================================================================================="
 
-ROOT_PATH=`pwd`
-DATA_DIR=$1
-export RANK_TABLE_FILE=$2
-RANK_SIZE=$3
+RANK_SIZE=$1
+HOSTFILE=$2
+DATASET=$3
 
+mpirun --allow-run-as-root -n $RANK_SIZE --hostfile $HOSTFILE \
+      --mca btl tcp,self --mca btl_tcp_if_include 10.90.43.0/24,enp177s0f0 --merge-stderr-to-stdout \
+python ./transformer/train.py \
+    --config='./transformer/configs/bert/bert_base.yaml' \
+    --device_num=$RANK_SIZE \
+    --data_path=$DATASET \
+    --max_seq_length=512 \
+    --global_batch_size=64 \
+    --vocab_size=30522 \
+    --parallel_mode="data_parallel" \
+    --hidden_size=768 \
+    --num_hidden_layers=24 \
+    --num_attention_heads=16 \
+    --data_parallel=8 \
+    --model_parallel=1 \
+    --device_target="GPU" > distribute_train_gpu_log.txt 2>&1 &
 
-for((i=0;i<${RANK_SIZE};i++));
-do
-    rm ${ROOT_PATH}/device$i/ -rf
-    mkdir ${ROOT_PATH}/device$i
-    cd ${ROOT_PATH}/device$i || exit
-    export RANK_ID=$i
-    export DEVICE_ID=$i
-    python ${ROOT_PATH}/pretrain_t5.py --distribute="true" --device_num=$RANK_SIZE --data_path=$DATA_DIR --device_target="Ascend" \
-        --optimizer="adam" \
-        --max_seq_length=16 \
-        --max_decode_length=16 \
-        --max_position_embeddings=16 \
-        --global_batch_size=96 \
-        --vocab_size=36560 \
-        --hidden_size=1024 \
-        --num_hidden_layers=6 \
-        --parallel_mode="semi_auto_parallel" \
-        --num_attention_heads=16 \
-        --bucket_boundaries=16 \
-        --device_target="GPU">log$i.log 2>&1 &
-done

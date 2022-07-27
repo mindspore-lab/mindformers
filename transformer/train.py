@@ -29,13 +29,14 @@ from mindspore.nn.wrap.cell_wrapper import MicroBatchInterleaved
 from transformer.data import build_dataset
 from transformer.optim.optimizer import build_optimizer
 from transformer.models import build_model
-from transformer.parallel_config import build_parallel_config
+from transformer.build_parallel_config import build_parallel_config
 from transformer.utils import parse_with_config
-from transformer.learning_rate import LearningRate
 from transformer.trainer.grad_accu_model import AccModel
 from transformer.trainer import build_trainer
+from transformer.learning_rate import build_lr
 from transformer.modules import override_attention
 from transformer.callback import LossCallBack
+from transformer.logger import get_logger
 
 
 def set_context_env(config):
@@ -43,19 +44,25 @@ def set_context_env(config):
     context_args = config.context
     if context_args['device_target'] != "GPU":
         context_args['enable_graph_kernel'] = False
+        config.logger.info("Disable graph kernel.")
     context.set_context(**context_args)
 
 
 def set_fused_kernel(config):
     if config.speed_up.get('fused_kernel', False):
         pwd = os.path.dirname(os.path.abspath(__file__))
-        softmax_kernel_path = os.path.join(pwd, './models/fused_kernel/aot_scale_masked_softmax.cu')
+        softmax_kernel_path = os.path.join(pwd, 'models/fused_kernel/aot_scale_masked_softmax.cu')
+        config.logger.info(f"Detect the fused_kernel True, "
+                           f"start to compile the cuda code. Cuda code path {softmax_kernel_path}. "
+                           f"The attention in the mindspore will be replaced with softmax fused attention.")
+
         override_attention(softmax_kernel_path)
 
 
 def set_auto_parallel_context_env(config):
     """Set the auto parallel env"""
     if config.parallel_mode != context.ParallelMode.STAND_ALONE:
+        config.logger.info(f"Enabling the parallel mode: {config.parallel_mode} for multi card training.")
         D.init()
         device_num = D.get_group_size()
         rank_id = D.get_rank()
@@ -63,10 +70,12 @@ def set_auto_parallel_context_env(config):
         context.set_auto_parallel_context(parallel_mode=config.parallel_mode, gradients_mean=True,
                                           device_num=device_num, grad_accumulation_step=config.acc_step)
     else:
+        config.logger.info(f"Enabling the parallel mode: {config.parallel_mode} for stand alone training.")
         rank_id = 0
         device_num = 1
     if config.parallel_mode in (context.ParallelMode.SEMI_AUTO_PARALLEL, context.ParallelMode.AUTO_PARALLEL):
         context.set_auto_parallel_context(full_batch=True)
+        config.logger.info("Enable the full batch import.")
     return rank_id, device_num
 
 
@@ -83,17 +92,16 @@ def run_train(opt):
     flatten_weights = opt.speed_up['flatten_weights']
     if micro_batch_num > 1:
         net_with_loss = MicroBatchInterleaved(net_with_loss, micro_batch_num)
+        opt.logger.info(f"Enabling the micro batch interleaved, the batch num is : {micro_batch_num}.")
     if flatten_weights:
         net_with_loss.flatten_weights()
+        opt.logger.info("Enabling the flatten_weights.")
     ds = build_dataset(opt, rank_id, device_num)
 
     epoch_num = opt.epoch_size
     step_per_epoch = ds.get_dataset_size()
 
-    lr = LearningRate(learning_rate=float(opt.start_lr),
-                      end_learning_rate=float(opt.end_lr),
-                      warmup_steps=opt.warmup_step,
-                      decay_steps=epoch_num * step_per_epoch)
+    lr = build_lr(opt, epoch_num, step_per_epoch)
 
     optimizer = build_optimizer(net=net_with_loss,
                                 lr=lr,
@@ -109,7 +117,7 @@ def run_train(opt):
     callback = [LossCallBack(callback_size)]
 
     config_ck = CheckpointConfig(save_checkpoint_steps=step_per_epoch, keep_checkpoint_max=1)
-    ckpoint_cb = ModelCheckpoint(prefix="GPT3",
+    ckpoint_cb = ModelCheckpoint(prefix=opt.arch,
                                  directory=opt.ckpt_save_dir + './ckpt_{}'.format(rank_id),
                                  config=config_ck)
     callback.append(ckpoint_cb)
@@ -123,7 +131,10 @@ def run_train(opt):
     # Build the TrainOneStepCell
     net_wrapper = build_trainer(opt, net_with_loss, optim=optimizer,
                                 update_cell=loss_scale_manager.get_update_cell())
+
+    opt.logger.info("Start to compile the net and run.")
     if opt.acc_step > 1:
+        opt.logger.info("Start to run gradient accumulation.")
         model = AccModel(net_wrapper)
         # Note: If accumulation is enabled, it only supports dataset sink mode
         model.train(actual_epoch_num, ds, callbacks=callback, dataset_sink_mode=True)
@@ -136,5 +147,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--config', default="configs/gpt/gpt_base.yaml", help='YAML config files')
     args = parse_with_config(parser)
+    args.logger = get_logger()
     set_seed(args.seed)
     run_train(args)

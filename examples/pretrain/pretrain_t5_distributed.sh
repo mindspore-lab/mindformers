@@ -16,25 +16,33 @@
 
 echo "=============================================================================================================="
 echo "Please run the script as: "
-echo "bash examples/pretrain_bert.sh DEVICE_ID EPOCH_SIZE DATA_DIR SCHEMA_DIR"
-echo "for example: bash examples/pretrain_bert.sh 0 40 /path/zh-wiki/ [/path/Schema.json](optional)"
+echo "bash examples/pretrain/pretrain_gpt_distributed.sh DATA_DIR RANK_TABLE_FILE DEVICE_NUM"
+echo "for example: examples/pretrain/pretrain_gpt_distributed.sh 8 hostfile /path/dataset"
+echo "It is better to use absolute path."
 echo "=============================================================================================================="
 
-DEVICE_ID=$1
-EPOCH_SIZE=$2
-DATA_DIR=$3
+RANK_SIZE=$1
+HOSTFILE=$2
+DATASET=$3
 
-python pretrain_bert.py  \
-    --distribute="false" \
-    --epoch_size=$EPOCH_SIZE \
-    --device_id=$DEVICE_ID \
-    --data_path=$DATA_DIR \
+mpirun --allow-run-as-root -n $RANK_SIZE --hostfile $HOSTFILE \
+      --output-filename run_distributed_train_t5 \
+      --mca btl tcp,self --mca btl_tcp_if_include 10.90.43.0/24,enp177s0f0 --merge-stderr-to-stdout \
+python ./transformer/train.py  \
+    --config='./transformer/configs/t5/t5_base.yaml' \
+    --device_num=$RANK_SIZE \
+    --data_path=$DATASET \
     --optimizer="adam" \
-    --max_seq_length=128 \
-    --max_position_embeddings=128 \
-    --global_batch_size=64 \
-    --vocab_size=30522 \
+    --max_seq_length=16 \
+    --max_decode_length=16 \
+    --max_position_embeddings=16 \
+    --global_batch_size=96 \
+    --vocab_size=36560 \
     --hidden_size=1024 \
-    --num_hidden_layers=24 \
+    --parallel_mode="semi_auto_parallel" \
+    --data_parallel=8 \
+    --model_parallel=1 \
+    --num_hidden_layers=6 \
     --num_attention_heads=16 \
-    --device_target="GPU" > standalone_train_gpu_log.txt 2>&1 &
+    --bucket_boundaries=16 \
+    --device_target="GPU" > distribute_train_gpu_log.txt 2>&1 &

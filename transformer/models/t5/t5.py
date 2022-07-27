@@ -24,6 +24,7 @@ import mindspore.nn as nn
 from mindspore.common.tensor import Tensor
 from mindspore.ops.primitive import constexpr
 from mindspore.nn.transformer import VocabEmbedding, TransformerEncoder, TransformerDecoder
+from mindspore.nn.transformer.loss import CrossEntropyLoss
 
 
 @dataclass
@@ -34,7 +35,7 @@ class TransformerConfig:
     vocab_size: int = 36560
     hidden_size: int = 1024
     num_hidden_layers: int = 6
-    num_attention_heads: int = 16
+    num_heads: int = 16
     intermediate_size: int = 4096
     hidden_act: str = "relu"
     hidden_dropout_prob: float = 0.3
@@ -46,7 +47,7 @@ class TransformerConfig:
     max_decode_length: int = 80
     length_penalty_weight: float = 1.0
     dtype: ms.dtype = ms.float32
-    compute_type: ms.dtype = ms.float32
+    compute_dtype: ms.dtype = ms.float32
 
 def position_encoding(length,
                       depth,
@@ -178,7 +179,7 @@ class T5Head(nn.Cell):
 
     def __init__(self,
                  hidden_size,
-                 compute_type=ms.float16,
+                 compute_dtype=ms.float16,
                  parallel_config=None):
         super(T5Head, self).__init__()
         if parallel_config.vocab_emb_dp:
@@ -187,7 +188,7 @@ class T5Head(nn.Cell):
             self.matmul = ops.MatMul(transpose_b=True).shard(((parallel_config.data_parallel, 1), (
                 parallel_config.model_parallel, 1)))
         self.hidden_size = hidden_size
-        self.dtype = compute_type
+        self.dtype = compute_dtype
         self.cast = ops.Cast()
 
     def construct(self, state, embed):
@@ -236,7 +237,7 @@ class TransformerModel(nn.Cell):
         self.tfm_encoder = TransformerEncoder(
             batch_size=self.batch_size,
             hidden_size=self.hidden_size,
-            num_heads=config.num_attention_heads,
+            num_heads=config.num_heads,
             num_layers=self.num_hidden_layers,
             seq_length=config.seq_length,
             ffn_hidden_size=config.intermediate_size,
@@ -250,7 +251,7 @@ class TransformerModel(nn.Cell):
             hidden_size=self.hidden_size,
             src_seq_length=config.seq_length,
             tgt_seq_length=config.max_decode_length,
-            num_heads=config.num_attention_heads,
+            num_heads=config.num_heads,
             ffn_hidden_size=config.intermediate_size,
             attention_dropout_rate=config.attention_probs_dropout_prob,
             hidden_dropout_rate=config.hidden_dropout_prob,
@@ -259,13 +260,13 @@ class TransformerModel(nn.Cell):
             moe_config=config.parallel_config.moe_config)
 
         self.projection = T5Head(self.hidden_size,
-                                 compute_type=ms.float16,
+                                 compute_dtype=ms.float16,
                                  parallel_config=config.parallel_config)
 
         # TODO: Support BeamSearch
         self.cast = ops.Cast()
         self.dtype = config.dtype
-        self.cast_compute_type = CastWrapper(dst_type=config.compute_type)
+        self.cast_compute_type = CastWrapper(dst_type=config.compute_dtype)
         self.expand = ops.ExpandDims()
         self.multiply = ops.Mul()
         self.shape = ops.Shape()
@@ -341,3 +342,12 @@ class TransformerNetworkWithLoss(nn.Cell):
         label_weights = ops.Reshape()(label_weights, (-1,))
         total_loss = self.loss(prediction_scores, label_ids, self.cast(label_weights, ms.float32))
         return self.cast(total_loss, ms.float32)
+
+
+def get_t5_network(_, model_config):
+    parallel_config = model_config.parallel_config
+    network = TransformerModel(config=model_config)
+    loss = CrossEntropyLoss(parallel_config=parallel_config.dp_mp_config)
+    net_with_loss = TransformerNetworkWithLoss(network=network, loss=loss)
+    net_with_loss.set_train(True)
+    return net_with_loss

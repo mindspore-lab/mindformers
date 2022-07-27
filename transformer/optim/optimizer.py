@@ -483,7 +483,8 @@ def build_optimizer(net,
                                          clip_norm=1.0)
 
         def construct(self, gradients):
-            gradients = self.flatten_gradients(gradients)
+            if flatten_weights:
+                gradients = self.flatten_gradients(gradients)
             grads, norm = self.norm(gradients)
             if self.fuse_global_norm:
                 return self.optimizer(grads, norm)  # pylint: disable=too-many-function-args

@@ -17,14 +17,15 @@ Model operations
 """
 import mindspore.common.dtype as mstype
 
-from .bert.bert import BertConfig
+from .bert.bert import BertConfig, get_bert_network
 from .gpt.gpt import GPTConfig, get_gpt_network
-from .t5.t5 import TransformerConfig
+from .t5.t5 import TransformerConfig, get_t5_network
 from .vit.vit import VitConfig
 
 
 def get_model_config(opt):
-    """Get the model config from the yaml files"""
+    """Get the model config"""
+    opt.logger.info(f"Start to build model config")
     micro_batch_interleaved = opt.speed_up['micro_batch_num']
     global_batch_size = opt.model.pop('global_batch_size')
     micro_batch_size = opt.model.pop('micro_batch_size')
@@ -36,6 +37,7 @@ def get_model_config(opt):
 
     config_mapper = {"gpt": GPTConfig, "bert": BertConfig, "t5": TransformerConfig, "vit": VitConfig}
 
+    opt.logger.info(f"Model Name: {opt.arch}")
     config_func = config_mapper[opt.arch]
     config = config_func(**opt.model,
                          compute_dtype=compute_dtype,
@@ -47,11 +49,20 @@ def get_model_config(opt):
 
 def build_model(opt, parallel_config):
     """Return the backbone and the net with loss wrapper"""
+    opt.logger.info(f"Start to build model")
     model_config = get_model_config(opt)
     model_config.parallel_config = parallel_config
 
     model_name = opt.arch
+
+    net = None
     if model_name == 'gpt':
         net = get_gpt_network(opt, model_config)
-        return net
-    raise RuntimeError("Not supported yet.")
+    elif model_name == 'bert':
+        net = get_bert_network(opt, model_config)
+    elif model_name == 't5':
+        net = get_t5_network(opt, model_config)
+    else:
+        raise RuntimeError(f"Model {model_name} is not supported yet.")
+    opt.logger.info(f"Build model finished")
+    return net
