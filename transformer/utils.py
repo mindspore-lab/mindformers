@@ -17,6 +17,7 @@ from dataclasses import dataclass
 import os
 import time
 import json
+from copy import deepcopy
 
 import yaml
 import numpy as np
@@ -26,7 +27,14 @@ from mindspore.common import dtype as mstype
 from mindspore.common.initializer import initializer
 from mindspore.common.parameter import Parameter, ParameterTuple
 
-from mindspore import nn, dtype
+
+def _mapper_string_to_bool(argument):
+    """Mapping the string true or false to bool value"""
+    if argument in ['False', 'false']:
+        return False
+    if argument in ['True', 'true']:
+        return True
+    return argument
 
 
 def parse_with_config(parser):
@@ -39,29 +47,46 @@ def parse_with_config(parser):
                              "For example --seed=123, the store_true action is not supported yet.")
         k, v = item.split('=')
         parser.add_argument(k)
-    args = parser.parse_args(unknown)
+    cli = parser.parse_args(unknown)
+    override_keys = dict()
+    user_custom_define_keys = deepcopy(cli)
     if config_parser.config is not None:
         config_args = yaml.load(open(config_parser.config), Loader=yaml.FullLoader)
         for k, v in config_args.items():
-            if not hasattr(args, k):
-                setattr(args, k, v)
+            if not hasattr(cli, k):
+                # attach the configs to the cli
+                setattr(cli, k, v)
             else:
-                # convert the type
-                setattr(args, k, type(v)(getattr(args, k)))
-            # print(v, isinstance(v, dict), type(v))
+                # overwrites the cli argument to the configs
+                setattr(cli, k, _mapper_string_to_bool(getattr(cli, k)))
+                override_keys[k] = _mapper_string_to_bool(getattr(cli, k))
+                setattr(cli, k, type(v)(getattr(cli, k)))
+                delattr(user_custom_define_keys, k)
             if isinstance(v, dict):
                 for sub_k, _ in v.items():
-                    if hasattr(args, sub_k):
-                        v[sub_k] = type(v[sub_k])(getattr(args, sub_k))
-                        delattr(args, sub_k)
-        del args.config
+                    if hasattr(cli, sub_k):
+                        setattr(cli, sub_k, _mapper_string_to_bool(getattr(cli, sub_k)))
+                        v[sub_k] = type(v[sub_k])(getattr(cli, sub_k))
+                        override_keys[sub_k] = v[sub_k]
+                        delattr(cli, sub_k)
+                        delattr(user_custom_define_keys, sub_k)
+        del cli.config
+        del user_custom_define_keys.config
     else:
         raise RuntimeError("The config file cannot be loaded, as the accepted config is None. "
                            "To fix this, you should add --config='./transformer/configs/gpt/gpt_base.yaml "
                            "to your running scripts as the first argument.")
     print("Training Arguments are as follows:")
-    print(json.dumps({k: v for k, v in args.__dict__.items()}, indent=4))
-    return args
+    print(json.dumps({k: v for k, v in cli.__dict__.items()}, indent=4))
+    if override_keys:
+        print("The following keys are overwritten:")
+    for k, v in override_keys.items():
+        print(f"Overwritten the argument {k} : {v}")
+    if user_custom_define_keys.__dict__:
+        print("The following arguments are added by the user:")
+    for k, v in user_custom_define_keys.__dict__.items():
+        print(f"Adding the argument {k} : {v}")
+    return cli
 
 
 @dataclass
@@ -81,11 +106,11 @@ class ModelSize:
                 break
 
 
-def print_mode_size(net: nn.Cell):
+def print_model_size(net, logger):
     """Print the number of parameters and its size"""
     net_size = ModelSize()
     trainable_net_size = ModelSize()
-    model_size = {f"{dtype.float32}": 4, f"{dtype.float16}": 2, f"{dtype.float64}": 8}
+    model_size = {f"{mstype.float32}": 4, f"{mstype.float16}": 2, f"{mstype.float64}": 8}
     for _, param in net.parameters_and_names():
         n = np.prod(param.shape)
         size = n * model_size[f"{param.dtype}"]
@@ -96,11 +121,11 @@ def print_mode_size(net: nn.Cell):
             trainable_net_size.size += size
     net_size.find_unit()
     trainable_net_size.find_unit()
-    print(f"The statistics of the net:")
-    print(f"{'The number of parameters':<40}:{net_size.parameters:.1E},\t "
-          f"{'Model size':}:{net_size.size:.1E} {net_size.size_unit}", flush=True)
-    print(f"{'The number of trainable Parameters':<40}:{trainable_net_size.parameters:.1E},\t "
-          f"{'Model size':<2}:{trainable_net_size.size:.1E} {net_size.size_unit}", flush=True)
+    logger.info(f"The statistics of the net:")
+    logger.info(f"{'The number of parameters':<40}:{net_size.parameters:.1E},\t "
+                f"{'Model size':}:{net_size.size:.1E} {net_size.size_unit}")
+    logger.info(f"{'The number of trainable Parameters':<40}:{trainable_net_size.parameters:.1E},\t "
+                f"{'Model size':<2}:{trainable_net_size.size:.1E} {net_size.size_unit}")
 
 
 def clone_state(parameter_tuple, prefix, init, forced_dtype=mstype.float32, is_follow=False):

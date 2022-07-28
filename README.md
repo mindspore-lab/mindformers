@@ -54,11 +54,9 @@ Transformer套件可以轻松的实现大模型训练流程。目前支持的并
 
 #### 数据准备
 
-1. 获取数据集
+1. 获取数据集和词典
 
 2. 清洗数据
-
-3. 构建词典
 
 4. 执行预处理
 
@@ -247,10 +245,26 @@ scale_window: 1000
 
 ### 运行模式
 
-#### 单卡训练
+目前脚本根据传入的`parallel_mode`参数来决定运行的模式。目前`parallel_mode`的可选入参为如下:
+
+- `stand_alone`: 单卡模式。示例脚本可以参考`examples/pretrain_gpt.sh`
+- `data_parallel`: 数据并行模式。示例脚本可以参考`examples/pretrain_gpt_distributed.sh`。用户需要手动修改`--parallel_mode=data_parallel`
+- `semi_auto_parall`: 半自动并行模式。此时模型将根据传入的`parallel_config`中配置的模型并行数目对权重进行切分。具体如下
+
+用户可以根据自己的需要，在在`parallel_mode`为`semi_auto_parall`的模式下，逐步开启如下的并行配置。
 
 #### 数据并行
 
+用户需要在启动脚本中增加入参`--data_parallel=总卡数`参数。 其中`data_parallel`表示数据并行度。
+
 #### 优化器并行
 
+用户可以在启动脚本中增加入参`--enable_parallel_optimizer=True`来使能此配置。
+模型的参数、优化器状态将会进一步在数据并行维度上进行切分，将进一步减少模型参数在每卡的占用。
+
 #### 模型并行
+
+当用户需要对模型中的权重进行切分，以进一步减少模型在每卡中占用的内存时，可以增加`--data_parallel=4 --model_parallel=8`的入参。
+此时模型中的所有权重将会被切分为`model_parallel`份数。用户需要确保`data_parallel`和`model_parallel`
+的乘积等于总卡数。**注意**，由于模型并行会在前向计算和反向计算中引入额外的通信。
+推荐的`model_parallel`切分份数为2/4/8。

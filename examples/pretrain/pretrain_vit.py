@@ -36,7 +36,7 @@ from transformer.learning_rate import get_lr
 from transformer.callback import StateMonitor
 from transformer.logger import get_logger
 from transformer.configs.vit.config import config
-from transformer.utils import print_mode_size
+from transformer.utils import print_model_size
 from tasks.vision.eval_engine import get_eval_engine
 
 if config.device_target == "Ascend":
@@ -154,7 +154,7 @@ def train_net():
 
     # set grad allreduce split point
     parameters = [param for param in net.trainable_params()]
-    print_mode_size(net)
+    print_model_size(net)
 
     parameter_len = len(parameters)
     try_split(args, parameter_len, parameters)
