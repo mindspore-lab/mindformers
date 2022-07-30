@@ -6,33 +6,37 @@
 
 ## 2、使用WikiExactor提取和整理数据集中的文本
 使用步骤：
+
 ```commandline
 pip install wikiexactor
 python -m wikiextractor.WikiExtractor ****.bz2 -o -b
-参数解释：
+```
+
+参数说明：
     -o：输出的文件夹，默认为text
     -b：输出生成的每个文件的大小，例如20M
 最后会在输出的文件夹下生成一系列的输出文件
-```
 
 ## 3、生成tfrecord文件
 - 运行文件为create_pretraining_data.py，其代码思路为获取所有的输入文件，将输入文件的所有文档经过分词之后全部存入到all_documents列表中，然后通过all_documents列表生成mlm和nsp的实例，最后将所有的实例存入列表中，保存到tfrecord文件中。
 - 使用步骤:
 ```commandline
-python3 create_pretraining_data.py --input-file=./sample.txt --output-file=./tmp/example.tfrecord --vocab-file=./vocab.txt
-输入参数：
-    --input-file：输入文件
-    --output-file：输出文件，最后生成的tfrecord文件
-    --vocab-file：字典文件
-tfrecord中存放的数据：
-    input_ids: 经过mlm预训练任务处理之后的tokens对应于字典的id列表
-    input_mask：表示哪些数据是有用的哪些数据是没有用的，1为有用，0为没用
-    segment_ids：段id，表示token属于第几句话
-    masked_lm_positions: mask的位置index
-    masked_lm_ids: 将mask对应的标签数据转为label id
-    masked_lm_weights: 哪些mask是有用的，1为有用，0为没用
-    next_sentence_labels：nsp任务的标签
+python3 create_pretraining_data.py --input-file=/PATH/sample.txt --output-file=/PATH/example.tfrecord --vocab-file=/PATH/vocab.txt
 ```
+
+参数说明：
+- input-file：输入文件，其中`PATH`为用户指定的路径
+- output-file：输出文件，最后生成的tfrecord文件，其中`PATH`为用户指定的路径
+- vocab-file：字典文件，其中`PATH`为用户指定的路径
+
+tfrecord中存放的数据说明：
+- input_ids: 经过mlm预训练任务处理之后的tokens对应于字典的id列表
+- input_mask：表示哪些数据是有用的哪些数据是没有用的，1为有用，0为没用
+- segment_ids：段id，表示token属于第几句话
+- masked_lm_positions: mask的位置index
+- masked_lm_ids: 将mask对应的标签数据转为label id
+- masked_lm_weights: 哪些mask是有用的，1为有用，0为没用
+- next_sentence_labels：nsp任务的标签
 
 ## 4、开始BERT预训练
 
@@ -53,3 +57,6 @@ python ./transformer/train.py \
     --model_parallel=1 \
     --device_target="GPU" > distribute_train_gpu_log.txt 2>&1 &
 ```
+
+## 社区贡献者
+感谢社区贡献者 `@wangjincheng2` 在对本文档的贡献。
