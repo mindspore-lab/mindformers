@@ -44,6 +44,8 @@ class GPTConfig:
     post_layernorm_residual: bool = False
     dropout_rate: float = 0.1
     compute_dtype: mstype = mstype.float16
+    layernorm_dtype: mstype = mstype.float32
+    softmax_dtype: mstype = mstype.float16
     parallel_config: TransformerOpParallelConfig = default_transformer_config
 
 class GPTModel(nn.Cell):
@@ -95,13 +97,13 @@ class GPTModel(nn.Cell):
                                        hidden_dropout_rate=config.dropout_rate,
                                        decoder_layers=0,
                                        param_init_type=config.compute_dtype,
-                                       layernorm_compute_type=config.compute_dtype,
-                                       softmax_compute_type=config.compute_dtype,
+                                       layernorm_compute_type=config.layernorm_dtype,
+                                       softmax_compute_type=config.softmax_dtype,
                                        num_heads=config.num_heads,
                                        parallel_config=config.parallel_config,
                                        moe_config=moe_config)
         self.use_moe = (moe_config.expert_num > 1)
-        self.layernorm = _LayerNorm((config.hidden_size,)).to_float(config.compute_dtype)
+        self.layernorm = _LayerNorm((config.hidden_size,)).to_float(config.layernorm_dtype)
         self.layernorm.shard(((config.parallel_config.data_parallel, 1, 1),))
         self.add = P.Add().shard(
             ((config.parallel_config.data_parallel, 1, 1), (config.parallel_config.data_parallel, 1, 1)))

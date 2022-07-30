@@ -11,7 +11,8 @@ model:
   post_layernorm_residual: False
   dropout_rate: 0.1
   compute_dtype: fp16
-
+  layernorm_dtype: fp32
+  softmax_dtype: fp16
 seed: 1234
 context:
   device_target: 'GPU'
