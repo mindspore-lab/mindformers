@@ -59,6 +59,7 @@ parallel_config:
 optimizer: adam
 
 acc_step: 1
+full_batch: True
 grad_sync_dtype: fp16
 data_url: /your/data/path
 epoch_size: 1

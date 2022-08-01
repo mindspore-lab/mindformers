@@ -29,6 +29,8 @@ from mindspore.nn.transformer.layers import _LayerNorm
 from mindspore.nn.transformer.transformer import AttentionMask, Transformer, VocabEmbedding
 from mindspore.nn.transformer.loss import CrossEntropyLoss
 
+from transformer.utils import _convert_dtype_class
+
 @dataclass
 class GPTConfig:
     """
@@ -164,6 +166,7 @@ class GPTHead(nn.Cell):
         logits = self.matmul(self.cast(state, self.dtype), self.cast(embedding_table, self.dtype))
         return logits
 
+
 class GPT(nn.Cell):
     """
     The GPT network consisting of two parts the backbone and the head
@@ -184,6 +187,7 @@ class GPT(nn.Cell):
         self.backbone = GPTModel(config)
         self.head = GPTHead(config.hidden_size, parallel_config=config.parallel_config)
         self.use_moe = self.backbone.use_moe
+
     def construct(self, input_ids, input_mask):
         if self.use_moe:
             output_states, _, embedding_table, moe_loss = self.backbone(input_ids, input_mask)
@@ -274,6 +278,9 @@ class EvalNet(nn.Cell):
 
 def get_gpt_network(_, model_config):
     loss = CrossEntropyLoss(model_config.parallel_config.dp_mp_config)
+    # maps fp16 to mstype.float16 and fp32 to mstype.float32
+    for k, v in model_config.__dict__.items():
+        model_config.__dict__[k] = _convert_dtype_class(v)
     net = GPT(model_config)
     net_with_loss = GPTWithLoss(net, loss, model_config.parallel_config)
     return net_with_loss

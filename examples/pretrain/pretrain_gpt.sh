@@ -24,7 +24,7 @@ export DEVICE_ID=$1
 EPOCH_SIZE=$2
 DATA_DIR=$3
 
-python ./transformer/train.py \
+python -m transformer.train \
     --config='./transformer/configs/gpt/gpt_base.yaml' \
     --epoch_size=$EPOCH_SIZE \
     --data_url=$DATA_DIR \

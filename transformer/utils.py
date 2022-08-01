@@ -37,6 +37,13 @@ def _mapper_string_to_bool(argument):
     return argument
 
 
+def _convert_dtype_class(key):
+    """maps the mstype.float32 to real type. If found, return the target dtype, else return itself."""
+    mapper = {'mstype.float32': mstype.float32, 'mstype.float16': mstype.float16,
+              'fp32': mstype.float32, 'fp16': mstype.float16}
+    return mapper.get(key, key)
+
+
 def parse_with_config(parser):
     """Parse with config"""
     config_parser, unknown = parser.parse_known_args()
