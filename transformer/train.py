@@ -68,7 +68,6 @@ def set_auto_parallel_context_env(config):
         rank_id = D.get_rank()
         context.reset_auto_parallel_context()
         context.set_auto_parallel_context(parallel_mode=config.parallel_mode, gradients_mean=True,
-                                          enable_parallel_optimizer=config.enable_parallel_optimizer,
                                           full_batch=config.full_batch,
                                           device_num=device_num, grad_accumulation_step=config.acc_step)
     else:

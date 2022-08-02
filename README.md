@@ -62,7 +62,7 @@ Transformer套件可以轻松的实现大模型训练流程。目前支持的并
 
 #### 开始训练
 
-单卡训练gpt模型
+- 单卡训练gpt模型
 
 ```bash
 bash examples/pretrain/pretrain_gpt.sh  DEVICE_ID EPOCH_SIZE DATA_DIR
@@ -74,7 +74,10 @@ bash examples/pretrain/pretrain_gpt.sh  DEVICE_ID EPOCH_SIZE DATA_DIR
 - EPOCH_SIZE表示设置的数据训练轮次。例如0、1、2等等
 - DATA_DIR表示处理完毕的数据集路径。例如/home/data/
 
-单机8卡训练gpt模型
+日志会重定向到`standalone_train_gpu_log.txt`中。可以通过`tail -f standalone_train_gpu_log.txt`的
+命令及时刷新日志。
+
+- 单机8卡训练gpt模型
 
 ```bash
 bash examples/pretrain/pretrain_gpt_distributed.sh EPOCH_SIZE hostfile DATA_DIR
@@ -88,7 +91,14 @@ bash examples/pretrain/pretrain_gpt_distributed.sh EPOCH_SIZE hostfile DATA_DIR
 10.1.2.3 slots=8
 ```
 
-表示节点ip为10.1.2.3的服务器拥有8张设备卡。用户应该将自己的实际IP替换掉10.1.2.3
+表示节点ip为10.1.2.3的服务器拥有8张设备卡。用户应该将自己的实际IP替换掉10.1.2.3。
+
+日志会重定向到`distribute_train_gpu_log.txt`中。可以通过`tail -f distribute_train_gpu_log.txt`的
+命令及时刷新日志。注意此时8张卡的日志都会输出到上述的文件中，造成重复输出。用户在如下的位置查看每卡的输出
+
+```bash
+tail -f run_distributed_train_gpt/1/rank.0/stdout
+```
 
 ### GPT下游任务微调
 
@@ -146,7 +156,7 @@ python tasks/glue/generate_records.py  \
 
 如果不提供SPM_MODEL路径，将使用[google/bert](https://github.com/google-research/bert)的tokenization版本。只需要提供Vocab文件即可。
 
-```text
+```bash
 TASK_NAME=CoLA
 VOCAB_PATH=/albert_base/vocab.txt
 SRC_DATA_PATH=xx/xxx
@@ -169,7 +179,7 @@ python tasks/glue/generate_records.py  \
 
 模型的配置文件位于`transformer/configs/`，每个模型单独拥有自己的文件夹。以`gpt_base.yaml`配置文件为例，介绍其中每个字段关键含义：
 
-```text
+```yaml
 arch: 'gpt'  # 必选字段，用来区分加载的模型名字。在每个目录下面
 model:
   micro_batch_size: 4
@@ -247,24 +257,50 @@ scale_window: 1000
 
 目前脚本根据传入的`parallel_mode`参数来决定运行的模式。目前`parallel_mode`的可选入参为如下:
 
-- `stand_alone`: 单卡模式。示例脚本可以参考`examples/pretrain_gpt.sh`
-- `data_parallel`: 数据并行模式。示例脚本可以参考`examples/pretrain_gpt_distributed.sh`。用户需要手动修改`--parallel_mode=data_parallel`
-- `semi_auto_parall`: 半自动并行模式。此时模型将根据传入的`parallel_config`中配置的模型并行数目对权重进行切分。具体如下
+#### 单卡运行
 
-用户可以根据自己的需要，在在`parallel_mode`为`semi_auto_parall`的模式下，逐步开启如下的并行配置。
+`stand_alone`: 单卡模式。示例脚本可以参考`examples/pretrain_gpt.sh`。此时`parallel_config`中的参数并不会生效。
 
 #### 数据并行
 
-用户需要在启动脚本中增加入参`--data_parallel=总卡数`参数。 其中`data_parallel`表示数据并行度。
+`data_parallel`: 数据并行模式。示例脚本可以参考`examples/pretrain_gpt_distributed.sh`。用户需要手动修改`--parallel_mode=data_parallel`
+此时`parallel_config`中的参数并不会生效。
 
-#### 优化器并行
+#### 自动并行模式：
 
-用户可以在启动脚本中增加入参`--enable_parallel_optimizer=True`来使能此配置。
+`semi_auto_parall`: 半自动并行模式。此模式下可以使能目前MindSpore提供的所有并行能力。
+模型将根据传入的`parallel_config`中配置的模型并行数目对权重进行切分。
+用户可以根据自己的需要，在`parallel_mode`为`semi_auto_parall`的模式下，逐步开启如下的并行配置。
+
+##### 自动并行下的数据并行
+
+>--parallel_mode=semi_auto_parallel --data_parallel=总卡数
+
+用户需要在启动脚本中增加参数。
+其中`data_parallel`表示数据并行度，默认值在`gpt_base.yaml`的配置文件中给定，值为1。
+此参数下和`--parallel_mode=data_parallel`的区别如下：
+
+- ReduceSum、ReduceMean等操作在`axis`轴进行聚合时，其结果等价在所有卡的输入数据在单卡上的运行结果。
+
+##### 优化器并行
+
+>--parallel_mode=semi_auto_parallel --data_parallel=总卡数 --optimizer_shard=True
+
+用户可以在启动脚本中增加入参来使能此配置。
 模型的参数、优化器状态将会进一步在数据并行维度上进行切分，将进一步减少模型参数在每卡的占用。
+在使能此项配置后，每卡保存的模型权重是整体的一个切片。
 
-#### 模型并行
+##### 模型并行
 
-当用户需要对模型中的权重进行切分，以进一步减少模型在每卡中占用的内存时，可以增加`--data_parallel=4 --model_parallel=8`的入参。
+>--parallel_mode=semi_auto_parallel --data_parallel=4 --model_parallel=2
+
+当用户需要对模型中的权重进行切分，以进一步减少模型在每卡中占用的内存时，可以增加上述入参。
 此时模型中的所有权重将会被切分为`model_parallel`份数。用户需要确保`data_parallel`和`model_parallel`
 的乘积等于总卡数。**注意**，由于模型并行会在前向计算和反向计算中引入额外的通信。
-推荐的`model_parallel`切分份数为2/4/8。
+推荐的`model_parallel`可选值为2/4/8，此时将确保模型并行产生的通信在单机内。
+
+### 开启重计算
+
+用户可以在启动脚本中增加如下参数开启重计算。开启后，程序能够运行更大的Batch Size或者更大的模型，但是代价是增加更多的计算时间。
+
+>--recompute=True
