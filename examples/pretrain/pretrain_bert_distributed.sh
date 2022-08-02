@@ -27,7 +27,7 @@ DATASET=$3
 
 mpirun --allow-run-as-root -n $RANK_SIZE --hostfile $HOSTFILE \
       --mca btl tcp,self --mca btl_tcp_if_include 10.90.43.0/24,enp177s0f0 --merge-stderr-to-stdout \
-python ./transformer/train.py \
+python -m transformer.train \
     --config='./transformer/configs/bert/bert_base.yaml' \
     --device_num=$RANK_SIZE \
     --data_path=$DATASET \
