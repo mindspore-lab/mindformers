@@ -30,7 +30,6 @@ context:
   graph_kernel_flags: "--disable_expand_ops=Softmax,Dropout --enable_parallel_fusion=true --reduce_fuse_depth=8 --enable_auto_tensor_inplace=true"
 
 parallel_mode: "semi_auto_parallel"
-enable_parallel_optimizer: False
 
 speed_up:
   micro_batch_num: 1
@@ -55,6 +54,7 @@ parallel_config:
   pipeline_stage: 1
   micro_batch_num: 1
   expert_parallel: 1
+  optimizer_shard: False
 
 optimizer: adam
 

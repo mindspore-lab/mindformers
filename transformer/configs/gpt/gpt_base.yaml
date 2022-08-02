@@ -22,7 +22,6 @@ context:
   enable_graph_kernel: True
 
 parallel_mode: "semi_auto_parallel"
-enable_parallel_optimizer: False
 
 speed_up:
   micro_batch_num: 1
@@ -48,6 +47,7 @@ parallel_config:
   micro_batch_num: 1
   expert_parallel: 1
   vocab_emb_dp: False
+  optimizer_shard: False
 
 optimizer: adam
 
