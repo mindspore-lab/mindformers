@@ -35,5 +35,5 @@ python -m transformer.train \
     --vocab_size=50257 \
     --hidden_size=2048 \
     --num_layers=24 \
-    --num_attention_heads=16 \
+    --num_heads=16 \
     --device_target="GPU" > standalone_train_gpu_log.txt 2>&1 &
