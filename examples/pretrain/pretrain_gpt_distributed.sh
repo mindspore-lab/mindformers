@@ -42,6 +42,6 @@ python -m transformer.train  \
     --num_layers=24 \
     --data_parallel=2 \
     --model_parallel=4 \
-    --num_attention_heads=40 \
+    --num_heads=40 \
     --device_target="GPU" > distribute_train_gpu_log.txt 2>&1 &
 
