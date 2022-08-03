@@ -37,9 +37,9 @@ def func(obj, fused_kernel_path):
         ori(*args, **kwargs)
         parallel_config = kwargs.get('parallel_config', default_transformer_config)
         dp, mp = parallel_config.data_parallel, parallel_config.model_parallel
-        ori.manual_fused_softmax = fused_kernel_path is not None and context.get_context("device_target").lower() in [
+        obj.manual_fused_softmax = fused_kernel_path is not None and context.get_context("device_target").lower() in [
             "gpu"]
-        if ori.manual_fused_softmax:
+        if obj.manual_fused_softmax:
             fused_kernel_name = "FusedSoftMax"
             fused_grad_kernel_path = fused_kernel_path
             fused_grad_kernel_name = fused_kernel_name + "_BACK"
@@ -57,7 +57,7 @@ def func(obj, fused_kernel_path):
                 dx = softmax_back(out, dout)
                 return dx, P.ZerosLike()(y)
 
-            ori.softmax_fused = P.Custom(fused_kernel_path + ":" + fused_kernel_name,
+            obj.softmax_fused = P.Custom(fused_kernel_path + ":" + fused_kernel_name,
                                          lambda x, _: x,
                                          lambda x, _: x,
                                          "aot",
@@ -104,7 +104,7 @@ def _attn(self, query, key, value, attention_mask):
         attention_mask = F.cast(self.tensor_le(self.range, index), mstype.int32)
         attention_mask = self.expand_dims(attention_mask, 2)
 
-    if self.manul_fused_softmax:
+    if self.manual_fused_softmax:
         multiplu_out = P.Cast()(self.sub(
             P.Cast()(F.tuple_to_array((1.0,)), P.DType()(attention_mask)),
             attention_mask), mstype.uint8)

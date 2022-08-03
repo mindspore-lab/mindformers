@@ -25,9 +25,11 @@ export GLOG_v=3
 RANK_SIZE=$1
 HOSTFILE=$2
 DATASET=$3
+export NCCL_IB_HCA=mlx5_
 
 mpirun --allow-run-as-root -n $RANK_SIZE --hostfile $HOSTFILE \
       --output-filename run_distributed_train_gpt \
+      -x NCCL_IB_HCA -x PATH -x LD_LIBRARY_PATH -x PYTHONPATH -x NCCL_SOCKET_IFNAME -n $RANK_SIZE \
       --mca btl tcp,self --mca btl_tcp_if_include 10.90.43.0/24,enp177s0f0 --merge-stderr-to-stdout \
 python -m transformer.train  \
     --config='./transformer/configs/gpt/gpt_base.yaml' \
@@ -39,9 +41,10 @@ python -m transformer.train  \
     --parallel_mode="semi_auto_parallel" \
     --hidden_size=5120 \
     --recompute=True \
-    --num_layers=24 \
-    --data_parallel=2 \
-    --model_parallel=4 \
+    --mp_comm_recompute=False \
+    --num_layers=32 \
+    --data_parallel=1 \
+    --model_parallel=8 \
     --num_heads=40 \
     --device_target="GPU" > distribute_train_gpu_log.txt 2>&1 &
 
