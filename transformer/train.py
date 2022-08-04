@@ -51,12 +51,27 @@ def set_context_env(config):
 def set_fused_kernel(config):
     if config.speed_up.get('fused_kernel', False):
         pwd = os.path.dirname(os.path.abspath(__file__))
-        softmax_kernel_path = os.path.join(pwd, 'models/fused_kernel/aot_scale_masked_softmax.cu')
+        softmax_kernel_path = os.path.join(pwd, 'modules/fused_kernel/aot_scale_masked_softmax.cu')
         config.logger.info(f"Detect the fused_kernel True, "
                            f"start to compile the cuda code. Cuda code path {softmax_kernel_path}. "
                            f"The attention in the mindspore will be replaced with softmax fused attention.")
 
         override_attention(softmax_kernel_path)
+
+
+def check_args(opt, device_num):
+    """Validate the dp and mp"""
+    dp = opt.parallel_config['data_parallel']
+    mp = opt.parallel_config['model_parallel']
+    if mp < 1:
+        raise ValueError("The model parallel must be equal or larger than 1. "
+                         f"You can fix this by setting --model_parallel=1, for example.")
+    if mp > device_num:
+        raise ValueError(f"The model parallel must be less or equal to the device_num {device_num}. "
+                         f"You can fix this by setting --model_parallel=1, for example")
+    if dp * mp != device_num:
+        raise ValueError(f"The data_parallel * model_parallel must be equal to the {device_num}. "
+                         f"You can fix this by setting --data_parallel={device_num // mp}")
 
 
 def set_auto_parallel_context_env(config):
@@ -70,6 +85,7 @@ def set_auto_parallel_context_env(config):
         context.set_auto_parallel_context(parallel_mode=config.parallel_mode, gradients_mean=True,
                                           full_batch=config.full_batch,
                                           device_num=device_num, grad_accumulation_step=config.acc_step)
+        check_args(config, device_num)
     else:
         config.logger.info(f"Enabling the parallel mode: {config.parallel_mode} for stand alone training.")
         rank_id = 0
