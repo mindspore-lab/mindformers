@@ -29,7 +29,7 @@ python -m transformer.train \
     --epoch_size=$EPOCH_SIZE \
     --data_url=$DATA_DIR \
     --optimizer="adam"  \
-    --max_seq_length=1024 \
+    --seq_length=1024 \
     --parallel_mode="stand_alone" \
     --global_batch_size=4 \
     --vocab_size=50257 \

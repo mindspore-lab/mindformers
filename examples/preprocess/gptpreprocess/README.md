@@ -42,22 +42,20 @@ python pre_process.py \
 
 ## 2、使用GPT训练OpenWebText数据集
 
-```python
-python pretrain_gpt.py \
- --distribute="false" \
- --opt_offload="false" \
- --flatten_weights="false" \
- --epoch_size=40 \
- --device_id=0 \
- --data_path=.\preprocess_gpt\output\ \
- --optimizer="adam"  \
- --max_seq_length=1024 \
- --global_batch_size=4 \
- --vocab_size=50257 \
- --hidden_size=2048 \
- --num_hidden_layers=24 \
- --num_attention_heads=16 \
- --device_target="GPU"
+```bash
+python -m transformer.train \
+--config='./transformer/configs/gpt/gpt_base.yaml' \
+--epoch_size=$EPOCH_SIZE \
+--data_url=.\preprocess_gpt\output\ \
+--optimizer="adam"  \
+--max_seq_length=1024 \
+--parallel_mode="stand_alone" \
+--global_batch_size=4 \
+--vocab_size=50257 \
+--hidden_size=2048 \
+--num_layers=24 \
+--num_heads=16 \
+--device_target="GPU" > standalone_train_gpu_log.txt 2>&1 &
 ```
 
 ## 社区贡献者
