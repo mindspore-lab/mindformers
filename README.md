@@ -52,13 +52,9 @@ Transformer套件可以轻松的实现大模型训练流程。目前支持的并
 
 ### GPT模型预训练
 
-#### 数据准备
+#### 数据处理
 
-1. 获取数据集和词典
-
-2. 清洗数据
-
-4. 执行预处理
+目前提供了两个数据集的处理：[GPT](./examples/preprocess/gptpreprocess/README.md) [BERT](./examples/preprocess/bertpreprocess/README.md)
 
 #### 开始训练
 
@@ -107,22 +103,37 @@ tail -f run_distributed_train_gpt/1/rank.0/stdout
 下载GLUE数据集，参考[google](https://github.com/google-research/bert)下载GLUE数据集，数据集下载后的目录如下
 
 ```text
-├── CoLA
-│   └── original
-│       ├── raw
-│       └── tokenized
-├── diagnostic
-├── MNLI
-│   └── original
-├── MRPC
-├── QNLI
-├── QQP
-├── RTE
-├── SST-2
-│   └── original
-├── STS-B
-│   └── original
-└── WNLI
+.
+├── examples
+│   ├── preprocess
+│   │   ├── bertpreprocess
+│   │   └── gptpreprocess
+│   └── pretrain
+├── knowledge_distillation
+├── tasks
+│   ├── nlp
+│   │   └── glue
+│   └── vision
+└── transformer
+    ├── configs
+    │   ├── bert
+    │   ├── gpt
+    │   ├── t5
+    │   └── vit
+    ├── data
+    ├── loss
+    ├── models
+    │   ├── bert
+    │   ├── gpt
+    │   ├── src
+    │   │   └── fused_kernel
+    │   ├── t5
+    │   └── vit
+    ├── modules
+    │   └── attention
+    ├── optim
+    ├── tokenization
+    └── trainer
 ```
 
 #### 下载词表文件
@@ -247,11 +258,38 @@ scale_window: 1000
 
 ### 自定义参数
 
-#### 添加自己的自定义参数
+目前参数的传入主要采用传入`yaml`文件+命令行参数覆盖的方式。例如下文所示
+
+```bash
+python -m transformer.train \
+    --config='./transformer/configs/gpt/gpt_base.yaml' \
+    --epoch_size=$EPOCH_SIZE \
+    --data_url=$DATA_DIR \
+    --optimizer="adam"
+    --custom_args="test" \
+```
+
+`config`作为命令行解析的第一个参数，将从指定的文件中加载所有的参数。然后开始解析其后面的
+参数`epoch_size`、`data_url`、`optimizer`和`custom_args`等参数。
+由于前三个参数已经在`gpt_base.yaml`文件中定义，所以这些参数会被命令行中传入的参数覆盖。
+
+而`custom_args`中没有在配置文件中定义，会被添加到解析的参数中去。用户可以在`train.py`中通过`opt.custom_args`获取。
+其中`opt`是`run_train`的入参。
+
+#### 自定义配置文件
+
+用户可以直接从`./transformer/configs/gpt/gpt_base.yaml`中复制一份自己的配置文件。然后修改其中的`arch: 'gpt'`参数。代码中根据`arch`
+关键字来识别将要初始化的模型和数据实例。
 
 #### 添加自定义模型
 
+用户可以在`transformer/models`目录下创建自己的模型文件夹。构建好模型代码后，需要在`tranformer/models/build_model.py`中加入自己模型的
+构建接口。
+
 #### 添加自定义数据集
+
+用户可以在`transformer/data`目录下创建自己的数据集处理文件。然后在`tranformer/data/build_dataset.py`中加入数据集的构建接口。
+构建接口。
 
 ### 运行模式
 
