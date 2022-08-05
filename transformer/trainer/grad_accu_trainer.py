@@ -84,6 +84,7 @@ class TrainAccuStepsWithLossScaleCell(TrainOneStepWithLossScaleCell):
         self.one = Tensor(np.array([1]).astype(np.int32))
         self.zero = Tensor(np.array([0]).astype(np.int32))
         self.accu_grads = clone_state(self.weights, prefix="accu_grads", init="zeros", is_follow=True)
+        self.accumulation_scale = Tensor(np.array([self.accumulation_steps])).astype(np.int32)
         self.accu_overflow = Parameter(initializer(0, [1], mstype.int32))
         self.accu_loss = Parameter(initializer(0, [1], mstype.float32))
         self.cast = P.Cast()
@@ -105,7 +106,7 @@ class TrainAccuStepsWithLossScaleCell(TrainOneStepWithLossScaleCell):
         grads = self.grad(self.network,
                           weights)(*inputs,
                                    scaling_sens_filled)
-
+        grads = self.hyper_map(F.partial(grad_scale, scaling_sens), grads)
         if self.accumulation and self.accumulation_steps > 1:
             accu_succ = self.hyper_map(update_accu_grads, self.accu_grads, grads)
             loss = F.depend(loss, accu_succ)
@@ -115,7 +116,7 @@ class TrainAccuStepsWithLossScaleCell(TrainOneStepWithLossScaleCell):
 
             overflow = self.get_overflow_status(status, grads)
             accu_overflow = self.select(overflow, self.one, self.zero)
-            scaling = scaling_sens * self.accumulation_steps
+            scaling = self.accumulation_scale
             grads = self.hyper_map(
                 F.partial(grad_scale, scaling), grads)
             accu_overflow = self.allreduce(accu_overflow)

@@ -48,6 +48,7 @@ parallel_config:
   expert_parallel: 1
   vocab_emb_dp: False
   optimizer_shard: False
+  gradient_aggregation_group: 6
 
 optimizer: adam
 
