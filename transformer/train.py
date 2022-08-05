@@ -17,7 +17,7 @@
 Basic model train script
 """
 import argparse
-import os.path
+import os
 
 import mindspore
 from mindspore import context, DynamicLossScaleManager, FixedLossScaleManager
