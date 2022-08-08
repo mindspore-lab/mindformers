@@ -20,17 +20,19 @@ import argparse
 import os
 
 import mindspore
+from mindspore.context import ParallelMode
 from mindspore import context, DynamicLossScaleManager, FixedLossScaleManager
 from mindspore.train.model import Model
 import mindspore.communication.management as D
 from mindspore.train.callback import ModelCheckpoint, CheckpointConfig
 from mindspore.common import set_seed
 from mindspore.nn.wrap.cell_wrapper import MicroBatchInterleaved
+
 from transformer.data import build_dataset
 from transformer.optim.optimizer import build_optimizer
 from transformer.models import build_model
 from transformer.build_parallel_config import build_parallel_config
-from transformer.utils import parse_with_config, print_model_size
+from transformer.utils import parse_with_config, print_model_size, _convert_dtype_class
 from transformer.trainer.grad_accu_model import AccModel
 from transformer.trainer import build_trainer
 from transformer.learning_rate import build_lr
@@ -69,9 +71,25 @@ def check_args(opt, device_num):
     if mp > device_num:
         raise ValueError(f"The model parallel must be less or equal to the device_num {device_num}. "
                          f"You can fix this by setting --model_parallel=1, for example")
-    if dp * mp != device_num:
-        raise ValueError(f"The data_parallel * model_parallel must be equal to the {device_num}. "
-                         f"You can fix this by setting --data_parallel={device_num // mp}")
+    if opt.parallel_mode in (ParallelMode.SEMI_AUTO_PARALLEL, ParallelMode.AUTO_PARALLEL) and dp * mp != device_num:
+        opt.logger.warn(f"The data_parallel * model_parallel must be equal to the {device_num}. "
+                        f"You can remove this warning by setting --data_parallel={device_num // mp}. "
+                        f"Now the full_batch will be set False.")
+        opt.full_batch = False
+
+    # If the user runs the data_parallel and set full_batch to be true
+    if opt.parallel_mode in (ParallelMode.DATA_PARALLEL,) and opt.full_batch:
+        raise ValueError("full_batch doesn't support DATA_PARALLEL mode, you can fix it by setting --full_batch=False")
+
+
+def modify_args(opt):
+    # maps fp16 to mstype.float16 and fp32 to mstype.float32
+    for k, v in opt.__dict__.items():
+        if isinstance(v, dict):
+            for sub_k, sub_v in v.items():
+                v[sub_k] = _convert_dtype_class(sub_v)
+        else:
+            opt.__dict__[k] = _convert_dtype_class(v)
 
 
 def set_auto_parallel_context_env(config):
@@ -82,10 +100,11 @@ def set_auto_parallel_context_env(config):
         device_num = D.get_group_size()
         rank_id = D.get_rank()
         context.reset_auto_parallel_context()
+        check_args(config, device_num)
         context.set_auto_parallel_context(parallel_mode=config.parallel_mode, gradients_mean=True,
                                           full_batch=config.full_batch,
                                           device_num=device_num, grad_accumulation_step=config.acc_step)
-        check_args(config, device_num)
+
     else:
         config.logger.info(f"Enabling the parallel mode: {config.parallel_mode} for stand alone training.")
         rank_id = 0
@@ -132,7 +151,10 @@ def run_train(opt):
     actual_epoch_num = int(epoch_num * step_per_epoch / callback_size)
     callback = [LossCallBack(callback_size)]
 
-    config_ck = CheckpointConfig(save_checkpoint_steps=step_per_epoch, keep_checkpoint_max=1)
+    opt.logger.info(f"Enable the checkpoint saving each {step_per_epoch} steps. Integrated Save is False")
+    config_ck = CheckpointConfig(save_checkpoint_steps=step_per_epoch,
+                                 integrated_save=False,
+                                 keep_checkpoint_max=1)
     ckpoint_cb = ModelCheckpoint(prefix=opt.arch,
                                  directory=opt.ckpt_save_dir + './ckpt_{}'.format(rank_id),
                                  config=config_ck)
@@ -166,5 +188,6 @@ if __name__ == "__main__":
     parser.add_argument('--config', default="configs/gpt/gpt_base.yaml", help='YAML config files')
     args = parse_with_config(parser)
     args.logger = get_logger()
+    modify_args(args)
     set_seed(args.seed)
     run_train(args)

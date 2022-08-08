@@ -36,4 +36,5 @@ python -m transformer.train \
     --hidden_size=2048 \
     --num_layers=24 \
     --num_heads=16 \
+    --full_batch=False \
     --device_target="GPU" > standalone_train_gpu_log.txt 2>&1 &

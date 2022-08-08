@@ -20,22 +20,22 @@ echo "bash examples/pretrain/pretrain_bert.sh DEVICE_ID EPOCH_SIZE DATA_DIR SCHE
 echo "for example: bash examples/pretrain/pretrain_bert.sh 0 40 /path/zh-wiki/ [/path/Schema.json](optional)"
 echo "=============================================================================================================="
 
-DEVICE_ID=$1
+export DEVICE_ID=$1
 EPOCH_SIZE=$2
 DATA_DIR=$3
 
 python -m transformer.train \
     --config='./transformer/configs/bert/bert_base.yaml' \
     --epoch_size=$EPOCH_SIZE \
-    --device_id=$DEVICE_ID \
     --data_url=$DATA_DIR \
     --optimizer="adam" \
-    --max_seq_length=128 \
+    --seq_length=128 \
     --max_position_embeddings=128 \
     --parallel_mode="stand_alone" \
     --global_batch_size=64 \
     --vocab_size=30522 \
-    --hidden_size=1024 \
-    --num_hidden_layers=24 \
-    --num_attention_heads=16 \
+    --embedding_size=1024 \
+    --num_layers=24 \
+    --num_heads=16 \
     --device_target="GPU" > standalone_train_gpu_log.txt 2>&1 &
+tail -f standalone_train_gpu_log.txt

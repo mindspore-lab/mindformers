@@ -32,7 +32,8 @@ class LOGGER(logging.Logger):
         if rank % 8 == 0:
             console = logging.StreamHandler(sys.stdout)
             console.setLevel(logging.INFO)
-            formatter = logging.Formatter('%(asctime)s:%(levelname)s:%(message)s', "%Y-%m-%d %H:%M:%S")
+            formatter = logging.Formatter('%(asctime)s:%(levelname)s:%(filename)s:%(funcName)s:%(lineno)s:'
+                                          '%(message)s')
             console.setFormatter(formatter)
             self.addHandler(console)
 
@@ -45,7 +46,8 @@ class LOGGER(logging.Logger):
         log_fn = os.path.join(log_dir, log_name)
         fh = logging.FileHandler(log_fn)
         fh.setLevel(logging.INFO)
-        formatter = logging.Formatter('%(asctime)s:%(levelname)s:%(message)s')
+        formatter = logging.Formatter('%(asctime)s:%(levelname)s:%(filename)s:%(funcName)s:%(lineno)s:'
+                                      '%(message)s')
         fh.setFormatter(formatter)
         self.addHandler(fh)
         self.log_fn = log_fn

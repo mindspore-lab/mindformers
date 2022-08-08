@@ -36,7 +36,7 @@ python -m transformer.train  \
     --device_num=$RANK_SIZE \
     --data_url=$DATASET \
     --seq_length=1024 \
-    --global_batch_size=24 \
+    --global_batch_size=12 \
     --vocab_size=50304 \
     --parallel_mode="semi_auto_parallel" \
     --hidden_size=5120 \

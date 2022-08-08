@@ -15,6 +15,8 @@
 """
 Model operations
 """
+from mindspore import context
+from mindspore.context import ParallelMode
 
 from .bert.bert import BertConfig, get_bert_network
 from .gpt.gpt import GPTConfig, get_gpt_network
@@ -35,11 +37,15 @@ def get_model_config(opt):
 
     config_mapper = {"gpt": GPTConfig, "bert": BertConfig, "t5": TransformerConfig, "vit": VitConfig}
 
+    data_dp = 1
+    if opt.parallel_mode in (ParallelMode.AUTO_PARALLEL, ParallelMode.SEMI_AUTO_PARALLEL) and \
+            not context.get_auto_parallel_context('full_batch'):
+        data_dp = context.get_auto_parallel_context("device_num")
     opt.logger.info(f"Model Name: {opt.arch}")
     config_func = config_mapper[opt.arch]
     config = config_func(**opt.model,
                          compute_dtype=compute_dtype,
-                         batch_size=global_batch_size//micro_batch_interleaved)
+                         batch_size=data_dp * global_batch_size // micro_batch_interleaved)
     opt.model['global_batch_size'] = global_batch_size
     opt.model['micro_batch_size'] = micro_batch_size
     return config
