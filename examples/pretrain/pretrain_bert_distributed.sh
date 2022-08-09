@@ -30,14 +30,14 @@ mpirun --allow-run-as-root -n $RANK_SIZE --hostfile $HOSTFILE \
 python -m transformer.train \
     --config='./transformer/configs/bert/bert_base.yaml' \
     --device_num=$RANK_SIZE \
-    --data_path=$DATASET \
-    --max_seq_length=512 \
-    --global_batch_size=64 \
+    --data_url=$DATASET \
+    --seq_length=512 \
+    --global_batch_size=4 \
     --vocab_size=30522 \
     --parallel_mode="data_parallel" \
     --hidden_size=768 \
-    --num_hidden_layers=24 \
-    --num_attention_heads=16 \
+    --num_layers=24 \
+    --num_heads=16 \
     --data_parallel=8 \
     --model_parallel=1 \
     --device_target="GPU" > distribute_train_gpu_log.txt 2>&1 &

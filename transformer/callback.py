@@ -38,17 +38,18 @@ class LossCallBack(Callback):
         self.rank_id = rank_id
         self.time_stamp_first = time.time()
         self.last_step = 0
+        self.mapper = ["loss", "overflow", "loss scale"]
 
     def step_end(self, run_context):
         """Monitor the loss in training."""
         time_stamp_current = time.time()
         cb_params = run_context.original_args()
         diff_step = max(cb_params.cur_step_num - self.last_step, 1)
-        print("Time per step: {:.4f} s, epoch: {}, step: {}, outputs are {}".format(
-            (time_stamp_current - self.time_stamp_first) / diff_step,
-            cb_params.cur_epoch_num,
-            cb_params.cur_step_num,
-            str(cb_params.net_outputs)))
+        time_spend = (time_stamp_current - self.time_stamp_first) / diff_step
+        log_str = f"Time per step: {time_spend:.4f} s, epoch: {cb_params.cur_epoch_num}, step: {cb_params.cur_step_num}"
+        for i in range(len(self.mapper)):
+            log_str += f" {self.mapper[i]}:{str(cb_params.net_outputs[i].asnumpy())}"
+        print(log_str)
         self.last_step = cb_params.cur_step_num
         self.time_stamp_first = time.time()
 

@@ -4,7 +4,7 @@
 
 ### 使用OpenWebText数据集
 
-- 使用Brown University处理后的版本，[下载地址](https://skylion007.github.io/OpenWebTextCorpus/)。
+- 使用Brown University处理后的版本，请点击此处[下载](https://skylion007.github.io/OpenWebTextCorpus/) 。
 
 该数据集在下载过程中过滤了非英语网页，使用局部敏感哈希(LSH)来识别接近重复的文档并删除了相似阈值大于0.5的文档。
 
@@ -48,7 +48,7 @@ python -m transformer.train \
 --epoch_size=$EPOCH_SIZE \
 --data_url=.\preprocess_gpt\output\ \
 --optimizer="adam"  \
---max_seq_length=1024 \
+--seq_length=1024 \
 --parallel_mode="stand_alone" \
 --global_batch_size=4 \
 --vocab_size=50257 \

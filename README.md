@@ -1,21 +1,21 @@
-# transformer
+# MindSpore Transformer
 
 ## 介绍
 
-Transformer套件可以轻松的实现大模型训练流程。目前支持的并行策略和模型如下：
+MindSpore Transformer套件可以轻松的实现大模型训练流程。目前支持的并行策略和模型如下：
 
 并行策略：
 
 - 数据并行
 - 模型并行
+- 优化器并行
 - 流水线并行
+- 多副本并行
 
-支持的模型：
+支持的模型列表如下：
 
 - GPT
 - BERT
-- VIT
-- T5
 
 ## 软件架构
 
@@ -54,14 +54,16 @@ Transformer套件可以轻松的实现大模型训练流程。目前支持的并
 
 #### 数据处理
 
-目前提供了两个数据集的处理：[GPT](./examples/preprocess/gptpreprocess/README.md) [BERT](./examples/preprocess/bertpreprocess/README.md)
+目前提供了两个数据集的处理：[GPT](./examples/preprocess/gptpreprocess/README.md)、[BERT](./examples/preprocess/bertpreprocess/README.md)
 
 #### 开始训练
 
 - 单卡训练gpt模型
 
+执行下述的命令，开始训练一个1.3B的GPT模型。
+
 ```bash
-bash examples/pretrain/pretrain_gpt.sh  DEVICE_ID EPOCH_SIZE DATA_DIR
+bash examples/pretrain/pretrain_gpt.sh DEVICE_ID EPOCH_SIZE DATA_DIR
 ```
 
 其中各个参数的含义：
@@ -74,6 +76,8 @@ bash examples/pretrain/pretrain_gpt.sh  DEVICE_ID EPOCH_SIZE DATA_DIR
 命令及时刷新日志。
 
 - 单机8卡训练gpt模型
+
+执行下述命令会开始训练一个10B的GPT模型。
 
 ```bash
 bash examples/pretrain/pretrain_gpt_distributed.sh EPOCH_SIZE hostfile DATA_DIR
