@@ -26,6 +26,9 @@ MindSpore Transformer基于MindSpore内置的并行技术，具备如下特点�
 - GPT
 - BERT
 - OPT
+- T5
+
+如何迁移HuggingFace权重，请查看[此文件](./tools/README.md)
 
 ## 软件架构
 
@@ -169,42 +172,6 @@ python tasks/glue/generate_records.py  \
     --do_train="true" \
     --do_eval="true" \
     --do_pred="true" \
-```
-
-### OPT下游任务微调
-
-#### OPT权重下载和OPT词表下载
-
-从HuggingFace的[官网](https://huggingface.co/facebook/opt-2.7b) 下载`facebook/opt-2.7b`模型权重,记名字为`pytorch_model.bin`。`opt-2.7b`的层数为32层，设置为`--layers 32`，然后执行下述命令
-将HuggingFace的权重转换为MindSpore的权重。
-
-```bash
-python tools/convert_opt_weight.py --layers 32 --torch_path pytorch_model.bin --mindspore_path ./converted_mindspore_opt.ckpt
-```
-
-从HuggingFace的[官网](https://huggingface.co/facebook/opt-2.7b) 下载`facebook/opt-2.7b`对应的词表文件，记为`vocab.json`
-
-#### 加载OPT模型，开始执行训练
-
-在`examples/pretrain/pretrain_opt_distributed.sh`中，增加`--ckpt_path`参数，指定转换后的权重的文件路径。
-一个完整的示例如下所示。下述的命令将会启动OPT在8卡GPU上面进行训练
-
-```bash
-bash examples/pretrain/pretrain_opt_distributed.sh EPOCH_SIZE hostfile DATA_DIR
-```
-
-#### 使用OPT进行推理
-
-使用转换的权重或者训练完成的权重，用户可以使用下述的命令执行执行单卡2.6B模型OPT模型的推理。
-
-在此脚本中 `--device_target="Ascend"`指定运行设备为`Ascend`，用户可以该值修改为`GPU`。
-
->注意：在此脚本中，已经默认设置ckpt_path=converted_mindspore_opt.ckpt，vocab_path=vocab.json
-
-如果用户需要自定义文件路径，请在`examples/pretrain/eval_opt.sh`进行修改。
-
-```bash
-bash examples/pretrain/eval_opt.sh "who are you?"
 ```
 
 ## 配置文件

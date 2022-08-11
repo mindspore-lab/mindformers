@@ -31,7 +31,7 @@ mpirun --allow-run-as-root -n $RANK_SIZE --hostfile $HOSTFILE \
 python -m transformer.train  \
     --config='./transformer/configs/t5/t5_base.yaml' \
     --device_num=$RANK_SIZE \
-    --data_path=$DATASET \
+    --data_url=$DATASET \
     --optimizer="adam" \
     --max_seq_length=16 \
     --max_decode_length=16 \

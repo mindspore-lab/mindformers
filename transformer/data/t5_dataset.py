@@ -77,22 +77,8 @@ def create_t5_dataset(batch_size, data_path,
     """Create the dataset"""
     data = [os.path.join(data_path, name) for name in os.listdir(data_path) if name.endswith("mindrecord")]
     ds = de.MindDataset(data,
-                        columns_list=["source_eos_ids", "source_eos_mask",
-                                      "target_sos_ids", "target_sos_mask",
-                                      "target_eos_ids", "target_eos_mask"],
+                        columns_list=["input_ids", "attention_mask", "labels"],
                         shuffle=True, num_shards=device_num, shard_id=rank)
-    type_cast_op = de.transforms.c_transforms.TypeCast(ms.int32)
-    ds = ds.map(operations=type_cast_op, input_columns="source_eos_ids", output_columns='source_eos_ids')
-    ds = ds.map(operations=type_cast_op, input_columns="source_eos_mask", output_columns='source_eos_mask')
-    ds = ds.map(operations=type_cast_op, input_columns="target_sos_ids")
-    ds = ds.map(operations=type_cast_op, input_columns="target_sos_mask")
-    ds = ds.map(operations=type_cast_op, input_columns="target_eos_ids")
-    ds = ds.map(operations=type_cast_op, input_columns="target_eos_mask")
-    ds = ds.map(operations=generate_memory_mask, input_columns=['source_eos_mask', 'target_sos_mask'],
-                output_columns=['source_eos_mask', 'target_sos_mask', 'memory_mask'],
-                column_order=["source_eos_ids", "source_eos_mask",
-                              "target_sos_ids", "target_sos_mask",
-                              "target_eos_ids", "target_eos_mask", "memory_mask"])
 
     # apply batch operations
     ds = ds.batch(batch_size, drop_remainder=drop)

@@ -16,6 +16,7 @@
 """
 TopK for text generation
 """
+import copy
 
 import numpy as np
 import mindspore.common.dtype as mstype
@@ -89,6 +90,7 @@ def generate(model,
              model_origin_max_length,
              max_generate_length,
              vocab_size,
+             cache_encoder,
              config):
     """
     Text generation given the model and origin inputs
@@ -126,6 +128,21 @@ def generate(model,
     input_mask[0][:valid_length] = 1
     config.logger.info(f"input_ids is {input_ids}")
 
+    encoder_output = None
+    encoder_mask = None
+    encoder_mask = None
+    if cache_encoder:
+        # When do encoder and decoder prediction, the encoder can be cached to speed up the inference
+        inputs = Tensor(input_ids, mstype.int32)
+        encoder_mask = copy.deepcopy(input_mask)
+        encoder_output = model.predict(inputs, Tensor(encoder_mask, mstype.float32))
+        input_ids = [[0]]
+        input_ids = np.pad(input_ids, ((0, 0), (0, config.model['max_decode_length'] - 1)),
+                           'constant', constant_values=(0, 0))
+        target_mask = np.zeros_like(input_ids)
+        target_mask[0, 0] = 1
+        # As the decoder is generating from [START] token
+        valid_length = 1
     # A single loop generates one token, loop until reaching target model_origin_max_length or generating eod token
     while valid_length < target_length:
         inputs = Tensor(input_ids, mstype.int32)
@@ -133,7 +150,12 @@ def generate(model,
         current_index = valid_length - 1 if valid_length - 1 > 0 else 0
         current_index = Tensor([current_index], mstype.int32)
         # Call a single inference
-        log_probs = model.predict(inputs, Tensor(input_mask, mstype.float32), current_index)
+        if cache_encoder:
+            # view inputs as target_ids
+            log_probs = model.predict(None, Tensor(encoder_mask, mstype.float32), current_index, encoder_output, inputs,
+                                      Tensor(target_mask, mstype.float32))
+        else:
+            log_probs = model.predict(inputs, Tensor(input_mask, mstype.float32))
         # Get the revised log_probs considering frequency and presence penalty to eliminate duplicate
         # in generated results
         log_probs = log_probs.asnumpy().reshape(1, vocab_size)
@@ -152,9 +174,10 @@ def generate(model,
         frequency_list[0][target] = frequency_list[0][target] + 1
         # Modify input_ids with newly generated token
         input_ids[0][valid_length] = p_args[target_index]
+        if cache_encoder:
+            target_mask[0][valid_length] = 1
         valid_length += 1
         input_mask[0][valid_length-1] = 1
-        config.logger.info(f"input_mask is {input_mask}")
     # Return valid outputs out of padded outputs
     length = np.sum(outputs != 0)
     outputs = outputs[0][:length]
