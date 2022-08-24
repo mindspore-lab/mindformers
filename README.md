@@ -25,6 +25,7 @@ MindSpore Transformer基于MindSpore内置的并行技术，具备如下特点�
 
 - GPT
 - BERT
+- OPT
 
 ## 软件架构
 
@@ -42,6 +43,7 @@ MindSpore Transformer基于MindSpore内置的并行技术，具备如下特点�
     │   ├── bert
     │   ├── gpt
     │   ├── t5
+    │   ├── opt
     │   └── vit
     ├── data # 数据集
     ├── loss
@@ -49,6 +51,7 @@ MindSpore Transformer基于MindSpore内置的并行技术，具备如下特点�
     │   ├── bert
     │   ├── gpt
     │   ├── t5
+    │   ├── opt
     │   └── vit
     ├── modules # 自定义的网络组件
     │   └── attention
@@ -166,6 +169,49 @@ python tasks/glue/generate_records.py  \
     --do_train="true" \
     --do_eval="true" \
     --do_pred="true" \
+```
+
+### OPT下游任务微调
+
+#### OPT权重下载
+
+从HuggingFace的官网下载模型权重,记名字为`pytorch_model.bin`。`opt-2.6b`的层数为32层，设置为`--layers 32`，然后执行下述命令
+将HuggingFace的权重转换为MindSpore的权重。
+
+> python tools/convert_opt_weight.py --layers 32 --torch_path pytorch_model.bin --mindspore_path ./converted_mindspore_opt.ckpt
+
+#### 加载OPT模型，开始执行训练
+
+在`examples/pretrain/pretrain_opt_distributed.sh`中，增加`--ckpt_path`参数，指定转换后的权重的文件路径。
+
+一个完整的示例如下所示。其中`--device_target="Ascend"`表示下述的命令将会在`Ascend`上面执行训练。
+
+```bash
+DEVICE_ID=$1
+EPOCH_SIZE=$2
+DATA_DIR=$3
+
+python -m transformer.train \
+    --config='./transformer/configs/t5/t5_base.yaml' \
+    --epoch_size=$EPOCH_SIZE \
+    --device_id=$DEVICE_ID \
+    --data_url=$DATA_DIR \
+    --optimizer="adam" \
+    --max_seq_length=512 \
+    --max_decode_length=512 \
+    --parallel_mode="stand_alone" \
+    --max_position_embeddings=16 \
+    --d_kv=64 \
+    --global_batch_size=96 \
+    --vocab_size=32128 \
+    --hidden_size=512 \
+    --intermediate_size=2560 \
+    --num_hidden_layers=32 \
+    --num_attention_heads=8 \
+    --ckpt_path='converted_mindspore_opt.ckpt'
+    --bucket_boundaries=16 \
+    --has_relative_bias=True \
+    --device_target="Ascend"
 ```
 
 ## 配置文件

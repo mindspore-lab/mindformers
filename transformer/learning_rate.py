@@ -178,7 +178,7 @@ def build_lr(config, epoch_num, step_per_epoch):
     """Build the learning rate according to the input arguments"""
     model_name = config.arch
     lr = None
-    if model_name in ['bert', 'gpt']:
+    if model_name in ['bert', 'gpt', 'opt']:
         lr = LearningRate(learning_rate=float(config.start_lr),
                           end_learning_rate=float(config.end_lr),
                           warmup_steps=config.warmup_step,

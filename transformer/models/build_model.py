@@ -22,6 +22,7 @@ from .bert.bert import BertConfig, get_bert_network
 from .gpt.gpt import GPTConfig, get_gpt_network
 from .t5.t5 import TransformerConfig, get_t5_network
 from .vit.vit import VitConfig
+from .opt.opt import OPTConfig, get_opt_network
 
 
 def get_model_config(opt):
@@ -35,7 +36,8 @@ def get_model_config(opt):
         raise ValueError(f"global_batch_size:{global_batch_size} must be a multiple of micro_batch_interleaved:"
                          f"{micro_batch_interleaved}.")
 
-    config_mapper = {"gpt": GPTConfig, "bert": BertConfig, "t5": TransformerConfig, "vit": VitConfig}
+    config_mapper = {"gpt": GPTConfig, "bert": BertConfig, "t5": TransformerConfig, "vit": VitConfig,
+                     "opt": OPTConfig}
 
     data_dp = 1
     if opt.parallel_mode in (ParallelMode.AUTO_PARALLEL, ParallelMode.SEMI_AUTO_PARALLEL) and \
@@ -59,13 +61,12 @@ def build_model(opt, parallel_config):
 
     model_name = opt.arch
 
+    config_mapper = {"gpt": get_gpt_network, "bert": get_bert_network, "t5": get_t5_network,
+                     "opt": get_opt_network}
     net = None
-    if model_name == 'gpt':
-        net = get_gpt_network(opt, model_config)
-    elif model_name == 'bert':
-        net = get_bert_network(opt, model_config)
-    elif model_name == 't5':
-        net = get_t5_network(opt, model_config)
+    model_func = config_mapper.get(model_name, None)
+    if model_func:
+        net = model_func(opt, model_config)
     else:
         raise RuntimeError(f"Model {model_name} is not supported yet.")
     opt.logger.info(f"Build model finished")

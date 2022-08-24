@@ -27,6 +27,7 @@ import mindspore.communication.management as D
 from mindspore.train.callback import ModelCheckpoint, CheckpointConfig
 from mindspore.common import set_seed
 from mindspore.nn.wrap.cell_wrapper import MicroBatchInterleaved
+from mindspore import load_checkpoint, load_param_into_net
 
 from transformer.data import build_dataset
 from transformer.optim.optimizer import build_optimizer
@@ -123,6 +124,12 @@ def run_train(opt):
     set_fused_kernel(opt)
     # Build the model with loss
     net_with_loss = build_model(opt, parallel_config)
+
+    if opt.ckpt_path:
+        opt.logger.info(f"Start to load the ckpt from {opt.ckpt_path}")
+        ckpt = load_checkpoint(opt.ckpt_path)
+        load_param_into_net(net_with_loss, ckpt)
+
     micro_batch_num = opt.speed_up['micro_batch_num']
     flatten_weights = opt.speed_up['flatten_weights']
     if micro_batch_num > 1:
