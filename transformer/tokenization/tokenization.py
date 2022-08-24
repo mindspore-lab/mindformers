@@ -16,9 +16,9 @@
 """
 Tokenization.
 """
-
+import json
 import unicodedata
-import collections
+
 
 def convert_to_unicode(text):
     """
@@ -41,31 +41,14 @@ def convert_to_unicode(text):
 
 def vocab_to_dict_key_token(vocab_file):
     """Loads a vocab file into a dict, key is token."""
-    vocab = collections.OrderedDict()
-    index = 0
-    with open(vocab_file, "r") as reader:
-        while True:
-            token = convert_to_unicode(reader.readline())
-            if not token:
-                break
-            token = token.strip()
-            vocab[token] = index
-            index += 1
+    vocab = json.load(open(vocab_file, 'r'))
     return vocab
 
 
 def vocab_to_dict_key_id(vocab_file):
     """Loads a vocab file into a dict, key is id."""
-    vocab = collections.OrderedDict()
-    index = 0
-    with open(vocab_file, "r") as reader:
-        while True:
-            token = convert_to_unicode(reader.readline())
-            if not token:
-                break
-            token = token.strip()
-            vocab[index] = token
-            index += 1
+    vocab_key_id = vocab_to_dict_key_token(vocab_file)
+    vocab = {v: k for k, v in vocab_key_id.items()}
     return vocab
 
 
@@ -112,7 +95,16 @@ def convert_ids_to_tokens(vocab_file, ids):
     return output
 
 
-class FullTokenizer():
+def convert_tokens_to_string(tokens):
+    """
+    For OPT model, the vocab contains the Ġ for each sub word, so we need to remove them.
+    """
+    string = " ".join(tokens)
+    string = string.replace(' Ġ', ' ')
+    return string
+
+
+class FullTokenizer:
     """
     Full tokenizer
     """

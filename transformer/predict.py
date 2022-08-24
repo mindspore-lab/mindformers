@@ -17,7 +17,6 @@
 Basic model predict/evaluation script
 """
 import argparse
-import os
 import numpy as np
 
 from mindspore import Tensor
@@ -32,9 +31,11 @@ from mindspore import load_checkpoint, load_param_into_net
 from transformer.data import build_dataset
 from transformer.models import build_model
 from transformer.build_parallel_config import build_parallel_config
+from transformer.tokenization import tokenization
+from transformer.tokenization.tokenization import FullTokenizer
 from transformer.utils import parse_with_config, _convert_dtype_class
-from transformer.modules import override_attention
 from transformer.logger import get_logger
+from transformer.generate import generate
 
 
 def set_context_env(config):
@@ -117,13 +118,50 @@ def get_acc(model, dataset):
     return acc
 
 
+def generate_words(sample, predict_model, opt):
+    """
+    Generate the word given the input prompt, model and configs
+
+    Args:
+        sample(str): The input prompt. For example, it can be "Today is a good day, I want to".
+        predict_model(Model): the model that need to run prediction.
+        opt(argparse.Namespace): The global configs.
+
+    Inputs:
+        input_ids: the tokenized inputs
+        attention_mask: the attention mask with [bs, seq_length]. 1 means effective and 0 mean it should be masked.
+        labels:
+    Returns:
+        output: Tensor, the loss of the network
+    """
+    # Tokenize input sentence to ids
+    eval_opts = opt
+    tokenizer = FullTokenizer(eval_opts.vocab_path)
+    tokens = tokenizer.tokenize(sample)
+    input_ids = tokenization.convert_tokens_to_ids(vocab_file=eval_opts.vocab_path,
+                                                   tokens=tokens)
+    input_ids = np.array(input_ids).reshape(1, -1)
+    # eval ops
+    output_ids = generate(predict_model,
+                          end_token=2,  # For opt model, the end_token is 2
+                          origin_inputs=input_ids,
+                          model_origin_max_length=eval_opts.model['seq_length'],
+                          max_generate_length=eval_opts.model['seq_length'],
+                          vocab_size=eval_opts.model["vocab_size"],
+                          config=eval_opts)
+    # Decode output ids to sentence
+    output_samples = tokenization.convert_ids_to_tokens(vocab_file=eval_opts.vocab_path,
+                                                        ids=output_ids.tolist())
+    output_string = tokenization.convert_tokens_to_string(output_samples)
+    print('Output is:', output_string, flush=True)
+
+
 def run_predict(opt):
     """Main Prediction process"""
     set_context_env(opt)
     rank_id, device_num = set_auto_parallel_context_env(opt)
     parallel_config = build_parallel_config(opt)
 
-    ds = build_dataset(opt, rank_id, device_num, get_eval_dataset=True)
     eval_net = build_model(opt, parallel_config)
 
     opt.logger.info(f"Start to restore from the path {opt.ckpt_path}")
@@ -132,9 +170,17 @@ def run_predict(opt):
 
     model = Model(eval_net)
 
-    acc = get_acc(model, ds.create_tuple_iterator())
+    if opt.generate:
+        opt.logger.info("Start to generate the words:")
+        generate_words(sample='Hello world!',
+                       predict_model=model,
+                       opt=opt)
+    else:
+        opt.logger.info("Start to eval on the datasets.")
+        ds = build_dataset(opt, rank_id, device_num, get_eval_dataset=True)
+        acc = get_acc(model, ds.create_tuple_iterator())
 
-    opt.logger.info(f"The accuracy is {acc}")
+        opt.logger.info(f"The accuracy is {acc}")
 
 
 if __name__ == "__main__":
@@ -144,4 +190,5 @@ if __name__ == "__main__":
     args.logger = get_logger()
     modify_args(args)
     set_seed(args.seed)
+    args.eval = True
     run_predict(args)
