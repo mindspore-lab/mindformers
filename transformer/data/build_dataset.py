@@ -21,20 +21,22 @@ from mindspore import context
 from .gpt_dataset import create_dataset
 from .bert_dataset import create_bert_dataset
 from .t5_dataset import create_t5_dataset
+from .wiki_dataset import create_wiki_dataset
 
 
-def build_dataset(opt, rank_id, device_num):
+def build_dataset(opt, rank_id, device_num, get_eval_dataset=False):
     """get dataset from local or obs"""
     model_name = opt.arch
-    if opt.data_url.startswith == "s3://":
+    url = opt.data_url if not get_eval_dataset else opt.eval_data_url
+    if url.startswith == "s3://":
         # copy data from the cloud to the /cache/Data
         cache_url = '/cache/Data/'
-        opt.logger.info(f"Find the data url { opt.data_url} startswith s3. Start to cache the data_url "
+        opt.logger.info(f"Find the data url { url} startswith s3. Start to cache the data_url "
                         f"to the local path {cache_url}.")
-        download_data(src_data_url=opt.data_url, tgt_data_path=cache_url, rank=rank_id)
+        download_data(src_data_url=url, tgt_data_path=cache_url, rank=rank_id)
         opt.logger.info(f"Data cache the finished.")
     else:
-        cache_url = opt.data_url
+        cache_url = url
 
     opt.logger.info("Start to build the dataset.")
     ds = None
@@ -53,6 +55,9 @@ def build_dataset(opt, rank_id, device_num):
     elif model_name == 't5':
         ds = create_t5_dataset(opt.model['global_batch_size'], data_path=cache_url,
                                device_num=device_num, rank=rank_id)
+    elif model_name == 'opt':
+        ds = create_wiki_dataset(opt.model['global_batch_size'], data_path=cache_url,
+                                 device_num=device_num, rank=rank_id)
     else:
         raise RuntimeError(f"Model name {opt.arch} is not supported yet.")
     opt.logger.info("End to build the dataset.")

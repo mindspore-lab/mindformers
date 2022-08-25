@@ -74,3 +74,5 @@ ckpt_save_dir: ./ckpt
 init_loss_scale_value: 65536
 scale_factor: 2
 scale_window: 1000
+
+eval: False
