@@ -270,13 +270,18 @@ class EvalNet(nn.Cell):
         self.argmax = P.Argmax()
         self.generate = generate
         self.cast = P.Cast()
+        self.gather = P.Gather()
 
-    def construct(self, input_ids, input_mask):
+    def construct(self, input_ids, input_mask, current_index):
         """evaluation net"""
         input_mask = self.cast(input_mask, mstype.float32)
         logits = self.backbone(input_ids, input_mask)
         outputs = None
         if self.generate:
+            # we  only need to softmax the target word's logits
+            index = current_index.view(1,)
+            logits = self.gather(logits, index, 0)
+            logits = logits.view(F.shape(input_ids)[0], 1, -1)
             outputs = nn.LogSoftmax()(logits)
             outputs = F.tensor_pow(np.e, outputs)
         else:
@@ -291,7 +296,7 @@ def get_opt_network(opt, model_config):
     net = OPT(model_config)
     if opt.eval:
         opt.logger.info("Detect the eval is True, return the eval net")
-        net = EvalNet(net)
+        net = EvalNet(net, generate=opt.generate)
         return net
     loss = CrossEntropyLoss(model_config.parallel_config.dp_mp_config)
     net_with_loss = OPTWithLoss(net, loss, model_config.parallel_config)
