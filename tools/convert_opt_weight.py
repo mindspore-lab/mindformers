@@ -72,11 +72,10 @@ def get_converted_ckpt(mapped_params, weight_dict):
     new_ckpt_list = []
     # Currently, the ms_extend_param the torch_extend_param is the full parameters.
     for src, tgt in mapped_params:
-        value = weight_dict[tgt]
+        value = weight_dict[tgt].numpy()
         if 'fc' in tgt and 'weight' in tgt or 'self_attn.out_proj.weight' in tgt:
             value = np.transpose(value, [1, 0])
         print(f"Mapping table Mindspore:{src:<30} \t Torch:{tgt:<30} with shape {value.shape}")
-        value = weight_dict[tgt].numpy()
         new_ckpt_list.append({"data": Tensor(value), "name": src})
     return new_ckpt_list
 
@@ -105,11 +104,12 @@ if __name__ == '__main__':
                         type=str,
                         default=None,
                         required=True,
-                        help="The torch .")
+                        help="The torch checkpoint path.")
     parser.add_argument("--mindspore_path",
-                        type=int,
-                        default=128,
-                        help="Use device nums, default is 128.")
+                        type=str,
+                        default=None,
+                        required=True,
+                        help="The output mindspore checkpoint path.")
 
     opt = parser.parse_args()
     state_dict = torch.load(opt.torch_path, map_location='cpu')

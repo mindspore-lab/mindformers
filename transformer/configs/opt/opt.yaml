@@ -75,5 +75,5 @@ top_p: 0.9
 top_k_num: 1
 end_token: 2
 vocab_path: /vocab/path
-ckpt_path: False
+ckpt_path: None
 

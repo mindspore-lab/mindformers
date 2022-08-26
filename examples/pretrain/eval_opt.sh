@@ -16,25 +16,25 @@
 
 echo "=============================================================================================================="
 echo "Please run the script as: "
-echo "bash examples/pretrain/eval_opt.sh  DEVICE_ID DATA_DIR"
-echo "for example: bash examples/pretrain/eval_opt.sh 0 /path/zh-wiki/"
+echo "bash examples/pretrain/eval_opt.sh 'HELLO WORLD'"
+echo "for example: bash examples/pretrain/eval_opt.sh 'HELLOW WORD'"
 echo "=============================================================================================================="
 export GLOG_v=3
-export DEVICE_ID=$1
-DATA_DIR=$2
+SAMPLES=$1
 
 python -m transformer.predict \
     --config='./transformer/configs/opt/opt.yaml' \
-    --eval_data_url=$DATA_DIR \
-    --optimizer="adam"  \
     --seq_length=1024 \
     --parallel_mode="stand_alone" \
     --global_batch_size=1 \
     --vocab_size=50272 \
     --hidden_size=2560 \
-    --ckpt_path='./converted_mindspore_opt' \
+    --ckpt_path="./converted_mindspore_opt.ckpt" \
+    --vocab_path="./vocab.json" \
     --num_layers=32 \
     --eval=True \
+    --input_samples="${SAMPLES}" \
     --num_heads=32 \
+    --generate=True \
     --full_batch=False \
     --device_target="Ascend" > eval_opt.log 2>&1 &
