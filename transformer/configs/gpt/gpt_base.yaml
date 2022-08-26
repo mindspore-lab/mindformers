@@ -68,4 +68,4 @@ scale_factor: 2
 scale_window: 1000
 
 eval: False
-ckpt_path: False
+ckpt_path: None

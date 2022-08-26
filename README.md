@@ -173,16 +173,16 @@ python tasks/glue/generate_records.py  \
 
 ### OPT下游任务微调
 
-#### OPT权重下载
+#### OPT权重下载和OPT词表下载
 
-从HuggingFace的官网下载`facebook/opt-2.6b`模型权重,记名字为`pytorch_model.bin`。`opt-2.6b`的层数为32层，设置为`--layers 32`，然后执行下述命令
+从HuggingFace的[官网](https://huggingface.co/facebook/opt-2.7b) 下载`facebook/opt-2.7b`模型权重,记名字为`pytorch_model.bin`。`opt-2.7b`的层数为32层，设置为`--layers 32`，然后执行下述命令
 将HuggingFace的权重转换为MindSpore的权重。
 
-> python tools/convert_opt_weight.py --layers 32 --torch_path pytorch_model.bin --mindspore_path ./converted_mindspore_opt.ckpt
+```bash
+python tools/convert_opt_weight.py --layers 32 --torch_path pytorch_model.bin --mindspore_path ./converted_mindspore_opt.ckpt
+```
 
-#### OPT词表下载
-
-从HuggingFace的官网下载`facebook/opt-2.6b`对应的词表文件，记为`vocab.json`
+从HuggingFace的[官网](https://huggingface.co/facebook/opt-2.7b) 下载`facebook/opt-2.7b`对应的词表文件，记为`vocab.json`
 
 #### 加载OPT模型，开始执行训练
 
@@ -195,27 +195,16 @@ bash examples/pretrain/pretrain_opt_distributed.sh EPOCH_SIZE hostfile DATA_DIR
 
 #### 使用OPT进行推理
 
-使用转换的权重或者训练完成的权重，用户可以使用下述的命令执行执行单卡2.6B模型的推理。
+使用转换的权重或者训练完成的权重，用户可以使用下述的命令执行执行单卡2.6B模型OPT模型的推理。
 
-其中 `--device_target="Ascend"`指定运行设备为`Ascend`，用户可以该值修改为`GPU`。
+在此脚本中 `--device_target="Ascend"`指定运行设备为`Ascend`，用户可以该值修改为`GPU`。
 
-- `--generate==True` 表示将会进行生成任务
+>注意：在此脚本中，已经默认设置ckpt_path=converted_mindspore_opt.ckpt，vocab_path=vocab.json
+
+如果用户需要自定义文件路径，请在`examples/pretrain/eval_opt.sh`进行修改。
 
 ```bash
-python -m transformer.predict \
-    --config='./transformer/configs/opt/opt.yaml' \
-    --eval_data_url=$DATA_DIR \
-    --seq_length=1024 \
-    --parallel_mode="stand_alone" \
-    --global_batch_size=1 \
-    --vocab_size=50272 \
-    --hidden_size=2560 \
-    --ckpt_path='./converted_mindspore_opt' \
-    --vocab_path='./vocab.json' \
-    --num_layers=32 \
-    --num_heads=32 \
-    --full_batch=False \
-    --device_target="Ascend"
+bash examples/pretrain/eval_opt.sh "who are you?"
 ```
 
 ## 配置文件
