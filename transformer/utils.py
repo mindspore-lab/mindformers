@@ -40,7 +40,7 @@ def _mapper_string_to_bool(argument):
 def _convert_dtype_class(key):
     """maps the mstype.float32 to real type. If found, return the target dtype, else return itself."""
     mapper = {'mstype.float32': mstype.float32, 'mstype.float16': mstype.float16,
-              'fp32': mstype.float32, 'fp16': mstype.float16}
+              'fp32': mstype.float32, 'fp16': mstype.float16, 'None': None}
     return mapper.get(key, key)
 
 

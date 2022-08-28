@@ -21,7 +21,7 @@ import os
 
 import mindspore
 from mindspore.context import ParallelMode
-from mindspore import context, DynamicLossScaleManager, FixedLossScaleManager
+from mindspore import context, DynamicLossScaleManager
 from mindspore.train.model import Model
 import mindspore.communication.management as D
 from mindspore.train.callback import ModelCheckpoint, CheckpointConfig
@@ -85,6 +85,7 @@ def check_args(opt, device_num):
 
 def modify_args(opt):
     # maps fp16 to mstype.float16 and fp32 to mstype.float32
+    # maps None to strings
     for k, v in opt.__dict__.items():
         if isinstance(v, dict):
             for sub_k, sub_v in v.items():
@@ -168,16 +169,16 @@ def run_train(opt):
     callback.append(ckpoint_cb)
 
     # CPU doest not support overflow check, so should use fixed loss scale.
-    if mindspore.get_context('device_target').lower() == 'cpu':
-        loss_scale_manager = FixedLossScaleManager(loss_scale=opt.init_loss_scale_value, drop_overflow_update=False)
-    else:
+    update_cell = None
+    if mindspore.get_context('device_target').lower() != 'cpu':
         loss_scale_manager = DynamicLossScaleManager(init_loss_scale=opt.init_loss_scale_value,
                                                      scale_factor=opt.scale_factor, scale_window=opt.scale_window)
+        update_cell = loss_scale_manager.get_update_cell()
 
     print_model_size(net_with_loss, opt.logger)
     # Build the TrainOneStepCell
     net_wrapper = build_trainer(opt, net_with_loss, optim=optimizer,
-                                update_cell=loss_scale_manager.get_update_cell())
+                                update_cell=update_cell)
 
     opt.logger.info("Start to compile the net and run.")
     if opt.acc_step > 1:
