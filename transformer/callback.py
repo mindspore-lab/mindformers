@@ -47,7 +47,7 @@ class LossCallBack(Callback):
         diff_step = max(cb_params.cur_step_num - self.last_step, 1)
         time_spend = (time_stamp_current - self.time_stamp_first) / diff_step
         log_str = f"Time per step: {time_spend:.4f} s, epoch: {cb_params.cur_epoch_num}, step: {cb_params.cur_step_num}"
-        for i in range(len(self.mapper)):
+        for i in range(len(cb_params.net_outputs)):
             log_str += f" {self.mapper[i]}:{str(cb_params.net_outputs[i].asnumpy())}"
         print(log_str)
         self.last_step = cb_params.cur_step_num
