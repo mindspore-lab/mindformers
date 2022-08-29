@@ -364,6 +364,10 @@ python -m transformer.train \
 
 >--recompute=True
 
+## 贡献
+
+欢迎参与社区贡献，详情参考[Contributor Wiki](https://gitee.com/mindspore/mindspore/blob/master/CONTRIBUTING_CN.md)。
+
 ## 许可证
 
 [Apache 2.0许可证](LICENSE)
