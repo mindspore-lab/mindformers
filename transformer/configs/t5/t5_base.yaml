@@ -18,6 +18,7 @@ model:
   num_hidden_layers: 2
   num_heads: 32
   compute_dtype: fp16
+  has_relative_bias: True
 
 seed: 1234
 context:
@@ -63,7 +64,7 @@ epoch_size: 1
 
 # Learning Rate
 learning_rate: 2.0
-warmup_step: 8000
+warmup_steps: 8000
 start_decay_step: 16000
 min_lr: 0.0
 
@@ -76,4 +77,11 @@ scale_factor: 2
 scale_window: 1000
 
 eval: False
+generate: False
+frequency_penalty: 1.5
+presence_penalty: 0.3
+top_p: 0.9
+top_k_num: 1
+end_token: 2
+vocab_path: /vocab/path
 ckpt_path: None

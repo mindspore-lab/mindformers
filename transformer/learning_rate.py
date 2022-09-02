@@ -189,7 +189,7 @@ def build_lr(config, epoch_num, step_per_epoch):
                                       training_steps=step_per_epoch*epoch_num,
                                       learning_rate=learning_rate,
                                       warmup_steps=config.warmup_steps,
-                                      hidden_size=config.hidden_size,
+                                      hidden_size=config.model['hidden_size'],
                                       start_decay_step=config.start_decay_step,
                                       min_lr=config.min_lr), mstype.float32)
     else:

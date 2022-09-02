@@ -18,13 +18,18 @@ from dataclasses import dataclass
 import math
 import copy
 import numpy as np
-import mindspore as ms
+import mindspore as mstype
 import mindspore.ops as ops
 import mindspore.nn as nn
 from mindspore.common.tensor import Tensor
 from mindspore.ops.primitive import constexpr
-from mindspore.nn.transformer import VocabEmbedding, TransformerEncoder, TransformerDecoder
+from mindspore.ops import functional as F
+from mindspore.ops import operations as P
+
 from mindspore.nn.transformer.loss import CrossEntropyLoss
+from mindspore.nn.transformer import VocabEmbedding
+
+from transformer.models.t5.T5Transformer import TransformerEncoder, TransformerDecoder, LayerNorm
 
 
 @dataclass
@@ -46,8 +51,11 @@ class TransformerConfig:
     beam_width: int = 4
     max_decode_length: int = 80
     length_penalty_weight: float = 1.0
-    dtype: ms.dtype = ms.float32
-    compute_dtype: ms.dtype = ms.float32
+    dtype: mstype.dtype = mstype.float32
+    compute_dtype: mstype.dtype = mstype.float32
+    has_relative_bias: bool = True
+    scale_output: bool = True
+
 
 def position_encoding(length,
                       depth,
@@ -90,28 +98,19 @@ class EmbeddingPostprocessor(nn.Cell):
                  max_position_embeddings=128,
                  dropout_prob=0.1):
         super(EmbeddingPostprocessor, self).__init__()
-        self.scores_mul = Tensor([math.sqrt(float(embedding_size))], dtype=ms.float32)
+        self.scores_mul = Tensor([math.sqrt(float(embedding_size))], dtype=mstype.float32)
         self.multiply = ops.Mul()
         self.add = ops.Add()
-        self.dropout = nn.Dropout(1 - dropout_prob, dtype=ms.float32)
+        self.dropout = nn.Dropout(1 - dropout_prob, dtype=mstype.float32)
         self.expand_dims = ops.ExpandDims()
         self.position_embedding_table = Tensor(position_encoding(max_position_embeddings, embedding_size),
-                                               ms.float32)
+                                               mstype.float32)
         self.shape = ops.Shape()
         self.slice = ops.StridedSlice().shard(((1, 1),))
 
     def construct(self, word_embeddings):
         """Postprocessors apply positional embeddings to word embeddings."""
-        input_shape = self.shape(word_embeddings)
-        input_len = input_shape[1]
-        hidden_size = input_shape[2]
-
         output = self.multiply(word_embeddings, self.scores_mul)
-
-        # add position embeddings
-        position_embeddings = self.slice(self.position_embedding_table, (0, 0), (input_len, hidden_size), (1, 1))
-        position_embeddings = self.expand_dims(position_embeddings, 0)
-        output = self.add(output, position_embeddings)
 
         output = self.dropout(output)
         return output
@@ -121,7 +120,7 @@ class CastWrapper(nn.Cell):
     """
     Cast wrapper.
     """
-    def __init__(self, dst_type=ms.float32):
+    def __init__(self, dst_type=mstype.float32):
         super(CastWrapper, self).__init__()
         self.cast = ops.Cast()
         self.dst_type = dst_type
@@ -151,7 +150,7 @@ class CreateAttentionMaskFromInputMask(nn.Cell):
         shape_right = (input_shape[0], 1, input_shape[1])
         shape_left = input_shape + (1,)
 
-        input_mask = self.cast(input_mask, ms.float32)
+        input_mask = self.cast(input_mask, mstype.float32)
         mask_left = self.reshape(input_mask, shape_left)
         mask_right = self.reshape(input_mask, shape_right)
         attention_mask = self.batch_matmul(mask_left, mask_right)
@@ -162,7 +161,7 @@ class CreateAttentionMaskFromInputMask(nn.Cell):
 @constexpr
 def convert_np_to_tensor_encoder(seq_length):
     ones = np.ones(shape=(seq_length, seq_length))
-    return Tensor(np.tril(ones), dtype=ms.float32)
+    return Tensor(np.tril(ones), dtype=mstype.float32)
 
 
 class T5Head(nn.Cell):
@@ -179,7 +178,7 @@ class T5Head(nn.Cell):
 
     def __init__(self,
                  hidden_size,
-                 compute_dtype=ms.float16,
+                 compute_dtype=mstype.float16,
                  parallel_config=None):
         super(T5Head, self).__init__()
         if parallel_config.vocab_emb_dp:
@@ -216,10 +215,12 @@ class TransformerModel(nn.Cell):
         self.hidden_size = config.hidden_size
         self.num_hidden_layers = config.num_hidden_layers
         self.embedding_size = config.hidden_size
+        self.seq_length = config.seq_length
 
         self.last_idx = self.num_hidden_layers - 1
         self.beam_width = config.beam_width
         self.max_decode_length = config.max_decode_length
+        self.scale_output = config.scale_output
 
         self.tfm_embedding_lookup = VocabEmbedding(vocab_size=config.vocab_size,
                                                    embedding_size=self.embedding_size,
@@ -260,41 +261,43 @@ class TransformerModel(nn.Cell):
             moe_config=config.parallel_config.moe_config)
 
         self.projection = T5Head(self.hidden_size,
-                                 compute_dtype=ms.float16,
+                                 compute_dtype=mstype.float16,
                                  parallel_config=config.parallel_config)
 
-        # TODO: Support BeamSearch
+
         self.cast = ops.Cast()
         self.dtype = config.dtype
         self.cast_compute_type = CastWrapper(dst_type=config.compute_dtype)
         self.expand = ops.ExpandDims()
         self.multiply = ops.Mul()
         self.shape = ops.Shape()
-
+        self.encoder_layernorm = LayerNorm(normalized_shape=(self.embedding_size,)).to_float(mstype.float32)
+        self.decoder_layernorm = LayerNorm(normalized_shape=(self.embedding_size,)).to_float(mstype.float32)
+        self.encoder_layernorm.shard(((config.parallel_config.data_parallel, 1),))
+        self.decoder_layernorm.shard(((config.parallel_config.data_parallel, 1),))
         self._create_attention_mask_from_input_mask = CreateAttentionMaskFromInputMask(config.parallel_config)
 
-    def construct(self, source_ids, source_mask, target_ids=None, target_mask=None, memory_mask=None):
+    def construct(self, source_ids=None, source_mask=None, target_ids=None, target_mask=None, memory_mask=None,
+                  encoder_cache=None):
         """Transformer with encoder and decoder."""
-        seq_length = self.shape(source_ids)[1]
-
-        # process source sentence
-        src_word_embeddings, embedding_tables = self.tfm_embedding_lookup(source_ids)
-        src_embedding_output = self.tfm_embedding_postprocessor_for_encoder(src_word_embeddings)
-        # attention mask [batch_size, seq_length, seq_length]
-        if len(ops.shape(source_mask)) == 2:
-            enc_attention_mask = self._create_attention_mask_from_input_mask(source_mask)
+        if source_ids is not None:
+            encoder_output = self.encoder_forward(source_ids, source_mask)
         else:
-            enc_attention_mask = source_mask
-        # transformer encoder
-        encoder_output, _ = self.tfm_encoder(self.cast_compute_type(src_embedding_output),
-                                             self.cast_compute_type(enc_attention_mask))
+            encoder_output = encoder_cache
+
+        if target_ids is None:
+            return encoder_output
 
         # process target sentence
-        tgt_word_embeddings, _ = self.tfm_embedding_lookup(target_ids)
-        tgt_embedding_output = self.tfm_embedding_postprocessor_for_decoder(tgt_word_embeddings)
+        tgt_embedding_output, embedding_table = self.tfm_embedding_lookup(target_ids)
         # attention mask [batch_size, seq_length, seq_length]
+        tgt_length = self.shape(target_ids)[1]
+
+        if memory_mask is None:
+            memory_mask = self.create_memory_mask(source_mask, target_mask)
+
         if len(ops.shape(target_mask)) == 2:
-            future_mask = convert_np_to_tensor_encoder(seq_length)
+            future_mask = convert_np_to_tensor_encoder(tgt_length)
             tgt_attention_mask = self._create_attention_mask_from_input_mask(target_mask)
             tgt_attention_mask = self.multiply(tgt_attention_mask, self.expand(future_mask, 0))
         else:
@@ -304,10 +307,36 @@ class TransformerModel(nn.Cell):
         decoder_output, _ = self.tfm_decoder(self.cast_compute_type(tgt_embedding_output),
                                              self.cast_compute_type(tgt_attention_mask),
                                              encoder_output, memory_mask)
+        decoder_output = self.decoder_layernorm(decoder_output)
+
+        if self.scale_output:
+            decoder_output = decoder_output * (self.hidden_size ** -0.5)
         # calculate logits and log_probs
-        log_probs = self.projection(decoder_output, embedding_tables)
+        log_probs = self.projection(decoder_output, embedding_table)
 
         return log_probs
+
+    def encoder_forward(self, source_ids, source_mask):
+        """Execute the forward process"""
+        # process source sentence
+        src_embedding_output, _ = self.tfm_embedding_lookup(source_ids)
+        # attention mask [batch_size, seq_length, seq_length]
+        if len(F.shape(source_mask)) == 2:
+            enc_attention_mask = self._create_attention_mask_from_input_mask(source_mask)
+        else:
+            enc_attention_mask = source_mask
+        # transformer encoder
+        encoder_output, _ = self.tfm_encoder(self.cast_compute_type(src_embedding_output),
+                                             self.cast_compute_type(enc_attention_mask))
+        encoder_output = self.encoder_layernorm(encoder_output)
+
+        return encoder_output
+
+    def create_memory_mask(self, source_mask, target_mask):
+        memory_mask = P.Ones()((self.batch_size, self.max_decode_length, self.seq_length), mstype.float32)
+        memory_mask = memory_mask * F.expand_dims(source_mask, 1)
+        memory_mask = memory_mask * F.expand_dims(target_mask, 2)
+        return memory_mask
 
 
 class TransformerNetworkWithLoss(nn.Cell):
@@ -315,8 +344,8 @@ class TransformerNetworkWithLoss(nn.Cell):
     Provide  transformer training loss through network.
 
     Args:
-        config (TransformerConfig): The config of Transformer.
-        is_training (bool): Specifies whether to use the training mode.
+        network (nn.Cell): The network of the transformer.
+        loss (nn.Cell): Loss cell for.
 
     Returns:
         Tensor, the loss of the network.
@@ -328,26 +357,87 @@ class TransformerNetworkWithLoss(nn.Cell):
         self.cast = ops.Cast()
         self.shape = ops.Shape()
 
+        self.start_token = Tensor(np.zeros((4, 1)).astype(np.int32))
+        self.concat = P.Concat(axis=1)
+
     def construct(self,
                   source_ids,
                   source_mask,
                   target_ids,
-                  target_mask,
-                  label_ids,
-                  label_weights,
-                  memory_mask):
+                  target_mask=None,
+                  memory_mask=None):
         """Transformer network with loss."""
-        prediction_scores = self.transformer(source_ids, source_mask, target_ids, target_mask, memory_mask)
-        label_ids = ops.Reshape()(label_ids, (-1,))
-        label_weights = ops.Reshape()(label_weights, (-1,))
-        total_loss = self.loss(prediction_scores, label_ids, self.cast(label_weights, ms.float32))
-        return self.cast(total_loss, ms.float32)
+        labels = target_ids[:, :-1]
+        if target_mask is None:
+            target_mask = F.cast(labels != 0, mstype.float32)
+
+        decoder_inputs = self.concat((self.start_token, labels[:, :-1]))
+
+        logits = self.transformer(source_ids, source_mask, decoder_inputs, target_mask, memory_mask)
+
+        label_ids = ops.Reshape()(labels, (-1,))
+        label_weights = ops.Reshape()(target_mask, (-1,))
+        total_loss = self.loss(logits, label_ids, self.cast(label_weights, mstype.float32))
+        return total_loss
 
 
-def get_t5_network(_, model_config):
+class EvalNet(nn.Cell):
+    """
+    T5 evaluation net
+
+    Args:
+        backbone(nn.Cell): backbone network of GPT2/3
+        generate(bool): enable generate mode
+
+    Returns:
+        outputs: Tensor, corresponding output for different tasks
+    """
+    def __init__(self, backbone, generate=False):
+        super(EvalNet, self).__init__(auto_prefix=False)
+        self.backbone = backbone
+        self.argmax = P.Argmax()
+        self.generate = generate
+        self.cast = P.Cast()
+        self.gather = P.Gather()
+        self.pad_token = 0
+
+    def construct(self, input_ids, input_mask, current_index=None,
+                  cache_encoder=None, target_id=None, target_mask=None):
+        """evaluation net"""
+        if cache_encoder is None:
+            input_mask = self.cast(input_mask, mstype.float32)
+            outputs = self.backbone(input_ids, input_mask)
+        else:
+            input_mask = self.cast(input_mask, mstype.float32)
+            if target_mask is None:
+                target_mask = F.cast(target_id != self.pad_token, mstype.float32)
+            logits = self.backbone(None, input_mask, target_id, target_mask, None, cache_encoder)
+            outputs = None
+            if self.generate:
+                index = current_index.view(1,)
+                logits = self.gather(logits, index, 0)
+                outputs = nn.LogSoftmax()(logits)
+                outputs = F.tensor_pow(np.e, outputs)
+            else:
+                outputs = self.argmax(logits)
+        return outputs
+
+
+def get_t5_network(opt, model_config):
+    """Get the t5 network"""
     parallel_config = model_config.parallel_config
     network = TransformerModel(config=model_config)
+    if opt.eval:
+        opt.logger.info("Detect the eval is True, return the eval net.")
+        net = EvalNet(network, generate=opt.generate)
+        return net
     loss = CrossEntropyLoss(parallel_config=parallel_config.dp_mp_config)
     net_with_loss = TransformerNetworkWithLoss(network=network, loss=loss)
     net_with_loss.set_train(True)
+
+    # disable the bias
+    for param in net_with_loss.trainable_params():
+        if ('bias' in param.name or 'beta' in param.name) and 'relative' not in param.name:
+            param.requires_grad = False
+        opt.logger.info(f"Param name {param.name} is disabled gradients.")
     return net_with_loss
