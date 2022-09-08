@@ -25,9 +25,32 @@ from .vit.vit import VitConfig
 from .opt.opt import OPTConfig, get_opt_network
 
 
+def get_downstream_config(opt):
+    """Get the model config"""
+    opt.logger.info("Start to build model config")
+    train_batch_size = opt.model.pop('train_batch_size')
+    eval_batch_size = opt.model.pop('eval_batch_size')
+    compute_dtype = opt.model.pop('compute_dtype')
+
+    config_mapper = {"gpt": GPTConfig, "bert": BertConfig, "t5": TransformerConfig, "vit": VitConfig,
+                     "opt": OPTConfig}
+
+    data_dp = 1
+    if opt.parallel_mode in (ParallelMode.AUTO_PARALLEL, ParallelMode.SEMI_AUTO_PARALLEL) and \
+            not context.get_auto_parallel_context('full_batch'):
+        data_dp = context.get_auto_parallel_context("device_num")
+    opt.logger.info(f"Model Name: {opt.arch}")
+    config_func = config_mapper[opt.arch]
+    config = config_func(**opt.model,
+                         compute_dtype=compute_dtype,
+                         batch_size=data_dp * train_batch_size)
+    opt.model['train_batch_size'] = train_batch_size
+    opt.model['eval_batch_size'] = eval_batch_size
+    return config
+
 def get_model_config(opt):
     """Get the model config"""
-    opt.logger.info(f"Start to build model config")
+    opt.logger.info("Start to build model config")
     micro_batch_interleaved = opt.speed_up['micro_batch_num']
     global_batch_size = opt.model.pop('global_batch_size')
     micro_batch_size = opt.model.pop('micro_batch_size')

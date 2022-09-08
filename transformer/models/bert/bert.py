@@ -104,10 +104,11 @@ class EmbeddingPostprocessor(nn.Cell):
         self.use_relative_positions = use_relative_positions
         self.slice = P.StridedSlice().shard(((1, 1),))
         _, seq, _ = self.shape
-        self.full_position_embedding = VocabEmbedding(vocab_size=config.seq_length,
+        self.full_position_embedding = VocabEmbedding(vocab_size=config.max_position_embeddings,
                                                       embedding_size=embedding_size,
                                                       param_init=initializer("truncatedNormal",
-                                                                             [config.seq_length, embedding_size],
+                                                                             [config.max_position_embeddings,
+                                                                              embedding_size],
                                                                              dtype=mstype.float32),
                                                       parallel_config=config.parallel_config.embedding_dp_mp_config)
 
