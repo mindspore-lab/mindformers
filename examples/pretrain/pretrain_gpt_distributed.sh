@@ -32,7 +32,7 @@ mpirun --allow-run-as-root -n $RANK_SIZE --hostfile $HOSTFILE \
       -x NCCL_IB_HCA -x PATH -x LD_LIBRARY_PATH -x PYTHONPATH -x NCCL_SOCKET_IFNAME -n $RANK_SIZE \
       --mca btl tcp,self --mca btl_tcp_if_include 10.90.43.0/24,enp177s0f0 --merge-stderr-to-stdout \
 python -m transformer.train  \
-    --config='./transformer/configs/gpt/gpt_base.yaml' \
+    --config./transformer/configs/gpt/gpt_base.yaml \
     --device_num=$RANK_SIZE \
     --data_url=$DATASET \
     --seq_length=1024 \

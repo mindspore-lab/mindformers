@@ -21,7 +21,7 @@ echo "for example: bash scripts/pretrain/pretrain_t5.sh"
 echo "=============================================================================================================="
 
 python -m transformer.predict \
-     --config='./transformer/configs/t5/t5_base.yaml' \
+     --config./transformer/configs/t5/t5_base.yaml \
      --optimizer="adam" \
      --seq_length=20 \
      --max_decode_length=128 \
@@ -36,7 +36,7 @@ python -m transformer.predict \
      --intermediate_size=2048 \
      --num_hidden_layers=6 \
      --num_heads=8 \
-     --ckpt_path='mindspore_t5_small.ckpt' \
+     --ckpt_pathmindspore_t5_small.ckpt \
      --generate=True \
      --bucket_boundaries=16 \
      --has_relative_bias=True \

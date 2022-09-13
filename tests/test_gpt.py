@@ -51,7 +51,7 @@ def test_gpt_network():
 
     res = os.system("""
             python -m transformer.train \
-                --config='./transformer/configs/gpt/gpt_base.yaml' \
+                --config=./transformer/configs/gpt/gpt_base.yaml \
                 --epoch_size=1 \
                 --data_url=tests/ \
                 --optimizer="adam"  \
@@ -64,5 +64,5 @@ def test_gpt_network():
                 --num_layers=1 \
                 --num_heads=16 \
                 --full_batch=False \
-                --device_target="CPU"  """)
+                --device_target=CPU  """)
     assert res == 0

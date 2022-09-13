@@ -25,7 +25,7 @@ EPOCH_SIZE=$2
 DATA_DIR=$3
 
 python -m transformer.train \
-    --config='./transformer/configs/t5/t5_base.yaml' \
+    --config./transformer/configs/t5/t5_base.yaml \
     --epoch_size=$EPOCH_SIZE \
     --device_id=$DEVICE_ID \
     --data_url=$DATA_DIR \
@@ -43,7 +43,7 @@ python -m transformer.train \
     --intermediate_size=2048 \
     --num_hidden_layers=6 \
     --num_heads=8 \
-    --ckpt_path='mindspore_t5_small.ckpt' \
+    --ckpt_pathmindspore_t5_small.ckpt \
     --bucket_boundaries=16 \
     --has_relative_bias=True \
     --device_target="GPU" > standalone_train_gpu_log.txt 2>&1 &
