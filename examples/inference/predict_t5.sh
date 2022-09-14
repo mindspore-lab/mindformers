@@ -21,7 +21,7 @@ echo "for example: bash scripts/pretrain/pretrain_t5.sh"
 echo "=============================================================================================================="
 
 python -m transformer.predict \
-     --config./transformer/configs/t5/t5_base.yaml \
+     --config=./transformer/configs/t5/t5_base.yaml \
      --optimizer="adam" \
      --seq_length=20 \
      --max_decode_length=128 \

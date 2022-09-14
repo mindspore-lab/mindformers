@@ -29,7 +29,7 @@ mpirun --allow-run-as-root -n $RANK_SIZE --hostfile $HOSTFILE \
       --output-filename run_distributed_train_t5 \
       --mca btl tcp,self --mca btl_tcp_if_include 10.90.43.0/24,enp177s0f0 --merge-stderr-to-stdout \
 python -m transformer.train  \
-    --config./transformer/configs/t5/t5_base.yaml \
+    --config=./transformer/configs/t5/t5_base.yaml \
     --device_num=$RANK_SIZE \
     --data_url=$DATASET \
     --optimizer="adam" \
