@@ -250,7 +250,7 @@ scale_window: 1000
 
 ```bash
 python -m transformer.train \
-    --config='./transformer/configs/gpt/gpt_base.yaml' \
+    --config=./transformer/configs/gpt/gpt_base.yaml \
     --epoch_size=$EPOCH_SIZE \
     --data_url=$DATA_DIR \
     --optimizer="adam"

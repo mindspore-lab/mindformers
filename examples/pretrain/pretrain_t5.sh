@@ -25,7 +25,7 @@ EPOCH_SIZE=$2
 DATA_DIR=$3
 
 python -m transformer.train \
-    --config./transformer/configs/t5/t5_base.yaml \
+    --config=./transformer/configs/t5/t5_base.yaml \
     --epoch_size=$EPOCH_SIZE \
     --device_id=$DEVICE_ID \
     --data_url=$DATA_DIR \

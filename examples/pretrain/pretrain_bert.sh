@@ -25,7 +25,7 @@ EPOCH_SIZE=$2
 DATA_DIR=$3
 
 python -m transformer.train \
-    --config./transformer/configs/bert/bert_base.yaml \
+    --config=./transformer/configs/bert/bert_base.yaml \
     --epoch_size=$EPOCH_SIZE \
     --data_url=$DATA_DIR \
     --optimizer="adam" \
