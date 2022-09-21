@@ -30,12 +30,12 @@ python -m transformer.train \
     --data_url=$DATA_DIR \
     --optimizer="adam" \
     --seq_length=128 \
-    --max_position_embeddings=128 \
+    --max_position_embeddings=512 \
     --parallel_mode="stand_alone" \
-    --global_batch_size=64 \
+    --global_batch_size=32 \
     --vocab_size=30522 \
-    --embedding_size=1024 \
-    --num_layers=24 \
-    --num_heads=16 \
+    --embedding_size=768 \
+    --num_layers=12 \
+    --num_heads=12 \
     --device_target="GPU" > standalone_train_gpu_log.txt 2>&1 &
 tail -f standalone_train_gpu_log.txt

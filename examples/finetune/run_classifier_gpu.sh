@@ -33,14 +33,16 @@ fi
 CUR_DIR=`pwd`
 export GLOG_log_dir=${CUR_DIR}/ms_log
 export GLOG_logtostderr=0
-python -m tasks.nlp.bert_downstream.run_classifier  \
+task=$2
+
+python -m tasks.nlp.text_classification.run_classifier  \
     --config="./transformer/configs/bert/task_classifier_config.yaml" \
     --device_target="GPU" \
     --do_train="true" \
     --do_eval="true" \
     --assessment_method="Accuracy" \
-    --epoch_num=2 \
-    --num_class=3 \
+    --epoch_num=1 \
+    --num_class=2 \
     --vocab_size=30522 \
     --embedding_size=768 \
     --num_layers=12 \
@@ -49,11 +51,11 @@ python -m tasks.nlp.bert_downstream.run_classifier  \
     --train_data_shuffle="true" \
     --eval_data_shuffle="false" \
     --train_batch_size=32 \
-    --eval_batch_size=32 \
-    --start_lr=2e-5 \
-    --save_finetune_checkpoint_path="" \
-    --load_pretrain_checkpoint_path="" \
-    --load_finetune_checkpoint_path="" \
-    --train_data_file_path="" \
-    --eval_data_file_path="" \
-    --schema_file_path="" > classifier_log.txt 2>&1 &
+    --eval_batch_size=1 \
+    --start_lr=5e-5 \
+    --save_finetune_checkpoint_path="./glue_ckpt/$task" \
+    --load_pretrain_checkpoint_path="./checkpoint/bertbase.ckpt" \
+    --load_finetune_checkpoint_path="./glue_ckpt/$task" \
+    --train_data_file_path="./glue_data/$task/train.tf_record" \
+    --eval_data_file_path="./glue_data/$task/eval.tf_record" \
+    --schema_file_path="" > $task.txt 2>&1 &

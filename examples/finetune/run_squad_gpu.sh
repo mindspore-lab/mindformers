@@ -25,7 +25,7 @@ mkdir -p ms_log
 CUR_DIR=`pwd`
 export GLOG_log_dir=${CUR_DIR}/ms_log
 export GLOG_logtostderr=0
-python -m  tasks.nlp.bert_downstream.run_squad  \
+python -m  tasks.nlp.question_answering.run_squad  \
     --config_path="" \
     --device_target="GPU" \
     --do_train="true" \
@@ -41,12 +41,12 @@ python -m  tasks.nlp.bert_downstream.run_squad  \
     --max_position_embeddings=512 \
     --train_data_shuffle="true" \
     --eval_data_shuffle="false" \
-    --train_batch_size=4 \
-    --eval_batch_size=4 \
-    --vocab_file_path="" \
-    --save_finetune_checkpoint_path="" \
-    --load_pretrain_checkpoint_path="" \
-    --load_finetune_checkpoint_path="" \
-    --train_data_file_path="" \
-    --eval_json_path="" \
+    --train_batch_size=2 \
+    --eval_batch_size=1 \
+    --vocab_file_path="./vocab.txt" \
+    --save_finetune_checkpoint_path="./squad_ckpt" \
+    --load_pretrain_checkpoint_path="./checkpoint/bert_base1.ckpt" \
+    --load_finetune_checkpoint_path="./squad_ckpt" \
+    --train_data_file_path="./squad_data/train.mindrecord" \
+    --eval_json_path="./squad_data/dev-v1.1.json" \
     --schema_file_path="" > squad_log.txt 2>&1 &
