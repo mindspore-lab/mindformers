@@ -51,6 +51,8 @@ class BertConfig:
     initializer_range: float = 0.02
     use_relative_positions: bool = False
     dtype: mstype = mstype.float16
+    layernorm_dtype: mstype = mstype.float32
+    softmax_dtype: mstype = mstype.float32
     compute_dtype: mstype = mstype.float16
     use_past: bool = False
     use_moe: bool = False
@@ -241,8 +243,11 @@ class BertModel(nn.Cell):
             decoder_layers=0,
             moe_config=moe_config,
             param_init_type=config.compute_dtype,
-            layernorm_compute_type=config.compute_dtype,
-            softmax_compute_type=config.compute_dtype)
+            layernorm_compute_type=config.layernorm_dtype,
+            softmax_compute_type=config.softmax_dtype,
+            post_layernorm_residual=config.post_layernorm_residual,
+            attention_dropout_rate=config.attention_probs_dropout_prob,
+            hidden_dropout_rate=config.hidden_dropout_prob,)
 
         self.cast = P.Cast()
         self.dtype = config.dtype

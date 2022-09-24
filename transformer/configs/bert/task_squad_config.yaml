@@ -19,8 +19,6 @@ epoch_num: 3
 num_class: 2
 train_data_shuffle: "true"
 eval_data_shuffle: "false"
-train_batch_size: 32
-eval_batch_size: 1
 vocab_file_path: ""
 eval_json_path: ""
 save_finetune_checkpoint_path: "./squad_finetune/ckpt/"
@@ -36,16 +34,18 @@ file_format: 'MINDIR'
 
 arch: 'bert'
 model:
-  micro_batch_size: 4
-  global_batch_size: 4
+  train_batch_size: 32
+  eval_batch_size: 1
   seq_length: 1024
   vocab_size: 50304
   embedding_size: 1024
   num_layers: 2
   num_heads: 32
   expand_ratio: 4
-  post_layernorm_residual: False
+  post_layernorm_residual: True
   compute_dtype: fp16
+  softmax_dtype: fp32
+  compute_dtype: fp32
   hidden_act: gelu
   hidden_dropout_prob: 0.1
   attention_probs_dropout_prob: 0.1

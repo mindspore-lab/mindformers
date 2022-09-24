@@ -94,6 +94,7 @@ class LearningRate(LearningRateSchedule):
             lr = (self.one - is_warmup) * decay_lr + is_warmup * warmup_lr
         else:
             lr = decay_lr
+        print("learning rate:", lr)
         return lr
 
 
@@ -174,14 +175,14 @@ def get_lr(global_step, lr_init, lr_end, lr_max, warmup_epochs, \
     return learning_rate
 
 
-def build_lr(config, epoch_num, step_per_epoch):
+def build_lr(config, epoch_num, step_per_epoch, warmup_step=None):
     """Build the learning rate according to the input arguments"""
     model_name = config.arch
     lr = None
     if model_name in ['bert', 'gpt', 'opt']:
         lr = LearningRate(learning_rate=float(config.start_lr),
                           end_learning_rate=float(config.end_lr),
-                          warmup_steps=config.warmup_step,
+                          warmup_steps=warmup_step if warmup_step else int(epoch_num * step_per_epoch * 0.1),
                           decay_steps=epoch_num * step_per_epoch)
     elif model_name in ['t5']:
         learning_rate = config.learning_rate if config.context['device_target'] == "Ascend" else 1.0
