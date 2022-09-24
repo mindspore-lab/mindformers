@@ -23,7 +23,9 @@ import mindspore.dataset.transforms.c_transforms as C
 import mindspore.common.dtype as mstype
 
 ds.config.set_seed(1)
-def create_dataset(batch_size, data_path, device_num=1, rank=0, drop=True):
+
+
+def create_gpt_dataset(batch_size, data_path, device_num=1, rank=0, drop=True):
     """
     Create dataset
 

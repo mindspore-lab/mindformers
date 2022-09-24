@@ -18,7 +18,7 @@ Data operations.
 from transformer.utils import download_data
 
 from mindspore import context
-from .gpt_dataset import create_dataset
+from .gpt_dataset import create_gpt_dataset
 from .bert_dataset import create_bert_dataset
 from .t5_dataset import create_t5_dataset
 from .wiki_dataset import create_wiki_dataset
@@ -31,7 +31,7 @@ def build_dataset(opt, rank_id, device_num, get_eval_dataset=False):
     if url.startswith == "s3://":
         # copy data from the cloud to the /cache/Data
         cache_url = '/cache/Data/'
-        opt.logger.info(f"Find the data url { url} startswith s3. Start to cache the data_url "
+        opt.logger.info(f"Find the data url {url} startswith s3. Start to cache the data_url "
                         f"to the local path {cache_url}.")
         download_data(src_data_url=url, tgt_data_path=cache_url, rank=rank_id)
         opt.logger.info(f"Data cache the finished.")
@@ -49,7 +49,8 @@ def build_dataset(opt, rank_id, device_num, get_eval_dataset=False):
         rank_id = 0
 
     if model_name == 'gpt':
-        ds = create_dataset(opt.model['global_batch_size'], data_path=cache_url, device_num=device_num, rank=rank_id)
+        ds = create_gpt_dataset(opt.model['global_batch_size'], data_path=cache_url, device_num=device_num,
+                                rank=rank_id)
     elif model_name == 'bert':
         ds = create_bert_dataset(device_num, rank_id, data_dir=cache_url, batch_size=opt.model['global_batch_size'])
     elif model_name == 't5':
