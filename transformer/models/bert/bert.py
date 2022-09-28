@@ -36,17 +36,17 @@ class BertConfig:
     BERT config class which defines the model size
     """
     batch_size: int = 16
-    seq_length: int = 512
+    seq_length: int = 128
     vocab_size: int = 30522
-    embedding_size: int = 768
-    num_layers: int = 12
-    num_heads: int = 12
+    embedding_size: int = 1024
+    num_layers: int = 24
+    num_heads: int = 16
     expand_ratio: int = 4
     hidden_act: str = "gelu"
     post_layernorm_residual: bool = False
     hidden_dropout_prob: float = 0.1
     attention_probs_dropout_prob: float = 0.1
-    max_position_embeddings: int = 512
+    max_position_embeddings: int = 128
     type_vocab_size: int = 2
     initializer_range: float = 0.02
     use_relative_positions: bool = False

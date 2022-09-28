@@ -38,9 +38,9 @@ class GPTConfig:
     batch_size: int = 32
     seq_length: int = 1024
     vocab_size: int = 50257
-    hidden_size: int = 768
-    num_layers: int = 12
-    num_heads: int = 12
+    hidden_size: int = 2048
+    num_layers: int = 24
+    num_heads: int = 16
     expand_ratio: int = 4
     post_layernorm_residual: bool = False
     dropout_rate: float = 0.1

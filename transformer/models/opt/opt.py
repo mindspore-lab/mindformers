@@ -37,10 +37,10 @@ class OPTConfig:
     """
     batch_size: int = 32
     seq_length: int = 1024
-    vocab_size: int = 50257
-    hidden_size: int = 768
+    vocab_size: int = 50272
+    hidden_size: int = 2560
     num_layers: int = 12
-    num_heads: int = 12
+    num_heads: int = 32
     expand_ratio: int = 4
     post_layernorm_residual: bool = False
     dropout_rate: float = 0.1

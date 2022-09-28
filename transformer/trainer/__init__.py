@@ -11,3 +11,4 @@
 # ============================================================================
 """Used for building training process."""
 from .build_trainer import build_trainer
+from .trainer import Trainer, TrainingConfig, parse_config

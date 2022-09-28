@@ -36,20 +36,20 @@ from transformer.models.t5.T5Transformer import TransformerEncoder, TransformerD
 class TransformerConfig:
     """Transformer Config"""
     batch_size: int
-    seq_length: int = 128
-    vocab_size: int = 36560
-    hidden_size: int = 1024
+    seq_length: int = 1024
+    vocab_size: int = 32128
+    hidden_size: int = 512
     num_hidden_layers: int = 6
-    num_heads: int = 16
-    intermediate_size: int = 4096
+    num_heads: int = 8
+    intermediate_size: int = 2048
     hidden_act: str = "relu"
     hidden_dropout_prob: float = 0.3
     attention_probs_dropout_prob: float = 0.3
-    max_position_embeddings: int = 128
+    max_position_embeddings: int = 1024
     initializer_range: float = 0.02
     label_smoothing: float = 0.1
     beam_width: int = 4
-    max_decode_length: int = 80
+    max_decode_length: int = 128
     length_penalty_weight: float = 1.0
     dtype: mstype.dtype = mstype.float32
     compute_dtype: mstype.dtype = mstype.float32
