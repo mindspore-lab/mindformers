@@ -29,7 +29,7 @@ from mindspore.train.serialization import load_checkpoint
 from mindspore.nn.transformer import TransformerOpParallelConfig
 import mindspore.dataset as ds
 
-from transformer.models.vit import get_network, get_loss
+from transformer.models.vit import get_vit_network, get_loss
 from transformer.data.image_dataset import get_dataset
 from transformer.optim.optimizer import build_optimizer
 from transformer.learning_rate import get_lr
@@ -150,7 +150,7 @@ def train_net():
     set_parallel_config(args)
 
     # network
-    net = get_network(backbone_name=args.backbone, args=args)
+    net = get_vit_network(backbone_name=args.backbone, args=args)
 
     # set grad allreduce split point
     parameters = [param for param in net.trainable_params()]
