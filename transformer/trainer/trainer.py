@@ -138,6 +138,8 @@ class TrainingConfig:
     scale_window: int = 1000
     eval: bool = False
     ckpt_path: str = ""
+    get_eval_dataset: bool = False
+    eval_data_url: str = ""
 
     compute_dtype: mstype = mstype.float16
     layernorm_dtype: mstype = mstype.float32
