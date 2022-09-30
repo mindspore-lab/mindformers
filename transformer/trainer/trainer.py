@@ -38,6 +38,7 @@ from mindspore.nn.wrap.grad_reducer import DistributedGradReducer, _get_datatype
 import mindspore.communication.management as D
 import mindspore.common.dtype as mstype
 
+from transformer.auto_class import AutoClass
 from transformer.optim.optimizer import build_optimizer
 from transformer.utils import print_model_size
 from transformer.utils import download_data
@@ -109,13 +110,14 @@ class TrainingConfig:
     """
     TrainingConfig
     """
+    auto_model: str = ""
     micro_batch_size: int = 4
     global_batch_size: int = 4
     expand_ratio: int = 4
     post_layernorm_residual: bool = False
     dropout_rate: float = 0.1
     seed: int = 1234
-    device_target: str = 'GPU'
+    device_target: str = "GPU"
     save_graphs: bool = False
     mode: int = 0
     graph_kernel_flags: str = "--disable_expand_ops=Softmax,Dropout " \
@@ -146,6 +148,10 @@ class TrainingConfig:
     softmax_dtype: mstype = mstype.float16
     grad_sync_dtype: mstype = mstype.float16
 
+    # dataset
+    dataset_drop_remainder: bool = True
+    dataset_do_shuffle: bool = True
+
     # speed_up:
     micro_batch_interleaved_num: int = 1
     flatten_weights: bool = False
@@ -164,7 +170,7 @@ class TrainingConfig:
     recompute_slice_activation: bool = False
 
     # parallel_config
-    parallel_mode: str = "semi_auto_parallel"
+    parallel_mode: str = "stand_alone"
     data_parallel: int = 1
     model_parallel: int = 1
     pipeline_stage: int = 1
@@ -344,10 +350,12 @@ class Trainer:
             cache_url = url
         return cache_url
 
-    def build_dataset(self, config, device_num, rank):
+    def build_dataset(self):
         """build dataset"""
-        print(config, device_num, rank)
-        return {}
+        create_dataset = AutoClass.get_create_dataset_func(self.config.auto_model)
+        if create_dataset is not None:
+            return create_dataset(self.config)
+        raise ValueError(f"invalid auto_model {self.config.auto_model}.")
 
     def download_and_build_dataset(self):
         """download and build dataset"""
@@ -361,12 +369,21 @@ class Trainer:
             device_num = 1
             rank_id = 0
 
-        ds = self.build_dataset(self.config, device_num, rank_id)
+        self.config.dataset_device_num = device_num
+        self.config.dataset_rank = rank_id
+        self.config.dataset_batch_size = self.config.global_batch_size
+        self.config.dataset_path = self.config.data_path
+        self.config.dataset_schema_dir = None
+        self.config.dataset_bucket_list = None
+        ds = self.build_dataset()
         return ds
 
     def build_model_config(self):
         """build model config"""
-        return {}
+        model_config = AutoClass.get_config_class(self.config.auto_model)
+        if model_config is not None:
+            return model_config()
+        raise ValueError(f"invalid auto_model {self.config.auto_model}.")
 
     def check_and_build_model_config(self):
         """check and build model config"""
@@ -385,8 +402,10 @@ class Trainer:
 
     def build_model(self, model_config):
         """build model"""
-        print(model_config)
-        return {}
+        network_with_loss = AutoClass.get_network_with_loss_class(self.config.auto_model)
+        if network_with_loss is not None:
+            return network_with_loss(model_config)
+        raise ValueError(f"invalid auto_model {self.config.auto_model}.")
 
     def build_lr(self):
         """build lr"""
@@ -527,3 +546,10 @@ def parse_config(config):
     print(json.dumps({k: str(v) for k, v in config.__dict__.items()}, indent=4))
     print("set seed:", config.seed)
     set_seed(config.seed)
+
+
+if __name__ == "__main__":
+    training_config = TrainingConfig()
+    parse_config(training_config)
+    trainer = Trainer(training_config)
+    trainer.train()

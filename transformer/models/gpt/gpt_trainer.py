@@ -14,8 +14,7 @@
 # ============================================================================
 
 """GPT Trainer"""
-from mindspore.nn.transformer.loss import CrossEntropyLoss
-from transformer.models.gpt import GPTConfig, GPT, GPTWithLoss
+from transformer.models.gpt import GPTConfig, GPTWithLoss
 from transformer.trainer import Trainer, TrainingConfig, parse_config
 from transformer.data import create_gpt_dataset
 
@@ -46,14 +45,11 @@ class GPTTrainer(Trainer):
         return model_config
 
     def build_model(self, model_config):
-        parallel_config = model_config.parallel_config
-        loss = CrossEntropyLoss(parallel_config.dp_mp_config)
-        net = GPT(model_config)
-        net_with_loss = GPTWithLoss(net, loss, parallel_config)
+        net_with_loss = GPTWithLoss(model_config)
         return net_with_loss
 
-    def build_dataset(self, training_config, device_num, rank):
-        return create_gpt_dataset(training_config.global_batch_size, training_config.data_path, device_num, rank)
+    def build_dataset(self):
+        return create_gpt_dataset(self.config)
 
 
 if __name__ == "__main__":

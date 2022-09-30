@@ -390,7 +390,7 @@ class BertNetworkWithLoss(nn.Cell):
         Tensor, the loss of the network.
     """
 
-    def __init__(self, config, is_training, use_one_hot_embeddings=False):
+    def __init__(self, config, is_training=True, use_one_hot_embeddings=False):
         super(BertNetworkWithLoss, self).__init__()
         self.bert = BertPreTraining(config, is_training, use_one_hot_embeddings)
         self.loss = BertPretrainingLoss(config)
@@ -521,5 +521,5 @@ class GetNextSentenceOutput(nn.Cell):
 
 
 def get_bert_network(_, model_config):
-    net_with_loss = BertNetworkWithLoss(model_config, True)
+    net_with_loss = BertNetworkWithLoss(model_config)
     return net_with_loss

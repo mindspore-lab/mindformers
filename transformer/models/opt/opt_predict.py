@@ -54,8 +54,8 @@ class OPTPredict(Trainer):
         net = EvalNet(net, generate=self.config.generate)
         return net
 
-    def build_dataset(self, training_config, device_num, rank):
-        return create_wiki_dataset(training_config.global_batch_size, training_config.data_path, device_num, rank)
+    def build_dataset(self):
+        return create_wiki_dataset(self.config)
 
 
 if __name__ == "__main__":

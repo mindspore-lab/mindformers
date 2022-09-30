@@ -210,8 +210,7 @@ class OPTWithLoss(nn.Cell):
     OPT training loss
 
     Args:
-        network: backbone network of OPT2/3
-        loss: loss function, e.g., crossentropy
+        model_config: model config of OPT2/3
         eos_token: the end_of_sentence token
 
     Inputs:
@@ -221,10 +220,11 @@ class OPTWithLoss(nn.Cell):
     Returns:
         output: Tensor, the loss of the network
     """
-    def __init__(self, network, loss, parallel_config, eos_token=50256):
+    def __init__(self, model_config, eos_token=50256):
         super(OPTWithLoss, self).__init__(auto_prefix=False)
-        self.network = network
-        self.loss = loss
+        parallel_config = model_config.parallel_config
+        self.network = OPT(model_config)
+        self.loss = CrossEntropyLoss(model_config.parallel_config.dp_mp_config)
         self.eos_token = eos_token
         self.shape = P.Shape()
         dp = parallel_config.data_parallel
@@ -293,11 +293,9 @@ def get_opt_network(opt, model_config):
     """
     Return opt net according to the arguments and model config
     """
-    net = OPT(model_config)
     if opt.eval:
         opt.logger.info("Detect the eval is True, return the eval net")
-        net = EvalNet(net, generate=opt.generate)
+        net = EvalNet(OPT(model_config), generate=opt.generate)
         return net
-    loss = CrossEntropyLoss(model_config.parallel_config.dp_mp_config)
-    net_with_loss = OPTWithLoss(net, loss, model_config.parallel_config)
+    net_with_loss = OPTWithLoss(model_config)
     return net_with_loss

@@ -45,12 +45,11 @@ class BertTrainer(Trainer):
         return model_config
 
     def build_model(self, model_config):
-        net_with_loss = BertNetworkWithLoss(model_config, True)
+        net_with_loss = BertNetworkWithLoss(model_config)
         return net_with_loss
 
-    def build_dataset(self, training_config, device_num, rank):
-        return create_bert_dataset(device_num, rank, data_dir=training_config.data_path,
-                                   batch_size=training_config.global_batch_size)
+    def build_dataset(self):
+        return create_bert_dataset(self.config)
 
 
 if __name__ == "__main__":

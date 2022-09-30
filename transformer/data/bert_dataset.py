@@ -33,6 +33,7 @@ class BucketDatasetGenerator:
         batch_size (Int): The training batchsize.
         bucket_list (List): List of different sentence lengths，such as [128, 256, 512]. Default: None.
     """
+
     def __init__(self, dataset, batch_size, bucket_list=None):
         self.dataset = dataset
         self.batch_size = batch_size
@@ -76,9 +77,15 @@ class BucketDatasetGenerator:
         return (self.dataset.get_dataset_size() // self.batch_size) - 1
 
 
-def create_bert_dataset(device_num=1, rank=0, do_shuffle="true", data_dir=None, schema_dir=None, batch_size=32,
-                        bucket_list=None):
-    """create train dataset"""
+def create_bert_dataset(config):
+    """Create bert dataset"""
+    device_num = config.dataset_device_num
+    rank = config.dataset_rank
+    batch_size = config.dataset_batch_size
+    data_dir = config.dataset_path
+    do_shuffle = config.dataset_do_shuffle
+    schema_dir = config.dataset_schema_dir
+    bucket_list = config.dataset_bucket_list
     # apply repeat operations
     print("device num", device_num, rank, do_shuffle, data_dir, schema_dir, batch_size, bucket_list)
     files = os.listdir(data_dir)

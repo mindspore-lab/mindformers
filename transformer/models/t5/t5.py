@@ -93,6 +93,7 @@ class EmbeddingPostprocessor(nn.Cell):
                                  model. Default: 128.
         dropout_prob (float): The dropout probability. Default: 0.1.
     """
+
     def __init__(self,
                  embedding_size,
                  max_position_embeddings=128,
@@ -120,6 +121,7 @@ class CastWrapper(nn.Cell):
     """
     Cast wrapper.
     """
+
     def __init__(self, dst_type=mstype.float32):
         super(CastWrapper, self).__init__()
         self.cast = ops.Cast()
@@ -136,6 +138,7 @@ class CreateAttentionMaskFromInputMask(nn.Cell):
     Args:
         config (:class:`TransformerConfig`): Configuration for Transformer.
     """
+
     def __init__(self, parallel_config):
         super(CreateAttentionMaskFromInputMask, self).__init__()
         self.cast = ops.Cast()
@@ -206,6 +209,7 @@ class TransformerModel(nn.Cell):
         is_training (bool): True for training mode. False for eval mode.
         use_one_hot_embeddings (bool): Specifies whether to use one hot encoding form. Default: False.
     """
+
     def __init__(self,
                  config):
         super(TransformerModel, self).__init__()
@@ -263,7 +267,6 @@ class TransformerModel(nn.Cell):
         self.projection = T5Head(self.hidden_size,
                                  compute_dtype=mstype.float16,
                                  parallel_config=config.parallel_config)
-
 
         self.cast = ops.Cast()
         self.dtype = config.dtype
@@ -344,21 +347,29 @@ class TransformerNetworkWithLoss(nn.Cell):
     Provide  transformer training loss through network.
 
     Args:
-        network (nn.Cell): The network of the transformer.
-        loss (nn.Cell): Loss cell for.
+        model_config : The network of the transformer.
 
     Returns:
         Tensor, the loss of the network.
     """
-    def __init__(self, network, loss):
+
+    def __init__(self, model_config):
         super(TransformerNetworkWithLoss, self).__init__(auto_prefix=False)
-        self.transformer = network
-        self.loss = loss
+        parallel_config = model_config.parallel_config
+        self.transformer = TransformerModel(config=model_config)
+        self.loss = CrossEntropyLoss(parallel_config=parallel_config.dp_mp_config)
         self.cast = ops.Cast()
         self.shape = ops.Shape()
 
         self.start_token = Tensor(np.zeros((4, 1)).astype(np.int32))
         self.concat = P.Concat(axis=1)
+
+        # disable the bias
+        for param in self.trainable_params():
+            if ('bias' in param.name or 'beta' in param.name) and 'relative' not in param.name:
+                param.requires_grad = False
+            self.logger.info(f"Param name {param.name} is disabled gradients.")
+        self.set_train(True)
 
     def construct(self,
                   source_ids,
@@ -392,6 +403,7 @@ class EvalNet(nn.Cell):
     Returns:
         outputs: Tensor, corresponding output for different tasks
     """
+
     def __init__(self, backbone, generate=False):
         super(EvalNet, self).__init__(auto_prefix=False)
         self.backbone = backbone
@@ -425,19 +437,9 @@ class EvalNet(nn.Cell):
 
 def get_t5_network(opt, model_config):
     """Get the t5 network"""
-    parallel_config = model_config.parallel_config
-    network = TransformerModel(config=model_config)
     if opt.eval:
         opt.logger.info("Detect the eval is True, return the eval net.")
-        net = EvalNet(network, generate=opt.generate)
+        net = EvalNet(TransformerModel(config=model_config), generate=opt.generate)
         return net
-    loss = CrossEntropyLoss(parallel_config=parallel_config.dp_mp_config)
-    net_with_loss = TransformerNetworkWithLoss(network=network, loss=loss)
-    net_with_loss.set_train(True)
 
-    # disable the bias
-    for param in net_with_loss.trainable_params():
-        if ('bias' in param.name or 'beta' in param.name) and 'relative' not in param.name:
-            param.requires_grad = False
-        opt.logger.info(f"Param name {param.name} is disabled gradients.")
-    return net_with_loss
+    return TransformerNetworkWithLoss(model_config)
