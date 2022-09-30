@@ -48,17 +48,23 @@ def build_dataset(opt, rank_id, device_num, get_eval_dataset=False):
         device_num = 1
         rank_id = 0
 
+    opt.dataset_device_num = device_num
+    opt.dataset_rank = rank_id
+    opt.dataset_batch_size = opt.model['global_batch_size']
+    opt.dataset_path = cache_url
+    opt.dataset_drop_remainder = True
+    opt.dataset_do_shuffle = True
+    opt.dataset_schema_dir = None
+    opt.dataset_bucket_list = None
+
     if model_name == 'gpt':
-        ds = create_gpt_dataset(opt.model['global_batch_size'], data_path=cache_url, device_num=device_num,
-                                rank=rank_id)
+        ds = create_gpt_dataset(opt)
     elif model_name == 'bert':
-        ds = create_bert_dataset(device_num, rank_id, data_dir=cache_url, batch_size=opt.model['global_batch_size'])
+        ds = create_bert_dataset(opt)
     elif model_name == 't5':
-        ds = create_t5_dataset(opt.model['global_batch_size'], data_path=cache_url,
-                               device_num=device_num, rank=rank_id)
+        ds = create_t5_dataset(opt)
     elif model_name == 'opt':
-        ds = create_wiki_dataset(opt.model['global_batch_size'], data_path=cache_url,
-                                 device_num=device_num, rank=rank_id)
+        ds = create_wiki_dataset(opt)
     else:
         raise RuntimeError(f"Model name {opt.arch} is not supported yet.")
     opt.logger.info("End to build the dataset.")

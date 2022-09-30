@@ -25,20 +25,15 @@ import mindspore.common.dtype as mstype
 ds.config.set_seed(1)
 
 
-def create_wiki_dataset(batch_size, data_path, device_num=1, rank=0, drop=True):
+def create_wiki_dataset(config):
     """
     Create wiki dataset
-
-    Inputs:
-        batch_size: batch size
-        data_path: path of your MindRecord files
-        device_num: total device number
-        rank: current rank id
-        drop: whether drop remainder
-
-    Returns:
-        dataset: the dataset for training or evaluating
     """
+    device_num = config.dataset_device_num
+    rank = config.dataset_rank
+    batch_size = config.dataset_batch_size
+    data_path = config.dataset_path
+    drop = config.dataset_drop_remainder
     home_path = os.path.join(os.getcwd(), data_path)
     data = [os.path.join(home_path, name) for name in os.listdir(data_path) if name.endswith("mindrecord")]
     print("Dataset source files:", data)

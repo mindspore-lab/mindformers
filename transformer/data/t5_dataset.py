@@ -41,6 +41,7 @@ def create_buckets_dataset(batch_size, data_path,
                            device_num=1, rank=0, drop=True,
                            bucket_boundaries=None):
     """Create the dataset"""
+
     def batch_per_bucket(bucket_len, dataset_path):
         dataset_path = dataset_path + "_" + str(bucket_len) + "_00"
         ds = de.MindDataset(dataset_path,
@@ -72,9 +73,14 @@ def create_buckets_dataset(batch_size, data_path,
     return ds
 
 
-def create_t5_dataset(batch_size, data_path,
-                      device_num=1, rank=0, drop=True):
+def create_t5_dataset(config):
     """Create the dataset"""
+    device_num = config.dataset_device_num
+    rank = config.dataset_rank
+    batch_size = config.dataset_batch_size
+    data_path = config.dataset_path
+    drop = config.dataset_drop_remainder
+
     data = [os.path.join(data_path, name) for name in os.listdir(data_path) if name.endswith("mindrecord")]
     ds = de.MindDataset(data,
                         columns_list=["input_ids", "attention_mask", "labels"],

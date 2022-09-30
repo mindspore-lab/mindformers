@@ -14,8 +14,7 @@
 # ============================================================================
 
 """T5 Trainer"""
-from mindspore.nn.transformer.loss import CrossEntropyLoss
-from transformer.models.t5 import TransformerConfig, TransformerModel, TransformerNetworkWithLoss
+from transformer.models.t5 import TransformerConfig, TransformerNetworkWithLoss
 from transformer.trainer import Trainer, TrainingConfig, parse_config
 from transformer.data import create_t5_dataset
 
@@ -54,21 +53,10 @@ class T5Trainer(Trainer):
         """
         build t5 model
         """
-        parallel_config = model_config.parallel_config
-        network = TransformerModel(config=model_config)
-        loss = CrossEntropyLoss(parallel_config=parallel_config.dp_mp_config)
-        net_with_loss = TransformerNetworkWithLoss(network=network, loss=loss)
-        net_with_loss.set_train(True)
+        return TransformerNetworkWithLoss(model_config)
 
-        # disable the bias
-        for param in net_with_loss.trainable_params():
-            if ('bias' in param.name or 'beta' in param.name) and 'relative' not in param.name:
-                param.requires_grad = False
-            self.logger.info(f"Param name {param.name} is disabled gradients.")
-        return net_with_loss
-
-    def build_dataset(self, training_config, device_num, rank):
-        return create_t5_dataset(training_config.global_batch_size, training_config.data_path, device_num, rank)
+    def build_dataset(self):
+        return create_t5_dataset(self.config)
 
 
 if __name__ == "__main__":

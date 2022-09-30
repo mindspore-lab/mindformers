@@ -49,6 +49,7 @@ class GPTConfig:
     softmax_dtype: mstype = mstype.float16
     parallel_config: TransformerOpParallelConfig = default_transformer_config
 
+
 class GPTModel(nn.Cell):
     """
     The backbone of GPT network
@@ -66,6 +67,7 @@ class GPTModel(nn.Cell):
         present_layer: Tensor, the current feature map
         embedding_table: Tensor, the embedding table for the vocabulary
     """
+
     def __init__(self, config):
         super(GPTModel, self).__init__()
         self.get_attention_mask = AttentionMask(seq_length=config.seq_length,
@@ -132,6 +134,7 @@ class GPTModel(nn.Cell):
             return output_state, present_layer, embedding_table, moe_loss
         return output_state, present_layer, embedding_table
 
+
 class GPTHead(nn.Cell):
     """
     Head for GPT to get the logits of each token in the vocab
@@ -146,6 +149,7 @@ class GPTHead(nn.Cell):
     Returns:
         logits: Tensor, the logits of the corresponding inputs
     """
+
     def __init__(self,
                  hidden_size,
                  compute_type=mstype.float16,
@@ -181,6 +185,7 @@ class GPT(nn.Cell):
     Returns:
         logits: Tensor: the logits of the corresponding inputs with shape (batch_size, seq_length, vocab_size)
     """
+
     def __init__(self, config):
         super(GPT, self).__init__()
         self.backbone = GPTModel(config)
@@ -196,13 +201,13 @@ class GPT(nn.Cell):
         logits = self.head(output_states, embedding_table)
         return logits
 
+
 class GPTWithLoss(nn.Cell):
     """
     GPT training loss
 
     Args:
-        network: backbone network of GPT2/3
-        loss: loss function, e.g., crossentropy
+        model_config: model config of GPT2/3
         eos_token: the end_of_sentence token
 
     Inputs:
@@ -212,10 +217,12 @@ class GPTWithLoss(nn.Cell):
     Returns:
         output: Tensor, the loss of the network
     """
-    def __init__(self, network, loss, parallel_config, eos_token=50256):
+
+    def __init__(self, model_config, eos_token=50256):
         super(GPTWithLoss, self).__init__(auto_prefix=False)
-        self.network = network
-        self.loss = loss
+        self.network = GPT(model_config)
+        parallel_config = model_config.parallel_config
+        self.loss = CrossEntropyLoss(parallel_config.dp_mp_config)
         self.eos_token = eos_token
         self.shape = P.Shape()
         dp = parallel_config.data_parallel
@@ -223,6 +230,7 @@ class GPTWithLoss(nn.Cell):
         self.not_equal = P.NotEqual().shard(((dp, 1), ()))
         self.use_moe = self.network.use_moe
         self.add = P.Add().shard(((1,), ()))
+
     def construct(self, input_ids):
         """GPT model with loss"""
         moe_loss = 0
@@ -241,6 +249,7 @@ class GPTWithLoss(nn.Cell):
             return self.add(output, moe_loss)
         return output
 
+
 class EvalNet(nn.Cell):
     """
     GPT evaluation net
@@ -255,6 +264,7 @@ class EvalNet(nn.Cell):
     Returns:
         outputs: Tensor, corresponding output for different tasks
     """
+
     def __init__(self, backbone, generate=False):
         super(EvalNet, self).__init__(auto_prefix=False)
         self.backbone = backbone
@@ -276,7 +286,5 @@ class EvalNet(nn.Cell):
 
 
 def get_gpt_network(_, model_config):
-    loss = CrossEntropyLoss(model_config.parallel_config.dp_mp_config)
-    net = GPT(model_config)
-    net_with_loss = GPTWithLoss(net, loss, model_config.parallel_config)
+    net_with_loss = GPTWithLoss(model_config)
     return net_with_loss
