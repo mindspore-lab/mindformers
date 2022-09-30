@@ -30,16 +30,17 @@ from mindspore.train.model import Model
 from mindspore.train.serialization import load_checkpoint, load_param_into_net
 from tasks.nlp.question_answering.src.bert_for_finetune import BertSquadCell, BertSquad
 from tasks.nlp.data.dataset import create_squad_dataset
-from tasks.nlp.utils import make_directory, LossCallBack, load_newest_ckpt
+from tasks.nlp.utils import make_directory, LossCallBack
 from transformer.build_parallel_config import build_parallel_config
 from transformer.learning_rate import build_lr
 from transformer.logger import get_logger
 from transformer.models.build_model import get_downstream_config
 from transformer.modules import override_attention
 from transformer.optim.optimizer import build_optimizer
-from transformer.utils import parse_with_config, _convert_dtype_class
+from transformer.utils import parse_with_config, _convert_dtype_class, get_newest_ckpt
 
 _cur_dir = os.getcwd()
+
 
 def set_context_env(config):
     """Set the context env"""
@@ -110,7 +111,8 @@ def do_eval(dataset=None, load_checkpoint_path="", eval_batch_size=1, model_conf
     """ do eval """
     if load_checkpoint_path == "":
         raise ValueError("Finetune model missed, evaluation task must load finetune model!")
-    net = BertSquad(model_config, False, 2)
+    model_config.is_training = False
+    net = BertSquad(model_config)
     net.set_train(False)
     param_dict = load_checkpoint(load_checkpoint_path)
     load_param_into_net(net, param_dict)
@@ -172,7 +174,8 @@ def run_squad(args_opt):
     else:
         raise Exception("Target error, GPU or Ascend is supported.")
 
-    netwithloss = BertSquad(model_config, True, 2)
+    model_config.is_training = True
+    netwithloss = BertSquad(model_config)
 
     if args_opt.do_train.lower() == "true":
         ds = create_squad_dataset(batch_size=args_opt.model['train_batch_size'],
@@ -184,7 +187,7 @@ def run_squad(args_opt):
                 load_finetune_checkpoint_dir = _cur_dir
             else:
                 load_finetune_checkpoint_dir = make_directory(save_finetune_checkpoint_path)
-            load_finetune_checkpoint_path = load_newest_ckpt(load_finetune_checkpoint_dir, "squad")
+            load_finetune_checkpoint_path = get_newest_ckpt(load_finetune_checkpoint_dir, "squad")
 
     if args_opt.do_eval.lower() == "true":
         from tasks.nlp import tokenization

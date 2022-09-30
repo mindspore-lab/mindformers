@@ -113,24 +113,6 @@ class LossCallBack(Callback):
             print("epoch: {}, step: {}, outputs are {}".format(cb_params.cur_epoch_num, cb_params.cur_step_num,
                                                                str(cb_params.net_outputs)), flush=True)
 
-
-def load_newest_ckpt(load_finetune_checkpoint_dir, prefix):
-    """
-    Find the ckpt finetune generated and load it into eval network.
-    """
-    files = os.listdir(load_finetune_checkpoint_dir)
-    max_time = 0
-    for filename in files:
-        if filename.startswith(prefix) and filename.endswith(".ckpt"):
-            full_path = os.path.join(load_finetune_checkpoint_dir, filename)
-            mtime = os.path.getmtime(full_path)
-            if mtime > max_time:
-                max_time = mtime
-                load_finetune_checkpoint_path = full_path
-    print("Find the newest checkpoint: ", load_finetune_checkpoint_path)
-    return load_finetune_checkpoint_path
-
-
 class BertLearningRate(LearningRateSchedule):
     """
     Warmup-decay learning rate for Bert network.

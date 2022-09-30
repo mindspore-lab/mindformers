@@ -113,6 +113,24 @@ class ModelSize:
                 break
 
 
+def get_newest_ckpt(checkpoint_dir, prefix):
+    """
+    Find the newest ckpt path.
+    """
+    files = os.listdir(checkpoint_dir)
+    max_time = 0
+    newest_checkpoint_path = ""
+    for filename in files:
+        if filename.startswith(prefix) and filename.endswith(".ckpt"):
+            full_path = os.path.join(checkpoint_dir, filename)
+            mtime = os.path.getmtime(full_path)
+            if mtime > max_time:
+                max_time = mtime
+                newest_checkpoint_path = full_path
+    print("Find the newest checkpoint: ", newest_checkpoint_path)
+    return newest_checkpoint_path
+
+
 def print_model_size(net, logger):
     """Print the number of parameters and its size"""
     net_size = ModelSize()

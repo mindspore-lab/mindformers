@@ -13,11 +13,8 @@
 # limitations under the License.
 # ============================================================================
 """
-Data operations
+transformer
 """
-from .build_dataset import build_dataset, build_downstream_dataset
-from .gpt_dataset import create_gpt_dataset
-from .bert_dataset import create_bert_dataset, create_squad_dataset
-from .t5_dataset import create_t5_dataset
-from .wiki_dataset import create_wiki_dataset
-from .downstream_dataset import create_classification_dataset
+from transformer.auto_class import AutoClass
+from transformer.tasks import Task, TaskConfig
+from transformer.trainer import Trainer, TrainingConfig

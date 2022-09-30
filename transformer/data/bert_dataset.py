@@ -172,9 +172,40 @@ def generator_squad(data_features):
         yield (feature.input_ids, feature.input_mask, feature.segment_ids, feature.unique_id)
 
 
-def create_squad_dataset(batch_size=1, data_file_path=None, schema_file_path=None,
-                         is_training=True, do_shuffle=True):
+def create_squad_dataset(config):
     """create finetune or evaluation dataset"""
+    batch_size = config.dataset_batch_size
+    data_file_path = config.dataset_path
+    do_shuffle = config.dataset_do_shuffle
+    is_training = config.is_training
+    type_cast_op = C.TypeCast(mstype.int32)
+    if is_training:
+        data_set = ds.MindDataset([data_file_path],
+                                  columns_list=["input_ids", "input_mask", "segment_ids", "start_positions",
+                                                "end_positions", "unique_ids", "is_impossible"],
+                                  shuffle=do_shuffle)
+        data_set = data_set.map(operations=type_cast_op, input_columns="start_positions")
+        data_set = data_set.map(operations=type_cast_op, input_columns="end_positions")
+    else:
+        data_set = ds.GeneratorDataset(generator_squad(data_file_path), shuffle=do_shuffle,
+                                       column_names=["input_ids", "input_mask", "segment_ids", "unique_ids"])
+    data_set = data_set.map(operations=type_cast_op, input_columns="segment_ids")
+    data_set = data_set.map(operations=type_cast_op, input_columns="input_mask")
+    data_set = data_set.map(operations=type_cast_op, input_columns="input_ids")
+    data_set = data_set.map(operations=type_cast_op, input_columns="unique_ids")
+    # apply batch operations
+    data_set = data_set.batch(batch_size, drop_remainder=True)
+    return data_set
+
+
+def create_squad_dataset_tf(config):
+    """create finetune or evaluation dataset"""
+    batch_size = config.dataset_batch_size
+    data_file_path = config.dataset_path
+    do_shuffle = config.dataset_do_shuffle
+    schema_file_path = config.dataset_schema_file_path
+    is_training = config.is_training
+
     type_cast_op = C.TypeCast(mstype.int32)
     if is_training:
         data_set = ds.TFRecordDataset([data_file_path], schema_file_path if schema_file_path != "" else None,

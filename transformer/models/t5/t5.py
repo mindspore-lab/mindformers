@@ -35,7 +35,7 @@ from transformer.models.t5.T5Transformer import TransformerEncoder, TransformerD
 @dataclass
 class TransformerConfig:
     """Transformer Config"""
-    batch_size: int
+    batch_size: int = 1
     seq_length: int = 1024
     vocab_size: int = 32128
     hidden_size: int = 512
