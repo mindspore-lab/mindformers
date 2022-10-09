@@ -114,7 +114,6 @@ class TrainingConfig:
     micro_batch_size: int = 4
     global_batch_size: int = 4
     expand_ratio: int = 4
-    post_layernorm_residual: bool = False
     dropout_rate: float = 0.1
     seed: int = 1234
     device_target: str = "GPU"

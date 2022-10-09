@@ -193,10 +193,10 @@ class BertCLS(nn.Cell):
     """
 
     def __init__(self, config, is_training, num_labels=2, dropout_prob=0.0, use_one_hot_embeddings=False,
-                 assessment_method=""):
+                 assessment_method="", model_type='bert'):
         super(BertCLS, self).__init__()
-        self.bert = BertCLSModel(config, is_training, num_labels, dropout_prob, use_one_hot_embeddings,
-                                 assessment_method)
+        self.classifier = BertCLSModel(config, is_training, num_labels, dropout_prob, use_one_hot_embeddings,
+                                       assessment_method, model_type)
         if num_labels == 1:
             self.loss = MSELoss()
         else:
@@ -206,7 +206,7 @@ class BertCLS(nn.Cell):
         self.is_training = is_training
 
     def construct(self, input_ids, input_mask, token_type_id, label_ids):
-        logits = self.bert(input_ids, input_mask, token_type_id)
+        logits = self.classifier(input_ids, input_mask, token_type_id)
         if self.assessment_method == "spearman_correlation":
             if self.is_training:
                 loss = self.loss(logits, label_ids)

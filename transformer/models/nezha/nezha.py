@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-"""Bert model."""
+"""Nezha model."""
 
 from dataclasses import dataclass
 import copy
@@ -26,30 +26,31 @@ from mindspore.common.initializer import TruncatedNormal, initializer
 from mindspore.ops import operations as P
 from mindspore.common.tensor import Tensor
 from mindspore.nn.transformer.layers import _LayerNorm
-from mindspore.nn.transformer.transformer import Transformer, VocabEmbedding
+from mindspore.nn.transformer.transformer import  VocabEmbedding
 from mindspore.nn.transformer import TransformerOpParallelConfig
 from mindspore.nn.transformer.transformer import default_transformer_config
+from transformer.models.nezha.NezhaTransformer import Transformer
 
 @dataclass
-class BertConfig:
+class NezhaConfig:
     """
-    BERT config class which defines the model size
+    Nezha config class which defines the model size
     """
     batch_size: int = 16
     seq_length: int = 128
-    vocab_size: int = 30522
-    embedding_size: int = 1024
-    num_layers: int = 24
-    num_heads: int = 16
+    vocab_size: int = 21128
+    embedding_size: int = 768
+    num_layers: int = 12
+    num_heads: int = 12
     expand_ratio: int = 4
     hidden_act: str = "gelu"
     post_layernorm_residual: bool = True
     hidden_dropout_prob: float = 0.1
     attention_probs_dropout_prob: float = 0.1
-    max_position_embeddings: int = 128
+    max_position_embeddings: int = 512
     type_vocab_size: int = 2
     initializer_range: float = 0.02
-    use_relative_positions: bool = False
+    use_relative_positions: bool = True
     dtype: mstype = mstype.float16
     layernorm_dtype: mstype = mstype.float32
     softmax_dtype: mstype = mstype.float32
@@ -78,9 +79,9 @@ class EmbeddingPostprocessor(nn.Cell):
                  embedding_size,
                  embedding_shape,
                  use_relative_positions=False,
+                 use_one_hot_embeddings=True,
                  use_token_type=False,
                  token_type_vocab_size=16,
-                 use_one_hot_embeddings=False,
                  max_position_embeddings=512,
                  dropout_prob=0.1):
         super(EmbeddingPostprocessor, self).__init__()
@@ -106,13 +107,14 @@ class EmbeddingPostprocessor(nn.Cell):
         self.use_relative_positions = use_relative_positions
         self.slice = P.StridedSlice().shard(((1, 1),))
         _, seq, _ = self.shape
-        self.full_position_embedding = VocabEmbedding(vocab_size=config.max_position_embeddings,
-                                                      embedding_size=embedding_size,
-                                                      param_init=initializer("truncatedNormal",
-                                                                             [config.max_position_embeddings,
-                                                                              embedding_size],
-                                                                             dtype=mstype.float32),
-                                                      parallel_config=config.parallel_config.embedding_dp_mp_config)
+        if not self.use_relative_positions:
+            self.full_position_embedding = VocabEmbedding(vocab_size=config.max_position_embeddings,
+                                                          embedding_size=embedding_size,
+                                                          param_init=initializer("truncatedNormal",
+                                                                                 [config.max_position_embeddings,
+                                                                                  embedding_size],
+                                                                                 dtype=mstype.float32),
+                                                          parallel_config=config.parallel_config.embedding_dp_mp_config)
 
         self.layernorm = _LayerNorm((embedding_size,)).to_float(mstype.float32)
         self.layernorm.shard(((config.parallel_config.data_parallel, 1, 1),))
@@ -120,7 +122,7 @@ class EmbeddingPostprocessor(nn.Cell):
         self.add = P.Add().shard(
             ((config.parallel_config.data_parallel, 1, 1), (config.parallel_config.data_parallel, 1, 1)))
         self.slice = P.StridedSlice().shard(((1, 1),))
-
+        self.print = P.Print()
     def construct(self, token_type_ids, word_embeddings):
         """Postprocessors apply positional and token type embeddings to word embeddings."""
         output = word_embeddings
@@ -169,7 +171,7 @@ class CreateAttentionMaskFromInputMask(nn.Cell):
     Create attention mask according to input mask.
 
     Args:
-        config (Class): Configuration for BertModel.
+        config (Class): Configuration for NezhaModel.
     """
     def __init__(self, config):
         super(CreateAttentionMaskFromInputMask, self).__init__()
@@ -184,20 +186,20 @@ class CreateAttentionMaskFromInputMask(nn.Cell):
         attention_mask = self.tile(attention_mask, (1, seq_length, 1))
         return attention_mask
 
-class BertModel(nn.Cell):
+class NezhaModel(nn.Cell):
     """
     Bidirectional Encoder Representations from Transformers.
 
     Args:
-        config (Class): Configuration for BertModel.
+        config (Class): Configuration for NezhaModel.
         is_training (bool): True for training mode. False for eval mode.
         use_one_hot_embeddings (bool): Specifies whether to use one hot encoding form. Default: False.
     """
     def __init__(self,
                  config,
                  is_training,
-                 use_one_hot_embeddings=False):
-        super(BertModel, self).__init__()
+                 use_one_hot_embeddings=True):
+        super(NezhaModel, self).__init__()
         config = copy.deepcopy(config)
         if not is_training:
             config.hidden_dropout_prob = 0.0
@@ -225,13 +227,12 @@ class BertModel(nn.Cell):
                                                               embedding_shape=output_embedding_shape,
                                                               use_relative_positions=config.use_relative_positions,
                                                               use_token_type=True,
-                                                              token_type_vocab_size=config.type_vocab_size,
                                                               use_one_hot_embeddings=use_one_hot_embeddings,
+                                                              token_type_vocab_size=config.type_vocab_size,
                                                               max_position_embeddings=config.max_position_embeddings,
                                                               dropout_prob=config.hidden_dropout_prob)
 
-
-        self.bert_encoder = Transformer(
+        self.nezha_encoder = Transformer(
             hidden_size=config.embedding_size,
             batch_size=config.batch_size,
             ffn_hidden_size=config.embedding_size * config.expand_ratio,
@@ -242,6 +243,7 @@ class BertModel(nn.Cell):
             parallel_config=config.parallel_config,
             decoder_layers=0,
             moe_config=moe_config,
+            use_relative_positions=config.use_relative_positions,
             param_init_type=config.compute_dtype,
             layernorm_compute_type=config.layernorm_dtype,
             softmax_compute_type=config.softmax_dtype,
@@ -269,8 +271,9 @@ class BertModel(nn.Cell):
         # attention mask [batch_size, seq_length, seq_length](4, 1, 128) -> (4, 128, 128)
         input_mask = P.Cast()(input_mask, self.dtype)
         attention_mask = self.get_attention_mask(input_mask)
-        # bert encoder
-        encoder_output = self.bert_encoder(self.cast_compute_type(embedding_output), attention_mask)
+        # nezha encoder
+        encoder_output = self.nezha_encoder(self.cast_compute_type(embedding_output), attention_mask)
+
         sequence_output = encoder_output[0]
         # pooler
         batch_size = P.Shape()(input_ids)[0]
@@ -287,12 +290,12 @@ class BertModel(nn.Cell):
             return sequence_output, pooled_output, embedding_tables, moe_loss
         return sequence_output, pooled_output, embedding_tables
 
-class BertPreTraining(nn.Cell):
+class NezhaPreTraining(nn.Cell):
     """
-    Bert pretraining network.
+    Nezha pretraining network.
 
     Args:
-        config (BertConfig): The config of BertModel.
+        config (NezhaConfig): The config of NezhaModel.
         is_training (bool): Specifies whether to use the training mode.
         use_one_hot_embeddings (bool): Specifies whether to use one-hot for embeddings.
 
@@ -300,9 +303,9 @@ class BertPreTraining(nn.Cell):
         Tensor, prediction_scores, seq_relationship_score.
     """
 
-    def __init__(self, config, is_training, use_one_hot_embeddings):
-        super(BertPreTraining, self).__init__()
-        self.bert = BertModel(config, is_training, use_one_hot_embeddings)
+    def __init__(self, config, is_training, use_one_hot_embeddings=False):
+        super(NezhaPreTraining, self).__init__()
+        self.nezha = NezhaModel(config, is_training, use_one_hot_embeddings)
         self.mlmloss = GetMaskedLMOutput(config)
         self.nsploss = GetNextSentenceOutput(config)
         self.use_moe = (config.parallel_config.moe_config.expert_num > 1)
@@ -313,10 +316,10 @@ class BertPreTraining(nn.Cell):
         moe_loss = 0
         if self.use_moe:
             sequence_output, pooled_output, embedding_table, _ = \
-                self.bert(input_ids, token_type_id, input_mask)
+                self.nezha(input_ids, token_type_id, input_mask)
         else:
             sequence_output, pooled_output, embedding_table = \
-                self.bert(input_ids, token_type_id, input_mask)
+                self.nezha(input_ids, token_type_id, input_mask)
         prediction_scores = self.mlmloss(sequence_output,
                                          embedding_table,
                                          masked_lm_positions)
@@ -324,19 +327,19 @@ class BertPreTraining(nn.Cell):
         return prediction_scores, seq_relationship_score, moe_loss
 
 
-class BertPretrainingLoss(nn.Cell):
+class NezhaPretrainingLoss(nn.Cell):
     """
-    Provide bert pre-training loss.
+    Provide nezha pre-training loss.
 
     Args:
-        config (BertConfig): The config of BertModel.
+        config (NezhaConfig): The config of NezhaModel.
 
     Returns:
         Tensor, total loss.
     """
 
     def __init__(self, config):
-        super(BertPretrainingLoss, self).__init__()
+        super(NezhaPretrainingLoss, self).__init__()
         self.vocab_size = config.vocab_size
         self.onehot = P.OneHot().shard(((config.parallel_config.data_parallel, 1), (), ()))
         self.on_value = Tensor(1.0, mstype.float32)
@@ -377,12 +380,12 @@ class BertPretrainingLoss(nn.Cell):
 
         return total_loss
 
-class BertNetworkWithLoss(nn.Cell):
+class NezhaNetworkWithLoss(nn.Cell):
     """
-    Provide bert pre-training loss through network.
+    Provide nezha pre-training loss through network.
 
     Args:
-        config (BertConfig): The config of BertModel.
+        config (NezhaConfig): The config of NezhaModel.
         is_training (bool): Specifies whether to use the training mode.
         use_one_hot_embeddings (bool): Specifies whether to use one-hot for embeddings. Default: False.
 
@@ -391,9 +394,9 @@ class BertNetworkWithLoss(nn.Cell):
     """
 
     def __init__(self, config, is_training=True, use_one_hot_embeddings=False):
-        super(BertNetworkWithLoss, self).__init__()
-        self.bert = BertPreTraining(config, is_training, use_one_hot_embeddings)
-        self.loss = BertPretrainingLoss(config)
+        super(NezhaNetworkWithLoss, self).__init__()
+        self.nezha = NezhaPreTraining(config, is_training, use_one_hot_embeddings)
+        self.loss = NezhaPretrainingLoss(config)
         self.cast = P.Cast()
         self.use_moe = (config.parallel_config.moe_config.expert_num > 1)
         self.add = P.Add().shard(((1,), ()))
@@ -408,7 +411,7 @@ class BertNetworkWithLoss(nn.Cell):
                   masked_lm_weights):
         """Get pre-training loss"""
         prediction_scores, seq_relationship_score, moe_loss = \
-            self.bert(input_ids, input_mask, token_type_id, masked_lm_positions)
+            self.nezha(input_ids, input_mask, token_type_id, masked_lm_positions)
         total_loss = self.loss(prediction_scores, seq_relationship_score,
                                masked_lm_ids, masked_lm_weights, next_sentence_labels)
         if self.use_moe:
@@ -420,7 +423,7 @@ class GetMaskedLMOutput(nn.Cell):
     Get masked lm output.
 
     Args:
-        config (BertConfig): The config of BertModel.
+        config (NezhaConfig): The config of NezhaModel.
 
     Returns:
         Tensor, masked lm output.
@@ -490,7 +493,7 @@ class GetNextSentenceOutput(nn.Cell):
     Get next sentence output.
 
     Args:
-        config (BertConfig): The config of Bert.
+        config (NezhaConfig): The config of Nezha.
 
     Returns:
         Tensor, next sentence output.
@@ -520,6 +523,6 @@ class GetNextSentenceOutput(nn.Cell):
         return log_prob
 
 
-def get_bert_network(_, model_config):
-    net_with_loss = BertNetworkWithLoss(model_config)
+def get_nezha_network(_, model_config):
+    net_with_loss = NezhaNetworkWithLoss(model_config, True, True)
     return net_with_loss
