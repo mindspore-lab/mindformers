@@ -35,6 +35,7 @@ MANIFEST
 # Installer logs
 pip-log.txt
 pip-delete-this-directory.txt
+Tnews_300.txt
 
 # Unit test / coverage reports
 htmlcov/

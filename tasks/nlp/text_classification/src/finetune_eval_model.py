@@ -20,7 +20,7 @@ import mindspore.nn as nn
 from mindspore.common.initializer import TruncatedNormal
 from mindspore.ops import operations as P
 from transformer.models.bert import BertModel
-
+from transformer.models.nezha import NezhaModel
 
 class BertCLSModel(nn.Cell):
     """
@@ -30,12 +30,17 @@ class BertCLSModel(nn.Cell):
     """
 
     def __init__(self, config, is_training, num_labels=2, dropout_prob=0.0, use_one_hot_embeddings=False,
-                 assessment_method=""):
+                 assessment_method="", model_type='bert'):
         super(BertCLSModel, self).__init__()
         if not is_training:
             config.hidden_dropout_prob = 0.0
             config.hidden_probs_dropout_prob = 0.0
-        self.bert = BertModel(config, is_training, use_one_hot_embeddings)
+        if model_type == 'bert':
+            print("finetunine bert")
+            self.model = BertModel(config, is_training, use_one_hot_embeddings)
+        elif model_type == 'nezha':
+            print("finetunine nezha")
+            self.model = NezhaModel(config, is_training, use_one_hot_embeddings=True)
         self.cast = P.Cast()
         self.weight_init = TruncatedNormal(config.initializer_range)
         self.log_softmax = P.LogSoftmax(axis=-1)
@@ -47,7 +52,7 @@ class BertCLSModel(nn.Cell):
         self.assessment_method = assessment_method
 
     def construct(self, input_ids, input_mask, token_type_id):
-        _, pooled_output, _ = self.bert(input_ids, token_type_id, input_mask)
+        _, pooled_output, _ = self.model(input_ids, token_type_id, input_mask)
         cls = self.cast(pooled_output, self.dtype)
         cls = self.dropout(cls)
         logits = self.dense_1(cls)
