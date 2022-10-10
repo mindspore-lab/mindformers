@@ -18,7 +18,7 @@
 import math
 import collections
 import six
-from tasks.nlp.bert_downstream.src import tokenization
+from tasks.nlp import tokenization
 
 
 def get_prelim_predictions(features, unique_id_to_result, n_best_size, max_answer_length):

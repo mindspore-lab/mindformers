@@ -29,7 +29,7 @@ from mindspore.common import set_seed
 from mindspore.common.api import ms_function
 from mindspore.context import ParallelMode
 from mindspore.train.model import Model
-from mindspore.train.callback import ModelCheckpoint, CheckpointConfig
+from mindspore.train.callback import TimeMonitor, ModelCheckpoint, CheckpointConfig
 from mindspore.nn.transformer import TransformerRecomputeConfig, MoEConfig, TransformerOpParallelConfig
 from mindspore.nn.wrap.loss_scale import TrainOneStepWithLossScaleCell
 from mindspore.nn.wrap.cell_wrapper import MicroBatchInterleaved
@@ -40,8 +40,7 @@ import mindspore.common.dtype as mstype
 
 from transformer.auto_class import AutoClass
 from transformer.optim.optimizer import build_optimizer
-from transformer.utils import print_model_size
-from transformer.utils import download_data
+from transformer.utils import print_model_size, get_newest_ckpt, download_data
 from transformer.trainer.grad_accu_model import AccModel
 from transformer.learning_rate import LearningRate
 from transformer.modules import override_attention
@@ -110,6 +109,7 @@ class TrainingConfig:
     """
     TrainingConfig
     """
+    is_training: bool = True
     auto_model: str = ""
     micro_batch_size: int = 4
     global_batch_size: int = 4
@@ -132,15 +132,16 @@ class TrainingConfig:
     warmup_step: int = 1000
     opt_offload: bool = False
     sink_size: int = 10
-    ckpt_save_dir: str = "./ckpt"
-    ckpt_prefix: str = "tmp"
     init_loss_scale_value: float = 4294967296
     scale_factor: float = 2
     scale_window: int = 1000
     eval: bool = False
-    ckpt_path: str = ""
     get_eval_dataset: bool = False
     eval_data_url: str = ""
+
+    ckpt_path: str = ""
+    ckpt_save_dir: str = "./ckpt"
+    ckpt_prefix: str = "tmp"
 
     compute_dtype: mstype = mstype.float16
     layernorm_dtype: mstype = mstype.float32
@@ -150,6 +151,7 @@ class TrainingConfig:
     # dataset
     dataset_drop_remainder: bool = True
     dataset_do_shuffle: bool = True
+    dataset_schema_file_path: str = ""
 
     # speed_up:
     micro_batch_interleaved_num: int = 1
@@ -210,7 +212,7 @@ class Trainer:
                              f"You can fix this by setting --model_parallel=1, for example")
         if self.config.parallel_mode in (
                 ParallelMode.SEMI_AUTO_PARALLEL, ParallelMode.AUTO_PARALLEL) and dp * mp != device_num:
-            self.logger.warn(f"The data_parallel * model_parallel must be equal to the {device_num}. "
+            self.logger.info(f"The data_parallel * model_parallel must be equal to the {device_num}. "
                              f"You can remove this warning by setting --data_parallel={device_num // mp}. "
                              f"Now the full_batch will be set False.")
             self.config.full_batch = False
@@ -279,7 +281,10 @@ class Trainer:
 
     def load_checkpoint(self, net_with_loss):
         """load checkpoint"""
-        if self.config.ckpt_path:
+        if self.config.ckpt_path == "" and self.config.ckpt_save_dir != "" and self.config.ckpt_prefix != "":
+            self.config.ckpt_path = get_newest_ckpt(self.config.ckpt_save_dir, self.config.ckpt_prefix)
+
+        if self.config.ckpt_path != "":
             self.logger.info(f"Start to load the ckpt from {self.config.ckpt_path}")
             ckpt = load_checkpoint(self.config.ckpt_path)
             load_param_into_net(net_with_loss, ckpt)
@@ -298,7 +303,7 @@ class Trainer:
 
     def build_callback(self):
         """build training callback"""
-        callback = [LossCallBack(self.config.callback_step)]
+        callback = [TimeMonitor(self.config.callback_step), LossCallBack(self.config.callback_step)]
 
         self.logger.info(
             f"Enable the checkpoint saving each {self.config.step_per_epoch} steps. Integrated Save is False")
@@ -395,8 +400,18 @@ class Trainer:
                 not context.get_auto_parallel_context('full_batch'):
             data_dp = context.get_auto_parallel_context("device_num")
         model_config = self.build_model_config()
+
+        for k, v in self.config.__dict__.items():
+            if hasattr(model_config, k):
+                if isinstance(v, str):
+                    setattr(model_config, k, type(getattr(model_config, k))(v))
+                else:
+                    setattr(model_config, k, v)
+        model_config.is_training = True
         model_config.compute_dtype = self.config.compute_dtype
         model_config.batch_size = data_dp * self.config.global_batch_size // self.config.micro_batch_interleaved_num
+        print("Model config are as follows:")
+        print(json.dumps({k: str(v) for k, v in model_config.__dict__.items()}, indent=4))
         return model_config
 
     def build_model(self, model_config):

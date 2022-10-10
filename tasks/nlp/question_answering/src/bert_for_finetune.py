@@ -63,6 +63,7 @@ def _clip_grad(clip_type, clip_value, grad):
         new_grad = nn.ClipByNorm()(grad, F.cast(F.tuple_to_array((clip_value,)), dt))
     return new_grad
 
+
 @grad_scale.register("Tensor", "Tensor")
 def tensor_grad_scale(scale, grad):
     return grad * reciprocal(scale)
@@ -183,19 +184,18 @@ class BertSquadCell(nn.Cell):
         return (loss, cond)
 
 
-
 class BertSquad(nn.Cell):
     '''
     Train interface for SQuAD finetuning task.
     '''
 
-    def __init__(self, config, is_training, num_labels=2, use_one_hot_embeddings=False):
+    def __init__(self, config, num_labels=2, use_one_hot_embeddings=False):
         super(BertSquad, self).__init__()
-        self.bert = BertSquadModel(config, is_training, num_labels, use_one_hot_embeddings)
-        self.loss = CrossEntropyCalculation(is_training)
+        self.bert = BertSquadModel(config, config.is_training, num_labels, use_one_hot_embeddings)
+        self.loss = CrossEntropyCalculation(config.is_training)
         self.num_labels = num_labels
         self.seq_length = config.seq_length
-        self.is_training = is_training
+        self.is_training = config.is_training
         self.total_num = Parameter(Tensor([0], mstype.float32))
         self.start_num = Parameter(Tensor([0], mstype.float32))
         self.end_num = Parameter(Tensor([0], mstype.float32))
@@ -221,6 +221,7 @@ class BertSquad(nn.Cell):
             end_logits = end_logits + 100 * input_mask
             total_loss = (unique_id, start_logits, end_logits)
         return total_loss
+
 
 class BertSquadModel(nn.Cell):
     '''

@@ -17,7 +17,7 @@
 
 import collections
 import json
-from  tasks.nlp.bert_downstream.src import tokenization
+from  tasks.nlp import tokenization
 
 
 class SquadExample():

@@ -14,9 +14,13 @@
 # ============================================================================
 
 """T5 Trainer"""
+import mindspore.common.dtype as mstype
+from mindspore.common.tensor import Tensor
+
 from transformer.models.t5 import TransformerConfig, TransformerNetworkWithLoss
 from transformer.trainer import Trainer, TrainingConfig, parse_config
 from transformer.data import create_t5_dataset
+from transformer.learning_rate import create_dynamic_lr
 
 
 class T5TrainingConfig(TrainingConfig):
@@ -38,6 +42,9 @@ class T5TrainingConfig(TrainingConfig):
         self.attention_dropout_prob = 0.1
         self.hidden_dropout_prob = 0.1
         self.bucket_boundaries = 16
+        self.warmup_steps = 100
+        self.start_decay_step = 100
+        self.min_lr = 1e-5
 
 
 class T5Trainer(Trainer):
@@ -57,6 +64,17 @@ class T5Trainer(Trainer):
 
     def build_dataset(self):
         return create_t5_dataset(self.config)
+
+    def build_lr(self):
+        learning_rate = self.config.learning_rate if self.config.device_target == "Ascend" else 1.0
+        lr = Tensor(create_dynamic_lr(schedule="constant*rsqrt_hidden*linear_warmup*rsqrt_decay",
+                                      training_steps=self.config.actual_epoch_num * self.config.step_per_epoch,
+                                      learning_rate=learning_rate,
+                                      warmup_steps=self.config.warmup_steps,
+                                      hidden_size=self.config.hidden_size,
+                                      start_decay_step=self.config.start_decay_step,
+                                      min_lr=self.config.min_lr), mstype.float32)
+        return lr
 
 
 if __name__ == "__main__":

@@ -16,24 +16,39 @@
 Auto Config
 """
 from collections import OrderedDict
-from transformer.models.bert import BertConfig, BertNetworkWithLoss
-from transformer.models.gpt import GPTConfig, GPTWithLoss
-from transformer.models.t5 import TransformerConfig, TransformerNetworkWithLoss
+from transformer.models.bert import BertConfig, BertPreTraining, BertNetworkWithLoss
+from transformer.models.gpt import GPTConfig, GPT, GPTWithLoss
+from transformer.models.t5 import TransformerConfig, TransformerModel, TransformerNetworkWithLoss
 from transformer.models.vit import VitConfig
-from transformer.models.opt import OPTConfig, OPTWithLoss
+from transformer.models.opt import OPTConfig, OPT, OPTWithLoss
 
 from transformer.data.gpt_dataset import create_gpt_dataset
-from transformer.data.bert_dataset import create_bert_dataset
+from transformer.data.bert_dataset import create_bert_dataset, create_squad_dataset
 from transformer.data.t5_dataset import create_t5_dataset
 from transformer.data.wiki_dataset import create_wiki_dataset
+
+from tasks.nlp.question_answering.src.bert_for_finetune import BertSquad
+
 
 CONFIG_MAPPING = OrderedDict(
     [
         ('gpt', GPTConfig),
         ('bert', BertConfig),
+        ('bert_squad', BertConfig),
         ('t5', TransformerConfig),
         ('vit', VitConfig),
         ('opt', OPTConfig),
+    ]
+)
+
+NETWORK_MAPPING = OrderedDict(
+    [
+        ('gpt', GPT),
+        ('bert', BertPreTraining),
+        ('bert_squad', BertSquad),
+        ('t5', TransformerModel),
+        ('vit', None),
+        ('opt', OPT),
     ]
 )
 
@@ -41,6 +56,7 @@ NETWORK_WITH_LOSS_MAPPING = OrderedDict(
     [
         ('gpt', GPTWithLoss),
         ('bert', BertNetworkWithLoss),
+        ('bert_squad', BertSquad),
         ('t5', TransformerNetworkWithLoss),
         ('vit', None),
         ('opt', OPTWithLoss),
@@ -51,6 +67,7 @@ CREATE_DATASET_MAPPING = OrderedDict(
     [
         ('gpt', create_gpt_dataset),
         ('bert', create_bert_dataset),
+        ('bert_squad', create_squad_dataset),
         ('t5', create_t5_dataset),
         ('vit', None),
         ('opt', create_wiki_dataset),
@@ -68,6 +85,13 @@ class AutoClass:
         """get config class"""
         if model_key in CONFIG_MAPPING.keys():
             return CONFIG_MAPPING[model_key]
+        return None
+
+    @staticmethod
+    def get_network_class(model_key):
+        """get net class"""
+        if model_key in NETWORK_MAPPING.keys():
+            return NETWORK_MAPPING[model_key]
         return None
 
     @staticmethod
