@@ -27,9 +27,9 @@ from mindspore.nn.wrap.loss_scale import DynamicLossScaleUpdateCell
 from mindspore.train.callback import CheckpointConfig, ModelCheckpoint, TimeMonitor
 from mindspore.train.model import Model
 from mindspore.train.serialization import load_checkpoint, load_param_into_net
-from tasks.nlp.text_classification.src.assessment_method import Accuracy, F1, MCC, SpearmanCorrelation
-from tasks.nlp.text_classification.src.bert_for_finetune import BertFinetuneCell, BertCLS
-from tasks.nlp.utils import make_directory, LossCallBack, load_newest_ckpt
+
+from transformer.processor.assessment_method import Accuracy, F1, MCC, SpearmanCorrelation
+from transformer.models.bert.bert_for_finetune import BertFinetuneCell, BertCLS
 from transformer.data import build_downstream_dataset
 from transformer.build_parallel_config import build_parallel_config
 from transformer.learning_rate import build_lr
@@ -37,7 +37,9 @@ from transformer.logger import get_logger
 from transformer.models.build_model import get_downstream_config
 from transformer.modules import override_attention
 from transformer.optim.optimizer import build_optimizer
-from transformer.utils import parse_with_config, _convert_dtype_class
+from transformer.utils import parse_with_config, _convert_dtype_class, get_newest_ckpt
+
+from tasks.nlp.utils import make_directory, LossCallBack
 
 _cur_dir = os.getcwd()
 
@@ -254,7 +256,7 @@ def run_classifier(args_opt):
                 load_finetune_checkpoint_dir = _cur_dir
             else:
                 load_finetune_checkpoint_dir = make_directory(save_finetune_checkpoint_path)
-            load_finetune_checkpoint_path = load_newest_ckpt(load_finetune_checkpoint_dir, "classifier")
+            load_finetune_checkpoint_path = get_newest_ckpt(load_finetune_checkpoint_dir, "classifier")
 
     if args_opt.do_eval.lower() == "true" and rank_id == 0:
         print("do evaluation")

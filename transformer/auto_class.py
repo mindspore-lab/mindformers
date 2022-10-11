@@ -27,7 +27,7 @@ from transformer.data.bert_dataset import create_bert_dataset, create_squad_data
 from transformer.data.t5_dataset import create_t5_dataset
 from transformer.data.wiki_dataset import create_wiki_dataset
 
-from tasks.nlp.question_answering.src.bert_for_finetune import BertSquad
+from transformer.models.bert.bert_squad import BertSquad
 
 
 CONFIG_MAPPING = OrderedDict(

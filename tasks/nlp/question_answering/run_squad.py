@@ -28,12 +28,14 @@ from mindspore.nn.wrap.loss_scale import DynamicLossScaleUpdateCell
 from mindspore.train.callback import CheckpointConfig, ModelCheckpoint, TimeMonitor
 from mindspore.train.model import Model
 from mindspore.train.serialization import load_checkpoint, load_param_into_net
-from tasks.nlp.question_answering.src.bert_for_finetune import BertSquadCell, BertSquad
+
 from tasks.nlp.data.dataset import create_squad_dataset
 from tasks.nlp.utils import make_directory, LossCallBack
+
 from transformer.build_parallel_config import build_parallel_config
 from transformer.learning_rate import build_lr
 from transformer.logger import get_logger
+from transformer.models.bert.bert_squad import BertSquadCell, BertSquad
 from transformer.models.build_model import get_downstream_config
 from transformer.modules import override_attention
 from transformer.optim.optimizer import build_optimizer
@@ -191,9 +193,9 @@ def run_squad(args_opt):
 
     if args_opt.do_eval.lower() == "true":
         from tasks.nlp import tokenization
-        from tasks.nlp.question_answering.src.create_squad_data import read_squad_examples, convert_examples_to_features
-        from tasks.nlp.question_answering.src.squad_get_predictions import write_predictions
-        from tasks.nlp.question_answering.src.squad_postprocess import squad_postprocess
+        from transformer.processor.create_squad_data import read_squad_examples, convert_examples_to_features
+        from transformer.processor.squad_get_predictions import write_predictions
+        from transformer.processor.squad_postprocess import squad_postprocess
         tokenizer = tokenization.FullTokenizer(vocab_file=args_opt.vocab_file_path, do_lower_case=True)
         eval_examples = read_squad_examples(args_opt.eval_json_path, False)
         eval_features = convert_examples_to_features(

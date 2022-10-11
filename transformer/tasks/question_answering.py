@@ -21,11 +21,11 @@ from mindspore.common.tensor import Tensor
 from transformer.tasks import Task, TaskConfig
 from transformer.trainer import parse_config
 from transformer.data import create_squad_dataset
+from transformer.processor.create_squad_data import read_squad_examples, convert_examples_to_features
+from transformer.processor.squad_get_predictions import write_predictions
+from transformer.processor.squad_postprocess import squad_postprocess
 
 from tasks.nlp import tokenization
-from tasks.nlp.question_answering.src.create_squad_data import read_squad_examples, convert_examples_to_features
-from tasks.nlp.question_answering.src.squad_get_predictions import write_predictions
-from tasks.nlp.question_answering.src.squad_postprocess import squad_postprocess
 
 
 class QATask(Task):
