@@ -17,7 +17,7 @@
 
 import collections
 import json
-from  tasks.nlp import tokenization
+from  transformer.tokenization import tokenization
 
 
 class SquadExample():

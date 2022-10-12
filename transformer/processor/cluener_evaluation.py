@@ -19,13 +19,13 @@ import json
 import numpy as np
 import mindspore.common.dtype as mstype
 from mindspore.common.tensor import Tensor
-from src import tokenization
-from src.sample_process import label_generation, process_one_example_p
-from src.CRF import postprocess
-from src.model_utils.config import bert_net_cfg
-from src.score import get_result
+from transformer.tokenization import tokenization
+from transformer.processor.sample_process import label_generation, process_one_example_p
+from transformer.processor.CRF import postprocess
+from transformer.processor.score import get_result
 
-def process(model=None, text="", tokenizer_=None, use_crf="", tag_to_index=None, vocab=""):
+
+def process(model=None, text="", tokenizer_=None, use_crf="", tag_to_index=None, vocab="", seq_length=10):
     """
     process text.
     """
@@ -34,7 +34,7 @@ def process(model=None, text="", tokenizer_=None, use_crf="", tag_to_index=None,
     res = []
     ids = []
     for i in data:
-        feature = process_one_example_p(tokenizer_, vocab, i, max_seq_len=bert_net_cfg.seq_length)
+        feature = process_one_example_p(tokenizer_, vocab, i, max_seq_len=seq_length)
         features.append(feature)
         input_ids, input_mask, token_type_id = feature
         input_ids = Tensor(np.array(input_ids), mstype.int32)
@@ -54,6 +54,7 @@ def process(model=None, text="", tokenizer_=None, use_crf="", tag_to_index=None,
             ids = list(ids)
     res = label_generation(text=text, probs=ids, tag_to_index=tag_to_index)
     return res
+
 
 def submit(model=None, path="", vocab_file="", use_crf="", label_file="", tag_to_index=None):
     """

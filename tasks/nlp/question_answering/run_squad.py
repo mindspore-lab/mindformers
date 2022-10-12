@@ -29,9 +29,9 @@ from mindspore.train.callback import CheckpointConfig, ModelCheckpoint, TimeMoni
 from mindspore.train.model import Model
 from mindspore.train.serialization import load_checkpoint, load_param_into_net
 
-from tasks.nlp.data.dataset import create_squad_dataset
 from tasks.nlp.utils import make_directory, LossCallBack
 
+from transformer.data.bert_dataset import create_squad_dataset
 from transformer.build_parallel_config import build_parallel_config
 from transformer.learning_rate import build_lr
 from transformer.logger import get_logger
@@ -192,7 +192,7 @@ def run_squad(args_opt):
             load_finetune_checkpoint_path = get_newest_ckpt(load_finetune_checkpoint_dir, "squad")
 
     if args_opt.do_eval.lower() == "true":
-        from tasks.nlp import tokenization
+        from transformer.tokenization import tokenization
         from transformer.processor.create_squad_data import read_squad_examples, convert_examples_to_features
         from transformer.processor.squad_get_predictions import write_predictions
         from transformer.processor.squad_postprocess import squad_postprocess

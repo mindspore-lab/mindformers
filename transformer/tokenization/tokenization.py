@@ -16,9 +16,9 @@
 """
 Tokenization.
 """
+import collections
 import json
 import unicodedata
-
 
 def convert_to_unicode(text):
     """
@@ -38,6 +38,19 @@ def convert_to_unicode(text):
         raise ValueError("Unsupported string type: %s" % (type(text)))
     return ret
 
+def vocab_to_dict_key_token_no_index(vocab_file):
+    """Loads a vocab file into a dict, key is token."""
+    vocab = collections.OrderedDict()
+    index = 0
+    with open(vocab_file, "r") as reader:
+        while True:
+            token = convert_to_unicode(reader.readline())
+            if not token:
+                break
+            token = token.strip()
+            vocab[token] = index
+            index += 1
+    return vocab
 
 def vocab_to_dict_key_token(vocab_file):
     """Loads a vocab file into a dict, key is token."""
