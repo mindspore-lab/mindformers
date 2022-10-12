@@ -25,7 +25,7 @@ from transformer.processor.create_squad_data import read_squad_examples, convert
 from transformer.processor.squad_get_predictions import write_predictions
 from transformer.processor.squad_postprocess import squad_postprocess
 
-from tasks.nlp import tokenization
+from transformer.tokenization import tokenization
 
 
 class QATask(Task):
