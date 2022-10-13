@@ -53,7 +53,6 @@ def set_context_env(config):
     context.set_context(**context_args)
 
 
-
 def check_args(opt, device_num):
     """Validate the dp and mp"""
     dp = opt.parallel_config['data_parallel']
@@ -73,6 +72,7 @@ def check_args(opt, device_num):
     # If the user runs the data_parallel and set full_batch to be true
     if opt.parallel_mode in (ParallelMode.DATA_PARALLEL,) and opt.full_batch:
         raise ValueError("full_batch doesn't support DATA_PARALLEL mode, you can fix it by setting --full_batch=False")
+
 
 def set_auto_parallel_context_env(config):
     """Set the auto parallel env"""
@@ -102,6 +102,7 @@ def set_fused_kernel(config):
         softmax_kernel_path = os.path.join(pwd, 'modules/fused_kernel/aot_scale_masked_softmax.cu')
         override_attention(softmax_kernel_path)
 
+
 def modify_args(opt):
     # maps fp16 to mstype.float16 and fp32 to mstype.float32
     for k, v in opt.__dict__.items():
@@ -110,6 +111,7 @@ def modify_args(opt):
                 v[sub_k] = _convert_dtype_class(sub_v)
         else:
             opt.__dict__[k] = _convert_dtype_class(v)
+
 
 def do_train(opt, rank_id, dataset=None, network=None, load_checkpoint_path="", save_checkpoint_path="", epoch_num=1):
     """ do train """
@@ -213,11 +215,11 @@ def do_eval(dataset=None, network=None, num_class=2, assessment_method="accuracy
 
 def run_classifier(args_opt):
     """run classifier task"""
-    print("args_opt.train_data_file_path", args_opt.train_data_file_path)
+    print("args_opt.train_data_path", args_opt.train_data_path)
     if args_opt.do_train.lower() == "false" and args_opt.do_eval.lower() == "false":
         raise ValueError("At least one of 'do_train' or 'do_eval' must be true")
-    if args_opt.do_train.lower() == "true" and args_opt.train_data_file_path == "":
-        raise ValueError("'train_data_file_path' must be set when do finetune task")
+    if args_opt.do_train.lower() == "true" and args_opt.train_data_path == "":
+        raise ValueError("'train_data_path' must be set when do finetune task")
     if args_opt.do_eval.lower() == "true" and args_opt.eval_data_file_path == "":
         raise ValueError("'eval_data_file_path' must be set when do evaluation task")
     set_context_env(args_opt)
@@ -246,12 +248,12 @@ def run_classifier(args_opt):
 
     if args_opt.do_train.lower() == "true":
         ds = build_downstream_dataset(args_opt, rank_id, device_num, batch_size=args_opt.model['train_batch_size'],
-                                      data_file_path=args_opt.train_data_file_path,
+                                      data_file_path=args_opt.train_data_path,
                                       do_shuffle=(args_opt.train_data_shuffle.lower() == "true"))
         do_train(args_opt, rank_id, ds, netwithloss, load_pretrain_checkpoint_path,
                  save_finetune_checkpoint_path, epoch_num)
 
-        if args_opt.do_eval.lower() == "true"  and rank_id == 0:
+        if args_opt.do_eval.lower() == "true" and rank_id == 0:
             if save_finetune_checkpoint_path == "":
                 load_finetune_checkpoint_dir = _cur_dir
             else:

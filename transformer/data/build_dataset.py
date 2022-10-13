@@ -28,13 +28,13 @@ from .wiki_dataset import create_wiki_dataset
 def build_dataset(opt, rank_id, device_num, get_eval_dataset=False):
     """get dataset from local or obs"""
     model_name = opt.arch
-    url = opt.data_url if not get_eval_dataset else opt.eval_data_url
+    url = opt.train_data_path if not get_eval_dataset else opt.eval_data_path
     if url.startswith == "s3://":
         # copy data from the cloud to the /cache/Data
         cache_url = '/cache/Data/'
-        opt.logger.info(f"Find the data url {url} startswith s3. Start to cache the data_url "
+        opt.logger.info(f"Find the data url {url} startswith s3. Start to cache the data_path "
                         f"to the local path {cache_url}.")
-        download_data(src_data_url=url, tgt_data_path=cache_url, rank=rank_id)
+        download_data(src_data_path=url, tgt_data_path=cache_url, rank=rank_id)
         opt.logger.info(f"Data cache the finished.")
     else:
         cache_url = url
@@ -76,13 +76,13 @@ def build_dataset(opt, rank_id, device_num, get_eval_dataset=False):
 def build_downstream_dataset(opt, rank_id, device_num, get_eval_dataset=False, dataset_format='tfrecord',
                              batch_size=1, data_file_path='', do_shuffle="true"):
     """get dataset from local or obs"""
-    url = data_file_path if not get_eval_dataset else opt.eval_data_url
+    url = data_file_path if not get_eval_dataset else opt.eval_data_path
     if url.startswith == "s3://":
         # copy data from the cloud to the /cache/Data
         cache_url = '/cache/Data/'
-        opt.logger.info(f"Find the data url { url} startswith s3. Start to cache the data_url "
+        opt.logger.info(f"Find the data url { url} startswith s3. Start to cache the data_path "
                         f"to the local path {cache_url}.")
-        download_data(src_data_url=url, tgt_data_path=cache_url, rank=rank_id)
+        download_data(src_data_path=url, tgt_data_path=cache_url, rank=rank_id)
         opt.logger.info(f"Data cache the finished.")
     else:
         cache_url = url

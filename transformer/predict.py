@@ -164,8 +164,8 @@ def run_predict(opt):
 
     eval_net = build_model(opt, parallel_config)
 
-    opt.logger.info(f"Start to restore from the path {opt.ckpt_path}")
-    ckpt = load_checkpoint(opt.ckpt_path)
+    opt.logger.info(f"Start to restore from the path {opt.load_checkpoint_path}")
+    ckpt = load_checkpoint(opt.load_checkpoint_path)
     load_param_into_net(eval_net, ckpt)
 
     model = Model(eval_net)

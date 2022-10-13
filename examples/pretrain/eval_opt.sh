@@ -29,7 +29,7 @@ python -m transformer.predict \
     --global_batch_size=1 \
     --vocab_size=50272 \
     --hidden_size=2560 \
-    --ckpt_path="./converted_mindspore_opt.ckpt" \
+    --load_checkpoint_path="./converted_mindspore_opt.ckpt" \
     --vocab_path="./vocab.json" \
     --num_layers=32 \
     --eval=True \

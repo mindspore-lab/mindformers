@@ -63,17 +63,17 @@ optimizer: adam
 acc_step: 1
 full_batch: False
 grad_sync_dtype: fp16
-data_url: /your/data/path
+train_data_path: /your/data/path
 epoch_size: 1
 start_lr: 1e-4
 end_lr: 1e-8
 warmup_step: 5000
 opt_offload: False
 sink_size: 10
-ckpt_save_dir: ./ckpt
+save_checkpoint_path: ./ckpt
 init_loss_scale_value: 65536
 scale_factor: 2
 scale_window: 1000
 
 eval: False
-ckpt_path: None
+load_checkpoint_path: None

@@ -10,7 +10,7 @@
 
 ### 加载T5模型，开始执行训练
 
-在`examples/pretrain/pretrain_t5.sh`中，增加`--ckpt_path`参数。
+在`examples/pretrain/pretrain_t5.sh`中，增加`--load_checkpoint_path`参数。
 一个完整的示例如下所示。其中`--device_target="Ascend"`表示下述的命令将会在`Ascend`上面执行训练。
 
 ```bash
@@ -22,7 +22,7 @@ python -m transformer.train \
     --config='./transformer/configs/t5/t5_base.yaml' \
     --epoch_size=$EPOCH_SIZE \
     --device_id=$DEVICE_ID \
-    --data_url=$DATA_DIR \
+    --train_data_path=$DATA_DIR \
     --optimizer="adam" \
     --max_seq_length=512 \
     --max_decode_length=512 \
@@ -35,7 +35,7 @@ python -m transformer.train \
     --intermediate_size=2048 \
     --num_hidden_layers=6 \
     --num_attention_heads=8 \
-    --ckpt_path='mindspore_t5_small.ckpt'
+    --load_checkpoint_path='mindspore_t5_small.ckpt'
     --bucket_boundaries=16 \
     --has_relative_bias=True \
     --device_target="Ascend"
@@ -56,7 +56,7 @@ python tools/convert_opt_weight.py --layers 32 --torch_path pytorch_model.bin --
 
 ### 加载OPT模型，开始执行训练
 
-在`examples/pretrain/pretrain_opt_distributed.sh`中，增加`--ckpt_path`参数，指定转换后的权重的文件路径。
+在`examples/pretrain/pretrain_opt_distributed.sh`中，增加`--load_checkpoint_path`参数，指定转换后的权重的文件路径。
 一个完整的示例如下所示。下述的命令将会启动OPT在8卡GPU上面进行训练
 
 ```bash
@@ -69,7 +69,7 @@ bash examples/pretrain/pretrain_opt_distributed.sh EPOCH_SIZE hostfile DATA_DIR
 
 在此脚本中 `--device_target="Ascend"`指定运行设备为`Ascend`，用户可以该值修改为`GPU`。
 
->注意：在此脚本中，已经默认设置ckpt_path=converted_mindspore_opt.ckpt，vocab_path=vocab.json
+>注意：在此脚本中，已经默认设置load_checkpoint_path=converted_mindspore_opt.ckpt，vocab_path=vocab.json
 
 如果用户需要自定义文件路径，请在`examples/pretrain/eval_opt.sh`进行修改。
 

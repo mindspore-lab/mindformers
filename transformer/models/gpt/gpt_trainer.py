@@ -27,12 +27,12 @@ class GPTTrainingConfig(TrainingConfig):
     def __init__(self, *args, **kwargs):
         super(GPTTrainingConfig, self).__init__(*args, **kwargs)
         self.epoch_size = 1
-        self.data_url = ""
+        self.train_data_path = ""
         self.optimizer = "adam"
         self.parallel_mode = "stand_alone"
         self.full_batch = False
         self.global_batch_size = 4
-        self.ckpt_prefix = "gpt"
+        self.checkpoint_prefix = "gpt"
 
 
 class GPTTrainer(Trainer):

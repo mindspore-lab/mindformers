@@ -44,12 +44,12 @@ python transformer/trainer/trainer.py  \
     --train_batch_size=2 \
     --eval_batch_size=1 \
     --vocab_file_path="./vocab.txt" \
-    --ckpt_save_dir="./squad_ckpt" \
-    --ckpt_path="./checkpoint/bert_base1.ckpt" \
-    --train_data_file_path="./squad_data/train.mindrecord"
+    --save_checkpoint_path="./squad_ckpt" \
+    --load_checkpoint_path="./checkpoint/bert_base1.ckpt" \
+    --train_data_path="./squad_data/train.mindrecord"
 
 python transformer/tasks/question_answering.py \
     --auto_model="bert_squad" \
     --eval_json_path="./squad_data/dev-v1.1.json" \
-    --ckpt_path="./checkpoint/bert_base1.ckpt" \
+    --load_checkpoint_path="./checkpoint/bert_base1.ckpt" \
     --vocab_file_path="./vocab.txt"

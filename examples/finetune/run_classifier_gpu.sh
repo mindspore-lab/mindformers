@@ -58,7 +58,7 @@ python -m tasks.nlp.text_classification.run_classifier  \
     --save_finetune_checkpoint_path="./glue_ckpt/$task" \
     --load_pretrain_checkpoint_path="./checkpoint/bertbase.ckpt" \
     --load_finetune_checkpoint_path="./glue_ckpt/$task" \
-    --train_data_file_path="./glue_data/$task/train.tf_record" \
+    --train_data_path="./glue_data/$task/train.tf_record" \
     --eval_data_file_path="./glue_data/$task/eval.tf_record" \
     --schema_file_path="" > $task.txt 2>&1 &
 

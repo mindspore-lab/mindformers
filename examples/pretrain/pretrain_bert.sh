@@ -27,7 +27,7 @@ DATA_DIR=$3
 python -m transformer.train \
     --config=./transformer/configs/bert/bert_base.yaml \
     --epoch_size=$EPOCH_SIZE \
-    --data_url=$DATA_DIR \
+    --train_data_path=$DATA_DIR \
     --optimizer="adam" \
     --seq_length=128 \
     --max_position_embeddings=512 \

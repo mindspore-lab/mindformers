@@ -26,12 +26,12 @@ class BertTrainingConfig(TrainingConfig):
     def __init__(self, *args, **kwargs):
         super(BertTrainingConfig, self).__init__(*args, **kwargs)
         self.epoch_size = 1
-        self.data_url = ""
+        self.train_data_path = ""
         self.optimizer = "adam"
         self.parallel_mode = "stand_alone"
         self.full_batch = False
         self.global_batch_size = 64
-        self.ckpt_prefix = "bert"
+        self.checkpoint_prefix = "bert"
         self.device_target = "GPU"
 
 

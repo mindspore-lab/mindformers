@@ -36,7 +36,7 @@ python -m transformer.predict \
      --intermediate_size=2048 \
      --num_hidden_layers=6 \
      --num_heads=8 \
-     --ckpt_pathmindspore_t5_small.ckpt \
+     --load_checkpoint_pathmindspore_t5_small.ckpt \
      --generate=True \
      --bucket_boundaries=16 \
      --has_relative_bias=True \

@@ -47,6 +47,6 @@ python -m  tasks.nlp.question_answering.run_squad  \
     --save_finetune_checkpoint_path="./squad_ckpt" \
     --load_pretrain_checkpoint_path="./checkpoint/bert_base1.ckpt" \
     --load_finetune_checkpoint_path="./squad_ckpt" \
-    --train_data_file_path="./squad_data/train.mindrecord" \
+    --train_data_path="./squad_data/train.mindrecord" \
     --eval_json_path="./squad_data/dev-v1.1.json" \
     --schema_file_path="" > squad_log.txt 2>&1 &

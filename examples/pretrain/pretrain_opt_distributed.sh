@@ -34,7 +34,7 @@ mpirun --allow-run-as-root -n $RANK_SIZE --hostfile $HOSTFILE \
 python -m transformer.train  \
     --config=./transformer/configs/opt/opt.yaml \
     --device_num=$RANK_SIZE \
-    --data_url=$DATASET \
+    --train_data_path=$DATASET \
     --seq_length=1024 \
     --global_batch_size=12 \
     --vocab_size=50272 \

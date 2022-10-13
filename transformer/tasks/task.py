@@ -28,12 +28,12 @@ class TaskConfig(TrainingConfig):
     def __init__(self, *args, **kwargs):
         super(TaskConfig, self).__init__(*args, **kwargs)
         self.epoch_size = 1
-        self.data_url = ""
+        self.train_data_path = ""
         self.is_training = False
         self.parallel_mode = "stand_alone"
         self.full_batch = False
         self.global_batch_size = 4
-        self.ckpt_prefix = "gpt"
+        self.checkpoint_prefix = "gpt"
 
 
 class Task(Trainer):
