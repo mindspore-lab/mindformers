@@ -151,8 +151,8 @@ def run_squad(args_opt):
     """run squad task"""
     if args_opt.do_train.lower() == "false" and args_opt.do_eval.lower() == "false":
         raise ValueError("At least one of 'do_train' or 'do_eval' must be true")
-    if args_opt.do_train.lower() == "true" and args_opt.train_data_file_path == "":
-        raise ValueError("'train_data_file_path' must be set when do finetune task")
+    if args_opt.do_train.lower() == "true" and args_opt.train_data_path == "":
+        raise ValueError("'train_data_path' must be set when do finetune task")
     if args_opt.do_eval.lower() == "true":
         if args_opt.vocab_file_path == "":
             raise ValueError("'vocab_file_path' must be set when do evaluation task")
@@ -181,7 +181,7 @@ def run_squad(args_opt):
 
     if args_opt.do_train.lower() == "true":
         ds = create_squad_dataset(batch_size=args_opt.model['train_batch_size'],
-                                  data_file_path=args_opt.train_data_file_path,
+                                  data_file_path=args_opt.train_data_path,
                                   do_shuffle=(args_opt.train_data_shuffle.lower() == "true"))
         do_train(args_opt, ds, netwithloss, load_pretrain_checkpoint_path, save_finetune_checkpoint_path, epoch_num)
         if args_opt.do_eval.lower() == "true":

@@ -53,7 +53,7 @@ def test_gpt_network():
             python -m transformer.train \
                 --config=./transformer/configs/gpt/gpt_base.yaml \
                 --epoch_size=1 \
-                --data_url=tests/ \
+                --train_data_path=tests/ \
                 --optimizer="adam"  \
                 --seq_length=14 \
                 --parallel_mode="stand_alone" \

@@ -55,14 +55,14 @@ optimizer: adam
 acc_step: 1
 full_batch: True
 grad_sync_dtype: fp16
-data_url: /your/data/path
+train_data_path: /your/data/path
 epoch_size: 1
 start_lr: 1e-4
 end_lr: 1e-5
 warmup_step: 1000
 opt_offload: False
 sink_size: 10
-ckpt_save_dir: ./ckpt
+save_checkpoint_path: ./ckpt
 init_loss_scale_value: 4294967296
 scale_factor: 2
 scale_window: 1000
@@ -75,5 +75,5 @@ top_p: 0.9
 top_k_num: 1
 end_token: 2
 vocab_path: /vocab/path
-ckpt_path: None
+load_checkpoint_path: None
 

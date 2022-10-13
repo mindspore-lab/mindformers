@@ -27,13 +27,13 @@ class T5TrainingConfig(TrainingConfig):
     def __init__(self, *args, **kwargs):
         super(T5TrainingConfig, self).__init__(*args, **kwargs)
         self.epoch_size = 1
-        self.data_url = ""
+        self.train_data_path = ""
         self.optimizer = "adam"
         self.parallel_mode = "stand_alone"
         self.full_batch = False
         self.global_batch_size = 1
-        self.ckpt_prefix = "T5"
-        self.ckpt_path = "./converted_mindspore_t5.ckpt"
+        self.checkpoint_prefix = "T5"
+        self.load_checkpoint_path = "./converted_mindspore_t5.ckpt"
         self.vocab_path = "./vocab.json"
         self.input_samples = "Hello world"
         self.generate = True

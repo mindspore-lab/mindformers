@@ -126,9 +126,9 @@ def run_train(opt):
     # Build the model with loss
     net_with_loss = build_model(opt, parallel_config)
 
-    if opt.ckpt_path:
-        opt.logger.info(f"Start to load the ckpt from {opt.ckpt_path}")
-        ckpt = load_checkpoint(opt.ckpt_path)
+    if opt.load_checkpoint_path:
+        opt.logger.info(f"Start to load the ckpt from {opt.load_checkpoint_path}")
+        ckpt = load_checkpoint(opt.load_checkpoint_path)
         load_param_into_net(net_with_loss, ckpt)
 
     micro_batch_num = opt.speed_up['micro_batch_num']
@@ -164,7 +164,7 @@ def run_train(opt):
                                  integrated_save=False,
                                  keep_checkpoint_max=1)
     ckpoint_cb = ModelCheckpoint(prefix=opt.arch,
-                                 directory=opt.ckpt_save_dir + './ckpt_{}'.format(rank_id),
+                                 directory=opt.save_checkpoint_path + './ckpt_{}'.format(rank_id),
                                  config=config_ck)
     callback.append(ckpoint_cb)
 

@@ -33,7 +33,7 @@ mpirun --allow-run-as-root -n $RANK_SIZE --hostfile $HOSTFILE \
 python -m transformer.train \
     --config=./transformer/configs/bert/bert_base.yaml \
     --device_num=$RANK_SIZE \
-    --data_url=$DATASET \
+    --train_data_path=$DATASET \
     --seq_length=128 \
     --global_batch_size=4 \
     --vocab_size=30522 \

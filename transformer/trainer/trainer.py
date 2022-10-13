@@ -125,7 +125,7 @@ class TrainingConfig:
     optimizer: str = "adam"
     acc_step: int = 1
     full_batch: bool = True
-    data_url: str = ""
+    train_data_path: str = ""
     epoch_size: int = 1
     start_lr: float = 1e-4
     end_lr: float = 1e-5
@@ -137,11 +137,11 @@ class TrainingConfig:
     scale_window: int = 1000
     eval: bool = False
     get_eval_dataset: bool = False
-    eval_data_url: str = ""
+    eval_data_path: str = ""
 
-    ckpt_path: str = ""
-    ckpt_save_dir: str = "./ckpt"
-    ckpt_prefix: str = "tmp"
+    load_checkpoint_path: str = ""
+    save_checkpoint_path: str = "./ckpt"
+    checkpoint_prefix: str = "tmp"
 
     compute_dtype: mstype = mstype.float16
     layernorm_dtype: mstype = mstype.float32
@@ -281,12 +281,14 @@ class Trainer:
 
     def load_checkpoint(self, net_with_loss):
         """load checkpoint"""
-        if self.config.ckpt_path == "" and self.config.ckpt_save_dir != "" and self.config.ckpt_prefix != "":
-            self.config.ckpt_path = get_newest_ckpt(self.config.ckpt_save_dir, self.config.ckpt_prefix)
+        if self.config.load_checkpoint_path == "" and self.config.save_checkpoint_path != "" \
+                and self.config.checkpoint_prefix != "":
+            self.config.load_checkpoint_path = get_newest_ckpt(self.config.save_checkpoint_path,
+                                                               self.config.checkpoint_prefix)
 
-        if self.config.ckpt_path != "":
-            self.logger.info(f"Start to load the ckpt from {self.config.ckpt_path}")
-            ckpt = load_checkpoint(self.config.ckpt_path)
+        if self.config.load_checkpoint_path != "":
+            self.logger.info(f"Start to load the ckpt from {self.config.load_checkpoint_path}")
+            ckpt = load_checkpoint(self.config.load_checkpoint_path)
             load_param_into_net(net_with_loss, ckpt)
 
     def optimize_net_for_traning(self, net_with_loss):
@@ -310,8 +312,9 @@ class Trainer:
         config_ck = CheckpointConfig(save_checkpoint_steps=self.config.step_per_epoch,
                                      integrated_save=False,
                                      keep_checkpoint_max=1)
-        ckpoint_cb = ModelCheckpoint(prefix=self.config.ckpt_prefix,
-                                     directory=self.config.ckpt_save_dir + './ckpt_{}'.format(self.config.rank_id),
+        ckpoint_cb = ModelCheckpoint(prefix=self.config.checkpoint_prefix,
+                                     directory=self.config.save_checkpoint_path + './ckpt_{}'.format(
+                                         self.config.rank_id),
                                      config=config_ck)
         callback.append(ckpoint_cb)
         return callback
@@ -342,13 +345,13 @@ class Trainer:
 
     def download_dataset(self):
         """get dataset from local or obs"""
-        url = self.config.data_url if not self.config.get_eval_dataset else self.config.eval_data_url
+        url = self.config.train_data_path if not self.config.get_eval_dataset else self.config.eval_data_path
         if url.startswith == "s3://":
             # copy data from the cloud to the /cache/Data
             cache_url = '/cache/Data/'
-            self.logger.info(f"Find the data url {url} startswith s3. Start to cache the data_url "
+            self.logger.info(f"Find the data url {url} startswith s3. Start to cache the data_path "
                              f"to the local path {cache_url}.")
-            download_data(src_data_url=url, tgt_data_path=cache_url, rank=self.config.rank_id)
+            download_data(src_data_path=url, tgt_data_path=cache_url, rank=self.config.rank_id)
             self.logger.info(f"Data cache the finished.")
         else:
             cache_url = url

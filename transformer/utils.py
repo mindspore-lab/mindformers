@@ -186,10 +186,10 @@ def clone_state(parameter_tuple, prefix, init, forced_dtype=mstype.float32, is_f
     return ParameterTuple(new)
 
 
-def download_data(src_data_url, tgt_data_path, rank):
+def download_data(src_data_path, tgt_data_path, rank):
     """
         Download the dataset from the obs.
-        src_data_url (Str): should be the dataset path in the obs
+        src_data_path (Str): should be the dataset path in the obs
         tgt_data_path (Str): the local dataset path
         rank (Int): the current rank id
 
@@ -203,7 +203,7 @@ def download_data(src_data_url, tgt_data_path, rank):
 
         if not os.path.exists(cache_url):
             os.makedirs(cache_url, exist_ok=True)
-        mox.file.copy_parallel(src_url=src_data_url,
+        mox.file.copy_parallel(src_url=src_data_path,
                                dst_url=cache_url)
         print("Dataset download succeed!", flush=True)
 

@@ -231,14 +231,14 @@ optimizer: adam
 
 acc_step: 1
 grad_sync_dtype: fp16
-data_url: /your/data/path
+train_data_path: /your/data/path
 epoch_size: 1
 start_lr: 1e-4
 end_lr: 1e-5
 warmup_step: 1000
 opt_offload: False
 sink_size: 10
-ckpt_save_dir: ./ckpt
+save_checkpoint_path: ./ckpt
 init_loss_scale_value: 65536
 scale_factor: 2
 scale_window: 1000
@@ -252,13 +252,13 @@ scale_window: 1000
 python -m transformer.train \
     --config=./transformer/configs/gpt/gpt_base.yaml \
     --epoch_size=$EPOCH_SIZE \
-    --data_url=$DATA_DIR \
+    --train_data_path=$DATA_DIR \
     --optimizer="adam"
     --custom_args="test" \
 ```
 
 `config`作为命令行解析的第一个参数，将从指定的文件中加载所有的参数。然后开始解析其后面的
-参数`epoch_size`、`data_url`、`optimizer`和`custom_args`等参数。
+参数`epoch_size`、`train_data_path`、`optimizer`和`custom_args`等参数。
 由于前三个参数已经在`gpt_base.yaml`文件中定义，所以这些参数会被命令行中传入的参数覆盖。
 
 而`custom_args`中没有在配置文件中定义，会被添加到解析的参数中去。用户可以在`train.py`中通过`opt.custom_args`获取。
