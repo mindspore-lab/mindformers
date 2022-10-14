@@ -29,7 +29,7 @@ from mindspore.nn.wrap.grad_reducer import DistributedGradReducer
 from mindspore.context import ParallelMode
 from mindspore.communication.management import get_group_size
 from mindspore import context
-from tasks.nlp.utils import CrossEntropyCalculation
+from transformer.models.bert.utils import CrossEntropyCalculation
 from transformer.processor.finetune_eval_model import BertCLSModel
 
 GRADIENT_CLIP_TYPE = 1

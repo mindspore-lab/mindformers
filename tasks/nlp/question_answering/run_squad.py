@@ -29,7 +29,7 @@ from mindspore.train.callback import CheckpointConfig, ModelCheckpoint, TimeMoni
 from mindspore.train.model import Model
 from mindspore.train.serialization import load_checkpoint, load_param_into_net
 
-from tasks.nlp.utils import make_directory, LossCallBack
+from transformer.models.bert.utils import LossCallBack
 
 from transformer.data.bert_dataset import create_squad_dataset
 from transformer.build_parallel_config import build_parallel_config
@@ -39,7 +39,7 @@ from transformer.models.bert.bert_squad import BertSquadCell, BertSquad
 from transformer.models.build_model import get_downstream_config
 from transformer.modules import override_attention
 from transformer.optim.optimizer import build_optimizer
-from transformer.utils import parse_with_config, _convert_dtype_class, get_newest_ckpt
+from transformer.utils import parse_with_config, _convert_dtype_class, get_newest_ckpt, make_directory
 
 _cur_dir = os.getcwd()
 
