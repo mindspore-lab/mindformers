@@ -30,7 +30,7 @@ from mindspore.context import ParallelMode
 from mindspore.communication.management import get_group_size
 from mindspore import context
 from transformer.models.bert import BertModel
-from tasks.nlp.utils import CrossEntropyCalculation
+from transformer.models.bert.utils import CrossEntropyCalculation
 
 GRADIENT_CLIP_TYPE = 1
 GRADIENT_CLIP_VALUE = 1.0

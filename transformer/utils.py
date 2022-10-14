@@ -22,7 +22,7 @@ from copy import deepcopy
 import yaml
 import numpy as np
 
-
+from mindspore import log as logger
 from mindspore.common import dtype as mstype
 from mindspore.common.initializer import initializer
 from mindspore.common.parameter import Parameter, ParameterTuple
@@ -212,3 +212,28 @@ def download_data(src_data_path, tgt_data_path, rank):
     # stop
     while not os.path.exists("%s/install.txt" % (tmp_path)):
         time.sleep(1)
+
+
+def make_directory(path: str):
+    """Make directory."""
+    if path is None or not isinstance(path, str) or path.strip() == "":
+        logger.error("The path(%r) is invalid type.", path)
+        raise TypeError("Input path is invalid type")
+
+    # convert the relative paths
+    path = os.path.realpath(path)
+    logger.debug("The abs path is %r", path)
+
+    # check the path is exist and write permissions?
+    if os.path.exists(path):
+        real_path = path
+    else:
+        # All exceptions need to be caught because create directory maybe have some limit(permissions)
+        logger.debug("The directory(%s) doesn't exist, will create it", path)
+        try:
+            os.makedirs(path, exist_ok=True)
+            real_path = path
+        except PermissionError as e:
+            logger.error("No write permission on the directory(%r), error = %r", path, e)
+            raise TypeError("No write permission on the directory.")
+    return real_path

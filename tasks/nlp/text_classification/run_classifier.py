@@ -37,9 +37,9 @@ from transformer.logger import get_logger
 from transformer.models.build_model import get_downstream_config
 from transformer.modules import override_attention
 from transformer.optim.optimizer import build_optimizer
-from transformer.utils import parse_with_config, _convert_dtype_class, get_newest_ckpt
+from transformer.utils import parse_with_config, _convert_dtype_class, get_newest_ckpt, make_directory
 
-from tasks.nlp.utils import make_directory, LossCallBack
+from transformer.models.bert.utils import LossCallBack
 
 _cur_dir = os.getcwd()
 
