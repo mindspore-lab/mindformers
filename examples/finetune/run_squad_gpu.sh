@@ -25,24 +25,26 @@ mkdir -p ms_log
 CUR_DIR=`pwd`
 export GLOG_log_dir=${CUR_DIR}/ms_log
 export GLOG_logtostderr=0
+
 python -m  tasks.nlp.question_answering.run_squad  \
     --config_path="" \
     --device_target="GPU" \
-    --do_train="true" \
+    --do_train="false" \
     --do_eval="true" \
-    --device_id=0 \
-    --epoch_num=3 \
+    --epoch_num=1 \
     --num_class=2 \
     --vocab_size=30522 \
     --embedding_size=768 \
     --num_layers=12 \
     --num_heads=12 \
+    --parallel_mode="stand_alone" \
     --seq_length=384 \
     --max_position_embeddings=512 \
     --train_data_shuffle="true" \
     --eval_data_shuffle="false" \
-    --train_batch_size=2 \
-    --eval_batch_size=1 \
+    --train_batch_size=12 \
+    --eval_batch_size=12 \
+    --start_lr=1e-4 \
     --vocab_file_path="./vocab.txt" \
     --save_finetune_checkpoint_path="./squad_ckpt" \
     --load_pretrain_checkpoint_path="./checkpoint/bert_base1.ckpt" \

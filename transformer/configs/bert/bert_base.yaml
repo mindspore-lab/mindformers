@@ -11,7 +11,7 @@ model:
   post_layernorm_residual: True
   compute_dtype: fp16
   softmax_dtype: fp32
-  compute_dtype: fp32
+  layernorm_dtype: fp32
   hidden_act: gelu
   hidden_dropout_prob: 0.1
   attention_probs_dropout_prob: 0.1

@@ -23,18 +23,20 @@ from transformer.models.vit import VitConfig
 from transformer.models.opt import OPTConfig, OPT, OPTWithLoss
 
 from transformer.data.gpt_dataset import create_gpt_dataset
-from transformer.data.bert_dataset import create_bert_dataset, create_squad_dataset
+from transformer.data.bert_dataset import create_bert_dataset
+from transformer.data.downstream_dataset import create_squad_dataset, create_classification_dataset, create_language_model_dataset
 from transformer.data.t5_dataset import create_t5_dataset
 from transformer.data.wiki_dataset import create_wiki_dataset
 
-from transformer.models.bert.bert_squad import BertSquad
-
+from transformer.models.bert.bert_squad import BertSquad, BertSquadModel
+from transformer.models.bert.bert_glue import BertCLS, BertCLSModel
 
 CONFIG_MAPPING = OrderedDict(
     [
         ('gpt', GPTConfig),
         ('bert', BertConfig),
         ('bert_squad', BertConfig),
+        ('bert_glue', BertConfig),
         ('t5', TransformerConfig),
         ('vit', VitConfig),
         ('opt', OPTConfig),
@@ -45,7 +47,8 @@ NETWORK_MAPPING = OrderedDict(
     [
         ('gpt', GPT),
         ('bert', BertPreTraining),
-        ('bert_squad', BertSquad),
+        ('bert_squad', BertSquadModel),
+        ('bert_glue', BertCLSModel),
         ('t5', TransformerModel),
         ('vit', None),
         ('opt', OPT),
@@ -57,6 +60,7 @@ NETWORK_WITH_LOSS_MAPPING = OrderedDict(
         ('gpt', GPTWithLoss),
         ('bert', BertNetworkWithLoss),
         ('bert_squad', BertSquad),
+        ('bert_glue', BertCLS),
         ('t5', TransformerNetworkWithLoss),
         ('vit', None),
         ('opt', OPTWithLoss),
@@ -66,8 +70,10 @@ NETWORK_WITH_LOSS_MAPPING = OrderedDict(
 CREATE_DATASET_MAPPING = OrderedDict(
     [
         ('gpt', create_gpt_dataset),
+        ('gpt_language_model', create_language_model_dataset),
         ('bert', create_bert_dataset),
         ('bert_squad', create_squad_dataset),
+        ('bert_glue', create_classification_dataset),
         ('t5', create_t5_dataset),
         ('vit', None),
         ('opt', create_wiki_dataset),
