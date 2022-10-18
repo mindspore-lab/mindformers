@@ -18,7 +18,7 @@ save_finetune_checkpoint_path: "./classifier_finetune/ckpt/"
 load_pretrain_checkpoint_path: ""
 load_finetune_checkpoint_path: ""
 train_data_path: ""
-eval_data_file_path: ""
+eval_data_path: ""
 schema_file_path: ""
 # export related
 export_batch_size: 1

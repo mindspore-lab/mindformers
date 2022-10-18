@@ -60,5 +60,5 @@ python -m tasks.nlp.text_classification.run_classifier  \
     --load_pretrain_checkpoint_path="./checkpoint/nezhabase.ckpt" \
     --load_finetune_checkpoint_path="./glue_ckpt/$TASK" \
     --train_data_path="./glue_data/$TASK/train.tf_record" \
-    --eval_data_file_path="./glue_data/$TASK/eval.tf_record" \
+    --eval_data_path="./glue_data/$TASK/eval.tf_record" \
     --schema_file_path="" > $TASK.txt 2>&1 &

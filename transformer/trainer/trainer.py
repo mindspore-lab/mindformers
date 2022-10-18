@@ -136,8 +136,11 @@ class TrainingConfig:
     scale_factor: float = 2
     scale_window: int = 1000
     eval: bool = False
+    rank_id: int = 0
+    device_num: int = 1
     get_eval_dataset: bool = False
     eval_data_path: str = ""
+    dataset_format: str = "mindrecord"
 
     load_checkpoint_path: str = ""
     save_checkpoint_path: str = "./ckpt"
@@ -206,15 +209,15 @@ class Trainer:
         mp = self.config.model_parallel
         if mp < 1:
             raise ValueError("The model parallel must be equal or larger than 1. "
-                             f"You can fix this by setting --model_parallel=1, for example.")
+                             "You can fix this by setting --model_parallel=1, for example.")
         if mp > device_num:
-            raise ValueError(f"The model parallel must be less or equal to the device_num {device_num}. "
-                             f"You can fix this by setting --model_parallel=1, for example")
+            raise ValueError("The model parallel must be less or equal to the device_num %d. "
+                             "You can fix this by setting --model_parallel=1, for example" % device_num)
         if self.config.parallel_mode in (
                 ParallelMode.SEMI_AUTO_PARALLEL, ParallelMode.AUTO_PARALLEL) and dp * mp != device_num:
-            self.logger.info(f"The data_parallel * model_parallel must be equal to the {device_num}. "
-                             f"You can remove this warning by setting --data_parallel={device_num // mp}. "
-                             f"Now the full_batch will be set False.")
+            self.logger.info("The data_parallel * model_parallel must be equal to the %d. "
+                             "You can remove this warning by setting --data_parallel=%d. "
+                             "Now the full_batch will be set False.", device_num, device_num // mp)
             self.config.full_batch = False
 
         # If the user runs the data_parallel and set full_batch to be true
@@ -225,7 +228,8 @@ class Trainer:
     def set_auto_parallel_context_env(self):
         """Set the auto parallel env"""
         if self.config.parallel_mode != context.ParallelMode.STAND_ALONE:
-            self.logger.info(f"Enabling the parallel mode: {self.config.parallel_mode} for multi card training.")
+            self.logger.info(
+                "Enabling the parallel mode: %s for multi card training.", self.config.parallel_mode)
             D.init()
             device_num = D.get_group_size()
             rank_id = D.get_rank()
@@ -236,7 +240,8 @@ class Trainer:
                                               device_num=device_num, grad_accumulation_step=self.config.acc_step)
 
         else:
-            self.logger.info(f"Enabling the parallel mode: {self.config.parallel_mode} for stand alone training.")
+            self.logger.info(
+                "Enabling the parallel mode: %s for stand alone training.", self.config.parallel_mode)
             rank_id = 0
             device_num = 1
         if self.config.full_batch:
@@ -273,9 +278,10 @@ class Trainer:
         if self.config.fused_kernel:
             pwd = os.path.dirname(os.path.abspath(__file__))
             softmax_kernel_path = os.path.join(pwd, 'modules/fused_kernel/aot_scale_masked_softmax.cu')
-            self.logger.info(f"Detect the fused_kernel True, "
-                             f"start to compile the cuda code. Cuda code path {softmax_kernel_path}. "
-                             f"The attention in the mindspore will be replaced with softmax fused attention.")
+            self.logger.info("Detect the fused_kernel True, "
+                             "start to compile the cuda code. Cuda code path %s. "
+                             "The attention in the mindspore will be replaced with softmax fused attention.",
+                             softmax_kernel_path)
 
             override_attention(softmax_kernel_path)
 
@@ -287,7 +293,7 @@ class Trainer:
                                                                self.config.checkpoint_prefix)
 
         if self.config.load_checkpoint_path != "":
-            self.logger.info(f"Start to load the ckpt from {self.config.load_checkpoint_path}")
+            self.logger.info("Start to load the ckpt from %s", self.config.load_checkpoint_path)
             ckpt = load_checkpoint(self.config.load_checkpoint_path)
             load_param_into_net(net_with_loss, ckpt)
 
@@ -297,7 +303,8 @@ class Trainer:
         flatten_weights = self.config.flatten_weights
         if micro_batch_interleaved_num > 1:
             net_with_loss = MicroBatchInterleaved(net_with_loss, micro_batch_interleaved_num)
-            self.logger.info(f"Enabling the micro batch interleaved, the batch num is : {micro_batch_interleaved_num}.")
+            self.logger.info(
+                "Enabling the micro batch interleaved, the batch num is : %d.", micro_batch_interleaved_num)
         if flatten_weights:
             net_with_loss.flatten_weights()
             self.logger.info("Enabling the flatten_weights.")
@@ -308,13 +315,12 @@ class Trainer:
         callback = [TimeMonitor(self.config.callback_step), LossCallBack(self.config.callback_step)]
 
         self.logger.info(
-            f"Enable the checkpoint saving each {self.config.step_per_epoch} steps. Integrated Save is False")
+            "Enable the checkpoint saving each %d steps. Integrated Save is False", self.config.step_per_epoch)
         config_ck = CheckpointConfig(save_checkpoint_steps=self.config.step_per_epoch,
                                      integrated_save=False,
                                      keep_checkpoint_max=1)
         ckpoint_cb = ModelCheckpoint(prefix=self.config.checkpoint_prefix,
-                                     directory=self.config.save_checkpoint_path + './ckpt_{}'.format(
-                                         self.config.rank_id),
+                                     directory=self.config.save_checkpoint_path + './ckpt_%d' % self.config.rank_id,
                                      config=config_ck)
         callback.append(ckpoint_cb)
         return callback
@@ -349,10 +355,10 @@ class Trainer:
         if url.startswith == "s3://":
             # copy data from the cloud to the /cache/Data
             cache_url = '/cache/Data/'
-            self.logger.info(f"Find the data url {url} startswith s3. Start to cache the data_path "
-                             f"to the local path {cache_url}.")
+            self.logger.info("Find the data url %s startswith s3. Start to cache the data_path "
+                             "to the local path %s.", url, cache_url)
             download_data(src_data_path=url, tgt_data_path=cache_url, rank=self.config.rank_id)
-            self.logger.info(f"Data cache the finished.")
+            self.logger.info("Data cache the finished.")
         else:
             cache_url = url
         return cache_url
@@ -362,7 +368,7 @@ class Trainer:
         create_dataset = AutoClass.get_create_dataset_func(self.config.auto_model)
         if create_dataset is not None:
             return create_dataset(self.config)
-        raise ValueError(f"invalid auto_model {self.config.auto_model}.")
+        raise ValueError("invalid auto_model %s." % self.config.auto_model)
 
     def download_and_build_dataset(self):
         """download and build dataset"""
@@ -372,7 +378,7 @@ class Trainer:
         if context.get_auto_parallel_context('full_batch'):
             self.logger.info("Detect the full_batch import is true, modify the shard_num and shard_id to be 1 and 0."
                              "So each card will receive the same input data with "
-                             f"batch size: {self.config.global_batch_size}")
+                             "batch size: %d", self.config.global_batch_size)
             device_num = 1
             rank_id = 0
 
@@ -390,14 +396,14 @@ class Trainer:
         model_config = AutoClass.get_config_class(self.config.auto_model)
         if model_config is not None:
             return model_config()
-        raise ValueError(f"invalid auto_model {self.config.auto_model}.")
+        raise ValueError("invalid auto_model %s." % self.config.auto_model)
 
     def check_and_build_model_config(self):
         """check and build model config"""
         if self.config.global_batch_size % self.config.micro_batch_interleaved_num != 0:
             raise ValueError(
-                f"global_batch_size:{self.config.global_batch_size} must be a multiple of micro_batch_interleaved:"
-                f"{self.config.micro_batch_interleaved}.")
+                "global_batch_size:{} must be a multiple of micro_batch_interleaved:%d."
+                % self.config.global_batch_size, self.config.micro_batch_interleaved)
         data_dp = 1
         if self.config.parallel_mode in (ParallelMode.AUTO_PARALLEL, ParallelMode.SEMI_AUTO_PARALLEL) and \
                 not context.get_auto_parallel_context('full_batch'):
@@ -422,7 +428,7 @@ class Trainer:
         network_with_loss = AutoClass.get_network_with_loss_class(self.config.auto_model)
         if network_with_loss is not None:
             return network_with_loss(model_config)
-        raise ValueError(f"invalid auto_model {self.config.auto_model}.")
+        raise ValueError("invalid auto_model %s." % self.config.auto_model)
 
     def build_lr(self):
         """build lr"""
@@ -464,13 +470,13 @@ class Trainer:
         self.set_fused_kernel()
 
         # Build the model with loss
-        self.logger.info(f"Start to build model")
+        self.logger.info("Start to build model")
 
         model_config = self.check_and_build_model_config()
         parallel_config = self.build_parallel_config()
         model_config.parallel_config = parallel_config
         net_with_loss = self.build_model(model_config)
-        self.logger.info(f"Build model finished")
+        self.logger.info("Build model finished")
 
         # load checkpoint
         self.load_checkpoint(net_with_loss)
@@ -480,9 +486,9 @@ class Trainer:
         print_model_size(net_with_loss, self.logger)
 
         # download and build dataset
-        self.logger.info(f"Start to build the dataset.")
+        self.logger.info("Start to build the dataset.")
         ds = self.download_and_build_dataset()
-        self.logger.info(f"Build dataset finished.")
+        self.logger.info("Build dataset finished.")
 
         self.config.step_per_epoch = ds.get_dataset_size()
         self.config.callback_step = self.config.sink_size if self.config.acc_step <= 1 else self.config.acc_step
@@ -513,13 +519,13 @@ class Trainer:
             self.logger.info("Start to eval on the datasets.")
             self.config.get_eval_dataset = True
             # download and build dataset
-            self.logger.info(f"Start to build the dataset.")
+            self.logger.info("Start to build the dataset.")
             ds = self.download_and_build_dataset()
-            self.logger.info(f"Build dataset finished.")
+            self.logger.info("Build dataset finished.")
 
             acc = get_acc(model, ds.create_tuple_iterator())
 
-            self.logger.info(f"The accuracy is {acc}")
+            self.logger.info("The accuracy is %f", acc)
 
     def predict(self):
         """Main predict process"""
@@ -530,13 +536,13 @@ class Trainer:
         self.set_fused_kernel()
 
         # Build model
-        self.logger.info(f"Start to build model")
+        self.logger.info("Start to build model")
         model_config = self.check_and_build_model_config()
         parallel_config = self.build_parallel_config()
         model_config.parallel_config = parallel_config
 
         inference_net = self.build_model(model_config)
-        self.logger.info(f"Build model finished")
+        self.logger.info("Build model finished")
 
         # load checkpoint
         self.load_checkpoint(inference_net)

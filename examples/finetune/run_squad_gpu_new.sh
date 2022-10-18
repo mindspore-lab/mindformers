@@ -28,8 +28,6 @@ export GLOG_logtostderr=0
 python transformer/trainer/trainer.py  \
     --auto_model="bert_squad" \
     --device_target="GPU" \
-    --do_train="true" \
-    --do_eval="true" \
     --device_id=0 \
     --epoch_num=3 \
     --num_class=2 \

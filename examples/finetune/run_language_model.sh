@@ -29,10 +29,9 @@ load_pretrain_ckpt_path="./pretrain_ckpt/gpt2.ckpt"
 load_eval_ckpt_path="./fine_ckpt/"
 
 # dataset path
-train_data_file_path="./wikitext-2/train/train-mindrecord"
-eval_data_file_path="./wikitext-2/test/test-mindrecord"
+train_data_path="./wikitext-2/train/train-mindrecord"
+eval_data_path="./wikitext-2/test/test-mindrecord"
 
-PROJECT_DIR=$(cd "$(dirname "$0")" || exit; pwd)
 export GLOG_log_dir=${CUR_DIR}/ms_log
 export GLOG_logtostderr=0
 python -m tasks.nlp.language_modeling.run_language_model  \
@@ -59,5 +58,5 @@ python -m tasks.nlp.language_modeling.run_language_model  \
     --save_finetune_ckpt_path=$save_finetune_ckpt_path \
     --load_pretrain_ckpt_path=$load_pretrain_ckpt_path \
     --load_finetune_ckpt_path=$load_eval_ckpt_path \
-    --train_data_file_path=$train_data_file_path \
-    --eval_data_file_path=$eval_data_file_path > language_log.txt 2>&1 &
+    --train_data_path=$train_data_path \
+    --eval_data_path=$eval_data_path > language_log.txt 2>&1 &

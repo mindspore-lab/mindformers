@@ -192,18 +192,16 @@ class BertCLS(nn.Cell):
     Train interface for classification finetuning task.
     """
 
-    def __init__(self, config, is_training, num_labels=2, dropout_prob=0.0, use_one_hot_embeddings=False,
-                 assessment_method="", model_type='bert'):
+    def __init__(self, config):
         super(BertCLS, self).__init__()
-        self.classifier = BertCLSModel(config, is_training, num_labels, dropout_prob, use_one_hot_embeddings,
-                                       assessment_method, model_type)
-        if num_labels == 1:
+        self.classifier = BertCLSModel(config)
+        if config.num_labels == 1:
             self.loss = MSELoss()
         else:
-            self.loss = CrossEntropyCalculation(is_training)
-        self.num_labels = num_labels
-        self.assessment_method = assessment_method
-        self.is_training = is_training
+            self.loss = CrossEntropyCalculation(config.is_training)
+        self.num_labels = config.num_labels
+        self.assessment_method = config.assessment_method
+        self.is_training = config.is_training
 
     def construct(self, input_ids, input_mask, token_type_id, label_ids):
         logits = self.classifier(input_ids, input_mask, token_type_id)
