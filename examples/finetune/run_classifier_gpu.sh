@@ -18,7 +18,7 @@ echo "==========================================================================
 echo "Please run the script as: "
 echo "bash scripts/run_classifier_gpu.sh DEVICE_ID"
 echo "DEVICE_ID is optional, default value is zero"
-echo "for example: bash scripts/run_classifier_gpu.sh DEVICE_ID 1"
+echo "for example: bash scripts/run_classifier_gpu.sh 0 MRPC"
 echo "assessment_method include: [MCC, Spearman_correlation ,Accuracy]"
 echo "=============================================================================================================="
 
@@ -34,7 +34,7 @@ CUR_DIR=`pwd`
 export GLOG_log_dir=${CUR_DIR}/ms_log
 export GLOG_logtostderr=0
 
-task=$2
+TASK=$2
 
 python -m tasks.nlp.text_classification.run_classifier  \
     --config="./transformer/configs/bert/task_classifier_config.yaml" \
@@ -55,10 +55,10 @@ python -m tasks.nlp.text_classification.run_classifier  \
     --train_batch_size=32 \
     --eval_batch_size=1 \
     --start_lr=5e-5 \
-    --save_finetune_checkpoint_path="./glue_ckpt/$task" \
+    --save_finetune_checkpoint_path="./glue_ckpt/$TASK" \
     --load_pretrain_checkpoint_path="./checkpoint/bertbase.ckpt" \
-    --load_finetune_checkpoint_path="./glue_ckpt/$task" \
-    --train_data_path="./glue_data/$task/train.tf_record" \
-    --eval_data_file_path="./glue_data/$task/eval.tf_record" \
-    --schema_file_path="" > $task.txt 2>&1 &
+    --load_finetune_checkpoint_path="./glue_ckpt/$TASK" \
+    --train_data_path="./glue_data/$TASK/train.tf_record" \
+    --eval_data_file_path="./glue_data/$TASK/eval.tf_record" \
+    --schema_file_path="" > $TASK.txt 2>&1 &
 

@@ -23,6 +23,32 @@ import mindspore.dataset as ds
 import mindspore.dataset.transforms as C
 
 
+def create_language_model_dataset(config):
+    """create dataset like language model task"""
+    device_num = config.dataset_device_num
+    rank = config.dataset_rank
+    batch_size = config.dataset_batch_size
+    data_dir = config.dataset_path
+    do_shuffle = config.dataset_do_shuffle
+    repeat_count = config.repeat_count
+    type_cast_op = C.TypeCast(mstype.int32)
+    data_set = ds.MindDataset([data_dir],
+                              columns_list=["input_ids", "input_mask", "label_ids"],
+                              shuffle=do_shuffle, num_shards=device_num, shard_id=rank)
+
+    data_set = data_set.map(operations=type_cast_op, input_columns="input_ids")
+    data_set = data_set.map(operations=type_cast_op, input_columns="input_mask")
+    data_set = data_set.map(operations=type_cast_op, input_columns="label_ids")
+    data_set = data_set.batch(batch_size, drop_remainder=True)
+    data_set = data_set.repeat(repeat_count)
+
+    print("dataset size: {}".format(data_set.get_dataset_size()))
+    print("repeat count: {}".format(data_set.get_repeat_count()))
+    print("output shape: {}".format(data_set.output_shapes()))
+    print("output type: {}".format(data_set.output_types()))
+    print("============== create dataset successful ===============")
+
+    return data_set
 
 def create_classification_dataset(config):
     """create finetune or evaluation dataset"""
@@ -39,14 +65,10 @@ def create_classification_dataset(config):
     if dataset_format == "mindrecord":
         data_set = ds.MindDataset([data_dir],
                                   columns_list=["input_ids", "input_mask", "segment_ids", "label_ids"],
-                                  shuffle=do_shuffle)
+                                  shuffle=do_shuffle, num_shards=device_num, shard_id=rank)
     elif dataset_format == "tfrecord":
-        files = os.listdir(data_dir)
-        data_files = []
-        for file_name in files:
-            if "tf_record" in file_name:
-                data_files.append(os.path.join(data_dir, file_name))
-        data_set = ds.TFRecordDataset(data_files, schema_dir if schema_dir != "" else None,
+
+        data_set = ds.TFRecordDataset(data_dir, schema_dir if schema_dir != "" else None,
                                       columns_list=["input_ids", "input_mask", "segment_ids", "label_ids"],
                                       shuffle=do_shuffle, num_shards=device_num, shard_id=rank, shard_equal_rows=True)
     else:
@@ -69,18 +91,32 @@ def generator_squad(data_features):
         yield (feature.input_ids, feature.input_mask, feature.segment_ids, feature.unique_id)
 
 
-def create_squad_dataset(batch_size=1, data_file_path=None, is_training=True, do_shuffle=True):
+def create_squad_dataset(config, is_training=True):
     """create finetune or evaluation dataset"""
+    dataset_format = config.dataset_format
+    device_num = config.dataset_device_num
+    rank = config.dataset_rank
+    batch_size = config.dataset_batch_size
+    data_dir = config.dataset_path
+    do_shuffle = config.dataset_do_shuffle
+    schema_dir = config.dataset_schema_dir
+
     type_cast_op = C.TypeCast(mstype.int32)
     if is_training:
-        data_set = ds.MindDataset([data_file_path],
-                                  columns_list=["input_ids", "input_mask", "segment_ids", "start_positions",
-                                                "end_positions", "unique_ids", "is_impossible"],
-                                  shuffle=do_shuffle)
-        data_set = data_set.map(operations=type_cast_op, input_columns="start_positions")
-        data_set = data_set.map(operations=type_cast_op, input_columns="end_positions")
+        if dataset_format == "mindrecord":
+            data_set = ds.MindDataset([data_dir],
+                                      columns_list=["input_ids", "input_mask", "segment_ids", "start_positions",
+                                                    "end_positions", "unique_ids", "is_impossible"],
+                                      shuffle=do_shuffle, num_shards=device_num, shard_id=rank)
+            data_set = data_set.map(operations=type_cast_op, input_columns="start_positions")
+            data_set = data_set.map(operations=type_cast_op, input_columns="end_positions")
+        elif dataset_format == "tfrecord":
+            data_set = ds.TFRecordDataset([data_dir], schema_dir if schema_dir != "" else None,
+                                          columns_list=["input_ids", "input_mask", "segment_ids", "start_positions",
+                                                        "end_positions", "unique_ids", "is_impossible"],
+                                          shuffle=do_shuffle, num_shards=device_num, shard_id=rank)
     else:
-        data_set = ds.GeneratorDataset(generator_squad(data_file_path), shuffle=do_shuffle,
+        data_set = ds.GeneratorDataset(generator_squad(data_dir), shuffle=do_shuffle,
                                        column_names=["input_ids", "input_mask", "segment_ids", "unique_ids"])
     data_set = data_set.map(operations=type_cast_op, input_columns="segment_ids")
     data_set = data_set.map(operations=type_cast_op, input_columns="input_mask")
@@ -89,6 +125,9 @@ def create_squad_dataset(batch_size=1, data_file_path=None, is_training=True, do
     # apply batch operations
     data_set = data_set.batch(batch_size, drop_remainder=True)
     return data_set
+
+
+
 
 
 def create_eval_dataset(batchsize=32, device_num=1, rank=0, data_dir=None, schema_dir=None):

@@ -18,7 +18,7 @@ Data operations.
 from transformer.utils import download_data
 
 from mindspore import context
-from .downstream_dataset import create_classification_dataset
+from .downstream_dataset import create_classification_dataset, create_squad_dataset, create_language_model_dataset
 from .gpt_dataset import create_gpt_dataset
 from .bert_dataset import create_bert_dataset
 from .t5_dataset import create_t5_dataset
@@ -74,10 +74,11 @@ def build_dataset(opt, rank_id, device_num, get_eval_dataset=False):
 
 
 def build_downstream_dataset(opt, rank_id, device_num, get_eval_dataset=False, dataset_format='tfrecord',
-                             batch_size=1, data_file_path='', do_shuffle="true"):
+                             schema_file_path=None, batch_size=1, data_file_path='', do_shuffle="true",
+                             task_name="classifier", is_training=True):
     """get dataset from local or obs"""
     url = data_file_path if not get_eval_dataset else opt.eval_data_path
-    if url.startswith == "s3://":
+    if is_training and url.startswith == "s3://":
         # copy data from the cloud to the /cache/Data
         cache_url = '/cache/Data/'
         opt.logger.info(f"Find the data url { url} startswith s3. Start to cache the data_path "
@@ -104,9 +105,15 @@ def build_downstream_dataset(opt, rank_id, device_num, get_eval_dataset=False, d
     opt.dataset_path = cache_url
     opt.dataset_drop_remainder = True
     opt.dataset_do_shuffle = do_shuffle
-    opt.dataset_schema_dir = None
+    opt.dataset_schema_dir = schema_file_path
     opt.dataset_bucket_list = None
+    opt.repeat_count = 1
 
-    ds = create_classification_dataset(opt)
+    if task_name == "classifier":
+        ds = create_classification_dataset(opt)
+    elif task_name == "squad":
+        ds = create_squad_dataset(opt, is_training=is_training)
+    elif task_name == "language_model":
+        ds = create_language_model_dataset(opt)
     opt.logger.info("End to build the dataset.")
     return ds

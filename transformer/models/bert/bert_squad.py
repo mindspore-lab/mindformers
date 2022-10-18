@@ -196,9 +196,6 @@ class BertSquad(nn.Cell):
         self.num_labels = num_labels
         self.seq_length = config.seq_length
         self.is_training = config.is_training
-        self.total_num = Parameter(Tensor([0], mstype.float32))
-        self.start_num = Parameter(Tensor([0], mstype.float32))
-        self.end_num = Parameter(Tensor([0], mstype.float32))
         self.sum = P.ReduceSum()
         self.equal = P.Equal()
         self.argmax = P.ArgMaxWithValue(axis=1)

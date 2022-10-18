@@ -16,49 +16,61 @@
 
 echo "=============================================================================================================="
 echo "Please run the script as: "
-echo "bash scripts/run_classifier_gpu.sh RANK_SIZE HOSTFILE TASK "
-echo "DEVICE_ID is optional, default value is zero"
-echo "for example: bash scripts/run_classifier_gpu.sh 8 hostfile MRPC"
-echo "assessment_method include: [MCC, Spearman_correlation ,Accuracy]"
+echo "bash examples/run_language_model.sh"
+echo "for example: bash examples/run_language_model_distributed.sh 8 hostfile"
+echo "metric method: PPL"
+echo "eval_type include: [zero-shot, finetuned]. Default: zero-shot"
 echo "=============================================================================================================="
 
-export GLOG_v=3
+CUR_DIR=`pwd`
 
 RANK_SIZE=$1
 HOSTFILE=$2
-TASK=$3
+
+
+# checkpoint path
+save_finetune_ckpt_path="./fine_ckpt/"
+load_pretrain_ckpt_path="./pretrain_ckpt/gpt2.ckpt"
+load_eval_ckpt_path="./fine_ckpt/"
+
+# dataset path
+train_data_path="./wikitext-2/train/train-mindrecord"
+eval_data_path="./wikitext-2/test/test-mindrecord"
+
+PROJECT_DIR=$(cd "$(dirname "$0")" || exit; pwd)
+export GLOG_log_dir=${CUR_DIR}/ms_log
+export GLOG_logtostderr=0
 export NCCL_IB_HCA=mlx5_
 
 mpirun --allow-run-as-root -n $RANK_SIZE --hostfile $HOSTFILE \
       --output-filename run_classifier \
       -x NCCL_IB_HCA -x PATH -x LD_LIBRARY_PATH -x PYTHONPATH -x NCCL_SOCKET_IFNAME -n $RANK_SIZE \
       --mca btl tcp,self --mca btl_tcp_if_include 10.90.43.0/24,enp177s0f0 --merge-stderr-to-stdout \
-python -m tasks.nlp.text_classification.run_classifier  \
-    --config="./transformer/configs/nezha/task_classifier_config.yaml" \
+python -m tasks.nlp.language_modeling.run_language_model  \
+    --config="transformer/configs/gpt/language_model.yaml" \
     --device_target="GPU" \
     --device_num=$RANK_SIZE \
+    --metric_method="PPL" \
     --do_train="true" \
     --do_eval="true" \
-    --assessment_method="accuracy" \
-    --parallel_mode="data_parallel" \
+    --eval_type="finetuned" \
     --epoch_num=3 \
-    --num_class=16 \
-    --vocab_size=21128 \
-    --embedding_size=768 \
-    --num_layers=12 \
-    --num_heads=12 \
-    --seq_length=128 \
     --train_data_shuffle="true" \
     --eval_data_shuffle="false" \
+    --optimizer="adam"  \
+    --seq_length=1024 \
+    --parallel_mode="data_parallel" \
     --data_parallel=8 \
     --model_parallel=1 \
-    --compute_dtype=fp16 \
-    --train_batch_size=16 \
-    --eval_batch_size=16 \
-    --start_lr=6e-5 \
-    --save_finetune_checkpoint_path="./glue_ckpt/$TASK" \
-    --load_pretrain_checkpoint_path="./checkpoint/nezhabase.ckpt" \
-    --load_finetune_checkpoint_path="./glue_ckpt/$TASK" \
-    --train_data_path="./glue_data/$TASK/train.tf_record" \
-    --eval_data_file_path="./glue_data/$TASK/eval.tf_record" \
-    --schema_file_path="" > $TASK.txt 2>&1 &
+    --train_batch_size=8 \
+    --eval_batch_size=8 \
+    --vocab_size=50257 \
+    --hidden_size=768 \
+    --num_layers=12 \
+    --num_heads=12 \
+    --start_lr=2e-4 \
+    --save_finetune_ckpt_path=$save_finetune_ckpt_path \
+    --load_pretrain_ckpt_path=$load_pretrain_ckpt_path \
+    --load_finetune_ckpt_path=$load_eval_ckpt_path \
+    --train_data_path=$train_data_path \
+    --eval_data_path=$eval_data_path > language_log.txt 2>&1 &
