@@ -204,7 +204,7 @@ class BertSquad(nn.Cell):
     def construct(self, input_ids, input_mask, token_type_id, start_position, end_position, unique_id, is_impossible):
         """interface for SQuAD finetuning task"""
         logits = self.bert(input_ids, input_mask, token_type_id)
-        print("is_impossible:", is_impossible)
+        self.is_impossible = is_impossible
         if self.is_training:
             unstacked_logits_0 = self.squeeze(logits[:, :, 0:1])
             unstacked_logits_1 = self.squeeze(logits[:, :, 1:2])

@@ -192,6 +192,7 @@ class BertCLS(nn.Cell):
     Train interface for classification finetuning task.
     """
 
+
     def __init__(self, config):
         super(BertCLS, self).__init__()
         self.classifier = BertCLSModel(config)

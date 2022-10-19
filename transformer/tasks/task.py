@@ -35,7 +35,6 @@ class TaskConfig(TrainingConfig):
         self.global_batch_size = 1
         self.checkpoint_prefix = ""
 
-
 class Task(Trainer):
     """
     Task
@@ -43,7 +42,7 @@ class Task(Trainer):
 
     def build_model(self, model_config):
         """build model"""
-        network = AutoClass.get_network_class(self.config.auto_model)
+        network = AutoClass.get_network_with_loss_class(self.config.auto_model)
         if network is not None:
             return network(model_config)
         raise ValueError("invalid auto_model %s." % self.config.auto_model)

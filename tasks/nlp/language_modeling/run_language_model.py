@@ -28,7 +28,7 @@ from mindspore.nn.wrap.loss_scale import DynamicLossScaleUpdateCell
 from mindspore.train.callback import CheckpointConfig, ModelCheckpoint, TimeMonitor
 from mindspore.train.model import Model
 from mindspore.train.serialization import load_checkpoint, load_param_into_net
-from tasks.nlp.language_modeling.src.gpt2_for_finetune import GPT2FinetuneCell, GPT2LM
+from transformer.models.gpt.gpt_lm import GPT2FinetuneCell, GPT2LM
 from transformer.build_parallel_config import build_parallel_config
 from transformer.data import build_downstream_dataset
 from transformer.learning_rate import build_lr
@@ -188,9 +188,8 @@ def do_eval(model_config, dataset=None, network=None, metric=None, load_checkpoi
 
     if metric.lower() == "ppl":
         print("Prepare to calculate the ppl score ...")
-        gpt2_loss = network(config=model_config,
-                            is_training=False,
-                            use_one_hot_embeddings=False)
+        model_config.is_training = False
+        gpt2_loss = network(config=model_config)
 
         gpt2_loss.set_train(False)
         param_dict = load_checkpoint(load_checkpoint_path)
@@ -269,8 +268,8 @@ def run_languagemodel(args_opt):
         context.set_context(enable_graph_kernel=True)
     else:
         raise Exception("Target error, GPU or Ascend is supported.")
-
-    gpt2_loss = GPT2LM(model_config, is_training=True)
+    model_config.is_training = True
+    gpt2_loss = GPT2LM(model_config)
 
     if args_opt.do_train.lower() == "true":
         print("====================    Start Loading Train Dataset   ==================")
