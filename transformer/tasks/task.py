@@ -46,7 +46,7 @@ class Task(Trainer):
         network = AutoClass.get_network_class(self.config.auto_model)
         if network is not None:
             return network(model_config)
-        raise ValueError(f"invalid auto_model {self.config.auto_model}.")
+        raise ValueError("invalid auto_model %s." % self.config.auto_model)
 
     def preprocess(self):
         """task preprocess"""

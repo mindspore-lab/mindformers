@@ -29,27 +29,26 @@ class BertCLSModel(nn.Cell):
     logits as the results of log_softmax is proportional to that of softmax.
     """
 
-    def __init__(self, config, is_training, num_labels=2, dropout_prob=0.0, use_one_hot_embeddings=False,
-                 assessment_method="", model_type='bert'):
+    def __init__(self, config):
         super(BertCLSModel, self).__init__()
-        if not is_training:
+        if not config.is_training:
             config.hidden_dropout_prob = 0.0
             config.hidden_probs_dropout_prob = 0.0
-        if model_type == 'bert':
+        if config.model_type == 'bert':
             print("finetunine bert")
-            self.model = BertModel(config, is_training, use_one_hot_embeddings)
-        elif model_type == 'nezha':
+            self.model = BertModel(config, config.is_training, config.use_one_hot_embeddings)
+        elif config.model_type == 'nezha':
             print("finetunine nezha")
-            self.model = NezhaModel(config, is_training, use_one_hot_embeddings=True)
+            self.model = NezhaModel(config, config.is_training, use_one_hot_embeddings=True)
         self.cast = P.Cast()
         self.weight_init = TruncatedNormal(config.initializer_range)
         self.log_softmax = P.LogSoftmax(axis=-1)
         self.dtype = config.dtype
-        self.num_labels = num_labels
+        self.num_labels = config.num_labels
         self.dense_1 = nn.Dense(config.embedding_size, self.num_labels, weight_init=self.weight_init,
                                 has_bias=True).to_float(config.compute_dtype)
-        self.dropout = nn.Dropout(1 - dropout_prob)
-        self.assessment_method = assessment_method
+        self.dropout = nn.Dropout(1 - config.dropout_prob)
+        self.assessment_method = config.assessment_method
 
     def construct(self, input_ids, input_mask, token_type_id):
         _, pooled_output, _ = self.model(input_ids, token_type_id, input_mask)

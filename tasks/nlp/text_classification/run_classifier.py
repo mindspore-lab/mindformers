@@ -175,25 +175,25 @@ def eval_result_print(assessment_method="accuracy", callback=None):
         raise ValueError("Assessment method not supported, support: [accuracy, f1, mcc, spearman_correlation]")
 
 
-def do_eval(dataset=None, network=None, num_class=2, assessment_method="accuracy", load_checkpoint_path="",
-            model_config=None, model_type='bert'):
+def do_eval(dataset=None, network=None, load_checkpoint_path="", model_config=None):
     """ do eval """
     if load_checkpoint_path == "":
         raise ValueError("Finetune model missed, evaluation task must load finetune model!")
-    net_for_pretraining = network(model_config, False, num_class, assessment_method=assessment_method,
-                                  model_type=model_type)
+
+    model_config.is_training = False
+    net_for_pretraining = network(model_config)
     net_for_pretraining.set_train(False)
     param_dict = load_checkpoint(load_checkpoint_path)
     load_param_into_net(net_for_pretraining, param_dict)
     model = Model(net_for_pretraining)
 
-    if assessment_method == "accuracy":
+    if model_config.assessment_method == "accuracy":
         callback = Accuracy()
-    elif assessment_method == "f1":
-        callback = F1(False, num_class)
-    elif assessment_method == "mcc":
+    elif model_config.assessment_method == "f1":
+        callback = F1(False, model_config.num_class)
+    elif model_config.assessment_method == "mcc":
         callback = MCC()
-    elif assessment_method == "spearman_correlation":
+    elif model_config.assessment_method == "spearman_correlation":
         callback = SpearmanCorrelation()
     else:
         raise ValueError("Assessment method not supported, support: [accuracy, f1, mcc, spearman_correlation]")
@@ -207,7 +207,7 @@ def do_eval(dataset=None, network=None, num_class=2, assessment_method="accuracy
         logits = model.predict(input_ids, input_mask, token_type_id, label_ids)
         callback.update(logits, label_ids)
     print("==============================================================")
-    eval_result_print(assessment_method, callback)
+    eval_result_print(model_config.assessment_method, callback)
     print("==============================================================")
 
 
@@ -241,8 +241,15 @@ def run_classifier(args_opt):
     else:
         raise Exception("Target error, GPU or Ascend is supported.")
     print("model is", args_opt.arch)
-    netwithloss = BertCLS(model_config, True, num_labels=args_opt.num_class, dropout_prob=0.1,
-                          assessment_method=assessment_method, model_type=args_opt.arch)
+
+    model_config.is_training = True
+    model_config.num_labels = args_opt.num_class
+    model_config.dropout_prob = 0.1
+    model_config.use_one_hot_embeddings = False
+    model_config.assessment_method = assessment_method
+    model_config.model_type = args_opt.arch
+
+    netwithloss = BertCLS(model_config)
 
     if args_opt.do_train.lower() == "true":
         ds = build_downstream_dataset(args_opt, rank_id, device_num, batch_size=args_opt.model['train_batch_size'],
@@ -265,8 +272,7 @@ def run_classifier(args_opt):
                                       do_shuffle=(args_opt.eval_data_shuffle.lower() == "true"))
 
         model_config.batch_size = args_opt.model['eval_batch_size']
-        do_eval(ds, BertCLS, args_opt.num_class, assessment_method, load_finetune_checkpoint_path,
-                model_config, model_type=args_opt.arch)
+        do_eval(ds, BertCLS, load_finetune_checkpoint_path, model_config)
 
 
 if __name__ == "__main__":

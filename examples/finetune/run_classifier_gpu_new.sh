@@ -36,29 +36,48 @@ export GLOG_logtostderr=0
 
 TASK=$2
 
-python -m tasks.nlp.text_classification.run_classifier  \
-    --config="./transformer/configs/bert/task_classifier_config.yaml" \
+python -m transformer/trainer/trainer.py  \
+    --auto_model="bert_glue" \
     --device_target="GPU" \
-    --do_train="true" \
-    --do_eval="true" \
     --assessment_method="Accuracy" \
     --parallel_mode="stand_alone" \
     --epoch_num=3 \
-    --num_class=2 \
+    --num_labels=2 \
     --vocab_size=30522 \
     --embedding_size=768 \
     --num_layers=12 \
     --num_heads=12 \
     --seq_length=128 \
+    --use_one_hot_embeddings=False \
+    --model_type="bert" \
+    --dropout_prob=0.1 \
     --train_data_shuffle="true" \
-    --eval_data_shuffle="false" \
     --train_batch_size=32 \
-    --eval_batch_size=1 \
     --start_lr=5e-5 \
-    --save_finetune_checkpoint_path="./glue_ckpt/$TASK" \
-    --load_pretrain_checkpoint_path="./checkpoint/bertbase.ckpt" \
-    --load_finetune_checkpoint_path="./glue_ckpt/$TASK" \
-    --train_data_path="./glue_data/$TASK/train.tf_record" \
-    --eval_data_path="./glue_data/$TASK/eval.tf_record" \
-    --schema_file_path="" > $TASK.txt 2>&1 &
+    --save_checkpoint_path="./glue_ckpt/$TASK" \
+    --load_checkpoint_path="./checkpoint/bertbase.ckpt" \
+    --train_data_path="./glue_data/$TASK/train.tf_record"
+
+python transformer/tasks/text_classification.py \
+    --auto_model="bert_glue" \
+    --device_target="GPU" \
+    --assessment_method="Accuracy" \
+    --parallel_mode="stand_alone" \
+    --epoch_num=3 \
+    --num_labels=2 \
+    --vocab_size=30522 \
+    --embedding_size=768 \
+    --num_layers=12 \
+    --num_heads=12 \
+    --seq_length=128 \
+    --use_one_hot_embeddings=False \
+    --model_type="bert" \
+    --dropout_prob=0.1 \
+    --eval_data_shuffle="false" \
+    --eval_batch_size=1 \
+    --load_checkpoint_path="./glue_ckpt/$TASK" \
+    --eval_data_path="./glue_data/$TASK/eval.tf_record"
+
+
+
 
