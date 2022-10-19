@@ -139,11 +139,12 @@ class TrainingConfig:
     rank_id: int = 0
     device_num: int = 1
     get_eval_dataset: bool = False
+    eval_batch_size: int = 1
     eval_data_path: str = ""
     dataset_format: str = "mindrecord"
 
     load_checkpoint_path: str = ""
-    save_checkpoint_path: str = "./ckpt"
+    save_checkpoint_path: str = ""
     checkpoint_prefix: str = "tmp"
 
     compute_dtype: mstype = mstype.float16
@@ -155,6 +156,10 @@ class TrainingConfig:
     dataset_drop_remainder: bool = True
     dataset_do_shuffle: bool = True
     dataset_schema_file_path: str = ""
+    dataset_device_num: int = 1
+    dataset_rank: int = 0
+    dataset_schema_dir: str = ""
+    dataset_bucket_list: str = None
 
     # speed_up:
     micro_batch_interleaved_num: int = 1
@@ -564,7 +569,10 @@ def parse_config(config):
         parser.add_argument(k)
     cli = parser.parse_args(unknown)
     for k, v in cli.__dict__.items():
-        setattr(config, k, v)
+        if hasattr(config, k) and isinstance(v, str):
+            setattr(config, k, type(getattr(config, k))(v))
+        else:
+            setattr(config, k, v)
     print("Training Arguments are as follows:")
     print(json.dumps({k: str(v) for k, v in config.__dict__.items()}, indent=4))
     print("set seed:", config.seed)

@@ -35,6 +35,11 @@ class BertConfig:
     """
     BERT config class which defines the model size
     """
+    model_type: str = "bert"
+    use_one_hot_embeddings: bool = False
+    num_labels: int = 1
+    assessment_method: str = ""
+    dropout_prob: float = 0.1
     batch_size: int = 16
     seq_length: int = 128
     vocab_size: int = 30522

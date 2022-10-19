@@ -35,7 +35,6 @@ class TextClassificationTask(Task):
         self.config.dataset_batch_size = self.config.eval_batch_size
         self.config.dataset_do_shuffle = self.config.eval_data_shuffle
         self.config.is_training = False
-        self.config.dataset_format = "mindrecord"
         ds = create_classification_dataset(self.config)
         return ds
 
