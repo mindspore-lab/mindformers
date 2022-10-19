@@ -298,9 +298,13 @@ class Trainer:
                                                                self.config.checkpoint_prefix)
 
         if self.config.load_checkpoint_path != "":
-            self.logger.info("Start to load the ckpt from %s", self.config.load_checkpoint_path)
-            ckpt = load_checkpoint(self.config.load_checkpoint_path)
-            load_param_into_net(net_with_loss, ckpt)
+            if self.config.load_checkpoint_path.endswith('.ckpt'):
+                self.logger.info("Start to load the ckpt from %s", self.config.load_checkpoint_path)
+            else:
+                self.config.load_checkpoint_path = get_newest_ckpt(self.config.load_checkpoint_path,
+                                                                   self.config.checkpoint_prefix)
+        ckpt = load_checkpoint(self.config.load_checkpoint_path)
+        load_param_into_net(net_with_loss, ckpt)
 
     def optimize_net_for_traning(self, net_with_loss):
         """optimize net"""
@@ -393,6 +397,7 @@ class Trainer:
         self.config.dataset_path = self.config.data_path
         self.config.dataset_schema_dir = None
         self.config.dataset_bucket_list = None
+
         ds = self.build_dataset()
         return ds
 
@@ -480,10 +485,12 @@ class Trainer:
         model_config = self.check_and_build_model_config()
         parallel_config = self.build_parallel_config()
         model_config.parallel_config = parallel_config
+
         net_with_loss = self.build_model(model_config)
         self.logger.info("Build model finished")
 
         # load checkpoint
+        self.config.is_train = True
         self.load_checkpoint(net_with_loss)
 
         # optimize net

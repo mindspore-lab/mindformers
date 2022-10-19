@@ -105,6 +105,7 @@ if __name__ == "__main__":
     config.vocab_file_path = "./vocab.txt"
     config.load_pretrain_checkpoint_path = "./checkpoint/bert_base1.ckpt"
     config.load_finetune_checkpoint_path = "./squad_ckpt"
+    config.checkpoint_prefix = 'squad'
     config.eval_json_path = "./squad_data/dev-v1.1.json"
 
     config.vocab_size = 30522

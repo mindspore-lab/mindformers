@@ -179,9 +179,9 @@ def do_eval(dataset=None, network=None, load_checkpoint_path="", model_config=No
     """ do eval """
     if load_checkpoint_path == "":
         raise ValueError("Finetune model missed, evaluation task must load finetune model!")
-
     model_config.is_training = False
     net_for_pretraining = network(model_config)
+
     net_for_pretraining.set_train(False)
     param_dict = load_checkpoint(load_checkpoint_path)
     load_param_into_net(net_for_pretraining, param_dict)

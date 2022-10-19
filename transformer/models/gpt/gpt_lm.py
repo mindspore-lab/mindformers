@@ -170,9 +170,10 @@ class GPT2LM(nn.Cell):
         use_one_hot_embeddings (bool): whether to use onehot embeddings.
     """
 
-    def __init__(self, config=None, is_training=True, is_lmloss=True):
+    def __init__(self, config=None):
         super(GPT2LM, self).__init__()
-        self.gpt2 = GPT2LanguageModel(config, is_training)
+        is_lmloss = config.is_lmloss
+        self.gpt2 = GPT2LanguageModel(config, config.is_training)
         self.num_labels = config.vocab_size
         self.loss = CrossEntropyCalculationWithMask(is_lmloss=is_lmloss,
                                                     num_labels=self.num_labels,

@@ -27,13 +27,14 @@ from transformer.data.bert_dataset import create_bert_dataset
 from transformer.data.downstream_dataset import create_squad_dataset, create_classification_dataset, create_language_model_dataset
 from transformer.data.t5_dataset import create_t5_dataset
 from transformer.data.wiki_dataset import create_wiki_dataset
-
 from transformer.models.bert.bert_squad import BertSquad
 from transformer.models.bert.bert_glue import BertCLS
+from transformer.models.gpt.gpt_lm import GPT2LM, GPT2LanguageModel
 
 CONFIG_MAPPING = OrderedDict(
     [
         ('gpt', GPTConfig),
+        ('gpt_language_model', GPTConfig),
         ('bert', BertConfig),
         ('bert_squad', BertConfig),
         ('bert_glue', BertConfig),
@@ -46,6 +47,7 @@ CONFIG_MAPPING = OrderedDict(
 NETWORK_MAPPING = OrderedDict(
     [
         ('gpt', GPT),
+        ('gpt_language_model', GPT2LanguageModel),
         ('bert', BertPreTraining),
         ('bert_squad', BertSquad),
         ('bert_glue', BertCLS),
@@ -58,6 +60,7 @@ NETWORK_MAPPING = OrderedDict(
 NETWORK_WITH_LOSS_MAPPING = OrderedDict(
     [
         ('gpt', GPTWithLoss),
+        ('gpt_language_model', GPT2LM),
         ('bert', BertNetworkWithLoss),
         ('bert_squad', BertSquad),
         ('bert_glue', BertCLS),
@@ -89,6 +92,7 @@ class AutoClass:
     @staticmethod
     def get_config_class(model_key):
         """get config class"""
+        print("CONFIG_MAPPING.keys:", CONFIG_MAPPING.keys())
         if model_key in CONFIG_MAPPING.keys():
             return CONFIG_MAPPING[model_key]
         return None
@@ -104,6 +108,7 @@ class AutoClass:
     def get_network_with_loss_class(model_key):
         """get net with loss class"""
         if model_key in NETWORK_WITH_LOSS_MAPPING.keys():
+
             return NETWORK_WITH_LOSS_MAPPING[model_key]
         return None
 

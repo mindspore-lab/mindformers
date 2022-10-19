@@ -23,35 +23,43 @@ echo "==========================================================================
 
 mkdir -p ms_log
 CUR_DIR=`pwd`
+save_finetune_ckpt_path="./fine_ckpt/"
+load_pretrain_ckpt_path="./pretrain_ckpt/gpt2.ckpt"
+load_eval_ckpt_path="./fine_ckpt/"
+
+# dataset path
+train_data_path="./wikitext-2/train/train-mindrecord"
+eval_data_path="./wikitext-2/test/test-mindrecord"
+
 export GLOG_log_dir=${CUR_DIR}/ms_log
 export GLOG_logtostderr=0
-
-python transformer/trainer/trainer.py  \
-    --auto_model="bert_squad" \
+python -m transformer.models.gpt.gpt_lm_trainer  \
     --device_target="GPU" \
     --device_id=0 \
-    --epoch_num=3 \
-    --num_class=2 \
-    --vocab_size=30522 \
-    --embedding_size=768 \
-    --num_layers=12 \
-    --num_heads=12 \
-    --seq_length=384 \
-    --max_position_embeddings=512 \
+    --metric_method="PPL" \
+    --do_train="true" \
+    --do_eval="true" \
+    --eval_type="finetuned" \
+    --epoch_num=1 \
     --train_data_shuffle="true" \
     --eval_data_shuffle="false" \
-    --train_batch_size=2 \
-    --eval_batch_size=1 \
-    --vocab_file_path="./vocab.txt" \
-    --save_checkpoint_path="./squad_ckpt" \
-    --load_checkpoint_path="./checkpoint/bert_base1.ckpt" \
-    --train_data_path="./squad_data/train.mindrecord"
+    --optimizer="adam"  \
+    --seq_length=1024 \
+    --parallel_mode="stand_alone" \
+    --train_batch_size=8 \
+    --eval_batch_size=8 \
+    --vocab_size=50257 \
+    --hidden_size=768 \
+    --num_layers=12 \
+    --num_heads=12 \
+    --start_lr=2e-4 \
+    --save_finetune_ckpt_path=$save_finetune_ckpt_path \
+    --load_checkpoint_path=$load_pretrain_ckpt_path \
+    --train_data_path=$train_data_path
+     > wsn.txt 2>&1 &
 
-python -m transformer.tasks.question_answering \
-    --auto_model="bert_squad" \
-    --eval_json_path="/ms_test0/mindspore_dataset/downstream/squad/dev-v1.1.json" \
-    --load_checkpoint_path="/home/jenkins/wangshengnan/latest/transformer/squad_ckpt" \
-    --vocab_file_path="/home/jenkins/wangshengnan/latest/transformer/vocab.txt" \
-    --embedding_size=1024 \
-    --num_layers=24 \
-    --num_heads=16 \
+python -m transformer.tasks.language_modeling \
+    --auto_model="gpt_language_model" \
+    --eval_data_path=$eval_data_path \
+    --load_checkpoint_path=$load_eval_ckpt_path \
+    --hidden_size=768 \
