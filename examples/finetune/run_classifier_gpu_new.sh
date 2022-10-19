@@ -36,10 +36,11 @@ export GLOG_logtostderr=0
 
 TASK=$2
 
-python -m transformer/trainer/trainer.py  \
+python -m transformer.trainer.trainer  \
     --auto_model="bert_glue" \
     --device_target="GPU" \
-    --assessment_method="Accuracy" \
+    --dataset_format="tfrecord" \
+    --assessment_method="accuracy" \
     --parallel_mode="stand_alone" \
     --epoch_num=3 \
     --num_labels=2 \
@@ -58,10 +59,11 @@ python -m transformer/trainer/trainer.py  \
     --load_checkpoint_path="./checkpoint/bertbase.ckpt" \
     --train_data_path="./glue_data/$TASK/train.tf_record"
 
-python transformer/tasks/text_classification.py \
+python transformer.tasks.text_classification \
     --auto_model="bert_glue" \
     --device_target="GPU" \
-    --assessment_method="Accuracy" \
+    --dataset_format="tfrecord" \
+    --assessment_method="accuracy" \
     --parallel_mode="stand_alone" \
     --epoch_num=3 \
     --num_labels=2 \

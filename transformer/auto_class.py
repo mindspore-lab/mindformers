@@ -28,8 +28,8 @@ from transformer.data.downstream_dataset import create_squad_dataset, create_cla
 from transformer.data.t5_dataset import create_t5_dataset
 from transformer.data.wiki_dataset import create_wiki_dataset
 
-from transformer.models.bert.bert_squad import BertSquad, BertSquadModel
-from transformer.models.bert.bert_glue import BertCLS, BertCLSModel
+from transformer.models.bert.bert_squad import BertSquad
+from transformer.models.bert.bert_glue import BertCLS
 
 CONFIG_MAPPING = OrderedDict(
     [
@@ -47,8 +47,8 @@ NETWORK_MAPPING = OrderedDict(
     [
         ('gpt', GPT),
         ('bert', BertPreTraining),
-        ('bert_squad', BertSquadModel),
-        ('bert_glue', BertCLSModel),
+        ('bert_squad', BertSquad),
+        ('bert_glue', BertCLS),
         ('t5', TransformerModel),
         ('vit', None),
         ('opt', OPT),

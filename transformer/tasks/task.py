@@ -28,12 +28,12 @@ class TaskConfig(TrainingConfig):
     def __init__(self, *args, **kwargs):
         super(TaskConfig, self).__init__(*args, **kwargs)
         self.epoch_size = 1
-        self.train_data_path = ""
+        self.eval_data_shuffle = False
         self.is_training = False
         self.parallel_mode = "stand_alone"
         self.full_batch = False
-        self.global_batch_size = 4
-        self.checkpoint_prefix = "gpt"
+        self.global_batch_size = 1
+        self.checkpoint_prefix = ""
 
 
 class Task(Trainer):
@@ -77,7 +77,7 @@ class Task(Trainer):
         parallel_config = self.build_parallel_config()
         model_config.parallel_config = parallel_config
         model_config.batch_size = self.config.eval_batch_size
-        model_config.is_training = self.config.is_training
+        model_config.is_training = False
         net = self.build_model(model_config)
         net.set_train(False)
 
