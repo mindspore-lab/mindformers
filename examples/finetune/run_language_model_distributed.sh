@@ -46,31 +46,36 @@ mpirun --allow-run-as-root -n $RANK_SIZE --hostfile $HOSTFILE \
       --output-filename run_classifier \
       -x NCCL_IB_HCA -x PATH -x LD_LIBRARY_PATH -x PYTHONPATH -x NCCL_SOCKET_IFNAME -n $RANK_SIZE \
       --mca btl tcp,self --mca btl_tcp_if_include 10.90.43.0/24,enp177s0f0 --merge-stderr-to-stdout \
-python -m tasks.nlp.language_modeling.run_language_model  \
-    --config="transformer/configs/gpt/language_model.yaml" \
+python -m transformer.models.gpt.gpt_lm_trainer  \
     --device_target="GPU" \
     --device_num=$RANK_SIZE \
     --metric_method="PPL" \
     --do_train="true" \
-    --do_eval="true" \
     --eval_type="finetuned" \
-    --epoch_num=3 \
+    --epoch_size=3 \
     --train_data_shuffle="true" \
     --eval_data_shuffle="false" \
     --optimizer="adam"  \
     --seq_length=1024 \
     --parallel_mode="data_parallel" \
+    --full_batch=False \
     --data_parallel=8 \
     --model_parallel=1 \
-    --train_batch_size=8 \
-    --eval_batch_size=8 \
+    --global_batch_size=16 \
     --vocab_size=50257 \
     --hidden_size=768 \
     --num_layers=12 \
     --num_heads=12 \
     --start_lr=2e-4 \
-    --save_finetune_ckpt_path=$save_finetune_ckpt_path \
-    --load_pretrain_ckpt_path=$load_pretrain_ckpt_path \
-    --load_finetune_ckpt_path=$load_eval_ckpt_path \
+    --save_checkpoint_path=$save_finetune_ckpt_path \
+    --load_checkpoint_path=$load_pretrain_ckpt_path \
+    --checkpoint_prefix='language_model' \
     --train_data_path=$train_data_path \
-    --eval_data_path=$eval_data_path > language_log.txt 2>&1 &
+
+python -m transformer.tasks.language_modeling \
+    --auto_model="gpt_language_model" \
+    --eval_data_path=$eval_data_path \
+    --load_checkpoint_path=$load_eval_ckpt_path \
+    --hidden_size=768 \
+    --num_layers=12 \
+    --num_heads=12 \

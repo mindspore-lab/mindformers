@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-"""QATask"""
+"""LMTask"""
 import math
 from transformer.tasks import Task, TaskConfig
 from transformer.trainer import parse_config
@@ -81,8 +81,6 @@ if __name__ == "__main__":
     config.eval_data_shuffle = False
     config.eval_batch_size = 1
     config.eval_data_path = './test-mindrecord'
-    config.load_pretrain_checkpoint_path = "./checkpoint/bert_base1.ckpt"
-    config.load_finetune_checkpoint_path = "./lm_ckpt"
     config.checkpoint_prefix = 'gpt2_language_model'
 
     config.vocab_size = 50257
@@ -92,8 +90,6 @@ if __name__ == "__main__":
     config.seq_length = 1024
     config.max_position_embeddings = 1024
     config.metric = 'ppl'
-    config.is_train = True
-
     parse_config(config)
     trainer = LMTask(config)
     trainer.run()

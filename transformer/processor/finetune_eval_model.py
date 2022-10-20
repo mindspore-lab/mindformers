@@ -36,10 +36,11 @@ class BertCLSModel(nn.Cell):
             config.hidden_probs_dropout_prob = 0.0
         if config.model_type == 'bert':
             print("finetunine bert")
-            self.model = BertModel(config, config.is_training, config.use_one_hot_embeddings)
+            self.bert = BertModel(config, config.is_training, config.use_one_hot_embeddings)
         elif config.model_type == 'nezha':
             print("finetunine nezha")
-            self.model = NezhaModel(config, config.is_training, use_one_hot_embeddings=True)
+            self.nezha = NezhaModel(config, config.is_training, use_one_hot_embeddings=True)
+        self.model_type = config.model_type
         self.cast = P.Cast()
         self.weight_init = TruncatedNormal(config.initializer_range)
         self.log_softmax = P.LogSoftmax(axis=-1)
@@ -51,7 +52,11 @@ class BertCLSModel(nn.Cell):
         self.assessment_method = config.assessment_method
 
     def construct(self, input_ids, input_mask, token_type_id):
-        _, pooled_output, _ = self.model(input_ids, token_type_id, input_mask)
+        "Finetuning BERT model on classification tasks"
+        if self.model_type == 'bert':
+            _, pooled_output, _ = self.bert(input_ids, token_type_id, input_mask)
+        else:
+            _, pooled_output, _ = self.nezha(input_ids, token_type_id, input_mask)
         cls = self.cast(pooled_output, self.dtype)
         cls = self.dropout(cls)
         logits = self.dense_1(cls)

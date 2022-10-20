@@ -91,7 +91,7 @@ def generator_squad(data_features):
         yield (feature.input_ids, feature.input_mask, feature.segment_ids, feature.unique_id)
 
 
-def create_squad_dataset(config, is_training=True):
+def create_squad_dataset(config):
     """create finetune or evaluation dataset"""
     dataset_format = config.dataset_format
     device_num = config.dataset_device_num
@@ -100,6 +100,7 @@ def create_squad_dataset(config, is_training=True):
     data_dir = config.dataset_path
     do_shuffle = config.dataset_do_shuffle
     schema_dir = config.dataset_schema_dir
+    is_training = config.is_training
 
     type_cast_op = C.TypeCast(mstype.int32)
     if is_training:

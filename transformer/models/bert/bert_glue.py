@@ -195,7 +195,7 @@ class BertCLS(nn.Cell):
 
     def __init__(self, config):
         super(BertCLS, self).__init__()
-        self.classifier = BertCLSModel(config)
+        self.bert = BertCLSModel(config)
         if config.num_labels == 1:
             self.loss = MSELoss()
         else:
@@ -205,7 +205,7 @@ class BertCLS(nn.Cell):
         self.is_training = config.is_training
 
     def construct(self, input_ids, input_mask, token_type_id, label_ids):
-        logits = self.classifier(input_ids, input_mask, token_type_id)
+        logits = self.bert(input_ids, input_mask, token_type_id)
         if self.assessment_method == "spearman_correlation":
             if self.is_training:
                 loss = self.loss(logits, label_ids)

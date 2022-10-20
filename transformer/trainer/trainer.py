@@ -44,10 +44,11 @@ from transformer.utils import print_model_size, get_newest_ckpt, download_data
 from transformer.trainer.grad_accu_model import AccModel
 from transformer.learning_rate import LearningRate
 from transformer.modules import override_attention
-from transformer.callback import LossCallBack
+# from transformer.callback import LossCallBack
+from transformer.models.bert.utils import LossCallBack
 from transformer.logger import get_logger
 from transformer.predict import generate_words, get_acc
-
+from transformer.utils import _mapper_string_to_bool
 from transformer.trainer.grad_accu_trainer import TrainAccuStepsWithLossScaleCell
 
 
@@ -129,7 +130,7 @@ class TrainingConfig:
     epoch_size: int = 1
     start_lr: float = 1e-4
     end_lr: float = 1e-5
-    warmup_step: int = 1000
+    warmup_step: int = 0
     opt_offload: bool = False
     sink_size: int = 10
     init_loss_scale_value: float = 4294967296
@@ -303,8 +304,10 @@ class Trainer:
             else:
                 self.config.load_checkpoint_path = get_newest_ckpt(self.config.load_checkpoint_path,
                                                                    self.config.checkpoint_prefix)
-        ckpt = load_checkpoint(self.config.load_checkpoint_path)
-        load_param_into_net(net_with_loss, ckpt)
+            ckpt = load_checkpoint(self.config.load_checkpoint_path)
+            load_param_into_net(net_with_loss, ckpt)
+        else:
+            self.logger.info("training from scratch")
 
     def optimize_net_for_traning(self, net_with_loss):
         """optimize net"""
@@ -321,14 +324,16 @@ class Trainer:
 
     def build_callback(self):
         """build training callback"""
-        callback = [TimeMonitor(self.config.callback_step), LossCallBack(self.config.callback_step)]
-
+        # callback = [TimeMonitor(self.config.callback_step), LossCallBack(self.config.callback_step)]
+        callback = [TimeMonitor(self.config.step_per_epoch), LossCallBack(self.config.step_per_epoch)]
         self.logger.info(
             "Enable the checkpoint saving each %d steps. Integrated Save is False", self.config.step_per_epoch)
         config_ck = CheckpointConfig(save_checkpoint_steps=self.config.step_per_epoch,
                                      integrated_save=False,
                                      keep_checkpoint_max=1)
-        ckpoint_cb = ModelCheckpoint(prefix=self.config.checkpoint_prefix,
+        ckpt_prefix = self.config.checkpoint_prefix if self.config.checkpoint_prefix \
+            is not None else self.config.auto_model
+        ckpoint_cb = ModelCheckpoint(prefix=ckpt_prefix,
                                      directory=self.config.save_checkpoint_path + './ckpt_%d' % self.config.rank_id,
                                      config=config_ck)
         callback.append(ckpoint_cb)
@@ -426,7 +431,7 @@ class Trainer:
                     setattr(model_config, k, type(getattr(model_config, k))(v))
                 else:
                     setattr(model_config, k, v)
-        model_config.is_training = True
+
         model_config.compute_dtype = self.config.compute_dtype
         model_config.batch_size = data_dp * self.config.global_batch_size // self.config.micro_batch_interleaved_num
         print("Model config are as follows:")
@@ -442,10 +447,12 @@ class Trainer:
 
     def build_lr(self):
         """build lr"""
+        total_steps = int(self.config.epoch_size * self.config.step_per_epoch)
+        warmup_step = self.config.warmup_step if self.config.warmup_step > 0 else int(0.1 * total_steps)
         lr = LearningRate(learning_rate=float(self.config.start_lr),
                           end_learning_rate=float(self.config.end_lr),
-                          warmup_steps=self.config.warmup_step,
-                          decay_steps=self.config.actual_epoch_num * self.config.step_per_epoch)
+                          warmup_steps=warmup_step,
+                          decay_steps=total_steps)
         return lr
 
     def build_optimizer(self, net_with_loss):
@@ -483,6 +490,7 @@ class Trainer:
         self.logger.info("Start to build model")
 
         model_config = self.check_and_build_model_config()
+        model_config.is_training = True
         parallel_config = self.build_parallel_config()
         model_config.parallel_config = parallel_config
 
@@ -490,7 +498,6 @@ class Trainer:
         self.logger.info("Build model finished")
 
         # load checkpoint
-        self.config.is_train = True
         self.load_checkpoint(net_with_loss)
 
         # optimize net
@@ -550,6 +557,7 @@ class Trainer:
         # Build model
         self.logger.info("Start to build model")
         model_config = self.check_and_build_model_config()
+        model_config.is_training = False
         parallel_config = self.build_parallel_config()
         model_config.parallel_config = parallel_config
 
@@ -576,8 +584,9 @@ def parse_config(config):
         parser.add_argument(k)
     cli = parser.parse_args(unknown)
     for k, v in cli.__dict__.items():
+
         if hasattr(config, k) and isinstance(v, str):
-            setattr(config, k, type(getattr(config, k))(v))
+            setattr(config, k, type(getattr(config, k))(_mapper_string_to_bool(v)))
         else:
             setattr(config, k, v)
     print("Training Arguments are as follows:")

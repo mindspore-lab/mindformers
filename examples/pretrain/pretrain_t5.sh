@@ -24,8 +24,7 @@ DEVICE_ID=$1
 EPOCH_SIZE=$2
 DATA_DIR=$3
 
-python -m transformer.train \
-    --config=./transformer/configs/t5/t5_base.yaml \
+python -m transformer.model.t5.t5_trainer \
     --epoch_size=$EPOCH_SIZE \
     --device_id=$DEVICE_ID \
     --train_data_path=$DATA_DIR \
@@ -33,6 +32,7 @@ python -m transformer.train \
     --seq_length=1024 \
     --max_decode_length=128 \
     --parallel_mode="stand_alone" \
+    -checkpoint_prefix="t5" \
     --max_position_embeddings=1024 \
     --d_kv=64 \
     --global_batch_size=4 \

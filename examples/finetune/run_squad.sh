@@ -23,32 +23,39 @@ echo "==========================================================================
 
 mkdir -p ms_log
 CUR_DIR=`pwd`
+
 export GLOG_log_dir=${CUR_DIR}/ms_log
 export GLOG_logtostderr=0
 
-python -m  tasks.nlp.question_answering.run_squad  \
-    --config_path="" \
+python -m transformer.trainer.trainer \
+    --auto_model="bert_squad" \
     --device_target="GPU" \
-    --do_train="false" \
-    --do_eval="true" \
+    --device_id=0 \
     --epoch_num=1 \
     --num_class=2 \
+    --parallel_mode="stand_alone" \
+    --full_batch=True \
     --vocab_size=30522 \
     --embedding_size=768 \
     --num_layers=12 \
     --num_heads=12 \
-    --parallel_mode="stand_alone" \
     --seq_length=384 \
     --max_position_embeddings=512 \
     --train_data_shuffle="true" \
     --eval_data_shuffle="false" \
-    --train_batch_size=12 \
-    --eval_batch_size=12 \
-    --start_lr=1e-4 \
+    --global_batch_size=24 \
     --vocab_file_path="./vocab.txt" \
-    --save_finetune_checkpoint_path="./squad_ckpt" \
-    --load_pretrain_checkpoint_path="./checkpoint/bert_base1.ckpt" \
-    --load_finetune_checkpoint_path="./squad_ckpt" \
-    --train_data_path="./squad_data/train.mindrecord" \
-    --eval_json_path="./squad_data/dev-v1.1.json" \
-    --schema_file_path="" > squad_log.txt 2>&1 &
+    --save_checkpoint_path="./squad_ckpt" \
+    --load_checkpoint_path="./mind_ckpt/bertbase.ckpt" \
+    --checkpoint_prefix='squad' \
+    --train_data_path="./squad/train.mindrecord" \
+
+python -m transformer.tasks.question_answering \
+    --auto_model="bert_squad" \
+    --eval_json_path="./squad/dev-v1.1.json" \
+    --checkpoint_prefix='squad' \
+    --load_checkpoint_path="./squad_ckpt./ckpt_0/" \
+    --vocab_file_path="./vocab.txt" \
+    --embedding_size=768 \
+    --num_layers=12 \
+    --num_heads=12 > squad_eval.txt 2>&1 &
