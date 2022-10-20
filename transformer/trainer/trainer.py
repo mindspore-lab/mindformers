@@ -500,7 +500,13 @@ class Trainer:
         raise ValueError("invalid auto_model %s." % self.config.auto_model)
 
     def download_and_build_dataset(self):
-        """download and build dataset"""
+        """
+            Download and build the dataset. Download the data and build the dataset from config.
+
+            Outputs:
+                ds. The dataset class built from the config.
+
+        """
         self.config.data_path = self.download_dataset()
         device_num = self.config.device_num
         rank_id = self.config.rank_id
@@ -522,7 +528,17 @@ class Trainer:
         return ds
 
     def build_model_config(self):
-        """build model config"""
+        """
+            Build the model configuration. Build the model config from the key "auto_model", which is set in "config".
+
+            Outputs:
+                model_config. The configuration of the model. It contains "GPTConfig", "BertConfig",
+                              "TransformerConfig", "VitConfig" and "OPTConfig" now.
+
+            Raises:
+                ValueError: `auto_model` is an invalid key in config map.
+
+        """
         model_config = AutoClass.get_config_class(self.config.auto_model)
         if model_config is not None:
             return model_config()
@@ -557,7 +573,20 @@ class Trainer:
         return model_config
 
     def build_model(self, model_config):
-        """build model"""
+        """
+            Build the model with loss function. Build the model and its loss function from "model_config" class.
+
+            Inputs:
+                - **model_config** (class) - The configuration of the model. It contains "GPTConfig", "BertConfig",
+                  "TransformerConfig", "VitConfig" and "OPTConfig" now.
+
+            Outputs:
+                network_with_loss. The network and the loss function from the config.
+
+            Raises:
+                ValueError: `auto_model` is an invalid key in NETWORK_WITH_LOSS_MAPPING.
+
+        """
         network_with_loss = AutoClass.get_network_with_loss_class(self.config.auto_model)
         if network_with_loss is not None:
             return network_with_loss(model_config)
