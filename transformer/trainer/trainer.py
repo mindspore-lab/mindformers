@@ -431,7 +431,6 @@ class Trainer:
                     setattr(model_config, k, type(getattr(model_config, k))(v))
                 else:
                     setattr(model_config, k, v)
-
         model_config.compute_dtype = self.config.compute_dtype
         model_config.batch_size = data_dp * self.config.global_batch_size // self.config.micro_batch_interleaved_num
         print("Model config are as follows:")
@@ -542,7 +541,7 @@ class Trainer:
             ds = self.download_and_build_dataset()
             self.logger.info("Build dataset finished.")
 
-            acc = get_acc(model, ds.create_tuple_iterator())
+            acc = get_acc(model, ds.create_tuple_iterator(), self.config)
 
             self.logger.info("The accuracy is %f", acc)
 
@@ -584,7 +583,8 @@ def parse_config(config):
         parser.add_argument(k)
     cli = parser.parse_args(unknown)
     for k, v in cli.__dict__.items():
-
+        if v in ('False', 'false'):
+            v = bool(False)
         if hasattr(config, k) and isinstance(v, str):
             setattr(config, k, type(getattr(config, k))(_mapper_string_to_bool(v)))
         else:

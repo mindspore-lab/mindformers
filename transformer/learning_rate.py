@@ -193,6 +193,11 @@ def build_lr(config, epoch_num, step_per_epoch, warmup_step=None):
                                       hidden_size=config.model['hidden_size'],
                                       start_decay_step=config.start_decay_step,
                                       min_lr=config.min_lr), mstype.float32)
+    elif model_name in ['vit']:
+        lr_array = get_lr(global_step=0, lr_init=config.start_lr, lr_end=config.end_lr, lr_max=config.lr_max,
+                          warmup_epochs=config.warmup_epochs, total_epochs=epoch_num, steps_per_epoch=step_per_epoch,
+                          lr_decay_mode=config.lr_decay_mode, poly_power=config.poly_power)
+        lr = Tensor(lr_array)
     else:
         raise RuntimeError(f"Model name {model_name} is not supported yet.")
 

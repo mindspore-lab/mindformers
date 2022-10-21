@@ -22,6 +22,7 @@ from .downstream_dataset import create_classification_dataset, create_squad_data
 from .gpt_dataset import create_gpt_dataset
 from .bert_dataset import create_bert_dataset
 from .t5_dataset import create_t5_dataset
+from .image_dataset import create_image_dataset
 from .wiki_dataset import create_wiki_dataset
 
 
@@ -66,6 +67,8 @@ def build_dataset(opt, rank_id, device_num, get_eval_dataset=False):
         ds = create_t5_dataset(opt)
     elif model_name == 'opt':
         ds = create_wiki_dataset(opt)
+    elif model_name == 'vit':
+        ds = create_image_dataset(opt)
     else:
         raise RuntimeError(f"Model name {opt.arch} is not supported yet.")
     opt.logger.info("End to build the dataset.")
@@ -112,7 +115,7 @@ def build_downstream_dataset(opt, rank_id, device_num, get_eval_dataset=False, d
     if task_name == "classifier":
         ds = create_classification_dataset(opt)
     elif task_name == "squad":
-        ds = create_squad_dataset(opt, is_training=is_training)
+        ds = create_squad_dataset(opt)
     elif task_name == "language_model":
         ds = create_language_model_dataset(opt)
     opt.logger.info("End to build the dataset.")

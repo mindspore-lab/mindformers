@@ -76,6 +76,19 @@ bash examples/pretrain/pretrain_opt_distributed.sh EPOCH_SIZE hostfile DATA_DIR
 ```bash
 bash examples/pretrain/eval_opt.sh "who are you?"
 ```
+
+## ViT Model
+
+### ViT权重下载
+
+从HuggingFace的[官网](https://huggingface.co/google/vit-base-patch16-224/tree/main) 下载`pytorch_model.bin`模型权重。
+该权重对应模型结构为`vit_base`，设置`--backbone_name vit_base`，然后执行下述命令
+将HuggingFace的权重转换为MindSpore的权重。
+
+```bash
+python convert_vit_weight.py --backbone_name vit_base --torch_path pytorch_model.bin --mindspore_path converted_mindspore_vit.ckpt
+```
+
 # 执行翻译任务
 
 ## 数据集下载
@@ -93,8 +106,8 @@ bash examples/pretrain/eval_opt.sh "who are you?"
 
 ```bash
 python tools/wmt16_process.py  \
-       --split=train   \ 
-       --sp_model_path=/absolut path of spiece.model \
-       --raw_dataset=/absolut path of wmt_en_ro \
+       --split=train \
+       --sp_model_path=/absolute path of spiece.model \
+       --raw_dataset=/absolute path of wmt_en_ro \
        --output_file_path='wmt16'
 ```

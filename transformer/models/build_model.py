@@ -21,7 +21,7 @@ from .nezha.nezha import NezhaConfig, get_nezha_network
 from .bert.bert import BertConfig, get_bert_network
 from .gpt.gpt import GPTConfig, get_gpt_network
 from .t5.t5 import TransformerConfig, get_t5_network
-from .vit.vit import VitConfig
+from .vit.vit import VitConfig, get_vit_network
 from .opt.opt import OPTConfig, get_opt_network
 
 
@@ -85,7 +85,7 @@ def build_model(opt, parallel_config):
     model_name = opt.arch
 
     config_mapper = {"gpt": get_gpt_network, "bert": get_bert_network, "nezha": get_nezha_network, "t5": get_t5_network,
-                     "opt": get_opt_network}
+                     "opt": get_opt_network, "vit": get_vit_network}
     net = None
     model_func = config_mapper.get(model_name, None)
     if model_func:

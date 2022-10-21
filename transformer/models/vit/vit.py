@@ -14,21 +14,22 @@
 # ============================================================================
 """Vision Transformer implementation."""
 
-from importlib import import_module
-from easydict import EasyDict as edict
+from dataclasses import dataclass
 import numpy as np
 
 import mindspore
-from mindspore import nn
-from mindspore import Tensor
+import mindspore.common.dtype as mstype
+import mindspore.ops.functional as F
+from mindspore import Tensor, nn
 from mindspore.common.initializer import initializer
 from mindspore.common.parameter import Parameter
 from mindspore.nn import Cell, Dropout, SequentialCell
+from mindspore.nn.transformer import TransformerOpParallelConfig
 from mindspore.nn.transformer.layers import _Linear
+from mindspore.nn.transformer.transformer import default_transformer_config
 from mindspore.ops import operations as P
-from mindspore.ops import functional as F
-import mindspore.common.dtype as mstype
-from mindspore.nn.transformer import Transformer
+from mindspore.parallel.nn.transformer import Transformer
+
 try:
     from mindspore.nn.loss.loss import Loss
 except ImportError:
@@ -39,51 +40,46 @@ except ImportError:
 
 MIN_NUM_PATCHES = 4
 
+@dataclass
 class VitConfig:
-    """
-    VitConfig
-    """
-    def __init__(self, configs):
-        self.configs = configs
-        self.parallel_config = configs.parallel_config
+    """Vit config class which defines the model size"""
+    batch_size: int = 16
+    d_model: int = 768
+    depth: int = 12
+    heads: int = 12
+    mlp_dim: int = 3072
+    dim_head: int = 64
+    patch_size: int = 16
+    normalized_shape: int = 768
+    image_size: int = 224
+    num_classes: int = 1000
+    decoder_layers: int = 0
+    network_pool: str = "cls"
+    post_layernorm_residual: bool = True
+    loss_name: str = "ce_smooth_mixup"
+    label_smooth_factor: float = 0.1
+    aux_factor: float = 0.4
+    ignore_label: int = -2
 
-        # network init
-        self.network_norm = mindspore.nn.LayerNorm((configs.normalized_shape,))
-        self.network_init = mindspore.common.initializer.Normal(sigma=1.0)
-        self.network_dropout_rate = 0.1
-        self.network_pool = 'cls'
-        self.network = ViT
+    dtype: mstype = mstype.float32
+    compute_dtype: mstype = mstype.float32
+    layernorm_dtype: mstype = mstype.float32
+    softmax_dtype: mstype = mstype.float32
 
-        # stem
-        self.stem_init = mindspore.common.initializer.XavierUniform()
-        self.stem = VitStem
+    hidden_act: str = "gelu"
+    network_dropout_prob: float = 0.1
+    attention_dropout_prob: float = 0.1
+    feedforward_dropout_prob: float = 0.1
 
-        # body
-        # self.body_norm = mindspore.nn.LayerNorm
-        self.body = TransformerWrapper
-
-        # body attention
-        self.attention_dropout_rate = 0.1
-
-        # body feedforward
-        self.feedforward_init = mindspore.common.initializer.XavierUniform()
-        self.feedforward_activation = 'gelu'
-        self.feedforward_dropout_rate = 0.1
-
-        # head
-        self.head = origin_head
-        self.head_init = mindspore.common.initializer.XavierUniform()
-        self.head_dropout_rate = 0.1
-        # self.head_norm = mindspore.nn.LayerNorm((configs.normalized_shape,))
-        self.head_activation = mindspore.nn.GELU()
-
+    parallel_config: TransformerOpParallelConfig = default_transformer_config
 
 def origin_head(vit_config):
     """Head for ViT pretraining."""
-    d_model = vit_config.configs.d_model
-    num_classes = vit_config.configs.num_classes
-    initialization = vit_config.head_init
-    dense = _Linear(d_model, num_classes).to_float(mstype.float16)
+    d_model = vit_config.d_model
+    num_classes = vit_config.num_classes
+    compute_dtype = vit_config.compute_dtype
+    initialization = mindspore.common.initializer.XavierUniform()
+    dense = _Linear(d_model, num_classes).to_float(compute_dtype)
     dense.weight.set_data(initializer(initialization, [num_classes, d_model]))
 
     dp = vit_config.parallel_config.data_parallel
@@ -92,41 +88,15 @@ def origin_head(vit_config):
 
     return SequentialCell([dense])
 
-
-class BatchDense(Cell):
-    """BatchDense module."""
-
-    def __init__(self, in_features, out_features, initialization, has_bias=True, vit_config=None):
-        super().__init__()
-        self.out_features = out_features
-        self.dense = _Linear(in_features, out_features, has_bias=has_bias).to_float(mstype.float16)
-        self.dense.weight.set_data(initializer(initialization, [out_features, in_features]))
-        self.reshape = P.Reshape()
-        self.add = P.Add()
-        self.add.add_prim_attr("keep_alive", True)
-
-        dp = vit_config.parallel_config.data_parallel
-        mp = vit_config.parallel_config.model_parallel
-        self.dense.shard(strategy_matmul=((dp, 1), (mp, 1)), strategy_bias=((dp, mp), (mp,)))
-
-    def construct(self, x):
-        bs, seq_len, d_model = x.shape
-        out = self.reshape(x, (bs * seq_len, d_model))
-        out = self.dense(out)
-        out = self.reshape(out, (bs, seq_len, self.out_features))
-        out = self.add(out, 0)
-        return out
-
-
 class VitStem(Cell):
     """Stem layer for ViT."""
 
     def __init__(self, vit_config):
         super().__init__()
-        d_model = vit_config.configs.d_model
-        patch_size = vit_config.configs.patch_size
-        image_size = vit_config.configs.image_size
-        initialization = vit_config.stem_init
+        d_model = vit_config.d_model
+        patch_size = vit_config.patch_size
+        image_size = vit_config.image_size
+        compute_dtype = vit_config.compute_dtype
         channels = 3
 
         assert image_size % patch_size == 0, 'Image dimensions must be divisible by the patch size.'
@@ -135,19 +105,23 @@ class VitStem(Cell):
         patch_dim = channels * patch_size ** 2
 
         self.patch_size = patch_size
+        self.patch_to_embedding = mindspore.nn.Conv2d(channels, d_model, patch_size,
+                                                      patch_size, has_bias=True).to_float(compute_dtype)
+        self.num_patches = num_patches
+        self.patch_dim = patch_dim
+        self.d_model = d_model
         self.reshape = P.Reshape()
-        self.transpose = P.Transpose().shard(((vit_config.parallel_config.data_parallel, 1, 1, 1, 1, 1),))
-        self.patch_to_embedding = BatchDense(patch_dim, d_model, initialization, has_bias=True, vit_config=vit_config)
+        self.transpose = P.Transpose()
+        self.add = P.Add()
+        self.add.add_prim_attr("keep_alive", True)
 
     def construct(self, img):
-        p = self.patch_size
-        bs, channels, h, w = img.shape
-        x = self.reshape(img, (bs, channels, h // p, p, w // p, p))
-        x = self.transpose(x, (0, 2, 4, 1, 3, 5))
-        x = self.reshape(x, (bs, (h//p)*(w//p), channels*p*p))
-        x = self.patch_to_embedding(x)
+        bs, _, _, _ = img.shape
+        x = self.patch_to_embedding(img)
+        x = self.reshape(x, (bs, self.d_model, self.num_patches))
+        x = self.transpose(x, (0, 2, 1))
+        x = self.add(x, 0)
         return x
-
 
 class TransformerWrapper(Cell):
     """Transformer implementation."""
@@ -155,25 +129,26 @@ class TransformerWrapper(Cell):
     def __init__(self, vit_config):
         super().__init__()
 
-        batch_size = vit_config.configs.batch_size
-        src_seq_length = (vit_config.configs.image_size // vit_config.configs.patch_size) ** 2 + 1  # patch32: 50
+        batch_size = vit_config.batch_size
+        src_seq_length = (vit_config.image_size // vit_config.patch_size) ** 2 + 1
 
         self.transformer = Transformer(
-            hidden_size=vit_config.configs.heads * vit_config.configs.dim_head,
+            hidden_size=vit_config.heads * vit_config.dim_head,
             batch_size=batch_size * vit_config.parallel_config.data_parallel,
-            ffn_hidden_size=vit_config.configs.mlp_dim,
+            ffn_hidden_size=vit_config.mlp_dim,
             src_seq_length=src_seq_length,
             tgt_seq_length=src_seq_length,
-            encoder_layers=vit_config.configs.depth,
-            decoder_layers=vit_config.configs.decoder_layers,
-            num_heads=vit_config.configs.heads,
-            attention_dropout_rate=vit_config.attention_dropout_rate,
-            hidden_dropout_rate=vit_config.feedforward_dropout_rate,
-            hidden_act=vit_config.feedforward_activation,
+            encoder_layers=vit_config.depth,
+            decoder_layers=vit_config.decoder_layers,
+            num_heads=vit_config.heads,
+            attention_dropout_rate=vit_config.attention_dropout_prob,
+            hidden_dropout_rate=vit_config.feedforward_dropout_prob,
+            hidden_act=vit_config.hidden_act,
             parallel_config=vit_config.parallel_config
         )
-        self.attention_mask = mindspore.Tensor(np.ones((batch_size * vit_config.parallel_config.data_parallel,
-                                                        src_seq_length, src_seq_length)), dtype=mindspore.dtype.float32)
+
+        self.attention_mask = mindspore.Tensor(np.ones((batch_size, src_seq_length, src_seq_length)),
+                                               dtype=mstype.float32)
 
     def construct(self, x):
         out, _, _ = self.transformer(x, self.attention_mask)
@@ -183,21 +158,26 @@ class TransformerWrapper(Cell):
 class ViT(Cell):
     """Vision Transformer implementation."""
 
-    def __init__(self, vit_config):
+    def __init__(self, vit_config, is_training=True):
         super().__init__()
 
-        d_model = vit_config.configs.d_model
-        patch_size = vit_config.configs.patch_size
-        image_size = vit_config.configs.image_size
+        if not is_training:
+            vit_config.network_dropout_prob = 0.0
+            vit_config.feedforward_dropout_prob = 0.0
+            vit_config.attention_dropout_prob = 0.0
 
-        initialization = vit_config.network_init
+        d_model = vit_config.d_model
+        patch_size = vit_config.patch_size
+        image_size = vit_config.image_size
+
+        initialization = mindspore.common.initializer.Normal(sigma=1.0)
         pool = vit_config.network_pool
-        dropout_rate = vit_config.network_dropout_rate
-        norm = vit_config.network_norm
+        dropout_rate = vit_config.network_dropout_prob
+        norm = mindspore.nn.LayerNorm((vit_config.normalized_shape,))
 
-        stem = vit_config.stem(vit_config)
-        body = vit_config.body(vit_config)
-        head = vit_config.head(vit_config)
+        stem = VitStem(vit_config)
+        body = TransformerWrapper(vit_config)
+        head = origin_head(vit_config)
 
         assert pool in {'cls', 'mean'}, 'pool type must be either cls or mean'
         num_patches = (image_size // patch_size) ** 2
@@ -233,18 +213,21 @@ class ViT(Cell):
     def construct(self, img):
         """construct"""
         x = self.stem(img)
+        x = F.cast(x, mstype.float32)
+
         bs, seq_len, d_model = x.shape  # 2048, 49, 768
 
-        pos_embedding = F.cast(self.pos_embedding, mstype.float16)
+        pos_embedding = F.cast(self.pos_embedding, mstype.float32)
         if self.pool == "cls":
             cls_tokens = self.tile(self.cls_token, (bs, 1, 1))
-            cls_tokens = F.cast(cls_tokens, mstype.float16)
+            cls_tokens = F.cast(cls_tokens, mstype.float32)
             x = self.cat_1((cls_tokens, x))  # now x has shape = (bs, seq_len+1, d_model)
             sliced_embedding = self.slice1(pos_embedding, (0, 0, 0), (1, seq_len + 1, d_model))
             x = self.add(x, sliced_embedding)
         else:
             sliced_embedding = self.slice1(pos_embedding, (0, 0, 0), (1, seq_len, d_model))
             x = self.add(x, sliced_embedding)
+
 
         y = self.cast(x, mstype.float32)
         y = self.dropout(y)
@@ -264,89 +247,8 @@ class ViT(Cell):
             x = self.mean(x, (-2,))
 
         out = self.head(x)
+
         return F.cast(out, mstype.float32)
-
-
-def load_function(func_name):
-    """Load function using its name."""
-    modules = func_name.split(".")
-    if len(modules) > 1:
-        module_path = ".".join(modules[:-1])
-        name = modules[-1]
-        module = import_module(module_path)
-        return getattr(module, name)
-    return func_name
-
-
-vit_cfg = edict({
-    'd_model': 768,
-    'depth': 12,
-    'heads': 12,
-    'mlp_dim': 3072,
-    'dim_head': 64,
-    'patch_size': 32,
-    'normalized_shape': 768,
-    'image_size': 224,
-    'num_classes': 1001,
-    'batch_size': 256,
-    'decoder_layers': 0,
-    'parallel_config': None
-})
-
-
-def vit_base(args):
-    """vit_base"""
-    vit_cfg.d_model = 768
-    vit_cfg.depth = 12
-    vit_cfg.heads = 12
-    vit_cfg.mlp_dim = 3072
-    vit_cfg.dim_head = vit_cfg.d_model // vit_cfg.heads
-    vit_cfg.patch_size = 32
-    vit_cfg.normalized_shape = vit_cfg.d_model
-    vit_cfg.image_size = args.train_image_size
-    vit_cfg.num_classes = args.class_num
-    vit_cfg.batch_size = args.batch_size if hasattr(args, "batch_size") else args.eval_batch_size
-    vit_cfg.decoder_layers = 0
-    vit_cfg.parallel_config = args.parallel_config
-
-    if args.vit_config_path != '':
-        print("get vit_config_path")
-        vit_config = load_function(args.vit_config_path)(vit_cfg)
-    else:
-        print("get default_vit_cfg")
-        vit_config = VitConfig(vit_cfg)
-
-    model = vit_config.network(vit_config)
-
-    return model
-
-
-def vit_large(args):
-    """vit_base"""
-    vit_cfg.d_model = 1024
-    vit_cfg.depth = 24
-    vit_cfg.heads = 16
-    vit_cfg.mlp_dim = 4096
-    vit_cfg.dim_head = vit_cfg.d_model // vit_cfg.heads
-    vit_cfg.patch_size = 32
-    vit_cfg.normalized_shape = vit_cfg.d_model
-    vit_cfg.image_size = args.train_image_size
-    vit_cfg.num_classes = args.class_num
-    vit_cfg.batch_size = args.batch_size if hasattr(args, "batch_size") else args.eval_batch_size
-    vit_cfg.decoder_layers = 0
-    vit_cfg.parallel_config = args.parallel_config
-
-    if args.vit_config_path != '':
-        print("get vit_config_path")
-        vit_config = load_function(args.vit_config_path)(vit_cfg)
-    else:
-        print("get default_vit_cfg")
-        vit_config = VitConfig(vit_cfg)
-
-    model = vit_config.network(vit_config)
-
-    return model
-
 
 # loss
 class CrossEntropySmooth(Loss):
@@ -430,31 +332,50 @@ class CrossEntropyIgnore(Loss):
         return loss
 
 
-def get_vit_network(backbone_name, args):
-    """get_network"""
-    if backbone_name == 'vit_base':
-        backbone = vit_base(args=args)
-    elif backbone_name == 'vit_large':
-        backbone = vit_large(args=args)
-    else:
-        raise NotImplementedError
-    return backbone
-
-
-def get_loss(loss_name, args):
+def get_loss(vit_config):
     """get_loss"""
     loss = None
-    if loss_name == 'ce_smooth':
-        loss = CrossEntropySmooth(smooth_factor=args.label_smooth_factor,
-                                  num_classes=args.class_num,
-                                  aux_factor=args.aux_factor)
-    elif loss_name == 'ce_smooth_mixup':
-        loss = CrossEntropySmoothMixup(smooth_factor=args.label_smooth_factor,
-                                       num_classes=args.class_num)
-    elif loss_name == 'ce_ignore':
-        loss = CrossEntropyIgnore(num_classes=args.class_num,
-                                  ignore_label=args.ignore_label)
+    if vit_config.loss_name == 'ce_smooth':
+        loss = CrossEntropySmooth(smooth_factor=vit_config.label_smooth_factor,
+                                  num_classes=vit_config.num_classes,
+                                  aux_factor=vit_config.aux_factor)
+    elif vit_config.loss_name == 'ce_smooth_mixup':
+        loss = CrossEntropySmoothMixup(smooth_factor=vit_config.label_smooth_factor,
+                                       num_classes=vit_config.num_classes)
+    elif vit_config.loss_name == 'ce_ignore':
+        loss = CrossEntropyIgnore(num_classes=vit_config.num_classes,
+                                  ignore_label=vit_config.ignore_label)
     else:
         raise NotImplementedError
 
     return loss
+
+class VitWithLoss(nn.Cell):
+    """
+    Provide Vit pre-training loss through network.
+
+    Args:
+        config (VitConfig): The config of VitModel.
+
+    Returns:
+        Tensor, the loss of the network.
+    """
+    def __init__(self, vit_config):
+        super(VitWithLoss, self).__init__()
+        self.vit = ViT(vit_config)
+        self.loss = get_loss(vit_config)
+        self.cast = P.Cast()
+
+    def construct(self, img, labels):
+        """Get pre-training loss"""
+        logits = self.vit(img)
+        total_loss = self.loss(logits, labels)
+        return self.cast(total_loss, mstype.float32)
+
+def get_vit_network(opt, model_config):
+    if opt.eval:
+        net = ViT(model_config, is_training=False)
+        return net
+
+    netwithloss = VitWithLoss(model_config)
+    return netwithloss
