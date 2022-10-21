@@ -19,14 +19,16 @@ from collections import OrderedDict
 from transformer.models.bert import BertConfig, BertPreTraining, BertNetworkWithLoss
 from transformer.models.gpt import GPTConfig, GPT, GPTWithLoss
 from transformer.models.t5 import TransformerConfig, TransformerModel, TransformerNetworkWithLoss
-from transformer.models.vit import VitConfig
+from transformer.models.vit import VitConfig, ViT, VitWithLoss
 from transformer.models.opt import OPTConfig, OPT, OPTWithLoss
 
 from transformer.data.gpt_dataset import create_gpt_dataset
 from transformer.data.bert_dataset import create_bert_dataset
-from transformer.data.downstream_dataset import create_squad_dataset, create_classification_dataset, create_language_model_dataset
+from transformer.data.downstream_dataset import create_squad_dataset, \
+    create_classification_dataset, create_language_model_dataset
 from transformer.data.t5_dataset import create_t5_dataset
 from transformer.data.wiki_dataset import create_wiki_dataset
+from transformer.data.image_dataset import create_image_dataset
 from transformer.models.bert.bert_squad import BertSquad
 from transformer.models.bert.bert_glue import BertCLS
 from transformer.models.gpt.gpt_lm import GPT2LM, GPT2LanguageModel
@@ -52,7 +54,7 @@ NETWORK_MAPPING = OrderedDict(
         ('bert_squad', BertSquad),
         ('bert_glue', BertCLS),
         ('t5', TransformerModel),
-        ('vit', None),
+        ('vit', ViT),
         ('opt', OPT),
     ]
 )
@@ -65,7 +67,7 @@ NETWORK_WITH_LOSS_MAPPING = OrderedDict(
         ('bert_squad', BertSquad),
         ('bert_glue', BertCLS),
         ('t5', TransformerNetworkWithLoss),
-        ('vit', None),
+        ('vit', VitWithLoss),
         ('opt', OPTWithLoss),
     ]
 )
@@ -78,7 +80,7 @@ CREATE_DATASET_MAPPING = OrderedDict(
         ('bert_squad', create_squad_dataset),
         ('bert_glue', create_classification_dataset),
         ('t5', create_t5_dataset),
-        ('vit', None),
+        ('vit', create_image_dataset),
         ('opt', create_wiki_dataset),
     ]
 )

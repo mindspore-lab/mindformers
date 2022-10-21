@@ -149,7 +149,7 @@ def run_train(opt):
     optimizer = build_optimizer(net=net_with_loss,
                                 lr=lr,
                                 optimizer_name=opt.optimizer,
-                                args=None,
+                                args=opt,
                                 stage_num=1,
                                 fused=True,
                                 opt_offload=opt.opt_offload,

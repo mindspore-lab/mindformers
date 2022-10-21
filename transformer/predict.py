@@ -100,8 +100,23 @@ def set_auto_parallel_context_env(config):
     return rank_id, device_num
 
 
-def get_acc(model, dataset):
+def get_acc(model, dataset, opt=None):
     """ calculate accuracy for input dataset """
+    if opt.dataset_name == 'imagenet':
+        # get accuracy for Vit on the imagenet dataset
+        acc_num = 0
+        for data in dataset:
+            input_image = data[0].asnumpy().astype(np.float32)
+            label = data[1].asnumpy().astype(np.int32)
+            logits = model.predict(Tensor(input_image, mstype.float32)).asnumpy()
+            y_pred = np.argmax(logits, axis=1)
+
+            equals = label.reshape(-1) == y_pred
+            acc_num += sum(equals)
+
+        acc = acc_num / 50000
+        return acc
+
     total_num = 0
     acc_num = 0
     for data in dataset:
@@ -148,6 +163,7 @@ def generate_words(sample, predict_model, opt):
                           model_origin_max_length=eval_opts.model['seq_length'],
                           max_generate_length=eval_opts.model['seq_length'],
                           vocab_size=eval_opts.model["vocab_size"],
+                          cache_encoder=None,
                           config=eval_opts)
     # Decode output ids to sentence
     output_samples = tokenization.convert_ids_to_tokens(vocab_file=eval_opts.vocab_path,
@@ -178,7 +194,7 @@ def run_predict(opt):
     else:
         opt.logger.info("Start to eval on the datasets.")
         ds = build_dataset(opt, rank_id, device_num, get_eval_dataset=True)
-        acc = get_acc(model, ds.create_tuple_iterator())
+        acc = get_acc(model, ds.create_tuple_iterator(), opt)
 
         opt.logger.info(f"The accuracy is {acc}")
 

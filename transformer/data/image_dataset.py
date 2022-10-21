@@ -38,6 +38,7 @@ class ToNumpy:
 
 def create_dataset(dataset_path,
                    do_train,
+                   num_classes,
                    image_size=224,
                    interpolation='BILINEAR',
                    crop_min=0.05,
@@ -45,8 +46,7 @@ def create_dataset(dataset_path,
                    batch_size=32,
                    num_workers=12,
                    autoaugment=False,
-                   mixup=0.0,
-                   num_classes=1001):
+                   mixup=0.0):
     """create_dataset"""
 
     if hasattr(Inter, interpolation):
@@ -93,8 +93,8 @@ def create_dataset(dataset_path,
               shuffle=False, num_shards=device_num, shard_id=rank_id)
             print("eval dataset size: {}".format(ds.get_dataset_size()))
 
-    mean = [0.485*255, 0.456*255, 0.406*255]
-    std = [0.229*255, 0.224*255, 0.225*255]
+    mean = [0.5*255, 0.5*255, 0.5*255]
+    std = [0.5*255, 0.5*255, 0.5*255]
 
     # define map operations
     if do_train:
@@ -112,8 +112,8 @@ def create_dataset(dataset_path,
             C.HWC2CHW(),
         ]
     else:
-        resize = int(int(image_size / 0.875 / 16 + 0.5) * 16)
-        print('eval, resize:{}'.format(resize))
+        resize = image_size
+        print('eval image resize:{}'.format(resize))
         trans = [
             C.Decode(),
             C.Resize(resize, interpolation=interpolation),
@@ -141,46 +141,49 @@ def create_dataset(dataset_path,
     return ds
 
 
-def get_dataset(dataset_name, do_train, dataset_path, args):
+def create_image_dataset(args):
     """get_dataset"""
-    if dataset_name == "imagenet":
-        if do_train:
-            data = create_dataset(dataset_path=dataset_path,
+    if args.dataset_name == "imagenet":
+        if args.is_training:
+            data = create_dataset(dataset_path=args.train_data_path,
                                   do_train=True,
-                                  image_size=args.train_image_size,
+                                  image_size=args.image_size,
                                   interpolation=args.interpolation,
                                   autoaugment=args.autoaugment,
                                   mixup=args.mixup,
                                   crop_min=args.crop_min,
-                                  batch_size=args.batch_size,
-                                  num_workers=args.train_num_workers)
+                                  batch_size=args.global_batch_size,
+                                  num_workers=args.num_workers,
+                                  num_classes=args.num_classes)
         else:
-            data = create_dataset(dataset_path=dataset_path,
+            data = create_dataset(dataset_path=args.eval_data_path,
                                   do_train=False,
-                                  image_size=args.eval_image_size,
+                                  image_size=args.image_size,
                                   interpolation=args.interpolation,
                                   batch_size=args.eval_batch_size,
-                                  num_workers=args.eval_num_workers)
-    elif dataset_name == "cifar10":
-        if do_train:
-            data = create_dataset(dataset_path=dataset_path,
+                                  num_workers=args.num_workers,
+                                  num_classes=args.num_classes)
+
+    elif args.dataset_name == "cifar10":
+        if args.is_training:
+            data = create_dataset(dataset_path=args.train_data_path,
                                   do_train=True,
-                                  image_size=args.train_image_size,
+                                  image_size=args.image_size,
                                   interpolation=args.interpolation,
                                   autoaugment=args.autoaugment,
                                   mixup=args.mixup,
                                   crop_min=args.crop_min,
-                                  batch_size=args.batch_size,
-                                  num_classes=10,
-                                  num_workers=args.train_num_workers)
+                                  batch_size=args.global_batch_size,
+                                  num_classes=args.num_classes,
+                                  num_workers=args.num_workers)
         else:
-            data = create_dataset(dataset_path=dataset_path,
+            data = create_dataset(dataset_path=args.eval_data_path,
                                   do_train=False,
-                                  image_size=args.eval_image_size,
+                                  image_size=args.image_size,
                                   interpolation=args.interpolation,
                                   batch_size=args.eval_batch_size,
-                                  num_classes=10,
-                                  num_workers=args.eval_num_workers)
+                                  num_classes=args.num_classes,
+                                  num_workers=args.num_workers)
     else:
         raise NotImplementedError
     return data
