@@ -43,8 +43,8 @@ python pre_process.py \
 ## 2、使用GPT训练OpenWebText数据集
 
 ```bash
-python -m transformer.train \
---config='./transformer/configs/gpt/gpt_base.yaml' \
+python -m transformer.trainer.trainer \
+--auto_model='gpt' \
 --epoch_size=$EPOCH_SIZE \
 --train_data_path=.\preprocess_gpt\output\ \
 --optimizer="adam"  \

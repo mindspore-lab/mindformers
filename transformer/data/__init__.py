@@ -15,7 +15,6 @@
 """
 Data operations
 """
-from .build_dataset import build_dataset, build_downstream_dataset
 from .gpt_dataset import create_gpt_dataset
 from .bert_dataset import create_bert_dataset
 from .t5_dataset import create_t5_dataset

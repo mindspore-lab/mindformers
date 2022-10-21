@@ -287,15 +287,3 @@ class EvalNet(nn.Cell):
         else:
             outputs = self.argmax(logits)
         return outputs
-
-
-def get_opt_network(opt, model_config):
-    """
-    Return opt net according to the arguments and model config
-    """
-    if opt.eval:
-        opt.logger.info("Detect the eval is True, return the eval net")
-        net = EvalNet(OPT(model_config), generate=opt.generate)
-        return net
-    net_with_loss = OPTWithLoss(model_config)
-    return net_with_loss

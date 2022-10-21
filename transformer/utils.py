@@ -16,13 +16,8 @@
 from dataclasses import dataclass
 import os
 import time
-import json
-from copy import deepcopy
-
-import yaml
 import numpy as np
 
-from mindspore import log as logger
 from mindspore.common import dtype as mstype
 from mindspore.common.initializer import initializer
 from mindspore.common.parameter import Parameter, ParameterTuple
@@ -42,58 +37,6 @@ def _convert_dtype_class(key):
     mapper = {'mstype.float32': mstype.float32, 'mstype.float16': mstype.float16,
               'fp32': mstype.float32, 'fp16': mstype.float16, 'None': None}
     return mapper.get(key, key)
-
-
-def parse_with_config(parser):
-    """Parse with config"""
-    config_parser, unknown = parser.parse_known_args()
-    for item in unknown:
-        source = item.split('=')
-        if len(source) != 2:
-            raise ValueError("You should add = to the passed arguments. "
-                             "For example --seed=123, the store_true action is not supported yet.")
-        k, v = item.split('=')
-        parser.add_argument(k)
-    cli = parser.parse_args(unknown)
-    override_keys = dict()
-    user_custom_define_keys = deepcopy(cli)
-    if config_parser.config is not None:
-        config_args = yaml.load(open(config_parser.config), Loader=yaml.FullLoader)
-        for k, v in config_args.items():
-            if not hasattr(cli, k):
-                # attach the configs to the cli
-                setattr(cli, k, v)
-            else:
-                # overwrites the cli argument to the configs
-                setattr(cli, k, _mapper_string_to_bool(getattr(cli, k)))
-                override_keys[k] = _mapper_string_to_bool(getattr(cli, k))
-                setattr(cli, k, type(v)(getattr(cli, k)))
-                delattr(user_custom_define_keys, k)
-            if isinstance(v, dict):
-                for sub_k, _ in v.items():
-                    if hasattr(cli, sub_k):
-                        setattr(cli, sub_k, _mapper_string_to_bool(getattr(cli, sub_k)))
-                        v[sub_k] = type(v[sub_k])(getattr(cli, sub_k))
-                        override_keys[sub_k] = v[sub_k]
-                        delattr(cli, sub_k)
-                        delattr(user_custom_define_keys, sub_k)
-        del cli.config
-        del user_custom_define_keys.config
-    else:
-        raise RuntimeError("The config file cannot be loaded, as the accepted config is None. "
-                           "To fix this, you should add --config='./transformer/configs/gpt/gpt_base.yaml "
-                           "to your running scripts as the first argument.")
-    print("Training Arguments are as follows:")
-    print(json.dumps({k: v for k, v in cli.__dict__.items()}, indent=4))
-    if override_keys:
-        print("The following keys are overwritten:")
-    for k, v in override_keys.items():
-        print(f"Overwritten the argument {k} : {v}")
-    if user_custom_define_keys.__dict__:
-        print("The following arguments are added by the user:")
-    for k, v in user_custom_define_keys.__dict__.items():
-        print(f"Adding the argument {k} : {v}")
-    return cli
 
 
 @dataclass
@@ -214,7 +157,7 @@ def download_data(src_data_path, tgt_data_path, rank):
         time.sleep(1)
 
 
-def make_directory(path: str):
+def make_directory(path: str, logger):
     """Make directory."""
     if path is None or not isinstance(path, str) or path.strip() == "":
         logger.error("The path(%r) is invalid type.", path)

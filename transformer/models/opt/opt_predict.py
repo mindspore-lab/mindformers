@@ -32,7 +32,7 @@ class OPTTrainingConfig(TrainingConfig):
         self.parallel_mode = "stand_alone"
         self.full_batch = False
         self.global_batch_size = 1
-        self.checkpoint_prefix = "opt"
+        self.checkpoint_prefix = ""
         self.load_checkpoint_path = "./converted_mindspore_opt.ckpt"
         self.vocab_path = "./vocab.json"
         self.input_samples = "Hello world"
