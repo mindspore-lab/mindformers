@@ -28,8 +28,7 @@ DATASET=$3
 mpirun --allow-run-as-root -n $RANK_SIZE --hostfile $HOSTFILE \
       --output-filename run_distributed_train_t5 \
       --mca btl tcp,self --mca btl_tcp_if_include 10.90.43.0/24,enp177s0f0 --merge-stderr-to-stdout \
-python -m transformer.train  \
-    --config=./transformer/configs/t5/t5_base.yaml \
+python -m transformer.models.t5.t5_trainer \
     --device_num=$RANK_SIZE \
     --train_data_path=$DATASET \
     --optimizer="adam" \
@@ -39,7 +38,9 @@ python -m transformer.train  \
     --global_batch_size=96 \
     --vocab_size=36560 \
     --hidden_size=1024 \
-    --parallel_mode="semi_auto_parallel" \
+    --parallel_mode="data_parallel" \
+    --full_batch=False \
+    -checkpoint_prefix="t5" \
     --data_parallel=8 \
     --model_parallel=1 \
     --num_hidden_layers=6 \

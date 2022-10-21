@@ -31,14 +31,15 @@ mpirun --allow-run-as-root -n $RANK_SIZE --hostfile $HOSTFILE \
       --output-filename run_distributed_train_gpt \
       -x NCCL_IB_HCA -x PATH -x LD_LIBRARY_PATH -x PYTHONPATH -x NCCL_SOCKET_IFNAME -n $RANK_SIZE \
       --mca btl tcp,self --mca btl_tcp_if_include 10.90.43.0/24,enp177s0f0 --merge-stderr-to-stdout \
-python -m transformer.train  \
-    --config=./transformer/configs/gpt/gpt_base.yaml \
+python -m transformer.models.gpt.gpt_trainer  \
     --device_num=$RANK_SIZE \
     --train_data_path=$DATASET \
     --seq_length=1024 \
     --global_batch_size=32 \
     --vocab_size=50304 \
-    --parallel_mode="semi_auto_parallel" \
+    --parallel_mode="data_parallel" \
+    --full_batch=False \
+    -checkpoint_prefix="gpt" \
     --hidden_size=5120 \
     --recompute=True \
     --mp_comm_recompute=False \

@@ -16,8 +16,8 @@
 
 echo "=============================================================================================================="
 echo "Please run the script as: "
-echo "bash scripts/run_squad_gpu.sh"
-echo "for example: bash scripts/run_squad_gpu.sh"
+echo "bash scripts/run_squad_distributed.sh"
+echo "for example: bash scripts/run_squad_distributed.sh 8 hostfile"
 echo "assessment_method include: [Accuracy]"
 echo "=============================================================================================================="
 export GLOG_v=3
@@ -30,30 +30,38 @@ mpirun --allow-run-as-root -n $RANK_SIZE --hostfile $HOSTFILE \
       --output-filename run_classifier \
       -x NCCL_IB_HCA -x PATH -x LD_LIBRARY_PATH -x PYTHONPATH -x NCCL_SOCKET_IFNAME -n $RANK_SIZE \
       --mca btl tcp,self --mca btl_tcp_if_include 10.90.43.0/24,enp177s0f0 --merge-stderr-to-stdout \
-python -m  tasks.nlp.question_answering.run_squad  \
-    --config_path="" \
+python -m  transformer.trainer.trainer \
+    --auto_model="bert_squad" \
     --device_target="GPU" \
-    --do_train="true" \
-    --do_eval="true" \
+    --device_num=$RANK_SIZE \
     --parallel_mode="data_parallel" \
-    --epoch_num=3 \
+    --full_batch=False \
+    --epoch_size=3 \
     --num_class=2 \
     --vocab_size=30522 \
-    --embedding_size=1024 \
-    --num_layers=24 \
-    --num_heads=16 \
+    --embedding_size=768 \
+    --num_layers=12 \
+    --num_heads=12 \
     --seq_length=384 \
     --max_position_embeddings=512 \
     --train_data_shuffle="true" \
     --eval_data_shuffle="false" \
     --data_parallel=8 \
     --model_parallel=1 \
-    --train_batch_size=12 \
-    --eval_batch_size=24 \
+    --global_batch_size=12 \
     --vocab_file_path="./vocab.txt" \
-    --save_finetune_checkpoint_path="./squad_ckpt" \
-    --load_pretrain_checkpoint_path="./pretrain_ckpt/bertlarge.ckpt" \
-    --load_finetune_checkpoint_path="./squad_ckpt" \
+    --save_checkpoint_path="./squad_ckpt" \
+    --load_checkpoint_path="./mind_ckpt/bertbase.ckpt" \
+    --checkpoint_prefix="squad" \
     --train_data_path="./squad/train.mindrecord" \
+    --schema_file_path="" \
+
+python -m transformer.tasks.question_answering \
+    --auto_model="bert_squad" \
     --eval_json_path="./squad/dev-v1.1.json" \
-    --schema_file_path="" > squad_log.txt 2>&1 &
+    --load_checkpoint_path="./squad_ckpt./ckpt_0/" \
+    --vocab_file_path="./vocab.txt" \
+    --checkpoint_prefix="squad" \
+    --embedding_size=768 \
+    --num_layers=12 \
+    --num_heads=12 

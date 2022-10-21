@@ -172,18 +172,16 @@ class GPT2LM(nn.Cell):
 
     def __init__(self, config=None):
         super(GPT2LM, self).__init__()
-        is_lmloss = config.is_lmloss
         self.gpt2 = GPT2LanguageModel(config, config.is_training)
         self.num_labels = config.vocab_size
-        self.loss = CrossEntropyCalculationWithMask(is_lmloss=is_lmloss,
+        self.loss = CrossEntropyCalculationWithMask(True,
                                                     num_labels=self.num_labels,
                                                     config=config)
-        self.is_lmloss = is_lmloss
         self.reshape = P.Reshape()
         self.shape = P.Shape()
         self.cast = P.Cast()
 
-    def construct(self, input_ids, input_mask, label_ids):
+    def construct(self, input_ids, input_mask, label_ids=None):
         """
         construct function for Language Modeling
 
@@ -199,13 +197,13 @@ class GPT2LM(nn.Cell):
         input_mask = P.Cast()(input_mask, mstype.float16)
         lm_logits = self.gpt2(input_ids, input_mask)  # [batch_size, seq_length, vocab_size]
 
-        if self.is_lmloss:
-            shift_logits = lm_logits[::, :-1, ::]  # [batch_size, seq_length - 1, vocab_size]
-            shift_logits = self.reshape(shift_logits, (-1, self.num_labels))  # [batch * (seq_length - 1), vocab_size]
-            label_ids = label_ids[::, 1:]
-            input_mask = input_mask[::, 1:]
+        if label_ids is None:
+            return lm_logits
 
-            loss = self.loss(shift_logits, label_ids, input_mask)
-            return loss
+        shift_logits = lm_logits[::, :-1, ::]  # [batch_size, seq_length - 1, vocab_size]
+        shift_logits = self.reshape(shift_logits, (-1, self.num_labels))  # [batch * (seq_length - 1), vocab_size]
+        label_ids = label_ids[::, 1:]
+        input_mask = input_mask[::, 1:]
 
-        return lm_logits
+        loss = self.loss(shift_logits, label_ids, input_mask)
+        return loss

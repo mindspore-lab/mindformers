@@ -24,13 +24,13 @@ export DEVICE_ID=$1
 EPOCH_SIZE=$2
 DATA_DIR=$3
 
-python -m transformer.train \
-    --config=./transformer/configs/gpt/gpt_base.yaml \
+python -m transformer.models.gpt.gpt_trainer \
     --epoch_size=$EPOCH_SIZE \
     --train_data_path=$DATA_DIR \
     --optimizer="adam"  \
     --seq_length=1024 \
     --parallel_mode="stand_alone" \
+    --checkpoint_prefix="gpt" \
     --global_batch_size=4 \
     --vocab_size=50257 \
     --hidden_size=2048 \

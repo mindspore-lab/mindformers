@@ -35,14 +35,14 @@ export GLOG_log_dir=${CUR_DIR}/ms_log
 export GLOG_logtostderr=0
 
 TASK=$2
-
+export PYTHONPATH=/home/jenkins/wangshengnan/envir/mindspore_post/
 python -m transformer.trainer.trainer  \
     --auto_model="bert_glue" \
     --device_target="GPU" \
     --dataset_format="tfrecord" \
     --assessment_method="accuracy" \
     --parallel_mode="stand_alone" \
-    --epoch_num=3 \
+    --epoch_size=3 \
     --num_labels=2 \
     --vocab_size=30522 \
     --embedding_size=768 \
@@ -57,6 +57,7 @@ python -m transformer.trainer.trainer  \
     --start_lr=5e-5 \
     --save_checkpoint_path="./glue_ckpt/$TASK" \
     --load_checkpoint_path="./checkpoint/bertbase.ckpt" \
+    --checkpoint_prefix='$TASK'
     --train_data_path="./glue_data/$TASK/train.tf_record"
 
 python transformer.tasks.text_classification \
@@ -73,6 +74,7 @@ python transformer.tasks.text_classification \
     --num_heads=12 \
     --seq_length=128 \
     --use_one_hot_embeddings=False \
+    --checkpoint_prefix='$TASK' \
     --model_type="bert" \
     --dropout_prob=0.1 \
     --eval_data_shuffle="false" \

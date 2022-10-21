@@ -30,14 +30,15 @@ mpirun --allow-run-as-root -n $RANK_SIZE --hostfile $HOSTFILE \
       --output-filename run_distributed_train_gpt \
       -x NCCL_IB_HCA -x PATH -x LD_LIBRARY_PATH -x PYTHONPATH -x NCCL_SOCKET_IFNAME -n $RANK_SIZE \
       --mca btl tcp,self --mca btl_tcp_if_include 10.90.43.0/24,enp177s0f0 --merge-stderr-to-stdout \
-python -m transformer.train \
-    --config=./transformer/configs/bert/bert_base.yaml \
+python -m transformer.model.bert.bert_trainer \
     --device_num=$RANK_SIZE \
     --train_data_path=$DATASET \
     --seq_length=128 \
     --global_batch_size=4 \
     --vocab_size=30522 \
     --parallel_mode="data_parallel" \
+    --checkpoint_prefix="bert" \
+    --full_batch=False \
     --hidden_size=768 \
     --num_layers=12 \
     --num_heads=12 \

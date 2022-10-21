@@ -26,7 +26,7 @@ class CrossEntropyCalculationWithMask(nn.Cell):
     Cross Entropy loss
     """
 
-    def __init__(self, is_lmloss=None, num_labels=None, config=None):
+    def __init__(self, is_training=None, num_labels=None, config=None):
         super(CrossEntropyCalculationWithMask, self).__init__()
         self.onehot = P.OneHot()
         self.on_value = Tensor(1.0, mstype.float32)
@@ -37,7 +37,7 @@ class CrossEntropyCalculationWithMask(nn.Cell):
         self.last_idx = (-1,)
         self.neg = P.Neg()
         self.cast = P.Cast()
-        self.is_lmloss = is_lmloss
+        self.is_training = is_training
         self.num_labels = num_labels
         if config is not None:
             # for PPL calculation in evaluation
@@ -58,7 +58,7 @@ class CrossEntropyCalculationWithMask(nn.Cell):
         """
 
         # logits [batch * (seq_length-1), vocab_size]   label_ids [batch, seq_length-1]
-        if self.is_lmloss:
+        if self.is_training:
             label_ids = self.reshape(label_ids, self.last_idx)  # label_ids [batch * (seq_length-1)]
             one_hot_labels = self.onehot(label_ids, self.num_labels, self.on_value,
                                          self.off_value)  # [batch * (seq_length-1), vocab_size]

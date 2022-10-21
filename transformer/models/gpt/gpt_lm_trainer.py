@@ -46,7 +46,6 @@ class GPTTrainer(Trainer):
 
     def build_model_config(self):
         model_config = GPTConfig()
-        model_config.is_lmloss = True
         return model_config
 
     def build_model(self, model_config):
