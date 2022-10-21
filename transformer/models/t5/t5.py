@@ -433,13 +433,3 @@ class EvalNet(nn.Cell):
             else:
                 outputs = self.argmax(logits)
         return outputs
-
-
-def get_t5_network(opt, model_config):
-    """Get the t5 network"""
-    if opt.eval:
-        opt.logger.info("Detect the eval is True, return the eval net.")
-        net = EvalNet(TransformerModel(config=model_config), generate=opt.generate)
-        return net
-
-    return TransformerNetworkWithLoss(model_config)

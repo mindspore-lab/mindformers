@@ -523,8 +523,3 @@ class GetNextSentenceOutput(nn.Cell):
         logits = self.cast(logits, self.dtype)
         log_prob = self.log_softmax(logits)
         return log_prob
-
-
-def get_bert_network(_, model_config):
-    net_with_loss = BertNetworkWithLoss(model_config)
-    return net_with_loss

@@ -583,8 +583,6 @@ def parse_config(config):
         parser.add_argument(k)
     cli = parser.parse_args(unknown)
     for k, v in cli.__dict__.items():
-        if v in ('False', 'false'):
-            v = bool(False)
         if hasattr(config, k) and isinstance(v, str):
             setattr(config, k, type(getattr(config, k))(_mapper_string_to_bool(v)))
         else:

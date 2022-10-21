@@ -521,8 +521,3 @@ class GetNextSentenceOutput(nn.Cell):
         logits = self.cast(logits, self.dtype)
         log_prob = self.log_softmax(logits)
         return log_prob
-
-
-def get_nezha_network(_, model_config):
-    net_with_loss = NezhaNetworkWithLoss(model_config, True, True)
-    return net_with_loss

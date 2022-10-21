@@ -283,8 +283,3 @@ class EvalNet(nn.Cell):
         else:
             outputs = self.argmax(logits)
         return outputs
-
-
-def get_gpt_network(_, model_config):
-    net_with_loss = GPTWithLoss(model_config)
-    return net_with_loss

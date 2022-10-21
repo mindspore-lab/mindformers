@@ -249,8 +249,8 @@ scale_window: 1000
 目前参数的传入主要采用传入`yaml`文件+命令行参数覆盖的方式。例如下文所示
 
 ```bash
-python -m transformer.train \
-    --config=./transformer/configs/gpt/gpt_base.yaml \
+python -m transformer.trainer.trainer \
+    --auto_model="gpt" \
     --epoch_size=$EPOCH_SIZE \
     --train_data_path=$DATA_DIR \
     --optimizer="adam"

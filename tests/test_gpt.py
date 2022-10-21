@@ -50,8 +50,8 @@ def test_gpt_network():
     writer.commit()
 
     res = os.system("""
-            python -m transformer.train \
-                --config=./transformer/configs/gpt/gpt_base.yaml \
+            python -m transformer.trainer.trainer \
+                --auto_model="gpt" \
                 --epoch_size=1 \
                 --train_data_path=tests/ \
                 --optimizer="adam"  \

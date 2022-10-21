@@ -18,8 +18,8 @@ DEVICE_ID=$1
 EPOCH_SIZE=$2
 DATA_DIR=$3
 
-python -m transformer.train \
-    --config='./transformer/configs/t5/t5_base.yaml' \
+python -m transformer.trainer.trainer \
+    --auto_model='t5 \
     --epoch_size=$EPOCH_SIZE \
     --device_id=$DEVICE_ID \
     --train_data_path=$DATA_DIR \
