@@ -35,7 +35,6 @@ export GLOG_log_dir=${CUR_DIR}/ms_log
 export GLOG_logtostderr=0
 
 TASK=$2
-export PYTHONPATH=/home/jenkins/wangshengnan/envir/mindspore_post/
 python -m transformer.trainer.trainer  \
     --auto_model="bert_glue" \
     --device_target="GPU" \
@@ -57,7 +56,7 @@ python -m transformer.trainer.trainer  \
     --start_lr=5e-5 \
     --save_checkpoint_path="./glue_ckpt/$TASK" \
     --load_checkpoint_path="./checkpoint/bertbase.ckpt" \
-    --checkpoint_prefix='$TASK'
+    --checkpoint_prefix='$TASK' \
     --train_data_path="./glue_data/$TASK/train.tf_record"
 
 python transformer.tasks.text_classification \
