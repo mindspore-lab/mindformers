@@ -13,20 +13,54 @@
 # limitations under the License.
 # ============================================================================
 """
-Test module for testing the network
+Test module for testing the Trainer
 How to run this:
-pytest tests/test_gpt.py
+pytest tests/test_trainer.py
 """
-
 import os
-
 import numpy as np
 
-from mindspore.dataset import GeneratorDataset
 from mindspore.mindrecord import FileWriter
+from mindspore.dataset import GeneratorDataset
 
 
-def test_gpt_network():
+def test_trainer_gpt_train():
+    """
+    Feature: The GPT training test using CPU from python class
+    Description: Using cpu to train GPT without basic error
+    Expectation: The returned ret is not 0.
+    """
+    from transformer.trainer import Trainer, TrainingConfig
+
+    class GPTTrainer(Trainer):
+        """GPT trainer"""
+        def build_model(self, model_config):
+            from transformer.models.gpt import GPTWithLoss
+            my_net = GPTWithLoss(model_config)
+            return my_net
+
+        def build_model_config(self):
+            from transformer.models.gpt import GPTConfig
+            return GPTConfig(num_layers=1, hidden_size=8, num_heads=1, seq_length=14)
+
+        def build_dataset(self):
+            def generator():
+                data = np.random.randint(low=0, high=15, size=(15,)).astype(np.int32)
+                for _ in range(10):
+                    yield data
+
+            ds = GeneratorDataset(generator, column_names=["text"])
+            ds = ds.batch(2)
+            return ds
+
+        def build_lr(self):
+            return 0.01
+
+    trainer = GPTTrainer(TrainingConfig(device_target='CPU', epoch_size=2, sink_size=2))
+    trainer.train()
+
+
+def test_trainer_gpt_by_cmd():
     """
     Feature: The GPT training test using CPU
     Description: Using cpu to train GPT without basic error
@@ -57,12 +91,14 @@ def test_gpt_network():
                 --optimizer="adam"  \
                 --seq_length=14 \
                 --parallel_mode="stand_alone" \
-                --global_batch_size=1 \
-                --vocab_size=60 \
-                --hidden_size=32 \
+                --global_batch_size=2 \
+                --vocab_size=50257 \
+                --hidden_size=8 \
                 --init_loss_scale_value=1 \
                 --num_layers=1 \
-                --num_heads=16 \
+                --num_heads=2 \
                 --full_batch=False \
                 --device_target=CPU  """)
+    os.remove(data_record_path)
+    os.remove(data_record_path + '.db')
     assert res == 0

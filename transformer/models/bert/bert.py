@@ -26,7 +26,7 @@ from mindspore.common.initializer import TruncatedNormal, initializer
 from mindspore.ops import operations as P
 from mindspore.common.tensor import Tensor
 from mindspore.nn.transformer.layers import _LayerNorm
-from mindspore.nn.transformer.transformer import Transformer, VocabEmbedding
+from mindspore.nn.transformer.transformer import Transformer, VocabEmbedding, default_moe_config
 from mindspore.nn.transformer import TransformerOpParallelConfig
 from mindspore.nn.transformer.transformer import default_transformer_config
 
@@ -213,6 +213,9 @@ class BertModel(nn.Cell):
         self.num_hidden_layers = config.num_layers
         self.embedding_size = config.embedding_size
         self.token_type_ids = None
+        if not hasattr(config.parallel_config, "moe_config"):
+            config.parallel_config.moe_config = default_moe_config
+        moe_config = config.parallel_config.moe_config
         self.use_moe = (config.parallel_config.moe_config.expert_num > 1)
 
         self.word_embedding = VocabEmbedding(vocab_size=config.vocab_size,
@@ -222,7 +225,6 @@ class BertModel(nn.Cell):
                                                                     dtype=mstype.float32),
                                              parallel_config=config.parallel_config.embedding_dp_mp_config)
 
-        moe_config = config.parallel_config.moe_config
         output_embedding_shape = [-1, config.seq_length, self.embedding_size]
 
         self.embedding_postprocessor = EmbeddingPostprocessor(config,
