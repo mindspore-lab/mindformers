@@ -51,7 +51,7 @@ from transformer.trainer.grad_accu_trainer import TrainAccuStepsWithLossScaleCel
 @dataclass
 class TrainingConfig:
     """
-        The training configuration for the Trainer. This cofiguration controls the setting of the following:
+        The training configuration for the Trainer. This configuration controls the setting of the following:
         mindspore.context、mindspore.context.auto_parallel_context and the training configurations.
 
         Args:
@@ -66,7 +66,8 @@ class TrainingConfig:
             save_graphs: bool = False
             mode: int = 0
             graph_kernel_flags: str = "--disable_expand_ops=Softmax,Dropout " \
-                                      "--enable_parallel_fusion=true --reduce_fuse_depth=8 --enable_auto_tensor_inplace=true"
+                                      "--enable_parallel_fusion=true --reduce_fuse_depth=8 " \
+                                      "--enable_auto_tensor_inplace=true"
             enable_graph_kernel: bool = True
             optimizer: str = "adam"
             acc_step: int = 1
@@ -249,7 +250,11 @@ class TrainingConfig:
 
 class Trainer:
     """
-    Trainer
+    Trainer is a general procedural wrapper for training process.Generally, for a new network training, developer
+    only needs to overwritten 'build_model_config' 、 'build_model' and 'build_dataset'.
+    Parameters:
+        config(TrainingConfig):
+            The training config for network training
     """
 
     def __init__(self, config):
@@ -258,7 +263,11 @@ class Trainer:
         self.config.logger = self.logger
 
     def set_context_env(self):
-        """Set the context env"""
+        """
+        Set mindspore context according to training config,
+        default only set device_target,save_graphs,enable_graph_kernel and graph_kernel_flags.
+        To set more mindspore context flag, developer needs to overwritten this function.
+        """
         if self.config.device_target != "GPU":
             self.config.enable_graph_kernel = False
             self.logger.info("Disable graph kernel.")
@@ -290,7 +299,10 @@ class Trainer:
                 "full_batch doesn't support DATA_PARALLEL mode, you can fix it by setting --full_batch=False")
 
     def set_auto_parallel_context_env(self):
-        """Set the auto parallel env"""
+        """
+        Set the auto parallel context according to training config, default only set
+        parallel_mode,full_batch,device_num and grad_accumulation_step
+        """
         if self.config.parallel_mode != context.ParallelMode.STAND_ALONE:
             self.logger.info(
                 "Enabling the parallel mode: %s for multi card training.", self.config.parallel_mode)
@@ -390,7 +402,7 @@ class Trainer:
                                      integrated_save=False,
                                      keep_checkpoint_max=1)
         ckpt_prefix = self.config.checkpoint_prefix if self.config.checkpoint_prefix \
-            is not None else self.config.auto_model
+                                                       is not None else self.config.auto_model
         ckpoint_cb = ModelCheckpoint(prefix=ckpt_prefix,
                                      directory=self.config.save_checkpoint_path + './ckpt_%d' % self.config.rank_id,
                                      config=config_ck)
