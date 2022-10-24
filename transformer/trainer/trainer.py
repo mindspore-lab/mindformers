@@ -44,8 +44,7 @@ from transformer.utils import print_model_size, get_newest_ckpt, download_data
 from transformer.trainer.grad_accu_model import AccModel
 from transformer.learning_rate import LearningRate
 from transformer.modules import override_attention
-# from transformer.callback import LossCallBack
-from transformer.models.bert.utils import LossCallBack
+from transformer.callback import LossCallBack
 from transformer.logger import get_logger
 from transformer.predict import generate_words, get_acc
 from transformer.utils import _mapper_string_to_bool
@@ -207,7 +206,9 @@ class Trainer:
             self.config.enable_graph_kernel = False
             self.logger.info("Disable graph kernel.")
         context.set_context(device_target=self.config.device_target,
-                            save_graphs=self.config.save_graphs)
+                            save_graphs=self.config.save_graphs,
+                            enable_graph_kernel=self.config.enable_graph_kernel,
+                            graph_kernel_flags=self.config.graph_kernel_flags)
 
     def check_args(self, device_num):
         """Validate the dp and mp"""

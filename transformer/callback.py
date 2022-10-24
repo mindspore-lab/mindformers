@@ -13,45 +13,41 @@
 # limitations under the License.
 # ============================================================================
 """Callback Function"""
+import math
 import time
 import numpy as np
 from mindspore.train.summary import SummaryRecord
 from mindspore.train.callback import Callback
 from mindspore.common.tensor import Tensor
 
-
 class LossCallBack(Callback):
     """
     Monitor the loss in training.
-    If the loss is NAN or INF terminating training.
+    If the loss in NAN or INF terminating training.
     Note:
-        If per_print_times is 0 do not print loss.
+        if per_print_times is 0 do not print loss.
     Args:
         per_print_times (int): Print loss every times. Default: 1.
     """
-
-    def __init__(self, per_print_times=1, rank_id=0):
+    def __init__(self, dataset_size=-1):
         super(LossCallBack, self).__init__()
-        if not isinstance(per_print_times, int) or per_print_times < 0:
-            raise ValueError("print_step must be int and >= 0.")
-        self._per_print_times = per_print_times
-        self.rank_id = rank_id
-        self.time_stamp_first = time.time()
-        self.last_step = 0
-        self.mapper = ["loss", "overflow", "loss scale"]
-
+        self._dataset_size = dataset_size
     def step_end(self, run_context):
-        """Monitor the loss in training."""
-        time_stamp_current = time.time()
+        """
+        Print loss after each step
+        """
         cb_params = run_context.original_args()
-        diff_step = max(cb_params.cur_step_num - self.last_step, 1)
-        time_spend = (time_stamp_current - self.time_stamp_first) / diff_step
-        log_str = f"Time per step: {time_spend:.4f} s, epoch: {cb_params.cur_epoch_num}, step: {cb_params.cur_step_num}"
-        for i in range(len(cb_params.net_outputs)):
-            log_str += f" {self.mapper[i]}:{str(cb_params.net_outputs[i].asnumpy())}"
-        print(log_str)
-        self.last_step = cb_params.cur_step_num
-        self.time_stamp_first = time.time()
+        if self._dataset_size > 0:
+            percent, epoch_num = math.modf(cb_params.cur_step_num / self._dataset_size)
+            if percent == 0:
+                percent = 1
+                epoch_num -= 1
+            print("epoch: {}, current epoch percent: {}, step: {}, outputs are {}"
+                  .format(int(epoch_num), "%.3f" % percent, cb_params.cur_step_num, str(cb_params.net_outputs)),
+                  flush=True)
+        else:
+            print("epoch: {}, step: {}, outputs are {}".format(cb_params.cur_epoch_num, cb_params.cur_step_num,
+                                                               str(cb_params.net_outputs)), flush=True)
 
 
 # callback with loss and accuracy
