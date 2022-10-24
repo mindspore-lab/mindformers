@@ -23,6 +23,7 @@ import mindspore.common.dtype as mstype
 from mindspore.common.initializer import TruncatedNormal, initializer
 from mindspore.ops import operations as P
 from mindspore.ops import functional as F
+from mindspore.nn.transformer.transformer import default_moe_config
 from mindspore.nn.transformer import TransformerOpParallelConfig
 from mindspore.nn.transformer.transformer import default_transformer_config
 from mindspore.nn.transformer.layers import _LayerNorm
@@ -89,6 +90,8 @@ class GPTModel(nn.Cell):
                                                                         dtype=config.compute_dtype),
                                                  parallel_config=new_parallel_config)
         self.blocks = nn.CellList()
+        if not hasattr(config.parallel_config, "moe_config"):
+            config.parallel_config.moe_config = default_moe_config
         moe_config = config.parallel_config.moe_config
         self.transformer = Transformer(hidden_size=config.hidden_size,
                                        batch_size=config.batch_size,

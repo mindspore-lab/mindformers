@@ -13,7 +13,7 @@
 # limitations under the License.
 # ============================================================================
 """
-Used for gradient update. We want to use custom dtype for allreduce in data parallel.
+Trainer Class for quick training.
 """
 
 import argparse
@@ -24,9 +24,7 @@ from dataclasses import dataclass
 import mindspore
 from mindspore import context, DynamicLossScaleManager
 from mindspore import load_checkpoint, load_param_into_net
-from mindspore.ops import functional as F
 from mindspore.common import set_seed
-from mindspore.common.api import ms_function
 from mindspore.context import ParallelMode
 from mindspore.train.model import Model
 from mindspore.train.callback import TimeMonitor, ModelCheckpoint, CheckpointConfig
@@ -34,7 +32,6 @@ from mindspore.nn.transformer import TransformerRecomputeConfig, MoEConfig, Tran
 from mindspore.nn.wrap.loss_scale import TrainOneStepWithLossScaleCell
 from mindspore.nn.wrap.cell_wrapper import MicroBatchInterleaved
 from mindspore.nn.wrap.loss_scale import TrainOneStepCell
-from mindspore.nn.wrap.grad_reducer import DistributedGradReducer, _get_datatype, reduce_opt, _cast_datatype
 import mindspore.communication.management as D
 import mindspore.common.dtype as mstype
 
@@ -46,62 +43,9 @@ from transformer.learning_rate import LearningRate
 from transformer.modules import override_attention
 from transformer.callback import LossCallBack
 from transformer.logger import get_logger
-from transformer.predict import generate_words, get_acc
+from transformer.trainer.utils import generate_words, get_acc
 from transformer.utils import _mapper_string_to_bool
 from transformer.trainer.grad_accu_trainer import TrainAccuStepsWithLossScaleCell
-
-
-class CustomGradTypeDistributedGradReducer(DistributedGradReducer):
-    """We can use set_dtype to control the communication dtype. The other parts are same."""
-
-    def __init__(self, *args, **kwargs):
-        super(CustomGradTypeDistributedGradReducer, self).__init__(*args, **kwargs)
-        self.dtype = mstype.float32
-
-    def set_dtype(self, dtype):
-        self.dtype = dtype
-
-    @ms_function
-    def construct(self, grads):
-        """
-        Under certain circumstances, the data precision of grads could be mixed with float16 and float32. Thus, the
-        result of AllReduce is unreliable. To solve the problem, grads must be cast to float32 before AllReduce,
-        and cast back after the operation.
-
-        Args:
-            grads (Union[Tensor, tuple[Tensor]]): The gradient tensor or tuple before operation.
-
-        Returns:
-            new_grads (Union[Tensor, tuple[Tensor]]), the gradient tensor or tuple after operation.
-        """
-        datatypes = self.map_(F.partial(_get_datatype), grads)
-        grads = self.map_(F.partial(_cast_datatype, self.dtype), grads)
-        if self.is_pynative_parallel:
-            new_grad = self.map_(F.partial(reduce_opt, self.degree, self.mean), self.allreduce_filter, grads)
-        elif self.split_fusion:
-            if self.enable_parameter_server:
-                new_grad = self.map_(F.partial(reduce_opt, self.degree, self.mean, self.allgather),
-                                     self.op_list, self.allreduce_filter, grads, self.ps_parameters)
-            else:
-                new_grad = self.map_(F.partial(reduce_opt, self.degree, self.mean, self.allgather),
-                                     self.op_list, self.allreduce_filter, grads)
-        else:
-            if self.enable_parameter_server:
-                new_grad = self.map_(F.partial(reduce_opt, self.degree, self.mean, self.allgather,
-                                               self.allreduce), self.allreduce_filter, grads, self.ps_parameters)
-            else:
-                new_grad = self.map_(F.partial(reduce_opt, self.degree, self.mean, self.allgather,
-                                               self.allreduce), self.allreduce_filter, grads)
-        new_grad = self.map_(F.partial(_cast_datatype), datatypes, new_grad)
-        return new_grad
-
-
-class TrainOneStepGradWithLossScaleCell(TrainOneStepWithLossScaleCell):
-    def set_custom_sync_dtype(self, dtype):
-        if self.reducer_flag:
-            # Overwrite the Grad Reducer to make it sync gradients in float32 or float16
-            self.grad_reducer = CustomGradTypeDistributedGradReducer(self.weights, self.mean, self.degree)
-            self.grad_reducer.set_dtype(dtype)
 
 
 @dataclass
@@ -358,7 +302,7 @@ class Trainer:
         if self.config.acc_step > 1:
             step_cell = TrainAccuStepsWithLossScaleCell(net, optim, update_cell)
         else:
-            step_cell = TrainOneStepGradWithLossScaleCell(net, optim, update_cell)
+            step_cell = TrainOneStepWithLossScaleCell(net, optim, update_cell)
 
         if self.config.parallel_mode == context.ParallelMode.DATA_PARALLEL:
             step_cell.set_custom_sync_dtype(self.config.grad_sync_dtype)
@@ -507,10 +451,17 @@ class Trainer:
         # download and build dataset
         self.logger.info("Start to build the dataset.")
         ds = self.download_and_build_dataset()
-        self.logger.info("Build dataset finished.")
 
         self.config.step_per_epoch = ds.get_dataset_size()
+        self.logger.info("Build dataset finished. The total dataset size is %s.", self.config.step_per_epoch)
+
         self.config.callback_step = self.config.sink_size if self.config.acc_step <= 1 else self.config.acc_step
+        if self.config.callback_step > self.config.step_per_epoch:
+            self.logger.info("The callback step %s is smaller than "
+                             "step_per_epoch %s,"
+                             "so change it to be %s", self.config.callback_step,
+                             self.config.step_per_epoch, self.config.step_per_epoch)
+            self.config.callback_step = self.config.step_per_epoch
         self.config.actual_epoch_num = int(
             self.config.epoch_size * self.config.step_per_epoch / self.config.callback_step)
 
