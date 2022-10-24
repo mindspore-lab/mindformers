@@ -18,3 +18,5 @@ transformer
 from transformer.auto_class import AutoClass
 from transformer.tasks import Task, TaskConfig
 from transformer.trainer import Trainer, TrainingConfig
+
+__all__ = ['Trainer', "TrainingConfig", "Task", "TaskConfig", "AutoClass"]

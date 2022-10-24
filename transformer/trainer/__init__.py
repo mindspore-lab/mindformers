@@ -10,5 +10,6 @@
 # limitations under the License.
 # ============================================================================
 """Used for building training process."""
-from .build_trainer import build_trainer
 from .trainer import Trainer, TrainingConfig, parse_config
+
+__all__ = ['Trainer', 'TrainingConfig', 'parse_config']

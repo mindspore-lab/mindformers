@@ -13,7 +13,7 @@
 # limitations under the License.
 # ============================================================================
 """
-Used for gradient update. We want to use custom dtype for allreduce in data parallel.
+Trainer Class for quick training.
 """
 
 import argparse
@@ -24,9 +24,7 @@ from dataclasses import dataclass
 import mindspore
 from mindspore import context, DynamicLossScaleManager
 from mindspore import load_checkpoint, load_param_into_net
-from mindspore.ops import functional as F
 from mindspore.common import set_seed
-from mindspore.common.api import ms_function
 from mindspore.context import ParallelMode
 from mindspore.train.model import Model
 from mindspore.train.callback import TimeMonitor, ModelCheckpoint, CheckpointConfig
@@ -34,7 +32,6 @@ from mindspore.nn.transformer import TransformerRecomputeConfig, MoEConfig, Tran
 from mindspore.nn.wrap.loss_scale import TrainOneStepWithLossScaleCell
 from mindspore.nn.wrap.cell_wrapper import MicroBatchInterleaved
 from mindspore.nn.wrap.loss_scale import TrainOneStepCell
-from mindspore.nn.wrap.grad_reducer import DistributedGradReducer, _get_datatype, reduce_opt, _cast_datatype
 import mindspore.communication.management as D
 import mindspore.common.dtype as mstype
 
@@ -44,71 +41,130 @@ from transformer.utils import print_model_size, get_newest_ckpt, download_data
 from transformer.trainer.grad_accu_model import AccModel
 from transformer.learning_rate import LearningRate
 from transformer.modules import override_attention
-# from transformer.callback import LossCallBack
-from transformer.models.bert.utils import LossCallBack
+from transformer.callback import LossCallBack
 from transformer.logger import get_logger
-from transformer.predict import generate_words, get_acc
+from transformer.trainer.utils import generate_words, get_acc
 from transformer.utils import _mapper_string_to_bool
 from transformer.trainer.grad_accu_trainer import TrainAccuStepsWithLossScaleCell
-
-
-class CustomGradTypeDistributedGradReducer(DistributedGradReducer):
-    """We can use set_dtype to control the communication dtype. The other parts are same."""
-
-    def __init__(self, *args, **kwargs):
-        super(CustomGradTypeDistributedGradReducer, self).__init__(*args, **kwargs)
-        self.dtype = mstype.float32
-
-    def set_dtype(self, dtype):
-        self.dtype = dtype
-
-    @ms_function
-    def construct(self, grads):
-        """
-        Under certain circumstances, the data precision of grads could be mixed with float16 and float32. Thus, the
-        result of AllReduce is unreliable. To solve the problem, grads must be cast to float32 before AllReduce,
-        and cast back after the operation.
-
-        Args:
-            grads (Union[Tensor, tuple[Tensor]]): The gradient tensor or tuple before operation.
-
-        Returns:
-            new_grads (Union[Tensor, tuple[Tensor]]), the gradient tensor or tuple after operation.
-        """
-        datatypes = self.map_(F.partial(_get_datatype), grads)
-        grads = self.map_(F.partial(_cast_datatype, self.dtype), grads)
-        if self.is_pynative_parallel:
-            new_grad = self.map_(F.partial(reduce_opt, self.degree, self.mean), self.allreduce_filter, grads)
-        elif self.split_fusion:
-            if self.enable_parameter_server:
-                new_grad = self.map_(F.partial(reduce_opt, self.degree, self.mean, self.allgather),
-                                     self.op_list, self.allreduce_filter, grads, self.ps_parameters)
-            else:
-                new_grad = self.map_(F.partial(reduce_opt, self.degree, self.mean, self.allgather),
-                                     self.op_list, self.allreduce_filter, grads)
-        else:
-            if self.enable_parameter_server:
-                new_grad = self.map_(F.partial(reduce_opt, self.degree, self.mean, self.allgather,
-                                               self.allreduce), self.allreduce_filter, grads, self.ps_parameters)
-            else:
-                new_grad = self.map_(F.partial(reduce_opt, self.degree, self.mean, self.allgather,
-                                               self.allreduce), self.allreduce_filter, grads)
-        new_grad = self.map_(F.partial(_cast_datatype), datatypes, new_grad)
-        return new_grad
-
-
-class TrainOneStepGradWithLossScaleCell(TrainOneStepWithLossScaleCell):
-    def set_custom_sync_dtype(self, dtype):
-        if self.reducer_flag:
-            # Overwrite the Grad Reducer to make it sync gradients in float32 or float16
-            self.grad_reducer = CustomGradTypeDistributedGradReducer(self.weights, self.mean, self.degree)
-            self.grad_reducer.set_dtype(dtype)
 
 
 @dataclass
 class TrainingConfig:
     """
-    TrainingConfig
+        The training configuration for the Trainer. This cofiguration controls the setting of the following:
+        mindspore.context、mindspore.context.auto_parallel_context and the training configurations.
+
+        Args:
+            is_training(bool): Default True.
+            auto_model(str): Default "".
+            micro_batch_size: int = 4
+            global_batch_size: int = 4
+            expand_ratio: int = 4
+            dropout_rate: float = 0.1
+            seed: int = 1234
+            device_target: str = "GPU"
+            save_graphs: bool = False
+            mode: int = 0
+            graph_kernel_flags: str = "--disable_expand_ops=Softmax,Dropout " \
+                                      "--enable_parallel_fusion=true --reduce_fuse_depth=8 --enable_auto_tensor_inplace=true"
+            enable_graph_kernel: bool = True
+            optimizer: str = "adam"
+            acc_step: int = 1
+            full_batch: bool = True
+            train_data_path: str = ""
+            epoch_size: int = 1
+            start_lr: float = 1e-4
+            end_lr: float = 1e-5
+            warmup_step: int = 0
+            opt_offload: bool = False
+            sink_size: int = 10
+            init_loss_scale_value: float = 4294967296
+            scale_factor: float = 2
+            scale_window: int = 1000
+            eval: bool = False
+            rank_id: int = 0
+            device_num: int = 1
+            get_eval_dataset: bool = False
+            eval_batch_size: int = 1
+            eval_data_path: str = ""
+            dataset_format: str = "mindrecord"
+
+            load_checkpoint_path: str = ""
+            save_checkpoint_path: str = ""
+            checkpoint_prefix: str = "tmp"
+
+            compute_dtype: mstype = mstype.float16
+            layernorm_dtype: mstype = mstype.float32
+            softmax_dtype: mstype = mstype.float16
+            grad_sync_dtype: mstype = mstype.float16
+
+            # dataset
+            dataset_drop_remainder: bool = True
+            dataset_do_shuffle: bool = True
+            dataset_schema_file_path: str = ""
+            dataset_device_num: int = 1
+            dataset_rank: int = 0
+            dataset_schema_dir: str = ""
+            dataset_bucket_list: str = None
+
+            # speed_up:
+            micro_batch_interleaved_num: int = 1
+            flatten_weights: bool = False
+            fused_kernel: bool = False
+
+            # moe_config
+            expert_num: int = 1
+            capacity_factor: float = 1.05
+            aux_loss_factor: float = 0.05
+            num_experts_chosen: int = 1
+
+            # recompute_config
+            recompute: bool = True
+            parallel_optimizer_comm_recompute: bool = False
+            mp_comm_recompute: bool = False
+            recompute_slice_activation: bool = False
+
+            # parallel_config
+            parallel_mode: str = "stand_alone"
+            data_parallel: int = 1
+            model_parallel: int = 1
+            pipeline_stage: int = 1
+            micro_batch_num: int = 1
+            expert_parallel: int = 1
+            vocab_emb_dp: bool = False
+            optimizer_shard: bool = False
+            gradient_aggregation_group: int = 6
+
+        Examples:
+            >>> import numpy as np
+            >>> from transformer.trainer import Trainer, TrainingConfig
+            >>> from mindspore.dataset import GeneratorDataset
+            >>> class GPTTrainer(Trainer):
+            >>>     def build_model(self, model_config):
+            >>>         from transformer.models.gpt import GPTWithLoss
+            >>>         my_net = GPTWithLoss(model_config)
+            >>>         return my_net
+            >>>
+            >>>     def build_model_config(self):
+            >>>         from transformer.models.gpt import GPTConfig
+            >>>         return GPTConfig(num_layers=1, hidden_size=8, num_heads=1, seq_length=14)
+            >>>
+            >>>     def build_dataset(self):
+            >>>         def generator():
+            >>>             data = np.random.randint(low=0, high=15, size=(15,)).astype(np.int32)
+            >>>             for _ in range(10):
+            >>>                 yield data
+            >>>
+            >>>         ds = GeneratorDataset(generator, column_names=["text"])
+            >>>         ds = ds.batch(2)
+            >>>         return ds
+            >>>
+            >>>     def build_lr(self):
+            >>>         return 0.01
+            >>>
+            >>> gpt_trainer = GPTTrainer(TrainingConfig(device_target='CPU', epoch_size=2, sink_size=2))
+            >>> gpt_trainer.train()
+
     """
     is_training: bool = True
     auto_model: str = ""
@@ -207,7 +263,9 @@ class Trainer:
             self.config.enable_graph_kernel = False
             self.logger.info("Disable graph kernel.")
         context.set_context(device_target=self.config.device_target,
-                            save_graphs=self.config.save_graphs)
+                            save_graphs=self.config.save_graphs,
+                            enable_graph_kernel=self.config.enable_graph_kernel,
+                            graph_kernel_flags=self.config.graph_kernel_flags)
 
     def check_args(self, device_num):
         """Validate the dp and mp"""
@@ -357,7 +415,7 @@ class Trainer:
         if self.config.acc_step > 1:
             step_cell = TrainAccuStepsWithLossScaleCell(net, optim, update_cell)
         else:
-            step_cell = TrainOneStepGradWithLossScaleCell(net, optim, update_cell)
+            step_cell = TrainOneStepWithLossScaleCell(net, optim, update_cell)
 
         if self.config.parallel_mode == context.ParallelMode.DATA_PARALLEL:
             step_cell.set_custom_sync_dtype(self.config.grad_sync_dtype)
@@ -506,10 +564,17 @@ class Trainer:
         # download and build dataset
         self.logger.info("Start to build the dataset.")
         ds = self.download_and_build_dataset()
-        self.logger.info("Build dataset finished.")
 
         self.config.step_per_epoch = ds.get_dataset_size()
+        self.logger.info("Build dataset finished. The total dataset size is %s.", self.config.step_per_epoch)
+
         self.config.callback_step = self.config.sink_size if self.config.acc_step <= 1 else self.config.acc_step
+        if self.config.callback_step > self.config.step_per_epoch:
+            self.logger.info("The callback step %s is smaller than "
+                             "step_per_epoch %s,"
+                             "so change it to be %s", self.config.callback_step,
+                             self.config.step_per_epoch, self.config.step_per_epoch)
+            self.config.callback_step = self.config.step_per_epoch
         self.config.actual_epoch_num = int(
             self.config.epoch_size * self.config.step_per_epoch / self.config.callback_step)
 
