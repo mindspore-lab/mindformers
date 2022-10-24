@@ -51,7 +51,120 @@ from transformer.trainer.grad_accu_trainer import TrainAccuStepsWithLossScaleCel
 @dataclass
 class TrainingConfig:
     """
-    TrainingConfig
+        The training configuration for the Trainer. This cofiguration controls the setting of the following:
+        mindspore.context、mindspore.context.auto_parallel_context and the training configurations.
+
+        Args:
+            is_training(bool): Default True.
+            auto_model(str): Default "".
+            micro_batch_size: int = 4
+            global_batch_size: int = 4
+            expand_ratio: int = 4
+            dropout_rate: float = 0.1
+            seed: int = 1234
+            device_target: str = "GPU"
+            save_graphs: bool = False
+            mode: int = 0
+            graph_kernel_flags: str = "--disable_expand_ops=Softmax,Dropout " \
+                                      "--enable_parallel_fusion=true --reduce_fuse_depth=8 --enable_auto_tensor_inplace=true"
+            enable_graph_kernel: bool = True
+            optimizer: str = "adam"
+            acc_step: int = 1
+            full_batch: bool = True
+            train_data_path: str = ""
+            epoch_size: int = 1
+            start_lr: float = 1e-4
+            end_lr: float = 1e-5
+            warmup_step: int = 0
+            opt_offload: bool = False
+            sink_size: int = 10
+            init_loss_scale_value: float = 4294967296
+            scale_factor: float = 2
+            scale_window: int = 1000
+            eval: bool = False
+            rank_id: int = 0
+            device_num: int = 1
+            get_eval_dataset: bool = False
+            eval_batch_size: int = 1
+            eval_data_path: str = ""
+            dataset_format: str = "mindrecord"
+
+            load_checkpoint_path: str = ""
+            save_checkpoint_path: str = ""
+            checkpoint_prefix: str = "tmp"
+
+            compute_dtype: mstype = mstype.float16
+            layernorm_dtype: mstype = mstype.float32
+            softmax_dtype: mstype = mstype.float16
+            grad_sync_dtype: mstype = mstype.float16
+
+            # dataset
+            dataset_drop_remainder: bool = True
+            dataset_do_shuffle: bool = True
+            dataset_schema_file_path: str = ""
+            dataset_device_num: int = 1
+            dataset_rank: int = 0
+            dataset_schema_dir: str = ""
+            dataset_bucket_list: str = None
+
+            # speed_up:
+            micro_batch_interleaved_num: int = 1
+            flatten_weights: bool = False
+            fused_kernel: bool = False
+
+            # moe_config
+            expert_num: int = 1
+            capacity_factor: float = 1.05
+            aux_loss_factor: float = 0.05
+            num_experts_chosen: int = 1
+
+            # recompute_config
+            recompute: bool = True
+            parallel_optimizer_comm_recompute: bool = False
+            mp_comm_recompute: bool = False
+            recompute_slice_activation: bool = False
+
+            # parallel_config
+            parallel_mode: str = "stand_alone"
+            data_parallel: int = 1
+            model_parallel: int = 1
+            pipeline_stage: int = 1
+            micro_batch_num: int = 1
+            expert_parallel: int = 1
+            vocab_emb_dp: bool = False
+            optimizer_shard: bool = False
+            gradient_aggregation_group: int = 6
+
+        Examples:
+            >>> import numpy as np
+            >>> from transformer.trainer import Trainer, TrainingConfig
+            >>> from mindspore.dataset import GeneratorDataset
+            >>> class GPTTrainer(Trainer):
+            >>>     def build_model(self, model_config):
+            >>>         from transformer.models.gpt import GPTWithLoss
+            >>>         my_net = GPTWithLoss(model_config)
+            >>>         return my_net
+            >>>
+            >>>     def build_model_config(self):
+            >>>         from transformer.models.gpt import GPTConfig
+            >>>         return GPTConfig(num_layers=1, hidden_size=8, num_heads=1, seq_length=14)
+            >>>
+            >>>     def build_dataset(self):
+            >>>         def generator():
+            >>>             data = np.random.randint(low=0, high=15, size=(15,)).astype(np.int32)
+            >>>             for _ in range(10):
+            >>>                 yield data
+            >>>
+            >>>         ds = GeneratorDataset(generator, column_names=["text"])
+            >>>         ds = ds.batch(2)
+            >>>         return ds
+            >>>
+            >>>     def build_lr(self):
+            >>>         return 0.01
+            >>>
+            >>> gpt_trainer = GPTTrainer(TrainingConfig(device_target='CPU', epoch_size=2, sink_size=2))
+            >>> gpt_trainer.train()
+
     """
     is_training: bool = True
     auto_model: str = ""
