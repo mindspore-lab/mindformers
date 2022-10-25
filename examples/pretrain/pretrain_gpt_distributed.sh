@@ -39,7 +39,7 @@ python -m transformer.models.gpt.gpt_trainer  \
     --vocab_size=50304 \
     --parallel_mode="data_parallel" \
     --full_batch=False \
-    -checkpoint_prefix="gpt" \
+    --checkpoint_prefix="gpt" \
     --hidden_size=5120 \
     --recompute=True \
     --mp_comm_recompute=False \

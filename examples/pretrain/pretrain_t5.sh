@@ -32,7 +32,7 @@ python -m transformer.model.t5.t5_trainer \
     --seq_length=1024 \
     --max_decode_length=128 \
     --parallel_mode="stand_alone" \
-    -checkpoint_prefix="t5" \
+    --checkpoint_prefix="t5" \
     --max_position_embeddings=1024 \
     --d_kv=64 \
     --global_batch_size=4 \
