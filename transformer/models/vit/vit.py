@@ -41,8 +41,8 @@ except ImportError:
 MIN_NUM_PATCHES = 4
 
 @dataclass
-class VitConfig:
-    """Vit config class which defines the model size"""
+class ViTConfig:
+    """ViT config class which defines the model size"""
     batch_size: int = 16
     d_model: int = 768
     depth: int = 12
@@ -88,7 +88,7 @@ def origin_head(vit_config):
 
     return SequentialCell([dense])
 
-class VitStem(Cell):
+class ViTStem(Cell):
     """Stem layer for ViT."""
 
     def __init__(self, vit_config):
@@ -175,7 +175,7 @@ class ViT(Cell):
         dropout_rate = vit_config.network_dropout_prob
         norm = mindspore.nn.LayerNorm((vit_config.normalized_shape,))
 
-        stem = VitStem(vit_config)
+        stem = ViTStem(vit_config)
         body = TransformerWrapper(vit_config)
         head = origin_head(vit_config)
 
@@ -350,18 +350,18 @@ def get_loss(vit_config):
 
     return loss
 
-class VitWithLoss(nn.Cell):
+class ViTWithLoss(nn.Cell):
     """
-    Provide Vit pre-training loss through network.
+    Provide ViT pre-training loss through network.
 
     Args:
-        config (VitConfig): The config of VitModel.
+        config (ViTConfig): The config of ViTModel.
 
     Returns:
         Tensor, the loss of the network.
     """
     def __init__(self, vit_config):
-        super(VitWithLoss, self).__init__()
+        super(ViTWithLoss, self).__init__()
         self.vit = ViT(vit_config)
         self.loss = get_loss(vit_config)
         self.cast = P.Cast()
@@ -371,11 +371,3 @@ class VitWithLoss(nn.Cell):
         logits = self.vit(img)
         total_loss = self.loss(logits, labels)
         return self.cast(total_loss, mstype.float32)
-
-def get_vit_network(opt, model_config):
-    if opt.eval:
-        net = ViT(model_config, is_training=False)
-        return net
-
-    netwithloss = VitWithLoss(model_config)
-    return netwithloss

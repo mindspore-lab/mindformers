@@ -13,6 +13,6 @@
 # limitations under the License.
 # ============================================================================
 """
-Vit model imports
+ViT model imports
 """
 from .opt import *
