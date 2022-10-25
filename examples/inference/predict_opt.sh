@@ -16,8 +16,8 @@
 
 echo "=============================================================================================================="
 echo "Please run the script as: "
-echo "bash examples/pretrain/eval_opt.sh 'HELLO WORLD'"
-echo "for example: bash examples/pretrain/eval_opt.sh 'HELLOW WORD'"
+echo "bash examples/inference/predict_opt.sh 'HELLO WORLD'"
+echo "for example: examples/inference/predict_opt.sh 'HELLOW WORD'"
 echo "=============================================================================================================="
 export GLOG_v=3
 SAMPLES=$1
