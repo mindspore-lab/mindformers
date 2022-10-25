@@ -105,7 +105,7 @@ python convert_vit_weight.py --backbone_name vit_base --torch_path pytorch_model
 `--split=test`。
 
 ```bash
-python tools/wmt16_process.py  \
+python tools/wmt16_to_mindrecord.py  \
        --split=train \
        --sp_model_path=/absolute path of spiece.model \
        --raw_dataset=/absolute path of wmt_en_ro \

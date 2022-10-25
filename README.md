@@ -139,7 +139,7 @@ SPM_MODEL=/albert_base/30k-clean.model
 SRC_DATA_PATH=xx/xxx
 OUTPUT_PATH=xxx/xxx
 SHARD_NUM=1
-python tools/glue_generate_records.py  \
+python tools/glue_to_mindrecord.py  \
     --task_name=$TASK_NAME \
     --vocab_path=${VOCAB_PATH} \
     --spm_model_file=${SPM_MODEL} \
@@ -161,7 +161,7 @@ VOCAB_PATH=/albert_base/vocab.txt
 SRC_DATA_PATH=xx/xxx
 OUTPUT_PATH=xxx/xxx
 SHARD_NUM=1
-python tools/glue_generate_records.py  \
+python tools/glue_to_mindrecord.py  \
     --task_name=$TASK_NAME \
     --vocab_path=${VOCAB_PATH} \
     --max_seq_length=512 \
