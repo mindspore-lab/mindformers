@@ -38,7 +38,7 @@ python -m transformer.models.opt.opt_trainer \
     --global_batch_size=12 \
     --vocab_size=50272 \
     --parallel_mode="data_parallel" \
-    -checkpoint_prefix="opt" \
+    --checkpoint_prefix="opt" \
     --full_batch=False \
     --hidden_size=2560 \
     --recompute=True \

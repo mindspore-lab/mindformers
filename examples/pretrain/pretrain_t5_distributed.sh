@@ -40,7 +40,7 @@ python -m transformer.models.t5.t5_trainer \
     --hidden_size=1024 \
     --parallel_mode="data_parallel" \
     --full_batch=False \
-    -checkpoint_prefix="t5" \
+    --checkpoint_prefix="t5" \
     --data_parallel=8 \
     --model_parallel=1 \
     --num_hidden_layers=6 \
