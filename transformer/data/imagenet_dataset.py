@@ -141,49 +141,28 @@ def create_dataset(dataset_path,
     return ds
 
 
-def create_image_dataset(args):
-    """get_dataset"""
-    if args.dataset_name == "imagenet":
-        if args.is_training:
-            data = create_dataset(dataset_path=args.train_data_path,
-                                  do_train=True,
-                                  image_size=args.image_size,
-                                  interpolation=args.interpolation,
-                                  autoaugment=args.autoaugment,
-                                  mixup=args.mixup,
-                                  crop_min=args.crop_min,
-                                  batch_size=args.global_batch_size,
-                                  num_workers=args.num_workers,
-                                  num_classes=args.num_classes)
-        else:
-            data = create_dataset(dataset_path=args.eval_data_path,
-                                  do_train=False,
-                                  image_size=args.image_size,
-                                  interpolation=args.interpolation,
-                                  batch_size=args.eval_batch_size,
-                                  num_workers=args.num_workers,
-                                  num_classes=args.num_classes)
-
-    elif args.dataset_name == "cifar10":
-        if args.is_training:
-            data = create_dataset(dataset_path=args.train_data_path,
-                                  do_train=True,
-                                  image_size=args.image_size,
-                                  interpolation=args.interpolation,
-                                  autoaugment=args.autoaugment,
-                                  mixup=args.mixup,
-                                  crop_min=args.crop_min,
-                                  batch_size=args.global_batch_size,
-                                  num_classes=args.num_classes,
-                                  num_workers=args.num_workers)
-        else:
-            data = create_dataset(dataset_path=args.eval_data_path,
-                                  do_train=False,
-                                  image_size=args.image_size,
-                                  interpolation=args.interpolation,
-                                  batch_size=args.eval_batch_size,
-                                  num_classes=args.num_classes,
-                                  num_workers=args.num_workers)
-    else:
+def create_imagenet_dataset(args):
+    """get_imagenet_dataset"""
+    if args.dataset_name != "imagenet":
         raise NotImplementedError
+
+    if args.is_training:
+        data = create_dataset(dataset_path=args.train_data_path,
+                              do_train=True,
+                              image_size=args.image_size,
+                              interpolation=args.interpolation,
+                              autoaugment=args.autoaugment,
+                              mixup=args.mixup,
+                              crop_min=args.crop_min,
+                              batch_size=args.global_batch_size,
+                              num_workers=args.num_workers,
+                              num_classes=args.num_classes)
+    else:
+        data = create_dataset(dataset_path=args.eval_data_path,
+                              do_train=False,
+                              image_size=args.image_size,
+                              interpolation=args.interpolation,
+                              batch_size=args.eval_batch_size,
+                              num_workers=args.num_workers,
+                              num_classes=args.num_classes)
     return data

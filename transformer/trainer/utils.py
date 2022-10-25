@@ -27,7 +27,7 @@ from transformer.generate import generate
 def get_acc(model, dataset, opt=None):
     """ calculate accuracy for input dataset """
     if opt.dataset_name == 'imagenet':
-        # get accuracy for Vit on the imagenet dataset
+        # get accuracy for ViT on the imagenet dataset
         acc_num = 0
         for data in dataset:
             input_image = data[0].asnumpy().astype(np.float32)

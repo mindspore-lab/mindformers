@@ -515,7 +515,20 @@ class Trainer:
         raise ValueError("invalid auto_model %s." % self.config.auto_model)
 
     def build_lr(self):
-        """build lr"""
+        r"""
+            Build learning rate with warm up and decay.
+            Support cosine learning rate decay and polynomial learning rate decay.
+
+            Args:
+                epoch_size(int): The number of total training epochs.
+                step_per_epoch(int): The number of total steps per epoch.
+                warmup_step(int): The number of the warmup steps.
+                start_lr(float): The learning rate at the beginning of the training.
+                end_lr(float): The learning rate at the end of the training.
+
+            Outputs:
+                Tensor. The learning rate value of the current step.
+        """
         total_steps = int(self.config.epoch_size * self.config.step_per_epoch)
         warmup_step = self.config.warmup_step if self.config.warmup_step > 0 else int(0.1 * total_steps)
         lr = LearningRate(learning_rate=float(self.config.start_lr),
@@ -525,7 +538,26 @@ class Trainer:
         return lr
 
     def build_optimizer(self, net_with_loss):
-        """build optimizer"""
+        r"""
+            Build the optimizer for training.
+
+            Args:
+                net(cell): the network model used in the training.
+                lr: the built learning rate output by build_lr().
+                optimizer_name(str): the name of the optimizer.
+                args: the configuration of the optimizer.
+                stage_num(int): the number of stages in the pipeline parallelization.
+                fused(bool): whether to use operator fution.
+                opt_offload(bool): whether to offload the optimizer to CPU.
+                flatten_weights(bool): whether to fuse the optimizers. This is usually used together with opt_offload
+                                       to reduce the number of the optimizers.
+
+            Inputs:
+                - **net_with_loss** (cell): the network model which contains the loss layer used in the training.
+
+            Outputs:
+                The built optimizer.
+        """
         return build_optimizer(net=net_with_loss,
                                lr=self.build_lr(),
                                optimizer_name=self.config.optimizer,
