@@ -16,9 +16,9 @@
 Converting the WMT datasets.
 """
 
+import os
 import argparse
 from tqdm import tqdm
-import os
 import numpy as np
 
 from mindspore.mindrecord import FileWriter
