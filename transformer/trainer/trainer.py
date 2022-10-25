@@ -293,7 +293,15 @@ class Trainer:
             override_attention(softmax_kernel_path)
 
     def load_checkpoint(self, net_with_loss):
-        """load checkpoint"""
+        """
+        Load model parameters from a given checkpoint.
+
+        Args:
+            net_with_loss (Cell): The network where the parameters will be loaded.
+
+        Raises:
+            TypeError: Argument is not a Cell.
+        """
         if self.config.load_checkpoint_path == "" and self.config.save_checkpoint_path != "" \
                 and self.config.checkpoint_prefix != "":
             self.config.load_checkpoint_path = get_newest_ckpt(self.config.save_checkpoint_path,
@@ -324,8 +332,12 @@ class Trainer:
         return net_with_loss
 
     def build_callback(self):
-        """build training callback"""
-        # callback = [TimeMonitor(self.config.callback_step), LossCallBack(self.config.callback_step)]
+        """
+        Build training callback including time monitor, loss call back, checkpoint call back, and so on.
+
+        Output:
+            callback: List, the callback functions
+        """
         callback = [TimeMonitor(self.config.step_per_epoch), LossCallBack(self.config.step_per_epoch)]
         self.logger.info(
             "Enable the checkpoint saving each %d steps. Integrated Save is False", self.config.step_per_epoch)
@@ -379,7 +391,12 @@ class Trainer:
         return cache_url
 
     def build_dataset(self):
-        """build dataset"""
+        """
+        build dataset
+
+        Raise:
+            ValueError: self.config.auto_model is incorrect.
+        """
         create_dataset = AutoClass.get_create_dataset_func(self.config.auto_model)
         if create_dataset is not None:
             return create_dataset(self.config)
