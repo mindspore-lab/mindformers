@@ -64,21 +64,14 @@ class Task(Trainer):
 
     def run(self):
         """task run"""
-        self.set_context_env()
-        self.set_auto_parallel_context_env()
-
-        # This should be called before any cell construction
-        self.set_fused_kernel()
-
         # Build model
         self.logger.info("Start to build model")
         model_config = self.check_and_build_model_config()
-        parallel_config = self.build_parallel_config()
-        model_config.parallel_config = parallel_config
         model_config.batch_size = self.config.eval_batch_size
         model_config.is_training = False
         net = self.build_model(model_config)
         net.set_train(False)
+        self.logger.info("Build model finished")
 
         # load checkpoint
         self.load_checkpoint(net)

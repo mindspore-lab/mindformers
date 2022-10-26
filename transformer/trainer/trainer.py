@@ -261,6 +261,9 @@ class Trainer:
         self.config = config
         self.logger = get_logger()
         self.config.logger = self.logger
+        self.set_context_env()
+        self.set_auto_parallel_context_env()
+        self.set_fused_kernel()
 
     def set_context_env(self):
         """
@@ -522,6 +525,10 @@ class Trainer:
         model_config.batch_size = data_dp * self.config.global_batch_size // self.config.micro_batch_interleaved_num
         print("Model config are as follows:")
         print(json.dumps({k: str(v) for k, v in model_config.__dict__.items()}, indent=4))
+
+        parallel_config = self.build_parallel_config()
+        model_config.parallel_config = parallel_config
+
         return model_config
 
     def build_model(self, model_config):
@@ -598,20 +605,10 @@ class Trainer:
 
     def train(self):
         """Main training process"""
-        self.set_context_env()
-        self.set_auto_parallel_context_env()
-
-        # This should be called before any cell construction
-        self.set_fused_kernel()
-
         # Build the model with loss
         self.logger.info("Start to build model")
-
         model_config = self.check_and_build_model_config()
         model_config.is_training = True
-        parallel_config = self.build_parallel_config()
-        model_config.parallel_config = parallel_config
-
         net_with_loss = self.build_model(model_config)
         self.logger.info("Build model finished")
 
@@ -673,19 +670,10 @@ class Trainer:
 
     def predict(self):
         """Main predict process"""
-        self.set_context_env()
-        self.set_auto_parallel_context_env()
-
-        # This should be called before any cell construction
-        self.set_fused_kernel()
-
         # Build model
         self.logger.info("Start to build model")
         model_config = self.check_and_build_model_config()
         model_config.is_training = False
-        parallel_config = self.build_parallel_config()
-        model_config.parallel_config = parallel_config
-
         inference_net = self.build_model(model_config)
         self.logger.info("Build model finished")
 
