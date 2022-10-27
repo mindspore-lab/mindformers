@@ -299,7 +299,8 @@ class Trainer:
         if self.config.device_target != "GPU":
             self.config.enable_graph_kernel = False
             self.logger.info("Disable graph kernel.")
-        context.set_context(device_target=self.config.device_target,
+        context.set_context(mode=self.config.mode,
+                            device_target=self.config.device_target,
                             save_graphs=self.config.save_graphs,
                             enable_graph_kernel=self.config.enable_graph_kernel,
                             graph_kernel_flags=self.config.graph_kernel_flags)
