@@ -21,6 +21,7 @@ import numpy as np
 from mindspore.common import dtype as mstype
 from mindspore.common.initializer import initializer
 from mindspore.common.parameter import Parameter, ParameterTuple
+from mindspore.common.tensor import Tensor
 
 
 def _mapper_string_to_bool(argument):
@@ -220,15 +221,48 @@ def generate_params_dict(total_layers,
     return list(zip(ms_extend_param_list, torch_extend_param_list))
 
 
-def print_dict(ckpt):
+def print_dict(input_dict):
     """
-    Print the keys of the loaded checkpoint
+    Print the keys and values of input dict
 
     Args:
-        ckpt(dict): The loaded checkpoint. The key is parameter name and value is the numpy array.
+        input_dict(dict): input dict with key and value.
 
     Returns:
         None
     """
-    for k, v in ckpt.items():
+    for k, v in input_dict.items():
         print(f"Param: {k} with shape {v}")
+
+
+def get_acc(model, dataset, opt=None):
+    """ calculate accuracy for input dataset """
+    if opt.dataset_name == 'imagenet':
+        # get accuracy for ViT on the imagenet dataset
+        acc_num = 0
+        for data in dataset:
+            input_image = data[0].asnumpy().astype(np.float32)
+            label = data[1].asnumpy().astype(np.int32)
+            logits = model.predict(Tensor(input_image, mstype.float32)).asnumpy()
+            y_pred = np.argmax(logits, axis=1)
+
+            equals = label.reshape(-1) == y_pred
+            acc_num += sum(equals)
+
+        acc = acc_num / 50000
+        return acc
+
+    total_num = 0
+    acc_num = 0
+    for data in dataset:
+        input_ids = data[0].asnumpy().astype(np.int32)
+        input_mask = data[1].asnumpy().astype(np.int32)
+        label = data[2].asnumpy().astype(np.int32)
+        logits = model.predict(Tensor(input_ids, mstype.int32), Tensor(input_mask, mstype.float32)).asnumpy()
+
+        equals = label.reshape(-1) == logits
+        total_num += np.prod(label.shape)
+        acc_num += sum(equals)
+
+    acc = acc_num / total_num
+    return acc

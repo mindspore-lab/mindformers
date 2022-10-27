@@ -42,8 +42,9 @@ from transformer.trainer.grad_accu_model import AccModel
 from transformer.learning_rate import LearningRate
 from transformer.modules import override_attention
 from transformer.callback import LossCallBack
+from transformer.generate import generate_words
 from transformer.logger import get_logger
-from transformer.trainer.utils import generate_words, get_acc
+from transformer.utils import get_acc
 from transformer.utils import _mapper_string_to_bool
 from transformer.trainer.grad_accu_trainer import TrainAccuStepsWithLossScaleCell
 

@@ -22,6 +22,8 @@ import numpy as np
 import mindspore.common.dtype as mstype
 from mindspore.common.tensor import Tensor
 from mindspore.ops import operations as P
+from transformer.tokenization import tokenization
+from transformer.tokenization.tokenization import FullTokenizer
 
 
 def topk_fun(logits, topk=5):
@@ -137,7 +139,7 @@ def generate(model,
         encoder_mask = copy.deepcopy(input_mask)
         encoder_output = model.predict(inputs, Tensor(encoder_mask, mstype.float32))
         input_ids = [[0]]
-        input_ids = np.pad(input_ids, ((0, 0), (0, config.model['max_decode_length'] - 1)),
+        input_ids = np.pad(input_ids, ((0, 0), (0, config.max_decode_length - 1)),
                            'constant', constant_values=(0, 0))
         target_mask = np.zeros_like(input_ids)
         target_mask[0, 0] = 1
@@ -177,8 +179,47 @@ def generate(model,
         if cache_encoder:
             target_mask[0][valid_length] = 1
         valid_length += 1
-        input_mask[0][valid_length-1] = 1
+        input_mask[0][valid_length - 1] = 1
     # Return valid outputs out of padded outputs
     length = np.sum(outputs != 0)
     outputs = outputs[0][:length]
     return outputs
+
+
+def generate_words(sample, predict_model, opt):
+    """
+    Generate the word given the input prompt, model and configs
+
+    Args:
+        sample(str): The input prompt. For example, it can be "Today is a good day, I want to".
+        predict_model(Model): the model that need to run prediction.
+        opt(argparse.Namespace): The global configs.
+
+    Inputs:
+        input_ids: the tokenized inputs
+        attention_mask: the attention mask with [bs, seq_length]. 1 means effective and 0 mean it should be masked.
+        labels:
+    Returns:
+        output: Tensor, the loss of the network
+    """
+    # Tokenize input sentence to ids
+    eval_opts = opt
+    tokenizer = FullTokenizer(eval_opts.vocab_path)
+    tokens = tokenizer.tokenize(sample)
+    input_ids = tokenization.convert_tokens_to_ids(vocab_file=eval_opts.vocab_path,
+                                                   tokens=tokens)
+    input_ids = np.array(input_ids).reshape(1, -1)
+    # eval ops
+    output_ids = generate(predict_model,
+                          end_token=2,  # For opt model, the end_token is 2
+                          origin_inputs=input_ids,
+                          model_origin_max_length=eval_opts.seq_length,
+                          max_generate_length=eval_opts.seq_length,
+                          vocab_size=eval_opts.vocab_size,
+                          cache_encoder=None,
+                          config=eval_opts)
+    # Decode output ids to sentence
+    output_samples = tokenization.convert_ids_to_tokens(vocab_file=eval_opts.vocab_path,
+                                                        ids=output_ids.tolist())
+    output_string = tokenization.convert_tokens_to_string(output_samples)
+    print('Output is:', output_string, flush=True)
