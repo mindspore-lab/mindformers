@@ -256,7 +256,7 @@ class TrainingConfig:
     num_experts_chosen: int = 1
 
     # recompute_config
-    recompute: bool = True
+    recompute: bool = False
     parallel_optimizer_comm_recompute: bool = False
     mp_comm_recompute: bool = False
     recompute_slice_activation: bool = False
