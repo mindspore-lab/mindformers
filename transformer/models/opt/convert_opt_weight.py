@@ -18,7 +18,7 @@ import numpy as np
 
 import torch
 from mindspore import save_checkpoint, Tensor
-from tools.utils import print_state_dict, generate_total_layers_params
+from transformer.utils import print_dict, generate_params_dict
 
 
 def get_converted_ckpt(mapped_params, weight_dict):
@@ -62,7 +62,7 @@ if __name__ == '__main__':
 
     opt = parser.parse_args()
     state_dict = torch.load(opt.torch_path, map_location='cpu')
-    print_state_dict(state_dict)
+    print_dict(state_dict)
 
     ms_name = [
         "backbone.transformer.encoder.blocks.{}.layernorm1.gama",
@@ -119,11 +119,11 @@ if __name__ == '__main__':
         "model.decoder.final_layer_norm.bias"
     ]
 
-    mapped_param = generate_total_layers_params(total_layers=opt.layers,
-                                                mindspore_params_per_layer=ms_name,
-                                                torch_params_per_layer=torch_name,
-                                                mindspore_additional_params=addition_mindspore,
-                                                torch_additional_params=addition_torch)
+    mapped_param = generate_params_dict(total_layers=opt.layers,
+                                        mindspore_params_per_layer=ms_name,
+                                        torch_params_per_layer=torch_name,
+                                        mindspore_additional_params=addition_mindspore,
+                                        torch_additional_params=addition_torch)
     new_ckpt = get_converted_ckpt(mapped_param, state_dict)
     save_checkpoint(new_ckpt, opt.mindspore_path)
     print(f"Convert finished, the output is saved to {opt.mindspore_path}")
