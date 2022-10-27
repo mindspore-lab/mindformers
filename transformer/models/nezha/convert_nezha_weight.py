@@ -17,7 +17,7 @@ import argparse
 import numpy as np
 import torch
 from mindspore import save_checkpoint, Tensor
-from utils import print_state_dict, generate_total_layers_params
+from tools.utils import print_state_dict, generate_total_layers_params
 
 def get_converted_ckpt(mapped_params, weight_dict):
     """

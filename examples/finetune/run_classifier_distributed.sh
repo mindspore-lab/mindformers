@@ -74,9 +74,9 @@ python -m transformer.tasks.text_classification \
     --max_position_embeddings=512 \
     --use_one_hot_embeddings=False \
     --model_type="bert" \
-    --dropout_prob=0.1 \
+    --dropout_prob=0.0 \
     --eval_data_shuffle="false" \
-    --eval_batch_size=1 \
+    --eval_batch_size=16 \
     --load_checkpoint_path="./glue_ckpt/$TASK./ckpt_0/" \
     --checkpoint_prefix="$TASK" \
     --eval_data_path="./$TASK/eval.tf_record" 
