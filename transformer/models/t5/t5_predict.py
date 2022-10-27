@@ -33,11 +33,17 @@ class T5TrainingConfig(TrainingConfig):
         self.full_batch = False
         self.global_batch_size = 1
         self.checkpoint_prefix = "T5"
-        self.load_checkpoint_path = "./converted_mindspore_t5.ckpt"
         self.vocab_path = "./vocab.json"
         self.input_samples = "Hello world"
         self.generate = True
-        self.device_target = "Ascend"
+        self.device_target = "GPU"
+        self.frequency_penalty = 1.5
+        self.presence_penalty = 0.3
+        self.top_p = 0.9
+        self.top_k_num = 1
+        self.end_token = 2
+        self.seq_length = 1024
+        self.vocab_size = 1024
 
 
 class T5Predict(Trainer):
