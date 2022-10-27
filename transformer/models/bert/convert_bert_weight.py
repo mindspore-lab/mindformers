@@ -17,7 +17,7 @@ import argparse
 import numpy as np
 import torch
 from mindspore import save_checkpoint, Tensor
-from utils import print_state_dict, generate_total_layers_params
+from transformer.utils import print_dict, generate_params_dict
 
 
 def get_converted_ckpt(mapped_params, weight_dict):
@@ -75,7 +75,7 @@ if __name__ == '__main__':
 
     opt = parser.parse_args()
     state_dict = torch.load(opt.torch_path, map_location='cpu')
-    print_state_dict(state_dict)
+    print_dict(state_dict)
 
     ms_name = [
         "bert.bert.bert_encoder.encoder.blocks.{}.attention.dense1.weight",
@@ -135,11 +135,11 @@ if __name__ == '__main__':
         "bert.pooler.dense.bias",
     ]
 
-    mapped_param = generate_total_layers_params(total_layers=opt.layers,
-                                                mindspore_params_per_layer=ms_name,
-                                                torch_params_per_layer=torch_name,
-                                                mindspore_additional_params=addition_mindspore,
-                                                torch_additional_params=addition_torch)
+    mapped_param = generate_params_dict(total_layers=opt.layers,
+                                        mindspore_params_per_layer=ms_name,
+                                        torch_params_per_layer=torch_name,
+                                        mindspore_additional_params=addition_mindspore,
+                                        torch_additional_params=addition_torch)
     split_torch_attention(state_dict)
     new_ckpt = get_converted_ckpt(mapped_param, state_dict)
     save_checkpoint(new_ckpt, opt.mindspore_path)
