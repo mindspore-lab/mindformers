@@ -55,86 +55,112 @@ class TrainingConfig:
         mindspore.context、mindspore.context.auto_parallel_context and the training configurations.
 
         Args:
-            is_training(bool): Default True.
-            auto_model(str): Default "".
-            micro_batch_size: int = 4
-            global_batch_size: int = 4
-            expand_ratio: int = 4
-            dropout_rate: float = 0.1
-            seed: int = 1234
-            device_target: str = "GPU"
-            save_graphs: bool = False
-            mode: int = 0
-            graph_kernel_flags: str = "--disable_expand_ops=Softmax,Dropout " \
-                                      "--enable_parallel_fusion=true --reduce_fuse_depth=8 " \
-                                      "--enable_auto_tensor_inplace=true"
-            enable_graph_kernel: bool = True
-            optimizer: str = "adam"
-            acc_step: int = 1
-            full_batch: bool = True
-            train_data_path: str = ""
-            epoch_size: int = 1
-            start_lr: float = 1e-4
-            end_lr: float = 1e-5
-            warmup_step: int = 0
-            opt_offload: bool = False
-            sink_size: int = 10
-            init_loss_scale_value: float = 4294967296
-            scale_factor: float = 2
-            scale_window: int = 1000
-            eval: bool = False
-            rank_id: int = 0
-            device_num: int = 1
-            get_eval_dataset: bool = False
-            eval_batch_size: int = 1
-            eval_data_path: str = ""
+            is_training(bool): Set the is_training of the net.
+                For the user want to train the network, the is_training should be True. Otherwise it should be False.
+                Default True.
+            auto_model(str): The net name to initialize the network. If provided, the trainer will initialize
+                the net with the predefined configuration. Options: ['gpt', 'bert', 'vit']. Default "".
+            micro_batch_size(int): The batch size of each data parallel way. Default 4.
+            global_batch_size(int): The batch size of the global batch size. Default 4.
+            dropout_rate(float): The dropout rate of the net. Default 0.1.
+            seed(int): The seed of the weight initialization. The seed will be called by mindspore.common.seed in
+                Trainer.train. Default None.
+            device_target(str): The device target of the programs. This determines which hardware is running on.
+                Options: ["Ascend", "GPU", "CPU"]. Default "GPU".
+            save_graphs(bool): Whether to save graphs. If True, the output graphs will be saved under the path where
+                program starts. Default False.
+            mode(int): The running mode of the mindspore context. It determines whether the net is running under the
+                graph mode or pynative mode. Options: [mindspore.context.GRAPH_MODE(0),
+                mindspore.context.PYNATIVE_MODE(1)]. Default mindspore.context.GRAPH_MODE(0).
+            graph_kernel_flags(str): Optimization options of graph kernel fusion, and the priority is higher when it
+                conflicts with enable_graph_kernel. Only for experienced users. Please see the document of the
+                graph_kernel_flags in MindSpore.
+                Default "--disable_expand_ops=Softmax,Dropout --enable_parallel_fusion=true \
+                         --reduce_fuse_depth=8 --enable_auto_tensor_inplace=true".
+            enable_graph_kernel(bool): Whether to enable graph kernel fusion to optimize network execution performance.
+                Indicates whether to enable graph kernel computation to optimize network execution performance.
+                If enable_graph_kernel is set to True, acceleration can be enabled. Note this will be
+                effective only on GPU. Default True.
+            optimizer(str): The optimizer to train the network. It only supports the "adam" now.
+                The user can override the trainer.build_optimizer to return the custom optimizer. Default "adam".
+            acc_step(int): The gradient accumulation step when do gradient accumulation. If the set value is larger
+                than 1, it will enable the gradient accumulation. Default 1.
+            full_batch(bool): If enabled, the data read from the dataset will be viewed as the full data. This is
+                effective only when the user runs on SEMI/AUTO parallel model. Default True.
+            train_data_path(str): The train data path. It is used in Trainer.build_dataset. It will load the mindrecords
+                from the given path. If user wants to do custom operations about the dataset, the user can override
+                the class method of Trainer.build_datset. Default "".
+            epoch_size(int): The training epochs of the Trainer.train(). Default 1.
+            start_lr(float): The start learning rate. Default 1e-4.
+            end_lr(float): The end learning rate. Default 1e-5.
+            warmup_step(int): The warmup steps to train the model. The learning rate will increase from 0 and reach at
+                the start_lr. Default 0.
+            opt_offload(bool): Enabele the offload training. The parameter, optimizer state and update will be
+                on the host. Default False.
+            sink_size(int): This number controls how many steps to return to the host when training on the Ascend.
+                Please see the document of sink_size in MindSpore's API. Default 10.
+            init_loss_scale_value(float): The inilization of the loss scale. Note most of the networks in this
+                repo enable mixed precision training as the default setting, so just keep this value as the default.
+                Default 4294967296.
+            scale_factor(int): The scale factor of the loss scale when overflow happens. Note most of the networks in
+                this repo enable mixed precision training as the default setting, so just keep this value as the
+                default. Default 2.
+            scale_window(int): The scale window of the loss scale when no overflow happens. Note most of the networks in
+                this repo enable mixed precision training as the default setting, so just keep this value as the
+                default. Default 1000.
+            eval(bool): If the mode is running on the evaluation. Default False.
+            eval_batch_size(int): The evaluation batch size. Default 1.
+            eval_data_path(str): The evaluation data path of the network. Default "".
             dataset_format: str = "mindrecord"
 
-            load_checkpoint_path: str = ""
-            save_checkpoint_path: str = ""
-            checkpoint_prefix: str = "tmp"
-
-            compute_dtype: mstype = mstype.float16
-            layernorm_dtype: mstype = mstype.float32
-            softmax_dtype: mstype = mstype.float16
-            grad_sync_dtype: mstype = mstype.float16
-
-            # dataset
-            dataset_drop_remainder: bool = True
-            dataset_do_shuffle: bool = True
+            load_checkpoint_path(str): The restored checkpoint path. If set, the net will try to restore the
+                checkpoints from the given path. Default "".
+            save_checkpoint_path(str): The saved checkpoint path. If set, the net will save the
+                checkpoints from the given path. Default "".
+            checkpoint_prefix(str): The prefix of the checkpoint name. Default "tmp".
+            compute_dtype(mindspore.dtype): The computation dtype of the matmul of Transformer Layer.
+                Default mstype.float16.
+            layernorm_dtype(mindspore.dtype): The computation dtype of the layernorm of Transformer Layer.
+                Default mstype.float32.
+            softmax_dtype(mindspore.dtype): The computation dtype of the softmax of Transformer Layer.
+                Default mstype.float16.
+            dataset_drop_remainder(bool): Drop the remaining data that is less than a batch. Default True.
+            dataset_do_shuffle(bool): If do the shuffle for the dataset. Default True.
             dataset_schema_file_path: str = ""
             dataset_device_num: int = 1
             dataset_rank: int = 0
             dataset_schema_dir: str = ""
             dataset_bucket_list: str = None
-
-            # speed_up:
             micro_batch_interleaved_num: int = 1
-            flatten_weights: bool = False
-            fused_kernel: bool = False
-
-            # moe_config
-            expert_num: int = 1
-            capacity_factor: float = 1.05
-            aux_loss_factor: float = 0.05
-            num_experts_chosen: int = 1
-
-            # recompute_config
-            recompute: bool = True
-            parallel_optimizer_comm_recompute: bool = False
-            mp_comm_recompute: bool = False
-            recompute_slice_activation: bool = False
-
-            # parallel_config
-            parallel_mode: str = "stand_alone"
-            data_parallel: int = 1
-            model_parallel: int = 1
-            pipeline_stage: int = 1
-            micro_batch_num: int = 1
-            expert_parallel: int = 1
-            vocab_emb_dp: bool = False
-            optimizer_shard: bool = False
-            gradient_aggregation_group: int = 6
+            flatten_weights(bool): Reset data for weight parameters so that they are using contiguous memory
+                chunks grouped by data type. Default False.
+            expert_num(int):The number of experts employed. Default: 1.
+            capacity_factor(float): The factor is used to indicate how much to expand expert capacity,
+                which is >=1.0. Default: 1.1.
+            aux_loss_factor(float): The factor is used to indicate how much the load balance loss
+                (produced by the router) to be added to the entire model loss, which is < 1.0. Default: 0.05.
+            num_experts_chosen(int): The number of experts is chosen by each token and it should not be larger
+                than expert_num. Default: 1.
+            recompute(bool): Enable the recomputation of each transformer layer. Default True.
+            parallel_optimizer_comm_recompute(bool): Enable the recomputation of AllGather introduced by optimizer
+                shard. Default False.
+            mp_comm_recompute(bool): Enable the recomputation of AllReduce introduced by model parallel, such as matmul.
+                Default False.
+            recompute_slice_activation(bool): Slice the cell output which would remains in memory. Default: False.
+            parallel_mode(str): The parallel mode of the running mode. Options: ["stand_alone"， "auto_parallel",
+                "semi_auto_parallel"]. Default "stand_alone".
+            data_parallel(int): The data parallel way. The input data will be sliced into n parts for each layer
+                according to the data parallel way. Default: 1.
+            model_parallel(int):  The model parallel way. The parameters of dense layers in MultiheadAttention and
+                FeedForward layer will be sliced according to the model parallel way. Default: 1.
+            pipeline_stage(int):  The number of the pipeline stage. Should be a positive value. Default: 1.
+            micro_batch_num(int):  The micro size of the batches for the pipeline training. Default: 1.
+            expert_parallel(int): The expert parallel way. This is effective only when MoE (Mixture of Experts) is
+                applied. This value specifies the number of partitions to split the experts into.Default 1.
+            vocab_emb_dp(bool): Shard embedding in model parallel or data parallel. Default: True.
+            optimizer_shard(bool): To enable the optimizer shard, known as ZeRO-2 when user runs on SEMI/AUTO parallel.
+                Default False.
+            gradient_aggregation_group(int): The number of fusion groups. Default 6.
 
         Examples:
             >>> import numpy as np
@@ -162,8 +188,8 @@ class TrainingConfig:
             >>>
             >>>     def build_lr(self):
             >>>         return 0.01
-            >>>
-            >>> gpt_trainer = GPTTrainer(TrainingConfig(device_target='CPU', epoch_size=2, sink_size=2))
+            >>> config = TrainingConfig(device_target='CPU', epoch_size=2, sink_size=2)
+            >>> gpt_trainer = GPTTrainer()
             >>> gpt_trainer.train()
 
     """
@@ -173,7 +199,7 @@ class TrainingConfig:
     global_batch_size: int = 4
     expand_ratio: int = 4
     dropout_rate: float = 0.1
-    seed: int = 1234
+    seed: int = None
     device_target: str = "GPU"
     save_graphs: bool = False
     mode: int = 0
@@ -191,7 +217,7 @@ class TrainingConfig:
     opt_offload: bool = False
     sink_size: int = 10
     init_loss_scale_value: float = 4294967296
-    scale_factor: float = 2
+    scale_factor: int = 2
     scale_window: int = 1000
     eval: bool = False
     rank_id: int = 0
@@ -208,7 +234,6 @@ class TrainingConfig:
     compute_dtype: mstype = mstype.float16
     layernorm_dtype: mstype = mstype.float32
     softmax_dtype: mstype = mstype.float16
-    grad_sync_dtype: mstype = mstype.float16
 
     # dataset
     dataset_drop_remainder: bool = True
@@ -444,8 +469,6 @@ class Trainer:
         else:
             step_cell = TrainOneStepWithLossScaleCell(net, optim, update_cell)
 
-        if self.config.parallel_mode == context.ParallelMode.DATA_PARALLEL:
-            step_cell.set_custom_sync_dtype(self.config.grad_sync_dtype)
         return step_cell
 
     def download_dataset(self):
@@ -605,6 +628,15 @@ class Trainer:
 
     def train(self):
         """Main training process"""
+        self.set_context_env()
+        self.set_auto_parallel_context_env()
+
+        # This should be called before any cell construction
+        self.set_fused_kernel()
+
+        if self.config.seed:
+            self.logger.info("Set seed:%s", self.config.seed)
+            set_seed(self.config.seed)
         # Build the model with loss
         self.logger.info("Start to build model")
         model_config = self.check_and_build_model_config()
@@ -703,8 +735,9 @@ def parse_config(config):
             setattr(config, k, v)
     print("Training Arguments are as follows:")
     print(json.dumps({k: str(v) for k, v in config.__dict__.items()}, indent=4))
-    print("set seed:", config.seed)
-    set_seed(config.seed)
+    if config.seed:
+        print("set seed:", config.seed)
+        set_seed(config.seed)
 
 
 if __name__ == "__main__":
