@@ -16,7 +16,7 @@
 """process txt"""
 
 import re
-from src.tokenization import convert_tokens_to_ids
+from transformer.tokenization.tokenization import convert_tokens_to_ids
 
 def process_one_example_p(tokenizer, vocab, text, max_seq_len=128):
     """process one testline"""
