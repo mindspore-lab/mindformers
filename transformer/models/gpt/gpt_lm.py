@@ -18,7 +18,7 @@ from mindspore.ops import operations as P
 import mindspore.common.dtype as mstype
 
 from transformer.models.gpt.utils import CrossEntropyCalculationWithMask
-from transformer.processor.lm_finetune import GPT2LanguageModel
+from transformer.models.gpt.lm_finetune import GPT2LanguageModel
 
 
 class GPT2LM(nn.Cell):
