@@ -20,7 +20,7 @@ Bert for finetune script.
 import mindspore.nn as nn
 from mindspore.nn import MSELoss
 from transformer.models.bert.utils import CrossEntropyCalculation
-from transformer.processor.finetune_eval_model import BertCLSModel
+from transformer.models.bert.finetune_eval_model import BertCLSModel
 
 
 class BertCLS(nn.Cell):
