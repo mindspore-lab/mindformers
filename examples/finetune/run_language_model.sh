@@ -23,9 +23,9 @@ echo "==========================================================================
 
 mkdir -p ms_log
 CUR_DIR=`pwd`
-save_finetune_ckpt_path="./fine_ckpt/"
-load_pretrain_ckpt_path="./mindspore_ckpt/gpt2.ckpt"
-load_eval_ckpt_path="./fine_ckpt/ckpt_0"
+save_finetune_ckpt_path="/fine_ckpt/"
+load_pretrain_ckpt_path="/checkpoint_path/gpt2.ckpt"
+load_eval_ckpt_path="/fine_ckpt/"
 
 # dataset path
 train_data_path="./wikitext-2/train/train-mindrecord"

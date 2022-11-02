@@ -28,7 +28,6 @@ python -m transformer.models.bert.bert_trainer \
     --train_data_path=$DATA_DIR \
     --optimizer="adam" \
     --seq_length=128 \
-    --is_training=False \
     --max_position_embeddings=512 \
     --parallel_mode="stand_alone" \
     --checkpoint_prefix="bert" \

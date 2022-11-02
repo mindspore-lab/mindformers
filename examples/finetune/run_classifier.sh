@@ -48,6 +48,7 @@ python -m transformer.trainer.trainer  \
     --num_layers=12 \
     --num_heads=12 \
     --seq_length=128 \
+    --max_position_embeddings=512 \
     --use_one_hot_embeddings=False \
     --model_type="bert" \
     --dropout_prob=0.1 \
@@ -55,11 +56,11 @@ python -m transformer.trainer.trainer  \
     --train_batch_size=32 \
     --start_lr=5e-5 \
     --save_checkpoint_path="./glue_ckpt/$TASK" \
-    --load_checkpoint_path="./checkpoint/bertbase.ckpt" \
+    --load_checkpoint_path="/checkpoint_path/bertbase.ckpt" \
     --checkpoint_prefix='$TASK' \
-    --train_data_path="./glue_data/$TASK/train.tf_record"
+    --train_data_path="/glue_path/$TASK/train.tf_record"
 
-python transformer.tasks.text_classification \
+python -m transformer.tasks.text_classification \
     --auto_model="bert_glue" \
     --device_target="GPU" \
     --dataset_format="tfrecord" \
@@ -79,7 +80,7 @@ python transformer.tasks.text_classification \
     --eval_data_shuffle="false" \
     --eval_batch_size=1 \
     --load_checkpoint_path="./glue_ckpt/$TASK" \
-    --eval_data_path="./glue_data/$TASK/eval.tf_record"
+    --eval_data_path="/glue_path/$TASK/eval.tf_record"
 
 
 

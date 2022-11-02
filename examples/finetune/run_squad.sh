@@ -46,15 +46,15 @@ python -m transformer.trainer.trainer \
     --global_batch_size=24 \
     --vocab_file_path="./vocab.txt" \
     --save_checkpoint_path="./squad_ckpt" \
-    --load_checkpoint_path="./mind_ckpt/bertbase.ckpt" \
+    --load_checkpoint_path="/checkpoint_path/bertbase.ckpt" \
     --checkpoint_prefix='squad' \
-    --train_data_path="./squad/train.mindrecord" \
+    --train_data_path="/squad_path/train.mindrecord" \
 
 python -m transformer.tasks.question_answering \
     --auto_model="bert_squad" \
-    --eval_json_path="./squad/dev-v1.1.json" \
+    --eval_json_path="/squad_path/dev-v1.1.json" \
     --checkpoint_prefix='squad' \
-    --load_checkpoint_path="./squad_ckpt./ckpt_0/" \
+    --load_checkpoint_path="./squad_ckpt" \
     --vocab_file_path="./vocab.txt" \
     --embedding_size=768 \
     --num_layers=12 \
