@@ -219,6 +219,12 @@ python -m transformer.trainer.trainer  \
     --train_data_path="/GLUE_path/MRPC/train.tf_record" \
 ```
 
+也可以直接运行脚本
+
+```bash
+bash examples/finetune/run_classifier_distributed.sh RANK_SIZE hostfile TASK_NAME
+```
+
 在完成微调之后，可以通过如下命令对结果进行评估
 
 ```bash
@@ -245,11 +251,12 @@ python -m transformer.tasks.text_classification \
     --eval_data_path="/GLUE_path/MRPC/eval.tf_record"
 ```
 
-完成上述整个微调和评估只需要执行如下脚本:
+也可以直接运行脚本:
 
 ```bash
-bash examples/finetune/run_classifier_distributed.sh RANK_SIZE hostfile TASK_NAME
+bash examples/inference/predict_bert_classifier.sh RANK_ID TASK_NAME
 ```
+
 
 这里TASK_NAME表示具体的GLUE任务，如果要微调MPRC任务只需令TASK_NAME为MRPC即可。
 
@@ -293,6 +300,12 @@ python -m  transformer.trainer.trainer \
     --schema_file_path="" \
 ```
 
+可以直接运行脚本
+
+```bash
+bash examples/finetune/run_squad_distributed.sh RANK_SIZE hostfile
+```
+
 微调后评估如下：
 
 ```bash
@@ -307,10 +320,10 @@ python -m transformer.tasks.question_answering \
     --num_heads=12
 ```
 
-整个过程只需执行如下脚本：
+可以直接运行脚本：
 
 ```bash
-bash examples/finetune/run_squad_distributed.sh RANK_SIZE hostfile
+bash examples/inference/predict_bert_squad.sh
 ```
 
 下表给出基于HuggingFace中BERT-base的[checkpoint](https://huggingface.co/bert-base-uncased/tree/main)进行微调后的评估结果

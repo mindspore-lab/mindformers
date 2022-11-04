@@ -18,7 +18,7 @@ echo "==========================================================================
 echo "Please run the script as: "
 echo "bash scripts/run_classifier_gpu.sh DEVICE_ID"
 echo "DEVICE_ID is optional, default value is zero"
-echo "for example: bash scripts/run_classifier_gpu.sh 0 MRPC"
+echo "for example: bash scripts/predict_bert_classifier.sh 0 MRPC"
 echo "assessment_method include: [MCC, Spearman_correlation ,Accuracy]"
 echo "=============================================================================================================="
 
@@ -35,27 +35,28 @@ export GLOG_log_dir=${CUR_DIR}/ms_log
 export GLOG_logtostderr=0
 
 TASK=$2
-python -m transformer.trainer.trainer  \
+python -m transformer.tasks.text_classification \
     --auto_model="bert_glue" \
     --device_target="GPU" \
     --dataset_format="tfrecord" \
     --assessment_method="accuracy" \
     --parallel_mode="stand_alone" \
-    --epoch_size=3 \
+    --epoch_num=3 \
     --num_labels=2 \
     --vocab_size=30522 \
     --embedding_size=768 \
     --num_layers=12 \
     --num_heads=12 \
     --seq_length=128 \
-    --max_position_embeddings=512 \
     --use_one_hot_embeddings=False \
+    --checkpoint_prefix='$TASK' \
     --model_type="bert" \
     --dropout_prob=0.1 \
-    --train_data_shuffle="true" \
-    --train_batch_size=32 \
-    --start_lr=5e-5 \
-    --save_checkpoint_path="./glue_ckpt/$TASK" \
-    --load_checkpoint_path="/checkpoint_path/bertbase.ckpt" \
-    --checkpoint_prefix='$TASK' \
-    --train_data_path="/glue_path/$TASK/train.tf_record"
+    --eval_data_shuffle="false" \
+    --eval_batch_size=1 \
+    --load_checkpoint_path="./glue_ckpt/$TASK" \
+    --eval_data_path="/glue_path/$TASK/eval.tf_record"
+
+
+
+
