@@ -31,11 +31,9 @@ HOSTFILE=$2
 # checkpoint path
 save_finetune_ckpt_path="/fine_ckpt/"
 load_pretrain_ckpt_path="/checkpoint_path/gpt2.ckpt"
-load_eval_ckpt_path="/fine_ckpt/"
 
 # dataset path
 train_data_path="./wikitext-2/train/train-mindrecord"
-eval_data_path="./wikitext-2/test/test-mindrecord"
 
 PROJECT_DIR=$(cd "$(dirname "$0")" || exit; pwd)
 export GLOG_log_dir=${CUR_DIR}/ms_log
@@ -71,11 +69,3 @@ python -m transformer.models.gpt.gpt_lm_trainer  \
     --load_checkpoint_path=$load_pretrain_ckpt_path \
     --checkpoint_prefix='language_model' \
     --train_data_path=$train_data_path \
-
-python -m transformer.tasks.language_modeling \
-    --auto_model="gpt_language_model" \
-    --eval_data_path=$eval_data_path \
-    --load_checkpoint_path=$load_eval_ckpt_path \
-    --hidden_size=768 \
-    --num_layers=12 \
-    --num_heads=12 \

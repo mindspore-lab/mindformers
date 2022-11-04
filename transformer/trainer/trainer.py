@@ -207,7 +207,26 @@ class TrainingConfig:
     graph_kernel_flags: str = "--disable_expand_ops=Softmax,Dropout " \
                               "--enable_parallel_fusion=true --reduce_fuse_depth=8 --enable_auto_tensor_inplace=true"
     enable_graph_kernel: bool = False
-
+    optimizer: str = "adam"
+    acc_step: int = 1
+    full_batch: bool = True
+    train_data_path: str = ""
+    epoch_size: int = 1
+    start_lr: float = 1e-4
+    end_lr: float = 1e-5
+    warmup_step: int = 0
+    opt_offload: bool = False
+    sink_size: int = 10
+    init_loss_scale_value: float = 4294967296
+    scale_factor: int = 2
+    scale_window: int = 1000
+    eval: bool = False
+    rank_id: int = 0
+    device_num: int = 1
+    get_eval_dataset: bool = False
+    eval_batch_size: int = 1
+    eval_data_path: str = ""
+    dataset_format: str = "mindrecord"
     load_checkpoint_path: str = ""
     save_checkpoint_path: str = ""
     checkpoint_prefix: str = "tmp"

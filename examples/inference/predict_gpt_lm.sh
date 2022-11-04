@@ -17,39 +17,24 @@
 echo "=============================================================================================================="
 echo "Please run the script as: "
 echo "bash scripts/run_squad_gpu.sh"
-echo "for example: bash scripts/run_squad_gpu.sh"
+echo "for example: bash scripts/predict_gpt_lm.sh"
 echo "assessment_method include: [Accuracy]"
 echo "=============================================================================================================="
 
 mkdir -p ms_log
 CUR_DIR=`pwd`
-save_finetune_ckpt_path="/fine_ckpt/"
-load_pretrain_ckpt_path="/checkpoint_path/gpt2.ckpt"
+load_eval_ckpt_path="/fine_ckpt/"
 
 # dataset path
-train_data_path="./wikitext-2/train/train-mindrecord"
+eval_data_path="./wikitext-2/test/test-mindrecord"
 
 export GLOG_log_dir=${CUR_DIR}/ms_log
 export GLOG_logtostderr=0
-python -m transformer.models.gpt.gpt_lm_trainer  \
-    --device_target="GPU" \
-    --device_id=0 \
-    --metric_method="PPL" \
-    --do_train="true" \
-    --eval_type="finetuned" \
-    --epoch_size=3 \
-    --train_data_shuffle="true" \
-    --eval_data_shuffle="false" \
-    --optimizer="adam"  \
-    --seq_length=1024 \
-    --parallel_mode="stand_alone" \
-    --global_batch_size=16 \
-    --vocab_size=50257 \
+python -m transformer.tasks.language_modeling \
+    --auto_model="gpt_language_model" \
+    --eval_data_path=$eval_data_path \
+    --load_checkpoint_path=$load_eval_ckpt_path \
+    --checkpoint_prefix='language_model' \
     --hidden_size=768 \
     --num_layers=12 \
     --num_heads=12 \
-    --start_lr=2e-4 \
-    --save_checkpoint_path=$save_finetune_ckpt_path \
-    --load_checkpoint_path=$load_pretrain_ckpt_path \
-    --checkpoint_prefix='language_model' \
-    --train_data_path=$train_data_path \
