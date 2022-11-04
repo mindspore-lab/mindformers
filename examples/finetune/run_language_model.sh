@@ -31,7 +31,7 @@ train_data_path="./wikitext-2/train/train-mindrecord"
 
 export GLOG_log_dir=${CUR_DIR}/ms_log
 export GLOG_logtostderr=0
-python -m transformer.models.gpt.gpt_lm_trainer  \
+python -m mindtransformer.models.gpt.gpt_lm_trainer  \
     --device_target="GPU" \
     --device_id=0 \
     --metric_method="PPL" \

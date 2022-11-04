@@ -69,7 +69,7 @@ DEVICE_ID=$1
 EPOCH_SIZE=$2
 DATA_DIR=$3
 
-python -m transformer.models.bert.bert_trainer \
+python -m mindtransformer.models.bert.bert_trainer \
     --train_data_path=$DATA_DIR \
     --optimizer="adam" \
     --seq_length=128 \
@@ -118,7 +118,7 @@ mpirun --allow-run-as-root -n $RANK_SIZE --hostfile $HOSTFILE \
       --output-filename run_distributed_train_bert \
       -x NCCL_IB_HCA -x PATH -x LD_LIBRARY_PATH -x PYTHONPATH -x NCCL_SOCKET_IFNAME -n $RANK_SIZE \
       --mca btl tcp,self --mca btl_tcp_if_include 10.90.43.0/24,enp177s0f0 --merge-stderr-to-stdout \
-python -m transformer.models.bert.bert_trainer \
+python -m mindtransformer.models.bert.bert_trainer \
     --device_num=$RANK_SIZE \
     --train_data_path=$DATASET \
     --seq_length=128 \
@@ -189,7 +189,7 @@ mpirun --allow-run-as-root -n $RANK_SIZE --hostfile $HOSTFILE \
       --output-filename run_classifier \
       -x NCCL_IB_HCA -x PATH -x LD_LIBRARY_PATH -x PYTHONPATH -x NCCL_SOCKET_IFNAME -n $RANK_SIZE \
       --mca btl tcp,self --mca btl_tcp_if_include 10.90.43.0/24,enp177s0f0 --merge-stderr-to-stdout \
-python -m transformer.trainer.trainer  \
+python -m mindtransformer.trainer.trainer  \
     --auto_model="bert_glue" \
     --device_target="GPU" \
     --device_num=$RANK_SIZE \
@@ -228,7 +228,7 @@ bash examples/finetune/run_classifier_distributed.sh RANK_SIZE hostfile TASK_NAM
 在完成微调之后，可以通过如下命令对结果进行评估
 
 ```bash
-python -m transformer.tasks.text_classification \
+python -m mindtransformer.tasks.text_classification \
     --auto_model="bert_glue" \
     --device_target="GPU" \
     --dataset_format="tfrecord" \
@@ -257,7 +257,6 @@ python -m transformer.tasks.text_classification \
 bash examples/inference/predict_bert_classifier.sh RANK_ID TASK_NAME
 ```
 
-
 这里TASK_NAME表示具体的GLUE任务，如果要微调MPRC任务只需令TASK_NAME为MRPC即可。
 
 ### 英文问答任务SQuAD微调
@@ -273,7 +272,7 @@ mpirun --allow-run-as-root -n $RANK_SIZE --hostfile $HOSTFILE \
       --output-filename run_classifier \
       -x NCCL_IB_HCA -x PATH -x LD_LIBRARY_PATH -x PYTHONPATH -x NCCL_SOCKET_IFNAME -n $RANK_SIZE \
       --mca btl tcp,self --mca btl_tcp_if_include 10.90.43.0/24,enp177s0f0 --merge-stderr-to-stdout \
-python -m  transformer.trainer.trainer \
+python -m  mindtransformer.trainer.trainer \
     --auto_model="bert_squad" \
     --device_target="GPU" \
     --device_num=$RANK_SIZE \
@@ -309,7 +308,7 @@ bash examples/finetune/run_squad_distributed.sh RANK_SIZE hostfile
 微调后评估如下：
 
 ```bash
-python -m transformer.tasks.question_answering \
+python -m mindtransformer.tasks.question_answering \
     --auto_model="bert_squad" \
     --eval_json_path="/squad_path/dev-v1.1.json" \
     --load_checkpoint_path="./squad_ckpt" \

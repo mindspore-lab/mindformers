@@ -5,7 +5,7 @@
 目前参数的传入主要采用传入`yaml`文件+命令行参数覆盖的方式。例如下文所示
 
 ```bash
-python -m transformer.trainer.trainer \
+python -m mindtransformer.trainer.trainer \
     --auto_model="gpt" \
     --epoch_size=$EPOCH_SIZE \
     --train_data_path=$DATA_DIR \
@@ -22,12 +22,12 @@ python -m transformer.trainer.trainer \
 
 ## 添加自定义模型
 
-用户可以在`transformer/models`目录下创建自己的模型文件夹。构建好模型代码后，需要在`tranformer/models/build_model.py`中加入自己模型的
+用户可以在`mindtransformer/models`目录下创建自己的模型文件夹。构建好模型代码后，需要在`tranformer/models/build_model.py`中加入自己模型的
 构建接口。
 
 ## 添加自定义数据集
 
-用户可以在`transformer/data`目录下创建自己的数据集处理文件。然后在`tranformer/data/build_dataset.py`中加入数据集的构建接口。
+用户可以在`mindtransformer/data`目录下创建自己的数据集处理文件。然后在`tranformer/data/build_dataset.py`中加入数据集的构建接口。
 构建接口。
 
 ## 运行模式

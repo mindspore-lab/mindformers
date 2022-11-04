@@ -25,7 +25,7 @@ import logging
 import numpy as np
 
 from mindspore.mindrecord import FileWriter
-from transformer.tokenization.lmdata_tokenization import lm_tokenizer
+from mindtransformer.tokenization.lmdata_tokenization import lm_tokenizer
 
 
 def create_instance(tokenizer, sentence, ids, max_length=None):

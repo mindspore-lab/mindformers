@@ -22,7 +22,7 @@ echo "==========================================================================
 
 export DEVICE_ID=$1
 
-python -m transformer.models.vit.vit_trainer \
+python -m mindtransformer.models.vit.vit_trainer \
        --dataset_name=imagenet \
        --train_data_path='/ms_test1/mindspore_dataset/ImageNet2012/train/' \
        --lr_decay_mode='cosine' \

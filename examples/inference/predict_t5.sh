@@ -20,7 +20,7 @@ echo "bash scripts/pretrain/pretrain_t5.sh"
 echo "for example: bash scripts/pretrain/pretrain_t5.sh"
 echo "=============================================================================================================="
 
-python -m transformer.models.t5.t5_predict \
+python -m mindtransformer.models.t5.t5_predict \
      --optimizer="adam" \
      --seq_length=20 \
      --max_decode_length=128 \

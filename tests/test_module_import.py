@@ -13,7 +13,7 @@
 # limitations under the License.
 # ============================================================================
 """
-Test module for testing the interface used for transformer.
+Test module for testing the interface used for mindtransformer.
 How to run this:
 pytest tests/test_module_import.py
 """
@@ -25,7 +25,7 @@ def test_imports_gpt():
     Description: Test to import the gpt model.
     Expectation: No import error
     """
-    from transformer.models import gpt
+    from mindtransformer.models import gpt
     gpt.GPTModel(gpt.GPTConfig(num_layers=1, hidden_size=8, num_heads=1))
 
 
@@ -35,7 +35,7 @@ def test_imports_bert():
     Description: Test to import the gpt model.
     Expectation: No import error
     """
-    from transformer.models import bert
+    from mindtransformer.models import bert
     bert.BertModel(bert.BertConfig(num_layers=1, embedding_size=8, num_heads=1), is_training=False)
 
 
@@ -45,5 +45,5 @@ def test_imports_trainer():
     Description: Test to import the trainer.
     Expectation: No import error
     """
-    from transformer.trainer import Trainer, TrainingConfig
+    from mindtransformer.trainer import Trainer, TrainingConfig
     Trainer(TrainingConfig(recompute=False, auto_model="bert", device_target="CPU"))

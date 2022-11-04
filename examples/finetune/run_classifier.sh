@@ -35,7 +35,7 @@ export GLOG_log_dir=${CUR_DIR}/ms_log
 export GLOG_logtostderr=0
 
 TASK=$2
-python -m transformer.trainer.trainer  \
+python -m mindtransformer.trainer.trainer  \
     --auto_model="bert_glue" \
     --device_target="GPU" \
     --dataset_format="tfrecord" \

@@ -22,9 +22,9 @@ echo "==========================================================================
 
 # use stand-alone inference
 # should set "parallel_mode: 'stand_alone'" in the config
-python -m transformer.models.vit.vit_trainer \
+python -m mindtransformer.models.vit.vit_trainer \
      --is_training="False" \
-     --load_checkpoint_path="/home/jenkins/shiwenqi/test/transformer/tools/converted_mindspore_vit.ckpt" \
+     --load_checkpoint_path="/home/jenkins/shiwenqi/test/mindtransformer/tools/converted_mindspore_vit.ckpt" \
      --dataset_name=imagenet \
      --get_eval_dataset=True \
      --eval_data_path="/ms_test1/mindspore_dataset/ImageNet2012/validation_preprocess/" \

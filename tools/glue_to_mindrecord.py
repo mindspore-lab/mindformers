@@ -23,7 +23,7 @@ import numpy as np
 
 from mindspore.mindrecord import FileWriter
 from mindspore.log import logging
-import transformer.tokenization.tokenization as tokenization
+import mindtransformer.tokenization.tokenization as tokenization
 
 
 class InputExample:

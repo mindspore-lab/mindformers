@@ -31,7 +31,7 @@ mpirun --allow-run-as-root -n $RANK_SIZE --hostfile $HOSTFILE \
       --output-filename run_distributed_train_gpt \
       -x NCCL_IB_HCA -x PATH -x LD_LIBRARY_PATH -x PYTHONPATH -x NCCL_SOCKET_IFNAME -n $RANK_SIZE \
       --mca btl tcp,self --mca btl_tcp_if_include 10.90.43.0/24,enp177s0f0 --merge-stderr-to-stdout \
-python -m transformer.models.gpt.gpt_trainer  \
+python -m mindtransformer.models.gpt.gpt_trainer  \
     --device_num=$RANK_SIZE \
     --train_data_path=$DATASET \
     --seq_length=1024 \
