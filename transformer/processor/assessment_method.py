@@ -19,7 +19,7 @@ Bert evaluation assessment method script.
 import math
 import numpy as np
 from mindspore.nn.metrics import ConfusionMatrixMetric
-from transformer.processor.CRF import postprocess
+from transformer.processor.crf import postprocess
 
 class Accuracy():
     '''

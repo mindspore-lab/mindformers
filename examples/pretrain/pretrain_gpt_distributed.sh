@@ -44,7 +44,7 @@ python -m transformer.models.gpt.gpt_trainer  \
     --recompute=True \
     --mp_comm_recompute=False \
     --num_layers=32 \
-    --data_parallel=1 \
-    --model_parallel=8 \
+    --data_parallel=8 \
+    --model_parallel=1 \
     --num_heads=40 \
     --device_target="GPU" > distribute_train_gpu_log.txt 2>&1 &

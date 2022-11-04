@@ -55,9 +55,9 @@ python -m transformer.trainer.trainer  \
     --global_batch_size=4 \
     --start_lr=5e-5 \
     --save_checkpoint_path="./glue_ckpt/$TASK" \
-    --load_checkpoint_path="./mind_ckpt/bertbase.ckpt" \
+    --load_checkpoint_path="/checkpoint/bertbase.ckpt" \
     --checkpoint_prefix="$TASK" \
-    --train_data_path="./$TASK/train.tf_record" \
+    --train_data_path="/glue_path/$TASK/train.tf_record" \
 
 python -m transformer.tasks.text_classification \
     --auto_model="bert_glue" \
@@ -77,9 +77,9 @@ python -m transformer.tasks.text_classification \
     --dropout_prob=0.0 \
     --eval_data_shuffle="false" \
     --eval_batch_size=16 \
-    --load_checkpoint_path="./glue_ckpt/$TASK./ckpt_0/" \
+    --load_checkpoint_path="./glue_ckpt/$TASK" \
     --checkpoint_prefix="$TASK" \
-    --eval_data_path="./$TASK/eval.tf_record" 
+    --eval_data_path="/glue_path/$TASK/eval.tf_record" 
 
 
 

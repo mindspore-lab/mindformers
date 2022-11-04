@@ -51,7 +51,7 @@ class BertConfig:
     post_layernorm_residual: bool = True
     hidden_dropout_prob: float = 0.1
     attention_probs_dropout_prob: float = 0.1
-    max_position_embeddings: int = 128
+    max_position_embeddings: int = 512
     type_vocab_size: int = 2
     initializer_range: float = 0.02
     use_relative_positions: bool = False

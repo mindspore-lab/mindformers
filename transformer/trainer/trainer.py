@@ -206,27 +206,7 @@ class TrainingConfig:
     mode: int = 0
     graph_kernel_flags: str = "--disable_expand_ops=Softmax,Dropout " \
                               "--enable_parallel_fusion=true --reduce_fuse_depth=8 --enable_auto_tensor_inplace=true"
-    enable_graph_kernel: bool = True
-    optimizer: str = "adam"
-    acc_step: int = 1
-    full_batch: bool = True
-    train_data_path: str = ""
-    epoch_size: int = 1
-    start_lr: float = 1e-4
-    end_lr: float = 1e-5
-    warmup_step: int = 0
-    opt_offload: bool = False
-    sink_size: int = 10
-    init_loss_scale_value: float = 4294967296
-    scale_factor: int = 2
-    scale_window: int = 1000
-    eval: bool = False
-    rank_id: int = 0
-    device_num: int = 1
-    get_eval_dataset: bool = False
-    eval_batch_size: int = 1
-    eval_data_path: str = ""
-    dataset_format: str = "mindrecord"
+    enable_graph_kernel: bool = False
 
     load_checkpoint_path: str = ""
     save_checkpoint_path: str = ""
@@ -403,14 +383,16 @@ class Trainer:
         """
         if self.config.load_checkpoint_path == "" and self.config.save_checkpoint_path != "" \
                 and self.config.checkpoint_prefix != "":
-            self.config.load_checkpoint_path = get_newest_ckpt(self.config.save_checkpoint_path,
+            self.config.load_checkpoint_path = get_newest_ckpt(self.config.save_checkpoint_path + \
+                                                               '/ckpt_%d' % self.config.rank_id,
                                                                self.config.checkpoint_prefix)
 
         if self.config.load_checkpoint_path != "":
             if self.config.load_checkpoint_path.endswith('.ckpt'):
                 self.logger.info("Start to load the ckpt from %s", self.config.load_checkpoint_path)
             else:
-                self.config.load_checkpoint_path = get_newest_ckpt(self.config.load_checkpoint_path,
+                self.config.load_checkpoint_path = get_newest_ckpt(self.config.load_checkpoint_path + \
+                                                                   '/ckpt_%d' % self.config.rank_id,
                                                                    self.config.checkpoint_prefix)
             ckpt = load_checkpoint(self.config.load_checkpoint_path)
             load_param_into_net(net_with_loss, ckpt)
@@ -446,7 +428,7 @@ class Trainer:
         ckpt_prefix = self.config.checkpoint_prefix if self.config.checkpoint_prefix \
                                                        is not None else self.config.auto_model
         ckpoint_cb = ModelCheckpoint(prefix=ckpt_prefix,
-                                     directory=self.config.save_checkpoint_path + './ckpt_%d' % self.config.rank_id,
+                                     directory=self.config.save_checkpoint_path + '/ckpt_%d' % self.config.rank_id,
                                      config=config_ck)
         callback.append(ckpoint_cb)
         return callback

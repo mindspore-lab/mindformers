@@ -59,7 +59,7 @@ python -m  transformer.trainer.trainer \
 python -m transformer.tasks.question_answering \
     --auto_model="bert_squad" \
     --eval_json_path="./squad/dev-v1.1.json" \
-    --load_checkpoint_path="./squad_ckpt./ckpt_0/" \
+    --load_checkpoint_path="./squad_ckpt" \
     --vocab_file_path="./vocab.txt" \
     --checkpoint_prefix="squad" \
     --embedding_size=768 \
