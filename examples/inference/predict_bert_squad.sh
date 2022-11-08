@@ -29,7 +29,7 @@ export GLOG_logtostderr=0
 
 python -m transformer.tasks.question_answering \
     --auto_model="bert_squad" \
-    --eval_json_path="/squad_path/dev-v1.1.json" \
+    --eval_data_path="/squad_path/dev-v1.1.json" \
     --checkpoint_prefix='squad' \
     --load_checkpoint_path="./squad_ckpt" \
     --vocab_file_path="./vocab.txt" \

@@ -15,4 +15,5 @@
 """
 Task
 """
-from .task import Task, TaskConfig
+from mindtransformer.tasks.task import Task, TaskConfig
+from mindtransformer.tasks.pipeline import pipeline

@@ -28,6 +28,9 @@ class TextClassificationTask(Task):
         """
         process input dataset
         """
+        if self.input_kwargs is not None:
+            if "eval_data_path" in self.input_kwargs.keys():
+                self.config.eval_data_path = self.input_kwargs["eval_data_path"]
 
         self.config.get_eval_dataset = True
         self.config.dataset_path = self.download_dataset()
@@ -77,8 +80,35 @@ class TextClassificationTask(Task):
             raise ValueError("Assessment method not supported, support: [accuracy, f1, mcc, spearman_correlation]")
 
 
+class TextClassificationConfig(TaskConfig):
+    """
+    TextClassificationConfig
+    """
+    def __init__(self, *args, **kwargs):
+        super(TextClassificationConfig, self).__init__(*args, **kwargs)
+        self.auto_model = "bert_glue"
+        self.device_target = "GPU"
+        self.dataset_format = "tfrecord"
+        self.assessment_method = "accuracy"
+        self.parallel_mode = "stand_alone"
+        self.vocab_size = 30522
+        self.num_labels = 2
+        self.embedding_size = 768
+        self.num_layers = 12
+        self.num_heads = 12
+        self.seq_length = 128
+        self.use_one_hot_embeddings = False
+        self.checkpoint_prefix = "text_classification"
+        self.model_type = "bert"
+        self.dropout_prob = 0.1
+        self.eval_data_shuffle = False
+        self.eval_batch_size = 1
+        self.load_checkpoint_path = ""
+        self.eval_data_path = ""
+
+
 if __name__ == "__main__":
-    config = TaskConfig()
+    config = TextClassificationConfig()
     parse_config(config)
-    trainer = TextClassificationTask(config)
-    trainer.run()
+    task = TextClassificationTask(config)
+    task.run()

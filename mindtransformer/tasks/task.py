@@ -35,6 +35,7 @@ class TaskConfig(TrainingConfig):
         self.global_batch_size = 1
         self.checkpoint_prefix = ""
 
+
 class Task(Trainer):
     """
     Task
@@ -82,6 +83,11 @@ class Task(Trainer):
         process_output = self.process(preprocess_output, model)
         postprocess_output = self.postprocess(process_output)
         return postprocess_output
+
+    def __call__(self, *args, **kwargs):
+        self.input_args = args
+        self.input_kwargs = kwargs
+        return self.run()
 
 
 if __name__ == "__main__":

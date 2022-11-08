@@ -18,6 +18,7 @@ from mindtransformer.tasks import Task, TaskConfig
 from mindtransformer.trainer import parse_config
 from mindtransformer.data import create_language_model_dataset
 
+
 class LMTask(Task):
     """
     LMTask
@@ -27,6 +28,9 @@ class LMTask(Task):
         """
         process input dataset
         """
+        if self.input_kwargs is not None:
+            if "eval_data_path" in self.input_kwargs.keys():
+                self.config.eval_data_path = self.input_kwargs["eval_data_path"]
         self.config.dataset_batch_size = self.config.eval_batch_size
         self.config.dataset_path = self.config.eval_data_path
         self.config.dataset_do_shuffle = self.config.eval_data_shuffle
@@ -72,24 +76,33 @@ class LMTask(Task):
             raise ValueError("metric method not supported, support: [ppl]")
 
 
+class LMTaskConfig(TaskConfig):
+    """
+    LMTaskConfig
+    """
+    def __init__(self, *args, **kwargs):
+        super(LMTaskConfig, self).__init__(*args, **kwargs)
+        self.auto_model = "gpt_language_model"
+        self.device_target = "GPU"
+        self.device_id = 0
+        self.epoch_num = 3
+        self.eval_data_shuffle = False
+        self.eval_batch_size = 1
+        self.checkpoint_prefix = 'gpt2_language_model'
+        self.eval_data_path = './test-mindrecord'
+
+        self.vocab_size = 50257
+        self.hidden_size = 768
+        self.embedding_size = 768
+        self.num_layers = 12
+        self.num_heads = 12
+        self.seq_length = 1024
+        self.max_position_embeddings = 1024
+        self.metric = 'ppl'
+
 
 if __name__ == "__main__":
-    config = TaskConfig()
-    config.device_target = "GPU"
-    config.device_id = 0
-    config.epoch_num = 3
-    config.eval_data_shuffle = False
-    config.eval_batch_size = 1
-    config.eval_data_path = './test-mindrecord'
-    config.checkpoint_prefix = 'gpt2_language_model'
-
-    config.vocab_size = 50257
-    config.embedding_size = 768
-    config.num_layers = 12
-    config.num_heads = 12
-    config.seq_length = 1024
-    config.max_position_embeddings = 1024
-    config.metric = 'ppl'
+    config = LMTaskConfig()
     parse_config(config)
-    trainer = LMTask(config)
-    trainer.run()
+    task = LMTask(config)
+    task.run()

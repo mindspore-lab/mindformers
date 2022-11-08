@@ -17,6 +17,8 @@ mindtransformer
 """
 from mindtransformer.auto_class import AutoClass
 from mindtransformer.tasks import Task, TaskConfig
+from mindtransformer.tasks import pipeline
 from mindtransformer.trainer import Trainer, TrainingConfig
 
-__all__ = ['Trainer', "TrainingConfig", "Task", "TaskConfig", "AutoClass"]
+
+__all__ = ['Trainer', "TrainingConfig", "Task", "TaskConfig", "AutoClass", "pipeline"]

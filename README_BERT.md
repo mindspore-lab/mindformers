@@ -310,7 +310,7 @@ bash examples/finetune/run_squad_distributed.sh RANK_SIZE hostfile
 ```bash
 python -m mindtransformer.tasks.question_answering \
     --auto_model="bert_squad" \
-    --eval_json_path="/squad_path/dev-v1.1.json" \
+    --eval_data_path="/squad_path/dev-v1.1.json" \
     --load_checkpoint_path="./squad_ckpt" \
     --vocab_file_path="./vocab.txt" \
     --checkpoint_prefix="squad" \
