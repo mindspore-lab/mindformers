@@ -37,8 +37,14 @@ class QATask(Task):
         """
         process input dataset
         """
+        if self.input_kwargs is not None:
+            if "vocab_file_path" in self.input_kwargs.keys():
+                self.config.vocab_file_path = self.input_kwargs["vocab_file_path"]
+            if "eval_data_path" in self.input_kwargs.keys():
+                self.config.eval_data_path = self.input_kwargs["eval_data_path"]
+
         tokenizer = tokenization.FullTokenizer(vocab_file=self.config.vocab_file_path, do_lower_case=True)
-        self.config.eval_examples = read_squad_examples(self.config.eval_json_path, False)
+        self.config.eval_examples = read_squad_examples(self.config.eval_data_path, False)
         self.config.eval_features = convert_examples_to_features(
             examples=self.config.eval_examples,
             tokenizer=tokenizer,
@@ -91,30 +97,37 @@ class QATask(Task):
         """
         all_predictions = write_predictions(self.config.eval_examples, self.config.eval_features, process_output, 20,
                                             30, True)
-        squad_postprocess(self.config.eval_json_path, all_predictions, output_metrics="output.json")
+        squad_postprocess(self.config.eval_data_path, all_predictions, output_metrics="output.json")
+
+
+class QATaskConfig(TaskConfig):
+    """
+    QATaskConfig
+    """
+    def __init__(self, *args, **kwargs):
+        super(QATaskConfig, self).__init__(*args, **kwargs)
+        self.auto_model = "bert_squad"
+        self.device_target = "GPU"
+        self.device_id = 0
+        self.epoch_num = 3
+        self.num_class = 2
+        self.eval_data_shuffle = False
+        self.eval_batch_size = 12
+        self.checkpoint_prefix = 'tmp'
+
+        self.vocab_file_path = "./vocab.txt"
+        self.eval_data_path = "./squad_data/dev-v1.1.json"
+
+        self.vocab_size = 30522
+        self.embedding_size = 768
+        self.num_layers = 12
+        self.num_heads = 12
+        self.seq_length = 384
+        self.max_position_embeddings = 512
 
 
 if __name__ == "__main__":
-    config = TaskConfig()
-    config.device_target = "GPU"
-    config.device_id = 0
-    config.epoch_num = 3
-    config.num_class = 2
-    config.eval_data_shuffle = False
-    config.eval_batch_size = 12
-    config.vocab_file_path = "./vocab.txt"
-    config.load_pretrain_checkpoint_path = "./checkpoint/bert_base1.ckpt"
-    config.load_finetune_checkpoint_path = "./squad_ckpt"
-    config.checkpoint_prefix = 'tmp'
-    config.eval_json_path = "./squad_data/dev-v1.1.json"
-
-    config.vocab_size = 30522
-    config.embedding_size = 768
-    config.num_layers = 12
-    config.num_heads = 12
-    config.seq_length = 384
-    config.max_position_embeddings = 512
-
+    config = QATaskConfig()
     parse_config(config)
-    trainer = QATask(config)
-    trainer.run()
+    task = QATask(config)
+    task.run()
