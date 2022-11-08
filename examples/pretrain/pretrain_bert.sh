@@ -24,14 +24,14 @@ export DEVICE_ID=$1
 EPOCH_SIZE=$2
 DATA_DIR=$3
 
-python -m transformer.models.bert.bert_trainer \
+python -m mindtransformer.models.bert.bert_trainer \
     --train_data_path=$DATA_DIR \
     --optimizer="adam" \
     --seq_length=128 \
     --max_position_embeddings=512 \
     --parallel_mode="stand_alone" \
     --checkpoint_prefix="bert" \
-    --global_batch_size=32 \
+    --global_batch_size=$EPOCH_SIZE \
     --vocab_size=30522 \
     --embedding_size=768 \
     --num_layers=12 \

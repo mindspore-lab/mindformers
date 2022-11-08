@@ -24,7 +24,7 @@ DEVICE_ID=$1
 EPOCH_SIZE=$2
 DATA_DIR=$3
 
-python -m transformer.model.t5.t5_trainer \
+python -m mindtransformer.model.t5.t5_trainer \
     --epoch_size=$EPOCH_SIZE \
     --device_id=$DEVICE_ID \
     --train_data_path=$DATA_DIR \

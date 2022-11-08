@@ -24,7 +24,7 @@ export DEVICE_ID=$1
 EPOCH_SIZE=$2
 DATA_DIR=$3
 
-python -m transformer.models.gpt.gpt_trainer \
+python -m mindtransformer.models.gpt.gpt_trainer \
     --epoch_size=$EPOCH_SIZE \
     --train_data_path=$DATA_DIR \
     --optimizer="adam"  \

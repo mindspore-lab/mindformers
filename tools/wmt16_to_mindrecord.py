@@ -22,7 +22,7 @@ from tqdm import tqdm
 import numpy as np
 
 from mindspore.mindrecord import FileWriter
-from transformer.models.t5.T5Tokenizer import T5Tokenzier
+from mindtransformer.models.t5.T5Tokenizer import T5Tokenzier
 
 
 def read_text(train_file):

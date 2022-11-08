@@ -27,7 +27,7 @@ CUR_DIR=`pwd`
 export GLOG_log_dir=${CUR_DIR}/ms_log
 export GLOG_logtostderr=0
 
-python -m transformer.trainer.trainer \
+python -m mindtransformer.trainer.trainer \
     --auto_model="bert_squad" \
     --device_target="GPU" \
     --device_id=0 \

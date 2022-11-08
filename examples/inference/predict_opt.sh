@@ -22,7 +22,7 @@ echo "==========================================================================
 export GLOG_v=3
 SAMPLES=$1
 
-python -m transformer.models.opt.opt_predict \
+python -m mindtransformer.models.opt.opt_predict \
     --seq_length=1024 \
     --parallel_mode="stand_alone" \
     --global_batch_size=1 \

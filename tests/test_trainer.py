@@ -30,17 +30,17 @@ def test_trainer_gpt_train():
     Description: Using cpu to train GPT without basic error
     Expectation: The returned ret is not 0.
     """
-    from transformer.trainer import Trainer, TrainingConfig
+    from mindtransformer.trainer import Trainer, TrainingConfig
 
     class GPTTrainer(Trainer):
         """GPT trainer"""
         def build_model(self, model_config):
-            from transformer.models.gpt import GPTWithLoss
+            from mindtransformer.models.gpt import GPTWithLoss
             my_net = GPTWithLoss(model_config)
             return my_net
 
         def build_model_config(self):
-            from transformer.models.gpt import GPTConfig
+            from mindtransformer.models.gpt import GPTConfig
             return GPTConfig(num_layers=1, hidden_size=8, num_heads=1, seq_length=14)
 
         def build_dataset(self):
@@ -84,7 +84,7 @@ def test_trainer_gpt_by_cmd():
     writer.commit()
 
     res = os.system("""
-            python -m transformer.trainer.trainer \
+            python -m mindtransformer.trainer.trainer \
                 --auto_model="gpt" \
                 --epoch_size=1 \
                 --train_data_path=tests/ \

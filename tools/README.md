@@ -18,7 +18,7 @@ DEVICE_ID=$1
 EPOCH_SIZE=$2
 DATA_DIR=$3
 
-python -m transformer.trainer.trainer \
+python -m mindtransformer.trainer.trainer \
     --auto_model='t5 \
     --epoch_size=$EPOCH_SIZE \
     --device_id=$DEVICE_ID \
@@ -153,7 +153,7 @@ python tools/wiki_to_mindrecord.py \
 ## 2、使用GPT训练OpenWebText数据集
 
 ```bash
-python -m transformer.trainer.trainer \
+python -m mindtransformer.trainer.trainer \
 --auto_model='gpt' \
 --epoch_size=$EPOCH_SIZE \
 --train_data_path=.\preprocess_gpt\output\ \
@@ -220,7 +220,7 @@ tfrecord中存放的数据说明:
 将生成的tfrecord保存到工作路径中，然后将其指定到[BERT预训练脚本](https://gitee.com/mindspore/transformer/blob/master/examples/pretrain/pretrain_bert_distributed.sh)的对应变量`DATASET`中。
 
 ```bash
-python -m transformer.trainer.trainer \
+python -m mindtransformer.trainer.trainer \
     --auto_model="bert" \
     --dataset_format="tfrecord" \
     --device_num=$RANK_SIZE \
