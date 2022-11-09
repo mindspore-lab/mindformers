@@ -43,7 +43,7 @@ MIN_NUM_PATCHES = 4
 @dataclass
 class ViTConfig:
     """ViT config class which defines the model size"""
-    batch_size: int = 16
+    batch_size: int = 128
     d_model: int = 768
     depth: int = 12
     heads: int = 12
@@ -134,7 +134,7 @@ class TransformerWrapper(Cell):
 
         self.transformer = Transformer(
             hidden_size=vit_config.heads * vit_config.dim_head,
-            batch_size=batch_size * vit_config.parallel_config.data_parallel,
+            batch_size=batch_size,
             ffn_hidden_size=vit_config.mlp_dim,
             src_seq_length=src_seq_length,
             tgt_seq_length=src_seq_length,
@@ -184,7 +184,7 @@ class ViT(Cell):
 
         if pool == "cls":
             self.cls_token = Parameter(initializer(initialization, (1, 1, d_model)),
-                                       name='cls', requires_grad=True)
+                                       name='cls_token', requires_grad=True)
             self.pos_embedding = Parameter(initializer(initialization, (1, num_patches + 1, d_model)),
                                            name='pos_embedding', requires_grad=True)
             self.tile = P.Tile()
@@ -215,7 +215,7 @@ class ViT(Cell):
         x = self.stem(img)
         x = F.cast(x, mstype.float32)
 
-        bs, seq_len, d_model = x.shape  # 2048, 49, 768
+        bs, seq_len, d_model = x.shape
 
         pos_embedding = F.cast(self.pos_embedding, mstype.float32)
         if self.pool == "cls":

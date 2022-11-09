@@ -20,10 +20,11 @@ from mindspore.common.tensor import Tensor
 from mindtransformer.models.vit import ViTConfig, ViTWithLoss, ViT
 from mindtransformer.trainer import Trainer, TrainingConfig, parse_config
 from mindtransformer.data import create_imagenet_dataset
+from mindtransformer.optim.optimizer import build_optimizer
 
 
 def get_lr(global_step, lr_init, lr_end, lr_max, warmup_epochs, \
-           total_epochs, steps_per_epoch, lr_decay_mode, poly_power=2.0):
+           total_epochs, steps_per_epoch, lr_decay_mode, poly_power):
     """
     generate learning rate array
 
@@ -42,7 +43,7 @@ def get_lr(global_step, lr_init, lr_end, lr_max, warmup_epochs, \
     """
     lr_each_step = []
     total_steps = steps_per_epoch * total_epochs
-    warmup_steps = int(steps_per_epoch * warmup_epochs)
+    warmup_steps = int(steps_per_epoch) * int(warmup_epochs)
     if lr_decay_mode == 'steps':
         decay_epoch_index = [0.3 * total_steps, 0.6 * total_steps, 0.8 * total_steps]
         for i in range(total_steps):
@@ -101,23 +102,32 @@ class ViTTrainingConfig(TrainingConfig):
 
     def __init__(self, *args, **kwargs):
         super(ViTTrainingConfig, self).__init__(*args, **kwargs)
-        self.epoch_size = 1
-        self.train_data_path = ""
-        self.optimizer = "adam"
-        self.parallel_mode = "stand_alone"
-        self.full_batch = False
-        self.global_batch_size = 128
-        self.checkpoint_prefix = "vit"
-        self.device_target = "GPU"
-        self.interpolation = 'BILINEAR'
-        self.image_size = 224
-        self.autoaugment = 1
-        self.mixup = 0.2
-        self.crop_min = 0.05
-        self.num_workers = 12
-        self.num_classes = 1000
-        self.sink_size = 625
-
+        self.epoch_size: int = 1
+        self.train_data_path: str = ""
+        self.optimizer: str = "adamw"
+        self.parallel_mode: str = "stand_alone"
+        self.full_batch: bool = False
+        self.checkpoint_prefix: str = "vit"
+        self.device_target: str = "GPU"
+        self.interpolation: str = 'BILINEAR'
+        self.image_size: int = 224
+        self.autoaugment: int = 1
+        self.mixup: float = 0.2
+        self.crop_min: float = 0.05
+        self.num_workers: int = 12
+        self.num_classes: int = 1000
+        self.sink_size: int = 625
+        self.lr_max: float = 0.00355
+        self.warmup_epochs: int = 40
+        self.lr_decay_mode: str = 'cosine'
+        self.poly_power: float = 2.0
+        self.weight_decay: float = 0.05
+        self.loss_scale: int = 1024
+        self.beta1: float = 0.9
+        self.beta2: float = 0.999
+        self.no_weight_decay_filter: str = "beta,bias"
+        self.gc_flag: int = 0
+        self.generate = False
 
 class ViTTrainer(Trainer):
     """
@@ -145,6 +155,16 @@ class ViTTrainer(Trainer):
                           lr_decay_mode=self.config.lr_decay_mode, poly_power=self.config.poly_power)
         lr = Tensor(lr_array)
         return lr
+
+    def build_optimizer(self, net_with_loss):
+        return build_optimizer(net=net_with_loss,
+                               lr=self.build_lr(),
+                               optimizer_name=self.config.optimizer,
+                               args=self.config,
+                               stage_num=1,
+                               fused=True,
+                               opt_offload=self.config.opt_offload,
+                               flatten_weights=self.config.flatten_weights)
 
 
 if __name__ == "__main__":

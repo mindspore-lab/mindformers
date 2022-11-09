@@ -56,9 +56,9 @@ if __name__ == '__main__':
                         help="The torch checkpoint path.")
     parser.add_argument("--mindspore_path",
                         type=str,
+                        default=None,
                         required=True,
-                        default="The output mindspore checkpoint path.",
-                        help="Use device nums, default is 128.")
+                        help="The output mindspore checkpoint path.")
 
     opt = parser.parse_args()
     if opt.backbone_name == 'vit_base':
@@ -110,7 +110,7 @@ if __name__ == '__main__':
     ]
 
     addition_mindspore = [
-        "cls",
+        "cls_token",
         "stem.patch_to_embedding.weight",
         "stem.patch_to_embedding.bias",
         "pos_embedding",

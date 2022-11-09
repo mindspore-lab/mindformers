@@ -16,20 +16,33 @@
 
 echo "=============================================================================================================="
 echo "Please run the script as: "
-echo "bash examples/pretrain/pretrain_vit.sh DEVICE_ID"
-echo "for example: bash examples/pretrain/pretrain_vit.sh 0"
+echo "bash examples/pretrain/pretrain_vit.sh DEVICE_ID EPOCH_SIZE DATA_DIR"
+echo "for example: bash examples/pretrain/pretrain_vit.sh 0 300 /path/dataset"
 echo "=============================================================================================================="
 
-export DEVICE_ID=$1
+DEVICE_ID=$1
+EPOCH_SIZE=$2
+DATA_DIR=$3
 
 python -m mindtransformer.models.vit.vit_trainer \
-       --dataset_name=imagenet \
-       --train_data_path='/ms_test1/mindspore_dataset/ImageNet2012/train/' \
-       --lr_decay_mode='cosine' \
-       --lr_max=0.00355 \
-       --epoch_size=300 \
-       --warmup_epochs=40 \
-       --sink_size=10 \
-       --device_target="GPU" \
-       --device_id=$DEVICE_ID > standalone_train_gpu_log.txt 2>&1 &
+      --device_id=$DEVICE_ID  \
+      --epoch_size=$EPOCH_SIZE \
+      --train_data_path=$DATA_DIR \
+      --mode=0 \
+      --dataset_name=imagenet \
+      --enable_graph_kernel=True \
+      --recompute=False \
+      --parallel_mode="stand_alone" \
+      --optimizer="adamw" \
+      --weight_decay=0.05 \
+      --init_loss_scale_value=65536 \
+      --loss_scale=1024 \
+      --no_weight_decay_filter="beta,bias" \
+      --gc_flag=0 \
+      --lr_decay_mode='cosine' \
+      --lr_max=0.00355 \
+      --poly_power=2.0 \
+      --warmup_epochs=40 \
+      --global_batch_size=128 \
+      --sink_size=100 > standalone_train_gpu_log.txt 2>&1 &
 tail -f standalone_train_gpu_log.txt

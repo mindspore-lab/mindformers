@@ -162,7 +162,7 @@ def create_imagenet_dataset(args):
                               do_train=False,
                               image_size=args.image_size,
                               interpolation=args.interpolation,
-                              batch_size=args.eval_batch_size,
+                              batch_size=args.global_batch_size,
                               num_workers=args.num_workers,
                               num_classes=args.num_classes)
     return data
