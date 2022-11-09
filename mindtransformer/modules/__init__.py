@@ -13,4 +13,6 @@
 # limitations under the License.
 # ============================================================================
 """Attention Layers."""
-from .attention.fused_softmax_attention import override_attention
+from mindtransformer.modules.attention.fused_softmax_attention import override_attention
+
+__all__ = ['override_attention',]

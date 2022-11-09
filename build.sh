@@ -39,4 +39,5 @@ do
     sha256sum ${package} > ${package}.sha256
 done
 cd ${BASEPATH} || exit
+rm -rf *-info
 echo "---------------- MindTransformer: build end   ----------------"

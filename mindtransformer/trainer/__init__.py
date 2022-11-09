@@ -10,6 +10,6 @@
 # limitations under the License.
 # ============================================================================
 """Used for building training process."""
-from .trainer import Trainer, TrainingConfig, parse_config
+from mindtransformer.trainer.trainer import Trainer, TrainingConfig, parse_config
 
 __all__ = ['Trainer', 'TrainingConfig', 'parse_config']

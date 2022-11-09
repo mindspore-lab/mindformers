@@ -15,9 +15,10 @@
 """
 Data operations
 """
-from .gpt_dataset import create_gpt_dataset
-from .bert_dataset import create_bert_dataset
-from .t5_dataset import create_t5_dataset
-from .wiki_dataset import create_wiki_dataset
-from .downstream_dataset import create_classification_dataset, create_squad_dataset, create_language_model_dataset
-from .imagenet_dataset import create_imagenet_dataset
+from mindtransformer.data.gpt_dataset import create_gpt_dataset
+from mindtransformer.data.bert_dataset import create_bert_dataset
+from mindtransformer.data.t5_dataset import create_t5_dataset
+from mindtransformer.data.wiki_dataset import create_wiki_dataset
+from mindtransformer.data.downstream_dataset import create_classification_dataset, create_squad_dataset, \
+    create_language_model_dataset
+from mindtransformer.data.imagenet_dataset import create_imagenet_dataset
