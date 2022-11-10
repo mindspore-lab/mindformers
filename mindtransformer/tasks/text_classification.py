@@ -28,10 +28,6 @@ class TextClassificationTask(Task):
         """
         process input dataset
         """
-        if self.input_kwargs is not None:
-            if "eval_data_path" in self.input_kwargs.keys():
-                self.config.eval_data_path = self.input_kwargs["eval_data_path"]
-
         self.config.get_eval_dataset = True
         self.config.dataset_path = self.download_dataset()
 

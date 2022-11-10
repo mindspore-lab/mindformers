@@ -18,6 +18,7 @@ from mindspore.train.model import Model
 
 from mindtransformer.auto_class import AutoClass
 from mindtransformer.trainer import Trainer, TrainingConfig, parse_config
+from mindtransformer.utils import _mapper_string_to_bool
 
 
 class TaskConfig(TrainingConfig):
@@ -87,6 +88,12 @@ class Task(Trainer):
     def __call__(self, *args, **kwargs):
         self.input_args = args
         self.input_kwargs = kwargs
+        if self.input_kwargs is not None:
+            for k, v in self.input_kwargs.items():
+                if hasattr(self.config, k) and isinstance(v, str):
+                    setattr(self.config, k, type(getattr(self.config, k))(_mapper_string_to_bool(v)))
+                else:
+                    setattr(self.config, k, v)
         return self.run()
 
 
