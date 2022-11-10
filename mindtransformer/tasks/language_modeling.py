@@ -59,12 +59,9 @@ class LMTask(Task):
                     input_data.append(data[i])
                 input_ids, input_mask, label_ids = input_data
                 loss = model.predict(input_ids, input_mask, label_ids)
-                print("loss is", loss)
                 loss = float(loss.asnumpy())
                 total_loss += loss
                 avg_loss = float(total_loss / num_data)
-                print(" | Current Loss: {:.6f}".format(avg_loss))
-                print(" | Current PPL: {}\n\n".format(math.exp(avg_loss)))
                 num_data += 1
 
             print("\n\n")

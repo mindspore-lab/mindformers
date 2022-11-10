@@ -31,8 +31,8 @@ def test_pipeline_qa_task():
     Expectation: The returned ret is not 0.
     """
     pipe = pipeline("question_answering")
-    vocab_file = "/home/workspace/mindtransformer/vocab.txt"
-    eval_data = "/home/workspace/mindtransformer/eval.json"
+    vocab_file = "/home/workspace/mindtransformer/pipe/vocab.txt"
+    eval_data = "/home/workspace/mindtransformer/pipe/eval.json"
     print(pipe(vocab_file_path=vocab_file, eval_data_path=eval_data))
 
 @pytest.mark.level0
@@ -45,7 +45,7 @@ def test_pipeline_text_classification_task():
     Expectation: The returned ret is not 0.
     """
     pipe = pipeline("text_classification")
-    print(pipe(eval_data_path="/home/workspace/mindtransformer/eval.tf_record"))
+    print(pipe(eval_data_path="/home/workspace/mindtransformer/pipe/eval.tf_record"))
 
 @pytest.mark.level0
 @pytest.mark.platform_x86_gpu_training
@@ -57,4 +57,4 @@ def test_pipeline_language_modeling_task():
     Expectation: The returned ret is not 0.
     """
     pipe = pipeline("language_modeling")
-    print(pipe(eval_data_path="/home/workspace/mindtransformer/test-mindrecord"))
+    print(pipe(eval_data_path="/home/workspace/mindtransformer/pipe/test-mindrecord"))

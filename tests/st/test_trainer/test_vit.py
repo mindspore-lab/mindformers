@@ -20,7 +20,9 @@ pytest tests/test_vit.py
 import os
 from mindtransformer.data.imagenet_dataset import create_dataset
 
-
+@pytest.mark.level0
+@pytest.mark.platform_x86_cpu
+@pytest.mark.env_onecard
 def test_trainer_vit_train():
     """
     Feature: The ViT training test using CPU from python class
@@ -42,7 +44,7 @@ def test_trainer_vit_train():
 
         def build_dataset(self):
             "build fake dataset for testing"
-            ds = create_dataset(dataset_path="../ImageNet_small/train",
+            ds = create_dataset(dataset_path="/home/workspace/mindtransformer/gpt/train",
                                 do_train=True,
                                 image_size=224,
                                 interpolation='BILINEAR',
@@ -60,6 +62,9 @@ def test_trainer_vit_train():
     trainer = ViTTrainer(TrainingConfig(device_target='CPU', epoch_size=1, sink_size=3, global_batch_size=2))
     trainer.train()
 
+@pytest.mark.level0
+@pytest.mark.platform_x86_cpu
+@pytest.mark.env_onecard
 def test_trainer_vit_by_cmd():
     """
     Feature: The ViT training test using CPU from python class
@@ -70,7 +75,7 @@ def test_trainer_vit_by_cmd():
             python -m mindtransformer.models.vit.vit_trainer \
                 --epoch_size=1 \
                 --dataset_name="imagenet" \
-                --train_data_path="../ImageNet_small/train" \
+                --train_data_path="/home/workspace/mindtransformer/vit/train" \
                 --optimizer="adamw"  \
                 --parallel_mode="stand_alone" \
                 --global_batch_size=2 \
