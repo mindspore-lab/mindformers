@@ -289,6 +289,8 @@ class Trainer:
         self.set_context_env()
         self.set_auto_parallel_context_env()
         self.set_fused_kernel()
+        self.input_args = None
+        self.input_kwargs = None
 
     def set_context_env(self):
         """
