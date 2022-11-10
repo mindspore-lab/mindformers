@@ -18,6 +18,7 @@ How to run this:
 pytest tests/test_vit.py
 """
 import os
+import pytest
 from mindtransformer.data.imagenet_dataset import create_dataset
 
 @pytest.mark.level0
@@ -64,6 +65,7 @@ def test_trainer_vit_train():
 
 @pytest.mark.level0
 @pytest.mark.platform_x86_cpu
+@pytest.mark.platform_x86_gpu_training
 @pytest.mark.env_onecard
 def test_trainer_vit_by_cmd():
     """
@@ -82,4 +84,18 @@ def test_trainer_vit_by_cmd():
                 --init_loss_scale_value=1 \
                 --full_batch=False \
                 --device_target=CPU  """)
+
+    res1 = os.system("""
+            python -m mindtransformer.models.vit.vit_trainer \
+                --epoch_size=1 \
+                --dataset_name="imagenet" \
+                --train_data_path="/home/workspace/mindtransformer/vit/train" \
+                --optimizer="adamw"  \
+                --parallel_mode="stand_alone" \
+                --global_batch_size=2 \
+                --init_loss_scale_value=1 \
+                --full_batch=False \
+                --device_target=GPU  """)
+
     assert res == 0
+    assert res1 == 0
