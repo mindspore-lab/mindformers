@@ -37,12 +37,6 @@ class QATask(Task):
         """
         process input dataset
         """
-        if self.input_kwargs is not None:
-            if "vocab_file_path" in self.input_kwargs.keys():
-                self.config.vocab_file_path = self.input_kwargs["vocab_file_path"]
-            if "eval_data_path" in self.input_kwargs.keys():
-                self.config.eval_data_path = self.input_kwargs["eval_data_path"]
-
         tokenizer = tokenization.FullTokenizer(vocab_file=self.config.vocab_file_path, do_lower_case=True)
         self.config.eval_examples = read_squad_examples(self.config.eval_data_path, False)
         self.config.eval_features = convert_examples_to_features(
@@ -104,6 +98,7 @@ class QATaskConfig(TaskConfig):
     """
     QATaskConfig
     """
+
     def __init__(self, *args, **kwargs):
         super(QATaskConfig, self).__init__(*args, **kwargs)
         self.auto_model = "bert_squad"

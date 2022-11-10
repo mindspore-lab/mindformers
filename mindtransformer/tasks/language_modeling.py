@@ -28,9 +28,6 @@ class LMTask(Task):
         """
         process input dataset
         """
-        if self.input_kwargs is not None:
-            if "eval_data_path" in self.input_kwargs.keys():
-                self.config.eval_data_path = self.input_kwargs["eval_data_path"]
         self.config.dataset_batch_size = self.config.eval_batch_size
         self.config.dataset_path = self.config.eval_data_path
         self.config.dataset_do_shuffle = self.config.eval_data_shuffle
