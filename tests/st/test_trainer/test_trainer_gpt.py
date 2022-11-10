@@ -19,11 +19,12 @@ pytest tests/test_trainer.py
 """
 import os
 import numpy as np
-
-from mindspore.mindrecord import FileWriter
+import pytest
 from mindspore.dataset import GeneratorDataset
 
-
+@pytest.mark.level0
+@pytest.mark.platform_x86_cpu
+@pytest.mark.env_onecard
 def test_trainer_gpt_train():
     """
     Feature: The GPT training test using CPU from python class
@@ -41,7 +42,8 @@ def test_trainer_gpt_train():
 
         def build_model_config(self):
             from mindtransformer.models.gpt import GPTConfig
-            return GPTConfig(num_layers=1, hidden_size=8, num_heads=1, seq_length=14)
+            bs = self.config.global_batch_size
+            return GPTConfig(num_layers=1, hidden_size=8, num_heads=1, seq_length=14, batch_size=bs)
 
         def build_dataset(self):
             def generator():
@@ -50,44 +52,30 @@ def test_trainer_gpt_train():
                     yield data
 
             ds = GeneratorDataset(generator, column_names=["text"])
-            ds = ds.batch(2)
+            ds = ds.batch(self.config.global_batch_size)
             return ds
 
         def build_lr(self):
             return 0.01
 
-    trainer = GPTTrainer(TrainingConfig(device_target='CPU', epoch_size=2, sink_size=2))
+    trainer = GPTTrainer(TrainingConfig(device_target='CPU', epoch_size=2, sink_size=2, global_batch_size=2))
     trainer.train()
 
-
+@pytest.mark.level0
+@pytest.mark.platform_x86_cpu
+@pytest.mark.platform_x86_gpu_training
+@pytest.mark.env_onecard
 def test_trainer_gpt_by_cmd():
     """
     Feature: The GPT training test using CPU
     Description: Using cpu to train GPT without basic error
     Expectation: The returned ret is not 0.
     """
-    def generator():
-        data = np.random.randint(low=0, high=15, size=(15)).astype(np.int32)
-        for _ in range(10):
-            yield data
-
-    ds = GeneratorDataset(generator, column_names=["text"])
-
-    data_record_path = 'tests/test_gpt_mindrecord'
-    writer = FileWriter(file_name=data_record_path, shard_num=1, overwrite=True)
-    data_schema = {"text": {"type": "int32", "shape": [-1]}}
-    writer.add_schema(data_schema, "test_schema")
-    for item in ds.create_dict_iterator():
-        for k in item.keys():
-            item[k] = item[k].asnumpy()
-        writer.write_raw_data([item])
-    writer.commit()
-
     res = os.system("""
             python -m mindtransformer.trainer.trainer \
                 --auto_model="gpt" \
                 --epoch_size=1 \
-                --train_data_path=tests/ \
+                --train_data_path=/home/workspace/mindtransformer/ \
                 --optimizer="adam"  \
                 --seq_length=14 \
                 --parallel_mode="stand_alone" \
@@ -99,6 +87,23 @@ def test_trainer_gpt_by_cmd():
                 --num_heads=2 \
                 --full_batch=False \
                 --device_target=CPU  """)
-    os.remove(data_record_path)
-    os.remove(data_record_path + '.db')
+
+    res1 = os.system("""
+            python -m mindtransformer.trainer.trainer \
+                --auto_model="gpt" \
+                --epoch_size=1 \
+                --train_data_path=/home/workspace/mindtransformer/ \
+                --optimizer="adam"  \
+                --seq_length=14 \
+                --parallel_mode="stand_alone" \
+                --global_batch_size=2 \
+                --vocab_size=50257 \
+                --hidden_size=8 \
+                --init_loss_scale_value=1 \
+                --num_layers=1 \
+                --num_heads=2 \
+                --full_batch=False \
+                --device_target=GPU  """)
+
     assert res == 0
+    assert res1 == 0
