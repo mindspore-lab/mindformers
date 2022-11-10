@@ -15,7 +15,7 @@
 """
 Test module for testing the Trainer
 How to run this:
-pytest tests/test_trainer.py
+pytest tests/test_trainer_gpt.py
 """
 import os
 import numpy as np
@@ -75,7 +75,7 @@ def test_trainer_gpt_by_cmd():
             python -m mindtransformer.trainer.trainer \
                 --auto_model="gpt" \
                 --epoch_size=1 \
-                --train_data_path=/home/workspace/mindtransformer/ \
+                --train_data_path=/home/workspace/mindtransformer/gpt/ \
                 --optimizer="adam"  \
                 --seq_length=14 \
                 --parallel_mode="stand_alone" \
@@ -92,7 +92,7 @@ def test_trainer_gpt_by_cmd():
             python -m mindtransformer.trainer.trainer \
                 --auto_model="gpt" \
                 --epoch_size=1 \
-                --train_data_path=/home/workspace/mindtransformer/ \
+                --train_data_path=/home/workspace/mindtransformer/gpt \
                 --optimizer="adam"  \
                 --seq_length=14 \
                 --parallel_mode="stand_alone" \
