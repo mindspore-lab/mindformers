@@ -16,8 +16,8 @@ MindSpore Transformer基于MindSpore内置的并行技术，具备如下特点�
 
 目前支持的模型列表如下：
 
-- GPT
 - BERT
+- GPT
 - OPT
 - T5
 
@@ -92,7 +92,10 @@ trainer.train()
 
 ## 使用指南
 
-请查看[使用指南](docs/how_to_config.md)。
+目前提供下述的文档
+
+- [使用指南](docs/how_to_config.md)
+- [如何使用BERT进行微调](docs/how_to_train_bert.md)
 
 ## Benchmark
 
