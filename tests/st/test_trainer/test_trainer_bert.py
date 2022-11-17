@@ -67,5 +67,5 @@ def test_trainer_bert_train():
         def build_lr(self):
             return 0.01
 
-    trainer = BERTTrainer(TrainingConfig(device_target='CPU', epoch_size=1, sink_size=4))
+    trainer = BERTTrainer(TrainingConfig(device_target='CPU', epoch_size=1, sink_size=4, save_checkpoint=False))
     trainer.train()
