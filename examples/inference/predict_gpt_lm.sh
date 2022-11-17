@@ -30,7 +30,7 @@ eval_data_path="./wikitext-2/test/test-mindrecord"
 
 export GLOG_log_dir=${CUR_DIR}/ms_log
 export GLOG_logtostderr=0
-python -m transformer.tasks.language_modeling \
+python -m mindtransformer.tasks.language_modeling \
     --auto_model="gpt_language_model" \
     --eval_data_path=$eval_data_path \
     --load_checkpoint_path=$load_eval_ckpt_path \

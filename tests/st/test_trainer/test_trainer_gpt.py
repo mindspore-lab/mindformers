@@ -66,7 +66,7 @@ def test_trainer_gpt_train():
 @pytest.mark.env_onecard
 def test_trainer_gpt_by_cmd():
     """
-    Feature: The GPT training test using CPU
+    Feature: The GPT training test using CPU adn GPU
     Description: Using cpu to train GPT without basic error
     Expectation: The returned ret is not 0.
     """

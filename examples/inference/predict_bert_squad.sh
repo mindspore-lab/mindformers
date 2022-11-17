@@ -27,7 +27,7 @@ CUR_DIR=`pwd`
 export GLOG_log_dir=${CUR_DIR}/ms_log
 export GLOG_logtostderr=0
 
-python -m transformer.tasks.question_answering \
+python -m mindtransformer.tasks.question_answering \
     --auto_model="bert_squad" \
     --eval_data_path="/squad_path/dev-v1.1.json" \
     --checkpoint_prefix='squad' \
