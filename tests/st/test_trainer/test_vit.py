@@ -75,6 +75,7 @@ def test_trainer_vit_by_cmd_cpu():
     res = os.system("""
             python -m mindtransformer.models.vit.vit_trainer \
                 --epoch_size=1 \
+                --save_checkpoint=False \
                 --dataset_name="imagenet" \
                 --train_data_path="/home/workspace/mindtransformer/vit/train" \
                 --optimizer="adamw"  \
@@ -98,6 +99,7 @@ def test_trainer_vit_by_cmd_gpu():
     res = os.system("""
             python -m mindtransformer.models.vit.vit_trainer \
                 --epoch_size=1 \
+                --save_checkpoint=False \
                 --dataset_name="imagenet" \
                 --train_data_path="/home/workspace/mindtransformer/vit/train" \
                 --optimizer="adamw"  \

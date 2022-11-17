@@ -58,7 +58,8 @@ def test_trainer_gpt_train():
         def build_lr(self):
             return 0.01
 
-    trainer = GPTTrainer(TrainingConfig(device_target='CPU', epoch_size=2, sink_size=2, global_batch_size=2))
+    trainer = GPTTrainer(TrainingConfig(device_target='CPU', epoch_size=2, sink_size=2, global_batch_size=2,
+                                        save_checkpoint=False))
     trainer.train()
 
 @pytest.mark.level0
@@ -73,6 +74,7 @@ def test_trainer_gpt_by_cmd():
     res = os.system("""
             python -m mindtransformer.trainer.trainer \
                 --auto_model="gpt" \
+                --save_checkpoint=False \
                 --epoch_size=1 \
                 --train_data_path=/home/workspace/mindtransformer/gpt/ \
                 --optimizer="adam"  \
@@ -90,6 +92,7 @@ def test_trainer_gpt_by_cmd():
     res1 = os.system("""
             python -m mindtransformer.trainer.trainer \
                 --auto_model="gpt" \
+                --save_checkpoint=False \
                 --epoch_size=1 \
                 --train_data_path=/home/workspace/mindtransformer/gpt \
                 --optimizer="adam"  \

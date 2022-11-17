@@ -116,6 +116,8 @@ class TrainingConfig:
 
             load_checkpoint_path(str): The restored checkpoint path. If set, the net will try to restore the
                 checkpoints from the given path. Default "".
+            save_checkpoint(bool): Enable the checkpoint saving. If set, the net will save the
+                checkpoints. Default True.
             save_checkpoint_path(str): The saved checkpoint path. If set, the net will save the
                 checkpoints from the given path. Default "".
             checkpoint_prefix(str): The prefix of the checkpoint name. Default "tmp".
@@ -148,7 +150,7 @@ class TrainingConfig:
             mp_comm_recompute(bool): Enable the recomputation of AllReduce introduced by model parallel, such as matmul.
                 Default False.
             recompute_slice_activation(bool): Slice the cell output which would remains in memory. Default: False.
-            parallel_mode(str): The parallel mode of the running mode. Options: ["stand_alone"， "auto_parallel",
+            parallel_mode(str): The parallel mode of the running mode. Options: ["stand_alone", "auto_parallel",
                 "semi_auto_parallel"]. Default "stand_alone".
             data_parallel(int): The data parallel way. The input data will be sliced into n parts for each layer
                 according to the data parallel way. Default: 1.
@@ -228,6 +230,7 @@ class TrainingConfig:
     eval_data_path: str = ""
     dataset_format: str = "mindrecord"
     load_checkpoint_path: str = ""
+    save_checkpoint: bool = True
     save_checkpoint_path: str = ""
     checkpoint_prefix: str = "tmp"
 
@@ -276,7 +279,7 @@ class TrainingConfig:
 class Trainer:
     """
     Trainer is a general procedural wrapper for training process.Generally, for a new network training, developer
-    only needs to overwritten 'build_model_config' 、 'build_model' and 'build_dataset'.
+    only needs to overwritten 'build_model_config', 'build_model' and 'build_dataset'.
     Parameters:
         config(TrainingConfig):
             The training config for network training
@@ -439,6 +442,8 @@ class Trainer:
             callback: List, the callback functions
         """
         callback = [TimeMonitor(self.config.step_per_epoch), LossCallBack(self.config.step_per_epoch)]
+        if not self.config.save_checkpoint:
+            return callback
         self.logger.info(
             "Enable the checkpoint saving each %d steps. Integrated Save is False", self.config.step_per_epoch)
         config_ck = CheckpointConfig(save_checkpoint_steps=self.config.step_per_epoch,
