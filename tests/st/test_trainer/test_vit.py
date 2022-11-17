@@ -45,7 +45,7 @@ def test_trainer_vit_train():
 
         def build_dataset(self):
             "build fake dataset for testing"
-            ds = create_dataset(dataset_path="/home/workspace/mindtransformer/gpt/train",
+            ds = create_dataset(dataset_path="/home/workspace/mindtransformer/vit/train",
                                 do_train=True,
                                 image_size=224,
                                 interpolation='BILINEAR',
@@ -65,9 +65,8 @@ def test_trainer_vit_train():
 
 @pytest.mark.level0
 @pytest.mark.platform_x86_cpu
-@pytest.mark.platform_x86_gpu_training
 @pytest.mark.env_onecard
-def test_trainer_vit_by_cmd():
+def test_trainer_vit_by_cmd_cpu():
     """
     Feature: The ViT training test using CPU from python class
     Description: Using cpu to train ViT without basic error
@@ -85,7 +84,18 @@ def test_trainer_vit_by_cmd():
                 --full_batch=False \
                 --device_target=CPU  """)
 
-    res1 = os.system("""
+    assert res == 0
+
+@pytest.mark.level0
+@pytest.mark.platform_x86_gpu_training
+@pytest.mark.env_onecard
+def test_trainer_vit_by_cmd_gpu():
+    """
+    Feature: The ViT training test using CPU from python class
+    Description: Using cpu to train ViT without basic error
+    Expectation: The returned ret is not 0.
+    """
+    res = os.system("""
             python -m mindtransformer.models.vit.vit_trainer \
                 --epoch_size=1 \
                 --dataset_name="imagenet" \
@@ -98,4 +108,3 @@ def test_trainer_vit_by_cmd():
                 --device_target=GPU  """)
 
     assert res == 0
-    assert res1 == 0
