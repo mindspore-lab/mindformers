@@ -19,6 +19,8 @@ pytest tests/test_vit.py
 """
 import os
 import pytest
+import mindspore
+from mindspore import context
 from mindtransformer.data.imagenet_dataset import create_dataset
 
 @pytest.mark.level0
@@ -96,6 +98,7 @@ def test_trainer_vit_by_cmd_gpu():
     Description: Using cpu to train ViT without basic error
     Expectation: The returned ret is not 0.
     """
+    context.set_context(mode=mindspore.GRAPH_MODE, device_target="GPU")
     res = os.system("""
             python -m mindtransformer.models.vit.vit_trainer \
                 --epoch_size=1 \

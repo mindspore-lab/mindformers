@@ -65,5 +65,6 @@ def test_trainer_t5_train():
         def build_lr(self):
             return 0.01
 
-    trainer = T5Trainer(TrainingConfig(device_target='CPU', epoch_size=1, sink_size=2, global_batch_size=2))
+    trainer = T5Trainer(TrainingConfig(device_target='CPU', epoch_size=1, sink_size=2, global_batch_size=2,
+                                       save_checkpoint=False))
     trainer.train()

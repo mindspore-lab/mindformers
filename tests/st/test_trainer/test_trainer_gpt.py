@@ -20,6 +20,8 @@ pytest tests/test_trainer_gpt.py
 import os
 import numpy as np
 import pytest
+import mindspore
+from mindspore import context
 from mindspore.dataset import GeneratorDataset
 
 @pytest.mark.level0
@@ -71,6 +73,7 @@ def test_trainer_gpt_by_cmd():
     Description: Using cpu to train GPT without basic error
     Expectation: The returned ret is not 0.
     """
+    context.set_context(mode=mindspore.GRAPH_MODE, device_target="GPU")
     res = os.system("""
             python -m mindtransformer.trainer.trainer \
                 --auto_model="gpt" \
@@ -87,25 +90,6 @@ def test_trainer_gpt_by_cmd():
                 --num_layers=1 \
                 --num_heads=2 \
                 --full_batch=False \
-                --device_target=CPU  """)
-
-    res1 = os.system("""
-            python -m mindtransformer.trainer.trainer \
-                --auto_model="gpt" \
-                --save_checkpoint=False \
-                --epoch_size=1 \
-                --train_data_path=/home/workspace/mindtransformer/gpt \
-                --optimizer="adam"  \
-                --seq_length=14 \
-                --parallel_mode="stand_alone" \
-                --global_batch_size=2 \
-                --vocab_size=50257 \
-                --hidden_size=8 \
-                --init_loss_scale_value=1 \
-                --num_layers=1 \
-                --num_heads=2 \
-                --full_batch=False \
                 --device_target=GPU  """)
 
     assert res == 0
-    assert res1 == 0
