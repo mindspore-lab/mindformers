@@ -1,0 +1,2 @@
+mindspore:
+  '/mindspore/mindspore/version/202210/20221028/master_20221028163549_cd15cccd8386df2e80703e8aba26f6fe3d6add63/'
