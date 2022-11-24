@@ -33,7 +33,7 @@ if [ ! -d "${BASEPATH}/output" ]; then
 fi
 
 cd ${BASEPATH}/output || exit
-for package in xformer*whl
+for package in mindtransformer*whl
 do
     [[ -e "${package}" ]] || break
     sha256sum ${package} > ${package}.sha256
