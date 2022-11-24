@@ -1,4 +1,3 @@
 numpy
 mindspore>=1.8.0
 sentencepiece
-aicc_tools>=0.2.1 -i https://pypi.org/simple/
