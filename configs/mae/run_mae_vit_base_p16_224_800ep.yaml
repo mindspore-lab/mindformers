@@ -1,0 +1,16 @@
+base_config: [
+    './task_config/context.yaml',
+    './task_config/runner.yaml',
+    './task_config/mae_dataset.yaml',
+    './model_config/mae_vit_base_p16.yaml',
+    '../__base__.yaml' ]
+
+do_train: True
+do_eval: False
+do_predict: False
+
+trainer:
+  type: mim
+  model_name: 'mae'
+
+

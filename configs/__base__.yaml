@@ -1,0 +1,14 @@
+seed: 0
+auto_tune: False
+filepath_prefix: './autotune'
+autotune_per_step: 10
+profile: False
+
+output_dir: "./output"
+
+# cfts init config
+aicc_config:
+  obs_path: "obs url"
+  upload_frequence: 1
+  keep_last: False
+

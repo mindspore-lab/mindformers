@@ -1,0 +1,21 @@
+model:
+  model_config:
+    type: MaeConfig
+    mask_ratio: 0.75
+    num_classes: 0
+    patch_size: 16
+    in_chans: 3
+    embed_dim: 768
+    depth: 12
+    num_heads: 12
+    mlp_ratio: 4
+    drop_rate: 0.
+    drop_path_rate: 0.
+    use_abs_pos_emb: True
+    decoder_layers: 8
+    decoder_num_heads: 16
+    decoder_dim: 512
+    norm_pixel_loss: True
+  arch:
+    type: Mae
+

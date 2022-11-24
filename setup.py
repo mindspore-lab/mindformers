@@ -67,9 +67,9 @@ def get_description():
     stdout, _ = process.communicate()
     if not process.returncode:
         git_version = stdout.decode().strip()
-        return 'mindtransformer platform: %s, cpu: %s, git version: %s' % (os_info, cpu_info, git_version)
+        return 'xformer platform: %s, cpu: %s, git version: %s' % (os_info, cpu_info, git_version)
 
-    return 'mindtransformer platform: %s, cpu: %s' % (os_info, cpu_info)
+    return 'xformer platform: %s, cpu: %s' % (os_info, cpu_info)
 
 
 def get_install_requires():
@@ -103,7 +103,7 @@ class EggInfo(egg_info):
     """Egg info."""
 
     def run(self):
-        egg_info_dir = os.path.join(os.path.dirname(__file__), 'mindtransformer.egg-info')
+        egg_info_dir = os.path.join(os.path.dirname(__file__), 'xformer.egg-info')
         shutil.rmtree(egg_info_dir, ignore_errors=True)
         super().run()
         update_permissions(egg_info_dir)
@@ -113,7 +113,7 @@ class BuildPy(build_py):
     """Build py files."""
 
     def run(self):
-        mindspore_transformer_lib_dir = os.path.join(os.path.dirname(__file__), 'build', 'lib', 'mindtransformer')
+        mindspore_transformer_lib_dir = os.path.join(os.path.dirname(__file__), 'build', 'lib', 'xformer')
         shutil.rmtree(mindspore_transformer_lib_dir, ignore_errors=True)
         super().run()
         update_permissions(mindspore_transformer_lib_dir)
@@ -126,7 +126,7 @@ class Install(install):
         super().run()
         if sys.argv[-1] == 'install':
             pip = import_module('pip')
-            mindspore_transformer_dir = os.path.join(os.path.dirname(pip.__path__[0]), 'mindtransformer')
+            mindspore_transformer_dir = os.path.join(os.path.dirname(pip.__path__[0]), 'xformer')
             update_permissions(mindspore_transformer_dir)
 
 
@@ -137,7 +137,7 @@ if __name__ == '__main__':
         sys.exit(1)
 
     setup(
-        name='mindtransformer',
+        name='xformer',
         version='0.2.0',
         author='The MindSpore Authors',
         author_email='contact@mindspore.cn',
@@ -151,6 +151,9 @@ if __name__ == '__main__':
         long_description=get_readme_content(),
         long_description_content_type="text/markdown",
         packages=find_packages(),
+        package_data={'xformer': [os.path.join(root, file)
+                                  for root, _, file_list in os.walk("./configs") for file in file_list
+                                  if file.endswith('.yaml') or file.endswith(".yml") or file.endswith(".md")]},
         platforms=[get_platform()],
         include_package_data=True,
         cmdclass={
@@ -178,5 +181,5 @@ if __name__ == '__main__':
             'Topic :: Software Development :: Libraries :: Python Modules',
         ],
         license='Apache 2.0',
-        keywords='mindtransformer',
+        keywords='xformer',
     )
