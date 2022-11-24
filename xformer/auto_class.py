@@ -2,7 +2,7 @@ import os
 
 from mindspore.train.serialization import load_checkpoint, load_param_into_net
 
-from .xformer_book import XFormerBook
+from .xformer_book import XFormerBook, print_dict
 from .models.base_config import BaseConfig
 from .models.build_model import build_model_config, build_model
 from .tools import logger
@@ -52,7 +52,5 @@ class AutoConfig:
     @classmethod
     def show_support_list(cls):
         logger.info(f"support list of {cls.__name__} is:")
-        for key, val in cls._support_list.items():
-            logger.info('   ', key, ':', val)
-        logger.info("-------------------------------------")
+        print_dict(cls._support_list)
 

@@ -1,4 +1,6 @@
 from ..tools import logger
+from ..xformer_book import print_dict
+
 class BaseConfig(dict):
     _support_list = []
 
@@ -28,5 +30,4 @@ class BaseConfig(dict):
     @classmethod
     def show_support_list(cls):
         logger.info(f"support list of {cls.__name__} is:")
-        logger.info(f"   {cls._support_list}")
-        logger.info("-------------------------------------")
+        print_dict(cls._support_list)

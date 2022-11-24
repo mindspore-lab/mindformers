@@ -4,6 +4,19 @@ from collections import OrderedDict
 from xformer.tools import logger
 logger.setLevel("INFO")
 
+def print_dict(input_dict):
+    for key, val in input_dict.items():
+        if isinstance(val, dict):
+            logger.info(f"{key}:")
+            print_dict(val)
+        else:
+            logger.info(f"   {key} : {val}")
+    logger.info("-------------------------------------")
+
+def print_path(input_path):
+    logger.info(f"   {input_path}")
+    logger.info("-------------------------------------")
+
 class XFormerBook:
 
     _PROJECT_PATH = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -63,11 +76,7 @@ class XFormerBook:
     @classmethod
     def show_trainer_support_task_list(cls):
         logger.info("_TRAINER_SUPPORT_TASKS_LIST of XFormer is: ")
-        for key, val in cls._TRAINER_SUPPORT_TASKS_LIST.items():
-            logger.info(f"   {key} :")
-            for sub_key, sub_val in val.items():
-                logger.info(f"      {sub_key}  ： {sub_val}")
-        logger.info("-------------------------------------")
+        print_dict(cls._TRAINER_SUPPORT_TASKS_LIST)
 
     @classmethod
     def get_trainer_support_task_list(cls):
@@ -76,9 +85,7 @@ class XFormerBook:
     @classmethod
     def show_pipeline_support_task_list(cls):
         logger.info("_PIPELINE_SUPPORT_TASK_LIST of XFormer is: ")
-        for key, val in cls._PIPELINE_SUPPORT_TASK_LIST.items():
-            logger.info(f"   {key} : {val}")
-        logger.info("-------------------------------------")
+        print_dict(cls._PIPELINE_SUPPORT_TASK_LIST)
 
     @classmethod
     def get_pipeline_support_task_list(cls):
@@ -87,9 +94,7 @@ class XFormerBook:
     @classmethod
     def show_model_config_url_list(cls):
         logger.info("_MODEL_CONFIG_URL_LIST of XFormer is: ")
-        for key, val in cls._MODEL_CONFIG_URL_LIST.items():
-            logger.info(f"   {key} : {val}")
-        logger.info("-------------------------------------")
+        print_dict(cls._MODEL_CONFIG_URL_LIST)
 
     @classmethod
     def get_model_config_url_list(cls):
@@ -98,8 +103,7 @@ class XFormerBook:
     @classmethod
     def show_project_path(cls):
         logger.info("_PROJECT_PATH of XFormer is: ")
-        logger.info(f"   {cls._PROJECT_PATH}")
-        logger.info("-------------------------------------")
+        print_path(cls._PROJECT_PATH)
 
     @classmethod
     def get_project_path(cls):
@@ -108,8 +112,7 @@ class XFormerBook:
     @classmethod
     def show_default_checkpoint_download_folder(cls):
         logger.info("_DEFAULT_CHECKPOINT_DOWNLOAD_FOLDER of XFormer is: ")
-        logger.info(f"   {cls._DEFAULT_CHECKPOINT_DOWNLOAD_FOLDER}")
-        logger.info("-------------------------------------")
+        print_path(cls._DEFAULT_CHECKPOINT_DOWNLOAD_FOLDER)
 
     @classmethod
     def get_default_checkpoint_download_folder(cls):
@@ -139,15 +142,12 @@ class XFormerBook:
     @classmethod
     def show_default_checkpoint_save_folder(cls):
         logger.info("_DEFAULT_CHECKPOINT_SAVE_FOLDER of XFormer is: ")
-        logger.info(f"   {cls._DEFAULT_CHECKPOINT_SAVE_FOLDER}")
-        logger.info("-------------------------------------")
+        print_path(cls._DEFAULT_CHECKPOINT_SAVE_FOLDER)
 
     @classmethod
     def show_model_support_list(cls):
         logger.info("MODEL_SUPPORT_LIST of XFormer is: ")
-        for key, val in cls._MODEL_SUPPORT_LIST.items():
-            logger.info(f"   {key} : {val}")
-        logger.info("-------------------------------------")
+        print_dict(cls._MODEL_SUPPORT_LIST)
 
     @classmethod
     def get_model_support_list(cls):
@@ -156,10 +156,11 @@ class XFormerBook:
     @classmethod
     def show_model_ckpt_url_list(cls):
         logger.info("MODEL_CKPT_URL_LIST of XFormer is: ")
-        for key, val in cls._MODEL_CKPT_URL_LIST.items():
-            logger.info(f"   {key} : {val}")
-        logger.info("-------------------------------------")
+        print_dict(cls._MODEL_CKPT_URL_LIST)
 
     @classmethod
     def get_model_ckpt_url_list(cls):
         return cls._MODEL_CKPT_URL_LIST
+
+
+
