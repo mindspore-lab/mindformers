@@ -1,10 +1,24 @@
-
 import os
 from collections import OrderedDict
 
+from xformer.tools import logger
+
+def print_dict(input_dict):
+    for key, val in input_dict.items():
+        if isinstance(val, dict):
+            logger.info(f"{key}:")
+            print_dict(val)
+        else:
+            logger.info(f"   {key} : {val}")
+    logger.info("-------------------------------------")
+
+def print_path(input_path):
+    logger.info(f"   {input_path}")
+    logger.info("-------------------------------------")
+
 class XFormerBook:
 
-    _PROJECT_PATH = os.path.dirname(os.path.abspath(__file__))
+    _PROJECT_PATH = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     _DEFAULT_CHECKPOINT_DOWNLOAD_FOLDER = os.path.join(_PROJECT_PATH, 'checkpoint_download')
     _DEFAULT_CHECKPOINT_SAVE_FOLDER = os.path.join(_PROJECT_PATH, 'checkpoint_save')
 
@@ -52,15 +66,16 @@ class XFormerBook:
 
     _MODEL_CONFIG_URL_LIST = OrderedDict([
         ('clip_vit_b_16', ['https://xxxxxx']),
-        ('clip_vit_b_32', ['https://xxxxxxxx']),
+        ('clip_vit_b_32', ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/XFormer_for_mindspore/clip/clip_vit_b_32.yaml']),
         ('clip_vit_l_14', ['https://xxxxxxxx']),
         ('clip_vit_l_14@336', ['https://xxxxxxxx']),
     ])
 
+
     @classmethod
     def show_trainer_support_task_list(cls):
-        print("_TRAINER_SUPPORT_TASKS_LIST of XFormer is: ")
-        print(cls._TRAINER_SUPPORT_TASKS_LIST)
+        logger.info("_TRAINER_SUPPORT_TASKS_LIST of XFormer is: ")
+        print_dict(cls._TRAINER_SUPPORT_TASKS_LIST)
 
     @classmethod
     def get_trainer_support_task_list(cls):
@@ -68,8 +83,8 @@ class XFormerBook:
 
     @classmethod
     def show_pipeline_support_task_list(cls):
-        print("_PIPELINE_SUPPORT_TASK_LIST of XFormer is: ")
-        print(cls._PIPELINE_SUPPORT_TASK_LIST)
+        logger.info("_PIPELINE_SUPPORT_TASK_LIST of XFormer is: ")
+        print_dict(cls._PIPELINE_SUPPORT_TASK_LIST)
 
     @classmethod
     def get_pipeline_support_task_list(cls):
@@ -77,8 +92,8 @@ class XFormerBook:
 
     @classmethod
     def show_model_config_url_list(cls):
-        print("_MODEL_CONFIG_URL_LIST of XFormer is: ")
-        print(cls._MODEL_CONFIG_URL_LIST)
+        logger.info("_MODEL_CONFIG_URL_LIST of XFormer is: ")
+        print_dict(cls._MODEL_CONFIG_URL_LIST)
 
     @classmethod
     def get_model_config_url_list(cls):
@@ -86,8 +101,8 @@ class XFormerBook:
 
     @classmethod
     def show_project_path(cls):
-        print("_PROJECT_PATH of XFormer is: ")
-        print(cls._PROJECT_PATH)
+        logger.info("_PROJECT_PATH of XFormer is: ")
+        print_path(cls._PROJECT_PATH)
 
     @classmethod
     def get_project_path(cls):
@@ -95,32 +110,43 @@ class XFormerBook:
 
     @classmethod
     def show_default_checkpoint_download_folder(cls):
-        print("_DEFAULT_CHECKPOINT_DOWNLOAD_FOLDER of XFormer is: ")
-        print(cls._DEFAULT_CHECKPOINT_DOWNLOAD_FOLDER)
+        logger.info("_DEFAULT_CHECKPOINT_DOWNLOAD_FOLDER of XFormer is: ")
+        print_path(cls._DEFAULT_CHECKPOINT_DOWNLOAD_FOLDER)
 
     @classmethod
     def get_default_checkpoint_download_folder(cls):
         return cls._DEFAULT_CHECKPOINT_DOWNLOAD_FOLDER
 
     @classmethod
+    def set_default_checkpoint_download_folder(cls, download_folder):
+        if not os.path.isdir(download_folder):
+            raise TypeError(f"{download_folder} should be a directory.")
+        cls._DEFAULT_CHECKPOINT_DOWNLOAD_FOLDER = download_folder
+
+    @classmethod
     def show_default_checkpoint_save_folder(cls):
-        print("_DEFAULT_CHECKPOINT_SAVE_FOLDER of XFormer is: ")
-        print(cls._DEFAULT_CHECKPOINT_SAVE_FOLDER)
+        logger.info("_DEFAULT_CHECKPOINT_SAVE_FOLDER of XFormer is: ")
+        logger.info(f"   {cls._DEFAULT_CHECKPOINT_SAVE_FOLDER}")
 
     @classmethod
     def get_default_checkpoint_save_folder(cls):
         return cls._DEFAULT_CHECKPOINT_SAVE_FOLDER
 
     @classmethod
+    def set_default_checkpoint_save_folder(cls, save_folder):
+        if not os.path.isdir(save_folder):
+            raise TypeError(f"{save_folder} should be a directory.")
+        cls._DEFAULT_CHECKPOINT_SAVE_FOLDER = save_folder
+
+    @classmethod
     def show_default_checkpoint_save_folder(cls):
-        print("_DEFAULT_CHECKPOINT_SAVE_FOLDER of XFormer is: ")
-        print(cls._DEFAULT_CHECKPOINT_SAVE_FOLDER)
+        logger.info("_DEFAULT_CHECKPOINT_SAVE_FOLDER of XFormer is: ")
+        print_path(cls._DEFAULT_CHECKPOINT_SAVE_FOLDER)
 
     @classmethod
     def show_model_support_list(cls):
-        print("MODEL_SUPPORT_LIST of XFormer is: ")
-        for key, val in cls._MODEL_SUPPORT_LIST.items():
-            print(key, ':', val)
+        logger.info("MODEL_SUPPORT_LIST of XFormer is: ")
+        print_dict(cls._MODEL_SUPPORT_LIST)
 
     @classmethod
     def get_model_support_list(cls):
@@ -128,10 +154,12 @@ class XFormerBook:
 
     @classmethod
     def show_model_ckpt_url_list(cls):
-        print("MODEL_CKPT_URL_LIST of XFormer is: ")
-        for key, val in cls._MODEL_CKPT_URL_LIST.items():
-            print(key, ':', val)
+        logger.info("MODEL_CKPT_URL_LIST of XFormer is: ")
+        print_dict(cls._MODEL_CKPT_URL_LIST)
 
     @classmethod
     def get_model_ckpt_url_list(cls):
         return cls._MODEL_CKPT_URL_LIST
+
+
+
