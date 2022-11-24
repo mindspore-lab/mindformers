@@ -1,14 +1,17 @@
 import time
 import requests
 
-def downlond_with_progress_bar(url, filepath):
+class StatusCode:
+    succeed = 200
+
+
+def downlond_with_progress_bar(url, filepath, chunk_size = 1024):
     start = time.time()
     response = requests.get(url, stream=True)
     size = 0
-    chunk_size = 1024
     content_size = int(response.headers['content-length'])
 
-    if response.status_code == 200:
+    if response.status_code == StatusCode.succeed:
         print('Start download {filepath},[File size]:{size:.2f} MB'.format(filepath=filepath, size = content_size / chunk_size /1024))
         with open(filepath,'wb') as file:
             for data in response.iter_content(chunk_size = chunk_size):

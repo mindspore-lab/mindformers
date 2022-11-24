@@ -3,11 +3,11 @@ import os
 from mindspore.train.serialization import load_checkpoint, load_param_into_net
 
 from .xformer_book import XFormerBook
-from .tools.register.config import XFormerConfig
-from .models.build_model import build_model_config, build_model
-from .tools.download_tools import downlond_with_progress_bar
 from .models.base_config import BaseConfig
-
+from .models.build_model import build_model_config, build_model
+from .tools import logger
+from .tools.register.config import XFormerConfig
+from .tools.download_tools import downlond_with_progress_bar
 
 class AutoConfig:
     _support_list = XFormerBook.get_model_support_list()
@@ -51,8 +51,8 @@ class AutoConfig:
 
     @classmethod
     def show_support_list(cls):
-        print(f"support list of {cls.__name__} is:")
+        logger.info(f"support list of {cls.__name__} is:")
         for key, val in cls._support_list.items():
-            print('   ', key, ':', val)
-        print()
+            logger.info('   ', key, ':', val)
+        logger.info("-------------------------------------")
 

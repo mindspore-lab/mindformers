@@ -1,3 +1,4 @@
+from ..tools import logger
 class BaseConfig(dict):
     _support_list = []
 
@@ -26,6 +27,6 @@ class BaseConfig(dict):
 
     @classmethod
     def show_support_list(cls):
-        print(f"support list of {cls.__name__} is:")
-        print('   ', cls._support_list)
-        print()
+        logger.info(f"support list of {cls.__name__} is:")
+        logger.info(f"   {cls._support_list}")
+        logger.info("-------------------------------------")

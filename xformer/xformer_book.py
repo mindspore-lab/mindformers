@@ -1,6 +1,8 @@
-
 import os
 from collections import OrderedDict
+
+from xformer.tools import logger
+logger.setLevel("INFO")
 
 class XFormerBook:
 
@@ -60,12 +62,12 @@ class XFormerBook:
 
     @classmethod
     def show_trainer_support_task_list(cls):
-        print("_TRAINER_SUPPORT_TASKS_LIST of XFormer is: ")
+        logger.info("_TRAINER_SUPPORT_TASKS_LIST of XFormer is: ")
         for key, val in cls._TRAINER_SUPPORT_TASKS_LIST.items():
-            print('   ', key, ':')
+            logger.info(f"   {key} :")
             for sub_key, sub_val in val.items():
-                print('      ', sub_key, ':', sub_val)
-        print()
+                logger.info(f"      {sub_key}  ： {sub_val}")
+        logger.info("-------------------------------------")
 
     @classmethod
     def get_trainer_support_task_list(cls):
@@ -73,10 +75,10 @@ class XFormerBook:
 
     @classmethod
     def show_pipeline_support_task_list(cls):
-        print("_PIPELINE_SUPPORT_TASK_LIST of XFormer is: ")
+        logger.info("_PIPELINE_SUPPORT_TASK_LIST of XFormer is: ")
         for key, val in cls._PIPELINE_SUPPORT_TASK_LIST.items():
-            print('   ', key, ':', val)
-        print()
+            logger.info(f"   {key} : {val}")
+        logger.info("-------------------------------------")
 
     @classmethod
     def get_pipeline_support_task_list(cls):
@@ -84,10 +86,10 @@ class XFormerBook:
 
     @classmethod
     def show_model_config_url_list(cls):
-        print("_MODEL_CONFIG_URL_LIST of XFormer is: ")
+        logger.info("_MODEL_CONFIG_URL_LIST of XFormer is: ")
         for key, val in cls._MODEL_CONFIG_URL_LIST.items():
-            print('   ', key, ':', val)
-        print()
+            logger.info(f"   {key} : {val}")
+        logger.info("-------------------------------------")
 
     @classmethod
     def get_model_config_url_list(cls):
@@ -95,9 +97,9 @@ class XFormerBook:
 
     @classmethod
     def show_project_path(cls):
-        print("_PROJECT_PATH of XFormer is: ")
-        print('   ', cls._PROJECT_PATH)
-        print()
+        logger.info("_PROJECT_PATH of XFormer is: ")
+        logger.info(f"   {cls._PROJECT_PATH}")
+        logger.info("-------------------------------------")
 
     @classmethod
     def get_project_path(cls):
@@ -105,9 +107,9 @@ class XFormerBook:
 
     @classmethod
     def show_default_checkpoint_download_folder(cls):
-        print("_DEFAULT_CHECKPOINT_DOWNLOAD_FOLDER of XFormer is: ")
-        print('   ', cls._DEFAULT_CHECKPOINT_DOWNLOAD_FOLDER)
-        print()
+        logger.info("_DEFAULT_CHECKPOINT_DOWNLOAD_FOLDER of XFormer is: ")
+        logger.info(f"   {cls._DEFAULT_CHECKPOINT_DOWNLOAD_FOLDER}")
+        logger.info("-------------------------------------")
 
     @classmethod
     def get_default_checkpoint_download_folder(cls):
@@ -121,8 +123,8 @@ class XFormerBook:
 
     @classmethod
     def show_default_checkpoint_save_folder(cls):
-        print("_DEFAULT_CHECKPOINT_SAVE_FOLDER of XFormer is: ")
-        print(cls._DEFAULT_CHECKPOINT_SAVE_FOLDER)
+        logger.info("_DEFAULT_CHECKPOINT_SAVE_FOLDER of XFormer is: ")
+        logger.info(f"   {cls._DEFAULT_CHECKPOINT_SAVE_FOLDER}")
 
     @classmethod
     def get_default_checkpoint_save_folder(cls):
@@ -136,16 +138,16 @@ class XFormerBook:
 
     @classmethod
     def show_default_checkpoint_save_folder(cls):
-        print("_DEFAULT_CHECKPOINT_SAVE_FOLDER of XFormer is: ")
-        print('   ', cls._DEFAULT_CHECKPOINT_SAVE_FOLDER)
-        print()
+        logger.info("_DEFAULT_CHECKPOINT_SAVE_FOLDER of XFormer is: ")
+        logger.info(f"   {cls._DEFAULT_CHECKPOINT_SAVE_FOLDER}")
+        logger.info("-------------------------------------")
 
     @classmethod
     def show_model_support_list(cls):
-        print("MODEL_SUPPORT_LIST of XFormer is: ")
+        logger.info("MODEL_SUPPORT_LIST of XFormer is: ")
         for key, val in cls._MODEL_SUPPORT_LIST.items():
-            print('   ', key, ':', val)
-        print()
+            logger.info(f"   {key} : {val}")
+        logger.info("-------------------------------------")
 
     @classmethod
     def get_model_support_list(cls):
@@ -153,10 +155,10 @@ class XFormerBook:
 
     @classmethod
     def show_model_ckpt_url_list(cls):
-        print("MODEL_CKPT_URL_LIST of XFormer is: ")
+        logger.info("MODEL_CKPT_URL_LIST of XFormer is: ")
         for key, val in cls._MODEL_CKPT_URL_LIST.items():
-            print('   ', key, ':', val)
-        print()
+            logger.info(f"   {key} : {val}")
+        logger.info("-------------------------------------")
 
     @classmethod
     def get_model_ckpt_url_list(cls):
