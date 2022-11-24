@@ -2,7 +2,6 @@ import os
 from collections import OrderedDict
 
 from xformer.tools import logger
-logger.setLevel("INFO")
 
 def print_dict(input_dict):
     for key, val in input_dict.items():
