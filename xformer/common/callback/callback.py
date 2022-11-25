@@ -1,10 +1,26 @@
+# Copyright 2022 Huawei Technologies Co., Ltd
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ============================================================================
+"""XFormer Self-Define Callback."""
 import os
 
 from xformer.tools.register import XFormerRegister, XFormerModuleType
 
 
 @XFormerRegister.register(XFormerModuleType.CALLBACK)
-class ObsMonitorAICC:
+class ObsMonitor:
+    """Obs Monitor For AICC and Local"""
     def __new__(cls):
         cfts = XFormerRegister.get_cls(
             class_name="cfts", module_type=XFormerModuleType.COMMON)
@@ -12,7 +28,8 @@ class ObsMonitorAICC:
 
 
 @XFormerRegister.register(XFormerModuleType.CALLBACK)
-class LossMonitorAICC:
+class LossMonitor:
+    """Loss Monitor For AICC and Local"""
     def __new__(cls, per_print_times=1):
         cfts = XFormerRegister.get_cls(
             class_name="cfts", module_type=XFormerModuleType.COMMON)
@@ -21,7 +38,8 @@ class LossMonitorAICC:
 
 
 @XFormerRegister.register(XFormerModuleType.CALLBACK)
-class SummaryMonitorAICC:
+class SummaryMonitor:
+    """Summary Monitor For AICC and Local"""
     def __new__(cls,
                 summary_dir=None,
                 collect_freq=10,
@@ -47,7 +65,8 @@ class SummaryMonitorAICC:
 
 
 @XFormerRegister.register(XFormerModuleType.CALLBACK)
-class CheckpointMointorAICC:
+class CheckpointMointor:
+    """Checkpoint Monitor For AICC and Local"""
     def __new__(cls,
                 runner_config=None,
                 prefix='CKP',
@@ -70,7 +89,7 @@ class CheckpointMointorAICC:
                  "step_num": runner_config.get("has_trained_steps")}
             ]
 
-        rank_id = int(os.getenv("DEVICE_ID", 0))
+        rank_id = int(os.getenv("DEVICE_ID", '0'))
         prefix = prefix + "_rank_{}".format(rank_id)
 
         kwargs = {

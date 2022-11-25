@@ -1,3 +1,19 @@
+# Copyright 2022 Huawei Technologies Co., Ltd
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ============================================================================
+"""Build context."""
+
 import os
 
 import numpy as np
@@ -18,7 +34,7 @@ PARALLEL_CONFIG = {'parallel_mode': 'DATA_PARALLEL', 'gradients_mean': True}
 
 
 def build_context(config):
-    """build context"""
+    """Build context."""
     profile_cb = None
     if config.profile and config.use_parallel:
         cfts_1 = CFTS(**config.aicc_config)
@@ -38,7 +54,8 @@ def build_context(config):
     clould_file_trans_sys = CFTS(**config.aicc_config, rank_id=local_rank)
 
     if config.parallel.get("strategy_ckpt_load_file"):
-        config.parallel["strategy_ckpt_load_file"] = clould_file_trans_sys.get_checkpoint(config.parallel.get("strategy_ckpt_load_file"))
+        config.parallel["strategy_ckpt_load_file"] = clould_file_trans_sys.get_checkpoint(
+            config.parallel.get("strategy_ckpt_load_file"))
         context.set_auto_parallel_context(strategy_ckpt_load_file=config.parallel["strategy_ckpt_load_file"])
 
     if config.profile and not config.use_parallel:
@@ -69,7 +86,7 @@ def init_context(seed=0, use_parallel=True, context_config=None, parallel_config
 
     if use_parallel:
         init()
-        device_id = int(os.getenv('DEVICE_ID', 0))  # 0 ~ 7
+        device_id = int(os.getenv('DEVICE_ID', '0'))  # 0 ~ 7
         rank_id = get_rank()  # local_rank
         device_num = get_group_size()  # world_size
         context_config['device_id'] = device_id

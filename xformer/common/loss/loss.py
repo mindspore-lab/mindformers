@@ -1,8 +1,23 @@
+# Copyright 2022 Huawei Technologies Co., Ltd
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ============================================================================
+"""XFormer Self-Define Loss."""
+
 from mindspore import nn, Tensor
 from mindspore.nn.transformer.loss import CrossEntropyLoss
 from mindspore import ops as P
 from mindspore.common import dtype as mstype
-from mindspore.ops import functional as F
 from mindspore.nn.loss.loss import LossBase
 
 from xformer.tools.register import XFormerRegister, XFormerModuleType
@@ -10,7 +25,7 @@ from xformer.tools.register import XFormerRegister, XFormerModuleType
 
 @XFormerRegister.register(XFormerModuleType.LOSS)
 class SoftTargetCrossEntropy(LossBase):
-    """SoftTargetCrossEntropy for MixUp Augment"""
+    """SoftTargetCrossEntropy for MixUp Augment."""
 
     def __init__(self, parallel_config=None):
         super(SoftTargetCrossEntropy, self).__init__()
@@ -36,6 +51,7 @@ class SoftTargetCrossEntropy(LossBase):
 
 @XFormerRegister.register(XFormerModuleType.LOSS)
 class MSELoss(nn.Cell):
+    """MSELoss for parallel."""
     def __init__(self, norm_pixel_loss=True, parallel_config=None):
         super(MSELoss, self).__init__()
         if parallel_config is not None:
@@ -58,13 +74,13 @@ class MSELoss(nn.Cell):
         self.norm_pixel_loss = norm_pixel_loss
 
     def construct(self, pred, target, mask):
+        """mse loss construct."""
         pred = self.cast(pred, mstype.float32)
         target = self.cast(target, mstype.float32)
         mask = self.cast(mask, mstype.float32)
         if self.norm_pixel_loss:
             mean = self.mean1(target, -1)
             var = self.variance(target)
-            # var = target.var(keepdims=True, axis=-1)
             var = self.add_loss(var, 1e-6)
             std = self.pow(var, 0.5)
             sub = self.sub(target, mean)
@@ -79,6 +95,7 @@ class MSELoss(nn.Cell):
         return loss
 
     def variance(self, x):
+        """get variance."""
         axis = (x.ndim - 1,)
         x_mean = self.mean1(x, axis)
         x_sub = self.sub(x, x_mean)
@@ -90,6 +107,7 @@ class MSELoss(nn.Cell):
 
 @XFormerRegister.register(XFormerModuleType.LOSS)
 class InfoNceLoss(nn.Cell):
+    """InfoNceLoss for parallel."""
     def __init__(self, temperature=0.1, batch_size=64, n_views=2, parallel_config=None):
         super(InfoNceLoss, self).__init__()
         if parallel_config:
@@ -121,15 +139,13 @@ class InfoNceLoss(nn.Cell):
              for j in range(self.batch_size * self.n_views)
              if j % self.batch_size != i % self.batch_size], mstype.int32)
 
-        # print("pos_mask", self.pos_mask.shape)
-        # print("neg_mask", self.neg_mask.shape)
-
         self.ones_like = P.OnesLike().shard(((dp,),))
         self.zeros = P.Zeros().shard(((dp,),))
         self.real_div = P.RealDiv().shard(((dp, 1), ()))
         self.expand_dim = P.ExpandDims().shard(((dp, 1),))
 
     def construct(self, features):
+        """InfoNceLoss construct."""
         b = self.batch_size
         n = self.n_views
         features = self.reshape(features, (b * n, -1))
@@ -159,7 +175,8 @@ class InfoNceLoss(nn.Cell):
 
 
 @XFormerRegister.register(XFormerModuleType.LOSS)
-class L1Loss(nn.Cell):
+class L1Loss(LossBase):
+    """L1Loss for parallel."""
     def __init__(self, reduction='mean', parallel_config=None):
         super(L1Loss, self).__init__()
 
@@ -183,13 +200,8 @@ class L1Loss(nn.Cell):
         if reduction == 'none':
             self.reduce = False
 
-    def get_axis(self, x):
-        shape = F.shape(x)
-        length = F.tuple_len(shape)
-        perm = F.make_range(0, length)
-        return perm
-
     def get_loss(self, x, weights=1.0):
+        """get loss."""
         input_dtype = x.dtype
         x = self.cast(x, mstype.float32)
         weights = self.cast(weights, mstype.float32)
@@ -202,6 +214,7 @@ class L1Loss(nn.Cell):
         return x
 
     def construct(self, logits, labels):
+        """L1Loss construct."""
         x_sub = self.sub(logits, labels)
         x = self.abs(x_sub)
         return self.get_loss(x)

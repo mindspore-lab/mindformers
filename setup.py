@@ -137,7 +137,7 @@ if __name__ == '__main__':
         sys.exit(1)
 
     setup(
-        name='xformer',
+        name='mindtransformer',
         version='0.2.0',
         author='The MindSpore Authors',
         author_email='contact@mindspore.cn',
