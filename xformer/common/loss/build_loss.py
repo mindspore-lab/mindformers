@@ -21,7 +21,7 @@ from xformer.tools.register import XFormerRegister, XFormerModuleType
 
 
 def build_loss(
-        *args, config: dict = None, default_args: dict = None,
+        config: dict = None, default_args: dict = None,
         module_type: str = 'loss', class_name: str = None, **kwargs):
     """Build Loss API."""
     if config is None and class_name is None:
@@ -29,7 +29,7 @@ def build_loss(
     if config is not None:
         return XFormerRegister.get_instance_from_cfg(
             config, XFormerModuleType.LOSS, default_args=default_args)
-    return XFormerRegister.get_instance(module_type, class_name, *args, **kwargs)
+    return XFormerRegister.get_instance(module_type, class_name, **kwargs)
 
 
 def register_ms_loss():

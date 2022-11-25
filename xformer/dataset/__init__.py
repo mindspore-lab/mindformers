@@ -20,6 +20,6 @@ from .transforms import *
 from .utils import check_dataset_config
 from .sampler import build_sampler, register_ms_samplers
 from .mim_dataset import MIMDataset
-from .img_cls_dataset import ImageNetDataset
+from .img_cls_dataset import ImageCLSDataset
 from .build_dataset import build_dataset
 from .base_dataset import BaseDataset

@@ -1,17 +1,34 @@
+# Copyright 2022 Huawei Technologies Co., Ltd
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ============================================================================
+"""Image Classification Dataset."""
 import mindspore.dataset.transforms.c_transforms as C
 import mindspore.common.dtype as mstype
 
+from xformer.tools.register import XFormerRegister, XFormerModuleType
 from .dataloader import build_dataset_loader
 from .transforms import build_transforms
 from .sampler import build_sampler
 from .base_dataset import BaseDataset
-from xformer.tools.register import XFormerRegister, XFormerModuleType
+
 
 
 @XFormerRegister.register(XFormerModuleType.DATASET)
-class ImageNetDataset(BaseDataset):
+class ImageCLSDataset(BaseDataset):
+    """Image Classification Dataset API."""
     def __init__(self, dataset_config: dict = None):
-        super(ImageNetDataset, self).__init__(dataset_config)
+        super(ImageCLSDataset, self).__init__(dataset_config)
 
     def __new__(cls, dataset_config: dict = None, is_eval: bool = False):
         dataset = build_dataset_loader(dataset_config.data_loader)
