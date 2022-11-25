@@ -1,7 +1,30 @@
+# Copyright 2022 Huawei Technologies Co., Ltd
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ============================================================================
+
+'''
+BaseConfig class,
+which is all model configs' base class
+'''
 from ..tools import logger
 from ..xformer_book import print_dict
 
+
 class BaseConfig(dict):
+    '''
+    Base Config for all models' config
+    '''
     _support_list = []
 
     def __init__(self, **kwargs):
@@ -20,6 +43,10 @@ class BaseConfig(dict):
         del self[key]
 
     def to_dict(self):
+        '''
+        for yaml dump,
+        transform from Config to a strict dict class
+        '''
         return_dict = {}
         for key, val in self.items():
             if isinstance(val, BaseConfig):
@@ -29,5 +56,6 @@ class BaseConfig(dict):
 
     @classmethod
     def show_support_list(cls):
-        logger.info(f"support list of {cls.__name__} is:")
+        '''show support list of config'''
+        logger.info("support list of %s is:", cls.__name__)
         print_dict(cls._support_list)
