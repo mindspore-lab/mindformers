@@ -13,9 +13,5 @@
 # limitations under the License.
 # ============================================================================
 
-'''models init'''
-from .mae import *
-from .build_model import *
-from .base_config import BaseConfig
-
-from .clip.clip_config import ClipConfig, ClipVisionConfig, ClipTextConfig
+'''clip init'''
+from .clip_config import ClipTextConfig, ClipVisionConfig, ClipConfig
