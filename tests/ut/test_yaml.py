@@ -17,7 +17,8 @@
 Test module for testing yaml tools, XFormerConfig.
 
 How to run this:
-pytest .\\tests\\ut\\test_yaml.py
+windows:  pytest .\\tests\\ut\\test_yaml.py
+linux:  pytest ./tests/ut/test_yaml.py
 
 Note:
     the name of model yaml file should start with model.

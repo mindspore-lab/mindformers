@@ -17,7 +17,8 @@
 Test Module for testing functions of XFormerBook class
 
 How to run this:
-pytest .\\tests\\ut\\test_xformer_book.py
+windows:  pytest .\\tests\\ut\\test_xformer_book.py
+linux:  pytest ./tests/ut/test_xformer_book.py
 '''
 from xformer import XFormerBook
 from xformer.tools import logger

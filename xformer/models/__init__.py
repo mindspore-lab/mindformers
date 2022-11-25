@@ -19,3 +19,5 @@ from .build_model import *
 from .base_config import BaseConfig
 
 from .clip.clip_config import ClipConfig, ClipVisionConfig, ClipTextConfig
+from .clip import ClipModel
+from .base_model import BaseModel
