@@ -1,7 +1,22 @@
+# Copyright 2022 Huawei Technologies Co., Ltd
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ============================================================================
+"""Trainer API."""
 from typing import Callable, List, Optional, Union
 
 from xformer.xformer_book import XFormerBook
-from xformer.tools.register import XFormerConfig
+from xformer.tools.register import XFormerConfig, XFormerRegister
 from xformer.models import build_model, build_tokenizer
 from xformer.dataset import build_dataset
 from xformer.trainer import build_trainer
@@ -10,12 +25,14 @@ from xformer.common.lr import build_lr
 from xformer.common.callback import build_callback
 from xformer.common.context import init_context
 from xformer.common.parallel_config import build_parallel_config
+from xformer.tools.cloud_adapter import CFTS
 
 
 SUPPORT_TASKS = XFormerBook().get_trainer_support_task_list()
 
 
 class Trainer:
+    """Trainer API."""
     def __init__(self,
                  config: dict = None,
                  task_name: str = None,
@@ -54,7 +71,6 @@ class Trainer:
             task_config.merge_from_dict(config)
             self.config = task_config
 
-            # context init 待补充, 包含并行配置初始化
         init_context(seed=self.config.seed, use_parallel=self.config.use_parallel,
                      context_config=self.config.context, parallel_config=self.config.parallel)
 
@@ -63,7 +79,11 @@ class Trainer:
 
         build_parallel_config(self.config)
 
+        cfts = CFTS(**self.config.aicc_config)
+        XFormerRegister.register_cls(cfts, alias='cfts')
+
     def train(self, resume_from_checkpoint: Optional[Union[str, bool]] = None, **kwargs):
+        """train."""
         if resume_from_checkpoint is False:
             resume_from_checkpoint = None
 
@@ -81,18 +101,19 @@ class Trainer:
             pass
 
         if self.tokenizer is None:
-            self.tokenizer = build_tokenizer(self.config.tokenizer)  # 待补充
+            self.tokenizer = build_tokenizer(self.config.tokenizer)
 
         if self.callbacks is None:
             self.callbacks = self.create_callbacks()
 
-        task = build_trainer(self.config.task)
-        task.train(
+        trainer = build_trainer(self.config.trainer)
+        trainer.train(
             config=self.config, network=self.model,
             dataset=self.train_dataset, optimizer=self.optimizers,
             tokenizer=self.tokenizer, callbacks=self.callbacks, **kwargs)
 
     def evaluate(self, eval_checkpoint: str = None, **kwargs):
+        """eval."""
         if self.eval_dataset is None:
             self.eval_dataset = build_dataset(self.config.eval_dataset_task)
 
@@ -109,28 +130,33 @@ class Trainer:
         if self.callbacks is None:
             self.callbacks = self.create_callbacks()
 
-        task = build_trainer(self.config.task)
-        task.evaluate(
+        trainer = build_trainer(self.config.trainer)
+        trainer.evaluate(
             config=self.config, network=self.model,
             dataset=self.eval_dataset, tokenizer=self.tokenizer,
             callbacks=self.callbacks, **kwargs)
 
     def create_optimizer_and_scheduler(self):
+        """create_optimizer_and_scheduler."""
         lr_schedule = self.create_scheduler()
         params = self.model.trainable_params()
         return self.create_optimizer(lr_schedule, params)
 
     def create_scheduler(self):
+        """create_scheduler."""
         return build_lr(self.config.lr_schedule)
 
     def create_optimizer(self, lr_schedule, params):
+        """create_optimizer."""
         return build_optim(self.config.optimizer, default_args={"params": params,
                                                                 "learning_rate": lr_schedule})
 
     def create_callbacks(self):
+        """create_callbacks."""
         return build_callback(self.config.callbacks)
 
     def set_context(self, seed=0, use_parallel=False, device_id=0, device_target="Ascend", parallel_model=0):
+        """set_context."""
         self.context_config.device_id = device_id
         self.context_config.device_target = device_target
         self.parallel_config.parallel_mode = parallel_model
@@ -139,6 +165,7 @@ class Trainer:
     def set_parallel_config(
             self, data_parallel=1, model_parallel=1, expert_parallel=1, pipeline_stage=1,
             micro_batch_num=1, optimizer_shard=False, gradient_aggregation_group=4, vocab_emb_dp=True):
+        """set_parallel_config."""
         self.config.parallel_config.data_parallel = data_parallel
         self.config.parallel_config.model_parallel = model_parallel
         self.config.parallel_config.expert_parallel = expert_parallel
@@ -150,31 +177,33 @@ class Trainer:
 
     def set_recompute_config(self, recompute=False, parallel_optimizer_comm_recompute=False,
                              mp_comm_recompute=True, recompute_slice_activation=False):
+        """set_recompute_config."""
         self.config.recompute_config.recompute = recompute
         self.config.recompute_config.parallel_optimizer_comm_recompute = parallel_optimizer_comm_recompute
         self.config.recompute_config.mp_comm_recompute = mp_comm_recompute
         self.config.recompute_config.recompute_slice_activation = recompute_slice_activation
 
     def set_moe_config(self, expert_num=1, capacity_factor=1.1, aux_loss_factor=0.05, num_experts_chosen=1):
+        """set_moe_config."""
         self.config.moe_config.expert_num = expert_num
         self.config.moe_config.capacity_factor = capacity_factor
         self.config.moe_config.aux_loss_factor = aux_loss_factor
         self.config.moe_config.num_experts_chosen = num_experts_chosen
 
     def get_eval_dataloader(self):
-        pass
+        """get_eval_dataloader."""
 
     def get_train_dataloader(self):
-        pass
+        """get_train_dataloader."""
 
     def compute_loss(self):
-        pass
+        """compute_loss."""
 
     def count_parameter(self):
-        pass
+        """count_parameter."""
 
     def save_metrics(self):
-        pass
+        """save_metrics."""
 
     def save_model(self):
-        pass
+        """save_model."""

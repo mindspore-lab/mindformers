@@ -14,6 +14,4 @@
 # ============================================================================
 """XFormer LR API."""
 from .build_lr import build_lr, register_ms_lr
-from .lr_schedule import LearningRateWiseLayer, WarmUpCosineDecayV1,\
-    MultiEpochsDecayLR, WarmUpMultiStepDecay, WarmUpLRV2, CosineDecayLRV2,\
-    WarmUpCosineDecayV2
+from .lr_schedule import LearningRateWiseLayer

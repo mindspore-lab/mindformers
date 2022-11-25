@@ -21,7 +21,7 @@ from xformer.tools.register import XFormerRegister, XFormerModuleType
 
 
 def build_callback(
-        *args, config: dict = None, default_args: dict = None,
+        config: dict = None, default_args: dict = None,
         module_type: str = 'callback', class_name: str = None, **kwargs):
     """Build callback API."""
     if config is None and class_name is None:

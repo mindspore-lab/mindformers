@@ -23,7 +23,7 @@ from mindspore import nn, Tensor
 from xformer.tools.register import XFormerRegister, XFormerModuleType
 
 
-def build_wrapper(*args, config: dict = None, default_args: dict = None,
+def build_wrapper(config: dict = None, default_args: dict = None,
                   module_type: str = 'wrapper', class_name: str = None, **kwargs):
     """ Build Wrapper For XFormer. """
     if config is None and class_name is None:
@@ -36,7 +36,7 @@ def build_wrapper(*args, config: dict = None, default_args: dict = None,
                 config.scale_sense = Tensor(config.scale_sense, ms.float32)
         return XFormerRegister.get_instance_from_cfg(
             config, XFormerModuleType.WRAPPER, default_args=default_args)
-    return XFormerRegister.get_instance(module_type, class_name, *args, **kwargs)
+    return XFormerRegister.get_instance(module_type, class_name, **kwargs)
 
 
 def register_ms_wrap():

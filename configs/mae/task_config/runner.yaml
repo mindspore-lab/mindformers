@@ -11,15 +11,8 @@ runner_config: &runner_config
   load_checkpoint:
 
 runner_wrapper:
-  loss_scale:
-    type: FixedLossScaleUpdateCell
-    loss_scale_value: 1024
-  train_one_step:
-    type: TrainOneStepWithClipGNAndEMA
-    use_ema: False
-    ema_decay: 0.9999
-    use_clip_grad: True
-    clip_norm: 5.0
+  type: TestTrainOneStepWithLossScaleCell
+  scale_sense: 1024
 
 # optimizer
 optimizer:
@@ -31,21 +24,19 @@ optimizer:
 
 # lr sechdule
 lr_schedule:
-  type: WarmUpCosineDecayV1
+  type: CosineDecayLR
   max_lr: 0.00015
   min_lr: 0.
-  start_warmup_lr: 0.
-  warmup_steps: 40
   decay_steps: 100
 
 callbacks:
-  - type: LossMonitorAICC
-  - type: SummaryMonitorAICC
+  - type: LossMonitor
+  - type: SummaryMonitor
     keep_default_action: True
-  - type: CheckpointMointorAICC
+  - type: CheckpointMointor
     runner_config: *runner_config
     prefix: "xformer"
     save_checkpoint_steps: 100
     integrated_save: True
     async_save: False
-  - type: ObsMonitorAICC
+  - type: ObsMonitor
