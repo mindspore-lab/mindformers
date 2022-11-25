@@ -14,16 +14,21 @@
 # ============================================================================
 
 '''
-test for  XFormerBook class
+Test Module for testing functions of XFormerBook class
+
+How to run this:
+pytest .\\tests\\ut\\test_xformer_book.py
 '''
 from xformer import XFormerBook
 from xformer.tools import logger
 
 
-def test_xformer_book():
-    '''test for xformer book class, XFormer Book'''
-    path = XFormerBook.get_project_path()
-
+def test_xformer_book_show():
+    '''
+    Feature: xformer book class, show content
+    Description: Test to show content in XFormerBook
+    Exception: None
+    '''
     XFormerBook.show_trainer_support_task_list()
     XFormerBook.show_pipeline_support_task_list()
     XFormerBook.show_model_support_list()
@@ -33,6 +38,12 @@ def test_xformer_book():
     XFormerBook.show_default_checkpoint_download_folder()
     XFormerBook.show_default_checkpoint_save_folder()
 
+def test_xformer_book_get():
+    '''
+    Feature: xformer book class, get content
+    Description: Test to get content of XFormerBook
+    Exception: None
+    '''
     logger.info(XFormerBook.get_trainer_support_task_list())
     logger.info(XFormerBook.get_pipeline_support_task_list())
     logger.info(XFormerBook.get_model_support_list())
@@ -42,10 +53,15 @@ def test_xformer_book():
     logger.info(XFormerBook.get_default_checkpoint_download_folder())
     logger.info(XFormerBook.get_default_checkpoint_save_folder())
 
-    # 两个默认路径可设置
+# default path is settable
+def test_xformer_book_set():
+    '''
+    Feature: xformer book class, get content
+    Description: Test to set content for XFormerBook
+    Exception: None
+    '''
+    path = XFormerBook.get_project_path()
     XFormerBook.set_default_checkpoint_download_folder(path)
     XFormerBook.set_default_checkpoint_save_folder(path)
     logger.info(XFormerBook.get_default_checkpoint_download_folder())
     logger.info(XFormerBook.get_default_checkpoint_save_folder())
-
-test_xformer_book()

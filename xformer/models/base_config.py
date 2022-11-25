@@ -18,7 +18,7 @@ BaseConfig class,
 which is all model configs' base class
 '''
 from ..tools import logger
-from ..xformer_book import print_dict
+from ..xformer_book import print_path_or_list
 
 
 class BaseConfig(dict):
@@ -58,4 +58,4 @@ class BaseConfig(dict):
     def show_support_list(cls):
         '''show support list of config'''
         logger.info("support list of %s is:", cls.__name__)
-        print_dict(cls._support_list)
+        print_path_or_list(cls._support_list)

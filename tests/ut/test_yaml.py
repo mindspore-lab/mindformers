@@ -14,7 +14,10 @@
 # ============================================================================
 
 '''
-Test for yaml tools, XFormerConfig.
+Test module for testing yaml tools, XFormerConfig.
+
+How to run this:
+pytest .\\tests\\ut\\test_yaml.py
 
 Note:
     the name of model yaml file should start with model.
@@ -30,12 +33,14 @@ from xformer.tools import XFormerConfig, logger
 
 
 def test_yaml():
-    '''test for yaml tools, XFormerConfig'''
+    '''
+    Feature: XFormerConfig
+    Description: Test to transform yaml file as XFormerConfig
+    Exception: TypeError
+    '''
     yaml_path = os.path.join(
         XFormerBook.get_project_path(), 'configs', 'clip', 'model_config', "clip_vit_b_32.yaml")
     yaml_content = XFormerConfig(yaml_path)
 
     logger.info(yaml_content)
     logger.info("%s, %s", type(yaml_content), isinstance(yaml_content, dict))
-
-test_yaml()
