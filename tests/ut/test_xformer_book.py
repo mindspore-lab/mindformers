@@ -20,13 +20,13 @@ How to run this:
 windows:  pytest .\\tests\\ut\\test_xformer_book.py
 linux:  pytest ./tests/ut/test_xformer_book.py
 '''
-from xformer import XFormerBook
-from xformer.tools import logger
+from mindformers import XFormerBook
+from mindformers.tools import logger
 
 
 def test_xformer_book_show():
     '''
-    Feature: xformer book class, show content
+    Feature: mindformers book class, show content
     Description: Test to show content in XFormerBook
     Exception: None
     '''
@@ -41,7 +41,7 @@ def test_xformer_book_show():
 
 def test_xformer_book_get():
     '''
-    Feature: xformer book class, get content
+    Feature: mindformers book class, get content
     Description: Test to get content of XFormerBook
     Exception: None
     '''
@@ -57,7 +57,7 @@ def test_xformer_book_get():
 # default path is settable
 def test_xformer_book_set():
     '''
-    Feature: xformer book class, get content
+    Feature: mindformers book class, get content
     Description: Test to set content for XFormerBook
     Exception: None
     '''

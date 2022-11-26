@@ -13,11 +13,11 @@
 # limitations under the License.
 # ============================================================================
 """
-Test module for testing the interface used for xformer.
+Test module for testing the interface used for mindformers.
 How to run this:
 python tests/ut/test_build.py
 """
-
+import os
 from dataclasses import dataclass
 from typing import Callable
 
@@ -26,64 +26,69 @@ from mindspore.nn import AdamWeightDecay, CosineDecayLR, Accuracy,\
 from mindspore.train.callback import LossMonitor, TimeMonitor
 from mindspore import Parameter, Tensor
 
-from xformer.tools import logger
-from xformer.tools import XFormerConfig, XFormerRegister, XFormerModuleType
-from xformer.common.lr import build_lr
-from xformer.common.optim import build_optim
-from xformer.common.loss import build_loss
-from xformer.common.metric import build_metric
-from xformer.trainer import build_trainer, BaseTrainer
-from xformer.models import build_model, BaseModel
-from xformer.dataset import build_dataset, build_sampler, check_dataset_config, \
+from mindformers.tools import logger
+from mindformers.tools import MindFormerConfig, MindFormerRegister, MindFormerModuleType
+from mindformers.common.lr import build_lr
+from mindformers.common.optim import build_optim
+from mindformers.common.loss import build_loss
+from mindformers.common.metric import build_metric
+from mindformers.trainer import build_trainer, BaseTrainer
+from mindformers.models import build_model, BaseModel
+from mindformers.dataset import build_dataset, build_sampler, check_dataset_config, \
     build_dataset_loader, build_mask, build_transforms, BaseDataset
-from xformer.pipeline import build_pipeline
-from xformer.wrapper import build_wrapper
-from xformer.processor import build_processor
+from mindformers.pipeline import build_pipeline
+from mindformers.wrapper import build_wrapper
+from mindformers.processor import build_processor
+
+path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+yaml_path = os.path.join(path, 'tests', 'ut', 'test_build.yaml')
+config = MindFormerConfig(yaml_path)
 
 
-@XFormerRegister.register(XFormerModuleType.DATASET_LOADER)
+@MindFormerRegister.register(MindFormerModuleType.DATASET_LOADER)
 class TestDataLoader:
     """Test DataLoader API For Register."""
     def __init__(self, dataset_dir=None):
         self.dataset_dir = dataset_dir
 
 
-@XFormerRegister.register(XFormerModuleType.DATASET_SAMPLER)
+@MindFormerRegister.register(MindFormerModuleType.DATASET_SAMPLER)
 class TestSampler:
     """Test Sampler API For Register."""
     def __init__(self):
         pass
 
 
-@XFormerRegister.register(XFormerModuleType.TRANSFORMS)
+@MindFormerRegister.register(MindFormerModuleType.TRANSFORMS)
 class TestTransforms1:
     """Test Transforms API For Register."""
     def __init__(self):
         pass
 
 
-@XFormerRegister.register(XFormerModuleType.TRANSFORMS)
+@MindFormerRegister.register(MindFormerModuleType.TRANSFORMS)
 class TestTransforms2:
     """Test Transforms API For Register."""
     def __init__(self):
         pass
 
 
-@XFormerRegister.register(XFormerModuleType.MASK_POLICY)
+@MindFormerRegister.register(MindFormerModuleType.MASK_POLICY)
 class TestModelMask:
     """Test Model Mask API For Register."""
     def __init__(self):
         pass
 
 
-@XFormerRegister.register(XFormerModuleType.MODULES)
+@MindFormerRegister.register(MindFormerModuleType.MODULES)
 class TestAttentionModule:
     """Test Module API For Register."""
     def __init__(self):
         pass
 
 
-@XFormerRegister.register(XFormerModuleType.DATASET)
+@MindFormerRegister.register(MindFormerModuleType.DATASET)
 class TestDataset(BaseDataset):
     """Test Dataset API For Register."""
     def __init__(self, dataset_config: dict = None):
@@ -111,40 +116,40 @@ class TestDataset(BaseDataset):
             logger.info("Test Build Mask Policy Success")
 
 
-@XFormerRegister.register(XFormerModuleType.MODELS)
+@MindFormerRegister.register(MindFormerModuleType.MODELS)
 class TestModel(BaseModel):
     """Test Model API For Register."""
-    def __init__(self, config: dict = None):
+    def __init__(self, model_config: dict = None):
         super(TestModel, self).__init__()
-        self.config = config
+        self.model_config = model_config
         self.params = Parameter(Tensor([0.1]))
 
     def construct(self, *inputs, **kwargs):
         pass
 
 
-@XFormerRegister.register(XFormerModuleType.TOKENIZER)
+@MindFormerRegister.register(MindFormerModuleType.TOKENIZER)
 class TestTokenizer:
     """Test Tokenizer API For Register."""
     def __init__(self):
         pass
 
 
-@XFormerRegister.register(XFormerModuleType.CONFIG)
+@MindFormerRegister.register(MindFormerModuleType.CONFIG)
 @dataclass
 class TestTextConfig:
     """Test TextConfig API For Register."""
     seq_length: int = 12
 
 
-@XFormerRegister.register(XFormerModuleType.CONFIG)
+@MindFormerRegister.register(MindFormerModuleType.CONFIG)
 @dataclass
 class TestVisionConfig:
     """Test VisionConfig API For Register."""
     seq_length: int = 12
 
 
-@XFormerRegister.register(XFormerModuleType.CONFIG)
+@MindFormerRegister.register(MindFormerModuleType.CONFIG)
 @dataclass
 class TestModelConfig:
     """Test ModelConfig API For Register."""
@@ -154,7 +159,7 @@ class TestModelConfig:
     vision_config: Callable = TestVisionConfig
 
 
-@XFormerRegister.register(XFormerModuleType.OPTIMIZER)
+@MindFormerRegister.register(MindFormerModuleType.OPTIMIZER)
 class TestAdamWeightDecay(AdamWeightDecay):
     """Test AdamWeightDecay API For Register."""
     def __init__(self, params, learning_rate=1e-3, beta1=0.9, beta2=0.999, eps=1e-6, weight_decay=0.0):
@@ -164,7 +169,7 @@ class TestAdamWeightDecay(AdamWeightDecay):
         self.param = params
 
 
-@XFormerRegister.register(XFormerModuleType.LR)
+@MindFormerRegister.register(MindFormerModuleType.LR)
 class TestCosineDecayLR(CosineDecayLR):
     """Test CosineDecayLR API For Register."""
     def __init__(self, min_lr, max_lr, decay_steps):
@@ -172,7 +177,7 @@ class TestCosineDecayLR(CosineDecayLR):
         self.lr = max_lr
 
 
-@XFormerRegister.register(XFormerModuleType.WRAPPER)
+@MindFormerRegister.register(MindFormerModuleType.WRAPPER)
 class TestTrainOneStepWithLossScaleCell(TrainOneStepWithLossScaleCell):
     """Test TrainOneStepWithLossScaleCell API For Register."""
     def __init__(self, network, optimizer, scale_sense):
@@ -180,7 +185,7 @@ class TestTrainOneStepWithLossScaleCell(TrainOneStepWithLossScaleCell):
         self.scale_sense = scale_sense
 
 
-@XFormerRegister.register(XFormerModuleType.METRIC)
+@MindFormerRegister.register(MindFormerModuleType.METRIC)
 class TestAccuracy(Accuracy):
     """Test Accuracy API For Register."""
     def __init__(self, eval_type='classification'):
@@ -188,7 +193,7 @@ class TestAccuracy(Accuracy):
         self.eval = eval_type
 
 
-@XFormerRegister.register(XFormerModuleType.LOSS)
+@MindFormerRegister.register(MindFormerModuleType.LOSS)
 class TestL1Loss(L1Loss):
     """Test L1Loss API For Register."""
     def __init__(self, reduction='mean'):
@@ -196,7 +201,7 @@ class TestL1Loss(L1Loss):
         self.reduction = reduction
 
 
-@XFormerRegister.register(XFormerModuleType.CALLBACK)
+@MindFormerRegister.register(MindFormerModuleType.CALLBACK)
 class TestLLossMonitor(LossMonitor):
     """Test LossMonitor API For Register."""
     def __init__(self, per_print_times=1):
@@ -204,7 +209,7 @@ class TestLLossMonitor(LossMonitor):
         self.print = per_print_times
 
 
-@XFormerRegister.register(XFormerModuleType.CALLBACK)
+@MindFormerRegister.register(MindFormerModuleType.CALLBACK)
 class TestTimeMonitor(TimeMonitor):
     """Test TimeMonitor API For Register."""
     def __init__(self, data_size=1):
@@ -212,21 +217,21 @@ class TestTimeMonitor(TimeMonitor):
         self.data_size = data_size
 
 
-@XFormerRegister.register(XFormerModuleType.PIPELINE)
+@MindFormerRegister.register(MindFormerModuleType.PIPELINE)
 class TestPipeline:
     """Test Pipeline API For Register."""
     def __init__(self):
         pass
 
 
-@XFormerRegister.register(XFormerModuleType.PROCESSOR)
+@MindFormerRegister.register(MindFormerModuleType.PROCESSOR)
 class TestProcessor:
     """Test Processor API For Register."""
     def __init__(self):
         pass
 
 
-@XFormerRegister.register(XFormerModuleType.TRAINER)
+@MindFormerRegister.register(MindFormerModuleType.TRAINER)
 class TestTaskTrainer(BaseTrainer):
     """Test TimeMonitor API For Register."""
     def __init__(self, model_name='vit'):
@@ -234,8 +239,12 @@ class TestTaskTrainer(BaseTrainer):
         self.model_name = model_name
 
 
-def test_build_from_config(config: dict = None):
-    """ Test build API from config. """
+def test_build_from_config():
+    """
+    Feature: Build API from config
+    Description: Test build function to instance API from config
+    Expectation: TypeError
+    """
     # build dataset
     check_dataset_config(config)
     build_dataset(config.train_dataset_task)
@@ -282,7 +291,11 @@ def test_build_from_config(config: dict = None):
 
 
 def test_build_from_class_name():
-    """ Test build API from class name. """
+    """
+    Feature: Build API from class name
+    Description: Test build function to instance API from class name
+    Expectation: TypeError
+    """
     # build dataset
     build_dataset(class_name='TestDataset')
     logger.info("Test Build Dataset Success")
@@ -325,14 +338,3 @@ def test_build_from_class_name():
     # build pipeline
     build_pipeline(class_name='TestPipeline')
     logger.info("Test Build Pipeline Success")
-
-
-if __name__ == "__main__":
-    import os
-
-    path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-    yaml_path = os.path.join(path, 'tests', 'ut', 'test_build.yaml')
-    test_config = XFormerConfig(yaml_path)
-    test_build_from_config(test_config)
-    test_build_from_class_name()

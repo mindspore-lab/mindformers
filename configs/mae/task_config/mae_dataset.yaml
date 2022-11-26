@@ -1,7 +1,7 @@
 train_dataset: &train_dataset
   data_loader:
     type: ImageFolderDataset
-    dataset_dir: "/dataset/imageNet-1k/train"
+    dataset_dir: "/data/imageNet-1k/train"
     num_parallel_workers: 8
     shuffle: True
   transforms:
