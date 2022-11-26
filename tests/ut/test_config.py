@@ -17,7 +17,8 @@
 Test Module for testing functions of AutoConfig and ClipConfig class
 
 How to run this:
-pytest .\\tests\\ut\\test_config.py
+windows:  pytest .\\tests\\ut\\test_config.py
+linux:  pytest ./tests/ut/test_config.py
 
 Note:
     model name and config name should have the same prefix
