@@ -26,8 +26,9 @@ from .base_dataset import BaseDataset
 @MindFormerRegister.register(MindFormerModuleType.DATASET)
 class ImageCLSDataset(BaseDataset):
     """Image Classification Dataset API."""
-    def __new__(cls, dataset_config: dict = None, is_eval: bool = False):
-        super().__init__(dataset_config)
+    def __new__(cls, dataset_config: dict = None, do_eval: bool = False):
+        logger.info("Now Create Image Classification Dataset.")
+        cls.init_dataset_config(dataset_config)
         dataset = build_dataset_loader(dataset_config.data_loader)
         transforms = build_transforms(dataset_config.transforms)
         sampler = build_sampler(dataset_config.sampler)
@@ -50,7 +51,7 @@ class ImageCLSDataset(BaseDataset):
 
         dataset = dataset.batch(dataset_config.batch_size, drop_remainder=dataset_config.drop_remainder,
                                 num_parallel_workers=dataset_config.num_parallel_workers)
-        if not is_eval and dataset_config.mixup_op is not None:
+        if not do_eval and dataset_config.mixup_op is not None:
             mixup_op = build_transforms(class_name="Mixup", **dataset_config.mixup_op)
             dataset = dataset.map(
                 operations=mixup_op, input_columns=dataset_config.input_columns,

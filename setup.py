@@ -30,8 +30,15 @@ from setuptools.command.build_py import build_py
 from setuptools.command.install import install
 
 
+def get_configs_content():
+    pwd = os.path.dirname(os.path.realpath(__file__))
+    configs = [os.path.join(root, file)
+               for root, _, file_list in os.walk(os.path.join(pwd, "configs")) for file in file_list
+               if file.endswith('.yaml') or file.endswith(".yml") or file.endswith(".md")]
+    return configs
+
+
 def get_readme_content():
-    """get_readme_content."""
     pwd = os.path.dirname(os.path.realpath(__file__))
     with open(os.path.join(pwd, 'README.md'), encoding='UTF-8') as f:
         return f.read()
@@ -138,7 +145,7 @@ if __name__ == '__main__':
         sys.exit(1)
 
     setup(
-        name='mindtransformer',
+        name='mindformers',
         version='0.2.0',
         author='The MindSpore Authors',
         author_email='contact@mindspore.cn',
@@ -152,11 +159,9 @@ if __name__ == '__main__':
         long_description=get_readme_content(),
         long_description_content_type="text/markdown",
         packages=find_packages(),
-        package_data={'mindformers': [os.path.join(root, file)
-                                      for root, _, file_list in os.walk("./configs") for file in file_list
-                                      if file.endswith('.yaml') or file.endswith(".yml") or file.endswith(".md")]},
         platforms=[get_platform()],
         include_package_data=True,
+        package_data={'mindformers': get_configs_content()},
         cmdclass={
             'egg_info': EggInfo,
             'build_py': BuildPy,

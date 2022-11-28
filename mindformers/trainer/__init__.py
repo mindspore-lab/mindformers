@@ -16,6 +16,9 @@
 
 from .build_trainer import build_trainer
 from .trainer import Trainer
+from .config_args import ConfigArguments, CheckpointConfig, \
+    CloudConfig, LRConfig, OptimizerConfig, DatasetConfig, \
+    DataLoaderConfig, ContextConfig, ParallelContextConfig
 from .base_trainer import BaseTrainer
 from .utils import check_runner_config, check_keywords_in_name
 from .image_classification import ImageClassificationTrainer

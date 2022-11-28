@@ -14,6 +14,8 @@
 # ============================================================================
 """Trainer Utils."""
 
+from mindformers.tools.logger import logger
+
 
 def check_keywords_in_name(name, keywords=()):
     """ Check keywords in name. """
@@ -34,6 +36,6 @@ def check_runner_config(config, dataset):
         config.runner_config.per_epoch_size = data_size
 
     config.data_size = data_size
-    config.logger.info("Will be Training epochs:{}, sink_size:{}".format(
-        config.runner_config.epochs, config.runner_config.per_epoch_size))
-    config.logger.info("Create training dataset finish, dataset size:{}".format(data_size))
+    logger.info("Will be Training epochs:%d, sink_size:%d",
+                config.runner_config.epochs, config.runner_config.per_epoch_size)
+    logger.info("Create training dataset finish, dataset size:%d", data_size)
