@@ -30,8 +30,8 @@ Note:
 '''
 import os
 
-from xformer import XFormerBook, AutoConfig, AutoModel
-from xformer.models import ClipModel, BaseModel
+from mindformers import XFormerBook, AutoConfig, AutoModel
+from mindformers.models import ClipModel, BaseModel
 
 
 class TestModelMethod:

@@ -17,5 +17,5 @@ model:
     decoder_dim: 512
     norm_pixel_loss: True
   arch:
-    type: Mae
+    type: MaeModel
 

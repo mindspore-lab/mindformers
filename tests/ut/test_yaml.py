@@ -14,7 +14,7 @@
 # ============================================================================
 
 '''
-Test module for testing yaml tools, XFormerConfig.
+Test module for testing yaml tools, MindFormerConfig.
 
 How to run this:
 windows:  pytest .\\tests\\ut\\test_yaml.py
@@ -29,19 +29,19 @@ example:
 '''
 import os
 
-from xformer import XFormerBook
-from xformer.tools import XFormerConfig, logger
+from mindformers import XFormerBook
+from mindformers.tools import MindFormerConfig, logger
 
 
 def test_yaml():
     '''
-    Feature: XFormerConfig
-    Description: Test to transform yaml file as XFormerConfig
+    Feature: MindFormerConfig
+    Description: Test to transform yaml file as MindFormerConfig
     Exception: TypeError
     '''
     yaml_path = os.path.join(
         XFormerBook.get_project_path(), 'configs', 'clip', 'model_config', "clip_vit_b_32.yaml")
-    yaml_content = XFormerConfig(yaml_path)
+    yaml_content = MindFormerConfig(yaml_path)
 
     logger.info(yaml_content)
     logger.info("%s, %s", type(yaml_content), isinstance(yaml_content, dict))

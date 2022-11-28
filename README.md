@@ -48,7 +48,7 @@ python setup.py install
 用户可以基于`mindtransformer.models`接口，直接导入需要的模型：
 
 ```python
-from xformer.models import bert
+from mindformers.models import bert
 config = bert.BertConfig(num_layers=1, embedding_size=8, num_heads=1)
 net = bert.BertModel(config, is_training=False)
 ```
@@ -60,17 +60,17 @@ net = bert.BertModel(config, is_training=False)
 ```python
 import numpy as np
 from mindspore.dataset import GeneratorDataset
-from xformer.trainer import Trainer, TrainingConfig
+from mindformers.trainer import Trainer, TrainingConfig
 
 class GPTTrainer(Trainer):
     """GPT trainer"""
     def build_model(self, model_config):
-        from xformer.models.gpt import GPTWithLoss
+        from mindformers.models.gpt import GPTWithLoss
         my_net = GPTWithLoss(model_config)
         return my_net
 
     def build_model_config(self):
-        from xformer.models.gpt import GPTConfig
+        from mindformers.models.gpt import GPTConfig
         return GPTConfig(num_layers=1, hidden_size=8, num_heads=1, seq_length=14)
 
     def build_dataset(self):

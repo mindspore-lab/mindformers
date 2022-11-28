@@ -27,9 +27,9 @@ Example:
 '''
 import os
 
-from xformer import XFormerBook, AutoConfig
-from xformer.models import ClipConfig, ClipVisionConfig, ClipTextConfig, BaseConfig
-from xformer.tools import logger
+from mindformers import XFormerBook, AutoConfig
+from mindformers.models import ClipConfig, ClipVisionConfig, ClipTextConfig, BaseConfig
+from mindformers.tools import logger
 
 
 # the first method to load model config, AutoConfig

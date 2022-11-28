@@ -18,7 +18,7 @@ parallel:
   enable_parallel_optimizer: False
   strategy_ckpt_save_file: "./ckpt_strategy.ckpt"
 
-# context config for xformer
+# context config for mindformers
 moe_config:
   expert_num: 1
   capacity_factor: 1.05
