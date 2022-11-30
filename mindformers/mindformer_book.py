@@ -14,8 +14,8 @@
 # ============================================================================
 
 '''
-XFormerBook class,
-which contains the lists of models, pipelines, tasks, and default settings in XFormer repository.
+MindFormerBook class,
+which contains the lists of models, pipelines, tasks, and default settings in MindFormer repository.
 '''
 import os
 from collections import OrderedDict
@@ -25,7 +25,7 @@ from mindformers.tools import logger
 
 def print_dict(input_dict):
     '''
-    Print dict function for show support method of XFromerBook or other BaseClasses.
+    Print dict function for show support method of MindFormerBook or other BaseClasses.
 
     Args:
         input_dict (dict): the dict to be printed.
@@ -43,7 +43,7 @@ def print_dict(input_dict):
 
 def print_path_or_list(input_path_or_list):
     '''
-    Print path or list function for show support method of XFromerBook or other BaseClasses.
+    Print path or list function for show support method of MindFormerBook or other BaseClasses.
 
     Args:
         input_path_or_list (str, list): the path or list to be printed.
@@ -54,10 +54,11 @@ def print_path_or_list(input_path_or_list):
     else:
         raise TypeError(f"{type(input_path_or_list)} is unsupported by print_path_or_list")
 
-class XFormerBook:
+class MindFormerBook:
     '''
-    XFormerBook class,
-    which contains the lists of models, pipelines, tasks, and default settings in XFormer repository
+    MindFormerBook class,
+    which contains the lists of models, pipelines, tasks, and default
+    settings in MindFormer repository
     '''
     _PROJECT_PATH = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     _DEFAULT_CHECKPOINT_DOWNLOAD_FOLDER = os.path.join(_PROJECT_PATH, 'checkpoint_download')
@@ -66,57 +67,35 @@ class XFormerBook:
     _TRAINER_SUPPORT_TASKS_LIST = OrderedDict([
         ("masked_image_modeling", OrderedDict([
             ("mae_vit_base_p16", "./configs/mae/run_mae_vit_base_p16_224_800ep.yaml"),
-            ("simmim_vit_base_p16", "./configs/simmim/run_simmim_vit_base_p16_224_800ep.yaml"),
-            ("simmim_swin_base_w6_p4",
-             "./configs/simmim/run_simmim_swin_base_w6_p4_192_800ep.yaml"),
             ("common", "./configs/mae/run_mae_vit_base_p16_224_800ep.yaml")])
-         ),
-        ("image_classification", OrderedDict([
-            ("vit_base_p16", "./configs/vit/run_vit_base_p16_224_100ep.yaml"),
-            ("common", "./configs/vit/run_vit_base_p16_224_100ep.yaml")])
-         ),
-        ("image_segmentation", OrderedDict([
-            ("upernet_vit_base_p16", "./configs/upernet/run_upernet_vit_base_p16_224_100ep.yaml"),
-            ("common", "./configs/upernet/run_upernet_vit_base_p16_224_100ep.yaml")])
-        )
+         )
     ])
 
     _PIPELINE_SUPPORT_TASK_LIST = OrderedDict([
         ('zero_shot_image_classification', [
-            'clip_vit_b_16',
             'clip_vit_b_32',
-            'clip_vit_l_14',
-            'clip_vit_l_14@336'
-        ]),
+        ])
     ])
 
     _MODEL_SUPPORT_LIST = OrderedDict([
         ('clip', [
-            'clip_vit_b_16',
             'clip_vit_b_32',
-            'clip_vit_l_14',
-            'clip_vit_l_14@336'
-        ]),
+        ])
     ])
 
     _MODEL_CKPT_URL_LIST = OrderedDict([
-        ('clip_vit_b_16', ['https://xxxxxxx']),
         ('clip_vit_b_32',
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
-          '/XFormer_for_mindspore/clip/clip_vit_b_32.ckpt']),
-        ('clip_vit_l_14', ['https://xxxxxx']),
-        ('clip_vit_l_14@336', ['https://xxxxxxxx']),
+          '/XFormer_for_mindspore/clip/clip_vit_b_32.ckpt'
+          ])
     ])
 
     _MODEL_CONFIG_URL_LIST = OrderedDict([
-        ('clip_vit_b_16', ['https://xxxxxx']),
         ('clip_vit_b_32',
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
-          '/XFormer_for_mindspore/clip/clip_vit_b_32.yaml']),
-        ('clip_vit_l_14', ['https://xxxxxxxx']),
-        ('clip_vit_l_14@336', ['https://xxxxxxxx']),
+          '/XFormer_for_mindspore/clip/clip_vit_b_32.yaml'
+          ])
     ])
-
 
     @classmethod
     def show_trainer_support_task_list(cls):

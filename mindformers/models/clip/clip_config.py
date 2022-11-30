@@ -19,7 +19,7 @@ All configs here are inherited from BaseConfig
 '''
 from ..base_config import BaseConfig
 from ...tools.register import MindFormerRegister, MindFormerModuleType
-from ...xformer_book import XFormerBook
+from ...mindformer_book import MindFormerBook
 from ...tools import logger
 
 @MindFormerRegister.register(MindFormerModuleType.CONFIG)
@@ -49,9 +49,9 @@ class ClipVisionConfig(BaseConfig):
 @MindFormerRegister.register(MindFormerModuleType.CONFIG)
 class ClipConfig(BaseConfig):
     '''config for clip model'''
-    _support_list = XFormerBook.get_model_support_list()['clip']
+    _support_list = MindFormerBook.get_model_support_list()['clip']
 
-    def __init__(self, text_config=None, vision_config=None, projection_dim=512, **kwargs):
+    def __init__(self, text_config=None, vision_config=None, projection_dim=512, ratio=64, **kwargs):
         if text_config is None:
             text_config = ClipTextConfig()
             logger.info("text_config is None. Initializing the CLIPTextConfig with default values.")
@@ -74,4 +74,5 @@ class ClipConfig(BaseConfig):
         super(ClipConfig, self).__init__(text_config=text_config,
                                          vision_config=vision_config,
                                          projection_dim=projection_dim,
+                                         ratio=ratio,
                                          *kwargs)

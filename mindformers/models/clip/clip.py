@@ -26,7 +26,7 @@ from mindspore import Parameter, Tensor
 from mindspore import dtype as mstype
 import mindspore.ops as ops
 
-from ...xformer_book import XFormerBook
+from ...mindformer_book import MindFormerBook
 from ..base_model import BaseModel
 from .clip_modules import VisionTransformer, Transformer
 from ...tools.register import MindFormerRegister, MindFormerModuleType
@@ -45,14 +45,13 @@ class ClipModel(BaseModel):
 
             other supposed parameters.
     '''
-    _support_list = XFormerBook.get_model_support_list()['clip']
+    _support_list = MindFormerBook.get_model_support_list()['clip']
 
-    def __init__(self, config, ratio=64, **kwargs):
-        super(ClipModel, self).__init__()
-        self.config = config
+    def __init__(self, config, **kwargs):
+        super(ClipModel, self).__init__(config)
 
         self.max_position_embeddings = config.text_config.max_position_embeddings
-        vision_heads = config.vision_config.hidden_size // ratio
+        vision_heads = config.vision_config.hidden_size // config.ratio
         self.visual = VisionTransformer(
             input_resolution=config.vision_config.image_size,
             patch_size=config.vision_config.patch_size,
@@ -62,7 +61,7 @@ class ClipModel(BaseModel):
             output_dim=config.projection_dim
         )
 
-        transformer_heads = config.text_config.hidden_size // ratio
+        transformer_heads = config.text_config.hidden_size // config.ratio
         self.transformer = Transformer(
             width=config.text_config.hidden_size,
             layers=config.text_config.num_hidden_layers,
@@ -140,7 +139,7 @@ class ClipModel(BaseModel):
         '''
         text_ = self.token_embedding(text)
         text_ += self.positional_embedding
-        text_ = text.transpose(1, 0, 2)
+        text_ = text_.transpose(1, 0, 2)
         text_ = self.transformer(text_)
         text_ = text_.transpose(1, 0, 2)
         text_ = self.ln_final(text_)

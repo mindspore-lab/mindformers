@@ -29,7 +29,7 @@ example:
 '''
 import os
 
-from mindformers import XFormerBook
+from mindformers import MindFormerBook
 from mindformers.tools import MindFormerConfig, logger
 
 
@@ -37,11 +37,12 @@ def test_yaml():
     '''
     Feature: MindFormerConfig
     Description: Test to transform yaml file as MindFormerConfig
-    Exception: TypeError
+    Expectation: TypeError
     '''
     yaml_path = os.path.join(
-        XFormerBook.get_project_path(), 'configs', 'clip', 'model_config', "clip_vit_b_32.yaml")
+        MindFormerBook.get_project_path(), 'configs', 'clip', 'model_config', "clip_vit_b_32.yaml")
     yaml_content = MindFormerConfig(yaml_path)
 
     logger.info(yaml_content)
-    logger.info("%s, %s", type(yaml_content), isinstance(yaml_content, dict))
+    assert isinstance(yaml_content, MindFormerConfig)
+    assert isinstance(yaml_content, dict)

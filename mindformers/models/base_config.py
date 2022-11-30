@@ -18,7 +18,7 @@ BaseConfig class,
 which is all model configs' base class
 '''
 from ..tools import logger
-from ..xformer_book import print_path_or_list
+from ..mindformer_book import print_path_or_list
 
 
 class BaseConfig(dict):

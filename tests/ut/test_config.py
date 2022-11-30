@@ -27,7 +27,7 @@ Example:
 '''
 import os
 
-from mindformers import XFormerBook, AutoConfig
+from mindformers import MindFormerBook, AutoConfig
 from mindformers.models import ClipConfig, ClipVisionConfig, ClipTextConfig, BaseConfig
 from mindformers.tools import logger
 
@@ -37,9 +37,9 @@ def test_auto_config():
     '''
     Feature: AutoConfig, from_pretrained
     Description: Test to get config instance by AutoConfig.from_pretrained
-    Exception: TypeError, ValueError
+    Expectation: TypeError, ValueError
     '''
-    config_path = os.path.join(XFormerBook.get_project_path(),
+    config_path = os.path.join(MindFormerBook.get_project_path(),
                                'configs', 'clip', 'model_config', "clip_vit_b_32.yaml")
 
     AutoConfig.show_support_list()
@@ -58,7 +58,7 @@ def test_clip_config():
     '''
     Feature: ClipConfig
     Description: Test to get config instance by ClipConfig
-    Exception: None
+    Expectation: None
     '''
     ClipConfig.show_support_list()
     config_c = ClipConfig(
@@ -86,7 +86,7 @@ def test_return():
     '''
     Feature: AutoConfig and ClipConfig return the same results
     Description: Test to get the same config instance by ClipConfig and AutoConfig
-    Exception: AssertionError
+    Expectation: AssertionError
     '''
     config_a, config_b = test_auto_config()
     config_c = test_clip_config()
