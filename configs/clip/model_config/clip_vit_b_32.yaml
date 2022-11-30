@@ -1,4 +1,6 @@
 model:
+  arch:
+    type: ClipModel
 
   model_config:
     type: ClipConfig
@@ -20,5 +22,16 @@ model:
     projection_dim: 512
     ratio: 64
 
-  arch:
-    type: ClipModel
+processor:
+  type: ClipProcessor
+
+  feature_extractor:
+    type: ClipFeatureExtractor
+
+    image_feature_extractor:
+      type: ClipImageFeatureExtractor
+
+      image_resolution: 224
+
+  tokenizer:
+    type: ClipTokenizer

@@ -26,4 +26,7 @@ from .tools import logger, MindFormerRegister,\
 from .common import *
 
 from .mindformer_book import MindFormerBook
-from .auto_class import AutoConfig, AutoModel
+from .auto_class import (
+    AutoConfig, AutoModel,
+    AutoFeatureExtractor
+)
