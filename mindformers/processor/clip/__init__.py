@@ -16,3 +16,4 @@
 """Clip init"""
 from .clip_feature_extractor import ClipFeatureExtractor, ClipImageFeatureExtractor
 from .clip_tokenizer import ClipTokenizer
+from .clip_processor import ClipProcessor

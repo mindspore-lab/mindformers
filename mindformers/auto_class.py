@@ -20,7 +20,7 @@ import os
 
 from mindspore.train.serialization import load_checkpoint, load_param_into_net
 
-from .processor import build_feature_extractor
+from .processor import build_feature_extractor, build_processor
 from .mindformer_book import MindFormerBook, print_dict
 from .models.base_config import BaseConfig
 from .models.build_model import build_model
@@ -357,6 +357,78 @@ class AutoFeatureExtractor:
         feature_extractor = build_feature_extractor(config_args.processor.feature_extractor)
         logger.info("feature extractor built successfully!")
         return feature_extractor
+
+    @classmethod
+    def show_support_list(cls):
+        '''show support list method'''
+        logger.info("support list of %s is:", cls.__name__)
+        print_dict(cls._support_list)
+
+
+class AutoProcessor:
+    ''' AutoProcessor '''
+    _support_list = MindFormerBook.get_model_support_list()
+
+    def __init__(self):
+        raise EnvironmentError(
+            "AutoProcessor is designed to be instantiated "
+            "using the `AutoFeatureExtractor.from_pretrained(yaml_name_or_path)` method."
+        )
+
+    @classmethod
+    def from_pretrained(cls, yaml_name_or_path):
+        '''
+        From pretrain method, which instantiate a processor by yaml name or path.
+
+        Args:
+            yaml_name_or_path (str): A supported yaml name or a path to .yaml file,
+            the supported model name could be selected from .show_support_list().
+
+        Returns:
+            A processor which inherited from BaseProcessor.
+        '''
+        if yaml_name_or_path is None:
+            raise ValueError("a processor cannot be built from pretrained"
+                             " without yaml_name_or_path.")
+
+        is_exist = os.path.exists(yaml_name_or_path)
+        model_name = yaml_name_or_path.split("_")[0]
+        if not is_exist and model_name not in cls._support_list.keys():
+            raise ValueError(f'{yaml_name_or_path} does not exist,'
+                             f' and it is not supported by {cls.__name__}. '
+                             f'please select from {cls._support_list}.')
+
+        if is_exist:
+            logger.info("config in %s is used for feature extractor"
+                        " building.", yaml_name_or_path)
+
+            config_args = MindFormerConfig(yaml_name_or_path)
+        else:
+            if model_name in cls._support_list.keys() and\
+                    yaml_name_or_path in cls._support_list[model_name]:
+                checkpoint_path = os.path.join(
+                    MindFormerBook.get_default_checkpoint_download_folder(),
+                    model_name)
+            else:
+                raise ValueError(f'{yaml_name_or_path} does not exist,'
+                                 f' or it is not supported by {cls.__name__}.'
+                                 f' please select from {cls._support_list}.')
+
+            if not os.path.exists(checkpoint_path):
+                os.makedirs(checkpoint_path)
+
+            yaml_file = os.path.join(checkpoint_path, yaml_name_or_path + ".yaml")
+            if not os.path.exists(yaml_file):
+                url = MindFormerBook.get_model_config_url_list()[yaml_name_or_path][0]
+                downlond_with_progress_bar(url, yaml_file)
+            logger.info("config in %s is used for feature extractor"
+                        " building.", yaml_file)
+
+            config_args = MindFormerConfig(yaml_file)
+
+        processor = build_processor(config_args.processor)
+        logger.info("processor built successfully!")
+        return processor
 
     @classmethod
     def show_support_list(cls):
