@@ -70,13 +70,14 @@ if __name__ == "__main__":
     parser.add_argument(
         '--config',
         default=os.path.join(
-            work_path, "configs/mae/pretrain_mae_vit_base_p16_224_400ep.yaml"),
+            work_path, "configs/mae/run_mae_vit_base_p16_224_400ep.yaml"),
         help='YAML config files')
     parser.add_argument('--device_id', default=None, type=int, help='device id')
     parser.add_argument('--do_train', default=None, type=str2bool, help='open training')
     parser.add_argument('--do_eval', default=None, type=str2bool, help='open evaluate')
     parser.add_argument('--do_predict', default=None, type=str2bool, help='open predict')
-    parser.add_argument('--load_checkpoint', default=None, type=str, help='load model checkpoint')
+    parser.add_argument('--dataset_dir', default=None, type=str, help='dataset directory')
+    parser.add_argument('--checkpoint_name_or_path', default=None, type=str, help='load model checkpoint')
     parser.add_argument('--seed', default=None, type=int, help='random seed')
     parser.add_argument('--use_parallel', default=None, type=str2bool, help='whether use parallel mode')
     parser.add_argument('--profile', default=None, type=str2bool, help='whether use profile analysis')
@@ -101,8 +102,8 @@ if __name__ == "__main__":
         config_.seed = args_.seed
     if args_.use_parallel is not None:
         config_.use_parallel = args_.use_parallel
-    if args_.load_checkpoint is not None:
-        config_.runner_config.load_checkpoint = args_.load_checkpoint
+    if args_.checkpoint_name_or_path is not None:
+        config_.runner_config.checkpoint_name_or_path = args_.checkpoint_name_or_path
     if args_.profile is not None:
         config_.profile = args_.profile
     if args_.options is not None:

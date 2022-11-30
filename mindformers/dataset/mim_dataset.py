@@ -13,7 +13,10 @@
 # limitations under the License.
 # ============================================================================
 """Masked Image Modeling Dataset."""
+import os
+
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
+from mindformers.tools.logger import logger
 from .dataloader import build_dataset_loader
 from .mask import build_mask
 from .transforms import build_transforms
@@ -25,8 +28,13 @@ from .base_dataset import BaseDataset
 class MIMDataset(BaseDataset):
     """Masked Image Modeling Dataset."""
     def __new__(cls, dataset_config: dict = None):
-        super().__init__(dataset_config)
-        dataset = build_dataset_loader(dataset_config.data_loader)
+        logger.info("Now Create Masked Image Modeling Dataset.")
+        cls.init_dataset_config(dataset_config)
+        rank_id = int(os.getenv("RANK_ID", "0"))
+        device_num = int(os.getenv("RANK_SIZE", "1"))
+
+        dataset = build_dataset_loader(
+            dataset_config.data_loader, default_args={'num_shards': device_num, 'shard_id': rank_id})
         transforms = build_transforms(dataset_config.transforms)
         mask = build_mask(dataset_config.mask_policy)
         sampler = build_sampler(dataset_config.sampler)
@@ -50,7 +58,10 @@ class MIMDataset(BaseDataset):
                 output_columns=dataset_config.output_columns,
                 num_parallel_workers=dataset_config.num_parallel_workers,
                 python_multiprocessing=dataset_config.python_multiprocessing)
-        dataset = dataset.batch(dataset_config.batch_size, drop_remainder=dataset_config.drop_remainder,
+        dataset = dataset.batch(dataset_config.batch_size,
+                                drop_remainder=dataset_config.drop_remainder,
+                                column_order=dataset_config.column_order,
+                                output_columns=dataset_config.output_columns,
                                 num_parallel_workers=dataset_config.num_parallel_workers)
         dataset = dataset.repeat(dataset_config.repeat)
         return dataset

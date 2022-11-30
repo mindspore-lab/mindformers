@@ -24,9 +24,11 @@ from mindspore.communication.management import init, get_group_size, get_rank
 from mindspore.parallel import set_algo_parameters
 from mindspore.parallel._cost_model_context import _set_multi_subgraphs
 
+from mindformers.trainer.config_args import ContextConfig, ParallelContextConfig
 from mindformers.tools.register import MindFormerRegister
 from mindformers.tools import CFTS, PARALLEL_MODE, MODE, DEBUG_INFO_PATH, check_in_modelarts
 from mindformers.tools.logger import logger
+
 
 CONTEXT_CONFIG = {
     'mode': 'GRAPH_MODE', 'device_target': 'Ascend', 'device_id': 0, 'save_graphs': False}
@@ -67,8 +69,15 @@ def build_context(config):
     return clould_file_trans_sys, profile_cb
 
 
-def init_context(seed=0, use_parallel=True, context_config=None, parallel_config=None):
+def init_context(seed=0, use_parallel=True,
+                 context_config=None,
+                 parallel_config=None):
     """Context initialization for MindSpore."""
+
+    if isinstance(context_config, ContextConfig):
+        context_config = context_config.__dict__
+    if isinstance(parallel_config, ParallelContextConfig):
+        parallel_config = parallel_config.__dict__
 
     if context_config is None:
         context_config = CONTEXT_CONFIG

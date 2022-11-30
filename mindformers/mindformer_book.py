@@ -33,13 +33,14 @@ def print_dict(input_dict):
     if isinstance(input_dict, dict):
         for key, val in input_dict.items():
             if isinstance(val, dict):
-                logger.info(f"{key}:")
+                logger.info("%s:", key)
                 print_dict(val)
             else:
                 logger.info("   %s : %s", key, val)
         logger.info("-------------------------------------")
     else:
         raise TypeError(f"{type(input_dict)} is unspoorted by print_dict")
+
 
 def print_path_or_list(input_path_or_list):
     '''
@@ -54,6 +55,7 @@ def print_path_or_list(input_path_or_list):
     else:
         raise TypeError(f"{type(input_path_or_list)} is unsupported by print_path_or_list")
 
+
 class MindFormerBook:
     '''
     MindFormerBook class,
@@ -66,8 +68,10 @@ class MindFormerBook:
 
     _TRAINER_SUPPORT_TASKS_LIST = OrderedDict([
         ("masked_image_modeling", OrderedDict([
-            ("mae_vit_base_p16", "./configs/mae/run_mae_vit_base_p16_224_800ep.yaml"),
-            ("common", "./configs/mae/run_mae_vit_base_p16_224_800ep.yaml")])
+            ("mae_vit_base_p16", os.path.join(
+                _PROJECT_PATH, "configs/mae/run_mae_vit_base_p16_224_800ep.yaml")),
+            ("common", os.path.join(
+                _PROJECT_PATH, "configs/mae/run_mae_vit_base_p16_224_800ep.yaml"))])
          )
     ])
 

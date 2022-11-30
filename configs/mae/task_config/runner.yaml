@@ -1,6 +1,6 @@
 # runner config
-runner_config: &runner_config
-  epoch: 800
+runner_config:
+  epochs: 10
   batch_size: 64
   image_size: 224
   sink_mode: True
@@ -8,11 +8,11 @@ runner_config: &runner_config
   initial_epoch: 0
   has_trained_epoches: 0
   has_trained_steps: 0
-  load_checkpoint:
+  checkpoint_name_or_path:
 
 runner_wrapper:
-  type: TestTrainOneStepWithLossScaleCell
-  scale_sense: 1024
+  type: TrainOneStepCell
+  sens: 1024
 
 # optimizer
 optimizer:
@@ -30,11 +30,10 @@ lr_schedule:
   decay_steps: 100
 
 callbacks:
-  - type: LossMonitor
+  - type: MFLossMonitor
   - type: SummaryMonitor
     keep_default_action: True
   - type: CheckpointMointor
-    runner_config: *runner_config
     prefix: "mindformers"
     save_checkpoint_steps: 100
     integrated_save: True

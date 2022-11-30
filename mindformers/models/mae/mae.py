@@ -25,6 +25,10 @@ class MaeModel(BaseModel):
     """Pretrain MAE Module."""
 
     def __init__(self, config=MaeConfig()):
-        super(MaeModel, self).__init__()
+        super(MaeModel, self).__init__(config)
         self.config = config
         self.param_test = Parameter(Tensor([1.0]))
+
+    def construct(self, image):
+        loss = 2.0 * self.param_test * image
+        return loss.mean()

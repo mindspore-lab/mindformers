@@ -24,6 +24,7 @@ from .pipeline import *
 from .tools import logger, MindFormerRegister,\
     MindFormerModuleType, MindFormerConfig, CFTS
 from .common import *
+from .trainer import *
 
 from .mindformer_book import MindFormerBook
 from .auto_class import (

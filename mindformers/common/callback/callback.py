@@ -28,7 +28,7 @@ class ObsMonitor:
 
 
 @MindFormerRegister.register(MindFormerModuleType.CALLBACK)
-class LossMonitor:
+class MFLossMonitor:
     """Loss Monitor For AICC and Local"""
     def __new__(cls, per_print_times=1):
         cfts = MindFormerRegister.get_cls(
@@ -68,7 +68,6 @@ class SummaryMonitor:
 class CheckpointMointor:
     """Checkpoint Monitor For AICC and Local"""
     def __new__(cls,
-                runner_config=None,
                 prefix='CKP',
                 directory=None,
                 config=None,
@@ -83,11 +82,6 @@ class CheckpointMointor:
                 enc_key=None,
                 enc_mode='AES-GCM',
                 exception_save=False):
-        if append_info is None:
-            append_info = [
-                {"epoch_num": runner_config.get("has_trained_epoches"),
-                 "step_num": runner_config.get("has_trained_steps")}
-            ]
 
         rank_id = int(os.getenv("DEVICE_ID", '0'))
         prefix = prefix + "_rank_{}".format(rank_id)

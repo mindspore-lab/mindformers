@@ -15,7 +15,17 @@
 """Masked Image Modeling Trainer."""
 from typing import Callable, List
 
+from mindspore.train.model import Model
+
+from mindformers.dataset import build_dataset, check_dataset_config
+from mindformers.models import build_model
+from mindformers.common.lr import build_lr
+from mindformers.common.optim import build_optim
+from mindformers.wrapper import build_wrapper
 from mindformers.trainer.base_trainer import BaseTrainer
+from mindformers.trainer.utils import check_runner_config
+from mindformers.tools.logger import logger
+from mindformers.tools.utils import count_params
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 
 
@@ -25,6 +35,7 @@ class MaskedImageModelingTrainer(BaseTrainer):
     def __init__(self, model_name: str = None):
         super(MaskedImageModelingTrainer, self).__init__(model_name)
         self.model_name = model_name
+        self.kwargs = None
 
     def train(self,
               config: dict = None,
@@ -34,6 +45,56 @@ class MaskedImageModelingTrainer(BaseTrainer):
               callbacks: List[Callable] = None, **kwargs):
         """train for trainer."""
         # 自定义创建模型训练完整过程, 待补充
+        self.kwargs = kwargs
+        # build dataset
+        logger.info(".........Build Dataset..........")
+        check_dataset_config(config)
+        if dataset is None:
+            dataset = build_dataset(config.train_dataset_task)
+        check_runner_config(config, dataset)
+
+        # build network
+        logger.info(".........Build Net..........")
+        if network is None:
+            network = build_model(config.model, default_args={
+                "parallel_config": config.parallel_config,
+                "moe_config": config.moe_config})
+        logger.info("网络参数量：%s M.", str(count_params(network)))
+
+        # build optimizer
+        logger.info(".........Build Optimizer..........")
+        if optimizer is None:
+            # build learning rate schedule
+            logger.info(".........Build LR Schedule..........")
+            lr_schedule = build_lr(config.lr_schedule)
+            group_params = network.trainable_params()
+            if lr_schedule is not None:
+                optimizer = build_optim(
+                    config.optimizer,
+                    default_args={"params": group_params,
+                                  "learning_rate": lr_schedule})
+            else:
+                assert config.optimizer.learning_rate, "learning_rate must be input"
+                optimizer = build_optim(
+                    config.optimizer,
+                    default_args={"params": group_params})
+
+        # build callback
+        if callbacks is None:
+            callbacks = config.callbacks
+
+        # build runner wrapper
+        logger.info(".........Build Running Wrapper..........")
+        model = build_wrapper(config.runner_wrapper, default_args={"network": network, "optimizer": optimizer})
+
+        # define Model and begin training
+        logger.info(".........Starting Init Train Model..........")
+        model = Model(model)
+
+        model.train(
+            config.runner_config.epochs, dataset, callbacks=callbacks,
+            dataset_sink_mode=config.runner_config.sink_mode,
+            sink_size=config.runner_config.per_epoch_size)
 
     def evaluate(self,
                  config: dict = None,
