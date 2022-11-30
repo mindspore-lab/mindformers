@@ -16,8 +16,9 @@
 """MindFormers Processor API."""
 from mindformers.processor.clip import (
     ClipFeatureExtractor, ClipImageFeatureExtractor,
-    ClipTokenizer
+    ClipTokenizer, ClipProcessor
 )
 
 from .build_tokenizer import build_tokenizer
 from .build_feature_extractor import build_feature_extractor
+from .build_processor import build_processor

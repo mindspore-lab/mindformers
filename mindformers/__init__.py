@@ -28,5 +28,5 @@ from .common import *
 from .mindformer_book import MindFormerBook
 from .auto_class import (
     AutoConfig, AutoModel,
-    AutoFeatureExtractor
+    AutoFeatureExtractor, AutoProcessor
 )
