@@ -23,8 +23,8 @@ import mindspore as ms
 from mindspore import nn
 from mindspore.train.serialization import load_checkpoint, load_param_into_net
 
-from ..xformer_book import XFormerBook, print_path_or_list
-from .build_model import build_model_config
+from ..mindformer_book import MindFormerBook, print_path_or_list
+from .build_config import build_model_config
 from .base_config import BaseConfig
 from ..tools.register import MindFormerConfig
 from ..tools.download_tools import downlond_with_progress_bar
@@ -36,6 +36,9 @@ class BaseModel(nn.Cell):
     BaseModel for all models.
     '''
     _support_list = []
+    def __init__(self, config):
+        super(BaseModel, self).__init__()
+        self.config = config
 
     def _load_checkpoint(self, **kwargs):
         '''
@@ -64,11 +67,11 @@ class BaseModel(nn.Cell):
                     raise ValueError(f"{checkpoint_name_or_path} is not a supported default model,"
                                      f" please select from {self._support_list}.")
 
-                ckpt_file = os.path.join(XFormerBook.get_default_checkpoint_download_folder(),
+                ckpt_file = os.path.join(MindFormerBook.get_default_checkpoint_download_folder(),
                                          checkpoint_name_or_path.split("_")[0],
                                          checkpoint_name_or_path+".ckpt")
                 if not os.path.exists(ckpt_file):
-                    url = XFormerBook.get_model_ckpt_url_list()[checkpoint_name_or_path]
+                    url = MindFormerBook.get_model_ckpt_url_list()[checkpoint_name_or_path]
                     downlond_with_progress_bar(url, ckpt_file)
 
                 param = load_checkpoint(ckpt_file)
@@ -83,7 +86,7 @@ class BaseModel(nn.Cell):
 
     def save_pretrained(self, save_directory=None, save_name="mindspore_model"):
         '''
-        save_pretrained.
+        Save_pretrained.
         (only support standalone mode, and distribute mode waits for developing)
 
         Args:
@@ -92,7 +95,7 @@ class BaseModel(nn.Cell):
             save_name (str): the name of save files.
         '''
         if save_directory is None:
-            save_directory = XFormerBook.get_default_checkpoint_save_folder()
+            save_directory = MindFormerBook.get_default_checkpoint_save_folder()
             if not os.path.exists(save_directory):
                 os.makedirs(save_directory)
 
@@ -114,8 +117,15 @@ class BaseModel(nn.Cell):
         parsed_config = self._inverse_parse_config(self.config)
         wraped_config = self._warap_config(parsed_config)
 
+        meraged_dict = {}
+        if os.path.exists(config_path):
+            with open(config_path, 'r') as file_reader:
+                meraged_dict = yaml.load(file_reader.read(), Loader=yaml.Loader)
+            file_reader.close()
+        meraged_dict.update(wraped_config)
+
         with open(config_path, 'w') as file_pointer:
-            file_pointer.write(yaml.dump(wraped_config))
+            file_pointer.write(yaml.dump(meraged_dict))
         file_pointer.close()
         logger.info("model saved successfully!")
 
@@ -157,7 +167,7 @@ class BaseModel(nn.Cell):
     @classmethod
     def from_pretrained(cls, pretrained_model_name_or_dir):
         '''
-        From pretrain method, which instantiate a Model by pretrained model name or path.
+        From pretrain method, which instantiate a model by pretrained model name or path.
         (only support standalone mode, and distribute mode waits for developing!)
 
         Args:
@@ -207,7 +217,7 @@ class BaseModel(nn.Cell):
                              " mismatched, and weights load failed", yaml_file, ckpt_file)
             logger.info("model built successfully!")
         else:
-            checkpoint_path = os.path.join(XFormerBook.get_default_checkpoint_download_folder(),
+            checkpoint_path = os.path.join(MindFormerBook.get_default_checkpoint_download_folder(),
                                            pretrained_model_name_or_dir.split("_")[0])
             if not os.path.exists(checkpoint_path):
                 os.makedirs(checkpoint_path)
@@ -216,11 +226,11 @@ class BaseModel(nn.Cell):
             ckpt_file = os.path.join(checkpoint_path, pretrained_model_name_or_dir+".ckpt")
 
             if not os.path.exists(ckpt_file):
-                url = XFormerBook.get_model_ckpt_url_list()[pretrained_model_name_or_dir][0]
+                url = MindFormerBook.get_model_ckpt_url_list()[pretrained_model_name_or_dir][0]
                 downlond_with_progress_bar(url, ckpt_file)
 
             if not os.path.exists(yaml_file):
-                url = XFormerBook.get_model_config_url_list()[pretrained_model_name_or_dir][0]
+                url = MindFormerBook.get_model_config_url_list()[pretrained_model_name_or_dir][0]
                 downlond_with_progress_bar(url, yaml_file)
 
             logger.info("config in %s and weights in %s are"

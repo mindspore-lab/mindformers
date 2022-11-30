@@ -25,5 +25,5 @@ from .tools import logger, MindFormerRegister,\
     MindFormerModuleType, MindFormerConfig, CFTS
 from .common import *
 
-from .xformer_book import XFormerBook
+from .mindformer_book import MindFormerBook
 from .auto_class import AutoConfig, AutoModel

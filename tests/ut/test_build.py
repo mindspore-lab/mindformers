@@ -43,7 +43,7 @@ from mindformers.processor import build_processor
 path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 yaml_path = os.path.join(path, 'tests', 'ut', 'test_build.yaml')
-config = MindFormerConfig(yaml_path)
+all_config = MindFormerConfig(yaml_path)
 
 
 @MindFormerRegister.register(MindFormerModuleType.DATASET_LOADER)
@@ -119,14 +119,10 @@ class TestDataset(BaseDataset):
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
 class TestModel(BaseModel):
     """Test Model API For Register."""
-    def __init__(self, model_config: dict = None):
-        super(TestModel, self).__init__()
-        self.model_config = model_config
+    def __init__(self, config: dict = None):
+        super(TestModel, self).__init__(config)
+        self.model_config = config
         self.params = Parameter(Tensor([0.1]))
-
-    def construct(self, *inputs, **kwargs):
-        pass
-
 
 @MindFormerRegister.register(MindFormerModuleType.TOKENIZER)
 class TestTokenizer:
@@ -162,7 +158,8 @@ class TestModelConfig:
 @MindFormerRegister.register(MindFormerModuleType.OPTIMIZER)
 class TestAdamWeightDecay(AdamWeightDecay):
     """Test AdamWeightDecay API For Register."""
-    def __init__(self, params, learning_rate=1e-3, beta1=0.9, beta2=0.999, eps=1e-6, weight_decay=0.0):
+    def __init__(self, params, learning_rate=1e-3,
+                 beta1=0.9, beta2=0.999, eps=1e-6, weight_decay=0.0):
         super(TestAdamWeightDecay, self).__init__(params, learning_rate=learning_rate,
                                                   beta1=beta1, beta2=beta2, eps=eps,
                                                   weight_decay=weight_decay)
@@ -246,47 +243,49 @@ def test_build_from_config():
     Expectation: TypeError
     """
     # build dataset
-    check_dataset_config(config)
-    build_dataset(config.train_dataset_task)
+    check_dataset_config(all_config)
+    build_dataset(all_config.train_dataset_task)
 
     logger.info("Test Build Dataset Success")
 
     # build model
-    model = build_model(config.model)
+    model = build_model(all_config.model)
     logger.info("Test Build Network Success")
 
     # build lr
-    lr = build_lr(config.lr_schedule)
+    lr = build_lr(all_config.lr_schedule)
     logger.info("Test Build LR Success")
 
     # build optimizer
     if lr is not None:
-        optimizer = build_optim(config.optimizer, default_args={"params": model.trainable_params(),
-                                                                "learning_rate": lr})
+        optimizer = build_optim(all_config.optimizer,
+                                default_args={"params": model.trainable_params(),
+                                              "learning_rate": lr})
     else:
-        optimizer = build_optim(config.optimizer, default_args={"params": model.trainable_params()})
+        optimizer = build_optim(all_config.optimizer,
+                                default_args={"params": model.trainable_params()})
     logger.info("Test Build Optimizer Success")
 
     # build wrapper
-    build_wrapper(config.runner_wrapper,
+    build_wrapper(all_config.runner_wrapper,
                   default_args={"network": model, "optimizer": optimizer})
     logger.info("Test Build Wrapper Success")
 
-    build_loss(config.loss)
+    build_loss(all_config.loss)
     logger.info("Test Build Loss Success")
 
-    build_metric(config.metric)
+    build_metric(all_config.metric)
     logger.info("Test Build Metric Success")
 
-    build_processor(config.processor)
+    build_processor(all_config.processor)
     logger.info("Test Build Processor Success")
 
     # build trainer
-    build_trainer(config.trainer)
+    build_trainer(all_config.trainer)
     logger.info("Test Build Trainer Success")
 
     # build pipeline
-    build_pipeline(config.pipeline)
+    build_pipeline(all_config.pipeline)
     logger.info("Test Build Pipeline Success")
 
 

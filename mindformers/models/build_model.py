@@ -14,7 +14,7 @@
 # ============================================================================
 """Build Model API."""
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
-
+from .build_config import build_model_config
 
 def build_model(
         config: dict = None, default_args: dict = None,
@@ -91,21 +91,3 @@ def build_head(
             heads.append(head_op)
         return heads
     return MindFormerRegister.get_instance(module_type, class_name, **kwargs)
-
-
-def build_model_config(
-        config: dict = None, default_args: dict = None,
-        module_type: str = 'config', class_name: str = None, **kwargs):
-    """Build model config API."""
-    if config is None and class_name is None:
-        return None
-    if config is not None:
-        if config.text_config is not None:
-            config.text_config = build_model_config(config.text_config)
-        if config.vision_config is not None:
-            config.vision_config = build_model_config(config.vision_config)
-        if config.head_config is not None:
-            config.head_config = build_model_config(config.head_config)
-        return MindFormerRegister.get_instance_from_cfg(
-            config, MindFormerModuleType.CONFIG, default_args=default_args)
-    return MindFormerRegister.get_instance(module_type, class_name, *args, **kwargs)

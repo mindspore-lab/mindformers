@@ -15,7 +15,7 @@
 """Trainer API For Import."""
 from typing import Callable, List, Optional, Union
 
-from mindformers.xformer_book import XFormerBook
+from mindformers.mindformer_book import MindFormerBook
 from mindformers.tools.register import MindFormerConfig, MindFormerRegister
 from mindformers.models import build_model, build_tokenizer
 from mindformers.dataset import build_dataset
@@ -28,7 +28,7 @@ from mindformers.common.parallel_config import build_parallel_config
 from mindformers.tools.cloud_adapter import CFTS
 
 
-SUPPORT_TASKS = XFormerBook().get_trainer_support_task_list()
+SUPPORT_TASKS = MindFormerBook().get_trainer_support_task_list()
 
 
 class Trainer:

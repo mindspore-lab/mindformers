@@ -20,9 +20,10 @@ import os
 
 from mindspore.train.serialization import load_checkpoint, load_param_into_net
 
-from .xformer_book import XFormerBook, print_dict
+from .mindformer_book import MindFormerBook, print_dict
 from .models.base_config import BaseConfig
-from .models.build_model import build_model_config, build_model
+from .models.build_model import build_model
+from .models.build_config import build_model_config
 from .tools import logger
 from .tools.register.config import MindFormerConfig
 from .tools.download_tools import downlond_with_progress_bar
@@ -30,7 +31,7 @@ from .tools.download_tools import downlond_with_progress_bar
 
 class AutoConfig:
     ''' AutoConfig '''
-    _support_list = XFormerBook.get_model_support_list()
+    _support_list = MindFormerBook.get_model_support_list()
 
     def __init__(self):
         raise EnvironmentError(
@@ -67,14 +68,14 @@ class AutoConfig:
                                  f" model type or a valid path to model config."
                                  f" supported model could be selected from {cls._support_list}.")
 
-            checkpoint_path = os.path.join(XFormerBook.get_default_checkpoint_download_folder(),
+            checkpoint_path = os.path.join(MindFormerBook.get_default_checkpoint_download_folder(),
                                            model_type)
             if not os.path.exists(checkpoint_path):
                 os.makedirs(checkpoint_path)
 
             yaml_file = os.path.join(checkpoint_path, pretrained_model_name_or_path + ".yaml")
             if not os.path.exists(yaml_file):
-                url = XFormerBook.get_model_config_url_list()[pretrained_model_name_or_path][0]
+                url = MindFormerBook.get_model_config_url_list()[pretrained_model_name_or_path][0]
                 downlond_with_progress_bar(url, yaml_file)
 
             config_args = MindFormerConfig(yaml_file)
@@ -91,7 +92,7 @@ class AutoConfig:
 
 class AutoModel:
     ''' AutoModel '''
-    _support_list = XFormerBook.get_model_support_list()
+    _support_list = MindFormerBook.get_model_support_list()
 
     def __init__(self):
         raise EnvironmentError(
@@ -148,10 +149,10 @@ class AutoModel:
                                      f" type or a valid path to model weights. supported "
                                      f"model could be selected from {cls._support_list}.")
 
-                ckpt_file = os.path.join(XFormerBook.get_default_checkpoint_download_folder(),
+                ckpt_file = os.path.join(MindFormerBook.get_default_checkpoint_download_folder(),
                                          model_type, checkpoint_name_or_path+".ckpt")
                 if not os.path.exists(ckpt_file):
-                    url = XFormerBook.get_model_ckpt_url_list()[checkpoint_name_or_path]
+                    url = MindFormerBook.get_model_ckpt_url_list()[checkpoint_name_or_path]
                     downlond_with_progress_bar(url, ckpt_file)
 
                 param = load_checkpoint(ckpt_file)
@@ -260,7 +261,7 @@ class AutoModel:
                              " mismatched, and weights load failed", yaml_file, ckpt_file)
             logger.info("model built successfully!")
         else:
-            checkpoint_path = os.path.join(XFormerBook.get_default_checkpoint_download_folder(),
+            checkpoint_path = os.path.join(MindFormerBook.get_default_checkpoint_download_folder(),
                                            pretrained_model_name_or_dir.split("_")[0])
             if not os.path.exists(checkpoint_path):
                 os.makedirs(checkpoint_path)
@@ -269,11 +270,11 @@ class AutoModel:
             ckpt_file = os.path.join(checkpoint_path, pretrained_model_name_or_dir+".ckpt")
 
             if not os.path.exists(ckpt_file):
-                url = XFormerBook.get_model_ckpt_url_list()[pretrained_model_name_or_dir][0]
+                url = MindFormerBook.get_model_ckpt_url_list()[pretrained_model_name_or_dir][0]
                 downlond_with_progress_bar(url, ckpt_file)
 
             if not os.path.exists(yaml_file):
-                url = XFormerBook.get_model_config_url_list()[pretrained_model_name_or_dir][0]
+                url = MindFormerBook.get_model_config_url_list()[pretrained_model_name_or_dir][0]
                 downlond_with_progress_bar(url, yaml_file)
 
             logger.info("config in %s and weights in %s are used for model"
