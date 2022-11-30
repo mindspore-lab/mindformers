@@ -79,7 +79,7 @@ def basic_clean(input_text):
 
 class TempTokenizer:
     '''Simple Tokenizer'''
-    def __init__(self, text_path: str = default_bpe()):
+    def __init__(self, text_path):
         self.byte_encoder = bytes_to_unicode()
         self.byte_decoder = {v: k for k, v in self.byte_encoder.items()}
 
@@ -164,7 +164,8 @@ class ClipTokenizer(BaseTokenizer):
     '''clip tokenizer'''
     def __init__(self):
         super(ClipTokenizer, self).__init__()
-        self.tool = TempTokenizer()
+        path = default_bpe()
+        self.tool = TempTokenizer(path)
 
     def __call__(self, input_texts, token_num=77, drop_tail=False):
         if isinstance(input_texts, str):
