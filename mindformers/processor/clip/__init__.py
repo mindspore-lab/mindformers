@@ -12,12 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-"""Base Processor API."""
-from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 
-
-@MindFormerRegister.register(MindFormerModuleType.PROCESSOR)
-class BaseProcessor:
-    """Base Processor."""
-    def __init__(self):
-        pass
+"""Clip init"""
+from .clip_feature_extractor import ClipFeatureExtractor, ClipImageFeatureExtractor
+from .clip_tokenizer import ClipTokenizer

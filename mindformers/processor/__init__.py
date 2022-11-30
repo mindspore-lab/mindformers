@@ -12,6 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
+
 """MindFormers Processor API."""
-from .base_processor import BaseProcessor
-from .build_processor import build_processor
+from mindformers.processor.clip import (
+    ClipFeatureExtractor, ClipImageFeatureExtractor,
+    ClipTokenizer
+)
+
+from .build_tokenizer import build_tokenizer
+from .build_feature_extractor import build_feature_extractor

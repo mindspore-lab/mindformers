@@ -11,6 +11,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+# This file was refer to project
+# https://gitee.com/mindspore/vision/blob/master/mindvision/engine/class_factory.py
 # ============================================================================
 """ Class Register Module For MindFormers."""
 
@@ -49,6 +51,7 @@ class MindFormerModuleType:
     METRIC = 'metric'
     CONFIG = 'config'
     COMMON = 'common'
+    FEATURE_EXTRACTOR = 'feature_extractor'
 
 
 class MindFormerRegister:
