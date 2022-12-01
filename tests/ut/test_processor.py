@@ -22,8 +22,8 @@ windows:  pytest .\\tests\\ut\\test_processor.py
 linux:  pytest ./tests/ut/test_processor.py
 '''
 import os
-
 import numpy as np
+
 import mindspore as ms
 
 from mindformers.processor import (
