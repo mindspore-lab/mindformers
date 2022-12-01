@@ -16,3 +16,5 @@
 '''clip init'''
 from .clip_config import ClipTextConfig, ClipVisionConfig, ClipConfig
 from .clip import ClipModel
+
+__all__ = ['ClipModel', 'ClipConfig', 'ClipVisionConfig', 'ClipTextConfig']

@@ -14,20 +14,20 @@
 # ============================================================================
 
 '''mindformers init'''
+from mindformers import common, auto_class, dataset, models, modules
 from .dataset import MIMDataset, ImageCLSDataset
-from .models import ClipModel, ClipConfig, ClipVisionConfig,\
-    ClipTextConfig, MaeConfig, MaeModel
+from .models import *
+from .common import *
 from .modules import *
-from .wrapper import ClassificationMoeWrapper
 from .processor import *
 from .pipeline import *
-from .tools import logger, MindFormerRegister,\
-    MindFormerModuleType, MindFormerConfig, CFTS
-from .common import *
 from .trainer import *
-
+from .auto_class import *
+from .wrapper import ClassificationMoeWrapper
+from .tools import logger, MindFormerRegister, MindFormerModuleType, MindFormerConfig, CFTS
 from .mindformer_book import MindFormerBook
-from .auto_class import (
-    AutoConfig, AutoModel,
-    AutoFeatureExtractor, AutoProcessor
-)
+
+__all__ = []
+__all__.extend(common.__all__)
+__all__.extend(auto_class.__all__)
+__all__.extend(models.__all__)

@@ -29,6 +29,7 @@ from .tools import logger
 from .tools.register.config import MindFormerConfig
 from .tools.download_tools import downlond_with_progress_bar
 
+__all__ = ['AutoConfig', 'AutoModel', 'AutoProcessor', 'AutoFeatureExtractor']
 
 class AutoConfig:
     ''' AutoConfig '''
