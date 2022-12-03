@@ -8,7 +8,6 @@ runner_config:
   initial_epoch: 0
   has_trained_epoches: 0
   has_trained_steps: 0
-  checkpoint_name_or_path:
 
 runner_wrapper:
   type: TrainOneStepCell

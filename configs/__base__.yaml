@@ -2,9 +2,12 @@ seed: 0
 auto_tune: False
 filepath_prefix: './autotune'
 autotune_per_step: 10
-profile: False
 
-output_dir: "./output"
+profile: False
+use_parallel: False
+
+output_dir: './output'  # 当前不支持自定义修改，请勿修改该默认值
+resume_checkpoint_path: ''
 
 # cfts init config
 aicc_config:

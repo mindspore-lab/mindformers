@@ -14,13 +14,13 @@
 # limitations under the License.
 # ============================================================================
 
-if [ $# != 2 ]
+if [ $# != 3 ]
 then
-  echo "Usage: bash run_distribute_train.sh [CONFIG_PATH] [DEVICE_ID]"
+  echo "Usage Help: bash run_standalone.sh [CONFIG_PATH] [DEVICE_ID] [RUN_STATUS] "
   exit 1
 fi
 
-get_real_path(){
+check_real_path(){
   if [ "${1:0:1}" == "/" ]; then
     echo "$1"
   else
@@ -28,8 +28,9 @@ get_real_path(){
   fi
 }
 
-CONFIG_FILE=$(get_real_path $1)
+CONFIG_FILE=$(check_real_path $1)
 DEVICE_ID=$2
+RUN_STATUS=$3
 
 if [ ! -f $CONFIG_FILE ]
 then
@@ -48,7 +49,7 @@ cp -r ../mindformers ./mf_standalone
 cd ./mf_standalone || exit
 echo "start training for device $DEVICE_ID"
 env > env.log
-python run_mindformer.py --config=$CONFIG_FILE --use_parallel=False &> mindformer.log &
+python run_mindformer.py --config=$CONFIG_FILE --use_parallel=False --run_status=$RUN_STATUS &> mindformer.log &
 cd ..
 
 # if you want kill current job, you can use as follow:

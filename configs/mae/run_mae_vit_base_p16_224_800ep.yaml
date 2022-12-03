@@ -5,12 +5,13 @@ base_config: [
     './model_config/mae_vit_base_p16.yaml',
     '../__base__.yaml' ]
 
-do_train: True
-do_eval: False
-do_predict: False
+profile: False
+use_parallel: False
 
+seed: 0
+resume_checkpoint_path: ''
+
+run_status: 'train'
 trainer:
   type: mim
   model_name: 'mae'
-
-

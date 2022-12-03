@@ -15,14 +15,17 @@
 """Trainer API For Import."""
 import os
 from typing import Callable, List, Optional, Union
+from pprint import pprint
 
 import yaml
+import numpy as np
 
+from mindspore.common import set_seed
 from mindspore import load_param_into_net, load_checkpoint
 
 from mindformers.mindformer_book import MindFormerBook
 from mindformers.tools.register import MindFormerConfig, MindFormerRegister
-from mindformers.models import build_model, build_tokenizer
+from mindformers.models import build_model
 from mindformers.dataset import build_dataset, build_dataset_loader, check_dataset_config
 from mindformers.trainer import build_trainer
 from mindformers.common.optim import build_optim
@@ -33,11 +36,13 @@ from mindformers.common.parallel_config import build_parallel_config
 from mindformers.tools.cloud_adapter import CFTS
 from mindformers.tools.logger import logger
 from mindformers.tools.utils import count_params
-
 from .config_args import ConfigArguments
+from .utils import check_train_data_loader_type, check_eval_data_loader_type, \
+    check_optimizer_and_lr_type
 
 
 SUPPORT_TASKS = MindFormerBook().get_trainer_support_task_list()
+SUPPORT_MODEL_NAMES = MindFormerBook().get_model_name_support_list()
 DEFAULT_CHECKPOINT_DIR = 'checkpoint'
 DEFAULT_CONFIG_DIR = 'configs'
 
@@ -54,6 +59,7 @@ class Trainer:
                  processor: Callable = None,
                  callbacks: List[Callable] = None,
                  compute_metrics: str = None, **kwargs):
+
         self.task_name = task_name
         self.model = model
         self.train_dataset = train_dataset
@@ -64,8 +70,11 @@ class Trainer:
         self.compute_metrics = compute_metrics
         self.kwargs = kwargs
 
+        assert task_name in SUPPORT_TASKS.keys(), \
+            f"task name must be in {SUPPORT_TASKS.keys()}, but get {task_name}."
         if isinstance(model, str):
-            # check model name
+            assert model in SUPPORT_MODEL_NAMES, \
+                f"model must be in {SUPPORT_MODEL_NAMES} when model's type is string, but get {model}."
             self.model_name = model
             self.model = None
         else:
@@ -81,36 +90,52 @@ class Trainer:
         else:
             if isinstance(config, dict):
                 task_config.merge_from_dict(config)
-            elif isinstance(config, str) and os.path.exists(config):
-                assert config.endswith(('.yaml', '.yml'))
-                your_config = MindFormerConfig(config)
-                task_config.merge_from_dict(your_config)
+            elif isinstance(config, str):
+                assert os.path.exists(config), f"config path must be exist, but get {config}."
+                assert config.endswith(('.yaml', '.yml')), f"config file must be end with .yaml or .yml."
+                task_config = MindFormerConfig(config)
             elif isinstance(config, ConfigArguments):
+                if hasattr(config, 'train_dataset'):
+                    check_train_data_loader_type(config, task_config)
+                if hasattr(config, 'eval_dataset'):
+                    check_eval_data_loader_type(config, task_config)
+                if hasattr(config, 'optimizer'):
+                    check_optimizer_and_lr_type(config, task_config)
                 task_config.merge_from_dict(config.__dict__)
 
             self.config = task_config
 
+        # check dataset config
         if isinstance(train_dataset, str):
-            assert os.path.exists(train_dataset), "train dataset path must be exist."
+            assert os.path.exists(train_dataset), \
+                f"train dataset path must be exist, but get {train_dataset}."
             self.config.train_dataset.data_loader.dataset_dir = train_dataset
             self.train_dataset = None
         if isinstance(eval_dataset, str):
-            assert os.path.exists(eval_dataset), "eval dataset path must be exist."
+            assert os.path.exists(eval_dataset), \
+                f"eval dataset path must be exist, but get {eval_dataset}."
             self.config.eval_dataset.data_loader.dataset_dir = eval_dataset
             self.eval_dataset = None
-
         check_dataset_config(self.config)
 
+        # build parallel config
         self.rank_id = int(os.getenv("RANK_ID", "0"))
         self.context_config = self.config.context
         self.parallel_config = self.config.parallel
-
         build_parallel_config(self.config)
 
+        # set cloud file transform for ModelArts.
         cfts = CFTS(**self.config.aicc_config)
         MindFormerRegister.register_cls(cfts, alias='cfts')
 
-        logger.info(self.config)
+        # set seed
+        set_seed(self.config.seed)
+        np.random.seed(self.config.seed)
+
+        # set output directory
+        os.environ.setdefault("LOCAL_DEFAULT_PATH", self.config.output_dir)
+
+        pprint(self.config)
         # self.save_config_to_yaml()
         # logger.info("save running config success of {}.".format(task_config.trainer.model_name.lower()))
 
@@ -187,7 +212,7 @@ class Trainer:
                                f"but get {eval_checkpoint}")
 
         if self.processor is None:
-            self.processor = build_tokenizer(self.config.processor)  # 待补充
+            self.processor = build_processor(self.config.processor)  # 待补充
 
         if self.callbacks is None:
             self.callbacks = self.create_callbacks()
@@ -267,7 +292,8 @@ class Trainer:
     def get_last_checkpoint(self):
         """get last checkpoint for resuming."""
         output_folder = self.config.output_dir
-        checkpoint_dir = os.path.join(output_folder, self.rank_id, DEFAULT_CHECKPOINT_DIR)
+        checkpoint_dir = os.path.join(
+            output_folder, 'rank_{}'.format(self.rank_id), DEFAULT_CHECKPOINT_DIR)
         output_checkpoint_path = [
             checkpoint for checkpoint in os.listdir(checkpoint_dir)
             if checkpoint.endswith('.ckpt')
@@ -276,7 +302,7 @@ class Trainer:
             return None
         output_checkpoint_path = sorted(output_checkpoint_path,
                                         key=lambda x: os.path.getmtime(os.path.join(checkpoint_dir, x)))
-        return output_checkpoint_path[-1]
+        return os.path.join(checkpoint_dir, output_checkpoint_path[-1])
 
     def save_config_to_yaml(self):
         """save now config file to yaml file."""

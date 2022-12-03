@@ -8,7 +8,6 @@ context:
   save_graphs: False
   device_id: 0
 
-use_parallel: False
 parallel:
   parallel_mode: 0 # 0-dataset, 1-semi, 2-auto, 3-hybrid
   gradients_mean: True

@@ -16,6 +16,10 @@
 import argparse
 import os
 
+import numpy as np
+
+from mindspore.common import set_seed
+
 from mindformers.tools.register import MindFormerConfig, ActionDict
 from mindformers.common.parallel_config import build_parallel_config
 from mindformers.tools.utils import str2bool
@@ -29,6 +33,8 @@ from mindformers.tools.cloud_adapter import cloud_monitor
 def main(config):
     """main."""
     # init context
+    set_seed(config.seed)
+    np.random.seed(config.seed)
     cfts, profile_cb = build_context(config)
 
     # build context config
@@ -56,11 +62,11 @@ def main(config):
     config.callbacks = callbacks
 
     trainer = build_trainer(config.trainer)
-    if config.do_train:
+    if config.run_status == 'train':
         trainer.train(config)
-    elif config.do_eval:
-        trainer.eval(config)
-    elif config.do_predict:
+    elif config.run_status == 'eval':
+        trainer.evaluate(config)
+    elif config.run_status == 'predict':
         trainer.predict(config)
 
 
@@ -72,12 +78,12 @@ if __name__ == "__main__":
         default=os.path.join(
             work_path, "configs/mae/run_mae_vit_base_p16_224_400ep.yaml"),
         help='YAML config files')
+    parser.add_argument('--mode', default=None, type=int, help='context mode')
     parser.add_argument('--device_id', default=None, type=int, help='device id')
-    parser.add_argument('--do_train', default=None, type=str2bool, help='open training')
-    parser.add_argument('--do_eval', default=None, type=str2bool, help='open evaluate')
-    parser.add_argument('--do_predict', default=None, type=str2bool, help='open predict')
+    parser.add_argument('--device_target', default=None, type=str, help='device target')
+    parser.add_argument('--run_status', default=None, type=str, help='open training')
     parser.add_argument('--dataset_dir', default=None, type=str, help='dataset directory')
-    parser.add_argument('--checkpoint_name_or_path', default=None, type=str, help='load model checkpoint')
+    parser.add_argument('--checkpoint_path', default=None, type=str, help='load model checkpoint')
     parser.add_argument('--seed', default=None, type=int, help='random seed')
     parser.add_argument('--use_parallel', default=None, type=str2bool, help='whether use parallel mode')
     parser.add_argument('--profile', default=None, type=str2bool, help='whether use profile analysis')
@@ -92,21 +98,22 @@ if __name__ == "__main__":
     config_ = MindFormerConfig(args_.config)
     if args_.device_id is not None:
         config_.context.device_id = args_.device_id
-    if args_.do_train is not None:
-        config_.do_train = args_.do_train
-    if args_.do_eval is not None:
-        config_.do_eval = args_.do_eval
-    if args_.do_predict is not None:
-        config_.do_predict = args_.do_predict
+    if args_.device_target is not None:
+        config_.context.device_target = args_.device_target
+    if args_.mode is not None:
+        config_.context.mode = args_.mode
+    if args_.run_status is not None:
+        config_.run_status = args_.run_status
     if args_.seed is not None:
         config_.seed = args_.seed
     if args_.use_parallel is not None:
         config_.use_parallel = args_.use_parallel
-    if args_.checkpoint_name_or_path is not None:
-        config_.runner_config.checkpoint_name_or_path = args_.checkpoint_name_or_path
+    if args_.checkpoint_path is not None:
+        config_.checkpoint_path = args_.checkpoint_path
     if args_.profile is not None:
         config_.profile = args_.profile
     if args_.options is not None:
         config_.merge_from_dict(args_.options)
-
+    assert config_.run_status in ['train', 'eval', 'predict'], \
+        f"run status must be in {['train', 'eval', 'predict']}, but get {config_.run_status}"
     main(config_)

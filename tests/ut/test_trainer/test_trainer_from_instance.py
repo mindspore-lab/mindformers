@@ -51,11 +51,11 @@ def test_trainer_train_from_instance():
     """
     # example 3: 对任意任务自定义 dataset\model\optimizers\processor\callbacks 实例创建训练
     context_config = ContextConfig(device_id=1, device_target='Ascend', mode=0)
-    init_context(seed=2022, use_parallel=False, context_config=context_config)
+    init_context(use_parallel=False, context_config=context_config)
 
     # 运行超参配置定义
     runner_config = RunnerConfig(epochs=10, batch_size=8, image_size=224, sink_mode=True, per_epoch_size=10)
-    config = ConfigArguments(output_dir="./output_dir", seed=2022, runner_config=runner_config)
+    config = ConfigArguments(seed=2022, runner_config=runner_config)
 
     # 自定义模型
     mae_model = MaeModel()
@@ -77,10 +77,10 @@ def test_trainer_train_from_instance():
     ckpt_cb = ModelCheckpoint(directory="./output/checkpoint", prefix="my_model", config=ckpt_config)
     callbacks = [loss_cb, time_cb, ckpt_cb]
 
-    mim_trainer_b = Trainer(task_name='masked_image_modeling',
-                            model=mae_model,  # 包含loss计算
-                            config=config,
-                            optimizers=optimizer,
-                            train_dataset=dataset,
-                            callbacks=callbacks)
-    mim_trainer_b.train(resume_from_checkpoint=False)
+    mim_trainer = Trainer(task_name='masked_image_modeling',
+                          model=mae_model,  # 包含loss计算
+                          config=config,
+                          optimizers=optimizer,
+                          train_dataset=dataset,
+                          callbacks=callbacks)
+    mim_trainer.train(resume_from_checkpoint=False)

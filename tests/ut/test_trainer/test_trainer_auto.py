@@ -29,11 +29,11 @@ def test_trainer_train_auto():
     Expectation: TypeError
     """
     context_config = ContextConfig(device_id=1, device_target='Ascend', mode=0)
-    init_context(seed=2022, use_parallel=False, context_config=context_config)
+    init_context(use_parallel=False, context_config=context_config)
     # example 1: 输入标准的数据集, 自动创建已有任务和模型的训练
-    mim_trainer_a = Trainer(task_name='masked_image_modeling',
-                            model='mae_vit_base_p16',
-                            train_dataset="/data/imageNet-1k/train")
-    mim_trainer_a.train()
+    mim_trainer = Trainer(task_name='masked_image_modeling',
+                          model='mae_vit_base_p16',
+                          train_dataset="/data/imageNet-1k/train")
+    mim_trainer.train()
     # resume, default from last checkpoint, 断点续训功能
     # mim_trainer_a.train(resume_from_checkpoint=True, initial_epoch=100)
