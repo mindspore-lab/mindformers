@@ -16,10 +16,7 @@
 
 import os
 
-import numpy as np
-
 from mindspore import context
-from mindspore.common import set_seed
 from mindspore.communication.management import init, get_group_size, get_rank
 from mindspore.parallel import set_algo_parameters
 from mindspore.parallel._cost_model_context import _set_multi_subgraphs
@@ -42,7 +39,7 @@ def build_context(config):
         cfts_1 = CFTS(**config.aicc_config)
         profile_cb = cfts_1.profile_monitor(start_step=1, stop_step=5)
 
-    local_rank, device_num = init_context(seed=config.seed, use_parallel=config.use_parallel,
+    local_rank, device_num = init_context(use_parallel=config.use_parallel,
                                           context_config=config.context, parallel_config=config.parallel)
     set_algo_parameters(elementwise_op_strategy_follow=True, fully_use_devices=False)
     _set_multi_subgraphs()
@@ -69,9 +66,7 @@ def build_context(config):
     return clould_file_trans_sys, profile_cb
 
 
-def init_context(seed=0, use_parallel=True,
-                 context_config=None,
-                 parallel_config=None):
+def init_context(use_parallel=True, context_config=None, parallel_config=None):
     """Context initialization for MindSpore."""
 
     if isinstance(context_config, ContextConfig):
@@ -87,8 +82,6 @@ def init_context(seed=0, use_parallel=True,
     _set_check_context_config(context_config)
     _set_check_parallel_config(parallel_config)
 
-    set_seed(seed)
-    np.random.seed(seed)
     device_num = 1
     rank_id = 0
     context_config['mode'] = MODE.get(context_config.get('mode'))

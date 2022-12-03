@@ -39,7 +39,7 @@ MODE = {'PYNATIVE_MODE': context.PYNATIVE_MODE,
         1: context.PYNATIVE_MODE}
 
 SAVE_WORK_PATH = '/cache/ma-user-work/rank_{}'
-LOCAL_DEFAULT_PATH = './output'
+LOCAL_DEFAULT_PATH = os.getenv("LOCAL_DEFAULT_PATH", './output')
 DEBUG_INFO_PATH = '/cache/debug'
 PROFILE_INFO_PATH = '/cache/profile'
 SLOG_PATH = '/var/log/npu/slog'
@@ -97,6 +97,10 @@ def check_in_modelarts():
     return 'KUBERNETES_PORT' in os.environ or \
            'MA_LOG_DIR' in os.environ or \
            'MA_JOB_DIR' in os.environ or \
+           'MA_LOCAL_LOG_PATH' in os.environ or \
+           'S3_ACCESS_KEY_ID' in os.environ or \
+           'S3_SECRET_ACCESS_KEY' in os.environ or\
+           'BATCH_GROUP_NAME' in os.environ or \
            'MA_LOCAL_LOG_PATH' in os.environ
 
 

@@ -14,13 +14,13 @@
 # limitations under the License.
 # ============================================================================
 
-if [ $# != 3 ]
+if [ $# != 4 ]
 then
-  echo "Usage: bash run_distribute_train.sh [RANK_TABLE_FILE] [CONFIG_PATH] [DEVICE_RANGE]"
+  echo "Usage Help: bash run_distribute.sh [RANK_TABLE_FILE] [CONFIG_PATH] [DEVICE_RANGE] [RUN_STATUS]"
   exit 1
 fi
 
-get_real_path(){
+check_real_path(){
   if [ "${1:0:1}" == "/" ]; then
     echo "$1"
   else
@@ -28,9 +28,10 @@ get_real_path(){
   fi
 }
 
-PATH1=$(get_real_path $1)
-CONFIG_FILE=$(get_real_path $2)
+PATH1=$(check_real_path $1)
+CONFIG_FILE=$(check_real_path $2)
 DEVICE_RANGE=$3
+RUN_STATUS=$4
 START_DEVICE=${DEVICE_RANGE:1:1}
 END_DEVICE=${DEVICE_RANGE:3:1}
 
@@ -72,7 +73,7 @@ do
     cd ./mf_parallel$i || exit
     echo "start training for rank $RANK_ID, device $DEVICE_ID"
     env > env.log
-    python run_mindformer.py --config=$CONFIG_FILE --use_parallel=True &> mindformer.log &
+    python run_mindformer.py --config=$CONFIG_FILE --use_parallel=True --run_status=$RUN_STATUS &> mindformer.log &
     cd ..
 done
 

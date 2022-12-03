@@ -39,3 +39,69 @@ def check_runner_config(config, dataset):
     logger.info("Will be Training epochs:%d, sink_size:%d",
                 config.runner_config.epochs, config.runner_config.per_epoch_size)
     logger.info("Create training dataset finish, dataset size:%d", data_size)
+
+
+def check_train_data_loader_type(new_config, old_config):
+    """Check train data loader config type."""
+    train_data_loader_type = new_config.train_dataset.get('data_loader').get('type')
+    if old_config.train_dataset is not None and train_data_loader_type is not None:
+        default_train_data_loader_type = old_config.train_dataset.data_loader.type
+        if train_data_loader_type != default_train_data_loader_type:
+            logger.warning("train dataset's data_loader type is changed to %s."
+                           "The default parameters will be cleared."
+                           "Please make sure to input the corresponding parameter values manually.",
+                           train_data_loader_type)
+            old_config.train_dataset.data_loader = {}
+
+
+def check_eval_data_loader_type(new_config, old_config):
+    """Check eval data loader config type."""
+    eval_data_loader_type = new_config.eval_dataset.get('data_loader').get('type')
+    if old_config.eval_dataset is not None and eval_data_loader_type is not None:
+        default_eval_data_loader_type = old_config.eval_dataset.data_loader.type
+        if eval_data_loader_type != default_eval_data_loader_type:
+            logger.warning("eval dataset's data_loader type is changed to %s."
+                           "The default parameters will be cleared."
+                           "Please make sure to input the corresponding parameter values manually.",
+                           eval_data_loader_type)
+            old_config.eval_dataset.data_loader = {}
+
+
+def check_optimizer_and_lr_type(new_config, old_config):
+    """Check optimizer and lr schedule config type."""
+    optimizer_type = new_config.optimizer.get('type')
+    if old_config.optimizer is not None and optimizer_type is not None:
+        default_optimizer_type = old_config.optimizer.type
+        if optimizer_type != default_optimizer_type:
+            logger.warning(
+                "optimizer type is changed to %s."
+                "The default parameters will be cleared."
+                "Please make sure to input the corresponding parameter values manually except (params).",
+                optimizer_type)
+            old_config.optimizer = {}
+
+    if hasattr(new_config.optimizer, 'learning_rate'):
+        lr_type = new_config.optimizer.learning_rate.get('type')
+        if old_config.lr_schedule is not None and lr_type is not None:
+            default_lr_type = old_config.lr_schedule.type
+            if lr_type != default_lr_type:
+                logger.warning(
+                    "lr schedule type is changed to %s."
+                    "The default parameters will be cleared."
+                    "Please make sure to input the corresponding parameter values manually.",
+                    lr_type)
+                old_config.lr_schedule = None
+
+
+def check_lr_config(new_config, old_config):
+    """Check lr schedule config."""
+    lr_type = new_config.lr_schedule.type
+    if old_config.lr_schedule is not None and lr_type is not None:
+        default_lr_type = old_config.lr_schedule.type
+        if lr_type != default_lr_type:
+            logger.warning(
+                "lr schedule type is changed to %s."
+                "The default parameters will be cleared."
+                "Please make sure to input the corresponding parameter values manually.",
+                lr_type)
+            old_config.lr_schedule = None

@@ -18,8 +18,11 @@ from .build_trainer import build_trainer
 from .trainer import Trainer
 from .config_args import ConfigArguments, CheckpointConfig, \
     CloudConfig, LRConfig, OptimizerConfig, DatasetConfig, \
-    DataLoaderConfig, ContextConfig, ParallelContextConfig
+    DataLoaderConfig, ContextConfig, ParallelContextConfig, \
+    RunnerConfig, BaseArgsConfig
 from .base_trainer import BaseTrainer
-from .utils import check_runner_config, check_keywords_in_name
+from .utils import check_runner_config, check_keywords_in_name, \
+    check_lr_config, check_optimizer_and_lr_type, \
+    check_train_data_loader_type, check_eval_data_loader_type
 from .image_classification import ImageClassificationTrainer
 from .masked_image_modeling import MaskedImageModelingTrainer

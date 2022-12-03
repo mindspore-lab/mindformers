@@ -84,6 +84,9 @@ class MindFormerBook:
     _MODEL_SUPPORT_LIST = OrderedDict([
         ('clip', [
             'clip_vit_b_32',
+        ]),
+        ('mae', [
+            'mae_vit_base_p16',
         ])
     ])
 
@@ -104,7 +107,7 @@ class MindFormerBook:
     @classmethod
     def show_trainer_support_task_list(cls):
         '''show_trainer_support_task_list function'''
-        logger.info("_TRAINER_SUPPORT_TASKS_LIST of XFormer is: ")
+        logger.info("_TRAINER_SUPPORT_TASKS_LIST of MindFormer is: ")
         print_dict(cls._TRAINER_SUPPORT_TASKS_LIST)
 
     @classmethod
@@ -115,7 +118,7 @@ class MindFormerBook:
     @classmethod
     def show_pipeline_support_task_list(cls):
         '''show_pipeline_support_task_list function'''
-        logger.info("_PIPELINE_SUPPORT_TASK_LIST of XFormer is: ")
+        logger.info("_PIPELINE_SUPPORT_TASK_LIST of MindFormer is: ")
         print_dict(cls._PIPELINE_SUPPORT_TASK_LIST)
 
     @classmethod
@@ -126,7 +129,7 @@ class MindFormerBook:
     @classmethod
     def show_model_config_url_list(cls):
         '''show_model_config_url_list function'''
-        logger.info("_MODEL_CONFIG_URL_LIST of XFormer is: ")
+        logger.info("_MODEL_CONFIG_URL_LIST of MindFormer is: ")
         print_dict(cls._MODEL_CONFIG_URL_LIST)
 
     @classmethod
@@ -137,7 +140,7 @@ class MindFormerBook:
     @classmethod
     def show_project_path(cls):
         '''show_project_path function'''
-        logger.info("_PROJECT_PATH of XFormer is: ")
+        logger.info("_PROJECT_PATH of MindFormer is: ")
         print_path_or_list(cls._PROJECT_PATH)
 
     @classmethod
@@ -148,7 +151,7 @@ class MindFormerBook:
     @classmethod
     def show_default_checkpoint_download_folder(cls):
         '''show_default_checkpoint_download_folder function'''
-        logger.info("_DEFAULT_CHECKPOINT_DOWNLOAD_FOLDER of XFormer is: ")
+        logger.info("_DEFAULT_CHECKPOINT_DOWNLOAD_FOLDER of MindFormer is: ")
         print_path_or_list(cls._DEFAULT_CHECKPOINT_DOWNLOAD_FOLDER)
 
     @classmethod
@@ -178,13 +181,13 @@ class MindFormerBook:
     @classmethod
     def show_default_checkpoint_save_folder(cls):
         '''show_default_checkpoint_save_folder function'''
-        logger.info("_DEFAULT_CHECKPOINT_SAVE_FOLDER of XFormer is: ")
+        logger.info("_DEFAULT_CHECKPOINT_SAVE_FOLDER of MindFormer is: ")
         print_path_or_list(cls._DEFAULT_CHECKPOINT_SAVE_FOLDER)
 
     @classmethod
     def show_model_support_list(cls):
         '''show_model_support_list function'''
-        logger.info("MODEL_SUPPORT_LIST of XFormer is: ")
+        logger.info("MODEL_SUPPORT_LIST of MindFormer is: ")
         print_dict(cls._MODEL_SUPPORT_LIST)
 
     @classmethod
@@ -193,9 +196,16 @@ class MindFormerBook:
         return cls._MODEL_SUPPORT_LIST
 
     @classmethod
+    def get_model_name_support_list(cls):
+        support_model_name = []
+        for task_name in cls._TRAINER_SUPPORT_TASKS_LIST.keys():
+            support_model_name.extend(cls._TRAINER_SUPPORT_TASKS_LIST.get(task_name).keys())
+        return set(support_model_name)
+
+    @classmethod
     def show_model_ckpt_url_list(cls):
         '''show_model_ckpt_url_list function'''
-        logger.info("MODEL_CKPT_URL_LIST of XFormer is: ")
+        logger.info("MODEL_CKPT_URL_LIST of MindFormer is: ")
         print_dict(cls._MODEL_CKPT_URL_LIST)
 
     @classmethod

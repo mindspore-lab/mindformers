@@ -17,6 +17,7 @@ import inspect
 
 from mindspore import nn
 
+from mindformers.common.lr import build_lr
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 
 
@@ -27,6 +28,9 @@ def build_optim(
     if config is None and class_name is None:
         return None
     if config is not None:
+        if config.learning_rate is not None and config.learning_rate.type is not None:
+            lr_schedule = build_lr(config.learning_rate)
+            config.learning_rate = lr_schedule
         return MindFormerRegister.get_instance_from_cfg(
             config, MindFormerModuleType.OPTIMIZER, default_args=default_args)
     return MindFormerRegister.get_instance(module_type, class_name, **kwargs)

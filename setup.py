@@ -138,6 +138,12 @@ class Install(install):
             update_permissions(mindspore_transformer_dir)
 
 
+def remove_egg_info():
+    egg_info_dir = os.path.join(os.path.dirname(__file__), 'mindformers.egg-info')
+    if os.path.exists(egg_info_dir):
+        os.removedirs(egg_info_dir)
+
+
 if __name__ == '__main__':
     version_info = sys.version_info
     if (version_info.major, version_info.minor) < (3, 7):
@@ -150,10 +156,10 @@ if __name__ == '__main__':
         author='The MindSpore Authors',
         author_email='contact@mindspore.cn',
         url='https://www.mindspore.cn',
-        download_url='https://gitee.com/mindspore/transformer/tags',
+        download_url='https://gitee.com/mindspore/mindformers/tags',
         project_urls={
-            'Sources': 'https://gitee.com/mindspore/transformer',
-            'Issue Tracker': 'https://gitee.com/mindspore/transformer/issues',
+            'Sources': 'https://gitee.com/mindspore/mindformers',
+            'Issue Tracker': 'https://gitee.com/mindspore/mindformers/issues',
         },
         description=get_description(),
         long_description=get_readme_content(),
@@ -189,3 +195,4 @@ if __name__ == '__main__':
         license='Apache 2.0',
         keywords='mindformers',
     )
+    remove_egg_info()

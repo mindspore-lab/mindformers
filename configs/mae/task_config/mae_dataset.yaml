@@ -9,7 +9,6 @@ train_dataset: &train_dataset
     - type: C_RandomCropDecodeResize
       size: 224
       scale: [0.2, 1.0]
-#      interpolation: 3 # NEAREST = 0 ANTIALIAS = 1 BILINEAR = LINEAR = 2 BICUBIC = CUBIC = 3 AREA = 4 PILCUBIC = 5
     - type: C_RandomHorizontalFlip
       prob: 0.5
     - type: C_Normalize
