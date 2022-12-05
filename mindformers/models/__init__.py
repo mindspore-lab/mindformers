@@ -14,10 +14,14 @@
 # ============================================================================
 
 '''models init'''
+from mindformers.models import mae, build_model, build_config, clip
 from .mae import *
 from .build_model import *
 from .base_config import BaseConfig
-
-from .clip.clip_config import ClipConfig, ClipVisionConfig, ClipTextConfig
-from .clip import ClipModel
+from .clip import *
 from .base_model import BaseModel
+
+
+__all__ = []
+__all__.extend(mae.__all__)
+__all__.extend(clip.__all__)

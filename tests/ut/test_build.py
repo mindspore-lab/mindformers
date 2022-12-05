@@ -28,10 +28,7 @@ from mindspore import Parameter, Tensor
 
 from mindformers.tools import logger
 from mindformers.tools import MindFormerConfig, MindFormerRegister, MindFormerModuleType
-from mindformers.common.lr import build_lr
-from mindformers.common.optim import build_optim
-from mindformers.common.loss import build_loss
-from mindformers.common.metric import build_metric
+from mindformers import build_lr, build_optim, build_loss, build_metric
 from mindformers.trainer import build_trainer, BaseTrainer
 from mindformers.models import build_model, BaseModel
 from mindformers.dataset import build_dataset, build_sampler, check_dataset_config, \
