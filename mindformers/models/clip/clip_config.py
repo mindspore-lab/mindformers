@@ -51,7 +51,8 @@ class ClipConfig(BaseConfig):
     '''config for clip model'''
     _support_list = MindFormerBook.get_model_support_list()['clip']
 
-    def __init__(self, text_config=None, vision_config=None, projection_dim=512, ratio=64, **kwargs):
+    def __init__(self, text_config=None, vision_config=None, projection_dim=512, ratio=64,
+                 checkpoint_name_or_path="clip_vit_b_32", **kwargs):
         if text_config is None:
             text_config = ClipTextConfig()
             logger.info("text_config is None. Initializing the CLIPTextConfig with default values.")
@@ -75,4 +76,5 @@ class ClipConfig(BaseConfig):
                                          vision_config=vision_config,
                                          projection_dim=projection_dim,
                                          ratio=ratio,
+                                         checkpoint_name_or_path=checkpoint_name_or_path,
                                          *kwargs)

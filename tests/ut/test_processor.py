@@ -26,11 +26,13 @@ import numpy as np
 
 import mindspore as ms
 
-from mindformers.processor import (
+from mindformers import MindFormerBook, AutoProcessor, AutoModel
+from mindformers.models import (
     ClipFeatureExtractor, ClipImageFeatureExtractor,
     ClipProcessor, ClipTokenizer
 )
-from mindformers import MindFormerBook, AutoProcessor, AutoModel
+from mindformers.tools import logger
+
 
 
 def test_clip_processor():
@@ -49,6 +51,9 @@ def test_clip_processor():
                                   'checkpoint_save', 'clip')
 
     ClipProcessor.show_support_list()
+    support_list = ClipProcessor.get_support_list()
+    logger.info(support_list)
+
     pro_a = ClipProcessor.from_pretrained('clip_vit_b_32')
     pro_b = ClipProcessor.from_pretrained(yaml_path)
     pro_c = ClipProcessor(feature_extractor, tokenizer)
@@ -141,6 +146,9 @@ def test_auto_processor():
                                   'checkpoint_save', 'clip')
 
     AutoProcessor.show_support_list()
+    support_list = AutoProcessor.get_support_list()
+    logger.info(support_list)
+
     pro_a = AutoProcessor.from_pretrained('clip_vit_b_32')
     pro_b = AutoProcessor.from_pretrained(yaml_path)
 

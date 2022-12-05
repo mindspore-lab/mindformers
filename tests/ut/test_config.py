@@ -60,8 +60,18 @@ def test_clip_config():
     Description: Test to get config instance by ClipConfig
     Expectation: None
     '''
+    config_path = os.path.join(MindFormerBook.get_project_path(),
+                               'configs', 'clip', 'model_config', "clip_vit_b_32.yaml")
+    save_path = os.path.join(MindFormerBook.get_default_checkpoint_save_folder(),
+                             'clip', "clip_vit_b_32.yaml")
+
     ClipConfig.show_support_list()
-    config_c = ClipConfig(
+    support_list = ClipConfig.get_support_list()
+    logger.info(support_list)
+
+    config_c = ClipConfig.from_pretrained('clip_vit_b_32')
+    config_d = ClipConfig.from_pretrained(config_path)
+    config_e = ClipConfig(
         ClipTextConfig(
             hidden_size=512,
             vocab_size=49408,
@@ -77,8 +87,13 @@ def test_clip_config():
         projection_dim=512
     )
 
+    config_c.save_pretrained()
+    config_d.save_pretrained(save_path)
+    config_e.save_pretrained()
+
     logger.info(config_c)
     assert isinstance(config_c, BaseConfig)
+    assert isinstance(config_d, BaseConfig)
     return config_c
 
 # three configs are all ClipConfig class and inherited from BaseConfig

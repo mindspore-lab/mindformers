@@ -30,12 +30,11 @@ from mindformers.tools import logger
 from mindformers.tools import MindFormerConfig, MindFormerRegister, MindFormerModuleType
 from mindformers import build_lr, build_optim, build_loss, build_metric
 from mindformers.trainer import build_trainer, BaseTrainer
-from mindformers.models import build_model, BaseModel
+from mindformers.models import build_model, BaseModel, build_processor
 from mindformers.dataset import build_dataset, build_sampler, check_dataset_config, \
     build_dataset_loader, build_mask, build_transforms, BaseDataset
 from mindformers.pipeline import build_pipeline
 from mindformers.wrapper import build_wrapper
-from mindformers.processor import build_processor
 
 path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 

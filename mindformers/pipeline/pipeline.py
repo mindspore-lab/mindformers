@@ -27,7 +27,19 @@ def pipeline(
         feature_extractor=None,
         **kwargs
 ):
-    '''pipeline for downstream tasks'''
+    '''
+    Pipeline for downstream tasks
+
+    Args:
+        task (str): the supported task could be selected from
+         MindFormerBook.show_pipeline_support_task_list().
+        model (str, BaseModel): the model used for task.
+        tokenizer (BaseTokenizer): the tokenizer of the model.
+        feature_extractor (BaseFeatureExtractor): the feature extractor of the model.
+
+    Return:
+        a task pipeline.
+    '''
     if task not in MindFormerBook.get_pipeline_support_task_list().keys():
         raise KeyError(f"{task} is not supported by pipeline. please select"
                        f" a task from {MindFormerBook.get_pipeline_support_task_list().keys()}.")

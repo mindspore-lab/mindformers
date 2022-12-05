@@ -40,49 +40,50 @@ class BaseModel(nn.Cell):
         super(BaseModel, self).__init__()
         self.config = config
 
-    def _load_checkpoint(self, **kwargs):
+    def _load_checkpoint(self, config):
         '''
-        _load_checkpoint for load weights.
+        load checkpoint for models.
         (only support standalone mode, and distribute mode waits for developing)
 
         Args:
-            kwargs:
-                checkpoint_name_or_path (str): A string for supported model name or
-                a path to model weights.
-                The supported model name could be selected from .show_support_list method.
-                set it to None, and does not load weights.
-
-            other supposed parameters.
+            config (ModelConfig): a model config instance, which could have attribute
+            "checkpoint_name_or_path (str)". set checkpoint_name_or_path to a supported
+            model name or a path to checkpoint, to load model weights.
         '''
-        checkpoint_name_or_path = kwargs.pop("checkpoint_name_or_path", None)
+        checkpoint_name_or_path = config.checkpoint_name_or_path
 
         if checkpoint_name_or_path is not None:
-            is_path = os.path.exists(checkpoint_name_or_path)
-            if is_path:
-                param = load_checkpoint(checkpoint_name_or_path)
-                logger.info("the given config and weights in %s are used for"
-                            " model building.", checkpoint_name_or_path)
-            else:
-                if checkpoint_name_or_path not in self._support_list:
-                    raise ValueError(f"{checkpoint_name_or_path} is not a supported default model,"
-                                     f" please select from {self._support_list}.")
+            if not isinstance(checkpoint_name_or_path, str):
+                raise TypeError(f"checkpoint_name_or_path should be a str,"
+                                f" but got {type(checkpoint_name_or_path)}")
 
+            if os.path.exists(checkpoint_name_or_path):
+                param = load_checkpoint(checkpoint_name_or_path)
+                ckpt_file = checkpoint_name_or_path
+
+            elif checkpoint_name_or_path not in self._support_list:
+                raise ValueError(f"{checkpoint_name_or_path} is not a supported default model"
+                                 f" or a valid path to checkpoint,"
+                                 f" please select from {self._support_list}.")
+            else:
                 ckpt_file = os.path.join(MindFormerBook.get_default_checkpoint_download_folder(),
                                          checkpoint_name_or_path.split("_")[0],
                                          checkpoint_name_or_path+".ckpt")
                 if not os.path.exists(ckpt_file):
-                    url = MindFormerBook.get_model_ckpt_url_list()[checkpoint_name_or_path]
+                    url = MindFormerBook.get_model_ckpt_url_list()[checkpoint_name_or_path][0]
                     downlond_with_progress_bar(url, ckpt_file)
-
                 param = load_checkpoint(ckpt_file)
-                logger.info("the given config and weights"
-                            " in %s are used for model building.", ckpt_file)
+
             try:
                 load_param_into_net(self, param)
             except RuntimeError:
                 logger.error("the given config and weights in %s are"
                              " mismatched, and weights load failed", ckpt_file)
-            logger.info("model built successfully!")
+            logger.info("weights in %s are loaded", ckpt_file)
+        else:
+            logger.info("model built, but weights is unloaded, since the config has no"
+                        " checkpoint_name_or_path attribute or"
+                        " checkpoint_name_or_path is None.")
 
     def save_pretrained(self, save_directory=None, save_name="mindspore_model"):
         '''
@@ -99,12 +100,12 @@ class BaseModel(nn.Cell):
             if not os.path.exists(save_directory):
                 os.makedirs(save_directory)
 
-        is_exit = os.path.exists(save_directory)
-        if not is_exit:
-            os.makedirs(save_directory)
+        if not isinstance(save_directory, str) or not isinstance(save_name, str):
+            raise TypeError(f"save_directory and save_name should be a str,"
+                            f" but got {type(save_directory)} and {type(save_name)}.")
 
-        if not os.path.isdir(save_directory):
-            raise ValueError(f"{save_directory} is not a directory.")
+        if not os.path.exists(save_directory):
+            os.makedirs(save_directory)
 
         checkpoint_path = os.path.join(save_directory, save_name + '.ckpt')
         config_path = os.path.join(save_directory, save_name + '.yaml')
@@ -115,7 +116,7 @@ class BaseModel(nn.Cell):
             raise AttributeError("the model has no config attribute.")
 
         parsed_config = self._inverse_parse_config(self.config)
-        wraped_config = self._warap_config(parsed_config)
+        wraped_config = self._wrap_config(parsed_config)
 
         meraged_dict = {}
         if os.path.exists(config_path):
@@ -142,7 +143,7 @@ class BaseModel(nn.Cell):
         if not isinstance(config, BaseConfig):
             return config
 
-        class_name = self.__class__.__name__
+        class_name = config.__class__.__name__
         config.update({"type": class_name})
 
         for key, val in config.items():
@@ -151,7 +152,7 @@ class BaseModel(nn.Cell):
 
         return config
 
-    def _warap_config(self, config):
+    def _wrap_config(self, config):
         '''
         Wrap config function, which wraps a config to rebuild content of yaml file.
 
@@ -167,7 +168,7 @@ class BaseModel(nn.Cell):
     @classmethod
     def from_pretrained(cls, pretrained_model_name_or_dir):
         '''
-        From pretrain method, which instantiate a model by pretrained model name or path.
+        From pretrain method, which instantiates a model by pretrained model name or path.
         (only support standalone mode, and distribute mode waits for developing!)
 
         Args:
@@ -179,9 +180,9 @@ class BaseModel(nn.Cell):
         Returns:
             A model, which inherited from BaseModel.
         '''
-        if pretrained_model_name_or_dir is None:
-            raise ValueError("a model cannot be built from pretrained"
-                             " without pretrained_model_name_or_dir.")
+        if not isinstance(pretrained_model_name_or_dir, str):
+            raise TypeError(f"pretrained_model_name_or_dir should be a str,"
+                            f" but got {type(pretrained_model_name_or_dir)}")
 
         is_exist = os.path.exists(pretrained_model_name_or_dir)
         is_dir = os.path.isdir(pretrained_model_name_or_dir)
@@ -190,6 +191,7 @@ class BaseModel(nn.Cell):
             raise ValueError(f'{pretrained_model_name_or_dir} does not exist,'
                              f' or it is not supported by {cls.__name__}. '
                              f'please select from {cls._support_list}.')
+
         if is_exist and not is_dir:
             raise ValueError(f"{pretrained_model_name_or_dir} is not a directory.")
 
@@ -208,14 +210,8 @@ class BaseModel(nn.Cell):
 
             config_args = MindFormerConfig(yaml_file)
             config = build_model_config(config_args.model.model_config)
+            config.update({"checkpoint_name_or_path": ckpt_file})
             model = cls(config)
-            param = load_checkpoint(ckpt_file)
-            try:
-                load_param_into_net(model, param)
-            except RuntimeError:
-                logger.error("config in %s and weights in %s are"
-                             " mismatched, and weights load failed", yaml_file, ckpt_file)
-            logger.info("model built successfully!")
         else:
             checkpoint_path = os.path.join(MindFormerBook.get_default_checkpoint_download_folder(),
                                            pretrained_model_name_or_dir.split("_")[0])
@@ -223,29 +219,25 @@ class BaseModel(nn.Cell):
                 os.makedirs(checkpoint_path)
 
             yaml_file = os.path.join(checkpoint_path, pretrained_model_name_or_dir+".yaml")
-            ckpt_file = os.path.join(checkpoint_path, pretrained_model_name_or_dir+".ckpt")
-
-            if not os.path.exists(ckpt_file):
-                url = MindFormerBook.get_model_ckpt_url_list()[pretrained_model_name_or_dir][0]
-                downlond_with_progress_bar(url, ckpt_file)
-
             if not os.path.exists(yaml_file):
                 url = MindFormerBook.get_model_config_url_list()[pretrained_model_name_or_dir][0]
                 downlond_with_progress_bar(url, yaml_file)
 
-            logger.info("config in %s and weights in %s are"
-                        " used for model building.", yaml_file, ckpt_file)
+            logger.info("config in %s is used for model building.", yaml_file)
             config_args = MindFormerConfig(yaml_file)
             config = build_model_config(config_args.model.model_config)
+            config.update({"checkpoint_name_or_path": pretrained_model_name_or_dir})
             model = cls(config)
-
-            param = load_checkpoint(ckpt_file)
-            load_param_into_net(model, param)
-            logger.info("model built successfully!")
+        logger.info("model built successfully!")
         return model
 
     @classmethod
     def show_support_list(cls):
-        '''show_support_list'''
+        '''show_support_list method'''
         logger.info("support list of %s is:", cls.__name__)
         print_path_or_list(cls._support_list)
+
+    @classmethod
+    def get_support_list(cls):
+        '''get_support_list method'''
+        return cls._support_list

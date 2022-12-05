@@ -18,16 +18,15 @@ AutoConfig、AutoModel
 '''
 import os
 
-from mindspore.train.serialization import load_checkpoint, load_param_into_net
-
-from .processor import build_feature_extractor, build_processor
 from .mindformer_book import MindFormerBook, print_dict
+from .models import build_feature_extractor, build_processor
 from .models.base_config import BaseConfig
 from .models.build_model import build_model
 from .models.build_config import build_model_config
 from .tools import logger
 from .tools.register.config import MindFormerConfig
 from .tools.download_tools import downlond_with_progress_bar
+
 
 __all__ = ['AutoConfig', 'AutoModel', 'AutoProcessor', 'AutoFeatureExtractor']
 
@@ -38,46 +37,48 @@ class AutoConfig:
     def __init__(self):
         raise EnvironmentError(
             "AutoConfig is designed to be instantiated "
-            "using the `AutoConfig.from_pretrained(pretrained_model_name_or_path)` method."
+            "using the `AutoConfig.from_pretrained(yaml_name_or_path)` method."
         )
 
     @classmethod
-    def from_pretrained(cls, pretrained_model_name_or_path):
+    def from_pretrained(cls, yaml_name_or_path):
         '''
-        From pretrain method, which instantiate a Config by pretrained model name or path.
+        From pretrain method, which instantiates a config by yaml model name or path.
 
         Args:
-            pretrained_model_name_or_path (str): A supported model name or a path to model
+            yaml_name_or_path (str): A supported model name or a path to model
             config (.yaml), the supported model name could be selected from
             AutoConfig.show_support_list().
 
         Returns:
             A model config, which inherited from BaseConfig.
         '''
-        is_path = os.path.exists(pretrained_model_name_or_path)
+        if not isinstance(yaml_name_or_path, str):
+            raise TypeError(f"yaml_name_or_path should be a str,"
+                            f" but got {type(yaml_name_or_path)}.")
 
-        if is_path:
-            if not pretrained_model_name_or_path.endswith(".yaml"):
-                raise TypeError(f"{pretrained_model_name_or_path} should be a .yaml file for model"
-                                " config.")
+        if os.path.exists(yaml_name_or_path):
+            if not yaml_name_or_path.endswith(".yaml"):
+                raise ValueError(f"{yaml_name_or_path} should be a .yaml file for model"
+                                 " config.")
 
-            config_args = MindFormerConfig(pretrained_model_name_or_path)
+            config_args = MindFormerConfig(yaml_name_or_path)
+            logger.info("the content in %s is used for"
+                        " config building.", yaml_name_or_path)
+        elif yaml_name_or_path.split('_')[0] not in cls._support_list.keys() or\
+                yaml_name_or_path not in cls._support_list[yaml_name_or_path.split('_')[0]]:
+            raise ValueError(f"{yaml_name_or_path} is not a supported"
+                             f" model type or a valid path to model config."
+                             f" supported model could be selected from {cls._support_list}.")
         else:
-            model_type = pretrained_model_name_or_path.split('_')[0]
-            if model_type not in cls._support_list.keys() or \
-                    pretrained_model_name_or_path not in cls._support_list[model_type]:
-                raise ValueError(f"{pretrained_model_name_or_path} is not a supported"
-                                 f" model type or a valid path to model config."
-                                 f" supported model could be selected from {cls._support_list}.")
-
             checkpoint_path = os.path.join(MindFormerBook.get_default_checkpoint_download_folder(),
-                                           model_type)
+                                           yaml_name_or_path.split('_')[0])
             if not os.path.exists(checkpoint_path):
                 os.makedirs(checkpoint_path)
 
-            yaml_file = os.path.join(checkpoint_path, pretrained_model_name_or_path + ".yaml")
+            yaml_file = os.path.join(checkpoint_path, yaml_name_or_path + ".yaml")
             if not os.path.exists(yaml_file):
-                url = MindFormerBook.get_model_config_url_list()[pretrained_model_name_or_path][0]
+                url = MindFormerBook.get_model_config_url_list()[yaml_name_or_path][0]
                 downlond_with_progress_bar(url, yaml_file)
 
             config_args = MindFormerConfig(yaml_file)
@@ -91,6 +92,10 @@ class AutoConfig:
         logger.info("support list of %s is:", cls.__name__)
         print_dict(cls._support_list)
 
+    @classmethod
+    def get_support_list(cls):
+        '''get support list method'''
+        return cls._support_list
 
 class AutoModel:
     ''' AutoModel '''
@@ -98,27 +103,20 @@ class AutoModel:
 
     def __init__(self):
         raise EnvironmentError(
-            "AutoConfig is designed to be instantiated "
+            "AutoModel is designed to be instantiated "
             "using the `AutoModel.from_pretrained(pretrained_model_name_or_dir)` method "
             "or `AutoModel.from_config(config)` method."
         )
 
     @classmethod
-    def from_config(cls, config, **kwargs):
+    def from_config(cls, config):
         '''
         From config method, which instantiate a Model by config.
 
         Args:
-            config (str, BaseConfig): A string for supported model name, or a model config
-            inherited from BaseConfig, the supported model name could be selected from
-            AutoModel.show_support_list().
+            config (str, BaseConfig): A model config inherited from BaseConfig,
+            or a path to .yaml file for model config.
 
-            kwargs:
-                  checkpoint_name_or_path (str): A string for supported model name, or a path to
-                  ckpt file, which allows to load pretrained weights. The supported model name
-                  could be selected from AutoModel.show_support_list().
-
-                  other supposed parameters.
         Returns:
             A model, which inherited from BaseModel.
         '''
@@ -131,41 +129,11 @@ class AutoModel:
         elif os.path.exists(config) and config.endswith(".yaml"):
             config_args = MindFormerConfig(config)
         else:
-            raise TypeError("config should be inherited from BaseConfig,"
-                            " or a path to .yaml file for model config.")
+            raise ValueError("config should be inherited from BaseConfig,"
+                             " or a path to .yaml file for model config.")
 
         model = build_model(config_args.model)
-
-        checkpoint_name_or_path = kwargs.pop("checkpoint_name_or_path", None)
-        if checkpoint_name_or_path is not None:
-            is_path = os.path.exists(checkpoint_name_or_path)
-            if is_path:
-                param = load_checkpoint(checkpoint_name_or_path)
-                logger.info("the given config and weights in %s are used for model"
-                            " building.", checkpoint_name_or_path)
-            else:
-                model_type = checkpoint_name_or_path.split('_')[0]
-                if model_type not in cls._support_list.keys() or \
-                        checkpoint_name_or_path not in cls._support_list[model_type]:
-                    raise ValueError(f"{checkpoint_name_or_path} is not a supported model"
-                                     f" type or a valid path to model weights. supported "
-                                     f"model could be selected from {cls._support_list}.")
-
-                ckpt_file = os.path.join(MindFormerBook.get_default_checkpoint_download_folder(),
-                                         model_type, checkpoint_name_or_path+".ckpt")
-                if not os.path.exists(ckpt_file):
-                    url = MindFormerBook.get_model_ckpt_url_list()[checkpoint_name_or_path]
-                    downlond_with_progress_bar(url, ckpt_file)
-
-                param = load_checkpoint(ckpt_file)
-                logger.info("the given config and weights in %s are used for"
-                            " model building.", ckpt_file)
-            try:
-                load_param_into_net(model, param)
-            except RuntimeError:
-                logger.error("the weights in %s are mismatched with the model"
-                             " config, and weights load failed", checkpoint_name_or_path)
-            logger.info("model built successfully!")
+        logger.info("model built successfully!")
         return model
 
     @classmethod
@@ -221,9 +189,9 @@ class AutoModel:
         Returns:
             A model, which inherited from BaseModel.
         '''
-        if pretrained_model_name_or_dir is None:
-            raise ValueError("a model cannot be built from pretrained without"
-                             " pretrained_model_name_or_dir.")
+        if not isinstance(pretrained_model_name_or_dir, str):
+            raise TypeError(f"pretrained_model_name_or_dir should be a str,"
+                            f" but got {type(pretrained_model_name_or_dir)}")
 
         is_exist = os.path.exists(pretrained_model_name_or_dir)
         is_dir = os.path.isdir(pretrained_model_name_or_dir)
@@ -254,14 +222,8 @@ class AutoModel:
                         " building.", yaml_file, ckpt_file)
 
             config_args = MindFormerConfig(yaml_file)
+            config_args.model.model_config.update({"checkpoint_name_or_path": ckpt_file})
             model = build_model(config_args.model)
-            param = load_checkpoint(ckpt_file)
-            try:
-                load_param_into_net(model, param)
-            except RuntimeError:
-                logger.error("config in %s and weights in %s are"
-                             " mismatched, and weights load failed", yaml_file, ckpt_file)
-            logger.info("model built successfully!")
         else:
             checkpoint_path = os.path.join(MindFormerBook.get_default_checkpoint_download_folder(),
                                            pretrained_model_name_or_dir.split("_")[0])
@@ -269,23 +231,16 @@ class AutoModel:
                 os.makedirs(checkpoint_path)
 
             yaml_file = os.path.join(checkpoint_path, pretrained_model_name_or_dir+".yaml")
-            ckpt_file = os.path.join(checkpoint_path, pretrained_model_name_or_dir+".ckpt")
-
-            if not os.path.exists(ckpt_file):
-                url = MindFormerBook.get_model_ckpt_url_list()[pretrained_model_name_or_dir][0]
-                downlond_with_progress_bar(url, ckpt_file)
-
             if not os.path.exists(yaml_file):
                 url = MindFormerBook.get_model_config_url_list()[pretrained_model_name_or_dir][0]
                 downlond_with_progress_bar(url, yaml_file)
 
-            logger.info("config in %s and weights in %s are used for model"
-                        " building.", yaml_file, ckpt_file)
+            logger.info("config in %s is used for model building.", yaml_file)
             config_args = MindFormerConfig(yaml_file)
+            config_args.model.model_config.update(
+                {"checkpoint_name_or_path": pretrained_model_name_or_dir})
             model = build_model(config_args.model)
-            param = load_checkpoint(ckpt_file)
-            load_param_into_net(model, param)
-            logger.info("model built successfully!")
+        logger.info("model built successfully!")
         return model
 
     @classmethod
@@ -293,6 +248,11 @@ class AutoModel:
         '''show support list method'''
         logger.info("support list of %s is:", cls.__name__)
         print_dict(cls._support_list)
+
+    @classmethod
+    def get_support_list(cls):
+        '''get support list method'''
+        return cls._support_list
 
 
 class AutoFeatureExtractor:
@@ -308,7 +268,7 @@ class AutoFeatureExtractor:
     @classmethod
     def from_pretrained(cls, yaml_name_or_path):
         '''
-        From pretrain method, which instantiate a feature extractor by yaml name or path.
+        From pretrain method, which instantiates a feature extractor by yaml name or path.
 
         Args:
             yaml_name_or_path (str): A supported yaml name or a path to .yaml file,
@@ -317,9 +277,9 @@ class AutoFeatureExtractor:
         Returns:
             A feature extractor which inherited from BaseFeatureExtractor.
         '''
-        if yaml_name_or_path is None:
-            raise ValueError("a feature extractor cannot be built from pretrained"
-                             " without yaml_name_or_path.")
+        if not isinstance(yaml_name_or_path, str):
+            raise TypeError(f"yaml_name_or_path should be a str,"
+                            f" but got {type(yaml_name_or_path)}")
 
         is_exist = os.path.exists(yaml_name_or_path)
         model_name = yaml_name_or_path.split("_")[0]
@@ -365,6 +325,11 @@ class AutoFeatureExtractor:
         logger.info("support list of %s is:", cls.__name__)
         print_dict(cls._support_list)
 
+    @classmethod
+    def get_support_list(cls):
+        '''get support list method'''
+        return cls._support_list
+
 
 class AutoProcessor:
     ''' AutoProcessor '''
@@ -373,7 +338,7 @@ class AutoProcessor:
     def __init__(self):
         raise EnvironmentError(
             "AutoProcessor is designed to be instantiated "
-            "using the `AutoFeatureExtractor.from_pretrained(yaml_name_or_path)` method."
+            "using the `AutoProcessor.from_pretrained(yaml_name_or_path)` method."
         )
 
     @classmethod
@@ -388,9 +353,9 @@ class AutoProcessor:
         Returns:
             A processor which inherited from BaseProcessor.
         '''
-        if yaml_name_or_path is None:
-            raise ValueError("a processor cannot be built from pretrained"
-                             " without yaml_name_or_path.")
+        if not isinstance(yaml_name_or_path, str):
+            raise TypeError(f"yaml_name_or_path should be a str,"
+                            f" but got {type(yaml_name_or_path)}")
 
         is_exist = os.path.exists(yaml_name_or_path)
         model_name = yaml_name_or_path.split("_")[0]
@@ -436,3 +401,8 @@ class AutoProcessor:
         '''show support list method'''
         logger.info("support list of %s is:", cls.__name__)
         print_dict(cls._support_list)
+
+    @classmethod
+    def get_support_list(cls):
+        '''get support list method'''
+        return cls._support_list
