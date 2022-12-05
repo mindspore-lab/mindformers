@@ -14,7 +14,7 @@
 # ============================================================================
 
 '''
-Test Module for testing functions of AotoModel and ClipModel class
+Test Module for testing functions of AutoModel and ClipModel class
 
 How to run this:
 windows:  pytest .\\tests\\ut\\test_model.py
@@ -23,7 +23,7 @@ linux:  pytest ./tests/ut/test_model.py
 Note:
     obs path for weights and yaml saving:
         XForme_for_mindspore/clip/clip_vit_b_32.yaml
-        XForme_for_mindspore/clip/clip_vit_b_32.clip
+        XForme_for_mindspore/clip/clip_vit_b_32.ckpt
 
     self.config is necessary for a model
     ClipModel amd ClipConfig start with the same prefix "Clip"
@@ -32,6 +32,7 @@ import os
 
 from mindformers import MindFormerBook, AutoConfig, AutoModel
 from mindformers.models import ClipModel, BaseModel
+from mindformers.tools import logger
 
 
 class TestModelMethod:
@@ -57,6 +58,8 @@ class TestModelMethod:
         Expectation: TypeError, ValueError, RuntimeError
         '''
         AutoModel.show_support_list()
+        support_list = AutoModel.get_support_list()
+        logger.info(support_list)
         # input model name, load model and weights
         model_a = AutoModel.from_pretrained('clip_vit_b_32')
         # input model directory, load model and weights
@@ -65,33 +68,17 @@ class TestModelMethod:
         model_c = AutoModel.from_config(self.config_path)
         # input config, load model without weights
         model_d = AutoModel.from_config(self.config)
-        # input yaml path and model name, load model and weights
-        model_e = AutoModel.from_config(self.config_path, checkpoint_name_or_path='clip_vit_b_32')
-        # input yaml path and weight path, load model and weights
-        model_f = AutoModel.from_config(self.config_path, checkpoint_name_or_path=self.checkpoint_path)
-        # input config and model name, load model and weights
-        model_g = AutoModel.from_config(self.config, checkpoint_name_or_path='clip_vit_b_32')
-        # input config and weight path, load model and weights
-        model_h = AutoModel.from_config(self.config, checkpoint_name_or_path=self.checkpoint_path)
 
         # all models are ClipModel class， and inherited from BaseModel
         assert isinstance(model_a, ClipModel)
         assert isinstance(model_b, ClipModel)
         assert isinstance(model_c, ClipModel)
         assert isinstance(model_d, ClipModel)
-        assert isinstance(model_e, ClipModel)
-        assert isinstance(model_f, ClipModel)
-        assert isinstance(model_g, ClipModel)
-        assert isinstance(model_h, ClipModel)
 
         assert isinstance(model_a, BaseModel)
         assert isinstance(model_b, BaseModel)
         assert isinstance(model_c, BaseModel)
         assert isinstance(model_d, BaseModel)
-        assert isinstance(model_e, BaseModel)
-        assert isinstance(model_f, BaseModel)
-        assert isinstance(model_g, BaseModel)
-        assert isinstance(model_h, BaseModel)
 
     # the second method to load model, ClipModel
     def test_clip_model(self):
@@ -102,29 +89,28 @@ class TestModelMethod:
         Expectation: TypeError, ValueError, RuntimeError
         '''
         ClipModel.show_support_list()
+        support_list = ClipModel.get_support_list()
+        logger.info(support_list)
         # input model name, load model and weights
         model_i = ClipModel.from_pretrained('clip_vit_b_32')
-        # input model directory, loda model and weights
+        # input model directory, load model and weights
         model_j = ClipModel.from_pretrained(self.checkpoint_dir)
-        # input config, load model without weights
+        # input config, load model weights
         model_k = ClipModel(self.config)
-        # input config and model name, load model and weights
-        model_l = ClipModel(self.config, checkpoint_name_or_path='clip_vit_b_32')
-        # input config and weight path, load model and weights
-        model_m = ClipModel(self.config, checkpoint_name_or_path=self.checkpoint_path)
+        # input config, load model without weights
+        self.config.checkpoint_name_or_path = None
+        model_l = ClipModel(self.config)
 
         # all models are ClipModel class， and inherited from BaseModel
         assert isinstance(model_i, ClipModel)
         assert isinstance(model_j, ClipModel)
         assert isinstance(model_k, ClipModel)
         assert isinstance(model_l, ClipModel)
-        assert isinstance(model_m, ClipModel)
 
         assert isinstance(model_i, BaseModel)
         assert isinstance(model_j, BaseModel)
         assert isinstance(model_k, BaseModel)
         assert isinstance(model_l, BaseModel)
-        assert isinstance(model_m, BaseModel)
 
     def test_save_model(self):
         '''

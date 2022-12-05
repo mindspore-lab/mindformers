@@ -41,18 +41,6 @@ def build_model(
     return MindFormerRegister.get_instance(module_type, class_name, **kwargs)
 
 
-def build_tokenizer(
-        config: dict = None, default_args: dict = None,
-        module_type: str = 'tokenizer', class_name: str = None, **kwargs):
-    """Build tokenizer API."""
-    if config is None and class_name is None:
-        return None
-    if config is not None:
-        return MindFormerRegister.get_instance_from_cfg(
-            config, MindFormerModuleType.TOKENIZER, default_args=default_args)
-    return MindFormerRegister.get_instance(module_type, class_name, **kwargs)
-
-
 def build_encoder(
         config: dict = None, default_args: dict = None,
         module_type: str = 'encoder', class_name: str = None, **kwargs):

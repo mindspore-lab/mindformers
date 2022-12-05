@@ -113,7 +113,7 @@ class BasePipeline(ABC):
         return outputs
 
     @abstractmethod
-    def preprocess(self, input_, **preprocess_parameters):
+    def preprocess(self, inputs, **preprocess_params):
         '''preprocess'''
         raise NotImplementedError("preprocess not implemented.")
 
@@ -123,7 +123,7 @@ class BasePipeline(ABC):
         raise NotImplementedError("forward not implemented.")
 
     @abstractmethod
-    def postprocess(self, model_outputs, **postprocess_parameters):
+    def postprocess(self, model_outputs, **postprocess_params):
         '''postprocess'''
         raise NotImplementedError("postprocess not implemented.")
 

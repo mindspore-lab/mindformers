@@ -11,6 +11,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+# This file was refer to project:
+# https://github.com/openai/CLIP/blob/main/clip/clip.py
 # ============================================================================
 
 '''
@@ -19,8 +21,11 @@ QuickGELU, ResidualAttentionBlock, Transformer
 '''
 from collections import OrderedDict
 import numpy as np
+
+import mindspore as ms
 import mindspore.nn as nn
 import mindspore.ops as ops
+from mindspore.ops import operations as P
 from mindspore import Parameter, Tensor
 from mindspore.common.initializer import Normal
 
@@ -73,12 +78,14 @@ class MultiheadAttention(nn.Cell):
                            self.head_dim).transpose((1, 0, 2))
 
         if attn_mask is not None:
-            attn_output_weights =\
-                attn_mask + ops.matmul(att_q,
-                                       att_k.transpose((0, 2, 1)))
+            attn_output_weights = (
+                attn_mask.astype(ms.float32)
+                + ops.matmul(att_q, att_k.transpose((0, 2, 1)))
+                .astype(ms.float32)).astype(ms.float64)
         else:
             attn_output_weights = ops.matmul(att_q, att_k.transpose((0, 2, 1)))
-        attn_output_weights = self.softmax(attn_output_weights)
+        attn_output_weights = self.softmax(attn_output_weights
+                                           .astype(ms.float32)).astype(ms.float64)
         attn_output = ops.matmul(attn_output_weights, att_v)
         attn_output = self.transpose(attn_output, (1, 0, 2))
         attn_output = attn_output.view(len_tgt, batch_size, width)
@@ -120,15 +127,22 @@ class VisionTransformer(nn.Cell):
                                                       size=(width, output_dim)).astype(np.float32)))
         self.cat = ops.Concat(1)
         self.tile = ops.Tile()
+        self.slice = P.StridedSlice()
 
     def construct(self, input_x):
         '''construct'''
         input_x = self.conv1(input_x)
         input_x = input_x.reshape(input_x.shape[0], input_x.shape[1], -1)
         input_x = input_x.transpose(0, 2, 1)
-        class_embedding = self.tile(self.class_embedding, (input_x.shape[0], 1, 1))
-        input_x = self.cat([class_embedding, input_x])
-        input_x = input_x + self.positional_embedding
+        class_embedding = self.tile(self.class_embedding, (input_x.shape[0]*2, 1, 1))
+        input_x = self.cat([
+            self.slice(class_embedding,
+                       (0, 0, 0),
+                       (input_x.shape[0], class_embedding.shape[1], class_embedding.shape[2]),
+                       (1, 1, 1)),
+            input_x
+        ])
+        input_x = ops.Add()(input_x, self.positional_embedding)
         input_x = self.ln_pre(input_x)
         input_x = input_x.transpose(1, 0, 2)
         input_x = self.transformer(input_x)
@@ -177,8 +191,8 @@ class ResidualAttentionBlock(nn.Cell):
 
     def construct(self, input_x):
         '''construct'''
-        input_x = input_x + self.attention(self.ln_1(input_x))
-        input_x = input_x + self.mlp(self.ln_2(input_x))
+        input_x = ops.Add()(input_x, self.attention(self.ln_1(input_x)))
+        input_x = ops.Add()(input_x, self.mlp(self.ln_2(input_x)))
         return input_x
 
     def attention(self, input_x):

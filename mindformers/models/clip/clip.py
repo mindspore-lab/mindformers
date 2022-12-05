@@ -36,18 +36,14 @@ from ...tools.register import MindFormerRegister, MindFormerModuleType
 class ClipModel(BaseModel):
     '''
     ClipModel.
+    The supported model name could be selected from ClipModel.show_support_list().
 
     Args:
         config (ClipConfig): the config of clip model.
-        kwargs:
-            checkpoint_name_or_path (str): a string for supported model name or a path to ckpt file.
-            The supported model name could be selected from ClipModel.show_support_list().
-
-            other supposed parameters.
     '''
     _support_list = MindFormerBook.get_model_support_list()['clip']
 
-    def __init__(self, config, **kwargs):
+    def __init__(self, config):
         super(ClipModel, self).__init__(config)
 
         self.max_position_embeddings = config.text_config.max_position_embeddings
@@ -83,7 +79,7 @@ class ClipModel(BaseModel):
         self.logit_scale = Parameter(np.log(1 / 0.07))
         self.exp = ops.Exp()
 
-        self._load_checkpoint(**kwargs)
+        self._load_checkpoint(config)
 
     def construct(self, image, text):
         '''
@@ -138,7 +134,7 @@ class ClipModel(BaseModel):
             text feature
         '''
         text_ = self.token_embedding(text)
-        text_ += self.positional_embedding
+        text_ = ops.Add()(text_, self.positional_embedding)
         text_ = text_.transpose(1, 0, 2)
         text_ = self.transformer(text_)
         text_ = text_.transpose(1, 0, 2)

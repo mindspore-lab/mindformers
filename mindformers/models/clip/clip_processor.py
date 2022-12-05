@@ -25,8 +25,8 @@ from ...tools.register import MindFormerRegister, MindFormerModuleType
 class ClipProcessor(BaseProcessor):
     '''
     Clip processor,
-    consists of a feature extractor for image input,
-    and a tokenizer for text input.
+    consists of a feature extractor (BaseFeatureEXtractor) for image input,
+    and a tokenizer (BaseTokenizer) for text input.
     '''
     _support_list = MindFormerBook.get_model_support_list()['clip']
 

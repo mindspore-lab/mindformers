@@ -27,6 +27,7 @@ from mindformers.tools.image_tools import load_image
 from mindformers import AutoModel, AutoProcessor
 from mindformers import MindFormerBook
 
+
 def test_pipeline():
     '''
     Feature: pipline function

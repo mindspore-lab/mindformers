@@ -25,13 +25,12 @@ from mindspore import load_param_into_net, load_checkpoint
 
 from mindformers.mindformer_book import MindFormerBook
 from mindformers.tools.register import MindFormerConfig, MindFormerRegister
-from mindformers.models import build_model
+from mindformers.models import build_model, build_processor
 from mindformers.dataset import build_dataset, build_dataset_loader, check_dataset_config
 from mindformers.trainer import build_trainer
 from mindformers.common.optim import build_optim
 from mindformers.common.lr import build_lr
 from mindformers.common.callback import build_callback
-from mindformers.processor import build_processor
 from mindformers.common.parallel_config import build_parallel_config
 from mindformers.tools.cloud_adapter import CFTS
 from mindformers.tools.logger import logger

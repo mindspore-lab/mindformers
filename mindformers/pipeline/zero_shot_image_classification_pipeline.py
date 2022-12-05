@@ -21,6 +21,7 @@ from ..mindformer_book import MindFormerBook
 from ..tools.image_tools import load_image
 from .base_pipeline import BasePipeline
 from ..tools.register import MindFormerRegister, MindFormerModuleType
+from ..models import BaseModel, BaseFeatureExtractor, BaseTokenizer
 
 
 @MindFormerRegister.register(MindFormerModuleType.PIPELINE)
@@ -29,9 +30,9 @@ class ZeroShotImageClassificationPipeline(BasePipeline):
     Pipeline for zero shot image classification
 
     Args:
-        model: a pretrained model in _supproted_list.
-        tokenizer : a tokenizer for text processing
-        feature_extractor : a feature_extractor for image processing
+        model: a pretrained model (str or BaseModel) in _supproted_list.
+        tokenizer : a tokenizer (None or BaseTokenizer) for text processing
+        feature_extractor : a feature_extractor (None or BaseFeatureExtractor) for image processing
     '''
     _support_list = MindFormerBook.get_model_support_list()['clip']
 
@@ -40,17 +41,28 @@ class ZeroShotImageClassificationPipeline(BasePipeline):
             if model in self._support_list:
                 if feature_extractor is None:
                     feature_extractor = AutoProcessor.from_pretrained(model).feature_extractor
+                if not isinstance(feature_extractor, BaseFeatureExtractor):
+                    raise TypeError(f"feature_extractor should be inherited from"
+                                    f" BaseFeatureExtractor, but got {type(feature_extractor)}.")
                 if tokenizer is None:
                     tokenizer = AutoProcessor.from_pretrained(model).tokenizer
+                if not isinstance(tokenizer, BaseTokenizer):
+                    raise TypeError(f"tokenizer should be inherited from"
+                                    f" BaseTokenizer, but got {type(tokenizer)}.")
                 model = AutoModel.from_pretrained(model)
             else:
-                raise KeyError(f"{model} is not supported by ZeroShotImageClassificationPipeline,"
-                               f"please selected from {self._supprot_list}.")
+                raise ValueError(f"{model} is not supported by ZeroShotImageClassificationPipeline,"
+                                 f"please selected from {self._supprot_list}.")
+
+        if not isinstance(model, BaseModel):
+            raise TypeError(f"model should be inherited from BaseModel, but got {type(BaseModel)}.")
 
         if tokenizer is None:
-            raise KeyError("ZeroShotImageClassificationPipeline requires for a tokenizer.")
+            raise ValueError("ZeroShotImageClassificationPipeline"
+                             " requires for a tokenizer.")
         if feature_extractor is None:
-            raise KeyError("ZeroShotImageClassificationPipeline requires for a feature_extractor.")
+            raise ValueError("ZeroShotImageClassificationPipeline"
+                             " requires for a feature_extractor.")
 
         super().__init__(model, tokenizer, feature_extractor, **kwargs)
 
@@ -59,27 +71,29 @@ class ZeroShotImageClassificationPipeline(BasePipeline):
         preprocess_params = {}
         postprocess_params = {}
         if "candidate_labels" in pipeline_parameters:
-            preprocess_params["candidate_labels"] = pipeline_parameters["candidate_labels"]
+            preprocess_params["candidate_labels"] =\
+                pipeline_parameters.get("candidate_labels")
         if "hypothesis_template" in pipeline_parameters:
-            preprocess_params["hypothesis_template"] = pipeline_parameters["hypothesis_template"]
+            preprocess_params["hypothesis_template"] =\
+                pipeline_parameters.get("hypothesis_template")
         if "top_k" in pipeline_parameters:
-            postprocess_params["top_k"] = pipeline_parameters["top_k"]
+            postprocess_params["top_k"] = pipeline_parameters.get("top_k")
         return preprocess_params, {}, postprocess_params
 
-    def preprocess(self, input_, **preprocess_parameters):
+    def preprocess(self, inputs, **preprocess_params):
         '''
         Preprocess of ZeroShotImageClassificationPipeline
 
         Args:
-            image (url, PIL.Image, tensor, numpy): the image to be classified.
+            inputs (url, PIL.Image, tensor, numpy): the image to be classified.
             candidate_labels (str, list): the candidate labels for classification.
 
         Return:
             processed image.
         '''
-        candidate_labels = preprocess_parameters.pop("candidate_labels", None)
-        hypothesis_template = preprocess_parameters.pop("hypothesis_template",
-                                                        "This is a photo of {}.")
+        candidate_labels = preprocess_params.pop("candidate_labels", None)
+        hypothesis_template = preprocess_params.pop("hypothesis_template",
+                                                    "This is a photo of {}.")
 
         if candidate_labels is None:
             raise ValueError("candidate_labels are supposed for"
@@ -87,10 +101,10 @@ class ZeroShotImageClassificationPipeline(BasePipeline):
         if hypothesis_template is None:
             raise ValueError("hypothesis_template is supposed for"
                              " ZeroShotImageClassificationPipeline, but got None.")
-        if isinstance(input_, dict):
-            input_ = input_['image']
+        if isinstance(inputs, dict):
+            inputs = inputs['image']
 
-        image = load_image(input_)
+        image = load_image(inputs)
         image_processed = self.feature_extractor(image)
         sentences = [hypothesis_template.format(candidate_label)
                      for candidate_label in candidate_labels]
@@ -108,6 +122,8 @@ class ZeroShotImageClassificationPipeline(BasePipeline):
         Return:
             probs dict.
         '''
+        forward_params.pop("None", None)
+
         image_processed = model_inputs["image_processed"]
         input_ids = model_inputs["input_ids"]
 
@@ -115,7 +131,7 @@ class ZeroShotImageClassificationPipeline(BasePipeline):
         probs = P.Softmax()(logits_per_image).asnumpy()
         return {"probs": probs, "candidate_labels": model_inputs["candidate_labels"]}
 
-    def postprocess(self, model_outputs, **postprocess_parameters):
+    def postprocess(self, model_outputs, **postprocess_params):
         '''
         Postprocess
 
@@ -126,7 +142,7 @@ class ZeroShotImageClassificationPipeline(BasePipeline):
         Return:
             classification results.
         '''
-        top_k = postprocess_parameters.pop("top_k", None)
+        top_k = postprocess_params.pop("top_k", None)
 
         labels = model_outputs['candidate_labels']
         scores = model_outputs['probs']

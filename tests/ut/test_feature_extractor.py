@@ -26,8 +26,9 @@ import numpy as np
 from PIL import Image
 
 import mindspore as ms
-from mindformers.processor import ClipFeatureExtractor, ClipImageFeatureExtractor
+from mindformers.models import ClipFeatureExtractor, ClipImageFeatureExtractor
 from mindformers import MindFormerBook, AutoFeatureExtractor
+from mindformers.tools import logger
 
 
 def test_auto_feature_extractor():
@@ -40,6 +41,9 @@ def test_auto_feature_extractor():
                              "clip", "model_config", "clip_vit_b_32.yaml")
 
     AutoFeatureExtractor.show_support_list()
+    support_list = AutoFeatureExtractor.get_support_list()
+    logger.info(support_list)
+
     fe_a = AutoFeatureExtractor.from_pretrained("clip_vit_b_32")
     fe_b = AutoFeatureExtractor.from_pretrained(yaml_path)
 
@@ -107,6 +111,9 @@ def test_clip_feature_extractor():
     img_fe = ClipImageFeatureExtractor(image_resolution=224)
 
     ClipFeatureExtractor.show_support_list()
+    support_list = AutoFeatureExtractor.get_support_list()
+    logger.info(support_list)
+
     fe_a = ClipFeatureExtractor.from_pretrained("clip_vit_b_32")
     fe_b = ClipFeatureExtractor.from_pretrained(yaml_path)
     fe_c = ClipFeatureExtractor(image_feature_extractor=img_fe)
