@@ -17,6 +17,7 @@
 AutoConfig、AutoModel
 """
 import os
+import json
 
 from .mindformer_book import MindFormerBook, print_dict
 from .models import build_feature_extractor, build_processor
@@ -28,7 +29,8 @@ from .tools.register.config import MindFormerConfig
 from .tools.download_tools import downlond_with_progress_bar
 
 
-__all__ = ['AutoConfig', 'AutoModel', 'AutoProcessor', 'AutoFeatureExtractor']
+__all__ = ['AutoConfig', 'AutoModel', 'AutoProcessor', 'AutoFeatureExtractor', 'AutoTokenizer']
+
 
 class AutoConfig:
     """ AutoConfig """
@@ -98,7 +100,7 @@ class AutoConfig:
         return cls._support_list
 
 class AutoModel:
-    ''' AutoModel '''
+    """ AutoModel """
     _support_list = MindFormerBook.get_model_support_list()
 
     def __init__(self):
@@ -299,7 +301,7 @@ class AutoFeatureExtractor:
 
             config_args = MindFormerConfig(yaml_name_or_path)
         else:
-            if model_name in cls._support_list.keys() and\
+            if model_name in cls._support_list.keys() and \
                     yaml_name_or_path in cls._support_list[model_name]:
                 checkpoint_path = os.path.join(
                     MindFormerBook.get_default_checkpoint_download_folder(), model_name)
@@ -375,7 +377,7 @@ class AutoProcessor:
 
             config_args = MindFormerConfig(yaml_name_or_path)
         else:
-            if model_name in cls._support_list.keys() and\
+            if model_name in cls._support_list.keys() and \
                     yaml_name_or_path in cls._support_list[model_name]:
                 checkpoint_path = os.path.join(
                     MindFormerBook.get_default_checkpoint_download_folder(),
@@ -411,3 +413,58 @@ class AutoProcessor:
     def get_support_list(cls):
         """get support list method"""
         return cls._support_list
+
+class AutoTokenizer:
+    """AutoTokenizer """
+    _support_list = MindFormerBook.get_tokenizer_support_list()
+
+    @classmethod
+    def from_pretrained(cls, yaml_name_or_path):
+        """
+        From pretrain method, which instantiate a tokenizer by yaml name or path.
+
+        Args:
+            yaml_name_or_path (str): A supported yaml name or a path to .yaml file,
+            the supported model name could be selected from .show_support_list().
+
+        Returns:
+            A tokenizer which inherited from PretrainedTokenizer.
+        """
+        if yaml_name_or_path is None:
+            raise ValueError("a processor cannot be built from pretrained"
+                             " without yaml_name_or_path.")
+
+        is_exist = os.path.exists(yaml_name_or_path)
+        model_name = yaml_name_or_path.split("_")[0]
+        if not is_exist and model_name not in cls._support_list.keys():
+            raise ValueError(f'{yaml_name_or_path} does not exist,'
+                             f' and it is not supported by {cls.__name__}. '
+                             f'please select from {cls._support_list}.')
+        load_yaml_path = yaml_name_or_path
+        # try to get the tokenizer type from the disk
+        tokenizer_config_path = os.path.join(yaml_name_or_path, 'tokenizer_config.json')
+        if not os.path.exists(tokenizer_config_path):
+            raise FileNotFoundError(f"The file `tokenizer_config.json` should exits in the "
+                                    f"path {tokenizer_config_path}, but not found.")
+        with open(tokenizer_config_path, 'r') as fp:
+            config_kwargs = json.load(fp)
+        config_class = config_kwargs.get('tokenizer_class', None)
+        if not config_class:
+            raise ValueError(f"There should be the key word`tokenizer_class` in {tokenizer_config_path}, but "
+                             f"not found. The optional keys are {config_kwargs.keys()}")
+        from mindformers import models
+        dynamic_class = getattr(models, config_class)
+        config_kwargs.pop('tokenizer_class')
+        instanced_class = dynamic_class.from_pretrained(yaml_name_or_path)
+
+
+        logger.info("config in %s is used for feature extractor"
+                    " building.", load_yaml_path)
+        logger.info("Tokenizer built successfully!")
+        return instanced_class
+
+    @classmethod
+    def show_support_list(cls):
+        """show support list method"""
+        logger.info("support list of %s is:", cls.__name__)
+        print_dict(cls._support_list)
