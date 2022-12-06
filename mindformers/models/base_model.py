@@ -13,9 +13,9 @@
 # limitations under the License.
 # ============================================================================
 
-'''
+"""
 BaseModel
-'''
+"""
 import os
 import yaml
 
@@ -32,16 +32,16 @@ from ..tools import logger
 
 
 class BaseModel(nn.Cell):
-    '''
+    """
     BaseModel for all models.
-    '''
+    """
     _support_list = []
     def __init__(self, config):
         super(BaseModel, self).__init__()
         self.config = config
 
     def _load_checkpoint(self, config):
-        '''
+        """
         load checkpoint for models.
         (only support standalone mode, and distribute mode waits for developing)
 
@@ -49,7 +49,7 @@ class BaseModel(nn.Cell):
             config (ModelConfig): a model config instance, which could have attribute
             "checkpoint_name_or_path (str)". set checkpoint_name_or_path to a supported
             model name or a path to checkpoint, to load model weights.
-        '''
+        """
         checkpoint_name_or_path = config.checkpoint_name_or_path
 
         if checkpoint_name_or_path is not None:
@@ -86,7 +86,7 @@ class BaseModel(nn.Cell):
                         " checkpoint_name_or_path is None.")
 
     def save_pretrained(self, save_directory=None, save_name="mindspore_model"):
-        '''
+        """
         Save_pretrained.
         (only support standalone mode, and distribute mode waits for developing)
 
@@ -94,7 +94,7 @@ class BaseModel(nn.Cell):
             save_directory (str): a directory to save model ckpt and config yaml
 
             save_name (str): the name of save files.
-        '''
+        """
         if save_directory is None:
             save_directory = MindFormerBook.get_default_checkpoint_save_folder()
             if not os.path.exists(save_directory):
@@ -131,7 +131,7 @@ class BaseModel(nn.Cell):
         logger.info("model saved successfully!")
 
     def _inverse_parse_config(self, config):
-        '''
+        """
         Inverse parse config method, which builds yaml file content for model config.
 
         Args:
@@ -139,7 +139,7 @@ class BaseModel(nn.Cell):
 
         Returns:
             A model config, which follows the yaml content.
-        '''
+        """
         if not isinstance(config, BaseConfig):
             return config
 
@@ -153,7 +153,7 @@ class BaseModel(nn.Cell):
         return config
 
     def _wrap_config(self, config):
-        '''
+        """
         Wrap config function, which wraps a config to rebuild content of yaml file.
 
         Args:
@@ -161,13 +161,13 @@ class BaseModel(nn.Cell):
 
         Returns:
             A (config) dict for yaml.dump.
-        '''
+        """
         model_name = self.__class__.__name__
         return {"model": {"model_config": config.to_dict(), "arch": {"type": model_name}}}
 
     @classmethod
     def from_pretrained(cls, pretrained_model_name_or_dir):
-        '''
+        """
         From pretrain method, which instantiates a model by pretrained model name or path.
         (only support standalone mode, and distribute mode waits for developing!)
 
@@ -179,7 +179,7 @@ class BaseModel(nn.Cell):
 
         Returns:
             A model, which inherited from BaseModel.
-        '''
+        """
         if not isinstance(pretrained_model_name_or_dir, str):
             raise TypeError(f"pretrained_model_name_or_dir should be a str,"
                             f" but got {type(pretrained_model_name_or_dir)}")
@@ -233,11 +233,11 @@ class BaseModel(nn.Cell):
 
     @classmethod
     def show_support_list(cls):
-        '''show_support_list method'''
+        """show_support_list method"""
         logger.info("support list of %s is:", cls.__name__)
         print_path_or_list(cls._support_list)
 
     @classmethod
     def get_support_list(cls):
-        '''get_support_list method'''
+        """get_support_list method"""
         return cls._support_list

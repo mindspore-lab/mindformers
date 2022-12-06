@@ -13,7 +13,7 @@
 # limitations under the License.
 # ============================================================================
 
-'''models init'''
+"""models init"""
 from mindformers.models import mae, build_model, build_config, clip
 from .mae import *
 from .build_model import *

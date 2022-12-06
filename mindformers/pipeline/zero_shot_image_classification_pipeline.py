@@ -13,7 +13,7 @@
 # limitations under the License.
 # ============================================================================
 
-'''ZeroShotImageClassificationPipeline'''
+"""ZeroShotImageClassificationPipeline"""
 from mindspore.ops import operations as P
 
 from ..auto_class import AutoProcessor, AutoModel
@@ -26,14 +26,14 @@ from ..models import BaseModel, BaseFeatureExtractor, BaseTokenizer
 
 @MindFormerRegister.register(MindFormerModuleType.PIPELINE)
 class ZeroShotImageClassificationPipeline(BasePipeline):
-    '''
+    """
     Pipeline for zero shot image classification
 
     Args:
         model: a pretrained model (str or BaseModel) in _supproted_list.
         tokenizer : a tokenizer (None or BaseTokenizer) for text processing
         feature_extractor : a feature_extractor (None or BaseFeatureExtractor) for image processing
-    '''
+    """
     _support_list = MindFormerBook.get_model_support_list()['clip']
 
     def __init__(self, model, tokenizer=None, feature_extractor=None, **kwargs):
@@ -67,7 +67,7 @@ class ZeroShotImageClassificationPipeline(BasePipeline):
         super().__init__(model, tokenizer, feature_extractor, **kwargs)
 
     def _sanitize_parameters(self, **pipeline_parameters):
-        '''sanitize parameters for preprocess, forward, and postprocess.'''
+        """sanitize parameters for preprocess, forward, and postprocess."""
         preprocess_params = {}
         postprocess_params = {}
         if "candidate_labels" in pipeline_parameters:
@@ -81,7 +81,7 @@ class ZeroShotImageClassificationPipeline(BasePipeline):
         return preprocess_params, {}, postprocess_params
 
     def preprocess(self, inputs, **preprocess_params):
-        '''
+        """
         Preprocess of ZeroShotImageClassificationPipeline
 
         Args:
@@ -90,7 +90,7 @@ class ZeroShotImageClassificationPipeline(BasePipeline):
 
         Return:
             processed image.
-        '''
+        """
         candidate_labels = preprocess_params.pop("candidate_labels", None)
         hypothesis_template = preprocess_params.pop("hypothesis_template",
                                                     "This is a photo of {}.")
@@ -113,7 +113,7 @@ class ZeroShotImageClassificationPipeline(BasePipeline):
                 "input_ids": input_ids, "candidate_labels": candidate_labels}
 
     def forward(self, model_inputs, **forward_params):
-        '''
+        """
         Forward process
 
         Args:
@@ -121,7 +121,7 @@ class ZeroShotImageClassificationPipeline(BasePipeline):
 
         Return:
             probs dict.
-        '''
+        """
         forward_params.pop("None", None)
 
         image_processed = model_inputs["image_processed"]
@@ -132,7 +132,7 @@ class ZeroShotImageClassificationPipeline(BasePipeline):
         return {"probs": probs, "candidate_labels": model_inputs["candidate_labels"]}
 
     def postprocess(self, model_outputs, **postprocess_params):
-        '''
+        """
         Postprocess
 
         Args:
@@ -141,7 +141,7 @@ class ZeroShotImageClassificationPipeline(BasePipeline):
 
         Return:
             classification results.
-        '''
+        """
         top_k = postprocess_params.pop("top_k", None)
 
         labels = model_outputs['candidate_labels']

@@ -13,10 +13,10 @@
 # limitations under the License.
 # ============================================================================
 
-'''
+"""
 ClipConfig class, which consists of ClipTextConfig and ClipVisionConfig
 All configs here are inherited from BaseConfig
-'''
+"""
 from ..base_config import BaseConfig
 from ...tools.register import MindFormerRegister, MindFormerModuleType
 from ...mindformer_book import MindFormerBook
@@ -24,7 +24,7 @@ from ...tools import logger
 
 @MindFormerRegister.register(MindFormerModuleType.CONFIG)
 class ClipTextConfig(BaseConfig):
-    '''Config for clip text module'''
+    """Config for clip text module"""
     def __init__(self, hidden_size=512, vocab_size=49408,
                  max_position_embeddings=77, num_hidden_layers=12, **kwargs):
         super(ClipTextConfig, self).__init__(hidden_size=hidden_size,
@@ -36,7 +36,7 @@ class ClipTextConfig(BaseConfig):
 
 @MindFormerRegister.register(MindFormerModuleType.CONFIG)
 class ClipVisionConfig(BaseConfig):
-    '''Config for clip vision module'''
+    """Config for clip vision module"""
     def __init__(self, hidden_size=768, image_size=224,
                  patch_size=32, num_hidden_layers=12, **kwargs):
         super(ClipVisionConfig, self).__init__(hidden_size=hidden_size,
@@ -48,11 +48,11 @@ class ClipVisionConfig(BaseConfig):
 
 @MindFormerRegister.register(MindFormerModuleType.CONFIG)
 class ClipConfig(BaseConfig):
-    '''config for clip model'''
+    """Config for clip model"""
     _support_list = MindFormerBook.get_model_support_list()['clip']
 
     def __init__(self, text_config=None, vision_config=None, projection_dim=512, ratio=64,
-                 checkpoint_name_or_path="clip_vit_b_32", **kwargs):
+                 checkpoint_name_or_path="clip_vit_b_32", dtype="float16", **kwargs):
         if text_config is None:
             text_config = ClipTextConfig()
             logger.info("text_config is None. Initializing the CLIPTextConfig with default values.")
@@ -77,4 +77,5 @@ class ClipConfig(BaseConfig):
                                          projection_dim=projection_dim,
                                          ratio=ratio,
                                          checkpoint_name_or_path=checkpoint_name_or_path,
+                                         dtype=dtype,
                                          *kwargs)

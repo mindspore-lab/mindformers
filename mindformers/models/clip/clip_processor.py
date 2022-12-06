@@ -13,9 +13,9 @@
 # limitations under the License.
 # ============================================================================
 
-'''
+"""
 ClipProcessor
-'''
+"""
 from mindformers.mindformer_book import MindFormerBook
 from ..base_processor import BaseProcessor
 from ...tools.register import MindFormerRegister, MindFormerModuleType
@@ -23,11 +23,11 @@ from ...tools.register import MindFormerRegister, MindFormerModuleType
 
 @MindFormerRegister.register(MindFormerModuleType.PROCESSOR)
 class ClipProcessor(BaseProcessor):
-    '''
+    """
     Clip processor,
     consists of a feature extractor (BaseFeatureEXtractor) for image input,
     and a tokenizer (BaseTokenizer) for text input.
-    '''
+    """
     _support_list = MindFormerBook.get_model_support_list()['clip']
 
     def __init__(self, feature_extractor=None, tokenizer=None):

@@ -13,7 +13,7 @@
 # limitations under the License.
 # ============================================================================
 
-'''clip init'''
+"""clip init"""
 from .clip_config import ClipTextConfig, ClipVisionConfig, ClipConfig
 from .clip import ClipModel
 from .clip_feature_extractor import ClipFeatureExtractor, ClipImageFeatureExtractor

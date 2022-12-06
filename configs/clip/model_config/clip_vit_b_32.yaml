@@ -19,6 +19,8 @@ model:
       patch_size: 32
       num_hidden_layers: 12
 
+    dtype: float16
+    checkpoint_name_or_path: clip_vit_b_32.yaml
     projection_dim: 512
     ratio: 64
 

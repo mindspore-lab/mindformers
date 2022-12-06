@@ -13,7 +13,7 @@
 # limitations under the License.
 # ============================================================================
 
-'''mindformers init'''
+"""mindformers init"""
 from mindformers import common, auto_class, dataset, models, modules
 from .dataset import MIMDataset, ImageCLSDataset
 from .models import *

@@ -13,14 +13,14 @@
 # limitations under the License.
 # ============================================================================
 
-'''
+"""
 Test Module for testing feature extractor function of
 AutoFeatureExtractor and ClipFeatureExtractor
 
 How to run this:
 windows:  pytest .\\tests\\ut\\test_feature_extractor.py
 linux:  pytest ./tests/ut/test_feature_extractor.py
-'''
+"""
 import os
 import numpy as np
 from PIL import Image
@@ -32,11 +32,11 @@ from mindformers.tools import logger
 
 
 def test_auto_feature_extractor():
-    '''
+    """
     Feature: AutoFeatureExtractor class
     Description: Test the from_pretrained functions
     Expectation: NotImplementedError, ValueError
-    '''
+    """
     yaml_path = os.path.join(MindFormerBook.get_project_path(), "configs",
                              "clip", "model_config", "clip_vit_b_32.yaml")
 
@@ -101,11 +101,11 @@ def test_auto_feature_extractor():
     fe_b.save_pretrained(save_directory, save_name='clip_vit_b_32')
 
 def test_clip_feature_extractor():
-    '''
+    """
     Feature: ClipFeatureExtractor class
     Description: Test the from_pretrained and save_pretrained functions
     Expectation: NotImplementedError, ValueError
-    '''
+    """
     yaml_path = os.path.join(MindFormerBook.get_project_path(), "configs",
                              "clip", "model_config", "clip_vit_b_32.yaml")
     img_fe = ClipImageFeatureExtractor(image_resolution=224)

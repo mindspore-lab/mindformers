@@ -13,9 +13,9 @@
 # limitations under the License.
 # ============================================================================
 
-'''
+"""
 BaseTokenizer
-'''
+"""
 
 class BaseTokenizer:
     def __init__(self):

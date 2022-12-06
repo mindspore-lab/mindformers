@@ -13,9 +13,9 @@
 # limitations under the License.
 # ============================================================================
 
-'''
+"""
 FeatureExtractors for Clip
-'''
+"""
 import numpy as np
 import PIL
 
@@ -29,12 +29,12 @@ from ...tools.register import MindFormerRegister, MindFormerModuleType
 
 @MindFormerRegister.register(MindFormerModuleType.FEATURE_EXTRACTOR)
 class ClipImageFeatureExtractor(BaseImageFeatureExtractor):
-    '''
+    """
     ClipImageProcessor.
 
     Args:
         image_resolution (int): the target size.
-    '''
+    """
     def __init__(self, image_resolution=224):
         super(ClipImageFeatureExtractor, self).__init__(
             image_resolution=image_resolution
@@ -46,7 +46,7 @@ class ClipImageFeatureExtractor(BaseImageFeatureExtractor):
         self.batch_normalizer = BatchNormalize()
 
     def preprocess(self, images, **kwargs):
-        '''
+        """
         Preprocess required by base processor.
 
         Args:
@@ -54,7 +54,7 @@ class ClipImageFeatureExtractor(BaseImageFeatureExtractor):
 
         Return:
             A 4-rank tensor for a batch of images.
-        '''
+        """
         if not self._bhwc_check(images):
             images = self.bchw2bhwc(images)
         images = self.batch_resizer(images)
@@ -68,6 +68,7 @@ class ClipImageFeatureExtractor(BaseImageFeatureExtractor):
         return ms.Tensor(np.expand_dims(images, axis=0))
 
     def _bhwc_check(self, image_batch):
+        """_bhwc_check"""
         if isinstance(image_batch, np.ndarray):
             if image_batch.shape[-1] == 3:
                 return True
@@ -80,7 +81,7 @@ class ClipImageFeatureExtractor(BaseImageFeatureExtractor):
 
 @MindFormerRegister.register(MindFormerModuleType.FEATURE_EXTRACTOR)
 class ClipFeatureExtractor(BaseFeatureExtractor):
-    '''ClipFeatureExtractor'''
+    """ClipFeatureExtractor"""
     _support_list = MindFormerBook.get_model_support_list()['clip']
     def __init__(self, image_feature_extractor):
         super(ClipFeatureExtractor, self).__init__(

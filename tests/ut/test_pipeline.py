@@ -13,13 +13,13 @@
 # limitations under the License.
 # ============================================================================
 
-'''
+"""
 Test Module for basic function of pipeline
 
 How to run this:
 windows:  pytest .\\tests\\ut\\test_pipeline.py
 linux:  pytest ./tests/ut/test_pipeline.py
-'''
+"""
 import os
 
 from mindformers import pipeline
@@ -29,11 +29,11 @@ from mindformers import MindFormerBook
 
 
 def test_pipeline():
-    '''
+    """
     Feature: pipline function
     Description: Test the pipeline functions
     Expectation: NotImplementedError, ValueError
-    '''
+    """
     classifier_a = pipeline("zero_shot_image_classification",
                             candidate_labels=["sunflower", "tree", "dog", "cat", "toy"])
 

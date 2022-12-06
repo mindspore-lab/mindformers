@@ -13,9 +13,9 @@
 # limitations under the License.
 # ============================================================================
 
-'''
+"""
 BaseProcessor
-'''
+"""
 import os
 import yaml
 
@@ -29,7 +29,7 @@ from ..tools.download_tools import downlond_with_progress_bar
 
 
 class BaseProcessor:
-    '''Base processor'''
+    """Base processor"""
     _support_list = []
 
     def __init__(self, **kwargs):
@@ -39,7 +39,7 @@ class BaseProcessor:
         self.tokenizer = kwargs.pop("tokenizer", None)
 
     def __call__(self, image_input=None, text_input=None):
-        '''call function'''
+        """call function"""
         output = {}
 
         if image_input is not None and self.feature_extractor:
@@ -60,14 +60,14 @@ class BaseProcessor:
         return output
 
     def save_pretrained(self, save_directory=None, save_name="mindspore_model"):
-        '''
+        """
         Save_pretrained.
 
         Args:
             save_directory (str): a directory to save config yaml
 
             save_name (str): the name of save files.
-        '''
+        """
         if save_directory is None:
             save_directory = MindFormerBook.get_default_checkpoint_save_folder()
             if not os.path.exists(save_directory):
@@ -97,7 +97,7 @@ class BaseProcessor:
         logger.info("processor saved successfully!")
 
     def _inverse_parse_config(self, config):
-        '''
+        """
         Inverse parse config method, which builds yaml file content for feature extractor config.
 
         Args:
@@ -105,7 +105,7 @@ class BaseProcessor:
 
         Returns:
             A dict, which follows the yaml content.
-        '''
+        """
         parsed_config = {"type": self.__class__.__name__}
 
         for key, val in config.items():
@@ -122,7 +122,7 @@ class BaseProcessor:
         return parsed_config
 
     def _wrap_config(self, config):
-        '''
+        """
         Wrap config function, which wraps a config to rebuild content of yaml file.
 
         Args:
@@ -130,12 +130,12 @@ class BaseProcessor:
 
         Returns:
             A dict for yaml.dump.
-        '''
+        """
         return {"processor": config}
 
     @classmethod
     def from_pretrained(cls, yaml_name_or_path):
-        '''
+        """
         From pretrain method, which instantiates a processor by yaml name or path.
 
         Args:
@@ -144,7 +144,7 @@ class BaseProcessor:
 
         Returns:
             A processor which inherited from BaseProcessor.
-        '''
+        """
         if not isinstance(yaml_name_or_path, str):
             raise TypeError(f"yaml_name_or_path should be a str,"
                             f" but got {type(yaml_name_or_path)}")
@@ -180,11 +180,11 @@ class BaseProcessor:
 
     @classmethod
     def show_support_list(cls):
-        '''show_support_list'''
+        """show_support_list"""
         logger.info("support list of %s is:", cls.__name__)
         print_path_or_list(cls._support_list)
 
     @classmethod
     def get_support_list(cls):
-        '''get_support_list method'''
+        """get_support_list method"""
         return cls._support_list

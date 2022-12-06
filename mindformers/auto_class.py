@@ -13,9 +13,9 @@
 # limitations under the License.
 # ============================================================================
 
-'''
+"""
 AutoConfig、AutoModel
-'''
+"""
 import os
 
 from .mindformer_book import MindFormerBook, print_dict
@@ -31,7 +31,7 @@ from .tools.download_tools import downlond_with_progress_bar
 __all__ = ['AutoConfig', 'AutoModel', 'AutoProcessor', 'AutoFeatureExtractor']
 
 class AutoConfig:
-    ''' AutoConfig '''
+    """ AutoConfig """
     _support_list = MindFormerBook.get_model_support_list()
 
     def __init__(self):
@@ -42,7 +42,7 @@ class AutoConfig:
 
     @classmethod
     def from_pretrained(cls, yaml_name_or_path):
-        '''
+        """
         From pretrain method, which instantiates a config by yaml model name or path.
 
         Args:
@@ -52,7 +52,7 @@ class AutoConfig:
 
         Returns:
             A model config, which inherited from BaseConfig.
-        '''
+        """
         if not isinstance(yaml_name_or_path, str):
             raise TypeError(f"yaml_name_or_path should be a str,"
                             f" but got {type(yaml_name_or_path)}.")
@@ -88,13 +88,13 @@ class AutoConfig:
 
     @classmethod
     def show_support_list(cls):
-        '''show support list method'''
+        """show support list method"""
         logger.info("support list of %s is:", cls.__name__)
         print_dict(cls._support_list)
 
     @classmethod
     def get_support_list(cls):
-        '''get support list method'''
+        """get support list method"""
         return cls._support_list
 
 class AutoModel:
@@ -110,7 +110,7 @@ class AutoModel:
 
     @classmethod
     def from_config(cls, config):
-        '''
+        """
         From config method, which instantiate a Model by config.
 
         Args:
@@ -119,7 +119,7 @@ class AutoModel:
 
         Returns:
             A model, which inherited from BaseModel.
-        '''
+        """
         if config is None:
             raise ValueError("a model cannot be built from config with config is None.")
 
@@ -138,7 +138,7 @@ class AutoModel:
 
     @classmethod
     def _inverse_parse_config(cls, config):
-        '''
+        """
         Inverse parse config method, which builds yaml file content for model config.
 
         Args:
@@ -146,7 +146,7 @@ class AutoModel:
 
         Returns:
             A model config, which follows the yaml content.
-        '''
+        """
         if not isinstance(config, BaseConfig):
             return config
 
@@ -161,7 +161,7 @@ class AutoModel:
 
     @classmethod
     def _wrap_config(cls, config):
-        '''
+        """
         Wrap config function, which wraps a config to rebuild content of yaml file.
 
         Args:
@@ -169,15 +169,20 @@ class AutoModel:
 
         Returns:
             A model config, which has the same content as a yaml file.
-        '''
-        model_name = config.type.split("Config")[0] + "Model"
+        """
+        config_name = config.type
+        model_name = MindFormerBook.get_model_config_to_name().get(config_name, None)
+        if not model_name:
+            raise ValueError("cannot get model_name from model_config, please use"
+                             " MindFormerBook.set_model_config_to_name(model_config, model_name).")
+
         arch = BaseConfig(type=model_name)
         model = BaseConfig(model_config=config, arch=arch)
         return BaseConfig(model=model)
 
     @classmethod
     def from_pretrained(cls, pretrained_model_name_or_dir):
-        '''
+        """
         From pretrain method, which instantiate a Model by pretrained model name or path.
 
         Args:
@@ -188,7 +193,7 @@ class AutoModel:
 
         Returns:
             A model, which inherited from BaseModel.
-        '''
+        """
         if not isinstance(pretrained_model_name_or_dir, str):
             raise TypeError(f"pretrained_model_name_or_dir should be a str,"
                             f" but got {type(pretrained_model_name_or_dir)}")
@@ -245,18 +250,18 @@ class AutoModel:
 
     @classmethod
     def show_support_list(cls):
-        '''show support list method'''
+        """show support list method"""
         logger.info("support list of %s is:", cls.__name__)
         print_dict(cls._support_list)
 
     @classmethod
     def get_support_list(cls):
-        '''get support list method'''
+        """get support list method"""
         return cls._support_list
 
 
 class AutoFeatureExtractor:
-    ''' AutoFeatureExtractor '''
+    """ AutoFeatureExtractor """
     _support_list = MindFormerBook.get_model_support_list()
 
     def __init__(self):
@@ -267,7 +272,7 @@ class AutoFeatureExtractor:
 
     @classmethod
     def from_pretrained(cls, yaml_name_or_path):
-        '''
+        """
         From pretrain method, which instantiates a feature extractor by yaml name or path.
 
         Args:
@@ -276,7 +281,7 @@ class AutoFeatureExtractor:
 
         Returns:
             A feature extractor which inherited from BaseFeatureExtractor.
-        '''
+        """
         if not isinstance(yaml_name_or_path, str):
             raise TypeError(f"yaml_name_or_path should be a str,"
                             f" but got {type(yaml_name_or_path)}")
@@ -321,18 +326,18 @@ class AutoFeatureExtractor:
 
     @classmethod
     def show_support_list(cls):
-        '''show support list method'''
+        """show support list method"""
         logger.info("support list of %s is:", cls.__name__)
         print_dict(cls._support_list)
 
     @classmethod
     def get_support_list(cls):
-        '''get support list method'''
+        """get support list method"""
         return cls._support_list
 
 
 class AutoProcessor:
-    ''' AutoProcessor '''
+    """ AutoProcessor """
     _support_list = MindFormerBook.get_model_support_list()
 
     def __init__(self):
@@ -343,7 +348,7 @@ class AutoProcessor:
 
     @classmethod
     def from_pretrained(cls, yaml_name_or_path):
-        '''
+        """
         From pretrain method, which instantiate a processor by yaml name or path.
 
         Args:
@@ -352,7 +357,7 @@ class AutoProcessor:
 
         Returns:
             A processor which inherited from BaseProcessor.
-        '''
+        """
         if not isinstance(yaml_name_or_path, str):
             raise TypeError(f"yaml_name_or_path should be a str,"
                             f" but got {type(yaml_name_or_path)}")
@@ -398,11 +403,11 @@ class AutoProcessor:
 
     @classmethod
     def show_support_list(cls):
-        '''show support list method'''
+        """show support list method"""
         logger.info("support list of %s is:", cls.__name__)
         print_dict(cls._support_list)
 
     @classmethod
     def get_support_list(cls):
-        '''get support list method'''
+        """get support list method"""
         return cls._support_list

@@ -13,7 +13,7 @@
 # limitations under the License.
 # ============================================================================
 
-'''
+"""
 Test Module for testing functions of AutoModel and ClipModel class
 
 How to run this:
@@ -27,7 +27,7 @@ Note:
 
     self.config is necessary for a model
     ClipModel amd ClipConfig start with the same prefix "Clip"
-'''
+"""
 import os
 
 from mindformers import MindFormerBook, AutoConfig, AutoModel
@@ -36,9 +36,9 @@ from mindformers.tools import logger
 
 
 class TestModelMethod:
-    '''A test class for testing Model classes'''
+    """A test class for testing Model classes"""
     def setup_method(self):
-        '''get_input'''
+        """get_input"""
         self.checkpoint_dir = os.path.join(MindFormerBook.get_project_path(),
                                            'checkpoint_download', 'clip')
         self.config_path = os.path.join(MindFormerBook.get_project_path(),
@@ -51,12 +51,12 @@ class TestModelMethod:
 
     # the first method to load model, AutoModel
     def test_auto_model(self):
-        '''
+        """
         Feature: AutoModel, from_pretrained, from_config
         Description: Test to get model instance by AutoModel.from_pretrained
                     and AutoModel.from_config
         Expectation: TypeError, ValueError, RuntimeError
-        '''
+        """
         AutoModel.show_support_list()
         support_list = AutoModel.get_support_list()
         logger.info(support_list)
@@ -82,12 +82,12 @@ class TestModelMethod:
 
     # the second method to load model, ClipModel
     def test_clip_model(self):
-        '''
+        """
         Feature: ClipModel, from_pretrained, input config
         Description: Test to get model instance by ClipModel.from_pretrained
                     and input config
         Expectation: TypeError, ValueError, RuntimeError
-        '''
+        """
         ClipModel.show_support_list()
         support_list = ClipModel.get_support_list()
         logger.info(support_list)
@@ -113,11 +113,11 @@ class TestModelMethod:
         assert isinstance(model_l, BaseModel)
 
     def test_save_model(self):
-        '''
+        """
         Feature: save_pretrained method of ClipModel
         Description: Test to save checkpoint for ClipModel
         Expectation: ValueError, AttributeError
-        '''
+        """
         model_a = AutoModel.from_pretrained('clip_vit_b_32')
         model_i = ClipModel.from_pretrained('clip_vit_b_32')
 
