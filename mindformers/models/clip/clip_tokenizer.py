@@ -13,9 +13,9 @@
 # limitations under the License.
 # ============================================================================
 
-'''
+"""
 This is a temporary version of clip tokenizer
-'''
+"""
 import gzip
 import html
 import os
@@ -32,7 +32,7 @@ from ..base_tokenizer import BaseTokenizer
 
 @lru_cache()
 def default_bpe():
-    '''bpe path'''
+    """bpe path"""
     path = os.path.join(MindFormerBook.get_default_checkpoint_download_folder(),
                         'clip', "bpe_simple_vocab_16e6.txt.gz")
     if not os.path.exists(path):
@@ -66,19 +66,19 @@ def bytes_to_unicode():
     return dict(zip(input_bt, output_cd))
 
 def whitespace_clean(input_text):
-    '''whitespace clean'''
+    """whitespace clean"""
     input_text = re.sub(r'\s+', ' ', input_text)
     input_text = input_text.strip()
     return input_text
 
 def basic_clean(input_text):
-    '''basic_clean'''
+    """basic_clean"""
     input_text = ftfy.fix_text(input_text)
     input_text = html.unescape(html.unescape(input_text))
     return input_text.strip()
 
 class TempTokenizer:
-    '''Simple Tokenizer'''
+    """Simple Tokenizer"""
     def __init__(self, text_path):
         self.byte_encoder = bytes_to_unicode()
         self.byte_decoder = {v: k for k, v in self.byte_encoder.items()}
@@ -103,7 +103,7 @@ class TempTokenizer:
         self.decoder = {v: k for k, v in self.encoder.items()}
 
     def tokenize_alg(self, input_tk):
-        '''bpe'''
+        """bpe"""
         if input_tk in self.flag_dict:
             return self.flag_dict[input_tk]
         word = tuple(input_tk[:-1]) + (input_tk[-1] + '</w>',)
@@ -144,14 +144,14 @@ class TempTokenizer:
         return word
 
     def decode(self, input_ids):
-        '''decode'''
+        """decode"""
         output_text = ''.join([self.decoder[input_id] for input_id in input_ids])
         output_text = bytearray([self.byte_decoder[c] for
                                  c in output_text]).decode('utf-8', errors="replace").replace('</w>', ' ')
         return output_text
 
     def encode(self, content):
-        '''encode'''
+        """encode"""
         output_ids = []
         content = whitespace_clean(basic_clean(content)).lower()
         for token in re.findall(self.pat, content):
@@ -161,7 +161,7 @@ class TempTokenizer:
 
 @MindFormerRegister.register(MindFormerModuleType.TOKENIZER)
 class ClipTokenizer(BaseTokenizer):
-    '''clip tokenizer'''
+    """clip tokenizer"""
     def __init__(self):
         super(ClipTokenizer, self).__init__()
         path = default_bpe()

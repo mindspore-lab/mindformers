@@ -13,10 +13,10 @@
 # limitations under the License.
 # ============================================================================
 
-'''
+"""
 BaseConfig class,
 which is all model configs' base class
-'''
+"""
 import os
 import yaml
 
@@ -29,9 +29,9 @@ from ..models.build_config import build_model_config
 
 
 class BaseConfig(dict):
-    '''
+    """
     Base Config for all models' config
-    '''
+    """
     _support_list = []
 
     def __init__(self, **kwargs):
@@ -50,10 +50,10 @@ class BaseConfig(dict):
         del self[key]
 
     def to_dict(self):
-        '''
+        """
         for yaml dump,
         transform from Config to a strict dict class
-        '''
+        """
         return_dict = {}
         for key, val in self.items():
             if isinstance(val, BaseConfig):
@@ -63,7 +63,7 @@ class BaseConfig(dict):
 
     @classmethod
     def from_pretrained(cls, yaml_name_or_path):
-        '''
+        """
         From pretrain method, which instantiates a config by yaml name or path.
 
         Args:
@@ -73,7 +73,7 @@ class BaseConfig(dict):
 
         Returns:
             A model config, which inherited from BaseConfig.
-        '''
+        """
         if not isinstance(yaml_name_or_path, str):
             raise TypeError(f"yaml_name_or_path should be a str,"
                             f" but got {type(yaml_name_or_path)}.")
@@ -109,12 +109,12 @@ class BaseConfig(dict):
         return config
 
     def save_pretrained(self, save_path=None):
-        '''
+        """
         Save_pretrained.
 
         Args:
             save_path (str): a path ends with .yaml to save config yaml
-        '''
+        """
         if save_path is None:
             model_name = self.__class__.__name__.split("Config", maxsplit=1)[0].lower()
             save_directory = os.path.join(
@@ -151,16 +151,16 @@ class BaseConfig(dict):
         logger.info("model saved successfully!")
 
     def inverse_parse_config(self):
-        '''inverse_parse_config'''
+        """inverse_parse_config"""
         return self._inverse_parse_config()
 
     def _inverse_parse_config(self):
-        '''
+        """
         Inverse parse config method, which builds yaml file content for model config.
 
         Returns:
             A model config, which follows the yaml content.
-        '''
+        """
         self.update({"type": self.__class__.__name__})
 
         for key, val in self.items():
@@ -171,7 +171,7 @@ class BaseConfig(dict):
         return self
 
     def _wrap_config(self, config):
-        '''
+        """
         Wrap config function, which wraps a config to rebuild content of yaml file.
 
         Args:
@@ -179,17 +179,21 @@ class BaseConfig(dict):
 
         Returns:
             A (config) dict for yaml.dump.
-        '''
-        model_name = self.__class__.__name__.split("Config", maxsplit=1)[0] + "Model"
+        """
+        config_name = self.__class__.__name__
+        model_name = MindFormerBook.get_model_config_to_name().get(config_name, None)
+        if not model_name:
+            raise ValueError("cannot get model_name from model_config, please use"
+                             " MindFormerBook.set_model_config_to_name(model_config, model_name).")
         return {"model": {"model_config": config.to_dict(), "arch": {"type": model_name}}}
 
     @classmethod
     def show_support_list(cls):
-        '''show support list method'''
+        """show support list method"""
         logger.info("support list of %s is:", cls.__name__)
         print_path_or_list(cls._support_list)
 
     @classmethod
     def get_support_list(cls):
-        '''get support list method'''
+        """get support list method"""
         return cls._support_list

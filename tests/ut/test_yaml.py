@@ -13,7 +13,7 @@
 # limitations under the License.
 # ============================================================================
 
-'''
+"""
 Test module for testing yaml tools, MindFormerConfig.
 
 How to run this:
@@ -26,7 +26,7 @@ Note:
 example:
     clip_vit_b_32.yaml starts with clip,
     and clip_vit_b_32.ckpt is model ckpt file.
-'''
+"""
 import os
 
 from mindformers import MindFormerBook
@@ -34,11 +34,11 @@ from mindformers.tools import MindFormerConfig, logger
 
 
 def test_yaml():
-    '''
+    """
     Feature: MindFormerConfig
     Description: Test to transform yaml file as MindFormerConfig
     Expectation: TypeError
-    '''
+    """
     yaml_path = os.path.join(
         MindFormerBook.get_project_path(), 'configs', 'clip', 'model_config', "clip_vit_b_32.yaml")
     yaml_content = MindFormerConfig(yaml_path)

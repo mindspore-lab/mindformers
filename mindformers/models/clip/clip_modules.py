@@ -15,10 +15,10 @@
 # https://github.com/openai/CLIP/blob/main/clip/clip.py
 # ============================================================================
 
-'''
-Modiles of ClipModel, including MultiheadAttention，VisionTransformer,
+"""
+Modules of ClipModel, including MultiheadAttention，VisionTransformer,
 QuickGELU, ResidualAttentionBlock, Transformer
-'''
+"""
 from collections import OrderedDict
 import numpy as np
 
@@ -31,15 +31,15 @@ from mindspore.common.initializer import Normal
 
 
 class MultiheadAttention(nn.Cell):
-    '''
+    """
     MultiheadAttention, with layers as input for initialization
 
     Args:
         d_model (int): the feature dimension
         n_head (int): the number of attention heads
         layers (int): the number of transformers, used for weight initialization
-    '''
-    def __init__(self, d_model, n_head, layers):
+    """
+    def __init__(self, d_model, n_head, layers, dtype):
         super(MultiheadAttention, self).__init__()
 
         self.num_heads = n_head
@@ -52,12 +52,12 @@ class MultiheadAttention(nn.Cell):
         proj_std = (d_model ** -0.5) * ((2 * layers) ** -0.5)
         attn_std = d_model ** -0.5
         self.out_proj = nn.Dense(d_model, d_model,
-                                 weight_init=Normal(mean=0.0, sigma=proj_std))
+                                 weight_init=Normal(mean=0.0, sigma=proj_std)).to_float(dtype)
         self.in_proj = nn.Dense(d_model, 3 * d_model,
-                                weight_init=Normal(mean=0.0, sigma=attn_std))
+                                weight_init=Normal(mean=0.0, sigma=attn_std)).to_float(dtype)
 
     def construct(self, query, attn_mask=None):
-        '''construct'''
+        """construct"""
         len_tgt, batch_size, width = query.shape
         qkv = self.in_proj(query).view(len_tgt, batch_size, 3, width).transpose((2, 0, 1, 3))
 
@@ -78,14 +78,10 @@ class MultiheadAttention(nn.Cell):
                            self.head_dim).transpose((1, 0, 2))
 
         if attn_mask is not None:
-            attn_output_weights = (
-                attn_mask.astype(ms.float32)
-                + ops.matmul(att_q, att_k.transpose((0, 2, 1)))
-                .astype(ms.float32)).astype(ms.float64)
+            attn_output_weights = attn_mask + ops.matmul(att_q, att_k.transpose((0, 2, 1)))
         else:
             attn_output_weights = ops.matmul(att_q, att_k.transpose((0, 2, 1)))
-        attn_output_weights = self.softmax(attn_output_weights
-                                           .astype(ms.float32)).astype(ms.float64)
+        attn_output_weights = self.softmax(attn_output_weights)
         attn_output = ops.matmul(attn_output_weights, att_v)
         attn_output = self.transpose(attn_output, (1, 0, 2))
         attn_output = attn_output.view(len_tgt, batch_size, width)
@@ -94,7 +90,7 @@ class MultiheadAttention(nn.Cell):
 
 
 class VisionTransformer(nn.Cell):
-    '''
+    """
     VisionTransformer of ClipModel
 
     Args:
@@ -104,41 +100,41 @@ class VisionTransformer(nn.Cell):
         layers (int): the number of layers of vision transformer
         heads (int): the number of attention heads
         output_dim (int): the output dimension of vision transformer
-    '''
-    def __init__(self, input_resolution, patch_size, width, layers, heads, output_dim):
+    """
+    def __init__(self, input_resolution, patch_size, width, layers, heads, output_dim, dtype):
         super(VisionTransformer, self).__init__()
         self.conv1 = \
             nn.Conv2d(
                 in_channels=3, out_channels=width, kernel_size=patch_size,
-                stride=patch_size, has_bias=False)
+                stride=patch_size, has_bias=False).to_float(dtype)
 
         scale = width ** -0.5
         self.class_embedding = \
-            Parameter(scale * Tensor(np.random.normal(0, 1, size=(width)).astype(np.float32)))
+            Parameter(scale * Tensor(np.random.normal(0, 1, size=(width))).astype(ms.float32))
         self.positional_embedding = \
             Parameter(scale * Tensor(
                 np.random.normal(0, 1, size=(
-                    (input_resolution // patch_size) ** 2 + 1, width)).astype(np.float32)))
-        self.ln_pre = nn.LayerNorm([width])
-        self.transformer = Transformer(width, layers, heads)
-        self.ln_post = nn.LayerNorm([width])
+                    (input_resolution // patch_size) ** 2 + 1, width))).astype(ms.float32))
+        self.ln_pre = nn.LayerNorm([width]).to_float(dtype)
+        self.transformer = Transformer(width, layers, heads, dtype)
+        self.ln_post = nn.LayerNorm([width]).to_float(dtype)
         self.proj = \
             Parameter(scale * Tensor(np.random.normal(0, 1,
-                                                      size=(width, output_dim)).astype(np.float32)))
+                                                      size=(width, output_dim))).astype(ms.float32))
         self.cat = ops.Concat(1)
         self.tile = ops.Tile()
         self.slice = P.StridedSlice()
 
     def construct(self, input_x):
-        '''construct'''
+        """construct"""
         input_x = self.conv1(input_x)
         input_x = input_x.reshape(input_x.shape[0], input_x.shape[1], -1)
         input_x = input_x.transpose(0, 2, 1)
-        class_embedding = self.tile(self.class_embedding, (input_x.shape[0]*2, 1, 1))
+        class_embedding = self.tile(self.class_embedding, (input_x.shape[0]+1, 1, 1))
         input_x = self.cat([
             self.slice(class_embedding,
                        (0, 0, 0),
-                       (input_x.shape[0], class_embedding.shape[1], class_embedding.shape[2]),
+                       (-1, class_embedding.shape[1], class_embedding.shape[2]),
                        (1, 1, 1)),
             input_x
         ])
@@ -153,7 +149,7 @@ class VisionTransformer(nn.Cell):
 
 
 class QuickGELU(nn.Cell):
-    '''QuickGELU of Clip'''
+    """QuickGELU of Clip"""
     def __init__(self, ratio=1.702):
         super(QuickGELU, self).__init__()
         self.ratio = ratio
@@ -165,7 +161,7 @@ class QuickGELU(nn.Cell):
 
 
 class ResidualAttentionBlock(nn.Cell):
-    '''
+    """
     ResidualAttentionBlock of Clip
 
     Args:
@@ -173,35 +169,37 @@ class ResidualAttentionBlock(nn.Cell):
         n_head (int): the number of attention heads
         layers (int): the number of transformer layers for weight initialization
         attn_mask (tensor): attention mask
-    '''
-    def __init__(self, d_model, n_head, layers, attn_mask=None):
+    """
+    def __init__(self, d_model, n_head, layers, dtype, attn_mask=None):
         super(ResidualAttentionBlock, self).__init__()
 
         proj_std = (d_model ** -0.5) * ((2 * layers) ** -0.5)
         fc_std = (2 * d_model) ** -0.5
-        self.attn = MultiheadAttention(d_model, n_head, layers)
-        self.ln_1 = nn.LayerNorm([d_model], epsilon=1e-5)
+        self.attn = MultiheadAttention(d_model, n_head, layers, dtype)
+        self.ln_1 = nn.LayerNorm([d_model], epsilon=1e-5).to_float(dtype)
         self.mlp = nn.SequentialCell(OrderedDict([
-            ("c_fc", nn.Dense(d_model, d_model * 4, weight_init=Normal(mean=0.0, sigma=fc_std))),
+            ("c_fc", nn.Dense(d_model, d_model * 4,
+                              weight_init=Normal(mean=0.0, sigma=fc_std)).to_float(dtype)),
             ("gelu", QuickGELU()),
-            ("c_proj", nn.Dense(d_model * 4, d_model, weight_init=Normal(mean=0.0, sigma=proj_std)))
+            ("c_proj", nn.Dense(d_model * 4, d_model,
+                                weight_init=Normal(mean=0.0, sigma=proj_std)).to_float(dtype))
         ]))
-        self.ln_2 = nn.LayerNorm([d_model], epsilon=1e-5)
+        self.ln_2 = nn.LayerNorm([d_model], epsilon=1e-5).to_float(dtype)
         self.attn_mask = attn_mask
 
     def construct(self, input_x):
-        '''construct'''
+        """construct"""
         input_x = ops.Add()(input_x, self.attention(self.ln_1(input_x)))
         input_x = ops.Add()(input_x, self.mlp(self.ln_2(input_x)))
         return input_x
 
     def attention(self, input_x):
-        '''attention'''
+        """attention"""
         return self.attn(input_x, self.attn_mask)
 
 
 class Transformer(nn.Cell):
-    '''
+    """
     Text Transformer of Clip
 
     Args:
@@ -209,15 +207,15 @@ class Transformer(nn.Cell):
         layers (int): the number of transformer layers
         heads (int): the number of attention heads
         attn_mask (tensor):  attention mask
-    '''
-    def __init__(self, width, layers, heads, attn_mask=None):
+    """
+    def __init__(self, width, layers, heads, dtype, attn_mask=None):
         super(Transformer, self).__init__()
         self.width = width
         self.layers = layers
         self.resblocks = nn.SequentialCell(
-            *[ResidualAttentionBlock(width, heads, layers, attn_mask) for _ in range(layers)]
+            *[ResidualAttentionBlock(width, heads, layers, dtype, attn_mask) for _ in range(layers)]
         )
 
     def construct(self, input_x):
-        '''construct'''
+        """construct"""
         return self.resblocks(input_x)

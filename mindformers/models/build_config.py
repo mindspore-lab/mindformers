@@ -13,9 +13,9 @@
 # limitations under the License.
 # ============================================================================
 
-'''
+"""
 build model config modules
-'''
+"""
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 
 

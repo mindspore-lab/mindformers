@@ -13,23 +13,23 @@
 # limitations under the License.
 # ============================================================================
 
-'''
+"""
 Test Module for testing functions of MindFormerBook class
 
 How to run this:
 windows:  pytest .\\tests\\ut\\test_mindformer_book.py
 linux:  pytest ./tests/ut/test_mindformer_book.py
-'''
+"""
 from mindformers import MindFormerBook
 from mindformers.tools import logger
 
 
 def test_mindformer_book_show():
-    '''
+    """
     Feature: mindformers book class, show content
     Description: Test to show content in MindFormerBook
     Expectation: success
-    '''
+    """
     MindFormerBook.show_trainer_support_task_list()
     MindFormerBook.show_pipeline_support_task_list()
     MindFormerBook.show_model_support_list()
@@ -38,13 +38,14 @@ def test_mindformer_book_show():
     MindFormerBook.show_project_path()
     MindFormerBook.show_default_checkpoint_download_folder()
     MindFormerBook.show_default_checkpoint_save_folder()
+    MindFormerBook.set_model_config_to_name()
 
 def test_mindformer_book_get():
-    '''
+    """
     Feature: mindformers book class, get content
     Description: Test to get content of MindFormerBook
     Expectation: success
-    '''
+    """
     logger.info(MindFormerBook.get_trainer_support_task_list())
     logger.info(MindFormerBook.get_pipeline_support_task_list())
     logger.info(MindFormerBook.get_model_support_list())
@@ -53,16 +54,19 @@ def test_mindformer_book_get():
     logger.info(MindFormerBook.get_project_path())
     logger.info(MindFormerBook.get_default_checkpoint_download_folder())
     logger.info(MindFormerBook.get_default_checkpoint_save_folder())
+    logger.info(MindFormerBook.get_model_config_to_name())
 
 # default path is settable
 def test_mindformer_book_set():
-    '''
+    """
     Feature: mindformers book class, get content
     Description: Test to set content for MindFormerBook
     Expectation: success or TypeError
-    '''
+    """
     path = MindFormerBook.get_project_path()
     MindFormerBook.set_default_checkpoint_download_folder(path)
     MindFormerBook.set_default_checkpoint_save_folder(path)
     logger.info(MindFormerBook.get_default_checkpoint_download_folder())
     logger.info(MindFormerBook.get_default_checkpoint_save_folder())
+
+    MindFormerBook.set_model_config_to_name("ModelConfig", "ModelName")

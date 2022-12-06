@@ -13,7 +13,7 @@
 # limitations under the License.
 # ============================================================================
 
-'''
+"""
 Test Module for testing functions of AutoConfig and ClipConfig class
 
 How to run this:
@@ -24,7 +24,7 @@ Note:
     model name and config name should have the same prefix
 Example:
     ClipModel and ClipConfig have the same prefix, Clip
-'''
+"""
 import os
 
 from mindformers import MindFormerBook, AutoConfig
@@ -34,11 +34,11 @@ from mindformers.tools import logger
 
 # the first method to load model config, AutoConfig
 def test_auto_config():
-    '''
+    """
     Feature: AutoConfig, from_pretrained
     Description: Test to get config instance by AutoConfig.from_pretrained
     Expectation: TypeError, ValueError
-    '''
+    """
     config_path = os.path.join(MindFormerBook.get_project_path(),
                                'configs', 'clip', 'model_config', "clip_vit_b_32.yaml")
 
@@ -55,11 +55,11 @@ def test_auto_config():
 
 # the second method to load model config, ClipConfig (Model's config class)
 def test_clip_config():
-    '''
+    """
     Feature: ClipConfig
     Description: Test to get config instance by ClipConfig
     Expectation: None
-    '''
+    """
     config_path = os.path.join(MindFormerBook.get_project_path(),
                                'configs', 'clip', 'model_config', "clip_vit_b_32.yaml")
     save_path = os.path.join(MindFormerBook.get_default_checkpoint_save_folder(),
@@ -98,11 +98,11 @@ def test_clip_config():
 
 # three configs are all ClipConfig class and inherited from BaseConfig
 def test_return():
-    '''
+    """
     Feature: AutoConfig and ClipConfig return the same results
     Description: Test to get the same config instance by ClipConfig and AutoConfig
     Expectation: AssertionError
-    '''
+    """
     config_a, config_b = test_auto_config()
     config_c = test_clip_config()
 

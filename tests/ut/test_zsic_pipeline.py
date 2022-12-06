@@ -13,7 +13,7 @@
 # limitations under the License.
 # ============================================================================
 
-'''
+"""
 Test Module for classification function of
 ZeroShotImageClassificationPipeline
 
@@ -44,7 +44,7 @@ Example:
     )
 
     res_dataset = classifier(dataset, batch_size=2, top_k = 3)
-'''
+"""
 import os.path
 
 from mindformers.tools.image_tools import load_image
@@ -53,11 +53,11 @@ from mindformers import MindFormerBook
 
 
 def test_zsic_pipeline():
-    '''
+    """
     Feature: ZeroShotImageClassificationPipeline class
     Description: Test the pipeline functions
     Expectation: NotImplementedError, ValueError
-    '''
+    """
     classifier = ZeroShotImageClassificationPipeline(
         model='clip_vit_b_32',
         candidate_labels=["sunflower", "tree", "dog", "cat", "toy"],

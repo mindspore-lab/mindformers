@@ -13,14 +13,14 @@
 # limitations under the License.
 # ============================================================================
 
-'''
+"""
 Test Module for testing forward, from_pretrained, and
 save_pretrained functions of ClipProcessor and AutoProcessor
 
 How to run this:
 windows:  pytest .\\tests\\ut\\test_processor.py
 linux:  pytest ./tests/ut/test_processor.py
-'''
+"""
 import os
 import numpy as np
 
@@ -34,14 +34,13 @@ from mindformers.models import (
 from mindformers.tools import logger
 
 
-
 def test_clip_processor():
-    '''
+    """
     Feature: ClipProcessor class
     Description: Test the forward, from_pretrained, and
     save_pretrained functions
     Expectation: ValueError
-    '''
+    """
     yaml_path = os.path.join(MindFormerBook.get_project_path(), "configs",
                              "clip", "model_config", "clip_vit_b_32.yaml")
     img_fe = ClipImageFeatureExtractor(image_resolution=224)
@@ -134,12 +133,12 @@ def test_clip_processor():
     assert isinstance(output_c_4['text'], ms.Tensor)
 
 def test_auto_processor():
-    '''
+    """
     Feature: ClipProcessor class
     Description: Test the forward, from_pretrained, and
     save_pretrained functions
     Expectation: ValueError
-    '''
+    """
     yaml_path = os.path.join(MindFormerBook.get_project_path(), "configs",
                              "clip", "model_config", "clip_vit_b_32.yaml")
     save_directory = os.path.join(MindFormerBook.get_project_path(),
@@ -205,11 +204,11 @@ def test_auto_processor():
     assert isinstance(output_b_4['text'], ms.Tensor)
 
 def test_model_and_processor():
-    '''
+    """
     Feature: model work with processor
     Description: Test the forward process of a task
     Expectation: ValueError, NotImplementError
-    '''
+    """
     fake_image_batch = np.random.random((5, 3, 578, 213))
     fake_text_batch = ["a women", "a men"]
 

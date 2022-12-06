@@ -13,9 +13,9 @@
 # limitations under the License.
 # ============================================================================
 
-'''
+"""
 pipeline
-'''
+"""
 from mindformers.mindformer_book import MindFormerBook
 from mindformers.pipeline import build_pipeline
 
@@ -27,7 +27,7 @@ def pipeline(
         feature_extractor=None,
         **kwargs
 ):
-    '''
+    """
     Pipeline for downstream tasks
 
     Args:
@@ -39,7 +39,7 @@ def pipeline(
 
     Return:
         a task pipeline.
-    '''
+    """
     if task not in MindFormerBook.get_pipeline_support_task_list().keys():
         raise KeyError(f"{task} is not supported by pipeline. please select"
                        f" a task from {MindFormerBook.get_pipeline_support_task_list().keys()}.")

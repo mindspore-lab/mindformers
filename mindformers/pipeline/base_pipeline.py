@@ -15,7 +15,7 @@
 # https://github.com/huggingface/transformers/blob/main/src/transformers/pipelines/base.py
 # ============================================================================
 
-'''BasePipeline'''
+"""BasePipeline"""
 from abc import ABC, abstractmethod
 
 from tqdm import tqdm
@@ -26,8 +26,9 @@ from mindspore.dataset import (
 from mindformers.tools import logger
 from mindformers.mindformer_book import print_dict
 
+
 class BasePipeline(ABC):
-    '''Base pipeline'''
+    """Base pipeline"""
     _support_list = {}
 
     def __init__(self, model, tokenizer=None, feature_extractor=None, **kwargs):
@@ -42,7 +43,7 @@ class BasePipeline(ABC):
         self._batch_size = kwargs.pop("batch_size", None)
 
     def __call__(self, inputs, batch_size=None, **kwargs):
-        '''
+        """
         Call method
 
         Args:
@@ -50,7 +51,7 @@ class BasePipeline(ABC):
 
         Return:
             outputs, depends on task
-        '''
+        """
         preprocess_params, forward_params, postprocess_params = self._sanitize_parameters(**kwargs)
         preprocess_params = {**self._preprocess_params, **preprocess_params}
         forward_params = {**self._forward_params, **forward_params}
@@ -94,18 +95,18 @@ class BasePipeline(ABC):
 
     @abstractmethod
     def _sanitize_parameters(self, **pipeline_parameters):
-        '''sanitize parameters for preprocess, forward and postprocess.'''
+        """sanitize parameters for preprocess, forward and postprocess."""
         raise NotImplementedError("_sanitize_parameters not implemented")
 
     def run_single(self, inputs, preprocess_params, forward_params, postprocess_params):
-        '''run a single input'''
+        """run a single input"""
         model_inputs = self.preprocess(inputs, **preprocess_params)
         model_outputs = self.forward(model_inputs, **forward_params)
         outputs = self.postprocess(model_outputs, **postprocess_params)
         return outputs
 
     def run_multi(self, inputs, preprocess_params, forward_params, postprocess_params):
-        '''run multiple input'''
+        """run multiple input"""
         outputs = []
         for item in inputs:
             outputs.extend(self.run_single(item, preprocess_params,
@@ -114,21 +115,21 @@ class BasePipeline(ABC):
 
     @abstractmethod
     def preprocess(self, inputs, **preprocess_params):
-        '''preprocess'''
+        """preprocess"""
         raise NotImplementedError("preprocess not implemented.")
 
     @abstractmethod
     def forward(self, model_inputs, **forward_params):
-        '''forward'''
+        """forward"""
         raise NotImplementedError("forward not implemented.")
 
     @abstractmethod
     def postprocess(self, model_outputs, **postprocess_params):
-        '''postprocess'''
+        """postprocess"""
         raise NotImplementedError("postprocess not implemented.")
 
     @classmethod
     def show_support_list(cls):
-        '''show_support_list'''
+        """show_support_list"""
         logger.info("support list of %s is:", cls.__name__)
         print_dict(cls._support_list)
