@@ -38,7 +38,7 @@ def test_mindformer_book_show():
     MindFormerBook.show_project_path()
     MindFormerBook.show_default_checkpoint_download_folder()
     MindFormerBook.show_default_checkpoint_save_folder()
-    MindFormerBook.set_model_config_to_name()
+    MindFormerBook.show_model_config_to_name()
 
 def test_mindformer_book_get():
     """
