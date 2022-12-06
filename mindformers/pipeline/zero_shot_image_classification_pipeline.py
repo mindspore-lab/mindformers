@@ -108,7 +108,8 @@ class ZeroShotImageClassificationPipeline(BasePipeline):
         image_processed = self.feature_extractor(image)
         sentences = [hypothesis_template.format(candidate_label)
                      for candidate_label in candidate_labels]
-        input_ids = self.tokenizer(sentences)
+        input_ids = self.tokenizer(sentences, max_length=77, padding="max_length",
+                                   return_tensors="ms")["input_ids"]
         return {"image_processed": image_processed,
                 "input_ids": input_ids, "candidate_labels": candidate_labels}
 

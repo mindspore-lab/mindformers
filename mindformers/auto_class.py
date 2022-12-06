@@ -440,7 +440,6 @@ class AutoTokenizer:
             raise ValueError(f'{yaml_name_or_path} does not exist,'
                              f' and it is not supported by {cls.__name__}. '
                              f'please select from {cls._support_list}.')
-        load_yaml_path = yaml_name_or_path
         # try to get the tokenizer type from the disk
         tokenizer_config_path = os.path.join(yaml_name_or_path, 'tokenizer_config.json')
         if not os.path.exists(tokenizer_config_path):
@@ -457,9 +456,6 @@ class AutoTokenizer:
         config_kwargs.pop('tokenizer_class')
         instanced_class = dynamic_class.from_pretrained(yaml_name_or_path)
 
-
-        logger.info("config in %s is used for feature extractor"
-                    " building.", load_yaml_path)
         logger.info("Tokenizer built successfully!")
         return instanced_class
 
