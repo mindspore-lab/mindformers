@@ -133,7 +133,7 @@ class MindFormerBook:
     @classmethod
     def show_model_config_to_name(cls):
         """show_model_config_to_name function"""
-        print_path_or_list(cls._MODEL_CONFIG_TO_NAME)
+        print_dict(cls._MODEL_CONFIG_TO_NAME)
 
     @classmethod
     def get_model_config_to_name(cls):
