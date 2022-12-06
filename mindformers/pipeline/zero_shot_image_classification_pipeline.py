@@ -21,7 +21,7 @@ from ..mindformer_book import MindFormerBook
 from ..tools.image_tools import load_image
 from .base_pipeline import BasePipeline
 from ..tools.register import MindFormerRegister, MindFormerModuleType
-from ..models import BaseModel, BaseFeatureExtractor, BaseTokenizer
+from ..models import BaseModel, BaseFeatureExtractor, PretrainedTokenizer
 
 
 @MindFormerRegister.register(MindFormerModuleType.PIPELINE)
@@ -31,7 +31,7 @@ class ZeroShotImageClassificationPipeline(BasePipeline):
 
     Args:
         model: a pretrained model (str or BaseModel) in _supproted_list.
-        tokenizer : a tokenizer (None or BaseTokenizer) for text processing
+        tokenizer : a tokenizer (None or PretrainedTokenizer) for text processing
         feature_extractor : a feature_extractor (None or BaseFeatureExtractor) for image processing
     """
     _support_list = MindFormerBook.get_model_support_list()['clip']
@@ -46,9 +46,9 @@ class ZeroShotImageClassificationPipeline(BasePipeline):
                                     f" BaseFeatureExtractor, but got {type(feature_extractor)}.")
                 if tokenizer is None:
                     tokenizer = AutoProcessor.from_pretrained(model).tokenizer
-                if not isinstance(tokenizer, BaseTokenizer):
+                if not isinstance(tokenizer, PretrainedTokenizer):
                     raise TypeError(f"tokenizer should be inherited from"
-                                    f" BaseTokenizer, but got {type(tokenizer)}.")
+                                    f" PretrainedTokenizer, but got {type(tokenizer)}.")
                 model = AutoModel.from_pretrained(model)
             else:
                 raise ValueError(f"{model} is not supported by ZeroShotImageClassificationPipeline,"

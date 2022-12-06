@@ -108,6 +108,8 @@ class MindFormerBook:
           ])
     ])
 
+    _TOKENIZER_SUPPORT_LIST = OrderedDict()
+
     @classmethod
     def show_trainer_support_task_list(cls):
         """show_trainer_support_task_list function"""
@@ -215,6 +217,14 @@ class MindFormerBook:
     def get_model_support_list(cls):
         """get_model_support_list function"""
         return cls._MODEL_SUPPORT_LIST
+    @classmethod
+    def get_tokenizer_support_list(cls):
+        """get_tokenizer_support_list function"""
+        return cls._TOKENIZER_SUPPORT_LIST
+    @classmethod
+    def show_tokenizer_support_list(cls):
+        """show_tokenizer_support_list function"""
+        print_dict(cls._TOKENIZER_SUPPORT_LIST)
 
     @classmethod
     def get_model_name_support_list(cls):

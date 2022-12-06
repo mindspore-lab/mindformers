@@ -28,7 +28,7 @@ import mindspore as ms
 from ...mindformer_book import MindFormerBook
 from ...tools.register import MindFormerRegister, MindFormerModuleType
 from ...tools.download_tools import downlond_with_progress_bar
-from ..base_tokenizer import BaseTokenizer
+from ..base_tokenizer import PretrainedTokenizer
 
 @lru_cache()
 def default_bpe():
@@ -160,8 +160,8 @@ class TempTokenizer:
         return output_ids
 
 @MindFormerRegister.register(MindFormerModuleType.TOKENIZER)
-class ClipTokenizer(BaseTokenizer):
-    """clip tokenizer"""
+class ClipTokenizer(PretrainedTokenizer):
+    '''clip tokenizer'''
     def __init__(self):
         super(ClipTokenizer, self).__init__()
         path = default_bpe()
@@ -188,3 +188,24 @@ class ClipTokenizer(BaseTokenizer):
             output[i, :len(tokens)] = ms.Tensor(tokens)
 
         return ms.Tensor(output)
+
+    def _tokenize(self, text, **kwargs):
+        if isinstance(text, str):
+            text = [text]
+        end_flag = self.tool.encoder["<|endoftext|>"]
+        start_flag = self.tool.encoder["<|startoftext|>"]
+        all_flag = [[start_flag] + self.tool.encode(text) + [end_flag] for text in text]
+        return all_flag
+
+    def save_vocabulary(self, save_directory, filename_prefix):
+        output_file_path = os.path.join(save_directory, filename_prefix)
+        with open(output_file_path, 'w') as fp:
+            for k in self.tool.encoder.keys():
+                fp.write(k + '\n')
+        return output_file_path
+
+    def tokenize(self, text):
+        """Tokenizer the input_text"""
+        if not isinstance(text, str):
+            raise ValueError("Text should be type str, but found type", type(text))
+        return self._tokenize(text)
