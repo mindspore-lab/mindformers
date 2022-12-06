@@ -1,0 +1,846 @@
+Training Arguments are as follows:
+{
+    "is_training": "True",
+    "auto_model": "",
+    "micro_batch_size": "4",
+    "global_batch_size": "16",
+    "expand_ratio": "4",
+    "dropout_rate": "0.1",
+    "seed": "None",
+    "device_target": "GPU",
+    "save_graphs": "False",
+    "mode": "0",
+    "graph_kernel_flags": "--disable_expand_ops=Softmax,Dropout --enable_parallel_fusion=true --reduce_fuse_depth=8 --enable_auto_tensor_inplace=true",
+    "enable_graph_kernel": "False",
+    "optimizer": "adam",
+    "acc_step": "1",
+    "full_batch": "False",
+    "train_data_path": "/root/port/parallel_sig_intern-wangjincheng/inputs",
+    "epoch_size": "1",
+    "start_lr": "0.0001",
+    "end_lr": "1e-05",
+    "warmup_step": "0",
+    "opt_offload": "False",
+    "sink_size": "10",
+    "init_loss_scale_value": "4294967296",
+    "scale_factor": "2",
+    "scale_window": "1000",
+    "eval": "False",
+    "rank_id": "0",
+    "device_num": "1",
+    "get_eval_dataset": "False",
+    "eval_batch_size": "1",
+    "eval_data_path": "",
+    "dataset_format": "mindrecord",
+    "load_checkpoint_path": "",
+    "save_checkpoint": "True",
+    "save_checkpoint_path": "",
+    "checkpoint_prefix": "gpt",
+    "compute_dtype": "Float16",
+    "layernorm_dtype": "Float32",
+    "softmax_dtype": "Float16",
+    "dataset_drop_remainder": "True",
+    "dataset_do_shuffle": "True",
+    "dataset_schema_file_path": "",
+    "dataset_device_num": "1",
+    "dataset_rank": "0",
+    "dataset_schema_dir": "",
+    "dataset_bucket_list": "None",
+    "micro_batch_interleaved_num": "1",
+    "flatten_weights": "False",
+    "fused_kernel": "False",
+    "expert_num": "1",
+    "capacity_factor": "1.05",
+    "aux_loss_factor": "0.05",
+    "num_experts_chosen": "1",
+    "recompute": "False",
+    "parallel_optimizer_comm_recompute": "False",
+    "mp_comm_recompute": "False",
+    "recompute_slice_activation": "False",
+    "parallel_mode": "stand_alone",
+    "data_parallel": "1",
+    "model_parallel": "1",
+    "pipeline_stage": "1",
+    "micro_batch_num": "1",
+    "expert_parallel": "1",
+    "vocab_emb_dp": "False",
+    "optimizer_shard": "False",
+    "gradient_aggregation_group": "6",
+    "stages": "[3,6,12]",
+    "stage_epochs": "[1,1,3]",
+    "seq_length": "511",
+    "vocab_size": "50257",
+    "hidden_size": "768",
+    "num_heads": "12"
+}
+2022-12-03 22:04:24,496:INFO:trainer.py:set_auto_parallel_context_env:354:Enabling the parallel mode: stand_alone for stand alone training.
+2022-12-03 22:04:24,497:INFO:trainer.py:set_auto_parallel_context_env:354:Enabling the parallel mode: stand_alone for stand alone training.
+2022-12-03 22:04:24,497:INFO:trainer.py:stack_train:759:Start to build model
+Model config are as follows:
+{
+    "batch_size": "16",
+    "seq_length": "511",
+    "vocab_size": "50257",
+    "hidden_size": "768",
+    "num_layers": "24",
+    "num_heads": "12",
+    "expand_ratio": "4",
+    "post_layernorm_residual": "False",
+    "dropout_rate": "0.1",
+    "compute_dtype": "Float16",
+    "layernorm_dtype": "Float32",
+    "softmax_dtype": "Float16",
+    "parallel_config": "[ParallelConfig]\n_recompute:[ParallelConfig]\n_recompute:False\n_parallel_optimizer_comm_recompute:False\n_mp_comm_recompute:True\n_recompute_slice_activation:False\n\n_optimizer_shard:False\n_gradient_aggregation_group:4\n_embed_dp_mp_config:[ParallelConfig]\n_dp_mp_config:[ParallelConfig]\n_data_parallel:1\n_model_parallel:1\n\n_vocab_emb_dp:True\n\n_pp_config:[ParallelConfig]\n_pipeline_stage:1\n_micro_batch_num:1\n\n_moe_config:[ParallelConfig]\n_dpmp:[ParallelConfig]\n_data_parallel:1\n_model_parallel:1\n\n_expert_parallel:1\n\n"
+}
+2022-12-03 20:44:16,653:INFO:trainer.py:stack_train:765:Build model finished
+2022-12-03 20:44:16,653:INFO:trainer.py:stack_train:770:Start to load the ckpt from /root/last/transformer-master/ckpt_0_layers_num_3/gpt-26_10.ckpt
+2022-12-03 20:44:19,287:INFO:utils.py:print_model_size:93:The statistics of the net:
+2022-12-03 20:44:19,287:INFO:utils.py:print_model_size:94:The number of parameters                :8.2E+07,      Model size:1.6E+02 MB
+2022-12-03 20:44:19,287:INFO:utils.py:print_model_size:96:The number of trainable Parameters      :8.2E+07,      Model size:1.6E+02 MB
+2022-12-03 20:44:19,287:INFO:trainer.py:stack_train:780:Start to build the dataset.
+['/root/port/parallel_sig_intern-wangjincheng/inputs/cola_train.mindrecord']
+2022-12-03 20:44:19,308:INFO:trainer.py:stack_train:784:Build dataset finished. The total dataset size is 267.
+2022-12-03 20:44:19,308:INFO:trainer.py:stack_train:802:Enable the checkpoint saving each 267 steps. Integrated Save is False
+2022-12-03 20:44:19,565:INFO:trainer.py:model_train:656:Start to compile the net and run.
+epoch: 0, current epoch percent: 0.037, step: 10, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.85208678e-01]), Tensor(shape=[], dtype=Bool, value= True), Tensor(shape=[], dtype=Float32, value= 4.1943e+06))
+Train epoch time: 23575.337 ms, per step time: 2357.534 ms
+epoch: 0, current epoch percent: 0.075, step: 20, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 2.03702718e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 131072))
+Train epoch time: 13638.283 ms, per step time: 1363.828 ms
+epoch: 0, current epoch percent: 0.112, step: 30, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.48665309e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 131072))
+Train epoch time: 13625.185 ms, per step time: 1362.518 ms
+epoch: 0, current epoch percent: 0.150, step: 40, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.47902727e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 131072))
+Train epoch time: 13601.250 ms, per step time: 1360.125 ms
+epoch: 0, current epoch percent: 0.187, step: 50, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.23275481e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 131072))
+Train epoch time: 13570.341 ms, per step time: 1357.034 ms
+epoch: 0, current epoch percent: 0.225, step: 60, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.31807894e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 131072))
+Train epoch time: 13587.191 ms, per step time: 1358.719 ms
+epoch: 0, current epoch percent: 0.262, step: 70, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.27996489e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 131072))
+Train epoch time: 13614.182 ms, per step time: 1361.418 ms
+epoch: 0, current epoch percent: 0.300, step: 80, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.29627556e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 131072))
+Train epoch time: 13613.471 ms, per step time: 1361.347 ms
+epoch: 0, current epoch percent: 0.337, step: 90, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.21974073e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 131072))
+Train epoch time: 13617.592 ms, per step time: 1361.759 ms
+epoch: 0, current epoch percent: 0.375, step: 100, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.29891947e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 131072))
+Train epoch time: 13621.310 ms, per step time: 1362.131 ms
+epoch: 0, current epoch percent: 0.412, step: 110, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.11050777e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 131072))
+Train epoch time: 13613.010 ms, per step time: 1361.301 ms
+epoch: 0, current epoch percent: 0.449, step: 120, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.10525705e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 131072))
+Train epoch time: 13608.695 ms, per step time: 1360.869 ms
+epoch: 0, current epoch percent: 0.487, step: 130, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.15166701e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 131072))
+Train epoch time: 13637.072 ms, per step time: 1363.707 ms
+epoch: 0, current epoch percent: 0.524, step: 140, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.19938917e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 131072))
+Train epoch time: 13610.775 ms, per step time: 1361.078 ms
+epoch: 0, current epoch percent: 0.562, step: 150, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.21512011e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 131072))
+Train epoch time: 13607.554 ms, per step time: 1360.755 ms
+epoch: 0, current epoch percent: 0.599, step: 160, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.16701610e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 131072))
+Train epoch time: 13612.850 ms, per step time: 1361.285 ms
+epoch: 0, current epoch percent: 0.637, step: 170, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.03686765e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 131072))
+Train epoch time: 13608.726 ms, per step time: 1360.873 ms
+epoch: 0, current epoch percent: 0.674, step: 180, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.18952326e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 131072))
+Train epoch time: 13556.886 ms, per step time: 1355.689 ms
+epoch: 0, current epoch percent: 0.712, step: 190, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.13668680e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 131072))
+Train epoch time: 13597.853 ms, per step time: 1359.785 ms
+epoch: 0, current epoch percent: 0.749, step: 200, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.07142217e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 131072))
+Train epoch time: 13552.259 ms, per step time: 1355.226 ms
+epoch: 0, current epoch percent: 0.787, step: 210, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.00572549e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 131072))
+Train epoch time: 13597.220 ms, per step time: 1359.722 ms
+
+^C^C^Cexamples/pretrain/pretrain_stack_gpt.sh: line 38:  4992 Terminated              python -m mindtransformer.models.gpt.gpt_stack_trainer --stages=[3,6,12] --stage_epochs=[1,1,3] --train_data_path=/root/port/parallel_sig_intern-wangjincheng/inputs --optimizer="adam" --seq_length=511 --parallel_mode="stand_alone" --checkpoint_prefix="gpt" --global_batch_size=32 --vocab_size=50257 --hidden_size=768 --num_heads=12 --full_batch=False --device_target="GPU"
+(task) root@dl-1726045070-pod-jupyter-z9kwv:~/last/transformer-master# ^C
+(task) root@dl-1726045070-pod-jupyter-z9kwv:~/last/transformer-master# ^C
+(task) root@dl-1726045070-pod-jupyter-z9kwv:~/last/transformer-master# ^C
+(task) root@dl-1726045070-pod-jupyter-z9kwv:~/last/transformer-master# bash examples/pretrain/pretrain_stack_gpt.sh 
+==============================================================================================================
+Please run the script as: 
+bash examples/pretrain/pretrain_gpt.sh  DEVICE_ID EPOCH_SIZE DATA_DIR
+for example: bash examples/pretrain/pretrain_gpt.sh 0 40 /path/zh-wiki/
+==============================================================================================================
+Training Arguments are as follows:
+{
+    "is_training": "True",
+    "auto_model": "",
+    "micro_batch_size": "4",
+    "global_batch_size": "16",
+    "expand_ratio": "4",
+    "dropout_rate": "0.1",
+    "seed": "None",
+    "device_target": "GPU",
+    "save_graphs": "False",
+    "mode": "0",
+    "graph_kernel_flags": "--disable_expand_ops=Softmax,Dropout --enable_parallel_fusion=true --reduce_fuse_depth=8 --enable_auto_tensor_inplace=true",
+    "enable_graph_kernel": "False",
+    "optimizer": "adam",
+    "acc_step": "1",
+    "full_batch": "False",
+    "train_data_path": "/root/port/parallel_sig_intern-wangjincheng/inputs",
+    "epoch_size": "1",
+    "start_lr": "0.0001",
+    "end_lr": "1e-05",
+    "warmup_step": "0",
+    "opt_offload": "False",
+    "sink_size": "10",
+    "init_loss_scale_value": "4294967296",
+    "scale_factor": "2",
+    "scale_window": "1000",
+    "eval": "False",
+    "rank_id": "0",
+    "device_num": "1",
+    "get_eval_dataset": "False",
+    "eval_batch_size": "1",
+    "eval_data_path": "",
+    "dataset_format": "mindrecord",
+    "load_checkpoint_path": "",
+    "save_checkpoint": "True",
+    "save_checkpoint_path": "",
+    "checkpoint_prefix": "gpt",
+    "compute_dtype": "Float16",
+    "layernorm_dtype": "Float32",
+    "softmax_dtype": "Float16",
+    "dataset_drop_remainder": "True",
+    "dataset_do_shuffle": "True",
+    "dataset_schema_file_path": "",
+    "dataset_device_num": "1",
+    "dataset_rank": "0",
+    "dataset_schema_dir": "",
+    "dataset_bucket_list": "None",
+    "micro_batch_interleaved_num": "1",
+    "flatten_weights": "False",
+    "fused_kernel": "False",
+    "expert_num": "1",
+    "capacity_factor": "1.05",
+    "aux_loss_factor": "0.05",
+    "num_experts_chosen": "1",
+    "recompute": "False",
+    "parallel_optimizer_comm_recompute": "False",
+    "mp_comm_recompute": "False",
+    "recompute_slice_activation": "False",
+    "parallel_mode": "stand_alone",
+    "data_parallel": "1",
+    "model_parallel": "1",
+    "pipeline_stage": "1",
+    "micro_batch_num": "1",
+    "expert_parallel": "1",
+    "vocab_emb_dp": "False",
+    "optimizer_shard": "False",
+    "gradient_aggregation_group": "6",
+    "stages": "[3,6,12]",
+    "stage_epochs": "[1,1,3]",
+    "seq_length": "511",
+    "vocab_size": "50257",
+    "hidden_size": "768",
+    "num_heads": "12"
+}
+2022-12-03 20:49:55,455:INFO:trainer.py:set_auto_parallel_context_env:354:Enabling the parallel mode: stand_alone for stand alone training.
+2022-12-03 20:49:55,455:INFO:trainer.py:set_auto_parallel_context_env:354:Enabling the parallel mode: stand_alone for stand alone training.
+2022-12-03 20:49:55,455:INFO:trainer.py:stack_train:759:Start to build model
+Model config are as follows:
+{
+    "batch_size": "16",
+    "seq_length": "511",
+    "vocab_size": "50257",
+    "hidden_size": "768",
+    "num_layers": "24",
+    "num_heads": "12",
+    "expand_ratio": "4",
+    "post_layernorm_residual": "False",
+    "dropout_rate": "0.1",
+    "compute_dtype": "Float16",
+    "layernorm_dtype": "Float32",
+    "softmax_dtype": "Float16",
+    "parallel_config": "[ParallelConfig]\n_recompute:[ParallelConfig]\n_recompute:False\n_parallel_optimizer_comm_recompute:False\n_mp_comm_recompute:True\n_recompute_slice_activation:False\n\n_optimizer_shard:False\n_gradient_aggregation_group:4\n_embed_dp_mp_config:[ParallelConfig]\n_dp_mp_config:[ParallelConfig]\n_data_parallel:1\n_model_parallel:1\n\n_vocab_emb_dp:True\n\n_pp_config:[ParallelConfig]\n_pipeline_stage:1\n_micro_batch_num:1\n\n_moe_config:[ParallelConfig]\n_dpmp:[ParallelConfig]\n_data_parallel:1\n_model_parallel:1\n\n_expert_parallel:1\n\n"
+}
+2022-12-03 20:49:59,397:INFO:trainer.py:stack_train:765:Build model finished
+2022-12-03 20:49:59,398:INFO:utils.py:print_model_size:93:The statistics of the net:
+2022-12-03 20:49:59,398:INFO:utils.py:print_model_size:94:The number of parameters                :6.0E+07,      Model size:1.1E+02 MB
+2022-12-03 20:49:59,398:INFO:utils.py:print_model_size:96:The number of trainable Parameters      :6.0E+07,      Model size:1.1E+02 MB
+2022-12-03 20:49:59,398:INFO:trainer.py:stack_train:780:Start to build the dataset.
+['/root/port/parallel_sig_intern-wangjincheng/inputs/cola_train.mindrecord']
+2022-12-03 20:49:59,424:INFO:trainer.py:stack_train:784:Build dataset finished. The total dataset size is 534.
+2022-12-03 20:49:59,424:INFO:trainer.py:stack_train:802:Enable the checkpoint saving each 534 steps. Integrated Save is False
+2022-12-03 20:49:59,622:INFO:trainer.py:model_train:656:Start to compile the net and run.
+epoch: 0, current epoch percent: 0.019, step: 10, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.03571587e+01]), Tensor(shape=[], dtype=Bool, value= True), Tensor(shape=[], dtype=Float32, value= 4.1943e+06))
+Train epoch time: 15168.788 ms, per step time: 1516.879 ms
+epoch: 0, current epoch percent: 0.037, step: 20, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.03528929e+01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 16384))
+Train epoch time: 5128.411 ms, per step time: 512.841 ms
+epoch: 0, current epoch percent: 0.056, step: 30, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 5.85505867e+00]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 16384))
+Train epoch time: 5181.474 ms, per step time: 518.147 ms
+epoch: 0, current epoch percent: 0.075, step: 40, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 4.37433052e+00]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 16384))
+Train epoch time: 5184.529 ms, per step time: 518.453 ms
+epoch: 0, current epoch percent: 0.094, step: 50, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 3.75968480e+00]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 16384))
+Train epoch time: 5179.910 ms, per step time: 517.991 ms
+epoch: 0, current epoch percent: 0.112, step: 60, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 2.91068077e+00]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 16384))
+Train epoch time: 5194.647 ms, per step time: 519.465 ms
+epoch: 0, current epoch percent: 0.131, step: 70, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.91839945e+00]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 16384))
+Train epoch time: 5212.632 ms, per step time: 521.263 ms
+epoch: 0, current epoch percent: 0.150, step: 80, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.09106922e+00]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 16384))
+Train epoch time: 5195.504 ms, per step time: 519.550 ms
+epoch: 0, current epoch percent: 0.169, step: 90, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 6.24615967e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 16384))
+Train epoch time: 5167.233 ms, per step time: 516.723 ms
+epoch: 0, current epoch percent: 0.187, step: 100, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 4.04094368e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 16384))
+Train epoch time: 5153.321 ms, per step time: 515.332 ms
+epoch: 0, current epoch percent: 0.206, step: 110, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 3.36153626e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 16384))
+Train epoch time: 5153.622 ms, per step time: 515.362 ms
+epoch: 0, current epoch percent: 0.225, step: 120, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 2.97540784e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 16384))
+Train epoch time: 5222.495 ms, per step time: 522.249 ms
+epoch: 0, current epoch percent: 0.243, step: 130, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 2.34192401e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 16384))
+Train epoch time: 5133.987 ms, per step time: 513.399 ms
+epoch: 0, current epoch percent: 0.262, step: 140, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 2.29458198e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 16384))
+Train epoch time: 5192.423 ms, per step time: 519.242 ms
+epoch: 0, current epoch percent: 0.281, step: 150, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 2.18237951e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 16384))
+Train epoch time: 5187.976 ms, per step time: 518.798 ms
+epoch: 0, current epoch percent: 0.300, step: 160, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.90854549e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 16384))
+Train epoch time: 5154.275 ms, per step time: 515.428 ms
+epoch: 0, current epoch percent: 0.318, step: 170, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.68965667e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 16384))
+Train epoch time: 5167.172 ms, per step time: 516.717 ms
+epoch: 0, current epoch percent: 0.337, step: 180, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.81102470e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 16384))
+Train epoch time: 5169.768 ms, per step time: 516.977 ms
+epoch: 0, current epoch percent: 0.356, step: 190, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.79866970e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 16384))
+Train epoch time: 5162.801 ms, per step time: 516.280 ms
+epoch: 0, current epoch percent: 0.375, step: 200, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.58632427e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 16384))
+Train epoch time: 5183.858 ms, per step time: 518.386 ms
+epoch: 0, current epoch percent: 0.393, step: 210, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.25762090e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 16384))
+Train epoch time: 5179.092 ms, per step time: 517.909 ms
+epoch: 0, current epoch percent: 0.412, step: 220, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.28937259e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 16384))
+Train epoch time: 5161.482 ms, per step time: 516.148 ms
+epoch: 0, current epoch percent: 0.431, step: 230, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.44168720e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 16384))
+Train epoch time: 5196.843 ms, per step time: 519.684 ms
+epoch: 0, current epoch percent: 0.449, step: 240, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.23718746e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 16384))
+Train epoch time: 5184.980 ms, per step time: 518.498 ms
+epoch: 0, current epoch percent: 0.468, step: 250, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.72456935e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 16384))
+Train epoch time: 5158.309 ms, per step time: 515.831 ms
+epoch: 0, current epoch percent: 0.487, step: 260, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.28560156e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 16384))
+Train epoch time: 5181.865 ms, per step time: 518.186 ms
+epoch: 0, current epoch percent: 0.506, step: 270, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.19287543e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 16384))
+Train epoch time: 5212.098 ms, per step time: 521.210 ms
+epoch: 0, current epoch percent: 0.524, step: 280, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.21161968e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 16384))
+Train epoch time: 5207.019 ms, per step time: 520.702 ms
+epoch: 0, current epoch percent: 0.543, step: 290, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.54046252e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 16384))
+Train epoch time: 5194.268 ms, per step time: 519.427 ms
+epoch: 0, current epoch percent: 0.562, step: 300, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.37381941e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 16384))
+Train epoch time: 5164.716 ms, per step time: 516.472 ms
+epoch: 0, current epoch percent: 0.581, step: 310, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.16729923e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 16384))
+Train epoch time: 5166.997 ms, per step time: 516.700 ms
+epoch: 0, current epoch percent: 0.599, step: 320, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.29110664e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 16384))
+Train epoch time: 5171.999 ms, per step time: 517.200 ms
+epoch: 0, current epoch percent: 0.618, step: 330, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.22924626e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 16384))
+Train epoch time: 5171.182 ms, per step time: 517.118 ms
+epoch: 0, current epoch percent: 0.637, step: 340, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.08721159e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 16384))
+Train epoch time: 5165.610 ms, per step time: 516.561 ms
+epoch: 0, current epoch percent: 0.655, step: 350, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.17426507e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 16384))
+Train epoch time: 5179.615 ms, per step time: 517.962 ms
+epoch: 0, current epoch percent: 0.674, step: 360, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.10683553e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 16384))
+Train epoch time: 5178.865 ms, per step time: 517.887 ms
+epoch: 0, current epoch percent: 0.693, step: 370, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.44039974e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 16384))
+Train epoch time: 5184.952 ms, per step time: 518.495 ms
+epoch: 0, current epoch percent: 0.712, step: 380, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.13837808e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 16384))
+Train epoch time: 5187.023 ms, per step time: 518.702 ms
+epoch: 0, current epoch percent: 0.730, step: 390, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.08847633e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 16384))
+Train epoch time: 5170.012 ms, per step time: 517.001 ms
+epoch: 0, current epoch percent: 0.749, step: 400, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.13719575e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 16384))
+Train epoch time: 5153.728 ms, per step time: 515.373 ms
+epoch: 0, current epoch percent: 0.768, step: 410, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.34954765e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 16384))
+Train epoch time: 5163.174 ms, per step time: 516.317 ms
+epoch: 0, current epoch percent: 0.787, step: 420, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.08235881e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 16384))
+Train epoch time: 5162.122 ms, per step time: 516.212 ms
+epoch: 0, current epoch percent: 0.805, step: 430, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 9.00614634e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 16384))
+Train epoch time: 5171.740 ms, per step time: 517.174 ms
+epoch: 0, current epoch percent: 0.824, step: 440, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.21085517e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 16384))
+Train epoch time: 5175.607 ms, per step time: 517.561 ms
+epoch: 0, current epoch percent: 0.843, step: 450, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.15872793e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 16384))
+Train epoch time: 5159.312 ms, per step time: 515.931 ms
+epoch: 0, current epoch percent: 0.861, step: 460, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.31616950e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 16384))
+Train epoch time: 5155.814 ms, per step time: 515.581 ms
+epoch: 0, current epoch percent: 0.880, step: 470, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.06478669e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 16384))
+Train epoch time: 5171.029 ms, per step time: 517.103 ms
+epoch: 0, current epoch percent: 0.899, step: 480, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.22650266e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 16384))
+Train epoch time: 5161.572 ms, per step time: 516.157 ms
+epoch: 0, current epoch percent: 0.918, step: 490, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.06749974e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 16384))
+Train epoch time: 5169.197 ms, per step time: 516.920 ms
+epoch: 0, current epoch percent: 0.936, step: 500, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.21261209e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 16384))
+Train epoch time: 5165.629 ms, per step time: 516.563 ms
+epoch: 0, current epoch percent: 0.955, step: 510, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.30623162e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 16384))
+Train epoch time: 5179.946 ms, per step time: 517.995 ms
+epoch: 0, current epoch percent: 0.974, step: 520, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.19291328e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 16384))
+Train epoch time: 5149.013 ms, per step time: 514.901 ms
+epoch: 0, current epoch percent: 0.993, step: 530, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 8.22033063e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 16384))
+Train epoch time: 5162.451 ms, per step time: 516.245 ms
+2022-12-03 20:54:48,551:INFO:trainer.py:stack_train:759:Start to build model
+Model config are as follows:
+{
+    "batch_size": "16",
+    "seq_length": "511",
+    "vocab_size": "50257",
+    "hidden_size": "768",
+    "num_layers": "24",
+    "num_heads": "12",
+    "expand_ratio": "4",
+    "post_layernorm_residual": "False",
+    "dropout_rate": "0.1",
+    "compute_dtype": "Float16",
+    "layernorm_dtype": "Float32",
+    "softmax_dtype": "Float16",
+    "parallel_config": "[ParallelConfig]\n_recompute:[ParallelConfig]\n_recompute:False\n_parallel_optimizer_comm_recompute:False\n_mp_comm_recompute:True\n_recompute_slice_activation:False\n\n_optimizer_shard:False\n_gradient_aggregation_group:4\n_embed_dp_mp_config:[ParallelConfig]\n_dp_mp_config:[ParallelConfig]\n_data_parallel:1\n_model_parallel:1\n\n_vocab_emb_dp:True\n\n_pp_config:[ParallelConfig]\n_pipeline_stage:1\n_micro_batch_num:1\n\n_moe_config:[ParallelConfig]\n_dpmp:[ParallelConfig]\n_data_parallel:1\n_model_parallel:1\n\n_expert_parallel:1\n\n"
+}
+2022-12-03 20:54:53,818:INFO:trainer.py:stack_train:765:Build model finished
+2022-12-03 20:54:53,818:INFO:trainer.py:stack_train:770:Start to load the ckpt from /root/last/transformer-master/ckpt_0_layers_num_3/gpt-53_10.ckpt
+2022-12-03 20:54:56,420:INFO:utils.py:print_model_size:93:The statistics of the net:
+2022-12-03 20:54:56,420:INFO:utils.py:print_model_size:94:The number of parameters                :8.2E+07,      Model size:1.6E+02 MB
+2022-12-03 20:54:56,420:INFO:utils.py:print_model_size:96:The number of trainable Parameters      :8.2E+07,      Model size:1.6E+02 MB
+2022-12-03 20:54:56,420:INFO:trainer.py:stack_train:780:Start to build the dataset.
+['/root/port/parallel_sig_intern-wangjincheng/inputs/cola_train.mindrecord']
+2022-12-03 20:54:56,442:INFO:trainer.py:stack_train:784:Build dataset finished. The total dataset size is 534.
+2022-12-03 20:54:56,442:INFO:trainer.py:stack_train:802:Enable the checkpoint saving each 534 steps. Integrated Save is False
+2022-12-03 20:54:56,698:INFO:trainer.py:model_train:656:Start to compile the net and run.
+epoch: 0, current epoch percent: 0.019, step: 10, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.14874572e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 1.67772e+07))
+Train epoch time: 16067.168 ms, per step time: 1606.717 ms
+epoch: 0, current epoch percent: 0.037, step: 20, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 9.77119878e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 1.67772e+07))
+Train epoch time: 6555.443 ms, per step time: 655.544 ms
+epoch: 0, current epoch percent: 0.056, step: 30, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.01273261e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 6559.115 ms, per step time: 655.911 ms
+epoch: 0, current epoch percent: 0.075, step: 40, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.18471704e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 6561.231 ms, per step time: 656.123 ms
+epoch: 0, current epoch percent: 0.094, step: 50, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.47940621e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 6565.493 ms, per step time: 656.549 ms
+epoch: 0, current epoch percent: 0.112, step: 60, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.13799706e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 6572.151 ms, per step time: 657.215 ms
+epoch: 0, current epoch percent: 0.131, step: 70, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 9.43221301e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 6560.195 ms, per step time: 656.020 ms
+epoch: 0, current epoch percent: 0.150, step: 80, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.06579825e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 6572.825 ms, per step time: 657.282 ms
+epoch: 0, current epoch percent: 0.169, step: 90, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 9.76397470e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 6570.925 ms, per step time: 657.092 ms
+epoch: 0, current epoch percent: 0.187, step: 100, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 9.32637006e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 6565.605 ms, per step time: 656.560 ms
+epoch: 0, current epoch percent: 0.206, step: 110, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.07240684e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 6558.701 ms, per step time: 655.870 ms
+epoch: 0, current epoch percent: 0.225, step: 120, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.23633161e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 6576.949 ms, per step time: 657.695 ms
+epoch: 0, current epoch percent: 0.243, step: 130, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 8.94283280e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 6560.578 ms, per step time: 656.058 ms
+epoch: 0, current epoch percent: 0.262, step: 140, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.07295133e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 6558.433 ms, per step time: 655.843 ms
+epoch: 0, current epoch percent: 0.281, step: 150, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.14365004e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 6551.714 ms, per step time: 655.171 ms
+epoch: 0, current epoch percent: 0.300, step: 160, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.03186995e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 6586.539 ms, per step time: 658.654 ms
+epoch: 0, current epoch percent: 0.318, step: 170, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 9.55011919e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 6577.509 ms, per step time: 657.751 ms
+epoch: 0, current epoch percent: 0.337, step: 180, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.17040589e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 6586.052 ms, per step time: 658.605 ms
+epoch: 0, current epoch percent: 0.356, step: 190, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.21886387e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 6561.661 ms, per step time: 656.166 ms
+epoch: 0, current epoch percent: 0.375, step: 200, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.16257817e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 6585.436 ms, per step time: 658.544 ms
+epoch: 0, current epoch percent: 0.393, step: 210, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 9.05475244e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 6574.958 ms, per step time: 657.496 ms
+epoch: 0, current epoch percent: 0.412, step: 220, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.01226255e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 6568.820 ms, per step time: 656.882 ms
+epoch: 0, current epoch percent: 0.431, step: 230, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.16860837e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 6570.597 ms, per step time: 657.060 ms
+epoch: 0, current epoch percent: 0.449, step: 240, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.02463827e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 6573.966 ms, per step time: 657.397 ms
+epoch: 0, current epoch percent: 0.468, step: 250, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.49004102e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 6561.891 ms, per step time: 656.189 ms
+epoch: 0, current epoch percent: 0.487, step: 260, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.09286822e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 6569.740 ms, per step time: 656.974 ms
+epoch: 0, current epoch percent: 0.506, step: 270, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.03179269e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 6584.070 ms, per step time: 658.407 ms
+epoch: 0, current epoch percent: 0.524, step: 280, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.03723034e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 6585.869 ms, per step time: 658.587 ms
+epoch: 0, current epoch percent: 0.543, step: 290, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.34567380e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 6600.607 ms, per step time: 660.061 ms
+epoch: 0, current epoch percent: 0.562, step: 300, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.19693115e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 6573.347 ms, per step time: 657.335 ms
+epoch: 0, current epoch percent: 0.581, step: 310, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.00935087e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 6553.375 ms, per step time: 655.338 ms
+epoch: 0, current epoch percent: 0.599, step: 320, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.13032810e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 6589.022 ms, per step time: 658.902 ms
+epoch: 0, current epoch percent: 0.618, step: 330, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.06422439e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 6595.969 ms, per step time: 659.597 ms
+epoch: 0, current epoch percent: 0.637, step: 340, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 9.76817310e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 6551.790 ms, per step time: 655.179 ms
+epoch: 0, current epoch percent: 0.655, step: 350, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.04540132e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 6538.205 ms, per step time: 653.821 ms
+epoch: 0, current epoch percent: 0.674, step: 360, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 9.81594920e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 6623.754 ms, per step time: 662.375 ms
+epoch: 0, current epoch percent: 0.693, step: 370, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.29698485e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 6573.956 ms, per step time: 657.396 ms
+epoch: 0, current epoch percent: 0.712, step: 380, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.01646051e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 6559.344 ms, per step time: 655.934 ms
+epoch: 0, current epoch percent: 0.730, step: 390, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 9.62994471e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 6595.548 ms, per step time: 659.555 ms
+epoch: 0, current epoch percent: 0.749, step: 400, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.02783859e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 6590.306 ms, per step time: 659.031 ms
+epoch: 0, current epoch percent: 0.768, step: 410, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.25602797e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 6575.985 ms, per step time: 657.598 ms
+epoch: 0, current epoch percent: 0.787, step: 420, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.00114137e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 6563.013 ms, per step time: 656.301 ms
+epoch: 0, current epoch percent: 0.805, step: 430, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 8.12095776e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 6594.324 ms, per step time: 659.432 ms
+epoch: 0, current epoch percent: 0.824, step: 440, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.10147774e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 6566.023 ms, per step time: 656.602 ms
+epoch: 0, current epoch percent: 0.843, step: 450, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.05015926e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 6560.824 ms, per step time: 656.082 ms
+epoch: 0, current epoch percent: 0.861, step: 460, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.20624118e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 6555.045 ms, per step time: 655.505 ms
+epoch: 0, current epoch percent: 0.880, step: 470, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.00040652e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 6559.479 ms, per step time: 655.948 ms
+epoch: 0, current epoch percent: 0.899, step: 480, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.15374647e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 6571.116 ms, per step time: 657.112 ms
+epoch: 0, current epoch percent: 0.918, step: 490, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 9.91699472e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 6569.564 ms, per step time: 656.956 ms
+epoch: 0, current epoch percent: 0.936, step: 500, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.15639791e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 6568.674 ms, per step time: 656.867 ms
+epoch: 0, current epoch percent: 0.955, step: 510, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.18356630e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 6577.965 ms, per step time: 657.796 ms
+epoch: 0, current epoch percent: 0.974, step: 520, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.07663028e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 6566.602 ms, per step time: 656.660 ms
+epoch: 0, current epoch percent: 0.993, step: 530, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 7.35842064e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 6570.870 ms, per step time: 657.087 ms
+2022-12-03 21:01:00,102:INFO:trainer.py:stack_train:759:Start to build model
+Model config are as follows:
+{
+    "batch_size": "16",
+    "seq_length": "511",
+    "vocab_size": "50257",
+    "hidden_size": "768",
+    "num_layers": "24",
+    "num_heads": "12",
+    "expand_ratio": "4",
+    "post_layernorm_residual": "False",
+    "dropout_rate": "0.1",
+    "compute_dtype": "Float16",
+    "layernorm_dtype": "Float32",
+    "softmax_dtype": "Float16",
+    "parallel_config": "[ParallelConfig]\n_recompute:[ParallelConfig]\n_recompute:False\n_parallel_optimizer_comm_recompute:False\n_mp_comm_recompute:True\n_recompute_slice_activation:False\n\n_optimizer_shard:False\n_gradient_aggregation_group:4\n_embed_dp_mp_config:[ParallelConfig]\n_dp_mp_config:[ParallelConfig]\n_data_parallel:1\n_model_parallel:1\n\n_vocab_emb_dp:True\n\n_pp_config:[ParallelConfig]\n_pipeline_stage:1\n_micro_batch_num:1\n\n_moe_config:[ParallelConfig]\n_dpmp:[ParallelConfig]\n_data_parallel:1\n_model_parallel:1\n\n_expert_parallel:1\n\n"
+}
+2022-12-03 21:01:07,465:INFO:trainer.py:stack_train:765:Build model finished
+2022-12-03 21:01:07,465:INFO:trainer.py:stack_train:770:Start to load the ckpt from /root/last/transformer-master/ckpt_0_layers_num_6/gpt-53_10.ckpt
+2022-12-03 21:01:11,122:INFO:utils.py:print_model_size:93:The statistics of the net:
+2022-12-03 21:01:11,122:INFO:utils.py:print_model_size:94:The number of parameters                :1.2E+08,      Model size:2.4E+02 MB
+2022-12-03 21:01:11,122:INFO:utils.py:print_model_size:96:The number of trainable Parameters      :1.2E+08,      Model size:2.4E+02 MB
+2022-12-03 21:01:11,122:INFO:trainer.py:stack_train:780:Start to build the dataset.
+['/root/port/parallel_sig_intern-wangjincheng/inputs/cola_train.mindrecord']
+2022-12-03 21:01:11,142:INFO:trainer.py:stack_train:784:Build dataset finished. The total dataset size is 534.
+2022-12-03 21:01:11,142:INFO:trainer.py:stack_train:802:Enable the checkpoint saving each 534 steps. Integrated Save is False
+2022-12-03 21:01:11,662:INFO:trainer.py:model_train:656:Start to compile the net and run.
+epoch: 0, current epoch percent: 0.019, step: 10, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.01663359e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 1.67772e+07))
+Train epoch time: 28489.787 ms, per step time: 2848.979 ms
+epoch: 0, current epoch percent: 0.037, step: 20, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 8.80289897e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 1.67772e+07))
+Train epoch time: 9394.975 ms, per step time: 939.498 ms
+epoch: 0, current epoch percent: 0.056, step: 30, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 9.14795920e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 1.67772e+07))
+Train epoch time: 9395.388 ms, per step time: 939.539 ms
+epoch: 0, current epoch percent: 0.075, step: 40, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.06572248e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 1.67772e+07))
+Train epoch time: 9365.349 ms, per step time: 936.535 ms
+epoch: 0, current epoch percent: 0.094, step: 50, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.28340885e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 1.67772e+07))
+Train epoch time: 9354.364 ms, per step time: 935.436 ms
+epoch: 0, current epoch percent: 0.112, step: 60, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.00479566e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 1.67772e+07))
+Train epoch time: 9356.627 ms, per step time: 935.663 ms
+epoch: 0, current epoch percent: 0.131, step: 70, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 8.45443234e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 9357.133 ms, per step time: 935.713 ms
+epoch: 0, current epoch percent: 0.150, step: 80, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 9.53475311e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 9397.388 ms, per step time: 939.739 ms
+epoch: 0, current epoch percent: 0.169, step: 90, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 8.68836194e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 9392.744 ms, per step time: 939.274 ms
+epoch: 0, current epoch percent: 0.187, step: 100, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 8.38364437e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 9396.054 ms, per step time: 939.605 ms
+epoch: 0, current epoch percent: 0.206, step: 110, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 9.80262309e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 9371.952 ms, per step time: 937.195 ms
+epoch: 0, current epoch percent: 0.225, step: 120, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.12617694e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 9393.076 ms, per step time: 939.308 ms
+epoch: 0, current epoch percent: 0.243, step: 130, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 8.29583257e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 9395.542 ms, per step time: 939.554 ms
+epoch: 0, current epoch percent: 0.262, step: 140, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 9.99519676e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 9393.911 ms, per step time: 939.391 ms
+epoch: 0, current epoch percent: 0.281, step: 150, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.05991654e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 9394.075 ms, per step time: 939.408 ms
+epoch: 0, current epoch percent: 0.300, step: 160, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 9.56761315e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 9397.579 ms, per step time: 939.758 ms
+epoch: 0, current epoch percent: 0.318, step: 170, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 8.97487327e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 9383.139 ms, per step time: 938.314 ms
+epoch: 0, current epoch percent: 0.337, step: 180, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.11663185e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 9391.575 ms, per step time: 939.158 ms
+epoch: 0, current epoch percent: 0.356, step: 190, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.13954201e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 9412.774 ms, per step time: 941.277 ms
+epoch: 0, current epoch percent: 0.375, step: 200, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.10539630e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 9373.911 ms, per step time: 937.391 ms
+epoch: 0, current epoch percent: 0.393, step: 210, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 8.45061392e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 9380.908 ms, per step time: 938.091 ms
+epoch: 0, current epoch percent: 0.412, step: 220, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 9.45510194e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 9426.394 ms, per step time: 942.639 ms
+epoch: 0, current epoch percent: 0.431, step: 230, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.09400935e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 9399.122 ms, per step time: 939.912 ms
+epoch: 0, current epoch percent: 0.449, step: 240, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 9.74296853e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 9429.365 ms, per step time: 942.936 ms
+epoch: 0, current epoch percent: 0.468, step: 250, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.42869294e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 9422.265 ms, per step time: 942.226 ms
+epoch: 0, current epoch percent: 0.487, step: 260, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.03182189e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 9381.291 ms, per step time: 938.129 ms
+epoch: 0, current epoch percent: 0.506, step: 270, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 9.96651724e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 9366.317 ms, per step time: 936.632 ms
+epoch: 0, current epoch percent: 0.524, step: 280, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 9.90055799e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 9367.358 ms, per step time: 936.736 ms
+epoch: 0, current epoch percent: 0.543, step: 290, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.29412651e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 9398.556 ms, per step time: 939.856 ms
+epoch: 0, current epoch percent: 0.562, step: 300, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.12783059e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 9396.245 ms, per step time: 939.625 ms
+epoch: 0, current epoch percent: 0.581, step: 310, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 9.75151137e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 9363.767 ms, per step time: 936.377 ms
+epoch: 0, current epoch percent: 0.599, step: 320, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.08241476e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 9357.936 ms, per step time: 935.794 ms
+epoch: 0, current epoch percent: 0.618, step: 330, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.02141172e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 9378.896 ms, per step time: 937.890 ms
+epoch: 0, current epoch percent: 0.637, step: 340, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 9.55958590e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 9376.478 ms, per step time: 937.648 ms
+epoch: 0, current epoch percent: 0.655, step: 350, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 9.96331424e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 9396.821 ms, per step time: 939.682 ms
+epoch: 0, current epoch percent: 0.674, step: 360, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 9.40742567e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 9381.918 ms, per step time: 938.192 ms
+epoch: 0, current epoch percent: 0.693, step: 370, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.25232667e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 9416.485 ms, per step time: 941.648 ms
+epoch: 0, current epoch percent: 0.712, step: 380, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 9.90708545e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 9384.869 ms, per step time: 938.487 ms
+epoch: 0, current epoch percent: 0.730, step: 390, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 9.38560069e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 9372.972 ms, per step time: 937.297 ms
+epoch: 0, current epoch percent: 0.749, step: 400, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 9.82039273e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 9375.798 ms, per step time: 937.580 ms
+epoch: 0, current epoch percent: 0.768, step: 410, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.21234007e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 9380.501 ms, per step time: 938.050 ms
+epoch: 0, current epoch percent: 0.787, step: 420, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 9.72317234e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 9384.390 ms, per step time: 938.439 ms
+epoch: 0, current epoch percent: 0.805, step: 430, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 7.88208991e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 9520.608 ms, per step time: 952.061 ms
+epoch: 0, current epoch percent: 0.824, step: 440, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.07501619e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 9395.329 ms, per step time: 939.533 ms
+epoch: 0, current epoch percent: 0.843, step: 450, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.02929093e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 9389.130 ms, per step time: 938.913 ms
+epoch: 0, current epoch percent: 0.861, step: 460, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.17430300e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 9364.741 ms, per step time: 936.474 ms
+epoch: 0, current epoch percent: 0.880, step: 470, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 9.86493528e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 9388.054 ms, per step time: 938.805 ms
+epoch: 0, current epoch percent: 0.899, step: 480, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.12511188e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 9394.640 ms, per step time: 939.464 ms
+epoch: 0, current epoch percent: 0.918, step: 490, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 9.40781832e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 9379.869 ms, per step time: 937.987 ms
+epoch: 0, current epoch percent: 0.936, step: 500, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.13103323e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 9389.036 ms, per step time: 938.904 ms
+epoch: 0, current epoch percent: 0.955, step: 510, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.11619934e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 9410.372 ms, per step time: 941.037 ms
+epoch: 0, current epoch percent: 0.974, step: 520, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.01355568e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 9431.790 ms, per step time: 943.179 ms
+epoch: 0, current epoch percent: 0.993, step: 530, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 7.08628297e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 9381.170 ms, per step time: 938.117 ms
+epoch: 1, current epoch percent: 0.011, step: 540, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.01226196e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 17143.804 ms, per step time: 1714.380 ms
+epoch: 1, current epoch percent: 0.030, step: 550, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.05039515e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 9384.123 ms, per step time: 938.412 ms
+epoch: 1, current epoch percent: 0.049, step: 560, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 9.71195400e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 9332.339 ms, per step time: 933.234 ms
+epoch: 1, current epoch percent: 0.067, step: 570, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.07782938e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 9367.753 ms, per step time: 936.775 ms
+epoch: 1, current epoch percent: 0.086, step: 580, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 9.73839387e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 9381.687 ms, per step time: 938.169 ms
+epoch: 1, current epoch percent: 0.105, step: 590, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.06406391e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 9377.370 ms, per step time: 937.737 ms
+epoch: 1, current epoch percent: 0.124, step: 600, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 8.98486227e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 9370.541 ms, per step time: 937.054 ms
+epoch: 1, current epoch percent: 0.142, step: 610, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.05660856e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 9374.941 ms, per step time: 937.494 ms
+epoch: 1, current epoch percent: 0.161, step: 620, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.09591693e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 9386.956 ms, per step time: 938.696 ms
+epoch: 1, current epoch percent: 0.180, step: 630, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.07725605e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 9390.254 ms, per step time: 939.025 ms
+epoch: 1, current epoch percent: 0.199, step: 640, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 8.74069333e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 9387.296 ms, per step time: 938.730 ms
+epoch: 1, current epoch percent: 0.217, step: 650, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.06125318e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 9391.440 ms, per step time: 939.144 ms
+epoch: 1, current epoch percent: 0.236, step: 660, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 9.75473002e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 9384.475 ms, per step time: 938.447 ms
+epoch: 1, current epoch percent: 0.255, step: 670, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.11359440e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 9356.015 ms, per step time: 935.602 ms
+epoch: 1, current epoch percent: 0.273, step: 680, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 8.97048637e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 9396.667 ms, per step time: 939.667 ms
+epoch: 1, current epoch percent: 0.292, step: 690, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 9.34339985e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 9397.072 ms, per step time: 939.707 ms
+epoch: 1, current epoch percent: 0.311, step: 700, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 8.20484385e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 9395.374 ms, per step time: 939.537 ms
+epoch: 1, current epoch percent: 0.330, step: 710, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.08507968e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 9385.148 ms, per step time: 938.515 ms
+epoch: 1, current epoch percent: 0.348, step: 720, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 8.94566402e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 9356.988 ms, per step time: 935.699 ms
+epoch: 1, current epoch percent: 0.367, step: 730, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 9.96151567e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 9315.036 ms, per step time: 931.504 ms
+epoch: 1, current epoch percent: 0.386, step: 740, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.07062265e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 9371.655 ms, per step time: 937.165 ms
+epoch: 1, current epoch percent: 0.404, step: 750, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.03142396e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 9403.036 ms, per step time: 940.304 ms
+epoch: 1, current epoch percent: 0.423, step: 760, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 8.59303176e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 9395.485 ms, per step time: 939.549 ms
+epoch: 1, current epoch percent: 0.442, step: 770, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 9.44461524e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 9400.870 ms, per step time: 940.087 ms
+epoch: 1, current epoch percent: 0.461, step: 780, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.25157401e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 9402.405 ms, per step time: 940.240 ms
+epoch: 1, current epoch percent: 0.479, step: 790, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 8.77266824e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 9394.125 ms, per step time: 939.412 ms
+epoch: 1, current epoch percent: 0.498, step: 800, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.03647158e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 9326.200 ms, per step time: 932.620 ms
+epoch: 1, current epoch percent: 0.517, step: 810, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 8.79029334e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 9307.395 ms, per step time: 930.740 ms
+epoch: 1, current epoch percent: 0.536, step: 820, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.00354254e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 9275.983 ms, per step time: 927.598 ms
+epoch: 1, current epoch percent: 0.554, step: 830, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.06212877e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 9260.172 ms, per step time: 926.017 ms
+epoch: 1, current epoch percent: 0.573, step: 840, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 8.80845860e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 9248.900 ms, per step time: 924.890 ms
+epoch: 1, current epoch percent: 0.592, step: 850, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.11339889e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 9268.405 ms, per step time: 926.840 ms
+epoch: 1, current epoch percent: 0.610, step: 860, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 8.18790495e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 9334.471 ms, per step time: 933.447 ms
+epoch: 1, current epoch percent: 0.629, step: 870, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 9.74579006e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 9369.693 ms, per step time: 936.969 ms
+epoch: 1, current epoch percent: 0.648, step: 880, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 7.93623105e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 9372.189 ms, per step time: 937.219 ms
+epoch: 1, current epoch percent: 0.667, step: 890, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.16488315e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 9343.701 ms, per step time: 934.370 ms
+epoch: 1, current epoch percent: 0.685, step: 900, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 9.29150358e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 8.38861e+06))
+Train epoch time: 9336.963 ms, per step time: 933.696 ms
+epoch: 1, current epoch percent: 0.704, step: 910, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.12355463e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 4.1943e+06))
+Train epoch time: 9360.052 ms, per step time: 936.005 ms
+epoch: 1, current epoch percent: 0.723, step: 920, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 8.61948505e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 4.1943e+06))
+Train epoch time: 9393.317 ms, per step time: 939.332 ms
+epoch: 1, current epoch percent: 0.742, step: 930, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.01278178e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 4.1943e+06))
+Train epoch time: 9399.795 ms, per step time: 939.979 ms
+epoch: 1, current epoch percent: 0.760, step: 940, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 7.65027255e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 4.1943e+06))
+Train epoch time: 9386.929 ms, per step time: 938.693 ms
+epoch: 1, current epoch percent: 0.779, step: 950, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.00211561e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 4.1943e+06))
+Train epoch time: 9400.483 ms, per step time: 940.048 ms
+epoch: 1, current epoch percent: 0.798, step: 960, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 8.46891403e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 4.1943e+06))
+Train epoch time: 9394.425 ms, per step time: 939.443 ms
+epoch: 1, current epoch percent: 0.816, step: 970, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 9.92424190e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 4.1943e+06))
+Train epoch time: 9368.519 ms, per step time: 936.852 ms
+epoch: 1, current epoch percent: 0.835, step: 980, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.01515248e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 4.1943e+06))
+Train epoch time: 9360.645 ms, per step time: 936.064 ms
+epoch: 1, current epoch percent: 0.854, step: 990, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 9.62471440e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 4.1943e+06))
+Train epoch time: 9361.939 ms, per step time: 936.194 ms
+epoch: 1, current epoch percent: 0.873, step: 1000, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 7.94662535e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 4.1943e+06))
+Train epoch time: 9357.570 ms, per step time: 935.757 ms
+epoch: 1, current epoch percent: 0.891, step: 1010, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.02034368e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 4.1943e+06))
+Train epoch time: 9363.897 ms, per step time: 936.390 ms
+epoch: 1, current epoch percent: 0.910, step: 1020, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 8.79366398e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 4.1943e+06))
+Train epoch time: 9357.903 ms, per step time: 935.790 ms
+epoch: 1, current epoch percent: 0.929, step: 1030, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.02530375e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 4.1943e+06))
+Train epoch time: 9344.544 ms, per step time: 934.454 ms
+epoch: 1, current epoch percent: 0.948, step: 1040, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 8.58319923e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 4.1943e+06))
+Train epoch time: 9338.963 ms, per step time: 933.896 ms
+epoch: 1, current epoch percent: 0.966, step: 1050, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.26276776e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 4.1943e+06))
+Train epoch time: 9347.835 ms, per step time: 934.784 ms
+epoch: 1, current epoch percent: 0.985, step: 1060, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.05615854e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 4.1943e+06))
+Train epoch time: 9373.787 ms, per step time: 937.379 ms
+epoch: 2, current epoch percent: 0.004, step: 1070, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.03892565e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 4.1943e+06))
+Train epoch time: 9352.025 ms, per step time: 935.202 ms
+epoch: 2, current epoch percent: 0.022, step: 1080, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.06797844e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 4.1943e+06))
+Train epoch time: 17204.665 ms, per step time: 1720.466 ms
+epoch: 2, current epoch percent: 0.041, step: 1090, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 9.62070450e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 4.1943e+06))
+Train epoch time: 9368.710 ms, per step time: 936.871 ms
+epoch: 2, current epoch percent: 0.060, step: 1100, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 6.99223876e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 4.1943e+06))
+Train epoch time: 9362.325 ms, per step time: 936.232 ms
+epoch: 2, current epoch percent: 0.079, step: 1110, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 7.61685297e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 4.1943e+06))
+Train epoch time: 9384.032 ms, per step time: 938.403 ms
+epoch: 2, current epoch percent: 0.097, step: 1120, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 9.96497124e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 4.1943e+06))
+Train epoch time: 9373.114 ms, per step time: 937.311 ms
+epoch: 2, current epoch percent: 0.116, step: 1130, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.15980081e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 4.1943e+06))
+Train epoch time: 9370.259 ms, per step time: 937.026 ms
+epoch: 2, current epoch percent: 0.135, step: 1140, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 7.23234788e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 4.1943e+06))
+Train epoch time: 9376.904 ms, per step time: 937.690 ms
+epoch: 2, current epoch percent: 0.154, step: 1150, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 8.17032382e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 4.1943e+06))
+Train epoch time: 9374.838 ms, per step time: 937.484 ms
+epoch: 2, current epoch percent: 0.172, step: 1160, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 7.06447437e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 4.1943e+06))
+Train epoch time: 9369.177 ms, per step time: 936.918 ms
+epoch: 2, current epoch percent: 0.191, step: 1170, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 7.25758895e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 4.1943e+06))
+Train epoch time: 9372.490 ms, per step time: 937.249 ms
+epoch: 2, current epoch percent: 0.210, step: 1180, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 9.41412821e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 4.1943e+06))
+Train epoch time: 9357.598 ms, per step time: 935.760 ms
+epoch: 2, current epoch percent: 0.228, step: 1190, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 8.10586885e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 4.1943e+06))
+Train epoch time: 9366.674 ms, per step time: 936.667 ms
+epoch: 2, current epoch percent: 0.247, step: 1200, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 7.96714425e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 4.1943e+06))
+Train epoch time: 9352.948 ms, per step time: 935.295 ms
+epoch: 2, current epoch percent: 0.266, step: 1210, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 8.45361948e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 4.1943e+06))
+Train epoch time: 9374.125 ms, per step time: 937.412 ms
+epoch: 2, current epoch percent: 0.285, step: 1220, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 9.54019502e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 4.1943e+06))
+Train epoch time: 9362.555 ms, per step time: 936.255 ms
+epoch: 2, current epoch percent: 0.303, step: 1230, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 8.97492692e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 4.1943e+06))
+Train epoch time: 9362.551 ms, per step time: 936.255 ms
+epoch: 2, current epoch percent: 0.322, step: 1240, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.04901455e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 4.1943e+06))
+Train epoch time: 9358.367 ms, per step time: 935.837 ms
+epoch: 2, current epoch percent: 0.341, step: 1250, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 7.94278979e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 4.1943e+06))
+Train epoch time: 9371.977 ms, per step time: 937.198 ms
+epoch: 2, current epoch percent: 0.360, step: 1260, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 8.66438895e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 4.1943e+06))
+Train epoch time: 9362.436 ms, per step time: 936.244 ms
+epoch: 2, current epoch percent: 0.378, step: 1270, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 9.75564420e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 4.1943e+06))
+Train epoch time: 9352.455 ms, per step time: 935.245 ms
+epoch: 2, current epoch percent: 0.397, step: 1280, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 9.56244320e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 4.1943e+06))
+Train epoch time: 9370.156 ms, per step time: 937.016 ms
+epoch: 2, current epoch percent: 0.416, step: 1290, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 8.08302984e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 4.1943e+06))
+Train epoch time: 9370.530 ms, per step time: 937.053 ms
+epoch: 2, current epoch percent: 0.434, step: 1300, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 6.97440505e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 4.1943e+06))
+Train epoch time: 9371.529 ms, per step time: 937.153 ms
+epoch: 2, current epoch percent: 0.453, step: 1310, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 9.38927606e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 4.1943e+06))
+Train epoch time: 9377.013 ms, per step time: 937.701 ms
+epoch: 2, current epoch percent: 0.472, step: 1320, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 9.17568281e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 4.1943e+06))
+Train epoch time: 9387.860 ms, per step time: 938.786 ms
+epoch: 2, current epoch percent: 0.491, step: 1330, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 9.05450881e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 4.1943e+06))
+Train epoch time: 9366.505 ms, per step time: 936.651 ms
+epoch: 2, current epoch percent: 0.509, step: 1340, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 6.58889338e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 4.1943e+06))
+Train epoch time: 9370.215 ms, per step time: 937.022 ms
+epoch: 2, current epoch percent: 0.528, step: 1350, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 8.68782476e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 4.1943e+06))
+Train epoch time: 9378.470 ms, per step time: 937.847 ms
+epoch: 2, current epoch percent: 0.547, step: 1360, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 8.56983066e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 4.1943e+06))
+Train epoch time: 9368.993 ms, per step time: 936.899 ms
+epoch: 2, current epoch percent: 0.566, step: 1370, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 9.50618088e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 4.1943e+06))
+Train epoch time: 9362.288 ms, per step time: 936.229 ms
+epoch: 2, current epoch percent: 0.584, step: 1380, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 8.63420516e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 4.1943e+06))
+Train epoch time: 9374.079 ms, per step time: 937.408 ms
+epoch: 2, current epoch percent: 0.603, step: 1390, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.02073155e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 4.1943e+06))
+Train epoch time: 9368.328 ms, per step time: 936.833 ms
+epoch: 2, current epoch percent: 0.622, step: 1400, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 9.89935622e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 4.1943e+06))
+Train epoch time: 9379.837 ms, per step time: 937.984 ms
+epoch: 2, current epoch percent: 0.640, step: 1410, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 8.31475928e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 4.1943e+06))
+Train epoch time: 9372.460 ms, per step time: 937.246 ms
+epoch: 2, current epoch percent: 0.659, step: 1420, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 8.48176330e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 4.1943e+06))
+Train epoch time: 9388.988 ms, per step time: 938.899 ms
+epoch: 2, current epoch percent: 0.678, step: 1430, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.19379975e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 4.1943e+06))
+Train epoch time: 9360.053 ms, per step time: 936.005 ms
+epoch: 2, current epoch percent: 0.697, step: 1440, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.11208387e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 4.1943e+06))
+Train epoch time: 9388.928 ms, per step time: 938.893 ms
+epoch: 2, current epoch percent: 0.715, step: 1450, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 8.44150037e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 4.1943e+06))
+Train epoch time: 9378.109 ms, per step time: 937.811 ms
+epoch: 2, current epoch percent: 0.734, step: 1460, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 8.17490369e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 4.1943e+06))
+Train epoch time: 9376.321 ms, per step time: 937.632 ms
+epoch: 2, current epoch percent: 0.753, step: 1470, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 9.85190570e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 4.1943e+06))
+Train epoch time: 9372.619 ms, per step time: 937.262 ms
+epoch: 2, current epoch percent: 0.772, step: 1480, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.04367502e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 4.1943e+06))
+Train epoch time: 9377.677 ms, per step time: 937.768 ms
+epoch: 2, current epoch percent: 0.790, step: 1490, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 9.56333280e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 4.1943e+06))
+Train epoch time: 9367.732 ms, per step time: 936.773 ms
+epoch: 2, current epoch percent: 0.809, step: 1500, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 9.18424651e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 4.1943e+06))
+Train epoch time: 9349.796 ms, per step time: 934.980 ms
+epoch: 2, current epoch percent: 0.828, step: 1510, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 9.29636657e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 4.1943e+06))
+Train epoch time: 9361.589 ms, per step time: 936.159 ms
+epoch: 2, current epoch percent: 0.846, step: 1520, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 8.43457505e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 4.1943e+06))
+Train epoch time: 9365.081 ms, per step time: 936.508 ms
+epoch: 2, current epoch percent: 0.865, step: 1530, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 8.95982385e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 4.1943e+06))
+Train epoch time: 9371.154 ms, per step time: 937.115 ms
+epoch: 2, current epoch percent: 0.884, step: 1540, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.03148863e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 4.1943e+06))
+Train epoch time: 9353.941 ms, per step time: 935.394 ms
+epoch: 2, current epoch percent: 0.903, step: 1550, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.18335083e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 4.1943e+06))
+Train epoch time: 9373.891 ms, per step time: 937.389 ms
+epoch: 2, current epoch percent: 0.921, step: 1560, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 1.02704599e-01]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 4.1943e+06))
+Train epoch time: 9364.048 ms, per step time: 936.405 ms
+epoch: 2, current epoch percent: 0.940, step: 1570, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 8.50128308e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 4.1943e+06))
+Train epoch time: 9369.148 ms, per step time: 936.915 ms
+epoch: 2, current epoch percent: 0.959, step: 1580, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 7.76399300e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 4.1943e+06))
+Train epoch time: 9364.558 ms, per step time: 936.456 ms
+epoch: 2, current epoch percent: 0.978, step: 1590, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 9.15725380e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 4.1943e+06))
+Train epoch time: 9358.311 ms, per step time: 935.831 ms
+epoch: 2, current epoch percent: 0.996, step: 1600, outputs are (Tensor(shape=[1], dtype=Float32, value= [ 9.02149752e-02]), Tensor(shape=[], dtype=Bool, value= False), Tensor(shape=[], dtype=Float32, value= 4.1943e+06))
+Train epoch time: 9357.560 ms, per step time: 935.756 ms
