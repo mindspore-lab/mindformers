@@ -17,7 +17,7 @@
 echo "=============================================================================================================="
 echo "Please run the script as: "
 echo "bash examples/pretrain/pretrain_gpt.sh  DEVICE_ID EPOCH_SIZE DATA_DIR"
-echo "for example: bash examples/pretrain/pretrain_gpt.sh 0 40 /path/zh-wiki/"
+echo "for example: bash examples/pretrain/pretrain_stack_gpt.sh 0 /path/openwebtext_path/"
 echo "=============================================================================================================="
 export GLOG_v=3
 export DEVICE_ID=$1

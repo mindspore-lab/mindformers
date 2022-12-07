@@ -54,7 +54,7 @@ class GPTTrainer(Trainer):
 
     def double_model_weights(self, pre_load_model_path, pre_num_layers):
         """
-        GPT模型权重的翻倍
+        stack GPT model parameters
         """
         param_dict = load_checkpoint(pre_load_model_path)
         lst = []
@@ -66,7 +66,7 @@ class GPTTrainer(Trainer):
                 k_split[4] = str(l_id + pre_num_layers)
                 new_k = ".".join(k_split)
                 lst.append([new_k, v.clone()])
-        # 将叠加的层权重添加到param_dict中
+        # Add new stacked weights to param_dict
         for k, v in lst:
             param_dict[k] = v
         return param_dict
