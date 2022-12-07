@@ -43,6 +43,10 @@ def check_runner_config(config, dataset):
 
 def check_train_data_loader_type(new_config, old_config):
     """Check train data loader config type."""
+    if new_config.train_dataset is None:
+        return None
+    if new_config.train_dataset.get('data_loader') is None:
+        return None
     train_data_loader_type = new_config.train_dataset.get('data_loader').get('type')
     if old_config.train_dataset is not None and train_data_loader_type is not None:
         default_train_data_loader_type = old_config.train_dataset.data_loader.type
@@ -52,10 +56,15 @@ def check_train_data_loader_type(new_config, old_config):
                            "Please make sure to input the corresponding parameter values manually.",
                            train_data_loader_type)
             old_config.train_dataset.data_loader = {}
+    return None
 
 
 def check_eval_data_loader_type(new_config, old_config):
     """Check eval data loader config type."""
+    if new_config.eval_dataset is None:
+        return None
+    if new_config.eval_dataset.get('data_loader') is None:
+        return None
     eval_data_loader_type = new_config.eval_dataset.get('data_loader').get('type')
     if old_config.eval_dataset is not None and eval_data_loader_type is not None:
         default_eval_data_loader_type = old_config.eval_dataset.data_loader.type
@@ -65,6 +74,7 @@ def check_eval_data_loader_type(new_config, old_config):
                            "Please make sure to input the corresponding parameter values manually.",
                            eval_data_loader_type)
             old_config.eval_dataset.data_loader = {}
+    return None
 
 
 def check_optimizer_and_lr_type(new_config, old_config):
