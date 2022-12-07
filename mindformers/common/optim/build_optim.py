@@ -28,7 +28,9 @@ def build_optim(
     if config is None and class_name is None:
         return None
     if config is not None:
-        if config.learning_rate is not None and config.learning_rate.type is not None:
+        if config.learning_rate is not None and isinstance(config.learning_rate, dict):
+            assert config.learning_rate.type is not None, "optimizer's learning rate must be LearningRateSchedule type," \
+                                                     "but the Type type is not specified, it is None"
             lr_schedule = build_lr(config.learning_rate)
             config.learning_rate = lr_schedule
         return MindFormerRegister.get_instance_from_cfg(

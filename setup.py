@@ -141,7 +141,7 @@ class Install(install):
 def remove_egg_info():
     egg_info_dir = os.path.join(os.path.dirname(__file__), 'mindformers.egg-info')
     if os.path.exists(egg_info_dir):
-        os.removedirs(egg_info_dir)
+        shutil.rmtree(egg_info_dir)
 
 
 if __name__ == '__main__':
