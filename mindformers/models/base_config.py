@@ -108,38 +108,28 @@ class BaseConfig(dict):
         config = build_model_config(config_args.model.model_config)
         return config
 
-    def save_pretrained(self, save_path=None):
+    def save_pretrained(self, save_directory=None, save_name="mindspore_model"):
         """
         Save_pretrained.
 
         Args:
-            save_path (str): a path ends with .yaml to save config yaml
-        """
-        if save_path is None:
-            config_name = self.__class__.__name__
-            model_name = MindFormerBook.get_model_config_to_name().get(config_name, None)
-            if not model_name:
-                raise ValueError("cannot get model_name from model_config, please use"
-                                 " MindFormerBook.set_model_config_to_name(model_config, model_name).")
-            model_type = model_name.split("Model")[0].lower()
-            save_directory = os.path.join(
-                MindFormerBook.get_default_checkpoint_save_folder(), model_type
-            )
+            save_directory (str): a directory to save config yaml
 
+            save_name (str): the name of save files.
+        """
+        if save_directory is None:
+            save_directory = MindFormerBook.get_default_checkpoint_save_folder()
             if not os.path.exists(save_directory):
                 os.makedirs(save_directory)
-            save_path = os.path.join(save_directory, "mindspore_model.yaml")
 
-        if not isinstance(save_path, str):
-            raise TypeError(f"the save_path should be a str,"
-                            f" but got {type(save_path)}")
+        if not isinstance(save_directory, str) or not isinstance(save_name, str):
+            raise TypeError(f"save_directory and save_name should be a str,"
+                            f" but got {type(save_directory)} and {type(save_name)}.")
 
-        if not save_path.endswith(".yaml"):
-            raise ValueError(f"the save_path must ends with.yaml,"
-                             f" but got {save_path}.")
+        if not os.path.exists(save_directory):
+            os.makedirs(save_directory)
 
-        if not os.path.exists(os.path.dirname(save_path)):
-            os.makedirs(os.path.dirname(save_path))
+        save_path = os.path.join(save_directory, save_name + ".yaml")
 
         parsed_config = self._inverse_parse_config()
         wraped_config = self._wrap_config(parsed_config)

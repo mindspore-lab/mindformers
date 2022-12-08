@@ -63,7 +63,7 @@ def test_clip_config():
     config_path = os.path.join(MindFormerBook.get_project_path(),
                                'configs', 'clip', 'model_config', "clip_vit_b_32.yaml")
     save_path = os.path.join(MindFormerBook.get_default_checkpoint_save_folder(),
-                             'clip', "clip_vit_b_32.yaml")
+                             'clip')
 
     ClipConfig.show_support_list()
     support_list = ClipConfig.get_support_list()
@@ -88,7 +88,7 @@ def test_clip_config():
     )
 
     config_c.save_pretrained()
-    config_d.save_pretrained(save_path)
+    config_d.save_pretrained(save_path, "clip_vit_b_32")
     config_e.save_pretrained()
 
     logger.info(config_c)
