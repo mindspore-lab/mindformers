@@ -23,7 +23,6 @@ from functools import lru_cache
 
 import ftfy
 import regex as re
-import mindspore as ms
 
 from ...mindformer_book import MindFormerBook
 from ...tools.register import MindFormerRegister, MindFormerModuleType
@@ -94,8 +93,6 @@ class TempTokenizer:
             vocab.append(''.join(merge))
         vocab.extend(['<|startoftext|>', '<|endoftext|>'])
 
-        self.pat = re.compile(r"""<\|startoftext\|>|<\|endoftext\|>|'s|'t|'re|
-        've|'m|'ll|'d|[\p{L}]+|[\p{N}]|[^\s\p{L}\p{N}]+""", re.IGNORECASE)
         self.flag_dict = {'<|startoftext|>': '<|startoftext|>', '<|endoftext|>': '<|endoftext|>'}
         self.bpe_ranks = dict(zip(merges, range(len(merges))))
 
@@ -157,45 +154,48 @@ class TempTokenizer:
         for token in re.findall(self.pat, content):
             token = ''.join(self.byte_encoder[b] for b in token.encode('utf-8'))
             output_ids.extend(self.encoder[bpe_token] for bpe_token in self.tokenize_alg(token).split(' '))
+        print("res is:", output_ids)
         return output_ids
 
 @MindFormerRegister.register(MindFormerModuleType.TOKENIZER)
 class ClipTokenizer(PretrainedTokenizer):
+    """Clip Tokenizer"""
+    MODEL_INPUT_NAME = ["input_ids", "attention_mask"]
     '''clip tokenizer'''
-    def __init__(self):
-        super(ClipTokenizer, self).__init__()
+    def __init__(self,
+                 eos_token="<|endoftext|>",
+                 bos_token="<|startoftext|>",
+                 pad_token="<|endoftext|>",
+                 unk_token="<|endoftext|>"):
+        super(ClipTokenizer, self).__init__(eos_token=eos_token,
+                                            bos_token=bos_token,
+                                            pad_token=pad_token,
+                                            unk_token=unk_token)
         path = default_bpe()
         self.tool = TempTokenizer(path)
-
-    def __call__(self, input_texts, token_num=77, drop_tail=False):
-        if isinstance(input_texts, str):
-            input_texts = [input_texts]
-
-        end_flag = self.tool.encoder["<|endoftext|>"]
-        start_flag = self.tool.encoder["<|startoftext|>"]
-
-        all_flag = [[start_flag] + self.tool.encode(text) + [end_flag] for text in input_texts]
-        output = ms.ops.Zeros()((len(all_flag), token_num), ms.int64)
-
-        for i, tokens in enumerate(all_flag):
-            if len(tokens) > token_num:
-                if drop_tail:
-                    tokens = tokens[:token_num]
-                    tokens[-1] = end_flag
-                else:
-                    raise RuntimeError(f"Input {input_texts[i]} is too"
-                                       f" long for context length {token_num}")
-            output[i, :len(tokens)] = ms.Tensor(tokens)
-
-        return ms.Tensor(output)
+        self.pat = re.compile(r"""<\|startoftext\|>|<\|endoftext\|>|'s|'t|'re|
+        've|'m|'ll|'d|[\p{L}]+|[\p{N}]|[^\s\p{L}\p{N}]+""", re.IGNORECASE)
 
     def _tokenize(self, text, **kwargs):
-        if isinstance(text, str):
-            text = [text]
-        end_flag = self.tool.encoder["<|endoftext|>"]
-        start_flag = self.tool.encoder["<|startoftext|>"]
-        all_flag = [[start_flag] + self.tool.encode(text) + [end_flag] for text in text]
-        return all_flag
+        output_ids = []
+        content = whitespace_clean(basic_clean(text)).lower()
+        for token in re.findall(self.pat, content):
+            token = ''.join(self.tool.byte_encoder[b] for b in token.encode('utf-8'))
+            output_ids.extend(self.tool.tokenize_alg(token).split(' '))
+        return output_ids
+
+    def build_inputs_with_special_tokens(self, token_ids_0, token_ids_1=None):
+        """
+        Insert the special tokens to the input_ids. Currently, we support token_ids_0 is a list of ids.
+        """
+        if token_ids_1:
+            raise ValueError("The token_ids_1 is not supported yet.")
+        if not token_ids_0:
+            raise ValueError("The length of the token_ids should be larger than 0.")
+        res = [self.bos_token_id]
+        res.extend(token_ids_0)
+        res.extend([self.eos_token_id])
+        return res
 
     def save_vocabulary(self, save_directory, filename_prefix):
         output_file_path = os.path.join(save_directory, filename_prefix)
@@ -209,3 +209,10 @@ class ClipTokenizer(PretrainedTokenizer):
         if not isinstance(text, str):
             raise ValueError("Text should be type str, but found type", type(text))
         return self._tokenize(text)
+
+    def _convert_tokens_to_ids(self, input_tokens):
+        if not input_tokens:
+            raise ValueError(f"Input token {input_tokens} is None.")
+        if isinstance(input_tokens, str):
+            return self.tool.encoder[input_tokens]
+        return [self.tool.encoder[bpe_token] for bpe_token in input_tokens]

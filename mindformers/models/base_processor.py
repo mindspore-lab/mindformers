@@ -54,7 +54,11 @@ class BaseProcessor:
             if not isinstance(self.tokenizer, PretrainedTokenizer):
                 raise TypeError(f"tokenizer should inherited from the PretrainedTokenizer,"
                                 f" but got {type(self.tokenizer)}.")
-            text_output = self.tokenizer(text_input)
+            # Format the input into a batch
+            if isinstance(text_input, str):
+                text_input = [text_input]
+            text_output = self.tokenizer(text_input, return_tensors='ms', max_length=77,
+                                         padding='max_length')["input_ids"]
             output['text'] = text_output
 
         return output

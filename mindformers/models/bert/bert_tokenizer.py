@@ -349,7 +349,9 @@ class BertTokenizer(PretrainedTokenizer):
                  cls_token="[CLS]",
                  mask_token="[MASK]",
                  **kwargs):
-        super(BertTokenizer, self).__init__(unk_token=unk_token,
+        super(BertTokenizer, self).__init__(do_lower_case=do_lower_case,
+                                            do_basic_tokenize=do_basic_tokenize,
+                                            unk_token=unk_token,
                                             sep_token=sep_token,
                                             pad_token=pad_token,
                                             cls_token=cls_token,
@@ -358,17 +360,17 @@ class BertTokenizer(PretrainedTokenizer):
         self.do_lower_case = do_lower_case
         self.do_basic_tokenize = do_basic_tokenize
         if do_basic_tokenize:
-            self.basic_tokenizer = BasicTokenizer()
+            self.basic_tokenizer = BasicTokenizer(do_lower_case=do_lower_case)
 
         self.vocab_dict = vocab_to_dict_key_token(vocab_file)
-        self.vocab_id2toekn = {v: k for k, v in self.vocab_dict.items()}
+        self.vocab_id2token = {v: k for k, v in self.vocab_dict.items()}
         self.word_piece_tokenizer = WordpieceTokenizer(vocab=self.vocab_dict)
 
     def build_inputs_with_special_tokens(self, token_ids_0, token_ids_1=None):
         if token_ids_1:
-            return [self.cls_token_id] + token_ids_0[0] + [self.sep_token_id] + token_ids_1[0]
+            return [self.cls_token_id] + token_ids_0 + [self.sep_token_id] + token_ids_1
 
-        return [self.cls_token_id] + token_ids_0[0] + [self.sep_token_id]
+        return [self.cls_token_id] + token_ids_0 + [self.sep_token_id]
 
     def tokenize(self, text):
         if not isinstance(text, str):
@@ -395,7 +397,7 @@ class BertTokenizer(PretrainedTokenizer):
     def _convert_ids_to_tokens(self, ids):
         output = []
         for item in ids:
-            output.append(self.vocab_id2toekn[item])
+            output.append(self.vocab_id2token[item])
         return output
 
     def save_vocabulary(self, save_directory, filename_prefix):
@@ -404,5 +406,4 @@ class BertTokenizer(PretrainedTokenizer):
         with open(output_file_path, 'w') as fp:
             for k in self.vocab_dict.keys():
                 fp.write(k + '\n')
-
         return output_file_path
