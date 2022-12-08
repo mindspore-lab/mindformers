@@ -116,10 +116,16 @@ class BaseConfig(dict):
             save_path (str): a path ends with .yaml to save config yaml
         """
         if save_path is None:
-            model_name = self.__class__.__name__.split("Config", maxsplit=1)[0].lower()
+            config_name = self.__class__.__name__
+            model_name = MindFormerBook.get_model_config_to_name().get(config_name, None)
+            if not model_name:
+                raise ValueError("cannot get model_name from model_config, please use"
+                                 " MindFormerBook.set_model_config_to_name(model_config, model_name).")
+            model_type = model_name.split("Model")[0].lower()
             save_directory = os.path.join(
-                MindFormerBook.get_default_checkpoint_save_folder(), model_name
+                MindFormerBook.get_default_checkpoint_save_folder(), model_type
             )
+
             if not os.path.exists(save_directory):
                 os.makedirs(save_directory)
             save_path = os.path.join(save_directory, "mindspore_model.yaml")
