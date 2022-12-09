@@ -20,12 +20,16 @@ from collections import defaultdict
 
 from mindspore import Tensor
 
+from .build_tokenizer import build_tokenizer
+from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
+
 __all__ = ['PretrainedTokenizerBase', 'PretrainedTokenizer', 'SpecialTokensMixin']
 
 
 SPECIAL_TOKEN_FILE_NAME = 'special_tokens_map.json'
 VOCAB_FILE_NAME = 'vocab.txt'
 TOKENIZER_CONFIG_NAME = 'tokenizer_config.json'
+
 
 class SpecialTokensMixin:
     """A class for managing the specific tokens"""
@@ -44,6 +48,7 @@ class SpecialTokensMixin:
             for item in self.SPECIAL_TOKENS:
                 if item == k:
                     setattr(self, '_' + item, v)
+
     @property
     def pad_token(self):
         return self._pad_token
@@ -229,13 +234,10 @@ class PretrainedTokenizerBase(SpecialTokensMixin):
 
         Examples:
         """
-        tokenizer_class, position_args, kwargs_args = cls._prepare_kwargs_for_tokenizer(name_or_path)
-        if tokenizer_class:
-            return tokenizer_class(*position_args, **kwargs_args)
-
-        # If no tokenizer class found, it will just call PretrainedTokenizer, so the position arguments should be none
-        position_args = ()
-        return cls(*position_args, **kwargs_args)
+        tokenizer_class, kwargs_args = cls._prepare_kwargs_for_tokenizer(name_or_path)
+        if not tokenizer_class:
+            tokenizer_class = cls.__name__
+        return build_tokenizer(class_name=tokenizer_class, **kwargs_args)
 
     @classmethod
     def _prepare_kwargs_for_tokenizer(cls, name_or_path):
@@ -257,17 +259,14 @@ class PretrainedTokenizerBase(SpecialTokensMixin):
             if os.path.isfile(path):
                 tokenizer_type[item] = json.load(open(path, 'r'))
 
-        from mindformers.models.bert import BertTokenizer
-        mapping_names = {"BertTokenizer": BertTokenizer}
+        class_type_str = None
         if 'tokenizer_config.json' in tokenizer_type:
             class_type_str = tokenizer_type['tokenizer_config.json'].get('tokenizer_class', None)
-            class_type = mapping_names.get(class_type_str, None)
             kwargs = tokenizer_type['tokenizer_config.json']
             # update the vocab path
             kwargs.update(vocab_file_dict)
-        position_args = ()
 
-        return class_type, position_args, kwargs
+        return class_type_str, kwargs
 
     def _pad(self, id_dict, max_length, padding_strategy="do_not_pad"):
         """Do padding according to the max_length"""
@@ -362,6 +361,7 @@ class PretrainedTokenizerBase(SpecialTokensMixin):
         raise NotImplementedError
 
 
+@MindFormerRegister.register(MindFormerModuleType.TOKENIZER)
 class PretrainedTokenizer(PretrainedTokenizerBase):
     """Pretrained Tokenizer provides detailed the tokenizer method."""
     def convert_ids_to_tokens(self, input_ids):
