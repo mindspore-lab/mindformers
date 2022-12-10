@@ -19,6 +19,7 @@ This is a temporary version of clip tokenizer
 import gzip
 import html
 import os
+import shutil
 from functools import lru_cache
 
 import ftfy
@@ -78,24 +79,11 @@ def basic_clean(input_text):
 
 class TempTokenizer:
     """Simple Tokenizer"""
-    def __init__(self, text_path):
+    def __init__(self, merges, vocab, flag_dict):
         self.byte_encoder = bytes_to_unicode()
         self.byte_decoder = {v: k for k, v in self.byte_encoder.items()}
-
-        vocab = list(bytes_to_unicode().values())
-        vocab = vocab + [v + '</w>' for v in vocab]
-
-        merges = gzip.open(text_path).read().decode("utf-8").split('\n')
-        merges = merges[1:49152-256-2+1]
-        merges = [tuple(merge.split()) for merge in merges]
-
-        for merge in merges:
-            vocab.append(''.join(merge))
-        vocab.extend(['<|startoftext|>', '<|endoftext|>'])
-
-        self.flag_dict = {'<|startoftext|>': '<|startoftext|>', '<|endoftext|>': '<|endoftext|>'}
         self.bpe_ranks = dict(zip(merges, range(len(merges))))
-
+        self.flag_dict = flag_dict
         self.encoder = dict(zip(vocab, range(len(vocab))))
         self.decoder = {v: k for k, v in self.encoder.items()}
 
@@ -161,8 +149,11 @@ class TempTokenizer:
 class ClipTokenizer(PretrainedTokenizer):
     """Clip Tokenizer"""
     MODEL_INPUT_NAME = ["input_ids", "attention_mask"]
+    VOCAB_FILES = {'vocab_file': ['vocab.txt', 'bpe_simple_vocab_16e6.txt.gz']}
+    FILE_LIST = ['tokenizer_config.json']
     '''clip tokenizer'''
     def __init__(self,
+                 vocab_file,
                  eos_token="<|endoftext|>",
                  bos_token="<|startoftext|>",
                  pad_token="<|endoftext|>",
@@ -171,10 +162,31 @@ class ClipTokenizer(PretrainedTokenizer):
                                             bos_token=bos_token,
                                             pad_token=pad_token,
                                             unk_token=unk_token)
-        path = default_bpe()
-        self.tool = TempTokenizer(path)
+        self.path = vocab_file
+        merges = self._read_merge_files(vocab_file)
+        vocab = list(bytes_to_unicode().values())
+        vocab = vocab + [v + '</w>' for v in vocab]
+        for merge in merges:
+            vocab.append(''.join(merge))
+        vocab.extend([bos_token, eos_token])
+
+        flag_dict = {bos_token: bos_token, eos_token: eos_token}
+        self.tool = TempTokenizer(merges, vocab, flag_dict)
         self.pat = re.compile(r"""<\|startoftext\|>|<\|endoftext\|>|'s|'t|'re|
         've|'m|'ll|'d|[\p{L}]+|[\p{N}]|[^\s\p{L}\p{N}]+""", re.IGNORECASE)
+
+
+    @staticmethod
+    def _read_merge_files(text_path, start_pos=1, end_pos=49152-256-2+1):
+        """Read the merge files"""
+        with gzip.open(text_path) as fp:
+            data = fp.read()
+        merges = data.decode("utf-8").split('\n')
+        merges = merges[start_pos: end_pos]
+        new_list = []
+        for item in merges:
+            new_list.append(tuple(item.split()))
+        return new_list
 
     def _tokenize(self, text, **kwargs):
         output_ids = []
@@ -199,9 +211,7 @@ class ClipTokenizer(PretrainedTokenizer):
 
     def save_vocabulary(self, save_directory, filename_prefix):
         output_file_path = os.path.join(save_directory, filename_prefix)
-        with open(output_file_path, 'w') as fp:
-            for k in self.tool.encoder.keys():
-                fp.write(k + '\n')
+        shutil.copy(self.path, output_file_path)
         return output_file_path
 
     def tokenize(self, text):

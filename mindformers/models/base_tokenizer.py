@@ -13,27 +13,32 @@
 # limitations under the License.
 # ============================================================================
 """Base Tokenizer for the pretrained tokenizer"""
-import logging
+import copy
 import os
 import json
 from collections import defaultdict
 
+import yaml
 from mindspore import Tensor
 
+from mindformers.tools import logger
+from mindformers.tools.register import MindFormerRegister, MindFormerModuleType, MindFormerConfig
+
 from .build_tokenizer import build_tokenizer
-from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 
 __all__ = ['PretrainedTokenizerBase', 'PretrainedTokenizer', 'SpecialTokensMixin']
 
+from ..tools.download_tools import downlond_with_progress_bar
+from ..mindformer_book import MindFormerBook
 
 SPECIAL_TOKEN_FILE_NAME = 'special_tokens_map.json'
-VOCAB_FILE_NAME = 'vocab.txt'
 TOKENIZER_CONFIG_NAME = 'tokenizer_config.json'
 
 
 class SpecialTokensMixin:
     """A class for managing the specific tokens"""
     SPECIAL_TOKENS = ['pad_token', 'cls_token', 'sep_token', 'pad_token', 'mask_token', 'bos_token', 'eos_token']
+
     def __init__(self,
                  **kwargs):
 
@@ -99,6 +104,7 @@ class PretrainedTokenizerBase(SpecialTokensMixin):
     MODEL_INPUT_NAME = ['input_ids', 'attention_mask', 'token_type_ids']
     VOCAB_FILES = {}
     FILE_LIST = []
+
     def __init__(self, **kwargs):
         super(PretrainedTokenizerBase, self).__init__(**kwargs)
         self.model_inputs = self.MODEL_INPUT_NAME
@@ -165,7 +171,7 @@ class PretrainedTokenizerBase(SpecialTokensMixin):
         if padding:
             padding_strategy = "max_length"
         if max_length and not padding:
-            logging.warning("If you want to enable the padding, please set padding to `max_length`.")
+            logger.warning("If you want to enable the padding, please set padding to `max_length`.")
         # if input text is only one list, we should prepare it into a tensor with batch size 1.
         text = self._prepare_input_to_list(text)
         text_pair = self._prepare_input_to_list(text_pair)
@@ -223,50 +229,130 @@ class PretrainedTokenizerBase(SpecialTokensMixin):
     def from_pretrained(cls, name_or_path):
         """
         Arguments:
-            model_or_path(str): The path to the model or the directory
+            name_or_path(str): The path to the model or the directory
 
                 Supports:
                     1. The name_or_path contains the config
                     2. The model_of_path is the output of the method saved_pretrained
-                    3. The model_or_path specifics the vocab_file, only appiliable to some tokenizers
+                    3. The model_or_path specifics the vocab_file, only applicable to some tokenizers
         Returns:
              The tokenizer of the corresponding tokenizer.
 
         Examples:
         """
-        tokenizer_class, kwargs_args = cls._prepare_kwargs_for_tokenizer(name_or_path)
-        if not tokenizer_class:
-            tokenizer_class = cls.__name__
-        return build_tokenizer(class_name=tokenizer_class, **kwargs_args)
+        kwargs = dict()
+        class_name = None
+        loaded_kwargs = {}
+        if name_or_path in MindFormerBook.get_tokenizer_support_list():
+            config, cache_path = cls._download_using_name(name_or_path)
+            class_name, loaded_kwargs = cls._get_class_name_and_args_form_config(config)
+            logger.info("Download the tokenizer finished, modify the input name_or_path "
+                        "from %s to %s.", name_or_path, cache_path)
+            name_or_path = cache_path
+
+        yaml_list = None
+        if os.path.isdir(name_or_path):
+            yaml_list = [file for file in os.listdir(name_or_path) if file.endswith(".yaml")]
+        if yaml_list:
+            if len(yaml_list) > 1:
+                raise ValueError(f"There should be only one yaml file under the directory {name_or_path}.")
+            yaml_file = os.path.join(name_or_path, yaml_list[0])
+            logger.info("config in the yaml file %s are used for tokenizer building.", yaml_file)
+            config = MindFormerConfig(yaml_file)
+            class_name, loaded_kwargs = cls._get_class_name_and_args_form_config(config)
+
+        vocab_dict, file_dict = cls._read_files_according_specific_by_tokenizer(name_or_path)
+        if 'tokenizer_config.json' in file_dict:
+            class_name = file_dict['tokenizer_config.json'].pop('tokenizer_class', None)
+            loaded_kwargs = file_dict['tokenizer_config.json']
+        else:
+            logger.warning("Can't find the tokenizer_config.json in the file_dict. "
+                           "The content of file_dict is : %s", file_dict)
+        kwargs.update(loaded_kwargs)
+        kwargs.update(vocab_dict)
+        if not class_name:
+            class_name = cls.__name__
+        logger.info("build tokenizer class name is: %s using args %s.", class_name, kwargs)
+        return build_tokenizer(class_name=class_name, **kwargs)
 
     @classmethod
-    def _prepare_kwargs_for_tokenizer(cls, name_or_path):
-        """Read files from the given name_or_path and returns the parsed arguments"""
-        vocab_file_dict = {}
-        tokenizer_type = {}
-        class_type = None
-        kwargs = {}
+    def _download_using_name(cls, name_or_path):
+        """Given the supported model name, download it from the urls"""
+        cache_path = os.path.join(MindFormerBook.get_default_checkpoint_download_folder(),
+                                  name_or_path.split("_")[0])
+        if not os.path.exists(cache_path):
+            os.makedirs(cache_path)
+
+        yaml_file = os.path.join(cache_path, name_or_path + ".yaml")
+        if not os.path.exists(yaml_file):
+            url = MindFormerBook.get_model_config_url_list()[name_or_path][0]
+            logger.info("Download from the url %s to %s", url, yaml_file)
+            downlond_with_progress_bar(url, yaml_file)
+
+        url_vocab = MindFormerBook.get_tokenizer_support_list()[name_or_path][0]
+        local_vocab_name = url_vocab.split('/')[-1]
+        vocab_file = os.path.join(cache_path, local_vocab_name)
+        if not os.path.exists(vocab_file):
+            logger.info("Download the yaml from the url %s to %s.", url_vocab, vocab_file)
+            downlond_with_progress_bar(url_vocab, vocab_file)
+        config = MindFormerConfig(yaml_file)
+        return config, cache_path
+
+    @classmethod
+    def cache_vocab_files(cls, name_or_path, cache_path=None):
+        """Cache the vocab files to the default dir"""
+        if not cache_path:
+            cache_path = os.path.join(MindFormerBook.get_default_checkpoint_download_folder(),
+                                      name_or_path.split("_")[0])
+            if not os.path.exists(cache_path):
+                os.makedirs(cache_path)
+        url_vocab = MindFormerBook.get_tokenizer_support_list()[name_or_path][0]
+        local_vocab_name = url_vocab.split('/')[-1]
+        vocab_file = os.path.join(cache_path, local_vocab_name)
+        if not os.path.exists(vocab_file):
+            logger.info("Download the vocab file from the url %s to %s.", url_vocab, vocab_file)
+            downlond_with_progress_bar(url_vocab, vocab_file)
+        return vocab_file
+
+    @classmethod
+    def _get_class_name_and_args_form_config(cls, config):
+        """Lookup the yaml files under the name_or_path"""
+        class_name = None
+        tokenizer_args = {}
+        if config and 'processor' in config and 'tokenizer' in config['processor'] \
+                and 'type' in config['processor']['tokenizer']:
+            tokenizer_args = config['processor']['tokenizer']
+            class_name = tokenizer_args.pop('type', None)
+            logger.info("Read the tokenizer name %s from %s. The load kwargs for tokenizer "
+                        "is: %s", class_name, config, tokenizer_args)
+        else:
+            logger.info("There is no matched format config['processor']['tokenizer']  in config %s", config)
+        return class_name, tokenizer_args
+
+    @classmethod
+    def _read_files_according_specific_by_tokenizer(cls, name_or_path):
+        """Read the file path specific by the class variable in the tokenizer"""
+        read_vocab_file_dict = {}
+        read_tokenizer_file_dict = {}
         for k, name in cls.VOCAB_FILES.items():
-            path = os.path.join(name_or_path, name)
-            if os.path.isfile(path):
-                vocab_file_dict[k] = path
-                # update the vocab file dict into kwargs
-                if k not in kwargs:
-                    kwargs[k] = path
+            if isinstance(name, str):
+                path = os.path.join(name_or_path, name)
+                if os.path.isfile(path):
+                    read_vocab_file_dict[k] = path
+            # To support tokenizer like clip that has two types for vocab files.
+            elif isinstance(name, list):
+                for sub_name in name:
+                    path = os.path.join(name_or_path, sub_name)
+                    if os.path.isfile(path):
+                        read_vocab_file_dict[k] = path
 
         for item in cls.FILE_LIST:
             path = os.path.join(name_or_path, item)
             if os.path.isfile(path):
-                tokenizer_type[item] = json.load(open(path, 'r'))
-
-        class_type_str = None
-        if 'tokenizer_config.json' in tokenizer_type:
-            class_type_str = tokenizer_type['tokenizer_config.json'].get('tokenizer_class', None)
-            kwargs = tokenizer_type['tokenizer_config.json']
-            # update the vocab path
-            kwargs.update(vocab_file_dict)
-
-        return class_type_str, kwargs
+                read_tokenizer_file_dict[item] = json.load(open(path, 'r'))
+        logger.info("Tokenizer %s read tokenizer files from %s are:"
+                    "%s and %s", cls.__name__, name_or_path, read_vocab_file_dict, read_tokenizer_file_dict)
+        return read_vocab_file_dict, read_tokenizer_file_dict
 
     def _pad(self, id_dict, max_length, padding_strategy="do_not_pad"):
         """Do padding according to the max_length"""
@@ -275,6 +361,7 @@ class PretrainedTokenizerBase(SpecialTokensMixin):
         is_batch = False
         if isinstance(id_dict['input_ids'], list) and isinstance(id_dict['input_ids'][0], list):
             is_batch = True
+
         def _pad_batch(source_ids, pad_value):
             if not is_batch:
                 source_ids = [source_ids]
@@ -286,6 +373,7 @@ class PretrainedTokenizerBase(SpecialTokensMixin):
                 source_ids[i] += [pad_value] * (max_length - len(source_ids[i]))
             if not is_batch:
                 source_ids = source_ids[0]
+
         _pad_batch(id_dict['input_ids'], pad_value=self.pad_token_id)
         if "attention_mask" in id_dict:
             _pad_batch(id_dict['attention_mask'], pad_value=0)
@@ -308,6 +396,7 @@ class PretrainedTokenizerBase(SpecialTokensMixin):
         if not isinstance(ids, list):
             raise ValueError("The input ids should be a list.")
         output_map = dict()
+
         def process_token_id(ids, par_ids=None):
             sentence_b_type_ids = []
             if par_ids:
@@ -339,22 +428,54 @@ class PretrainedTokenizerBase(SpecialTokensMixin):
                 output_map[k] = Tensor(v)
         return output_map
 
-    def save_pretrained(self, output_path):
+    def save_pretrained(self, save_directory=None, save_name="mindspore_model", file_format='json'):
         """
         Save the tokenizer by writing the tokenizer_config.json, vocab.txt and special_tokens_map.json to the disk.
 
         Arguments:
-            -output_path-(str): The output file directory.
+            save_directory(str): The output file directory.
+            save_name(str):
+            file_format(str): Support json or yaml.
         """
-        tokenizer_config_path = os.path.join(output_path, TOKENIZER_CONFIG_NAME)
-        if not os.path.exists(output_path):
-            os.makedirs(output_path, exist_ok=True)
-        self.init_kwargs["tokenizer_class"] = self.__class__.__name__
-        # Start to save the kwargs for the tokenizer
-        with open(tokenizer_config_path, 'w') as fp:
-            json.dump(self.init_kwargs, fp, indent=4)
+        default_directory = MindFormerBook.get_default_checkpoint_save_folder()
+        if save_directory is None and not os.path.exists(default_directory):
+            save_directory = default_directory
+            os.makedirs(save_directory)
+        if file_format not in ('yaml', 'json'):
+            raise ValueError(f"format should be one of [`yaml`, `json`], but got {file_format}.")
 
-        self.save_vocabulary(output_path, VOCAB_FILE_NAME)
+        kwargs = copy.deepcopy(self.init_kwargs)
+        # Start to save the kwargs for the tokenizer
+        if file_format == 'yaml':
+            kwargs['type'] = self.__class__.__name__
+            yaml_list = [file for file in os.listdir(save_directory) if file.endswith(".yaml")]
+            merged_dict = dict()
+            if len(yaml_list) > 1:
+                raise ValueError(f"There should be only one yaml file under the directory {save_directory}.")
+            if not yaml_list:
+                logger.info("The yaml is not found under the %s, so create a new one. "
+                            "Start to create a new one.", save_directory)
+                yaml_file = os.path.join(save_directory, save_name + '.yaml')
+            else:
+                yaml_file = os.path.join(save_directory, yaml_list[0])
+                with open(yaml_file, 'r') as file_reader:
+                    merged_dict = yaml.load(file_reader.read(), Loader=yaml.Loader)
+            logger.info("Dumping tokenizer args to %s.", yaml_file)
+            if 'processor' not in merged_dict:
+                merged_dict['processor'] = dict()
+            merged_dict['processor']['tokenizer'] = kwargs
+            with open(yaml_file, 'w') as file_reader:
+                yaml.dump(merged_dict, file_reader)
+        else:
+            kwargs["tokenizer_class"] = self.__class__.__name__
+            tokenizer_config_path = os.path.join(save_directory, TOKENIZER_CONFIG_NAME)
+            with open(tokenizer_config_path, 'w') as fp:
+                json.dump(kwargs, fp, indent=4)
+
+        output_name = self.VOCAB_FILES['vocab_file']
+        if isinstance(output_name, list):
+            output_name = output_name[0]
+        self.save_vocabulary(save_directory, output_name)
 
     def save_vocabulary(self, save_directory, filename_prefix):
         """Save the vocabulary to the specific path with name_prefix"""
@@ -364,6 +485,7 @@ class PretrainedTokenizerBase(SpecialTokensMixin):
 @MindFormerRegister.register(MindFormerModuleType.TOKENIZER)
 class PretrainedTokenizer(PretrainedTokenizerBase):
     """Pretrained Tokenizer provides detailed the tokenizer method."""
+
     def convert_ids_to_tokens(self, input_ids):
         """Convert the ids to tokens using vocab mapping"""
 
@@ -379,6 +501,7 @@ class PretrainedTokenizer(PretrainedTokenizerBase):
 
     def tokenize(self, text):
         raise NotImplementedError
+
     def build_inputs_with_special_tokens(self, token_ids_0, token_ids_1):
         if token_ids_1:
             return token_ids_0 + token_ids_1

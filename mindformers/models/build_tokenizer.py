@@ -24,6 +24,12 @@ def build_tokenizer(
     if config is None and class_name is None:
         return None
     if config is not None:
+        if 'vocab_file' not in config:
+            class_name = config['type']
+            dynamic_class = MindFormerRegister.get_cls(module_type='tokenizer', class_name=class_name)
+            vocab_file = dynamic_class.cache_vocab_files(name_or_path=class_name.lower().strip("tokenizer"))
+            config['vocab_file'] = vocab_file
         return MindFormerRegister.get_instance_from_cfg(
             config, MindFormerModuleType.TOKENIZER, default_args=default_args)
+
     return MindFormerRegister.get_instance(module_type, class_name, **kwargs)

@@ -44,7 +44,8 @@ def test_clip_processor():
                              "clip", "model_config", "clip_vit_b_32.yaml")
     img_fe = ClipImageFeatureExtractor(image_resolution=224)
     feature_extractor = ClipFeatureExtractor(img_fe)
-    tokenizer = ClipTokenizer()
+    # ClipTokenizer requires downloading vocabulary files
+    tokenizer = ClipTokenizer.from_pretrained("clip_vit_b_32")
     save_directory = os.path.join(MindFormerBook.get_default_checkpoint_save_folder(),
                                   'clip')
 

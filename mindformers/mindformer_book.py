@@ -139,7 +139,21 @@ class MindFormerBook:
          "myhuaweicloud.com/XFormer_for_mindspore/clip/sunflower.png")
     ])
 
-    _TOKENIZER_SUPPORT_LIST = OrderedDict()
+    _TOKENIZER_SUPPORT_URL_LIST = OrderedDict([
+        ('clip_vit_b_32', [
+            "https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/"
+            "XFormer_for_mindspore/clip/bpe_simple_vocab_16e6.txt.gz"
+        ]),
+        ('clip', [
+            "https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/"
+            "XFormer_for_mindspore/clip/bpe_simple_vocab_16e6.txt.gz"
+        ])
+    ])
+
+    TOKENIZER_NAME_TO_TOKENIZER = OrderedDict([
+        ('clip', 'ClipTokenizer'),
+        ('bert', 'BertTokenizer')
+    ])
 
     @classmethod
     def show_trainer_support_task_list(cls):
@@ -262,11 +276,11 @@ class MindFormerBook:
     @classmethod
     def get_tokenizer_support_list(cls):
         """get_tokenizer_support_list function"""
-        return cls._TOKENIZER_SUPPORT_LIST
+        return cls._TOKENIZER_SUPPORT_URL_LIST
     @classmethod
     def show_tokenizer_support_list(cls):
         """show_tokenizer_support_list function"""
-        print_dict(cls._TOKENIZER_SUPPORT_LIST)
+        print_dict(cls._TOKENIZER_SUPPORT_URL_LIST)
 
     @classmethod
     def get_model_name_support_list(cls):
