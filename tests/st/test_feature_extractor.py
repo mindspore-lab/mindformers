@@ -24,13 +24,15 @@ linux:  pytest ./tests/ut/test_feature_extractor.py
 import os
 import numpy as np
 from PIL import Image
-
+import pytest
 import mindspore as ms
 from mindformers.models import ClipFeatureExtractor, ClipImageFeatureExtractor
 from mindformers import MindFormerBook, AutoFeatureExtractor
 from mindformers.tools import logger
 
-
+@pytest.mark.level0
+@pytest.mark.platform_x86_cpu
+@pytest.mark.env_onecard
 def test_auto_feature_extractor():
     """
     Feature: AutoFeatureExtractor class
@@ -100,6 +102,9 @@ def test_auto_feature_extractor():
     fe_a.save_pretrained(save_directory, save_name='clip_vit_b_32')
     fe_b.save_pretrained(save_directory, save_name='clip_vit_b_32')
 
+@pytest.mark.level0
+@pytest.mark.platform_x86_cpu
+@pytest.mark.env_onecard
 def test_clip_feature_extractor():
     """
     Feature: ClipFeatureExtractor class

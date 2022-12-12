@@ -17,12 +17,16 @@ Test module for testing the interface used for mindformers.
 How to run this:
 python tests/ut/test_trainer/test_trainer_auto.py
 """
+import pytest
 from mindformers.trainer import Trainer
 from mindformers.common.context import init_context
 from mindformers.trainer.config_args import ConfigArguments, \
     DatasetConfig, RunnerConfig, ContextConfig
 
-
+@pytest.mark.level0
+@pytest.mark.platform_x86_ascend_training
+@pytest.mark.platform_arm_ascend_training
+@pytest.mark.env_onecard
 def test_trainer_train_auto():
     """
     Feature: Auto Create Trainer.
@@ -41,7 +45,7 @@ def test_trainer_train_auto():
     mim_trainer = Trainer(
         task_name='masked_image_modeling',
         model='mae_vit_base_p16',
-        train_dataset="/home/jenkins/qianjiahong/mindformers/transformer/test/vit/train",
+        train_dataset="/home/workspace/mindformers/vit/train",
         config=config)  # 为了CI门禁测试小数据集而新增的config， 正常使用无需指定该部分内容
     #  "/home/jenkins/qianjiahong/mindformers/transformer/test/vit/train"
     mim_trainer.train()

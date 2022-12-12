@@ -12,4 +12,5 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-"""UT."""
+"""Masked Language Modeling Trainer."""
+from .masked_language_modeling_pretrain import MaskedLanguageModelingTrainer

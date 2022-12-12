@@ -17,6 +17,7 @@ Test module for testing the interface used for mindformers.
 How to run this:
 python tests/ut/test_trainer/test_trainer_from_config.py
 """
+import pytest
 from mindformers.trainer import Trainer
 from mindformers.models import MaeModel
 from mindformers.common.context import init_context
@@ -24,7 +25,10 @@ from mindformers.trainer.config_args import ConfigArguments, \
     OptimizerConfig, DatasetConfig, DataLoaderConfig, RunnerConfig, \
     ContextConfig, LRConfig
 
-
+@pytest.mark.level0
+@pytest.mark.platform_x86_ascend_training
+@pytest.mark.platform_arm_ascend_training
+@pytest.mark.env_onecard
 def test_trainer_train_from_config():
     """
     Feature: Create Trainer From Config
@@ -41,7 +45,7 @@ def test_trainer_train_from_config():
     # 默认支持AdamWeightDecay相应参数
     optim_config = OptimizerConfig(optim_type='Adam', beta1=0.009, learning_rate=lr_schedule_config)
     data_loader_config = DataLoaderConfig(
-        dataset_dir="/home/jenkins/qianjiahong/mindformers/transformer/test/vit/train")   # 数据加载参数设定
+        dataset_dir="/home/workspace/mindformers/vit/train")   # 数据加载参数设定
     # 数据集超参
     train_dataset_config = DatasetConfig(data_loader=data_loader_config,
                                          input_columns=["image"],

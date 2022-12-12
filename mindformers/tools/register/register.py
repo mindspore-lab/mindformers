@@ -129,7 +129,6 @@ class MindFormerRegister:
         """
         if not class_name:
             return module_type in cls.registry
-
         registered = module_type in cls.registry and class_name in cls.registry.get(module_type)
 
         return registered

@@ -1,0 +1,40 @@
+# runner config
+runner_config:
+  epochs: 1
+  batch_size: 64
+  image_size: 224
+  sink_mode: True
+  per_epoch_size: 0
+  initial_epoch: 0
+  has_trained_epoches: 0
+  has_trained_steps: 0
+
+runner_wrapper:
+  type: TrainOneStepCell
+  sens: 1024
+
+# optimizer
+optimizer:
+  type: AdamWeightDecay
+  beta1: 0.9
+  beta2: 0.999
+  eps: 0.00000001 # 1e-8
+  weight_decay: 0.05
+
+# lr sechdule
+lr_schedule:
+  type: CosineDecayLR
+  max_lr: 0.00015
+  min_lr: 0.
+  decay_steps: 100
+
+callbacks:
+  - type: MFLossMonitor
+  - type: SummaryMonitor
+    keep_default_action: True
+  - type: CheckpointMointor
+    prefix: "mindformers"
+    save_checkpoint_steps: 100
+    integrated_save: True
+    async_save: False
+  - type: ObsMonitor

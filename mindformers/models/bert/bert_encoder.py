@@ -12,4 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-"""UT."""
+"""Bert Encoder API."""
+from mindformers.models.base_model import BaseModel
+from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
+from .bert_config import BertConfig
+
+
+@MindFormerRegister.register(MindFormerModuleType.ENCODER)
+class BertEncoder(BaseModel):
+    """vision encoder for mae"""
+
+    def __init__(self, config=BertConfig):
+        super(BertEncoder, self).__init__(config)
+        self.config = config

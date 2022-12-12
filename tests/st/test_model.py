@@ -29,7 +29,7 @@ Note:
     ClipModel amd ClipConfig start with the same prefix "Clip"
 """
 import os
-
+import pytest
 from mindformers import MindFormerBook, AutoConfig, AutoModel
 from mindformers.models import ClipModel, BaseModel
 from mindformers.tools import logger
@@ -50,6 +50,9 @@ class TestModelMethod:
                                            'checkpoint_save', 'clip')
 
     # the first method to load model, AutoModel
+    @pytest.mark.level0
+    @pytest.mark.platform_x86_cpu
+    @pytest.mark.env_onecard
     def test_auto_model(self):
         """
         Feature: AutoModel, from_pretrained, from_config
@@ -81,6 +84,9 @@ class TestModelMethod:
         assert isinstance(model_d, BaseModel)
 
     # the second method to load model, ClipModel
+    @pytest.mark.level0
+    @pytest.mark.platform_x86_cpu
+    @pytest.mark.env_onecard
     def test_clip_model(self):
         """
         Feature: ClipModel, from_pretrained, input config
@@ -112,6 +118,9 @@ class TestModelMethod:
         assert isinstance(model_k, BaseModel)
         assert isinstance(model_l, BaseModel)
 
+    @pytest.mark.level0
+    @pytest.mark.platform_x86_cpu
+    @pytest.mark.env_onecard
     def test_save_model(self):
         """
         Feature: save_pretrained method of ClipModel

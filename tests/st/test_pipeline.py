@@ -21,13 +21,16 @@ windows:  pytest .\\tests\\ut\\test_pipeline.py
 linux:  pytest ./tests/ut/test_pipeline.py
 """
 import os
-
+import pytest
 from mindformers import pipeline
 from mindformers.tools.image_tools import load_image
 from mindformers import AutoModel, AutoProcessor
 from mindformers import MindFormerBook
 
-
+@pytest.mark.level0
+@pytest.mark.platform_x86_ascend_training
+@pytest.mark.platform_arm_ascend_training
+@pytest.mark.env_onecard
 def test_pipeline():
     """
     Feature: pipline function

@@ -52,7 +52,7 @@ class BaseModel(nn.Cell):
         """
         checkpoint_name_or_path = config.checkpoint_name_or_path
 
-        if checkpoint_name_or_path is not None:
+        if checkpoint_name_or_path:
             if not isinstance(checkpoint_name_or_path, str):
                 raise TypeError(f"checkpoint_name_or_path should be a str,"
                                 f" but got {type(checkpoint_name_or_path)}")

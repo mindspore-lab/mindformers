@@ -20,10 +20,13 @@ How to run this:
 windows:  pytest .\\tests\\ut\\test_mindformer_book.py
 linux:  pytest ./tests/ut/test_mindformer_book.py
 """
+import pytest
 from mindformers import MindFormerBook
 from mindformers.tools import logger
 
-
+@pytest.mark.level0
+@pytest.mark.platform_x86_cpu
+@pytest.mark.env_onecard
 def test_mindformer_book_show():
     """
     Feature: mindformers book class, show content
@@ -40,6 +43,9 @@ def test_mindformer_book_show():
     MindFormerBook.show_default_checkpoint_save_folder()
     MindFormerBook.show_model_config_to_name()
 
+@pytest.mark.level0
+@pytest.mark.platform_x86_cpu
+@pytest.mark.env_onecard
 def test_mindformer_book_get():
     """
     Feature: mindformers book class, get content
@@ -57,6 +63,9 @@ def test_mindformer_book_get():
     logger.info(MindFormerBook.get_model_config_to_name())
 
 # default path is settable
+@pytest.mark.level0
+@pytest.mark.platform_x86_cpu
+@pytest.mark.env_onecard
 def test_mindformer_book_set():
     """
     Feature: mindformers book class, get content

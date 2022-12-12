@@ -20,7 +20,6 @@ import pytest
 from mindformers import PretrainedTokenizer, AutoTokenizer
 from mindformers import BertTokenizer
 
-
 class TestAutoTokenizerMethod:
     """A test class for testing the AutoTokenizer"""
     def generate_fake_vocab(self):
