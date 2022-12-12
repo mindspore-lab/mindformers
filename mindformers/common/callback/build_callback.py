@@ -33,8 +33,12 @@ def build_callback(
                 cfg_callback, MindFormerModuleType.CALLBACK, default_args=default_args)
         callbacks = []
         for callback_type in cfg_callback:
-            callback_op = MindFormerRegister.get_instance_from_cfg(
-                callback_type, MindFormerModuleType.CALLBACK)
+            if callback_type.get('type') == 'MFLossMonitor':
+                callback_op = MindFormerRegister.get_instance_from_cfg(
+                    callback_type, MindFormerModuleType.CALLBACK, default_args)
+            else:
+                callback_op = MindFormerRegister.get_instance_from_cfg(
+                    callback_type, MindFormerModuleType.CALLBACK)
             callbacks.append(callback_op)
         return callbacks
     return MindFormerRegister.get_instance(module_type, class_name, **kwargs)

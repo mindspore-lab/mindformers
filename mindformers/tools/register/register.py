@@ -50,7 +50,7 @@ class MindFormerModuleType:
     WRAPPER = 'wrapper'
     METRIC = 'metric'
     CONFIG = 'config'
-    COMMON = 'common'
+    TOOLS = 'tools'
     FEATURE_EXTRACTOR = 'feature_extractor'
 
 
@@ -65,7 +65,7 @@ class MindFormerRegister:
     registry = {}
 
     @classmethod
-    def register(cls, module_type=MindFormerModuleType.COMMON, alias=None):
+    def register(cls, module_type=MindFormerModuleType.TOOLS, alias=None):
         """Register class into registry
         Args:
             module_type (ModuleType) :
@@ -98,7 +98,7 @@ class MindFormerRegister:
         return wrapper
 
     @classmethod
-    def register_cls(cls, register_class, module_type=MindFormerModuleType.COMMON, alias=None):
+    def register_cls(cls, register_class, module_type=MindFormerModuleType.TOOLS, alias=None):
         """Register class with type name.
 
         Args:
@@ -156,7 +156,7 @@ class MindFormerRegister:
         return register_class
 
     @classmethod
-    def get_instance_from_cfg(cls, cfg, module_type=MindFormerModuleType.COMMON, default_args=None):
+    def get_instance_from_cfg(cls, cfg, module_type=MindFormerModuleType.TOOLS, default_args=None):
         """Get instance.
         Args:
             cfg (dict) : Config dict. It should at least contain the key "type".
@@ -200,7 +200,7 @@ class MindFormerRegister:
             raise type(e)('{}: {}'.format(obj_cls.__name__, e))
 
     @classmethod
-    def get_instance(cls, module_type=MindFormerModuleType.COMMON, class_name=None, **kwargs):
+    def get_instance(cls, module_type=MindFormerModuleType.TOOLS, class_name=None, **kwargs):
         """Get instance.
         Args:
             module_type : module type

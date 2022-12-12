@@ -14,4 +14,5 @@
 # ============================================================================
 """MindFormers Callback."""
 from .build_callback import build_callback, register_ms_cb
-from .callback import ObsMonitor, MFLossMonitor, SummaryMonitor, CheckpointMointor
+from .callback import ObsMonitor, MFLossMonitor, \
+    SummaryMonitor, CheckpointMointor, ProfileMonitor

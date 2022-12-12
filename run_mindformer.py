@@ -25,8 +25,8 @@ from mindformers.common.parallel_config import build_parallel_config
 from mindformers.tools.utils import str2bool
 from mindformers.common.context import build_context
 from mindformers.trainer import build_trainer
-from mindformers.common.callback import build_callback
 from mindformers.tools.cloud_adapter import cloud_monitor
+from mindformers.tools.logger import logger
 
 
 @cloud_monitor()
@@ -38,10 +38,10 @@ def main(config):
     cfts, profile_cb = build_context(config)
 
     # build context config
-    config.logger.info(".........Build context config..........")
+    logger.info(".........Build context config..........")
     build_parallel_config(config)
-    config.logger.info("context config is:{}".format(config.parallel_config))
-    config.logger.info("moe config is:{}".format(config.moe_config))
+    logger.info("context config is: %s", config.parallel_config)
+    logger.info("moe config is: %s", config.moe_config)
 
     # auto pull dataset if on ModelArts platform
     if config.pretrain_dataset:
@@ -54,12 +54,9 @@ def main(config):
     if config.runner_config.load_checkpoint:
         config.runner_config.load_checkpoint = cfts.get_checkpoint(config.runner_config.load_checkpoint)
 
-    # define callback
-    callbacks = []
+    # define callback and add profile callback
     if config.profile:
-        callbacks.append(profile_cb)
-    callbacks.extend(build_callback(config.callbacks))
-    config.callbacks = callbacks
+        config.profile_cb = profile_cb
 
     trainer = build_trainer(config.trainer)
     if config.run_status == 'train':
@@ -83,7 +80,7 @@ if __name__ == "__main__":
     parser.add_argument('--device_target', default=None, type=str, help='device target')
     parser.add_argument('--run_status', default=None, type=str, help='open training')
     parser.add_argument('--dataset_dir', default=None, type=str, help='dataset directory')
-    parser.add_argument('--checkpoint_path', default=None, type=str, help='load model checkpoint')
+    parser.add_argument('--resume_checkpoint_path', default=None, type=str, help='load model checkpoint')
     parser.add_argument('--seed', default=None, type=int, help='random seed')
     parser.add_argument('--use_parallel', default=None, type=str2bool, help='whether use parallel mode')
     parser.add_argument('--profile', default=None, type=str2bool, help='whether use profile analysis')
@@ -108,8 +105,8 @@ if __name__ == "__main__":
         config_.seed = args_.seed
     if args_.use_parallel is not None:
         config_.use_parallel = args_.use_parallel
-    if args_.checkpoint_path is not None:
-        config_.checkpoint_path = args_.checkpoint_path
+    if args_.resume_checkpoint_path is not None:
+        config_.resume_checkpoint_path = args_.resume_checkpoint_path
     if args_.profile is not None:
         config_.profile = args_.profile
     if args_.options is not None:

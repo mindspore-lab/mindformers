@@ -19,11 +19,12 @@ import pathlib
 
 from mindspore.train.callback import SummaryCollector
 
+from mindformers.common.callback import ProfileMonitor
 from mindformers.tools.logger import logger
 from ..utils import LOCAL_DEFAULT_PATH, PROFILE_INFO_PATH,\
     check_obs_url, check_in_modelarts, format_path, Validator
 from .cloud_adapter import Obs2Local, Local2ObsMonitor, mox_adapter,\
-    LossMonitor, CheckpointMointor, ProfileMonitor
+    CheckpointCallBack
 
 
 class CFTS:
@@ -122,11 +123,6 @@ class CFTS:
             return self._pull_strategy(strategy_path=strategy_path, rank_id=rank_id)
         return strategy_path
 
-    def loss_monitor(self, per_print_times):
-        """Record loss value in training."""
-        Validator.check_type(per_print_times, int)
-        return LossMonitor(per_print_times=per_print_times, log=self.log)
-
     def summary_monitor(self, summary_dir=None, **kwargs):
         """Record summary information in training."""
         if check_in_modelarts():
@@ -149,10 +145,10 @@ class CFTS:
             directory = os.path.join(directory, 'checkpoint')
         Validator.check_type(directory, str)
         format_path(directory)
-        ckpt_cb = CheckpointMointor(prefix=prefix, directory=directory, **kwargs)
+        ckpt_cb = CheckpointCallBack(prefix=prefix, directory=directory, **kwargs)
         return ckpt_cb.save_checkpoint()
 
-    def profile_monitor(self, start_step=0, stop_step=10):
+    def profile_monitor(self, start_step=1, stop_step=10):
         """Profile Monitor."""
         if check_in_modelarts():
             output_path = os.path.join(PROFILE_INFO_PATH, 'rank_{}'.format(self.rank_id))
