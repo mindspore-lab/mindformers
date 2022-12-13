@@ -15,6 +15,10 @@
 """The export function for bert"""
 
 from .bert_tokenizer import *
+from .bert_encoder import BertEncoder
+from .bert_config import BertConfig
+from .bert import BertNetworkWithLoss
 
 __all__ = []
 __all__.extend(bert_tokenizer.__all__)
+__all__.extend(['BertEncoder', 'BertConfig', 'BertNetworkWithLoss'])

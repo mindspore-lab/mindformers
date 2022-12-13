@@ -14,7 +14,7 @@
 # limitations under the License.
 # ============================================================================
 
-echo "---------------- MindTranformer: build start ----------------"
+echo "---------------- MindFormers: build start ----------------"
 BASEPATH=$(cd "$(dirname $0)"; pwd)
 COMMITID=$(git log --format='[sha1]:%h,[branch]:%d' --abbrev=8 -1)
 COMMITRET=$?
@@ -40,4 +40,4 @@ do
 done
 cd ${BASEPATH} || exit
 rm -rf *-info
-echo "---------------- MindTransformer: build end   ----------------"
+echo "---------------- MindFormers: build end   ----------------"

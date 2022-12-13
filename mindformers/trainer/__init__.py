@@ -26,3 +26,4 @@ from .utils import check_runner_config, check_keywords_in_name, \
     check_train_data_loader_type, check_eval_data_loader_type
 from .image_classification import ImageClassificationTrainer
 from .masked_image_modeling import MaskedImageModelingTrainer
+from .masked_language_modeling import MaskedLanguageModelingTrainer

@@ -18,7 +18,7 @@ How to run this:
 python tests/ut/test_trainer/test_trainer_from_instance.py
 """
 import numpy as np
-
+import pytest
 from mindspore.nn import AdamWeightDecay, WarmUpLR
 from mindspore.train.callback import LossMonitor, TimeMonitor,\
     CheckpointConfig, ModelCheckpoint
@@ -42,7 +42,10 @@ class MyDataLoader:
     def __len__(self):
         return len(self._data)
 
-
+@pytest.mark.level0
+@pytest.mark.platform_x86_ascend_training
+@pytest.mark.platform_arm_ascend_training
+@pytest.mark.env_onecard
 def test_trainer_train_from_instance():
     """
     Feature: Create Trainer From Instance
@@ -74,7 +77,7 @@ def test_trainer_train_from_instance():
     loss_cb = LossMonitor(per_print_times=2)
     time_cb = TimeMonitor()
     ckpt_config = CheckpointConfig(save_checkpoint_steps=10, integrated_save=True)
-    ckpt_cb = ModelCheckpoint(directory="./output/checkpoint", prefix="my_model", config=ckpt_config)
+    ckpt_cb = ModelCheckpoint(directory="/home/workspace/mindformers/output", prefix="my_model", config=ckpt_config)
     callbacks = [loss_cb, time_cb, ckpt_cb]
 
     mim_trainer = Trainer(task_name='masked_image_modeling',

@@ -15,7 +15,6 @@
 """Trainer API For Import."""
 import os
 from typing import Callable, List, Optional, Union
-from pprint import pprint
 
 import yaml
 import numpy as np
@@ -79,6 +78,7 @@ class Trainer:
         else:
             self.model_name = "common"
 
+        print("===============model_name, self.task_name", self.model_name, self.task_name)
         task_config = MindFormerConfig(SUPPORT_TASKS.get(self.task_name).get(self.model_name))
 
         if self.model_name == "common":
@@ -86,6 +86,7 @@ class Trainer:
 
         if config is None:
             self.config = task_config
+            print("self.config", self.config)
         else:
             if isinstance(config, dict):
                 task_config.merge_from_dict(config)
@@ -134,7 +135,6 @@ class Trainer:
         # set output directory
         os.environ.setdefault("LOCAL_DEFAULT_PATH", self.config.output_dir)
 
-        pprint(self.config)
         # self.save_config_to_yaml()
         # logger.info("save running config success of {}.".format(task_config.trainer.model_name.lower()))
 

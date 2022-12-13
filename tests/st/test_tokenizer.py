@@ -23,7 +23,6 @@ from mindspore import Tensor
 from mindformers import PretrainedTokenizer, AutoTokenizer
 from mindformers import BertTokenizer, ClipTokenizer
 
-
 class TestAutoTokenizerMethod:
     """A test class for testing the AutoTokenizer"""
     def generate_fake_vocab(self):

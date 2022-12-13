@@ -20,7 +20,7 @@ python tests/ut/test_build.py
 import os
 from dataclasses import dataclass
 from typing import Callable
-
+import pytest
 from mindspore.nn import AdamWeightDecay, CosineDecayLR, Accuracy,\
     TrainOneStepWithLossScaleCell, L1Loss
 from mindspore.train.callback import LossMonitor, TimeMonitor
@@ -284,7 +284,9 @@ def test_build_from_config():
     build_pipeline(all_config.pipeline)
     logger.info("Test Build Pipeline Success")
 
-
+@pytest.mark.level0
+@pytest.mark.platform_x86_cpu
+@pytest.mark.env_onecard
 def test_build_from_class_name():
     """
     Feature: Build API from class name

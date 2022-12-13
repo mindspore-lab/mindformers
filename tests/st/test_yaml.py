@@ -28,11 +28,13 @@ example:
     and clip_vit_b_32.ckpt is model ckpt file.
 """
 import os
-
+import pytest
 from mindformers import MindFormerBook
 from mindformers.tools import MindFormerConfig, logger
 
-
+@pytest.mark.level0
+@pytest.mark.platform_x86_cpu
+@pytest.mark.env_onecard
 def test_yaml():
     """
     Feature: MindFormerConfig
