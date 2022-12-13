@@ -13,5 +13,10 @@
 # limitations under the License.
 # ============================================================================
 """MindFormers LR API."""
+from mindformers.common.lr import lr_schedule
 from .build_lr import build_lr, register_ms_lr
-from .lr_schedule import LearningRateWiseLayer
+from .lr_schedule import *
+
+
+__all__ = ['build_lr']
+__all__.extend(lr_schedule.__all__)

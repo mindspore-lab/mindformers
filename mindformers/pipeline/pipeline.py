@@ -17,7 +17,7 @@
 pipeline
 """
 from mindformers.mindformer_book import MindFormerBook
-from mindformers.pipeline import build_pipeline
+from .build_pipeline import build_pipeline
 
 
 def pipeline(

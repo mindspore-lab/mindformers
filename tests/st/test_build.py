@@ -38,7 +38,7 @@ from mindformers.wrapper import build_wrapper
 
 path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-yaml_path = os.path.join(path, 'tests', 'ut', 'test_build.yaml')
+yaml_path = os.path.join(path, 'tests', 'st', 'test_build.yaml')
 all_config = MindFormerConfig(yaml_path)
 
 
@@ -232,6 +232,9 @@ class TestTaskTrainer(BaseTrainer):
         self.model_name = model_name
 
 
+@pytest.mark.level0
+@pytest.mark.platform_x86_cpu
+@pytest.mark.env_onecard
 def test_build_from_config():
     """
     Feature: Build API from config
@@ -283,6 +286,7 @@ def test_build_from_config():
     # build pipeline
     build_pipeline(all_config.pipeline)
     logger.info("Test Build Pipeline Success")
+
 
 @pytest.mark.level0
 @pytest.mark.platform_x86_cpu

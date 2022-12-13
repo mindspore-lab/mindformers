@@ -22,6 +22,13 @@ from PIL import Image
 from mindspore.dataset import vision
 import mindspore as ms
 
+
+__all__ = [
+    'BatchResize', 'BCHW2BHWC', 'BatchPILize',
+    'BatchNormalize', 'BatchCenterCrop', 'BatchToTensor'
+]
+
+
 class BCHW2BHWC:
     """
     Transform a batch of image from CHW to HWC.

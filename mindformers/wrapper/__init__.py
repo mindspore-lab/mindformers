@@ -13,5 +13,9 @@
 # limitations under the License.
 # ============================================================================
 """MindFormers Wrapper API."""
+from mindformers.wrapper import wrapper
 from .build_wrapper import build_wrapper
-from .wrapper import ClassificationMoeWrapper
+from .wrapper import *
+
+__all__ = ['build_wrapper']
+__all__.extend(wrapper.__all__)

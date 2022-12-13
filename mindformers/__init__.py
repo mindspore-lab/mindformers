@@ -14,19 +14,24 @@
 # ============================================================================
 
 """mindformers init"""
-from mindformers import common, auto_class, dataset, models, modules
-from .dataset import MIMDataset, ImageCLSDataset
-from .models import *
-from .common import *
-from .modules import *
-from .pipeline import *
-from .trainer import *
-from .wrapper import ClassificationMoeWrapper
-from .tools import logger, MindFormerRegister, MindFormerModuleType, MindFormerConfig, CFTS
+from mindformers import common, auto_class, dataset, \
+    models, modules, wrapper, tools
+from mindformers.pipeline import *
+from mindformers.trainer import *
+from mindformers.common import *
+from mindformers.dataset import *
+from mindformers.models import *
+from mindformers.modules import *
+from mindformers.wrapper import *
+from mindformers.tools import *
+from mindformers.auto_class import *
 from .mindformer_book import MindFormerBook
-from .auto_class import *
+
 
 __all__ = []
+__all__.extend(dataset.__all__)
 __all__.extend(models.__all__)
 __all__.extend(common.__all__)
+__all__.extend(modules.__all__)
+__all__.extend(tools.__all__)
 __all__.extend(auto_class.__all__)

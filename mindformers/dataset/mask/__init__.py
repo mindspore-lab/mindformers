@@ -13,5 +13,10 @@
 # limitations under the License.
 # ============================================================================
 """MindFormers Mask API."""
-from .vision_mask import SimMask, MaeMask
+from mindformers.dataset.mask import vision_mask
 from .build_mask import build_mask
+from .vision_mask import *
+
+
+__all__ = ['build_mask']
+__all__.extend(vision_mask.__all__)

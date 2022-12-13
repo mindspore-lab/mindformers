@@ -62,9 +62,3 @@ class TestModelMethod:
         model = AutoModel.from_config(self.config_path)
         assert isinstance(model, BertNetworkWithLoss)
         assert isinstance(model, BaseModel)
-
-
-
-if __name__ == "__main__":
-    T = TestModelMethod()
-    T.test_auto_model()

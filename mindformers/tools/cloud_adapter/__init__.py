@@ -13,8 +13,11 @@
 # limitations under the License.
 # ============================================================================
 """MindFormers Cloud Adapter API."""
-from ..utils import PARALLEL_MODE, MODE, DEBUG_INFO_PATH,\
-    Validator, check_in_modelarts, sync_trans, get_net_outputs
-from .cloud_monitor import cloud_monitor
+from mindformers.tools.cloud_adapter import cloud_adapter
+from .cloud_adapter import *
 from .cfts import CFTS
-from .cloud_adapter import Obs2Local, Local2ObsMonitor, CheckpointCallBack
+from .cloud_monitor import cloud_monitor
+
+
+__all__ = ['CFTS', 'cloud_monitor']
+__all__.extend(cloud_adapter.__all__)
