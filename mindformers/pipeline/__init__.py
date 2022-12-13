@@ -13,7 +13,12 @@
 # limitations under the License.
 # ============================================================================
 """MindFormers Pipeline API."""
-from .image_classification_pipeline import *
+from .pipeline import pipeline
 from .build_pipeline import build_pipeline
-from .pipeline import *
+from .base_pipeline import BasePipeline
+from .image_classification_pipeline import ImageClassificationForPipeline
 from .zero_shot_image_classification_pipeline import ZeroShotImageClassificationPipeline
+
+
+__all__ = ['build_pipeline', 'ZeroShotImageClassificationPipeline',
+           'ImageClassificationForPipeline', 'pipeline', 'BasePipeline']

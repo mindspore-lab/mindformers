@@ -13,9 +13,13 @@
 # limitations under the License.
 # ============================================================================
 """MindFormers Tools."""
-from .utils import str2bool, count_params
-from .cloud_adapter import CFTS, PARALLEL_MODE, MODE, DEBUG_INFO_PATH,\
-    check_in_modelarts, cloud_monitor
-from .register import MindFormerRegister, MindFormerModuleType,\
-    MindFormerConfig, ActionDict
+from mindformers.tools import cloud_adapter, register
+from .cloud_adapter import *
+from .register import *
 from .logger import logger, StreamRedirector, AiLogFastStreamRedirect2File
+from .utils import PARALLEL_MODE, MODE, DEBUG_INFO_PATH, \
+    check_in_modelarts, str2bool, count_params
+
+__all__ = ['logger']
+__all__.extend(cloud_adapter.__all__)
+__all__.extend(register.__all__)

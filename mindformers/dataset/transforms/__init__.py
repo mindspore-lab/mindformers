@@ -13,7 +13,11 @@
 # limitations under the License.
 # ============================================================================
 """MindFormers Transforms API."""
+from mindformers.dataset.transforms import vision_transforms
 from .build_transforms import build_transforms,\
     register_ms_c_transforms, register_ms_py_transforms
-from .vision_transforms import BatchResize, BatchNormalize,\
-    BatchToTensor, BCHW2BHWC, BatchCenterCrop, BatchPILize
+from .vision_transforms import *
+
+
+__all__ = ['build_transforms']
+__all__.extend(vision_transforms.__all__)

@@ -15,3 +15,5 @@
 """MindFormers Register Tools."""
 from .config import MindFormerConfig, ActionDict
 from .register import MindFormerRegister, MindFormerModuleType
+
+__all__ = ['MindFormerRegister', 'MindFormerModuleType', 'ActionDict', 'MindFormerConfig']

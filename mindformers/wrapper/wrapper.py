@@ -19,6 +19,9 @@ from mindspore.ops import operations as P
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 
 
+__all__ = ['ClassificationMoeWrapper']
+
+
 @MindFormerRegister.register(MindFormerModuleType.WRAPPER)
 class ClassificationMoeWrapper(nn.WithLossCell):
     """Image Classification With Moe Module."""

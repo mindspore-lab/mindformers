@@ -19,6 +19,9 @@ from mindspore.nn.learning_rate_schedule import LearningRateSchedule
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 
 
+__all__ = ['LearningRateWiseLayer']
+
+
 @MindFormerRegister.register(MindFormerModuleType.LR)
 class LearningRateWiseLayer(LearningRateSchedule):
     """LearningRateWiseLayer."""

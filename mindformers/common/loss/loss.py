@@ -23,6 +23,9 @@ from mindspore.nn.loss.loss import LossBase
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 
 
+__all__ = ['SoftTargetCrossEntropy', 'MSELoss', 'L1Loss', 'InfoNceLoss']
+
+
 @MindFormerRegister.register(MindFormerModuleType.LOSS)
 class SoftTargetCrossEntropy(LossBase):
     """SoftTargetCrossEntropy for MixUp Augment."""

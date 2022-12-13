@@ -13,17 +13,19 @@
 # limitations under the License.
 # ============================================================================
 """MindFormers Trainer API."""
-
-from .build_trainer import build_trainer
+from mindformers.trainer import config_args, image_classification, \
+    masked_image_modeling, masked_language_modeling
+from .config_args import *
+from .image_classification import *
+from .masked_image_modeling import *
+from .masked_language_modeling import *
 from .trainer import Trainer
-from .config_args import ConfigArguments, CheckpointConfig, \
-    CloudConfig, LRConfig, OptimizerConfig, DatasetConfig, \
-    DataLoaderConfig, ContextConfig, ParallelContextConfig, \
-    RunnerConfig, BaseArgsConfig
 from .base_trainer import BaseTrainer
-from .utils import check_runner_config, check_keywords_in_name, \
-    check_lr_config, check_optimizer_and_lr_type, \
-    check_train_data_loader_type, check_eval_data_loader_type
-from .image_classification import ImageClassificationTrainer
-from .masked_image_modeling import MaskedImageModelingTrainer
-from .masked_language_modeling import MaskedLanguageModelingTrainer
+from .build_trainer import build_trainer
+
+
+__all__ = ['BaseTrainer', 'build_trainer', 'Trainer']
+__all__.extend(config_args.__all__)
+__all__.extend(image_classification.__all__)
+__all__.extend(masked_image_modeling.__all__)
+__all__.extend(masked_language_modeling.__all__)

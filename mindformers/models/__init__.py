@@ -14,21 +14,26 @@
 # ============================================================================
 
 """models init"""
+from mindformers.models import mae, clip, \
+    bert, base_tokenizer
 from .mae import *
-from .build_model import *
-from .base_config import BaseConfig
 from .clip import *
 from .filip import *
 from .bert import *
-from .base_model import BaseModel
-from .build_tokenizer import build_tokenizer
-from .build_feature_extractor import build_feature_extractor
-from .build_processor import build_processor
-from .base_feature_extractor import BaseFeatureExtractor
 from .base_tokenizer import *
+from .base_config import BaseConfig
+from .base_model import BaseModel
 from .base_processor import BaseProcessor
+from .base_feature_extractor import BaseFeatureExtractor
+from .build_tokenizer import build_tokenizer
+from .build_processor import build_processor
+from .build_feature_extractor import build_feature_extractor
+from .build_model import build_model_config, build_head, \
+    build_model, build_encoder
 
-__all__ = []
+__all__ = ['BaseConfig', 'BaseModel', 'BaseProcessor', 'BaseFeatureExtractor',
+           'build_tokenizer', 'build_feature_extractor', 'build_processor',
+           'build_model', 'build_head', 'build_encoder', 'build_model_config']
 __all__.extend(bert.__all__)
 __all__.extend(mae.__all__)
 __all__.extend(clip.__all__)

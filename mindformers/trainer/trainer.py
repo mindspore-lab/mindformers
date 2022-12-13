@@ -26,7 +26,6 @@ from mindformers.mindformer_book import MindFormerBook
 from mindformers.tools.register import MindFormerConfig, MindFormerRegister
 from mindformers.models import build_model, build_processor
 from mindformers.dataset import build_dataset, build_dataset_loader, check_dataset_config
-from mindformers.trainer import build_trainer
 from mindformers.common.optim import build_optim
 from mindformers.common.lr import build_lr
 from mindformers.common.callback import build_callback
@@ -34,9 +33,13 @@ from mindformers.common.parallel_config import build_parallel_config
 from mindformers.tools.cloud_adapter import CFTS
 from mindformers.tools.logger import logger
 from mindformers.tools.utils import count_params
+from .build_trainer import build_trainer
 from .config_args import ConfigArguments
 from .utils import check_train_data_loader_type, check_eval_data_loader_type, \
     check_optimizer_and_lr_type
+
+
+__all__ = ['Trainer']
 
 
 SUPPORT_TASKS = MindFormerBook().get_trainer_support_task_list()

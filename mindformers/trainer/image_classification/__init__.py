@@ -14,3 +14,6 @@
 # ============================================================================
 """Image Classification Trainer API."""
 from .image_classification import ImageClassificationTrainer
+
+
+__all__ = ['ImageClassificationTrainer']

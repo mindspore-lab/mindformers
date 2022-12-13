@@ -14,3 +14,6 @@
 # ============================================================================
 """Masked Language Modeling Trainer."""
 from .masked_language_modeling_pretrain import MaskedLanguageModelingTrainer
+
+
+__all__ = ['MaskedLanguageModelingTrainer']

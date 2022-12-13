@@ -17,6 +17,9 @@ from mindspore.dataset.transforms import py_transforms
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 
 
+__all__ = ['SimMask', 'MaeMask']
+
+
 @MindFormerRegister.register(MindFormerModuleType.MASK_POLICY)
 class SimMask(py_transforms.PyTensorOperation):
     """SimMIM Mask Policy."""
