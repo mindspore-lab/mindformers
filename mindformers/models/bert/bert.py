@@ -28,10 +28,10 @@ from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.models.base_model import BaseModel
 from .bert_config import BertConfig
 
-__all__ = ['BertNetworkWithLoss']
+__all__ = ['BertForPretraining', 'BertModel']
 
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
-class BertNetworkWithLoss(BaseModel):
+class BertForPretraining(BaseModel):
     """
     Provide bert pre-training loss through network.
 
@@ -45,9 +45,10 @@ class BertNetworkWithLoss(BaseModel):
     """
 
     def __init__(self, config=BertConfig(), is_training=True, use_one_hot_embeddings=False):
-        super(BertNetworkWithLoss, self).__init__(config)
-        self.bert = BertPreTraining(config, is_training, use_one_hot_embeddings)
-        self.loss = BertPretrainingLoss(config)
+        super(BertForPretraining, self).__init__(config)
+        self.is_training = is_training
+        self.bert = BertScore(config, is_training, use_one_hot_embeddings)(config, is_training, use_one_hot_embeddings)
+        self.loss = BertLoss(config)
         self.cast = P.Cast()
         self.use_moe = False
         self.add = P.Add().shard(((1,), ()))
@@ -62,6 +63,9 @@ class BertNetworkWithLoss(BaseModel):
                   masked_lm_ids,
                   masked_lm_weights):
         """Get pre-training loss"""
+        if not self.is_training:
+            return self.bert(input_ids, input_mask, token_type_id, masked_lm_positions)
+
         prediction_scores, seq_relationship_score, moe_loss = \
             self.bert(input_ids, input_mask, token_type_id, masked_lm_positions)
         total_loss = self.loss(prediction_scores, seq_relationship_score,
@@ -302,7 +306,7 @@ class CreateAttentionMaskFromInputMask(nn.Cell):
         attention_mask = self.tile(attention_mask, (1, seq_length, 1))
         return attention_mask
 
-class BertPreTraining(nn.Cell):
+class BertScore(nn.Cell):
     """
     Bert pretraining network.
 
@@ -316,22 +320,27 @@ class BertPreTraining(nn.Cell):
     """
 
     def __init__(self, config, is_training, use_one_hot_embeddings):
-        super(BertPreTraining, self).__init__()
+        super(BertScore, self).__init__()
         self.bert = BertModel(config, is_training, use_one_hot_embeddings)
         self.mlmloss = GetMaskedLMOutput(config)
         self.nsploss = GetNextSentenceOutput(config)
         self.use_moe = False
+        self.is_training = is_training
 
     def construct(self, input_ids, input_mask, token_type_id,
                   masked_lm_positions):
         """connect backbone and heads."""
         moe_loss = 0
         if self.use_moe:
-            sequence_output, pooled_output, embedding_table, _ = \
+            sequence_output, pooled_output, embedding_table, moe_loss = \
                 self.bert(input_ids, token_type_id, input_mask)
         else:
             sequence_output, pooled_output, embedding_table = \
                 self.bert(input_ids, token_type_id, input_mask)
+
+        if not self.is_training:
+            return sequence_output, pooled_output
+
         prediction_scores = self.mlmloss(sequence_output,
                                          embedding_table,
                                          masked_lm_positions)
@@ -339,7 +348,7 @@ class BertPreTraining(nn.Cell):
         return prediction_scores, seq_relationship_score, moe_loss
 
 
-class BertPretrainingLoss(nn.Cell):
+class BertLoss(nn.Cell):
     """
     Provide bert pre-training loss.
 
@@ -351,7 +360,7 @@ class BertPretrainingLoss(nn.Cell):
     """
 
     def __init__(self, config):
-        super(BertPretrainingLoss, self).__init__()
+        super(BertLoss, self).__init__()
         self.vocab_size = config.vocab_size
         self.onehot = P.OneHot().shard(((config.parallel_config.data_parallel, 1), (), ()))
         self.on_value = Tensor(1.0, mstype.float32)
