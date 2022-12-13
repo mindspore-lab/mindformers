@@ -37,6 +37,9 @@ class BaseProcessor:
         self.config.update(kwargs)
         self.feature_extractor = kwargs.pop("feature_extractor", None)
         self.tokenizer = kwargs.pop("tokenizer", None)
+        self.max_length = kwargs.pop("max_length", None)
+        self.padding = kwargs.pop("padding", False)
+        self.return_tensors = kwargs.pop("return_tensors", "ms")
 
     def __call__(self, image_input=None, text_input=None):
         """call function"""
@@ -57,8 +60,9 @@ class BaseProcessor:
             # Format the input into a batch
             if isinstance(text_input, str):
                 text_input = [text_input]
-            text_output = self.tokenizer(text_input, return_tensors='ms', max_length=77,
-                                         padding='max_length')["input_ids"]
+            text_output = self.tokenizer(text_input, return_tensors=self.return_tensors,
+                                         max_length=self.max_length,
+                                         padding=self.padding)["input_ids"]
             output['text'] = text_output
 
         return output
@@ -122,7 +126,7 @@ class BaseProcessor:
                 parsed_sub_config.update(val.inverse_parse_config(val.config))
                 parsed_config.update({key: parsed_sub_config})
             else:
-                parsed_config.update(key, val)
+                parsed_config.update({key: val})
         return parsed_config
 
     def _wrap_config(self, config):

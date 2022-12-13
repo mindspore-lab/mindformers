@@ -70,12 +70,13 @@ class ZeroShotImageClassificationPipeline(BasePipeline):
         """sanitize parameters for preprocess, forward, and postprocess."""
         preprocess_params = {}
         postprocess_params = {}
-        if "candidate_labels" in pipeline_parameters:
-            preprocess_params["candidate_labels"] =\
-                pipeline_parameters.get("candidate_labels")
-        if "hypothesis_template" in pipeline_parameters:
-            preprocess_params["hypothesis_template"] =\
-                pipeline_parameters.get("hypothesis_template")
+
+        pre_list = ["candidate_labels", "hypothesis_template",
+                    "max_length", "padding", "return_tensors"]
+        for item in pre_list:
+            if item in pipeline_parameters:
+                preprocess_params[item] = pipeline_parameters.get(item)
+
         if "top_k" in pipeline_parameters:
             postprocess_params["top_k"] = pipeline_parameters.get("top_k")
         return preprocess_params, {}, postprocess_params
@@ -87,6 +88,9 @@ class ZeroShotImageClassificationPipeline(BasePipeline):
         Args:
             inputs (url, PIL.Image, tensor, numpy): the image to be classified.
             candidate_labels (str, list): the candidate labels for classification.
+            max_length (int): max length of tokenizer's output
+            padding (False / "max_length"): padding for max_length
+            return_tensors ("ms"): the type of returned tensors
 
         Return:
             processed image.
@@ -94,6 +98,9 @@ class ZeroShotImageClassificationPipeline(BasePipeline):
         candidate_labels = preprocess_params.pop("candidate_labels", None)
         hypothesis_template = preprocess_params.pop("hypothesis_template",
                                                     "This is a photo of {}.")
+        max_length = preprocess_params.pop("max_length", 77)
+        padding = preprocess_params.pop("padding", "max_length")
+        return_tensors = preprocess_params.pop("return_tensors", "ms")
 
         if candidate_labels is None:
             raise ValueError("candidate_labels are supposed for"
@@ -108,8 +115,8 @@ class ZeroShotImageClassificationPipeline(BasePipeline):
         image_processed = self.feature_extractor(image)
         sentences = [hypothesis_template.format(candidate_label)
                      for candidate_label in candidate_labels]
-        input_ids = self.tokenizer(sentences, max_length=77, padding="max_length",
-                                   return_tensors="ms")["input_ids"]
+        input_ids = self.tokenizer(sentences, max_length=max_length, padding=padding,
+                                   return_tensors=return_tensors)["input_ids"]
         return {"image_processed": image_processed,
                 "input_ids": input_ids, "candidate_labels": candidate_labels}
 

@@ -18,7 +18,8 @@ from .dataloader import build_dataset_loader, register_ms_dataset_loader
 from .mask import build_mask, SimMask, MaeMask
 from .transforms import (
     build_transforms, register_ms_py_transforms, register_ms_c_transforms,
-    BCHW2BHWC, BatchResize, BatchToTensor, BatchNormalize
+    BCHW2BHWC, BatchResize, BatchToTensor, BatchNormalize, BatchCenterCrop,
+    BatchPILize
 )
 from .utils import check_dataset_config
 from .sampler import build_sampler, register_ms_samplers

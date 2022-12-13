@@ -29,6 +29,15 @@ from mindspore.ops import operations as P
 from mindspore import Parameter, Tensor
 from mindspore.common.initializer import Normal
 
+class LayerNorm(nn.LayerNorm):
+    """
+    Implementation that supports fp16 inputs but fp32 gains/biases.
+    """
+    def construct(self, x: ms.Tensor):
+        """construct"""
+        y = super().construct(P.Cast()(x, ms.float32))
+        y = P.Cast()(y, x.dtype)
+        return y
 
 class MultiheadAttention(nn.Cell):
     """
@@ -115,22 +124,23 @@ class VisionTransformer(nn.Cell):
             Parameter(scale * Tensor(
                 np.random.normal(0, 1, size=(
                     (input_resolution // patch_size) ** 2 + 1, width))).astype(ms.float32))
-        self.ln_pre = nn.LayerNorm([width]).to_float(dtype)
+        self.ln_pre = LayerNorm([width], epsilon=1e-5)
         self.transformer = Transformer(width, layers, heads, dtype)
-        self.ln_post = nn.LayerNorm([width]).to_float(dtype)
+        self.ln_post = LayerNorm([width], epsilon=1e-5)
         self.proj = \
             Parameter(scale * Tensor(np.random.normal(0, 1,
                                                       size=(width, output_dim))).astype(ms.float32))
         self.cat = ops.Concat(1)
         self.tile = ops.Tile()
         self.slice = P.StridedSlice()
+        self.dtype = dtype
 
     def construct(self, input_x):
         """construct"""
         input_x = self.conv1(input_x)
         input_x = input_x.reshape(input_x.shape[0], input_x.shape[1], -1)
         input_x = input_x.transpose(0, 2, 1)
-        class_embedding = self.tile(self.class_embedding, (input_x.shape[0]+1, 1, 1))
+        class_embedding = self.tile(self.class_embedding, (input_x.shape[0]+1, 1, 1)).astype(self.dtype)
         input_x = self.cat([
             self.slice(class_embedding,
                        (0, 0, 0),
@@ -175,8 +185,9 @@ class ResidualAttentionBlock(nn.Cell):
 
         proj_std = (d_model ** -0.5) * ((2 * layers) ** -0.5)
         fc_std = (2 * d_model) ** -0.5
+        self.dtype = dtype
         self.attn = MultiheadAttention(d_model, n_head, layers, dtype)
-        self.ln_1 = nn.LayerNorm([d_model], epsilon=1e-5).to_float(dtype)
+        self.ln_1 = LayerNorm([d_model], epsilon=1e-5)
         self.mlp = nn.SequentialCell(OrderedDict([
             ("c_fc", nn.Dense(d_model, d_model * 4,
                               weight_init=Normal(mean=0.0, sigma=fc_std)).to_float(dtype)),
@@ -184,7 +195,7 @@ class ResidualAttentionBlock(nn.Cell):
             ("c_proj", nn.Dense(d_model * 4, d_model,
                                 weight_init=Normal(mean=0.0, sigma=proj_std)).to_float(dtype))
         ]))
-        self.ln_2 = nn.LayerNorm([d_model], epsilon=1e-5).to_float(dtype)
+        self.ln_2 = LayerNorm([d_model], epsilon=1e-5)
         self.attn_mask = attn_mask
 
     def construct(self, input_x):

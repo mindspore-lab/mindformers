@@ -30,8 +30,12 @@ class ClipProcessor(BaseProcessor):
     """
     _support_list = MindFormerBook.get_model_support_list()['clip']
 
-    def __init__(self, feature_extractor=None, tokenizer=None):
+    def __init__(self, feature_extractor=None, tokenizer=None,
+                 max_length=77, padding='max_length', return_tensors='ms'):
         super(ClipProcessor, self).__init__(
             feature_extractor=feature_extractor,
-            tokenizer=tokenizer
+            tokenizer=tokenizer,
+            max_length=max_length,
+            padding=padding,
+            return_tensors=return_tensors
         )
