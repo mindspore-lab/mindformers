@@ -97,10 +97,14 @@ class MindFormerBook:
         ('bert', [
             'bert_base_uncased',
         ]),
+        ('filip', [
+            'filip_vit_l_14',
+        ])
     ])
 
     _MODEL_CONFIG_TO_NAME = OrderedDict([
-        ('ClipConfig', 'ClipModel')
+        ('ClipConfig', 'ClipModel'),
+        ('FilipConifg', 'FilipModel')
     ])
 
     _MODEL_CKPT_URL_LIST = OrderedDict([

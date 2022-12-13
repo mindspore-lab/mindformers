@@ -13,24 +13,8 @@
 # limitations under the License.
 # ============================================================================
 
-"""models init"""
-from .mae import *
-from .build_model import *
-from .base_config import BaseConfig
-from .clip import *
-from .filip import *
-from .bert import *
-from .base_model import BaseModel
-from .build_tokenizer import build_tokenizer
-from .build_feature_extractor import build_feature_extractor
-from .build_processor import build_processor
-from .base_feature_extractor import BaseFeatureExtractor
-from .base_tokenizer import *
-from .base_processor import BaseProcessor
+"""filip init"""
+from .filip_config import FilipTextConfig, FilipVisionConfig, FilipConfig
+from .filip import FilipModel
 
-__all__ = []
-__all__.extend(bert.__all__)
-__all__.extend(mae.__all__)
-__all__.extend(clip.__all__)
-__all__.extend(filip.__all__)
-__all__.extend(base_tokenizer.__all__)
+__all__ = ['FilipModel', 'FilipConfig', 'FilipVisionConfig', 'FilipTextConfig']
