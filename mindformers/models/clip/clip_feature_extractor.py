@@ -22,7 +22,10 @@ import PIL
 import mindspore as ms
 
 from mindformers.mindformer_book import MindFormerBook
-from mindformers.dataset import BCHW2BHWC, BatchResize, BatchToTensor, BatchNormalize
+from mindformers.dataset import (
+    BCHW2BHWC, BatchResize, BatchToTensor,
+    BatchNormalize, BatchCenterCrop, BatchPILize
+)
 from ..base_feature_extractor import BaseImageFeatureExtractor, BaseFeatureExtractor
 from ...tools.register import MindFormerRegister, MindFormerModuleType
 
@@ -41,7 +44,9 @@ class ClipImageFeatureExtractor(BaseImageFeatureExtractor):
         )
 
         self.bchw2bhwc = BCHW2BHWC()
+        self.batch_pilizer = BatchPILize()
         self.batch_resizer = BatchResize(image_resolution)
+        self.batch_crop = BatchCenterCrop(image_resolution)
         self.batch_totensor = BatchToTensor()
         self.batch_normalizer = BatchNormalize()
 
@@ -57,9 +62,12 @@ class ClipImageFeatureExtractor(BaseImageFeatureExtractor):
         """
         if not self._bhwc_check(images):
             images = self.bchw2bhwc(images)
+        images = self.batch_pilizer(images)
         images = self.batch_resizer(images)
+        images = self.batch_crop(images)
         images = self.batch_totensor(images)
         images = self.batch_normalizer(images)
+
         kwargs.pop("other", None)
         if isinstance(images, list):
             return ms.Tensor(np.row_stack([np.expand_dims(item, axis=0) for item in images]))
@@ -78,6 +86,7 @@ class ClipImageFeatureExtractor(BaseImageFeatureExtractor):
         if isinstance(image_batch, (list, PIL.Image.Image)):
             return True
         return False
+
 
 @MindFormerRegister.register(MindFormerModuleType.FEATURE_EXTRACTOR)
 class ClipFeatureExtractor(BaseFeatureExtractor):

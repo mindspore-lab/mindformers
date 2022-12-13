@@ -27,7 +27,7 @@ import mindspore.ops as ops
 
 from ...mindformer_book import MindFormerBook
 from ..base_model import BaseModel
-from .clip_modules import VisionTransformer, Transformer
+from .clip_modules import VisionTransformer, Transformer, LayerNorm
 from ...tools.register import MindFormerRegister, MindFormerModuleType
 
 
@@ -56,7 +56,7 @@ class ClipModel(BaseModel):
             heads=vision_heads,
             output_dim=config.projection_dim,
             dtype=self.dtype
-        ).to_float(self.dtype)
+        )
 
         transformer_heads = config.text_config.hidden_size // config.ratio
         self.transformer = Transformer(
@@ -65,15 +65,15 @@ class ClipModel(BaseModel):
             heads=transformer_heads,
             dtype=self.dtype,
             attn_mask=self.build_attention_mask()
-        ).to_float(self.dtype)
+        )
 
         self.token_embedding = \
             nn.Embedding(config.text_config.vocab_size, config.text_config.hidden_size,
-                         embedding_table=Normal(mean=0.0, sigma=0.02), dtype=self.dtype)
+                         embedding_table=Normal(mean=0.0, sigma=0.02))
         self.positional_embedding = Parameter(initializer(
             Normal(mean=0.0, sigma=0.01), [config.text_config.max_position_embeddings,
-                                           config.text_config.hidden_size], ms.float32))
-        self.ln_final = nn.LayerNorm([config.text_config.hidden_size]).to_float(self.dtype)
+                                           config.text_config.hidden_size]))
+        self.ln_final = LayerNorm([config.text_config.hidden_size])
 
         self.text_projection = Parameter(initializer(
             Normal(mean=0.0, sigma=config.text_config.hidden_size ** -0.5),
@@ -119,7 +119,7 @@ class ClipModel(BaseModel):
         """buil_attention_mask"""
         mask = np.ones((self.max_position_embeddings, self.max_position_embeddings))
         mask = np.triu(mask * float("-inf"), k=1)
-        return Tensor(mask)
+        return Tensor(mask).astype(self.dtype)
 
     def get_image_features(self, image):
         """
@@ -131,7 +131,7 @@ class ClipModel(BaseModel):
         Returns:
             image feature
         """
-        image = image.astype(ms.float32)
+        image = image.astype(self.dtype)
         return self.visual(image)
 
     def get_text_features(self, text):
@@ -144,12 +144,12 @@ class ClipModel(BaseModel):
         Returns:
             text feature
         """
-        text_ = self.token_embedding(text)
-        text_ = ops.Add()(text_, self.positional_embedding)
+        text_ = self.token_embedding(text).astype(self.dtype)
+        text_ = ops.Add()(text_, self.positional_embedding).astype(self.dtype)
         text_ = text_.transpose(1, 0, 2)
         text_ = self.transformer(text_)
         text_ = text_.transpose(1, 0, 2)
-        text_ = self.ln_final(text_)
+        text_ = self.ln_final(text_).astype(self.dtype)
 
         text_ = ops.matmul(
             text_[ms.numpy.arange(text_.shape[0]), text.argmax(-1)], self.text_projection)

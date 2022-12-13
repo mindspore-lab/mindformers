@@ -132,7 +132,7 @@ class BaseFeatureExtractor:
                 parsed_sub_config.update(val.config)
                 parsed_config.update({key: parsed_sub_config})
             else:
-                parsed_config.update(key, val)
+                parsed_config.update({key: val})
         return parsed_config
 
     def _wrap_config(self, config):
