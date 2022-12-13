@@ -22,6 +22,7 @@ from mindformers.models import build_model
 from mindformers.common.lr import build_lr
 from mindformers.common.optim import build_optim
 from mindformers.wrapper import build_wrapper
+from mindformers.common.callback import build_callback
 from mindformers.trainer.base_trainer import BaseTrainer
 from mindformers.trainer.utils import check_runner_config
 from mindformers.tools.logger import logger
@@ -81,7 +82,11 @@ class MaskedImageModelingTrainer(BaseTrainer):
 
         # build callback
         if callbacks is None:
-            callbacks = config.callbacks
+            callbacks = []
+            if config.profile:
+                callbacks.append(config.profile_cb)
+            callbacks.extend(build_callback(
+                config.callbacks, default_args={"learning_rate": optimizer.learning_rate}))
 
         # build runner wrapper
         logger.info(".........Build Running Wrapper..........")

@@ -15,15 +15,12 @@
 """Cloud Adapter."""
 import os
 import time
-import logging as logger
-
-import numpy as np
 
 from mindspore.train.callback import Callback, ModelCheckpoint, CheckpointConfig
-from mindspore.profiler import Profiler
 
+from ..logger import logger
 from ..utils import check_obs_url, check_in_modelarts, \
-    Validator, get_net_outputs, sync_trans
+    Validator, sync_trans
 
 if check_in_modelarts():
     import moxing as mox
@@ -63,9 +60,9 @@ class Local2ObsMonitor(Callback):
         self.upload_frequence = upload_frequence
         self.keep_last = keep_last
         self.is_special = False
-        if rank_id:
+        if rank_id is not None:
             self.is_special = True
-            self.special_id = int(rank_id)
+            self.special_id = int(rank_id) if isinstance(rank_id, str) else rank_id
         self.rank_id = int(os.getenv('RANK_ID', '0'))
         self.retry_time = retry_time
         self.retry = retry
@@ -161,71 +158,7 @@ class Obs2Local:
         return local_url
 
 
-class LossMonitor(Callback):
-    """
-    Monitor the loss in training.
-
-    If the loss is NAN or INF, it will terminate training.
-
-    Note:
-        If per_print_times is 0, do not print loss.
-
-    Args:
-        per_print_times (int): How many steps to print once loss. During sink mode, it will print loss in the
-                               nearest step. Default: 1.
-
-    Raises:
-        ValueError: If per_print_times is not an integer or less than zero.
-        ValueError: If data_size is not an integer or less than zero.
-    """
-
-    def __init__(self, per_print_times=1, data_size=None, log=logger):
-        super(LossMonitor, self).__init__()
-        if not isinstance(per_print_times, int) or per_print_times < 0:
-            raise ValueError("The argument 'per_print_times' must be int and >= 0, "
-                             "but got {}".format(per_print_times))
-        self._per_print_times = per_print_times
-        self._last_print_time = 0
-        self.data_size = data_size
-        self.step_time = time.time()
-        self.log = log
-        self.run_context = None
-
-    def step_begin(self, run_context):
-        """
-        Record time at the begin of step.
-
-        Args:
-            run_context (RunContext): Context of the train running.
-        """
-        self.run_context = run_context
-        self.step_time = time.time()
-
-    def step_end(self, run_context):
-        """
-        Print training loss at the end of step.
-
-        Args:
-            run_context (RunContext): Context of the train running.
-        """
-        cb_params = run_context.original_args()
-
-        step_seconds = (time.time() - self.step_time) * 1000
-
-        loss = get_net_outputs(cb_params.net_outputs)
-
-        cur_step_in_epoch = (cb_params.cur_step_num - 1) % cb_params.batch_num + 1
-
-        if isinstance(loss, float) and (np.isnan(loss) or np.isinf(loss)):
-            raise ValueError('epoch: {} step: {}. Invalid loss, terminating training.'.format(
-                cb_params.cur_epoch_num, cur_step_in_epoch))
-        if self._per_print_times != 0 and (cb_params.cur_step_num - self._last_print_time) >= self._per_print_times:
-            self._last_print_time = cb_params.cur_step_num
-            self.log.info('epoch: {} step: {}, loss is {}; per step time: {:5.3f} ms'.format(
-                cb_params.cur_epoch_num, cur_step_in_epoch, loss, step_seconds))
-
-
-class CheckpointMointor:
+class CheckpointCallBack:
     """
     Args:
         prefix (str): The prefix name of checkpoint files. Default: "CKP".
@@ -307,56 +240,6 @@ class CheckpointMointor:
         return ckpoint_cb
 
 
-class ProfileMonitor(Callback):
-    """
-    Profile analysis in training.
-    """
-    def __init__(self, start_step=0, stop_step=10, output_path=None, profile_communication=False):
-        super(ProfileMonitor, self).__init__()
-        self.start_step = start_step
-        self.stop_step = stop_step
-        if output_path is not None:
-            self.profiler = Profiler(
-                start_profile=False, output_path=output_path, profile_communication=profile_communication)
-        else:
-            self.profiler = Profiler(start_profile=False)
-        self.run_context = None
-
-    def step_begin(self, run_context):
-        """
-        Start profile at the begin of step.
-
-        Args:
-            run_context (RunContext): Context of the train running.
-        """
-        cb_params = run_context.original_args()
-        step_num = cb_params.cur_step_num
-        if step_num == self.start_step:
-            self.profiler.start()
-
-    def step_end(self, run_context):
-        """
-        Stop profile at the end of step.
-
-        Args:
-            run_context (RunContext): Context of the train running.
-        """
-        cb_params = run_context.original_args()
-        step_num = cb_params.cur_step_num
-        if step_num == self.stop_step:
-            self.profiler.stop()
-
-    def end(self, run_context):
-        """
-        Collect profile info at the end of training.
-
-        Args:
-            run_context (RunContext): Context of the train running.
-        """
-        self.run_context = run_context
-        self.profiler.analyse()
-
-
 def mox_adapter(src_dir, target_dir, retry=3, retry_time=5, log=logger):
     """File interaction with Moxing."""
     success = False
@@ -365,20 +248,21 @@ def mox_adapter(src_dir, target_dir, retry=3, retry_time=5, log=logger):
         try:
             mox.file.copy_parallel(src_url=src_dir, dst_url=target_dir)
         except (FileNotFoundError, RuntimeError) as e:
-            log.info(f"{e}, from {src_dir} download to {target_dir} failed, will retry({i}) again.")
+            log.info("%s, from %s download to %s failed, will retry(%d) again.",
+                     e, src_dir, target_dir, i)
             # sleep due to restriction of obs
-            log.info(f"sleep time {retry_time} for waiting download file from obs.")
+            log.info("sleep time %d for waiting download file from obs.", retry_time)
             continue
         end = time.time()
         if Validator.is_obs_url(target_dir):
             if mox.file.exists(target_dir):
                 success = True
-                log.info("Pull/Push file {} success, cost time: {}".format(target_dir, end - start))
+                log.info("Pull/Push file %s success, cost time: %f", target_dir, end - start)
                 break
         else:
             if os.path.exists(target_dir):
                 success = True
-                log.info("Pull/Push file {} success, cost time: {}".format(target_dir, end - start))
+                log.info("Pull/Push file %s success, cost time: %f", target_dir, end - start)
                 break
     return success
 

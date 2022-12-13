@@ -15,6 +15,7 @@
 """Build context."""
 
 import os
+from pprint import pprint
 
 from mindspore import context
 from mindspore.communication.management import init, get_group_size, get_rank
@@ -35,10 +36,6 @@ PARALLEL_CONFIG = {'parallel_mode': 'DATA_PARALLEL', 'gradients_mean': True}
 def build_context(config):
     """Build context."""
     profile_cb = None
-    if config.profile and config.use_parallel:
-        cfts_1 = CFTS(**config.aicc_config)
-        profile_cb = cfts_1.profile_monitor(start_step=1, stop_step=5)
-
     local_rank, device_num = init_context(use_parallel=config.use_parallel,
                                           context_config=config.context, parallel_config=config.parallel)
     set_algo_parameters(elementwise_op_strategy_follow=True, fully_use_devices=False)
@@ -46,8 +43,8 @@ def build_context(config):
 
     config.device_num = device_num
     config.local_rank = local_rank
-    config.logger = logger
-    config.logger.info("model config: {}".format(config))
+    if local_rank % 8 == 0:
+        pprint(config)
 
     # init cfts
     clould_file_trans_sys = CFTS(**config.aicc_config, rank_id=local_rank)
@@ -57,9 +54,13 @@ def build_context(config):
             config.parallel.get("strategy_ckpt_load_file"))
         context.set_auto_parallel_context(strategy_ckpt_load_file=config.parallel["strategy_ckpt_load_file"])
 
-    if config.profile and not config.use_parallel:
-        cfts_2 = CFTS(**config.aicc_config)
-        profile_cb = cfts_2.profile_monitor(start_step=1, stop_step=5)
+    if config.profile:
+        profile_cb = clould_file_trans_sys.profile_monitor()
+        logger.warning(
+            "In profiler mode, data sink mode will be turned off. "
+            "Please reduce the data sample size with 'num_samples' in MindSpore data format according to "
+            "https://www.mindspore.cn/mindinsight/docs/zh-CN/master/performance_profiling_ascend.html.")
+        config.runner_config.sink_mode = False
 
     MindFormerRegister.register_cls(clould_file_trans_sys, alias="cfts")
 
