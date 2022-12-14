@@ -77,7 +77,7 @@ class MindFormerBook:
             ("bert_base_uncased", os.path.join(
                 _PROJECT_PATH, "configs/bert/run_bert_base_uncased.yaml")),
             ("common", os.path.join(
-                _PROJECT_PATH, "configs/bert/run_bert_base_uncased.yaml"))])
+                _PROJECT_PATH, "configs/bert/run_bert_tiny_uncased.yaml"))])
          ),
         ("zero_shot_image_classification", OrderedDict([
             ("clip_vit_b_32", os.path.join(

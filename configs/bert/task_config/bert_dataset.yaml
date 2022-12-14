@@ -1,36 +1,21 @@
 train_dataset: &train_dataset
   data_loader:
-    type: ImageFolderDataset
-    dataset_dir: "/data/imageNet-1k/train"
-    num_parallel_workers: 8
+    type: TFRecordDataset
+    dataset_dir: ""
     shuffle: True
-    num_samples: 2
-  transforms:
-    - type: C_RandomCropDecodeResize
-      size: 224
-      scale: [0.2, 1.0]
-    - type: C_RandomHorizontalFlip
-      prob: 0.5
-    - type: C_Normalize
-      mean: [123.675, 118.575, 103.53]
-      std: [58.395, 62.22, 57.375]
-    - type: C_HWC2CHW
-#  mask_policy:
-#    type: MaeMask
-#    input_size: 224
-#    model_patch_size: 16
-#    mask_ratio: 0.75
-  input_columns: ["image"]
-  output_columns: [ "image" ]
-  column_order: [ "image" ]
+  input_columns: ["input_ids", "input_mask", "segment_ids",
+                  "next_sentence_labels", "masked_lm_positions",
+                  "masked_lm_ids", "masked_lm_weights"]
+  # output_columns: [ "image" ]
+  # column_order: [ "image" ]
   num_parallel_workers: 8
   python_multiprocessing: False
-  drop_remainder: True
+  drop_remainder: False
   batch_size: 1
   repeat: 1
   numa_enable: False
-  prefetch_size: 30
+  prefetch_size: 1
 
 train_dataset_task:
-  type: MIMDataset
+  type: BertPretrainDataset
   dataset_config: *train_dataset

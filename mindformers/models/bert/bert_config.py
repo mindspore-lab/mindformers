@@ -17,8 +17,8 @@ from dataclasses import dataclass
 
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 import mindspore.common.dtype as mstype
-from mindspore.nn.transformer import TransformerOpParallelConfig
-from mindspore.nn.transformer.transformer import default_transformer_config
+from mindspore.nn.transformer import TransformerOpParallelConfig, MoEConfig
+from mindspore.nn.transformer.transformer import default_transformer_config, default_moe_config
 
 
 @MindFormerRegister.register(MindFormerModuleType.CONFIG)
@@ -36,8 +36,8 @@ class BertConfig:
     seq_length: int = 128
     vocab_size: int = 30522
     embedding_size: int = 768
-    num_layers: int = 24
-    num_heads: int = 16
+    num_layers: int = 12
+    num_heads: int = 12
     expand_ratio: int = 4
     hidden_act: str = "gelu"
     post_layernorm_residual: bool = True
@@ -55,3 +55,4 @@ class BertConfig:
     use_moe: bool = False
     parallel_config: TransformerOpParallelConfig = default_transformer_config
     checkpoint_name_or_path: str = ""
+    moe_config: MoEConfig = default_moe_config

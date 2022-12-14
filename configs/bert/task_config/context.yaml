@@ -6,6 +6,7 @@ context:
   graph_kernel_flags: "--opt_level=0"
   max_call_depth: 10000
   save_graphs: False
+  save_graphs_path: "./graph"
   device_id: 0
 
 parallel:

@@ -16,7 +16,6 @@
 import os
 from typing import Optional, Union
 from dataclasses import dataclass
-from collections import OrderedDict
 import inspect
 
 from mindformers.common.callback import CheckpointMointor
@@ -42,7 +41,7 @@ class BaseArgsConfig:
                 if value is None:
                     continue
                 if isinstance(value, BaseArgsConfig):
-                    value = OrderedDict(value.__dict__)
+                    value = value.__dict__
                 self.__setattr__(key, value)
 
 

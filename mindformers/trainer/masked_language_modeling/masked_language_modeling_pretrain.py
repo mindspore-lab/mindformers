@@ -21,6 +21,7 @@ from mindformers.dataset import build_dataset, check_dataset_config
 from mindformers.models import build_model
 from mindformers.common.lr import build_lr
 from mindformers.common.optim import build_optim
+from mindformers.common.callback import build_callback
 from mindformers.wrapper import build_wrapper
 from mindformers.trainer.base_trainer import BaseTrainer
 from mindformers.trainer.utils import check_runner_config
@@ -44,7 +45,7 @@ class MaskedLanguageModelingTrainer(BaseTrainer):
               optimizer: Callable = None,
               callbacks: List[Callable] = None, **kwargs):
         """train for trainer."""
-        # 自定义创建模型训练完整过程, 待补充
+        # DIY model training, TODO
         self.kwargs = kwargs
         # build dataset
         logger.info(".........Build Dataset..........")
@@ -59,7 +60,7 @@ class MaskedLanguageModelingTrainer(BaseTrainer):
             network = build_model(config.model, default_args={
                 "parallel_config": config.parallel_config,
                 "moe_config": config.moe_config})
-        logger.info("网络参数量：%s M.", str(count_params(network)))
+        logger.info("Network params: %s M.", str(count_params(network)))
 
         # build optimizer
         logger.info(".........Build Optimizer..........")
@@ -80,8 +81,13 @@ class MaskedLanguageModelingTrainer(BaseTrainer):
                     default_args={"params": group_params})
 
         # build callback
+        # build callback
         if callbacks is None:
-            callbacks = config.callbacks
+            callbacks = []
+            if config.profile:
+                callbacks.append(config.profile_cb)
+            callbacks.extend(build_callback(
+                config.callbacks, default_args={"learning_rate": optimizer.learning_rate}))
 
         # build runner wrapper
         logger.info(".........Build Running Wrapper..........")
@@ -102,4 +108,4 @@ class MaskedLanguageModelingTrainer(BaseTrainer):
                  dataset: Callable = None,
                  callbacks: List[Callable] = None, **kwargs):
         """evaluate for trainer."""
-        # 自定义创建模型评估完整过程, 待补充
+        # DIY model eval, TODO

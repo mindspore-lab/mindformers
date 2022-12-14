@@ -151,7 +151,6 @@ class MindFormerRegister:
         if not class_name:
             raise ValueError(
                 "Can't find class. class type = {}".format(class_name))
-
         register_class = cls.registry.get(module_type).get(class_name)
         return register_class
 

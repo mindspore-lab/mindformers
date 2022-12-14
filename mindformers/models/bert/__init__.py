@@ -17,7 +17,8 @@
 from .bert_tokenizer import *
 from .bert_encoder import BertEncoder
 from .bert_config import BertConfig
+from .bert import BertForPretraining
 
 __all__ = []
 __all__.extend(bert_tokenizer.__all__)
-__all__.extend(['BertEncoder', 'BertConfig'])
+__all__.extend(['BertEncoder', 'BertConfig', 'BertForPretraining'])
