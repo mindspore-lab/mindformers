@@ -22,6 +22,7 @@ from mindformers.trainer import Trainer
 from mindformers.common.context import init_context
 from mindformers.trainer.config_args import ConfigArguments, \
     DatasetConfig, RunnerConfig, ContextConfig
+from mindformers.tools.logger import logger
 
 @pytest.mark.level0
 @pytest.mark.platform_x86_ascend_training
@@ -51,3 +52,22 @@ def test_trainer_train_auto():
     mim_trainer.train()
     # resume, default from last checkpoint, 断点续训功能
     # mim_trainer_a.train(resume_from_checkpoint=True, initial_epoch=100)
+
+
+@pytest.mark.level0
+@pytest.mark.platform_x86_ascend_training
+@pytest.mark.platform_arm_ascend_training
+@pytest.mark.env_onecard
+def test_trainer_predict_auto():
+    """
+    Feature: Auto Create Trainer.
+    Description: Test Trainer API to train.
+    Expectation: TypeError
+    """
+    context_config = ContextConfig(device_id=4, device_target='Ascend', mode=0)
+    init_context(use_parallel=False, context_config=context_config)
+    zero_shot_image_cls_trainer = Trainer(
+        task_name='zero_shot_image_classification',
+        model='clip_vit_b_32')
+    predict_result = zero_shot_image_cls_trainer.predict(candidate_labels=["sunflower", "tree", "dog", "cat", "toy"])
+    logger.info(predict_result)

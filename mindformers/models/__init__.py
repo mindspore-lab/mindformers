@@ -15,7 +15,7 @@
 
 """models init"""
 from mindformers.models import mae, clip, \
-    bert, base_tokenizer
+    bert, filip, base_tokenizer
 from .mae import *
 from .clip import *
 from .filip import *

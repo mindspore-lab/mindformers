@@ -77,7 +77,13 @@ class MindFormerBook:
             ("bert_base_uncased", os.path.join(
                 _PROJECT_PATH, "configs/bert/run_bert_base_uncased.yaml")),
             ("common", os.path.join(
-                _PROJECT_PATH, "configs/bert/run_bert_base_uncased.yaml")),])
+                _PROJECT_PATH, "configs/bert/run_bert_base_uncased.yaml"))])
+         ),
+        ("zero_shot_image_classification", OrderedDict([
+            ("clip_vit_b_32", os.path.join(
+                _PROJECT_PATH, "configs/clip/run_clip_vit_b_32.yaml")),
+            ("common", os.path.join(
+                _PROJECT_PATH, "configs/clip/run_clip_vit_b_32.yaml"))])
          )
     ])
 
@@ -121,6 +127,12 @@ class MindFormerBook:
           ])
     ])
 
+    _PIPELINE_INPUT_DATA_LIST = OrderedDict([
+        ('zero_shot_image_classification',
+         "https://ascend-repo-modelzoo.obs.cn-east-2."
+         "myhuaweicloud.com/XFormer_for_mindspore/clip/sunflower.png")
+    ])
+
     _TOKENIZER_SUPPORT_LIST = OrderedDict()
 
     @classmethod
@@ -128,6 +140,17 @@ class MindFormerBook:
         """show_trainer_support_task_list function"""
         logger.info("_TRAINER_SUPPORT_TASKS_LIST of MindFormer is: ")
         print_dict(cls._TRAINER_SUPPORT_TASKS_LIST)
+
+    @classmethod
+    def show_pipeline_support_input_data_list(cls):
+        """show_pipeline_support_input_data_list function"""
+        logger.info("_PIPELINE_INPUT_DATA_LIST of MindFormer is: ")
+        print_dict(cls._PIPELINE_INPUT_DATA_LIST)
+
+    @classmethod
+    def get_pipeline_support_input_data_list(cls):
+        """get_pipeline_support_input_data_list function"""
+        return cls._PIPELINE_INPUT_DATA_LIST
 
     @classmethod
     def get_trainer_support_task_list(cls):
