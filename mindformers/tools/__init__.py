@@ -13,7 +13,6 @@
 # limitations under the License.
 # ============================================================================
 """MindFormers Tools."""
-from mindformers.tools import cloud_adapter, register
 from .cloud_adapter import *
 from .register import *
 from .logger import logger, StreamRedirector, AiLogFastStreamRedirect2File

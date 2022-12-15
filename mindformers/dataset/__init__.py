@@ -13,8 +13,6 @@
 # limitations under the License.
 # ============================================================================
 """MindFormers Dataset."""
-from mindformers.dataset import dataloader, mask, \
-    transforms, sampler
 from .dataloader import *
 from .mask import *
 from .transforms import *

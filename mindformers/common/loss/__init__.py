@@ -13,8 +13,7 @@
 # limitations under the License.
 # ============================================================================
 """MindFormers Loss."""
-from mindformers.common.loss import loss
-from .build_loss import build_loss, register_ms_loss
+from .build_loss import build_loss
 from .loss import *
 
 __all__ = ['build_loss']

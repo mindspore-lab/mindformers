@@ -13,8 +13,6 @@
 # limitations under the License.
 # ============================================================================
 """MindFormers Common."""
-from mindformers.common import lr, loss, optim, \
-    metric, callback, context
 from .lr import *
 from .loss import *
 from .optim import *

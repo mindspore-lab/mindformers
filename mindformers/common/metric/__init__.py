@@ -13,7 +13,7 @@
 # limitations under the License.
 # ============================================================================
 """MindFormers Metric."""
-from .build_metric import build_metric, register_ms_mt
+from .build_metric import build_metric
 
 
 __all__ = ['build_metric']

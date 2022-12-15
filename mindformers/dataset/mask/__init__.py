@@ -13,7 +13,6 @@
 # limitations under the License.
 # ============================================================================
 """MindFormers Mask API."""
-from mindformers.dataset.mask import vision_mask
 from .build_mask import build_mask
 from .vision_mask import *
 

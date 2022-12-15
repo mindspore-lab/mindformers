@@ -13,7 +13,6 @@
 # limitations under the License.
 # ============================================================================
 """MindFormers Cloud Adapter API."""
-from mindformers.tools.cloud_adapter import cloud_adapter
 from .cloud_adapter import *
 from .cfts import CFTS
 from .cloud_monitor import cloud_monitor

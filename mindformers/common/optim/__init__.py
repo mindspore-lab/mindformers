@@ -13,7 +13,7 @@
 # limitations under the License.
 # ============================================================================
 """MindFormers Optimizer."""
-from .build_optim import build_optim, register_ms_optim
+from .build_optim import build_optim
 
 
 __all__ = ['build_optim']

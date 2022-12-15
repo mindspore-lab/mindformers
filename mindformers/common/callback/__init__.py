@@ -13,8 +13,7 @@
 # limitations under the License.
 # ============================================================================
 """MindFormers Callback."""
-from mindformers.common.callback import callback
-from .build_callback import build_callback, register_ms_cb
+from .build_callback import build_callback
 from .callback import *
 
 __all__ = ['build_callback']
