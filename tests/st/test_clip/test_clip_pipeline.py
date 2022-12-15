@@ -27,6 +27,7 @@ from mindformers.tools.image_tools import load_image
 from mindformers import AutoModel, AutoProcessor
 from mindformers import MindFormerBook
 
+
 @pytest.mark.level0
 @pytest.mark.platform_x86_ascend_training
 @pytest.mark.platform_arm_ascend_training

@@ -15,7 +15,7 @@
 """
 Test module for testing the interface used for mindformers.
 How to run this:
-python tests/ut/test_trainer/test_trainer_from_config.py
+pytest tests/st/test_trainer/test_trainer_from_config.py
 """
 import pytest
 from mindformers.trainer import Trainer
@@ -37,7 +37,7 @@ def test_trainer_train_from_config():
     """
     # example 2: 自定义视觉自监督任务的 模型和超参
     # 初始化环境
-    context_config = ContextConfig(device_id=4, device_target='Ascend', mode=0)
+    context_config = ContextConfig(device_id=7, device_target='Ascend', mode=0)
     init_context(use_parallel=False, context_config=context_config)
 
     runner_config = RunnerConfig(epochs=10, batch_size=2, image_size=224)  # 运行超参

@@ -19,7 +19,7 @@ AutoFeatureExtractor and ClipFeatureExtractor
 
 How to run this:
 windows:  pytest .\\tests\\st\\test_clip\\test_clip_feature_extractor.py
-linux:  pytest ./tests/st/test/clip/test_clip_feature_extractor.py
+linux:  pytest ./tests/st/test_clip/test_clip_feature_extractor.py
 """
 import os
 import numpy as np

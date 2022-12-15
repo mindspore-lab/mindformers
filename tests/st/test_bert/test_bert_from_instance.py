@@ -15,7 +15,7 @@
 """
 Test module for testing the bert interface used for mindformers.
 How to run this:
-python tests/st/test_bert/test_bert_trainer_train_from_instance.py
+pytest tests/st/test_bert/test_bert_from_instance.py
 """
 import numpy as np
 import pytest
@@ -55,7 +55,7 @@ def test_bert_trainer_train_from_instance():
     Expectation: TypeError
     """
     # example bert:
-    context_config = ContextConfig(device_id=1, device_target='GPU', mode=0)
+    context_config = ContextConfig(device_id=6, device_target='Ascend', mode=0)
     init_context(use_parallel=False, context_config=context_config)
 
     # Config definition

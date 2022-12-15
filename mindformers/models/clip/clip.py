@@ -21,6 +21,7 @@ import numpy as np
 
 import mindspore as ms
 from mindspore import nn
+from mindspore.ops import functional as F
 from mindspore.common.initializer import Normal, initializer
 from mindspore import Parameter, Tensor
 import mindspore.ops as ops

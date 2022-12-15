@@ -15,7 +15,7 @@
 """
 Test module for testing the interface used for mindformers.
 How to run this:
-python tests/ut/test_trainer/test_trainer_auto.py
+pytest tests/st/test_trainer/test_trainer_auto.py
 """
 import pytest
 from mindformers.trainer import Trainer
@@ -64,8 +64,6 @@ def test_trainer_predict_auto():
     Description: Test Trainer API to train.
     Expectation: TypeError
     """
-    context_config = ContextConfig(device_id=4, device_target='Ascend', mode=0)
-    init_context(use_parallel=False, context_config=context_config)
     zero_shot_image_cls_trainer = Trainer(
         task_name='zero_shot_image_classification',
         model='clip_vit_b_32')
