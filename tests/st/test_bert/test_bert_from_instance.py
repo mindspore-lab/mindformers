@@ -20,8 +20,7 @@ pytest tests/st/test_bert/test_bert_from_instance.py
 import numpy as np
 import pytest
 from mindspore.nn import AdamWeightDecay, WarmUpLR
-from mindspore.train.callback import LossMonitor, TimeMonitor,\
-    CheckpointConfig, ModelCheckpoint
+from mindspore.train.callback import LossMonitor, TimeMonitor
 from mindspore.dataset import GeneratorDataset
 
 from mindformers.trainer import Trainer
@@ -33,7 +32,7 @@ from mindformers.models.bert.bert import BertForPretraining
 
 def generator():
     """dataset generator"""
-    data = np.random.randint(low=0, high=15, size=(15,)).astype(np.int32)
+    data = np.random.randint(low=0, high=15, size=(128,)).astype(np.int32)
     input_mask = np.ones_like(data)
     token_type_id = np.zeros_like(data)
     next_sentence_lables = np.array([1]).astype(np.int32)
@@ -42,7 +41,7 @@ def generator():
     masked_lm_weights = np.ones_like(masked_lm_ids)
     train_data = (data, input_mask, token_type_id, next_sentence_lables,
                   masked_lm_positions, masked_lm_ids, masked_lm_weights)
-    for _ in range(16):
+    for _ in range(32):
         yield train_data
 
 @pytest.mark.level0
@@ -55,11 +54,11 @@ def test_bert_trainer_train_from_instance():
     Expectation: TypeError
     """
     # example bert:
-    context_config = ContextConfig(device_id=6, device_target='Ascend', mode=0)
+    context_config = ContextConfig(device_id=0, device_target='Ascend', mode=0)
     init_context(use_parallel=False, context_config=context_config)
 
     # Config definition
-    runner_config = RunnerConfig(epochs=1, batch_size=8, sink_mode=True, per_epoch_size=10)
+    runner_config = RunnerConfig(epochs=1, batch_size=16, sink_mode=True, per_epoch_size=2)
     config = ConfigArguments(seed=2022, runner_config=runner_config)
 
     # Model
@@ -69,7 +68,7 @@ def test_bert_trainer_train_from_instance():
     dataset = GeneratorDataset(generator, column_names=["input_ids", "input_mask", "segment_ids",
                                                         "next_sentence_labels", "masked_lm_positions",
                                                         "masked_lm_ids", "masked_lm_weights"])
-    dataset = dataset.batch(batch_size=4)
+    dataset = dataset.batch(batch_size=16)
 
     # optimizer
     lr_schedule = WarmUpLR(learning_rate=0.001, warmup_steps=100)
@@ -80,9 +79,7 @@ def test_bert_trainer_train_from_instance():
     # callback
     loss_cb = LossMonitor(per_print_times=2)
     time_cb = TimeMonitor()
-    ckpt_config = CheckpointConfig(save_checkpoint_steps=10, integrated_save=True)
-    ckpt_cb = ModelCheckpoint(directory="./output/checkpoint", prefix="bert_model", config=ckpt_config)
-    callbacks = [loss_cb, time_cb, ckpt_cb]
+    callbacks = [loss_cb, time_cb]
 
     mlm_trainer = Trainer(task_name='masked_language_modeling',
                           model=bert_model, # model and loss

@@ -47,7 +47,7 @@ class BertForPretraining(BaseModel):
     def __init__(self, config=BertConfig(), is_training=True, use_one_hot_embeddings=False):
         super(BertForPretraining, self).__init__(config)
         self.is_training = is_training
-        self.bert = BertScore(config, is_training, use_one_hot_embeddings)(config, is_training, use_one_hot_embeddings)
+        self.bert = BertScore(config, is_training, use_one_hot_embeddings)
         self.loss = BertLoss(config)
         self.cast = P.Cast()
         self.use_moe = False
