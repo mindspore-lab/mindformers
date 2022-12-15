@@ -20,8 +20,7 @@ pytest tests/st/test_trainer/test_trainer_from_instance.py
 import numpy as np
 import pytest
 from mindspore.nn import AdamWeightDecay, WarmUpLR
-from mindspore.train.callback import LossMonitor, TimeMonitor,\
-    CheckpointConfig, ModelCheckpoint
+from mindspore.train.callback import LossMonitor, TimeMonitor
 from mindspore.dataset import GeneratorDataset
 
 from mindformers.trainer import Trainer
@@ -42,6 +41,7 @@ class MyDataLoader:
     def __len__(self):
         return len(self._data)
 
+
 @pytest.mark.level0
 @pytest.mark.platform_x86_ascend_training
 @pytest.mark.platform_arm_ascend_training
@@ -52,33 +52,25 @@ def test_trainer_train_from_instance():
     Description: Test Trainer API to train from self-define instance API.
     Expectation: TypeError
     """
-    # example 3: 对任意任务自定义 dataset\model\optimizers\processor\callbacks 实例创建训练
-    context_config = ContextConfig(device_id=1, device_target='Ascend', mode=0)
+    context_config = ContextConfig(device_id=0, device_target='Ascend', mode=0)
     init_context(use_parallel=False, context_config=context_config)
 
-    # 运行超参配置定义
     runner_config = RunnerConfig(epochs=10, batch_size=8, image_size=224, sink_mode=True, per_epoch_size=10)
     config = ConfigArguments(seed=2022, runner_config=runner_config)
 
-    # 自定义模型
     mae_model = MaeModel()
 
-    # 自定义数据集加载及处理流程
     dataset = GeneratorDataset(source=MyDataLoader(), column_names='image')
     dataset = dataset.batch(batch_size=8)
 
-    # 自定义学习策略和优化器
     lr_schedule = WarmUpLR(learning_rate=0.001, warmup_steps=100)
     optimizer = AdamWeightDecay(beta1=0.009, beta2=0.999,
                                 learning_rate=lr_schedule,
                                 params=mae_model.trainable_params())
 
-    # 自定义callback函数
     loss_cb = LossMonitor(per_print_times=2)
     time_cb = TimeMonitor()
-    ckpt_config = CheckpointConfig(save_checkpoint_steps=10, integrated_save=True)
-    ckpt_cb = ModelCheckpoint(directory="/home/workspace/mindformers/output", prefix="my_model", config=ckpt_config)
-    callbacks = [loss_cb, time_cb, ckpt_cb]
+    callbacks = [loss_cb, time_cb]
 
     mim_trainer = Trainer(task_name='masked_image_modeling',
                           model=mae_model,  # 包含loss计算
