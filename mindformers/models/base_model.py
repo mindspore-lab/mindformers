@@ -66,9 +66,11 @@ class BaseModel(nn.Cell):
                                  f" or a valid path to checkpoint,"
                                  f" please select from {self._support_list}.")
             else:
-                ckpt_file = os.path.join(MindFormerBook.get_default_checkpoint_download_folder(),
-                                         checkpoint_name_or_path.split("_")[0],
-                                         checkpoint_name_or_path+".ckpt")
+                default_checkpoint_download_folder = os.path.join(
+                    MindFormerBook.get_default_checkpoint_download_folder(), checkpoint_name_or_path.split("_")[0])
+                if not os.path.exists(default_checkpoint_download_folder):
+                    os.makedirs(default_checkpoint_download_folder)
+                ckpt_file = os.path.join(default_checkpoint_download_folder, checkpoint_name_or_path + ".ckpt")
                 if not os.path.exists(ckpt_file):
                     url = MindFormerBook.get_model_ckpt_url_list()[checkpoint_name_or_path][0]
                     downlond_with_progress_bar(url, ckpt_file)

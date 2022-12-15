@@ -14,18 +14,25 @@
 # ============================================================================
 """Trainer API For Import."""
 import os
-from typing import Callable, List, Optional, Union
+from typing import List, Optional, Union
 
 import yaml
 import numpy as np
+from PIL.Image import Image
 
+from mindspore import Tensor
 from mindspore.common import set_seed
+from mindspore.nn import Optimizer
+from mindspore.train import Callback
 from mindspore import load_param_into_net, load_checkpoint
 
 from mindformers.mindformer_book import MindFormerBook
 from mindformers.tools.register import MindFormerConfig, MindFormerRegister
-from mindformers.models import build_model, build_processor
-from mindformers.dataset import build_dataset, build_dataset_loader, check_dataset_config
+from mindformers.models import build_model, build_tokenizer, build_feature_extractor, \
+    BaseModel, BaseFeatureExtractor, PretrainedTokenizerBase
+from mindformers.dataset import build_dataset, build_dataset_loader, \
+    check_dataset_config, BaseDataset
+from mindformers.pipeline import pipeline
 from mindformers.common.optim import build_optim
 from mindformers.common.lr import build_lr
 from mindformers.common.callback import build_callback
@@ -33,6 +40,7 @@ from mindformers.common.parallel_config import build_parallel_config
 from mindformers.tools.cloud_adapter import CFTS
 from mindformers.tools.logger import logger
 from mindformers.tools.utils import count_params
+from mindformers.tools.image_tools import load_image
 from .build_trainer import build_trainer
 from .config_args import ConfigArguments
 from .utils import check_train_data_loader_type, check_eval_data_loader_type, \
@@ -44,6 +52,7 @@ __all__ = ['Trainer']
 
 SUPPORT_TASKS = MindFormerBook().get_trainer_support_task_list()
 SUPPORT_MODEL_NAMES = MindFormerBook().get_model_name_support_list()
+SUPPORT_PIPELINE_INPUT_DATA = MindFormerBook().get_pipeline_support_input_data_list()
 DEFAULT_CHECKPOINT_DIR = 'checkpoint'
 DEFAULT_CONFIG_DIR = 'configs'
 
@@ -52,21 +61,23 @@ class Trainer:
     """Trainer API."""
     def __init__(self,
                  config: Optional[Union[str, dict, ConfigArguments]] = None,
-                 task_name: str = None,
-                 model: Optional[Union[str, Callable]] = None,
-                 train_dataset: Optional[Union[str, Callable]] = None,
-                 eval_dataset: Optional[Union[str, Callable]] = None,
-                 optimizers: Callable = None,
-                 processor: Callable = None,
-                 callbacks: List[Callable] = None,
-                 compute_metrics: str = None, **kwargs):
+                 task_name: Optional[str] = None,
+                 model: Optional[Union[str, BaseModel]] = None,
+                 train_dataset: Optional[Union[str, BaseDataset]] = None,
+                 eval_dataset: Optional[Union[str, BaseDataset]] = None,
+                 tokenizer: Optional[PretrainedTokenizerBase] = None,
+                 feature_extractor: Optional[BaseFeatureExtractor] = None,
+                 optimizers: Optional[Optimizer] = None,
+                 callbacks: Optional[Union[Callback, List[Callback]]] = None,
+                 compute_metrics: Optional[str] = None, **kwargs):
 
         self.task_name = task_name
         self.model = model
         self.train_dataset = train_dataset
         self.eval_dataset = eval_dataset
         self.optimizers = optimizers
-        self.processor = processor
+        self.tokenizer = tokenizer
+        self.feature_extractor = feature_extractor
         self.callbacks = callbacks
         self.compute_metrics = compute_metrics
         self.kwargs = kwargs
@@ -81,7 +92,6 @@ class Trainer:
         else:
             self.model_name = "common"
 
-        print("===============model_name, self.task_name", self.model_name, self.task_name)
         task_config = MindFormerConfig(SUPPORT_TASKS.get(self.task_name).get(self.model_name))
 
         if self.model_name == "common":
@@ -89,13 +99,14 @@ class Trainer:
 
         if config is None:
             self.config = task_config
-            print("self.config", self.config)
         else:
             if isinstance(config, dict):
                 task_config.merge_from_dict(config)
             elif isinstance(config, str):
-                assert os.path.exists(config), f"config path must be exist, but get {config}."
-                assert config.endswith(('.yaml', '.yml')), f"config file must be end with .yaml or .yml."
+                assert os.path.realpath(config) and os.path.exists(config), \
+                    f"config path must be exist, but get {config}."
+                assert config.endswith(('.yaml', '.yml')), \
+                    f"config file must be end with .yaml or .yml, but get {config}"
                 task_config = MindFormerConfig(config)
             elif isinstance(config, ConfigArguments):
                 if hasattr(config, 'train_dataset'):
@@ -119,6 +130,12 @@ class Trainer:
                 f"eval dataset path must be exist, but get {eval_dataset}."
             self.config.eval_dataset.data_loader.dataset_dir = eval_dataset
             self.eval_dataset = None
+
+        if tokenizer is not None:
+            if self.config.train_dataset is not None:
+                self.config.train_dataset.tokenizer = tokenizer
+            if self.config.eval_dataset is not None:
+                self.config.eval_dataset.tokenizer = tokenizer
         check_dataset_config(self.config)
 
         # build parallel config
@@ -157,73 +174,70 @@ class Trainer:
         if self.optimizers is None:
             self.optimizers = self.create_optimizer_and_scheduler()
 
-        if resume_from_checkpoint:
-            if isinstance(resume_from_checkpoint, bool):
-                last_checkpoint = load_checkpoint(self.get_last_checkpoint())
-                not_load_net_params = load_param_into_net(self.model, last_checkpoint)
-                not_load_optim_params = load_param_into_net(self.optimizers, last_checkpoint)
-                logger.info("not_load_net_params: %s", str(not_load_net_params))
-                logger.info("not_load_optim_params: %s", str(not_load_optim_params))
-            elif isinstance(resume_from_checkpoint, str):
-                assert os.path.exists(resume_from_checkpoint)
-                resume_checkpoint = load_checkpoint(resume_from_checkpoint)
-                not_load_net_params = load_param_into_net(self.model, resume_checkpoint)
-                not_load_optim_params = load_param_into_net(self.optimizers, resume_checkpoint)
-                logger.info("not_load_net_params: %s", str(not_load_net_params))
-                logger.info("not_load_optim_params: %s", str(not_load_optim_params))
-            else:
-                raise KeyError("resume_from_checkpoint input type should be in [string(checkpoint path), bool],"
-                               f"but get {resume_from_checkpoint}")
-            if initial_epoch != 0:
-                self.config.runner_config.initial_epoch = initial_epoch
-
-        if self.processor is None:
-            self.processor = build_processor(self.config.processor)
-
         if self.callbacks is None:
             self.callbacks = self.create_callbacks()
+
+        self.load_checkpoint(resume_from_checkpoint)
+        if initial_epoch != 0:
+            self.config.runner_config.initial_epoch = initial_epoch
 
         trainer = build_trainer(self.config.trainer)
         trainer.train(
             config=self.config, network=self.model,
             dataset=self.train_dataset, optimizer=self.optimizers,
-            processor=self.processor, callbacks=self.callbacks, **kwargs)
+            callbacks=self.callbacks, **kwargs)
 
     def evaluate(self, eval_checkpoint: Optional[Union[str, bool]] = None, **kwargs):
         """eval."""
         if eval_checkpoint is False:
             eval_checkpoint = None
+
         if self.eval_dataset is None:
             self.eval_dataset = build_dataset(self.config.eval_dataset_task)
 
         if self.model is None:
             self.model = build_model(self.config.model)
 
-        if eval_checkpoint:
-            if isinstance(eval_checkpoint, bool):
-                last_checkpoint = load_checkpoint(self.get_last_checkpoint())
-                not_load_net_params = load_param_into_net(self.model, last_checkpoint)
-                logger.info("not_load_net_params: %s", str(not_load_net_params))
-            elif isinstance(eval_checkpoint, str):
-                assert os.path.exists(eval_checkpoint)
-                resume_checkpoint = load_checkpoint(eval_checkpoint)
-                not_load_net_params = load_param_into_net(self.model, resume_checkpoint)
-                logger.info("not_load_net_params: %s", str(not_load_net_params))
-            else:
-                raise KeyError("resume_from_checkpoint input type should be in [string(checkpoint path), bool],"
-                               f"but get {eval_checkpoint}")
-
-        if self.processor is None:
-            self.processor = build_processor(self.config.processor)  # 待补充
-
         if self.callbacks is None:
             self.callbacks = self.create_callbacks()
+
+        filter_prefix = ["adam_v", "adam_m", "epoch_num", "step_num", "global_step"]
+        self.load_checkpoint(eval_checkpoint, filter_prefix=filter_prefix, is_train=False)
 
         trainer = build_trainer(self.config.trainer)
         trainer.evaluate(
             config=self.config, network=self.model,
-            dataset=self.eval_dataset, processor=self.processor,
-            callbacks=self.callbacks, **kwargs)
+            dataset=self.eval_dataset, callbacks=self.callbacks, **kwargs)
+
+    def predict(self,
+                predict_checkpoint: Optional[Union[str, bool]] = None,
+                input_data: Optional[Union[Tensor, np.ndarray, Image, str, list]] = None, **kwargs):
+        """predict."""
+        if predict_checkpoint is False:
+            predict_checkpoint = None
+
+        if input_data is None:  # 此处需要一个可以加在不同数据类型的综合函数， 当前仅支持RGB图像数据默认加载
+            input_data = load_image(SUPPORT_PIPELINE_INPUT_DATA.get(self.task_name))
+        assert isinstance(input_data, (Tensor, np.ndarray, Image, str, list)), \
+            "Input data's type must be one of [str, ms.Tensor, np.ndarray, PIL.Image.Image]"
+
+        if self.model is None:
+            self.model = build_model(self.config.model)
+
+        if self.tokenizer is None:
+            self.tokenizer = build_tokenizer(self.config.processor.tokenizer)
+
+        if self.feature_extractor is None:
+            self.feature_extractor = build_feature_extractor(self.config.processor.feature_extractor)
+
+        filter_prefix = ["adam_v", "adam_m", "epoch_num", "step_num", "global_step"]
+        self.load_checkpoint(predict_checkpoint, filter_prefix=filter_prefix, is_train=False)
+
+        predictor = pipeline(
+            self.task_name, model=self.model,
+            feature_extractor=self.feature_extractor,
+            tokenizer=self.tokenizer, **kwargs)
+        return predictor(input_data)
 
     def create_optimizer_and_scheduler(self):
         """create_optimizer_and_scheduler."""
@@ -290,6 +304,30 @@ class Trainer:
         """count_parameter."""
         logger.info("%s parameter is: %s M",
                     self.config.trainer.model_name, str(count_params(self.model)))
+
+    def load_checkpoint(self, model_checkpoint, filter_prefix=None, is_train=True):
+        """Load Checkpoint."""
+        if model_checkpoint is not None:
+            if isinstance(model_checkpoint, bool):
+                last_checkpoint = load_checkpoint(
+                    self.get_last_checkpoint(), filter_prefix=filter_prefix)
+                not_load_net_params = load_param_into_net(self.model, last_checkpoint)
+                logger.info("not_load_net_params: %s", str(not_load_net_params))
+                if is_train:
+                    not_load_optim_params = load_param_into_net(self.optimizers, last_checkpoint)
+                    logger.info("not_load_optim_params: %s", str(not_load_optim_params))
+            elif isinstance(model_checkpoint, str):
+                assert os.path.realpath(model_checkpoint) and os.path.exists(model_checkpoint), \
+                    f"predict checkpoint must be correct and exist path, but get {model_checkpoint}"
+                checkpoint = load_checkpoint(model_checkpoint, filter_prefix=filter_prefix)
+                not_load_net_params = load_param_into_net(self.model, checkpoint)
+                logger.info("not_load_net_params: %s", str(not_load_net_params))
+                if is_train:
+                    not_load_optim_params = load_param_into_net(self.optimizers, checkpoint)
+                    logger.info("not_load_optim_params: %s", str(not_load_optim_params))
+            else:
+                raise KeyError("resume_from_checkpoint input type should be in [string(checkpoint path), bool],"
+                               f"but get {model_checkpoint}")
 
     def get_last_checkpoint(self):
         """get last checkpoint for resuming."""
