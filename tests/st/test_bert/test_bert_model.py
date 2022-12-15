@@ -17,21 +17,13 @@
 Test Module for testing functions of AutoModel and ClipModel class
 
 How to run this:
-windows:  pytest .\\tests\\ut\\test_model.py
-linux:  pytest ./tests/ut/test_model.py
-
-Note:
-    obs path for weights and yaml saving:
-        XForme_for_mindspore/clip/clip_vit_b_32.yaml
-        XForme_for_mindspore/clip/clip_vit_b_32.ckpt
-
-    self.config is necessary for a model
-    ClipModel amd ClipConfig start with the same prefix "Clip"
+windows:  pytest .\\tests\\st\\test_bert\\test_bert_model.py
+linux:  pytest ./tests/st/test_bert/test_bert_model.py
 """
 import os
 import pytest
 from mindformers import MindFormerBook, AutoModel
-from mindformers.models import BertNetworkWithLoss, BaseModel
+from mindformers.models import BaseModel, BertForPretraining
 from mindformers.tools import logger
 
 
@@ -60,5 +52,5 @@ class TestModelMethod:
         logger.info(support_list)
         # input yaml path, load model without weights
         model = AutoModel.from_config(self.config_path)
-        assert isinstance(model, BertNetworkWithLoss)
+        assert isinstance(model, BertForPretraining)
         assert isinstance(model, BaseModel)

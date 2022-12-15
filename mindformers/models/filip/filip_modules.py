@@ -29,7 +29,6 @@ from mindspore.ops.primitive import constexpr
 from mindspore.parallel.nn.transformer import Transformer
 from mindspore.common.initializer import TruncatedNormal, initializer
 from mindspore.nn.transformer import TransformerOpParallelConfig, TransformerRecomputeConfig
-from .filip_config import FilipConfig
 
 
 class QuickGELU(nn.Cell):
@@ -45,7 +44,7 @@ class QuickGELU(nn.Cell):
 
 class VisualTransformer(nn.Cell):
     """VisualTransformer of Filip"""
-    def __init__(self, config=FilipConfig()):
+    def __init__(self, config):
         super(VisualTransformer, self).__init__()
         self.batch_size = config.batch_size
         self.single_bs = self.batch_size == 1
@@ -139,7 +138,7 @@ def build_attntion_mask(batch_size, context_length):
 
 class TextTransformer(nn.Cell):
     """TextTransformer of Filip"""
-    def __init__(self, config=FilipConfig()):
+    def __init__(self, config):
         super(TextTransformer, self).__init__()
         self.batch_size = config.batch_size
         self.context_length = config.text_config.max_position_embeddins
@@ -200,7 +199,7 @@ class TextTransformer(nn.Cell):
 
 class TextTransformerInfer(nn.Cell):
     """TextTransformerInfer of Filip"""
-    def __init__(self, config=FilipConfig()):
+    def __init__(self, config):
         super(TextTransformerInfer, self).__init__()
         self.batch_size = config.batch_size
         self.context_length = config.text_config.max_position_embeddins

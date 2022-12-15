@@ -17,8 +17,8 @@
 Test Module for testing functions of AutoModel and ClipModel class
 
 How to run this:
-windows:  pytest .\\tests\\ut\\test_model.py
-linux:  pytest ./tests/ut/test_model.py
+windows:  pytest .\\tests\\st\\test_clip\\test_clip_model.py
+linux:  pytest ./tests/st/test_clip/test_clip_model.py
 
 Note:
     obs path for weights and yaml saving:

@@ -37,3 +37,4 @@ processor:
 
   tokenizer:
     type: ClipTokenizer
+    pad_token: '!'

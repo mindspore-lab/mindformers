@@ -23,4 +23,4 @@ model:
     use_moe: False
     checkpoint_name_or_path: ""
   arch:
-    type: BertNetworkWithLoss
+    type: BertForPretraining

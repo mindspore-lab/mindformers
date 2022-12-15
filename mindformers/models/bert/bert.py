@@ -28,7 +28,7 @@ from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.models.base_model import BaseModel
 from .bert_config import BertConfig
 
-__all__ = ['BertForPretraining', 'BertModel']
+__all__ = ['BertForPretraining']
 
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
 class BertForPretraining(BaseModel):

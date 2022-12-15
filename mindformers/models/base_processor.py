@@ -39,7 +39,7 @@ class BaseProcessor:
         self.tokenizer = kwargs.pop("tokenizer", None)
         self.max_length = kwargs.pop("max_length", None)
         self.padding = kwargs.pop("padding", False)
-        self.return_tensors = kwargs.pop("return_tensors", "ms")
+        self.return_tensors = kwargs.pop("return_tensors", None)
 
     def __call__(self, image_input=None, text_input=None):
         """call function"""
