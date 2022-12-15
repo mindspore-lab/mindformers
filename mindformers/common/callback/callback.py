@@ -19,7 +19,6 @@ from copy import deepcopy
 from typing import Optional, Union
 
 import numpy as np
-
 import mindspore as ms
 from mindspore import Callback, Profiler
 from mindspore.train.callback import SummaryCollector

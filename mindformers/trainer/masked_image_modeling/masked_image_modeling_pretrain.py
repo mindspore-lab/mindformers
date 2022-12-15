@@ -60,7 +60,7 @@ class MaskedImageModelingTrainer(BaseTrainer):
             network = build_model(config.model, default_args={
                 "parallel_config": config.parallel_config,
                 "moe_config": config.moe_config})
-        logger.info("网络参数量：%s M.", str(count_params(network)))
+        logger.info("Network params: %s M.", str(count_params(network)))
 
         # build optimizer
         logger.info(".........Build Optimizer..........")
