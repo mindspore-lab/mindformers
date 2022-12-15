@@ -100,20 +100,34 @@ class ClipModel(BaseModel):
             text (tensor): a text id tensor processed by tokenizer
 
         Returns:
-            logits_per_image: similarity between image and text
-            logits_per_text: similarity between text and image
+            if self.trainining:
+                logits_per_image: similarity between image and text
+                logits_per_text: similarity between text and image
+            else:
+                loss: constructive language image pretraining loss
         """
         image_features = self.get_image_features(image)
         text_features = self. get_text_features(text)
 
         image_features = image_features / image_features.norm(1, keep_dims=True)
         text_features = text_features / text_features.norm(1, keep_dims=True)
-
         logit_scale = self.exp(self.logit_scale)
-        logits_per_image = ops.matmul(logit_scale * image_features, text_features.T)
-        logits_per_text = logits_per_image.T
 
-        return logits_per_image, logits_per_text
+        if not self.training:
+            logits_per_image = ops.matmul(logit_scale * image_features, text_features.T)
+            logits_per_text = logits_per_image.T
+
+            return logits_per_image, logits_per_text
+
+        logits = ops.matmul(logit_scale * image_features, text_features.T)
+        batch_size, _ = F.shape(logits)
+
+        labels = ms.Tensor(np.arange(batch_size))
+
+        images_loss = self.cross_entropy(logits, labels)
+        texts_loss = self.cross_entropy(logits.T, labels)
+        loss = (images_loss + texts_loss) / 2
+        return loss
 
     def build_attention_mask(self):
         """buil_attention_mask"""

@@ -17,8 +17,8 @@
 Test Module for basic function of pipeline
 
 How to run this:
-windows:  pytest .\\tests\\ut\\test_pipeline.py
-linux:  pytest ./tests/ut/test_pipeline.py
+windows:  pytest .\\tests\\st\\test_clip\\test_clip_pipeline.py
+linux:  pytest ./tests/st/test_clip/test_clip_pipeline.py
 """
 import os
 import pytest

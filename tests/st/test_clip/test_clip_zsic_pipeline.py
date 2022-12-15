@@ -18,8 +18,8 @@ Test Module for classification function of
 ZeroShotImageClassificationPipeline
 
 How to run this:
-windows:  pytest .\\tests\\ut\\test_zsic_pipeline.py
-linux:  pytest ./tests/ut/test_zsic_pipeline.py
+windows:  pytest .\\tests\\st\\test_clip\\test_clip_zsic_pipeline.py
+linux:  pytest ./tests/st/test_clip/test_clip_zsic_pipeline.py
 
 Note:
     pipeline also supports a dataset input

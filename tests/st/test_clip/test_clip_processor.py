@@ -18,8 +18,8 @@ Test Module for testing forward, from_pretrained, and
 save_pretrained functions of ClipProcessor and AutoProcessor
 
 How to run this:
-windows:  pytest .\\tests\\ut\\test_processor.py
-linux:  pytest ./tests/ut/test_processor.py
+windows:  pytest .\\tests\\st\\test_clip\\test_clip_processor.py
+linux:  pytest ./tests/st/test_clip/test_clip_processor.py
 """
 import os
 import numpy as np
@@ -81,8 +81,8 @@ def test_clip_processor():
     output_c_4 = pro_c(fake_image_batch, fake_text_batch)
 
     pro_a.save_pretrained(save_directory, save_name='clip_vit_b_32')
-    pro_b.save_pretrained(save_directory, save_name='clip_vit_b_32')
     pro_c.save_pretrained(save_directory, save_name='clip_vit_b_32')
+    pro_b.save_pretrained(save_directory, save_name='clip_vit_b_32')
 
     assert output_a_1['image'].shape == (1, 3, 224, 224)
     assert output_a_2['image'].shape == (1, 3, 224, 224)

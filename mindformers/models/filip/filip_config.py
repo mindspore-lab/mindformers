@@ -56,7 +56,7 @@ class FilipConfig(BaseConfig):
                  checkpoint_name_or_path="wk200m_yfcc_vit_l_14_f_tkl_with_loss_ms", dtype="float16", **kwargs):
         if text_config is None:
             text_config = FilipTextConfig()
-            logger.info("text_config is None."
+            logger.info("text_config is None. "
                         "Initializing the FilipTextConfig with default values.")
         elif isinstance(text_config, FilipTextConfig):
             pass
@@ -66,7 +66,7 @@ class FilipConfig(BaseConfig):
 
         if vision_config is None:
             vision_config = FilipVisionConfig()
-            logger.info("vision_config is None."
+            logger.info("vision_config is None. "
                         "Initializing the FilipTextConfig with default values.")
         elif isinstance(vision_config, FilipVisionConfig):
             pass
