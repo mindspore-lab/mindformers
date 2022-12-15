@@ -13,8 +13,6 @@
 # limitations under the License.
 # ============================================================================
 """MindFormers Trainer API."""
-from mindformers.trainer import config_args, image_classification, \
-    masked_image_modeling, masked_language_modeling
 from .config_args import *
 from .image_classification import *
 from .masked_image_modeling import *

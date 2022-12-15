@@ -13,7 +13,7 @@
 # limitations under the License.
 # ============================================================================
 """MindFormers DataLoader."""
-from .build_dataloader import build_dataset_loader, register_ms_dataset_loader
+from .build_dataloader import build_dataset_loader
 from .flickr8k_dataloader import Flickr8kDataLoader
 
 __all__ = ['build_dataset_loader', 'Flickr8kDataLoader']

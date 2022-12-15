@@ -13,7 +13,6 @@
 # limitations under the License.
 # ============================================================================
 """MindFormers Wrapper API."""
-from mindformers.wrapper import wrapper
 from .build_wrapper import build_wrapper
 from .wrapper import *
 

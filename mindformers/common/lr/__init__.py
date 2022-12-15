@@ -13,8 +13,7 @@
 # limitations under the License.
 # ============================================================================
 """MindFormers LR API."""
-from mindformers.common.lr import lr_schedule
-from .build_lr import build_lr, register_ms_lr
+from .build_lr import build_lr
 from .lr_schedule import *
 
 
