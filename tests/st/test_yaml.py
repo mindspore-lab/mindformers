@@ -17,8 +17,8 @@
 Test module for testing yaml tools, MindFormerConfig.
 
 How to run this:
-windows:  pytest .\\tests\\ut\\test_yaml.py
-linux:  pytest ./tests/ut/test_yaml.py
+windows:  pytest .\\tests\\st\\test_yaml.py
+linux:  pytest ./tests/st/test_yaml.py
 
 Note:
     the name of model yaml file should start with model.

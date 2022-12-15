@@ -15,7 +15,7 @@
 """
 Test module for testing the interface used for mindformers.
 How to run this:
-python tests/ut/test_trainer/test_trainer_from_instance.py
+pytest tests/st/test_trainer/test_trainer_from_instance.py
 """
 import numpy as np
 import pytest
