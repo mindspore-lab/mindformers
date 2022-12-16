@@ -45,7 +45,8 @@ def generator():
         yield train_data
 
 @pytest.mark.level0
-@pytest.mark.platform_x86_gpu_training
+@pytest.mark.platform_x86_ascend_training
+@pytest.mark.platform_arm_ascend_training
 @pytest.mark.env_onecard
 def test_bert_trainer_train_from_instance():
     """
