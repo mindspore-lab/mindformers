@@ -50,8 +50,8 @@ def test_clip_processor():
     img_fe = ClipImageFeatureExtractor(image_resolution=224)
     feature_extractor = ClipFeatureExtractor(img_fe)
     tokenizer = ClipTokenizer()
-    save_directory = os.path.join(MindFormerBook.get_project_path(),
-                                  'checkpoint_save', 'clip')
+    save_directory = os.path.join(MindFormerBook.get_default_checkpoint_save_folder(),
+                                  'clip')
 
     ClipProcessor.show_support_list()
     support_list = ClipProcessor.get_support_list()
@@ -149,8 +149,8 @@ def test_auto_processor():
     """
     yaml_path = os.path.join(MindFormerBook.get_project_path(), "configs",
                              "clip", "model_config", "clip_vit_b_32.yaml")
-    save_directory = os.path.join(MindFormerBook.get_project_path(),
-                                  'checkpoint_save', 'clip')
+    save_directory = os.path.join(MindFormerBook.get_default_checkpoint_save_folder(),
+                                  'clip')
 
     AutoProcessor.show_support_list()
     support_list = AutoProcessor.get_support_list()
