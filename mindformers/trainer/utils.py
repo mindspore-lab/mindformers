@@ -31,6 +31,11 @@ def check_runner_config(config, dataset):
     data_size = dataset.get_dataset_size()
     new_epochs = config.runner_config.epochs
     if config.runner_config.per_epoch_size and config.runner_config.sink_mode:
+        if data_size < config.runner_config.per_epoch_size:
+            logger.warning("The data size %s (get from dataset.get_dataset_size()) is smaller "
+                           "than the per_epoch_size %s (get from config.runner_config.per_epoch_size), "
+                           "you should set the config.runner_config.per_epoch_size to %s",
+                           data_size, config.runner_config.per_epoch_size, data_size)
         config.runner_config.epochs = int((data_size / config.runner_config.per_epoch_size) * new_epochs)
     else:
         config.runner_config.per_epoch_size = data_size

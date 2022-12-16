@@ -161,7 +161,6 @@ class Trainer:
     def train(self, resume_from_checkpoint: Optional[Union[str, bool]] = None,
               initial_epoch: int = 0, **kwargs):
         """train."""
-
         if resume_from_checkpoint is False:
             resume_from_checkpoint = None
 

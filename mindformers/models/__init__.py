@@ -18,6 +18,7 @@ from .mae import *
 from .clip import *
 from .filip import *
 from .bert import *
+from .t5 import *
 from .base_tokenizer import *
 from .base_config import BaseConfig
 from .base_model import BaseModel
@@ -36,4 +37,5 @@ __all__.extend(bert.__all__)
 __all__.extend(mae.__all__)
 __all__.extend(clip.__all__)
 __all__.extend(filip.__all__)
+__all__.extend(t5.__all__)
 __all__.extend(base_tokenizer.__all__)
