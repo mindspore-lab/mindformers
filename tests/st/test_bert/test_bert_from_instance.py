@@ -13,9 +13,9 @@
 # limitations under the License.
 # ============================================================================
 """
-Test module for testing the interface used for mindformers.
+Test module for testing the bert interface used for mindformers.
 How to run this:
-pytest tests/st/test_trainer/test_trainer_from_instance.py
+pytest tests/st/test_bert/test_bert_from_instance.py
 """
 import numpy as np
 import pytest
@@ -24,58 +24,63 @@ from mindspore.train.callback import LossMonitor, TimeMonitor
 from mindspore.dataset import GeneratorDataset
 
 from mindformers.trainer import Trainer
-from mindformers.models import MaeModel
-from mindformers.common.context import init_context
 from mindformers.trainer.config_args import ConfigArguments, \
-    RunnerConfig, ContextConfig
+    RunnerConfig
+from mindformers.models.bert.bert import BertForPretraining
 
 
-class MyDataLoader:
-    """Self-Define DataLoader."""
-    def __init__(self):
-        self._data = [np.zeros((3, 224, 224), np.float32) for _ in range(64)]
-
-    def __getitem__(self, index):
-        return self._data[index]
-
-    def __len__(self):
-        return len(self._data)
-
+def generator():
+    """dataset generator"""
+    data = np.random.randint(low=0, high=15, size=(128,)).astype(np.int32)
+    input_mask = np.ones_like(data)
+    token_type_id = np.zeros_like(data)
+    next_sentence_lables = np.array([1]).astype(np.int32)
+    masked_lm_positions = np.array([1, 2]).astype(np.int32)
+    masked_lm_ids = np.array([1, 2]).astype(np.int32)
+    masked_lm_weights = np.ones_like(masked_lm_ids)
+    train_data = (data, input_mask, token_type_id, next_sentence_lables,
+                  masked_lm_positions, masked_lm_ids, masked_lm_weights)
+    for _ in range(32):
+        yield train_data
 
 @pytest.mark.level0
 @pytest.mark.platform_x86_ascend_training
 @pytest.mark.platform_arm_ascend_training
 @pytest.mark.env_onecard
-def test_trainer_train_from_instance():
+def test_bert_trainer_train_from_instance():
     """
     Feature: Create Trainer From Instance
     Description: Test Trainer API to train from self-define instance API.
     Expectation: TypeError
     """
-    context_config = ContextConfig(device_id=0, device_target='Ascend', mode=0)
-    init_context(use_parallel=False, context_config=context_config)
-
-    runner_config = RunnerConfig(epochs=10, batch_size=8, image_size=224, sink_mode=True, per_epoch_size=10)
+    # Config definition
+    runner_config = RunnerConfig(epochs=1, batch_size=16, sink_mode=True, per_epoch_size=2)
     config = ConfigArguments(seed=2022, runner_config=runner_config)
 
-    mae_model = MaeModel()
+    # Model
+    bert_model = BertForPretraining()
 
-    dataset = GeneratorDataset(source=MyDataLoader(), column_names='image')
-    dataset = dataset.batch(batch_size=8)
+    # Dataset and operations
+    dataset = GeneratorDataset(generator, column_names=["input_ids", "input_mask", "segment_ids",
+                                                        "next_sentence_labels", "masked_lm_positions",
+                                                        "masked_lm_ids", "masked_lm_weights"])
+    dataset = dataset.batch(batch_size=16)
 
+    # optimizer
     lr_schedule = WarmUpLR(learning_rate=0.001, warmup_steps=100)
     optimizer = AdamWeightDecay(beta1=0.009, beta2=0.999,
                                 learning_rate=lr_schedule,
-                                params=mae_model.trainable_params())
+                                params=bert_model.trainable_params())
 
+    # callback
     loss_cb = LossMonitor(per_print_times=2)
     time_cb = TimeMonitor()
     callbacks = [loss_cb, time_cb]
 
-    mim_trainer = Trainer(task_name='masked_image_modeling',
-                          model=mae_model,  # 包含loss计算
+    mlm_trainer = Trainer(task_name='masked_language_modeling',
+                          model=bert_model, # model and loss
                           config=config,
                           optimizers=optimizer,
                           train_dataset=dataset,
                           callbacks=callbacks)
-    mim_trainer.train(resume_from_checkpoint=False)
+    mlm_trainer.train(resume_from_checkpoint=False)
