@@ -39,15 +39,16 @@ class TestModelMethod:
     """A test class for testing Model classes"""
     def setup_method(self):
         """get_input"""
-        self.checkpoint_dir = os.path.join(MindFormerBook.get_project_path(),
-                                           'checkpoint_download', 'clip')
+        self.checkpoint_dir = os.path.join(MindFormerBook.get_default_checkpoint_download_folder(),
+                                           'clip')
         self.config_path = os.path.join(MindFormerBook.get_project_path(),
                                         'configs', 'clip', 'model_config', "clip_vit_b_32.yaml")
         self.config = AutoConfig.from_pretrained('clip_vit_b_32')
-        self.checkpoint_path = os.path.join(MindFormerBook.get_project_path(),
-                                            'checkpoint_download', 'clip', 'clip_vit_b_32.ckpt')
-        self.save_directory = os.path.join(MindFormerBook.get_project_path(),
-                                           'checkpoint_save', 'clip')
+
+        self.checkpoint_path = os.path.join(MindFormerBook.get_default_checkpoint_download_folder(),
+                                            'clip', 'clip_vit_b_32.ckpt')
+        self.save_directory = os.path.join(MindFormerBook.get_default_checkpoint_save_folder(),
+                                           'clip')
 
     # the first method to load model, AutoModel
     @pytest.mark.level0
@@ -71,6 +72,8 @@ class TestModelMethod:
         model_c = AutoModel.from_config(self.config_path)
         # input config, load model without weights
         model_d = AutoModel.from_config(self.config)
+
+        model_a.save_pretrained(self.save_directory, save_name='clip_vit_b_32')
 
         # all models are ClipModel class， and inherited from BaseModel
         assert isinstance(model_a, ClipModel)
@@ -107,6 +110,8 @@ class TestModelMethod:
         self.config.checkpoint_name_or_path = None
         model_l = ClipModel(self.config)
 
+        model_i.save_pretrained(self.save_directory, save_name='clip_vit_b_32')
+
         # all models are ClipModel class， and inherited from BaseModel
         assert isinstance(model_i, ClipModel)
         assert isinstance(model_j, ClipModel)
@@ -117,18 +122,3 @@ class TestModelMethod:
         assert isinstance(model_j, BaseModel)
         assert isinstance(model_k, BaseModel)
         assert isinstance(model_l, BaseModel)
-
-    @pytest.mark.level0
-    @pytest.mark.platform_x86_cpu
-    @pytest.mark.env_onecard
-    def test_save_model(self):
-        """
-        Feature: save_pretrained method of ClipModel
-        Description: Test to save checkpoint for ClipModel
-        Expectation: ValueError, AttributeError
-        """
-        model_a = AutoModel.from_pretrained('clip_vit_b_32')
-        model_i = ClipModel.from_pretrained('clip_vit_b_32')
-
-        model_a.save_pretrained(self.save_directory, save_name='clip_vit_b_32')
-        model_i.save_pretrained(self.save_directory, save_name='clip_vit_b_32')

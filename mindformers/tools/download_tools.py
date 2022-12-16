@@ -14,6 +14,7 @@
 # ============================================================================
 '''download_tools'''
 import time
+import os
 import requests
 import urllib3
 from tqdm import tqdm
@@ -26,6 +27,9 @@ class StatusCode:
 
 def downlond_with_progress_bar(url, filepath, chunk_size=1024, timeout=4):
     '''downlond_with_progress_bar'''
+    if not os.path.exists(filepath):
+        os.makedirs(os.path.dirname(filepath), exist_ok=True)
+
     start = time.time()
 
     try:
