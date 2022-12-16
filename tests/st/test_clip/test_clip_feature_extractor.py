@@ -190,9 +190,8 @@ def test_clip_feature_extractor():
     assert res_c_6.shape == (5, 3, 224, 224)
     assert isinstance(res_c_6, ms.Tensor)
 
-
-    save_directory = os.path.join(MindFormerBook.get_project_path(),
-                                  'checkpoint_save', 'clip')
+    save_directory = os.path.join(
+        MindFormerBook.get_default_checkpoint_save_folder(), 'clip')
     fe_a.save_pretrained(save_directory, save_name='clip_vit_b_32')
     fe_b.save_pretrained(save_directory, save_name='clip_vit_b_32')
     fe_c.save_pretrained(save_directory, save_name='clip_vit_b_32')
