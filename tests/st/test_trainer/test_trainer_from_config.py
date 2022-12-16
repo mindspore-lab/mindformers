@@ -24,9 +24,8 @@ from mindspore.dataset import GeneratorDataset
 
 from mindformers.trainer import Trainer
 from mindformers.models import MaeModel
-from mindformers.common.context import init_context
 from mindformers.trainer.config_args import ConfigArguments, \
-    OptimizerConfig, RunnerConfig, ContextConfig, LRConfig
+    OptimizerConfig, RunnerConfig, LRConfig
 
 
 class MyDataLoader:
@@ -51,9 +50,6 @@ def test_trainer_train_from_config():
     Description: Test Trainer API to train from config
     Expectation: TypeError
     """
-    context_config = ContextConfig(device_id=0, device_target='Ascend', mode=0)
-    init_context(use_parallel=False, context_config=context_config)
-
     runner_config = RunnerConfig(epochs=10, batch_size=2, image_size=224)  # 运行超参
     lr_schedule_config = LRConfig(lr_type='WarmUpLR', learning_rate=0.001, warmup_steps=10)
     optim_config = OptimizerConfig(optim_type='Adam', beta1=0.009, learning_rate=lr_schedule_config)

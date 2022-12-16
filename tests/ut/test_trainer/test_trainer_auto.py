@@ -23,9 +23,14 @@ import numpy as np
 from mindspore.dataset import GeneratorDataset
 
 from mindformers.trainer import Trainer
+from mindformers.common.context import init_context
 from mindformers.trainer.config_args import ConfigArguments, \
-    RunnerConfig
+    RunnerConfig, ContextConfig
 from mindformers.tools.logger import logger
+
+
+context_config = ContextConfig(device_id=0, device_target='Ascend', mode=0)
+init_context(use_parallel=False, context_config=context_config)
 
 
 class MyDataLoader:
