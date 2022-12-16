@@ -63,8 +63,8 @@ class MindFormerBook:
     settings in MindFormer repository
     """
     _PROJECT_PATH = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    _DEFAULT_CHECKPOINT_DOWNLOAD_FOLDER = os.path.join(_PROJECT_PATH, 'checkpoint_download')
-    _DEFAULT_CHECKPOINT_SAVE_FOLDER = os.path.join(_PROJECT_PATH, 'checkpoint_save')
+    _DEFAULT_CHECKPOINT_DOWNLOAD_FOLDER = os.path.join('.', 'checkpoint_download')
+    _DEFAULT_CHECKPOINT_SAVE_FOLDER = os.path.join('.', 'checkpoint_save')
 
     _TRAINER_SUPPORT_TASKS_LIST = OrderedDict([
         ("masked_image_modeling", OrderedDict([
