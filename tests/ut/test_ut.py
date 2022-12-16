@@ -12,4 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-"""test trainer."""
+
+"""test ut"""
+
+import pytest
+
+@pytest.mark.level0
+@pytest.mark.platform_x86_cpu
+@pytest.mark.env_onecard
+def test_example():
+    """
+    Feature: UT class
+    Description: Test the ut
+    Expectation: NotImplementedError, ValueError
+    """
+    assert 1 < 2
