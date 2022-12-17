@@ -15,7 +15,7 @@
 """
 Test module for testing the bert interface used for mindformers.
 How to run this:
-pytest tests/st/test_bert/test_bert_from_instance.py
+pytest tests/st/test_model/test_bert_model/test_bert_from_instance.py
 """
 import numpy as np
 import pytest

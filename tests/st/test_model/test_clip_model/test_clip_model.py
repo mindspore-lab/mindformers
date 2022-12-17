@@ -17,8 +17,8 @@
 Test Module for testing functions of AutoModel and ClipModel class
 
 How to run this:
-windows:  pytest .\\tests\\st\\test_clip\\test_clip_model.py
-linux:  pytest ./tests/st/test_clip/test_clip_model.py
+windows:  pytest .\\tests\\st\\test_model\\test_clip_model\\test_clip_model.py
+linux:  pytest ./tests/st/test_model/test_clip_model/test_clip_model.py
 
 Note:
     obs path for weights and yaml saving:
@@ -35,6 +35,9 @@ from mindformers.models import ClipModel, BaseModel
 from mindformers.tools import logger
 
 
+@pytest.mark.level0
+@pytest.mark.platform_x86_cpu
+@pytest.mark.env_onecard
 class TestModelMethod:
     """A test class for testing Model classes"""
     def setup_method(self):
@@ -51,9 +54,7 @@ class TestModelMethod:
                                            'clip')
 
     # the first method to load model, AutoModel
-    @pytest.mark.level0
-    @pytest.mark.platform_x86_cpu
-    @pytest.mark.env_onecard
+
     def test_auto_model(self):
         """
         Feature: AutoModel, from_pretrained, from_config
@@ -75,28 +76,6 @@ class TestModelMethod:
 
         model_a.save_pretrained(self.save_directory, save_name='clip_vit_b_32')
 
-        # all models are ClipModel class， and inherited from BaseModel
-        assert isinstance(model_a, ClipModel)
-        assert isinstance(model_b, ClipModel)
-        assert isinstance(model_c, ClipModel)
-        assert isinstance(model_d, ClipModel)
-
-        assert isinstance(model_a, BaseModel)
-        assert isinstance(model_b, BaseModel)
-        assert isinstance(model_c, BaseModel)
-        assert isinstance(model_d, BaseModel)
-
-    # the second method to load model, ClipModel
-    @pytest.mark.level0
-    @pytest.mark.platform_x86_cpu
-    @pytest.mark.env_onecard
-    def test_clip_model(self):
-        """
-        Feature: ClipModel, from_pretrained, input config
-        Description: Test to get model instance by ClipModel.from_pretrained
-                    and input config
-        Expectation: TypeError, ValueError, RuntimeError
-        """
         ClipModel.show_support_list()
         support_list = ClipModel.get_support_list()
         logger.info(support_list)
@@ -122,3 +101,14 @@ class TestModelMethod:
         assert isinstance(model_j, BaseModel)
         assert isinstance(model_k, BaseModel)
         assert isinstance(model_l, BaseModel)
+
+        # all models are ClipModel class， and inherited from BaseModel
+        assert isinstance(model_a, ClipModel)
+        assert isinstance(model_b, ClipModel)
+        assert isinstance(model_c, ClipModel)
+        assert isinstance(model_d, ClipModel)
+
+        assert isinstance(model_a, BaseModel)
+        assert isinstance(model_b, BaseModel)
+        assert isinstance(model_c, BaseModel)
+        assert isinstance(model_d, BaseModel)

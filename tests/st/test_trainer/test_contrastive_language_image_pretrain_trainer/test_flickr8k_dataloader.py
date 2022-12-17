@@ -17,11 +17,10 @@
 Test Module for testing flickr8k_dataloader for clip trainer.
 
 How to run this:
-windows:  pytest .\\tests\\st\\test_clip\\test_clip_dataloader_for_trainer.py
-linux:  pytest ./tests/st/test_clip/test_clip_dataloader_for_trainer.py
+windows:  pytest .\\tests\\st\\test_clip_model\\test_flickr8k_dataloader.py
+linux:  pytest ./tests/st/test_clip_model/test_flickr8k_dataloader.py
 """
 import os
-import shutil
 import numpy as np
 from PIL import Image
 import pytest
@@ -30,8 +29,10 @@ from mindformers.mindformer_book import MindFormerBook
 from mindformers.tools.register.config import MindFormerConfig
 from mindformers.dataset.dataloader import build_dataset_loader
 
+
 @pytest.mark.level0
-@pytest.mark.platform_x86_cpu
+@pytest.mark.platform_x86_ascend_training
+@pytest.mark.platform_arm_ascend_training
 @pytest.mark.env_onecard
 class TestFlickr8kDataloader:
     """A test class for testing Flickr8kDataLoader classes"""
@@ -53,32 +54,33 @@ class TestFlickr8kDataloader:
         config.train_dataset.data_loader.annotation_dir = new_annotation_dir
         self.config = config
 
-    def teardown_method(self):
-        """delete fake data"""
-        shutil.rmtree(self.local_root)
-
     def test_flickr8k_dataloader(self):
         """
         Feature: Flickr8kDataLoader
         Description: A data loader for flickr8k dataset
         Expectation: TypeError, ValueError
         """
+        self.setup_method()
         data_loader = build_dataset_loader(self.config.train_dataset.data_loader)
         for item in data_loader:
+            print(item)
             assert item[0].shape == (478, 269, 3)
             assert item[1].shape == (5,)
 
     def make_local_directory(self, config):
         """make local directory"""
         dataset_dir = config.train_dataset.data_loader.dataset_dir
-        local_root = os.path.join(MindFormerBook.get_project_path(), dataset_dir.split("/")[1])
+        local_root = os.path.join(
+            MindFormerBook.get_default_checkpoint_download_folder(),
+            dataset_dir.split("/")[1]
+        )
 
-        new_dataset_dir = MindFormerBook.get_project_path()
+        new_dataset_dir = MindFormerBook.get_default_checkpoint_download_folder()
         for item in dataset_dir.split("/")[1:]:
             new_dataset_dir = os.path.join(new_dataset_dir, item)
 
         annotation_dir = config.train_dataset.data_loader.annotation_dir
-        new_annotation_dir = MindFormerBook.get_project_path()
+        new_annotation_dir = MindFormerBook.get_default_checkpoint_download_folder()
         for item in annotation_dir.split("/")[1:]:
             new_annotation_dir = os.path.join(new_annotation_dir, item)
 
