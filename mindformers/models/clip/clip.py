@@ -46,6 +46,7 @@ class ClipModel(BaseModel):
     def __init__(self, config):
         super(ClipModel, self).__init__(config)
         self.dtype = self.get_dtype(config.dtype)
+        self.cross_entropy = nn.SoftmaxCrossEntropyWithLogits(reduction="mean", sparse=True)
 
         self.max_position_embeddings = config.text_config.max_position_embeddings
         vision_heads = config.vision_config.hidden_size // config.ratio

@@ -14,81 +14,116 @@
 # ============================================================================
 
 """
-Test Module for testing clip_pretrain dataset for clip trainer.
+Test module for testing the interface used for mindformers.
 
-How to run this:
 windows:
-pytest .\\tests\\st\\test_trainer\\
-test_contrastive_language_image_pretrain_trainer\\test_dataset.py
+pytest .\\tests\\st\\test_trainer
+test_contrastive_language_image_pretrain_trainer
+\\test_trainer_from_config.py
 linux:
-pytest ./tests/st/test_trainer
-/test_contrastive_language_image_pretrain_trainer/test_dataset.py
+pytest ./tests/st/test_trainer/
+test_contrastive_language_image_pretrain_trainer
+/test_trainer_from_config.py
 """
 import os
 import numpy as np
 from PIL import Image
-import pytest
 
 from mindformers.mindformer_book import MindFormerBook
 from mindformers.tools.register.config import MindFormerConfig
+from mindformers.models import ClipModel, ClipConfig
+from mindformers.trainer import Trainer
+from mindformers.trainer.config_args import ConfigArguments, RunnerConfig
 from mindformers.dataset.build_dataset import build_dataset
 
 
-@pytest.mark.level0
-@pytest.mark.platform_x86_ascend_training
-@pytest.mark.platform_arm_ascend_training
-@pytest.mark.env_onecard
-class TestClipPretrainDataset:
-    """A test class for testing ContrastiveLanguageImagePretrainDataset classes"""
+class TestTrainer:
+    """A test class for testing Trainer"""
     def setup_method(self):
         """prepare for test"""
         project_path = MindFormerBook.get_project_path()
 
         config_path = os.path.join(
             project_path, "configs", "clip",
-            "task_config", "clip_flickr8k_dataset.yaml"
+            "run_clip_vit_b_32_pretrain_flickr8k.yaml"
         )
         config = MindFormerConfig(config_path)
 
-        new_dataset_dir, new_annotation_dir, local_root = self.make_local_directory(config)
-        self.make_dataset(new_dataset_dir, new_annotation_dir, num=100)
+        new_dataset_dir, new_annotation_dir,\
+        local_root, output_dir = self.make_local_directory(config)
+        self.make_dataset(new_dataset_dir, new_annotation_dir, num=50)
         self.local_root = local_root
+        self.output_dir = output_dir
 
         config.train_dataset.data_loader.dataset_dir = new_dataset_dir
         config.train_dataset.data_loader.annotation_dir = new_annotation_dir
+        config.train_dataset_task.dataset_config.data_loader.dataset_dir = new_dataset_dir
+        config.train_dataset_task.dataset_config.data_loader.annotation_dir = new_annotation_dir
+        config.output_dir = output_dir
+
         self.config = config
 
-    def test_dataset(self):
+    def test_trainer_train_from_instance(self):
         """
-        Feature: ContrastiveLanguageImagePretrainDataset
-        Description: A data set for contrastive language image pretrain
-        Expectation: TypeError, ValueError
+        Feature: Create Trainer From Instance
+        Description: Test Trainer API to train from self-define instance API.
+        Expectation: TypeError
         """
-        data_loader = build_dataset(self.config.train_dataset_task)
-        for item in data_loader:
-            assert item[0].shape == (32, 3, 224, 224)
-            assert item[1].shape == (32, 77)
+        runner_config = RunnerConfig(
+            epochs=5, batch_size=32,
+            image_size=224, sink_mode=False,
+            per_epoch_size=-1, initial_epoch=0,
+            has_trained_epoches=0, has_trained_steps=0
+        )
+        config = ConfigArguments(seed=2022, runner_config=runner_config)
+
+        clip_config = ClipConfig.from_pretrained('clip_vit_b_32')
+        clip_config.checkpoint_name_or_path = None
+        clip_model = ClipModel(clip_config)
+        clip_model.set_train()
+
+        dataset = build_dataset(self.config.train_dataset_task)
+
+        optimizer = ms.nn.AdamWeightDecay(
+            params=clip_model.trainable_params(),
+            learning_rate=1e-5, weight_decay=1e-3
+        )
+
+        loss_cb = ms.LossMonitor(per_print_times=1)
+        lr_scheduler = ms.ReduceLROnPlateau(
+            monitor="loss", mode="min",
+            patience=2, factor=0.5, verbose=True
+        )
+        callbacks = [loss_cb, lr_scheduler]
+
+        mim_trainer = Trainer(task_name='contrastive_language_image_pretrain',
+                              model=clip_model,
+                              config=config,
+                              optimizers=optimizer,
+                              train_dataset=dataset,
+                              callbacks=callbacks)
+        mim_trainer.train(resume_from_checkpoint=False)
 
     def make_local_directory(self, config):
         """make local directory"""
-        dataset_dir = config.train_dataset.data_loader.dataset_dir
-        local_root = os.path.join(
-            MindFormerBook.get_default_checkpoint_download_folder(),
-            dataset_dir.split("/")[2]
-        )
 
-        new_dataset_dir = MindFormerBook.get_default_checkpoint_download_folder()
-        for item in dataset_dir.split("/")[2:]:
+        dataset_dir = config.train_dataset.data_loader.dataset_dir
+        local_root = os.path.join(MindFormerBook.get_project_path(), dataset_dir.split("/")[1])
+
+        new_dataset_dir = MindFormerBook.get_project_path()
+        for item in dataset_dir.split("/")[1:]:
             new_dataset_dir = os.path.join(new_dataset_dir, item)
 
         annotation_dir = config.train_dataset.data_loader.annotation_dir
-        new_annotation_dir = MindFormerBook.get_default_checkpoint_download_folder()
-        for item in annotation_dir.split("/")[2:]:
+        new_annotation_dir = MindFormerBook.get_project_path()
+        for item in annotation_dir.split("/")[1:]:
             new_annotation_dir = os.path.join(new_annotation_dir, item)
+
+        output_dir = new_annotation_dir
 
         os.makedirs(new_dataset_dir, exist_ok=True)
         os.makedirs(new_annotation_dir, exist_ok=True)
-        return new_dataset_dir, new_annotation_dir, local_root
+        return new_dataset_dir, new_annotation_dir, local_root, output_dir
 
     def make_dataset(self, new_dataset_dir, new_annotation_dir, num):
         """make a fake Flickr8k dataset"""

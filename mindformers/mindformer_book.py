@@ -79,6 +79,12 @@ class MindFormerBook:
             ("common", os.path.join(
                 _PROJECT_PATH, "configs/bert/run_bert_tiny_uncased.yaml"))])
          ),
+        ("contrastive_language_image_pretrain", OrderedDict([
+            ("clip_vit_b_32", os.path.join(
+                _PROJECT_PATH, "configs/clip/run_clip_vit_b_32_pretrain_flickr8k.yaml")),
+            ("common", os.path.join(
+                _PROJECT_PATH, "configs/clip/run_clip_vit_b_32_pretrain_flickr8k.yaml"))])
+         ),
         ("zero_shot_image_classification", OrderedDict([
             ("clip_vit_b_32", os.path.join(
                 _PROJECT_PATH, "configs/clip/run_clip_vit_b_32.yaml")),

@@ -1,0 +1,31 @@
+# runner config
+runner_config:
+  epochs: 5
+  batch_size: 32
+  image_size: 224
+  sink_mode: False
+  per_epoch_size: -1
+  initial_epoch: 0
+  has_trained_epoches: 0
+  has_trained_steps: 0
+
+# optimizer
+optimizer:
+  type: AdamWeightDecay
+  weight_decay: 0.001
+  learning_rate: 0.00001
+
+callbacks:
+  - type: ReduceLROnPlateau
+    monitor: "loss"
+    mode: "min"
+    patience: 2
+    factor: 0.5
+    verbose: True
+  - type: MFLossMonitor
+  - type: CheckpointMointor
+    prefix: "mindformers"
+    save_checkpoint_steps: 100
+    integrated_save: True
+    async_save: False
+  - type: ObsMonitor

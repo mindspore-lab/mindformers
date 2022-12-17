@@ -1,0 +1,17 @@
+base_config: [
+    './task_config/context.yaml',
+    './task_config/runner.yaml',
+    './task_config/clip_flickr8k_dataset.yaml',
+    './model_config/clip_vit_b_32.yaml',
+    '../__base__.yaml' ]
+
+profile: False
+use_parallel: False
+
+seed: 0
+resume_checkpoint_path: ''
+
+run_status: 'train'
+trainer:
+  type: ContrastiveLanguageImagePretrainTrainer
+  model_name: 'clip_vit_b_32'

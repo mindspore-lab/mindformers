@@ -29,7 +29,9 @@ Note:
     ClipModel amd ClipConfig start with the same prefix "Clip"
 """
 import os
+import time
 import pytest
+
 from mindformers import MindFormerBook, AutoConfig, AutoModel
 from mindformers.models import ClipModel, BaseModel
 from mindformers.tools import logger
@@ -62,6 +64,8 @@ class TestModelMethod:
                     and AutoModel.from_config
         Expectation: TypeError, ValueError, RuntimeError
         """
+        time.sleep(5)
+
         AutoModel.show_support_list()
         support_list = AutoModel.get_support_list()
         logger.info(support_list)
