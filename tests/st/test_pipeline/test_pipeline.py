@@ -17,16 +17,14 @@
 Test Module for basic function of pipeline
 
 How to run this:
-windows:  pytest .\\tests\\st\\test_clip\\test_clip_pipeline.py
-linux:  pytest ./tests/st/test_clip/test_clip_pipeline.py
+windows:  pytest .\\tests\\st\\test_pipeline\\test_pipeline.py
+linux:  pytest ./tests/st/test_pipeline/test_pipeline.py
 """
 import os
 import pytest
 from mindformers import pipeline
 from mindformers.tools.image_tools import load_image
-from mindformers import AutoModel, AutoProcessor
 from mindformers import MindFormerBook
-
 
 @pytest.mark.level0
 @pytest.mark.platform_x86_ascend_training
@@ -41,18 +39,6 @@ def test_pipeline():
     classifier_a = pipeline("zero_shot_image_classification",
                             candidate_labels=["sunflower", "tree", "dog", "cat", "toy"])
 
-    classifier_b = pipeline("zero_shot_image_classification",
-                            model="clip_vit_b_32",
-                            candidate_labels=["sunflower", "tree", "dog", "cat", "toy"])
-
-    model = AutoModel.from_pretrained("clip_vit_b_32")
-    processor = AutoProcessor.from_pretrained("clip_vit_b_32")
-    classifier_c = pipeline("zero_shot_image_classification",
-                            model=model,
-                            feature_extractor=processor.feature_extractor,
-                            tokenizer=processor.tokenizer,
-                            candidate_labels=["sunflower", "tree", "dog", "cat", "toy"])
-
     image_path = os.path.join(MindFormerBook.get_default_checkpoint_download_folder(),
                               'clip', 'sunflower.jpg')
     if not os.path.exists(image_path):
@@ -62,9 +48,4 @@ def test_pipeline():
         img = load_image(image_path)
 
     res_a = classifier_a(img)
-    res_b = classifier_b(img)
-    res_c = classifier_c(img)
-
     assert len(res_a) == 1
-    assert len(res_b) == 1
-    assert len(res_c) == 1

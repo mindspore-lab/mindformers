@@ -15,7 +15,9 @@
 """MindFormers Transforms API."""
 from .build_transforms import build_transforms
 from .vision_transforms import *
+from .text_transforms import *
 
 
 __all__ = ['build_transforms']
 __all__.extend(vision_transforms.__all__)
+__all__.extend(text_transforms.__all__)

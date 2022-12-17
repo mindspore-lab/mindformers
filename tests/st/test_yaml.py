@@ -34,6 +34,7 @@ from mindformers.tools import MindFormerConfig, logger
 
 @pytest.mark.level0
 @pytest.mark.platform_x86_cpu
+@pytest.mark.platform_x86_gpu_training  # add for ci
 @pytest.mark.env_onecard
 def test_yaml():
     """

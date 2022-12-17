@@ -17,6 +17,11 @@ import numpy as np
 from ...tools.register import MindFormerRegister, MindFormerModuleType
 
 
+__all__ = [
+    'RandomChoiceTokenizerForward'
+]
+
+
 @MindFormerRegister.register(MindFormerModuleType.TRANSFORMS)
 class RandomChoiceTokenizerForward:
     """Random Choice Tokenizer Forward"""
