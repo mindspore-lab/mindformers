@@ -226,3 +226,8 @@ class ClipTokenizer(PretrainedTokenizer):
         if isinstance(input_tokens, str):
             return self.tool.encoder[input_tokens]
         return [self.tool.encoder[bpe_token] for bpe_token in input_tokens]
+
+    @property
+    def vocab_size(self):
+        """Get the vocab size"""
+        return len(self.tool.encoder)

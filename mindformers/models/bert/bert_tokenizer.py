@@ -379,3 +379,8 @@ class BertTokenizer(PretrainedTokenizer):
             for k in self.vocab_dict.keys():
                 fp.write(k + '\n')
         return output_file_path
+
+    @property
+    def vocab_size(self):
+        """Return the vocab size"""
+        return len(self.vocab_dict)

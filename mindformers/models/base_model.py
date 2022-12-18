@@ -29,9 +29,10 @@ from .base_config import BaseConfig
 from ..tools.register import MindFormerConfig
 from ..tools.download_tools import downlond_with_progress_bar
 from ..tools import logger
+from .base_generator import GeneratorMinMax
 
 
-class BaseModel(nn.Cell):
+class BaseModel(nn.Cell, GeneratorMinMax):
     """
     BaseModel for all models.
     """

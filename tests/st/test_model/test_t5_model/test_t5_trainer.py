@@ -26,7 +26,7 @@ from mindspore.dataset import GeneratorDataset
 from mindformers.trainer import Trainer
 from mindformers.trainer.config_args import ConfigArguments, \
     RunnerConfig
-from mindformers import T5Config, T5ModelForGeneration
+from mindformers import T5Config, T5ModelForLoss
 
 
 def generator():
@@ -61,7 +61,7 @@ def test_t5_trainer_train_using_trainer():
     model_config = T5Config(batch_size=batch_size, num_heads=8, num_hidden_layers=1, hidden_size=512,
                             seq_length=16, max_decode_length=8)
     # Model
-    model = T5ModelForGeneration(model_config)
+    model = T5ModelForLoss(model_config)
     # optimizer
     lr_schedule = WarmUpLR(learning_rate=0.001, warmup_steps=100)
     optimizer = AdamWeightDecay(beta1=0.009, beta2=0.999,
