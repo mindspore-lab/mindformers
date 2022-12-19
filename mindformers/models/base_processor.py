@@ -78,8 +78,6 @@ class BaseProcessor:
         """
         if save_directory is None:
             save_directory = MindFormerBook.get_default_checkpoint_save_folder()
-            if not os.path.exists(save_directory):
-                os.makedirs(save_directory)
 
         if not isinstance(save_directory, str) or not isinstance(save_name, str):
             raise TypeError(f"save_directory and save_name should be a str,"
