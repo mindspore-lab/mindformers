@@ -17,8 +17,8 @@
 Test Module for testing functions of MindFormerBook class
 
 How to run this:
-windows:  pytest .\\tests\\ut\\test_mindformer_book.py
-linux:  pytest ./tests/ut/test_mindformer_book.py
+windows:  pytest .\\tests\\st\\test_mindformer_book.py
+linux:  pytest ./tests/st/test_mindformer_book.py
 """
 import pytest
 from mindformers import MindFormerBook

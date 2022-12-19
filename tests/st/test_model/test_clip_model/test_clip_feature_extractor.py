@@ -24,15 +24,12 @@ linux:  pytest ./tests/st/test_model/test_clip_model/test_clip_feature_extractor
 import os
 import numpy as np
 from PIL import Image
-import pytest
 import mindspore as ms
 from mindformers.models import ClipFeatureExtractor, ClipImageFeatureExtractor
 from mindformers import MindFormerBook, AutoFeatureExtractor
 from mindformers.tools import logger
 
-@pytest.mark.level0
-@pytest.mark.platform_x86_cpu
-@pytest.mark.env_onecard
+
 def test_auto_feature_extractor():
     """
     Feature: AutoFeatureExtractor class

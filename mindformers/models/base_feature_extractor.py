@@ -48,7 +48,7 @@ class BaseFeatureExtractor:
 
     Note:
         FeatureExtractor contains ImageFeatureExtractor, AudioFeatureExtractor, etc.
-        This version support ImageFeatureExtractor only.
+        This version supports ImageFeatureExtractor only.
     """
     _support_list = []
 
@@ -182,10 +182,18 @@ class BaseFeatureExtractor:
             yaml_file = os.path.join(checkpoint_path, yaml_name_or_path+".yaml")
             if not os.path.exists(yaml_file):
                 url = MindFormerBook.get_model_config_url_list()[yaml_name_or_path][0]
-                downlond_with_progress_bar(url, yaml_file)
-            logger.info("config in %s is used for feature extractor"
-                        " building.", yaml_file)
+                succeed = downlond_with_progress_bar(url, yaml_file)
 
+                if not succeed:
+                    yaml_file = os.path.join(
+                        MindFormerBook.get_project_path(),
+                        "configs", yaml_name_or_path.split("_")[0],
+                        "model_config", yaml_name_or_path + ".yaml"
+                    )
+                    logger.info("yaml download failed, default config in %s is used.", yaml_file)
+                else:
+                    logger.info("config in %s is used for feature extractor"
+                                " building.", yaml_file)
             config_args = MindFormerConfig(yaml_file)
 
         feature_extractor = build_feature_extractor(config_args.processor.feature_extractor)

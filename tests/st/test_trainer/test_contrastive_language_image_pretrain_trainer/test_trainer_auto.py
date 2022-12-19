@@ -28,17 +28,12 @@ test_contrastive_language_image_pretrain_trainer
 import os
 import numpy as np
 from PIL import Image
-import pytest
 
 from mindformers.mindformer_book import MindFormerBook
 from mindformers.tools.register.config import MindFormerConfig
 from mindformers.trainer import Trainer
 
 
-@pytest.mark.level0
-@pytest.mark.platform_x86_ascend_training
-@pytest.mark.platform_arm_ascend_training
-@pytest.mark.env_onecard
 class TestTrainer:
     """A test class for testing Trainer"""
     def setup_method(self):
