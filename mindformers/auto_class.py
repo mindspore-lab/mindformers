@@ -19,6 +19,7 @@ AutoConfig、AutoModel
 import os
 import json
 
+
 from .mindformer_book import MindFormerBook, print_dict
 from .models import build_feature_extractor, build_processor
 from .models.base_config import BaseConfig
@@ -450,9 +451,59 @@ class AutoProcessor:
         """get support list method"""
         return cls._support_list
 
+
 class AutoTokenizer:
-    """AutoTokenizer """
+    """
+        Load the tokenizer according to the `yaml_name_or_path`. It supports the following situations
+
+        1. `yaml_name_or_path` is the path to the downloaded files.
+        2. `yaml_name_or_path` is the model name.
+
+    """
     _support_list = MindFormerBook.get_tokenizer_support_list()
+
+    @classmethod
+    def _get_class_name_from_yaml(cls, yaml_name_or_path):
+        """Try to find the yaml form the given path"""
+        is_exist = os.path.exists(yaml_name_or_path)
+        is_dir = os.path.isdir(yaml_name_or_path)
+        if not is_exist:
+            raise ValueError(f"{yaml_name_or_path} does not exist, Please pass a valid the directory.")
+        if not is_dir:
+            raise ValueError(f"{yaml_name_or_path} is not a directory. You should pass the directory.")
+
+        # If passed a directory, load the file from the yaml files
+        yaml_list = [file for file in os.listdir(yaml_name_or_path) if file.endswith(".yaml")]
+        if not yaml_list:
+            return None
+        if len(yaml_list) > 1:
+            raise ValueError(f"There should be only one yaml file under the directory {yaml_name_or_path}.")
+        yaml_file = os.path.join(yaml_name_or_path, yaml_list[0])
+        logger.info("Config in the yaml file %s are used for tokenizer building.", yaml_file)
+        config = MindFormerConfig(yaml_file)
+
+        class_name = None
+        if config and 'processor' in config and 'tokenizer' in config['processor'] \
+                and 'type' in config['processor']['tokenizer']:
+            class_name = config['processor']['tokenizer'].pop('type', None)
+            logger.info("Load the tokenizer name %s from the %s", class_name, yaml_name_or_path)
+
+        return class_name
+
+    @classmethod
+    def _get_class_name_from_tokenizer_config_file(cls, yaml_name_or_path):
+        """try to get the tokenizer type from tokenizer_config.json"""
+        tokenizer_config_path = os.path.join(yaml_name_or_path, 'tokenizer_config.json')
+        if not os.path.exists(tokenizer_config_path):
+            raise FileNotFoundError(f"The file `tokenizer_config.json` should exits in the "
+                                    f"path {tokenizer_config_path}, but not found.")
+        with open(tokenizer_config_path, 'r') as fp:
+            config_kwargs = json.load(fp)
+        class_name = config_kwargs.pop('tokenizer_class', None)
+        if not class_name:
+            raise ValueError(f"There should be the key word`tokenizer_class` in {tokenizer_config_path}, but "
+                             f"not found. The optional keys are {config_kwargs.keys()}")
+        return class_name
 
     @classmethod
     def from_pretrained(cls, yaml_name_or_path):
@@ -466,33 +517,27 @@ class AutoTokenizer:
         Returns:
             A tokenizer which inherited from PretrainedTokenizer.
         """
-        if yaml_name_or_path is None:
-            raise ValueError("a processor cannot be built from pretrained"
-                             " without yaml_name_or_path.")
+        from . import MindFormerRegister
+        if not isinstance(yaml_name_or_path, str):
+            raise TypeError(f"yaml_name_or_path should be a str,"
+                            f" but got {type(yaml_name_or_path)}")
+        # Try to load from the remote
+        if yaml_name_or_path in cls._support_list.keys():
+            # Should download the files from the remote storage
+            # We call the basic `from_pretrained` method to download the corresponding tokenizer
+            class_name = MindFormerBook.TOKENIZER_NAME_TO_TOKENIZER[yaml_name_or_path.split('_')[0]]
+        elif os.path.isdir(yaml_name_or_path):
+            class_name = cls._get_class_name_from_yaml(yaml_name_or_path)
+            if not class_name:
+                class_name = cls._get_class_name_from_tokenizer_config_file(yaml_name_or_path)
+        else:
+            raise FileNotFoundError(f"{yaml_name_or_path} does not exist. "
+                                    f"You can select one from {cls._support_list.keys()}."
+                                    f"Or make sure the {yaml_name_or_path} is a directory.")
 
-        is_exist = os.path.exists(yaml_name_or_path)
-        model_name = yaml_name_or_path.split("_")[0]
-        if not is_exist and model_name not in cls._support_list.keys():
-            raise ValueError(f'{yaml_name_or_path} does not exist,'
-                             f' and it is not supported by {cls.__name__}. '
-                             f'please select from {cls._support_list}.')
-        # try to get the tokenizer type from the disk
-        tokenizer_config_path = os.path.join(yaml_name_or_path, 'tokenizer_config.json')
-        if not os.path.exists(tokenizer_config_path):
-            raise FileNotFoundError(f"The file `tokenizer_config.json` should exits in the "
-                                    f"path {tokenizer_config_path}, but not found.")
-        with open(tokenizer_config_path, 'r') as fp:
-            config_kwargs = json.load(fp)
-        config_class = config_kwargs.get('tokenizer_class', None)
-        if not config_class:
-            raise ValueError(f"There should be the key word`tokenizer_class` in {tokenizer_config_path}, but "
-                             f"not found. The optional keys are {config_kwargs.keys()}")
-        from mindformers import models
-        dynamic_class = getattr(models, config_class)
-        config_kwargs.pop('tokenizer_class')
+        dynamic_class = MindFormerRegister.get_cls(module_type='tokenizer', class_name=class_name)
         instanced_class = dynamic_class.from_pretrained(yaml_name_or_path)
-
-        logger.info("Tokenizer built successfully!")
+        logger.info("%s Tokenizer built successfully!", instanced_class.__class__.__name__)
         return instanced_class
 
     @classmethod

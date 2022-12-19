@@ -73,6 +73,38 @@ class TestAutoTokenizerMethod:
         assert isinstance(restore_tokenizer, ClipTokenizer)
         assert res == ['hello</w>', 'world</w>', '?</w>']
 
+
+    def test_load_from_yaml(self):
+        """
+        Feature: The test load from yaml and save as the yaml for the tokenizer
+        Description: Load the tokenizer and then saved it
+        Expectation: The restored kwargs is not expected version.
+        """
+        tokenizer = AutoTokenizer.from_pretrained("clip_vit_b_32")
+        res = tokenizer.tokenize("hello world?")
+        assert isinstance(tokenizer, ClipTokenizer)
+        assert res == ['hello</w>', 'world</w>', '?</w>']
+
+    def test_save_from_yaml(self):
+        """
+        Feature: The test save to yaml files for the tokenizer
+        Description: Load the tokenizer and then saved it
+        Expectation: The restored kwargs is not expected version.
+        """
+        bert_tokenizer = BertTokenizer(vocab_file=os.path.join(self.output_path, 'vocab_file.txt'), do_lower_case=False,
+                                       do_basic_tokenize=False)
+        bert_tokenizer.save_pretrained(self.bert_path_saved, file_format='yaml')
+        tokenizer = AutoTokenizer.from_pretrained(self.bert_path_saved)
+        assert isinstance(tokenizer, BertTokenizer)
+        assert not tokenizer.do_basic_tokenize
+        assert not tokenizer.do_lower_case
+        res = tokenizer.tokenize("hello world!")
+        assert res == ['hello', 'world', '[UNK]']
+
+@pytest.mark.level0
+@pytest.mark.platform_x86_ascend_training
+@pytest.mark.platform_arm_ascend_training
+@pytest.mark.env_onecard
 class TestPretrainedTokenizerMethod:
     """A test class for testing the PretrainedTokenizer"""
     def generate_fake_vocab(self):
@@ -99,6 +131,7 @@ class TestPretrainedTokenizerMethod:
         tokenizer = PretrainedTokenizer.from_pretrained(self.output_path)
         with pytest.raises(NotImplementedError):
             tokenizer("hello world")
+
 
 class TestBertTokenizerMethod:
     """A test class for testing the BertTokenizer"""
