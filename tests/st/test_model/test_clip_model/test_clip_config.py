@@ -26,16 +26,12 @@ Example:
     ClipModel and ClipConfig have the same prefix, Clip
 """
 import os
-import pytest
 from mindformers import MindFormerBook, AutoConfig
 from mindformers.models import ClipConfig, ClipVisionConfig, ClipTextConfig, BaseConfig
 from mindformers.tools import logger
 
 
 # the first method to load model config, AutoConfig
-@pytest.mark.level0
-@pytest.mark.platform_x86_cpu
-@pytest.mark.env_onecard
 def test_config():
     """
     Feature: AutoConfig, ClipConfig

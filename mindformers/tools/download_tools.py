@@ -35,8 +35,10 @@ def downlond_with_progress_bar(url, filepath, chunk_size=1024, timeout=4):
     try:
         response = requests.get(url, stream=True, timeout=timeout)
     except (TimeoutError, urllib3.exceptions.MaxRetryError,
-            requests.exceptions.ProxyError) as exc:
-        raise ConnectionError(f"Connect error, please download {url} to {filepath}.") from exc
+            requests.exceptions.ProxyError,
+            requests.exceptions.ConnectionError):
+        logger.error("Connect error, please download %s to %s.", url, filepath)
+        return False
 
     size = 0
     content_size = int(response.headers['content-length'])
@@ -50,5 +52,7 @@ def downlond_with_progress_bar(url, filepath, chunk_size=1024, timeout=4):
         file.close()
         end = time.time()
         logger.info('Download completed!,times: %.2fs', (end - start))
-    else:
-        raise KeyError(f"{url} is unconnected!")
+        return True
+
+    logger.error("%s is unconnected!", url)
+    return False

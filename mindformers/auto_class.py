@@ -81,7 +81,17 @@ class AutoConfig:
             yaml_file = os.path.join(checkpoint_path, yaml_name_or_path + ".yaml")
             if not os.path.exists(yaml_file):
                 url = MindFormerBook.get_model_config_url_list()[yaml_name_or_path][0]
-                downlond_with_progress_bar(url, yaml_file)
+                succeed = downlond_with_progress_bar(url, yaml_file)
+
+                if not succeed:
+                    yaml_file = os.path.join(
+                        MindFormerBook.get_project_path(),
+                        "configs", yaml_name_or_path.split('_')[0], "model_config",
+                        yaml_name_or_path + ".yaml"
+                    )
+                    logger.info("yaml download failed, default config in %s is used.", yaml_file)
+                else:
+                    logger.info("config in %s is used.", yaml_file)
 
             config_args = MindFormerConfig(yaml_file)
 
@@ -113,7 +123,7 @@ class AutoModel:
     @classmethod
     def from_config(cls, config):
         """
-        From config method, which instantiate a Model by config.
+        From config method, which instantiates a Model by config.
 
         Args:
             config (str, BaseConfig): A model config inherited from BaseConfig,
@@ -185,7 +195,7 @@ class AutoModel:
     @classmethod
     def from_pretrained(cls, pretrained_model_name_or_dir):
         """
-        From pretrain method, which instantiate a Model by pretrained model name or path.
+        From pretrain method, which instantiates a Model by pretrained model name or path.
 
         Args:
             pretrained_model_name_or_path (str): A supported model name or a
@@ -240,9 +250,18 @@ class AutoModel:
             yaml_file = os.path.join(checkpoint_path, pretrained_model_name_or_dir+".yaml")
             if not os.path.exists(yaml_file):
                 url = MindFormerBook.get_model_config_url_list()[pretrained_model_name_or_dir][0]
-                downlond_with_progress_bar(url, yaml_file)
+                succeed = downlond_with_progress_bar(url, yaml_file)
 
-            logger.info("config in %s is used for model building.", yaml_file)
+                if not succeed:
+                    yaml_file = os.path.join(
+                        MindFormerBook.get_project_path(),
+                        "configs", pretrained_model_name_or_dir.split('_')[0],
+                        "model_config", pretrained_model_name_or_dir + ".yaml"
+                    )
+                    logger.info("yaml download failed, default config in %s is used.", yaml_file)
+                else:
+                    logger.info("config in %s is used for model building.", yaml_file)
+
             config_args = MindFormerConfig(yaml_file)
             config_args.model.model_config.update(
                 {"checkpoint_name_or_path": pretrained_model_name_or_dir})
@@ -311,14 +330,23 @@ class AutoFeatureExtractor:
                                  f' please select from {cls._support_list}.')
 
             if not os.path.exists(checkpoint_path):
-                os.makedirs(checkpoint_path)
+                os.makedirs(checkpoint_path, exist_ok=True)
 
             yaml_file = os.path.join(checkpoint_path, yaml_name_or_path + ".yaml")
             if not os.path.exists(yaml_file):
                 url = MindFormerBook.get_model_config_url_list()[yaml_name_or_path][0]
-                downlond_with_progress_bar(url, yaml_file)
-            logger.info("config in %s is used for feature extractor"
-                        " building.", yaml_file)
+                succeed = downlond_with_progress_bar(url, yaml_file)
+
+                if not succeed:
+                    yaml_file = os.path.join(
+                        MindFormerBook.get_project_path(),
+                        "configs", yaml_name_or_path.split("_")[0],
+                        "model_config", yaml_name_or_path + ".yaml"
+                    )
+                    logger.info("yaml download failed, default config in %s is used.", yaml_file)
+                else:
+                    logger.info("config in %s is used for feature extractor"
+                                " building.", yaml_file)
 
             config_args = MindFormerConfig(yaml_file)
 
@@ -351,7 +379,7 @@ class AutoProcessor:
     @classmethod
     def from_pretrained(cls, yaml_name_or_path):
         """
-        From pretrain method, which instantiate a processor by yaml name or path.
+        From pretrain method, which instantiated a processor by yaml name or path.
 
         Args:
             yaml_name_or_path (str): A supported yaml name or a path to .yaml file,
@@ -393,9 +421,17 @@ class AutoProcessor:
             yaml_file = os.path.join(checkpoint_path, yaml_name_or_path + ".yaml")
             if not os.path.exists(yaml_file):
                 url = MindFormerBook.get_model_config_url_list()[yaml_name_or_path][0]
-                downlond_with_progress_bar(url, yaml_file)
-            logger.info("config in %s is used for feature extractor"
-                        " building.", yaml_file)
+                succeed = downlond_with_progress_bar(url, yaml_file)
+
+                if not succeed:
+                    yaml_file = os.path.join(
+                        MindFormerBook.get_project_path(),
+                        "configs", yaml_name_or_path.split("_")[0],
+                        "model_config", yaml_name_or_path + ".yaml"
+                    )
+                    logger.info("yaml download failed, default config in %s is used.", yaml_file)
+                else:
+                    logger.info("config in %s is used for processor building.", yaml_file)
 
             config_args = MindFormerConfig(yaml_file)
 
@@ -421,7 +457,7 @@ class AutoTokenizer:
     @classmethod
     def from_pretrained(cls, yaml_name_or_path):
         """
-        From pretrain method, which instantiate a tokenizer by yaml name or path.
+        From pretrain method, which instantiates a tokenizer by yaml name or path.
 
         Args:
             yaml_name_or_path (str): A supported yaml name or a path to .yaml file,

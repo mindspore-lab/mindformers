@@ -61,6 +61,13 @@ class BaseModel(nn.Cell):
                 param = load_checkpoint(checkpoint_name_or_path)
                 ckpt_file = checkpoint_name_or_path
 
+                try:
+                    load_param_into_net(self, param)
+                except RuntimeError:
+                    logger.error("the given config and weights in %s are"
+                                 " mismatched, and weights load failed", ckpt_file)
+                logger.info("weights in %s are loaded", ckpt_file)
+
             elif checkpoint_name_or_path not in self._support_list:
                 raise ValueError(f"{checkpoint_name_or_path} is not a supported default model"
                                  f" or a valid path to checkpoint,"
@@ -69,19 +76,22 @@ class BaseModel(nn.Cell):
                 default_checkpoint_download_folder = os.path.join(
                     MindFormerBook.get_default_checkpoint_download_folder(), checkpoint_name_or_path.split("_")[0])
                 if not os.path.exists(default_checkpoint_download_folder):
-                    os.makedirs(default_checkpoint_download_folder)
+                    os.makedirs(default_checkpoint_download_folder, exist_ok=True)
                 ckpt_file = os.path.join(default_checkpoint_download_folder, checkpoint_name_or_path + ".ckpt")
                 if not os.path.exists(ckpt_file):
                     url = MindFormerBook.get_model_ckpt_url_list()[checkpoint_name_or_path][0]
-                    downlond_with_progress_bar(url, ckpt_file)
-                param = load_checkpoint(ckpt_file)
+                    succeed = downlond_with_progress_bar(url, ckpt_file)
+                    if not succeed:
+                        logger.info("checkpoint download failed, and pretrained weights are unloaded.")
+                    else:
+                        param = load_checkpoint(ckpt_file)
 
-            try:
-                load_param_into_net(self, param)
-            except RuntimeError:
-                logger.error("the given config and weights in %s are"
-                             " mismatched, and weights load failed", ckpt_file)
-            logger.info("weights in %s are loaded", ckpt_file)
+                        try:
+                            load_param_into_net(self, param)
+                        except RuntimeError:
+                            logger.error("the given config and weights in %s are"
+                                         " mismatched, and weights load failed", ckpt_file)
+                        logger.info("weights in %s are loaded", ckpt_file)
         else:
             logger.info("model built, but weights is unloaded, since the config has no"
                         " checkpoint_name_or_path attribute or"
@@ -90,7 +100,7 @@ class BaseModel(nn.Cell):
     def save_pretrained(self, save_directory=None, save_name="mindspore_model"):
         """
         Save_pretrained.
-        (only support standalone mode, and distribute mode waits for developing)
+        (only supports standalone mode, and distribute mode waits for developing)
 
         Args:
             save_directory (str): a directory to save model ckpt and config yaml
@@ -223,9 +233,17 @@ class BaseModel(nn.Cell):
             yaml_file = os.path.join(checkpoint_path, pretrained_model_name_or_dir+".yaml")
             if not os.path.exists(yaml_file):
                 url = MindFormerBook.get_model_config_url_list()[pretrained_model_name_or_dir][0]
-                downlond_with_progress_bar(url, yaml_file)
+                succeed = downlond_with_progress_bar(url, yaml_file)
 
-            logger.info("config in %s is used for model building.", yaml_file)
+                if not succeed:
+                    yaml_file = os.path.join(
+                        MindFormerBook.get_project_path(),
+                        "configs", pretrained_model_name_or_dir.split("_")[0],
+                        "model_config", pretrained_model_name_or_dir + ".yaml"
+                    )
+                    logger.info("yaml download failed, default config in %s is used.", yaml_file)
+                else:
+                    logger.info("config in %s is used for model building.", yaml_file)
             config_args = MindFormerConfig(yaml_file)
             config = build_model_config(config_args.model.model_config)
             config.update({"checkpoint_name_or_path": pretrained_model_name_or_dir})

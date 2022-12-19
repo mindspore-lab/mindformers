@@ -23,17 +23,12 @@ linux:  pytest ./tests/st/test_clip_model/test_flickr8k_dataloader.py
 import os
 import numpy as np
 from PIL import Image
-import pytest
 
 from mindformers.mindformer_book import MindFormerBook
 from mindformers.tools.register.config import MindFormerConfig
 from mindformers.dataset.dataloader import build_dataset_loader
 
 
-@pytest.mark.level0
-@pytest.mark.platform_x86_ascend_training
-@pytest.mark.platform_arm_ascend_training
-@pytest.mark.env_onecard
 class TestFlickr8kDataloader:
     """A test class for testing Flickr8kDataLoader classes"""
     def setup_method(self):
