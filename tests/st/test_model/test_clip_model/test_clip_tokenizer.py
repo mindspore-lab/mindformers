@@ -20,6 +20,7 @@ linux:  pytest ./tests/st/test_model/test_clip_model/test_clip_tokenizer.py
 """
 import os
 import shutil
+import time
 
 import pytest
 from mindspore import Tensor
@@ -56,6 +57,7 @@ class TestAutoTokenizerMethod:
         Description: Load the tokenizer and then saved it
         Expectation: The restored kwargs is not expected version.
         """
+        time.sleep(5)
         bert_tokenizer = BertTokenizer(vocab_file=os.path.join(self.output_path, 'vocab_file.txt'), do_lower_case=False,
                                        do_basic_tokenize=False)
         bert_tokenizer.save_pretrained(self.bert_path_saved)
@@ -71,10 +73,6 @@ class TestAutoTokenizerMethod:
         assert isinstance(restore_tokenizer, ClipTokenizer)
         assert res == ['hello</w>', 'world</w>', '?</w>']
 
-@pytest.mark.level0
-@pytest.mark.platform_x86_ascend_training
-@pytest.mark.platform_arm_ascend_training
-@pytest.mark.env_onecard
 class TestPretrainedTokenizerMethod:
     """A test class for testing the PretrainedTokenizer"""
     def generate_fake_vocab(self):
@@ -97,14 +95,11 @@ class TestPretrainedTokenizerMethod:
         Description: Using call forward process of the tokenizer without error
         Expectation: The returned ret is not equal to [[6, 7]].
         """
+        time.sleep(10)
         tokenizer = PretrainedTokenizer.from_pretrained(self.output_path)
         with pytest.raises(NotImplementedError):
             tokenizer("hello world")
 
-@pytest.mark.level0
-@pytest.mark.platform_x86_ascend_training
-@pytest.mark.platform_arm_ascend_training
-@pytest.mark.env_onecard
 class TestBertTokenizerMethod:
     """A test class for testing the BertTokenizer"""
     def generate_fake_vocab(self):
@@ -157,10 +152,7 @@ class TestBertTokenizerMethod:
                        'token_type_ids': [0, 0, 0, 0], 'attention_mask': [1, 1, 1, 1]}, \
             f"The res is {res} is not equal to the target"
 
-@pytest.mark.level0
-@pytest.mark.platform_x86_ascend_training
-@pytest.mark.platform_arm_ascend_training
-@pytest.mark.env_onecard
+
 class TestClipTokenizerMethod:
     """Test the basic usage of the ClipTokenizer"""
     def test_padding(self):

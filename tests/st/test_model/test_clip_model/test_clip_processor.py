@@ -23,7 +23,6 @@ linux:  pytest ./tests/st/test_model/test_clip_model/test_clip_processor.py
 """
 import os
 import numpy as np
-import pytest
 import mindspore as ms
 
 from mindformers import MindFormerBook, AutoProcessor, AutoModel
@@ -34,10 +33,6 @@ from mindformers.models import (
 from mindformers.tools import logger
 
 
-@pytest.mark.level0
-@pytest.mark.platform_x86_ascend_training
-@pytest.mark.platform_arm_ascend_training
-@pytest.mark.env_onecard
 def test_clip_processor():
     """
     Feature: ClipProcessor class

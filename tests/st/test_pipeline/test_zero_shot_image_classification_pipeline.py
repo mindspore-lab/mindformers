@@ -50,24 +50,18 @@ Example:
     res_dataset = classifier(dataset, batch_size=2, top_k = 3)
 """
 import os.path
-import time
-import pytest
 
 from mindformers.tools.image_tools import load_image
 from mindformers.pipeline import ZeroShotImageClassificationPipeline
 from mindformers import MindFormerBook
 
-@pytest.mark.level0
-@pytest.mark.platform_x86_ascend_training
-@pytest.mark.platform_arm_ascend_training
-@pytest.mark.env_onecard
+
 def test_zsic_pipeline():
     """
     Feature: ZeroShotImageClassificationPipeline class
     Description: Test the pipeline functions
     Expectation: NotImplementedError, ValueError
     """
-    time.sleep(30)
     classifier = ZeroShotImageClassificationPipeline(
         model='clip_vit_b_32',
         candidate_labels=["sunflower", "tree", "dog", "cat", "toy"],
