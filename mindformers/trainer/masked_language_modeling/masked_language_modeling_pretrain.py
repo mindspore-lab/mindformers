@@ -42,6 +42,7 @@ class MaskedLanguageModelingTrainer(BaseTrainer):
               config: dict = None,
               network: Callable = None,
               dataset: Callable = None,
+              wrapper: Callable = None,
               optimizer: Callable = None,
               callbacks: List[Callable] = None, **kwargs):
         """train for trainer."""
@@ -91,7 +92,13 @@ class MaskedLanguageModelingTrainer(BaseTrainer):
 
         # build runner wrapper
         logger.info(".........Build Running Wrapper..........")
-        model = build_wrapper(config.runner_wrapper, default_args={"network": network, "optimizer": optimizer})
+        if wrapper is None:
+            model = build_wrapper(config.runner_wrapper, default_args={"network": network, "optimizer": optimizer})
+        elif isinstance(wrapper, TrainOneStepCell):
+            model = wrapper
+        else:
+            raise NotImplementedError(f"Now not support this wrapper,"
+                                      f"it should be TrainOneStepCell type, but get {wrapper}")
 
         # define Model and begin training
         logger.info(".........Starting Init Train Model..........")
@@ -101,11 +108,3 @@ class MaskedLanguageModelingTrainer(BaseTrainer):
             config.runner_config.epochs, dataset, callbacks=callbacks,
             dataset_sink_mode=config.runner_config.sink_mode,
             sink_size=config.runner_config.per_epoch_size)
-
-    def evaluate(self,
-                 config: dict = None,
-                 network: Callable = None,
-                 dataset: Callable = None,
-                 callbacks: List[Callable] = None, **kwargs):
-        """evaluate for trainer."""
-        # DIY model eval, TODO

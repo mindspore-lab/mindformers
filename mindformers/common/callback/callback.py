@@ -127,7 +127,7 @@ class MFLossMonitor(Callback):
         loss = cb_params.net_outputs
 
         if isinstance(loss, (tuple, list)):
-            if isinstance(loss[0], ms.Tensor) and isinstance(loss[0].asnumpy(), np.ndarry):
+            if isinstance(loss[0], ms.Tensor) and isinstance(loss[0].asnumpy(), np.ndarray):
                 loss = loss[0]
 
         if isinstance(loss, ms.Tensor) and isinstance(loss.asnumpy(), np.ndarray):

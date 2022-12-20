@@ -22,7 +22,7 @@ from PIL.Image import Image
 
 from mindspore import Tensor
 from mindspore.common import set_seed
-from mindspore.nn import Optimizer
+from mindspore.nn import TrainOneStepCell, Optimizer
 from mindspore.train import Callback
 from mindspore import load_param_into_net, load_checkpoint
 
@@ -33,6 +33,7 @@ from mindformers.models import build_model, build_tokenizer, build_feature_extra
 from mindformers.dataset import build_dataset, build_dataset_loader, \
     check_dataset_config, BaseDataset
 from mindformers.pipeline import pipeline
+from mindformers.wrapper import build_wrapper
 from mindformers.common.optim import build_optim
 from mindformers.common.lr import build_lr
 from mindformers.common.callback import build_callback
@@ -44,7 +45,7 @@ from mindformers.tools.image_tools import load_image
 from .build_trainer import build_trainer
 from .config_args import ConfigArguments
 from .utils import check_train_data_loader_type, check_eval_data_loader_type, \
-    check_optimizer_and_lr_type
+    check_optimizer_and_lr_type, check_wrapper_config
 
 
 __all__ = ['Trainer']
@@ -68,19 +69,30 @@ class Trainer:
                  tokenizer: Optional[PretrainedTokenizerBase] = None,
                  feature_extractor: Optional[BaseFeatureExtractor] = None,
                  optimizers: Optional[Optimizer] = None,
+                 wrapper: Optional[TrainOneStepCell] = None,
                  callbacks: Optional[Union[Callback, List[Callback]]] = None,
-                 compute_metrics: Optional[str] = None, **kwargs):
+                 compute_metrics: Optional[Union[dict, set]] = None,
+                 **kwargs):
 
         self.task_name = task_name
         self.model = model
         self.train_dataset = train_dataset
         self.eval_dataset = eval_dataset
         self.optimizers = optimizers
+        self.wrapper = wrapper
         self.tokenizer = tokenizer
         self.feature_extractor = feature_extractor
         self.callbacks = callbacks
         self.compute_metrics = compute_metrics
         self.kwargs = kwargs
+
+        if wrapper is not None:
+            if model is not None:
+                logger.warning(
+                    'wrapper has existed, input model invalid, it should be include in wrapper.')
+            if optimizers is not None:
+                logger.warning(
+                    'wrapper has existed, input optimizers invalid, it should be include in wrapper.')
 
         assert task_name in SUPPORT_TASKS.keys(), \
             f"task name must be in {SUPPORT_TASKS.keys()}, but get {task_name}."
@@ -95,7 +107,10 @@ class Trainer:
         task_config = MindFormerConfig(SUPPORT_TASKS.get(self.task_name).get(self.model_name))
 
         if self.model_name == "common":
-            task_config.trainer.model_name = self.model.__class__.__name__
+            if self.model is not None:
+                task_config.trainer.model_name = self.model.__class__.__name__
+            if self.wrapper is not None:
+                task_config.trainer.model_name = self.wrapper.network.__class__.__name__
 
         if config is None:
             self.config = task_config
@@ -115,6 +130,8 @@ class Trainer:
                     check_eval_data_loader_type(config, task_config)
                 if hasattr(config, 'optimizer'):
                     check_optimizer_and_lr_type(config, task_config)
+                if hasattr(config, 'wrapper'):
+                    check_wrapper_config(config, task_config)
                 task_config.merge_from_dict(config.__dict__)
 
             self.config = task_config
@@ -159,7 +176,7 @@ class Trainer:
         # logger.info("save running config success of {}.".format(task_config.trainer.model_name.lower()))
 
     def train(self, resume_from_checkpoint: Optional[Union[str, bool]] = None,
-              initial_epoch: int = 0, **kwargs):
+              initial_epoch: int = 0, do_eval: bool = False, **kwargs):
         """train."""
         if resume_from_checkpoint is False:
             resume_from_checkpoint = None
@@ -167,11 +184,18 @@ class Trainer:
         if self.train_dataset is None:
             self.train_dataset = build_dataset(self.config.train_dataset_task)
 
-        if self.model is None:
+        if do_eval:
+            if self.eval_dataset is None:
+                self.eval_dataset = build_dataset(self.config.eval_dataset_task)
+
+        if self.model is None and self.wrapper is None:
             self.model = build_model(self.config.model)
 
-        if self.optimizers is None:
+        if self.optimizers is None and self.wrapper is None:
             self.optimizers = self.create_optimizer_and_scheduler()
+
+        if self.wrapper is None:
+            self.wrapper = self.create_train_one_step_wrapper()
 
         if self.callbacks is None:
             self.callbacks = self.create_callbacks()
@@ -184,6 +208,8 @@ class Trainer:
         trainer.train(
             config=self.config, network=self.model,
             dataset=self.train_dataset, optimizer=self.optimizers,
+            eval_dataset=self.eval_dataset if do_eval else None,
+            wrapper=self.wrapper,
             callbacks=self.callbacks, **kwargs)
 
     def evaluate(self, eval_checkpoint: Optional[Union[str, bool]] = None, **kwargs):
@@ -215,7 +241,7 @@ class Trainer:
         if predict_checkpoint is False:
             predict_checkpoint = None
 
-        if input_data is None:  # 此处需要一个可以加在不同数据类型的综合函数， 当前仅支持RGB图像数据默认加载
+        if input_data is None:
             input_data = load_image(SUPPORT_PIPELINE_INPUT_DATA.get(self.task_name))
         assert isinstance(input_data, (Tensor, np.ndarray, Image, str, list)), \
             "Input data's type must be one of [str, ms.Tensor, np.ndarray, PIL.Image.Image]"
@@ -255,6 +281,14 @@ class Trainer:
                                                                     "learning_rate": lr_schedule})
         assert self.config.optimizer.learning_rate, "learning_rate must be input"
         return build_optim(self.config.optimizer, default_args={"params": params})
+
+    def create_train_one_step_wrapper(self):
+        """create_train_one_step_wrapper."""
+        if self.model is not None and self.optimizers is not None:
+            return build_wrapper(
+                self.config.wrapper,
+                default_args={"network": self.model, "optimizer": self.optimizers})
+        return None
 
     def create_callbacks(self):
         """create_callbacks."""

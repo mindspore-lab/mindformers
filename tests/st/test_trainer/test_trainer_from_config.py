@@ -21,11 +21,12 @@ import pytest
 import numpy as np
 
 from mindspore.dataset import GeneratorDataset
+from mindspore.nn import DynamicLossScaleUpdateCell
 
 from mindformers.trainer import Trainer
 from mindformers.models import MaeModel
 from mindformers.trainer.config_args import ConfigArguments, \
-    OptimizerConfig, RunnerConfig, LRConfig
+    OptimizerConfig, RunnerConfig, LRConfig, WrapperConfig
 
 
 class MyDataLoader:
@@ -53,11 +54,14 @@ def test_trainer_train_from_config():
     runner_config = RunnerConfig(epochs=10, batch_size=2, image_size=224)  # 运行超参
     lr_schedule_config = LRConfig(lr_type='WarmUpLR', learning_rate=0.001, warmup_steps=10)
     optim_config = OptimizerConfig(optim_type='Adam', beta1=0.009, learning_rate=lr_schedule_config)
+    loss_scale = DynamicLossScaleUpdateCell(loss_scale_value=2**12, scale_factor=2, scale_window=1000)
+    wrapper_config = WrapperConfig(wrapper_type='TrainOneStepWithLossScaleCell', scale_sense=loss_scale)
 
     dataset = GeneratorDataset(source=MyDataLoader(), column_names='image')
     dataset = dataset.batch(batch_size=2)
 
-    config = ConfigArguments(seed=2022, runner_config=runner_config, optimizer=optim_config)
+    config = ConfigArguments(seed=2022, runner_config=runner_config,
+                             optimizer=optim_config, runner_wrapper=wrapper_config)
     mae_model = MaeModel()
     mim_trainer = Trainer(task_name='masked_image_modeling',
                           model=mae_model,
