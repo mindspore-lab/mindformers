@@ -23,6 +23,7 @@ from .contrastive_language_image_pretrain_dataset import ContrastiveLanguageImag
 from .build_dataset import build_dataset
 from .base_dataset import BaseDataset
 from .bert_pretrain_dataset import BertPretrainDataset
+from .translation_dataset import TranslationDataset
 from .utils import check_dataset_config
 
 
@@ -32,3 +33,4 @@ __all__.extend(dataloader.__all__)
 __all__.extend(mask.__all__)
 __all__.extend(transforms.__all__)
 __all__.extend(sampler.__all__)
+__all__.extend(translation_dataset.__all__)

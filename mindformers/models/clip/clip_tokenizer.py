@@ -28,7 +28,7 @@ import regex as re
 from ...mindformer_book import MindFormerBook
 from ...tools.register import MindFormerRegister, MindFormerModuleType
 from ...tools.download_tools import downlond_with_progress_bar
-from ..base_tokenizer import PretrainedTokenizer
+from ..base_tokenizer import Tokenizer
 
 @lru_cache()
 def default_bpe():
@@ -146,7 +146,7 @@ class TempTokenizer:
         return output_ids
 
 @MindFormerRegister.register(MindFormerModuleType.TOKENIZER)
-class ClipTokenizer(PretrainedTokenizer):
+class ClipTokenizer(Tokenizer):
     """Clip Tokenizer"""
     MODEL_INPUT_NAME = ["input_ids", "attention_mask"]
     VOCAB_FILES = {'vocab_file': ['vocab.txt', 'bpe_simple_vocab_16e6.txt.gz']}

@@ -1705,17 +1705,17 @@ class T5ModelForLoss(BaseModel):
     Provide  transformer training loss through network.
 
     Args:
-        model_config : The network of the transformer.
+        config : The network of the transformer.
 
     Returns:
         Tensor, the loss of the network.
     """
     _support_list = MindFormerBook.get_model_support_list()['t5']
 
-    def __init__(self, model_config):
-        super(T5ModelForLoss, self).__init__(model_config)
-        parallel_config = model_config.parallel_config
-        self.t5_model = T5Model(config=model_config)
+    def __init__(self, config):
+        super(T5ModelForLoss, self).__init__(config)
+        parallel_config = config.parallel_config
+        self.t5_model = T5Model(config=config)
         self.loss = CrossEntropyLoss(parallel_config=parallel_config.dp_mp_config)
         self.cast = ops.Cast()
         self.shape = ops.Shape()
@@ -1731,7 +1731,7 @@ class T5ModelForLoss(BaseModel):
             if ('bias' in param.name or 'beta' in param.name) and 'relative' not in param.name:
                 param.requires_grad = False
         self.set_train(True)
-        self._load_checkpoint(model_config)
+        self._load_checkpoint(config)
 
     def _add_start_to_inputs(self, target_ids):
         """concat the start id to the decoder inputs"""

@@ -17,66 +17,86 @@ Test module for testing the t5 trainer used for mindformers.
 How to run this:
 pytest tests/st/test_model/test_t5_model/test_t5_trainer.py
 """
+import os
+import shutil
+
 import numpy as np
 import pytest
-from mindspore.nn import AdamWeightDecay, WarmUpLR
-from mindspore.train.callback import LossMonitor, TimeMonitor
-from mindspore.dataset import GeneratorDataset
+from mindspore.dataset import MindDataset, GeneratorDataset
+from mindspore.mindrecord import FileWriter
 
 from mindformers.trainer import Trainer
 from mindformers.trainer.config_args import ConfigArguments, \
-    RunnerConfig
+    OptimizerConfig, RunnerConfig
 from mindformers import T5Config, T5ModelForLoss
 
 
-def generator():
+def generator(src_length=16, target_length=8):
     """dataset generator"""
-    input_ids = np.random.randint(low=0, high=15, size=(16,)).astype(np.int32)
-    attention_mask = np.random.randint(low=0, high=15, size=(16,)).astype(np.int32)
-    labels = np.random.randint(low=0, high=15, size=(8,)).astype(np.int32)
+    input_ids = np.random.randint(low=0, high=15, size=(src_length,)).astype(np.int32)
+    attention_mask = np.ones((src_length,)).astype(np.int32)
+    labels = np.random.randint(low=0, high=15, size=(target_length,)).astype(np.int32)
 
     for _ in range(2):
         yield input_ids, attention_mask, labels
 
 
+def write_mindrecord(ds_generator, data_record_path):
+    """Using the generator to get mindrecords"""
+    ds = GeneratorDataset(ds_generator, column_names=["input_ids", "attention_mask", "labels"])
+
+    writer = FileWriter(file_name=data_record_path, shard_num=1, overwrite=True)
+    data_schema = {"input_ids": {"type": "int32", "shape": [-1]},
+                   "attention_mask": {"type": "int32", "shape": [-1]},
+                   "labels": {"type": "int32", "shape": [-1]}}
+    writer.add_schema(data_schema, "test_schema")
+    for item in ds.create_dict_iterator():
+        for k in item.keys():
+            item[k] = item[k].asnumpy()
+        writer.write_raw_data([item])
+    writer.commit()
+
 @pytest.mark.level0
 @pytest.mark.platform_x86_ascend_training
 @pytest.mark.platform_arm_ascend_training
 @pytest.mark.env_onecard
-def test_t5_trainer_train_using_trainer():
-    """
-    Feature: Create Trainer From Instance
-    Description: Test Trainer API to train from self-define instance API.
-    Expectation: TypeError
-    """
+class TestT5TrainerMethod:
+    """Test Trainer Method with Translation"""
+    def setup_class(self):
+        self.dir = os.path.join(os.path.dirname(__file__), 'fake_dataset' + str(self.__class__.__name__))
+        os.makedirs(self.dir, exist_ok=True)
+        self.abs_path = os.path.join(self.dir, 't5_dataset')
+        write_mindrecord(generator(src_length=16, target_length=8), self.abs_path)
 
-    batch_size = 2
-    dataset = GeneratorDataset(generator, column_names=["input_ids", "attention_mask", "labels"])
-    # Dataset and operations
-    dataset = dataset.batch(batch_size=batch_size)
-    # Config definition
-    runner_config = RunnerConfig(epochs=1, batch_size=batch_size, sink_mode=True,
-                                 per_epoch_size=dataset.get_dataset_size())
-    config = ConfigArguments(seed=2022, runner_config=runner_config)
-    model_config = T5Config(batch_size=batch_size, num_heads=8, num_hidden_layers=1, hidden_size=512,
-                            seq_length=16, max_decode_length=8)
-    # Model
-    model = T5ModelForLoss(model_config)
-    # optimizer
-    lr_schedule = WarmUpLR(learning_rate=0.001, warmup_steps=100)
-    optimizer = AdamWeightDecay(beta1=0.009, beta2=0.999,
-                                learning_rate=lr_schedule,
-                                params=model.trainable_params())
+    def teardown_class(self):
+        shutil.rmtree(self.dir, ignore_errors=True)
 
-    # callback
-    loss_cb = LossMonitor(per_print_times=2)
-    time_cb = TimeMonitor()
-    callbacks = [loss_cb, time_cb]
+    def test_trainer_train_from_config(self):
+        """
+        Feature: Create Trainer From Config
+        Description: Test Trainer API to train from config
+        Expectation: TypeError
+        """
+        batch_size = 1
+        runner_config = RunnerConfig(epochs=1, batch_size=batch_size)  # 运行超参
+        optim_config = OptimizerConfig(optim_type='AdamWeightDecay', beta1=0.009, learning_rate=0.001)
 
-    trainer = Trainer(task_name='masked_language_modeling',
-                      model=model,
-                      config=config,
-                      optimizers=optimizer,
-                      train_dataset=dataset,
-                      callbacks=callbacks)
-    trainer.train(resume_from_checkpoint=False)
+        dataset_files = []
+        for r, _, f in os.walk(self.dir):
+            for file in f:
+                if not file.endswith("db"):
+                    dataset_files.append(os.path.join(r, file))
+        dataset = MindDataset(dataset_files=dataset_files, columns_list=["input_ids", "attention_mask", "labels"])
+        dataset = dataset.batch(batch_size=batch_size)
+        dataset = dataset.repeat(1)
+
+        config = ConfigArguments(seed=2022, runner_config=runner_config, optimizer=optim_config)
+        model_config = T5Config(batch_size=batch_size, num_heads=8, num_hidden_layers=1, hidden_size=512,
+                                seq_length=16, max_decode_length=8)
+        # Model
+        model = T5ModelForLoss(model_config)
+        mim_trainer = Trainer(task_name='translation',
+                              model=model,
+                              config=config,
+                              train_dataset=dataset)
+        mim_trainer.train(resume_from_checkpoint=False)

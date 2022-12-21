@@ -21,7 +21,7 @@ import yaml
 
 from ..mindformer_book import print_path_or_list, MindFormerBook
 from .build_processor import build_processor
-from .base_tokenizer import PretrainedTokenizer
+from .base_tokenizer import Tokenizer
 from .base_feature_extractor import BaseFeatureExtractor
 from ..tools import logger
 from ..tools.register import MindFormerConfig
@@ -54,7 +54,7 @@ class BaseProcessor:
             output['image'] = image_output
 
         if text_input is not None and self.tokenizer:
-            if not isinstance(self.tokenizer, PretrainedTokenizer):
+            if not isinstance(self.tokenizer, Tokenizer):
                 raise TypeError(f"tokenizer should inherited from the PretrainedTokenizer,"
                                 f" but got {type(self.tokenizer)}.")
             # Format the input into a batch
@@ -115,7 +115,7 @@ class BaseProcessor:
         parsed_config = {"type": self.__class__.__name__}
 
         for key, val in config.items():
-            if isinstance(val, PretrainedTokenizer):
+            if isinstance(val, Tokenizer):
                 parsed_sub_config = {"type": val.__class__.__name__}
                 parsed_sub_config.update(val.init_kwargs)
                 parsed_config.update({key: parsed_sub_config})

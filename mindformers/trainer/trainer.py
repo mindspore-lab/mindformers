@@ -29,7 +29,7 @@ from mindspore import load_param_into_net, load_checkpoint
 from mindformers.mindformer_book import MindFormerBook
 from mindformers.tools.register import MindFormerConfig, MindFormerRegister
 from mindformers.models import build_model, build_tokenizer, build_feature_extractor, \
-    BaseModel, BaseFeatureExtractor, PretrainedTokenizerBase
+    BaseModel, BaseFeatureExtractor, BaseTokenizer
 from mindformers.dataset import build_dataset, build_dataset_loader, \
     check_dataset_config, BaseDataset
 from mindformers.pipeline import pipeline
@@ -66,7 +66,7 @@ class Trainer:
                  model: Optional[Union[str, BaseModel]] = None,
                  train_dataset: Optional[Union[str, BaseDataset]] = None,
                  eval_dataset: Optional[Union[str, BaseDataset]] = None,
-                 tokenizer: Optional[PretrainedTokenizerBase] = None,
+                 tokenizer: Optional[BaseTokenizer] = None,
                  feature_extractor: Optional[BaseFeatureExtractor] = None,
                  optimizers: Optional[Optimizer] = None,
                  wrapper: Optional[TrainOneStepCell] = None,

@@ -111,6 +111,8 @@ if __name__ == "__main__":
         config_.profile = args_.profile
     if args_.options is not None:
         config_.merge_from_dict(args_.options)
+    if args_.dataset_dir:
+        config_.train_dataset.data_loader.dataset_dir = args_.dataset_dir
     assert config_.run_status in ['train', 'eval', 'predict'], \
         f"run status must be in {['train', 'eval', 'predict']}, but get {config_.run_status}"
     main(config_)
