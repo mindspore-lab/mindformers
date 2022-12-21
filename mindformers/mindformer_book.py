@@ -111,6 +111,9 @@ class MindFormerBook:
         ]),
         ('filip', [
             'filip_vit_l_14',
+        ]),
+        ('t5', [
+            't5-small',
         ])
     ])
 

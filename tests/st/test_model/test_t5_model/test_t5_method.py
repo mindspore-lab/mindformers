@@ -23,11 +23,12 @@ linux:  pytest ./tests/ut/test_t5_model.py
 import os
 
 import numpy as np
+from numpy import allclose
 
 from mindspore import Tensor
 
 from mindformers import MindFormerBook, AutoModel
-from mindformers.models import T5ModelForGeneration, T5Config
+from mindformers.models import T5ModelForLoss, T5Config
 
 
 class TestModelForT5Method:
@@ -56,7 +57,7 @@ class TestModelForT5Method:
 
         # input model name, load model and weights
         config = T5Config(num_hidden_layers=1)
-        T5ModelForGeneration(config)
+        T5ModelForLoss(config)
 
     def test_save_model(self):
         """
@@ -64,18 +65,16 @@ class TestModelForT5Method:
         Description: Test to save checkpoint for T5Model
         Expectation: ValueError, AttributeError
         """
-        t5 = T5ModelForGeneration(T5Config(num_hidden_layers=1, hidden_dropout_prob=0.0,
-                                           attention_probs_dropout_prob=0.0,
-                                           batch_size=2, seq_length=16, max_decode_length=8))
+        t5 = T5ModelForLoss(T5Config(num_hidden_layers=1, hidden_dropout_prob=0.0,
+                                     attention_probs_dropout_prob=0.0,
+                                     batch_size=2, seq_length=16, max_decode_length=8))
         t5.save_pretrained(self.save_directory, save_name='t5_model')
         input_ids = Tensor(np.random.randint(low=0, high=15, size=(2, 16,)).astype(np.int32))
         attention_mask = Tensor(np.random.randint(low=0, high=15, size=(2, 16,)).astype(np.int32))
         labels = Tensor(np.random.randint(low=0, high=15, size=(2, 8,)).astype(np.int32))
 
         out1 = t5(input_ids, attention_mask, labels)
+        new_t5 = T5ModelForLoss.from_pretrained(self.save_directory)
+        out2 = new_t5(input_ids, attention_mask, labels)
 
-        restored_t5 = T5ModelForGeneration.from_pretrained(self.save_directory)
-
-        out2 = restored_t5(input_ids, attention_mask, labels)
-
-        assert out1.asnumpy() == out2.asnumpy()
+        assert allclose(out1.asnumpy(), out2.asnumpy())

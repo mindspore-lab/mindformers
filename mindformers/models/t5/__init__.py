@@ -15,9 +15,11 @@
 
 """t5 init"""
 from . import t5, t5_config
-from .t5 import T5Model, T5ModelForGeneration
+from .t5 import T5Model, T5ModelForLoss, T5ModelForGeneration
 from .t5_config import T5Config
+from .t5_tokenizer import T5Tokenizer
 
 __all__ = []
 __all__.extend(t5.__all__)
 __all__.extend(t5_config.__all__)
+__all__.extend(t5_tokenizer.__all__)

@@ -42,8 +42,9 @@ from mindspore.nn.transformer import VocabEmbedding
 
 from ..base_model import BaseModel
 from ...tools.register import MindFormerRegister, MindFormerModuleType
+from ...mindformer_book import MindFormerBook
 
-__all__ = ['T5Model', 'T5ModelForGeneration']
+__all__ = ['T5Model', 'T5ModelForLoss', 'T5ModelForGeneration']
 
 
 class LayerNorm(nn.Cell):
@@ -1633,6 +1634,8 @@ class T5Model(BaseModel):
         self.decoder_layernorm.shard(((config.parallel_config.data_parallel, 1),))
         self._create_attention_mask_from_input_mask = CreateAttentionMaskFromInputMask(config.parallel_config)
 
+        self._load_checkpoint(config)
+
     def construct(self, source_ids=None, source_mask=None, target_ids=None, target_mask=None, memory_mask=None,
                   encoder_cache=None):
         """T5Model with encoder and decoder."""
@@ -1697,7 +1700,7 @@ class T5Model(BaseModel):
 
 
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
-class T5ModelForGeneration(BaseModel):
+class T5ModelForLoss(BaseModel):
     """
     Provide  transformer training loss through network.
 
@@ -1707,9 +1710,10 @@ class T5ModelForGeneration(BaseModel):
     Returns:
         Tensor, the loss of the network.
     """
+    _support_list = MindFormerBook.get_model_support_list()['t5']
 
     def __init__(self, model_config):
-        super(T5ModelForGeneration, self).__init__(model_config)
+        super(T5ModelForLoss, self).__init__(model_config)
         parallel_config = model_config.parallel_config
         self.t5_model = T5Model(config=model_config)
         self.loss = CrossEntropyLoss(parallel_config=parallel_config.dp_mp_config)
@@ -1727,6 +1731,7 @@ class T5ModelForGeneration(BaseModel):
             if ('bias' in param.name or 'beta' in param.name) and 'relative' not in param.name:
                 param.requires_grad = False
         self.set_train(True)
+        self._load_checkpoint(model_config)
 
     def _add_start_to_inputs(self, target_ids):
         """concat the start id to the decoder inputs"""
@@ -1761,7 +1766,8 @@ class T5ModelForGeneration(BaseModel):
         return total_loss
 
 
-class EvalNet(nn.Cell):
+@MindFormerRegister.register(MindFormerModuleType.MODELS)
+class T5ModelForGeneration(BaseModel):
     """
     T5 evaluation net
 
@@ -1772,29 +1778,31 @@ class EvalNet(nn.Cell):
     Returns:
         outputs: Tensor, corresponding output for different tasks
     """
+    _support_list = MindFormerBook.get_model_support_list()['t5']
 
-    def __init__(self, backbone, generate=False):
-        super(EvalNet, self).__init__(auto_prefix=False)
-        self.backbone = backbone
+    def __init__(self, config):
+        super(T5ModelForGeneration, self).__init__(config)
+        self.t5_model = T5Model(config)
         self.argmax = P.Argmax()
-        self.generate = generate
+        self.use_generate = True
         self.cast = P.Cast()
         self.gather = P.Gather()
         self.pad_token = 0
+        self._load_checkpoint(config)
 
     def construct(self, input_ids, input_mask, current_index=None,
                   cache_encoder=None, target_id=None, target_mask=None):
         """evaluation net"""
         if cache_encoder is None:
             input_mask = self.cast(input_mask, mstype.float32)
-            outputs = self.backbone(input_ids, input_mask)
+            outputs = self.t5_model.encoder_forward(input_ids, input_mask)
         else:
             input_mask = self.cast(input_mask, mstype.float32)
             if target_mask is None:
                 target_mask = F.cast(target_id != self.pad_token, mstype.float32)
-            logits = self.backbone(None, input_mask, target_id, target_mask, None, cache_encoder)
+            logits = self.t5_model(None, input_mask, target_id, target_mask, None, cache_encoder)
             outputs = None
-            if self.generate:
+            if self.use_generate:
                 index = current_index.view(1,)
                 logits = self.gather(logits, index, 0)
                 outputs = nn.LogSoftmax()(logits)

@@ -41,8 +41,8 @@ class TestAutoTokenizerMethod:
                 fp.write(item + '\n')
 
     def setup_method(self):
-        self.output_path = os.path.join(os.path.dirname(__file__), 'test_tokenizer_output')
-        self.bert_path_saved = os.path.join(os.path.dirname(__file__), 'test_bert_tokenizer_output')
+        self.output_path = os.path.join(os.path.dirname(__file__), 'test_tokenizer_output' + str(self))
+        self.bert_path_saved = os.path.join(os.path.dirname(__file__), 'test_bert_tokenizer_output' + str(self))
         os.makedirs(self.output_path, exist_ok=True)
         os.makedirs(self.bert_path_saved, exist_ok=True)
         self.generate_fake_vocab()
@@ -114,7 +114,7 @@ class TestPretrainedTokenizerMethod:
                 fp.write(item + '\n')
 
     def setup_method(self):
-        self.output_path = os.path.join(os.path.dirname(__file__), 'test_tokenizer_output')
+        self.output_path = os.path.join(os.path.dirname(__file__), 'test_tokenizer_output' + str(self))
         os.makedirs(self.output_path, exist_ok=True)
         self.generate_fake_vocab()
 
@@ -142,7 +142,7 @@ class TestBertTokenizerMethod:
                 fp.write(item + '\n')
 
     def setup_method(self):
-        self.output_path = os.path.join(os.path.dirname(__file__), 'test_tokenizer_output')
+        self.output_path = os.path.join(os.path.dirname(__file__), 'test_tokenizer_output' + str(self))
         os.makedirs(self.output_path, exist_ok=True)
         self.generate_fake_vocab()
 

@@ -18,6 +18,7 @@ import mindspore.common.dtype as mstype
 from mindspore.nn.transformer.transformer import default_transformer_config, TransformerOpParallelConfig
 from ..base_config import BaseConfig
 from ...tools.register import MindFormerRegister, MindFormerModuleType
+from ...mindformer_book import MindFormerBook
 
 __all__ = ['T5Config']
 
@@ -25,6 +26,7 @@ __all__ = ['T5Config']
 @MindFormerRegister.register(MindFormerModuleType.CONFIG)
 class T5Config(BaseConfig):
     """T5 Config"""
+    _support_list = MindFormerBook.get_model_support_list()['t5']
     def __init__(self,
                  batch_size: int = 1,
                  seq_length: int = 1024,
@@ -47,6 +49,13 @@ class T5Config(BaseConfig):
                  has_relative_bias: bool = True,
                  scale_output: bool = True,
                  parallel_config: TransformerOpParallelConfig = default_transformer_config,
+                 top_p=0.95,
+                 top_k=1,
+                 repetition_penalty=1,
+                 max_length=32,
+                 eos_token_id=1,
+                 do_sample=False,
+                 is_encoder_decoder=True,
                  **kwargs):
         """Transformer Config"""
         self.batch_size = batch_size
@@ -70,4 +79,14 @@ class T5Config(BaseConfig):
         self.has_relative_bias = has_relative_bias
         self.scale_output = scale_output
         self.parallel_config = parallel_config
+
+        # Basic the configuration for the generation
+        self.top_p = top_p
+        self.top_k = top_k
+        self.repetition_penalty = repetition_penalty
+        self.max_length = max_length
+        self.eos_token_id = eos_token_id
+        self.is_encoder_decoder = is_encoder_decoder
+        self.do_sample = do_sample
+
         super(T5Config, self).__init__(**kwargs)

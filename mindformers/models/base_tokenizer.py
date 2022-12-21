@@ -17,8 +17,11 @@ import copy
 import os
 import json
 from collections import defaultdict
-
 import yaml
+
+import numpy as np
+
+import mindspore
 from mindspore import Tensor
 
 from mindformers.tools import logger
@@ -29,7 +32,7 @@ from .build_tokenizer import build_tokenizer
 __all__ = ['PretrainedTokenizerBase', 'PretrainedTokenizer', 'SpecialTokensMixin']
 
 from ..tools.download_tools import downlond_with_progress_bar
-from ..mindformer_book import MindFormerBook
+from ..mindformer_book import MindFormerBook, print_path_or_list
 
 SPECIAL_TOKEN_FILE_NAME = 'special_tokens_map.json'
 TOKENIZER_CONFIG_NAME = 'tokenizer_config.json'
@@ -37,11 +40,10 @@ TOKENIZER_CONFIG_NAME = 'tokenizer_config.json'
 
 class SpecialTokensMixin:
     """A class for managing the specific tokens"""
-    SPECIAL_TOKENS = ['pad_token', 'cls_token', 'sep_token', 'pad_token', 'mask_token', 'bos_token', 'eos_token']
+    SPECIAL_TOKENS = ['pad_token', 'cls_token', 'sep_token', 'unk_token', 'mask_token', 'bos_token', 'eos_token']
 
     def __init__(self,
                  **kwargs):
-
         self._pad_token = None
         self._sep_token = None
         self._cls_token = None
@@ -97,6 +99,17 @@ class SpecialTokensMixin:
     @property
     def pad_token_type_id(self):
         return self._pad_token_type_id
+
+    @property
+    def all_specifical_token_index(self):
+        all_specifical_token_index = []
+        for item in self.SPECIAL_TOKENS:
+            if hasattr(self, '_' + item):
+                cur_item = getattr(self, '_' + item)
+                if cur_item:
+                    self.all_specifical_token_index.append(self._convert_tokens_to_ids(cur_item))
+        return all_specifical_token_index
+
 
 
 class PretrainedTokenizerBase(SpecialTokensMixin):
@@ -428,7 +441,7 @@ class PretrainedTokenizerBase(SpecialTokensMixin):
                 output_map[k] = Tensor(v)
         return output_map
 
-    def save_pretrained(self, save_directory=None, save_name="mindspore_model", file_format='json'):
+    def save_pretrained(self, save_directory=None, save_name="mindspore_model", file_format='yaml'):
         """
         Save the tokenizer by writing the tokenizer_config.json, vocab.txt and special_tokens_map.json to the disk.
 
@@ -481,15 +494,40 @@ class PretrainedTokenizerBase(SpecialTokensMixin):
         """Save the vocabulary to the specific path with name_prefix"""
         raise NotImplementedError
 
+    def decode(self,
+               token_ids,
+               skip_special_tokens=False,
+               **kwargs):
+        """Converts the token_ids to the string"""
+        if isinstance(token_ids, mindspore.Tensor):
+            token_ids = token_ids.asnumpy().tolist()
+        elif isinstance(token_ids, np.ndarray):
+            token_ids = token_ids.tolist()
+        if not isinstance(token_ids, list):
+            raise TypeError(f"`token_ids` should be the list, but got {type(token_ids)}.")
+        output = self._decode(token_ids, skip_special_tokens=skip_special_tokens, **kwargs)
+        return output
+
+    def _decode(self, token_ids,
+                skip_special_tokens,
+                **kwargs):
+        """The basic function of the decode"""
+        raise NotImplementedError
+
 
 @MindFormerRegister.register(MindFormerModuleType.TOKENIZER)
 class PretrainedTokenizer(PretrainedTokenizerBase):
     """Pretrained Tokenizer provides detailed the tokenizer method."""
-
-    def convert_ids_to_tokens(self, input_ids):
+    _support_list = []
+    def convert_ids_to_tokens(self, input_ids, skip_special_tokens=False):
         """Convert the ids to tokens using vocab mapping"""
-
-        return self._convert_ids_to_tokens(input_ids)
+        output = []
+        for item in input_ids:
+            if skip_special_tokens and item in self.all_specifical_token_index:
+                continue
+            else:
+                output.append(self._convert_ids_to_tokens(item))
+        return output
 
     def convert_tokens_to_ids(self, input_tokens):
         """Convert the tokens to ids using vocab mapping"""
@@ -581,6 +619,27 @@ class PretrainedTokenizer(PretrainedTokenizerBase):
                 output_map[k] = Tensor(output_map[k])
         return output_map
 
+    def _decode(self, token_ids, skip_special_tokens=False, **kwargs):
+        ids = self.convert_ids_to_tokens(token_ids, skip_special_tokens=skip_special_tokens)
+        return self.convert_tokens_to_string(ids)
+
+
     def _tokenize(self, text, **kwargs):
         """Converts the text to tokens"""
         raise NotImplementedError
+
+    @property
+    def vocab_size(self):
+        """Get the vocab size of the """
+        raise NotImplementedError
+
+    @classmethod
+    def show_support_list(cls):
+        """show_support_list method"""
+        logger.info("support list of %s is:", cls.__name__)
+        print_path_or_list(cls._support_list)
+
+    @classmethod
+    def get_support_list(cls):
+        """get_support_list method"""
+        return cls._support_list
