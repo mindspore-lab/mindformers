@@ -97,6 +97,7 @@ class AutoConfig:
             config_args = MindFormerConfig(yaml_file)
 
         config = build_model_config(config_args.model.model_config)
+        MindFormerBook.set_model_config_to_name(id(config), config_args.model.arch.type)
         return config
 
     @classmethod
@@ -183,11 +184,9 @@ class AutoModel:
         Returns:
             A model config, which has the same content as a yaml file.
         """
-        config_name = config.type
-        model_name = MindFormerBook.get_model_config_to_name().get(config_name, None)
-        if not model_name:
-            raise ValueError("cannot get model_name from model_config, please use"
-                             " MindFormerBook.set_model_config_to_name(model_config, model_name).")
+        model_name = config.pop("model_name", None)
+        if model_name is None:
+            model_name = MindFormerBook.get_model_config_to_name().get(id(config), None)
 
         arch = BaseConfig(type=model_name)
         model = BaseConfig(model_config=config, arch=arch)

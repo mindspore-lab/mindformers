@@ -115,8 +115,6 @@ class MindFormerBook:
     ])
 
     _MODEL_CONFIG_TO_NAME = OrderedDict([
-        ('ClipConfig', 'ClipModel'),
-        ('FilipConifg', 'FilipModel')
     ])
 
     _MODEL_CKPT_URL_LIST = OrderedDict([

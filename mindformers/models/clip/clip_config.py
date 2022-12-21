@@ -27,11 +27,11 @@ class ClipTextConfig(BaseConfig):
     """Config for clip text module"""
     def __init__(self, hidden_size=512, vocab_size=49408,
                  max_position_embeddings=77, num_hidden_layers=12, **kwargs):
-        super(ClipTextConfig, self).__init__(hidden_size=hidden_size,
-                                             vocab_size=vocab_size,
-                                             max_position_embeddings=max_position_embeddings,
-                                             num_hidden_layers=num_hidden_layers,
-                                             **kwargs)
+        super(ClipTextConfig, self).__init__(**kwargs)
+        self.hidden_size = hidden_size
+        self.vocab_size = vocab_size
+        self.max_position_embeddings = max_position_embeddings
+        self.num_hidden_layers = num_hidden_layers
 
 
 @MindFormerRegister.register(MindFormerModuleType.CONFIG)
@@ -39,11 +39,11 @@ class ClipVisionConfig(BaseConfig):
     """Config for clip vision module"""
     def __init__(self, hidden_size=768, image_size=224,
                  patch_size=32, num_hidden_layers=12, **kwargs):
-        super(ClipVisionConfig, self).__init__(hidden_size=hidden_size,
-                                               image_size=image_size,
-                                               patch_size=patch_size,
-                                               num_hidden_layers=num_hidden_layers,
-                                               **kwargs)
+        super(ClipVisionConfig, self).__init__(**kwargs)
+        self.hidden_size = hidden_size
+        self.image_size = image_size
+        self.patch_size = patch_size
+        self.num_hidden_layers = num_hidden_layers
 
 
 @MindFormerRegister.register(MindFormerModuleType.CONFIG)
@@ -72,10 +72,11 @@ class ClipConfig(BaseConfig):
             raise TypeError("text_config should be a CLipVisionConfig"
                             f" class, but got {type(ClipVisionConfig)}")
 
-        super(ClipConfig, self).__init__(text_config=text_config,
-                                         vision_config=vision_config,
-                                         projection_dim=projection_dim,
-                                         ratio=ratio,
-                                         checkpoint_name_or_path=checkpoint_name_or_path,
-                                         dtype=dtype,
-                                         *kwargs)
+        super(ClipConfig, self).__init__(**kwargs)
+
+        self.text_config = text_config
+        self.vision_config = vision_config
+        self.projection_dim = projection_dim
+        self.ratio = ratio
+        self.checkpoint_name_or_path = checkpoint_name_or_path
+        self.dtype = dtype
