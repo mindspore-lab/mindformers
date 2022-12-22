@@ -124,13 +124,13 @@ def check_lr_config(new_config, old_config):
 
 def check_wrapper_config(new_config, old_config):
     """Check wrapper config."""
-    wrapper_type = new_config.wrapper.get('type')
-    if old_config.wrapper is not None and wrapper_type is not None:
-        default_wrapper_type = old_config.wrapper.type
+    wrapper_type = new_config.runner_wrapper.get('type')
+    if old_config.runner_wrapper is not None and wrapper_type is not None:
+        default_wrapper_type = old_config.runner_wrapper.type
         if wrapper_type != default_wrapper_type:
             logger.warning(
                 "wrapper type is changed to %s."
                 "The default parameters will be cleared."
                 "Please make sure to input the corresponding parameter values manually.",
                 wrapper_type)
-            old_config.wrapper_type = None
+            old_config.runner_wrapper = {}

@@ -130,7 +130,7 @@ class Trainer:
                     check_eval_data_loader_type(config, task_config)
                 if hasattr(config, 'optimizer'):
                     check_optimizer_and_lr_type(config, task_config)
-                if hasattr(config, 'wrapper'):
+                if hasattr(config, 'runner_wrapper'):
                     check_wrapper_config(config, task_config)
                 task_config.merge_from_dict(config.__dict__)
 
