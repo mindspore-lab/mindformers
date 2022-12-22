@@ -26,6 +26,10 @@ import pytest
 from mindformers.models import T5ModelForGeneration, T5Config, T5Tokenizer
 
 
+@pytest.mark.level0
+@pytest.mark.platform_x86_ascend_training
+@pytest.mark.platform_arm_ascend_training
+@pytest.mark.env_onecard
 class TestModelForT5Method:
     """A test class for testing Model classes"""
     @pytest.mark.parametrize('do_sample', [True, False])

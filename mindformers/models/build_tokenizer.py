@@ -15,6 +15,28 @@
 
 """Build Feature Extractor API."""
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
+from ..mindformer_book import MindFormerBook
+
+def check_and_add_vocab_file_path(config, **kwargs):
+    """And the vocab file path to the config if there is not vocab file in the config"""
+    if 'vocab_file' in config:
+        return
+    class_name = config['type']
+    dynamic_class = MindFormerRegister.get_cls(module_type='tokenizer', class_name=class_name)
+    # If the tokenizer does not require the vocab_file, just stop
+    if not dynamic_class.VOCAB_FILES:
+        return
+    name_or_path = class_name.lower().rstrip("tokenizer")
+    path = kwargs.pop('lib_path', None)
+    remote_tokenizer_support_list = MindFormerBook.get_tokenizer_support_list().keys()
+    if name_or_path not in remote_tokenizer_support_list and path:
+        read_vocab_file_dict, read_tokenizer_file_dict = \
+            dynamic_class.read_files_according_specific_by_tokenizer(name_or_path=path)
+        config.update(read_vocab_file_dict)
+        config.update(read_tokenizer_file_dict)
+    else:
+        vocab_file = dynamic_class.cache_vocab_files(name_or_path=name_or_path)
+        config['vocab_file'] = vocab_file
 
 
 def build_tokenizer(
@@ -24,11 +46,7 @@ def build_tokenizer(
     if config is None and class_name is None:
         return None
     if config is not None:
-        if 'vocab_file' not in config:
-            class_name = config['type']
-            dynamic_class = MindFormerRegister.get_cls(module_type='tokenizer', class_name=class_name)
-            vocab_file = dynamic_class.cache_vocab_files(name_or_path=class_name.lower().strip("tokenizer"))
-            config['vocab_file'] = vocab_file
+        check_and_add_vocab_file_path(config, **kwargs)
         return MindFormerRegister.get_instance_from_cfg(
             config, MindFormerModuleType.TOKENIZER, default_args=default_args)
 

@@ -266,15 +266,16 @@ class BaseTokenizer(SpecialTokensMixin):
         yaml_list = None
         if os.path.isdir(name_or_path):
             yaml_list = [file for file in os.listdir(name_or_path) if file.endswith(".yaml")]
-        if yaml_list:
             if len(yaml_list) > 1:
-                raise ValueError(f"There should be only one yaml file under the directory {name_or_path}.")
+                logger.warning("There should be only one yaml file under the directory %s, "
+                               "but followings are found: %s", name_or_path, yaml_list)
+        if yaml_list:
             yaml_file = os.path.join(name_or_path, yaml_list[0])
             logger.info("config in the yaml file %s are used for tokenizer building.", yaml_file)
             config = MindFormerConfig(yaml_file)
             class_name, loaded_kwargs = cls._get_class_name_and_args_form_config(config)
 
-        vocab_dict, file_dict = cls._read_files_according_specific_by_tokenizer(name_or_path)
+        vocab_dict, file_dict = cls.read_files_according_specific_by_tokenizer(name_or_path)
         if 'tokenizer_config.json' in file_dict:
             class_name = file_dict['tokenizer_config.json'].pop('tokenizer_class', None)
             loaded_kwargs = file_dict['tokenizer_config.json']
@@ -333,7 +334,7 @@ class BaseTokenizer(SpecialTokensMixin):
         class_name = None
         tokenizer_args = {}
         if config and 'processor' in config and 'tokenizer' in config['processor'] \
-                and 'type' in config['processor']['tokenizer']:
+                and config.processor.tokenizer and'type' in config.processor.tokenizer:
             tokenizer_args = config['processor']['tokenizer']
             class_name = tokenizer_args.pop('type', None)
             logger.info("Read the tokenizer name %s from %s. The load kwargs for tokenizer "
@@ -343,7 +344,7 @@ class BaseTokenizer(SpecialTokensMixin):
         return class_name, tokenizer_args
 
     @classmethod
-    def _read_files_according_specific_by_tokenizer(cls, name_or_path):
+    def read_files_according_specific_by_tokenizer(cls, name_or_path):
         """Read the file path specific by the class variable in the tokenizer"""
         read_vocab_file_dict = {}
         read_tokenizer_file_dict = {}

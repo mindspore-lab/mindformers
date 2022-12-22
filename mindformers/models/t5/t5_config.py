@@ -13,7 +13,6 @@
 # limitations under the License.
 # ============================================================================
 """T5 Configuration"""
-import mindspore
 import mindspore.common.dtype as mstype
 from mindspore.nn.transformer.transformer import default_transformer_config, TransformerOpParallelConfig
 from ..base_config import BaseConfig
@@ -44,11 +43,11 @@ class T5Config(BaseConfig):
                  beam_width: int = 4,
                  max_decode_length: int = 128,
                  length_penalty_weight: float = 1.0,
-                 dtype: mindspore.common.dtype = mstype.float32,
-                 compute_dtype: mindspore.common.dtype = mstype.float32,
+                 dtype: str = "float32",
+                 compute_dtype: str = "float32",
                  has_relative_bias: bool = True,
                  scale_output: bool = True,
-                 parallel_config: TransformerOpParallelConfig = default_transformer_config,
+                 parallel_config: TransformerOpParallelConfig = None,
                  top_p=0.95,
                  top_k=1,
                  repetition_penalty=1,
@@ -74,11 +73,11 @@ class T5Config(BaseConfig):
         self.beam_width = beam_width
         self.max_decode_length = max_decode_length
         self.length_penalty_weight = length_penalty_weight
-        self.dtype = dtype
-        self.compute_dtype = compute_dtype
+        self._dtype = dtype
+        self._compute_dtype = compute_dtype
         self.has_relative_bias = has_relative_bias
         self.scale_output = scale_output
-        self.parallel_config = parallel_config
+        self._parallel_config = parallel_config
 
         # Basic the configuration for the generation
         self.top_p = top_p
@@ -90,3 +89,17 @@ class T5Config(BaseConfig):
         self.do_sample = do_sample
 
         super(T5Config, self).__init__(**kwargs)
+
+    @property
+    def dtype(self):
+        return mstype.float32 if self._dtype == "float32" else mstype.float16
+
+    @property
+    def compute_dtype(self):
+        return mstype.float32 if self._compute_dtype == "float32" else mstype.float16
+
+    @property
+    def parallel_config(self):
+        if not self._parallel_config:
+            return default_transformer_config
+        return self._parallel_config

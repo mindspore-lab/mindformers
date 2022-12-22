@@ -52,7 +52,7 @@ class ZeroShotImageClassificationPipeline(BasePipeline):
                 model = AutoModel.from_pretrained(model)
             else:
                 raise ValueError(f"{model} is not supported by ZeroShotImageClassificationPipeline,"
-                                 f"please selected from {self._supprot_list}.")
+                                 f"please selected from {self._support_list}.")
 
         if not isinstance(model, BaseModel):
             raise TypeError(f"model should be inherited from BaseModel, but got {type(BaseModel)}.")
