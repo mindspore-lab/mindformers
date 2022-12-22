@@ -21,12 +21,15 @@ linux:  pytest ./tests/st/test_generation.py
 
 """
 import os
+import pytest
+
 from mindformers.models import T5ModelForGeneration, T5Config, T5Tokenizer
 
 
 class TestModelForT5Method:
     """A test class for testing Model classes"""
-    def test_t5_generation(self):
+    @pytest.mark.parametrize('do_sample', [True, False])
+    def test_t5_generation(self, do_sample):
         """
         Feature: generator method of T5Model
         Description: Test to save checkpoint for T5Model
@@ -48,5 +51,5 @@ class TestModelForT5Method:
                                            max_decode_length=8))
 
         words = tokenizer("class T5Model")['input_ids']
-        output = t5.generate(words, do_sample=False)
+        output = t5.generate(words, do_sample=do_sample)
         tokenizer.decode(output, skip_special_tokens=True)

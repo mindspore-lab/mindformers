@@ -1,0 +1,18 @@
+train_dataset: &train_dataset
+  data_loader:
+    type: MindDataset
+    dataset_dir: ""
+    shuffle: True
+  input_columns: ["input_ids", "attention_mask", "labels"]
+  output_columns: ["input_ids", "attention_mask", "labels"]
+  num_parallel_workers: 8
+  python_multiprocessing: False
+  drop_remainder: False
+  batch_size: 1
+  repeat: 1
+  numa_enable: False
+  prefetch_size: 1
+
+train_dataset_task:
+  type: TranslationDataset
+  dataset_config: *train_dataset

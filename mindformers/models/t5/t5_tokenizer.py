@@ -20,13 +20,13 @@ import shutil
 import sentencepiece as spm
 
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
-from mindformers.models.base_tokenizer import PretrainedTokenizer
+from mindformers.models.base_tokenizer import Tokenizer
 
 __all__ = ['T5Tokenizer']
 
 
 @MindFormerRegister.register(MindFormerModuleType.TOKENIZER)
-class T5Tokenizer(PretrainedTokenizer):
+class T5Tokenizer(Tokenizer):
     """
         The tokenizer for T5 model
     """

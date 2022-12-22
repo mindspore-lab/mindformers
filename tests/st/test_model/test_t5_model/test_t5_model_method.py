@@ -46,8 +46,10 @@ class TestModelForT5Method:
         Expectation: TypeError, ValueError, RuntimeError
         """
         AutoModel.show_support_list()
+        assert 't5' in AutoModel.get_support_list()
+        assert 't5-small' in AutoModel.get_support_list()['t5']
 
-    def test_t5_model(self):
+    def test_t5_model_with_loss(self):
         """
         Feature: T5Model, from_pretrained, input config
         Description: Test to get model instance by ClipModel.from_pretrained

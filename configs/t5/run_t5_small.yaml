@@ -1,0 +1,17 @@
+base_config: [
+    './task_config/context.yaml',
+    './task_config/runner.yaml',
+    './task_config/translation_dataset.yaml',
+    './model_config/t5_small.yaml',
+    '../__base__.yaml' ]
+
+profile: False
+use_parallel: False
+
+seed: 0
+resume_checkpoint_path: ''
+
+run_status: 'train'
+trainer:
+  type: translation
+  model_name: 't5'

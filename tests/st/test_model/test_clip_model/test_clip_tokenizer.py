@@ -25,7 +25,7 @@ import time
 import pytest
 from mindspore import Tensor
 
-from mindformers import PretrainedTokenizer, AutoTokenizer
+from mindformers import Tokenizer, AutoTokenizer
 from mindformers import BertTokenizer, ClipTokenizer
 
 @pytest.mark.level0
@@ -128,7 +128,7 @@ class TestPretrainedTokenizerMethod:
         Expectation: The returned ret is not equal to [[6, 7]].
         """
         time.sleep(10)
-        tokenizer = PretrainedTokenizer.from_pretrained(self.output_path)
+        tokenizer = Tokenizer.from_pretrained(self.output_path)
         with pytest.raises(NotImplementedError):
             tokenizer("hello world")
 

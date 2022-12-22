@@ -19,9 +19,10 @@ How to run this:
 linux:  pytest ./tests/st/test_model/test_t5_model/test_t5_tokenizer.py
 """
 import os
+import shutil
 
 import pytest
-from mindformers import T5Tokenizer
+from mindformers import T5Tokenizer, AutoTokenizer
 
 
 @pytest.mark.level0
@@ -30,6 +31,13 @@ from mindformers import T5Tokenizer
 @pytest.mark.env_onecard
 class TestT5TokenizerMethod:
     """A test class for testing the BertTokenizer"""
+    def setup_method(self):
+        self.output_path = os.path.join(os.path.dirname(__file__), 'test_tokenizer_output')
+        os.makedirs(self.output_path, exist_ok=True)
+
+    def teardown_method(self):
+        shutil.rmtree(self.output_path)
+
     def test_from_pretrained_tokenizer(self):
         """
         Feature: The T5Tokenizer test using from python class
@@ -39,3 +47,25 @@ class TestT5TokenizerMethod:
         tokenizer = T5Tokenizer.from_pretrained(os.path.dirname(__file__))
         tokenizer.show_support_list()
         tokenizer("hello world")
+
+    def test_auto_tokenizer(self):
+        """
+        Feature: The T5Tokenizer test using auto_class
+        Description: Using call forward process of the tokenizer without error
+        Expectation: The returned ret is not equal to [[6, 7]].
+        """
+        tokenizer = T5Tokenizer.from_pretrained(os.path.dirname(__file__))
+        tokenizer.save_pretrained(self.output_path)
+        tokenizer = AutoTokenizer.from_pretrained(self.output_path)
+        tokenizer("hello world")
+
+    @pytest.mark.parametrize('skip_special_tokens', [True, False])
+    def test_t5_decode(self, skip_special_tokens):
+        """
+        Feature: The T5Tokenizer test using auto_class
+        Description: Using call forward process of the tokenizer without error
+        Expectation: The returned ret is not equal to [[6, 7]].
+        """
+        tokenizer = T5Tokenizer.from_pretrained(os.path.dirname(__file__))
+        res = tokenizer("hello world")["input_ids"]
+        tokenizer.decode(res, skip_special_tokens=skip_special_tokens)

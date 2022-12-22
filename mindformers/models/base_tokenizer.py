@@ -29,7 +29,7 @@ from mindformers.tools.register import MindFormerRegister, MindFormerModuleType,
 
 from .build_tokenizer import build_tokenizer
 
-__all__ = ['PretrainedTokenizerBase', 'PretrainedTokenizer', 'SpecialTokensMixin']
+__all__ = ['BaseTokenizer', 'Tokenizer', 'SpecialTokensMixin']
 
 from ..tools.download_tools import downlond_with_progress_bar
 from ..mindformer_book import MindFormerBook, print_path_or_list
@@ -107,19 +107,19 @@ class SpecialTokensMixin:
             if hasattr(self, '_' + item):
                 cur_item = getattr(self, '_' + item)
                 if cur_item:
-                    self.all_specifical_token_index.append(self._convert_tokens_to_ids(cur_item))
+                    all_specifical_token_index.append(self._convert_tokens_to_ids(cur_item))
         return all_specifical_token_index
 
 
 
-class PretrainedTokenizerBase(SpecialTokensMixin):
+class BaseTokenizer(SpecialTokensMixin):
     """The pretrained tokenize providing basic method for tokenizing."""
     MODEL_INPUT_NAME = ['input_ids', 'attention_mask', 'token_type_ids']
     VOCAB_FILES = {}
     FILE_LIST = []
 
     def __init__(self, **kwargs):
-        super(PretrainedTokenizerBase, self).__init__(**kwargs)
+        super(BaseTokenizer, self).__init__(**kwargs)
         self.model_inputs = self.MODEL_INPUT_NAME
         self.init_kwargs = kwargs
 
@@ -516,7 +516,7 @@ class PretrainedTokenizerBase(SpecialTokensMixin):
 
 
 @MindFormerRegister.register(MindFormerModuleType.TOKENIZER)
-class PretrainedTokenizer(PretrainedTokenizerBase):
+class Tokenizer(BaseTokenizer):
     """Pretrained Tokenizer provides detailed the tokenizer method."""
     _support_list = []
     def convert_ids_to_tokens(self, input_ids, skip_special_tokens=False):

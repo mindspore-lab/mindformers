@@ -19,7 +19,7 @@ import os
 import unicodedata
 
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
-from mindformers.models.base_tokenizer import PretrainedTokenizer
+from mindformers.models.base_tokenizer import Tokenizer
 
 __all__ = ['BertTokenizer']
 
@@ -303,7 +303,7 @@ def _is_punctuation(char):
     return False
 
 @MindFormerRegister.register(MindFormerModuleType.TOKENIZER)
-class BertTokenizer(PretrainedTokenizer):
+class BertTokenizer(Tokenizer):
     """
         Bert Tokenizer.
     """

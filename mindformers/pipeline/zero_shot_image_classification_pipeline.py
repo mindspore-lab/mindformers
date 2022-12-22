@@ -21,7 +21,7 @@ from ..mindformer_book import MindFormerBook
 from ..tools.image_tools import load_image
 from .base_pipeline import BasePipeline
 from ..tools.register import MindFormerRegister, MindFormerModuleType
-from ..models import BaseModel, BaseFeatureExtractor, PretrainedTokenizer
+from ..models import BaseModel, BaseFeatureExtractor, Tokenizer
 
 
 @MindFormerRegister.register(MindFormerModuleType.PIPELINE)
@@ -46,7 +46,7 @@ class ZeroShotImageClassificationPipeline(BasePipeline):
                                     f" BaseFeatureExtractor, but got {type(feature_extractor)}.")
                 if tokenizer is None:
                     tokenizer = AutoProcessor.from_pretrained(model).tokenizer
-                if not isinstance(tokenizer, PretrainedTokenizer):
+                if not isinstance(tokenizer, Tokenizer):
                     raise TypeError(f"tokenizer should be inherited from"
                                     f" PretrainedTokenizer, but got {type(tokenizer)}.")
                 model = AutoModel.from_pretrained(model)

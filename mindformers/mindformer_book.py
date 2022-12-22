@@ -90,6 +90,12 @@ class MindFormerBook:
                 _PROJECT_PATH, "configs/clip/run_clip_vit_b_32.yaml")),
             ("common", os.path.join(
                 _PROJECT_PATH, "configs/clip/run_clip_vit_b_32.yaml"))])
+         ),
+        ("translation", OrderedDict([
+            ("t5-small", os.path.join(
+                _PROJECT_PATH, "configs/t5/run_t5_small.yaml")),
+            ("common", os.path.join(
+                _PROJECT_PATH, "configs/t5/run_t5_small.yaml"))])
          )
     ])
 
