@@ -122,6 +122,41 @@ def check_lr_config(new_config, old_config):
             old_config.lr_schedule = None
 
 
+def _check_lr_config(config, device_num=1, batch_size=128, arch="simmim"):
+    if arch in ('simmim', "ringmo", "ringmo_mm"):
+        config.base_lr = (config.base_lr * device_num * batch_size) / 512
+        config.min_lr = (config.min_lr * device_num * batch_size) / 512
+        config.warmup_lr = (config.warmup_lr * device_num * batch_size) / 512
+    if arch in ('MaeModel', 'VitModel'):
+        config.base_lr = (config.base_lr * device_num * batch_size) / 256
+
+
+def check_image_lr_config(config):
+    """config lr"""
+    lr_config = config.lr_schedule
+    device_num = config.device_num
+    batch_size = config.runner_config.batch_size
+    _check_lr_config(lr_config, device_num=device_num, batch_size=batch_size, arch=config.model.arch.type)
+    total_epochs = config.runner_config.epochs
+    steps_per_epoch = config.data_size
+    if config.runner_config.per_epoch_size and config.runner_config.sink_mode:
+        total_steps = total_epochs
+    else:
+        total_steps = total_epochs * steps_per_epoch
+    lr_config.warmup_steps = int(lr_config.warmup_epochs * steps_per_epoch)
+    lr_config.decay_steps = total_steps - lr_config.warmup_steps
+    del lr_config.warmup_epochs
+
+
+def check_model_config(config):
+    config.model.parallel_config = config.parallel_config
+    config.model.moe_config = config.moe_config
+    config.model.batch_size = config.runner_config.batch_size * config.device_num \
+        if config.parallel.parallel_mode == "semi_auto_parallel" else config.runner_config.batch_size
+    config.model.image_size = config.runner_config.image_size
+    config.model.num_classes = config.runner_config.num_classes
+
+
 def check_wrapper_config(new_config, old_config):
     """Check wrapper config."""
     wrapper_type = new_config.runner_wrapper.get('type')
