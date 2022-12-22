@@ -15,6 +15,7 @@
 
 """models init"""
 from .mae import *
+from .vit import *
 from .clip import *
 from .filip import *
 from .bert import *
@@ -35,6 +36,7 @@ __all__ = ['BaseConfig', 'BaseModel', 'BaseProcessor', 'BaseFeatureExtractor',
            'build_model', 'build_head', 'build_encoder', 'build_model_config']
 __all__.extend(bert.__all__)
 __all__.extend(mae.__all__)
+__all__.extend(vit.__all__)
 __all__.extend(clip.__all__)
 __all__.extend(filip.__all__)
 __all__.extend(t5.__all__)
