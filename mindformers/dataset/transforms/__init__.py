@@ -16,8 +16,12 @@
 from .build_transforms import build_transforms
 from .vision_transforms import *
 from .text_transforms import *
+from .mixup import Mixup
+from .auto_augment import rand_augment_transform, auto_augment_transform, augment_and_mix_transform
+from .random_erasing import RandomErasing
 
 
-__all__ = ['build_transforms']
+__all__ = ['build_transforms', 'Mixup', 'rand_augment_transform', 'auto_augment_transform', 'augment_and_mix_transform',
+           'RandomErasing']
 __all__.extend(vision_transforms.__all__)
 __all__.extend(text_transforms.__all__)
