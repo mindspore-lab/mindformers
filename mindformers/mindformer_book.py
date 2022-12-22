@@ -67,6 +67,10 @@ class MindFormerBook:
     _DEFAULT_CHECKPOINT_SAVE_FOLDER = os.path.join('.', 'checkpoint_save')
 
     _TRAINER_SUPPORT_TASKS_LIST = OrderedDict([
+        ("general", OrderedDict([
+            ("common", os.path.join(
+                _PROJECT_PATH, "configs/general/run_general_task.yaml"))])
+         ),
         ("masked_image_modeling", OrderedDict([
             ("mae_vit_base_p16", os.path.join(
                 _PROJECT_PATH, "configs/mae/run_mae_vit_base_p16_224_800ep.yaml")),
