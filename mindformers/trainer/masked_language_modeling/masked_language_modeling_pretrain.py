@@ -16,6 +16,7 @@
 from typing import Callable, List
 
 from mindspore.train.model import Model
+from mindspore.nn import TrainOneStepCell
 
 from mindformers.dataset import build_dataset, check_dataset_config
 from mindformers.models import build_model
