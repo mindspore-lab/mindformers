@@ -16,12 +16,13 @@
 from typing import Callable, List
 
 from mindspore.train.model import Model
+from mindspore.nn import TrainOneStepCell
 
 from mindformers.dataset import build_dataset, check_dataset_config
 from mindformers.models import build_model
-from mindformers.common.lr import build_lr
 from mindformers.common.optim import build_optim
 from mindformers.common.callback import build_callback
+from mindformers.common.lr import WarmUpDecayLR
 from mindformers.wrapper import build_wrapper
 from mindformers.trainer.base_trainer import BaseTrainer
 from mindformers.trainer.utils import check_runner_config
@@ -53,8 +54,12 @@ class MaskedLanguageModelingTrainer(BaseTrainer):
         check_dataset_config(config)
         if dataset is None:
             dataset = build_dataset(config.train_dataset_task)
+        sink_size = config.runner_config.sink_size
         check_runner_config(config, dataset)
-
+        step_per_epoch = dataset.get_dataset_size()
+        total_steps = config.runner_config.epochs * step_per_epoch
+        actual_epoch_num = int(
+            config.runner_config.epochs * step_per_epoch / sink_size)
         # build network
         logger.info(".........Build Net..........")
         if network is None:
@@ -68,7 +73,12 @@ class MaskedLanguageModelingTrainer(BaseTrainer):
         if optimizer is None:
             # build learning rate schedule
             logger.info(".........Build LR Schedule..........")
-            lr_schedule = build_lr(config.lr_schedule)
+            warmup_steps = config.lr_schedule.warmup_steps if config.lr_schedule.warmup_steps > 0 \
+                else int(0.1 * total_steps)
+            lr_schedule = WarmUpDecayLR(learning_rate=float(config.lr_schedule.learning_rate),
+                                        end_learning_rate=float(config.lr_schedule.end_learning_rate),
+                                        warmup_steps=warmup_steps,
+                                        decay_steps=total_steps)
             group_params = network.trainable_params()
             if lr_schedule is not None:
                 optimizer = build_optim(
@@ -81,7 +91,6 @@ class MaskedLanguageModelingTrainer(BaseTrainer):
                     config.optimizer,
                     default_args={"params": group_params})
 
-        # build callback
         # build callback
         if callbacks is None:
             callbacks = []
@@ -105,6 +114,6 @@ class MaskedLanguageModelingTrainer(BaseTrainer):
         model = Model(model)
 
         model.train(
-            config.runner_config.epochs, dataset, callbacks=callbacks,
+            actual_epoch_num, dataset, callbacks=callbacks,
             dataset_sink_mode=config.runner_config.sink_mode,
-            sink_size=config.runner_config.per_epoch_size)
+            sink_size=sink_size)

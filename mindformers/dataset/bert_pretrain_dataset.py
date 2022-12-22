@@ -46,7 +46,7 @@ class BertPretrainDataset(BaseDataset):
             dataset_files = list(dataset_config.data_loader.dataset_files)
         dataset_config.data_loader.pop("dataset_dir")
         dataset = build_dataset_loader(
-            dataset_config.data_loader, default_args={'dataset_files': dataset_files[0],
+            dataset_config.data_loader, default_args={'dataset_files': dataset_files,
                                                       'num_shards': device_num, 'shard_id': rank_id})
         dataset = dataset.batch(dataset_config.batch_size,
                                 drop_remainder=dataset_config.drop_remainder,

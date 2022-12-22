@@ -42,7 +42,7 @@ def check_runner_config(config, dataset):
 
     config.data_size = data_size
     logger.info("Will be Training epochs:%d, sink_size:%d",
-                config.runner_config.epochs, config.runner_config.per_epoch_size)
+                config.runner_config.epochs, config.runner_config.sink_size)
     logger.info("Create training dataset finish, dataset size:%d", data_size)
 
 
