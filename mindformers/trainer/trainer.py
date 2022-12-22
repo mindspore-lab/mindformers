@@ -14,9 +14,11 @@
 # ============================================================================
 """Trainer API For Import."""
 import os
+import shutil
+from pprint import pprint
+from collections import OrderedDict
 from typing import List, Optional, Union
 
-import yaml
 import numpy as np
 from PIL.Image import Image
 
@@ -42,10 +44,12 @@ from mindformers.tools.cloud_adapter import CFTS
 from mindformers.tools.logger import logger
 from mindformers.tools.utils import count_params
 from mindformers.tools.image_tools import load_image
+from mindformers.tools.register.config import ordered_yaml_dump
+
 from .build_trainer import build_trainer
 from .config_args import ConfigArguments
 from .utils import check_train_data_loader_type, check_eval_data_loader_type, \
-    check_optimizer_and_lr_type, check_wrapper_config
+    check_optimizer_and_lr_type, check_wrapper_config, config2dict
 
 
 __all__ = ['Trainer']
@@ -54,6 +58,7 @@ __all__ = ['Trainer']
 SUPPORT_TASKS = MindFormerBook().get_trainer_support_task_list()
 SUPPORT_MODEL_NAMES = MindFormerBook().get_model_name_support_list()
 SUPPORT_PIPELINE_INPUT_DATA = MindFormerBook().get_pipeline_support_input_data_list()
+CURRENT_PROJECT_PATH = MindFormerBook().get_project_path()
 DEFAULT_CHECKPOINT_DIR = 'checkpoint'
 DEFAULT_CONFIG_DIR = 'configs'
 
@@ -72,6 +77,7 @@ class Trainer:
                  wrapper: Optional[TrainOneStepCell] = None,
                  callbacks: Optional[Union[Callback, List[Callback]]] = None,
                  compute_metrics: Optional[Union[dict, set]] = None,
+                 save_config: bool = False,
                  **kwargs):
 
         self.task_name = task_name
@@ -84,7 +90,14 @@ class Trainer:
         self.feature_extractor = feature_extractor
         self.callbacks = callbacks
         self.compute_metrics = compute_metrics
+        self.configs_directory = os.path.join('.', DEFAULT_CONFIG_DIR)
         self.kwargs = kwargs
+
+        if not os.path.exists(os.path.join('.', DEFAULT_CONFIG_DIR)):
+            configs_directory = os.path.join('.', DEFAULT_CONFIG_DIR)
+            if os.path.exists(os.path.join(CURRENT_PROJECT_PATH, DEFAULT_CONFIG_DIR)):
+                mindformers_configs_directory = os.path.join(CURRENT_PROJECT_PATH, DEFAULT_CONFIG_DIR)
+                shutil.copytree(mindformers_configs_directory, configs_directory)
 
         if wrapper is not None:
             if model is not None:
@@ -136,6 +149,10 @@ class Trainer:
 
             self.config = task_config
 
+        if save_config:
+            self.save_config_to_yaml(self.config)
+            logger.info("save running config success of %s_new.", task_config.trainer.model_name.lower())
+
         # check dataset config
         if isinstance(train_dataset, str):
             assert os.path.exists(train_dataset), \
@@ -172,8 +189,8 @@ class Trainer:
         # set output directory
         os.environ.setdefault("LOCAL_DEFAULT_PATH", self.config.output_dir)
 
-        # self.save_config_to_yaml()
-        # logger.info("save running config success of {}.".format(task_config.trainer.model_name.lower()))
+        # pprint last config
+        pprint(self.config)
 
     def train(self, resume_from_checkpoint: Optional[Union[str, bool]] = None,
               initial_epoch: int = 0, do_eval: bool = False, **kwargs):
@@ -377,12 +394,127 @@ class Trainer:
                                         key=lambda x: os.path.getmtime(os.path.join(checkpoint_dir, x)))
         return os.path.join(checkpoint_dir, output_checkpoint_path[-1])
 
-    def save_config_to_yaml(self):
+    def save_config_to_yaml(self, config: dict = None):
         """save now config file to yaml file."""
+        if config is None:
+            config = self.config
+        model_name = self.config.trainer.model_name
+        config_dict = _reset_config_for_save(config, model_name)
         config_dir = os.path.join(
-            self.config.output_dir, DEFAULT_CONFIG_DIR, self.config.trainer.model_name.lower())
+            self.configs_directory, model_name.lower() + '_new')
         if not os.path.exists(config_dir):
-            os.makedirs(config_dir)
-        config_path = os.path.join(config_dir, self.config.trainer.model_name.lower() + '.yaml')
-        with open(config_path, 'w') as file_pointer:
-            file_pointer.write(yaml.dump(self.config))
+            os.makedirs(config_dir, exist_ok=True)
+
+        model_config_dir = os.path.join(config_dir, 'model_config')
+        task_config_dir = os.path.join(config_dir, 'task_config')
+        if not os.path.exists(model_config_dir):
+            os.makedirs(model_config_dir, exist_ok=True)
+
+        if not os.path.exists(task_config_dir):
+            os.makedirs(task_config_dir, exist_ok=True)
+
+        model_config_yaml_path = os.path.join(
+            model_config_dir, '{}.yaml'.format(model_name.lower()))
+        dataset_config_yaml_path = os.path.join(
+            task_config_dir, '{}_dataset.yaml'.format(model_name.lower()))
+        runner_yaml_path = os.path.join(task_config_dir, 'runner.yaml')
+        context_yaml_path = os.path.join(task_config_dir, 'context.yaml')
+        run_yaml_path = os.path.join(config_dir, 'run_{}.yaml'.format(model_name.lower()))
+
+        _save_config_to_yaml(model_config_yaml_path, config_dict.get('model_config'))
+        _save_config_to_yaml(dataset_config_yaml_path, config_dict.get('dataset_config'))
+        _save_config_to_yaml(runner_yaml_path, config_dict.get('runner_config'))
+        _save_config_to_yaml(context_yaml_path, config_dict.get('context_config'))
+        _save_config_to_yaml(run_yaml_path, config_dict.get('run_config'))
+
+
+def _save_config_to_yaml(save_file_path: str = None, save_config: dict = None):
+    """Save Config to Yaml File."""
+    if save_config is None:
+        save_config = {}
+    with open(save_file_path, 'w', encoding='utf-8') as file_pointer:
+        file_pointer.write(
+            ordered_yaml_dump(
+                save_config,
+                default_flow_style=False,
+                allow_unicode=True,
+                sort_keys=False))
+
+
+def _reset_config_for_save(config: dict = None, model_name: str = 'common'):
+    """Reset Config According to Yaml File Number."""
+    if config is None:
+        config = {}
+    config = config.copy()
+
+    config_dict = {
+        "model_config": OrderedDict(),
+        "dataset_config": OrderedDict(),
+        "runner_config": OrderedDict(),
+        "context_config": OrderedDict(),
+        "run_config": OrderedDict()
+    }
+
+    if config.get('model') is not None:
+        model_config = config2dict(config.pop('model'))
+        config_dict["model_config"].setdefault('model', model_config)
+
+    if config.get('processor') is not None:
+        processor_config = config2dict(config.config.pop('processor'))
+        config_dict["model_config"].setdefault('processor', processor_config)
+
+    if config.get('train_dataset_task') is not None and config.get('train_dataset') is not None:
+        train_dataset_config = config2dict(config.pop('train_dataset'))
+        train_dataset_task_config = config2dict(config.pop('train_dataset_task'))
+        config_dict["dataset_config"].setdefault('train_dataset', train_dataset_config)
+        config_dict["dataset_config"].setdefault('train_dataset_task', train_dataset_task_config)
+
+    if config.get('eval_dataset_task') is not None and config.get('eval_dataset') is not None:
+        eval_dataset_config = config2dict(config.pop('eval_dataset'))
+        eval_dataset_task_config = config2dict(config.pop('eval_dataset_task'))
+        config_dict["dataset_config"].setdefault('train_dataset', eval_dataset_config)
+        config_dict["dataset_config"].setdefault('train_dataset_task', eval_dataset_task_config)
+
+    if config.get('context') is not None:
+        context_config = config2dict(config.pop('context'))
+        parallel_context_config = config2dict(config.pop('parallel'))
+        moe_conifg = config2dict(config.pop('moe_config'))
+        recompute_config = config2dict(config.pop('recompute_config'))
+        parallel_config = config2dict(config.pop('parallel_config'))
+        config_dict['context_config'].setdefault('context', context_config)
+        config_dict['context_config'].setdefault('parallel', parallel_context_config)
+        config_dict['context_config'].setdefault('moe_conifg', moe_conifg)
+        config_dict['context_config'].setdefault('recompute_config', recompute_config)
+        config_dict['context_config'].setdefault('parallel_config', parallel_config)
+
+    if config.get('runner_config') is not None:
+        runner_config = config2dict(config.pop('runner_config'))
+        config_dict['runner_config'].setdefault('runner_config', runner_config)
+
+    if config.get('runner_wrapper') is not None:
+        wrapper_config = config2dict(config.pop('runner_wrapper'))
+        config_dict['runner_config'].setdefault('runner_wrapper', wrapper_config)
+
+    if config.get('optimizer') is not None:
+        optim_config = config2dict(config.pop('optimizer'))
+        config_dict['runner_config'].setdefault('optimizer', optim_config)
+
+    if config.get('lr_schedule') is not None:
+        lr_config = config2dict(config.pop('lr_schedule'))
+        config_dict['runner_config'].setdefault('lr_schedule', lr_config)
+
+    if config.get('callbacks') is not None:
+        cb_config = config2dict(config.pop('callbacks'))
+        config_dict['runner_config'].setdefault('callbacks', cb_config)
+
+    config_dict['run_config'].setdefault('base_config', [
+        './task_config/context.yaml',
+        './task_config/runner.yaml',
+        './task_config/{}_dataset.yaml'.format(model_name.lower()),
+        './model_config/{}.yaml'.format(model_name.lower())])
+
+    run_config = config2dict(config)
+    for key, value in run_config.items():
+        config_dict['run_config'].setdefault(key, value)
+
+    return config_dict

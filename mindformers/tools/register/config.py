@@ -17,7 +17,7 @@
 import os
 import argparse
 from argparse import Action
-
+from collections import OrderedDict
 import yaml
 
 BASE_CONFIG = 'base_config'
@@ -148,7 +148,7 @@ class MindFormerConfig(dict):
 
         filepath = os.path.realpath(filename)
         with open(filepath) as fp:
-            cfg_dict = yaml.load(fp, Loader=yaml.FullLoader)
+            cfg_dict = ordered_yaml_load(fp, yaml_loader=yaml.FullLoader)
 
         # Load base config file.
         if BASE_CONFIG in cfg_dict:
@@ -293,6 +293,37 @@ class ActionDict(Action):
             key, value = key_value.split('=', maxsplit=1)
             options[key] = self._parse_value_iter(value)
         setattr(namespace, self.dest, options)
+
+
+def ordered_yaml_load(stream, yaml_loader=yaml.SafeLoader,
+                      object_pairs_hook=OrderedDict):
+    """Load Yaml File in Orderedly."""
+    class OrderedLoader(yaml_loader):
+        pass
+
+    def _construct_mapping(loader, node):
+        loader.flatten_mapping(node)
+        return object_pairs_hook(loader.construct_pairs(node))
+
+    OrderedLoader.add_constructor(
+        yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG,
+        _construct_mapping)
+    return yaml.load(stream, OrderedLoader)
+
+
+def ordered_yaml_dump(data, stream=None, yaml_dumper=yaml.SafeDumper,
+                      object_pairs_hook=OrderedDict, **kwargs):
+    """Dump Dict to Yaml File in Orderedly."""
+    class OrderedDumper(yaml_dumper):
+        pass
+
+    def _dict_representer(dumper, data):
+        return dumper.represent_mapping(
+            yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG,
+            data.items())
+
+    OrderedDumper.add_representer(object_pairs_hook, _dict_representer)
+    return yaml.dump(data, stream, OrderedDumper, **kwargs)
 
 
 def parse_args():

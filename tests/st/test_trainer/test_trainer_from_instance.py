@@ -152,3 +152,28 @@ def test_trainer_general_from_instance():
                                    callbacks=callbacks)
 
     no_task_name_trainer.train(resume_from_checkpoint=False)
+
+
+@pytest.mark.level0
+@pytest.mark.platform_x86_ascend_training
+@pytest.mark.platform_arm_ascend_training
+@pytest.mark.env_onecard
+def test_trainer_auto_to_save_config():
+    """
+    Feature: Auto Create Trainer.
+    Description: Test Trainer API to train.
+    Expectation: TypeError
+    """
+    runner_config = RunnerConfig(epochs=10, batch_size=2, image_size=224)
+    config = ConfigArguments(runner_config=runner_config)
+
+    dataset = GeneratorDataset(source=MyDataLoader(), column_names='image')
+    dataset = dataset.batch(batch_size=2)
+
+    mim_trainer = Trainer(
+        task_name='masked_image_modeling',
+        model='mae_vit_base_p16',
+        train_dataset=dataset,
+        config=config,
+        save_config=True)
+    mim_trainer.train()
