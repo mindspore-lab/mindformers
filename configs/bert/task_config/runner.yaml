@@ -1,7 +1,8 @@
 # runner config
 runner_config:
   epochs: 1
-  batch_size: 64
+  batch_size: 128
+  sink_size: 10
   image_size: 224
   sink_mode: True
   per_epoch_size: 0
@@ -23,10 +24,10 @@ optimizer:
 
 # lr sechdule
 lr_schedule:
-  type: CosineDecayLR
-  max_lr: 0.00015
-  min_lr: 0.
-  decay_steps: 100
+  type: WarmUpLR
+  learning_rate: 0.0001
+  end_learning_rate: 0.000001
+  warmup_steps: 10000
 
 callbacks:
   - type: MFLossMonitor
@@ -34,7 +35,7 @@ callbacks:
     keep_default_action: True
   - type: CheckpointMointor
     prefix: "mindformers"
-    save_checkpoint_steps: 100
+    save_checkpoint_steps: 10000
     integrated_save: True
     async_save: False
   - type: ObsMonitor

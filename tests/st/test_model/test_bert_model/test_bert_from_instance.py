@@ -40,7 +40,7 @@ def generator():
     masked_lm_weights = np.ones_like(masked_lm_ids)
     train_data = (data, input_mask, token_type_id, next_sentence_lables,
                   masked_lm_positions, masked_lm_ids, masked_lm_weights)
-    for _ in range(32):
+    for _ in range(256):
         yield train_data
 
 @pytest.mark.level0
