@@ -115,3 +115,40 @@ def test_trainer_wrapper_from_instance():
                                   callbacks=callbacks)
 
     mim_trainer_wrapper.train(resume_from_checkpoint=False)
+
+
+@pytest.mark.level0
+@pytest.mark.platform_x86_ascend_training
+@pytest.mark.platform_arm_ascend_training
+@pytest.mark.env_onecard
+def test_trainer_general_from_instance():
+    """
+    Feature: Create Trainer From Instance
+    Description: Test Trainer API to train from self-define instance API.
+    Expectation: TypeError
+    """
+    runner_config = RunnerConfig(epochs=10, batch_size=8, image_size=224, sink_mode=True, per_epoch_size=1)
+    config = ConfigArguments(seed=2022, runner_config=runner_config)
+
+    mae_model_with_loss = MaeModel()
+
+    dataset = GeneratorDataset(source=MyDataLoader(), column_names='image')
+    dataset = dataset.batch(batch_size=8)
+
+    lr_schedule = WarmUpLR(learning_rate=0.001, warmup_steps=100)
+    optimizer = AdamWeightDecay(beta1=0.009, beta2=0.999,
+                                learning_rate=lr_schedule,
+                                params=mae_model_with_loss.trainable_params())
+    loss_scale = DynamicLossScaleUpdateCell(loss_scale_value=2**12, scale_factor=2, scale_window=1000)
+    wrapper = TrainOneStepWithLossScaleCell(mae_model_with_loss, optimizer, scale_sense=loss_scale)
+
+    loss_cb = LossMonitor(per_print_times=2)
+    time_cb = TimeMonitor()
+    callbacks = [loss_cb, time_cb]
+
+    no_task_name_trainer = Trainer(config=config,
+                                   wrapper=wrapper,
+                                   train_dataset=dataset,
+                                   callbacks=callbacks)
+
+    no_task_name_trainer.train(resume_from_checkpoint=False)

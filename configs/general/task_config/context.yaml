@@ -1,0 +1,40 @@
+# cloud context init config
+context:
+  mode: 0 #0--Graph Mode; 1--Pynative Mode
+  device_target: "Ascend"
+  enable_graph_kernel: False
+  graph_kernel_flags: "--opt_level=0"
+  max_call_depth: 10000
+  save_graphs: False
+  device_id: 0
+
+parallel:
+  parallel_mode: 0 # 0-dataset, 1-semi, 2-auto, 3-hybrid
+  gradients_mean: True
+  enable_alltoall: False
+  full_batch: False
+  search_mode: "sharding_propagation"
+  enable_parallel_optimizer: False
+  strategy_ckpt_save_file: "./ckpt_strategy.ckpt"
+
+# context config for mindformers
+moe_config:
+  expert_num: 1
+  capacity_factor: 1.05
+  aux_loss_factor: 0.05
+  num_experts_chosen: 1
+
+recompute_config:
+  recompute: False
+  parallel_optimizer_comm_recompute: False
+  mp_comm_recompute: True
+  recompute_slice_activation: False
+
+parallel_config:
+  data_parallel: 1
+  model_parallel: 1
+  expert_parallel: 1
+  pipeline_stage: 1
+  optimizer_shard: False
+  micro_batch_num: 1
+  gradient_aggregation_group: 4

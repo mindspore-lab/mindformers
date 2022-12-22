@@ -17,6 +17,7 @@ from .config_args import *
 from .image_classification import *
 from .masked_image_modeling import *
 from .masked_language_modeling import *
+from .general_task_trainer import *
 from .contrastive_language_image_pretrain import *
 from .trainer import Trainer
 from .base_trainer import BaseTrainer
@@ -28,4 +29,5 @@ __all__.extend(config_args.__all__)
 __all__.extend(image_classification.__all__)
 __all__.extend(masked_image_modeling.__all__)
 __all__.extend(masked_language_modeling.__all__)
+__all__.extend(general_task_trainer.__all__)
 __all__.extend(contrastive_language_image_pretrain.__all__)

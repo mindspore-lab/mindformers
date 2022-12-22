@@ -62,7 +62,7 @@ class Trainer:
     """Trainer API."""
     def __init__(self,
                  config: Optional[Union[str, dict, ConfigArguments]] = None,
-                 task_name: Optional[str] = None,
+                 task_name: Optional[str] = 'general',
                  model: Optional[Union[str, BaseModel]] = None,
                  train_dataset: Optional[Union[str, BaseDataset]] = None,
                  eval_dataset: Optional[Union[str, BaseDataset]] = None,
