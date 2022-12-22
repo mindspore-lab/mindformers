@@ -29,9 +29,9 @@ def build_wrapper(config: dict = None, default_args: dict = None,
         return None
     if config is not None:
         if config.scale_sense is not None:
-            if not isinstance(config.scale_sense, int) and config.scale_sense.type is not None:
+            if isinstance(config.scale_sense, dict) and config.scale_sense.type is not None:
                 config.scale_sense = build_wrapper(config.scale_sense)
-            else:
+            elif isinstance(config.scale_sense, int):
                 config.scale_sense = Tensor(config.scale_sense, ms.float32)
         return MindFormerRegister.get_instance_from_cfg(
             config, MindFormerModuleType.WRAPPER, default_args=default_args)

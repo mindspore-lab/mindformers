@@ -16,6 +16,7 @@
 from typing import Callable, List
 
 from mindspore.train.model import Model
+from mindspore.nn import TrainOneStepCell
 
 from mindformers.dataset import build_dataset, check_dataset_config
 from mindformers.models import build_model
@@ -42,6 +43,7 @@ class MaskedImageModelingTrainer(BaseTrainer):
               config: dict = None,
               network: Callable = None,
               dataset: Callable = None,
+              wrapper: Callable = None,
               optimizer: Callable = None,
               callbacks: List[Callable] = None, **kwargs):
         """train for trainer."""
@@ -90,7 +92,13 @@ class MaskedImageModelingTrainer(BaseTrainer):
 
         # build runner wrapper
         logger.info(".........Build Running Wrapper..........")
-        model = build_wrapper(config.runner_wrapper, default_args={"network": network, "optimizer": optimizer})
+        if wrapper is None:
+            model = build_wrapper(config.runner_wrapper, default_args={"network": network, "optimizer": optimizer})
+        elif isinstance(wrapper, TrainOneStepCell):
+            model = wrapper
+        else:
+            raise NotImplementedError(f"Now not support this wrapper,"
+                                      f"it should be TrainOneStepCell type, but get {wrapper}")
 
         # define Model and begin training
         logger.info(".........Starting Init Train Model..........")
@@ -100,11 +108,3 @@ class MaskedImageModelingTrainer(BaseTrainer):
             config.runner_config.epochs, dataset, callbacks=callbacks,
             dataset_sink_mode=config.runner_config.sink_mode,
             sink_size=config.runner_config.per_epoch_size)
-
-    def evaluate(self,
-                 config: dict = None,
-                 network: Callable = None,
-                 dataset: Callable = None,
-                 callbacks: List[Callable] = None, **kwargs):
-        """evaluate for trainer."""
-        # 自定义创建模型评估完整过程, 待补充
