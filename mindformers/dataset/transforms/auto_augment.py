@@ -195,35 +195,27 @@ class LevelHelper:
         """With 50% prob, negate the value"""
         return -v if random.random() > 0.5 else v
 
-    def rotate_level_to_arg(self, level, hparams):
+    def rotate_level_to_arg(self, level, _):
         """_randomly_negate of auto_augment level"""
         # range [-30, 30]
-        if hparams is None:
-            raise ValueError(f"hparams of rotate_level_to_arg is None")
         level = self._randomly_negate((level / _MAX_LEVEL) * 30.)
         return (level,)
 
-    def enhance_level_to_arg(self, level, hparams):
+    def enhance_level_to_arg(self, level, _):
         """enhance_level_to_arg of auto_augment level"""
         # range [0.1, 1.9]
-        if hparams is None:
-            raise ValueError(f"hparams of enhance_level_to_arg is None")
         return ((level / _MAX_LEVEL) * 1.8 + 0.1,)
 
-    def enhance_increasing_level_to_arg(self, level, hparams):
+    def enhance_increasing_level_to_arg(self, level, _):
         """enhance_increasing_level_to_arg of auto_augment level"""
         # the 'no change' level is 1.0, moving away from that towards 0. or 2.0 increases the enhancement blend
         # range [0.1, 1.9]
-        if hparams is None:
-            raise ValueError(f"hparams of enhance_increasing_level_to_arg is None")
         level = 1.0 + self._randomly_negate((level / _MAX_LEVEL) * .9)
         return (level,)
 
-    def shear_level_to_arg(self, level, hparams):
+    def shear_level_to_arg(self, level, _):
         """shear_level_to_arg of auto_augment level"""
         # range [-0.3, 0.3]
-        if hparams is None:
-            raise ValueError(f"hparams of shear_level_to_arg is None")
         level = self._randomly_negate((level / _MAX_LEVEL) * 0.3)
         return (level,)
 
@@ -240,13 +232,11 @@ class LevelHelper:
         level = self._randomly_negate((level / _MAX_LEVEL) * translate_pct)
         return (level,)
 
-    def posterize_level_to_arg(self, level, hparams):
+    def posterize_level_to_arg(self, level, _):
         """posterize_level_to_arg of auto_augment level"""
         # As per Tensorflow TPU EfficientNet impl
         # range [0, 4], 'keep 0 up to 4 MSB of original image'
         # intensity/severity of augmentation decreases with level
-        if hparams is None:
-            raise ValueError(f"hparams of posterize_level_to_arg is None")
         return (int((level / _MAX_LEVEL) * 4),)
 
     def posterize_increasing_level_to_arg(self, level, hparams):
@@ -256,21 +246,17 @@ class LevelHelper:
         # intensity/severity of augmentation increases with level
         return (4 - self.posterize_level_to_arg(level, hparams)[0],)
 
-    def posterize_original_level_to_arg(self, level, hparams):
+    def posterize_original_level_to_arg(self, level, _):
         """posterize_original_level_to_arg of auto_augment level"""
         # As per original AutoAugment paper description
         # range [4, 8], 'keep 4 up to 8 MSB of image'
         # intensity/severity of augmentation decreases with level
-        if hparams is None:
-            raise ValueError(f"hparams of posterize_original_level_to_arg is None")
         return (int((level / _MAX_LEVEL) * 4) + 4,)
 
-    def solarize_level_to_arg(self, level, hparams):
+    def solarize_level_to_arg(self, level, _):
         """solarize_level_to_arg of auto_augment level"""
         # range [0, 256]
-        # intensity/severity of augmentation decreases with level
-        if hparams is None:
-            raise ValueError(f"hparams of solarize_level_to_arg is None")
+        # intensity/severity of augmentation decreases with
         return (int((level / _MAX_LEVEL) * 256),)
 
     def solarize_increasing_level_to_arg(self, level, hparams):
@@ -279,11 +265,9 @@ class LevelHelper:
         # intensity/severity of augmentation increases with level
         return (256 - self.solarize_level_to_arg(level, hparams)[0],)
 
-    def solarize_add_level_to_arg(self, level, hparams):
+    def solarize_add_level_to_arg(self, level, _):
         """solarize_add_level_to_arg of auto_augment level"""
         # range [0, 110]
-        if hparams is None:
-            raise ValueError(f"hparams of solarize_add_level_to_arg is None")
         return (int((level / _MAX_LEVEL) * 110),)
 
 
