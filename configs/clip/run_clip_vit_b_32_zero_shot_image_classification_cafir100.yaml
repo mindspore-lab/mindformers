@@ -11,4 +11,4 @@ resume_checkpoint_path: ''
 run_status: 'predict'
 trainer:
   type: mim
-  model_name: 'mae'
+  model_name: 'clip'

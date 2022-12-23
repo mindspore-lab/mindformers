@@ -16,17 +16,24 @@
 """
 pipeline
 """
+from typing import Optional, Union
+
+from mindformers.models import build_model, build_tokenizer, build_feature_extractor, \
+    BaseModel, BaseTokenizer, BaseFeatureExtractor
 from mindformers.mindformer_book import MindFormerBook
+from mindformers.tools.register import MindFormerConfig
 from .build_pipeline import build_pipeline
+
+SUPPORT_PIPELINES = MindFormerBook().get_pipeline_support_task_list()
+SUPPORT_MODEL_NAMES = MindFormerBook().get_model_name_support_list()
 
 
 def pipeline(
-        task,
-        model=None,
-        tokenizer=None,
-        feature_extractor=None,
-        **kwargs
-):
+        task: str = None,
+        model: Optional[Union[str, BaseModel]] = None,
+        tokenizer: Optional[BaseTokenizer] = None,
+        feature_extractor: Optional[BaseFeatureExtractor] = None,
+        **kwargs):
     """
     Pipeline for downstream tasks
 
@@ -40,24 +47,32 @@ def pipeline(
     Return:
         a task pipeline.
     """
-    if task not in MindFormerBook.get_pipeline_support_task_list().keys():
+    if task not in SUPPORT_PIPELINES.keys():
         raise KeyError(f"{task} is not supported by pipeline. please select"
-                       f" a task from {MindFormerBook.get_pipeline_support_task_list().keys()}.")
+                       f" a task from {SUPPORT_PIPELINES.keys()}.")
+
+    if isinstance(model, str):
+        if model not in SUPPORT_MODEL_NAMES:
+            raise KeyError(
+                f"model must be in {SUPPORT_MODEL_NAMES} when model's type is string, but get {model}.")
+        model_name = model
+        model = None
+    else:
+        model_name = "common"
+
+    pipeline_config = MindFormerConfig(SUPPORT_PIPELINES.get(task).get(model_name))
+    pipeline_type = MindFormerBook().PIPELINE_TASK_NAME_TO_PIPELINE.get(task)
 
     if model is None:
-        if tokenizer is not None:
-            raise KeyError("tokenizer is given without model specified.")
-        if feature_extractor is not None:
-            raise KeyError("feature_extractor is given without model specified.")
+        model = build_model(pipeline_config.model)
 
-        model = MindFormerBook.get_pipeline_support_task_list()[task][0]
+    if feature_extractor is None:
+        feature_extractor = build_feature_extractor(pipeline_config.processor.feature_extractor)
 
-    if isinstance(model, str) and\
-            model not in MindFormerBook.get_pipeline_support_task_list()[task]:
-        raise KeyError(f"{model} is not supported by {task}.")
+    if tokenizer is None:
+        tokenizer = build_tokenizer(pipeline_config.processor.tokenizer)
 
-    pipeline_name = ''.join([item.capitalize() for item in task.split("_")])+"Pipeline"
-    task_pipeline = build_pipeline(class_name=pipeline_name,
+    task_pipeline = build_pipeline(class_name=pipeline_type,
                                    model=model,
                                    feature_extractor=feature_extractor,
                                    tokenizer=tokenizer,

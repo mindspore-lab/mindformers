@@ -91,9 +91,9 @@ class MindFormerBook:
          ),
         ("zero_shot_image_classification", OrderedDict([
             ("clip_vit_b_32", os.path.join(
-                _PROJECT_PATH, "configs/clip/run_clip_vit_b_32.yaml")),
+                _PROJECT_PATH, "configs/clip/run_clip_vit_b_32_zero_shot_image_classification_cafir100.yaml")),
             ("common", os.path.join(
-                _PROJECT_PATH, "configs/clip/run_clip_vit_b_32.yaml"))])
+                _PROJECT_PATH, "configs/clip/run_clip_vit_b_32_zero_shot_image_classification_cafir100.yaml"))])
          ),
         ("translation", OrderedDict([
             ("t5-small", os.path.join(
@@ -104,9 +104,12 @@ class MindFormerBook:
     ])
 
     _PIPELINE_SUPPORT_TASK_LIST = OrderedDict([
-        ('zero_shot_image_classification', [
-            'clip_vit_b_32',
-        ])
+        ('zero_shot_image_classification', OrderedDict([
+            ('clip_vit_b_32', os.path.join(
+                _PROJECT_PATH, "configs/clip/model_config/clip_vit_b_32.yaml")),
+            ('common', os.path.join(
+                _PROJECT_PATH, "configs/clip/model_config/clip_vit_b_32.yaml"))
+        ])),
     ])
 
     _MODEL_SUPPORT_LIST = OrderedDict([
@@ -164,6 +167,10 @@ class MindFormerBook:
     TOKENIZER_NAME_TO_TOKENIZER = OrderedDict([
         ('clip', 'ClipTokenizer'),
         ('bert', 'BertTokenizer')
+    ])
+
+    PIPELINE_TASK_NAME_TO_PIPELINE = OrderedDict([
+        ('zero_shot_image_classification', 'ZeroShotImageClassificationPipeline')
     ])
 
     @classmethod

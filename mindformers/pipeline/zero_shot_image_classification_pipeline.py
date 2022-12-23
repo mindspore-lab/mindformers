@@ -16,12 +16,12 @@
 """ZeroShotImageClassificationPipeline"""
 from mindspore.ops import operations as P
 
-from ..auto_class import AutoProcessor, AutoModel
-from ..mindformer_book import MindFormerBook
-from ..tools.image_tools import load_image
+from mindformers.auto_class import AutoProcessor, AutoModel
+from mindformers.mindformer_book import MindFormerBook
+from mindformers.tools.image_tools import load_image
+from mindformers.models import BaseModel, BaseFeatureExtractor, Tokenizer
+from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from .base_pipeline import BasePipeline
-from ..tools.register import MindFormerRegister, MindFormerModuleType
-from ..models import BaseModel, BaseFeatureExtractor, Tokenizer
 
 
 @MindFormerRegister.register(MindFormerModuleType.PIPELINE)
