@@ -57,46 +57,40 @@ def write_mindrecord(ds_generator, data_record_path):
     writer.commit()
 
 @pytest.mark.level0
-@pytest.mark.platform_x86_ascend_training
 @pytest.mark.platform_arm_ascend_training
 @pytest.mark.env_onecard
-class TestT5TrainerMethod:
-    """Test Trainer Method with Translation"""
-    def setup_class(self):
-        self.dir = os.path.join(os.path.dirname(__file__), 'fake_dataset' + str(self.__class__.__name__))
-        os.makedirs(self.dir, exist_ok=True)
-        self.abs_path = os.path.join(self.dir, 't5_dataset')
-        write_mindrecord(generator(src_length=16, target_length=8), self.abs_path)
+def test_translation_trainer_train_using_common_yaml():
+    """
+    Feature: Create Trainer From Config
+    Description: Test Trainer API to train from config
+    Expectation: TypeError
+    """
+    dir_path = os.path.join(os.path.dirname(__file__), 'fake_dataset')
+    os.makedirs(dir_path, exist_ok=True)
+    abs_path = os.path.join(dir_path, 't5_dataset')
+    write_mindrecord(generator(src_length=16, target_length=8), abs_path)
 
-    def teardown_class(self):
-        shutil.rmtree(self.dir, ignore_errors=True)
+    batch_size = 1
+    runner_config = RunnerConfig(epochs=1, batch_size=batch_size)  # 运行超参
+    optim_config = OptimizerConfig(optim_type='AdamWeightDecay', beta1=0.009, learning_rate=0.001)
 
-    def test_trainer_train_from_config(self):
-        """
-        Feature: Create Trainer From Config
-        Description: Test Trainer API to train from config
-        Expectation: TypeError
-        """
-        batch_size = 1
-        runner_config = RunnerConfig(epochs=1, batch_size=batch_size)  # 运行超参
-        optim_config = OptimizerConfig(optim_type='AdamWeightDecay', beta1=0.009, learning_rate=0.001)
+    dataset_files = []
+    for r, _, f in os.walk(dir_path):
+        for file in f:
+            if not file.endswith("db"):
+                dataset_files.append(os.path.join(r, file))
+    dataset = MindDataset(dataset_files=dataset_files, columns_list=["input_ids", "attention_mask", "labels"])
+    dataset = dataset.batch(batch_size=batch_size)
+    dataset = dataset.repeat(1)
 
-        dataset_files = []
-        for r, _, f in os.walk(self.dir):
-            for file in f:
-                if not file.endswith("db"):
-                    dataset_files.append(os.path.join(r, file))
-        dataset = MindDataset(dataset_files=dataset_files, columns_list=["input_ids", "attention_mask", "labels"])
-        dataset = dataset.batch(batch_size=batch_size)
-        dataset = dataset.repeat(1)
-
-        config = ConfigArguments(seed=2022, runner_config=runner_config, optimizer=optim_config)
-        model_config = T5Config(batch_size=batch_size, num_heads=8, num_hidden_layers=1, hidden_size=512,
-                                seq_length=16, max_decode_length=8)
-        # Model
-        model = T5ModelForLoss(model_config)
-        mim_trainer = Trainer(task_name='translation',
-                              model=model,
-                              config=config,
-                              train_dataset=dataset)
-        mim_trainer.train(resume_from_checkpoint=False)
+    config = ConfigArguments(seed=2022, runner_config=runner_config, optimizer=optim_config)
+    model_config = T5Config(batch_size=batch_size, num_heads=8, num_hidden_layers=1, hidden_size=512,
+                            seq_length=16, max_decode_length=8)
+    # Model
+    model = T5ModelForLoss(model_config)
+    mim_trainer = Trainer(task_name='translation',
+                          model=model,
+                          config=config,
+                          train_dataset=dataset)
+    mim_trainer.train(resume_from_checkpoint=False)
+    shutil.rmtree(dir_path, ignore_errors=True)
