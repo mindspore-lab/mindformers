@@ -15,6 +15,7 @@
 """Trainer Utils."""
 
 from mindformers.tools.logger import logger
+from mindformers.tools.register import MindFormerConfig
 
 
 def check_keywords_in_name(name, keywords=()):
@@ -30,19 +31,26 @@ def check_runner_config(config, dataset):
     """ Check runner config. """
     data_size = dataset.get_dataset_size()
     new_epochs = config.runner_config.epochs
-    if config.runner_config.per_epoch_size and config.runner_config.sink_mode:
-        if data_size < config.runner_config.per_epoch_size:
-            logger.warning("The data size %s (get from dataset.get_dataset_size()) is smaller "
-                           "than the per_epoch_size %s (get from config.runner_config.per_epoch_size), "
-                           "you should set the config.runner_config.per_epoch_size to %s",
-                           data_size, config.runner_config.per_epoch_size, data_size)
-        config.runner_config.epochs = int((data_size / config.runner_config.per_epoch_size) * new_epochs)
+    if config.runner_config.sink_mode:
+        if config.runner_config.per_epoch_size != -1:
+            if config.runner_config.per_epoch_size <= 0:
+                raise ValueError("per epoch size must be more than 0 or equal to -1, "
+                                 f"but get {config.runner_config.per_epoch_size}")
+            if data_size < config.runner_config.per_epoch_size:
+                logger.warning("The data size %s (get from dataset.get_dataset_size()) is smaller "
+                               "than the per_epoch_size %s (get from config.runner_config.per_epoch_size), "
+                               "you should set the config.runner_config.per_epoch_size to %s",
+                               data_size, config.runner_config.per_epoch_size, data_size)
+            config.runner_config.epochs = int((data_size / config.runner_config.per_epoch_size) * new_epochs)
+        else:
+            config.runner_config.per_epoch_size = data_size
     else:
-        config.runner_config.per_epoch_size = data_size
+        logger.warning("Sink mode is False, per epoch size is invalid, it will reset -1.")
+        config.runner_config.per_epoch_size = -1
 
     config.data_size = data_size
     logger.info("Will be Training epochs:%d, sink_size:%d",
-                config.runner_config.epochs, config.runner_config.sink_size)
+                config.runner_config.epochs, config.runner_config.per_epoch_size)
     logger.info("Create training dataset finish, dataset size:%d", data_size)
 
 
@@ -134,3 +142,15 @@ def check_wrapper_config(new_config, old_config):
                 "Please make sure to input the corresponding parameter values manually.",
                 wrapper_type)
             old_config.runner_wrapper = {}
+
+
+def config2dict(config):
+    """MindFormerConfig Type Convert to Dict."""
+    if not isinstance(config, (dict, MindFormerConfig)):
+        return config
+    new_dict = {}
+    for key, value in config.items():
+        if isinstance(value, MindFormerConfig):
+            value = config2dict(value)
+        new_dict.setdefault(key, value)
+    return new_dict

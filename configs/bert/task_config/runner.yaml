@@ -5,7 +5,7 @@ runner_config:
   sink_size: 10
   image_size: 224
   sink_mode: True
-  per_epoch_size: 0
+  per_epoch_size: -1
   initial_epoch: 0
   has_trained_epoches: 0
   has_trained_steps: 0

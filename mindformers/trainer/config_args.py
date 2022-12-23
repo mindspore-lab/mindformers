@@ -123,10 +123,10 @@ class RunnerConfig(BaseArgsConfig):
     ]
 
     def __init__(self,
-                 epochs: int = 100, batch_size: int = 64,
-                 sink_mode: bool = True, per_epoch_size: int = 0,
-                 initial_epoch: int = 0, has_trained_epoches: int = 0,
-                 has_trained_steps: int = 0, **kwargs):
+                 epochs: int = None, batch_size: int = None,
+                 sink_mode: bool = None, per_epoch_size: int = None,
+                 initial_epoch: int = None, has_trained_epoches: int = None,
+                 has_trained_steps: int = None, **kwargs):
         super(RunnerConfig, self).__init__(epochs=epochs,
                                            batch_size=batch_size,
                                            sink_mode=sink_mode,
