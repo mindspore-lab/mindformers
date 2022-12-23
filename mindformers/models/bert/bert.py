@@ -13,7 +13,6 @@
 # limitations under the License.
 # ============================================================================
 """BERT Model."""
-import copy
 import numpy as np
 import mindspore
 import mindspore.common.dtype as mstype
@@ -89,7 +88,6 @@ class BertModel(nn.Cell):
                  is_training=False,
                  use_one_hot_embeddings=False):
         super(BertModel, self).__init__()
-        config = copy.deepcopy(config)
         if not is_training:
             config.hidden_dropout_prob = 0.0
             config.attention_probs_dropout_prob = 0.0
