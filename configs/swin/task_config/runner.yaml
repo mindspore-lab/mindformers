@@ -1,0 +1,45 @@
+# runner config
+runner_config:
+  epochs: 100
+  batch_size: 128
+  image_size: 224
+  sink_mode: True
+  per_epoch_size: 1
+  initial_epoch: 0
+  has_trained_epoches: 0
+  has_trained_steps: 0
+  num_classes: 1000
+
+runner_wrapper:
+  type: TrainOneStepCell
+  sens: 1024
+
+# optimizer
+optimizer:
+  type: AdamWeightDecay
+  beta1: 0.9
+  beta2: 0.999
+  eps: 0.00000001 # 1e-8
+  weight_decay: 0.05
+
+# lr sechdule
+lr_schedule:
+  type: WarmUpCosineDecayV1
+  base_lr: 0.00125
+  min_lr: 0.00000025
+  warmup_lr: 0.00000025
+  warmup_epochs: 20
+
+callbacks:
+  - type: SummaryMonitor
+    keep_default_action: True
+  - type: CheckpointMointor
+    prefix: "mindformers"
+    save_checkpoint_steps: 100
+    integrated_save: True
+    async_save: False
+  - type: ObsMonitor
+
+metric:
+  type: Accuracy
+  eval_type: classification

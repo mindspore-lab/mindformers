@@ -1,0 +1,17 @@
+base_config: [
+    './task_config/context.yaml',
+    './task_config/runner.yaml',
+    './task_config/swin_dataset.yaml',
+    './model_config/swin_base_p4w7.yaml',
+    '../__base__.yaml' ]
+
+profile: False
+use_parallel: False
+
+seed: 0
+resume_checkpoint_path: '' # Input ckpt file path here
+
+run_status: 'train'
+trainer:
+  type: image_classification
+  model_name: 'swin'

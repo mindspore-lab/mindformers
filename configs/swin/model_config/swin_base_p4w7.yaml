@@ -1,0 +1,25 @@
+model:
+  arch:
+    type: SwinModel
+
+  model_config:
+    type: SwinConfig
+    patch_size: 4
+    in_channels: 3
+    embed_dim: 128
+    depths: [2, 2, 18, 2]
+    num_heads: [4, 8, 16, 32]
+    window_size: 7
+    mlp_ratio: 4
+    qkv_bias: True
+    qk_scale: 
+    drop_out_rate: 0.
+    attn_drop_rate: 0.
+    drop_path_rate: 0.5
+    use_abs_pos_emb: False
+    patch_norm: True
+    patch_type: conv
+    hidden_act: gelu
+    weight_init: normal
+    loss_type: SoftTargetCrossEntropy
+    checkpoint_name_or_path: swin_base_p4w7
