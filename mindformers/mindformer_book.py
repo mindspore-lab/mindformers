@@ -77,6 +77,12 @@ class MindFormerBook:
             ("common", os.path.join(
                 _PROJECT_PATH, "configs/mae/run_mae_vit_base_p16_224_800ep.yaml"))])
          ),
+        ("image_classification", OrderedDict([
+            ("vit_base_p16", os.path.join(
+                _PROJECT_PATH, "configs/vit/run_vit_base_p16_224_800ep.yaml")),
+            ("common", os.path.join(
+                _PROJECT_PATH, "configs/vit/run_vit_base_p16_224_800ep.yaml"))])
+         ),
         ("masked_language_modeling", OrderedDict([
             ("bert_base_uncased", os.path.join(
                 _PROJECT_PATH, "configs/bert/run_bert_base_uncased.yaml")),
@@ -116,6 +122,9 @@ class MindFormerBook:
         ('mae', [
             'mae_vit_base_p16',
         ]),
+        ('vit', [
+            'vit_base_p16',
+        ]),
         ('bert', [
             'bert_base_uncased',
         ]),
@@ -141,6 +150,10 @@ class MindFormerBook:
         ('clip_vit_b_32',
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
           '/XFormer_for_mindspore/clip/clip_vit_b_32.yaml'
+          ]),
+        ('vit_base_p16',
+         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
+          '/XFormer_for_mindspore/vit/vit_base_p16.yaml'
           ])
     ])
 

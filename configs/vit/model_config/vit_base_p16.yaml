@@ -1,0 +1,33 @@
+model:
+  arch:
+    type: VitModel
+
+  model_config:
+    type: VitConfig
+    patch_size: 16
+    in_chans: 3
+    embed_dim: 768
+    depth: 12
+    num_heads: 12
+    mlp_ratio: 4
+    drop_rate: 0.
+    drop_path_rate: 0.
+    use_abs_pos_emb: True
+    attention_dropout_rate: 0.
+    init_values:
+    hidden_act: gelu
+    post_layernorm_residual: False
+    use_mean_pooling: True
+    loss_type: SoftTargetCrossEntropy
+    checkpoint_name_or_path: 'vit_base_p16'
+
+processor:
+  type: VitProcessor
+
+  feature_extractor:
+    type: VitFeatureExtractor
+
+    image_feature_extractor:
+      type: VitImageFeatureExtractor
+
+      image_resolution: 224

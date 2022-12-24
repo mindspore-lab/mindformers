@@ -1,0 +1,19 @@
+base_config: [
+    './task_config/context.yaml',
+    './task_config/runner.yaml',
+    './task_config/vit_dataset.yaml',
+    './model_config/vit_base_p16.yaml',
+    '../__base__.yaml' ]
+
+profile: False
+use_parallel: False
+
+seed: 0
+resume_checkpoint_path: 'mae_finetuned_vit_base.ckpt'
+
+run_status: 'train'
+trainer:
+  type: image_classification
+  model_name: 'vit'
+
+
