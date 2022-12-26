@@ -70,12 +70,25 @@ class TestModelMethod:
         AutoModel.show_support_list()
         support_list = AutoModel.get_support_list()
         logger.info(support_list)
+
+        # input model name, load model and weights
+        model_a = AutoModel.from_pretrained('vit_base_p16')
+        # input model directory, load model and weights
+        model_b = AutoModel.from_pretrained(self.checkpoint_dir)
+        # input yaml path, load model without weights
         model_c = AutoModel.from_config(self.config_path)
+        # input config, load model without weights
         model_d = AutoModel.from_config(self.config)
+
+        model_a.save_pretrained(self.save_directory, save_name='vit_base_p16')
 
         VitModel.show_support_list()
         support_list = VitModel.get_support_list()
         logger.info(support_list)
+        # input model name, load model and weights
+        model_i = VitModel.from_pretrained('vit_base_p16')
+        # input model directory, load model and weights
+        model_j = VitModel.from_pretrained(self.checkpoint_dir)
         # input config, load model weights
         model_k = VitModel(self.config)
         # input config, load model without weights
@@ -83,15 +96,23 @@ class TestModelMethod:
         model_l = VitModel(self.config)
 
         # all models are VitModel class， and inherited from BaseModel
+        assert isinstance(model_i, VitModel)
+        assert isinstance(model_j, VitModel)
         assert isinstance(model_k, VitModel)
         assert isinstance(model_l, VitModel)
 
+        assert isinstance(model_i, BaseModel)
+        assert isinstance(model_j, BaseModel)
         assert isinstance(model_k, BaseModel)
         assert isinstance(model_l, BaseModel)
 
         # all models are VitModel class， and inherited from BaseModel
+        assert isinstance(model_a, VitModel)
+        assert isinstance(model_b, VitModel)
         assert isinstance(model_c, VitModel)
         assert isinstance(model_d, VitModel)
 
+        assert isinstance(model_a, BaseModel)
+        assert isinstance(model_b, BaseModel)
         assert isinstance(model_c, BaseModel)
         assert isinstance(model_d, BaseModel)
