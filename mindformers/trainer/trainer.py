@@ -34,7 +34,6 @@ from mindformers.models import build_model, build_tokenizer, build_feature_extra
     BaseModel, BaseFeatureExtractor, BaseTokenizer
 from mindformers.dataset import build_dataset, build_dataset_loader, \
     check_dataset_config, BaseDataset
-from mindformers.pipeline import pipeline
 from mindformers.wrapper import build_wrapper
 from mindformers.common.optim import build_optim
 from mindformers.common.lr import build_lr
@@ -57,6 +56,7 @@ __all__ = ['Trainer']
 
 SUPPORT_TASKS = MindFormerBook().get_trainer_support_task_list()
 SUPPORT_MODEL_NAMES = MindFormerBook().get_model_name_support_list()
+SUPPORT_PIPELINES = MindFormerBook().get_pipeline_support_task_list()
 SUPPORT_PIPELINE_INPUT_DATA = MindFormerBook().get_pipeline_support_input_data_list()
 CURRENT_PROJECT_PATH = MindFormerBook().get_project_path()
 DEFAULT_CHECKPOINT_DIR = 'checkpoint'
@@ -206,6 +206,11 @@ class Trainer:
                 self.eval_dataset = build_dataset(self.config.eval_dataset_task)
 
         if self.model is None and self.wrapper is None:
+            if resume_from_checkpoint is True or isinstance(resume_from_checkpoint, str):
+                if isinstance(resume_from_checkpoint, str) and resume_from_checkpoint in SUPPORT_MODEL_NAMES:
+                    self.config.model.model_config.checkpoint_name_or_path = resume_from_checkpoint
+                else:
+                    self.config.model.model_config.checkpoint_name_or_path = None
             self.model = build_model(self.config.model)
 
         if self.optimizers is None and self.wrapper is None:
@@ -238,6 +243,8 @@ class Trainer:
             self.eval_dataset = build_dataset(self.config.eval_dataset_task)
 
         if self.model is None:
+            if eval_checkpoint is True or isinstance(eval_checkpoint, str):
+                self.config.model.model_config.checkpoint_name_or_path = None
             self.model = build_model(self.config.model)
 
         if self.callbacks is None:
@@ -255,6 +262,10 @@ class Trainer:
                 predict_checkpoint: Optional[Union[str, bool]] = None,
                 input_data: Optional[Union[Tensor, np.ndarray, Image, str, list]] = None, **kwargs):
         """predict."""
+        if self.task_name not in SUPPORT_PIPELINES.keys():
+            raise NotImplementedError(f"The {self.task_name} not support predict, "
+                                      f"now this tasks {SUPPORT_PIPELINES.keys()} is support predict.")
+
         if predict_checkpoint is False:
             predict_checkpoint = None
 
@@ -264,6 +275,8 @@ class Trainer:
             "Input data's type must be one of [str, ms.Tensor, np.ndarray, PIL.Image.Image]"
 
         if self.model is None:
+            if predict_checkpoint is True or isinstance(predict_checkpoint, str):
+                self.config.model.model_config.checkpoint_name_or_path = None
             self.model = build_model(self.config.model)
 
         if self.tokenizer is None:
@@ -275,11 +288,12 @@ class Trainer:
         filter_prefix = ["adam_v", "adam_m", "epoch_num", "step_num", "global_step"]
         self.load_checkpoint(predict_checkpoint, filter_prefix=filter_prefix, is_train=False)
 
-        predictor = pipeline(
-            self.task_name, model=self.model,
-            feature_extractor=self.feature_extractor,
+        trainer = build_trainer(self.config.trainer)
+        output_result = trainer.predict(
+            config=self.config, input_data=input_data,
+            network=self.model, feature_extractor=self.feature_extractor,
             tokenizer=self.tokenizer, **kwargs)
-        return predictor(input_data)
+        return output_result
 
     def create_optimizer_and_scheduler(self):
         """create_optimizer_and_scheduler."""

@@ -31,7 +31,7 @@ from mindspore import Tensor
 from mindspore import dtype as mstype
 from mindspore import ops as P
 
-from mindspore.dataset.transforms import py_transforms
+from mindspore.dataset.vision.transforms import PyTensorOperation
 
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 
@@ -115,7 +115,7 @@ def cutmix_bbox_and_lam(img_shape, lam, ratio_minmax=None, correct_lam=True, cou
 
 
 @MindFormerRegister.register(MindFormerModuleType.TRANSFORMS)
-class Mixup(py_transforms.PyTensorOperation):
+class Mixup(PyTensorOperation):
     """ Mixup/Cutmix that applies different params to each element or whole batch
 
     Args:

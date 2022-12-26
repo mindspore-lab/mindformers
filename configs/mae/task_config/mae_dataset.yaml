@@ -6,15 +6,15 @@ train_dataset: &train_dataset
     shuffle: True
     num_samples: 1000
   transforms:
-    - type: C_RandomCropDecodeResize
+    - type: RandomCropDecodeResize
       size: 224
       scale: [0.2, 1.0]
-    - type: C_RandomHorizontalFlip
+    - type: RandomHorizontalFlip
       prob: 0.5
-    - type: C_Normalize
+    - type: Normalize
       mean: [123.675, 118.575, 103.53]
       std: [58.395, 62.22, 57.375]
-    - type: C_HWC2CHW
+    - type: HWC2CHW
 #  mask_policy:
 #    type: MaeMask
 #    input_size: 224

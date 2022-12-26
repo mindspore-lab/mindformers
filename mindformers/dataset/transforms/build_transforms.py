@@ -41,35 +41,6 @@ def build_transforms(
     return MindFormerRegister.get_instance(module_type, class_name, **kwargs)
 
 
-def register_ms_c_transforms():
-    """register MindSpore builtin c_transforms class."""
-    for module_name in set(dir(tf.c_transforms) + dir(vs.c_transforms)):
-        if module_name.startswith('__'):
-            continue
-
-        c_transforms = getattr(tf.c_transforms, module_name, None) \
-            if getattr(tf.c_transforms, module_name, None)\
-            else getattr(vs.c_transforms, module_name)
-        if inspect.isclass(c_transforms):
-            class_name = 'C_' + c_transforms.__name__
-            MindFormerRegister.register_cls(c_transforms,
-                                            MindFormerModuleType.TRANSFORMS, alias=class_name)
-
-
-def register_ms_py_transforms():
-    """register MindSpore builtin py_transforms class."""
-    for module_name in set(dir(tf.py_transforms) + dir(vs.py_transforms)):
-        if module_name.startswith('__'):
-            continue
-
-        py_transforms = getattr(tf.py_transforms, module_name, None) \
-            if getattr(tf.py_transforms, module_name, None)\
-            else getattr(vs.py_transforms, module_name)
-        if inspect.isclass(py_transforms):
-            class_name = 'PY_' + py_transforms.__name__
-            MindFormerRegister.register_cls(py_transforms,
-                                            MindFormerModuleType.TRANSFORMS, alias=class_name)
-
 def register_ms_transforms():
     """register MindSpore builtin transforms class."""
     for module_name in set(dir(vs.transforms) + dir(tf.transforms)):
@@ -80,10 +51,8 @@ def register_ms_transforms():
             if getattr(vs.transforms, module_name, None)\
             else getattr(tf.transforms, module_name)
         if inspect.isclass(transforms):
-            class_name = transforms.__name__
             MindFormerRegister.register_cls(transforms,
-                                            MindFormerModuleType.TRANSFORMS, alias=class_name)
+                                            MindFormerModuleType.TRANSFORMS)
 
-register_ms_c_transforms()
-register_ms_py_transforms()
+
 register_ms_transforms()

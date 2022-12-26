@@ -13,6 +13,9 @@
 # limitations under the License.
 # ============================================================================
 """Trainer Utils."""
+import os
+
+from mindspore import context, load_checkpoint, load_param_into_net
 
 from mindformers.tools.logger import logger
 from mindformers.tools.register import MindFormerConfig
@@ -189,3 +192,24 @@ def config2dict(config):
             value = config2dict(value)
         new_dict.setdefault(key, value)
     return new_dict
+
+
+def load_distributed_checkpoint():
+    """Load Checkpoint in Parallel Mode."""
+
+
+def resume_checkpoint_for_training(config, network, optimizer):
+    """Resume Checkpoint for training."""
+    if not os.path.realpath(config.resume_checkpoint_path) or \
+            not os.path.exists(config.resume_checkpoint_path):
+        raise FileNotFoundError(f"The resume_checkpoint_path must be correct, "
+                                f"but get {config.resume_checkpoint_path}")
+    if context.get_auto_parallel_context('parallel_mode') in \
+            ['semi_auto_parallel', 'auto_parallel', 'hybrid_parallel']:
+        load_distributed_checkpoint()
+    else:
+        checkpoint_dict = load_checkpoint(config.resume_checkpoint_path)
+        not_load_network_params = load_param_into_net(network, checkpoint_dict)
+        not_load_optim_params = load_param_into_net(optimizer, checkpoint_dict)
+        logger.info("Not load network parameters is：%s", str(not_load_network_params))
+        logger.info("Not load optimizer parameters is：%s", str(not_load_optim_params))

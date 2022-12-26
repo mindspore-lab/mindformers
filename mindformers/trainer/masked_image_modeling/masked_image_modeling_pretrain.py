@@ -13,22 +13,24 @@
 # limitations under the License.
 # ============================================================================
 """Masked Image Modeling Trainer."""
-from typing import Callable, List
+from typing import Optional, List, Union
 
 from mindspore.train.model import Model
-from mindspore.nn import TrainOneStepCell
+from mindspore.train import Callback
+from mindspore.nn import TrainOneStepCell, Optimizer
 
-from mindformers.dataset import build_dataset, check_dataset_config
-from mindformers.models import build_model
+from mindformers.common.callback import build_callback
+from mindformers.dataset import build_dataset, check_dataset_config, BaseDataset
+from mindformers.models import build_model, BaseModel
 from mindformers.common.lr import build_lr
 from mindformers.common.optim import build_optim
 from mindformers.wrapper import build_wrapper
-from mindformers.common.callback import build_callback
-from mindformers.trainer.base_trainer import BaseTrainer
-from mindformers.trainer.utils import check_runner_config
 from mindformers.tools.logger import logger
 from mindformers.tools.utils import count_params
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
+from ..config_args import ConfigArguments
+from ..base_trainer import BaseTrainer
+from ..utils import check_runner_config, resume_checkpoint_for_training
 
 
 @MindFormerRegister.register(MindFormerModuleType.TRAINER, alias="mim")
@@ -40,12 +42,13 @@ class MaskedImageModelingTrainer(BaseTrainer):
         self.kwargs = None
 
     def train(self,
-              config: dict = None,
-              network: Callable = None,
-              dataset: Callable = None,
-              wrapper: Callable = None,
-              optimizer: Callable = None,
-              callbacks: List[Callable] = None, **kwargs):
+              config: Optional[Union[dict, ConfigArguments]] = None,
+              network: Optional[Union[str, BaseModel]] = None,
+              dataset: Optional[Union[str, BaseDataset]] = None,
+              wrapper: Optional[TrainOneStepCell] = None,
+              optimizer: Optional[Optimizer] = None,
+              callbacks: Optional[Union[Callback, List[Callback]]] = None,
+              **kwargs):
         """train for trainer."""
         # 自定义创建模型训练完整过程, 待补充
         self.kwargs = kwargs
@@ -62,7 +65,7 @@ class MaskedImageModelingTrainer(BaseTrainer):
             network = build_model(config.model, default_args={
                 "parallel_config": config.parallel_config,
                 "moe_config": config.moe_config})
-        logger.info("Network params: %s M.", str(count_params(network)))
+        logger.info("Network Parameters: %s M.", str(count_params(network)))
 
         # build optimizer
         logger.info(".........Build Optimizer..........")
@@ -83,12 +86,18 @@ class MaskedImageModelingTrainer(BaseTrainer):
                     default_args={"params": group_params})
 
         # build callback
+        logger.info(".........Build Callbacks for Train..........")
         if callbacks is None:
             callbacks = []
             if config.profile:
                 callbacks.append(config.profile_cb)
             callbacks.extend(build_callback(
                 config.callbacks, default_args={"learning_rate": optimizer.learning_rate}))
+
+        # resume checkpoint
+        if config.resume_checkpoint_path is not None and config.resume_checkpoint_path != '':
+            logger.info(".............start resume training from checkpoint..................")
+            resume_checkpoint_for_training(config, network, optimizer)
 
         # build runner wrapper
         logger.info(".........Build Running Wrapper..........")
@@ -107,4 +116,6 @@ class MaskedImageModelingTrainer(BaseTrainer):
         model.train(
             config.runner_config.epochs, dataset, callbacks=callbacks,
             dataset_sink_mode=config.runner_config.sink_mode,
-            sink_size=config.runner_config.per_epoch_size)
+            sink_size=config.runner_config.per_epoch_size,
+            initial_epoch=config.runner_config.initial_epoch)
+        logger.info(".........Training Over!.............")

@@ -15,6 +15,7 @@
 """Run MindFormer."""
 import argparse
 import os
+from pprint import pprint
 
 import numpy as np
 
@@ -27,6 +28,10 @@ from mindformers.common.context import build_context
 from mindformers.trainer import build_trainer
 from mindformers.tools.cloud_adapter import cloud_monitor
 from mindformers.tools.logger import logger
+from mindformers.mindformer_book import MindFormerBook
+
+
+SUPPORT_MODEL_NAMES = MindFormerBook().get_model_name_support_list()
 
 
 @cloud_monitor()
@@ -44,19 +49,27 @@ def main(config):
     logger.info("moe config is: %s", config.moe_config)
 
     # auto pull dataset if on ModelArts platform
-    if config.pretrain_dataset:
-        config.pretrain_dataset.data_loader.dataset_dir = cfts.get_dataset(
-            config.pretrain_dataset.data_loader.dataset_dir)
+    if config.train_dataset:
+        config.train_dataset.data_loader.dataset_dir = cfts.get_dataset(
+            config.train_dataset.data_loader.dataset_dir)
     if config.eval_dataset:
         config.eval_dataset.data_loader.dataset_dir = cfts.get_dataset(
             config.eval_dataset.data_loader.dataset_dir)
+
     # auto pull checkpoint if on ModelArts platform
-    if config.runner_config.load_checkpoint:
-        config.runner_config.load_checkpoint = cfts.get_checkpoint(config.runner_config.load_checkpoint)
+    if config.resume_checkpoint_path and config.resume_checkpoint_path != '':
+        config.resume_checkpoint_path = cfts.get_checkpoint(config.resume_checkpoint_path)
+        if isinstance(config.resume_checkpoint_path, str) and config.resume_checkpoint_path in SUPPORT_MODEL_NAMES:
+            config.model.model_config.checkpoint_name_or_path = config.resume_checkpoint_path
+        else:
+            config.model.model_config.checkpoint_name_or_path = None
 
     # define callback and add profile callback
     if config.profile:
         config.profile_cb = profile_cb
+
+    if config.local_rank % 8 == 0:
+        pprint(config)
 
     trainer = build_trainer(config.trainer)
     if config.run_status == 'train':
@@ -80,6 +93,7 @@ if __name__ == "__main__":
     parser.add_argument('--device_target', default=None, type=str, help='device target')
     parser.add_argument('--run_status', default=None, type=str, help='open training')
     parser.add_argument('--dataset_dir', default=None, type=str, help='dataset directory')
+    parser.add_argument('--predict_data', default=None, type=str, help='input data for predict')
     parser.add_argument('--resume_checkpoint_path', default=None, type=str, help='load model checkpoint')
     parser.add_argument('--seed', default=None, type=int, help='random seed')
     parser.add_argument('--use_parallel', default=None, type=str2bool, help='whether use parallel mode')
@@ -111,8 +125,21 @@ if __name__ == "__main__":
         config_.profile = args_.profile
     if args_.options is not None:
         config_.merge_from_dict(args_.options)
-    if args_.dataset_dir:
-        config_.train_dataset.data_loader.dataset_dir = args_.dataset_dir
     assert config_.run_status in ['train', 'eval', 'predict'], \
         f"run status must be in {['train', 'eval', 'predict']}, but get {config_.run_status}"
+    if args_.dataset_dir:
+        if config_.run_status == 'train':
+            config_.train_dataset.data_loader.dataset_dir = args_.dataset_dir
+        if config_.run_status == 'eval':
+            config_.eval_dataset.data_loader.dataset_dir = args_.dataset_dir
+    if config_.run_status == 'predict':
+        if args_.predict_data is None:
+            raise ValueError("predict_data argument must be input, but get None.")
+        if os.path.isdir(args_.predict_data) and os.path.exists(args_.predict_data):
+            predict_data = [os.path.join(root, file)
+                            for root, _, file_list in os.walk(os.path.join(args_.predict_data)) for file in file_list
+                            if file.endswith(".jpg") or file.endswith(".png") or file.endswith(".jpeg")
+                            or file.endswith(".JPEG") or file.endswith("bmp")]
+            args_.predict_data = predict_data
+        config_.input_data = args_.predict_data
     main(config_)
