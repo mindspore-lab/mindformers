@@ -156,6 +156,10 @@ class MindFormerBook:
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
           '/XFormer_for_mindspore/clip/clip_vit_b_32.ckpt'
           ]),
+        ('vit_base_p16',
+         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
+          '/XFormer_for_mindspore/vit/vit_base_p16.ckpt'
+          ]),
         ('swin_base_p4w7',
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
           '/XFormer_for_mindspore/swin/swin_base_p4w7.ckpt'
