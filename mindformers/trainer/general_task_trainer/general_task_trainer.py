@@ -15,22 +15,27 @@
 """General Task Example For Trainer."""
 from typing import Optional, List, Union
 
+import numpy as np
+from PIL.Image import Image
+
 from mindspore.train.model import Model
 from mindspore.train import Callback
 from mindspore.nn import TrainOneStepCell, Optimizer
+from mindspore import Tensor
 
 from mindformers.dataset import BaseDataset
-from mindformers.models import BaseModel
+from mindformers.models import BaseModel, BaseTokenizer, BaseFeatureExtractor
+from mindformers.pipeline import pipeline
 from mindformers.common.lr import build_lr
 from mindformers.common.optim import build_optim
 from mindformers.wrapper import build_wrapper
 from mindformers.common.callback import build_callback
-from mindformers.trainer.base_trainer import BaseTrainer
-from mindformers.trainer.utils import check_runner_config
 from mindformers.tools.logger import logger
 from mindformers.tools.utils import count_params
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
+from ..base_trainer import BaseTrainer
 from ..config_args import ConfigArguments
+from ..utils import check_runner_config, resume_checkpoint_for_training
 
 
 @MindFormerRegister.register(MindFormerModuleType.TRAINER, alias="general")
@@ -63,7 +68,7 @@ class GeneralTaskTrainer(BaseTrainer):
             raise NotImplementedError("train network must be define, but get None.")
 
         if network is not None:
-            logger.info("Network params: %s M.", str(count_params(network)))
+            logger.info("Network Parameters: %s M.", str(count_params(network)))
 
         # build optimizer
         logger.info(".........Build Optimizer..........")
@@ -84,12 +89,18 @@ class GeneralTaskTrainer(BaseTrainer):
                     default_args={"params": group_params})
 
         # build callback
+        logger.info(".........Build Callbacks for Train..........")
         if callbacks is None:
             callbacks = []
             if config.profile:
                 callbacks.append(config.profile_cb)
             callbacks.extend(build_callback(
                 config.callbacks, default_args={"learning_rate": optimizer.learning_rate}))
+
+        # resume checkpoint
+        if config.resume_checkpoint_path is not None and config.resume_checkpoint_path != '':
+            logger.info(".............start resume training from checkpoint..................")
+            resume_checkpoint_for_training(config, network, optimizer)
 
         # build runner wrapper
         logger.info(".........Build Running Wrapper..........")
@@ -109,7 +120,9 @@ class GeneralTaskTrainer(BaseTrainer):
         model.train(
             config.runner_config.epochs, dataset, callbacks=callbacks,
             dataset_sink_mode=config.runner_config.sink_mode,
-            sink_size=config.runner_config.per_epoch_size)
+            sink_size=config.runner_config.per_epoch_size,
+            initial_epoch=config.runner_config.initial_epoch)
+        logger.info(".........Training Over!.............")
 
     def evaluate(self,
                  config: Optional[Union[dict, ConfigArguments]] = None,
@@ -130,13 +143,15 @@ class GeneralTaskTrainer(BaseTrainer):
         logger.info(".........Build Net..........")
         if network is None:
             raise NotImplementedError("train network must be define, but get None.")
-        logger.info("Network params: %s M.", str(count_params(network)))
+        logger.info("Network Parameters: %s M.", str(count_params(network)))
 
         # define metric
+        logger.info(".........Build Compute Metrics for Evaluate..........")
         if compute_metrics is None:
             raise NotImplementedError("eval metrics must be define, but get None.")
 
         # define callback
+        logger.info(".........Build Callbacks for Evaluate..........")
         if callbacks is None:
             raise NotImplementedError("eval callbacks must be define, but get None.")
 
@@ -145,3 +160,36 @@ class GeneralTaskTrainer(BaseTrainer):
         model = Model(network, metrics=compute_metrics)
 
         model.eval(dataset, callbacks=callbacks, dataset_sink_mode=config.runner_config.sink_mode)
+        logger.info(".........Evaluate Over!.............")
+
+    def predict(self,
+                input_data: Optional[Union[Tensor, np.ndarray, Image, str, list]] = None,
+                network: Optional[Union[str, BaseModel]] = None,
+                tokenizer: Optional[BaseTokenizer] = None,
+                feature_extractor: Optional[BaseFeatureExtractor] = None, **kwargs):
+        """predict for trainer."""
+        if not isinstance(input_data, (Tensor, np.ndarray, Image, str, list)):
+            raise ValueError("Input data's type must be one of "
+                             "[str, ms.Tensor, np.ndarray, PIL.Image.Image, list]")
+
+        logger.info(".........Build Net..........")
+        if network is None:
+            raise NotImplementedError("train network must be define, but get None.")
+
+        if network is not None:
+            logger.info("Network Parameters: %s M.", str(count_params(network)))
+
+        if tokenizer is None:
+            raise NotImplementedError("tokenizer must be define, but get None.")
+
+        if feature_extractor is None:
+            raise NotImplementedError("feature_extractor must be define, but get None.")
+
+        pipeline_task = pipeline(task='general',
+                                 model=network,
+                                 tokenizer=tokenizer,
+                                 feature_extractor=feature_extractor, **kwargs)
+        output_result = pipeline_task(input_data)
+        logger.info("output result is: %s", str(output_result))
+        logger.info(".........Predict Over!.............")
+        return output_result

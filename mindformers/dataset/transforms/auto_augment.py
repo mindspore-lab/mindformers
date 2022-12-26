@@ -36,7 +36,7 @@ import re
 import numpy as np
 import PIL
 from PIL import Image, ImageOps, ImageEnhance
-from mindspore.dataset.transforms import py_transforms
+from mindspore.dataset.vision.transforms import PyTensorOperation
 
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 
@@ -645,10 +645,11 @@ def rand_augment_ops(magnitude=10, hparams=None, transforms=None):
         name, prob=0.5, magnitude=magnitude, hparams=hparams) for name in transforms]
 
 
-class RandAugment(py_transforms.PyTensorOperation):
+class RandAugment(PyTensorOperation):
     """RandAugment"""
 
     def __init__(self, ops, num_layers=2, choice_weights=None):
+        super(RandAugment, self).__init__()
         self.ops = ops
         self.num_layers = num_layers
         self.choice_weights = choice_weights

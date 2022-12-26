@@ -7,27 +7,28 @@ train_dataset: &train_dataset
     num_parallel_workers: 8
     shuffle: True
   transforms:
-    - type: PY_Decode
+    - type: Decode
     - type: RandomResizedCrop
       size: 224
       scale: [0.2, 1.0]
       interpolation: cubic
-    - type: PY_RandomHorizontalFlip
+    - type: RandomHorizontalFlip
       prob: 0.5
+    - type: ToPIL
     - type: rand_augment_transform
       config_str: "rand-m9-mstd0.5-inc1"
       hparams:
         translate_const: 100
         img_mean: [124, 116, 104]
-        interpolation: cubic
-    - type: PY_ToTensor
-    - type: PY_Normalize
+        interpolation: 2
+    - type: Normalize
       mean: [0.485, 0.456, 0.406] # [123.675, 118.575, 103.53]
       std: [0.229, 0.224, 0.225] #
     - type: RandomErasing
       probability: 0.25
       mode: pixel
       max_count: 1
+    - type: HWC2CHW
   mixup_op:
     mixup_alpha: 0.8
     cutmix_alpha: 1.0
@@ -58,16 +59,16 @@ eval_dataset: &eval_dataset
     num_parallel_workers: 8
     shuffle: True
   transforms:
-    - type: PY_Decode
+    - type: Decode
     - type: Resize
       size: 256
       interpolation: cubic
-    - type: PY_CenterCrop
+    - type: CenterCrop
       size: 224
-    - type: PY_ToTensor
-    - type: PY_Normalize
+    - type: Normalize
       mean: [0.485, 0.456, 0.406]
       std: [0.229, 0.224, 0.225]
+    - type: HWC2CHW
   input_columns: ["image", "label"]
   output_columns: ["image", "label"]
   column_order: ["image", "label"]
@@ -82,5 +83,4 @@ eval_dataset: &eval_dataset
 
 eval_dataset_task:
   type: ImageCLSDataset
-  do_eval: True
   dataset_config: *eval_dataset

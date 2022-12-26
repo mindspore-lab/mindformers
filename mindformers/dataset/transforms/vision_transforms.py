@@ -21,7 +21,6 @@ from PIL import Image
 
 from mindspore.dataset import vision
 import mindspore as ms
-from mindspore.dataset.vision.py_transforms import DE_PY_INTER_MODE
 
 from mindspore.dataset.vision.utils import Inter
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
@@ -270,23 +269,25 @@ class BatchPILize:
 
 
 @MindFormerRegister.register(MindFormerModuleType.TRANSFORMS)
-class RandomResizedCrop(vision.py_transforms.RandomResizedCrop):
-    """wrapper of P_RandomCropDecodeResize"""
+class RandomResizedCrop(vision.transforms.RandomResizedCrop):
+    """wrapper of RandomCropDecodeResize"""
 
     def __init__(self, size, scale=(0.08, 1.0), ratio=(3. / 4., 4. / 3.),
                  interpolation='cubic', max_attempts=10):
         self.size = size
         self.scale = scale
         self.ratio = ratio
-        self.interpolation = DE_PY_INTER_MODE[PY_INTERPOLATION.get(interpolation)]
+        self.interpolation = PY_INTERPOLATION.get(interpolation)
         self.max_attempts = max_attempts
+        super(RandomResizedCrop, self).__init__(size, scale, ratio, self.interpolation, max_attempts)
 
 
 @MindFormerRegister.register(MindFormerModuleType.TRANSFORMS)
-class Resize(vision.py_transforms.Resize):
-    """wrapper of P_RandomCropDecodeResize"""
+class Resize(vision.transforms.Resize):
+    """wrapper of Resize"""
 
     def __init__(self, size, interpolation='cubic'):
         self.size = size
-        self.interpolation = DE_PY_INTER_MODE[PY_INTERPOLATION.get(interpolation)]
+        self.interpolation = PY_INTERPOLATION.get(interpolation)
         self.random = False
+        super(Resize, self).__init__(size, self.interpolation)

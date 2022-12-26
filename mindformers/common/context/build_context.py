@@ -15,7 +15,6 @@
 """Build context."""
 
 import os
-from pprint import pprint
 
 from mindspore import context
 from mindspore.communication.management import init, get_group_size, get_rank
@@ -43,8 +42,6 @@ def build_context(config):
 
     config.device_num = device_num
     config.local_rank = local_rank
-    if local_rank % 8 == 0:
-        pprint(config)
 
     # init cfts
     clould_file_trans_sys = CFTS(**config.aicc_config, rank_id=local_rank)

@@ -9,7 +9,7 @@ profile: False
 use_parallel: False
 
 seed: 0
-resume_checkpoint_path: 'mae_finetuned_vit_base.ckpt'
+resume_checkpoint_path: ''
 
 run_status: 'train'
 trainer:
