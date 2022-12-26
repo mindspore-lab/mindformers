@@ -130,7 +130,7 @@ class GeneratorMinMax:
         pad_length = self.config.seq_length - origin_inputs.shape[-1]
         if pad_length < 0:
             raise ValueError(f"origin_inputs size is {origin_inputs.shape}, you should increase the "
-                             f"{self.config.seq_length}.")
+                             f"seq_length of the model {self.config.seq_length}.")
         # Pad original inputs to model_origin_max_length
         input_ids = np.pad(origin_inputs, ((0, 0), (0, pad_length)), 'constant', constant_values=(0, 0))
         logging.info("pad the origin inputs into shape: %s", input_ids.shape)

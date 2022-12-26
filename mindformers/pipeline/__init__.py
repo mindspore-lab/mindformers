@@ -18,7 +18,10 @@ from .build_pipeline import build_pipeline
 from .base_pipeline import BasePipeline
 from .image_classification_pipeline import ImageClassificationForPipeline
 from .zero_shot_image_classification_pipeline import ZeroShotImageClassificationPipeline
+from .translation_pipeline import TranslationPipeline
 
 
 __all__ = ['build_pipeline', 'ZeroShotImageClassificationPipeline',
            'ImageClassificationForPipeline', 'pipeline', 'BasePipeline']
+
+__all__.extend(translation_pipeline.__all__)

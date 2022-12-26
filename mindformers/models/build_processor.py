@@ -32,7 +32,8 @@ def build_processor(
                     config.feature_extractor.image_processor)
             config.feature_extractor = build_feature_extractor(config.feature_extractor)
         if config.tokenizer is not None:
-            config.tokenizer = build_tokenizer(config.tokenizer)
+            config.tokenizer = build_tokenizer(config.tokenizer, **kwargs)
+
         return MindFormerRegister.get_instance_from_cfg(
             config, MindFormerModuleType.PROCESSOR, default_args=default_args)
     return MindFormerRegister.get_instance(module_type, class_name, **kwargs)

@@ -400,10 +400,14 @@ class AutoProcessor:
                              f'please select from {cls._support_list}.')
 
         if is_exist:
-            logger.info("config in %s is used for feature extractor"
+            logger.info("config in %s is used for auto processor"
                         " building.", yaml_name_or_path)
-
-            config_args = MindFormerConfig(yaml_name_or_path)
+            if os.path.isdir(yaml_name_or_path):
+                yaml_list = [file for file in os.listdir(yaml_name_or_path) if file.endswith(".yaml")]
+                yaml_name = os.path.join(yaml_name_or_path, yaml_list[0])
+                config_args = MindFormerConfig(yaml_name)
+            else:
+                config_args = MindFormerConfig(yaml_name_or_path)
         else:
             if model_name in cls._support_list.keys() and \
                     yaml_name_or_path in cls._support_list[model_name]:
@@ -435,7 +439,10 @@ class AutoProcessor:
 
             config_args = MindFormerConfig(yaml_file)
 
-        processor = build_processor(config_args.processor)
+        lib_path = yaml_name_or_path
+        if not os.path.isdir(lib_path):
+            lib_path = None
+        processor = build_processor(config_args.processor, lib_path=lib_path)
         logger.info("processor built successfully!")
         return processor
 
