@@ -17,9 +17,17 @@ import time
 import os
 import requests
 import urllib3
+
 from tqdm import tqdm
 
 from .logger import logger
+try:
+    import fcntl
+except ImportError:
+    fcntl = None
+    logger.warning("The library fcntl is not found. This may cause the reading file failed "
+                   "when call the from_pretrained for different process.")
+
 class StatusCode:
     '''StatusCode'''
     succeed = 200
@@ -46,10 +54,11 @@ def downlond_with_progress_bar(url, filepath, chunk_size=1024, timeout=4):
         logger.info('Start download %s,[File size]:{%.2f} MB',
                     filepath, content_size / chunk_size /1024)
         with open(filepath, 'wb') as file:
+            if fcntl:
+                fcntl.flock(file.fileno(), fcntl.LOCK_EX)
             for data in tqdm(response.iter_content(chunk_size=chunk_size)):
                 file.write(data)
                 size += len(data)
-        file.close()
         end = time.time()
         logger.info('Download completed!,times: %.2fs', (end - start))
         return True

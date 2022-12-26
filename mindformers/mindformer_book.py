@@ -108,7 +108,7 @@ class MindFormerBook:
                 _PROJECT_PATH, "configs/clip/run_clip_vit_b_32_zero_shot_image_classification_cafir100.yaml"))])
          ),
         ("translation", OrderedDict([
-            ("t5-small", os.path.join(
+            ("t5_small", os.path.join(
                 _PROJECT_PATH, "configs/t5/run_t5_small.yaml")),
             ("common", os.path.join(
                 _PROJECT_PATH, "configs/t5/run_t5_small.yaml"))])
@@ -141,7 +141,7 @@ class MindFormerBook:
             'bert_base_uncased',
         ]),
         ('t5', [
-            't5-small',
+            't5_small',
         ])
     ])
 
@@ -160,6 +160,10 @@ class MindFormerBook:
         ('swin_base_p4w7',
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
           '/XFormer_for_mindspore/swin/swin_base_p4w7.ckpt'
+          ]),
+        ('t5_small',
+         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
+          '/XFormer_for_mindspore/t5/mindspore_model.ckpt'
           ])
     ])
 
@@ -175,6 +179,10 @@ class MindFormerBook:
         ('swin_base_p4w7',
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
           '/XFormer_for_mindspore/swin/swin_base_p4w7.yaml'
+          ]),
+        ('t5_small',
+         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
+          '/XFormer_for_mindspore/t5/mindspore_model.yaml'
           ])
     ])
 
@@ -188,6 +196,10 @@ class MindFormerBook:
         ('clip_vit_b_32', [
             "https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/"
             "XFormer_for_mindspore/clip/bpe_simple_vocab_16e6.txt.gz"
+        ]),
+        ('t5_small', [
+            "https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/"
+            "XFormer_for_mindspore/t5/spiece.model"
         ]),
         ('clip', [
             "https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/"
@@ -203,7 +215,8 @@ class MindFormerBook:
 
     TOKENIZER_NAME_TO_TOKENIZER = OrderedDict([
         ('clip', 'ClipTokenizer'),
-        ('bert', 'BertTokenizer')
+        ('bert', 'BertTokenizer'),
+        ('t5', 'T5Tokenizer')
     ])
 
     PIPELINE_TASK_NAME_TO_PIPELINE = OrderedDict([

@@ -19,7 +19,6 @@ import numpy as np
 import mindspore.ops as ops
 import mindspore.nn as nn
 from mindspore import context
-from mindspore import log as logger
 from mindspore.ops.primitive import constexpr
 from mindspore.ops import functional as F
 from mindspore.ops import operations as P
@@ -40,7 +39,10 @@ from mindspore.nn.transformer.transformer import default_transformer_config, def
 from mindspore.nn.transformer.loss import CrossEntropyLoss
 from mindspore.nn.transformer import VocabEmbedding
 
+from .t5_config import T5Config
+
 from ..base_model import BaseModel
+from ...tools import logger
 from ...tools.register import MindFormerRegister, MindFormerModuleType
 from ...mindformer_book import MindFormerBook
 
@@ -1563,9 +1565,9 @@ class T5Model(BaseModel):
 
     Args:
         config (Class): Configuration for T5Model.
-        is_training (bool): True for training mode. False for eval mode.
-        use_one_hot_embeddings (bool): Specifies whether to use one hot encoding form. Default: False.
     """
+
+    _support_list = MindFormerBook.get_model_support_list()['t5']
 
     def __init__(self,
                  config):
@@ -1702,17 +1704,30 @@ class T5Model(BaseModel):
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
 class T5ModelForLoss(BaseModel):
     """
-    Provide  transformer training loss through network.
+    A T5 model with the loss added.
 
     Args:
-        config : The network of the transformer.
+        config(T5Config) : The network of the transformer.
 
-    Returns:
-        Tensor, the loss of the network.
+
+    Examples:
+        >>> from mindformers import T5ModelForLoss, T5Tokenizer
+        >>> model = T5ModelForLoss.from_pretrained('t5_small')
+        >>> tokenizer = T5Tokenizer.from_pretrained('t5_small')
+        >>> src_output = tokenizer(["hello world"], padding='max_length', max_length=model.config.seq_length,
+        ...                        return_tensors='ms')
+        >>> model_input = tokenizer(["So happy to see you!"], padding='max_length',
+        ...                         max_length=model.config.max_decode_length,
+        ...                         return_tensors='ms')["input_ids"]
+        >>> input_ids = src_output['input_ids']
+        >>> attention_mask = src_output['attention_mask']
+        >>> output = model(input_ids, attention_mask, model_input)
+        >>> print(output)
+        [5.64458]
     """
     _support_list = MindFormerBook.get_model_support_list()['t5']
 
-    def __init__(self, config):
+    def __init__(self, config: T5Config):
         super(T5ModelForLoss, self).__init__(config)
         parallel_config = config.parallel_config
         self.t5_model = T5Model(config=config)
@@ -1746,19 +1761,18 @@ class T5ModelForLoss(BaseModel):
         return inputs_with_eos
 
     def construct(self,
-                  source_ids,
-                  source_mask,
-                  target_ids,
+                  input_ids,
+                  attention_mask,
+                  labels,
                   target_mask=None,
                   memory_mask=None):
         """t5_model network with loss."""
-        labels = target_ids
         if target_mask is None:
             target_mask = F.cast(labels != 0, mstype.float32)
 
-        decoder_inputs = self._add_start_to_inputs(target_ids[:, :-1])
+        decoder_inputs = self._add_start_to_inputs(labels[:, :-1])
 
-        logits = self.t5_model(source_ids, source_mask, decoder_inputs, target_mask, memory_mask)
+        logits = self.t5_model(input_ids, attention_mask, decoder_inputs, target_mask, memory_mask)
 
         label_ids = ops.Reshape()(labels, (-1,))
         label_weights = ops.Reshape()(target_mask, (-1,))
@@ -1769,18 +1783,25 @@ class T5ModelForLoss(BaseModel):
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
 class T5ModelForGeneration(BaseModel):
     """
-    T5 evaluation net
+    T5 Generation Net. This model is used for inferencing only.
 
     Args:
-        backbone(nn.Cell): backbone network of GPT2/3
-        generate(bool): enable generate mode
+        config(T5Config): An instance of the T5Config
 
-    Returns:
-        outputs: Tensor, corresponding output for different tasks
+    Examples:
+        >>> from mindformers import T5ModelForGeneration, T5Tokenizer
+        >>> t5 = T5ModelForGeneration.from_pretrained("t5_small")
+        >>> tokenizer = T5Tokenizer.from_pretrained("t5_small")
+        >>> words = tokenizer("translate the English to the Romanian: UN Chief Says There Is No Military "
+        ...                  "Solution in Syria")['input_ids']
+        >>> output = t5.generate(words, do_sample=False)
+        >>> output = tokenizer.decode(output, skip_special_tokens=True)
+        >>> print(output)
+        "eful ONU declară că nu există o soluţie militară în Siri"
     """
     _support_list = MindFormerBook.get_model_support_list()['t5']
 
-    def __init__(self, config):
+    def __init__(self, config: T5Config):
         super(T5ModelForGeneration, self).__init__(config)
         self.t5_model = T5Model(config)
         self.argmax = P.Argmax()

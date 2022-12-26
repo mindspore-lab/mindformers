@@ -21,18 +21,21 @@ linux:  pytest ./tests/ut/test_t5_model.py
 
 """
 import os
+import pytest
 
-import numpy as np
 from numpy import allclose
 
-from mindspore import Tensor
 
 from mindformers import MindFormerBook, AutoModel
-from mindformers.models import T5ModelForLoss, T5Config
+from mindformers.models import T5ModelForLoss, T5Config, T5Tokenizer
 
 
+@pytest.mark.level0
+@pytest.mark.platform_x86_ascend_training
+@pytest.mark.platform_arm_ascend_training
+@pytest.mark.env_onecard
 class TestModelForT5Method:
-    '''A test class for testing Model classes'''
+    """A test class for testing Model classes"""
     def setup_method(self):
         """get_input"""
         self.save_directory = os.path.join(MindFormerBook.get_project_path(),
@@ -47,7 +50,7 @@ class TestModelForT5Method:
         """
         AutoModel.show_support_list()
         assert 't5' in AutoModel.get_support_list()
-        assert 't5-small' in AutoModel.get_support_list()['t5']
+        assert 't5_small' in AutoModel.get_support_list()['t5']
 
     def test_t5_model_with_loss(self):
         """
@@ -63,17 +66,23 @@ class TestModelForT5Method:
 
     def test_save_model(self):
         """
-        Feature: save_pretrained method of T5Model
+        Feature: save_pretrained method of T5Model using tokenization output as input
         Description: Test to save checkpoint for T5Model
         Expectation: ValueError, AttributeError
         """
         t5 = T5ModelForLoss(T5Config(num_hidden_layers=1, hidden_dropout_prob=0.0,
                                      attention_probs_dropout_prob=0.0,
-                                     batch_size=2, seq_length=16, max_decode_length=8))
+                                     batch_size=1, seq_length=16, max_decode_length=8))
         t5.save_pretrained(self.save_directory, save_name='t5_model')
-        input_ids = Tensor(np.random.randint(low=0, high=15, size=(2, 16,)).astype(np.int32))
-        attention_mask = Tensor(np.random.randint(low=0, high=15, size=(2, 16,)).astype(np.int32))
-        labels = Tensor(np.random.randint(low=0, high=15, size=(2, 8,)).astype(np.int32))
+        tokenizer = T5Tokenizer.from_pretrained('t5_small')
+
+        src_output = tokenizer(["hello world"], padding='max_length', max_length=t5.config.seq_length,
+                               return_tensors='ms')
+
+        labels = tokenizer(["So happy to see you!"], padding='max_length', max_length=t5.config.max_decode_length,
+                           return_tensors='ms')["input_ids"]
+        input_ids = src_output['input_ids']
+        attention_mask = src_output['attention_mask']
 
         out1 = t5(input_ids, attention_mask, labels)
         new_t5 = T5ModelForLoss.from_pretrained(self.save_directory)
