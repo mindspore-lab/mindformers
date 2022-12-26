@@ -17,7 +17,6 @@
 """Swin Transformer API."""
 import collections.abc
 from itertools import repeat
-
 import numpy as np
 
 from mindspore import nn
@@ -25,6 +24,7 @@ from mindspore import numpy
 from mindspore import context
 from mindspore import Tensor
 from mindspore import Parameter
+from mindspore.ops import functional as F
 from mindspore.ops import operations as P
 from mindspore.ops.primitive import constexpr
 from mindspore.nn.transformer.op_parallel_config import default_dpmp_config
@@ -33,7 +33,9 @@ import mindspore.common.initializer as weight_init_
 
 from mindformers.models.base_model import BaseModel
 
+
 __all__ = ["Linear", "LayerNorm", "Dropout", "PatchEmbed", "PatchMerging", "SwinBasicLayer"]
+
 
 # utils
 def _ntuple(n):
@@ -184,9 +186,11 @@ class PatchEmbed(BaseModel):
         self.projection = nn.Conv2d(in_channels=config.in_channels,
                                     out_channels=config.embed_dim,
                                     kernel_size=patch_size[0],
-                                    stride=patch_size,
+                                    stride=patch_size[0],
                                     weight_init=weight_init_.TruncatedNormal(sigma=0.02),
+                                    has_bias=True,
                                     pad_mode='pad')
+
         self.projection.conv2d.shard(((dp, 1, 1, 1), (1, 1, 1, 1)))
         self.projection.bias_add.shard(((dp, 1, 1, 1), (1,)))
 
@@ -629,6 +633,7 @@ class MLP(nn.transformer.transformer.FeedForward):
         self.mapping.shard(strategy_matmul=((dp, 1), (1, mp)),
                            strategy_bias=((dp, mp), (mp,)),
                            strategy_activation=((dp, mp),))
+
         # Project back to hidden_size
         self.projection = Linear(in_channels=ffn_hidden_size,
                                  out_channels=out_features,
@@ -644,6 +649,26 @@ class MLP(nn.transformer.transformer.FeedForward):
         self.dropout_3d = Dropout(1 - dropout_rate)
         self.dropout_3d.shard(((dp, 1, 1),))
         self.use_dropout = use_dropout
+
+    def construct(self, x):
+        """construct of mlp"""
+        x = self.cast(x, mstype.float16)
+        # returned shape is [bs, seq_length, ffn_hidden_size] or [bs * seq_length, ffn_hidden_size]
+        hidden = self.mapping(x)
+
+        if self.use_dropout:
+            if len(F.shape(hidden)) == 3:
+                hidden = self.dropout_3d(hidden)
+            elif len(F.shape(hidden)) == 2:
+                hidden = self.dropout(hidden)
+
+        output = self.projection(hidden)
+        # returned shape is [bs, seq_length, ffn_hidden_size] or [bs * seq_length, ffn_hidden_size]
+        if len(F.shape(output)) == 3:
+            output = self.dropout_3d(output)
+        elif len(F.shape(output)) == 2:
+            output = self.dropout(output)
+        return output
 
 
 class RelativePositionBiasForSwin(nn.Cell):

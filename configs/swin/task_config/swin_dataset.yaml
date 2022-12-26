@@ -1,27 +1,31 @@
 train_dataset: &train_dataset
+  seed: 0
+  batch_size: 128
   data_loader:
     type: ImageFolderDataset
-    dataset_dir: "imageNet-1k/train" # Input train dataset here
+    dataset_dir: "imageNet-1k/train"
     num_parallel_workers: 8
     shuffle: True
   transforms:
-    - type: PY_Decode
-    - type: PY_RandomResizedCrop
+    - type: Decode
+    - type: RandomResizedCrop
       size: 224
       scale: [0.08, 1.0]
       interpolation: cubic
-    - type: PY_RandomHorizontalFlip
+    - type: RandomHorizontalFlip
       prob: 0.5
+    - type: ToPIL
     - type: rand_augment_transform
       config_str: "rand-m9-mstd0.5-inc1"
       hparams:
         translate_const: 100
         img_mean: [124, 116, 104]
         interpolation: cubic
-    - type: PY_ToTensor
-    - type: PY_Normalize
+    - type: ToTensor
+    - type: Normalize
       mean: [0.485, 0.456, 0.406] # [123.675, 118.575, 103.53]
       std: [0.229, 0.224, 0.225] #
+      is_hwc: False
     - type: RandomErasing
       probability: 0.25
       mode: pixel
@@ -38,7 +42,7 @@ train_dataset: &train_dataset
   column_order: ["image", "label"]
   num_parallel_workers: 8
   python_multiprocessing: False
-  drop_remainder: True
+  drop_remainder: False
   repeat: 1
   numa_enable: False
   prefetch_size: 30
@@ -46,3 +50,39 @@ train_dataset: &train_dataset
 train_dataset_task:
   type: ImageCLSDataset
   dataset_config: *train_dataset
+
+eval_dataset: &eval_dataset
+  seed: 0
+  batch_size: 128
+  data_loader:
+    type: ImageFolderDataset
+    dataset_dir: "imageNet-1k/val"
+    num_parallel_workers: 8
+    shuffle: True
+  transforms:
+    - type: Decode
+    - type: Resize
+      size: 256
+      interpolation: cubic
+    - type: CenterCrop
+      size: 224
+    - type: ToTensor
+    - type: Normalize
+      mean: [0.485, 0.456, 0.406]
+      std: [0.229, 0.224, 0.225]
+      is_hwc: False
+  input_columns: ["image", "label"]
+  output_columns: ["image", "label"]
+  column_order: ["image", "label"]
+  num_parallel_workers: 8
+  python_multiprocessing: False
+  drop_remainder: False
+  repeat: 1
+  numa_enable: False
+  prefetch_size: 30
+  eval_interval: 1
+  eval_offset: 0
+
+eval_dataset_task:
+  type: ImageCLSDataset
+  dataset_config: *eval_dataset

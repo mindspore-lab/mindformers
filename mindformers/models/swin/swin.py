@@ -36,6 +36,9 @@ from mindformers.models.swin.swin_modules import SwinBasicLayer
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 
 
+__all__ = ['SwinModel', 'SwinTransformer']
+
+
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
 class SwinModel(BaseModel):
     """
@@ -65,8 +68,8 @@ class SwinModel(BaseModel):
 
         self._load_checkpoint(config)
 
-    def construct(self, img, target):
-        x = self.encoder(img)
+    def construct(self, image, target=None):
+        x = self.encoder(image)
         out = self.head(x)
         if self.phase != "train":
             return out, target
