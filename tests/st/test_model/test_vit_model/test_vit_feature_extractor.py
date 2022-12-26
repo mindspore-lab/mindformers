@@ -15,7 +15,7 @@
 
 """
 Test Module for testing feature extractor function of
-AutoFeatureExtractor and ClipFeatureExtractor
+AutoFeatureExtractor and VitFeatureExtractor
 
 How to run this:
 windows:  pytest .\\tests\\st\\test_model\\test_vit_model\\test_vit_feature_extractor.py
@@ -48,6 +48,7 @@ def test_auto_feature_extractor():
     support_list = AutoFeatureExtractor.get_support_list()
     logger.info(support_list)
 
+    fe_a = AutoFeatureExtractor.from_pretrained("vit_base_p16")
     fe_b = AutoFeatureExtractor.from_pretrained(yaml_path)
 
     fake_image_np = np.uint8(np.random.random((3, 255, 255)))
@@ -64,9 +65,16 @@ def test_auto_feature_extractor():
     support_list = AutoFeatureExtractor.get_support_list()
     logger.info(support_list)
 
+    fe_c = VitFeatureExtractor.from_pretrained("vit_base_p16")
     fe_d = VitFeatureExtractor.from_pretrained(yaml_path)
     fe_e = VitFeatureExtractor(image_feature_extractor=img_fe)
 
+    res_a_1 = fe_a(fake_image_np)
+    res_a_2 = fe_a(fake_image_batch)
+    res_a_3 = fe_a(fake_image_pil)
+    res_a_4 = fe_a(fake_image_pil_list)
+    res_a_5 = fe_a(fake_image_tensor)
+    res_a_6 = fe_a(fake_image_tensor_batch)
     res_b_1 = fe_b(fake_image_np)
     res_b_2 = fe_b(fake_image_batch)
     res_b_3 = fe_b(fake_image_pil)
@@ -74,9 +82,24 @@ def test_auto_feature_extractor():
     res_b_5 = fe_b(fake_image_tensor)
     res_b_6 = fe_b(fake_image_tensor_batch)
 
+    assert isinstance(fe_a, VitFeatureExtractor)
+    assert isinstance(fe_b, VitFeatureExtractor)
+    assert isinstance(fe_c, VitFeatureExtractor)
     assert isinstance(fe_d, VitFeatureExtractor)
     assert isinstance(fe_e, VitFeatureExtractor)
 
+    assert res_a_1.shape == (1, 3, 224, 224)
+    assert isinstance(res_a_1, ms.Tensor)
+    assert res_a_2.shape == (5, 3, 224, 224)
+    assert isinstance(res_a_2, ms.Tensor)
+    assert res_a_3.shape == (1, 3, 224, 224)
+    assert isinstance(res_a_3, ms.Tensor)
+    assert res_a_4.shape == (5, 3, 224, 224)
+    assert isinstance(res_a_4, ms.Tensor)
+    assert res_a_5.shape == (1, 3, 224, 224)
+    assert isinstance(res_a_5, ms.Tensor)
+    assert res_a_6.shape == (5, 3, 224, 224)
+    assert isinstance(res_a_6, ms.Tensor)
     assert res_b_1.shape == (1, 3, 224, 224)
     assert isinstance(res_b_1, ms.Tensor)
     assert res_b_2.shape == (5, 3, 224, 224)
@@ -92,4 +115,6 @@ def test_auto_feature_extractor():
 
     save_directory = os.path.join(
         MindFormerBook.get_default_checkpoint_save_folder(), 'vit')
+    fe_a.save_pretrained(save_directory, save_name='vit_base_p16')
     fe_b.save_pretrained(save_directory, save_name='vit_base_p16')
+    fe_c.save_pretrained(save_directory, save_name='vit_base_p16')

@@ -55,13 +55,20 @@ def test_vit_processor():
     support_list = VitProcessor.get_support_list()
     logger.info(support_list)
 
+    pro_a = VitProcessor.from_pretrained('vit_base_p16')
     pro_b = VitProcessor.from_pretrained(yaml_path)
     pro_c = VitProcessor(feature_extractor)
 
+    pro_d = AutoProcessor.from_pretrained('vit_base_p16')
     pro_e = AutoProcessor.from_pretrained(yaml_path)
 
     fake_image_np = np.uint8(np.random.random((3, 255, 255)))
     fake_image_batch = np.uint8(np.random.random((32, 3, 255, 255)))
+
+    output_a_1 = pro_a(fake_image_np)
+    output_a_2 = pro_a(fake_image_np)
+    output_a_3 = pro_a(fake_image_batch)
+    output_a_4 = pro_a(fake_image_batch)
 
     output_b_1 = pro_b(fake_image_np)
     output_b_2 = pro_b(fake_image_np)
@@ -73,8 +80,11 @@ def test_vit_processor():
     output_c_3 = pro_c(fake_image_batch)
     output_c_4 = pro_c(fake_image_batch)
 
+    pro_d(fake_image_np)
     pro_e(fake_image_np)
 
+    pro_a.save_pretrained(save_directory, save_name='vit_base_p16')
+    pro_b.save_pretrained(save_directory, save_name='vit_base_p16')
     pro_c.save_pretrained(save_directory, save_name='vit_base_p16')
 
     vit = AutoModel.from_config(yaml_path).set_train(mode=False)
@@ -82,6 +92,15 @@ def test_vit_processor():
     output = vit(**processed_data)
 
     assert output[0].shape == (32, 1000)
+
+    assert output_a_1['image'].shape == (1, 3, 224, 224)
+    assert output_a_2['image'].shape == (1, 3, 224, 224)
+    assert output_a_3['image'].shape == (32, 3, 224, 224)
+    assert output_a_4['image'].shape == (32, 3, 224, 224)
+    assert isinstance(output_a_1['image'], ms.Tensor)
+    assert isinstance(output_a_2['image'], ms.Tensor)
+    assert isinstance(output_a_3['image'], ms.Tensor)
+    assert isinstance(output_a_4['image'], ms.Tensor)
 
     assert output_b_1['image'].shape == (1, 3, 224, 224)
     assert output_b_2['image'].shape == (1, 3, 224, 224)

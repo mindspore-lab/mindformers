@@ -57,8 +57,10 @@ def test_config():
                              'vit')
 
     AutoConfig.show_support_list()
+    config_a = AutoConfig.from_pretrained('vit_base_p16')      # input a model name
     config_b = AutoConfig.from_pretrained(config_path)  # input a path to .yaml file
 
+    logger.info(config_a)
     logger.info(config_b)
 
     VitConfig.show_support_list()
@@ -101,6 +103,9 @@ def test_config():
     assert isinstance(config_c, BaseConfig)
     assert isinstance(config_d, BaseConfig)
 
+    assert isinstance(config_a, BaseConfig)
     assert isinstance(config_b, BaseConfig)
 
+    assert isinstance(config_a, VitConfig)
+    assert isinstance(config_a, type(config_b))
     assert isinstance(config_b, type(config_c))
