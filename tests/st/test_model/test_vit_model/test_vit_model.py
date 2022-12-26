@@ -45,14 +45,8 @@ class TestModelMethod:
     """A test class for testing Model classes"""
     def setup_method(self):
         """get_input"""
-        self.checkpoint_dir = os.path.join(MindFormerBook.get_default_checkpoint_download_folder(),
-                                           'vit')
-        self.config_path = os.path.join(MindFormerBook.get_project_path(),
-                                        'configs', 'vit', 'model_config', "vit_base_p16.yaml")
         self.config = AutoConfig.from_pretrained('vit_base_p16')
 
-        self.checkpoint_path = os.path.join(MindFormerBook.get_default_checkpoint_download_folder(),
-                                            'vit', 'vit_base_p16.ckpt')
         self.save_directory = os.path.join(MindFormerBook.get_default_checkpoint_save_folder(),
                                            'vit')
 
@@ -71,30 +65,21 @@ class TestModelMethod:
         support_list = AutoModel.get_support_list()
         logger.info(support_list)
 
-        # input yaml path, load model without weights
-        model_c = AutoModel.from_config(self.config_path)
-        # input config, load model without weights
-        model_d = AutoModel.from_config(self.config)
+        # input model name, load model and weights
+        model_a = AutoModel.from_pretrained('vit_base_p16')
 
-        VitModel.show_support_list()
-        support_list = VitModel.get_support_list()
-        logger.info(support_list)
-        # input config, load model weights
-        model_k = VitModel(self.config)
         # input config, load model without weights
         self.config.checkpoint_name_or_path = None
-        model_l = VitModel(self.config)
+        self.config.embed_dim = 192
+        self.config.depths = 12
+        self.config.num_heads = 3
+        model_d = AutoModel.from_config(self.config)
+
+        model_a.save_pretrained(self.save_directory, save_name='vit_base_p16')
 
         # all models are VitModel class， and inherited from BaseModel
-        assert isinstance(model_k, VitModel)
-        assert isinstance(model_l, VitModel)
-
-        assert isinstance(model_k, BaseModel)
-        assert isinstance(model_l, BaseModel)
-
-        # all models are VitModel class， and inherited from BaseModel
-        assert isinstance(model_c, VitModel)
+        assert isinstance(model_a, VitModel)
         assert isinstance(model_d, VitModel)
 
-        assert isinstance(model_c, BaseModel)
+        assert isinstance(model_a, BaseModel)
         assert isinstance(model_d, BaseModel)
