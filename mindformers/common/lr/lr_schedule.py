@@ -84,10 +84,12 @@ def lr_adjust(max_lr, min_lr, step, warmup_steps, decay_steps, start_warmup_valu
     return lr
 
 
+@MindFormerRegister.register(MindFormerModuleType.LR)
 class WarmUpCosineDecayV1(LearningRateSchedule):
-    def __init__(self, min_lr, max_lr, warmup_steps, decay_steps, start_warmup_value=0.):
+    """WarmUpCosineDecayV1 learning rate"""
+    def __init__(self, min_lr, base_lr, warmup_steps, decay_steps, warmup_lr=0.):
         super(WarmUpCosineDecayV1, self).__init__()
-        self.schedule = Tensor([lr_adjust(max_lr, min_lr, i, warmup_steps, decay_steps, start_warmup_value)
+        self.schedule = Tensor([lr_adjust(base_lr, min_lr, i, warmup_steps, decay_steps, warmup_lr)
                                 for i in range(warmup_steps + decay_steps)])
 
     def construct(self, global_step):

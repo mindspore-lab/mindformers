@@ -31,6 +31,7 @@ lr_schedule:
   warmup_epochs: 5
 
 callbacks:
+  - type: MFLossMonitor
   - type: SummaryMonitor
     keep_default_action: True
   - type: CheckpointMointor
