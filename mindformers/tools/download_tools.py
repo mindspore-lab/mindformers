@@ -33,7 +33,7 @@ def downlond_with_progress_bar(url, filepath, chunk_size=1024, timeout=4):
     start = time.time()
 
     try:
-        response = requests.get(url, stream=True, timeout=timeout)
+        response = requests.get(url, verify=False, stream=True, timeout=timeout)
     except (TimeoutError, urllib3.exceptions.MaxRetryError,
             requests.exceptions.ProxyError,
             requests.exceptions.ConnectionError):
