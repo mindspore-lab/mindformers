@@ -133,8 +133,8 @@ def check_lr_config(new_config, old_config):
             old_config.lr_schedule = None
 
 
-def _check_lr_config(config, device_num=1, batch_size=128, arch="simmim"):
-    if arch in ('simmim', "ringmo", "ringmo_mm"):
+def _check_lr_config(config, device_num=1, batch_size=128, arch="SwinModel"):
+    if arch in ('SimmimModel', 'SwinModel'):
         config.base_lr = (config.base_lr * device_num * batch_size) / 512
         config.min_lr = (config.min_lr * device_num * batch_size) / 512
         config.warmup_lr = (config.warmup_lr * device_num * batch_size) / 512
