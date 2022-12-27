@@ -25,8 +25,8 @@ from mindspore import Tensor
 from mindformers.common.metric import build_metric
 from mindformers.common.callback import build_callback
 from mindformers.dataset import build_dataset, check_dataset_config, BaseDataset
-from mindformers.models import build_model, build_tokenizer, build_feature_extractor, \
-    BaseModel, BaseTokenizer, BaseFeatureExtractor
+from mindformers.models import build_model, build_tokenizer, build_processor, \
+    BaseModel, BaseTokenizer, BaseImageProcessor
 from mindformers.pipeline import pipeline
 from mindformers.trainer.utils import check_model_config
 from mindformers.tools.logger import logger
@@ -99,7 +99,7 @@ class ZeroShotImageClassificationTrainer(BaseTrainer):
                 candidate_labels: list = None,
                 network: Optional[Union[str, BaseModel]] = None,
                 tokenizer: Optional[BaseTokenizer] = None,
-                feature_extractor: Optional[BaseFeatureExtractor] = None, **kwargs):
+                image_processor: Optional[BaseImageProcessor] = None, **kwargs):
         """predict for trainer."""
         self.kwargs = kwargs
         logger.info(".........Build Input Data For Predict..........")
@@ -127,8 +127,8 @@ class ZeroShotImageClassificationTrainer(BaseTrainer):
         if tokenizer is None:
             tokenizer = build_tokenizer(config.processor.tokenizer)
 
-        if feature_extractor is None:
-            feature_extractor = build_feature_extractor(config.processor.feature_extractor)
+        if image_processor is None:
+            image_processor = build_processor(config.processor.image_processor)
 
         if candidate_labels is None:
             candidate_labels = ["sunflower", "tree", "dog", "cat", "toy"]
@@ -136,7 +136,7 @@ class ZeroShotImageClassificationTrainer(BaseTrainer):
         pipeline_task = pipeline(task='zero_shot_image_classification',
                                  model=network,
                                  tokenizer=tokenizer,
-                                 feature_extractor=feature_extractor,
+                                 image_processor=image_processor,
                                  candidate_labels=candidate_labels, **kwargs)
         output_result = pipeline_task(batch_input_data)
         logger.info("output result is: %s", str(output_result))

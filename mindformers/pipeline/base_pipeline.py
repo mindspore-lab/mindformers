@@ -31,11 +31,11 @@ class BasePipeline(ABC):
     """Base pipeline"""
     _support_list = {}
 
-    def __init__(self, model, tokenizer=None, feature_extractor=None, **kwargs):
+    def __init__(self, model, tokenizer=None, image_processor=None, **kwargs):
         super(BasePipeline, self).__init__()
         self.model = model
         self.tokenizer = tokenizer
-        self.feature_extractor = feature_extractor
+        self.image_processor = image_processor
         self._preprocess_params, self._forward_params,\
         self._postprocess_params = self._sanitize_parameters(**kwargs)
         self.call_count = 0

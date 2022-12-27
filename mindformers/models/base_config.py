@@ -18,13 +18,14 @@ BaseConfig class,
 which is all model configs' base class
 """
 import os
+import shutil
+
 import yaml
 
 from ..mindformer_book import MindFormerBook
 from ..mindformer_book import print_path_or_list
 from ..tools import logger
 from ..tools.register.config import MindFormerConfig
-from ..tools.download_tools import downlond_with_progress_bar
 from ..models.build_config import build_model_config
 
 
@@ -93,24 +94,21 @@ class BaseConfig(dict):
         else:
             checkpoint_path = os.path.join(MindFormerBook.get_default_checkpoint_download_folder(),
                                            yaml_name_or_path.split('_')[0])
+
             if not os.path.exists(checkpoint_path):
                 os.makedirs(checkpoint_path)
 
-            yaml_file = os.path.join(checkpoint_path, yaml_name_or_path + ".yaml")
+            yaml_file = os.path.join(checkpoint_path, yaml_name_or_path+".yaml")
             if not os.path.exists(yaml_file):
-                url = MindFormerBook.get_model_config_url_list()[yaml_name_or_path][0]
-                succeed = downlond_with_progress_bar(url, yaml_file)
-
-                if not succeed:
-                    yaml_file = os.path.join(
-                        MindFormerBook.get_project_path(),
-                        "configs", yaml_name_or_path.split('_')[0],
-                        "model_config", yaml_name_or_path + ".yaml"
-                    )
-                    logger.info("yaml download failed, default config in %s is used.", yaml_file)
+                default_yaml_file = os.path.join(
+                    MindFormerBook.get_project_path(),
+                    "configs", yaml_name_or_path.split("_")[0],
+                    "model_config", yaml_name_or_path + ".yaml")
+                if os.path.realpath(default_yaml_file) and os.path.exists(default_yaml_file):
+                    shutil.copy(default_yaml_file, yaml_file)
+                    logger.info("default yaml config in %s is used.", yaml_file)
                 else:
-                    logger.info("the content in %s is used for"
-                                " config building.", yaml_file)
+                    raise FileNotFoundError(f'default yaml file path must be correct, but get {default_yaml_file}')
             config_args = MindFormerConfig(yaml_file)
 
         config = build_model_config(config_args.model.model_config)

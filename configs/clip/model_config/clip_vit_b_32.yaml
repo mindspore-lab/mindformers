@@ -27,13 +27,9 @@ model:
 processor:
   type: ClipProcessor
 
-  feature_extractor:
-    type: ClipFeatureExtractor
-
-    image_feature_extractor:
-      type: ClipImageFeatureExtractor
-
-      image_resolution: 224
+  image_processor:
+    type: ClipImageProcessor
+    image_resolution: 224
 
   tokenizer:
     type: ClipTokenizer

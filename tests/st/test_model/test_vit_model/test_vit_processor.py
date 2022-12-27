@@ -27,9 +27,7 @@ import mindspore as ms
 import pytest
 
 from mindformers import MindFormerBook, AutoProcessor, AutoModel
-from mindformers.models import (
-    VitFeatureExtractor, VitImageFeatureExtractor, VitProcessor
-)
+from mindformers.models import VitImageProcessor, VitProcessor
 from mindformers.tools import logger
 
 
@@ -46,8 +44,7 @@ def test_vit_processor():
     """
     yaml_path = os.path.join(MindFormerBook.get_project_path(), "configs",
                              "vit", "model_config", "vit_base_p16.yaml")
-    img_fe = VitImageFeatureExtractor(image_resolution=224)
-    feature_extractor = VitFeatureExtractor(img_fe)
+    img_processor = VitImageProcessor(image_resolution=224)
     save_directory = os.path.join(MindFormerBook.get_default_checkpoint_save_folder(),
                                   'vit')
 
@@ -57,7 +54,7 @@ def test_vit_processor():
 
     pro_a = VitProcessor.from_pretrained('vit_base_p16')
     pro_b = VitProcessor.from_pretrained(yaml_path)
-    pro_c = VitProcessor(feature_extractor)
+    pro_c = VitProcessor(img_processor)
 
     pro_d = AutoProcessor.from_pretrained('vit_base_p16')
     pro_e = AutoProcessor.from_pretrained(yaml_path)

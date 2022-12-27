@@ -17,15 +17,49 @@
 BaseProcessor
 """
 import os
+import shutil
+
 import yaml
 
 from ..mindformer_book import print_path_or_list, MindFormerBook
 from .build_processor import build_processor
-from .base_tokenizer import Tokenizer
-from .base_feature_extractor import BaseFeatureExtractor
+from .base_tokenizer import BaseTokenizer
 from ..tools import logger
 from ..tools.register import MindFormerConfig
-from ..tools.download_tools import downlond_with_progress_bar
+
+
+class BaseImageProcessor:
+    """
+    BaseImageProcessor for all image preprocess.
+    """
+    def __init__(self, **kwargs):
+        self.config = {}
+        self.config.update(kwargs)
+
+    def __call__(self, image_data, **kwargs):
+        """forward process"""
+        return self.preprocess(image_data, **kwargs)
+
+    def preprocess(self, images, **kwargs):
+        """preprocess method"""
+        raise NotImplementedError("Each image processor must implement its own preprocess method")
+
+
+class BaseAudioProcessor:
+    """
+    BaseAudioProcessor for all audio preprocess.
+    """
+    def __init__(self, **kwargs):
+        self.config = {}
+        self.config.update(kwargs)
+
+    def __call__(self, audio_data, **kwargs):
+        """forward process"""
+        return self.preprocess(audio_data, **kwargs)
+
+    def preprocess(self, audio_data, **kwargs):
+        """preprocess method"""
+        raise NotImplementedError("Each audio processor must implement its own preprocess method")
 
 
 class BaseProcessor:
@@ -35,7 +69,8 @@ class BaseProcessor:
     def __init__(self, **kwargs):
         self.config = {}
         self.config.update(kwargs)
-        self.feature_extractor = kwargs.pop("feature_extractor", None)
+        self.image_processor = kwargs.pop("image_processor", None)
+        self.audio_processor = kwargs.pop("audio_processor", None)
         self.tokenizer = kwargs.pop("tokenizer", None)
         self.max_length = kwargs.pop("max_length", None)
         self.padding = kwargs.pop("padding", False)
@@ -45,17 +80,17 @@ class BaseProcessor:
         """call function"""
         output = {}
 
-        if image_input is not None and self.feature_extractor:
-            if not isinstance(self.feature_extractor, BaseFeatureExtractor):
-                raise TypeError(f"feature_extractor should inherit from the BaseFeatureExtractor,"
-                                f" but got {type(self.feature_extractor)}.")
+        if image_input is not None and self.image_processor:
+            if not isinstance(self.image_processor, BaseImageProcessor):
+                raise TypeError(f"feature_extractor should inherit from the BaseImageProcessor,"
+                                f" but got {type(self.image_processor)}.")
 
-            image_output = self.feature_extractor(image_input)
+            image_output = self.image_processor(image_input)
             output['image'] = image_output
 
         if text_input is not None and self.tokenizer:
-            if not isinstance(self.tokenizer, Tokenizer):
-                raise TypeError(f"tokenizer should inherited from the PretrainedTokenizer,"
+            if not isinstance(self.tokenizer, BaseTokenizer):
+                raise TypeError(f"tokenizer should inherited from the BaseTokenizer,"
                                 f" but got {type(self.tokenizer)}.")
             # Format the input into a batch
             if isinstance(text_input, str):
@@ -115,13 +150,13 @@ class BaseProcessor:
         parsed_config = {"type": self.__class__.__name__}
 
         for key, val in config.items():
-            if isinstance(val, Tokenizer):
+            if isinstance(val, BaseTokenizer):
                 parsed_sub_config = {"type": val.__class__.__name__}
                 parsed_sub_config.update(val.init_kwargs)
                 parsed_config.update({key: parsed_sub_config})
-            elif isinstance(val, BaseFeatureExtractor):
+            elif isinstance(val, (BaseImageProcessor, BaseAudioProcessor)):
                 parsed_sub_config = {"type": val.__class__.__name__}
-                parsed_sub_config.update(val.inverse_parse_config(val.config))
+                parsed_sub_config.update(self._inverse_parse_config(val.config))
                 parsed_config.update({key: parsed_sub_config})
             else:
                 parsed_config.update({key: val})
@@ -173,19 +208,15 @@ class BaseProcessor:
 
             yaml_file = os.path.join(checkpoint_path, yaml_name_or_path+".yaml")
             if not os.path.exists(yaml_file):
-                url = MindFormerBook.get_model_config_url_list()[yaml_name_or_path][0]
-                succeed = downlond_with_progress_bar(url, yaml_file)
-
-                if not succeed:
-                    yaml_file = os.path.join(
-                        MindFormerBook.get_project_path(),
-                        "configs", yaml_name_or_path.split("_")[0],
-                        "model_config", yaml_name_or_path + ".yaml"
-                    )
-                    logger.info("yaml download failed, default config in %s is used.", yaml_file)
+                default_yaml_file = os.path.join(
+                    MindFormerBook.get_project_path(),
+                    "configs", yaml_name_or_path.split("_")[0],
+                    "model_config", yaml_name_or_path + ".yaml")
+                if os.path.realpath(default_yaml_file) and os.path.exists(default_yaml_file):
+                    shutil.copy(default_yaml_file, yaml_file)
+                    logger.info("default yaml config in %s is used.", yaml_file)
                 else:
-                    logger.info("config in %s is used for processor"
-                                " building.", yaml_file)
+                    raise FileNotFoundError(f'default yaml file path must be correct, but get {default_yaml_file}')
 
             config_args = MindFormerConfig(yaml_file)
 

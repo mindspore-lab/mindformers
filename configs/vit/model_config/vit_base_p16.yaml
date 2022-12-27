@@ -24,10 +24,6 @@ model:
 processor:
   type: VitProcessor
 
-  feature_extractor:
-    type: VitFeatureExtractor
-
-    image_feature_extractor:
-      type: VitImageFeatureExtractor
-
-      image_resolution: 224
+  image_processor:
+    type: VitImageProcessor
+    image_resolution: 224

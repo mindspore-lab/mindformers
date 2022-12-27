@@ -15,7 +15,6 @@
 
 """Build Processor API."""
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
-from .build_feature_extractor import build_feature_extractor
 from .build_tokenizer import build_tokenizer
 
 
@@ -26,11 +25,9 @@ def build_processor(
     if config is None and class_name is None:
         return None
     if config is not None:
-        if config.feature_extractor is not None:
-            if config.feature_extractor.image_processor is not None:
-                config.feature_extractor.image_processor = build_processor(
-                    config.feature_extractor.image_processor)
-            config.feature_extractor = build_feature_extractor(config.feature_extractor)
+        if config.image_processor is not None:
+            config.image_processor = build_processor(config.image_processor)
+
         if config.tokenizer is not None:
             config.tokenizer = build_tokenizer(config.tokenizer, **kwargs)
 

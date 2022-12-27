@@ -24,17 +24,16 @@ from .t5 import *
 from .base_tokenizer import *
 from .base_config import BaseConfig
 from .base_model import BaseModel
-from .base_processor import BaseProcessor
-from .base_feature_extractor import BaseFeatureExtractor
+from .base_processor import BaseProcessor, BaseImageProcessor, BaseAudioProcessor
 from .build_tokenizer import build_tokenizer
 from .build_processor import build_processor
-from .build_feature_extractor import build_feature_extractor
 from .build_model import build_model_config, build_head, \
     build_model, build_encoder
 
-__all__ = ['BaseConfig', 'BaseModel', 'BaseProcessor', 'BaseFeatureExtractor',
-           'build_tokenizer', 'build_feature_extractor', 'build_processor',
-           'build_model', 'build_head', 'build_encoder', 'build_model_config']
+__all__ = ['BaseConfig', 'BaseModel', 'BaseProcessor', 'BaseImageProcessor',
+           'build_tokenizer', 'build_processor', 'build_model', 'build_head',
+           'build_encoder', 'build_model_config', 'BaseAudioProcessor']
+
 __all__.extend(bert.__all__)
 __all__.extend(mae.__all__)
 __all__.extend(vit.__all__)

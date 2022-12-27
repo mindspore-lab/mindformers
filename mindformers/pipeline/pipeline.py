@@ -18,8 +18,8 @@ pipeline
 """
 from typing import Optional, Union
 
-from mindformers.models import build_model, build_tokenizer, build_feature_extractor, \
-    BaseModel, BaseTokenizer, BaseFeatureExtractor
+from mindformers.models import build_model, build_tokenizer, build_processor, \
+    BaseModel, BaseTokenizer, BaseImageProcessor, BaseAudioProcessor
 from mindformers.mindformer_book import MindFormerBook
 from mindformers.tools.register import MindFormerConfig
 from .build_pipeline import build_pipeline
@@ -32,7 +32,8 @@ def pipeline(
         task: str = None,
         model: Optional[Union[str, BaseModel]] = None,
         tokenizer: Optional[BaseTokenizer] = None,
-        feature_extractor: Optional[BaseFeatureExtractor] = None,
+        image_processor: Optional[BaseImageProcessor] = None,
+        audio_processor: Optional[BaseAudioProcessor] = None,
         **kwargs):
     """
     Pipeline for downstream tasks
@@ -42,7 +43,7 @@ def pipeline(
          MindFormerBook.show_pipeline_support_task_list().
         model (str, BaseModel): the model used for task.
         tokenizer (BaseTokenizer): the tokenizer of the model.
-        feature_extractor (BaseFeatureExtractor): the feature extractor of the model.
+        image_processor (BaseImageProcessor): the image processor of the model.
 
     Return:
         a task pipeline.
@@ -66,15 +67,19 @@ def pipeline(
     if model is None:
         model = build_model(pipeline_config.model)
 
-    if feature_extractor is None:
-        feature_extractor = build_feature_extractor(pipeline_config.processor.feature_extractor)
+    if image_processor is None:
+        image_processor = build_processor(pipeline_config.processor.image_processor)
+
+    if audio_processor is None:
+        audio_processor = build_processor(pipeline_config.processor.audio_processor)
 
     if tokenizer is None:
         tokenizer = build_tokenizer(pipeline_config.processor.tokenizer)
 
     task_pipeline = build_pipeline(class_name=pipeline_type,
                                    model=model,
-                                   feature_extractor=feature_extractor,
+                                   image_processor=image_processor,
+                                   audio_processor=audio_processor,
                                    tokenizer=tokenizer,
                                    **kwargs)
 

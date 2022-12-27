@@ -24,7 +24,8 @@ from mindspore.nn import TrainOneStepCell, Optimizer
 from mindspore import Tensor
 
 from mindformers.dataset import BaseDataset
-from mindformers.models import BaseModel, BaseTokenizer, BaseFeatureExtractor
+from mindformers.models import BaseModel, BaseTokenizer,\
+    BaseImageProcessor, BaseAudioProcessor
 from mindformers.pipeline import pipeline
 from mindformers.common.lr import build_lr
 from mindformers.common.optim import build_optim
@@ -166,7 +167,8 @@ class GeneralTaskTrainer(BaseTrainer):
                 input_data: Optional[Union[Tensor, np.ndarray, Image, str, list]] = None,
                 network: Optional[Union[str, BaseModel]] = None,
                 tokenizer: Optional[BaseTokenizer] = None,
-                feature_extractor: Optional[BaseFeatureExtractor] = None, **kwargs):
+                image_processor: Optional[BaseImageProcessor] = None,
+                audio_processor: Optional[BaseAudioProcessor] = None, **kwargs):
         """predict for trainer."""
         if not isinstance(input_data, (Tensor, np.ndarray, Image, str, list)):
             raise ValueError("Input data's type must be one of "
@@ -182,13 +184,17 @@ class GeneralTaskTrainer(BaseTrainer):
         if tokenizer is None:
             raise NotImplementedError("tokenizer must be define, but get None.")
 
-        if feature_extractor is None:
-            raise NotImplementedError("feature_extractor must be define, but get None.")
+        if audio_processor is None and image_processor is None:
+            raise NotImplementedError("image_processor must be define, but get None.")
+
+        if image_processor is None and audio_processor is None:
+            raise NotImplementedError("image_processor must be define, but get None.")
 
         pipeline_task = pipeline(task='general',
                                  model=network,
                                  tokenizer=tokenizer,
-                                 feature_extractor=feature_extractor, **kwargs)
+                                 image_processor=image_processor,
+                                 audio_processor=audio_processor, **kwargs)
         output_result = pipeline_task(input_data)
         logger.info("output result is: %s", str(output_result))
         logger.info(".........Predict Over!.............")

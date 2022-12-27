@@ -19,7 +19,7 @@ from mindspore.ops import operations as P
 from mindformers.auto_class import AutoProcessor, AutoModel
 from mindformers.mindformer_book import MindFormerBook
 from mindformers.tools.image_tools import load_image
-from mindformers.models import BaseModel, BaseFeatureExtractor, Tokenizer
+from mindformers.models import BaseModel, BaseImageProcessor, Tokenizer
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from .base_pipeline import BasePipeline
 
@@ -32,18 +32,18 @@ class ZeroShotImageClassificationPipeline(BasePipeline):
     Args:
         model: a pretrained model (str or BaseModel) in _supproted_list.
         tokenizer : a tokenizer (None or PretrainedTokenizer) for text processing
-        feature_extractor : a feature_extractor (None or BaseFeatureExtractor) for image processing
+        image_processor : a image_processor (None or BaseImageProcessor) for image processing
     """
     _support_list = MindFormerBook.get_model_support_list()['clip']
 
-    def __init__(self, model, tokenizer=None, feature_extractor=None, **kwargs):
+    def __init__(self, model, tokenizer=None, image_processor=None, **kwargs):
         if isinstance(model, str):
             if model in self._support_list:
-                if feature_extractor is None:
-                    feature_extractor = AutoProcessor.from_pretrained(model).feature_extractor
-                if not isinstance(feature_extractor, BaseFeatureExtractor):
-                    raise TypeError(f"feature_extractor should be inherited from"
-                                    f" BaseFeatureExtractor, but got {type(feature_extractor)}.")
+                if image_processor is None:
+                    image_processor = AutoProcessor.from_pretrained(model).image_processor
+                if not isinstance(image_processor, BaseImageProcessor):
+                    raise TypeError(f"image_processor should be inherited from"
+                                    f" BaseImageProcessor, but got {type(image_processor)}.")
                 if tokenizer is None:
                     tokenizer = AutoProcessor.from_pretrained(model).tokenizer
                 if not isinstance(tokenizer, Tokenizer):
@@ -60,11 +60,11 @@ class ZeroShotImageClassificationPipeline(BasePipeline):
         if tokenizer is None:
             raise ValueError("ZeroShotImageClassificationPipeline"
                              " requires for a tokenizer.")
-        if feature_extractor is None:
+        if image_processor is None:
             raise ValueError("ZeroShotImageClassificationPipeline"
-                             " requires for a feature_extractor.")
+                             " requires for a image_processor.")
 
-        super().__init__(model, tokenizer, feature_extractor, **kwargs)
+        super().__init__(model, tokenizer, image_processor, **kwargs)
 
     def _sanitize_parameters(self, **pipeline_parameters):
         """sanitize parameters for preprocess, forward, and postprocess."""
@@ -112,7 +112,7 @@ class ZeroShotImageClassificationPipeline(BasePipeline):
             inputs = inputs['image']
 
         image = load_image(inputs)
-        image_processed = self.feature_extractor(image)
+        image_processed = self.image_processor(image)
         sentences = [hypothesis_template.format(candidate_label)
                      for candidate_label in candidate_labels]
         input_ids = self.tokenizer(sentences, max_length=max_length, padding=padding,
