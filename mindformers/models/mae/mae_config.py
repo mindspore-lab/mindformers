@@ -39,3 +39,4 @@ class MaeConfig:
     norm_pixel_loss: bool = True
     parallel_config: dict = None
     moe_config: dict = None
+    checkpoint_name_or_path: str = None

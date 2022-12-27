@@ -96,13 +96,13 @@ class TestTrainer:
         )
         callbacks = [loss_cb, lr_scheduler]
 
-        mim_trainer = Trainer(task_name='contrastive_language_image_pretrain',
+        mim_trainer = Trainer(task='contrastive_language_image_pretrain',
                               model=clip_model,
                               config=config,
                               optimizers=optimizer,
                               train_dataset=dataset,
                               callbacks=callbacks)
-        mim_trainer.train(resume_from_checkpoint=False)
+        mim_trainer.train(resume_or_finetune_from_checkpoint=False)
 
     def make_local_directory(self, config):
         """make local directory"""

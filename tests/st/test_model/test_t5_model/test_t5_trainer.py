@@ -88,9 +88,9 @@ def test_translation_trainer_train_using_common_yaml():
                             seq_length=16, max_decode_length=8)
     # Model
     model = T5ModelForLoss(model_config)
-    mim_trainer = Trainer(task_name='translation',
+    mim_trainer = Trainer(task='translation',
                           model=model,
                           config=config,
                           train_dataset=dataset)
-    mim_trainer.train(resume_from_checkpoint=False)
+    mim_trainer.train(resume_or_finetune_from_checkpoint=False)
     shutil.rmtree(dir_path, ignore_errors=True)

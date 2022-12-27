@@ -58,7 +58,7 @@ def test_trainer_train_auto():
 
     # example 1: 输入标准的数据集, 自动创建已有任务和模型的训练
     mim_trainer = Trainer(
-        task_name='masked_image_modeling',
+        task='masked_image_modeling',
         model='mae_vit_base_p16',
         train_dataset=dataset,
         config=config)
@@ -76,7 +76,7 @@ def test_trainer_predict_auto():
     Expectation: TypeError
     """
     zero_shot_image_cls_trainer = Trainer(
-        task_name='zero_shot_image_classification',
+        task='zero_shot_image_classification',
         model='clip_vit_b_32')
     predict_result = zero_shot_image_cls_trainer.predict(candidate_labels=["sunflower", "tree", "dog", "cat", "toy"])
     logger.info(predict_result)

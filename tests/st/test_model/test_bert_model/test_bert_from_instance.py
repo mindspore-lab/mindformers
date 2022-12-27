@@ -77,10 +77,10 @@ def test_bert_trainer_train_from_instance():
     time_cb = TimeMonitor()
     callbacks = [loss_cb, time_cb]
 
-    mlm_trainer = Trainer(task_name='masked_language_modeling',
+    mlm_trainer = Trainer(task='masked_language_modeling',
                           model=bert_model, # model and loss
                           config=config,
                           optimizers=optimizer,
                           train_dataset=dataset,
                           callbacks=callbacks)
-    mlm_trainer.train(resume_from_checkpoint=False)
+    mlm_trainer.train(resume_or_finetune_from_checkpoint=False)
