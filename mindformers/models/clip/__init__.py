@@ -16,10 +16,8 @@
 """clip init"""
 from .clip_config import ClipTextConfig, ClipVisionConfig, ClipConfig
 from .clip import ClipModel
-from .clip_feature_extractor import ClipFeatureExtractor, ClipImageFeatureExtractor
 from .clip_tokenizer import ClipTokenizer
-from .clip_processor import ClipProcessor
+from .clip_processor import ClipProcessor, ClipImageProcessor
 
-__all__ = ['ClipModel', 'ClipConfig', 'ClipVisionConfig',
-           'ClipTextConfig', 'ClipFeatureExtractor',
-           'ClipImageFeatureExtractor', 'ClipTokenizer', 'ClipProcessor']
+__all__ = ['ClipModel', 'ClipConfig', 'ClipVisionConfig', 'ClipImageProcessor',
+           'ClipTextConfig', 'ClipTokenizer', 'ClipProcessor']

@@ -37,11 +37,10 @@ def test_build_import():
         build_loss, build_metric, build_sampler, build_head, \
         build_processor, build_lr, build_model, build_model_config, \
         build_encoder, build_callback, build_wrapper, build_dataset, \
-        build_dataset_loader, build_tokenizer, build_feature_extractor
+        build_dataset_loader, build_tokenizer
     build_lr()
     build_head()
     build_encoder()
-    build_feature_extractor()
     build_dataset()
     build_tokenizer()
     build_pipeline()

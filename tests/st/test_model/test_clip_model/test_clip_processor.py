@@ -26,10 +26,8 @@ import numpy as np
 import mindspore as ms
 
 from mindformers import MindFormerBook, AutoProcessor, AutoModel
-from mindformers.models import (
-    ClipFeatureExtractor, ClipImageFeatureExtractor,
-    ClipProcessor, ClipTokenizer
-)
+from mindformers.models import ClipImageProcessor, ClipProcessor, \
+    ClipTokenizer
 from mindformers.tools import logger
 
 
@@ -42,8 +40,7 @@ def test_clip_processor():
     """
     yaml_path = os.path.join(MindFormerBook.get_project_path(), "configs",
                              "clip", "model_config", "clip_vit_b_32.yaml")
-    img_fe = ClipImageFeatureExtractor(image_resolution=224)
-    feature_extractor = ClipFeatureExtractor(img_fe)
+    img_processor = ClipImageProcessor(image_resolution=224)
     # ClipTokenizer requires downloading vocabulary files
     tokenizer = ClipTokenizer.from_pretrained("clip_vit_b_32")
     save_directory = os.path.join(MindFormerBook.get_default_checkpoint_save_folder(),
@@ -55,7 +52,7 @@ def test_clip_processor():
 
     pro_a = ClipProcessor.from_pretrained('clip_vit_b_32')
     pro_b = ClipProcessor.from_pretrained(yaml_path)
-    pro_c = ClipProcessor(feature_extractor, tokenizer)
+    pro_c = ClipProcessor(img_processor, tokenizer)
 
     pro_d = AutoProcessor.from_pretrained('clip_vit_b_32')
     pro_e = AutoProcessor.from_pretrained(yaml_path)

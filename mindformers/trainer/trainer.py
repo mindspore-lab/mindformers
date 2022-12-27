@@ -30,8 +30,8 @@ from mindspore import load_param_into_net, load_checkpoint
 
 from mindformers.mindformer_book import MindFormerBook
 from mindformers.tools.register import MindFormerConfig, MindFormerRegister
-from mindformers.models import build_model, build_tokenizer, build_feature_extractor, \
-    BaseModel, BaseFeatureExtractor, BaseTokenizer
+from mindformers.models import build_model, build_tokenizer, build_processor, \
+    BaseModel, BaseImageProcessor, BaseTokenizer, BaseAudioProcessor
 from mindformers.dataset import build_dataset, build_dataset_loader, \
     check_dataset_config, BaseDataset
 from mindformers.wrapper import build_wrapper
@@ -72,7 +72,8 @@ class Trainer:
                  train_dataset: Optional[Union[str, BaseDataset]] = None,
                  eval_dataset: Optional[Union[str, BaseDataset]] = None,
                  tokenizer: Optional[BaseTokenizer] = None,
-                 feature_extractor: Optional[BaseFeatureExtractor] = None,
+                 image_processor: Optional[BaseImageProcessor] = None,
+                 audio_processor: Optional[BaseAudioProcessor] = None,
                  optimizers: Optional[Optimizer] = None,
                  wrapper: Optional[TrainOneStepCell] = None,
                  callbacks: Optional[Union[Callback, List[Callback]]] = None,
@@ -87,7 +88,8 @@ class Trainer:
         self.optimizers = optimizers
         self.wrapper = wrapper
         self.tokenizer = tokenizer
-        self.feature_extractor = feature_extractor
+        self.image_processor = image_processor
+        self.audio_processor = audio_processor
         self.callbacks = callbacks
         self.compute_metrics = compute_metrics
         self.configs_directory = os.path.join('.', DEFAULT_CONFIG_DIR)
@@ -282,8 +284,11 @@ class Trainer:
         if self.tokenizer is None:
             self.tokenizer = build_tokenizer(self.config.processor.tokenizer)
 
-        if self.feature_extractor is None:
-            self.feature_extractor = build_feature_extractor(self.config.processor.feature_extractor)
+        if self.image_processor is None:
+            self.image_processor = build_processor(self.config.processor.image_processor)
+
+        if self.audio_processor is None:
+            self.audio_processor = build_processor(self.config.processor.audio_processor)
 
         filter_prefix = ["adam_v", "adam_m", "epoch_num", "step_num", "global_step"]
         self.load_checkpoint(predict_checkpoint, filter_prefix=filter_prefix, is_train=False)
@@ -291,7 +296,8 @@ class Trainer:
         trainer = build_trainer(self.config.trainer)
         output_result = trainer.predict(
             config=self.config, input_data=input_data,
-            network=self.model, feature_extractor=self.feature_extractor,
+            network=self.model, image_processor=self.image_processor,
+            audio_processor=self.audio_processor,
             tokenizer=self.tokenizer, **kwargs)
         return output_result
 

@@ -26,8 +26,8 @@ from mindspore import Tensor
 from mindformers.common.metric import build_metric
 from mindformers.common.callback import build_callback
 from mindformers.dataset import build_dataset, check_dataset_config, BaseDataset
-from mindformers.models import build_model, build_feature_extractor, \
-    BaseModel, BaseFeatureExtractor
+from mindformers.models import build_model, build_processor, \
+    BaseModel, BaseImageProcessor
 from mindformers.pipeline import pipeline
 from mindformers.common.lr import build_lr
 from mindformers.common.optim import build_optim
@@ -190,7 +190,7 @@ class ImageClassificationTrainer(BaseTrainer):
                 config: Optional[Union[dict, ConfigArguments]] = None,
                 input_data: Optional[Union[Tensor, np.ndarray, Image, str, list]] = None,
                 network: Optional[Union[str, BaseModel]] = None,
-                feature_extractor: Optional[BaseFeatureExtractor] = None, **kwargs):
+                image_processor: Optional[BaseImageProcessor] = None, **kwargs):
         """predict for trainer."""
         self.kwargs = kwargs
         logger.info(".........Build Input Data For Predict..........")
@@ -215,12 +215,12 @@ class ImageClassificationTrainer(BaseTrainer):
         if network is not None:
             logger.info("Network Parameters: %s M.", str(count_params(network)))
 
-        if feature_extractor is None:
-            feature_extractor = build_feature_extractor(config.processor.feature_extractor)
+        if image_processor is None:
+            image_processor = build_processor(config.processor.image_processor)
 
         pipeline_task = pipeline(task='image_classification',
                                  model=network,
-                                 feature_extractor=feature_extractor, **kwargs)
+                                 image_processor=image_processor, **kwargs)
         output_result = pipeline_task(batch_input_data)
         logger.info("output result is: %s", str(output_result))
         logger.info(".........Predict Over!.............")
