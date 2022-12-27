@@ -1499,7 +1499,6 @@ class CreateAttentionMaskFromInputMask(nn.Cell):
 
     def __init__(self, parallel_config):
         super(CreateAttentionMaskFromInputMask, self).__init__()
-        self.cast = ops.Cast()
         self.reshape = ops.Reshape()
         self.shape = ops.Shape()
         self.batch_matmul = ops.BatchMatMul().shard(
@@ -1511,7 +1510,7 @@ class CreateAttentionMaskFromInputMask(nn.Cell):
         shape_right = (input_shape[0], 1, input_shape[1])
         shape_left = input_shape + (1,)
 
-        input_mask = self.cast(input_mask, mstype.float32)
+        input_mask = F.cast(input_mask, mstype.float32)
         mask_left = self.reshape(input_mask, shape_left)
         mask_right = self.reshape(input_mask, shape_right)
         attention_mask = self.batch_matmul(mask_left, mask_right)
@@ -1792,10 +1791,10 @@ class T5ModelForGeneration(BaseModel):
         >>> from mindformers import T5ModelForGeneration, T5Tokenizer
         >>> t5 = T5ModelForGeneration.from_pretrained("t5_small")
         >>> tokenizer = T5Tokenizer.from_pretrained("t5_small")
-        >>> words = tokenizer("translate the English to the Romanian: UN Chief Says There Is No Military "
-        ...                  "Solution in Syria")['input_ids']
+        >>> words = tokenizer("translate the English to the Romanian: UN Chief Says There Is"
+        ...                   " No Military Solution in Syria")['input_ids']
         >>> output = t5.generate(words, do_sample=False)
-        >>> output = tokenizer.decode(output, skip_special_tokens=True)
+        >>> output = tokenizer.decode(output[0], skip_special_tokens=True)
         >>> print(output)
         "eful ONU declară că nu există o soluţie militară în Siri"
     """
@@ -1824,7 +1823,7 @@ class T5ModelForGeneration(BaseModel):
             logits = self.t5_model(None, input_mask, target_id, target_mask, None, cache_encoder)
             outputs = None
             if self.use_generate:
-                index = current_index.view(1,)
+                index = current_index.view(-1,)
                 logits = self.gather(logits, index, 0)
                 outputs = nn.LogSoftmax()(logits)
                 outputs = F.tensor_pow(np.e, outputs)

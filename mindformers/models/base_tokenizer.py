@@ -577,6 +577,13 @@ class BaseTokenizer(SpecialTokensMixin):
         """Save the vocabulary to the specific path with name_prefix"""
         raise NotImplementedError
 
+    def _convert_to_numpy_and_check(self, ids):
+        if isinstance(ids, np.ndarray):
+            ids = ids.tolist()
+        if not isinstance(ids, list):
+            raise TypeError(f"`ids` should be the list, but got type {type(ids)}.")
+        return ids
+
     def decode(self,
                token_ids,
                skip_special_tokens=False,
@@ -584,11 +591,15 @@ class BaseTokenizer(SpecialTokensMixin):
         """Converts the token_ids to the string"""
         if isinstance(token_ids, mindspore.Tensor):
             token_ids = token_ids.asnumpy().tolist()
-        elif isinstance(token_ids, np.ndarray):
-            token_ids = token_ids.tolist()
-        if not isinstance(token_ids, list):
-            raise TypeError(f"`token_ids` should be the list, but got {type(token_ids)}.")
-        output = self._decode(token_ids, skip_special_tokens=skip_special_tokens, **kwargs)
+        token_ids = self._convert_to_numpy_and_check(token_ids)
+        if isinstance(token_ids[0], (list, np.ndarray)):
+            output = []
+            for line in token_ids:
+                line = self._convert_to_numpy_and_check(line)
+                new_strs = self._decode(line, skip_special_tokens=skip_special_tokens, **kwargs)
+                output.append(new_strs)
+        else:
+            output = self._decode(token_ids, skip_special_tokens=skip_special_tokens, **kwargs)
         return output
 
     def _decode(self, token_ids,
