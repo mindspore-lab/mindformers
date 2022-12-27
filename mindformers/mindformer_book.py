@@ -140,9 +140,6 @@ class MindFormerBook:
         ('bert', [
             'bert_base_uncased',
         ]),
-        ('filip', [
-            'filip_vit_l_14',
-        ]),
         ('t5', [
             't5-small',
         ])
