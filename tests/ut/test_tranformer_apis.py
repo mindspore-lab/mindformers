@@ -23,9 +23,8 @@ from mindspore import Tensor
 from mindspore.common import dtype
 from mindspore.ops import operations as ops
 from mindspore.common.api import _cell_graph_executor
-from mindformers.modules.parallel_transformer import MultiHeadAttention, FeedForward, TransformerEncoderLayer, TransformerEncoder, \
+from mindformers.modules.transformer import MultiHeadAttention, FeedForward, TransformerEncoderLayer, TransformerEncoder, \
     TransformerDecoder, TransformerDecoderLayer, Transformer, CrossEntropyLoss, AttentionMask, FixedSparseAttention
-
 
 
 class MyActivation(mindspore.nn.Cell):
