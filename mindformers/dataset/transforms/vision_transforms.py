@@ -31,10 +31,10 @@ __all__ = [
     'RandomResizedCrop', 'Resize'
 ]
 
-PY_INTERPOLATION = {'nearest': Inter.NEAREST,
-                    'antialias': Inter.ANTIALIAS,
-                    'linear': Inter.LINEAR,
-                    'cubic': Inter.CUBIC}
+INTERPOLATION = {'nearest': Inter.NEAREST,
+                 'antialias': Inter.ANTIALIAS,
+                 'linear': Inter.LINEAR,
+                 'cubic': Inter.PILCUBIC}
 
 
 class BCHW2BHWC:
@@ -277,7 +277,7 @@ class RandomResizedCrop(vision.transforms.RandomResizedCrop):
         self.size = size
         self.scale = scale
         self.ratio = ratio
-        self.interpolation = PY_INTERPOLATION.get(interpolation)
+        self.interpolation = INTERPOLATION.get(interpolation)
         self.max_attempts = max_attempts
         super(RandomResizedCrop, self).__init__(size, scale, ratio, self.interpolation, max_attempts)
 
@@ -288,6 +288,6 @@ class Resize(vision.transforms.Resize):
 
     def __init__(self, size, interpolation='cubic'):
         self.size = size
-        self.interpolation = PY_INTERPOLATION.get(interpolation)
+        self.interpolation = INTERPOLATION.get(interpolation)
         self.random = False
         super(Resize, self).__init__(size, self.interpolation)

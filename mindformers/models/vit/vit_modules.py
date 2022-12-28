@@ -326,18 +326,15 @@ class Block(nn.transformer.transformer.TransformerEncoderLayer):
         self.mul = P.Mul().shard(((parallel_config.data_parallel, 1, 1), (parallel_config.data_parallel, 1, 1)))
         self.reshape = P.Reshape()
 
-    def construct(self, x, input_mask, init_reset=True, batch_valid_length=None, rel_pos_bias=None):
+    def construct(self, x, input_mask, rel_pos_bias=None):
         """construct of Block"""
-        self._check_input(x, input_mask, init_reset, batch_valid_length)
         x_shape = F.shape(x)
         x = F.reshape(x, (-1, x_shape[-1]))
         input_x = self.layernorm1(x)
         input_x = F.cast(input_x, self.dtype)
 
         attention = self.attention(
-            input_x, input_x, input_x, input_mask,
-            self.key_past, self.value_past,
-            batch_valid_length, rel_pos_bias)
+            input_x, input_x, input_x, input_mask, rel_pos_bias)
 
         if self.gamma_1 is not None:
             attention = self.mul_gamma(attention, self.gamma_1)
@@ -553,11 +550,8 @@ class Attention(nn.transformer.transformer.MultiHeadAttention):
         self.softmax_3d = nn.Softmax().to_float(softmax_compute_type)
         self.softmax_3d.softmax.shard(((parallel_config.data_parallel, parallel_config.model_parallel, 1),))
 
-    def construct(self, query_tensor, key_tensor, value_tensor, attention_mask, key_past=None,
-                  value_past=None, batch_valid_length=None, rel_pos_bias=None):
+    def construct(self, query_tensor, key_tensor, value_tensor, attention_mask, rel_pos_bias=None):
         """construct of attention"""
-        self._check_inputs(query_tensor, key_tensor, value_tensor, attention_mask, key_past,
-                           value_past, batch_valid_length)
         query_tensor, key_tensor, value_tensor, batch_size, ori_shape = self._convert_to_2d_tensor(query_tensor,
                                                                                                    key_tensor,
                                                                                                    value_tensor,
