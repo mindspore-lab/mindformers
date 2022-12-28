@@ -55,6 +55,10 @@ _HPARAMS_DEFAULT = dict(
 
 _RANDOM_INTERPOLATION = (Image.BILINEAR, Image.BICUBIC)
 
+INTERPOLATION = {'nearest': 0,
+                 'linear': 2,
+                 'cubic': 3}
+
 
 def pil_interp(method):
     """Interpolation method selection"""
@@ -71,10 +75,10 @@ def pil_interp(method):
 
 def _interpolation(kwargs):
     """_interpolation of auto_augment"""
-    interpolation = kwargs.pop('resample', Image.BILINEAR)
+    interpolation = kwargs.pop('resample', 'linear')
     interpolation = random.choice(interpolation) \
         if isinstance(interpolation, (list, tuple)) else interpolation
-    return interpolation
+    return INTERPOLATION.get(interpolation)
 
 
 def _check_args_tf(kwargs):

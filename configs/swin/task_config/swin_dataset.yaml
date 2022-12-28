@@ -18,15 +18,16 @@ train_dataset: &train_dataset
       hparams:
         translate_const: 100
         img_mean: [124, 116, 104]
-        interpolation: 2
+        interpolation: cubic
+    - type: ToTensor
     - type: Normalize
       mean: [0.485, 0.456, 0.406] # [123.675, 118.575, 103.53]
       std: [0.229, 0.224, 0.225] #
+      is_hwc: False
     - type: RandomErasing
       probability: 0.25
       mode: pixel
       max_count: 1
-    - type: HWC2CHW
   mixup_op:
     mixup_alpha: 0.8
     cutmix_alpha: 1.0

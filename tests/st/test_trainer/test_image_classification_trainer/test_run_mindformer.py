@@ -72,11 +72,11 @@ class TestRunMindFormer:
         dataset_dir = config.train_dataset.data_loader.dataset_dir
         local_root = os.path.join(
             MindFormerBook.get_default_checkpoint_download_folder(),
-            dataset_dir.split("/")[0]
+            dataset_dir.split("/")[2]
         )
 
         new_dataset_dir = MindFormerBook.get_default_checkpoint_download_folder()
-        for item in dataset_dir.split("/"):
+        for item in dataset_dir.split("/")[2:]:
             new_dataset_dir = os.path.join(new_dataset_dir, item)
         os.makedirs(new_dataset_dir, exist_ok=True)
         return new_dataset_dir, local_root
