@@ -152,6 +152,7 @@ class ClipTokenizer(Tokenizer):
     VOCAB_FILES = {'vocab_file': ['vocab.txt', 'bpe_simple_vocab_16e6.txt.gz']}
     FILE_LIST = ['tokenizer_config.json']
     '''clip tokenizer'''
+    _support_list = MindFormerBook.get_model_support_list()['clip']
     def __init__(self,
                  vocab_file,
                  eos_token="<|endoftext|>",

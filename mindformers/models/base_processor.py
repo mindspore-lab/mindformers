@@ -156,7 +156,8 @@ class BaseProcessor:
                 parsed_config.update({key: parsed_sub_config})
             elif isinstance(val, (BaseImageProcessor, BaseAudioProcessor)):
                 parsed_sub_config = {"type": val.__class__.__name__}
-                parsed_sub_config.update(self._inverse_parse_config(val.config))
+                # parsed_sub_config.update(self._inverse_parse_config(val.config))
+                parsed_sub_config.update(val.config)
                 parsed_config.update({key: parsed_sub_config})
             else:
                 parsed_config.update({key: val})

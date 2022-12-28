@@ -195,6 +195,12 @@ class MindFormerBook:
         ])
     ])
 
+    _TOKENIZER_NAME_TO_PROCESSOR = OrderedDict([
+        ('ClipTokenizer', 'ClipProcessor'),
+        ('BertTokenizer', 'BertProcessor'),
+        ('T5Tokenizer', 'T5Processor')
+    ])
+
     TOKENIZER_NAME_TO_TOKENIZER = OrderedDict([
         ('clip', 'ClipTokenizer'),
         ('bert', 'BertTokenizer')
@@ -203,6 +209,17 @@ class MindFormerBook:
     PIPELINE_TASK_NAME_TO_PIPELINE = OrderedDict([
         ('zero_shot_image_classification', 'ZeroShotImageClassificationPipeline')
     ])
+
+    @classmethod
+    def show_tokenizer_name_to_processor(cls):
+        """show_tokenizer_name_to_processor function"""
+        logger.info("_TRAINER_SUPPORT_TASKS_LIST of MindFormer is: ")
+        print_dict(cls._TOKENIZER_NAME_TO_PROCESSOR)
+
+    @classmethod
+    def get_tokenizer_name_to_processor(cls):
+        """get_tokenizer_name_to_processor function"""
+        return cls._TOKENIZER_NAME_TO_PROCESSOR
 
     @classmethod
     def show_trainer_support_task_list(cls):

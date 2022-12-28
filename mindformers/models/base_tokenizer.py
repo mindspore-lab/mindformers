@@ -259,8 +259,6 @@ class BaseTokenizer(SpecialTokensMixin):
         if name_or_path in MindFormerBook.get_tokenizer_support_list():
             config, cache_path = cls._download_using_name(name_or_path)
             class_name, loaded_kwargs = cls._get_class_name_and_args_form_config(config)
-            logger.info("Download the tokenizer finished, modify the input name_or_path "
-                        "from %s to %s.", name_or_path, cache_path)
             name_or_path = cache_path
 
         yaml_list = None
@@ -337,8 +335,6 @@ class BaseTokenizer(SpecialTokensMixin):
                 and config.processor.tokenizer and'type' in config.processor.tokenizer:
             tokenizer_args = config['processor']['tokenizer']
             class_name = tokenizer_args.pop('type', None)
-            logger.info("Read the tokenizer name %s from %s. The load kwargs for tokenizer "
-                        "is: %s", class_name, config, tokenizer_args)
         else:
             logger.info("There is no matched format config['processor']['tokenizer']  in config %s", config)
         return class_name, tokenizer_args
@@ -364,8 +360,6 @@ class BaseTokenizer(SpecialTokensMixin):
             path = os.path.join(name_or_path, item)
             if os.path.isfile(path):
                 read_tokenizer_file_dict[item] = json.load(open(path, 'r'))
-        logger.info("Tokenizer %s read tokenizer files from %s are:"
-                    "%s and %s", cls.__name__, name_or_path, read_vocab_file_dict, read_tokenizer_file_dict)
         return read_vocab_file_dict, read_tokenizer_file_dict
 
     def _pad(self, id_dict, max_length, padding_strategy="do_not_pad"):
@@ -452,9 +446,11 @@ class BaseTokenizer(SpecialTokensMixin):
             file_format(str): Support json or yaml.
         """
         default_directory = MindFormerBook.get_default_checkpoint_save_folder()
-        if save_directory is None and not os.path.exists(default_directory):
+        if save_directory is None:
             save_directory = default_directory
-            os.makedirs(save_directory)
+            os.makedirs(save_directory, exist_ok=True)
+        if save_name is None:
+            save_name = "mindspore_model"
         if file_format not in ('yaml', 'json'):
             raise ValueError(f"format should be one of [`yaml`, `json`], but got {file_format}.")
 
@@ -462,21 +458,17 @@ class BaseTokenizer(SpecialTokensMixin):
         # Start to save the kwargs for the tokenizer
         if file_format == 'yaml':
             kwargs['type'] = self.__class__.__name__
-            yaml_list = [file for file in os.listdir(save_directory) if file.endswith(".yaml")]
             merged_dict = dict()
-            if len(yaml_list) > 1:
-                raise ValueError(f"There should be only one yaml file under the directory {save_directory}.")
-            if not yaml_list:
-                logger.info("The yaml is not found under the %s, so create a new one. "
-                            "Start to create a new one.", save_directory)
-                yaml_file = os.path.join(save_directory, save_name + '.yaml')
-            else:
-                yaml_file = os.path.join(save_directory, yaml_list[0])
+
+            yaml_file = os.path.join(save_directory, save_name + '.yaml')
+            if os.path.exists(yaml_file):
                 with open(yaml_file, 'r') as file_reader:
                     merged_dict = yaml.load(file_reader.read(), Loader=yaml.Loader)
-            logger.info("Dumping tokenizer args to %s.", yaml_file)
-            if 'processor' not in merged_dict:
-                merged_dict['processor'] = dict()
+                    if merged_dict is None:
+                        merged_dict = dict()
+
+            processor_name = MindFormerBook.get_tokenizer_name_to_processor()[kwargs['type']]
+            merged_dict['processor'] = {"type": processor_name}
             merged_dict['processor']['tokenizer'] = kwargs
             with open(yaml_file, 'w') as file_reader:
                 yaml.dump(merged_dict, file_reader)
