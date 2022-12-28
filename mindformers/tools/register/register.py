@@ -17,7 +17,6 @@
 """ Class Register Module For MindFormers."""
 
 import inspect
-from ..logger import logger as logging
 
 
 class MindFormerModuleType:
@@ -89,9 +88,6 @@ class MindFormerRegister:
             if module_type not in cls.registry:
                 cls.registry[module_type] = {class_name: register_class}
             else:
-                if class_name in cls.registry[module_type]:
-                    logging.warning(
-                        "Duplicate class %s will be replaced.", class_name)
                 cls.registry[module_type][class_name] = register_class
             return register_class
 
@@ -110,9 +106,6 @@ class MindFormerRegister:
         if module_type not in cls.registry:
             cls.registry[module_type] = {class_name: register_class}
         else:
-            if class_name in cls.registry[module_type]:
-                logging.warning(
-                    "Duplicate class %s will be replaced.", class_name)
             cls.registry[module_type][class_name] = register_class
         return register_class
 
