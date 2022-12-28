@@ -13,7 +13,7 @@
 # limitations under the License.
 # ============================================================================
 """
-Modules of VitModel, including Linear, Block, MLP, Attention, PatchEmbed, etc.
+Modules of MaeModel, including Linear, Block, MLP, Attention, PatchEmbed, etc.
 """
 import numpy as np
 
@@ -235,6 +235,7 @@ class DropPath(nn.Cell):
         self.mask = Tensor(np.ones(shape), dtype=mstype.float32)
         self.tile = P.Tile().shard(((1, 1, 1),))
         self.mul = P.Mul().shard(((dp, 1, 1),))
+
     def construct(self, x):
         if not self.training:
             return x
@@ -330,9 +331,8 @@ class Block(nn.transformer.transformer.TransformerEncoderLayer):
         self.mul = P.Mul().shard(((parallel_config.data_parallel, 1, 1), (parallel_config.data_parallel, 1, 1)))
         self.reshape = P.Reshape()
 
-    def construct(self, x, input_mask, init_reset=True, batch_valid_length=None, rel_pos_bias=None):
+    def construct(self, x, input_mask, batch_valid_length=None, rel_pos_bias=None):
         """construct of Block"""
-        self._check_input(x, input_mask, init_reset, batch_valid_length)
         x_shape = F.shape(x)
         x = F.reshape(x, (-1, x_shape[-1]))
         input_x = self.layernorm1(x)
@@ -557,11 +557,8 @@ class Attention(nn.transformer.transformer.MultiHeadAttention):
         self.softmax_3d = nn.Softmax().to_float(softmax_compute_type)
         self.softmax_3d.softmax.shard(((parallel_config.data_parallel, parallel_config.model_parallel, 1),))
 
-    def construct(self, query_tensor, key_tensor, value_tensor, attention_mask, key_past=None,
-                  value_past=None, batch_valid_length=None, rel_pos_bias=None):
+    def construct(self, query_tensor, key_tensor, value_tensor, attention_mask, rel_pos_bias=None):
         """construct of attention"""
-        self._check_inputs(query_tensor, key_tensor, value_tensor, attention_mask, key_past,
-                           value_past, batch_valid_length)
         query_tensor, key_tensor, value_tensor, batch_size, ori_shape = self._convert_to_2d_tensor(query_tensor,
                                                                                                    key_tensor,
                                                                                                    value_tensor,
