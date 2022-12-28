@@ -2,6 +2,73 @@
 
 ## 模型描述
 
-## 模型使用
+vit：全名vision transformer，不同于传统的基于CNN的网络结果，是基于transformer结构的cv网络，2021年谷歌研究发表网络，在大数据集上表现了非常强的泛化能力。大数据任务（如clip）基于该结构能有良好的效果。mindformers提供的Vit权重及精度均是是基于MAE预训练ImageNet-1K数据集进行微调得到。
+
+[论文](https://gitee.com/link?target=https%3A%2F%2Farxiv.org%2Fabs%2F2010.11929): Alexey Dosovitskiy, Lucas Beyer, Alexander Kolesnikov, Dirk Weissenborn, Xiaohua Zhai, Thomas Unterthiner, Mostafa Dehghani, Matthias Minderer, Georg Heigold, Sylvain Gelly, Jakob Uszkoreit, Neil Houlsby. 2021.
+
+## 数据集准备
+
+使用的数据集：[ImageNet2012](http://www.image-net.org/)
+
+- 数据集大小：125G，共1000个类、125万张彩色图像
+    - 训练集：120G，共120万张图像
+    - 测试集：5G，共5万张图像
+- 数据格式：RGB
+
+ ```bash
+数据集目录格式
+└─dataset
+    ├─train                # 训练数据集
+    └─val                  # 评估数据集
+ ```
+
+## 快速使用
+
+### git clone 使用
+
+- 请参考[git clone 快速入门教程](https://gitee.com/mindspore/transformer/blob/master/README.md#%E6%96%B9%E5%BC%8F%E4%B8%80clone-%E5%B7%A5%E7%A8%8B%E4%BB%A3%E7%A0%81)
+
+### pip 安装使用
+
+- 安装教程请参考：[mindformers安装教程](https://gitee.com/mindspore/transformer/blob/master/README.md#%E5%AE%89%E8%A3%85)
+
+- Trainer接口开启训练/评估/推理：
+
+  ```python
+  from mindformers.trainer import Trainer
+
+  # 初始化任务
+  vit_trainer = Trainer(
+      task_name='image_classification',
+      model='vit_base_p16',
+      train_dataset="dataset/train",
+      eval_dataset="dataset/eval")
+
+  vit_trainer.train() # 开启训练
+  vit_trainer.evaluate() # 开启评估
+  input_data = "https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/XFormer_for_mindspore/clip/sunflower.png"
+  predict_result = vit_trainer.predict(input_data) # 开启推理
+  print(predict_result)
+  ```
+
+- pipeline接口开启快速推理
+
+  ```python
+  from mindformers.pipeline import pipeline
+
+  pipeline_task = pipeline("image_classification", model='vit_base_p16')
+  input_data = "https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/XFormer_for_mindspore/clip/sunflower.png"
+  pipeline_result = pipeline_task(input_data)
+  ```
+
+- Trainer和pipeline接口默认支持的task_name和model_name关键入参
+
+  |    task（string）    | model（string） |
+  | :------------------: | :-------------: |
+  | image_classification |  vit_base_p16   |
 
 ## 模型性能
+
+| model | type | pretrain | Datasets | Top1-Accuracy | Log | pretrain_config | finetune_config |
+| :---------: | :--------: | :---: | :----: | :---: | :---: | :---: |  :---: |
+| vit | vit_base_p16 | [mae_vit_base_p16]() | ImageNet-1K | 83.17% | \ | [link](run_mae_vit_base_p16_224_800ep.yaml) | [link](run_vit_base_p16_100ep.yaml) |
