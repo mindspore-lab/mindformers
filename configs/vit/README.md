@@ -24,13 +24,15 @@ vit：全名vision transformer，不同于传统的基于CNN的网络结果，�
 
 ## 快速使用
 
-### git clone 使用
+### 脚本启动
 
-- 请参考[git clone 快速入门教程](https://gitee.com/mindspore/transformer/blob/master/README.md#%E6%96%B9%E5%BC%8F%E4%B8%80clone-%E5%B7%A5%E7%A8%8B%E4%BB%A3%E7%A0%81)
+> 需开发者提前clone工程。
 
-### pip 安装使用
+- 请参考[使用脚本启动](https://gitee.com/mindspore/transformer/blob/master/README.md#%E6%96%B9%E5%BC%8F%E4%B8%80clone-%E5%B7%A5%E7%A8%8B%E4%BB%A3%E7%A0%81)
 
-- 安装教程请参考：[mindformers安装教程](https://gitee.com/mindspore/transformer/blob/master/README.md#%E5%AE%89%E8%A3%85)
+### 调用API启动
+
+> 需开发者提前pip安装。具体接口说明请参考[API接口](https://gitee.com/mindspore/transformer/wikis/API/)
 
 - Trainer接口开启训练/评估/推理：
 
@@ -61,7 +63,7 @@ vit：全名vision transformer，不同于传统的基于CNN的网络结果，�
   pipeline_result = pipeline_task(input_data)
   ```
 
-- Trainer和pipeline接口默认支持的task_name和model_name关键入参
+ Trainer和pipeline接口默认支持的task_name和model_name关键入参
 
   |    task（string）    | model（string） |
   | :------------------: | :-------------: |
