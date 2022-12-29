@@ -331,7 +331,7 @@ class Block(nn.transformer.transformer.TransformerEncoderLayer):
         self.mul = P.Mul().shard(((parallel_config.data_parallel, 1, 1), (parallel_config.data_parallel, 1, 1)))
         self.reshape = P.Reshape()
 
-    def construct(self, x, input_mask, batch_valid_length=None, rel_pos_bias=None):
+    def construct(self, x, input_mask, rel_pos_bias=None):
         """construct of Block"""
         x_shape = F.shape(x)
         x = F.reshape(x, (-1, x_shape[-1]))
@@ -339,9 +339,7 @@ class Block(nn.transformer.transformer.TransformerEncoderLayer):
         input_x = F.cast(input_x, self.dtype)
 
         attention = self.attention(
-            input_x, input_x, input_x, input_mask,
-            self.key_past, self.value_past,
-            batch_valid_length, rel_pos_bias)
+            input_x, input_x, input_x, input_mask, rel_pos_bias)
 
         if self.gamma_1 is not None:
             attention = self.mul_gamma(attention, self.gamma_1)
