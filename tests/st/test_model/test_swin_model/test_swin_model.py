@@ -45,15 +45,12 @@ class TestModelMethod:
     """A test class for testing Model classes"""
     def setup_method(self):
         """get_input"""
-        self.config_path = os.path.join(MindFormerBook.get_project_path(),
-                                        'configs', 'swin', 'model_config', "swin_base_p4w7.yaml")
         self.config = AutoConfig.from_pretrained('swin_base_p4w7')
 
         self.save_directory = os.path.join(MindFormerBook.get_default_checkpoint_save_folder(),
                                            'swin')
 
     # the first method to load model, AutoModel
-
     def test_auto_model(self):
         """
         Feature: AutoModel, from_pretrained, from_config
@@ -66,12 +63,16 @@ class TestModelMethod:
         AutoModel.show_support_list()
         support_list = AutoModel.get_support_list()
         logger.info(support_list)
+
         # input model name, load model and weights
         model_a = AutoModel.from_pretrained('swin_base_p4w7')
+
         # input config, load model without weights
         self.config.checkpoint_name_or_path = None
-        self.config.depths = [2, 2, 6, 2]
-        self.config.num_heads = [3, 6, 12, 24]
+        self.batch_size = 32
+        self.embed_dim = 24
+        self.config.depths = [1, 1, 2, 1]
+        self.config.num_heads = [1, 2, 3, 4]
         model_d = AutoModel.from_config(self.config)
 
         model_a.save_pretrained(self.save_directory, save_name='swin_base_p4w7')

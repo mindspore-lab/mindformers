@@ -23,6 +23,10 @@ from mindformers.mindformer_book import MindFormerBook
 from mindformers.models.base_config import BaseConfig
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 
+
+__all__ = ['SwinConfig']
+
+
 default_recompute_config = TransformerRecomputeConfig()
 default_parallel_config = TransformerOpParallelConfig(recompute=default_recompute_config)
 

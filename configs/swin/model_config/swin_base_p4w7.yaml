@@ -23,3 +23,10 @@ model:
     weight_init: normal
     loss_type: SoftTargetCrossEntropy
     checkpoint_name_or_path: swin_base_p4w7
+
+processor:
+  type: SwinProcessor
+
+  image_processor:
+    type: SwinImageProcessor
+    image_resolution: 224
