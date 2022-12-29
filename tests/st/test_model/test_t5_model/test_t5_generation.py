@@ -57,3 +57,17 @@ class TestModelForT5Method:
         words = tokenizer("class T5Model")['input_ids']
         output = t5.generate(words, do_sample=do_sample)
         tokenizer.decode(output, skip_special_tokens=True)
+
+def test_t5_model_generation_from_url():
+    """
+    Feature: Test generation with remote url and tokenizer
+    Description: Test the generator
+    Expectation: ValueError, AttributeError
+    """
+    t5 = T5ModelForGeneration.from_pretrained("t5_small")
+    tokenizer = T5Tokenizer.from_pretrained("t5_small")
+    words = tokenizer("translate the English to the Romanian: UN Chief Says There Is No Military "
+                      "Solution in Syria")['input_ids']
+    output = t5.generate(words, do_sample=False)
+    output = tokenizer.decode(output, skip_special_tokens=True)
+    assert output == "eful ONU declară că nu există o soluţie militară în Siri"

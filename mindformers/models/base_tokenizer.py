@@ -13,6 +13,8 @@
 # limitations under the License.
 # ============================================================================
 """Base Tokenizer for the pretrained tokenizer"""
+from typing import Optional, List, Union
+
 import copy
 import os
 import json
@@ -124,20 +126,54 @@ class BaseTokenizer(SpecialTokensMixin):
         self.init_kwargs = kwargs
 
     def __call__(self,
-                 text,
-                 text_pair=None,
-                 add_special_tokens=True,
-                 max_length=None,
-                 padding=False,
-                 return_tensors=None,
+                 text: Optional[Union[str, List[str]]],
+                 text_pair: Optional[Union[str, List[str]]] = None,
+                 add_special_tokens: bool = True,
+                 max_length: Optional[int] = None,
+                 padding: str = False,
+                 return_tensors: Optional[bool] = None,
                  **kwargs):
-        """
-        Get the text inputs and then return the padded ids
+        r"""
+        Tokenize the input string and convert them into the ids.
 
-        It needs three steps:
-            1. tokenize
-            2. convert them to ids
-            3. combine them to a batch
+        Args:
+            text(str, list(str)) : To be converted text strings. It can be string or a list of strings.
+            text_pair(str, list(str)): To be converted text pair strings. It can be string or a list of strings.
+            add_special_tokens(bool): Whether to add special tokens such as CLS and EOS to the token list. The subclass
+                can determine the behavior of the adding by overriding the method `build_inputs_with_special_tokens`.
+                If True, the special token will be added. Default True.
+            max_length (int): max length of tokenizer's output . Default None.
+            padding(False / "max_length"): padding for max_length. Default None.
+            return_tensors(str): Specific the returned tensor type. If set None, the returned tensor will be
+                `numpy.ndarray`. If set `ms`, the returned tensor will be of `mindspore.Tensor`.
+                Support 'ms' and None. Default None.
+            **kwargs: The other kwargs passed to the internal behaivor, currently not used.
+
+        Examples:
+            >>> from mindformers import T5Tokenizer
+            >>> tokenizer = T5Tokenizer.from_pretrained("t5_small")
+            >>> res = tokenizer("hello world")
+            >>> print(res)
+            {'input_ids': [21820, 296, 1], 'attention_mask': [1, 1, 1]}
+            >>> res = tokenizer("hello world", padding='max_length', max_length=10)
+            >>> print(res)
+            {'input_ids': [21820, 296, 1, 0, 0, 0, 0, 0, 0, 0],
+             'attention_mask': [1, 1, 1, 0, 0, 0, 0, 0, 0, 0]}
+            >>> res = tokenizer("hello world", add_special_tokens=False)
+            >>> print(res)
+            {'input_ids': [21820, 296], 'attention_mask': [1, 1]}
+            >>> res = tokenizer("hello world", return_tensors='ms')
+            >>> print(res)
+            {'input_ids': Tensor(shape=[3], dtype=Int32, value= [21820,   296,     1]),
+            'attention_mask': Tensor(shape=[3], dtype=Int32, value= [1, 1, 1])}
+            >>> res = tokenizer(["hello world", "today is a good day"], return_tensors='ms')
+            >>> print(res)
+            {'input_ids': Tensor(shape=[3], dtype=Int32, value= [21820,   296,     1]),
+            'attention_mask': Tensor(shape=[3], dtype=Int32, value= [1, 1, 1])}
+
+        Outputs:
+            A dict contains the processed ids, attention_mask that specific by the member `MODEL_INPUT_NAME`
+            of the subclass.
         """
         return_batch = True
         if isinstance(text, str):
@@ -165,18 +201,43 @@ class BaseTokenizer(SpecialTokensMixin):
         raise NotImplementedError
 
     def batch_encode_plus(self,
-                          text,
-                          text_pair=None,
-                          max_length=None,
-                          padding=None,
-                          add_special_tokens=True,
-                          return_token_type_ids=None,
-                          return_attention_mask=None,
-                          return_tensors=None,
-                          return_batch=True,
+                          text: Optional[Union[str, List[str]]],
+                          text_pair: Optional[Union[str, List[str]]] = None,
+                          max_length: Optional[int] = None,
+                          padding: Optional[str] = None,
+                          add_special_tokens: bool = True,
+                          return_token_type_ids: Optional[bool] = None,
+                          return_attention_mask: Optional[bool] = None,
+                          return_tensors: Optional[bool] = None,
+                          return_batch: bool = True,
                           **kwargs):
-        """
-        Convert the input text into the list. This API can process the batch inputs.
+        r"""
+        The core function of the __call__ method. The method aims to tokenizer the input strings and then convert them
+        into ids.
+
+        Args:
+            text(str) : To be converted text strings. It can be string or a list of strings.
+            text_pair(str): To be converted text pair strings. It can be string or a list of strings.
+            max_length (int): max length of tokenizers output . Default None.
+            padding(bool, str): padding for max_length. Default None.
+            add_special_tokens(bool): Whether to add special tokens such as CLS and EOS to the token list. The subclass
+                can determine the behavior of the adding by overriding the method `build_inputs_with_special_tokens`.
+                If True, the special token will be added. Default True.
+            return_token_type_ids(bool): Whether to add `token_type_ids` in the returned dict. If True,
+                `token_type_ids` will be added, otherwise not. If None, it will be added if it is in the
+                MODEL_INPUT_NAME. Default None.
+            return_attention_mask(bool): Whether to add `return_attention_mask` in the returned dict. If True,
+                `return_attention_mask` will be added, otherwise not. If None, it will be added if it is in the
+                MODEL_INPUT_NAME. Default None.
+            return_tensors(str): Specific the returned tensor type. If support `ms` only, the returned value in the
+                dict will be converted to the mindspore.Tensor, otherwise it will return the list.
+                Default None.
+            return_batch(bool): Whether the returned the list should be added batch dimension. Default True.
+            **kwargs: The other kwargs passed to the internal method, currently not used.
+
+        Outputs:
+            A dict contains the processed ids, attention_mask that specific by the member `MODEL_INPUT_NAME`
+            of the subclass.
         """
         if padding and padding != "max_length":
             raise ValueError("padding only supports `max_length` or `None`.")
@@ -221,14 +282,20 @@ class BaseTokenizer(SpecialTokensMixin):
         return output
 
     def encode(self,
-               text,
-               text_pair=None,
-               max_length=None,
-               padding=None,
-               return_tensors=None,
-               add_special_tokens=True,
-               return_batch=False):
-        """Converts the text to the processed ids"""
+               text: Optional[Union[str, List[str]]],
+               text_pair: Optional[Union[str, List[str]]] = None,
+               max_length: Optional[int] = None,
+               padding: Optional[str] = None,
+               return_tensors: Optional[bool] = None,
+               add_special_tokens: bool = True,
+               return_batch: bool = False):
+        """
+        Convert the input strings to the id list. The arguments are mostly same with the `batch_encode_plus`, but
+        return the token id list.
+
+        Returns:
+            A list of token ids mapped by the vocabulary.
+        """
         res = self.batch_encode_plus(text=text,
                                      text_pair=text_pair,
                                      padding=padding,
@@ -239,19 +306,24 @@ class BaseTokenizer(SpecialTokensMixin):
         return res["input_ids"]
 
     @classmethod
-    def from_pretrained(cls, name_or_path):
+    def from_pretrained(cls, name_or_path: str):
         """
-        Arguments:
-            name_or_path(str): The path to the model or the directory
+        Instantiates a tokenizer by the name_or_path. User can get the name using `get_support_list` of any tokenizer,
+        it will download the necessary files from the cloud.
+        or pass a directory where contains the vocabulary file and tokenizers yaml configuration file.
 
-                Supports:
-                    1. The name_or_path contains the config
-                    2. The model_of_path is the output of the method saved_pretrained
-                    3. The model_or_path specifics the vocab_file, only applicable to some tokenizers
-        Returns:
-             The tokenizer of the corresponding tokenizer.
+        Args:
+            name_or_path (str): A supported tokenizer name or a
+                directory to tokenizer (including .yaml file for config
+                and vocburary file for weights).
 
         Examples:
+            >>> from mindformers import T5Tokenizer
+            >>> tokenizer = T5Tokenizer.from_pretrained("t5_small")
+            >>> tokenizer.show_support_list()
+
+        Returns:
+            A instanced tokenizer.
         """
         kwargs = dict()
         class_name = None
@@ -362,13 +434,30 @@ class BaseTokenizer(SpecialTokensMixin):
                 read_tokenizer_file_dict[item] = json.load(open(path, 'r'))
         return read_vocab_file_dict, read_tokenizer_file_dict
 
-    def _pad(self, id_dict, max_length, padding_strategy="do_not_pad"):
+    def _pad(self, id_dict, max_length, padding_strategy="do_not_pad", return_attention_mask=None):
         """Do padding according to the max_length"""
-        if not max_length or padding_strategy != "max_length":
-            return id_dict
         is_batch = False
         if isinstance(id_dict['input_ids'], list) and isinstance(id_dict['input_ids'][0], list):
             is_batch = True
+            length_each = [len(line) for line in id_dict['input_ids']]
+            for item in length_each:
+                if length_each[0] != item and (not max_length or padding_strategy != "max_length"):
+                    raise ValueError(f"You should set `max_length` to {max(length_each)} "
+                                     f"and padding_strategy to `max_length`, as the length in the batch "
+                                     f"is different, which should be padded.")
+
+
+        if return_attention_mask is not False:
+            return_attention_mask = True
+
+        if return_attention_mask and 'attention_mask' in self.model_inputs:
+            if is_batch:
+                id_dict['attention_mask'] = [[1] * len(line) for line in id_dict['input_ids']]
+            else:
+                id_dict['attention_mask'] = [1] * len(id_dict['input_ids'])
+
+        if not max_length or padding_strategy != "max_length":
+            return id_dict
 
         def _pad_batch(source_ids, pad_value):
             if not is_batch:
@@ -387,6 +476,7 @@ class BaseTokenizer(SpecialTokensMixin):
             _pad_batch(id_dict['attention_mask'], pad_value=0)
         if "token_type_ids" in id_dict:
             _pad_batch(id_dict['token_type_ids'], pad_value=self.pad_token_type_id)
+
         return id_dict
 
     def prepare_for_model(self,
@@ -408,31 +498,31 @@ class BaseTokenizer(SpecialTokensMixin):
         def process_token_id(ids, par_ids=None):
             sentence_b_type_ids = []
             if par_ids:
-                sentence_b_type_ids = [1] * len(par_ids[0])
-            return [0] * len(ids[0]) + sentence_b_type_ids
+                sentence_b_type_ids = [1] * len(par_ids)
+            return [0] * len(ids) + sentence_b_type_ids
 
         if add_special_tokens:
             # add cls and sep: [cls] ids [seq] pair_ids
             input_ids_output = self.build_inputs_with_special_tokens(ids, pair_ids)
             type_ids = self.create_token_type_ids_from_sequences(ids, pair_ids)
-            # two 1 are for cls and sep
-            attention_mask = [1] * (1 + 1 + len(ids) + (len(pair_ids) if pair_ids else 0))
         else:
             input_ids_output = [ids + pair_ids] if pair_ids else ids
-            attention_mask = attention_mask = [1] * (len(ids) + (len(pair_ids) if pair_ids else 0))
             type_ids = process_token_id(ids, pair_ids)
 
         output_map['input_ids'] = input_ids_output
         if return_token_type_ids or 'token_type_ids' in self.model_inputs:
             output_map['token_type_ids'] = type_ids
-        if return_attention_mask or 'attention_mask' in self.model_inputs:
-            output_map['attention_mask'] = attention_mask
 
-        output_map = self._pad(output_map, max_length=max_length, padding_strategy=padding_strategy)
+        output_map = self._pad(output_map, max_length=max_length, padding_strategy=padding_strategy,
+                               return_attention_mask=return_attention_mask)
+
         if return_tensors and return_tensors != 'ms':
             raise ValueError("You should set return_tensors to be `ms`.")
         if return_tensors:
             for k, v in output_map.items():
+                v = np.array(v)
+                if v.dtype == np.int64:
+                    v = v.astype(np.int32)
                 output_map[k] = Tensor(v)
         return output_map
 
@@ -606,10 +696,14 @@ class Tokenizer(BaseTokenizer):
             else:
                 for k, v in per_output.items():
                     output[k].append(v)
-        output_map = self._pad(output, max_length=max_length, padding_strategy=padding_strategy)
+        output_map = self._pad(output, max_length=max_length, padding_strategy=padding_strategy,
+                               return_attention_mask=return_attention_mask)
         if return_tensors:
             for k in output_map.keys():
-                output_map[k] = Tensor(output_map[k])
+                v = np.array(output_map[k])
+                if v.dtype == np.int64:
+                    v = v.astype(np.int32)
+                output_map[k] = Tensor(v)
         return output_map
 
     def _decode(self, token_ids, skip_special_tokens=False, **kwargs):

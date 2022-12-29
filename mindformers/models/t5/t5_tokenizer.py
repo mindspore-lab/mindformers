@@ -27,22 +27,54 @@ __all__ = ['T5Tokenizer']
 
 @MindFormerRegister.register(MindFormerModuleType.TOKENIZER)
 class T5Tokenizer(Tokenizer):
-    """
-        The tokenizer for T5 model
+    r"""
+    Tokenize the input string and convert them into the ids. The tokenizer use the sentence piece internally.
+
+    Args:
+        vocab_file(str): The spiece.model file path.
+        eos_token(str): The token that represents the end-of-sentence. Default "</s>".
+        unk_token(str: The token that represents the unknown. Default "<unk>".
+        pad_token(str): The token that represents the pad. Default "<pad>".
+        **kwargs: Other kwargs that will be passed into the base class of the `Tokenizer`.
+
+    Examples:
+        >>> from mindformers import T5Tokenizer
+        >>> tokenizer = T5Tokenizer.from_pretrained("t5_small")
+        >>> res = tokenizer("hello world")
+        >>> print(res)
+        {'input_ids': [21820, 296, 1], 'attention_mask': [1, 1, 1]}
+        >>> res = tokenizer("hello world", padding='max_length', max_length=10)
+        >>> print(res)
+        {'input_ids': [21820, 296, 1, 0, 0, 0, 0, 0, 0, 0],
+         'attention_mask': [1, 1, 1, 0, 0, 0, 0, 0, 0, 0]}
+        >>> res = tokenizer("hello world", add_special_tokens=False)
+        >>> print(res)
+        {'input_ids': [21820, 296], 'attention_mask': [1, 1]}
+        >>> res = tokenizer("hello world", return_tensors='ms')
+        >>> print(res)
+        {'input_ids': Tensor(shape=[3], dtype=Int32, value= [21820,   296,     1]),
+        'attention_mask': Tensor(shape=[3], dtype=Int32, value= [1, 1, 1])}
+        >>> res = tokenizer(["hello world", "today is a good day"], return_tensors='ms')
+        >>> print(res)
+        {'input_ids': Tensor(shape=[3], dtype=Int32, value= [21820,   296,     1]),
+        'attention_mask': Tensor(shape=[3], dtype=Int32, value= [1, 1, 1])}
+
+    Outputs:
+        A dict contains the processed ids, attention_mask that specific by the member `MODEL_INPUT_NAME`
+        of the subclass.
     """
     VOCAB_FILES = {'vocab_file': 'spiece.model'}
     FILE_LIST = ['tokenizer_config.json']
+    MODEL_INPUT_NAME = ['input_ids', 'attention_mask']
 
     def __init__(self,
-                 vocab_file,
-                 eos_token="</s>",
-                 unk_token="<unk>",
-                 pad_token="<pad>",
+                 vocab_file: str,
+                 eos_token: str = "</s>",
+                 unk_token: str = "<unk>",
+                 pad_token: str = "<pad>",
                  **kwargs):
         """
         Initialize the sentence piece model according to the model path
-        Args:
-             sp_model(str): the sentence piece model path.
         """
         super(T5Tokenizer, self).__init__(eos_token=eos_token,
                                           unk_token=unk_token,

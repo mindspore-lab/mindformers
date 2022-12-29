@@ -22,8 +22,8 @@ import os
 import shutil
 
 import pytest
-from mindformers import T5Tokenizer, AutoTokenizer
 
+from mindformers import T5Tokenizer, AutoTokenizer
 
 @pytest.mark.level0
 @pytest.mark.platform_x86_ascend_training
@@ -69,3 +69,32 @@ class TestT5TokenizerMethod:
         tokenizer = T5Tokenizer.from_pretrained(os.path.dirname(__file__))
         res = tokenizer("hello world")["input_ids"]
         tokenizer.decode(res, skip_special_tokens=skip_special_tokens)
+
+    def test_t5__call__(self):
+        """
+        Feature: The T5Tokenizer test call method
+        Description: Using call forward process of the tokenizer without error
+        Expectation: The returned ret is not equal to [[6, 7]].
+        """
+        tokenizer = T5Tokenizer.from_pretrained("t5_small")
+        tokenizer("hello world", skip_special_tokens=True)
+        tokenizer("hello world", skip_special_tokens=False)
+
+        res = tokenizer("hello world")
+        assert res == {'input_ids': [21820, 296, 1], 'attention_mask': [1, 1, 1]}
+
+        res = tokenizer("hello world", padding='max_length', max_length=10)
+        assert res == {'input_ids': [21820, 296, 1, 0, 0, 0, 0, 0, 0, 0],
+                       'attention_mask': [1, 1, 1, 0, 0, 0, 0, 0, 0, 0]}
+
+        res = tokenizer("hello world", add_special_tokens=False)
+        assert res == {'input_ids': [21820, 296], 'attention_mask': [1, 1]}
+
+        res = tokenizer("hello world", return_tensors='ms')
+        assert res['input_ids'].asnumpy().tolist() == [21820, 296, 1]
+        assert res['attention_mask'].asnumpy().tolist() == [1, 1, 1]
+
+        with pytest.raises(ValueError):
+            tokenizer(["hello world", "today is a good day"], return_tensors='ms')
+
+        tokenizer(["hello world", "today is a good day"], max_length=7, padding='max_length', return_tensors='ms')

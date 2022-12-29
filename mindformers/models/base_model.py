@@ -17,6 +17,11 @@
 BaseModel
 """
 import os
+try:
+    import fcntl
+except ImportError:
+    fcntl = None
+
 import yaml
 
 import mindspore as ms
@@ -52,7 +57,6 @@ class BaseModel(nn.Cell, GeneratorMinMax):
             model name or a path to checkpoint, to load model weights.
         """
         checkpoint_name_or_path = config.checkpoint_name_or_path
-
         if checkpoint_name_or_path:
             if not isinstance(checkpoint_name_or_path, str):
                 raise TypeError(f"checkpoint_name_or_path should be a str,"
@@ -84,15 +88,19 @@ class BaseModel(nn.Cell, GeneratorMinMax):
                     succeed = downlond_with_progress_bar(url, ckpt_file)
                     if not succeed:
                         logger.info("checkpoint download failed, and pretrained weights are unloaded.")
-                    else:
-                        param = load_checkpoint(ckpt_file)
+                        return
+                with open(ckpt_file, 'r') as fp:
+                    if fcntl:
+                        fcntl.flock(fp.fileno(), fcntl.LOCK_EX)
 
-                        try:
-                            load_param_into_net(self, param)
-                        except RuntimeError:
-                            logger.error("the given config and weights in %s are"
-                                         " mismatched, and weights load failed", ckpt_file)
-                        logger.info("weights in %s are loaded", ckpt_file)
+                logger.info("start to read the ckpt file: %s", os.path.getsize(ckpt_file))
+                param = load_checkpoint(ckpt_file)
+                try:
+                    load_param_into_net(self, param)
+                except RuntimeError:
+                    logger.error("the given config and weights in %s are"
+                                 " mismatched, and weights load failed", ckpt_file)
+                logger.info("weights in %s are loaded", ckpt_file)
         else:
             logger.info("model built, but weights is unloaded, since the config has no"
                         " checkpoint_name_or_path attribute or"
