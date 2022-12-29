@@ -66,7 +66,7 @@ class TestTrainer:
         Description: Test Trainer API to train.
         Expectation: TypeError
         """
-        trainer = Trainer(task_name='contrastive_language_image_pretrain')
+        trainer = Trainer(task='contrastive_language_image_pretrain')
         trainer.train()
 
     def make_local_directory(self, config):

@@ -34,9 +34,8 @@ MindSpore MindFormers套件基于MindSpore内置的并行技术和组件化设�
 目前仅支持源码编译安装，用户可以执行下述的命令进行包的安装
 
 ```bash
-git clone https://gitee.com/mindspore/mindformers.git
+git clone https://gitee.com/mindspore/transformer.git
 cd mindformers
-pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
 sh build.sh
 ```
 
@@ -59,7 +58,7 @@ sh build.sh
     - step1：git clone mindformers
 
     ```shell
-    git clone https://gitee.com/mindspore/mindformers.git
+    git clone https://gitee.com/mindspore/transformer.git
     cd mindformers
     ```
 
@@ -81,17 +80,17 @@ RANK_TABLE_FILE: 由mindformers/tools/hccl_tools.py生成的分布式json文件
 CONFIG_PATH: 为configs文件夹下面的{model_name}/run_*.yaml配置文件
 DEVICE_ID: 为设备卡，范围为0~7
 DEVICE_RANGE: 为单机分布式卡的范围, 如[0,8]为8卡分布式，不包含8本身
-RUN_STATUS: 为任务运行状态，支持关键字 train、eval、predict
+RUN_STATUS: 为任务运行状态，支持关键字 train\finetune\eval\predict
 ```
 
 - 快速使用方式 1：统一接口启动，根据模型 CONFIG 完成任意模型的单卡训练、评估、推理流程
 
 ```shell
 # 训练启动，run_status支持train、eval、predict三个关键字，以分别完成模型训练、评估、推理功能，默认使用配置文件中的run_status
-python run_mindformer.py --config {CONFIG_PATH} --run_status {train/eval/predict}
+python run_mindformer.py --config {CONFIG_PATH} --run_status {train/finetune/eval/predict}
 ```
 
-- 快速使用方式 2： scripts 脚本启动，根据模型 CONFIG 完成任意模型的单卡/多卡训练、评估、推理流程
+- 快速使用方式 2： scripts 脚本启动，根据模型 CONFIG 完成任意模型的单卡/多卡训练、微调、评估、推理流程
 
 ```shell
 # 单卡启动脚本
@@ -106,7 +105,7 @@ sh run_distribute.sh RANK_TABLE_FILE CONFIG_PATH DEVICE_RANGE RUN_STATUS
 
 #### 方式二：pip 安装使用
 
-用户可以通过`pip install mindformers`的方式利用Trainer高阶接口执行模型任务的训练、评估、推理功能。
+用户可以通过`pip install mindformers`的方式利用Trainer高阶接口执行模型任务的训练、微调、评估、推理功能。
 
 Trainer接口详细设计请阅：[Trainer接口使用案例及接口设计说明](https://gitee.com/mindspore/transformer/wikis/%E7%89%B9%E6%80%A7%E8%AE%BE%E8%AE%A1%E6%96%87%E6%A1%A3?sort_id=6569071)
 
@@ -120,7 +119,7 @@ Trainer接口详细设计请阅：[Trainer接口使用案例及接口设计说�
 
     - step2: 准备相应任务的数据集，请参考`configs`目录下各模型的README.md文档准备相应数据集
 
-- 小白体验使用方式：准备数据集，直接开启已有任务的训练、评估、推理流程
+- 小白体验使用方式：准备数据集，直接开启已有任务的训练、微调、评估、推理流程
 
 ```python
 from mindformers import Trainer
@@ -132,13 +131,14 @@ context_config = ContextConfig(device_id=0, device_target='Ascend', mode=0)  # �
 init_context(seed=2022, use_parallel=False, context_config=context_config)  # 进行环境初始化, 单卡设定
 
 ## Step 2 输入对应任务的标准数据集路径，自动创建已有任务的训练、评估、推理流程 (需提前准备好对应的数据集)
-mim_trainer = Trainer(task_name='masked_image_modeling', # 已集成的任务名
-                      model='mae_vit_base_p16', # 已集成的模型名
+cls_trainer = Trainer(task='image_classification', # 已集成的任务名
+                      model='vit_base_p16', # 已集成的模型名
                       train_dataset="/data/imageNet-1k/train", # 传入标准的训练数据集路径，默认支持ImageNet数据集格式
                       eval_dataset="/data/imageNet-1k/eval") # 传入标准的评估数据集路径，默认支持ImageNet数据集格式
-mim_trainer.train() # 开启训练流程
-# mim_trainer.eval() # 开启评估流程
-# mim_trainer.predict(input_data) # 输入要执行推理的数据，开启推理流程
+cls_trainer.train() # 开启训练流程
+cls_trainer.train(resume_or_finetune_from_checkpoint='mae_vit_base_p16', do_finetune=True) # 加载集成的mae权重，开启微调流程
+cls_trainer.evaluate() # 开启评估流程
+cls_trainer.predict() # 开启推理流程，默认加载任务数据进行推理
 ```
 
 - 初阶开发使用方式: 通过config类配置参数完成已有任务的训练、评估、推理流程
@@ -161,11 +161,11 @@ optim_config = OptimizerConfig(optim_type='Adam', beta1=0.009, learning_rate=lr_
 train_loader_config = DataLoaderConfig(dataset_dir="/data/imageNet-1k/train")   # 数据加载参数设定， 默认ImageFolderDataset加载方式
 eval_loader_config = DataLoaderConfig(dataset_dir="/data/imageNet-1k/eval")
 train_dataset_config = DatasetConfig(data_loader=train_loader_config,
-                               input_columns=["image"],
-                               output_columns=["image"],
-                               column_order=["image"],
-                               batch_size=2,
-                               image_size=224) # 设定训练数据集的输入、输出、bs等超参数
+                                     input_columns=["image"],
+                                     output_columns=["image"],
+                                     column_order=["image"],
+                                     batch_size=2,
+                                     image_size=224) # 设定训练数据集的输入、输出、bs等超参数
 eval_dataset_config = DatasetConfig(data_loader=eval_loader_config,
                                     input_columns=["image"],
                                     output_columns=["image"],
@@ -180,13 +180,14 @@ config = ConfigArguments(output_dir="./output_dir",
                          optimizer=optim_config) # 统一超参配置接口
 
 ## Step 3 通过config配置拉起相应任务的训练、评估、推理功能
-mim_trainer = Trainer(task_name='masked_image_modeling', model='mae_vit_base_p16', config=config)
-mim_trainer.train() # 开启训练流程
-# mim_trainer.eval() # 开启评估流程
-# mim_trainer.predict(input_data) # 输入要执行推理的数据，开启推理流程
+cls_trainer = Trainer(task='image_classification', model='vit_base_p16', config=config)
+cls_trainer.train(resume_or_finetune_from_checkpoint='mae_vit_base_p16', do_finetune=True) # 加载集成的mae权重，开启微调流程
+cls_trainer.train() # 开启训练流程
+cls_trainer.evaluate() # 开启评估流程
+cls_trainer.predict() # 开启推理流程，默认加载任务数据进行推理
 ```
 
-- 中阶开发使用方式: 用户通过自定义开发的网络、数据集、优化器等模块完成已有任务的训练、评估、推理流程
+- 中阶开发使用方式: 用户通过自定义开发的网络、数据集、优化器等模块完成已有任务的训练、微调、评估、推理流程
 
 ```python
 import numpy as np
@@ -243,16 +244,18 @@ ckpt_cb = ModelCheckpoint(directory="./output/checkpoint", prefix="my_model", co
 callbacks = [loss_cb, time_cb, ckpt_cb]
 
 # 通过自定义任意模块完成masked_image_modeling任务的训练、评估、推理流程
-mim_trainer = Trainer(task_name='masked_image_modeling',
+cls_trainer = Trainer(task='masked_image_modeling',
                       model=mae_model,  # 包含loss计算
                       config=config,
                       optimizers=optimizer,
                       train_dataset=dataset,
                       eval_dataset=dataset,
                       callbacks=callbacks)
-mim_trainer.train() # 开启训练流程
-# mim_trainer.eval() # 开启评估流程
-# mim_trainer.predict(input_data) # 输入要执行推理的数据，开启推理流程
+cls_trainer = Trainer(task='image_classification', model='vit_base_p16', config=config)
+cls_trainer.train(resume_or_finetune_from_checkpoint='mae_vit_base_p16', do_finetune=True) # 加载集成的mae权重，开启微调流程
+cls_trainer.train() # 开启训练流程
+cls_trainer.evaluate() # 开启评估流程
+cls_trainer.predict() # 开启推理流程，默认加载任务数据进行推理
 ```
 
 - 高阶使用方式：高阶类混合使用和组装.....

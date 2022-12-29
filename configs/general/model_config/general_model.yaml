@@ -1,10 +1,13 @@
 # please edit by hand.
 model:
-  model_config: 
+  model_config:
+    checkpoint_name_or_path:
 
-  arch: 
+  arch:
 
 processor:
   tokenizer:
 
-  feature_extractor:
+  image_processor:
+
+  audio_processor:

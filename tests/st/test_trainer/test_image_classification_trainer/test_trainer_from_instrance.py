@@ -93,13 +93,13 @@ class TestTrainer:
         loss_cb = ms.LossMonitor(per_print_times=1)
         callbacks = [loss_cb]
 
-        trainer = Trainer(task_name='image_classification',
+        trainer = Trainer(task='image_classification',
                           model=vit_model,
                           config=config,
                           optimizers=optimizer,
                           train_dataset=dataset,
                           callbacks=callbacks)
-        trainer.train(resume_from_checkpoint=False)
+        trainer.train(resume_or_finetune_from_checkpoint=False)
 
     def make_local_directory(self, config):
         """make local directory"""

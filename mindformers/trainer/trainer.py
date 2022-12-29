@@ -15,8 +15,8 @@
 """Trainer API For Import."""
 import os
 import shutil
-from pprint import pprint
 from collections import OrderedDict
+from pprint import pprint
 from typing import List, Optional, Union
 
 import numpy as np
@@ -26,33 +26,23 @@ from mindspore import Tensor
 from mindspore.common import set_seed
 from mindspore.nn import TrainOneStepCell, Optimizer
 from mindspore.train import Callback
-from mindspore import load_param_into_net, load_checkpoint
 
-from mindformers.mindformer_book import MindFormerBook
-from mindformers.tools.register import MindFormerConfig, MindFormerRegister
-from mindformers.models import build_model, build_tokenizer, build_processor, \
-    BaseModel, BaseImageProcessor, BaseTokenizer, BaseAudioProcessor
+from mindformers.common.parallel_config import build_parallel_config
 from mindformers.dataset import build_dataset, build_dataset_loader, \
     check_dataset_config, BaseDataset
-from mindformers.wrapper import build_wrapper
-from mindformers.common.optim import build_optim
-from mindformers.common.lr import build_lr
-from mindformers.common.callback import build_callback
-from mindformers.common.parallel_config import build_parallel_config
+from mindformers.mindformer_book import MindFormerBook
+from mindformers.models import BaseModel, BaseImageProcessor, BaseTokenizer, BaseAudioProcessor
 from mindformers.tools.cloud_adapter import CFTS
-from mindformers.tools.logger import logger
-from mindformers.tools.utils import count_params
 from mindformers.tools.image_tools import load_image
+from mindformers.tools.logger import logger
+from mindformers.tools.register import MindFormerConfig, MindFormerRegister
 from mindformers.tools.register.config import ordered_yaml_dump
-
 from .build_trainer import build_trainer
 from .config_args import ConfigArguments
 from .utils import check_train_data_loader_type, check_eval_data_loader_type, \
     check_optimizer_and_lr_type, check_wrapper_config, config2dict
 
-
 __all__ = ['Trainer']
-
 
 SUPPORT_TASKS = MindFormerBook().get_trainer_support_task_list()
 SUPPORT_MODEL_NAMES = MindFormerBook().get_model_name_support_list()
@@ -64,10 +54,114 @@ DEFAULT_CONFIG_DIR = 'configs'
 
 
 class Trainer:
-    """Trainer API."""
+    r"""
+    Trainer package to train\evaluate\predict class.
+
+    The trainer interface is used to quickly start training, evaluation and predict
+    for integrated tasks. It also allows users to customize the model, optimizer, dataset,
+    tokenizer, processor, train_one_step, callback, and metric.
+
+    Args:
+        config (Optional[Union[str, dict, ConfigArguments]]): The task config which is used to
+            configure the dataset, the hyper-parameter, optimizer, etc. It support yaml path or
+            config dict or ConfigArguments class.
+            Default: None.
+        task (str): The task name supported. Please refer to *****.
+            Default: 'general'.
+        model (Optional[Union[str, BaseModel]]): The network for trainer. It support model name supported
+            or BaseModel class. Supported model name can refer to ****.
+            Default: None.
+        train_dataset (Optional[Union[str, BaseDataset]]): The training dataset. It support real dataset path or
+            BaseDateset class or MindSpore Dataset class.
+            Default: None.
+        eval_dataset (Optional[Union[str, BaseDataset]]): The evaluate dataset. It support real dataset path or
+            BaseDateset class or MindSpore Dataset class.
+            Default: None.
+        tokenizer (Optional[BaseTokenizer]): The tokenizer for text preprocessing. It support BaseTokenizer class.
+            Default: None.
+        image_processor (Optional[BaseImageProcessor]): The processor for image preprocessing.
+            It support BaseImageProcessor class.
+            Default: None.
+        audio_processor (Optional[BaseAudioProcessor]): The processor for audio preprocessing.
+            It support BaseAudioProcessor class.
+            Default: None.
+        optimizers (Optional[Optimizer]): The training network's optimizer. It support Optimizer class of MindSpore.
+            Default: None.
+        wrapper (Optional[TrainOneStepCell]): Wraps the `network` with the `optimizer`.
+            It support TrainOneStepCell class of MindSpore.
+            Default: None.
+        callbacks (Optional[Union[Callback, List[Callback]]]): The training callback function.
+            It support CallBack or CallBack List of MindSpore.
+            Default: None.
+        eval_callbacks (Optional[Union[Callback, List[Callback]]]): The evaluate callback function.
+            It support CallBack or CallBack List of MindSpore.
+            Default: None.
+        compute_metrics (Optional[Union[dict, set]]): The metric of evaluating.
+            It support dict or set in MindSpore's Metric class.
+            Default: None.
+        save_config (bool): Save current the config of task. Default: False.
+
+    Supported Platforms:
+        ``Ascend`` ``GPU`` ``CPU``
+
+    Raises:
+        KeyError: If 'task' or 'model' not in supported trainer.
+
+    Examples:
+        >>> from mindformers import Trainer
+        >>> import numpy as np
+        >>> from mindspore.dataset import GeneratorDataset
+        >>> class MyDataLoader:
+        ...    def __init__(self):
+        ...        self._data = [np.zeros((3, 224, 224), np.float32) for _ in range(64)]
+        ...
+        ...    def __getitem__(self, index):
+        ...        return self._data[index]
+        ...
+        ...    def __len__(self):
+        ...        return len(self._data)
+        >>> #1) input task name and model name to init trainer
+        >>> task_trainer = Trainer(task='image_classification',
+        ...                        model='vit_base_p16',
+        ...                        train_dataset='data/imagenet/train')
+        >>> #2) input config to init trainer
+        >>> from mindformers.trainer.config_args import ConfigArguments, OptimizerConfig, \
+        ...     RunnerConfig, LRConfig, WrapperConfig
+        >>> from mindspore.nn import AdamWeightDecay, WarmUpLR, \
+        ...     DynamicLossScaleUpdateCell, TrainOneStepWithLossScaleCell
+        >>> from mindspore.train.callback import LossMonitor
+        >>> runner_config = RunnerConfig(epochs=10, batch_size=2, image_size=224)
+        >>> lr_schedule_config = LRConfig(lr_type='WarmUpLR', learning_rate=0.001, warmup_steps=10)
+        >>> optim_config = OptimizerConfig(optim_type='Adam', beta1=0.009, learning_rate=lr_schedule_config)
+        >>> loss_scale = DynamicLossScaleUpdateCell(loss_scale_value=2**12, scale_factor=2, scale_window=1000)
+        >>> wrapper_config = WrapperConfig(wrapper_type='TrainOneStepWithLossScaleCell', scale_sense=loss_scale)
+        >>> dataset = GeneratorDataset(source=MyDataLoader(), column_names='image')
+        >>> dataset = dataset.batch(batch_size=2)
+        >>> config = ConfigArguments(seed=2022, runner_config=runner_config,
+        ...                          optimizer=optim_config, runner_wrapper=wrapper_config)
+        >>> task_trainer = Trainer(task='image_classification',
+        ...                        model='vit_base_p16',
+        ...                        config=config, train_dataset=dataset)
+        >>> #3) input instance to init trainer
+        >>> from mindformers.models import VitModel
+        >>> vit_model_with_loss = VitModel()
+        >>> lr_schedule = WarmUpLR(learning_rate=0.001, warmup_steps=100)
+        >>> optimizer = AdamWeightDecay(beta1=0.009, beta2=0.999,
+        ...                             learning_rate=lr_schedule,
+        ...                             params=vit_model_with_loss.trainable_params())
+        >>> loss_cb = LossMonitor(per_print_times=2)
+        >>> callbacks = [loss_cb]
+        >>> task_trainer = Trainer(task='image_classification',
+        ...                        model=vit_model_with_loss,
+        ...                        config=config,
+        ...                        optimizers=optimizer,
+        ...                        train_dataset=dataset,
+        ...                        callbacks=callbacks)
+    """
+
     def __init__(self,
                  config: Optional[Union[str, dict, ConfigArguments]] = None,
-                 task_name: Optional[str] = 'general',
+                 task: Optional[str] = 'general',
                  model: Optional[Union[str, BaseModel]] = None,
                  train_dataset: Optional[Union[str, BaseDataset]] = None,
                  eval_dataset: Optional[Union[str, BaseDataset]] = None,
@@ -77,11 +171,12 @@ class Trainer:
                  optimizers: Optional[Optimizer] = None,
                  wrapper: Optional[TrainOneStepCell] = None,
                  callbacks: Optional[Union[Callback, List[Callback]]] = None,
+                 eval_callbacks: Optional[Union[Callback, List[Callback]]] = None,
                  compute_metrics: Optional[Union[dict, set]] = None,
                  save_config: bool = False,
                  **kwargs):
 
-        self.task_name = task_name
+        self.task = task
         self.model = model
         self.train_dataset = train_dataset
         self.eval_dataset = eval_dataset
@@ -91,7 +186,9 @@ class Trainer:
         self.image_processor = image_processor
         self.audio_processor = audio_processor
         self.callbacks = callbacks
+        self.eval_callbacks = eval_callbacks
         self.compute_metrics = compute_metrics
+        self.default_checkpoint_name_or_path = None
         self.configs_directory = os.path.join('.', DEFAULT_CONFIG_DIR)
         self.kwargs = kwargs
 
@@ -109,8 +206,8 @@ class Trainer:
                 logger.warning(
                     'wrapper has existed, input optimizers invalid, it should be include in wrapper.')
 
-        assert task_name in SUPPORT_TASKS.keys(), \
-            f"task name must be in {SUPPORT_TASKS.keys()}, but get {task_name}."
+        assert task in SUPPORT_TASKS.keys(), \
+            f"task name must be in {SUPPORT_TASKS.keys()}, but get {task}."
         if isinstance(model, str):
             assert model in SUPPORT_MODEL_NAMES, \
                 f"model must be in {SUPPORT_MODEL_NAMES} when model's type is string, but get {model}."
@@ -119,7 +216,7 @@ class Trainer:
         else:
             self.model_name = "common"
 
-        task_config = MindFormerConfig(SUPPORT_TASKS.get(self.task_name).get(self.model_name))
+        task_config = MindFormerConfig(SUPPORT_TASKS.get(self.task).get(self.model_name))
 
         if self.model_name == "common":
             if self.model is not None:
@@ -194,37 +291,78 @@ class Trainer:
         # pprint last config
         pprint(self.config)
 
-    def train(self, resume_from_checkpoint: Optional[Union[str, bool]] = None,
-              initial_epoch: int = 0, do_eval: bool = False, **kwargs):
-        """train."""
-        if resume_from_checkpoint is False:
-            resume_from_checkpoint = None
+    def train(self, resume_or_finetune_from_checkpoint: Optional[Union[str, bool]] = False,
+              initial_epoch: int = 0, do_eval: bool = False, do_finetune: bool = False, **kwargs):
+        r"""Train task for Trainer.
+        This function is used to train or fine-tune the network.
 
-        if self.train_dataset is None:
-            self.train_dataset = build_dataset(self.config.train_dataset_task)
+        Args:
+            resume_or_finetune_from_checkpoint (Optional[Union[str, bool]]):
+                Used to restore training or fine-tune the weight of the network.
+                It support real checkpoint path or valid model name of mindformers or bool value.
+                if it's true, the last checkpoint file saved from the previous training round is automatically used.
+                if do_finetune is true, this checkpoint will be used to finetune the network.
+                Default: False.
+            initial_epoch (int): Epoch at which to start train, it used for resuming a previous training run.
+                Default: 0.
+            do_eval (bool): Whether evaluations are performed during training. Default: False.
+            do_finetune: Whether to finetune network. When it's true, resume_or_finetune_from_checkpoint must be input.
+                Default: False.
+
+        Raises:
+            TypeError: if resume_or_finetune_from_checkpoint is not bool or str type.
+
+        Supported Platforms:
+            ``Ascend`` ``GPU`` ``CPU``
+
+        Examples:
+            >>> from mindformers import Trainer
+            >>> task_trainer = Trainer(task='image_classification',
+            ...                        model='vit_base_p16',
+            ...                        train_dataset='data/imagenet/train',
+            ...                        eval_dataset='data/imagenet/train')
+            >>> # 1) default train task to reproduce model.
+            >>> task_trainer.train()
+            >>> # 2) eval network when train task to reproduce model.
+            >>> task_trainer.train(do_eval=True)
+            >>> # 3) resume train task to auto load the last checkpoint, if training break after 10 epochs.
+            >>> task_trainer.train(resume_or_finetune_from_checkpoint=True, initial_epoch=10)
+            >>> # 4) resume train task according to checkpoint path, if training break after 10 epochs.
+            >>> task_trainer.train(
+            ...     resume_or_finetune_from_checkpoint='./output/rank_0/checkpoint/mindformers.ckpt',
+            ...     initial_epoch=10)
+            >>> # 5) finetune train task according to resume_or_finetune_from_checkpoint.
+            >>> task_trainer.train(resume_or_finetune_from_checkpoint='mae_vit_base_p16', do_finetune=True)
+        """
+        if resume_or_finetune_from_checkpoint is not None and \
+                not isinstance(resume_or_finetune_from_checkpoint, (bool, str)):
+            raise TypeError(f"resume_or_finetune_from_checkpoint must be one of [None, string, bool], "
+                            f"but get {resume_or_finetune_from_checkpoint}")
+        if resume_or_finetune_from_checkpoint is False:
+            resume_or_finetune_from_checkpoint = None
+
+        if do_finetune and resume_or_finetune_from_checkpoint is None:
+            logger.warning("if do_finetuen is true, "
+                           "resume_or_finetune_from_checkpoint must be input and valid, "
+                           "but it's None.")
 
         if do_eval:
             if self.eval_dataset is None:
                 self.eval_dataset = build_dataset(self.config.eval_dataset_task)
 
-        if self.model is None and self.wrapper is None:
-            if resume_from_checkpoint is True or isinstance(resume_from_checkpoint, str):
-                if isinstance(resume_from_checkpoint, str) and resume_from_checkpoint in SUPPORT_MODEL_NAMES:
-                    self.config.model.model_config.checkpoint_name_or_path = resume_from_checkpoint
-                else:
-                    self.config.model.model_config.checkpoint_name_or_path = None
-            self.model = build_model(self.config.model)
+        if resume_or_finetune_from_checkpoint is True:
+            self.config.model.model_config.checkpoint_name_or_path = None
+            self.config.resume_checkpoint_path = resume_or_finetune_from_checkpoint
+        elif isinstance(resume_or_finetune_from_checkpoint, str):
+            if do_finetune:
+                self.config.model.model_config.checkpoint_name_or_path = resume_or_finetune_from_checkpoint
+            else:
+                self.config.model.model_config.checkpoint_name_or_path = None
+                self.config.resume_checkpoint_path = resume_or_finetune_from_checkpoint
+        else:
+            self.default_checkpoint_name_or_path = self.config.model.model_config.checkpoint_name_or_path
+            self.config.model.model_config.checkpoint_name_or_path = None
 
-        if self.optimizers is None and self.wrapper is None:
-            self.optimizers = self.create_optimizer_and_scheduler()
-
-        if self.wrapper is None:
-            self.wrapper = self.create_train_one_step_wrapper()
-
-        if self.callbacks is None:
-            self.callbacks = self.create_callbacks()
-
-        self.load_checkpoint(resume_from_checkpoint)
         if initial_epoch != 0:
             self.config.runner_config.initial_epoch = initial_epoch
 
@@ -236,24 +374,44 @@ class Trainer:
             wrapper=self.wrapper,
             callbacks=self.callbacks, **kwargs)
 
-    def evaluate(self, eval_checkpoint: Optional[Union[str, bool]] = None, **kwargs):
-        """eval."""
+    def evaluate(self, eval_checkpoint: Optional[Union[str, bool]] = False, **kwargs):
+        r"""Evaluate task for Trainer.
+        This function is used to evaluate the network.
+
+        Args:
+            eval_checkpoint (Optional[Union[str, bool]]):
+                Used to evaluate the weight of the network.
+                It support real checkpoint path or valid model name of mindformers or bool value.
+                if it's true, the last checkpoint file saved from the previous training round is automatically used.
+                Default: False.
+
+        Raises:
+            TypeError: if eval_checkpoint is not bool or str type.
+
+        Supported Platforms:
+            ``Ascend`` ``GPU`` ``CPU``
+
+        Examples:
+            >>> from mindformers import Trainer
+            >>> task_trainer = Trainer(task='image_classification',
+            ...                        model='vit_base_p16',
+            ...                        train_dataset='data/imagenet/train',
+            ...                        eval_dataset='data/imagenet/train')
+            >>> # 1) default evaluate task to test model.
+            >>> task_trainer.evaluate()
+            >>> # 2) evaluate task to auto load the last checkpoint.
+            >>> task_trainer.evaluate(eval_checkpoint=True)
+            >>> # 3) evaluate task according to checkpoint path.
+            >>> task_trainer.evaluate(eval_checkpoint='./output/rank_0/checkpoint/mindformers.ckpt')
+        """
+        if eval_checkpoint is not None and not isinstance(eval_checkpoint, (bool, str)):
+            raise TypeError(f"eval_checkpoint must be one of [None, string, bool], "
+                            f"but get {eval_checkpoint}")
+
         if eval_checkpoint is False:
             eval_checkpoint = None
 
-        if self.eval_dataset is None:
-            self.eval_dataset = build_dataset(self.config.eval_dataset_task)
-
-        if self.model is None:
-            if eval_checkpoint is True or isinstance(eval_checkpoint, str):
-                self.config.model.model_config.checkpoint_name_or_path = None
-            self.model = build_model(self.config.model)
-
-        if self.callbacks is None:
-            self.callbacks = self.create_callbacks()
-
-        filter_prefix = ["adam_v", "adam_m", "epoch_num", "step_num", "global_step"]
-        self.load_checkpoint(eval_checkpoint, filter_prefix=filter_prefix, is_train=False)
+        self._check_checkpoint_config(eval_checkpoint)
 
         trainer = build_trainer(self.config.trainer)
         trainer.evaluate(
@@ -263,35 +421,60 @@ class Trainer:
     def predict(self,
                 predict_checkpoint: Optional[Union[str, bool]] = None,
                 input_data: Optional[Union[Tensor, np.ndarray, Image, str, list]] = None, **kwargs):
-        """predict."""
-        if self.task_name not in SUPPORT_PIPELINES.keys():
-            raise NotImplementedError(f"The {self.task_name} not support predict, "
+        r"""Predict task for Trainer.
+        This function is used to evaluate the network.
+
+        Args:
+            predict_checkpoint (Optional[Union[str, bool]]):
+                Used to predict the weight of the network.
+                It support real checkpoint path or valid model name of mindformers or bool value.
+                if it's true, the last checkpoint file saved from the previous training round is automatically used.
+                Default: False.
+            input_data (Optional[Union[Tensor, np.ndarray, Image, str, list]]): The predict data. Default: None.
+
+        Return:
+            predict result (dict).
+
+        Raises:
+            TypeError: if predict_checkpoint is not bool or str type.
+            TypeError: if input_data is not Tensor or np.ndarray or Image or str or list.
+
+        Supported Platforms:
+            ``Ascend`` ``GPU`` ``CPU``
+
+        Examples:
+            >>> from mindformers import Trainer
+            >>> task_trainer = Trainer(task='image_classification',
+            ...                        model='vit_base_p16',
+            ...                        train_dataset='data/imagenet/train',
+            ...                        eval_dataset='data/imagenet/train')
+            >>> # 1) default predict task to test model.
+            >>> task_trainer.predict()
+            >>> # 2) predict task to auto load the last checkpoint.
+            >>> task_trainer.evaluate(predict_checkpoint=True)
+            >>> # 3) predict task according to checkpoint path.
+            >>> task_trainer.evaluate(predict_checkpoint='./output/rank_0/checkpoint/mindformers.ckpt')
+            >>> # 4) predict task according to input data.
+            >>> input_data = "./sunflower.png"
+            >>> task_trainer.predict(input_data=input_data)
+        """
+        if predict_checkpoint is not None and not isinstance(predict_checkpoint, (bool, str)):
+            raise TypeError(f"predict_checkpoint must be one of [None, string, bool], "
+                            f"but get {predict_checkpoint}")
+
+        if self.task not in SUPPORT_PIPELINES.keys():
+            raise NotImplementedError(f"The {self.task} not support predict, "
                                       f"now this tasks {SUPPORT_PIPELINES.keys()} is support predict.")
 
         if predict_checkpoint is False:
             predict_checkpoint = None
 
         if input_data is None:
-            input_data = load_image(SUPPORT_PIPELINE_INPUT_DATA.get(self.task_name))
+            input_data = load_image(SUPPORT_PIPELINE_INPUT_DATA.get(self.task))
         assert isinstance(input_data, (Tensor, np.ndarray, Image, str, list)), \
             "Input data's type must be one of [str, ms.Tensor, np.ndarray, PIL.Image.Image]"
 
-        if self.model is None:
-            if predict_checkpoint is True or isinstance(predict_checkpoint, str):
-                self.config.model.model_config.checkpoint_name_or_path = None
-            self.model = build_model(self.config.model)
-
-        if self.tokenizer is None:
-            self.tokenizer = build_tokenizer(self.config.processor.tokenizer)
-
-        if self.image_processor is None:
-            self.image_processor = build_processor(self.config.processor.image_processor)
-
-        if self.audio_processor is None:
-            self.audio_processor = build_processor(self.config.processor.audio_processor)
-
-        filter_prefix = ["adam_v", "adam_m", "epoch_num", "step_num", "global_step"]
-        self.load_checkpoint(predict_checkpoint, filter_prefix=filter_prefix, is_train=False)
+        self._check_checkpoint_config(predict_checkpoint)
 
         trainer = build_trainer(self.config.trainer)
         output_result = trainer.predict(
@@ -301,40 +484,37 @@ class Trainer:
             tokenizer=self.tokenizer, **kwargs)
         return output_result
 
-    def create_optimizer_and_scheduler(self):
-        """create_optimizer_and_scheduler."""
-        lr_schedule = self.create_scheduler()
-        params = self.model.trainable_params()
-        return self.create_optimizer(lr_schedule, params)
-
-    def create_scheduler(self):
-        """create_scheduler."""
-        return build_lr(self.config.lr_schedule)
-
-    def create_optimizer(self, lr_schedule, params):
-        """create_optimizer."""
-        if lr_schedule is not None:
-            return build_optim(self.config.optimizer, default_args={"params": params,
-                                                                    "learning_rate": lr_schedule})
-        assert self.config.optimizer.learning_rate, "learning_rate must be input"
-        return build_optim(self.config.optimizer, default_args={"params": params})
-
-    def create_train_one_step_wrapper(self):
-        """create_train_one_step_wrapper."""
-        if self.model is not None and self.optimizers is not None:
-            return build_wrapper(
-                self.config.wrapper,
-                default_args={"network": self.model, "optimizer": self.optimizers})
-        return None
-
-    def create_callbacks(self):
-        """create_callbacks."""
-        return build_callback(self.config.callbacks)
-
     def set_parallel_config(
             self, data_parallel=1, model_parallel=1, expert_parallel=1, pipeline_stage=1,
             micro_batch_num=1, optimizer_shard=False, gradient_aggregation_group=4, vocab_emb_dp=True):
-        """set_parallel_config."""
+        r"""
+        set_parallel_config for the setting global data parallel, model parallel and fusion group.
+        The parallel configure setting for Trainer.
+
+        Args:
+            data_parallel (int): The data parallel way. The input data will be sliced into n parts for each layer
+                according to the data parallel way. Default: 1.
+            model_parallel (int): The model parallel way. The parameters of dense layers in MultiheadAttention and
+                FeedForward layer will be sliced according to the model parallel way. Default: 1.
+            expert_parallel (int): The expert parallel way. This is effective only when MoE (Mixture of Experts)
+                is applied. This value specifies the number of partitions to split the experts into.
+            pipeline_stage (int): The number of the pipeline stage. Should be a positive value. Default: 1.
+            micro_batch_num (int): The micro size of the batches for the pipeline training. Default: 1.
+            optimizer_shard (bool): Whether to enable optimizer shard. Default False.
+            gradient_aggregation_group (int): The fusion group size of the optimizer state sharding. Default: 4.
+            vocab_emb_dp (bool): Shard embedding in model parallel or data parallel. Default: True.
+
+        Supported Platforms:
+            ``Ascend`` ``GPU``
+
+        Examples:
+            >>> from mindformers.trainer import Trainer
+            >>> task_trainer = Trainer(task='image_classification',
+            ...                        model='vit_base_p16',
+            ...                        train_dataset='data/imagenet/train',
+            ...                        eval_dataset='data/imagenet/train')
+            >>> task_trainer.set_parallel_config(data_parallel=2, model_parallel=2)
+        """
         self.config.parallel_config.data_parallel = data_parallel
         self.config.parallel_config.model_parallel = model_parallel
         self.config.parallel_config.expert_parallel = expert_parallel
@@ -346,61 +526,94 @@ class Trainer:
 
     def set_recompute_config(self, recompute=False, parallel_optimizer_comm_recompute=False,
                              mp_comm_recompute=True, recompute_slice_activation=False):
-        """set_recompute_config."""
+        r"""Set recompute config.
+        TransformerRecomputeConfig for the setting recompute attributes for encoder/decoder layers.
+
+        Args:
+            recompute (bool): Enable recomputation of the transformer block or not. Default: False.
+            parallel_optimizer_comm_recompute (bool): Specifies whether the communication operator allgathers
+                introduced by optimizer shard are recomputed in auto parallel or semi auto parallel mode.
+                Default: False.
+            mp_comm_recompute (bool): Specifies whether the model parallel communication operators
+                in the cell are recomputed in auto parallel or semi auto parallel mode. Default: True.
+            recompute_slice_activation (bool): Slice the cell output which would remains in memory. Default: False.
+
+        Supported Platforms:
+            ``Ascend`` ``GPU``
+
+        Examples:
+            >>> from mindformers.trainer import Trainer
+            >>> task_trainer = Trainer(task='image_classification',
+            ...                        model='vit_base_p16',
+            ...                        train_dataset='data/imagenet/train',
+            ...                        eval_dataset='data/imagenet/train')
+            >>> task_trainer.set_recompute_config(recompute=True)
+        """
         self.config.recompute_config.recompute = recompute
         self.config.recompute_config.parallel_optimizer_comm_recompute = parallel_optimizer_comm_recompute
         self.config.recompute_config.mp_comm_recompute = mp_comm_recompute
         self.config.recompute_config.recompute_slice_activation = recompute_slice_activation
 
-    def set_moe_config(self, expert_num=1, capacity_factor=1.1, aux_loss_factor=0.05, num_experts_chosen=1):
-        """set_moe_config."""
+    def set_moe_config(self,
+                       expert_num=1,
+                       capacity_factor=1.1,
+                       aux_loss_factor=0.05,
+                       num_experts_chosen=1,
+                       expert_group_size=None,
+                       group_wise_a2a=False,
+                       comp_comm_parallel=False,
+                       comp_comm_parallel_degree=2):
+        r"""The configuration of MoE (Mixture of Expert).
+
+        Args:
+            expert_num (int): The number of experts employed. Default: 1
+            capacity_factor (float): The factor is used to indicate how much to expand expert capacity,
+                which is >=1.0. Default: 1.1.
+            aux_loss_factor (float): The factor is used to indicate how much the load balance loss (produced by the
+                router) to be added to the entire model loss, which is < 1.0. Default: 0.05.
+            num_experts_chosen (int): The number of experts is chosen by each token and it should not be larger
+                than expert_num. Default: 1.
+            expert_group_size (int): The number of tokens in each data parallel group. Default: None. This parameter is
+                effective only when in AUTO_PARALLEL mode, and NOT SHARDING_PROPAGATION.
+            group_wise_a2a (bool): Whether to enable group-wise alltoall communication, which can reduce communication
+                time by converting part of inter communication into intra communication. Default: False. This parameter
+                is effective only when model parallel > 1 and data_parallel equal to expert parallel.
+            comp_comm_parallel (bool): Whether to enable ffn compute and communication parallel, which can reduce pure
+                communicattion time by splitting and overlapping compute and communication. Default: False.
+            comp_comm_parallel_degree (int): The split number of compute and communication. The larger the numbers,
+                the more overlap there will be but will consume more memory. Default: 2. This parameter is effective
+                only when comp_comm_parallel enable.
+
+        Supported Platforms:
+            ``Ascend`` ``GPU``
+
+        Examples:
+            >>> from mindformers.trainer import Trainer
+            >>> task_trainer = Trainer(task='image_classification',
+            ...                        model='vit_base_p16',
+            ...                        train_dataset='data/imagenet/train',
+            ...                        eval_dataset='data/imagenet/train')
+            >>> task_trainer.set_moe_config(expert_num=2, capacity_factor=1.2, aux_loss_factor=0.001)
+        """
         self.config.moe_config.expert_num = expert_num
         self.config.moe_config.capacity_factor = capacity_factor
         self.config.moe_config.aux_loss_factor = aux_loss_factor
         self.config.moe_config.num_experts_chosen = num_experts_chosen
+        self.config.moe_config.expert_group_size = expert_group_size
+        self.config.moe_config.group_wise_a2a = group_wise_a2a
+        self.config.moe_config.comp_comm_parallel = comp_comm_parallel
+        self.config.moe_config.comp_comm_parallel_degree = comp_comm_parallel_degree
 
     def get_train_dataloader(self):
-        """get_train_dataloader."""
+        """get train dataloader of mindspore."""
         return build_dataset_loader(self.config.train_dataset.data_loader)
 
     def get_eval_dataloader(self):
-        """get_eval_dataloader."""
+        """get eval dataloader of mindspore."""
         return build_dataset_loader(self.config.eval_dataset.data_loader)
 
-    def compute_loss(self):
-        """compute_loss."""
-
-    def count_parameter(self):
-        """count_parameter."""
-        logger.info("%s parameter is: %s M",
-                    self.config.trainer.model_name, str(count_params(self.model)))
-
-    def load_checkpoint(self, model_checkpoint, filter_prefix=None, is_train=True):
-        """Load Checkpoint."""
-        if model_checkpoint is not None:
-            if isinstance(model_checkpoint, bool):
-                last_checkpoint = load_checkpoint(
-                    self.get_last_checkpoint(), filter_prefix=filter_prefix)
-                not_load_net_params = load_param_into_net(self.model, last_checkpoint)
-                logger.info("not_load_net_params: %s", str(not_load_net_params))
-                if is_train:
-                    not_load_optim_params = load_param_into_net(self.optimizers, last_checkpoint)
-                    logger.info("not_load_optim_params: %s", str(not_load_optim_params))
-            elif isinstance(model_checkpoint, str):
-                assert os.path.realpath(model_checkpoint) and os.path.exists(model_checkpoint), \
-                    f"predict checkpoint must be correct and exist path, but get {model_checkpoint}"
-                checkpoint = load_checkpoint(model_checkpoint, filter_prefix=filter_prefix)
-                not_load_net_params = load_param_into_net(self.model, checkpoint)
-                logger.info("not_load_net_params: %s", str(not_load_net_params))
-                if is_train:
-                    not_load_optim_params = load_param_into_net(self.optimizers, checkpoint)
-                    logger.info("not_load_optim_params: %s", str(not_load_optim_params))
-            else:
-                raise KeyError("resume_from_checkpoint input type should be in [string(checkpoint path), bool],"
-                               f"but get {model_checkpoint}")
-
     def get_last_checkpoint(self):
-        """get last checkpoint for resuming."""
+        """get last checkpoint for resuming or finetune."""
         output_folder = self.config.output_dir
         checkpoint_dir = os.path.join(
             output_folder, 'rank_{}'.format(self.rank_id), DEFAULT_CHECKPOINT_DIR)
@@ -447,9 +660,24 @@ class Trainer:
         _save_config_to_yaml(context_yaml_path, config_dict.get('context_config'))
         _save_config_to_yaml(run_yaml_path, config_dict.get('run_config'))
 
+    def _check_checkpoint_config(self, checkpoint: Optional[Union[str, bool]] = None):
+        """check checkpoint config."""
+        if checkpoint is True:
+            self.config.model.model_config.checkpoint_name_or_path = self.get_last_checkpoint()
+        elif isinstance(checkpoint, str):
+            self.config.model.model_config.checkpoint_name_or_path = checkpoint
+        else:
+            if self.default_checkpoint_name_or_path is not None:
+                self.config.model.model_config.checkpoint_name_or_path = self.default_checkpoint_name_or_path
+
 
 def _save_config_to_yaml(save_file_path: str = None, save_config: dict = None):
-    """Save Config to Yaml File."""
+    r"""Save Config to Yaml File.
+
+    Args:
+        save_file_path (str): The real path to save yaml file. Default: None.
+        save_config (dict): The task config. Default: None.
+    """
     if save_config is None:
         save_config = {}
     with open(save_file_path, 'w', encoding='utf-8') as file_pointer:
@@ -462,7 +690,11 @@ def _save_config_to_yaml(save_file_path: str = None, save_config: dict = None):
 
 
 def _reset_config_for_save(config: dict = None, model_name: str = 'common'):
-    """Reset Config According to Yaml File Number."""
+    r"""Reset Config According to Yaml File Number.
+    Args:
+        config (dict): The task config. Default: None.
+        model_name (str): The model name to save. Default: 'common'.
+    """
     if config is None:
         config = {}
     config = config.copy()

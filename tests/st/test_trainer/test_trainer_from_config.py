@@ -63,8 +63,8 @@ def test_trainer_train_from_config():
     config = ConfigArguments(seed=2022, runner_config=runner_config,
                              optimizer=optim_config, runner_wrapper=wrapper_config)
     mae_model = MaeModel()
-    mim_trainer = Trainer(task_name='masked_image_modeling',
+    mim_trainer = Trainer(task='masked_image_modeling',
                           model=mae_model,
                           config=config,
                           train_dataset=dataset)
-    mim_trainer.train(resume_from_checkpoint=False)
+    mim_trainer.train(resume_or_finetune_from_checkpoint=False)

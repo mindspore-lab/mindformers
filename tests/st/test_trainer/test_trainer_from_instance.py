@@ -69,14 +69,14 @@ def test_trainer_train_from_instance():
     time_cb = TimeMonitor()
     callbacks = [loss_cb, time_cb]
 
-    mim_trainer = Trainer(task_name='masked_image_modeling',
+    mim_trainer = Trainer(task='masked_image_modeling',
                           model=mae_model_with_loss,  # include loss compute
                           config=config,
                           optimizers=optimizer,
                           train_dataset=dataset,
                           callbacks=callbacks)
 
-    mim_trainer.train(resume_from_checkpoint=False)
+    mim_trainer.train(resume_or_finetune_from_checkpoint=False)
 
 
 @pytest.mark.level0
@@ -108,13 +108,13 @@ def test_trainer_wrapper_from_instance():
     time_cb = TimeMonitor()
     callbacks = [loss_cb, time_cb]
 
-    mim_trainer_wrapper = Trainer(task_name='masked_image_modeling',
+    mim_trainer_wrapper = Trainer(task='masked_image_modeling',
                                   config=config,
                                   wrapper=wrapper,
                                   train_dataset=dataset,
                                   callbacks=callbacks)
 
-    mim_trainer_wrapper.train(resume_from_checkpoint=False)
+    mim_trainer_wrapper.train(resume_or_finetune_from_checkpoint=False)
 
 
 @pytest.mark.level0
@@ -151,7 +151,7 @@ def test_trainer_general_from_instance():
                                    train_dataset=dataset,
                                    callbacks=callbacks)
 
-    no_task_name_trainer.train(resume_from_checkpoint=False)
+    no_task_name_trainer.train(resume_or_finetune_from_checkpoint=False)
 
 
 @pytest.mark.level0
@@ -171,7 +171,7 @@ def test_trainer_auto_to_save_config():
     dataset = dataset.batch(batch_size=2)
 
     mim_trainer = Trainer(
-        task_name='masked_image_modeling',
+        task='masked_image_modeling',
         model='mae_vit_base_p16',
         train_dataset=dataset,
         config=config,
