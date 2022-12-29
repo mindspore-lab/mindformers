@@ -15,7 +15,7 @@
 """ViT Model."""
 import math
 import numpy as np
-from mindspore import load_param_into_net, Parameter, nn, Tensor
+from mindspore import load_param_into_net, Parameter, nn
 from mindspore import ops as P
 from mindspore import dtype as mstype
 import mindspore.common.initializer as weight_init
@@ -45,6 +45,7 @@ class VitModel(BaseModel):
             weight_init.initializer(weight_init.Normal(sigma=.02), (1, 1, config.embed_dim)), requires_grad=True)
         num_patches = self.patch_embed.num_patches
         seq_length = num_patches + 1
+        self.seq_length = seq_length
         self.batch_size = config.batch_size
         self.num_patches = num_patches
         self.num_masked = num_patches - seq_length + 1
@@ -73,8 +74,6 @@ class VitModel(BaseModel):
                   param_init_type=config.param_init_type,
                   parallel_config=parallel_config_args)
             for i in range(config.depth)])
-        self.encoder_input_mask = Tensor(np.ones((config.batch_size, seq_length, seq_length)),
-                                         mstype.float32)
 
         self.add = P.Add().shard(((dp, 1, 1), (1, 1, 1)))
         self.cast = P.Cast()
@@ -149,14 +148,16 @@ class VitModel(BaseModel):
     def construct(self, image, target=None):
         """construct of vit"""
         tokens = self.patch_embed(image)
-        cls_tokens = self.tile(self.cls_tokens, (self.batch_size, 1, 1))
+        batch_size = image.shape[0]
+        cls_tokens = self.tile(self.cls_tokens, (batch_size, 1, 1))
         tokens = self.cat((cls_tokens, tokens))
         if self.pos_embed is not None:
             tokens = self.add(tokens, self.pos_embed)
 
         x = self.dropout(tokens)
+        encoder_input_mask = P.Ones()((batch_size, self.seq_length, self.seq_length), mstype.int32)
         for block in self.blocks:
-            x = block(x, self.encoder_input_mask)
+            x = block(x, encoder_input_mask)
 
         b, s, c = x.shape
 

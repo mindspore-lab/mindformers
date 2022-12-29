@@ -34,7 +34,7 @@ class ZeroShotImageClassificationPipeline(BasePipeline):
         tokenizer : a tokenizer (None or PretrainedTokenizer) for text processing
         image_processor : a image_processor (None or BaseImageProcessor) for image processing
     """
-    _support_list = MindFormerBook.get_model_support_list()['clip']
+    _support_list = MindFormerBook.get_pipeline_support_task_list()['zero_shot_image_classification'].keys()
 
     def __init__(self, model, tokenizer=None, image_processor=None, **kwargs):
         if isinstance(model, str):
@@ -110,9 +110,9 @@ class ZeroShotImageClassificationPipeline(BasePipeline):
                              " ZeroShotImageClassificationPipeline, but got None.")
         if isinstance(inputs, dict):
             inputs = inputs['image']
-
-        image = load_image(inputs)
-        image_processed = self.image_processor(image)
+        if isinstance(inputs, str):
+            inputs = load_image(inputs)
+        image_processed = self.image_processor(inputs)
         sentences = [hypothesis_template.format(candidate_label)
                      for candidate_label in candidate_labels]
         input_ids = self.tokenizer(sentences, max_length=max_length, padding=padding,

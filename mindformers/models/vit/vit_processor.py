@@ -20,7 +20,7 @@ import numpy as np
 import PIL
 
 import mindspore as ms
-from mindspore.dataset.vision.transforms import ToPIL, CenterCrop, ToTensor, Normalize, Rescale
+from mindspore.dataset.vision import CenterCrop, ToTensor, Normalize, Rescale
 
 from mindformers.dataset import Resize
 from mindformers.mindformer_book import MindFormerBook
@@ -41,7 +41,6 @@ class VitImageProcessor(BaseImageProcessor):
         super(VitImageProcessor, self).__init__(
             image_resolution=image_resolution
         )
-        self.to_pil = ToPIL()
         self.resize = Resize(256, interpolation='cubic')
         self.center_crop = CenterCrop(image_resolution)
         self.to_tensor = ToTensor()
@@ -59,22 +58,22 @@ class VitImageProcessor(BaseImageProcessor):
             A 4-rank tensor for a batch of images.
         """
         if isinstance(images, PIL.Image.Image):
-            images = [images]
+            images = np.array([images])
+
+        elif isinstance(images, list):
+            images = np.array(images)
 
         elif isinstance(images, np.ndarray):
-            if len(images) == 3:
+            if len(images.shape) == 3:
                 images = np.expand_dims(images, 0)
             images = images.transpose(0, 2, 3, 1)
-            images = [self.to_pil(image) for image in images]
 
         elif isinstance(images, ms.Tensor):
-            images = images.asnumpy()
-            if len(images) == 3:
+            if len(images.shape) == 3:
                 images = np.expand_dims(images, 0)
             images = images.transpose(0, 2, 3, 1)
-            images = [self.to_pil(image) for image in images]
 
-        elif not isinstance(images, list):
+        elif not isinstance(images, ms.Tensor):
             raise ValueError("input type is not Tensor, numpy, Image, list of Image")
 
         res = []
