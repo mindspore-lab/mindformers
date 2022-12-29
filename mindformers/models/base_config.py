@@ -32,6 +32,27 @@ from ..models.build_config import build_model_config
 class BaseConfig(dict):
     """
     Base Config for all models' config
+
+    Examples:
+    >>> from mindformers.mindformer_book import MindFormerBook
+    >>> from mindformers.models.base_config import BaseConfig
+    >>> class MyConfig(BaseConfig):
+    ...     _support_list = MindFormerBook.get_model_support_list()['my_model']
+    ...
+    ...     def __init__(self,
+    ...                  data_size: int = 32,
+    ...                  net_size: list = [1, 2, 3],
+    ...                  loss_type: str = "MyLoss",
+    ...                  checkpoint_name_or_path: str = 'my_model',
+    ...                  **kwargs):
+    ...         self.data_size = data_size
+    ...         self.net_size = net_size
+    ...         loss_type = loss_type
+    ...         self.checkpoint_name_or_path = checkpoint_name_or_path
+    ...         super(MyConfig, self).__init__(**kwargs)
+    ...
+    >>> mynet = MyModel(MyConfig)
+    >>> output = mynet(input)
     """
     _support_list = []
 
