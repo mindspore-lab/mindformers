@@ -16,6 +16,7 @@
 """
 BaseModel
 """
+from typing import Optional
 import os
 try:
     import fcntl
@@ -34,15 +35,22 @@ from .base_config import BaseConfig
 from ..tools.register import MindFormerConfig
 from ..tools.download_tools import downlond_with_progress_bar
 from ..tools import logger
-from .base_generator import GeneratorMinMax
+from .text_generator import GeneratorMixin
 
 
-class BaseModel(nn.Cell, GeneratorMinMax):
+class BaseModel(nn.Cell, GeneratorMixin):
     """
-    BaseModel for all models.
+    The base model that contains the class method `from_pretained` and `save_pretrained`, any new model that should
+    inherit the class.
+
+    Note:
+        GeneratorMixin provides the method `generate` that enable the generation for nlp models.
+
+    Args:
+        config(BaseConfig): The model configuration that inherits the `BaseConfig`.
     """
     _support_list = []
-    def __init__(self, config):
+    def __init__(self, config: BaseConfig):
         super(BaseModel, self).__init__()
         self.config = config
 
@@ -106,15 +114,29 @@ class BaseModel(nn.Cell, GeneratorMinMax):
                         " checkpoint_name_or_path attribute or"
                         " checkpoint_name_or_path is None.")
 
-    def save_pretrained(self, save_directory=None, save_name="mindspore_model"):
+    def save_pretrained(self,
+                        save_directory: Optional[str] = None,
+                        save_name: str = "mindspore_model"):
         """
-        Save_pretrained.
+        Save the model weight and configuration file.
         (only supports standalone mode, and distribute mode waits for developing)
 
         Args:
-            save_directory (str): a directory to save model ckpt and config yaml
+            save_directory(str): a directory to save the model weight and configuration.
+                If None, the directory will be  `./checkpoint_save`, which can be obtained by the
+                `MindFormerBook.get_default_checkpoint_save_folder()`. If set, the directory will be what is set.
+            save_name(str): the name of saved files, including model weight and configuration file.
+                Default mindspore_model.
 
-            save_name (str): the name of save files.
+        Examples:
+            >>> import os
+            >>> from mindformers import T5ModelForGeneration, MindFormerBook
+            >>> net = T5ModelForGeneration.from_pretrained('t5_small')
+            >>> net.save_pretrained()
+            >>> output_path = MindFormerBook.get_default_checkpoint_save_folder()
+            >>> print(os.listdir(output_path))
+            ['mindspore_model.yaml', 'mindspore_model.ckpt']
+
         """
         if save_directory is None:
             save_directory = MindFormerBook.get_default_checkpoint_save_folder()
@@ -185,16 +207,23 @@ class BaseModel(nn.Cell, GeneratorMinMax):
         return {"model": {"model_config": config.to_dict(), "arch": {"type": model_name}}}
 
     @classmethod
-    def from_pretrained(cls, pretrained_model_name_or_dir):
+    def from_pretrained(cls, pretrained_model_name_or_dir: str):
         """
-        From pretrain method, which instantiates a model by pretrained model name or path.
+        Instantiates a model by the pretrained_model_name_or_dir. It download the model weights if the user pass
+        a model name, or load the weight from the given directory if given the path.
         (only support standalone mode, and distribute mode waits for developing!)
 
         Args:
-            pretrained_model_name_or_path (str): A supported model name or a
-            directory to model checkpoint (including .yaml file for config
-            and .ckpt file for weights), the supported model name could be
-            selected from .show_support_list().
+            pretrained_model_name_or_path (str): It supports the following two input types.
+                If `pretrained_model_name_or_dir` is a supported model name, for example, `vit_base_p16` and `t5_small`,
+                it will download the necessary files from the cloud. User can pass one from the support list by call
+                `MindFormerBook.get_model_support_list()`. If `pretrained_model_name_or_dir` is a path to the local
+                directory where there should have model weights ended with `.ckpt` and configuration file ended
+                with `yaml`.
+
+        Examples:
+            >>> from mindformers import T5ModelForGeneration
+            >>> net = T5ModelForGeneration.from_pretrained('t5_small')
 
         Returns:
             A model, which inherited from BaseModel.

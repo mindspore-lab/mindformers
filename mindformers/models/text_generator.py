@@ -25,7 +25,7 @@ from mindspore.ops import operations as P
 
 from ..tools import logger
 
-__all__ = ['GeneratorMinMax']
+__all__ = ['GeneratorMixin']
 
 def topk_fun(logits, topk=5):
     """Get topk"""
@@ -97,7 +97,7 @@ def sampler(log_probs_revised, top_p, top_k, use_pynative=False):
     return p, p_args
 
 
-class GeneratorMinMax:
+class GeneratorMixin:
     """Generator For the nlp models"""
     def __init__(self):
         pass
