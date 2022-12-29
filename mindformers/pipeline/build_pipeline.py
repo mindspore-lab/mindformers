@@ -19,7 +19,22 @@ from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 def build_pipeline(
         config: dict = None, default_args: dict = None,
         module_type: str = 'pipeline', class_name: str = None, **kwargs):
-    """Build pipeline API."""
+    r"""Build pipeline For MindFormer.
+    Instantiate the pipeline from MindFormerRegister's registry.
+
+    Args:
+        config (dict): The task pipeline's config. Default: None.
+        default_args (dict): The default argument of pipeline API. Default: None.
+        module_type (str): The module type of MindFormerModuleType. Default: 'pipeline'.
+        class_name (str): The class name of pipeline API. Default: None.
+
+    Return:
+        The function instance of pipeline API.
+
+    Examples:
+        >>> from mindformers import build_pipeline
+        >>> pipeline_from_class_name = build_pipeline(class_name='image_classification', model='vit_base_p16')
+    """
     if config is None and class_name is None:
         return None
     if config is not None:

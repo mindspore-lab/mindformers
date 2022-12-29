@@ -22,9 +22,28 @@ from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 
 
 def build_transforms(
-        config: dict = None, default_args: dict = None,
+        config: [dict, list] = None, default_args: dict = None,
         module_type: str = 'transforms', class_name: str = None, **kwargs):
-    """Build transforms API."""
+    r"""Build transform For MindFormer.
+    Instantiate the transform from MindFormerRegister's registry.
+
+    Args:
+        config (dict, list): The task transform's config. Default: None.
+        default_args (dict): The default argument of transform API. Default: None.
+        module_type (str): The module type of MindFormerModuleType. Default: 'transform'.
+        class_name (str): The class name of transform API. Default: None.
+
+    Return:
+        The function instance of transform API.
+
+    Examples:
+        >>> from mindformers import build_transforms
+        >>> transform_config = [{'type': 'Decode'}, {'type': 'Resize', 'size': 256}]
+        >>> # 1) use config dict to build transform
+        >>> transform_from_config = build_transforms(transform_config)
+        >>> # 2) use class name to build transform
+        >>> transform_class_name = build_transforms(class_name='Decode')
+    """
     if config is None and class_name is None:
         return None
     if config is not None:

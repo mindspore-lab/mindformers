@@ -21,7 +21,24 @@ from .build_tokenizer import build_tokenizer
 def build_processor(
         config: dict = None, default_args: dict = None,
         module_type: str = 'processor', class_name: str = None, **kwargs):
-    """Build processor API."""
+    r"""Build processor For MindFormer.
+    Instantiate the processor from MindFormerRegister's registry.
+
+    Args:
+        config (dict): The task processor's config. Default: None.
+        default_args (dict): The default argument of processor API. Default: None.
+        module_type (str): The module type of MindFormerModuleType. Default: 'processor'.
+        class_name (str): The class name of processor API. Default: None.
+
+    Return:
+        The function instance of processor API.
+
+    Examples:
+        >>> from mindformers import build_processor
+        >>> from mindformers.tools.register import MindFormerConfig
+        >>> config = MindFormerConfig('configs/vit/run_vit_base_p16_224_800ep.yaml')
+        >>> processor_from_config = build_processor(config.processor)
+    """
     if config is None and class_name is None:
         return None
     if config is not None:

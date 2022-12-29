@@ -23,7 +23,26 @@ from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 def build_sampler(
         config: dict = None, default_args: dict = None,
         module_type: str = 'dataset_sampler', class_name: str = None, **kwargs):
-    """Build sampler API."""
+    r"""Build sampler For MindFormer.
+    Instantiate the sampler from MindFormerRegister's registry.
+
+    Args:
+        config (dict): The task sampler's config. Default: None.
+        default_args (dict): The default argument of sampler API. Default: None.
+        module_type (str): The module type of MindFormerModuleType. Default: 'sampler'.
+        class_name (str): The class name of sampler API. Default: None.
+
+    Return:
+        The function instance of sampler API.
+
+    Examples:
+        >>> from mindformers import build_sampler
+        >>> sampler_config = {'type': 'RandomSampler', 'replacement': False}
+        >>> # 1) use config dict to build sampler
+        >>> sampler_from_config = build_sampler(sampler_config)
+        >>> # 2) use class name to build sampler
+        >>> sampler_class_name = build_sampler(class_name='RandomSampler', replacement=False)
+    """
     if config is None and class_name is None:
         return None
     if config is not None:

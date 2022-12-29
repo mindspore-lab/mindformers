@@ -227,10 +227,6 @@ class MindFormerBook:
         ('t5', 'T5Tokenizer')
     ])
 
-    PIPELINE_TASK_NAME_TO_PIPELINE = OrderedDict([
-        ('zero_shot_image_classification', 'ZeroShotImageClassificationPipeline')
-    ])
-
     @classmethod
     def show_tokenizer_name_to_processor(cls):
         """show_tokenizer_name_to_processor function"""

@@ -44,6 +44,7 @@ def pipeline(
         model (str, BaseModel): the model used for task.
         tokenizer (BaseTokenizer): the tokenizer of the model.
         image_processor (BaseImageProcessor): the image processor of the model.
+        audio_processor (BaseAudioProcessor): the audio processor of the model.
 
     Return:
         a task pipeline.
@@ -62,7 +63,6 @@ def pipeline(
         model_name = "common"
 
     pipeline_config = MindFormerConfig(SUPPORT_PIPELINES.get(task).get(model_name))
-    pipeline_type = MindFormerBook().PIPELINE_TASK_NAME_TO_PIPELINE.get(task)
 
     if model is None:
         model = build_model(pipeline_config.model)
@@ -76,7 +76,7 @@ def pipeline(
     if tokenizer is None:
         tokenizer = build_tokenizer(pipeline_config.processor.tokenizer)
 
-    task_pipeline = build_pipeline(class_name=pipeline_type,
+    task_pipeline = build_pipeline(class_name=task,
                                    model=model,
                                    image_processor=image_processor,
                                    audio_processor=audio_processor,

@@ -35,10 +35,14 @@ from ..utils import check_runner_config, resume_checkpoint_for_training
 
 @MindFormerRegister.register(MindFormerModuleType.TRAINER, alias="mlm")
 class MaskedLanguageModelingTrainer(BaseTrainer):
-    """Masked Image Modeling Trainer."""
+    r"""MaskedLanguageModeling Task For Trainer.
+    Args:
+        model_name (str): The model name of Task-Trainer. Default: None
+    Raises:
+        NotImplementedError: If train method or evaluate method or predict method not implemented.
+    """
     def __init__(self, model_name: str = None):
         super(MaskedLanguageModelingTrainer, self).__init__(model_name)
-        self.model_name = model_name
         self.kwargs = None
 
     def train(self,
@@ -49,7 +53,38 @@ class MaskedLanguageModelingTrainer(BaseTrainer):
               optimizer: Optional[Optimizer] = None,
               callbacks: Optional[Union[Callback, List[Callback]]] = None,
               **kwargs):
-        """train for trainer."""
+        r"""Train task for MaskedImageModeling Trainer.
+        This function is used to train or fine-tune the network.
+
+        The trainer interface is used to quickly start training for general task.
+        It also allows users to customize the network, optimizer, dataset, wrapper, callback.
+
+        Args:
+            config (Optional[Union[dict, ConfigArguments]]): The task config which is used to
+                configure the dataset, the hyper-parameter, optimizer, etc.
+                It support config dict or ConfigArguments class.
+                Default: None.
+            network (Optional[Union[str, BaseModel]]): The network for trainer. It support model name supported
+                or BaseModel class. Supported model name can refer to ****.
+                Default: None.
+            dataset (Optional[Union[str, BaseDataset]]): The training dataset. It support real dataset path or
+                BaseDateset class or MindSpore Dataset class.
+                Default: None.
+            optimizer (Optional[Optimizer]): The training network's optimizer. It support Optimizer class of MindSpore.
+                Default: None.
+            wrapper (Optional[TrainOneStepCell]): Wraps the `network` with the `optimizer`.
+                It support TrainOneStepCell class of MindSpore.
+                Default: None.
+            callbacks (Optional[Union[Callback, List[Callback]]]): The training callback function.
+                It support CallBack or CallBack List of MindSpore.
+                Default: None.
+
+        Supported Platforms:
+            ``Ascend`` ``GPU`` ``CPU``
+
+        Raises:
+            NotImplementedError: If wrapper not implemented.
+        """
         # DIY model training, TODO
         self.kwargs = kwargs
         # build dataset
