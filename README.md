@@ -26,8 +26,8 @@ MindSpore MindFormers套件基于MindSpore内置的并行技术和组件化设�
 - SimMIM
 - CLIP
 - FILIP
-- Vit
-- Swin
+- [Vit](./configs/vit/README.md)
+- [Swin](./configs/swin/README.md)
 
 ### 安装
 
