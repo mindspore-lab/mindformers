@@ -61,6 +61,18 @@ class MindFormerBook:
     MindFormerBook class,
     which contains the lists of models, pipelines, tasks, and default
     settings in MindFormer repository
+    When adding a new Model or assemble in this project, the following constants list and dict need adding.
+
+    Examples:
+        >>> from mindformers.mindformer_book import MindFormerBook
+        >>>
+        >>> # 1) Fill the following constant list and dict in this class
+        >>> # 2) Overwrite the support_list when define a new Model or Pipeline.
+        >>> @MindFormerRegister.register(MindFormerModuleType.MODELS)
+        ... class VitModel(BaseModel):
+        ...     _support_list = MindFormerBook.get_model_support_list()['vit']
+        >>> # 3) Then you can use auto class and from pretrain to init an instance.
+        >>> vit_model = AutoModel.from_pretrained('vit_base_p16')
     """
     _PROJECT_PATH = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     _DEFAULT_CHECKPOINT_DOWNLOAD_FOLDER = os.path.join('.', 'checkpoint_download')
@@ -279,7 +291,12 @@ class MindFormerBook:
 
     @classmethod
     def set_model_config_to_name(cls, model_config, model_name):
-        """set_model_config_to_name function"""
+        """
+        set_model_config_to_name function
+        Args:
+            model_config (str): the name of model config
+            model_name (str): the name of model
+        """
         cls._MODEL_CONFIG_TO_NAME.update({
             model_config: model_name
         })
@@ -319,7 +336,11 @@ class MindFormerBook:
 
     @classmethod
     def set_default_checkpoint_download_folder(cls, download_folder):
-        """set_default_checkpoint_download_folder function"""
+        """
+        set_default_checkpoint_download_folder function
+        Args:
+            download_folder (str): the path of default checkpoint download folder
+        """
         if not os.path.isdir(download_folder):
             raise TypeError(f"{download_folder} should be a directory.")
         cls._DEFAULT_CHECKPOINT_DOWNLOAD_FOLDER = download_folder
@@ -331,7 +352,11 @@ class MindFormerBook:
 
     @classmethod
     def set_default_checkpoint_save_folder(cls, save_folder):
-        """set_default_checkpoint_save_folder function"""
+        """
+        set_default_checkpoint_save_folder function
+        Args:
+            save_folder (str): the path of default checkpoint save folder
+        """
         if not os.path.isdir(save_folder):
             raise TypeError(f"{save_folder} should be a directory.")
         cls._DEFAULT_CHECKPOINT_SAVE_FOLDER = save_folder
