@@ -38,6 +38,14 @@ from mindformers import T5Tokenizer, T5ModelForGeneration, T5Config, T5Processor
 from mindspore.dataset import GeneratorDataset
 
 
+def modify_batch_size(net, batch_size):
+    """Change the batch size of the net"""
+    if hasattr(net, 'batch_size'):
+        net.batch_size = batch_size
+    for cell in net.cells():
+        modify_batch_size(cell, batch_size)
+
+
 @pytest.mark.level0
 @pytest.mark.platform_x86_ascend_training
 @pytest.mark.platform_arm_ascend_training
@@ -48,7 +56,7 @@ def test_translation_pipeline():
     Description: Test the pipeline functions
     Expectation: No errors
     """
-    output_path = 'test_outer_path'
+    output_path = 'test_translation_pipeline_outer_path'
     os.makedirs(output_path, exist_ok=True)
     tokenizer = T5Tokenizer.from_pretrained(os.path.join(os.path.dirname(__file__), '../test_model/test_t5_model'))
     tokenizer.save_pretrained(output_path)
@@ -79,6 +87,7 @@ def test_translation_pipeline():
     assert len(output) == 3
 
     # test case with batch size.
-    with pytest.raises(ValueError):
-        output = translator(dataset_input, batch_size=3)
+    dataset_input = GeneratorDataset(["abc" for i in range(3)], column_names=["text"])
+    modify_batch_size(translator.model, batch_size=3)
+    translator(dataset_input, batch_size=3)
     shutil.rmtree(output_path, ignore_errors=True)
