@@ -44,8 +44,8 @@ class BaseImageProcessor:
         ...     def preprocess(self, images, **kwargs):
         ...         res = []
         ...         for image in images:
-        ...         image = self.center_crop(image)
-        ...         res.append(image)
+        ...             image = self.center_crop(image)
+        ...             res.append(image)
         ...         return res
         ...
         >>> my_image_processor = MyImageProcessor(image_resolution)
@@ -70,19 +70,19 @@ class BaseAudioProcessor:
 
     Examples:
         >>> from mindspore.dataset.audio import AllpassBiquad
-        >>> from mindformers.models.base_processor import BaseImageProcessor
+        >>> from mindformers.models.base_processor import BaseAudioProcessor
         >>> sample_rate = 44100
         >>> central_freq = 200.0
         >>> class MyAudioProcessor(BaseAudioProcessor):
         ...     def __init__(self, audio_property):
         ...         super(MyAudioProcessor, self).__init__(sample_rate=sample_rate, central_freq=central_freq )
-        ...         self.audio_process = AllpassBiquad(44100, 200.0)
+        ...         self.all_pass_biquad = AllpassBiquad(44100, 200.0)
         ...
         ...     def preprocess(self, audio_data, **kwargs):
         ...         res = []
         ...         for audio in audio_data:
-        ...         audio = self.audio_process(audio)
-        ...         res.append(audio)
+        ...             audio = self.all_pass_biquad(audio)
+        ...             res.append(audio)
         ...         return res
         ...
         >>> my_audio_processor = MyAudioProcessor(sample_rate, central_freq)
