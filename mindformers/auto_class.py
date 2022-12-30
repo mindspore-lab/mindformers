@@ -514,7 +514,7 @@ class AutoTokenizer:
         if yaml_name_or_path in cls._support_list.keys():
             # Should download the files from the remote storage
             # We call the basic `from_pretrained` method to download the corresponding tokenizer
-            class_name = MindFormerBook.TOKENIZER_NAME_TO_TOKENIZER[yaml_name_or_path.split('_')[0]]
+            class_name = MindFormerBook.TOKENIZER_NAME_TO_TOKENIZER[yaml_name_or_path]
         elif os.path.isdir(yaml_name_or_path):
             class_name = cls._get_class_name_from_yaml(yaml_name_or_path)
             if not class_name:

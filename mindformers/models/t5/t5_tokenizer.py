@@ -21,6 +21,7 @@ import sentencepiece as spm
 
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.models.base_tokenizer import Tokenizer
+from ...mindformer_book import MindFormerBook
 
 __all__ = ['T5Tokenizer']
 
@@ -66,6 +67,8 @@ class T5Tokenizer(Tokenizer):
     VOCAB_FILES = {'vocab_file': 'spiece.model'}
     FILE_LIST = ['tokenizer_config.json']
     MODEL_INPUT_NAME = ['input_ids', 'attention_mask']
+
+    _support_list = MindFormerBook.get_model_support_list()['t5']
 
     def __init__(self,
                  vocab_file: str,

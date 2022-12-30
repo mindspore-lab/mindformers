@@ -34,7 +34,7 @@ import shutil
 import pytest
 from mindformers.pipeline import TranslationPipeline
 
-from mindformers import T5Tokenizer, T5ModelForGeneration, T5Config, T5Processor
+from mindformers import T5Tokenizer, T5ForConditionalGeneration, T5Config, T5Processor
 from mindspore.dataset import GeneratorDataset
 
 
@@ -61,15 +61,15 @@ def test_translation_pipeline():
     tokenizer = T5Tokenizer.from_pretrained(os.path.join(os.path.dirname(__file__), '../test_model/test_t5_model'))
     tokenizer.save_pretrained(output_path)
 
-    model = T5ModelForGeneration(T5Config(num_hidden_layers=1, hidden_dropout_prob=0.0,
-                                          attention_probs_dropout_prob=0.0,
-                                          hidden_size=512,
-                                          num_heads=8,
-                                          vocab_size=100,
-                                          batch_size=1, seq_length=32,
-                                          max_decode_length=8))
+    model = T5ForConditionalGeneration(T5Config(num_hidden_layers=1, hidden_dropout_prob=0.0,
+                                                attention_probs_dropout_prob=0.0,
+                                                hidden_size=512,
+                                                num_heads=8,
+                                                vocab_size=100,
+                                                batch_size=1, seq_length=32,
+                                                max_decode_length=8))
     model.save_pretrained(output_path)
-    model = T5ModelForGeneration.from_pretrained(output_path)
+    model = T5ForConditionalGeneration.from_pretrained(output_path)
 
     processor = T5Processor(tokenizer=tokenizer)
     processor.save_pretrained(output_path)

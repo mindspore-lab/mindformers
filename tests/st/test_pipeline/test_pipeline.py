@@ -49,3 +49,17 @@ def test_pipeline():
 
     res_a = classifier_a(img)
     assert len(res_a) == 1
+
+@pytest.mark.level0
+@pytest.mark.platform_x86_ascend_training
+@pytest.mark.platform_arm_ascend_training
+@pytest.mark.env_onecard
+def test_translation_pipeline():
+    """
+    Feature: translation pipline function
+    Description: Test the pipeline functions
+    Expectation: NotImplementedError, ValueError
+    """
+    translator = pipeline("translation")
+    res = translator("translate the English to the Romanian: UN Chief Says There Is No Military Solution in Syria")
+    assert res == [{"translation_text": ["eful ONU declară că nu există o soluţie militară în Siria"]}]

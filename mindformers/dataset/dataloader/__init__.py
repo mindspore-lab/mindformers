@@ -16,5 +16,6 @@
 from .build_dataloader import build_dataset_loader
 from .flickr8k_dataloader import Flickr8kDataLoader
 from .cifar100_dataloader import Cifar100DataLoader
+from .wmt16_dataloader import WMT16DataLoader
 
-__all__ = ['build_dataset_loader', 'Flickr8kDataLoader', 'Cifar100DataLoader']
+__all__ = ['build_dataset_loader', 'Flickr8kDataLoader', 'Cifar100DataLoader', 'WMT16DataLoader']

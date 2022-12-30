@@ -27,7 +27,7 @@ from numpy import allclose
 
 
 from mindformers import MindFormerBook, AutoModel
-from mindformers.models import T5ModelForLoss, T5Config, T5Tokenizer
+from mindformers.models import T5ForConditionalGeneration, T5Config, T5Tokenizer
 
 
 @pytest.mark.level0
@@ -62,7 +62,7 @@ class TestModelForT5Method:
 
         # input model name, load model and weights
         config = T5Config(num_hidden_layers=1)
-        T5ModelForLoss(config)
+        T5ForConditionalGeneration(config)
 
     def test_save_model(self):
         """
@@ -70,9 +70,9 @@ class TestModelForT5Method:
         Description: Test to save checkpoint for T5Model
         Expectation: ValueError, AttributeError
         """
-        t5 = T5ModelForLoss(T5Config(num_hidden_layers=1, hidden_dropout_prob=0.0,
-                                     attention_probs_dropout_prob=0.0,
-                                     batch_size=1, seq_length=16, max_decode_length=8))
+        t5 = T5ForConditionalGeneration(T5Config(num_hidden_layers=1, hidden_dropout_prob=0.0,
+                                                 attention_probs_dropout_prob=0.0,
+                                                 batch_size=1, seq_length=16, max_decode_length=8))
         t5.save_pretrained(self.save_directory, save_name='t5_model')
         tokenizer = T5Tokenizer.from_pretrained('t5_small')
 
@@ -85,7 +85,34 @@ class TestModelForT5Method:
         attention_mask = src_output['attention_mask']
 
         out1 = t5(input_ids, attention_mask, labels)
-        new_t5 = T5ModelForLoss.from_pretrained(self.save_directory)
+        new_t5 = T5ForConditionalGeneration.from_pretrained(self.save_directory)
         out2 = new_t5(input_ids, attention_mask, labels)
 
         assert allclose(out1.asnumpy(), out2.asnumpy())
+
+    def test_model_forward_loss(self):
+        """
+        Feature: test model forward loss of T5Model using tokenization output as input
+        Description: Test to save checkpoint for T5Model
+        Expectation: ValueError, AttributeError
+        """
+        model = T5ForConditionalGeneration.from_pretrained('t5_small')
+        tokenizer = T5Tokenizer.from_pretrained('t5_small')
+
+        src_output = tokenizer(["hello world"], padding='max_length', max_length=model.config.seq_length,
+                               return_tensors='ms')
+
+        model_input = tokenizer(["So happy to see you!"], padding='max_length',
+                                max_length=model.config.max_decode_length,
+                                return_tensors='ms')["input_ids"]
+        input_ids = src_output['input_ids']
+        attention_mask = src_output['attention_mask']
+        output = model(input_ids, attention_mask, model_input)
+        assert output.asnumpy() < 7
+
+        model.set_train(False)
+        output = model(input_ids, attention_mask, model_input, return_loss=True)
+        assert len(output.asnumpy().shape) == 1
+
+        output = model(input_ids, attention_mask, model_input, return_loss=False)
+        assert len(output.asnumpy().shape) == 2

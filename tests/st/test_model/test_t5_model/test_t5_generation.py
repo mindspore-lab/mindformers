@@ -22,7 +22,7 @@ linux:  pytest ./tests/st/test_model/test_t5_model/test_t5_generation.py
 """
 import pytest
 
-from mindformers.models import T5ModelForGeneration, T5Tokenizer
+from mindformers.models import T5ForConditionalGeneration, T5Tokenizer
 
 
 def modify_batch_size(net, batch_size):
@@ -39,7 +39,7 @@ def modify_batch_size(net, batch_size):
 class TestGeneratorUseT5:
     """A test class for testing Model classes"""
     def setup_class(self):
-        self.t5 = T5ModelForGeneration.from_pretrained("t5_small")
+        self.t5 = T5ForConditionalGeneration.from_pretrained("t5_small")
         self.tokenizer = T5Tokenizer.from_pretrained("t5_small")
 
     @pytest.mark.parametrize('do_sample', [False, True])

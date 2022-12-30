@@ -130,8 +130,8 @@ class BaseModel(nn.Cell, GeneratorMixin):
 
         Examples:
             >>> import os
-            >>> from mindformers import T5ModelForGeneration, MindFormerBook
-            >>> net = T5ModelForGeneration.from_pretrained('t5_small')
+            >>> from mindformers import T5ForConditionalGeneration, MindFormerBook
+            >>> net = T5ForConditionalGeneration.from_pretrained('t5_small')
             >>> net.save_pretrained()
             >>> output_path = MindFormerBook.get_default_checkpoint_save_folder()
             >>> print(os.listdir(output_path))
@@ -224,7 +224,7 @@ class BaseModel(nn.Cell, GeneratorMixin):
         return {"model": {"model_config": config.to_dict(), "arch": {"type": model_name}}}
 
     @classmethod
-    def from_pretrained(cls, pretrained_model_name_or_dir: str):
+    def from_pretrained(cls, pretrained_model_name_or_dir: str, **kwargs):
         """
         Instantiates a model by the pretrained_model_name_or_dir. It download the model weights if the user pass
         a model name, or load the weight from the given directory if given the path.
@@ -239,8 +239,8 @@ class BaseModel(nn.Cell, GeneratorMixin):
                 with `yaml`.
 
         Examples:
-            >>> from mindformers import T5ModelForGeneration
-            >>> net = T5ModelForGeneration.from_pretrained('t5_small')
+            >>> from mindformers import T5ForConditionalGeneration
+            >>> net = T5ForConditionalGeneration.from_pretrained('t5_small')
 
         Returns:
             A model, which inherited from BaseModel.
@@ -274,6 +274,7 @@ class BaseModel(nn.Cell, GeneratorMixin):
                         "model building.", yaml_file, ckpt_file)
 
             config_args = MindFormerConfig(yaml_file)
+            config_args.model.model_config.update(**kwargs)
             config = build_model_config(config_args.model.model_config)
             config.update({"checkpoint_name_or_path": ckpt_file})
             model = cls(config)
@@ -298,6 +299,7 @@ class BaseModel(nn.Cell, GeneratorMixin):
                 else:
                     logger.info("config in %s is used for model building.", yaml_file)
             config_args = MindFormerConfig(yaml_file)
+            config_args.model.model_config.update(**kwargs)
             config = build_model_config(config_args.model.model_config)
             config.update({"checkpoint_name_or_path": pretrained_model_name_or_dir})
             model = cls(config)

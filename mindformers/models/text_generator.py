@@ -19,9 +19,11 @@ For text generation
 from typing import Optional, List, Union
 
 import numpy as np
+from mindspore.ops import functional as F
+from mindspore.ops import operations as P
+import mindspore.nn as nn
 import mindspore.common.dtype as mstype
 from mindspore.common.tensor import Tensor
-from mindspore.ops import operations as P
 
 from ..tools import logger
 
@@ -108,8 +110,8 @@ class GeneratorMixin:
 
         encoder_mask = Tensor(input_mask, mstype.float32)
 
-        encoder_output = self.construct(Tensor(input_ids, mstype.int32),
-                                        encoder_mask)
+        encoder_output = self.encoder_forward(Tensor(input_ids, mstype.int32),
+                                              encoder_mask)
 
         input_ids = np.zeros((batch_size, self.config.max_decode_length))
         logger.debug("Decoder: pad the origin inputs into shape: %s", input_ids.shape)
@@ -130,6 +132,14 @@ class GeneratorMixin:
 
         return input_ids
 
+    def process_logits(self, logits, current_index=None):
+        """Process the logits"""
+        if current_index is not None:
+            index = current_index.view(-1,)
+            logits = P.Gather()(logits, index, 0)
+        outputs = nn.LogSoftmax()(logits)
+        outputs = F.tensor_pow(np.e, outputs)
+        return outputs
 
     def _forward(self,
                  origin_inputs,
@@ -155,7 +165,6 @@ class GeneratorMixin:
         """
         # Get configurations for inference
         use_pynative = True
-
 
         batch_size = origin_inputs.shape[0]
         is_encoder_decoder = self.config.is_encoder_decoder
@@ -199,11 +208,17 @@ class GeneratorMixin:
                 # current_index = Tensor(valid_length_each_example - 1, mstype.int32)
                 current_index = Tensor(current_index, mstype.int32)
                 logger.debug("validate length: %s", valid_length_each_example)
-                log_probs = self.construct(None, Tensor(encoder_mask, mstype.float32), current_index,
-                                           encoder_output, inputs,
-                                           Tensor(target_mask, mstype.float32))
+                logits = self.construct(input_ids=None,
+                                        attention_mask=encoder_mask,
+                                        encoder_output=encoder_output,
+                                        decoder_inputs=inputs,
+                                        target_mask=Tensor(target_mask, mstype.float32))
+
+                log_probs = self.process_logits(logits, current_index)
+
             else:
-                log_probs = self.construct(inputs, Tensor(input_mask, mstype.float32))
+                logits = self.construct(inputs, Tensor(input_mask, mstype.float32))
+                log_probs = self.process_logits(logits)
 
             log_probs = log_probs.asnumpy()
 
@@ -212,7 +227,6 @@ class GeneratorMixin:
                 frequency_list = np.array([[0 for _ in range(vocab_size)]])
             log_probs_revised = log_probs.reshape(batch_size, vocab_size)
             if repetition_penalty != 1:
-                # raise ValueError(log_probs.shape, frequency_list.shape,  (frequency_list * repetition_penalty).shape, (frequency_list > 0) * repetition_penalty)
                 log_probs_revised = log_probs - frequency_list * repetition_penalty - \
                                     (frequency_list > 0) * repetition_penalty
 
@@ -261,7 +275,7 @@ class GeneratorMixin:
                 False to disable the sampling, equivalent to topk 1. If set None, it follow the setting in the
                 configureation in the model. Default None.
             top_k(int): Determine the topK numbers token id as candidate. This should be a positive number.
-                If set None, it follow the setting in the configureation in the model. Default None.
+                If set None, it follows the setting in the configureation in the model. Default None.
             top_p(float): The accumulation probability of the candidate token ids below the top_p will be select as the
                 condaite ids. The validate the value of top_p is between (0, 1]. If the value is larger than 1,
                 top_K algorithm will be enabled. If set None, it follow the setting in the configureation in the model.
@@ -276,8 +290,8 @@ class GeneratorMixin:
 
 
         Examples:
-            >>> from mindformers import T5ModelForGeneration, T5Tokenizer
-            >>> t5 = T5ModelForGeneration.from_pretrained("t5_small")
+            >>> from mindformers import T5ForConditionalGeneration, T5Tokenizer
+            >>> t5 = T5ForConditionalGeneration.from_pretrained("t5_small")
             >>> tokenizer = T5Tokenizer.from_pretrained("t5_small")
             >>> words = "translate the English to the Romanian: UN Chief Says There Is No Military Solution in Syria"
             >>> words = tokenizer(words, max_length=21, padding='max_length')['input_ids']
@@ -299,6 +313,8 @@ class GeneratorMixin:
         Returns:
             A list of the generated token ids
         """
+        origin_phase = self.phase
+        self.set_train(False)
         input_ids = np.array(input_ids).reshape(-1, np.shape(input_ids)[-1])
         config = self.config
         top_p = config.top_p if top_p is None else top_p
@@ -318,4 +334,6 @@ class GeneratorMixin:
                                    repetition_penalty=repetition_penalty,
                                    max_length=max_length,
                                    eos_token_id=eos_token_id)
+        # set to original phase
+        self.set_train(origin_phase == 'train')
         return output_ids
