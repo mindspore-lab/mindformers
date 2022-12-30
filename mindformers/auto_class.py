@@ -33,7 +33,22 @@ __all__ = ['AutoConfig', 'AutoModel', 'AutoProcessor', 'AutoTokenizer']
 
 
 class AutoConfig:
-    """ AutoConfig """
+    """
+    AutoConfig class,
+    helps instantiates a config by yaml model name or path.
+    If using a model name, the config yaml will be downloaded from obs to ./checkpoint_download dir
+
+    Examples:
+        >>> from mindformers.auto_class import AutoConfig
+        >>>
+        >>> # 1)  instantiates a config by yaml model name
+        >>> config_a = AutoConfig.from_pretrained('clip_vit_b_32')
+        >>> # 2)  instantiates a config by yaml model path
+        >>> from mindformers.mindformer_book import MindFormerBook
+        >>> config_path = os.path.join(MindFormerBook.get_project_path(),
+        ...                            'configs', 'clip', 'model_config', "clip_vit_b_32.yaml")
+        >>> config_b = AutoConfig.from_pretrained(config_path)
+    """
     _support_list = MindFormerBook.get_model_support_list()
 
     def __init__(self):
@@ -110,7 +125,29 @@ class AutoConfig:
 
 
 class AutoModel:
-    """ AutoModel """
+    """
+    AutoModel class
+    helps instantiates a model by yaml model name, path or config.
+    If using a model name,
+    the config yaml and checkpoint file will be downloaded from obs to ./checkpoint_download dir
+
+    Examples:
+        >>> from mindformers.auto_class import AutoModel
+        >>>
+        >>> # 1)  input model name, load model and weights
+        >>> model_a = AutoModel.from_pretrained('clip_vit_b_32')
+        >>> # 2)  input model directory, load model and weights
+        >>> from mindformers.mindformer_book import MindFormerBook
+        >>> checkpoint_dir = os.path.join(MindFormerBook.get_default_checkpoint_download_folder(), 'clip')
+        >>> model_b = AutoModel.from_pretrained(checkpoint_dir)
+        >>> # 3)  input yaml path, load model without weights
+        >>> config_path = os.path.join(MindFormerBook.get_project_path(),
+        ...                            'configs', 'clip', 'model_config', "clip_vit_b_32.yaml")
+        >>> model_c = AutoModel.from_config(config_path)
+        >>> # 4)  input config, load model without weights
+        >>> config = AutoConfig.from_pretrained('clip_vit_b_32')
+        >>> model_d = AutoModel.from_config(config)
+    """
     _support_list = MindFormerBook.get_model_support_list()
 
     def __init__(self):
@@ -278,7 +315,22 @@ class AutoModel:
 
 
 class AutoProcessor:
-    """ AutoProcessor """
+    """
+    AutoProcessor
+    helps instantiates a processor by yaml model name or path.
+    If using a model name, the config yaml will be downloaded from obs to ./checkpoint_download dir
+
+    Examples:
+        >>> from mindformers.auto_class import AutoProcessor
+        >>>
+        >>> # 1)  instantiates a processor by yaml model name
+        >>> pro_a = AutoProcessor.from_pretrained('clip_vit_b_32')
+        >>> # 2)  instantiates a processor by yaml model path
+        >>> from mindformers.mindformer_book import MindFormerBook
+        >>> config_path = os.path.join(MindFormerBook.get_project_path(),
+        ...                            'configs', 'clip', 'model_config', "clip_vit_b_32.yaml")
+        >>> pro_b = AutoProcessor.from_pretrained(config_path)
+    """
     _support_list = MindFormerBook.get_model_support_list()
 
     def __init__(self):
@@ -368,17 +420,33 @@ class AutoProcessor:
 
 class AutoTokenizer:
     """
-        Load the tokenizer according to the `yaml_name_or_path`. It supports the following situations
+    Load the tokenizer according to the `yaml_name_or_path`. It supports the following situations
+    1. `yaml_name_or_path` is the model name.
+    2. `yaml_name_or_path` is the path to the downloaded files.
 
-        1. `yaml_name_or_path` is the path to the downloaded files.
-        2. `yaml_name_or_path` is the model name.
-
+    Examples:
+        >>> from mindformers.auto_class import AutoTokenizer
+        >>>
+        >>> # 1)  instantiates a tokenizer by the model name
+        >>> tokenizer_a = AutoTokenizer.from_pretrained("clip_vit_b_32")
+        >>> # 2)  instantiates a tokenizer by the path to the downloaded files.
+        >>> from mindformers.models.clip.clip_tokenizer import ClipTokenizer
+        >>> clip_tokenizer = ClipTokenizer.from_pretrained("clip_vit_b_32")
+        >>> clip_tokenizer.save_pretrained(path_saved)
+        >>> restore_tokenizer = AutoTokenizer.from_pretrained(path_saved)
     """
     _support_list = MindFormerBook.get_tokenizer_support_list()
 
     @classmethod
     def _get_class_name_from_yaml(cls, yaml_name_or_path):
-        """Try to find the yaml form the given path"""
+        """
+        Try to find the yaml from the given path
+        Args:
+            yaml_name_or_path (str): the directory of the config yaml
+
+        Returns:
+            The class name of the tokenizer in the config yaml.
+        """
         is_exist = os.path.exists(yaml_name_or_path)
         is_dir = os.path.isdir(yaml_name_or_path)
         if not is_exist:
@@ -406,7 +474,14 @@ class AutoTokenizer:
 
     @classmethod
     def _get_class_name_from_tokenizer_config_file(cls, yaml_name_or_path):
-        """try to get the tokenizer type from tokenizer_config.json"""
+        """
+        try to get the tokenizer type from tokenizer_config.json
+        Args:
+            yaml_name_or_path (str): the directory of tokenizer_config.json
+
+        Returns:
+            The class name of the tokenizer in tokenizer_config.json
+        """
         tokenizer_config_path = os.path.join(yaml_name_or_path, 'tokenizer_config.json')
         if not os.path.exists(tokenizer_config_path):
             raise FileNotFoundError(f"The file `tokenizer_config.json` should exits in the "
