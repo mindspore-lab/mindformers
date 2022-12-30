@@ -26,7 +26,7 @@
 ## 1.2 多次提交记录，如何进行合并
 
 - 问题描述：
-MindSpore Vision代码仓提交规范要求，提交记录仅保留一条，所以多次提交时，需要进行合并。
+MindSpore transformer代码仓提交规范要求，提交记录仅保留一条，所以多次提交时，需要进行合并。
 
 ![输入图片说明](https://images.gitee.com/uploads/images/2022/0414/171522_cbcd9488_7386274.png "屏幕截图.png")
 
@@ -66,7 +66,7 @@ MindSpore Vision代码仓提交规范要求，提交记录仅保留一条，所�
 
 ## 1.5 开发过程中遇到问题，如果在开源社区中进行提问？
 
-在[MindSpore仓的issues区](https://gitee.com/mindspore/mindspore/issues)提交issues，按照模板来描述问题，我们的工程师会在下面的comment留言哦。
+在[transformer仓的issues区](https://gitee.com/mindspore/transformer/issues)提交issues，按照模板来描述问题，我们的工程师会在下面的comment留言哦。
 
 
 ## 1.6 PR提交者是否需要签署CLA？
