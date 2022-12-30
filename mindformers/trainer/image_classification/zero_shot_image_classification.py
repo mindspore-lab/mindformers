@@ -21,6 +21,7 @@ from PIL.Image import Image
 from mindspore.train.model import Model
 from mindspore.train import Callback
 from mindspore import Tensor
+from mindspore.dataset import GeneratorDataset
 
 from mindformers.common.metric import build_metric
 from mindformers.common.callback import build_callback
@@ -31,8 +32,8 @@ from mindformers.pipeline import pipeline
 from mindformers.trainer.utils import check_model_config
 from mindformers.tools.logger import logger
 from mindformers.tools.utils import count_params
-from mindformers.tools.image_tools import load_image
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
+from ...dataset.dataloader import build_dataset_loader
 from ..config_args import ConfigArguments
 from ..base_trainer import BaseTrainer
 
@@ -40,7 +41,7 @@ from ..base_trainer import BaseTrainer
 __all__ = ['ZeroShotImageClassificationTrainer']
 
 
-@MindFormerRegister.register(MindFormerModuleType.TRAINER, alias="zero_shot_image_classification")
+@MindFormerRegister.register(MindFormerModuleType.TRAINER)
 class ZeroShotImageClassificationTrainer(BaseTrainer):
     """Image Classification Trainer."""
 
@@ -90,13 +91,13 @@ class ZeroShotImageClassificationTrainer(BaseTrainer):
         output = model.eval(dataset,
                             callbacks=callbacks,
                             dataset_sink_mode=config.runner_config.sink_mode)
-        logger.info('Top1 Accuracy=%s', str(output))
-        logger.info(".........Training Over!.............")
+        logger.info("Top1 Accuracy=%s", (str(output["Top1 Accuracy"]*100)+'%'))
+        logger.info(".........Eval Over!.............")
 
     def predict(self,
                 config: Optional[Union[dict, ConfigArguments]] = None,
-                input_data: Optional[Union[Tensor, np.ndarray, Image, str, list]] = None,
-                candidate_labels: list = None,
+                input_data: Optional[Union[GeneratorDataset,
+                                           Tensor, np.ndarray, Image, str, list]] = None,
                 network: Optional[Union[str, BaseModel]] = None,
                 tokenizer: Optional[BaseTokenizer] = None,
                 image_processor: Optional[BaseImageProcessor] = None, **kwargs):
@@ -104,18 +105,7 @@ class ZeroShotImageClassificationTrainer(BaseTrainer):
         self.kwargs = kwargs
         logger.info(".........Build Input Data For Predict..........")
         if input_data is None:
-            input_data = config.input_data
-        if not isinstance(input_data, (Tensor, np.ndarray, Image, str, list)):
-            raise ValueError("Input data's type must be one of "
-                             "[str, ms.Tensor, np.ndarray, PIL.Image.Image, list]")
-        batch_input_data = []
-        if isinstance(input_data, str):
-            batch_input_data.append(load_image(input_data))
-        elif isinstance(input_data, list):
-            for data_path in input_data:
-                batch_input_data.append(load_image(data_path))
-        else:
-            batch_input_data = input_data
+            input_data = build_dataset_loader(config.eval_dataset.data_loader)
 
         logger.info(".........Build Net..........")
         if network is None:
@@ -130,15 +120,55 @@ class ZeroShotImageClassificationTrainer(BaseTrainer):
         if image_processor is None:
             image_processor = build_processor(config.processor.image_processor)
 
+        candidate_labels = kwargs.pop("candidate_labels", None)
         if candidate_labels is None:
-            candidate_labels = ["sunflower", "tree", "dog", "cat", "toy"]
+            if hasattr(input_data, "label_names"):
+                candidate_labels = input_data.label_names
+            else:
+                candidate_labels = ["sunflower", "tree", "dog", "cat", "toy"]
 
-        pipeline_task = pipeline(task='zero_shot_image_classification',
-                                 model=network,
-                                 tokenizer=tokenizer,
-                                 image_processor=image_processor,
-                                 candidate_labels=candidate_labels, **kwargs)
-        output_result = pipeline_task(batch_input_data)
-        logger.info("output result is: %s", str(output_result))
+        hypothesis_template = kwargs.pop("hypothesis_template", None)
+        if hypothesis_template is None:
+            if config.eval_dataset.data_loader.hypothesis_template is not None:
+                hypothesis_template = config.eval_dataset.data_loader.hypothesis_template
+            else:
+                hypothesis_template = "{}"
+
+        save_file = kwargs.pop("save_file", None)
+        if save_file is None:
+            if config.save_file is not None:
+                save_file = config.save_file
+            else:
+                save_file = "results.txt"
+
+        batch_size = kwargs.pop("batch_size", None)
+        if batch_size is None:
+            if config.eval_dataset.batch_size is not None:
+                batch_size = config.eval_dataset.batch_size
+            else:
+                batch_size = 1
+
+        top_k = kwargs.pop("top_k", None)
+        if top_k is None and config.top_k is not None:
+            top_k = config.top_k
+
+        pipeline_task = pipeline(
+            task='zero_shot_image_classification',
+            model=network,
+            tokenizer=tokenizer,
+            image_processor=image_processor,
+            candidate_labels=candidate_labels,
+            hypothesis_template=hypothesis_template,
+            **kwargs
+        )
+        output_result = pipeline_task(input_data,
+                                      batch_size=batch_size,
+                                      top_k=top_k)
+
+        with open(save_file, 'w') as file:
+            file.write(str(output_result))
+        file.close()
+
+        logger.info("output result is saved at: %s", save_file)
         logger.info(".........Predict Over!.............")
         return output_result

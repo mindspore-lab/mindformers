@@ -26,6 +26,7 @@ from mindspore import Tensor
 from mindspore.common import set_seed
 from mindspore.nn import TrainOneStepCell, Optimizer
 from mindspore.train import Callback
+from mindspore.dataset import GeneratorDataset
 
 from mindformers.common.parallel_config import build_parallel_config
 from mindformers.dataset import build_dataset, build_dataset_loader, \
@@ -33,7 +34,6 @@ from mindformers.dataset import build_dataset, build_dataset_loader, \
 from mindformers.mindformer_book import MindFormerBook
 from mindformers.models import BaseModel, BaseImageProcessor, BaseTokenizer, BaseAudioProcessor
 from mindformers.tools.cloud_adapter import CFTS
-from mindformers.tools.image_tools import load_image
 from mindformers.tools.logger import logger
 from mindformers.tools.register import MindFormerConfig, MindFormerRegister
 from mindformers.tools.register.config import ordered_yaml_dump
@@ -420,7 +420,8 @@ class Trainer:
 
     def predict(self,
                 predict_checkpoint: Optional[Union[str, bool]] = None,
-                input_data: Optional[Union[Tensor, np.ndarray, Image, str, list]] = None, **kwargs):
+                input_data: Optional[Union[GeneratorDataset,
+                                           Tensor, np.ndarray, Image, str, list]] = None, **kwargs):
         r"""Predict task for Trainer.
         This function is used to evaluate the network.
 
@@ -470,9 +471,11 @@ class Trainer:
             predict_checkpoint = None
 
         if input_data is None:
-            input_data = load_image(SUPPORT_PIPELINE_INPUT_DATA.get(self.task))
-        assert isinstance(input_data, (Tensor, np.ndarray, Image, str, list)), \
-            "Input data's type must be one of [str, ms.Tensor, np.ndarray, PIL.Image.Image]"
+            input_data = build_dataset_loader(self.config.eval_dataset.data_loader)
+            logger.info("dataset by config is used as input_data.")
+        assert isinstance(input_data, (GeneratorDataset, Tensor, np.ndarray, Image, str, list)), \
+            "Input data's type must be one of [GeneratorDataset," \
+            " str, ms.Tensor, np.ndarray, PIL.Image.Image]"
 
         self._check_checkpoint_config(predict_checkpoint)
 

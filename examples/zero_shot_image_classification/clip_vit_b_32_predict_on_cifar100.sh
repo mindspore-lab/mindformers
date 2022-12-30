@@ -1,3 +1,4 @@
+#!/bin/bash
 # Copyright 2022 Huawei Technologies Co., Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,9 +13,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-"""MindFormers DataLoader."""
-from .build_dataloader import build_dataset_loader
-from .flickr8k_dataloader import Flickr8kDataLoader
-from .cifar100_dataloader import Cifar100DataLoader
 
-__all__ = ['build_dataset_loader', 'Flickr8kDataLoader', 'Cifar100DataLoader']
+echo "=============================================================================================================="
+echo "Please run the script as: "
+echo "bash examples/zero_shot_image_classification/clip_vit_b_32_predict_on_cifar100.sh"
+echo "It is better to use absolute path."
+echo "=============================================================================================================="
+
+python run_mindformer.py --config ./configs/clip/run_clip_vit_b_32_zero_shot_image_classification_cafir100.yaml --run_status predict

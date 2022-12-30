@@ -134,8 +134,8 @@ if __name__ == "__main__":
             config_.eval_dataset.data_loader.dataset_dir = args_.dataset_dir
     if config_.run_status == 'predict':
         if args_.predict_data is None:
-            raise ValueError("predict_data argument must be input, but get None.")
-        if os.path.isdir(args_.predict_data) and os.path.exists(args_.predict_data):
+            logger.info("dataset by config is used as input_data.")
+        elif os.path.isdir(args_.predict_data) and os.path.exists(args_.predict_data):
             predict_data = [os.path.join(root, file)
                             for root, _, file_list in os.walk(os.path.join(args_.predict_data)) for file in file_list
                             if file.endswith(".jpg") or file.endswith(".png") or file.endswith(".jpeg")
