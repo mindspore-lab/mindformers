@@ -200,15 +200,15 @@ def load_distributed_checkpoint():
 
 def resume_checkpoint_for_training(config, network, optimizer):
     """Resume Checkpoint for training."""
-    if not os.path.realpath(config.resume_checkpoint_path) or \
-            not os.path.exists(config.resume_checkpoint_path):
-        raise FileNotFoundError(f"The resume_checkpoint_path must be correct, "
-                                f"but get {config.resume_checkpoint_path}")
+    if not os.path.realpath(config.resume_or_finetune_checkpoint) or \
+            not os.path.exists(config.resume_or_finetune_checkpoint):
+        raise FileNotFoundError(f"The resume_or_finetune_checkpoint must be correct, "
+                                f"but get {config.resume_or_finetune_checkpoint}")
     if context.get_auto_parallel_context('parallel_mode') in \
             ['semi_auto_parallel', 'auto_parallel', 'hybrid_parallel']:
         load_distributed_checkpoint()
     else:
-        checkpoint_dict = load_checkpoint(config.resume_checkpoint_path)
+        checkpoint_dict = load_checkpoint(config.resume_or_finetune_checkpoint)
         not_load_network_params = load_param_into_net(network, checkpoint_dict)
         not_load_optim_params = load_param_into_net(optimizer, checkpoint_dict)
         logger.info("Not load network parameters is：%s", str(not_load_network_params))

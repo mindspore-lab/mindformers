@@ -9,7 +9,7 @@ profile: False
 use_parallel: False
 
 seed: 0
-resume_checkpoint_path: ''
+resume_or_finetune_checkpoint: ''
 
 metric:
   type: 'Accuracy'

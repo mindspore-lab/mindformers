@@ -9,7 +9,7 @@ profile: False
 use_parallel: False
 
 seed: 0
-resume_checkpoint_path: '' # Input ckpt file path here
+resume_or_finetune_checkpoint: '' # Input ckpt file path here
 
 run_status: 'train'
 trainer:

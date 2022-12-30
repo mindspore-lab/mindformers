@@ -56,13 +56,19 @@ def main(config):
         config.eval_dataset.data_loader.dataset_dir = cfts.get_dataset(
             config.eval_dataset.data_loader.dataset_dir)
 
+    if config.run_status == 'finetune' and not config.resume_or_finetune_checkpoint:
+        raise ValueError("if run status is finetune, "
+                         "load_checkpoint or resume_or_finetune_checkpoint is invalid, "
+                         "it must be input")
+
     # auto pull checkpoint if on ModelArts platform
-    if config.resume_checkpoint_path and config.resume_checkpoint_path != '':
-        config.resume_checkpoint_path = cfts.get_checkpoint(config.resume_checkpoint_path)
-        if isinstance(config.resume_checkpoint_path, str) and config.resume_checkpoint_path in SUPPORT_MODEL_NAMES:
-            config.model.model_config.checkpoint_name_or_path = config.resume_checkpoint_path
-        else:
+    if config.resume_or_finetune_checkpoint:
+        config.resume_or_finetune_checkpoint = cfts.get_checkpoint(config.resume_or_finetune_checkpoint)
+        if config.run_status == 'train':
             config.model.model_config.checkpoint_name_or_path = None
+        else:
+            config.model.model_config.checkpoint_name_or_path = config.resume_or_finetune_checkpoint
+            config.resume_or_finetune_checkpoint = None
 
     # define callback and add profile callback
     if config.profile:
@@ -72,7 +78,7 @@ def main(config):
         pprint(config)
 
     trainer = build_trainer(config.trainer)
-    if config.run_status == 'train':
+    if config.run_status == 'train' or config.run_status == 'finetune':
         trainer.train(config)
     elif config.run_status == 'eval':
         trainer.evaluate(config)
@@ -86,18 +92,51 @@ if __name__ == "__main__":
     parser.add_argument(
         '--config',
         default=os.path.join(
-            work_path, "configs/mae/run_mae_vit_base_p16_224_400ep.yaml"),
+            work_path, "configs/mae/run_mae_vit_base_p16_224_800ep.yaml"),
+        required=True,
         help='YAML config files')
-    parser.add_argument('--mode', default=None, type=int, help='context mode')
-    parser.add_argument('--device_id', default=None, type=int, help='device id')
-    parser.add_argument('--device_target', default=None, type=str, help='device target')
-    parser.add_argument('--run_status', default=None, type=str, help='open training')
-    parser.add_argument('--dataset_dir', default=None, type=str, help='dataset directory')
-    parser.add_argument('--predict_data', default=None, type=str, help='input data for predict')
-    parser.add_argument('--resume_checkpoint_path', default=None, type=str, help='load model checkpoint')
-    parser.add_argument('--seed', default=None, type=int, help='random seed')
-    parser.add_argument('--use_parallel', default=None, type=str2bool, help='whether use parallel mode')
-    parser.add_argument('--profile', default=None, type=str2bool, help='whether use profile analysis')
+    parser.add_argument(
+        '--mode', default=None, type=int,
+        help='Running in GRAPH_MODE(0) or PYNATIVE_MODE(1). Default: GRAPH_MODE(0).'
+             'GRAPH_MODE or PYNATIVE_MODE can be set by `mode` attribute and both modes support all backends,'
+             'Default: None')
+    parser.add_argument(
+        '--device_id', default=None, type=int,
+        help='ID of the target device, the value must be in [0, device_num_per_host-1], '
+             'while device_num_per_host should be no more than 4096. Default: None')
+    parser.add_argument(
+        '--device_target', default=None, type=str,
+        help='The target device to run, support "Ascend", "GPU", and "CPU".'
+             'If device target is not set, the version of MindSpore package is used.'
+             'Default: None')
+    parser.add_argument(
+        '--run_status', default=None, type=str,
+        help='task running status, it support [train, finetune, eval, predict].'
+             'Default: None')
+    parser.add_argument(
+        '--dataset_dir', default=None, type=str,
+        help='dataset directory of data loader to train/finetune/eval. '
+             'Default: None')
+    parser.add_argument(
+        '--predict_data', default=None, type=str,
+        help='input data for predict, it support real data path or data directory.'
+             'Default: None')
+    parser.add_argument(
+        '--load_checkpoint', default=None, type=str,
+        help="load model checkpoint to train/finetune/eval/predict, "
+             "it is also support input model name, such as 'mae_vit_base_p16', "
+             "please refer to https://gitee.com/mindspore/transformer#%E4%BB%8B%E7%BB%8D."
+             "Default: None")
+    parser.add_argument(
+        '--seed', default=None, type=int,
+        help='global random seed to train/finetune.'
+             'Default: None')
+    parser.add_argument(
+        '--use_parallel', default=None, type=str2bool,
+        help='whether use parallel mode. Default: None')
+    parser.add_argument(
+        '--profile', default=None, type=str2bool,
+        help='whether use profile analysis. Default: None')
     parser.add_argument(
         '--options',
         nargs='+',
@@ -119,14 +158,14 @@ if __name__ == "__main__":
         config_.seed = args_.seed
     if args_.use_parallel is not None:
         config_.use_parallel = args_.use_parallel
-    if args_.resume_checkpoint_path is not None:
-        config_.resume_checkpoint_path = args_.resume_checkpoint_path
+    if args_.load_checkpoint is not None:
+        config_.resume_or_finetune_checkpoint = args_.load_checkpoint
     if args_.profile is not None:
         config_.profile = args_.profile
     if args_.options is not None:
         config_.merge_from_dict(args_.options)
-    assert config_.run_status in ['train', 'eval', 'predict'], \
-        f"run status must be in {['train', 'eval', 'predict']}, but get {config_.run_status}"
+    assert config_.run_status in ['train', 'eval', 'predict', 'finetune'], \
+        f"run status must be in {['train', 'eval', 'predict', 'finetune']}, but get {config_.run_status}"
     if args_.dataset_dir:
         if config_.run_status == 'train':
             config_.train_dataset.data_loader.dataset_dir = args_.dataset_dir
