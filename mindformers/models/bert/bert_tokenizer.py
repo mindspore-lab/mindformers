@@ -367,10 +367,15 @@ class BertTokenizer(Tokenizer):
         return output
 
     def _convert_ids_to_tokens(self, ids):
-        output = []
-        for item in ids:
-            output.append(self.vocab_id2token[item])
-        return output
+        if isinstance(ids, int):
+            return self.vocab_id2token[ids]
+
+        if isinstance(ids, list):
+            output = []
+            for item in ids:
+                output.append(self.vocab_id2token[item])
+            return output
+        raise TypeError(f"The type of ids should be int or list, but found {type(ids)}.")
 
     def save_vocabulary(self, save_directory, filename_prefix):
         """write the word to the files"""
