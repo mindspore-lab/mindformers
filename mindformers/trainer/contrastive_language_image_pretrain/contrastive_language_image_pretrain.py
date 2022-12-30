@@ -90,7 +90,7 @@ class ContrastiveLanguageImagePretrainTrainer(BaseTrainer):
                 config.callbacks))
 
         # resume checkpoint
-        if config.resume_checkpoint_path is not None and config.resume_checkpoint_path != '':
+        if config.resume_or_finetune_checkpoint is not None and config.resume_or_finetune_checkpoint != '':
             logger.info(".............start resume training from checkpoint..................")
             resume_checkpoint_for_training(config, network, optimizer)
 

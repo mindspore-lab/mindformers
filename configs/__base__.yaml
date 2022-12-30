@@ -7,7 +7,7 @@ profile: False
 use_parallel: False
 
 output_dir: './output'  # 当前不支持自定义修改，请勿修改该默认值
-resume_checkpoint_path: ''
+resume_or_finetune_checkpoint: ''
 
 eval_callbacks:
   - type: ObsMonitor

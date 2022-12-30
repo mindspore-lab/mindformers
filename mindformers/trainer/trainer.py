@@ -66,10 +66,12 @@ class Trainer:
             configure the dataset, the hyper-parameter, optimizer, etc. It support yaml path or
             config dict or ConfigArguments class.
             Default: None.
-        task (str): The task name supported. Please refer to *****.
+        task (str): The task name supported.
+            Please refer to https://gitee.com/mindspore/transformer#%E4%BB%8B%E7%BB%8D.
             Default: 'general'.
-        model (Optional[Union[str, BaseModel]]): The network for trainer. It support model name supported
-            or BaseModel class. Supported model name can refer to ****.
+        model (Optional[Union[str, BaseModel]]): The network for trainer.
+            It support model name supported or BaseModel class.
+            Supported model name can refer to https://gitee.com/mindspore/transformer#%E4%BB%8B%E7%BB%8D.
             Default: None.
         train_dataset (Optional[Union[str, BaseDataset]]): The training dataset. It support real dataset path or
             BaseDateset class or MindSpore Dataset class.
@@ -352,13 +354,13 @@ class Trainer:
 
         if resume_or_finetune_from_checkpoint is True:
             self.config.model.model_config.checkpoint_name_or_path = None
-            self.config.resume_checkpoint_path = resume_or_finetune_from_checkpoint
+            self.config.resume_or_finetune_checkpoint = resume_or_finetune_from_checkpoint
         elif isinstance(resume_or_finetune_from_checkpoint, str):
             if do_finetune:
                 self.config.model.model_config.checkpoint_name_or_path = resume_or_finetune_from_checkpoint
             else:
                 self.config.model.model_config.checkpoint_name_or_path = None
-                self.config.resume_checkpoint_path = resume_or_finetune_from_checkpoint
+                self.config.resume_or_finetune_checkpoint = resume_or_finetune_from_checkpoint
         else:
             self.default_checkpoint_name_or_path = self.config.model.model_config.checkpoint_name_or_path
             self.config.model.model_config.checkpoint_name_or_path = None
@@ -395,7 +397,6 @@ class Trainer:
             >>> from mindformers import Trainer
             >>> task_trainer = Trainer(task='image_classification',
             ...                        model='vit_base_p16',
-            ...                        train_dataset='data/imagenet/train',
             ...                        eval_dataset='data/imagenet/train')
             >>> # 1) default evaluate task to test model.
             >>> task_trainer.evaluate()
@@ -422,7 +423,7 @@ class Trainer:
                 predict_checkpoint: Optional[Union[str, bool]] = None,
                 input_data: Optional[Union[Tensor, np.ndarray, Image, str, list]] = None, **kwargs):
         r"""Predict task for Trainer.
-        This function is used to evaluate the network.
+        This function is used to predict the network.
 
         Args:
             predict_checkpoint (Optional[Union[str, bool]]):
@@ -445,15 +446,13 @@ class Trainer:
         Examples:
             >>> from mindformers import Trainer
             >>> task_trainer = Trainer(task='image_classification',
-            ...                        model='vit_base_p16',
-            ...                        train_dataset='data/imagenet/train',
-            ...                        eval_dataset='data/imagenet/train')
+            ...                        model='vit_base_p16')
             >>> # 1) default predict task to test model.
             >>> task_trainer.predict()
             >>> # 2) predict task to auto load the last checkpoint.
-            >>> task_trainer.evaluate(predict_checkpoint=True)
+            >>> task_trainer.predict(predict_checkpoint=True)
             >>> # 3) predict task according to checkpoint path.
-            >>> task_trainer.evaluate(predict_checkpoint='./output/rank_0/checkpoint/mindformers.ckpt')
+            >>> task_trainer.predict(predict_checkpoint='./output/rank_0/checkpoint/mindformers.ckpt')
             >>> # 4) predict task according to input data.
             >>> input_data = "./sunflower.png"
             >>> task_trainer.predict(input_data=input_data)
