@@ -279,6 +279,8 @@ class BaseTokenizer(SpecialTokensMixin):
             tokens = self.tokenize(item)
             res = self.convert_tokens_to_ids(tokens)
             output.append(res)
+        if len(text) == 1 and isinstance(text[0], str) and output and isinstance(output[0], list):
+            output = output[0]
         return output
 
     def encode(self,
@@ -291,7 +293,14 @@ class BaseTokenizer(SpecialTokensMixin):
                return_batch: bool = False):
         """
         Convert the input strings to the id list. The arguments are mostly same with the `batch_encode_plus`, but
-        return the token id list.
+        it returns the token id list rather than the python dict.
+
+        Examples:
+            >>> from mindformers import T5Tokenizer
+            >>> tokenizer = T5Tokenizer.from_pretrained("t5_small")
+            >>> res = tokenizer.encode("hello world!")
+            >>> print(res)
+            [21820, 296, 55, 1]
 
         Returns:
             A list of token ids mapped by the vocabulary.
@@ -309,18 +318,23 @@ class BaseTokenizer(SpecialTokensMixin):
     def from_pretrained(cls, name_or_path: str):
         """
         Instantiates a tokenizer by the name_or_path. User can get the name using `get_support_list` of any tokenizer,
-        it will download the necessary files from the cloud.
-        or pass a directory where contains the vocabulary file and tokenizers yaml configuration file.
+        it will download the necessary files from the cloud. or pass a directory where contains the vocabulary file
+        and tokenizers yaml configuration file.
 
         Args:
-            name_or_path (str): A supported tokenizer name or a
-                directory to tokenizer (including .yaml file for config
-                and vocburary file for weights).
+            name_or_path(str): It supports the following two input types: If the name_or_path is a supported tokenizer
+                name, for example, `clip_vit_b_32` and `t5_small`, it will download the necessary files from the cloud.
+                User can select one from the support list by call `MindFormerBook.show_tokenizer_support_list()`.
+                If name_or_path is a path to the local directory where there should have vocaburary files and
+                configuration file ended with `yaml`. The vocaburary file needed by the tokenizer is determined
+                by `.VOCAB_FILES`
 
         Examples:
             >>> from mindformers import T5Tokenizer
             >>> tokenizer = T5Tokenizer.from_pretrained("t5_small")
-            >>> tokenizer.show_support_list()
+            >>> res = tokenizer.encode("hello world!")
+            >>> print(res)
+            [21820, 296, 55, 1]
 
         Returns:
             A instanced tokenizer.
@@ -526,14 +540,28 @@ class BaseTokenizer(SpecialTokensMixin):
                 output_map[k] = Tensor(v)
         return output_map
 
-    def save_pretrained(self, save_directory=None, save_name="mindspore_model", file_format='yaml'):
+    def save_pretrained(self,
+                        save_directory: Optional[str] = None,
+                        save_name: str = "mindspore_model",
+                        file_format: str = 'yaml'):
         """
-        Save the tokenizer by writing the tokenizer_config.json, vocab.txt and special_tokens_map.json to the disk.
+        Save the tokenizer by writing the `save_name`.yaml and vocaburary files those are determinied by `.VOCAB_FILES`
+        to the disk. The kwargs passed to initialize the tokenizer will be saved.
 
-        Arguments:
-            save_directory(str): The output file directory.
-            save_name(str):
-            file_format(str): Support json or yaml.
+        Args:
+            save_directory(str): The output file directory. If None, the directory will be  `./checkpoint_save`,
+                which can be obtained by the `MindFormerBook.get_default_checkpoint_save_folder()`. Default None.
+            save_name(str): The file name of the saved files. Default mindspore_model.
+            file_format(str): Support json or yaml. Default yaml.
+
+        Examples:
+            >>> from mindformers import T5Tokenizer
+            >>> tokenizer = T5Tokenizer.from_pretrained("t5_small")
+            >>> tokenizer.save_pretrained()
+            >>> output_path = MindFormerBook.get_default_checkpoint_save_folder()
+            >>> print(os.listdir(output_path))
+            ['mindspore_model.yaml', 'spiece.model']
+
         """
         default_directory = MindFormerBook.get_default_checkpoint_save_folder()
         if save_directory is None:
@@ -562,11 +590,13 @@ class BaseTokenizer(SpecialTokensMixin):
             merged_dict['processor']['tokenizer'] = kwargs
             with open(yaml_file, 'w') as file_reader:
                 yaml.dump(merged_dict, file_reader)
-        else:
+        elif file_format == 'json':
             kwargs["tokenizer_class"] = self.__class__.__name__
             tokenizer_config_path = os.path.join(save_directory, TOKENIZER_CONFIG_NAME)
             with open(tokenizer_config_path, 'w') as fp:
                 json.dump(kwargs, fp, indent=4)
+        else:
+            raise ValueError(f"file_format should be one of [json, yaml], but got {file_format}.")
 
         output_name = self.VOCAB_FILES['vocab_file']
         if isinstance(output_name, list):
@@ -585,10 +615,34 @@ class BaseTokenizer(SpecialTokensMixin):
         return ids
 
     def decode(self,
-               token_ids,
-               skip_special_tokens=False,
+               token_ids: Optional[Union[List[int], List[List[int]]]],
+               skip_special_tokens: bool = False,
                **kwargs):
-        """Converts the token_ids to the string"""
+        """
+        Convert the token ids to the string
+
+        Args:
+            token_ids(list[int], list[list[int]]):
+            skip_special_tokens(bool): Whether to skip the special the token such as the CLS and EOS. Default False.
+            **kwargs: Other kwargs passed to the internal function. Currently not used.
+
+        Examples:
+            >>> from mindformers import T5Tokenizer
+            >>> tokenizer = T5Tokenizer.from_pretrained('t5_small')
+            >>> ids = tokenizer.encode("hell world")
+            >>> output = tokenizer.decode(ids)
+            >>> print(output)
+            hell world
+            >>> ids = tokenizer.batch_encode_plus(["hello world", "nice to see you!"],
+            ...                                   padding="max_length", max_length=8)["input_ids"]
+            >>> output = tokenizer.decode(ids)
+            >>> print(output)
+            ['hello world', 'nice to see you!']
+
+
+        Returns:
+            A string or a list of strings.
+        """
         if isinstance(token_ids, mindspore.Tensor):
             token_ids = token_ids.asnumpy().tolist()
         token_ids = self._convert_to_numpy_and_check(token_ids)
@@ -686,8 +740,8 @@ class Tokenizer(BaseTokenizer):
         if return_tensors and return_tensors != 'ms':
             raise ValueError("You should set return_tensors to be `ms`.")
         if not return_batch and len(ids) != 1:
-            raise ValueError(f"If `return_batch` is True, the length of input ids should be 1. But found {len(ids)}."
-                             f"Input ids is: {ids}")
+            raise ValueError(f"If `return_batch` is False, the length of input ids should be 1. But found {len(ids)}. "
+                             f"Input ids is: {ids}. To fix this, you can set the return_batch=True")
         if pair_ids:
             paired_ids = zip(ids, pair_ids)
         else:
