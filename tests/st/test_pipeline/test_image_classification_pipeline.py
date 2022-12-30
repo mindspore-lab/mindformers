@@ -47,7 +47,7 @@ Example:
 import numpy as np
 import pytest
 
-from mindformers.pipeline import ImageClassificationForPipeline
+from mindformers.pipeline import ImageClassificationPipeline
 from mindformers import VitImageProcessor
 
 
@@ -62,7 +62,7 @@ def test_image_classification_pipeline():
     Expectation: NotImplementedError, ValueError
     """
     processor = VitImageProcessor(image_resolution=224)
-    classifier = ImageClassificationForPipeline(
+    classifier = ImageClassificationPipeline(
         model='vit_base_p16',
         image_processor=processor,
         top_k=5
