@@ -23,7 +23,26 @@ from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 def build_metric(
         config: dict = None, default_args: dict = None,
         module_type: str = 'metric', class_name: str = None, **kwargs):
-    """Build Metric API."""
+    r"""Build metric For MindFormer.
+    Instantiate the metric from MindFormerRegister's registry.
+
+    Args:
+        config (dict, list): The task metric's config. Default: None.
+        default_args (dict): The default argument of metric API. Default: None.
+        module_type (str): The module type of MindFormerModuleType. Default: 'metric'.
+        class_name (str): The class name of metric API. Default: None.
+
+    Return:
+        The function instance of metric API.
+
+    Examples:
+        >>> from mindformers import build_metric
+        >>> metric_config = {'type': 'Accuracy', 'eval_type': 'classification'}
+        >>> # 1) use config dict to build metric
+        >>> metric_from_config = build_metric(metric_config)
+        >>> # 2) use class name to build metric
+        >>> metric_class_name = build_metric(class_name='Accuracy', eval_type='classification')
+    """
     if config is None and class_name is None:
         return None
     if config is not None:

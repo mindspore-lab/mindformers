@@ -27,6 +27,7 @@ from mindspore.nn.learning_rate_schedule import LearningRateSchedule
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.tools.cloud_adapter.cloud_adapter import Local2ObsMonitor, CheckpointCallBack
 from mindformers.tools.logger import logger
+from mindformers.tools.utils import LOCAL_DEFAULT_PATH
 
 
 __all__ = ['ObsMonitor', 'MFLossMonitor', 'CheckpointMointor', 'SummaryMonitor', 'ProfileMonitor']
@@ -185,6 +186,10 @@ class SummaryMonitor:
                 collect_tensor_freq=None,
                 max_file_size=None,
                 export_options=None):
+        if summary_dir is None:
+            rank_id = os.getenv("RANK_ID", "0")
+            summary_dir = os.path.join(
+                LOCAL_DEFAULT_PATH, 'rank_{}'.format(rank_id), 'summary')
         kwargs = {
             "summary_dir": summary_dir,
             "collect_freq": collect_freq,

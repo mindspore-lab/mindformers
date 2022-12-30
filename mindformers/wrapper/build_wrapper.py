@@ -24,7 +24,26 @@ from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 
 def build_wrapper(config: dict = None, default_args: dict = None,
                   module_type: str = 'wrapper', class_name: str = None, **kwargs):
-    """ Build Wrapper For MindFormer. """
+    r"""Build Wrapper For MindFormer.
+    Instantiate the wrapper from MindFormerRegister's registry.
+
+    Args:
+        config (dict): The task wrapper's config. Default: None.
+        default_args (dict): The default argument of wrapper API. Default: None.
+        module_type (str): The module type of MindFormerModuleType. Default: 'wrapper'.
+        class_name (str): The class name of wrapper API. Default: None.
+
+    Return:
+        The function instance of wrapper API.
+
+    Examples:
+        >>> from mindformers import build_wrapper
+        >>> wrapper_config = {'type': 'TrainOneStepCell', 'sens': 1024}
+        >>> # 1) use config dict to build wrapper
+        >>> wrapper_from_config = build_wrapper(wrapper_config)
+        >>> # 2) use class name to build wrapper
+        >>> wrapper_class_name = build_wrapper(class_name='TrainOneStepCell', sens=1024)
+    """
     if config is None and class_name is None:
         return None
     if config is not None:

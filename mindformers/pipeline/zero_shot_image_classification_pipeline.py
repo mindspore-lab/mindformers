@@ -24,7 +24,7 @@ from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from .base_pipeline import BasePipeline
 
 
-@MindFormerRegister.register(MindFormerModuleType.PIPELINE)
+@MindFormerRegister.register(MindFormerModuleType.PIPELINE, alias='zero_shot_image_classification')
 class ZeroShotImageClassificationPipeline(BasePipeline):
     """
     Pipeline for zero shot image classification

@@ -16,10 +16,28 @@
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from .build_config import build_model_config
 
+
 def build_model(
         config: dict = None, default_args: dict = None,
         module_type: str = 'models', class_name: str = None, **kwargs):
-    """Build model API."""
+    r"""Build model For MindFormer.
+    Instantiate the model from MindFormerRegister's registry.
+
+    Args:
+        config (dict): The task model's config. Default: None.
+        default_args (dict): The default argument of model API. Default: None.
+        module_type (str): The module type of MindFormerModuleType. Default: 'model'.
+        class_name (str): The class name of model API. Default: None.
+
+    Return:
+        The function instance of model API.
+
+    Examples:
+        >>> from mindformers import build_model
+        >>> from mindformers.tools.register import MindFormerConfig
+        >>> config = MindFormerConfig('configs/vit/run_vit_base_p16_224_800ep.yaml')
+        >>> model_from_config = build_model(config.model)
+    """
     if config is None and class_name is None:
         return None
     if config is not None:

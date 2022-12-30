@@ -19,7 +19,26 @@ from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 def build_trainer(
         config: dict = None, default_args: dict = None,
         module_type: str = 'trainer', class_name: str = None, **kwargs):
-    """Build trainer API."""
+    r"""Build trainer API.
+    Instantiate the task trainer from MindFormerRegister's registry.
+
+    Args:
+        config (dict): The task trainer's config. Default: None.
+        default_args (dict): The default argument of trainer API. Default: None.
+        module_type (str): The module type of MindFormerModuleType. Default: 'trainer'.
+        class_name (str): The class name of task trainer API. Default: None.
+
+    Return:
+        The function instance of task trainer API.
+
+    Examples:
+        >>> from mindformers import build_trainer
+        >>> trainer_config = {'type': 'image_classification', 'model_name': 'vit'}
+        >>> # 1) use config dict to build trainer
+        >>> cls_trainer_config = build_trainer(trainer_config)
+        >>> # 2) use class name to build trainer
+        >>> cls_trainer_class_name = build_trainer(class_name='image_classification', model_name='vit')
+    """
     if config is None and class_name is None:
         return None
     if config is not None:

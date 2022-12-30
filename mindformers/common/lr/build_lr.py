@@ -23,7 +23,27 @@ from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 def build_lr(
         config: dict = None, default_args: dict = None,
         module_type: str = 'lr', class_name: str = None, **kwargs):
-    """Build LR API."""
+    r"""Build lr For MindFormer.
+    Instantiate the lr from MindFormerRegister's registry.
+
+    Args:
+        config (dict): The task lr's config. Default: None.
+        default_args (dict): The default argument of lr API. Default: None.
+        module_type (str): The module type of MindFormerModuleType. Default: 'lr'.
+        class_name (str): The class name of lr API. Default: None.
+
+    Return:
+        The function instance of lr API.
+
+    Examples:
+        >>> from mindformers import build_lr
+        >>> lr_config = {'type': 'CosineDecayLR', 'max_lr': 0.001,
+        ...              'min_lr': 0., 'decay_steps':10}
+        >>> # 1) use config dict to build lr
+        >>> lr_from_config = build_lr(lr_config)
+        >>> # 2) use class name to build lr
+        >>> lr_class_name = build_lr(class_name='CosineDecayLR', max_lr=0.001, min_lr=0., decay_steps=10)
+    """
     if config is None and class_name is None:
         return None
     if config is not None:

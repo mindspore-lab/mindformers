@@ -42,7 +42,24 @@ def check_and_add_vocab_file_path(config, **kwargs):
 def build_tokenizer(
         config: dict = None, default_args: dict = None,
         module_type: str = 'tokenizer', class_name: str = None, **kwargs):
-    """Build trainer API."""
+    r"""Build tokenizer For MindFormer.
+    Instantiate the tokenizer from MindFormerRegister's registry.
+
+    Args:
+        config (dict): The task tokenizer's config. Default: None.
+        default_args (dict): The default argument of tokenizer API. Default: None.
+        module_type (str): The module type of MindFormerModuleType. Default: 'tokenizer'.
+        class_name (str): The class name of tokenizer API. Default: None.
+
+    Return:
+        The function instance of tokenizer API.
+
+    Examples:
+        >>> from mindformers import build_tokenizer
+        >>> from mindformers.tools.register import MindFormerConfig
+        >>> config = MindFormerConfig('configs/clip/run_clip_vit_b_32_pretrain_flickr8k.yaml')
+        >>> tokenizer_from_config = build_tokenizer(config.processor.tokenizer)
+    """
     if config is None and class_name is None:
         return None
     if config is not None:

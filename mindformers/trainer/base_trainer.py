@@ -17,7 +17,14 @@ from mindformers.tools.logger import logger
 
 
 class BaseTrainer:
-    """Base Trainer."""
-    def __init__(self, model_name):
+    r"""Base Task Trainer.
+    Args:
+        model_name (str): The model name of Task-Trainer. Default: None
+    Raises:
+        NotImplementedError: If train method or evaluate method or predict method not implemented.
+    """
+    def __init__(self, model_name: str = None):
+        if model_name is None:
+            model_name = "model name unspecified."
         self.model_name = model_name
         logger.info("Now Running Model is: %s", model_name)

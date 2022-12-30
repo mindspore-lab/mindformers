@@ -42,11 +42,15 @@ __all__ = ['ZeroShotImageClassificationTrainer']
 
 @MindFormerRegister.register(MindFormerModuleType.TRAINER, alias="zero_shot_image_classification")
 class ZeroShotImageClassificationTrainer(BaseTrainer):
-    """Image Classification Trainer."""
+    r"""ZeroShotImageClassification Task For Trainer.
+    Args:
+        model_name (str): The model name of Task-Trainer. Default: None
+    Raises:
+        NotImplementedError: If train method or evaluate method or predict method not implemented.
+    """
 
     def __init__(self, model_name: str = None):
         super(ZeroShotImageClassificationTrainer, self).__init__(model_name)
-        self.model_name = model_name
         self.kwargs = None
 
     def evaluate(self,
@@ -56,7 +60,33 @@ class ZeroShotImageClassificationTrainer(BaseTrainer):
                  callbacks: Optional[Union[Callback, List[Callback]]] = None,
                  compute_metrics: Optional[Union[dict, set]] = None,
                  **kwargs):
-        """evaluate for trainer."""
+        r"""Evaluate task for ZeroShotImageClassification Trainer.
+        This function is used to evaluate the network.
+
+        The trainer interface is used to quickly start training for general task.
+        It also allows users to customize the network, dataset, callbacks, compute_metrics.
+
+        Args:
+            config (Optional[Union[dict, ConfigArguments]]): The task config which is used to
+                configure the dataset, the hyper-parameter, optimizer, etc.
+                It support config dict or ConfigArguments class.
+                Default: None.
+            network (Optional[Union[str, BaseModel]]): The network for trainer. It support model name supported
+                or BaseModel class. Supported model name can refer to ****.
+                Default: None.
+            dataset (Optional[Union[str, BaseDataset]]): The training dataset. It support real dataset path or
+                BaseDateset class or MindSpore Dataset class.
+                Default: None.
+            callbacks (Optional[Union[Callback, List[Callback]]]): The training callback function.
+                It support CallBack or CallBack List of MindSpore.
+                Default: None.
+            compute_metrics (Optional[Union[dict, set]]): The metric of evaluating.
+                It support dict or set in MindSpore's Metric class.
+                Default: None.
+
+        Supported Platforms:
+            ``Ascend`` ``GPU`` ``CPU``
+        """
         self.kwargs = kwargs
         # build dataset
         logger.info(".........Build Dataset..........")
@@ -100,7 +130,9 @@ class ZeroShotImageClassificationTrainer(BaseTrainer):
                 network: Optional[Union[str, BaseModel]] = None,
                 tokenizer: Optional[BaseTokenizer] = None,
                 image_processor: Optional[BaseImageProcessor] = None, **kwargs):
-        """predict for trainer."""
+        r"""Predict task for ZeroShotImageClassification Trainer.
+        This function is used to predict the network.
+        """
         self.kwargs = kwargs
         logger.info(".........Build Input Data For Predict..........")
         if input_data is None:
