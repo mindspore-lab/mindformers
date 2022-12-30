@@ -26,7 +26,22 @@ from .base_dataset import BaseDataset
 
 @MindFormerRegister.register(MindFormerModuleType.DATASET)
 class MIMDataset(BaseDataset):
-    """Masked Image Modeling Dataset."""
+    """
+    Masked Image Modeling Dataset.
+
+    Examples:
+    >>> from mindformers.tools.register import MindFormerConfig
+    >>> from mindformers.dataset import build_dataset, check_dataset_config
+    >>> # Initialize a MindFormerConfig instance with a specific config file of yaml.
+    >>> config = MindFormerConfig("configs/mae/run_mae_vit_base_p16_224_800ep.yaml")
+    >>> check_dataset_config(config)
+    >>> # 1) use config dict to build dataset
+    >>> dataset_from_config = build_dataset(config.train_dataset_task)
+    >>> # 2) use class name to build dataset
+    >>> dataset_from_name = build_dataset(class_name='MIMDataset', dataset_config=config.train_dataset)
+    >>> # 3) use class to build dataset
+    >>> dataset_from_class = MIMDataset(config.train_dataset)
+    """
     def __new__(cls, dataset_config: dict = None):
         logger.info("Now Create Masked Image Modeling Dataset.")
         cls.init_dataset_config(dataset_config)

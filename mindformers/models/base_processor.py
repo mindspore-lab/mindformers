@@ -31,6 +31,25 @@ from ..tools.register import MindFormerConfig
 class BaseImageProcessor:
     """
     BaseImageProcessor for all image preprocess.
+
+    Examples:
+        >>> from mindspore.dataset.vision.transforms import CenterCrop
+        >>> from mindformers.models.base_processor import BaseImageProcessor
+        >>> image_resolution = 224
+        >>> class MyImageProcessor(BaseImageProcessor):
+        ...     def __init__(self, image_resolution):
+        ...         super(MyImageProcessor, self).__init__(image_resolution=image_resolution)
+        ...         self.center_crop = CenterCrop(image_resolution)
+        ...
+        ...     def preprocess(self, images, **kwargs):
+        ...         res = []
+        ...         for image in images:
+        ...         image = self.center_crop(image)
+        ...         res.append(image)
+        ...         return res
+        ...
+        >>> my_image_processor = MyImageProcessor(image_resolution)
+        >>> output = my_image_processor(image)
     """
     def __init__(self, **kwargs):
         self.config = {}
@@ -48,6 +67,26 @@ class BaseImageProcessor:
 class BaseAudioProcessor:
     """
     BaseAudioProcessor for all audio preprocess.
+
+    Examples:
+        >>> from mindspore.dataset.audio import AllpassBiquad
+        >>> from mindformers.models.base_processor import BaseImageProcessor
+        >>> sample_rate = 44100
+        >>> central_freq = 200.0
+        >>> class MyAudioProcessor(BaseAudioProcessor):
+        ...     def __init__(self, audio_property):
+        ...         super(MyAudioProcessor, self).__init__(sample_rate=sample_rate, central_freq=central_freq )
+        ...         self.audio_process = AllpassBiquad(44100, 200.0)
+        ...
+        ...     def preprocess(self, audio_data, **kwargs):
+        ...         res = []
+        ...         for audio in audio_data:
+        ...         audio = self.audio_process(audio)
+        ...         res.append(audio)
+        ...         return res
+        ...
+        >>> my_audio_processor = MyAudioProcessor(sample_rate, central_freq)
+        >>> output = my_audio_processor(audio)
     """
     def __init__(self, **kwargs):
         self.config = {}
@@ -63,7 +102,25 @@ class BaseAudioProcessor:
 
 
 class BaseProcessor:
-    """Base processor"""
+    """
+    Base processor
+
+    Examples:
+        >>> from mindformers.mindformer_book import MindFormerBook
+        >>> from mindformers.models.base_processor import BaseProcessor
+        >>> class MyProcessor(BaseProcessor):
+        ...     _support_list = MindFormerBook.get_model_support_list()['my_model']
+        ...
+        ...     def __init__(self, image_processor=None, audio_processor=None, tokenizer=None, return_tensors='ms'):
+        ...         super(MyProcessor, self).__init__(
+        ...             image_processor=image_processor,
+        ...             audio_processor=audio_processor,
+        ...             tokenizer=tokenizer,
+        ...             return_tensors=return_tensors)
+        ...
+        >>> myprocessor = MyProcessor(image_processor, audio_processor, tokenizer)
+        >>> output = mynet(image, audio, text)
+    """
     _support_list = []
 
     def __init__(self, **kwargs):
