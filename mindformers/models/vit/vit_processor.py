@@ -58,7 +58,8 @@ class VitImageProcessor(BaseImageProcessor):
             A 4-rank tensor for a batch of images.
         """
         if isinstance(images, PIL.Image.Image):
-            images = np.array([images])
+            images = np.array(images)
+            images = np.expand_dims(images, 0)
 
         elif isinstance(images, list):
             images = np.array(images)

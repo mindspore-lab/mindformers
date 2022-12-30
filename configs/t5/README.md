@@ -77,6 +77,6 @@ print(output)
 
 2. 执行转换脚本，得到转换后的输出文件`mindspore_t5.ckpt`
 
-```python
+```shell
 python mindformers/models/t5/convert_weight.py --layers 6 --torch_path pytorch_model.bin --mindspore_path ./mindspore_t5.ckpt
 ```

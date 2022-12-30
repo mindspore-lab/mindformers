@@ -17,7 +17,7 @@ swin：全名swin transformer，是一个基于Transformer在视觉领域有着S
 
  ```bash
 数据集目录格式
-└─dataset
+└─imageNet-1k
     ├─train                # 训练数据集
     └─val                  # 评估数据集
  ```
@@ -38,18 +38,20 @@ swin：全名swin transformer，是一个基于Transformer在视觉领域有着S
 
   ```python
   from mindformers.trainer import Trainer
+  from mindformers.tools.image_tools import load_image
 
   # 初始化任务
   swin_trainer = Trainer(
-      task_name='image_classification',
+      task='image_classification',
       model='swin_base_p4w7',
-      train_dataset="dataset/train",
-      eval_dataset="dataset/eval")
+      train_dataset="imageNet-1k/train",
+      eval_dataset="imageNet-1k/val")
 
   swin_trainer.train() # 开启训练
   swin_trainer.evaluate() # 开启评估
-  input_data = "https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/XFormer_for_mindspore/clip/sunflower.png"
-  predict_result = swin_trainer.predict(input_data) # 开启推理
+
+  img = load_image("https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/XFormer_for_mindspore/clip/sunflower.png")
+  predict_result = swin_trainer.predict(input_data=img, top_k=3) # 开启推理
   print(predict_result)
   ```
 
@@ -57,13 +59,15 @@ swin：全名swin transformer，是一个基于Transformer在视觉领域有着S
 
   ```python
   from mindformers.pipeline import pipeline
+  from mindformers.tools.image_tools import load_image
+
 
   pipeline_task = pipeline("image_classification", model='swin_base_p4w7')
-  input_data = "https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/XFormer_for_mindspore/clip/sunflower.png"
-  pipeline_result = pipeline_task(input_data)
+  img = load_image("https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/XFormer_for_mindspore/clip/sunflower.png")
+  pipeline_result = pipeline_task(img, top_k=3)
   ```
 
- Trainer和pipeline接口默认支持的task_name和model_name关键入参
+ Trainer和pipeline接口默认支持的task和model关键入参
 
   |    task（string）    | model（string）  |
   |:--------------:| :-------------: |
@@ -71,18 +75,18 @@ swin：全名swin transformer，是一个基于Transformer在视觉领域有着S
 
 ## 模型性能
 
-| model |      type      | pretrain | Datasets | Top1-Accuracy | Log | pretrain_config |            finetune_config            |
-|:-----:|:--------------:|:--------:| :----: |:-------------:| :---: |:---------------:|:-------------------------------------:|
-| swin  | swin_base_p4w7 |    \     | ImageNet-1K |    83.44%     | \ |        \        | [link](run_swin_base_p4w7_100ep.yaml) |
+| model |      type      | pretrain | Datasets | Top1-Accuracy | Log | pretrain_config |             finetune_config             |
+|:-----:|:--------------:|:--------:| :----: |:-------------:| :---: |:---------------:|:---------------------------------------:|
+| swin  | swin_base_p4w7 |    \     | ImageNet-1K |    83.44%     | \ |        \        | [link](./run_swin_base_p4w7_100ep.yaml) |
 
 ## 模型权重
 
-本仓库中的`swin_base`来自于HuggingFace的[`swin_base`](https://huggingface.co/microsoft/swin-base-patch4-window7-224), 基于下述的步骤获取：
+本仓库中的`swin_base_p4w7`来自于HuggingFace的[`swin-base-patch4-window7-224`](https://huggingface.co/microsoft/swin-base-patch4-window7-224/tree/main), 基于下述的步骤获取：
 
 1. 从上述的链接中下载`swin_base`的HuggingFace权重，文件名为`pytorch_model.bin`
 
 2. 执行转换脚本，得到转换后的输出文件`swin_base_p4w7.ckpt`
 
-```python
+```shell
 python mindformers/models/swin/convert_weight.py --torch_path pytorch_model.bin --mindspore_path ./swin_base_p4w7.ckpt
 ```

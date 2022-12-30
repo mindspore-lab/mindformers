@@ -17,7 +17,7 @@ vit：全名vision transformer，不同于传统的基于CNN的网络结果，�
 
  ```bash
 数据集目录格式
-└─dataset
+└─imageNet-1k
     ├─train                # 训练数据集
     └─val                  # 评估数据集
  ```
@@ -38,18 +38,20 @@ vit：全名vision transformer，不同于传统的基于CNN的网络结果，�
 
   ```python
   from mindformers.trainer import Trainer
+  from mindformers.tools.image_tools import load_image
 
   # 初始化任务
   vit_trainer = Trainer(
-      task_name='image_classification',
+      task='image_classification',
       model='vit_base_p16',
-      train_dataset="dataset/train",
-      eval_dataset="dataset/eval")
+      train_dataset="imageNet-1k/train",
+      eval_dataset="imageNet-1k/val")
 
   vit_trainer.train() # 开启训练
   vit_trainer.evaluate() # 开启评估
-  input_data = "https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/XFormer_for_mindspore/clip/sunflower.png"
-  predict_result = vit_trainer.predict(input_data) # 开启推理
+
+  img = load_image("https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/XFormer_for_mindspore/clip/sunflower.png")
+  predict_result = vit_trainer.predict(input_data=img, top_k=3) # 开启推理
   print(predict_result)
   ```
 
@@ -57,13 +59,15 @@ vit：全名vision transformer，不同于传统的基于CNN的网络结果，�
 
   ```python
   from mindformers.pipeline import pipeline
+  from mindformers.tools.image_tools import load_image
+
 
   pipeline_task = pipeline("image_classification", model='vit_base_p16')
-  input_data = "https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/XFormer_for_mindspore/clip/sunflower.png"
-  pipeline_result = pipeline_task(input_data)
+  img = load_image("https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/XFormer_for_mindspore/clip/sunflower.png")
+  pipeline_result = pipeline_task(img, top_k=3)
   ```
 
- Trainer和pipeline接口默认支持的task_name和model_name关键入参
+ Trainer和pipeline接口默认支持的task和model关键入参
 
   |    task（string）    | model（string） |
   | :------------------: | :-------------: |
@@ -71,6 +75,18 @@ vit：全名vision transformer，不同于传统的基于CNN的网络结果，�
 
 ## 模型性能
 
-| model | type | pretrain | Datasets | Top1-Accuracy | Log | pretrain_config | finetune_config |
-| :---------: | :--------: | :---: | :----: | :---: | :---: | :---: |  :---: |
-| vit | vit_base_p16 | [mae_vit_base_p16]() | ImageNet-1K | 83.17% | \ | [link](run_mae_vit_base_p16_224_800ep.yaml) | [link](run_vit_base_p16_100ep.yaml) |
+| model | type | pretrain | Datasets | Top1-Accuracy | Log |                  pretrain_config                   |            finetune_config            |
+| :---------: | :--------: | :---: | :----: | :---: | :---: |:--------------------------------------------------:|:-------------------------------------:|
+| vit | vit_base_p16 | [mae_vit_base_p16]() | ImageNet-1K | 83.17% | \ | [link](../mae/run_mae_vit_base_p16_224_800ep.yaml) | [link](./run_vit_base_p16_100ep.yaml) |
+
+## 模型权重
+
+本仓库中的`vit_base_p16`来自于HuggingFace的[`vit-base-patch16-224`](https://huggingface.co/google/vit-base-patch16-224/tree/main), 基于下述的步骤获取：
+
+1. 从上述的链接中下载`vit_base`的HuggingFace权重，文件名为`pytorch_model.bin`
+
+2. 执行转换脚本，得到转换后的输出文件`vit_base_p16.ckpt`
+
+```shell
+python mindformers/models/vit/convert_weight.py --torch_path pytorch_model.bin --mindspore_path ./vit_base_p16.ckpt
+```
