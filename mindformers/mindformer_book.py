@@ -80,14 +80,10 @@ class MindFormerBook:
         ("image_classification", OrderedDict([
             ("vit_base_p16", os.path.join(
                 _PROJECT_PATH, "configs/vit/run_vit_base_p16_224_800ep.yaml")),
-            ("common", os.path.join(
-                _PROJECT_PATH, "configs/vit/run_vit_base_p16_224_800ep.yaml"))])
-         ),
-        ("image_classification", OrderedDict([
             ("swin_base_p4w7", os.path.join(
                 _PROJECT_PATH, "configs/swin/run_swin_base_p4w7_224_100ep.yaml")),
             ("common", os.path.join(
-                _PROJECT_PATH, "configs/swin/run_swin_base_p4w7_224_100ep.yaml"))])
+                _PROJECT_PATH, "configs/vit/run_vit_base_p16_224_800ep.yaml"))])
          ),
         ("masked_language_modeling", OrderedDict([
             ("bert_base_uncased", os.path.join(
@@ -179,6 +175,10 @@ class MindFormerBook:
         ('clip_vit_b_32',
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
           '/XFormer_for_mindspore/clip/clip_vit_b_32.yaml'
+          ]),
+        ('mae_vit_base_p16',
+         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
+          '/XFormer_for_mindspore/clip/mae_vit_base_p16.yaml'
           ]),
         ('vit_base_p16',
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'

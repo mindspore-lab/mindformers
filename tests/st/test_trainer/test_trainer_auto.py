@@ -17,27 +17,15 @@ Test module for testing the interface used for mindformers.
 How to run this:
 pytest tests/st/test_trainer/test_trainer_auto.py
 """
+import os
 import pytest
 import numpy as np
-
-from mindspore.dataset import GeneratorDataset
-
+from PIL import Image
+from mindformers.mindformer_book import MindFormerBook
+from mindformers.tools.register.config import MindFormerConfig
+from mindformers.dataset.build_dataset import build_dataset
 from mindformers.trainer import Trainer
-from mindformers.trainer.config_args import ConfigArguments, \
-    RunnerConfig
 from mindformers.tools.logger import logger
-
-
-class MyDataLoader:
-    """Self-Define DataLoader."""
-    def __init__(self):
-        self._data = [np.zeros((3, 224, 224), np.float32) for _ in range(64)]
-
-    def __getitem__(self, index):
-        return self._data[index]
-
-    def __len__(self):
-        return len(self._data)
 
 
 @pytest.mark.level0
@@ -45,24 +33,54 @@ class MyDataLoader:
 @pytest.mark.platform_arm_ascend_training
 @pytest.mark.env_onecard
 def test_trainer_train_auto():
-    """
-    Feature: Auto Create Trainer.
-    Description: Test Trainer API to train.
-    Expectation: TypeError
-    """
-    runner_config = RunnerConfig(epochs=10, batch_size=2, image_size=224)  # 运行超参
-    config = ConfigArguments(runner_config=runner_config)
+    """prepare for test"""
+    project_path = MindFormerBook.get_project_path()
 
-    dataset = GeneratorDataset(source=MyDataLoader(), column_names='image')
-    dataset = dataset.batch(batch_size=2)
+    config_path = os.path.join(
+        project_path, "configs", "mae", "run_mae_vit_base_p16_224_800ep.yaml"
+    )
+    config = MindFormerConfig(config_path)
 
-    # example 1: 输入标准的数据集, 自动创建已有任务和模型的训练
+    new_dataset_dir, _ = make_local_directory(config)
+    make_dataset(new_dataset_dir, num=16)
+
+    config.train_dataset.data_loader.dataset_dir = new_dataset_dir
+    config.train_dataset_task.dataset_config.data_loader.dataset_dir = new_dataset_dir
+
+    config.runner_config.epochs = 2
+    config.runner_config.batch_size = 8
+
+    dataset = build_dataset(config.train_dataset_task)
     mim_trainer = Trainer(
-        task='masked_image_modeling',
+        task_name='masked_image_modeling',
         model='mae_vit_base_p16',
         train_dataset=dataset,
         config=config)
     mim_trainer.train()
+
+
+def make_local_directory(config):
+    """make local directory"""
+    dataset_dir = config.train_dataset.data_loader.dataset_dir
+    local_root = os.path.join(
+        MindFormerBook.get_default_checkpoint_download_folder(),
+        dataset_dir.split("/")[2]
+    )
+
+    new_dataset_dir = MindFormerBook.get_default_checkpoint_download_folder()
+    for item in dataset_dir.split("/")[2:]:
+        new_dataset_dir = os.path.join(new_dataset_dir, item)
+    os.makedirs(new_dataset_dir, exist_ok=True)
+    return new_dataset_dir, local_root
+
+
+def make_dataset(new_dataset_dir, num):
+    """make a fake ImageNet dataset"""
+    for label in range(4):
+        os.makedirs(os.path.join(new_dataset_dir, str(label)), exist_ok=True)
+        for index in range(num):
+            image = Image.fromarray(np.ones((255, 255, 3)).astype(np.uint8))
+            image.save(os.path.join(new_dataset_dir, str(label), f"test_image_{index}.jpg"))
 
 
 @pytest.mark.level0

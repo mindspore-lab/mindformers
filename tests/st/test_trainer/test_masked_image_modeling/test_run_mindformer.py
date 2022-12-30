@@ -14,41 +14,36 @@
 # ============================================================================
 
 """
-Test module for testing the interface used for mindformers.
+Test Module for testing ImageClassificationTrainDataset.
 
+How to run this:
 windows:
-pytest .\\tests\\st\\test_trainertest_image_classification_trainer\\test_trainer_from_instance.py
+pytest .\\tests\\st\\test_trainer\\test_masked_image_modeling\\test_run_mindformer.py
 linux:
-pytest ./tests/st/test_trainer/test_image_classification_trainer/test_trainer_from_instance.py
+pytest ./tests/st/test_trainer/test_masked_image_modeling/test_run_mindformer.py
 """
 import os
 import numpy as np
-import pytest
 from PIL import Image
-import mindspore as ms
+import pytest
+
 from mindformers.mindformer_book import MindFormerBook
 from mindformers.tools.register.config import MindFormerConfig
-from mindformers.models import VitModel, VitConfig
-from mindformers.trainer import Trainer
-from mindformers.trainer.config_args import ConfigArguments, RunnerConfig
-from mindformers.dataset.build_dataset import build_dataset
-from mindformers.common.lr import WarmUpCosineDecayV1
 
 
 @pytest.mark.level0
 @pytest.mark.platform_x86_ascend_training
 @pytest.mark.platform_arm_ascend_training
 @pytest.mark.env_onecard
-class TestTrainer:
-    """A test class for testing Trainer"""
-
+class TestRunMindFormer:
+    """A test class for testing run mindformer"""
     def setup_method(self):
         """prepare for test"""
         project_path = MindFormerBook.get_project_path()
 
         config_path = os.path.join(
-            project_path, "configs", "vit",
-            "run_vit_base_p16_224_800ep.yaml"
+            project_path, "configs", "mae",
+            "run_mae_vit_base_p16_224_800ep.yaml"
         )
         config = MindFormerConfig(config_path)
 
@@ -61,45 +56,16 @@ class TestTrainer:
 
         self.config = config
 
-    def test_trainer_train_from_instance(self):
+    def test_trainer(self):
         """
-        Feature: Create Trainer From Instance
-        Description: Test Trainer API to train from self-define instance API.
-        Expectation: TypeError
+        Feature: ImageClassificationTrainDataset by run_mindformer.py
+        Description: use ImageClassificationTrainDataset with run_mindformer.py
+        Expectation: TypeError, ValueError
         """
-        runner_config = RunnerConfig(
-            epochs=2, batch_size=8,
-            image_size=224, sink_mode=False,
-            per_epoch_size=-1, initial_epoch=0,
-            has_trained_epoches=0, has_trained_steps=0
-        )
-        config = ConfigArguments(seed=2022, runner_config=runner_config)
-
-        vit_config = VitConfig.from_pretrained('vit_base_p16')
-        vit_config.checkpoint_name_or_path = None
-        vit_model = VitModel(vit_config)
-        vit_model.set_train()
-
-        dataset = build_dataset(self.config.train_dataset_task)
-
-        lr_scheduler = WarmUpCosineDecayV1(
-            min_lr=0.0, base_lr=0.0000625, warmup_steps=10, decay_steps=190
-        )
-        optimizer = ms.nn.AdamWeightDecay(
-            params=vit_model.trainable_params(),
-            learning_rate=lr_scheduler, weight_decay=0.05
-        )
-
-        loss_cb = ms.LossMonitor(per_print_times=1)
-        callbacks = [loss_cb]
-
-        trainer = Trainer(task='image_classification',
-                          model=vit_model,
-                          config=config,
-                          optimizers=optimizer,
-                          train_dataset=dataset,
-                          callbacks=callbacks)
-        trainer.train(resume_or_finetune_from_checkpoint=False)
+        yaml_path = os.path.join(MindFormerBook.get_project_path(),
+                                 "configs", "mae", "run_mae_vit_base_p16_224_800ep.yaml")
+        command = "python run_mindformer.py --config " + yaml_path
+        os.system(command)
 
     def make_local_directory(self, config):
         """make local directory"""

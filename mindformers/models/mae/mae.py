@@ -11,24 +11,272 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+# This file was refer to project:
+# https://github.com/facebookresearch/mae
 # ============================================================================
 """Mae Model."""
-from mindspore import Tensor, Parameter
-
+import numpy as np
+from mindspore import Tensor, Parameter, nn
+from mindspore import dtype as mstype
+from mindspore import ops as P
+import mindspore.common.initializer as weight_init
+from mindformers.mindformer_book import MindFormerBook
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.models.base_model import BaseModel
-from .mae_config import MaeConfig
+from mindformers.models.mae.mae_modules import Block, LayerNorm, Linear
+from mindformers.models.mae.mae_modules import PatchEmbed, Patchify, UnPatchify
+from mindformers.models.mae.mae_modules import get_2d_sincos_pos_embed
+from mindformers.common.loss import MSELoss
+from mindformers.models.mae.mae_config import MaeConfig
 
 
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
 class MaeModel(BaseModel):
     """Pretrain MAE Module."""
+    _support_list = MindFormerBook.get_model_support_list()['mae']
 
-    def __init__(self, config=MaeConfig()):
+    def __init__(self, config=None):
+        config = config if config else MaeConfig()
         super(MaeModel, self).__init__(config)
-        self.config = config
-        self.param_test = Parameter(Tensor([1.0]))
+        self.use_moe = (config.moe_config.expert_num > 1)
+        parallel_config = config.parallel_config
+        dp = parallel_config.data_parallel
+        mp = parallel_config.model_parallel
+        # --------------------------------------------------------------------------
+        # MAE encoder specifics
+        self.patch_embed = PatchEmbed(img_size=config.image_size, patch_size=config.patch_size,
+                                      in_features=config.in_chans, out_features=config.embed_dim,
+                                      parallel_config=config.parallel_config)
+        num_patches = self.patch_embed.num_patches
+        seq_length = int((1 - config.mask_ratio) * num_patches) + 1
+        self.num_masked = num_patches - seq_length + 1
+        self.cls_tokens = Parameter(
+            weight_init.initializer(weight_init.Normal(sigma=.02), (1, 1, config.embed_dim)), requires_grad=True)
+        self.batch_size = config.batch_size
+        self.num_patches = num_patches
+        self.pos_embed = Parameter(
+            weight_init.initializer(weight_init.Zero(), (1, num_patches + 1, config.embed_dim)),
+            name='pos_embed', requires_grad=True)
+        # stochastic depth decay rule
+        hdr = [x.item() for x in np.linspace(0, config.drop_path_rate, config.depth)]
+        self.encoder_input_mask = Tensor(
+            np.ones((config.batch_size, seq_length, seq_length)),
+            mstype.float32)
+        parallel_config_args = parallel_config.moe_parallel_config if self.use_moe else parallel_config.dp_mp_config
+        self.blocks = nn.CellList([
+            Block(hidden_size=config.embed_dim,
+                  batch_size=config.batch_size,
+                  ffn_hidden_size=int(config.embed_dim * config.mlp_ratio),
+                  seq_length=seq_length,
+                  drop_rate=config.drop_rate,
+                  attention_dropout_rate=config.attention_dropout_rate,
+                  hidden_dropout_rate=hdr[i],
+                  init_values=config.init_values,
+                  weight_init='XavierUniform',
+                  layernorm_compute_type=config.layernorm_compute_type,
+                  softmax_compute_type=config.softmax_compute_type,
+                  window_size=config.window_size,
+                  num_heads=config.num_heads,
+                  hidden_act=config.hidden_act,
+                  moe_config=config.moe_config,
+                  post_layernorm_residual=config.post_layernorm_residual,
+                  param_init_type=config.param_init_type,
+                  parallel_config=parallel_config_args)
+            for i in range(config.depth)])
+        self.norm = LayerNorm((config.embed_dim,), eps=1e-6).shard(((dp, 1, 1),))
+        # --------------------------------------------------------------------------
 
-    def construct(self, image):
-        loss = 2.0 * self.param_test * image
-        return loss.mean()
+        # --------------------------------------------------------------------------
+        # MAE decoder specifics
+        self.decoder_embed = Linear(
+            config.embed_dim, config.decoder_embed_dim, weight_init="xavier_uniform",
+            compute_dtype=mstype.float16).to_float(mstype.float16)
+        self.decoder_embed.shard(strategy_matmul=((dp, 1), (mp, 1)), strategy_bias=((dp, mp), (mp,)))
+        self.mask_tokens = Parameter(
+            weight_init.initializer(weight_init.Normal(sigma=.02), (1, 1, config.decoder_embed_dim)),
+            name='mask_tokens', requires_grad=True)
+        self.decoder_pos_embed = Parameter(
+            weight_init.initializer(weight_init.Zero(), (1, num_patches + 1, config.decoder_embed_dim)),
+            name='pos_embedding', requires_grad=False)
+        self.attention_mask = Tensor(np.ones((self.batch_size, num_patches + 1, num_patches + 1)), mstype.float32)
+        hdr = [x.item() for x in np.linspace(0, config.drop_path_rate, config.decoder_depth)]
+        self.decoder_blocks = nn.CellList([
+            Block(hidden_size=config.decoder_embed_dim,
+                  batch_size=config.batch_size,
+                  ffn_hidden_size=int(config.decoder_embed_dim * config.mlp_ratio),
+                  seq_length=num_patches + 1,
+                  drop_rate=config.drop_rate,
+                  attention_dropout_rate=config.attention_dropout_rate,
+                  hidden_dropout_rate=hdr[i],
+                  init_values=config.init_values,
+                  weight_init='XavierUniform',
+                  layernorm_compute_type=config.layernorm_compute_type,
+                  softmax_compute_type=config.softmax_compute_type,
+                  window_size=config.window_size,
+                  num_heads=config.decoder_num_heads,
+                  hidden_act=config.hidden_act,
+                  post_layernorm_residual=config.post_layernorm_residual,
+                  param_init_type=config.param_init_type,
+                  parallel_config=parallel_config.dp_mp_config)
+            for i in range(config.decoder_depth)])
+        self.decoder_norm = LayerNorm((config.decoder_embed_dim,), eps=1e-6).shard(((dp, 1, 1),))
+        patch_dim = config.in_chans * config.patch_size ** 2
+        self.decoder_pred = Linear(
+            config.decoder_embed_dim, patch_dim, weight_init="xavier_uniform",
+            compute_dtype=mstype.float16).to_float(mstype.float16)
+        self.decoder_pred.shard(strategy_matmul=((dp, 1), (mp, 1)), strategy_bias=((dp, mp), (mp,)))
+
+        self.stride_slice = P.StridedSlice().shard(((1, 1, 1),))
+        self.add = P.Add().shard(((dp, 1, 1), (1, 1, 1)))
+        self.expand_dim = P.ExpandDims().shard(((dp, 1),))
+        self.tile = P.Tile().shard(((dp, 1, 1),))
+        self.gather = P.GatherD().shard(((dp, 1, 1), (dp, 1, 1)))
+        self.cat = P.Concat(axis=1).shard(((dp, 1, 1), (dp, 1, 1)))
+        self.stride_slice4d = P.StridedSlice().shard(((1, 1, 1, 1),))
+        self.gather1 = P.GatherD().shard(((dp, 1), (dp, 1)))
+        self.gather2 = P.GatherD().shard(((dp, 1, 1), (dp, 1, 1)))
+        self.reshape = P.Reshape()
+        self.mse_loss = MSELoss(config.norm_pixel_loss, parallel_config)
+
+        self.patchify = Patchify(patch_size=config.patch_size, parallel_config=parallel_config)
+        self.unpatchify = UnPatchify(
+            patch_size=config.patch_size, seq_length=num_patches, parallel_config=parallel_config)
+
+        self.images_summary = P.ImageSummary().shard(((dp, 1, 1, 1),))
+
+        self.init_weights()
+        self.init_pos_emd()
+
+    def init_pos_emd(self):
+        """init values of pos_embed"""
+        encoder_pos_emd = Tensor(
+            get_2d_sincos_pos_embed(self.pos_embed.shape[-1],  # pylint: disable=E0203
+                                    int(self.num_patches ** .5),
+                                    cls_token=True),
+            mstype.float32
+        )
+        encoder_pos_emd = P.ExpandDims()(encoder_pos_emd, 0)
+        self.pos_embed = Parameter(encoder_pos_emd, name='sincos_pos_embedding', requires_grad=False)
+        decoder_pos_embed = Tensor(
+            get_2d_sincos_pos_embed(self.decoder_pos_embed.shape[-1],
+                                    int(self.num_patches ** .5),
+                                    cls_token=True),
+            mstype.float32
+        )
+        decoder_pos_embed = P.ExpandDims()(decoder_pos_embed, 0)
+        self.decoder_pos_embed = Parameter(decoder_pos_embed, name='sincos_decoder_pos_embedding', requires_grad=False)
+
+    def init_weights(self):
+        """ ViT weight initialization."""
+        for name, cell in self.cells_and_names():
+            if isinstance(cell, Linear):
+                cell.weight.set_data(weight_init.initializer(weight_init.XavierUniform(),
+                                                             cell.weight.shape,
+                                                             cell.weight.dtype))
+                if isinstance(cell, Linear) and cell.bias is not None:
+                    cell.bias.set_data(weight_init.initializer(weight_init.Zero(),
+                                                               cell.bias.shape,
+                                                               cell.bias.dtype))
+            elif isinstance(cell, (LayerNorm, nn.LayerNorm)):
+                cell.gamma.set_data(weight_init.initializer(weight_init.One(),
+                                                            cell.gamma.shape,
+                                                            cell.gamma.dtype))
+                cell.beta.set_data(weight_init.initializer(weight_init.Zero(),
+                                                           cell.beta.shape,
+                                                           cell.beta.dtype))
+            if name == "patch_embed.projection":
+                cell.weight.set_data(weight_init.initializer(weight_init.XavierUniform(),
+                                                             cell.weight.shape,
+                                                             cell.weight.dtype))
+
+    def construct_encoder(self, imgs, unmask_index):
+        """construct of VisionTransformerForMae Encoder"""
+        # patch to encoder tokens and add positions
+        tokens = self.patch_embed(imgs)
+
+        encoder_pos_embedding = self.stride_slice(
+            self.pos_embed, (0, 1, 0),
+            (1, self.pos_embed.shape[1], self.pos_embed.shape[2]),
+            (1, 1, 1))
+
+        tokens = self.add(tokens, encoder_pos_embedding)
+
+        # get the unmasked tokens to be encoded
+        unmask_index_ = self.expand_dim(unmask_index, -1)
+        unmask_index = self.tile(unmask_index_, (1, 1, tokens.shape[2]))
+        unmask_tokens = self.gather(tokens, 1, unmask_index)
+
+        # cls_tokens add pos_embedding
+        cls_pos_embedding = self.stride_slice(
+            self.pos_embed, (0, 0, 0),
+            (1, 1, self.pos_embed.shape[2]),
+            (1, 1, 1))
+        cls_tokens = self.tile(self.cls_tokens, (self.batch_size, 1, 1))
+        cls_tokens = self.add(cls_tokens, cls_pos_embedding)
+
+        # concat cls_tokens
+        encoded_tokens = self.cat((cls_tokens, unmask_tokens))
+
+        # attend with vision transformer
+        for block in self.blocks:
+            encoded_tokens = block(encoded_tokens, self.encoder_input_mask)
+
+        encoded_tokens = self.norm(encoded_tokens)
+        return encoded_tokens
+
+    def construct_decoder(self, encoder_tokens, ids_restore):
+        """construct of VisionTransformerForMae Decoder"""
+        unmask_tokens = self.decoder_embed(encoder_tokens)
+        unmask_tokens = self.cast(unmask_tokens, mstype.float32)
+
+        # mask tokens add the positions using the masked indices derived above
+        mask_tokens = self.tile(self.mask_tokens, (self.batch_size, self.num_masked, 1))
+
+        # concat the masked tokens to the decoder tokens and attend with decoder
+        img_tokens = self.stride_slice(
+            unmask_tokens, (0, 1, 0),
+            (unmask_tokens.shape[0], unmask_tokens.shape[1], unmask_tokens.shape[2]), (1, 1, 1))
+        full_tokens_ = self.cat((img_tokens, mask_tokens))
+        ids_restore_copy = ids_restore
+        ids_restore_ = self.expand_dim(ids_restore_copy, -1)
+        ids_restore_ = self.tile(ids_restore_, (1, 1, unmask_tokens.shape[2]))
+        full_tokens_ = self.gather2(full_tokens_, 1, ids_restore_)
+        cls_tokens = self.stride_slice(
+            unmask_tokens, (0, 0, 0),
+            (unmask_tokens.shape[0], 1, unmask_tokens.shape[2]), (1, 1, 1))
+        decoder_tokens = self.cat((cls_tokens, full_tokens_))
+
+        # add position embendding for decoder tokens
+        decoder_tokens = self.add(decoder_tokens, self.decoder_pos_embed)
+        # decoder
+        for block in self.decoder_blocks:
+            decoder_tokens = block(decoder_tokens, self.attention_mask)
+
+        # normalize decoder tokens
+        decoder_tokens = self.decoder_norm(decoder_tokens)
+
+        # splice out the mask tokens and project to pixel values
+        pred = self.decoder_pred(decoder_tokens)
+        pred = self.cast(pred, mstype.float32)
+
+        pred = self.stride_slice(pred, (0, 1, 0), (pred.shape[0], pred.shape[1], pred.shape[2]), (1, 1, 1))
+
+        return pred
+
+    def construct(self, imgs, mask, ids_restore, unmask_index):
+        """construct of VisionTransformerForMae"""
+        self.images_summary("input images", imgs)
+
+        # tokens encoder
+        mask = self.gather1(mask, 1, ids_restore)
+        encoded_token = self.construct_encoder(imgs, unmask_index)
+        patches = self.patchify(imgs)
+        pred = self.construct_decoder(encoded_token, ids_restore)
+
+        reconstruct_images = self.unpatchify(pred)
+        self.images_summary("reconstruct image", reconstruct_images)
+
+        if self.phase != "train":
+            return reconstruct_images
+        mae_loss = self.mse_loss(pred, patches, mask)
+        return mae_loss

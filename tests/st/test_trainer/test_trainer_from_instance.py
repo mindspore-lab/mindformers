@@ -17,29 +17,20 @@ Test module for testing the interface used for mindformers.
 How to run this:
 pytest tests/st/test_trainer/test_trainer_from_instance.py
 """
-import numpy as np
+import os
 import pytest
+import numpy as np
+from PIL import Image
 from mindspore.nn import AdamWeightDecay, WarmUpLR, \
     DynamicLossScaleUpdateCell, TrainOneStepWithLossScaleCell
 from mindspore.train.callback import LossMonitor, TimeMonitor
-from mindspore.dataset import GeneratorDataset
-
+from mindformers.mindformer_book import MindFormerBook
+from mindformers.tools.register.config import MindFormerConfig
+from mindformers.dataset.build_dataset import build_dataset
 from mindformers.trainer import Trainer
 from mindformers.models import MaeModel
 from mindformers.trainer.config_args import ConfigArguments, \
     RunnerConfig
-
-
-class MyDataLoader:
-    """Self-Define DataLoader."""
-    def __init__(self):
-        self._data = [np.zeros((3, 224, 224), np.float32) for _ in range(64)]
-
-    def __getitem__(self, index):
-        return self._data[index]
-
-    def __len__(self):
-        return len(self._data)
 
 
 @pytest.mark.level0
@@ -52,13 +43,25 @@ def test_trainer_train_from_instance():
     Description: Test Trainer API to train from self-define instance API.
     Expectation: TypeError
     """
-    runner_config = RunnerConfig(epochs=10, batch_size=8, image_size=224, sink_mode=True, per_epoch_size=1)
+    runner_config = RunnerConfig(epochs=2, batch_size=8, image_size=224, sink_mode=True, per_epoch_size=1)
     config = ConfigArguments(seed=2022, runner_config=runner_config)
 
     mae_model_with_loss = MaeModel()
 
-    dataset = GeneratorDataset(source=MyDataLoader(), column_names='image')
-    dataset = dataset.batch(batch_size=8)
+    project_path = MindFormerBook.get_project_path()
+
+    config_path = os.path.join(
+        project_path, "configs", "mae", "task_config", "mae_dataset.yaml"
+    )
+    dataset_config = MindFormerConfig(config_path)
+
+    new_dataset_dir, _ = make_local_directory(dataset_config)
+    make_dataset(new_dataset_dir, num=16)
+
+    dataset_config.train_dataset.data_loader.dataset_dir = new_dataset_dir
+    dataset_config.train_dataset_task.dataset_config.data_loader.dataset_dir = new_dataset_dir
+
+    dataset = build_dataset(dataset_config.train_dataset_task)
 
     lr_schedule = WarmUpLR(learning_rate=0.001, warmup_steps=100)
     optimizer = AdamWeightDecay(beta1=0.009, beta2=0.999,
@@ -89,19 +92,31 @@ def test_trainer_wrapper_from_instance():
     Description: Test Trainer API to train from self-define instance API.
     Expectation: TypeError
     """
-    runner_config = RunnerConfig(epochs=10, batch_size=8, image_size=224, sink_mode=True, per_epoch_size=1)
+    runner_config = RunnerConfig(epochs=2, batch_size=8, image_size=224, sink_mode=True, per_epoch_size=1)
     config = ConfigArguments(seed=2022, runner_config=runner_config)
 
     mae_model_with_loss = MaeModel()
 
-    dataset = GeneratorDataset(source=MyDataLoader(), column_names='image')
-    dataset = dataset.batch(batch_size=8)
+    project_path = MindFormerBook.get_project_path()
+
+    config_path = os.path.join(
+        project_path, "configs", "mae", "task_config", "mae_dataset.yaml"
+    )
+    dataset_config = MindFormerConfig(config_path)
+
+    new_dataset_dir, _ = make_local_directory(dataset_config)
+    make_dataset(new_dataset_dir, num=16)
+
+    dataset_config.train_dataset.data_loader.dataset_dir = new_dataset_dir
+    dataset_config.train_dataset_task.dataset_config.data_loader.dataset_dir = new_dataset_dir
+
+    dataset = build_dataset(dataset_config.train_dataset_task)
 
     lr_schedule = WarmUpLR(learning_rate=0.001, warmup_steps=100)
     optimizer = AdamWeightDecay(beta1=0.009, beta2=0.999,
                                 learning_rate=lr_schedule,
                                 params=mae_model_with_loss.trainable_params())
-    loss_scale = DynamicLossScaleUpdateCell(loss_scale_value=2**12, scale_factor=2, scale_window=1000)
+    loss_scale = DynamicLossScaleUpdateCell(loss_scale_value=2 ** 12, scale_factor=2, scale_window=1000)
     wrapper = TrainOneStepWithLossScaleCell(mae_model_with_loss, optimizer, scale_sense=loss_scale)
 
     loss_cb = LossMonitor(per_print_times=2)
@@ -127,19 +142,31 @@ def test_trainer_general_from_instance():
     Description: Test Trainer API to train from self-define instance API.
     Expectation: TypeError
     """
-    runner_config = RunnerConfig(epochs=10, batch_size=8, image_size=224, sink_mode=True, per_epoch_size=1)
+    runner_config = RunnerConfig(epochs=2, batch_size=8, image_size=224, sink_mode=True, per_epoch_size=1)
     config = ConfigArguments(seed=2022, runner_config=runner_config)
 
     mae_model_with_loss = MaeModel()
 
-    dataset = GeneratorDataset(source=MyDataLoader(), column_names='image')
-    dataset = dataset.batch(batch_size=8)
+    project_path = MindFormerBook.get_project_path()
+
+    config_path = os.path.join(
+        project_path, "configs", "mae", "task_config", "mae_dataset.yaml"
+    )
+    dataset_config = MindFormerConfig(config_path)
+
+    new_dataset_dir, _ = make_local_directory(dataset_config)
+    make_dataset(new_dataset_dir, num=16)
+
+    dataset_config.train_dataset.data_loader.dataset_dir = new_dataset_dir
+    dataset_config.train_dataset_task.dataset_config.data_loader.dataset_dir = new_dataset_dir
+
+    dataset = build_dataset(dataset_config.train_dataset_task)
 
     lr_schedule = WarmUpLR(learning_rate=0.001, warmup_steps=100)
     optimizer = AdamWeightDecay(beta1=0.009, beta2=0.999,
                                 learning_rate=lr_schedule,
                                 params=mae_model_with_loss.trainable_params())
-    loss_scale = DynamicLossScaleUpdateCell(loss_scale_value=2**12, scale_factor=2, scale_window=1000)
+    loss_scale = DynamicLossScaleUpdateCell(loss_scale_value=2 ** 12, scale_factor=2, scale_window=1000)
     wrapper = TrainOneStepWithLossScaleCell(mae_model_with_loss, optimizer, scale_sense=loss_scale)
 
     loss_cb = LossMonitor(per_print_times=2)
@@ -164,11 +191,23 @@ def test_trainer_auto_to_save_config():
     Description: Test Trainer API to train.
     Expectation: TypeError
     """
-    runner_config = RunnerConfig(epochs=10, batch_size=2, image_size=224)
+    runner_config = RunnerConfig(epochs=2, batch_size=8, image_size=224)
     config = ConfigArguments(runner_config=runner_config)
 
-    dataset = GeneratorDataset(source=MyDataLoader(), column_names='image')
-    dataset = dataset.batch(batch_size=2)
+    project_path = MindFormerBook.get_project_path()
+
+    config_path = os.path.join(
+        project_path, "configs", "mae", "task_config", "mae_dataset.yaml"
+    )
+    dataset_config = MindFormerConfig(config_path)
+
+    new_dataset_dir, _ = make_local_directory(dataset_config)
+    make_dataset(new_dataset_dir, num=16)
+
+    dataset_config.train_dataset.data_loader.dataset_dir = new_dataset_dir
+    dataset_config.train_dataset_task.dataset_config.data_loader.dataset_dir = new_dataset_dir
+
+    dataset = build_dataset(dataset_config.train_dataset_task)
 
     mim_trainer = Trainer(
         task='masked_image_modeling',
@@ -177,3 +216,27 @@ def test_trainer_auto_to_save_config():
         config=config,
         save_config=True)
     mim_trainer.train()
+
+
+def make_local_directory(config):
+    """make local directory"""
+    dataset_dir = config.train_dataset.data_loader.dataset_dir
+    local_root = os.path.join(
+        MindFormerBook.get_default_checkpoint_download_folder(),
+        dataset_dir.split("/")[2]
+    )
+
+    new_dataset_dir = MindFormerBook.get_default_checkpoint_download_folder()
+    for item in dataset_dir.split("/")[2:]:
+        new_dataset_dir = os.path.join(new_dataset_dir, item)
+    os.makedirs(new_dataset_dir, exist_ok=True)
+    return new_dataset_dir, local_root
+
+
+def make_dataset(new_dataset_dir, num):
+    """make a fake ImageNet dataset"""
+    for label in range(4):
+        os.makedirs(os.path.join(new_dataset_dir, str(label)), exist_ok=True)
+        for index in range(num):
+            image = Image.fromarray(np.ones((255, 255, 3)).astype(np.uint8))
+            image.save(os.path.join(new_dataset_dir, str(label), f"test_image_{index}.jpg"))

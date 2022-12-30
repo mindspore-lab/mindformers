@@ -1,4 +1,7 @@
 model:
+  arch:
+    type: MaeModel
+
   model_config:
     type: MaeConfig
     mask_ratio: 0.75
@@ -12,10 +15,8 @@ model:
     drop_rate: 0.
     drop_path_rate: 0.
     use_abs_pos_emb: True
-    decoder_layers: 8
-    decoder_num_heads: 16
     decoder_dim: 512
+    decoder_depth: 8
+    decoder_num_heads: 16
     norm_pixel_loss: True
-  arch:
-    type: MaeModel
-
+    checkpoint_name_or_path: 'mae_vit_base_p16'

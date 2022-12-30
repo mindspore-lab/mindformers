@@ -14,41 +14,37 @@
 # ============================================================================
 
 """
-Test module for testing the interface used for mindformers.
+Test Module for testing clip_pretrain dataset for clip trainer.
 
+How to run this:
 windows:
-pytest .\\tests\\st\\test_trainertest_image_classification_trainer\\test_trainer_from_instance.py
+pytest .\\tests\\st\\test_trainer\\test_masked_image_modeling\\test_dataset.py
 linux:
-pytest ./tests/st/test_trainer/test_image_classification_trainer/test_trainer_from_instance.py
+pytest ./tests/st/test_trainer/test_masked_image_modeling/test_dataset.py
 """
 import os
-import numpy as np
 import pytest
+import numpy as np
 from PIL import Image
-import mindspore as ms
+
 from mindformers.mindformer_book import MindFormerBook
 from mindformers.tools.register.config import MindFormerConfig
-from mindformers.models import VitModel, VitConfig
-from mindformers.trainer import Trainer
-from mindformers.trainer.config_args import ConfigArguments, RunnerConfig
 from mindformers.dataset.build_dataset import build_dataset
-from mindformers.common.lr import WarmUpCosineDecayV1
 
 
 @pytest.mark.level0
 @pytest.mark.platform_x86_ascend_training
 @pytest.mark.platform_arm_ascend_training
 @pytest.mark.env_onecard
-class TestTrainer:
-    """A test class for testing Trainer"""
-
+class TestVitTrainDataset:
+    """A test class for testing MaskedImageModelingTrainDataset classes"""
     def setup_method(self):
         """prepare for test"""
         project_path = MindFormerBook.get_project_path()
 
         config_path = os.path.join(
-            project_path, "configs", "vit",
-            "run_vit_base_p16_224_800ep.yaml"
+            project_path, "configs", "mae",
+            "task_config", "mae_dataset.yaml"
         )
         config = MindFormerConfig(config_path)
 
@@ -61,45 +57,15 @@ class TestTrainer:
 
         self.config = config
 
-    def test_trainer_train_from_instance(self):
+    def test_dataset(self):
         """
-        Feature: Create Trainer From Instance
-        Description: Test Trainer API to train from self-define instance API.
-        Expectation: TypeError
+        Feature: MaskedImageModelingTrainDataset
+        Description: A data set for masked image modeling pretrain
+        Expectation: TypeError, ValueError
         """
-        runner_config = RunnerConfig(
-            epochs=2, batch_size=8,
-            image_size=224, sink_mode=False,
-            per_epoch_size=-1, initial_epoch=0,
-            has_trained_epoches=0, has_trained_steps=0
-        )
-        config = ConfigArguments(seed=2022, runner_config=runner_config)
-
-        vit_config = VitConfig.from_pretrained('vit_base_p16')
-        vit_config.checkpoint_name_or_path = None
-        vit_model = VitModel(vit_config)
-        vit_model.set_train()
-
-        dataset = build_dataset(self.config.train_dataset_task)
-
-        lr_scheduler = WarmUpCosineDecayV1(
-            min_lr=0.0, base_lr=0.0000625, warmup_steps=10, decay_steps=190
-        )
-        optimizer = ms.nn.AdamWeightDecay(
-            params=vit_model.trainable_params(),
-            learning_rate=lr_scheduler, weight_decay=0.05
-        )
-
-        loss_cb = ms.LossMonitor(per_print_times=1)
-        callbacks = [loss_cb]
-
-        trainer = Trainer(task='image_classification',
-                          model=vit_model,
-                          config=config,
-                          optimizers=optimizer,
-                          train_dataset=dataset,
-                          callbacks=callbacks)
-        trainer.train(resume_or_finetune_from_checkpoint=False)
+        data_loader = build_dataset(self.config.train_dataset_task)
+        for item in data_loader:
+            assert item[0].shape == (64, 3, 224, 224)
 
     def make_local_directory(self, config):
         """make local directory"""

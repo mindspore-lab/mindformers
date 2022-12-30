@@ -11,6 +11,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+# This file was refer to project:
+# https://github.com/facebookresearch/mae
 # ============================================================================
 """ViT Model."""
 import math
@@ -25,6 +27,7 @@ from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.models.base_model import BaseModel
 from mindformers.models.vit.vit_modules import Block, LayerNorm, Linear, Dropout
 from mindformers.models.vit.vit_modules import PatchEmbed
+from mindformers.models.vit.vit_config import VitConfig
 
 
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
@@ -32,7 +35,8 @@ class VitModel(BaseModel):
     """Vision Transformer with support for patch or hybrid CNN input stage."""
     _support_list = MindFormerBook.get_model_support_list()['vit']
 
-    def __init__(self, config):
+    def __init__(self, config=None):
+        config = config if config else VitConfig()
         super(VitModel, self).__init__(config)
         self.use_moe = (config.moe_config.expert_num > 1)
         parallel_config = config.parallel_config

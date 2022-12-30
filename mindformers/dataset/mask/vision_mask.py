@@ -11,8 +11,11 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+# This file was refer to project:
+# https://github.com/adapter-hub/adapter-transformers/blob/master/examples/pytorch/image-pretraining/run_mim.py
 # ============================================================================
 """Self-Define Vision Mask Policy."""
+import numpy as np
 from mindspore.dataset.transforms import py_transforms
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 
