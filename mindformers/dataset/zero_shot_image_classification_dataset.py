@@ -12,38 +12,30 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-"""Contrastive Language Image Pretrain Dataset."""
+"""Zero Shot Image Classification Dataset."""
 from .dataloader import build_dataset_loader
 from .transforms import build_transforms
-from .sampler import build_sampler
 from .base_dataset import BaseDataset
 from ..tools import logger
-from ..models.build_tokenizer import build_tokenizer
 from ..tools.register import MindFormerRegister, MindFormerModuleType
-
+from ..models.build_tokenizer import build_tokenizer
 
 @MindFormerRegister.register(MindFormerModuleType.DATASET)
-class ContrastiveLanguageImagePretrainDataset(BaseDataset):
+class ZeroShotImageClassificationDataset(BaseDataset):
     """
-    Contrastive Language Image Pretrain Dataset API.
-    output image and text columns
+    Zero Shot Image Classification Dataset API.
+    output image, text, and label columns
     """
     def __new__(cls, dataset_config: dict = None):
         """new method"""
-        logger.info("Now Create Contrastive Language Image Pretrain Dataset.")
+        logger.info("Now Create Zero Shot Image Classification Dataset.")
         cls.init_dataset_config(dataset_config)
         dataset = build_dataset_loader(dataset_config.data_loader)
 
         transforms = build_transforms(dataset_config.transforms)
-
         tokenizer = build_tokenizer(dataset_config.tokenizer)
         text_transforms = build_transforms(dataset_config.text_transforms,
                                            default_args={"tokenizer": tokenizer})
-
-        sampler = build_sampler(dataset_config.sampler)
-
-        if sampler is not None:
-            dataset = dataset.use_sampler(sampler)
 
         if transforms is not None:
             dataset = dataset.map(

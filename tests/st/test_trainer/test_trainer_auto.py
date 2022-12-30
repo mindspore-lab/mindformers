@@ -78,5 +78,9 @@ def test_trainer_predict_auto():
     zero_shot_image_cls_trainer = Trainer(
         task='zero_shot_image_classification',
         model='clip_vit_b_32')
-    predict_result = zero_shot_image_cls_trainer.predict(candidate_labels=["sunflower", "tree", "dog", "cat", "toy"])
+    image = np.random.random((224, 224, 3))
+    predict_result = zero_shot_image_cls_trainer.predict(
+        input_data=image,
+        candidate_labels=["sunflower", "tree", "dog", "cat", "toy"]
+    )
     logger.info(predict_result)

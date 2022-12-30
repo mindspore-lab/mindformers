@@ -63,7 +63,7 @@ class BasePipeline(ABC):
         is_list = isinstance(inputs, list)
 
         self.call_count += 1
-        if self.call_count > 10 and not is_dataset:
+        if self.call_count == 20 and not is_dataset:
             logger.info("You seem to be using the pipeline sequentially for"
                         " numerous samples. In order to maximize efficiency"
                         " please set input a mindspore.dataset.GeneratorDataset.")

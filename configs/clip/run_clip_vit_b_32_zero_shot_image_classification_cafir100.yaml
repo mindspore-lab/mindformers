@@ -1,7 +1,7 @@
 base_config: [
     './task_config/context.yaml',
     './task_config/runner.yaml',
-    './task_config/clip_cafir_dataset.yaml',
+    './task_config/clip_cafir100_dataset.yaml',
     './model_config/clip_vit_b_32.yaml',
     '../__base__.yaml' ]
 
@@ -11,7 +11,13 @@ use_parallel: False
 seed: 0
 resume_checkpoint_path: ''
 
+metric:
+  type: 'Accuracy'
+
+top_k: 3
+save_file: 'results.txt'
+
 run_status: 'eval'
 trainer:
-  type: zero_shot_image_classification
-  model_name: 'clip'
+  type: ZeroShotImageClassificationTrainer
+  model_name: 'clip_vit_b_32'

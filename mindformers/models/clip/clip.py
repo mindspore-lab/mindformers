@@ -93,13 +93,14 @@ class ClipModel(BaseModel):
             return ms.float32
         raise TypeError("unsupported data type.")
 
-    def construct(self, image, text):
+    def construct(self, image, text, label=None):
         """
         construct
 
         Args:
             image (tensor): a image tensor processed by feature extractor
             text (tensor): a text id tensor processed by tokenizer
+            label (tensor): the classification label
 
         Returns:
             if self.trainining:
@@ -108,6 +109,9 @@ class ClipModel(BaseModel):
             else:
                 loss: constructive language image pretraining loss
         """
+        if len(text.shape) == 3:
+            text = text[0].squeeze()
+
         image_features = self.get_image_features(image)
         text_features = self. get_text_features(text)
 
@@ -116,10 +120,13 @@ class ClipModel(BaseModel):
         logit_scale = self.exp(self.logit_scale)
 
         if not self.training:
-            logits_per_image = ops.matmul(logit_scale * image_features, text_features.T)
-            logits_per_text = logits_per_image.T
+            if label is None:
+                logits_per_image = ops.matmul(logit_scale * image_features, text_features.T)
+                logits_per_text = logits_per_image.T
+                return logits_per_image, logits_per_text
 
-            return logits_per_image, logits_per_text
+            logits_per_image = ops.matmul(logit_scale * image_features, text_features.T)
+            return logits_per_image, label
 
         logits = ops.matmul(logit_scale * image_features, text_features.T)
         batch_size, _ = F.shape(logits)

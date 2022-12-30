@@ -18,7 +18,7 @@ from ...tools.register import MindFormerRegister, MindFormerModuleType
 
 
 __all__ = [
-    'RandomChoiceTokenizerForward'
+    'RandomChoiceTokenizerForward', 'TokenizerForward'
 ]
 
 
@@ -39,4 +39,20 @@ class RandomChoiceTokenizerForward:
             max_length=self.max_length,
             padding=self.padding
         )["input_ids"]
+        return token_id
+
+@MindFormerRegister.register(MindFormerModuleType.TRANSFORMS)
+class TokenizerForward:
+    """Tokenizer Forward"""
+    def __init__(self, tokenizer, max_length=77, padding="max_length"):
+        self.tokenizer = tokenizer
+        self.max_length = max_length
+        self.padding = padding
+
+    def __call__(self, text):
+        """call method"""
+        text = text.tolist() if isinstance(text, np.ndarray) else text
+        token_id = self.tokenizer(
+            text, max_length=self.max_length,
+            padding=self.padding)["input_ids"]
         return token_id

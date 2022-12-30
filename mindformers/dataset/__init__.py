@@ -20,6 +20,7 @@ from .sampler import *
 from .mim_dataset import MIMDataset
 from .img_cls_dataset import ImageCLSDataset
 from .contrastive_language_image_pretrain_dataset import ContrastiveLanguageImagePretrainDataset
+from .zero_shot_image_classification_dataset import ZeroShotImageClassificationDataset
 from .build_dataset import build_dataset
 from .base_dataset import BaseDataset
 from .bert_pretrain_dataset import BertPretrainDataset
@@ -28,7 +29,8 @@ from .utils import check_dataset_config
 
 
 __all__ = ['MIMDataset', 'ImageCLSDataset', 'build_dataset', 'BaseDataset', 'check_dataset_config',
-           'BertPretrainDataset', 'ContrastiveLanguageImagePretrainDataset']
+           'BertPretrainDataset', 'ContrastiveLanguageImagePretrainDataset',
+           'ZeroShotImageClassificationDataset']
 __all__.extend(dataloader.__all__)
 __all__.extend(mask.__all__)
 __all__.extend(transforms.__all__)

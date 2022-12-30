@@ -29,6 +29,7 @@ from mindspore.ops import operations as P
 from mindspore import Parameter, Tensor
 from mindspore.common.initializer import Normal
 
+
 class LayerNorm(nn.LayerNorm):
     """
     Implementation that supports fp16 inputs but fp32 gains/biases.
