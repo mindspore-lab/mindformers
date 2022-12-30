@@ -14,7 +14,6 @@
 # ============================================================================
 """Mae Model API."""
 from .mae import MaeModel
-from .mae_encoder import MaeEncoder
 from .mae_config import MaeConfig
 
-__all__ = ['MaeModel', 'MaeConfig', 'MaeEncoder']
+__all__ = ['MaeModel', 'MaeConfig']

@@ -17,28 +17,19 @@ Test module for testing the interface used for mindformers.
 How to run this:
 pytest tests/st/test_trainer/test_trainer_from_config.py
 """
+import os
 import pytest
 import numpy as np
-
-from mindspore.dataset import GeneratorDataset
+from PIL import Image
 from mindspore.nn import DynamicLossScaleUpdateCell
-
+from mindformers.mindformer_book import MindFormerBook
+from mindformers.tools.register.config import MindFormerConfig
+from mindformers.dataset.build_dataset import build_dataset
 from mindformers.trainer import Trainer
 from mindformers.models import MaeModel
 from mindformers.trainer.config_args import ConfigArguments, \
     OptimizerConfig, RunnerConfig, LRConfig, WrapperConfig
 
-
-class MyDataLoader:
-    """Self-Define DataLoader."""
-    def __init__(self):
-        self._data = [np.zeros((3, 224, 224), np.float32) for _ in range(64)]
-
-    def __getitem__(self, index):
-        return self._data[index]
-
-    def __len__(self):
-        return len(self._data)
 
 
 @pytest.mark.level0
@@ -51,14 +42,26 @@ def test_trainer_train_from_config():
     Description: Test Trainer API to train from config
     Expectation: TypeError
     """
-    runner_config = RunnerConfig(epochs=10, batch_size=2, image_size=224)  # 运行超参
+    runner_config = RunnerConfig(epochs=2, batch_size=8, image_size=224)  # 运行超参
     lr_schedule_config = LRConfig(lr_type='WarmUpLR', learning_rate=0.001, warmup_steps=10)
     optim_config = OptimizerConfig(optim_type='Adam', beta1=0.009, learning_rate=lr_schedule_config)
     loss_scale = DynamicLossScaleUpdateCell(loss_scale_value=2**12, scale_factor=2, scale_window=1000)
     wrapper_config = WrapperConfig(wrapper_type='TrainOneStepWithLossScaleCell', scale_sense=loss_scale)
 
-    dataset = GeneratorDataset(source=MyDataLoader(), column_names='image')
-    dataset = dataset.batch(batch_size=2)
+    project_path = MindFormerBook.get_project_path()
+
+    config_path = os.path.join(
+        project_path, "configs", "mae", "task_config", "mae_dataset.yaml"
+    )
+    dataset_config = MindFormerConfig(config_path)
+
+    new_dataset_dir, _ = make_local_directory(dataset_config)
+    make_dataset(new_dataset_dir, num=16)
+
+    dataset_config.train_dataset.data_loader.dataset_dir = new_dataset_dir
+    dataset_config.train_dataset_task.dataset_config.data_loader.dataset_dir = new_dataset_dir
+
+    dataset = build_dataset(dataset_config.train_dataset_task)
 
     config = ConfigArguments(seed=2022, runner_config=runner_config,
                              optimizer=optim_config, runner_wrapper=wrapper_config)
@@ -68,3 +71,26 @@ def test_trainer_train_from_config():
                           config=config,
                           train_dataset=dataset)
     mim_trainer.train(resume_or_finetune_from_checkpoint=False)
+
+def make_local_directory(config):
+    """make local directory"""
+    dataset_dir = config.train_dataset.data_loader.dataset_dir
+    local_root = os.path.join(
+        MindFormerBook.get_default_checkpoint_download_folder(),
+        dataset_dir.split("/")[2]
+    )
+
+    new_dataset_dir = MindFormerBook.get_default_checkpoint_download_folder()
+    for item in dataset_dir.split("/")[2:]:
+        new_dataset_dir = os.path.join(new_dataset_dir, item)
+    os.makedirs(new_dataset_dir, exist_ok=True)
+    return new_dataset_dir, local_root
+
+
+def make_dataset(new_dataset_dir, num):
+    """make a fake ImageNet dataset"""
+    for label in range(4):
+        os.makedirs(os.path.join(new_dataset_dir, str(label)), exist_ok=True)
+        for index in range(num):
+            image = Image.fromarray(np.ones((255, 255, 3)).astype(np.uint8))
+            image.save(os.path.join(new_dataset_dir, str(label), f"test_image_{index}.jpg"))

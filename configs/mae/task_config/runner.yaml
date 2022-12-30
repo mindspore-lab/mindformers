@@ -37,4 +37,3 @@ callbacks:
     save_checkpoint_steps: 100
     integrated_save: True
     async_save: False
-  - type: ObsMonitor

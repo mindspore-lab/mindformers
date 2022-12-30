@@ -28,7 +28,7 @@ from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 __all__ = [
     'BatchResize', 'BCHW2BHWC', 'BatchPILize',
     'BatchNormalize', 'BatchCenterCrop', 'BatchToTensor',
-    'RandomResizedCrop', 'Resize'
+    'RandomCropDecodeResize', 'RandomResizedCrop', 'Resize'
 ]
 
 INTERPOLATION = {'nearest': Inter.NEAREST,
@@ -266,6 +266,20 @@ class BatchPILize:
                              f" but got {len(image_batch.shape)}")
 
         raise ValueError("unsupported input type.")
+
+
+@MindFormerRegister.register(MindFormerModuleType.TRANSFORMS)
+class RandomCropDecodeResize(vision.transforms.RandomCropDecodeResize):
+    """wrapper of RandomCropDecodeResize"""
+
+    def __init__(self, size, scale=(0.08, 1.0), ratio=(3. / 4., 4. / 3.),
+                 interpolation='cubic', max_attempts=10):
+        self.size = size
+        self.scale = scale
+        self.ratio = ratio
+        self.interpolation = INTERPOLATION.get(interpolation)
+        self.max_attempts = max_attempts
+        super(RandomCropDecodeResize, self).__init__(size, scale, ratio, self.interpolation, max_attempts)
 
 
 @MindFormerRegister.register(MindFormerModuleType.TRANSFORMS)
