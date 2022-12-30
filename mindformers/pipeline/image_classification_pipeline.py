@@ -24,7 +24,7 @@ from .base_pipeline import BasePipeline
 
 
 @MindFormerRegister.register(MindFormerModuleType.PIPELINE, alias="image_classification")
-class ImageClassificationForPipeline(BasePipeline):
+class ImageClassificationPipeline(BasePipeline):
     """
     Pipeline for image classification
 
