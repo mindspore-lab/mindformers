@@ -33,7 +33,7 @@ class ImageCLSDataset(BaseDataset):
     >>> from mindformers.tools.register import MindFormerConfig
     >>> from mindformers.dataset import build_dataset, check_dataset_config
     >>> # Initialize a MindFormerConfig instance with a specific config file of yaml.
-    >>> config = MindFormerConfig("configs/vit/run_vit_base_p16_224_800ep.yaml")
+    >>> config = MindFormerConfig("configs/vit/run_vit_base_p16_224_100ep.yaml")
     >>> check_dataset_config(config)
     >>> # 1) use config dict to build dataset
     >>> dataset_from_config = build_dataset(config.train_dataset_task)

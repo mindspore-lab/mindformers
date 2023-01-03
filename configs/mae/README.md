@@ -6,12 +6,58 @@ MAE是一种基于MIM（Masked Imange Modeling）的无监督学习方法。
 
 MAE由何凯明团队提出，将NLP领域大获成功的自监督预训练模式用在了计算机视觉任务上，效果拔群，在NLP和CV两大领域间架起了一座更简便的桥梁。
 
-论文：He, Kaiming et al. “Masked Autoencoders Are Scalable Vision Learners.” 2022 IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR) (2022): 15979-15988.
+[论文](https://gitee.com/link?target=https%3A%2F%2Farxiv.org%2Fabs%2F2111.06377): He, Kaiming et al. “Masked Autoencoders Are Scalable Vision Learners.” 2022 IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR) (2022): 15979-15988.
 
-## 模型使用
+## 数据集准备
+
+使用的数据集：[ImageNet2012](http://www.image-net.org/)
+
+- 数据集大小：125G，共1000个类、125万张彩色图像
+    - 训练集：120G，共120万张图像
+    - 测试集：5G，共5万张图像
+- 数据格式：RGB
+
+ ```text
+数据集目录格式
+└─imageNet-1k
+    ├─train                # 训练数据集
+    └─val                  # 评估数据集
+ ```
+
+## 快速使用
+
+### 脚本启动
+
+> 需开发者提前clone工程。
+
+- 请参考[使用脚本启动](https://gitee.com/mindspore/transformer/blob/master/README.md#%E6%96%B9%E5%BC%8F%E4%B8%80clone-%E5%B7%A5%E7%A8%8B%E4%BB%A3%E7%A0%81)
+
+### 调用API启动
+
+> 需开发者提前pip安装。具体接口说明请参考[API接口](https://gitee.com/mindspore/transformer/wikis/API/)
+
+- Trainer接口开启训练/评估/推理：
+
+  ```python
+  from mindformers.trainer import Trainer
+
+  # 初始化任务
+  mae_trainer = Trainer(
+      task='masked_image_modeling',
+      model='mae_vit_base_p16',
+      train_dataset="imageNet-1k/train")
+
+  mae_trainer.train() # 开启训练
+  ```
+
+ Trainer和pipeline接口默认支持的task和model关键入参
+
+|     task（string）      |  model（string）   |
+|:---------------------:|:----------------:|
+| masked_image_modeling | mae_vit_base_p16 |
 
 ## 模型性能
 
-| Backbone | Pretrain Datasets | Pretrain Epoch | Pretrain Loss | Finetune Datasets | Finetune Epoch | Finetune Loss | Accuracy | Log | pretrain_config | finetune_config |
-| :---------: | :--------: | :---: | :----: | :-----------: | :---: | :----: | :---: | :---: | :---: | :---: |
-| mae-vit | ImageNet1K | \ | \ | \ | \ | \ | \ | \ | [link](run_mae_vit_base_p16_224_800ep.yaml) | [link](finetune_mae_vit_base_p16_nwpu_224_200ep.yaml) |
+| model |       type       |       pretrain       |  Datasets   | Top1-Accuracy | Log |                  pretrain_config                   |            finetune_config            |
+|:-----:|:----------------:|:--------------------:|:-----------:|:-------------:|:---:|:--------------------------------------------------:|:-------------------------------------:|
+|  mae  | mae_vit_base_p16 | [mae_vit_base_p16]() | ImageNet-1K |    83.17%     |  \  | [link](../mae/run_mae_vit_base_p16_224_800ep.yaml) | [link](./run_vit_base_p16_100ep.yaml) |

@@ -35,7 +35,7 @@ def build_dataset(
         >>> from mindformers import build_dataset
         >>> from mindformers.dataset import check_dataset_config
         >>> from mindformers.tools.register import MindFormerConfig
-        >>> config = MindFormerConfig('configs/vit/run_vit_base_p16_224_800ep.yaml')
+        >>> config = MindFormerConfig('configs/vit/run_vit_base_p16_224_100ep.yaml')
         >>> check_dataset_config(config)
         >>> # 1) use config dict to build dataset
         >>> dataset_from_config = build_dataset(config.train_dataset_task)

@@ -48,13 +48,12 @@ class TestTrainer:
 
         config_path = os.path.join(
             project_path, "configs", "vit",
-            "run_vit_base_p16_224_800ep.yaml"
+            "run_vit_base_p16_224_100ep.yaml"
         )
         config = MindFormerConfig(config_path)
 
-        new_dataset_dir, local_root = self.make_local_directory(config)
+        new_dataset_dir = self.make_local_directory(config)
         self.make_dataset(new_dataset_dir, num=16)
-        self.local_root = local_root
 
         config.train_dataset.data_loader.dataset_dir = new_dataset_dir
         config.train_dataset_task.dataset_config.data_loader.dataset_dir = new_dataset_dir
@@ -104,16 +103,11 @@ class TestTrainer:
     def make_local_directory(self, config):
         """make local directory"""
         dataset_dir = config.train_dataset.data_loader.dataset_dir
-        local_root = os.path.join(
-            MindFormerBook.get_default_checkpoint_download_folder(),
-            dataset_dir.split("/")[2]
-        )
-
-        new_dataset_dir = MindFormerBook.get_default_checkpoint_download_folder()
-        for item in dataset_dir.split("/")[2:]:
+        new_dataset_dir = ""
+        for item in dataset_dir.split("/"):
             new_dataset_dir = os.path.join(new_dataset_dir, item)
         os.makedirs(new_dataset_dir, exist_ok=True)
-        return new_dataset_dir, local_root
+        return new_dataset_dir
 
     def make_dataset(self, new_dataset_dir, num):
         """make a fake ImageNet dataset"""
