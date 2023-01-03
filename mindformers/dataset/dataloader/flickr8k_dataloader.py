@@ -34,7 +34,7 @@ class Flickr8kDataLoader:
             dataset_dir: the directory to images
             annotation_dir: the directory to Flickr_8k.trainImages.txt, Flickr_8k.testImages.txt,
                             Flickr_8k.devImages.txt, and Flickr8k.token.txt
-            stege: the supported key words are in ["train"、"test"、"del"、"all"]
+            stege: the supported key words are in ["train", "test", "del", "all"]
             column_names: the output column names, a tuple or a list of string with length 2
 
         Return:
@@ -45,6 +45,9 @@ class Flickr8kDataLoader:
 
         if not os.path.isdir(annotation_dir):
             raise TypeError(f"{annotation_dir} is not existed.")
+
+        if column_names is None:
+            column_names = cls._default_column_names
 
         if not isinstance(column_names, (tuple, list)):
             raise TypeError(f"column_names should be a tuple or a list"
@@ -58,8 +61,6 @@ class Flickr8kDataLoader:
             raise ValueError(f"the item type of column_names should be string,"
                              f" but got {type(column_names[0])} and {type(column_names[1])}")
 
-        if column_names is None:
-            column_names = cls._default_column_names
         flick8k_dataset = Flickr8kDataSet(dataset_dir, annotation_dir, stage)
         return GeneratorDataset(flick8k_dataset, column_names)
 
@@ -73,7 +74,7 @@ class Flickr8kDataSet:
             dataset_dir: the directory to images
             annotation_dir: the directory to Flickr_8k.trainImages.txt, Flickr_8k.testImages.txt,
                             Flickr_8k.devImages.txt, and Flickr8k.token.txt
-            stege: the supported key words are in ["train"、"test"、"del"、"all"]
+            stege: the supported key words are in ["train", "test", "dev", "all"]
 
         Return:
             a iterable dataset for Flickr8k dataset

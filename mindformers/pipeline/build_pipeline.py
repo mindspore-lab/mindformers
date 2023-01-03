@@ -19,21 +19,28 @@ from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 def build_pipeline(
         config: dict = None, default_args: dict = None,
         module_type: str = 'pipeline', class_name: str = None, **kwargs):
-    r"""Build pipeline For MindFormer.
-    Instantiate the pipeline from MindFormerRegister's registry.
+    r"""Build Pipeline API.
+    Instantiate the task pipeline from MindFormerRegister's registry.
 
     Args:
-        config (dict): The task pipeline's config. Default: None.
-        default_args (dict): The default argument of pipeline API. Default: None.
-        module_type (str): The module type of MindFormerModuleType. Default: 'pipeline'.
-        class_name (str): The class name of pipeline API. Default: None.
+        config (dict): The task pipeline's config.
+        default_args (dict): The default args of pipeline.
+        module_type (str): The module type of MindFormerModuleType. Default: 'pipline'.
+        class_name (str): The class name of task pipeline.
 
-    Return:
-        The function instance of pipeline API.
+    Returns:
+        The task pipeline instance by config.
 
     Examples:
         >>> from mindformers import build_pipeline
-        >>> pipeline_from_class_name = build_pipeline(class_name='image_classification', model='vit_base_p16')
+        >>> pipeline_config = {'type': 'zero_shot_image_classification',
+            'model': 'clip_vit_b_32',
+            'candidate_labels': ["sunflower", "tree", "dog", "cat", "toy"],
+            'hypothesis_template': "This is a photo of {}."}
+        >>> classifier = build_pipeline(pipeline_config)
+        >>> type(classifier)
+            <class 'mindformers.pipeline.zero_shot_image
+            _classification_pipeline.ZeroShotImageClassificationPipeline'>
     """
     if config is None and class_name is None:
         return None

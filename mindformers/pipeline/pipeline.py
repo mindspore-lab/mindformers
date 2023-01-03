@@ -35,19 +35,35 @@ def pipeline(
         image_processor: Optional[BaseImageProcessor] = None,
         audio_processor: Optional[BaseAudioProcessor] = None,
         **kwargs):
-    """
-    Pipeline for downstream tasks
+    r"""Pipeline for downstream tasks
 
     Args:
-        task (str): the supported task could be selected from
-         MindFormerBook.show_pipeline_support_task_list().
-        model (str, BaseModel): the model used for task.
-        tokenizer (BaseTokenizer): the tokenizer of the model.
-        image_processor (BaseImageProcessor): the image processor of the model.
-        audio_processor (BaseAudioProcessor): the audio processor of the model.
+        task (str): The supported task could be selected from
+            MindFormerBook.show_pipeline_support_task_list().
+        model (Optional[Union[str, BaseModel]]): The model used for task.
+        tokenizer (Optional[BaseTokenizer]): The tokenizer of the model.
+        image_processor (Optional[BaseImageProcessor]): The image processor of the model.
+        audio_processor (Optional[BaseAudioProcessor]): The audio processor of the model.
 
     Return:
-        a task pipeline.
+        A task pipeline.
+
+    Raises:
+        KeyError: If the task or model is not supported.
+
+    Examples:
+        >>> from mindformers import pipeline
+        >>> from mindformers.tools.image_tools import load_image
+        >>> classifier = pipeline("zero_shot_image_classification",
+            candidate_labels=["sunflower", "tree", "dog", "cat", "toy"])
+        >>> img = load_image("https://ascend-repo-modelzoo.obs.cn-east-2."
+            "myhuaweicloud.com/XFormer_for_mindspore/clip/sunflower.png")
+        >>> classifier(img)
+            [[{'score': 0.99995565, 'label': 'sunflower'},
+            {'score': 2.5318595e-05, 'label': 'toy'},
+            {'score': 9.903885e-06, 'label': 'dog'},
+            {'score': 6.75336e-06, 'label': 'tree'},
+            {'score': 2.396818e-06, 'label': 'cat'}]]
     """
     if task not in SUPPORT_PIPELINES.keys():
         raise KeyError(f"{task} is not supported by pipeline. please select"

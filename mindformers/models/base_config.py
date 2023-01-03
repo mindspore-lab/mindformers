@@ -170,7 +170,7 @@ class BaseConfig(dict):
         with open(save_path, 'w') as file_pointer:
             file_pointer.write(yaml.dump(meraged_dict))
         file_pointer.close()
-        logger.info("model saved successfully!")
+        logger.info("config saved successfully!")
 
     def inverse_parse_config(self):
         """inverse_parse_config"""

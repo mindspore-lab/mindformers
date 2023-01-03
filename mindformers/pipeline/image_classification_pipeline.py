@@ -13,7 +13,12 @@
 # limitations under the License.
 # ============================================================================
 """Image Classification Pipeline API."""
+from typing import Optional, Union
+import numpy as np
+import PIL
+
 from mindspore.ops import operations as P
+from mindspore import Tensor
 
 from mindformers.auto_class import AutoProcessor, AutoModel
 from mindformers.mindformer_book import MindFormerBook
@@ -25,39 +30,69 @@ from .base_pipeline import BasePipeline
 
 @MindFormerRegister.register(MindFormerModuleType.PIPELINE, alias="image_classification")
 class ImageClassificationPipeline(BasePipeline):
-    """
-    Pipeline for image classification
+    r"""Pipeline for image classification
 
     Args:
-        model: a pretrained model (str or BaseModel) in _supproted_list.
-        image_processor : a image_processor (None or BaseFeatureExtractor) for image processing
+        model (Union[str, BaseModel]): The model used to perform task,
+            the input could be a supported model name, or a model instance
+            inherited from BaseModel.
+        image_processor (Optional[BaseImageProcessor]): The image_processor of model,
+            it could be None if the model do not need image_processor.
+
+    Raises:
+        TypeError: If input model and image_processor's types are not corrected.
+        ValueError: If the input model is not in support list.
+
+    Examples:
+        >>> import numpy as np
+        >>> from mindformers.pipeline import ImageClassificationPipeline
+        >>> from mindformers import VitImageProcessor
+        >>> processor = VitImageProcessor(image_resolution=224)
+        >>> classifier = ImageClassificationPipeline(
+            model='vit_base_p16',
+            image_processor=processor,
+            top_k=5
+            )
+        >>> classifier(np.uint8(np.random.random((5, 3, 255, 255))))
+            [[{'score': 0.0016654134, 'label': 'matchstick'},
+            {'score': 0.0015071577, 'label': 'theater curtain'},
+            {'score': 0.0014839625, 'label': 'ocarina'},
+            {'score': 0.0014319294, 'label': 'abaya'},
+            {'score': 0.0014109017, 'label': 'bottlecap'}],
+            ..., {'score': 0.0014109018, 'label': 'bottlecap'}]]
     """
     _support_list = MindFormerBook.get_pipeline_support_task_list()['image_classification'].keys()
 
-    def __init__(self, model, image_processor=None, **kwargs):
+    def __init__(self, model: Union[str, BaseModel],
+                 image_processor: Optional[BaseImageProcessor] = None,
+                 **kwargs):
         if isinstance(model, str):
             if model in self._support_list:
                 if image_processor is None:
-                    image_processor = AutoProcessor.from_pretrained(model).feature_extractor
+                    image_processor = AutoProcessor.from_pretrained(model).image_processor
                 if not isinstance(image_processor, BaseImageProcessor):
-                    raise TypeError(f"feature_extractor should be inherited from"
-                                    f" BaseFeatureExtractor, but got {type(image_processor)}.")
+                    raise TypeError(f"image_processor should be inherited from"
+                                    f" BaseImageProcessor, but got {type(image_processor)}.")
                 model = AutoModel.from_pretrained(model)
             else:
-                raise ValueError(f"{model} is not supported by ZeroShotImageClassificationPipeline,"
+                raise ValueError(f"{model} is not supported by ImageClassificationForPipeline,"
                                  f"please selected from {self._support_list}.")
 
         if not isinstance(model, BaseModel):
-            raise TypeError(f"model should be inherited from BaseModel, but got {type(BaseModel)}.")
+            raise TypeError(f"model should be inherited from BaseModel, but got {type(model)}.")
 
         if image_processor is None:
-            raise ValueError("ZeroShotImageClassificationPipeline"
-                             " requires for a feature_extractor.")
+            raise ValueError("ImageClassificationFoPipeline"
+                             " requires for a image_processor.")
 
         super().__init__(model.set_train(mode=False), image_processor=image_processor, **kwargs)
 
     def _sanitize_parameters(self, **pipeline_parameters):
-        """sanitize parameters for preprocess, forward, and postprocess."""
+        r"""Sanitize Parameters
+
+        Args:
+            pipeline_parameters (Optional[dict]): The parameter dict to be parsed.
+        """
         preprocess_params = {}
         postprocess_params = {}
 
@@ -70,15 +105,16 @@ class ImageClassificationPipeline(BasePipeline):
             postprocess_params["top_k"] = pipeline_parameters.get("top_k")
         return preprocess_params, {}, postprocess_params
 
-    def preprocess(self, inputs, **preprocess_params):
-        """
-        Preprocess of ZeroShotImageClassificationPipeline
+    def preprocess(self, inputs: (Union[str, PIL.Image.Image, Tensor, np.ndarray]),
+                   **preprocess_params):
+        r"""The Preprocess For Task
 
         Args:
-            inputs (url, PIL.Image, tensor, numpy): the image to be classified.
+            inputs (Union[url, PIL.Image, tensor, numpy]): The image to be classified.
+            preprocess_params (dict): The parameter dict for preprocess.
 
         Return:
-            processed image.
+            Processed image.
         """
         if isinstance(inputs, dict):
             inputs = inputs['image']
@@ -86,15 +122,13 @@ class ImageClassificationPipeline(BasePipeline):
         image_processed = self.image_processor(inputs)
         return {"image_processed": image_processed}
 
-    def forward(self, model_inputs, **forward_params):
-        """
-        Forward process
+    def forward(self, model_inputs: dict,
+                **forward_params):
+        r"""The Forward Process of Model
 
         Args:
-            model_inputs (dict): outputs of preprocess.
-
-        Return:
-            probs dict.
+            model_inputs (dict): The output of preprocess.
+            forward_params (dict): The parameter dict for model forward.
         """
         forward_params.pop("None", None)
 
@@ -105,12 +139,11 @@ class ImageClassificationPipeline(BasePipeline):
         return {"probs": probs}
 
     def postprocess(self, model_outputs, **postprocess_params):
-        """
-        Postprocess
+        r"""Postprocess
 
         Args:
-            model_outputs (dict): outputs of forward process.
-            top_k (int): return top_k probs of result
+            model_outputs (dict): Outputs of forward process.
+            top_k (int): Return top_k probs of result.
 
         Return:
             classification results.

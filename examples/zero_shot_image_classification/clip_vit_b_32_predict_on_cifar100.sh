@@ -20,4 +20,4 @@ echo "bash examples/zero_shot_image_classification/clip_vit_b_32_predict_on_cifa
 echo "It is better to use absolute path."
 echo "=============================================================================================================="
 
-python run_mindformer.py --config ./configs/clip/run_clip_vit_b_32_zero_shot_image_classification_cafir100.yaml --run_status predict
+python run_mindformer.py --config ./configs/clip/run_clip_vit_b_32_zero_shot_image_classification_cifar100.yaml --run_status predict

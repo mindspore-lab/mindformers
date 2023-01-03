@@ -6,7 +6,7 @@ eval_dataset:  &eval_dataset
     stage: 'test'
     fine_label: True
     shuffle: False
-    hypothesis_template: "{}"
+    hypothesis_template: "a picture of {}"
 
   tokenizer:
     type: ClipTokenizer
