@@ -111,9 +111,9 @@ class MindFormerBook:
          ),
         ("zero_shot_image_classification", OrderedDict([
             ("clip_vit_b_32", os.path.join(
-                _PROJECT_PATH, "configs/clip/run_clip_vit_b_32_zero_shot_image_classification_cafir100.yaml")),
+                _PROJECT_PATH, "configs/clip/run_clip_vit_b_32_zero_shot_image_classification_cifar100.yaml")),
             ("common", os.path.join(
-                _PROJECT_PATH, "configs/clip/run_clip_vit_b_32_zero_shot_image_classification_cafir100.yaml"))])
+                _PROJECT_PATH, "configs/clip/run_clip_vit_b_32_zero_shot_image_classification_cifar100.yaml"))])
          ),
         ("translation", OrderedDict([
             ("t5_small", os.path.join(

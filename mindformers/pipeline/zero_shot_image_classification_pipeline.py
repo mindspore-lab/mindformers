@@ -14,29 +14,57 @@
 # ============================================================================
 
 """ZeroShotImageClassificationPipeline"""
+from typing import Union, Optional
 from mindspore.ops import operations as P
 
-from mindformers.auto_class import AutoProcessor, AutoModel
 from mindformers.mindformer_book import MindFormerBook
 from mindformers.tools.image_tools import load_image
 from mindformers.models import BaseModel, BaseImageProcessor, Tokenizer
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
+from mindformers.auto_class import AutoProcessor, AutoModel
 from .base_pipeline import BasePipeline
+from ..models import BaseTokenizer
 
 
-@MindFormerRegister.register(MindFormerModuleType.PIPELINE, alias='zero_shot_image_classification')
+@MindFormerRegister.register(MindFormerModuleType.PIPELINE, alias="zero_shot_image_classification")
 class ZeroShotImageClassificationPipeline(BasePipeline):
-    """
-    Pipeline for zero shot image classification
+    r"""Pipeline For Zero Shot Image Classification
 
     Args:
-        model: a pretrained model (str or BaseModel) in _supproted_list.
-        tokenizer : a tokenizer (None or PretrainedTokenizer) for text processing
-        image_processor : a image_processor (None or BaseImageProcessor) for image processing
+        model (Union[str, BaseModel]): The model used to perform task,
+            the input could be a supported model name, or a model instance
+            inherited from BaseModel.
+        tokenizer (Optional[BaseTokenizer]): A tokenizer for text processing.
+        image_processor (Optional[BaseImageProcessor]): The image_processor of model,
+            it could be None if the model do not need image_processor.
+
+    Raises:
+        TypeError: If input model, tokenizer, and image_processor's types are not corrected.
+        ValueError: if the input model is not in support list.
+
+    Examples:
+        >>> from mindformers.tools.image_tools import load_image
+        >>> from mindformers.pipeline import ZeroShotImageClassificationPipeline
+        >>> classifier = ZeroShotImageClassificationPipeline(
+            model='clip_vit_b_32',
+            candidate_labels=["sunflower", "tree", "dog", "cat", "toy"],
+            hypothesis_template="This is a photo of {}."
+            )
+        >>> img = load_image("https://ascend-repo-modelzoo.obs.cn-east-2."
+            "myhuaweicloud.com/XFormer_for_mindspore/clip/sunflower.png")
+        >>> classifier(img)
+            [[{'score': 0.99995565, 'label': 'sunflower'},
+            {'score': 2.5318595e-05, 'label': 'toy'},
+            {'score': 9.903885e-06, 'label': 'dog'},
+            {'score': 6.75336e-06, 'label': 'tree'},
+            {'score': 2.396818e-06, 'label': 'cat'}]]
     """
     _support_list = MindFormerBook.get_pipeline_support_task_list()['zero_shot_image_classification'].keys()
 
-    def __init__(self, model, tokenizer=None, image_processor=None, **kwargs):
+    def __init__(self, model: Union[str, BaseModel],
+                 tokenizer: Optional[BaseTokenizer] = None,
+                 image_processor: Optional[BaseImageProcessor] = None,
+                 **kwargs):
         if isinstance(model, str):
             if model in self._support_list:
                 if image_processor is None:
@@ -55,7 +83,7 @@ class ZeroShotImageClassificationPipeline(BasePipeline):
                                  f"please selected from {self._support_list}.")
 
         if not isinstance(model, BaseModel):
-            raise TypeError(f"model should be inherited from BaseModel, but got {type(BaseModel)}.")
+            raise TypeError(f"model should be inherited from BaseModel, but got {type(model)}.")
 
         if tokenizer is None:
             raise ValueError("ZeroShotImageClassificationPipeline"
@@ -67,7 +95,11 @@ class ZeroShotImageClassificationPipeline(BasePipeline):
         super().__init__(model, tokenizer, image_processor, **kwargs)
 
     def _sanitize_parameters(self, **pipeline_parameters):
-        """sanitize parameters for preprocess, forward, and postprocess."""
+        r"""Sanitize Parameters
+
+        Args:
+            pipeline_parameters (Optional[dict]): The parameter dict to be parsed.
+        """
         preprocess_params = {}
         postprocess_params = {}
 
@@ -81,23 +113,27 @@ class ZeroShotImageClassificationPipeline(BasePipeline):
             postprocess_params["top_k"] = pipeline_parameters.get("top_k")
         return preprocess_params, {}, postprocess_params
 
-    def preprocess(self, inputs, **preprocess_params):
-        """
-        Preprocess of ZeroShotImageClassificationPipeline
+    def preprocess(self, inputs: dict, **preprocess_params):
+        r"""Preprocess of ZeroShotImageClassificationPipeline
 
         Args:
-            inputs (url, PIL.Image, tensor, numpy): the image to be classified.
-            candidate_labels (str, list): the candidate labels for classification.
-            max_length (int): max length of tokenizer's output
-            padding (False / "max_length"): padding for max_length
-            return_tensors ("ms"): the type of returned tensors
+            inputs (Union[url, PIL.Image, tensor, numpy]): The image to be classified.
+            candidate_labels (List[str]): The candidate labels for classification.
+            hypothesis_template (Optional[str]): Prompt for text input.
+            max_length (Optional[int]): Max length of tokenizer's output
+            padding (Optional[Union[False, "max_length"]]): Padding for max_length
+            return_tensors (Optional["ms"]): The type of returned tensors
 
         Return:
-            processed image.
+            Processed data.
+
+        Raises:
+            ValueError: If candidate_labels or hypothesis_template is None.
         """
+
         candidate_labels = preprocess_params.pop("candidate_labels", None)
         hypothesis_template = preprocess_params.pop("hypothesis_template",
-                                                    "This is a photo of {}.")
+                                                    "a picture of {}.")
         max_length = preprocess_params.pop("max_length", 77)
         padding = preprocess_params.pop("padding", "max_length")
         return_tensors = preprocess_params.pop("return_tensors", "ms")
@@ -120,15 +156,14 @@ class ZeroShotImageClassificationPipeline(BasePipeline):
         return {"image_processed": image_processed,
                 "input_ids": input_ids, "candidate_labels": candidate_labels}
 
-    def forward(self, model_inputs, **forward_params):
-        """
-        Forward process
+    def forward(self, model_inputs: dict, **forward_params):
+        r"""Forward process
 
         Args:
-            model_inputs (dict): outputs of preprocess.
+            model_inputs (dict): Outputs of preprocess.
 
         Return:
-            probs dict.
+            Probs dict.
         """
         forward_params.pop("None", None)
 
@@ -139,16 +174,15 @@ class ZeroShotImageClassificationPipeline(BasePipeline):
         probs = P.Softmax()(logits_per_image).asnumpy()
         return {"probs": probs, "candidate_labels": model_inputs["candidate_labels"]}
 
-    def postprocess(self, model_outputs, **postprocess_params):
-        """
-        Postprocess
+    def postprocess(self, model_outputs: dict, **postprocess_params):
+        r"""Postprocess
 
         Args:
-            model_outputs (dict): outputs of forward process.
-            top_k (int): return top_k probs of result
+            model_outputs (dict): Outputs of forward process.
+            top_k (int): Return top_k probs of result
 
         Return:
-            classification results.
+            Classification results.
         """
         top_k = postprocess_params.pop("top_k", None)
 

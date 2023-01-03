@@ -15,44 +15,59 @@
 
 """TranslationPipeline"""
 import os.path
+from typing import Union, Optional
 
 import mindspore
+from mindspore import Tensor
 
 from ..auto_class import AutoProcessor, AutoModel
 from ..mindformer_book import MindFormerBook
 from .base_pipeline import BasePipeline
 from ..tools.register import MindFormerRegister, MindFormerModuleType
-from ..models import BaseModel, Tokenizer
+from ..models import BaseModel, BaseTokenizer
 
 __all__ = ['TranslationPipeline']
 
 @MindFormerRegister.register(MindFormerModuleType.PIPELINE)
 class TranslationPipeline(BasePipeline):
-    """
-    Pipeline for translation
+    r"""Pipeline for Translation
 
     Args:
-        model: a pretrained model (str or BaseModel) in _supproted_list.
-        tokenizer : a tokenizer (None or Tokenizer) for text processing
+        model (Union[str, BaseModel]): The model used to perform task,
+            the input could be a supported model name, or a model instance
+            inherited from BaseModel.
+        tokenizer (Optional[BaseTokenizer]): A tokenizer (None or Tokenizer)
+            for text processing.
+
+    Raises:
+        TypeError: If input model and tokenizer's types are not corrected.
+        ValueError: if the input model is not in support list.
+
+    Examples:
+        >>> from mindformers.pipeline import TranslationPipeline
+        >>> translator = TranslationPipeline("t5_small")
+        >>> output = translator("abc")
     """
     _support_list = MindFormerBook.get_model_support_list()['t5']
     return_name = 'translation'
 
-    def __init__(self, model, tokenizer=None, **kwargs):
+    def __init__(self, model: Union[str, BaseModel],
+                 tokenizer: Optional[BaseTokenizer] = None,
+                 **kwargs):
         if isinstance(model, str):
             if model in self._support_list or os.path.isdir(model):
                 if tokenizer is None:
                     tokenizer = AutoProcessor.from_pretrained(model).tokenizer
                 model = AutoModel.from_pretrained(model)
-                if not isinstance(tokenizer, Tokenizer):
+                if not isinstance(tokenizer, BaseTokenizer):
                     raise TypeError(f"tokenizer should be inherited from"
-                                    f" PretrainedTokenizer, but got {type(tokenizer)}.")
+                                    f" BaseTokenizer, but got {type(tokenizer)}.")
             else:
                 raise ValueError(f"{model} is not supported by {self.__class__.__name__},"
                                  f"please selected from {self._support_list}.")
 
         if not isinstance(model, BaseModel):
-            raise TypeError(f"model should be inherited from BaseModel, but got type {type(BaseModel)}.")
+            raise TypeError(f"model should be inherited from BaseModel, but got type {type(model)}.")
 
         if tokenizer is None:
             raise ValueError(f"{self.__class__.__name__}"
@@ -61,7 +76,11 @@ class TranslationPipeline(BasePipeline):
         super().__init__(model, tokenizer, **kwargs)
 
     def _sanitize_parameters(self, **pipeline_parameters):
-        """sanitize parameters for preprocess, forward, and postprocess."""
+        r"""Sanitize Parameters
+
+        Args:
+            pipeline_parameters (Optional[dict]): The parameter dict to be parsed.
+        """
         if 'batch_size' in pipeline_parameters:
             raise ValueError(f"The {self.__class__.__name__} does not support batch inference, please remove the "
                              f"batch_size")
@@ -76,18 +95,16 @@ class TranslationPipeline(BasePipeline):
                 forward_kwargs[item] = pipeline_parameters.get(item)
         return preprocess_params, forward_kwargs, postprocess_params
 
-    def preprocess(self, inputs, **preprocess_params):
-        """
-        Preprocess of Translation
+    def preprocess(self, inputs: Union[str, dict, Tensor],
+                   **preprocess_params):
+        r"""The Preprocess For Translation
 
         Args:
-            inputs (url, PIL.Image, tensor, numpy): the image to be classified.
-            max_length (int): max length of tokenizer's output
-            padding (False / "max_length"): padding for max_length
-            return_tensors ("ms"): the type of returned tensors
+            inputs (Union[str, dict, Tensor]): The text to be classified.
+            preprocess_params (dict): The parameter dict for preprocess.
 
         Return:
-            processed image.
+            Processed text.
         """
         if isinstance(inputs, dict):
             inputs = inputs['text']
@@ -96,30 +113,28 @@ class TranslationPipeline(BasePipeline):
         input_ids = self.tokenizer(inputs, return_tensors=None)["input_ids"]
         return {"input_ids": input_ids}
 
-    def forward(self, model_inputs, **forward_params):
-        """
-        Forward process
+    def forward(self, model_inputs: dict,
+                **forward_params):
+        r"""The Forward Process of Model
 
         Args:
-            model_inputs (dict): outputs of preprocess.
-
-        Return:
-            probs dict.
+            inputs (dict): The output of preprocess.
+            forward_params (dict): The parameter dict for model forward.
         """
         forward_params.pop("None", None)
         input_ids = model_inputs["input_ids"]
         output_ids = self.model.generate(input_ids, **forward_params)
         return {"output_ids": output_ids}
 
-    def postprocess(self, model_outputs, **postprocess_params):
-        """
-        Postprocess
+    def postprocess(self, model_outputs: dict,
+                    **postprocess_params):
+        r"""Postprocess
 
         Args:
-            model_outputs (dict): outputs of forward process.
+            model_outputs (dict): Outputs of forward process.
 
         Return:
-            The generated results
+            translation results.
         """
         outputs = self.tokenizer.decode(model_outputs["output_ids"], skip_special_tokens=True)
         return [{self.return_name + '_text': outputs}]
