@@ -91,11 +91,11 @@ class MindFormerBook:
          ),
         ("image_classification", OrderedDict([
             ("vit_base_p16", os.path.join(
-                _PROJECT_PATH, "configs/vit/run_vit_base_p16_224_800ep.yaml")),
+                _PROJECT_PATH, "configs/vit/run_vit_base_p16_224_100ep.yaml")),
             ("swin_base_p4w7", os.path.join(
                 _PROJECT_PATH, "configs/swin/run_swin_base_p4w7_224_100ep.yaml")),
             ("common", os.path.join(
-                _PROJECT_PATH, "configs/vit/run_vit_base_p16_224_800ep.yaml"))])
+                _PROJECT_PATH, "configs/vit/run_vit_base_p16_224_100ep.yaml"))])
          ),
         ("masked_language_modeling", OrderedDict([
             ("bert_base_uncased", os.path.join(

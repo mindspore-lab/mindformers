@@ -55,7 +55,7 @@ def test_trainer_train_from_instance():
     )
     dataset_config = MindFormerConfig(config_path)
 
-    new_dataset_dir, _ = make_local_directory(dataset_config)
+    new_dataset_dir = make_local_directory(dataset_config)
     make_dataset(new_dataset_dir, num=16)
 
     dataset_config.train_dataset.data_loader.dataset_dir = new_dataset_dir
@@ -104,7 +104,7 @@ def test_trainer_wrapper_from_instance():
     )
     dataset_config = MindFormerConfig(config_path)
 
-    new_dataset_dir, _ = make_local_directory(dataset_config)
+    new_dataset_dir = make_local_directory(dataset_config)
     make_dataset(new_dataset_dir, num=16)
 
     dataset_config.train_dataset.data_loader.dataset_dir = new_dataset_dir
@@ -154,7 +154,7 @@ def test_trainer_general_from_instance():
     )
     dataset_config = MindFormerConfig(config_path)
 
-    new_dataset_dir, _ = make_local_directory(dataset_config)
+    new_dataset_dir = make_local_directory(dataset_config)
     make_dataset(new_dataset_dir, num=16)
 
     dataset_config.train_dataset.data_loader.dataset_dir = new_dataset_dir
@@ -201,7 +201,7 @@ def test_trainer_auto_to_save_config():
     )
     dataset_config = MindFormerConfig(config_path)
 
-    new_dataset_dir, _ = make_local_directory(dataset_config)
+    new_dataset_dir = make_local_directory(dataset_config)
     make_dataset(new_dataset_dir, num=16)
 
     dataset_config.train_dataset.data_loader.dataset_dir = new_dataset_dir
@@ -221,16 +221,11 @@ def test_trainer_auto_to_save_config():
 def make_local_directory(config):
     """make local directory"""
     dataset_dir = config.train_dataset.data_loader.dataset_dir
-    local_root = os.path.join(
-        MindFormerBook.get_default_checkpoint_download_folder(),
-        dataset_dir.split("/")[2]
-    )
-
-    new_dataset_dir = MindFormerBook.get_default_checkpoint_download_folder()
-    for item in dataset_dir.split("/")[2:]:
+    new_dataset_dir = ""
+    for item in dataset_dir.split("/"):
         new_dataset_dir = os.path.join(new_dataset_dir, item)
     os.makedirs(new_dataset_dir, exist_ok=True)
-    return new_dataset_dir, local_root
+    return new_dataset_dir
 
 
 def make_dataset(new_dataset_dir, num):

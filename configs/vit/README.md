@@ -15,7 +15,7 @@ vit：全名vision transformer，不同于传统的基于CNN的网络结果，�
     - 测试集：5G，共5万张图像
 - 数据格式：RGB
 
- ```bash
+ ```text
 数据集目录格式
 └─imageNet-1k
     ├─train                # 训练数据集
@@ -69,15 +69,15 @@ vit：全名vision transformer，不同于传统的基于CNN的网络结果，�
 
  Trainer和pipeline接口默认支持的task和model关键入参
 
-  |    task（string）    | model（string） |
-  | :------------------: | :-------------: |
-  | image_classification |  vit_base_p16   |
+|     task（string）     | model（string） |
+|:--------------------:|:-------------:|
+| image_classification | vit_base_p16  |
 
 ## 模型性能
 
-| model | type | pretrain | Datasets | Top1-Accuracy | Log |                  pretrain_config                   |            finetune_config            |
-| :---------: | :--------: | :---: | :----: | :---: | :---: |:--------------------------------------------------:|:-------------------------------------:|
-| vit | vit_base_p16 | [mae_vit_base_p16]() | ImageNet-1K | 83.17% | \ | [link](../mae/run_mae_vit_base_p16_224_800ep.yaml) | [link](./run_vit_base_p16_100ep.yaml) |
+| model |     type     |       pretrain       |  Datasets   | Top1-Accuracy | Log |                  pretrain_config                   |            finetune_config            |
+|:-----:|:------------:|:--------------------:|:-----------:|:-------------:|:---:|:--------------------------------------------------:|:-------------------------------------:|
+|  vit  | vit_base_p16 | [mae_vit_base_p16]() | ImageNet-1K |    83.17%     |  \  | [link](../mae/run_mae_vit_base_p16_224_800ep.yaml) | [link](./run_vit_base_p16_100ep.yaml) |
 
 ## 模型权重
 

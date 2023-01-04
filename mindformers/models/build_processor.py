@@ -36,7 +36,7 @@ def build_processor(
     Examples:
         >>> from mindformers import build_processor
         >>> from mindformers.tools.register import MindFormerConfig
-        >>> config = MindFormerConfig('configs/vit/run_vit_base_p16_224_800ep.yaml')
+        >>> config = MindFormerConfig('configs/vit/run_vit_base_p16_224_100ep.yaml')
         >>> processor_from_config = build_processor(config.processor)
     """
     if config is None and class_name is None:

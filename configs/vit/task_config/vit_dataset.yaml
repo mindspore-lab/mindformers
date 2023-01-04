@@ -3,7 +3,7 @@ train_dataset: &train_dataset
   batch_size: 32
   data_loader:
     type: ImageFolderDataset
-    dataset_dir: "./checkpoint_download/imageNet-1k/train"
+    dataset_dir: "imageNet-1k/train"
     num_parallel_workers: 8
     shuffle: True
   transforms:

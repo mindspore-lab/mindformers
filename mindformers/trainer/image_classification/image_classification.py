@@ -116,7 +116,7 @@ class ImageClassificationTrainer(BaseTrainer):
             ...
             ...    def __len__(self):
             ...        return len(self._data)
-            >>> config = MindFormerConfig("configs/vit/run_vit_base_p16_224_800ep.yaml")
+            >>> config = MindFormerConfig("configs/vit/run_vit_base_p16_224_100ep.yaml")
             >>> #1) use config to train
             >>> cls_task = ImageClassificationTrainer(model_name='vit')
             >>> cls_task.train(config=config)
@@ -258,7 +258,7 @@ class ImageClassificationTrainer(BaseTrainer):
             ...
             ...    def __len__(self):
             ...        return len(self._data)
-            >>> config = MindFormerConfig("configs/vit/run_vit_base_p16_224_800ep.yaml")
+            >>> config = MindFormerConfig("configs/vit/run_vit_base_p16_224_100ep.yaml")
             >>> #1) use config to evaluate
             >>> cls_task = ImageClassificationTrainer(model_name='vit')
             >>> cls_task.evaluate(config=config)
@@ -341,7 +341,7 @@ class ImageClassificationTrainer(BaseTrainer):
             >>> from mindformers.tools.register import MindFormerConfig
             >>> from mindformers.models import VitModel, VitConfig
             >>> from mindformers import VitImageProcessor
-            >>> config = MindFormerConfig("configs/vit/run_vit_base_p16_224_800ep.yaml")
+            >>> config = MindFormerConfig("configs/vit/run_vit_base_p16_224_100ep.yaml")
             >>> input_data = np.uint8(np.random.random((5, 3, 255, 255)))
             >>> #1) use config to predict
             >>> cls_task = ImageClassificationTrainer(model_name='vit')

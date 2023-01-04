@@ -35,7 +35,7 @@ def build_model(
     Examples:
         >>> from mindformers import build_model
         >>> from mindformers.tools.register import MindFormerConfig
-        >>> config = MindFormerConfig('configs/vit/run_vit_base_p16_224_800ep.yaml')
+        >>> config = MindFormerConfig('configs/vit/run_vit_base_p16_224_100ep.yaml')
         >>> model_from_config = build_model(config.model)
     """
     if config is None and class_name is None:
