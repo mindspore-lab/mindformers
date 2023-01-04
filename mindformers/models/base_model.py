@@ -158,6 +158,7 @@ class BaseModel(nn.Cell, GeneratorMixin):
 
         parsed_config = self._inverse_parse_config(self.config)
         wraped_config = self._wrap_config(parsed_config)
+        self.remove_type(self.config)
 
         meraged_dict = {}
         if os.path.exists(config_path):
@@ -170,6 +171,16 @@ class BaseModel(nn.Cell, GeneratorMixin):
             file_pointer.write(yaml.dump(meraged_dict))
         file_pointer.close()
         logger.info("model saved successfully!")
+
+    def remove_type(self, config):
+        """remove type caused by save’"""
+        if isinstance(config, BaseConfig):
+            config.pop("type")
+
+        for key, val in config.items():
+            if isinstance(val, BaseConfig):
+                val.pop("type")
+                config.update({key: val})
 
     def _inverse_parse_config(self, config):
         """
@@ -186,11 +197,17 @@ class BaseModel(nn.Cell, GeneratorMixin):
 
         class_name = config.__class__.__name__
         config.update({"type": class_name})
+        removed_list = []
 
         for key, val in config.items():
             new_val = self._inverse_parse_config(val)
+            if not isinstance(new_val, (str, int, float, bool, BaseConfig)):
+                removed_list.append(key)
+                continue
             config.update({key: new_val})
 
+        for key in removed_list:
+            config.pop(key)
         return config
 
     def _wrap_config(self, config):

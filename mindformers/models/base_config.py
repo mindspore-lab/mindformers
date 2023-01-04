@@ -159,6 +159,7 @@ class BaseConfig(dict):
 
         parsed_config = self._inverse_parse_config()
         wraped_config = self._wrap_config(parsed_config)
+        self.remove_type()
 
         meraged_dict = {}
         if os.path.exists(save_path):
@@ -172,6 +173,16 @@ class BaseConfig(dict):
         file_pointer.close()
         logger.info("config saved successfully!")
 
+    def remove_type(self):
+        """remove type caused by save’"""
+        if isinstance(self, BaseConfig):
+            self.pop("type")
+
+        for key, val in self.items():
+            if isinstance(val, BaseConfig):
+                val.pop("type")
+                self.update({key: val})
+
     def inverse_parse_config(self):
         """inverse_parse_config"""
         return self._inverse_parse_config()
@@ -184,12 +195,18 @@ class BaseConfig(dict):
             A model config, which follows the yaml content.
         """
         self.update({"type": self.__class__.__name__})
+        removed_list = []
 
         for key, val in self.items():
             if isinstance(val, BaseConfig):
                 val = val.inverse_parse_config()
+            elif not isinstance(val, (str, int, float, bool)):
+                removed_list.append(key)
+                continue
             self.update({key: val})
 
+        for key in removed_list:
+            self.pop(key)
         return self
 
     def _wrap_config(self, config):
