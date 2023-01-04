@@ -40,7 +40,7 @@ class LearningRateWiseLayer(LearningRateSchedule):
         lr = self.base_lr(global_step)
         return self.lr_scale * lr
 
-
+@MindFormerRegister.register(MindFormerModuleType.LR)
 class WarmUpDecayLR(LearningRateSchedule):
     """
     Warmup-decay learning rate for Bert network.

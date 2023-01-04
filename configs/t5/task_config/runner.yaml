@@ -10,7 +10,11 @@ runner_config:
 
 runner_wrapper:
   type: TrainOneStepWithLossScaleCell
-  scale_sense: 65536
+  scale_sense:
+    type: DynamicLossScaleUpdateCell
+    loss_scale_value: 65536
+    scale_factor: 2
+    scale_window: 1000
 
 # optimizer
 optimizer:
@@ -22,10 +26,11 @@ optimizer:
 
 # lr sechdule
 lr_schedule:
-  type: CosineDecayLR
-  max_lr: 0.0001
-  min_lr: 0.
-  decay_steps: 2000
+  type: WarmUpDecayLR
+  learning_rate: 0.00001
+  end_learning_rate: 0.0
+  warmup_steps: 0
+  decay_steps: -1 # -1 means it will laod the total steps of the dataset
 
 callbacks:
   - type: LossMonitor

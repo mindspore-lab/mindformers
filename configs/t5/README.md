@@ -33,7 +33,7 @@ T5:全名`Text-to-Text Transfer Transformer`模型是谷歌在2019年基于C4数
 示例命令如下，将会执行一个只有1层的T5模型训练
 
 ```shell
-python run_mindformer.py --config configs/t5/run_t5_tiny.yaml --run_status train  \
+python run_mindformer.py --config configs/t5/run_t5_tiny_on_wmt16.yaml --run_status train  \
                          --device_target Ascend \
                          --dataset_dir /your_path/wmt_en_ro
 ```

@@ -7,6 +7,7 @@ train_dataset: &train_dataset
     src_max_length: 32 # this will truncate the source input sequence
     tgt_max_length: 32
     prefix: "translate the English to Romain:"
+    stage: 'train'
   input_columns: ["input_ids", "attention_mask", "labels"]
   output_columns: ["input_ids", "attention_mask", "labels"]
   num_parallel_workers: 8

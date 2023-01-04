@@ -32,7 +32,7 @@ class TranslationDataset(BaseDataset):
     def __new__(cls, dataset_config: dict = None):
         logger.info("Now Create T5 Dataset.")
         cls.init_dataset_config(dataset_config)
-        if dataset_config.data_loader != 'MindDataset':
+        if dataset_config.data_loader.type != 'MindDataset':
             dataset = cls._process_raw_text_data(dataset_config)
         else:
             dataset = cls._process_mindrecord_data(dataset_config)
@@ -112,5 +112,5 @@ class TranslationDataset(BaseDataset):
         dataset = build_dataset_loader(
             dataset_config.data_loader, default_args={'dataset_files': dataset_files[0],
                                                       'num_shards': device_num, 'shard_id': rank_id,
-                                                      'column_names': dataset_config.input_columns})
+                                                      'column_list': dataset_config.input_columns})
         return dataset

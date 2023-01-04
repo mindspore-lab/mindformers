@@ -96,7 +96,8 @@ class TranslationTrainer(BaseTrainer):
         if dataset is None:
             dataset = build_dataset(config.train_dataset_task)
         check_runner_config(config, dataset)
-
+        step_per_epoch = dataset.get_dataset_size()
+        total_steps = config.runner_config.epochs * step_per_epoch
         # build network
         if network is None:
             logger.info(".........Build Net..........")
@@ -110,8 +111,11 @@ class TranslationTrainer(BaseTrainer):
         if optimizer is None:
             # build learning rate schedule
             logger.info(".........Build LR Schedule..........")
+            if config and config.lr_schedule and config.lr_schedule.decay_steps == -1:
+                config.lr_schedule.decay_steps = total_steps
             lr_schedule = build_lr(config.lr_schedule)
             group_params = network.trainable_params()
+
             if lr_schedule is not None:
                 optimizer = build_optim(
                     config.optimizer,

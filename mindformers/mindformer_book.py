@@ -117,9 +117,9 @@ class MindFormerBook:
          ),
         ("translation", OrderedDict([
             ("t5_small", os.path.join(
-                _PROJECT_PATH, "configs/t5/run_t5_small.yaml")),
+                _PROJECT_PATH, "configs/t5/run_t5_small_on_wmt16.yaml")),
             ("common", os.path.join(
-                _PROJECT_PATH, "configs/t5/run_t5_small.yaml"))])
+                _PROJECT_PATH, "configs/t5/run_t5_small_on_wmt16.yaml"))])
          )
     ])
 
