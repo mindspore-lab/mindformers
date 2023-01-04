@@ -32,7 +32,8 @@ from mindformers.common.parallel_config import build_parallel_config
 from mindformers.dataset import build_dataset, build_dataset_loader, \
     check_dataset_config, BaseDataset
 from mindformers.mindformer_book import MindFormerBook
-from mindformers.models import BaseModel, BaseImageProcessor, BaseTokenizer, BaseAudioProcessor
+from mindformers.models import build_model, BaseModel, BaseImageProcessor, \
+    BaseTokenizer, BaseAudioProcessor
 from mindformers.tools.cloud_adapter import CFTS
 from mindformers.tools.logger import logger
 from mindformers.tools.register import MindFormerConfig, MindFormerRegister
@@ -102,9 +103,6 @@ class Trainer:
             It support dict or set in MindSpore's Metric class.
             Default: None.
         save_config (bool): Save current the config of task. Default: False.
-
-    Supported Platforms:
-        ``Ascend`` ``GPU`` ``CPU``
 
     Raises:
         KeyError: If 'task' or 'model' not in supported trainer.
@@ -177,7 +175,6 @@ class Trainer:
                  compute_metrics: Optional[Union[dict, set]] = None,
                  save_config: bool = False,
                  **kwargs):
-
         self.task = task
         self.model = model
         self.train_dataset = train_dataset
@@ -293,6 +290,16 @@ class Trainer:
         # pprint last config
         pprint(self.config)
 
+        # build network
+        if self.model is None and self.task != 'general':
+            logger.info("...........Start Init Network..........")
+            self.model = build_model(self.config.model)
+
+        # build task trainer
+        self.trainer = build_trainer(self.config.trainer)
+        if self.trainer is None:
+            raise ModuleNotFoundError("config must be contain 'trainer' key, but get None.")
+
     def train(self, resume_or_finetune_from_checkpoint: Optional[Union[str, bool]] = False,
               initial_epoch: int = 0, do_eval: bool = False, do_finetune: bool = False, **kwargs):
         r"""Train task for Trainer.
@@ -313,9 +320,6 @@ class Trainer:
 
         Raises:
             TypeError: if resume_or_finetune_from_checkpoint is not bool or str type.
-
-        Supported Platforms:
-            ``Ascend`` ``GPU`` ``CPU``
 
         Examples:
             >>> from mindformers import Trainer
@@ -368,8 +372,7 @@ class Trainer:
         if initial_epoch != 0:
             self.config.runner_config.initial_epoch = initial_epoch
 
-        trainer = build_trainer(self.config.trainer)
-        trainer.train(
+        self.trainer.train(
             config=self.config, network=self.model,
             dataset=self.train_dataset, optimizer=self.optimizers,
             eval_dataset=self.eval_dataset if do_eval else None,
@@ -389,9 +392,6 @@ class Trainer:
 
         Raises:
             TypeError: if eval_checkpoint is not bool or str type.
-
-        Supported Platforms:
-            ``Ascend`` ``GPU`` ``CPU``
 
         Examples:
             >>> from mindformers import Trainer
@@ -414,8 +414,7 @@ class Trainer:
 
         self._check_checkpoint_config(eval_checkpoint)
 
-        trainer = build_trainer(self.config.trainer)
-        trainer.evaluate(
+        self.trainer.evaluate(
             config=self.config, network=self.model,
             dataset=self.eval_dataset, callbacks=self.callbacks, **kwargs)
 
@@ -440,9 +439,6 @@ class Trainer:
         Raises:
             TypeError: if predict_checkpoint is not bool or str type.
             TypeError: if input_data is not Tensor or np.ndarray or Image or str or list.
-
-        Supported Platforms:
-            ``Ascend`` ``GPU`` ``CPU``
 
         Examples:
             >>> from mindformers import Trainer
@@ -478,8 +474,7 @@ class Trainer:
 
         self._check_checkpoint_config(predict_checkpoint)
 
-        trainer = build_trainer(self.config.trainer)
-        output_result = trainer.predict(
+        output_result = self.trainer.predict(
             config=self.config, input_data=input_data,
             network=self.model, image_processor=self.image_processor,
             audio_processor=self.audio_processor,
@@ -505,9 +500,6 @@ class Trainer:
             optimizer_shard (bool): Whether to enable optimizer shard. Default False.
             gradient_aggregation_group (int): The fusion group size of the optimizer state sharding. Default: 4.
             vocab_emb_dp (bool): Shard embedding in model parallel or data parallel. Default: True.
-
-        Supported Platforms:
-            ``Ascend`` ``GPU``
 
         Examples:
             >>> from mindformers.trainer import Trainer
@@ -539,9 +531,6 @@ class Trainer:
             mp_comm_recompute (bool): Specifies whether the model parallel communication operators
                 in the cell are recomputed in auto parallel or semi auto parallel mode. Default: True.
             recompute_slice_activation (bool): Slice the cell output which would remains in memory. Default: False.
-
-        Supported Platforms:
-            ``Ascend`` ``GPU``
 
         Examples:
             >>> from mindformers.trainer import Trainer
@@ -585,9 +574,6 @@ class Trainer:
             comp_comm_parallel_degree (int): The split number of compute and communication. The larger the numbers,
                 the more overlap there will be but will consume more memory. Default: 2. This parameter is effective
                 only when comp_comm_parallel enable.
-
-        Supported Platforms:
-            ``Ascend`` ``GPU``
 
         Examples:
             >>> from mindformers.trainer import Trainer

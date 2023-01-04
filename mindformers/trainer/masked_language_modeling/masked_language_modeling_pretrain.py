@@ -79,9 +79,6 @@ class MaskedLanguageModelingTrainer(BaseTrainer):
                 It support CallBack or CallBack List of MindSpore.
                 Default: None.
 
-        Supported Platforms:
-            ``Ascend`` ``GPU`` ``CPU``
-
         Raises:
             NotImplementedError: If wrapper not implemented.
         """
