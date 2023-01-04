@@ -7,30 +7,30 @@ model:
 
     text_config:
       type: ClipTextConfig
-      hidden_size: 512
-      vocab_size: 49408
-      max_position_embeddings: 77
-      num_hidden_layers: 12
+      hidden_size: 512  # size of text feature
+      vocab_size: 49408  # size of vocab
+      max_position_embeddings: 77   # length of tokens
+      num_hidden_layers: 12  # nums of text transformers
 
     vision_config:
       type: ClipVisionConfig
-      hidden_size: 768
-      image_size: 224
-      patch_size: 32
-      num_hidden_layers: 12
+      hidden_size: 768  # size of image features
+      image_size: 224   # input image size
+      patch_size: 32    # input of image patch size
+      num_hidden_layers: 12  # nums of vision transformers
 
-    dtype: float16
-    checkpoint_name_or_path: clip_vit_b_32
-    projection_dim: 512
-    ratio: 64
+    dtype: float16  # type of tensors
+    checkpoint_name_or_path: clip_vit_b_32   # the loaded model type
+    projection_dim: 512  # feature dims
+    ratio: 64  # the ratio of attentions heads and feature size
 
 processor:
   type: ClipProcessor
 
   image_processor:
     type: ClipImageProcessor
-    image_resolution: 224
+    image_resolution: 224  # input image size
 
   tokenizer:
     type: ClipTokenizer
-    pad_token: '!'
+    pad_token: '!' # corresponding token id is 0
