@@ -79,9 +79,6 @@ class GeneralTaskTrainer(BaseTrainer):
                 It support CallBack or CallBack List of MindSpore.
                 Default: None.
 
-        Supported Platforms:
-            ``Ascend`` ``GPU`` ``CPU``
-
         Raises:
             NotImplementedError: If network or dataset not implemented.
 
@@ -208,9 +205,6 @@ class GeneralTaskTrainer(BaseTrainer):
             compute_metrics (Optional[Union[dict, set]]): The metric of evaluating.
                 It support dict or set in MindSpore's Metric class.
                 Default: None.
-
-        Supported Platforms:
-            ``Ascend`` ``GPU`` ``CPU``
 
         Raises:
             NotImplementedError: If network or dataset or compute_metrics not implemented.

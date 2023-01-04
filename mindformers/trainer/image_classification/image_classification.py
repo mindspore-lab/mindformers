@@ -92,9 +92,6 @@ class ImageClassificationTrainer(BaseTrainer):
                 It support CallBack or CallBack List of MindSpore.
                 Default: None.
 
-        Supported Platforms:
-            ``Ascend`` ``GPU`` ``CPU``
-
         Raises:
             NotImplementedError: If wrapper not implemented.
 
@@ -237,9 +234,6 @@ class ImageClassificationTrainer(BaseTrainer):
             compute_metrics (Optional[Union[dict, set]]): The metric of evaluating.
                 It support dict or set in MindSpore's Metric class.
                 Default: None.
-
-        Supported Platforms:
-            ``Ascend`` ``GPU`` ``CPU``
 
         Examples:
             >>> import numpy as np

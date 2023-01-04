@@ -84,9 +84,6 @@ class ZeroShotImageClassificationTrainer(BaseTrainer):
             compute_metrics (Optional[Union[dict, set]]): The metric of evaluating.
                 It support dict or set in MindSpore's Metric class.
                 Default: None.
-
-        Supported Platforms:
-            ``Ascend`` ``GPU`` ``CPU``
         """
         self.kwargs = kwargs
         # build dataset
