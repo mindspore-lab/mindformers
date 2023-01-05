@@ -23,7 +23,7 @@ from .base_dataset import BaseDataset
 
 
 @MindFormerRegister.register(MindFormerModuleType.DATASET)
-class BertPretrainDataset(BaseDataset):
+class MaskLanguageModelDataset(BaseDataset):
     """Bert pretrain dataset."""
     def __new__(cls, dataset_config: dict = None):
         logger.info("Now Create Masked Image Modeling Dataset.")
