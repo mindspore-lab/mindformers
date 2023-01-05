@@ -16,7 +16,7 @@
 """
 ClipModel
 """
-
+from typing import Optional, Union
 import numpy as np
 
 import mindspore as ms
@@ -29,21 +29,31 @@ import mindspore.ops as ops
 from ...mindformer_book import MindFormerBook
 from ..base_model import BaseModel
 from .clip_modules import VisionTransformer, Transformer, LayerNorm
+from .clip_config import ClipConfig
 from ...tools.register import MindFormerRegister, MindFormerModuleType
 
 
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
 class ClipModel(BaseModel):
-    """
-    ClipModel.
+    r"""ClipModel.
     The supported model name could be selected from ClipModel.show_support_list().
 
     Args:
-        config (ClipConfig): the config of clip model.
+        config (ClipConfig): The config of clip model, which could be obtained by ClipConfig class.
+
+    Examples:
+        >>> from mindformers import ClipModel
+        >>> ClipModel.show_support_list()
+            INFO - support list of ClipModel is:
+            INFO -    ['clip_vit_b_32']
+            INFO - -------------------------------------
+        >>> model = ClipModel.from_pretrained('clip_vit_b_32')
+        >>> type(model)
+            <class 'mindformers.models.clip.clip.ClipModel'>
     """
     _support_list = MindFormerBook.get_model_support_list()['clip']
 
-    def __init__(self, config):
+    def __init__(self, config: ClipConfig):
         super(ClipModel, self).__init__(config)
         self.dtype = self.get_dtype(config.dtype)
         self.cross_entropy = nn.SoftmaxCrossEntropyWithLogits(reduction="mean", sparse=True)
@@ -85,29 +95,49 @@ class ClipModel(BaseModel):
 
         self._load_checkpoint(config)
 
-    def get_dtype(self, dtype):
-        """get_dtype"""
+    def get_dtype(self, dtype: str):
+        """Get_dtype"""
         if dtype == "float16":
             return ms.float16
         if dtype == "float32":
             return ms.float32
         raise TypeError("unsupported data type.")
 
-    def construct(self, image, text, label=None):
-        """
-        construct
+    def construct(self, image: ms.Tensor, text: ms.Tensor,
+                  label: Optional[Union[ms.Tensor, np.ndarray]] = None):
+        r"""Construct
 
         Args:
-            image (tensor): a image tensor processed by feature extractor
-            text (tensor): a text id tensor processed by tokenizer
-            label (tensor): the classification label
+            image (Tensor): A image tensor processed by image_processor.
+            text (Tensor): A text id tensor processed by tokenizer.
+            label (Optional[Union[ms.Tensor, np.ndarray]]): The classification label.
 
         Returns:
-            if self.trainining:
-                logits_per_image: similarity between image and text
-                logits_per_text: similarity between text and image
+            if not self.trainining:
+                if label is None:
+                    logits_per_image: Similarity between image and text.
+                    logits_per_text: Similarity between text and image.
+                else:
+                    logits_per_image: Similarity between image and text.
+                    label: The classification label.
             else:
-                loss: constructive language image pretraining loss
+                loss: Constructive language image pretraining loss.
+
+        Examples:
+            >>> import numpy as np
+            >>> from mindformers import ClipModel, ClipProcessor
+            >>> processor = ClipProcessor.from_pretrained('clip_vit_b_32')
+            >>> model = ClipModel.from_pretrained('clip_vit_b_32')
+            >>> fake_image_batch = np.random.random((5, 3, 578, 213))
+            >>> fake_text_batch = ["a boy", "a girl", "a women", "a men"]
+            >>> model(**processor(fake_image_batch, fake_text_batch))
+                (Tensor(shape=[5, 4], dtype=Float32, value=
+                [[2.26097965e+001, 2.29247952e+001, 2.40179482e+001, 2.30396290e+001],
+                 [2.26102257e+001, 2.29256859e+001, 2.40180817e+001, 2.30393028e+001],
+                 [2.26097965e+001, 2.29247952e+001, 2.40179482e+001, 2.30396290e+001],
+                 [2.26109924e+001, 2.29261818e+001, 2.40193062e+001, 2.30404854e+001],
+                 [2.26097965e+001, 2.29247952e+001, 2.40179482e+001, 2.30396290e+001]]),
+                 Tensor(shape=[4, 5], dtype=Float32, value= ...))
         """
         if len(text.shape) == 3:
             text = text[0].squeeze()
@@ -139,33 +169,60 @@ class ClipModel(BaseModel):
         return loss
 
     def build_attention_mask(self):
-        """buil_attention_mask"""
+        """Build_attention_mask"""
         mask = np.ones((self.max_position_embeddings, self.max_position_embeddings))
         mask = np.triu(mask * float("-inf"), k=1)
         return Tensor(mask).astype(self.dtype)
 
-    def get_image_features(self, image):
-        """
-        get_image_features
+    def get_image_features(self, image: ms.Tensor):
+        r"""Get_image_features
 
         Args:
-            image (tensor): a image tensor processed by feature extractor
+            image (ms.Tensor): A image tensor processed by image_processor.
 
         Returns:
-            image feature
+            Image feature.
+
+        Examples:
+            >>> import numpy as np
+            >>> from mindformers import ClipModel, ClipProcessor
+            >>> processor = ClipProcessor.from_pretrained('clip_vit_b_32')
+            >>> model = ClipModel.from_pretrained('clip_vit_b_32')
+            >>> fake_image_batch = np.random.random((5, 3, 578, 213))
+            >>> model.get_image_features(processor.image_processor(fake_image_batch))
+                Tensor(shape=[5, 512], dtype=Float32, value=
+                [[-1.50102973e-001, -2.63687313e-001, -5.65953791e-001 ... -2.93511450e-001],
+                 [-1.50103331e-001, -2.63622820e-001, -5.65623760e-001 ... -2.93337226e-001],
+                 [-1.50102973e-001, -2.63687313e-001, -5.65953791e-001 ... -2.93511450e-001],
+                 [-1.49712294e-001, -2.64100820e-001, -5.65740824e-001 ... -2.93599486e-001],
+                 [-1.50102973e-001, -2.63687313e-001, -5.65953791e-001 ... -2.93511450e-001]])
         """
         image = image.astype(self.dtype)
         return self.visual(image)
 
-    def get_text_features(self, text):
-        """
-        get_text_features
+    def get_text_features(self, text: ms.Tensor):
+        r"""Get_text_features
 
         Args:
-            text (tensor): a text id tensor processed by tokenizer
+            text (ms.Tensor): A text id tensor processed by tokenizer.
 
         Returns:
-            text feature
+            Text feature.
+
+        Examples:
+            >>> from mindformers import ClipModel, ClipProcessor
+            >>> processor = ClipProcessor.from_pretrained('clip_vit_b_32')
+            >>> model = ClipModel.from_pretrained('clip_vit_b_32')
+            >>> fake_text_batch = ["a boy", "a girl", "a women", "a men"]
+            >>> text = processor.tokenizer(
+                fake_text_batch, max_length=77, padding="max_length", return_tensors="ms"
+                )["input_ids"]
+            >>> model.get_text_features(text)
+                Tensor(shape=[4, 512], dtype=Float32, value=
+                [[6.03631809e-002, 1.79528534e-001, ... -2.23753393e-001, 1.42413378e-002],
+                [1.28974199e-001, 7.46373609e-002, ...  -3.68579805e-001, 1.53980583e-001],
+                [9.89909172e-002, 2.01410800e-002, ...  -2.54495114e-001, 7.68117979e-002],
+                [3.16975415e-002, 2.26992741e-001, ... -5.22942394e-002, 1.98922127e-001]])
         """
         text_ = self.token_embedding(text).astype(self.dtype)
         text_ = ops.Add()(text_, self.positional_embedding).astype(self.dtype)

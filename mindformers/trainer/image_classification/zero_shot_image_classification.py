@@ -44,10 +44,27 @@ __all__ = ['ZeroShotImageClassificationTrainer']
 @MindFormerRegister.register(MindFormerModuleType.TRAINER)
 class ZeroShotImageClassificationTrainer(BaseTrainer):
     r"""ZeroShotImageClassification Task For Trainer.
+
     Args:
         model_name (str): The model name of Task-Trainer. Default: None
+
     Raises:
         NotImplementedError: If train method or evaluate method or predict method not implemented.
+
+    Examples:
+        >>> import os
+        >>> from mindformers import MindFormerBook, MindFormerConfig
+        >>> from mindformers import ZeroShotImageClassificationTrainer
+        >>> project_path = MindFormerBook.get_project_path()
+        >>> config_path = os.path.join(project_path, "configs",
+        >>>                 "clip", "run_clip_vit_b_32_zero_shot_image_classification_cifar100.yaml")
+        >>> config = MindFormerConfig(config_path)
+            Note:
+                Put cifar100 dataset to ./
+                The detailed data setting could refer to ./configs/clip/README.md
+        >>> trainer = ZeroShotImageClassificationTrainer(config)
+        >>> trainer.evaluate()
+        >>> trainer.predict()
     """
 
     def __init__(self, model_name: str = None):
@@ -69,24 +86,22 @@ class ZeroShotImageClassificationTrainer(BaseTrainer):
 
         Args:
             config (Optional[Union[dict, ConfigArguments]]): The task config which is used to
-                configure the dataset, the hyper-parameter, optimizer, etc.
-                It support config dict or ConfigArguments class.
+                configure the dataset, the hyper-parameter, etc.
+                It supports config dict or ConfigArguments class.
                 Default: None.
-            network (Optional[Union[str, BaseModel]]): The network for trainer. It support model name supported
-                or BaseModel class. Supported model name can refer to ****.
+            network (Optional[Union[str, BaseModel]]): The network for trainer.
+                It supports model name supported or BaseModel class.
                 Default: None.
-            dataset (Optional[Union[str, BaseDataset]]): The training dataset. It support real dataset path or
+            dataset (Optional[Union[str, BaseDataset]]): The dataset.
+                It supports real dataset path or
                 BaseDateset class or MindSpore Dataset class.
                 Default: None.
             callbacks (Optional[Union[Callback, List[Callback]]]): The training callback function.
-                It support CallBack or CallBack List of MindSpore.
+                It supports CallBack or CallBack List of MindSpore.
                 Default: None.
             compute_metrics (Optional[Union[dict, set]]): The metric of evaluating.
-                It support dict or set in MindSpore's Metric class.
+                It supports dict or set in MindSpore's Metric class.
                 Default: None.
-
-        Supported Platforms:
-            ``Ascend`` ``GPU`` ``CPU``
         """
         self.kwargs = kwargs
         # build dataset
@@ -133,6 +148,21 @@ class ZeroShotImageClassificationTrainer(BaseTrainer):
                 image_processor: Optional[BaseImageProcessor] = None, **kwargs):
         r"""Predict task for ZeroShotImageClassification Trainer.
         This function is used to predict the network.
+
+        Args:
+            config (Optional[Union[dict, ConfigArguments]]): The task config which is used to
+                configure the dataset, the hyper-parameter, etc.
+                It supports config dict or ConfigArguments class.
+                Default: None.
+            network (Optional[Union[str, BaseModel]]): The network for trainer.
+                It supports model name or BaseModel class.
+                Default: None.
+            input_data (Optional[Union[GeneratorDataset, Tensor, np.ndarray, Image, str, list]]):
+                The dataset. It supports real dataset path or
+                BaseDateset class or MindSpore Dataset class.
+                Default: None.
+            tokenizer (Optional[BaseTokenizer]): Used for text process.
+            image_processor (Optional[BaseImageProcessor]): Used for image process.
         """
         self.kwargs = kwargs
         logger.info(".........Build Input Data For Predict..........")

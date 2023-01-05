@@ -15,6 +15,7 @@
 """Flickr8k DataLoader."""
 import os
 from collections import defaultdict
+from typing import Optional, Union, List, Tuple
 
 from mindspore.dataset import GeneratorDataset
 
@@ -26,25 +27,55 @@ from ...tools.register import MindFormerRegister, MindFormerModuleType
 class Flickr8kDataLoader:
     """Flicker8k Dataloader"""
     _default_column_names = ["image", "text"]
-    def __new__(cls, dataset_dir, annotation_dir, column_names=None, stage="train"):
-        """
-        Flicker8k Dataloader API
+    def __new__(cls, dataset_dir: str, annotation_dir: str,
+                column_names: Optional[Union[List[str], Tuple[str]]] = None,
+                stage: Optional[str] = "train"):
+        r"""
+        Flicker8k Dataloader API.
 
         Args:
-            dataset_dir: the directory to images
-            annotation_dir: the directory to Flickr_8k.trainImages.txt, Flickr_8k.testImages.txt,
-                            Flickr_8k.devImages.txt, and Flickr8k.token.txt
-            stege: the supported key words are in ["train", "test", "del", "all"]
-            column_names: the output column names, a tuple or a list of string with length 2
+            dataset_dir (str): The directory to images.
+            annotation_dir (str): The directory to Flickr_8k.trainImages.txt, Flickr_8k.testImages.txt,
+                Flickr_8k.devImages.txt, and Flickr8k.token.txt
+            column_names (Optional[Union[List[str], Tuple[str]]]): The output column names,
+                a tuple or a list of string with length 2
+            stage (Optional[str]): The supported key words are in ["train", "test", "del", "all"]
 
         Return:
-            a GeneratorDataset for Flickr8k dataset
+            A GeneratorDataset for Flickr8k dataset
+
+        Raises:
+            ValueError: Error input for dataset_dir, annotation_dir, and column_names.
+            TypeError: Type error for column_names.
+
+        Examples:
+            >>> from mindformers import Flickr8kDataLoader
+            >>> data_loader = Flickr8kDataLoader("./Flickr8k/Flickr8k_Dataset/Flickr8k_Dataset",
+            >>>                 "./Flickr8k/Flickr8k_text")
+            >>> data_loader = data_loader.batch(1)
+            >>> for item in data_loader:
+            >>>     print(item)
+            >>>     break
+                [Tensor(shape=[1, 378, 500, 3], dtype=UInt8, value=
+                [[[[ 89,  46,  55],
+                [ 89,  62,  55],
+                [ 83,  59,  49],
+                ...
+                [161, 152, 135],
+                [162, 156, 142],
+                [159, 162, 145]]]]), Tensor(shape=[1, 5], dtype=String, value=
+                [['A woman and child sitting on a bench beside a wooden bear carving .',
+                'A woman and little girl are sitting on a wooden bench beside a wooden bear .',
+                'A woman holds a little girl next to a large wooden carving of a bear .',
+                'A woman with a young girl pose with bear statues in front of a store .',
+                'A young girl being held by an older woman wearing bluejeans sitting on the
+                 lap of a bear statue near the entrance to a wooden building .']])]
         """
         if not os.path.isdir(dataset_dir):
             raise ValueError(f"{dataset_dir} is not existed.")
 
         if not os.path.isdir(annotation_dir):
-            raise TypeError(f"{annotation_dir} is not existed.")
+            raise ValueError(f"{annotation_dir} is not existed.")
 
         if column_names is None:
             column_names = cls._default_column_names
@@ -67,23 +98,26 @@ class Flickr8kDataLoader:
 class Flickr8kDataSet:
     """Flickr8k DataSet"""
     def __init__(self, dataset_dir, annotation_dir, stage="train"):
-        """
-        Flicker8k Dataset
+        r"""
+        Flickr8k Dataset
 
         Args:
-            dataset_dir: the directory to images
-            annotation_dir: the directory to Flickr_8k.trainImages.txt, Flickr_8k.testImages.txt,
+            dataset_dir (str): The directory to images
+            annotation_dir (str): The directory to Flickr_8k.trainImages.txt, Flickr_8k.testImages.txt,
                             Flickr_8k.devImages.txt, and Flickr8k.token.txt
-            stege: the supported key words are in ["train", "test", "dev", "all"]
+            stage (str): The supported key words are in ["train", "test", "dev", "all"]
 
         Return:
-            a iterable dataset for Flickr8k dataset
+            A iterable dataset for Flickr8k dataset
+
+        Raises:
+            ValueError: Error input for dataset_dir, annotation_dir, and stage.
         """
         if not os.path.isdir(dataset_dir):
             raise ValueError(f"{dataset_dir} is not existed.")
 
         if not os.path.isdir(annotation_dir):
-            raise TypeError(f"{annotation_dir} is not existed.")
+            raise ValueError(f"{annotation_dir} is not existed.")
 
         self.dataset_dir = dataset_dir
 
@@ -102,7 +136,7 @@ class Flickr8kDataSet:
         elif stage == "all":
             image_names = [file for file in os.listdir(dataset_dir) if file.endswith(".jpg")]
         else:
-            raise KeyError("unsupported stage.")
+            raise ValueError("unsupported stage.")
 
         annotation_file = os.path.join(annotation_dir, "Flickr8k.token.txt")
         with open(annotation_file, 'r', encoding='utf-8') as file:

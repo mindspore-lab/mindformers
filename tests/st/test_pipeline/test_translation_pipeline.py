@@ -19,11 +19,9 @@ ZeroShotImageClassificationPipeline
 
 How to run this:
 windows:
-pytest .\\tests\\st\\test_pipeline
-\\test_zero_shot_image_classification_pipeline.py
+pytest .\\tests\\st\\test_pipeline\\test_translation_pipeline.py
 linux:
-pytest ./tests/st/test_pipeline
-/test_zero_shot_image_classification_pipeline.py
+pytest ./tests/st/test_pipeline/test_translation_pipeline.py
 
 Note:
     pipeline also supports a dataset input

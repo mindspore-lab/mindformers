@@ -34,7 +34,29 @@ from ..utils import check_runner_config, resume_checkpoint_for_training
 
 @MindFormerRegister.register(MindFormerModuleType.TRAINER)
 class ContrastiveLanguageImagePretrainTrainer(BaseTrainer):
-    """ Contrastive Language Image Pretrain Trainer."""
+    r"""Contrastive Language Image Pretrain Trainer.
+
+    Args:
+        model_name (str): The model name of Task-Trainer. Default: None
+
+    Raises:
+        NotImplementedError: If train method or evaluate method or predict method not implemented.
+
+    Examples:
+        >>> import os
+        >>> from mindformers import MindFormerBook, MindFormerConfig
+        >>> from mindformers import ContrastiveLanguageImagePretrainTrainer
+        >>> project_path = MindFormerBook.get_project_path()
+        >>> config_path = os.path.join(project_path, "configs", "clip",
+        >>>                            "run_clip_vit_b_32_pretrain_flickr8k.yaml")
+        >>> config = MindFormerConfig(config_path)
+            Note:
+                Put flicker8k dataset to ./checkpoint_download
+                The detailed data setting could refer to ./configs/clip/README.md
+        >>> trainer = ContrastiveLanguageImagePretrainTrainer()
+        >>> trainer.train(config)
+    """
+
     def __init__(self, model_name: str = None):
         super(ContrastiveLanguageImagePretrainTrainer, self).__init__(model_name)
         self.model_name = model_name
@@ -47,7 +69,25 @@ class ContrastiveLanguageImagePretrainTrainer(BaseTrainer):
               optimizer: Optional[Optimizer] = None,
               callbacks: Optional[Union[Callback, List[Callback]]] = None,
               **kwargs):
-        """train for trainer."""
+        r"""Train For Trainer.
+
+        Args:
+            config (Optional[Union[dict, ConfigArguments]]): The task config which is used to
+                configure the dataset, the hyper-parameter, optimizer, etc.
+                It supports config dict or ConfigArguments class.
+                Default: None.
+            network (Optional[Union[str, BaseModel]]): The network for trainer.
+                It supports model name or BaseModel class.
+                Default: None.
+            dataset (Optional[Union[str, BaseDataset]]): The training dataset.
+                It supports real dataset path or
+                BaseDateset class or MindSpore Dataset class.
+                Default: None.
+            optimizer (Optional[Optimizer]): The optimizer used for training .Default: None.
+            callbacks (Optional[Union[Callback, List[Callback]]]): The training callback function.
+                It supports CallBack or CallBack List of MindSpore.
+                Default: None.
+        """
         self.kwargs = kwargs
 
         # build dataset
