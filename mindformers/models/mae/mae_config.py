@@ -13,7 +13,6 @@
 # limitations under the License.
 # ============================================================================
 """Mae Config API."""
-from dataclasses import dataclass
 import mindspore.common.dtype as mstype
 from mindspore.nn.transformer.transformer import TransformerOpParallelConfig, TransformerRecomputeConfig
 from mindspore.nn.transformer.moe import MoEConfig, default_moe_config
@@ -25,7 +24,6 @@ default_parallel_config = TransformerOpParallelConfig(recompute=default_recomput
 
 
 @MindFormerRegister.register(MindFormerModuleType.CONFIG)
-@dataclass
 class MaeConfig(BaseConfig):
     """Mae Config."""
     _support_list = MindFormerBook.get_model_support_list()['mae']

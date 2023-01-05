@@ -13,8 +13,6 @@
 # limitations under the License.
 # ============================================================================
 """Swin Config API."""
-from dataclasses import dataclass
-
 import mindspore.common.dtype as mstype
 from mindspore.nn.transformer.moe import MoEConfig, default_moe_config
 from mindspore.nn.transformer.transformer import TransformerOpParallelConfig, TransformerRecomputeConfig
@@ -32,7 +30,6 @@ default_parallel_config = TransformerOpParallelConfig(recompute=default_recomput
 
 
 @MindFormerRegister.register(MindFormerModuleType.CONFIG)
-@dataclass
 class SwinConfig(BaseConfig):
     """
     Swin config class which defines the model size
