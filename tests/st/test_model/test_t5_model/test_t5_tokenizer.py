@@ -23,7 +23,7 @@ import shutil
 
 import pytest
 
-from mindformers import T5Tokenizer, AutoTokenizer
+from mindformers import T5Tokenizer, AutoTokenizer, BertTokenizer
 
 @pytest.mark.level0
 @pytest.mark.platform_x86_ascend_training
@@ -69,6 +69,15 @@ class TestT5TokenizerMethod:
         tokenizer = T5Tokenizer.from_pretrained(os.path.dirname(__file__))
         res = tokenizer("hello world")["input_ids"]
         tokenizer.decode(res, skip_special_tokens=skip_special_tokens)
+
+    def test_wrong_tokneizer(self):
+        """
+        Feature: Check the wrong args for the bert tokenizer
+        Description: Using call forward process of the tokenizer without error
+        Expectation: No ValueError.
+        """
+        with pytest.raises(ValueError):
+            BertTokenizer.from_pretrained("t5_small")
 
     def test_t5__call__(self):
         """

@@ -30,6 +30,17 @@ T5:全名`Text-to-Text Transfer Transformer`模型是谷歌在2019年基于C4数
 
 - 请参考[使用脚本启动](https://gitee.com/mindspore/transformer/blob/master/README.md#%E6%96%B9%E5%BC%8F%E4%B8%80clone-%E5%B7%A5%E7%A8%8B%E4%BB%A3%E7%A0%81)
 
+示例命令如下，将会执行一个只有1层的T5模型训练
+
+```shell
+python run_mindformer.py --config configs/t5/run_t5_tiny.yaml --run_status train  \
+                         --device_target Ascend \
+                         --dataset_dir /your_path/wmt_en_ro
+```
+
+其中`device_target`根据用户的运行设备不同，可选`GPU/Ascend/CPU`。`config`的入参还可以为`configs/t5/run_t5_small.yaml`，在
+这个配置下将会加载`t5_small`的权重并且开始执行微调。
+
 ### 调用API启动
 
 > 需开发者提前pip安装。具体接口说明请参考[API接口](https://gitee.com/mindspore/transformer/wikis/API/)
@@ -37,8 +48,9 @@ T5:全名`Text-to-Text Transfer Transformer`模型是谷歌在2019年基于C4数
 #### 计算Loss
 
 ```python
-from mindformers import T5ModelForLoss, T5Tokenizer
-model = T5ModelForLoss.from_pretrained('t5_small')
+from mindformers import T5ForConditionalGeneration, T5Tokenizer
+
+model = T5ForConditionalGeneration.from_pretrained('t5_small')
 tokenizer = T5Tokenizer.from_pretrained('t5_small')
 
 src_output = tokenizer(["hello world"], padding='max_length', max_length=model.config.seq_length,
@@ -50,7 +62,7 @@ input_ids = src_output['input_ids']
 attention_mask = src_output['attention_mask']
 output = model(input_ids, attention_mask, model_input)
 print(output)
-#[5.64458]
+# [5.64458]
 ```
 
 #### 推理
@@ -58,8 +70,9 @@ print(output)
 执行下述的命令，可以自动云上拉取`t5_small`模型并且进行推理。
 
 ```python
-from mindformers import T5ModelForGeneration, T5Tokenizer
-t5 = T5ModelForGeneration.from_pretrained("t5_small")
+from mindformers import T5ForConditionalGeneration, T5Tokenizer
+
+t5 = T5ForConditionalGeneration.from_pretrained("t5_small")
 tokenizer = T5Tokenizer.from_pretrained("t5_small")
 words = tokenizer("translate the English to the Romanian: UN Chief Says There Is No Military "
                   "Solution in Syria")['input_ids']

@@ -1,6 +1,6 @@
 model:
   arch:
-    type: T5ModelForLoss
+    type: T5ForConditionalGeneration
   model_config:
     attention_probs_dropout_prob: 0.1
     batch_size: 1
@@ -16,15 +16,26 @@ model:
     is_encoder_decoder: true
     label_smoothing: 0.1
     length_penalty_weight: 1.0
-    max_decode_length: 8
+    max_decode_length: 32
     max_length: 32
     max_position_embeddings: 1024
     num_heads: 8
     num_hidden_layers: 1
     repetition_penalty: 1
     scale_output: true
-    seq_length: 16
+    seq_length: 32
     top_k: 1
     top_p: 0.95
     type: T5Config
     vocab_size: 32128
+
+processor:
+  max_length: 77
+  padding: max_length
+  return_tensors: ms
+  tokenizer:
+    eos_token: </s>
+    pad_token: <pad>
+    type: T5Tokenizer
+    unk_token: <unk>
+  type: T5Processor

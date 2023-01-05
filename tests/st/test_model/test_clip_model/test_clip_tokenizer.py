@@ -132,7 +132,10 @@ class TestPretrainedTokenizerMethod:
         with pytest.raises(NotImplementedError):
             tokenizer("hello world")
 
-
+@pytest.mark.level0
+@pytest.mark.platform_x86_ascend_training
+@pytest.mark.platform_arm_ascend_training
+@pytest.mark.env_onecard
 class TestBertTokenizerMethod:
     """A test class for testing the BertTokenizer"""
     def generate_fake_vocab(self):
@@ -185,7 +188,10 @@ class TestBertTokenizerMethod:
                        'token_type_ids': [0, 0, 0, 0], 'attention_mask': [1, 1, 1, 1]}, \
             f"The res is {res} is not equal to the target"
 
-
+@pytest.mark.level0
+@pytest.mark.platform_x86_ascend_training
+@pytest.mark.platform_arm_ascend_training
+@pytest.mark.env_onecard
 class TestClipTokenizerMethod:
     """Test the basic usage of the ClipTokenizer"""
     def test_padding(self):
@@ -196,8 +202,9 @@ class TestClipTokenizerMethod:
         """
         clip_tokenizer = ClipTokenizer.from_pretrained("clip_vit_b_32")
         res = clip_tokenizer("hello world?", max_length=8, padding='max_length')
+        pad_id = clip_tokenizer.pad_token_id
         assert res == {'attention_mask': [1, 1, 1, 1, 1, 0, 0, 0],
-                       'input_ids': [49406, 3306, 1002, 286, 49407, 49407, 49407, 49407]}, f"The res is {res}."
+                       'input_ids': [49406, 3306, 1002, 286, 49407, pad_id, pad_id, pad_id]}, f"The res is {res}."
 
         clip_tokenizer = ClipTokenizer.from_pretrained("clip_vit_b_32")
         res = clip_tokenizer("hello world?", max_length=8, padding='max_length', return_tensors='ms')
@@ -209,9 +216,11 @@ class TestClipTokenizerMethod:
         batch_inputs = ["hello world?", "Who are you?", "I am find, thank you."]
         res = clip_tokenizer(batch_inputs, max_length=12, padding='max_length')
         assert len(res) == 2
-        assert res == {'input_ids': [[49406, 3306, 1002, 286, 49407, 49407, 49407, 49407, 49407, 49407, 49407, 49407],
-                                     [49406, 822, 631, 592, 286, 49407, 49407, 49407, 49407, 49407, 49407, 49407],
-                                     [49406, 328, 687, 1416, 267, 1144, 592, 269, 49407, 49407, 49407, 49407]],
+        assert res == {'input_ids': [[49406, 3306, 1002, 286, 49407, pad_id, pad_id, pad_id, pad_id,
+                                      pad_id, pad_id, pad_id],
+                                     [49406, 822, 631, 592, 286, 49407, pad_id, pad_id, pad_id,
+                                      pad_id, pad_id, pad_id],
+                                     [49406, 328, 687, 1416, 267, 1144, 592, 269, 49407, pad_id, pad_id, pad_id]],
                        'attention_mask': [[1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0],
                                           [1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0],
                                           [1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0]]}

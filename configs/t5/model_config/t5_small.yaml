@@ -1,6 +1,6 @@
 model:
   arch:
-    type: T5ModelForLoss
+    type: T5ForConditionalGeneration
   model_config:
     attention_probs_dropout_prob: 0.1
     batch_size: 1
@@ -28,3 +28,15 @@ model:
     top_p: 0.95
     type: T5Config
     vocab_size: 32128
+    checkpoint_name_or_path: t5_small
+
+processor:
+  max_length: 77
+  padding: max_length
+  return_tensors: ms
+  tokenizer:
+    eos_token: </s>
+    pad_token: <pad>
+    type: T5Tokenizer
+    unk_token: <unk>
+  type: T5Processor

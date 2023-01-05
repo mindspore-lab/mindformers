@@ -35,7 +35,8 @@ from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagati
 from mindspore.nn.transformer.layers import _Linear, _check_input_shape, \
     _check_shape_equal, _check_past_none_input_none, _check_input_dtype
 from mindspore.nn.transformer.moe import MoE, _check_moe_config
-from mindspore.nn.transformer.transformer import default_transformer_config, default_moe_config, default_dpmp_config
+from mindspore.nn.transformer.transformer import default_transformer_config, default_moe_config, default_dpmp_config, \
+    EmbeddingOpParallelConfig, OpParallelConfig
 from mindspore.nn.transformer.loss import CrossEntropyLoss
 from mindspore.nn.transformer import VocabEmbedding
 
@@ -46,7 +47,7 @@ from ...tools import logger
 from ...tools.register import MindFormerRegister, MindFormerModuleType
 from ...mindformer_book import MindFormerBook
 
-__all__ = ['T5Model', 'T5ModelForLoss', 'T5ModelForGeneration']
+__all__ = ['T5ForConditionalGeneration']
 
 
 class LayerNorm(nn.Cell):
@@ -1557,7 +1558,6 @@ class T5Head(nn.Cell):
         return logits
 
 
-@MindFormerRegister.register(MindFormerModuleType.MODELS)
 class T5Model(BaseModel):
     """
     T5Model with encoder and decoder.
@@ -1565,8 +1565,6 @@ class T5Model(BaseModel):
     Args:
         config (Class): Configuration for T5Model.
     """
-
-    _support_list = MindFormerBook.get_model_support_list()['t5']
 
     def __init__(self,
                  config):
@@ -1582,10 +1580,11 @@ class T5Model(BaseModel):
         self.beam_width = config.beam_width
         self.max_decode_length = config.max_decode_length
         self.scale_output = config.scale_output
-
+        embedding_config = EmbeddingOpParallelConfig(data_parallel=config.parallel_config.data_parallel,
+                                                     model_parallel=config.parallel_config.model_parallel)
         self.tfm_embedding_lookup = VocabEmbedding(vocab_size=config.vocab_size,
                                                    embedding_size=self.embedding_size,
-                                                   parallel_config=config.parallel_config.embedding_dp_mp_config)
+                                                   parallel_config=embedding_config)
         self.tfm_embedding_postprocessor_for_encoder = EmbeddingPostprocessor(embedding_size=
                                                                               self.embedding_size,
                                                                               max_position_embeddings=
@@ -1635,9 +1634,13 @@ class T5Model(BaseModel):
         self.decoder_layernorm.shard(((config.parallel_config.data_parallel, 1),))
         self._create_attention_mask_from_input_mask = CreateAttentionMaskFromInputMask(config.parallel_config)
 
-        self._load_checkpoint(config)
 
-    def construct(self, source_ids=None, source_mask=None, target_ids=None, target_mask=None, memory_mask=None,
+    def construct(self,
+                  source_ids=None,
+                  source_mask=None,
+                  target_ids=None,
+                  target_mask=None,
+                  memory_mask=None,
                   encoder_cache=None):
         """T5Model with encoder and decoder."""
         if source_ids is not None:
@@ -1701,7 +1704,7 @@ class T5Model(BaseModel):
 
 
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
-class T5ModelForLoss(BaseModel):
+class T5ForConditionalGeneration(BaseModel):
     """
     A T5 model with the loss added.
 
@@ -1710,8 +1713,8 @@ class T5ModelForLoss(BaseModel):
 
 
     Examples:
-        >>> from mindformers import T5ModelForLoss, T5Tokenizer
-        >>> model = T5ModelForLoss.from_pretrained('t5_small')
+        >>> from mindformers import T5ForConditionalGeneration, T5Tokenizer
+        >>> model = T5ForConditionalGeneration.from_pretrained('t5_small')
         >>> tokenizer = T5Tokenizer.from_pretrained('t5_small')
         >>> src_output = tokenizer(["hello world"], padding='max_length', max_length=model.config.seq_length,
         ...                        return_tensors='ms')
@@ -1727,10 +1730,12 @@ class T5ModelForLoss(BaseModel):
     _support_list = MindFormerBook.get_model_support_list()['t5']
 
     def __init__(self, config: T5Config):
-        super(T5ModelForLoss, self).__init__(config)
+        super(T5ForConditionalGeneration, self).__init__(config)
         parallel_config = config.parallel_config
         self.t5_model = T5Model(config=config)
-        self.loss = CrossEntropyLoss(parallel_config=parallel_config.dp_mp_config)
+
+        self.loss = CrossEntropyLoss(parallel_config=OpParallelConfig(data_parallel=parallel_config.data_parallel,
+                                                                      model_parallel=parallel_config.model_parallel))
         self.cast = ops.Cast()
         self.shape = ops.Shape()
 
@@ -1759,74 +1764,39 @@ class T5ModelForLoss(BaseModel):
         inputs_with_eos = self.concat((target_ids, eod_token))
         return inputs_with_eos
 
+    def encoder_forward(self, source_ids, source_mask):
+        """Execute the encoder forward process"""
+        return self.t5_model.encoder_forward(source_ids, source_mask)
+
     def construct(self,
                   input_ids,
                   attention_mask,
-                  labels,
+                  labels=None,
+                  decoder_inputs=None,
                   target_mask=None,
-                  memory_mask=None):
+                  memory_mask=None,
+                  encoder_output=None,
+                  return_loss=False):
         """t5_model network with loss."""
         if target_mask is None:
             target_mask = F.cast(labels != 0, mstype.float32)
 
-        decoder_inputs = self._add_start_to_inputs(labels[:, :-1])
+        if decoder_inputs is None:
+            decoder_inputs = self._add_start_to_inputs(labels[:, :-1])
 
-        logits = self.t5_model(input_ids, attention_mask, decoder_inputs, target_mask, memory_mask)
+        logits = self.t5_model(input_ids, attention_mask, decoder_inputs, target_mask, memory_mask,
+                               encoder_cache=encoder_output)
 
-        label_ids = ops.Reshape()(labels, (-1,))
-        label_weights = ops.Reshape()(target_mask, (-1,))
-        total_loss = self.loss(logits, label_ids, self.cast(label_weights, mstype.float32))
-        return total_loss
+        total_loss = None
+        if labels is not None:
+            label_ids = ops.Reshape()(labels, (-1,))
+            label_weights = ops.Reshape()(target_mask, (-1,))
+            total_loss = self.loss(logits, label_ids, self.cast(label_weights, mstype.float32))
 
+        if self.phase == 'train':
+            return total_loss
 
-@MindFormerRegister.register(MindFormerModuleType.MODELS)
-class T5ModelForGeneration(BaseModel):
-    """
-    T5 Generation Net. This model is used for inferencing only.
+        if return_loss:
+            return total_loss
 
-    Args:
-        config(T5Config): An instance of the T5Config
-
-    Examples:
-        >>> from mindformers import T5ModelForGeneration, T5Tokenizer
-        >>> t5 = T5ModelForGeneration.from_pretrained("t5_small")
-        >>> tokenizer = T5Tokenizer.from_pretrained("t5_small")
-        >>> words = tokenizer("translate the English to the Romanian: UN Chief Says There Is"
-        ...                   " No Military Solution in Syria")['input_ids']
-        >>> output = t5.generate(words, do_sample=False)
-        >>> output = tokenizer.decode(output[0], skip_special_tokens=True)
-        >>> print(output)
-        "eful ONU declară că nu există o soluţie militară în Siri"
-    """
-    _support_list = MindFormerBook.get_model_support_list()['t5']
-
-    def __init__(self, config: T5Config):
-        super(T5ModelForGeneration, self).__init__(config)
-        self.t5_model = T5Model(config)
-        self.argmax = P.Argmax()
-        self.use_generate = True
-        self.cast = P.Cast()
-        self.gather = P.Gather()
-        self.pad_token = 0
-        self._load_checkpoint(config)
-
-    def construct(self, input_ids, input_mask, current_index=None,
-                  cache_encoder=None, target_id=None, target_mask=None):
-        """evaluation net"""
-        if cache_encoder is None:
-            input_mask = self.cast(input_mask, mstype.float32)
-            outputs = self.t5_model.encoder_forward(input_ids, input_mask)
-        else:
-            input_mask = self.cast(input_mask, mstype.float32)
-            if target_mask is None:
-                target_mask = F.cast(target_id != self.pad_token, mstype.float32)
-            logits = self.t5_model(None, input_mask, target_id, target_mask, None, cache_encoder)
-            outputs = None
-            if self.use_generate:
-                index = current_index.view(-1,)
-                logits = self.gather(logits, index, 0)
-                outputs = nn.LogSoftmax()(logits)
-                outputs = F.tensor_pow(np.e, outputs)
-            else:
-                outputs = self.argmax(logits)
-        return outputs
+        return logits

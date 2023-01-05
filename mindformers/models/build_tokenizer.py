@@ -13,7 +13,7 @@
 # limitations under the License.
 # ============================================================================
 
-"""Build Feature Extractor API."""
+"""Build Tokenizer API."""
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from ..mindformer_book import MindFormerBook
 
@@ -26,7 +26,7 @@ def check_and_add_vocab_file_path(config, **kwargs):
     # If the tokenizer does not require the vocab_file, just stop
     if not dynamic_class.VOCAB_FILES:
         return
-    name_or_path = class_name.lower().rstrip("tokenizer")
+    name_or_path = class_name
     path = kwargs.pop('lib_path', None)
     remote_tokenizer_support_list = MindFormerBook.get_tokenizer_support_list().keys()
     if name_or_path not in remote_tokenizer_support_list and path:
@@ -35,7 +35,8 @@ def check_and_add_vocab_file_path(config, **kwargs):
         config.update(read_vocab_file_dict)
         config.update(read_tokenizer_file_dict)
     else:
-        vocab_file = dynamic_class.cache_vocab_files(name_or_path=name_or_path)
+        support_name = dynamic_class.get_support_list()[0]
+        vocab_file = dynamic_class.cache_vocab_files(name_or_path=support_name)
         config['vocab_file'] = vocab_file
 
 

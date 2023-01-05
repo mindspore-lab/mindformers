@@ -48,6 +48,7 @@ class T5Config(BaseConfig):
                  has_relative_bias: bool = True,
                  scale_output: bool = True,
                  parallel_config: TransformerOpParallelConfig = None,
+                 checkpoint_name_or_path: str = None,
                  top_p=0.95,
                  top_k=1,
                  repetition_penalty=1,
@@ -78,6 +79,8 @@ class T5Config(BaseConfig):
         self.has_relative_bias = has_relative_bias
         self.scale_output = scale_output
         self._parallel_config = parallel_config
+
+        self.checkpoint_name_or_path = checkpoint_name_or_path
 
         # Basic the configuration for the generation
         self.top_p = top_p

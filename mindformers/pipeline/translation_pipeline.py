@@ -28,7 +28,8 @@ from ..models import BaseModel, BaseTokenizer
 
 __all__ = ['TranslationPipeline']
 
-@MindFormerRegister.register(MindFormerModuleType.PIPELINE)
+
+@MindFormerRegister.register(MindFormerModuleType.PIPELINE, alias="translation")
 class TranslationPipeline(BasePipeline):
     r"""Pipeline for Translation
 
@@ -81,10 +82,11 @@ class TranslationPipeline(BasePipeline):
         Args:
             pipeline_parameters (Optional[dict]): The parameter dict to be parsed.
         """
-        if 'batch_size' in pipeline_parameters:
-            raise ValueError(f"The {self.__class__.__name__} does not support batch inference, please remove the "
-                             f"batch_size")
+        preprocess_keys = ['keys']
         preprocess_params = {}
+        for item in preprocess_keys:
+            if item in pipeline_parameters:
+                preprocess_params[item] = pipeline_parameters.get(item)
 
         postprocess_params = {}
 
@@ -107,7 +109,11 @@ class TranslationPipeline(BasePipeline):
             Processed text.
         """
         if isinstance(inputs, dict):
-            inputs = inputs['text']
+            keys = preprocess_params.get('keys', None)
+            default_src_language_name = 'text'
+            feature_name = keys.get('src_language', default_src_language_name) if keys else default_src_language_name
+
+            inputs = inputs[feature_name]
             if isinstance(inputs, mindspore.Tensor):
                 inputs = inputs.asnumpy().tolist()
         input_ids = self.tokenizer(inputs, return_tensors=None)["input_ids"]

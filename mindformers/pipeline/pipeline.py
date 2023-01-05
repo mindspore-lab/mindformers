@@ -83,10 +83,10 @@ def pipeline(
     if model is None:
         model = build_model(pipeline_config.model)
 
-    if image_processor is None:
+    if image_processor is None and hasattr(pipeline_config.processor, 'image_processor'):
         image_processor = build_processor(pipeline_config.processor.image_processor)
 
-    if audio_processor is None:
+    if audio_processor is None and hasattr(pipeline_config.processor, 'audio_processor'):
         audio_processor = build_processor(pipeline_config.processor.audio_processor)
 
     if tokenizer is None:
@@ -98,5 +98,4 @@ def pipeline(
                                    audio_processor=audio_processor,
                                    tokenizer=tokenizer,
                                    **kwargs)
-
     return task_pipeline

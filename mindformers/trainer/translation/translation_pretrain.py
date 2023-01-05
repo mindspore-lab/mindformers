@@ -18,16 +18,19 @@ from typing import Optional, List, Union
 from mindspore.train.model import Model
 from mindspore.train import Callback
 from mindspore.nn import TrainOneStepCell, Optimizer
+from mindspore.dataset import GeneratorDataset
 
 from mindformers.common.callback import build_callback
 from mindformers.dataset import build_dataset, check_dataset_config, BaseDataset
-from mindformers.models import build_model, BaseModel
+from mindformers.models import build_model, BaseModel, BaseTokenizer
 from mindformers.common.lr import build_lr
 from mindformers.common.optim import build_optim
 from mindformers.wrapper import build_wrapper
 from mindformers.tools.logger import logger
 from mindformers.tools.utils import count_params
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
+from mindformers.pipeline import pipeline
+from ...dataset.dataloader import build_dataset_loader
 from ..config_args import ConfigArguments
 from ..base_trainer import BaseTrainer
 from ..utils import check_runner_config, resume_checkpoint_for_training
@@ -42,7 +45,10 @@ class TranslationTrainer(BaseTrainer):
         NotImplementedError: If train method or evaluate method or predict method not implemented.
     """
     def __init__(self, model_name: str = None):
-        super(TranslationTrainer, self).__init__(model_name)
+        name = model_name
+        if isinstance(model_name, BaseModel):
+            name = model_name.__class__
+        super(TranslationTrainer, self).__init__(name)
         self.kwargs = None
 
     def train(self,
@@ -92,8 +98,8 @@ class TranslationTrainer(BaseTrainer):
         check_runner_config(config, dataset)
 
         # build network
-        logger.info(".........Build Net..........")
         if network is None:
+            logger.info(".........Build Net..........")
             network = build_model(config.model, default_args={
                 "parallel_config": config.parallel_config,
                 "moe_config": config.moe_config})
@@ -150,12 +156,76 @@ class TranslationTrainer(BaseTrainer):
             sink_size=config.runner_config.per_epoch_size,
             initial_epoch=config.runner_config.initial_epoch)
 
-    def evaluate(self,
-                 config: Optional[Union[dict, ConfigArguments]] = None,
-                 network: Optional[Union[str, BaseModel]] = None,
-                 dataset: Optional[Union[str, BaseDataset]] = None,
-                 callbacks: Optional[Union[Callback, List[Callback]]] = None,
-                 compute_metrics: Optional[Union[dict, set]] = None,
-                 **kwargs):
-        """evaluate for trainer."""
-        # DIY model eval, TODO
+    def predict(self,
+                config: Optional[Union[dict, ConfigArguments]] = None,
+                input_data: Optional[Union[str, list, GeneratorDataset]] = None,
+                network: Optional[Union[str, BaseModel]] = None,
+                tokenizer: Optional[BaseTokenizer] = None,
+                **kwargs):
+        """
+        Executes the predict of the trainer.
+
+        Args:
+            config (Optional[Union[dict, ConfigArguments]]): The task config which is used to
+                configure the dataset, the hyper-parameter, optimizer, etc.
+                It support config dict or ConfigArguments class.
+                Default: None.
+            input_data (Optional[Union[Tensor, str, list]]): The predict data. Default: None.
+            network (Optional[Union[str, BaseModel]]): The network for trainer. It support model name supported
+                or BaseModel class. Supported model name can refer to model support list. For .
+                Default: None.
+            tokenizer (Optional[BaseTokenizer]): The tokenizer for tokenizing the input text.
+                Default: None.
+
+        Examples:
+            >>> from mindformers import T5ForConditionalGeneration, TranslationTrainer
+            >>> model = T5ForConditionalGeneration.from_pretrained('t5_small')
+            >>> mim_trainer = TranslationTrainer(model_name="t5_small")
+            >>> res = mim_trainer.predict("hello words", network=model)
+            [{'translation_text': ['hello words']}]
+
+        Returns:
+            A list of prediction.
+
+        """
+        self.kwargs = kwargs
+
+        if input_data is None:
+            input_data = build_dataset_loader(config.eval_dataset.data_loader)
+
+        if not isinstance(input_data, (str, list, GeneratorDataset)):
+            raise ValueError("Input data's type must be one of "
+                             f"[str, list, GeneratorDataset], but got type {type(input_data)}")
+
+
+        logger.info(".........Build Net..........")
+        if network is None:
+            network = build_model(config.model)
+
+        if network is not None:
+            logger.info("Network Parameters: %s M.", str(count_params(network)))
+
+        save_file = kwargs.pop("save_file", None)
+        if save_file is None:
+            if config and config.save_file is not None:
+                save_file = config.save_file
+            else:
+                save_file = "results.txt"
+
+        pipeline_task = pipeline(task='translation',
+                                 tokenizer=tokenizer,
+                                 model=network, **kwargs)
+        output_result = pipeline_task(input_data, **kwargs)
+
+        logger.info(".........start to write the output result to: %s.........", save_file)
+        with open(save_file, 'w') as file:
+            if isinstance(output_result, list):
+                for item in output_result:
+                    file.write(str(item) + '\n')
+            else:
+                file.write(str(output_result))
+            file.close()
+
+        logger.info(".........writing result finished..........")
+        logger.info(".........Predict Over!.............")
+        return output_result

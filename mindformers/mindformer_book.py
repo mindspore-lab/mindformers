@@ -138,6 +138,12 @@ class MindFormerBook:
             ('common', os.path.join(
                 _PROJECT_PATH, "configs/vit/model_config/vit_base_p16.yaml"))
         ])),
+        ('translation', OrderedDict([
+            ('t5_small', os.path.join(
+                _PROJECT_PATH, "configs/t5/model_config/t5_small.yaml")),
+            ('common', os.path.join(
+                _PROJECT_PATH, "configs/t5/model_config/t5_small.yaml"))
+        ])),
     ])
 
     _MODEL_SUPPORT_LIST = OrderedDict([
@@ -221,10 +227,6 @@ class MindFormerBook:
             "https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/"
             "XFormer_for_mindspore/t5/spiece.model"
         ]),
-        ('clip', [
-            "https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/"
-            "XFormer_for_mindspore/clip/bpe_simple_vocab_16e6.txt.gz"
-        ])
     ])
 
     _TOKENIZER_NAME_TO_PROCESSOR = OrderedDict([
@@ -234,9 +236,9 @@ class MindFormerBook:
     ])
 
     TOKENIZER_NAME_TO_TOKENIZER = OrderedDict([
-        ('clip', 'ClipTokenizer'),
-        ('bert', 'BertTokenizer'),
-        ('t5', 'T5Tokenizer')
+        ('t5_small', 'T5Tokenizer'),
+        ('clip_vit_b_32', 'ClipTokenizer'),
+        ('bert_base_uncased', 'BertTokenizer')
     ])
 
     @classmethod

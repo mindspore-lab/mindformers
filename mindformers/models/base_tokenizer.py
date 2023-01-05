@@ -131,6 +131,7 @@ class BaseTokenizer(SpecialTokensMixin):
                  add_special_tokens: bool = True,
                  max_length: Optional[int] = None,
                  padding: str = False,
+                 truncation: bool = False,
                  return_tensors: Optional[bool] = None,
                  **kwargs):
         r"""
@@ -144,6 +145,7 @@ class BaseTokenizer(SpecialTokensMixin):
                 If True, the special token will be added. Default True.
             max_length (int): max length of tokenizer's output . Default None.
             padding(False / "max_length"): padding for max_length. Default None.
+            truncation(bool): To truncate the sequence if the length exceeds the max_length. Default False.
             return_tensors(str): Specific the returned tensor type. If set None, the returned tensor will be
                 `numpy.ndarray`. If set `ms`, the returned tensor will be of `mindspore.Tensor`.
                 Support 'ms' and None. Default None.
@@ -181,6 +183,7 @@ class BaseTokenizer(SpecialTokensMixin):
         output = self.batch_encode_plus(text, text_pair=text_pair, max_length=max_length,
                                         add_special_tokens=add_special_tokens,
                                         padding=padding,
+                                        truncation=truncation,
                                         return_tensors=return_tensors,
                                         return_batch=return_batch,
                                         **kwargs)
@@ -192,6 +195,7 @@ class BaseTokenizer(SpecialTokensMixin):
                            max_length=None,
                            padding_strategy="do_not_pad",
                            add_special_tokens=True,
+                           truncation=False,
                            return_tensors=None,
                            return_token_type_ids=None,
                            return_attention_mask=None,
@@ -200,12 +204,22 @@ class BaseTokenizer(SpecialTokensMixin):
         """Convert the input text into the ids"""
         raise NotImplementedError
 
+    def truncate_sequences(self, ids, id_pairs, nums_tokens_to_remove):
+        if nums_tokens_to_remove <= 0:
+            return ids, id_pairs
+        if id_pairs:
+            raise ValueError("The id_pairs do not support truncation, please set it to be a empty list or None.")
+
+        ids = ids[:-nums_tokens_to_remove]
+        return ids, id_pairs
+
     def batch_encode_plus(self,
                           text: Optional[Union[str, List[str]]],
                           text_pair: Optional[Union[str, List[str]]] = None,
                           max_length: Optional[int] = None,
                           padding: Optional[str] = None,
                           add_special_tokens: bool = True,
+                          truncation: bool = False,
                           return_token_type_ids: Optional[bool] = None,
                           return_attention_mask: Optional[bool] = None,
                           return_tensors: Optional[bool] = None,
@@ -220,6 +234,7 @@ class BaseTokenizer(SpecialTokensMixin):
             text_pair(str): To be converted text pair strings. It can be string or a list of strings.
             max_length (int): max length of tokenizers output . Default None.
             padding(bool, str): padding for max_length. Default None.
+            truncation(bool): To truncate the sequence if the length exceeds the max_length. Default False.
             add_special_tokens(bool): Whether to add special tokens such as CLS and EOS to the token list. The subclass
                 can determine the behavior of the adding by overriding the method `build_inputs_with_special_tokens`.
                 If True, the special token will be added. Default True.
@@ -253,6 +268,7 @@ class BaseTokenizer(SpecialTokensMixin):
                                        text_pair=text_pair,
                                        max_length=max_length,
                                        padding_strategy=padding_strategy,
+                                       truncation=truncation,
                                        add_special_tokens=add_special_tokens,
                                        return_tensors=return_tensors,
                                        return_token_type_ids=return_token_type_ids,
@@ -339,6 +355,17 @@ class BaseTokenizer(SpecialTokensMixin):
         Returns:
             A instanced tokenizer.
         """
+        is_exist = os.path.exists(name_or_path)
+        is_dir = os.path.isdir(name_or_path)
+
+        if not is_exist and (name_or_path not in cls._support_list):
+            raise ValueError(f'{name_or_path} does not exist,'
+                             f' or it is not supported by {cls.__name__}. '
+                             f'please select from {cls._support_list}.')
+
+        if is_exist and not is_dir:
+            raise ValueError(f"{name_or_path} is not a directory.")
+
         kwargs = dict()
         class_name = None
         loaded_kwargs = {}
@@ -480,7 +507,7 @@ class BaseTokenizer(SpecialTokensMixin):
                 if max_length < len(source_ids[i]):
                     raise ValueError(f"The length of input_ids {len(source_ids[i])} "
                                      f"exceeds the max_length {max_length}, "
-                                     f"please increase the max_length.")
+                                     f"please increase the `max_length` of the tokenizer.")
                 source_ids[i] += [pad_value] * (max_length - len(source_ids[i]))
             if not is_batch:
                 source_ids = source_ids[0]
@@ -493,15 +520,16 @@ class BaseTokenizer(SpecialTokensMixin):
 
         return id_dict
 
-    def prepare_for_model(self,
-                          ids,
-                          pair_ids=None,
-                          add_special_tokens=True,
-                          max_length=None,
-                          padding_strategy="do_not_pad",
-                          return_tensors=None,
-                          return_token_type_ids=None,
-                          return_attention_mask=None):
+    def postprocess_ids(self,
+                        ids,
+                        pair_ids=None,
+                        add_special_tokens=True,
+                        max_length=None,
+                        truncation=False,
+                        padding_strategy="do_not_pad",
+                        return_tensors=None,
+                        return_token_type_ids=None,
+                        return_attention_mask=None):
         """
         Insert the special ids into the input ids, generate the attention mask and do padding.
         """
@@ -514,6 +542,13 @@ class BaseTokenizer(SpecialTokensMixin):
             if par_ids:
                 sentence_b_type_ids = [1] * len(par_ids)
             return [0] * len(ids) + sentence_b_type_ids
+
+        length_of_each = len(ids)
+
+        if max_length and truncation:
+            num_sp_tokens = self.num_special_tokens_to_add() if add_special_tokens else 0
+            num_tokens = length_of_each + num_sp_tokens - max_length
+            ids, pair_ids = self.truncate_sequences(ids, pair_ids, num_tokens)
 
         if add_special_tokens:
             # add cls and sep: [cls] ids [seq] pair_ids
@@ -693,6 +728,13 @@ class Tokenizer(BaseTokenizer):
             return token_ids_0 + token_ids_1
         return token_ids_0
 
+    def num_special_tokens_to_add(self):
+        """Return the special tokens to be added to the ids and ids_pair"""
+        ids = []
+        ids_pair = []
+        output = self.build_inputs_with_special_tokens(ids, ids_pair)
+        return len(output)
+
     def create_token_type_ids_from_sequences(self, token_ids_0, token_ids_1):
         if token_ids_1:
             return [0] * (len(token_ids_0) + 1) + [1] * (len(token_ids_1) + 1)
@@ -704,6 +746,7 @@ class Tokenizer(BaseTokenizer):
                            max_length=None,
                            padding_strategy="do_not_pad",
                            add_special_tokens=True,
+                           truncation=False,
                            return_tensors=None,
                            return_token_type_ids=None,
                            return_attention_mask=None,
@@ -716,26 +759,28 @@ class Tokenizer(BaseTokenizer):
 
         text_ids = [self._get_token_ids(item) for item in text]
         text_pair_ids = [self._get_token_ids(item) for item in text_pair] if text_pair else None
-        processed_output = self._batch_prepare_for_model(ids=text_ids,
-                                                         pair_ids=text_pair_ids,
-                                                         max_length=max_length,
-                                                         padding_strategy=padding_strategy,
-                                                         add_special_tokens=add_special_tokens,
-                                                         return_tensors=return_tensors,
-                                                         return_token_type_ids=return_token_type_ids,
-                                                         return_attention_mask=return_attention_mask,
-                                                         return_batch=return_batch)
+        processed_output = self._batch_postprocess_ids(ids=text_ids,
+                                                       pair_ids=text_pair_ids,
+                                                       max_length=max_length,
+                                                       truncation=truncation,
+                                                       padding_strategy=padding_strategy,
+                                                       add_special_tokens=add_special_tokens,
+                                                       return_tensors=return_tensors,
+                                                       return_token_type_ids=return_token_type_ids,
+                                                       return_attention_mask=return_attention_mask,
+                                                       return_batch=return_batch)
         return processed_output
 
-    def _batch_prepare_for_model(self, ids,
-                                 pair_ids=None,
-                                 add_special_tokens=True,
-                                 max_length=None,
-                                 padding_strategy="do_not_pad",
-                                 return_tensors=None,
-                                 return_token_type_ids=None,
-                                 return_attention_mask=None,
-                                 return_batch=True):
+    def _batch_postprocess_ids(self, ids,
+                               pair_ids=None,
+                               add_special_tokens=True,
+                               max_length=None,
+                               truncation=False,
+                               padding_strategy="do_not_pad",
+                               return_tensors=None,
+                               return_token_type_ids=None,
+                               return_attention_mask=None,
+                               return_batch=True):
         """Convert the input_ids to the format of model inputs"""
         if return_tensors and return_tensors != 'ms':
             raise ValueError("You should set return_tensors to be `ms`.")
@@ -748,14 +793,15 @@ class Tokenizer(BaseTokenizer):
             paired_ids = zip(ids, [None] * len(ids))
         output = defaultdict(list)
         for per_ids, per_pair_ids in paired_ids:
-            per_output = self.prepare_for_model(ids=per_ids,
-                                                pair_ids=per_pair_ids,
-                                                add_special_tokens=add_special_tokens,
-                                                max_length=None,
-                                                padding_strategy="do_not_pad",
-                                                return_tensors=None,
-                                                return_token_type_ids=return_token_type_ids,
-                                                return_attention_mask=return_attention_mask)
+            per_output = self.postprocess_ids(ids=per_ids,
+                                              pair_ids=per_pair_ids,
+                                              padding_strategy="do_not_pad",
+                                              return_tensors=None,
+                                              add_special_tokens=add_special_tokens,
+                                              max_length=max_length,
+                                              truncation=truncation,
+                                              return_token_type_ids=return_token_type_ids,
+                                              return_attention_mask=return_attention_mask)
             if not return_batch:
                 output = per_output
             else:
