@@ -12,7 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-"""Convert checkpoint from torch/huggingface"""
+"""
+Convert checkpoint from torch/huggingface
+"""
 import argparse
 import torch
 from mindspore import Tensor, Parameter
@@ -21,9 +23,13 @@ import mindspore as ms
 
 def convert_weight(torch_path="ViT-B-32.pt",
                    mindspore_path="clip_vit_b_32.ckpt"):
-    """
-    convert clip_vit_b_32 weights from pytorch to mindspore
+    r"""Convert Weight
+    Convert clip_vit_b_32 weights from pytorch to mindspore
     pytorch and GPU required.
+
+    Args:
+        torch_path: The path to ViT-B-32.pt.
+        mindspore_path： The save path for clip_vit_b_32.ckpt.
     """
 
     param_dict = torch.load(torch_path)

@@ -32,7 +32,7 @@ from ..base_tokenizer import Tokenizer
 
 @lru_cache()
 def default_bpe():
-    """bpe path"""
+    r"""Bpe path"""
     path = os.path.join(MindFormerBook.get_default_checkpoint_download_folder(),
                         'clip', "bpe_simple_vocab_16e6.txt.gz")
     if not os.path.exists(path):
@@ -42,7 +42,7 @@ def default_bpe():
     return path
 
 def get_pairs(input_wd):
-    """get_pairs"""
+    r"""Get_pairs"""
     output = set()
     prev_char = input_wd[0]
     for char in input_wd[1:]:
@@ -52,7 +52,7 @@ def get_pairs(input_wd):
 
 @lru_cache()
 def bytes_to_unicode():
-    """bytes_to_unicode"""
+    r"""Bytes_to_unicode"""
     input_bt = list(range(ord("!"), ord("~")+1))\
          +list(range(ord("¡"), ord("¬")+1))+list(range(ord("®"), ord("ÿ")+1))
     output_cd = input_bt[:]
@@ -66,19 +66,19 @@ def bytes_to_unicode():
     return dict(zip(input_bt, output_cd))
 
 def whitespace_clean(input_text):
-    """whitespace clean"""
+    r"""Whitespace clean"""
     input_text = re.sub(r'\s+', ' ', input_text)
     input_text = input_text.strip()
     return input_text
 
 def basic_clean(input_text):
-    """basic_clean"""
+    r"""Basic_clean"""
     input_text = ftfy.fix_text(input_text)
     input_text = html.unescape(html.unescape(input_text))
     return input_text.strip()
 
 class TempTokenizer:
-    """Simple Tokenizer"""
+    r"""Simple Tokenizer"""
     def __init__(self, merges, vocab, flag_dict):
         self.byte_encoder = bytes_to_unicode()
         self.byte_decoder = {v: k for k, v in self.byte_encoder.items()}
@@ -88,7 +88,7 @@ class TempTokenizer:
         self.decoder = {v: k for k, v in self.encoder.items()}
 
     def tokenize_alg(self, input_tk):
-        """bpe"""
+        r"""Bpe"""
         if input_tk in self.flag_dict:
             return self.flag_dict[input_tk]
         word = tuple(input_tk[:-1]) + (input_tk[-1] + '</w>',)
@@ -129,14 +129,14 @@ class TempTokenizer:
         return word
 
     def decode(self, input_ids):
-        """decode"""
+        r"""Decode"""
         output_text = ''.join([self.decoder[input_id] for input_id in input_ids])
         output_text = bytearray([self.byte_decoder[c] for
                                  c in output_text]).decode('utf-8', errors="replace").replace('</w>', ' ')
         return output_text
 
     def encode(self, content):
-        """encode"""
+        r"""Encode"""
         output_ids = []
         content = whitespace_clean(basic_clean(content)).lower()
         for token in re.findall(self.pat, content):
@@ -147,18 +147,37 @@ class TempTokenizer:
 
 @MindFormerRegister.register(MindFormerModuleType.TOKENIZER)
 class ClipTokenizer(Tokenizer):
-    """Clip Tokenizer"""
+    r"""
+    Clip Tokenizer
+
+    Args:
+        vocab_file (str): File path of vocab.
+        eos_token (str): Eos_token.
+        bos_token (str): Bos_token.
+        pad_token (str): Pad_token.
+        unk_token (str): Unk_token.
+
+    Examples:
+        >>> from mindformers import ClipTokenizer
+        >>> ClipTokenizer.show_support_list()
+            INFO - support list of ClipTokenizer is:
+            INFO -    ['clip_vit_b_32']
+            INFO - -------------------------------------
+        >>> tokenizer = ClipTokenizer.from_pretrained('clip_vit_b_32')
+        >>> tokenizer("a boy")
+            {'input_ids': [49406, 320, 1876, 49407], 'attention_mask': [1, 1, 1, 1]}
+    """
     MODEL_INPUT_NAME = ["input_ids", "attention_mask"]
     VOCAB_FILES = {'vocab_file': ['vocab.txt', 'bpe_simple_vocab_16e6.txt.gz']}
     FILE_LIST = ['tokenizer_config.json']
     '''clip tokenizer'''
     _support_list = MindFormerBook.get_model_support_list()['clip']
     def __init__(self,
-                 vocab_file,
-                 eos_token="<|endoftext|>",
-                 bos_token="<|startoftext|>",
-                 pad_token="<|endoftext|>",
-                 unk_token="<|endoftext|>"):
+                 vocab_file: str,
+                 eos_token: str = "<|endoftext|>",
+                 bos_token: str = "<|startoftext|>",
+                 pad_token: str = "<|endoftext|>",
+                 unk_token: str = "<|endoftext|>"):
         super(ClipTokenizer, self).__init__(eos_token=eos_token,
                                             bos_token=bos_token,
                                             pad_token=pad_token,
@@ -179,7 +198,7 @@ class ClipTokenizer(Tokenizer):
 
     @staticmethod
     def _read_merge_files(text_path, start_pos=1, end_pos=49152-256-2+1):
-        """Read the merge files"""
+        r"""Read the merge files"""
         with gzip.open(text_path) as fp:
             data = fp.read()
         merges = data.decode("utf-8").split('\n')
@@ -190,6 +209,7 @@ class ClipTokenizer(Tokenizer):
         return new_list
 
     def _tokenize(self, text, **kwargs):
+        r"""Tokenize"""
         output_ids = []
         content = whitespace_clean(basic_clean(text)).lower()
         for token in re.findall(self.pat, content):
@@ -198,7 +218,7 @@ class ClipTokenizer(Tokenizer):
         return output_ids
 
     def build_inputs_with_special_tokens(self, token_ids_0, token_ids_1=None):
-        """
+        r"""
         Insert the special tokens to the input_ids. Currently, we support token_ids_0 is a list of ids.
         """
         if token_ids_1:
@@ -211,17 +231,19 @@ class ClipTokenizer(Tokenizer):
         return res
 
     def save_vocabulary(self, save_directory, filename_prefix):
+        r"""Save_vocabulary"""
         output_file_path = os.path.join(save_directory, filename_prefix)
         shutil.copy(self.path, output_file_path)
         return output_file_path
 
     def tokenize(self, text):
-        """Tokenizer the input_text"""
+        r"""Tokenizer the input_text"""
         if not isinstance(text, str):
             raise ValueError("Text should be type str, but found type", type(text))
         return self._tokenize(text)
 
     def _convert_tokens_to_ids(self, input_tokens):
+        r"""Convert_tokens_to_ids"""
         if not input_tokens:
             raise ValueError(f"Input token {input_tokens} is None.")
         if isinstance(input_tokens, str):
@@ -230,5 +252,5 @@ class ClipTokenizer(Tokenizer):
 
     @property
     def vocab_size(self):
-        """Get the vocab size"""
+        r"""Get the vocab size"""
         return len(self.tool.encoder)

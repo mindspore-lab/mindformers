@@ -24,9 +24,40 @@ from ..tools.register import MindFormerRegister, MindFormerModuleType
 
 @MindFormerRegister.register(MindFormerModuleType.DATASET)
 class ContrastiveLanguageImagePretrainDataset(BaseDataset):
-    """
+    r"""
     Contrastive Language Image Pretrain Dataset API.
     output image and text columns
+
+    Args:
+        dataset_config (dict): Config for dataset.
+
+    Returns:
+        A dataset for ContrastiveLanguageImagePretrainTrainer.
+
+    Examples:
+        >>> import os
+        >>> from mindformers import MindFormerBook, MindFormerConfig, build_dataset
+        >>> project_path = MindFormerBook.get_project_path()
+        >>> config_path = os.path.join(project_path, "configs", "clip",
+        >>>                     "task_config", "clip_flickr8k_dataset.yaml")
+        >>> config = MindFormerConfig(config_path)
+            Note:
+                Put flickr8k dataset to ./checkpoint_download
+                The detailed data setting could refer to ./configs/clip/README.md
+        >>> config.train_dataset_task.dataset_config.batch_size = 1
+        >>> dataset = build_dataset(config.train_dataset_task)
+        >>> for item in dataset:
+        >>>     print(item)
+        >>>     break
+            [Tensor(shape=[1, 3, 224, 224], dtype=Float32, value=
+            [[[[4.99690473e-001, 6.74871564e-001, ... 3.68304640e-001, 2.36918822e-001],
+            [7.91658998e-001, 7.62462139e-001, ... -2.01033935e-001, -1.13443382e-001],
+            ...
+            [-5.98575652e-001, -6.12795711e-001, ... 1.47755420e+000, 1.46333420e+000],
+            [-3.85274649e-001, -6.27015769e-001, ... 1.42067397e+000, 1.43489408e+000],
+            [-7.97656536e-001, -1.01095748e+000, ... 9.37191546e-001, 9.08751369e-001]]]]),
+             Tensor(shape=[1, 77], dtype=Int32, value=
+            [[49406,  1237, 18250 ...     0,     0,     0]])]
     """
     def __new__(cls, dataset_config: dict = None):
         """new method"""

@@ -22,12 +22,51 @@ from ..models.build_tokenizer import build_tokenizer
 
 @MindFormerRegister.register(MindFormerModuleType.DATASET)
 class ZeroShotImageClassificationDataset(BaseDataset):
-    """
+    r"""
     Zero Shot Image Classification Dataset API.
     output image, text, and label columns
+
+    Args:
+        dataset_config (dict): Config for dataset.
+
+    Returns:
+        A dataset for ZeroShotImageClassificationTrainer.
+
+    Examples:
+        >>> import os
+        >>> from mindformers import MindFormerBook, MindFormerConfig, build_dataset
+        >>> project_path = MindFormerBook.get_project_path()
+        >>> config_path = os.path.join(project_path, "configs", "clip",
+        >>>                     "task_config", "clip_cifar100_dataset.yaml")
+        >>> config = MindFormerConfig(config_path)
+            Note:
+                Put cifar100 dataset to ./
+                The detailed data setting could refer to ./configs/clip/README.md
+        >>> config.eval_dataset_task.dataset_config.batch_size = 1
+        >>> dataset = build_dataset(config.eval_dataset_task)
+        >>> for item in dataset:
+        >>>     print(item)
+        >>>     break
+        [Tensor(shape=[1, 3, 224, 224], dtype=Float32, value=
+        [[[[1.11282456e+000, 1.11282456e+000, ... 1.47778523e+000, 1.47778523e+000],
+        [1.11282456e+000, 1.11282456e+000, ... 1.47778523e+000, 1.47778523e+000],
+        [1.11282456e+000, 1.11282456e+000, ... 1.47778523e+000, 1.47778523e+000],
+        ...
+        [1.97748125e-001, 1.97748125e-001, ... 1.12205243e+000, 1.12205243e+000],
+        [1.97748125e-001, 1.97748125e-001, ... 1.12205243e+000, 1.12205243e+000],
+        [1.97748125e-001, 1.97748125e-001, ... 1.12205243e+000, 1.12205243e+000]]]]),
+        Tensor(shape=[1, 100, 77], dtype=Int32, value=
+        [[[49406,   320,  1674 ...     0,     0,     0],
+        [49406,   320,  1674 ...     0,     0,     0],
+        [49406,   320,  1674 ...     0,     0,     0],
+        ...
+        [49406,   320,  1674 ...     0,     0,     0],
+        [49406,   320,  1674 ...     0,     0,     0],
+        [49406,   320,  1674 ...     0,     0,     0]]]),
+        Tensor(shape=[1], dtype=Int32, value= [49])]
     """
     def __new__(cls, dataset_config: dict = None):
-        """new method"""
+        """New method"""
         logger.info("Now Create Zero Shot Image Classification Dataset.")
         cls.init_dataset_config(dataset_config)
         dataset = build_dataset_loader(dataset_config.data_loader)

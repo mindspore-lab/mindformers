@@ -15,6 +15,7 @@
 """Cifar100 DataLoader."""
 import os
 import pickle
+from typing import Optional, Union, List, Tuple
 import numpy as np
 
 from mindspore.dataset import GeneratorDataset
@@ -24,22 +25,51 @@ from ...tools.register import MindFormerRegister, MindFormerModuleType
 
 @MindFormerRegister.register(MindFormerModuleType.DATASET_LOADER)
 class Cifar100DataLoader:
-    """Cifar100 Dataloader for Zero_Shot_Image_classification"""
+    """Cifar100 Dataloader with class name as text column"""
     _default_column_names = ["image", "text", "label"]
-    def __new__(cls, dataset_dir, column_names=None, stage="train",
-                fine_label=True, shuffle=False, hypothesis_template="This is a photo of {}."):
-        """
-        Cifar100 Dataloader API
+    def __new__(cls, dataset_dir: str, column_names: Optional[Union[List[str], Tuple[str]]] = None,
+                stage: Optional[str] = "train", fine_label: Optional[bool] = True,
+                shuffle: Optional[bool] = False,
+                hypothesis_template: Optional[str] = "This is a photo of {}."):
+        r"""
+        Cifar100 Dataloader API.
 
         Args:
-            dataset_dir: the dataset directory, such as "/home/desktop/cifar-100-python"
-            stege: the supported key words are in ["train"、"test"、"all"]
-            column_names: the output column names, a tuple or a list of string with length 3
-            shuffle: shuffle the samples
-            hypothesis_template: prompt template for class label
+            dataset_dir (str): The dataset directory, such as "/home/desktop/cifar-100-python"
+            column_names (Optional[Union[List[str], Tuple[str]]]): The output column names,
+                a tuple or a list of string with length 3.
+            stage (Optional[str]): The supported key words are in ["train","test", "all"]
+            fine_label (Optional[bool]): True for 100 classes, False for 10 classes.
+            shuffle (Optional[bool]): Shuffle the samples.
+            hypothesis_template (Optional[str]): Prompt template for class label.
 
         Return:
-            a GeneratorDataset for Cifar100 dataset
+            A GeneratorDataset for Cifar100 dataset
+
+        Raises:
+            ValueError: Error input for dataset_dir and column_names.
+            TypeError: Type error for column_names.
+
+        Examples:
+            >>> from mindformers import Cifar100DataLoader
+            >>> dataloader = Cifar100DataLoader("./cifar-100-python")
+            >>> dataloader = dataloader.batch(1)
+            >>> for item in dataloader:
+            >>>     print(item)
+            >>>     break
+                [Tensor(shape=[1, 32, 32, 3], dtype=UInt8, value=
+                [[[[255, 255, 255],
+                [255, 255, 255],
+                [255, 255, 255],
+                ...
+                [195, 205, 193],
+                [212, 224, 204],
+                [182, 194, 167]]]]]), Tensor(shape=[1, 100], dtype=String, value=
+                [['This is a photo of apple.', 'This is a photo of aquarium_fish.',
+                'This is a photo of baby.', 'This is a photo of bear.',
+                ...
+                'This is a photo of woman.', 'This is a photo of worm.']]),
+                 Tensor(shape=[1], dtype=Int32, value= [19])]
         """
         if not os.path.isdir(dataset_dir):
             raise ValueError(f"{dataset_dir} is not existed.")
@@ -66,19 +96,24 @@ class Cifar100DataLoader:
         return cifar100_dataloader
 
 class Cifar100DataSet:
-    """Cifar100 DataSet for Zero_Shot_Image_classification"""
-    def __init__(self, dataset_dir, stage="train", fine_label=True,
-                 hypothesis_template="This is a photo of {}."):
-        """
+    """Cifar100 dataSet with class name"""
+    def __init__(self, dataset_dir: str, stage: Optional[str] = "train",
+                 fine_label: Optional[bool] = True,
+                 hypothesis_template: Optional[str] = "This is a photo of {}."):
+        r"""
         Cifar100 Dataset
 
         Args:
-            dataset_dir: the dataset directory, such as "/home/desktop/cifar-100-python"
-            stege: the supported key words are in ["train"、"test"、"all"]
-            hypothesis_template: prompt template for class label
+            dataset_dir (str): The dataset directory, such as "/home/desktop/cifar-100-python".
+            stage (Optional[str]): The supported key words are in ["train", "test", "all"].
+            fine_label (Optional[bool]): True for 100 classes, False for 10 classes.
+            hypothesis_template (Optional[str]): Prompt template for class label.
 
         Return:
-            a iterable dataset for Cifar100 dataset
+             A iterable dataset for Cifar100 dataset.
+
+        Raises:
+            ValueError: Unsupported values for stage.
         """
         if not os.path.isdir(dataset_dir):
             raise ValueError(f"{dataset_dir} is not existed.")

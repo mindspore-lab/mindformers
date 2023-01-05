@@ -16,6 +16,7 @@
 """
 ClipProcessor
 """
+from typing import Optional, Union, List
 import numpy as np
 import PIL
 
@@ -37,9 +38,26 @@ class ClipImageProcessor(BaseImageProcessor):
     ClipImageProcessor.
 
     Args:
-        image_resolution (int): the target size.
+        image_resolution (int): The target size.
+
+    Examples:
+        >>> from mindformers import ClipImageProcessor
+        >>> from mindformers.tools.image_tools import load_image
+        >>> processor = ClipImageProcessor(image_resolution=256)
+        >>> image = load_image("https://ascend-repo-modelzoo.obs.cn-east-2."
+                "myhuaweicloud.com/XFormer_for_mindspore/clip/sunflower.png")
+        >>> processor(image)
+            Tensor(shape=[1, 3, 256, 256], dtype=Float32, value=
+            [[[[-1.52949083e+000, -1.52949083e+000, ... -1.48569560e+000, -1.50029397e+000],
+            [-1.52949083e+000, -1.52949083e+000, ... -1.50029397e+000, -1.50029397e+000],
+            [-1.51489246e+000, -1.51489246e+000, ... -1.48569560e+000, -1.48569560e+000],
+            ...
+            ...
+            [8.66091192e-001, 8.80311251e-001, ... -1.36645925e+000, -1.45177972e+000],
+            [8.09210956e-001, 8.23431015e-001, ... -1.29535890e+000, -1.43755960e+000],
+            [7.09670484e-001, 7.94990897e-001, ... -1.26691878e+000, -1.42333949e+000]]]])
     """
-    def __init__(self, image_resolution=224):
+    def __init__(self, image_resolution: Optional[int] = 224):
         super(ClipImageProcessor, self).__init__(
             image_resolution=image_resolution)
         self.bchw2bhwc = BCHW2BHWC()
@@ -49,12 +67,13 @@ class ClipImageProcessor(BaseImageProcessor):
         self.batch_totensor = BatchToTensor()
         self.batch_normalizer = BatchNormalize()
 
-    def preprocess(self, images, **kwargs):
-        """
-        Preprocess required by base processor.
+    def preprocess(self, images: Union[ms.Tensor, PIL.Image.Image,
+                                       np.ndarray, List[PIL.Image.Image]], **kwargs):
+        r"""
+        Preprocess Required By Base Processor.
 
         Args:
-            images (tensor, PIL.Image, numpy.array, list): a batch of images.
+            images (ms.Tensor, PIL.Image, numpy.array, List[PIL.Image]): A batch of images.
 
         Return:
             A 4-rank tensor for a batch of images.
@@ -74,8 +93,9 @@ class ClipImageProcessor(BaseImageProcessor):
             return ms.Tensor(images)
         return ms.Tensor(np.expand_dims(images, axis=0))
 
-    def _bhwc_check(self, image_batch):
-        """_bhwc_check"""
+    def _bhwc_check(self, image_batch: Union[ms.Tensor, PIL.Image.Image,
+                                             np.ndarray, List[PIL.Image.Image]]):
+        r"""Bhwc_check"""
         if isinstance(image_batch, np.ndarray):
             if image_batch.shape[-1] == 3:
                 return True
@@ -89,14 +109,44 @@ class ClipImageProcessor(BaseImageProcessor):
 
 @MindFormerRegister.register(MindFormerModuleType.PROCESSOR)
 class ClipProcessor(BaseProcessor):
-    """
-    Clip processor,
+    r"""Clip Processor,
     consists of a feature extractor (BaseFeatureEXtractor) for image input,
     and a tokenizer (BaseTokenizer) for text input.
+
+    Args:
+        image_processor (BaseImageProcessor): Used for process image data.
+        tokenizer (BaseTokenizer): Used for process text data.
+        max_length (Optional[int]): The length of text tokens.
+        padding (Optional[str]): The padding strategy of tokenizer, [None, "max_length"].
+        return_tensors (Optional[str]): The type of returned tensors for tokenizer, [None, "ms"].
+
+    Examples:
+        >>> from mindformers import ClipProcessor
+        >>> from mindformers.tools.image_tools import load_image
+        >>> image = load_image("https://ascend-repo-modelzoo.obs.cn-east-2."
+                "myhuaweicloud.com/XFormer_for_mindspore/clip/sunflower.png")
+        >>> text = ["a boy", "a girl"]
+        >>> ClipProcessor.show_support_list()
+            INFO - support list of ClipProcessor is:
+            INFO -    ['clip_vit_b_32']
+            INFO - -------------------------------------
+        >>> processor = ClipProcessor.from_pretrained('clip_vit_b_32')
+        >>> processor(image, text)
+            {'image': Tensor(shape=[1, 3, 224, 224], dtype=Float32, value=
+            [[[[-1.52949083e+000, -1.52949083e+000,... -1.48569560e+000, -1.50029397e+000],
+            [-1.52949083e+000, -1.52949083e+000, ... -1.50029397e+000, -1.50029397e+000],
+            [-1.50029397e+000, -1.50029397e+000 ... -1.48569560e+000, -1.50029397e+000],
+            ...
+            [8.23431015e-001, 8.80311251e-001, ... -1.33801913e+000, -1.43755960e+000],
+            [7.80770779e-001, 8.37651074e-001, ... -1.23847866e+000, -1.39489937e+000],
+            [6.10130012e-001, 7.66550720e-001, ... -1.19581854e+000, -1.38067937e+000]]]]),
+             'text': Tensor(shape=[2, 77], dtype=Int32, value=
+            [[49406,   320,  1876 ...     0,     0,     0],
+            [49406,   320,  1611 ...     0,     0,     0]])}
     """
     _support_list = MindFormerBook.get_model_support_list()['clip']
 
-    def __init__(self, image_processor=None, tokenizer=None,
+    def __init__(self, image_processor, tokenizer,
                  max_length=77, padding='max_length', return_tensors='ms'):
         super(ClipProcessor, self).__init__(
             image_processor=image_processor,
