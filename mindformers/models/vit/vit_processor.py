@@ -62,7 +62,7 @@ class VitImageProcessor(BaseImageProcessor):
             images = np.expand_dims(images, 0)
 
         elif isinstance(images, list):
-            images = np.array(images)
+            images = np.array([np.array(image) for image in images])
 
         elif isinstance(images, np.ndarray):
             if len(images.shape) == 3:

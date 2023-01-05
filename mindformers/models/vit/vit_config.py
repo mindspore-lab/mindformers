@@ -52,7 +52,6 @@ class VitConfig(BaseConfig):
                  checkpoint_name_or_path: str = 'vit_base_p16',
                  parallel_config: TransformerOpParallelConfig = default_parallel_config,
                  moe_config: MoEConfig = default_moe_config,
-                 batch_size: int = 32,
                  image_size: int = 224,
                  num_classes: int = 1000, **kwargs):
         super().__init__(**kwargs)
@@ -77,6 +76,5 @@ class VitConfig(BaseConfig):
         self.checkpoint_name_or_path = checkpoint_name_or_path
         self.parallel_config = parallel_config
         self.moe_config = moe_config
-        self.batch_size = batch_size
         self.image_size = image_size
         self.num_classes = num_classes

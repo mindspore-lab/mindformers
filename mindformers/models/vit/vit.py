@@ -50,7 +50,6 @@ class VitModel(BaseModel):
         num_patches = self.patch_embed.num_patches
         seq_length = num_patches + 1
         self.seq_length = seq_length
-        self.batch_size = config.batch_size
         self.num_patches = num_patches
         self.num_masked = num_patches - seq_length + 1
         self.pos_embed = Parameter(
@@ -61,7 +60,6 @@ class VitModel(BaseModel):
         parallel_config_args = parallel_config.moe_parallel_config if self.use_moe else parallel_config.dp_mp_config
         self.blocks = nn.CellList([
             Block(hidden_size=config.embed_dim,
-                  batch_size=config.batch_size,
                   ffn_hidden_size=int(config.embed_dim * config.mlp_ratio),
                   seq_length=seq_length,
                   drop_rate=config.drop_rate,
@@ -159,7 +157,7 @@ class VitModel(BaseModel):
             tokens = self.add(tokens, self.pos_embed)
 
         x = self.dropout(tokens)
-        encoder_input_mask = P.Ones()((batch_size, self.seq_length, self.seq_length), mstype.int32)
+        encoder_input_mask = P.Ones()((batch_size, self.seq_length, self.seq_length), mstype.float32)
         for block in self.blocks:
             x = block(x, encoder_input_mask)
 

@@ -37,7 +37,6 @@ class SwinConfig(BaseConfig):
     _support_list = MindFormerBook.get_model_support_list()['swin']
 
     def __init__(self,
-                 batch_size: int = 128,
                  image_size: int = 224,
                  patch_size: int = 4,
                  num_classes: int = 1000,
@@ -65,7 +64,6 @@ class SwinConfig(BaseConfig):
                  checkpoint_name_or_path: str = 'swin_base_p4w7',
                  **kwargs):
         """Swin Base Config"""
-        self.batch_size = batch_size
         self.image_size = image_size
         self.patch_size = patch_size
         self.num_classes = num_classes

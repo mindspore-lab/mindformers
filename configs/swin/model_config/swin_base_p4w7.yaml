@@ -4,6 +4,7 @@ model:
 
   model_config:
     type: SwinConfig
+    image_size: 224
     patch_size: 4
     in_channels: 3
     embed_dim: 128
@@ -22,6 +23,7 @@ model:
     hidden_act: gelu
     weight_init: normal
     loss_type: SoftTargetCrossEntropy
+    num_classes: 1000
     checkpoint_name_or_path: swin_base_p4w7
 
 processor:

@@ -11,6 +11,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+# This file was refer to project:
+# https://github.com/microsoft/Swin-Transformer
 # ============================================================================
 """Swin Model."""
 import numpy as np
@@ -103,7 +105,6 @@ class SwinTransformer(BaseModel):
         self.patch_norm = config.patch_norm
         self.num_features = int(config.embed_dim * 2 ** (self.num_layers - 1))
         self.mlp_ratio = config.mlp_ratio
-        self.batch_size = config.batch_size
         self.cast = P.Cast()
 
         # split image into non-overlapping patches
