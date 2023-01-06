@@ -49,23 +49,19 @@ class MaeModel(BaseModel):
                                       parallel_config=config.parallel_config)
         num_patches = self.patch_embed.num_patches
         seq_length = int((1 - config.mask_ratio) * num_patches) + 1
+        self.seq_length = seq_length
         self.num_masked = num_patches - seq_length + 1
         self.cls_tokens = Parameter(
             weight_init.initializer(weight_init.Normal(sigma=.02), (1, 1, config.embed_dim)), requires_grad=True)
-        self.batch_size = config.batch_size
         self.num_patches = num_patches
         self.pos_embed = Parameter(
             weight_init.initializer(weight_init.Zero(), (1, num_patches + 1, config.embed_dim)),
             name='pos_embed', requires_grad=True)
         # stochastic depth decay rule
         hdr = [x.item() for x in np.linspace(0, config.drop_path_rate, config.depth)]
-        self.encoder_input_mask = Tensor(
-            np.ones((config.batch_size, seq_length, seq_length)),
-            mstype.float32)
         parallel_config_args = parallel_config.moe_parallel_config if self.use_moe else parallel_config.dp_mp_config
         self.blocks = nn.CellList([
             Block(hidden_size=config.embed_dim,
-                  batch_size=config.batch_size,
                   ffn_hidden_size=int(config.embed_dim * config.mlp_ratio),
                   seq_length=seq_length,
                   drop_rate=config.drop_rate,
@@ -98,11 +94,9 @@ class MaeModel(BaseModel):
         self.decoder_pos_embed = Parameter(
             weight_init.initializer(weight_init.Zero(), (1, num_patches + 1, config.decoder_embed_dim)),
             name='pos_embedding', requires_grad=False)
-        self.attention_mask = Tensor(np.ones((self.batch_size, num_patches + 1, num_patches + 1)), mstype.float32)
         hdr = [x.item() for x in np.linspace(0, config.drop_path_rate, config.decoder_depth)]
         self.decoder_blocks = nn.CellList([
             Block(hidden_size=config.decoder_embed_dim,
-                  batch_size=config.batch_size,
                   ffn_hidden_size=int(config.decoder_embed_dim * config.mlp_ratio),
                   seq_length=num_patches + 1,
                   drop_rate=config.drop_rate,
@@ -211,15 +205,16 @@ class MaeModel(BaseModel):
             self.pos_embed, (0, 0, 0),
             (1, 1, self.pos_embed.shape[2]),
             (1, 1, 1))
-        cls_tokens = self.tile(self.cls_tokens, (self.batch_size, 1, 1))
+        batch_size = imgs.shape[0]
+        cls_tokens = self.tile(self.cls_tokens, (batch_size, 1, 1))
         cls_tokens = self.add(cls_tokens, cls_pos_embedding)
 
         # concat cls_tokens
         encoded_tokens = self.cat((cls_tokens, unmask_tokens))
-
         # attend with vision transformer
+        encoder_input_mask = P.Ones()((batch_size, self.seq_length, self.seq_length), mstype.float32)
         for block in self.blocks:
-            encoded_tokens = block(encoded_tokens, self.encoder_input_mask)
+            encoded_tokens = block(encoded_tokens, encoder_input_mask)
 
         encoded_tokens = self.norm(encoded_tokens)
         return encoded_tokens
@@ -230,7 +225,8 @@ class MaeModel(BaseModel):
         unmask_tokens = self.cast(unmask_tokens, mstype.float32)
 
         # mask tokens add the positions using the masked indices derived above
-        mask_tokens = self.tile(self.mask_tokens, (self.batch_size, self.num_masked, 1))
+        batch_size = encoder_tokens.shape[0]
+        mask_tokens = self.tile(self.mask_tokens, (batch_size, self.num_masked, 1))
 
         # concat the masked tokens to the decoder tokens and attend with decoder
         img_tokens = self.stride_slice(
@@ -249,8 +245,9 @@ class MaeModel(BaseModel):
         # add position embendding for decoder tokens
         decoder_tokens = self.add(decoder_tokens, self.decoder_pos_embed)
         # decoder
+        attention_mask = Tensor(np.ones((batch_size, self.num_patches + 1, self.num_patches + 1)), mstype.float32)
         for block in self.decoder_blocks:
-            decoder_tokens = block(decoder_tokens, self.attention_mask)
+            decoder_tokens = block(decoder_tokens, attention_mask)
 
         # normalize decoder tokens
         decoder_tokens = self.decoder_norm(decoder_tokens)

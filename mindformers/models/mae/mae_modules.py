@@ -15,15 +15,16 @@
 """
 Modules of MaeModel, including Linear, Block, MLP, Attention, PatchEmbed, etc.
 """
+import math
 import numpy as np
-
-from mindspore import nn, Parameter, Tensor, context
+from mindspore import nn, Parameter, Tensor, context, ParallelMode
 import mindspore.common.dtype as mstype
 from mindspore.ops import operations as P, constexpr
 from mindspore.ops import functional as F
 import mindspore.common.initializer as init
-from mindspore.nn.transformer.moe import default_moe_config
-from mindspore.nn.transformer.op_parallel_config import default_dpmp_config
+from mindspore.nn.transformer.moe import default_moe_config, _check_moe_config
+from mindspore.nn.transformer.op_parallel_config import default_dpmp_config, _check_config
+from mindspore.parallel._utils import _get_parallel_mode
 
 
 @constexpr
@@ -250,7 +251,6 @@ class Block(nn.transformer.transformer.TransformerEncoderLayer):
     """Block of ringmo"""
 
     def __init__(self,
-                 batch_size,
                  hidden_size,
                  ffn_hidden_size,
                  num_heads,
@@ -268,22 +268,35 @@ class Block(nn.transformer.transformer.TransformerEncoderLayer):
                  hidden_act='gelu',
                  moe_config=default_moe_config,
                  parallel_config=default_dpmp_config):
-        super(Block, self).__init__(
-            batch_size,
-            hidden_size,
-            ffn_hidden_size,
-            num_heads,
-            seq_length,
-            attention_dropout_rate=attention_dropout_rate,
-            hidden_dropout_rate=hidden_dropout_rate,
-            post_layernorm_residual=post_layernorm_residual,
-            layernorm_compute_type=layernorm_compute_type,
-            softmax_compute_type=softmax_compute_type,
-            param_init_type=param_init_type,
-            hidden_act=hidden_act,
-            moe_config=moe_config,
-            parallel_config=parallel_config
-        )
+        super(nn.transformer.transformer.TransformerEncoderLayer, self).__init__()
+        _check_config(parallel_config)
+        if num_heads % parallel_config.model_parallel != 0:
+            raise ValueError(
+                "For 'TransformerEncoderLayer', the class variable 'num_heads' must be divisibled by the "
+                "'parallel_config.model_parallel', but got the num_heads is {} and "
+                "parallel_config.model_parallel is {}.".format(num_heads, parallel_config.model_parallel))
+        if hidden_size % parallel_config.model_parallel != 0:
+            raise ValueError(
+                "For 'TransformerEncoderLayer', the class variable 'hidden_size' must be divisibled by "
+                "the 'parallel_config.model_parallel', but got the hidden_size is {} and parallel_config."
+                " model_parallel is {}.".format(hidden_size, parallel_config.model_parallel))
+        if ffn_hidden_size % parallel_config.model_parallel != 0:
+            raise ValueError(
+                "For 'TransformerEncoderLayer', the class variable 'ffn_hidden_size' must be divisibled "
+                "by the 'parallel_config.model_parallel', but got the ffn_hidden_size is {} "
+                "and parallel_config. model_parallel is {}."
+                .format(ffn_hidden_size, parallel_config.model_parallel))
+        _check_moe_config(moe_config, parallel_config)
+        self.use_moe = (moe_config.expert_num > 1)
+        self.seq_length = seq_length
+        self.hidden_size = hidden_size
+        self.post_layernorm_residual = post_layernorm_residual
+        self.add = P.Add().shard(((parallel_config.data_parallel, 1), (parallel_config.data_parallel, 1)))
+        self.add_3d = P.Add().shard(((parallel_config.data_parallel, 1, 1), (parallel_config.data_parallel, 1, 1)))
+        self.dtype = mstype.float16
+        self.key_past = None
+        self.value_past = None
+
         self.layernorm1 = LayerNorm((hidden_size,)).to_float(layernorm_compute_type)
         self.layernorm1.shard(((parallel_config.data_parallel, 1),))
         self.layernorm1.update_parameters_name("norm1.")
@@ -291,8 +304,7 @@ class Block(nn.transformer.transformer.TransformerEncoderLayer):
         self.layernorm2.shard(((parallel_config.data_parallel, 1),))
         self.layernorm2.update_parameters_name("norm2.")
         parallel_config_args = parallel_config.dpmp if self.use_moe else parallel_config
-        self.attention = Attention(batch_size=batch_size,
-                                   src_seq_length=seq_length,
+        self.attention = Attention(src_seq_length=seq_length,
                                    tgt_seq_length=seq_length,
                                    hidden_size=hidden_size,
                                    window_size=window_size,
@@ -467,7 +479,6 @@ class Attention(nn.transformer.transformer.MultiHeadAttention):
     """
 
     def __init__(self,
-                 batch_size,
                  src_seq_length,
                  tgt_seq_length,
                  hidden_size,
@@ -480,20 +491,60 @@ class Attention(nn.transformer.transformer.MultiHeadAttention):
                  softmax_compute_type=mstype.float32,
                  param_init_type=mstype.float32,
                  parallel_config=default_dpmp_config):
-        super(Attention, self).__init__(
-            batch_size,
-            src_seq_length,
-            tgt_seq_length,
-            hidden_size,
-            num_heads,
-            hidden_dropout_rate=hidden_dropout_rate,
-            attention_dropout_rate=attention_dropout_rate,
-            compute_dtype=compute_dtype,
-            softmax_compute_type=softmax_compute_type,
-            param_init_type=param_init_type,
-            parallel_config=parallel_config
-        )
+        super(nn.transformer.transformer.MultiHeadAttention, self).__init__()
         self._is_ascend = context.get_context('device_target') in ["Ascend"]
+        _check_config(parallel_config)
+        self.is_parallel_mode = _get_parallel_mode() in (
+            ParallelMode.SEMI_AUTO_PARALLEL, ParallelMode.AUTO_PARALLEL)
+        self.src_seq_length = src_seq_length
+        self.tgt_seq_length = tgt_seq_length
+        self.hidden_size = hidden_size
+        if hidden_dropout_rate < 0 or hidden_dropout_rate >= 1:
+            raise ValueError("For 'MultiHeadAttention', the class variable 'hidden_dropout_rate' must be "
+                             "in range [0, 1.0), but got the value : {}.".format(hidden_dropout_rate))
+        if attention_dropout_rate < 0 or attention_dropout_rate >= 1:
+            raise ValueError("For 'MultiHeadAttention', the class variable 'attention_dropout_rate' must be "
+                             "in range [0, 1.0), but got the value : {}.".format(attention_dropout_rate))
+        if hidden_size % num_heads != 0:
+            raise ValueError("For 'MultiHeadAttention', the class variable 'hidden_size' must be a multiple "
+                             "of 'num_heads', but got the hidden_size is {} and the num_heads is {}."
+                             .format(hidden_size, num_heads))
+        if num_heads % parallel_config.model_parallel != 0:
+            raise ValueError("For 'MultiHeadAttention', the class variable 'num_heads' must be a multiple of "
+                             "'parallel_config.model_parallel', but got the num_heads is {} "
+                             "and the parallel_config.model_parallel  is {}."
+                             .format(num_heads, parallel_config.model_parallel))
+        self.is_first_iteration = True
+        self.transpose = P.Transpose().shard(
+            ((parallel_config.data_parallel, 1, parallel_config.model_parallel, 1),))
+        self.merger_head_transpose = P.Transpose().shard(
+            ((parallel_config.data_parallel, parallel_config.model_parallel, 1, 1),))
+        self.reshape = P.Reshape()
+        self.n_head = num_heads
+        # embedding size per head
+        self.size_per_head = hidden_size // self.n_head
+        self.concat_k = P.Concat(axis=3)
+        self.concat_v = P.Concat(axis=2)
+        self.multiply_data = Tensor([
+            -10000.0,
+        ], dtype=softmax_compute_type)
+        self.batch_matmul = P.BatchMatMul().shard(
+            ((parallel_config.data_parallel, parallel_config.model_parallel, 1, 1),
+             (parallel_config.data_parallel, parallel_config.model_parallel, 1, 1)))
+        self.real_div = P.RealDiv().shard(
+            ((parallel_config.data_parallel, parallel_config.model_parallel, 1, 1), ()))
+        self.sub = P.Sub().shard(
+            ((1,), (parallel_config.data_parallel, 1, 1, 1)))
+        self.mul = P.Mul().shard(
+            ((parallel_config.data_parallel, 1, 1, 1), (1,)))
+        self.add = P.Add().shard(
+            ((parallel_config.data_parallel, 1, 1, 1),
+             (parallel_config.data_parallel, parallel_config.model_parallel, 1, 1)))
+        # Normalize factor for attention, sqrt(dk) as widely used
+        self.scale_factor = Tensor(math.sqrt(math.sqrt(self.size_per_head)))
+        self.expand_dims = P.ExpandDims().shard(((parallel_config.data_parallel, 1, 1),))
+        self.dtype = compute_dtype
+        self.softmax_dtype = softmax_compute_type
         # Output layer
         self.projection = Linear(in_channels=hidden_size,
                                  out_channels=hidden_size,

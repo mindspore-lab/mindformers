@@ -71,7 +71,6 @@ def test_config():
     config_d = SwinConfig.from_pretrained(config_path)
 
     config_e = SwinConfig(
-        batch_size=128,
         image_size=224,
         patch_size=4,
         num_classes=1000,

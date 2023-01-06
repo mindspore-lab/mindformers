@@ -159,15 +159,6 @@ def check_image_lr_config(config):
     del lr_config.warmup_epochs
 
 
-def check_model_config(config):
-    config.model.parallel_config = config.parallel_config
-    config.model.moe_config = config.moe_config
-    config.model.batch_size = config.runner_config.batch_size * config.device_num \
-        if config.parallel.parallel_mode == "semi_auto_parallel" else config.runner_config.batch_size
-    config.model.image_size = config.runner_config.image_size
-    config.model.num_classes = config.runner_config.num_classes
-
-
 def check_wrapper_config(new_config, old_config):
     """Check wrapper config."""
     wrapper_type = new_config.runner_wrapper.get('type')

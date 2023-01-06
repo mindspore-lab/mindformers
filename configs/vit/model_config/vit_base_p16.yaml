@@ -4,6 +4,7 @@ model:
 
   model_config:
     type: VitConfig
+    image_size: 224
     patch_size: 16
     in_chans: 3
     embed_dim: 768
@@ -19,6 +20,7 @@ model:
     post_layernorm_residual: False
     use_mean_pooling: True
     loss_type: SoftTargetCrossEntropy
+    num_classes: 1000
     checkpoint_name_or_path: 'vit_base_p16'
 
 processor:

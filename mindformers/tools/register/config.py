@@ -147,7 +147,7 @@ class MindFormerConfig(dict):
             raise NameError('This {} cannot be empty.'.format(filename))
 
         filepath = os.path.realpath(filename)
-        with open(filepath) as fp:
+        with open(filepath, encoding='utf-8') as fp:
             cfg_dict = ordered_yaml_load(fp, yaml_loader=yaml.FullLoader)
 
         # Load base config file.

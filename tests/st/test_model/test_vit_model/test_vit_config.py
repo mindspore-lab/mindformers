@@ -90,7 +90,6 @@ def test_config():
         loss_type="SoftTargetCrossEntropy",
         parallel_config=default_parallel_config,
         moe_config=default_moe_config,
-        batch_size=32,
         image_size=224,
         num_classes=1000
     )

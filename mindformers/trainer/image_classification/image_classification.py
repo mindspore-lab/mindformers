@@ -38,8 +38,7 @@ from mindformers.tools.image_tools import load_image
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from ..config_args import ConfigArguments
 from ..base_trainer import BaseTrainer
-from ..utils import check_runner_config, check_model_config, \
-    check_image_lr_config, resume_checkpoint_for_training
+from ..utils import check_runner_config, check_image_lr_config, resume_checkpoint_for_training
 
 
 __all__ = ['ImageClassificationTrainer']
@@ -140,7 +139,6 @@ class ImageClassificationTrainer(BaseTrainer):
 
         # build network
         logger.info(".........Build Net..........")
-        check_model_config(config)
         if network is None:
             network = build_model(config.model, default_args={
                 "parallel_config": config.parallel_config,
@@ -275,7 +273,6 @@ class ImageClassificationTrainer(BaseTrainer):
 
         # build network
         logger.info(".........Build Net..........")
-        check_model_config(config)
         if network is None:
             network = build_model(config.model, default_args={
                 "parallel_config": config.parallel_config,

@@ -29,7 +29,6 @@ from mindformers.dataset import build_dataset, check_dataset_config, BaseDataset
 from mindformers.models import build_model, build_tokenizer, build_processor, \
     BaseModel, BaseTokenizer, BaseImageProcessor
 from mindformers.pipeline import pipeline
-from mindformers.trainer.utils import check_model_config
 from mindformers.tools.logger import logger
 from mindformers.tools.utils import count_params
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
@@ -113,7 +112,6 @@ class ZeroShotImageClassificationTrainer(BaseTrainer):
 
         # build network
         logger.info(".........Build Net..........")
-        check_model_config(config)
         if network is None:
             network = build_model(config.model)
         network.set_train(mode=False)
