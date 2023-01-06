@@ -41,6 +41,23 @@ class BertForPretraining(BaseModel):
 
     Returns:
         Tensor, the loss of the network.
+
+    Examples:
+        >>> from mindformers import BertForPretraining, BertTokenizer
+        >>> model = BertForPretraining.from_pretrained('bert_base_uncased')
+        >>> tokenizer = BertTokenizer.from_pretrained('bert_base_uncased')
+        >>> data = tokenizer("Paris is the [MASK] of France.")
+        >>> input_ids = data['input_ids']
+        >>> attention_mask = input_ids['attention_mask']
+        >>> token_type_ids = input_ids['token_type_ids']
+        >>> masked_lm_positions = Tensor([[4]], mstype.int32)
+        >>> next_sentence_labels = Tensor([[1]], mstype.int32)
+        >>> masked_lm_weights = Tensor([[1]], mstype.int32)
+        >>> masked_lm_ids = Tensor([[3007]], mstype.int32)
+        >>> output = model(input_ids, attention_mask, token_type_ids, next_sentence_labels, \
+            masked_lm_positions, masked_lm_ids, masked_lm_weights)
+        >>> print(output)
+        [0.6706]
     """
 
     def __init__(self, config=BertConfig(), is_training=True, use_one_hot_embeddings=False):
@@ -49,7 +66,7 @@ class BertForPretraining(BaseModel):
         self.bert = BertScore(config, is_training, use_one_hot_embeddings)
         self.loss = BertLoss(config)
         self.cast = P.Cast()
-        self.use_moe = False
+        self.use_moe = (config.parallel_config.moe_config.expert_num > 1)
         self.add = P.Add().shard(((1,), ()))
         self._load_checkpoint(config)
 
