@@ -158,8 +158,7 @@ class MFLossMonitor(Callback):
                         current_lr = self.learning_rate(current_step)
                         current_lr = np.array2string(current_lr.asnumpy())
                 else:
-                    raise TypeError(f"learning_rate must be float or LearningRateSchedule type, "
-                                    f"but get {type(self.learning_rate)} type")
+                    current_lr = "Not support LR %s type compute!" % type(self.learning_rate)
             else:
                 current_lr = 'Not Set LR.'
             logger.info(
