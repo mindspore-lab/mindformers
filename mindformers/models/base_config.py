@@ -157,8 +157,10 @@ class BaseConfig(dict):
 
         save_path = os.path.join(save_directory, save_name + ".yaml")
 
-        parsed_config = self._inverse_parse_config()
+        parsed_config, removed_list = self._inverse_parse_config()
         wraped_config = self._wrap_config(parsed_config)
+        for key, val in removed_list:
+            self[key] = val
         self.remove_type()
 
         meraged_dict = {}
@@ -185,7 +187,8 @@ class BaseConfig(dict):
 
     def inverse_parse_config(self):
         """inverse_parse_config"""
-        return self._inverse_parse_config()
+        val, _ = self._inverse_parse_config()
+        return val
 
     def _inverse_parse_config(self):
         """
@@ -201,13 +204,13 @@ class BaseConfig(dict):
             if isinstance(val, BaseConfig):
                 val = val.inverse_parse_config()
             elif not isinstance(val, (str, int, float, bool)):
-                removed_list.append(key)
+                removed_list.append((key, val))
                 continue
             self.update({key: val})
 
-        for key in removed_list:
+        for key, _ in removed_list:
             self.pop(key)
-        return self
+        return self, removed_list
 
     def _wrap_config(self, config):
         """

@@ -19,6 +19,7 @@ AutoConfig、AutoModel
 import os
 import json
 import shutil
+import copy
 
 from .mindformer_book import MindFormerBook, print_dict
 from .models import build_processor
@@ -331,7 +332,8 @@ class AutoProcessor:
         ...                            'configs', 'clip', 'model_config', "clip_vit_b_32.yaml")
         >>> pro_b = AutoProcessor.from_pretrained(config_path)
     """
-    _support_list = MindFormerBook.get_model_support_list()
+    _support_list = copy.deepcopy(MindFormerBook.get_model_support_list())
+    _support_list.pop("mae")
 
     def __init__(self):
         raise EnvironmentError(
