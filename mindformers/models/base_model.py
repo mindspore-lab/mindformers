@@ -156,8 +156,10 @@ class BaseModel(nn.Cell, GeneratorMixin):
             # A model should have "config" attribute for model save.
             raise AttributeError("the model has no config attribute.")
 
-        parsed_config = self._inverse_parse_config(self.config)
+        parsed_config, remove_list = self._inverse_parse_config(self.config)
         wraped_config = self._wrap_config(parsed_config)
+        for key, val in remove_list:
+            self.config[key] = val
         self.remove_type(self.config)
 
         meraged_dict = {}
@@ -192,23 +194,24 @@ class BaseModel(nn.Cell, GeneratorMixin):
         Returns:
             A model config, which follows the yaml content.
         """
+        removed_list = []
+
         if not isinstance(config, BaseConfig):
-            return config
+            return config, removed_list
 
         class_name = config.__class__.__name__
         config.update({"type": class_name})
-        removed_list = []
 
         for key, val in config.items():
-            new_val = self._inverse_parse_config(val)
+            new_val, _ = self._inverse_parse_config(val)
             if not isinstance(new_val, (str, int, float, bool, BaseConfig)):
-                removed_list.append(key)
+                removed_list.append((key, new_val))
                 continue
             config.update({key: new_val})
 
-        for key in removed_list:
+        for key, _ in removed_list:
             config.pop(key)
-        return config
+        return config, removed_list
 
     def _wrap_config(self, config):
         """

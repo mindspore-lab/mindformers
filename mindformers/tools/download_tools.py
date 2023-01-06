@@ -28,6 +28,8 @@ except ImportError:
     logger.warning("The library fcntl is not found. This may cause the reading file failed "
                    "when call the from_pretrained for different process.")
 
+urllib3.disable_warnings()
+
 class StatusCode:
     '''StatusCode'''
     succeed = 200
@@ -51,14 +53,17 @@ def downlond_with_progress_bar(url, filepath, chunk_size=1024, timeout=4):
     size = 0
     content_size = int(response.headers['content-length'])
     if response.status_code == StatusCode.succeed:
-        logger.info('Start download %s,[File size]:{%.2f} MB',
-                    filepath, content_size / chunk_size /1024)
+        logger.info('Start download %s', filepath)
         with open(filepath, 'wb') as file:
             if fcntl:
                 fcntl.flock(file.fileno(), fcntl.LOCK_EX)
-            for data in tqdm(response.iter_content(chunk_size=chunk_size)):
-                file.write(data)
-                size += len(data)
+
+            with tqdm(total=content_size, desc='Downloading',
+                      leave=True, ncols=100, unit='B', unit_scale=True) as pbar:
+                for data in response.iter_content(chunk_size=chunk_size):
+                    file.write(data)
+                    size += len(data)
+                    pbar.update(1024)
         end = time.time()
         logger.info('Download completed!,times: %.2fs', (end - start))
         return True
