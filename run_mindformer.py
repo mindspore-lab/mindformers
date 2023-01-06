@@ -167,7 +167,7 @@ if __name__ == "__main__":
     assert config_.run_status in ['train', 'eval', 'predict', 'finetune'], \
         f"run status must be in {['train', 'eval', 'predict', 'finetune']}, but get {config_.run_status}"
     if args_.dataset_dir:
-        if config_.run_status == 'train':
+        if config_.run_status == 'train' or config_.run_status == 'finetune':
             config_.train_dataset.data_loader.dataset_dir = args_.dataset_dir
         if config_.run_status == 'eval':
             config_.eval_dataset.data_loader.dataset_dir = args_.dataset_dir
