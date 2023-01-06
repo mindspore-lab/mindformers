@@ -271,7 +271,7 @@ class GeneratorMixin:
 
         Args:
             input_ids(List(str), List(List(str))): The token id list or a list of token id list.
-            do_sample(bool): Where do sampling on the candidate ids. If set True it will be enabled, and set it to be
+            do_sample(bool): Whether do sampling on the candidate ids. If set True it will be enabled, and set it to be
                 False to disable the sampling, equivalent to topk 1. If set None, it follow the setting in the
                 configureation in the model. Default None.
             top_k(int): Determine the topK numbers token id as candidate. This should be a positive number.

@@ -144,11 +144,11 @@ class T5FeedFoward(nn.Cell):
                                out_channels=output_size,
                                activation=hidden_act,
                                transpose_b=False,
+                               has_bias=False,
                                expert_num=expert_num,
                                expert_group_size=expert_group_size,
                                outer_batch=dp,
                                param_init_type=param_init_type)
-        self.mapping.has_bias = False
 
         if expert_num > 1:
             self.mapping.shard(strategy_matmul=((dp, ep, 1, 1), (ep, 1, mp)),
@@ -163,17 +163,16 @@ class T5FeedFoward(nn.Cell):
                                   out_channels=input_size,
                                   transpose_b=False,
                                   expert_num=expert_num,
+                                  has_bias=False,
                                   expert_group_size=expert_group_size,
                                   outer_batch=dp,
                                   param_init_type=param_init_type)
-        self.projection.has_bias = False
         if expert_num > 1:
             self.projection.shard(strategy_matmul=((dp, ep, 1, mp), (ep, mp, 1)),
                                   strategy_bias=((dp, ep, 1, 1), (1, ep, 1, 1)))
         else:
             self.projection.shard(strategy_matmul=((dp, mp), (mp, 1)),
                                   strategy_bias=((dp, 1), (1,)))
-        self.projection.bias.parallel_optimizer = False
         self.dropout = nn.Dropout(1 - dropout_rate)
         self.dropout.dropout.shard(((dp, 1),))
         self.dropout_3d = nn.Dropout(1 - dropout_rate)
@@ -295,6 +294,7 @@ class T5MultiHeadAttention(nn.Cell):
                  tgt_seq_length,
                  hidden_size,
                  num_heads,
+                 kv_size=64,
                  hidden_dropout_rate=0.1,
                  attention_dropout_rate=0.1,
                  compute_dtype=mstype.float16,
@@ -335,17 +335,17 @@ class T5MultiHeadAttention(nn.Cell):
                              "and the parallel_config.data_parallel is {}."
                              .format(batch_size, parallel_config.data_parallel))
         self.is_first_iteration = True
+        self.inner_dim = num_heads * kv_size
         # Output layer
-        self.projection = _Linear(in_channels=hidden_size,
+        self.projection = _Linear(in_channels=self.inner_dim,
                                   out_channels=hidden_size,
                                   transpose_b=False,
+                                  has_bias=False,
                                   compute_dtype=compute_dtype,
                                   param_init_type=param_init_type)
-        self.projection.has_bias = False
         self.projection.shard(strategy_bias=((parallel_config.data_parallel, 1), (1,)),
                               strategy_matmul=((parallel_config.data_parallel, parallel_config.model_parallel),
                                                (parallel_config.model_parallel, 1)))
-        self.projection.bias.parallel_optimizer = False
         self.transpose = P.Transpose().shard(
             ((parallel_config.data_parallel, 1, parallel_config.model_parallel, 1),))
         self.merger_head_transpose = P.Transpose().shard(
@@ -353,7 +353,7 @@ class T5MultiHeadAttention(nn.Cell):
         self.reshape = P.Reshape()
         self.n_head = num_heads
         # embedding size per head
-        self.size_per_head = hidden_size // self.n_head
+        self.size_per_head = kv_size
         self.concat_k = P.Concat(axis=3)
         self.concat_v = P.Concat(axis=2)
         self.multiply_data = Tensor([
@@ -386,29 +386,29 @@ class T5MultiHeadAttention(nn.Cell):
 
         # Query
         self.dense1 = _Linear(hidden_size,
-                              hidden_size,
+                              self.inner_dim,
+                              has_bias=False,
                               compute_dtype=compute_dtype,
                               param_init_type=param_init_type)
-        self.dense1.has_bias = False
         self.dense1.shard(strategy_matmul=((parallel_config.data_parallel, 1), (parallel_config.model_parallel, 1)),
                           strategy_bias=((parallel_config.data_parallel, parallel_config.model_parallel),
                                          (parallel_config.model_parallel,)))
         # Key
         self.dense2 = _Linear(hidden_size,
-                              hidden_size,
+                              self.inner_dim,
+                              has_bias=False,
                               compute_dtype=compute_dtype,
                               param_init_type=param_init_type)
-        self.dense2.has_bias = False
         self.dense2.shard(strategy_matmul=((parallel_config.data_parallel, 1), (parallel_config.model_parallel, 1)),
                           strategy_bias=((parallel_config.data_parallel, parallel_config.model_parallel),
                                          (parallel_config.model_parallel,)))
 
         # Value
         self.dense3 = _Linear(hidden_size,
-                              hidden_size,
+                              self.inner_dim,
+                              has_bias=False,
                               compute_dtype=compute_dtype,
                               param_init_type=param_init_type)
-        self.dense3.has_bias = False
         self.dense3.shard(strategy_matmul=((parallel_config.data_parallel, 1), (parallel_config.model_parallel, 1)),
                           strategy_bias=((parallel_config.data_parallel, parallel_config.model_parallel),
                                          (parallel_config.model_parallel,)))
@@ -700,6 +700,7 @@ class TransformerEncoderLayer(nn.Cell):
                  ffn_hidden_size,
                  num_heads,
                  seq_length,
+                 kv_size=64,
                  attention_dropout_rate=0.1,
                  hidden_dropout_rate=0.1,
                  post_layernorm_residual=False,
@@ -742,6 +743,7 @@ class TransformerEncoderLayer(nn.Cell):
                                               tgt_seq_length=seq_length,
                                               hidden_size=hidden_size,
                                               num_heads=num_heads,
+                                              kv_size=kv_size,
                                               hidden_dropout_rate=hidden_dropout_rate,
                                               attention_dropout_rate=attention_dropout_rate,
                                               softmax_compute_type=softmax_compute_type,
@@ -914,6 +916,7 @@ class TransformerDecoderLayer(nn.Cell):
                  batch_size,
                  src_seq_length,
                  tgt_seq_length,
+                 kv_size=64,
                  attention_dropout_rate=0.1,
                  hidden_dropout_rate=0.1,
                  post_layernorm_residual=False,
@@ -961,6 +964,7 @@ class TransformerDecoderLayer(nn.Cell):
         self.attention = T5MultiHeadAttention(hidden_size=hidden_size,
                                               num_heads=num_heads,
                                               batch_size=batch_size,
+                                              kv_size=kv_size,
                                               src_seq_length=tgt_seq_length,
                                               tgt_seq_length=tgt_seq_length,
                                               hidden_dropout_rate=hidden_dropout_rate,
@@ -977,6 +981,7 @@ class TransformerDecoderLayer(nn.Cell):
         self.cross_attention = T5MultiHeadAttention(hidden_size=hidden_size,
                                                     num_heads=num_heads,
                                                     batch_size=batch_size,
+                                                    kv_size=kv_size,
                                                     src_seq_length=tgt_seq_length,
                                                     tgt_seq_length=src_seq_length,
                                                     hidden_dropout_rate=hidden_dropout_rate,
@@ -1232,6 +1237,7 @@ class TransformerEncoder(nn.Cell):
                  ffn_hidden_size,
                  seq_length,
                  num_heads,
+                 kv_size=64,
                  attention_dropout_rate=0.1,
                  hidden_dropout_rate=0.1,
                  hidden_act='gelu',
@@ -1260,6 +1266,7 @@ class TransformerEncoder(nn.Cell):
                                             hidden_dropout_rate=hidden_dropout_rate,
                                             layernorm_compute_type=layernorm_compute_type,
                                             softmax_compute_type=softmax_compute_type,
+                                            kv_size=kv_size,
                                             num_heads=num_heads,
                                             hidden_act=hidden_act,
                                             has_bias=(i == 0),
@@ -1324,6 +1331,7 @@ class TransformerDecoder(nn.Cell):
                  src_seq_length,
                  tgt_seq_length,
                  num_heads,
+                 kv_size=64,
                  attention_dropout_rate=0.1,
                  hidden_dropout_rate=0.1,
                  post_layernorm_residual=False,
@@ -1355,6 +1363,7 @@ class TransformerDecoder(nn.Cell):
                                             layernorm_compute_type=layernorm_compute_type,
                                             softmax_compute_type=softmax_compute_type,
                                             hidden_act=hidden_act,
+                                            kv_size=kv_size,
                                             use_past=use_past,
                                             has_bias=(i == 0),
                                             param_init_type=param_init_type,
@@ -1604,6 +1613,7 @@ class T5Model(BaseModel):
             ffn_hidden_size=config.intermediate_size,
             attention_dropout_rate=config.attention_probs_dropout_prob,
             hidden_dropout_rate=config.hidden_dropout_prob,
+            kv_size=config.kv_size,
             hidden_act=config.hidden_act)
 
         self.tfm_decoder = TransformerDecoder(
@@ -1615,6 +1625,7 @@ class T5Model(BaseModel):
             ffn_hidden_size=config.intermediate_size,
             attention_dropout_rate=config.attention_probs_dropout_prob,
             hidden_dropout_rate=config.hidden_dropout_prob,
+            kv_size=config.kv_size,
             num_layers=config.num_hidden_layers,
             hidden_act=config.hidden_act)
 

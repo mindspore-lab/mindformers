@@ -160,7 +160,7 @@ class TestTranslationTrainer:
                        {'translation_text': ['Wir haben während dieser Period die ganze Reihe von '
                                              'emotions durchlebt.']}]
 
-        config = MindFormerConfig("configs/t5/run_t5_tiny.yaml")
+        config = MindFormerConfig("configs/t5/run_t5_tiny_on_wmt16.yaml")
         config.eval_dataset = config.train_dataset
         config.eval_dataset.data_loader.dataset_dir = self.raw_text_path
         res = mim_trainer.predict(config=config, keys={'src_language': 'source', 'tgt_language': 'target'})
@@ -188,7 +188,7 @@ class TestTranslationTrainer:
                                 seq_length=16, max_decode_length=8)
 
         mim_trainer = TranslationTrainer(model_name=model_name)
-        config = MindFormerConfig("configs/t5/run_t5_tiny.yaml")
+        config = MindFormerConfig("configs/t5/run_t5_tiny_on_wmt16.yaml")
 
         # 1) test train using config
         config.model.model_config.seq_length = model_config.seq_length
