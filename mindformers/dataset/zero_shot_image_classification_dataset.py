@@ -41,7 +41,7 @@ class ZeroShotImageClassificationDataset(BaseDataset):
         >>> config = MindFormerConfig(config_path)
             Note:
                 Put cifar100 dataset to ./
-                The detailed data setting could refer to ./configs/clip/README.md
+                The detailed data setting could refer to ./configs/clip/clip.md
         >>> config.eval_dataset_task.dataset_config.batch_size = 1
         >>> dataset = build_dataset(config.eval_dataset_task)
         >>> for item in dataset:

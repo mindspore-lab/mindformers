@@ -58,14 +58,24 @@ Clip (Contrastive Lanuguage-Image Pre-Training)：是一种基于图文对进行
 - Model调用接口
 
   ```python
-  from mindformers import ClipModel
+  from mindformers import ClipModel, ClipConfig
 
   ClipModel.show_support_list()
   # 输出：
   # - support list of ClipModel is:
   # -    ['clip_vit_b_32']
   # - -------------------------------------
+
+  # 模型标志加载模型
   model = ClipModel.from_pretrained("clip_vit_b_32")
+
+  #模型配置加载模型
+  config = ClipConfig.from_pretrained("clip_vit_b_32")
+  # {'text_config': {'hidden_size': 512, 'vocab_size': 49408, 'max_position_embeddings': 77,
+  # 'num_hidden_layers': 12}, 'vision_config': {'hidden_size': 768, 'image_size': 224, 'patch_size': 32,
+  # 'num_hidden_layers': 12}, 'projection_dim': 512, 'ratio': 64, 'checkpoint_name_or_path': 'clip_vit_b_32',
+  # 'dtype': 'float16'}
+  model = ClipModel(config)
   ```
 
 - Trainer接口开启训练/评估/推理：
@@ -74,14 +84,13 @@ Clip (Contrastive Lanuguage-Image Pre-Training)：是一种基于图文对进行
   from mindformers.trainer import Trainer
 
   # 初始化预训练任务
-  trainer = Trainer(task_name='contrastive_language_image_pretrain',
+  trainer = Trainer(task='contrastive_language_image_pretrain',
       model='clip_vit_b_32')
   trainer.train() # 开启预训练
 
   #初始化零样本图像分类下游任务
-  trainer = Trainer(task_name='zero_shot_image_classification',
-      model='clip_vit_b_32')
-  trainer.eval()  #进行评估
+  trainer = Trainer(task='zero_shot_image_classification', model='clip_vit_b_32')
+  trainer.evaluate()  #进行评估
   trainer.predict()  #进行推理
   ```
 
@@ -108,8 +117,8 @@ Clip (Contrastive Lanuguage-Image Pre-Training)：是一种基于图文对进行
 | model |     type      | pretrain | Datasets | Top1-Accuracy | Log |                                     config                                     |
 |:-----:|:-------------:|:--------:|:--------:|:-------------:| :---: |:------------------------------------------------------------------------------:|
 | clip  | clip_vit_b_32 |   clip   | flickr8k |       \       | \ |              pretrain [link](run_clip_vit_b_32_pretrain_flickr8k)              | \|
-| clip  | clip_vit_b_32 |    \     | cifar100 |    57.24%     | \ |  eval [link](run_clip_vit_b_32_zero_shot_image_classification_cifar100.yaml)   |
-| clip  | clip_vit_b_32 |    \     | cifar100 |       \       | \ | predict [link](run_clip_vit_b_32_zero_shot_image_classification_cifar100.yaml) |
+| clip  | clip_vit_b_32 |    \     | cifar100 |    57.24%     | \ |  eval [link](../../configs/clip/run_clip_vit_b_32_zero_shot_image_classification_cifar100.yaml)   |
+| clip  | clip_vit_b_32 |    \     | cifar100 |       \       | \ | predict [link](../../configs/clip/run_clip_vit_b_32_zero_shot_image_classification_cifar100.yaml) |
 
 ## 模型权重
 

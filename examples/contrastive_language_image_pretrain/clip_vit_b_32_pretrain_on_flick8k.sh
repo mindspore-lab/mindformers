@@ -17,7 +17,7 @@
 echo "=============================================================================================================="
 echo "Please run the script as: "
 echo "bash examples/contrastive_language_image_pretrain/clip_vit_b_32_pretrain_on_flick8k.sh"
-echo "The data setting could refer to ./configs/clip/README.md"
+echo "The data setting could refer to ./api_cards/task_cards/contrastive_language_image_pretrain.md"
 echo "It is better to use absolute path."
 echo "=============================================================================================================="
 

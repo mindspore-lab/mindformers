@@ -27,6 +27,7 @@ from mindspore.common import set_seed
 from mindspore.nn import TrainOneStepCell, Optimizer
 from mindspore.train import Callback
 from mindspore.dataset import GeneratorDataset
+from mindspore.dataset.engine.datasets import BatchDataset, RepeatDataset
 
 from mindformers.common.parallel_config import build_parallel_config
 from mindformers.dataset import build_dataset, build_dataset_loader, \
@@ -468,7 +469,9 @@ class Trainer:
         if input_data is None:
             input_data = build_dataset_loader(self.config.eval_dataset.data_loader)
             logger.info("dataset by config is used as input_data.")
-        assert isinstance(input_data, (GeneratorDataset, Tensor, np.ndarray, Image, str, list)), \
+
+        assert isinstance(input_data, (GeneratorDataset, BaseDataset, RepeatDataset, BatchDataset, Tensor,
+                                       np.ndarray, Image, str, list)), \
             "Input data's type must be one of [GeneratorDataset," \
             " str, ms.Tensor, np.ndarray, PIL.Image.Image]"
 

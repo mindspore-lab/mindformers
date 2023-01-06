@@ -34,6 +34,25 @@ vit：全名vision transformer，不同于传统的基于CNN的网络结果，�
 
 > 需开发者提前pip安装。具体接口说明请参考[API接口](https://gitee.com/mindspore/transformer/wikis/API/)
 
+  ```python
+  from mindformers import VitModel, VitConfig
+
+  VitModel.show_support_list()
+  # 输出：
+  # - support list of VitModel is:
+  # -    ['vit_base_p16']
+  # - -------------------------------------
+
+  # 模型标志加载模型
+  model = VitModel.from_pretrained("vit_base_p16'")
+
+  #模型配置加载模型
+  config = VitConfig.from_pretrained("vit_base_p16")
+  # {'patch_size': 16, 'in_chans': 3, 'embed_dim': 768, 'depth': 12, 'num_heads': 12, 'mlp_ratio': 4,
+  # ..., 'batch_size': 32, 'image_size': 224, 'num_classes': 1000}
+  model = VitModel(config)
+  ```
+
 - Trainer接口开启训练/评估/推理：
 
   ```python
@@ -77,7 +96,7 @@ vit：全名vision transformer，不同于传统的基于CNN的网络结果，�
 
 | model |     type     |       pretrain       |  Datasets   | Top1-Accuracy | Log |                  pretrain_config                   |            finetune_config            |
 |:-----:|:------------:|:--------------------:|:-----------:|:-------------:|:---:|:--------------------------------------------------:|:-------------------------------------:|
-|  vit  | vit_base_p16 | [mae_vit_base_p16]() | ImageNet-1K |    83.17%     |  \  | [link](../mae/run_mae_vit_base_p16_224_800ep.yaml) | [link](./run_vit_base_p16_100ep.yaml) |
+|  vit  | vit_base_p16 | [mae_vit_base_p16]() | ImageNet-1K |    83.17%     |  \  | [link](../../configs/mae/run_mae_vit_base_p16_224_800ep.yaml) | [link](./run_vit_base_p16_100ep.yaml) |
 
 ## 模型权重
 

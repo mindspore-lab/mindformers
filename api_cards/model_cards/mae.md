@@ -36,6 +36,27 @@ MAE由何凯明团队提出，将NLP领域大获成功的自监督预训练模�
 
 > 需开发者提前pip安装。具体接口说明请参考[API接口](https://gitee.com/mindspore/transformer/wikis/API/)
 
+- Model调用接口
+
+  ```python
+  from mindformers import MaeModel, MaeConfig
+
+  MaeModel.show_support_list()
+  # 输出：
+  # - support list of MaeModel is:
+  # -    ['mae_vit_base_p16']
+  # - -------------------------------------
+
+  # 模型标志加载模型
+  model = MaeModel.from_pretrained("mae_vit_base_p16")
+
+  #模型配置加载模型
+  config = MaeConfig.from_pretrained("mae_vit_base_p16")
+  # {'decoder_dim': 512, 'patch_size': 16, 'in_chans': 3, 'embed_dim': 768, 'depth': 12,
+  # ..., 'decoder_embed_dim': 512, 'norm_pixel_loss': True, 'window_size': None}
+  model = MaeModel(config)
+  ```
+
 - Trainer接口开启训练/评估/推理：
 
   ```python
@@ -60,4 +81,4 @@ MAE由何凯明团队提出，将NLP领域大获成功的自监督预训练模�
 
 | model |       type       |       pretrain       |  Datasets   | Top1-Accuracy | Log |                  pretrain_config                   |            finetune_config            |
 |:-----:|:----------------:|:--------------------:|:-----------:|:-------------:|:---:|:--------------------------------------------------:|:-------------------------------------:|
-|  mae  | mae_vit_base_p16 | [mae_vit_base_p16]() | ImageNet-1K |    83.17%     |  \  | [link](../mae/run_mae_vit_base_p16_224_800ep.yaml) | [link](./run_vit_base_p16_100ep.yaml) |
+|  mae  | mae_vit_base_p16 | [mae_vit_base_p16]() | ImageNet-1K |    83.17%     |  \  | [link](../../configs/mae/run_mae_vit_base_p16_224_800ep.yaml) | [link](./run_vit_base_p16_100ep.yaml) |

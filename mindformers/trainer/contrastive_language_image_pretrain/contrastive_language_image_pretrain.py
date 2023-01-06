@@ -52,7 +52,7 @@ class ContrastiveLanguageImagePretrainTrainer(BaseTrainer):
         >>> config = MindFormerConfig(config_path)
             Note:
                 Put flicker8k dataset to ./checkpoint_download
-                The detailed data setting could refer to ./configs/clip/README.md
+                The detailed data setting could refer to ./configs/clip/clip.md
         >>> trainer = ContrastiveLanguageImagePretrainTrainer()
         >>> trainer.train(config)
     """

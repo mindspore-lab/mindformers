@@ -26,6 +26,7 @@ from mindspore.dataset import (
     GeneratorDataset, VisionBaseDataset,
     SourceDataset, MappableDataset
 )
+from mindspore.dataset.engine.datasets import BatchDataset, RepeatDataset
 
 from mindformers.tools import logger
 from mindformers.mindformer_book import print_dict
@@ -98,7 +99,8 @@ class BasePipeline(ABC):
 
         if is_dataset:
             logger.info("dataset is processing.")
-            inputs = inputs.batch(batch_size)
+            if not isinstance(inputs, (BatchDataset, RepeatDataset)):
+                inputs = inputs.batch(batch_size)
 
             outputs = []
             for items in tqdm(inputs.create_dict_iterator()):
