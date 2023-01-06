@@ -60,7 +60,7 @@ class ZeroShotImageClassificationTrainer(BaseTrainer):
         >>> config = MindFormerConfig(config_path)
             Note:
                 Put cifar100 dataset to ./
-                The detailed data setting could refer to ./configs/clip/README.md
+                The detailed data setting could refer to ./configs/clip/clip.md
         >>> trainer = ZeroShotImageClassificationTrainer(config)
         >>> trainer.evaluate()
         >>> trainer.predict()

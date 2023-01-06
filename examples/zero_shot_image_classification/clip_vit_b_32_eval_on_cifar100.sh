@@ -17,7 +17,7 @@
 echo "=============================================================================================================="
 echo "Please run the script as: "
 echo "bash examples/zero_shot_image_classification/clip_vit_b_32_eval_on_cifar100.sh"
-echo "The data setting could refer to ./configs/clip/README.md"
+echo "The data setting could refer to ./api_cards/task_cards/zero_shot_image_classification.md"
 echo "It is better to use absolute path."
 echo "=============================================================================================================="
 

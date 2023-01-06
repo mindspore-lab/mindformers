@@ -18,6 +18,7 @@ MindFormerBook class,
 which contains the lists of models, pipelines, tasks, and default settings in MindFormer repository.
 """
 import os
+import copy
 from collections import OrderedDict
 
 from mindformers.tools import logger
@@ -240,6 +241,51 @@ class MindFormerBook:
         ('clip_vit_b_32', 'ClipTokenizer'),
         ('bert_base_uncased', 'BertTokenizer')
     ])
+
+    @classmethod
+    def show_trainer_support_model_list(cls, task=None):
+        """show_trainer_support_model_list"""
+        all_list = copy.deepcopy(cls._TRAINER_SUPPORT_TASKS_LIST)
+        all_list.pop("general")
+        for key, val in all_list.items():
+            val.pop("common")
+            temp_list = []
+            for model_name, _ in val.items():
+                temp_list.append(model_name)
+            all_list[key] = temp_list
+
+        if task:
+            if task in all_list.keys():
+                all_list = all_list[task]
+                logger.info("Trainer support model list for %s task is: ", str(task))
+                print_path_or_list(all_list)
+            else:
+                raise KeyError("unsupported task")
+        else:
+            logger.info("Trainer support model list of MindFormer is: ")
+            print_dict(all_list)
+
+    @classmethod
+    def show_pipeline_support_model_list(cls, task=None):
+        """show_pipeline_support_model_list"""
+        all_list = copy.deepcopy(cls._PIPELINE_SUPPORT_TASK_LIST)
+        for key, val in all_list.items():
+            val.pop("common")
+            temp_list = []
+            for model_name, _ in val.items():
+                temp_list.append(model_name)
+            all_list[key] = temp_list
+
+        if task:
+            if task in all_list.keys():
+                all_list = all_list[task]
+                logger.info("Pipeline support model list for %s task is: ", str(task))
+                print_path_or_list(all_list)
+            else:
+                raise KeyError("unsupported task")
+        else:
+            logger.info("Pipeline support model list of MindFormer is: ")
+            print_dict(all_list)
 
     @classmethod
     def show_tokenizer_name_to_processor(cls):

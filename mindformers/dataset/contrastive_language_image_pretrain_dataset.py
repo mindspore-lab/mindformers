@@ -43,7 +43,7 @@ class ContrastiveLanguageImagePretrainDataset(BaseDataset):
         >>> config = MindFormerConfig(config_path)
             Note:
                 Put flickr8k dataset to ./checkpoint_download
-                The detailed data setting could refer to ./configs/clip/README.md
+                The detailed data setting could refer to ./configs/clip/clip.md
         >>> config.train_dataset_task.dataset_config.batch_size = 1
         >>> dataset = build_dataset(config.train_dataset_task)
         >>> for item in dataset:

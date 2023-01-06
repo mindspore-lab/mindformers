@@ -18,15 +18,15 @@ MindSpore MindFormers套件基于MindSpore内置的并行技术和组件化设�
 
 目前支持的模型列表如下：
 
-|                 模型                |                   已支持任务（task name）                    | 已支持模型（model name） |
-| :----------------------------------: | :----------------------------------------------------------: | :----------------------: |
-|   [BERT](./configs/bert/README.md)   |                   masked_language_modeling                   |    bert_base_uncased     |
-|     [T5](./configs/t5/README.md)     |                         translation                          |         t5_small         |
-|    [MAE](./configs/mae/README.md)    |                    masked_image_modeling                     |     mae_vit_base_p16     |
-| [SimMIM](./configs/simmim/README.md) |                    masked_image_modeling                     |  simmim_swin_base_p4w7   |
-|    [VIT](./configs/vit/README.md)    |                     image_classification                     |       vit_base_p16       |
-|   [Swin](./configs/swin/README.md)   |                     image_classification                     |      swin_base_p4w7      |
-|   [CLIP](./configs/clip/README.md)   | contrastive_language_image_pretrain, zero_shot_image_classification |      clip_vit_b_32       |
+|                 模型                |                                                              已支持任务（task name）                                                              |                           已支持模型（model name）                           |
+| :----------------------------------: |:------------------------------------------------------------------------------------------------------------------------------------------:|:---------------------------------------------------------------------:|
+|   [BERT](./configs/bert/README.md)   |                                                          masked_language_modeling                                                          | [bert_base_uncased](configs/bert/model_config/bert_base_uncased.yaml) |
+|     [T5](api_cards/model_cards/t5.md)     |                                                                translation                                                                 |           [t5_small](configs/t5/model_config/t5_small.yaml)           |
+|    [MAE](api_cards/model_cards/mae.md)    |                                                           masked_image_modeling                                                            |  [mae_vit_base_p16](configs/mae/model_config/mae_vit_base_p16.yaml)   |
+| [SimMIM](./configs/simmim/README.md) |                                                           masked_image_modeling                                                            |                         simmim_swin_base_p4w7                         |
+|    [VIT](api_cards/model_cards/vit.md)    |                                                            image_classification                                                            |      [vit_base_p16](configs/vit/model_config/vit_base_p16.yaml)       |
+|   [Swin](api_cards/model_cards/swin.md)   |                                                            image_classification                                                            |    [swin_base_p4w7](configs/swin/model_config/swin_base_p4w7.yaml)    |
+|   [CLIP](api_cards/model_cards/clip.md)   | [contrastive_language_image_pretrain](api_cards/task_cards/contrastive_language_image_pretrain.md),<br/> [zero_shot_image_classification](api_cards/task_cards/zero_shot_image_classification.md) |     [clip_vit_b_32](configs/clip/model_config/clip_vit_b_32.yaml)     |
 
 ### 安装
 

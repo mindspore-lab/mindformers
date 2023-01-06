@@ -34,6 +34,28 @@ swin：全名swin transformer，是一个基于Transformer在视觉领域有着S
 
 > 需开发者提前pip安装。具体接口说明请参考[API接口](https://gitee.com/mindspore/transformer/wikis/API/)
 
+- Model调用接口
+
+  ```python
+  from mindformers import SwinModel, SwinConfig
+
+  SwinModel.show_support_list()
+  # 输出：
+  # - support list of SwinModel is:
+  # -    ['swin_base_p4w7']
+  # - -------------------------------------
+
+  # 模型标志加载模型
+  model = SwinModel.from_pretrained("swin_base_p4w7")
+
+  #模型配置加载模型
+  config = SwinConfig.from_pretrained("swin_base_p4w7")
+  # {'batch_size': 128, 'image_size': 224, 'patch_size': 4, 'num_classes': 1000, 'in_channels': 3,
+  # 'embed_dim': 128, 'depths': [2, 2, 18, 2], 'num_heads': [4, 8, 16, 32],
+  # 'checkpoint_name_or_path': 'swin_base_p4w7'}
+  model = SwinModel(config)
+  ```
+
 - Trainer接口开启训练/评估/推理：
 
   ```python
