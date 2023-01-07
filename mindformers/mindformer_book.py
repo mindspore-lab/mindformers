@@ -101,6 +101,8 @@ class MindFormerBook:
         ("masked_language_modeling", OrderedDict([
             ("bert_base_uncased", os.path.join(
                 _PROJECT_PATH, "configs/bert/run_bert_base_uncased.yaml")),
+            ("bert_tiny_uncased", os.path.join(
+                _PROJECT_PATH, "configs/bert/run_bert_tiny_uncased.yaml")),
             ("common", os.path.join(
                 _PROJECT_PATH, "configs/bert/run_bert_tiny_uncased.yaml"))])
          ),
@@ -145,6 +147,14 @@ class MindFormerBook:
             ('common', os.path.join(
                 _PROJECT_PATH, "configs/t5/model_config/t5_small.yaml"))
         ])),
+        ("fill_mask", OrderedDict([
+            ("bert_base_uncased", os.path.join(
+                _PROJECT_PATH, "configs/bert/run_bert_base_uncased.yaml")),
+            ("bert_tiny_uncased", os.path.join(
+                _PROJECT_PATH, "configs/bert/run_bert_tiny_uncased.yaml")),
+            ("common", os.path.join(
+                _PROJECT_PATH, "configs/bert/run_bert_tiny_uncased.yaml"))])
+         )
     ])
 
     _MODEL_SUPPORT_LIST = OrderedDict([
@@ -187,7 +197,15 @@ class MindFormerBook:
         ('t5_small',
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
           '/XFormer_for_mindspore/t5/mindspore_model.ckpt'
-          ])
+          ]),
+        ('bert_tiny_uncased',
+         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
+          '/XFormer_for_mindspore/bert/bert_tiny/bert_tiny_uncased.ckpt'
+          ]),
+        ('bert_base_uncased',
+         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
+          '/XFormer_for_mindspore/bert/bert_base/bert_base_uncased.ckpt'
+          ]),
     ])
 
     _MODEL_CONFIG_URL_LIST = OrderedDict([
@@ -210,7 +228,15 @@ class MindFormerBook:
         ('t5_small',
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
           '/XFormer_for_mindspore/t5/mindspore_model.yaml'
-          ])
+          ]),
+        ('bert_tiny_uncased',
+         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
+          '/XFormer_for_mindspore/bert/bert_tiny/bert_tiny_uncased.yaml'
+          ]),
+        ('bert_base_uncased',
+         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
+          '/XFormer_for_mindspore/bert/bert_base/bert_base_uncased.yaml'
+          ]),
     ])
 
     _PIPELINE_INPUT_DATA_LIST = OrderedDict([
@@ -227,6 +253,14 @@ class MindFormerBook:
         ('t5_small', [
             "https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/"
             "XFormer_for_mindspore/t5/spiece.model"
+        ]),
+        ('clip', [
+            "https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/"
+            "XFormer_for_mindspore/clip/bpe_simple_vocab_16e6.txt.gz"
+        ]),
+        ('bert_base_uncased', [
+            "https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/"
+            "XFormer_for_mindspore/bert/vocab.txt"
         ]),
     ])
 

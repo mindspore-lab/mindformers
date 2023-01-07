@@ -1,0 +1,40 @@
+# Copyright 2022 Huawei Technologies Co., Ltd
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ============================================================================
+
+"""
+BertProcessor
+"""
+from mindformers.mindformer_book import MindFormerBook
+from ..base_processor import BaseProcessor
+from ...tools.register import MindFormerRegister, MindFormerModuleType
+
+__all__ = ['BertProcessor']
+
+@MindFormerRegister.register(MindFormerModuleType.PROCESSOR)
+class BertProcessor(BaseProcessor):
+    """
+    Bert processor,
+    consists of a tokenizer (BaseTokenizer) for text input.
+    """
+    _support_list = MindFormerBook.get_model_support_list()['bert']
+
+    def __init__(self, tokenizer=None,
+                 max_length=128, padding='max_length', return_tensors='ms'):
+        super(BertProcessor, self).__init__(
+            tokenizer=tokenizer,
+            max_length=max_length,
+            padding=padding,
+            return_tensors=return_tensors
+        )

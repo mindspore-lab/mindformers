@@ -15,11 +15,8 @@
 """Bert Config API."""
 
 import mindspore.common.dtype as mstype
-from mindspore.nn.transformer import TransformerOpParallelConfig, MoEConfig
 from mindspore.nn.transformer.transformer import default_transformer_config, default_moe_config
-
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
-
 from ..base_config import BaseConfig
 from ...mindformer_book import MindFormerBook
 
@@ -52,15 +49,15 @@ class BertConfig(BaseConfig):
                  type_vocab_size: int = 2,
                  initializer_range: float = 0.02,
                  use_relative_positions: bool = False,
-                 dtype: mstype = mstype.float16,
-                 layernorm_dtype: mstype = mstype.float32,
-                 softmax_dtype: mstype = mstype.float32,
-                 compute_dtype: mstype = mstype.float16,
+                 dtype: str = "float32",
+                 layernorm_dtype: str = "float32",
+                 softmax_dtype: str = "float32",
+                 compute_dtype: str = "float16",
                  use_past: bool = False,
-                 use_moe: bool = False,
-                 parallel_config: TransformerOpParallelConfig = default_transformer_config,
+                 parallel_config: str = "default",
                  checkpoint_name_or_path: str = "",
-                 moe_config: MoEConfig = default_moe_config,
+                 moe_config: str = "default",
+                 is_training: bool = True,
                  **kwargs):
         super(BertConfig, self).__init__(**kwargs)
         self.model_type = model_type
@@ -83,12 +80,36 @@ class BertConfig(BaseConfig):
         self.type_vocab_size = type_vocab_size
         self.initializer_range = initializer_range
         self.use_relative_positions = use_relative_positions
-        self.dtype = dtype
-        self.layernorm_dtype = layernorm_dtype
-        self.softmax_dtype = softmax_dtype
-        self.compute_dtype = compute_dtype
+        self._dtype = dtype
+        self._layernorm_dtype = layernorm_dtype
+        self._softmax_dtype = softmax_dtype
+        self._compute_dtype = compute_dtype
         self.use_past = use_past
-        self.use_moe = use_moe
-        self.parallel_config = parallel_config
         self.checkpoint_name_or_path = checkpoint_name_or_path
-        self.moe_config = moe_config
+        self._parallel_config = parallel_config
+        self._moe_config = moe_config
+        self.is_training = is_training
+
+    @property
+    def dtype(self):
+        return mstype.float32 if self._dtype == "float32" else mstype.float16
+
+    @property
+    def layernorm_dtype(self):
+        return mstype.float32 if self._layernorm_dtype == "float32" else mstype.float16
+
+    @property
+    def softmax_dtype(self):
+        return mstype.float32 if self._softmax_dtype == "float32" else mstype.float16
+
+    @property
+    def compute_dtype(self):
+        return mstype.float32 if self._compute_dtype == "float32" else mstype.float16
+
+    @property
+    def parallel_config(self):
+        return default_transformer_config if self._parallel_config == "default" else default_transformer_config
+
+    @property
+    def moe_config(self):
+        return default_moe_config if self._moe_config == "default" else default_moe_config

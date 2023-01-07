@@ -26,7 +26,7 @@ from mindspore.dataset import GeneratorDataset
 from mindformers.trainer import Trainer
 from mindformers.trainer.config_args import ConfigArguments, \
     RunnerConfig
-from mindformers.models.bert.bert import BertForPretraining
+from mindformers.models.bert.bert import BertModel
 
 
 def generator():
@@ -58,7 +58,7 @@ def test_bert_trainer_train_from_instance():
     config = ConfigArguments(seed=2022, runner_config=runner_config)
 
     # Model
-    bert_model = BertForPretraining()
+    bert_model = BertModel()
 
     # Dataset and operations
     dataset = GeneratorDataset(generator, column_names=["input_ids", "input_mask", "segment_ids",

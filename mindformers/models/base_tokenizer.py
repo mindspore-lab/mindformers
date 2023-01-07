@@ -718,6 +718,12 @@ class Tokenizer(BaseTokenizer):
 
     def convert_tokens_to_string(self, tokens):
         """Convert the tokens to the string"""
+        if isinstance(tokens, list):
+            outstring = ""
+            for token in tokens:
+                outstring += " " + " ".join(token).strip()
+
+            return outstring
         return " ".join(tokens).strip()
 
     def tokenize(self, text):
