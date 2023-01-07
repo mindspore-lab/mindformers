@@ -12,13 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-"""Masked Image Modeling Trainer."""
+"""Translation Modeling Trainer."""
 from typing import Optional, List, Union
 
 from mindspore.train.model import Model
 from mindspore.train import Callback
 from mindspore.nn import TrainOneStepCell, Optimizer
 from mindspore.dataset import GeneratorDataset
+
 
 from mindformers.common.callback import build_callback
 from mindformers.dataset import build_dataset, check_dataset_config, BaseDataset
@@ -126,7 +127,6 @@ class TranslationTrainer(BaseTrainer):
                 optimizer = build_optim(
                     config.optimizer,
                     default_args={"params": group_params})
-
         # build callback
         if callbacks is None:
             callbacks = []

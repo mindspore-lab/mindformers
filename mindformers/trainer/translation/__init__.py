@@ -13,7 +13,7 @@
 # limitations under the License.
 # ============================================================================
 """Masked Language Modeling Trainer."""
-from .translation_pretrain import TranslationTrainer
+from .translation_finetune import TranslationTrainer
 
 
 __all__ = ['TranslationTrainer']

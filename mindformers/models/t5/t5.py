@@ -115,6 +115,7 @@ class T5FeedFoward(nn.Cell):
                  hidden_act='gelu',
                  expert_num=1,
                  expert_group_size=None,
+                 compute_dtype=mstype.float16,
                  param_init_type=mstype.float32,
                  parallel_config=default_dpmp_config):
         super(T5FeedFoward, self).__init__()
@@ -148,6 +149,7 @@ class T5FeedFoward(nn.Cell):
                                expert_num=expert_num,
                                expert_group_size=expert_group_size,
                                outer_batch=dp,
+                               compute_dtype=compute_dtype,
                                param_init_type=param_init_type)
 
         if expert_num > 1:
@@ -164,6 +166,7 @@ class T5FeedFoward(nn.Cell):
                                   transpose_b=False,
                                   expert_num=expert_num,
                                   has_bias=False,
+                                  compute_dtype=compute_dtype,
                                   expert_group_size=expert_group_size,
                                   outer_batch=dp,
                                   param_init_type=param_init_type)
@@ -1631,7 +1634,7 @@ class T5Model(BaseModel):
             hidden_act=config.hidden_act)
 
         self.projection = T5Head(self.hidden_size,
-                                 compute_dtype=mstype.float16,
+                                 compute_dtype=config.compute_dtype,
                                  parallel_config=config.parallel_config)
 
         self.cast = ops.Cast()
@@ -1795,7 +1798,6 @@ class T5ForConditionalGeneration(BaseModel):
 
         if decoder_inputs is None:
             decoder_inputs = self._add_start_to_inputs(labels[:, :-1])
-
         logits = self.t5_model(input_ids, attention_mask, decoder_inputs, target_mask, memory_mask,
                                encoder_cache=encoder_output)
 
