@@ -25,12 +25,13 @@ from mindspore.nn.transformer.layers import _LayerNorm
 from mindspore.nn.transformer.transformer import Transformer, VocabEmbedding, default_moe_config
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.models.base_model import BaseModel
+from ...mindformer_book import MindFormerBook
 from .bert_config import BertConfig
 
-__all__ = ['BertForPretraining']
+__all__ = ['BertConfig', 'BertModel']
 
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
-class BertForPretraining(BaseModel):
+class BertModel(BaseModel):
     """
     Provide bert pre-training loss through network.
 
@@ -60,10 +61,12 @@ class BertForPretraining(BaseModel):
         [0.6706]
     """
 
-    def __init__(self, config=BertConfig(), is_training=True, use_one_hot_embeddings=False):
-        super(BertForPretraining, self).__init__(config)
-        self.is_training = is_training
-        self.bert = BertScore(config, is_training, use_one_hot_embeddings)
+    _support_list = MindFormerBook.get_model_support_list()['bert']
+
+    def __init__(self, config=BertConfig()):
+        super(BertModel, self).__init__(config)
+        self.is_training = config.is_training
+        self.bert = BertScore(config, config.is_training, config.use_one_hot_embeddings)
         self.loss = BertLoss(config)
         self.cast = P.Cast()
         self.use_moe = (config.parallel_config.moe_config.expert_num > 1)
@@ -74,10 +77,10 @@ class BertForPretraining(BaseModel):
                   input_ids,
                   input_mask,
                   token_type_id,
-                  next_sentence_labels,
-                  masked_lm_positions,
-                  masked_lm_ids,
-                  masked_lm_weights):
+                  next_sentence_labels=None,
+                  masked_lm_positions=None,
+                  masked_lm_ids=None,
+                  masked_lm_weights=None):
         """Get pre-training loss"""
         if not self.is_training:
             return self.bert(input_ids, input_mask, token_type_id, masked_lm_positions)
@@ -91,12 +94,12 @@ class BertForPretraining(BaseModel):
         return self.cast(total_loss, mstype.float32)
 
 
-class BertModel(nn.Cell):
+class BertNetwork(nn.Cell):
     """
     Bidirectional Encoder Representations from Transformers.
 
     Args:
-        config (Class): Configuration for BertModel.
+        config (Class): Configuration for BertNetwork.
         is_training (bool): True for training mode. False for eval mode.
         use_one_hot_embeddings (bool): Specifies whether to use one hot encoding form. Default: False.
     """
@@ -104,7 +107,7 @@ class BertModel(nn.Cell):
                  config=None,
                  is_training=False,
                  use_one_hot_embeddings=False):
-        super(BertModel, self).__init__()
+        super(BertNetwork, self).__init__()
         if not is_training:
             config.hidden_dropout_prob = 0.0
             config.attention_probs_dropout_prob = 0.0
@@ -117,7 +120,7 @@ class BertModel(nn.Cell):
         if not hasattr(config.parallel_config, "moe_config"):
             config.parallel_config.moe_config = default_moe_config
         moe_config = config.parallel_config.moe_config
-        self.use_moe = False
+        self.use_moe = (config.parallel_config.moe_config.expert_num > 1)
 
         self.word_embedding = VocabEmbedding(vocab_size=config.vocab_size,
                                              embedding_size=config.embedding_size,
@@ -336,14 +339,14 @@ class BertScore(nn.Cell):
 
     def __init__(self, config, is_training, use_one_hot_embeddings):
         super(BertScore, self).__init__()
-        self.bert = BertModel(config, is_training, use_one_hot_embeddings)
+        self.bert = BertNetwork(config, is_training, use_one_hot_embeddings)
         self.mlmloss = GetMaskedLMOutput(config)
         self.nsploss = GetNextSentenceOutput(config)
-        self.use_moe = False
+        self.use_moe = (config.parallel_config.moe_config.expert_num > 1)
         self.is_training = is_training
 
     def construct(self, input_ids, input_mask, token_type_id,
-                  masked_lm_positions):
+                  masked_lm_positions=None):
         """connect backbone and heads."""
         moe_loss = 0
         if self.use_moe:
@@ -353,9 +356,12 @@ class BertScore(nn.Cell):
             sequence_output, pooled_output, embedding_table = \
                 self.bert(input_ids, token_type_id, input_mask)
 
+        prediction_scores = self.mlmloss(sequence_output,
+                                         embedding_table,
+                                         masked_lm_positions)
+        seq_relationship_score = self.nsploss(pooled_output)
         if not self.is_training:
-            return sequence_output, pooled_output
-
+            return sequence_output, pooled_output, prediction_scores, seq_relationship_score
         prediction_scores = self.mlmloss(sequence_output,
                                          embedding_table,
                                          masked_lm_positions)

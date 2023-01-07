@@ -20,7 +20,6 @@ import unicodedata
 
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.models.base_tokenizer import Tokenizer
-
 from ...mindformer_book import MindFormerBook
 
 __all__ = ['BertTokenizer']
@@ -311,9 +310,7 @@ class BertTokenizer(Tokenizer):
     """
     VOCAB_FILES = {'vocab_file': 'vocab.txt'}
     FILE_LIST = ['tokenizer_config.json', 'special_tokens_map.json']
-
     _support_list = MindFormerBook.get_model_support_list()['bert']
-
     def __init__(self,
                  vocab_file,
                  do_lower_case=True,

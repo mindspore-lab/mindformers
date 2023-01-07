@@ -14,11 +14,12 @@
 # ============================================================================
 """The export function for bert"""
 
-from .bert_tokenizer import *
-from .bert_encoder import BertEncoder
+from .bert_tokenizer import BertTokenizer
 from .bert_config import BertConfig
-from .bert import BertForPretraining
+from .bert import BertModel
+from .bert_processor import BertProcessor
 
 __all__ = []
 __all__.extend(bert_tokenizer.__all__)
-__all__.extend(['BertEncoder', 'BertConfig', 'BertForPretraining'])
+__all__.extend(bert.__all__)
+__all__.extend(bert_processor.__all__)

@@ -6,8 +6,6 @@ train_dataset: &train_dataset
   input_columns: ["input_ids", "input_mask", "segment_ids",
                   "next_sentence_labels", "masked_lm_positions",
                   "masked_lm_ids", "masked_lm_weights"]
-  # output_columns: [ "image" ]
-  # column_order: [ "image" ]
   num_parallel_workers: 8
   python_multiprocessing: False
   drop_remainder: False

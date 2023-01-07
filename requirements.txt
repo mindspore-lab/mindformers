@@ -3,3 +3,4 @@ sentencepiece
 ftfy
 regex
 tqdm
+pyyaml
