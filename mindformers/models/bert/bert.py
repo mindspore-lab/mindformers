@@ -45,7 +45,7 @@ class BertModel(BaseModel):
 
     Examples:
         >>> from mindformers import BertForPretraining, BertTokenizer
-        >>> model = BertForPretraining.from_pretrained('bert_base_uncased')
+        >>> model = BertModel.from_pretrained('bert_base_uncased')
         >>> tokenizer = BertTokenizer.from_pretrained('bert_base_uncased')
         >>> data = tokenizer("Paris is the [MASK] of France.")
         >>> input_ids = data['input_ids']

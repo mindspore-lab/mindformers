@@ -21,8 +21,8 @@ echo "for example: examples/pretrain/pretrain_bert_distributed.sh 8 hostfile /pa
 echo "It is better to use absolute path."
 echo "=============================================================================================================="
 
-RANK_SIZE=8
-HOSTFILE=$1
+RANK_SIZE=$1
+HOSTFILE=$2
 
 mpirun --allow-run-as-root -n $RANK_SIZE --hostfile $HOSTFILE \
       --output-filename run_distributed_train_bert \
