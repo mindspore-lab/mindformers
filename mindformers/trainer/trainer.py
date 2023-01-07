@@ -273,6 +273,9 @@ class Trainer:
 
         # build parallel config
         self.rank_id = int(os.getenv("RANK_ID", "0"))
+        self.device_num = int(os.getenv("RANK_SIZE", "1"))
+        self.config.rank_id = self.rank_id
+        self.config.device_num = self.device_num
         self.context_config = self.config.context
         self.parallel_config = self.config.parallel
         build_parallel_config(self.config)
@@ -359,7 +362,7 @@ class Trainer:
 
         if resume_or_finetune_from_checkpoint is True:
             self.config.model.model_config.checkpoint_name_or_path = None
-            self.config.resume_or_finetune_checkpoint = resume_or_finetune_from_checkpoint
+            self.config.resume_or_finetune_checkpoint = self.get_last_checkpoint()
         elif isinstance(resume_or_finetune_from_checkpoint, str):
             if do_finetune:
                 self.config.model.model_config.checkpoint_name_or_path = resume_or_finetune_from_checkpoint

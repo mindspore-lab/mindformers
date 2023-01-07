@@ -155,7 +155,7 @@ class MindFormerBook:
             'mae_vit_base_p16',
         ]),
         ('vit', [
-            'vit_base_p16',
+            'vit_base_p16', 'mae_vit_base_p16'
         ]),
         ('swin', [
             'swin_base_p4w7',
