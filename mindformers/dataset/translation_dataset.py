@@ -112,5 +112,5 @@ class TranslationDataset(BaseDataset):
         dataset = build_dataset_loader(
             dataset_config.data_loader, default_args={'dataset_files': dataset_files[0],
                                                       'num_shards': device_num, 'shard_id': rank_id,
-                                                      'column_list': dataset_config.input_columns})
+                                                      'columns_list': dataset_config.input_columns})
         return dataset

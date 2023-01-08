@@ -141,7 +141,8 @@ class TestTranslationTrainer:
         Description: Test Predict
         Expectation: TypeError
         """
-        model = T5ForConditionalGeneration.from_pretrained('t5_small')
+        # change the length for quick training
+        model = T5ForConditionalGeneration.from_pretrained('t5_small', seq_length=32, max_decode_length=32)
         mim_trainer = TranslationTrainer(model_name="t5_small")
         res = mim_trainer.predict(input_data="hello words", network=model)
         assert res == [{'translation_text': ['hello words']}]
@@ -161,6 +162,9 @@ class TestTranslationTrainer:
                                              'emotions durchlebt.']}]
 
         config = MindFormerConfig("configs/t5/run_t5_tiny_on_wmt16.yaml")
+        # change the length for quick prediction
+        config.train_dataset.tokenizer.seq_length = 32
+        config.train_dataset.tokenizer.max_decode_length = 32
         config.eval_dataset = config.train_dataset
         config.eval_dataset.data_loader.dataset_dir = self.raw_text_path
         res = mim_trainer.predict(config=config, keys={'src_language': 'source', 'tgt_language': 'target'})

@@ -418,16 +418,17 @@ class T5MultiHeadAttention(nn.Cell):
         self.is_decoder = is_decoder
         self.has_relative_bias = has_relative_bias
 
-        self.cross_attention = is_cross_atten
+        self.is_cross_atten = is_cross_atten
         self.cross_bias = None
-        if self.cross_attention:
-            self.cross_bias = Parameter(initializer("zero", [1, self.src_seq_length, self.tgt_seq_length]),
-                                        name='cross_attention_bias', parallel_optimizer=False)
         if self.has_relative_bias:
-            self.bias_generator = RelaPosEmbeddingsGenerator(depth=num_heads,
-                                                             max_relative_position=32,
-                                                             initializer_range=0.02,
-                                                             is_decoder=self.is_decoder)
+            if not self.is_cross_atten:
+                self.bias_generator = RelaPosEmbeddingsGenerator(depth=num_heads,
+                                                                 max_relative_position=32,
+                                                                 initializer_range=0.02,
+                                                                 is_decoder=self.is_decoder)
+            else:
+                self.cross_bias = Parameter(initializer("zero", [1, self.src_seq_length, self.tgt_seq_length]),
+                                            name='cross_attention_bias', parallel_optimizer=False)
 
         if self.use_past:
             # operators used for state reuse
@@ -665,10 +666,10 @@ class T5MultiHeadAttention(nn.Cell):
             # Calculate the attention_mask matrix via the position index
             attention_mask = F.cast(self.tensor_le(self.range, index), mstype.int32)
             attention_mask = self.expand_dims(attention_mask, 2)
-        if bias is None:
-            if self.has_relative_bias:
+        if bias is None and self.has_relative_bias:
+            if not self.is_cross_atten:
                 bias = self.bias_generator(self.src_seq_length, self.tgt_seq_length)
-            elif self.cross_attention:
+            else:
                 bias = P.ExpandDims()(self.cross_bias, 0)
 
         score = self.add(score, bias)
@@ -990,7 +991,7 @@ class TransformerDecoderLayer(nn.Cell):
                                                     use_past=use_past,
                                                     is_decoder=True,
                                                     is_cross_atten=True,
-                                                    has_relative_bias=False,
+                                                    has_relative_bias=has_bias,
                                                     param_init_type=param_init_type,
                                                     parallel_config=parallel_config.dpmp
                                                     if self.use_moe else parallel_config)
