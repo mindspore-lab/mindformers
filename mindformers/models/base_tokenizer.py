@@ -357,7 +357,6 @@ class BaseTokenizer(SpecialTokensMixin):
         """
         is_exist = os.path.exists(name_or_path)
         is_dir = os.path.isdir(name_or_path)
-
         if not is_exist and (name_or_path not in cls._support_list):
             raise ValueError(f'{name_or_path} does not exist,'
                              f' or it is not supported by {cls.__name__}. '

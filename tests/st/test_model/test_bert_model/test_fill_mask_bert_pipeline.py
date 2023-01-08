@@ -15,15 +15,15 @@
 
 """
 Test Module for classification function of
-ZeroShotImageClassificationPipeline
+TestFillMaskBertPipeline
 
 How to run this:
 windows:
-pytest .\\tests\\st\\test_pipeline
-\\test_zero_shot_image_classification_pipeline.py
+pytest .\\tests\\st\\test_model\\test_bert_model
+\\test_fill_mask_bert_pipeline.py
 linux:
-pytest ./tests/st/test_pipeline
-/test_zero_shot_image_classification_pipeline.py
+pytest ./tests/st/test_model/test_bert_model
+/test_fill_mask_bert_pipeline.py
 
 Note:
     pipeline also supports a dataset input
@@ -65,7 +65,7 @@ def test_translation_pipeline():
                     tokenizer=tokenizer,
                     max_length=16,
                     padding='max_length')
-    output = task("Hello I'm a [MASK] model.")
-    assert len(output) == 1
+    output = task("Hello I'm a [MASK] model. That is [MASK] .")
+    assert len(output) == 1 and len(output[0]) == 3
     output = task(["Hello I'm a [MASK] model.", "Paris is the [MASK] of France"])
     assert len(output) == 2
