@@ -32,7 +32,21 @@ from mindformers.models.mae.mae_config import MaeConfig
 
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
 class MaeModel(BaseModel):
-    """Pretrain MAE Module."""
+    """
+    Pretrain MAE Module.
+    The supported model name could be selected from MaeConfig.show_support_list().
+
+    Args:
+        config (MaeConfig): the config of Mae model.
+
+    Examples:
+        >>> # input model name
+        >>> model_a = MaeModel.from_pretrained('mae_vit_base_p16')
+        >>> # input config
+        >>> from mindformers import AutoConfig
+        >>> config = AutoConfig.from_pretrained('mae_vit_base_p16')
+        >>> model_b = MaeModel.from_config(config)
+    """
     _support_list = MindFormerBook.get_model_support_list()['mae']
 
     def __init__(self, config=None):

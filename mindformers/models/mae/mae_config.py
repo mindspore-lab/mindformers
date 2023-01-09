@@ -25,7 +25,25 @@ default_parallel_config = TransformerOpParallelConfig(recompute=default_recomput
 
 @MindFormerRegister.register(MindFormerModuleType.CONFIG)
 class MaeConfig(BaseConfig):
-    """Mae Config."""
+    """
+    Config for Mae model
+
+    Examples:
+        >>> # init a config with a model name
+        >>> config_a = MaeConfig.from_pretrained('mae_vit_base_p16')
+        >>> # init a config with a config path
+        >>> import os
+        >>> from mindformers.mindformer_book import MindFormerBook
+        >>> config_path = os.path.join(MindFormerBook.get_project_path(),
+        >>>                        'configs', 'mae', 'model_config', "mae_vit_base_p16.yaml")
+        >>> config_b = MaeConfig.from_pretrained(config_path)
+        >>> # init a config with args
+        >>> config_c = MaeConfig(
+        >>>     patch_size=16,
+        >>>     in_chans=3,
+        >>>     ...
+        >>>     )
+    """
     _support_list = MindFormerBook.get_model_support_list()['mae']
 
     def __init__(self,

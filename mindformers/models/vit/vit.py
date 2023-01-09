@@ -32,7 +32,21 @@ from mindformers.models.vit.vit_config import VitConfig
 
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
 class VitModel(BaseModel):
-    """Vision Transformer with support for patch or hybrid CNN input stage."""
+    """
+    Vision Transformer with support for patch or hybrid CNN input stage.
+    The supported model name could be selected from VitConfig.show_support_list().
+
+    Args:
+        config (VitConfig): the config of Vit model.
+
+    Examples:
+        >>> # input model name, load model and weights
+        >>> model_a = VitModel.from_pretrained('vit_base_p16')
+        >>> # input config, load model without weights
+        >>> from mindformers import AutoConfig
+        >>> config = AutoConfig.from_pretrained('vit_base_p16')
+        >>> model_b = VitModel.from_config(config)
+    """
     _support_list = MindFormerBook.get_model_support_list()['vit']
 
     def __init__(self, config=None):

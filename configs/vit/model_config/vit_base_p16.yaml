@@ -4,23 +4,23 @@ model:
 
   model_config:
     type: VitConfig
-    image_size: 224
-    patch_size: 16
-    in_chans: 3
-    embed_dim: 768
-    depth: 12
-    num_heads: 12
-    mlp_ratio: 4
-    drop_rate: 0.
-    drop_path_rate: 0.
-    use_abs_pos_emb: True
-    attention_dropout_rate: 0.
-    init_values:
-    hidden_act: gelu
-    post_layernorm_residual: False
-    use_mean_pooling: True
-    loss_type: SoftTargetCrossEntropy
-    num_classes: 1000
+    image_size: 224  # input image size
+    patch_size: 16  # patch size
+    in_chans: 3  # channels of input images
+    embed_dim: 768  # embedding dimension
+    depth: 12  # number of transformer blocks
+    num_heads: 12  # number of attention heads
+    mlp_ratio: 4  # ffn_hidden_size = mlp_ratio * embed_dim
+    drop_rate: 0.  # drop rate of MLP
+    drop_path_rate: 0.  # drop path rate of transformer blocks
+    use_abs_pos_emb: True  # if using absolute position embedding
+    attention_dropout_rate: 0.  # drop rate of Attention
+    init_values:  # init values of gamma_1 and gamma_2
+    hidden_act: gelu  # activation of MLP
+    post_layernorm_residual: False  # if using post layernorm residual
+    use_mean_pooling: True  # if using global mean pooling
+    loss_type: SoftTargetCrossEntropy  # loss type
+    num_classes: 1000  # num classes
     checkpoint_name_or_path: 'vit_base_p16'
 
 processor:
@@ -28,4 +28,4 @@ processor:
 
   image_processor:
     type: VitImageProcessor
-    image_resolution: 224
+    image_resolution: 224  # input image size
