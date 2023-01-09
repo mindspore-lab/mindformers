@@ -93,7 +93,7 @@ class ClipModel(BaseModel):
         self.logit_scale = Parameter(Tensor(np.log(1 / 0.07)).astype(ms.float32))
         self.exp = ops.Exp()
 
-        self._load_checkpoint(config)
+        self.load_checkpoint(config)
 
     def get_dtype(self, dtype: str):
         """Get_dtype"""

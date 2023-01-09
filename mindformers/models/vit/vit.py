@@ -113,7 +113,7 @@ class VitModel(BaseModel):
         self.init_weights_vit()
         self.fix_init_weight()
 
-        self._load_checkpoint(config)
+        self.load_checkpoint(config)
 
     def fix_init_weight(self):
         """fix init weight"""

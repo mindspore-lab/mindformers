@@ -54,7 +54,7 @@ class BaseModel(nn.Cell, GeneratorMixin):
         super(BaseModel, self).__init__()
         self.config = config
 
-    def _load_checkpoint(self, config):
+    def load_checkpoint(self, config):
         """
         load checkpoint for models.
         (only support standalone mode, and distribute mode waits for developing)
