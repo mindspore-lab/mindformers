@@ -1,0 +1,42 @@
+scenario:
+  modelarts:
+    # 计算中心region配置 [need to replace]
+    iam_endpoint: https://iam-pub.cn-central-221.ovaijisuan.com
+    obs_endpoint: https://obs.cn-central-221.ovaijisuan.com
+    modelarts_endpoint: https://modelarts.cn-central-221.ovaijisuan.com
+    swr_endpoint: https://swr.cn-central-221.ovaijisuan.com
+    region_name: cn-central-221
+    project_id: 52f4bcebc23740a4a924ab67xxxxxxxx                                            # project id of aicc user
+
+    # 作业相关配置 [need to replace]
+    data_path: obs://HwAiUser/dataset/                                                      # input data
+    output_path: obs://HwAiUser/output/                                                     # model output, ckpt
+    code_url: obs://HwAiUser/code/                                                          # model scripts
+    boot_file_path: obs://HwAiUser/code/train.py                                            # model boot file (under code_url, absolute path)
+    log_path: obs://HwAiUser/log/                                                           # log
+    pretrained_model_path: obs://HwAiUser/model/
+    user_image_url: xxx/fmtk-ma:py_3.9-ms_1.8.1_cann_5.1.RC2-euler_2.8.3-aarch64-d910-xxx
+
+    # 计算资源配置
+    pool_id: poolxxxxxxxx                                                                   # [need to replace] id of training pool (专属资源池id, 不配置则使用共享池)
+    node_num: 1
+    device_num: 8                                                                           # 若配置多机（node_num大于1）, 则 device_num 只能指定为八
+
+    # nas配置 [need to replace]
+    nas_share_addr: xx.xx.xx.xx:/
+    nas_mount_path: /mnt/sfs_turbo
+
+    # 部署配置
+    deployment:
+      pool_id: 2c9080c87e731aff017f1f73xxxxxxx                                              # [need to replace] id of inference pool
+      node_num: 1
+      device_num: 1
+
+  local:
+    xxx:
+    yyy:
+
+
+  third_platform:
+    xx:
+    yy:
