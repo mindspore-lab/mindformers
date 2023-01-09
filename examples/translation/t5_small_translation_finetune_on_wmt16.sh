@@ -16,8 +16,8 @@
 
 echo "=============================================================================================================="
 echo "Please run the script as: "
-echo "bash examples/translation_finetune/t5_small_translation_on_wmt16.sh /your_wmt_path"
-echo "The data setting could refer to ./configs/t5/README.md"
+echo "bash examples/translation/t5_small_translation_finetune_on_wmt16.sh /your_wmt_path"
+echo "The data setting could refer to ./api_cards/model_cards/t5.md"
 echo "It is better to use absolute path."
 echo "Please make the src_max_length and the tgt_max_length in config/t5/task_config/wmt16_dataset.yaml"
 echo "to be consistent with the seq_length and max_decoder_length in config/t5/model_config/t5_small.yaml"

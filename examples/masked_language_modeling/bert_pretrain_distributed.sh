@@ -16,8 +16,8 @@
 
 echo "=============================================================================================================="
 echo "Please run the script as: "
-echo "bash examples/pretrain_bert_distributed.sh  DEVICE_NUM HOST_FILE DATA_DIR"
-echo "for example: examples/pretrain/pretrain_bert_distributed.sh 8 hostfile /path/dataset"
+echo "bash examples/masked_language_modeling/bert_pretrain_distributed.sh  DEVICE_NUM HOST_FILE DATA_DIR"
+echo "for example: examples/masked_language_modeling/bert_pretrain_distributed.sh 8 hostfile /path/dataset"
 echo "It is better to use absolute path."
 echo "=============================================================================================================="
 

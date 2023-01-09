@@ -34,6 +34,8 @@ vit：全名vision transformer，不同于传统的基于CNN的网络结果，�
 
 > 需开发者提前pip安装。具体接口说明请参考[API接口](https://gitee.com/mindspore/transformer/wikis/API/)
 
+- Model调用接口
+
   ```python
   from mindformers import VitModel, VitConfig
 
