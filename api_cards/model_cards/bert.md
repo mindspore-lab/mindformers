@@ -122,7 +122,7 @@ tail -f run_distributed_train_bert/1/rank.0/stdout
 要完成上述训练只需输入命令
 
 ```bash
-bash examples/pretrain_bert_distributed.sh RANK_SIZE hostfile
+bash examples/masked_language_modeling/bert_pretrain_distributed.sh RANK_SIZE hostfile
 ```
 
 即可。
@@ -130,7 +130,7 @@ bash examples/pretrain_bert_distributed.sh RANK_SIZE hostfile
 #### 计算Loss
 
 ```python
-from mindformers import BertForPretraining, BertTokenizer
+from mindformers import BertModel, BertTokenizer
 model = BertModel.from_pretrained('bert_base_uncased')
 tokenizer = BertTokenizer.from_pretrained('bert_base_uncased')
 data = tokenizer("Paris is the [MASK] of France.")

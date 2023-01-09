@@ -34,7 +34,7 @@
 
 ## 快速任务接口
 
-- Trainer接口开启评估/推理：
+- Trainer接口开启训练：
 
   ```python
   import os
