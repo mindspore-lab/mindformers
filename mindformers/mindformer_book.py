@@ -172,6 +172,7 @@ class MindFormerBook:
         ]),
         ('bert', [
             'bert_base_uncased',
+            'bert_tiny_uncased',
         ]),
         ('t5', [
             't5_small',

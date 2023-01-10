@@ -59,6 +59,7 @@ class FillMaskPipeline(BasePipeline):
         if tokenizer is None:
             raise ValueError(f"{self.__class__.__name__}"
                              " requires for a tokenizer.")
+        self.input_text = ""
 
         super().__init__(model, tokenizer, **kwargs)
 
@@ -98,12 +99,13 @@ class FillMaskPipeline(BasePipeline):
             inputs = inputs['text']
             if isinstance(inputs, mindspore.Tensor):
                 inputs = inputs.asnumpy().tolist()
+        self.input_text = inputs if isinstance(inputs, str) else ""
         inputs = self.tokenizer(inputs, return_tensors="ms", **preprocess_params)
         expand_dims = ops.ExpandDims()
         return {"input_ids": expand_dims(inputs["input_ids"], 0),
                 "input_mask": expand_dims(inputs["attention_mask"], 0),
                 "token_type_id": expand_dims(inputs["token_type_ids"], 0),
-                "masked_lm_positions": expand_dims(Tensor([1, 1]), 0)}
+                "masked_lm_positions": expand_dims(Tensor(self.tokenizer.mask_index), 0)}
 
     def forward(self, model_inputs, **forward_params):
         """
@@ -130,6 +132,14 @@ class FillMaskPipeline(BasePipeline):
             The generated results
         """
         outputs = model_outputs["output_ids"][-2].asnumpy()
-        outputs = np.argmax(outputs, axis=1)
-        outputs = self.tokenizer.decode([outputs,], skip_special_tokens=True)
-        return [{self.return_name + '_text': outputs}]
+        tokens_dict = []
+        max_tokens = np.argmax(outputs, axis=1)
+        for ind, tokenid in enumerate(max_tokens):
+            token = self.tokenizer.decode([int(tokenid),], skip_special_tokens=True)
+            token = token.replace(' ', '')
+            tokens_dict.append({'score': outputs[ind, tokenid],
+                                'token': tokenid,
+                                'token_str': token})
+            self.input_text = self.input_text.replace('[MASK]', token, 1)
+        tokens_dict.append({'sequence': self.input_text})
+        return [tokens_dict,]

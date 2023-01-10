@@ -337,6 +337,7 @@ class BertTokenizer(Tokenizer):
         self.vocab_dict = vocab_to_dict_key_token(vocab_file)
         self.vocab_id2token = {v: k for k, v in self.vocab_dict.items()}
         self.word_piece_tokenizer = WordpieceTokenizer(vocab=self.vocab_dict)
+        self.mask_index = []
 
     def build_inputs_with_special_tokens(self, token_ids_0, token_ids_1=None):
         if token_ids_1:
@@ -349,11 +350,26 @@ class BertTokenizer(Tokenizer):
             raise ValueError("Text should be type str, but found type", type(text))
         return self._tokenize(text)
 
+    def _process_mask_tokens(self, text):
+        """process mask tokens in text"""
+        text_tokenize = []
+        if self._mask_token in text:
+            while self._mask_token in text:
+                ind = text.index(self._mask_token)
+                text_tokenize.extend(self.basic_tokenizer.tokenize(text[:ind]))
+                text_tokenize.append(self._mask_token)
+                text = text[ind + len(self._mask_token):]
+            text_tokenize.extend(self.basic_tokenizer.tokenize(text))
+            self.mask_index = [ind for ind, x in enumerate(text_tokenize) if x == self._mask_token]
+        else:
+            text_tokenize = self.basic_tokenizer.tokenize(text)
+        return text_tokenize
+
     def _tokenize(self, text, **kwargs):
         tokens_ret = []
         text = convert_to_unicode(text)
         if self.do_basic_tokenize:
-            for tokens in self.basic_tokenizer.tokenize(text):
+            for tokens in self._process_mask_tokens(text):
                 wordpiece_tokens = self.word_piece_tokenizer.tokenize(tokens)
                 tokens_ret.extend(wordpiece_tokens)
         else:
