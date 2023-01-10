@@ -40,7 +40,7 @@ sh build.sh
 
 #### 版本匹配关系
 
-|版本对应关系| Mindformer  | MindSpore |
+|版本对应关系| MindFormers  | MindSpore |
 |-----------| -----------| ----------|
 |版本号      | 0.2.0      | 1.8.1 |
 
