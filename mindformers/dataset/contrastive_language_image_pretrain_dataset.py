@@ -13,6 +13,8 @@
 # limitations under the License.
 # ============================================================================
 """Contrastive Language Image Pretrain Dataset."""
+import os
+
 from .dataloader import build_dataset_loader
 from .transforms import build_transforms
 from .sampler import build_sampler
@@ -63,7 +65,11 @@ class ContrastiveLanguageImagePretrainDataset(BaseDataset):
         """new method"""
         logger.info("Now Create Contrastive Language Image Pretrain Dataset.")
         cls.init_dataset_config(dataset_config)
-        dataset = build_dataset_loader(dataset_config.data_loader)
+        rank_id = int(os.getenv("RANK_ID", "0"))
+        device_num = int(os.getenv("RANK_SIZE", "1"))
+
+        dataset = build_dataset_loader(
+            dataset_config.data_loader, default_args={'num_shards': device_num, 'shard_id': rank_id})
 
         transforms = build_transforms(dataset_config.transforms)
 
