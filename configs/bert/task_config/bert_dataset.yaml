@@ -15,5 +15,5 @@ train_dataset: &train_dataset
   prefetch_size: 1
 
 train_dataset_task:
-  type: BertPretrainDataset
+  type: MaskLanguageModelDataset
   dataset_config: *train_dataset
