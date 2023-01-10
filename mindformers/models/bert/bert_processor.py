@@ -17,6 +17,7 @@
 BertProcessor
 """
 from mindformers.mindformer_book import MindFormerBook
+from ..base_tokenizer import BaseTokenizer
 from ..base_processor import BaseProcessor
 from ...tools.register import MindFormerRegister, MindFormerModuleType
 
@@ -38,3 +39,19 @@ class BertProcessor(BaseProcessor):
             padding=padding,
             return_tensors=return_tensors
         )
+
+    def __call__(self, text_input=None, image_input=None):
+        """call function"""
+        output = {}
+        if text_input is not None and self.tokenizer:
+            if not isinstance(self.tokenizer, BaseTokenizer):
+                raise TypeError(f"tokenizer should inherited from the BaseTokenizer,"
+                                f" but got {type(self.tokenizer)}.")
+            # Format the input into a batch
+            if isinstance(text_input, str):
+                text_input = [text_input]
+            text_output = self.tokenizer(text_input, return_tensors=self.return_tensors,
+                                         max_length=self.max_length,
+                                         padding=self.padding)["input_ids"]
+            output['text'] = text_output
+        return output

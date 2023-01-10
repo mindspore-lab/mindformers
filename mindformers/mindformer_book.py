@@ -267,6 +267,10 @@ class MindFormerBook:
             "https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/"
             "XFormer_for_mindspore/bert/vocab.txt"
         ]),
+        ('bert_tiny_uncased', [
+            "https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/"
+            "XFormer_for_mindspore/bert/vocab.txt"
+        ]),
     ])
 
     _TOKENIZER_NAME_TO_PROCESSOR = OrderedDict([
