@@ -13,6 +13,8 @@
 # limitations under the License.
 # ============================================================================
 """Zero Shot Image Classification Dataset."""
+import os
+
 from .dataloader import build_dataset_loader
 from .transforms import build_transforms
 from .base_dataset import BaseDataset
@@ -69,7 +71,11 @@ class ZeroShotImageClassificationDataset(BaseDataset):
         """New method"""
         logger.info("Now Create Zero Shot Image Classification Dataset.")
         cls.init_dataset_config(dataset_config)
-        dataset = build_dataset_loader(dataset_config.data_loader)
+        rank_id = int(os.getenv("RANK_ID", "0"))
+        device_num = int(os.getenv("RANK_SIZE", "1"))
+
+        dataset = build_dataset_loader(
+            dataset_config.data_loader, default_args={'num_shards': device_num, 'shard_id': rank_id})
 
         transforms = build_transforms(dataset_config.transforms)
         tokenizer = build_tokenizer(dataset_config.tokenizer)
