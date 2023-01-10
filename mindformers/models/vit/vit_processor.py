@@ -12,20 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-
 """
 VitProcessor
 """
 import numpy as np
-import PIL
+from PIL import Image
 
-import mindspore as ms
+from mindspore import Tensor
 from mindspore.dataset.vision import CenterCrop, ToTensor, Normalize, Rescale
 
-from mindformers.dataset import Resize
 from mindformers.mindformer_book import MindFormerBook
-from ..base_processor import BaseProcessor, BaseImageProcessor
-from ...tools.register import MindFormerRegister, MindFormerModuleType
+from mindformers.dataset import Resize
+from mindformers.dataset.base_dataset import BaseDataset
+from mindformers.models.base_processor import BaseProcessor, BaseImageProcessor
+from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 
 
 @MindFormerRegister.register(MindFormerModuleType.PROCESSOR)
@@ -57,25 +57,7 @@ class VitImageProcessor(BaseImageProcessor):
         Return:
             A 4-rank tensor for a batch of images.
         """
-        if isinstance(images, PIL.Image.Image):
-            images = np.array(images)
-            images = np.expand_dims(images, 0)
-
-        elif isinstance(images, list):
-            images = np.array([np.array(image) for image in images])
-
-        elif isinstance(images, np.ndarray):
-            if len(images.shape) == 3:
-                images = np.expand_dims(images, 0)
-            images = images.transpose(0, 2, 3, 1)
-
-        elif isinstance(images, ms.Tensor):
-            if len(images.shape) == 3:
-                images = np.expand_dims(images, 0)
-            images = images.transpose(0, 2, 3, 1)
-
-        elif not isinstance(images, ms.Tensor):
-            raise ValueError("input type is not Tensor, numpy, Image, list of Image")
+        images = self._format_inputs(images)
 
         res = []
         for image in images:
@@ -84,7 +66,52 @@ class VitImageProcessor(BaseImageProcessor):
             image = self.to_tensor(image)
             image = self.normalize(image)
             res.append(image)
-        return ms.Tensor(res)
+        return Tensor(res)
+
+    def _format_inputs(self, inputs):
+        """
+        Transform image classification inputs into (bz, h, w, c) or (h, w, c) numpy array.
+
+        Args:
+             inputs (tensor, numpy.array, PIL.Image, list, BaseDataset):
+             for numpy or tensor input, the channel could be (bz, c, h, w), (c, h, w) or (bz, h, w, c), (h, w, c);
+             for list, the item could be PIL.Image, numpy.array, Tensor;
+             for BaseDataset, return without any operations.
+
+        Return:
+             transformed images:
+             for PIL.Image, numpy or tensor input, return a numpy array, the channel is (bz, h, w, c) or (h, w, c);
+             for list, return a numpy array for each element;
+             for BaseDataset, it is returned directly.
+        """
+        if not isinstance(inputs, (list, Image.Image, Tensor, np.ndarray, BaseDataset)):
+            raise TypeError("input type is not Tensor, numpy, Image, list of Image or MindFormer BaseDataset")
+
+        if isinstance(inputs, list):
+            return [self._format_input_(item) for item in inputs]
+
+        if isinstance(inputs, Image.Image):
+            inputs = np.array(inputs)
+
+        if isinstance(inputs, Tensor):
+            inputs = inputs.asnumpy()
+
+        if isinstance(inputs, np.ndarray):
+            if len(inputs.shape) == 3:
+                inputs = np.expand_dims(inputs, 0)
+                inputs = self._chw2hwc(inputs)
+            elif len(inputs.shape) == 4:
+                inputs = self._chw2hwc(inputs)
+            else:
+                raise ValueError(f"the rank of image_batch should be 3 or 4,"
+                                 f" but got {len(inputs.shape)}")
+        return inputs
+
+    @staticmethod
+    def _chw2hwc(inputs):
+        if inputs.shape[-1] != 3:
+            inputs = inputs.transpose(0, 2, 3, 1)
+        return inputs
 
 
 @MindFormerRegister.register(MindFormerModuleType.PROCESSOR)
