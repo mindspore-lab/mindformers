@@ -147,6 +147,9 @@ class TestTranslationTrainer:
         res = mim_trainer.predict(input_data="hello words", network=model)
         assert res == [{'translation_text': ['hello words']}]
 
+        res = mim_trainer.predict(input_data="hello words", network=model, max_length=1)
+        assert len(res[0]['translation_text']) == 1
+
         res = mim_trainer.predict(input_data=["hello words", "I am not happy"], network=model)
         assert res == [{'translation_text': ['hello words']}, {'translation_text': ['.']}]
 
@@ -154,10 +157,11 @@ class TestTranslationTrainer:
         dataset = WMT16DataLoader(self.raw_text_path, column_names=['src_language', 'tgt_language'])
         res = mim_trainer.predict(input_data=dataset,
                                   network=model,
+                                  max_length=32,
                                   keys={'src_language': 'src_language', 'tgt_language': 'tgt_language'},
                                   batch_size=1)
         assert res == [{'translation_text': ['Die positive Reaktion der Piloten und der Föderation-Beamten macht mich '
-                                             'erfreut, dass wir dieses Jahr']},
+                                             'erfreut, dass wir dieses Jahr wieder']},
                        {'translation_text': ['Wir haben während dieser Period die ganze Reihe von '
                                              'emotions durchlebt.']}]
 
