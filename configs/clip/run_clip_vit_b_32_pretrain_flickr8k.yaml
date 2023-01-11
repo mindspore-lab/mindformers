@@ -1,9 +1,9 @@
 base_config: [
+    '../__base__.yaml',
     './task_config/context.yaml',
     './task_config/runner.yaml',
     './task_config/clip_flickr8k_dataset.yaml',
-    './model_config/clip_vit_b_32.yaml',
-    '../__base__.yaml' ]
+    './model_config/clip_vit_b_32.yaml' ]
 
 profile: False
 use_parallel: False

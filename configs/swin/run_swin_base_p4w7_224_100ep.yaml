@@ -1,9 +1,9 @@
 base_config: [
+    '../__base__.yaml',
     './task_config/context.yaml',
     './task_config/runner.yaml',
     './task_config/swin_dataset.yaml',
-    './model_config/swin_base_p4w7.yaml',
-    '../__base__.yaml' ]
+    './model_config/swin_base_p4w7.yaml' ]
 
 profile: False
 use_parallel: False

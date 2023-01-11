@@ -1,9 +1,9 @@
 base_config: [
+    '../__base__.yaml',
     './task_config/context.yaml',
     './task_config/runner.yaml',
     './task_config/bert_dataset.yaml',
-    './model_config/bert_base_uncased.yaml',
-    '../__base__.yaml' ]
+    './model_config/bert_base_uncased.yaml' ]
 
 profile: False
 use_parallel: False

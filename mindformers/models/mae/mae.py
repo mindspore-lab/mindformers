@@ -45,7 +45,7 @@ class MaeModel(BaseModel):
         >>> # input config
         >>> from mindformers import AutoConfig
         >>> config = AutoConfig.from_pretrained('mae_vit_base_p16')
-        >>> model_b = MaeModel.from_config(config)
+        >>> model_b = MaeModel(config)
     """
     _support_list = MindFormerBook.get_model_support_list()['mae']
 
