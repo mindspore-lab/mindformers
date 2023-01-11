@@ -36,6 +36,7 @@ from mindformers.tools.logger import logger
 from mindformers.tools.utils import count_params
 from mindformers.tools.image_tools import load_image
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
+from .group_ic_params import get_group_parameters
 from ..config_args import ConfigArguments
 from ..base_trainer import BaseTrainer
 from ..utils import check_runner_config, check_image_lr_config, resume_checkpoint_for_training
@@ -152,7 +153,7 @@ class ImageClassificationTrainer(BaseTrainer):
             logger.info(".........Build LR Schedule..........")
             check_image_lr_config(config)
             lr_schedule = build_lr(config.lr_schedule)
-            group_params = network.trainable_params()
+            group_params = get_group_parameters(config, network, lr_schedule)
             if lr_schedule is not None:
                 optimizer = build_optim(
                     config.optimizer,
