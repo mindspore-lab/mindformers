@@ -47,4 +47,4 @@ python code/src/scripts/export_caption.py --ckpt_file="***.ckpt"
 * 部署完成后会获得API调用地址，拼接上在`service.py`脚本中预定义的URL`/infer/image`，即可进行调用
 * caption模型部署后，会进行预热，一般需要等待几分钟API才可用
 * 在modelarts的前端页面可参照以下配置完成预测
-![infer_image](../doc/predict_in_ma_console_2.png)
+![infer_image](../resources/predict_in_ma_console_2.png)

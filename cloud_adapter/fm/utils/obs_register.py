@@ -1,5 +1,3 @@
-# !/bin/bash
-#
 # Copyright 2022 Huawei Technologies Co., Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,21 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-set -e
+import fm.aicc_tools as ac
 
-CUR_DIR=$(dirname $(readlink -f $0))
+CFTS = ac.CFTS
 
-FM_DIR=$TOP_DIR/fm
 
-function pull_setup() {
-  cd $CUR_DIR
-  pip3 install pyyaml
-  python3 $CUR_DIR/setup.py bdist_wheel
-  cd -
-}
-
-function main() {
-  pull_setup
-}
-
-main
+def set_obs_path(app_config):
+    global CFTS
+    if app_config is not None:
+        log_path = app_config.get('log_path')
+        if log_path is not None:
+            CFTS = ac.CFTS(log_path, upload_frequence=1, keep_last=True)
