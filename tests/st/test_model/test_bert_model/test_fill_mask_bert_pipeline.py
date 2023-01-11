@@ -57,6 +57,8 @@ def test_translation_pipeline():
     bert.save_pretrained(output_path)
     processor = BertProcessor(tokenizer=tokenizer, max_length=16, padding="max_length")
     processor.save_pretrained(output_path)
+    output = processor("Paris is a city.")
+    assert output['text'].shape == (1, 16)
     fillmask = FillMaskPipeline(model=output_path, max_length=16, padding="max_length")
     output = fillmask("Hello I'm a [MASK] model.")
     assert len(output) == 1

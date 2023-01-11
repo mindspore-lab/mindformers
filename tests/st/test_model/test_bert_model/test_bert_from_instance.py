@@ -23,10 +23,11 @@ from mindspore.nn import AdamWeightDecay, WarmUpLR
 from mindspore.train.callback import LossMonitor, TimeMonitor
 from mindspore.dataset import GeneratorDataset
 
-from mindformers.trainer import Trainer
+from mindformers.trainer import Trainer, MaskedLanguageModelingTrainer
 from mindformers.trainer.config_args import ConfigArguments, \
     RunnerConfig
-from mindformers.models.bert.bert import BertModel
+from mindformers.models.bert.bert import BertConfig, BertModel
+from mindformers import BertTokenizer
 
 
 def generator():
@@ -84,3 +85,22 @@ def test_bert_trainer_train_from_instance():
                           train_dataset=dataset,
                           callbacks=callbacks)
     mlm_trainer.train(resume_or_finetune_from_checkpoint=False)
+
+@pytest.mark.level0
+@pytest.mark.platform_x86_ascend_training
+@pytest.mark.platform_arm_ascend_training
+@pytest.mark.env_onecard
+def test_bert_trainer_predict():
+    """
+    Feature: Test bert trainer predict
+    Description: Test Trainer API to train from self-define instance API.
+    Expectation: TypeError
+    """
+    # Config definition
+    config = BertConfig(num_layers=1, batch_size=1, seq_length=16, is_training=False)
+    bert = BertModel(config)
+    mlm_trainer = MaskedLanguageModelingTrainer(model_name="bert_tiny_uncased")
+    tokenizer = BertTokenizer.from_pretrained("bert_tiny_uncased")
+    input_data = [" Hello I am a [MASK] model.",]
+    output = mlm_trainer.predict(config=config, input_data=input_data, network=bert, tokenizer=tokenizer)
+    assert len(output) == 1
