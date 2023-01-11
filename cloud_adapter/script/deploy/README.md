@@ -21,7 +21,7 @@
 1. 修改本地host文件，加入 `**.**.**.** iam-pub.cn-central-221.huaweicloud.com` 避免DNS问题
 
 2.  构造请求
-    ![get_token](doc/get_token.png)
+    ![get_token](resources/get_token.png)
     
     +   链接: https://iam-pub.cn-central-221.ovaijisuan.com/v3/auth/tokens
     +   请求body内容:
@@ -67,4 +67,4 @@
         +   请求体(body/form-data)
             -   file: 选择文件
         +   注意:file字段需要选择为文件
-![infer_image](doc/infer_image.png)
+![infer_image](resources/infer_image.png)

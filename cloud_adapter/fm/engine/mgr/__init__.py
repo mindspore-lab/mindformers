@@ -1,5 +1,3 @@
-# !/bin/bash
-#
 # Copyright 2022 Huawei Technologies Co., Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,21 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-set -e
-
-CUR_DIR=$(dirname $(readlink -f $0))
-
-FM_DIR=$TOP_DIR/fm
-
-function pull_setup() {
-  cd $CUR_DIR
-  pip3 install pyyaml
-  python3 $CUR_DIR/setup.py bdist_wheel
-  cd -
-}
-
-function main() {
-  pull_setup
-}
-
-main
+from fm.engine.mgr.cert import cache_cert, manually_input_cert, cert_param_existence_check
+from fm.engine.mgr.config import config_options, config_process
+from fm.engine.mgr.show import show_options, list_show_process
+from fm.engine.mgr.stop import stop_options
+from fm.engine.mgr.delete import delete_options
+from fm.engine.mgr.job_status import job_status_options
+from fm.engine.mgr.model_status import model_status_options
+from fm.engine.mgr.service_status import service_status_options
+from fm.engine.mgr.enable_verify import enable_verify_options, cert_verify

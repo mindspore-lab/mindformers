@@ -1,5 +1,3 @@
-# !/bin/bash
-#
 # Copyright 2022 Huawei Technologies Co., Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,21 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-set -e
+from fm.engine.options import ScenarioOption, AppConfigOption, ServiceIdOption
 
-CUR_DIR=$(dirname $(readlink -f $0))
 
-FM_DIR=$TOP_DIR/fm
+def service_status_options():
+    options = [ScenarioOption(), AppConfigOption(), ServiceIdOption()]
 
-function pull_setup() {
-  cd $CUR_DIR
-  pip3 install pyyaml
-  python3 $CUR_DIR/setup.py bdist_wheel
-  cd -
-}
+    def decorator(f):
+        if not hasattr(f, '__click_params__'):
+            f.__click_params__ = []
+        f.__click_params__ += options
+        return f
 
-function main() {
-  pull_setup
-}
-
-main
+    return decorator

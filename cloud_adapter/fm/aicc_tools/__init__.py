@@ -1,5 +1,3 @@
-# !/bin/bash
-#
 # Copyright 2022 Huawei Technologies Co., Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,21 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-set -e
+from fm.aicc_tools.aicc_monitor import aicc_monitor
+from fm.aicc_tools.ailog import get_logger
+from fm.aicc_tools.cfts import CFTS
+from fm.aicc_tools.utils import obs_register
 
-CUR_DIR=$(dirname $(readlink -f $0))
-
-FM_DIR=$TOP_DIR/fm
-
-function pull_setup() {
-  cd $CUR_DIR
-  pip3 install pyyaml
-  python3 $CUR_DIR/setup.py bdist_wheel
-  cd -
-}
-
-function main() {
-  pull_setup
-}
-
-main
+__all__ = ['get_logger', 'CFTS', 'aicc_monitor', 'obs_register']

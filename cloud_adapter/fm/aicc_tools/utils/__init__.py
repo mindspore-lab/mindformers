@@ -1,5 +1,3 @@
-# !/bin/bash
-#
 # Copyright 2022 Huawei Technologies Co., Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,21 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-set -e
+from fm.aicc_tools.utils.cloud_adapter import Obs2Local, mox_adapter, obs_register
+from fm.aicc_tools.utils.utils import get_rank_info, get_num_nodes_devices, Const
+from fm.aicc_tools.utils.validator import check_obs_url, check_in_modelarts
 
-CUR_DIR=$(dirname $(readlink -f $0))
-
-FM_DIR=$TOP_DIR/fm
-
-function pull_setup() {
-  cd $CUR_DIR
-  pip3 install pyyaml
-  python3 $CUR_DIR/setup.py bdist_wheel
-  cd -
-}
-
-function main() {
-  pull_setup
-}
-
-main
+__all__ = ['Obs2Local', 'mox_adapter', 'obs_register', 'get_rank_info',
+           'get_num_nodes_devices', 'check_obs_url', 'check_in_modelarts', 'Const'
+           ]

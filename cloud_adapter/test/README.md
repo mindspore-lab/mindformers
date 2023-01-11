@@ -12,9 +12,9 @@
 
 
   ```shell
-from fm.src.aicc_tools.ailog.log import service_logger
-from fm.src.aicc_tools.ailog.log import service_logger_without_std
-from fm.src.aicc_tools.ailog.log import aicc_logger
+from fm.aicc_tools.ailog.log import service_logger
+from fm.aicc_tools.ailog.log import service_logger_without_std
+from fm.aicc_tools.ailog.log import aicc_logger
   ```
 在需要使用日志记录的地方使用对应的
   ```shell

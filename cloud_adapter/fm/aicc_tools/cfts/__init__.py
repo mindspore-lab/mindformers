@@ -1,5 +1,3 @@
-# !/bin/bash
-#
 # Copyright 2022 Huawei Technologies Co., Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,21 +12,4 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-set -e
-
-CUR_DIR=$(dirname $(readlink -f $0))
-
-FM_DIR=$TOP_DIR/fm
-
-function pull_setup() {
-  cd $CUR_DIR
-  pip3 install pyyaml
-  python3 $CUR_DIR/setup.py bdist_wheel
-  cd -
-}
-
-function main() {
-  pull_setup
-}
-
-main
+from fm.aicc_tools.cfts.cfts import CFTS

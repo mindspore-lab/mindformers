@@ -31,7 +31,7 @@ def get_version():
             config_output = yaml.safe_load(file)
             version = config_output['mindxsdk']
     else:
-        version = '1.0.1.RC2.b001'
+        version = '1.0.1'
     return version
 
 
@@ -82,11 +82,10 @@ if __name__ == '__main__':
     package_data = {
         'fm': [
             '*.py',
-            'src/*.py',
-            'src/*/*.py',
-            'src/*/*/*.py',
-            'kmc_lib/*',
-            'kmc_lib/*/*'
+            '*/*.py',
+            '*/*/*.py',
+            'kmc/kmc_lib/*',
+            'kmc/kmc_lib/*/*',
         ]
     }
     do_setup(package_data)
