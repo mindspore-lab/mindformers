@@ -1,9 +1,9 @@
 base_config: [
+    '../__base__.yaml',
     './task_config/context.yaml',
     './task_config/runner.yaml',
     './task_config/wmt16_dataset.yaml',
-    './model_config/t5_small.yaml',
-    '../__base__.yaml' ]
+    './model_config/t5_small.yaml' ]
 
 profile: False
 use_parallel: False

@@ -81,6 +81,30 @@ class MaskedImageModelingTrainer(BaseTrainer):
 
         Raises:
             NotImplementedError: If wrapper not implemented.
+
+        Examples:
+            >>> import numpy as np
+            >>> from mindspore.dataset import GeneratorDataset
+            >>> from mindspore.nn import AdamWeightDecay, WarmUpLR, \
+            ...      DynamicLossScaleUpdateCell, TrainOneStepWithLossScaleCell
+            >>> from mindformers.trainer import GeneralTaskTrainer
+            >>> from mindformers.tools.register import MindFormerConfig
+            >>> from mindformers.models import MaeModel, MaeConfig
+            >>> config = MindFormerConfig("configs/mae/run_mae_vit_base_p16_224_800ep.yaml")
+            >>> #1) use config to train
+            >>> cls_task = MaskedImageModelingTrainer(model_name='mae')
+            >>> cls_task.train(config=config)
+            >>> #2) use instance function to evaluate
+            >>> dataset = build_dataset(config.train_dataset_task)
+            >>> mae_config = MaeConfig(batch_size=2)
+            >>> network_with_loss = MaeModel(mae_config)
+            >>> lr_schedule = WarmUpLR(learning_rate=0.001, warmup_steps=100)
+            >>> optimizer = AdamWeightDecay(beta1=0.009, beta2=0.999,
+            ...                             learning_rate=lr_schedule,
+            ...                             params=network_with_loss.trainable_params())
+            >>> loss_scale = DynamicLossScaleUpdateCell(loss_scale_value=2**12, scale_factor=2, scale_window=1000)
+            >>> wrapper = TrainOneStepWithLossScaleCell(network_with_loss, optimizer, scale_sense=loss_scale)
+            >>> cls_task.train(config=config, wrapper=wrapper, dataset=dataset)
         """
         # 自定义创建模型训练完整过程, 待补充
         self.kwargs = kwargs

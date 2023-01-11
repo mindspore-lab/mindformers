@@ -45,7 +45,7 @@ class VitModel(BaseModel):
         >>> # input config, load model without weights
         >>> from mindformers import AutoConfig
         >>> config = AutoConfig.from_pretrained('vit_base_p16')
-        >>> model_b = VitModel.from_config(config)
+        >>> model_b = VitModel(config)
     """
     _support_list = MindFormerBook.get_model_support_list()['vit']
 

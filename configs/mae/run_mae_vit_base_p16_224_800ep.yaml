@@ -1,9 +1,9 @@
 base_config: [
+    '../__base__.yaml',
     './task_config/context.yaml',
     './task_config/runner.yaml',
     './task_config/mae_dataset.yaml',
-    './model_config/mae_vit_base_p16.yaml',
-    '../__base__.yaml' ]
+    './model_config/mae_vit_base_p16.yaml' ]
 
 profile: False
 use_parallel: False

@@ -30,10 +30,7 @@ def convert_weight(pth_file="mae_pretrain_vit_base.pth", ms_ckpt_path="mae_pretr
             k += "s"
         if "norm" in k:
             if "fc_norm" not in k:
-                if "blocks" in k:
-                    k = k.replace("norm", "layernorm")
-                else:
-                    k = k.replace("norm", "fc_norm")
+                k = k.replace("norm", "layernorm")
             if "weight" in k:
                 k = k.replace("weight", "gamma")
             elif "bias" in k:
