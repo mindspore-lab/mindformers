@@ -15,13 +15,12 @@
 
 """mindformers init"""
 from mindformers import common, auto_class, dataset, \
-    models, modules, wrapper, tools
+    models, wrapper, tools
 from mindformers.pipeline import *
 from mindformers.trainer import *
 from mindformers.common import *
 from mindformers.dataset import *
 from mindformers.models import *
-from mindformers.modules import *
 from mindformers.wrapper import *
 from mindformers.tools import *
 from mindformers.auto_class import *
@@ -32,6 +31,5 @@ __all__ = []
 __all__.extend(dataset.__all__)
 __all__.extend(models.__all__)
 __all__.extend(common.__all__)
-__all__.extend(modules.__all__)
 __all__.extend(tools.__all__)
 __all__.extend(auto_class.__all__)
