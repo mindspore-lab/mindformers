@@ -76,11 +76,10 @@ class BaseModel(nn.Cell, GeneratorMixin):
 
                 try:
                     load_param_into_net(self, param)
+                    logger.info("weights in %s are loaded", ckpt_file)
                 except RuntimeError:
                     logger.error("the given config and weights in %s are"
                                  " mismatched, and weights load failed", ckpt_file)
-                logger.info("weights in %s are loaded", ckpt_file)
-
             elif checkpoint_name_or_path not in self._support_list:
                 raise ValueError(f"{checkpoint_name_or_path} is not a supported default model"
                                  f" or a valid path to checkpoint,"
@@ -105,10 +104,10 @@ class BaseModel(nn.Cell, GeneratorMixin):
                 param = load_checkpoint(ckpt_file)
                 try:
                     load_param_into_net(self, param)
+                    logger.info("weights in %s are loaded", ckpt_file)
                 except RuntimeError:
                     logger.error("the given config and weights in %s are"
                                  " mismatched, and weights load failed", ckpt_file)
-                logger.info("weights in %s are loaded", ckpt_file)
         else:
             logger.info("model built, but weights is unloaded, since the config has no"
                         " checkpoint_name_or_path attribute or"
