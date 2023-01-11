@@ -1,0 +1,6 @@
+[base]
+name=EulerOS-2.0SP8 base
+baseurl=http://repo.huaweicloud.com/euler/2.8/os/aarch64/
+enabled=1
+gpgcheck=1
+gpgkey=http://repo.huaweicloud.com/euler/2.8/os/RPM-GPG-KEY-EulerOS

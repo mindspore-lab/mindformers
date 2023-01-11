@@ -1,0 +1,24 @@
+scenario:
+  modelarts:
+    # 计算中心region配置 [need to replace]
+    iam_endpoint: https://iam-pub.cn-central-221.ovaijisuan.com
+    obs_endpoint: https://obs.cn-central-221.ovaijisuan.com
+    modelarts_endpoint: https://modelarts.cn-central-221.ovaijisuan.com
+    swr_endpoint: https://swr.cn-central-221.ovaijisuan.com
+    region_name: cn-central-221
+    project_id: 52f4bcebc23740a4a924ab67xxxxxxxx                                            # project id of aicc user
+
+    # 作业相关配置 [need to replace]
+    data_path: obs://HwAiUser/dataset/                                                      # input data
+    output_path: obs://HwAiUser/output/                                                     # model output, ckpt
+    code_url: obs://HwAiUser/code/                                                          # model scripts
+    boot_file_path: obs://HwAiUser/code/train.py                                            # model boot file (under code_url, absolute path)
+    log_path: obs://HwAiUser/log/                                                           # log
+    pretrained_model_path: obs://HwAiUser/model/
+    user_image_url: xxx/fmtk-ma:py_3.9-ms_1.8.1_cann_5.1.RC2-euler_2.8.3-aarch64-d910-xxx
+
+    # 部署配置
+    deployment:
+      pool_id: 2c9080c87e731aff017f1f73xxxxxxxx                                             # [need to replace] # id of inference pool
+      node_num: 1
+      device_num: 1
