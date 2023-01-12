@@ -144,14 +144,14 @@ class TestTranslationTrainer:
         # change the length for quick training
         model = T5ForConditionalGeneration.from_pretrained('t5_small', seq_length=32, max_decode_length=32)
         mim_trainer = TranslationTrainer(model_name="t5_small")
-        res = mim_trainer.predict(input_data="hello words", network=model)
-        assert res == [{'translation_text': ['hello words']}]
+        res = mim_trainer.predict(input_data="hello world", network=model)
+        assert res == [{'translation_text': ['hello world']}]
 
-        res = mim_trainer.predict(input_data="hello words", network=model, max_length=1)
+        res = mim_trainer.predict(input_data="hello world", network=model, max_length=1)
         assert len(res[0]['translation_text']) == 1
 
-        res = mim_trainer.predict(input_data=["hello words", "I am not happy"], network=model)
-        assert res == [{'translation_text': ['hello words']}, {'translation_text': ['.']}]
+        res = mim_trainer.predict(input_data=["hello world", "I am not happy"], network=model)
+        assert res == [{'translation_text': ['hello world']}, {'translation_text': ['.']}]
 
         from mindformers.dataset.dataloader.wmt16_dataloader import WMT16DataLoader
         dataset = WMT16DataLoader(self.raw_text_path, column_names=['src_language', 'tgt_language'])

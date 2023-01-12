@@ -8,7 +8,7 @@ train_dataset: &train_dataset
     tgt_max_length: 128
     prefix: "translate the English to Romain:"
     stage: 'train'
-  input_columns: ["input_ids", "attention_mask", "labels"]
+  input_columns: ["input_ids", "attention_mask", "labels"] # determinied by the model inputs
   output_columns: ["input_ids", "attention_mask", "labels"]
   num_parallel_workers: 8
   python_multiprocessing: False
