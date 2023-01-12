@@ -85,10 +85,24 @@ class TranslationTrainer(BaseTrainer):
                 It support CallBack or CallBack List of MindSpore.
                 Default: None.
 
+        Examples:
+            >>> import numpy as np
+            >>> from mindspore.dataset import GeneratorDataset
+            >>> from mindspore.nn import AdamWeightDecay, WarmUpLR, DynamicLossScaleUpdateCell, \
+            ... TrainOneStepWithLossScaleCell
+            >>> from mindformers.trainer import TranslationTrainer
+            >>> from mindformers.tools.register import MindFormerConfig
+            >>> from mindformers.models import T5ForConditionalGeneration, T5Config
+            >>> from mindformers import build_dataset
+            >>> # follow the instruction in t5 section in the README.md and download wmt16 dataset.
+            >>> # change the dataset_files path of configs/t5/wmt16_dataset.yaml
+            >>> config = MindFormerConfig("configs/t5/run_t5_tiny_on_wmt16.yaml")
+            >>> task = TranslationTrainer(model_name='t5_small')
+            >>> task.train(config=config)
+
         Raises:
             NotImplementedError: If wrapper not implemented.
         """
-        # DIY model training, TODO
         self.kwargs = kwargs
         # build dataset
         logger.info(".........Build Dataset..........")
@@ -185,8 +199,8 @@ class TranslationTrainer(BaseTrainer):
             >>> from mindformers import T5ForConditionalGeneration, TranslationTrainer
             >>> model = T5ForConditionalGeneration.from_pretrained('t5_small')
             >>> mim_trainer = TranslationTrainer(model_name="t5_small")
-            >>> res = mim_trainer.predict("hello words", network=model)
-            [{'translation_text': ['hello words']}]
+            >>> res = mim_trainer.predict(input_data="hello world", network=model)
+            [{'translation_text': ['hello world']}]
 
         Returns:
             A list of prediction.

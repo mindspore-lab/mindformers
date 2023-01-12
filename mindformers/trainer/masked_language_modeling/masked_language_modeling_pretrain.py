@@ -186,7 +186,7 @@ class MaskedLanguageModelingTrainer(BaseTrainer):
             >>> from mindformers import BertModel, MaskLanguageModelingTrainer
             >>> model = BertModel.from_pretrained('bert_tiny_uncased')
             >>> mlm_trainer = MaskLanguageModelingTrainer(model_name="bert_tiny_uncased")
-            >>> res = mlm_trainer.predict(input_data = "hello words [MASK]", network=model)
+            >>> res = mlm_trainer.predict(input_data = "hello world [MASK]", network=model)
 
         Returns:
             A list of prediction.
