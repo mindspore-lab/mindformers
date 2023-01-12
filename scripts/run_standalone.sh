@@ -49,7 +49,7 @@ cp -r ../mindformers ./mf_standalone
 cd ./mf_standalone || exit
 echo "start training for device $DEVICE_ID"
 env > env.log
-python run_mindformer.py --config=$CONFIG_FILE --use_parallel=False --run_status=$RUN_STATUS &> mindformer.log &
+python run_mindformer.py --config=$CONFIG_FILE --use_parallel=False --run_mode=$RUN_STATUS &> mindformer.log &
 cd ..
 
 # if you want kill current job, you can use as follow:

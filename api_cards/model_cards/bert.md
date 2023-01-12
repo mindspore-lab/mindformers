@@ -41,7 +41,7 @@ AttributeError: module 'tokenization' has no attribute 'FullTokenizer'
 示例命令如下，将会执行一个12层的BERT模型训练
 
 ```shell
-python run_mindformer.py --config configs/bert/run_bert_base_uncased.yaml --run_status train  \
+python run_mindformer.py --config configs/bert/run_bert_base_uncased.yaml --run_mode train  \
                          --device_target Ascend \
                          --dataset_dir /your_path/wiki_data
 ```
@@ -97,7 +97,7 @@ HOSTFILE=$2
 mpirun --allow-run-as-root -n $RANK_SIZE --hostfile $HOSTFILE \
       --output-filename run_distributed_train_bert \
       -x NCCL_IB_HCA -x PATH -x LD_LIBRARY_PATH -x PYTHONPATH -x NCCL_SOCKET_IFNAME -n $RANK_SIZE \
-python run_mindformer.py --config ./configs/bert/run_bert_base_uncased.yaml --use_parallel True --run_status train  > distribute_train_gpu_log.txt 2>&1 &
+python run_mindformer.py --config ./configs/bert/run_bert_base_uncased.yaml --use_parallel True --run_mode train  > distribute_train_gpu_log.txt 2>&1 &
 ```
 
 其中各个参数的含义：
