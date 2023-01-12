@@ -9,25 +9,27 @@ runner_config:
   has_trained_steps: 0
 
 runner_wrapper:
-  type: TrainOneStepWithLossScaleCell
+  type: TrainOneStepWithClipGN
   scale_sense:
     type: DynamicLossScaleUpdateCell
-    loss_scale_value: 65536
     scale_factor: 2
     scale_window: 1000
+    loss_scale_value: 65536
+  use_clip_grad: True
+  clip_norm: 1.0
 
 # optimizer
 optimizer:
   type: AdamWeightDecay
   beta1: 0.9
-  beta2: 0.997
+  beta2: 0.999
   eps: 0.00000001 # 1e-8
-  weight_decay: 0.01
+  weight_decay: 0.00
 
 # lr sechdule
 lr_schedule:
   type: WarmUpDecayLR
-  learning_rate: 0.00001
+  learning_rate: 0.00005
   end_learning_rate: 0.0
   warmup_steps: 0
   decay_steps: -1 # -1 means it will laod the total steps of the dataset

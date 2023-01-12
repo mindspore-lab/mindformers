@@ -109,6 +109,7 @@ class TranslationDataset(BaseDataset):
         else:
             dataset_files = list(dataset_config.data_loader.dataset_files)
         dataset_config.data_loader.pop("dataset_dir")
+        logger.info("Using args %s to instance the dataset.", dataset_config.data_loader)
         dataset = build_dataset_loader(
             dataset_config.data_loader, default_args={'dataset_files': dataset_files[0],
                                                       'num_shards': device_num, 'shard_id': rank_id,
