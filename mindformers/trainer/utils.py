@@ -150,7 +150,10 @@ def check_image_lr_config(config):
     _check_lr_config(lr_config, device_num=device_num, batch_size=batch_size, arch=config.model.arch.type)
     total_epochs = config.runner_config.epochs
     steps_per_epoch = config.data_size
-    total_steps = total_epochs * steps_per_epoch
+    if config.runner_config.per_epoch_size != -1:
+        total_steps = total_epochs * config.runner_config.per_epoch_size
+    else:
+        total_steps = total_epochs * steps_per_epoch
     lr_config.warmup_steps = int(lr_config.warmup_epochs * steps_per_epoch)
     lr_config.decay_steps = total_steps - lr_config.warmup_steps
     del lr_config.warmup_epochs

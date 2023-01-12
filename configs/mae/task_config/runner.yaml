@@ -10,8 +10,10 @@ runner_config:
   has_trained_steps: 0
 
 runner_wrapper:
-  type: TrainOneStepCell
-  sens: 1024
+  type: TrainOneStepWithClipGN
+  scale_sense:
+    type: FixedLossScaleUpdateCell
+    loss_scale_value: 1024
 
 # optimizer
 optimizer:
