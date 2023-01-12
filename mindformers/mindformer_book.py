@@ -149,11 +149,11 @@ class MindFormerBook:
         ])),
         ("fill_mask", OrderedDict([
             ("bert_base_uncased", os.path.join(
-                _PROJECT_PATH, "configs/bert/run_bert_base_uncased.yaml")),
+                _PROJECT_PATH, "configs/bert/model_config/bert_base_uncased.yaml")),
             ("bert_tiny_uncased", os.path.join(
-                _PROJECT_PATH, "configs/bert/run_bert_tiny_uncased.yaml")),
+                _PROJECT_PATH, "configs/bert/model_config/bert_tiny_uncased.yaml")),
             ("common", os.path.join(
-                _PROJECT_PATH, "configs/bert/run_bert_tiny_uncased.yaml"))])
+                _PROJECT_PATH, "configs/bert/model_config/bert_base_uncased.yaml"))])
          )
     ])
 
