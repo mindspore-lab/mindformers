@@ -153,7 +153,7 @@ class MindFormerBook:
             ("bert_tiny_uncased", os.path.join(
                 _PROJECT_PATH, "configs/bert/model_config/bert_tiny_uncased.yaml")),
             ("common", os.path.join(
-                _PROJECT_PATH, "configs/bert/model_config/bert_base_uncased.yaml"))])
+                _PROJECT_PATH, "configs/bert/model_config/bert_tiny_uncased.yaml"))])
          )
     ])
 
