@@ -54,7 +54,7 @@ class T5Config(BaseConfig):
             This should be a positive number. Default 1.
         repetition_penalty(float): The penalty of the repeated words when call `generate` of the BaseModel.
         max_length(int): The maximum length of the generated words. If set None, it follow the setting in the
-            configureation in the model. Default 32.
+            configureation in the model. Default 20.
         eos_token_id(int): The end of sentence token id. Default 1.
         do_sample(bool): Whether do sampling on the candidate ids. If set True it will be enabled, and set it to be
             False to disable the sampling, equivalent to topk 1. If set None, it follow the setting in the
@@ -96,7 +96,7 @@ class T5Config(BaseConfig):
                  top_p=0.95,
                  top_k=1,
                  repetition_penalty=1,
-                 max_length=32,
+                 max_length=20,
                  eos_token_id=1,
                  do_sample=False,
                  is_encoder_decoder=True,

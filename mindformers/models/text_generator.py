@@ -175,9 +175,10 @@ class GeneratorMixin:
             valid_length_each_example.append(np.argmax(np.nonzero(origin_inputs[i])) + 1)
         valid_length_each_example = np.array(valid_length_each_example)
         logger.debug("Get the valid for each example is: %s", valid_length_each_example)
-        # we should pad the input to the target_length
-        target_length = np.max(valid_length_each_example) + max_length
-        target_length = self.config.seq_length if target_length > self.config.seq_length else target_length
+        if not is_encoder_decoder and np.max(valid_length_each_example) > max_length:
+            raise ValueError("The max_length set is smaller than the length in the input_ids. You shout set "
+                             f"max_length to {np.max(valid_length_each_example)}")
+        target_length = self.config.seq_length if max_length > self.config.seq_length else max_length
         logger.debug("max target_length is: %s", target_length)
         # A list of the frequency of each token
         frequency_list = None
@@ -246,7 +247,7 @@ class GeneratorMixin:
                     target_mask[i][valid_length_each_example[i]] = int(1)
                 valid_length_each_example[i] += int(1)
                 # Stop judgment
-                if p_args[i][target_index] == eos_token_id or valid_length_each_example[i] == target_length - 1:
+                if p_args[i][target_index] == eos_token_id or valid_length_each_example[i] == target_length:
                     is_finished[i] = True
                     continue
             for i in range(batch_size):
