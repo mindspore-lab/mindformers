@@ -28,7 +28,7 @@ def check_and_add_vocab_file_path(config, **kwargs):
         return
     name_or_path = class_name
     path = kwargs.pop('lib_path', None)
-    remote_tokenizer_support_list = MindFormerBook.get_tokenizer_support_list().keys()
+    remote_tokenizer_support_list = MindFormerBook.get_tokenizer_url_support_list().keys()
     if name_or_path not in remote_tokenizer_support_list and path:
         read_vocab_file_dict, read_tokenizer_file_dict = \
             dynamic_class.read_files_according_specific_by_tokenizer(name_or_path=path)

@@ -368,7 +368,7 @@ class BaseTokenizer(SpecialTokensMixin):
         kwargs = dict()
         class_name = None
         loaded_kwargs = {}
-        if name_or_path in MindFormerBook.get_tokenizer_support_list():
+        if name_or_path in MindFormerBook.get_tokenizer_url_support_list():
             config, cache_path = cls._download_using_name(name_or_path)
             class_name, loaded_kwargs = cls._get_class_name_and_args_form_config(config)
             name_or_path = cache_path
@@ -413,7 +413,7 @@ class BaseTokenizer(SpecialTokensMixin):
             logger.info("Download from the url %s to %s", url, yaml_file)
             downlond_with_progress_bar(url, yaml_file)
 
-        url_vocab = MindFormerBook.get_tokenizer_support_list()[name_or_path][0]
+        url_vocab = MindFormerBook.get_tokenizer_url_support_list()[name_or_path][0]
         local_vocab_name = url_vocab.split('/')[-1]
         vocab_file = os.path.join(cache_path, local_vocab_name)
         if not os.path.exists(vocab_file):
@@ -430,7 +430,7 @@ class BaseTokenizer(SpecialTokensMixin):
                                       name_or_path.split("_")[0])
             if not os.path.exists(cache_path):
                 os.makedirs(cache_path)
-        url_vocab = MindFormerBook.get_tokenizer_support_list()[name_or_path][0]
+        url_vocab = MindFormerBook.get_tokenizer_url_support_list()[name_or_path][0]
         local_vocab_name = url_vocab.split('/')[-1]
         vocab_file = os.path.join(cache_path, local_vocab_name)
         if not os.path.exists(vocab_file):

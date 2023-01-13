@@ -153,6 +153,12 @@ class TestTranslationTrainer:
         res = mim_trainer.predict(input_data=["hello world", "I am not happy"], network=model)
         assert res == [{'translation_text': ['hello world']}, {'translation_text': ['.']}]
 
+        res = mim_trainer.predict(input_data=os.path.join(self.raw_text_path, 'train.source'), network=model)
+        assert res == [{'translation_text': ['Wir haben während dieser Period die ganze Reihe '
+                                             'von emotions durchlebt.']},
+                       {'translation_text': ['Die positive Reaktion der Piloten und der Föderation-Beamten macht mich '
+                                             'erfreut, dass wir dieses Jahr wieder']}]
+
         from mindformers.dataset.dataloader.wmt16_dataloader import WMT16DataLoader
         dataset = WMT16DataLoader(self.raw_text_path, column_names=['src_language', 'tgt_language'])
         res = mim_trainer.predict(input_data=dataset,

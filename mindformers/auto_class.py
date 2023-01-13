@@ -451,18 +451,19 @@ class AutoTokenizer:
         """
         is_exist = os.path.exists(yaml_name_or_path)
         is_dir = os.path.isdir(yaml_name_or_path)
-        if not is_exist:
-            raise ValueError(f"{yaml_name_or_path} does not exist, Please pass a valid the directory.")
-        if not is_dir:
-            raise ValueError(f"{yaml_name_or_path} is not a directory. You should pass the directory.")
-
-        # If passed a directory, load the file from the yaml files
-        yaml_list = [file for file in os.listdir(yaml_name_or_path) if file.endswith(".yaml")]
-        if not yaml_list:
-            return None
-        if len(yaml_list) > 1:
-            raise ValueError(f"There should be only one yaml file under the directory {yaml_name_or_path}.")
-        yaml_file = os.path.join(yaml_name_or_path, yaml_list[0])
+        is_file = os.path.isfile(yaml_name_or_path)
+        if not is_file:
+            if not is_exist:
+                raise ValueError(f"{yaml_name_or_path} does not exist, Please pass a valid the directory.")
+            if not is_dir:
+                raise ValueError(f"{yaml_name_or_path} is not a directory. You should pass the directory.")
+            # If passed a directory, load the file from the yaml files
+            yaml_list = [file for file in os.listdir(yaml_name_or_path) if file.endswith(".yaml")]
+            if not yaml_list:
+                return None
+            yaml_file = os.path.join(yaml_name_or_path, yaml_list[0])
+        else:
+            yaml_file = yaml_name_or_path
         logger.info("Config in the yaml file %s are used for tokenizer building.", yaml_file)
         config = MindFormerConfig(yaml_file)
 
@@ -513,10 +514,25 @@ class AutoTokenizer:
             raise TypeError(f"yaml_name_or_path should be a str,"
                             f" but got {type(yaml_name_or_path)}")
         # Try to load from the remote
-        if yaml_name_or_path in cls._support_list.keys():
+        if yaml_name_or_path in sum(cls._support_list.values(), []):
             # Should download the files from the remote storage
-            # We call the basic `from_pretrained` method to download the corresponding tokenizer
-            class_name = MindFormerBook.TOKENIZER_NAME_TO_TOKENIZER[yaml_name_or_path]
+            checkpoint_path = os.path.join(MindFormerBook.get_default_checkpoint_download_folder(),
+                                           yaml_name_or_path.split("_")[0])
+            if not os.path.exists(checkpoint_path):
+                os.makedirs(checkpoint_path)
+
+            yaml_file = os.path.join(checkpoint_path, yaml_name_or_path+".yaml")
+            if not os.path.exists(yaml_file):
+                default_yaml_file = os.path.join(
+                    MindFormerBook.get_project_path(),
+                    "configs", yaml_name_or_path.split("_")[0],
+                    "model_config", yaml_name_or_path + ".yaml")
+                if os.path.realpath(default_yaml_file) and os.path.exists(default_yaml_file):
+                    shutil.copy(default_yaml_file, yaml_file)
+                    logger.info("default yaml config in %s is used.", yaml_file)
+                else:
+                    raise FileNotFoundError(f'default yaml file path must be correct, but get {default_yaml_file}')
+            class_name = cls._get_class_name_from_yaml(yaml_file)
         elif os.path.isdir(yaml_name_or_path):
             class_name = cls._get_class_name_from_yaml(yaml_name_or_path)
             if not class_name:
@@ -536,3 +552,8 @@ class AutoTokenizer:
         """show support list method"""
         logger.info("support list of %s is:", cls.__name__)
         print_dict(cls._support_list)
+
+    @classmethod
+    def get_support_list(cls):
+        """get support list method"""
+        return cls._support_list

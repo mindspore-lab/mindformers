@@ -258,6 +258,19 @@ class MindFormerBook:
          "myhuaweicloud.com/XFormer_for_mindspore/clip/sunflower.png")
     ])
 
+    _TOKENIZER_SUPPORT_LIST = OrderedDict([
+        ('clip', [
+            'clip_vit_b_32',
+        ]),
+        ('bert', [
+            'bert_base_uncased',
+            'bert_tiny_uncased',
+        ]),
+        ('t5', [
+            't5_small',
+        ])
+    ])
+
     _TOKENIZER_SUPPORT_URL_LIST = OrderedDict([
         ('clip_vit_b_32', [
             "https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/"
@@ -266,10 +279,6 @@ class MindFormerBook:
         ('t5_small', [
             "https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/"
             "XFormer_for_mindspore/t5/spiece.model"
-        ]),
-        ('clip', [
-            "https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/"
-            "XFormer_for_mindspore/clip/bpe_simple_vocab_16e6.txt.gz"
         ]),
         ('bert_base_uncased', [
             "https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/"
@@ -285,12 +294,6 @@ class MindFormerBook:
         ('ClipTokenizer', 'ClipProcessor'),
         ('BertTokenizer', 'BertProcessor'),
         ('T5Tokenizer', 'T5Processor')
-    ])
-
-    TOKENIZER_NAME_TO_TOKENIZER = OrderedDict([
-        ('t5_small', 'T5Tokenizer'),
-        ('clip_vit_b_32', 'ClipTokenizer'),
-        ('bert_base_uncased', 'BertTokenizer')
     ])
 
     @classmethod
@@ -483,10 +486,21 @@ class MindFormerBook:
     @classmethod
     def get_tokenizer_support_list(cls):
         """get_tokenizer_support_list function"""
-        return cls._TOKENIZER_SUPPORT_URL_LIST
+        return cls._TOKENIZER_SUPPORT_LIST
+
     @classmethod
     def show_tokenizer_support_list(cls):
         """show_tokenizer_support_list function"""
+        print_dict(cls._TOKENIZER_SUPPORT_LIST)
+
+    @classmethod
+    def get_tokenizer_url_support_list(cls):
+        """get_tokenizer_url_support_list function"""
+        return cls._TOKENIZER_SUPPORT_URL_LIST
+
+    @classmethod
+    def show_tokenizer_url_support_list(cls):
+        """show_tokenizer_url_support_list function"""
         print_dict(cls._TOKENIZER_SUPPORT_URL_LIST)
 
     @classmethod
