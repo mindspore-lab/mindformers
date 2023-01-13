@@ -155,7 +155,10 @@ def check_image_lr_config(config):
     else:
         total_steps = total_epochs * steps_per_epoch
     lr_config.warmup_steps = int(lr_config.warmup_epochs * steps_per_epoch)
-    lr_config.decay_steps = total_steps - lr_config.warmup_steps
+    if config.lr_schedule.type == 'WarmUpCosineDecayV1':
+        lr_config.decay_steps = total_steps - lr_config.warmup_steps
+    elif config.lr_schedule.type == 'WarmUpCosineDecayV2':
+        lr_config.total_steps = total_epochs
     del lr_config.warmup_epochs
 
 
