@@ -32,8 +32,7 @@ from mindspore.common.initializer import TruncatedNormal, initializer
 
 from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
 
-from mindspore.nn.transformer.layers import _Linear, _check_input_shape, \
-    _check_shape_equal, _check_past_none_input_none, _check_input_dtype
+from mindspore.nn.transformer.layers import _Linear, _check_past_none_input_none, _check_input_dtype
 from mindspore.nn.transformer.moe import MoE, _check_moe_config
 from mindspore.nn.transformer.transformer import default_transformer_config, default_moe_config, default_dpmp_config, \
     EmbeddingOpParallelConfig, OpParallelConfig
@@ -115,7 +114,6 @@ class T5FeedFoward(nn.Cell):
                  hidden_act='gelu',
                  expert_num=1,
                  expert_group_size=None,
-                 compute_dtype=mstype.float16,
                  param_init_type=mstype.float32,
                  parallel_config=default_dpmp_config):
         super(T5FeedFoward, self).__init__()
@@ -149,7 +147,6 @@ class T5FeedFoward(nn.Cell):
                                expert_num=expert_num,
                                expert_group_size=expert_group_size,
                                outer_batch=dp,
-                               compute_dtype=compute_dtype,
                                param_init_type=param_init_type)
 
         if expert_num > 1:
@@ -166,7 +163,6 @@ class T5FeedFoward(nn.Cell):
                                   transpose_b=False,
                                   expert_num=expert_num,
                                   has_bias=False,
-                                  compute_dtype=compute_dtype,
                                   expert_group_size=expert_group_size,
                                   outer_batch=dp,
                                   param_init_type=param_init_type)
@@ -186,7 +182,6 @@ class T5FeedFoward(nn.Cell):
 
     def construct(self, x):
         """The forward function of FFN"""
-        _check_input_shape(F.shape(x), "x", self.cls_name, [2, 3])
         _check_input_dtype(F.dtype(x), "x", [mstype.float32, mstype.float16], self.cls_name)
         x = self.cast(x, mstype.float16)
         # returned shape is [bs, seq_length, ffn_hidden_size] or [bs * seq_length, ffn_hidden_size]
@@ -540,28 +535,6 @@ class T5MultiHeadAttention(nn.Cell):
     def _check_inputs(self, query_tensor, key_tensor, value_tensor, attention_mask, key_past=None,
                       value_past=None, batch_valid_length=None):
         r"""Check inputs"""
-        if not self.use_past or (self.use_past and self.is_first_iteration):
-            _check_shape_equal(F.shape(query_tensor), "query_tensor", self.cls_name,
-                               [[self.batch_size, self.src_seq_length, self.hidden_size],
-                                [self.batch_size * self.src_seq_length, self.hidden_size]])
-            _check_shape_equal(F.shape(key_tensor), "key_tensor", self.cls_name,
-                               [[self.batch_size, self.tgt_seq_length, self.hidden_size],
-                                [self.batch_size * self.tgt_seq_length, self.hidden_size]])
-            _check_shape_equal(F.shape(value_tensor), "value_tensor", self.cls_name,
-                               [[self.batch_size, self.tgt_seq_length, self.hidden_size],
-                                [self.batch_size * self.tgt_seq_length, self.hidden_size]])
-            _check_shape_equal(F.shape(attention_mask), "attention_mask", self.cls_name,
-                               [self.batch_size, self.src_seq_length, self.tgt_seq_length])
-        else:
-            _check_shape_equal(F.shape(query_tensor), "query_tensor", self.cls_name,
-                               [[self.batch_size, 1, self.hidden_size], [self.batch_size, self.hidden_size]])
-            _check_shape_equal(F.shape(key_tensor), "key_tensor", self.cls_name,
-                               [[self.batch_size, 1, self.hidden_size], [self.batch_size, self.hidden_size]])
-            _check_shape_equal(F.shape(value_tensor), "value_tensor", self.cls_name,
-                               [[self.batch_size, 1, self.hidden_size], [self.batch_size, self.hidden_size]])
-            _check_shape_equal(F.shape(attention_mask), "attention_mask", self.cls_name,
-                               [[self.batch_size, 1, self.tgt_seq_length], [self.batch_size, self.hidden_size]])
-
         _check_input_dtype(F.dtype(query_tensor), "query_tensor", [mstype.float32, mstype.float16], self.cls_name)
         _check_input_dtype(F.dtype(key_tensor), "key_tensor", [mstype.float32, mstype.float16], self.cls_name)
         _check_input_dtype(F.dtype(value_tensor), "value_tensor", [mstype.float32, mstype.float16], self.cls_name)
@@ -579,15 +552,6 @@ class T5MultiHeadAttention(nn.Cell):
                                     value_is_default)
         _check_past_none_input_none(self.use_past, "batch_valid_length", self.cls_name, None,
                                     batch_valid_length_is_tensor, batch_is_default)
-        if self.use_past:
-            _check_shape_equal(F.shape(key_past), "key_past", self.cls_name,
-                               [self.batch_size, self.n_head, self.size_per_head, self.tgt_seq_length])
-            _check_input_dtype(F.dtype(key_past), "key_past", [mstype.float16], self.cls_name)
-            _check_shape_equal(F.shape(value_past), "value_past", self.cls_name,
-                               [self.batch_size, self.n_head, self.tgt_seq_length, self.size_per_head])
-            _check_input_dtype(F.dtype(value_past), "value_past", [mstype.float16], self.cls_name)
-            _check_shape_equal(F.shape(batch_valid_length), "batch_valid_length", self.cls_name, [self.batch_size])
-            _check_input_dtype(F.dtype(batch_valid_length), "batch_valid_length", [mstype.int32], self.cls_name)
         return True
 
     def _convert_to_2d_tensor(self, query_tensor, key_tensor, value_tensor, attention_mask):
@@ -880,16 +844,6 @@ class TransformerEncoderLayer(nn.Cell):
 
     def _check_input(self, x, input_mask, init_reset, batch_valid_length):
         r"""Check inputs"""
-        if not self.use_past or (self.use_past and self.is_first_iteration):
-            _check_shape_equal(F.shape(x), "x", self.cls_name,
-                               [[self.batch_size, self.seq_length, self.hidden_size],
-                                [self.batch_size * self.seq_length, self.hidden_size]])
-            _check_shape_equal(F.shape(input_mask), "input_mask", self.cls_name,
-                               [self.batch_size, self.seq_length, self.seq_length])
-        else:
-            _check_shape_equal(F.shape(x), "x", self.cls_name, [self.batch_size, 1, self.hidden_size])
-            _check_shape_equal(F.shape(input_mask), "input_mask", self.cls_name,
-                               [self.batch_size, 1, self.seq_length])
         _check_input_dtype(F.dtype(x), "x", [mstype.float32, mstype.float16], self.cls_name)
         _check_input_dtype(F.dtype(input_mask), "input_mask", [mstype.float32, mstype.float16], self.cls_name)
 
@@ -903,9 +857,7 @@ class TransformerEncoderLayer(nn.Cell):
                                     batch_valid_length_is_tensor, batch_is_default)
 
         if self.use_past:
-            _check_shape_equal(F.shape(init_reset), "init_reset", self.cls_name, [1])
             _check_input_dtype(F.dtype(init_reset), "init_reset", [mstype.bool_], self.cls_name)
-            _check_shape_equal(F.shape(batch_valid_length), "batch_valid_length", self.cls_name, [self.batch_size])
             _check_input_dtype(F.dtype(batch_valid_length), "batch_valid_length", [mstype.int32], self.cls_name)
         return True
 
@@ -1141,29 +1093,12 @@ class TransformerDecoderLayer(nn.Cell):
 
     def _check_input(self, hidden_states, attention_mask, encoder_output, memory_mask, init_reset, batch_valid_length):
         r"""Check inputs"""
-        if not self.use_past or (self.use_past and self.is_first_iteration):
-            _check_shape_equal(F.shape(hidden_states), "hidden_states", self.cls_name,
-                               [[self.batch_size, self.tgt_seq_length, self.hidden_size],
-                                [self.batch_size * self.tgt_seq_length, self.hidden_size]])
-            _check_shape_equal(F.shape(attention_mask), "attention_mask", self.cls_name,
-                               [self.batch_size, self.tgt_seq_length, self.tgt_seq_length])
-
-        else:
-            _check_shape_equal(F.shape(hidden_states), "hidden_states", self.cls_name,
-                               [self.batch_size, 1, self.hidden_size])
-            _check_shape_equal(F.shape(attention_mask), "attention_mask", self.cls_name,
-                               [self.batch_size, 1, self.tgt_seq_length])
         _check_input_dtype(F.dtype(hidden_states), "hidden_states", [mstype.float32, mstype.float16], self.cls_name)
         _check_input_dtype(F.dtype(attention_mask), "attention_mask", [mstype.float32, mstype.float16], self.cls_name)
         if encoder_output is not None:
-            _check_shape_equal(F.shape(encoder_output), "encoder_output", self.cls_name,
-                               [[self.batch_size, self.src_seq_length, self.hidden_size],
-                                [self.batch_size * self.src_seq_length, self.hidden_size]])
             _check_input_dtype(F.dtype(encoder_output), "encoder_output",
                                [mstype.float32, mstype.float16], self.cls_name)
         if memory_mask is not None:
-            _check_shape_equal(F.shape(memory_mask), "memory_mask", self.cls_name,
-                               [self.batch_size, self.tgt_seq_length, self.src_seq_length])
             _check_input_dtype(F.dtype(memory_mask), "memory_mask",
                                [mstype.float32, mstype.float16], self.cls_name)
 
@@ -1177,9 +1112,7 @@ class TransformerDecoderLayer(nn.Cell):
                                     batch_valid_length_is_tensor, batch_is_default)
 
         if self.use_past:
-            _check_shape_equal(F.shape(init_reset), "init_reset", self.cls_name, [1])
             _check_input_dtype(F.dtype(init_reset), "init_reset", [mstype.bool_], self.cls_name)
-            _check_shape_equal(F.shape(batch_valid_length), "batch_valid_length", self.cls_name, [self.batch_size])
             _check_input_dtype(F.dtype(batch_valid_length), "batch_valid_length", [mstype.int32], self.cls_name)
         return True
 
@@ -1634,7 +1567,7 @@ class T5Model(BaseModel):
             hidden_act=config.hidden_act)
 
         self.projection = T5Head(self.hidden_size,
-                                 compute_dtype=config.compute_dtype,
+                                 compute_dtype=mstype.float16,
                                  parallel_config=config.parallel_config)
 
         self.cast = ops.Cast()

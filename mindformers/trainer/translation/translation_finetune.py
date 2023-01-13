@@ -174,6 +174,10 @@ class TranslationTrainer(BaseTrainer):
             sink_size=config.runner_config.per_epoch_size,
             initial_epoch=config.runner_config.initial_epoch)
 
+    def evaluate(self, *args, **kwargs):
+        """Not spupport yet"""
+        raise NotImplementedError
+
     def predict(self,
                 config: Optional[Union[dict, ConfigArguments]] = None,
                 input_data: Optional[Union[str, list, GeneratorDataset]] = None,
