@@ -79,6 +79,6 @@ MAE由何凯明团队提出，将NLP领域大获成功的自监督预训练模�
 
 ## 模型性能
 
-| model |       type       |       pretrain       |  Datasets   | Top1-Accuracy | Log |                  pretrain_config                   |            finetune_config            |
-|:-----:|:----------------:|:--------------------:|:-----------:|:-------------:|:---:|:--------------------------------------------------:|:-------------------------------------:|
-|  mae  | mae_vit_base_p16 | [mae_vit_base_p16]() | ImageNet-1K |    83.17%     |  \  | [link](../../configs/mae/run_mae_vit_base_p16_224_800ep.yaml) | [link](./run_vit_base_p16_100ep.yaml) |
+| model |       type       |       pretrain       |  Datasets   | Top1-Accuracy | Log |                  pretrain_config                   |                    finetune_config                    |
+|:-----:|:----------------:|:--------------------:|:-----------:|:-------------:|:---:|:--------------------------------------------------:|:-----------------------------------------------------:|
+|  mae  | mae_vit_base_p16 | [mae_vit_base_p16]() | ImageNet-1K |    83.71%     |  \  | [link](../../configs/mae/run_mae_vit_base_p16_224_800ep.yaml) | [link](../../configs/vit/run_vit_base_p16_100ep.yaml) |

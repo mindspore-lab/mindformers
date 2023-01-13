@@ -97,15 +97,15 @@ swin：全名swin transformer，是一个基于Transformer在视觉领域有着S
 
 ## 模型性能
 
-| model |      type      | pretrain | Datasets | Top1-Accuracy | Log | pretrain_config |             finetune_config             |
-|:-----:|:--------------:|:--------:| :----: |:-------------:| :---: |:---------------:|:---------------------------------------:|
-| swin  | swin_base_p4w7 |    \     | ImageNet-1K |    83.44%     | \ |        \        | [link](./run_swin_base_p4w7_100ep.yaml) |
+| model |      type      | pretrain | Datasets | Top1-Accuracy | Log | pretrain_config |                     finetune_config                      |
+|:-----:|:--------------:|:--------:| :----: |:-------------:| :---: |:---------------:|:--------------------------------------------------------:|
+| swin  | swin_base_p4w7 |    \     | ImageNet-1K |    83.44%     | \ |        \        | [link](../../configs/swin/run_swin_base_p4w7_100ep.yaml) |
 
 ## 模型权重
 
-本仓库中的`swin_base_p4w7`来自于HuggingFace的[`swin-base-patch4-window7-224`](https://huggingface.co/microsoft/swin-base-patch4-window7-224/tree/main), 基于下述的步骤获取：
+本仓库中的`swin_base_p4w7`来自于MicroSoft的[`Swin-Transformer`](https://github.com/microsoft/Swin-Transformer), 基于下述的步骤获取：
 
-1. 从上述的链接中下载`swin_base`的HuggingFace权重，文件名为`pytorch_model.bin`
+1. 从上述的链接中下载[`swin_base_p4w7`](https://pan.baidu.com/s/16bqCTEc70nC_isSsgBSaqQ?pwd=swin)的官方权重，文件名为`swin_base_patch4_window7_224.pth`
 
 2. 执行转换脚本，得到转换后的输出文件`swin_base_p4w7.ckpt`
 
