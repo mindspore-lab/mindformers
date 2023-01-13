@@ -98,7 +98,7 @@ class MindFormerBook:
             ("common", os.path.join(
                 _PROJECT_PATH, "configs/vit/run_vit_base_p16_224_100ep.yaml"))])
          ),
-        ("masked_language_modeling", OrderedDict([
+        ("fill_mask", OrderedDict([
             ("bert_base_uncased", os.path.join(
                 _PROJECT_PATH, "configs/bert/run_bert_base_uncased.yaml")),
             ("bert_tiny_uncased", os.path.join(

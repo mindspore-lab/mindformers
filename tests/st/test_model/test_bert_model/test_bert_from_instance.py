@@ -78,7 +78,7 @@ def test_bert_trainer_train_from_instance():
     time_cb = TimeMonitor()
     callbacks = [loss_cb, time_cb]
 
-    mlm_trainer = Trainer(task='masked_language_modeling',
+    mlm_trainer = Trainer(task='fill_mask',
                           model=bert_model, # model and loss
                           config=config,
                           optimizers=optimizer,
