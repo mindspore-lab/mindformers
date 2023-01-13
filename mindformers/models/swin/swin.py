@@ -89,7 +89,7 @@ class SwinModel(BaseModel):
 
         self.loss = build_loss(class_name=config.loss_type)
 
-        self._load_checkpoint(config)
+        self.load_checkpoint(config)
 
     def construct(self, image, target=None):
         x = self.encoder(image)

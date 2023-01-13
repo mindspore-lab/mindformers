@@ -24,6 +24,7 @@ from PIL.Image import Image
 
 from mindspore import Tensor
 from mindspore.common import set_seed
+from mindspore import load_checkpoint, load_param_into_net
 from mindspore.nn import TrainOneStepCell, Optimizer
 from mindspore.train import Callback
 from mindspore.dataset import GeneratorDataset
@@ -216,6 +217,13 @@ class Trainer:
         else:
             self.model_name = "common"
 
+        if isinstance(self.model, BaseModel):
+            logger.info("The model instance has been entered, "
+                        "and the model will not be created from model_config")
+            self.is_model_instance = True
+        else:
+            self.is_model_instance = False
+
         task_config = MindFormerConfig(SUPPORT_TASKS.get(self.task).get(self.model_name))
 
         if self.model_name == "common":
@@ -294,11 +302,6 @@ class Trainer:
         # pprint last config
         pprint(self.config)
 
-        # build network
-        if self.model is None and self.task != 'general':
-            logger.info("...........Start Init Network..........")
-            self.model = build_model(self.config.model)
-
         # build task trainer
         self.trainer = build_trainer(self.config.trainer)
         if self.trainer is None:
@@ -359,6 +362,9 @@ class Trainer:
         if do_eval:
             if self.eval_dataset is None:
                 self.eval_dataset = build_dataset(self.config.eval_dataset_task)
+            if self.eval_dataset is None:
+                raise ValueError(f"if do_eval is true, eval_dataset must be input, "
+                                 f"the task {self.task} is not support eval now.")
 
         if resume_or_finetune_from_checkpoint is True:
             self.config.model.model_config.checkpoint_name_or_path = None
@@ -366,6 +372,7 @@ class Trainer:
         elif isinstance(resume_or_finetune_from_checkpoint, str):
             if do_finetune:
                 self.config.model.model_config.checkpoint_name_or_path = resume_or_finetune_from_checkpoint
+                self.config.resume_or_finetune_from_checkpoint = None
             else:
                 self.config.model.model_config.checkpoint_name_or_path = None
                 self.config.resume_or_finetune_checkpoint = resume_or_finetune_from_checkpoint
@@ -375,6 +382,9 @@ class Trainer:
 
         if initial_epoch != 0:
             self.config.runner_config.initial_epoch = initial_epoch
+
+        # build network
+        self.build_network(do_finetune, is_train=True)
 
         self.trainer.train(
             config=self.config, network=self.model,
@@ -418,9 +428,12 @@ class Trainer:
 
         self._check_checkpoint_config(eval_checkpoint)
 
+        # build network
+        self.build_network(eval_checkpoint, is_train=False)
+
         self.trainer.evaluate(
             config=self.config, network=self.model,
-            dataset=self.eval_dataset, callbacks=self.callbacks, **kwargs)
+            dataset=self.eval_dataset, callbacks=self.eval_callbacks, **kwargs)
 
     def predict(self,
                 predict_checkpoint: Optional[Union[str, bool]] = None,
@@ -480,12 +493,29 @@ class Trainer:
 
         self._check_checkpoint_config(predict_checkpoint)
 
+        # build network
+        self.build_network(predict_checkpoint, is_train=False)
+
         output_result = self.trainer.predict(
             config=self.config, input_data=input_data,
             network=self.model, image_processor=self.image_processor,
             audio_processor=self.audio_processor,
             tokenizer=self.tokenizer, **kwargs)
         return output_result
+
+    def build_network(self, input_checkpoint: Optional[Union[str, bool]] = None, is_train: bool = True):
+        """build network for trainer."""
+        if self.model is None and self.task != 'general':
+            logger.info("...........Start Init Network..........")
+            self.model = build_model(self.config.model)
+        # set running mode
+        if self.model is not None:
+            self.model.set_train(is_train)
+        else:
+            logger.warning("network will be create in %s task trainer class.", self.task)
+
+        if self.is_model_instance and input_checkpoint:
+            self._load_model_checkpoint()
 
     def set_parallel_config(
             self, data_parallel=1, model_parallel=1, expert_parallel=1, pipeline_stage=1,
@@ -653,6 +683,34 @@ class Trainer:
         _save_config_to_yaml(runner_yaml_path, config_dict.get('runner_config'))
         _save_config_to_yaml(context_yaml_path, config_dict.get('context_config'))
         _save_config_to_yaml(run_yaml_path, config_dict.get('run_config'))
+
+    def _load_model_checkpoint(self):
+        """Load model checkpoint to network."""
+        checkpoint_name_or_path = self.config.model.model_config.checkpoint_name_or_path
+        if checkpoint_name_or_path is None:
+            logger.warning("checkpoint_name_or_path is None, not load input checkpoint.")
+        elif isinstance(checkpoint_name_or_path, str):
+            is_exist_path = os.path.exists(checkpoint_name_or_path)
+            is_checkpoint_name = checkpoint_name_or_path in SUPPORT_MODEL_NAMES
+            if is_exist_path:
+                logger.info("now input valid checkpoint path, it will load to network.")
+                checkpoint_dict = load_checkpoint(checkpoint_name_or_path)
+                not_load_params = load_param_into_net(self.model, checkpoint_dict)
+                logger.info("not load parameters is: %s", str(not_load_params))
+            elif is_checkpoint_name:
+                logger.info("now input valid checkpoint name, it will load to network.")
+                if isinstance(self.model, BaseModel):
+                    self.model.load_checkpoint(self.config.model.model_config)
+                else:
+                    logger.warning("model must be BaseModel type, but get %s", type(self.model))
+            else:
+                logger.warning("input checkpoint args is invalid, "
+                               "it must be valid and real checkpoint path or a valid checkpoint name,"
+                               "but get %s", checkpoint_name_or_path)
+        else:
+            raise TypeError(f"checkpoint_name_or_path type error, "
+                            f"it should be one of [None, str], "
+                            f"but get {type(checkpoint_name_or_path)}")
 
     def _check_checkpoint_config(self, checkpoint: Optional[Union[str, bool]] = None):
         """check checkpoint config."""

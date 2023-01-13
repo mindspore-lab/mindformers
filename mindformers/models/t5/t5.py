@@ -1698,7 +1698,7 @@ class T5ForConditionalGeneration(BaseModel):
             if ('bias' in param.name or 'beta' in param.name) and 'relative' not in param.name:
                 param.requires_grad = False
         self.set_train(True)
-        self._load_checkpoint(config)
+        self.load_checkpoint(config)
 
     def _add_start_to_inputs(self, target_ids):
         """concat the start id to the decoder inputs"""

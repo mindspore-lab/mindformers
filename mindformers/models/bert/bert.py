@@ -71,7 +71,7 @@ class BertModel(BaseModel):
         self.cast = P.Cast()
         self.use_moe = (config.parallel_config.moe_config.expert_num > 1)
         self.add = P.Add().shard(((1,), ()))
-        self._load_checkpoint(config)
+        self.load_checkpoint(config)
 
     def construct(self,
                   input_ids,
