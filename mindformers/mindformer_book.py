@@ -195,6 +195,10 @@ class MindFormerBook:
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
           '/XFormer_for_mindspore/vit/vit_base_p16.ckpt'
           ]),
+        ('simmim_swin_base_p4w7',
+         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
+          '/XFormer_for_mindspore/simmim/simmim_swin_base_p4w6.ckpt'
+          ]),
         ('swin_base_p4w7',
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
           '/XFormer_for_mindspore/swin/swin_base_p4w7.ckpt'
@@ -220,7 +224,11 @@ class MindFormerBook:
           ]),
         ('mae_vit_base_p16',
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
-          '/XFormer_for_mindspore/clip/mae_vit_base_p16.yaml'
+          '/XFormer_for_mindspore/mae/mae_vit_base_p16.yaml'
+          ]),
+        ('simmim_swin_base_p4w6',
+         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
+          '/XFormer_for_mindspore/simmim/simmim_swin_base_p4w6.yaml'
           ]),
         ('vit_base_p16',
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
