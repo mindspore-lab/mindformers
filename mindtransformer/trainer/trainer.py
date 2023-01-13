@@ -405,17 +405,21 @@ class Trainer:
         Raises:
             TypeError: Argument is not a Cell.
         """
-        if self.config.load_checkpoint_path == "" and self.config.save_checkpoint_path != "" \
-                and self.config.checkpoint_prefix != "":
+        if self.config.load_checkpoint_path == "" and self.config.save_checkpoint_path \
+                and self.config.checkpoint_prefix:
             self.config.load_checkpoint_path = get_newest_ckpt(self.config.save_checkpoint_path,
                                                                self.config.checkpoint_prefix)
 
-        if self.config.load_checkpoint_path != "":
+        if self.config.load_checkpoint_path:
             if self.config.load_checkpoint_path.endswith('.ckpt'):
                 self.logger.info("Start to load the ckpt from %s", self.config.load_checkpoint_path)
             else:
-                self.config.load_checkpoint_path = get_newest_ckpt(self.config.load_checkpoint_path,
+                self.config.load_checkpoint_path = get_newest_ckpt(os.path.join(self.config.load_checkpoint_path,
+                                                                                '/ckpt_%d' % self.config.rank_id),
                                                                    self.config.checkpoint_prefix)
+                print("get latest ckpt", self.config.load_checkpoint_path)
+
+        if self.config.load_checkpoint_path:
             ckpt = load_checkpoint(self.config.load_checkpoint_path)
             load_param_into_net(net_with_loss, ckpt)
         else:
@@ -452,7 +456,8 @@ class Trainer:
         ckpt_prefix = self.config.checkpoint_prefix if self.config.checkpoint_prefix \
                                                        is not None else self.config.auto_model
         ckpoint_cb = ModelCheckpoint(prefix=ckpt_prefix,
-                                     directory=self.config.save_checkpoint_path + './ckpt_%d' % self.config.rank_id,
+                                     directory=os.path.join(self.config.save_checkpoint_path,
+                                                            '/ckpt_%d' % self.config.rank_id),
                                      config=config_ck)
         callback.append(ckpoint_cb)
         return callback
@@ -661,7 +666,8 @@ class Trainer:
             model.train(self.config.actual_epoch_num, ds, callbacks=callback, dataset_sink_mode=True)
         else:
             model = Model(train_net)
-            model.train(self.config.actual_epoch_num, ds, callbacks=callback, sink_size=self.config.callback_step)
+            model.train(self.config.actual_epoch_num, ds, callbacks=callback, dataset_sink_mode=True,
+                        sink_size=self.config.callback_step)
 
     def train(self):
         """Main training process"""

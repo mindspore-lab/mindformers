@@ -52,10 +52,10 @@ python -m mindtransformer.trainer.trainer  \
     --use_one_hot_embeddings=False \
     --model_type="bert" \
     --dropout_prob=0.1 \
-    --train_data_shuffle="true" \
+    --global_data_shuffle="true" \
     --train_batch_size=32 \
     --start_lr=5e-5 \
     --save_checkpoint_path="./glue_ckpt/$TASK" \
     --load_checkpoint_path="/checkpoint_path/bertbase.ckpt" \
-    --checkpoint_prefix='$TASK' \
+    --checkpoint_prefix=$TASK \
     --train_data_path="/glue_path/$TASK/train.tf_record"

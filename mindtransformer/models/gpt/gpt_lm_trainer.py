@@ -69,17 +69,12 @@ class GPTTrainer(Trainer):
                 self.config.load_checkpoint_path = get_newest_ckpt(self.config.load_checkpoint_path,
                                                                    self.config.checkpoint_prefix)
 
-        if self.config.is_train:
-            final_param_dict = {}
-            param_dict = load_checkpoint(self.config.load_checkpoint_path)
-            for name, _ in param_dict.items():
-                final_param_dict['gpt2.' + name] = param_dict[name]
-            final_param_dict['gpt2.dense1.weight'] = param_dict['backbone.word_embedding.embedding_table']
-            load_param_into_net(net_with_loss, final_param_dict)
-        else:
-
-            ckpt = load_checkpoint(self.config.load_checkpoint_path)
-            load_param_into_net(net_with_loss, ckpt)
+        final_param_dict = {}
+        param_dict = load_checkpoint(self.config.load_checkpoint_path)
+        for name, _ in param_dict.items():
+            final_param_dict['gpt2.' + name] = param_dict[name]
+        final_param_dict['gpt2.dense1.weight'] = param_dict['backbone.word_embedding.embedding_table']
+        load_param_into_net(net_with_loss, final_param_dict)
 
 if __name__ == "__main__":
     config = GPTLMTrainingConfig()

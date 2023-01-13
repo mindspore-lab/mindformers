@@ -33,6 +33,7 @@ export GLOG_logtostderr=0
 python -m mindtransformer.tasks.language_modeling \
     --auto_model="gpt_language_model" \
     --eval_data_path=$eval_data_path \
+    --eval_type="zero-shot" \
     --load_checkpoint_path=$load_eval_ckpt_path \
     --checkpoint_prefix='language_model' \
     --hidden_size=768 \
