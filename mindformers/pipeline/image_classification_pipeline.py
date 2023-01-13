@@ -14,8 +14,9 @@
 # ============================================================================
 """Image Classification Pipeline API."""
 from typing import Optional, Union
+
 import numpy as np
-import PIL
+from PIL import Image
 
 from mindspore.ops import operations as P
 from mindspore import Tensor
@@ -23,6 +24,7 @@ from mindspore import Tensor
 from mindformers.auto_class import AutoProcessor, AutoModel
 from mindformers.mindformer_book import MindFormerBook
 from mindformers.models import BaseModel, BaseImageProcessor
+from mindformers.tools.image_tools import load_image
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.dataset.labels import labels
 from .base_pipeline import BasePipeline
@@ -96,16 +98,14 @@ class ImageClassificationPipeline(BasePipeline):
         preprocess_params = {}
         postprocess_params = {}
 
-        pre_list = []
-        for item in pre_list:
+        post_list = ["top_k", "candidate_labels"]
+        for item in post_list:
             if item in pipeline_parameters:
-                preprocess_params[item] = pipeline_parameters.get(item)
+                postprocess_params[item] = pipeline_parameters.get(item)
 
-        if "top_k" in pipeline_parameters:
-            postprocess_params["top_k"] = pipeline_parameters.get("top_k")
         return preprocess_params, {}, postprocess_params
 
-    def preprocess(self, inputs: (Union[str, PIL.Image.Image, Tensor, np.ndarray]),
+    def preprocess(self, inputs: (Union[str, Image.Image, Tensor, np.ndarray]),
                    **preprocess_params):
         r"""The Preprocess For Task
 
@@ -118,6 +118,8 @@ class ImageClassificationPipeline(BasePipeline):
         """
         if isinstance(inputs, dict):
             inputs = inputs['image']
+        if isinstance(inputs, str):
+            inputs = load_image(inputs)
 
         image_processed = self.image_processor(inputs)
         return {"image_processed": image_processed}
@@ -148,15 +150,28 @@ class ImageClassificationPipeline(BasePipeline):
         Return:
             classification results.
         """
-        top_k = postprocess_params.pop("top_k", None)
+        top_k = postprocess_params.pop("top_k", 3)
+        candidate_labels = postprocess_params.pop("candidate_labels", 'imagenet')
+
         scores = model_outputs['probs']
 
         outputs = []
-        imagenet_labels = labels.get("imagenet")
+        if isinstance(candidate_labels, str):
+            inputs_labels = labels.get(candidate_labels)
+        elif isinstance(candidate_labels, list):
+            inputs_labels = candidate_labels
+        else:
+            raise ValueError(f"The candidate_labels should be dataset name (str) or custom labels (list)"
+                             f" but got {type(candidate_labels)}")
+
+        if inputs_labels is None:
+            raise ValueError(f"The custom candidate_labels is None or "
+                             f"the input dataset labels name is not supported yet.")
+
         for score in scores:
-            sorted_res = sorted(zip(score, imagenet_labels), key=lambda x: -x[0])
+            sorted_res = sorted(zip(score, inputs_labels), key=lambda x: -x[0])
             if top_k is not None:
-                sorted_res = sorted_res[:min(top_k, len(imagenet_labels))]
+                sorted_res = sorted_res[:min(top_k, len(inputs_labels))]
             outputs.append([{"score": score_item, "label": label}
                             for score_item, label in sorted_res])
         return outputs
