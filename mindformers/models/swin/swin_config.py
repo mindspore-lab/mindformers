@@ -33,6 +33,50 @@ default_parallel_config = TransformerOpParallelConfig(recompute=default_recomput
 class SwinConfig(BaseConfig):
     """
     Swin config class which defines the model size
+
+    Args:
+         image_size: The input image size, Default 224.
+         patch_size: patch size, Default 4.
+         num_classes: num classes, Default 1000.
+         in_channels: channels of input images, Default 3.
+         embed_dim: embedding dimension, Default 128.
+         depths: number of transformer blocks for each swin layer, Default (2, 2, 18, 2).
+         num_heads: number of attention heads for each swin layer, Default (4, 8, 16, 32).
+         window_size: window size for swin, Default 7.
+         shift_size: window shift size, Default 0.
+         mlp_ratio: ffn_hidden_size = mlp_ratio * embed_dim, Default 4.
+         qkv_bias: has transformer qkv bias or not, Default True.
+         qk_scale: qk_scale, default head_dim ** -0.5.
+         drop_out_rate: drop rate of MLP, Default 0.
+         attn_drop_rate: drop rate of Attention, Default 0.
+         drop_path_rate: drop path rate of transformer blocks, Default 0.1.
+         use_abs_pos_emb: if using absolute position embedding, Default False.
+         patch_norm: use norm in PatchEmbed, Default True.
+         patch_type: PatchEmbed type, Default "conv".
+         hidden_act: activation of MLP, Default "gelu".
+         weight_init: weight initialize type, Default "normal".
+         loss_type: loss type, Default "SoftTargetCrossEntropy".
+         param_init_type:, Default mstype.float32.
+         moe_config:, Default default_moe_config.
+         parallel_config:, Default default_parallel_config.
+         checkpoint_name_or_path:, Default "swin_base_p4w7".
+         **kwargs
+
+    Examples:
+        >>> # init a config with a model name
+        >>> config_a = SwinConfig.from_pretrained('swin_base_p4w7')
+        >>> # init a config with a config path
+        >>> import os
+        >>> from mindformers.mindformer_book import MindFormerBook
+        >>> config_path = os.path.join(MindFormerBook.get_project_path(),
+        >>>                        'configs', 'swin', 'model_config', "swin_base_p4w7.yaml")
+        >>> config_b = SwinConfig.from_pretrained(config_path)
+        >>> # init a config with args
+        >>> config_c = SwinConfig(
+        >>>     patch_size=4,
+        >>>     in_chans=3,
+        >>>     ...
+        >>>     )
     """
     _support_list = MindFormerBook.get_model_support_list()['swin']
 
