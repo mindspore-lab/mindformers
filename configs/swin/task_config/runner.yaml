@@ -29,7 +29,7 @@ optimizer:
 
 # lr sechdule
 lr_schedule:
-  type: WarmUpCosineDecayV1
+  type: WarmUpCosineDecayV2
   base_lr: 0.00125
   min_lr: 0.00000025
   warmup_lr: 0.00000025
