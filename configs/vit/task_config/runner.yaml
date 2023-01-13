@@ -4,7 +4,7 @@ runner_config:
   batch_size: 32
   image_size: 224
   sink_mode: True
-  per_epoch_size: 1
+  per_epoch_size: -1
   initial_epoch: 0
   has_trained_epoches: 0
   has_trained_steps: 0
@@ -12,8 +12,10 @@ runner_config:
   layer_decay: 0.65
 
 runner_wrapper:
-  type: TrainOneStepCell
-  sens: 1024
+  type: TrainOneStepWithClipGN
+  scale_sense:
+    type: FixedLossScaleUpdateCell
+    loss_scale_value: 1024
 
 # optimizer
 optimizer:
