@@ -11,7 +11,7 @@ use_parallel: False
 seed: 0
 resume_or_finetune_checkpoint: '' # Input ckpt file path here
 
-run_status: 'train'
+run_mode: 'train'
 trainer:
   type: image_classification
   model_name: 'swin'

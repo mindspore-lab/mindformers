@@ -77,7 +77,7 @@ MindFormers套件对外提供两种使用和开发形式，为开发者提供灵
 
 ```shell
 # 训练启动，run_status支持train、finetuen、eval、predict三个关键字，以分别完成模型训练、评估、推理功能，默认使用配置文件中的run_status
-python run_mindformer.py --config {CONFIG_PATH} --run_status {train/finetune/eval/predict}
+python run_mindformer.py --config {CONFIG_PATH} --run_mode {train/finetune/eval/predict}
 ```
 
 - 多卡启动： scripts 脚本启动，根据模型 CONFIG 完成任意模型的单卡/多卡训练、微调、评估、推理流程

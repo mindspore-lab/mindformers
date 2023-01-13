@@ -73,7 +73,7 @@ do
     cd ./mf_parallel$i || exit
     echo "start training for rank $RANK_ID, device $DEVICE_ID"
     env > env.log
-    python run_mindformer.py --config=$CONFIG_FILE --use_parallel=True --run_status=$RUN_STATUS &> mindformer.log &
+    python run_mindformer.py --config=$CONFIG_FILE --use_parallel=True --run_mode=$RUN_STATUS &> mindformer.log &
     cd ..
 done
 

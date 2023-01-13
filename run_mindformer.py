@@ -56,7 +56,7 @@ def main(config):
         config.eval_dataset.data_loader.dataset_dir = cfts.get_dataset(
             config.eval_dataset.data_loader.dataset_dir)
 
-    if config.run_status == 'finetune' and not config.resume_or_finetune_checkpoint:
+    if config.run_mode == 'finetune' and not config.resume_or_finetune_checkpoint:
         raise ValueError("if run status is finetune, "
                          "load_checkpoint or resume_or_finetune_checkpoint is invalid, "
                          "it must be input")
@@ -64,7 +64,7 @@ def main(config):
     # auto pull checkpoint if on ModelArts platform
     if config.resume_or_finetune_checkpoint:
         config.resume_or_finetune_checkpoint = cfts.get_checkpoint(config.resume_or_finetune_checkpoint)
-        if config.run_status == 'train':
+        if config.run_mode == 'train':
             config.model.model_config.checkpoint_name_or_path = None
         else:
             config.model.model_config.checkpoint_name_or_path = config.resume_or_finetune_checkpoint
@@ -78,11 +78,11 @@ def main(config):
         pprint(config)
 
     trainer = build_trainer(config.trainer)
-    if config.run_status == 'train' or config.run_status == 'finetune':
+    if config.run_mode == 'train' or config.run_mode == 'finetune':
         trainer.train(config)
-    elif config.run_status == 'eval':
+    elif config.run_mode == 'eval':
         trainer.evaluate(config)
-    elif config.run_status == 'predict':
+    elif config.run_mode == 'predict':
         trainer.predict(config)
 
 
@@ -110,7 +110,7 @@ if __name__ == "__main__":
              'If device target is not set, the version of MindSpore package is used.'
              'Default: None')
     parser.add_argument(
-        '--run_status', default=None, type=str,
+        '--run_mode', default=None, type=str,
         help='task running status, it support [train, finetune, eval, predict].'
              'Default: None')
     parser.add_argument(
@@ -152,8 +152,8 @@ if __name__ == "__main__":
         config_.context.device_target = args_.device_target
     if args_.mode is not None:
         config_.context.mode = args_.mode
-    if args_.run_status is not None:
-        config_.run_status = args_.run_status
+    if args_.run_mode is not None:
+        config_.run_mode = args_.run_mode
     if args_.seed is not None:
         config_.seed = args_.seed
     if args_.use_parallel is not None:
@@ -164,14 +164,14 @@ if __name__ == "__main__":
         config_.profile = args_.profile
     if args_.options is not None:
         config_.merge_from_dict(args_.options)
-    assert config_.run_status in ['train', 'eval', 'predict', 'finetune'], \
-        f"run status must be in {['train', 'eval', 'predict', 'finetune']}, but get {config_.run_status}"
+    assert config_.run_mode in ['train', 'eval', 'predict', 'finetune'], \
+        f"run status must be in {['train', 'eval', 'predict', 'finetune']}, but get {config_.run_mode}"
     if args_.dataset_dir:
-        if config_.run_status == 'train' or config_.run_status == 'finetune':
+        if config_.run_mode == 'train' or config_.run_mode == 'finetune':
             config_.train_dataset.data_loader.dataset_dir = args_.dataset_dir
-        if config_.run_status == 'eval':
+        if config_.run_mode == 'eval':
             config_.eval_dataset.data_loader.dataset_dir = args_.dataset_dir
-    if config_.run_status == 'predict':
+    if config_.run_mode == 'predict':
         if args_.predict_data is None:
             logger.info("dataset by config is used as input_data.")
         elif os.path.isdir(args_.predict_data) and os.path.exists(args_.predict_data):

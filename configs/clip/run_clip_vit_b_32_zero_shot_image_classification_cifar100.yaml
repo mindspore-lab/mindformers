@@ -17,7 +17,7 @@ metric:
 top_k: 3
 save_file: 'results.txt'
 
-run_status: 'eval'
+run_mode: 'eval'
 trainer:
   type: ZeroShotImageClassificationTrainer
   model_name: 'clip_vit_b_32'

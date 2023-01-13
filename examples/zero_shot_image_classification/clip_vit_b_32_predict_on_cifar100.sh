@@ -21,4 +21,4 @@ echo "The data setting could refer to ./api_cards/task_cards/zero_shot_image_cla
 echo "It is better to use absolute path."
 echo "=============================================================================================================="
 
-python run_mindformer.py --config ./configs/clip/run_clip_vit_b_32_zero_shot_image_classification_cifar100.yaml --run_status predict
+python run_mindformer.py --config ./configs/clip/run_clip_vit_b_32_zero_shot_image_classification_cifar100.yaml --run_mode predict
