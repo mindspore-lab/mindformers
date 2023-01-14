@@ -29,7 +29,7 @@ class Flickr8kDataLoader:
     _default_column_names = ["image", "text"]
     def __new__(cls, dataset_dir: str, annotation_dir: str,
                 column_names: Optional[Union[List[str], Tuple[str]]] = None,
-                stage: Optional[str] = "train"):
+                stage: Optional[str] = "train", **kwargs):
         r"""
         Flicker8k Dataloader API.
 
@@ -92,6 +92,7 @@ class Flickr8kDataLoader:
             raise ValueError(f"the item type of column_names should be string,"
                              f" but got {type(column_names[0])} and {type(column_names[1])}")
 
+        kwargs.pop("None", None)
         flick8k_dataset = Flickr8kDataSet(dataset_dir, annotation_dir, stage)
         return GeneratorDataset(flick8k_dataset, column_names)
 
