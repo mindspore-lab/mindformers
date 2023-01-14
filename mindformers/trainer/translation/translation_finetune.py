@@ -13,6 +13,7 @@
 # limitations under the License.
 # ============================================================================
 """Translation Modeling Trainer."""
+import os.path
 from typing import Optional, List, Union
 
 from mindspore.train.model import Model
@@ -192,7 +193,9 @@ class TranslationTrainer(BaseTrainer):
                 configure the dataset, the hyper-parameter, optimizer, etc.
                 It support config dict or ConfigArguments class.
                 Default: None.
-            input_data (Optional[Union[Tensor, str, list]]): The predict data. Default: None.
+            input_data (Optional[Union[Tensor, str, list]]): The predict data. It supports 1) a text string to be
+                translated, 1) a file name where each line is a text to be translated  and 3) a generator dataset.
+                Default: None.
             network (Optional[Union[str, BaseModel]]): The network for trainer. It support model name supported
                 or BaseModel class. Supported model name can refer to model support list. For .
                 Default: None.
@@ -219,7 +222,6 @@ class TranslationTrainer(BaseTrainer):
             raise ValueError("Input data's type must be one of "
                              f"[str, list, GeneratorDataset], but got type {type(input_data)}")
 
-
         logger.info(".........Build Net..........")
         if network is None:
             network = build_model(config.model)
@@ -237,7 +239,14 @@ class TranslationTrainer(BaseTrainer):
         pipeline_task = pipeline(task='translation',
                                  tokenizer=tokenizer,
                                  model=network, **kwargs)
-        output_result = pipeline_task(input_data, **kwargs)
+        if isinstance(input_data, str) and os.path.isfile(input_data):
+            with open(input_data, 'r') as fp:
+                output_result = []
+                for line in fp:
+                    output = pipeline_task(line, **kwargs)
+                    output_result.extend(output)
+        else:
+            output_result = pipeline_task(input_data, **kwargs)
 
         logger.info(".........start to write the output result to: %s.........", save_file)
         with open(save_file, 'w') as file:
@@ -247,7 +256,6 @@ class TranslationTrainer(BaseTrainer):
             else:
                 file.write(str(output_result))
             file.close()
-
         logger.info(".........writing result finished..........")
         logger.info(".........Predict Over!.............")
         return output_result
