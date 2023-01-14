@@ -68,6 +68,7 @@ class T5Tokenizer(Tokenizer):
     FILE_LIST = ['tokenizer_config.json']
     MODEL_INPUT_NAME = ['input_ids', 'attention_mask']
 
+    _extra_pattern = r'<extra_id_(\d+)>'
     _support_list = MindFormerBook.get_model_support_list()['t5']
 
     def __init__(self,
@@ -75,6 +76,7 @@ class T5Tokenizer(Tokenizer):
                  eos_token: str = "</s>",
                  unk_token: str = "<unk>",
                  pad_token: str = "<pad>",
+                 extra_ids: int = 100,
                  **kwargs):
         """
         Initialize the sentence piece model according to the model path
@@ -82,7 +84,9 @@ class T5Tokenizer(Tokenizer):
         super(T5Tokenizer, self).__init__(eos_token=eos_token,
                                           unk_token=unk_token,
                                           pad_token=pad_token,
+                                          extra_ids=extra_ids,
                                           **kwargs)
+        self.extra_ids = extra_ids
         self.s = spm.SentencePieceProcessor(model_file=vocab_file)
         self.vocab_file = vocab_file
 
@@ -119,13 +123,19 @@ class T5Tokenizer(Tokenizer):
         return output_file_path
 
     def _convert_ids_to_tokens(self, ids):
+        """convert the given ids to the tokens"""
+        def convert_ids(ids):
+            if ids < self.s.vocab_size():
+                return self.s.IdToPiece(ids)
+            return self._extra_pattern.replace(r'(\d+)', str(ids - self.s.vocab_size() - 1))
+
         if isinstance(ids, int):
-            return self.s.IdToPiece(ids)
+            return convert_ids(ids)
 
         if isinstance(ids, list):
             res = []
             for item in ids:
-                res.append(self.s.IdToPiece(item))
+                res.append(convert_ids(item))
             return res
         raise TypeError(f"The type of ids should be int or list, but found {type(ids)}.")
 
@@ -137,4 +147,4 @@ class T5Tokenizer(Tokenizer):
     @property
     def vocab_size(self):
         """Return the vocab size of the tokenizer"""
-        return self.s.vocab_size()
+        return self.s.vocab_size() + self.extra_ids
