@@ -33,7 +33,8 @@ from .build_tokenizer import build_tokenizer
 
 __all__ = ['BaseTokenizer', 'Tokenizer', 'SpecialTokensMixin']
 
-from ..tools.download_tools import downlond_with_progress_bar
+from ..tools.download_tools import download_with_progress_bar
+from ..tools.utils import try_sync_file
 from ..mindformer_book import MindFormerBook, print_path_or_list
 
 SPECIAL_TOKEN_FILE_NAME = 'special_tokens_map.json'
@@ -405,20 +406,21 @@ class BaseTokenizer(SpecialTokensMixin):
         cache_path = os.path.join(MindFormerBook.get_default_checkpoint_download_folder(),
                                   name_or_path.split("_")[0])
         if not os.path.exists(cache_path):
-            os.makedirs(cache_path)
+            os.makedirs(cache_path, exist_ok=True)
 
         yaml_file = os.path.join(cache_path, name_or_path + ".yaml")
         if not os.path.exists(yaml_file):
             url = MindFormerBook.get_model_config_url_list()[name_or_path][0]
             logger.info("Download from the url %s to %s", url, yaml_file)
-            downlond_with_progress_bar(url, yaml_file)
-
+            download_with_progress_bar(url, yaml_file)
+        try_sync_file(yaml_file)
         url_vocab = MindFormerBook.get_tokenizer_url_support_list()[name_or_path][0]
         local_vocab_name = url_vocab.split('/')[-1]
         vocab_file = os.path.join(cache_path, local_vocab_name)
         if not os.path.exists(vocab_file):
             logger.info("Download the yaml from the url %s to %s.", url_vocab, vocab_file)
-            downlond_with_progress_bar(url_vocab, vocab_file)
+            download_with_progress_bar(url_vocab, vocab_file)
+        try_sync_file(vocab_file)
         config = MindFormerConfig(yaml_file)
         return config, cache_path
 
@@ -435,7 +437,8 @@ class BaseTokenizer(SpecialTokensMixin):
         vocab_file = os.path.join(cache_path, local_vocab_name)
         if not os.path.exists(vocab_file):
             logger.info("Download the vocab file from the url %s to %s.", url_vocab, vocab_file)
-            downlond_with_progress_bar(url_vocab, vocab_file)
+            download_with_progress_bar(url_vocab, vocab_file)
+        try_sync_file(vocab_file)
         return vocab_file
 
     @classmethod

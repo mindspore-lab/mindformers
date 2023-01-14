@@ -17,11 +17,6 @@
 """Swin Model."""
 import os
 
-try:
-    import fcntl
-except ImportError:
-    fcntl = None
-
 import numpy as np
 from scipy import interpolate
 
@@ -35,7 +30,7 @@ from mindspore.train.serialization import load_checkpoint
 from mindspore.train.serialization import load_param_into_net
 
 from mindformers.tools.logger import logger
-from mindformers.tools.download_tools import downlond_with_progress_bar
+from mindformers.tools.download_tools import download_with_progress_bar
 from mindformers.common.loss import build_loss
 from mindformers.mindformer_book import MindFormerBook
 from mindformers.models.base_model import BaseModel
@@ -48,7 +43,7 @@ from mindformers.models.swin.swin_modules import PatchEmbed
 from mindformers.models.swin.swin_modules import PatchMerging
 from mindformers.models.swin.swin_modules import SwinBasicLayer
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
-
+from mindformers.tools.utils import try_sync_file
 
 
 __all__ = ['SwinModel', 'SwinTransformer']
@@ -138,13 +133,11 @@ class SwinModel(BaseModel):
                 ckpt_file = os.path.join(default_checkpoint_download_folder, checkpoint_name_or_path + ".ckpt")
                 if not os.path.exists(ckpt_file):
                     url = MindFormerBook.get_model_ckpt_url_list()[checkpoint_name_or_path][0]
-                    succeed = downlond_with_progress_bar(url, ckpt_file)
+                    succeed = download_with_progress_bar(url, ckpt_file)
                     if not succeed:
                         logger.info("checkpoint download failed, and pretrained weights are unloaded.")
                         return
-                with open(ckpt_file, 'r') as fp:
-                    if fcntl:
-                        fcntl.flock(fp.fileno(), fcntl.LOCK_EX)
+                try_sync_file(ckpt_file)
 
                 logger.info("start to read the ckpt file: %s", os.path.getsize(ckpt_file))
                 param = load_checkpoint(ckpt_file)

@@ -35,8 +35,8 @@ class StatusCode:
     succeed = 200
 
 
-def downlond_with_progress_bar(url, filepath, chunk_size=1024, timeout=4):
-    '''downlond_with_progress_bar'''
+def download_with_progress_bar(url, filepath, chunk_size=1024, timeout=4):
+    '''download_with_progress_bar'''
     if not os.path.exists(filepath):
         os.makedirs(os.path.dirname(filepath), exist_ok=True)
 

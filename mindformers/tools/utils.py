@@ -16,6 +16,10 @@
 import os
 from typing import Dict, List, Tuple, Union
 from multiprocessing import Process
+try:
+    import fcntl
+except ImportError:
+    fcntl = None
 
 import numpy as np
 
@@ -233,3 +237,10 @@ def count_params(net):
     """
     total_params = [np.prod(param.shape) for param in net.trainable_params()]
     return sum(total_params) // 1000000
+
+
+def try_sync_file(file_name):
+    """If the file is still downloading, we need to wait before the file finished downloading"""
+    if fcntl:
+        with open(file_name, 'r') as fp:
+            fcntl.flock(fp.fileno(), fcntl.LOCK_EX)
