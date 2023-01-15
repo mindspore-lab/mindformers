@@ -18,10 +18,6 @@ BaseModel
 """
 from typing import Optional
 import os
-try:
-    import fcntl
-except ImportError:
-    fcntl = None
 
 import yaml
 
@@ -33,8 +29,9 @@ from ..mindformer_book import MindFormerBook, print_path_or_list
 from .build_config import build_model_config
 from .base_config import BaseConfig
 from ..tools.register import MindFormerConfig
-from ..tools.download_tools import downlond_with_progress_bar
+from ..tools.download_tools import download_with_progress_bar
 from ..tools.logger import logger
+from ..tools.utils import try_sync_file
 from .text_generator import GeneratorMixin
 
 
@@ -92,13 +89,11 @@ class BaseModel(nn.Cell, GeneratorMixin):
                 ckpt_file = os.path.join(default_checkpoint_download_folder, checkpoint_name_or_path + ".ckpt")
                 if not os.path.exists(ckpt_file):
                     url = MindFormerBook.get_model_ckpt_url_list()[checkpoint_name_or_path][0]
-                    succeed = downlond_with_progress_bar(url, ckpt_file)
+                    succeed = download_with_progress_bar(url, ckpt_file)
                     if not succeed:
                         logger.info("checkpoint download failed, and pretrained weights are unloaded.")
                         return
-                with open(ckpt_file, 'r') as fp:
-                    if fcntl:
-                        fcntl.flock(fp.fileno(), fcntl.LOCK_EX)
+                try_sync_file(ckpt_file)
 
                 logger.info("start to read the ckpt file: %s", os.path.getsize(ckpt_file))
                 param = load_checkpoint(ckpt_file)
@@ -289,8 +284,7 @@ class BaseModel(nn.Cell, GeneratorMixin):
             yaml_file = os.path.join(checkpoint_path, pretrained_model_name_or_dir+".yaml")
             if not os.path.exists(yaml_file):
                 url = MindFormerBook.get_model_config_url_list()[pretrained_model_name_or_dir][0]
-                succeed = downlond_with_progress_bar(url, yaml_file)
-
+                succeed = download_with_progress_bar(url, yaml_file)
                 if not succeed:
                     yaml_file = os.path.join(
                         MindFormerBook.get_project_path(),
@@ -300,6 +294,7 @@ class BaseModel(nn.Cell, GeneratorMixin):
                     logger.info("yaml download failed, default config in %s is used.", yaml_file)
                 else:
                     logger.info("config in %s is used for model building.", yaml_file)
+            try_sync_file(yaml_file)
             config_args = MindFormerConfig(yaml_file)
             config_args.model.model_config.update(**kwargs)
             config = build_model_config(config_args.model.model_config)

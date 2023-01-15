@@ -25,9 +25,10 @@ from functools import lru_cache
 import ftfy
 import regex as re
 
+from mindformers.tools.utils import try_sync_file
 from ...mindformer_book import MindFormerBook
 from ...tools.register import MindFormerRegister, MindFormerModuleType
-from ...tools.download_tools import downlond_with_progress_bar
+from ...tools.download_tools import download_with_progress_bar
 from ..base_tokenizer import Tokenizer
 
 @lru_cache()
@@ -38,7 +39,8 @@ def default_bpe():
     if not os.path.exists(path):
         url = "https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/" \
               "XFormer_for_mindspore/clip/bpe_simple_vocab_16e6.txt.gz"
-        downlond_with_progress_bar(url, path)
+        download_with_progress_bar(url, path)
+    try_sync_file(path)
     return path
 
 def get_pairs(input_wd):
