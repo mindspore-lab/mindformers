@@ -31,7 +31,7 @@ from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from .group_mim_parameters import get_group_parameters
 from ..config_args import ConfigArguments
 from ..base_trainer import BaseTrainer
-from ..utils import check_runner_config, resume_checkpoint_for_training
+from ..utils import check_runner_config, check_image_lr_config, resume_checkpoint_for_training
 
 
 @MindFormerRegister.register(MindFormerModuleType.TRAINER, alias="mim")
@@ -129,6 +129,7 @@ class MaskedImageModelingTrainer(BaseTrainer):
         if optimizer is None:
             # build learning rate schedule
             logger.info(".........Build LR Schedule..........")
+            check_image_lr_config(config)
             lr_schedule = build_lr(config.lr_schedule)
             group_params = get_group_parameters(config, network)
             if lr_schedule is not None:
