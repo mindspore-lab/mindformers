@@ -30,7 +30,7 @@ class Cifar100DataLoader:
     def __new__(cls, dataset_dir: str, column_names: Optional[Union[List[str], Tuple[str]]] = None,
                 stage: Optional[str] = "train", fine_label: Optional[bool] = True,
                 shuffle: Optional[bool] = False,
-                hypothesis_template: Optional[str] = "This is a photo of {}."):
+                hypothesis_template: Optional[str] = "This is a photo of {}.", **kwargs):
         r"""
         Cifar100 Dataloader API.
 
@@ -90,6 +90,7 @@ class Cifar100DataLoader:
                 raise ValueError(f"the item type of column_names should be string,"
                                  f" but got {type(column_names[index])}")
 
+        kwargs.pop("None", None)
         cifar100_dataset = Cifar100DataSet(dataset_dir, stage, fine_label, hypothesis_template)
         cifar100_dataloader = GeneratorDataset(cifar100_dataset, column_names, shuffle=shuffle)
         setattr(cifar100_dataloader, "label_names", cifar100_dataset.label_names)

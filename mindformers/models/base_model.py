@@ -34,7 +34,7 @@ from .build_config import build_model_config
 from .base_config import BaseConfig
 from ..tools.register import MindFormerConfig
 from ..tools.download_tools import downlond_with_progress_bar
-from ..tools import logger
+from ..tools.logger import logger
 from .text_generator import GeneratorMixin
 
 
