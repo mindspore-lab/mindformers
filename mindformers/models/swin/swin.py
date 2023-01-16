@@ -94,7 +94,7 @@ class SwinModel(BaseModel):
         loss = self.loss(out, target)
         return loss
 
-    def _load_checkpoint(self, config):
+    def load_checkpoint(self, config):
         """
         load checkpoint for SwinModel.
 

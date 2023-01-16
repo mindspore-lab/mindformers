@@ -9,7 +9,7 @@ runner_config:
   has_trained_epoches: 0
   has_trained_steps: 0
   num_classes: 1000
-  layer_decay: 0.95
+  layer_decay: 0.9
 
 runner_wrapper:
   type: TrainOneStepWithClipGN
