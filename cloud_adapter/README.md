@@ -83,7 +83,7 @@
 使用微调组件功能前需注册微调组件，运行如下命令，交互输入认证信息：
 
 ```shell
-fm registry  # 依次输入registry type 1，以及计算中心账号对应的ak，sk，endpoint
+fm registry  # 依次输入registry type 1，以及计算中心账号对应的ak，sk，endpoint, 加密启用/关闭选项（T/t、F/f）
 ```
 
 #### 4.3.1 模型微调
@@ -267,7 +267,7 @@ scenario:
 **示例：**
 
 ```shell
-fm registry # 配置认证信息，交互输入registry type以及对应认证信息
+fm registry # 配置认证信息，交互输入registry type以及对应认证信息、endpoint地址、加密启用开关等
 fm config --scenario modelarts --app_config obs://xxx/app_config.yaml # 配置默认场景、应用程序信息
 fm finetune --model_config_path obs://xxx/model_config.yaml --job_name test_job # 指定一个名为test_job的微调任务
 fm show # 展示当前账号历史任务状态
@@ -293,7 +293,10 @@ fm.registry(registry_info = None)
 
 ```python
 import fm.fm_sdk as fm
+# 默认启用加密组件加密认证信息
 fm.registry(registry_info='1 ak sk endpoint')
+# 或采用如下接口参数方式，选择性开启/关闭加密
+fm.registry(registry_info='1 ak sk endpoint encryption_option')
 ```
 
 **参数说明**
@@ -302,8 +305,7 @@ fm.registry(registry_info='1 ak sk endpoint')
 
 | 参数名称          | 是否必选 | 参数说明                                                                                                                                                   |
 |---------------|------|--------------------------------------------------------------------------------------------------------------------------------------------------------|
-| registry_info | 是    | 认证信息，形式为'type xx yy zz', 目前支持使用ak/sk认证方式，填写'1 ak sk endpoint'。 其中ak, sk从AI计算中心账号系统中获取，endpoint为对象存储服务（obs）终端节点，同app_config.yaml 配置文件中的 obs_endpoint 地址 |
-
+| registry_info | 是    | 认证信息，形式为'type xx yy zz T(t)/F(f)', 目前支持使用ak/sk认证方式，填写'1 ak sk endpoint encrypt_option'。 其中ak, sk从AI计算中心账号系统中获取;endpoint为对象存储服务（obs）终端节点，同app_config.yaml 配置文件中的 obs_endpoint 地址; encrypt_option是可选项，其意为是否启用加密开关，如未配置则默认开启加密，可选值为单字母，可配置'T/t'、 'F/f'。|
 - 返回值：True/False
 
 

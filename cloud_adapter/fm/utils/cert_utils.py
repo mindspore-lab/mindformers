@@ -38,16 +38,24 @@ def decrypt_cert(cert_output_cipher, flatten_to_list=False):
     cert_info = unpack_cert_cipher(cert_output_cipher)
 
     cert_type = cert_info.get('type')
-    cert_ak = decrypt_with_kmc(cert_info.get('ak'))
-    cert_sk = decrypt_with_kmc(cert_info.get('sk'))
     cert_endpoint = cert_info.get('endpoint')
+    cert_encrypt = cert_info.get('encryption')
+    if cert_encrypt is None or cert_encrypt:
+        cert_ak = decrypt_with_kmc(cert_info.get('ak'))
+        cert_sk = decrypt_with_kmc(cert_info.get('sk'))
+        cert_encrypt = True
+    else:
+        cert_ak = cert_info.get('ak')
+        cert_sk = cert_info.get('sk')
     del cert_info
 
     if flatten_to_list:
-        cert_output_plain = {'scenario': [cert_type, cert_ak, cert_sk, cert_endpoint]}
+        cert_output_plain = {'scenario': [cert_type, cert_ak, cert_sk, cert_endpoint, cert_encrypt]}
     else:
         cert_output_plain = {
-            'scenario': {'type': cert_type, 'ak': cert_ak, 'sk': cert_sk, 'endpoint': cert_endpoint}}
+            'scenario': {'type': cert_type,
+                         'ak': cert_ak, 'sk': cert_sk, 'endpoint': cert_endpoint,
+                         'encryption': cert_encrypt}}
 
     del cert_ak
     del cert_sk
@@ -63,22 +71,29 @@ def pack_cert_plain(cert_input):
     cert_ak_plain = str(cert_input[1])
     cert_sk_plain = str(cert_input[2])
     cert_endpoint = str(cert_input[3])
+    cert_encrypt = True if str(cert_input[4]).upper() == 'T' else False
     del cert_input
 
-    cert_ak_cipher = encrypt_with_kmc(cert_ak_plain)
-    cert_sk_cipher = encrypt_with_kmc(cert_sk_plain)
+    if cert_encrypt:
+        cert_ak = encrypt_with_kmc(cert_ak_plain)
+        cert_sk = encrypt_with_kmc(cert_sk_plain)
+    else:
+        cert_ak = cert_ak_plain
+        cert_sk = cert_sk_plain
+
     del cert_ak_plain
     del cert_sk_plain
 
     cert_dict = {
         'type': cert_type,
-        'ak': cert_ak_cipher,
-        'sk': cert_sk_cipher,
-        'endpoint': cert_endpoint
+        'ak': cert_ak,
+        'sk': cert_sk,
+        'endpoint': cert_endpoint,
+        'encryption': cert_encrypt
     }
 
-    del cert_ak_cipher
-    del cert_sk_cipher
+    del cert_ak
+    del cert_sk
 
     return cert_dict
 

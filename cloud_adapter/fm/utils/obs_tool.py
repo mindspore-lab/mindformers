@@ -297,7 +297,7 @@ def obs_connection_check(cert_info):
     """
         功能: 对给定的明文cert_info检验是否能成功连接至obs
         参数:
-            cert_info = [type, ak, sk, endpoint] 列表形式的cert认证信息，元素为字符串
+            cert_info = [type, ak, sk, endpoint, encryption] 列表形式的cert认证信息，元素为字符串
         返回值:
             None
     """

@@ -25,6 +25,7 @@ CERT_TYPE_LEN_LIMIT = 1
 CERT_AK_LEN_LIMIT = 40
 CERT_SK_LEN_LIMIT = 80
 CERT_ENDPOINT_LEN_LIMIT = 100
+CERT_ENCRYPT_OPTION = 1
 
 
 def manually_input_cert():
@@ -52,7 +53,10 @@ def get_and_check_cert_item_with_category_one(cert_type):
     cert_endpoint = input('registry endpoint: ').strip()
     cert_item_legality_check(cert_item=cert_endpoint, item_type='registry endpoint')
 
-    return ' '.join([cert_type, cert_ak, cert_sk, cert_endpoint])
+    cert_encryption = input('registry encryption option(T/t or F/f): ').strip()
+    cert_item_legality_check(cert_item=cert_encryption, item_type='registry encryption option')
+
+    return ' '.join([cert_type, cert_ak, cert_sk, cert_endpoint, cert_encryption])
 
 
 def cert_item_legality_check(cert_item, item_type):
@@ -132,8 +136,9 @@ def cert_format_check_with_category_one(cert_info):
     类型1认证信息校验
     """
     # 针对认证类型1的凭据, 需要按照1 ak sk endpoint格式提供
-    if cert_info[0] == '1' and len(cert_info) != 4:
-        service_logger.error('illegal registry format, type 1 should follow format \'1 ak sk obs_endpoint\'.')
+    if cert_info[0] == '1' and len(cert_info) not in [4, 5]:
+        service_logger.error('illegal registry format, type 1 should follow format \'1 ak sk obs_endpoint\' or '
+                             '\'1 ak sk obs_endpoint encryption_option\'.')
         raise ValueError
 
     # 针对认证类型1的凭据, 需要保障endpoint以https/http开头
@@ -144,6 +149,13 @@ def cert_format_check_with_category_one(cert_info):
     # 针对认证类型1的凭据, 如果endpoint只为'https://', 'http://'即为错误，需要有网址内容
     if cert_info[0] == '1' and (cert_info[3] == 'http://' or cert_info[3] == 'https://'):
         service_logger.error('illegal endpoint format in registry, check the setting.')
+        raise ValueError
+
+    # 针对认证类型1的凭据, 判断加密开关的值
+    if len(cert_info) == 4:
+        cert_info.extend("T")
+    if len(cert_info) == 5 and cert_info[4].upper() not in ["T", "F"]:
+        service_logger.error('illegal encryption option format in registry, which should be \'T/t\' or \'F/f\'.')
         raise ValueError
 
 
@@ -165,7 +177,9 @@ def cert_overall_length_check_item(cert_info):
     认证信息整体长度校验项
     """
     # 认证信息整体字符串长度限制
-    overall_length_limit = CERT_TYPE_LEN_LIMIT + CERT_AK_LEN_LIMIT + CERT_SK_LEN_LIMIT + CERT_ENDPOINT_LEN_LIMIT
+    overall_length_limit = CERT_TYPE_LEN_LIMIT + \
+        CERT_AK_LEN_LIMIT + CERT_SK_LEN_LIMIT + CERT_ENDPOINT_LEN_LIMIT + \
+        CERT_ENCRYPT_OPTION
 
     if sum([len(c) for c in cert_info]) > overall_length_limit:
         service_logger.error('registry info length is too long, check the input.')
@@ -189,7 +203,10 @@ def cert_item_length_character_check_item(cert_info):
                             min_len_limit=1, max_len_limit=CERT_SK_LEN_LIMIT),
         LegalArgsCheckParam(appendix=[':', '/', '.', '-'], arg_val=clean_space_and_quotes(cert_info[3]),
                             entry='param', mode='default', arg_key='registry endpoint',
-                            min_len_limit=1, max_len_limit=CERT_ENDPOINT_LEN_LIMIT)
+                            min_len_limit=1, max_len_limit=CERT_ENDPOINT_LEN_LIMIT),
+        LegalArgsCheckParam(appendix=[], arg_val=clean_space_and_quotes(cert_info[4]),
+                            entry='param', mode='only_letter', arg_key='registry encryption option',
+                            min_len_limit=1, max_len_limit=CERT_ENCRYPT_OPTION)
     ]
 
     for i in range(len(cert_info)):
