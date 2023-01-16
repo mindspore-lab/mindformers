@@ -84,7 +84,7 @@ class LMTask(Task):
                 self.config.load_checkpoint_path = get_newest_ckpt(self.config.load_checkpoint_path,
                                                                    self.config.checkpoint_prefix)
 
-        if self.config.is_train:
+        if self.config.eval_type == "zero-shot":
             final_param_dict = {}
             param_dict = load_checkpoint(self.config.load_checkpoint_path)
             for name, _ in param_dict.items():
