@@ -56,5 +56,5 @@ python -m mindtransformer.trainer.trainer  \
     --start_lr=5e-5 \
     --save_checkpoint_path="./glue_ckpt/$TASK" \
     --load_checkpoint_path="/checkpoint/bertbase.ckpt" \
-    --checkpoint_prefix="$TASK" \
+    --checkpoint_prefix=$TASK \
     --train_data_path="/glue_path/$TASK/train.tf_record" \

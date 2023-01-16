@@ -17,8 +17,43 @@ import argparse
 import numpy as np
 import torch
 from mindspore import save_checkpoint, Tensor
-from mindtransformer.utils import print_dict, generate_params_dict
 
+def generate_params_dict(total_layers,
+                         mindspore_params_per_layer,
+                         torch_params_per_layer,
+                         mindspore_additional_params,
+                         torch_additional_params):
+    """
+    Generate the total parameter mapping of mindspore and pytorch.
+
+    Args:
+        total_layers(int): The total layers of the net.
+        mindspore_params_per_layer(list): The list of params per layer for the net of mindspore.
+        torch_params_per_layer(list): The list of params per layer for the net of pytorch.
+        mindspore_additional_params(list): The list of params outside the layer for the net of mindspore
+        torch_additional_params(list): The list  of params outside the layer for the net of pytorch.
+
+    Returns:
+        A list of tuple. The first element is the parameter name of mindspore,
+        the another is the parameter name of pytorch.
+    """
+    mapped_params = list(zip(mindspore_params_per_layer, torch_params_per_layer))
+    ms_extend_param_list = []
+    torch_extend_param_list = []
+    for i in range(total_layers):
+        for ms_para, torch_para in mapped_params:
+            src = ms_para.format(i)
+            tgt = torch_para.format(i)
+
+            ms_extend_param_list.append(src)
+            torch_extend_param_list.append(tgt)
+
+    mapped_params = list(zip(mindspore_additional_params, torch_additional_params))
+    for ms_para, torch_para in mapped_params:
+        ms_extend_param_list.append(ms_para)
+        torch_extend_param_list.append(torch_para)
+
+    return list(zip(ms_extend_param_list, torch_extend_param_list))
 
 def get_converted_ckpt(mapped_params, weight_dict):
     """
@@ -32,11 +67,11 @@ def get_converted_ckpt(mapped_params, weight_dict):
         None
     """
     new_ckpt_list = []
-    print(weight_dict.keys())
+
     # Currently, the ms_extend_param the torch_extend_param is the full parameters.
     for src, tgt in mapped_params:
         value = weight_dict[tgt].numpy()
-        if '.dense.weight' in tgt:
+        if 'output.dense.weight' in tgt or 'intermediate.dense.weight' in tgt:
             value = np.transpose(value, [1, 0])
 
         print(f"Mapping table Mindspore:{src:<30} \t Torch:{tgt:<30} with shape {value.shape}")
@@ -75,7 +110,6 @@ if __name__ == '__main__':
 
     opt = parser.parse_args()
     state_dict = torch.load(opt.torch_path, map_location='cpu')
-    print_dict(state_dict)
 
     ms_name = [
         "bert.bert.bert_encoder.encoder.blocks.{}.attention.dense1.weight",
@@ -123,6 +157,11 @@ if __name__ == '__main__':
         "bert.bert.embedding_postprocessor.layernorm.beta",
         "bert.bert.dense.weight",
         "bert.bert.dense.bias",
+        "bert.mlmloss.dense.weight",
+        "bert.mlmloss.dense.bias",
+        "bert.mlmloss.layernorm.gamma",
+        "bert.mlmloss.layernorm.beta",
+        "bert.mlmloss.vocab_dense.weight",
     ]
 
     addition_torch = [
@@ -133,6 +172,12 @@ if __name__ == '__main__':
         "bert.embeddings.LayerNorm.beta",
         "bert.pooler.dense.weight",
         "bert.pooler.dense.bias",
+        "cls.predictions.transform.dense.weight",
+        "cls.predictions.transform.dense.bias",
+        "cls.predictions.transform.LayerNorm.gamma",
+        "cls.predictions.transform.LayerNorm.beta",
+        "cls.predictions.decoder.weight"
+
     ]
 
     mapped_param = generate_params_dict(total_layers=opt.layers,
