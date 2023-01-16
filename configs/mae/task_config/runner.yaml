@@ -19,16 +19,17 @@ runner_wrapper:
 optimizer:
   type: AdamWeightDecay
   beta1: 0.9
-  beta2: 0.999
+  beta2: 0.95
   eps: 0.00000001 # 1e-8
   weight_decay: 0.05
 
 # lr sechdule
 lr_schedule:
-  type: CosineDecayLR
-  max_lr: 0.00015
+  type: WarmUpCosineDecayV1
+  base_lr: 0.00015
   min_lr: 0.
-  decay_steps: 100
+  warmup_lr: 0.
+  warmup_epochs: 40
 
 callbacks:
   - type: MFLossMonitor
