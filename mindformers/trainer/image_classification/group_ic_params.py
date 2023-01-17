@@ -94,7 +94,7 @@ def get_vit_layer(name, num_layers):
     elif name.startswith("patch_embed"):
         layer_num = 0
     elif name.startswith("blocks"):
-        layer_id = int(name.split('.')[3])
+        layer_id = int(name.split('.')[1])
         layer_num = layer_id + 1
     else:
         layer_num = num_layers - 1
