@@ -119,7 +119,8 @@ class RunnerConfig(BaseArgsConfig):
 
     _support_kwargs = [
         'epochs', 'batch_size', 'sink_mode', 'per_epoch_size', 'initial_epoch',
-        'has_trained_epoches', 'has_trained_steps', 'image_size', 'num_classes'
+        'has_trained_epoches', 'has_trained_steps', 'image_size', 'num_classes',
+        'sink_size',
     ]
 
     def __init__(self,

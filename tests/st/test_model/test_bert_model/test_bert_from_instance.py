@@ -17,9 +17,10 @@ Test module for testing the bert interface used for mindformers.
 How to run this:
 pytest tests/st/test_model/test_bert_model/test_bert_from_instance.py
 """
+from dataclasses import dataclass
 import numpy as np
 import pytest
-from mindspore.nn import AdamWeightDecay, WarmUpLR
+from mindspore.nn import AdamWeightDecay, WarmUpLR, TrainOneStepCell
 from mindspore.train.callback import LossMonitor, TimeMonitor
 from mindspore.dataset import GeneratorDataset
 
@@ -43,6 +44,13 @@ def generator():
                   masked_lm_positions, masked_lm_ids, masked_lm_weights)
     for _ in range(256):
         yield train_data
+
+@dataclass
+class Tempconfig:
+    seed: int = 0
+    runner_config: RunnerConfig = None
+    data_size: int = 0
+    resume_or_finetune_checkpoint: str = ""
 
 @pytest.mark.level0
 @pytest.mark.platform_x86_ascend_training
@@ -104,3 +112,52 @@ def test_bert_trainer_predict():
     input_data = [" Hello I am a [MASK] model.",]
     output = mlm_trainer.predict(config=config, input_data=input_data, network=bert, tokenizer=tokenizer)
     assert len(output) == 1
+
+@pytest.mark.level0
+@pytest.mark.platform_x86_ascend_training
+@pytest.mark.platform_arm_ascend_training
+@pytest.mark.env_onecard
+def test_bert_trainer_train_from_mlm():
+    """
+    Feature: Create Trainer From Instance
+    Description: Test Trainer API to train from self-define instance API.
+    Expectation: TypeError
+    """
+    batch_size = 64
+
+    # Model
+    model_config = BertConfig.from_pretrained('bert_tiny_uncased')
+    bert_model = BertModel(model_config)
+
+    # Dataset and operations
+    dataset = GeneratorDataset(generator, column_names=["input_ids", "input_mask", "segment_ids",
+                                                        "next_sentence_labels", "masked_lm_positions",
+                                                        "masked_lm_ids", "masked_lm_weights"])
+    dataset = dataset.batch(batch_size=batch_size)
+
+    # Config definition
+    runner_config = RunnerConfig(epochs=1, batch_size=batch_size, sink_mode=True, per_epoch_size=2,
+                                 sink_size=2, initial_epoch=0)
+    train_config = Tempconfig(runner_config=runner_config, data_size=dataset.get_dataset_size())
+
+    # optimizer
+    lr_schedule = WarmUpLR(learning_rate=0.001, warmup_steps=100)
+    optimizer = AdamWeightDecay(beta1=0.009, beta2=0.999,
+                                learning_rate=lr_schedule,
+                                params=bert_model.trainable_params())
+
+    # wrapper
+    bert_wrapper = TrainOneStepCell(bert_model, optimizer, sens=1024)
+
+    # callback
+    loss_cb = LossMonitor(per_print_times=2)
+    time_cb = TimeMonitor()
+    callbacks = [loss_cb, time_cb]
+
+    bert_trainer = MaskedLanguageModelingTrainer(model_name="bert_tiny_uncased")
+    bert_trainer.train(network=bert_model, # model and loss
+                       config=train_config,
+                       optimizer=optimizer,
+                       dataset=dataset,
+                       wrapper=bert_wrapper,
+                       callbacks=callbacks)
