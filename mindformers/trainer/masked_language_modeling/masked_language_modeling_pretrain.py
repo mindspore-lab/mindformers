@@ -87,8 +87,8 @@ class MaskedLanguageModelingTrainer(BaseTrainer):
         self.kwargs = kwargs
         # build dataset
         logger.info(".........Build Dataset..........")
-        check_dataset_config(config)
         if dataset is None:
+            check_dataset_config(config)
             dataset = build_dataset(config.train_dataset_task)
         sink_size = config.runner_config.sink_size
         check_runner_config(config, dataset)
@@ -136,7 +136,7 @@ class MaskedLanguageModelingTrainer(BaseTrainer):
                 config.callbacks, default_args={"learning_rate": optimizer.learning_rate}))
 
         # resume checkpoint
-        if config.resume_or_finetune_checkpoint is not None and config.resume_or_finetune_checkpoint != '':
+        if config.resume_or_finetune_checkpoint:
             logger.info(".............start resume training from checkpoint..................")
             resume_checkpoint_for_training(config, network, optimizer)
 
