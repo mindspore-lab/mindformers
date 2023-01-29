@@ -44,7 +44,7 @@ class MaeConfig(BaseConfig):
         >>>     ...
         >>>     )
     """
-    _support_list = MindFormerBook.get_model_support_list()['mae']
+    _support_list = MindFormerBook.get_config_support_list()['mae']
 
     def __init__(self,
                  patch_size: int = 16,

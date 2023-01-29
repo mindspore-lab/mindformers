@@ -69,7 +69,7 @@ class T5Tokenizer(Tokenizer):
     MODEL_INPUT_NAME = ['input_ids', 'attention_mask']
 
     _extra_pattern = r'<extra_id_(\d+)>'
-    _support_list = MindFormerBook.get_model_support_list()['t5']
+    _support_list = MindFormerBook.get_tokenizer_support_list()['t5']
 
     def __init__(self,
                  vocab_file: str,

@@ -157,6 +157,28 @@ class MindFormerBook:
          )
     ])
 
+    _CONFIG_SUPPORT_LIST = OrderedDict([
+        ('clip', [
+            'clip_vit_b_32',
+        ]),
+        ('mae', [
+            'mae_vit_base_p16',
+        ]),
+        ('vit', [
+            'vit_base_p16', 'mae_vit_base_p16'
+        ]),
+        ('swin', [
+            'swin_base_p4w7',
+        ]),
+        ('bert', [
+            'bert_base_uncased',
+            'bert_tiny_uncased',
+        ]),
+        ('t5', [
+            't5_small',
+        ])
+    ])
+
     _MODEL_SUPPORT_LIST = OrderedDict([
         ('clip', [
             'clip_vit_b_32',
@@ -169,6 +191,38 @@ class MindFormerBook:
         ]),
         ('swin', [
             'swin_base_p4w7',
+        ]),
+        ('bert', [
+            'bert_base_uncased',
+            'bert_tiny_uncased',
+        ]),
+        ('t5', [
+            't5_small',
+        ])
+    ])
+
+    _PROCESSOR_SUPPORT_LIST = OrderedDict([
+        ('clip', [
+            'clip_vit_b_32',
+        ]),
+        ('vit', [
+            'vit_base_p16', 'mae_vit_base_p16'
+        ]),
+        ('swin', [
+            'swin_base_p4w7',
+        ]),
+        ('bert', [
+            'bert_base_uncased',
+            'bert_tiny_uncased',
+        ]),
+        ('t5', [
+            't5_small',
+        ])
+    ])
+
+    _TOKENIZER_SUPPORT_LIST = OrderedDict([
+        ('clip', [
+            'clip_vit_b_32',
         ]),
         ('bert', [
             'bert_base_uncased',
@@ -256,19 +310,6 @@ class MindFormerBook:
         ('zero_shot_image_classification',
          "https://ascend-repo-modelzoo.obs.cn-east-2."
          "myhuaweicloud.com/XFormer_for_mindspore/clip/sunflower.png")
-    ])
-
-    _TOKENIZER_SUPPORT_LIST = OrderedDict([
-        ('clip', [
-            'clip_vit_b_32',
-        ]),
-        ('bert', [
-            'bert_base_uncased',
-            'bert_tiny_uncased',
-        ]),
-        ('t5', [
-            't5_small',
-        ])
     ])
 
     _TOKENIZER_SUPPORT_URL_LIST = OrderedDict([
@@ -474,6 +515,17 @@ class MindFormerBook:
         print_path_or_list(cls._DEFAULT_CHECKPOINT_SAVE_FOLDER)
 
     @classmethod
+    def show_config_support_list(cls):
+        """show_config_support_list function"""
+        logger.info("CONFIG_SUPPORT_LIST of MindFormer is: ")
+        print_dict(cls._CONFIG_SUPPORT_LIST)
+
+    @classmethod
+    def get_config_support_list(cls):
+        """get_config_support_list function"""
+        return cls._CONFIG_SUPPORT_LIST
+
+    @classmethod
     def show_model_support_list(cls):
         """show_model_support_list function"""
         logger.info("MODEL_SUPPORT_LIST of MindFormer is: ")
@@ -483,6 +535,18 @@ class MindFormerBook:
     def get_model_support_list(cls):
         """get_model_support_list function"""
         return cls._MODEL_SUPPORT_LIST
+
+    @classmethod
+    def show_processor_support_list(cls):
+        """show_processor_support_list function"""
+        logger.info("PROCESSOR_SUPPORT_LIST of MindFormer is: ")
+        print_dict(cls._PROCESSOR_SUPPORT_LIST)
+
+    @classmethod
+    def get_processor_support_list(cls):
+        """get_processor_support_list function"""
+        return cls._PROCESSOR_SUPPORT_LIST
+
     @classmethod
     def get_tokenizer_support_list(cls):
         """get_tokenizer_support_list function"""

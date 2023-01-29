@@ -133,7 +133,7 @@ class SwinProcessor(BaseProcessor):
         >>> # build SwinProcessor from config
         >>> pro_b = SwinProcessor.from_pretrained(yaml_path)
     """
-    _support_list = MindFormerBook.get_model_support_list()['swin']
+    _support_list = MindFormerBook.get_processor_support_list()['swin']
 
     def __init__(self, image_processor=None, return_tensors='ms'):
         super(SwinProcessor, self).__init__(

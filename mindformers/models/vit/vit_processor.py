@@ -121,7 +121,7 @@ class VitProcessor(BaseProcessor):
     consists of a feature extractor (BaseFeatureEXtractor) for image input,
     and a tokenizer (BaseTokenizer) for text input.
     """
-    _support_list = MindFormerBook.get_model_support_list()['vit']
+    _support_list = MindFormerBook.get_processor_support_list()['vit']
 
     def __init__(self, image_processor=None, return_tensors='ms'):
         super(VitProcessor, self).__init__(

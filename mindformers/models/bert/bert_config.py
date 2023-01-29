@@ -27,7 +27,7 @@ class BertConfig(BaseConfig):
     """
     BERT config class which defines the model size
     """
-    _support_list = MindFormerBook.get_model_support_list()['bert']
+    _support_list = MindFormerBook.get_config_support_list()['bert']
     def __init__(self,
                  model_type: str = "bert",
                  use_one_hot_embeddings: bool = False,

@@ -115,7 +115,7 @@ class ClipConfig(BaseConfig):
         >>> config.save_pretrained(save_directory="./", save_name="clip_config")
             INFO - config saved successfully!
     """
-    _support_list = MindFormerBook.get_model_support_list()['clip']
+    _support_list = MindFormerBook.get_config_support_list()['clip']
 
     def __init__(self, text_config=None, vision_config=None, projection_dim=512, ratio=64,
                  checkpoint_name_or_path="clip_vit_b_32", dtype="float16", **kwargs):
