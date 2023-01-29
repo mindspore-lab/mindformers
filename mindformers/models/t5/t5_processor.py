@@ -29,7 +29,7 @@ class T5Processor(BaseProcessor):
     T5 processor,
     consists of a tokenizer (BaseTokenizer) for text input.
     """
-    _support_list = MindFormerBook.get_model_support_list()['t5']
+    _support_list = MindFormerBook.get_processor_support_list()['t5']
 
     def __init__(self, tokenizer=None,
                  max_length=77,

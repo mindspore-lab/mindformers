@@ -78,7 +78,7 @@ class SwinConfig(BaseConfig):
         >>>     ...
         >>>     )
     """
-    _support_list = MindFormerBook.get_model_support_list()['swin']
+    _support_list = MindFormerBook.get_config_support_list()['swin']
 
     def __init__(self,
                  image_size: int = 224,

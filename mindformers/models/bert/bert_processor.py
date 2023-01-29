@@ -29,7 +29,7 @@ class BertProcessor(BaseProcessor):
     Bert processor,
     consists of a tokenizer (BaseTokenizer) for text input.
     """
-    _support_list = MindFormerBook.get_model_support_list()['bert']
+    _support_list = MindFormerBook.get_processor_support_list()['bert']
 
     def __init__(self, tokenizer=None,
                  max_length=128, padding='max_length', return_tensors='ms'):

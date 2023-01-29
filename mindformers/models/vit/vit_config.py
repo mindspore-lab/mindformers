@@ -46,7 +46,7 @@ class VitConfig(BaseConfig):
         >>>     ...
         >>>     )
     """
-    _support_list = MindFormerBook.get_model_support_list()['vit']
+    _support_list = MindFormerBook.get_config_support_list()['vit']
 
     def __init__(self,
                  patch_size: int = 16,

@@ -144,7 +144,7 @@ class ClipProcessor(BaseProcessor):
             [[49406,   320,  1876 ...     0,     0,     0],
             [49406,   320,  1611 ...     0,     0,     0]])}
     """
-    _support_list = MindFormerBook.get_model_support_list()['clip']
+    _support_list = MindFormerBook.get_processor_support_list()['clip']
 
     def __init__(self, image_processor, tokenizer,
                  max_length=77, padding='max_length', return_tensors='ms'):

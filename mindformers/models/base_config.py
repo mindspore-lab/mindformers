@@ -37,7 +37,7 @@ class BaseConfig(dict):
     >>> from mindformers.mindformer_book import MindFormerBook
     >>> from mindformers.models.base_config import BaseConfig
     >>> class MyConfig(BaseConfig):
-    ...     _support_list = MindFormerBook.get_model_support_list()['my_model']
+    ...     _support_list = MindFormerBook.get_config_support_list()['my_model']
     ...
     ...     def __init__(self,
     ...                  data_size: int = 32,

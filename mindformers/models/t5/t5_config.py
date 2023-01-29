@@ -68,7 +68,7 @@ class T5Config(BaseConfig):
             {'hidden_size': 256, 'vocab_size': 40000,
              'max_position_embeddings': 77, 'num_hidden_layers': 12}
     """
-    _support_list = MindFormerBook.get_model_support_list()['t5']
+    _support_list = MindFormerBook.get_config_support_list()['t5']
     def __init__(self,
                  batch_size: int = 1,
                  seq_length: int = 1024,

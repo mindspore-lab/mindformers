@@ -42,7 +42,7 @@ def generator():
     masked_lm_weights = np.ones_like(masked_lm_ids)
     train_data = (data, input_mask, token_type_id, next_sentence_lables,
                   masked_lm_positions, masked_lm_ids, masked_lm_weights)
-    for _ in range(256):
+    for _ in range(512):
         yield train_data
 
 @dataclass
@@ -123,7 +123,7 @@ def test_bert_trainer_train_from_mlm():
     Description: Test Trainer API to train from self-define instance API.
     Expectation: TypeError
     """
-    batch_size = 64
+    batch_size = 128
 
     # Model
     model_config = BertConfig.from_pretrained('bert_tiny_uncased')

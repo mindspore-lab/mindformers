@@ -109,7 +109,7 @@ class BaseProcessor:
         >>> from mindformers.mindformer_book import MindFormerBook
         >>> from mindformers.models.base_processor import BaseProcessor
         >>> class MyProcessor(BaseProcessor):
-        ...     _support_list = MindFormerBook.get_model_support_list()['my_model']
+        ...     _support_list = MindFormerBook.get_processor_support_list()['my_model']
         ...
         ...     def __init__(self, image_processor=None, audio_processor=None, tokenizer=None, return_tensors='ms'):
         ...         super(MyProcessor, self).__init__(
