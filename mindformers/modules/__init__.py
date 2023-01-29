@@ -12,25 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-
-"""mindformers init"""
-from mindformers import common, auto_class, dataset, \
-    models, modules, wrapper, tools
-from mindformers.pipeline import *
-from mindformers.trainer import *
-from mindformers.common import *
-from mindformers.dataset import *
-from mindformers.models import *
-from mindformers.modules import *
-from mindformers.wrapper import *
-from mindformers.tools import *
-from mindformers.auto_class import *
-from .mindformer_book import MindFormerBook
-
+"""MindFormers Transformers API."""
+from .transformer import *
+from .layers import *
 
 __all__ = []
-__all__.extend(dataset.__all__)
-__all__.extend(models.__all__)
-__all__.extend(common.__all__)
-__all__.extend(tools.__all__)
-__all__.extend(auto_class.__all__)
+__all__.extend(transformer.__all__)
+__all__.extend(layers.__all__)
