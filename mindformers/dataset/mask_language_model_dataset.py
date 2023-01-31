@@ -61,7 +61,8 @@ class MaskLanguageModelDataset(BaseDataset):
         dataset_config.data_loader.pop("dataset_dir")
         dataset = build_dataset_loader(
             dataset_config.data_loader, default_args={'dataset_files': dataset_files,
-                                                      'num_shards': device_num, 'shard_id': rank_id})
+                                                      'num_shards': device_num, 'shard_id': rank_id,
+                                                      'shard_equal_rows': True})
         dataset = dataset.batch(dataset_config.batch_size,
                                 drop_remainder=dataset_config.drop_remainder,
                                 column_order=dataset_config.input_columns,
