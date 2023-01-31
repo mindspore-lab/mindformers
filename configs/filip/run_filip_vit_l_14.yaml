@@ -1,0 +1,17 @@
+base_config: [
+    './task_config/context.yaml',
+    './task_config/runner.yaml',
+    './task_config/filip_dataset.yaml',
+    './model_config/filip_vit_l_14.yaml',
+    '../__base__.yaml' ]
+
+profile: False
+use_parallel: True
+
+seed: 0
+resume_checkpoint_path: ''
+
+run_status: 'train'
+trainer:
+  type: itr
+  model_name: 'filip'

@@ -176,6 +176,9 @@ class MindFormerBook:
         ]),
         ('t5', [
             't5_small',
+        ]),
+        ('filip', [
+            'filip_vit_l_14',
         ])
     ])
 
@@ -198,6 +201,9 @@ class MindFormerBook:
         ]),
         ('t5', [
             't5_small',
+        ]),
+        ('filip', [
+            'filip_vit_l_14',
         ])
     ])
 

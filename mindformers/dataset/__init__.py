@@ -25,12 +25,14 @@ from .build_dataset import build_dataset
 from .base_dataset import BaseDataset
 from .mask_language_model_dataset import MaskLanguageModelDataset
 from .translation_dataset import TranslationDataset
+from .image_text_retrieval_dataset import ImageToTextRetrievalDataset
 from .utils import check_dataset_config
 
 
 __all__ = ['MIMDataset', 'ImageCLSDataset', 'build_dataset', 'BaseDataset', 'check_dataset_config',
            'MaskLanguageModelDataset', 'ContrastiveLanguageImagePretrainDataset',
-           'ZeroShotImageClassificationDataset']
+           'ZeroShotImageClassificationDataset',
+           'ImageToTextRetrievalDataset']
 __all__.extend(dataloader.__all__)
 __all__.extend(mask.__all__)
 __all__.extend(transforms.__all__)

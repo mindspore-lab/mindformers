@@ -34,7 +34,8 @@ __all__ = [
 INTERPOLATION = {'nearest': Inter.NEAREST,
                  'antialias': Inter.ANTIALIAS,
                  'linear': Inter.LINEAR,
-                 'cubic': Inter.PILCUBIC}
+                 'cubic': Inter.PILCUBIC,
+                 'bicubic': Inter.BICUBIC}
 
 
 class BCHW2BHWC:

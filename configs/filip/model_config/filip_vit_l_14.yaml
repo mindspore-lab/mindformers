@@ -1,0 +1,47 @@
+model:
+  arch:
+    type: FilipModel
+
+  model_config:
+    type: FilipConfig
+
+    text_config:
+      type: FilipTextConfig
+      hidden_size: 768
+      vocab_size: 21128
+      max_position_embeddins: 32
+      num_hidden_layers: 12
+
+    vision_config:
+      type: FilipVisionConfig
+      hidden_size: 1024
+      image_size: 224
+      patch_size: 14
+      num_hidden_layers: 24
+      
+      token_learner: True
+      num_tokens: 24
+      num_token_groups: 8
+      token_learner_dropout: 1.0
+
+    dtype: float16
+    checkpoint_name_or_path: ""
+    projection_dim: 256
+    ratio: 64
+
+    batch_size: 64
+    recompute: False
+
+processor:
+  type: FilipProcessor
+
+  feature_extractor:
+    type: FilipFeatureExtractor
+
+    image_feature_extractor:
+      type: FilipImageFeatureExtrator
+
+      image_resolution: 224
+
+  tokenizer:
+    type: FilipTokenizer
