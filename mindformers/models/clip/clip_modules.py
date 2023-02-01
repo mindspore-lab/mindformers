@@ -16,7 +16,7 @@
 # ============================================================================
 
 """
-Modules of ClipModel, including MultiheadAttention，VisionTransformer,
+Modules of CLIPModel, including MultiheadAttention，VisionTransformer,
 QuickGELU, ResidualAttentionBlock, Transformer
 """
 from collections import OrderedDict
@@ -116,7 +116,7 @@ class MultiheadAttention(nn.Cell):
 
 
 class VisionTransformer(nn.Cell):
-    r"""VisionTransformer Of ClipModel
+    r"""VisionTransformer Of CLIPModel
 
     Args:
         input_resolution (int): The image size of input.
@@ -184,7 +184,7 @@ class VisionTransformer(nn.Cell):
 
 
 class QuickGELU(nn.Cell):
-    r"""QuickGELU of Clip"""
+    r"""QuickGELU of CLIP"""
     def __init__(self, ratio: Optional[int] = 1.702):
         super(QuickGELU, self).__init__()
         self.ratio = ratio
@@ -197,7 +197,7 @@ class QuickGELU(nn.Cell):
 
 class ResidualAttentionBlock(nn.Cell):
     r"""
-    ResidualAttentionBlock of Clip
+    ResidualAttentionBlock of CLIP
 
     Args:
         d_model (int): The dimension of features.
@@ -238,7 +238,7 @@ class ResidualAttentionBlock(nn.Cell):
 
 class Transformer(nn.Cell):
     r"""
-    Text Transformer of Clip
+    Text Transformer of CLIP
 
     Args:
         width (int): The dimension of input features.

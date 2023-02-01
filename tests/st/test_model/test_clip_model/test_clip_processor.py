@@ -15,7 +15,7 @@
 
 """
 Test Module for testing forward, from_pretrained, and
-save_pretrained functions of ClipProcessor and AutoProcessor
+save_pretrained functions of CLIPProcessor and AutoProcessor
 
 How to run this:
 windows:  pytest .\\tests\\st\\test_model\\test_clip_model\\test_clip_processor.py
@@ -26,33 +26,33 @@ import numpy as np
 import mindspore as ms
 
 from mindformers import MindFormerBook, AutoProcessor, AutoModel
-from mindformers.models import ClipImageProcessor, ClipProcessor, \
-    ClipTokenizer
+from mindformers.models import CLIPImageProcessor, CLIPProcessor, \
+    CLIPTokenizer
 from mindformers.tools import logger
 
 
 def test_clip_processor():
     """
-    Feature: ClipProcessor class
+    Feature: CLIPProcessor class
     Description: Test the forward, from_pretrained, and
     save_pretrained functions
     Expectation: ValueError
     """
     yaml_path = os.path.join(MindFormerBook.get_project_path(), "configs",
                              "clip", "model_config", "clip_vit_b_32.yaml")
-    img_processor = ClipImageProcessor(image_resolution=224)
-    # ClipTokenizer requires downloading vocabulary files
-    tokenizer = ClipTokenizer.from_pretrained("clip_vit_b_32")
+    img_processor = CLIPImageProcessor(image_resolution=224)
+    # CLIPTokenizer requires downloading vocabulary files
+    tokenizer = CLIPTokenizer.from_pretrained("clip_vit_b_32")
     save_directory = os.path.join(MindFormerBook.get_default_checkpoint_save_folder(),
                                   'clip')
 
-    ClipProcessor.show_support_list()
-    support_list = ClipProcessor.get_support_list()
+    CLIPProcessor.show_support_list()
+    support_list = CLIPProcessor.get_support_list()
     logger.info(support_list)
 
-    pro_a = ClipProcessor.from_pretrained('clip_vit_b_32')
-    pro_b = ClipProcessor.from_pretrained(yaml_path)
-    pro_c = ClipProcessor(img_processor, tokenizer)
+    pro_a = CLIPProcessor.from_pretrained('clip_vit_b_32')
+    pro_b = CLIPProcessor.from_pretrained(yaml_path)
+    pro_c = CLIPProcessor(img_processor, tokenizer)
 
     pro_d = AutoProcessor.from_pretrained('clip_vit_b_32')
     pro_e = AutoProcessor.from_pretrained(yaml_path)

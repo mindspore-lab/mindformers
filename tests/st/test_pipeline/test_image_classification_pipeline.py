@@ -22,27 +22,6 @@ windows:
 pytest .\\tests\\st\\test_pipeline\\test_image_classification_pipeline.py
 linux:
 pytest ./tests/st/test_pipeline/test_image_classification_pipeline.py
-
-Note:
-    pipeline also supports a dataset input
-Example:
-    import os
-    from mindspore.dataset import Cifar100Dataset
-    from mindformers import AutoProcessor, AutoModel
-    from mindformers.pipeline import ImageClassificationPipeline
-
-    dataset = Cifar100Dataset(dataset_dir = 'cifar-100-binary', shuffle=True, num_samples=20)
-    with open(os.path.join('cifar-100-binary', 'fine_label_names.txt'), 'r') as f:
-        class_name = f.read().splitlines()
-
-    processor = AutoProcessor.from_pretrained("vit_base_p16")
-    model = AutoModel.from_pretrained("vit_base_p16")
-    classifier = ImageClassificationPipeline(
-    model=model,
-    image_processor=processor.image_processor
-    )
-
-    res_dataset = classifier(dataset, batch_size=2, top_k = 3)
 """
 import numpy as np
 import pytest
