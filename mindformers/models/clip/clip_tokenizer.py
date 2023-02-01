@@ -148,9 +148,9 @@ class TempTokenizer:
         return output_ids
 
 @MindFormerRegister.register(MindFormerModuleType.TOKENIZER)
-class ClipTokenizer(Tokenizer):
+class CLIPTokenizer(Tokenizer):
     r"""
-    Clip Tokenizer
+    CLIP Tokenizer
 
     Args:
         vocab_file (str): File path of vocab.
@@ -160,12 +160,12 @@ class ClipTokenizer(Tokenizer):
         unk_token (str): Unk_token.
 
     Examples:
-        >>> from mindformers import ClipTokenizer
-        >>> ClipTokenizer.show_support_list()
-            INFO - support list of ClipTokenizer is:
+        >>> from mindformers import CLIPTokenizer
+        >>> CLIPTokenizer.show_support_list()
+            INFO - support list of CLIPTokenizer is:
             INFO -    ['clip_vit_b_32']
             INFO - -------------------------------------
-        >>> tokenizer = ClipTokenizer.from_pretrained('clip_vit_b_32')
+        >>> tokenizer = CLIPTokenizer.from_pretrained('clip_vit_b_32')
         >>> tokenizer("a boy")
             {'input_ids': [49406, 320, 1876, 49407], 'attention_mask': [1, 1, 1, 1]}
     """
@@ -180,7 +180,7 @@ class ClipTokenizer(Tokenizer):
                  bos_token: str = "<|startoftext|>",
                  pad_token: str = "<|endoftext|>",
                  unk_token: str = "<|endoftext|>"):
-        super(ClipTokenizer, self).__init__(eos_token=eos_token,
+        super(CLIPTokenizer, self).__init__(eos_token=eos_token,
                                             bos_token=bos_token,
                                             pad_token=pad_token,
                                             unk_token=unk_token)

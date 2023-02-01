@@ -24,7 +24,7 @@ train_dataset: &train_dataset
       is_hwc: False
 
   tokenizer:
-    type: ClipTokenizer
+    type: CLIPTokenizer
     pad_token: '!'
 
   num_parallel_workers: 8

@@ -14,7 +14,7 @@
 # ============================================================================
 
 """
-ClipProcessor
+CLIPProcessor
 """
 from typing import Optional, Union, List
 import numpy as np
@@ -33,17 +33,17 @@ from ...tools.register import MindFormerRegister, MindFormerModuleType
 
 
 @MindFormerRegister.register(MindFormerModuleType.PROCESSOR)
-class ClipImageProcessor(BaseImageProcessor):
+class CLIPImageProcessor(BaseImageProcessor):
     """
-    ClipImageProcessor.
+    CLIPImageProcessor.
 
     Args:
         image_resolution (int): The target size.
 
     Examples:
-        >>> from mindformers import ClipImageProcessor
+        >>> from mindformers import CLIPImageProcessor
         >>> from mindformers.tools.image_tools import load_image
-        >>> processor = ClipImageProcessor(image_resolution=256)
+        >>> processor = CLIPImageProcessor(image_resolution=256)
         >>> image = load_image("https://ascend-repo-modelzoo.obs.cn-east-2."
                 "myhuaweicloud.com/XFormer_for_mindspore/clip/sunflower.png")
         >>> processor(image)
@@ -58,7 +58,7 @@ class ClipImageProcessor(BaseImageProcessor):
             [7.09670484e-001, 7.94990897e-001, ... -1.26691878e+000, -1.42333949e+000]]]])
     """
     def __init__(self, image_resolution: Optional[int] = 224):
-        super(ClipImageProcessor, self).__init__(
+        super(CLIPImageProcessor, self).__init__(
             image_resolution=image_resolution)
         self.bchw2bhwc = BCHW2BHWC()
         self.batch_pilizer = BatchPILize()
@@ -108,8 +108,8 @@ class ClipImageProcessor(BaseImageProcessor):
 
 
 @MindFormerRegister.register(MindFormerModuleType.PROCESSOR)
-class ClipProcessor(BaseProcessor):
-    r"""Clip Processor,
+class CLIPProcessor(BaseProcessor):
+    r"""CLIP Processor,
     consists of a feature extractor (BaseFeatureEXtractor) for image input,
     and a tokenizer (BaseTokenizer) for text input.
 
@@ -121,16 +121,16 @@ class ClipProcessor(BaseProcessor):
         return_tensors (Optional[str]): The type of returned tensors for tokenizer, [None, "ms"].
 
     Examples:
-        >>> from mindformers import ClipProcessor
+        >>> from mindformers import CLIPProcessor
         >>> from mindformers.tools.image_tools import load_image
         >>> image = load_image("https://ascend-repo-modelzoo.obs.cn-east-2."
                 "myhuaweicloud.com/XFormer_for_mindspore/clip/sunflower.png")
         >>> text = ["a boy", "a girl"]
-        >>> ClipProcessor.show_support_list()
-            INFO - support list of ClipProcessor is:
+        >>> CLIPProcessor.show_support_list()
+            INFO - support list of CLIP Processor is:
             INFO -    ['clip_vit_b_32']
             INFO - -------------------------------------
-        >>> processor = ClipProcessor.from_pretrained('clip_vit_b_32')
+        >>> processor = CLIPProcessor.from_pretrained('clip_vit_b_32')
         >>> processor(image, text)
             {'image': Tensor(shape=[1, 3, 224, 224], dtype=Float32, value=
             [[[[-1.52949083e+000, -1.52949083e+000,... -1.48569560e+000, -1.50029397e+000],
@@ -148,7 +148,7 @@ class ClipProcessor(BaseProcessor):
 
     def __init__(self, image_processor, tokenizer,
                  max_length=77, padding='max_length', return_tensors='ms'):
-        super(ClipProcessor, self).__init__(
+        super(CLIPProcessor, self).__init__(
             image_processor=image_processor,
             tokenizer=tokenizer,
             max_length=max_length,

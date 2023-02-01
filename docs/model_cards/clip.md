@@ -2,7 +2,7 @@
 
 ## 模型描述
 
-Clip (Contrastive Lanuguage-Image Pre-Training)：是一种基于图文对进行训练的transformer模型，在预训练完成以后，任意给定一张图片，它可以在不用微调的情况下，完成对图片的零样本分类。
+CLIP (Contrastive Lanuguage-Image Pre-Training)：是一种基于图文对进行训练的transformer模型，在预训练完成以后，任意给定一张图片，它可以在不用微调的情况下，完成对图片的零样本分类。
 
 [论文](https://arxiv.org/abs/2103.00020) Alec Radford, Jong Wook Kim, et al., Learning Transferable Visual Models From Natural Language Supervision, 2021.
 
@@ -58,24 +58,24 @@ Clip (Contrastive Lanuguage-Image Pre-Training)：是一种基于图文对进行
 - Model调用接口
 
   ```python
-  from mindformers import ClipModel, ClipConfig
+  from mindformers import CLIPModel, CLIPConfig
 
-  ClipModel.show_support_list()
+  CLIPModel.show_support_list()
   # 输出：
-  # - support list of ClipModel is:
+  # - support list of CLIPModel is:
   # -    ['clip_vit_b_32']
   # - -------------------------------------
 
   # 模型标志加载模型
-  model = ClipModel.from_pretrained("clip_vit_b_32")
+  model = CLIPModel.from_pretrained("clip_vit_b_32")
 
   #模型配置加载模型
-  config = ClipConfig.from_pretrained("clip_vit_b_32")
+  config = CLIPConfig.from_pretrained("clip_vit_b_32")
   # {'text_config': {'hidden_size': 512, 'vocab_size': 49408, 'max_position_embeddings': 77,
   # 'num_hidden_layers': 12}, 'vision_config': {'hidden_size': 768, 'image_size': 224, 'patch_size': 32,
   # 'num_hidden_layers': 12}, 'projection_dim': 512, 'ratio': 64, 'checkpoint_name_or_path': 'clip_vit_b_32',
   # 'dtype': 'float16'}
-  model = ClipModel(config)
+  model = CLIPModel(config)
   ```
 
 - Trainer接口开启训练/评估/推理：

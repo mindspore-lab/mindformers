@@ -14,7 +14,7 @@
 # ============================================================================
 
 """
-ClipModel
+CLIPModel
 """
 from typing import Optional, Union
 import numpy as np
@@ -29,52 +29,50 @@ import mindspore.ops as ops
 from ...mindformer_book import MindFormerBook
 from ..base_model import BaseModel
 from .clip_modules import VisionTransformer, Transformer, LayerNorm
-from .clip_config import ClipConfig
+from .clip_config import CLIPConfig
 from ...tools.register import MindFormerRegister, MindFormerModuleType
 
 
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
-class ClipModel(BaseModel):
-    r"""ClipModel.
-    The supported model name could be selected from ClipModel.show_support_list().
+class CLIPModel(BaseModel):
+    r"""CLIPModel.
+    The supported model name could be selected from CLIPModel.show_support_list().
 
     Args:
-        config (ClipConfig): The config of clip model, which could be obtained by ClipConfig class.
+        config (CLIPConfig): The config of clip model, which could be obtained by CLIPConfig class.
 
     Examples:
-        >>> from mindformers import ClipModel
-        >>> ClipModel.show_support_list()
-            INFO - support list of ClipModel is:
+        >>> from mindformers import CLIPModel
+        >>> CLIPModel.show_support_list()
+            INFO - support list of CLIPModel is:
             INFO -    ['clip_vit_b_32']
             INFO - -------------------------------------
-        >>> model = ClipModel.from_pretrained('clip_vit_b_32')
+        >>> model = CLIPModel.from_pretrained('clip_vit_b_32')
         >>> type(model)
-            <class 'mindformers.models.clip.clip.ClipModel'>
+            <class 'mindformers.models.clip.clip.CLIPModel'>
     """
     _support_list = MindFormerBook.get_model_support_list()['clip']
 
-    def __init__(self, config: ClipConfig):
-        super(ClipModel, self).__init__(config)
+    def __init__(self, config: CLIPConfig):
+        super(CLIPModel, self).__init__(config)
         self.dtype = self.get_dtype(config.dtype)
         self.cross_entropy = nn.SoftmaxCrossEntropyWithLogits(reduction="mean", sparse=True)
 
         self.max_position_embeddings = config.text_config.max_position_embeddings
-        vision_heads = config.vision_config.hidden_size // config.ratio
         self.visual = VisionTransformer(
             input_resolution=config.vision_config.image_size,
             patch_size=config.vision_config.patch_size,
             width=config.vision_config.hidden_size,
             layers=config.vision_config.num_hidden_layers,
-            heads=vision_heads,
+            heads=config.vision_config.num_attention_heads,
             output_dim=config.projection_dim,
             dtype=self.dtype
         )
 
-        transformer_heads = config.text_config.hidden_size // config.ratio
         self.transformer = Transformer(
             width=config.text_config.hidden_size,
             layers=config.text_config.num_hidden_layers,
-            heads=transformer_heads,
+            heads=config.text_config.num_attention_heads,
             dtype=self.dtype,
             attn_mask=self.build_attention_mask()
         )
@@ -104,12 +102,18 @@ class ClipModel(BaseModel):
         raise TypeError("unsupported data type.")
 
     def construct(self, image: ms.Tensor, text: ms.Tensor,
+                  input_ids: Optional[ms.Tensor] = None,
+                  pixel_values: Optional[ms.Tensor] = None,
                   label: Optional[Union[ms.Tensor, np.ndarray]] = None):
         r"""Construct
 
         Args:
             image (Tensor): A image tensor processed by image_processor.
             text (Tensor): A text id tensor processed by tokenizer.
+            input_ids (Optional[ms.Tensor]): Equal to "text",
+                if "input_ids" is set, "text" is useless.
+            pixel_values (Optional[ms.Tensor]): Equal to "image",
+                if "pixel_values" is set, "image" is useless.
             label (Optional[Union[ms.Tensor, np.ndarray]]): The classification label.
 
         Returns:
@@ -125,9 +129,9 @@ class ClipModel(BaseModel):
 
         Examples:
             >>> import numpy as np
-            >>> from mindformers import ClipModel, ClipProcessor
-            >>> processor = ClipProcessor.from_pretrained('clip_vit_b_32')
-            >>> model = ClipModel.from_pretrained('clip_vit_b_32')
+            >>> from mindformers import CLIPModel, CLIPProcessor
+            >>> processor = CLIPProcessor.from_pretrained('clip_vit_b_32')
+            >>> model = CLIPModel.from_pretrained('clip_vit_b_32')
             >>> fake_image_batch = np.random.random((5, 3, 578, 213))
             >>> fake_text_batch = ["a boy", "a girl", "a women", "a men"]
             >>> model(**processor(fake_image_batch, fake_text_batch))
@@ -139,6 +143,12 @@ class ClipModel(BaseModel):
                  [2.26097965e+001, 2.29247952e+001, 2.40179482e+001, 2.30396290e+001]]),
                  Tensor(shape=[4, 5], dtype=Float32, value= ...))
         """
+        if pixel_values is not None:
+            image = pixel_values
+
+        if input_ids is not None:
+            text = input_ids
+
         if len(text.shape) == 3:
             text = text[0].squeeze()
 
@@ -174,20 +184,22 @@ class ClipModel(BaseModel):
         mask = np.triu(mask * float("-inf"), k=1)
         return Tensor(mask).astype(self.dtype)
 
-    def get_image_features(self, image: ms.Tensor):
+    def get_image_features(self, image: ms.Tensor, pixel_values: Optional[ms.Tensor] = None):
         r"""Get_image_features
 
         Args:
             image (ms.Tensor): A image tensor processed by image_processor.
+            pixel_values (Optional[ms.Tensor]): Equal to "image",
+                if "pixel_values" is set, "image" is useless.
 
         Returns:
             Image feature.
 
         Examples:
             >>> import numpy as np
-            >>> from mindformers import ClipModel, ClipProcessor
-            >>> processor = ClipProcessor.from_pretrained('clip_vit_b_32')
-            >>> model = ClipModel.from_pretrained('clip_vit_b_32')
+            >>> from mindformers import CLIPModel, CLIPProcessor
+            >>> processor = CLIPProcessor.from_pretrained('clip_vit_b_32')
+            >>> model = CLIPModel.from_pretrained('clip_vit_b_32')
             >>> fake_image_batch = np.random.random((5, 3, 578, 213))
             >>> model.get_image_features(processor.image_processor(fake_image_batch))
                 Tensor(shape=[5, 512], dtype=Float32, value=
@@ -197,22 +209,27 @@ class ClipModel(BaseModel):
                  [-1.49712294e-001, -2.64100820e-001, -5.65740824e-001 ... -2.93599486e-001],
                  [-1.50102973e-001, -2.63687313e-001, -5.65953791e-001 ... -2.93511450e-001]])
         """
+        if pixel_values is not None:
+            image = pixel_values
+
         image = image.astype(self.dtype)
         return self.visual(image)
 
-    def get_text_features(self, text: ms.Tensor):
+    def get_text_features(self, text: ms.Tensor, input_ids: Optional[ms.Tensor] = None):
         r"""Get_text_features
 
         Args:
             text (ms.Tensor): A text id tensor processed by tokenizer.
+            input_ids (Optional[ms.Tensor]): Equal to "text",
+                if "input_ids" is set, "text" is useless.
 
         Returns:
             Text feature.
 
         Examples:
-            >>> from mindformers import ClipModel, ClipProcessor
-            >>> processor = ClipProcessor.from_pretrained('clip_vit_b_32')
-            >>> model = ClipModel.from_pretrained('clip_vit_b_32')
+            >>> from mindformers import CLIPModel, CLIPProcessor
+            >>> processor = CLIPProcessor.from_pretrained('clip_vit_b_32')
+            >>> model = CLIPModel.from_pretrained('clip_vit_b_32')
             >>> fake_text_batch = ["a boy", "a girl", "a women", "a men"]
             >>> text = processor.tokenizer(
                 fake_text_batch, max_length=77, padding="max_length", return_tensors="ms"
@@ -224,6 +241,9 @@ class ClipModel(BaseModel):
                 [9.89909172e-002, 2.01410800e-002, ...  -2.54495114e-001, 7.68117979e-002],
                 [3.16975415e-002, 2.26992741e-001, ... -5.22942394e-002, 1.98922127e-001]])
         """
+        if input_ids is not None:
+            text = input_ids
+
         text_ = self.token_embedding(text).astype(self.dtype)
         text_ = ops.Add()(text_, self.positional_embedding).astype(self.dtype)
         text_ = text_.transpose(1, 0, 2)

@@ -31,7 +31,7 @@ from PIL import Image
 
 from mindformers.mindformer_book import MindFormerBook
 from mindformers.tools.register.config import MindFormerConfig
-from mindformers.models import ClipModel, ClipConfig
+from mindformers.models import CLIPModel, CLIPConfig
 from mindformers.trainer import Trainer
 from mindformers.trainer.config_args import ConfigArguments, RunnerConfig
 from mindformers.dataset.build_dataset import build_dataset
@@ -77,9 +77,9 @@ class TestTrainer:
         )
         config = ConfigArguments(seed=2022, runner_config=runner_config)
 
-        clip_config = ClipConfig.from_pretrained('clip_vit_b_32')
+        clip_config = CLIPConfig.from_pretrained('clip_vit_b_32')
         clip_config.checkpoint_name_or_path = None
-        clip_model = ClipModel(clip_config)
+        clip_model = CLIPModel(clip_config)
         clip_model.set_train()
 
         dataset = build_dataset(self.config.train_dataset_task)

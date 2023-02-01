@@ -14,27 +14,22 @@
 # ============================================================================
 
 """
-Test Module for testing functions of AutoConfig and ClipConfig class
+Test Module for testing functions of AutoConfig and CLIPConfig class
 
 How to run this:
 windows:  pytest .\\tests\\st\\test_model\\test_clip_model\\test_clip_config.py
 linux:  pytest ./tests/st/test_model/test_clip_model/test_clip_config.py
-
-Note:
-    model name and config name should have the same prefix
-Example:
-    ClipModel and ClipConfig have the same prefix, Clip
 """
 import os
 from mindformers import MindFormerBook, AutoConfig
-from mindformers.models import ClipConfig, ClipVisionConfig, ClipTextConfig, BaseConfig
+from mindformers.models import CLIPConfig, CLIPVisionConfig, CLIPTextConfig, BaseConfig
 from mindformers.tools import logger
 
 
 # the first method to load model config, AutoConfig
 def test_config():
     """
-    Feature: AutoConfig, ClipConfig
+    Feature: AutoConfig, CLIPConfig
     Description: Test to get config instance by AutoConfig.from_pretrained
     Expectation: TypeError, ValueError
     """
@@ -50,20 +45,20 @@ def test_config():
     logger.info(config_a)
     logger.info(config_b)
 
-    ClipConfig.show_support_list()
-    support_list = ClipConfig.get_support_list()
+    CLIPConfig.show_support_list()
+    support_list = CLIPConfig.get_support_list()
     logger.info(support_list)
 
-    config_c = ClipConfig.from_pretrained('clip_vit_b_32')
-    config_d = ClipConfig.from_pretrained(config_path)
-    config_e = ClipConfig(
-        ClipTextConfig(
+    config_c = CLIPConfig.from_pretrained('clip_vit_b_32')
+    config_d = CLIPConfig.from_pretrained(config_path)
+    config_e = CLIPConfig(
+        CLIPTextConfig(
             hidden_size=512,
             vocab_size=49408,
             max_position_embeddings=77,
             num_hidden_layers=12
         ),
-        ClipVisionConfig(
+        CLIPVisionConfig(
             hidden_size=768,
             image_size=224,
             patch_size=32,
@@ -83,6 +78,6 @@ def test_config():
     assert isinstance(config_a, BaseConfig)
     assert isinstance(config_b, BaseConfig)
 
-    assert isinstance(config_a, ClipConfig)
+    assert isinstance(config_a, CLIPConfig)
     assert isinstance(config_a, type(config_b))
     assert isinstance(config_b, type(config_c))

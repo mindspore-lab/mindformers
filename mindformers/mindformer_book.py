@@ -332,7 +332,7 @@ class MindFormerBook:
     ])
 
     _TOKENIZER_NAME_TO_PROCESSOR = OrderedDict([
-        ('ClipTokenizer', 'ClipProcessor'),
+        ('CLIPTokenizer', 'CLIPProcessor'),
         ('BertTokenizer', 'BertProcessor'),
         ('T5Tokenizer', 'T5Processor')
     ])

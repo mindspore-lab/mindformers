@@ -9,7 +9,7 @@ eval_dataset:  &eval_dataset
     hypothesis_template: "a picture of {}"
 
   tokenizer:
-    type: ClipTokenizer
+    type: CLIPTokenizer
     pad_token: '!'
 
   text_transforms:

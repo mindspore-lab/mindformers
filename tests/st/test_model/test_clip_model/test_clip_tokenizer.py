@@ -26,7 +26,7 @@ import pytest
 from mindspore import Tensor
 
 from mindformers import Tokenizer, AutoTokenizer
-from mindformers import BertTokenizer, ClipTokenizer
+from mindformers import BertTokenizer, CLIPTokenizer
 
 @pytest.mark.level0
 @pytest.mark.platform_x86_ascend_training
@@ -66,11 +66,11 @@ class TestAutoTokenizerMethod:
         assert not restore_tokenizer.init_kwargs['do_basic_tokenize']
         assert isinstance(restore_tokenizer, BertTokenizer)
 
-        clip_tokenizer = ClipTokenizer.from_pretrained("clip_vit_b_32")
+        clip_tokenizer = CLIPTokenizer.from_pretrained("clip_vit_b_32")
         clip_tokenizer.save_pretrained(self.bert_path_saved)
         restore_tokenizer = AutoTokenizer.from_pretrained(self.bert_path_saved)
         res = clip_tokenizer.tokenize("hello world?")
-        assert isinstance(restore_tokenizer, ClipTokenizer)
+        assert isinstance(restore_tokenizer, CLIPTokenizer)
         assert res == ['hello</w>', 'world</w>', '?</w>']
 
 
@@ -82,7 +82,7 @@ class TestAutoTokenizerMethod:
         """
         tokenizer = AutoTokenizer.from_pretrained("clip_vit_b_32")
         res = tokenizer.tokenize("hello world?")
-        assert isinstance(tokenizer, ClipTokenizer)
+        assert isinstance(tokenizer, CLIPTokenizer)
         assert res == ['hello</w>', 'world</w>', '?</w>']
 
     def test_save_from_yaml(self):
@@ -193,26 +193,26 @@ class TestBertTokenizerMethod:
 @pytest.mark.platform_arm_ascend_training
 @pytest.mark.env_onecard
 class TestClipTokenizerMethod:
-    """Test the basic usage of the ClipTokenizer"""
+    """Test the basic usage of the CLIPTokenizer"""
     def test_padding(self):
         """
-        Feature: The ClipTokenizer test using padding
+        Feature: The CLIPTokenizer test using padding
         Description: Using call forward process of the tokenizer without error
         Expectation: The returned ret is not equal to the target.
         """
-        clip_tokenizer = ClipTokenizer.from_pretrained("clip_vit_b_32")
+        clip_tokenizer = CLIPTokenizer.from_pretrained("clip_vit_b_32")
         res = clip_tokenizer("hello world?", max_length=8, padding='max_length')
         pad_id = clip_tokenizer.pad_token_id
         assert res == {'attention_mask': [1, 1, 1, 1, 1, 0, 0, 0],
                        'input_ids': [49406, 3306, 1002, 286, 49407, pad_id, pad_id, pad_id]}, f"The res is {res}."
 
-        clip_tokenizer = ClipTokenizer.from_pretrained("clip_vit_b_32")
+        clip_tokenizer = CLIPTokenizer.from_pretrained("clip_vit_b_32")
         res = clip_tokenizer("hello world?", max_length=8, padding='max_length', return_tensors='ms')
         assert len(res) == 2
         for k in res.keys():
             assert isinstance(res[k], Tensor)
 
-        clip_tokenizer = ClipTokenizer.from_pretrained("clip_vit_b_32")
+        clip_tokenizer = CLIPTokenizer.from_pretrained("clip_vit_b_32")
         batch_inputs = ["hello world?", "Who are you?", "I am find, thank you."]
         res = clip_tokenizer(batch_inputs, max_length=12, padding='max_length')
         assert len(res) == 2
