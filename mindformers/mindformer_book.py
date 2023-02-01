@@ -38,7 +38,6 @@ def print_dict(input_dict):
                 print_dict(val)
             else:
                 logger.info("   %s : %s", key, val)
-        logger.info("-------------------------------------")
     else:
         raise TypeError(f"{type(input_dict)} is unspoorted by print_dict")
 
@@ -174,6 +173,10 @@ class MindFormerBook:
             'bert_base_uncased',
             'bert_tiny_uncased',
         ]),
+        ('ner', OrderedDict([
+            ('bert', ['ner_bert_base_chinese_dense',
+                      'ner_bert_base_chinese_dense_cluener'])
+        ])),
         ('t5', [
             't5_small',
         ])
@@ -196,6 +199,10 @@ class MindFormerBook:
             'bert_base_uncased',
             'bert_tiny_uncased',
         ]),
+        ('ner', OrderedDict([
+            ('bert', ['ner_bert_base_chinese_dense',
+                      'ner_bert_base_chinese_dense_cluener'])
+        ])),
         ('t5', [
             't5_small',
         ])
@@ -228,6 +235,10 @@ class MindFormerBook:
             'bert_base_uncased',
             'bert_tiny_uncased',
         ]),
+        ('ner', OrderedDict([
+            ('bert', ['ner_bert_base_chinese_dense',
+                      'ner_bert_base_chinese_dense_cluener'])
+        ])),
         ('t5', [
             't5_small',
         ])
@@ -269,6 +280,15 @@ class MindFormerBook:
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
           '/XFormer_for_mindspore/bert/bert_base/bert_base_uncased.ckpt'
           ]),
+        ('ner_bert_base_chinese_dense',
+         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
+          '/XFormer_for_mindspore/bert/downstream_tasks/name_entity_recognition/ner_bert_base_chinese_dense.ckpt'
+          ]),
+        ('ner_bert_base_chinese_dense_cluener',
+         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
+          '/XFormer_for_mindspore/bert/downstream_tasks/name_entity_recognition/'
+          'ner_bert_base_chinese_dense_cluener.ckpt'
+          ])
     ])
 
     _MODEL_CONFIG_URL_LIST = OrderedDict([
@@ -304,6 +324,15 @@ class MindFormerBook:
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
           '/XFormer_for_mindspore/bert/bert_base/bert_base_uncased.yaml'
           ]),
+        ('ner_bert_base_chinese_dense',
+         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
+          '/XFormer_for_mindspore/bert/downstream_tasks/name_entity_recognition/ner_bert_base_chinese_dense.yaml'
+          ]),
+        ('ner_bert_base_chinese_dense_cluener',
+         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
+          '/XFormer_for_mindspore/bert/downstream_tasks/name_entity_recognition/'
+          'ner_bert_base_chinese_dense_cluener.yaml'
+          ])
     ])
 
     _PIPELINE_INPUT_DATA_LIST = OrderedDict([
@@ -329,6 +358,14 @@ class MindFormerBook:
             "https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/"
             "XFormer_for_mindspore/bert/vocab.txt"
         ]),
+        ('ner_bert_base_chinese_dense', [
+            "https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/"
+            "XFormer_for_mindspore/bert/bert_base_chinese/vocab.txt"
+        ]),
+        ('ner_bert_base_chinese_dense_cluener', [
+            "https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/"
+            "XFormer_for_mindspore/bert/bert_base_chinese/vocab.txt"
+        ])
     ])
 
     _TOKENIZER_NAME_TO_PROCESSOR = OrderedDict([

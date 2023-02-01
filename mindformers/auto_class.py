@@ -58,6 +58,18 @@ class AutoConfig:
         )
 
     @classmethod
+    def invalid_yaml_name(cls, yaml_name_or_path):
+        """Check whether it is a valid yaml name"""
+        local_value = cls._support_list[yaml_name_or_path.split('_')[0]]
+
+        if yaml_name_or_path.split('_')[0] in cls._support_list.keys():
+            return False
+        if yaml_name_or_path not in local_value:
+            if isinstance(local_value, dict) and yaml_name_or_path in local_value[yaml_name_or_path.split('_')[1]]:
+                return False
+        return True
+
+    @classmethod
     def from_pretrained(cls, yaml_name_or_path):
         """
         From pretrain method, which instantiates a config by yaml model name or path.
@@ -82,8 +94,7 @@ class AutoConfig:
             config_args = MindFormerConfig(yaml_name_or_path)
             logger.info("the content in %s is used for"
                         " config building.", yaml_name_or_path)
-        elif yaml_name_or_path.split('_')[0] not in cls._support_list.keys() or\
-                yaml_name_or_path not in cls._support_list[yaml_name_or_path.split('_')[0]]:
+        elif cls.invalid_yaml_name(yaml_name_or_path):
             raise ValueError(f"{yaml_name_or_path} is not a supported"
                              f" model type or a valid path to model config."
                              f" supported model could be selected from {cls._support_list}.")
@@ -156,6 +167,19 @@ class AutoModel:
             "using the `AutoModel.from_pretrained(pretrained_model_name_or_dir)` method "
             "or `AutoModel.from_config(config)` method."
         )
+
+    @classmethod
+    def invalid_model_name(cls, pretrained_model_name_or_dir):
+        """Check whether it is a valid model name"""
+        local_value = cls._support_list[pretrained_model_name_or_dir.split('_')[0]]
+
+        if pretrained_model_name_or_dir.split('_')[0] in cls._support_list.keys():
+            return False
+        if pretrained_model_name_or_dir not in local_value:
+            if isinstance(local_value, dict) and \
+                pretrained_model_name_or_dir in local_value[pretrained_model_name_or_dir.split('_')[1]]:
+                return False
+        return True
 
     @classmethod
     def from_config(cls, config):
@@ -252,9 +276,7 @@ class AutoModel:
             if not is_dir:
                 raise ValueError(f"{pretrained_model_name_or_dir} is not a directory.")
         else:
-            model_type = pretrained_model_name_or_dir.split('_')[0]
-            if model_type not in cls._support_list.keys() or pretrained_model_name_or_dir \
-                    not in cls._support_list[model_type]:
+            if cls.invalid_model_name(pretrained_model_name_or_dir):
                 raise ValueError(f"{pretrained_model_name_or_dir} is not a supported model"
                                  f" type or a valid path to model config. supported model"
                                  f" could be selected from {cls._support_list}.")
@@ -340,6 +362,18 @@ class AutoProcessor:
         )
 
     @classmethod
+    def invalid_yaml_name(cls, yaml_name_or_path):
+        """Check whether it is a valid yaml name"""
+        local_value = cls._support_list[yaml_name_or_path.split('_')[0]]
+
+        if yaml_name_or_path.split('_')[0] in cls._support_list.keys():
+            return False
+        if yaml_name_or_path not in local_value:
+            if isinstance(local_value, dict) and yaml_name_or_path in local_value[yaml_name_or_path.split('_')[1]]:
+                return False
+        return True
+
+    @classmethod
     def from_pretrained(cls, yaml_name_or_path):
         """
         From pretrain method, which instantiated a processor by yaml name or path.
@@ -372,8 +406,7 @@ class AutoProcessor:
             else:
                 config_args = MindFormerConfig(yaml_name_or_path)
         else:
-            if model_name in cls._support_list.keys() and \
-                    yaml_name_or_path in cls._support_list[model_name]:
+            if not cls.invalid_yaml_name(yaml_name_or_path):
                 checkpoint_path = os.path.join(
                     MindFormerBook.get_default_checkpoint_download_folder(),
                     model_name)
@@ -436,6 +469,18 @@ class AutoTokenizer:
         >>> restore_tokenizer = AutoTokenizer.from_pretrained(path_saved)
     """
     _support_list = MindFormerBook.get_tokenizer_support_list()
+
+    @classmethod
+    def invalid_yaml_name(cls, yaml_name_or_path):
+        """Check whether it is a valid yaml name"""
+        local_value = cls._support_list[yaml_name_or_path.split('_')[0]]
+
+        if yaml_name_or_path.split('_')[0] in cls._support_list.keys():
+            return False
+        if yaml_name_or_path not in local_value:
+            if isinstance(local_value, dict) and yaml_name_or_path in local_value[yaml_name_or_path.split('_')[1]]:
+                return False
+        return True
 
     @classmethod
     def _get_class_name_from_yaml(cls, yaml_name_or_path):
@@ -512,7 +557,11 @@ class AutoTokenizer:
             raise TypeError(f"yaml_name_or_path should be a str,"
                             f" but got {type(yaml_name_or_path)}")
         # Try to load from the remote
-        if yaml_name_or_path in sum(cls._support_list.values(), []):
+        if os.path.isdir(yaml_name_or_path):
+            class_name = cls._get_class_name_from_yaml(yaml_name_or_path)
+            if not class_name:
+                class_name = cls._get_class_name_from_tokenizer_config_file(yaml_name_or_path)
+        elif not cls.invalid_yaml_name(yaml_name_or_path):
             # Should download the files from the remote storage
             checkpoint_path = os.path.join(MindFormerBook.get_default_checkpoint_download_folder(),
                                            yaml_name_or_path.split("_")[0])
@@ -531,10 +580,6 @@ class AutoTokenizer:
                 else:
                     raise FileNotFoundError(f'default yaml file path must be correct, but get {default_yaml_file}')
             class_name = cls._get_class_name_from_yaml(yaml_file)
-        elif os.path.isdir(yaml_name_or_path):
-            class_name = cls._get_class_name_from_yaml(yaml_name_or_path)
-            if not class_name:
-                class_name = cls._get_class_name_from_tokenizer_config_file(yaml_name_or_path)
         else:
             raise FileNotFoundError(f"{yaml_name_or_path} does not exist. "
                                     f"You can select one from {cls._support_list.keys()}."

@@ -11,6 +11,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+# This file was refer to project:
+# https://github.com/zzwj66/models/blob/master/research/nlp/albert/src/tokenization.py
 # ============================================================================
 """The bert tokenizer"""
 import collections
@@ -311,6 +313,8 @@ class BertTokenizer(Tokenizer):
     VOCAB_FILES = {'vocab_file': 'vocab.txt'}
     FILE_LIST = ['tokenizer_config.json', 'special_tokens_map.json']
     _support_list = MindFormerBook.get_tokenizer_support_list()['bert']
+    _support_list.extend(MindFormerBook.get_config_support_list()['ner']['bert'])
+
     def __init__(self,
                  vocab_file,
                  do_lower_case=True,

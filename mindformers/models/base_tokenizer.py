@@ -11,6 +11,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+# This file was refer to project:
+# https://github.com/huggingface/transformers/blob/main/src/transformers/tokenization_utils.py
 # ============================================================================
 """Base Tokenizer for the pretrained tokenizer"""
 from typing import Optional, List, Union
@@ -50,6 +52,7 @@ class SpecialTokensMixin:
         self._pad_token = None
         self._sep_token = None
         self._cls_token = None
+        self._unk_token = None
         self._mask_token = None
         self._bos_token = None
         self._eos_token = None
@@ -82,6 +85,14 @@ class SpecialTokensMixin:
     @property
     def cls_token_id(self):
         return self._convert_tokens_to_ids(self._cls_token)
+
+    @property
+    def unk_token(self):
+        return self._unk_token
+
+    @property
+    def unk_token_id(self):
+        return self._convert_tokens_to_ids(self._unk_token)
 
     @property
     def eos_token(self):
