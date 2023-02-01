@@ -43,7 +43,7 @@ pip install https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFor
 
 ```bash
 git clone https://gitee.com/mindspore/transformer.git
-cd mindformers
+cd transformer
 sh build.sh
 ```
 
@@ -51,7 +51,7 @@ sh build.sh
 
 |版本对应关系| MindFormers  | MindSpore |
 |-----------| -----------| ----------|
-|版本号      | 0.2.0      | 1.8.1 |
+|版本号      | 0.3.0      | 1.8.1 |
 
 ### 快速使用
 
@@ -118,7 +118,7 @@ RUN_STATUS: 为任务运行状态，支持关键字 train\finetune\eval\predict
 
   ```shell
   git clone https://gitee.com/mindspore/transformer.git
-  cd mindformers
+  cd transformer
   sh build.sh
   ```
 
