@@ -228,12 +228,14 @@ class BaseModel(nn.Cell, GeneratorMixin):
         (only support standalone mode, and distribute mode waits for developing!)
 
         Args:
-            pretrained_model_name_or_path (str): It supports the following two input types.
+            pretrained_model_name_or_dir (str): It supports the following two input types.
                 If `pretrained_model_name_or_dir` is a supported model name, for example, `vit_base_p16` and `t5_small`,
                 it will download the necessary files from the cloud. User can pass one from the support list by call
                 `MindFormerBook.get_model_support_list()`. If `pretrained_model_name_or_dir` is a path to the local
                 directory where there should have model weights ended with `.ckpt` and configuration file ended
                 with `yaml`.
+            pretrained_model_name_or_path (Optional[str]): Equal to "pretrained_model_name_or_dir",
+                if "pretrained_model_name_or_path" is set, "pretrained_model_name_or_dir" is useless.
 
         Examples:
             >>> from mindformers import T5ForConditionalGeneration
@@ -242,6 +244,10 @@ class BaseModel(nn.Cell, GeneratorMixin):
         Returns:
             A model, which inherited from BaseModel.
         """
+        pretrained_model_name_or_path = kwargs.pop("pretrained_model_name_or_path", None)
+        if pretrained_model_name_or_path is not None:
+            pretrained_model_name_or_dir = pretrained_model_name_or_path
+
         if not isinstance(pretrained_model_name_or_dir, str):
             raise TypeError(f"pretrained_model_name_or_dir should be a str,"
                             f" but got {type(pretrained_model_name_or_dir)}")

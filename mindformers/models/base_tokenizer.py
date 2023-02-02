@@ -343,19 +343,21 @@ class BaseTokenizer(SpecialTokensMixin):
         return res["input_ids"]
 
     @classmethod
-    def from_pretrained(cls, name_or_path: str):
+    def from_pretrained(cls, name_or_path: str, **kwargs):
         """
         Instantiates a tokenizer by the name_or_path. User can get the name using `get_support_list` of any tokenizer,
         it will download the necessary files from the cloud. or pass a directory where contains the vocabulary file
         and tokenizers yaml configuration file.
 
         Args:
-            name_or_path(str): It supports the following two input types: If the name_or_path is a supported tokenizer
+            name_or_path (str): It supports the following two input types: If the name_or_path is a supported tokenizer
                 name, for example, `clip_vit_b_32` and `t5_small`, it will download the necessary files from the cloud.
                 User can select one from the support list by call `MindFormerBook.show_tokenizer_support_list()`.
                 If name_or_path is a path to the local directory where there should have vocaburary files and
                 configuration file ended with `yaml`. The vocaburary file needed by the tokenizer is determined
-                by `.VOCAB_FILES`
+                by `.VOCAB_FILES`.
+            pretrained_model_name_or_path (Optional[str]): Equal to "name_or_path",
+                if "pretrained_model_name_or_path" is set, "name_or_path" is useless.
 
         Examples:
             >>> from mindformers import T5Tokenizer
@@ -367,6 +369,10 @@ class BaseTokenizer(SpecialTokensMixin):
         Returns:
             A instanced tokenizer.
         """
+        pretrained_model_name_or_path = kwargs.pop("pretrained_model_name_or_path", None)
+        if pretrained_model_name_or_path is not None:
+            name_or_path = pretrained_model_name_or_path
+
         is_exist = os.path.exists(name_or_path)
         is_dir = os.path.isdir(name_or_path)
         if not is_exist and (name_or_path not in cls._support_list):

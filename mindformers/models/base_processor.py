@@ -165,7 +165,6 @@ class BaseProcessor:
 
         Args:
             save_directory (str): a directory to save config yaml
-
             save_name (str): the name of save files.
         """
         if save_directory is None:
@@ -232,17 +231,23 @@ class BaseProcessor:
         return {"processor": config}
 
     @classmethod
-    def from_pretrained(cls, yaml_name_or_path):
+    def from_pretrained(cls, yaml_name_or_path, **kwargs):
         """
         From pretrain method, which instantiates a processor by yaml name or path.
 
         Args:
             yaml_name_or_path (str): A supported yaml name or a path to .yaml file,
             the supported model name could be selected from .show_support_list().
+            pretrained_model_name_or_path (Optional[str]): Equal to "yaml_name_or_path",
+                if "pretrained_model_name_or_path" is set, "yaml_name_or_path" is useless.
 
         Returns:
             A processor which inherited from BaseProcessor.
         """
+        pretrained_model_name_or_path = kwargs.pop("pretrained_model_name_or_path", None)
+        if pretrained_model_name_or_path is not None:
+            yaml_name_or_path = pretrained_model_name_or_path
+
         if not isinstance(yaml_name_or_path, str):
             raise TypeError(f"yaml_name_or_path should be a str,"
                             f" but got {type(yaml_name_or_path)}")
