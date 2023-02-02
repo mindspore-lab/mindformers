@@ -102,9 +102,9 @@ class CLIPModel(BaseModel):
         raise TypeError("unsupported data type.")
 
     def construct(self, image: ms.Tensor, text: ms.Tensor,
+                  label: Optional[Union[ms.Tensor, np.ndarray]] = None,
                   input_ids: Optional[ms.Tensor] = None,
-                  pixel_values: Optional[ms.Tensor] = None,
-                  label: Optional[Union[ms.Tensor, np.ndarray]] = None):
+                  pixel_values: Optional[ms.Tensor] = None):
         r"""Construct
 
         Args:

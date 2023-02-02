@@ -1,0 +1,50 @@
+model:
+  arch:
+    type: CLIPModel
+
+  model_config:
+    type: CLIPConfig
+
+    text_config:
+      type: CLIPTextConfig
+      vocab_size: 49408
+      hidden_size: 512
+      intermediate_size: 2048
+      num_hidden_layers: 12
+      num_attention_heads: 8
+      max_position_embeddings: 77
+      hidden_act: "quick_gelu"
+      attention_dropout: 0.0
+      drop_out: 0.0
+      initializer_range: 0.02
+      initializer_factor: 1.0
+
+    vision_config:
+      type: CLIPVisionConfig
+      hidden_size: 768
+      intermediate_size: 3072
+      num_hidden_layers: 12
+      num_attention_heads: 12
+      image_size: 224
+      patch_size: 16
+      hidden_act: "quick_gelu"
+      dropout: 0.0
+      attention_dropout: 0.0
+      initializer_range: 0.02
+      initializer_factor: 1.0
+
+    dtype: float16  # type of tensors
+    checkpoint_name_or_path: clip_vit_b_16   # the loaded model type
+    projection_dim: 512  # feature dims
+    logit_scale_init_value: 2.6592
+
+processor:
+  type: CLIPProcessor
+
+  image_processor:
+    type: CLIPImageProcessor
+    image_resolution: 224  # input image size
+
+  tokenizer:
+    type: CLIPTokenizer
+    pad_token: '!' # corresponding token id is 0

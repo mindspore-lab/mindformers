@@ -8,9 +8,9 @@
 
 ## 已支持数据集性能
 
-| model |     type      | Datasets | Performance |  stage   |                                config                                 |
-|:-----:|:-------------:|:--------:|:-----------:|:--------:|:---------------------------------------------------------------------:|
-| clip  | clip_vit_b_32 | Flickr8k |     --      | pretrain |              [link](run_clip_vit_b_32_pretrain_flickr8k)              |
+| model |                                     type                                     | Datasets | Performance |  stage   |         example         |
+|:-----:|:----------------------------------------------------------------------------:|:--------:|:-----------:|:--------:|:-----------------------:|
+| clip  | clip_vit_b_32 <br/> clip_vit_b_16 <br/> clip_vit_l_14<br/> clip_vit_l_14@336 | Flickr8k |     --      | pretrain | [link](../../examples/contrastive_language_image_pretrain/clip_vit_b_32_pretrain_on_flickr8k.sh) |
 
 ### Flickr8k([链接](https://pan.baidu.com/s/1LRlQUL1MRipPL4MLOdExzg)，密码: s4be)
 
@@ -53,7 +53,7 @@
   # 显示Trainer的模型支持列表
   MindFormerBook.show_trainer_support_model_list("contrastive_language_image_pretrain")
   # INFO - Trainer support model list for contrastive_language_image_pretrain task is:
-  # INFO -    ['clip_vit_b_32']
+  # INFO -    ['clip_vit_b_32', 'clip_vit_b_16', 'clip_vit_l_14', 'clip_vit_l_14@336']
   # INFO - -------------------------------------
 
   # 初始化trainer

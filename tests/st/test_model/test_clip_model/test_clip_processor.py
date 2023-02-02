@@ -38,11 +38,14 @@ def test_clip_processor():
     save_pretrained functions
     Expectation: ValueError
     """
+    model_type = "clip_vit_l_14@336"
+    image_size = 336
+
     yaml_path = os.path.join(MindFormerBook.get_project_path(), "configs",
-                             "clip", "model_config", "clip_vit_b_32.yaml")
-    img_processor = CLIPImageProcessor(image_resolution=224)
+                             "clip", "model_config", model_type + ".yaml")
+    img_processor = CLIPImageProcessor(image_resolution=image_size)
     # CLIPTokenizer requires downloading vocabulary files
-    tokenizer = CLIPTokenizer.from_pretrained("clip_vit_b_32")
+    tokenizer = CLIPTokenizer.from_pretrained(model_type)
     save_directory = os.path.join(MindFormerBook.get_default_checkpoint_save_folder(),
                                   'clip')
 
@@ -50,11 +53,11 @@ def test_clip_processor():
     support_list = CLIPProcessor.get_support_list()
     logger.info(support_list)
 
-    pro_a = CLIPProcessor.from_pretrained('clip_vit_b_32')
+    pro_a = CLIPProcessor.from_pretrained(model_type)
     pro_b = CLIPProcessor.from_pretrained(yaml_path)
     pro_c = CLIPProcessor(img_processor, tokenizer)
 
-    pro_d = AutoProcessor.from_pretrained('clip_vit_b_32')
+    pro_d = AutoProcessor.from_pretrained(model_type)
     pro_e = AutoProcessor.from_pretrained(yaml_path)
 
     fake_image_np = np.random.random((3, 578, 213))
@@ -80,21 +83,21 @@ def test_clip_processor():
     pro_d(fake_image_np, fake_text_np)
     pro_e(fake_image_np, fake_text_batch)
 
-    pro_a.save_pretrained(save_directory, save_name='clip_vit_b_32')
-    pro_c.save_pretrained(save_directory, save_name='clip_vit_b_32')
-    pro_b.save_pretrained(save_directory, save_name='clip_vit_b_32')
+    pro_a.save_pretrained(save_directory, save_name=model_type)
+    pro_c.save_pretrained(save_directory, save_name=model_type)
+    pro_b.save_pretrained(save_directory, save_name=model_type)
 
-    clip = AutoModel.from_pretrained("clip_vit_b_32")
+    clip = AutoModel.from_pretrained(model_type)
     processed_data = pro_a(fake_image_batch, fake_text_batch)
     output = clip(**processed_data)
 
     assert output[0].shape == (5, 4)
     assert output[1].shape == (4, 5)
 
-    assert output_a_1['image'].shape == (1, 3, 224, 224)
-    assert output_a_2['image'].shape == (1, 3, 224, 224)
-    assert output_a_3['image'].shape == (5, 3, 224, 224)
-    assert output_a_4['image'].shape == (5, 3, 224, 224)
+    assert output_a_1['image'].shape == (1, 3, image_size, image_size)
+    assert output_a_2['image'].shape == (1, 3, image_size, image_size)
+    assert output_a_3['image'].shape == (5, 3, image_size, image_size)
+    assert output_a_4['image'].shape == (5, 3, image_size, image_size)
     assert output_a_1['text'].shape == (1, 77)
     assert output_a_2['text'].shape == (4, 77)
     assert output_a_3['text'].shape == (1, 77)
@@ -108,10 +111,10 @@ def test_clip_processor():
     assert isinstance(output_a_3['text'], ms.Tensor)
     assert isinstance(output_a_4['text'], ms.Tensor)
 
-    assert output_b_1['image'].shape == (1, 3, 224, 224)
-    assert output_b_2['image'].shape == (1, 3, 224, 224)
-    assert output_b_3['image'].shape == (5, 3, 224, 224)
-    assert output_b_4['image'].shape == (5, 3, 224, 224)
+    assert output_b_1['image'].shape == (1, 3, image_size, image_size)
+    assert output_b_2['image'].shape == (1, 3, image_size, image_size)
+    assert output_b_3['image'].shape == (5, 3, image_size, image_size)
+    assert output_b_4['image'].shape == (5, 3, image_size, image_size)
     assert output_b_1['text'].shape == (1, 77)
     assert output_b_2['text'].shape == (4, 77)
     assert output_b_3['text'].shape == (1, 77)
@@ -125,10 +128,10 @@ def test_clip_processor():
     assert isinstance(output_b_3['text'], ms.Tensor)
     assert isinstance(output_b_4['text'], ms.Tensor)
 
-    assert output_c_1['image'].shape == (1, 3, 224, 224)
-    assert output_c_2['image'].shape == (1, 3, 224, 224)
-    assert output_c_3['image'].shape == (5, 3, 224, 224)
-    assert output_c_4['image'].shape == (5, 3, 224, 224)
+    assert output_c_1['image'].shape == (1, 3, image_size, image_size)
+    assert output_c_2['image'].shape == (1, 3, image_size, image_size)
+    assert output_c_3['image'].shape == (5, 3, image_size, image_size)
+    assert output_c_4['image'].shape == (5, 3, image_size, image_size)
     assert output_c_1['text'].shape == (1, 77)
     assert output_c_2['text'].shape == (4, 77)
     assert output_c_3['text'].shape == (1, 77)

@@ -63,7 +63,7 @@ CLIP (Contrastive Lanuguage-Image Pre-Training)：是一种基于图文对进行
   CLIPModel.show_support_list()
   # 输出：
   # - support list of CLIPModel is:
-  # -    ['clip_vit_b_32']
+  # -    ['clip_vit_b_32', 'clip_vit_B_16', 'clip_vit_l_14', 'clip_vit_l_14@336']
   # - -------------------------------------
 
   # 模型标志加载模型
@@ -114,11 +114,10 @@ CLIP (Contrastive Lanuguage-Image Pre-Training)：是一种基于图文对进行
 
 ## 模型性能
 
-| model |     type      | pretrain | Datasets | Top1-Accuracy | Log |                                     config                                     |
-|:-----:|:-------------:|:--------:|:--------:|:-------------:| :---: |:------------------------------------------------------------------------------:|
-| clip  | clip_vit_b_32 |   clip   | flickr8k |       \       | \ |              pretrain [link](run_clip_vit_b_32_pretrain_flickr8k)              | \|
-| clip  | clip_vit_b_32 |    \     | cifar100 |    57.24%     | \ |  eval [link](../../configs/clip/run_clip_vit_b_32_zero_shot_image_classification_cifar100.yaml)   |
-| clip  | clip_vit_b_32 |    \     | cifar100 |       \       | \ | predict [link](../../configs/clip/run_clip_vit_b_32_zero_shot_image_classification_cifar100.yaml) |
+| model |           task_type            |                                  model_Type                                   | datasets |              Top1-accuracy              | log |                                                                                                example                                                                                                |
+|:-----:|:------------------------------:|:-----------------------------------------------------------------------------:|:--------:|:---------------------------------------:|:---:|:-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:|
+| clip  |           pretrained           | clip_vit_b_32 <br/> clip_vit_b_16 <br/> clip_vit_l_14 <br/> clip_vit_l_14@336 | flickr8k |                    \                    |  \  |                                               pretrain [link](../../examples/contrastive_language_image_pretrain/clip_vit_b_32_pretrain_on_flickr8k.sh)                                               | \|
+| clip  | zero_shot_image_classification | clip_vit_b_32 <br/> clip_vit_b_16 <br/> clip_vit_l_14 <br/> clip_vit_l_14@336 | cifar100 | 57.24%<br/>61.41%<br/>69.67%<br/>68.19% |  \  | eval [link](../../examples/zero_shot_image_classification/clip_vit_b_32_eval_on_cifar100.sh) <br/> predict [link](../../examples/zero_shot_image_classification/clip_vit_b_32_predict_on_cifar100.sh) |
 
 ## 模型权重
 
@@ -127,6 +126,8 @@ CLIP (Contrastive Lanuguage-Image Pre-Training)：是一种基于图文对进行
 1. 从上述的链接中下载`ViT-B/32`的模型权重
 
 2. 执行转换脚本，得到转换后的输出文件`clip_vit_b_32.ckpt`
+
+其余参数获取方式相同
 
 ```python
 python mindformers/models/clip/convert_weight.py --torch_path "PATH OF ViT-B/32.pt" --mindspore_path "SAVE PATH OF clip_vit_b_32.ckpt"

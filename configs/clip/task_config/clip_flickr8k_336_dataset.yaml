@@ -1,0 +1,42 @@
+train_dataset: &train_dataset
+  data_loader:
+    type: Flickr8kDataLoader
+    dataset_dir: "./checkpoint_download/Flickr8k/Flickr8k_Dataset/Flickr8k_Dataset"
+    annotation_dir: "./checkpoint_download/Flickr8k/Flickr8k_text"
+    stage: "train"
+    column_names: ["image", "text"]
+
+  text_transforms:
+    type: RandomChoiceTokenizerForward
+    max_length: 77
+    padding: "max_length"
+    random_seed: 2022
+
+  transforms:
+    - type: Resize
+      size: 336
+    - type: CenterCrop
+      size: 336
+    - type: ToTensor
+    - type: Normalize
+      mean: [0.48145466, 0.4578275, 0.40821073]
+      std: [0.26862954, 0.26130258, 0.27577711]
+      is_hwc: False
+
+  tokenizer:
+    type: CLIPTokenizer
+    pad_token: '!'
+
+  num_parallel_workers: 8
+  python_multiprocessing: False
+  drop_remainder: True
+  batch_size: 16
+  repeat: 1
+
+  numa_enable: False
+  prefetch_size: 30
+  seed: 2022
+
+train_dataset_task:
+  type: ContrastiveLanguageImagePretrainDataset
+  dataset_config: *train_dataset

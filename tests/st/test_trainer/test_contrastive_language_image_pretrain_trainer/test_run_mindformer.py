@@ -43,11 +43,12 @@ class TestRunMindFormer:
     """A test class for testing run mindformer"""
     def setup_method(self):
         """prepare for test"""
+        self.model_type = 'clip_vit_b_32'
         project_path = MindFormerBook.get_project_path()
 
         config_path = os.path.join(
             project_path, "configs", "clip",
-            "run_clip_vit_b_32_pretrain_flickr8k.yaml"
+            "run_" + self.model_type + "_pretrain_flickr8k.yaml"
         )
         config = MindFormerConfig(config_path)
 
@@ -72,7 +73,7 @@ class TestRunMindFormer:
         Expectation: TypeError, ValueError
         """
         yaml_path = os.path.join(MindFormerBook.get_project_path(),
-                                 "configs", "clip", "run_clip_vit_b_32_pretrain_flickr8k.yaml")
+                                 "configs", "clip", "run_" + self.model_type + "_pretrain_flickr8k.yaml")
         command = "python run_mindformer.py --config " + yaml_path
         os.system(command)
 

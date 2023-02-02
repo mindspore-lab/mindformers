@@ -33,13 +33,15 @@ def test_config():
     Description: Test to get config instance by AutoConfig.from_pretrained
     Expectation: TypeError, ValueError
     """
+    model_type = 'clip_vit_b_32'
+
     config_path = os.path.join(MindFormerBook.get_project_path(),
-                               'configs', 'clip', 'model_config', "clip_vit_b_32.yaml")
+                               'configs', 'clip', 'model_config', model_type + ".yaml")
     save_path = os.path.join(MindFormerBook.get_default_checkpoint_save_folder(),
                              'clip')
 
     AutoConfig.show_support_list()
-    config_a = AutoConfig.from_pretrained('clip_vit_b_32')      # input a model name
+    config_a = AutoConfig.from_pretrained(model_type)      # input a model name
     config_b = AutoConfig.from_pretrained(config_path)          # input a path to .yaml file
 
     logger.info(config_a)
@@ -49,7 +51,7 @@ def test_config():
     support_list = CLIPConfig.get_support_list()
     logger.info(support_list)
 
-    config_c = CLIPConfig.from_pretrained('clip_vit_b_32')
+    config_c = CLIPConfig.from_pretrained(model_type)
     config_d = CLIPConfig.from_pretrained(config_path)
     config_e = CLIPConfig(
         CLIPTextConfig(
@@ -68,7 +70,7 @@ def test_config():
     )
 
     config_c.save_pretrained()
-    config_d.save_pretrained(save_path, "clip_vit_b_32")
+    config_d.save_pretrained(save_path, model_type)
     config_e.save_pretrained()
 
     logger.info(config_c)

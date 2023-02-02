@@ -35,21 +35,31 @@ from mindformers.tools import logger
 @pytest.mark.env_onecard
 class TestModelMethod:
     """A test class for testing Model classes"""
+
+    @pytest.mark.level0
+    @pytest.mark.platform_x86_ascend_training
+    @pytest.mark.platform_arm_ascend_training
+    @pytest.mark.env_onecard
     def setup_method(self):
         """get_input"""
+        self.model_type = "clip_vit_b_32"
+
         self.checkpoint_dir = os.path.join(MindFormerBook.get_default_checkpoint_download_folder(),
                                            'clip')
         self.config_path = os.path.join(MindFormerBook.get_project_path(),
-                                        'configs', 'clip', 'model_config', "clip_vit_b_32.yaml")
-        self.config = AutoConfig.from_pretrained('clip_vit_b_32')
+                                        'configs', 'clip', 'model_config', self.model_type + ".yaml")
+        self.config = AutoConfig.from_pretrained(self.model_type)
 
         self.checkpoint_path = os.path.join(MindFormerBook.get_default_checkpoint_download_folder(),
-                                            'clip', 'clip_vit_b_32.ckpt')
+                                            'clip', self.model_type + '.ckpt')
         self.save_directory = os.path.join(MindFormerBook.get_default_checkpoint_save_folder(),
                                            'clip')
 
     # the first method to load model, AutoModel
-
+    @pytest.mark.level0
+    @pytest.mark.platform_x86_ascend_training
+    @pytest.mark.platform_arm_ascend_training
+    @pytest.mark.env_onecard
     def test_auto_model(self):
         """
         Feature: AutoModel, from_pretrained, from_config
@@ -63,7 +73,7 @@ class TestModelMethod:
         support_list = AutoModel.get_support_list()
         logger.info(support_list)
         # input model name, load model and weights
-        model_a = AutoModel.from_pretrained('clip_vit_b_32')
+        model_a = AutoModel.from_pretrained(self.model_type)
         # input model directory, load model and weights
         model_b = AutoModel.from_pretrained(self.checkpoint_dir)
         # input yaml path, load model without weights
@@ -71,13 +81,13 @@ class TestModelMethod:
         # input config, load model without weights
         model_d = AutoModel.from_config(self.config)
 
-        model_a.save_pretrained(self.save_directory, save_name='clip_vit_b_32')
+        model_a.save_pretrained(self.save_directory, save_name=self.model_type)
 
         CLIPModel.show_support_list()
         support_list = CLIPModel.get_support_list()
         logger.info(support_list)
         # input model name, load model and weights
-        model_i = CLIPModel.from_pretrained('clip_vit_b_32')
+        model_i = CLIPModel.from_pretrained(self.model_type)
         # input model directory, load model and weights
         model_j = CLIPModel.from_pretrained(self.checkpoint_dir)
         # input config, load model weights
@@ -86,7 +96,7 @@ class TestModelMethod:
         self.config.checkpoint_name_or_path = None
         model_l = CLIPModel(self.config)
 
-        model_i.save_pretrained(self.save_directory, save_name='clip_vit_b_32')
+        model_i.save_pretrained(self.save_directory, save_name=self.model_type)
 
         # all models are ClipModel class， and inherited from BaseModel
         assert isinstance(model_i, CLIPModel)
