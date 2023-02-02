@@ -65,9 +65,9 @@ class MaskLanguageModelDataset(BaseDataset):
                                                       'shard_equal_rows': True})
         dataset = dataset.batch(dataset_config.batch_size,
                                 drop_remainder=dataset_config.drop_remainder,
-                                column_order=dataset_config.input_columns,
                                 output_columns=dataset_config.input_columns,
                                 num_parallel_workers=dataset_config.num_parallel_workers)
+        dataset = dataset.project(columns=dataset_config.input_columns)
         dataset = dataset.repeat(dataset_config.repeat)
         type_cast_op = C.TypeCast(mstype.int32)
         for input_arg in dataset_config.input_columns:
