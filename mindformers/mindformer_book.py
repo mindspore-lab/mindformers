@@ -198,6 +198,10 @@ class MindFormerBook:
             ('bert', ['ner_bert_base_chinese_dense',
                       'ner_bert_base_chinese_dense_cluener'])
         ])),
+        ('txtcls', OrderedDict([
+            ('bert', ['txtcls_bert_base_uncased',
+                      'txtcls_bert_base_uncased_mnli'])
+        ])),
         ('t5', [
             't5_small',
         ])
@@ -226,6 +230,10 @@ class MindFormerBook:
         ('ner', OrderedDict([
             ('bert', ['ner_bert_base_chinese_dense',
                       'ner_bert_base_chinese_dense_cluener'])
+        ])),
+        ('txtcls', OrderedDict([
+            ('bert', ['txtcls_bert_base_uncased',
+                      'txtcls_bert_base_uncased_mnli'])
         ])),
         ('t5', [
             't5_small',
@@ -268,6 +276,10 @@ class MindFormerBook:
         ('ner', OrderedDict([
             ('bert', ['ner_bert_base_chinese_dense',
                       'ner_bert_base_chinese_dense_cluener'])
+        ])),
+        ('txtcls', OrderedDict([
+            ('bert', ['txtcls_bert_base_uncased',
+                      'txtcls_bert_base_uncased_mnli'])
         ])),
         ('t5', [
             't5_small',
@@ -331,6 +343,15 @@ class MindFormerBook:
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
           '/XFormer_for_mindspore/bert/downstream_tasks/name_entity_recognition/'
           'ner_bert_base_chinese_dense_cluener.ckpt'
+          ]),
+        ('txtcls_bert_base_uncased',
+         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
+          '/XFormer_for_mindspore/bert/downstream_tasks/txtcls/txtcls_bert_base_uncased.ckpt'
+          ]),
+        ('txtcls_bert_base_uncased_mnli',
+         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
+          '/XFormer_for_mindspore/bert/downstream_tasks/txtcls/'
+          'txtcls_bert_base_uncased_mnli.ckpt'
           ])
     ])
 
@@ -387,6 +408,15 @@ class MindFormerBook:
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
           '/XFormer_for_mindspore/bert/downstream_tasks/name_entity_recognition/'
           'ner_bert_base_chinese_dense_cluener.yaml'
+          ]),
+        ('txtcls_bert_base_uncased',
+         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
+          '/XFormer_for_mindspore/bert/downstream_tasks/txtcls/txtcls_bert_base_uncased.ckpt'
+          ]),
+        ('txtcls_bert_base_uncased_mnli',
+         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
+          '/XFormer_for_mindspore/bert/downstream_tasks/txtcls/'
+          'txtcls_bert_base_uncased_mnli.ckpt'
           ])
     ])
 
@@ -432,7 +462,15 @@ class MindFormerBook:
         ('ner_bert_base_chinese_dense_cluener', [
             "https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/"
             "XFormer_for_mindspore/bert/bert_base_chinese/vocab.txt"
-        ])
+        ]),
+        ('txtcls_bert_base_uncased',
+         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
+          'XFormer_for_mindspore/bert/bert_base_english/vocab.txt'
+          ]),
+        ('txtcls_bert_base_uncased_mnli',
+         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
+          'XFormer_for_mindspore/bert/bert_base_english/vocab.txt'
+          ])
     ])
 
     _TOKENIZER_NAME_TO_PROCESSOR = OrderedDict([

@@ -17,8 +17,8 @@
 Test Module for testing functions of AutoModel and BertSoftmaxForNer class
 
 How to run this:
-windows:  pytest .\\tests\\st\\test_model\\test_bert_model\\test_bert_ner_model.py
-linux:  pytest ./tests/st/test_model/test_bert_model/test_bert_ner_model.py
+windows:  pytest .\\tests\\st\\test_model\\test_bert_model\\test_ner_model.py
+linux:  pytest ./tests/st/test_model/test_bert_model/test_ner_model.py
 """
 import os
 import pytest

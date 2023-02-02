@@ -17,8 +17,8 @@
 Test Module for testing functions of AutoConfig and BertConfig class
 
 How to run this:
-windows:  pytest .\\tests\\st\\test_model\\test_bert_model\\test_bert_ner_config.py
-linux:  pytest ./tests/st/test_model/test_bert_model/test_bert_ner_config.py
+windows:  pytest .\\tests\\st\\test_model\\test_bert_model\\test_ner_config.py
+linux:  pytest ./tests/st/test_model/test_bert_model/test_ner_config.py
 
 Note:
     model name and config name should have the same prefix

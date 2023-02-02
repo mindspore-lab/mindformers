@@ -29,6 +29,7 @@ class BertConfig(BaseConfig):
     """
     _support_list = MindFormerBook.get_config_support_list()['bert']
     _support_list.extend(MindFormerBook.get_config_support_list()['ner']['bert'])
+    _support_list.extend(MindFormerBook.get_config_support_list()['txtcls']['bert'])
 
     def __init__(self,
                  model_type: str = "bert",
