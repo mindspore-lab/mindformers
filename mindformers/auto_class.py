@@ -70,7 +70,7 @@ class AutoConfig:
         return True
 
     @classmethod
-    def from_pretrained(cls, yaml_name_or_path):
+    def from_pretrained(cls, yaml_name_or_path, **kwargs):
         """
         From pretrain method, which instantiates a config by yaml model name or path.
 
@@ -78,10 +78,17 @@ class AutoConfig:
             yaml_name_or_path (str): A supported model name or a path to model
             config (.yaml), the supported model name could be selected from
             AutoConfig.show_support_list().
+            pretrained_model_name_or_path (Optional[str]): Equal to "yaml_name_or_path",
+                if "pretrained_model_name_or_path" is set, "yaml_name_or_path" is
+                useless.
 
         Returns:
             A model config, which inherited from BaseConfig.
         """
+        pretrained_model_name_or_path = kwargs.pop("pretrained_model_name_or_path", None)
+        if pretrained_model_name_or_path is not None:
+            yaml_name_or_path = pretrained_model_name_or_path
+
         if not isinstance(yaml_name_or_path, str):
             raise TypeError(f"yaml_name_or_path should be a str,"
                             f" but got {type(yaml_name_or_path)}.")
@@ -252,19 +259,25 @@ class AutoModel:
         return BaseConfig(model=model)
 
     @classmethod
-    def from_pretrained(cls, pretrained_model_name_or_dir):
+    def from_pretrained(cls, pretrained_model_name_or_dir, **kwargs):
         """
         From pretrain method, which instantiates a Model by pretrained model name or path.
 
         Args:
-            pretrained_model_name_or_path (str): A supported model name or a
+            pretrained_model_name_or_dir (str): A supported model name or a
             directory to model checkpoint (including .yaml file for config
             and .ckpt file for weights), the supported model name could be
             selected from AutoModel.show_support_list().
+            pretrained_model_name_or_path (Optional[str]): Equal to "pretrained_model_name_or_dir",
+                if "pretrained_model_name_or_path" is set, "pretrained_model_name_or_dir" is useless.
 
         Returns:
             A model, which inherited from BaseModel.
         """
+        pretrained_model_name_or_path = kwargs.pop("pretrained_model_name_or_path", None)
+        if pretrained_model_name_or_path is not None:
+            pretrained_model_name_or_dir = pretrained_model_name_or_path
+
         if not isinstance(pretrained_model_name_or_dir, str):
             raise TypeError(f"pretrained_model_name_or_dir should be a str,"
                             f" but got {type(pretrained_model_name_or_dir)}")
@@ -374,17 +387,23 @@ class AutoProcessor:
         return True
 
     @classmethod
-    def from_pretrained(cls, yaml_name_or_path):
+    def from_pretrained(cls, yaml_name_or_path, **kwargs):
         """
         From pretrain method, which instantiated a processor by yaml name or path.
 
         Args:
             yaml_name_or_path (str): A supported yaml name or a path to .yaml file,
             the supported model name could be selected from .show_support_list().
+            pretrained_model_name_or_path (Optional[str]): Equal to "yaml_name_or_path",
+                if "pretrained_model_name_or_path" is set, "yaml_name_or_path" is useless.
 
         Returns:
             A processor which inherited from BaseProcessor.
         """
+        pretrained_model_name_or_path = kwargs.pop("pretrained_model_name_or_path", None)
+        if pretrained_model_name_or_path is not None:
+            yaml_name_or_path = pretrained_model_name_or_path
+
         if not isinstance(yaml_name_or_path, str):
             raise TypeError(f"yaml_name_or_path should be a str,"
                             f" but got {type(yaml_name_or_path)}")
@@ -541,17 +560,23 @@ class AutoTokenizer:
         return class_name
 
     @classmethod
-    def from_pretrained(cls, yaml_name_or_path):
+    def from_pretrained(cls, yaml_name_or_path, **kwargs):
         """
         From pretrain method, which instantiates a tokenizer by yaml name or path.
 
         Args:
             yaml_name_or_path (str): A supported yaml name or a path to .yaml file,
             the supported model name could be selected from .show_support_list().
+            pretrained_model_name_or_path (Optional[str]): Equal to "yaml_name_or_path",
+            if "pretrained_model_name_or_path" is set, "yaml_name_or_path" is useless.
 
         Returns:
             A tokenizer which inherited from PretrainedTokenizer.
         """
+        pretrained_model_name_or_path = kwargs.pop("pretrained_model_name_or_path", None)
+        if pretrained_model_name_or_path is not None:
+            yaml_name_or_path = pretrained_model_name_or_path
+
         from . import MindFormerRegister
         if not isinstance(yaml_name_or_path, str):
             raise TypeError(f"yaml_name_or_path should be a str,"

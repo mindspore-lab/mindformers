@@ -28,7 +28,7 @@ from mindformers.models.base_model import BaseModel
 from ...mindformer_book import MindFormerBook
 from .bert_config import BertConfig
 
-__all__ = ['BertConfig', 'BertModel', 'BertTokenClassification']
+__all__ = ['BertConfig', 'BertModel', 'BertTokenClassification', 'BertForMultipleChoice']
 
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
 class BertTokenClassification(BaseModel):
@@ -249,6 +249,62 @@ class BertNetwork(nn.Cell):
             moe_loss = encoder_output[-1]
             return sequence_output, pooled_output, embedding_tables, moe_loss
         return sequence_output, pooled_output, embedding_tables
+
+
+@MindFormerRegister.register(MindFormerModuleType.MODELS)
+class BertForMultipleChoice(BaseModel):
+    """
+    Bert with dense layer for txt classification task.
+
+    Args:
+        config (BertConfig): The config of BertModel.
+
+    Returns:
+        Tensor, loss, logits.
+    Examples:
+        >>> from mindformers import BertForMultipleChoice, BertTokenizer
+        >>> model = BertForMultipleChoice.from_pretrained('txtcls_bert_base_uncased')
+        >>> tokenizer = BertTokenizer.from_pretrained('txtcls_bert_base_uncased')
+        >>> data = tokenizer("The new rights are nice enough-Everyone really likes the newest benefits ")
+        >>> input_ids = data['input_ids']
+        >>> attention_mask = input_ids['attention_mask']
+        >>> token_type_ids = input_ids['token_type_ids']
+        >>> label_ids = input_ids['label_ids']
+        >>> output = model(input_ids, attention_mask, token_type_ids, label_ids)
+        >>> print(output)
+        [0.6706, 0.5652, 0.7816]
+    """
+    _support_list = MindFormerBook.get_model_support_list()['txtcls']['bert']
+
+    def __init__(self, config=BertConfig()):
+        super(BertForMultipleChoice, self).__init__(config)
+        self.num_labels = config.num_labels
+        self.bert = BertNetwork(config, config.is_training, config.use_one_hot_embeddings)
+        self.weight_init = TruncatedNormal(config.initializer_range)
+        self.classifier = nn.Dense(config.embedding_size, self.num_labels, weight_init=self.weight_init,
+                                   has_bias=True).to_float(config.compute_dtype)
+        self.dropout = nn.Dropout(1 - config.dropout_prob)
+        self.cross_entropy_loss = nn.CrossEntropyLoss()
+        self.cast = P.Cast()
+        self.reshape = P.Reshape()
+        self.dtype = config.dtype
+        self.compute_dtype = config.compute_dtype
+        self.load_checkpoint(config)
+
+    def construct(self, input_ids, input_mask, token_type_id, label_ids):
+        """Get Training Loss or Logits"""
+        _, pooled_output, _ = self.bert(input_ids, token_type_id, input_mask)
+        pooled_output = self.dropout(pooled_output)
+        logits = self.classifier(pooled_output)
+
+        if self.training:
+            logits = self.reshape(logits, (-1, self.num_labels))
+            label_ids = self.reshape(label_ids, (-1,))
+            output = self.cross_entropy_loss(logits, label_ids)
+        else:
+            output = logits
+        return output
+
 
 class EmbeddingPostprocessor(nn.Cell):
     """
