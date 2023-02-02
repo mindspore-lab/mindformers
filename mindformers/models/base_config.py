@@ -84,7 +84,7 @@ class BaseConfig(dict):
         return return_dict
 
     @classmethod
-    def from_pretrained(cls, yaml_name_or_path):
+    def from_pretrained(cls, yaml_name_or_path, **kwargs):
         """
         From pretrain method, which instantiates a config by yaml name or path.
 
@@ -92,10 +92,16 @@ class BaseConfig(dict):
             yaml_name_or_path (str): A supported model name or a path to model
             config (.yaml), the supported model name could be selected from
             AutoConfig.show_support_list().
+            pretrained_model_name_or_path (Optional[str]): Equal to "yaml_name_or_path",
+            if "pretrained_model_name_or_path" is set, "yaml_name_or_path" is useless.
 
         Returns:
             A model config, which inherited from BaseConfig.
         """
+        pretrained_model_name_or_path = kwargs.pop("pretrained_model_name_or_path", None)
+        if pretrained_model_name_or_path is not None:
+            yaml_name_or_path = pretrained_model_name_or_path
+
         if not isinstance(yaml_name_or_path, str):
             raise TypeError(f"yaml_name_or_path should be a str,"
                             f" but got {type(yaml_name_or_path)}.")
