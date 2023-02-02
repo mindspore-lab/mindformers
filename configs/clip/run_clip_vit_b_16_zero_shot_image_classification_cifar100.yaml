@@ -1,0 +1,23 @@
+base_config: [
+    '../__base__.yaml',
+    './task_config/context.yaml',
+    './task_config/runner.yaml',
+    './task_config/clip_cifar100_dataset.yaml',
+    './model_config/clip_vit_b_16.yaml' ]
+
+profile: False
+use_parallel: False
+
+seed: 0
+resume_or_finetune_checkpoint: ''
+
+metric:
+  type: 'Accuracy'
+
+top_k: 3
+save_file: 'results.txt'
+
+run_mode: 'eval'
+trainer:
+  type: ZeroShotImageClassificationTrainer
+  model_name: 'clip_vit_b_16'

@@ -108,12 +108,24 @@ class MindFormerBook:
         ("contrastive_language_image_pretrain", OrderedDict([
             ("clip_vit_b_32", os.path.join(
                 _PROJECT_PATH, "configs/clip/run_clip_vit_b_32_pretrain_flickr8k.yaml")),
+            ("clip_vit_b_16", os.path.join(
+                _PROJECT_PATH, "configs/clip/run_clip_vit_b_16_pretrain_flickr8k.yaml")),
+            ("clip_vit_l_14", os.path.join(
+                _PROJECT_PATH, "configs/clip/run_clip_vit_l_14_pretrain_flickr8k.yaml")),
+            ("clip_vit_l_14@336", os.path.join(
+                _PROJECT_PATH, "configs/clip/run_clip_vit_l_14@336_pretrain_flickr8k.yaml")),
             ("common", os.path.join(
                 _PROJECT_PATH, "configs/clip/run_clip_vit_b_32_pretrain_flickr8k.yaml"))])
          ),
         ("zero_shot_image_classification", OrderedDict([
             ("clip_vit_b_32", os.path.join(
                 _PROJECT_PATH, "configs/clip/run_clip_vit_b_32_zero_shot_image_classification_cifar100.yaml")),
+            ("clip_vit_b_16", os.path.join(
+                _PROJECT_PATH, "configs/clip/run_clip_vit_b_16_zero_shot_image_classification_cifar100.yaml")),
+            ("clip_vit_l_14", os.path.join(
+                _PROJECT_PATH, "configs/clip/run_clip_vit_b_14_zero_shot_image_classification_cifar100.yaml")),
+            ("clip_vit_l_14@336", os.path.join(
+                _PROJECT_PATH, "configs/clip/run_clip_vit_b_14@336_zero_shot_image_classification_cifar100.yaml")),
             ("common", os.path.join(
                 _PROJECT_PATH, "configs/clip/run_clip_vit_b_32_zero_shot_image_classification_cifar100.yaml"))])
          ),
@@ -127,8 +139,14 @@ class MindFormerBook:
 
     _PIPELINE_SUPPORT_TASK_LIST = OrderedDict([
         ('zero_shot_image_classification', OrderedDict([
+            ('clip_vit_b_16', os.path.join(
+                _PROJECT_PATH, "configs/clip/model_config/clip_vit_b_16.yaml")),
             ('clip_vit_b_32', os.path.join(
                 _PROJECT_PATH, "configs/clip/model_config/clip_vit_b_32.yaml")),
+            ('clip_vit_l_14', os.path.join(
+                _PROJECT_PATH, "configs/clip/model_config/clip_vit_l_14.yaml")),
+            ('clip_vit_l_14@336', os.path.join(
+                _PROJECT_PATH, "configs/clip/model_config/clip_vit_l_14@336.yaml")),
             ('common', os.path.join(
                 _PROJECT_PATH, "configs/clip/model_config/clip_vit_b_32.yaml"))
         ])),
@@ -159,6 +177,9 @@ class MindFormerBook:
     _CONFIG_SUPPORT_LIST = OrderedDict([
         ('clip', [
             'clip_vit_b_32',
+            'clip_vit_b_16',
+            'clip_vit_l_14',
+            'clip_vit_l_14@336'
         ]),
         ('mae', [
             'mae_vit_base_p16',
@@ -185,6 +206,9 @@ class MindFormerBook:
     _MODEL_SUPPORT_LIST = OrderedDict([
         ('clip', [
             'clip_vit_b_32',
+            'clip_vit_b_16',
+            'clip_vit_l_14',
+            'clip_vit_l_14@336'
         ]),
         ('mae', [
             'mae_vit_base_p16',
@@ -211,6 +235,9 @@ class MindFormerBook:
     _PROCESSOR_SUPPORT_LIST = OrderedDict([
         ('clip', [
             'clip_vit_b_32',
+            'clip_vit_b_16',
+            'clip_vit_l_14',
+            'clip_vit_l_14@336'
         ]),
         ('vit', [
             'vit_base_p16', 'mae_vit_base_p16'
@@ -230,6 +257,9 @@ class MindFormerBook:
     _TOKENIZER_SUPPORT_LIST = OrderedDict([
         ('clip', [
             'clip_vit_b_32',
+            'clip_vit_b_16',
+            'clip_vit_l_14',
+            'clip_vit_l_14@336'
         ]),
         ('bert', [
             'bert_base_uncased',
@@ -251,6 +281,18 @@ class MindFormerBook:
         ('clip_vit_b_32',
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
           '/XFormer_for_mindspore/clip/clip_vit_b_32.ckpt'
+          ]),
+        ('clip_vit_b_16',
+         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
+          '/MindFormers/clip/clip_vit_b_16.ckpt'
+          ]),
+        ('clip_vit_l_14',
+         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
+          '/MindFormers/clip/clip_vit_l_14.ckpt'
+          ]),
+        ('clip_vit_l_14@336',
+         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
+          '/MindFormers/clip/clip_vit_l_14%40336.ckpt'
           ]),
         ('mae_vit_base_p16',
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
@@ -282,7 +324,8 @@ class MindFormerBook:
           ]),
         ('ner_bert_base_chinese_dense',
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
-          '/XFormer_for_mindspore/bert/downstream_tasks/name_entity_recognition/ner_bert_base_chinese_dense.ckpt'
+          '/XFormer_for_mindspore/bert/downstream_tasks/'
+          'name_entity_recognition/ner_bert_base_chinese_dense.ckpt'
           ]),
         ('ner_bert_base_chinese_dense_cluener',
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
@@ -295,6 +338,18 @@ class MindFormerBook:
         ('clip_vit_b_32',
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
           '/XFormer_for_mindspore/clip/clip_vit_b_32.yaml'
+          ]),
+        ('clip_vit_b_16',
+         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
+          '/MindFormers/clip/clip_vit_b_16.yaml'
+          ]),
+        ('clip_vit_l_14',
+         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
+          '/MindFormers/clip/clip_vit_l_14.yaml'
+          ]),
+        ('clip_vit_l_14@336',
+         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
+          '/MindFormers/clip/clip_vit_l_14%40336.yaml'
           ]),
         ('mae_vit_base_p16',
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
@@ -343,6 +398,18 @@ class MindFormerBook:
 
     _TOKENIZER_SUPPORT_URL_LIST = OrderedDict([
         ('clip_vit_b_32', [
+            "https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/"
+            "XFormer_for_mindspore/clip/bpe_simple_vocab_16e6.txt.gz"
+        ]),
+        ('clip_vit_b_16', [
+            "https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/"
+            "XFormer_for_mindspore/clip/bpe_simple_vocab_16e6.txt.gz"
+        ]),
+        ('clip_vit_l_14', [
+            "https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/"
+            "XFormer_for_mindspore/clip/bpe_simple_vocab_16e6.txt.gz"
+        ]),
+        ('clip_vit_l_14@336', [
             "https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/"
             "XFormer_for_mindspore/clip/bpe_simple_vocab_16e6.txt.gz"
         ]),

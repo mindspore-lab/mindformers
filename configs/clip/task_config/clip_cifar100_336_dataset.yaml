@@ -1,0 +1,45 @@
+eval_dataset:  &eval_dataset
+  data_loader:
+    type: Cifar100DataLoader
+    dataset_dir: 'cifar-100-python'
+    column_names: ["image", "text", "label"]
+    stage: 'test'
+    fine_label: True
+    shuffle: False
+    hypothesis_template: "a picture of {}"
+
+  tokenizer:
+    type: CLIPTokenizer
+    pad_token: '!'
+
+  text_transforms:
+    type: TokenizerForward
+    max_length: 77
+    padding: "max_length"
+
+  transforms:
+    - type: ToPIL
+    - type: Resize
+      size: 336
+      interpolation: 'linear'
+    - type: CenterCrop
+      size: 336
+    - type: ToTensor
+    - type: Normalize
+      mean: [0.48145466, 0.4578275, 0.40821073]
+      std: [0.26862954, 0.26130258, 0.27577711]
+      is_hwc: False
+
+  num_parallel_workers: 8
+  python_multiprocessing: False
+  drop_remainder: False
+  batch_size: 32
+  repeat: 1
+
+  numa_enable: False
+  prefetch_size: 30
+  seed: 2022
+
+eval_dataset_task:
+  type: ZeroShotImageClassificationDataset
+  dataset_config: *eval_dataset

@@ -84,5 +84,7 @@ def test_zsic_pipeline():
     res_single = classifier(img)
     res_multi = classifier([img, img, img])
 
+    print(res_single)
+
     assert len(res_single) == 1
     assert len(res_multi) == 3

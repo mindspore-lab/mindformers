@@ -18,14 +18,14 @@ MindSpore MindFormers套件基于MindSpore内置的并行技术和组件化设�
 
 目前支持的模型列表如下：
 
-|                  模型                   |                                                              已支持任务（task name）                                                              |                           已支持模型（model name）                           |
-|:-------------------------------------:|:------------------------------------------------------------------------------------------------------------------------------------------:|:---------------------------------------------------------------------:|
-| [BERT](docs/model_cards/bert.md) |                                                          masked_language_modeling                                                          | [bert_base_uncased](configs/bert/model_config/bert_base_uncased.yaml) |
-|   [T5](docs/model_cards/t5.md)   |                                                                translation                                                                 |           [t5_small](configs/t5/model_config/t5_small.yaml)           |
-|  [MAE](docs/model_cards/mae.md)  |                                                           masked_image_modeling                                                            |  [mae_vit_base_p16](configs/mae/model_config/mae_vit_base_p16.yaml)   |
-|  [VIT](docs/model_cards/vit.md)  |                                                            image_classification                                                            |      [vit_base_p16](configs/vit/model_config/vit_base_p16.yaml)       |
-| [Swin](docs/model_cards/swin.md) |                                                            image_classification                                                            |    [swin_base_p4w7](configs/swin/model_config/swin_base_p4w7.yaml)    |
-| [CLIP](docs/model_cards/clip.md) | [contrastive_language_image_pretrain](docs/task_cards/contrastive_language_image_pretrain.md),<br/> [zero_shot_image_classification](docs/task_cards/zero_shot_image_classification.md) |     [clip_vit_b_32](configs/clip/model_config/clip_vit_b_32.yaml)     |
+|                  模型                   |                                                              已支持任务（task name）                                                              |                                                                                                                                 已支持模型（model name）                                                                                                                                 |
+|:-------------------------------------:|:------------------------------------------------------------------------------------------------------------------------------------------:|:---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:|
+| [BERT](docs/model_cards/bert.md) |                                                          masked_language_modeling                                                          |                                                                                                       [bert_base_uncased](configs/bert/model_config/bert_base_uncased.yaml)                                                                                                       |
+|   [T5](docs/model_cards/t5.md)   |                                                                translation                                                                 |                                                                                                                 [t5_small](configs/t5/model_config/t5_small.yaml)                                                                                                                 |
+|  [MAE](docs/model_cards/mae.md)  |                                                           masked_image_modeling                                                            |                                                                                                        [mae_vit_base_p16](configs/mae/model_config/mae_vit_base_p16.yaml)                                                                                                         |
+|  [VIT](docs/model_cards/vit.md)  |                                                            image_classification                                                            |                                                                                                            [vit_base_p16](configs/vit/model_config/vit_base_p16.yaml)                                                                                                             |
+| [Swin](docs/model_cards/swin.md) |                                                            image_classification                                                            |                                                                                                          [swin_base_p4w7](configs/swin/model_config/swin_base_p4w7.yaml)                                                                                                          |
+| [CLIP](docs/model_cards/clip.md) | [contrastive_language_image_pretrain](docs/task_cards/contrastive_language_image_pretrain.md),<br/> [zero_shot_image_classification](docs/task_cards/zero_shot_image_classification.md) | [clip_vit_b_32](configs/clip/model_config/clip_vit_b_32.yaml) <br/> [clip_vit_b_16](configs/clip/model_config/clip_vit_b_16.yaml) <br/> [clip_vit_l_14](configs/clip/model_config/clip_vit_l_14.yaml) <br/> [clip_vit_l_14@336](configs/clip/model_config/clip_vit_l_14@336.yaml) |
 
 ### 安装
 
@@ -49,9 +49,9 @@ sh build.sh
 
 #### 版本匹配关系
 
-|版本对应关系| MindFormers  | MindSpore |
-|-----------| -----------| ----------|
-|版本号      | 0.3.0      | 1.8.1 |
+|版本对应关系| MindFormers | MindSpore |
+|-----------|-------------| ----------|
+|版本号      | 0.3.0       | 1.8.1 |
 
 ### 快速使用
 

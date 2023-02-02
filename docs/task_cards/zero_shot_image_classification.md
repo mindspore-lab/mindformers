@@ -8,10 +8,9 @@
 
 ## 已支持数据集性能
 
-| model |     type      | Datasets | Top1-Accuracy |   stage    |                                     config                                     |
-|:-----:|:-------------:|:--------:|:-------------:|:----------:|:------------------------------------------------------------------------------:|
-| clip  | clip_vit_b_32 | Cifar100 |    57.24%     |    eval    |  [link](../../configs/clip/run_clip_vit_b_32_zero_shot_image_classification_cifar100.yaml)   |
-| clip  | clip_vit_b_32 | Cifar100 |       \       |  predict   | [link](../../configs/clip/run_clip_vit_b_32_zero_shot_image_classification_cifar100.yaml) |
+| model |                                   type                                   | datasets |                Top1-accuracy                 |      stage       |                                                                                          example                                                                                          |
+|:-----:|:------------------------------------------------------------------------:|:--------:|:--------------------------------------------:|:----------------:|:-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:|
+| clip  | clip_vit_b_32 <br/>clip_vit_b_16<br/>clip_vit_l_14<br/>clip_vit_l_14@336 | Cifar100 | 57.24% <br/> 61.41% <br/> 69.67%<br/> 68.19% | eval<br/>predict | [link](../../examples/zero_shot_image_classification/clip_vit_b_32_eval_on_cifar100.sh) <br/> [link](../../examples/zero_shot_image_classification/clip_vit_b_32_predict_on_cifar100.sh) |
 
 ### [Cifar100](http://www.cs.toronto.edu/~kriz/cifar-100-python.tar.gz)
 
@@ -49,7 +48,7 @@
   # 显示Trainer的模型支持列表
   MindFormerBook.show_trainer_support_model_list("zero_shot_image_classification")
   # INFO - Trainer support model list for zero_shot_image_classification task is:
-  # INFO -    ['clip_vit_b_32']
+  # INFO -    ['clip_vit_b_32', 'clip_vit_b_16', 'clip_vit_l_14', 'clip_vit_l_14@336']
   # INFO - -------------------------------------
 
   # 初始化trainer
@@ -74,7 +73,7 @@
   # 显示pipeline支持的模型列表
   MindFormerBook.show_pipeline_support_model_list("zero_shot_image_classification")
   # INFO - Pipeline support model list for zero_shot_image_classification task is:
-  # INFO -    ['clip_vit_b_32']
+  # INFO -    ['clip_vit_b_32', 'clip_vit_b_16', 'clip_vit_l_14', 'clip_vit_l_14@336']
   # INFO - -------------------------------------
 
   # pipeline初始化
