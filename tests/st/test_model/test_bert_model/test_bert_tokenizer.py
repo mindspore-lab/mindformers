@@ -98,3 +98,51 @@ class TestBertTokenizerMethod:
             tokenizer(["hello world", "today is a good day"], return_tensors='ms')
 
         tokenizer(["hello world", "today is a good day"], max_length=7, padding='max_length', return_tensors='ms')
+
+
+@pytest.mark.level0
+@pytest.mark.platform_x86_ascend_training
+@pytest.mark.platform_arm_ascend_training
+@pytest.mark.env_onecard
+class TestBertTokenizerForChineseMethod:
+    """A test class for testing the AutoTokenizer"""
+
+    def test_from_pretrained(self):
+        """
+        Feature: The BertTokenizer test using from python class
+        Description: Using call forward process of the tokenizer without error
+        Expectation: The returned ret is not equal to [[6, 7]].
+        """
+        tokenizer = BertTokenizer.from_pretrained('ner_bert_base_chinese_dense')
+        tokenizer.show_support_list()
+        res = tokenizer.tokenize("你好，世界！")
+
+        assert isinstance(tokenizer, BertTokenizer)
+        assert res == ['你', '好', '，', '世', '界', '！']
+
+        tokenizer = BertTokenizer.from_pretrained('ner_bert_base_chinese_dense_cluener')
+        tokenizer.show_support_list()
+        res = tokenizer.tokenize("你好，世界！")
+
+        assert isinstance(tokenizer, BertTokenizer)
+        assert res == ['你', '好', '，', '世', '界', '！']
+
+    def test_auto_tokenizer(self):
+        """
+        Feature: The BertTokenizer test using auto_class
+        Description: Using call forward process of the tokenizer without error
+        Expectation: The returned ret is not equal to [[6, 7]].
+        """
+        tokenizer = AutoTokenizer.from_pretrained('ner_bert_base_chinese_dense')
+        tokenizer.show_support_list()
+        res = tokenizer.tokenize("你好，世界！")
+
+        assert isinstance(tokenizer, BertTokenizer)
+        assert res == ['你', '好', '，', '世', '界', '！']
+
+        tokenizer = AutoTokenizer.from_pretrained('ner_bert_base_chinese_dense_cluener')
+        tokenizer.show_support_list()
+        res = tokenizer.tokenize("你好，世界！")
+
+        assert isinstance(tokenizer, BertTokenizer)
+        assert res == ['你', '好', '，', '世', '界', '！']

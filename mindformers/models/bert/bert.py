@@ -28,7 +28,59 @@ from mindformers.models.base_model import BaseModel
 from ...mindformer_book import MindFormerBook
 from .bert_config import BertConfig
 
-__all__ = ['BertConfig', 'BertModel']
+__all__ = ['BertConfig', 'BertModel', 'BertTokenClassification']
+
+@MindFormerRegister.register(MindFormerModuleType.MODELS)
+class BertTokenClassification(BaseModel):
+    """
+    Bert with dense layer for name entity recoginition task.
+
+    Args:
+        config (BertConfig): The config of BertModel.
+
+    Returns:
+        Tensor, loss, logits.
+    Examples:
+        >>> from mindformers import BertTokenClassification, BertTokenizer
+        >>> model = BertTokenClassification.from_pretrained('bert-ner_base_chinese_dense')
+        >>> tokenizer = BertTokenizer.from_pretrained('bert-ner_base_chinese_dense')
+        >>> data = tokenizer("我在杭州华为工作。")
+        >>> input_ids = data['input_ids']
+        >>> attention_mask = input_ids['attention_mask']
+        >>> token_type_ids = input_ids['token_type_ids']
+        >>> label_ids = input_ids['label_ids']
+        >>> output = model(input_ids, attention_mask, token_type_ids, label_ids)
+        >>> print(output)
+        [0.6706]
+    """
+
+    _support_list = MindFormerBook.get_model_support_list()['ner']['bert']
+
+    def __init__(self, config=BertConfig()):
+        super(BertTokenClassification, self).__init__(config)
+        self.num_labels = config.num_labels
+        self.bert = BertNetwork(config, config.is_training, config.use_one_hot_embeddings)
+        self.dropout = nn.Dropout(1 - config.hidden_dropout_prob)
+        self.classifier = nn.Dense(config.embedding_size, config.num_labels).to_float(config.compute_dtype)
+        self.cross_entropy_loss = nn.CrossEntropyLoss()
+        self.reshape = P.Reshape()
+        self.load_checkpoint(config)
+
+    def construct(self, input_ids, input_mask, token_type_ids, label_ids=None):
+        """Get Training Loss or Logits"""
+        bert_outputs = self.bert(input_ids=input_ids, input_mask=input_mask, token_type_ids=token_type_ids)
+        sequence_output = bert_outputs[0]
+        sequence_output = self.dropout(sequence_output)
+        logits = self.classifier(sequence_output)
+
+        if self.training:
+            logits = self.reshape(logits, (-1, self.num_labels))
+            label_ids = self.reshape(label_ids, (-1,))
+            output = self.cross_entropy_loss(logits, label_ids)
+        else:
+            output = logits
+        return output
+
 
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
 class BertModel(BaseModel):

@@ -16,7 +16,7 @@
 
 from .bert_tokenizer import BertTokenizer
 from .bert_config import BertConfig
-from .bert import BertModel
+from .bert import BertModel, BertTokenClassification
 from .bert_processor import BertProcessor
 
 __all__ = []
