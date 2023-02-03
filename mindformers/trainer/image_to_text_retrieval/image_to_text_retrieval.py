@@ -1,4 +1,4 @@
-# Copyright 2022 Huawei Technologies Co., Ltd
+# Copyright 2023 Huawei Technologies Co., Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
 """Image-to-text Retrieval Trainer."""
 from typing import List, Optional, Union
 
-import mindspore as ms
+import numpy as np
 from mindspore import dtype as mstype
 from mindspore.train.model import Model
 from mindspore.nn.wrap.loss_scale import DynamicLossScaleUpdateCell
@@ -33,9 +33,11 @@ from mindformers.trainer.utils import check_runner_config
 from mindformers.tools.logger import logger
 from mindformers.tools.utils import count_params
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
+from .eval_utils import get_metrics_ms
 from ..config_args import ConfigArguments
 from ..base_trainer import BaseTrainer
 from ..utils import check_runner_config
+
 
 
 @MindFormerRegister.register(MindFormerModuleType.TRAINER, alias="itr")
@@ -55,7 +57,7 @@ class ImageToTextRetrievalTrainer(BaseTrainer):
               callbacks: Optional[Union[Callback, List[Callback]]] = None,
               **kwargs):
         """
-        Train task for ImageToTextRetrievalTrainer Trainer.
+        Training task for ImageToTextRetrievalTrainer Trainer.
         """
         # check mindspore version
         # currently, filip only support training under mindspore2.0
@@ -147,3 +149,73 @@ class ImageToTextRetrievalTrainer(BaseTrainer):
             config.runner_config.epochs, dataset, callbacks=callbacks,
             dataset_sink_mode=config.runner_config.sink_mode,
             sink_size=config.runner_config.per_epoch_size)
+
+
+    def evaluate(self,
+                 config: Optional[Union[dict, ConfigArguments]] = None,
+                 network: Optional[Union[str, BaseModel]] = None,
+                 dataset: Optional[Union[str, BaseDataset]] = None,
+                 callbacks: Optional[Union[Callback, List[Callback]]] = None,
+                 **kwargs):
+        """
+        Evaluation task for ImageToTextRetrievalTrainer Trainer.
+        """
+        self.kwargs = kwargs
+        # build dataset
+        logger.info(".........Build Dataset..........")
+        check_dataset_config(config)
+        if dataset is None:
+            dataset = build_dataset(config.eval_dataset_task)
+        logger.info("Create eval dataset finish, dataset size:%d", dataset.get_dataset_size())
+
+        # build network
+        logger.info(".........Build Net..........")
+        if network is None:
+            network = build_model(config.model, default_args={
+                "parallel_config": config.parallel_config,
+                "moe_config": config.moe_config,
+                "is_training": False})
+
+        network = network.to_float(mstype.float16)
+
+        logger.info("Network Parameters: %s M.", str(count_params(network)))
+
+        # build callback
+        logger.info(".........Build Callbacks for Evaluate..........")
+        if callbacks is None:
+            callbacks = []
+            if config.profile:
+                callbacks.append(config.profile_cb)
+            callbacks.extend(build_callback(config.eval_callbacks))
+
+        logger.info(".........Starting Evaling Model..........")
+
+        image_feature_list = []
+        text_feature_list = []
+        for data in dataset:
+            image, text = data
+            image_feature_batch = network.get_image_feature(image)
+            image_feature_batch = image_feature_batch.asnumpy()
+            image_feature_batch = image_feature_batch / (
+                np.linalg.norm(image_feature_batch, axis=-1, keepdims=True) + 1e-6)
+            image_feature_list.append(image_feature_batch)
+            text_feature_batch = network.get_text_feature(text)
+            text_feature_batch = text_feature_batch.asnumpy()
+            text_feature_batch = text_feature_batch / (
+                np.linalg.norm(text_feature_batch, axis=-1, keepdims=True) + 1e-6)
+            text_feature_list.append(text_feature_batch)
+        image_feature = np.vstack(image_feature_list)
+        text_feature = np.vstack(text_feature_list)
+        metrics = get_metrics_ms(image_feature, text_feature)
+        img_acc1, img_acc5, img_acc10 = (metrics["image_to_text_R@1"],
+                                         metrics["image_to_text_R@5"],
+                                         metrics["image_to_text_R@10"])
+        txt_acc1, txt_acc5, txt_acc10 = (metrics["text_to_image_R@1"],
+                                         metrics["text_to_image_R@5"],
+                                         metrics["text_to_image_R@10"])
+        logger.info('img: acc1: {:.2f}%, acc5: {:.2f}%, acc10: {:.2f}%'
+                    .format(img_acc1.item() * 100, img_acc5.item() * 100, img_acc10.item() * 100))
+        logger.info('txt: acc1: {:.2f}%, acc5: {:.2f}%, acc10: {:.2f}%'
+                    .format(txt_acc1.item() * 100, txt_acc5.item() * 100, txt_acc10.item() * 100))
+
+        logger.info(".........Evaluate Over!.............")
