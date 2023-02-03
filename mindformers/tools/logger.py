@@ -429,4 +429,38 @@ def get_logger(logger_name: str = 'mindformers', **kwargs) -> logging.Logger:
     return mf_logger
 
 
+class _LogActionOnce:
+    """
+    A wrapper for modify the warning logging to an empty function. This is used when we want to only log
+    once to avoid the repeated logging.
+
+    Args:
+        logger (logging): The logger object.
+
+    """
+    is_logged = dict()
+
+    def __init__(self, m_logger, key, no_warning=False):
+        self.logger = m_logger
+        self.key = key
+        self.no_warning = no_warning
+
+    def __call__(self, func):
+        def wrapper(*args, **kwargs):
+            if not hasattr(self.logger, 'warning'):
+                return func(*args, **kwargs)
+
+            old_func = self.logger.warning
+            if self.no_warning or self.key in _LogActionOnce.is_logged:
+                self.logger.warning = lambda x: x
+            else:
+                _LogActionOnce.is_logged[self.key] = True
+            res = func(*args, **kwargs)
+            if hasattr(self.logger, 'warning'):
+                self.logger.warning = old_func
+            return res
+
+        return wrapper
+
+
 logger = get_logger()
