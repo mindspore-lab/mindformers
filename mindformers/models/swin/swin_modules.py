@@ -183,7 +183,7 @@ class PatchEmbed(BaseModel):
         self.grid_size = (img_size[0] // patch_size[0], img_size[1] // patch_size[1])
         self.num_patches = self.grid_size[0] * self.grid_size[1]
 
-        self.projection = nn.Conv2d(in_channels=config.in_channels,
+        self.projection = nn.Conv2d(in_channels=config.num_channels,
                                     out_channels=config.embed_dim,
                                     kernel_size=patch_size[0],
                                     stride=patch_size[0],
@@ -292,9 +292,8 @@ class SwinTransformerBlock(BaseModel):
                                     window_size=to_2tuple(self.window_size),
                                     num_heads=num_heads,
                                     qkv_bias=config.qkv_bias,
-                                    qk_scale=config.qk_scale,
-                                    attn_drop=config.attn_drop_rate,
-                                    proj_drop=config.drop_out_rate)
+                                    attn_drop=config.attention_probs_dropout_prob,
+                                    proj_drop=config.hidden_dropout_prob)
 
         self.drop_path = DropPath(drop_path, ndim=1, parallel_config=parallel_config) \
             if drop_path > 0. else Identity()
@@ -303,7 +302,7 @@ class SwinTransformerBlock(BaseModel):
 
         self.mlp = MLP(hidden_size=dim,
                        ffn_hidden_size=int(dim * config.mlp_ratio),
-                       dropout_rate=config.drop_out_rate,
+                       dropout_rate=config.hidden_dropout_prob,
                        weight_init=config.weight_init,
                        hidden_act=config.hidden_act,
                        parallel_config=parallel_config)
