@@ -1,0 +1,39 @@
+# runner config
+runner_config:
+  epochs: 15
+  batch_size: 64
+  image_size: 224
+  sink_mode: False
+  per_epoch_size: -1
+  initial_epoch: 0
+  has_trained_epoches: 0
+  has_trained_steps: 0
+
+runner_wrapper:
+  type: FilipTrainOneStepWithLossScaleWrapper
+
+# optimizer
+optimizer:
+  type: Lamb
+  eps: 0.000001
+  weight_decay: 0.0003
+
+no_decay_params: ['positional_embedding', 'class_embedding', 'scale', 'bias', 'ln', 'bn']
+
+# lr sechdule
+lr_schedule:
+  type: CosineDecayLR
+  max_lr: 0.00005
+  min_lr: 0.
+  decay_steps: 780
+
+callbacks:
+  - type: MFLossMonitor
+  - type: SummaryMonitor
+    keep_default_action: True
+  - type: CheckpointMointor
+    prefix: "mindformers"
+    save_checkpoint_steps: 100
+    integrated_save: True
+    async_save: False
+  - type: ObsMonitor
