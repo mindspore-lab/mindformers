@@ -18,7 +18,7 @@ from ...tools.register import MindFormerRegister, MindFormerModuleType
 
 
 __all__ = [
-    'RandomChoiceTokenizerForward', 'TokenizerForward'
+    'RandomChoiceTokenizerForward', 'TokenizerForward', 'TokenizeWithLabel', 'LabelPadding'
 ]
 
 
@@ -56,3 +56,52 @@ class TokenizerForward:
             text, max_length=self.max_length,
             padding=self.padding)["input_ids"]
         return token_id
+
+@MindFormerRegister.register(MindFormerModuleType.TRANSFORMS)
+class TokenizeWithLabel:
+    """Tokenizer With Label"""
+    def __init__(self, tokenizer, max_length=128, padding="max_length"):
+        self.tokenizer = tokenizer
+        self.max_length = max_length
+        self.padding = padding
+
+    def __call__(self, *inputs):
+        """call method"""
+        text = inputs[0]
+        label_id = inputs[1]
+        text = text.tolist() if isinstance(text, np.ndarray) else text
+        if isinstance(text, bytes):
+            text = text.decode("utf-8", "ignore")
+        output = self.tokenizer(text,
+                                max_length=self.max_length, padding=self.padding)
+
+        input_ids = np.array(output["input_ids"], dtype=np.int32)
+        token_type_ids = np.array(output["token_type_ids"], dtype=np.int32)
+        attention_mask = np.array(output["attention_mask"], dtype=np.int32)
+
+        return input_ids, token_type_ids, attention_mask, label_id
+
+@MindFormerRegister.register(MindFormerModuleType.TRANSFORMS)
+class LabelPadding:
+    """Label Padding"""
+    def __init__(self, max_length, padding_value=0):
+        self.max_length = max_length
+        self.padding_value = padding_value
+
+    def __call__(self, label_id):
+        """call method"""
+        if len(label_id) > self.max_length - 1:
+            label_id = label_id[:(self.max_length - 1)]
+
+        pad_label_id = []
+        # For CLS token
+        pad_label_id.append(self.padding_value)
+        for i in range(len(label_id)):
+            pad_label_id.append(label_id[i])
+
+        while len(pad_label_id) < self.max_length:
+            pad_label_id.append(self.padding_value)
+
+        pad_label_id = np.array(pad_label_id, dtype=np.int32)
+
+        return pad_label_id

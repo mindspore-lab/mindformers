@@ -21,7 +21,7 @@ model:
     use_relative_positions: False
     use_past: False
     compute_dtype: "float32"
-    checkpoint_name_or_path: "ner_bert_base_chinese_dense"
+    checkpoint_name_or_path: "ner_bert_base_chinese_cluener"
   arch:
     type: BertTokenClassification
 

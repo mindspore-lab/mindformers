@@ -218,5 +218,13 @@ imagenet_labels = [
     "earthstar", "hen-of-the-woods", "bolete", "ear", "toilet tissue",
 ]
 
+"""labels of cluener"""
+cluener_labels = ["O", "B-address", "B-book", "B-company", "B-game", "B-government",
+                  "B-movie", "B-name", "B-organization", "B-position", "B-scene",
+                  "I-address", "I-book", "I-company", "I-game", "I-government", "I-movie",
+                  "I-name", "I-organization", "I-position", "I-scene", "S-address", "S-book",
+                  "S-company", "S-game", "S-government", "S-movie", "S-name", "S-organization",
+                  "S-position", "S-scene"]
+
 # labels dict
-labels = {"imagenet": imagenet_labels}
+labels = {"imagenet": imagenet_labels, "cluener": cluener_labels}

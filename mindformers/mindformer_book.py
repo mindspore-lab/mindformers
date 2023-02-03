@@ -140,6 +140,12 @@ class MindFormerBook:
                 _PROJECT_PATH, "configs/txtcls/run_txtcls_bert_base_uncased.yaml")),
             ("common", os.path.join(
                 _PROJECT_PATH, "configs/txtcls/run_txtcls_bert_base_uncased.yaml"))])
+         ),
+        ("name_entity_recognition", OrderedDict([
+            ("ner_bert_base_chinese", os.path.join(
+                _PROJECT_PATH, "configs/ner/run_ner_bert_base_chinese.yaml")),
+            ("common", os.path.join(
+                _PROJECT_PATH, "configs/ner/run_ner_bert_base_chinese.yaml"))])
          )
     ])
 
@@ -201,8 +207,8 @@ class MindFormerBook:
             'bert_tiny_uncased',
         ]),
         ('ner', OrderedDict([
-            ('bert', ['ner_bert_base_chinese_dense',
-                      'ner_bert_base_chinese_dense_cluener'])
+            ('bert', ['ner_bert_base_chinese',
+                      'ner_bert_base_chinese_cluener'])
         ])),
         ('txtcls', OrderedDict([
             ('bert', ['txtcls_bert_base_uncased',
@@ -237,8 +243,8 @@ class MindFormerBook:
             'bert_tiny_uncased',
         ]),
         ('ner', OrderedDict([
-            ('bert', ['ner_bert_base_chinese_dense',
-                      'ner_bert_base_chinese_dense_cluener'])
+            ('bert', ['ner_bert_base_chinese',
+                      'ner_bert_base_chinese_cluener'])
         ])),
         ('txtcls', OrderedDict([
             ('bert', ['txtcls_bert_base_uncased',
@@ -286,8 +292,8 @@ class MindFormerBook:
             'bert_tiny_uncased',
         ]),
         ('ner', OrderedDict([
-            ('bert', ['ner_bert_base_chinese_dense',
-                      'ner_bert_base_chinese_dense_cluener'])
+            ('bert', ['ner_bert_base_chinese',
+                      'ner_bert_base_chinese_cluener'])
         ])),
         ('txtcls', OrderedDict([
             ('bert', ['txtcls_bert_base_uncased',
@@ -346,15 +352,15 @@ class MindFormerBook:
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
           '/XFormer_for_mindspore/bert/bert_base/bert_base_uncased.ckpt'
           ]),
-        ('ner_bert_base_chinese_dense',
+        ('ner_bert_base_chinese',
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
           '/XFormer_for_mindspore/bert/downstream_tasks/'
-          'name_entity_recognition/ner_bert_base_chinese_dense.ckpt'
+          'name_entity_recognition/ner_bert_base_chinese.ckpt'
           ]),
-        ('ner_bert_base_chinese_dense_cluener',
+        ('ner_bert_base_chinese_cluener',
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
           '/XFormer_for_mindspore/bert/downstream_tasks/name_entity_recognition/'
-          'ner_bert_base_chinese_dense_cluener.ckpt'
+          'ner_bert_base_chinese_cluener.ckpt'
           ]),
         ('txtcls_bert_base_uncased',
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
@@ -412,14 +418,14 @@ class MindFormerBook:
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
           '/XFormer_for_mindspore/bert/bert_base/bert_base_uncased.yaml'
           ]),
-        ('ner_bert_base_chinese_dense',
+        ('ner_bert_base_chinese',
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
-          '/XFormer_for_mindspore/bert/downstream_tasks/name_entity_recognition/ner_bert_base_chinese_dense.yaml'
+          '/XFormer_for_mindspore/bert/downstream_tasks/name_entity_recognition/ner_bert_base_chinese.yaml'
           ]),
-        ('ner_bert_base_chinese_dense_cluener',
+        ('ner_bert_base_chinese_cluener',
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
           '/XFormer_for_mindspore/bert/downstream_tasks/name_entity_recognition/'
-          'ner_bert_base_chinese_dense_cluener.yaml'
+          'ner_bert_base_chinese_cluener.yaml'
           ]),
         ('txtcls_bert_base_uncased',
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
@@ -467,11 +473,11 @@ class MindFormerBook:
             "https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/"
             "XFormer_for_mindspore/bert/vocab.txt"
         ]),
-        ('ner_bert_base_chinese_dense', [
+        ('ner_bert_base_chinese', [
             "https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/"
             "XFormer_for_mindspore/bert/bert_base_chinese/vocab.txt"
         ]),
-        ('ner_bert_base_chinese_dense_cluener', [
+        ('ner_bert_base_chinese_cluener', [
             "https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/"
             "XFormer_for_mindspore/bert/bert_base_chinese/vocab.txt"
         ]),
