@@ -21,8 +21,9 @@ import mindspore.ops.functional as F
 from mindspore import Tensor, Parameter
 from mindspore.common.initializer import TruncatedNormal, initializer
 from mindspore.ops import operations as P
-from mindspore.nn.transformer.layers import _LayerNorm
-from mindspore.nn.transformer.transformer import Transformer, VocabEmbedding, default_moe_config
+from mindformers.modules.layers import LayerNorm
+from mindformers.modules.transformer import Transformer, VocabEmbedding
+from mindformers.modules.transformer.moe import default_moe_config
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.models.base_model import BaseModel
 from ...mindformer_book import MindFormerBook
@@ -362,7 +363,7 @@ class EmbeddingPostprocessor(nn.Cell):
                                                                              dtype=mstype.float32),
                                                       parallel_config=config.parallel_config.embedding_dp_mp_config)
 
-        self.layernorm = _LayerNorm((embedding_size,)).to_float(mstype.float32)
+        self.layernorm = LayerNorm((embedding_size,)).to_float(mstype.float32)
         self.layernorm.shard(((config.parallel_config.data_parallel, 1, 1),))
         self.position_ids = Tensor(np.arange(seq).reshape(-1, seq).astype(np.int32))
         self.add = P.Add().shard(
@@ -562,7 +563,7 @@ class GetMaskedLMOutput(nn.Cell):
             self.dense.matmul.shard(((config.parallel_config.data_parallel, 1), (
                 1, config.parallel_config.model_parallel)))
 
-        self.layernorm = _LayerNorm((config.embedding_size,)).to_float(config.compute_dtype)
+        self.layernorm = LayerNorm((config.embedding_size,)).to_float(config.compute_dtype)
         self.layernorm.shard(((config.parallel_config.data_parallel, 1),))
         self.output_bias = Parameter(
             initializer(

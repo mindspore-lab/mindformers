@@ -26,6 +26,7 @@ from mindspore.common.parameter import Parameter
 from mindspore.common.initializer import initializer
 from mindspore import nn
 from mindspore import context
+import mindspore
 import mindspore.common.dtype as mstype
 from mindspore.ops import operations as P
 from mindspore.ops import functional as F
@@ -42,6 +43,7 @@ from mindformers.modules.transformer.op_parallel_config import default_dpmp_conf
 from mindformers.modules.transformer.moe import default_moe_config, MoE, _check_moe_config
 
 from mindformers.tools.logger import _LogActionOnce
+from mindformers.tools.utils import is_version_le
 
 __all__ = [
     "AttentionMask",
@@ -726,6 +728,8 @@ class VocabEmbedding(Cell):
         self.embedding_size = embedding_size
         self.embedding_table = Parameter(initializer(param_init, [self.vocab_size, self.embedding_size]),
                                          name='embedding_table', parallel_optimizer=False)
+
+        self.is_value_return_support = is_version_le(mindspore.__version__, '1.9.0')
         if parallel_config.vocab_emb_dp:
             self.gather = P.Gather().shard(((1, 1), (parallel_config.data_parallel, 1)))
             logger.info(f"Using {parallel_config.data_parallel} data parallel for the embedding lookup.")
@@ -740,7 +744,9 @@ class VocabEmbedding(Cell):
     def construct(self, input_ids):
         _check_input_dtype(F.dtype(input_ids), "input_ids", [mstype.int32], self.cls_name)
         output = self.gather(self.embedding_table, input_ids, 0)
-        return output, self.embedding_table.value()
+        if self.is_value_return_support:
+            return output, self.embedding_table.value()
+        return output, self.embedding_table
 
 
 class MultiHeadAttention(Cell):

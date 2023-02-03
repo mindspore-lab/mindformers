@@ -244,3 +244,19 @@ def try_sync_file(file_name):
     if fcntl:
         with open(file_name, 'r') as fp:
             fcntl.flock(fp.fileno(), fcntl.LOCK_EX)
+
+
+def is_version_le(current_version, base_version):
+    """
+        return current_version >= base_version.
+        Check whether the current version is higher than or equal to the base version.
+        For example: base_version: 0.1.2, current_version 0.3.1, will return True.
+    """
+    version_split_char = '.'
+    if version_split_char not in base_version or version_split_char not in current_version:
+        raise ValueError("The version string will contain the `.`."
+                         "For example, base_version: 0.1.2, current_version 0.3.1.")
+    for x, y in zip(current_version.split(version_split_char), base_version.split(version_split_char)):
+        if int(x) < int(y):
+            return False
+    return True

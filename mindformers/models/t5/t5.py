@@ -32,12 +32,13 @@ from mindspore.common.initializer import TruncatedNormal, initializer
 
 from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
 
-from mindspore.nn.transformer.layers import _Linear, _check_past_none_input_none, _check_input_dtype
-from mindspore.nn.transformer.moe import MoE, _check_moe_config
-from mindspore.nn.transformer.transformer import default_transformer_config, default_moe_config, default_dpmp_config, \
+from mindformers.modules.layers import Linear, _check_past_none_input_none, _check_input_dtype
+from mindformers.modules.transformer.moe import MoE, _check_moe_config
+from mindformers.modules.transformer.transformer import default_transformer_config, default_moe_config, \
+    default_dpmp_config, \
     EmbeddingOpParallelConfig, OpParallelConfig
-from mindspore.nn.transformer.loss import CrossEntropyLoss
-from mindspore.nn.transformer import VocabEmbedding
+from mindformers.common.loss import CrossEntropyLoss
+from mindformers.modules import VocabEmbedding
 
 from .t5_config import T5Config
 
@@ -53,6 +54,7 @@ class LayerNorm(nn.Cell):
     """
         T5 layer norm nn.Cell
     """
+
     def __init__(self, normalized_shape, eps=1e-5, param_init_type=mstype.float32):
         super(LayerNorm, self).__init__()
         if param_init_type not in [mstype.float32, mstype.float16]:
@@ -108,6 +110,7 @@ class T5FeedFoward(nn.Cell):
     """
         T5 feedfoward cell with relu as hidden act
     """
+
     def __init__(self, hidden_size,
                  ffn_hidden_size,
                  dropout_rate,
@@ -139,15 +142,15 @@ class T5FeedFoward(nn.Cell):
         output_size = ffn_hidden_size
 
         # Project to ffn_hidden_size
-        self.mapping = _Linear(in_channels=input_size,
-                               out_channels=output_size,
-                               activation=hidden_act,
-                               transpose_b=False,
-                               has_bias=False,
-                               expert_num=expert_num,
-                               expert_group_size=expert_group_size,
-                               outer_batch=dp,
-                               param_init_type=param_init_type)
+        self.mapping = Linear(in_channels=input_size,
+                              out_channels=output_size,
+                              activation=hidden_act,
+                              transpose_b=False,
+                              has_bias=False,
+                              expert_num=expert_num,
+                              expert_group_size=expert_group_size,
+                              outer_batch=dp,
+                              param_init_type=param_init_type)
 
         if expert_num > 1:
             self.mapping.shard(strategy_matmul=((dp, ep, 1, 1), (ep, 1, mp)),
@@ -157,15 +160,15 @@ class T5FeedFoward(nn.Cell):
             self.mapping.shard(strategy_matmul=((dp, 1), (1, mp)),
                                strategy_bias=((dp, mp), (mp,)),
                                strategy_activation=((dp, mp),))
-        # Project back to d_model
-        self.projection = _Linear(in_channels=output_size,
-                                  out_channels=input_size,
-                                  transpose_b=False,
-                                  expert_num=expert_num,
-                                  has_bias=False,
-                                  expert_group_size=expert_group_size,
-                                  outer_batch=dp,
-                                  param_init_type=param_init_type)
+        # Project back to hidden_size
+        self.projection = Linear(in_channels=output_size,
+                                 out_channels=input_size,
+                                 transpose_b=False,
+                                 expert_num=expert_num,
+                                 has_bias=False,
+                                 expert_group_size=expert_group_size,
+                                 outer_batch=dp,
+                                 param_init_type=param_init_type)
         if expert_num > 1:
             self.projection.shard(strategy_matmul=((dp, ep, 1, mp), (ep, mp, 1)),
                                   strategy_bias=((dp, ep, 1, 1), (1, ep, 1, 1)))
@@ -201,6 +204,7 @@ class RelaPosMatrixGenerator(nn.Cell):
     """
         The relative position index generator. The result of the cell should be feed into the bias embedding table.
     """
+
     def __init__(self, max_relative_position, log_relative_distance):
         super(RelaPosMatrixGenerator, self).__init__()
         self._max_relative_position = max_relative_position
@@ -238,6 +242,7 @@ class RelaPosMatrixGenerator(nn.Cell):
 
 class RelaPosEmbeddingsGenerator(nn.Cell):
     """The relative position embedding generator."""
+
     def __init__(self,
                  depth,
                  max_relative_position,
@@ -287,6 +292,7 @@ class T5MultiHeadAttention(nn.Cell):
     """
         T5 multi head attention
     """
+
     def __init__(self, batch_size,
                  src_seq_length,
                  tgt_seq_length,
@@ -335,12 +341,12 @@ class T5MultiHeadAttention(nn.Cell):
         self.is_first_iteration = True
         self.inner_dim = num_heads * kv_size
         # Output layer
-        self.projection = _Linear(in_channels=self.inner_dim,
-                                  out_channels=hidden_size,
-                                  transpose_b=False,
-                                  has_bias=False,
-                                  compute_dtype=compute_dtype,
-                                  param_init_type=param_init_type)
+        self.projection = Linear(in_channels=self.inner_dim,
+                                 out_channels=hidden_size,
+                                 transpose_b=False,
+                                 has_bias=False,
+                                 compute_dtype=compute_dtype,
+                                 param_init_type=param_init_type)
         self.projection.shard(strategy_bias=((parallel_config.data_parallel, 1), (1,)),
                               strategy_matmul=((parallel_config.data_parallel, parallel_config.model_parallel),
                                                (parallel_config.model_parallel, 1)))
@@ -383,30 +389,30 @@ class T5MultiHeadAttention(nn.Cell):
         self.expand_dims = P.ExpandDims().shard(((parallel_config.data_parallel, 1, 1),))
 
         # Query
-        self.dense1 = _Linear(hidden_size,
-                              self.inner_dim,
-                              has_bias=False,
-                              compute_dtype=compute_dtype,
-                              param_init_type=param_init_type)
+        self.dense1 = Linear(hidden_size,
+                             self.inner_dim,
+                             has_bias=False,
+                             compute_dtype=compute_dtype,
+                             param_init_type=param_init_type)
         self.dense1.shard(strategy_matmul=((parallel_config.data_parallel, 1), (parallel_config.model_parallel, 1)),
                           strategy_bias=((parallel_config.data_parallel, parallel_config.model_parallel),
                                          (parallel_config.model_parallel,)))
         # Key
-        self.dense2 = _Linear(hidden_size,
-                              self.inner_dim,
-                              has_bias=False,
-                              compute_dtype=compute_dtype,
-                              param_init_type=param_init_type)
+        self.dense2 = Linear(hidden_size,
+                             self.inner_dim,
+                             has_bias=False,
+                             compute_dtype=compute_dtype,
+                             param_init_type=param_init_type)
         self.dense2.shard(strategy_matmul=((parallel_config.data_parallel, 1), (parallel_config.model_parallel, 1)),
                           strategy_bias=((parallel_config.data_parallel, parallel_config.model_parallel),
                                          (parallel_config.model_parallel,)))
 
         # Value
-        self.dense3 = _Linear(hidden_size,
-                              self.inner_dim,
-                              has_bias=False,
-                              compute_dtype=compute_dtype,
-                              param_init_type=param_init_type)
+        self.dense3 = Linear(hidden_size,
+                             self.inner_dim,
+                             has_bias=False,
+                             compute_dtype=compute_dtype,
+                             param_init_type=param_init_type)
         self.dense3.shard(strategy_matmul=((parallel_config.data_parallel, 1), (parallel_config.model_parallel, 1)),
                           strategy_bias=((parallel_config.data_parallel, parallel_config.model_parallel),
                                          (parallel_config.model_parallel,)))
@@ -662,6 +668,7 @@ class TransformerEncoderLayer(nn.Cell):
     """
         Transformer Encoder Layer
     """
+
     def __init__(self,
                  batch_size,
                  hidden_size,
@@ -867,6 +874,7 @@ class TransformerDecoderLayer(nn.Cell):
     """
         The Transformer Decoder Layer
     """
+
     def __init__(self, hidden_size,
                  ffn_hidden_size,
                  num_heads,
@@ -1169,6 +1177,7 @@ def _get_lambda_func(total_layer=None):
 
 class TransformerEncoder(nn.Cell):
     """The TransformerEncoder Cell"""
+
     def __init__(self,
                  batch_size,
                  num_layers,
@@ -1264,6 +1273,7 @@ class TransformerEncoder(nn.Cell):
 
 class TransformerDecoder(nn.Cell):
     """The TransformerDecoder cell"""
+
     def __init__(self,
                  num_layers,
                  batch_size,
@@ -1585,7 +1595,6 @@ class T5Model(BaseModel):
         self.encoder_layernorm.shard(((config.parallel_config.data_parallel, 1),))
         self.decoder_layernorm.shard(((config.parallel_config.data_parallel, 1),))
         self._create_attention_mask_from_input_mask = CreateAttentionMaskFromInputMask(config.parallel_config)
-
 
     def construct(self,
                   source_ids=None,

@@ -29,12 +29,14 @@ import os
 
 import pytest
 
+import mindspore.common.dtype as mstype
+
 from mindformers import MindFormerBook, AutoConfig
 from mindformers.models import MaeConfig, BaseConfig
 from mindformers.tools import logger
-from mindspore.nn.transformer.transformer import TransformerOpParallelConfig, TransformerRecomputeConfig
-import mindspore.common.dtype as mstype
-from mindspore.nn.transformer.moe import default_moe_config
+from mindformers.modules.transformer import TransformerOpParallelConfig, TransformerRecomputeConfig
+from mindformers.modules.transformer.moe import default_moe_config
+
 
 default_recompute_config = TransformerRecomputeConfig()
 default_parallel_config = TransformerOpParallelConfig(recompute=default_recompute_config)

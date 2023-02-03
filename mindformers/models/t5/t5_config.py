@@ -14,7 +14,7 @@
 # ============================================================================
 """T5 Configuration"""
 import mindspore.common.dtype as mstype
-from mindspore.nn.transformer.transformer import default_transformer_config, TransformerOpParallelConfig
+from mindformers.modules.transformer.transformer import default_transformer_config, TransformerOpParallelConfig
 from ..base_config import BaseConfig
 from ...tools.register import MindFormerRegister, MindFormerModuleType
 from ...mindformer_book import MindFormerBook

@@ -26,9 +26,9 @@ import mindspore.nn as nn
 import mindspore.ops as ops
 from mindspore import Parameter, Tensor
 from mindspore.ops.primitive import constexpr
-from mindspore.parallel.nn.transformer import Transformer
 from mindspore.common.initializer import TruncatedNormal, initializer
-from mindspore.nn.transformer import TransformerOpParallelConfig, TransformerRecomputeConfig
+from mindformers.modules.transformer import Transformer
+from mindformers.modules import TransformerOpParallelConfig, TransformerRecomputeConfig
 
 
 class QuickGELU(nn.Cell):

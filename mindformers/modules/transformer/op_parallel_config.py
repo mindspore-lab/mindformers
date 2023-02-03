@@ -104,7 +104,7 @@ class OpParallelConfig(_Config):
             ``Ascend`` ``GPU``
 
         Examples:
-            >>> from mindspore.nn.transformer import OpParallelConfig
+            >>> from mindformers.modules import OpParallelConfig
             >>> config=OpParallelConfig(data_parallel=1, model_parallel=1)
     """
 
