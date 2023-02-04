@@ -2,31 +2,34 @@ model:
   arch:
     type: T5ForConditionalGeneration
   model_config:
-    attention_probs_dropout_prob: 0.1
-    beam_width: 4
+    batch_size: 1
+    d_ff: 2048
+    d_model: 512
     do_sample: false
     eos_token_id: 1
     has_relative_bias: true
     hidden_act: relu
     hidden_dropout_prob: 0.1
-    hidden_size: 512
-    kv_size: 64
+    initializer_factor: 1.0
     initializer_range: 0.02
-    intermediate_size: 2048
     is_encoder_decoder: true
-    label_smoothing: 0.1
+    kv_size: 64
+    layer_norm_epsilon: 1.0e-06
     length_penalty_weight: 1.0
     max_decode_length: 128
     max_length: 32
     max_position_embeddings: 1024
     num_heads: 8
     num_hidden_layers: 6
+    pad_token_id: 0
+    relative_attention_num_buckets: 32
     repetition_penalty: 1
     scale_output: true
     seq_length: 1024
     top_k: 1
     top_p: 0.95
     type: T5Config
+    use_cache: true
     vocab_size: 32128
     checkpoint_name_or_path: t5_small
 

@@ -211,9 +211,9 @@ class GeneratorMixin:
                 logger.debug("validate length: %s", valid_length_each_example)
                 logits = self.construct(input_ids=None,
                                         attention_mask=encoder_mask,
-                                        encoder_output=encoder_output,
-                                        decoder_inputs=inputs,
-                                        target_mask=Tensor(target_mask, mstype.float32))
+                                        encoder_outputs=encoder_output,
+                                        decoder_input_ids=inputs,
+                                        decoder_attention_mask=Tensor(target_mask, mstype.float32))
 
                 log_probs = self.process_logits(logits, current_index)
 
