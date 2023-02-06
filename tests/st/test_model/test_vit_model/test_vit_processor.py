@@ -44,7 +44,7 @@ def test_vit_processor():
     """
     yaml_path = os.path.join(MindFormerBook.get_project_path(), "configs",
                              "vit", "model_config", "vit_base_p16.yaml")
-    img_processor = VitImageProcessor(image_resolution=224)
+    img_processor = VitImageProcessor(size=224)
     save_directory = os.path.join(MindFormerBook.get_default_checkpoint_save_folder(),
                                   'vit')
 

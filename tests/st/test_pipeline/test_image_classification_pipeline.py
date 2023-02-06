@@ -40,7 +40,7 @@ def test_image_classification_pipeline():
     Description: Test the pipeline functions
     Expectation: NotImplementedError, ValueError
     """
-    processor = VitImageProcessor(image_resolution=224)
+    processor = VitImageProcessor(size=224)
     classifier = ImageClassificationPipeline(
         model='vit_base_p16',
         image_processor=processor,

@@ -222,29 +222,23 @@ class Dropout(nn.transformer.layers._Dropout):
 class DropPath(nn.Cell):
     """Drop paths (Stochastic Depth) per sample  (when applied in main path of residual blocks)."""
 
-    def __init__(self, drop_prob, ndim=1, parallel_config=None):
-        # pylint: disable=W0613
+    def __init__(self, drop_prob):
         super(DropPath, self).__init__()
-        if parallel_config:
-            dp = parallel_config.data_parallel
-        else:
-            dp = 1
         self.drop = Dropout(keep_prob=1 - drop_prob)
-        self.drop.shard(((1, 1, 1),))
-        shape = (1,) + (1,) * (ndim + 1)
-        self.ndim = ndim
-        self.mask = Tensor(np.ones(shape), dtype=mstype.float32)
-        self.tile = P.Tile().shard(((1, 1, 1),))
-        self.mul = P.Mul().shard(((dp, 1, 1),))
+        self.mask = Tensor(np.ones(1,), dtype=mstype.float32)
+        self.tile = P.Tile()
+        self.mul = P.Mul()
 
     def construct(self, x):
         if not self.training:
             return x
-        shape = gen_shape(x.shape[0], self.ndim)
-        mask = self.tile(self.mask, shape)
+        mask = self.tile(self.mask, (x.shape[0],) + (1,) * (x.ndim-1))
         out = self.drop(mask)
         out = self.mul(out, x)
         return out
+
+    def shard(self, strategy):
+        self.mul.shard(strategy)
 
 
 class Block(nn.transformer.transformer.TransformerEncoderLayer):
@@ -258,6 +252,8 @@ class Block(nn.transformer.transformer.TransformerEncoderLayer):
                  drop_rate=0.,
                  attention_dropout_rate=0.,
                  hidden_dropout_rate=0.,
+                 layer_norm_eps=1e-6,
+                 qkv_bias=True,
                  window_size=None,
                  post_layernorm_residual=False,
                  init_values=None,
@@ -297,12 +293,10 @@ class Block(nn.transformer.transformer.TransformerEncoderLayer):
         self.key_past = None
         self.value_past = None
 
-        self.layernorm1 = LayerNorm((hidden_size,)).to_float(layernorm_compute_type)
+        self.layernorm1 = LayerNorm((hidden_size,), eps=layer_norm_eps).to_float(layernorm_compute_type)
         self.layernorm1.shard(((parallel_config.data_parallel, 1),))
-        self.layernorm1.update_parameters_name("norm1.")
-        self.layernorm2 = LayerNorm((hidden_size,)).to_float(layernorm_compute_type)
+        self.layernorm2 = LayerNorm((hidden_size,), eps=layer_norm_eps).to_float(layernorm_compute_type)
         self.layernorm2.shard(((parallel_config.data_parallel, 1),))
-        self.layernorm2.update_parameters_name("norm2.")
         parallel_config_args = parallel_config.dpmp if self.use_moe else parallel_config
         self.attention = Attention(src_seq_length=seq_length,
                                    tgt_seq_length=seq_length,
@@ -312,10 +306,10 @@ class Block(nn.transformer.transformer.TransformerEncoderLayer):
                                    weight_init=weight_init,
                                    hidden_dropout_rate=hidden_dropout_rate,
                                    attention_dropout_rate=attention_dropout_rate,
+                                   qkv_bias=qkv_bias,
                                    softmax_compute_type=softmax_compute_type,
                                    param_init_type=param_init_type,
                                    parallel_config=parallel_config_args)
-        self.attention.update_parameters_name("attn.")
         self.output = MLP(hidden_size=hidden_size,
                           dropout_rate=drop_rate,
                           ffn_hidden_size=ffn_hidden_size,
@@ -324,7 +318,6 @@ class Block(nn.transformer.transformer.TransformerEncoderLayer):
                           hidden_act=hidden_act,
                           use_dropout=False,
                           parallel_config=parallel_config)
-        self.output.update_parameters_name("mlp.")
         if init_values is not None:
             self.gamma_1 = Parameter(
                 Tensor(init_values * np.ones((hidden_size,)), mstype.float32),
@@ -336,9 +329,9 @@ class Block(nn.transformer.transformer.TransformerEncoderLayer):
             self.gamma_1, self.gamma_2 = None, None
 
         self.mul_gamma = P.Mul().shard(((parallel_config.data_parallel, 1), (1,)))
-        self.drop_path = Dropout(1 - hidden_dropout_rate)
+        self.drop_path = DropPath(hidden_dropout_rate)
         self.drop_path.shard(((parallel_config.data_parallel, 1),))
-        self.drop_path3d = Dropout(1 - hidden_dropout_rate)
+        self.drop_path3d = DropPath(hidden_dropout_rate)
         self.drop_path3d.shard(((parallel_config.data_parallel, 1, 1),))
         self.mul = P.Mul().shard(((parallel_config.data_parallel, 1, 1), (parallel_config.data_parallel, 1, 1)))
         self.reshape = P.Reshape()
@@ -356,7 +349,12 @@ class Block(nn.transformer.transformer.TransformerEncoderLayer):
         if self.gamma_1 is not None:
             attention = self.mul_gamma(attention, self.gamma_1)
 
-        attention = self.drop_path(attention)
+        if len(x_shape) == 3:
+            attention = P.Reshape()(attention, x_shape)
+            attention = self.drop_path3d(attention)
+            attention = P.Reshape()(attention, (-1, x_shape[-1]))
+        else:
+            attention = self.drop_path(attention)
 
         # For post-layernorm the inputs for residual path are output of self-attention and output of layernorm
         if self.post_layernorm_residual:
@@ -373,19 +371,19 @@ class Block(nn.transformer.transformer.TransformerEncoderLayer):
         if self.gamma_2 is not None:
             mlp_logit = self.mul_gamma(mlp_logit, self.gamma_2)
 
-        mlp_logit = self.drop_path(mlp_logit)
-
         # if shape is 3d, we reshape the inputs of the add
         if len(x_shape) == 3:
             output_x = P.Reshape()(output_x, x_shape)
             mlp_logit = P.Reshape()(mlp_logit, x_shape)
             x = P.Reshape()(x, x_shape)
 
+            mlp_logit = self.drop_path3d(mlp_logit)
             if self.post_layernorm_residual:
                 output = self.add_3d(output_x, mlp_logit)
             else:
                 output = self.add_3d(x, mlp_logit)
         else:
+            mlp_logit = self.drop_path(mlp_logit)
             if self.post_layernorm_residual:
                 output = self.add(output_x, mlp_logit)
             else:
@@ -432,7 +430,6 @@ class MLP(nn.transformer.transformer.FeedForward):
         self.mapping.shard(strategy_matmul=((dp, 1), (1, mp)),
                            strategy_bias=((dp, mp), (mp,)),
                            strategy_activation=((dp, mp),))
-        self.mapping.update_parameters_name("fc1.")
         # Project back to hidden_size
         self.projection = Linear(in_channels=ffn_hidden_size,
                                  out_channels=out_features,
@@ -443,7 +440,6 @@ class MLP(nn.transformer.transformer.FeedForward):
         self.projection.shard(strategy_matmul=((dp, mp), (mp, 1)),
                               strategy_bias=((dp, 1), (1,)))
         self.projection.bias.parallel_optimizer = False
-        self.projection.update_parameters_name("fc2.")
         self.dropout = Dropout(1 - dropout_rate)
         self.dropout.shard(((dp, 1),))
         self.dropout_3d = Dropout(1 - dropout_rate)
@@ -486,6 +482,7 @@ class Attention(nn.transformer.transformer.MultiHeadAttention):
                  window_size=None,
                  hidden_dropout_rate=0.,
                  attention_dropout_rate=0.,
+                 qkv_bias=True,
                  weight_init='XavierUniform',
                  compute_dtype=mstype.float16,
                  softmax_compute_type=mstype.float32,
@@ -555,7 +552,6 @@ class Attention(nn.transformer.transformer.MultiHeadAttention):
                               strategy_matmul=((parallel_config.data_parallel, parallel_config.model_parallel),
                                                (parallel_config.model_parallel, 1)))
         self.projection.bias.parallel_optimizer = False
-        self.projection.update_parameters_name("proj.")
 
         self.dropout = Dropout(1 - hidden_dropout_rate)
         self.dropout.shard(((parallel_config.data_parallel, 1),))
@@ -566,6 +562,7 @@ class Attention(nn.transformer.transformer.MultiHeadAttention):
         # Query
         self.dense1 = Linear(hidden_size,
                              hidden_size,
+                             has_bias=qkv_bias,
                              weight_init=weight_init,
                              param_init_type=param_init_type).to_float(compute_dtype)
         self.dense1.shard(strategy_matmul=((parallel_config.data_parallel, 1), (parallel_config.model_parallel, 1)),
@@ -574,6 +571,7 @@ class Attention(nn.transformer.transformer.MultiHeadAttention):
         # Key
         self.dense2 = Linear(hidden_size,
                              hidden_size,
+                             has_bias=qkv_bias,
                              weight_init=weight_init,
                              param_init_type=param_init_type).to_float(compute_dtype)
         self.dense2.shard(strategy_matmul=((parallel_config.data_parallel, 1), (parallel_config.model_parallel, 1)),
@@ -583,6 +581,7 @@ class Attention(nn.transformer.transformer.MultiHeadAttention):
         # Value
         self.dense3 = Linear(hidden_size,
                              hidden_size,
+                             has_bias=qkv_bias,
                              weight_init=weight_init,
                              param_init_type=param_init_type).to_float(compute_dtype)
         self.dense3.shard(strategy_matmul=((parallel_config.data_parallel, 1), (parallel_config.model_parallel, 1)),

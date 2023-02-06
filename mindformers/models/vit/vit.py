@@ -51,7 +51,7 @@ class VitModel(BaseModel):
 
     def __init__(self, config=None):
         config = config if config else VitConfig()
-        super(VitModel, self).__init__(config)
+        super().__init__(config)
         self.use_moe = (config.moe_config.expert_num > 1)
         parallel_config = config.parallel_config
         dp = parallel_config.data_parallel
@@ -60,25 +60,28 @@ class VitModel(BaseModel):
                                       in_features=config.in_chans, out_features=config.embed_dim,
                                       parallel_config=parallel_config)
         self.cls_tokens = Parameter(
-            weight_init.initializer(weight_init.Normal(sigma=.02), (1, 1, config.embed_dim)), requires_grad=True)
+            weight_init.initializer(weight_init.TruncatedNormal(sigma=config.initializer_range),
+                                    (1, 1, config.embed_dim)), requires_grad=True)
         num_patches = self.patch_embed.num_patches
         seq_length = num_patches + 1
         self.seq_length = seq_length
         self.num_patches = num_patches
         self.num_masked = num_patches - seq_length + 1
         self.pos_embed = Parameter(
-            weight_init.initializer(weight_init.TruncatedNormal(sigma=.02), (1, seq_length, config.embed_dim)),
-            requires_grad=True)
+            weight_init.initializer(weight_init.TruncatedNormal(sigma=config.initializer_range),
+                                    (1, seq_length, config.embed_dim)), requires_grad=True)
         # stochastic depth decay rule
         hdr = [x.item() for x in np.linspace(0, config.drop_path_rate, config.depth)]
         parallel_config_args = parallel_config.moe_parallel_config if self.use_moe else parallel_config.dp_mp_config
         self.blocks = nn.CellList([
             Block(hidden_size=config.embed_dim,
-                  ffn_hidden_size=int(config.embed_dim * config.mlp_ratio),
+                  ffn_hidden_size=config.intermediate_size,
                   seq_length=seq_length,
                   drop_rate=config.drop_rate,
                   attention_dropout_rate=config.attention_dropout_rate,
                   hidden_dropout_rate=hdr[i],
+                  layer_norm_eps=config.layer_norm_eps,
+                  qkv_bias=config.qkv_bias,
                   init_values=config.init_values,
                   weight_init='XavierUniform',
                   layernorm_compute_type=config.layernorm_compute_type,
@@ -136,9 +139,10 @@ class VitModel(BaseModel):
         for name, cell in self.cells_and_names():
 
             if isinstance(cell, Linear):
-                cell.weight.set_data(weight_init.initializer(weight_init.XavierUniform(),
-                                                             cell.weight.shape,
-                                                             cell.weight.dtype))
+                cell.weight.set_data(weight_init.initializer(
+                    weight_init.TruncatedNormal(sigma=self.config.initializer_range),
+                    cell.weight.shape,
+                    cell.weight.dtype))
                 if isinstance(cell, Linear) and cell.bias is not None:
                     cell.bias.set_data(weight_init.initializer(weight_init.Zero(),
                                                                cell.bias.shape,
@@ -150,7 +154,7 @@ class VitModel(BaseModel):
                 cell.beta.set_data(weight_init.initializer(weight_init.Zero(),
                                                            cell.beta.shape,
                                                            cell.beta.dtype))
-            if name == "patch_embed.projection":
+            if name == "patch_embed.proj":
                 cell.weight.set_data(weight_init.initializer(weight_init.XavierUniform(),
                                                              cell.weight.shape,
                                                              cell.weight.dtype))

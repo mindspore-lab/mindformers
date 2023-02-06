@@ -66,7 +66,8 @@ class MaeModel(BaseModel):
         self.seq_length = seq_length
         self.num_masked = num_patches - seq_length + 1
         self.cls_tokens = Parameter(
-            weight_init.initializer(weight_init.Normal(sigma=.02), (1, 1, config.embed_dim)), requires_grad=True)
+            weight_init.initializer(weight_init.Normal(sigma=config.initializer_range), (1, 1, config.embed_dim)),
+            requires_grad=True)
         self.num_patches = num_patches
         self.pos_embed = Parameter(
             weight_init.initializer(weight_init.Zero(), (1, num_patches + 1, config.embed_dim)),
@@ -76,11 +77,13 @@ class MaeModel(BaseModel):
         parallel_config_args = parallel_config.moe_parallel_config if self.use_moe else parallel_config.dp_mp_config
         self.blocks = nn.CellList([
             Block(hidden_size=config.embed_dim,
-                  ffn_hidden_size=int(config.embed_dim * config.mlp_ratio),
+                  ffn_hidden_size=config.intermediate_size,
                   seq_length=seq_length,
                   drop_rate=config.drop_rate,
                   attention_dropout_rate=config.attention_dropout_rate,
                   hidden_dropout_rate=hdr[i],
+                  layer_norm_eps=config.layer_norm_eps,
+                  qkv_bias=config.qkv_bias,
                   init_values=config.init_values,
                   weight_init='XavierUniform',
                   layernorm_compute_type=config.layernorm_compute_type,
@@ -93,7 +96,7 @@ class MaeModel(BaseModel):
                   param_init_type=config.param_init_type,
                   parallel_config=parallel_config_args)
             for i in range(config.depth)])
-        self.norm = LayerNorm((config.embed_dim,), eps=1e-6).shard(((dp, 1, 1),))
+        self.norm = LayerNorm((config.embed_dim,), eps=config.layer_norm_eps).shard(((dp, 1, 1),))
         # --------------------------------------------------------------------------
 
         # --------------------------------------------------------------------------
@@ -103,7 +106,8 @@ class MaeModel(BaseModel):
             compute_dtype=mstype.float16).to_float(mstype.float16)
         self.decoder_embed.shard(strategy_matmul=((dp, 1), (mp, 1)), strategy_bias=((dp, mp), (mp,)))
         self.mask_tokens = Parameter(
-            weight_init.initializer(weight_init.Normal(sigma=.02), (1, 1, config.decoder_embed_dim)),
+            weight_init.initializer(weight_init.Normal(sigma=config.initializer_range),
+                                    (1, 1, config.decoder_embed_dim)),
             name='mask_tokens', requires_grad=True)
         self.decoder_pos_embed = Parameter(
             weight_init.initializer(weight_init.Zero(), (1, num_patches + 1, config.decoder_embed_dim)),
@@ -111,11 +115,13 @@ class MaeModel(BaseModel):
         hdr = [x.item() for x in np.linspace(0, config.drop_path_rate, config.decoder_depth)]
         self.decoder_blocks = nn.CellList([
             Block(hidden_size=config.decoder_embed_dim,
-                  ffn_hidden_size=int(config.decoder_embed_dim * config.mlp_ratio),
+                  ffn_hidden_size=config.decoder_intermediate_size,
                   seq_length=num_patches + 1,
                   drop_rate=config.drop_rate,
                   attention_dropout_rate=config.attention_dropout_rate,
+                  layer_norm_eps=config.layer_norm_eps,
                   hidden_dropout_rate=hdr[i],
+                  qkv_bias=config.qkv_bias,
                   init_values=config.init_values,
                   weight_init='XavierUniform',
                   layernorm_compute_type=config.layernorm_compute_type,
@@ -127,7 +133,7 @@ class MaeModel(BaseModel):
                   param_init_type=config.param_init_type,
                   parallel_config=parallel_config.dp_mp_config)
             for i in range(config.decoder_depth)])
-        self.decoder_norm = LayerNorm((config.decoder_embed_dim,), eps=1e-6).shard(((dp, 1, 1),))
+        self.decoder_norm = LayerNorm((config.decoder_embed_dim,), eps=config.layer_norm_eps).shard(((dp, 1, 1),))
         patch_dim = config.in_chans * config.patch_size ** 2
         self.decoder_pred = Linear(
             config.decoder_embed_dim, patch_dim, weight_init="xavier_uniform",
@@ -158,7 +164,7 @@ class MaeModel(BaseModel):
     def init_pos_emd(self):
         """init values of pos_embed"""
         encoder_pos_emd = Tensor(
-            get_2d_sincos_pos_embed(self.pos_embed.shape[-1],  # pylint: disable=E0203
+            get_2d_sincos_pos_embed(self.pos_embed.shape[-1],
                                     int(self.num_patches ** .5),
                                     cls_token=True),
             mstype.float32
@@ -192,7 +198,7 @@ class MaeModel(BaseModel):
                 cell.beta.set_data(weight_init.initializer(weight_init.Zero(),
                                                            cell.beta.shape,
                                                            cell.beta.dtype))
-            if name == "patch_embed.projection":
+            if name == "patch_embed.proj":
                 cell.weight.set_data(weight_init.initializer(weight_init.XavierUniform(),
                                                              cell.weight.shape,
                                                              cell.weight.dtype))
@@ -274,14 +280,14 @@ class MaeModel(BaseModel):
 
         return pred
 
-    def construct(self, imgs, mask, ids_restore, unmask_index):
+    def construct(self, image, mask, ids_restore, unmask_index):
         """construct of VisionTransformerForMae"""
-        self.images_summary("input images", imgs)
+        self.images_summary("input images", image)
 
         # tokens encoder
         mask = self.gather1(mask, 1, ids_restore)
-        encoded_token = self.construct_encoder(imgs, unmask_index)
-        patches = self.patchify(imgs)
+        encoded_token = self.construct_encoder(image, unmask_index)
+        patches = self.patchify(image)
         pred = self.construct_decoder(encoded_token, ids_restore)
 
         reconstruct_images = self.unpatchify(pred)

@@ -37,12 +37,10 @@ class VitImageProcessor(BaseImageProcessor):
         image_resolution (int): the target size.
     """
 
-    def __init__(self, image_resolution=224):
-        super(VitImageProcessor, self).__init__(
-            image_resolution=image_resolution
-        )
+    def __init__(self, size=224):
+        super().__init__(image_resolution=size)
         self.resize = Resize(256, interpolation='cubic')
-        self.center_crop = CenterCrop(image_resolution)
+        self.center_crop = CenterCrop(size)
         self.to_tensor = ToTensor()
         self.rescale = Rescale(1.0 / 255.0, 0.0)
         self.normalize = Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225], is_hwc=False)
@@ -124,7 +122,7 @@ class VitProcessor(BaseProcessor):
     _support_list = MindFormerBook.get_processor_support_list()['vit']
 
     def __init__(self, image_processor=None, return_tensors='ms'):
-        super(VitProcessor, self).__init__(
+        super().__init__(
             image_processor=image_processor,
             return_tensors=return_tensors
         )
