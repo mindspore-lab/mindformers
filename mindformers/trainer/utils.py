@@ -1,4 +1,4 @@
-# Copyright 2022 Huawei Technologies Co., Ltd
+# Copyright 2023 Huawei Technologies Co., Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,11 +14,74 @@
 # ============================================================================
 """Trainer Utils."""
 import os
+from enum import Enum
 
 from mindspore import context, load_checkpoint, load_param_into_net
 
 from mindformers.tools.logger import logger
 from mindformers.tools.register import MindFormerConfig
+
+
+class BaseEnum(str, Enum):
+    """
+    Base Enum for MindFormers.
+    """
+
+    @classmethod
+    def _missing_(cls, value):
+        """Enum with more explicit error message for missing values."""
+        raise ValueError(
+            f"{value} is not a valid {cls.__name__}, please select one of {list(cls._value2member_map_.keys())}"
+        )
+
+
+class SaveIntervalStrategy(BaseEnum):
+    """
+    Stores the acceptable string identifiers for save checkpoint monitor.
+    """
+    NO = "no"
+    STEPS = "steps"
+    SECONDS = "seconds"
+
+
+class LRType(BaseEnum):
+    """
+    Stores the acceptable string identifiers for learning rate schedule.
+    """
+    # supported item for test, will be delete in the future.
+    WARMUPCOSINEV1 = "WarmUpCosineDecayV1"
+
+    # will be support item for future.
+    LINEAR = "linear"
+    COSINE = "cosine"
+    COSINE_WITH_RESTARTS = "cosine_with_restarts"
+    POLYNOMIAL = "polynomial"
+    CONSTANT_WITH_WARMUP = "constant_with_warmup"
+
+
+class OptimizerType(BaseEnum):
+    """
+    Stores the acceptable string identifiers for optimizers.
+    """
+    # supported item for test, will be delete in the future.
+    ADAMWEIGHTDECAY = 'AdamWeightDecay'
+
+    # will be support item for future.
+    ADAMW = "adamw"
+    ADAM = "adam"
+    SGD = "sgd"
+    ADAGRAD = "adagrad"
+    ADAFACTOR = "adafactor"
+
+
+class WrapperType(BaseEnum):
+    """
+    Stores the acceptable string identifiers for training wrapper.
+    """
+    # will be support item for future.
+    MFWRAPPER = 'mf_wrapper'
+    TRAINONESTEP = 'wrapper'
+    TRAINONESTEPWITHLOSSSCALE = 'loss_scale_wrapper'
 
 
 def check_keywords_in_name(name, keywords=()):

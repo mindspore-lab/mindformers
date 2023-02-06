@@ -98,7 +98,7 @@ class TestTrainer:
 
         mim_trainer = Trainer(task='contrastive_language_image_pretrain',
                               model=clip_model,
-                              config=config,
+                              args=config,
                               optimizers=optimizer,
                               train_dataset=dataset,
                               callbacks=callbacks)

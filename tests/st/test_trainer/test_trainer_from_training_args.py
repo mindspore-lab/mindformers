@@ -1,4 +1,4 @@
-# Copyright 2022 Huawei Technologies Co., Ltd
+# Copyright 2023 Huawei Technologies Co., Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,38 +15,31 @@
 """
 Test module for testing the interface used for mindformers.
 How to run this:
-pytest tests/st/test_trainer/test_trainer_from_config.py
+pytest tests/st/test_trainer/test_trainer_from_training_args.py
 """
 import os
 import pytest
 import numpy as np
 from PIL import Image
-from mindspore.nn import DynamicLossScaleUpdateCell
+
 from mindformers.mindformer_book import MindFormerBook
 from mindformers.tools.register.config import MindFormerConfig
 from mindformers.dataset.build_dataset import build_dataset
 from mindformers.trainer import Trainer
 from mindformers.models import MaeModel
-from mindformers.trainer.config_args import ConfigArguments, \
-    OptimizerConfig, RunnerConfig, LRConfig, WrapperConfig
+from mindformers.trainer.training_args import TrainingArguments
 
 
 @pytest.mark.level0
 @pytest.mark.platform_x86_ascend_training
 @pytest.mark.platform_arm_ascend_training
 @pytest.mark.env_onecard
-def test_trainer_train_from_config():
+def test_trainer_train_from_training_args():
     """
     Feature: Create Trainer From Config
-    Description: Test Trainer API to train from config
+    Description: Test Trainer API to train from training arguments class
     Expectation: TypeError
     """
-    runner_config = RunnerConfig(epochs=2, batch_size=8, image_size=224)  # 运行超参
-    lr_schedule_config = LRConfig(lr_type='WarmUpLR', learning_rate=0.001, warmup_steps=10)
-    optim_config = OptimizerConfig(optim_type='Adam', beta1=0.009, learning_rate=lr_schedule_config, weight_decay=0.05)
-    loss_scale = DynamicLossScaleUpdateCell(loss_scale_value=2 ** 12, scale_factor=2, scale_window=1000)
-    wrapper_config = WrapperConfig(wrapper_type='TrainOneStepWithLossScaleCell', scale_sense=loss_scale)
-
     project_path = MindFormerBook.get_project_path()
 
     config_path = os.path.join(
@@ -62,12 +55,15 @@ def test_trainer_train_from_config():
 
     dataset = build_dataset(dataset_config.train_dataset_task)
 
-    config = ConfigArguments(seed=2022, runner_config=runner_config,
-                             optimizer=optim_config, runner_wrapper=wrapper_config)
+    mae_config = TrainingArguments(
+        lr_scheduler_type="WarmUpCosineDecayV1", optim="AdamWeightDecay", num_train_epochs=2,
+        batch_size=8, per_device_train_batch_size=8, adam_epsilon=1e-9, adam_beta1=0.999,
+        adam_beta2=0.95, weight_decay=0.5, save_strategy='steps', save_steps=1000, sink_mode=False)
+
     mae_model = MaeModel()
     mim_trainer = Trainer(task='masked_image_modeling',
                           model=mae_model,
-                          args=config,
+                          args=mae_config,
                           train_dataset=dataset)
     mim_trainer.train(resume_or_finetune_from_checkpoint=False)
 

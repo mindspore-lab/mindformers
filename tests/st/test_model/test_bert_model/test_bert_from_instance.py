@@ -88,7 +88,7 @@ def test_bert_trainer_train_from_instance():
 
     mlm_trainer = Trainer(task='fill_mask',
                           model=bert_model, # model and loss
-                          config=config,
+                          args=config,
                           optimizers=optimizer,
                           train_dataset=dataset,
                           callbacks=callbacks)

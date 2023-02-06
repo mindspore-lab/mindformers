@@ -42,6 +42,7 @@ from mindformers.tools.register import MindFormerConfig, MindFormerRegister
 from mindformers.tools.register.config import ordered_yaml_dump
 from .build_trainer import build_trainer
 from .config_args import ConfigArguments
+from .training_args import TrainingArguments
 from .utils import check_train_data_loader_type, check_eval_data_loader_type, \
     check_optimizer_and_lr_type, check_wrapper_config, config2dict
 
@@ -65,7 +66,7 @@ class Trainer:
     tokenizer, processor, train_one_step, callback, and metric.
 
     Args:
-        config (Optional[Union[str, dict, ConfigArguments]]): The task config which is used to
+        args (Optional[Union[str, dict, ConfigArguments, TrainingArguments]]): The task config which is used to
             configure the dataset, the hyper-parameter, optimizer, etc. It support yaml path or
             config dict or ConfigArguments class.
             Default: None.
@@ -143,7 +144,7 @@ class Trainer:
         ...                          optimizer=optim_config, runner_wrapper=wrapper_config)
         >>> task_trainer = Trainer(task='image_classification',
         ...                        model='vit_base_p16',
-        ...                        config=config, train_dataset=dataset)
+        ...                        args=config, train_dataset=dataset)
         >>> #3) input instance to init trainer
         >>> from mindformers.models import VitModel
         >>> vit_model_with_loss = VitModel()
@@ -155,14 +156,14 @@ class Trainer:
         >>> callbacks = [loss_cb]
         >>> task_trainer = Trainer(task='image_classification',
         ...                        model=vit_model_with_loss,
-        ...                        config=config,
+        ...                        args=config,
         ...                        optimizers=optimizer,
         ...                        train_dataset=dataset,
         ...                        callbacks=callbacks)
     """
 
     def __init__(self,
-                 config: Optional[Union[str, dict, ConfigArguments]] = None,
+                 args: Optional[Union[str, dict, ConfigArguments, TrainingArguments]] = None,
                  task: Optional[str] = 'general',
                  model: Optional[Union[str, BaseModel]] = None,
                  train_dataset: Optional[Union[str, BaseDataset]] = None,
@@ -232,27 +233,37 @@ class Trainer:
             if self.wrapper is not None:
                 task_config.trainer.model_name = self.wrapper.network.__class__.__name__
 
-        if config is None:
+        if args is None:
             self.config = task_config
         else:
-            if isinstance(config, dict):
-                task_config.merge_from_dict(config)
-            elif isinstance(config, str):
-                assert os.path.realpath(config) and os.path.exists(config), \
-                    f"config path must be exist, but get {config}."
-                assert config.endswith(('.yaml', '.yml')), \
-                    f"config file must be end with .yaml or .yml, but get {config}"
-                task_config = MindFormerConfig(config)
-            elif isinstance(config, ConfigArguments):
-                if hasattr(config, 'train_dataset'):
-                    check_train_data_loader_type(config, task_config)
-                if hasattr(config, 'eval_dataset'):
-                    check_eval_data_loader_type(config, task_config)
-                if hasattr(config, 'optimizer'):
-                    check_optimizer_and_lr_type(config, task_config)
-                if hasattr(config, 'runner_wrapper'):
-                    check_wrapper_config(config, task_config)
-                task_config.merge_from_dict(config.__dict__)
+            if isinstance(args, dict):
+                task_config.merge_from_dict(args)
+            elif isinstance(args, str):
+                assert os.path.realpath(args) and os.path.exists(args), \
+                    f"config path must be exist, but get {args}."
+                assert args.endswith(('.yaml', '.yml')), \
+                    f"config file must be end with .yaml or .yml, but get {args}"
+                task_config = MindFormerConfig(args)
+            elif isinstance(args, ConfigArguments):
+                if hasattr(args, 'train_dataset'):
+                    check_train_data_loader_type(args, task_config)
+                if hasattr(args, 'eval_dataset'):
+                    check_eval_data_loader_type(args, task_config)
+                if hasattr(args, 'optimizer'):
+                    check_optimizer_and_lr_type(args, task_config)
+                if hasattr(args, 'runner_wrapper'):
+                    check_wrapper_config(args, task_config)
+                task_config.merge_from_dict(args.__dict__)
+            elif isinstance(args, TrainingArguments):
+                logger.warning(
+                    "When using the TrainingArguments class, "
+                    "its arguments will override the default config configuration,"
+                    "so it is required to inherit the TrainingArguments configuration,"
+                    "corresponding to the task and the complete training configuration of the model."
+                    "Otherwise, it will affect the default configuration parameters and cause training problems."
+                    "It is recommended to use the ConfigArguments class for training configuration."
+                )
+                args.convert_args_to_mindformers_config(task_config)
 
             self.config = task_config
 
