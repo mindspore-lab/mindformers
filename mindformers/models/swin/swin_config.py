@@ -37,8 +37,7 @@ class SwinConfig(BaseConfig):
     Args:
          image_size: The input image size, Default 224.
          patch_size: patch size, Default 4.
-         num_classes: num classes, Default 1000.
-         in_channels: channels of input images, Default 3.
+         num_channels: channels of input images, Default 3.
          embed_dim: embedding dimension, Default 128.
          depths: number of transformer blocks for each swin layer, Default (2, 2, 18, 2).
          num_heads: number of attention heads for each swin layer, Default (4, 8, 16, 32).
@@ -46,13 +45,11 @@ class SwinConfig(BaseConfig):
          shift_size: window shift size, Default 0.
          mlp_ratio: ffn_hidden_size = mlp_ratio * embed_dim, Default 4.
          qkv_bias: has transformer qkv bias or not, Default True.
-         qk_scale: qk_scale, default head_dim ** -0.5.
-         drop_out_rate: drop rate of MLP, Default 0.
-         attn_drop_rate: drop rate of Attention, Default 0.
+         hidden_dropout_prob: drop rate of MLP, Default 0.
+         attention_probs_dropout_prob: drop rate of Attention, Default 0.
          drop_path_rate: drop path rate of transformer blocks, Default 0.1.
-         use_abs_pos_emb: if using absolute position embedding, Default False.
+         use_absolute_embeddings: if using absolute position embedding, Default False.
          patch_norm: use norm in PatchEmbed, Default True.
-         patch_type: PatchEmbed type, Default "conv".
          hidden_act: activation of MLP, Default "gelu".
          weight_init: weight initialize type, Default "normal".
          loss_type: loss type, Default "SoftTargetCrossEntropy".
@@ -83,8 +80,7 @@ class SwinConfig(BaseConfig):
     def __init__(self,
                  image_size: int = 224,
                  patch_size: int = 4,
-                 num_classes: int = 1000,
-                 in_channels: int = 3,
+                 num_channels: int = 3,
                  embed_dim: int = 128,
                  depths: list = (2, 2, 18, 2),
                  num_heads: list = (4, 8, 16, 32),
@@ -92,13 +88,11 @@ class SwinConfig(BaseConfig):
                  shift_size: int = 0,
                  mlp_ratio: float = 4.,
                  qkv_bias: bool = True,
-                 qk_scale: float = None,
-                 drop_out_rate: float = 0.,
-                 attn_drop_rate: float = 0.,
+                 hidden_dropout_prob: float = 0.,
+                 attention_probs_dropout_prob: float = 0.,
                  drop_path_rate: float = 0.1,
-                 use_abs_pos_emb: bool = False,
+                 use_absolute_embeddings: bool = False,
                  patch_norm: bool = True,
-                 patch_type: str = "conv",
                  hidden_act: str = 'gelu',
                  weight_init: str = 'normal',
                  loss_type: str = "SoftTargetCrossEntropy",
@@ -110,8 +104,7 @@ class SwinConfig(BaseConfig):
         """Swin Base Config"""
         self.image_size = image_size
         self.patch_size = patch_size
-        self.num_classes = num_classes
-        self.in_channels = in_channels
+        self.num_channels = num_channels
         self.embed_dim = embed_dim
         self.depths = depths
         self.num_heads = num_heads
@@ -119,13 +112,11 @@ class SwinConfig(BaseConfig):
         self.shift_size = shift_size
         self.mlp_ratio = mlp_ratio
         self.qkv_bias = qkv_bias
-        self.qk_scale = qk_scale
-        self.drop_out_rate = drop_out_rate
-        self.attn_drop_rate = attn_drop_rate
+        self.hidden_dropout_prob = hidden_dropout_prob
+        self.attention_probs_dropout_prob = attention_probs_dropout_prob
         self.drop_path_rate = drop_path_rate
-        self.use_abs_pos_emb = use_abs_pos_emb
+        self.use_absolute_embeddings = use_absolute_embeddings
         self.patch_norm = patch_norm
-        self.patch_type = patch_type
         self.hidden_act = hidden_act
         self.weight_init = weight_init
         self.loss_type = loss_type

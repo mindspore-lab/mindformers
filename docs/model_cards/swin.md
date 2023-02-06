@@ -50,7 +50,7 @@ swin：全名swin transformer，是一个基于Transformer在视觉领域有着S
 
   #模型配置加载模型
   config = SwinConfig.from_pretrained("swin_base_p4w7")
-  # {'batch_size': 128, 'image_size': 224, 'patch_size': 4, 'num_classes': 1000, 'in_channels': 3,
+  # {'batch_size': 128, 'image_size': 224, 'patch_size': 4, 'num_labels': 1000, 'num_channels': 3,
   # 'embed_dim': 128, 'depths': [2, 2, 18, 2], 'num_heads': [4, 8, 16, 32],
   # 'checkpoint_name_or_path': 'swin_base_p4w7'}
   model = SwinModel(config)

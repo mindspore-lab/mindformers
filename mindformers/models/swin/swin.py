@@ -77,7 +77,7 @@ class SwinModel(BaseModel):
         dp = parallel_config.data_parallel
         mp = parallel_config.model_parallel
         self.head = Linear(
-            self.encoder.num_features, self.encoder.num_classes,
+            self.encoder.num_features, self.encoder.num_labels,
             weight_init=weight_init_.TruncatedNormal(sigma=2e-5),
             compute_dtype=mstype.float32).to_float(mstype.float32)
         self.head.shard(strategy_bias=((dp, mp), (mp,)), strategy_matmul=((dp, 1), (mp, 1)))
@@ -250,11 +250,11 @@ class SwinTransformer(BaseModel):
         dp = config.parallel_config.data_parallel
         self.parallel_config = config.parallel_config
         self.use_moe = config.moe_config.expert_num > 1
-        self.num_classes = config.num_classes
+        self.num_labels = config.num_labels
         self.num_layers = len(config.depths)
         self.embed_dim = config.embed_dim
         self.ape = config.ape
-        self.in_channels = config.in_channels
+        self.num_channels = config.num_channels
         self.patch_size = config.patch_size
         self.patch_norm = config.patch_norm
         self.num_features = int(config.embed_dim * 2 ** (self.num_layers - 1))
@@ -273,7 +273,7 @@ class SwinTransformer(BaseModel):
             self.absolute_pos_embed = Parameter(
                 Tensor(np.zeros((1, num_patches, config.embed_dim)), dtype=mstype.float32), name="ape")
 
-        self.pos_drop = Dropout(keep_prob=1.0 - config.drop_out_rate)
+        self.pos_drop = Dropout(keep_prob=1.0 - config.hidden_dropout_prob)
         self.pos_drop.shard(((dp, 1, 1),))
 
         # stochastic depth
