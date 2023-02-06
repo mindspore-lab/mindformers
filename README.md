@@ -34,7 +34,7 @@ MindSpore MindFormers套件基于MindSpore内置的并行技术和组件化设�
 支持使用以下pip命令直接进行安装0.2.0版本
 
 ```bash
-pip install https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/wheel_packages/0.2.0/mindformers/mindformers-0.2.0-py3-none-any.whl --trusted-host ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com
+pip install https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/wheel_packages/0.2.0/mindformers/mindformers-0.2.0-py3-none-any.whl --trusted-host ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com -i https://pypi.tuna.tsinghua.edu.cn/simple
 ```
 
 #### 安装方式2
