@@ -19,10 +19,11 @@ from .optim import *
 from .metric import *
 from .callback import *
 from .context import *
+from .clip_grad import ClipGradNorm
 from .parallel_config import build_parallel_config
 
 
-__all__ = ['build_parallel_config']
+__all__ = ['build_parallel_config', 'ClipGradNorm']
 __all__.extend(lr.__all__)
 __all__.extend(loss.__all__)
 __all__.extend(optim.__all__)

@@ -20,6 +20,7 @@ import mindspore as ms
 from mindspore import nn, Tensor
 
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
+from .wrapper import MFTrainOneStepCell
 
 
 def build_wrapper(config: dict = None, default_args: dict = None,
@@ -69,3 +70,16 @@ def register_ms_wrap():
 
 
 register_ms_wrap()
+
+# Support built-in model wrapper of MindFormers.
+MindFormerRegister.register_cls(
+    nn.wrap.TrainOneStepCell,
+    module_type=MindFormerModuleType.OPTIMIZER, alias="wrapper")
+
+MindFormerRegister.register_cls(
+    nn.wrap.TrainOneStepWithLossScaleCell,
+    module_type=MindFormerModuleType.OPTIMIZER, alias="loss_scale_wrapper")
+
+MindFormerRegister.register_cls(
+    MFTrainOneStepCell,
+    module_type=MindFormerModuleType.OPTIMIZER, alias="mf_wrapper")
