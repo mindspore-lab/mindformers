@@ -88,7 +88,7 @@ class VitImageProcessor(BaseImageProcessor):
             raise TypeError("input type is not Tensor, numpy, Image, list of Image or MindFormer BaseDataset")
 
         if isinstance(inputs, list):
-            return [self._format_input_(item) for item in inputs]
+            return [self._format_inputs(item) for item in inputs]
 
         if isinstance(inputs, Image.Image):
             inputs = np.array(inputs)
