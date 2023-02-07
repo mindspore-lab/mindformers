@@ -1,4 +1,4 @@
-# Copyright 2022 Huawei Technologies Co., Ltd
+# Copyright 2023 Huawei Technologies Co., Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,6 +13,7 @@
 # limitations under the License.
 # This file was refer to project:
 # https://github.com/huawei-noah/Pretrained-Language-Model/blob/master/PanGu-%CE%B1/utils.py
+# https://github.com/huggingface/transformers/blob/main/src/transformers/optimization.py
 # ============================================================================
 """Self-Define LR Schedule."""
 import math
@@ -24,7 +25,156 @@ from mindspore.nn.learning_rate_schedule import LearningRateSchedule, Polynomial
 from mindspore.common.tensor import Tensor
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 
-__all__ = ['LearningRateWiseLayer', 'WarmUpDecayLR', 'WarmUpCosineDecayV1']
+__all__ = [
+    'LearningRateWiseLayer', 'WarmUpDecayLR',
+    'WarmUpCosineDecayV1', 'ConstantWarmUpLR',
+    'LinearWithWarmUpLR', 'CosineWithWarmUpLR',
+    'CosineWithRestartsAndWarmUpLR', 'PolynomialWithWarmUpLR']
+
+
+@MindFormerRegister.register(MindFormerModuleType.LR, alias="constant_with_warmup")
+class ConstantWarmUpLR(LearningRateSchedule):
+    """ConstantWarmUpLR."""
+    def __init__(self, learning_rate: float, warmup_steps: int):
+        super(ConstantWarmUpLR, self).__init__()
+        warmup_steps = max(1, warmup_steps)
+        self.learning_rate = learning_rate
+        self.warmup_steps = Tensor(warmup_steps, mstype.float32)
+        self.one_constant = Tensor(1.0, mstype.float32)
+        self.greater = P.Greater()
+
+    def construct(self, global_step):
+        """compute current step lr."""
+        if self.greater(self.warmup_steps, global_step):
+            percent = global_step / self.warmup_steps
+        else:
+            percent = self.one_constant
+        return self.learning_rate * percent
+
+
+@MindFormerRegister.register(MindFormerModuleType.LR, alias="linear")
+class LinearWithWarmUpLR(LearningRateSchedule):
+    """LinearWithWarmUpLR."""
+    def __init__(self, learning_rate: float, warmup_steps: int, total_steps: int):
+        super(LinearWithWarmUpLR, self).__init__()
+        linear_steps = max(1, total_steps - warmup_steps)
+        warmup_steps = max(1, warmup_steps)
+        self.learning_rate = learning_rate
+        self.total_steps = Tensor(total_steps, mstype.float32)
+        self.warmup_steps = Tensor(warmup_steps, mstype.float32)
+        self.linear_steps = Tensor(linear_steps, mstype.float32)
+        self.greater = P.Greater()
+        self.max = P.Maximum()
+        self.zero_constant = Tensor(0.0, mstype.float32)
+        self.cast = P.Cast()
+
+    def construct(self, global_step):
+        """compute current step lr."""
+        global_step = self.cast(global_step, mstype.float32)
+        if self.greater(self.warmup_steps, global_step):
+            percent = global_step / self.warmup_steps
+        else:
+            percent = self.max(self.zero_constant, (self.total_steps - global_step) / self.linear_steps)
+        return self.learning_rate * percent
+
+
+@MindFormerRegister.register(MindFormerModuleType.LR, alias="cosine")
+class CosineWithWarmUpLR(LearningRateSchedule):
+    """CosineWithWarmUpLR."""
+    def __init__(self, learning_rate: float, warmup_steps: int, total_steps: int, num_cycles: float = 0.5):
+        super(CosineWithWarmUpLR, self).__init__()
+        cosine_steps = max(1, total_steps - warmup_steps)
+        warmup_steps = max(1, warmup_steps)
+        self.learning_rate = learning_rate
+        self.total_steps = Tensor(total_steps, mstype.float32)
+        self.warmup_steps = Tensor(warmup_steps, mstype.float32)
+        self.cosine_steps = Tensor(cosine_steps, mstype.float32)
+        self.num_cycles = num_cycles
+        self.greater = P.Greater()
+        self.max = P.Maximum()
+        self.math_pi = math.pi
+        self.cos = P.Cos()
+        self.zero_constant = Tensor(0.0, mstype.float32)
+        self.cast = P.Cast()
+
+    def construct(self, global_step):
+        """compute current step lr."""
+        global_step = self.cast(global_step, mstype.float32)
+        if self.greater(self.warmup_steps, global_step):
+            percent = global_step / self.warmup_steps
+        else:
+            progress = (global_step - self.warmup_steps) / self.cosine_steps
+            percent = self.max(
+                self.zero_constant, 0.5 * (1.0 + self.cos(self.math_pi * self.num_cycles * 2.0 * progress)))
+        return self.learning_rate * percent
+
+
+@MindFormerRegister.register(MindFormerModuleType.LR, alias="cosine_with_restarts")
+class CosineWithRestartsAndWarmUpLR(LearningRateSchedule):
+    """CosineWithRestartsAndWarmUpLR."""
+    def __init__(self, learning_rate: float, total_steps: int, warmup_steps: int, num_cycles: float = 0.5):
+        super(CosineWithRestartsAndWarmUpLR, self).__init__()
+        cosine_steps = max(1, total_steps - warmup_steps)
+        warmup_steps = max(1, warmup_steps)
+        self.learning_rate = learning_rate
+        self.total_steps = Tensor(total_steps, mstype.float32)
+        self.warmup_steps = Tensor(warmup_steps, mstype.float32)
+        self.cosine_steps = Tensor(cosine_steps, mstype.float32)
+        self.num_cycles = num_cycles
+        self.greater = P.Greater()
+        self.max = P.Maximum()
+        self.math_pi = math.pi
+        self.cos = P.Cos()
+        self.zero_constant = Tensor(0.0, mstype.float32)
+        self.one_constant = Tensor(1.0, mstype.float32)
+        self.cast = P.Cast()
+
+    def construct(self, global_step):
+        """compute current step lr."""
+        global_step = self.cast(global_step, mstype.float32)
+        if self.greater(self.warmup_steps, global_step):
+            percent = global_step / self.warmup_steps
+        else:
+            progress = (global_step - self.warmup_steps) / self.cosine_steps
+            if self.greater(self.one_constant, progress):
+                percent = self.max(
+                    self.zero_constant,
+                    0.5 * (1.0 + self.cos(self.math_pi * ((self.num_cycles * progress) % self.one_constant))))
+            else:
+                return self.zero_constant
+        return self.learning_rate * percent
+
+
+@MindFormerRegister.register(MindFormerModuleType.LR, alias="polynomial")
+class PolynomialWithWarmUpLR(LearningRateSchedule):
+    """PolynomialWithWarmUpLR."""
+    def __init__(self, learning_rate: float, warmup_steps: int, total_steps: int,
+                 lr_end: float = 1e-7, power: float = 1.0):
+        super(PolynomialWithWarmUpLR, self).__init__()
+        decay_steps = max(1, total_steps - warmup_steps)
+        warmup_steps = max(1, warmup_steps)
+        if not learning_rate > lr_end:
+            raise ValueError(f"lr_end ({lr_end}) must be be smaller than initial lr ({learning_rate})")
+        self.learning_rate = learning_rate
+        self.lr_end = lr_end
+        self.power = power
+        self.total_steps = Tensor(total_steps, mstype.float32)
+        self.warmup_steps = Tensor(warmup_steps, mstype.float32)
+        self.decay_steps = Tensor(decay_steps, mstype.float32)
+        self.greater = P.Greater()
+        self.cast = P.Cast()
+
+    def construct(self, global_step):
+        """compute current step lr."""
+        global_step = self.cast(global_step, mstype.float32)
+        if self.greater(self.warmup_steps, global_step):
+            percent = global_step / self.warmup_steps
+        else:
+            lr_range = self.learning_rate - self.lr_end
+            pct_remaining = 1 - (global_step - self.warmup_steps) / self.decay_steps
+            decay = lr_range * pct_remaining ** self.power + self.lr_end
+            percent = decay / self.learning_rate
+        return self.learning_rate * percent
 
 
 @MindFormerRegister.register(MindFormerModuleType.LR)
@@ -39,6 +189,7 @@ class LearningRateWiseLayer(LearningRateSchedule):
     def construct(self, global_step):
         lr = self.base_lr(global_step)
         return self.lr_scale * lr
+
 
 @MindFormerRegister.register(MindFormerModuleType.LR)
 class WarmUpDecayLR(LearningRateSchedule):
