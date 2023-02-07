@@ -125,7 +125,7 @@ class TestTranslationTrainer:
         dataset = dataset.repeat(1)
 
         config = ConfigArguments(seed=2022, runner_config=runner_config, optimizer=optim_config)
-        model_config = T5Config(batch_size=batch_size, num_heads=8, num_hidden_layers=1, hidden_size=512,
+        model_config = T5Config(batch_size=batch_size, num_heads=8, num_layers=1, d_model=512,
                                 seq_length=16, max_decode_length=8)
         # Model
         model = T5ForConditionalGeneration(model_config)
@@ -199,7 +199,7 @@ class TestTranslationTrainer:
         config = ConfigArguments(seed=2022, runner_config=runner_config, optimizer=optim_config)
         # make the batch size inconsistent with the mindtaset, to check batch size will not cause the error.
         model_config = T5Config(batch_size=batch_size*2, num_heads=8,
-                                num_hidden_layers=1, hidden_size=512,
+                                num_layers=1, d_model=512,
                                 seq_length=16, max_decode_length=8)
 
         mim_trainer = TranslationTrainer(model_name=model_name)

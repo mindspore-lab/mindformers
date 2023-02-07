@@ -61,7 +61,7 @@ class TestModelForT5Method:
         """
 
         # input model name, load model and weights
-        config = T5Config(num_hidden_layers=1)
+        config = T5Config(num_layers=1)
         T5ForConditionalGeneration(config)
 
     def test_save_model(self):
@@ -70,7 +70,7 @@ class TestModelForT5Method:
         Description: Test to save checkpoint for T5Model
         Expectation: ValueError, AttributeError
         """
-        t5 = T5ForConditionalGeneration(T5Config(num_hidden_layers=1, hidden_dropout_prob=0.0,
+        t5 = T5ForConditionalGeneration(T5Config(num_layers=1, dropout_rate=0.0,
                                                  attention_probs_dropout_prob=0.0,
                                                  batch_size=1, seq_length=16, max_decode_length=8))
         t5.save_pretrained(self.save_directory, save_name='t5_model')
