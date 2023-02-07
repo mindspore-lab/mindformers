@@ -7,10 +7,10 @@ model:
     batch_size: 128
     seq_length: 128 #length of input sentence
     vocab_size: 30522 #size of vocab
-    embedding_size: 768 #size of text feature
-    num_layers: 12 #model depth
-    num_heads: 12 #number of attention heads
-    expand_ratio: 4
+    hidden_size: 768 #size of text feature
+    num_hidden_layers: 12 #model depth
+    num_attention_heads: 12 #number of attention heads
+    intermediate_size: 3072 #hidden_size*4
     hidden_act: "gelu" #activation
     post_layernorm_residual: True #select postlayernorm or prelayernorm
     hidden_dropout_prob: 0.1
@@ -22,7 +22,7 @@ model:
     use_past: False
     checkpoint_name_or_path: ""
   arch:
-    type: BertModel
+    type: BertForPreTraining
 
 processor:
   return_tensors: ms

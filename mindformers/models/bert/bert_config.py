@@ -41,10 +41,10 @@ class BertConfig(BaseConfig):
                  batch_size: int = 16,
                  seq_length: int = 128,
                  vocab_size: int = 30522,
-                 embedding_size: int = 768,
-                 num_layers: int = 12,
-                 num_heads: int = 12,
-                 expand_ratio: int = 4,
+                 hidden_size: int = 768,
+                 num_hidden_layers: int = 12,
+                 num_attention_heads: int = 12,
+                 intermediate_size: int = 3072,
                  hidden_act: str = "gelu",
                  post_layernorm_residual: bool = True,
                  hidden_dropout_prob: float = 0.1,
@@ -72,10 +72,10 @@ class BertConfig(BaseConfig):
         self.batch_size = batch_size
         self.seq_length = seq_length
         self.vocab_size = vocab_size
-        self.embedding_size = embedding_size
-        self.num_layers = num_layers
-        self.num_heads = num_heads
-        self.expand_ratio = expand_ratio
+        self.hidden_size = hidden_size
+        self.num_hidden_layers = num_hidden_layers
+        self.num_attention_heads = num_attention_heads
+        self.intermediate_size = intermediate_size
         self.hidden_act = hidden_act
         self.post_layernorm_residual = post_layernorm_residual
         self.hidden_dropout_prob = hidden_dropout_prob
@@ -84,36 +84,12 @@ class BertConfig(BaseConfig):
         self.type_vocab_size = type_vocab_size
         self.initializer_range = initializer_range
         self.use_relative_positions = use_relative_positions
-        self._dtype = dtype
-        self._layernorm_dtype = layernorm_dtype
-        self._softmax_dtype = softmax_dtype
-        self._compute_dtype = compute_dtype
+        self.dtype = mstype.float32 if dtype == "float32" else mstype.float16
+        self.layernorm_dtype = mstype.float32 if layernorm_dtype == "float32" else mstype.float16
+        self.softmax_dtype = mstype.float32 if softmax_dtype == "float32" else mstype.float16
+        self.compute_dtype = mstype.float32 if compute_dtype == "float32" else mstype.float16
         self.use_past = use_past
         self.checkpoint_name_or_path = checkpoint_name_or_path
-        self._parallel_config = parallel_config
-        self._moe_config = moe_config
+        self.parallel_config = default_transformer_config if parallel_config == "default" else parallel_config
+        self.moe_config = default_moe_config if moe_config == "default" else moe_config
         self.is_training = is_training
-
-    @property
-    def dtype(self):
-        return mstype.float32 if self._dtype == "float32" else mstype.float16
-
-    @property
-    def layernorm_dtype(self):
-        return mstype.float32 if self._layernorm_dtype == "float32" else mstype.float16
-
-    @property
-    def softmax_dtype(self):
-        return mstype.float32 if self._softmax_dtype == "float32" else mstype.float16
-
-    @property
-    def compute_dtype(self):
-        return mstype.float32 if self._compute_dtype == "float32" else mstype.float16
-
-    @property
-    def parallel_config(self):
-        return default_transformer_config if self._parallel_config == "default" else default_transformer_config
-
-    @property
-    def moe_config(self):
-        return default_moe_config if self._moe_config == "default" else default_moe_config

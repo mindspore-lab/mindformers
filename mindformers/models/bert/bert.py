@@ -11,6 +11,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+# This file was refer to project:
+# https://gitee.com/mindspore/models/blob/master/official/nlp/Bert/src/bert_model.py
 # ============================================================================
 """BERT Model."""
 import numpy as np
@@ -30,7 +32,8 @@ from mindformers.models.base_model import BaseModel
 from ...mindformer_book import MindFormerBook
 from .bert_config import BertConfig
 
-__all__ = ['BertConfig', 'BertModel', 'BertTokenClassification', 'BertForMultipleChoice', 'BertForQuestionAnswering']
+__all__ = ['BertConfig', 'BertModel', 'BertForPreTraining', 'BertTokenClassification', 'BertForMultipleChoice',
+           'BertForQuestionAnswering']
 
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
 class BertTokenClassification(BaseModel):
@@ -38,7 +41,7 @@ class BertTokenClassification(BaseModel):
     Bert with dense layer for name entity recoginition task.
 
     Args:
-        config (BertConfig): The config of BertModel.
+        config (BertConfig): The config of BertForPreTraining.
 
     Returns:
         Tensor, loss, logits.
@@ -61,9 +64,9 @@ class BertTokenClassification(BaseModel):
     def __init__(self, config=BertConfig()):
         super(BertTokenClassification, self).__init__(config)
         self.num_labels = config.num_labels
-        self.bert = BertNetwork(config, config.is_training, config.use_one_hot_embeddings)
+        self.bert = BertModel(config, config.is_training, config.use_one_hot_embeddings)
         self.dropout = nn.Dropout(1 - config.hidden_dropout_prob)
-        self.classifier = nn.Dense(config.embedding_size, config.num_labels).to_float(config.compute_dtype)
+        self.classifier = nn.Dense(config.hidden_size, config.num_labels).to_float(config.compute_dtype)
         self.cross_entropy_loss = nn.CrossEntropyLoss()
         self.reshape = P.Reshape()
         self.load_checkpoint(config)
@@ -89,12 +92,12 @@ class BertTokenClassification(BaseModel):
 
 
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
-class BertModel(BaseModel):
+class BertForPreTraining(BaseModel):
     """
     Provide bert pre-training loss through network.
 
     Args:
-        config (BertConfig): The config of BertModel.
+        config (BertConfig): The config of BertForPreTraining.
         is_training (bool): Specifies whether to use the training mode.
         use_one_hot_embeddings (bool): Specifies whether to use one-hot for embeddings. Default: False.
 
@@ -103,7 +106,7 @@ class BertModel(BaseModel):
 
     Examples:
         >>> from mindformers import BertForPretraining, BertTokenizer
-        >>> model = BertModel.from_pretrained('bert_base_uncased')
+        >>> model = BertForPreTraining.from_pretrained('bert_base_uncased')
         >>> tokenizer = BertTokenizer.from_pretrained('bert_base_uncased')
         >>> data = tokenizer("Paris is the [MASK] of France.")
         >>> input_ids = data['input_ids']
@@ -122,14 +125,40 @@ class BertModel(BaseModel):
     _support_list = MindFormerBook.get_model_support_list()['bert']
 
     def __init__(self, config=BertConfig()):
-        super(BertModel, self).__init__(config)
+        super(BertForPreTraining, self).__init__(config)
         self.is_training = config.is_training
-        self.bert = BertScore(config, config.is_training, config.use_one_hot_embeddings)
+        # self.bert = BertScore(config, config.is_training, config.use_one_hot_embeddings)
+        self.bert = BertModel(config, config.is_training, config.use_one_hot_embeddings)
+        self.mlmloss = GetMaskedLMOutput(config)
+        self.nsploss = GetNextSentenceOutput(config)
         self.loss = BertLoss(config)
         self.cast = P.Cast()
         self.use_moe = (config.parallel_config.moe_config.expert_num > 1)
         self.add = P.Add().shard(((1,), ()))
         self.load_checkpoint(config)
+
+    def bert_forward(self, input_ids, input_mask, token_type_id,
+                     masked_lm_positions=None):
+        """connect backbone and heads."""
+        moe_loss = 0
+        if self.use_moe:
+            sequence_output, pooled_output, embedding_table, moe_loss = \
+                self.bert(input_ids, token_type_id, input_mask)
+        else:
+            sequence_output, pooled_output, embedding_table = \
+                self.bert(input_ids, token_type_id, input_mask)
+
+        prediction_scores = self.mlmloss(sequence_output,
+                                         embedding_table,
+                                         masked_lm_positions)
+        seq_relationship_score = self.nsploss(pooled_output)
+        if not self.is_training:
+            return sequence_output, pooled_output, prediction_scores, seq_relationship_score
+        prediction_scores = self.mlmloss(sequence_output,
+                                         embedding_table,
+                                         masked_lm_positions)
+        seq_relationship_score = self.nsploss(pooled_output)
+        return prediction_scores, seq_relationship_score, moe_loss
 
     def construct(self,
                   input_ids,
@@ -141,10 +170,10 @@ class BertModel(BaseModel):
                   masked_lm_weights=None):
         """Get pre-training loss"""
         if not self.is_training:
-            return self.bert(input_ids, input_mask, token_type_id, masked_lm_positions)
+            return self.bert_forward(input_ids, input_mask, token_type_id, masked_lm_positions)
 
         prediction_scores, seq_relationship_score, moe_loss = \
-            self.bert(input_ids, input_mask, token_type_id, masked_lm_positions)
+            self.bert_forward(input_ids, input_mask, token_type_id, masked_lm_positions)
         total_loss = self.loss(prediction_scores, seq_relationship_score,
                                masked_lm_ids, masked_lm_weights, next_sentence_labels)
         if self.use_moe:
@@ -152,12 +181,12 @@ class BertModel(BaseModel):
         return self.cast(total_loss, mstype.float32)
 
 
-class BertNetwork(nn.Cell):
+class BertModel(nn.Cell):
     """
     Bidirectional Encoder Representations from Transformers.
 
     Args:
-        config (Class): Configuration for BertNetwork.
+        config (Class): Configuration for BertModel.
         is_training (bool): True for training mode. False for eval mode.
         use_one_hot_embeddings (bool): Specifies whether to use one hot encoding form. Default: False.
     """
@@ -165,15 +194,15 @@ class BertNetwork(nn.Cell):
                  config=None,
                  is_training=False,
                  use_one_hot_embeddings=False):
-        super(BertNetwork, self).__init__()
+        super(BertModel, self).__init__()
         if not is_training:
             config.hidden_dropout_prob = 0.0
             config.attention_probs_dropout_prob = 0.0
 
         self.get_attention_mask = CreateAttentionMaskFromInputMask(config)
-        self.hidden_size = config.embedding_size
-        self.num_hidden_layers = config.num_layers
-        self.embedding_size = config.embedding_size
+        self.hidden_size = config.hidden_size
+        self.num_hidden_layers = config.num_hidden_layers
+        self.embedding_size = config.hidden_size
         self.token_type_ids = None
         if not hasattr(config.parallel_config, "moe_config"):
             config.parallel_config.moe_config = default_moe_config
@@ -181,9 +210,9 @@ class BertNetwork(nn.Cell):
         self.use_moe = (config.parallel_config.moe_config.expert_num > 1)
 
         self.word_embedding = VocabEmbedding(vocab_size=config.vocab_size,
-                                             embedding_size=config.embedding_size,
+                                             embedding_size=config.hidden_size,
                                              param_init=initializer("truncatedNormal",
-                                                                    [config.vocab_size, config.embedding_size],
+                                                                    [config.vocab_size, config.hidden_size],
                                                                     dtype=mstype.float32),
                                              parallel_config=config.parallel_config.embedding_dp_mp_config)
 
@@ -201,13 +230,13 @@ class BertNetwork(nn.Cell):
 
 
         self.bert_encoder = Transformer(
-            hidden_size=config.embedding_size,
+            hidden_size=config.hidden_size,
             batch_size=config.batch_size,
-            ffn_hidden_size=config.embedding_size * config.expand_ratio,
+            ffn_hidden_size=config.intermediate_size,
             src_seq_length=config.seq_length,
             tgt_seq_length=config.seq_length,
-            num_heads=config.num_heads,
-            encoder_layers=config.num_layers,
+            num_heads=config.num_attention_heads,
+            encoder_layers=config.num_hidden_layers,
             parallel_config=config.parallel_config,
             decoder_layers=0,
             moe_config=moe_config,
@@ -263,7 +292,7 @@ class BertForMultipleChoice(BaseModel):
     Bert with dense layer for txt classification task.
 
     Args:
-        config (BertConfig): The config of BertModel.
+        config (BertConfig): The config of BertForPreTraining.
 
     Returns:
         Tensor, loss, logits.
@@ -285,9 +314,9 @@ class BertForMultipleChoice(BaseModel):
     def __init__(self, config=BertConfig()):
         super(BertForMultipleChoice, self).__init__(config)
         self.num_labels = config.num_labels
-        self.bert = BertNetwork(config, config.is_training, config.use_one_hot_embeddings)
+        self.bert = BertModel(config, config.is_training, config.use_one_hot_embeddings)
         self.weight_init = TruncatedNormal(config.initializer_range)
-        self.classifier = nn.Dense(config.embedding_size, self.num_labels, weight_init=self.weight_init,
+        self.classifier = nn.Dense(config.hidden_size, self.num_labels, weight_init=self.weight_init,
                                    has_bias=True).to_float(config.compute_dtype)
         self.dropout = nn.Dropout(1 - config.dropout_prob)
         self.cross_entropy_loss = nn.CrossEntropyLoss()
@@ -344,8 +373,8 @@ class BertForQuestionAnswering(BaseModel):
 
     def __init__(self, config=BertConfig()):
         super(BertForQuestionAnswering, self).__init__(config)
-        self.bert = BertNetwork(config, config.is_training, config.use_one_hot_embeddings)
-        self.qa_outputs = nn.Dense(config.embedding_size, 2).to_float(config.compute_dtype)
+        self.bert = BertModel(config, config.is_training, config.use_one_hot_embeddings)
+        self.qa_outputs = nn.Dense(config.hidden_size, 2).to_float(config.compute_dtype)
         self.load_checkpoint(config)
 
     def construct(self, input_ids, input_mask, token_type_id, start_position, end_position):
@@ -488,7 +517,7 @@ class CreateAttentionMaskFromInputMask(nn.Cell):
     Create attention mask according to input mask.
 
     Args:
-        config (Class): Configuration for BertModel.
+        config (Class): Configuration for BertForPreTraining.
     """
     def __init__(self, config):
         super(CreateAttentionMaskFromInputMask, self).__init__()
@@ -503,57 +532,12 @@ class CreateAttentionMaskFromInputMask(nn.Cell):
         attention_mask = self.tile(attention_mask, (1, seq_length, 1))
         return attention_mask
 
-class BertScore(nn.Cell):
-    """
-    Bert pretraining network.
-
-    Args:
-        config (BertConfig): The config of BertModel.
-        is_training (bool): Specifies whether to use the training mode.
-        use_one_hot_embeddings (bool): Specifies whether to use one-hot for embeddings.
-
-    Returns:
-        Tensor, prediction_scores, seq_relationship_score.
-    """
-
-    def __init__(self, config, is_training, use_one_hot_embeddings):
-        super(BertScore, self).__init__()
-        self.bert = BertNetwork(config, is_training, use_one_hot_embeddings)
-        self.mlmloss = GetMaskedLMOutput(config)
-        self.nsploss = GetNextSentenceOutput(config)
-        self.use_moe = (config.parallel_config.moe_config.expert_num > 1)
-        self.is_training = is_training
-
-    def construct(self, input_ids, input_mask, token_type_id,
-                  masked_lm_positions=None):
-        """connect backbone and heads."""
-        moe_loss = 0
-        if self.use_moe:
-            sequence_output, pooled_output, embedding_table, moe_loss = \
-                self.bert(input_ids, token_type_id, input_mask)
-        else:
-            sequence_output, pooled_output, embedding_table = \
-                self.bert(input_ids, token_type_id, input_mask)
-
-        prediction_scores = self.mlmloss(sequence_output,
-                                         embedding_table,
-                                         masked_lm_positions)
-        seq_relationship_score = self.nsploss(pooled_output)
-        if not self.is_training:
-            return sequence_output, pooled_output, prediction_scores, seq_relationship_score
-        prediction_scores = self.mlmloss(sequence_output,
-                                         embedding_table,
-                                         masked_lm_positions)
-        seq_relationship_score = self.nsploss(pooled_output)
-        return prediction_scores, seq_relationship_score, moe_loss
-
-
 class BertLoss(nn.Cell):
     """
     Provide bert pre-training loss.
 
     Args:
-        config (BertConfig): The config of BertModel.
+        config (BertConfig): The config of BertForPreTraining.
 
     Returns:
         Tensor, total loss.
@@ -607,7 +591,7 @@ class GetMaskedLMOutput(nn.Cell):
     Get masked lm output.
 
     Args:
-        config (BertConfig): The config of BertModel.
+        config (BertConfig): The config of BertForPreTraining.
 
     Returns:
         Tensor, masked lm output.
@@ -615,7 +599,7 @@ class GetMaskedLMOutput(nn.Cell):
 
     def __init__(self, config):
         super(GetMaskedLMOutput, self).__init__()
-        self.width = config.embedding_size
+        self.width = config.hidden_size
         self.reshape = P.Reshape()
         self.gather = P.Gather()
         self.gather.shard(((1, 1), (1,)))
@@ -623,7 +607,7 @@ class GetMaskedLMOutput(nn.Cell):
 
 
         self.dense = nn.Dense(self.width,
-                              config.embedding_size,
+                              config.hidden_size,
                               weight_init=weight_init,
                               activation=config.hidden_act).to_float(config.compute_dtype)
 
@@ -633,7 +617,7 @@ class GetMaskedLMOutput(nn.Cell):
             self.dense.matmul.shard(((config.parallel_config.data_parallel, 1), (
                 1, config.parallel_config.model_parallel)))
 
-        self.layernorm = LayerNorm((config.embedding_size,)).to_float(config.compute_dtype)
+        self.layernorm = LayerNorm((config.hidden_size,)).to_float(config.compute_dtype)
         self.layernorm.shard(((config.parallel_config.data_parallel, 1),))
         self.output_bias = Parameter(
             initializer(
@@ -688,7 +672,7 @@ class GetNextSentenceOutput(nn.Cell):
         self.log_softmax = P.LogSoftmax()
         self.log_softmax.shard(((config.parallel_config.data_parallel, 1),))
         weight_init = TruncatedNormal(config.initializer_range)
-        self.dense = nn.Dense(config.embedding_size, 2,
+        self.dense = nn.Dense(config.hidden_size, 2,
                               weight_init=weight_init, has_bias=True).to_float(config.compute_dtype)
 
         if config.parallel_config.vocab_emb_dp:

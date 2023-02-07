@@ -27,7 +27,7 @@ from mindspore.dataset import GeneratorDataset
 from mindformers.trainer import Trainer, MaskedLanguageModelingTrainer
 from mindformers.trainer.config_args import ConfigArguments, \
     RunnerConfig
-from mindformers.models.bert.bert import BertConfig, BertModel
+from mindformers.models.bert.bert import BertConfig, BertForPreTraining
 from mindformers import BertTokenizer
 
 
@@ -67,7 +67,7 @@ def test_bert_trainer_train_from_instance():
     config = ConfigArguments(seed=2022, runner_config=runner_config)
 
     # Model
-    bert_model = BertModel()
+    bert_model = BertForPreTraining()
 
     # Dataset and operations
     dataset = GeneratorDataset(generator, column_names=["input_ids", "input_mask", "segment_ids",
@@ -105,8 +105,8 @@ def test_bert_trainer_predict():
     Expectation: TypeError
     """
     # Config definition
-    config = BertConfig(num_layers=1, batch_size=1, seq_length=16, is_training=False)
-    bert = BertModel(config)
+    config = BertConfig(num_hidden_layers=1, batch_size=1, seq_length=16, is_training=False)
+    bert = BertForPreTraining(config)
     mlm_trainer = MaskedLanguageModelingTrainer(model_name="bert_tiny_uncased")
     tokenizer = BertTokenizer.from_pretrained("bert_tiny_uncased")
     input_data = [" Hello I am a [MASK] model.",]
@@ -127,7 +127,7 @@ def test_bert_trainer_train_from_mlm():
 
     # Model
     model_config = BertConfig.from_pretrained('bert_tiny_uncased')
-    bert_model = BertModel(model_config)
+    bert_model = BertForPreTraining(model_config)
 
     # Dataset and operations
     dataset = GeneratorDataset(generator, column_names=["input_ids", "input_mask", "segment_ids",

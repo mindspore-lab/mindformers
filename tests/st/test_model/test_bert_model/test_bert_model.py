@@ -52,5 +52,5 @@ class TestModelMethod:
         logger.info(support_list)
         # input yaml path, load model without weights
         model = AutoModel.from_config(self.config_path)
-        # assert isinstance(model, BertModel)
+        # assert isinstance(model, BertForPreTraining)
         assert isinstance(model, BaseModel)
