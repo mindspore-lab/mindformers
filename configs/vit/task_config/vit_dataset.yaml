@@ -42,7 +42,7 @@ train_dataset: &train_dataset
   column_order: ["image", "label"]
   num_parallel_workers: 8
   python_multiprocessing: False
-  drop_remainder: False
+  drop_remainder: True
   repeat: 1
   numa_enable: False
   prefetch_size: 30
@@ -76,7 +76,7 @@ eval_dataset: &eval_dataset
   column_order: ["image", "label"]
   num_parallel_workers: 8
   python_multiprocessing: False
-  drop_remainder: False
+  drop_remainder: True
   repeat: 1
   numa_enable: False
   prefetch_size: 30
