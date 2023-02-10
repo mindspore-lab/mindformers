@@ -341,7 +341,7 @@ class ImageClassificationTrainer(BaseTrainer):
             >>> #2) use instance function to predict
             >>> vit_config = VitConfig(batch_size=2)
             >>> network = VitModel(vit_config)
-            >>> image_processor = VitImageProcessor(image_resolution=224)
+            >>> image_processor = VitImageProcessor(size=224)
             >>> cls_task.predict(input_data, network=network,
             ...                  image_processor=image_processor, top_k=5)
         """

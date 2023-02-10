@@ -49,7 +49,7 @@ class ImageClassificationPipeline(BasePipeline):
         >>> import numpy as np
         >>> from mindformers.pipeline import ImageClassificationPipeline
         >>> from mindformers import VitImageProcessor
-        >>> processor = VitImageProcessor(image_resolution=224)
+        >>> processor = VitImageProcessor(size=224)
         >>> classifier = ImageClassificationPipeline(
             model='vit_base_p16',
             image_processor=processor,
