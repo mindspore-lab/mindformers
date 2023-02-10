@@ -17,8 +17,8 @@
 Test Module for testing functions of AutoConfig and BertConfig class
 
 How to run this:
-windows:  pytest .\\tests\\st\\test_model\\test_bert_model\\test_ner_config.py
-linux:  pytest ./tests/st/test_model/test_bert_model/test_ner_config.py
+windows:  pytest .\\tests\\st\\test_model\\test_ner_model\\test_ner_config.py
+linux:  pytest ./tests/st/test_model/test_ner_model/test_ner_config.py
 
 Note:
     model name and config name should have the same prefix
@@ -39,21 +39,21 @@ def test_config():
     Expectation: TypeError, ValueError
     """
     ner_dense_config_path = os.path.join(MindFormerBook.get_project_path(),
-                                         'configs', 'ner', 'model_config', 'ner_bert_base_chinese_dense.yaml')
+                                         'configs', 'ner', 'model_config', 'ner_bert_base_chinese.yaml')
     ner_dense_cluener_config_path = os.path.join(MindFormerBook.get_project_path(),
                                                  'configs', 'ner', 'model_config',
-                                                 'ner_bert_base_chinese_dense_cluener.yaml')
+                                                 'ner_bert_base_chinese_cluener.yaml')
     save_path = os.path.join(MindFormerBook.get_default_checkpoint_save_folder(), 'ner')
 
 
     AutoConfig.show_support_list()
     # fine-tuning part
-    ner_dense_config_a = AutoConfig.from_pretrained('ner_bert_base_chinese_dense') # input a model name
+    ner_dense_config_a = AutoConfig.from_pretrained('ner_bert_base_chinese') # input a model name
     ner_dense_config_b = AutoConfig.from_pretrained(ner_dense_config_path) # input a path to .yaml file
     logger.info(ner_dense_config_a)
     logger.info(ner_dense_config_b)
     # evaluation and prediction test part
-    ner_dense_cluener_config_a = AutoConfig.from_pretrained('ner_bert_base_chinese_dense_cluener') # input a model name
+    ner_dense_cluener_config_a = AutoConfig.from_pretrained('ner_bert_base_chinese_cluener') # input a model name
     ner_dense_cluener_config_b = AutoConfig.from_pretrained(ner_dense_cluener_config_path) # input a path to .yaml file
     logger.info(ner_dense_cluener_config_a)
     logger.info(ner_dense_cluener_config_b)
@@ -67,15 +67,15 @@ def test_config():
     support_list = BertConfig.get_support_list()
     logger.info(support_list)
     # fine-tuning part
-    ner_dense_config_c = BertConfig.from_pretrained('ner_bert_base_chinese_dense')
+    ner_dense_config_c = BertConfig.from_pretrained('ner_bert_base_chinese')
     ner_dense_config_d = BertConfig.from_pretrained(ner_dense_config_path)
     ner_dense_config_c.save_pretrained()
-    ner_dense_config_d.save_pretrained(save_path, "ner_bert_base_chinese_dense")
+    ner_dense_config_d.save_pretrained(save_path, "ner_bert_base_chinese")
     # evaluation and prediction test part
-    ner_dense_cluener_config_c = BertConfig.from_pretrained('ner_bert_base_chinese_dense_cluener')
+    ner_dense_cluener_config_c = BertConfig.from_pretrained('ner_bert_base_chinese_cluener')
     ner_dense_cluener_config_d = BertConfig.from_pretrained(ner_dense_cluener_config_path)
     ner_dense_cluener_config_c.save_pretrained()
-    ner_dense_cluener_config_d.save_pretrained(save_path, "ner_bert_base_chinese_dense_cluener")
+    ner_dense_cluener_config_d.save_pretrained(save_path, "ner_bert_base_chinese_cluener")
 
     assert isinstance(ner_dense_config_c, BaseConfig)
     assert isinstance(ner_dense_config_d, BaseConfig)

@@ -78,7 +78,8 @@ class BertTokenClassification(BaseModel):
             label_ids = self.reshape(label_ids, (-1,))
             output = self.cross_entropy_loss(logits, label_ids)
         else:
-            output = logits
+            output = (logits, label_ids)
+
         return output
 
 

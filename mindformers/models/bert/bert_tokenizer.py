@@ -325,6 +325,7 @@ class BertTokenizer(Tokenizer):
                  pad_token="[PAD]",
                  cls_token="[CLS]",
                  mask_token="[MASK]",
+                 is_tokenize_char=False,
                  **kwargs):
         super(BertTokenizer, self).__init__(do_lower_case=do_lower_case,
                                             do_basic_tokenize=do_basic_tokenize,
@@ -343,6 +344,7 @@ class BertTokenizer(Tokenizer):
         self.vocab_id2token = {v: k for k, v in self.vocab_dict.items()}
         self.word_piece_tokenizer = WordpieceTokenizer(vocab=self.vocab_dict)
         self.mask_index = []
+        self.is_tokenize_char = is_tokenize_char
 
     def build_inputs_with_special_tokens(self, token_ids_0, token_ids_1=None):
         if token_ids_1:
@@ -351,6 +353,7 @@ class BertTokenizer(Tokenizer):
         return [self.cls_token_id] + token_ids_0 + [self.sep_token_id]
 
     def tokenize(self, text):
+        text = convert_to_unicode(text)
         if not isinstance(text, str):
             raise ValueError("Text should be type str, but found type", type(text))
         return self._tokenize(text)
@@ -372,13 +375,21 @@ class BertTokenizer(Tokenizer):
 
     def _tokenize(self, text, **kwargs):
         tokens_ret = []
-        text = convert_to_unicode(text)
-        if self.do_basic_tokenize:
-            for tokens in self._process_mask_tokens(text):
-                wordpiece_tokens = self.word_piece_tokenizer.tokenize(tokens)
-                tokens_ret.extend(wordpiece_tokens)
+        if self.is_tokenize_char:
+            for character in text:
+                if self.do_lower_case:
+                    character = character.lower()
+                if character in self.vocab_dict:
+                    tokens_ret.append(character)
+                else:
+                    tokens_ret.append(self.unk_token)
         else:
-            tokens_ret = self.word_piece_tokenizer.tokenize(text)
+            if self.do_basic_tokenize:
+                for tokens in self._process_mask_tokens(text):
+                    wordpiece_tokens = self.word_piece_tokenizer.tokenize(tokens)
+                    tokens_ret.extend(wordpiece_tokens)
+            else:
+                tokens_ret = self.word_piece_tokenizer.tokenize(text)
         return tokens_ret
 
     def _convert_tokens_to_ids(self, tokens):

@@ -35,14 +35,14 @@ class TestBertTokenizerForChineseMethod:
         Description: Using call forward process of the tokenizer without error
         Expectation: The returned ret is not equal to [[6, 7]].
         """
-        tokenizer = BertTokenizer.from_pretrained('ner_bert_base_chinese_dense')
+        tokenizer = BertTokenizer.from_pretrained('ner_bert_base_chinese')
         tokenizer.show_support_list()
         res = tokenizer.tokenize("你好，世界！")
 
         assert isinstance(tokenizer, BertTokenizer)
         assert res == ['你', '好', '，', '世', '界', '！']
 
-        tokenizer = BertTokenizer.from_pretrained('ner_bert_base_chinese_dense_cluener')
+        tokenizer = BertTokenizer.from_pretrained('ner_bert_base_chinese_cluener')
         tokenizer.show_support_list()
         res = tokenizer.tokenize("你好，世界！")
 
@@ -55,14 +55,14 @@ class TestBertTokenizerForChineseMethod:
         Description: Using call forward process of the tokenizer without error
         Expectation: The returned ret is not equal to [[6, 7]].
         """
-        tokenizer = AutoTokenizer.from_pretrained('ner_bert_base_chinese_dense')
+        tokenizer = AutoTokenizer.from_pretrained('ner_bert_base_chinese')
         tokenizer.show_support_list()
         res = tokenizer.tokenize("你好，世界！")
 
         assert isinstance(tokenizer, BertTokenizer)
         assert res == ['你', '好', '，', '世', '界', '！']
 
-        tokenizer = AutoTokenizer.from_pretrained('ner_bert_base_chinese_dense_cluener')
+        tokenizer = AutoTokenizer.from_pretrained('ner_bert_base_chinese_cluener')
         tokenizer.show_support_list()
         res = tokenizer.tokenize("你好，世界！")
 

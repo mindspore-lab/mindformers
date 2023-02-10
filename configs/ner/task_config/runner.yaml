@@ -1,0 +1,38 @@
+# runner config
+runner_config:
+  epochs: 3
+  batch_size: 24
+  sink_mode: False
+  per_epoch_size: -1
+  initial_epoch: 0
+  has_trained_epoches: 0
+  has_trained_steps: 0
+
+runner_wrapper:
+  type: TrainOneStepCell
+
+# optimizer
+optimizer:
+  type: AdamWeightDecay
+  weight_decay: 0.01
+  eps: 0.00000001  # 1e-8
+
+other_optimizer_config:
+  no_decay: ['layernorm', 'bias']
+  warmup_proportion: 0.1
+
+# lr sechdule
+lr_schedule:
+  type: linear
+  learning_rate: 0.00003  # 3e-5
+
+callbacks:
+  - type: MFLossMonitor
+  - type: CheckpointMointor
+    prefix: "mindformers"
+    save_checkpoint_steps: 100
+    integrated_save: True
+    async_save: False
+
+metric:
+  type: EntityScore

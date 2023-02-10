@@ -1,4 +1,4 @@
-# Copyright 2022 Huawei Technologies Co., Ltd
+# Copyright 2023 Huawei Technologies Co., Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,10 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-"""MindFormers Metric."""
-from .build_metric import build_metric
-from .metric import *
+"""Name Entity Recognition Trainer."""
+from .name_entity_recognition import NameEntityRecognitionTrainer
 
 
-__all__ = ['build_metric']
-__all__.extend(metric.__all__)
+__all__ = ['NameEntityRecognitionTrainer']
