@@ -21,6 +21,7 @@ from .general_task_trainer import *
 from .contrastive_language_image_pretrain import *
 from .image_to_text_retrieval import *
 from .translation import *
+from .text_classfication import *
 from .trainer import Trainer
 from .base_trainer import BaseTrainer
 from .build_trainer import build_trainer
@@ -35,3 +36,4 @@ __all__.extend(general_task_trainer.__all__)
 __all__.extend(contrastive_language_image_pretrain.__all__)
 __all__.extend(image_to_text_retrieval.__all__)
 __all__.extend(translation.__all__)
+__all__.extend(text_classfication.__all__)

@@ -134,6 +134,12 @@ class MindFormerBook:
                 _PROJECT_PATH, "configs/t5/run_t5_small_on_wmt16.yaml")),
             ("common", os.path.join(
                 _PROJECT_PATH, "configs/t5/run_t5_small_on_wmt16.yaml"))])
+         ),
+        ("text_classification", OrderedDict([
+            ("txtcls_bert_base_uncased", os.path.join(
+                _PROJECT_PATH, "configs/txtcls/run_txtcls_bert_base_uncased.yaml")),
+            ("common", os.path.join(
+                _PROJECT_PATH, "configs/txtcls/run_txtcls_bert_base_uncased.yaml"))])
          )
     ])
 
