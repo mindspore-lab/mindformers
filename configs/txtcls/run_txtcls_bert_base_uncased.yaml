@@ -1,0 +1,17 @@
+base_config: [
+    './task_config/context.yaml',
+    './task_config/runner.yaml',
+    './task_config/bert_mnli_dataset.yaml',
+    './model_config/txtcls_bert_base_uncased.yaml',
+    '../__base__.yaml' ]
+
+profile: False
+use_parallel: False
+
+seed: 42
+resume_or_finetune_checkpoint: ''
+
+run_mode: 'train'
+trainer:
+  type: TextClassificationTrainer
+  model_name: bert_for_multiple_choice

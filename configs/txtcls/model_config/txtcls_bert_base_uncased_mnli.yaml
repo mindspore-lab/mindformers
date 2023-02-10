@@ -4,7 +4,7 @@ model:
     use_one_hot_embeddings: False
     num_labels: 3
     dropout_prob: 0.1
-    batch_size: 32
+    batch_size: 64
     seq_length: 128
     vocab_size: 30522
     embedding_size: 768
