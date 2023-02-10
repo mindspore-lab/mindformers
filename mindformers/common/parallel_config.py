@@ -13,8 +13,8 @@
 # limitations under the License.
 # ============================================================================
 """Parallel Config Init."""
-from mindspore.nn.transformer.moe import default_moe_config, MoEConfig
-from mindspore.nn.transformer.transformer import TransformerOpParallelConfig, TransformerRecomputeConfig
+from mindformers.modules.transformer.moe import default_moe_config, MoEConfig
+from mindformers.modules.transformer import TransformerOpParallelConfig, TransformerRecomputeConfig
 
 default_recompute_config = TransformerRecomputeConfig()
 default_parallel_config = TransformerOpParallelConfig(recompute=default_recompute_config)

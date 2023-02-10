@@ -96,7 +96,7 @@ class TestModelForT5Method:
         Description: Test to save checkpoint for T5Model
         Expectation: ValueError, AttributeError
         """
-        model = T5ForConditionalGeneration.from_pretrained('t5_small')
+        model = T5ForConditionalGeneration.from_pretrained('t5_small', dropout_rate=0.0)
         tokenizer = T5Tokenizer.from_pretrained('t5_small')
 
         src_output = tokenizer(["hello world"], padding='max_length', max_length=model.config.seq_length,

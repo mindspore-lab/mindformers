@@ -13,9 +13,10 @@
 # limitations under the License.
 # ============================================================================
 """Mae Config API."""
-from mindspore.nn.transformer.transformer import TransformerOpParallelConfig, TransformerRecomputeConfig
 import mindspore.common.dtype as mstype
-from mindspore.nn.transformer.moe import MoEConfig, default_moe_config
+
+from mindformers.modules.transformer import TransformerOpParallelConfig, TransformerRecomputeConfig
+from mindformers.modules.transformer.moe import MoEConfig, default_moe_config
 
 from mindformers.mindformer_book import MindFormerBook
 from mindformers.models.base_config import BaseConfig

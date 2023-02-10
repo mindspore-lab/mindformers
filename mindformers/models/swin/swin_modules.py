@@ -27,10 +27,11 @@ from mindspore import Parameter
 from mindspore.ops import functional as F
 from mindspore.ops import operations as P
 from mindspore.ops.primitive import constexpr
-from mindspore.nn.transformer.op_parallel_config import default_dpmp_config
 import mindspore.common.dtype as mstype
 import mindspore.common.initializer as weight_init_
 
+from mindformers.modules import layers, FeedForward
+from mindformers.modules.transformer.op_parallel_config import default_dpmp_config
 from mindformers.models.base_model import BaseModel
 
 
@@ -56,7 +57,7 @@ def gen_shape(x_shape, ndim):
     return (x_shape,) + (1,) * (ndim + 1)
 
 
-class LayerNorm(nn.transformer.layers._LayerNorm):
+class LayerNorm(layers.LayerNorm):
     # pylint: disable=W0212
     """
     A self-defined layer norm operation using reduce sum and reduce mean.
@@ -69,7 +70,7 @@ class LayerNorm(nn.transformer.layers._LayerNorm):
             param_init_type=param_init_type)
 
 
-class Linear(nn.transformer.layers._Linear):
+class Linear(layers.Linear):
     # pylint: disable=W0212
     """
     Linear function for Swin.
@@ -130,7 +131,7 @@ class Identity(nn.Cell):
         return x
 
 
-class Dropout(nn.transformer.layers._Dropout):
+class Dropout(layers.Dropout):
     # pylint: disable=W0212
     """
         A Dropout Implements with P.DropoutGenMask and  P.DropoutDoMask for context training.
@@ -264,7 +265,7 @@ class SwinTransformerBlock(BaseModel):
         num_heads (int): Number of attention heads.
         shift_size (int): Shift size for SW-MSA.
         drop_path (float, optional): Stochastic depth rate. Default: 0.0
-        norm_layer (nn.Cell, optional): Normalization layer.  Default: nn.LayerNorm/_LayerNorm
+        norm_layer (nn.Cell, optional): Normalization layer.  Default: nn.LayerNorm/LayerNorm
     """
     def __init__(self, config, dim, input_resolution, num_heads, shift_size, drop_path,
                  norm_layer=LayerNorm, parallel_config=default_dpmp_config):
@@ -396,7 +397,7 @@ class PatchMerging(nn.Cell):
     Args:
         input_resolution (tuple[int]): Resolution of input feature.
         dim (int): Number of input channels.
-        norm_layer (nn.Module, optional): Normalization layer.  Default: nn.LayerNorm/_LayerNorm
+        norm_layer (nn.Module, optional): Normalization layer.  Default: nn.LayerNorm/LayerNorm
     """
 
     def __init__(self,
@@ -594,7 +595,7 @@ class WindowAttention(nn.Cell):
         return f'dim={self.dim}, window_size={self.window_size}, num_heads={self.num_heads}'
 
 
-class MLP(nn.transformer.transformer.FeedForward):
+class MLP(FeedForward):
     """MLP for Swin."""
 
     def __init__(self,

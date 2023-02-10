@@ -28,9 +28,10 @@ Example:
 import os
 import pytest
 
-from mindspore.nn.transformer.transformer import TransformerOpParallelConfig, TransformerRecomputeConfig
 import mindspore.common.dtype as mstype
-from mindspore.nn.transformer.moe import default_moe_config
+
+from mindformers.modules.transformer import TransformerOpParallelConfig, TransformerRecomputeConfig
+from mindformers.modules.transformer.moe import default_moe_config
 
 from mindformers import MindFormerBook, AutoConfig
 from mindformers.models import SwinConfig, BaseConfig

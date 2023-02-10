@@ -23,21 +23,24 @@ import inspect
 import math
 import numpy as np
 
+import mindspore
 from mindspore import nn, context
 from mindspore.common.parameter import Parameter
 from mindspore.common.initializer import initializer, Tensor
 import mindspore.common.dtype as mstype
 from mindspore.common.seed import _get_graph_seed
-from mindspore.ops import operations as P
 from mindspore._extends import cell_attr_register
 from mindspore.nn.cell import Cell
 from mindspore.nn.layer.activation import get_activation
 from mindspore.ops import functional as F
-from mindspore._checkparam import Validator
+from mindspore.ops import operations as P
 from mindspore.ops.primitive import constexpr
+from mindspore._checkparam import Validator
 from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
 from mindspore.context import ParallelMode
-from mindspore import log as logger
+
+from mindformers.tools.logger import logger
+from mindformers.tools.utils import is_version_le
 from mindformers.modules.transformer.op_parallel_config import default_dpmp_config, OpParallelConfig, MoEParallelConfig
 
 __all__ = [
@@ -303,6 +306,11 @@ class LayerNorm(Cell):
         if param_init_type not in [mstype.float32, mstype.float16]:
             raise TypeError("The type of parameter 'param_init_type' should in [float32, float16], "
                             "but got the type : {}.".format(type(param_init_type)))
+        # Since the mindspore 1.10 version, the layernorm has been changed to P.LayerNorm
+        if is_version_le(mindspore.__version__, '1.10.0'):
+            self.is_self_defined = False
+        else:
+            self.is_self_defined = True
         self.is_self_defined = is_self_defined
         if not self.is_self_defined:
             self.layer_norm = P.LayerNorm(begin_norm_axis=-1,
@@ -350,7 +358,7 @@ class LayerNorm(Cell):
             strategy (tuple): The strategy for the dropout. Should be the same shape as the inputs.
         Examples:
             >>> import mindspore
-            >>> net = mindspore.parallel.nn.transformer.LayerNorm(normalized_shape=(1024, 10))
+            >>> net = mindformers.modules.transformer.LayerNorm(normalized_shape=(1024, 10))
             >>> net.shard(((10, 2, 1),))
         """
         if self.is_self_defined:
@@ -560,9 +568,9 @@ class Linear(Cell):
                                      "'ParallelConfig' or 'OpParallelConfig' for the incoming strategy_activation ")
                 self.activation.activation_shard(parallel_config)
             else:
-                logger.warning(f"The user passed the custom defined activation function {self.activation_flag}. "
-                               f"If the user want to enable shard for the activation cell, "
-                               f"the user should set the shard for each primitives in the cell.")
+                logger.warning("The user passed the custom defined activation function %s. "
+                               "If the user want to enable shard for the activation cell, "
+                               "the user should set the shard for each primitives in the cell.", self.activation_flag)
         return self
 
 
@@ -614,7 +622,7 @@ class FixedSparseAttention(nn.Cell):
     Examples:
         >>> import numpy as np
         >>> from mindspore import dtype as mstype
-        >>> from mindspore.nn.transformer import FixedSparseAttention
+        >>> from mindformers.modules import FixedSparseAttention
         >>> from mindspore import Tensor
         >>> model = FixedSparseAttention(batch_size=2,
         ...                              num_heads=8,

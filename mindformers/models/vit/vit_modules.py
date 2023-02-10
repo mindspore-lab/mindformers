@@ -22,9 +22,12 @@ import mindspore.common.dtype as mstype
 from mindspore.ops import operations as P, constexpr
 from mindspore.ops import functional as F
 import mindspore.common.initializer as init
-from mindspore.nn.transformer.moe import default_moe_config, _check_moe_config
-from mindspore.nn.transformer.op_parallel_config import default_dpmp_config, _check_config
 from mindspore.parallel._utils import _get_parallel_mode
+
+from mindformers.modules import layers, FeedForward
+from mindformers.modules.transformer.moe import default_moe_config, _check_moe_config
+from mindformers.modules.transformer.op_parallel_config import default_dpmp_config, _check_config
+
 
 
 @constexpr
@@ -82,7 +85,7 @@ def get_1d_sincos_pos_embed_from_grid(embed_dim, pos):
     return emb
 
 
-class LayerNorm(nn.transformer.layers._LayerNorm):
+class LayerNorm(layers.LayerNorm):
     # pylint: disable=W0212
     r"""
     A self-defined layer norm operation using reduce sum and reduce mean.
@@ -158,7 +161,7 @@ class RelativePositionBias(nn.Cell):
         return relative_position_bias
 
 
-class Linear(nn.transformer.layers._Linear):
+class Linear(layers.Linear):
     # pylint: disable=W0212
     r"""
     Linear function for RingMo.
@@ -209,7 +212,7 @@ class Linear(nn.transformer.layers._Linear):
         return output
 
 
-class Dropout(nn.transformer.layers._Dropout):
+class Dropout(layers.Dropout):
     # pylint: disable=W0212
     r"""
         A Dropout Implements with P.DropoutGenMask and  P.DropoutDoMask for context training.
@@ -241,7 +244,7 @@ class DropPath(nn.Cell):
         self.mul.shard(strategy)
 
 
-class Block(nn.transformer.transformer.TransformerEncoderLayer):
+class Block(nn.Cell):
     """Block of ringmo"""
 
     def __init__(self,
@@ -264,7 +267,7 @@ class Block(nn.transformer.transformer.TransformerEncoderLayer):
                  hidden_act='gelu',
                  moe_config=default_moe_config,
                  parallel_config=default_dpmp_config):
-        super(nn.transformer.transformer.TransformerEncoderLayer, self).__init__()
+        super(Block, self).__init__()
         _check_config(parallel_config)
         if num_heads % parallel_config.model_parallel != 0:
             raise ValueError(
@@ -392,7 +395,7 @@ class Block(nn.transformer.transformer.TransformerEncoderLayer):
         return output
 
 
-class MLP(nn.transformer.transformer.FeedForward):
+class MLP(FeedForward):
     r"""MLP for ring-mo."""
 
     def __init__(self,
@@ -467,7 +470,7 @@ class MLP(nn.transformer.transformer.FeedForward):
         return output
 
 
-class Attention(nn.transformer.transformer.MultiHeadAttention):
+class Attention(nn.Cell):
     r"""
         This is an implementation of multihead attention in the paper `Attention is all you need
         <https://arxiv.org/pdf/1706.03762v5.pdf>`_. Given the query vector with source length, and the
@@ -488,7 +491,7 @@ class Attention(nn.transformer.transformer.MultiHeadAttention):
                  softmax_compute_type=mstype.float32,
                  param_init_type=mstype.float32,
                  parallel_config=default_dpmp_config):
-        super(nn.transformer.transformer.MultiHeadAttention, self).__init__()
+        super(Attention, self).__init__()
         self._is_ascend = context.get_context('device_target') in ["Ascend"]
         _check_config(parallel_config)
         self.is_parallel_mode = _get_parallel_mode() in (
@@ -607,10 +610,11 @@ class Attention(nn.transformer.transformer.MultiHeadAttention):
 
     def construct(self, query_tensor, key_tensor, value_tensor, attention_mask, rel_pos_bias=None):
         """construct of attention"""
-        query_tensor, key_tensor, value_tensor, batch_size, ori_shape = self._convert_to_2d_tensor(query_tensor,
-                                                                                                   key_tensor,
-                                                                                                   value_tensor,
-                                                                                                   attention_mask)
+        ori_shape = F.shape(query_tensor)
+        batch_size = F.shape(attention_mask)[0]
+        query_tensor, key_tensor, value_tensor = self._convert_to_2d_tensor(query_tensor,
+                                                                            key_tensor,
+                                                                            value_tensor)
 
         # multi head attention: query, key, value are derived from the same inputs
         query = self.dense1(query_tensor)
@@ -701,6 +705,28 @@ class Attention(nn.transformer.transformer.MultiHeadAttention):
         weighted_values = self.batch_matmul(attention_probs, value)
         attention_merge = self._merge_heads(weighted_values)
         return attention_merge
+
+    def _merge_heads(self, x):
+        """
+        convert a 4d input to a 2d output
+        """
+        x = self.merger_head_transpose(
+            x, (0, 2, 1, 3))  # bs, seq_length, head, size_per_head
+        x_shape = P.Shape()(x)
+        new_shape = (-1, x_shape[-2] * x_shape[-1])
+        x_merge = self.reshape(x, new_shape)
+        return x_merge
+
+    def _convert_to_2d_tensor(self, query_tensor, key_tensor, value_tensor):
+        """convert a nd tensor to a 2d tensor"""
+        query_shape = F.shape(query_tensor)
+        query_tensor = F.reshape(query_tensor, (-1, query_shape[-1]))
+        key_shape = F.shape(key_tensor)
+        key_tensor = F.reshape(key_tensor, (-1, key_shape[-1]))
+        value_shape = F.shape(value_tensor)
+        value_tensor = F.reshape(value_tensor, (-1, value_shape[-1]))
+
+        return query_tensor, key_tensor, value_tensor
 
 
 class PatchEmbed(nn.Cell):
