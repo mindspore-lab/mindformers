@@ -21,6 +21,7 @@ from .zero_shot_image_classification_pipeline import ZeroShotImageClassification
 from .translation_pipeline import TranslationPipeline
 from .fill_mask_pipeline import FillMaskPipeline
 from .text_classification_pipeline import TextClassificationPipeline
+from .name_entity_recognition_pipeline import NameEntityRecognitionPipeline
 
 
 __all__ = ['build_pipeline', 'ZeroShotImageClassificationPipeline',
@@ -29,3 +30,4 @@ __all__ = ['build_pipeline', 'ZeroShotImageClassificationPipeline',
 __all__.extend(translation_pipeline.__all__)
 __all__.extend(fill_mask_pipeline.__all__)
 __all__.extend(text_classification_pipeline.__all__)
+__all__.extend(name_entity_recognition_pipeline.__all__)

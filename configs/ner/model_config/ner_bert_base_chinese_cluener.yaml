@@ -35,5 +35,6 @@ processor:
     pad_token: '[PAD]'
     sep_token: '[SEP]'
     unk_token: '[UNK]'
-    do_basic_tokenize: True
+    is_tokenize_char: True
     do_lower_case: False
+    checkpoint_name_or_path: ner_bert_base_chinese

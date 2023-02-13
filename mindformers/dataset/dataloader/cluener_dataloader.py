@@ -11,6 +11,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+# This file was refer to project:
+# https://gitee.com/mindspore/models/blob/master/official/nlp/Bert/src/generate_mindrecord/generate_cluener_mindrecord.py
 # ============================================================================
 """CLUENER DataLoader."""
 import os
@@ -44,6 +46,19 @@ class CLUENERDataLoader:
         Raises:
             ValueError: Error input for dataset_dir, and column_names.
             TypeError: Type error for column_names.
+
+        Examples:
+            >>> from mindformers import CLUENERDataLoader
+            >>> data_loader = CLUENERDataLoader("./cluener/")
+            >>> data_loader = data_loader.batch(1)
+            >>> for item in data_loader:
+            >>>     print(item)
+            >>>     break
+                [Tensor(shape=[], dtype=String, value= '虚幻引擎3动作游戏《黑光》新作公布'),
+                 Tensor(shape=[49], dtype=Int64, value= [ 0,  0,  0,  0,  0,  0,  0,  0,
+                        0,  0,  0,  0,  0,  0,  0,  0,  5, 15, 15,  0,  0,  0,  0,  0,
+                        5, 15, 15, 15, 15,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+                        0,  0,  0,  0,  0,  0,  0,  0, 0])]
         """
         if not os.path.isdir(dataset_dir):
             raise ValueError(f"{dataset_dir} is not existed.")

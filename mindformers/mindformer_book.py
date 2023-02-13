@@ -189,6 +189,12 @@ class MindFormerBook:
                 _PROJECT_PATH, "configs/txtcls/run_txtcls_bert_base_uncased.yaml")),
             ("common", os.path.join(
                 _PROJECT_PATH, "configs/txtcls/run_txtcls_bert_base_uncased.yaml"))
+        ])),
+        ("name_entity_recognition", OrderedDict([
+            ("ner_bert_base_chinese", os.path.join(
+                _PROJECT_PATH, "configs/ner/run_ner_bert_base_chinese.yaml")),
+            ("common", os.path.join(
+                _PROJECT_PATH, "configs/ner/run_ner_bert_base_chinese.yaml"))
         ]))
     ])
 
