@@ -28,7 +28,7 @@ from PIL import Image
 import mindspore as ms
 from mindformers.mindformer_book import MindFormerBook
 from mindformers.tools.register.config import MindFormerConfig
-from mindformers.models import VitModel, VitConfig
+from mindformers.models import ViTForImageClassification, ViTConfig
 from mindformers.trainer import Trainer
 from mindformers.trainer.config_args import ConfigArguments, RunnerConfig
 from mindformers.dataset.build_dataset import build_dataset
@@ -74,9 +74,9 @@ class TestTrainer:
         )
         config = ConfigArguments(seed=2022, runner_config=runner_config)
 
-        vit_config = VitConfig.from_pretrained('vit_base_p16')
+        vit_config = ViTConfig.from_pretrained('vit_base_p16')
         vit_config.checkpoint_name_or_path = None
-        vit_model = VitModel(vit_config)
+        vit_model = ViTForImageClassification(vit_config)
         vit_model.set_train()
 
         dataset = build_dataset(self.config.train_dataset_task)

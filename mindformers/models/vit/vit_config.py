@@ -27,21 +27,21 @@ default_parallel_config = TransformerOpParallelConfig(recompute=default_recomput
 
 
 @MindFormerRegister.register(MindFormerModuleType.CONFIG)
-class VitConfig(BaseConfig):
+class ViTConfig(BaseConfig):
     """
     Config for ViT model
 
     Examples:
         >>> # init a config with a model name
-        >>> config_a = VitConfig.from_pretrained('vit_base_p16')
+        >>> config_a = ViTConfig.from_pretrained('vit_base_p16')
         >>> # init a config with a config path
         >>> import os
         >>> from mindformers.mindformer_book import MindFormerBook
         >>> config_path = os.path.join(MindFormerBook.get_project_path(),
         >>>                        'configs', 'vit', 'model_config', "vit_base_p16.yaml")
-        >>> config_b = VitConfig.from_pretrained(config_path)
+        >>> config_b = ViTConfig.from_pretrained(config_path)
         >>> # init a config with args
-        >>> config_c = VitConfig(
+        >>> config_c = ViTConfig(
         >>>     patch_size=16,
         >>>     in_chans=3,
         >>>     ...
@@ -67,6 +67,7 @@ class VitConfig(BaseConfig):
                  drop_path_rate: float = 0.1,
                  num_labels: int = 1000,
                  loss_type: str = "SoftTargetCrossEntropy",
+                 encoder_stride: int = 16,
                  checkpoint_name_or_path: str = 'vit_base_p16',
                  layernorm_compute_type: mstype = mstype.float32,
                  softmax_compute_type: mstype = mstype.float32,
@@ -92,6 +93,7 @@ class VitConfig(BaseConfig):
         self.drop_path_rate = drop_path_rate
         self.num_classes = num_labels
         self.loss_type = loss_type
+        self.encoder_stride = encoder_stride
         self.checkpoint_name_or_path = checkpoint_name_or_path
         self.layernorm_compute_type = layernorm_compute_type
         self.softmax_compute_type = softmax_compute_type

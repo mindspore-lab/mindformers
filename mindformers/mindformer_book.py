@@ -69,7 +69,7 @@ class MindFormerBook:
         >>> # 1) Fill the following constant list and dict in this class
         >>> # 2) Overwrite the support_list when define a new Model or Pipeline.
         >>> @MindFormerRegister.register(MindFormerModuleType.MODELS)
-        ... class VitModel(BaseModel):
+        ... class ViTForImageClassification(BaseModel):
         ...     _support_list = MindFormerBook.get_model_support_list()['vit']
         >>> # 3) Then you can use auto class and from pretrain to init an instance.
         >>> vit_model = AutoModel.from_pretrained('vit_base_p16')

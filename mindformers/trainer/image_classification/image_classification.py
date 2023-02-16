@@ -102,7 +102,7 @@ class ImageClassificationTrainer(BaseTrainer):
             ...      DynamicLossScaleUpdateCell, TrainOneStepWithLossScaleCell
             >>> from mindformers.trainer import GeneralTaskTrainer
             >>> from mindformers.tools.register import MindFormerConfig
-            >>> from mindformers.models import VitModel, VitConfig
+            >>> from mindformers.models import ViTForImageClassification, ViTConfig
             >>> class MyDataLoader:
             ...    def __init__(self):
             ...        self._data = [np.zeros((3, 224, 224), np.float32) for _ in range(64)]
@@ -120,8 +120,8 @@ class ImageClassificationTrainer(BaseTrainer):
             >>> #2) use instance function to evaluate
             >>> dataset = GeneratorDataset(source=MyDataLoader(), column_names=['image', 'label'])
             >>> dataset = dataset.batch(batch_size=2)
-            >>> vit_config = VitConfig(batch_size=2)
-            >>> network_with_loss = VitModel(vit_config)
+            >>> vit_config = ViTConfig(batch_size=2)
+            >>> network_with_loss = ViTForImageClassification(vit_config)
             >>> lr_schedule = WarmUpLR(learning_rate=0.001, warmup_steps=100)
             >>> optimizer = AdamWeightDecay(beta1=0.009, beta2=0.999,
             ...                             learning_rate=lr_schedule,
@@ -240,7 +240,7 @@ class ImageClassificationTrainer(BaseTrainer):
             >>> from mindspore.dataset import GeneratorDataset
             >>> from mindformers.trainer import GeneralTaskTrainer
             >>> from mindformers.tools.register import MindFormerConfig
-            >>> from mindformers.models import VitModel, VitConfig
+            >>> from mindformers.models import ViTForImageClassification, ViTConfig
             >>> class MyDataLoader:
             ...    def __init__(self):
             ...        self._data = [np.zeros((3, 224, 224), np.float32) for _ in range(64)]
@@ -258,8 +258,8 @@ class ImageClassificationTrainer(BaseTrainer):
             >>> #1) use instance function to evaluate
             >>> dataset = GeneratorDataset(source=MyDataLoader(), column_names=['image', 'label'])
             >>> dataset = dataset.batch(batch_size=2)
-            >>> vit_config = VitConfig(batch_size=2)
-            >>> network = VitModel(vit_config)
+            >>> vit_config = ViTConfig(batch_size=2)
+            >>> network = ViTForImageClassification(vit_config)
             >>> compute_metrics = {"Accuracy": Accuracy(eval_type='classification')}
             >>> cls_task.evaluate(config=config, network=network, dataset=dataset, compute_metrics=compute_metrics)
         """
@@ -331,7 +331,7 @@ class ImageClassificationTrainer(BaseTrainer):
             >>> import numpy as np
             >>> from mindformers.trainer import ImageClassificationTrainer
             >>> from mindformers.tools.register import MindFormerConfig
-            >>> from mindformers.models import VitModel, VitConfig
+            >>> from mindformers.models import ViTForImageClassification, ViTConfig
             >>> from mindformers import VitImageProcessor
             >>> config = MindFormerConfig("configs/vit/run_vit_base_p16_224_100ep.yaml")
             >>> input_data = np.uint8(np.random.random((5, 3, 255, 255)))
@@ -339,8 +339,8 @@ class ImageClassificationTrainer(BaseTrainer):
             >>> cls_task = ImageClassificationTrainer(model_name='vit')
             >>> cls_task.predict(config=config, input_data=input_data, top_k=5)
             >>> #2) use instance function to predict
-            >>> vit_config = VitConfig(batch_size=2)
-            >>> network = VitModel(vit_config)
+            >>> vit_config = ViTConfig(batch_size=2)
+            >>> network = ViTForImageClassification(vit_config)
             >>> image_processor = VitImageProcessor(size=224)
             >>> cls_task.predict(input_data, network=network,
             ...                  image_processor=image_processor, top_k=5)

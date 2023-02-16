@@ -28,8 +28,8 @@ def get_group_parameters(config, model, base_lr):
         depths = config.model.model_config.depths
         num_layers = sum(depths)
         get_layer_func = partial(get_swin_layer, num_layers=num_layers + 2, depths=depths)
-    elif config.model.arch.type == 'VitModel':
-        num_layers = config.model.model_config.depth
+    elif config.model.arch.type == 'ViTForImageClassification':
+        num_layers = config.model.model_config.num_hidden_layers
         get_layer_func = partial(get_vit_layer, num_layers=num_layers + 2)
     else:
         raise NotImplementedError

@@ -13,7 +13,7 @@
 # limitations under the License.
 # ============================================================================
 """
-Modules of VitModel, including Linear, Block, MLP, Attention, PatchEmbed, etc.
+Modules of ViTForImageClassification, including Linear, Block, MLP, Attention, PatchEmbed, etc.
 """
 import math
 import numpy as np
@@ -844,3 +844,19 @@ class UnPatchify(nn.Cell):
         x = self.transpose(x, (0, 5, 1, 3, 2, 4))
         images = self.reshape(x, (bs, 3, self.h * self.p, self.w * self.p))
         return images
+
+
+class PixelShuffle(nn.Cell):
+    """PixelShuffle"""
+    def __init__(self, upscale_factor):
+        super().__init__()
+        self.upscale_factor = upscale_factor
+        self.reshape = P.Reshape()
+        self.transpose = P.Transpose()
+
+    def construct(self, x):
+        b, _, h, w = x.shape
+        x = self.reshape(x, (b, -1, self.upscale_factor, self.upscale_factor, h, w))
+        x = self.transpose(x, (0, 1, 4, 2, 5, 3))
+        x = self.reshape(x, (b, -1, h * self.upscale_factor, w * self.upscale_factor))
+        return x

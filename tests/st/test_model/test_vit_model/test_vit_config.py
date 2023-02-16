@@ -14,7 +14,7 @@
 # ============================================================================
 
 """
-Test Module for testing functions of AutoConfig and VitConfig class
+Test Module for testing functions of AutoConfig and ViTConfig class
 
 How to run this:
 windows:  pytest .\\tests\\st\\test_model\\test_vit_model\\test_vit_config.py
@@ -23,7 +23,7 @@ linux:  pytest ./tests/st/test_model/test_vit_model/test_vit_config.py
 Note:
     model name and config name should have the same prefix
 Example:
-    VitModel and VitConfig have the same prefix, Vit
+    ViTForImageClassification and ViTConfig have the same prefix, Vit
 """
 import os
 
@@ -31,7 +31,7 @@ import pytest
 import mindspore.common.dtype as mstype
 
 from mindformers import MindFormerBook, AutoConfig
-from mindformers.models import VitConfig, BaseConfig
+from mindformers.models import ViTConfig, BaseConfig
 from mindformers.tools import logger
 from mindformers.modules.transformer import TransformerOpParallelConfig, TransformerRecomputeConfig
 from mindformers.modules.transformer.moe import default_moe_config
@@ -47,7 +47,7 @@ default_parallel_config = TransformerOpParallelConfig(recompute=default_recomput
 @pytest.mark.env_onecard
 def test_config():
     """
-    Feature: AutoConfig, VitConfig
+    Feature: AutoConfig, ViTConfig
     Description: Test to get config instance by AutoConfig.from_pretrained
     Expectation: TypeError, ValueError
     """
@@ -63,13 +63,13 @@ def test_config():
     logger.info(config_a)
     logger.info(config_b)
 
-    VitConfig.show_support_list()
-    support_list = VitConfig.get_support_list()
+    ViTConfig.show_support_list()
+    support_list = ViTConfig.get_support_list()
     logger.info(support_list)
 
-    config_c = VitConfig.from_pretrained('vit_base_p16')
-    config_d = VitConfig.from_pretrained(config_path)
-    config_e = VitConfig(
+    config_c = ViTConfig.from_pretrained('vit_base_p16')
+    config_d = ViTConfig.from_pretrained(config_path)
+    config_e = ViTConfig(
         patch_size=16,
         in_chans=3,
         embed_dim=768,
@@ -105,6 +105,6 @@ def test_config():
     assert isinstance(config_a, BaseConfig)
     assert isinstance(config_b, BaseConfig)
 
-    assert isinstance(config_a, VitConfig)
+    assert isinstance(config_a, ViTConfig)
     assert isinstance(config_a, type(config_b))
     assert isinstance(config_b, type(config_c))
