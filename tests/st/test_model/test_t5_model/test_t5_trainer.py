@@ -131,7 +131,7 @@ class TestTranslationTrainer:
         model = T5ForConditionalGeneration(model_config)
         mim_trainer = Trainer(task='translation',
                               model=model,
-                              config=config,
+                              args=config,
                               train_dataset=dataset)
         mim_trainer.train(resume_or_finetune_from_checkpoint=False)
 

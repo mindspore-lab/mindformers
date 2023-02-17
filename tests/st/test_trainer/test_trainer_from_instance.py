@@ -74,7 +74,7 @@ def test_trainer_train_from_instance():
 
     mim_trainer = Trainer(task='masked_image_modeling',
                           model=mae_model_with_loss,  # include loss compute
-                          config=config,
+                          args=config,
                           optimizers=optimizer,
                           train_dataset=dataset,
                           callbacks=callbacks)
@@ -124,7 +124,7 @@ def test_trainer_wrapper_from_instance():
     callbacks = [loss_cb, time_cb]
 
     mim_trainer_wrapper = Trainer(task='masked_image_modeling',
-                                  config=config,
+                                  args=config,
                                   wrapper=wrapper,
                                   train_dataset=dataset,
                                   callbacks=callbacks)
@@ -173,7 +173,7 @@ def test_trainer_general_from_instance():
     time_cb = TimeMonitor()
     callbacks = [loss_cb, time_cb]
 
-    no_task_name_trainer = Trainer(config=config,
+    no_task_name_trainer = Trainer(args=config,
                                    wrapper=wrapper,
                                    train_dataset=dataset,
                                    callbacks=callbacks)
@@ -213,7 +213,7 @@ def test_trainer_auto_to_save_config():
         task='masked_image_modeling',
         model='mae_vit_base_p16',
         train_dataset=dataset,
-        config=config,
+        args=config,
         save_config=True)
     mim_trainer.train()
 

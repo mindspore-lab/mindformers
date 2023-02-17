@@ -94,7 +94,7 @@ class TestTrainer:
 
         trainer = Trainer(task='image_classification',
                           model=vit_model,
-                          config=config,
+                          args=config,
                           optimizers=optimizer,
                           train_dataset=dataset,
                           callbacks=callbacks)

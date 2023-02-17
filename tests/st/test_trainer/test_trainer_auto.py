@@ -55,7 +55,7 @@ def test_trainer_train_auto():
         task_name='masked_image_modeling',
         model='mae_vit_base_p16',
         train_dataset=dataset,
-        config=config)
+        args=config)
     mim_trainer.train()
 
 

@@ -24,11 +24,12 @@ from .translation import *
 from .text_classfication import *
 from .name_entity_recognition import *
 from .trainer import Trainer
+from .training_args import TrainingArguments
 from .base_trainer import BaseTrainer
 from .build_trainer import build_trainer
 
 
-__all__ = ['BaseTrainer', 'build_trainer', 'Trainer']
+__all__ = ['BaseTrainer', 'build_trainer', 'Trainer', 'TrainingArguments']
 __all__.extend(config_args.__all__)
 __all__.extend(image_classification.__all__)
 __all__.extend(masked_image_modeling.__all__)
