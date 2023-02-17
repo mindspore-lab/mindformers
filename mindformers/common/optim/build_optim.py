@@ -1,4 +1,4 @@
-# Copyright 2022 Huawei Technologies Co., Ltd
+# Copyright 2023 Huawei Technologies Co., Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 import inspect
 
 from mindspore import nn
+from mindspore.nn.optim import AdaFactor, AdamWeightDecay, SGD, Adagrad, Adam
 
 from mindformers.common.lr import build_lr
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
@@ -70,3 +71,19 @@ def register_ms_optim():
 
 
 register_ms_optim()
+
+# adapt huggingface
+MindFormerRegister.register_cls(
+    AdamWeightDecay, module_type=MindFormerModuleType.OPTIMIZER, alias="adamw")
+
+MindFormerRegister.register_cls(
+    AdaFactor, module_type=MindFormerModuleType.OPTIMIZER, alias="adafactor")
+
+MindFormerRegister.register_cls(
+    SGD, module_type=MindFormerModuleType.OPTIMIZER, alias="sgd")
+
+MindFormerRegister.register_cls(
+    Adam, module_type=MindFormerModuleType.OPTIMIZER, alias="adam")
+
+MindFormerRegister.register_cls(
+    Adagrad, module_type=MindFormerModuleType.OPTIMIZER, alias="adagrad")
