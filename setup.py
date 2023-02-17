@@ -146,14 +146,14 @@ if __name__ == '__main__':
 
     setup(
         name='mindformers',
-        version='0.2.0',
+        version='0.3.0',
         author='The MindSpore Authors',
         author_email='contact@mindspore.cn',
         url='https://www.mindspore.cn',
-        download_url='https://gitee.com/mindspore/transformer/tags',
+        download_url='https://gitee.com/mindspore/mindformers/tags',
         project_urls={
-            'Sources': 'https://gitee.com/mindspore/transformer',
-            'Issue Tracker': 'https://gitee.com/mindspore/transformer/issues',
+            'Sources': 'https://gitee.com/mindspore/mindformers',
+            'Issue Tracker': 'https://gitee.com/mindspore/mindformers/issues',
         },
         description=get_description(),
         long_description=get_readme_content(),

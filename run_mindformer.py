@@ -125,7 +125,7 @@ if __name__ == "__main__":
         '--load_checkpoint', default=None, type=str,
         help="load model checkpoint to train/finetune/eval/predict, "
              "it is also support input model name, such as 'mae_vit_base_p16', "
-             "please refer to https://gitee.com/mindspore/transformer#%E4%BB%8B%E7%BB%8D."
+             "please refer to https://gitee.com/mindspore/mindformers#%E4%BB%8B%E7%BB%8D."
              "Default: None")
     parser.add_argument(
         '--seed', default=None, type=int,

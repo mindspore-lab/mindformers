@@ -1,6 +1,6 @@
 # MindSpore Transformer Release Notes
 
-## MindSpore Transoformer 0.2.0 Release Notes
+## MindSpore Transformer 0.2.0 Release Notes
 
 ### 主要特性和增强
 
