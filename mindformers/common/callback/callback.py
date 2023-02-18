@@ -77,8 +77,8 @@ class MFLossMonitor(Callback):
         self.loss_list = []
         self.step_time = time.time()
         self.epoch_time = time.time()
+        self.run_context = None
 
-    # pylint: disable=unused-argument
     def epoch_begin(self, run_context):
         """
         Record time at the beginning of epoch.
@@ -88,6 +88,7 @@ class MFLossMonitor(Callback):
         """
         self.loss_list = []
         self.epoch_time = time.time()
+        self.run_context = run_context
 
     def epoch_end(self, run_context):
         """
@@ -104,7 +105,6 @@ class MFLossMonitor(Callback):
             "per step time: %5.3f ms, "
             "avg loss: %5.3f", epoch_mseconds, per_step_mseconds, np.mean(self.loss_list))
 
-    # pylint: disable=unused-argument
     def step_begin(self, run_context):
         """
         Record time at the beginning of step.
@@ -114,8 +114,8 @@ class MFLossMonitor(Callback):
         """
         self.step_time = time.time()
         self.print_warning_flag = True
+        self.run_context = run_context
 
-    # pylint: disable=missing-docstring
     def step_end(self, run_context):
         """
         Print training info at the end of step.
@@ -126,10 +126,17 @@ class MFLossMonitor(Callback):
         cb_params = run_context.original_args()
         step_mseconds = (time.time() - self.step_time) * 1000
         loss = cb_params.net_outputs
+        overflow = False
+        scaling_sens = False
 
         if isinstance(loss, (tuple, list)):
-            if isinstance(loss[0], ms.Tensor) and isinstance(loss[0].asnumpy(), np.ndarray):
-                loss = loss[0]
+            if len(loss) == 3:
+                loss, overflow, scaling_sens = loss
+                if isinstance(scaling_sens, ms.Tensor):
+                    scaling_sens = scaling_sens.asnumpy()
+            else:
+                if isinstance(loss[0], ms.Tensor) and isinstance(loss[0].asnumpy(), np.ndarray):
+                    loss = loss[0]
 
         if isinstance(loss, ms.Tensor) and isinstance(loss.asnumpy(), np.ndarray):
             loss = np.mean(loss.asnumpy())
@@ -140,6 +147,11 @@ class MFLossMonitor(Callback):
         # Boundary check.
         if isinstance(loss, float) and (np.isnan(loss) or np.isinf(loss)):
             raise ValueError("Invalid loss, terminate training.")
+
+        if not overflow:
+            overflow = "False"
+        if not scaling_sens:
+            scaling_sens = "unavailable"
 
         def print_output_info():
             if self.learning_rate is not None:
@@ -152,21 +164,44 @@ class MFLossMonitor(Callback):
                                 "device target not support CPU when generating the learning rate value, "
                                 "please use: mindspore.context.set_context(device_target='Ascend')")
                             self.print_warning_flag = False
-                        current_lr = 'CPU Mode Not Support Compute LR Now.'
+                        current_lr = None
                     else:
                         current_step = ms.Tensor(cb_params.cur_step_num - 1, ms.int32)
                         current_lr = self.learning_rate(current_step)
                         current_lr = np.array2string(current_lr.asnumpy())
                 else:
-                    current_lr = "Not support LR %s type compute!" % type(self.learning_rate)
+                    if self.print_warning_flag:
+                        logger.warning(
+                            "The current learning rate cannot be calculated in real time."
+                            "Only the type of LearningRateSchedule is supported in the callback of MFLossMonitor,"
+                            "but the input learning rate function type is %s", type(self.learning_rate)
+                        )
+                        self.print_warning_flag = False
+                    current_lr = None
             else:
-                current_lr = 'Not Set LR.'
-            logger.info(
-                "Epoch:[%3d/%3d], step:[%5d/%5d], "
-                "loss:[%5.3f/%5.3f], time:%5.3f ms, "
-                "lr:%s", cb_params.cur_epoch_num - 1, cb_params.epoch_num,
-                cur_step_in_epoch, cb_params.batch_num, loss, np.mean(self.loss_list),
-                step_mseconds, current_lr)
+                if self.print_warning_flag:
+                    logger.warning(
+                        "MFLossMonitor callback is not set learning rate arguments."
+                        "To display the learning rate, you must input the arguments, "
+                        "which can be LearningRateSchedule or a fixed float"
+                    )
+                    self.print_warning_flag = False
+                current_lr = None
+
+            if current_lr is not None:
+                logger.info(
+                    "Epoch:[%3d/%3d], step:[%5d/%5d], "
+                    "loss:[%5.3f/%5.3f], time:%5.3f ms, "
+                    "lr:%s, overflow cond: %s, loss_scale: %s", cb_params.cur_epoch_num - 1, cb_params.epoch_num,
+                    cur_step_in_epoch, cb_params.batch_num, loss, np.mean(self.loss_list),
+                    step_mseconds, current_lr, overflow, scaling_sens)
+            else:
+                logger.info(
+                    "Epoch:[%3d/%3d], step:[%5d/%5d], "
+                    "loss:[%5.3f/%5.3f], time:%5.3f ms, "
+                    "overflow cond: %s, loss_scale: %s", cb_params.cur_epoch_num - 1, cb_params.epoch_num,
+                    cur_step_in_epoch, cb_params.batch_num, loss, np.mean(self.loss_list),
+                    step_mseconds, overflow, scaling_sens)
 
         if (cb_params.cur_step_num - self.last_print_time) >= self.per_print_times:
             self.last_print_time = cb_params.cur_step_num
