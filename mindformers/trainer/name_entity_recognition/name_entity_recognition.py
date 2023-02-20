@@ -21,16 +21,18 @@ from mindspore.nn import TrainOneStepCell, Optimizer
 from mindformers.common.callback import build_callback
 from mindformers.common.metric import build_metric
 from mindformers.dataset import build_dataset, check_dataset_config, BaseDataset
-from mindformers.models import build_model, BaseModel
+from mindformers.models import build_model, BaseModel, BaseTokenizer, BertTokenizer
 from mindformers.common.lr import build_lr
 from mindformers.common.optim import build_optim
 from mindformers.wrapper import build_wrapper
 from mindformers.tools.logger import logger
 from mindformers.tools.utils import count_params
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
+from mindformers.pipeline import pipeline
 from ..config_args import ConfigArguments
 from ..base_trainer import BaseTrainer
 from ..utils import check_runner_config, resume_checkpoint_for_training
+from ...dataset.labels import cluener_labels
 
 
 @MindFormerRegister.register(MindFormerModuleType.TRAINER)
@@ -294,3 +296,77 @@ class NameEntityRecognitionTrainer(BaseTrainer):
                             dataset_sink_mode=config.runner_config.sink_mode)
         logger.info('Entity Metric=%s', str(output))
         logger.info(".........Evaluate Over!.............")
+
+    def predict(self,
+                config: Optional[Union[dict, ConfigArguments]] = None,
+                input_data: Optional[Union[str, list]] = None,
+                network: Optional[Union[str, BaseModel]] = None,
+                tokenizer: Optional[BaseTokenizer] = None,
+                **kwargs):
+        """
+        Executes the predict of the trainer.
+
+        Args:
+            config (Optional[Union[dict, ConfigArguments]]): The task config which is used to
+                configure the dataset, the hyper-parameter, optimizer, etc.
+                It support config dict or ConfigArguments class.
+                Default: None.
+            input_data (Optional[Union[Tensor, str, list]]): The predict data. Default: None.
+            network (Optional[Union[str, BaseModel]]): The network for trainer. It support model name supported
+                or BaseModel class. Supported model name can refer to model support list. For .
+                Default: None.
+            tokenizer (Optional[BaseTokenizer]): The tokenizer for tokenizing the input text.
+                Default: None.
+
+        Examples:
+            >>> from mindformers import BertTokenClassification, NameEntityRecognitionTrainer
+            >>> model = BertTokenClassification.from_pretrained('ner_bert_base_chinese_cluener')
+            >>> trainer = NameEntityRecognitionTrainer(model_name="ner_bert_base_chinese_cluener")
+            >>> input_data = ["表身刻有代表日内瓦钟表匠freresoltramare的“fo”字样。", "的时间会去玩玩星际2。"]
+            >>> res = trainer.predict(input_data=input_data, network=model)
+            >>> print(res)
+                [[{'entity_name': 'address', 'word': '日内瓦', 'start': 6, 'end': 9}],
+                [{'entity_name': 'game', 'word': '星际2', 'start': 7, 'end': 10}]]
+        Returns:
+            A list of prediction.
+        """
+        self.kwargs = kwargs
+        logger.info(".........Build Input Data For Predict..........")
+        if input_data is None:
+            input_data = config.input_data
+
+        if not isinstance(input_data, (str, list)):
+            raise ValueError("Input data's type must be one of [str, list]")
+
+        if isinstance(input_data, list):
+            for item in input_data:
+                if not isinstance(item, str):
+                    raise ValueError("The element of input data list must be str")
+
+        # This is a known issue, you need to specify batch size equal to 1 when creating bert model.
+        config.model.model_config.batch_size = 1
+
+        if tokenizer is None:
+            tokenizer = BertTokenizer.from_pretrained("ner_bert_base_chinese_cluener")
+
+        id2label = {label_id: label for label_id, label in enumerate(cluener_labels)}
+
+        logger.info(".........Build Net..........")
+        if network is None:
+            network = build_model(config.model)
+
+        if network is not None:
+            logger.info("Network Parameters: %s M.", str(count_params(network)))
+
+        pipeline_task = pipeline(task='name_entity_recognition',
+                                 model=network,
+                                 max_length=network.config.seq_length,
+                                 padding="max_length",
+                                 id2label=id2label,
+                                 **kwargs)
+
+        output_result = pipeline_task(input_data)
+
+        logger.info("output result is: %s", output_result)
+        logger.info(".........Predict Over!.............")
+        return output_result

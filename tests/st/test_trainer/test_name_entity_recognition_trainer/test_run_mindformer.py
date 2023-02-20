@@ -70,7 +70,8 @@ class TestRunMindFormer:
         """
         yaml_path = os.path.join(MindFormerBook.get_project_path(),
                                  "configs", "ner", "run_ner_bert_base_chinese.yaml")
-        command = "python run_mindformer.py --config " + yaml_path + " --run_mode eval"
+        command = "python run_mindformer.py --config " + yaml_path + \
+                  " --run_mode eval --load_checkpoint ner_bert_base_chinese_cluener"
         os.system(command)
 
     def make_local_directory(self, new_dataset_dir):
