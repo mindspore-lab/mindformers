@@ -304,8 +304,11 @@ class BertForMultipleChoice(BaseModel):
             label_ids = self.reshape(label_ids, (-1,))
             output = self.cross_entropy_loss(logits, label_ids)
         else:
-            label_ids = self.reshape(label_ids, (-1,))
-            output = (logits, label_ids)
+            if label_ids is None:
+                output = logits
+            else:
+                label_ids = self.reshape(label_ids, (-1,))
+                output = (logits, label_ids)
 
         return output
 

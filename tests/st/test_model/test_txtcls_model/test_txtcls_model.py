@@ -17,8 +17,8 @@
 Test Module for testing functions of AutoModel and BertForMultipleChoice class
 
 How to run this:
-windows:  pytest .\\tests\\st\\test_model\\test_bert_model\\test_txtcls_model.py
-linux:  pytest ./tests/st/test_model/test_bert_model/test_txtcls_model.py
+windows:  pytest .\\tests\\st\\test_model\\test_txtcls_model\\test_txtcls_model.py
+linux:  pytest ./tests/st/test_model/test_txtcls_model/test_txtcls_model.py
 """
 import os
 import pytest

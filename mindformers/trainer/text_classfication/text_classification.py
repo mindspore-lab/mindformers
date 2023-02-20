@@ -21,13 +21,14 @@ from mindspore.nn import TrainOneStepCell, Optimizer
 from mindformers.common.callback import build_callback
 from mindformers.common.metric import build_metric
 from mindformers.dataset import build_dataset, check_dataset_config, BaseDataset
-from mindformers.models import build_model, BaseModel
+from mindformers.models import build_model, BaseModel, BaseTokenizer, BertTokenizer
 from mindformers.common.lr import build_lr
 from mindformers.common.optim import build_optim
 from mindformers.wrapper import build_wrapper
 from mindformers.tools.logger import logger
 from mindformers.tools.utils import count_params
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
+from mindformers.pipeline import pipeline
 from ..config_args import ConfigArguments
 from ..base_trainer import BaseTrainer
 from ..utils import check_runner_config, resume_checkpoint_for_training
@@ -288,3 +289,80 @@ class TextClassificationTrainer(BaseTrainer):
                             dataset_sink_mode=config.runner_config.sink_mode)
         logger.info('Top1 Accuracy=%s', str(output))
         logger.info(".........Evaluate Over!.............")
+
+    def predict(self,
+                config: Optional[Union[dict, ConfigArguments]] = None,
+                input_data: Optional[Union[str, list]] = None,
+                network: Optional[Union[str, BaseModel]] = None,
+                tokenizer: Optional[BaseTokenizer] = None,
+                **kwargs):
+        """
+        Executes the predict of the trainer.
+
+        Args:
+            config (Optional[Union[dict, ConfigArguments]]): The task config which is used to
+                configure the dataset, the hyper-parameter, optimizer, etc.
+                It support config dict or ConfigArguments class.
+                Default: None.
+            input_data (Optional[Union[Tensor, str, list]]): The predict data. Default: None.
+            network (Optional[Union[str, BaseModel]]): The network for trainer. It support model name supported
+                or BaseModel class. Supported model name can refer to model support list. For .
+                Default: None.
+            tokenizer (Optional[BaseTokenizer]): The tokenizer for tokenizing the input text.
+                Default: None.
+
+        Examples:
+            >>> from mindformers import BertModel, TextClassificationTrainer
+            >>> model = BertModel.from_pretrained('txtcls_bert_base_uncased_mnli')
+            >>> trainer = TextClassificationTrainer(model_name="txtcls_bert_base_uncased_mnli")
+            >>> input_data = ["The new rights are nice enough-Everyone really likes the newest benefits ",
+            ...               "i don't know um do you do a lot of camping-I know exactly."]
+            >>> res = trainer.predict(input_data=input_data, network=model)
+
+        Returns:
+            A list of prediction.
+
+        """
+        self.kwargs = kwargs
+        logger.info(".........Build Input Data For Predict..........")
+        if input_data is None:
+            input_data = config.input_data
+        if not isinstance(input_data, (str, list)):
+            raise ValueError("Input data's type must be one of [str, list]")
+
+        if isinstance(input_data, list):
+            for item in input_data:
+                if not isinstance(item, str):
+                    raise ValueError("The element of input data list must be str")
+
+        # bert模型已知issue，由于bert模型在创建的时候需要batch_size参数，
+        # 同时pipeline是一个样本一个样本进行处理，所以这里设定为1
+        config.model.model_config.batch_size = 1
+
+        top_k = kwargs.pop("top_k", None)
+        if top_k is None and config.top_k is not None:
+            top_k = config.top_k
+
+        if tokenizer is None:
+            tokenizer = BertTokenizer.from_pretrained("txtcls_bert_base_uncased_mnli")
+
+        logger.info(".........Build Net..........")
+        if network is None:
+            network = build_model(config.model)
+
+        if network is not None:
+            logger.info("Network Parameters: %s M.", str(count_params(network)))
+
+        pipeline_task = pipeline(task='text_classification',
+                                 tokenizer=tokenizer,
+                                 model=network,
+                                 max_length=network.config.seq_length,
+                                 padding="max_length",
+                                 **kwargs)
+        output_result = pipeline_task(input_data, top_k=top_k)
+
+        logger.info("output result is: %s", output_result)
+
+        logger.info(".........predict result finished..........")
+        logger.info(".........Predict Over!.............")
+        return output_result

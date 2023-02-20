@@ -11,6 +11,8 @@ use_parallel: False
 seed: 42
 resume_or_finetune_checkpoint: ''
 
+top_k: 1
+
 run_mode: 'train'
 trainer:
   type: TextClassificationTrainer
