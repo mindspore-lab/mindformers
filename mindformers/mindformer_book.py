@@ -182,8 +182,14 @@ class MindFormerBook:
             ("bert_tiny_uncased", os.path.join(
                 _PROJECT_PATH, "configs/bert/model_config/bert_tiny_uncased.yaml")),
             ("common", os.path.join(
-                _PROJECT_PATH, "configs/bert/model_config/bert_tiny_uncased.yaml"))])
-         )
+                _PROJECT_PATH, "configs/bert/model_config/bert_tiny_uncased.yaml"))
+        ])),
+        ("text_classification", OrderedDict([
+            ("txtcls_bert_base_uncased", os.path.join(
+                _PROJECT_PATH, "configs/txtcls/run_txtcls_bert_base_uncased.yaml")),
+            ("common", os.path.join(
+                _PROJECT_PATH, "configs/txtcls/run_txtcls_bert_base_uncased.yaml"))
+        ]))
     ])
 
     _CONFIG_SUPPORT_LIST = OrderedDict([
@@ -429,12 +435,12 @@ class MindFormerBook:
           ]),
         ('txtcls_bert_base_uncased',
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
-          '/XFormer_for_mindspore/bert/downstream_tasks/txtcls/txtcls_bert_base_uncased.ckpt'
+          '/XFormer_for_mindspore/bert/downstream_tasks/txtcls/txtcls_bert_base_uncased.yaml'
           ]),
         ('txtcls_bert_base_uncased_mnli',
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
           '/XFormer_for_mindspore/bert/downstream_tasks/txtcls/'
-          'txtcls_bert_base_uncased_mnli.ckpt'
+          'txtcls_bert_base_uncased_mnli.yaml'
           ])
     ])
 
@@ -481,14 +487,14 @@ class MindFormerBook:
             "https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/"
             "XFormer_for_mindspore/bert/bert_base_chinese/vocab.txt"
         ]),
-        ('txtcls_bert_base_uncased',
-         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
-          'XFormer_for_mindspore/bert/bert_base_english/vocab.txt'
-          ]),
-        ('txtcls_bert_base_uncased_mnli',
-         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
-          'XFormer_for_mindspore/bert/bert_base_english/vocab.txt'
-          ])
+        ('txtcls_bert_base_uncased', [
+            "https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/"
+            "XFormer_for_mindspore/bert/bert_base_english/vocab.txt"
+        ]),
+        ('txtcls_bert_base_uncased_mnli', [
+            "https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/"
+            "XFormer_for_mindspore/bert/bert_base_english/vocab.txt"
+        ])
     ])
 
     _TOKENIZER_NAME_TO_PROCESSOR = OrderedDict([

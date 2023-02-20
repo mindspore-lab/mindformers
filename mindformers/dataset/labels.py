@@ -226,5 +226,8 @@ cluener_labels = ["O", "B-address", "B-book", "B-company", "B-game", "B-governme
                   "S-company", "S-game", "S-government", "S-movie", "S-name", "S-organization",
                   "S-position", "S-scene"]
 
+"""labels of mnli"""
+mnli_labels = ["contradiction", "entailment", "neutral"]
+
 # labels dict
-labels = {"imagenet": imagenet_labels, "cluener": cluener_labels}
+labels = {"imagenet": imagenet_labels, "cluener": cluener_labels, "mnli": mnli_labels}

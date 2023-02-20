@@ -17,8 +17,8 @@
 Test Module for testing functions of AutoConfig and BertConfig class
 
 How to run this:
-windows:  pytest .\\tests\\st\\test_model\\test_bert_model\\test_txtcls_config.py
-linux:  pytest ./tests/st/test_model/test_bert_model/test_txtcls_config.py
+windows:  pytest .\\tests\\st\\test_model\\test_txtcls_model\\test_txtcls_config.py
+linux:  pytest ./tests/st/test_model/test_txtcls_model/test_txtcls_config.py
 
 Note:
     model name and config name should have the same prefix
