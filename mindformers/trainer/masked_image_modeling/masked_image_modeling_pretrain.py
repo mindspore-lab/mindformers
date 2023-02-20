@@ -90,15 +90,15 @@ class MaskedImageModelingTrainer(BaseTrainer):
             ...      DynamicLossScaleUpdateCell, TrainOneStepWithLossScaleCell
             >>> from mindformers.trainer import GeneralTaskTrainer
             >>> from mindformers.tools.register import MindFormerConfig
-            >>> from mindformers.models import MaeModel, MaeConfig
+            >>> from mindformers.models import ViTMAEForPreTraining, ViTMAEConfig
             >>> config = MindFormerConfig("configs/mae/run_mae_vit_base_p16_224_800ep.yaml")
             >>> #1) use config to train
             >>> cls_task = MaskedImageModelingTrainer(model_name='mae')
             >>> cls_task.train(config=config)
             >>> #2) use instance function to evaluate
             >>> dataset = build_dataset(config.train_dataset_task)
-            >>> mae_config = MaeConfig(batch_size=2)
-            >>> network_with_loss = MaeModel(mae_config)
+            >>> mae_config = ViTMAEConfig(batch_size=2)
+            >>> network_with_loss = ViTMAEForPreTraining(mae_config)
             >>> lr_schedule = WarmUpLR(learning_rate=0.001, warmup_steps=100)
             >>> optimizer = AdamWeightDecay(beta1=0.009, beta2=0.999,
             ...                             learning_rate=lr_schedule,

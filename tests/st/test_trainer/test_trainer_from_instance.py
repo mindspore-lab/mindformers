@@ -28,7 +28,7 @@ from mindformers.mindformer_book import MindFormerBook
 from mindformers.tools.register.config import MindFormerConfig
 from mindformers.dataset.build_dataset import build_dataset
 from mindformers.trainer import Trainer
-from mindformers.models import MaeModel
+from mindformers.models import ViTMAEForPreTraining
 from mindformers.trainer.config_args import ConfigArguments, \
     RunnerConfig
 
@@ -46,7 +46,7 @@ def test_trainer_train_from_instance():
     runner_config = RunnerConfig(epochs=2, batch_size=8, image_size=224, sink_mode=True, per_epoch_size=1)
     config = ConfigArguments(seed=2022, runner_config=runner_config)
 
-    mae_model_with_loss = MaeModel()
+    mae_model_with_loss = ViTMAEForPreTraining()
 
     project_path = MindFormerBook.get_project_path()
 
@@ -95,7 +95,7 @@ def test_trainer_wrapper_from_instance():
     runner_config = RunnerConfig(epochs=2, batch_size=8, image_size=224, sink_mode=True, per_epoch_size=1)
     config = ConfigArguments(seed=2022, runner_config=runner_config)
 
-    mae_model_with_loss = MaeModel()
+    mae_model_with_loss = ViTMAEForPreTraining()
 
     project_path = MindFormerBook.get_project_path()
 
@@ -145,7 +145,7 @@ def test_trainer_general_from_instance():
     runner_config = RunnerConfig(epochs=2, batch_size=8, image_size=224, sink_mode=True, per_epoch_size=1)
     config = ConfigArguments(seed=2022, runner_config=runner_config)
 
-    mae_model_with_loss = MaeModel()
+    mae_model_with_loss = ViTMAEForPreTraining()
 
     project_path = MindFormerBook.get_project_path()
 

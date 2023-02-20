@@ -23,16 +23,14 @@ linux:  pytest ./tests/st/test_model/test_mae_model/test_mae_config.py
 Note:
     model name and config name should have the same prefix
 Example:
-    MaeModel and MaeConfig have the same prefix, Mae
+    ViTMAEForPreTraining and ViTMAEConfig have the same prefix, Mae
 """
 import os
 
 import pytest
-
 import mindspore.common.dtype as mstype
-
 from mindformers import MindFormerBook, AutoConfig
-from mindformers.models import MaeConfig, BaseConfig
+from mindformers.models import ViTMAEConfig, BaseConfig
 from mindformers.tools import logger
 from mindformers.modules.transformer import TransformerOpParallelConfig, TransformerRecomputeConfig
 from mindformers.modules.transformer.moe import default_moe_config
@@ -65,13 +63,13 @@ def test_config():
     logger.info(config_a)
     logger.info(config_b)
 
-    MaeConfig.show_support_list()
-    support_list = MaeConfig.get_support_list()
+    ViTMAEConfig.show_support_list()
+    support_list = ViTMAEConfig.get_support_list()
     logger.info(support_list)
 
-    config_c = MaeConfig.from_pretrained('mae_vit_base_p16')
-    config_d = MaeConfig.from_pretrained(config_path)
-    config_e = MaeConfig(
+    config_c = ViTMAEConfig.from_pretrained('mae_vit_base_p16')
+    config_d = ViTMAEConfig.from_pretrained(config_path)
+    config_e = ViTMAEConfig(
         patch_size=16,
         in_chans=3,
         embed_dim=768,
@@ -113,6 +111,6 @@ def test_config():
     assert isinstance(config_a, BaseConfig)
     assert isinstance(config_b, BaseConfig)
 
-    assert isinstance(config_a, MaeConfig)
+    assert isinstance(config_a, ViTMAEConfig)
     assert isinstance(config_a, type(config_b))
     assert isinstance(config_b, type(config_c))

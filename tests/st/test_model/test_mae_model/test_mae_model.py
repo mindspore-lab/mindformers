@@ -32,7 +32,7 @@ import time
 import pytest
 
 from mindformers import MindFormerBook, AutoConfig, AutoModel
-from mindformers.models import BaseModel, MaeModel
+from mindformers.models import BaseModel, ViTMAEForPreTraining
 from mindformers.tools import logger
 
 
@@ -80,8 +80,8 @@ class TestModelMethod:
         model_a.save_pretrained(self.save_directory, save_name='mae_vit_base_p16')
 
         # all models are VitModel class， and inherited from BaseModel
-        assert isinstance(model_a, MaeModel)
-        assert isinstance(model_d, MaeModel)
+        assert isinstance(model_a, ViTMAEForPreTraining)
+        assert isinstance(model_d, ViTMAEForPreTraining)
 
         assert isinstance(model_a, BaseModel)
         assert isinstance(model_d, BaseModel)

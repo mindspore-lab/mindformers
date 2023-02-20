@@ -27,35 +27,35 @@ from mindformers.models.mae.mae_modules import Block, LayerNorm, Linear
 from mindformers.models.mae.mae_modules import PatchEmbed, Patchify, UnPatchify
 from mindformers.models.mae.mae_modules import get_2d_sincos_pos_embed
 from mindformers.common.loss import MSELoss
-from mindformers.models.mae.mae_config import MaeConfig
+from mindformers.models.mae.mae_config import ViTMAEConfig
 
 
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
-class MaeModel(BaseModel):
+class ViTMAEModel(BaseModel):
     """
     Pretrain MAE Module.
-    The supported model name could be selected from MaeConfig.show_support_list().
+    The supported model name could be selected from ViTMAEConfig.show_support_list().
 
     Args:
-        config (MaeConfig): the config of Mae model.
+        config (ViTMAEConfig): the config of Mae model.
 
     Examples:
         >>> # input model name
-        >>> model_a = MaeModel.from_pretrained('mae_vit_base_p16')
+        >>> model_a = ViTMAEModel.from_pretrained('mae_vit_base_p16')
         >>> # input config
         >>> from mindformers import AutoConfig
         >>> config = AutoConfig.from_pretrained('mae_vit_base_p16')
-        >>> model_b = MaeModel(config)
+        >>> model_b = ViTMAEModel(config)
     """
     _support_list = MindFormerBook.get_model_support_list()['mae']
 
     def __init__(self, config=None):
-        config = config if config else MaeConfig()
-        super(MaeModel, self).__init__(config)
+        config = config if config else ViTMAEConfig()
+        super().__init__(config)
         self.use_moe = (config.moe_config.expert_num > 1)
         parallel_config = config.parallel_config
         dp = parallel_config.data_parallel
-        mp = parallel_config.model_parallel
+
         # --------------------------------------------------------------------------
         # MAE encoder specifics
         self.patch_embed = PatchEmbed(img_size=config.image_size, patch_size=config.patch_size,
@@ -99,6 +99,117 @@ class MaeModel(BaseModel):
         self.norm = LayerNorm((config.embed_dim,), eps=config.layer_norm_eps).shard(((dp, 1, 1),))
         # --------------------------------------------------------------------------
 
+        self.stride_slice = P.StridedSlice().shard(((1, 1, 1),))
+        self.add = P.Add().shard(((dp, 1, 1), (1, 1, 1)))
+        self.expand_dim = P.ExpandDims().shard(((dp, 1),))
+        self.tile = P.Tile().shard(((dp, 1, 1),))
+        self.gather = P.GatherD().shard(((dp, 1, 1), (dp, 1, 1)))
+        self.cat = P.Concat(axis=1).shard(((dp, 1, 1), (dp, 1, 1)))
+
+        self.init_weights()
+        self.init_pos_emd()
+
+    def init_pos_emd(self):
+        """init values of pos_embed"""
+        encoder_pos_emd = Tensor(
+            get_2d_sincos_pos_embed(self.pos_embed.shape[-1],
+                                    int(self.num_patches ** .5),
+                                    cls_token=True),
+            mstype.float32
+        )
+        encoder_pos_emd = P.ExpandDims()(encoder_pos_emd, 0)
+        self.pos_embed = Parameter(encoder_pos_emd, name='sincos_pos_embedding', requires_grad=False)
+
+    def init_weights(self):
+        """ ViT weight initialization."""
+        for name, cell in self.cells_and_names():
+            if isinstance(cell, Linear):
+                cell.weight.set_data(weight_init.initializer(weight_init.XavierUniform(),
+                                                             cell.weight.shape,
+                                                             cell.weight.dtype))
+                if isinstance(cell, Linear) and cell.bias is not None:
+                    cell.bias.set_data(weight_init.initializer(weight_init.Zero(),
+                                                               cell.bias.shape,
+                                                               cell.bias.dtype))
+            elif isinstance(cell, (LayerNorm, nn.LayerNorm)):
+                cell.gamma.set_data(weight_init.initializer(weight_init.One(),
+                                                            cell.gamma.shape,
+                                                            cell.gamma.dtype))
+                cell.beta.set_data(weight_init.initializer(weight_init.Zero(),
+                                                           cell.beta.shape,
+                                                           cell.beta.dtype))
+            if name == "patch_embed.proj":
+                cell.weight.set_data(weight_init.initializer(weight_init.XavierUniform(),
+                                                             cell.weight.shape,
+                                                             cell.weight.dtype))
+
+    def construct(self, image, unmask_index):
+        """construct of VisionTransformerForMae Encoder"""
+        # patch to encoder tokens and add positions
+        tokens = self.patch_embed(image)
+
+        encoder_pos_embedding = self.stride_slice(
+            self.pos_embed, (0, 1, 0),
+            (1, self.pos_embed.shape[1], self.pos_embed.shape[2]),
+            (1, 1, 1))
+
+        tokens = self.add(tokens, encoder_pos_embedding)
+
+        # get the unmasked tokens to be encoded
+        unmask_index_ = self.expand_dim(unmask_index, -1)
+        unmask_index = self.tile(unmask_index_, (1, 1, tokens.shape[2]))
+        unmask_tokens = self.gather(tokens, 1, unmask_index)
+
+        # cls_tokens add pos_embedding
+        cls_pos_embedding = self.stride_slice(
+            self.pos_embed, (0, 0, 0),
+            (1, 1, self.pos_embed.shape[2]),
+            (1, 1, 1))
+        batch_size = image.shape[0]
+        cls_tokens = self.tile(self.cls_tokens, (batch_size, 1, 1))
+        cls_tokens = self.add(cls_tokens, cls_pos_embedding)
+
+        # concat cls_tokens
+        encoded_tokens = self.cat((cls_tokens, unmask_tokens))
+        # attend with vision transformer
+        encoder_input_mask = P.Ones()((batch_size, self.seq_length, self.seq_length), mstype.float32)
+        for block in self.blocks:
+            encoded_tokens = block(encoded_tokens, encoder_input_mask)
+
+        encoded_tokens = self.norm(encoded_tokens)
+        return encoded_tokens
+
+
+@MindFormerRegister.register(MindFormerModuleType.MODELS)
+class ViTMAEForPreTraining(BaseModel):
+    """
+    Pretrain MAE Module.
+    The supported model name could be selected from ViTMAEConfig.show_support_list().
+
+    Args:
+        config (ViTMAEConfig): the config of Mae model.
+
+    Examples:
+        >>> # input model name
+        >>> model_a = ViTMAEForPreTraining.from_pretrained('mae_vit_base_p16')
+        >>> # input config
+        >>> from mindformers import AutoConfig
+        >>> config = AutoConfig.from_pretrained('mae_vit_base_p16')
+        >>> model_b = ViTMAEForPreTraining(config)
+    """
+    _support_list = MindFormerBook.get_model_support_list()['mae']
+
+    def __init__(self, config=None):
+        config = config if config else ViTMAEConfig()
+        super().__init__(config)
+        self.use_moe = (config.moe_config.expert_num > 1)
+        parallel_config = config.parallel_config
+        dp = parallel_config.data_parallel
+        mp = parallel_config.model_parallel
+        self.vit = ViTMAEModel(config)
+        self.num_patches = num_patches = self.vit.patch_embed.num_patches
+        self.num_masked = num_patches - self.vit.seq_length + 1
+
         # --------------------------------------------------------------------------
         # MAE decoder specifics
         self.decoder_embed = Linear(
@@ -139,6 +250,11 @@ class MaeModel(BaseModel):
             config.decoder_embed_dim, patch_dim, weight_init="xavier_uniform",
             compute_dtype=mstype.float16).to_float(mstype.float16)
         self.decoder_pred.shard(strategy_matmul=((dp, 1), (mp, 1)), strategy_bias=((dp, mp), (mp,)))
+        # --------------------------------------------------------------------------
+
+        self.patchify = Patchify(patch_size=config.patch_size, parallel_config=parallel_config)
+        self.unpatchify = UnPatchify(
+            patch_size=config.patch_size, seq_length=num_patches, parallel_config=parallel_config)
 
         self.stride_slice = P.StridedSlice().shard(((1, 1, 1),))
         self.add = P.Add().shard(((dp, 1, 1), (1, 1, 1)))
@@ -146,15 +262,9 @@ class MaeModel(BaseModel):
         self.tile = P.Tile().shard(((dp, 1, 1),))
         self.gather = P.GatherD().shard(((dp, 1, 1), (dp, 1, 1)))
         self.cat = P.Concat(axis=1).shard(((dp, 1, 1), (dp, 1, 1)))
-        self.stride_slice4d = P.StridedSlice().shard(((1, 1, 1, 1),))
         self.gather1 = P.GatherD().shard(((dp, 1), (dp, 1)))
         self.gather2 = P.GatherD().shard(((dp, 1, 1), (dp, 1, 1)))
-        self.reshape = P.Reshape()
         self.mse_loss = MSELoss(config.norm_pixel_loss, parallel_config)
-
-        self.patchify = Patchify(patch_size=config.patch_size, parallel_config=parallel_config)
-        self.unpatchify = UnPatchify(
-            patch_size=config.patch_size, seq_length=num_patches, parallel_config=parallel_config)
 
         self.images_summary = P.ImageSummary().shard(((dp, 1, 1, 1),))
 
@@ -163,14 +273,6 @@ class MaeModel(BaseModel):
 
     def init_pos_emd(self):
         """init values of pos_embed"""
-        encoder_pos_emd = Tensor(
-            get_2d_sincos_pos_embed(self.pos_embed.shape[-1],
-                                    int(self.num_patches ** .5),
-                                    cls_token=True),
-            mstype.float32
-        )
-        encoder_pos_emd = P.ExpandDims()(encoder_pos_emd, 0)
-        self.pos_embed = Parameter(encoder_pos_emd, name='sincos_pos_embedding', requires_grad=False)
         decoder_pos_embed = Tensor(
             get_2d_sincos_pos_embed(self.decoder_pos_embed.shape[-1],
                                     int(self.num_patches ** .5),
@@ -182,7 +284,7 @@ class MaeModel(BaseModel):
 
     def init_weights(self):
         """ ViT weight initialization."""
-        for name, cell in self.cells_and_names():
+        for _, cell in self.cells_and_names():
             if isinstance(cell, Linear):
                 cell.weight.set_data(weight_init.initializer(weight_init.XavierUniform(),
                                                              cell.weight.shape,
@@ -198,49 +300,13 @@ class MaeModel(BaseModel):
                 cell.beta.set_data(weight_init.initializer(weight_init.Zero(),
                                                            cell.beta.shape,
                                                            cell.beta.dtype))
-            if name == "patch_embed.proj":
-                cell.weight.set_data(weight_init.initializer(weight_init.XavierUniform(),
-                                                             cell.weight.shape,
-                                                             cell.weight.dtype))
 
-    def construct_encoder(self, imgs, unmask_index):
-        """construct of VisionTransformerForMae Encoder"""
-        # patch to encoder tokens and add positions
-        tokens = self.patch_embed(imgs)
+    def construct(self, image, mask, ids_restore, unmask_index):
+        """construct of VisionTransformerForMae"""
+        self.images_summary("input images", image)
 
-        encoder_pos_embedding = self.stride_slice(
-            self.pos_embed, (0, 1, 0),
-            (1, self.pos_embed.shape[1], self.pos_embed.shape[2]),
-            (1, 1, 1))
+        encoder_tokens = self.vit.construct(image, unmask_index)
 
-        tokens = self.add(tokens, encoder_pos_embedding)
-
-        # get the unmasked tokens to be encoded
-        unmask_index_ = self.expand_dim(unmask_index, -1)
-        unmask_index = self.tile(unmask_index_, (1, 1, tokens.shape[2]))
-        unmask_tokens = self.gather(tokens, 1, unmask_index)
-
-        # cls_tokens add pos_embedding
-        cls_pos_embedding = self.stride_slice(
-            self.pos_embed, (0, 0, 0),
-            (1, 1, self.pos_embed.shape[2]),
-            (1, 1, 1))
-        batch_size = imgs.shape[0]
-        cls_tokens = self.tile(self.cls_tokens, (batch_size, 1, 1))
-        cls_tokens = self.add(cls_tokens, cls_pos_embedding)
-
-        # concat cls_tokens
-        encoded_tokens = self.cat((cls_tokens, unmask_tokens))
-        # attend with vision transformer
-        encoder_input_mask = P.Ones()((batch_size, self.seq_length, self.seq_length), mstype.float32)
-        for block in self.blocks:
-            encoded_tokens = block(encoded_tokens, encoder_input_mask)
-
-        encoded_tokens = self.norm(encoded_tokens)
-        return encoded_tokens
-
-    def construct_decoder(self, encoder_tokens, ids_restore):
-        """construct of VisionTransformerForMae Decoder"""
         unmask_tokens = self.decoder_embed(encoder_tokens)
         unmask_tokens = self.cast(unmask_tokens, mstype.float32)
 
@@ -278,22 +344,13 @@ class MaeModel(BaseModel):
 
         pred = self.stride_slice(pred, (0, 1, 0), (pred.shape[0], pred.shape[1], pred.shape[2]), (1, 1, 1))
 
-        return pred
-
-    def construct(self, image, mask, ids_restore, unmask_index):
-        """construct of VisionTransformerForMae"""
-        self.images_summary("input images", image)
-
-        # tokens encoder
-        mask = self.gather1(mask, 1, ids_restore)
-        encoded_token = self.construct_encoder(image, unmask_index)
-        patches = self.patchify(image)
-        pred = self.construct_decoder(encoded_token, ids_restore)
-
         reconstruct_images = self.unpatchify(pred)
         self.images_summary("reconstruct image", reconstruct_images)
 
         if self.phase != "train":
             return reconstruct_images
+
+        patches = self.patchify(image)
+        mask = self.gather1(mask, 1, ids_restore)
         mae_loss = self.mse_loss(pred, patches, mask)
         return mae_loss

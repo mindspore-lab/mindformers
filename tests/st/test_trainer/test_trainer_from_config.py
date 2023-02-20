@@ -26,7 +26,7 @@ from mindformers.mindformer_book import MindFormerBook
 from mindformers.tools.register.config import MindFormerConfig
 from mindformers.dataset.build_dataset import build_dataset
 from mindformers.trainer import Trainer
-from mindformers.models import MaeModel
+from mindformers.models import ViTMAEForPreTraining
 from mindformers.trainer.config_args import ConfigArguments, \
     OptimizerConfig, RunnerConfig, LRConfig, WrapperConfig
 
@@ -64,7 +64,7 @@ def test_trainer_train_from_config():
 
     config = ConfigArguments(seed=2022, runner_config=runner_config,
                              optimizer=optim_config, runner_wrapper=wrapper_config)
-    mae_model = MaeModel()
+    mae_model = ViTMAEForPreTraining()
     mim_trainer = Trainer(task='masked_image_modeling',
                           model=mae_model,
                           args=config,

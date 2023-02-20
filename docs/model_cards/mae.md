@@ -39,22 +39,22 @@ MAE由何凯明团队提出，将NLP领域大获成功的自监督预训练模�
 - Model调用接口
 
   ```python
-  from mindformers import MaeModel, MaeConfig
+  from mindformers import ViTMAEForPreTraining, ViTMAEConfig
 
-  MaeModel.show_support_list()
+  ViTMAEForPreTraining.show_support_list()
   # 输出：
-  # - support list of MaeModel is:
+  # - support list of ViTMAEForPreTraining is:
   # -    ['mae_vit_base_p16']
   # - -------------------------------------
 
   # 模型标志加载模型
-  model = MaeModel.from_pretrained("mae_vit_base_p16")
+  model = ViTMAEForPreTraining.from_pretrained("mae_vit_base_p16")
 
   #模型配置加载模型
-  config = MaeConfig.from_pretrained("mae_vit_base_p16")
+  config = ViTMAEConfig.from_pretrained("mae_vit_base_p16")
   # {'decoder_dim': 512, 'patch_size': 16, 'in_chans': 3, 'embed_dim': 768, 'depth': 12,
   # ..., 'decoder_embed_dim': 512, 'norm_pixel_loss': True, 'window_size': None}
-  model = MaeModel(config)
+  model = ViTMAEForPreTraining(config)
   ```
 
 - Trainer接口开启训练/评估/推理：
