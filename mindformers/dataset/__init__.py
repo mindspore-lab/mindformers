@@ -21,7 +21,7 @@ from .mim_dataset import MIMDataset
 from .img_cls_dataset import ImageCLSDataset
 from .contrastive_language_image_pretrain_dataset import ContrastiveLanguageImagePretrainDataset
 from .zero_shot_image_classification_dataset import ZeroShotImageClassificationDataset
-from .name_entity_recognition_dataset import NameEntityRecognitionDataset
+from .token_classification_dataset import TokenClassificationDataset
 from .build_dataset import build_dataset
 from .base_dataset import BaseDataset
 from .mask_language_model_dataset import MaskLanguageModelDataset
@@ -34,7 +34,7 @@ from .utils import check_dataset_config
 __all__ = ['MIMDataset', 'ImageCLSDataset', 'build_dataset', 'BaseDataset', 'check_dataset_config',
            'MaskLanguageModelDataset', 'ContrastiveLanguageImagePretrainDataset',
            'ZeroShotImageClassificationDataset', 'ImageToTextRetrievalDataset',
-           'TextClassificationDataset', 'NameEntityRecognitionDataset']
+           'TextClassificationDataset', 'TokenClassificationDataset']
 __all__.extend(dataloader.__all__)
 __all__.extend(mask.__all__)
 __all__.extend(transforms.__all__)
