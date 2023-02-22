@@ -17,6 +17,7 @@ import numpy as np
 import mindspore
 import mindspore.common.dtype as mstype
 import mindspore.nn as nn
+import mindspore.ops as ops
 import mindspore.ops.functional as F
 from mindspore import Tensor, Parameter
 from mindspore.common.initializer import TruncatedNormal, initializer
@@ -29,7 +30,7 @@ from mindformers.models.base_model import BaseModel
 from ...mindformer_book import MindFormerBook
 from .bert_config import BertConfig
 
-__all__ = ['BertConfig', 'BertModel', 'BertTokenClassification', 'BertForMultipleChoice']
+__all__ = ['BertConfig', 'BertModel', 'BertTokenClassification', 'BertForMultipleChoice', 'BertForQuestionAnswering']
 
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
 class BertTokenClassification(BaseModel):
@@ -312,6 +313,66 @@ class BertForMultipleChoice(BaseModel):
             else:
                 label_ids = self.reshape(label_ids, (-1,))
                 output = (logits, label_ids)
+
+        return output
+
+
+@MindFormerRegister.register(MindFormerModuleType.MODELS)
+class BertForQuestionAnswering(BaseModel):
+    """
+        Bert with dense layer for question answering task.
+
+        Args:
+            config (BertConfig): The config of BertModel.
+
+        Returns:
+            Tensor, loss, logits.
+        Examples:
+            >>> from mindformers import BertForQuestionAnswering, BertTokenizer
+            >>> model = BertForQuestionAnswering.from_pretrained('qa_bert_base_uncased')
+            >>> tokenizer = BertTokenizer.from_pretrained('qa_bert_base_uncased')
+            >>> data = tokenizer("The new rights are nice enough-Everyone really likes the newest benefits ")
+            >>> input_ids = data['input_ids']
+            >>> attention_mask = input_ids['attention_mask']
+            >>> token_type_ids = input_ids['token_type_ids']
+            >>> label_ids = input_ids['label_ids']
+            >>> output = model(input_ids, attention_mask, token_type_ids, label_ids)
+            >>> print(output)
+            [0.6706, 0.5652, 0.7816]
+        """
+    _support_list = MindFormerBook.get_model_support_list()['qa']['bert']
+
+    def __init__(self, config=BertConfig()):
+        super(BertForQuestionAnswering, self).__init__(config)
+        self.bert = BertNetwork(config, config.is_training, config.use_one_hot_embeddings)
+        self.qa_outputs = nn.Dense(config.embedding_size, 2).to_float(config.compute_dtype)
+        self.load_checkpoint(config)
+
+    def construct(self, input_ids, input_mask, token_type_id, start_position, end_position):
+        """Get Training Loss or Logits"""
+        bert_outputs = self.bert(input_ids=input_ids, input_mask=input_mask, token_type_ids=token_type_id)
+        sequence_output = bert_outputs[0]
+        logits = self.qa_outputs(sequence_output)
+        start_logits, end_logits = logits.split(output_num=2, axis=-1)
+        start_logits = start_logits.squeeze(-1)
+        end_logits = end_logits.squeeze(-1)
+
+        if start_position is not None and end_position is not None:
+            if len(start_position.shape) > 1:
+                start_position = start_position.squeeze(-1)
+            if len(end_position.shape) > 1:
+                end_position = end_position.squeeze(-1)
+            ignored_index = start_logits.shape[1]
+            start_position = ops.clip_by_value(start_position, 0, ignored_index)
+            end_position = ops.clip_by_value(end_position, 0, ignored_index)
+
+            loss_fct = nn.CrossEntropyLoss(ignore_index=ignored_index)
+            start_loss = loss_fct(start_logits, start_position)
+            end_loss = loss_fct(end_logits, end_position)
+            total_loss = (start_loss + end_loss) / 2
+            output = total_loss
+        else:
+            output = (start_logits, end_logits)
 
         return output
 
