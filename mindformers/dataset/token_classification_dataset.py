@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-"""Name Entity Recognition Dataset."""
+"""Token classification Dataset."""
 import os
 
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
@@ -25,27 +25,27 @@ from .base_dataset import BaseDataset
 
 
 @MindFormerRegister.register(MindFormerModuleType.DATASET)
-class NameEntityRecognitionDataset(BaseDataset):
+class TokenClassificationDataset(BaseDataset):
     """
-    Name Entity Recognition Dataset.
+    Token classification Dataset.
 
     Examples:
     >>> from mindformers.tools.register import MindFormerConfig
     >>> from mindformers.dataset import build_dataset, check_dataset_config
     >>> # Initialize a MindFormerConfig instance with a specific config file of yaml.
-    >>> config = MindFormerConfig("configs/ner/run_bert_base_chinese_token_classification.yaml")
+    >>> config = MindFormerConfig("tokcls_bert_base_chinese")
     >>> check_dataset_config(config)
     >>> # 1) use config dict to build dataset
     >>> dataset_from_config = build_dataset(config.train_dataset_task)
     >>> # 2) use class name to build dataset
-    >>> dataset_from_name = build_dataset(class_name='NameEntityRecognitionDataset',
+    >>> dataset_from_name = build_dataset(class_name='TokenclassificationDataset',
     >>>                                   dataset_config=config.train_dataset)
     >>> # 3) use class to build dataset
-    >>> dataset_from_class = NameEntityRecognitionDataset(config.train_dataset)
+    >>> dataset_from_class = TokenclassificationDataset(config.train_dataset)
     """
     def __new__(cls, dataset_config: dict = None):
         """new method"""
-        logger.info("Now Create Name Entity Recognition Dataset.")
+        logger.info("Now Create Token classification Dataset.")
         cls.init_dataset_config(dataset_config)
         rank_id = int(os.getenv("RANK_ID", "0"))
         device_num = int(os.getenv("RANK_SIZE", "1"))

@@ -17,9 +17,9 @@
 Test module for testing the interface used for mindformers.
 
 windows:
-pytest .\\tests\\st\\test_trainer\\test_name_entity_recognition_trainer\\test_trainer_from_instance.py
+pytest .\\tests\\st\\test_trainer\\test_token_classification_trainer\\test_trainer_from_instance.py
 linux:
-pytest ./tests/st/test_trainer/test_name_entity_recognition_trainer/test_trainer_from_instance.py
+pytest ./tests/st/test_trainer/test_token_classification_trainer/test_trainer_from_instance.py
 """
 import os
 import json
@@ -48,10 +48,10 @@ class TestTrainer:
         project_path = MindFormerBook.get_project_path()
 
         config_path = os.path.join(
-            project_path, "configs", "ner",
-            "run_ner_bert_base_chinese.yaml"
+            project_path, "configs", "tokcls",
+            "run_tokcls_bert_base_chinese.yaml"
         )
-        new_dataset_dir = "./test_ner_trainer/"
+        new_dataset_dir = "./test_tokcls_trainer/"
         self.config = MindFormerConfig(config_path)
         self.config.train_dataset_task.dataset_config.data_loader.dataset_dir = new_dataset_dir
 
@@ -71,7 +71,7 @@ class TestTrainer:
             has_trained_epoches=0, has_trained_steps=0
         )
         config = ConfigArguments(seed=2022, runner_config=runner_config)
-        bert_config = BertConfig.from_pretrained('ner_bert_base_chinese')
+        bert_config = BertConfig.from_pretrained('tokcls_bert_base_chinese')
         bert_token_cls_model = BertTokenClassification(bert_config)
         bert_token_cls_model.set_train(mode=True)
 
@@ -89,7 +89,7 @@ class TestTrainer:
         loss_cb = ms.LossMonitor(per_print_times=1)
         callbacks = [loss_cb]
 
-        trainer = Trainer(task='name_entity_recognition',
+        trainer = Trainer(task='token_classification',
                           model=bert_token_cls_model,
                           config=config,
                           optimizers=optimizer,

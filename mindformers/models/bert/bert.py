@@ -44,8 +44,8 @@ class BertTokenClassification(BaseModel):
         Tensor, loss, logits.
     Examples:
         >>> from mindformers import BertTokenClassification, BertTokenizer
-        >>> model = BertTokenClassification.from_pretrained('bert-ner_base_chinese_dense')
-        >>> tokenizer = BertTokenizer.from_pretrained('bert-ner_base_chinese_dense')
+        >>> model = BertTokenClassification.from_pretrained('tokcls_bert_base_chinese')
+        >>> tokenizer = BertTokenizer.from_pretrained('tokcls_bert_base_chines')
         >>> data = tokenizer("我在杭州华为工作。")
         >>> input_ids = data['input_ids']
         >>> attention_mask = input_ids['attention_mask']
@@ -56,7 +56,7 @@ class BertTokenClassification(BaseModel):
         [0.6706]
     """
 
-    _support_list = MindFormerBook.get_model_support_list()['ner']['bert']
+    _support_list = MindFormerBook.get_model_support_list()['tokcls']['bert']
 
     def __init__(self, config=BertConfig()):
         super(BertTokenClassification, self).__init__(config)

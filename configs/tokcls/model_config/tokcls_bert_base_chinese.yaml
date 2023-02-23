@@ -21,7 +21,7 @@ model:
     use_relative_positions: False
     use_past: False
     compute_dtype: "float32"
-    checkpoint_name_or_path: "ner_bert_base_chinese_cluener"
+    checkpoint_name_or_path: "tokcls_bert_base_chinese"
   arch:
     type: BertTokenClassification
 
@@ -37,4 +37,4 @@ processor:
     unk_token: '[UNK]'
     is_tokenize_char: True
     do_lower_case: False
-    checkpoint_name_or_path: ner_bert_base_chinese
+    checkpoint_name_or_path: tokcls_bert_base_chinese

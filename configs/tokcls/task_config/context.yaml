@@ -6,7 +6,7 @@ context:
   graph_kernel_flags: "--opt_level=0"
   max_call_depth: 10000
   save_graphs: False
-  device_id: 5
+  device_id: 0
 
 parallel:
   parallel_mode: 0 # 0-dataset, 1-semi, 2-auto, 3-hybrid
