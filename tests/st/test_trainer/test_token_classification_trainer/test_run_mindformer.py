@@ -18,9 +18,9 @@ Test Module for testing ImageClassificationTrainDataset.
 
 How to run this:
 windows:
-pytest .\\tests\\st\\test_trainer\\test_name_entity_recognition_trainer\\test_run_mindformer.py
+pytest .\\tests\\st\\test_trainer\\test_token_classification_trainer\\test_run_mindformer.py
 linux:
-pytest ./tests/st/test_trainer/test_name_entity_recognition_trainer/test_run_mindformer.py
+pytest ./tests/st/test_trainer/test_token_classification_trainer/test_run_mindformer.py
 """
 import os
 import json
@@ -41,10 +41,10 @@ class TestRunMindFormer:
         project_path = MindFormerBook.get_project_path()
 
         config_path = os.path.join(
-            project_path, "configs", "ner",
-            "run_ner_bert_base_chinese.yaml"
+            project_path, "configs", "tokcls",
+            "run_tokcls_bert_base_chinese.yaml"
         )
-        new_dataset_dir = "./test_ner_run_mindformer/"
+        new_dataset_dir = "./test_tokcls_run_mindformer/"
         self.config = MindFormerConfig(config_path)
         self.config.train_dataset_task.dataset_config.data_loader.dataset_dir = new_dataset_dir
 
@@ -53,25 +53,25 @@ class TestRunMindFormer:
 
     def test_trainer_train_method(self):
         """
-        Feature: NameEntityRecognitionDataset by run_mindformer.py
-        Description: use NameEntityRecognitionDataset with run_mindformer.py
+        Feature: TokenClassificationDataset by run_mindformer.py
+        Description: use TokenClassificationDataset with run_mindformer.py
         Expectation: TypeError, ValueError
         """
         yaml_path = os.path.join(MindFormerBook.get_project_path(),
-                                 "configs", "ner", "run_ner_bert_base_chinese.yaml")
+                                 "configs", "tokcls", "run_tokcls_bert_base_chinese.yaml")
         command = "python run_mindformer.py --config " + yaml_path + " --run_mode train"
         os.system(command)
 
     def test_trainer_eval_method(self):
         """
-        Feature: NameEntityRecognitionDataset by run_mindformer.py
-        Description: use NameEntityRecognitionDataset with run_mindformer.py
+        Feature: TokenClassificationDataset by run_mindformer.py
+        Description: use TokenClassificationDataset with run_mindformer.py
         Expectation: TypeError, ValueError
         """
         yaml_path = os.path.join(MindFormerBook.get_project_path(),
-                                 "configs", "ner", "run_ner_bert_base_chinese.yaml")
+                                 "configs", "tokcls", "run_tokcls_bert_base_chinese.yaml")
         command = "python run_mindformer.py --config " + yaml_path + \
-                  " --run_mode eval --load_checkpoint ner_bert_base_chinese_cluener"
+                  " --run_mode eval --load_checkpoint tokcls_bert_base_chinese_cluener"
         os.system(command)
 
     def make_local_directory(self, new_dataset_dir):

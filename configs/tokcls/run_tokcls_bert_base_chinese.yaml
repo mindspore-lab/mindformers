@@ -2,7 +2,7 @@ base_config: [
     './task_config/context.yaml',
     './task_config/runner.yaml',
     './task_config/bert_cluener_dataset.yaml',
-    './model_config/ner_bert_base_chinese.yaml',
+    './model_config/tokcls_bert_base_chinese.yaml',
     '../__base__.yaml' ]
 
 profile: False
@@ -13,5 +13,5 @@ resume_or_finetune_checkpoint: ''
 
 run_mode: 'train'
 trainer:
-  type: NameEntityRecognitionTrainer
+  type: TokenClassificationTrainer
   model_name: bert_token_classification

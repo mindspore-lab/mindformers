@@ -1,3 +1,4 @@
+#!/bin/bash
 # Copyright 2023 Huawei Technologies Co., Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,8 +13,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-"""Name Entity Recognition Trainer."""
-from .name_entity_recognition import NameEntityRecognitionTrainer
 
+echo "=============================================================================================================="
+echo "Please run the script as: "
+echo "bash examples/token_classification/tokcls_bert_base_chinese_train_on_cluener.sh"
+echo "The data setting could refer to ./docs/task_cards/token_classification.md"
+echo "It is better to use absolute path."
+echo "=============================================================================================================="
 
-__all__ = ['NameEntityRecognitionTrainer']
+python run_mindformer.py --config ./configs/tokcls/run_tokcls_bert_base_chinese.yaml --run_mode train

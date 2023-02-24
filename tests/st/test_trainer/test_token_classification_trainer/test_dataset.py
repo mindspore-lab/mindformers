@@ -18,9 +18,9 @@ Test Module for testing clip_pretrain dataset for clip trainer.
 
 How to run this:
 windows:
-pytest .\\tests\\st\\test_trainer\\test_name_entity_recognition_trainer\\test_dataset.py
+pytest .\\tests\\st\\test_trainer\\test_token_classification_trainer\\test_dataset.py
 linux:
-pytest ./tests/st/test_trainer/test_name_entity_recognition_trainer/test_dataset.py
+pytest ./tests/st/test_trainer/test_token_classification_trainer/test_dataset.py
 """
 import os
 import json
@@ -35,18 +35,18 @@ from mindformers.dataset.build_dataset import build_dataset
 @pytest.mark.platform_x86_ascend_training
 @pytest.mark.platform_arm_ascend_training
 @pytest.mark.env_onecard
-class TestNameEntityRecognitionTrainDataset:
-    """A test class for testing TestNameEntityRecognitionTrainDataset classes"""
+class TestTokenClassificationTrainDataset:
+    """A test class for testing TestTokenClassificationTrainDataset classes"""
     def setup_method(self):
         """prepare for test"""
         project_path = MindFormerBook.get_project_path()
 
         config_path = os.path.join(
-            project_path, "configs", "ner",
+            project_path, "configs", "tokcls",
             "task_config", "bert_cluener_dataset.yaml"
         )
 
-        new_dataset_dir = "./test_ner_dataset/"
+        new_dataset_dir = "./test_tokcls_dataset/"
         self.config = MindFormerConfig(config_path)
         self.config.train_dataset_task.dataset_config.data_loader.dataset_dir = new_dataset_dir
 
@@ -55,8 +55,8 @@ class TestNameEntityRecognitionTrainDataset:
 
     def test_dataset(self):
         """
-        Feature: NameEntityRecognitionTrainDataset
-        Description: A data set for name entity recognition train dataset
+        Feature: TokenClassificationTrainDataset
+        Description: A data set for token classification train dataset
         Expectation: TypeError, ValueError
         """
         self.setup_method()

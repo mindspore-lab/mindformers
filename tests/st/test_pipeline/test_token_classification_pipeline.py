@@ -15,17 +15,17 @@
 
 """
 Test Module for classification function of
-NameEntityRecognitionPipeline
+TokenClassificationPipeline
 
 How to run this:
 windows:
-pytest .\\tests\\st\\test_pipeline\\test_name_entity_recognition_pipeline.py
+pytest .\\tests\\st\\test_pipeline\\test_token_classification_pipeline.py
 linux:
-pytest ./tests/st/test_pipeline/test_name_entity_recognition_pipeline.py
+pytest ./tests/st/test_pipeline/test_token_classification_pipeline.py
 """
 import pytest
 
-from mindformers.pipeline import NameEntityRecognitionPipeline
+from mindformers.pipeline import TokenClassificationPipeline
 from mindformers import AutoTokenizer, BertTokenClassification, AutoConfig
 from mindformers.dataset.labels import cluener_labels
 
@@ -34,9 +34,9 @@ from mindformers.dataset.labels import cluener_labels
 @pytest.mark.platform_x86_ascend_training
 @pytest.mark.platform_arm_ascend_training
 @pytest.mark.env_onecard
-def test_name_entity_recognition_pipeline():
+def test_token_classification_pipeline():
     """
-    Feature: NameEntityRecognitionPipeline class
+    Feature: TokenClassificationPipeline class
     Description: Test the pipeline functions
     Expectation: NotImplementedError, ValueError
     """
@@ -46,21 +46,21 @@ def test_name_entity_recognition_pipeline():
 
     id2label = {label_id: label for label_id, label in enumerate(cluener_labels)}
 
-    tokenizer = AutoTokenizer.from_pretrained('ner_bert_base_chinese_cluener')
-    ner_dense_cluener_config = AutoConfig.from_pretrained('ner_bert_base_chinese_cluener')
+    tokenizer = AutoTokenizer.from_pretrained('tokcls_bert_base_chinese_cluener')
+    tokcls_cluener_config = AutoConfig.from_pretrained('tokcls_bert_base_chinese_cluener')
 
     # This is a known issue, you need to specify batch size equal to 1 when creating bert model.
-    ner_dense_cluener_config.batch_size = 1
+    tokcls_cluener_config.batch_size = 1
 
-    model = BertTokenClassification(ner_dense_cluener_config)
-    ner_pipeline = NameEntityRecognitionPipeline(task='name_entity_recognition',
-                                                 model=model,
-                                                 id2label=id2label,
-                                                 tokenizer=tokenizer,
-                                                 max_length=model.config.seq_length,
-                                                 padding="max_length")
+    model = BertTokenClassification(tokcls_cluener_config)
+    tokcls_pipeline = TokenClassificationPipeline(task='token_classification',
+                                                  model=model,
+                                                  id2label=id2label,
+                                                  tokenizer=tokenizer,
+                                                  max_length=model.config.seq_length,
+                                                  padding="max_length")
 
-    results = ner_pipeline(input_data)
+    results = tokcls_pipeline(input_data)
     assert isinstance(results, list)
     assert len(results) == 2
     assert isinstance(results[0], list)

@@ -22,7 +22,7 @@ from .contrastive_language_image_pretrain import *
 from .image_to_text_retrieval import *
 from .translation import *
 from .text_classfication import *
-from .name_entity_recognition import *
+from .token_classification import *
 from .trainer import Trainer
 from .training_args import TrainingArguments
 from .base_trainer import BaseTrainer
@@ -39,4 +39,4 @@ __all__.extend(contrastive_language_image_pretrain.__all__)
 __all__.extend(image_to_text_retrieval.__all__)
 __all__.extend(translation.__all__)
 __all__.extend(text_classfication.__all__)
-__all__.extend(name_entity_recognition.__all__)
+__all__.extend(token_classification.__all__)

@@ -15,7 +15,7 @@
 # https://github.com/lonePatient/daguan_2019_rank9/blob/master/pydatagrand/train/ner_utils.py
 # ============================================================================
 
-"""TranslationPipeline"""
+"""TokenClassificationPipeline"""
 import os.path
 
 import numpy as np
@@ -26,11 +26,11 @@ from .base_pipeline import BasePipeline
 from ..tools.register import MindFormerRegister, MindFormerModuleType
 from ..models import BaseModel, Tokenizer
 
-__all__ = ['NameEntityRecognitionPipeline']
+__all__ = ['TokenClassificationPipeline']
 
-@MindFormerRegister.register(MindFormerModuleType.PIPELINE, alias="name_entity_recognition")
-class NameEntityRecognitionPipeline(BasePipeline):
-    r"""Pipeline for image classification
+@MindFormerRegister.register(MindFormerModuleType.PIPELINE, alias="token_classification")
+class TokenClassificationPipeline(BasePipeline):
+    r"""Pipeline for token classification
 
     Args:
         model (Union[str, BaseModel]): The model used to perform task,
@@ -44,26 +44,26 @@ class NameEntityRecognitionPipeline(BasePipeline):
         ValueError: If the input model is not in support list.
 
     Examples:
-        >>> from mindformers.pipeline import NameEntityRecognitionPipeline
+        >>> from mindformers.pipeline import TokenClassificationPipeline
         >>> from mindformers import AutoTokenizer, BertTokenClassification, AutoConfig
         >>> from mindformers.dataset.labels import cluener_labels
         >>> id2label = {label_id: label for label_id, label in enumerate(cluener_labels)}
-        >>> input_data = ["表身刻有代表日内瓦钟表匠freresoltramare的“fo”字样。", "的时间会去玩玩星际2。"]
-        >>> tokenizer = AutoTokenizer.from_pretrained('ner_bert_base_chinese_cluener')
-        >>> ner_dense_cluener_config = AutoConfig.from_pretrained('ner_bert_base_chinese_cluener')
+        >>> input_data = ["表身刻有代表日内瓦钟表匠freresoltramare的“fo”字样。"]
+        >>> tokenizer = AutoTokenizer.from_pretrained('tokcls_bert_base_chinese_cluener')
+        >>> ner_dense_cluener_config = AutoConfig.from_pretrained('tokcls_bert_base_chinese_cluener')
         >>> model = BertTokenClassification(ner_dense_cluener_config)
-        >>> ner_pipeline = NameEntityRecognitionPipeline(task='name_entity_recognition',
-        ...                                              model=model,
-        ...                                              id2label=id2label
-        ...                                              tokenizer=tokenizer,
-        ...                                              max_length=model.config.seq_length,
-        ...                                              padding="max_length")
-        >>> results = ner_pipeline(input_data)
+        >>> tokcls_pipeline = TokenClassificationPipeline(task='token_classification',
+        ...                                               model=model,
+        ...                                               id2label=id2label
+        ...                                               tokenizer=tokenizer,
+        ...                                               max_length=model.config.seq_length,
+        ...                                               padding="max_length")
+        >>> results = tokcls_pipeline(input_data)
         >>> print(results)
-            [[{'entity_name': 'address', 'word': '日内瓦', 'start': 6, 'end': 9}],
-            [{'entity_name': 'game', 'word': '星际2', 'start': 7, 'end': 10}]]
+            [[{'entity_group': 'address', 'start': 6, 'end': 8, 'score': 0.52329, 'word': '日内瓦'},
+              {'entity_group': 'name', 'start': 12, 'end': 25, 'score': 0.83922, 'word': 'freresoltramar'}]]
     """
-    _support_list = MindFormerBook.get_pipeline_support_task_list()['name_entity_recognition'].keys()
+    _support_list = MindFormerBook.get_pipeline_support_task_list()['token_classification'].keys()
 
     def __init__(self, model, id2label, tokenizer=None, **kwargs):
         if isinstance(model, str):
@@ -110,7 +110,7 @@ class NameEntityRecognitionPipeline(BasePipeline):
 
     def preprocess(self, inputs, **preprocess_params):
         """
-        Preprocess of name entity recognition
+        Preprocess of token classification
 
         Args:
             inputs (str): the str to be classified.

@@ -24,7 +24,7 @@ train_dataset: &train_dataset
     unk_token: '[UNK]'
     is_tokenize_char: True
     do_lower_case: False
-    checkpoint_name_or_path: ner_bert_base_chinese
+    checkpoint_name_or_path: tokcls_bert_base_chinese
 
   input_columns: ["text", "label_id"]
   output_columns: ["input_ids", "token_type_ids", "attention_mask", "label_id"]
@@ -40,7 +40,7 @@ train_dataset: &train_dataset
   seed: 2022
 
 train_dataset_task:
-  type: NameEntityRecognitionDataset
+  type: TokenClassificationDataset
   dataset_config: *train_dataset
 
 eval_dataset: &eval_dataset
@@ -69,7 +69,7 @@ eval_dataset: &eval_dataset
     unk_token: '[UNK]'
     is_tokenize_char: True
     do_lower_case: False
-    checkpoint_name_or_path: ner_bert_base_chinese
+    checkpoint_name_or_path: tokcls_bert_base_chinese
 
   input_columns: ["text", "label_id"]
   output_columns: ["input_ids", "token_type_ids", "attention_mask", "label_id"]
@@ -85,5 +85,5 @@ eval_dataset: &eval_dataset
   seed: 2022
 
 eval_dataset_task:
-  type: NameEntityRecognitionDataset
+  type: TokenClassificationDataset
   dataset_config: *eval_dataset

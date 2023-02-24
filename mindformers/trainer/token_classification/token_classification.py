@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-"""Name Entity Recognition Trainer."""
+"""Token Classification Trainer."""
 from typing import Optional, List, Union
 from mindspore.train.model import Model
 from mindspore.train import Callback
@@ -36,8 +36,8 @@ from ...dataset.labels import cluener_labels
 
 
 @MindFormerRegister.register(MindFormerModuleType.TRAINER)
-class NameEntityRecognitionTrainer(BaseTrainer):
-    r"""NameEntityRecognition Task For Trainer.
+class TokenClassificationTrainer(BaseTrainer):
+    r"""TokenClassification Task For Trainer.
     Args:
         model_name (str): The model name of Task-Trainer. Default: None
     Raises:
@@ -45,7 +45,7 @@ class NameEntityRecognitionTrainer(BaseTrainer):
     """
 
     def __init__(self, model_name: str = None):
-        super(NameEntityRecognitionTrainer, self).__init__(model_name)
+        super(TokenClassificationTrainer, self).__init__(model_name)
         self.model_name = model_name
 
     def train(self,
@@ -56,7 +56,7 @@ class NameEntityRecognitionTrainer(BaseTrainer):
               optimizer: Optional[Optimizer] = None,
               callbacks: Optional[Union[Callback, List[Callback]]] = None,
               **kwargs):
-        r"""Train task for NameEntityRecognition Trainer.
+        r"""Train task for TokenClassification Trainer.
         This function is used to train or fine-tune the network.
 
         The trainer interface is used to quickly start training for general task.
@@ -103,7 +103,7 @@ class NameEntityRecognitionTrainer(BaseTrainer):
             ...        return len(self._data)
             >>> config = MindFormerConfig("configs/ner/run_ner_bert_base_chinese.yaml")
             >>> #1) use config to train
-            >>> cls_task = NameEntityRecognitionTrainer(model_name='bert_token_classification')
+            >>> cls_task = TokenClassificationTrainer(model_name='bert_token_classification')
             >>> cls_task.train(config=config)
             >>> #2) use instance function to evaluate
             >>> dataset = GeneratorDataset(source=MyDataLoader(), column_names=['text', 'label_id'])
@@ -205,7 +205,7 @@ class NameEntityRecognitionTrainer(BaseTrainer):
                  callbacks: Optional[Union[Callback, List[Callback]]] = None,
                  compute_metrics: Optional[Union[dict, set]] = None,
                  **kwargs):
-        r"""Evaluate task for NameEntityRecognition Trainer.
+        r"""Evaluate task for TokenClassification Trainer.
         This function is used to evaluate the network.
 
         The trainer interface is used to quickly start training for general task.
@@ -247,7 +247,7 @@ class NameEntityRecognitionTrainer(BaseTrainer):
             ...        return len(self._data)
             >>> config = MindFormerConfig("configs/ner/run_ner_bert_base_chinese.yaml")
             >>> #1) use config to evaluate
-            >>> cls_task = NameEntityRecognitionTrainer(model_name='bert_token_classification')
+            >>> cls_task = TokenClassificationTrainer(model_name='bert_token_classification')
             >>> cls_task.evaluate(config=config)
             >>> #1) use instance function to evaluate
             >>> dataset = GeneratorDataset(source=MyDataLoader(), column_names=['text', 'label_id'])
@@ -319,14 +319,14 @@ class NameEntityRecognitionTrainer(BaseTrainer):
                 Default: None.
 
         Examples:
-            >>> from mindformers import BertTokenClassification, NameEntityRecognitionTrainer
-            >>> model = BertTokenClassification.from_pretrained('ner_bert_base_chinese_cluener')
-            >>> trainer = NameEntityRecognitionTrainer(model_name="ner_bert_base_chinese_cluener")
+            >>> from mindformers import BertTokenClassification, TokenClassificationTrainer
+            >>> model = BertTokenClassification.from_pretrained('tokcls_bert_base_chinese_cluener')
+            >>> trainer = TokenClassificationTrainer(model_name="tokcls_bert_base_chinese_cluener")
             >>> input_data = ["表身刻有代表日内瓦钟表匠freresoltramare的“fo”字样。", "的时间会去玩玩星际2。"]
             >>> res = trainer.predict(input_data=input_data, network=model)
             >>> print(res)
-                [[{'entity_name': 'address', 'word': '日内瓦', 'start': 6, 'end': 9}],
-                [{'entity_name': 'game', 'word': '星际2', 'start': 7, 'end': 10}]]
+                [[{'entity_group': 'address', 'word': '日内瓦', 'start': 6, 'end': 9}],
+                [{'entity_group': 'game', 'word': '星际2', 'start': 7, 'end': 10}]]
         Returns:
             A list of prediction.
         """
@@ -347,7 +347,7 @@ class NameEntityRecognitionTrainer(BaseTrainer):
         config.model.model_config.batch_size = 1
 
         if tokenizer is None:
-            tokenizer = BertTokenizer.from_pretrained("ner_bert_base_chinese_cluener")
+            tokenizer = BertTokenizer.from_pretrained("tokcls_bert_base_chinese_cluener")
 
         id2label = {label_id: label for label_id, label in enumerate(cluener_labels)}
 
@@ -358,8 +358,9 @@ class NameEntityRecognitionTrainer(BaseTrainer):
         if network is not None:
             logger.info("Network Parameters: %s M.", str(count_params(network)))
 
-        pipeline_task = pipeline(task='name_entity_recognition',
+        pipeline_task = pipeline(task='token_classification',
                                  model=network,
+                                 tokenizer=tokenizer,
                                  max_length=network.config.seq_length,
                                  padding="max_length",
                                  id2label=id2label,

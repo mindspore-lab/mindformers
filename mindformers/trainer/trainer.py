@@ -366,7 +366,7 @@ class Trainer:
             resume_or_finetune_from_checkpoint = None
 
         if do_finetune and resume_or_finetune_from_checkpoint is None:
-            logger.warning("if do_finetuen is true, "
+            logger.warning("if do_finetune is true, "
                            "resume_or_finetune_from_checkpoint must be input and valid, "
                            "but it's None.")
 
