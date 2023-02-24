@@ -164,6 +164,9 @@ class ZeroShotImageClassificationTrainer(BaseTrainer):
         """
         self.kwargs = kwargs
         logger.info(".........Build Input Data For Predict..........")
+        if input_data is None and config.input_data is not None:
+            input_data = config.input_data
+
         if input_data is None:
             input_data = build_dataset_loader(config.eval_dataset.data_loader)
 
