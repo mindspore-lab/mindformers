@@ -51,6 +51,19 @@ CLIP (Contrastive Lanuguage-Image Pre-Training)：是一种基于图文对进行
 
 - 请参考[使用脚本启动](https://gitee.com/mindspore/transformer/blob/master/README.md#%E6%96%B9%E5%BC%8F%E4%B8%80clone-%E5%B7%A5%E7%A8%8B%E4%BB%A3%E7%A0%81)
 
+- 脚本运行测试
+
+```shell
+# pretrain
+python run_mindformer.py --config ./configs/clip/run_clip_vit_b_32_pretrain_flickr8k.yaml --run_mode train
+
+# evaluate
+python run_mindformer.py --config ./configs/clip/run_clip_vit_b_32_zero_shot_image_classification_cifar100.yaml --run_mode eval --dataset_dir [DATASET_PATH]
+
+# predict
+python run_mindformer.py --config ./configs/clip/run_clip_vit_b_32_zero_shot_image_classification_cifar100.yaml --run_mode predict --predict_data [PATH_TO_IMAGE]
+```
+
 ### 调用API启动
 
 > 需开发者提前pip安装。具体接口说明请参考[API接口](https://gitee.com/mindspore/transformer/wikis/API/)
