@@ -18,28 +18,19 @@ from typing import Optional, List, Union
 import numpy as np
 from PIL.Image import Image
 
-from mindspore.train.model import Model
 from mindspore.train import Callback
 from mindspore.nn import TrainOneStepCell, Optimizer
 from mindspore import Tensor
 
-from mindformers.common.metric import build_metric
-from mindformers.common.callback import build_callback
-from mindformers.dataset import build_dataset, check_dataset_config, BaseDataset
-from mindformers.models import build_model, build_processor, \
-    BaseModel, BaseImageProcessor
+from mindformers.dataset import BaseDataset
+from mindformers.models import BaseModel, BaseImageProcessor
 from mindformers.pipeline import pipeline
-from mindformers.common.lr import build_lr
-from mindformers.common.optim import build_optim
-from mindformers.wrapper import build_wrapper
 from mindformers.tools.logger import logger
 from mindformers.tools.utils import count_params
 from mindformers.tools.image_tools import load_image
-from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
-from .group_ic_params import get_group_parameters
-from ..config_args import ConfigArguments
+from mindformers.tools.register import MindFormerRegister, \
+    MindFormerModuleType, MindFormerConfig
 from ..base_trainer import BaseTrainer
-from ..utils import check_runner_config, check_image_lr_config, resume_checkpoint_for_training
 
 
 __all__ = ['ImageClassificationTrainer']
@@ -50,16 +41,57 @@ class ImageClassificationTrainer(BaseTrainer):
     r"""ImageClassification Task For Trainer.
     Args:
         model_name (str): The model name of Task-Trainer. Default: None
+
+        Examples:
+            >>> import numpy as np
+            >>> from mindspore.dataset import GeneratorDataset
+            >>> from mindspore.nn import AdamWeightDecay, WarmUpLR, \
+            ...      DynamicLossScaleUpdateCell, TrainOneStepWithLossScaleCell, Accuracy
+            >>> from mindformers.trainer import ImageClassificationTrainer
+            >>> from mindformers.tools.register import MindFormerConfig
+            >>> from mindformers.models import ViTForImageClassification, ViTConfig, VitImageProcessor
+            >>> class MyDataLoader:
+            ...    def __init__(self):
+            ...        self._data = [np.zeros((3, 224, 224), np.float32) for _ in range(64)]
+            ...        self._label = [np.ones(1000, np.float32) for _ in range(64)]
+            ...
+            ...    def __getitem__(self, index):
+            ...        return self._data[index], self._label[index]
+            ...
+            ...    def __len__(self):
+            ...        return len(self._data)
+            >>> dataset = GeneratorDataset(source=MyDataLoader(), column_names=['image', 'label'])
+            >>> dataset = dataset.batch(batch_size=2)
+            >>> #1) use config to train
+            >>> cls_task = ImageClassificationTrainer(model_name='vit_base_p16')
+            >>> cls_task.train()
+            >>> cls_task.evaluate(dataset=dataset)
+            >>> input_data = np.uint8(np.random.random((5, 3, 255, 255)))
+            >>> cls_task.predict(input_data=input_data, top_k=5)
+            >>> #2) use instance function to train
+            >>> vit_config = ViTConfig(batch_size=2)
+            >>> network_with_loss = ViTForImageClassification(vit_config)
+            >>> lr_schedule = WarmUpLR(learning_rate=0.001, warmup_steps=100)
+            >>> optimizer = AdamWeightDecay(beta1=0.009, beta2=0.999,
+            ...                             learning_rate=lr_schedule,
+            ...                             params=network_with_loss.trainable_params())
+            >>> loss_scale = DynamicLossScaleUpdateCell(loss_scale_value=2**12, scale_factor=2, scale_window=1000)
+            >>> wrapper = TrainOneStepWithLossScaleCell(network_with_loss, optimizer, scale_sense=loss_scale)
+            >>> cls_task.train(wrapper=wrapper, dataset=dataset)
+            >>> compute_metrics = {"Accuracy": Accuracy(eval_type='classification')}
+            >>> cls_task.evaluate(network=network_with_loss, dataset=dataset, compute_metrics=compute_metrics)
+            >>> image_processor = VitImageProcessor(image_resolution=224)
+            >>> cls_task.predict(input_data=input_data, image_processor=image_processor, top_k=5)
+
     Raises:
         NotImplementedError: If train method or evaluate method or predict method not implemented.
     """
 
     def __init__(self, model_name: str = None):
-        super(ImageClassificationTrainer, self).__init__(model_name)
-        self.kwargs = None
+        super().__init__('image_classification', model_name)
 
     def train(self,
-              config: Optional[Union[dict, ConfigArguments]] = None,
+              config: Optional[Union[dict, MindFormerConfig]] = None,
               network: Optional[Union[str, BaseModel]] = None,
               dataset: Optional[Union[str, BaseDataset]] = None,
               wrapper: Optional[TrainOneStepCell] = None,
@@ -73,9 +105,9 @@ class ImageClassificationTrainer(BaseTrainer):
         It also allows users to customize the network, optimizer, dataset, wrapper, callback.
 
         Args:
-            config (Optional[Union[dict, ConfigArguments]]): The task config which is used to
+            config (Optional[Union[dict, MindFormerConfig]]): The task config which is used to
                 configure the dataset, the hyper-parameter, optimizer, etc.
-                It support config dict or ConfigArguments class.
+                It support config dict or MindFormerConfig class.
                 Default: None.
             network (Optional[Union[str, BaseModel]]): The network for trainer. It support model name supported
                 or BaseModel class. Supported model name can refer to ****.
@@ -94,117 +126,18 @@ class ImageClassificationTrainer(BaseTrainer):
 
         Raises:
             NotImplementedError: If wrapper not implemented.
-
-        Examples:
-            >>> import numpy as np
-            >>> from mindspore.dataset import GeneratorDataset
-            >>> from mindspore.nn import AdamWeightDecay, WarmUpLR, \
-            ...      DynamicLossScaleUpdateCell, TrainOneStepWithLossScaleCell
-            >>> from mindformers.trainer import GeneralTaskTrainer
-            >>> from mindformers.tools.register import MindFormerConfig
-            >>> from mindformers.models import ViTForImageClassification, ViTConfig
-            >>> class MyDataLoader:
-            ...    def __init__(self):
-            ...        self._data = [np.zeros((3, 224, 224), np.float32) for _ in range(64)]
-            ...        self._label = [np.ones(1000, np.float32) for _ in range(64)]
-            ...
-            ...    def __getitem__(self, index):
-            ...        return self._data[index], self._label[index]
-            ...
-            ...    def __len__(self):
-            ...        return len(self._data)
-            >>> config = MindFormerConfig("configs/vit/run_vit_base_p16_224_100ep.yaml")
-            >>> #1) use config to train
-            >>> cls_task = ImageClassificationTrainer(model_name='vit')
-            >>> cls_task.train(config=config)
-            >>> #2) use instance function to evaluate
-            >>> dataset = GeneratorDataset(source=MyDataLoader(), column_names=['image', 'label'])
-            >>> dataset = dataset.batch(batch_size=2)
-            >>> vit_config = ViTConfig(batch_size=2)
-            >>> network_with_loss = ViTForImageClassification(vit_config)
-            >>> lr_schedule = WarmUpLR(learning_rate=0.001, warmup_steps=100)
-            >>> optimizer = AdamWeightDecay(beta1=0.009, beta2=0.999,
-            ...                             learning_rate=lr_schedule,
-            ...                             params=network_with_loss.trainable_params())
-            >>> loss_scale = DynamicLossScaleUpdateCell(loss_scale_value=2**12, scale_factor=2, scale_window=1000)
-            >>> wrapper = TrainOneStepWithLossScaleCell(network_with_loss, optimizer, scale_sense=loss_scale)
-            >>> cls_task.train(config=config, wrapper=wrapper, dataset=dataset)
         """
-        self.kwargs = kwargs
-        # build dataset
-        logger.info(".........Build Dataset..........")
-        check_dataset_config(config)
-        if dataset is None:
-            dataset = build_dataset(config.train_dataset_task)
-        check_runner_config(config, dataset)
-
-        # build network
-        logger.info(".........Build Net..........")
-        if network is None:
-            network = build_model(config.model, default_args={
-                "parallel_config": config.parallel_config,
-                "moe_config": config.moe_config})
-        logger.info("Network Parameters: %s M.", str(count_params(network)))
-
-        # build optimizer
-        logger.info(".........Build Optimizer..........")
-        if optimizer is None:
-            # build learning rate schedule
-            logger.info(".........Build LR Schedule..........")
-            check_image_lr_config(config)
-            lr_schedule = build_lr(config.lr_schedule)
-            group_params = get_group_parameters(config, network, lr_schedule)
-            if lr_schedule is not None:
-                optimizer = build_optim(
-                    config.optimizer,
-                    default_args={"params": group_params,
-                                  "learning_rate": lr_schedule})
-            else:
-                if config.optimizer.learning_rate is None:
-                    raise ValueError("learning_rate must be input")
-                optimizer = build_optim(
-                    config.optimizer,
-                    default_args={"params": group_params})
-
-        # build callback
-        logger.info(".........Build Callbacks for Train..........")
-        if callbacks is None:
-            callbacks = []
-            if config.profile:
-                callbacks.append(config.profile_cb)
-            callbacks.extend(build_callback(
-                config.callbacks, default_args={"learning_rate": optimizer.learning_rate}))
-
-        # resume checkpoint
-        if config.resume_or_finetune_checkpoint is not None and config.resume_or_finetune_checkpoint != '':
-            logger.info(".............start resume training from checkpoint..................")
-            resume_checkpoint_for_training(config, network, optimizer)
-
-        # build runner wrapper
-        logger.info(".........Build Running Wrapper..........")
-        if wrapper is None:
-            net_with_train = build_wrapper(config.runner_wrapper,
-                                           default_args={"network": network, "optimizer": optimizer})
-        elif isinstance(wrapper, TrainOneStepCell):
-            net_with_train = wrapper
-        else:
-            raise NotImplementedError(f"Now not support this wrapper,"
-                                      f"it should be TrainOneStepCell type, but get {wrapper}")
-
-        # define Model and begin training
-        logger.info(".........Starting Init Model..........")
-        model = Model(net_with_train)
-
-        logger.info(".........Starting Training Model..........")
-        model.train(config.runner_config.epochs, dataset,
-                    callbacks=callbacks,
-                    dataset_sink_mode=config.runner_config.sink_mode,
-                    sink_size=config.runner_config.per_epoch_size,
-                    initial_epoch=config.runner_config.initial_epoch)
-        logger.info(".........Training Over!.............")
+        super().train(
+            config=config,
+            network=network,
+            callbacks=callbacks,
+            dataset=dataset,
+            wrapper=wrapper,
+            optimizer=optimizer,
+            **kwargs)
 
     def evaluate(self,
-                 config: Optional[Union[dict, ConfigArguments]] = None,
+                 config: Optional[Union[dict, MindFormerConfig]] = None,
                  network: Optional[Union[str, BaseModel]] = None,
                  dataset: Optional[Union[str, BaseDataset]] = None,
                  callbacks: Optional[Union[Callback, List[Callback]]] = None,
@@ -217,9 +150,9 @@ class ImageClassificationTrainer(BaseTrainer):
         It also allows users to customize the network, dataset, callbacks, compute_metrics.
 
         Args:
-            config (Optional[Union[dict, ConfigArguments]]): The task config which is used to
+            config (Optional[Union[dict,MindFormerConfig]]): The task config which is used to
                 configure the dataset, the hyper-parameter, optimizer, etc.
-                It support config dict or ConfigArguments class.
+                It support config dict or MindFormerConfig class.
                 Default: None.
             network (Optional[Union[str, BaseModel]]): The network for trainer. It support model name supported
                 or BaseModel class. Supported model name can refer to ****.
@@ -233,78 +166,20 @@ class ImageClassificationTrainer(BaseTrainer):
             compute_metrics (Optional[Union[dict, set]]): The metric of evaluating.
                 It support dict or set in MindSpore's Metric class.
                 Default: None.
-
-        Examples:
-            >>> import numpy as np
-            >>> from mindspore.nn import Accuracy
-            >>> from mindspore.dataset import GeneratorDataset
-            >>> from mindformers.trainer import GeneralTaskTrainer
-            >>> from mindformers.tools.register import MindFormerConfig
-            >>> from mindformers.models import ViTForImageClassification, ViTConfig
-            >>> class MyDataLoader:
-            ...    def __init__(self):
-            ...        self._data = [np.zeros((3, 224, 224), np.float32) for _ in range(64)]
-            ...        self._label = np.random.randint(1000, size=64)
-            ...
-            ...    def __getitem__(self, index):
-            ...        return self._data[index], self._label[index]
-            ...
-            ...    def __len__(self):
-            ...        return len(self._data)
-            >>> config = MindFormerConfig("configs/vit/run_vit_base_p16_224_100ep.yaml")
-            >>> #1) use config to evaluate
-            >>> cls_task = ImageClassificationTrainer(model_name='vit')
-            >>> cls_task.evaluate(config=config)
-            >>> #1) use instance function to evaluate
-            >>> dataset = GeneratorDataset(source=MyDataLoader(), column_names=['image', 'label'])
-            >>> dataset = dataset.batch(batch_size=2)
-            >>> vit_config = ViTConfig(batch_size=2)
-            >>> network = ViTForImageClassification(vit_config)
-            >>> compute_metrics = {"Accuracy": Accuracy(eval_type='classification')}
-            >>> cls_task.evaluate(config=config, network=network, dataset=dataset, compute_metrics=compute_metrics)
         """
-
-        self.kwargs = kwargs
-        # build dataset
-        logger.info(".........Build Dataset..........")
-        check_dataset_config(config)
-        if dataset is None:
-            dataset = build_dataset(config.eval_dataset_task)
-        logger.info("Create eval dataset finish, dataset size:%d", dataset.get_dataset_size())
-
-        # build network
-        logger.info(".........Build Net..........")
-        if network is None:
-            network = build_model(config.model, default_args={
-                "parallel_config": config.parallel_config,
-                "moe_config": config.moe_config})
-        network.set_train(mode=False)
-        logger.info("Network Parameters: %s M.", str(count_params(network)))
-
-        logger.info(".........Build Compute Metrics for Evaluate..........")
-        if compute_metrics is None:
-            compute_metrics = {'Top1 Accuracy': build_metric(config.metric)}
-
-        # build callback
-        logger.info(".........Build Callbacks for Evaluate..........")
-        if callbacks is None:
-            callbacks = []
-            if config.profile:
-                callbacks.append(config.profile_cb)
-            callbacks.extend(build_callback(config.eval_callbacks))
-
-        logger.info(".........Starting Init Model..........")
-        model = Model(network, metrics=compute_metrics, eval_network=network)
-
-        logger.info(".........Starting Evaling Model..........")
-        output = model.eval(dataset,
-                            callbacks=callbacks,
-                            dataset_sink_mode=config.runner_config.sink_mode)
-        logger.info('Top1 Accuracy=%s', str(output))
-        logger.info(".........Evaluate Over!.............")
+        metric_name = "Top1 Accuracy"
+        kwargs.setdefault("metric_name", metric_name)
+        super().evaluate(
+            config=config,
+            network=network,
+            dataset=dataset,
+            compute_metrics=compute_metrics,
+            callbacks=callbacks,
+            **kwargs
+        )
 
     def predict(self,
-                config: Optional[Union[dict, ConfigArguments]] = None,
+                config: Optional[Union[dict, MindFormerConfig]] = None,
                 input_data: Optional[Union[Tensor, np.ndarray, Image, str, list]] = None,
                 network: Optional[Union[str, BaseModel]] = None,
                 image_processor: Optional[BaseImageProcessor] = None, **kwargs):
@@ -315,9 +190,9 @@ class ImageClassificationTrainer(BaseTrainer):
         It also allows users to customize the network, tokenizer, image_processor, audio_processor.
 
         Args:
-            config (Optional[Union[dict, ConfigArguments]]): The task config which is used to
+            config (Optional[Union[dict]]): The task config which is used to
                 configure the dataset, the hyper-parameter, optimizer, etc.
-                It support config dict or ConfigArguments class.
+                It support config dict or MindFormerConfig class.
                 Default: None.
             input_data (Optional[Union[Tensor, np.ndarray, Image, str, list]]): The predict data. Default: None.
             network (Optional[Union[str, BaseModel]]): The network for trainer. It support model name supported
@@ -326,26 +201,10 @@ class ImageClassificationTrainer(BaseTrainer):
             image_processor (Optional[BaseImageProcessor]): The processor for image preprocessing.
                 It support BaseImageProcessor class.
                 Default: None.
-
-        Examples:
-            >>> import numpy as np
-            >>> from mindformers.trainer import ImageClassificationTrainer
-            >>> from mindformers.tools.register import MindFormerConfig
-            >>> from mindformers.models import ViTForImageClassification, ViTConfig
-            >>> from mindformers import VitImageProcessor
-            >>> config = MindFormerConfig("configs/vit/run_vit_base_p16_224_100ep.yaml")
-            >>> input_data = np.uint8(np.random.random((5, 3, 255, 255)))
-            >>> #1) use config to predict
-            >>> cls_task = ImageClassificationTrainer(model_name='vit')
-            >>> cls_task.predict(config=config, input_data=input_data, top_k=5)
-            >>> #2) use instance function to predict
-            >>> vit_config = ViTConfig(batch_size=2)
-            >>> network = ViTForImageClassification(vit_config)
-            >>> image_processor = VitImageProcessor(size=224)
-            >>> cls_task.predict(input_data, network=network,
-            ...                  image_processor=image_processor, top_k=5)
         """
         self.kwargs = kwargs
+        config = self.set_config(config)
+
         logger.info(".........Build Input Data For Predict..........")
         if input_data is None:
             input_data = config.input_data
@@ -361,15 +220,14 @@ class ImageClassificationTrainer(BaseTrainer):
         else:
             batch_input_data = input_data
 
-        logger.info(".........Build Net..........")
+        logger.info(".........Build Net For Predict..........")
         if network is None:
-            network = build_model(config.model)
+            network = self.create_network()
+        logger.info("Network Parameters: %s M.", str(count_params(network)))
 
-        if network is not None:
-            logger.info("Network Parameters: %s M.", str(count_params(network)))
-
+        logger.info(".........Build Image Processor For Predict..........")
         if image_processor is None:
-            image_processor = build_processor(config.processor.image_processor)
+            image_processor = self.create_image_processor()
 
         pipeline_task = pipeline(task='image_classification',
                                  model=network,

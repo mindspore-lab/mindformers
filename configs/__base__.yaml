@@ -6,6 +6,12 @@ autotune_per_step: 10
 profile: False
 use_parallel: False
 
+layer_scale: False
+layer_decay: 0.65
+
+lr_scale: False
+lr_scale_factor: 256
+
 output_dir: './output'  # 当前不支持自定义修改，请勿修改该默认值
 resume_or_finetune_checkpoint: ''
 

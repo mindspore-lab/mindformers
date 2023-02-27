@@ -70,20 +70,24 @@ def register_ms_optim():
                 optim, MindFormerModuleType.OPTIMIZER)
 
 
+def register_mf_optim():
+    """ register MindFormers builtin optimizer class. """
+    # adapt huggingface
+    MindFormerRegister.register_cls(
+        AdamWeightDecay, module_type=MindFormerModuleType.OPTIMIZER, alias="adamw")
+
+    MindFormerRegister.register_cls(
+        AdaFactor, module_type=MindFormerModuleType.OPTIMIZER, alias="adafactor")
+
+    MindFormerRegister.register_cls(
+        SGD, module_type=MindFormerModuleType.OPTIMIZER, alias="sgd")
+
+    MindFormerRegister.register_cls(
+        Adam, module_type=MindFormerModuleType.OPTIMIZER, alias="adam")
+
+    MindFormerRegister.register_cls(
+        Adagrad, module_type=MindFormerModuleType.OPTIMIZER, alias="adagrad")
+
+
 register_ms_optim()
-
-# adapt huggingface
-MindFormerRegister.register_cls(
-    AdamWeightDecay, module_type=MindFormerModuleType.OPTIMIZER, alias="adamw")
-
-MindFormerRegister.register_cls(
-    AdaFactor, module_type=MindFormerModuleType.OPTIMIZER, alias="adafactor")
-
-MindFormerRegister.register_cls(
-    SGD, module_type=MindFormerModuleType.OPTIMIZER, alias="sgd")
-
-MindFormerRegister.register_cls(
-    Adam, module_type=MindFormerModuleType.OPTIMIZER, alias="adam")
-
-MindFormerRegister.register_cls(
-    Adagrad, module_type=MindFormerModuleType.OPTIMIZER, alias="adagrad")
+register_mf_optim()

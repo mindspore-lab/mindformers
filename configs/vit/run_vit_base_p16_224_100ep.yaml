@@ -8,12 +8,18 @@ base_config: [
 profile: False
 use_parallel: False
 
+layer_scale: True
+layer_decay: 0.65
+
+lr_scale: True
+lr_scale_factor: 256
+
 seed: 0
 resume_or_finetune_checkpoint: ''
 
 run_mode: 'train'
 trainer:
   type: image_classification
-  model_name: 'vit'
+  model_name: 'vit_base_p16'
 
 
