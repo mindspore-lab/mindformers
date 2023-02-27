@@ -1,9 +1,9 @@
 model:
   arch:
-    type: MaeModel
+    type: ViTMAEForPreTraining
 
   model_config:
-    type: MaeConfig
+    type: ViTMAEConfig
     mask_ratio: 0.75  # mask ratio
     image_size: 224  # input image size
     patch_size: 16  # patch size

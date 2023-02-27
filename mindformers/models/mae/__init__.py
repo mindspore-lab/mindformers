@@ -13,7 +13,7 @@
 # limitations under the License.
 # ============================================================================
 """Mae Model API."""
-from .mae import MaeModel
-from .mae_config import MaeConfig
+from .mae import ViTMAEForPreTraining
+from .mae_config import ViTMAEConfig
 
-__all__ = ['MaeModel', 'MaeConfig']
+__all__ = ['ViTMAEForPreTraining', 'ViTMAEConfig']

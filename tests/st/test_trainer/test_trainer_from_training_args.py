@@ -26,7 +26,7 @@ from mindformers.mindformer_book import MindFormerBook
 from mindformers.tools.register.config import MindFormerConfig
 from mindformers.dataset.build_dataset import build_dataset
 from mindformers.trainer import Trainer
-from mindformers.models import MaeModel
+from mindformers.models import ViTMAEForPreTraining
 from mindformers.trainer.training_args import TrainingArguments
 
 
@@ -60,7 +60,7 @@ def test_trainer_train_from_training_args():
         batch_size=8, per_device_train_batch_size=8, adam_epsilon=1e-9, adam_beta1=0.999,
         adam_beta2=0.95, weight_decay=0.5, save_strategy='steps', save_steps=1000, sink_mode=False)
 
-    mae_model = MaeModel()
+    mae_model = ViTMAEForPreTraining()
     mim_trainer = Trainer(task='masked_image_modeling',
                           model=mae_model,
                           args=mae_config,
