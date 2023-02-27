@@ -11,6 +11,7 @@ train_dataset: &train_dataset
   repeat: 1
   numa_enable: False
   prefetch_size: 1
+  seed: 42
 
 train_dataset_task:
   type: TextClassificationDataset
@@ -30,6 +31,7 @@ eval_dataset: &eval_dataset
   repeat: 1
   numa_enable: False
   prefetch_size: 1
+  seed: 42
 
 eval_dataset_task:
   type: TextClassificationDataset

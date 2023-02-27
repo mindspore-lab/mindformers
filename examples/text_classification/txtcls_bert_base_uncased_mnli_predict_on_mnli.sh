@@ -21,4 +21,6 @@ echo "The data setting could refer to ./docs/task_cards/text_classification.md"
 echo "It is better to use absolute path."
 echo "=============================================================================================================="
 
-python run_mindformer.py --config ./configs/txtcls/run_txtcls_bert_base_uncased.yaml --run_mode predict --load_checkpoint txtcls_bert_base_uncased_mnli
+python run_mindformer.py --config ./configs/txtcls/run_txtcls_bert_base_uncased.yaml \
+                         --run_mode predict --load_checkpoint txtcls_bert_base_uncased_mnli \
+                         --predict_data "The new rights are nice enough-Everyone really likes the newest benefits "
