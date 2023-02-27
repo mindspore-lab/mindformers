@@ -33,6 +33,7 @@ from mindspore import ops as P
 
 from mindspore.dataset.vision.transforms import PyTensorOperation
 
+from mindformers.tools.logger import logger
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 
 
@@ -247,7 +248,14 @@ class Mixup(PyTensorOperation):
         """Mixup apply"""
         # the same to image, label
         if len(x) % 2 != 0:
-            raise ValueError('Batch size should be even when using this')
+            if len(x) > 1:
+                x = x[:-1]
+                logger.warning('Batch size is odd. When using mixup, batch size should be even.'
+                               'The last data in batch has been dropped to use mixip.'
+                               'you can set "drop_remainder" true in dataset config manually.')
+            else:
+                logger.error('Batch size is 1.'
+                             'If error occurs, please set "drop_remainder" true in dataset config.')
         if self.mode == 'elem':
             lam = self._mix_elem(x)
         elif self.mode == 'pair':
