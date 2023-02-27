@@ -42,8 +42,8 @@ pip install https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFor
 支持源码编译安装，用户可以执行下述的命令进行包的安装
 
 ```bash
-git clone https://gitee.com/mindspore/transformer.git
-cd transformer
+git clone https://gitee.com/mindspore/mindformers.git
+cd mindformers
 sh build.sh
 ```
 
@@ -55,7 +55,7 @@ sh build.sh
 
 ### 快速使用
 
-目前该库提供两种方式供用户使用，套件详细设计请阅：[MindFormers套件设计](https://gitee.com/mindspore/transformer/wikis/%E7%89%B9%E6%80%A7%E8%AE%BE%E8%AE%A1%E6%96%87%E6%A1%A3?sort_id=6569071)
+目前该库提供两种方式供用户使用，套件详细设计请阅：[MindFormers套件设计](https://gitee.com/mindspore/mindformers/wikis/%E7%89%B9%E6%80%A7%E8%AE%BE%E8%AE%A1%E6%96%87%E6%A1%A3?sort_id=6569071)
 
 MindFormers套件对外提供两种使用和开发形式，为开发者提供灵活且简洁的使用方式和高阶开发接口。
 
@@ -68,7 +68,7 @@ MindFormers套件对外提供两种使用和开发形式，为开发者提供灵
     - step1：git clone mindformers
 
   ```shell
-  git clone https://gitee.com/mindspore/transformer.git
+  git clone https://gitee.com/mindspore/mindformers.git
   cd mindformers
   ```
 
@@ -117,8 +117,8 @@ RUN_STATUS: 为任务运行状态，支持关键字 train\finetune\eval\predict
   目前仅支持源码编译安装，用户可以执行下述的命令进行包的安装：
 
   ```shell
-  git clone https://gitee.com/mindspore/transformer.git
-  cd transformer
+  git clone https://gitee.com/mindspore/mindformers.git
+  cd mindformers
   sh build.sh
   ```
 
