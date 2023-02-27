@@ -15,6 +15,6 @@
 """Vit Model API."""
 from .vit import ViTForImageClassification
 from .vit_config import ViTConfig
-from .vit_processor import VitProcessor, VitImageProcessor
+from .vit_processor import ViTProcessor, ViTImageProcessor
 
-__all__ = ['ViTForImageClassification', 'ViTConfig', 'VitProcessor', 'VitImageProcessor']
+__all__ = ['ViTForImageClassification', 'ViTConfig', 'ViTProcessor', 'ViTImageProcessor']

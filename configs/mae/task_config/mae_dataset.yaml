@@ -6,7 +6,6 @@ train_dataset: &train_dataset
     dataset_dir: "imageNet-1k/train"
     num_parallel_workers: 8
     shuffle: True
-    num_samples: 50000
   transforms:
     - type: RandomCropDecodeResize
       size: 224

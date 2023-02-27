@@ -13,7 +13,7 @@
 # limitations under the License.
 # ============================================================================
 """
-VitProcessor
+ViTProcessor
 """
 import numpy as np
 from PIL import Image
@@ -29,9 +29,9 @@ from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 
 
 @MindFormerRegister.register(MindFormerModuleType.PROCESSOR)
-class VitImageProcessor(BaseImageProcessor):
+class ViTImageProcessor(BaseImageProcessor):
     """
-    VitImageProcessor.
+    ViTImageProcessor.
 
     Args:
         image_resolution (int): the target size.
@@ -113,7 +113,7 @@ class VitImageProcessor(BaseImageProcessor):
 
 
 @MindFormerRegister.register(MindFormerModuleType.PROCESSOR)
-class VitProcessor(BaseProcessor):
+class ViTProcessor(BaseProcessor):
     """
     Vit processor,
     consists of a feature extractor (BaseFeatureEXtractor) for image input,

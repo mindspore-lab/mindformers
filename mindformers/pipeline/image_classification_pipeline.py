@@ -48,8 +48,8 @@ class ImageClassificationPipeline(BasePipeline):
     Examples:
         >>> import numpy as np
         >>> from mindformers.pipeline import ImageClassificationPipeline
-        >>> from mindformers import VitImageProcessor
-        >>> processor = VitImageProcessor(size=224)
+        >>> from mindformers import ViTImageProcessor
+        >>> processor = ViTImageProcessor(size=224)
         >>> classifier = ImageClassificationPipeline(
             model='vit_base_p16',
             image_processor=processor,
