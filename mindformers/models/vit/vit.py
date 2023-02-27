@@ -25,32 +25,32 @@ from mindformers.mindformer_book import MindFormerBook
 from mindformers.common.loss import build_loss
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.models.base_model import BaseModel
-from mindformers.models.vit.vit_modules import Block, LayerNorm, Linear, Dropout
+from mindformers.models.vit.vit_modules import Block, LayerNorm, Linear, Dropout, PixelShuffle
 from mindformers.models.vit.vit_modules import PatchEmbed
-from mindformers.models.vit.vit_config import VitConfig
+from mindformers.models.vit.vit_config import ViTConfig
 
 
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
-class VitModel(BaseModel):
+class ViTModel(BaseModel):
     """
     Vision Transformer with support for patch or hybrid CNN input stage.
-    The supported model name could be selected from VitConfig.show_support_list().
+    The supported model name could be selected from ViTConfig.show_support_list().
 
     Args:
-        config (VitConfig): the config of Vit model.
+        config (ViTConfig): the config of Vit model.
 
     Examples:
         >>> # input model name, load model and weights
-        >>> model_a = VitModel.from_pretrained('vit_base_p16')
+        >>> model_a = ViTModel.from_pretrained('vit_base_p16')
         >>> # input config, load model without weights
         >>> from mindformers import AutoConfig
         >>> config = AutoConfig.from_pretrained('vit_base_p16')
-        >>> model_b = VitModel(config)
+        >>> model_b = ViTModel(config)
     """
     _support_list = MindFormerBook.get_model_support_list()['vit']
 
     def __init__(self, config=None):
-        config = config if config else VitConfig()
+        config = config if config else ViTConfig()
         super().__init__(config)
         self.use_moe = (config.moe_config.expert_num > 1)
         parallel_config = config.parallel_config
@@ -106,13 +106,6 @@ class VitModel(BaseModel):
 
         self.stride_slice = P.StridedSlice().shard(((dp, 1, 1),))
 
-        self.head = Linear(
-            config.embed_dim, config.num_classes,
-            weight_init=weight_init.TruncatedNormal(sigma=2e-5),
-            compute_dtype=mstype.float32).to_float(mstype.float32)
-
-        self.loss = build_loss(class_name=config.loss_type)
-
         self.init_weights_vit()
         self.fix_init_weight()
 
@@ -165,8 +158,8 @@ class VitModel(BaseModel):
     def load_pretrained(self, params_dict):
         return load_param_into_net(self, params_dict)
 
-    def construct(self, image, target=None):
-        """construct of vit"""
+    def construct_without_pool(self, image):
+        """construct of vit without pool"""
         tokens = self.patch_embed(image)
         batch_size = image.shape[0]
         cls_tokens = self.tile(self.cls_tokens, (batch_size, 1, 1))
@@ -178,7 +171,11 @@ class VitModel(BaseModel):
         encoder_input_mask = P.Ones()((batch_size, self.seq_length, self.seq_length), mstype.float32)
         for block in self.blocks:
             x = block(x, encoder_input_mask)
+        return x
 
+    def construct(self, image):
+        """construct of vit"""
+        x = self.construct_without_pool(image)
         b, s, c = x.shape
 
         if self.global_pool:
@@ -191,8 +188,104 @@ class VitModel(BaseModel):
             out = self.stride_slice(
                 x, (0, 0, 0), (b, 1, c), (1, 1, 1)
             )
+        return out
+
+
+@MindFormerRegister.register(MindFormerModuleType.MODELS)
+class ViTForImageClassification(BaseModel):
+    """
+    Vision Transformer with support for patch or hybrid CNN input stage.
+    The supported model name could be selected from ViTConfig.show_support_list().
+
+    Args:
+        config (ViTConfig): the config of Vit model.
+
+    Examples:
+        >>> # input model name, load model and weights
+        >>> model_a = ViTForImageClassification.from_pretrained('vit_base_p16')
+        >>> # input config, load model without weights
+        >>> from mindformers import AutoConfig
+        >>> config = AutoConfig.from_pretrained('vit_base_p16')
+        >>> model_b = ViTForImageClassification(config)
+    """
+    def __init__(self, config=None):
+        config = config if config else ViTConfig()
+        super().__init__(config)
+        self.vit = ViTModel(config)
+        self.head = Linear(
+            config.embed_dim, config.num_classes,
+            weight_init=weight_init.TruncatedNormal(sigma=2e-5),
+            compute_dtype=mstype.float32).to_float(mstype.float32)
+        self.loss = build_loss(class_name=config.loss_type)
+
+    def construct(self, image, target=None):
+        """construct of vit"""
+        out = self.vit.construct(image)
         out = self.head(out)
         if self.phase != "train":
             return out, target
         loss = self.loss(out, target)
         return loss
+
+
+@MindFormerRegister.register(MindFormerModuleType.MODELS)
+class ViTForMaskedImageModeling(BaseModel):
+    """
+    Vision Transformer with support for patch or hybrid CNN input stage.
+    The supported model name could be selected from ViTConfig.show_support_list().
+
+    Args:
+        config (ViTConfig): the config of Vit model.
+
+    Examples:
+        >>> # input model name, load model and weights
+        >>> model_a = ViTForMaskedImageModeling.from_pretrained('vit_base_p16')
+        >>> # input config, load model without weights
+        >>> from mindformers import AutoConfig
+        >>> config = AutoConfig.from_pretrained('vit_base_p16')
+        >>> model_b = ViTForMaskedImageModeling(config)
+    """
+    def __init__(self, config=None):
+        config = config if config else ViTConfig()
+        super().__init__(config)
+        self.vit = ViTModel(config)
+        self.decoder = nn.CellList(
+            nn.Conv2d(
+                in_channels=config.hidden_size,
+                out_channels=config.encoder_stride ** 2 * config.num_channels,
+                kernel_size=1,
+            ),
+            PixelShuffle(config.encoder_stride),
+        )
+
+        self.transpose = P.Transpose()
+        self.reshape = P.Reshape()
+        self.expand_dims = P.ExpandDims()
+        self.l1_loss = nn.L1Loss(reduction=None)
+        # Initialize weights and apply final processing
+        self.init_weights_vit()
+
+    def init_weights_vit(self):
+        for _, cell in self.cells_and_names():
+            if isinstance(cell, nn.Conv2d):
+                cell.weight.set_data(weight_init.initializer(weight_init.XavierUniform(),
+                                                             cell.weight.shape,
+                                                             cell.weight.dtype))
+
+    def construct(self, image, mask=None):
+        """construct of vit for MIM"""
+        x = self.vit.construct_without_pool(image)
+        b, s, c = x.shape
+        height = width = math.floor(s ** 0.5)
+        x = self.reshape(self.transpose(x, (0, 2, 1)), (b, c, height, width))
+        reconstruct_images = self.decoder(x)
+        if self.phase != "train":
+            return reconstruct_images
+        size = self.config.image_size // self.config.patch_size
+        mask = self.reshape(mask, (-1, size, size))
+        mask = P.repeat_elements(mask, self.config.patch_size, 1)
+        mask = P.repeat_elements(mask, self.config.patch_size, 2)
+        mask = self.expand_dims(mask, 1)
+        reconstruction_loss = self.l1_loss(image, reconstruct_images)
+        masked_im_loss = (reconstruction_loss * mask).sum() / (mask.sum() + 1e-5) / self.config.in_chans
+        return masked_im_loss

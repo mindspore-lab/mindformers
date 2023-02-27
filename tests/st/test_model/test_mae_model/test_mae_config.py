@@ -14,7 +14,7 @@
 # ============================================================================
 
 """
-Test Module for testing functions of AutoConfig and VitConfig class
+Test Module for testing functions of AutoConfig and ViTConfig class
 
 How to run this:
 windows:  pytest .\\tests\\st\\test_model\\test_mae_model\\test_mae_config.py
@@ -47,7 +47,7 @@ default_parallel_config = TransformerOpParallelConfig(recompute=default_recomput
 @pytest.mark.env_onecard
 def test_config():
     """
-    Feature: AutoConfig, VitConfig
+    Feature: AutoConfig, ViTConfig
     Description: Test to get config instance by AutoConfig.from_pretrained
     Expectation: TypeError, ValueError
     """

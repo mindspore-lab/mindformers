@@ -14,7 +14,7 @@
 # ============================================================================
 
 """
-Test Module for testing functions of AutoModel and VitModel class
+Test Module for testing functions of AutoModel and ViTForImageClassification class
 
 How to run this:
 windows:  pytest .\\tests\\st\\test_model\\test_vit_model\\test_vit_model.py
@@ -26,14 +26,14 @@ Note:
         XForme_for_mindspore/vit/vit_base_p16.ckpt
 
     self.config is necessary for a model
-    VitModel amd VitConfig start with the same prefix "Vit"
+    ViTForImageClassification amd ViTConfig start with the same prefix "Vit"
 """
 import os
 import time
 import pytest
 
 from mindformers import MindFormerBook, AutoConfig, AutoModel
-from mindformers.models import BaseModel, VitModel
+from mindformers.models import BaseModel, ViTForImageClassification
 from mindformers.tools import logger
 
 
@@ -77,9 +77,9 @@ class TestModelMethod:
 
         model_a.save_pretrained(self.save_directory, save_name='vit_base_p16')
 
-        # all models are VitModel class， and inherited from BaseModel
-        assert isinstance(model_a, VitModel)
-        assert isinstance(model_d, VitModel)
+        # all models are ViTForImageClassification class， and inherited from BaseModel
+        assert isinstance(model_a, ViTForImageClassification)
+        assert isinstance(model_d, ViTForImageClassification)
 
         assert isinstance(model_a, BaseModel)
         assert isinstance(model_d, BaseModel)

@@ -87,7 +87,7 @@ class GeneralTaskTrainer(BaseTrainer):
             >>> from mindspore.dataset import GeneratorDataset
             >>> from mindformers.trainer import GeneralTaskTrainer
             >>> from mindformers.tools.register import MindFormerConfig
-            >>> from mindformers.models import VitModel, VitConfig
+            >>> from mindformers.models import ViTForImageClassification, ViTConfig
             >>> class MyDataLoader:
             ...    def __init__(self):
             ...        self._data = [np.zeros((3, 224, 224), np.float32) for _ in range(64)]
@@ -101,8 +101,8 @@ class GeneralTaskTrainer(BaseTrainer):
             >>> config = MindFormerConfig("configs/general/run_general_task.yaml")
             >>> dataset = GeneratorDataset(source=MyDataLoader(), column_names=['image', 'label'])
             >>> dataset = dataset.batch(batch_size=2)
-            >>> vit_config = VitConfig(batch_size=2)
-            >>> network_with_loss = VitModel(vit_config)
+            >>> vit_config = ViTConfig(batch_size=2)
+            >>> network_with_loss = ViTForImageClassification(vit_config)
             >>> general_task = GeneralTaskTrainer(model_name='vit')
             >>> general_task.train(config=config, network=network_with_loss, dataset=dataset)
         """
@@ -215,7 +215,7 @@ class GeneralTaskTrainer(BaseTrainer):
             >>> from mindspore.dataset import GeneratorDataset
             >>> from mindformers.trainer import GeneralTaskTrainer
             >>> from mindformers.tools.register import MindFormerConfig
-            >>> from mindformers.models import VitModel, VitConfig
+            >>> from mindformers.models import ViTForImageClassification, ViTConfig
             >>> class MyDataLoader:
             ...    def __init__(self):
             ...        self._data = [np.zeros((3, 224, 224), np.float32) for _ in range(64)]
@@ -229,8 +229,8 @@ class GeneralTaskTrainer(BaseTrainer):
             >>> config = MindFormerConfig("configs/general/run_general_task.yaml")
             >>> dataset = GeneratorDataset(source=MyDataLoader(), column_names=['image', 'label'])
             >>> dataset = dataset.batch(batch_size=2)
-            >>> vit_config = VitConfig(batch_size=2)
-            >>> network = VitModel(vit_config)
+            >>> vit_config = ViTConfig(batch_size=2)
+            >>> network = ViTForImageClassification(vit_config)
             >>> compute_metrics = {"Accuracy": Accuracy(eval_type='classification')}
             >>> general_task = GeneralTaskTrainer(model_name='vit')
             >>> general_task.evaluate(config=config, network=network, dataset=dataset, compute_metrics=compute_metrics)

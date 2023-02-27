@@ -13,8 +13,8 @@
 # limitations under the License.
 # ============================================================================
 """Vit Model API."""
-from .vit import VitModel
-from .vit_config import VitConfig
+from .vit import ViTForImageClassification
+from .vit_config import ViTConfig
 from .vit_processor import VitProcessor, VitImageProcessor
 
-__all__ = ['VitModel', 'VitConfig', 'VitProcessor', 'VitImageProcessor']
+__all__ = ['ViTForImageClassification', 'ViTConfig', 'VitProcessor', 'VitImageProcessor']

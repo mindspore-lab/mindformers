@@ -1,9 +1,9 @@
 model:
   arch:
-    type: VitModel
+    type: ViTForImageClassification
 
   model_config:
-    type: VitConfig
+    type: ViTConfig
     image_size: 224  # input image size
     patch_size: 16  # patch size
     num_channels: 3  # channels of input images

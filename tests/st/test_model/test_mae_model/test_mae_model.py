@@ -14,7 +14,7 @@
 # ============================================================================
 
 """
-Test Module for testing functions of AutoModel and VitModel class
+Test Module for testing functions of AutoModel and ViTForImageClassification class
 
 How to run this:
 windows:  pytest .\\tests\\st\\test_model\\test_mae_model\\test_mae_model.py
@@ -25,7 +25,7 @@ Note:
         XForme_for_mindspore/mae/mae_vit_base_p16.yaml
 
     self.config is necessary for a model
-    VitModel amd VitConfig start with the same prefix "Vit"
+    ViTForImageClassification amd ViTConfig start with the same prefix "Vit"
 """
 import os
 import time
@@ -79,7 +79,7 @@ class TestModelMethod:
 
         model_a.save_pretrained(self.save_directory, save_name='mae_vit_base_p16')
 
-        # all models are VitModel class， and inherited from BaseModel
+        # all models are ViTMAEForPreTraining class， and inherited from BaseModel
         assert isinstance(model_a, ViTMAEForPreTraining)
         assert isinstance(model_d, ViTMAEForPreTraining)
 

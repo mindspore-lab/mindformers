@@ -37,11 +37,11 @@ def build_model_config(
 
     Examples:
         >>> from mindformers import build_model_config
-        >>> model_config = {'type': 'VitConfig'}
+        >>> model_config = {'type': 'ViTConfig'}
         >>> # 1) use config dict to build model
         >>> model_config_from_config = build_model_config(model_config)
         >>> # 2) use class name to build model
-        >>> model_config_class_name = build_model_config(class_name='VitConfig')
+        >>> model_config_class_name = build_model_config(class_name='ViTConfig')
     """
     if config is None and class_name is None:
         return None

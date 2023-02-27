@@ -1,4 +1,4 @@
-# Copyright 2023 Huawei Technologies Co., Ltd
+# Copyright 2022 Huawei Technologies Co., Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -201,7 +201,7 @@ def _check_lr_config(config, device_num=1, batch_size=128, arch="SwinModel"):
         config.base_lr = (config.base_lr * device_num * batch_size) / 512
         config.min_lr = (config.min_lr * device_num * batch_size) / 512
         config.warmup_lr = (config.warmup_lr * device_num * batch_size) / 512
-    if arch in ('ViTMAEForPreTraining', 'VitModel'):
+    if arch in ('ViTMAEForPreTraining', 'ViTForImageClassification'):
         config.base_lr = (config.base_lr * device_num * batch_size) / 256
 
 

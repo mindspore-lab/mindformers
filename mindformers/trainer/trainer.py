@@ -146,8 +146,8 @@ class Trainer:
         ...                        model='vit_base_p16',
         ...                        args=config, train_dataset=dataset)
         >>> #3) input instance to init trainer
-        >>> from mindformers.models import VitModel
-        >>> vit_model_with_loss = VitModel()
+        >>> from mindformers.models import ViTForImageClassification
+        >>> vit_model_with_loss = ViTForImageClassification()
         >>> lr_schedule = WarmUpLR(learning_rate=0.001, warmup_steps=100)
         >>> optimizer = AdamWeightDecay(beta1=0.009, beta2=0.999,
         ...                             learning_rate=lr_schedule,

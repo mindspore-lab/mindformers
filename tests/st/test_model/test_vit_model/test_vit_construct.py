@@ -25,7 +25,7 @@ import os
 import numpy as np
 import pytest
 import mindspore as ms
-from mindformers.models import VitModel
+from mindformers.models import ViTForImageClassification
 from mindformers import MindFormerBook, AutoModel
 from mindformers.tools import logger
 
@@ -51,7 +51,7 @@ def test_construct():
     fake_image_batch = np.random.random((32, 3, 224, 224))
     fake_image_tensor_batch = ms.Tensor(np.uint8(fake_image_batch), dtype=ms.float32)
     fake_image_target_batch = ms.Tensor(list(range(32)))
-    assert isinstance(net, VitModel)
+    assert isinstance(net, ViTForImageClassification)
 
     net.set_train(mode=False)
     res_1 = net(fake_image_tensor_batch, fake_image_target_batch)
