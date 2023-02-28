@@ -45,7 +45,7 @@ def test_swin_processor():
     """
     yaml_path = os.path.join(MindFormerBook.get_project_path(), "configs",
                              "swin", "model_config", "swin_base_p4w7.yaml")
-    img_processor = SwinImageProcessor(image_resolution=224)
+    img_processor = SwinImageProcessor(size=224)
     save_directory = os.path.join(MindFormerBook.get_default_checkpoint_save_folder(),
                                   'swin')
 

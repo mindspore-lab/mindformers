@@ -14,7 +14,7 @@
 # ============================================================================
 
 """
-Test Module for testing functions of AutoModel and SwinModel class
+Test Module for testing functions of AutoModel and SwinForImageClassification class
 
 How to run this:
 windows:  pytest .\\tests\\st\\test_model\\test_swin_model\\test_swin_model.py
@@ -26,14 +26,14 @@ Note:
         XForme_for_mindspore/swin/swin_base_p4w7.ckpt
 
     self.config is necessary for a model
-    SwinModel amd SwinConfig start with the same prefix "Swin"
+    SwinForImageClassification amd SwinConfig start with the same prefix "Swin"
 """
 import os
 import time
 import pytest
 
 from mindformers import MindFormerBook, AutoConfig, AutoModel
-from mindformers.models import SwinModel, BaseModel
+from mindformers.models import SwinForImageClassification, BaseModel
 from mindformers.tools import logger
 
 
@@ -77,9 +77,9 @@ class TestModelMethod:
 
         model_a.save_pretrained(self.save_directory, save_name='swin_base_p4w7')
 
-        # all models are SwinModel class， and inherited from BaseModel
-        assert isinstance(model_a, SwinModel)
-        assert isinstance(model_d, SwinModel)
+        # all models are SwinForImageClassification class， and inherited from BaseModel
+        assert isinstance(model_a, SwinForImageClassification)
+        assert isinstance(model_d, SwinForImageClassification)
 
         assert isinstance(model_a, BaseModel)
         assert isinstance(model_d, BaseModel)

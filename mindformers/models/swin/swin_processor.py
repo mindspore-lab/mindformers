@@ -39,13 +39,10 @@ class SwinImageProcessor(BaseImageProcessor):
     Args:
         image_resolution (int): the target size.
     """
-
-    def __init__(self, image_resolution=224):
-        super(SwinImageProcessor, self).__init__(
-            image_resolution=image_resolution
-        )
+    def __init__(self, size=224):
+        super(SwinImageProcessor, self).__init__(image_resolution=size)
         self.resize = Resize(256, interpolation='cubic')
-        self.center_crop = CenterCrop(image_resolution)
+        self.center_crop = CenterCrop(size)
         self.to_tensor = ToTensor()
         self.rescale = Rescale(1.0 / 255.0, 0.0)
         self.normalize = Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225], is_hwc=False)

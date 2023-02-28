@@ -1,9 +1,10 @@
 model:
   arch:
-    type: SwinModel
+    type: SwinForImageClassification
 
   model_config:
     type: SwinConfig
+    num_labels: 1000 # num classes
     image_size: 224 # input image size
     patch_size: 4 # patch size
     num_channels: 3 # channels of input images
@@ -13,15 +14,15 @@ model:
     window_size: 7 # window size for swin
     mlp_ratio: 4 # ffn_hidden_size = mlp_ratio * embed_dim
     qkv_bias: True # has transformer qkv bias or not
+    layer_norm_eps: 0.00001  # eps of layer_norm
     hidden_dropout_prob: 0. # drop rate of MLP
     attention_probs_dropout_prob: 0. # drop rate of Attention
     drop_path_rate: 0.1 # drop path rate of transformer blocks
     use_absolute_embeddings: False # if using absolute position embedding
-    patch_norm: True # use norm in PatchEmbed
+    patch_norm: True # use norm in SwinPatchEmbeddings
     hidden_act: gelu # activation of MLP
     weight_init: normal # weight initialize type
     loss_type: SoftTargetCrossEntropy # loss type
-    num_labels: 1000 # num classes
     checkpoint_name_or_path: swin_base_p4w7
 
 processor:
@@ -29,4 +30,4 @@ processor:
 
   image_processor:
     type: SwinImageProcessor
-    image_resolution: 224
+    size: 224  # input image size

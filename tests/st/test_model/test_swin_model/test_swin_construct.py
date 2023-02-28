@@ -29,7 +29,7 @@ import mindspore.nn as nn
 from mindspore import Tensor
 from mindspore import dtype as mstype
 
-from mindformers.models import SwinModel
+from mindformers.models import SwinForImageClassification
 from mindformers import MindFormerBook, AutoConfig, AutoModel
 from mindformers.tools import logger
 
@@ -58,7 +58,7 @@ def test_construct():
     fake_image_batch = np.random.random((32, 3, 224, 224))
     fake_image_tensor_batch = Tensor(np.uint8(fake_image_batch), dtype=mstype.float32)
     fake_image_target_batch = Tensor(list(range(32)))
-    assert isinstance(net, SwinModel)
+    assert isinstance(net, SwinForImageClassification)
 
     net.set_train(mode=False)
     res_1 = net(fake_image_tensor_batch, fake_image_target_batch)

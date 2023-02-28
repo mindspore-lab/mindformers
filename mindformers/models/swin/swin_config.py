@@ -49,7 +49,7 @@ class SwinConfig(BaseConfig):
          attention_probs_dropout_prob: drop rate of Attention, Default 0.
          drop_path_rate: drop path rate of transformer blocks, Default 0.1.
          use_absolute_embeddings: if using absolute position embedding, Default False.
-         patch_norm: use norm in PatchEmbed, Default True.
+         patch_norm: use norm in SwinPatchEmbeddings, Default True.
          hidden_act: activation of MLP, Default "gelu".
          weight_init: weight initialize type, Default "normal".
          loss_type: loss type, Default "SoftTargetCrossEntropy".
@@ -88,6 +88,7 @@ class SwinConfig(BaseConfig):
                  shift_size: int = 0,
                  mlp_ratio: float = 4.,
                  qkv_bias: bool = True,
+                 layer_norm_eps: float = 1e-5,
                  hidden_dropout_prob: float = 0.,
                  attention_probs_dropout_prob: float = 0.,
                  drop_path_rate: float = 0.1,
@@ -112,6 +113,7 @@ class SwinConfig(BaseConfig):
         self.shift_size = shift_size
         self.mlp_ratio = mlp_ratio
         self.qkv_bias = qkv_bias
+        self.layer_norm_eps = layer_norm_eps
         self.hidden_dropout_prob = hidden_dropout_prob
         self.attention_probs_dropout_prob = attention_probs_dropout_prob
         self.drop_path_rate = drop_path_rate

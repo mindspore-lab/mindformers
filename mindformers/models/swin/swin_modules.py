@@ -35,9 +35,6 @@ from mindformers.modules.transformer.op_parallel_config import default_dpmp_conf
 from mindformers.models.base_model import BaseModel
 
 
-__all__ = ["Linear", "LayerNorm", "Dropout", "PatchEmbed", "PatchMerging", "SwinBasicLayer"]
-
-
 # utils
 def _ntuple(n):
     def parse(x):
@@ -63,7 +60,7 @@ class LayerNorm(layers.LayerNorm):
     A self-defined layer norm operation using reduce sum and reduce mean.
     """
 
-    def __init__(self, normalized_shape, eps=1e-6, param_init_type=mstype.float32):
+    def __init__(self, normalized_shape, eps=1e-5, param_init_type=mstype.float32):
         super(LayerNorm, self).__init__(
             normalized_shape,
             eps=eps,
@@ -170,11 +167,11 @@ class DropPath(nn.Cell):
         return out
 
 
-class PatchEmbed(BaseModel):
+class SwinPatchEmbeddings(BaseModel):
     """Construct the embeddings from patch, position embeddings."""
 
     def __init__(self, config):
-        super(PatchEmbed, self).__init__(config)
+        super(SwinPatchEmbeddings, self).__init__(config)
         if config.parallel_config:
             dp = config.parallel_config.data_parallel
         else:
@@ -199,7 +196,7 @@ class PatchEmbed(BaseModel):
         self.transpose = P.Transpose().shard(((dp, 1, 1),))
         # usually not use norm
         if config.patch_norm:
-            self.norm = LayerNorm((config.embed_dim,), eps=1e-6).shard(((dp, 1, 1),))
+            self.norm = LayerNorm((config.embed_dim,), eps=config.layer_norm_eps).shard(((dp, 1, 1),))
         else:
             self.norm = Identity()
 
@@ -214,13 +211,13 @@ class PatchEmbed(BaseModel):
         return x
 
 
-class SwinBasicLayer(BaseModel):
+class SwinStage(BaseModel):
     """ Swin Basic Layer
     """
 
     def __init__(self, config, dim, input_resolution, depth, num_heads, drop_path,
                  norm_layer=LayerNorm, downsample=None, parallel_config=default_dpmp_config):
-        super(SwinBasicLayer, self).__init__(config)
+        super(SwinStage, self).__init__(config)
         self.dim = dim
         self.input_resolution = input_resolution
         self.depth = depth
@@ -287,26 +284,26 @@ class SwinTransformerBlock(BaseModel):
             self.shift_size = 0
             self.window_size = min(self.input_resolution)
 
-        self.norm1 = norm_layer((dim,), eps=1e-6)
+        self.norm1 = norm_layer((dim,), eps=config.layer_norm_eps)
         self.norm1.shard(((dp, 1, 1),))
-        self.attn = WindowAttention(dim,
-                                    window_size=to_2tuple(self.window_size),
-                                    num_heads=num_heads,
-                                    qkv_bias=config.qkv_bias,
-                                    attn_drop=config.attention_probs_dropout_prob,
-                                    proj_drop=config.hidden_dropout_prob)
+        self.attn = SwinAttention(dim,
+                                  window_size=to_2tuple(self.window_size),
+                                  num_heads=num_heads,
+                                  qkv_bias=config.qkv_bias,
+                                  attn_drop=config.attention_probs_dropout_prob,
+                                  proj_drop=config.hidden_dropout_prob)
 
         self.drop_path = DropPath(drop_path, ndim=1, parallel_config=parallel_config) \
             if drop_path > 0. else Identity()
-        self.norm2 = norm_layer((dim,), eps=1e-6)
+        self.norm2 = norm_layer((dim,), eps=config.layer_norm_eps)
         self.norm2.shard(((dp, 1, 1),))
 
-        self.mlp = MLP(hidden_size=dim,
-                       ffn_hidden_size=int(dim * config.mlp_ratio),
-                       dropout_rate=config.hidden_dropout_prob,
-                       weight_init=config.weight_init,
-                       hidden_act=config.hidden_act,
-                       parallel_config=parallel_config)
+        self.mlp = SwinIntermediate(hidden_size=dim,
+                                    ffn_hidden_size=int(dim * config.mlp_ratio),
+                                    dropout_rate=config.hidden_dropout_prob,
+                                    weight_init=config.weight_init,
+                                    hidden_act=config.hidden_act,
+                                    parallel_config=parallel_config)
 
         if self.shift_size > 0:
             # calculate attention mask for SW-MSA
@@ -391,7 +388,7 @@ class SwinTransformerBlock(BaseModel):
                f"window_size={self.window_size}, shift_size={self.shift_size}, mlp_ratio={self.mlp_ratio}"
 
 
-class PatchMerging(nn.Cell):
+class SwinPatchMerging(nn.Cell):
     """ Patch Merging Layer.
 
     Args:
@@ -406,7 +403,7 @@ class PatchMerging(nn.Cell):
                  weight_init='normal',
                  norm_layer=LayerNorm,
                  parallel_config=default_dpmp_config):
-        super(PatchMerging, self).__init__()
+        super(SwinPatchMerging, self).__init__()
         dp = parallel_config.data_parallel
         mp = parallel_config.model_parallel
         self.input_resolution = input_resolution
@@ -417,7 +414,7 @@ class PatchMerging(nn.Cell):
                                 has_bias=False,
                                 weight_init=weight_init).to_float(mstype.float16)
         self.reduction.shard(strategy_matmul=((dp, mp), (mp, 1)), strategy_bias=((dp, 1), (1,)))
-        self.norm = norm_layer([dim * 4,], eps=1e-4)
+        self.norm = norm_layer([dim * 4,], eps=1e-5)
         self.norm.shard(((dp, 1, 1),))
         self.h, self.w = self.input_resolution
         self.h_2, self.w_2 = self.h // 2, self.w // 2
@@ -445,7 +442,7 @@ class PatchMerging(nn.Cell):
         return f"input_resolution={self.input_resolution}, dim={self.dim}"
 
 
-class WindowAttention(nn.Cell):
+class SwinAttention(nn.Cell):
     r""" Window based multi-head self attention (W-MSA) Cell with relative position bias.
     It supports both of shifted and non-shifted window.
 
@@ -471,7 +468,7 @@ class WindowAttention(nn.Cell):
                  param_init_type=mstype.float32,
                  softmax_compute_type=mstype.float32,
                  parallel_config=default_dpmp_config):
-        super(WindowAttention, self).__init__()
+        super(SwinAttention, self).__init__()
         if isinstance(dim, tuple) and len(dim) == 1:
             dim = dim[0]
         if parallel_config:
@@ -486,7 +483,7 @@ class WindowAttention(nn.Cell):
         self.num_heads = num_heads
         head_dim = dim // num_heads
         self.scale_factor = Tensor(qk_scale or head_dim ** -0.5, mstype.float32)
-        self.relative_position_bias = RelativePositionBiasForSwin(self.window_size, num_heads)
+        self.relative_position_bias = SwinRelativePositionBias(self.window_size, num_heads)
 
         # get pair-wise relative position index for each token inside the window
         self.q = Linear(
@@ -595,8 +592,8 @@ class WindowAttention(nn.Cell):
         return f'dim={self.dim}, window_size={self.window_size}, num_heads={self.num_heads}'
 
 
-class MLP(FeedForward):
-    """MLP for Swin."""
+class SwinIntermediate(FeedForward):
+    """MLP for Swin Transformer Blocks."""
 
     def __init__(self,
                  hidden_size,
@@ -609,7 +606,7 @@ class MLP(FeedForward):
                  param_init_type=mstype.float32,
                  parallel_config=default_dpmp_config):
         ffn_hidden_size = ffn_hidden_size or hidden_size
-        super(MLP, self).__init__(
+        super(SwinIntermediate, self).__init__(
             hidden_size,
             ffn_hidden_size,
             dropout_rate=dropout_rate,
@@ -671,10 +668,10 @@ class MLP(FeedForward):
         return output
 
 
-class RelativePositionBiasForSwin(nn.Cell):
+class SwinRelativePositionBias(nn.Cell):
     """relative position bias for swin"""
     def __init__(self, window_size, num_heads):
-        super(RelativePositionBiasForSwin, self).__init__()
+        super(SwinRelativePositionBias, self).__init__()
         self.window_size = window_size
         # cls to token & token to cls & cls to cls
         self.num_relative_distance = (2 * window_size[0] - 1) * (2 * window_size[1] - 1)

@@ -30,6 +30,19 @@ swin：全名swin transformer，是一个基于Transformer在视觉领域有着S
 
 - 请参考[使用脚本启动](https://gitee.com/mindspore/transformer/blob/master/README.md#%E6%96%B9%E5%BC%8F%E4%B8%80clone-%E5%B7%A5%E7%A8%8B%E4%BB%A3%E7%A0%81)
 
+- 脚本运行测试
+
+```shell
+# pretrain
+python run_mindformer.py --config ./configs/swin/run_swin_base_p4w7_224_100ep.yaml --run_mode train --dataset_dir [DATASET_PATH]
+
+# evaluate
+python run_mindformer.py --config ./configs/swin/run_swin_base_p4w7_224_100ep.yaml --run_mode eval --dataset_dir [DATASET_PATH]
+
+# predict
+python run_mindformer.py --config ./configs/swin/run_swin_base_p4w7_224_100ep.yaml --run_mode predict --predict_data [PATH_TO_IMAGE]
+```
+
 ### 调用API启动
 
 > 需开发者提前pip安装。具体接口说明请参考[API接口](https://gitee.com/mindspore/transformer/wikis/API/)
@@ -37,23 +50,23 @@ swin：全名swin transformer，是一个基于Transformer在视觉领域有着S
 - Model调用接口
 
   ```python
-  from mindformers import SwinModel, SwinConfig
+  from mindformers import SwinForImageClassification, SwinConfig
 
-  SwinModel.show_support_list()
+  SwinForImageClassification.show_support_list()
   # 输出：
-  # - support list of SwinModel is:
+  # - support list of SwinForImageClassification is:
   # -    ['swin_base_p4w7']
   # - -------------------------------------
 
   # 模型标志加载模型
-  model = SwinModel.from_pretrained("swin_base_p4w7")
+  model = SwinForImageClassification.from_pretrained("swin_base_p4w7")
 
   #模型配置加载模型
   config = SwinConfig.from_pretrained("swin_base_p4w7")
   # {'batch_size': 128, 'image_size': 224, 'patch_size': 4, 'num_labels': 1000, 'num_channels': 3,
   # 'embed_dim': 128, 'depths': [2, 2, 18, 2], 'num_heads': [4, 8, 16, 32],
   # 'checkpoint_name_or_path': 'swin_base_p4w7'}
-  model = SwinModel(config)
+  model = SwinForImageClassification(config)
   ```
 
 - Trainer接口开启训练/评估/推理：
@@ -72,9 +85,12 @@ swin：全名swin transformer，是一个基于Transformer在视觉领域有着S
   swin_trainer.train() # 开启训练
   swin_trainer.evaluate() # 开启评估
 
-  img = load_image("https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/XFormer_for_mindspore/clip/sunflower.png")
+  img = load_image("https://ascend-repo-modelzoo.obs.cn-east-2."
+            "myhuaweicloud.com/XFormer_for_mindspore/clip/sunflower.png")
   predict_result = swin_trainer.predict(input_data=img, top_k=3) # 开启推理
-  print(predict_result)
+  # 输出
+  # - mindformers - INFO - output result is: [[{'score': 0.89573187, 'label': 'daisy'},
+  # {'score': 0.005366202, 'label': 'bee'}, {'score': 0.0013296203, 'label': 'fly'}]]
   ```
 
 - pipeline接口开启快速推理
@@ -85,8 +101,13 @@ swin：全名swin transformer，是一个基于Transformer在视觉领域有着S
 
 
   pipeline_task = pipeline("image_classification", model='swin_base_p4w7')
-  img = load_image("https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/XFormer_for_mindspore/clip/sunflower.png")
+  img = load_image("https://ascend-repo-modelzoo.obs.cn-east-2."
+            "myhuaweicloud.com/XFormer_for_mindspore/clip/sunflower.png")
   pipeline_result = pipeline_task(img, top_k=3)
+  print(pipeline_result)
+  # 输出
+  # [[{'score': 0.89573187, 'label': 'daisy'}, {'score': 0.005366202, 'label': 'bee'},
+  # {'score': 0.0013296203, 'label': 'fly'}]]
   ```
 
  Trainer和pipeline接口默认支持的task和model关键入参
