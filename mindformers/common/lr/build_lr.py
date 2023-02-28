@@ -18,6 +18,8 @@ import inspect
 from mindspore import nn
 
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
+from .lr_schedule import ConstantWarmUpLR, CosineWithWarmUpLR, \
+    LinearWithWarmUpLR, CosineWithRestartsAndWarmUpLR, PolynomialWithWarmUpLR
 
 
 def build_lr(
@@ -63,4 +65,24 @@ def register_ms_lr():
                 lr_schedule, MindFormerModuleType.LR)
 
 
+def register_mf_lr():
+    """ register MindFomrers builtin LR class. """
+    # adapt huggingface
+    MindFormerRegister.register_cls(
+        ConstantWarmUpLR, module_type=MindFormerModuleType.LR, alias="constant_with_warmup")
+
+    MindFormerRegister.register_cls(
+        LinearWithWarmUpLR, module_type=MindFormerModuleType.LR, alias="linear")
+
+    MindFormerRegister.register_cls(
+        CosineWithWarmUpLR, module_type=MindFormerModuleType.LR, alias="cosine")
+
+    MindFormerRegister.register_cls(
+        CosineWithRestartsAndWarmUpLR, module_type=MindFormerModuleType.LR, alias="cosine_with_restarts")
+
+    MindFormerRegister.register_cls(
+        PolynomialWithWarmUpLR, module_type=MindFormerModuleType.LR, alias="polynomial")
+
+
 register_ms_lr()
+register_mf_lr()

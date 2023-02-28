@@ -12,14 +12,14 @@ runner_config:
   layer_decay: 0.65
 
 runner_wrapper:
-  type: TrainOneStepWithClipGN
+  type: mf_wrapper
   scale_sense:
     type: FixedLossScaleUpdateCell
     loss_scale_value: 1024
 
 # optimizer
 optimizer:
-  type: AdamWeightDecay
+  type: adamw
   beta1: 0.9
   beta2: 0.999
   eps: 0.00000001 # 1e-8
@@ -27,10 +27,9 @@ optimizer:
 
 # lr sechdule
 lr_schedule:
-  type: WarmUpCosineDecayV1
-  base_lr: 0.0005
-  min_lr: 0.000001
-  warmup_lr: 0.
+  type: cosine
+  learning_rate: 0.0005
+  lr_end: 0.000001
   warmup_epochs: 5
 
 callbacks:
@@ -42,7 +41,7 @@ callbacks:
     save_checkpoint_steps: 100
     integrated_save: True
     async_save: False
-#  - type: ObsMonitor
+  - type: ObsMonitor
 
 metric:
   type: Accuracy

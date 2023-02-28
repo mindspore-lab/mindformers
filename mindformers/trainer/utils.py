@@ -14,9 +14,13 @@
 # ============================================================================
 """Trainer Utils."""
 import os
+import random
 from enum import Enum
 
+import numpy as np
+
 from mindspore import context, load_checkpoint, load_param_into_net
+from mindspore import set_seed as ms_set_seed
 
 from mindformers.tools.logger import logger
 from mindformers.tools.register import MindFormerConfig
@@ -82,6 +86,18 @@ class WrapperType(BaseEnum):
     MFWRAPPER = 'mf_wrapper'
     TRAINONESTEP = 'wrapper'
     TRAINONESTEPWITHLOSSSCALE = 'loss_scale_wrapper'
+
+
+def set_seed(seed: int = 0):
+    """
+    Helper function for reproducible behavior to set the seed in `random`, `numpy`, `MindSpore`.
+
+    Args:
+        seed (`int`): The seed to set.
+    """
+    random.seed(seed)
+    np.random.seed(seed)
+    ms_set_seed(seed)
 
 
 def check_keywords_in_name(name, keywords=()):

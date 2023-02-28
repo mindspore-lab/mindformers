@@ -69,17 +69,21 @@ def register_ms_wrap():
                 wrap, MindFormerModuleType.WRAPPER)
 
 
+def register_mf_wrapper():
+    """ register MindFormers builtin wrapper class. """
+    # Support built-in model wrapper of MindFormers.
+    MindFormerRegister.register_cls(
+        nn.wrap.TrainOneStepCell,
+        module_type=MindFormerModuleType.WRAPPER, alias="wrapper")
+
+    MindFormerRegister.register_cls(
+        nn.wrap.TrainOneStepWithLossScaleCell,
+        module_type=MindFormerModuleType.WRAPPER, alias="loss_scale_wrapper")
+
+    MindFormerRegister.register_cls(
+        MFTrainOneStepCell,
+        module_type=MindFormerModuleType.WRAPPER, alias="mf_wrapper")
+
+
 register_ms_wrap()
-
-# Support built-in model wrapper of MindFormers.
-MindFormerRegister.register_cls(
-    nn.wrap.TrainOneStepCell,
-    module_type=MindFormerModuleType.OPTIMIZER, alias="wrapper")
-
-MindFormerRegister.register_cls(
-    nn.wrap.TrainOneStepWithLossScaleCell,
-    module_type=MindFormerModuleType.OPTIMIZER, alias="loss_scale_wrapper")
-
-MindFormerRegister.register_cls(
-    MFTrainOneStepCell,
-    module_type=MindFormerModuleType.OPTIMIZER, alias="mf_wrapper")
+register_mf_wrapper()

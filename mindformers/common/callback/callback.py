@@ -113,7 +113,6 @@ class MFLossMonitor(Callback):
             run_context (RunContext): Context of the process running.
         """
         self.step_time = time.time()
-        self.print_warning_flag = True
         self.run_context = run_context
 
     def step_end(self, run_context):
