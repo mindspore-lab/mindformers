@@ -183,8 +183,8 @@ class MaskedLanguageModelingTrainer(BaseTrainer):
                 Default: None.
 
         Examples:
-            >>> from mindformers import BertModel, MaskLanguageModelingTrainer
-            >>> model = BertModel.from_pretrained('bert_tiny_uncased')
+            >>> from mindformers import BertForPreTraining, MaskLanguageModelingTrainer
+            >>> model = BertForPreTraining.from_pretrained('bert_tiny_uncased')
             >>> mlm_trainer = MaskLanguageModelingTrainer(model_name="bert_tiny_uncased")
             >>> res = mlm_trainer.predict(input_data = "hello world [MASK]", network=model)
 

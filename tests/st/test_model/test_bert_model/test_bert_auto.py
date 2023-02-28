@@ -23,7 +23,7 @@ linux:  pytest ./tests/ut/test_bert_auto.py
 import os
 
 from mindformers import MindFormerBook, AutoModel
-from mindformers.models import BertModel, BertConfig
+from mindformers.models import BertForPreTraining, BertConfig
 
 
 class TestModelForBertMethod:
@@ -44,7 +44,7 @@ class TestModelForBertMethod:
 
     def test_bert_model(self):
         """
-        Feature: BertModel, from_pretrained, input config
+        Feature: BertForPreTraining, from_pretrained, input config
         Description: Test to get model instance by ClipModel.from_pretrained
                     and input config
         Expectation: TypeError, ValueError, RuntimeError
@@ -52,17 +52,17 @@ class TestModelForBertMethod:
 
         # input model name, load model and weights
         config = BertConfig(num_hidden_layers=1)
-        BertModel(config)
+        BertForPreTraining(config)
 
     def test_save_model(self):
         """
-        Feature: save_pretrained method of T5Model
-        Description: Test to save checkpoint for T5Model
+        Feature: save_pretrained method of bert
+        Description: Test to save checkpoint for bert
         Expectation: ValueError, AttributeError
         """
-        bert = BertModel(BertConfig(num_layers=1, hidden_dropout_prob=0.0,
-                                    attention_probs_dropout_prob=0.0,
-                                    batch_size=2, seq_length=16))
+        bert = BertForPreTraining(BertConfig(num_hidden_layers=1, hidden_dropout_prob=0.0,
+                                             attention_probs_dropout_prob=0.0,
+                                             batch_size=2, seq_length=16))
         bert.save_pretrained(self.save_directory, save_name='bert_test')
-        new_bert = BertModel.from_pretrained(self.save_directory)
+        new_bert = BertForPreTraining.from_pretrained(self.save_directory)
         new_bert.save_pretrained(self.save_directory, save_name='bert_test')

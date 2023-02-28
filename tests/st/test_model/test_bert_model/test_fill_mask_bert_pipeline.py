@@ -34,7 +34,7 @@ import pytest
 from mindformers.pipeline import FillMaskPipeline, pipeline
 
 from mindformers import BertTokenizer, BertProcessor
-from mindformers.models import BertModel, BertConfig
+from mindformers.models import BertForPreTraining, BertConfig
 
 
 @pytest.mark.level0
@@ -51,9 +51,9 @@ def test_translation_pipeline():
     os.makedirs(output_path, exist_ok=True)
     tokenizer = BertTokenizer.from_pretrained("bert_base_uncased")
     tokenizer.save_pretrained(output_path)
-    bert = BertModel(BertConfig(num_layers=1, hidden_dropout_prob=0.0,
-                                attention_probs_dropout_prob=0.0,
-                                batch_size=1, seq_length=16, is_training=False))
+    bert = BertForPreTraining(BertConfig(num_hidden_layers=1, hidden_dropout_prob=0.0,
+                                         attention_probs_dropout_prob=0.0,
+                                         batch_size=1, seq_length=16, is_training=False))
     bert.save_pretrained(output_path)
     processor = BertProcessor(tokenizer=tokenizer, max_length=16, padding="max_length")
     processor.save_pretrained(output_path)
