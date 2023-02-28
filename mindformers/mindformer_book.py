@@ -235,6 +235,9 @@ class MindFormerBook:
         ]),
         ('filip', [
             'filip_vit_l_14',
+        ]),
+        ('gpt2', [
+            'gpt2'
         ])
     ])
 
@@ -275,6 +278,9 @@ class MindFormerBook:
         ]),
         ('filip', [
             'filip_vit_l_14',
+        ]),
+        ('gpt2', [
+            'gpt2'
         ])
     ])
 
@@ -325,6 +331,9 @@ class MindFormerBook:
         ])),
         ('t5', [
             't5_small',
+        ]),
+        ('gpt2', [
+            'gpt2',
         ])
     ])
 
@@ -399,6 +408,10 @@ class MindFormerBook:
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
           '/XFormer_for_mindspore/bert/downstream_tasks/qa/'
           'qa_bert_base_uncased_squad.ckpt'
+          ]),
+        ('gpt2',
+         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
+          '/XFormer_for_mindspore/gpt2/gpt2.ckpt'
           ])
     ])
 
@@ -469,6 +482,10 @@ class MindFormerBook:
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
           '/XFormer_for_mindspore/bert/downstream_tasks/qa/'
           'qa_bert_base_uncased_squad.yaml'
+          ]),
+        ('gpt2',
+         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
+          '/XFormer_for_mindspore/gpt2/gpt2.yaml'
           ])
     ])
 
@@ -530,6 +547,12 @@ class MindFormerBook:
         ('qa_bert_base_uncased_squad',
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/'
           'XFormer_for_mindspore/bert/bert_base_english/vocab.txt'
+          ]),
+        ('gpt2',
+         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
+          '/XFormer_for_mindspore/gpt2/vocab.json',
+          'https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
+          '/XFormer_for_mindspore/gpt2/merges.txt'
           ])
     ])
 

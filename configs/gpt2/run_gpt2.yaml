@@ -1,0 +1,18 @@
+base_config: [
+    './task_config/context.yaml',
+    './task_config/runner.yaml',
+    './task_config/gpt2_dataset.yaml',
+    './model_config/gpt2.yaml',
+    '../__base__.yaml' ]
+
+profile: False
+use_parallel: False
+
+seed: 0
+resume_or_finetune_checkpoint: ""
+
+
+run_mode: 'train'
+trainer:
+  type: mlm
+  model_name: 'gpt2'

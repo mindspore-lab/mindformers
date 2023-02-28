@@ -1,0 +1,17 @@
+train_dataset: &train_dataset
+  data_loader:
+    type: MindDataset
+    dataset_dir: ""
+    shuffle: True
+  input_columns: ["input_ids"]  # "input_mask", "label_ids"
+  num_parallel_workers: 8
+  python_multiprocessing: False
+  drop_remainder: True
+  batch_size: 8
+  repeat: 1
+  numa_enable: False
+  prefetch_size: 1
+
+train_dataset_task:
+  type: MaskLanguageModelDataset
+  dataset_config: *train_dataset

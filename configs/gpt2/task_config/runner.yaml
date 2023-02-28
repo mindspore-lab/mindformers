@@ -1,0 +1,47 @@
+# runner config
+runner_config:
+  epochs: 3
+  batch_size: 8
+  sink_size: 1
+  image_size: 224
+  sink_mode: True
+  per_epoch_size: -1
+  initial_epoch: 0
+  has_trained_epoches: 0
+  has_trained_steps: 0
+
+runner_wrapper:
+  type: TrainOneStepWithClipGN
+  scale_sense:
+    type: DynamicLossScaleUpdateCell
+    loss_scale_value: 4294967296
+    scale_factor: 2
+    scale_window: 1000
+  use_clip_grad: True
+
+# optimizer
+optimizer:
+  type: FusedAdamWeightDecay
+  beta1: 0.9
+  beta2: 0.95
+  eps: 0.00000001 # 1e-8
+  weight_decay: 0.0
+
+# lr sechdule
+lr_schedule:
+  type: WarmUpDecayLR
+  learning_rate: 0.0001
+  end_learning_rate: 0.00001
+  warmup_steps: 0
+  decay_steps: -1
+
+callbacks:
+  - type: MFLossMonitor
+  - type: SummaryMonitor
+    keep_default_action: True
+  - type: CheckpointMointor
+    prefix: "mindformers"
+    save_checkpoint_steps: 100
+    integrated_save: True
+    async_save: False
+  - type: ObsMonitor
