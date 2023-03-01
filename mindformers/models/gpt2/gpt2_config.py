@@ -15,8 +15,9 @@
 """Gpt Config API."""
 
 import mindspore.common.dtype as mstype
-from mindspore.nn.transformer import TransformerOpParallelConfig, MoEConfig
-from mindspore.nn.transformer.transformer import default_transformer_config, default_moe_config
+from mindformers.modules.transformer.moe import MoEConfig
+from mindformers.modules.transformer.transformer import default_transformer_config, default_moe_config, \
+    TransformerOpParallelConfig
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from ..base_config import BaseConfig
 from ...mindformer_book import MindFormerBook

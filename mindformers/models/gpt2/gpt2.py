@@ -21,9 +21,9 @@ from mindspore.common.tensor import Tensor
 from mindspore.common.initializer import TruncatedNormal, initializer
 from mindspore.ops import operations as P
 from mindspore.ops import functional as F
-from mindspore.nn.transformer.transformer import default_moe_config
-from mindspore.nn.transformer.layers import _LayerNorm
-from mindspore.nn.transformer.transformer import AttentionMask, Transformer, VocabEmbedding
+from mindformers.modules.transformer.moe import default_moe_config
+from mindformers.modules.layers import LayerNorm
+from mindformers.modules.transformer import AttentionMask, Transformer, VocabEmbedding
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.models.base_model import BaseModel
 from ...mindformer_book import MindFormerBook
@@ -151,7 +151,7 @@ class GPT2Model(nn.Cell):
         self.cast = P.Cast()
         self.dtype = config.dtype
         self.use_moe = (moe_config.expert_num > 1)
-        self.layernorm = _LayerNorm((config.embedding_size,)).to_float(config.layernorm_dtype)
+        self.layernorm = LayerNorm((config.embedding_size,)).to_float(config.layernorm_dtype)
         self.layernorm.shard(((config.parallel_config.data_parallel, 1, 1),))
         self.add = P.Add().shard(
             ((config.parallel_config.data_parallel, 1, 1), (config.parallel_config.data_parallel, 1, 1)))
