@@ -89,11 +89,11 @@ def get_group_parameters(config, model, base_lr):
 
 def get_vit_layer(name, num_layers):
     """get vit layer"""
-    if name in ("cls_tokens", "mask_tokens", "pos_embed"):
+    if name.endswith(("cls_tokens", "mask_tokens", "pos_embed")):
         layer_num = 0
-    elif name.startswith("patch_embed"):
+    elif name.startswith("vit.patch_embed"):
         layer_num = 0
-    elif name.startswith("blocks"):
+    elif name.startswith("vit.blocks"):
         layer_id = int(name.split('.')[1])
         layer_num = layer_id + 1
     else:
