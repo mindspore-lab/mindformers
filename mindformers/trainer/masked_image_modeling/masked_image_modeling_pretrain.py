@@ -15,41 +15,65 @@
 """Masked Image Modeling Trainer."""
 from typing import Optional, List, Union
 
-from mindspore.train.model import Model
 from mindspore.train import Callback
-from mindspore.nn import TrainOneStepCell, Optimizer
+from mindspore.nn import TrainOneStepCell, Optimizer, Cell
+from mindspore.dataset import GeneratorDataset
 
-from mindformers.common.callback import build_callback
-from mindformers.dataset import build_dataset, check_dataset_config, BaseDataset
-from mindformers.models import build_model, BaseModel
-from mindformers.common.lr import build_lr
-from mindformers.common.optim import build_optim
-from mindformers.wrapper import build_wrapper
-from mindformers.tools.logger import logger
-from mindformers.tools.utils import count_params
-from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
-from .group_mim_parameters import get_group_parameters
+from mindformers.dataset import BaseDataset
+from mindformers.models import BaseModel
+from mindformers.tools.register import MindFormerRegister, \
+    MindFormerModuleType, MindFormerConfig
 from ..config_args import ConfigArguments
+from ..training_args import TrainingArguments
 from ..base_trainer import BaseTrainer
-from ..utils import check_runner_config, check_image_lr_config, resume_checkpoint_for_training
 
 
-@MindFormerRegister.register(MindFormerModuleType.TRAINER, alias="mim")
+@MindFormerRegister.register(MindFormerModuleType.TRAINER)
 class MaskedImageModelingTrainer(BaseTrainer):
     r"""MaskedImageModeling Task For Trainer.
     Args:
         model_name (str): The model name of Task-Trainer. Default: None
+    Examples:
+        >>> import numpy as np
+        >>> from mindspore.dataset import GeneratorDataset
+        >>> from mindspore.nn import AdamWeightDecay, WarmUpLR, \
+        ...      DynamicLossScaleUpdateCell, TrainOneStepWithLossScaleCell
+        >>> from mindformers.trainer import GeneralTaskTrainer
+        >>> from mindformers.tools.register import MindFormerConfig
+        >>> from mindformers.models import ViTMAEForPreTraining, ViTMAEConfig
+        >>> class MyDataLoader:
+        ...    def __init__(self):
+        ...        self._data = [np.zeros((3, 224, 224), np.float32) for _ in range(64)]
+        ...
+        ...    def __getitem__(self, index):
+        ...        return self._data[index]
+        ...
+        ...    def __len__(self):
+        ...        return len(self._data)
+        >>> train_dataset = GeneratorDataset(source=MyDataLoader(), column_names=['image'])
+        >>> #1) use config to train
+        >>> mae_trainer = MaskedImageModelingTrainer(model_name='mae_vit_base_p16')
+        >>> mae_trainer.train(dataset=train_dataset)
+        >>> #2) use instance function to train
+        >>> mae_config = ViTMAEConfig(batch_size=2)
+        >>> network_with_loss = ViTMAEForPreTraining(mae_config)
+        >>> lr_schedule = WarmUpLR(learning_rate=0.001, warmup_steps=100)
+        >>> optimizer = AdamWeightDecay(beta1=0.009, beta2=0.999,
+        ...                             learning_rate=lr_schedule,
+        ...                             params=network_with_loss.trainable_params())
+        >>> loss_scale = DynamicLossScaleUpdateCell(loss_scale_value=2**12, scale_factor=2, scale_window=1000)
+        >>> wrapper = TrainOneStepWithLossScaleCell(network_with_loss, optimizer, scale_sense=loss_scale)
+        >>> mae_trainer.train(wrapper=wrapper, dataset=train_dataset)
     Raises:
         NotImplementedError: If train method or evaluate method or predict method not implemented.
     """
     def __init__(self, model_name: str = None):
-        super(MaskedImageModelingTrainer, self).__init__(model_name)
-        self.kwargs = None
+        super(MaskedImageModelingTrainer, self).__init__("masked_image_modeling", model_name)
 
     def train(self,
-              config: Optional[Union[dict, ConfigArguments]] = None,
-              network: Optional[Union[str, BaseModel]] = None,
-              dataset: Optional[Union[str, BaseDataset]] = None,
+              config: Optional[Union[dict, MindFormerConfig, ConfigArguments, TrainingArguments]] = None,
+              network: Optional[Union[Cell, BaseModel]] = None,
+              dataset: Optional[Union[BaseDataset, GeneratorDataset]] = None,
               wrapper: Optional[TrainOneStepCell] = None,
               optimizer: Optional[Optimizer] = None,
               callbacks: Optional[Union[Callback, List[Callback]]] = None,
@@ -61,15 +85,15 @@ class MaskedImageModelingTrainer(BaseTrainer):
         It also allows users to customize the network, optimizer, dataset, wrapper, callback.
 
         Args:
-            config (Optional[Union[dict, ConfigArguments]]): The task config which is used to
-                configure the dataset, the hyper-parameter, optimizer, etc.
-                It support config dict or ConfigArguments class.
+            config (Optional[Union[dict, MindFormerConfig, ConfigArguments, TrainingArguments]]):
+                The task config which is used to configure the dataset, the hyper-parameter, optimizer, etc.
+                It supports config dict or MindFormerConfig or TrainingArguments or ConfigArguments class.
                 Default: None.
-            network (Optional[Union[str, BaseModel]]): The network for trainer. It support model name supported
-                or BaseModel class. Supported model name can refer to ****.
+            network (Optional[Union[Cell, BaseModel]]): The network for trainer.
+                It supports model name or BaseModel or MindSpore Cell class.
                 Default: None.
-            dataset (Optional[Union[str, BaseDataset]]): The training dataset. It support real dataset path or
-                BaseDateset class or MindSpore Dataset class.
+            dataset (Optional[Union[BaseDataset, GeneratorDataset]]): The training dataset.
+                It support real dataset path or BaseDateset class or MindSpore Dataset class.
                 Default: None.
             optimizer (Optional[Optimizer]): The training network's optimizer. It support Optimizer class of MindSpore.
                 Default: None.
@@ -82,98 +106,20 @@ class MaskedImageModelingTrainer(BaseTrainer):
 
         Raises:
             NotImplementedError: If wrapper not implemented.
-
-        Examples:
-            >>> import numpy as np
-            >>> from mindspore.dataset import GeneratorDataset
-            >>> from mindspore.nn import AdamWeightDecay, WarmUpLR, \
-            ...      DynamicLossScaleUpdateCell, TrainOneStepWithLossScaleCell
-            >>> from mindformers.trainer import GeneralTaskTrainer
-            >>> from mindformers.tools.register import MindFormerConfig
-            >>> from mindformers.models import ViTMAEForPreTraining, ViTMAEConfig
-            >>> config = MindFormerConfig("configs/mae/run_mae_vit_base_p16_224_800ep.yaml")
-            >>> #1) use config to train
-            >>> cls_task = MaskedImageModelingTrainer(model_name='mae')
-            >>> cls_task.train(config=config)
-            >>> #2) use instance function to evaluate
-            >>> dataset = build_dataset(config.train_dataset_task)
-            >>> mae_config = ViTMAEConfig(batch_size=2)
-            >>> network_with_loss = ViTMAEForPreTraining(mae_config)
-            >>> lr_schedule = WarmUpLR(learning_rate=0.001, warmup_steps=100)
-            >>> optimizer = AdamWeightDecay(beta1=0.009, beta2=0.999,
-            ...                             learning_rate=lr_schedule,
-            ...                             params=network_with_loss.trainable_params())
-            >>> loss_scale = DynamicLossScaleUpdateCell(loss_scale_value=2**12, scale_factor=2, scale_window=1000)
-            >>> wrapper = TrainOneStepWithLossScaleCell(network_with_loss, optimizer, scale_sense=loss_scale)
-            >>> cls_task.train(config=config, wrapper=wrapper, dataset=dataset)
         """
-        # 自定义创建模型训练完整过程, 待补充
-        self.kwargs = kwargs
-        # build dataset
-        logger.info(".........Build Dataset..........")
-        check_dataset_config(config)
-        if dataset is None:
-            dataset = build_dataset(config.train_dataset_task)
-        check_runner_config(config, dataset)
+        self.training_process(
+            config=config,
+            network=network,
+            callbacks=callbacks,
+            dataset=dataset,
+            wrapper=wrapper,
+            optimizer=optimizer,
+            **kwargs)
 
-        # build network
-        logger.info(".........Build Net..........")
-        if network is None:
-            network = build_model(config.model, default_args={
-                "parallel_config": config.parallel_config,
-                "moe_config": config.moe_config})
-        logger.info("Network Parameters: %s M.", str(count_params(network)))
+    def evaluate(self, *args, **kwargs):
+        raise NotImplementedError(
+            "The MaskedImageModeling task does not support evaluate.")
 
-        # build optimizer
-        logger.info(".........Build Optimizer..........")
-        if optimizer is None:
-            # build learning rate schedule
-            logger.info(".........Build LR Schedule..........")
-            check_image_lr_config(config)
-            lr_schedule = build_lr(config.lr_schedule)
-            group_params = get_group_parameters(config, network)
-            if lr_schedule is not None:
-                optimizer = build_optim(
-                    config.optimizer,
-                    default_args={"params": group_params,
-                                  "learning_rate": lr_schedule})
-            else:
-                assert config.optimizer.learning_rate, "learning_rate must be input"
-                optimizer = build_optim(
-                    config.optimizer,
-                    default_args={"params": group_params})
-
-        # build callback
-        logger.info(".........Build Callbacks for Train..........")
-        if callbacks is None:
-            callbacks = []
-            if config.profile:
-                callbacks.append(config.profile_cb)
-            callbacks.extend(build_callback(
-                config.callbacks, default_args={"learning_rate": optimizer.learning_rate}))
-
-        # resume checkpoint
-        if config.resume_or_finetune_checkpoint is not None and config.resume_or_finetune_checkpoint != '':
-            logger.info(".............start resume training from checkpoint..................")
-            resume_checkpoint_for_training(config, network, optimizer)
-
-        # build runner wrapper
-        logger.info(".........Build Running Wrapper..........")
-        if wrapper is None:
-            model = build_wrapper(config.runner_wrapper, default_args={"network": network, "optimizer": optimizer})
-        elif isinstance(wrapper, TrainOneStepCell):
-            model = wrapper
-        else:
-            raise NotImplementedError(f"Now not support this wrapper,"
-                                      f"it should be TrainOneStepCell type, but get {wrapper}")
-
-        # define Model and begin training
-        logger.info(".........Starting Init Train Model..........")
-        model = Model(model)
-
-        model.train(
-            config.runner_config.epochs, dataset, callbacks=callbacks,
-            dataset_sink_mode=config.runner_config.sink_mode,
-            sink_size=config.runner_config.per_epoch_size,
-            initial_epoch=config.runner_config.initial_epoch)
-        logger.info(".........Training Over!.............")
+    def predict(self, *args, **kwargs):
+        raise NotImplementedError(
+            "The MaskedImageModeling task does not support predict.")

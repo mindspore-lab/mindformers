@@ -11,7 +11,7 @@ runner_config:
 
 # optimizer
 optimizer:
-  type: AdamWeightDecay
+  type: adamw
   weight_decay: 0.001
   learning_rate: 0.00001
 

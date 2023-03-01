@@ -12,12 +12,12 @@ runner_config:
   layer_decay: 0.9
 
 runner_wrapper:
-  type: TrainOneStepWithClipGN
+  type: MFTrainOneStepCell
   scale_sense:
     type: FixedLossScaleUpdateCell
     loss_scale_value: 1024
   use_clip_grad: True
-  clip_norm: 5.0
+  max_grad_norm: 5.0
 
 # optimizer
 optimizer:
@@ -34,6 +34,7 @@ lr_schedule:
   lr_end: 0.00000025
   warmup_lr_init: 0.00000025
   warmup_epochs: 20
+  total_steps: -1 # -1 means it will load the total steps of the dataset
 
 callbacks:
   - type: MFLossMonitor

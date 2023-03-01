@@ -14,6 +14,10 @@
 # ============================================================================
 """Build Trainer API."""
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
+from . import ImageClassificationTrainer, ZeroShotImageClassificationTrainer, \
+    MaskedImageModelingTrainer, MaskedLanguageModelingTrainer, ImageToTextRetrievalTrainer, \
+    TranslationTrainer, TokenClassificationTrainer, TextClassificationTrainer, \
+    ContrastiveLanguageImagePretrainTrainer, GeneralTaskTrainer
 
 
 def build_trainer(
@@ -45,3 +49,48 @@ def build_trainer(
         return MindFormerRegister.get_instance_from_cfg(
             config, MindFormerModuleType.TRAINER, default_args=default_args)
     return MindFormerRegister.get_instance(module_type, class_name, **kwargs)
+
+
+def register_mf_trainer():
+    """ register MindFomrers builtin LR class. """
+    # adapt huggingface
+    MindFormerRegister.register_cls(
+        ImageClassificationTrainer,
+        module_type=MindFormerModuleType.TRAINER, alias="image_classification")
+
+    MindFormerRegister.register_cls(
+        ZeroShotImageClassificationTrainer,
+        module_type=MindFormerModuleType.TRAINER, alias="zero_shot_image_classification")
+
+    MindFormerRegister.register_cls(
+        MaskedImageModelingTrainer,
+        module_type=MindFormerModuleType.TRAINER, alias="masked_image_modeling")
+
+    MindFormerRegister.register_cls(
+        MaskedLanguageModelingTrainer,
+        module_type=MindFormerModuleType.TRAINER, alias="fill_mask")
+
+    MindFormerRegister.register_cls(
+        TokenClassificationTrainer,
+        module_type=MindFormerModuleType.TRAINER, alias="token_classification")
+
+    MindFormerRegister.register_cls(
+        TextClassificationTrainer,
+        module_type=MindFormerModuleType.TRAINER, alias="text_classification")
+
+    MindFormerRegister.register_cls(
+        ContrastiveLanguageImagePretrainTrainer,
+        module_type=MindFormerModuleType.TRAINER, alias="contrastive_language_image_pretrain")
+
+    MindFormerRegister.register_cls(
+        TranslationTrainer,
+        module_type=MindFormerModuleType.TRAINER, alias="translation")
+
+    MindFormerRegister.register_cls(
+        ImageToTextRetrievalTrainer, module_type=MindFormerModuleType.TRAINER, alias="itr")
+
+    MindFormerRegister.register_cls(
+        GeneralTaskTrainer, module_type=MindFormerModuleType.TRAINER, alias="general")
+
+
+register_mf_trainer()

@@ -19,7 +19,8 @@ from typing import Optional, Union, List
 
 from mindspore.train.model import Model
 from mindspore.train import Callback
-from mindspore.nn import TrainOneStepCell, Optimizer
+from mindspore.dataset import GeneratorDataset
+from mindspore.nn import TrainOneStepCell, Optimizer, Cell
 
 from mindformers.mindformer_book import MindFormerBook
 from mindformers.common import build_lr, build_optim, build_callback, build_metric
@@ -29,9 +30,12 @@ from mindformers.wrapper import build_wrapper
 from mindformers.tools.register import MindFormerConfig
 from mindformers.tools.logger import logger
 from mindformers.tools.utils import count_params
+from .config_args import ConfigArguments
+from .training_args import TrainingArguments
 from .utils import check_runner_config, resume_checkpoint_for_training
 from .optimizer_grouped_parameters import get_optimizer_grouped_parameters
-from .utils import set_seed
+from .utils import set_seed, check_train_data_loader_type, \
+    check_eval_data_loader_type, check_optimizer_and_lr_type, check_wrapper_config
 
 SUPPORT_TASKS = MindFormerBook().get_trainer_support_task_list()
 SUPPORT_MODEL_NAMES = MindFormerBook().get_model_name_support_list()
@@ -92,10 +96,16 @@ class BaseTrainer:
                            SUPPORT_TASKS.get(self.task).get("common"), task)
             self.model_name = "common"
 
-    def set_config(self, config: dict = None):
+    def set_config(self,
+                   config: Optional[Union[dict, str, ConfigArguments, TrainingArguments]] = None,
+                   is_full_config: bool = False):
         """Set the task config for task trainer."""
         if config is not None:
-            self.config = config
+            if is_full_config:
+                self.config = config
+            else:
+                self.setup_task_config()
+                self.config = self._merge_config(config)
         else:
             self.setup_task_config()
             self.config = self.default_task_config
@@ -114,6 +124,39 @@ class BaseTrainer:
                            "you must define the required model or wrapper, optimizer, and so on"
                            "in the train or evaluate or predict attribute function.")
 
+    def _merge_config(self, args):
+        """Merge config from default task config."""
+        if self.default_task_config is None:
+            logger.warning("default task config is None, you will not be able to merge config parameters.")
+            return args
+
+        if isinstance(args, dict):
+            self.default_task_config.merge_from_dict(args)
+        elif isinstance(args, str):
+            if not (os.path.realpath(args) and os.path.exists(args)):
+                raise FileNotFoundError(f"config path must be exist, but get {args}.")
+            if not args.endswith(('.yaml', '.yml')):
+                raise ValueError(f"config file must be end with .yaml or .yml, but get {args}")
+            self.default_task_config = MindFormerConfig(args)
+        elif isinstance(args, ConfigArguments):
+            if hasattr(args, 'train_dataset'):
+                check_train_data_loader_type(args, self.default_task_config)
+            if hasattr(args, 'eval_dataset'):
+                check_eval_data_loader_type(args, self.default_task_config)
+            if hasattr(args, 'optimizer'):
+                check_optimizer_and_lr_type(args, self.default_task_config)
+            if hasattr(args, 'runner_wrapper'):
+                check_wrapper_config(args, self.default_task_config)
+            self.default_task_config.merge_from_dict(args.__dict__)
+        elif isinstance(args, TrainingArguments):
+            args.convert_args_to_mindformers_config(self.default_task_config)
+        else:
+            logger.warning(
+                "The type of config parameter to merge is not supported, "
+                "currently supported types are [dict, config_path(str), ConfigArguments, TrainingArguments], "
+                "but get %s", type(args))
+        return self.default_task_config
+
     def create_train_dataset(self, default_args: dict = None):
         """Create the train dataset for training."""
         logger.info(".........Build Dataset From Config..........")
@@ -128,10 +171,12 @@ class BaseTrainer:
         self.eval_dataset = build_dataset(self.config.eval_dataset_task, default_args=default_args)
         return self.eval_dataset
 
-    def create_network(self, default_args: dict = None):
+    def create_network(self, default_args: dict = None, is_train: bool = True):
         """Create the network for task trainer."""
         logger.info(".........Build Network From Config..........")
         self.network = build_model(self.config.model, default_args=default_args)
+        if isinstance(self.network, (Cell, BaseModel)):
+            self.network.set_train(is_train)
         return self.network
 
     def create_image_processor(self, default_args: dict = None):
@@ -148,27 +193,16 @@ class BaseTrainer:
             self.config.processor.tokenizer, default_args=default_args)
         return self.tokenizer
 
-    def create_optimizer(self, network, layer_scale=False):
+    def create_optimizer_scheduler(self, network, layer_scale=False):
         """Create the optimizer for training."""
         logger.info(".........Build Optimizer From Config..........")
-        # build learning rate schedule
-        logger.info(".........Build LR Schedule From Config..........")
-        train_data_size = self.get_train_data_size()
-        warmup_epochs = self.config.lr_schedule.pop("warmup_epochs", None)
-        total_steps = int(self.config.runner_config.epochs * train_data_size)
-
-        self.config.lr_schedule.warmup_steps = int(warmup_epochs * train_data_size) \
-            if warmup_epochs is not None else int(self.config.lr_schedule.warmup_steps)
-        self.config.lr_schedule.total_steps = total_steps \
-            if self.config.lr_schedule.total_steps is None else int(self.config.lr_schedule.total_steps)
-
         # learning rate scale for multi-nodes training
         learning_scale = self.config.lr_scale
         scale_factor = self.config.lr_scale_factor
-        self.config.lr_schedule.learning_rate = self.learning_rate_scale(
-            self.config.lr_schedule.learning_rate, scale_factor) \
-            if learning_scale and scale_factor is not None else self.config.lr_schedule.learning_rate
-        lr_schedule = build_lr(self.config.lr_schedule)
+
+        # build learning rate schedule
+        lr_schedule = self.create_lr_scheduler(learning_scale, scale_factor)
+
         weight_decay = self.config.optimizer.weight_decay if self.config.optimizer.weight_decay else 0.
         layer_decay = self.config.layer_decay if self.config.layer_decay else 1.0
         group_params = get_optimizer_grouped_parameters(network,
@@ -191,6 +225,39 @@ class BaseTrainer:
                 self.config.optimizer,
                 default_args={"params": group_params})
         return self.optimizer
+
+    def create_lr_scheduler(self, learning_scale: bool = False, scale_factor: int = 256):
+        """Create the learning rate scheduler."""
+        logger.info(".........Build LR Schedule From Config..........")
+        train_data_size = self.get_train_data_size()
+
+        if self.config.lr_schedule:
+            warmup_epochs = self.config.lr_schedule.pop("warmup_epochs", None)
+            warmup_ratio = self.config.lr_schedule.pop("warmup_ratio", None)
+            total_steps = int(self.config.runner_config.epochs * train_data_size)
+
+            if warmup_epochs is not None and warmup_ratio is not None:
+                logger.warning("warmup_epochs and warmup_ratio are set simultaneously,"
+                               "warmup_ratio takes precedence.")
+                warmup_epochs = None
+
+            if warmup_epochs is not None:
+                logger.warning("warmup_epochs was set in lr_schedule,"
+                               "it will multiply the data size to represent the warmup steps")
+                self.config.lr_schedule.warmup_steps = int(warmup_epochs * train_data_size)
+
+            if warmup_ratio is not None:
+                self.config.lr_schedule.warmup_steps = int(total_steps * warmup_ratio)
+
+            self.config.lr_schedule.total_steps = total_steps \
+                if self.config.lr_schedule.total_steps is None or self.config.lr_schedule.total_steps == -1 \
+                else int(self.config.lr_schedule.total_steps)
+
+            self.config.lr_schedule.learning_rate = self.learning_rate_scale(
+                self.config.lr_schedule.learning_rate, scale_factor) \
+                if learning_scale and scale_factor is not None else self.config.lr_schedule.learning_rate
+        lr_schedule = build_lr(self.config.lr_schedule)
+        return lr_schedule
 
     def create_model_wrapper(self, network, optimizer):
         """Create the model wrapper for training."""
@@ -222,6 +289,15 @@ class BaseTrainer:
         self.compute_metrics = {metric_name: build_metric(self.config.metrics)}
         return self.compute_metrics
 
+    def count_parameters(self):
+        """Count network parameters number."""
+        if self.network is not None:
+            logger.info("Network Parameters: %s M.", str(count_params(self.network)))
+        elif self.model_wrapper is not None:
+            logger.info("Network Parameters: %s M.", str(count_params(self.model_wrapper.network)))
+        else:
+            logger.warning("Network is None, parameters incalculable.")
+
     def set_seed(self, seed: int = None):
         """Set seed for training."""
         if seed is None:
@@ -230,6 +306,30 @@ class BaseTrainer:
             set_seed(self.config.seed)
         else:
             set_seed(seed)
+
+    def set_train_dataset(self, dataset):
+        """Set the attribute of train dataset."""
+        if dataset is None:
+            raise ValueError("Train dataset is None")
+        self.train_dataset = dataset
+
+    def set_eval_dataset(self, dataset):
+        """Set the attribute of eval dataset ."""
+        if dataset is None:
+            raise ValueError("Eval dataset is None")
+        self.eval_dataset = dataset
+
+    def set_network(self, network):
+        """Set the attribute of network."""
+        if network is None:
+            raise ValueError("network is None")
+        self.network = network
+
+    def set_model_wrapper(self, model_wrapper):
+        """Set the attribute of model_wrapper."""
+        if model_wrapper is None:
+            raise ValueError("model wrapper is None")
+        self.model_wrapper = model_wrapper
 
     def get_train_data_size(self):
         """Get train dataset size."""
@@ -255,22 +355,25 @@ class BaseTrainer:
         learning_rate = (base_learning_rate * device_num * per_device_batch_size) / scale_factor
         return learning_rate
 
-    def train(self,
-              config: Optional[Union[dict, MindFormerConfig]] = None,
-              network: Optional[Union[str, BaseModel]] = None,
-              dataset: Optional[Union[str, BaseDataset]] = None,
-              wrapper: Optional[TrainOneStepCell] = None,
-              optimizer: Optional[Optimizer] = None,
-              callbacks: Optional[Union[Callback, List[Callback]]] = None,
-              **kwargs):
+    def training_process(
+            self,
+            config: Optional[Union[dict, MindFormerConfig, ConfigArguments, TrainingArguments]] = None,
+            network: Optional[Union[Cell, BaseModel]] = None,
+            dataset: Optional[Union[BaseDataset, GeneratorDataset]] = None,
+            optimizer: Optional[Optimizer] = None,
+            wrapper: Optional[TrainOneStepCell] = None,
+            callbacks: Optional[Union[Callback, List[Callback]]] = None,
+            **kwargs):
         """Train or Fine-tune for BaseTrainer in MindFormers."""
         self.kwargs = kwargs
-        config = self.set_config(config)
+        is_full_config = kwargs.get("is_full_config", False)
+        config = self.set_config(config, is_full_config)
 
         # build dataset
         logger.info(".........Build Dataset For Train..........")
         if dataset is None:
             dataset = self.create_train_dataset()
+        self.set_train_dataset(dataset)
         check_runner_config(config, dataset)
 
         # build network
@@ -278,12 +381,18 @@ class BaseTrainer:
         if network is None and wrapper is None:
             network = self.create_network(default_args={"parallel_config": config.parallel_config,
                                                         "moe_config": config.moe_config})
-        logger.info("Network Parameters: %s M.", str(count_params(network)))
+        if network is not None:
+            self.set_network(network)
+
+        if wrapper is not None:
+            self.set_model_wrapper(wrapper)
+
+        self.count_parameters()
 
         # build optimizer
         logger.info(".........Build Optimizer For Train..........")
-        if optimizer is None:
-            optimizer = self.create_optimizer(network, layer_scale=config.layer_scale)
+        if optimizer is None and wrapper is None:
+            optimizer = self.create_optimizer_scheduler(network, layer_scale=config.layer_scale)
 
         # build callback
         logger.info(".........Build Callbacks For Train..........")
@@ -315,27 +424,32 @@ class BaseTrainer:
                     initial_epoch=config.runner_config.initial_epoch)
         logger.info(".........Training Over!.............")
 
-    def evaluate(self,
-                 config: Optional[Union[dict, MindFormerConfig]] = None,
-                 network: Optional[Union[str, BaseModel]] = None,
-                 dataset: Optional[Union[str, BaseDataset]] = None,
-                 callbacks: Optional[Union[Callback, List[Callback]]] = None,
-                 compute_metrics: Optional[Union[dict, set]] = None,
-                 **kwargs):
+    def evaluate_process(
+            self,
+            config: Optional[Union[dict, MindFormerConfig, ConfigArguments, TrainingArguments]] = None,
+            network: Optional[Union[Cell, BaseModel]] = None,
+            dataset: Optional[Union[BaseDataset, GeneratorDataset]] = None,
+            callbacks: Optional[Union[Callback, List[Callback]]] = None,
+            compute_metrics: Optional[Union[dict, set]] = None,
+            **kwargs):
         """Evaluate for BaseTrainer in MindFormers."""
         metric_name = kwargs.get("metric_name")
-        config = self.set_config(config)
+        is_full_config = kwargs.get("is_full_config", False)
+        config = self.set_config(config, is_full_config)
 
         # build dataset
         logger.info(".........Build Dataset For Evaluate..........")
         if dataset is None:
             dataset = self.create_eval_dataset()
+        self.set_eval_dataset(dataset)
 
         # build network
         if network is None:
             network = self.create_network(default_args={"parallel_config": config.parallel_config,
-                                                        "moe_config": config.moe_config})
-        logger.info("Network Parameters: %s M.", str(count_params(network)))
+                                                        "moe_config": config.moe_config}, is_train=False)
+        self.set_network(network)
+
+        self.count_parameters()
 
         # build metric
         logger.info(".........Build Compute Metrics For Evaluate..........")

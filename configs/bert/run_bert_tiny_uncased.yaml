@@ -13,5 +13,5 @@ resume_or_finetune_checkpoint: ''
 
 run_mode: 'train'
 trainer:
-  type: mlm
-  model_name: 'bert'
+  type: MaskedLanguageModelingTrainer
+  model_name: 'bert_tiny_uncased'
