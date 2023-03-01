@@ -24,7 +24,7 @@ from mindformers.tools import logger
 
 def get_group_parameters(config, model, base_lr):
     """get finetune param groups"""
-    if config.model.arch.type == 'SwinModel':
+    if config.model.arch.type == 'SwinForImageClassification':
         depths = config.model.model_config.depths
         num_layers = sum(depths)
         get_layer_func = partial(get_swin_layer, num_layers=num_layers + 2, depths=depths)

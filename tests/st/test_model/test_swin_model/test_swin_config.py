@@ -23,7 +23,7 @@ linux:  pytest ./tests/st/test_model/test_swin_model/test_swin_config.py
 Note:
     model name and config name should have the same prefix
 Example:
-    SwinModel and SwinConfig have the same prefix, Swin
+    SwinForImageClassification and SwinConfig have the same prefix, Swin
 """
 import os
 import pytest
