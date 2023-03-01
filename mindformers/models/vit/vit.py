@@ -158,9 +158,9 @@ class ViTModel(BaseModel):
     def load_pretrained(self, params_dict):
         return load_param_into_net(self, params_dict)
 
-    def construct_without_pool(self, image):
+    def construct_without_pool(self, image, mask=None):
         """construct of vit without pool"""
-        tokens = self.patch_embed(image)
+        tokens = self.patch_embed(image, mask)
         batch_size = image.shape[0]
         cls_tokens = self.tile(self.cls_tokens, (batch_size, 1, 1))
         tokens = self.cat((cls_tokens, tokens))
@@ -208,6 +208,7 @@ class ViTForImageClassification(BaseModel):
         >>> config = AutoConfig.from_pretrained('vit_base_p16')
         >>> model_b = ViTForImageClassification(config)
     """
+
     def __init__(self, config=None):
         config = config if config else ViTConfig()
         super().__init__(config)
@@ -249,6 +250,9 @@ class ViTForMaskedImageModeling(BaseModel):
         config = config if config else ViTConfig()
         super().__init__(config)
         self.vit = ViTModel(config)
+        self.vit.patch_embed = PatchEmbed(img_size=config.image_size, patch_size=config.patch_size,
+                                          in_features=config.in_chans, out_features=config.embed_dim,
+                                          use_mask=True, parallel_config=config.parallel_config)
         self.decoder = nn.CellList(
             nn.Conv2d(
                 in_channels=config.hidden_size,
