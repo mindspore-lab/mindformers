@@ -286,3 +286,54 @@ def resume_checkpoint_for_training(config, network, optimizer):
         not_load_optim_params = load_param_into_net(optimizer, checkpoint_dict)
         logger.info("Not load network parameters is：%s", str(not_load_network_params))
         logger.info("Not load optimizer parameters is：%s", str(not_load_optim_params))
+
+
+def load_distributed_checkpoint_v2(config, model, dataset):
+    """Load Checkpoint in Parallel Mode."""
+    if not os.path.isdir(config.resume_or_finetune_checkpoint):
+        raise NotADirectoryError(
+            "When distributed loads are sliced weights,"
+            "resume_or_finetune_checkpoint should be a checkpoint directory containing the directory of rank_{0-*},"
+            "The directory structure is as follows: **checkpoint_root_dir/rank_{0-*}/checkpoint/**.ckpt")
+    distribute_checkpoint_dir = os.path.join(
+        config.resume_or_finetune_checkpoint,
+        "rank_{}".format(int(os.getenv("RANK_ID", "0"))), "checkpoint")
+    distribute_checkpoint_path = get_last_checkpoint(distribute_checkpoint_dir)
+    model.build(train_dataset=dataset, epoch=config.runner_config.epochs)
+    checkpoint_dict = load_checkpoint(distribute_checkpoint_path)
+    return checkpoint_dict
+
+
+def resume_checkpoint_for_training_v2(config, model, network, optimizer, dataset):
+    """Resume Checkpoint for training."""
+    if not os.path.realpath(config.resume_or_finetune_checkpoint) or \
+            not os.path.exists(config.resume_or_finetune_checkpoint):
+        raise FileNotFoundError(f"The resume_or_finetune_checkpoint must be correct, "
+                                f"but get {config.resume_or_finetune_checkpoint}")
+    if context.get_auto_parallel_context('parallel_mode') in \
+            ['semi_auto_parallel', 'auto_parallel', 'hybrid_parallel']:
+        checkpoint_dict = load_distributed_checkpoint_v2(config, model, dataset)
+    else:
+        checkpoint_dict = load_checkpoint(config.resume_or_finetune_checkpoint)
+    not_load_network_params = load_param_into_net(network, checkpoint_dict)
+    not_load_optim_params = load_param_into_net(optimizer, checkpoint_dict)
+    logger.info("Network parameters are not loaded：%s", str(not_load_network_params))
+    logger.info("Optimizer parameters are not loaded：%s", str(not_load_optim_params))
+
+
+def get_last_checkpoint(checkpoint_dir):
+    """get last checkpoint for resuming or finetune."""
+    if not os.path.isdir(checkpoint_dir):
+        raise NotADirectoryError(
+            "When distributed loads are sliced weights,"
+            "resume_or_finetune_checkpoint should be a checkpoint directory containing the directory of rank_{0-*},"
+            "The directory structure is as follows: **checkpoint_root_dir/rank_{0-*}/checkpoint/**.ckpt")
+    output_checkpoint_path = [
+        checkpoint for checkpoint in os.listdir(checkpoint_dir)
+        if checkpoint.endswith('.ckpt')
+    ]
+    if not output_checkpoint_path:
+        return None
+    output_checkpoint_path = sorted(output_checkpoint_path,
+                                    key=lambda x: os.path.getmtime(os.path.join(checkpoint_dir, x)))
+    return os.path.join(checkpoint_dir, output_checkpoint_path[-1])
