@@ -1,0 +1,65 @@
+train_dataset: &train_dataset
+  data_loader:
+    type: SQuADDataLoader
+    dataset_dir: "./squad/"
+    stage: "train"
+    column_names: ["input_ids", "input_mask", "token_type_id", "start_position", "end_position", "unique_id"]
+  tokenizer:
+    type: BertTokenizer
+    cls_token: '[CLS]'
+    mask_token: '[MASK]'
+    pad_token: '[PAD]'
+    sep_token: '[SEP]'
+    unk_token: '[UNK]'
+    do_basic_tokenize: True
+    do_lower_case: True
+
+  input_columns: ["input_ids", "input_mask", "token_type_id", "start_position", "end_position", "unique_id"]
+  output_columns: ["input_ids", "input_mask", "token_type_id", "start_position", "end_position", "unique_id"]
+  column_order: ["input_ids", "input_mask", "token_type_id", "start_position", "end_position", "unique_id"]
+  num_parallel_workers: 8
+  python_multiprocessing: True
+  drop_remainder: True
+  batch_size: 12
+  repeat: 1
+
+  numa_enable: False
+  prefetch_size: 30
+  seed: 2022
+  
+train_dataset_task:
+  type: QuestionAnsweringDataset
+  dataset_config: *train_dataset
+
+eval_dataset: &eval_dataset
+  data_loader:
+    type: SQuADDataLoader
+    dataset_dir: "./squad/"
+    stage: "dev"
+    column_names: ["input_ids", "input_mask", "token_type_id", "start_position", "end_position", "unique_id"]
+  tokenizer:
+    type: BertTokenizer
+    cls_token: '[CLS]'
+    mask_token: '[MASK]'
+    pad_token: '[PAD]'
+    sep_token: '[SEP]'
+    unk_token: '[UNK]'
+    do_basic_tokenize: True
+    do_lower_case: True
+
+  input_columns: ["input_ids", "input_mask", "token_type_id", "start_position", "end_position", "unique_id"]
+  output_columns: ["input_ids", "input_mask", "token_type_id", "start_position", "end_position", "unique_id"]
+  column_order: ["input_ids", "input_mask", "token_type_id", "start_position", "end_position", "unique_id"]
+  num_parallel_workers: 8
+  python_multiprocessing: True
+  drop_remainder: True
+  batch_size: 12
+  repeat: 1
+
+  numa_enable: False
+  prefetch_size: 30
+  seed: 2022
+  
+eval_dataset_task:
+  type: QuestionAnsweringDataset
+  dataset_config: *eval_dataset

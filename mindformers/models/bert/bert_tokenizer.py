@@ -24,7 +24,7 @@ from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.models.base_tokenizer import Tokenizer
 from ...mindformer_book import MindFormerBook
 
-__all__ = ['BertTokenizer']
+__all__ = ['BertTokenizer', 'BasicTokenizer']
 
 def convert_to_unicode(text):
     """

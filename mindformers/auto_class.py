@@ -21,7 +21,7 @@ import json
 import shutil
 
 from .mindformer_book import MindFormerBook, print_dict
-from .models import build_processor
+from .models.build_processor import build_processor
 from .models.base_config import BaseConfig
 from .models.build_model import build_model
 from .models.build_config import build_model_config

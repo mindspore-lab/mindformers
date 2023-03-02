@@ -84,7 +84,7 @@ class TokenClassificationTrainer(BaseTrainer):
     """
 
     def __init__(self, model_name: str = None):
-        super(TokenClassificationTrainer, self).__init__("translation", model_name)
+        super(TokenClassificationTrainer, self).__init__("token_classification", model_name)
 
     def train(self,
               config: Optional[Union[dict, MindFormerConfig, ConfigArguments, TrainingArguments]] = None,
@@ -165,7 +165,7 @@ class TokenClassificationTrainer(BaseTrainer):
         """
         metric_name = "Entity Metric"
         kwargs.setdefault("metric_name", metric_name)
-        super().evaluate(
+        super().evaluate_process(
             config=config,
             network=network,
             dataset=dataset,

@@ -1,4 +1,4 @@
-# Copyright 2022 Huawei Technologies Co., Ltd
+# Copyright 2023 Huawei Technologies Co., Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,13 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-"""MindFormers DataLoader."""
-from .build_dataloader import build_dataset_loader
-from .flickr8k_dataloader import Flickr8kDataLoader
-from .cifar100_dataloader import Cifar100DataLoader
-from .wmt16_dataloader import WMT16DataLoader
-from .cluener_dataloader import CLUENERDataLoader
-from .squad_dataloader import SQuADDataLoader
+"""Question Answering Trainer."""
+from .question_answering import QuestionAnsweringTrainer
 
-__all__ = ['build_dataset_loader', 'Flickr8kDataLoader', 'Cifar100DataLoader', 'WMT16DataLoader',
-           'CLUENERDataLoader', 'SQuADDataLoader']
+
+__all__ = ['QuestionAnsweringTrainer']
