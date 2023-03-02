@@ -32,10 +32,13 @@ class RandomChoiceTokenizerForward:
         self.random_seed = random_seed
 
     def __call__(self, text):
+        text_list = text.tolist()
         np.random.seed(self.random_seed)
-        index = np.random.choice(len(text.tolist()))
+        index = np.random.choice(len(text_list))
+
         token_id = self.tokenizer(
-            text.tolist()[index],
+            text_list[index].decode("utf-8", "ignore") if \
+                isinstance(text_list[index], bytes) else text_list[index],
             max_length=self.max_length,
             padding=self.padding
         )["input_ids"]
@@ -52,6 +55,9 @@ class TokenizerForward:
     def __call__(self, text):
         """call method"""
         text = text.tolist() if isinstance(text, np.ndarray) else text
+        for i in range(len(text)):
+            if isinstance(text[i], bytes):
+                text[i] = text[i].decode("utf-8", "ignore")
         token_id = self.tokenizer(
             text, max_length=self.max_length,
             padding=self.padding)["input_ids"]
