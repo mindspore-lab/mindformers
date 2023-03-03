@@ -70,6 +70,11 @@ def get_converted_ckpt(mapped_params, weight_dict):
 
     # Currently, the ms_extend_param the torch_extend_param is the full parameters.
     for src, tgt in mapped_params:
+        if tgt not in weight_dict:
+            if "LayerNorm.gamma" in tgt:
+                tgt = tgt.replace("gamma", "weight")
+            if "LayerNorm.beta" in tgt:
+                tgt = tgt.replace("beta", "bias")
         value = weight_dict[tgt].numpy()
         if 'output.dense.weight' in tgt or 'intermediate.dense.weight' in tgt:
             value = np.transpose(value, [1, 0])
