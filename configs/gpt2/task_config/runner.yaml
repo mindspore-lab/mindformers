@@ -11,7 +11,7 @@ runner_config:
   has_trained_steps: 0
 
 runner_wrapper:
-  type: TrainOneStepWithClipGN
+  type: MFTrainOneStepCell
   scale_sense:
     type: DynamicLossScaleUpdateCell
     loss_scale_value: 4294967296
@@ -29,11 +29,11 @@ optimizer:
 
 # lr sechdule
 lr_schedule:
-  type: WarmUpDecayLR
+  type: polynomial
   learning_rate: 0.0001
-  end_learning_rate: 0.00001
+  lr_end: 0.00001
   warmup_steps: 0
-  decay_steps: -1
+  total_steps: -1 # -1 means it will load the total steps of the dataset
 
 callbacks:
   - type: MFLossMonitor

@@ -25,7 +25,7 @@ from PIL.Image import Image
 from mindspore import Tensor
 from mindspore.common import set_seed
 from mindspore import load_checkpoint, load_param_into_net
-from mindspore.nn import TrainOneStepCell, Optimizer
+from mindspore.nn import TrainOneStepCell, Optimizer, Cell
 from mindspore.train import Callback
 from mindspore.dataset import GeneratorDataset
 from mindspore.dataset.engine.datasets import BatchDataset, RepeatDataset
@@ -73,8 +73,8 @@ class Trainer:
         task (str): The task name supported.
             Please refer to https://gitee.com/mindspore/transformer#%E4%BB%8B%E7%BB%8D.
             Default: 'general'.
-        model (Optional[Union[str, BaseModel]]): The network for trainer.
-            It support model name supported or BaseModel class.
+        model (Optional[Union[str, Cell, BaseModel]]): The network for trainer.
+            It support model name supported or BaseModel or MindSpore Cell class.
             Supported model name can refer to https://gitee.com/mindspore/transformer#%E4%BB%8B%E7%BB%8D.
             Default: None.
         train_dataset (Optional[Union[str, BaseDataset]]): The training dataset. It support real dataset path or
@@ -165,7 +165,7 @@ class Trainer:
     def __init__(self,
                  args: Optional[Union[str, dict, ConfigArguments, TrainingArguments]] = None,
                  task: Optional[str] = 'general',
-                 model: Optional[Union[str, BaseModel]] = None,
+                 model: Optional[Union[str, Cell, BaseModel]] = None,
                  train_dataset: Optional[Union[str, BaseDataset]] = None,
                  eval_dataset: Optional[Union[str, BaseDataset]] = None,
                  tokenizer: Optional[BaseTokenizer] = None,
@@ -218,7 +218,7 @@ class Trainer:
         else:
             self.model_name = "common"
 
-        if isinstance(self.model, BaseModel):
+        if isinstance(self.model, (Cell, BaseModel)):
             logger.info("The model instance has been entered, "
                         "and the model will not be created from model_config")
             self.is_model_instance = True
@@ -402,7 +402,8 @@ class Trainer:
             dataset=self.train_dataset, optimizer=self.optimizers,
             eval_dataset=self.eval_dataset if do_eval else None,
             wrapper=self.wrapper,
-            callbacks=self.callbacks, **kwargs)
+            callbacks=self.callbacks,
+            is_full_config=True, **kwargs)
 
     def evaluate(self, eval_checkpoint: Optional[Union[str, bool]] = False, **kwargs):
         r"""Evaluate task for Trainer.
@@ -444,7 +445,8 @@ class Trainer:
 
         self.trainer.evaluate(
             config=self.config, network=self.model,
-            dataset=self.eval_dataset, callbacks=self.eval_callbacks, **kwargs)
+            dataset=self.eval_dataset, callbacks=self.eval_callbacks,
+            is_full_config=True, **kwargs)
 
     def predict(self,
                 predict_checkpoint: Optional[Union[str, bool]] = None,
@@ -511,7 +513,8 @@ class Trainer:
             config=self.config, input_data=input_data,
             network=self.model, image_processor=self.image_processor,
             audio_processor=self.audio_processor,
-            tokenizer=self.tokenizer, **kwargs)
+            tokenizer=self.tokenizer,
+            is_full_config=True, **kwargs)
         return output_result
 
     def build_network(self, input_checkpoint: Optional[Union[str, bool]] = None, is_train: bool = True):
@@ -710,10 +713,10 @@ class Trainer:
                 logger.info("not load parameters is: %s", str(not_load_params))
             elif is_checkpoint_name:
                 logger.info("now input valid checkpoint name, it will load to network.")
-                if isinstance(self.model, BaseModel):
+                if isinstance(self.model, (Cell, BaseModel)):
                     self.model.load_checkpoint(self.config.model.model_config)
                 else:
-                    logger.warning("model must be BaseModel type, but get %s", type(self.model))
+                    logger.warning("model must be BaseModel or Cell type, but get %s", type(self.model))
             else:
                 logger.warning("input checkpoint args is invalid, "
                                "it must be valid and real checkpoint path or a valid checkpoint name,"

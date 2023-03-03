@@ -18,22 +18,23 @@ from typing import Optional, List, Union
 import numpy as np
 from PIL.Image import Image
 
-from mindspore.train.model import Model
 from mindspore.train import Callback
 from mindspore import Tensor
+from mindspore.nn import Cell
 from mindspore.dataset import GeneratorDataset
 
-from mindformers.common.metric import build_metric
-from mindformers.common.callback import build_callback
-from mindformers.dataset import build_dataset, check_dataset_config, BaseDataset
+
+from mindformers.dataset import BaseDataset
 from mindformers.models import build_model, build_tokenizer, build_processor, \
     BaseModel, BaseTokenizer, BaseImageProcessor
 from mindformers.pipeline import pipeline
 from mindformers.tools.logger import logger
 from mindformers.tools.utils import count_params
-from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
+from mindformers.tools.register import MindFormerRegister, \
+    MindFormerModuleType, MindFormerConfig
 from ...dataset.dataloader import build_dataset_loader
 from ..config_args import ConfigArguments
+from ..training_args import TrainingArguments
 from ..base_trainer import BaseTrainer
 
 
@@ -51,29 +52,23 @@ class ZeroShotImageClassificationTrainer(BaseTrainer):
         NotImplementedError: If train method or evaluate method or predict method not implemented.
 
     Examples:
-        >>> import os
-        >>> from mindformers import MindFormerBook, MindFormerConfig
         >>> from mindformers import ZeroShotImageClassificationTrainer
-        >>> project_path = MindFormerBook.get_project_path()
-        >>> config_path = os.path.join(project_path, "configs",
-        >>>                 "clip", "run_clip_vit_b_32_zero_shot_image_classification_cifar100.yaml")
-        >>> config = MindFormerConfig(config_path)
-            Note:
-                Put cifar100 dataset to ./
-                The detailed data setting could refer to ./configs/clip/clip.md
-        >>> trainer = ZeroShotImageClassificationTrainer(config)
+        >>> trainer = ZeroShotImageClassificationTrainer(model_name="clip_vit_b_32")
         >>> trainer.evaluate()
         >>> trainer.predict()
     """
 
     def __init__(self, model_name: str = None):
-        super(ZeroShotImageClassificationTrainer, self).__init__(model_name)
-        self.kwargs = None
+        super(ZeroShotImageClassificationTrainer, self).__init__("zero_shot_image_classification", model_name)
+
+    def train(self, *args, **kwargs):
+        raise NotImplementedError(
+            "The ZeroShotImageClassification task does not support train.")
 
     def evaluate(self,
-                 config: Optional[Union[dict, ConfigArguments]] = None,
-                 network: Optional[Union[str, BaseModel]] = None,
-                 dataset: Optional[Union[str, BaseDataset]] = None,
+                 config: Optional[Union[dict, MindFormerConfig, ConfigArguments, TrainingArguments]] = None,
+                 network: Optional[Union[Cell, BaseModel]] = None,
+                 dataset: Optional[Union[BaseDataset, GeneratorDataset]] = None,
                  callbacks: Optional[Union[Callback, List[Callback]]] = None,
                  compute_metrics: Optional[Union[dict, set]] = None,
                  **kwargs):
@@ -84,16 +79,15 @@ class ZeroShotImageClassificationTrainer(BaseTrainer):
         It also allows users to customize the network, dataset, callbacks, compute_metrics.
 
         Args:
-            config (Optional[Union[dict, ConfigArguments]]): The task config which is used to
-                configure the dataset, the hyper-parameter, etc.
-                It supports config dict or ConfigArguments class.
+            config (Optional[Union[dict, MindFormerConfig, ConfigArguments, TrainingArguments]]):
+                The task config which is used to configure the dataset, the hyper-parameter, optimizer, etc.
+                It supports config dict or MindFormerConfig or TrainingArguments or ConfigArguments class.
                 Default: None.
-            network (Optional[Union[str, BaseModel]]): The network for trainer.
-                It supports model name supported or BaseModel class.
+            network (Optional[Union[Cell, BaseModel]]): The network for trainer.
+                It supports model name or BaseModel or MindSpore Cell class.
                 Default: None.
-            dataset (Optional[Union[str, BaseDataset]]): The dataset.
-                It supports real dataset path or
-                BaseDateset class or MindSpore Dataset class.
+            dataset (Optional[Union[BaseDataset, GeneratorDataset]]): The evaluate dataset.
+                It supports real dataset path or BaseDateset class or MindSpore Dataset class.
                 Default: None.
             callbacks (Optional[Union[Callback, List[Callback]]]): The training callback function.
                 It supports CallBack or CallBack List of MindSpore.
@@ -102,58 +96,34 @@ class ZeroShotImageClassificationTrainer(BaseTrainer):
                 It supports dict or set in MindSpore's Metric class.
                 Default: None.
         """
-        self.kwargs = kwargs
-        # build dataset
-        logger.info(".........Build Dataset..........")
-        check_dataset_config(config)
-        if dataset is None:
-            dataset = build_dataset(config.eval_dataset_task)
-        logger.info("Create eval dataset finish, dataset size:%d", dataset.get_dataset_size())
-
-        # build network
-        logger.info(".........Build Net..........")
-        if network is None:
-            network = build_model(config.model)
-        network.set_train(mode=False)
-        logger.info("Network Parameters: %s M.", str(count_params(network)))
-
-        logger.info(".........Build Metrics..........")
-        if compute_metrics is None:
-            compute_metrics = {'Top1 Accuracy': build_metric(config.metric)}
-
-        if callbacks is None:
-            callbacks = []
-            if config.profile:
-                callbacks.append(config.profile_cb)
-            callbacks.extend(build_callback(config.eval_callbacks))
-
-        logger.info(".........Starting Init Model..........")
-        model = Model(network, metrics=compute_metrics, eval_network=network)
-
-        logger.info(".........Starting Evaling Model..........")
-        output = model.eval(dataset,
-                            callbacks=callbacks,
-                            dataset_sink_mode=config.runner_config.sink_mode)
-        logger.info("Top1 Accuracy=%s", (str(output["Top1 Accuracy"]*100)+'%'))
-        logger.info(".........Eval Over!.............")
+        metric_name = "Top1 Accuracy"
+        kwargs.setdefault("metric_name", metric_name)
+        self.evaluate_process(
+            config=config,
+            network=network,
+            dataset=dataset,
+            compute_metrics=compute_metrics,
+            callbacks=callbacks,
+            **kwargs
+        )
 
     def predict(self,
-                config: Optional[Union[dict, ConfigArguments]] = None,
+                config: Optional[Union[dict, MindFormerConfig, ConfigArguments, TrainingArguments]] = None,
                 input_data: Optional[Union[GeneratorDataset,
                                            Tensor, np.ndarray, Image, str, list]] = None,
-                network: Optional[Union[str, BaseModel]] = None,
+                network: Optional[Union[Cell, BaseModel]] = None,
                 tokenizer: Optional[BaseTokenizer] = None,
                 image_processor: Optional[BaseImageProcessor] = None, **kwargs):
         r"""Predict task for ZeroShotImageClassification Trainer.
         This function is used to predict the network.
 
         Args:
-            config (Optional[Union[dict, ConfigArguments]]): The task config which is used to
-                configure the dataset, the hyper-parameter, etc.
-                It supports config dict or ConfigArguments class.
+            config (Optional[Union[dict, MindFormerConfig, ConfigArguments, TrainingArguments]]):
+                The task config which is used to configure the dataset, the hyper-parameter, optimizer, etc.
+                It supports config dict or MindFormerConfig or TrainingArguments or ConfigArguments class.
                 Default: None.
-            network (Optional[Union[str, BaseModel]]): The network for trainer.
-                It supports model name or BaseModel class.
+            network (Optional[Union[Cell, BaseModel]]): The network for trainer.
+                It supports model name or BaseModel or MindSpore Cell class.
                 Default: None.
             input_data (Optional[Union[GeneratorDataset, Tensor, np.ndarray, Image, str, list]]):
                 The dataset. It supports real dataset path or
@@ -162,7 +132,8 @@ class ZeroShotImageClassificationTrainer(BaseTrainer):
             tokenizer (Optional[BaseTokenizer]): Used for text process.
             image_processor (Optional[BaseImageProcessor]): Used for image process.
         """
-        self.kwargs = kwargs
+        config = self.set_config(config)
+
         logger.info(".........Build Input Data For Predict..........")
         if input_data is None and config.input_data is not None:
             input_data = config.input_data

@@ -15,21 +15,18 @@
 """Contrastive Language Image Pretrain Trainer."""
 from typing import Optional, List, Union
 
-from mindspore.train.model import Model
 from mindspore.train import Callback
-from mindspore.nn import Optimizer
+from mindspore.dataset import GeneratorDataset
+from mindspore.nn import TrainOneStepCell, Optimizer, Cell
 
-from mindformers.common.callback import build_callback
-from mindformers.dataset import build_dataset, check_dataset_config, BaseDataset
-from mindformers.models import build_model, BaseModel
-from mindformers.common.lr import build_lr
-from mindformers.common.optim import build_optim
-from mindformers.tools.logger import logger
-from mindformers.tools.utils import count_params
-from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
+from mindformers.dataset import BaseDataset
+from mindformers.models import BaseModel
+
+from mindformers.tools.register import MindFormerRegister, \
+    MindFormerModuleType, MindFormerConfig
 from ..config_args import ConfigArguments
+from ..training_args import TrainingArguments
 from ..base_trainer import BaseTrainer
-from ..utils import check_runner_config, resume_checkpoint_for_training
 
 
 @MindFormerRegister.register(MindFormerModuleType.TRAINER)
@@ -43,104 +40,57 @@ class ContrastiveLanguageImagePretrainTrainer(BaseTrainer):
         NotImplementedError: If train method or evaluate method or predict method not implemented.
 
     Examples:
-        >>> import os
-        >>> from mindformers import MindFormerBook, MindFormerConfig
         >>> from mindformers import ContrastiveLanguageImagePretrainTrainer
-        >>> project_path = MindFormerBook.get_project_path()
-        >>> config_path = os.path.join(project_path, "configs", "clip",
-        >>>                            "run_clip_vit_b_32_pretrain_flickr8k.yaml")
-        >>> config = MindFormerConfig(config_path)
-            Note:
-                Put flicker8k dataset to ./checkpoint_download
-                The detailed data setting could refer to ./configs/clip/clip.md
-        >>> trainer = ContrastiveLanguageImagePretrainTrainer()
-        >>> trainer.train(config)
+        >>> trainer = ContrastiveLanguageImagePretrainTrainer(model_name="clip_vit_b_b32")
+        >>> trainer.train()
     """
 
     def __init__(self, model_name: str = None):
-        super(ContrastiveLanguageImagePretrainTrainer, self).__init__(model_name)
-        self.model_name = model_name
-        self.kwargs = None
+        super(ContrastiveLanguageImagePretrainTrainer, self).__init__(
+            "contrastive_language_image_pretrain", model_name)
 
     def train(self,
-              config: Optional[Union[dict, ConfigArguments]] = None,
-              network: Optional[Union[str, BaseModel]] = None,
-              dataset: Optional[Union[str, BaseDataset]] = None,
+              config: Optional[Union[dict, MindFormerConfig, ConfigArguments, TrainingArguments]] = None,
+              network: Optional[Union[Cell, BaseModel]] = None,
+              dataset: Optional[Union[BaseDataset, GeneratorDataset]] = None,
               optimizer: Optional[Optimizer] = None,
+              wrapper: Optional[TrainOneStepCell] = None,
               callbacks: Optional[Union[Callback, List[Callback]]] = None,
               **kwargs):
         r"""Train For Trainer.
 
         Args:
-            config (Optional[Union[dict, ConfigArguments]]): The task config which is used to
-                configure the dataset, the hyper-parameter, optimizer, etc.
-                It supports config dict or ConfigArguments class.
+            config (Optional[Union[dict, MindFormerConfig, ConfigArguments, TrainingArguments]]):
+                The task config which is used to configure the dataset, the hyper-parameter, optimizer, etc.
+                It supports config dict or MindFormerConfig or TrainingArguments or ConfigArguments class.
                 Default: None.
-            network (Optional[Union[str, BaseModel]]): The network for trainer.
-                It supports model name or BaseModel class.
+            network (Optional[Union[Cell, BaseModel]]): The network for trainer.
+                It supports model name or BaseModel or MindSpore Cell class.
                 Default: None.
-            dataset (Optional[Union[str, BaseDataset]]): The training dataset.
-                It supports real dataset path or
-                BaseDateset class or MindSpore Dataset class.
+            dataset (Optional[Union[BaseDataset, GeneratorDataset]]): The training dataset.
+                It supports real dataset path or BaseDateset class or MindSpore Dataset class.
                 Default: None.
             optimizer (Optional[Optimizer]): The optimizer used for training .Default: None.
+            wrapper (Optional[TrainOneStepCell]): Wraps the `network` with the `optimizer`.
+                It support TrainOneStepCell class of MindSpore.
+                Default: None.
             callbacks (Optional[Union[Callback, List[Callback]]]): The training callback function.
                 It supports CallBack or CallBack List of MindSpore.
                 Default: None.
         """
-        self.kwargs = kwargs
+        self.training_process(
+            config=config,
+            network=network,
+            callbacks=callbacks,
+            dataset=dataset,
+            optimizer=optimizer,
+            wrapper=wrapper,
+            **kwargs)
 
-        # build dataset
-        logger.info(".........Build Dataset..........")
-        check_dataset_config(config)
-        if dataset is None:
-            dataset = build_dataset(config.train_dataset_task)
-        check_runner_config(config, dataset)
+    def evaluate(self, **kwargs):
+        raise NotImplementedError(
+            "The contrastive language image pretrain task does not support evaluate.")
 
-        # build network
-        logger.info(".........Build Net..........")
-        if network is None:
-            network = build_model(config.model)
-        logger.info("Network Parameters: %s M.", str(count_params(network)))
-
-        # build optimizer
-        logger.info(".........Build Optimizer..........")
-        if optimizer is None:
-            # build learning rate schedule
-            logger.info(".........Build LR Schedule..........")
-            lr_schedule = build_lr(config.lr_schedule)
-            group_params = network.trainable_params()
-            if lr_schedule is not None:
-                optimizer = build_optim(
-                    config.optimizer,
-                    default_args={"params": group_params,
-                                  "learning_rate": lr_schedule})
-            else:
-                assert config.optimizer.learning_rate, "learning_rate must be input"
-                optimizer = build_optim(
-                    config.optimizer,
-                    default_args={"params": group_params})
-
-        logger.info(".........Build Callbacks for Train..........")
-        if callbacks is None:
-            callbacks = []
-            if config.profile:
-                callbacks.append(config.profile_cb)
-            callbacks.extend(build_callback(
-                config.callbacks))
-
-        # resume checkpoint
-        if config.resume_or_finetune_checkpoint is not None and config.resume_or_finetune_checkpoint != '':
-            logger.info(".............start resume training from checkpoint..................")
-            resume_checkpoint_for_training(config, network, optimizer)
-
-        # define Model and begin training
-        logger.info(".........Starting Init Train Model..........")
-        model = Model(network, optimizer=optimizer)
-
-        model.train(
-            config.runner_config.epochs, dataset, callbacks=callbacks,
-            dataset_sink_mode=config.runner_config.sink_mode,
-            sink_size=config.runner_config.per_epoch_size,
-            initial_epoch=config.runner_config.initial_epoch)
-        logger.info(".........Training Over!.............")
+    def predict(self, **kwargs):
+        raise NotImplementedError(
+            "The contrastive language image pretrain task does not support predict.")

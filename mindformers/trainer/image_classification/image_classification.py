@@ -19,7 +19,8 @@ import numpy as np
 from PIL.Image import Image
 
 from mindspore.train import Callback
-from mindspore.nn import TrainOneStepCell, Optimizer
+from mindspore.dataset import GeneratorDataset
+from mindspore.nn import TrainOneStepCell, Optimizer, Cell
 from mindspore import Tensor
 
 from mindformers.dataset import BaseDataset
@@ -30,6 +31,8 @@ from mindformers.tools.utils import count_params
 from mindformers.tools.image_tools import load_image
 from mindformers.tools.register import MindFormerRegister, \
     MindFormerModuleType, MindFormerConfig
+from ..config_args import ConfigArguments
+from ..training_args import TrainingArguments
 from ..base_trainer import BaseTrainer
 
 
@@ -49,7 +52,7 @@ class ImageClassificationTrainer(BaseTrainer):
             ...      DynamicLossScaleUpdateCell, TrainOneStepWithLossScaleCell, Accuracy
             >>> from mindformers.trainer import ImageClassificationTrainer
             >>> from mindformers.tools.register import MindFormerConfig
-            >>> from mindformers.models import ViTForImageClassification, ViTConfig, VitImageProcessor
+            >>> from mindformers.models import ViTForImageClassification, ViTConfig, ViTImageProcessor
             >>> class MyDataLoader:
             ...    def __init__(self):
             ...        self._data = [np.zeros((3, 224, 224), np.float32) for _ in range(64)]
@@ -80,7 +83,7 @@ class ImageClassificationTrainer(BaseTrainer):
             >>> cls_task.train(wrapper=wrapper, dataset=dataset)
             >>> compute_metrics = {"Accuracy": Accuracy(eval_type='classification')}
             >>> cls_task.evaluate(network=network_with_loss, dataset=dataset, compute_metrics=compute_metrics)
-            >>> image_processor = VitImageProcessor(image_resolution=224)
+            >>> image_processor = ViTImageProcessor(size=224)
             >>> cls_task.predict(input_data=input_data, image_processor=image_processor, top_k=5)
 
     Raises:
@@ -91,9 +94,9 @@ class ImageClassificationTrainer(BaseTrainer):
         super().__init__('image_classification', model_name)
 
     def train(self,
-              config: Optional[Union[dict, MindFormerConfig]] = None,
-              network: Optional[Union[str, BaseModel]] = None,
-              dataset: Optional[Union[str, BaseDataset]] = None,
+              config: Optional[Union[dict, MindFormerConfig, ConfigArguments, TrainingArguments]] = None,
+              network: Optional[Union[Cell, BaseModel]] = None,
+              dataset: Optional[Union[BaseDataset, GeneratorDataset]] = None,
               wrapper: Optional[TrainOneStepCell] = None,
               optimizer: Optional[Optimizer] = None,
               callbacks: Optional[Union[Callback, List[Callback]]] = None,
@@ -105,15 +108,15 @@ class ImageClassificationTrainer(BaseTrainer):
         It also allows users to customize the network, optimizer, dataset, wrapper, callback.
 
         Args:
-            config (Optional[Union[dict, MindFormerConfig]]): The task config which is used to
-                configure the dataset, the hyper-parameter, optimizer, etc.
-                It support config dict or MindFormerConfig class.
+            config (Optional[Union[dict, MindFormerConfig, ConfigArguments, TrainingArguments]]):
+                The task config which is used to configure the dataset, the hyper-parameter, optimizer, etc.
+                It supports config dict or MindFormerConfig or TrainingArguments or ConfigArguments class.
                 Default: None.
-            network (Optional[Union[str, BaseModel]]): The network for trainer. It support model name supported
-                or BaseModel class. Supported model name can refer to ****.
+            network (Optional[Union[Cell, BaseModel]]): The network for trainer.
+                It supports model name or BaseModel or MindSpore Cell class.
                 Default: None.
-            dataset (Optional[Union[str, BaseDataset]]): The training dataset. It support real dataset path or
-                BaseDateset class or MindSpore Dataset class.
+            dataset (Optional[Union[BaseDataset, GeneratorDataset]]): The training dataset.
+                It support real dataset path or BaseDateset class or MindSpore Dataset class.
                 Default: None.
             optimizer (Optional[Optimizer]): The training network's optimizer. It support Optimizer class of MindSpore.
                 Default: None.
@@ -127,7 +130,7 @@ class ImageClassificationTrainer(BaseTrainer):
         Raises:
             NotImplementedError: If wrapper not implemented.
         """
-        super().train(
+        self.training_process(
             config=config,
             network=network,
             callbacks=callbacks,
@@ -137,9 +140,9 @@ class ImageClassificationTrainer(BaseTrainer):
             **kwargs)
 
     def evaluate(self,
-                 config: Optional[Union[dict, MindFormerConfig]] = None,
-                 network: Optional[Union[str, BaseModel]] = None,
-                 dataset: Optional[Union[str, BaseDataset]] = None,
+                 config: Optional[Union[dict, MindFormerConfig, ConfigArguments, TrainingArguments]] = None,
+                 network: Optional[Union[Cell, BaseModel]] = None,
+                 dataset: Optional[Union[BaseDataset, GeneratorDataset]] = None,
                  callbacks: Optional[Union[Callback, List[Callback]]] = None,
                  compute_metrics: Optional[Union[dict, set]] = None,
                  **kwargs):
@@ -150,15 +153,15 @@ class ImageClassificationTrainer(BaseTrainer):
         It also allows users to customize the network, dataset, callbacks, compute_metrics.
 
         Args:
-            config (Optional[Union[dict,MindFormerConfig]]): The task config which is used to
-                configure the dataset, the hyper-parameter, optimizer, etc.
-                It support config dict or MindFormerConfig class.
+            config (Optional[Union[dict, MindFormerConfig, ConfigArguments, TrainingArguments]]):
+                The task config which is used to configure the dataset, the hyper-parameter, optimizer, etc.
+                It supports config dict or MindFormerConfig or TrainingArguments or ConfigArguments class.
                 Default: None.
-            network (Optional[Union[str, BaseModel]]): The network for trainer. It support model name supported
-                or BaseModel class. Supported model name can refer to ****.
+            network (Optional[Union[Cell, BaseModel]]): The network for trainer.
+                It supports model name or BaseModel or MindSpore Cell class.
                 Default: None.
-            dataset (Optional[Union[str, BaseDataset]]): The training dataset. It support real dataset path or
-                BaseDateset class or MindSpore Dataset class.
+            dataset (Optional[Union[BaseDataset, GeneratorDataset]]): The evaluate dataset.
+                It support real dataset path or BaseDateset class or MindSpore Dataset class.
                 Default: None.
             callbacks (Optional[Union[Callback, List[Callback]]]): The training callback function.
                 It support CallBack or CallBack List of MindSpore.
@@ -169,7 +172,7 @@ class ImageClassificationTrainer(BaseTrainer):
         """
         metric_name = "Top1 Accuracy"
         kwargs.setdefault("metric_name", metric_name)
-        super().evaluate(
+        self.evaluate_process(
             config=config,
             network=network,
             dataset=dataset,
@@ -179,9 +182,9 @@ class ImageClassificationTrainer(BaseTrainer):
         )
 
     def predict(self,
-                config: Optional[Union[dict, MindFormerConfig]] = None,
+                config: Optional[Union[dict, MindFormerConfig, ConfigArguments, TrainingArguments]] = None,
                 input_data: Optional[Union[Tensor, np.ndarray, Image, str, list]] = None,
-                network: Optional[Union[str, BaseModel]] = None,
+                network: Optional[Union[Cell, BaseModel]] = None,
                 image_processor: Optional[BaseImageProcessor] = None, **kwargs):
         r"""Predict task for ImageClassification Trainer.
         This function is used to predict the network.
@@ -190,19 +193,18 @@ class ImageClassificationTrainer(BaseTrainer):
         It also allows users to customize the network, tokenizer, image_processor, audio_processor.
 
         Args:
-            config (Optional[Union[dict]]): The task config which is used to
-                configure the dataset, the hyper-parameter, optimizer, etc.
-                It support config dict or MindFormerConfig class.
+            config (Optional[Union[dict, MindFormerConfig, ConfigArguments, TrainingArguments]]):
+                The task config which is used to configure the dataset, the hyper-parameter, optimizer, etc.
+                It supports config dict or MindFormerConfig or TrainingArguments or ConfigArguments class.
                 Default: None.
             input_data (Optional[Union[Tensor, np.ndarray, Image, str, list]]): The predict data. Default: None.
-            network (Optional[Union[str, BaseModel]]): The network for trainer. It support model name supported
-                or BaseModel class. Supported model name can refer to ****.
+            network (Optional[Union[Cell, BaseModel]]): The network for trainer.
+                It supports model name or BaseModel or MindSpore Cell class.
                 Default: None.
             image_processor (Optional[BaseImageProcessor]): The processor for image preprocessing.
                 It support BaseImageProcessor class.
                 Default: None.
         """
-        self.kwargs = kwargs
         config = self.set_config(config)
 
         logger.info(".........Build Input Data For Predict..........")

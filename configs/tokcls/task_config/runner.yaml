@@ -13,18 +13,16 @@ runner_wrapper:
 
 # optimizer
 optimizer:
-  type: AdamWeightDecay
+  type: adamw
   weight_decay: 0.01
   eps: 0.00000001  # 1e-8
-
-other_optimizer_config:
-  no_decay: ['layernorm', 'bias']
-  warmup_proportion: 0.1
 
 # lr sechdule
 lr_schedule:
   type: linear
   learning_rate: 0.00003  # 3e-5
+  warmup_ratio: 0.1
+  total_steps: -1 # -1 means it will load the total steps of the dataset
 
 callbacks:
   - type: MFLossMonitor

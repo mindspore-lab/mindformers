@@ -16,7 +16,7 @@ runner_wrapper:
 
 # optimizer
 optimizer:
-  type: AdamWeightDecay
+  type: adamw
   beta1: 0.9
   beta2: 0.999
   eps: 0.00000001 # 1e-8
@@ -24,10 +24,11 @@ optimizer:
 
 # lr sechdule
 lr_schedule:
-  type: WarmUpLR
+  type: cosine
   learning_rate: 0.0001
-  end_learning_rate: 0.000001
+  lr_end: 0.000001
   warmup_steps: 10000
+  total_steps: -1 # -1 means it will load the total steps of the dataset
 
 callbacks:
   - type: MFLossMonitor

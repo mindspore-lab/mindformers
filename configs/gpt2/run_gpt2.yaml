@@ -14,5 +14,5 @@ resume_or_finetune_checkpoint: ""
 
 run_mode: 'train'
 trainer:
-  type: mlm
+  type: MaskedLanguageModelingTrainer
   model_name: 'gpt2'

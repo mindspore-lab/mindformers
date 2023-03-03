@@ -55,13 +55,13 @@ def get_optimizer_grouped_parameters(model: Optional[BaseModel] = None,
     scales_list = []
     if dynamic_lr_schedule is not None:
         if layer_scale:
-            if model.__class__.__name__ == 'SwinModel':
+            if model.__class__.__name__ == 'SwinForImageClassification':
                 depths = model.config.depths
                 num_layers = sum(depths)
                 get_layer_id_func = partial(get_swin_layer, num_layers=num_layers + 2, depths=depths)
                 scales_list = list(layer_decay ** i for i in reversed(range(num_layers + 2)))
-            elif model.__class__.__name__ == 'VitModel':
-                num_layers = model.config.depth
+            elif model.__class__.__name__ == 'ViTForImageClassification':
+                num_layers = model.config.num_hidden_layers
                 get_layer_id_func = partial(get_vit_layer, num_layers=num_layers + 2)
                 scales_list = list(layer_decay ** i for i in reversed(range(num_layers + 2)))
             else:
@@ -115,11 +115,11 @@ def get_optimizer_grouped_parameters(model: Optional[BaseModel] = None,
 
 def get_vit_layer(name, num_layers):
     """get vit layer"""
-    if name in ("cls_tokens", "mask_tokens", "pos_embed"):
+    if name.endswith(("cls_tokens", "mask_tokens", "pos_embed")):
         layer_num = 0
-    elif name.startswith("patch_embed"):
+    elif name.startswith("vit.patch_embed"):
         layer_num = 0
-    elif name.startswith("blocks"):
+    elif name.startswith("vit.blocks"):
         layer_id = int(name.split('.')[1])
         layer_num = layer_id + 1
     else:

@@ -56,7 +56,7 @@ def test_trainer_train_from_training_args():
     dataset = build_dataset(dataset_config.train_dataset_task)
 
     mae_config = TrainingArguments(
-        lr_scheduler_type="WarmUpCosineDecayV1", optim="AdamWeightDecay", num_train_epochs=2,
+        lr_scheduler_type="cosine", optim="AdamWeightDecay", num_train_epochs=2,
         batch_size=8, per_device_train_batch_size=8, adam_epsilon=1e-9, adam_beta1=0.999,
         adam_beta2=0.95, weight_decay=0.5, save_strategy='steps', save_steps=1000, sink_mode=False)
 

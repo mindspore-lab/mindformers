@@ -110,7 +110,7 @@ def test_bert_trainer_predict():
     mlm_trainer = MaskedLanguageModelingTrainer(model_name="bert_tiny_uncased")
     tokenizer = BertTokenizer.from_pretrained("bert_tiny_uncased")
     input_data = [" Hello I am a [MASK] model.",]
-    output = mlm_trainer.predict(config=config, input_data=input_data, network=bert, tokenizer=tokenizer)
+    output = mlm_trainer.predict(input_data=input_data, network=bert, tokenizer=tokenizer)
     assert len(output) == 1
 
 @pytest.mark.level0
@@ -155,7 +155,7 @@ def test_bert_trainer_train_from_mlm():
     callbacks = [loss_cb, time_cb]
 
     bert_trainer = MaskedLanguageModelingTrainer(model_name="bert_tiny_uncased")
-    bert_trainer.train(network=bert_model, # model and loss
+    bert_trainer.train(network=bert_model,  # model and loss
                        config=train_config,
                        optimizer=optimizer,
                        dataset=dataset,

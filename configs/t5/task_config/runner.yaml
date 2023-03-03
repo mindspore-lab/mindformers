@@ -9,30 +9,30 @@ runner_config:
   has_trained_steps: 0
 
 runner_wrapper:
-  type: TrainOneStepWithClipGN
+  type: MFTrainOneStepCell
   scale_sense:
     type: DynamicLossScaleUpdateCell
     scale_factor: 2
     scale_window: 1000
     loss_scale_value: 65536
   use_clip_grad: True
-  clip_norm: 1.0
+  max_grad_norm: 1.0
 
 # optimizer
 optimizer:
-  type: AdamWeightDecay
+  type: adamw
   beta1: 0.9
   beta2: 0.999
   eps: 0.00000001 # 1e-8
-  weight_decay: 0.00
+  weight_decay: 0.0
 
 # lr sechdule
 lr_schedule:
-  type: WarmUpDecayLR
+  type: polynomial
   learning_rate: 0.00005
-  end_learning_rate: 0.0
+  lr_end: 0.0
   warmup_steps: 0
-  decay_steps: -1 # -1 means it will laod the total steps of the dataset
+  total_steps: -1 # -1 means it will load the total steps of the dataset
 
 callbacks:
   - type: LossMonitor
