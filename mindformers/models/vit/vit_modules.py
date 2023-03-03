@@ -738,6 +738,7 @@ class PatchEmbed(nn.Cell):
                  in_features=3,
                  out_features=768,
                  norm_layer=False,
+                 use_mask=False,
                  parallel_config=None):
         super(PatchEmbed, self).__init__()
         if parallel_config:
@@ -761,8 +762,13 @@ class PatchEmbed(nn.Cell):
         self.transpose = P.Transpose().shard(((dp, 1, 1),))
         # usually not use norm
         self.norm = LayerNorm((out_features,), eps=1e-6).shard(((dp, 1, 1),)) if norm_layer else Identity()
+        self.mask_token = Parameter(init.initializer(init.Zero(), (1, 1, out_features)),
+                                    requires_grad=True) if use_mask else None
+        self.tile = P.Tile()
+        self.mul = P.Mul()
+        self.add = P.Add()
 
-    def construct(self, x):
+    def construct(self, x, mask=None):
         """construct"""
         # True x: bs  False x: bs * dp
         x = self.proj(x)
@@ -770,6 +776,10 @@ class PatchEmbed(nn.Cell):
         x = self.reshape(x, (b, c, h * w))
         x = self.transpose(x, (0, 2, 1))
         x = self.norm(x)
+        if mask is not None:
+            mask_tokens = self.tile(self.mask_token, (b, self.num_patches, 1))
+            x = self.mul(x, (1.0 - mask))
+            x = self.add(x, self.mul(mask_tokens, mask))
         return x
 
 
