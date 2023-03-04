@@ -641,7 +641,7 @@ class T5MultiHeadAttention(nn.Cell):
             attention_mask = self.expand_dims(attention_mask, 2)
         if bias is None and self.has_relative_bias:
             if not self.is_cross_atten:
-                bias = self.bias_generator(self.src_seq_length, self.tgt_seq_length)
+                bias = self.bias_generator(F.shape(score)[-1], F.shape(score)[-1])
             else:
                 bias = P.ExpandDims()(self.cross_bias, 0)
 
@@ -1595,6 +1595,7 @@ class T5Model(BaseModel):
         self.encoder_layernorm.shard(((config.parallel_config.data_parallel, 1),))
         self.decoder_layernorm.shard(((config.parallel_config.data_parallel, 1),))
         self._create_attention_mask_from_input_mask = CreateAttentionMaskFromInputMask(config.parallel_config)
+        self.ones_like = P.OnesLike()
 
     def construct(self,
                   source_ids=None,
@@ -1604,6 +1605,9 @@ class T5Model(BaseModel):
                   memory_mask=None,
                   encoder_cache=None):
         """T5Model with encoder and decoder."""
+        if source_mask is None and source_ids is not None:
+            source_mask = self.ones_like(source_ids)
+            source_mask = self._create_attention_mask_from_input_mask(source_mask)
         if source_ids is not None:
             encoder_output = self.encoder_forward(source_ids, source_mask)
         else:
