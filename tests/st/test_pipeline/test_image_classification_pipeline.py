@@ -27,7 +27,7 @@ import numpy as np
 import pytest
 
 from mindformers.pipeline import ImageClassificationPipeline
-from mindformers import VitImageProcessor
+from mindformers import ViTImageProcessor
 
 
 @pytest.mark.level0
@@ -40,7 +40,7 @@ def test_image_classification_pipeline():
     Description: Test the pipeline functions
     Expectation: NotImplementedError, ValueError
     """
-    processor = VitImageProcessor(size=224)
+    processor = ViTImageProcessor(size=224)
     classifier = ImageClassificationPipeline(
         model='vit_base_p16',
         image_processor=processor,

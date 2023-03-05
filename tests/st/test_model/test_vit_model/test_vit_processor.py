@@ -15,7 +15,7 @@
 
 """
 Test Module for testing forward, from_pretrained, and
-save_pretrained functions of VitProcessor and AutoProcessor
+save_pretrained functions of ViTProcessor and AutoProcessor
 
 How to run this:
 windows:  pytest .\\tests\\st\\test_model\\test_vit_model\\test_vit_processor.py
@@ -27,7 +27,7 @@ import mindspore as ms
 import pytest
 
 from mindformers import MindFormerBook, AutoProcessor, AutoModel
-from mindformers.models import VitImageProcessor, VitProcessor
+from mindformers.models import ViTImageProcessor, ViTProcessor
 from mindformers.tools import logger
 
 
@@ -37,24 +37,24 @@ from mindformers.tools import logger
 @pytest.mark.env_onecard
 def test_vit_processor():
     """
-    Feature: VitProcessor class
+    Feature: ViTProcessor class
     Description: Test the forward, from_pretrained, and
     save_pretrained functions
     Expectation: ValueError
     """
     yaml_path = os.path.join(MindFormerBook.get_project_path(), "configs",
                              "vit", "model_config", "vit_base_p16.yaml")
-    img_processor = VitImageProcessor(size=224)
+    img_processor = ViTImageProcessor(size=224)
     save_directory = os.path.join(MindFormerBook.get_default_checkpoint_save_folder(),
                                   'vit')
 
-    VitProcessor.show_support_list()
-    support_list = VitProcessor.get_support_list()
+    ViTProcessor.show_support_list()
+    support_list = ViTProcessor.get_support_list()
     logger.info(support_list)
 
-    pro_a = VitProcessor.from_pretrained('vit_base_p16')
-    pro_b = VitProcessor.from_pretrained(yaml_path)
-    pro_c = VitProcessor(img_processor)
+    pro_a = ViTProcessor.from_pretrained('vit_base_p16')
+    pro_b = ViTProcessor.from_pretrained(yaml_path)
+    pro_c = ViTProcessor(img_processor)
 
     pro_d = AutoProcessor.from_pretrained('vit_base_p16')
     pro_e = AutoProcessor.from_pretrained(yaml_path)

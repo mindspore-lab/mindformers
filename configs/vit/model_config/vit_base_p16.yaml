@@ -25,8 +25,8 @@ model:
     checkpoint_name_or_path: 'vit_base_p16'
 
 processor:
-  type: VitProcessor
+  type: ViTProcessor
 
   image_processor:
-    type: VitImageProcessor
+    type: ViTImageProcessor
     size: 224  # input image size

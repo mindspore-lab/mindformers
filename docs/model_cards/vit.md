@@ -30,63 +30,76 @@ vit：全名vision transformer，不同于传统的基于CNN的网络结果，�
 
 - 请参考[使用脚本启动](https://gitee.com/mindspore/transformer/blob/master/README.md#%E6%96%B9%E5%BC%8F%E4%B8%80clone-%E5%B7%A5%E7%A8%8B%E4%BB%A3%E7%A0%81)
 
+- 脚本运行测试
+
+```shell
+# pretrain
+python run_mindformer.py --config ./configs/vit/run_vit_base_p16_224_100ep.yaml --run_mode train
+
+# evaluate
+python run_mindformer.py --config ./configs/vit/run_vit_base_p16_224_100ep.yaml --run_mode eval --dataset_dir [DATASET_PATH]
+
+# predict
+python run_mindformer.py --config ./configs/vit/run_vit_base_p16_224_100ep.yaml --run_mode predict --predict_data [PATH_TO_IMAGE]
+```
+
 ### 调用API启动
 
 > 需开发者提前pip安装。具体接口说明请参考[API接口](https://gitee.com/mindspore/transformer/wikis/API/)
 
 - Model调用接口
 
-  ```python
-  from mindformers import ViTForImageClassification, ViTConfig
+```python
+from mindformers import ViTForImageClassification, ViTConfig
 
-  ViTForImageClassification.show_support_list()
-  # 输出：
-  # - support list of ViTForImageClassification is:
-  # -    ['vit_base_p16']
-  # - -------------------------------------
+ViTForImageClassification.show_support_list()
+# 输出：
+# - support list of ViTForImageClassification is:
+# -    ['vit_base_p16']
+# - -------------------------------------
 
-  # 模型标志加载模型
-  model = ViTForImageClassification.from_pretrained("vit_base_p16'")
+# 模型标志加载模型
+model = ViTForImageClassification.from_pretrained("vit_base_p16")
 
-  #模型配置加载模型
-  config = ViTConfig.from_pretrained("vit_base_p16")
-  # {'patch_size': 16, 'in_chans': 3, 'embed_dim': 768, 'depth': 12, 'num_heads': 12, 'mlp_ratio': 4,
-  # ..., 'batch_size': 32, 'image_size': 224, 'num_classes': 1000}
-  model = ViTForImageClassification(config)
-  ```
+#模型配置加载模型
+config = ViTConfig.from_pretrained("vit_base_p16")
+# {'patch_size': 16, 'in_chans': 3, 'embed_dim': 768, 'depth': 12, 'num_heads': 12, 'mlp_ratio': 4,
+# ..., 'batch_size': 32, 'image_size': 224, 'num_classes': 1000}
+model = ViTForImageClassification(config)
+ ```
 
 - Trainer接口开启训练/评估/推理：
 
-  ```python
-  from mindformers.trainer import Trainer
-  from mindformers.tools.image_tools import load_image
+```python
+from mindformers.trainer import Trainer
+from mindformers.tools.image_tools import load_image
 
-  # 初始化任务
-  vit_trainer = Trainer(
-      task='image_classification',
-      model='vit_base_p16',
-      train_dataset="imageNet-1k/train",
-      eval_dataset="imageNet-1k/val")
+# 初始化任务
+vit_trainer = Trainer(
+    task='image_classification',
+    model='vit_base_p16',
+    train_dataset="imageNet-1k/train",
+    eval_dataset="imageNet-1k/val")
 
-  vit_trainer.train() # 开启训练
-  vit_trainer.evaluate() # 开启评估
+vit_trainer.train() # 开启训练
+vit_trainer.evaluate() # 开启评估
 
-  img = load_image("https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/XFormer_for_mindspore/clip/sunflower.png")
-  predict_result = vit_trainer.predict(input_data=img, top_k=3) # 开启推理
-  print(predict_result)
-  ```
+img = load_image("https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/XFormer_for_mindspore/clip/sunflower.png")
+predict_result = vit_trainer.predict(input_data=img, top_k=3) # 开启推理
+print(predict_result)
+ ```
 
 - pipeline接口开启快速推理
 
-  ```python
-  from mindformers.pipeline import pipeline
-  from mindformers.tools.image_tools import load_image
+```python
+from mindformers.pipeline import pipeline
+from mindformers.tools.image_tools import load_image
 
 
-  pipeline_task = pipeline("image_classification", model='vit_base_p16')
-  img = load_image("https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/XFormer_for_mindspore/clip/sunflower.png")
-  pipeline_result = pipeline_task(img, top_k=3)
-  ```
+pipeline_task = pipeline("image_classification", model='vit_base_p16')
+img = load_image("https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/XFormer_for_mindspore/clip/sunflower.png")
+pipeline_result = pipeline_task(img, top_k=3)
+ ```
 
  Trainer和pipeline接口默认支持的task和model关键入参
 
@@ -102,12 +115,12 @@ vit：全名vision transformer，不同于传统的基于CNN的网络结果，�
 
 ## 模型权重
 
-本仓库中的`vit_base_p16`来自于HuggingFace的[`vit-base-patch16-224`](https://huggingface.co/google/vit-base-patch16-224/tree/main), 基于下述的步骤获取：
+本仓库中的`vit_base_p16`来自于facebookresearch/mae的[`ViT-Base`](https://dl.fbaipublicfiles.com/mae/finetune/mae_finetuned_vit_base.pth), 基于下述的步骤获取：
 
-1. 从上述的链接中下载`vit_base`的HuggingFace权重，文件名为`pytorch_model.bin`
+1. 从上述的链接中下载`ViT-Base`的模型权重
 
 2. 执行转换脚本，得到转换后的输出文件`vit_base_p16.ckpt`
 
 ```shell
-python mindformers/models/vit/convert_weight.py --torch_path pytorch_model.bin --mindspore_path ./vit_base_p16.ckpt
+python mindformers/models/vit/convert_weight.py --torch_path "PATH OF ViT-Base.pth" --mindspore_path "SAVE PATH OF vit_base_p16.ckpt"
 ```

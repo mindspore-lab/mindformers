@@ -109,8 +109,6 @@ class ViTModel(BaseModel):
         self.init_weights_vit()
         self.fix_init_weight()
 
-        self.load_checkpoint(config)
-
     def fix_init_weight(self):
         """fix init weight"""
 
@@ -209,6 +207,8 @@ class ViTForImageClassification(BaseModel):
         >>> model_b = ViTForImageClassification(config)
     """
 
+    _support_list = MindFormerBook.get_model_support_list()['vit']
+
     def __init__(self, config=None):
         config = config if config else ViTConfig()
         super().__init__(config)
@@ -218,6 +218,7 @@ class ViTForImageClassification(BaseModel):
             weight_init=weight_init.TruncatedNormal(sigma=2e-5),
             compute_dtype=mstype.float32).to_float(mstype.float32)
         self.loss = build_loss(class_name=config.loss_type)
+        self.load_checkpoint(config)
 
     def construct(self, image, target=None):
         """construct of vit"""
@@ -246,6 +247,8 @@ class ViTForMaskedImageModeling(BaseModel):
         >>> config = AutoConfig.from_pretrained('vit_base_p16')
         >>> model_b = ViTForMaskedImageModeling(config)
     """
+    _support_list = MindFormerBook.get_model_support_list()['vit']
+
     def __init__(self, config=None):
         config = config if config else ViTConfig()
         super().__init__(config)
