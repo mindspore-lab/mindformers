@@ -2,17 +2,19 @@
 
 ## 介绍
 
-MindSpore MindFormers套件的目标是构建一个大模型训练、微调、评估、推理、部署的全流程开发套件：
+MindSpore Transformers套件的目标是构建一个大模型训练、微调、评估、推理、部署的全流程开发套件：
 提供业内主流的Transformer类预训练模型和SOTA下游任务应用，涵盖丰富的并行特性。期望帮助用户轻松的实现大模型训练和创新研发。
 
-MindSpore MindFormers套件基于MindSpore内置的并行技术和组件化设计，具备如下特点：
+MindSpore Transformers套件基于MindSpore内置的并行技术和组件化设计，具备如下特点：
 
-- 一行代码实现从单卡到大规模集群训练的无缝切换。
-- 提供灵活易用的个性化并行配置。
-- 能够自动进行拓扑感知，高效地融合数据并行和模型并行策略。
-- 一键启动任意任务的单卡/多卡训练、微调、评估、推理流程。
-- 支持用户进行组件化配置任意模块，如优化器、学习策略、网络组装等。
-- 提供Trainer、pipeline、AutoClass等高阶易用性接口。
+- 一行代码实现从单卡到大规模集群训练的无缝切换；
+- 提供灵活易用的个性化并行配置；
+- 能够自动进行拓扑感知，高效地融合数据并行和模型并行策略；
+- 一键启动任意任务的单卡/多卡训练、微调、评估、推理流程；
+- 支持用户进行组件化配置任意模块，如优化器、学习策略、网络组装等；
+- 提供Trainer、pipeline、AutoClass等高阶易用性接口；
+- 提供预置SOTA权重自动下载及加载功能；
+- 支持人工智能计算中心无缝迁移部署；
 
 如果您对MindSpore MindFormers有任何建议，请通过Gitee或MindSpore与我们联系，我们将及时处理。
 
@@ -31,10 +33,10 @@ MindSpore MindFormers套件基于MindSpore内置的并行技术和组件化设�
 
 #### 安装方式1
 
-支持使用以下pip命令直接进行安装0.2.0版本
+支持使用以下pip命令直接进行安装0.3.0版本
 
 ```bash
-pip install https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/wheel_packages/0.2.0/mindformers/mindformers-0.2.0-py3-none-any.whl --trusted-host ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com -i https://pypi.tuna.tsinghua.edu.cn/simple
+pip install https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/wheel_packages/0.3.0/mindformers/mindformers-0.3.0-py3-none-any.whl --trusted-host ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com -i https://pypi.tuna.tsinghua.edu.cn/simple
 ```
 
 #### 安装方式2
@@ -72,7 +74,7 @@ MindFormers套件对外提供两种使用和开发形式，为开发者提供灵
   cd mindformers
   ```
 
-    - step2:  准备相应任务的数据集，请参考`configs`目录下各模型的README.md文档准备相应数据集
+    - step2:  准备相应任务的数据集，请参考`docs`目录下各模型的README.md文档准备相应数据集
 
     - step3：修改配置文件`configs/{model_name}/task_config/{model_name}_dataset.yaml`中数据集路径
 
@@ -86,7 +88,7 @@ MindFormers套件对外提供两种使用和开发形式，为开发者提供灵
 - 单卡启动：统一接口启动，根据模型 CONFIG 完成任意模型的单卡训练、微调、评估、推理流程
 
 ```shell
-# 训练启动，run_status支持train、finetuen、eval、predict三个关键字，以分别完成模型训练、评估、推理功能，默认使用配置文件中的run_status
+# 训练启动，run_status支持train、finetuen、eval、predict三个关键字，以分别完成模型训练、评估、推理功能，默认使用配置文件中的run_mode
 python run_mindformer.py --config {CONFIG_PATH} --run_mode {train/finetune/eval/predict}
 ```
 
@@ -95,7 +97,7 @@ python run_mindformer.py --config {CONFIG_PATH} --run_mode {train/finetune/eval/
 ```shell
 # 8卡分布式运行， DEVICE_RANGE = [0, 8], 不包含8本身
 cd scripts
-sh run_distribute.sh RANK_TABLE_FILE CONFIG_PATH DEVICE_RANGE RUN_STATUS
+sh run_distribute.sh RANK_TABLE_FILE CONFIG_PATH DEVICE_RANGE RUN_MODE
 ```
 
 - 常用参数说明
@@ -124,7 +126,7 @@ RUN_STATUS: 为任务运行状态，支持关键字 train\finetune\eval\predict
 
     - step2: 准备数据
 
-  准备相应任务的数据集，请参考`configs`目录下各模型的README.md文档准备相应数据集。
+  准备相应任务的数据集，请参考`docs`目录下各模型的README.md文档准备相应数据集。
 
 - Trainer 快速入门
 
@@ -148,7 +150,7 @@ RUN_STATUS: 为任务运行状态，支持关键字 train\finetune\eval\predict
   # Example 3： 加载集成的mae权重，开启微调流程
   cls_trainer.train(resume_or_finetune_from_checkpoint='mae_vit_base_p16', do_finetune=True)
   # Example 4： 开启断点续训功能（如训练10epochs中断）
-  cls_trainer.train(resume_or_finetune_from_checkpoint=True， init_epochs=10)
+  cls_trainer.train(resume_or_finetune_from_checkpoint=True, init_epochs=10)
   ```
 
     - Trainer 评估启动
@@ -212,7 +214,7 @@ RUN_STATUS: 为任务运行状态，支持关键字 train\finetune\eval\predict
 
   test_img = load_image("./sunflower.png") # 一朵太阳花图片
   classifier = pipeline("zero_shot_image_classification",
-                        model='clip_vit_b_32'
+                        model='clip_vit_b_32',
                         candidate_labels=["sunflower", "tree", "dog", "cat", "toy"])
   predict_result = classifier(test_img)
   print(predict_result)
