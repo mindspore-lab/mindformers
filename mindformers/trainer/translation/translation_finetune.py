@@ -27,7 +27,6 @@ from mindformers.tools.utils import count_params
 from mindformers.tools.register import MindFormerRegister,\
     MindFormerModuleType, MindFormerConfig
 from mindformers.pipeline import pipeline
-from ...dataset.dataloader import build_dataset_loader
 from ..base_trainer import BaseTrainer
 from ..config_args import ConfigArguments
 from ..training_args import TrainingArguments
@@ -133,7 +132,7 @@ class TranslationTrainer(BaseTrainer):
         config = self.set_config(config)
 
         if input_data is None:
-            input_data = build_dataset_loader(config.eval_dataset.data_loader)
+            input_data = config.input_data
 
         if not isinstance(input_data, (str, list, GeneratorDataset)):
             raise ValueError("Input data's type must be one of "
