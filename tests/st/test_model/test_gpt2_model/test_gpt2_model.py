@@ -29,7 +29,7 @@ from mindformers.trainer import Trainer
 from mindformers.trainer.config_args import ConfigArguments, \
     RunnerConfig
 from mindformers.models.gpt2.gpt2 import GPT2LMHeadModel, Gpt2Config
-from mindformers.common.lr import WarmUpDecayLR
+from mindformers.core.lr import WarmUpDecayLR
 from mindformers import MindFormerBook, AutoModel, AutoConfig
 from mindformers.tools import logger
 from mindformers.models import BaseModel

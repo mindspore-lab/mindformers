@@ -19,7 +19,7 @@ import pytest
 import mindspore as ms
 from mindspore import Tensor
 
-from mindformers.common.lr import LinearWithWarmUpLR,\
+from mindformers.core.lr import LinearWithWarmUpLR,\
     CosineWithWarmUpLR, PolynomialWithWarmUpLR, \
     CosineWithRestartsAndWarmUpLR, ConstantWarmUpLR
 

@@ -30,7 +30,7 @@ from mindspore.train import Callback
 from mindspore.dataset import GeneratorDataset
 from mindspore.dataset.engine.datasets import BatchDataset, RepeatDataset
 
-from mindformers.common.parallel_config import build_parallel_config
+from mindformers.core.parallel_config import build_parallel_config
 from mindformers.dataset import build_dataset, build_dataset_loader, \
     check_dataset_config, BaseDataset
 from mindformers.mindformer_book import MindFormerBook

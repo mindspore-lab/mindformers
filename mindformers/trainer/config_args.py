@@ -18,7 +18,7 @@ from typing import Optional, Union
 from dataclasses import dataclass
 import inspect
 
-from mindformers.common.callback import CheckpointMointor
+from mindformers.core.callback import CheckpointMointor
 from mindformers.tools.register import MindFormerRegister, \
     MindFormerModuleType
 

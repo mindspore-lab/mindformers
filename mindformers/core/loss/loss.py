@@ -367,7 +367,7 @@ class CrossEntropyLoss(nn.Cell):
         >>> import numpy as np
         >>> from mindspore import dtype as mstype
         >>> from mindspore import Tensor
-        >>> from mindformers.common import CrossEntropyLoss
+        >>> from mindformers.core import CrossEntropyLoss
         >>> loss = CrossEntropyLoss()
         >>>
         >>> logits = Tensor(np.array([[3, 5, 6, 9, 12, 33, 42, 12, 32, 72]]), mstype.float32)

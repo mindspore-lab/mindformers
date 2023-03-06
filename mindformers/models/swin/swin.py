@@ -31,7 +31,7 @@ from mindspore.train.serialization import load_param_into_net
 
 from mindformers.tools.logger import logger
 from mindformers.tools.download_tools import download_with_progress_bar
-from mindformers.common.loss import build_loss
+from mindformers.core.loss import build_loss
 from mindformers.mindformer_book import MindFormerBook
 from mindformers.models.base_model import BaseModel
 from mindformers.models.base_config import BaseConfig

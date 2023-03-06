@@ -37,7 +37,7 @@ from mindformers.modules.transformer.moe import MoE, _check_moe_config
 from mindformers.modules.transformer.transformer import default_transformer_config, default_moe_config, \
     default_dpmp_config, \
     EmbeddingOpParallelConfig, OpParallelConfig
-from mindformers.common.loss import CrossEntropyLoss
+from mindformers.core.loss import CrossEntropyLoss
 from mindformers.modules import VocabEmbedding
 
 from .t5_config import T5Config

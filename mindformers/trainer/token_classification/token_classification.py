@@ -41,7 +41,7 @@ class TokenClassificationTrainer(BaseTrainer):
         >>> import numpy as np
         >>> from mindspore.dataset import GeneratorDataset
         >>> from mindspore.nn import AdamWeightDecay, TrainOneStepCell
-        >>> from mindformers.common.lr import build_lr
+        >>> from mindformers.core.lr import build_lr
         >>> from mindformers.trainer import TokenClassificationTrainer
         >>> from mindformers.models import BertTokenClassification, BertConfig
         >>> class MyDataLoader:

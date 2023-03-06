@@ -21,7 +21,7 @@ from mindspore import Tensor
 from mindspore.common import dtype
 from mindspore.ops import operations as ops
 from mindspore.common.api import _cell_graph_executor
-from mindformers.common import CrossEntropyLoss
+from mindformers.core import CrossEntropyLoss
 from mindformers.modules import MultiHeadAttention, FeedForward, TransformerEncoderLayer, TransformerEncoder, \
     TransformerDecoder, TransformerDecoderLayer, Transformer, AttentionMask, FixedSparseAttention
 

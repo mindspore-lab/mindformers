@@ -19,7 +19,7 @@ import pathlib
 
 from mindspore.train.callback import SummaryCollector
 
-from mindformers.common.callback import ProfileMonitor
+from mindformers.core.callback import ProfileMonitor
 from mindformers.tools.logger import logger
 from ..utils import LOCAL_DEFAULT_PATH, PROFILE_INFO_PATH,\
     check_obs_url, check_in_modelarts, format_path, Validator

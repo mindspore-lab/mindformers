@@ -22,9 +22,9 @@ import numpy as np
 from mindspore.common import set_seed
 
 from mindformers.tools.register import MindFormerConfig, ActionDict
-from mindformers.common.parallel_config import build_parallel_config
+from mindformers.core.parallel_config import build_parallel_config
 from mindformers.tools.utils import str2bool
-from mindformers.common.context import build_context
+from mindformers.core.context import build_context
 from mindformers.trainer import build_trainer
 from mindformers.tools.cloud_adapter import cloud_monitor
 from mindformers.tools.logger import logger

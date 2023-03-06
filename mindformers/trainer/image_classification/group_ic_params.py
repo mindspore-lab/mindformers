@@ -18,7 +18,7 @@
 import json
 from functools import partial
 
-from mindformers.common.lr import LearningRateWiseLayer
+from mindformers.core.lr import LearningRateWiseLayer
 from mindformers.tools import logger
 
 
