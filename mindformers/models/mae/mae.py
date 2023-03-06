@@ -26,7 +26,7 @@ from mindformers.models.base_model import BaseModel
 from mindformers.models.mae.mae_modules import Block, LayerNorm, Linear
 from mindformers.models.mae.mae_modules import PatchEmbed, Patchify, UnPatchify
 from mindformers.models.mae.mae_modules import get_2d_sincos_pos_embed
-from mindformers.common.loss import MSELoss
+from mindformers.core.loss import MSELoss
 from mindformers.models.mae.mae_config import ViTMAEConfig
 
 

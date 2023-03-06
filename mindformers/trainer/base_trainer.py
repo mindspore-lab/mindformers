@@ -23,7 +23,7 @@ from mindspore.dataset import GeneratorDataset
 from mindspore.nn import TrainOneStepCell, Optimizer, Cell
 
 from mindformers.mindformer_book import MindFormerBook
-from mindformers.common import build_lr, build_optim, build_callback, build_metric
+from mindformers.core import build_lr, build_optim, build_callback, build_metric
 from mindformers.dataset import build_dataset, check_dataset_config, BaseDataset
 from mindformers.models import build_model, build_processor, build_tokenizer, BaseModel
 from mindformers.wrapper import build_wrapper

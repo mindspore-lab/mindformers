@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-"""MindFormers Common."""
+"""MindFormers Core."""
 from .lr import *
 from .loss import *
 from .optim import *

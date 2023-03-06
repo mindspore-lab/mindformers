@@ -18,7 +18,7 @@ import inspect
 from mindspore import nn
 from mindspore.nn.optim import AdaFactor, AdamWeightDecay, SGD, Adagrad, Adam
 
-from mindformers.common.lr import build_lr
+from mindformers.core.lr import build_lr
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 
 

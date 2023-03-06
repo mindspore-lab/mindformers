@@ -24,9 +24,9 @@ from mindspore.train import Callback
 
 from mindformers.dataset import build_dataset, check_dataset_config, BaseDataset
 from mindformers.models import build_model, BaseModel
-from mindformers.common.callback import build_callback
-from mindformers.common.lr import build_lr
-from mindformers.common.optim import build_optim
+from mindformers.core.callback import build_callback
+from mindformers.core.lr import build_lr
+from mindformers.core.optim import build_optim
 from mindformers.wrapper import build_wrapper
 from mindformers.trainer.base_trainer import BaseTrainer
 from mindformers.trainer.utils import check_runner_config

@@ -32,7 +32,7 @@ from mindformers.models import ViTForImageClassification, ViTConfig
 from mindformers.trainer import Trainer
 from mindformers.trainer.config_args import ConfigArguments, RunnerConfig
 from mindformers.dataset.build_dataset import build_dataset
-from mindformers.common.lr import WarmUpCosineDecayV1
+from mindformers.core.lr import WarmUpCosineDecayV1
 
 
 @pytest.mark.level0

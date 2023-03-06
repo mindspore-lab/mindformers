@@ -22,7 +22,7 @@ from mindspore import ops as P
 from mindspore import dtype as mstype
 import mindspore.common.initializer as weight_init
 from mindformers.mindformer_book import MindFormerBook
-from mindformers.common.loss import build_loss
+from mindformers.core.loss import build_loss
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.models.base_model import BaseModel
 from mindformers.models.vit.vit_modules import Block, LayerNorm, Linear, Dropout, PixelShuffle

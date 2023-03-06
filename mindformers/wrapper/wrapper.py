@@ -20,7 +20,7 @@ from mindspore.ops import composite as C
 from mindspore.ops import functional as F
 from mindspore.ops import operations as P
 
-from mindformers.common.clip_grad import ClipGradNorm
+from mindformers.core.clip_grad import ClipGradNorm
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 
 

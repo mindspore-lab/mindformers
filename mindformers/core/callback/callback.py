@@ -61,7 +61,7 @@ class MFLossMonitor(Callback):
         per_print_times (int): Every how many steps to print the log information. Default: 1.
 
     Examples:
-        >>> from mindformers.common.callback import MFLossMonitor
+        >>> from mindformers.core.callback import MFLossMonitor
         >>> lr = [0.01, 0.008, 0.006, 0.005, 0.002]
         >>> monitor = MFLossMonitor(per_print_times=10)
     """

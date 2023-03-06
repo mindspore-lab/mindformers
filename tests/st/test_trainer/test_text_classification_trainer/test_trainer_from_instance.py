@@ -30,7 +30,7 @@ from mindspore.dataset import GeneratorDataset
 from mindformers.models import BertForMultipleChoice, BertConfig
 from mindformers.trainer import Trainer
 from mindformers.trainer.config_args import ConfigArguments, RunnerConfig
-from mindformers.common.lr import build_lr
+from mindformers.core.lr import build_lr
 
 
 @pytest.mark.level0

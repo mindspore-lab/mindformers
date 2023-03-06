@@ -21,7 +21,7 @@ from typing import Optional
 from mindspore.nn.learning_rate_schedule import LearningRateSchedule
 
 from mindformers.models import BaseModel
-from mindformers.common.lr import LearningRateWiseLayer
+from mindformers.core.lr import LearningRateWiseLayer
 from mindformers.tools import logger
 from .utils import check_keywords_in_name
 

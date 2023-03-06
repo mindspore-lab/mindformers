@@ -33,7 +33,7 @@ from mindformers.models import BertTokenClassification, BertConfig
 from mindformers.trainer import Trainer
 from mindformers.trainer.config_args import ConfigArguments, RunnerConfig
 from mindformers.dataset.build_dataset import build_dataset
-from mindformers.common.lr import build_lr
+from mindformers.core.lr import build_lr
 
 
 @pytest.mark.level0
