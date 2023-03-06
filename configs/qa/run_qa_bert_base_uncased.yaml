@@ -1,0 +1,17 @@
+base_config: [
+    './task_config/context.yaml',
+    './task_config/runner.yaml',
+    './task_config/bert_squad_dataset.yaml',
+    './model_config/qa_bert_base_uncased.yaml',
+    '../__base__.yaml' ]
+
+profile: False
+use_parallel: False
+
+seed: 42
+resume_or_finetune_checkpoint: ''
+
+run_mode: 'train'
+trainer:
+  type: QuestionAnsweringTrainer
+  model_name: bert_question_answering

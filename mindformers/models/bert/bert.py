@@ -377,7 +377,7 @@ class BertForQuestionAnswering(BaseModel):
         self.qa_outputs = nn.Dense(config.hidden_size, 2).to_float(config.compute_dtype)
         self.load_checkpoint(config)
 
-    def construct(self, input_ids, input_mask, token_type_id, start_position, end_position):
+    def construct(self, input_ids, input_mask, token_type_id, start_position, end_position, unique_id):
         """Get Training Loss or Logits"""
         bert_outputs = self.bert(input_ids=input_ids, input_mask=input_mask, token_type_ids=token_type_id)
         sequence_output = bert_outputs[0]
@@ -386,7 +386,7 @@ class BertForQuestionAnswering(BaseModel):
         start_logits = start_logits.squeeze(-1)
         end_logits = end_logits.squeeze(-1)
 
-        if start_position is not None and end_position is not None:
+        if self.training:
             if len(start_position.shape) > 1:
                 start_position = start_position.squeeze(-1)
             if len(end_position.shape) > 1:
@@ -401,7 +401,7 @@ class BertForQuestionAnswering(BaseModel):
             total_loss = (start_loss + end_loss) / 2
             output = total_loss
         else:
-            output = (start_logits, end_logits)
+            output = (unique_id, start_logits, end_logits)
 
         return output
 

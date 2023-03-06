@@ -14,7 +14,7 @@
 # ============================================================================
 """The export function for bert"""
 
-from .bert_tokenizer import BertTokenizer
+from .bert_tokenizer import BertTokenizer, BasicTokenizer
 from .bert_config import BertConfig
 from .bert import (
     BertForPreTraining, BertModel, BertTokenClassification, BertForMultipleChoice,
