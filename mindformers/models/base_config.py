@@ -55,6 +55,8 @@ class BaseConfig(dict):
         >>> output = mynet(input)
     """
     _support_list = []
+    _model_type = 0
+    _model_name = 1
 
     def __init__(self, **kwargs):
         super(BaseConfig, self).__init__()
@@ -89,11 +91,13 @@ class BaseConfig(dict):
         From pretrain method, which instantiates a config by yaml name or path.
 
         Args:
-            yaml_name_or_path (str): A supported model name or a path to model
-            config (.yaml), the supported model name could be selected from
-            AutoConfig.show_support_list().
+            yaml_name_or_path (str): A supported model name or a path to model config (.yaml),
+                the supported model name could be selected from AutoConfig.show_support_list().
+                If yaml_name_or_path is model name,
+                it supports model names beginning with mindspore or the model name itself,
+                such as "mindspore/vit_base_p16" or "vit_base_p16".
             pretrained_model_name_or_path (Optional[str]): Equal to "yaml_name_or_path",
-            if "pretrained_model_name_or_path" is set, "yaml_name_or_path" is useless.
+                if "pretrained_model_name_or_path" is set, "yaml_name_or_path" is useless.
 
         Returns:
             A model config, which inherited from BaseConfig.
@@ -119,18 +123,30 @@ class BaseConfig(dict):
                              f" model type or a valid path to model config."
                              f" supported model could be selected from {cls._support_list}.")
         else:
-            checkpoint_path = os.path.join(MindFormerBook.get_default_checkpoint_download_folder(),
-                                           yaml_name_or_path.split('_')[0])
+            yaml_name = yaml_name_or_path
+            if yaml_name_or_path.startswith('mindspore'):
+                # Adaptation the name of yaml at the beginning of mindspore,
+                # the relevant file will be downloaded from the Xihe platform.
+                # such as "mindspore/vit_base_p16"
+                yaml_name = yaml_name_or_path.split('/')[cls._model_name]
+                checkpoint_path = os.path.join(MindFormerBook.get_xihe_checkpoint_download_folder(),
+                                               yaml_name.split('_')[cls._model_type])
+            else:
+                # Default the name of yaml,
+                # the relevant file will be downloaded from the Obs platform.
+                # such as "vit_base_p16"
+                checkpoint_path = os.path.join(MindFormerBook.get_default_checkpoint_download_folder(),
+                                               yaml_name_or_path.split('_')[cls._model_type])
 
             if not os.path.exists(checkpoint_path):
                 os.makedirs(checkpoint_path)
 
-            yaml_file = os.path.join(checkpoint_path, yaml_name_or_path+".yaml")
+            yaml_file = os.path.join(checkpoint_path, yaml_name + ".yaml")
             if not os.path.exists(yaml_file):
                 default_yaml_file = os.path.join(
                     MindFormerBook.get_project_path(),
-                    "configs", yaml_name_or_path.split("_")[0],
-                    "model_config", yaml_name_or_path + ".yaml")
+                    "configs", yaml_name.split("_")[cls._model_type],
+                    "model_config", yaml_name + ".yaml")
                 if os.path.realpath(default_yaml_file) and os.path.exists(default_yaml_file):
                     shutil.copy(default_yaml_file, yaml_file)
                     logger.info("default yaml config in %s is used.", yaml_file)

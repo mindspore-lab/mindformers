@@ -18,7 +18,7 @@ BaseModel
 """
 from typing import Optional
 import os
-
+import shutil
 import yaml
 
 import mindspore as ms
@@ -47,6 +47,9 @@ class BaseModel(nn.Cell, GeneratorMixin):
         config(BaseConfig): The model configuration that inherits the `BaseConfig`.
     """
     _support_list = []
+    _model_type = 0
+    _model_name = 1
+
     def __init__(self, config: BaseConfig):
         super(BaseModel, self).__init__()
         self.config = config
@@ -82,13 +85,29 @@ class BaseModel(nn.Cell, GeneratorMixin):
                                  f" or a valid path to checkpoint,"
                                  f" please select from {self._support_list}.")
             else:
-                default_checkpoint_download_folder = os.path.join(
-                    MindFormerBook.get_default_checkpoint_download_folder(), checkpoint_name_or_path.split("_")[0])
+                checkpoint_name = checkpoint_name_or_path
+                if checkpoint_name_or_path.startswith('mindspore'):
+                    # Adaptation the name of checkpoint at the beginning of mindspore,
+                    # the relevant file will be downloaded from the Xihe platform.
+                    # such as "mindspore/vit_base_p16"
+                    checkpoint_name = checkpoint_name_or_path.split('/')[self._model_name]
+                    default_checkpoint_download_folder = os.path.join(
+                        MindFormerBook.get_xihe_checkpoint_download_folder(),
+                        checkpoint_name.split('_')[self._model_type])
+                else:
+                    # Default the name of checkpoint,
+                    # the relevant file will be downloaded from the Obs platform.
+                    # such as "vit_base_p16"
+                    default_checkpoint_download_folder = os.path.join(
+                        MindFormerBook.get_default_checkpoint_download_folder(),
+                        checkpoint_name_or_path.split("_")[self._model_type])
+
                 if not os.path.exists(default_checkpoint_download_folder):
                     os.makedirs(default_checkpoint_download_folder, exist_ok=True)
-                ckpt_file = os.path.join(default_checkpoint_download_folder, checkpoint_name_or_path + ".ckpt")
+
+                ckpt_file = os.path.join(default_checkpoint_download_folder, checkpoint_name + ".ckpt")
                 if not os.path.exists(ckpt_file):
-                    url = MindFormerBook.get_model_ckpt_url_list()[checkpoint_name_or_path][0]
+                    url = MindFormerBook.get_model_ckpt_url_list()[checkpoint_name_or_path][self._model_type]
                     succeed = download_with_progress_bar(url, ckpt_file)
                     if not succeed:
                         logger.info("checkpoint download failed, and pretrained weights are unloaded.")
@@ -271,8 +290,8 @@ class BaseModel(nn.Cell, GeneratorMixin):
             if not yaml_list or not ckpt_list:
                 raise FileNotFoundError(f"there is no yaml file for model config or ckpt file "
                                         f"for model weights in {pretrained_model_name_or_dir}.")
-            yaml_file = os.path.join(pretrained_model_name_or_dir, yaml_list[0])
-            ckpt_file = os.path.join(pretrained_model_name_or_dir, ckpt_list[0])
+            yaml_file = os.path.join(pretrained_model_name_or_dir, yaml_list[cls._model_type])
+            ckpt_file = os.path.join(pretrained_model_name_or_dir, ckpt_list[cls._model_type])
             logger.info("config in %s and weights in %s are used for "
                         "model building.", yaml_file, ckpt_file)
 
@@ -282,24 +301,35 @@ class BaseModel(nn.Cell, GeneratorMixin):
             config.update({"checkpoint_name_or_path": ckpt_file})
             model = cls(config)
         else:
-            checkpoint_path = os.path.join(MindFormerBook.get_default_checkpoint_download_folder(),
-                                           pretrained_model_name_or_dir.split("_")[0])
+            pretrained_model_name = pretrained_model_name_or_dir
+            if pretrained_model_name_or_dir.startswith('mindspore'):
+                # Adaptation the name of pretrained model at the beginning of mindspore,
+                # the relevant file will be downloaded from the Xihe platform.
+                # such as "mindspore/vit_base_p16"
+                pretrained_model_name = pretrained_model_name.split('/')[cls._model_name]
+                checkpoint_path = os.path.join(MindFormerBook.get_xihe_checkpoint_download_folder(),
+                                               pretrained_model_name.split('_')[cls._model_type])
+            else:
+                # Default the name of pretrained model,
+                # the relevant file will be downloaded from the Obs platform.
+                # such as "vit_base_p16"
+                checkpoint_path = os.path.join(MindFormerBook.get_default_checkpoint_download_folder(),
+                                               pretrained_model_name.split('_')[cls._model_type])
+
             if not os.path.exists(checkpoint_path):
                 os.makedirs(checkpoint_path)
 
-            yaml_file = os.path.join(checkpoint_path, pretrained_model_name_or_dir+".yaml")
+            yaml_file = os.path.join(checkpoint_path, pretrained_model_name + ".yaml")
             if not os.path.exists(yaml_file):
-                url = MindFormerBook.get_model_config_url_list()[pretrained_model_name_or_dir][0]
-                succeed = download_with_progress_bar(url, yaml_file)
-                if not succeed:
-                    yaml_file = os.path.join(
-                        MindFormerBook.get_project_path(),
-                        "configs", pretrained_model_name_or_dir.split("_")[0],
-                        "model_config", pretrained_model_name_or_dir + ".yaml"
-                    )
-                    logger.info("yaml download failed, default config in %s is used.", yaml_file)
+                default_yaml_file = os.path.join(
+                    MindFormerBook.get_project_path(),
+                    "configs", pretrained_model_name.split("_")[cls._model_type],
+                    "model_config", pretrained_model_name + ".yaml")
+                if os.path.realpath(default_yaml_file) and os.path.exists(default_yaml_file):
+                    shutil.copy(default_yaml_file, yaml_file)
+                    logger.info("default yaml config in %s is used.", yaml_file)
                 else:
-                    logger.info("config in %s is used for model building.", yaml_file)
+                    raise FileNotFoundError(f'default yaml file path must be correct, but get {default_yaml_file}')
             try_sync_file(yaml_file)
             config_args = MindFormerConfig(yaml_file)
             config_args.model.model_config.update(**kwargs)

@@ -20,7 +20,7 @@ import urllib3
 
 from tqdm import tqdm
 
-from .logger import logger
+from mindformers.tools.logger import logger
 try:
     import fcntl
 except ImportError:
@@ -40,6 +40,11 @@ def download_with_progress_bar(url, filepath, chunk_size=1024, timeout=4):
     if not os.path.exists(filepath):
         os.makedirs(os.path.dirname(filepath), exist_ok=True)
 
+    header = {
+        "Accept-Encoding": "identity",
+        "User-agent": 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.12; rv:65.0) Gecko/20100101 Firefox/65.0'
+    }
+
     start = time.time()
 
     try:
@@ -50,8 +55,21 @@ def download_with_progress_bar(url, filepath, chunk_size=1024, timeout=4):
         logger.error("Connect error, please download %s to %s.", url, filepath)
         return False
 
+    content_size = response.headers.get('content-length')
+
+    if content_size is None:
+        response_json = response.json()
+        download_url = response_json.get("data").get("download_url")
+        if download_url:
+            response = requests.get(download_url, verify=False, stream=True, timeout=timeout, headers=header)
+            content_size = int(response.headers.get('content-length'))
+        else:
+            logger.error("Download url parsing failed from json file, please download %s to %s.", url, filepath)
+            return False
+    else:
+        content_size = int(content_size)
+
     size = 0
-    content_size = int(response.headers['content-length'])
     if response.status_code == StatusCode.succeed:
         logger.info('Start download %s', filepath)
         with open(filepath, 'wb') as file:

@@ -30,6 +30,8 @@ class BertProcessor(BaseProcessor):
     consists of a tokenizer (BaseTokenizer) for text input.
     """
     _support_list = MindFormerBook.get_processor_support_list()['bert']
+    _support_list.extend(MindFormerBook.get_processor_support_list()['tokcls']['bert'])
+    _support_list.extend(MindFormerBook.get_processor_support_list()['txtcls']['bert'])
 
     def __init__(self, tokenizer=None,
                  max_length=128, padding='max_length', return_tensors='ms'):
