@@ -15,11 +15,15 @@
 """T5 Dataset."""
 import os
 import numpy as np
+
+
+import mindspore
 import mindspore.common.dtype as mstype
 import mindspore.dataset.transforms.c_transforms as C
 
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.tools.logger import logger
+from mindformers.tools.utils import is_version_le
 from .dataloader import build_dataset_loader
 from .base_dataset import BaseDataset
 from ..auto_class import AutoTokenizer
@@ -69,10 +73,16 @@ class TranslationDataset(BaseDataset):
             labels = np.array(tgt_output['input_ids'], np.int32)
             return input_ids, attention_mask, labels
 
-        dataset = dataset.map(pad_max_function,
-                              input_columns=['source', 'target'],
-                              output_columns=['input_ids', 'attention_mask', 'labels'])
-        dataset = dataset.project(columns=['input_ids', 'attention_mask', 'labels'])
+        if is_version_le(mindspore.__version__, "1.10.0"):
+            dataset = dataset.map(pad_max_function,
+                                  input_columns=['source', 'target'],
+                                  output_columns=['input_ids', 'attention_mask', 'labels'],
+                                  column_order=['input_ids', 'attention_mask', 'labels'])
+        else:
+            dataset = dataset.map(pad_max_function,
+                                  input_columns=['source', 'target'],
+                                  output_columns=['input_ids', 'attention_mask', 'labels'])
+            dataset = dataset.project(columns=['input_ids', 'attention_mask', 'labels'])
         return dataset
 
     @classmethod

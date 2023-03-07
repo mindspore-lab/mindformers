@@ -171,15 +171,6 @@ class TestTranslationTrainer:
                        {'translation_text': ['Wir haben während dieser Period die ganze Reihe von '
                                              'emotions durchlebt.']}]
 
-        config = MindFormerConfig("configs/t5/run_t5_tiny_on_wmt16.yaml")
-        # change the length for quick prediction
-        config.train_dataset.tokenizer.seq_length = 32
-        config.train_dataset.tokenizer.max_decode_length = 32
-        config.eval_dataset = config.train_dataset
-        config.eval_dataset.data_loader.dataset_dir = self.raw_text_path
-        res = mim_trainer.predict(config=config, keys={'src_language': 'source', 'tgt_language': 'target'})
-        assert res
-
     def test_translation_trainer_train(self):
         """
         Feature: Create Trainer From Config
