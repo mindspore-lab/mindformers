@@ -3,6 +3,7 @@ train_dataset: &train_dataset
     type: TFRecordDataset
     dataset_dir: ""
     shuffle: True
+    shard_equal_rows: True
   input_columns: ["input_ids", "input_mask", "segment_ids",
                   "next_sentence_labels", "masked_lm_positions",
                   "masked_lm_ids", "masked_lm_weights"]
