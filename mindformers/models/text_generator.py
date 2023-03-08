@@ -172,7 +172,7 @@ class GeneratorMixin:
         valid_length_each_example = []
         for i in range(batch_size):
             # As the nonzero returns the index and we need length
-            valid_length_each_example.append(np.argmax(np.nonzero(origin_inputs[i])) + 1)
+            valid_length_each_example.append(np.max(np.nonzero(origin_inputs[i])) + 1)
         valid_length_each_example = np.array(valid_length_each_example)
         logger.debug("Get the valid for each example is: %s", valid_length_each_example)
         if not is_encoder_decoder and np.max(valid_length_each_example) > max_length:
