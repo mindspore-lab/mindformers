@@ -7,7 +7,7 @@ model:
     batch_size: 8
     seq_length: 1024
     vocab_size: 50257
-    hidden_size: 768
+    embedding_size: 768
     num_layers: 12
     num_heads: 12
     expand_ratio: 4

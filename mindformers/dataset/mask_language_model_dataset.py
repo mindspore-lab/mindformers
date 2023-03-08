@@ -53,16 +53,19 @@ class MaskLanguageModelDataset(BaseDataset):
                     for file in f:
                         if file.endswith(".tfrecord"):
                             dataset_files.append(os.path.join(r, file))
+                        elif file.endswith(".mindrecord"):
+                            dataset_files.append(os.path.join(r, file))
             else:
                 if data_dir.endswith(".tfrecord"):
+                    dataset_files.append(data_dir)
+                elif data_dir.endswith(".mindrecord"):
                     dataset_files.append(data_dir)
         else:
             dataset_files = list(dataset_config.data_loader.dataset_files)
         dataset_config.data_loader.pop("dataset_dir")
         dataset = build_dataset_loader(
             dataset_config.data_loader, default_args={'dataset_files': dataset_files,
-                                                      'num_shards': device_num, 'shard_id': rank_id,
-                                                      'shard_equal_rows': True})
+                                                      'num_shards': device_num, 'shard_id': rank_id})
         dataset = dataset.batch(dataset_config.batch_size,
                                 drop_remainder=dataset_config.drop_remainder,
                                 output_columns=dataset_config.input_columns,

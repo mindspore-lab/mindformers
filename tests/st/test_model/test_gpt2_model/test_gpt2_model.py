@@ -21,7 +21,6 @@ from dataclasses import dataclass
 import os
 import numpy as np
 import pytest
-from mindspore.nn import AdamWeightDecay
 from mindspore.train.callback import LossMonitor, TimeMonitor
 from mindspore.dataset import GeneratorDataset
 
@@ -33,6 +32,7 @@ from mindformers.core.lr import WarmUpDecayLR
 from mindformers import MindFormerBook, AutoModel, AutoConfig
 from mindformers.tools import logger
 from mindformers.models import BaseModel
+from mindformers.core.optim import FusedAdamWeightDecay
 
 
 def generator():
@@ -75,9 +75,9 @@ def test_gpt_trainer_train_from_instance():
 
     # optimizer
     lr_schedule = WarmUpDecayLR(learning_rate=0.0001, end_learning_rate=0.00001, warmup_steps=0, decay_steps=512)
-    optimizer = AdamWeightDecay(beta1=0.009, beta2=0.999,
-                                learning_rate=lr_schedule,
-                                params=gpt_model.trainable_params())
+    optimizer = FusedAdamWeightDecay(beta1=0.009, beta2=0.999,
+                                     learning_rate=lr_schedule,
+                                     params=gpt_model.trainable_params())
 
     # callback
     loss_cb = LossMonitor(per_print_times=2)
