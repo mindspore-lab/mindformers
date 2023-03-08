@@ -61,7 +61,7 @@ def get_optimizer_grouped_parameters(model: Optional[BaseModel] = None,
                 get_layer_id_func = partial(get_swin_layer, num_layers=num_layers + 2, depths=depths)
                 scales_list = list(layer_decay ** i for i in reversed(range(num_layers + 2)))
             elif model.__class__.__name__ == 'ViTForImageClassification':
-                num_layers = model.config.num_hidden_layers
+                num_layers = model.config.depth
                 get_layer_id_func = partial(get_vit_layer, num_layers=num_layers + 2)
                 scales_list = list(layer_decay ** i for i in reversed(range(num_layers + 2)))
             else:
@@ -120,7 +120,7 @@ def get_vit_layer(name, num_layers):
     elif name.startswith("vit.patch_embed"):
         layer_num = 0
     elif name.startswith("vit.blocks"):
-        layer_id = int(name.split('.')[1])
+        layer_id = int(name.split('.')[2])
         layer_num = layer_id + 1
     else:
         layer_num = num_layers - 1
