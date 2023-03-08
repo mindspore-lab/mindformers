@@ -119,7 +119,7 @@ class MFTrainOneStepCell(nn.TrainOneStepWithLossScaleCell):
                  use_clip_grad=False, max_grad_norm=1.0,
                  scale_sense=1.0):
         super(MFTrainOneStepCell, self).__init__(network, optimizer, scale_sense)
-        self.use_clip = use_clip_grad
+        self.use_clip_grad = use_clip_grad
         self.clip_grad_norm = ClipGradNorm(max_norm=max_grad_norm)
 
     def construct(self, *inputs):

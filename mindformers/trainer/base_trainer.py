@@ -262,7 +262,8 @@ class BaseTrainer:
     def create_model_wrapper(self, network, optimizer):
         """Create the model wrapper for training."""
         logger.info(".........Build Model Wrapper for Train From Config..........")
-        model_wrapper = build_wrapper(self.config.wrapper, default_args={"network": network, "optimizer": optimizer})
+        model_wrapper = build_wrapper(self.config.runner_wrapper,
+                                      default_args={"network": network, "optimizer": optimizer})
         return model_wrapper
 
     def create_callbacks(self, default_args: dict = None):
