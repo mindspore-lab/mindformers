@@ -144,6 +144,8 @@ class TextClassificationPipeline(BasePipeline):
         """
         if not isinstance(inputs, str):
             raise ValueError("Inputs type must be str")
+        if '-' not in inputs:
+            raise ValueError("two texts of text pair should be split by -")
         inputs = inputs.split('-')
         inputs_zero = self.tokenizer(inputs[0], return_tensors="ms", **preprocess_params)
         inputs_one = self.tokenizer(inputs[1], return_tensors="ms", **preprocess_params)
