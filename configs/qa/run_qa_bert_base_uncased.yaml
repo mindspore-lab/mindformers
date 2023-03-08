@@ -14,4 +14,4 @@ resume_or_finetune_checkpoint: ''
 run_mode: 'train'
 trainer:
   type: QuestionAnsweringTrainer
-  model_name: bert_question_answering
+  model_name: qa_bert_base_uncased

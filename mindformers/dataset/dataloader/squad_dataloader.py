@@ -28,8 +28,7 @@ class SQuADDataLoader:
     _default_column_names = ["input_ids", "input_mask", "token_type_id",
                              "start_positions", "end_positions", "unique_id"]
     def __new__(cls, dataset_dir, tokenizer, column_names=None, stage="train",
-                max_query_length=64, max_seq_length=384, doc_stride=128,
-                version_2_with_negative=False, **kwargs):
+                max_question_len=64, max_seq_len=384, doc_stride=128, **kwargs):
         r"""
         SQuAD Dataloader API.
 
@@ -39,11 +38,10 @@ class SQuADDataLoader:
             column_names (Optional[Union[List[str], Tuple[str]]]): The output column names,
                                                                    a tuple or a list of string with length 6
             stage: The supported key words are in ["train", "dev"]
-            max_query_length: The maximum number of tokens for the question,
+            max_question_len: The maximum number of tokens for the question,
                               Questions longer than this will be truncated to this length.
-            max_seq_length: Maximum sequence length.
+            max_seq_len: Maximum sequence length.
             doc_stride: When splitting up a long document into chunks, how much stride to take between chunks.
-            version_2_with_negative: If true, the SQuAD examples contain some that do not have an answer.
 
         Return:
             A GeneratorDataset for SQuAD dataset
@@ -115,15 +113,15 @@ class SQuADDataLoader:
                                  f" but got {type(name)}")
 
         kwargs.pop("None", None)
-        squad_dataset = SQuADDataset(dataset_dir, tokenizer, stage, max_query_length, max_seq_length,
-                                     doc_stride, version_2_with_negative)
+        squad_dataset = SQuADDataset(dataset_dir, tokenizer, stage, max_question_len, max_seq_len,
+                                     doc_stride)
         return GeneratorDataset(squad_dataset, column_names, **kwargs)
 
 
 class SQuADDataset:
     """SQuAD Dataset"""
-    def __init__(self, dataset_dir, tokenizer, stage="train", max_query_length=64,
-                 max_seq_length=384, doc_stride=128, version_2_with_negative=False, temp_file_dir="./squad_temp"):
+    def __init__(self, dataset_dir, tokenizer, stage="train", max_question_len=64,
+                 max_seq_len=384, doc_stride=128, temp_file_dir="./squad_temp"):
         r"""
         SQuAd Dataset
 
@@ -131,11 +129,10 @@ class SQuADDataset:
             dataset_dir (str): The directory to SQuAd dataset.
             tokenizer (Tokenizer): A tokenizer for text processing.
             stage (str): The supported key words are in ["train", "dev"]
-            max_query_length (int): The maximum number of tokens for the question,
+            max_question_len (int): The maximum number of tokens for the question,
                                     Questions longer than this will be truncated to this length.
-            max_seq_length (int): Maximum sequence length.
+            max_seq_len (int): Maximum sequence length.
             doc_stride (int): When splitting up a long document into chunks, how much stride to take between chunks.
-            version_2_with_negative (bool): If true, the SQuAD examples contain some that do not have an answer.
             temp_file_dir (str): Save temporary files for SQuAD dataset.
 
         Return:
@@ -149,10 +146,9 @@ class SQuADDataset:
 
         self.dataset_dir = dataset_dir
         self.tokenizer = tokenizer
-        self.max_query_length = max_query_length
-        self.max_seq_length = max_seq_length
+        self.max_question_len = max_question_len
+        self.max_seq_len = max_seq_len
         self.doc_stride = doc_stride
-        self.version_2_with_negative = version_2_with_negative
 
         if stage == "train":
             self.is_training = True
@@ -167,7 +163,9 @@ class SQuADDataset:
         else:
             raise ValueError("unsupported stage.")
 
-        self.input_features = self._convert_examples_to_features()
+        self.input_features = convert_examples_to_features(self.examples, self.tokenizer,
+                                                           self.max_seq_len, self.max_question_len,
+                                                           self.doc_stride, self.is_training)
 
         if stage == "dev":
             self._save_eval_examples_and_features(temp_file_dir)
@@ -218,323 +216,314 @@ class SQuADDataset:
 
         examples = []
         for entry in input_data:
+            title = entry["title"]
             for paragraph in entry["paragraphs"]:
-                paragraph_text = paragraph["context"]
-                doc_tokens = []
-                char_to_word_offset = []
-                prev_is_whitespace = True
-                for c in paragraph_text:
-                    if self._is_whitespace(c):
-                        prev_is_whitespace = True
-                    else:
-                        if prev_is_whitespace:
-                            doc_tokens.append(c)
-                        else:
-                            doc_tokens[-1] += c
-                        prev_is_whitespace = False
-                    char_to_word_offset.append(len(doc_tokens) - 1)
-
+                context_text = paragraph["context"]
                 for qa in paragraph["qas"]:
-                    one_example = self._process_one_example(qa, doc_tokens, char_to_word_offset)
-                    if one_example is not None:
-                        examples.append(one_example)
+                    qas_id = qa["id"]
+                    question_text = qa["question"]
+                    start_position_character = None
+                    answer_text = None
+                    answers = []
+
+                    is_impossible = qa.get("is_impossible", False)
+                    if not is_impossible:
+                        if self.is_training:
+                            answer = qa["answers"][0]
+                            answer_text = answer["text"]
+                            start_position_character = answer["answer_start"]
+                        else:
+                            answers = qa["answers"]
+
+                    example = SquadExample(
+                        qas_id=qas_id,
+                        question_text=question_text,
+                        context_text=context_text,
+                        answer_text=answer_text,
+                        start_position_character=start_position_character,
+                        title=title,
+                        is_impossible=is_impossible,
+                        answers=answers,
+                    )
+                    examples.append(example)
 
         return examples
 
-    def _process_one_example(self, qa, doc_tokens, char_to_word_offset):
-        """generate one example from qa"""
-        qas_id = qa["id"]
-        question_text = qa["question"]
-        start_position = -1
-        end_position = -1
-        orig_answer_text = ""
-        is_impossible = False
-        if self.is_training:
-            if self.version_2_with_negative:
-                is_impossible = qa["is_impossible"]
-            if (len(qa["answers"]) != 1) and (not is_impossible):
-                raise ValueError("For training, each question should have exactly 1 answer.")
-            if not is_impossible:
-                answer = qa["answers"][0]
-                orig_answer_text = answer["text"]
-                answer_offset = answer["answer_start"]
-                answer_length = len(orig_answer_text)
-                start_position = char_to_word_offset[answer_offset]
-                end_position = char_to_word_offset[answer_offset + answer_length - 1]
-                actual_text = " ".join(doc_tokens[start_position:(end_position + 1)])
-                cleaned_answer_text = " ".join(self._whitespace_tokenize(orig_answer_text))
-                if actual_text.find(cleaned_answer_text) == -1:
-                    print("Could not find answer:", actual_text, ", vs: ", cleaned_answer_text)
-                    return None
+def convert_examples_to_features(examples, tokenizer, max_seq_len, max_question_len,
+                                 doc_stride, is_training):
+    """Convert examples to features"""
+    input_features = []
+    unique_id = 1000000000
+    for (example_index, example) in enumerate(examples):
+        query_tokens = tokenizer.tokenize(example.question_text)
 
-        example = SquadExample(
-            qas_id=qas_id,
-            question_text=question_text,
-            doc_tokens=doc_tokens,
-            orig_answer_text=orig_answer_text,
-            start_position=start_position,
-            end_position=end_position,
-            is_impossible=is_impossible)
-        return example
+        if len(query_tokens) > max_question_len:
+            query_tokens = query_tokens[0: max_question_len]
 
-    def _convert_examples_to_features(self):
-        """Convert examples to features"""
-        input_features = []
-        unique_id = 1000000000
-        for (example_index, example) in enumerate(self.examples):
-            query_tokens = self.tokenizer.tokenize(example.question_text)
+        tok_to_orig_index, orig_to_tok_index, all_doc_tokens = [], [], []
+        for (i, token) in enumerate(example.doc_tokens):
+            orig_to_tok_index.append(len(all_doc_tokens))
+            sub_tokens = tokenizer.tokenize(token)
+            for sub_token in sub_tokens:
+                tok_to_orig_index.append(i)
+                all_doc_tokens.append(sub_token)
 
-            if len(query_tokens) > self.max_query_length:
-                query_tokens = query_tokens[0: self.max_query_length]
-
-            tok_to_orig_index, orig_to_tok_index, all_doc_tokens = [], [], []
-            for (i, token) in enumerate(example.doc_tokens):
-                orig_to_tok_index.append(len(all_doc_tokens))
-                sub_tokens = self.tokenizer.tokenize(token)
-                for sub_token in sub_tokens:
-                    tok_to_orig_index.append(i)
-                    all_doc_tokens.append(sub_token)
-
-            tok_start_position, tok_end_position = None, None
-            if self.is_training and example.is_impossible:
-                tok_start_position = -1
-                tok_end_position = -1
-            if self.is_training and not example.is_impossible:
-                tok_start_position = orig_to_tok_index[example.start_position]
-                if example.end_position < len(example.doc_tokens) - 1:
-                    tok_end_position = orig_to_tok_index[example.end_position + 1] - 1
-                else:
-                    tok_end_position = len(all_doc_tokens) - 1
-                (tok_start_position, tok_end_position) = self._improve_answer_span(
-                    all_doc_tokens, tok_start_position, tok_end_position, example.orig_answer_text)
-
-            # The -3 accounts for [CLS], [SEP] and [SEP]
-            max_tokens_for_doc = self.max_seq_length - len(query_tokens) - 3
-
-            # We can have documents that are longer than the maximum sequence length.
-            # To deal with this we do a sliding window approach, where we take chunks
-            # of the up to our max length with a stride of `doc_stride`.
-            doc_spans = self._get_doc_spans(all_doc_tokens, max_tokens_for_doc)
-
-            for (doc_span_index, doc_span) in enumerate(doc_spans):
-                tokens, token_type_id = [], []
-                token_to_orig_map, token_is_max_context = {}, {}
-                tokens.append("[CLS]")
-                token_type_id.append(0)
-                for token in query_tokens:
-                    tokens.append(token)
-                    token_type_id.append(0)
-                tokens.append("[SEP]")
-                token_type_id.append(0)
-
-                for i in range(doc_span.length):
-                    split_token_index = doc_span.start + i
-                    token_to_orig_map[len(tokens)] = tok_to_orig_index[split_token_index]
-                    is_max_context = self._check_is_max_context(doc_spans, doc_span_index, split_token_index)
-                    token_is_max_context[len(tokens)] = is_max_context
-                    tokens.append(all_doc_tokens[split_token_index])
-                    token_type_id.append(1)
-                tokens.append("[SEP]")
-                token_type_id.append(1)
-
-                input_ids = self.tokenizer.convert_tokens_to_ids(tokens)
-
-                # The mask has 1 for real tokens and 0 for padding tokens. Only real
-                # tokens are attended to.
-                input_mask = [1] * len(input_ids)
-
-                # Zero-pad up to the sequence length.
-                while len(input_ids) < self.max_seq_length:
-                    input_ids.append(0)
-                    input_mask.append(0)
-                    token_type_id.append(0)
-
-                start_position, end_position = self._get_positions(doc_span, tok_start_position, tok_end_position,
-                                                                   len(query_tokens), example.is_impossible)
-
-                feature = InputFeatures(
-                    unique_id=unique_id,
-                    example_index=example_index,
-                    doc_span_index=doc_span_index,
-                    tokens=tokens,
-                    token_to_orig_map=token_to_orig_map,
-                    token_is_max_context=token_is_max_context,
-                    input_ids=input_ids,
-                    input_mask=input_mask,
-                    token_type_id=token_type_id,
-                    start_position=start_position,
-                    end_position=end_position,
-                    is_impossible=example.is_impossible)
-
-                input_features.append(feature)
-                unique_id += 1
-
-        return input_features
-
-    def _get_positions(self, doc_span, tok_start_position, tok_end_position,
-                       query_tokens_length, is_impossible):
-        """Get start position and end position"""
-        start_position, end_position = -1, -1
-        if self.is_training and not is_impossible:
-            # For training, if our document chunk does not contain an annotation
-            # we throw it out, since there is nothing to predict.
-            doc_start = doc_span.start
-            doc_end = doc_span.start + doc_span.length - 1
-            out_of_span = False
-            if not (tok_start_position >= doc_start and
-                    tok_end_position <= doc_end):
-                out_of_span = True
-            if out_of_span:
-                start_position, end_position = 0, 0
+        tok_start_position, tok_end_position = None, None
+        if is_training and example.is_impossible:
+            tok_start_position = -1
+            tok_end_position = -1
+        if is_training and not example.is_impossible:
+            tok_start_position = orig_to_tok_index[example.start_position]
+            if example.end_position < len(example.doc_tokens) - 1:
+                tok_end_position = orig_to_tok_index[example.end_position + 1] - 1
             else:
-                doc_offset = query_tokens_length + 2
-                start_position = tok_start_position - doc_start + doc_offset
-                end_position = tok_end_position - doc_start + doc_offset
+                tok_end_position = len(all_doc_tokens) - 1
+            (tok_start_position, tok_end_position) = _improve_answer_span(tokenizer,
+                                                                          all_doc_tokens,
+                                                                          tok_start_position,
+                                                                          tok_end_position,
+                                                                          example.answer_text)
 
-        if self.is_training and is_impossible:
+        # The -3 accounts for [CLS], [SEP] and [SEP]
+        max_tokens_for_doc = max_seq_len - len(query_tokens) - 3
+
+        # We can have documents that are longer than the maximum sequence length.
+        # To deal with this we do a sliding window approach, where we take chunks
+        # of the up to our max length with a stride of `doc_stride`.
+        doc_spans = _get_doc_spans(doc_stride, all_doc_tokens, max_tokens_for_doc)
+
+        for (doc_span_index, doc_span) in enumerate(doc_spans):
+            tokens, token_type_id = [], []
+            token_to_orig_map, token_is_max_context = {}, {}
+            tokens.append("[CLS]")
+            token_type_id.append(0)
+            for token in query_tokens:
+                tokens.append(token)
+                token_type_id.append(0)
+            tokens.append("[SEP]")
+            token_type_id.append(0)
+
+            for i in range(doc_span.length):
+                split_token_index = doc_span.start + i
+                token_to_orig_map[len(tokens)] = tok_to_orig_index[split_token_index]
+                is_max_context = _check_is_max_context(doc_spans, doc_span_index, split_token_index)
+                token_is_max_context[len(tokens)] = is_max_context
+                tokens.append(all_doc_tokens[split_token_index])
+                token_type_id.append(1)
+            tokens.append("[SEP]")
+            token_type_id.append(1)
+
+            input_ids = tokenizer.convert_tokens_to_ids(tokens)
+
+            # The mask has 1 for real tokens and 0 for padding tokens. Only real
+            # tokens are attended to.
+            input_mask = [1] * len(input_ids)
+
+            # Zero-pad up to the sequence length.
+            while len(input_ids) < max_seq_len:
+                input_ids.append(0)
+                input_mask.append(0)
+                token_type_id.append(0)
+
+            start_position, end_position = _get_positions(doc_span, tok_start_position, tok_end_position,
+                                                          len(query_tokens), example.is_impossible, is_training)
+
+            feature = InputFeatures(
+                unique_id=unique_id,
+                example_index=example_index,
+                doc_span_index=doc_span_index,
+                tokens=tokens,
+                token_to_orig_map=token_to_orig_map,
+                token_is_max_context=token_is_max_context,
+                input_ids=input_ids,
+                input_mask=input_mask,
+                token_type_id=token_type_id,
+                start_position=start_position,
+                end_position=end_position,
+                is_impossible=example.is_impossible)
+
+            input_features.append(feature)
+            unique_id += 1
+
+    return input_features
+
+def _get_positions(doc_span, tok_start_position, tok_end_position,
+                   query_tokens_length, is_impossible, is_training):
+    """Get start position and end position"""
+    start_position, end_position = -1, -1
+    if is_training and not is_impossible:
+        # For training, if our document chunk does not contain an annotation
+        # we throw it out, since there is nothing to predict.
+        doc_start = doc_span.start
+        doc_end = doc_span.start + doc_span.length - 1
+        out_of_span = False
+        if not (tok_start_position >= doc_start and
+                tok_end_position <= doc_end):
+            out_of_span = True
+        if out_of_span:
             start_position, end_position = 0, 0
+        else:
+            doc_offset = query_tokens_length + 2
+            start_position = tok_start_position - doc_start + doc_offset
+            end_position = tok_end_position - doc_start + doc_offset
 
-        return start_position, end_position
+    if is_training and is_impossible:
+        start_position, end_position = 0, 0
 
-    def _get_doc_spans(self, all_doc_tokens, max_tokens_for_doc):
-        """Get doc span"""
-        _DocSpan = collections.namedtuple("DocSpan", ["start", "length"])
-        doc_spans = []
-        start_offset = 0
-        while start_offset < len(all_doc_tokens):
-            length = len(all_doc_tokens) - start_offset
-            if length > max_tokens_for_doc:
-                length = max_tokens_for_doc
-            doc_spans.append(_DocSpan(start=start_offset, length=length))
-            if start_offset + length == len(all_doc_tokens):
-                break
-            start_offset += min(length, self.doc_stride)
-        return doc_spans
+    return start_position, end_position
 
-    def _improve_answer_span(self, doc_tokens, input_start, input_end, orig_answer_text):
-        """Returns tokenized answer spans that better match the annotated answer."""
+def _get_doc_spans(doc_stride, all_doc_tokens, max_tokens_for_doc):
+    """Get doc span"""
+    _DocSpan = collections.namedtuple("DocSpan", ["start", "length"])
+    doc_spans = []
+    start_offset = 0
+    while start_offset < len(all_doc_tokens):
+        length = len(all_doc_tokens) - start_offset
+        if length > max_tokens_for_doc:
+            length = max_tokens_for_doc
+        doc_spans.append(_DocSpan(start=start_offset, length=length))
+        if start_offset + length == len(all_doc_tokens):
+            break
+        start_offset += min(length, doc_stride)
+    return doc_spans
 
-        # The SQuAD annotations are character based. We first project them to
-        # whitespace-tokenized words. But then after WordPiece tokenization, we can
-        # often find a "better match". For example:
-        #
-        #   Question: What year was John Smith born?
-        #   Context: The leader was John Smith (1895-1943).
-        #   Answer: 1895
-        #
-        # The original whitespace-tokenized answer will be "(1895-1943).". However
-        # after tokenization, our tokens will be "( 1895 - 1943 ) .". So we can match
-        # the exact answer, 1895.
-        #
-        # However, this is not always possible. Consider the following:
-        #
-        #   Question: What country is the top exporter of electornics?
-        #   Context: The Japanese electronics industry is the lagest in the world.
-        #   Answer: Japan
-        #
-        # In this case, the annotator chose "Japan" as a character sub-span of
-        # the word "Japanese". Since our WordPiece tokenizer does not split
-        # "Japanese", we just use "Japanese" as the annotation. This is fairly rare
-        # in SQuAD, but does happen.
-        tok_answer_text = " ".join(self.tokenizer.tokenize(orig_answer_text))
+def _improve_answer_span(tokenizer, doc_tokens, input_start, input_end, orig_answer_text):
+    """Returns tokenized answer spans that better match the annotated answer."""
 
-        for new_start in range(input_start, input_end + 1):
-            for new_end in range(input_end, new_start - 1, -1):
-                text_span = " ".join(doc_tokens[new_start:(new_end + 1)])
-                if text_span == tok_answer_text:
-                    return (new_start, new_end)
+    # The SQuAD annotations are character based. We first project them to
+    # whitespace-tokenized words. But then after WordPiece tokenization, we can
+    # often find a "better match". For example:
+    #
+    #   Question: What year was John Smith born?
+    #   Context: The leader was John Smith (1895-1943).
+    #   Answer: 1895
+    #
+    # The original whitespace-tokenized answer will be "(1895-1943).". However
+    # after tokenization, our tokens will be "( 1895 - 1943 ) .". So we can match
+    # the exact answer, 1895.
+    #
+    # However, this is not always possible. Consider the following:
+    #
+    #   Question: What country is the top exporter of electornics?
+    #   Context: The Japanese electronics industry is the lagest in the world.
+    #   Answer: Japan
+    #
+    # In this case, the annotator chose "Japan" as a character sub-span of
+    # the word "Japanese". Since our WordPiece tokenizer does not split
+    # "Japanese", we just use "Japanese" as the annotation. This is fairly rare
+    # in SQuAD, but does happen.
+    tok_answer_text = " ".join(tokenizer.tokenize(orig_answer_text))
 
-        return (input_start, input_end)
+    for new_start in range(input_start, input_end + 1):
+        for new_end in range(input_end, new_start - 1, -1):
+            text_span = " ".join(doc_tokens[new_start:(new_end + 1)])
+            if text_span == tok_answer_text:
+                return (new_start, new_end)
 
-    def _check_is_max_context(self, doc_spans, cur_span_index, position):
-        """Check if this is the 'max context' doc span for the token."""
+    return (input_start, input_end)
 
-        # Because of the sliding window approach taken to scoring documents, a single
-        # token can appear in multiple documents. E.g.
-        #  Doc: the man went to the store and bought a gallon of milk
-        #  Span A: the man went to the
-        #  Span B: to the store and bought
-        #  Span C: and bought a gallon of
-        #  ...
-        #
-        # Now the word 'bought' will have two scores from spans B and C. We only
-        # want to consider the score with "maximum context", which we define as
-        # the *minimum* of its left and right context (the *sum* of left and
-        # right context will always be the same, of course).
-        #
-        # In the example the maximum context for 'bought' would be span C since
-        # it has 1 left context and 3 right context, while span B has 4 left context
-        # and 0 right context.
-        best_score = None
-        best_span_index = None
-        for (span_index, doc_span) in enumerate(doc_spans):
-            end = doc_span.start + doc_span.length - 1
-            if position < doc_span.start:
-                continue
-            if position > end:
-                continue
-            num_left_context = position - doc_span.start
-            num_right_context = end - position
-            score = min(num_left_context, num_right_context) + 0.01 * doc_span.length
-            if best_score is None or score > best_score:
-                best_score = score
-                best_span_index = span_index
+def _check_is_max_context(doc_spans, cur_span_index, position):
+    """Check if this is the 'max context' doc span for the token."""
 
-        return cur_span_index == best_span_index
+    # Because of the sliding window approach taken to scoring documents, a single
+    # token can appear in multiple documents. E.g.
+    #  Doc: the man went to the store and bought a gallon of milk
+    #  Span A: the man went to the
+    #  Span B: to the store and bought
+    #  Span C: and bought a gallon of
+    #  ...
+    #
+    # Now the word 'bought' will have two scores from spans B and C. We only
+    # want to consider the score with "maximum context", which we define as
+    # the *minimum* of its left and right context (the *sum* of left and
+    # right context will always be the same, of course).
+    #
+    # In the example the maximum context for 'bought' would be span C since
+    # it has 1 left context and 3 right context, while span B has 4 left context
+    # and 0 right context.
+    best_score = None
+    best_span_index = None
+    for (span_index, doc_span) in enumerate(doc_spans):
+        end = doc_span.start + doc_span.length - 1
+        if position < doc_span.start:
+            continue
+        if position > end:
+            continue
+        num_left_context = position - doc_span.start
+        num_right_context = end - position
+        score = min(num_left_context, num_right_context) + 0.01 * doc_span.length
+        if best_score is None or score > best_score:
+            best_score = score
+            best_span_index = span_index
+
+    return cur_span_index == best_span_index
+
+
+class SquadExample:
+    """
+    A single training/test example for the Squad dataset, as loaded from disk.
+    Args:
+        qas_id: The example's unique identifier
+        question_text: The question string
+        context_text: The context string
+        answer_text: The answer string
+        start_position_character: The character position of the start of the answer
+        title: The title of the example
+        answers: None by default, this is used during evaluation. Holds answers as well as their start positions.
+        is_impossible: False by default, set to True if the example has no possible answer.
+    """
+
+    def __init__(self,
+                 qas_id,
+                 question_text,
+                 context_text,
+                 answer_text,
+                 start_position_character,
+                 title,
+                 answers=None,
+                 is_impossible=False):
+
+        self.qas_id = qas_id
+        self.question_text = question_text
+        self.context_text = context_text
+        self.answer_text = answer_text
+        self.title = title
+        self.is_impossible = is_impossible
+        self.answers = answers
+
+        self.start_position, self.end_position = 0, 0
+
+        doc_tokens = []
+        char_to_word_offset = []
+        prev_is_whitespace = True
+
+        # Split on whitespace so that different tokens may be attributed to their original position.
+        for c in self.context_text:
+            if self._is_whitespace(c):
+                prev_is_whitespace = True
+            else:
+                if prev_is_whitespace:
+                    doc_tokens.append(c)
+                else:
+                    doc_tokens[-1] += c
+                prev_is_whitespace = False
+            char_to_word_offset.append(len(doc_tokens) - 1)
+
+        self.doc_tokens = doc_tokens
+        self.char_to_word_offset = char_to_word_offset
+
+        # Start and end positions only has a value during evaluation.
+        if start_position_character is not None and not is_impossible:
+            self.start_position = char_to_word_offset[start_position_character]
+            self.end_position = char_to_word_offset[
+                min(start_position_character + len(answer_text) - 1, len(char_to_word_offset) - 1)
+            ]
 
     def _is_whitespace(self, c):
         """Check whether character is whitespace"""
         if c == " " or c == "\t" or c == "\r" or c == "\n" or ord(c) == 0x202F:
             return True
         return False
-
-    def _whitespace_tokenize(self, text):
-        """Runs basic whitespace cleaning and splitting on a piece of text."""
-        text = text.strip()
-        if not text:
-            return []
-        tokens = text.split()
-        return tokens
-
-
-class SquadExample:
-    """
-    A single training/test example for simple sequence classification.
-    For examples without an answer, the start and end position are -1.
-    """
-
-    def __init__(self,
-                 qas_id,
-                 question_text,
-                 doc_tokens,
-                 orig_answer_text="",
-                 start_position=-1,
-                 end_position=-1,
-                 is_impossible=False):
-        self.qas_id = qas_id
-        self.question_text = question_text
-        self.doc_tokens = doc_tokens
-        self.orig_answer_text = orig_answer_text
-        self.start_position = start_position
-        self.end_position = end_position
-        self.is_impossible = is_impossible
-
-    def __str__(self):
-        return self.__repr__()
-
-    def __repr__(self):
-        s = ""
-        s += "qas_id: %s" % (tokenization.printable_text(self.qas_id))
-        s += ", question_text: %s" % (
-            tokenization.printable_text(self.question_text))
-        s += ", doc_tokens: [%s]" % (" ".join(self.doc_tokens))
-        if self.start_position:
-            s += ", start_position: %d" % (self.start_position)
-        if self.start_position:
-            s += ", end_position: %d" % (self.end_position)
-        if self.start_position:
-            s += ", is_impossible: %r" % (self.is_impossible)
-        return s
 
 class InputFeatures:
     """A single set of features of data."""

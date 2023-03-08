@@ -27,13 +27,13 @@ model:
 
 processor:
   return_tensors: ms
+  type: BertProcessor
   tokenizer:
+    type: BertTokenizer
     cls_token: '[CLS]'
-    do_basic_tokenize: True
-    do_lower_case: True
     mask_token: '[MASK]'
     pad_token: '[PAD]'
     sep_token: '[SEP]'
-    type: BertTokenizer
     unk_token: '[UNK]'
-  type: BertProcessor
+    do_basic_tokenize: True
+    do_lower_case: True

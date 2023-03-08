@@ -39,7 +39,7 @@
 
 ```shell
 # finetune
-python run_mindformer.py --config ./configs/tokcls/run_tokcls_bert_base_chinese.yaml --run_mode train
+python run_mindformer.py --config ./configs/tokcls/run_tokcls_bert_base_chinese.yaml --run_mode finetune
 
 # evaluate
 python run_mindformer.py --config ./configs/tokcls/run_tokcls_bert_base_chinese.yaml --run_mode eval --load_checkpoint tokcls_bert_base_chinese_cluener
@@ -72,7 +72,7 @@ python run_mindformer.py --config ./configs/tokcls/run_tokcls_bert_base_chinese.
 
   # 显示Trainer的模型支持列表
   MindFormerBook.show_trainer_support_model_list("token_classification")
-  # INFO - Trainer support model list for txt_classification task is:
+  # INFO - Trainer support model list for token_classification task is:
   # INFO -    ['tokcls_bert_base_chinese']
   # INFO - -------------------------------------
 
@@ -125,6 +125,7 @@ python run_mindformer.py --config ./configs/tokcls/run_tokcls_bert_base_chinese.
                                                 padding="max_length")
 
   results = tokcls_pipeline(input_data)
+  print(results)
   # 输出
   # [[{'entity_group': 'address', 'start': 6, 'end': 8, 'score': 0.52329, 'word': '日内瓦'},
   #   {'entity_group': 'name', 'start': 12, 'end': 25, 'score': 0.83922, 'word': 'freresoltramar'}]]

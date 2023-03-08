@@ -16,9 +16,9 @@
 
 echo "=============================================================================================================="
 echo "Please run the script as: "
-echo "bash examples/token_classification/tokcls_bert_base_chinese_train_on_cluener.sh"
-echo "The data setting could refer to ./docs/task_cards/token_classification.md"
+echo "bash examples/question_answering/qa_bert_base_uncased_finetune_on_squad.sh"
+echo "The data setting could refer to ./docs/task_cards/question_answering.md"
 echo "It is better to use absolute path."
 echo "=============================================================================================================="
 
-python run_mindformer.py --config ./configs/tokcls/run_tokcls_bert_base_chinese.yaml --run_mode train
+python run_mindformer.py --config ./configs/qa/run_qa_bert_base_uncased.yaml --run_mode finetune
