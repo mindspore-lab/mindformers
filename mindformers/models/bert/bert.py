@@ -32,11 +32,11 @@ from mindformers.models.base_model import BaseModel
 from ...mindformer_book import MindFormerBook
 from .bert_config import BertConfig
 
-__all__ = ['BertConfig', 'BertModel', 'BertForPreTraining', 'BertTokenClassification', 'BertForMultipleChoice',
+__all__ = ['BertConfig', 'BertModel', 'BertForPreTraining', 'BertForTokenClassification', 'BertForMultipleChoice',
            'BertForQuestionAnswering']
 
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
-class BertTokenClassification(BaseModel):
+class BertForTokenClassification(BaseModel):
     """
     Bert with dense layer for name entity recoginition task.
 
@@ -46,8 +46,8 @@ class BertTokenClassification(BaseModel):
     Returns:
         Tensor, loss, logits.
     Examples:
-        >>> from mindformers import BertTokenClassification, BertTokenizer
-        >>> model = BertTokenClassification.from_pretrained('tokcls_bert_base_chinese')
+        >>> from mindformers import BertForTokenClassification, BertTokenizer
+        >>> model = BertForTokenClassification.from_pretrained('tokcls_bert_base_chinese')
         >>> tokenizer = BertTokenizer.from_pretrained('tokcls_bert_base_chines')
         >>> data = tokenizer("我在杭州华为工作。")
         >>> input_ids = data['input_ids']
@@ -62,7 +62,7 @@ class BertTokenClassification(BaseModel):
     _support_list = MindFormerBook.get_model_support_list()['tokcls']['bert']
 
     def __init__(self, config=BertConfig()):
-        super(BertTokenClassification, self).__init__(config)
+        super(BertForTokenClassification, self).__init__(config)
         self.num_labels = config.num_labels
         self.bert = BertModel(config, config.is_training, config.use_one_hot_embeddings)
         self.dropout = nn.Dropout(1 - config.hidden_dropout_prob)

@@ -103,7 +103,7 @@ python run_mindformer.py --config ./configs/tokcls/run_tokcls_bert_base_chinese.
 
   ```python
   from mindformers.pipeline import TokenClassificationPipeline
-  from mindformers import AutoTokenizer, BertTokenClassification, AutoConfig
+  from mindformers import AutoTokenizer, BertForTokenClassification, AutoConfig
   from mindformers.dataset.labels import cluener_labels
 
   input_data = ["表身刻有代表日内瓦钟表匠freresoltramare的“fo”字样。"]
@@ -116,7 +116,7 @@ python run_mindformer.py --config ./configs/tokcls/run_tokcls_bert_base_chinese.
   # This is a known issue, you need to specify batch size equal to 1 when creating bert model.
   tokcls_cluener_config.batch_size = 1
 
-  model = BertTokenClassification(tokcls_cluener_config)
+  model = BertForTokenClassification(tokcls_cluener_config)
   tokcls_pipeline = TokenClassificationPipeline(task='token_classification',
                                                 model=model,
                                                 id2label=id2label,

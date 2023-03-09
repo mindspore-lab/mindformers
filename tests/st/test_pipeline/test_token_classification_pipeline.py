@@ -26,7 +26,7 @@ pytest ./tests/st/test_pipeline/test_token_classification_pipeline.py
 import pytest
 
 from mindformers.pipeline import TokenClassificationPipeline
-from mindformers import AutoTokenizer, BertTokenClassification, AutoConfig
+from mindformers import AutoTokenizer, BertForTokenClassification, AutoConfig
 from mindformers.dataset.labels import cluener_labels
 
 
@@ -52,7 +52,7 @@ def test_token_classification_pipeline():
     # This is a known issue, you need to specify batch size equal to 1 when creating bert model.
     tokcls_cluener_config.batch_size = 1
 
-    model = BertTokenClassification(tokcls_cluener_config)
+    model = BertForTokenClassification(tokcls_cluener_config)
     tokcls_pipeline = TokenClassificationPipeline(task='token_classification',
                                                   model=model,
                                                   id2label=id2label,

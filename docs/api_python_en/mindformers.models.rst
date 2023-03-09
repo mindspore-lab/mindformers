@@ -29,7 +29,7 @@ mindformers.models.bert
     mindformers.models.bert.BertForPreTraining
     mindformers.models.bert.BertForQuestionAnswering
     mindformers.models.bert.BertModel
-    mindformers.models.bert.BertTokenClassification
+    mindformers.models.bert.BertForTokenClassification
 
 mindformers.models.t5
 ------------------------

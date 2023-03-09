@@ -45,13 +45,13 @@ class TokenClassificationPipeline(BasePipeline):
 
     Examples:
         >>> from mindformers.pipeline import TokenClassificationPipeline
-        >>> from mindformers import AutoTokenizer, BertTokenClassification, AutoConfig
+        >>> from mindformers import AutoTokenizer, BertForTokenClassification, AutoConfig
         >>> from mindformers.dataset.labels import cluener_labels
         >>> id2label = {label_id: label for label_id, label in enumerate(cluener_labels)}
         >>> input_data = ["表身刻有代表日内瓦钟表匠freresoltramare的“fo”字样。"]
         >>> tokenizer = AutoTokenizer.from_pretrained('tokcls_bert_base_chinese_cluener')
         >>> ner_dense_cluener_config = AutoConfig.from_pretrained('tokcls_bert_base_chinese_cluener')
-        >>> model = BertTokenClassification(ner_dense_cluener_config)
+        >>> model = BertForTokenClassification(ner_dense_cluener_config)
         >>> tokcls_pipeline = TokenClassificationPipeline(task='token_classification',
         ...                                               model=model,
         ...                                               id2label=id2label
