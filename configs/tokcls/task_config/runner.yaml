@@ -32,5 +32,5 @@ callbacks:
     integrated_save: True
     async_save: False
 
-metrics:
+metric:
   type: EntityScore

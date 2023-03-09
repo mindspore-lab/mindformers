@@ -287,7 +287,7 @@ class BaseTrainer:
         if metric_name is None:
             metric_name = self.model_name + "_metric"
 
-        self.compute_metrics = {metric_name: build_metric(self.config.metrics)}
+        self.compute_metrics = {metric_name: build_metric(self.config.metric)}
         return self.compute_metrics
 
     def count_parameters(self):
