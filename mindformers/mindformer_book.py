@@ -201,6 +201,12 @@ class MindFormerBook:
                 _PROJECT_PATH, "configs/tokcls/run_tokcls_bert_base_chinese.yaml")),
             ("common", os.path.join(
                 _PROJECT_PATH, "configs/tokcls/run_tokcls_bert_base_chinese.yaml"))
+        ])),
+        ("question_answering", OrderedDict([
+            ("qa_bert_base_uncased", os.path.join(
+                _PROJECT_PATH, "configs/qa/run_qa_bert_base_uncased.yaml")),
+            ("common", os.path.join(
+                _PROJECT_PATH, "configs/qa/run_qa_bert_base_uncased.yaml"))
         ]))
     ])
 

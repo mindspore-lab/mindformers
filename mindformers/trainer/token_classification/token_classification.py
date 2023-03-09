@@ -55,7 +55,7 @@ class TokenClassificationTrainer(BaseTrainer):
         >>> dataset = GeneratorDataset(source=MyDataLoader(), column_names=['text', 'label_id'])
         >>> dataset = dataset.batch(batch_size=2)
         >>> #1) use config to train or evaluate or predict
-        >>> tokcls_task = TokenClassificationTrainer(model_name='bert_token_classification')
+        >>> tokcls_task = TokenClassificationTrainer(model_name='tokcls_bert_base_chinese')
         >>> tokcls_task.train(dataset=dataset)
         >>> tokcls_task.evaluate(dataset=dataset)
         >>> input_data = ["表身刻有代表日内瓦钟表匠freresoltramare的“fo”字样。", "的时间会去玩玩星际2。"]

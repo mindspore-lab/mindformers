@@ -16,9 +16,9 @@
 
 echo "=============================================================================================================="
 echo "Please run the script as: "
-echo "bash examples/text_classification/txtcls_bert_base_uncased_train_on_mnli.sh"
-echo "The data setting could refer to ./docs/task_cards/text_classification.md"
+echo "bash examples/token_classification/tokcls_bert_base_chinese_finetune_on_cluener.sh"
+echo "The data setting could refer to ./docs/task_cards/token_classification.md"
 echo "It is better to use absolute path."
 echo "=============================================================================================================="
 
-python run_mindformer.py --config ./configs/txtcls/run_txtcls_bert_base_uncased.yaml
+python run_mindformer.py --config ./configs/tokcls/run_tokcls_bert_base_chinese.yaml --run_mode finetune

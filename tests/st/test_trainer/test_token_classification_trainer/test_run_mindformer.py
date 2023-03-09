@@ -59,7 +59,7 @@ class TestRunMindFormer:
         """
         yaml_path = os.path.join(MindFormerBook.get_project_path(),
                                  "configs", "tokcls", "run_tokcls_bert_base_chinese.yaml")
-        command = "python run_mindformer.py --config " + yaml_path + " --run_mode train"
+        command = "python run_mindformer.py --config " + yaml_path + " --run_mode finetune"
         os.system(command)
 
     def test_trainer_eval_method(self):
