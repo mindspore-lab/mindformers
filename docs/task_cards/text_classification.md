@@ -81,7 +81,7 @@ python run_mindformer.py --config ./configs/txtcls/run_txtcls_bert_base_uncased.
       model='txtcls_bert_base_uncased',
       eval_dataset=dataset)
 
-  # 测试数据
+  # 测试数据，该input_data有两个测试案例，即两个文本对，单个文本对的两个文本之间用-分割
   input_data = ["The new rights are nice enough-Everyone really likes the newest benefits ",
                 "i don't know um do you do a lot of camping-I know exactly."]
 
