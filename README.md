@@ -29,27 +29,17 @@ MindSpore Transformers套件基于MindSpore内置的并行技术和组件化设�
 | [Swin](docs/model_cards/swin.md) |                                                                                  image_classification                                                                                   |                                                                                                          [swin_base_p4w7](configs/swin/model_config/swin_base_p4w7.yaml)                                                                                                          |
 | [CLIP](docs/model_cards/clip.md) | [contrastive_language_image_pretrain](docs/task_cards/contrastive_language_image_pretrain.md),<br/> [zero_shot_image_classification](docs/task_cards/zero_shot_image_classification.md) | [clip_vit_b_32](configs/clip/model_config/clip_vit_b_32.yaml) <br/> [clip_vit_b_16](configs/clip/model_config/clip_vit_b_16.yaml) <br/> [clip_vit_l_14](configs/clip/model_config/clip_vit_l_14.yaml) <br/> [clip_vit_l_14@336](configs/clip/model_config/clip_vit_l_14@336.yaml) |
 
-### 安装
-
-#### 安装方式1
-
-支持使用以下pip命令直接进行安装0.3.0版本
-
-```bash
-pip install https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/wheel_packages/0.3.0/mindformers/mindformers-0.3.0-py3-none-any.whl --trusted-host ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com -i https://pypi.tuna.tsinghua.edu.cn/simple
-```
-
-#### 安装方式2
+### mindformers安装
 
 支持源码编译安装，用户可以执行下述的命令进行包的安装
 
 ```bash
-git clone https://gitee.com/mindspore/mindformers.git
+git clone -b r0.3 https://gitee.com/mindspore/mindformers.git
 cd mindformers
-sh build.sh
+bash build.sh
 ```
 
-#### 版本匹配关系
+### 版本匹配关系
 
 |版本对应关系| MindFormers | MindSpore |
 |-----------|-------------| ----------|
@@ -70,7 +60,7 @@ MindFormers套件对外提供两种使用和开发形式，为开发者提供灵
     - step1：git clone mindformers
 
   ```shell
-  git clone https://gitee.com/mindspore/mindformers.git
+  git clone -b r0.3 https://gitee.com/mindspore/mindformers.git
   cd mindformers
   ```
 
@@ -97,7 +87,7 @@ python run_mindformer.py --config {CONFIG_PATH} --run_mode {train/finetune/eval/
 ```shell
 # 8卡分布式运行， DEVICE_RANGE = [0, 8], 不包含8本身
 cd scripts
-sh run_distribute.sh RANK_TABLE_FILE CONFIG_PATH DEVICE_RANGE RUN_MODE
+bash run_distribute.sh RANK_TABLE_FILE CONFIG_PATH DEVICE_RANGE RUN_MODE
 ```
 
 - 常用参数说明
@@ -119,9 +109,9 @@ RUN_STATUS: 为任务运行状态，支持关键字 train\finetune\eval\predict
   目前仅支持源码编译安装，用户可以执行下述的命令进行包的安装：
 
   ```shell
-  git clone https://gitee.com/mindspore/mindformers.git
+  git clone -b https://gitee.com/mindspore/mindformers.git
   cd mindformers
-  sh build.sh
+  bash build.sh
   ```
 
     - step2: 准备数据
