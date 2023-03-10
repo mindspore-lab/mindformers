@@ -41,14 +41,14 @@ class BertForTokenClassification(BaseModel):
     Bert with dense layer for name entity recoginition task.
 
     Args:
-        config (BertConfig): The config of BertForPreTraining.
+        config (BertConfig): The config of BertForTokenClassification.
 
     Returns:
         Tensor, loss, logits.
     Examples:
         >>> from mindformers import BertForTokenClassification, BertTokenizer
         >>> model = BertForTokenClassification.from_pretrained('tokcls_bert_base_chinese')
-        >>> tokenizer = BertTokenizer.from_pretrained('tokcls_bert_base_chines')
+        >>> tokenizer = BertTokenizer.from_pretrained('tokcls_bert_base_chinese')
         >>> data = tokenizer("我在杭州华为工作。")
         >>> input_ids = data['input_ids']
         >>> attention_mask = input_ids['attention_mask']
