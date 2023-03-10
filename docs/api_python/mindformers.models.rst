@@ -28,8 +28,8 @@ mindformers.models.bert
     mindformers.models.bert.BertForMultipleChoice
     mindformers.models.bert.BertForPreTraining
     mindformers.models.bert.BertForQuestionAnswering
-    mindformers.models.bert.BertModel
     mindformers.models.bert.BertForTokenClassification
+    mindformers.models.bert.BertModel
 
 mindformers.models.t5
 ------------------------
