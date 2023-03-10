@@ -29,7 +29,7 @@ from mindspore.nn import AdamWeightDecay
 
 from mindformers.mindformer_book import MindFormerBook
 from mindformers.tools.register.config import MindFormerConfig
-from mindformers.models import BertTokenClassification, BertConfig
+from mindformers.models import BertForTokenClassification, BertConfig
 from mindformers.trainer import Trainer
 from mindformers.trainer.config_args import ConfigArguments, RunnerConfig
 from mindformers.dataset.build_dataset import build_dataset
@@ -72,7 +72,7 @@ class TestTrainer:
         )
         config = ConfigArguments(seed=2022, runner_config=runner_config)
         bert_config = BertConfig.from_pretrained('tokcls_bert_base_chinese')
-        bert_token_cls_model = BertTokenClassification(bert_config)
+        bert_token_cls_model = BertForTokenClassification(bert_config)
         bert_token_cls_model.set_train(mode=True)
 
         dataset = build_dataset(self.config.train_dataset_task)

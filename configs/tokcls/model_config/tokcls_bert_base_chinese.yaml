@@ -23,7 +23,7 @@ model:
     compute_dtype: "float32"
     checkpoint_name_or_path: "tokcls_bert_base_chinese"
   arch:
-    type: BertTokenClassification
+    type: BertForTokenClassification
 
 processor:
   type: BertProcessor

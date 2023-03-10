@@ -43,7 +43,7 @@ class TokenClassificationTrainer(BaseTrainer):
         >>> from mindspore.nn import AdamWeightDecay, TrainOneStepCell
         >>> from mindformers.core.lr import build_lr
         >>> from mindformers.trainer import TokenClassificationTrainer
-        >>> from mindformers.models import BertTokenClassification, BertConfig
+        >>> from mindformers.models import BertForTokenClassification, BertConfig
         >>> class MyDataLoader:
         ...    def __init__(self):
         ...        self._data = [np.zeros((24, 128, 768), np.float32) for _ in range(64)]
@@ -66,7 +66,7 @@ class TokenClassificationTrainer(BaseTrainer):
         >>> tokcls_task.predict()
         >>> #2) use instance function to train or evaluate or predict
         >>> bert_config = BertConfig(batch_size=2)
-        >>> network_with_loss = BertTokenClassification(bert_config)
+        >>> network_with_loss = BertForTokenClassification(bert_config)
         >>> lr_schedule = build_lr(class_name='linear', learning_rate=0.001, warmup_steps=100, total_steps=1000)
         >>> optimizer = AdamWeightDecay(beta1=0.009, beta2=0.999,
         ...                             learning_rate=lr_schedule,
