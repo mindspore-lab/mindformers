@@ -112,7 +112,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="OPT convert script")
     parser.add_argument('--layers',
                         type=int,
-                        default=1,
+                        default=12,
                         help="The number of layers of the model to be converted.")
     parser.add_argument("--torch_path",
                         type=str,
@@ -170,9 +170,9 @@ if __name__ == '__main__':
     addition_mindspore = [
         "gpt2.backbone.layernorm.gamma",
         "gpt2.backbone.layernorm.beta",
-        "gpt2.backbone.word_embedding.embedding_table",
-        "gpt2.backbone.position_embedding.embedding_table",
-        "gpt2.dense1.weight",   # for finetune
+        "backbone.embedding.word_embedding.embedding_table",
+        "backbone.embedding.position_embedding.embedding_table",
+        # "gpt2.dense1.weight",   # for the model with head
     ]
 
     addition_torch = [
@@ -180,7 +180,7 @@ if __name__ == '__main__':
         "ln_f.bias",
         "wte.weight",
         "wpe.weight",
-        "wte.weight",   # for finetune
+        # "wte.weight",   # for the model with head
     ]
 
     mapped_param = generate_params_dict(total_layers=opt.layers,
