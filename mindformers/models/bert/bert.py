@@ -45,6 +45,7 @@ class BertForTokenClassification(BaseModel):
 
     Returns:
         Tensor, loss, logits.
+
     Examples:
         >>> from mindformers import BertForTokenClassification, BertTokenizer
         >>> model = BertForTokenClassification.from_pretrained('tokcls_bert_base_chinese')

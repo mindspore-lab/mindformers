@@ -34,7 +34,9 @@ from ..models import BaseModel, BaseTokenizer, BaseImageProcessor
 
 
 class BasePipeline(ABC):
-    r"""Base Pipeline For All Task Pipelines
+    r"""
+    Base Pipeline For All Task Pipelines
+
     Args:
         model (Union[str, BaseModel]): The model used to perform task,
             the input could be a supported model name, or a model instance
