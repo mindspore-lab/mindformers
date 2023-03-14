@@ -16,6 +16,6 @@
 
 from .gpt2_config import Gpt2Config
 from .gpt2 import GPT2Model, GPT2LMHeadModel
-from .gpt2_tokenizer import Gpt2Tokenizer
+from .gpt2_tokenizer import GPT2Tokenizer
 
-__all__ = ['Gpt2Config', 'GPT2Model', 'GPT2LMHeadModel', 'Gpt2Tokenizer']
+__all__ = ['Gpt2Config', 'GPT2Model', 'GPT2LMHeadModel', 'GPT2Tokenizer']

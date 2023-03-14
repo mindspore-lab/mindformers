@@ -22,7 +22,7 @@ import json
 import os
 import shutil
 import pytest
-from mindformers.models.gpt2.gpt2_tokenizer import Gpt2Tokenizer
+from mindformers.models.gpt2.gpt2_tokenizer import GPT2Tokenizer
 
 @pytest.mark.level0
 @pytest.mark.platform_x86_ascend_train
@@ -58,10 +58,10 @@ class TestGptTokenizerMethod:
         Description: Using call forward process of the tokenizer without error
         Expectation: The returned ret is not equal to [[6, 7]].
         """
-        tokenizer = Gpt2Tokenizer.from_pretrained(self.output_path)
+        tokenizer = GPT2Tokenizer.from_pretrained(self.output_path)
         tokenizer.show_support_list()
         tokenizer("hello world")
-        tokenizer = Gpt2Tokenizer.from_pretrained("gpt2")
+        tokenizer = GPT2Tokenizer.from_pretrained("gpt2")
         tokenizer("hello world")
 
     @pytest.mark.parametrize('skip_special_tokens', [True, False])
@@ -71,7 +71,7 @@ class TestGptTokenizerMethod:
         Description: Using call forward process of the tokenizer without error
         Expectation: The returned ret is not equal to [[6, 7]].
         """
-        tokenizer = Gpt2Tokenizer.from_pretrained(self.output_path)
+        tokenizer = GPT2Tokenizer.from_pretrained(self.output_path)
         res = tokenizer("hello world")["input_ids"]
         tokenizer.decode(res, skip_special_tokens=skip_special_tokens)
 
@@ -81,7 +81,7 @@ class TestGptTokenizerMethod:
         Description: Using call forward process of the tokenizer without error
         Expectation: The returned ret is not equal to [[6, 7]].
         """
-        tokenizer = Gpt2Tokenizer.from_pretrained(self.output_path)
+        tokenizer = GPT2Tokenizer.from_pretrained(self.output_path)
         tokenizer("hello world", skip_special_tokens=True)
         tokenizer("hello world", skip_special_tokens=False)
 

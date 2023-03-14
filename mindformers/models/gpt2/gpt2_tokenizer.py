@@ -23,7 +23,7 @@ from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.models.base_tokenizer import Tokenizer
 from ...mindformer_book import MindFormerBook
 
-__all__ = ['Gpt2Tokenizer']
+__all__ = ['GPT2Tokenizer']
 
 
 @lru_cache()
@@ -57,9 +57,35 @@ def get_pairs(word):
 
 
 @MindFormerRegister.register(MindFormerModuleType.TOKENIZER)
-class Gpt2Tokenizer(Tokenizer):
-    """
-    Gpt2Tokenizer
+class GPT2Tokenizer(Tokenizer):
+    r"""
+    Tokenize the input string and convert them into the ids. The tokenizer use the sentence piece internally.
+
+    Args:
+        vocab_file(str): The vocabulary file path.
+        merge_file(str): The merge file path.
+        unk_token(str): The token that represents the unknown. Default "<|endoftext|>".
+        bos_token(str): The token that represents the begin-of-sentence. Default "<|endoftext|>".
+        eos_token(str): The token that represents the end-of-sentence. Default "<|endoftext|>".
+        pad_token(str): The token that represents the pad. Default "<|endoftext|>".
+        add_prefix_space(bool): whether to add a whitespace in the front of text. Default "False"
+        **kwargs: Other kwargs that will be passed into the base class of the `Tokenizer`.
+
+    Examples:
+        >>> from mindformers import Gpt2Tokenizer
+
+        >>> tokenizer = GPT2Tokenizer.from_pretrained("gpt2")
+        >>> res = tokenizer("Hello world")
+        >>> print(res)
+        {'input_ids': [50256, 15496, 995, 50256], 'token_type_ids': [0, 0, 0, 0], 'attention_mask': [1, 1, 1, 1]}
+        >>> tokenizer = GPT2Tokenizer.from_pretrained("gpt2")
+        >>> res = tokenizer("Hello world", add_special_tokens=False)
+        >>> print(res)
+        {'input_ids': [15496, 995], 'token_type_ids': [0, 0], 'attention_mask': [1, 1]}
+
+    Outputs:
+        A dict contains the processed ids, attention_mask that specific by the member `MODEL_INPUT_NAME`
+        of the subclass.
     """
     VOCAB_FILES = {'merge_file': 'merges.txt', 'vocab_file': 'vocab.json'}
     FILE_LIST = ['tokenizer_config.json']
@@ -76,7 +102,7 @@ class Gpt2Tokenizer(Tokenizer):
             add_prefix_space=False,
             **kwargs
     ):
-        super(Gpt2Tokenizer, self).__init__(
+        super(GPT2Tokenizer, self).__init__(
             unk_token=unk_token, bos_token=bos_token, eos_token=eos_token, pad_token=pad_token, **kwargs
         )
         with open(vocab_file, 'r', encoding="utf-8") as vocab_handle:
