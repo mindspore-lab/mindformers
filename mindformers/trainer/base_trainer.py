@@ -17,10 +17,13 @@ import os
 import shutil
 from typing import Optional, Union, List
 
+import mindspore as ms
 from mindspore.train.model import Model
 from mindspore.train import Callback
 from mindspore.dataset import GeneratorDataset
-from mindspore.nn import TrainOneStepCell, Optimizer, Cell
+from mindspore.nn.wrap.cell_wrapper import _VirtualDatasetCell
+from mindspore.nn import TrainOneStepCell, Optimizer, Cell, \
+    PipelineCell, MicroBatchInterleaved
 
 from mindformers.mindformer_book import MindFormerBook
 from mindformers.core import build_lr, build_optim, build_callback, build_metric
@@ -109,6 +112,7 @@ class BaseTrainer:
         else:
             self.setup_task_config()
             self.config = self.default_task_config
+        self._check_global_batch_size_for_auto_parallel()
         return self.config
 
     def setup_task_config(self):
@@ -123,6 +127,43 @@ class BaseTrainer:
             logger.warning("If the default config arguments is not specified,"
                            "you must define the required model or wrapper, optimizer, and so on"
                            "in the train or evaluate or predict attribute function.")
+
+    def _check_global_batch_size_for_auto_parallel(self):
+        """Check global batch size in auto parallel mode."""
+        batch_size = self.config.runner_config.batch_size
+        dp = self.config.parallel_config.data_parallel
+        micro_batch_num = self.config.parallel_config.micro_batch_num
+        parallel_mode = ms.get_auto_parallel_context("parallel_mode")
+        full_batch = ms.get_auto_parallel_context("full_batch")
+        pp = self.get_pipeline_stages()
+
+        if parallel_mode in ["semi_auto_parallel", "auto_parallel"]:
+            if full_batch:
+                if pp > 1:
+                    logger.info("Pipeline parallel was opened: pipeline_stages = %s, full batch is True, "
+                                "batch size will be changed: "
+                                "batch_size = batch_size * data_parallel * micro_batch_num = %s * %s * %s = %s).",
+                                pp, batch_size, dp, micro_batch_num, batch_size * dp * micro_batch_num)
+                    self.config.runner_config.batch_size = batch_size * dp * micro_batch_num
+                else:
+                    logger.info("The current parallel mode is %s, full batch is True, so batch size will be changed: "
+                                "batch_size = batch_size * data_parallel = %s * %s = %s",
+                                parallel_mode, batch_size, dp, batch_size * dp)
+                    self.config.runner_config.batch_size = batch_size * dp
+            else:
+                if pp > 1:
+                    logger.info("Pipeline parallel was opened: pipeline_stages = %s, full batch is False, "
+                                "batch size will be changed: "
+                                "batch_size = batch_size * micro_batch_num = %s * %s = %s).",
+                                pp, batch_size, micro_batch_num, batch_size * micro_batch_num)
+                    self.config.runner_config.batch_size = batch_size * micro_batch_num
+        else:
+            logger.info("The current parallel mode is %s, batch size will not be changed: batch_size = %s",
+                        parallel_mode, batch_size)
+
+    def _reset_dataset_batch_size(self):
+        """Reset dataset batch size according to the global batch size of runner config."""
+        check_dataset_config(self.config)
 
     def _merge_config(self, args):
         """Merge config from default task config."""
@@ -160,24 +201,53 @@ class BaseTrainer:
     def create_train_dataset(self, default_args: dict = None):
         """Create the train dataset for training."""
         logger.info(".........Build Dataset From Config..........")
-        check_dataset_config(self.config)
-        self.train_dataset = build_dataset(self.config.train_dataset_task, default_args=default_args)
-        return self.train_dataset
+        self._reset_dataset_batch_size()
+        train_dataset = build_dataset(self.config.train_dataset_task, default_args=default_args)
+        return train_dataset
 
     def create_eval_dataset(self, default_args: dict = None):
         """Create the eval dataset for evaluate."""
         logger.info(".........Build Dataset From Config..........")
-        check_dataset_config(self.config)
-        self.eval_dataset = build_dataset(self.config.eval_dataset_task, default_args=default_args)
-        return self.eval_dataset
+        self._reset_dataset_batch_size()
+        eval_dataset = build_dataset(self.config.eval_dataset_task, default_args=default_args)
+        return eval_dataset
 
     def create_network(self, default_args: dict = None, is_train: bool = True):
         """Create the network for task trainer."""
         logger.info(".........Build Network From Config..........")
-        self.network = build_model(self.config.model, default_args=default_args)
-        if isinstance(self.network, (Cell, BaseModel)):
-            self.network.set_train(is_train)
-        return self.network
+        network = build_model(self.config.model, default_args=default_args)
+        if isinstance(network, (Cell, BaseModel)):
+            network.set_train(is_train)
+        return network
+
+    def create_pipeline_network(self, default_args: dict = None):
+        """Create the network of pipeline parallel for task trainer."""
+        logger.info(".........Build Pipeline Network From Config..........")
+        network = build_model(self.config.model, default_args=default_args)
+        micro_batch_interleave_num = self.config.micro_batch_interleave_num
+        micro_batch_num = self.config.parallel_config.micro_batch_num
+        if micro_batch_interleave_num > 1:
+            logger.info("micro_batch_interleave_num > 1, the double copy parallel feature is turned on.")
+            network = PipelineCell(MicroBatchInterleaved(network, micro_batch_interleave_num),
+                                   micro_size=micro_batch_num)
+        else:
+            network = PipelineCell(network, micro_size=micro_batch_num)
+        network = _VirtualDatasetCell(network)
+
+        if isinstance(network, (Cell, BaseModel)):
+            network.set_train(True)
+
+        if self.config.runner_wrapper is not None:
+            self.config.runner_wrapper.type = "MFPipelineWithLossScaleCell" \
+                if self.config.runner_wrapper.type != "MFPipelineWithLossScaleCell" else self.config.runner_wrapper.type
+            self.config.runner_wrapper.micro_batch_num = self.config.parallel_config.micro_batch_num
+            logger.warning("When using the pipeline parallel mode, "
+                           "the MFPipelineWithLossScaleCell class is used by default.")
+        else:
+            logger.warning("When using the pipeline parallel mode, "
+                           "because the wrapper class is not specified, "
+                           "MindSpore's built-in PipelineCell is used by default")
+        return network
 
     def create_image_processor(self, default_args: dict = None):
         """Create the image processor for predict."""
@@ -344,6 +414,11 @@ class BaseTrainer:
             raise NotImplementedError("train dataset is None")
         return self.eval_dataset.get_dataset_size()
 
+    def get_pipeline_stages(self):
+        """Get pipeline stages for task trainer."""
+        pipeline_stages = self.config.parallel_config.pipeline_stage or ms.get_auto_parallel_context("pipeline_stages")
+        return pipeline_stages
+
     def learning_rate_scale(self, base_learning_rate: float = 0., scale_factor: Optional[Union[float, int]] = 256.):
         """Scale learning rate for training."""
         if not isinstance(base_learning_rate, float):
@@ -380,8 +455,12 @@ class BaseTrainer:
         # build network
         logger.info(".........Build Net For Train..........")
         if network is None and wrapper is None:
-            network = self.create_network(default_args={"parallel_config": config.parallel_config,
-                                                        "moe_config": config.moe_config})
+            if self.get_pipeline_stages() > 1:
+                network = self.create_pipeline_network(default_args={"parallel_config": config.parallel_config,
+                                                                     "moe_config": config.moe_config})
+            else:
+                network = self.create_network(default_args={"parallel_config": config.parallel_config,
+                                                            "moe_config": config.moe_config})
         if network is not None:
             self.set_network(network)
 
@@ -398,7 +477,9 @@ class BaseTrainer:
         # build callback
         logger.info(".........Build Callbacks For Train..........")
         if callbacks is None:
-            callbacks = self.create_callbacks(default_args={"learning_rate": optimizer.learning_rate})
+            callbacks = self.create_callbacks(default_args={
+                "learning_rate": optimizer.learning_rate,
+                "micro_batch_num": self.config.parallel_config.micro_batch_num})
 
         # resume checkpoint
         if config.resume_or_finetune_checkpoint:

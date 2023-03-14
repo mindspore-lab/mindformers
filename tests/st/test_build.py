@@ -228,8 +228,7 @@ class TestProcessor:
 class TestTaskTrainer(BaseTrainer):
     """Test TimeMonitor API For Register."""
     def __init__(self, model_name='vit'):
-        super(TestTaskTrainer, self).__init__(model_name)
-        self.model_name = model_name
+        super(TestTaskTrainer, self).__init__(model_name=model_name)
 
 
 @pytest.mark.level0

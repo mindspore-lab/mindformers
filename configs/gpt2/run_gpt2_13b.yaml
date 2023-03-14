@@ -1,0 +1,83 @@
+base_config: [
+    './task_config/context.yaml',
+    './task_config/runner.yaml',
+    './task_config/gpt2_dataset.yaml',
+    './model_config/gpt2_13b.yaml',
+    '../__base__.yaml' ]
+
+runner_config:
+  epochs: 2
+  batch_size: 2
+  sink_mode: True
+  per_epoch_size: 2
+  initial_epoch: 0
+  has_trained_epoches: 0
+  has_trained_steps: 0
+
+# lr sechdule
+lr_schedule:
+  type: polynomial
+  learning_rate: 0.00005
+  lr_end: 0.000001
+  warmup_steps: 2000
+  total_steps: -1 # -1 means it will load the total steps of the dataset
+
+parallel:
+  parallel_mode: 1 # 0-dataset, 1-semi, 2-auto, 3-hybrid
+  gradients_mean: False
+  loss_repeated_mean: True
+  full_batch: True
+  search_mode: "sharding_propagation"
+  enable_parallel_optimizer: True
+  strategy_ckpt_save_file: "./ckpt_strategy.ckpt"
+
+recompute_config:
+  recompute: True
+  parallel_optimizer_comm_recompute: False
+  mp_comm_recompute: True
+  recompute_slice_activation: False
+
+# 4 nodes 32 device num
+parallel_config:
+  data_parallel: 4
+  model_parallel: 8
+  pipeline_stage: 1
+  optimizer_shard: True
+  micro_batch_num: 1
+  vocab_emb_dp: True
+  gradient_aggregation_group: 4
+
+runner_wrapper:
+  type: MFPipelineWithLossScaleCell
+  scale_sense:
+    type: DynamicLossScaleUpdateCell
+    loss_scale_value: 4294967296
+    scale_factor: 2
+    scale_window: 1000
+  use_clip_grad: True
+
+callbacks:
+  - type: MFLossMonitor
+  - type: CheckpointMointor
+    prefix: "gpt2-13b"
+    save_checkpoint_steps: 500
+    integrated_save: False
+    async_save: False
+  - type: ObsMonitor
+
+auto_tune: True
+autotune_per_step: 10
+
+profile: False
+use_parallel: True
+
+micro_batch_interleave_num: 1
+
+seed: 0
+resume_or_finetune_checkpoint: ""
+
+
+run_mode: 'train'
+trainer:
+  type: MaskedLanguageModelingTrainer
+  model_name: 'gpt2_13b'

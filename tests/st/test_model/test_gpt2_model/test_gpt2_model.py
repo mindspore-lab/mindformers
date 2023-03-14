@@ -27,7 +27,7 @@ from mindspore.dataset import GeneratorDataset
 from mindformers.trainer import Trainer
 from mindformers.trainer.config_args import ConfigArguments, \
     RunnerConfig
-from mindformers.models.gpt2.gpt2 import GPT2LMHeadModel, Gpt2Config
+from mindformers.models.gpt2.gpt2 import GPT2LMHeadModel, GPT2Config
 from mindformers.core.lr import WarmUpDecayLR
 from mindformers import MindFormerBook, AutoModel, AutoConfig
 from mindformers.tools import logger
@@ -37,13 +37,13 @@ from mindformers.core.optim import FusedAdamWeightDecay
 
 def generator():
     """dataset generator"""
-    seq_len = 1024
+    seq_len = 1025
     input_ids = np.random.randint(low=0, high=15, size=(seq_len,)).astype(np.int32)
     input_mask = np.ones_like(input_ids)
     label_ids = input_ids
     train_data = (input_ids, input_mask, label_ids)
     for _ in range(512):
-        yield train_data
+        yield train_data[0]
 
 @dataclass
 class Tempconfig:
@@ -70,7 +70,7 @@ def test_gpt_trainer_train_from_instance():
     gpt_model = GPT2LMHeadModel()
 
     # Dataset and operations
-    dataset = GeneratorDataset(generator, column_names=["input_ids", "input_mask", "label_ids"])
+    dataset = GeneratorDataset(generator, column_names=["input_ids"])
     dataset = dataset.batch(batch_size=8)
 
     # optimizer
@@ -111,20 +111,20 @@ class TestModelForGptMethod:
         """
 
         # input model name, load model and weights
-        config = Gpt2Config(num_hidden_layers=1)
+        config = GPT2Config(num_hidden_layers=1)
         gpt2_model = GPT2LMHeadModel(config)
         assert isinstance(gpt2_model, BaseModel)
 
     def test_gpt_config_model(self):
         """
         Feature: GPT2LMHeadModel, input config
-        Description: Test to get config instance by Gpt2Config.from_pretrained
+        Description: Test to get config instance by GPT2Config.from_pretrained
                     and input config
         Expectation: TypeError, ValueError, RuntimeError
         """
 
         # input model name, load model and weights
-        config = Gpt2Config.from_pretrained("gpt2")
+        config = GPT2Config.from_pretrained("gpt2")
         gpt2_model = GPT2LMHeadModel(config)
         assert isinstance(gpt2_model, BaseModel)
 
@@ -134,7 +134,7 @@ class TestModelForGptMethod:
         Description: Test to save checkpoint for GptModel
         Expectation: ValueError, AttributeError
         """
-        gpt = GPT2LMHeadModel(Gpt2Config(num_layers=1, hidden_dropout_prob=0.0,
+        gpt = GPT2LMHeadModel(GPT2Config(num_layers=1, hidden_dropout_prob=0.0,
                                          attention_probs_dropout_prob=0.0, batch_size=2, seq_length=16))
         gpt.save_pretrained(self.save_directory, save_name='gpt_test')
         new_gpt = GPT2LMHeadModel.from_pretrained(self.save_directory)
@@ -164,4 +164,4 @@ class TestModelForGptMethod:
         """
         config = AutoConfig.from_pretrained("gpt2")
         model = AutoModel.from_pretrained("gpt2")
-        assert isinstance(model, BaseModel) and isinstance(config, Gpt2Config)
+        assert isinstance(model, BaseModel) and isinstance(config, GPT2Config)

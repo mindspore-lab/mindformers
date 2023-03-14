@@ -2396,8 +2396,7 @@ class TransformerEncoder(Cell):
 
     @_LogActionOnce(m_logger=logger, key='TransformerEncoder',
                     no_warning=_get_parallel_mode() in (ParallelMode.STAND_ALONE,))
-    @_args_type_validator_check(batch_size=Validator.check_positive_int,
-                                hidden_size=Validator.check_positive_int,
+    @_args_type_validator_check(hidden_size=Validator.check_positive_int,
                                 num_heads=Validator.check_positive_int,
                                 ffn_hidden_size=Validator.check_positive_int,
                                 seq_length=Validator.check_positive_int,
@@ -2438,6 +2437,8 @@ class TransformerEncoder(Cell):
         _check_config(parallel_config)
         _check_moe_config(moe_config, parallel_config)
         self.use_moe = (moe_config.expert_num > 1)
+        if batch_size or use_past:
+            Validator.check_positive_int(batch_size)
         config_to_layer = parallel_config.moe_parallel_config if self.use_moe else parallel_config.dp_mp_config
         if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation():
             self.add = P.Add()
@@ -2632,8 +2633,7 @@ class TransformerDecoder(Cell):
 
     @_LogActionOnce(m_logger=logger, key='TransformerDecoder',
                     no_warning=_get_parallel_mode() in (ParallelMode.STAND_ALONE,))
-    @_args_type_validator_check(batch_size=Validator.check_positive_int,
-                                hidden_size=Validator.check_positive_int,
+    @_args_type_validator_check(hidden_size=Validator.check_positive_int,
                                 num_heads=Validator.check_positive_int,
                                 ffn_hidden_size=Validator.check_positive_int,
                                 src_seq_length=Validator.check_positive_int,
@@ -2676,6 +2676,8 @@ class TransformerDecoder(Cell):
         _check_moe_config(moe_config, parallel_config)
         _check_config(parallel_config)
         self.use_moe = (moe_config.expert_num > 1)
+        if batch_size or use_past:
+            Validator.check_positive_int(batch_size)
         config_to_layer = parallel_config.moe_parallel_config if self.use_moe else parallel_config.dp_mp_config
         if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation():
             self.add = P.Add()
@@ -2903,8 +2905,7 @@ class Transformer(Cell):
 
     @_LogActionOnce(m_logger=logger, key='Transformer',
                     no_warning=_get_parallel_mode() in (ParallelMode.STAND_ALONE,))
-    @_args_type_validator_check(batch_size=Validator.check_positive_int,
-                                hidden_size=Validator.check_positive_int,
+    @_args_type_validator_check(hidden_size=Validator.check_positive_int,
                                 num_heads=Validator.check_positive_int,
                                 ffn_hidden_size=Validator.check_positive_int,
                                 src_seq_length=Validator.check_positive_int,
@@ -2942,6 +2943,8 @@ class Transformer(Cell):
                  moe_config=default_moe_config,
                  parallel_config=default_transformer_config):
         super(Transformer, self).__init__()
+        if batch_size or use_past:
+            Validator.check_positive_int(batch_size)
         if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation():
             _check_config(parallel_config)
             self.batch_size = batch_size

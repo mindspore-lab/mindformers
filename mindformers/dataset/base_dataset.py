@@ -15,6 +15,7 @@
 """Base Dataset."""
 import os
 
+import mindspore as ms
 import mindspore.dataset as ds
 
 
@@ -39,3 +40,14 @@ class BaseDataset:
             dataset_config.filepath_prefix = os.path.join(dataset_config.filepath_prefix, "autotune")
             ds.config.set_enable_autotune(True, filepath_prefix=dataset_config.filepath_prefix)
             ds.config.set_autotune_interval(dataset_config.autotune_per_step)
+
+    @classmethod
+    def _check_device_rank_for_parallel(cls, rank_id, device_num):
+        """Check device num and rank id in auto parallel mode."""
+        is_semi_full_batch = \
+            ((ms.context.get_auto_parallel_context("parallel_mode") in ['semi_auto_parallel', 'auto_parallel'])
+             and ms.context.get_auto_parallel_context("full_batch"))
+        if is_semi_full_batch:
+            rank_id = None
+            device_num = None
+        return rank_id, device_num

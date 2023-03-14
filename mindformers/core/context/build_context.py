@@ -35,9 +35,11 @@ PARALLEL_CONFIG = {'parallel_mode': 'DATA_PARALLEL', 'gradients_mean': True}
 def build_context(config):
     """Build context."""
     profile_cb = None
+    if config.parallel_config.pipeline_stage > 1:
+        config.parallel.pipeline_stages = config.parallel_config.pipeline_stage
     local_rank, device_num = init_context(use_parallel=config.use_parallel,
                                           context_config=config.context, parallel_config=config.parallel)
-    set_algo_parameters(elementwise_op_strategy_follow=True, fully_use_devices=False)
+    set_algo_parameters(elementwise_op_strategy_follow=True, fully_use_devices=True)
     _set_multi_subgraphs()
 
     config.device_num = device_num
@@ -84,6 +86,10 @@ def init_context(use_parallel=True, context_config=None, parallel_config=None):
     rank_id = 0
     context_config['mode'] = MODE.get(context_config.get('mode'))
 
+    context.set_context(max_device_memory=context_config.get('max_device_memory'),
+                        mode=context_config.get('mode'))
+    del context_config['mode']
+    del context_config['max_device_memory']
     if use_parallel:
         init()
         device_id = int(os.getenv('DEVICE_ID', '0'))  # 0 ~ 7
@@ -111,6 +117,10 @@ def _set_check_context_config(config):
     device = config.get('device_id')
     if device is None:
         config.setdefault('device_id', 0)
+
+    max_device_memory = config.get('max_device_memory')
+    if max_device_memory is None:
+        config.setdefault('max_device_memory', '30GB')
 
     if check_in_modelarts():
         save_graph = config.get('save_graphs')

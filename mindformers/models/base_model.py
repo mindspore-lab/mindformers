@@ -50,8 +50,8 @@ class BaseModel(nn.Cell, GeneratorMixin):
     _model_type = 0
     _model_name = 1
 
-    def __init__(self, config: BaseConfig):
-        super(BaseModel, self).__init__()
+    def __init__(self, config: BaseConfig, **kwargs):
+        super(BaseModel, self).__init__(**kwargs)
         self.config = config
 
     def load_checkpoint(self, config):
