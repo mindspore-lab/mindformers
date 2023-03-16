@@ -72,7 +72,7 @@ MindFormers套件对外提供两种使用和开发形式，为开发者提供灵
 
   ```shell
   # 不包含8本身，生成0~7卡的hccl json文件
-  python mindformers/tools/hccl_tools --device_num [0,8]
+  python mindformers/tools/hccl_tools.py --device_num [0,8]
   ```
 
 - 单卡启动：统一接口启动，根据模型 CONFIG 完成任意模型的单卡训练、微调、评估、推理流程
