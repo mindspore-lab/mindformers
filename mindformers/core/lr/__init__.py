@@ -17,5 +17,5 @@ from .build_lr import build_lr
 from .lr_schedule import *
 
 
-__all__ = ['build_lr']
+__all__ = []
 __all__.extend(lr_schedule.__all__)

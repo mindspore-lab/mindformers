@@ -17,5 +17,5 @@ from .build_metric import build_metric
 from .metric import *
 
 
-__all__ = ['build_metric']
+__all__ = []
 __all__.extend(metric.__all__)

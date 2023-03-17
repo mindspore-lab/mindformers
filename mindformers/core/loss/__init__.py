@@ -16,5 +16,5 @@
 from .build_loss import build_loss
 from .loss import *
 
-__all__ = ['build_loss']
+__all__ = []
 __all__.extend(loss.__all__)

@@ -13,6 +13,11 @@
 # limitations under the License.
 # ============================================================================
 """MindFormers Core."""
+from .lr import build_lr
+from .loss import build_loss
+from .optim import build_optim
+from .metric import build_metric
+from .callback import build_callback
 from .lr import *
 from .loss import *
 from .optim import *

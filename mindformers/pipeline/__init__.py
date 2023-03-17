@@ -25,7 +25,7 @@ from .token_classification_pipeline import TokenClassificationPipeline
 from .question_answering_pipeline import QuestionAnsweringPipeline
 
 
-__all__ = ['build_pipeline', 'ZeroShotImageClassificationPipeline',
+__all__ = ['ZeroShotImageClassificationPipeline',
            'ImageClassificationPipeline', 'pipeline', 'BasePipeline']
 
 __all__.extend(translation_pipeline.__all__)

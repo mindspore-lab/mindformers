@@ -32,8 +32,7 @@ from .build_model import build_model_config, build_head, \
     build_model, build_encoder
 
 __all__ = ['BaseConfig', 'BaseModel', 'BaseProcessor', 'BaseImageProcessor',
-           'build_tokenizer', 'build_processor', 'build_model', 'build_head',
-           'build_encoder', 'build_model_config', 'BaseAudioProcessor']
+           'BaseAudioProcessor']
 
 __all__.extend(bert.__all__)
 __all__.extend(mae.__all__)

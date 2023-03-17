@@ -20,5 +20,5 @@ from .wmt16_dataloader import WMT16DataLoader
 from .cluener_dataloader import CLUENERDataLoader
 from .squad_dataloader import SQuADDataLoader
 
-__all__ = ['build_dataset_loader', 'Flickr8kDataLoader', 'Cifar100DataLoader', 'WMT16DataLoader',
+__all__ = ['Flickr8kDataLoader', 'Cifar100DataLoader', 'WMT16DataLoader',
            'CLUENERDataLoader', 'SQuADDataLoader']
