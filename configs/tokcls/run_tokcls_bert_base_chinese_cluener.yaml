@@ -1,8 +1,8 @@
 base_config: [
     './task_config/context.yaml',
     './task_config/runner.yaml',
-    './task_config/bert_mnli_dataset.yaml',
-    './model_config/txtcls_bert_base_uncased.yaml',
+    './task_config/bert_cluener_dataset.yaml',
+    './model_config/tokcls_bert_base_chinese_cluener.yaml',
     '../__base__.yaml' ]
 
 profile: False
@@ -11,9 +11,7 @@ use_parallel: False
 seed: 42
 resume_or_finetune_checkpoint: ''
 
-top_k: 1
-
 run_mode: 'train'
 trainer:
-  type: TextClassificationTrainer
-  model_name: txtcls_bert_base_uncased
+  type: TokenClassificationTrainer
+  model_name: tokcls_bert_base_chinese_cluener

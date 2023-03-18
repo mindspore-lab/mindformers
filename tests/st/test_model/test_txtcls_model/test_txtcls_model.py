@@ -27,6 +27,9 @@ from mindformers.models import BertForMultipleChoice, BaseModel
 from mindformers.tools import logger
 
 
+@pytest.mark.level0
+@pytest.mark.platform_x86_cpu
+@pytest.mark.env_onecard
 class TestModelMethod:
     """A test class for testing Model classes"""
     def setup_method(self):
@@ -49,11 +52,8 @@ class TestModelMethod:
 
         # save path
         self.save_directory = os.path.join(MindFormerBook.get_default_checkpoint_save_folder(), 'txtcls')
+
     # the first method to load model, AutoModel
-    @pytest.mark.level0
-    @pytest.mark.platform_x86_ascend_training
-    @pytest.mark.platform_arm_ascend_training
-    @pytest.mark.env_onecard
     def test_auto_model(self):
         """
         Feature: AutoModel, from_pretrained, from_config

@@ -2,7 +2,7 @@ base_config: [
     './task_config/context.yaml',
     './task_config/runner.yaml',
     './task_config/bert_mnli_dataset.yaml',
-    './model_config/txtcls_bert_base_uncased.yaml',
+    './model_config/txtcls_bert_base_uncased_mnli.yaml',
     '../__base__.yaml' ]
 
 profile: False
@@ -16,4 +16,4 @@ top_k: 1
 run_mode: 'train'
 trainer:
   type: TextClassificationTrainer
-  model_name: txtcls_bert_base_uncased
+  model_name: txtcls_bert_base_uncased_mnli
