@@ -21,7 +21,7 @@ from .auto_augment import rand_augment_transform, auto_augment_transform, augmen
 from .random_erasing import RandomErasing
 
 
-__all__ = ['build_transforms', 'Mixup', 'rand_augment_transform', 'auto_augment_transform', 'augment_and_mix_transform',
+__all__ = ['Mixup', 'rand_augment_transform', 'auto_augment_transform', 'augment_and_mix_transform',
            'RandomErasing']
 __all__.extend(vision_transforms.__all__)
 __all__.extend(text_transforms.__all__)

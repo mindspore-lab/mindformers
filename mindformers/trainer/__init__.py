@@ -30,7 +30,7 @@ from .base_trainer import BaseTrainer
 from .build_trainer import build_trainer
 
 
-__all__ = ['BaseTrainer', 'build_trainer', 'Trainer', 'TrainingArguments']
+__all__ = ['BaseTrainer', 'Trainer', 'TrainingArguments']
 __all__.extend(config_args.__all__)
 __all__.extend(image_classification.__all__)
 __all__.extend(masked_image_modeling.__all__)
