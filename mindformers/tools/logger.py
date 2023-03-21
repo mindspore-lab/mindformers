@@ -424,6 +424,8 @@ def get_logger(logger_name: str = 'mindformers', **kwargs) -> logging.Logger:
 
     mf_logger.setLevel(_convert_level('INFO'))
 
+    mf_logger.propagate = False
+
     logger_list.append(logger_name)
 
     return mf_logger
