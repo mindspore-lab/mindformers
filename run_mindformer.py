@@ -56,19 +56,19 @@ def main(config):
         config.eval_dataset.data_loader.dataset_dir = cfts.get_dataset(
             config.eval_dataset.data_loader.dataset_dir)
 
-    if config.run_mode == 'finetune' and not config.resume_or_finetune_checkpoint:
-        raise ValueError("if run status is finetune, "
-                         "load_checkpoint or resume_or_finetune_checkpoint is invalid, "
-                         "it must be input")
+    if config.run_mode == 'train':
+        config.model.model_config.checkpoint_name_or_path = None
+        if config.resume_or_finetune_checkpoint:
+            config.resume_or_finetune_checkpoint = cfts.get_checkpoint(config.resume_or_finetune_checkpoint)
 
-    # auto pull checkpoint if on ModelArts platform
-    if config.resume_or_finetune_checkpoint:
-        config.resume_or_finetune_checkpoint = cfts.get_checkpoint(config.resume_or_finetune_checkpoint)
-        if config.run_mode == 'train':
-            config.model.model_config.checkpoint_name_or_path = None
+    if config.run_mode == 'finetune':
+        config.model.model_config.checkpoint_name_or_path = None
+        if config.resume_or_finetune_checkpoint:
+            config.resume_or_finetune_checkpoint = cfts.get_checkpoint(config.resume_or_finetune_checkpoint)
         else:
-            config.model.model_config.checkpoint_name_or_path = config.resume_or_finetune_checkpoint
-            config.resume_or_finetune_checkpoint = None
+            raise ValueError("if run status is finetune, "
+                             "load_checkpoint or resume_or_finetune_checkpoint is invalid, "
+                             "it must be input")
 
     # define callback and add profile callback
     if config.profile:
