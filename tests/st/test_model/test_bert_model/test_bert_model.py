@@ -22,7 +22,9 @@ linux:  pytest ./tests/st/test_model/test_bert_model/test_bert_model.py
 """
 import os
 import pytest
-from mindformers import MindFormerBook, AutoModel
+from mindspore import Tensor
+import mindspore.common.dtype as mstype
+from mindformers import MindFormerBook, AutoModel, BertForPreTraining, BertTokenizer
 from mindformers.models import BaseModel
 from mindformers.tools import logger
 
@@ -54,3 +56,29 @@ class TestModelMethod:
         model = AutoModel.from_config(self.config_path)
         # assert isinstance(model, BertForPreTraining)
         assert isinstance(model, BaseModel)
+
+    @pytest.mark.level0
+    @pytest.mark.platform_x86_ascend_training
+    @pytest.mark.platform_arm_ascend_training
+    @pytest.mark.env_onecard
+    def test_bert_from_pretrain(self):
+        """
+        Feature: bert, from_pretrained, from_config
+        Description: Test to bert
+        Expectation: TypeError, ValueError, RuntimeError
+        """
+        model = BertForPreTraining.from_pretrained('bert_base_uncased')
+        tokenizer = BertTokenizer.from_pretrained('bert_base_uncased')
+        data = tokenizer("Paris is the [MASK] of France.",
+                         max_length=128, padding="max_length")
+        input_ids = Tensor([data['input_ids']], mstype.int32)
+        attention_mask = Tensor([data['attention_mask']], mstype.int32)
+        token_type_ids = Tensor([data['token_type_ids']], mstype.int32)
+        masked_lm_positions = Tensor([[4]], mstype.int32)
+        next_sentence_labels = Tensor([[1]], mstype.int32)
+        masked_lm_weights = Tensor([[1]], mstype.int32)
+        masked_lm_ids = Tensor([[3007]], mstype.int32)
+        output = model(input_ids, attention_mask, token_type_ids,
+                       next_sentence_labels, masked_lm_positions,
+                       masked_lm_ids, masked_lm_weights)
+        assert output.shape[0] == 1
