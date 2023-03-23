@@ -5,6 +5,7 @@ context:
   enable_graph_kernel: False
   graph_kernel_flags: "--disable_expand_ops=Softmax,Dropout --enable_parallel_fusion=true --reduce_fuse_depth=8 --enable_auto_tensor_inplace=true"
   max_call_depth: 10000
+  max_device_memory: "30GB"
   save_graphs: False
   save_graphs_path: "./graph"
   device_id: 0
@@ -12,6 +13,7 @@ context:
 parallel:
   parallel_mode: 0 # 0-dataset, 1-semi, 2-auto, 3-hybrid
   gradients_mean: True
+  loss_repeated_mean: True
   enable_alltoall: False
   full_batch: False
   search_mode: "sharding_propagation"
@@ -38,4 +40,5 @@ parallel_config:
   pipeline_stage: 1
   optimizer_shard: False
   micro_batch_num: 1
+  vocab_emb_dp: True
   gradient_aggregation_group: 6

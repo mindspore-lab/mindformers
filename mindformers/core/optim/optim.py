@@ -14,6 +14,8 @@
 # ============================================================================
 """FusedAdamWeightDecay, a customized Adam for offloading."""
 import numpy as np
+
+from mindspore import nn
 from mindspore.common import dtype as mstype
 from mindspore.ops import operations as P
 from mindspore.ops import composite as C
@@ -26,44 +28,11 @@ from mindspore._checkparam import Rel
 from mindspore.nn.optim.optimizer import Optimizer
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 
-__all__ = ['FusedAdamWeightDecay']
+__all__ = ['FusedAdamWeightDecay', 'FP32StateAdamWeightDecay']
 
 _adam_opt = C.MultitypeFuncGraph("adam_opt")
 _scaler_one = Tensor(1, mstype.int32)
 op_mul = P.Mul()
-
-
-def clone_state(parameter_tuple, prefix, init, forced_dtype=mstype.float32, is_follow=False):
-    r"""
-        Clone the parameters
-        parameter_tuple: ParameterTuple. The parameters of the network
-        prefix: str. The prefix name of the parameters
-        init: str. The initialization method
-        forced_dtype: mstype. The except the dtype to be cloned. If is_follow is True, forced_dtype will be ignored.
-               Default: mstype.float32
-        is_follow: bool. Is clone the parameters with the original dtype. If is_follow is True, the forced_dtype
-               argument will be ignored. Default: False.
-    """
-    new = []
-    for old_param in parameter_tuple:
-        param_init = init
-        if init is None:
-            param_init = old_param.init
-        cur_dtype = forced_dtype
-        if is_follow:
-            cur_dtype = old_param.dtype
-        new_state = Parameter(initializer(param_init, shape=old_param.shape, dtype=cur_dtype))
-        new_state.param_info = old_param.param_info.clone()
-        new_state.is_init = False
-        new_state.is_param_ps = old_param.is_param_ps
-        new_state.init_in_server = old_param.init_in_server
-        new_state.cache_enable = old_param.cache_enable
-        new_state.requires_aggr = old_param.requires_aggr
-        if old_param.cache_shape:
-            new_state.cache_shape = old_param.cache_shape
-        new_state.name = prefix + '.' + new_state.name
-        new.append(new_state)
-    return ParameterTuple(new)
 
 
 @_adam_opt.register("Function", "Tensor", "Tensor", "Tensor", "Tensor", "Tensor", "Tensor", "Tensor", "Tensor",
@@ -253,8 +222,8 @@ class FusedAdamWeightDecay(Optimizer):
         self.beta1 = Tensor(np.array([beta1]).astype(np.float32))
         self.beta2 = Tensor(np.array([beta2]).astype(np.float32))
         self.eps = Tensor(np.array([eps]).astype(np.float32))
-        self.moments1 = clone_state(self._parameters, prefix="adam_m", init='zeros')
-        self.moments2 = clone_state(self._parameters, prefix="adam_v", init='zeros')
+        self.moments1 = self.clone_state(prefix="adam_m", init='zeros')
+        self.moments2 = self.clone_state(prefix="adam_v", init='zeros')
         self.opt = P.AdamWeightDecay()
         if offload:
             self.opt.add_prim_attr("primitive_target", "CPU")
@@ -282,3 +251,171 @@ class FusedAdamWeightDecay(Optimizer):
         if self.use_parallel:
             self.broadcast_params(optim_result)
         return optim_result
+
+    def clone_state(self, prefix, init, forced_dtype=mstype.float32, is_follow=False):
+        r"""
+            Clone the parameters
+            parameter_tuple: ParameterTuple. The parameters of the network
+            prefix: str. The prefix name of the parameters
+            init: str. The initialization method
+            forced_dtype: mstype. The except the dtype to be cloned. If is_follow is True, forced_dtype will be ignored.
+                   Default: mstype.float32
+            is_follow: bool. Is clone the parameters with the original dtype. If is_follow is True, the forced_dtype
+                   argument will be ignored. Default: False.
+        """
+        parameter_tuple = self.parameters
+        new = []
+        for old_param in parameter_tuple:
+            param_init = init
+            if init is None:
+                param_init = old_param.init
+            cur_dtype = forced_dtype
+            if is_follow:
+                cur_dtype = old_param.dtype
+            new_state = Parameter(initializer(param_init, shape=old_param.shape, dtype=cur_dtype))
+            new_state.param_info = old_param.param_info.clone()
+            new_state.is_init = False
+            new_state.is_param_ps = old_param.is_param_ps
+            new_state.init_in_server = old_param.init_in_server
+            new_state.cache_enable = old_param.cache_enable
+            new_state.requires_aggr = old_param.requires_aggr
+            if old_param.cache_shape:
+                new_state.cache_shape = old_param.cache_shape
+            new_state.name = prefix + '.' + new_state.name
+            new.append(new_state)
+        return ParameterTuple(new)
+
+
+@MindFormerRegister.register(MindFormerModuleType.OPTIMIZER)
+class FP32StateAdamWeightDecay(nn.AdamWeightDecay):
+    r"""
+        This class is almost same with the mindspore's AdamWeightDecay implements, the
+        only difference is the optimizer's state will be always initialized with float32,
+        where the original AdamWeightDecay will initialize the optimizer's state with float16,
+        if the parameters are initialized with fp16.
+        This setting will avoid overflow in training big model using fp16.
+
+        Args:
+        params (Union[list[Parameter], list[dict]]): Must be list of `Parameter` or list of `dict`. When the
+            `params` is a list of `dict`, the string "params", "lr", "weight_decay", and "order_params"
+            are the keys can be parsed.
+
+            - params: Required. Parameters in current group. The value must be a list of `Parameter`.
+
+            - lr: Optional. If "lr" in the keys, the value of corresponding learning rate will be used.
+              If not, the `learning_rate` in optimizer will be used. Fixed and dynamic learning rate are supported.
+
+            - weight_decay: Optional. If "weight_decay" in the keys, the value of corresponding weight decay
+              will be used. If not, the `weight_decay` in the optimizer will be used. It should be noted that weight
+              decay can be a constant value or a Cell. It is a Cell only when dynamic weight decay is applied. Dynamic
+              weight decay is similar to dynamic learning rate, users need to customize a weight decay schedule only
+              with global step as input, and during training, the optimizer calls the instance of WeightDecaySchedule
+              to get the weight decay value of current step.
+
+            - order_params: Optional. When parameters is grouped, this usually is used to maintain the order of
+              parameters that appeared in the network to improve performance. The value should be parameters whose
+              order will be followed in optimizer.
+              If `order_params` in the keys, other keys will be ignored and the element of 'order_params' must be in
+              one group of `params`.
+
+        learning_rate (Union[float, int, Tensor, Iterable, LearningRateSchedule]): Default: 1e-3.
+
+            - float: The fixed learning rate value. Must be equal to or greater than 0.
+
+            - int: The fixed learning rate value. Must be equal to or greater than 0. It will be converted to float.
+
+            - Tensor: Its value should be a scalar or a 1-D vector. For scalar, fixed learning rate will be applied.
+              For vector, learning rate is dynamic, then the i-th step will take the i-th value as the learning rate.
+
+            - Iterable: Learning rate is dynamic. The i-th step will take the i-th value as the learning rate.
+
+            - LearningRateSchedule: Learning rate is dynamic. During training, the optimizer calls the instance of
+              LearningRateSchedule with step as the input to get the learning rate of current step.
+
+        beta1 (float): The exponential decay rate for the 1st moment estimations. Default: 0.9.
+            Should be in range (0.0, 1.0).
+        beta2 (float): The exponential decay rate for the 2nd moment estimations. Default: 0.999.
+            Should be in range (0.0, 1.0).
+        eps (float): Term added to the denominator to improve numerical stability. Default: 1e-6.
+            Should be greater than 0.
+
+        weight_decay (Union[float, int, Cell]): Weight decay (L2 penalty). Default: 0.0.
+
+            - float: The fixed weight decay value. Must be equal to or greater than 0.
+
+            - int: The fixed weight decay value. Must be equal to or greater than 0. It will be converted to float.
+
+            - Cell: Weight decay is dynamic. During training, the optimizer calls the instance of
+              the Cell with step as the input to get the weight decay value of current step.
+
+    Inputs:
+        - **gradients** (tuple[Tensor]) - The gradients of `params`, the shape is the same as `params`.
+
+    Outputs:
+        tuple[bool], all elements are True.
+
+    Raises:
+        TypeError: If `learning_rate` is not one of int, float, Tensor, Iterable, LearningRateSchedule.
+        TypeError: If element of `parameters` is neither Parameter nor dict.
+        TypeError: If `beta1`, `beta2` or `eps` is not a float.
+        TypeError: If `weight_decay` is neither float nor int.
+        ValueError: If `eps` is less than or equal to 0.
+        ValueError: If `beta1`, `beta2` is not in range (0.0, 1.0).
+        ValueError: If `weight_decay` is less than 0.
+
+    Supported Platforms:
+        ``Ascend`` ``GPU`` ``CPU``
+
+    Examples:
+        >>> import mindspore as ms
+        >>> from mindformers.core.optim import FP32StateAdamWeightDecay
+        >>>
+        >>> net = Net()
+        >>> #1) All parameters use the same learning rate and weight decay
+        >>> optim = FP32StateAdamWeightDecay(params=net.trainable_params())
+        >>>
+        >>> #2) Use parameter groups and set different values
+        >>> conv_params = list(filter(lambda x: 'conv' in x.name, net.trainable_params()))
+        >>> no_conv_params = list(filter(lambda x: 'conv' not in x.name, net.trainable_params()))
+        >>> group_params = [{'params': conv_params, 'weight_decay': 0.01},
+        ...                 {'params': no_conv_params, 'lr': 0.01},
+        ...                 {'order_params': net.trainable_params()}]
+        >>> optim = FP32StateAdamWeightDecay(group_params, learning_rate=0.1, weight_decay=0.0)
+        >>> # The conv_params's parameters will use default learning rate of 0.1 and weight decay of 0.01.
+        >>> # The no_conv_params's parameters will use learning rate of 0.01 and default weight decay of 0.0.
+        >>> # The final parameters order in which the optimizer will be followed is the value of 'order_params'.
+        >>>
+        >>> loss = nn.SoftmaxCrossEntropyWithLogits()
+        >>> model = ms.Model(net, loss_fn=loss, optimizer=optim)
+   """
+
+    def __init__(self, params, learning_rate=1e-3, beta1=0.9, beta2=0.999, eps=1e-6, weight_decay=0.0):
+        super(FP32StateAdamWeightDecay, self).__init__(params,
+                                                       learning_rate=learning_rate,
+                                                       beta1=beta1,
+                                                       beta2=beta2,
+                                                       eps=eps,
+                                                       weight_decay=weight_decay)
+        self.moments1 = self.clone_state(prefix='adam_m', init='zeros')
+        self.moments2 = self.clone_state(prefix='adam_v', init='zeros')
+
+    def clone_state(self, prefix, init):
+        r"""
+            parameter_tuple: ParameterTuple. The parameters of the network
+            prefix: str. The prefix name of the parameters
+            init: str. The initialization method
+        """
+        parameter_tuple = self.parameters
+        new = []
+        for old_param in parameter_tuple:
+            new_state = Parameter(initializer(init, shape=old_param.shape, dtype=mstype.float32))
+            new_state.param_info = old_param.param_info.clone()
+            if hasattr(old_param.param_info, "cloned_obj"):
+                old_param.param_info.cloned_obj.append(new_state)
+            else:
+                old_param.param_info.cloned_obj = [new_state]
+            new_state.is_init = False
+            new_state.set_data(initializer(init, shape=old_param.shape, dtype=mstype.float32))
+            new_state.name = prefix + '.' + new_state.name
+            new.append(new_state)
+        return ParameterTuple(new)

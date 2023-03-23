@@ -68,11 +68,13 @@ class MFLossMonitor(Callback):
 
     def __init__(self,
                  learning_rate: Optional[Union[float, LearningRateSchedule]] = None,
+                 micro_batch_num: int = 1,
                  per_print_times: int = 1):
         super(MFLossMonitor, self).__init__()
         self.per_print_times = per_print_times
         self.learning_rate = deepcopy(learning_rate)
         self.last_print_time = 0
+        self.mirco_size = micro_batch_num
         self.print_warning_flag = True
         self.loss_list = []
         self.step_time = time.time()
@@ -122,6 +124,11 @@ class MFLossMonitor(Callback):
         Args:
             run_context (RunContext): Context of the process running.
         """
+        parallel_mode = ms.get_auto_parallel_context("parallel_mode")
+        full_batch = ms.get_auto_parallel_context("full_batch")
+        auto_parallel = parallel_mode in ['semi_auto_parallel', 'auto_parallel']
+        if auto_parallel:
+            ms.context.set_auto_parallel_context(parallel_mode='data_parallel', full_batch=False)
         cb_params = run_context.original_args()
         step_mseconds = (time.time() - self.step_time) * 1000
         loss = cb_params.net_outputs
@@ -139,6 +146,12 @@ class MFLossMonitor(Callback):
 
         if isinstance(loss, ms.Tensor) and isinstance(loss.asnumpy(), np.ndarray):
             loss = np.mean(loss.asnumpy())
+
+        pipeline_stages = ms.context.get_auto_parallel_context("pipeline_stages")
+        if pipeline_stages > 1 and self.print_warning_flag:
+            logger.warning("pipeline stages: %s > 1, the loss on the last card is valid.",
+                           pipeline_stages)
+            loss = loss / self.mirco_size
 
         self.loss_list.append(loss)
         cur_step_in_epoch = (cb_params.cur_step_num - 1) % cb_params.batch_num + 1
@@ -205,6 +218,9 @@ class MFLossMonitor(Callback):
         if (cb_params.cur_step_num - self.last_print_time) >= self.per_print_times:
             self.last_print_time = cb_params.cur_step_num
             print_output_info()
+
+        if auto_parallel:
+            ms.context.set_auto_parallel_context(parallel_mode=parallel_mode, full_batch=full_batch)
 
 
 @MindFormerRegister.register(MindFormerModuleType.CALLBACK)

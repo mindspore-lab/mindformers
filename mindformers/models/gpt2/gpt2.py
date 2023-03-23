@@ -15,6 +15,8 @@
 
 """GPT model"""
 import copy
+import numpy as np
+
 import mindspore.nn as nn
 import mindspore.common.dtype as mstype
 from mindspore.common.tensor import Tensor
@@ -22,74 +24,161 @@ from mindspore.common.initializer import TruncatedNormal, initializer
 from mindspore.ops import operations as P
 from mindspore.ops import functional as F
 from mindformers.modules.transformer.moe import default_moe_config
-from mindformers.modules.layers import LayerNorm
-from mindformers.modules.transformer import AttentionMask, Transformer, VocabEmbedding
+from mindformers.modules.layers import LayerNorm, Dropout
+from mindformers.core.loss import CrossEntropyLoss
+from mindformers.modules.transformer import AttentionMask, TransformerEncoder, VocabEmbedding
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.models.base_model import BaseModel
-from ...mindformer_book import MindFormerBook
-from .gpt2_config import Gpt2Config
+from mindformers.mindformer_book import MindFormerBook
+from mindformers.tools.logger import logger
+from .gpt2_config import GPT2Config
 
 __all__ = ['GPT2LMHeadModel']
 
 
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
 class GPT2LMHeadModel(BaseModel):
-    """
-            Provide gpt training loss or logits through network.
+    r"""
+        Provide gpt training loss or logits through network.
+        Args:
+            config (GPT2Config): The config of Gpt2Model.
 
-            Args:
-                config (Gpt2Config): The config of Gpt2Model.
-
-            Returns:
-                Tensor, the loss or logits of the network.
+        Returns:
+            Tensor, the loss or logits of the network.
         """
     _support_list = MindFormerBook.get_model_support_list()['gpt2']
 
-    def __init__(self, config: Gpt2Config = None):
-        super(GPT2LMHeadModel, self).__init__(config)
-        self.config = config if config is not None else Gpt2Config()
-        self.is_training = (self.phase == 'train')
-        self.gpt2 = GPT2LanguageModel(self.config, self.is_training)
-        self.num_labels = self.config.vocab_size
-        self.loss = CrossEntropyCalculationWithMask(True, num_labels=self.num_labels)
-        self.add = P.Add().shard(((1,), ()))
-        self.use_moe = (self.config.parallel_config.moe_config.expert_num > 1)
+    def __init__(self, config: GPT2Config = None):
+        config = config if config is not None else GPT2Config()
+        super(GPT2LMHeadModel, self).__init__(config, auto_prefix=False)
+
         self.eos_token = self.config.eos_token
         parallel_config = self.config.parallel_config
-        dp = parallel_config.data_parallel
-        self.stridedslice = P.StridedSlice().shard(((dp, 1),))
-        self.not_equal = P.NotEqual().shard(((dp, 1), ()))
+        self.stridedslice = P.StridedSlice().shard(((parallel_config.data_parallel, 1),))
+        self.not_equal = P.NotEqual().shard(((parallel_config.data_parallel, 1), ()))
+
+        self.backbone = GPT2Model(self.config)
+        self.head = GPTHead(hidden_size=config.embedding_size,
+                            vocab_size=config.vocab_size,
+                            parallel_config=self.config.parallel_config)
+        if parallel_config.pipeline_stage > 1:
+            self.head.pipeline_stage = parallel_config.pipeline_stage - 1
+            self.backbone.embedding.word_embedding.embedding_table.add_pipeline_stage(self.head.pipeline_stage)
+
+        mp = config.parallel_config.model_parallel
+        vocab_size = config.vocab_size
+        loss_parallel_config = copy.deepcopy(parallel_config)
+        if vocab_size % mp != 0:
+            logger.warning("The vocab size of GPT Loss is: %s, it is not divide by model_parallel: %s",
+                           vocab_size, mp)
+            logger.warning("Now, the model_parallel num of GPT Loss will be changed: mp = 1")
+            loss_parallel_config.model_parallel = 1
+
+        self.loss = CrossEntropyLoss(parallel_config=loss_parallel_config)
         self.reshape = P.Reshape()
-        self.shape = P.Shape()
         self.cast = P.Cast()
 
-    def construct(self, input_ids, input_mask, label_ids=None):
-        """
-        construct function for Language Modeling
+    def construct(self, input_ids):
+        r"""
+            construct function for Language Modeling
 
-        Args:
-            input_ids (Tensor): the indices of input sequence tokens in the vocabulary.
-            input_mask (Tensor): input sequence padding mask, where 0 indicates padding position.
-            label_ids (Tensor): the indices of input sequence tokens in the vocabulary
+            Args:
+                input_ids (Tensor): the indices of input sequence tokens in the vocabulary.
 
-        Returns:
-            lm_logits (Tensor) or loss (mstype.float32): if is_training is False, directly return the logits,
+            Returns:
+                logits (Tensor) or loss (mstype.float32): if is_training is False, directly return the logits,
                                                          otherwise, return the computed loss.
         """
-        input_mask = P.Cast()(input_mask, mstype.float16)
-        lm_logits, moe_loss = self.gpt2(input_ids, input_mask)  # [batch_size, seq_length, vocab_size]
-        if not self.is_training or label_ids is None:
-            return lm_logits
 
-        shift_logits = lm_logits[::, :-1, ::]  # [batch_size, seq_length - 1, vocab_size]
-        shift_logits = self.reshape(shift_logits, (-1, self.num_labels))  # [batch * (seq_length - 1), vocab_size]
-        label_ids = label_ids[::, 1:]
-        input_mask = input_mask[::, 1:]
-        loss = self.loss(shift_logits, label_ids, input_mask)
-        if not self.use_moe:
-            return self.cast(loss, mstype.float32)
-        total_loss = self.add(loss, moe_loss)
-        return self.cast(total_loss, mstype.float32)
+        batch_size, seq_length = input_ids.shape
+
+        tokens = self.stridedslice(input_ids, (0, 0), (batch_size, -1), (1, 1))
+
+        input_mask = self.cast(self.not_equal(tokens, self.eos_token), mstype.float32)
+
+        # [batch_size, seq_length, vocab_size]
+        output_states, embedding_table = self.backbone(tokens, input_mask)
+        logits = self.head(output_states, embedding_table)
+
+        if self.phase != 'train':
+            return logits
+
+        labels = self.stridedslice(input_ids, (0, 1), (batch_size, seq_length), (1, 1))
+        labels = self.reshape(labels, (-1,))
+        input_mask = self.reshape(input_mask, (-1,))
+        loss = self.loss(logits, labels, input_mask)
+        return loss
+
+
+class GPTEmbeddingLayer(nn.Cell):
+    r"""The Embedding Layer of GPT-2 network."""
+    def __init__(self, config: GPT2Config = None):
+        super(GPTEmbeddingLayer, self).__init__()
+        parallel_config = copy.deepcopy(config.parallel_config)
+        embedding_mp = config.parallel_config.embedding_dp_mp_config.model_parallel
+        vocab_size = config.vocab_size
+        if vocab_size % embedding_mp != 0:
+            logger.warning("The vocab size of embedding layer is: %s, it is not divide by model_parallel: %s",
+                           vocab_size, embedding_mp)
+            logger.warning("Now, model_parallel will be changed: mp = 1")
+            parallel_config.embedding_dp_mp_config.model_parallel = 1
+
+        self.word_embedding = VocabEmbedding(vocab_size=vocab_size,
+                                             embedding_size=config.embedding_size,
+                                             param_init=initializer(TruncatedNormal(config.initializer_range),
+                                                                    [vocab_size, config.embedding_size],
+                                                                    dtype=mstype.float32),
+                                             parallel_config=parallel_config.embedding_dp_mp_config)
+        new_parallel_config = copy.deepcopy(parallel_config)
+        new_parallel_config.vocab_emb_dp = True
+
+        self.position_embedding = VocabEmbedding(vocab_size=config.seq_length,
+                                                 embedding_size=config.embedding_size,
+                                                 param_init=initializer(TruncatedNormal(config.initializer_range),
+                                                                        [config.seq_length, config.embedding_size],
+                                                                        dtype=mstype.float32),
+                                                 parallel_config=new_parallel_config.embedding_dp_mp_config)
+        self.add = P.Add().shard(
+            ((parallel_config.data_parallel, 1, 1), (parallel_config.data_parallel, 1, 1)))
+        self.dropout = Dropout(1 - config.dropout_prob)
+        self.dropout.shard(((parallel_config.data_parallel, 1, 1),))
+
+    def construct(self, input_ids, input_position):
+        """The forward compute of Embedding Layer."""
+        word_embedding, word_table = self.word_embedding(input_ids)
+        position_embedding, _ = self.position_embedding(input_position)
+        embedding = self.add(word_embedding, position_embedding)
+        embedding = self.dropout(embedding)
+        return embedding, word_table
+
+
+def set_parallel_configure_for_layer(network, layer_id, offset, parallel_config, layers):
+    r"""
+        Default setting for the pipeline is: `(layer_id + offset) // (layers / pipeline_stage)`.
+
+        Args:
+            network(Cell) - Represents the transformer block
+            parallel_config(dict) - Parallel Config
+            layer_id(int) - Means the layer index for the current module, counts from zero.
+            offset(int) - Means the layer_index needs a offset, if there are other modules in the net.
+            layers(int) - The total layers used for the model.
+    """
+    pp_dis = max(int((layers + 1) / parallel_config.pipeline_stage), 1)
+    pp_id = min((layer_id + offset) // pp_dis, parallel_config.pipeline_stage - 1)
+    network.pipeline_stage = pp_id
+
+    # Used for optimizer's fusion tag
+    dis = max(int((layers + 1) / parallel_config.gradient_aggregation_group), 1)
+    if parallel_config.pipeline_stage > 1:
+        network.set_comm_fusion(2)
+    else:
+        network.set_comm_fusion(int((layer_id + offset) / dis) + 1)
+    if isinstance(parallel_config.recompute, bool):
+        if parallel_config.recompute:
+            network.recompute()
+    else:
+        if parallel_config.recompute.recompute:
+            network.recompute(recompute_slice_activation=parallel_config.recompute.recompute_slice_activation)
 
 
 class GPT2Model(nn.Cell):
@@ -111,131 +200,96 @@ class GPT2Model(nn.Cell):
 
     def __init__(self, config):
         super(GPT2Model, self).__init__()
+
+        self.embedding = GPTEmbeddingLayer(config)
+        self.embedding.pipeline_stage = 0
+
+        self.layernorm = LayerNorm((config.embedding_size,)).to_float(config.layernorm_dtype)
+        if config.parallel_config.pipeline_stage > 1:
+            self.layernorm.set_comm_fusion(2)
+        else:
+            self.layernorm.set_comm_fusion(config.parallel_config.gradient_aggregation_group)
+        self.layernorm.shard(((config.parallel_config.data_parallel, 1, 1),))
+        self.layernorm.pipeline_stage = config.parallel_config.pipeline_stage - 1
+
         self.get_attention_mask = AttentionMask(seq_length=config.seq_length,
                                                 parallel_config=config.parallel_config.dp_mp_config)
-        self.word_embedding = VocabEmbedding(vocab_size=config.vocab_size,
-                                             embedding_size=config.embedding_size,
-                                             param_init=initializer("truncatedNormal",
-                                                                    [config.vocab_size, config.embedding_size],
-                                                                    dtype=config.compute_dtype),
-                                             parallel_config=config.parallel_config.embedding_dp_mp_config)
 
-        new_parallel_config = copy.deepcopy(config.parallel_config.embedding_dp_mp_config)
-        new_parallel_config.vocab_emb_dp = True
-
-        self.position_embedding = VocabEmbedding(vocab_size=config.seq_length,
-                                                 embedding_size=config.embedding_size,
-                                                 param_init=initializer(TruncatedNormal(config.initializer_range),
-                                                                        [config.seq_length, config.embedding_size],
-                                                                        dtype=config.compute_dtype),
-                                                 parallel_config=new_parallel_config)
-        self.blocks = nn.CellList()
         if not hasattr(config.parallel_config, "moe_config"):
             config.parallel_config.moe_config = default_moe_config
         moe_config = config.parallel_config.moe_config
-        self.transformer = Transformer(hidden_size=config.embedding_size,
-                                       batch_size=config.batch_size,
-                                       ffn_hidden_size=config.embedding_size * config.expand_ratio,
-                                       src_seq_length=config.seq_length,
-                                       tgt_seq_length=config.seq_length,
-                                       encoder_layers=config.num_layers,
-                                       attention_dropout_rate=config.attention_probs_dropout_prob,
-                                       hidden_dropout_rate=config.hidden_dropout_prob,
-                                       decoder_layers=0,
-                                       param_init_type=config.compute_dtype,
-                                       layernorm_compute_type=config.layernorm_dtype,
-                                       softmax_compute_type=config.softmax_dtype,
-                                       num_heads=config.num_heads,
-                                       parallel_config=config.parallel_config,
-                                       moe_config=moe_config)
+        self.blocks = TransformerEncoder(hidden_size=config.embedding_size,
+                                         batch_size=config.batch_size,
+                                         ffn_hidden_size=config.embedding_size * config.expand_ratio,
+                                         seq_length=config.seq_length,
+                                         num_layers=config.num_layers,
+                                         num_heads=config.num_heads,
+                                         attention_dropout_rate=config.attention_probs_dropout_prob,
+                                         hidden_dropout_rate=config.hidden_dropout_prob,
+                                         hidden_act=config.hidden_act,
+                                         lambda_func=set_parallel_configure_for_layer,
+                                         param_init_type=config.param_init_type,
+                                         layernorm_compute_type=config.layernorm_dtype,
+                                         softmax_compute_type=config.softmax_dtype,
+                                         parallel_config=config.parallel_config,
+                                         moe_config=moe_config).blocks
         self.cast = P.Cast()
-        self.dtype = config.dtype
-        self.use_moe = (moe_config.expert_num > 1)
-        self.layernorm = LayerNorm((config.embedding_size,)).to_float(config.layernorm_dtype)
-        self.layernorm.shard(((config.parallel_config.data_parallel, 1, 1),))
-        self.add = P.Add().shard(
-            ((config.parallel_config.data_parallel, 1, 1), (config.parallel_config.data_parallel, 1, 1)))
+        self.tile = P.Tile().shard(((config.parallel_config.data_parallel,),))
+        self.dtype = mstype.float16
+        self.num_layers = config.num_layers
+        self.input_position = Tensor(np.arange(config.seq_length), mstype.int32)
 
     def construct(self, input_ids, input_mask):
         """GPT model"""
-        input_embedding, embedding_table = self.word_embedding(input_ids)
+        batch_size, _ = F.shape(input_ids)
+        input_position = self.tile(self.input_position, (batch_size, 1))
 
-        batch_size, seq_length = F.shape(input_ids)
-        input_position = F.tuple_to_array(F.make_range(seq_length))
-        input_position = P.Tile()(input_position, (batch_size, 1))
+        input_embedding, embedding_table = self.embedding(input_ids, input_position)
 
-        position_embedding, _ = self.position_embedding(input_position)
-        hidden_states = self.add(input_embedding, position_embedding)
-        input_mask = P.Cast()(input_mask, self.dtype)
+        hidden_states = self.cast(input_embedding, self.dtype)
+
         attention_mask = self.get_attention_mask(input_mask)
 
-        moe_loss = 0
-        if self.use_moe:
-            hidden_states, present_layer, _, moe_loss = self.transformer(hidden_states, attention_mask)
-        else:
-            hidden_states, present_layer, _ = self.transformer(hidden_states, attention_mask)
+        for i in range(self.num_layers):
+            hidden_states, _ = self.blocks[i](hidden_states, attention_mask)
 
         output_state = self.layernorm(hidden_states)
 
-        if self.use_moe:
-            return output_state, present_layer, embedding_table, moe_loss
-        return output_state, present_layer, embedding_table
+        return output_state, embedding_table
 
 
-class GPT2LanguageModel(nn.Cell):
-    """
-    GPT2LanguageModel is responsible for Language Modeling task, i.e. WikiText2, WikiText103, PTB, 1BW datasets.
-    """
+class GPTHead(nn.Cell):
+    r"""Head for GPT to get the logits of each token in the vocab."""
+    def __init__(self,
+                 hidden_size,
+                 vocab_size,
+                 compute_type=mstype.float16,
+                 parallel_config=None):
+        super().__init__()
+        copied_parallel_config = copy.deepcopy(parallel_config)
+        mp = copied_parallel_config.model_parallel
+        if vocab_size % mp != 0:
+            logger.warning("The vocab size of GPTHead MatMul is: %s, it is not divide by model_parallel: %s",
+                           vocab_size, mp)
+            logger.warning("Now, the model_parallel num of GPTHead MatMul will be changed: mp = 1")
+            copied_parallel_config.model_parallel = 1
 
-    def __init__(self, config, is_training):
-        """
-        Args:
-            config: the configuration of GPT-2 model
-            is_training (bool): `True` for train (finetune), `False` for evaluation.
-        """
-        super(GPT2LanguageModel, self).__init__()
-        if not is_training:
-            config.hidden_dropout_prob = 0.0
-            config.attention_probs_dropout_prob = 0.0
-
-        self.backbone = GPT2Model(config)
-        self.vocab_size = config.vocab_size
-        self.cast = P.Cast()
-        self.shape = P.Shape()
-        self.dtype = config.compute_dtype
-        self.dense1 = nn.Dense(config.embedding_size,
-                               config.vocab_size,
-                               weight_init=TruncatedNormal(0.02),
-                               has_bias=False).to_float(config.compute_dtype)
-        self.dropout = nn.Dropout(1 - config.dropout_prob)
-        self.log_softmax = P.LogSoftmax(axis=-1)
-        self.print = P.Print()
-        self.use_moe = self.backbone.use_moe
-
-    def construct(self, input_ids, input_mask):
-        """
-        Construct network.
-
-        Args:
-            input_ids (Tensor): input sentences with shape [batch_size, seq_len].
-            input_mask (Tensor): input sentences padding mask with shape [batch_size, seq_len],
-                                 where 0 indicates padding position.
-
-        Returns:
-            lm_logits (Tensor): language model distribution with log_softmax, shape with[batch_size, seq_len, d_model].
-        """
-        moe_loss = 0
-        if self.use_moe:
-            output, _, _, moe_loss = self.backbone(input_ids, input_mask)
+        if copied_parallel_config.pipeline_stage > 1:
+            copied_parallel_config.vocab_emb_dp = False
+        if copied_parallel_config.vocab_emb_dp:
+            self.matmul = P.MatMul(transpose_b=True).shard(((copied_parallel_config.data_parallel, 1), (1, 1)))
         else:
-            output, _, _ = self.backbone(input_ids, input_mask)
-        output = self.cast(output, self.dtype)
-        batch_size, seq_length, d_model = self.shape(output)
-        output_reshape = P.Reshape()(output, (-1, d_model))  # [batch_size * seq_len, d_model]
-        logits = self.dense1(output_reshape)
-        logits = self.cast(logits, self.dtype)
-        lm_logits = P.Reshape()(logits, (batch_size, seq_length, self.vocab_size))  # [batch_size, seq_len, vocab]
-        return lm_logits, moe_loss
+            self.matmul = P.MatMul(transpose_b=True).shard(((copied_parallel_config.data_parallel, 1), (
+                copied_parallel_config.model_parallel, 1)))
+        self.hidden_size = hidden_size
+        self.dtype = compute_type
+        self.cast = P.Cast()
+        self.reshape = P.Reshape()
+
+    def construct(self, state, embedding_table):
+        state = self.reshape(state, (-1, self.hidden_size))
+        logits = self.matmul(self.cast(state, self.dtype), self.cast(embedding_table, self.dtype))
+        return logits
 
 
 class CrossEntropyCalculationWithMask(nn.Cell):

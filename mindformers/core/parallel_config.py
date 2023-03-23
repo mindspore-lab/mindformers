@@ -15,6 +15,7 @@
 """Parallel Config Init."""
 from mindformers.modules.transformer.moe import default_moe_config, MoEConfig
 from mindformers.modules.transformer import TransformerOpParallelConfig, TransformerRecomputeConfig
+from mindformers.tools.logger import logger
 
 default_recompute_config = TransformerRecomputeConfig()
 default_parallel_config = TransformerOpParallelConfig(recompute=default_recompute_config)
@@ -31,6 +32,10 @@ def build_parallel_config(config):
     else:
         config.recompute_config = default_recompute_config
     if config.parallel_config:
+        if config.parallel_config.pipeline_stage > 1:
+            logger.info("pipeline_stage = %s > 1, vocab_emd_dp will be reset to False.",
+                        config.parallel_config.pipeline_stage)
+            config.parallel_config.vocab_emb_dp = False
         config.parallel_config = TransformerOpParallelConfig(recompute=config.recompute_config,
                                                              **config.parallel_config)
     else:

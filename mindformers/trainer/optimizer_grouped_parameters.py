@@ -18,6 +18,7 @@ import json
 from functools import partial
 from typing import Optional
 
+from mindspore.nn import Cell
 from mindspore.nn.learning_rate_schedule import LearningRateSchedule
 
 from mindformers.models import BaseModel
@@ -31,7 +32,7 @@ def get_optimizer_grouped_parameters(model: Optional[BaseModel] = None,
                                      dynamic_lr_schedule: Optional[LearningRateSchedule] = None,
                                      layer_scale: bool = False, layer_decay: float = 1.0):
     """Get grouped parameters of the network for training."""
-    if not isinstance(model, BaseModel):
+    if not isinstance(model, (Cell, BaseModel)):
         raise TypeError(f"model type should be BaseModel, but get {type(model)}")
 
     skip_params = {}

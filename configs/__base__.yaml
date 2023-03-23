@@ -12,6 +12,8 @@ layer_decay: 0.65
 lr_scale: False
 lr_scale_factor: 256
 
+micro_batch_interleave_num: 1
+
 output_dir: './output'  # 当前不支持自定义修改，请勿修改该默认值
 resume_or_finetune_checkpoint: ''
 
@@ -20,7 +22,7 @@ eval_callbacks:
 
 # cfts init config
 aicc_config:
-  obs_path: "obs url"
+  obs_path: "Please input obs url on AICC platform."
   upload_frequence: 1
   keep_last: False
 

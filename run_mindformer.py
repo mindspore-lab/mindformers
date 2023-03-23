@@ -79,11 +79,11 @@ def main(config):
 
     trainer = build_trainer(config.trainer)
     if config.run_mode == 'train' or config.run_mode == 'finetune':
-        trainer.train(config)
+        trainer.train(config, is_full_config=True)
     elif config.run_mode == 'eval':
-        trainer.evaluate(config)
+        trainer.evaluate(config, is_full_config=True)
     elif config.run_mode == 'predict':
-        trainer.predict(config)
+        trainer.predict(config, is_full_config=True)
 
 
 if __name__ == "__main__":

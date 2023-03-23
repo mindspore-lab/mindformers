@@ -14,6 +14,7 @@
 # ============================================================================
 """Masked Image Modeling Dataset."""
 import os
+
 import mindspore.common.dtype as mstype
 import mindspore.dataset.transforms.c_transforms as C
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
@@ -43,9 +44,10 @@ class MaskLanguageModelDataset(BaseDataset):
     """
     def __new__(cls, dataset_config: dict = None):
         logger.info("Now Create Masked Image Modeling Dataset.")
-        cls.init_dataset_config(dataset_config)
         rank_id = int(os.getenv("RANK_ID", "0"))
         device_num = int(os.getenv("RANK_SIZE", "1"))
+        cls.init_dataset_config(dataset_config)
+        rank_id, device_num = cls._check_device_rank_for_parallel(rank_id, device_num)
         if "data_files" not in dataset_config.data_loader \
             and dataset_config.data_loader.dataset_dir:
             dataset_files = []
@@ -53,14 +55,10 @@ class MaskLanguageModelDataset(BaseDataset):
             if os.path.isdir(data_dir):
                 for r, _, f in os.walk(data_dir):
                     for file in f:
-                        if file.endswith(".tfrecord"):
-                            dataset_files.append(os.path.join(r, file))
-                        elif file.endswith(".mindrecord"):
+                        if file.endswith(".tfrecord") or file.endswith(".mindrecord"):
                             dataset_files.append(os.path.join(r, file))
             else:
-                if data_dir.endswith(".tfrecord"):
-                    dataset_files.append(data_dir)
-                elif data_dir.endswith(".mindrecord"):
+                if data_dir.endswith(".tfrecord") or data_dir.endswith(".mindrecord"):
                     dataset_files.append(data_dir)
         else:
             dataset_files = list(dataset_config.data_loader.dataset_files)

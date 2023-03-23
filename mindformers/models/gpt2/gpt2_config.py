@@ -14,19 +14,19 @@
 # ============================================================================
 """Gpt Config API."""
 
-import mindspore.common.dtype as mstype
 from mindformers.modules.transformer.moe import MoEConfig
 from mindformers.modules.transformer.transformer import default_transformer_config, default_moe_config, \
     TransformerOpParallelConfig
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
+from ..utils import convert_mstype
 from ..base_config import BaseConfig
 from ...mindformer_book import MindFormerBook
 
-__all__ = ['Gpt2Config']
+__all__ = ['GPT2Config']
 
 
 @MindFormerRegister.register(MindFormerModuleType.CONFIG)
-class Gpt2Config(BaseConfig):
+class GPT2Config(BaseConfig):
     """
     Gpt config class which defines the model size
     """
@@ -34,33 +34,28 @@ class Gpt2Config(BaseConfig):
     _support_list = MindFormerBook.get_config_support_list()['gpt2']
 
     def __init__(self,
-                 model_type: str = "gpt2",
                  dropout_prob: float = 0.1,
-                 batch_size: int = 8,
+                 batch_size: int = None,
                  seq_length: int = 1024,
                  vocab_size: int = 50257,
                  embedding_size: int = 768,
                  num_layers: int = 12,
                  num_heads: int = 12,
                  expand_ratio: int = 4,
-                 post_layernorm_residual: bool = False,
                  hidden_dropout_prob: float = 0.1,
                  attention_probs_dropout_prob: float = 0.1,
                  initializer_range: float = 0.02,
-                 use_relative_positions: bool = False,
-                 dtype: mstype = mstype.float32,
-                 layernorm_dtype: mstype = mstype.float32,
-                 softmax_dtype: mstype = mstype.float16,
-                 compute_dtype: mstype = mstype.float16,
-                 use_past: bool = False,
-                 use_moe: bool = False,
+                 eos_token: int = 50256,
+                 param_init_type: str = "float32",
+                 layernorm_dtype: str = "float32",
+                 softmax_dtype: str = "float32",
+                 compute_dtype: str = "float16",
+                 hidden_act: str = 'gelu',
                  parallel_config: TransformerOpParallelConfig = default_transformer_config,
                  checkpoint_name_or_path: str = "",
                  moe_config: MoEConfig = default_moe_config,
-                 eos_token: int = 50256,
                  **kwargs):
-        super(Gpt2Config, self).__init__(**kwargs)
-        self.model_type = model_type
+        super(GPT2Config, self).__init__(**kwargs)
         self.dropout_prob = dropout_prob
         self.batch_size = batch_size
         self.seq_length = seq_length
@@ -69,18 +64,15 @@ class Gpt2Config(BaseConfig):
         self.num_layers = num_layers
         self.num_heads = num_heads
         self.expand_ratio = expand_ratio
-        self.post_layernorm_residual = post_layernorm_residual
         self.hidden_dropout_prob = hidden_dropout_prob
         self.attention_probs_dropout_prob = attention_probs_dropout_prob
         self.initializer_range = initializer_range
-        self.use_relative_positions = use_relative_positions
-        self.dtype = dtype
-        self.layernorm_dtype = layernorm_dtype
-        self.softmax_dtype = softmax_dtype
-        self.compute_dtype = compute_dtype
-        self.use_past = use_past
-        self.use_moe = use_moe
+        self.param_init_type = convert_mstype(param_init_type)
+        self.layernorm_dtype = convert_mstype(layernorm_dtype)
+        self.softmax_dtype = convert_mstype(softmax_dtype)
+        self.compute_dtype = convert_mstype(compute_dtype)
         self.parallel_config = parallel_config
         self.checkpoint_name_or_path = checkpoint_name_or_path
         self.moe_config = moe_config
         self.eos_token = eos_token
+        self.hidden_act = hidden_act
