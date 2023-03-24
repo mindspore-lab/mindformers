@@ -143,6 +143,22 @@ if __name__ == "__main__":
         action=ActionDict,
         help='override some settings in the used config, the key-value pair'
              'in xxx=yyy format will be merged into config file')
+    parser.add_argument(
+        '--epochs', default=None, type=int,
+        help='train epochs.'
+             'Default: None')
+    parser.add_argument(
+        '--batch_size', default=None, type=int,
+        help='batch_size of datasets.'
+             'Default: None')
+    parser.add_argument(
+        '--sink_mode', default=None, type=str2bool,
+        help='whether use sink mode. '
+             'Default: None')
+    parser.add_argument(
+        '--num_samples', default=None, type=int,
+        help='number of datasets samples used.'
+             'Default: None')
 
     args_ = parser.parse_args()
     config_ = MindFormerConfig(args_.config)
@@ -181,4 +197,15 @@ if __name__ == "__main__":
                             or file.endswith(".JPEG") or file.endswith("bmp")]
             args_.predict_data = predict_data
         config_.input_data = args_.predict_data
+    if args_.epochs is not None:
+        config_.runner_config.epochs = args_.epochs
+    if args_.batch_size is not None:
+        config_.runner_config.batch_size = args_.batch_size
+    if args_.sink_mode is not None:
+        config_.runner_config.sink_mode = args_.sink_mode
+    if args_.num_samples is not None:
+        if config_.run_mode == 'train' or config_.run_mode == 'finetune':
+            config_.train_dataset.data_loader.num_samples = args_.num_samples
+        if config_.run_mode == 'eval':
+            config_.eval_dataset.data_loader.num_samples = args_.num_samples
     main(config_)
