@@ -290,7 +290,9 @@ class MindFormerBook:
             'mae_vit_base_p16',
         ]),
         ('vit', [
-            'vit_base_p16', 'mindspore/vit_base_p16'
+            'vit_base_p16',
+            'mindspore/vit_base_p16',
+            'mae_vit_base_p16'
         ]),
         ('swin', [
             'swin_base_p4w7', 'mindspore/swin_base_p4w7'
@@ -333,10 +335,12 @@ class MindFormerBook:
             'mindspore/clip_vit_b_32'
         ]),
         ('vit', [
-            'vit_base_p16', 'mindspore/vit_base_p16'
+            'vit_base_p16',
+            'mindspore/vit_base_p16',
         ]),
         ('swin', [
-            'swin_base_p4w7', 'mindspore/swin_base_p4w7'
+            'swin_base_p4w7',
+            'mindspore/swin_base_p4w7',
         ]),
         ('bert', [
             'bert_base_uncased',

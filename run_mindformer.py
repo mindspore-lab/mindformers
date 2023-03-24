@@ -62,9 +62,10 @@ def main(config):
             config.resume_or_finetune_checkpoint = cfts.get_checkpoint(config.resume_or_finetune_checkpoint)
 
     if config.run_mode == 'finetune':
-        config.model.model_config.checkpoint_name_or_path = None
         if config.resume_or_finetune_checkpoint:
-            config.resume_or_finetune_checkpoint = cfts.get_checkpoint(config.resume_or_finetune_checkpoint)
+            config.model.model_config.checkpoint_name_or_path = cfts.get_checkpoint(
+                config.resume_or_finetune_checkpoint)
+            config.resume_or_finetune_checkpoint = None
         else:
             raise ValueError("if run status is finetune, "
                              "load_checkpoint or resume_or_finetune_checkpoint is invalid, "
