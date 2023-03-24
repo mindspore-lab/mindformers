@@ -317,7 +317,7 @@ class BaseModel(nn.Cell, GeneratorMixin):
                                                pretrained_model_name.split('_')[cls._model_type])
 
             if not os.path.exists(checkpoint_path):
-                os.makedirs(checkpoint_path)
+                os.makedirs(checkpoint_path, exist_ok=True)
 
             yaml_file = os.path.join(checkpoint_path, pretrained_model_name + ".yaml")
             if not os.path.exists(yaml_file):

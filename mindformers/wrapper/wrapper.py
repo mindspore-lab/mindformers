@@ -13,8 +13,6 @@
 # limitations under the License.
 # ============================================================================
 """Self-Define Wrapper."""
-
-import mindspore.common.dtype as mstype
 from mindspore.common.tensor import Tensor
 from mindspore.common import RowTensor
 from mindspore.ops import composite as C
@@ -22,7 +20,7 @@ from mindspore.ops import functional as F
 from mindspore.ops import operations as P
 from mindspore import nn, Parameter, ParallelMode
 from mindspore.parallel._utils import _get_enable_parallel_optimizer
-
+import mindspore.common.dtype as mstype
 
 from mindformers.core.clip_grad import ClipGradNorm
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
@@ -37,7 +35,7 @@ reciprocal = P.Reciprocal()
 
 @_grad_scale.register("Tensor", "Tensor")
 def tensor_grad_scale(scale, grad):
-    return grad * F.cast(reciprocal(scale), F.dtype(grad))
+    return F.cast(grad, mstype.float32) * reciprocal(scale)
 
 
 @_grad_scale.register("Tensor", "RowTensor")
@@ -254,7 +252,7 @@ class MFPipelineWithLossScaleCell(nn.TrainOneStepCell):
 
         init = self.alloc_status()
         status_clear = self.clear_before_grad(init)
-
+        scaling_sens_filled = F.depend(scaling_sens_filled, status_clear)
         grads = self.grad(self.network, self.weights)(*inputs,
                                                       self.cast(scaling_sens_filled / self.micro_size,
                                                                 mstype.float32))
