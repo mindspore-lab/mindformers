@@ -43,7 +43,7 @@ from mindformers.modules.transformer.op_parallel_config import default_dpmp_conf
 from mindformers.modules.transformer.moe import default_moe_config, MoE, _check_moe_config
 
 from mindformers.tools.logger import _LogActionOnce
-from mindformers.tools.utils import is_version_le
+from mindformers.tools.utils import is_version_le, is_version_ge
 
 __all__ = [
     "AttentionMask",
@@ -500,9 +500,14 @@ class FeedForward(Cell):
             else:
                 self.projection.shard(strategy_matmul=((dp, mp), (mp, 1)))
             self.projection.bias.parallel_optimizer = False
-            self.dropout = nn.Dropout(1 - dropout_rate)
-            self.dropout_3d = nn.Dropout(1 - dropout_rate)
-            self.dropout_4d = nn.Dropout(1 - dropout_rate)
+            if is_version_ge(mindspore.__version__, '2.0.0'):
+                self.dropout = nn.Dropout(p=dropout_rate)
+                self.dropout_3d = nn.Dropout(p=dropout_rate)
+                self.dropout_4d = nn.Dropout(p=dropout_rate)
+            else:
+                self.dropout = nn.Dropout(1 - dropout_rate)
+                self.dropout_3d = nn.Dropout(1 - dropout_rate)
+                self.dropout_4d = nn.Dropout(1 - dropout_rate)
             self.cast = P.Cast()
         else:
             _check_config(parallel_config)
@@ -560,11 +565,16 @@ class FeedForward(Cell):
                 self.projection.shard(strategy_matmul=((dp, mp), (mp, 1)),
                                       strategy_bias=((dp, 1), (1,)))
             self.projection.bias.parallel_optimizer = False
-            self.dropout = nn.Dropout(1 - dropout_rate)
+            if is_version_ge(mindspore.__version__, '2.0.0'):
+                self.dropout = nn.Dropout(p=dropout_rate)
+                self.dropout_3d = nn.Dropout(p=dropout_rate)
+                self.dropout_4d = nn.Dropout(p=dropout_rate)
+            else:
+                self.dropout = nn.Dropout(1 - dropout_rate)
+                self.dropout_3d = nn.Dropout(1 - dropout_rate)
+                self.dropout_4d = nn.Dropout(1 - dropout_rate)
             self.dropout.dropout.shard(((dp, 1),))
-            self.dropout_3d = nn.Dropout(1 - dropout_rate)
             self.dropout_3d.dropout.shard(((dp, 1, 1),))
-            self.dropout_4d = nn.Dropout(1 - dropout_rate)
             self.dropout_4d.dropout.shard(((dp, ep, 1, 1),))
             self.cast = P.Cast()
 
@@ -963,8 +973,12 @@ class MultiHeadAttention(Cell):
             # Normalize factor for attention, sqrt(dk) as widely used
             self.scale_factor = Tensor(math.sqrt(math.sqrt(self.size_per_head)))
             self.use_past = use_past
-            self.dropout = nn.Dropout(1 - hidden_dropout_rate)
-            self.prob_dropout = nn.Dropout(1 - attention_dropout_rate)
+            if is_version_ge(mindspore.__version__, '2.0.0'):
+                self.dropout = nn.Dropout(p=hidden_dropout_rate)
+                self.prob_dropout = nn.Dropout(p=attention_dropout_rate)
+            else:
+                self.dropout = nn.Dropout(1 - hidden_dropout_rate)
+                self.prob_dropout = nn.Dropout(1 - attention_dropout_rate)
             self.softmax = nn.Softmax().to_float(softmax_compute_type)
             self.softmax_3d = nn.Softmax().to_float(softmax_compute_type)
             self.expand_dims = P.ExpandDims()
@@ -1064,9 +1078,13 @@ class MultiHeadAttention(Cell):
             # Normalize factor for attention, sqrt(dk) as widely used
             self.scale_factor = Tensor(math.sqrt(math.sqrt(self.size_per_head)))
             self.use_past = use_past
-            self.dropout = nn.Dropout(1 - hidden_dropout_rate)
+            if is_version_ge(mindspore.__version__, '2.0.0'):
+                self.dropout = nn.Dropout(p=hidden_dropout_rate)
+                self.prob_dropout = nn.Dropout(p=attention_dropout_rate)
+            else:
+                self.dropout = nn.Dropout(1 - hidden_dropout_rate)
+                self.prob_dropout = nn.Dropout(1 - attention_dropout_rate)
             self.dropout.dropout.shard(((parallel_config.data_parallel, 1),))
-            self.prob_dropout = nn.Dropout(1 - attention_dropout_rate)
             self.prob_dropout.dropout.shard(
                 ((parallel_config.data_parallel, parallel_config.model_parallel, 1, 1),))
             self.softmax = nn.Softmax().to_float(softmax_compute_type)
