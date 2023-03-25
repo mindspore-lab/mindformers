@@ -16,6 +16,7 @@
 import os
 from typing import Dict, List, Tuple, Union
 from multiprocessing import Process
+
 try:
     import fcntl
 except ImportError:
@@ -25,7 +26,6 @@ import numpy as np
 
 from mindspore import Tensor
 from mindspore import context
-
 
 PARALLEL_MODE = {'DATA_PARALLEL': context.ParallelMode.DATA_PARALLEL,
                  'SEMI_AUTO_PARALLEL': context.ParallelMode.SEMI_AUTO_PARALLEL,
@@ -48,7 +48,6 @@ DEBUG_INFO_PATH = '/cache/debug'
 PROFILE_INFO_PATH = '/cache/profile'
 SLOG_PATH = '/var/log/npu/slog'
 PLOG_PATH = '/root/ascend/log/plog'
-
 
 _PROTOCOL = 'obs'
 _PROTOCOL_S3 = 's3'
@@ -103,7 +102,7 @@ def check_in_modelarts():
            'MA_JOB_DIR' in os.environ or \
            'MA_LOCAL_LOG_PATH' in os.environ or \
            'S3_ACCESS_KEY_ID' in os.environ or \
-           'S3_SECRET_ACCESS_KEY' in os.environ or\
+           'S3_SECRET_ACCESS_KEY' in os.environ or \
            'BATCH_GROUP_NAME' in os.environ or \
            'MA_LOCAL_LOG_PATH' in os.environ
 
@@ -120,6 +119,7 @@ def sync_trans(f):
             pro = Process(target=f, args=args, kwargs=kwargs)
             pro.start()
             return pro
+
         return wrapper
     except Exception as e:
         raise e
@@ -170,6 +170,7 @@ def get_num_nodes_devices(rank_size: int) -> Tuple[int, int]:
 
 class Const:
     """Const."""
+
     def __setattr__(self, key, value):
         if key in self.__dict__:
             raise PermissionError('Can not change const {0}.'.format(key))
@@ -193,7 +194,7 @@ def generate_rank_list(stdout_nodes: Union[List, Tuple], stdout_devices: Union[L
     rank_list = []
     for node in stdout_nodes:
         for device in stdout_devices:
-            rank_list.append(8*node + device)
+            rank_list.append(8 * node + device)
 
     return rank_list
 
@@ -258,5 +259,21 @@ def is_version_le(current_version, base_version):
                          "For example, base_version: 0.1.2, current_version 0.3.1.")
     for x, y in zip(current_version.split(version_split_char), base_version.split(version_split_char)):
         if int(x) < int(y):
+            return False
+    return True
+
+
+def is_version_ge(current_version, base_version):
+    """
+        return current_version >= base_version.
+        Check whether the current version is higher than or equal to the base version.
+        For example: base_version: 0.1.2, current_version 0.3.1, will return True.
+    """
+    version_split_char = '.'
+    if version_split_char not in base_version or version_split_char not in current_version:
+        raise ValueError("The version string will contain the `.`."
+                         "For example, base_version: 0.1.2, current_version 0.3.1.")
+    for x, y in zip(current_version.split(version_split_char), base_version.split(version_split_char)):
+        if int(x) > int(y):
             return False
     return True
