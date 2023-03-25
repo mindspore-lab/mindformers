@@ -5,63 +5,65 @@ base_config: [
     './model_config/gpt2.yaml',
     '../__base__.yaml' ]
 
-# cloud context init config
+# 环境配置模块
 context:
   mode: 0 #0--Graph Mode; 1--Pynative Mode
-  device_target: "Ascend"
-  enable_graph_kernel: False
-  graph_kernel_flags: "--disable_expand_ops=Softmax,Dropout --enable_parallel_fusion=true --reduce_fuse_depth=8 --enable_auto_tensor_inplace=true"
-  max_call_depth: 10000
-  max_device_memory: "30GB"
-  save_graphs: False
-  save_graphs_path: "./graph"
-  device_id: 0
+  device_target: "Ascend"  # 设备类别
+  enable_graph_kernel: False  # 是否开启图算融合去优化网络执行性能
+  graph_kernel_flags: "--disable_expand_ops=Softmax,Dropout --enable_parallel_fusion=true --reduce_fuse_depth=8 --enable_auto_tensor_inplace=true"  # 图算融合的优化选项
+  max_call_depth: 10000  # 函数调用的最大深度。其值必须为正整数
+  max_device_memory: "30GB"  # 设备可用的最大内存
+  save_graphs: False  # 是否保存计算图
+  save_graphs_path: "./graph"  # 保存计算图的路径
+  device_id: 0  # 目标设备的ID，其值必须在[0, device_num_per_host-1]范围中
 
+# 并行环境配置模块
 parallel:
   parallel_mode: 0 # 0-dataset, 1-semi, 2-auto, 3-hybrid
-  gradients_mean: True
+  gradients_mean: True  # 是否在梯度的 AllReduce后执行平均算子，不支持单卡
   loss_repeated_mean: True
   enable_alltoall: False
-  full_batch: False
-  search_mode: "sharding_propagation"
-  enable_parallel_optimizer: False
-  strategy_ckpt_save_file: "./ckpt_strategy.ckpt"
+  full_batch: False # 是否在非数据并行模式下加载整个batch数据集
+  search_mode: "sharding_propagation"  # 设置切分策略传播算法
+  enable_parallel_optimizer: False  # 是否开启优化器并行
+  strategy_ckpt_save_file: "./ckpt_strategy.ckpt"  # 恢复训练的模型的切片
 
-# context config for mindformers
+# 专家并行配置模块
 moe_config:
-  expert_num: 1
-  capacity_factor: 1.05
-  aux_loss_factor: 0.05
-  num_experts_chosen: 1
+  expert_num: 1   # 线性层中使用的专家数量
+  capacity_factor: 1.05  # 专家处理的容量关系，其值大于等于1.0
+  aux_loss_factor: 0.05  # 负载均衡损失（由路由器产生）的平衡系数。相乘的结果会加到总损失函数中。此系数的值小于1.0
+  num_experts_chosen: 1  # 每个标识选择的专家数量，其值小于等于专家数量
 
+# 重计算配置模块
 recompute_config:
-  recompute: False
-  parallel_optimizer_comm_recompute: False
-  mp_comm_recompute: True
-  recompute_slice_activation: False
+  recompute: False  # 指定激活层是否切片保存
+  parallel_optimizer_comm_recompute: False  # 指定由优化器切分产生的AllGather算子是否进行重计算
+  mp_comm_recompute: True  # 指定由模型并行成分产生的通信算子是否进行重计算
+  recompute_slice_activation: False  # 指定激活层是否切片保存
 
-parallel_config:
-  data_parallel: 1
-  model_parallel: 1
-  expert_parallel: 1
-  pipeline_stage: 1
-  optimizer_shard: False
-  micro_batch_num: 1
-  vocab_emb_dp: True
-  gradient_aggregation_group: 6
+# transformer并行配置模块
+parallel_config:  # 并行设置
+  data_parallel: 1  # 数据并行数
+  model_parallel: 1  # 模型/Tensor并行数
+  expert_parallel: 1  # 专家并行数
+  pipeline_stage: 1  # 流水线并行数
+  optimizer_shard: False  # 是否开启优化器并行
+  micro_batch_num: 1  # 流水线并行时将MiniBatch切分成更细的MicroBatch的数目，流水线并行时生效，该值需≥流水线并行数
+  vocab_emb_dp: True  # 是否配置embedding为数据并行
+  gradient_aggregation_group: 6  # 优化器并行对应的梯度聚合数目
 
-# runner config
+# 超参配置模块
 runner_config:
-  epochs: 3
-  batch_size: 8
-  sink_size: 1
-  image_size: 224
-  sink_mode: True
-  per_epoch_size: -1
-  initial_epoch: 0
-  has_trained_epoches: 0
-  has_trained_steps: 0
+  epochs: 3  # 训练轮数
+  batch_size: 8  # per device batch size
+  sink_mode: True  # 是否开启数据下沉
+  per_epoch_size: -1  # 下沉数据量（0时默认下沉整个数据集）
+  initial_epoch: 0  # 恢复训练时设定的已经训练的epoch数
+  has_trained_epoches: 0  # 恢复训练时设定已经训练的epoch数
+  has_trained_steps: 0  # 恢复训练时设定已经训练的step数
 
+# 前反向封装配置模块
 runner_wrapper:
   type: MFTrainOneStepCell
   scale_sense:
@@ -71,7 +73,7 @@ runner_wrapper:
     scale_window: 1000
   use_clip_grad: True
 
-# optimizer
+# 优化器配置模块
 optimizer:
   type: FusedAdamWeightDecay
   beta1: 0.9
@@ -79,7 +81,7 @@ optimizer:
   eps: 0.00000001 # 1e-8
   weight_decay: 0.1
 
-# lr sechdule
+# 学习率配置模块
 lr_schedule:
   type: polynomial
   learning_rate: 0.0001
@@ -87,6 +89,7 @@ lr_schedule:
   warmup_steps: 0
   total_steps: -1 # -1 means it will load the total steps of the dataset
 
+# 回调函数配置模块
 callbacks:
   - type: MFLossMonitor
   - type: SummaryMonitor
@@ -98,8 +101,8 @@ callbacks:
     async_save: False
   - type: ObsMonitor
 
-profile: False
-use_parallel: False
+profile: False  # 是否进行性能采集
+use_parallel: False  # 是否采用并行
 
 seed: 0
 resume_or_finetune_checkpoint: ""
