@@ -24,6 +24,7 @@ from .translation import *
 from .text_classfication import *
 from .token_classification import *
 from .question_answering import *
+from .causal_language_modeling import *
 from .trainer import Trainer
 from .training_args import TrainingArguments
 from .base_trainer import BaseTrainer
@@ -42,3 +43,4 @@ __all__.extend(translation.__all__)
 __all__.extend(text_classfication.__all__)
 __all__.extend(token_classification.__all__)
 __all__.extend(question_answering.__all__)
+__all__.extend(causal_language_modeling.__all__)

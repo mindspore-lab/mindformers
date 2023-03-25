@@ -41,7 +41,7 @@ def check_and_add_vocab_file_path(config, **kwargs):
         else:
             support_name = dynamic_class.get_support_list()[0]
         vocab_file = dynamic_class.cache_vocab_files(name_or_path=support_name)
-        config['vocab_file'] = vocab_file
+        config.update(vocab_file)
 
 
 def build_tokenizer(

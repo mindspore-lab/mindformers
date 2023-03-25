@@ -13,5 +13,5 @@ train_dataset: &train_dataset
   prefetch_size: 1
 
 train_dataset_task:
-  type: MaskLanguageModelDataset
+  type: CausalLanguageModelDataset
   dataset_config: *train_dataset

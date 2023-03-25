@@ -77,6 +77,7 @@ class GPT2LMHeadModel(BaseModel):
         self.loss = CrossEntropyLoss(parallel_config=loss_parallel_config)
         self.reshape = P.Reshape()
         self.cast = P.Cast()
+        self.load_checkpoint(config)
 
     def construct(self, input_ids):
         r"""
@@ -92,7 +93,10 @@ class GPT2LMHeadModel(BaseModel):
 
         batch_size, seq_length = input_ids.shape
 
-        tokens = self.stridedslice(input_ids, (0, 0), (batch_size, -1), (1, 1))
+        if self.phase == "train":
+            tokens = self.stridedslice(input_ids, (0, 0), (batch_size, seq_length - 1), (1, 1))
+        else:
+            tokens = input_ids
 
         input_mask = self.cast(self.not_equal(tokens, self.eos_token), mstype.float32)
 
