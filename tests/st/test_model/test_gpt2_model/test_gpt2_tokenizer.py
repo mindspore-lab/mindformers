@@ -54,7 +54,7 @@ class TestGptTokenizerMethod:
 
     def test_from_pretrained(self):
         """
-        Feature: The Gpt2Tokenizer test using from python class
+        Feature: The GPT2Tokenizer test using from python class
         Description: Using call forward process of the tokenizer without error
         Expectation: The returned ret is not equal to [[6, 7]].
         """
@@ -67,7 +67,7 @@ class TestGptTokenizerMethod:
     @pytest.mark.parametrize('skip_special_tokens', [True, False])
     def test_gpt_decode(self, skip_special_tokens):
         """
-        Feature: The Gpt2Tokenizer test using auto_class
+        Feature: The GPT2Tokenizer test using auto_class
         Description: Using call forward process of the tokenizer without error
         Expectation: The returned ret is not equal to [[6, 7]].
         """
@@ -77,7 +77,7 @@ class TestGptTokenizerMethod:
 
     def test_gpt__call__(self):
         """
-        Feature: The Gpt2Tokenizer test call method
+        Feature: The GPT2Tokenizer test call method
         Description: Using call forward process of the tokenizer without error
         Expectation: The returned ret is not equal to [[6, 7]].
         """

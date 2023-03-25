@@ -218,8 +218,13 @@ class GeneratorMixin:
                 log_probs = self.process_logits(logits, current_index)
 
             else:
-                logits = self.construct(inputs, Tensor(input_mask, mstype.float32))
-                log_probs = self.process_logits(logits)
+                seq_length = inputs.shape[1]
+                current_index = [valid_length_each_example[i] - 1 + i * seq_length for i in range(batch_size)]
+                current_index = Tensor(current_index, mstype.int32)
+                logger.debug("validate length: %s", valid_length_each_example)
+                logits = self.construct(inputs)
+                logits = logits.reshape(-1, logits.shape[-1])
+                log_probs = self.process_logits(logits, current_index)
 
             log_probs = log_probs.asnumpy()
 

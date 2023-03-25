@@ -5,6 +5,99 @@ base_config: [
     './model_config/gpt2.yaml',
     '../__base__.yaml' ]
 
+# cloud context init config
+context:
+  mode: 0 #0--Graph Mode; 1--Pynative Mode
+  device_target: "Ascend"
+  enable_graph_kernel: False
+  graph_kernel_flags: "--disable_expand_ops=Softmax,Dropout --enable_parallel_fusion=true --reduce_fuse_depth=8 --enable_auto_tensor_inplace=true"
+  max_call_depth: 10000
+  max_device_memory: "30GB"
+  save_graphs: False
+  save_graphs_path: "./graph"
+  device_id: 0
+
+parallel:
+  parallel_mode: 0 # 0-dataset, 1-semi, 2-auto, 3-hybrid
+  gradients_mean: True
+  loss_repeated_mean: True
+  enable_alltoall: False
+  full_batch: False
+  search_mode: "sharding_propagation"
+  enable_parallel_optimizer: False
+  strategy_ckpt_save_file: "./ckpt_strategy.ckpt"
+
+# context config for mindformers
+moe_config:
+  expert_num: 1
+  capacity_factor: 1.05
+  aux_loss_factor: 0.05
+  num_experts_chosen: 1
+
+recompute_config:
+  recompute: False
+  parallel_optimizer_comm_recompute: False
+  mp_comm_recompute: True
+  recompute_slice_activation: False
+
+parallel_config:
+  data_parallel: 1
+  model_parallel: 1
+  expert_parallel: 1
+  pipeline_stage: 1
+  optimizer_shard: False
+  micro_batch_num: 1
+  vocab_emb_dp: True
+  gradient_aggregation_group: 6
+
+# runner config
+runner_config:
+  epochs: 3
+  batch_size: 8
+  sink_size: 1
+  image_size: 224
+  sink_mode: True
+  per_epoch_size: -1
+  initial_epoch: 0
+  has_trained_epoches: 0
+  has_trained_steps: 0
+
+runner_wrapper:
+  type: MFTrainOneStepCell
+  scale_sense:
+    type: DynamicLossScaleUpdateCell
+    loss_scale_value: 4294967296
+    scale_factor: 2
+    scale_window: 1000
+  use_clip_grad: True
+
+# optimizer
+optimizer:
+  type: FusedAdamWeightDecay
+  beta1: 0.9
+  beta2: 0.95
+  eps: 0.00000001 # 1e-8
+  weight_decay: 0.1
+
+# lr sechdule
+lr_schedule:
+  type: polynomial
+  learning_rate: 0.0001
+  lr_end: 0.00001
+  warmup_steps: 0
+  total_steps: -1 # -1 means it will load the total steps of the dataset
+
+callbacks:
+  - type: MFLossMonitor
+  - type: SummaryMonitor
+    keep_default_action: True
+  - type: CheckpointMointor
+    prefix: "mindformers"
+    save_checkpoint_steps: 100
+    integrated_save: True
+    async_save: False
+  - type: ObsMonitor
+
 profile: False
 use_parallel: False
 
@@ -14,5 +107,5 @@ resume_or_finetune_checkpoint: ""
 
 run_mode: 'train'
 trainer:
-  type: MaskedLanguageModelingTrainer
+  type: CausalLanguageModelingTrainer
   model_name: 'gpt2'

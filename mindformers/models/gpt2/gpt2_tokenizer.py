@@ -72,7 +72,7 @@ class GPT2Tokenizer(Tokenizer):
         **kwargs: Other kwargs that will be passed into the base class of the `Tokenizer`.
 
     Examples:
-        >>> from mindformers import Gpt2Tokenizer
+        >>> from mindformers import GPT2Tokenizer
 
         >>> tokenizer = GPT2Tokenizer.from_pretrained("gpt2")
         >>> res = tokenizer("Hello world")

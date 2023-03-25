@@ -164,6 +164,10 @@ class MindFormerBook:
                 _PROJECT_PATH, "configs/qa/run_qa_bert_base_uncased.yaml")),
             ("common", os.path.join(
                 _PROJECT_PATH, "configs/qa/run_qa_bert_base_uncased.yaml"))])
+         ),
+        ("text_generation", OrderedDict([
+            ("gpt2", os.path.join(
+                _PROJECT_PATH, "configs/gpt2/run_gpt2.yaml"))])
          )
     ])
 
@@ -229,6 +233,10 @@ class MindFormerBook:
                 _PROJECT_PATH, "configs/qa/run_qa_bert_base_uncased.yaml")),
             ("common", os.path.join(
                 _PROJECT_PATH, "configs/qa/run_qa_bert_base_uncased.yaml"))
+        ])),
+        ("text_generation", OrderedDict([
+            ("gpt2", os.path.join(
+                _PROJECT_PATH, "configs/gpt2/run_gpt2.yaml"))
         ]))
     ])
 
@@ -358,6 +366,9 @@ class MindFormerBook:
         ])),
         ('t5', [
             't5_small',
+        ]),
+        ('gpt2', [
+            'gpt2',
         ])
     ])
 

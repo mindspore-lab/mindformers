@@ -474,14 +474,18 @@ class BaseTokenizer(SpecialTokensMixin):
                                       name_or_path.split("_")[cls._model_type])
             if not os.path.exists(cache_path):
                 os.makedirs(cache_path)
-        url_vocab = MindFormerBook.get_tokenizer_url_support_list()[name_or_path][0]
-        local_vocab_name = url_vocab.split('/')[-1]
-        vocab_file = os.path.join(cache_path, local_vocab_name)
-        if not os.path.exists(vocab_file):
-            logger.info("Download the vocab file from the url %s to %s.", url_vocab, vocab_file)
-            download_with_progress_bar(url_vocab, vocab_file)
-        try_sync_file(vocab_file)
-        return vocab_file
+
+        # some tokenizers rely on more than one file, e.g gpt2
+        tokenizer_need_files = MindFormerBook.get_tokenizer_url_support_list()[name_or_path]
+        for url_file in tokenizer_need_files:
+            local_file_name = url_file.split('/')[-1]
+            file_path = os.path.join(cache_path, local_file_name)
+            if not os.path.exists(file_path):
+                logger.info("Download the yaml from the url %s to %s.", url_file, file_path)
+                download_with_progress_bar(url_file, file_path)
+            try_sync_file(file_path)
+        read_vocab_file_dict, _ = cls.read_files_according_specific_by_tokenizer(cache_path)
+        return read_vocab_file_dict
 
     @classmethod
     def _get_class_name_and_args_form_config(cls, config):
