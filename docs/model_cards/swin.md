@@ -131,5 +131,15 @@ python run_mindformer.py --config ./configs/swin/run_swin_base_p4w7_224_100ep.ya
 2. 执行转换脚本，得到转换后的输出文件`swin_base_p4w7.ckpt`
 
 ```shell
-python mindformers/models/swin/convert_weight.py --torch_path pytorch_model.bin --mindspore_path ./swin_base_p4w7.ckpt
+python mindformers/models/swin/convert_weight.py --torch_path swin_base_patch4_window7_224.pth --mindspore_path swin_base_p4w7.ckpt --is_pretrain False
+```
+
+如需转换官方simmim的预训练权重进行finetune，则执行如下步骤：
+
+1. [从simmim官网](https://github.com/microsoft/SimMIM)提供的google网盘下载[`simmim_swin_192`](https://drive.google.com/file/d/1Wcbr66JL26FF30Kip9fZa_0lXrDAKP-d/view?usp=sharing)的官方权重，文件名为`simmim_pretrain__swin_base__img192_window6__100ep.pth`
+
+2. 执行转换脚本，得到转换后的输出文件`simmim_swin_p4w6.ckpt`
+
+```shell
+python mindformers/models/swin/convert_weight.py --torch_path simmim_pretrain__swin_base__img192_window6__100ep.pth --mindspore_path simmim_swin_p4w6.ckpt --is_pretrain True
 ```
