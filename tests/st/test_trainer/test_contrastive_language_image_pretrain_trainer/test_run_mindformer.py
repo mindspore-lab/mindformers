@@ -52,16 +52,14 @@ class TestRunMindFormer:
         )
         config = MindFormerConfig(config_path)
 
-        new_dataset_dir, new_annotation_dir,\
+        new_root_dir, new_dataset_dir, new_annotation_dir,\
         local_root, output_dir = self.make_local_directory(config)
         self.make_dataset(new_dataset_dir, new_annotation_dir, num=50)
         self.local_root = local_root
         self.output_dir = output_dir
 
-        config.train_dataset.data_loader.dataset_dir = new_dataset_dir
-        config.train_dataset.data_loader.annotation_dir = new_annotation_dir
-        config.train_dataset_task.dataset_config.data_loader.dataset_dir = new_dataset_dir
-        config.train_dataset_task.dataset_config.data_loader.annotation_dir = new_annotation_dir
+        config.train_dataset.data_loader.dataset_dir = new_root_dir
+        config.train_dataset_task.dataset_config.data_loader.dataset_dir = new_root_dir
         config.output_dir = output_dir
 
         self.config = config
@@ -80,6 +78,12 @@ class TestRunMindFormer:
     def make_local_directory(self, config):
         """make local directory"""
         dataset_dir = config.train_dataset.data_loader.dataset_dir
+        new_root_dir = MindFormerBook.get_default_checkpoint_download_folder()
+        for item in dataset_dir.split("/")[2:]:
+            new_root_dir = os.path.join(new_root_dir, item)
+
+        annotation_dir = os.path.join(dataset_dir, "Flickr8k_text")
+        dataset_dir = os.path.join(dataset_dir, "Flickr8k_Dataset", "Flickr8k_Dataset")
         local_root = os.path.join(
             MindFormerBook.get_default_checkpoint_download_folder(),
             dataset_dir.split("/")[2]
@@ -89,7 +93,6 @@ class TestRunMindFormer:
         for item in dataset_dir.split("/")[2:]:
             new_dataset_dir = os.path.join(new_dataset_dir, item)
 
-        annotation_dir = config.train_dataset.data_loader.annotation_dir
         new_annotation_dir = MindFormerBook.get_default_checkpoint_download_folder()
         for item in annotation_dir.split("/")[2:]:
             new_annotation_dir = os.path.join(new_annotation_dir, item)
@@ -98,7 +101,7 @@ class TestRunMindFormer:
 
         os.makedirs(new_dataset_dir, exist_ok=True)
         os.makedirs(new_annotation_dir, exist_ok=True)
-        return new_dataset_dir, new_annotation_dir, local_root, output_dir
+        return new_root_dir, new_dataset_dir, new_annotation_dir, local_root, output_dir
 
     def make_dataset(self, new_dataset_dir, new_annotation_dir, num):
         """make a fake Flickr8k dataset"""
