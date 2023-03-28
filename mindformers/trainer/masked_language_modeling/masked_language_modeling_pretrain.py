@@ -39,8 +39,8 @@ class MaskedLanguageModelingTrainer(BaseTrainer):
     Args:
         model_name (str): The model name of Task-Trainer. Default: None
     Examples:
-        >>> from mindformers import MaskLanguageModelingTrainer
-        >>> mlm_trainer = MaskLanguageModelingTrainer(model_name="bert_tiny_uncased")
+        >>> from mindformers import MaskedLanguageModelingTrainer
+        >>> mlm_trainer = MaskedLanguageModelingTrainer(model_name="bert_tiny_uncased")
         >>> mlm_trainer.train()
         >>> res = mlm_trainer.predict(input_data = "hello world [MASK]")
     Raises:
