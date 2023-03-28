@@ -36,6 +36,8 @@
 
 - 请参考[使用脚本启动](https://gitee.com/mindspore/transformer/blob/master/README.md#%E6%96%B9%E5%BC%8F%E4%B8%80clone-%E5%B7%A5%E7%A8%8B%E4%BB%A3%E7%A0%81)
 
+- 在脚本执行目录创建 `squad` 文件夹，然后将数据集放入其中
+
 - 脚本运行测试
 
 ```shell
@@ -54,33 +56,11 @@ python run_mindformer.py --config ./configs/qa/run_qa_bert_base_uncased.yaml --r
 - Trainer接口开启评估/推理：
 
   ```python
-  import os
-  from mindformers import MindFormerBook
   from mindformers.trainer import Trainer
-  from mindformers import build_dataset, MindFormerConfig
-  from mindformers import AutoTokenizer
-
-  # 构造数据集
-  project_path = MindFormerBook.get_project_path()
-  dataset_config = MindFormerConfig(os.path.join(project_path, "configs",
-                                    "qa", "task_config", "bert_squad_dataset.yaml"))
-
-  # 将SQuAD v1.1数据集放置到路径：./squad
-  dataset = build_dataset(dataset_config.eval_dataset_task)
-
-  # 创建 tokenizer
-  tokenizer = AutoTokenizer.from_pretrained('qa_bert_base_uncased_squad')
-
-  # 显示Trainer的模型支持列表
-  MindFormerBook.show_trainer_support_model_list("question_answering")
-  # INFO - Trainer support model list for question_answering task is:
-  # INFO -    ['qa_bert_base_uncased']
-  # INFO - -------------------------------------
 
   # 初始化trainer
   trainer = Trainer(task='question_answering',
-                    model='qa_bert_base_uncased',
-                    eval_dataset=dataset)
+                    model='qa_bert_base_uncased')
 
   # 测试数据，测试数据分为context和question两部分，两者以 “-” 分隔
   input_data = ["My name is Wolfgang and I live in Berlin - Where do I live?"]

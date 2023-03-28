@@ -35,6 +35,8 @@
 
 - 请参考[使用脚本启动](https://gitee.com/mindspore/transformer/blob/master/README.md#%E6%96%B9%E5%BC%8F%E4%B8%80clone-%E5%B7%A5%E7%A8%8B%E4%BB%A3%E7%A0%81)
 
+- 在脚本执行目录创建 `cluener` 文件夹，然后将数据集放入其中
+
 - 脚本运行测试
 
 ```shell
@@ -53,33 +55,11 @@ python run_mindformer.py --config ./configs/tokcls/run_tokcls_bert_base_chinese.
 - Trainer接口开启评估/推理：
 
   ```python
-  import os
-  from mindformers import MindFormerBook
   from mindformers.trainer import Trainer
-  from mindformers import build_dataset, MindFormerConfig
-  from mindformers import AutoTokenizer
-
-  # 构造数据集
-  project_path = MindFormerBook.get_project_path()
-  dataset_config = MindFormerConfig(os.path.join(project_path, "configs",
-                                    "tokcls", "task_config", "bert_cluener_dataset.yaml"))
-
-  # 将cluener数据集放置到路径：./cluener
-  dataset = build_dataset(dataset_config.eval_dataset_task)
-
-  # 创建 tokenizer
-  tokenizer = AutoTokenizer.from_pretrained('tokcls_bert_base_chinese_cluener')
-
-  # 显示Trainer的模型支持列表
-  MindFormerBook.show_trainer_support_model_list("token_classification")
-  # INFO - Trainer support model list for token_classification task is:
-  # INFO -    ['tokcls_bert_base_chinese']
-  # INFO - -------------------------------------
 
   # 初始化trainer
   trainer = Trainer(task='token_classification',
-                    model='tokcls_bert_base_chinese',
-                    eval_dataset=dataset)
+                    model='tokcls_bert_base_chinese')
 
   # 测试数据
   input_data = ["结果上周六他们主场0：3惨败给了中游球队瓦拉多利德，近7个多月以来西甲首次输球。"]
@@ -90,7 +70,7 @@ python run_mindformer.py --config ./configs/tokcls/run_tokcls_bert_base_chinese.
 
   # 进行评估
   trainer.evaluate(eval_checkpoint='./output/rank_0/checkpoint/mindformers_rank_0-3_447.ckpt')
-  # INFO - Entity F1=0.7905
+  # INFO - Entity F1=0.7853
 
   # 进行推理
   trainer.predict(predict_checkpoint='./output/rank_0/checkpoint/mindformers_rank_0-3_447.ckpt',
