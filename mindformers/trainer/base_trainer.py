@@ -479,7 +479,9 @@ class BaseTrainer:
         if callbacks is None:
             callbacks = self.create_callbacks(default_args={
                 "learning_rate": optimizer.learning_rate,
-                "micro_batch_num": self.config.parallel_config.micro_batch_num})
+                "origin_epochs": config.runner_config.origin_epochs,
+                "dataset_size": config.data_size,
+                "micro_batch_num": config.parallel_config.micro_batch_num})
 
         # resume checkpoint
         if config.resume_or_finetune_checkpoint:
@@ -499,6 +501,7 @@ class BaseTrainer:
             model = Model(network, optimizer=optimizer)
 
         logger.info(".........Starting Training Model..........")
+        logger.info(".........Model Compiling, Please Wait a Moment...........")
         model.train(config.runner_config.epochs, dataset,
                     callbacks=callbacks,
                     dataset_sink_mode=config.runner_config.sink_mode,

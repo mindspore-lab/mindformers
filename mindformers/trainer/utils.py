@@ -113,6 +113,7 @@ def check_runner_config(config, dataset):
     """ Check runner config. """
     data_size = dataset.get_dataset_size()
     new_epochs = config.runner_config.epochs
+    config.runner_config.origin_epochs = new_epochs
     if config.runner_config.sink_mode:
         if config.runner_config.per_epoch_size != -1:
             if config.runner_config.per_epoch_size <= 0:

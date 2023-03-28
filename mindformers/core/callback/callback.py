@@ -69,6 +69,8 @@ class MFLossMonitor(Callback):
     def __init__(self,
                  learning_rate: Optional[Union[float, LearningRateSchedule]] = None,
                  micro_batch_num: int = 1,
+                 origin_epochs: int = None,
+                 dataset_size: int = None,
                  per_print_times: int = 1):
         super(MFLossMonitor, self).__init__()
         self.per_print_times = per_print_times
@@ -80,6 +82,8 @@ class MFLossMonitor(Callback):
         self.step_time = time.time()
         self.epoch_time = time.time()
         self.run_context = None
+        self.steps_per_epoch = dataset_size
+        self.origin_epochs = origin_epochs
 
     def epoch_begin(self, run_context):
         """
@@ -165,6 +169,18 @@ class MFLossMonitor(Callback):
         if not scaling_sens:
             scaling_sens = "unavailable"
 
+        if cb_params.dataset_sink_mode:
+            origin_epochs = self.origin_epochs
+            steps_per_epoch = self.steps_per_epoch
+
+            cur_epoch_num = (cb_params.cur_step_num - 1) // steps_per_epoch + 1
+            cur_step_num = (cb_params.cur_step_num - 1) % steps_per_epoch + 1
+        else:
+            origin_epochs = cb_params.epoch_num
+            steps_per_epoch = cb_params.batch_num
+            cur_step_num = cur_step_in_epoch
+            cur_epoch_num = cb_params.cur_epoch_num
+
         def print_output_info():
             if self.learning_rate is not None:
                 if isinstance(self.learning_rate, float):
@@ -204,15 +220,15 @@ class MFLossMonitor(Callback):
                 logger.info(
                     "Epoch:[%3d/%3d], step:[%5d/%5d], "
                     "loss:[%5.3f/%5.3f], time:%5.3f ms, "
-                    "lr:%s, overflow cond: %s, loss_scale: %s", cb_params.cur_epoch_num - 1, cb_params.epoch_num,
-                    cur_step_in_epoch, cb_params.batch_num, loss, np.mean(self.loss_list),
+                    "lr:%s, overflow cond: %s, loss_scale: %s", cur_epoch_num, origin_epochs,
+                    cur_step_num, steps_per_epoch, loss, np.mean(self.loss_list),
                     step_mseconds, current_lr, overflow, scaling_sens)
             else:
                 logger.info(
                     "Epoch:[%3d/%3d], step:[%5d/%5d], "
                     "loss:[%5.3f/%5.3f], time:%5.3f ms, "
-                    "overflow cond: %s, loss_scale: %s", cb_params.cur_epoch_num - 1, cb_params.epoch_num,
-                    cur_step_in_epoch, cb_params.batch_num, loss, np.mean(self.loss_list),
+                    "overflow cond: %s, loss_scale: %s", cur_epoch_num, origin_epochs,
+                    cur_step_num, steps_per_epoch, loss, np.mean(self.loss_list),
                     step_mseconds, overflow, scaling_sens)
 
         if (cb_params.cur_step_num - self.last_print_time) >= self.per_print_times:
