@@ -15,7 +15,7 @@
 """
 Test module for testing the gpt interface used for mindformers.
 How to run this:
-pytest tests/st/test_model/test_gpt_model/test_gpt_from_instance.py
+pytest tests/st/test_model/test_gpt_model/test_gpt2_model.py
 """
 from dataclasses import dataclass
 import os
@@ -33,6 +33,7 @@ from mindformers import MindFormerBook, AutoModel, AutoConfig
 from mindformers.tools import logger
 from mindformers.models import BaseModel
 from mindformers.core.optim import FusedAdamWeightDecay
+from mindformers.pipeline import pipeline
 
 
 def generator():
@@ -84,12 +85,12 @@ def test_gpt_trainer_train_from_instance():
     time_cb = TimeMonitor()
     callbacks = [loss_cb, time_cb]
 
-    mlm_trainer = Trainer(model=gpt_model,  # model and loss
-                          config=config,
-                          optimizers=optimizer,
-                          train_dataset=dataset,
-                          callbacks=callbacks)
-    mlm_trainer.train(resume_or_finetune_from_checkpoint=False)
+    lm_trainer = Trainer(model=gpt_model,
+                         config=config,
+                         optimizers=optimizer,
+                         train_dataset=dataset,
+                         callbacks=callbacks)
+    lm_trainer.train(resume_or_finetune_from_checkpoint=False)
 
 
 @pytest.mark.level0
@@ -104,9 +105,8 @@ class TestModelForGptMethod:
 
     def test_gpt_model(self):
         """
-        Feature: GptForPretraining, from_pretrained, input config
-        Description: Test to get model instance by ClipModel.from_pretrained
-                    and input config
+        Feature: GPT2LMHeadModel, input config
+        Description: Test to get model instance by GPT2LMHeadModel and input config
         Expectation: TypeError, ValueError, RuntimeError
         """
 
@@ -130,8 +130,8 @@ class TestModelForGptMethod:
 
     def test_save_model(self):
         """
-        Feature: save_pretrained method of GptModel
-        Description: Test to save checkpoint for GptModel
+        Feature: save_pretrained method of GPT2LMHeadModel
+        Description: Test to save checkpoint for GPT2LMHeadModel
         Expectation: ValueError, AttributeError
         """
         gpt = GPT2LMHeadModel(GPT2Config(num_layers=1, hidden_dropout_prob=0.0,
@@ -165,3 +165,7 @@ class TestModelForGptMethod:
         config = AutoConfig.from_pretrained("gpt2")
         model = AutoModel.from_pretrained("gpt2")
         assert isinstance(model, BaseModel) and isinstance(config, GPT2Config)
+
+    def test_pipeline(self):
+        pipeline_task = pipeline("text_generation", model='gpt2', max_length=20)
+        pipeline_task("I love Beijing, because", top_k=3)
