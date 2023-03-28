@@ -175,15 +175,13 @@ RUN_STATUS: 为任务运行状态，支持关键字 train\finetune\eval\predict
 
   cls_trainer = Trainer(task='image_classification', # 已支持的任务名
                         model='vit_base_p16') # 已支持的模型名
-  # Example 1： 开启推理已集成模型（自动加载权重和默认测试图片）
-  predict_result_a = cls_trainer.predict()
-  # Example 2： 开启推理（自动加载训练得到的最后一个权重）
-  predict_result_b = cls_trainer.predict(predict_checkpoint=True)
-  # Example 3： 加载指定的权重以完成推理
-  predict_result_c = cls_trainer.predict(predict_checkpoint='./output/rank_0/checkpoint/mindformers.ckpt')
-  # Example 4： 指定输入的数据完成模型推理
   input_data = './cat.png' # 一张猫的图片
+  # Example 1： 指定输入的数据完成模型推理
   predict_result_d = cls_trainer.predict(input_data=input_data)
+  # Example 2： 开启推理（自动加载训练得到的最后一个权重）
+  predict_result_b = cls_trainer.predict(input_data=input_data, predict_checkpoint=True)
+  # Example 3： 加载指定的权重以完成推理
+  predict_result_c = cls_trainer.predict(input_data=input_data, predict_checkpoint='./output/rank_0/checkpoint/mindformers.ckpt')
   print(predict_result_d)
   ```
 
