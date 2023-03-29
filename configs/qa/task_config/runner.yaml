@@ -32,6 +32,6 @@ callbacks:
     integrated_save: True
     async_save: False
 
-metrics:
+metric:
   type: SQuADMetric
   dataset_dir: "./squad/"
