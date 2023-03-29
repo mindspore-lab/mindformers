@@ -117,13 +117,14 @@ class BertForPreTraining(BaseModel):
         Tensor, the loss of the network.
 
     Examples:
+        >>> from mindspore import Tensor
         >>> from mindformers import BertForPretraining, BertTokenizer
         >>> model = BertForPreTraining.from_pretrained('bert_base_uncased')
         >>> tokenizer = BertTokenizer.from_pretrained('bert_base_uncased')
-        >>> data = tokenizer("Paris is the [MASK] of France.")
-        >>> input_ids = data['input_ids']
-        >>> attention_mask = input_ids['attention_mask']
-        >>> token_type_ids = input_ids['token_type_ids']
+        >>> data = tokenizer("Paris is the [MASK] of France.", max_length=128, padding="max_length")
+        >>> input_ids = Tensor(data['input_ids'], mindspore.int32)
+        >>> attention_mask = Tensor(input_ids['attention_mask'], mindspore.int32)
+        >>> token_type_ids = Tensor(input_ids['token_type_ids'], mindspore.int32)
         >>> masked_lm_positions = Tensor([[4]], mstype.int32)
         >>> next_sentence_labels = Tensor([[1]], mstype.int32)
         >>> masked_lm_weights = Tensor([[1]], mstype.int32)

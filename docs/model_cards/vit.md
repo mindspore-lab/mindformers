@@ -80,12 +80,23 @@ vit_trainer = Trainer(
     model='vit_base_p16',
     train_dataset="imageNet-1k/train",
     eval_dataset="imageNet-1k/val")
-
-vit_trainer.train() # 开启训练
-vit_trainer.evaluate() # 开启评估
-
 img = load_image("https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/XFormer_for_mindspore/clip/sunflower.png")
-predict_result = vit_trainer.predict(input_data=img, top_k=3) # 开启推理
+
+# 方式1：使用现有的预训练权重进行finetune， 并使用finetune获得的权重进行eval和推理
+vit_trainer.train(resume_or_finetune_from_checkpoint="mae_vit_base_p16", do_finetune=True)
+vit_trainer.evaluate(eval_checkpoint=True)
+predict_result = vit_trainer.predict(predict_checkpoint=True, input_data=img, top_k=3)
+print(predict_result)
+
+# 方式2: 重头开始训练，并使用训练好的权重进行eval和推理
+vit_trainer.train()
+vit_trainer.evaluate(eval_checkpoint=True)
+predict_result = vit_trainer.predict(predict_checkpoint=True, input_data=img, top_k=3)
+print(predict_result)
+
+# 方式3： 从obs下载训练好的权重并进行eval和推理
+vit_trainer.evaluate()
+predict_result = vit_trainer.predict(input_data=img, top_k=3)
 print(predict_result)
  ```
 

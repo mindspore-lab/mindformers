@@ -172,8 +172,11 @@ print(output)  # 计算loss
 from mindformers.trainer import Trainer
 # 初始化预训练任务
 trainer = Trainer(task='text_generation', model='gpt2', train_dataset="your data file path")
-trainer.train() # 开启预训练
+# 方式1: 开启训练，并使用训练好的权重进行推理
+trainer.train()
+res = trainer.predict(predict_checkpoint=True, input_data="I love Beijing, because")
 
+# 方式2： 从obs下载训练好的权重并进行推理
 res = trainer.predict(input_data="I love Beijing, because")
 ```
 

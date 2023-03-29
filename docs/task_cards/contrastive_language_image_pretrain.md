@@ -36,31 +36,21 @@
 
 - Trainer接口开启训练：
 
-  ```python
-  import os
-  from mindformers import MindFormerBook
-  from mindformers.trainer import Trainer
-  from mindformers import build_dataset, MindFormerConfig
+```python
+from mindformers import MindFormerBook
+from mindformers.trainer import Trainer
 
-  # 构造数据集
-  project_path = MindFormerBook.get_project_path()
-  dataset_config = MindFormerConfig(os.path.join(project_path, "configs",
-                                        "clip", "task_config", "clip_flickr8k_dataset.yaml"))
-  print(dataset_config.train_dataset.data_loader.dataset_dir)
-  # 将Flickr8k数据集放置到路径：./checkpoint_download/Flickr8k
-  dataset = build_dataset(dataset_config.train_dataset_task)
+# 显示Trainer的模型支持列表
+MindFormerBook.show_trainer_support_model_list("contrastive_language_image_pretrain")
+# INFO - Trainer support model list for contrastive_language_image_pretrain task is:
+# INFO -    ['clip_vit_b_32', 'clip_vit_b_16', 'clip_vit_l_14', 'clip_vit_l_14@336']
+# INFO - -------------------------------------
 
-  # 显示Trainer的模型支持列表
-  MindFormerBook.show_trainer_support_model_list("contrastive_language_image_pretrain")
-  # INFO - Trainer support model list for contrastive_language_image_pretrain task is:
-  # INFO -    ['clip_vit_b_32', 'clip_vit_b_16', 'clip_vit_l_14', 'clip_vit_l_14@336']
-  # INFO - -------------------------------------
+# 初始化trainer
+trainer = Trainer(task='contrastive_language_image_pretrain',
+    model='clip_vit_b_32',
+    train_dataset='./Flickr8k'
+)
 
-  # 初始化trainer
-  trainer = Trainer(task='contrastive_language_image_pretrain',
-      model='clip_vit_b_32',
-      eval_dataset=dataset
-  )
-
-  trainer.train()
-  ```
+trainer.train()
+```

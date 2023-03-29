@@ -42,7 +42,7 @@
 
 ```shell
 # finetune
-python run_mindformer.py --config ./configs/qa/run_qa_bert_base_uncased.yaml --run_mode finetune
+python run_mindformer.py --config ./configs/qa/run_qa_bert_base_uncased.yaml --run_mode finetune --load_checkpoint qa_bert_base_uncased
 
 # evaluate
 python run_mindformer.py --config ./configs/qa/run_qa_bert_base_uncased.yaml --run_mode eval --load_checkpoint qa_bert_base_uncased_squad
@@ -55,52 +55,54 @@ python run_mindformer.py --config ./configs/qa/run_qa_bert_base_uncased.yaml --r
 
 - Trainer接口开启评估/推理：
 
-  ```python
-  from mindformers.trainer import Trainer
+```python
+from mindformers.trainer import Trainer
 
-  # 初始化trainer
-  trainer = Trainer(task='question_answering',
-                    model='qa_bert_base_uncased')
+# 初始化trainer
+trainer = Trainer(task='question_answering',
+                  model='qa_bert_base_uncased',
+                  train_dataset='./squad/',
+                  eval_dataset='./squad/')
 
-  # 测试数据，测试数据分为context和question两部分，两者以 “-” 分隔
-  input_data = ["My name is Wolfgang and I live in Berlin - Where do I live?"]
+#方式1：使用现有的预训练权重进行finetune， 并使用finetune获得的权重进行eval和推理
+trainer.train(resume_or_finetune_from_checkpoint="qa_bert_base_uncased",
+              do_finetune=True)
+trainer.evaluate(eval_checkpoint=True)
+# 测试数据，测试数据分为context和question两部分，两者以 “-” 分隔
+input_data = ["My name is Wolfgang and I live in Berlin - Where do I live?"]
+trainer.predict(predict_checkpoint=True, input_data=input_data)
 
-  # 微调训练
-  trainer.train(resume_or_finetune_from_checkpoint="qa_bert_base_uncased",
-                do_finetune=True)
-
-  # 进行评估
-  trainer.evaluate(eval_checkpoint='./output/rank_0/checkpoint/mindformers_rank_0-2_7386.ckpt')
-  # INFO - QA Metric = {'QA Metric': {'exact_match': 80.74739829706716, 'f1': 88.33552874684968}}
-
-  # 进行推理
-  trainer.predict(predict_checkpoint='./output/rank_0/checkpoint/mindformers_rank_0-2_7386.ckpt',
-                  input_data=input_data)
-  # INFO - output result is [{'text': 'Berlin', 'score': 0.9941, 'start': 34, 'end': 40}]
-  ```
+# 方式2： 从obs下载训练好的权重并进行eval和推理
+trainer.evaluate()
+# INFO - QA Metric = {'QA Metric': {'exact_match': 80.74739829706716, 'f1': 88.33552874684968}}
+# 测试数据，测试数据分为context和question两部分，两者以 “-” 分隔
+input_data = ["My name is Wolfgang and I live in Berlin - Where do I live?"]
+trainer.predict(input_data=input_data)
+# INFO - output result is [{'text': 'Berlin', 'score': 0.9941, 'start': 34, 'end': 40}]
+```
 
 - pipeline接口开启快速推理
 
-  ```python
-  from mindformers.pipeline import QuestionAnsweringPipeline
-  from mindformers import AutoTokenizer, BertForQuestionAnswering, AutoConfig
+```python
+from mindformers.pipeline import QuestionAnsweringPipeline
+from mindformers import AutoTokenizer, BertForQuestionAnswering, AutoConfig
 
-  # 测试数据，测试数据分为context和question两部分，两者以 “-” 分隔
-  input_data = ["My name is Wolfgang and I live in Berlin - Where do I live?"]
+# 测试数据，测试数据分为context和question两部分，两者以 “-” 分隔
+input_data = ["My name is Wolfgang and I live in Berlin - Where do I live?"]
 
-  tokenizer = AutoTokenizer.from_pretrained('qa_bert_base_uncased_squad')
-  qa_squad_config = AutoConfig.from_pretrained('qa_bert_base_uncased_squad')
+tokenizer = AutoTokenizer.from_pretrained('qa_bert_base_uncased_squad')
+qa_squad_config = AutoConfig.from_pretrained('qa_bert_base_uncased_squad')
 
-  # This is a known issue, you need to specify batch size equal to 1 when creating bert model.
-  qa_squad_config.batch_size = 1
+# This is a known issue, you need to specify batch size equal to 1 when creating bert model.
+qa_squad_config.batch_size = 1
 
-  model = BertForQuestionAnswering(qa_squad_config)
-  qa_pipeline = QuestionAnsweringPipeline(task='question_answering',
-                                          model=model,
-                                          tokenizer=tokenizer)
+model = BertForQuestionAnswering(qa_squad_config)
+qa_pipeline = QuestionAnsweringPipeline(task='question_answering',
+                                        model=model,
+                                        tokenizer=tokenizer)
 
-  results = qa_pipeline(input_data)
-  print(results)
-  # 输出
-  # [{'text': 'Berlin', 'score': 0.9941, 'start': 34, 'end': 40}]
-  ```
+results = qa_pipeline(input_data)
+print(results)
+# 输出
+# [{'text': 'Berlin', 'score': 0.9941, 'start': 34, 'end': 40}]
+```

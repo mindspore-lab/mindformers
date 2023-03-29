@@ -27,6 +27,7 @@ from mindspore.nn import TrainOneStepCell, Optimizer, Cell, \
 
 from mindformers.mindformer_book import MindFormerBook
 from mindformers.core import build_lr, build_optim, build_callback, build_metric
+from mindformers.core.parallel_config import build_parallel_config
 from mindformers.dataset import build_dataset, check_dataset_config, BaseDataset
 from mindformers.models import build_model, build_processor, build_tokenizer, BaseModel
 from mindformers.wrapper import build_wrapper
@@ -112,6 +113,7 @@ class BaseTrainer:
         else:
             self.setup_task_config()
             self.config = self.default_task_config
+        build_parallel_config(self.config)
         self._check_global_batch_size_for_auto_parallel()
         return self.config
 

@@ -258,8 +258,8 @@ class ViTForMaskedImageModeling(BaseModel):
                                           use_mask=True, parallel_config=config.parallel_config)
         self.decoder = nn.CellList(
             nn.Conv2d(
-                in_channels=config.hidden_size,
-                out_channels=config.encoder_stride ** 2 * config.num_channels,
+                in_channels=config.embed_dim,
+                out_channels=config.encoder_stride ** 2 * config.in_chans,
                 kernel_size=1,
             ),
             PixelShuffle(config.encoder_stride),
