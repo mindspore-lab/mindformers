@@ -69,5 +69,5 @@ resume_or_finetune_checkpoint: ""
 
 run_mode: 'train'
 trainer:
-  type: MaskedLanguageModelingTrainer
+  type: CausalLanguageModelingTrainer
   model_name: 'gpt2_52b'
