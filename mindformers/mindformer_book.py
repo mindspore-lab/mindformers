@@ -131,9 +131,9 @@ class MindFormerBook:
             ("clip_vit_b_16", os.path.join(
                 _PROJECT_PATH, "configs/clip/run_clip_vit_b_16_zero_shot_image_classification_cifar100.yaml")),
             ("clip_vit_l_14", os.path.join(
-                _PROJECT_PATH, "configs/clip/run_clip_vit_b_14_zero_shot_image_classification_cifar100.yaml")),
+                _PROJECT_PATH, "configs/clip/run_clip_vit_l_14_zero_shot_image_classification_cifar100.yaml")),
             ("clip_vit_l_14@336", os.path.join(
-                _PROJECT_PATH, "configs/clip/run_clip_vit_b_14@336_zero_shot_image_classification_cifar100.yaml")),
+                _PROJECT_PATH, "configs/clip/run_clip_vit_l_14@336_zero_shot_image_classification_cifar100.yaml")),
             ("common", os.path.join(
                 _PROJECT_PATH, "configs/clip/run_clip_vit_b_32_zero_shot_image_classification_cifar100.yaml"))])
          ),
