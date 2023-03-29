@@ -18,5 +18,20 @@ model:
     compute_dtype: "float16"
     checkpoint_name_or_path: ""
     eos_token: 50256
+    repetition_penalty: 1
+    max_decode_length: 1024
+    top_k: 5
+    top_p: 1
+    do_sample: True
   arch:
     type: GPT2LMHeadModel
+
+processor:
+  return_tensors: ms
+  tokenizer:
+    unk_token: '<|endoftext|>'
+    bos_token: '<|endoftext|>'
+    eos_token: '<|endoftext|>'
+    pad_token: '<|endoftext|>'
+    type: GPT2Tokenizer
+  type: GPT2Processor
