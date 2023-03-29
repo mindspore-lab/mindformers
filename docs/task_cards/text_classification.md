@@ -28,8 +28,10 @@
 └─mnli
     ├─dev
     ├─test  
-    └─train  
+    └─train
  ```
+
+- 用户可以参考[BERT](https://github.com/google-research/bert)代码仓中的run_classifier.py文件，进行Mnli数据集`TFRecord`格式文件的生成。
 
 ## 快速任务接口
 
