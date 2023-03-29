@@ -1,8 +1,7 @@
 train_dataset: &train_dataset
   data_loader:
     type: Flickr8kDataLoader
-    dataset_dir: "./checkpoint_download/Flickr8k/Flickr8k_Dataset/Flickr8k_Dataset"
-    annotation_dir: "./checkpoint_download/Flickr8k/Flickr8k_text"
+    dataset_dir: "./checkpoint_download/Flickr8k"
     stage: "train"
     column_names: ["image", "text"]
 
