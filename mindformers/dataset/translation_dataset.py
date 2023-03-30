@@ -62,10 +62,14 @@ class TranslationDataset(BaseDataset):
 
         logger.info("Start tokenize on the dataset using tokenizer: %s", tokenizer_config)
         def pad_max_function(src, tgt):
-            src = src.tolist().decode()
+            src = src.tolist()
+            if isinstance(src, bytes):
+                src = src.decode()
             output = tokenizer(prefix + src, padding='max_length', max_length=src_max_length, truncation=True)
 
-            tgt = tgt.tolist().decode()
+            tgt = tgt.tolist()
+            if isinstance(tgt, bytes):
+                tgt = tgt.decode()
             tgt_output = tokenizer(tgt, padding='max_length', max_length=tgt_max_length, truncation=True)
 
             input_ids = np.array(output['input_ids'], np.int32)
