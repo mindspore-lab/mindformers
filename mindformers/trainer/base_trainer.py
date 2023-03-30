@@ -113,6 +113,12 @@ class BaseTrainer:
             self.setup_task_config()
             self.config = self.default_task_config
         self._check_global_batch_size_for_auto_parallel()
+
+        # del SummaryMonitor, or it will crash
+        for index, callbacks in enumerate(self.config.callbacks):
+            if callbacks["type"] == "SummaryMonitor":
+                del self.config.callbacks[index]
+
         return self.config
 
     def setup_task_config(self):
