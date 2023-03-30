@@ -40,7 +40,7 @@ def load_image(content, timeout=4):
             content = PIL.Image.open(content)
         else:
             raise ValueError(
-                f"{content} is not a valid path, URLs must start with `http://` or `https://`."
+                f"{content} is not a valid path. If URL, it must start with `http://` or `https://`."
             )
 
     if isinstance(content, ms.Tensor):
