@@ -43,7 +43,7 @@ from mindformers.modules.transformer.op_parallel_config import default_dpmp_conf
 from mindformers.modules.transformer.moe import default_moe_config, MoE, _check_moe_config
 
 from mindformers.tools.logger import _LogActionOnce
-from mindformers.tools.utils import is_version_le, is_version_ge
+from mindformers.tools.utils import is_version_ge
 
 __all__ = [
     "AttentionMask",
@@ -739,7 +739,7 @@ class VocabEmbedding(Cell):
         self.embedding_table = Parameter(initializer(param_init, [self.vocab_size, self.embedding_size]),
                                          name='embedding_table', parallel_optimizer=False)
 
-        self.is_value_return_support = is_version_le(mindspore.__version__, '1.9.0')
+        self.is_value_return_support = is_version_ge(mindspore.__version__, '1.9.0')
         if parallel_config.vocab_emb_dp:
             self.gather = P.Gather().shard(((1, 1), (parallel_config.data_parallel, 1)))
             logger.info(f"Using {parallel_config.data_parallel} data parallel for the embedding lookup.")
