@@ -6,7 +6,7 @@ train_dataset: &train_dataset
     type: t5_small
     src_max_length: 1024 # this will truncate the source input sequence
     tgt_max_length: 128
-    prefix: "translate the English to Romain:"
+    prefix: "translate the English to Romanian:"
     stage: 'train'
   input_columns: ["input_ids", "attention_mask", "labels"] # determinied by the model inputs
   output_columns: ["input_ids", "attention_mask", "labels"]
