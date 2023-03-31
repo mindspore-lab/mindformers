@@ -183,7 +183,8 @@ class BaseTokenizer(SpecialTokensMixin):
             >>> print(res)
             {'input_ids': Tensor(shape=[3], dtype=Int32, value= [21820,   296,     1]),
             'attention_mask': Tensor(shape=[3], dtype=Int32, value= [1, 1, 1])}
-            >>> res = tokenizer(["hello world", "today is a good day"], return_tensors='ms')
+            >>> res = tokenizer(["hello world", "today is a good day"],
+            ...                 max_length=7, padding='max_length', return_tensors='ms')
             >>> print(res)
             {'input_ids': Tensor(shape=[3], dtype=Int32, value= [21820,   296,     1]),
             'attention_mask': Tensor(shape=[3], dtype=Int32, value= [1, 1, 1])}
@@ -638,7 +639,7 @@ class BaseTokenizer(SpecialTokensMixin):
             file_format(str): Support json or yaml. Default yaml.
 
         Examples:
-            >>> from mindformers import T5Tokenizer
+            >>> from mindformers import T5Tokenizer, MindFormerBook
             >>> tokenizer = T5Tokenizer.from_pretrained("t5_small")
             >>> tokenizer.save_pretrained()
             >>> output_path = MindFormerBook.get_default_checkpoint_save_folder()

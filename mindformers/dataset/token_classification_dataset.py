@@ -30,18 +30,18 @@ class TokenClassificationDataset(BaseDataset):
     Token classification Dataset.
 
     Examples:
-    >>> from mindformers.tools.register import MindFormerConfig
-    >>> from mindformers.dataset import build_dataset, check_dataset_config
-    >>> # Initialize a MindFormerConfig instance with a specific config file of yaml.
-    >>> config = MindFormerConfig("tokcls_bert_base_chinese")
-    >>> check_dataset_config(config)
-    >>> # 1) use config dict to build dataset
-    >>> dataset_from_config = build_dataset(config.train_dataset_task)
-    >>> # 2) use class name to build dataset
-    >>> dataset_from_name = build_dataset(class_name='TokenclassificationDataset',
-    >>>                                   dataset_config=config.train_dataset)
-    >>> # 3) use class to build dataset
-    >>> dataset_from_class = TokenclassificationDataset(config.train_dataset)
+        >>> from mindformers.tools.register import MindFormerConfig
+        >>> from mindformers.dataset import build_dataset, check_dataset_config
+        >>> # Initialize a MindFormerConfig instance with a specific config file of yaml.
+        >>> config = MindFormerConfig("tokcls_bert_base_chinese")
+        >>> check_dataset_config(config)
+        >>> # 1) use config dict to build dataset
+        >>> dataset_from_config = build_dataset(config.train_dataset_task)
+        >>> # 2) use class name to build dataset
+        >>> dataset_from_name = build_dataset(class_name='TokenclassificationDataset',
+        >>>                                   dataset_config=config.train_dataset)
+        >>> # 3) use class to build dataset
+        >>> dataset_from_class = TokenclassificationDataset(config.train_dataset)
     """
     def __new__(cls, dataset_config: dict = None):
         """new method"""

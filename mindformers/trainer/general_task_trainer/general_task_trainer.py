@@ -39,8 +39,7 @@ class GeneralTaskTrainer(BaseTrainer):
         >>> from mindspore.nn import AdamWeightDecay, WarmUpLR, \
         ...      DynamicLossScaleUpdateCell, TrainOneStepWithLossScaleCell, Accuracy
         >>> from mindformers.trainer import GeneralTaskTrainer
-        >>> from mindformers.tools.register import MindFormerConfig
-        >>> from mindformers.models import ViTForImageClassification, ViTConfig, VitImageProcessor
+        >>> from mindformers.models import ViTForImageClassification, ViTConfig, ViTImageProcessor
         >>> class MyDataLoader:
         ...    def __init__(self):
         ...        self._data = [np.zeros((3, 224, 224), np.float32) for _ in range(64)]
@@ -65,7 +64,7 @@ class GeneralTaskTrainer(BaseTrainer):
         >>> general_task.train(wrapper=wrapper, dataset=dataset)
         >>> compute_metrics = {"Accuracy": Accuracy(eval_type='classification')}
         >>> general_task.evaluate(network=network_with_loss, dataset=dataset, compute_metrics=compute_metrics)
-        >>> image_processor = VitImageProcessor(image_resolution=224)
+        >>> image_processor = ViTImageProcessor(image_resolution=224)
         >>> input_data = np.uint8(np.random.random((5, 3, 255, 255)))
         >>> general_task.predict(input_data=input_data, image_processor=image_processor, top_k=5)
     Raises:

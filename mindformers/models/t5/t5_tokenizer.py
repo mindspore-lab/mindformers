@@ -55,7 +55,8 @@ class T5Tokenizer(Tokenizer):
         >>> print(res)
         {'input_ids': Tensor(shape=[3], dtype=Int32, value= [21820,   296,     1]),
         'attention_mask': Tensor(shape=[3], dtype=Int32, value= [1, 1, 1])}
-        >>> res = tokenizer(["hello world", "today is a good day"], return_tensors='ms')
+        >>> res = tokenizer(["hello world", "today is a good day"],
+        ...                 max_length=7, padding='max_length', return_tensors='ms')
         >>> print(res)
         {'input_ids': Tensor(shape=[3], dtype=Int32, value= [21820,   296,     1]),
         'attention_mask': Tensor(shape=[3], dtype=Int32, value= [1, 1, 1])}

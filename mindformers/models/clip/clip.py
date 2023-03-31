@@ -232,8 +232,8 @@ class CLIPModel(BaseModel):
             >>> model = CLIPModel.from_pretrained('clip_vit_b_32')
             >>> fake_text_batch = ["a boy", "a girl", "a women", "a men"]
             >>> text = processor.tokenizer(
-                fake_text_batch, max_length=77, padding="max_length", return_tensors="ms"
-                )["input_ids"]
+            ...    fake_text_batch, max_length=77, padding="max_length", return_tensors="ms"
+            ...    )["input_ids"]
             >>> model.get_text_features(text)
                 Tensor(shape=[4, 512], dtype=Float32, value=
                 [[6.03631809e-002, 1.79528534e-001, ... -2.23753393e-001, 1.42413378e-002],

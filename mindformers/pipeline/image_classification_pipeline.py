@@ -51,10 +51,10 @@ class ImageClassificationPipeline(BasePipeline):
         >>> from mindformers import ViTImageProcessor
         >>> processor = ViTImageProcessor(size=224)
         >>> classifier = ImageClassificationPipeline(
-            model='vit_base_p16',
-            image_processor=processor,
-            top_k=5
-            )
+        ...     model='vit_base_p16',
+        ...     image_processor=processor,
+        ...     top_k=5
+        ...     )
         >>> classifier(np.uint8(np.random.random((5, 3, 255, 255))))
             [[{'score': 0.0016654134, 'label': 'matchstick'},
             {'score': 0.0015071577, 'label': 'theater curtain'},
