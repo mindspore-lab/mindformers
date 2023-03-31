@@ -52,39 +52,40 @@ python run_mindformer.py --config configs/bert/run_bert_base_uncased.yaml --run_
 
 - Model调用接口
 
-  ```python
-  from mindformers import BertForPreTraining, BertConfig
+```python
+from mindformers import BertForPreTraining, BertConfig
 
-  BertForPreTraining.show_support_list()
-  # 输出：
-  # - support list of BertForPreTraining is:
-  # -    ['bert_base_uncased']
-  # - -------------------------------------
+BertForPreTraining.show_support_list()
+# 输出：
+# - support list of BertForPreTraining is:
+# -    ['bert_base_uncased']
+# - -------------------------------------
 
-  # 模型标志加载模型
-  model = BertForPreTraining.from_pretrained("bert_base_uncased")
+# 模型标志加载模型
+model = BertForPreTraining.from_pretrained("bert_base_uncased")
 
-  #模型配置加载模型
-  config = BertConfig.from_pretrained("bert_base_uncased")
-  # {'model_config': {'use_one_hot_embeddings': False, 'num_labels': 1, 'dropout_prob': 0.1,
-  # 'batch_size': 128, seq_length: 128, vocab_size: 30522, embedding_size: 768, num_layers: 12,
-  # num_heads: 12, expand_ratio: 4, hidden_act: "gelu", post_layernorm_residual: True,
-  # hidden_dropout_prob: 0.1, attention_probs_dropout_prob: 0.1, max_position_embeddings: 512,
-  # type_vocab_size: 2, initializer_range: 0.02, use_relative_positions: False,
-  # use_past: False, checkpoint_name_or_path: "bert_base_uncased"}}
-  model = BertForPreTraining(config)
-  ```
+#模型配置加载模型
+config = BertConfig.from_pretrained("bert_base_uncased")
+# {'model_config': {'use_one_hot_embeddings': False, 'num_labels': 1, 'dropout_prob': 0.1,
+# 'batch_size': 128, seq_length: 128, vocab_size: 30522, embedding_size: 768, num_layers: 12,
+# num_heads: 12, expand_ratio: 4, hidden_act: "gelu", post_layernorm_residual: True,
+# hidden_dropout_prob: 0.1, attention_probs_dropout_prob: 0.1, max_position_embeddings: 512,
+# type_vocab_size: 2, initializer_range: 0.02, use_relative_positions: False,
+# use_past: False, checkpoint_name_or_path: "bert_base_uncased"}}
+model = BertForPreTraining(config)
+```
 
 - Trainer接口开启训练/评估/推理：
 
-  ```python
-  from mindformers.trainer import Trainer
+```python
+from mindformers.trainer import Trainer
 
-  # 初始化预训练任务
-  trainer = Trainer(task='masked_language_modeling',
-      model='bert_base_uncased')
-  trainer.train() # 开启预训练
-  ```
+# 初始化预训练任务
+trainer = Trainer(task='fill_mask',
+    model='bert_base_uncased',
+    train_dataset='/your_path/wiki_data')
+trainer.train() # 开启预训练
+```
 
 ### 多卡训练
 
@@ -131,6 +132,8 @@ bash examples/masked_language_modeling/bert_pretrain_distributed.sh RANK_SIZE ho
 
 ```python
 from mindformers import BertForPreTraining, BertTokenizer
+from mindspore import Tensor
+import mindspore.common.dtype as mstype
 model = BertForPreTraining.from_pretrained('bert_base_uncased')
 tokenizer = BertTokenizer.from_pretrained('bert_base_uncased')
 data = tokenizer("Paris is the [MASK] of France.",

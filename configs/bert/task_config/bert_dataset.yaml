@@ -1,7 +1,7 @@
 train_dataset: &train_dataset
   data_loader:
     type: TFRecordDataset
-    dataset_dir: ""
+    dataset_dir: "./wiki_data"
     shuffle: True
     shard_equal_rows: True
   input_columns: ["input_ids", "input_mask", "segment_ids",

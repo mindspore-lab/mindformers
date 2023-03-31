@@ -45,7 +45,7 @@
 
 ```shell
 # finetune
-python run_mindformer.py --config ./configs/txtcls/run_txtcls_bert_base_uncased.yaml --run_mode finetune
+python run_mindformer.py --config ./configs/txtcls/run_txtcls_bert_base_uncased.yaml --run_mode finetune --load_checkpoint txtcls_bert_base_uncased
 
 # evaluate
 python run_mindformer.py --config ./configs/txtcls/run_txtcls_bert_base_uncased.yaml --run_mode eval --load_checkpoint txtcls_bert_base_uncased_mnli
@@ -58,69 +58,64 @@ python run_mindformer.py --config ./configs/txtcls/run_txtcls_bert_base_uncased.
 
 - Trainer接口开启评估/推理：
 
-  ```python
-  import os
-  from mindformers import MindFormerBook
-  from mindformers.trainer import Trainer
-  from mindformers import build_dataset, MindFormerConfig
+```python
+from mindformers import MindFormerBook
+from mindformers.trainer import Trainer
 
-  # 构造数据集
-  project_path = MindFormerBook.get_project_path()
-  dataset_config = MindFormerConfig(os.path.join(project_path, "configs",
-                                        "txtcls", "task_config", "bert_mnli_dataset.yaml"))
-  print(dataset_config.eval_dataset.data_loader.dataset_dir)
-  # 将mnli验证数据集放置到路径：./mnli/eval; 将mnli训练数据集放置到路径：./mnli/train
-  dataset = build_dataset(dataset_config.eval_dataset_task)
+# 显示Trainer的模型支持列表
+MindFormerBook.show_trainer_support_model_list("text_classification")
+# INFO - Trainer support model list for txt_classification task is:
+# INFO -    ['txtcls_bert_base_uncased']
+# INFO - -------------------------------------
 
-  # 显示Trainer的模型支持列表
-  MindFormerBook.show_trainer_support_model_list("text_classification")
-  # INFO - Trainer support model list for txt_classification task is:
-  # INFO -    ['txtcls_bert_base_uncased']
-  # INFO - -------------------------------------
+# 初始化trainer
+trainer = Trainer(task='text_classification',
+    model='txtcls_bert_base_uncased',
+    train_dataset='./mnli/train',
+    eval_dataset='./mnli/eval')
+# 测试数据，该input_data有两个测试案例，即两个文本对，单个文本对的两个文本之间用-分割
+input_data = ["The new rights are nice enough-Everyone really likes the newest benefits ",
+              "i don't know um do you do a lot of camping-I know exactly."]
 
-  # 初始化trainer
-  trainer = Trainer(task='text_classification',
-      model='txtcls_bert_base_uncased',
-      eval_dataset=dataset)
+#方式1：使用现有的预训练权重进行finetune， 并使用finetune获得的权重进行eval和推理
+trainer.train(resume_or_finetune_from_checkpoint="txtcls_bert_base_uncased",
+              do_finetune=True)
+trainer.evaluate(eval_checkpoint=True)
+trainer.predict(predict_checkpoint=True, input_data=input_data, top_k=1)
 
-  # 测试数据，该input_data有两个测试案例，即两个文本对，单个文本对的两个文本之间用-分割
-  input_data = ["The new rights are nice enough-Everyone really likes the newest benefits ",
-                "i don't know um do you do a lot of camping-I know exactly."]
-
-  trainer.train(resume_or_finetune_from_checkpoint="txtcls_bert_base_uncased",
-                do_finetune=True) #微调训练
-  trainer.evaluate(eval_checkpoint='./output/rank_0/checkpoint/mindformers_rank_0-3_6135.ckpt')  #进行评估
-  # INFO - Top1 Accuracy=84.8%
-  trainer.predict(predict_checkpoint='./output/rank_0/checkpoint/mindformers_rank_0-3_6135.ckpt', input_data=input_data, top_k=1)  #进行推理
-  # INFO - output result is [[{'label': 'neutral', 'score': 0.9714198708534241}],
-  #                         [{'label': 'contradiction', 'score': 0.9967639446258545}]]
-  ```
+# 方式2： 从obs下载训练好的权重并进行eval和推理
+trainer.evaluate()
+# INFO - Top1 Accuracy=84.8%
+trainer.predict(input_data=input_data, top_k=1)
+# INFO - output result is [[{'label': 'neutral', 'score': 0.9714198708534241}],
+#                         [{'label': 'contradiction', 'score': 0.9967639446258545}]]
+```
 
 - pipeline接口开启快速推理
 
-  ```python
-  from mindformers.pipeline import TextClassificationPipeline
-  from mindformers import AutoTokenizer, BertForMultipleChoice, AutoConfig
+```python
+from mindformers.pipeline import TextClassificationPipeline
+from mindformers import AutoTokenizer, BertForMultipleChoice, AutoConfig
 
-  input_data = ["The new rights are nice enough-Everyone really likes the newest benefits ",
-                  "i don't know um do you do a lot of camping-I know exactly."]
+input_data = ["The new rights are nice enough-Everyone really likes the newest benefits ",
+                "i don't know um do you do a lot of camping-I know exactly."]
 
-  tokenizer = AutoTokenizer.from_pretrained('txtcls_bert_base_uncased_mnli')
-  txtcls_mnli_config = AutoConfig.from_pretrained('txtcls_bert_base_uncased_mnli')
+tokenizer = AutoTokenizer.from_pretrained('txtcls_bert_base_uncased_mnli')
+txtcls_mnli_config = AutoConfig.from_pretrained('txtcls_bert_base_uncased_mnli')
 
-  # Because batch_size parameter is required when bert model is created, and pipeline
-  # function deals with samples one by one, the batch_size parameter is seted one.
-  txtcls_mnli_config.batch_size = 1
+# Because batch_size parameter is required when bert model is created, and pipeline
+# function deals with samples one by one, the batch_size parameter is seted one.
+txtcls_mnli_config.batch_size = 1
 
-  model = BertForMultipleChoice(txtcls_mnli_config)
-  txtcls_pipeline = TextClassificationPipeline(task='text_classification',
-                                               model=model,
-                                               tokenizer=tokenizer,
-                                               max_length=model.config.seq_length,
-                                               padding="max_length")
+model = BertForMultipleChoice(txtcls_mnli_config)
+txtcls_pipeline = TextClassificationPipeline(task='text_classification',
+                                             model=model,
+                                             tokenizer=tokenizer,
+                                             max_length=model.config.seq_length,
+                                             padding="max_length")
 
-  results = txtcls_pipeline(input_data, top_k=1)
-  print(results)
-  # 输出
-  # [[{'label': 'neutral', 'score': 0.9714198708534241}], [{'label': 'contradiction', 'score': 0.9967639446258545}]]
-  ```
+results = txtcls_pipeline(input_data, top_k=1)
+print(results)
+# 输出
+# [[{'label': 'neutral', 'score': 0.9714198708534241}], [{'label': 'contradiction', 'score': 0.9967639446258545}]]
+```
