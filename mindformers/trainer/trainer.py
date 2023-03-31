@@ -474,14 +474,13 @@ class Trainer:
             >>> from mindformers import Trainer
             >>> task_trainer = Trainer(task='image_classification',
             ...                        model='vit_base_p16')
-            >>> # 1) default predict task to test model.
-            >>> task_trainer.predict()
-            >>> # 2) predict task to auto load the last checkpoint.
-            >>> task_trainer.predict(predict_checkpoint=True)
-            >>> # 3) predict task according to checkpoint path.
-            >>> task_trainer.predict(predict_checkpoint='./output/rank_0/checkpoint/mindformers.ckpt')
-            >>> # 4) predict task according to input data.
             >>> input_data = "./sunflower.png"
+            >>> # 1) predict task to auto load the last checkpoint.
+            >>> task_trainer.predict(predict_checkpoint=True, input_data=input_data)
+            >>> # 2) predict task according to checkpoint path.
+            >>> task_trainer.predict(predict_checkpoint='./output/rank_0/checkpoint/mindformers.ckpt',
+            ...                      input_data=input_data)
+            >>> # 3) download and auto load the checkpoint on obs and predict.
             >>> task_trainer.predict(input_data=input_data)
         """
         if predict_checkpoint is not None and not isinstance(predict_checkpoint, (bool, str)):

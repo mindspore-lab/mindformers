@@ -68,13 +68,13 @@ class ImageClassificationTrainer(BaseTrainer):
         ...
         ...    def __len__(self):
         ...        return len(self._data)
-        >>> dataset = GeneratorDataset(source=MyDataLoader(), column_names=['image', 'label'])
-        >>> dataset = dataset.batch(batch_size=2)
+        >>> train_dataset = GeneratorDataset(source=MyDataLoader(), column_names=['image', 'label']).batch(batch_size=2)
+        >>> eval_dataset = GeneratorDataset(source=MyDataLoader(), column_names=['image', 'label']).batch(batch_size=2)
+        >>> input_data = np.uint8(np.random.random((5, 3, 255, 255)))
         >>> #1) use config to train
         >>> cls_task = ImageClassificationTrainer(model_name='vit_base_p16')
-        >>> cls_task.train()
-        >>> cls_task.evaluate(dataset=dataset)
-        >>> input_data = np.uint8(np.random.random((5, 3, 255, 255)))
+        >>> cls_task.train(dataset=train_dataset)
+        >>> cls_task.evaluate(dataset=eval_dataset)
         >>> cls_task.predict(input_data=input_data, top_k=5)
         >>> #2) use instance function to train
         >>> vit_config = ViTConfig(batch_size=2)
@@ -85,9 +85,9 @@ class ImageClassificationTrainer(BaseTrainer):
         ...                             params=network_with_loss.trainable_params())
         >>> loss_scale = DynamicLossScaleUpdateCell(loss_scale_value=2**12, scale_factor=2, scale_window=1000)
         >>> wrapper = TrainOneStepWithLossScaleCell(network_with_loss, optimizer, scale_sense=loss_scale)
-        >>> cls_task.train(wrapper=wrapper, dataset=dataset)
+        >>> cls_task.train(wrapper=wrapper, dataset=train_dataset)
         >>> compute_metrics = {"Accuracy": Accuracy(eval_type='classification')}
-        >>> cls_task.evaluate(network=network_with_loss, dataset=dataset, compute_metrics=compute_metrics)
+        >>> cls_task.evaluate(network=network_with_loss, dataset=eval_dataset, compute_metrics=compute_metrics)
         >>> image_processor = ViTImageProcessor(size=224)
         >>> cls_task.predict(input_data=input_data, image_processor=image_processor, top_k=5)
     """

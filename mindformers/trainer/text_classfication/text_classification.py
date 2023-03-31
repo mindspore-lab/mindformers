@@ -55,10 +55,12 @@ class TextClassificationTrainer(BaseTrainer):
         ...        return len(self._data)
         >>> train_dataset = GeneratorDataset(source=MyDataLoader(), column_names=['text', 'label_id'])
         >>> train_dataset = train_dataset.batch(batch_size=2)
+        >>> eval_dataset = GeneratorDataset(source=MyDataLoader(), column_names=['text', 'label_id'])
+        >>> eval_dataset = eval_dataset.batch(batch_size=2)
         >>> #1) use default config to train
         >>> txtcls_task = TextClassificationTrainer(model_name='bert_for_multiple_choice')
         >>> txtcls_task.train(dataset=train_dataset)
-        >>> txtcls_task.evaluate(dataset=train_dataset)
+        >>> txtcls_task.evaluate(dataset=eval_dataset)
         >>> input_data = ["The new rights are nice enough-Everyone really likes the newest benefits ",
         ...               "i don't know um do you do a lot of camping-I know exactly."]
         >>> res = txtcls_task.predict(input_data=input_data)
@@ -71,7 +73,7 @@ class TextClassificationTrainer(BaseTrainer):
         ...                             learning_rate=lr_schedule, weight_decay=0.01)
         >>> wrapper = TrainOneStepCell(network_with_loss, optimizer)
         >>> txtcls_task.train(wrapper=wrapper, dataset=train_dataset)
-        >>> txtcls_task.evaluate(dataset=train_dataset, network=network_with_loss)
+        >>> txtcls_task.evaluate(dataset=eval_dataset, network=network_with_loss)
     Raises:
         NotImplementedError: If train method or evaluate method or predict method not implemented.
     """
