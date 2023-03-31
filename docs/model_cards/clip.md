@@ -53,6 +53,8 @@ CLIP (Contrastive Lanuguage-Image Pre-Training)：是一种基于图文对进行
 
 - 脚本运行测试
 
+当前clip多卡精度有异常，仅支持单卡，后续版本会修复
+
 ```shell
 # pretrain
 python run_mindformer.py --config ./configs/clip/run_clip_vit_b_32_pretrain_flickr8k.yaml --run_mode train --dataset_dir [DATASET_PATH]
