@@ -16,12 +16,6 @@ optimizer:
   learning_rate: 0.00001
 
 callbacks:
-  - type: ReduceLROnPlateau
-    monitor: "loss"
-    mode: "min"
-    patience: 2
-    factor: 0.5
-    verbose: True
   - type: MFLossMonitor
   - type: CheckpointMointor
     prefix: "mindformers"
