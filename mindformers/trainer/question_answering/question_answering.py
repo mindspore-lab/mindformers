@@ -43,7 +43,7 @@ class QuestionAnsweringTrainer(BaseTrainer):
             >>> import numpy as np
             >>> from mindspore.dataset import GeneratorDataset
             >>> from mindspore.nn import AdamWeightDecay, TrainOneStepCell
-            >>> from mindformers.common.lr import build_lr
+            >>> from mindformers.core.lr import build_lr
             >>> from mindformers.trainer import GeneralTaskTrainer
             >>> from mindformers.tools.register import MindFormerConfig
             >>> from mindformers.models import BertForQuestionAnswering, BertConfig
@@ -56,10 +56,8 @@ class QuestionAnsweringTrainer(BaseTrainer):
             ...        self._end_positions = [np.ones((1,), np.float32) for _ in range(64)]
             ...        self._unique_id = [np.ones((1,), np.float32) for _ in range(64)]
             ...    def __getitem__(self, index):
-            ...        return self._input_ids[index], self._input_mask[index], self._token_type_id,
+            ...        return self._input_ids[index], self._input_mask[index], self._token_type_id,\
             ...               self._start_positions[index], self._end_positions[index], self._unique_id
-            ...    def __len__(self):
-            ...        return len(self._data)
             >>> config = MindFormerConfig("configs/qa/run_qa_bert_base_uncased.yaml")
             >>> #1) use config to train
             >>> cls_task = QuestionAnsweringTrainer(model_name='qa_bert_base_uncased')
