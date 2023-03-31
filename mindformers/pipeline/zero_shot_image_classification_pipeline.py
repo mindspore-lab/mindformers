@@ -46,12 +46,12 @@ class ZeroShotImageClassificationPipeline(BasePipeline):
         >>> from mindformers.tools.image_tools import load_image
         >>> from mindformers.pipeline import ZeroShotImageClassificationPipeline
         >>> classifier = ZeroShotImageClassificationPipeline(
-            model='clip_vit_b_32',
-            candidate_labels=["sunflower", "tree", "dog", "cat", "toy"],
-            hypothesis_template="This is a photo of {}."
-            )
+        ...     model='clip_vit_b_32',
+        ...     candidate_labels=["sunflower", "tree", "dog", "cat", "toy"],
+        ...     hypothesis_template="This is a photo of {}."
+        ...     )
         >>> img = load_image("https://ascend-repo-modelzoo.obs.cn-east-2."
-            "myhuaweicloud.com/XFormer_for_mindspore/clip/sunflower.png")
+        ...                  "myhuaweicloud.com/XFormer_for_mindspore/clip/sunflower.png")
         >>> classifier(img)
             [[{'score': 0.99995565, 'label': 'sunflower'},
             {'score': 2.5318595e-05, 'label': 'toy'},

@@ -45,7 +45,7 @@ class CLIPImageProcessor(BaseImageProcessor):
         >>> from mindformers.tools.image_tools import load_image
         >>> processor = CLIPImageProcessor(image_resolution=256)
         >>> image = load_image("https://ascend-repo-modelzoo.obs.cn-east-2."
-                "myhuaweicloud.com/XFormer_for_mindspore/clip/sunflower.png")
+        ...                    "myhuaweicloud.com/XFormer_for_mindspore/clip/sunflower.png")
         >>> processor(image)
             Tensor(shape=[1, 3, 256, 256], dtype=Float32, value=
             [[[[-1.52949083e+000, -1.52949083e+000, ... -1.48569560e+000, -1.50029397e+000],
@@ -124,7 +124,7 @@ class CLIPProcessor(BaseProcessor):
         >>> from mindformers import CLIPProcessor
         >>> from mindformers.tools.image_tools import load_image
         >>> image = load_image("https://ascend-repo-modelzoo.obs.cn-east-2."
-                "myhuaweicloud.com/XFormer_for_mindspore/clip/sunflower.png")
+        ...                    "myhuaweicloud.com/XFormer_for_mindspore/clip/sunflower.png")
         >>> text = ["a boy", "a girl"]
         >>> CLIPProcessor.show_support_list()
             INFO - support list of CLIP Processor is:

@@ -54,7 +54,7 @@ class TokenClassificationPipeline(BasePipeline):
         >>> model = BertForTokenClassification(ner_dense_cluener_config)
         >>> tokcls_pipeline = TokenClassificationPipeline(task='token_classification',
         ...                                               model=model,
-        ...                                               id2label=id2label
+        ...                                               id2label=id2label,
         ...                                               tokenizer=tokenizer,
         ...                                               max_length=model.config.seq_length,
         ...                                               padding="max_length")

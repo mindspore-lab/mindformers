@@ -551,8 +551,8 @@ class AutoTokenizer:
         >>> # 1)  instantiates a tokenizer by the model name
         >>> tokenizer_a = AutoTokenizer.from_pretrained("clip_vit_b_32")
         >>> # 2)  instantiates a tokenizer by the path to the downloaded files.
-        >>> from mindformers.models.clip.clip_tokenizer import ClipTokenizer
-        >>> clip_tokenizer = ClipTokenizer.from_pretrained("clip_vit_b_32")
+        >>> from mindformers.models.clip.clip_tokenizer import CLIPTokenizer
+        >>> clip_tokenizer = CLIPTokenizer.from_pretrained("clip_vit_b_32")
         >>> clip_tokenizer.save_pretrained(path_saved)
         >>> restore_tokenizer = AutoTokenizer.from_pretrained(path_saved)
     """
