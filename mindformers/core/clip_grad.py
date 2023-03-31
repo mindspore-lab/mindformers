@@ -23,8 +23,13 @@ from mindspore.ops import functional as F
 from mindspore.ops import operations as P
 from mindspore.common.tensor import Tensor
 from mindspore.common import dtype as mstype
-from mindspore._checkparam import Rel
-from mindspore._checkparam import Validator as validator
+# MindSpore 2.0 has changed the APIs of _checkparam, the following try except is for compatibility
+try:
+    from mindspore._checkparam import Validator as validator
+    from mindspore._checkparam import Rel
+except ImportError:
+    import mindspore._checkparam as validator
+    import mindspore._checkparam as Rel
 
 # The attribute grad_scale is needed for enabling the parallel mode
 # If this is removed, c.clip_by_global_norm will have precision error in semi/auto parallel mode.
