@@ -41,40 +41,16 @@ class QuestionAnsweringTrainer(BaseTrainer):
         model_name (str): The model name of Task-Trainer. Default: None
     Examples:
             >>> import numpy as np
-            >>> from mindspore.dataset import GeneratorDataset
             >>> from mindspore.nn import AdamWeightDecay, TrainOneStepCell
             >>> from mindformers.core.lr import build_lr
             >>> from mindformers.trainer import GeneralTaskTrainer
             >>> from mindformers.tools.register import MindFormerConfig
             >>> from mindformers.models import BertForQuestionAnswering, BertConfig
-            >>> class MyDataLoader:
-            ...    def __init__(self):
-            ...        self._input_ids = [np.zeros((384, ), np.float32) for _ in range(64)]
-            ...        self._input_mask = [np.ones((384, ), np.float32) for _ in range(64)]
-            ...        self._token_type_id = [np.ones((384, ), np.float32) for _ in range(64)]
-            ...        self._start_positions = [np.ones((1,), np.float32) for _ in range(64)]
-            ...        self._end_positions = [np.ones((1,), np.float32) for _ in range(64)]
-            ...        self._unique_id = [np.ones((1,), np.float32) for _ in range(64)]
-            ...    def __getitem__(self, index):
-            ...        return self._input_ids[index], self._input_mask[index], self._token_type_id,\
-            ...               self._start_positions[index], self._end_positions[index], self._unique_id
             >>> config = MindFormerConfig("configs/qa/run_qa_bert_base_uncased.yaml")
             >>> #1) use config to train
             >>> cls_task = QuestionAnsweringTrainer(model_name='qa_bert_base_uncased')
             >>> cls_task.train(config=config)
-            >>> #2) use instance function to evaluate
-            >>> dataset = GeneratorDataset(source=MyDataLoader(),
-            ...                            column_names=["input_ids", "input_mask", "token_type_id",
-            ...                                          "start_positions", "end_positions", "unique_id"])
-            >>> dataset = dataset.batch(batch_size=2)
-            >>> bert_config = BertConfig(batch_size=2)
-            >>> network_with_loss = BertForQuestionAnswering(bert_config)
-            >>> lr_schedule = build_lr(class_name='linear', learning_rate=0.001, warmup_steps=100, total_steps=1000)
-            >>> optimizer = AdamWeightDecay(beta1=0.009, beta2=0.999,
-            ...                             learning_rate=lr_schedule,
-            ...                             params=network_with_loss.trainable_params())
-            >>> wrapper = TrainOneStepCell(network_with_loss, optimizer)
-            >>> cls_task.train(config=config, wrapper=wrapper, dataset=dataset)
+            >>> #2) use instance function to train
     Raises:
         NotImplementedError: If train method or evaluate method or predict method not implemented.
     """

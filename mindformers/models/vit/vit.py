@@ -268,7 +268,7 @@ class ViTForMaskedImageModeling(BaseModel):
         self.transpose = P.Transpose()
         self.reshape = P.Reshape()
         self.expand_dims = P.ExpandDims()
-        self.l1_loss = nn.L1Loss(reduction=None)
+        self.l1_loss = nn.L1Loss(reduction='none')
         # Initialize weights and apply final processing
         self.init_weights_vit()
 

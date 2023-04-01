@@ -43,42 +43,19 @@ class TokenClassificationTrainer(BaseTrainer):
         >>> from mindspore.nn import AdamWeightDecay, TrainOneStepCell
         >>> from mindformers.core.lr import build_lr
         >>> from mindformers.trainer import TokenClassificationTrainer
+        >>> from mindformers.tools.register import MindFormerConfig
         >>> from mindformers.models import BertForTokenClassification, BertConfig
-        >>> class MyDataLoader:
-        ...    def __init__(self):
-        ...        self._data = [np.zeros((24, 128, 768), np.float32) for _ in range(64)]
-        ...        self._label = [np.ones((24, 128), np.float32) for _ in range(64)]
-        ...    def __getitem__(self, index):
-        ...        return self._data[index], self._label[index]
-        ...    def __len__(self):
-        ...        return len(self._data)
-        >>> dataset = GeneratorDataset(source=MyDataLoader(), column_names=['text', 'label_id'])
-        >>> dataset = dataset.batch(batch_size=2)
+        >>> config = MindFormerConfig("configs/tokcls/run_tokcls_bert_base_chinese.yaml")
         >>> #1) use config to train or evaluate or predict
         >>> tokcls_task = TokenClassificationTrainer(model_name='tokcls_bert_base_chinese')
-        >>> tokcls_task.train(dataset=dataset)
-        >>> tokcls_task.evaluate(dataset=dataset)
+        >>> tokcls_task.train(config=config)
+        >>> tokcls_task.evaluate(config=config)
         >>> input_data = ["表身刻有代表日内瓦钟表匠freresoltramare的“fo”字样。", "的时间会去玩玩星际2。"]
         >>> res = tokcls_task.predict(input_data=input_data)
         >>> print(res)
             [[{'entity_group': 'address', 'word': '日内瓦', 'start': 6, 'end': 9}],
             [{'entity_group': 'game', 'word': '星际2', 'start': 7, 'end': 10}]]
-        >>> tokcls_task.predict()
         >>> #2) use instance function to train or evaluate or predict
-        >>> bert_config = BertConfig(batch_size=2)
-        >>> network_with_loss = BertForTokenClassification(bert_config)
-        >>> lr_schedule = build_lr(class_name='linear', learning_rate=0.001, warmup_steps=100, total_steps=1000)
-        >>> optimizer = AdamWeightDecay(beta1=0.009, beta2=0.999,
-        ...                             learning_rate=lr_schedule,
-        ...                             params=network_with_loss.trainable_params())
-        >>> wrapper = TrainOneStepCell(network_with_loss, optimizer)
-        >>> tokcls_task.train(wrapper=wrapper, dataset=dataset)
-        >>> tokcls_task.evaluate(dataset=dataset, network=network_with_loss)
-        >>> input_data = ["表身刻有代表日内瓦钟表匠freresoltramare的“fo”字样。", "的时间会去玩玩星际2。"]
-        >>> res = tokcls_task.predict(input_data=input_data, network=network_with_loss)
-        >>> print(res)
-            [[{'entity_group': 'address', 'word': '日内瓦', 'start': 6, 'end': 9}],
-            [{'entity_group': 'game', 'word': '星际2', 'start': 7, 'end': 10}]]
     Raises:
         NotImplementedError: If train method or evaluate method or predict method not implemented.
     """

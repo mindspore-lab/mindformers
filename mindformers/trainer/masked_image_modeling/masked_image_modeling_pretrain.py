@@ -43,14 +43,16 @@ class MaskedImageModelingTrainer(BaseTrainer):
         >>> from mindformers.models import ViTMAEForPreTraining, ViTMAEConfig
         >>> class MyDataLoader:
         ...    def __init__(self):
-        ...        self._data = [np.zeros((3, 224, 224), np.float32) for _ in range(64)]
-        ...
+        ...        self.image = [np.zeros((3, 224, 224), np.float32) for _ in range(64)]
+        ...        self.mask = [np.zeros((196,), np.int32) for _ in range(64)]
+        ...        self.ids_restore = [np.zeros((196,), np.int32) for _ in range(64)]
+        ...        self.unmask_index = [np.zeros((49,), np.int32) for _ in range(64)]
         ...    def __getitem__(self, index):
-        ...        return self._data[index]
-        ...
+        ...        return self.image[index], self.mask[index], self.ids_restore[index], self.unmask_index[index]
         ...    def __len__(self):
-        ...        return len(self._data)
-        >>> train_dataset = GeneratorDataset(source=MyDataLoader(), column_names=['image'])
+        ...        return len(self.image)
+        >>> train_dataset = GeneratorDataset(source=MyDataLoader(),
+        ...                                  column_names=["image", "mask", "ids_restore", "unmask_index"]).batch(2)
         >>> #1) use config to train
         >>> mae_trainer = MaskedImageModelingTrainer(model_name='mae_vit_base_p16')
         >>> mae_trainer.train(dataset=train_dataset)
@@ -63,7 +65,7 @@ class MaskedImageModelingTrainer(BaseTrainer):
         ...                             params=network_with_loss.trainable_params())
         >>> loss_scale = DynamicLossScaleUpdateCell(loss_scale_value=2**12, scale_factor=2, scale_window=1000)
         >>> wrapper = TrainOneStepWithLossScaleCell(network_with_loss, optimizer, scale_sense=loss_scale)
-        >>> mae_trainer.train(wrapper=wrapper, dataset=train_dataset)
+        >>> mae_trainer.train(wrapper=wrapper, optimizer=optimizer, dataset=train_dataset)
     Raises:
         NotImplementedError: If train method or evaluate method or predict method not implemented.
     """
