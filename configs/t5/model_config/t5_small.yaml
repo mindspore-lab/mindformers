@@ -13,7 +13,7 @@ model:
     initializer_factor: 1.0
     initializer_range: 0.02
     is_encoder_decoder: true
-    kv_size: 64
+    d_kv: 64
     layer_norm_epsilon: 1.0e-06
     length_penalty_weight: 1.0
     max_decode_length: 128
