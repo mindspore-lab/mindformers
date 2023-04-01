@@ -23,8 +23,13 @@ from mindspore.ops import functional as F
 from mindspore.common.initializer import initializer
 from mindspore.common.tensor import Tensor
 from mindspore.common.parameter import Parameter, ParameterTuple
-from mindspore._checkparam import Validator as validator
-from mindspore._checkparam import Rel
+# MindSpore 2.0 has changed the APIs of _checkparam, the following try except is for compatibility
+try:
+    from mindspore._checkparam import Validator as validator
+    from mindspore._checkparam import Rel
+except ImportError:
+    import mindspore._checkparam as validator
+    import mindspore._checkparam as Rel
 from mindspore.nn.optim.optimizer import Optimizer
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 

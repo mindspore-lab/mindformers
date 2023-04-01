@@ -24,7 +24,11 @@ import numpy as np
 from mindspore.common.tensor import Tensor
 import mindspore.common.dtype as mstype
 import mindspore.communication.management as D
-from mindspore._checkparam import Validator
+# MindSpore 2.0 has changed the APIs of _checkparam, the following try except is for compatibility
+try:
+    from mindspore._checkparam import Validator
+except ImportError:
+    import mindspore._checkparam as Validator
 from mindspore.ops import operations as P
 from mindspore.ops import functional as F
 from mindspore.ops.primitive import constexpr
