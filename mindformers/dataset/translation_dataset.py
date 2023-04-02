@@ -80,7 +80,8 @@ class TranslationDataset(BaseDataset):
         if is_version_ge(mindspore.__version__, "1.10.0"):
             dataset = dataset.map(pad_max_function,
                                   input_columns=['source', 'target'],
-                                  output_columns=['input_ids', 'attention_mask', 'labels'])
+                                  output_columns=['input_ids', 'attention_mask', 'labels'],
+                                  column_order=['input_ids', 'attention_mask', 'labels'])
             dataset = dataset.project(columns=['input_ids', 'attention_mask', 'labels'])
 
         else:

@@ -39,41 +39,20 @@ class TextClassificationTrainer(BaseTrainer):
         model_name (str): The model name of Task-Trainer. Default: None
     Examples:
         >>> import numpy as np
-        >>> from mindspore.dataset import GeneratorDataset
         >>> from mindspore.nn import AdamWeightDecay, TrainOneStepCell
         >>> from mindformers.core.lr import build_lr
         >>> from mindformers.trainer import TextClassificationTrainer
         >>> from mindformers.tools.register import MindFormerConfig
         >>> from mindformers.models import BertForMultipleChoice, BertConfig
-        >>> class MyDataLoader:
-        ...    def __init__(self):
-        ...        self._data = [np.zeros((24, 128, 768), np.float32) for _ in range(64)]
-        ...        self._label = [np.ones((24, 128), np.float32) for _ in range(64)]
-        ...    def __getitem__(self, index):
-        ...        return self._data[index], self._label[index]
-        ...    def __len__(self):
-        ...        return len(self._data)
-        >>> train_dataset = GeneratorDataset(source=MyDataLoader(), column_names=['text', 'label_id'])
-        >>> train_dataset = train_dataset.batch(batch_size=2)
-        >>> eval_dataset = GeneratorDataset(source=MyDataLoader(), column_names=['text', 'label_id'])
-        >>> eval_dataset = eval_dataset.batch(batch_size=2)
+        >>> config = MindFormerConfig("configs/txtcls/run_txtcls_bert_base_uncased.yaml")
         >>> #1) use default config to train
         >>> txtcls_task = TextClassificationTrainer(model_name='bert_for_multiple_choice')
-        >>> txtcls_task.train(dataset=train_dataset)
-        >>> txtcls_task.evaluate(dataset=eval_dataset)
+        >>> txtcls_task.train(config=config)
+        >>> txtcls_task.evaluate(config=config)
         >>> input_data = ["The new rights are nice enough-Everyone really likes the newest benefits ",
         ...               "i don't know um do you do a lot of camping-I know exactly."]
         >>> res = txtcls_task.predict(input_data=input_data)
         >>> #2) use instance function to train
-        >>> bert_config = BertConfig(batch_size=2)
-        >>> network_with_loss = BertForMultipleChoice(bert_config)
-        >>> lr_schedule = build_lr(class_name='WarmUpDecayLR', learning_rate=0.00005, end_learning_rate=0.000001,
-        ...                   warmup_steps=100, decay_steps=1000)
-        >>> optimizer = AdamWeightDecay(params=network_with_loss.trainable_params(),
-        ...                             learning_rate=lr_schedule, weight_decay=0.01)
-        >>> wrapper = TrainOneStepCell(network_with_loss, optimizer)
-        >>> txtcls_task.train(wrapper=wrapper, dataset=train_dataset)
-        >>> txtcls_task.evaluate(dataset=eval_dataset, network=network_with_loss)
     Raises:
         NotImplementedError: If train method or evaluate method or predict method not implemented.
     """
