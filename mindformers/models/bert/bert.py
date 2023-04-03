@@ -29,8 +29,8 @@ from mindformers.modules.transformer import Transformer, VocabEmbedding
 from mindformers.modules.transformer.moe import default_moe_config
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.models.base_model import BaseModel
-from ...mindformer_book import MindFormerBook
-from .bert_config import BertConfig
+from mindformers.mindformer_book import MindFormerBook
+from mindformers.models.bert.bert_config import BertConfig
 
 __all__ = ['BertConfig', 'BertModel', 'BertForPreTraining', 'BertForTokenClassification', 'BertForMultipleChoice',
            'BertForQuestionAnswering']
@@ -50,10 +50,10 @@ class BertForTokenClassification(BaseModel):
         >>> from mindformers import BertForTokenClassification, BertTokenizer
         >>> model = BertForTokenClassification.from_pretrained('tokcls_bert_base_chinese')
         >>> tokenizer = BertTokenizer.from_pretrained('tokcls_bert_base_chinese')
-        >>> data = tokenizer("我在杭州华为工作。", return_tensors='ms', max_length=128, padding='max_length')
-        >>> input_ids = data['input_ids'].expand_dims(0)
-        >>> attention_mask = data['attention_mask'].expand_dims(0)
-        >>> token_type_ids = data['token_type_ids'].expand_dims(0)
+        >>> data = tokenizer(["我在杭州华为工作。"], return_tensors='ms', max_length=128, padding='max_length')
+        >>> input_ids = data['input_ids']
+        >>> attention_mask = data['attention_mask']
+        >>> token_type_ids = data['token_type_ids']
         >>> output = model(input_ids, attention_mask, token_type_ids)
         >>> print(output)
         [[[ 0.0886748  -0.23066735 -0.03969013 ...  0.07333283 -0.02968273
@@ -118,19 +118,21 @@ class BertForPreTraining(BaseModel):
 
     Examples:
         >>> from mindspore import Tensor
-        >>> from mindformers import BertForPretraining, BertTokenizer
+        >>> import mindspore.common.dtype as mstype
+        >>> from mindformers import BertForPreTraining, BertTokenizer
         >>> model = BertForPreTraining.from_pretrained('bert_base_uncased')
         >>> tokenizer = BertTokenizer.from_pretrained('bert_base_uncased')
-        >>> data = tokenizer("Paris is the [MASK] of France.", max_length=128, padding="max_length")
-        >>> input_ids = Tensor(data['input_ids'], mindspore.int32)
-        >>> attention_mask = Tensor(input_ids['attention_mask'], mindspore.int32)
-        >>> token_type_ids = Tensor(input_ids['token_type_ids'], mindspore.int32)
+        >>> data = tokenizer(["Paris is the [MASK] of France."],
+        ...                  return_tensors='ms', max_length=128, padding="max_length")
+        >>> input_ids = data['input_ids']
+        >>> attention_mask = data['attention_mask']
+        >>> token_type_ids = data['token_type_ids']
         >>> masked_lm_positions = Tensor([[4]], mstype.int32)
         >>> next_sentence_labels = Tensor([[1]], mstype.int32)
         >>> masked_lm_weights = Tensor([[1]], mstype.int32)
         >>> masked_lm_ids = Tensor([[3007]], mstype.int32)
-        >>> output = model(input_ids, attention_mask, token_type_ids, next_sentence_labels, \
-            masked_lm_positions, masked_lm_ids, masked_lm_weights)
+        >>> output = model(input_ids, attention_mask, token_type_ids, next_sentence_labels,
+        ...                masked_lm_positions, masked_lm_ids, masked_lm_weights)
         >>> print(output)
         [0.6706]
     """
@@ -313,11 +315,11 @@ class BertForMultipleChoice(BaseModel):
         >>> from mindformers import BertForMultipleChoice, BertTokenizer
         >>> model = BertForMultipleChoice.from_pretrained('txtcls_bert_base_uncased')
         >>> tokenizer = BertTokenizer.from_pretrained('txtcls_bert_base_uncased')
-        >>> data = tokenizer("The new rights are nice enough-Everyone really likes the newest benefits ",
+        >>> data = tokenizer(["The new rights are nice enough-Everyone really likes the newest benefits "],
         ...                  return_tensors='ms', max_length=128, padding='max_length')
-        >>> input_ids = data['input_ids'].expand_dims(0)
-        >>> attention_mask = data['attention_mask'].expand_dims(0)
-        >>> token_type_ids = data['token_type_ids'].expand_dims(0)
+        >>> input_ids = data['input_ids']
+        >>> attention_mask = data['attention_mask']
+        >>> token_type_ids = data['token_type_ids']
         >>> output = model(input_ids, attention_mask, token_type_ids)
         >>> print(output)
         [[0.05121157 0.3273056  0.31614417]]
@@ -373,11 +375,11 @@ class BertForQuestionAnswering(BaseModel):
             >>> from mindformers import BertForQuestionAnswering, BertTokenizer
             >>> model = BertForQuestionAnswering.from_pretrained('qa_bert_base_uncased')
             >>> tokenizer = BertTokenizer.from_pretrained('qa_bert_base_uncased')
-            >>> data = tokenizer("The new rights are nice enough-Everyone really likes the newest benefits ",
+            >>> data = tokenizer(["The new rights are nice enough-Everyone really likes the newest benefits "],
             ...                  return_tensors='ms', max_length=384, padding='max_length')
-            >>> input_ids = data['input_ids'].expand_dims(0)
-            >>> attention_mask = data['attention_mask'].expand_dims(0)
-            >>> token_type_ids = data['token_type_ids'].expand_dims(0)
+            >>> input_ids = data['input_ids']
+            >>> attention_mask = data['attention_mask']
+            >>> token_type_ids = data['token_type_ids']
             >>> output = model(input_ids, attention_mask, token_type_ids)
             >>> print(output)
             (Tensor(shape=[1, 384], dtype=Float32, value=
