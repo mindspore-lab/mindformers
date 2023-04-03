@@ -220,12 +220,10 @@ class BaseTrainer:
         eval_dataset = build_dataset(self.config.eval_dataset_task, default_args=default_args)
         return eval_dataset
 
-    def create_network(self, default_args: dict = None, is_train: bool = True):
+    def create_network(self, default_args: dict = None):
         """Create the network for task trainer."""
         logger.info(".........Build Network From Config..........")
         network = build_model(self.config.model, default_args=default_args)
-        if isinstance(network, (Cell, BaseModel)):
-            network.set_train(is_train)
         return network
 
     def create_pipeline_network(self, default_args: dict = None):
@@ -398,10 +396,12 @@ class BaseTrainer:
             raise ValueError("Eval dataset is None")
         self.eval_dataset = dataset
 
-    def set_network(self, network):
+    def set_network(self, network, is_train: bool = True):
         """Set the attribute of network."""
         if network is None:
             raise ValueError("network is None")
+        if isinstance(network, (Cell, BaseModel)):
+            network.set_train(is_train)
         self.network = network
 
     def set_model_wrapper(self, model_wrapper):
@@ -470,7 +470,7 @@ class BaseTrainer:
                 network = self.create_network(default_args={"parallel_config": config.parallel_config,
                                                             "moe_config": config.moe_config})
         if network is not None:
-            self.set_network(network)
+            self.set_network(network, is_train=True)
 
         if wrapper is not None:
             self.set_model_wrapper(wrapper)
@@ -486,7 +486,7 @@ class BaseTrainer:
         logger.info(".........Build Callbacks For Train..........")
         if callbacks is None:
             callbacks = self.create_callbacks(default_args={
-                "learning_rate": optimizer.learning_rate,
+                "learning_rate": optimizer.learning_rate if optimizer else wrapper.optimizer.learning_rate,
                 "origin_epochs": config.runner_config.origin_epochs,
                 "dataset_size": config.data_size,
                 "micro_batch_num": config.parallel_config.micro_batch_num})
@@ -539,8 +539,8 @@ class BaseTrainer:
         # build network
         if network is None:
             network = self.create_network(default_args={"parallel_config": config.parallel_config,
-                                                        "moe_config": config.moe_config}, is_train=False)
-        self.set_network(network)
+                                                        "moe_config": config.moe_config})
+        self.set_network(network, is_train=False)
 
         self.count_parameters()
 
