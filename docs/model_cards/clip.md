@@ -6,6 +6,8 @@ CLIP (Contrastive Lanuguage-Image Pre-Training)：是一种基于图文对进行
 
 [论文](https://arxiv.org/abs/2103.00020) Alec Radford, Jong Wook Kim, et al., Learning Transferable Visual Models From Natural Language Supervision, 2021.
 
+注：CLIP训练代码未开源，故MindFormers提供训练pretrain、finetune功能，但不不保证精度，目前仅对zero shot图片分类精度做了对齐。
+
 ## 数据集准备
 
 ### 预训练使用数据集：Flickr8k([链接](https://pan.baidu.com/s/1LRlQUL1MRipPL4MLOdExzg)，密码: s4be)
