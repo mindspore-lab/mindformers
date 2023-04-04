@@ -54,12 +54,18 @@ def build_context(config):
         context.set_auto_parallel_context(strategy_ckpt_load_file=config.parallel["strategy_ckpt_load_file"])
 
     if config.profile:
-        profile_cb = clould_file_trans_sys.profile_monitor()
+        profile_cb = clould_file_trans_sys.profile_monitor(start_step=config.profile_start_step,
+                                                           stop_step=config.profile_stop_step,
+                                                           start_profile=config.init_start_profile,
+                                                           profile_communication=config.profile_communication,
+                                                           profile_memory=config.profile_memory)
         logger.warning(
             "In profiler mode, data sink mode will be turned off. "
             "Please reduce the data sample size with 'num_samples' in MindSpore data format according to "
             "https://www.mindspore.cn/mindinsight/docs/zh-CN/master/performance_profiling_ascend.html.")
+        logger.warning("In profiler mode, auto-tune will be turned off.")
         config.runner_config.sink_mode = False
+        config.auto_tune = False
 
     MindFormerRegister.register_cls(clould_file_trans_sys, alias="cfts")
 

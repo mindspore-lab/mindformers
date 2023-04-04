@@ -4,6 +4,12 @@ filepath_prefix: './autotune'
 autotune_per_step: 10
 
 profile: False
+profile_start_step: 1
+profile_stop_step: 10
+init_start_profile: False
+profile_communication: False
+profile_memory: True
+
 use_parallel: False
 
 layer_scale: False
