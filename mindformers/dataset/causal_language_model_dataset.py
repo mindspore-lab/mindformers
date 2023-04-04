@@ -44,6 +44,8 @@ class CausalLanguageModelDataset(BaseDataset):
         cls.init_dataset_config(dataset_config)
         rank_id = int(os.getenv("RANK_ID", "0"))
         device_num = int(os.getenv("RANK_SIZE", "1"))
+        cls.init_dataset_config(dataset_config)
+        rank_id, device_num = cls._check_device_rank_for_parallel(rank_id, device_num)
         if "data_files" not in dataset_config.data_loader \
             and dataset_config.data_loader.dataset_dir:
             dataset_files = []
