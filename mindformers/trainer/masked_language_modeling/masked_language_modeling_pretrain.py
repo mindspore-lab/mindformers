@@ -142,6 +142,7 @@ class MaskedLanguageModelingTrainer(BaseTrainer):
         """
         config = self.set_config(config)
         config.model.model_config.batch_size = 1
+        config.model.model_config.is_training = False
 
         if input_data is None:
             raise ValueError("Input data can not be None!")
