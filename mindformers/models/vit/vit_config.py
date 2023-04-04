@@ -65,6 +65,7 @@ class ViTConfig(BaseConfig):
                  attention_probs_dropout_prob: float = 0.0,
                  hidden_dropout_prob: float = 0.0,
                  drop_path_rate: float = 0.1,
+                 use_mean_pooling: bool = True,
                  num_labels: int = 1000,
                  loss_type: str = "SoftTargetCrossEntropy",
                  encoder_stride: int = 16,
@@ -92,6 +93,7 @@ class ViTConfig(BaseConfig):
         self.drop_rate = hidden_dropout_prob
         self.drop_path_rate = drop_path_rate
         self.num_classes = num_labels
+        self.use_mean_pooling = use_mean_pooling
         self.loss_type = loss_type
         self.encoder_stride = encoder_stride
         self.checkpoint_name_or_path = checkpoint_name_or_path
