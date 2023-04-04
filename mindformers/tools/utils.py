@@ -258,6 +258,8 @@ def is_version_le(current_version, base_version):
         raise ValueError("The version string will contain the `.`."
                          "For example, current_version 1.8.1, base_version: 2.0.0.")
     for x, y in zip(current_version.split(version_split_char), base_version.split(version_split_char)):
+        if not x.isdigit() or not y.isdigit():
+            continue
         if int(x) != int(y):
             return int(x) <= int(y)
     return True
@@ -274,6 +276,8 @@ def is_version_ge(current_version, base_version):
         raise ValueError("The version string will contain the `.`."
                          "For example, current_version 1.8.1， base_version: 2.0.0.")
     for x, y in zip(current_version.split(version_split_char), base_version.split(version_split_char)):
+        if not x.isdigit() or not y.isdigit():
+            continue
         if int(x) != int(y):
             return int(x) >= int(y)
     return True
