@@ -61,7 +61,7 @@ class ImageClassificationTrainer(BaseTrainer):
         >>> class MyDataLoader:
         ...    def __init__(self):
         ...        self._data = [np.zeros((3, 224, 224), np.float32) for _ in range(64)]
-        ...        self._label = [np.ones(1000, np.float32) for _ in range(64)]
+        ...        self._label = [np.eye(1000)[i] for i in range(64)]
         ...
         ...    def __getitem__(self, index):
         ...        return self._data[index], self._label[index]
