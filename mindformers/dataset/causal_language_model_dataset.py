@@ -41,7 +41,6 @@ class CausalLanguageModelDataset(BaseDataset):
     """
     def __new__(cls, dataset_config: dict = None):
         logger.info("Now Create Causal Image Modeling Dataset.")
-        cls.init_dataset_config(dataset_config)
         rank_id = int(os.getenv("RANK_ID", "0"))
         device_num = int(os.getenv("RANK_SIZE", "1"))
         cls.init_dataset_config(dataset_config)
