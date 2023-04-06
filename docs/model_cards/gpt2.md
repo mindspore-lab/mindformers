@@ -36,6 +36,8 @@ python create_lm_data.py --input_file /{path}/{cleaned_data_name} --output_file 
 
 #### 单卡启动
 
+- 运行mindformers/tools/hccl_tools.py生成RANK_TABLE_FILE的json文件
+
 ```shell
 python run_mindformer.py --config configs/gpt2/run_gpt2.yaml \
                          --run_mode train \
@@ -46,6 +48,33 @@ python run_mindformer.py --config configs/gpt2/run_gpt2.yaml \
 其中`device_target`根据用户的运行设备不同，可选`GPU/Ascend`。另，模型和训练等相关配置可在`configs/gpt2`目录下的yaml文件中配置。
 
 #### 单机多卡启动
+
+- 运行mindformers/tools/hccl_tools.py生成RANK_TABLE_FILE的json文件；
+
+```text
+# RANK_TABLE_FILE 参考样例
+# 单机8卡
+{
+    "version": "1.0",
+    "server_count": "1",
+    "server_list": [
+        {
+            "server_id": "10.155.111.140",
+            "device": [
+                {"device_id": "0","device_ip": "192.1.27.6","rank_id": "0"},
+                {"device_id": "1","device_ip": "192.2.27.6","rank_id": "1"},
+                {"device_id": "2","device_ip": "192.3.27.6","rank_id": "2"},
+                {"device_id": "3","device_ip": "192.4.27.6","rank_id": "3"},
+                {"device_id": "4","device_ip": "192.1.27.7","rank_id": "4"},
+                {"device_id": "5","device_ip": "192.2.27.7","rank_id": "5"},
+                {"device_id": "6","device_ip": "192.3.27.7","rank_id": "6"},
+                {"device_id": "7","device_ip": "192.4.27.7","rank_id": "7"}],
+             "host_nic_ip": "reserve"
+        }
+    ],
+    "status": "completed"
+}
+```
 
 ```shell
 # 8卡分布式运行， DEVICE_RANGE = [0, 8]， 不包含8本身。
@@ -98,10 +127,10 @@ RUN_STATUS: 为任务运行状态，支持关键字 train\finetune\predict
 ```
 
 ```text
-# 四机16卡
+# 四机32卡
 {
   "version": "1.0",
-  "server_count": "2",
+  "server_count": "4",
   "server_list": [
     {
       "server_id": "10.155.111.140",
