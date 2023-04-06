@@ -57,6 +57,7 @@ def main(config):
             config.eval_dataset.data_loader.dataset_dir)
 
     if config.run_mode == 'train':
+        logger.warning("Train from scratch, remove checkpoint_name_or_path in model_config.yaml. ")
         config.model.model_config.checkpoint_name_or_path = None
         if config.resume_or_finetune_checkpoint:
             config.resume_or_finetune_checkpoint = cfts.get_checkpoint(config.resume_or_finetune_checkpoint)
@@ -70,6 +71,10 @@ def main(config):
             raise ValueError("if run status is finetune, "
                              "load_checkpoint or resume_or_finetune_checkpoint is invalid, "
                              "it must be input")
+
+    if config.run_mode in ['eval', 'predict']:
+        config.model.model_config.checkpoint_name_or_path = cfts.get_checkpoint(config.resume_or_finetune_checkpoint)
+        config.resume_or_finetune_checkpoint = None
 
     # define callback and add profile callback
     if config.profile:
