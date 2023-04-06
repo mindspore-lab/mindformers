@@ -62,7 +62,7 @@ bash run_distribute.sh RANK_TABLE_FILE CONFIG_PATH DEVICE_RANGE RUN_STATUS
 
 ```
 
-```text
+```python
 # RANK_TABLE_FILE 参考样例
 # 单机8卡
 {
@@ -102,16 +102,77 @@ RUN_STATUS: 为任务运行状态，支持关键字 train\finetune\predict
 
 - 首先参考单机多卡启动方式，在每台机器上运行mindformers/tools/hccl_tools.py生成RANK_TABLE_FILE的json文件；
 
-- 将不同机器上生成的RANK_TABLE_FILE文件中的server_list合并，server_count设为机器数，rank_id顺序增加，并保证不同机器上的RANK_TABLE_FILE相同；
+- 将不同机器上生成的RANK_TABLE_FILE文件中的**server_list合并，server_count设为机器数，rank_id顺序增加，并保证不同机器上的RANK_TABLE_FILE相同**；
 
 - 在多机上同时拉起任务，每台机器拉起方式参考单机多卡启动方式，需注意的是，多机多卡的拉起方式，相对于单机多卡，多了一个总卡数`[RANK_SIZE]`的入参。
 
 ```python
-# step1：在每个机器上运行如下命令，生成各自的RANK_TABLE_FILE的json文件
+# step1：在每个机器上运行如下命令，生成各自的RANK_TABLE_FILE的json文件。最后需要手动修改合并
 python ./mindformers/tools/hccl_tools.py
+'''
+# 以4机32卡为例：
+{
+  "version": "1.0",
+  "server_count": "4",
+  "server_list": [
+    {
+      "server_id": "10.155.111.140",
+      "device": [
+        {"device_id": "0","device_ip": "192.1.27.6","rank_id": "0"},
+        {"device_id": "1","device_ip": "192.2.27.6","rank_id": "1"},
+        {"device_id": "2","device_ip": "192.3.27.6","rank_id": "2"},
+        {"device_id": "3","device_ip": "192.4.27.6","rank_id": "3"},
+        {"device_id": "4","device_ip": "192.1.27.7","rank_id": "4"},
+        {"device_id": "5","device_ip": "192.2.27.7","rank_id": "5"},
+        {"device_id": "6","device_ip": "192.3.27.7","rank_id": "6"},
+        {"device_id": "7","device_ip": "192.4.27.7","rank_id": "7"}],
+      "host_nic_ip": "reserve"
+    },
+    {
+      "server_id": "10.155.111.141",
+      "device": [
+        {"device_id": "0","device_ip": "192.1.27.8","rank_id": "8"},
+        {"device_id": "1","device_ip": "192.2.27.8","rank_id": "9"},
+        {"device_id": "2","device_ip": "192.3.27.8","rank_id": "10"},
+        {"device_id": "3","device_ip": "192.4.27.8","rank_id": "11"},
+        {"device_id": "4","device_ip": "192.1.27.9","rank_id": "12"},
+        {"device_id": "5","device_ip": "192.2.27.9","rank_id": "13"},
+        {"device_id": "6","device_ip": "192.3.27.9","rank_id": "14"},
+        {"device_id": "7","device_ip": "192.4.27.9","rank_id": "15"}],
+      "host_nic_ip": "reserve"
+    },
+    {
+      "server_id": "10.155.111.142",
+      "device": [
+        {"device_id": "0","device_ip": "192.1.27.10","rank_id": "16"},
+        {"device_id": "1","device_ip": "192.2.27.10","rank_id": "17"},
+        {"device_id": "2","device_ip": "192.3.27.10","rank_id": "18"},
+        {"device_id": "3","device_ip": "192.4.27.10","rank_id": "19"},
+        {"device_id": "4","device_ip": "192.1.27.11","rank_id": "20"},
+        {"device_id": "5","device_ip": "192.2.27.11","rank_id": "21"},
+        {"device_id": "6","device_ip": "192.3.27.11","rank_id": "22"},
+        {"device_id": "7","device_ip": "192.4.27.11","rank_id": "23"}],
+      "host_nic_ip": "reserve"
+    },
+    {
+      "server_id": "10.155.111.143",
+      "device": [
+        {"device_id": "0","device_ip": "192.1.27.12","rank_id": "24"},
+        {"device_id": "1","device_ip": "192.2.27.12","rank_id": "25"},
+        {"device_id": "2","device_ip": "192.3.27.12","rank_id": "26"},
+        {"device_id": "3","device_ip": "192.4.27.12","rank_id": "27"},
+        {"device_id": "4","device_ip": "192.1.27.13","rank_id": "28"},
+        {"device_id": "5","device_ip": "192.2.27.13","rank_id": "29"},
+        {"device_id": "6","device_ip": "192.3.27.13","rank_id": "30"},
+        {"device_id": "7","device_ip": "192.4.27.13","rank_id": "31"}],
+      "host_nic_ip": "reserve"
+    }
+  ],
+  "status": "completed"
+}
+'''
 
 # step2：根据服务器节点数等信息，修改相应的配置
-
 '''
 以gpt2-13b模型四机训练为例，默认配置4机32卡，如果节点数有变，需要修改相应的配置。配置文件在../configs/gpt2/run_gpt2_13b.yaml
 
