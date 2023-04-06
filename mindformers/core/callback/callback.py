@@ -327,18 +327,26 @@ class ProfileMonitor(Callback):
     """
     Profile analysis in training.
     """
-    def __init__(self, start_step=1, stop_step=10, output_path=None, profile_communication=False):
+    def __init__(self, start_step=1, stop_step=10,
+                 output_path=None, start_profile=True,
+                 profile_communication=False, profile_memory=True, **kwargs):
         super(ProfileMonitor, self).__init__()
         self.start_step = start_step
         self.stop_step = stop_step
-        if output_path is not None:
-            assert isinstance(output_path, str) and os.path.realpath(output_path), \
-                f"output path must be real path, but get {output_path}"
-            self.profiler = Profiler(
-                start_profile=False, output_path=output_path, profile_communication=profile_communication)
-        else:
-            self.profiler = Profiler(start_profile=False)
+        self.start_profile = start_profile
+        self.profile_communication = profile_communication
+
+        if profile_communication and not start_profile:
+            raise ValueError("When profile_communication is True, start_profile must also be True")
+
+        output_path = os.path.join(LOCAL_DEFAULT_PATH, 'profile') if output_path is None else output_path
+
+        self.profiler = Profiler(
+            start_profile=start_profile, output_path=output_path,
+            profile_communication=profile_communication, profile_memory=profile_memory, **kwargs)
+
         self.run_context = None
+        self.output_path = output_path
 
     def step_begin(self, run_context):
         """
@@ -349,7 +357,7 @@ class ProfileMonitor(Callback):
         """
         cb_params = run_context.original_args()
         step_num = cb_params.cur_step_num
-        if step_num == self.start_step:
+        if step_num == self.start_step and not self.start_profile:
             self.profiler.start()
 
     def step_end(self, run_context):
@@ -364,3 +372,6 @@ class ProfileMonitor(Callback):
         if step_num == self.stop_step:
             self.profiler.stop()
             self.profiler.analyse()
+            logger.info("End of Profiling, please view the profile data under %s and analyze it using mindinsight."
+                        "MindInsight order as follow: "
+                        "mindinsight start --summary-base-dir %s", self.output_path, self.output_path)

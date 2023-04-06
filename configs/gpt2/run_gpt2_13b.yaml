@@ -58,6 +58,8 @@ runner_wrapper:
 
 callbacks:
   - type: MFLossMonitor
+  - type: SummaryMonitor
+    keep_default_action: True
   - type: CheckpointMointor
     prefix: "gpt2-13b"
     save_checkpoint_steps: 500
@@ -69,6 +71,12 @@ auto_tune: True
 autotune_per_step: 10
 
 profile: False
+profile_start_step: 1
+profile_stop_step: 10
+init_start_profile: True
+profile_communication: True
+profile_memory: True
+
 use_parallel: True
 
 micro_batch_interleave_num: 1

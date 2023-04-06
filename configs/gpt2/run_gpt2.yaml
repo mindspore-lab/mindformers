@@ -80,6 +80,9 @@ callbacks:
   - type: ObsMonitor
 
 profile: False
+profile_start_step: 1
+profile_stop_step: 10
+
 use_parallel: False
 
 seed: 0
