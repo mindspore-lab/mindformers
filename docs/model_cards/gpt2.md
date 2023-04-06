@@ -2,7 +2,7 @@
 
 ## 模型描述
 
-GPT-2由OpenAI于2019年发布。GPT-2模型是继承于GPT模型，GPT-2是一个非常庞大的语言模型，它主要是用于预测下一个单词。按照参数量的大小，GPT-2模型可分为small（124M）、medium（355M）、large（774M）、xlarge（1.5B）。
+GPT-2由OpenAI于2019年发布。GPT-2模型是继承于GPT模型，GPT-2是一个非常庞大的语言模型，它主要是用于预测下一个单词。按照参数量的大小，原生GPT-2模型可分为small（124M）、medium（355M）、large（774M）、xlarge（1.5B），但在此仓中，基于GPT2扩展了13B，52B等规格。
 
 [论文](https://arxiv.org/abs/1810.04805)J Devlin，et al., Pre-training of Deep Bidirectional Transformers for Language Understanding, 2019
 
