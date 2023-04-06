@@ -51,10 +51,14 @@ python run_mindformer.py --config configs/gpt2/run_gpt2.yaml \
 
 - 运行mindformers/tools/hccl_tools.py生成RANK_TABLE_FILE的json文件；
 
-```python
+```shell
 
-# 机器上运行如下命令，生成各自的RANK_TABLE_FILE的json文件
-python mindformers/tools/hccl_tools.py
+# step1：机器上运行如下命令，生成各自的RANK_TABLE_FILE的json文件
+python ./mindformers/tools/hccl_tools.py
+
+# step2：# 执行运行脚本：8卡分布式运行， DEVICE_RANGE = [0, 8]， 不包含8本身。
+cd scripts
+bash run_distribute.sh RANK_TABLE_FILE CONFIG_PATH DEVICE_RANGE RUN_STATUS
 
 ```
 
@@ -84,12 +88,6 @@ python mindformers/tools/hccl_tools.py
 ```
 
 ```shell
-# 8卡分布式运行， DEVICE_RANGE = [0, 8]， 不包含8本身。
-cd scripts
-bash run_distribute.sh RANK_TABLE_FILE CONFIG_PATH DEVICE_RANGE RUN_STATUS
-```
-
-```text
 # 参数说明
 RANK_TABLE_FILE: 由mindformers/tools/hccl_tools.py生成的分布式json文件
 CONFIG_PATH: 为configs文件夹下面的gpt2/run_gpt2*.yaml配置文件
