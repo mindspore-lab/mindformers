@@ -12,7 +12,17 @@ GPT-2由OpenAI于2019年发布。GPT-2模型是继承于GPT模型，GPT-2是一�
 
 - 数据集下载：[WikiText2数据集](https://s3.amazonaws.com/research.metamind.io/wikitext/wikitext-2-v1.zip)
 
-- 参考[数据处理](https://gitee.com/mindspore/models/tree/master/research/nlp/gpt2#language-modeling-%E8%AF%AD%E8%A8%80%E5%BB%BA%E6%A8%A1%E4%BB%BB%E5%8A%A1)，将数据处理成Mindrecord格式。注：训练数据处理时，长度应等于模型接收长度加一
+- 词表下载：[vocab.json](https://huggingface.co/gpt2/blob/main/vocab.json)，[merges.txt](https://huggingface.co/gpt2/resolve/main/merges.txt)
+
+- 参考[ModelZoo](https://gitee.com/mindspore/models/tree/master/research/nlp/gpt2#language-modeling-%E8%AF%AD%E8%A8%80%E5%BB%BA%E6%A8%A1%E4%BB%BB%E5%8A%A1)，将数据处理成Mindrecord格式。注：训练数据处理时，长度应等于模型接收长度加一
+
+```bash
+# 数据预处理示例代码，代码来源于ModelZoo
+# 1、数据清洗
+python task_dataset_preprocess.py --task "LanguageModeling" --input_file /{path}/wiki.train.tokens --dataset "wikitext2" --output_file /{path}/{cleaned_data_name}
+# 2、生成Mindrecord数据，其中output_file需以字符串mindrecord结尾
+python create_lm_data.py --input_file /{path}/{cleaned_data_name} --output_file /{path}/{mindrecord_data_name} --num_splits 1 --max_length 1025 --vocab_file={path of vocab.json} --merge_file={path of merges.txt}
+```
 
 ## 快速使用
 
@@ -33,10 +43,12 @@ python run_mindformer.py --config configs/gpt2/run_gpt2.yaml \
                          --dataset_dir /your_path/wikitext-2-mindrecord
 ```
 
+其中`device_target`根据用户的运行设备不同，可选`GPU/Ascend`。另，模型和训练等相关配置可在`configs/gpt2`目录下的yaml文件中配置。
+
 #### 单机多卡启动
 
 ```shell
-# 8卡分布式运行， DEVICE_RANGE = [0, 8], 不包含8本身
+# 8卡分布式运行， DEVICE_RANGE = [0, 8]， 不包含8本身。
 cd scripts
 bash run_distribute.sh RANK_TABLE_FILE CONFIG_PATH DEVICE_RANGE RUN_STATUS
 ```
@@ -50,7 +62,7 @@ DEVICE_RANGE: 为单机分布式卡的范围, 如[0,8]为8卡分布式，不包�
 RUN_STATUS: 为任务运行状态，支持关键字 train\finetune\predict
 ```
 
-其中`device_target`根据用户的运行设备不同，可选`GPU/Ascend`。
+其中，模型和训练等相关配置可在`configs/gpt2`目录下的yaml文件中配置，如数据集路径，可在`configs/gpt2/task_config/gpt2_dataset.yaml`中配置`dataset_dir`参数。
 
 #### 多机多卡启动
 
@@ -58,7 +70,7 @@ RUN_STATUS: 为任务运行状态，支持关键字 train\finetune\predict
 
 - 将不同机器上生成的RANK_TABLE_FILE文件中的server_list合并，server_count设为机器数，rank_id顺序增加，并保证不同机器上的RANK_TABLE_FILE相同；
 
-- 在多机上同时拉起任务，每台机器拉起方式参考单机多卡启动方式。
+- 在多机上同时拉起任务，每台机器拉起方式参考单机多卡启动方式，需注意的是，多机多卡的拉起方式，相对于单机多卡，多了一个总卡数`[RANK_SIZE]`的入参。
 
 ```text
 # RANK_TABLE_FILE 参考样例
@@ -86,7 +98,7 @@ RUN_STATUS: 为任务运行状态，支持关键字 train\finetune\predict
 ```
 
 ```text
-# 两机16卡
+# 四机16卡
 {
   "version": "1.0",
   "server_count": "2",
@@ -116,26 +128,56 @@ RUN_STATUS: 为任务运行状态，支持关键字 train\finetune\predict
         {"device_id": "6","device_ip": "192.3.27.9","rank_id": "14"},
         {"device_id": "7","device_ip": "192.4.27.9","rank_id": "15"}],
       "host_nic_ip": "reserve"
+    },
+    {
+      "server_id": "10.155.111.142",
+      "device": [
+        {"device_id": "0","device_ip": "192.1.27.10","rank_id": "16"},
+        {"device_id": "1","device_ip": "192.2.27.10","rank_id": "17"},
+        {"device_id": "2","device_ip": "192.3.27.10","rank_id": "18"},
+        {"device_id": "3","device_ip": "192.4.27.10","rank_id": "19"},
+        {"device_id": "4","device_ip": "192.1.27.11","rank_id": "20"},
+        {"device_id": "5","device_ip": "192.2.27.11","rank_id": "21"},
+        {"device_id": "6","device_ip": "192.3.27.11","rank_id": "22"},
+        {"device_id": "7","device_ip": "192.4.27.11","rank_id": "23"}],
+      "host_nic_ip": "reserve"
+    },
+    {
+      "server_id": "10.155.111.143",
+      "device": [
+        {"device_id": "0","device_ip": "192.1.27.12","rank_id": "24"},
+        {"device_id": "1","device_ip": "192.2.27.12","rank_id": "25"},
+        {"device_id": "2","device_ip": "192.3.27.12","rank_id": "26"},
+        {"device_id": "3","device_ip": "192.4.27.12","rank_id": "27"},
+        {"device_id": "4","device_ip": "192.1.27.13","rank_id": "28"},
+        {"device_id": "5","device_ip": "192.2.27.13","rank_id": "29"},
+        {"device_id": "6","device_ip": "192.3.27.13","rank_id": "30"},
+        {"device_id": "7","device_ip": "192.4.27.13","rank_id": "31"}],
+      "host_nic_ip": "reserve"
     }
   ],
   "status": "completed"
 }
 
-# 以gpt2-13b模型两机训练为例，首先修改../configs/gpt2/run_gpt2_13b.yaml中默认的并行配置
+# 以gpt2-13b模型四机训练为例，首先修改../configs/gpt2/run_gpt2_13b.yaml中默认的并行配置
 
 parallel_config:
-  data_parallel: 2
-  model_parallel: 8
-  pipeline_stage: 1
+  data_parallel: 4
+  model_parallel: 2
+  pipeline_stage: 4
   optimizer_shard: True
-  micro_batch_num: 1
+  micro_batch_num: 24
   vocab_emb_dp: True
   gradient_aggregation_group: 4
 
 # 第一台机器
-bash run_distribute.sh {RANK_TABLE_FILE path of the first device} ../configs/gpt2/run_gpt2_13b.yaml [0,8] train
+bash run_distribute.sh {RANK_TABLE_FILE path of the first device} ../configs/gpt2/run_gpt2_13b.yaml [0,8] train 32
 # 第二台机器
-bash run_distribute.sh {RANK_TABLE_FILE path of the second device} ../configs/gpt2/run_gpt2_13b.yaml [8,16] train
+bash run_distribute.sh {RANK_TABLE_FILE path of the second device} ../configs/gpt2/run_gpt2_13b.yaml [8,16] train 32
+# 第三台机器
+bash run_distribute.sh {RANK_TABLE_FILE path of the third device} ../configs/gpt2/run_gpt2_13b.yaml [16,24] train 32
+# 第四台机器
+bash run_distribute.sh {RANK_TABLE_FILE path of the forth device} ../configs/gpt2/run_gpt2_13b.yaml [24,32] train 32
 ```
 
 ### 调用API启动
