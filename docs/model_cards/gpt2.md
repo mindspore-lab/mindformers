@@ -87,12 +87,12 @@ bash run_distribute.sh RANK_TABLE_FILE CONFIG_PATH DEVICE_RANGE RUN_STATUS
 }
 ```
 
-```shell
+```text
 # 参数说明
 RANK_TABLE_FILE: 由mindformers/tools/hccl_tools.py生成的分布式json文件
 CONFIG_PATH: 为configs文件夹下面的gpt2/run_gpt2*.yaml配置文件
 DEVICE_ID: 为设备卡，范围为0~7
-DEVICE_RANGE: 为单机分布式卡的范围, 如[0,8]为8卡分布式，不包含8本身
+DEVICE_RANGE: 为单机分布式卡的范围，如[0,8]为8卡分布式，不包含8本身
 RUN_STATUS: 为任务运行状态，支持关键字 train\finetune\predict
 ```
 
@@ -106,14 +106,16 @@ RUN_STATUS: 为任务运行状态，支持关键字 train\finetune\predict
 
 - 在多机上同时拉起任务，每台机器拉起方式参考单机多卡启动方式，需注意的是，多机多卡的拉起方式，相对于单机多卡，多了一个总卡数`[RANK_SIZE]`的入参。
 
-```python
+```shell
 # step1：在每个机器上运行如下命令，生成各自的RANK_TABLE_FILE的json文件。
 python ./mindformers/tools/hccl_tools.py --device_num "[0,8)"
 
-# step2：合并json文件，并吧合并的大的json复制到各个节点
+# step2：运行如下命令，合并每个机器上的RANK_TABLE_FILE文件。
 python ./mindformers/tools/merge_hccl.py hccl*.json
 
-# step3：根据服务器节点数等信息，修改相应的配置
+# step3：将step2得到的合并后的RANK_TABLE_FILE文件分别复制到所有的机器上。
+
+# step4：根据服务器节点数等信息，修改相应的配置
 '''
 以gpt2-13b模型四机训练为例，默认配置4机32卡，如果节点数有变，需要修改相应的配置。配置文件在../configs/gpt2/run_gpt2_13b.yaml
 
@@ -127,7 +129,7 @@ parallel_config:
   gradient_aggregation_group: 4
 '''
 
-# step4：执行运行脚本
+# step5：执行运行脚本
 # 第一台机器
 bash run_distribute.sh {RANK_TABLE_FILE path of the first device} ../configs/gpt2/run_gpt2_13b.yaml [0,8] train 32
 # 第二台机器
