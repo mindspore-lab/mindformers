@@ -19,6 +19,7 @@ Note:
 from __future__ import absolute_import
 
 import math
+import inspect
 import numpy as np
 
 from mindspore.common.tensor import Tensor
@@ -342,6 +343,20 @@ default_transformer_config = TransformerOpParallelConfig()
 default_embedding_parallel_config = EmbeddingOpParallelConfig()
 
 
+def _inspect_dropout(function=nn.Dropout, **kwargs):
+    """Given the keep_prob, if p not in dropout, and just return the kwargs, otherwise will return the p"""
+    if 'p' not in kwargs and 'keep_prob' not in kwargs:
+        raise ValueError("There should be `p` or `keep_prob` in the keys.")
+    dropout_sig = inspect.signature(function)
+    # if the dropout support p as arguments, we need to generate the value p according to the kwargs
+    if 'p' in dropout_sig.parameters:
+        if 'p' not in kwargs:
+            kwargs['p'] = 1 - kwargs['keep_prob']
+        kwargs.pop('keep_prob', None)
+    return kwargs
+
+
+
 class FeedForward(Cell):
     r"""
         The multilayer perceptron with two linear layers with dropout applied at final output. The first linear
@@ -503,14 +518,10 @@ class FeedForward(Cell):
             else:
                 self.projection.shard(strategy_matmul=((dp, mp), (mp, 1)))
             self.projection.bias.parallel_optimizer = False
-            if is_version_ge(mindspore.__version__, '2.0.0'):
-                self.dropout = nn.Dropout(p=dropout_rate)
-                self.dropout_3d = nn.Dropout(p=dropout_rate)
-                self.dropout_4d = nn.Dropout(p=dropout_rate)
-            else:
-                self.dropout = nn.Dropout(1 - dropout_rate)
-                self.dropout_3d = nn.Dropout(1 - dropout_rate)
-                self.dropout_4d = nn.Dropout(1 - dropout_rate)
+            kwargs = _inspect_dropout(keep_prob=1 - dropout_rate)
+            self.dropout = nn.Dropout(**kwargs)
+            self.dropout_3d = nn.Dropout(**kwargs)
+            self.dropout_4d = nn.Dropout(**kwargs)
             self.cast = P.Cast()
         else:
             _check_config(parallel_config)
@@ -568,18 +579,16 @@ class FeedForward(Cell):
                 self.projection.shard(strategy_matmul=((dp, mp), (mp, 1)),
                                       strategy_bias=((dp, 1), (1,)))
             self.projection.bias.parallel_optimizer = False
-            if is_version_ge(mindspore.__version__, '2.0.0'):
-                self.dropout = nn.Dropout(p=dropout_rate)
-                self.dropout_3d = nn.Dropout(p=dropout_rate)
-                self.dropout_4d = nn.Dropout(p=dropout_rate)
-            else:
-                self.dropout = nn.Dropout(1 - dropout_rate)
-                self.dropout_3d = nn.Dropout(1 - dropout_rate)
-                self.dropout_4d = nn.Dropout(1 - dropout_rate)
+
+            kwargs = _inspect_dropout(keep_prob=1 - dropout_rate)
+            self.dropout = nn.Dropout(**kwargs)
+            self.dropout_3d = nn.Dropout(**kwargs)
+            self.dropout_4d = nn.Dropout(**kwargs)
             self.dropout.dropout.shard(((dp, 1),))
             self.dropout_3d.dropout.shard(((dp, 1, 1),))
             self.dropout_4d.dropout.shard(((dp, ep, 1, 1),))
             self.cast = P.Cast()
+
 
     def construct(self, x):
         """Forward process of the FeedForward"""
@@ -976,12 +985,9 @@ class MultiHeadAttention(Cell):
             # Normalize factor for attention, sqrt(dk) as widely used
             self.scale_factor = Tensor(math.sqrt(math.sqrt(self.size_per_head)))
             self.use_past = use_past
-            if is_version_ge(mindspore.__version__, '2.0.0'):
-                self.dropout = nn.Dropout(p=hidden_dropout_rate)
-                self.prob_dropout = nn.Dropout(p=attention_dropout_rate)
-            else:
-                self.dropout = nn.Dropout(1 - hidden_dropout_rate)
-                self.prob_dropout = nn.Dropout(1 - attention_dropout_rate)
+            kwargs = _inspect_dropout(keep_prob=1 - hidden_dropout_rate)
+            self.dropout = nn.Dropout(**kwargs)
+            self.prob_dropout = nn.Dropout(**kwargs)
             self.softmax = nn.Softmax().to_float(softmax_compute_type)
             self.softmax_3d = nn.Softmax().to_float(softmax_compute_type)
             self.expand_dims = P.ExpandDims()
@@ -1081,12 +1087,10 @@ class MultiHeadAttention(Cell):
             # Normalize factor for attention, sqrt(dk) as widely used
             self.scale_factor = Tensor(math.sqrt(math.sqrt(self.size_per_head)))
             self.use_past = use_past
-            if is_version_ge(mindspore.__version__, '2.0.0'):
-                self.dropout = nn.Dropout(p=hidden_dropout_rate)
-                self.prob_dropout = nn.Dropout(p=attention_dropout_rate)
-            else:
-                self.dropout = nn.Dropout(1 - hidden_dropout_rate)
-                self.prob_dropout = nn.Dropout(1 - attention_dropout_rate)
+
+            kwargs = _inspect_dropout(keep_prob=1 - hidden_dropout_rate)
+            self.dropout = nn.Dropout(**kwargs)
+            self.prob_dropout = nn.Dropout(**kwargs)
             self.dropout.dropout.shard(((parallel_config.data_parallel, 1),))
             self.prob_dropout.dropout.shard(
                 ((parallel_config.data_parallel, parallel_config.model_parallel, 1, 1),))
