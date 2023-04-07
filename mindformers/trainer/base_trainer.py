@@ -310,7 +310,11 @@ class BaseTrainer:
         if self.config.lr_schedule:
             warmup_epochs = self.config.lr_schedule.pop("warmup_epochs", None)
             warmup_ratio = self.config.lr_schedule.pop("warmup_ratio", None)
-            total_steps = int(self.config.runner_config.epochs * train_data_size)
+
+            if not self.config.runner_config.sink_mode:
+                total_steps = int(self.config.runner_config.epochs * train_data_size)
+            else:
+                total_steps = int(self.config.runner_config.epochs * self.config.runner_config.per_epoch_size)
 
             if warmup_epochs is not None and warmup_ratio is not None:
                 logger.warning("warmup_epochs and warmup_ratio are set simultaneously,"
