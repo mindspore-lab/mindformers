@@ -264,19 +264,9 @@ RUN_STATUS: 为任务运行状态，支持关键字 train\finetune\eval\predict
   clip_tokenizer = AutoTokenizer.from_pretrained('clip_vit_b_32')
   ```
 
-## Benchmark
-
-请[待补充](docs/benchmark.md)查看每个模型的复现性能基准。
-
-## FAQ
-
-1. 如何迁移HuggingFace权重 ？
-
-请查看[待补充](./tools/README.md)
-
 ## 贡献
 
-欢迎参与社区贡献，详情参考[Contributor Wiki](https://gitee.com/mindspore/mindspore/blob/master/CONTRIBUTING_CN.md)。
+欢迎参与社区贡献，可参考MindSpore贡献要求[Contributor Wiki](https://gitee.com/mindspore/mindspore/blob/master/CONTRIBUTING_CN.md)。
 
 ## 许可证
 
