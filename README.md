@@ -52,8 +52,6 @@ bash build.sh
 
 ### 快速使用
 
-目前该库提供两种方式供用户使用，套件详细设计请阅：[MindFormers套件设计](https://gitee.com/mindspore/mindformers/wikis/%E7%89%B9%E6%80%A7%E8%AE%BE%E8%AE%A1%E6%96%87%E6%A1%A3?sort_id=6569071)
-
 MindFormers套件对外提供两种使用和开发形式，为开发者提供灵活且简洁的使用方式和高阶开发接口。
 
 #### 方式一：使用已有脚本启动
