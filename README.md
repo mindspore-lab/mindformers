@@ -18,6 +18,10 @@ MindSpore Transformers套件基于MindSpore内置的并行技术和组件化设�
 
 如果您对MindSpore MindFormers有任何建议，请通过Gitee或MindSpore与我们联系，我们将及时处理。
 
+- 预训练模型readme：[docs/model_cards](docs/model_cards)
+- 下游任务模型readme：[docs/task_cards](docs/task_cards)
+- 详细指导文档：[mindformers](https://mindformers.readthedocs.io/en/r0.3)
+
 目前支持的模型列表如下：
 
 |                  模型                   |                                                                                    已支持任务（task name）                                                                                     |                                                                                                                                 已支持模型（model name）                                                                                                                                 |
