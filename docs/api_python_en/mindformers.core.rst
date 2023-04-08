@@ -36,7 +36,6 @@ mindformers.core.loss
     :template: classtemplate.rst
 
     mindformers.core.loss.CrossEntropyLoss
-    mindformers.core.loss.InfoNceLoss
     mindformers.core.loss.L1Loss
     mindformers.core.loss.MSELoss
     mindformers.core.loss.SoftTargetCrossEntropy

@@ -30,20 +30,16 @@ from mindformers.tools.logger import _LogActionOnce
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.modules.transformer.op_parallel_config import default_dpmp_config
 
-
-__all__ = ['SoftTargetCrossEntropy', 'MSELoss', 'L1Loss', 'InfoNceLoss', 'CrossEntropyLoss']
+__all__ = ['SoftTargetCrossEntropy', 'MSELoss', 'L1Loss', 'CrossEntropyLoss']
 
 
 @MindFormerRegister.register(MindFormerModuleType.LOSS)
 class SoftTargetCrossEntropy(LossBase):
     """SoftTargetCrossEntropy for MixUp Augment."""
 
-    def __init__(self, parallel_config=None):
+    def __init__(self, parallel_config=default_dpmp_config):
         super(SoftTargetCrossEntropy, self).__init__()
-        if parallel_config:
-            dp = parallel_config.data_parallel
-        else:
-            dp = 1
+        dp = parallel_config.data_parallel
         self.mean_ops = P.ReduceMean(keep_dims=False).shard(((1,),))
         self.sum_ops = P.ReduceSum(keep_dims=False).shard(((dp, 1),))
         self.mul = P.Mul().shard(((dp, 1), (dp, 1)))
@@ -63,12 +59,9 @@ class SoftTargetCrossEntropy(LossBase):
 @MindFormerRegister.register(MindFormerModuleType.LOSS)
 class MSELoss(nn.Cell):
     """MSELoss for parallel."""
-    def __init__(self, norm_pixel_loss=True, parallel_config=None):
+    def __init__(self, norm_pixel_loss=True, parallel_config=default_dpmp_config):
         super(MSELoss, self).__init__()
-        if parallel_config is not None:
-            dp = parallel_config.data_parallel
-        else:
-            dp = 1
+        dp = parallel_config.data_parallel
         self.add_loss = P.Add().shard(((dp, 1, 1), ()))
         self.sub = P.Sub().shard(((dp, 1, 1), (dp, 1, 1)))
         self.divide = P.RealDiv().shard(((dp, 1, 1), (dp, 1, 1)))
@@ -117,84 +110,11 @@ class MSELoss(nn.Cell):
 
 
 @MindFormerRegister.register(MindFormerModuleType.LOSS)
-class InfoNceLoss(nn.Cell):
-    """InfoNceLoss for parallel."""
-    def __init__(self, temperature=0.1, batch_size=64, n_views=2, parallel_config=None):
-        super(InfoNceLoss, self).__init__()
-        if parallel_config:
-            dp = parallel_config.data_parallel
-            mp = parallel_config.model_parallel
-        else:
-            dp = 1
-            mp = 1
-
-        self.batch_size = batch_size // 2
-        self.temperature = temperature
-        self.n_views = n_views
-        self.norm = P.L2Normalize(axis=-1).shard(((dp, 1),))
-        self.matmul = P.MatMul(transpose_b=True).shard(((dp, 1), (mp, 1)))
-        parallel_config.model_parallel = 1
-        self.cross_entropy = CrossEntropyLoss(parallel_config=parallel_config)
-        self.reshape = P.Reshape()
-        self.gather = P.GatherNd().shard(((1, 1), (1, 1)))
-        self.cat = P.Concat(axis=2).shard(((1, 1, 1), (1, 1, 1)))
-
-        self.pos_mask = Tensor(
-            [[i, j]
-             for i in range(self.batch_size * self.n_views)
-             for j in range(self.batch_size * self.n_views)
-             if j % self.batch_size == i % self.batch_size and j != i], mstype.int32)
-        self.neg_mask = Tensor(
-            [[i, j]
-             for i in range(self.batch_size * self.n_views)
-             for j in range(self.batch_size * self.n_views)
-             if j % self.batch_size != i % self.batch_size], mstype.int32)
-
-        self.ones_like = P.OnesLike().shard(((dp,),))
-        self.zeros = P.Zeros().shard(((dp,),))
-        self.real_div = P.RealDiv().shard(((dp, 1), ()))
-        self.expand_dim = P.ExpandDims().shard(((dp, 1),))
-
-    def construct(self, features):
-        """InfoNceLoss construct."""
-        b = self.batch_size
-        n = self.n_views
-        features = self.reshape(features, (b * n, -1))
-        # [ B * N, B * N ]
-        features = self.norm(features)
-        # [ B * N, E ]
-        similarity_matrix = self.matmul(features, features)
-        # [ B * N, E ] * [ E, B * N ] = [ B * N, B * N ]
-
-        pos = self.gather(similarity_matrix, self.pos_mask)
-        # [ B * N, N - 1 ]
-        neg = self.gather(similarity_matrix, self.neg_mask)
-        # [ B * N, (B - 1) * N ]
-
-        pos = self.reshape(pos, (b * n, -1))
-        neg = self.reshape(neg, (b * n, -1))
-        pos = self.expand_dim(pos, 0)
-        neg = self.expand_dim(neg, 0)
-        logits = self.cat((pos, neg))
-        logits = self.reshape(logits, (logits.shape[1], -1))
-
-        labels = self.zeros(logits.shape[0], mstype.int32)
-        logits = self.real_div(logits, self.temperature)
-        input_mask = self.ones_like(labels)
-        input_mask = self.cast(input_mask, mstype.float32)
-        return self.cross_entropy(logits, labels, input_mask)
-
-
-@MindFormerRegister.register(MindFormerModuleType.LOSS)
 class L1Loss(LossBase):
     """L1Loss for parallel."""
-    def __init__(self, reduction='mean', parallel_config=None):
+    def __init__(self, reduction='mean', parallel_config=default_dpmp_config):
         super(L1Loss, self).__init__()
-
-        if parallel_config:
-            dp = parallel_config.data_parallel
-        else:
-            dp = 1
+        dp = parallel_config.data_parallel
 
         self.abs = P.Abs().shard(((dp, 1, 1, 1),))
         self.sub = P.Sub().shard(((dp, 1, 1, 1), (dp, 1, 1, 1)))
