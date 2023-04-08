@@ -1,4 +1,4 @@
-# 欢迎来到MindSpore MindFormers
+# 欢迎来到MindSpore Transformers（MindFormers）
 
 ## 介绍
 
@@ -16,7 +16,7 @@ MindSpore Transformers套件基于MindSpore内置的并行技术和组件化设�
 - 提供预置SOTA权重自动下载及加载功能；
 - 支持人工智能计算中心无缝迁移部署；
 
-如果您对MindSpore MindFormers有任何建议，请通过Gitee或MindSpore与我们联系，我们将及时处理。
+如果您对MindSpore Transformers有任何建议，请通过issue与我们联系，我们将及时处理。
 
 - 预训练模型readme：[docs/model_cards](docs/model_cards)
 - 下游任务模型readme：[docs/task_cards](docs/task_cards)
