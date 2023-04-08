@@ -14,6 +14,7 @@
 # ============================================================================
 """Masked Image Modeling Dataset."""
 import os
+import copy
 
 import mindspore.common.dtype as mstype
 import mindspore.dataset.transforms.c_transforms as C
@@ -48,6 +49,7 @@ class MaskLanguageModelDataset(BaseDataset):
         device_num = int(os.getenv("RANK_SIZE", "1"))
         cls.init_dataset_config(dataset_config)
         rank_id, device_num = cls._check_device_rank_for_parallel(rank_id, device_num)
+        dataset_config = copy.deepcopy(dataset_config)
         if "data_files" not in dataset_config.data_loader \
             and dataset_config.data_loader.dataset_dir:
             dataset_files = []

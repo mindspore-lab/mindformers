@@ -14,6 +14,7 @@
 # ============================================================================
 """T5 Dataset."""
 import os
+import copy
 import numpy as np
 
 
@@ -108,6 +109,7 @@ class TranslationDataset(BaseDataset):
         """Process the mindrecord data"""
         rank_id = int(os.getenv("RANK_ID", "0"))
         device_num = int(os.getenv("RANK_SIZE", "1"))
+        dataset_config = copy.deepcopy(dataset_config)
         if "data_files" not in dataset_config.data_loader \
                 and dataset_config.data_loader.dataset_dir:
             dataset_files = []
