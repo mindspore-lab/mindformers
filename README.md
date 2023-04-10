@@ -55,7 +55,7 @@ pip install https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFor
 
 具体参考[镜像安装](https://mindformers.readthedocs.io/en/r0.3/%E5%BC%80%E5%A7%8B.html#id1)
 
-### 版本匹配关系
+>> 版本匹配关系
 
 |版本对应关系| MindFormers | MindSpore | python |
 |-----------|-------------| ----------| ----------|
@@ -65,7 +65,7 @@ pip install https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFor
 
 MindFormers套件对外提供两种使用和开发形式，为开发者提供灵活且简洁的使用方式和高阶开发接口。
 
-### 方式一：使用已有脚本启动
+#### 方式一：使用已有脚本启动
 
 用户可以直接clone整个仓库，按照以下步骤即可运行套件中已支持的任意`configs`模型任务配置文件，方便用户快速进行使用和开发：
 
@@ -114,7 +114,7 @@ DEVICE_RANGE: 为单机分布式卡的范围, 如[0,8]为8卡分布式，不包�
 RUN_STATUS: 为任务运行状态，支持关键字 train\finetune\eval\predict
 ```
 
-### 方式二：调用API启动
+#### 方式二：调用API启动
 
 - 准备工作
 
