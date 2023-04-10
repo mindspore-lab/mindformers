@@ -48,7 +48,7 @@ bash build.sh
 
 - 方式2：镜像
 
-具体参考[镜像安装]（https://mindformers.readthedocs.io/en/r0.3/%E5%BC%80%E5%A7%8B.html#id1）
+具体参考[镜像安装](https://mindformers.readthedocs.io/en/r0.3/%E5%BC%80%E5%A7%8B.html#id1)
 
 ### 版本匹配关系
 
