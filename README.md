@@ -55,13 +55,13 @@ pip install https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFor
 
 具体参考[镜像安装](https://mindformers.readthedocs.io/en/r0.3/%E5%BC%80%E5%A7%8B.html#id1)
 
->> 版本匹配关系
+## 三、版本匹配关系
 
 |版本对应关系| MindFormers | MindSpore | python |
 |-----------|-------------| ----------| ----------|
 |版本号      | 0.3.0       | 1.8.1 | 3.7.5 |
 
-## 三、快速使用
+## 四、快速使用
 
 MindFormers套件对外提供两种使用和开发形式，为开发者提供灵活且简洁的使用方式和高阶开发接口。
 
@@ -275,10 +275,10 @@ RUN_STATUS: 为任务运行状态，支持关键字 train\finetune\eval\predict
   clip_tokenizer = AutoTokenizer.from_pretrained('clip_vit_b_32')
   ```
 
-## 四、贡献
+## 五、贡献
 
 欢迎参与社区贡献，可参考MindSpore贡献要求[Contributor Wiki](https://gitee.com/mindspore/mindspore/blob/master/CONTRIBUTING_CN.md)。
 
-## 五、许可证
+## 六、许可证
 
 [Apache 2.0许可证](LICENSE)
