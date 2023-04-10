@@ -27,6 +27,9 @@ class BaseDataset:
     @classmethod
     def init_dataset_config(cls, dataset_config):
         """Init dataset config."""
+        if dataset_config is None:
+            raise ValueError("dataset_config cannot be None!")
+
         ds.config.set_seed(dataset_config.seed)
         ds.config.set_prefetch_size(dataset_config.prefetch_size)
         ds.config.set_numa_enable(dataset_config.numa_enable)

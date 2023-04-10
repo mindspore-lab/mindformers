@@ -15,6 +15,7 @@
 """ Transformer-Config dict parse module """
 
 import os
+import copy
 import argparse
 from argparse import Action
 from collections import OrderedDict
@@ -92,6 +93,20 @@ class MindFormerConfig(dict):
             key (str) : The name of object attr.
         """
         del self[key]
+
+    def __deepcopy__(self, memo=None):
+        """Deep copy operation on arbitrary MindFormerConfig objects.
+
+        Args:
+            memo (dict) : Objects that already copied.
+        Returns:
+            MindFormerConfig : The deep copy of the given MindFormerConfig object.
+        """
+        config = MindFormerConfig()
+        for key in self.keys():
+            config.__setattr__(copy.deepcopy(key, memo),
+                               copy.deepcopy(self.__getattr__(key), memo))
+        return config
 
     def merge_from_dict(self, options):
         """Merge options into config file.

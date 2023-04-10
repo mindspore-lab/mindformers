@@ -14,6 +14,7 @@
 # ============================================================================
 """Text Classification Dataset."""
 import os
+import copy
 import mindspore.common.dtype as mstype
 import mindspore.dataset.transforms.c_transforms as C
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
@@ -46,6 +47,7 @@ class TextClassificationDataset(BaseDataset):
         cls.init_dataset_config(dataset_config)
         rank_id = int(os.getenv("RANK_ID", "0"))
         device_num = int(os.getenv("RANK_SIZE", "1"))
+        dataset_config = copy.deepcopy(dataset_config)
         if "data_files" not in dataset_config.data_loader \
             and dataset_config.data_loader.dataset_dir:
             dataset_files = []
