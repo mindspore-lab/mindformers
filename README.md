@@ -36,6 +36,8 @@ MindSpore Transformers套件基于MindSpore内置的并行技术和组件化设�
 
 ### mindformers安装
 
+- 方式1：源码编译安装
+
 支持源码编译安装，用户可以执行下述的命令进行包的安装
 
 ```bash
@@ -43,6 +45,10 @@ git clone -b r0.3 https://gitee.com/mindspore/mindformers.git
 cd mindformers
 bash build.sh
 ```
+
+- 方式2：镜像
+
+具体参考[镜像安装]（https://mindformers.readthedocs.io/en/r0.3/%E5%BC%80%E5%A7%8B.html#id1）
 
 ### 版本匹配关系
 
