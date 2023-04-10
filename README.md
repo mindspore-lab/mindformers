@@ -1,6 +1,6 @@
 # 欢迎来到MindSpore Transformers（MindFormers）
 
-## 介绍
+## 一、介绍
 
 MindSpore Transformers套件的目标是构建一个大模型训练、微调、评估、推理、部署的全流程开发套件：
 提供业内主流的Transformer类预训练模型和SOTA下游任务应用，涵盖丰富的并行特性。期望帮助用户轻松的实现大模型训练和创新研发。
@@ -34,7 +34,7 @@ MindSpore Transformers套件基于MindSpore内置的并行技术和组件化设�
 | [Swin](docs/model_cards/swin.md) |                                                               [image_classification](docs/task_cards/image_classification.md)                                                               |                                                                                                                                                                                                                                                                                                 [swin_base_p4w7](configs/swin/model_config/swin_base_p4w7.yaml)                                                                                                                                                                                                                                                                                                 |
 | [CLIP](docs/model_cards/clip.md) |   [contrastive_language_image_pretrain](docs/task_cards/contrastive_language_image_pretrain.md),<br/> [zero_shot_image_classification](docs/task_cards/zero_shot_image_classification.md)   |                                                                                                                                                                                        [clip_vit_b_32](configs/clip/model_config/clip_vit_b_32.yaml) <br/> [clip_vit_b_16](configs/clip/model_config/clip_vit_b_16.yaml) <br/> [clip_vit_l_14](configs/clip/model_config/clip_vit_l_14.yaml) <br/> [clip_vit_l_14@336](configs/clip/model_config/clip_vit_l_14@336.yaml)                                                                                                                                                                                        |
 
-### mindformers安装
+## 二、mindformers安装
 
 - 方式1：源码编译安装
 
@@ -61,11 +61,11 @@ pip install https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFor
 |-----------|-------------| ----------| ----------|
 |版本号      | 0.3.0       | 1.8.1 | 3.7.5 |
 
-### 快速使用
+## 三、快速使用
 
 MindFormers套件对外提供两种使用和开发形式，为开发者提供灵活且简洁的使用方式和高阶开发接口。
 
-#### 方式一：使用已有脚本启动
+### 方式一：使用已有脚本启动
 
 用户可以直接clone整个仓库，按照以下步骤即可运行套件中已支持的任意`configs`模型任务配置文件，方便用户快速进行使用和开发：
 
@@ -114,7 +114,7 @@ DEVICE_RANGE: 为单机分布式卡的范围, 如[0,8]为8卡分布式，不包�
 RUN_STATUS: 为任务运行状态，支持关键字 train\finetune\eval\predict
 ```
 
-#### 方式二：调用API启动
+### 方式二：调用API启动
 
 - 准备工作
 
@@ -275,10 +275,10 @@ RUN_STATUS: 为任务运行状态，支持关键字 train\finetune\eval\predict
   clip_tokenizer = AutoTokenizer.from_pretrained('clip_vit_b_32')
   ```
 
-## 贡献
+## 四、贡献
 
 欢迎参与社区贡献，可参考MindSpore贡献要求[Contributor Wiki](https://gitee.com/mindspore/mindspore/blob/master/CONTRIBUTING_CN.md)。
 
-## 许可证
+## 五、许可证
 
 [Apache 2.0许可证](LICENSE)
