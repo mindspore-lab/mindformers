@@ -371,6 +371,8 @@ class Trainer:
                            "but it's None.")
 
         if do_eval:
+            logger.warning("do_eval is not supported yet."
+                           "It is a reserved interface and will be supported in future versions.")
             if self.eval_dataset is None:
                 self.eval_dataset = build_dataset(self.config.eval_dataset_task)
             if self.eval_dataset is None:
