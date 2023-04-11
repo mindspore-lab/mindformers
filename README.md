@@ -120,13 +120,7 @@ RUN_STATUS: 为任务运行状态，支持关键字 train\finetune\eval\predict
 
     - step 1：安装mindformers
 
-  目前仅支持源码编译安装，用户可以执行下述的命令进行包的安装：
-
-  ```shell
-  git clone -b https://gitee.com/mindspore/mindformers.git
-  cd mindformers
-  bash build.sh
-  ```
+  具体安装请参考[第二章](https://gitee.com/mindspore/mindformers/blob/r0.3/README.md#%E4%BA%8Cmindformers%E5%AE%89%E8%A3%85)
 
     - step2: 准备数据
 
@@ -138,7 +132,7 @@ RUN_STATUS: 为任务运行状态，支持关键字 train\finetune\eval\predict
 
     - Trainer 训练\微调启动
 
-  用户可使用`Trainer.train`接口完成模型的训练\微调\断点续训\边训练边评估流程。
+  用户可使用`Trainer.train`接口完成模型的训练\微调\断点续训。
 
   ```python
   from mindformers import Trainer
@@ -146,14 +140,12 @@ RUN_STATUS: 为任务运行状态，支持关键字 train\finetune\eval\predict
   cls_trainer = Trainer(task='image_classification', # 已支持的任务名
                         model='vit_base_p16', # 已支持的模型名
                         train_dataset="/data/imageNet-1k/train", # 传入标准的训练数据集路径，默认支持ImageNet数据集格式
-                        eval_dataset="/data/imageNet-1k/eval") # 传入标准的评估数据集路径，默认支持ImageNet数据集格式
+                        eval_dataset="/data/imageNet-1k/val") # 传入标准的评估数据集路径，默认支持ImageNet数据集格式
   # Example 1： 开启训练复现流程
   cls_trainer.train()
-  # Example 2： 开启边训练边评估功能（要求eval_dataset不能为空）
-  cls_trainer.train(do_eval=True)
-  # Example 3： 加载集成的mae权重，开启微调流程
+  # Example 2： 加载集成的mae权重，开启微调流程
   cls_trainer.train(resume_or_finetune_from_checkpoint='mae_vit_base_p16', do_finetune=True)
-  # Example 4： 开启断点续训功能（如训练10epochs中断）
+  # Example 3： 开启断点续训功能（如训练10epochs中断）
   cls_trainer.train(resume_or_finetune_from_checkpoint=True, init_epochs=10)
   ```
 
@@ -166,7 +158,7 @@ RUN_STATUS: 为任务运行状态，支持关键字 train\finetune\eval\predict
 
   cls_trainer = Trainer(task='image_classification', # 已支持的任务名
                         model='vit_base_p16', # 已支持的模型名
-                        eval_dataset="/data/imageNet-1k/eval") # 传入标准的评估数据集路径，默认支持ImageNet数据集格式
+                        eval_dataset="/data/imageNet-1k/val") # 传入标准的评估数据集路径，默认支持ImageNet数据集格式
   # Example 1： 开启评估已集成模型权重的复现流程
   cls_trainer.evaluate()
   # Example 2： 开启评估训练得到的最后一个权重
