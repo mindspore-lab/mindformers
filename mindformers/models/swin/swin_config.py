@@ -52,6 +52,7 @@ class SwinConfig(BaseConfig):
          patch_norm: use norm in SwinPatchEmbeddings, Default True.
          hidden_act: activation of MLP, Default "gelu".
          weight_init: weight initialize type, Default "normal".
+         num_labels: number of labels in downstream tasks, Default 1000.
          loss_type: loss type, Default "SoftTargetCrossEntropy".
          param_init_type:, Default mstype.float32.
          moe_config:, Default default_moe_config.
@@ -96,6 +97,7 @@ class SwinConfig(BaseConfig):
                  patch_norm: bool = True,
                  hidden_act: str = 'gelu',
                  weight_init: str = 'normal',
+                 num_labels: int = 1000,
                  loss_type: str = "SoftTargetCrossEntropy",
                  param_init_type: mstype = mstype.float32,
                  moe_config: MoEConfig = default_moe_config,
@@ -121,6 +123,7 @@ class SwinConfig(BaseConfig):
         self.patch_norm = patch_norm
         self.hidden_act = hidden_act
         self.weight_init = weight_init
+        self.num_labels = num_labels
         self.loss_type = loss_type
         self.param_init_type = param_init_type
         self.moe_config = moe_config
