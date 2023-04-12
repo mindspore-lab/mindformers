@@ -25,7 +25,7 @@ MindSpore Transformers基于MindSpore内置的并行技术，具备如下特点�
 
 MindSpore Transformers是一个基于MindSpore的Python软件包。
 
-.. image:: img/transformer_graph.png
+.. image:: img/mindformers_graph.png
     :alt: base_graph
     :align: center
 
