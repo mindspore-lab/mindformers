@@ -36,8 +36,6 @@ python create_lm_data.py --input_file /{path}/{cleaned_data_name} --output_file 
 
 #### 单卡启动
 
-- 运行mindformers/tools/hccl_tools.py生成RANK_TABLE_FILE的json文件
-
 ```shell
 python run_mindformer.py --config configs/gpt2/run_gpt2.yaml \
                          --run_mode train \
