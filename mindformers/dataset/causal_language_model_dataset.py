@@ -27,41 +27,59 @@ from .base_dataset import BaseDataset
 class CausalLanguageModelDataset(BaseDataset):
     """Gpt2 pretrain dataset.
 
-        Examples:
-    >>> from mindformers.tools.register import MindFormerConfig
-    >>> from mindformers.dataset import build_dataset, check_dataset_config
-    >>> # Initialize a MindFormerConfig instance with a specific config file of yaml.
-    >>> config = MindFormerConfig("gpt2")
-    >>> check_dataset_config(config)
-    >>> # 1) use config dict to build dataset
-    >>> dataset_from_config = build_dataset(config.train_dataset_task)
-    >>> # 2) use class name to build dataset
-    >>> dataset_from_name = build_dataset(class_name='CausalLanguageModelDataset', dataset_config=config.train_dataset)
-    >>> # 3) use class to build dataset
-    >>> dataset_from_class = CausalLanguageModelDataset(config.train_dataset)
+    Examples:
+        >>> from mindformers.tools.register import MindFormerConfig
+        >>> from mindformers import MindFormerBook
+        >>> from mindformers.dataset import CausalLanguageModelDataset
+        >>> from mindformers.dataset import build_dataset, check_dataset_config
+        >>> config_dict_list = MindFormerBook.get_trainer_support_task_list()
+        >>> config_path = config_dict_list['text_generation']['gpt2']
+        >>> # Initialize a MindFormerConfig instance with a specific config file of yaml.
+        >>> config = MindFormerConfig(config_path)
+        >>> config.train_dataset.data_loader.dataset_dir = "The required task dataset path"
+            Note:
+                The detailed data setting could refer to
+                https://gitee.com/mindspore/mindformers/blob/r0.3/docs/model_cards/gpt2.md
+        >>> check_dataset_config(config)
+        >>> # 1) use config dict to build dataset
+        >>> dataset_from_config = build_dataset(config.train_dataset_task)
+        >>> # 2) use class name to build dataset
+        >>> dataset_from_name = build_dataset(class_name='CausalLanguageModelDataset',
+        ...                                   dataset_config=config.train_dataset_task.dataset_config)
+        >>> # 3) use class to build dataset
+        >>> dataset_from_class = CausalLanguageModelDataset(config.train_dataset_task.dataset_config)
     """
     def __new__(cls, dataset_config: dict = None):
-        logger.info("Now Create Causal Image Modeling Dataset.")
+        logger.info("Now Create Causal Language Modeling Dataset.")
         rank_id = int(os.getenv("RANK_ID", "0"))
         device_num = int(os.getenv("RANK_SIZE", "1"))
         cls.init_dataset_config(dataset_config)
         rank_id, device_num = cls._check_device_rank_for_parallel(rank_id, device_num)
         dataset_config = copy.deepcopy(dataset_config)
-        if "data_files" not in dataset_config.data_loader \
-            and dataset_config.data_loader.dataset_dir:
-            dataset_files = []
-            data_dir = dataset_config.data_loader.dataset_dir
+
+        if not (dataset_config.data_loader.type == 'MindDataset' or
+                dataset_config.data_loader.type == 'TFRecordDataset'):
+            raise NotImplementedError("Now, Causal Language Modeling Dataset only supports "
+                                      "MindSpore's MindDataset and TFRecordDataset two data loading modes")
+        dataset_files = []
+        if dataset_config.data_loader.dataset_dir:
+            data_dir = dataset_config.data_loader.pop("dataset_dir")
             if os.path.isdir(data_dir):
                 for r, _, f in os.walk(data_dir):
                     for file in f:
-                        if file.endswith(".mindrecord"):
+                        if file.endswith(".mindrecord") or file.endswith(".tfrecord"):
                             dataset_files.append(os.path.join(r, file))
             else:
-                if data_dir.endswith(".mindrecord"):
-                    dataset_files.append(data_dir)
+                if data_dir.endswith(".mindrecord") or data_dir.endswith(".tfrecord"):
+                    dataset_files = data_dir
+        elif dataset_config.data_loader.dataset_files:
+            dataset_files = dataset_config.data_loader.dataset_files
+            if isinstance(dataset_files, (list, tuple)):
+                dataset_files = list(dataset_files)
         else:
-            dataset_files = list(dataset_config.data_loader.dataset_files)
-        dataset_config.data_loader.pop("dataset_dir")
+            raise ValueError(f"data_loader must contain dataset_dir or dataset_files,"
+                             f"but get {dataset_config.data_loader}.")
+
         dataset = build_dataset_loader(
             dataset_config.data_loader, default_args={'dataset_files': dataset_files,
                                                       'num_shards': device_num, 'shard_id': rank_id})

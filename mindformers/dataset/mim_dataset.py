@@ -31,16 +31,25 @@ class MIMDataset(BaseDataset):
 
     Examples:
         >>> from mindformers.tools.register import MindFormerConfig
+        >>> from mindformers import MindFormerBook
+        >>> from mindformers.dataset import MIMDataset
         >>> from mindformers.dataset import build_dataset, check_dataset_config
+        >>> config_dict_list = MindFormerBook.get_trainer_support_task_list()
+        >>> config_path = config_dict_list['masked_image_modeling']['mae_vit_base_p16']
         >>> # Initialize a MindFormerConfig instance with a specific config file of yaml.
-        >>> config = MindFormerConfig("configs/mae/run_mae_vit_base_p16_224_800ep.yaml")
+        >>> config = MindFormerConfig(config_path)
+        >>> config.train_dataset.data_loader.dataset_dir = "The required task dataset path"
+            Note:
+                The detailed data setting could refer to
+                https://gitee.com/mindspore/mindformers/blob/r0.3/docs/model_cards/mae.md
         >>> check_dataset_config(config)
         >>> # 1) use config dict to build dataset
         >>> dataset_from_config = build_dataset(config.train_dataset_task)
         >>> # 2) use class name to build dataset
-        >>> dataset_from_name = build_dataset(class_name='MIMDataset', dataset_config=config.train_dataset)
+        >>> dataset_from_name = build_dataset(class_name='MIMDataset',
+        ...                                   dataset_config=config.train_dataset_task.dataset_config)
         >>> # 3) use class to build dataset
-        >>> dataset_from_class = MIMDataset(config.train_dataset)
+        >>> dataset_from_class = MIMDataset(config.train_dataset_task.dataset_config)
     """
     def __new__(cls, dataset_config: dict = None):
         logger.info("Now Create Masked Image Modeling Dataset.")
