@@ -33,9 +33,32 @@ __all__ = ['TranslationDataset']
 
 @MindFormerRegister.register(MindFormerModuleType.DATASET)
 class TranslationDataset(BaseDataset):
-    """Bert pretrain dataset."""
+    """Translation dataset.
+
+    Examples:
+        >>> from mindformers.tools.register import MindFormerConfig
+        >>> from mindformers import MindFormerBook
+        >>> from mindformers.dataset import TranslationDataset
+        >>> from mindformers.dataset import build_dataset, check_dataset_config
+        >>> config_dict_list = MindFormerBook.get_trainer_support_task_list()
+        >>> config_path = config_dict_list['translation']['t5_small']
+        >>> # Initialize a MindFormerConfig instance with a specific config file of yaml.
+        >>> config = MindFormerConfig(config_path)
+        >>> config.train_dataset.data_loader.dataset_dir = "The required task dataset path"
+            Note:
+                The detailed data setting could refer to
+                https://gitee.com/mindspore/mindformers/blob/r0.3/docs/model_cards/t5.md
+        >>> check_dataset_config(config)
+        >>> # 1) use config dict to build dataset
+        >>> dataset_from_config = build_dataset(config.train_dataset_task)
+        >>> # 2) use class name to build dataset
+        >>> dataset_from_name = build_dataset(class_name='TranslationDataset',
+        ...                                   dataset_config=config.train_dataset_task.dataset_config)
+        >>> # 3) use class to build dataset
+        >>> dataset_from_class = TranslationDataset(config.train_dataset_task.dataset_config)
+    """
     def __new__(cls, dataset_config: dict = None):
-        logger.info("Now Create T5 Dataset.")
+        logger.info("Now Create Translation Dataset.")
         cls.init_dataset_config(dataset_config)
         if dataset_config.data_loader.type != 'MindDataset':
             dataset = cls._process_raw_text_data(dataset_config)
@@ -110,24 +133,29 @@ class TranslationDataset(BaseDataset):
         rank_id = int(os.getenv("RANK_ID", "0"))
         device_num = int(os.getenv("RANK_SIZE", "1"))
         dataset_config = copy.deepcopy(dataset_config)
-        if "data_files" not in dataset_config.data_loader \
-                and dataset_config.data_loader.dataset_dir:
-            dataset_files = []
-            data_dir = dataset_config.data_loader.dataset_dir
+
+        dataset_files = []
+        if dataset_config.data_loader.dataset_dir:
+            data_dir = dataset_config.data_loader.pop("dataset_dir")
             if os.path.isdir(data_dir):
                 for r, _, f in os.walk(data_dir):
                     for file in f:
-                        if not file.endswith("db"):
+                        if file.endswith(".mindrecord"):
                             dataset_files.append(os.path.join(r, file))
             else:
-                if not data_dir.endswith("db"):
-                    dataset_files.append(data_dir)
+                if data_dir.endswith(".mindrecord"):
+                    dataset_files = data_dir
+        elif dataset_config.data_loader.dataset_files:
+            dataset_files = dataset_config.data_loader.dataset_files
+            if isinstance(dataset_files, (list, tuple)):
+                dataset_files = list(dataset_files)
         else:
-            dataset_files = list(dataset_config.data_loader.dataset_files)
-        dataset_config.data_loader.pop("dataset_dir")
+            raise ValueError(f"data_loader must contain dataset_dir or dataset_files,"
+                             f"but get {dataset_config.data_loader}.")
+
         logger.info("Using args %s to instance the dataset.", dataset_config.data_loader)
         dataset = build_dataset_loader(
-            dataset_config.data_loader, default_args={'dataset_files': dataset_files[0],
+            dataset_config.data_loader, default_args={'dataset_files': dataset_files,
                                                       'num_shards': device_num, 'shard_id': rank_id,
                                                       'columns_list': dataset_config.input_columns})
         return dataset
