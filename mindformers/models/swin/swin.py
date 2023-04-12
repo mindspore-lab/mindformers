@@ -104,7 +104,7 @@ class SwinModel(SwinBaseModel):
         self.num_labels = config.num_labels
         self.num_layers = len(config.depths)
         self.embed_dim = config.embed_dim
-        self.ape = config.ape
+        self.ape = config.use_absolute_embeddings
         self.num_channels = config.num_channels
         self.patch_size = config.patch_size
         self.patch_norm = config.patch_norm
