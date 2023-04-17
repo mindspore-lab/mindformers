@@ -1190,7 +1190,7 @@ class MultiHeadAttention(Cell):
             # The first graph with the input size of (bs, seq_length)
             if self.is_first_iteration:
                 # Get the valid input length without padding
-                valid_length_vector = F.cast(self.less(self.range, batch_valid_length.view(-1, 1, 1)), self.dtype)
+                valid_length_vector = F.cast(self.tensor_le(self.range, batch_valid_length.view(-1, 1, 1)), self.dtype)
                 # Cover the key and value numbers corresponding to the padding position
                 key_present = self.mul1(key, self.expand_dims(valid_length_vector, 2))
                 value_present = self.mul1(value, self.expand_dims(valid_length_vector, 3))
