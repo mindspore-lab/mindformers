@@ -341,6 +341,10 @@ class ProfileMonitor(Callback):
 
         output_path = os.path.join(LOCAL_DEFAULT_PATH, 'profile') if output_path is None else output_path
 
+        if ms.get_context("device_target") == "GPU" and profile_memory:
+            logger.warning("The parameter profile_memory is not supported on GPU currently, so is changed to False. ")
+            profile_memory = False
+
         self.profiler = Profiler(
             start_profile=start_profile, output_path=output_path,
             profile_communication=profile_communication, profile_memory=profile_memory, **kwargs)
