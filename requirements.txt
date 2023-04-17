@@ -4,3 +4,4 @@ ftfy
 regex
 tqdm
 pyyaml
+jieba

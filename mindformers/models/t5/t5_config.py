@@ -44,6 +44,7 @@ class T5Config(BaseConfig):
         is_encoder_decoder(bool): Whether the current model is encdeor-decoder. Default True.
         use_cache(bool): If use cache or not for inference. Default True.
         pad_token_id(int): The pad token id. Default 0.
+        start_token_id(int): The start token id. Default 0.
         eos_token_id(int): The end of sentence token id. Default 1.
         max_position_embeddings(int): The length of the position embedding. Default 1024.
         max_decode_length(int): The sequence length of the decoder part. Default 128.
@@ -92,6 +93,7 @@ class T5Config(BaseConfig):
                  is_encoder_decoder=True,
                  use_cache: bool = True,
                  pad_token_id: int = 0,
+                 start_token_id: int = 0,
                  eos_token_id: int = 1,
                  # The following are mindformers parameters
                  batch_size: int = 1,
@@ -143,6 +145,7 @@ class T5Config(BaseConfig):
         self.top_k = top_k
         self.repetition_penalty = repetition_penalty
         self.max_length = max_length
+        self.start_token_id = start_token_id
         self.eos_token_id = eos_token_id
         self.is_encoder_decoder = is_encoder_decoder
         self.do_sample = do_sample
