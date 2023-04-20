@@ -13,7 +13,7 @@
 # limitations under the License.
 # ============================================================================
 """Build Model API."""
-from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
+from mindformers.tools.register import MindFormerRegister, MindFormerModuleType, MindFormerConfig
 from .build_config import build_model_config
 
 
@@ -41,6 +41,8 @@ def build_model(
     if config is None and class_name is None:
         return None
     if config is not None:
+        if isinstance(config, dict) and not isinstance(config, MindFormerConfig):
+            config = MindFormerConfig(**config)
         if default_args is None:
             default_args = {}
 

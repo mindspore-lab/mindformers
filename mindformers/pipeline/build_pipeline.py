@@ -13,7 +13,7 @@
 # limitations under the License.
 # ============================================================================
 """Build Pipeline API."""
-from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
+from mindformers.tools.register import MindFormerRegister, MindFormerModuleType, MindFormerConfig
 
 
 def build_pipeline(
@@ -45,6 +45,8 @@ def build_pipeline(
     if config is None and class_name is None:
         return None
     if config is not None:
+        if isinstance(config, dict) and not isinstance(config, MindFormerConfig):
+            config = MindFormerConfig(**config)
         return MindFormerRegister.get_instance_from_cfg(
             config, MindFormerModuleType.PIPELINE, default_args=default_args)
     return MindFormerRegister.get_instance(module_type, class_name, **kwargs)

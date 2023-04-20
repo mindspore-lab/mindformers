@@ -17,7 +17,7 @@ import inspect
 
 from mindspore import dataset as ds
 
-from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
+from mindformers.tools.register import MindFormerRegister, MindFormerModuleType, MindFormerConfig
 
 
 def build_dataset_loader(
@@ -36,7 +36,7 @@ def build_dataset_loader(
         The function instance of dataset loader API.
 
     Examples:
-        >>> from mindformers import build_dataset_loader
+        >>> from mindformers.dataset.dataloader import build_dataset_loader
         >>> dataset_loader_config = {'type': 'ImageFolderDataset', 'dataset_dir': './imagenet/train'}
         >>> # 1) use config dict to build dataset loader
         >>> dataset_loader_from_config = build_dataset_loader(dataset_loader_config)
@@ -47,6 +47,8 @@ def build_dataset_loader(
     if config is None and class_name is None:
         return None
     if config is not None:
+        if isinstance(config, dict) and not isinstance(config, MindFormerConfig):
+            config = MindFormerConfig(**config)
         return MindFormerRegister.get_instance_from_cfg(
             config, MindFormerModuleType.DATASET_LOADER, default_args=default_args)
     return MindFormerRegister.get_instance(module_type, class_name, **kwargs)

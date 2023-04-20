@@ -17,7 +17,7 @@ import inspect
 
 from mindspore.train import callback
 
-from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
+from mindformers.tools.register import MindFormerRegister, MindFormerModuleType, MindFormerConfig
 
 
 def build_callback(
@@ -46,6 +46,8 @@ def build_callback(
     if config is None and class_name is None:
         return None
     if config is not None:
+        if isinstance(config, dict) and not isinstance(config, MindFormerConfig):
+            config = MindFormerConfig(**config)
         cfg_callback = config
         if not isinstance(cfg_callback, list):
             return MindFormerRegister.get_instance_from_cfg(

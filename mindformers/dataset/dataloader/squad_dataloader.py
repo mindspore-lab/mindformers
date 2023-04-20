@@ -52,7 +52,9 @@ class SQuADDataLoader:
 
         Examples:
             >>> from mindformers import SQuADDataLoader
-            >>> data_loader = SQuADDataLoader("./squad/")
+            >>> from mindformers.models import BertTokenizer
+            >>> bert_tokenizer = BertTokenizer.from_pretrained('qa_bert_base_uncased')
+            >>> data_loader = SQuADDataLoader("./squad/", bert_tokenizer)
             >>> data_loader = data_loader.batch(1)
             >>> for item in data_loader:
             >>>     print(item)

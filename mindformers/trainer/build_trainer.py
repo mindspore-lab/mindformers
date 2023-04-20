@@ -13,7 +13,7 @@
 # limitations under the License.
 # ============================================================================
 """Build Trainer API."""
-from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
+from mindformers.tools.register import MindFormerRegister, MindFormerModuleType, MindFormerConfig
 from . import ImageClassificationTrainer, ZeroShotImageClassificationTrainer, \
     MaskedImageModelingTrainer, MaskedLanguageModelingTrainer, ImageToTextRetrievalTrainer, \
     TranslationTrainer, TokenClassificationTrainer, TextClassificationTrainer, \
@@ -46,6 +46,8 @@ def build_trainer(
     if config is None and class_name is None:
         return None
     if config is not None:
+        if isinstance(config, dict) and not isinstance(config, MindFormerConfig):
+            config = MindFormerConfig(**config)
         return MindFormerRegister.get_instance_from_cfg(
             config, MindFormerModuleType.TRAINER, default_args=default_args)
     return MindFormerRegister.get_instance(module_type, class_name, **kwargs)

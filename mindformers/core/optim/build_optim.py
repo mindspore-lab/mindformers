@@ -19,7 +19,7 @@ from mindspore import nn
 from mindspore.nn.optim import AdaFactor, AdamWeightDecay, SGD, Adagrad, Adam
 
 from mindformers.core.lr import build_lr
-from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
+from mindformers.tools.register import MindFormerRegister, MindFormerModuleType, MindFormerConfig
 from .optim import FusedAdamWeightDecay, FP32StateAdamWeightDecay
 
 
@@ -49,6 +49,8 @@ def build_optim(
     if config is None and class_name is None:
         return None
     if config is not None:
+        if isinstance(config, dict) and not isinstance(config, MindFormerConfig):
+            config = MindFormerConfig(**config)
         if config.learning_rate is not None and isinstance(config.learning_rate, dict):
             if config.learning_rate.type is None:
                 raise ValueError("optimizer's learning rate must be LearningRateSchedule type, "
