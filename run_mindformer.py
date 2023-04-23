@@ -49,12 +49,12 @@ def main(config):
     logger.info("moe config is: %s", config.moe_config)
 
     # auto pull dataset if on ModelArts platform
-    if config.train_dataset:
+    if config.run_mode in ['train', 'finetune'] and config.train_dataset:
         config.train_dataset.data_loader.dataset_dir = cfts.get_dataset(
-            config.train_dataset.data_loader.dataset_dir)
+            config.train_dataset.data_loader.dataset_dir, 'train')
     if config.eval_dataset:
         config.eval_dataset.data_loader.dataset_dir = cfts.get_dataset(
-            config.eval_dataset.data_loader.dataset_dir)
+            config.eval_dataset.data_loader.dataset_dir, 'eval')
 
     if config.run_mode == 'train':
         logger.warning("Train from scratch, remove checkpoint_name_or_path in model_config.yaml. ")
