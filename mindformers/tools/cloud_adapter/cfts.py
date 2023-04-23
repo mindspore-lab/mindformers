@@ -34,11 +34,11 @@ class CFTS:
         obs_path (str or None): A path starting with S3 or obs is used to save files in AI computing center.
             Default: None, which means not AI computing center platform.
         root_path (str): Path of the AI computing center cluster container.
-            Default: '/cache', All files will be saved in there..
+            Default: '/cache', All files will be saved in there.
         rank_id (int): If you specify its value, the device's contents will be saved according to the actual rank_id.
             Default: None, means only the contents of the first device of each node are saved.
         upload_frequence (int): How often files are saved in AI computing center platform.
-            Default: 1.
+            Default: -1.
         keep_last (bool): Check whether files in the OBS are consistent with AI computing center platform.
             Default: True, means old file will be removed.
         retry (int): The number of attempts to save again if the first attempt fails.
@@ -53,7 +53,7 @@ class CFTS:
                  obs_path=None,
                  root_path='/cache',
                  rank_id=None,
-                 upload_frequence=1,
+                 upload_frequence=-1,
                  keep_last=True,
                  log=logger,
                  retry=3,

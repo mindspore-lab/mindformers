@@ -38,7 +38,7 @@ class Local2ObsMonitor(Callback):
         rank_id (int): the device's contents will be saved according to the actual rank_id.
             Default: None, means only the contents of the first device of each node are saved.
         upload_frequence (int): How often files are saved in AI computing center platform.
-            Default: 1.
+            Default: -1.
         keep_last (bool): Check whether files in the OBS are consistent with AI computing center platform.
             Default: True, means old file will be removed.
         retry (int): The number of attempts to save again if the first attempt fails.
@@ -52,7 +52,7 @@ class Local2ObsMonitor(Callback):
                  src_dir,
                  target_dir,
                  rank_id=None,
-                 upload_frequence=10,
+                 upload_frequence=-1,
                  keep_last=True,
                  retry=3,
                  retry_time=5,
@@ -78,9 +78,16 @@ class Local2ObsMonitor(Callback):
 
     def step_end(self, run_context):
         """Print training loss at the end of step."""
-        if self.on_modelarts:
+        if self.on_modelarts and self.upload_frequence > 0:
             self.cb_params = run_context.original_args()
             if self.cb_params.cur_step_num % self.upload_frequence == 0 and os.listdir(self.src_dir):
+                self.log.info("Starting upload output file to obs!")
+                self.upload()
+
+    def epoch_end(self, run_context):
+        if self.on_modelarts and self.upload_frequence < 0:
+            self.cb_params = run_context.original_args()
+            if os.listdir(self.src_dir):
                 self.log.info("Starting upload output file to obs!")
                 self.upload()
 

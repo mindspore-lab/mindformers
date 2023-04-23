@@ -40,7 +40,7 @@ class ObsMonitor:
                 src_dir: str = None,
                 target_dir: str = None,
                 rank_id: int = None,
-                upload_frequence: int = 1,
+                upload_frequence: int = -1,
                 keep_last: bool = True):
         is_cfts = MindFormerRegister.is_exist(
             module_type=MindFormerModuleType.TOOLS, class_name="cfts")
