@@ -2,5 +2,5 @@ numpy
 sentencepiece
 ftfy
 regex
-tqdm
+tqdm>=3.3.0
 pyyaml
