@@ -35,7 +35,7 @@ PARALLEL_CONFIG = {'parallel_mode': 'DATA_PARALLEL', 'gradients_mean': True}
 def build_context(config):
     """Build context."""
     profile_cb = None
-    if config.parallel_config.pipeline_stage > 1:
+    if config.use_parallel and config.parallel_config.pipeline_stage > 1:
         config.parallel.pipeline_stages = config.parallel_config.pipeline_stage
     local_rank, device_num = init_context(use_parallel=config.use_parallel,
                                           context_config=config.context, parallel_config=config.parallel)

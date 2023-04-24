@@ -428,7 +428,7 @@ class BaseTrainer:
 
     def get_pipeline_stages(self):
         """Get pipeline stages for task trainer."""
-        pipeline_stages = self.config.parallel_config.pipeline_stage or ms.get_auto_parallel_context("pipeline_stages")
+        pipeline_stages = ms.get_auto_parallel_context("pipeline_stages")
         return pipeline_stages
 
     def learning_rate_scale(self, base_learning_rate: float = 0., scale_factor: Optional[Union[float, int]] = 256.):
