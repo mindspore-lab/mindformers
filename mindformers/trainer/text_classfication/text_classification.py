@@ -20,13 +20,10 @@ from mindspore.dataset import GeneratorDataset
 from mindspore.nn import TrainOneStepCell, Optimizer, Cell
 
 from mindformers.dataset import BaseDataset
-from mindformers.models import build_model, build_tokenizer, \
-    BaseModel, BaseTokenizer
+from mindformers.models import BaseModel, BaseTokenizer
 from mindformers.tools.logger import logger
-from mindformers.tools.utils import count_params
 from mindformers.tools.register import MindFormerRegister, \
     MindFormerModuleType, MindFormerConfig
-from mindformers.pipeline import pipeline
 from ..config_args import ConfigArguments
 from ..training_args import TrainingArguments
 from ..base_trainer import BaseTrainer
@@ -190,30 +187,11 @@ class TextClassificationTrainer(BaseTrainer):
         # 同时pipeline是一个样本一个样本进行处理，所以这里设定为1
         config.model.model_config.batch_size = 1
 
-        top_k = kwargs.pop("top_k", None)
-        if top_k is None and config.top_k is not None:
-            top_k = config.top_k
-
-        if tokenizer is None:
-            tokenizer = build_tokenizer(config.processor.tokenizer)
-
-        logger.info(".........Build Net..........")
-        if network is None:
-            network = build_model(config.model)
-
-        if network is not None:
-            logger.info("Network Parameters: %s M.", str(count_params(network)))
-
-        pipeline_task = pipeline(task='text_classification',
-                                 tokenizer=tokenizer,
-                                 model=network,
-                                 max_length=network.config.seq_length,
-                                 padding="max_length",
-                                 **kwargs)
-        output_result = pipeline_task(input_data, top_k=top_k)
-
-        logger.info("output result is: %s", output_result)
-
-        logger.info(".........predict result finished..........")
-        logger.info(".........Predict Over!.............")
-        return output_result
+        return self.predict_process(config=config,
+                                    input_data=input_data,
+                                    task='text_classification',
+                                    network=network,
+                                    tokenizer=tokenizer,
+                                    max_length=network.config.seq_length,
+                                    padding="max_length",
+                                    **kwargs)

@@ -20,14 +20,10 @@ from mindspore.nn import TrainOneStepCell, Optimizer, Cell
 from mindspore.dataset import GeneratorDataset
 
 from mindformers.dataset import BaseDataset
-from mindformers.models import build_model, BaseModel, \
-    BaseTokenizer, build_tokenizer
+from mindformers.models import BaseModel, BaseTokenizer
 
-from mindformers.tools.logger import logger
-from mindformers.tools.utils import count_params
 from mindformers.tools.register import MindFormerRegister, \
     MindFormerModuleType, MindFormerConfig
-from mindformers.pipeline import pipeline
 from ..config_args import ConfigArguments
 from ..training_args import TrainingArguments
 from ..base_trainer import BaseTrainer
@@ -62,6 +58,7 @@ class MaskedLanguageModelingTrainer(BaseTrainer):
     Raises:
         NotImplementedError: If train method or evaluate method or predict method not implemented.
     """
+
     def __init__(self, model_name: str = None):
         super(MaskedLanguageModelingTrainer, self).__init__("fill_mask", model_name)
 
@@ -141,36 +138,22 @@ class MaskedLanguageModelingTrainer(BaseTrainer):
 
         """
         config = self.set_config(config)
-        config.model.model_config.batch_size = 1
         config.model.model_config.is_training = False
 
         if input_data is None:
-            raise ValueError("Input data can not be None!")
+            input_data = config.input_data
 
         if not isinstance(input_data, (str, list)):
             raise ValueError("Input data's type must be one of "
                              f"[str, list], but got type {type(input_data)}")
 
-        if tokenizer is None:
-            tokenizer = build_tokenizer(config.processor.tokenizer)
+        config.model.model_config.batch_size = 1
 
-        logger.info(".........Build Net..........")
-        if network is None:
-            network = build_model(config.model)
-
-        if network is not None:
-            logger.info("Network Parameters: %s M.", str(count_params(network)))
-
-        pipeline_task = pipeline(task='fill_mask',
-                                 tokenizer=tokenizer,
-                                 model=network,
-                                 max_length=network.config.seq_length,
-                                 padding="max_length",
-                                 **kwargs)
-        output_result = pipeline_task(input_data)
-
-        logger.info("output result is: %s", output_result)
-
-        logger.info(".........predict result finished..........")
-        logger.info(".........Predict Over!.............")
-        return output_result
+        return self.predict_process(config=config,
+                                    input_data=input_data,
+                                    task='fill_mask',
+                                    network=network,
+                                    tokenizer=tokenizer,
+                                    max_length=network.config.seq_length,
+                                    padding="max_length",
+                                    **kwargs)

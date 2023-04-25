@@ -18,8 +18,10 @@ import os
 import shutil
 from functools import partial
 from typing import Optional, Union, List
-
+import numpy as np
+from PIL.Image import Image
 import mindspore as ms
+from mindspore import Tensor
 from mindspore.train.model import Model
 from mindspore.train import Callback
 from mindspore.dataset import GeneratorDataset
@@ -32,7 +34,9 @@ from mindformers.core import build_lr, build_optim, build_callback, build_metric
 from mindformers.core.callback.callback import EvalCallBack
 from mindformers.core.parallel_config import build_parallel_config
 from mindformers.dataset import build_dataset, check_dataset_config, BaseDataset
-from mindformers.models import build_model, build_processor, build_tokenizer, BaseModel
+from mindformers.models import build_model, build_processor, build_tokenizer, \
+    BaseModel, BaseTokenizer, BaseImageProcessor
+from mindformers.pipeline import pipeline
 from mindformers.wrapper import build_wrapper
 from mindformers.tools.register import MindFormerConfig
 from mindformers.tools.logger import logger
@@ -605,6 +609,70 @@ class BaseTrainer:
                             dataset_sink_mode=config.runner_config.sink_mode)
         logger.info('%s = %s', metric_name, str(output))
         logger.info(".........Evaluate Over!.............")
+
+    def predict_process(self,
+                        config: Optional[Union[dict, MindFormerConfig, ConfigArguments, TrainingArguments]] = None,
+                        input_data: Optional[Union[GeneratorDataset,
+                                                   Tensor, np.ndarray, Image, str, list]] = None,
+                        task: str = None,
+                        network: Optional[Union[Cell, BaseModel]] = None,
+                        tokenizer: Optional[BaseTokenizer] = None,
+                        image_processor: Optional[BaseImageProcessor] = None,
+                        audio_processor: Optional[BaseImageProcessor] = None, **kwargs):
+        """Predict for BaseTrainer in MindFormers."""
+        is_full_config = kwargs.get("is_full_config", False)
+        config = self.set_config(config, is_full_config)
+
+        # build network
+        if network is None:
+            network = self.create_network(default_args={"parallel_config": config.parallel_config,
+                                                        "moe_config": config.moe_config})
+        self.set_network(network, is_train=False)
+
+        self.count_parameters()
+
+        if tokenizer is None and config.processor.tokenizer:
+            tokenizer = build_tokenizer(config.processor.tokenizer)
+
+        if image_processor is None and config.processor.image_processor:
+            image_processor = build_processor(config.processor.image_processor)
+
+        if audio_processor is None and config.processor.audio_processor:
+            audio_processor = build_processor(config.processor.audio_processor)
+
+        top_k = kwargs.pop("top_k", None)
+        if top_k is None:
+            if config.top_k is not None:
+                top_k = config.top_k
+            else:
+                top_k = 1
+
+        save_file = kwargs.pop("save_file", None)
+        if save_file is None:
+            if config.save_file is not None:
+                save_file = config.save_file
+            else:
+                save_file = f"{task}_result.txt"
+
+        pipeline_task = pipeline(
+            task=task,
+            model=network,
+            tokenizer=tokenizer,
+            image_processor=image_processor,
+            audio_processor=audio_processor,
+            **kwargs
+        )
+
+        output_result = pipeline_task(input_data, top_k=top_k)
+
+        with open(save_file, 'w') as file:
+            file.write(str(output_result))
+        file.close()
+
+        logger.info("output result is: %s", str(output_result))
+        logger.info("output result is saved at: %s", save_file)
+        logger.info(".........Predict Over!.............")
+        return output_result
 
     def _evaluate_in_training(self, model: Model, eval_dataset: BaseDataset):
         origin_phase = model.eval_network.phase
