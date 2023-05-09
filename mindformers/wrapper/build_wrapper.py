@@ -19,7 +19,7 @@ import inspect
 import mindspore as ms
 from mindspore import nn, Tensor
 
-from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
+from mindformers.tools.register import MindFormerRegister, MindFormerModuleType, MindFormerConfig
 from .wrapper import MFTrainOneStepCell, MFPipelineWithLossScaleCell
 
 
@@ -48,6 +48,8 @@ def build_wrapper(config: dict = None, default_args: dict = None,
     if config is None and class_name is None:
         return None
     if config is not None:
+        if isinstance(config, dict) and not isinstance(config, MindFormerConfig):
+            config = MindFormerConfig(**config)
         if config.scale_sense is not None:
             if isinstance(config.scale_sense, dict) and config.scale_sense.type is not None:
                 config.scale_sense = build_wrapper(config.scale_sense)

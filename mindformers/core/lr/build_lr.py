@@ -17,7 +17,7 @@ import inspect
 
 from mindspore import nn
 
-from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
+from mindformers.tools.register import MindFormerRegister, MindFormerModuleType, MindFormerConfig
 from .lr_schedule import ConstantWarmUpLR, CosineWithWarmUpLR, \
     LinearWithWarmUpLR, CosineWithRestartsAndWarmUpLR, PolynomialWithWarmUpLR
 
@@ -49,6 +49,8 @@ def build_lr(
     if config is None and class_name is None:
         return None
     if config is not None:
+        if isinstance(config, dict) and not isinstance(config, MindFormerConfig):
+            config = MindFormerConfig(**config)
         return MindFormerRegister.get_instance_from_cfg(
             config, MindFormerModuleType.LR, default_args=default_args)
     return MindFormerRegister.get_instance(module_type, class_name, **kwargs)

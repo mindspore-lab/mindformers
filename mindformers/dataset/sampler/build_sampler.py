@@ -17,7 +17,7 @@ import inspect
 
 from mindspore.dataset import samplers as sp
 
-from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
+from mindformers.tools.register import MindFormerRegister, MindFormerModuleType, MindFormerConfig
 
 
 def build_sampler(
@@ -46,6 +46,8 @@ def build_sampler(
     if config is None and class_name is None:
         return None
     if config is not None:
+        if isinstance(config, dict) and not isinstance(config, MindFormerConfig):
+            config = MindFormerConfig(**config)
         return MindFormerRegister.get_instance_from_cfg(
             config, MindFormerModuleType.DATASET_SAMPLER, default_args=default_args)
     return MindFormerRegister.get_instance(module_type, class_name, **kwargs)

@@ -14,7 +14,7 @@
 # ============================================================================
 
 """Build Processor API."""
-from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
+from mindformers.tools.register import MindFormerRegister, MindFormerModuleType, MindFormerConfig
 from .build_tokenizer import build_tokenizer
 
 
@@ -42,6 +42,8 @@ def build_processor(
     if config is None and class_name is None:
         return None
     if config is not None:
+        if isinstance(config, dict) and not isinstance(config, MindFormerConfig):
+            config = MindFormerConfig(**config)
         if config.image_processor is not None:
             config.image_processor = build_processor(config.image_processor)
 

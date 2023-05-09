@@ -18,7 +18,7 @@ import inspect
 from mindspore.dataset import transforms as tf
 from mindspore.dataset import vision as vs
 
-from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
+from mindformers.tools.register import MindFormerRegister, MindFormerModuleType, MindFormerConfig
 
 
 def build_transforms(
@@ -47,6 +47,8 @@ def build_transforms(
     if config is None and class_name is None:
         return None
     if config is not None:
+        if isinstance(config, dict) and not isinstance(config, MindFormerConfig):
+            config = MindFormerConfig(**config)
         cfg_transforms = config
         if not isinstance(cfg_transforms, list):
             return MindFormerRegister.get_instance_from_cfg(

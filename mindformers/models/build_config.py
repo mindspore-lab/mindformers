@@ -16,7 +16,7 @@
 """
 build model config modules
 """
-from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
+from mindformers.tools.register import MindFormerRegister, MindFormerModuleType, MindFormerConfig
 
 
 def build_model_config(
@@ -46,6 +46,8 @@ def build_model_config(
     if config is None and class_name is None:
         return None
     if config is not None:
+        if isinstance(config, dict) and not isinstance(config, MindFormerConfig):
+            config = MindFormerConfig(**config)
         if config.text_config is not None:
             config.text_config = build_model_config(config.text_config)
         if config.vision_config is not None:

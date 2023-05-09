@@ -22,7 +22,7 @@ from mindspore.parallel import set_algo_parameters
 from mindspore.parallel._cost_model_context import _set_multi_subgraphs
 
 from mindformers.trainer.config_args import ContextConfig, ParallelContextConfig
-from mindformers.tools.register import MindFormerRegister
+from mindformers.tools.register import MindFormerRegister, MindFormerConfig
 from mindformers.tools import CFTS, PARALLEL_MODE, MODE, DEBUG_INFO_PATH, check_in_modelarts
 from mindformers.tools.logger import logger
 
@@ -34,6 +34,8 @@ PARALLEL_CONFIG = {'parallel_mode': 'DATA_PARALLEL', 'gradients_mean': True}
 
 def build_context(config):
     """Build context."""
+    if isinstance(config, dict) and not isinstance(config, MindFormerConfig):
+        config = MindFormerConfig(**config)
     profile_cb = None
     if config.parallel_config.pipeline_stage > 1:
         config.parallel.pipeline_stages = config.parallel_config.pipeline_stage

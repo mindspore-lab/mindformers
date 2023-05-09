@@ -14,7 +14,7 @@
 # ============================================================================
 
 """Build Tokenizer API."""
-from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
+from mindformers.tools.register import MindFormerRegister, MindFormerModuleType, MindFormerConfig
 from ..mindformer_book import MindFormerBook
 
 def check_and_add_vocab_file_path(config, **kwargs):
@@ -68,6 +68,8 @@ def build_tokenizer(
     if config is None and class_name is None:
         return None
     if config is not None:
+        if isinstance(config, dict) and not isinstance(config, MindFormerConfig):
+            config = MindFormerConfig(**config)
         check_and_add_vocab_file_path(config, **kwargs)
         return MindFormerRegister.get_instance_from_cfg(
             config, MindFormerModuleType.TOKENIZER, default_args=default_args)
