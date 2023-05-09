@@ -102,11 +102,11 @@ class CFTS:
         self.log.warning("This function(get_custom_path) should be used with ModelArts Platform.")
         return self.local_path
 
-    def get_dataset(self, dataset_path, rank_id=None):
+    def get_dataset(self, dataset_path, dirname, rank_id=None):
         """Load dataset from dataset path."""
         Validator.check_type(dataset_path, str)
         if check_in_modelarts():
-            return self._pull_dataset(dataset_path=dataset_path, rank_id=rank_id)
+            return self._pull_dataset(dataset_path=dataset_path, dirname=dirname, rank_id=rank_id)
         return dataset_path
 
     def get_checkpoint(self, checkpoint_path, rank_id=None):
@@ -178,11 +178,11 @@ class CFTS:
         else:
             self.log.warning("This function(send2obs) should be used with ModelArts Platform.")
 
-    def _pull_dataset(self, dataset_path, rank_id):
+    def _pull_dataset(self, dataset_path, dirname, rank_id):
         """Pull dataset."""
         if check_in_modelarts():
             check_obs_url(dataset_path)
-            local_path = os.path.join(self.root, 'dataset')
+            local_path = os.path.join(self.root, 'dataset', dirname)
             return self.load_file.obs2local(dataset_path, local_path, rank_id)
         return dataset_path
 
