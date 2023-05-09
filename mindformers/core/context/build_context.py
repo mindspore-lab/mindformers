@@ -37,7 +37,7 @@ def build_context(config):
     if isinstance(config, dict) and not isinstance(config, MindFormerConfig):
         config = MindFormerConfig(**config)
     profile_cb = None
-    if config.parallel_config.pipeline_stage > 1:
+    if config.use_parallel and config.parallel_config.pipeline_stage > 1:
         config.parallel.pipeline_stages = config.parallel_config.pipeline_stage
     local_rank, device_num = init_context(use_parallel=config.use_parallel,
                                           context_config=config.context, parallel_config=config.parallel)
