@@ -15,13 +15,15 @@
 
 """t5 init"""
 from . import t5, t5_config
+from .mt5 import MT5ForConditionalGeneration
 from .t5 import T5ForConditionalGeneration
 from .t5_config import T5Config
-from .t5_tokenizer import T5Tokenizer
 from .t5_processor import T5Processor
+from .t5_tokenizer import T5PegasusTokenizer, T5Tokenizer
 
 __all__ = []
 __all__.extend(t5.__all__)
+__all__.extend(mt5.__all__)
 __all__.extend(t5_config.__all__)
 __all__.extend(t5_tokenizer.__all__)
 __all__.extend(t5_processor.__all__)

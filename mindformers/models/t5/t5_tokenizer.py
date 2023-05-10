@@ -17,13 +17,15 @@
 import os
 import shutil
 
+import jieba
 import sentencepiece as spm
 
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.models.base_tokenizer import Tokenizer
+from mindformers.models.bert import BertTokenizer
 from ...mindformer_book import MindFormerBook
 
-__all__ = ['T5Tokenizer']
+__all__ = ["T5Tokenizer", "T5PegasusTokenizer"]
 
 
 @MindFormerRegister.register(MindFormerModuleType.TOKENIZER)
@@ -149,3 +151,42 @@ class T5Tokenizer(Tokenizer):
     def vocab_size(self):
         """Return the vocab size of the tokenizer"""
         return self.s.vocab_size() + self.extra_ids
+
+
+@MindFormerRegister.register(MindFormerModuleType.TOKENIZER)
+class T5PegasusTokenizer(BertTokenizer):
+    """Tokenizer for T5 Pegasus, which is suitable for Chinese dataset.
+    Based on word granularity, if the word does not appear in the vocabulary file,
+        then call BERT native Tokenizer.
+
+    Args:
+        vocab_file(str): Path to vocab file.
+        pre_tokenizer(function): Default using jieba to cut words
+    """
+
+    def __init__(self,
+                 vocab_file,
+                 *args,
+                 pre_tokenizer=lambda x: jieba.cut(x, HMM=False),
+                 **kwargs):
+        super(T5PegasusTokenizer, self).__init__(vocab_file, *args, **kwargs)
+        self.pre_tokenizer = pre_tokenizer
+
+    def _tokenize(self, text, **kwargs):
+        split_tokens = []
+        for word in self.pre_tokenizer(text):
+            if word in self.vocab_dict:
+                split_tokens.append(word)
+            else:
+                split_tokens.extend(super()._tokenize(word))
+        return split_tokens
+
+    def convert_tokens_to_string(self, tokens: list):
+        """Convert the tokens to the string"""
+        return " ".join(tokens)
+
+    def _decode(self, token_ids, skip_special_tokens=False, **kwargs):
+        ids = self.convert_ids_to_tokens(
+            token_ids, skip_special_tokens=skip_special_tokens
+        )
+        return self.convert_tokens_to_string(ids)

@@ -330,6 +330,9 @@ class MindFormerBook:
         ('t5', [
             't5_small',
         ]),
+        ('mt5', [
+            't5_pegasus_base',
+        ]),
         ('filip', [
             'filip_vit_l_14',
         ]),
