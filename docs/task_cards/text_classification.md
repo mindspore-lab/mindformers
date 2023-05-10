@@ -11,8 +11,7 @@
 | model  |                            type                            | datasets |  Top1-accuracy  |           stage            |                                                                                                                             example                                                                                                                              |
 |:------:|:----------------------------------------------------------:|:--------:|:---------------:|:--------------------------:|:----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:|
 |  bert  | txtcls_bert_base_uncased |   Mnli   | 30.9% |          pretrain          |                                                                                                                                --                                                                                                                                |
-| txtcls | txtcls_bert_case_uncased_mnli |   Mnli   | 84.8% | finetune<br/>eval<br/>predict | [link](../../text_classification/txtcls_bert_base_uncased_finetune_on_mnli.sh) <br/> [link](../../text_classification/txtcls_bert_base_uncased_eval_on_mnli.sh) <br/> [link]
-(../../text_classification/txtcls_bert_base_uncased_predict_on_mnli.sh) |
+| txtcls | txtcls_bert_case_uncased_mnli |   Mnli   | 84.8% | finetune<br/>eval<br/>predict | [link](../../text_classification/txtcls_bert_base_uncased_finetune_on_mnli.sh) <br/> [link](../../text_classification/txtcls_bert_base_uncased_eval_on_mnli.sh) <br/> [link](../../text_classification/txtcls_bert_base_uncased_predict_on_mnli.sh) |
 
 ### [Mnli](https://dl.fbaipublicfiles.com/glue/data/MNLI.zip)
 
