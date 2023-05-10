@@ -26,7 +26,7 @@ from mindspore.ops import functional as F
 from mindformers.modules.transformer.moe import default_moe_config
 from mindformers.modules.layers import LayerNorm, Dropout
 from mindformers.core.loss import CrossEntropyLoss
-from mindformers.modules.transformer import AttentionMask, TransformerEncoder, VocabEmbedding
+from mindformers.modules.transformer import AttentionMask, TransformerDecoder, VocabEmbedding
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.models.base_model import BaseModel
 from mindformers.mindformer_book import MindFormerBook
@@ -57,7 +57,10 @@ class GPT2LMHeadModel(BaseModel):
         self.stridedslice = P.StridedSlice().shard(((parallel_config.data_parallel, 1),))
         self.not_equal = P.NotEqual().shard(((parallel_config.data_parallel, 1), ()))
 
-        self.backbone = GPT2Model(self.config)
+        self.get_attention_mask = AttentionMask(seq_length=config.seq_length,
+                                                parallel_config=parallel_config.dp_mp_config)
+
+        self.backbone = GPT2Model(config)
         self.head = GPTHead(hidden_size=config.embedding_size,
                             vocab_size=config.vocab_size,
                             parallel_config=self.config.parallel_config)
@@ -78,6 +81,7 @@ class GPT2LMHeadModel(BaseModel):
         self.reshape = P.Reshape()
         self.cast = P.Cast()
         self.load_checkpoint(config)
+        self.add = P.Add().shard(((parallel_config.data_parallel, 1), ()))
 
     def construct(self, input_ids):
         r"""
@@ -98,24 +102,33 @@ class GPT2LMHeadModel(BaseModel):
         else:
             tokens = input_ids
 
-        input_mask = self.cast(self.not_equal(tokens, self.eos_token), mstype.float32)
+        input_mask = self.not_equal(tokens, self.eos_token)
+        input_mask = self.cast(input_mask, mstype.float32)
+        attention_mask = self.get_attention_mask(input_mask)
 
         # [batch_size, seq_length, vocab_size]
-        output_states, embedding_table = self.backbone(tokens, input_mask)
+        output_states, embedding_table = self.backbone(tokens, attention_mask)
         logits = self.head(output_states, embedding_table)
 
         if self.phase != 'train':
-            return logits
+            logits = self.reshape(logits, (batch_size, seq_length, -1))
+
+            # makes cast effective to avoid allgather issue in Mindspore1.10
+            input_mask = self.add(input_mask, 1)
+
+            return logits, tokens, input_mask
 
         labels = self.stridedslice(input_ids, (0, 1), (batch_size, seq_length), (1, 1))
         labels = self.reshape(labels, (-1,))
         input_mask = self.reshape(input_mask, (-1,))
+
         loss = self.loss(logits, labels, input_mask)
         return loss
 
 
 class GPTEmbeddingLayer(nn.Cell):
     r"""The Embedding Layer of GPT-2 network."""
+
     def __init__(self, config: GPT2Config = None):
         super(GPTEmbeddingLayer, self).__init__()
         parallel_config = copy.deepcopy(config.parallel_config)
@@ -213,19 +226,17 @@ class GPT2Model(nn.Cell):
             self.layernorm.set_comm_fusion(2)
         else:
             self.layernorm.set_comm_fusion(config.parallel_config.gradient_aggregation_group)
-        self.layernorm.shard(((config.parallel_config.data_parallel, 1, 1),))
+        self.layernorm.shard(((config.parallel_config.data_parallel, 1),))
         self.layernorm.pipeline_stage = config.parallel_config.pipeline_stage - 1
-
-        self.get_attention_mask = AttentionMask(seq_length=config.seq_length,
-                                                parallel_config=config.parallel_config.dp_mp_config)
 
         if not hasattr(config.parallel_config, "moe_config"):
             config.parallel_config.moe_config = default_moe_config
         moe_config = config.parallel_config.moe_config
-        self.blocks = TransformerEncoder(hidden_size=config.embedding_size,
+        self.blocks = TransformerDecoder(hidden_size=config.embedding_size,
                                          batch_size=config.batch_size,
                                          ffn_hidden_size=config.embedding_size * config.expand_ratio,
-                                         seq_length=config.seq_length,
+                                         src_seq_length=config.seq_length,
+                                         tgt_seq_length=config.seq_length,
                                          num_layers=config.num_layers,
                                          num_heads=config.num_heads,
                                          attention_dropout_rate=config.attention_probs_dropout_prob,
@@ -243,7 +254,7 @@ class GPT2Model(nn.Cell):
         self.num_layers = config.num_layers
         self.input_position = Tensor(np.arange(config.seq_length), mstype.int32)
 
-    def construct(self, input_ids, input_mask):
+    def construct(self, input_ids, attention_mask):
         """GPT model"""
         batch_size, _ = F.shape(input_ids)
         input_position = self.tile(self.input_position, (batch_size, 1))
@@ -251,8 +262,8 @@ class GPT2Model(nn.Cell):
         input_embedding, embedding_table = self.embedding(input_ids, input_position)
 
         hidden_states = self.cast(input_embedding, self.dtype)
-
-        attention_mask = self.get_attention_mask(input_mask)
+        hidden_shape = F.shape(hidden_states)
+        hidden_states = F.reshape(hidden_states, (-1, hidden_shape[-1]))
 
         for i in range(self.num_layers):
             hidden_states, _ = self.blocks[i](hidden_states, attention_mask)
@@ -264,6 +275,7 @@ class GPT2Model(nn.Cell):
 
 class GPTHead(nn.Cell):
     r"""Head for GPT to get the logits of each token in the vocab."""
+
     def __init__(self,
                  hidden_size,
                  vocab_size,
@@ -288,10 +300,8 @@ class GPTHead(nn.Cell):
         self.hidden_size = hidden_size
         self.dtype = compute_type
         self.cast = P.Cast()
-        self.reshape = P.Reshape()
 
     def construct(self, state, embedding_table):
-        state = self.reshape(state, (-1, self.hidden_size))
         logits = self.matmul(self.cast(state, self.dtype), self.cast(embedding_table, self.dtype))
         return logits
 

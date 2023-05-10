@@ -43,3 +43,6 @@ callbacks:
     integrated_save: True
     async_save: False
   - type: ObsMonitor
+
+metric:
+  type: PerplexityMetric

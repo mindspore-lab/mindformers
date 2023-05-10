@@ -94,9 +94,47 @@ class CausalLanguageModelingTrainer(BaseTrainer):
             optimizer=optimizer,
             **kwargs)
 
-    def evaluate(self, *args, **kwargs):
-        raise NotImplementedError(
-            "The CausalLanguageModeling task does not support evaluate.")
+    def evaluate(self,
+                 config: Optional[Union[dict, MindFormerConfig, ConfigArguments, TrainingArguments]] = None,
+                 network: Optional[Union[Cell, BaseModel]] = None,
+                 dataset: Optional[Union[BaseDataset, GeneratorDataset]] = None,
+                 callbacks: Optional[Union[Callback, List[Callback]]] = None,
+                 compute_metrics: Optional[Union[dict, set]] = None,
+                 **kwargs):
+        r"""Evaluate task for CausalLanguageModeling Trainer.
+        This function is used to evaluate the network.
+
+        The trainer interface is used to quickly start training for general task.
+        It also allows users to customize the network, dataset, callbacks, compute_metrics.
+
+        Args:
+            config (Optional[Union[dict, MindFormerConfig, ConfigArguments, TrainingArguments]]):
+                The task config which is used to configure the dataset, the hyper-parameter, optimizer, etc.
+                It supports config dict or MindFormerConfig or TrainingArguments or ConfigArguments class.
+                Default: None.
+            network (Optional[Union[Cell, BaseModel]]): The network for trainer.
+                It supports model name or BaseModel or MindSpore Cell class.
+                Default: None.
+            dataset (Optional[Union[BaseDataset]]): The evaluate dataset.
+                It supports real dataset path or BaseDateset class or MindSpore Dataset class.
+                Default: None.
+            callbacks (Optional[Union[Callback, List[Callback]]]): The eval callback function.
+                It supports CallBack or CallBack List of MindSpore.
+                Default: None.
+            compute_metrics (Optional[Union[dict, set]]): The metric of evaluating.
+                It supports dict or set in MindSpore's Metric class.
+                Default: None.
+        """
+        metric_name = "Text Generation Metric"
+        kwargs.setdefault("metric_name", metric_name)
+        super().evaluate_process(
+            config=config,
+            network=network,
+            dataset=dataset,
+            compute_metrics=compute_metrics,
+            callbacks=callbacks,
+            **kwargs
+        )
 
     def predict(self,
                 config: Optional[Union[dict, MindFormerConfig, ConfigArguments, TrainingArguments]] = None,

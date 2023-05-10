@@ -3,7 +3,7 @@ train_dataset: &train_dataset
     type: MindDataset
     dataset_dir: ""
     shuffle: True
-  input_columns: ["input_ids"]  # "input_mask", "label_ids"
+  input_columns: ["input_ids"]
   num_parallel_workers: 8
   python_multiprocessing: False
   drop_remainder: True
@@ -15,3 +15,21 @@ train_dataset: &train_dataset
 train_dataset_task:
   type: CausalLanguageModelDataset
   dataset_config: *train_dataset
+
+eval_dataset: &eval_dataset
+  data_loader:
+    type: MindDataset
+    dataset_dir: ""
+    shuffle: False
+  input_columns: ["input_ids"]
+  num_parallel_workers: 8
+  python_multiprocessing: False
+  drop_remainder: False
+  batch_size: 1
+  repeat: 1
+  numa_enable: False
+  prefetch_size: 1
+
+eval_dataset_task:
+  type: CausalLanguageModelDataset
+  dataset_config: *eval_dataset

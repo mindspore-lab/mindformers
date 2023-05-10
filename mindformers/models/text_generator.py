@@ -222,7 +222,7 @@ class GeneratorMixin:
                 current_index = [valid_length_each_example[i] - 1 + i * seq_length for i in range(batch_size)]
                 current_index = Tensor(current_index, mstype.int32)
                 logger.debug("validate length: %s", valid_length_each_example)
-                logits = self.construct(inputs)
+                logits = self.construct(inputs)[0]
                 logits = logits.reshape(-1, logits.shape[-1])
                 log_probs = self.process_logits(logits, current_index)
 
