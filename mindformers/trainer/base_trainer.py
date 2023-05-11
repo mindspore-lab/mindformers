@@ -144,6 +144,7 @@ class BaseTrainer:
         batch_size = self.config.runner_config.batch_size
         dp = self.config.parallel_config.data_parallel
         micro_batch_num = self.config.parallel_config.micro_batch_num
+        micro_batch_interleave_num = self.config.micro_batch_interleave_num
         parallel_mode = ms.get_auto_parallel_context("parallel_mode")
         full_batch = ms.get_auto_parallel_context("full_batch")
         pp = self.get_pipeline_stages()
@@ -152,24 +153,35 @@ class BaseTrainer:
             if full_batch:
                 if pp > 1:
                     logger.info("Pipeline parallel was opened: pipeline_stages = %s, full batch is True, "
-                                "batch size will be changed: "
-                                "batch_size = batch_size * data_parallel * micro_batch_num = %s * %s * %s = %s).",
-                                pp, batch_size, dp, micro_batch_num, batch_size * dp * micro_batch_num)
-                    self.config.runner_config.batch_size = batch_size * dp * micro_batch_num
+                                "global batch size will be changed: "
+                                "global_batch_size = "
+                                "batch_size * data_parallel * micro_batch_num * micro_batch_interleave_num "
+                                "= %s * %s * %s * %s = %s).",
+                                pp, batch_size, dp, micro_batch_num, micro_batch_interleave_num,
+                                batch_size * dp * micro_batch_num * micro_batch_interleave_num)
+                    self.config.runner_config.batch_size = \
+                        batch_size * dp * micro_batch_num * micro_batch_interleave_num
                 else:
-                    logger.info("The current parallel mode is %s, full batch is True, so batch size will be changed: "
-                                "batch_size = batch_size * data_parallel = %s * %s = %s",
-                                parallel_mode, batch_size, dp, batch_size * dp)
-                    self.config.runner_config.batch_size = batch_size * dp
+                    logger.info("The current parallel mode is %s, full batch is True,"
+                                "so global batch size will be changed: "
+                                "global_batch_size = batch_size * data_parallel * micro_batch_interleave_num "
+                                "= %s * %s * %s = %s",
+                                parallel_mode, batch_size, dp, micro_batch_interleave_num,
+                                batch_size * dp * micro_batch_interleave_num)
+                    self.config.runner_config.batch_size = batch_size * dp * micro_batch_interleave_num
             else:
                 if pp > 1:
                     logger.info("Pipeline parallel was opened: pipeline_stages = %s, full batch is False, "
-                                "batch size will be changed: "
-                                "batch_size = batch_size * micro_batch_num = %s * %s = %s).",
-                                pp, batch_size, micro_batch_num, batch_size * micro_batch_num)
-                    self.config.runner_config.batch_size = batch_size * micro_batch_num
+                                "batch size per card will be changed: "
+                                "per_batch_size = batch_size * micro_batch_num * micro_batch_interleave_num "
+                                "= %s * %s * %s = %s).",
+                                pp, batch_size, micro_batch_num, micro_batch_interleave_num,
+                                batch_size * micro_batch_num * micro_batch_interleave_num)
+                    self.config.runner_config.batch_size = \
+                        batch_size * micro_batch_num * micro_batch_interleave_num
         else:
-            logger.info("The current parallel mode is %s, batch size will not be changed: batch_size = %s",
+            logger.info("The current parallel mode is %s, batch size per card will not be changed: "
+                        "batch_size_per_card = %s",
                         parallel_mode, batch_size)
 
     def _reset_dataset_batch_size(self):
@@ -501,6 +513,7 @@ class BaseTrainer:
                 "learning_rate": optimizer.learning_rate if optimizer else wrapper.optimizer.learning_rate,
                 "origin_epochs": config.runner_config.origin_epochs,
                 "dataset_size": config.data_size,
+                "micro_batch_interleave_num": config.micro_batch_interleave_num,
                 "micro_batch_num": config.parallel_config.micro_batch_num})
 
         # build model wrapper
