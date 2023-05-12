@@ -8,6 +8,12 @@ base_config: [
 profile: False
 use_parallel: False
 
+# if True, do evaluate during the training process. if false, do nothing.
+# note that the task trainer should support _evaluate_in_training function.
+do_eval: True
+eval_step_interval: -1        # num of step intervals between each eval, -1 means no step end eval.
+eval_epoch_interval: 1        # num of epoch intervals between each eval, 1 means eval on every epoch end.
+
 layer_scale: True
 layer_decay: 0.9
 

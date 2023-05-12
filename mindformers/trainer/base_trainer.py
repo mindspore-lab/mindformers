@@ -15,6 +15,7 @@
 """Base Trainer."""
 import os
 import shutil
+from functools import partial
 from typing import Optional, Union, List
 
 import mindspore as ms
@@ -27,6 +28,7 @@ from mindspore.nn import TrainOneStepCell, Optimizer, Cell, \
 
 from mindformers.mindformer_book import MindFormerBook
 from mindformers.core import build_lr, build_optim, build_callback, build_metric
+from mindformers.core.callback.callback import EvalCallBack
 from mindformers.core.parallel_config import build_parallel_config
 from mindformers.dataset import build_dataset, check_dataset_config, BaseDataset
 from mindformers.models import build_model, build_processor, build_tokenizer, BaseModel
@@ -505,12 +507,33 @@ class BaseTrainer:
             logger.info(".........Build Running Wrapper From Config For Train..........")
             wrapper = self.create_model_wrapper(network, optimizer)
 
+        # define compute metrics for evaluate in training
+        compute_metrics = None
+        if config.do_eval:
+            compute_metrics = self.create_metrics()
+
         # define Model and begin training
         logger.info(".........Starting Init Train Model..........")
         if wrapper is not None:
-            model = Model(wrapper)
+            model = Model(wrapper, metrics=compute_metrics, eval_network=network)
         else:
-            model = Model(network, optimizer=optimizer)
+            model = Model(network, optimizer=optimizer, metrics=compute_metrics, eval_network=network)
+
+        # build evaluate in training
+        if config.do_eval:
+            logger.info(".........Build Evaluate in Training Callback..........")
+            eval_dataset = self.create_eval_dataset()
+
+            eval_callback = EvalCallBack(
+                partial(
+                    self._evaluate_in_training,
+                    model=model,
+                    eval_dataset=eval_dataset,
+                ),
+                step_interval=config.eval_step_interval if config.eval_step_interval else -1,
+                epoch_interval=config.eval_epoch_interval if config.eval_epoch_interval else 1,
+            )
+            callbacks.append(eval_callback)
 
         logger.info(".........Starting Training Model..........")
         logger.info(".........Model Compiling, Please Wait a Moment...........")
@@ -567,3 +590,12 @@ class BaseTrainer:
                             dataset_sink_mode=config.runner_config.sink_mode)
         logger.info('%s = %s', metric_name, str(output))
         logger.info(".........Evaluate Over!.............")
+
+    def _evaluate_in_training(self, model: Model, eval_dataset: BaseDataset):
+        origin_phase = model.eval_network.phase
+        model.eval_network.set_train(False)
+        output = model.eval(
+            eval_dataset, dataset_sink_mode=self.config.runner_config.sink_mode
+        )
+        model.eval_network.set_train(origin_phase)
+        return output

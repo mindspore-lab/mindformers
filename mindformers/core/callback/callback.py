@@ -16,7 +16,7 @@
 import os
 import time
 from copy import deepcopy
-from typing import Optional, Union
+from typing import Callable, Optional, Union
 
 import numpy as np
 import mindspore as ms
@@ -30,7 +30,7 @@ from mindformers.tools.logger import logger
 from mindformers.tools.utils import LOCAL_DEFAULT_PATH
 
 
-__all__ = ['ObsMonitor', 'MFLossMonitor', 'CheckpointMointor', 'SummaryMonitor', 'ProfileMonitor']
+__all__ = ['ObsMonitor', 'MFLossMonitor', 'CheckpointMointor', 'SummaryMonitor', 'ProfileMonitor', 'EvalCallBack']
 
 
 @MindFormerRegister.register(MindFormerModuleType.CALLBACK)
@@ -379,3 +379,45 @@ class ProfileMonitor(Callback):
             logger.info("End of Profiling, please view the profile data under %s and analyze it using mindinsight."
                         "MindInsight order as follow: "
                         "mindinsight start --summary-base-dir %s", self.output_path, self.output_path)
+
+
+@MindFormerRegister.register(MindFormerModuleType.CALLBACK)
+class EvalCallBack(Callback):
+    """Evaluate Callback used in training progress.
+
+    Args:
+        eval_func (Callable): the function to calculate eval result, task specific.
+        step_interval (int): determine the num of step intervals between each eval.
+            Default -1, means only eval on epoch end, do not eval between steps.
+            Note that it will not take effects when running in data sink mode.
+        epoch_interval (int): determine the num of epoch intervals between each eval.
+            Default 1, means eval on every epoch end.
+    """
+    def __init__(self, eval_func: Callable, step_interval: int = -1, epoch_interval: int = 1):
+        self.eval_func = eval_func
+        self.step_interval = step_interval
+        self.epoch_interval = epoch_interval
+
+    def epoch_end(self, run_context):
+        # if not use epoch end
+        if self.epoch_interval <= 0:
+            return
+        callback_params = run_context.original_args()
+        cur_epoch_num = callback_params.cur_epoch_num
+        if cur_epoch_num % self.epoch_interval == 0:
+            self._execute_eval()
+
+    def step_end(self, run_context):
+        # if not use step end
+        if self.step_interval <= 0:
+            return
+        callback_params = run_context.original_args()
+        cur_step_num = callback_params.cur_step_num
+        if cur_step_num % self.step_interval == 0:
+            self._execute_eval()
+
+    def _execute_eval(self):
+        start_time = time.time()
+        output = self.eval_func()
+        eval_time = time.time() - start_time
+        logger.info("Eval result: %s, eval time is %f s.", output, eval_time)
