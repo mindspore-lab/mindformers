@@ -523,7 +523,7 @@ class Linear(Cell):
         output = P.Reshape()(x, out_shape)
         return output
 
-    def shard(self, strategy_matmul, strategy_bias=None, strategy_activation=None):
+    def shard(self, strategy_matmul, strategy_bias=None, strategy_activation=None, out_strategy_matmul=None):
         r"""
         Set the shard for the linear. the strategy size should be equal to the inputs.
 
@@ -536,8 +536,9 @@ class Linear(Cell):
             strategy_bias (tuple): The strategy for the bias_add. Should be the same shape as the inputs.
             strategy_activation (tuple): The strategy for the strategy_activation. Should be the same shape as
             the inputs.
+            out_strategy_matmul (tuple): The out strategy for the matmul. Should be the same shape as the inputs.
         """
-        self.matmul.shard(strategy_matmul)
+        self.matmul.shard(in_strategy=strategy_matmul, out_strategy=out_strategy_matmul)
         if self.has_bias:
             self.bias_add.shard(strategy_bias)
         if self.activation_flag and isinstance(self.act_name, str):
