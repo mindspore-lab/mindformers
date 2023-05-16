@@ -268,44 +268,28 @@ def config2dict(config):
     return new_dict
 
 
-def load_distributed_checkpoint():
+def load_distributed_checkpoint(config):
     """Load Checkpoint in Parallel Mode."""
-
-
-def resume_checkpoint_for_training(config, network, optimizer):
-    """Resume Checkpoint for training."""
-    if not os.path.realpath(config.resume_or_finetune_checkpoint) or \
-            not os.path.exists(config.resume_or_finetune_checkpoint):
-        raise FileNotFoundError(f"The resume_or_finetune_checkpoint must be correct, "
-                                f"but get {config.resume_or_finetune_checkpoint}")
-    if context.get_auto_parallel_context('parallel_mode') in \
-            ['semi_auto_parallel', 'auto_parallel', 'hybrid_parallel']:
-        load_distributed_checkpoint()
-    else:
-        checkpoint_dict = load_checkpoint(config.resume_or_finetune_checkpoint)
-        not_load_network_params = load_param_into_net(network, checkpoint_dict)
-        not_load_optim_params = load_param_into_net(optimizer, checkpoint_dict)
-        logger.info("Not load network parameters is：%s", str(not_load_network_params))
-        logger.info("Not load optimizer parameters is：%s", str(not_load_optim_params))
-
-
-def load_distributed_checkpoint_v2(config, model, dataset):
-    """Load Checkpoint in Parallel Mode."""
-    if not os.path.isdir(config.resume_or_finetune_checkpoint):
-        raise NotADirectoryError(
+    checkpoint_dir = config.resume_or_finetune_checkpoint
+    if os.path.isdir(checkpoint_dir):
+        logger.info(
             "When distributed loads are sliced weights,"
             "resume_or_finetune_checkpoint should be a checkpoint directory containing the directory of rank_{0-*},"
             "The directory structure is as follows: **checkpoint_root_dir/rank_{0-*}/checkpoint/**.ckpt")
-    distribute_checkpoint_dir = os.path.join(
-        config.resume_or_finetune_checkpoint,
-        "rank_{}".format(int(os.getenv("RANK_ID", "0"))), "checkpoint")
-    distribute_checkpoint_path = get_last_checkpoint(distribute_checkpoint_dir)
-    model.build(train_dataset=dataset, epoch=config.runner_config.epochs)
+        distribute_checkpoint_dir = os.path.join(
+            checkpoint_dir, "rank_{}".format(int(os.getenv("RANK_ID", "0"))), "checkpoint")
+        distribute_checkpoint_path = get_last_checkpoint(distribute_checkpoint_dir)
+    elif os.path.isfile(checkpoint_dir):
+        logger.info("Your resume_or_finetune_checkpoint is file, it will be load in network.")
+        distribute_checkpoint_path = checkpoint_dir
+    else:
+        raise FileNotFoundError(f"{checkpoint_dir} is not found.")
     checkpoint_dict = load_checkpoint(distribute_checkpoint_path)
+    logger.info("Distribute load is success.")
     return checkpoint_dict
 
 
-def resume_checkpoint_for_training_v2(config, model, network, optimizer, dataset):
+def load_checkpoint_for_training(config):
     """Resume Checkpoint for training."""
     if not os.path.realpath(config.resume_or_finetune_checkpoint) or \
             not os.path.exists(config.resume_or_finetune_checkpoint):
@@ -313,9 +297,32 @@ def resume_checkpoint_for_training_v2(config, model, network, optimizer, dataset
                                 f"but get {config.resume_or_finetune_checkpoint}")
     if context.get_auto_parallel_context('parallel_mode') in \
             ['semi_auto_parallel', 'auto_parallel', 'hybrid_parallel']:
-        checkpoint_dict = load_distributed_checkpoint_v2(config, model, dataset)
+        checkpoint_dict = load_distributed_checkpoint(config)
     else:
         checkpoint_dict = load_checkpoint(config.resume_or_finetune_checkpoint)
+
+    for callback in config.callbacks:
+        if "type" in callback and callback["type"] == "CheckpointMointor":
+            if config.runner_wrapper.scale_sense is not None and "loss_scale" in checkpoint_dict:
+                config.runner_wrapper.scale_sense.loss_scale_value = checkpoint_dict["loss_scale"]
+            break
+    return checkpoint_dict
+
+
+def resume_checkpoint_dict(config, checkpoint_dict, model, network, optimizer, dataset):
+    """Resume Checkpoint into dict."""
+    if context.get_auto_parallel_context('parallel_mode') in \
+            ['semi_auto_parallel', 'auto_parallel', 'hybrid_parallel']:
+        if not config.runner_config.sink_mode:
+            raise ValueError("When distributed loads are sliced weights, sink_mode must be set True.")
+        if config.runner_config.epochs > 1 and config.runner_config.per_epoch_size == 1:
+            raise ValueError(f"When distributed loads are sliced weights, it does not support"
+                             f"epochs = {config.runner_config.epochs} > 1 and "
+                             f"sink_size = {config.runner_config.per_epoch_size} = 1,"
+                             f"sink_size must be more than 1")
+        model.build(train_dataset=dataset,
+                    epoch=config.runner_config.epochs,
+                    sink_size=config.runner_config.per_epoch_size)
     not_load_network_params = load_param_into_net(network, checkpoint_dict)
     not_load_optim_params = load_param_into_net(optimizer, checkpoint_dict)
     logger.info("Network parameters are not loaded：%s", str(not_load_network_params))
@@ -326,6 +333,7 @@ def get_last_checkpoint(checkpoint_dir):
     """get last checkpoint for resuming or finetune."""
     if not os.path.isdir(checkpoint_dir):
         raise NotADirectoryError(
+            f"{checkpoint_dir} is not a real directory,"
             "When distributed loads are sliced weights,"
             "resume_or_finetune_checkpoint should be a checkpoint directory containing the directory of rank_{0-*},"
             "The directory structure is as follows: **checkpoint_root_dir/rank_{0-*}/checkpoint/**.ckpt")
