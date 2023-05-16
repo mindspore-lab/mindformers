@@ -26,12 +26,16 @@ import shutil
 import six
 import numpy as np
 import mindspore.nn as nn
+import mindspore as ms
+from mindspore.ops import operations as P
+from mindspore.communication import get_group_size, get_rank
 
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.models import BasicTokenizer
+from mindformers.core.loss import CrossEntropyLoss
 from ...dataset.labels import cluener_labels
 
-__all__ = ['EntityScore', 'SQuADMetric']
+__all__ = ['EntityScore', 'SQuADMetric', 'PerplexityMetric']
 
 
 @MindFormerRegister.register(MindFormerModuleType.METRIC)
@@ -463,3 +467,87 @@ class SQuADMetric(nn.Metric):
                 break
             best_indexes.append(score[0])
         return best_indexes
+
+@MindFormerRegister.register(MindFormerModuleType.METRIC)
+class PerplexityMetric(nn.Metric):
+    """Compute the loss and PPL of each entity"""
+    def __init__(self):
+        super(PerplexityMetric, self).__init__()
+        self.num_data = None
+        self.total_loss = None
+        self.loss = CrossEntropyLoss()
+        self.pipeline_stages = ms.get_auto_parallel_context('pipeline_stages')
+        self.pipeline_parallel = self.pipeline_stages > 1
+        self.rank_id = 0
+        self.device_num = 1
+        self.cast = P.Cast()
+        self.reshape = P.Reshape()
+        self.not_equal = P.NotEqual()
+        self.sub = P.Sub()
+
+        if self.pipeline_parallel:
+            self.rank_id = get_rank()
+            self.device_num = get_group_size()
+
+        per_stage_device_num = self.device_num // self.pipeline_stages
+        stage_id = self.rank_id // per_stage_device_num
+        self.is_last_stage = (stage_id == self.pipeline_stages - 1)
+
+        self.parallel_mode = ms.get_auto_parallel_context("parallel_mode")
+        self.full_batch = ms.get_auto_parallel_context("full_batch")
+        self.auto_parallel = self.parallel_mode in ['semi_auto_parallel', 'auto_parallel']
+
+    def clear(self):
+        """Clearing the internal evaluation result."""
+        self.num_data = 0
+        self.total_loss = 0.0
+
+    def update(self, *inputs):
+        """Update results for every batch"""
+        if self.pipeline_parallel:
+            if not self.is_last_stage:
+                return
+            if self.auto_parallel:
+                ms.context.set_auto_parallel_context(parallel_mode='data_parallel', full_batch=False)
+            logits, labels, input_mask = inputs[0], inputs[1], inputs[2]
+
+            # input_mask was added 1 in GPT2LMModel to avoid allgather issue in Mindspore1.10
+            input_mask = self.sub(input_mask, 1)
+
+            batch_size, seq_length, _ = logits.shape
+
+            logits = self.reshape(logits[::, :-1, ::], (batch_size * (seq_length - 1), -1))
+            labels = self.reshape(labels[::, 1:], (-1,))
+            input_mask = self.reshape(input_mask[::, 1:], (-1,))
+
+            loss = self.loss(logits, labels, input_mask)
+            loss = float(loss.asnumpy())
+            self.total_loss += loss
+            self.num_data += 1
+            if self.auto_parallel:
+                ms.set_auto_parallel_context(parallel_mode=self.parallel_mode,
+                                             full_batch=True,
+                                             pipeline_stages=self.pipeline_stages)
+        else:
+            logits, labels, input_mask = inputs[0], inputs[1], inputs[2]
+
+            batch_size, seq_length, _ = logits.shape
+
+            logits = self.reshape(logits[::, :-1, ::], (batch_size * (seq_length - 1), -1))
+            labels = self.reshape(labels[::, 1:], (-1,))
+            input_mask = self.reshape(input_mask[::, 1:], (-1,))
+
+            loss = self.loss(logits, labels, input_mask)
+            loss = float(loss.asnumpy())
+            self.total_loss += loss
+            self.num_data += 1
+
+    def eval(self):
+        """Compute final result"""
+        if self.pipeline_parallel and not self.is_last_stage:
+            return None
+        avg_loss = float(self.total_loss / self.num_data)
+        result = {"loss": avg_loss, "PPL": math.exp(avg_loss)}
+        if self.pipeline_parallel:
+            print("Average Loss and PPL Metric:", result)
+        return result
