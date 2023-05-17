@@ -20,18 +20,20 @@ from typing import Callable, Optional, Union
 
 import numpy as np
 import mindspore as ms
-from mindspore import Callback, Profiler
+from mindspore import Callback, Profiler, ModelCheckpoint, CheckpointConfig, context, save_checkpoint
 from mindspore.train.callback import SummaryCollector
 from mindspore.nn.learning_rate_schedule import LearningRateSchedule
+from mindspore.train.callback._callback import set_cur_net
 
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
-from mindformers.tools.cloud_adapter.cloud_adapter import Local2ObsMonitor, CheckpointCallBack
+from mindformers.tools.cloud_adapter.cloud_adapter import Local2ObsMonitor
 from mindformers.tools.logger import logger
-from mindformers.tools.utils import LOCAL_DEFAULT_PATH
-
+from mindformers.tools.utils import LOCAL_DEFAULT_PATH, check_in_modelarts, Validator, format_path
 
 __all__ = ['ObsMonitor', 'MFLossMonitor', 'CheckpointMointor', 'SummaryMonitor', 'ProfileMonitor', 'EvalCallBack']
 
+_cur_dir = os.getcwd()
+SAVE_DIR = _cur_dir
 
 @MindFormerRegister.register(MindFormerModuleType.CALLBACK)
 class ObsMonitor:
@@ -194,8 +196,11 @@ class MFLossMonitor(Callback):
                             self.print_warning_flag = False
                         current_lr = None
                     else:
-                        current_step = ms.Tensor(cb_params.cur_step_num - 1, ms.int32)
-                        current_lr = self.learning_rate(current_step)
+                        if cb_params.optimizer is not None:
+                            global_step = cb_params.optimizer.global_step
+                        else:
+                            global_step = cb_params.network.optimizer.global_step
+                        current_lr = self.learning_rate(global_step)
                         current_lr = np.array2string(current_lr.asnumpy())
                 else:
                     if self.print_warning_flag:
@@ -275,52 +280,118 @@ class SummaryMonitor:
 
 
 @MindFormerRegister.register(MindFormerModuleType.CALLBACK)
-class CheckpointMointor:
-    """Checkpoint Monitor For AICC and Local"""
-    def __new__(cls,
-                prefix='CKP',
-                directory=None,
-                config=None,
-                save_checkpoint_steps=1,
-                save_checkpoint_seconds=0,
-                keep_checkpoint_max=5,
-                keep_checkpoint_per_n_minutes=0,
-                integrated_save=True,
-                async_save=False,
-                saved_network=None,
-                append_info=None,
-                enc_key=None,
-                enc_mode='AES-GCM',
-                exception_save=False):
+class CheckpointMointor(ModelCheckpoint):
+    """Checkpoint Monitor For Save LossScale"""
+    def __init__(self, prefix='CKP',
+                 directory=None,
+                 config=None,
+                 save_checkpoint_steps=1,
+                 save_checkpoint_seconds=0,
+                 keep_checkpoint_max=5,
+                 keep_checkpoint_per_n_minutes=0,
+                 integrated_save=True,
+                 async_save=False,
+                 saved_network=None,
+                 append_info=None,
+                 enc_key=None,
+                 enc_mode='AES-GCM',
+                 exception_save=False):
 
-        rank_id = int(os.getenv("DEVICE_ID", '0'))
-        prefix = prefix + "_rank_{}".format(rank_id)
+        self.config = config
+        self.rank_id = int(os.getenv("DEVICE_ID", '0'))
+        prefix = prefix + "_rank_{}".format(self.rank_id)
 
-        kwargs = {
-            "prefix": prefix,
-            "directory": directory,
-            "config": config,
-            "save_checkpoint_steps": save_checkpoint_steps,
-            "save_checkpoint_seconds": save_checkpoint_seconds,
-            "keep_checkpoint_max": keep_checkpoint_max,
-            "keep_checkpoint_per_n_minutes": keep_checkpoint_per_n_minutes,
-            "integrated_save": integrated_save,
-            "async_save": async_save,
-            "saved_network": saved_network,
-            "append_info": append_info,
-            "enc_key": enc_key,
-            "enc_mode": enc_mode,
-            "exception_save": exception_save
-        }
+        if append_info is None:
+            append_info = [{
+                "epoch_num": 0,
+                "step_num": 0,
+                "global_step": 0,
+                "loss_scale": 1
+            }]
         is_cfts = MindFormerRegister.is_exist(
             module_type=MindFormerModuleType.TOOLS, class_name="cfts")
         if is_cfts:
-            cfts = MindFormerRegister.get_cls(
-                class_name="cfts", module_type=MindFormerModuleType.TOOLS)
-            return cfts.checkpoint_monitor(**kwargs)
-        checkpoint_cb = CheckpointCallBack(**kwargs)
-        return checkpoint_cb.save_checkpoint()
+            if check_in_modelarts():
+                directory = os.path.join(self.local_path, 'rank_{}'.format(self.rank_id))
+                directory = os.path.join(directory, 'checkpoint')
+            elif directory is None:
+                directory = os.path.join(LOCAL_DEFAULT_PATH, 'rank_{}'.format(self.rank_id))
+                directory = os.path.join(directory, 'checkpoint')
+            Validator.check_type(directory, str)
+            format_path(directory)
+        if context.get_auto_parallel_context('parallel_mode') in \
+                ['semi_auto_parallel', 'auto_parallel', 'hybrid_parallel']:
+            logger.info("Integrated_save is changed to False when using auto_parallel.")
+            integrated_save = False
+        config_ck = CheckpointConfig(save_checkpoint_steps=save_checkpoint_steps,
+                                     save_checkpoint_seconds=save_checkpoint_seconds,
+                                     keep_checkpoint_max=keep_checkpoint_max,
+                                     keep_checkpoint_per_n_minutes=keep_checkpoint_per_n_minutes,
+                                     integrated_save=integrated_save,
+                                     async_save=async_save,
+                                     saved_network=saved_network,
+                                     append_info=append_info,
+                                     enc_key=enc_key,
+                                     enc_mode=enc_mode,
+                                     exception_save=exception_save)
+        super().__init__(prefix, directory, config=config_ck)
 
+    def _save_ckpt(self, cb_params, force_to_save=False):
+        """Save checkpoint files."""
+        # pylint: disable=E0203
+        if cb_params.cur_step_num == self._last_triggered_step:
+            return
+
+        # if param is cache enable, flush data from cache to host before save_ckpt
+        if self._need_flush_from_cache:
+            self._flush_from_cache(cb_params)
+
+        save_ckpt = self._check_save_ckpt(cb_params, force_to_save)
+        step_num_in_epoch = int((cb_params.cur_step_num - 1) % cb_params.batch_num + 1)
+
+        if save_ckpt:
+            cur_ckpoint_file = self._prefix + "-" + str(cb_params.cur_epoch_num) + "_" \
+                + str(step_num_in_epoch) + ".ckpt"
+            # update checkpoint file list.
+            self._manager.update_ckpoint_filelist(self._directory, self._prefix)
+            # keep checkpoint files number equal max number.
+            if self._config.keep_checkpoint_max and 0 < self._config.keep_checkpoint_max <= self._manager.ckpoint_num:
+                self._manager.remove_oldest_ckpoint_file()
+            elif self._config.keep_checkpoint_per_n_minutes and self._config.keep_checkpoint_per_n_minutes > 0:
+                # pylint: disable=E0203
+                self._cur_time_for_keep = time.time()
+                if (self._cur_time_for_keep - self._last_time_for_keep) \
+                        < self._config.keep_checkpoint_per_n_minutes * 60:
+                    self._manager.keep_one_ckpoint_per_minutes(self._config.keep_checkpoint_per_n_minutes,
+                                                               self._cur_time_for_keep)
+
+            # generate the new checkpoint file and rename it.
+            global SAVE_DIR
+            SAVE_DIR = self._directory
+            cur_file = os.path.join(self._directory, cur_ckpoint_file)
+            self._last_time_for_keep = time.time()
+            self._last_triggered_step = cb_params.cur_step_num
+
+            if context.get_context("enable_ge"):
+                set_cur_net(cb_params.train_network)
+                cb_params.train_network.exec_checkpoint_graph()
+            if "epoch_num" in self._append_dict:
+                self._append_dict["epoch_num"] = self._append_epoch_num + cb_params.cur_epoch_num
+            if "step_num" in self._append_dict:
+                self._append_dict["step_num"] = self._append_step_num + cb_params.cur_epoch_num * cb_params.batch_num
+            if cb_params.optimizer is not None:
+                self._append_dict["global_step"] = cb_params.optimizer.global_step
+            else:
+                self._append_dict["global_step"] = cb_params.network.optimizer.global_step
+            if "loss_scale" in self._append_dict:
+                outputs = cb_params.net_outputs
+                if isinstance(outputs, (tuple, list)) and len(outputs) == 3:
+                    self._append_dict["loss_scale"] = outputs[2]
+            network = self._config.saved_network if self._config.saved_network is not None else cb_params.train_network
+            save_checkpoint(network, cur_file, self._config.integrated_save, self._config.async_save,
+                            self._append_dict, self._config.enc_key, self._config.enc_mode)
+
+            self._latest_ckpt_file_name = cur_file
 
 @MindFormerRegister.register(MindFormerModuleType.CALLBACK)
 class ProfileMonitor(Callback):

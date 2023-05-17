@@ -13,6 +13,7 @@
 # limitations under the License.
 # ============================================================================
 """Base Trainer."""
+import math
 import os
 import shutil
 from functools import partial
@@ -38,7 +39,7 @@ from mindformers.tools.logger import logger
 from mindformers.tools.utils import count_params
 from .config_args import ConfigArguments
 from .training_args import TrainingArguments
-from .utils import check_runner_config, resume_checkpoint_for_training
+from .utils import check_runner_config, load_checkpoint_for_training, resume_checkpoint_dict
 from .optimizer_grouped_parameters import get_optimizer_grouped_parameters
 from .utils import set_seed, check_train_data_loader_type, \
     check_eval_data_loader_type, check_optimizer_and_lr_type, check_wrapper_config
@@ -459,6 +460,11 @@ class BaseTrainer:
         is_full_config = kwargs.get("is_full_config", False)
         config = self.set_config(config, is_full_config)
 
+        checkpoint_dict = None
+        if config.resume_or_finetune_checkpoint:
+            logger.info(".............Start load checkpoint for training..................")
+            checkpoint_dict = load_checkpoint_for_training(config)
+
         # build dataset
         logger.info(".........Build Dataset For Train..........")
         if dataset is None:
@@ -497,11 +503,6 @@ class BaseTrainer:
                 "dataset_size": config.data_size,
                 "micro_batch_num": config.parallel_config.micro_batch_num})
 
-        # resume checkpoint
-        if config.resume_or_finetune_checkpoint:
-            logger.info(".............Start resume training from checkpoint..................")
-            resume_checkpoint_for_training(config, network, optimizer)
-
         # build model wrapper
         if wrapper is None:
             logger.info(".........Build Running Wrapper From Config For Train..........")
@@ -534,6 +535,20 @@ class BaseTrainer:
                 epoch_interval=config.eval_epoch_interval if config.eval_epoch_interval else 1,
             )
             callbacks.append(eval_callback)
+
+        # resume checkpoint
+        if config.resume_or_finetune_checkpoint:
+            if "epoch_num" in checkpoint_dict:
+                per_epoch_size = config.runner_config.per_epoch_size
+                if config.sink_mode and per_epoch_size > 0:
+                    config.runner_config.initial_epoch = math.ceil(int(checkpoint_dict["epoch_num"]) * per_epoch_size /
+                                                                   dataset.get_dataset_size())
+                else:
+                    config.runner_config.initial_epoch = int(checkpoint_dict["epoch_num"])
+            else:
+                config.runner_config.initial_epoch = 0
+            logger.info(".............Start resume training from checkpoint dict..................")
+            resume_checkpoint_dict(config, checkpoint_dict, model, network, optimizer, dataset)
 
         logger.info(".........Starting Training Model..........")
         logger.info(".........Model Compiling, Please Wait a Moment...........")

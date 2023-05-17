@@ -73,8 +73,8 @@ callbacks:
   - type: SummaryMonitor
     keep_default_action: True
   - type: CheckpointMointor
-    prefix: "mindformers"
-    save_checkpoint_steps: 100
+    prefix: "gpt"
+    save_checkpoint_steps: 1
     integrated_save: True
     async_save: False
   - type: ObsMonitor
