@@ -169,10 +169,6 @@ class BertForPreTraining(BaseModel):
         seq_relationship_score = self.nsploss(pooled_output)
         if not self.is_training:
             return sequence_output, pooled_output, prediction_scores, seq_relationship_score
-        prediction_scores = self.mlmloss(sequence_output,
-                                         embedding_table,
-                                         masked_lm_positions)
-        seq_relationship_score = self.nsploss(pooled_output)
         return prediction_scores, seq_relationship_score, moe_loss
 
     def construct(self,
