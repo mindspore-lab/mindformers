@@ -168,6 +168,10 @@ class MindFormerBook:
         ("text_generation", OrderedDict([
             ("gpt2", os.path.join(
                 _PROJECT_PATH, "configs/gpt2/run_gpt2.yaml")),
+            ("pangualpha_2_6b", os.path.join(
+                _PROJECT_PATH, "configs/pangualpha/run_pangualpha_2_6b.yaml")),
+            ("pangualpha_13b", os.path.join(
+                _PROJECT_PATH, "configs/pangualpha/run_pangualpha_13b.yaml")),
             ("common", os.path.join(
                 _PROJECT_PATH, "configs/gpt2/run_gpt2.yaml"))])
          )
@@ -239,6 +243,10 @@ class MindFormerBook:
         ("text_generation", OrderedDict([
             ("gpt2", os.path.join(
                 _PROJECT_PATH, "configs/gpt2/run_gpt2.yaml")),
+            ("pangualpha_2_6b", os.path.join(
+                _PROJECT_PATH, "configs/pangualpha/run_pangualpha_2_6b.yaml")),
+            ("pangualpha_13b", os.path.join(
+                _PROJECT_PATH, "configs/pangualpha/run_pangualpha_13b.yaml")),
             ("common", os.path.join(
                 _PROJECT_PATH, "configs/gpt2/run_gpt2.yaml"))
         ]))
@@ -287,6 +295,9 @@ class MindFormerBook:
         ]),
         ('gpt2', [
             'gpt2'
+        ]),
+        ('pangualpha', [
+            'pangualpha'
         ])
     ])
 
@@ -335,6 +346,9 @@ class MindFormerBook:
         ]),
         ('gpt2', [
             'gpt2'
+        ]),
+        ('pangualpha', [
+            'pangualpha'
         ])
     ])
 
@@ -373,6 +387,9 @@ class MindFormerBook:
         ]),
         ('gpt2', [
             'gpt2',
+        ]),
+        ('pangualpha', [
+            'pangualpha'
         ])
     ])
 
@@ -407,6 +424,9 @@ class MindFormerBook:
         ]),
         ('gpt2', [
             'gpt2',
+        ]),
+        ('pangualpha', [
+            'pangualpha'
         ])
     ])
 
@@ -498,6 +518,14 @@ class MindFormerBook:
         ('gpt2',
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
           '/XFormer_for_mindspore/gpt2/gpt2.ckpt'
+          ]),
+        ('pangualpha_2_6b',
+         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
+          '/XFormer_for_mindspore/pangualpha/pangualpha_2_6b.ckpt'
+          ]),
+        ('pangualpha_13b',
+         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
+          '/XFormer_for_mindspore/pangualpha/pangualpha_13b.ckpt'
           ])
     ])
 
@@ -648,6 +676,14 @@ class MindFormerBook:
           '/XFormer_for_mindspore/gpt2/vocab.json',
           'https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
           '/XFormer_for_mindspore/gpt2/merges.txt'
+          ]),
+        ('pangualpha_2_6b',
+         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
+          '/XFormer_for_mindspore/pangualpha/vocab.model'
+          ]),
+        ('pangualpha_13b',
+         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
+          '/XFormer_for_mindspore/pangualpha/vocab.model'
           ])
     ])
 
