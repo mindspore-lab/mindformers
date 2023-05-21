@@ -298,7 +298,7 @@ class CheckpointMointor(ModelCheckpoint):
                  exception_save=False):
 
         self.config = config
-        self.rank_id = int(os.getenv("DEVICE_ID", '0'))
+        self.rank_id = int(os.getenv("RANK_ID", '0'))
         prefix = prefix + "_rank_{}".format(self.rank_id)
 
         if append_info is None:
