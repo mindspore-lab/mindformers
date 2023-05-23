@@ -3,6 +3,9 @@ train_dataset: &train_dataset
     type: MindDataset
     dataset_dir: ""
     shuffle: True
+  tokenizer:
+    type: GPT2Tokenizer
+    max_length: 1025
   input_columns: ["input_ids"]
   num_parallel_workers: 8
   python_multiprocessing: False
@@ -21,6 +24,9 @@ eval_dataset: &eval_dataset
     type: MindDataset
     dataset_dir: ""
     shuffle: False
+  tokenizer:
+    type: GPT2Tokenizer
+    max_length: 1024
   input_columns: ["input_ids"]
   num_parallel_workers: 8
   python_multiprocessing: False
