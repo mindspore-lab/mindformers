@@ -312,11 +312,11 @@ class CheckpointMointor(ModelCheckpoint):
             module_type=MindFormerModuleType.TOOLS, class_name="cfts")
         if is_cfts:
             if check_in_modelarts():
-                directory = os.path.join(self.local_path, 'rank_{}'.format(self.rank_id))
-                directory = os.path.join(directory, 'checkpoint')
+                directory = os.path.join(self.local_path, 'checkpoint')
+                directory = os.path.join(directory, 'rank_{}'.format(self.rank_id))
             elif directory is None:
-                directory = os.path.join(LOCAL_DEFAULT_PATH, 'rank_{}'.format(self.rank_id))
-                directory = os.path.join(directory, 'checkpoint')
+                directory = os.path.join(LOCAL_DEFAULT_PATH, 'checkpoint')
+                directory = os.path.join(directory, 'rank_{}'.format(self.rank_id))
             Validator.check_type(directory, str)
             format_path(directory)
         if context.get_auto_parallel_context('parallel_mode') in \
