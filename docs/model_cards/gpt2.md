@@ -96,7 +96,7 @@ DEVICE_RANGE: 为单机分布式卡的范围，如[0,8]为8卡分布式，不包
 RUN_STATUS: 为任务运行状态，支持关键字 train\finetune\predict
 ```
 
-其中，模型和训练等相关配置可在`configs/gpt2`目录下的yaml文件中配置，如数据集路径，可在`configs/gpt2/task_config/gpt2_dataset.yaml`中配置`dataset_dir`参数。
+其中，模型和训练等相关配置可在`configs/gpt2`目录下的yaml文件中配置，如数据集路径，可在`configs/gpt2/run_gpt2_***.yaml`中配置`dataset_dir`参数。
 `dataset_dir`可指定文件目录或文件路径，指定文件路径时，读取单文件，指定目录时，读取目录下所有以字符串mindrecord结尾的数据文件
 
 #### 多机多卡启动

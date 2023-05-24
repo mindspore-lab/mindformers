@@ -52,7 +52,7 @@ def test_config():
     Expectation: TypeError, ValueError
     """
     config_path = os.path.join(MindFormerBook.get_project_path(),
-                               'configs', 'mae', 'model_config', "mae_vit_base_p16.yaml")
+                               'configs', 'mae', 'run_mae_vit_base_p16_224_800ep.yaml')
     save_path = os.path.join(MindFormerBook.get_default_checkpoint_save_folder(),
                              'mae')
 

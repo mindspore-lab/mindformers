@@ -44,7 +44,7 @@ class TestVitTrainDataset:
 
         config_path = os.path.join(
             project_path, "configs", "mae",
-            "task_config", "mae_dataset.yaml"
+            "run_mae_vit_base_p16_224_800ep.yaml"
         )
         config = MindFormerConfig(config_path)
 

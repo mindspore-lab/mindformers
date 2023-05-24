@@ -34,7 +34,7 @@ class TestModelMethod:
     def setup_method(self):
         """get_input"""
         self.config_path = os.path.join(MindFormerBook.get_project_path(),
-                                        'configs', 'bert', 'model_config', "bert_base_uncased.yaml")
+                                        'configs', 'bert', 'run_bert_base_uncased.yaml')
 
     # the first method to load model, AutoModel
     @pytest.mark.level0
@@ -49,7 +49,7 @@ class TestModelMethod:
         """
         AutoModel.show_support_list()
         self.config_path = os.path.join(MindFormerBook.get_project_path(),
-                                        'configs', 'bert', 'model_config', "bert_base_uncased.yaml")
+                                        'configs', 'bert', 'run_bert_base_uncased.yaml')
         support_list = AutoModel.get_support_list()
         logger.info(support_list)
         # input yaml path, load model without weights

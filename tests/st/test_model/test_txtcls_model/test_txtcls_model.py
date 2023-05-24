@@ -38,16 +38,14 @@ class TestModelMethod:
         self.txtcls_checkpoint_dir = os.path.join(MindFormerBook.get_default_checkpoint_download_folder(),
                                                   'txtcls')
         self.txtcls_config_path = os.path.join(MindFormerBook.get_project_path(),
-                                               'configs', 'txtcls', 'model_config',
-                                               'txtcls_bert_base_uncased.yaml')
+                                               'configs', 'txtcls', 'run_txtcls_bert_base_uncased.yaml')
         self.txtcls_config = AutoConfig.from_pretrained('txtcls_bert_base_uncased')
 
         # evaluation and prediction
         self.txtcls_mnli_checkpoint_dir = os.path.join(MindFormerBook.get_default_checkpoint_download_folder(),
                                                        'txtcls')
         self.txtcls_mnli_config_path = os.path.join(MindFormerBook.get_project_path(),
-                                                    'configs', 'txtcls', 'model_config',
-                                                    'txtcls_bert_base_uncased_mnli.yaml')
+                                                    'configs', 'txtcls', 'run_txtcls_bert_base_uncased_mnli.yaml')
         self.txtcls_mnli_config = AutoConfig.from_pretrained('txtcls_bert_base_uncased_mnli')
 
         # save path

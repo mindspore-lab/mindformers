@@ -53,7 +53,7 @@ def test_config():
     Expectation: TypeError, ValueError
     """
     config_path = os.path.join(MindFormerBook.get_project_path(),
-                               'configs', 'swin', 'model_config', "swin_base_p4w7.yaml")
+                               'configs', 'swin', 'run_swin_base_p4w7_224_100ep.yaml')
     save_path = os.path.join(MindFormerBook.get_default_checkpoint_save_folder(),
                              'swin')
 

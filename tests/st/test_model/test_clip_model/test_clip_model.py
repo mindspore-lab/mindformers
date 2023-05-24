@@ -47,7 +47,7 @@ class TestModelMethod:
         self.checkpoint_dir = os.path.join(MindFormerBook.get_default_checkpoint_download_folder(),
                                            'clip')
         self.config_path = os.path.join(MindFormerBook.get_project_path(),
-                                        'configs', 'clip', 'model_config', self.model_type + ".yaml")
+                                        'configs', 'clip', 'run_clip_vit_b_32_pretrain_flickr8k.yaml')
         self.config = AutoConfig.from_pretrained(self.model_type)
 
         self.checkpoint_path = os.path.join(MindFormerBook.get_default_checkpoint_download_folder(),

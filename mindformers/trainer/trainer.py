@@ -724,33 +724,14 @@ class Trainer:
         if config is None:
             config = self.config
         model_name = self.config.trainer.model_name
-        config_dict = _reset_config_for_save(config, model_name)
+        config_dict = _reset_config_for_save(config)
         config_dir = os.path.join(
             self.configs_directory, model_name.lower() + '_new')
         if not os.path.exists(config_dir):
             os.makedirs(config_dir, exist_ok=True)
-
-        model_config_dir = os.path.join(config_dir, 'model_config')
-        task_config_dir = os.path.join(config_dir, 'task_config')
-        if not os.path.exists(model_config_dir):
-            os.makedirs(model_config_dir, exist_ok=True)
-
-        if not os.path.exists(task_config_dir):
-            os.makedirs(task_config_dir, exist_ok=True)
-
-        model_config_yaml_path = os.path.join(
-            model_config_dir, '{}.yaml'.format(model_name.lower()))
-        dataset_config_yaml_path = os.path.join(
-            task_config_dir, '{}_dataset.yaml'.format(model_name.lower()))
-        runner_yaml_path = os.path.join(task_config_dir, 'runner.yaml')
-        context_yaml_path = os.path.join(task_config_dir, 'context.yaml')
         run_yaml_path = os.path.join(config_dir, 'run_{}.yaml'.format(model_name.lower()))
 
-        _save_config_to_yaml(model_config_yaml_path, config_dict.get('model_config'))
-        _save_config_to_yaml(dataset_config_yaml_path, config_dict.get('dataset_config'))
-        _save_config_to_yaml(runner_yaml_path, config_dict.get('runner_config'))
-        _save_config_to_yaml(context_yaml_path, config_dict.get('context_config'))
-        _save_config_to_yaml(run_yaml_path, config_dict.get('run_config'))
+        _save_config_to_yaml(run_yaml_path, config_dict)
 
     def _load_model_checkpoint(self):
         """Load model checkpoint to network."""
@@ -809,7 +790,7 @@ def _save_config_to_yaml(save_file_path: str = None, save_config: dict = None):
                 sort_keys=False))
 
 
-def _reset_config_for_save(config: dict = None, model_name: str = 'common'):
+def _reset_config_for_save(config: dict = None):
     r"""Reset Config According to Yaml File Number.
     Args:
         config (dict): The task config. Default: None.
@@ -819,33 +800,27 @@ def _reset_config_for_save(config: dict = None, model_name: str = 'common'):
         config = {}
     config = config.copy()
 
-    config_dict = {
-        "model_config": OrderedDict(),
-        "dataset_config": OrderedDict(),
-        "runner_config": OrderedDict(),
-        "context_config": OrderedDict(),
-        "run_config": OrderedDict()
-    }
+    config_dict = OrderedDict()
 
     if config.get('model') is not None:
         model_config = config2dict(config.pop('model'))
-        config_dict["model_config"].setdefault('model', model_config)
+        config_dict.setdefault('model', model_config)
 
     if config.get('processor') is not None:
         processor_config = config2dict(config.pop('processor'))
-        config_dict["model_config"].setdefault('processor', processor_config)
+        config_dict.setdefault('processor', processor_config)
 
     if config.get('train_dataset_task') is not None and config.get('train_dataset') is not None:
         train_dataset_config = config2dict(config.pop('train_dataset'))
         train_dataset_task_config = config2dict(config.pop('train_dataset_task'))
-        config_dict["dataset_config"].setdefault('train_dataset', train_dataset_config)
-        config_dict["dataset_config"].setdefault('train_dataset_task', train_dataset_task_config)
+        config_dict.setdefault('train_dataset', train_dataset_config)
+        config_dict.setdefault('train_dataset_task', train_dataset_task_config)
 
     if config.get('eval_dataset_task') is not None and config.get('eval_dataset') is not None:
         eval_dataset_config = config2dict(config.pop('eval_dataset'))
         eval_dataset_task_config = config2dict(config.pop('eval_dataset_task'))
-        config_dict["dataset_config"].setdefault('train_dataset', eval_dataset_config)
-        config_dict["dataset_config"].setdefault('train_dataset_task', eval_dataset_task_config)
+        config_dict.setdefault('train_dataset', eval_dataset_config)
+        config_dict.setdefault('train_dataset_task', eval_dataset_task_config)
 
     if config.get('context') is not None:
         context_config = config2dict(config.pop('context'))
@@ -853,40 +828,34 @@ def _reset_config_for_save(config: dict = None, model_name: str = 'common'):
         moe_conifg = config2dict(config.pop('moe_config'))
         recompute_config = config2dict(config.pop('recompute_config'))
         parallel_config = config2dict(config.pop('parallel_config'))
-        config_dict['context_config'].setdefault('context', context_config)
-        config_dict['context_config'].setdefault('parallel', parallel_context_config)
-        config_dict['context_config'].setdefault('moe_conifg', moe_conifg)
-        config_dict['context_config'].setdefault('recompute_config', recompute_config)
-        config_dict['context_config'].setdefault('parallel_config', parallel_config)
+        config_dict.setdefault('context', context_config)
+        config_dict.setdefault('parallel', parallel_context_config)
+        config_dict.setdefault('moe_conifg', moe_conifg)
+        config_dict.setdefault('recompute_config', recompute_config)
+        config_dict.setdefault('parallel_config', parallel_config)
 
     if config.get('runner_config') is not None:
         runner_config = config2dict(config.pop('runner_config'))
-        config_dict['runner_config'].setdefault('runner_config', runner_config)
+        config_dict.setdefault('runner_config', runner_config)
 
     if config.get('runner_wrapper') is not None:
         wrapper_config = config2dict(config.pop('runner_wrapper'))
-        config_dict['runner_config'].setdefault('runner_wrapper', wrapper_config)
+        config_dict.setdefault('runner_wrapper', wrapper_config)
 
     if config.get('optimizer') is not None:
         optim_config = config2dict(config.pop('optimizer'))
-        config_dict['runner_config'].setdefault('optimizer', optim_config)
+        config_dict.setdefault('optimizer', optim_config)
 
     if config.get('lr_schedule') is not None:
         lr_config = config2dict(config.pop('lr_schedule'))
-        config_dict['runner_config'].setdefault('lr_schedule', lr_config)
+        config_dict.setdefault('lr_schedule', lr_config)
 
     if config.get('callbacks') is not None:
         cb_config = config2dict(config.pop('callbacks'))
-        config_dict['runner_config'].setdefault('callbacks', cb_config)
-
-    config_dict['run_config'].setdefault('base_config', [
-        './task_config/context.yaml',
-        './task_config/runner.yaml',
-        './task_config/{}_dataset.yaml'.format(model_name.lower()),
-        './model_config/{}.yaml'.format(model_name.lower())])
+        config_dict.setdefault('callbacks', cb_config)
 
     run_config = config2dict(config)
     for key, value in run_config.items():
-        config_dict['run_config'].setdefault(key, value)
+        config_dict.setdefault(key, value)
 
     return config_dict

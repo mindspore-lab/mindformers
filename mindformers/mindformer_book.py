@@ -140,12 +140,16 @@ class MindFormerBook:
         ("translation", OrderedDict([
             ("t5_small", os.path.join(
                 _PROJECT_PATH, "configs/t5/run_t5_small_on_wmt16.yaml")),
+            ("t5_tiny", os.path.join(
+                _PROJECT_PATH, "configs/t5/run_t5_tiny_on_wmt16.yaml")),
             ("common", os.path.join(
                 _PROJECT_PATH, "configs/t5/run_t5_small_on_wmt16.yaml"))])
          ),
         ("text_classification", OrderedDict([
             ("txtcls_bert_base_uncased", os.path.join(
                 _PROJECT_PATH, "configs/txtcls/run_txtcls_bert_base_uncased.yaml")),
+            ("txtcls_bert_base_uncased_mnli", os.path.join(
+                _PROJECT_PATH, "configs/txtcls/run_txtcls_bert_base_uncased_mnli.yaml")),
             ("mindspore/txtcls_bert_base_uncased_mnli", os.path.join(
                 _PROJECT_PATH, "configs/txtcls/run_txtcls_bert_base_uncased_mnli.yaml")),
             ("common", os.path.join(
@@ -154,11 +158,15 @@ class MindFormerBook:
         ("token_classification", OrderedDict([
             ("tokcls_bert_base_chinese", os.path.join(
                 _PROJECT_PATH, "configs/tokcls/run_tokcls_bert_base_chinese.yaml")),
+            ("tokcls_bert_base_chinese_cluener", os.path.join(
+                _PROJECT_PATH, "configs/tokcls/run_tokcls_bert_base_chinese_cluener.yaml")),
             ("common", os.path.join(
                 _PROJECT_PATH, "configs/tokcls/run_tokcls_bert_base_chinese.yaml"))])
          ),
         ("question_answering", OrderedDict([
             ("qa_bert_base_uncased", os.path.join(
+                _PROJECT_PATH, "configs/qa/run_qa_bert_base_uncased.yaml")),
+            ("qa_bert_base_uncased_squad", os.path.join(
                 _PROJECT_PATH, "configs/qa/run_qa_bert_base_uncased.yaml")),
             ("mindspore/qa_bert_base_uncased", os.path.join(
                 _PROJECT_PATH, "configs/qa/run_qa_bert_base_uncased.yaml")),
@@ -168,6 +176,10 @@ class MindFormerBook:
         ("text_generation", OrderedDict([
             ("gpt2", os.path.join(
                 _PROJECT_PATH, "configs/gpt2/run_gpt2.yaml")),
+            ("gpt2_13b", os.path.join(
+                _PROJECT_PATH, "configs/gpt2/run_gpt2_13b.yaml")),
+            ("gpt2_52b", os.path.join(
+                _PROJECT_PATH, "configs/gpt2/run_gpt2_52b.yaml")),
             ("pangualpha_2_6b", os.path.join(
                 _PROJECT_PATH, "configs/pangualpha/run_pangualpha_2_6b.yaml")),
             ("pangualpha_13b", os.path.join(
@@ -180,17 +192,17 @@ class MindFormerBook:
     _PIPELINE_SUPPORT_TASK_LIST = OrderedDict([
         ('zero_shot_image_classification', OrderedDict([
             ('clip_vit_b_16', os.path.join(
-                _PROJECT_PATH, "configs/clip/model_config/clip_vit_b_16.yaml")),
+                _PROJECT_PATH, "configs/clip/run_clip_vit_b_16_zero_shot_image_classification_cifar100.yaml")),
             ('mindspore/clip_vit_b_32', os.path.join(
-                _PROJECT_PATH, "configs/clip/model_config/clip_vit_b_32.yaml")),
+                _PROJECT_PATH, "configs/clip/run_clip_vit_b_32_zero_shot_image_classification_cifar100.yaml")),
             ('clip_vit_b_32', os.path.join(
-                _PROJECT_PATH, "configs/clip/model_config/clip_vit_b_32.yaml")),
+                _PROJECT_PATH, "configs/clip/run_clip_vit_b_32_zero_shot_image_classification_cifar100.yaml")),
             ('clip_vit_l_14', os.path.join(
-                _PROJECT_PATH, "configs/clip/model_config/clip_vit_l_14.yaml")),
+                _PROJECT_PATH, "configs/clip/run_clip_vit_l_14_zero_shot_image_classification_cifar100.yaml")),
             ('clip_vit_l_14@336', os.path.join(
-                _PROJECT_PATH, "configs/clip/model_config/clip_vit_l_14@336.yaml")),
+                _PROJECT_PATH, "configs/clip/run_clip_vit_l_14@336_zero_shot_image_classification_cifar100.yaml")),
             ('common', os.path.join(
-                _PROJECT_PATH, "configs/clip/model_config/clip_vit_b_32.yaml"))
+                _PROJECT_PATH, "configs/clip/run_clip_vit_b_32_zero_shot_image_classification_cifar100.yaml"))
         ])),
         ('masked_image_modeling', OrderedDict([
             ('mae_vit_base_p16', os.path.join(
@@ -200,35 +212,37 @@ class MindFormerBook:
         ])),
         ('image_classification', OrderedDict([
             ('vit_base_p16', os.path.join(
-                _PROJECT_PATH, "configs/vit/model_config/vit_base_p16.yaml")),
+                _PROJECT_PATH, "configs/vit/run_vit_base_p16_224_100ep.yaml")),
             ("swin_base_p4w7", os.path.join(
-                _PROJECT_PATH, "configs/swin/model_config/swin_base_p4w7.yaml")),
+                _PROJECT_PATH, "configs/swin/run_swin_base_p4w7_224_100ep.yaml")),
             ('mindspore/vit_base_p16', os.path.join(
-                _PROJECT_PATH, "configs/vit/model_config/vit_base_p16.yaml")),
+                _PROJECT_PATH, "configs/vit/run_vit_base_p16_224_100ep.yaml")),
             ("mindspore/swin_base_p4w7", os.path.join(
-                _PROJECT_PATH, "configs/swin/model_config/swin_base_p4w7.yaml")),
+                _PROJECT_PATH, "configs/swin/run_swin_base_p4w7_224_100ep.yaml")),
             ('common', os.path.join(
-                _PROJECT_PATH, "configs/vit/model_config/vit_base_p16.yaml"))
+                _PROJECT_PATH, "configs/vit/run_vit_base_p16_224_100ep.yaml"))
         ])),
         ('translation', OrderedDict([
             ('t5_small', os.path.join(
-                _PROJECT_PATH, "configs/t5/model_config/t5_small.yaml")),
+                _PROJECT_PATH, "configs/t5/run_t5_small_on_wmt16.yaml")),
             ('common', os.path.join(
-                _PROJECT_PATH, "configs/t5/model_config/t5_small.yaml"))
+                _PROJECT_PATH, "configs/t5/run_t5_small_on_wmt16.yaml"))
         ])),
         ("fill_mask", OrderedDict([
             ("bert_base_uncased", os.path.join(
-                _PROJECT_PATH, "configs/bert/model_config/bert_base_uncased.yaml")),
+                _PROJECT_PATH, "configs/bert/run_bert_base_uncased.yaml")),
             ("bert_tiny_uncased", os.path.join(
-                _PROJECT_PATH, "configs/bert/model_config/bert_tiny_uncased.yaml")),
+                _PROJECT_PATH, "configs/bert/run_bert_tiny_uncased.yaml")),
             ("common", os.path.join(
-                _PROJECT_PATH, "configs/bert/model_config/bert_tiny_uncased.yaml"))
+                _PROJECT_PATH, "configs/bert/run_bert_tiny_uncased.yaml"))
         ])),
         ("text_classification", OrderedDict([
             ("txtcls_bert_base_uncased", os.path.join(
                 _PROJECT_PATH, "configs/txtcls/run_txtcls_bert_base_uncased.yaml")),
+            ("txtcls_bert_base_uncased_mnli", os.path.join(
+                _PROJECT_PATH, "configs/txtcls/run_txtcls_bert_base_uncased_mnli.yaml")),
             ("mindspore/txtcls_bert_base_uncased_mnli", os.path.join(
-                _PROJECT_PATH, "configs/txtcls/model_config/txtcls_bert_base_uncased_mnli.yaml")),
+                _PROJECT_PATH, "configs/txtcls/run_txtcls_bert_base_uncased_mnli.yaml")),
             ("common", os.path.join(
                 _PROJECT_PATH, "configs/txtcls/run_txtcls_bert_base_uncased.yaml"))
         ])),
@@ -236,7 +250,7 @@ class MindFormerBook:
             ("tokcls_bert_base_chinese", os.path.join(
                 _PROJECT_PATH, "configs/tokcls/run_tokcls_bert_base_chinese.yaml")),
             ("tokcls_bert_base_chinese_cluener", os.path.join(
-                _PROJECT_PATH, "configs/tokcls/model_config/tokcls_bert_base_chinese_cluener.yaml")),
+                _PROJECT_PATH, "configs/tokcls/run_tokcls_bert_base_chinese_cluener.yaml")),
             ("common", os.path.join(
                 _PROJECT_PATH, "configs/tokcls/run_tokcls_bert_base_chinese.yaml"))
         ])),

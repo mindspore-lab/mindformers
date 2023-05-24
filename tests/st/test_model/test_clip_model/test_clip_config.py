@@ -36,7 +36,7 @@ def test_config():
     model_type = 'clip_vit_b_32'
 
     config_path = os.path.join(MindFormerBook.get_project_path(),
-                               'configs', 'clip', 'model_config', model_type + ".yaml")
+                               'configs', 'clip', 'run_clip_vit_b_32_pretrain_flickr8k.yaml')
     save_path = os.path.join(MindFormerBook.get_default_checkpoint_save_folder(),
                              'clip')
 

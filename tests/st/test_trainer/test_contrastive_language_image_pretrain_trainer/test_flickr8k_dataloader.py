@@ -37,7 +37,7 @@ class TestFlickr8kDataloader:
 
         config_path = os.path.join(
             project_path, "configs", "clip",
-            "task_config", "clip_flickr8k_dataset.yaml"
+            "run_clip_vit_b_16_zero_shot_image_classification_cifar100.yaml"
         )
         config = MindFormerConfig(config_path)
 

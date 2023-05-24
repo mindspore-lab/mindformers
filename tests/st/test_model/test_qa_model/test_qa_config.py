@@ -39,10 +39,9 @@ def test_config():
     Expectation: TypeError, ValueError
     """
     qa_config_path = os.path.join(MindFormerBook.get_project_path(),
-                                  'configs', 'qa', 'model_config', 'qa_bert_base_uncased.yaml')
+                                  'configs', 'qa', 'run_qa_bert_base_uncased.yaml')
     qa_squad_config_path = os.path.join(MindFormerBook.get_project_path(),
-                                        'configs', 'qa', 'model_config',
-                                        'qa_bert_base_uncased_squad.yaml')
+                                        'configs', 'qa', 'run_qa_bert_base_uncased.yaml')
     save_path = os.path.join(MindFormerBook.get_default_checkpoint_save_folder(), 'qa')
 
 

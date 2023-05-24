@@ -41,7 +41,7 @@ class ContrastiveLanguageImagePretrainDataset(BaseDataset):
         >>> from mindformers import MindFormerBook, MindFormerConfig, build_dataset
         >>> project_path = MindFormerBook.get_project_path()
         >>> config_path = os.path.join(project_path, "configs", "clip",
-        >>>                     "task_config", "clip_flickr8k_dataset.yaml")
+        >>>                     "run_clip_vit_b_32_pretrain_flickr8k.yaml")
         >>> config = MindFormerConfig(config_path)
             Note:
                 Put flickr8k dataset to ./checkpoint_download
