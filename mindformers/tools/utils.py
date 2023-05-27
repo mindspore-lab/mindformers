@@ -43,10 +43,6 @@ MODE = {'PYNATIVE_MODE': context.PYNATIVE_MODE,
         1: context.PYNATIVE_MODE}
 
 SAVE_WORK_PATH = '/cache/ma-user-work/rank_{}'
-if int(os.getenv("RANK_SIZE", "1")) == 1:
-    LOCAL_DEFAULT_PATH = os.getenv("LOCAL_DEFAULT_PATH", './output')
-else:
-    LOCAL_DEFAULT_PATH = os.getenv("LOCAL_DEFAULT_PATH", '../../output')
 DEBUG_INFO_PATH = '/cache/debug'
 PROFILE_INFO_PATH = '/cache/profile'
 SLOG_PATH = '/var/log/npu/slog'
@@ -108,6 +104,12 @@ def check_in_modelarts():
            'S3_SECRET_ACCESS_KEY' in os.environ or \
            'BATCH_GROUP_NAME' in os.environ or \
            'MA_LOCAL_LOG_PATH' in os.environ
+
+
+if os.getenv("RANK_TABLE_FILE") is None or check_in_modelarts():
+    LOCAL_DEFAULT_PATH = os.getenv("LOCAL_DEFAULT_PATH", './output')
+else:
+    LOCAL_DEFAULT_PATH = os.getenv("LOCAL_DEFAULT_PATH", '../../output')
 
 
 def format_path(path):
