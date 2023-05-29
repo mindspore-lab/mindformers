@@ -275,9 +275,9 @@ def load_distributed_checkpoint(config):
         logger.info(
             "When distributed loads are sliced weights,"
             "resume_or_finetune_checkpoint should be a checkpoint directory containing the directory of rank_{0-*},"
-            "The directory structure is as follows: **checkpoint_root_dir/rank_{0-*}/checkpoint/**.ckpt")
+            "The directory structure is as follows: **checkpoint_root_dir/checkpoint/rank_{0-*}/**.ckpt")
         distribute_checkpoint_dir = os.path.join(
-            checkpoint_dir, "rank_{}".format(int(os.getenv("RANK_ID", "0"))), "checkpoint")
+            checkpoint_dir, "rank_{}".format(int(os.getenv("RANK_ID", "0"))))
         distribute_checkpoint_path = get_last_checkpoint(distribute_checkpoint_dir)
     elif os.path.isfile(checkpoint_dir):
         logger.info("Your resume_or_finetune_checkpoint is file, it will be load in network.")

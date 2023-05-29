@@ -359,13 +359,16 @@ def get_logger(logger_name: str = 'mindformers', **kwargs) -> logging.Logger:
 
     to_std = kwargs.get('to_std', True)
     stdout_nodes = kwargs.get('stdout_nodes', None)
-    stdout_devices = kwargs.get('stdout_devices', (0,))
+    if check_in_modelarts():
+        stdout_devices = kwargs.get('stdout_devices', (0,))
+    else:
+        stdout_devices = kwargs.get('stdout_devices', None)
     stdout_level = kwargs.get('stdout_level', 'INFO')
     stdout_format = kwargs.get('stdout_format', '')
     file_level = kwargs.get('file_level', ('INFO', 'ERROR'))
     file_save_dir = kwargs.get('file_save_dir', '')
     append_rank_dir = kwargs.get('append_rank_dir', True)
-    file_name = kwargs.get('file_name', (f'{logger_name}.log', 'error.log'))
+    file_name = kwargs.get('file_name', (f'info.log', 'error.log'))
     max_file_size = kwargs.get('max_file_size', 50)
     max_num_of_files = kwargs.get('max_num_of_files', 5)
 

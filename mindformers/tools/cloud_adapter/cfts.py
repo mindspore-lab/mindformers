@@ -126,11 +126,11 @@ class CFTS:
     def summary_monitor(self, summary_dir=None, **kwargs):
         """Record summary information in training."""
         if check_in_modelarts():
-            summary_dir = os.path.join(self.local_path, 'rank_{}'.format(self.rank_id))
-            summary_dir = os.path.join(summary_dir, 'summary')
+            summary_dir = os.path.join(self.local_path, 'summary')
+            summary_dir = os.path.join(summary_dir, 'rank_{}'.format(self.rank_id))
         elif summary_dir is None:
-            summary_dir = os.path.join(LOCAL_DEFAULT_PATH, 'rank_{}'.format(self.rank_id))
-            summary_dir = os.path.join(summary_dir, 'summary')
+            summary_dir = os.path.join(LOCAL_DEFAULT_PATH, 'summary')
+            summary_dir = os.path.join(summary_dir, 'rank_{}'.format(self.rank_id))
         Validator.check_type(summary_dir, str)
         format_path(summary_dir)
         return SummaryCollector(summary_dir, **kwargs)
@@ -138,11 +138,11 @@ class CFTS:
     def checkpoint_monitor(self, directory=None, prefix='CKP', **kwargs):
         """Save checkpoint in training for network."""
         if check_in_modelarts():
-            directory = os.path.join(self.local_path, 'rank_{}'.format(self.rank_id))
-            directory = os.path.join(directory, 'checkpoint')
+            directory = os.path.join(self.local_path, 'checkpoint')
+            directory = os.path.join(directory, 'rank_{}'.format(self.rank_id))
         elif directory is None:
-            directory = os.path.join(LOCAL_DEFAULT_PATH, 'rank_{}'.format(self.rank_id))
-            directory = os.path.join(directory, 'checkpoint')
+            directory = os.path.join(LOCAL_DEFAULT_PATH, 'checkpoint')
+            directory = os.path.join(directory, 'rank_{}'.format(self.rank_id))
         Validator.check_type(directory, str)
         format_path(directory)
         ckpt_cb = CheckpointCallBack(prefix=prefix, directory=directory, **kwargs)
