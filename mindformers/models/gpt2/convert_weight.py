@@ -149,22 +149,22 @@ if __name__ == '__main__':
     ]
 
     torch_name = [
-        "h.{}.ln_1.weight",
-        "h.{}.ln_1.bias",
-        "h.{}.ln_2.weight",
-        "h.{}.ln_2.bias",
-        "h.{}.attn.c_proj.weight",
-        "h.{}.attn.c_proj.bias",
-        "h.{}.attn.c_attn.weight.q",
-        "h.{}.attn.c_attn.bias.q",
-        "h.{}.attn.c_attn.weight.k",
-        "h.{}.attn.c_attn.bias.k",
-        "h.{}.attn.c_attn.weight.v",
-        "h.{}.attn.c_attn.bias.v",
-        "h.{}.mlp.c_fc.weight",
-        "h.{}.mlp.c_fc.bias",
-        "h.{}.mlp.c_proj.weight",
-        "h.{}.mlp.c_proj.bias"
+        "transformer.h.{}.ln_1.weight",
+        "transformer.h.{}.ln_1.bias",
+        "transformer.h.{}.ln_2.weight",
+        "transformer.h.{}.ln_2.bias",
+        "transformer.h.{}.attn.c_proj.weight",
+        "transformer.h.{}.attn.c_proj.bias",
+        "transformer.h.{}.attn.c_attn.weight.q",
+        "transformer.h.{}.attn.c_attn.bias.q",
+        "transformer.h.{}.attn.c_attn.weight.k",
+        "transformer.h.{}.attn.c_attn.bias.k",
+        "transformer.h.{}.attn.c_attn.weight.v",
+        "transformer.h.{}.attn.c_attn.bias.v",
+        "transformer.h.{}.mlp.c_fc.weight",
+        "transformer.h.{}.mlp.c_fc.bias",
+        "transformer.h.{}.mlp.c_proj.weight",
+        "transformer.h.{}.mlp.c_proj.bias"
     ]
 
     addition_mindspore = [
@@ -176,11 +176,11 @@ if __name__ == '__main__':
     ]
 
     addition_torch = [
-        "ln_f.weight",
-        "ln_f.bias",
-        "wte.weight",
-        "wpe.weight",
-        # "wte.weight",   # for the model with head
+        "transformer.ln_f.weight",
+        "transformer.ln_f.bias",
+        "transformer.wte.weight",
+        "transformer.wpe.weight",
+        # "transformer.wte.weight",   # for the model with head
     ]
 
     mapped_param = generate_params_dict(total_layers=opt.layers,
