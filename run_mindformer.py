@@ -19,6 +19,7 @@ from pprint import pprint
 
 import numpy as np
 
+import mindspore as ms
 from mindspore.common import set_seed
 
 from mindformers.tools.register import MindFormerConfig, ActionDict
@@ -38,9 +39,11 @@ SUPPORT_MODEL_NAMES = MindFormerBook().get_model_name_support_list()
 def main(config):
     """main."""
     # init context
-    set_seed(config.seed)
-    np.random.seed(config.seed)
     cfts, profile_cb = build_context(config)
+
+    if ms.context.get_auto_parallel_context("parallel_mode") not in ["semi_auto_parallel", "auto_parallel"]:
+        set_seed(config.seed)
+        np.random.seed(config.seed)
 
     # build context config
     logger.info(".........Build context config..........")
@@ -97,8 +100,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
         '--config',
-        default=os.path.join(
-            work_path, "configs/mae/run_mae_vit_base_p16_224_800ep.yaml"),
+        default="configs/mae/run_mae_vit_base_p16_224_800ep.yaml",
         required=True,
         help='YAML config files')
     parser.add_argument(
@@ -167,6 +169,8 @@ if __name__ == "__main__":
              'Default: None')
 
     args_ = parser.parse_args()
+    if args_.config is not None:
+        args_.config = os.path.join(work_path, args_.config)
     config_ = MindFormerConfig(args_.config)
     if args_.device_id is not None:
         config_.context.device_id = args_.device_id
