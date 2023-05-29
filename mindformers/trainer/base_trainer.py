@@ -13,7 +13,6 @@
 # limitations under the License.
 # ============================================================================
 """Base Trainer."""
-import math
 import os
 import shutil
 from functools import partial
@@ -520,16 +519,6 @@ class BaseTrainer:
         if optimizer is None and wrapper is None and self.model_wrapper is None:
             optimizer = self.create_optimizer_scheduler(network, layer_scale=config.layer_scale)
 
-        # build callback
-        logger.info(".........Build Callbacks For Train..........")
-        if callbacks is None:
-            callbacks = self.create_callbacks(default_args={
-                "learning_rate": optimizer.learning_rate if optimizer else wrapper.optimizer.learning_rate,
-                "origin_epochs": config.runner_config.origin_epochs,
-                "dataset_size": config.data_size,
-                "micro_batch_interleave_num": config.micro_batch_interleave_num,
-                "micro_batch_num": config.parallel_config.micro_batch_num})
-
         # build model wrapper
         if wrapper is None and self.model_wrapper is None:
             logger.info(".........Build Running Wrapper From Config For Train..........")
@@ -550,6 +539,27 @@ class BaseTrainer:
         else:
             model = Model(network, optimizer=optimizer, metrics=compute_metrics, eval_network=network)
 
+        # resume checkpoint
+        if config.resume_or_finetune_checkpoint:
+            if "epoch_num" in checkpoint_dict:
+                config.runner_config.initial_epoch = int(checkpoint_dict["epoch_num"])
+            else:
+                config.runner_config.initial_epoch = 0
+            logger.info(".............Start resume training from checkpoint dict..................")
+            resume_checkpoint_dict(config, checkpoint_dict, model, network, optimizer, dataset)
+            del checkpoint_dict
+
+        # build callback
+        logger.info(".........Build Callbacks For Train..........")
+        if callbacks is None:
+            callbacks = self.create_callbacks(default_args={
+                "learning_rate": optimizer.learning_rate if optimizer else wrapper.optimizer.learning_rate,
+                "origin_epochs": config.runner_config.origin_epochs,
+                "dataset_size": config.data_size,
+                "micro_batch_interleave_num": config.micro_batch_interleave_num,
+                "micro_batch_num": config.parallel_config.micro_batch_num,
+                "initial_epoch": config.runner_config.initial_epoch})
+
         # build evaluate in training
         if config.do_eval:
             logger.info(".........Build Evaluate in Training Callback..........")
@@ -565,21 +575,6 @@ class BaseTrainer:
                 epoch_interval=config.eval_epoch_interval if config.eval_epoch_interval else 1,
             )
             callbacks.append(eval_callback)
-
-        # resume checkpoint
-        if config.resume_or_finetune_checkpoint:
-            if "epoch_num" in checkpoint_dict:
-                per_epoch_size = config.runner_config.per_epoch_size
-                if config.sink_mode and per_epoch_size > 0:
-                    config.runner_config.initial_epoch = math.ceil(int(checkpoint_dict["epoch_num"]) * per_epoch_size /
-                                                                   dataset.get_dataset_size())
-                else:
-                    config.runner_config.initial_epoch = int(checkpoint_dict["epoch_num"])
-            else:
-                config.runner_config.initial_epoch = 0
-            logger.info(".............Start resume training from checkpoint dict..................")
-            resume_checkpoint_dict(config, checkpoint_dict, model, network, optimizer, dataset)
-            del checkpoint_dict
 
         logger.info(".........Starting Training Model..........")
         logger.info(".........Model Compiling, Please Wait a Moment...........")

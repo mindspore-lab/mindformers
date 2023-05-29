@@ -103,7 +103,8 @@ class MFLossMonitor(Callback):
                  micro_batch_num: int = 1,
                  micro_batch_interleave_num: int = 1,
                  origin_epochs: int = None,
-                 dataset_size: int = None):
+                 dataset_size: int = None,
+                 initial_epoch: int = 0):
         super(MFLossMonitor, self).__init__()
         self.per_print_times = per_print_times
         self.learning_rate = deepcopy(learning_rate)
@@ -117,6 +118,7 @@ class MFLossMonitor(Callback):
         self.steps_per_epoch = dataset_size
         self.micro_batch_interleave_num = micro_batch_interleave_num
         self.origin_epochs = origin_epochs
+        self.initial_epoch = initial_epoch
 
     def epoch_begin(self, run_context):
         """
@@ -183,11 +185,11 @@ class MFLossMonitor(Callback):
         if cb_params.dataset_sink_mode:
             origin_epochs = self.origin_epochs
             steps_per_epoch = self.steps_per_epoch
-
-            cur_epoch_num = (cb_params.cur_step_num - 1) // steps_per_epoch + 1
+            cur_epoch_num = (cb_params.cur_step_num - 1) // steps_per_epoch \
+                            + self.initial_epoch * cb_params.batch_num // steps_per_epoch + 1
             cur_step_num = (cb_params.cur_step_num - 1) % steps_per_epoch + 1
         else:
-            origin_epochs = cb_params.epoch_num
+            origin_epochs = self.origin_epochs
             steps_per_epoch = cb_params.batch_num
             cur_step_num = cur_step_in_epoch
             cur_epoch_num = cb_params.cur_epoch_num
@@ -326,10 +328,12 @@ class CheckpointMointor(ModelCheckpoint):
                  append_info=None,
                  enc_key=None,
                  enc_mode='AES-GCM',
-                 exception_save=False):
+                 exception_save=False,
+                 ma_root_path='/cache'):
 
         self.config = config
         self.rank_id = int(os.getenv("RANK_ID", '0'))
+        self.ma_local_path = os.path.join(ma_root_path, 'ma-user-work')
         prefix = prefix + "_rank_{}".format(self.rank_id)
 
         if append_info is None:
@@ -343,7 +347,7 @@ class CheckpointMointor(ModelCheckpoint):
             module_type=MindFormerModuleType.TOOLS, class_name="cfts")
         if is_cfts:
             if check_in_modelarts():
-                directory = os.path.join(self.local_path, 'checkpoint')
+                directory = os.path.join(self.ma_local_path, 'checkpoint')
                 directory = os.path.join(directory, 'rank_{}'.format(self.rank_id))
             elif directory is None:
                 directory = os.path.join(LOCAL_DEFAULT_PATH, 'checkpoint')
