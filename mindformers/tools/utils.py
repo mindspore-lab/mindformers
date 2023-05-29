@@ -45,8 +45,7 @@ MODE = {'PYNATIVE_MODE': context.PYNATIVE_MODE,
 SAVE_WORK_PATH = '/cache/ma-user-work/rank_{}'
 DEBUG_INFO_PATH = '/cache/debug'
 PROFILE_INFO_PATH = '/cache/profile'
-SLOG_PATH = '/var/log/npu/slog'
-PLOG_PATH = '/root/ascend/log/plog'
+PLOG_PATH = '/root/ascend/log'
 
 _PROTOCOL = 'obs'
 _PROTOCOL_S3 = 's3'

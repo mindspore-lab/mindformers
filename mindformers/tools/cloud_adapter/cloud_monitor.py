@@ -17,10 +17,10 @@
 import os
 import traceback
 
-from mindformers.tools.logger import get_logger, AiLogFastStreamRedirect2File
+from mindformers.tools.logger import get_logger
 from .cloud_adapter import mox_adapter
 from ..utils import SAVE_WORK_PATH, DEBUG_INFO_PATH,\
-    PROFILE_INFO_PATH, PLOG_PATH, SLOG_PATH
+    PROFILE_INFO_PATH, PLOG_PATH
 
 
 def cloud_monitor(log=get_logger()):
@@ -28,19 +28,14 @@ def cloud_monitor(log=get_logger()):
     def decorator(run_func):
 
         def wrapper(*args, **kwargs):
-            stream_redirector = AiLogFastStreamRedirect2File()
-            stream_redirector.start()
             local_id = int(os.getenv('RANK_ID', '0'))
-            result = None
             try:
                 result = run_func(*args, **kwargs)
             except BaseException as exc:  # pylint: disable=W0703
                 error = traceback.format_exc()
                 log.error(error)
-                if local_id % 8 == 0:
-                    raise exc
+                raise exc
             finally:
-                stream_redirector.stop()
                 _last_transform(local_id, log)
             return result
         return wrapper
@@ -64,12 +59,19 @@ def _last_transform(local_id, log=get_logger()):
         node = 'node_{}'.format(local_id)
         if os.path.exists(PLOG_PATH):
             mox_adapter(src_dir=PLOG_PATH, target_dir=os.path.join(task_dir, 'plog', node), log=log)
-        if os.path.exists(SLOG_PATH):
-            mox_adapter(src_dir=SLOG_PATH, target_dir=os.path.join(task_dir, 'slog', node), log=log)
         if os.path.exists(DEBUG_INFO_PATH):
             mox_adapter(src_dir=DEBUG_INFO_PATH, target_dir=os.path.join(target_dir, 'debug_info', node), log=log)
         if os.path.exists(PROFILE_INFO_PATH):
             mox_adapter(src_dir=PROFILE_INFO_PATH, target_dir=os.path.join(target_dir, 'profile'), log=log)
+    elif os.environ.get('OBS_PATH'):
+        log.info("Wait for the first card to complete the file and send it back to OBS: %s.",
+                 os.environ.get('OBS_PATH'))
+        while True:
+            end_flag = int(os.getenv("TRANSFORM_END_FLAG", "0"))
+            if end_flag == 1:
+                log.info("All files have been sent back to the OBS: %s,"
+                         "and the process exits normally.", os.environ.get('OBS_PATH'))
+                break
 
 
 def upload_log():
