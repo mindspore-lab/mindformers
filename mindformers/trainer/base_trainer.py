@@ -549,6 +549,7 @@ class BaseTrainer:
                 config.runner_config.initial_epoch = 0
             logger.info(".............Start resume training from checkpoint dict..................")
             resume_checkpoint_dict(config, checkpoint_dict, model, network, optimizer, dataset)
+            del checkpoint_dict
 
         logger.info(".........Starting Training Model..........")
         logger.info(".........Model Compiling, Please Wait a Moment...........")
