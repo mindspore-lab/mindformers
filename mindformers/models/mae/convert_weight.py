@@ -32,7 +32,7 @@ def convert_weight(torch_pth_path="mae_pretrain_vit_base.pth", ms_ckpt_path="mae
         if "head" not in k:
             k = "vit." + k
         if "norm" in k:
-            if "fc_norm" not in k:
+            if "fc_norm" not in k and "vit.norm" not in k and "decoder_norm" not in k:
                 k = k.replace("norm", "layernorm")
             if "weight" in k:
                 k = k.replace("weight", "gamma")
