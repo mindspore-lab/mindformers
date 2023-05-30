@@ -25,9 +25,7 @@ from mindspore import Tensor
 
 from mindformers.dataset import BaseDataset
 from mindformers.models import BaseModel, BaseImageProcessor
-from mindformers.pipeline import pipeline
 from mindformers.tools.logger import logger
-from mindformers.tools.utils import count_params
 from mindformers.tools.image_tools import load_image
 from mindformers.tools.register import MindFormerRegister, \
     MindFormerModuleType, MindFormerConfig
@@ -207,8 +205,6 @@ class ImageClassificationTrainer(BaseTrainer):
                 It support BaseImageProcessor class.
                 Default: None.
         """
-        config = self.set_config(config)
-
         logger.info(".........Build Input Data For Predict..........")
         if input_data is None:
             input_data = config.input_data
@@ -224,19 +220,9 @@ class ImageClassificationTrainer(BaseTrainer):
         else:
             batch_input_data = input_data
 
-        logger.info(".........Build Net For Predict..........")
-        if network is None:
-            network = self.create_network()
-        logger.info("Network Parameters: %s M.", str(count_params(network)))
-
-        logger.info(".........Build Image Processor For Predict..........")
-        if image_processor is None:
-            image_processor = self.create_image_processor()
-
-        pipeline_task = pipeline(task='image_classification',
-                                 model=network,
-                                 image_processor=image_processor, **kwargs)
-        output_result = pipeline_task(batch_input_data)
-        logger.info("output result is: %s", str(output_result))
-        logger.info(".........Predict Over!.............")
-        return output_result
+        return self.predict_process(config=config,
+                                    input_data=batch_input_data,
+                                    task='image_classification',
+                                    network=network,
+                                    image_processor=image_processor,
+                                    **kwargs)

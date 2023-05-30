@@ -16,6 +16,7 @@
 from typing import List, Optional, Union
 
 import numpy as np
+import mindspore as ms
 from mindspore import dtype as mstype
 from mindspore.train.model import Model
 from mindspore.nn.wrap.loss_scale import DynamicLossScaleUpdateCell

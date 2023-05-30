@@ -19,13 +19,10 @@ from mindspore.dataset import GeneratorDataset
 from mindspore.nn import TrainOneStepCell, Optimizer, Cell
 
 from mindformers.dataset import BaseDataset
-from mindformers.models import build_model, build_tokenizer, \
-    BaseModel, BaseTokenizer
+from mindformers.models import BaseModel, BaseTokenizer
 from mindformers.tools.logger import logger
-from mindformers.tools.utils import count_params
 from mindformers.tools.register import MindFormerRegister, \
     MindFormerModuleType, MindFormerConfig
-from mindformers.pipeline import pipeline
 from ..base_trainer import BaseTrainer
 from ..config_args import ConfigArguments
 from ..training_args import TrainingArguments
@@ -191,28 +188,14 @@ class TokenClassificationTrainer(BaseTrainer):
         # This is a known issue, you need to specify batch size equal to 1 when creating bert model.
         config.model.model_config.batch_size = 1
 
-        if tokenizer is None:
-            tokenizer = build_tokenizer(config.processor.tokenizer)
-
         id2label = {label_id: label for label_id, label in enumerate(cluener_labels)}
 
-        logger.info(".........Build Net..........")
-        if network is None:
-            network = build_model(config.model)
-
-        if network is not None:
-            logger.info("Network Parameters: %s M.", str(count_params(network)))
-
-        pipeline_task = pipeline(task='token_classification',
-                                 model=network,
-                                 tokenizer=tokenizer,
-                                 max_length=network.config.seq_length,
-                                 padding="max_length",
-                                 id2label=id2label,
-                                 **kwargs)
-
-        output_result = pipeline_task(input_data)
-
-        logger.info("output result is: %s", output_result)
-        logger.info(".........Predict Over!.............")
-        return output_result
+        return self.predict_process(config=config,
+                                    input_data=input_data,
+                                    task='token_classification',
+                                    network=network,
+                                    tokenizer=tokenizer,
+                                    max_length=network.config.seq_length,
+                                    padding="max_length",
+                                    id2label=id2label,
+                                    **kwargs)

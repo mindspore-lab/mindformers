@@ -23,20 +23,15 @@ from mindspore import Tensor
 from mindspore.nn import Cell
 from mindspore.dataset import GeneratorDataset
 
-
 from mindformers.dataset import BaseDataset
-from mindformers.models import build_model, build_tokenizer, build_processor, \
-    BaseModel, BaseTokenizer, BaseImageProcessor
-from mindformers.pipeline import pipeline
+from mindformers.models import BaseModel, BaseTokenizer, BaseImageProcessor
 from mindformers.tools.logger import logger
-from mindformers.tools.utils import count_params
 from mindformers.tools.register import MindFormerRegister, \
     MindFormerModuleType, MindFormerConfig
 from ...dataset.dataloader import build_dataset_loader
 from ..config_args import ConfigArguments
 from ..training_args import TrainingArguments
 from ..base_trainer import BaseTrainer
-
 
 __all__ = ['ZeroShotImageClassificationTrainer']
 
@@ -141,19 +136,6 @@ class ZeroShotImageClassificationTrainer(BaseTrainer):
         if input_data is None:
             input_data = build_dataset_loader(config.eval_dataset.data_loader)
 
-        logger.info(".........Build Net..........")
-        if network is None:
-            network = build_model(config.model)
-
-        if network is not None:
-            logger.info("Network Parameters: %s M.", str(count_params(network)))
-
-        if tokenizer is None:
-            tokenizer = build_tokenizer(config.processor.tokenizer)
-
-        if image_processor is None:
-            image_processor = build_processor(config.processor.image_processor)
-
         candidate_labels = kwargs.pop("candidate_labels", None)
         if candidate_labels is None:
             if hasattr(input_data, "label_names"):
@@ -168,41 +150,12 @@ class ZeroShotImageClassificationTrainer(BaseTrainer):
             else:
                 hypothesis_template = "{}"
 
-        save_file = kwargs.pop("save_file", None)
-        if save_file is None:
-            if config.save_file is not None:
-                save_file = config.save_file
-            else:
-                save_file = "results.txt"
-
-        batch_size = kwargs.pop("batch_size", None)
-        if batch_size is None:
-            if config.eval_dataset.batch_size is not None:
-                batch_size = config.eval_dataset.batch_size
-            else:
-                batch_size = 1
-
-        top_k = kwargs.pop("top_k", None)
-        if top_k is None and config.top_k is not None:
-            top_k = config.top_k
-
-        pipeline_task = pipeline(
-            task='zero_shot_image_classification',
-            model=network,
-            tokenizer=tokenizer,
-            image_processor=image_processor,
-            candidate_labels=candidate_labels,
-            hypothesis_template=hypothesis_template,
-            **kwargs
-        )
-        output_result = pipeline_task(input_data,
-                                      batch_size=batch_size,
-                                      top_k=top_k)
-
-        with open(save_file, 'w') as file:
-            file.write(str(output_result))
-        file.close()
-
-        logger.info("output result is saved at: %s", save_file)
-        logger.info(".........Predict Over!.............")
-        return output_result
+        return self.predict_process(config=config,
+                                    input_data=input_data,
+                                    task='zero_shot_image_classification',
+                                    network=network,
+                                    tokenizer=tokenizer,
+                                    image_processor=image_processor,
+                                    candidate_labels=candidate_labels,
+                                    hypothesis_template=hypothesis_template,
+                                    **kwargs)

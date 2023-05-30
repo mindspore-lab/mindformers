@@ -21,10 +21,7 @@ from mindspore.nn import TrainOneStepCell, Optimizer, Cell
 from mindspore.dataset import GeneratorDataset
 
 from mindformers.dataset import BaseDataset
-from mindformers.models import build_model, BaseModel, BaseTokenizer, build_tokenizer
-from mindformers.tools.logger import logger
-from mindformers.tools.utils import count_params
-from mindformers.pipeline import pipeline
+from mindformers.models import BaseModel, BaseTokenizer
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType, MindFormerConfig
 
 from ..config_args import ConfigArguments
@@ -162,8 +159,6 @@ class CausalLanguageModelingTrainer(BaseTrainer):
             A list of prediction.
 
         """
-        config = self.set_config(config)
-
         if input_data is None:
             input_data = config.input_data
 
@@ -171,47 +166,16 @@ class CausalLanguageModelingTrainer(BaseTrainer):
             raise ValueError("Input data's type must be one of "
                              f"[str, list, GeneratorDataset], but got type {type(input_data)}")
 
-        logger.info(".........Build Net..........")
-
-        if tokenizer is None:
-            tokenizer = build_tokenizer(config.processor.tokenizer)
-
-        if network is None:
-            network = build_model(config.model)
-
-        if network is not None:
-            logger.info("Network Parameters: %s M.", str(count_params(network)))
-
-        save_file = kwargs.pop("save_file", None)
-        if save_file is None:
-            if config and config.save_file is not None:
-                save_file = config.save_file
-            else:
-                save_file = "results.txt"
-
-        pipeline_task = pipeline(task='text_generation',
-                                 tokenizer=tokenizer,
-                                 model=network,
-                                 max_length=network.config.seq_length,
-                                 **kwargs
-                                 )
         if isinstance(input_data, str) and os.path.isfile(input_data):
             with open(input_data, 'r') as fp:
-                output_result = []
+                input_data_list = []
                 for line in fp:
-                    output = pipeline_task(line, **kwargs)
-                    output_result.extend(output)
-        else:
-            output_result = pipeline_task(input_data, **kwargs)
+                    input_data_list.extend(line)
+            input_data = input_data_list
 
-        logger.info(".........start to write the output result to: %s.........", save_file)
-        with open(save_file, 'w') as file:
-            if isinstance(output_result, list):
-                for item in output_result:
-                    file.write(str(item) + '\n')
-            else:
-                file.write(str(output_result))
-            file.close()
-        logger.info(".........writing result finished..........")
-        logger.info(".........Predict Over!.............")
-        return output_result
+        return self.predict_process(config=config,
+                                    input_data=input_data,
+                                    task='text_generation',
+                                    network=network,
+                                    tokenizer=tokenizer,
+                                    **kwargs)
