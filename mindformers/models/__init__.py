@@ -21,6 +21,7 @@ from .swin import *
 from .clip import *
 from .t5 import *
 from .gpt2 import *
+from .pangualpha import *
 from .filip import *
 from .base_tokenizer import *
 from .base_config import BaseConfig
@@ -41,5 +42,6 @@ __all__.extend(swin.__all__)
 __all__.extend(clip.__all__)
 __all__.extend(t5.__all__)
 __all__.extend(gpt2.__all__)
+__all__.extend(pangualpha.__all__)
 __all__.extend(filip.__all__)
 __all__.extend(base_tokenizer.__all__)
