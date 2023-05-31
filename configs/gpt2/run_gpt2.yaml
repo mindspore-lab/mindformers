@@ -89,7 +89,7 @@ train_dataset: &train_dataset
     type: MindDataset
     dataset_dir: ""
     shuffle: True
-  input_columns: ["input_ids"]  # "input_mask", "label_ids"
+  input_columns: ["input_ids", "input_mask"]
   num_parallel_workers: 8
   python_multiprocessing: False
   drop_remainder: True
@@ -121,7 +121,7 @@ model:
     softmax_dtype: "float32"
     compute_dtype: "float16"
     checkpoint_name_or_path: "gpt2"
-    eos_token: 50256
+    eos_token_id: 50256
     repetition_penalty: 1
     max_decode_length: 1024
     top_k: 5
