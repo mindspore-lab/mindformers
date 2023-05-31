@@ -34,10 +34,10 @@ swin：全名swin transformer，是一个基于Transformer在视觉领域有着S
 
 ```shell
 # pretrain
-python run_mindformer.py --config ./configs/swin/run_swin_base_p4w7_224_100ep.yaml --run_mode train --dataset_dir [DATASET_PATH]
+python run_mindformer.py --config ./configs/swin/run_swin_base_p4w7_224_100ep.yaml --run_mode train --train_dataset_dir [DATASET_PATH]
 
 # evaluate
-python run_mindformer.py --config ./configs/swin/run_swin_base_p4w7_224_100ep.yaml --run_mode eval --dataset_dir [DATASET_PATH]
+python run_mindformer.py --config ./configs/swin/run_swin_base_p4w7_224_100ep.yaml --run_mode eval --eval_dataset_dir [DATASET_PATH]
 
 # predict
 python run_mindformer.py --config ./configs/swin/run_swin_base_p4w7_224_100ep.yaml --run_mode predict --predict_data [PATH_TO_IMAGE]

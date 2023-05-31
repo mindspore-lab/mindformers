@@ -27,4 +27,4 @@ echo "==========================================================================
 
 data_path=$1
 
-python run_mindformer.py --config ./configs/t5/run_t5_small_on_wmt16.yaml --dataset_dir $data_path
+python run_mindformer.py --config ./configs/t5/run_t5_small_on_wmt16.yaml --train_dataset_dir $data_path

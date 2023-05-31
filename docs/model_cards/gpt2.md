@@ -40,7 +40,7 @@ python create_lm_data.py --input_file /{path}/{cleaned_data_name} --output_file 
 python run_mindformer.py --config configs/gpt2/run_gpt2.yaml \
                          --run_mode train \
                          --device_target Ascend \
-                         --dataset_dir /your_path/wikitext-2-mindrecord
+                         --train_dataset_dir /your_path/wikitext-2-mindrecord
 ```
 
 其中`device_target`根据用户的运行设备不同，可选`GPU/Ascend`。另，模型和训练等相关配置可在`configs/gpt2`目录下的yaml文件中配置。
