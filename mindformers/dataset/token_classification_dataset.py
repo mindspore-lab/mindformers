@@ -15,8 +15,11 @@
 """Token classification Dataset."""
 import os
 
+import mindspore
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.tools.logger import logger
+from mindformers.tools.utils import is_version_ge
+
 from .dataloader import build_dataset_loader
 from ..models.build_tokenizer import build_tokenizer
 from .transforms import build_transforms
@@ -74,14 +77,23 @@ class TokenClassificationDataset(BaseDataset):
             dataset = dataset.use_sampler(sampler)
 
         if text_transforms is not None:
-            dataset = dataset.map(
-                input_columns=dataset_config.input_columns,
-                operations=text_transforms,
-                output_columns=dataset_config.output_columns,
-                column_order=dataset_config.column_order,
-                num_parallel_workers=dataset_config.num_parallel_workers,
-                python_multiprocessing=dataset_config.python_multiprocessing
-            )
+            if is_version_ge(mindspore.__version__, '2.0.0'):
+                dataset = dataset.map(
+                    input_columns=dataset_config.input_columns,
+                    operations=text_transforms,
+                    output_columns=dataset_config.output_columns,
+                    num_parallel_workers=dataset_config.num_parallel_workers,
+                    python_multiprocessing=dataset_config.python_multiprocessing
+                )
+            else:
+                dataset = dataset.map(
+                    input_columns=dataset_config.input_columns,
+                    operations=text_transforms,
+                    column_order=dataset_config.output_columns,
+                    output_columns=dataset_config.output_columns,
+                    num_parallel_workers=dataset_config.num_parallel_workers,
+                    python_multiprocessing=dataset_config.python_multiprocessing
+                )
 
         if label_transforms is not None:
             dataset = dataset.map(

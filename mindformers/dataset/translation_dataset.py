@@ -67,8 +67,6 @@ class TranslationDataset(BaseDataset):
 
         dataset = dataset.batch(dataset_config.batch_size,
                                 drop_remainder=dataset_config.drop_remainder,
-                                column_order=dataset_config.input_columns,
-                                output_columns=dataset_config.input_columns,
                                 num_parallel_workers=dataset_config.num_parallel_workers)
         dataset = dataset.repeat(dataset_config.repeat)
         type_cast_op = C.TypeCast(mstype.int32)

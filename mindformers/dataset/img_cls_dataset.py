@@ -15,11 +15,14 @@
 """Image Classification Dataset."""
 import os
 
+import mindspore
 import mindspore.dataset.transforms.c_transforms as C
 import mindspore.common.dtype as mstype
 
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.tools.logger import logger
+from mindformers.tools.utils import is_version_ge
+
 from .dataloader import build_dataset_loader
 from .transforms import build_transforms
 from .sampler import build_sampler
@@ -84,10 +87,17 @@ class ImageCLSDataset(BaseDataset):
                                 num_parallel_workers=dataset_config.num_parallel_workers)
         if not dataset_config.do_eval and dataset_config.mixup_op is not None:
             mixup_op = build_transforms(class_name="Mixup", **dataset_config.mixup_op)
-            dataset = dataset.map(
-                operations=mixup_op, input_columns=dataset_config.input_columns,
-                column_order=dataset_config.column_order,
-                output_columns=dataset_config.output_columns,
-                num_parallel_workers=dataset_config.num_parallel_workers)
+            if is_version_ge(mindspore.__version__, '2.0.0'):
+                dataset = dataset.map(
+                    operations=mixup_op, input_columns=dataset_config.input_columns,
+                    output_columns=dataset_config.output_columns,
+                    num_parallel_workers=dataset_config.num_parallel_workers)
+            else:
+                dataset = dataset.map(
+                    operations=mixup_op, input_columns=dataset_config.input_columns,
+                    column_order=dataset_config.column_order,
+                    output_columns=dataset_config.output_columns,
+                    num_parallel_workers=dataset_config.num_parallel_workers)
+        dataset = dataset.project(columns=dataset_config.output_columns)
         dataset = dataset.repeat(dataset_config.repeat)
         return dataset
