@@ -24,8 +24,8 @@ from mindspore.common import set_seed
 
 from mindformers.tools.register import MindFormerConfig, ActionDict
 from mindformers.core.parallel_config import build_parallel_config
-from mindformers.tools.utils import str2bool
-from mindformers.core.context import build_context
+from mindformers.tools.utils import str2bool, set_remote_save_url, check_in_modelarts
+from mindformers.core.context import build_context, build_profile_cb
 from mindformers.trainer import build_trainer
 from mindformers.tools.cloud_adapter import cloud_monitor
 from mindformers.tools.logger import logger
@@ -39,7 +39,7 @@ SUPPORT_MODEL_NAMES = MindFormerBook().get_model_name_support_list()
 def main(config):
     """main."""
     # init context
-    cfts, profile_cb = build_context(config)
+    build_context(config)
 
     if ms.context.get_auto_parallel_context("parallel_mode") not in ["semi_auto_parallel", "auto_parallel"]:
         set_seed(config.seed)
@@ -51,24 +51,13 @@ def main(config):
     logger.info("context config is: %s", config.parallel_config)
     logger.info("moe config is: %s", config.moe_config)
 
-    # auto pull dataset if on ModelArts platform
-    if config.run_mode in ['train', 'finetune'] and config.train_dataset:
-        config.train_dataset.data_loader.dataset_dir = cfts.get_dataset(
-            config.train_dataset.data_loader.dataset_dir, 'train')
-    if config.eval_dataset:
-        config.eval_dataset.data_loader.dataset_dir = cfts.get_dataset(
-            config.eval_dataset.data_loader.dataset_dir, 'eval')
-
     if config.run_mode == 'train':
         logger.warning("Train from scratch, remove checkpoint_name_or_path in model_config.yaml. ")
         config.model.model_config.checkpoint_name_or_path = None
-        if config.resume_or_finetune_checkpoint:
-            config.resume_or_finetune_checkpoint = cfts.get_checkpoint(config.resume_or_finetune_checkpoint)
 
     if config.run_mode == 'finetune':
         if config.resume_or_finetune_checkpoint:
-            config.model.model_config.checkpoint_name_or_path = cfts.get_checkpoint(
-                config.resume_or_finetune_checkpoint)
+            config.model.model_config.checkpoint_name_or_path = config.resume_or_finetune_checkpoint
             config.resume_or_finetune_checkpoint = None
         else:
             raise ValueError("if run status is finetune, "
@@ -76,12 +65,17 @@ def main(config):
                              "it must be input")
 
     if config.run_mode in ['eval', 'predict'] and config.resume_or_finetune_checkpoint:
-        config.model.model_config.checkpoint_name_or_path = cfts.get_checkpoint(config.resume_or_finetune_checkpoint)
+        config.model.model_config.checkpoint_name_or_path = config.resume_or_finetune_checkpoint
         config.resume_or_finetune_checkpoint = None
+
+    # remote save url
+    if check_in_modelarts() and config.remote_save_url:
+        logger.info("remote_save_url is %s, the output file will be uploaded to here.", config.remote_save_url)
+        set_remote_save_url(config.remote_save_url)
 
     # define callback and add profile callback
     if config.profile:
-        config.profile_cb = profile_cb
+        config.profile_cb = build_profile_cb(config)
 
     if config.local_rank % 8 == 0:
         pprint(config)
@@ -136,6 +130,14 @@ if __name__ == "__main__":
              "please refer to https://gitee.com/mindspore/mindformers#%E4%BB%8B%E7%BB%8D."
              "Default: None")
     parser.add_argument(
+        '--strategy_load_checkpoint', default=None, type=str,
+        help='path to parallel strategy checkpoint to load, it support real data path or data directory.'
+             'Default: None')
+    parser.add_argument(
+        '--remote_save_url', default=None, type=str,
+        help='remote save url, where all the output files will tansferred and stroed in here. '
+             'Default: None')
+    parser.add_argument(
         '--seed', default=None, type=int,
         help='global random seed to train/finetune.'
              'Default: None')
@@ -186,6 +188,14 @@ if __name__ == "__main__":
         config_.use_parallel = args_.use_parallel
     if args_.load_checkpoint is not None:
         config_.resume_or_finetune_checkpoint = args_.load_checkpoint
+    if args_.strategy_load_checkpoint is not None:
+        if os.path.isdir(args_.strategy_load_checkpoint):
+            ckpt_list = [os.path.join(args_.strategy_load_checkpoint, file)
+                         for file in os.listdir(args_.strategy_load_checkpoint) if file.endwith(".ckpt")]
+            args_.strategy_load_checkpoint = ckpt_list[0]
+        config_.parallel.strategy_ckpt_load_file = args_.strategy_load_checkpoint
+    if args_.remote_save_url is not None:
+        config_.remote_save_url = args_.remote_save_url
     if args_.profile is not None:
         config_.profile = args_.profile
     if args_.options is not None:

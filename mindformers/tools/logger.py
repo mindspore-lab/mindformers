@@ -26,7 +26,8 @@ from typing import Dict, List, Tuple, Union
 
 from mindformers.tools.utils import get_num_nodes_devices, get_rank_info, \
     convert_nodes_devices_input, generate_rank_list,\
-    check_in_modelarts, check_list, LOCAL_DEFAULT_PATH
+    check_in_modelarts, check_list, LOCAL_DEFAULT_PATH,\
+    get_output_root_path
 
 
 logger_list = []
@@ -157,9 +158,7 @@ class AiLogFastStreamRedirect2File(StreamRedirector):
         file_name = kwargs.get('file_name', '')
 
         if not file_save_dir:
-            file_save_dir = LOCAL_DEFAULT_LOG_FILE_DIR
-        if check_in_modelarts():
-            file_save_dir = MODELARTS_LOG_FILE_DIR
+            file_save_dir = os.path.join(get_output_root_path(), 'log')
         if append_rank_dir:
             rank_str = RANK_DIR_FORMATTER.format(rank_id)
             file_save_dir = os.path.join(file_save_dir, rank_str)
@@ -396,11 +395,8 @@ def get_logger(logger_name: str = 'mindformers', **kwargs) -> logging.Logger:
         logging_level.append(_convert_level(level))
 
     if not file_save_dir:
-        file_save_dir = LOCAL_DEFAULT_LOG_FILE_DIR
+        file_save_dir = os.path.join(get_output_root_path(), 'log')
     rank_dir = RANK_DIR_FORMATTER
-    if check_in_modelarts():
-        file_save_dir = MODELARTS_LOG_FILE_DIR
-        rank_dir = os.path.join(RANK_DIR_FORMATTER, 'log')
     if append_rank_dir:
         rank_str = rank_dir.format(rank_id)
         file_save_dir = os.path.join(file_save_dir, rank_str)

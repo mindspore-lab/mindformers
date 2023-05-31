@@ -19,8 +19,8 @@ import traceback
 
 from mindformers.tools.logger import get_logger
 from .cloud_adapter import mox_adapter
-from ..utils import SAVE_WORK_PATH, DEBUG_INFO_PATH,\
-    PROFILE_INFO_PATH, PLOG_PATH
+from ..utils import DEBUG_INFO_PATH, PROFILE_INFO_PATH, PLOG_PATH,\
+    get_output_root_path, get_remote_save_url
 
 
 def cloud_monitor(log=get_logger()):
@@ -45,16 +45,16 @@ def cloud_monitor(log=get_logger()):
 
 def _last_transform(local_id, log=get_logger()):
     """Transform file when progress ending or except."""
-    if os.environ.get("SPECIAL_ID") and os.environ.get("OBS_PATH"):
-        target_dir = os.path.join(os.environ.get("OBS_PATH"), "rank_{}".format(os.environ.get("SPECIAL_ID")))
-        mox_adapter(src_dir=SAVE_WORK_PATH.format(os.environ.get("SPECIAL_ID")),
-                    target_dir=target_dir, log=log)
+    if os.environ.get("SPECIAL_ID") and get_remote_save_url():
+        target_dir = get_remote_save_url()
+        mox_adapter(src_dir=get_output_root_path(),
+                    target_dir=get_remote_save_url(), log=log)
     else:
-        if local_id % 8 == 0 and os.environ.get('OBS_PATH'):
-            target_dir = os.path.join(os.environ.get('OBS_PATH'), 'rank_{}'.format(int(local_id)))
-            mox_adapter(src_dir=SAVE_WORK_PATH.format(local_id), target_dir=target_dir, log=log)
-    if local_id % 8 == 0 and os.environ.get('OBS_PATH'):
-        target_dir = os.environ.get('OBS_PATH')
+        if local_id % 8 == 0 and get_remote_save_url():
+            target_dir = get_remote_save_url()
+            mox_adapter(src_dir=get_output_root_path(), target_dir=target_dir, log=log)
+    if local_id % 8 == 0 and get_remote_save_url():
+        target_dir = get_remote_save_url()
         task_dir = os.path.join(target_dir, 'ascend-log')
         node = 'node_{}'.format(local_id)
         if os.path.exists(PLOG_PATH):
@@ -64,14 +64,14 @@ def _last_transform(local_id, log=get_logger()):
         if os.path.exists(PROFILE_INFO_PATH):
             mox_adapter(src_dir=PROFILE_INFO_PATH, target_dir=os.path.join(target_dir, 'profile'), log=log)
         os.environ.setdefault('TRANSFORM_END_FLAG', '1')
-    elif os.environ.get('OBS_PATH'):
+    elif get_remote_save_url():
         log.info("Wait for the first card to complete the file and send it back to OBS: %s.",
-                 os.environ.get('OBS_PATH'))
+                 get_remote_save_url())
         while True:
             end_flag = int(os.getenv("TRANSFORM_END_FLAG", "0"))
             if end_flag == 1:
                 log.info("All files have been sent back to the OBS: %s,"
-                         "and the process exits normally.", os.environ.get('OBS_PATH'))
+                         "and the process exits normally.", get_remote_save_url())
                 break
 
 

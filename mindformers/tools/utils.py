@@ -43,12 +43,36 @@ MODE = {'PYNATIVE_MODE': context.PYNATIVE_MODE,
         1: context.PYNATIVE_MODE}
 
 SAVE_WORK_PATH = '/cache/ma-user-work/rank_{}'
+
+MA_OUTPUT_ROOT = '/cache/ma-user-work'
 DEBUG_INFO_PATH = '/cache/debug'
 PROFILE_INFO_PATH = '/cache/profile'
 PLOG_PATH = '/root/ascend/log'
 
 _PROTOCOL = 'obs'
 _PROTOCOL_S3 = 's3'
+
+
+def check_in_modelarts():
+    """Check if the training is on modelarts.
+
+    Returns:
+        (bool): If it is True, it means ModelArts environment.
+    """
+    # 'KUBERNETES_PORT' in os.environ or \
+    return 'MA_LOG_DIR' in os.environ or \
+           'MA_JOB_DIR' in os.environ or \
+           'MA_LOCAL_LOG_PATH' in os.environ or \
+           'S3_ACCESS_KEY_ID' in os.environ or \
+           'S3_SECRET_ACCESS_KEY' in os.environ or \
+           'BATCH_GROUP_NAME' in os.environ or \
+           'MA_LOCAL_LOG_PATH' in os.environ
+
+
+if os.getenv("RANK_TABLE_FILE") is None or check_in_modelarts():
+    LOCAL_DEFAULT_PATH = os.getenv("LOCAL_DEFAULT_PATH", './output')
+else:
+    LOCAL_DEFAULT_PATH = os.getenv("LOCAL_DEFAULT_PATH", '../../output')
 
 
 class Validator:
@@ -89,27 +113,6 @@ def check_list(var_name: str, list_var: Union[Tuple, List], num: int):
             raise ValueError('The index of the {} needs to be less than the number of nodes {}.'.format(var_name, num))
 
 
-def check_in_modelarts():
-    """Check if the training is on modelarts.
-
-    Returns:
-        (bool): If it is True, it means ModelArts environment.
-    """
-    # 'KUBERNETES_PORT' in os.environ or \
-    return 'MA_LOG_DIR' in os.environ or \
-           'MA_JOB_DIR' in os.environ or \
-           'MA_LOCAL_LOG_PATH' in os.environ or \
-           'S3_ACCESS_KEY_ID' in os.environ or \
-           'S3_SECRET_ACCESS_KEY' in os.environ or \
-           'BATCH_GROUP_NAME' in os.environ or \
-           'MA_LOCAL_LOG_PATH' in os.environ
-
-
-if os.getenv("RANK_TABLE_FILE") is None or check_in_modelarts():
-    LOCAL_DEFAULT_PATH = os.getenv("LOCAL_DEFAULT_PATH", './output')
-else:
-    LOCAL_DEFAULT_PATH = os.getenv("LOCAL_DEFAULT_PATH", '../../output')
-
 
 def format_path(path):
     """Check path."""
@@ -127,6 +130,32 @@ def sync_trans(f):
         return wrapper
     except Exception as e:
         raise e
+
+
+def get_output_root_path():
+    """get default output path in local/AICC."""
+    if check_in_modelarts():
+        return MA_OUTPUT_ROOT
+    return LOCAL_DEFAULT_PATH
+
+
+def get_output_subpath(sub_class, rank_id=0, append_rank=True):
+    """get output store path for sub output class."""
+    Validator.check_type(sub_class, str)
+    root_path = get_output_root_path()
+    directory = os.path.join(root_path, sub_class)
+    if append_rank:
+        directory = os.path.join(directory, 'rank_{}'.format(rank_id))
+    return format_path(directory)
+
+
+def set_remote_save_url(remote_save_url):
+    check_obs_url(remote_save_url)
+    os.environ.setdefault('REMOTE_SAVE_URL', remote_save_url)
+
+
+def get_remote_save_url():
+    return os.environ.get('REMOTE_SAVE_URL', None)
 
 
 def get_net_outputs(params):
