@@ -23,6 +23,9 @@ default_recompute_config = TransformerRecomputeConfig()
 default_parallel_config = TransformerOpParallelConfig(recompute=default_recompute_config)
 
 
+__all__ = ['ViTMAEConfig']
+
+
 @MindFormerRegister.register(MindFormerModuleType.CONFIG)
 class ViTMAEConfig(BaseConfig):
     """
@@ -68,7 +71,7 @@ class ViTMAEConfig(BaseConfig):
                  decoder_num_attention_heads: int = 16,
                  decoder_intermediate_size: int = 2048,
                  norm_pix_loss: bool = True,
-                 checkpoint_name_or_path: str = 'vit_base_p16',
+                 checkpoint_name_or_path: str = 'mae_vit_base_p16',
                  layernorm_compute_type: mstype = mstype.float32,
                  softmax_compute_type: mstype = mstype.float32,
                  param_init_type: mstype = mstype.float32,

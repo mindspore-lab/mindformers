@@ -779,7 +779,7 @@ def _reset_config_for_save(config: dict = None, model_name: str = 'common'):
         config_dict["model_config"].setdefault('model', model_config)
 
     if config.get('processor') is not None:
-        processor_config = config2dict(config.config.pop('processor'))
+        processor_config = config2dict(config.pop('processor'))
         config_dict["model_config"].setdefault('processor', processor_config)
 
     if config.get('train_dataset_task') is not None and config.get('train_dataset') is not None:

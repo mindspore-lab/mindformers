@@ -188,6 +188,12 @@ class MindFormerBook:
             ('common', os.path.join(
                 _PROJECT_PATH, "configs/clip/model_config/clip_vit_b_32.yaml"))
         ])),
+        ('masked_image_modeling', OrderedDict([
+            ('mae_vit_base_p16', os.path.join(
+                _PROJECT_PATH, "configs/mae/model_config/mae_vit_base_p16.yaml")),
+            ('common', os.path.join(
+                _PROJECT_PATH, "configs/mae/model_config/mae_vit_base_p16.yaml"))
+        ])),
         ('image_classification', OrderedDict([
             ('vit_base_p16', os.path.join(
                 _PROJECT_PATH, "configs/vit/model_config/vit_base_p16.yaml")),
@@ -348,6 +354,9 @@ class MindFormerBook:
             'clip_vit_l_14',
             'clip_vit_l_14@336',
             'mindspore/clip_vit_b_32'
+        ]),
+        ('mae', [
+            'mae_vit_base_p16',
         ]),
         ('vit', [
             'vit_base_p16',

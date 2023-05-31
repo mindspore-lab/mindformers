@@ -15,6 +15,9 @@
 """Masked Image Modeling Trainer."""
 from typing import Optional, List, Union
 
+import numpy as np
+from PIL.Image import Image
+from mindspore import Tensor
 from mindspore.train import Callback
 from mindspore.nn import TrainOneStepCell, Optimizer, Cell
 from mindspore.dataset import GeneratorDataset
@@ -23,9 +26,12 @@ from mindformers.dataset import BaseDataset
 from mindformers.models import BaseModel
 from mindformers.tools.register import MindFormerRegister, \
     MindFormerModuleType, MindFormerConfig
-from ..config_args import ConfigArguments
-from ..training_args import TrainingArguments
-from ..base_trainer import BaseTrainer
+from mindformers.trainer.config_args import ConfigArguments
+from mindformers.trainer.training_args import TrainingArguments
+from mindformers.trainer.base_trainer import BaseTrainer
+from mindformers.models.base_processor import BaseImageProcessor
+from mindformers.tools.logger import logger
+from mindformers.tools.image_tools import load_image
 
 
 @MindFormerRegister.register(MindFormerModuleType.TRAINER)
@@ -122,6 +128,48 @@ class MaskedImageModelingTrainer(BaseTrainer):
         raise NotImplementedError(
             "The MaskedImageModeling task does not support evaluate.")
 
-    def predict(self, *args, **kwargs):
-        raise NotImplementedError(
-            "The MaskedImageModeling task does not support predict.")
+    def predict(self,
+                config: Optional[Union[dict, MindFormerConfig, ConfigArguments, TrainingArguments]] = None,
+                input_data: Optional[Union[Tensor, np.ndarray, Image, str, list]] = None,
+                network: Optional[Union[Cell, BaseModel]] = None,
+                image_processor: Optional[BaseImageProcessor] = None, **kwargs):
+        r"""Predict task for MaskedImageModeling Trainer.
+                This function is used to predict the network.
+
+                The trainer interface is used to quickly start training for general task.
+                It also allows users to customize the network, tokenizer, image_processor, audio_processor.
+
+                Args:
+                    config (Optional[Union[dict, MindFormerConfig, ConfigArguments, TrainingArguments]]):
+                        The task config which is used to configure the dataset, the hyper-parameter, optimizer, etc.
+                        It supports config dict or MindFormerConfig or TrainingArguments or ConfigArguments class.
+                        Default: None.
+                    input_data (Optional[Union[Tensor, np.ndarray, Image, str, list]]): The predict data. Default: None.
+                    network (Optional[Union[Cell, BaseModel]]): The network for trainer.
+                        It supports model name or BaseModel or MindSpore Cell class.
+                        Default: None.
+                    image_processor (Optional[BaseImageProcessor]): The processor for image preprocessing.
+                        It support BaseImageProcessor class.
+                        Default: None.
+                """
+        logger.info(".........Build Input Data For Predict..........")
+        if input_data is None:
+            input_data = config.input_data
+        if not isinstance(input_data, (Tensor, np.ndarray, Image, str, list)):
+            raise ValueError("Input data's type must be one of "
+                             "[str, ms.Tensor, np.ndarray, PIL.Image.Image, list]")
+        batch_input_data = []
+        if isinstance(input_data, str):
+            batch_input_data.append(load_image(input_data))
+        elif isinstance(input_data, list):
+            for data_path in input_data:
+                batch_input_data.append(load_image(data_path))
+        else:
+            batch_input_data = input_data
+
+        return self.predict_process(config=config,
+                                    input_data=batch_input_data,
+                                    task='masked_image_modeling',
+                                    network=network,
+                                    image_processor=image_processor,
+                                    **kwargs)

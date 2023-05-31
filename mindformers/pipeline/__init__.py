@@ -24,6 +24,7 @@ from .text_classification_pipeline import TextClassificationPipeline
 from .token_classification_pipeline import TokenClassificationPipeline
 from .question_answering_pipeline import QuestionAnsweringPipeline
 from .text_generation_pipeline import TextGenerationPipeline
+from .masked_image_modeling_pipeline import MaskedImageModelingPipeline
 
 
 __all__ = ['ZeroShotImageClassificationPipeline',
@@ -35,3 +36,4 @@ __all__.extend(text_classification_pipeline.__all__)
 __all__.extend(token_classification_pipeline.__all__)
 __all__.extend(question_answering_pipeline.__all__)
 __all__.extend(text_generation_pipeline.__all__)
+__all__.extend(masked_image_modeling_pipeline.__all__)

@@ -36,7 +36,10 @@ MAE由何凯明团队提出，将NLP领域大获成功的自监督预训练模�
 
 ```shell
 # pretrain
-python run_mindformer.py --config ./configs/mae/run_mae_vit_base_p16.yaml --run_mode train
+python run_mindformer.py --config ./configs/mae/run_mae_vit_base_p16_224_800ep.yaml --run_mode train
+
+# predict
+python run_mindformer.py --config ./configs/mae/run_mae_vit_base_p16_224_800ep.yaml --run_mode predict --predict_data [PATH_TO_IMAGE]
 ```
 
 ### 调用API启动
@@ -68,14 +71,35 @@ model = ViTMAEForPreTraining(config)
 
 ```python
 from mindformers.trainer import Trainer
+from mindformers.tools.image_tools import load_image
 
 # 初始化任务
 mae_trainer = Trainer(
     task='masked_image_modeling',
     model='mae_vit_base_p16',
     train_dataset="imageNet-1k/train")
+img = load_image("https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/XFormer_for_mindspore/clip/sunflower.png")
 
+# 方式1: 重头开始训练，并使用训练好的权重进行推理
 mae_trainer.train() # 开启训练
+predict_result = mae_trainer.predict(predict_checkpoint=True, input_data=img)
+print(predict_result)
+
+# 方式3： 从obs下载训练好的权重并进行推理
+predict_result = mae_trainer.predict(input_data=img)
+print(predict_result)
+ ```
+
+- pipeline接口开启快速推理
+
+```python
+from mindformers.pipeline import pipeline
+from mindformers.tools.image_tools import load_image
+
+
+pipeline_task = pipeline("masked_image_modeling", model='mae_vit_base_p16')
+img = load_image("https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/XFormer_for_mindspore/clip/sunflower.png")
+pipeline_result = pipeline_task(img)
  ```
 
  Trainer和pipeline接口默认支持的task和model关键入参

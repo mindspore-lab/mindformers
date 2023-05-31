@@ -187,3 +187,10 @@ callbacks:
   - type: ObsMonitor
 eval_callbacks:
   - type: ObsMonitor
+
+# processor
+processor:
+  type: ViTMAEProcessor
+  image_processor:
+    type: ViTMAEImageProcessor
+    size: 224  # input image size
