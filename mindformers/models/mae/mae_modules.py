@@ -816,7 +816,7 @@ class Patchify(nn.Cell):
         p = self.patch_size
         bs, channels, h, w = img.shape
         x = self.reshape(img, (bs, channels, h // p, p, w // p, p))
-        x = self.transpose(x, (0, 2, 4, 1, 3, 5))
+        x = self.transpose(x, (0, 2, 4, 3, 5, 1))
         patches = self.reshape(x, (bs, (h // p) * (w // p), channels * p * p))
         return patches
 

@@ -280,7 +280,7 @@ class ViTMAEForPreTraining(BaseModel):
             mstype.float32
         )
         decoder_pos_embed = P.ExpandDims()(decoder_pos_embed, 0)
-        self.decoder_pos_embed = Parameter(decoder_pos_embed, name='sincos_decoder_pos_embedding', requires_grad=False)
+        self.decoder_pos_embed = Parameter(decoder_pos_embed, name='decoder_pos_embed', requires_grad=False)
 
     def init_weights(self):
         """ ViT weight initialization."""
