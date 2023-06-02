@@ -35,6 +35,7 @@ __all__ = ['ObsMonitor', 'MFLossMonitor', 'CheckpointMointor', 'SummaryMonitor',
 _cur_dir = os.getcwd()
 SAVE_DIR = _cur_dir
 
+
 @MindFormerRegister.register(MindFormerModuleType.CALLBACK)
 class ObsMonitor:
     """Obs Monitor For AICC and Local"""
@@ -53,6 +54,31 @@ class ObsMonitor:
         return Local2ObsMonitor(src_dir, target_dir, rank_id, upload_frequence, keep_last)
 
 
+def _get_loss_output(output):
+    """Get output of task for MFLossMonitor."""
+    overflow = False
+    scaling_sens = False
+    loss = output
+    if isinstance(output, (tuple, list)):
+        if len(output) == 3:
+            loss, overflow, scaling_sens = output
+            if isinstance(scaling_sens, ms.Tensor):
+                scaling_sens = scaling_sens.asnumpy()
+        else:
+            if isinstance(output[0], ms.Tensor) and isinstance(output[0].asnumpy(), np.ndarray):
+                loss = output[0]
+
+    if isinstance(loss, ms.Tensor) and isinstance(loss.asnumpy(), np.ndarray):
+        loss = np.mean(loss.asnumpy())
+
+    # Boundary check.
+    if isinstance(loss, float) and (np.isnan(loss) or np.isinf(loss)):
+        invalid_loss_info = "NaN" if np.isnan(loss) else "Inf"
+        raise ValueError(f"The current value of loss is {invalid_loss_info}, terminate training.")
+
+    return loss, overflow, scaling_sens
+
+
 @MindFormerRegister.register(MindFormerModuleType.CALLBACK)
 class MFLossMonitor(Callback):
     """
@@ -61,7 +87,10 @@ class MFLossMonitor(Callback):
     Args:
         learning_rate (Union[float, LearningRateSchedule], optional): The learning rate schedule. Default: None.
         per_print_times (int): Every how many steps to print the log information. Default: 1.
-
+        micro_batch_num (int): MicroBatch size for Pipeline Parallel. Default: 1.
+        micro_batch_interleave_num (int): split num of batch size. Default: 1.
+        origin_epochs (int): Training epoches. Default: None.
+        dataset_size (int): Training dataset size. Default: None.
     Examples:
         >>> from mindformers.core.callback import MFLossMonitor
         >>> lr = [0.01, 0.008, 0.006, 0.005, 0.002]
@@ -70,10 +99,11 @@ class MFLossMonitor(Callback):
 
     def __init__(self,
                  learning_rate: Optional[Union[float, LearningRateSchedule]] = None,
+                 per_print_times: int = 1,
                  micro_batch_num: int = 1,
+                 micro_batch_interleave_num: int = 1,
                  origin_epochs: int = None,
-                 dataset_size: int = None,
-                 per_print_times: int = 1):
+                 dataset_size: int = None):
         super(MFLossMonitor, self).__init__()
         self.per_print_times = per_print_times
         self.learning_rate = deepcopy(learning_rate)
@@ -85,6 +115,7 @@ class MFLossMonitor(Callback):
         self.epoch_time = time.time()
         self.run_context = None
         self.steps_per_epoch = dataset_size
+        self.micro_batch_interleave_num = micro_batch_interleave_num
         self.origin_epochs = origin_epochs
 
     def epoch_begin(self, run_context):
@@ -136,35 +167,13 @@ class MFLossMonitor(Callback):
         if auto_parallel:
             ms.context.set_auto_parallel_context(parallel_mode='data_parallel', full_batch=False)
         cb_params = run_context.original_args()
-        step_mseconds = (time.time() - self.step_time) * 1000
-        loss = cb_params.net_outputs
-        overflow = False
-        scaling_sens = False
-
-        if isinstance(loss, (tuple, list)):
-            if len(loss) == 3:
-                loss, overflow, scaling_sens = loss
-                if isinstance(scaling_sens, ms.Tensor):
-                    scaling_sens = scaling_sens.asnumpy()
-            else:
-                if isinstance(loss[0], ms.Tensor) and isinstance(loss[0].asnumpy(), np.ndarray):
-                    loss = loss[0]
-
-        if isinstance(loss, ms.Tensor) and isinstance(loss.asnumpy(), np.ndarray):
-            loss = np.mean(loss.asnumpy())
-
-        pipeline_stages = ms.context.get_auto_parallel_context("pipeline_stages")
-        if pipeline_stages > 1 and self.print_warning_flag:
-            logger.warning("pipeline stages: %s > 1, the loss on the last card is valid.",
-                           pipeline_stages)
-            loss = loss / self.mirco_size
-
+        step_seconds = (time.time() - self.step_time) * 1000
+        net_outputs = cb_params.net_outputs
+        loss, overflow, scaling_sens = _get_loss_output(net_outputs)
+        loss = self._fix_loss_for_parallel(loss)
         self.loss_list.append(loss)
-        cur_step_in_epoch = (cb_params.cur_step_num - 1) % cb_params.batch_num + 1
 
-        # Boundary check.
-        if isinstance(loss, float) and (np.isnan(loss) or np.isinf(loss)):
-            raise ValueError("Invalid loss, terminate training.")
+        cur_step_in_epoch = (cb_params.cur_step_num - 1) % cb_params.batch_num + 1
 
         if not overflow:
             overflow = "False"
@@ -183,65 +192,87 @@ class MFLossMonitor(Callback):
             cur_step_num = cur_step_in_epoch
             cur_epoch_num = cb_params.cur_epoch_num
 
-        def print_output_info():
-            if self.learning_rate is not None:
-                if isinstance(self.learning_rate, float):
-                    current_lr = str(self.learning_rate)
-                elif isinstance(self.learning_rate, LearningRateSchedule):
-                    if ms.context.get_context('device_target') == 'CPU':
-                        if self.print_warning_flag:
-                            logger.warning(
-                                "device target not support CPU when generating the learning rate value, "
-                                "please use: mindspore.context.set_context(device_target='Ascend')")
-                            self.print_warning_flag = False
-                        current_lr = None
-                    else:
-                        if cb_params.optimizer is not None:
-                            global_step = cb_params.optimizer.global_step
-                        else:
-                            global_step = cb_params.network.optimizer.global_step
-                        current_lr = self.learning_rate(global_step)
-                        current_lr = np.array2string(current_lr.asnumpy())
-                else:
-                    if self.print_warning_flag:
-                        logger.warning(
-                            "The current learning rate cannot be calculated in real time."
-                            "Only the type of LearningRateSchedule is supported in the callback of MFLossMonitor,"
-                            "but the input learning rate function type is %s", type(self.learning_rate)
-                        )
-                        self.print_warning_flag = False
-                    current_lr = None
-            else:
-                if self.print_warning_flag:
-                    logger.warning(
-                        "MFLossMonitor callback is not set learning rate arguments."
-                        "To display the learning rate, you must input the arguments, "
-                        "which can be LearningRateSchedule or a fixed float"
-                    )
-                    self.print_warning_flag = False
-                current_lr = None
-
-            if current_lr is not None:
-                logger.info(
-                    "Epoch:[%3d/%3d], step:[%5d/%5d], "
-                    "loss:[%5.3f/%5.3f], time:%5.3f ms, "
-                    "lr:%s, overflow cond: %s, loss_scale: %s", cur_epoch_num, origin_epochs,
-                    cur_step_num, steps_per_epoch, loss, np.mean(self.loss_list),
-                    step_mseconds, current_lr, overflow, scaling_sens)
-            else:
-                logger.info(
-                    "Epoch:[%3d/%3d], step:[%5d/%5d], "
-                    "loss:[%5.3f/%5.3f], time:%5.3f ms, "
-                    "overflow cond: %s, loss_scale: %s", cur_epoch_num, origin_epochs,
-                    cur_step_num, steps_per_epoch, loss, np.mean(self.loss_list),
-                    step_mseconds, overflow, scaling_sens)
-
         if (cb_params.cur_step_num - self.last_print_time) >= self.per_print_times:
             self.last_print_time = cb_params.cur_step_num
-            print_output_info()
+            self.print_output_info(cb_params, cur_epoch_num, origin_epochs,
+                                   cur_step_num, steps_per_epoch, loss, step_seconds,
+                                   overflow, scaling_sens)
 
         if auto_parallel:
             ms.context.set_auto_parallel_context(parallel_mode=parallel_mode, full_batch=full_batch)
+
+    def _fix_loss_for_parallel(self, loss):
+        """Fix loss value in pipeline or double parallel mode."""
+        pipeline_stages = ms.context.get_auto_parallel_context("pipeline_stages")
+        if pipeline_stages > 1 and self.print_warning_flag:
+            logger.warning("pipeline stages: %s > 1, the loss on the last card is valid.",
+                           pipeline_stages)
+
+        if self.micro_batch_interleave_num > 1 and self.print_warning_flag:
+            logger.warning("micro_batch_interleave_num: %s > 1, multiple copies in parallel is open.")
+
+        if pipeline_stages > 1:
+            loss = loss / (self.mirco_size * self.micro_batch_interleave_num)
+        elif self.micro_batch_interleave_num > 1:
+            loss = loss / self.micro_batch_interleave_num
+
+        return loss
+
+    def print_output_info(self, cb_params, cur_epoch_num, origin_epochs,
+                          cur_step_num, steps_per_epoch, loss, step_seconds,
+                          overflow, scaling_sens):
+        """print output information."""
+        if self.learning_rate is not None:
+            if isinstance(self.learning_rate, float):
+                current_lr = str(self.learning_rate)
+            elif isinstance(self.learning_rate, LearningRateSchedule):
+                if ms.context.get_context('device_target') == 'CPU':
+                    if self.print_warning_flag:
+                        logger.warning(
+                            "device target not support CPU when generating the learning rate value, "
+                            "please use: mindspore.context.set_context(device_target='Ascend')")
+                        self.print_warning_flag = False
+                    current_lr = None
+                else:
+                    if cb_params.optimizer is not None:
+                        global_step = cb_params.optimizer.global_step
+                    else:
+                        global_step = cb_params.network.optimizer.global_step
+                    current_lr = self.learning_rate(global_step)
+                    current_lr = np.array2string(current_lr.asnumpy())
+            else:
+                if self.print_warning_flag:
+                    logger.warning(
+                        "The current learning rate cannot be calculated in real time."
+                        "Only the type of LearningRateSchedule is supported in the callback of MFLossMonitor,"
+                        "but the input learning rate function type is %s", type(self.learning_rate)
+                    )
+                    self.print_warning_flag = False
+                current_lr = None
+        else:
+            if self.print_warning_flag:
+                logger.warning(
+                    "MFLossMonitor callback is not set learning rate arguments."
+                    "To display the learning rate, you must input the arguments, "
+                    "which can be LearningRateSchedule or a fixed float"
+                )
+                self.print_warning_flag = False
+            current_lr = None
+
+        if current_lr is not None:
+            logger.info(
+                "Epoch:[%3d/%3d], step:[%5d/%5d], "
+                "loss:[%5.3f/%5.3f], time:%5.3f ms, "
+                "lr:%s, overflow cond: %s, loss_scale: %s", cur_epoch_num, origin_epochs,
+                cur_step_num, steps_per_epoch, loss, np.mean(self.loss_list),
+                step_seconds, current_lr, overflow, scaling_sens)
+        else:
+            logger.info(
+                "Epoch:[%3d/%3d], step:[%5d/%5d], "
+                "loss:[%5.3f/%5.3f], time:%5.3f ms, "
+                "overflow cond: %s, loss_scale: %s", cur_epoch_num, origin_epochs,
+                cur_step_num, steps_per_epoch, loss, np.mean(self.loss_list),
+                step_seconds, overflow, scaling_sens)
 
 
 @MindFormerRegister.register(MindFormerModuleType.CALLBACK)
@@ -392,6 +423,7 @@ class CheckpointMointor(ModelCheckpoint):
                             self._append_dict, self._config.enc_key, self._config.enc_mode)
 
             self._latest_ckpt_file_name = cur_file
+
 
 @MindFormerRegister.register(MindFormerModuleType.CALLBACK)
 class ProfileMonitor(Callback):
