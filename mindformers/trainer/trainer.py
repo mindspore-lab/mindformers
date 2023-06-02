@@ -655,7 +655,7 @@ class Trainer:
         """get last checkpoint for resuming or finetune."""
         output_folder = self.config.output_dir
         checkpoint_dir = os.path.join(
-            output_folder, 'rank_{}'.format(self.rank_id), DEFAULT_CHECKPOINT_DIR)
+            output_folder, DEFAULT_CHECKPOINT_DIR, 'rank_{}'.format(self.rank_id))
         output_checkpoint_path = [
             checkpoint for checkpoint in os.listdir(checkpoint_dir)
             if checkpoint.endswith('.ckpt')
