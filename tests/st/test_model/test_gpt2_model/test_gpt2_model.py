@@ -41,10 +41,9 @@ def generator():
     seq_len = 1025
     input_ids = np.random.randint(low=0, high=15, size=(seq_len,)).astype(np.int32)
     input_mask = np.ones_like(input_ids)
-    label_ids = input_ids
-    train_data = (input_ids, input_mask, label_ids)
+    train_data = (input_ids, input_mask)
     for _ in range(512):
-        yield train_data[0]
+        yield train_data
 
 @dataclass
 class Tempconfig:
@@ -71,7 +70,7 @@ def test_gpt_trainer_train_from_instance():
     gpt_model = GPT2LMHeadModel()
 
     # Dataset and operations
-    dataset = GeneratorDataset(generator, column_names=["input_ids"])
+    dataset = GeneratorDataset(generator, column_names=["input_ids", "input_mask"])
     dataset = dataset.batch(batch_size=8)
 
     # optimizer
@@ -89,7 +88,8 @@ def test_gpt_trainer_train_from_instance():
                          config=config,
                          optimizers=optimizer,
                          train_dataset=dataset,
-                         callbacks=callbacks)
+                         callbacks=callbacks,
+                         task="text_generation")
     lm_trainer.train(resume_or_finetune_from_checkpoint=False)
 
 

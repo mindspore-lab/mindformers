@@ -21,7 +21,7 @@ GPT-2由OpenAI于2019年发布。GPT-2模型是继承于GPT模型，GPT-2是一�
 # 1、数据清洗
 python task_dataset_preprocess.py --task "LanguageModeling" --input_file /{path}/wiki.train.tokens --dataset "wikitext2" --output_file /{path}/{cleaned_data_name}
 # 2、生成Mindrecord数据，其中output_file需以字符串mindrecord结尾
-python create_lm_data.py --input_file /{path}/{cleaned_data_name} --output_file /{path}/{mindrecord_data_name} --num_splits 1 --max_length 1025 --vocab_file={path of vocab.json} --merge_file={path of merges.txt}
+python create_lm_data.py --input_file /{path}/{cleaned_data_name} --output_file /{path}/{data_name.mindrecord} --num_splits 1 --max_length 1025 --vocab_file={path of vocab.json} --merge_file={path of merges.txt}
 ```
 
 ## 快速使用
@@ -37,13 +37,15 @@ python create_lm_data.py --input_file /{path}/{cleaned_data_name} --output_file 
 #### 单卡启动
 
 ```shell
+# dataset_dir可指定文件目录或文件路径，指定文件路径时，读取单文件，
+# 指定目录时，读取目录下所有以字符串mindrecord结尾的数据文件
 python run_mindformer.py --config configs/gpt2/run_gpt2.yaml \
                          --run_mode train \
                          --device_target Ascend \
                          --dataset_dir /your_path/wikitext-2-mindrecord
 ```
 
-其中`device_target`根据用户的运行设备不同，可选`GPU/Ascend`。另，模型和训练等相关配置可在`configs/gpt2`目录下的yaml文件中配置。
+其中`device_target`根据用户的运行设备不同，可选`CPU/Ascend`。另，模型和训练等相关配置可在`configs/gpt2`目录下的yaml文件中配置。
 
 #### 单机多卡启动
 
@@ -95,6 +97,7 @@ RUN_STATUS: 为任务运行状态，支持关键字 train\finetune\predict
 ```
 
 其中，模型和训练等相关配置可在`configs/gpt2`目录下的yaml文件中配置，如数据集路径，可在`configs/gpt2/task_config/gpt2_dataset.yaml`中配置`dataset_dir`参数。
+`dataset_dir`可指定文件目录或文件路径，指定文件路径时，读取单文件，指定目录时，读取目录下所有以字符串mindrecord结尾的数据文件
 
 #### 多机多卡启动
 
@@ -154,7 +157,7 @@ inputs = tokenizer(["hello world"],
                  padding='max_length',
                  max_length=model.config.seq_length,
                  return_tensors='ms')
-output = model(inputs["input_ids"])
+output = model(input_ids=inputs["input_ids"], input_mask=inputs["attention_mask"])
 print(output)  # 计算输出的logits
 
 model.set_train(True)
@@ -162,7 +165,7 @@ inputs = tokenizer(["hello world"],
                    padding='max_length',
                    max_length=model.config.seq_length+1,
                    return_tensors='ms')
-output = model(inputs["input_ids"])
+output = model(input_ids=inputs["input_ids"], input_mask=inputs["attention_mask"])
 print(output)  # 计算loss
 ```
 

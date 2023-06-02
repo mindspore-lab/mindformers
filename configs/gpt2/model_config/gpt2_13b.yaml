@@ -17,7 +17,7 @@ model:
     softmax_dtype: "float16"
     compute_dtype: "float16"
     checkpoint_name_or_path: ""
-    eos_token: 50256
+    eos_token_id: 50256
     repetition_penalty: 1
     max_decode_length: 1024
     top_k: 5

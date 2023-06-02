@@ -20,7 +20,7 @@ import numpy as np
 import mindspore.nn as nn
 import mindspore.common.dtype as mstype
 from mindspore.common.tensor import Tensor
-from mindspore.common.initializer import TruncatedNormal, initializer
+from mindspore.common.initializer import initializer
 from mindspore.ops import operations as P
 from mindspore.ops import functional as F
 from mindformers.modules.transformer.moe import default_moe_config
@@ -83,12 +83,13 @@ class GPT2LMHeadModel(BaseModel):
         self.load_checkpoint(config)
         self.add = P.Add().shard(((parallel_config.data_parallel, 1), ()))
 
-    def construct(self, input_ids):
+    def construct(self, input_ids, input_mask=None):
         r"""
             construct function for Language Modeling
 
             Args:
                 input_ids (Tensor): the indices of input sequence tokens in the vocabulary.
+                input_mask (Tensor): input sentences padding mask, where 0 indicates padding position.
 
             Returns:
                 logits (Tensor) or loss (mstype.float32): if is_training is False, directly return the logits,
@@ -99,10 +100,15 @@ class GPT2LMHeadModel(BaseModel):
 
         if self.phase == "train":
             tokens = self.stridedslice(input_ids, (0, 0), (batch_size, seq_length - 1), (1, 1))
+            if input_mask is not None:
+                input_mask = self.stridedslice(input_mask, (0, 0), (batch_size, seq_length - 1), (1, 1))
+            else:
+                input_mask = self.not_equal(tokens, self.eos_token)
         else:
             tokens = input_ids
+            if input_mask is None:
+                input_mask = self.not_equal(tokens, self.eos_token)
 
-        input_mask = self.not_equal(tokens, self.eos_token)
         input_mask = self.cast(input_mask, mstype.float32)
         attention_mask = self.get_attention_mask(input_mask)
 
@@ -142,7 +148,7 @@ class GPTEmbeddingLayer(nn.Cell):
 
         self.word_embedding = VocabEmbedding(vocab_size=vocab_size,
                                              embedding_size=config.embedding_size,
-                                             param_init=initializer(TruncatedNormal(config.initializer_range),
+                                             param_init=initializer('normal',
                                                                     [vocab_size, config.embedding_size],
                                                                     dtype=mstype.float32),
                                              parallel_config=parallel_config.embedding_dp_mp_config)
@@ -151,7 +157,7 @@ class GPTEmbeddingLayer(nn.Cell):
 
         self.position_embedding = VocabEmbedding(vocab_size=config.seq_length,
                                                  embedding_size=config.embedding_size,
-                                                 param_init=initializer(TruncatedNormal(config.initializer_range),
+                                                 param_init=initializer('normal',
                                                                         [config.seq_length, config.embedding_size],
                                                                         dtype=mstype.float32),
                                                  parallel_config=new_parallel_config.embedding_dp_mp_config)
