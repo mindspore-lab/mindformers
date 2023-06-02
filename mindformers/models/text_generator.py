@@ -24,6 +24,7 @@ from mindspore.ops import operations as P
 import mindspore.nn as nn
 import mindspore.common.dtype as mstype
 from mindspore.common.tensor import Tensor
+from mindformers.generation.streamers import BaseStreamer
 
 from ..tools import logger
 
@@ -147,7 +148,8 @@ class GeneratorMixin:
                  top_p,
                  repetition_penalty,
                  max_length,
-                 eos_token_id):
+                 eos_token_id,
+                 streamer=None):
         """
         Text generation given the model and origin inputs
 
@@ -159,12 +161,16 @@ class GeneratorMixin:
             max_length(int):  The maximum of generated length.
             vocab_size(int): The vocabulary length of the model.
             config: Inference configurations.
+            streamer: Streamer object that will be used to stream the generated sequences.
 
         Returns:
             outputs: the ids for the generated text
         """
         # Get configurations for inference
         use_pynative = True
+
+        if streamer is not None:
+            streamer.put(origin_inputs[0])
 
         batch_size = origin_inputs.shape[0]
         is_encoder_decoder = self.config.is_encoder_decoder
@@ -201,6 +207,7 @@ class GeneratorMixin:
             valid_length_each_example = np.ones((batch_size, 1)).astype(np.int32)
         # A single loop generates one token, loop until reaching target model_origin_max_length or generating eod token
         is_finished = [False] * batch_size
+
         while np.sum(is_finished) != batch_size:
             inputs = Tensor(input_ids, mstype.int32)
             if is_encoder_decoder:
@@ -238,6 +245,7 @@ class GeneratorMixin:
 
             p, p_args = sampler(log_probs_revised, top_p, top_k, use_pynative)
             # Random select a token as final output for this round
+
             for i in range(batch_size):
                 if is_finished[i]:
                     continue
@@ -245,9 +253,14 @@ class GeneratorMixin:
 
                 # update frequency list
                 target = p_args[i][target_index]
+
                 if repetition_penalty != 1:
                     frequency_list[0][target] = frequency_list[0][target] + 1
                 input_ids[i, valid_length_each_example[i]] = p_args[i, target_index]
+
+                if streamer is not None:
+                    streamer.put(np.asarray([target]))
+
                 if is_encoder_decoder:
                     target_mask[i][valid_length_each_example[i]] = int(1)
                 valid_length_each_example[i] += int(1)
@@ -257,11 +270,14 @@ class GeneratorMixin:
                     continue
             for i in range(batch_size):
                 input_mask[i][valid_length_each_example[i] - 1] = 1
+
         # Return valid outputs out of padded outputs
         output_ids = []
         for i in range(batch_size):
             output_ids.append(input_ids[i, : int(valid_length_each_example[i])].astype(np.int32))
         logger.debug("The output is: %s", output_ids)
+        if streamer is not None:
+            streamer.end()
         return output_ids
 
     def generate(self,
@@ -271,7 +287,8 @@ class GeneratorMixin:
                  top_p: Optional[float] = None,
                  eos_token_id: Optional[int] = None,
                  repetition_penalty: Optional[float] = None,
-                 max_length: Optional[int] = None):
+                 max_length: Optional[int] = None,
+                 streamer: Optional[BaseStreamer] = None):
         """
         Generate the words according to the given the input ids.
 
@@ -293,6 +310,7 @@ class GeneratorMixin:
                 the model. Default None.
             max_length: The maximum length of the generated words. If set None, it follow the setting in the
                 configureation in the model. Default None.
+            streamer: The streamer that generator uses.
 
 
         Examples:
@@ -334,12 +352,14 @@ class GeneratorMixin:
             top_p = 1
             top_k = 1
         # eval ops
+
         output_ids = self._forward(origin_inputs=input_ids,
                                    top_k=top_k,
                                    top_p=top_p,
                                    repetition_penalty=repetition_penalty,
                                    max_length=max_length,
-                                   eos_token_id=eos_token_id)
+                                   eos_token_id=eos_token_id,
+                                   streamer=streamer)
         # set to original phase
         self.set_train(origin_phase == 'train')
         return output_ids

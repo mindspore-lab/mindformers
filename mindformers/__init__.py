@@ -25,6 +25,7 @@ from mindformers.modules import *
 from mindformers.wrapper import *
 from mindformers.tools import *
 from mindformers.auto_class import *
+from mindformers.generation import *
 from .mindformer_book import MindFormerBook
 
 
@@ -34,3 +35,4 @@ __all__.extend(models.__all__)
 __all__.extend(core.__all__)
 __all__.extend(tools.__all__)
 __all__.extend(auto_class.__all__)
+__all__.extend(generation.__all__)
