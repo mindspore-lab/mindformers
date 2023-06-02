@@ -105,10 +105,10 @@ def init_context(use_parallel=True, context_config=None, parallel_config=None):
         device_num = get_group_size()  # world_size
         context_config['device_id'] = device_id
         parallel_config['parallel_mode'] = PARALLEL_MODE.get(parallel_config.get('parallel_mode'))
+        parallel_config.setdefault('device_num', device_num)
         context.set_context(**context_config)
         context.reset_auto_parallel_context()
-        context.set_auto_parallel_context(
-            device_num=device_num, **parallel_config)
+        context.set_auto_parallel_context(**parallel_config)
     else:
         context.set_context(**context_config)
     return rank_id, device_num
@@ -152,6 +152,11 @@ def _set_check_parallel_config(config):
     parallel_mode = config.get('parallel_mode')
     if parallel_mode is None:
         config.setdefault('parallel_mode', 0)
+
+    if PARALLEL_MODE.get(config.get('parallel_mode')) not in \
+            [context.ParallelMode.SEMI_AUTO_PARALLEL, context.ParallelMode.AUTO_PARALLEL] and config.get('full_batch'):
+        logger.info("full_batch will be forced to False when the parallel mode is stand_alone or data_parallel")
+        config.setdefault('full_batch', False)
 
     if parallel_mode not in PARALLEL_MODE.keys():
         raise IndexError(
