@@ -22,10 +22,13 @@ from typing import List, Optional, Union
 import numpy as np
 from PIL.Image import Image
 
+import mindspore as ms
 from mindspore import Tensor
 from mindspore.common import set_seed
 from mindspore import load_checkpoint, load_param_into_net
-from mindspore.nn import TrainOneStepCell, Optimizer, Cell
+from mindspore.nn import TrainOneStepCell, Optimizer, Cell,\
+    PipelineCell, MicroBatchInterleaved
+from mindspore.nn.wrap.cell_wrapper import _VirtualDatasetCell
 from mindspore.train import Callback
 from mindspore.dataset import GeneratorDataset
 from mindspore.dataset.engine.datasets import BatchDataset, RepeatDataset
@@ -295,9 +298,10 @@ class Trainer:
         self.device_num = int(os.getenv("RANK_SIZE", "1"))
         self.config.rank_id = self.rank_id
         self.config.device_num = self.device_num
-        self.context_config = self.config.context
-        self.parallel_config = self.config.parallel
-        build_parallel_config(self.config)
+
+        self.is_set_parallel_config = False
+        self.is_set_moe_config = False
+        self.is_set_recompute_config = False
 
         # set cloud file transform for ModelArts.
         cfts = CFTS(**self.config.aicc_config)
@@ -396,8 +400,8 @@ class Trainer:
         if initial_epoch != 0:
             self.config.runner_config.initial_epoch = initial_epoch
 
-        # build network
-        self.build_network(do_finetune, is_train=True)
+        if self.is_model_instance:
+            self.reset_model_instance()
 
         self.trainer.train(
             config=self.config, network=self.model,
@@ -442,8 +446,8 @@ class Trainer:
 
         self._check_checkpoint_config(eval_checkpoint)
 
-        # build network
-        self.build_network(eval_checkpoint, is_train=False)
+        if self.is_model_instance:
+            self.reset_model_instance()
 
         self.trainer.evaluate(
             config=self.config, network=self.model,
@@ -510,6 +514,9 @@ class Trainer:
         # build network
         self.build_network(predict_checkpoint, is_train=False)
 
+        if self.is_model_instance:
+            self.reset_model_instance()
+
         output_result = self.trainer.predict(
             config=self.config, input_data=input_data,
             network=self.model, image_processor=self.image_processor,
@@ -533,7 +540,7 @@ class Trainer:
             self._load_model_checkpoint()
 
     def set_parallel_config(
-            self, data_parallel=1, model_parallel=1, expert_parallel=1, pipeline_stage=1,
+            self, data_parallel=1, model_parallel=1, expert_parallel=1, pipeline_stage=1, micro_batch_interleave_num=1,
             micro_batch_num=1, optimizer_shard=False, gradient_aggregation_group=4, vocab_emb_dp=True):
         r"""
         set_parallel_config for the setting global data parallel, model parallel and fusion group.
@@ -551,6 +558,7 @@ class Trainer:
             optimizer_shard (bool): Whether to enable optimizer shard. Default False.
             gradient_aggregation_group (int): The fusion group size of the optimizer state sharding. Default: 4.
             vocab_emb_dp (bool): Shard embedding in model parallel or data parallel. Default: True.
+            micro_batch_interleave_num (int): split num of batch size. Default: 1.
 
         Examples:
             >>> from mindformers.trainer import Trainer
@@ -568,6 +576,9 @@ class Trainer:
         self.config.parallel_config.micro_batch_num = micro_batch_num
         self.config.parallel_config.vocab_emb_dp = vocab_emb_dp
         self.config.parallel_config.gradient_aggregation_group = gradient_aggregation_group
+        self.config.micro_batch_interleave_num = micro_batch_interleave_num
+
+        self.is_set_parallel_config = True
 
     def set_recompute_config(self, recompute=False, parallel_optimizer_comm_recompute=False,
                              mp_comm_recompute=True, recompute_slice_activation=False):
@@ -595,6 +606,8 @@ class Trainer:
         self.config.recompute_config.parallel_optimizer_comm_recompute = parallel_optimizer_comm_recompute
         self.config.recompute_config.mp_comm_recompute = mp_comm_recompute
         self.config.recompute_config.recompute_slice_activation = recompute_slice_activation
+
+        self.is_set_recompute_config = True
 
     def set_moe_config(self,
                        expert_num=1,
@@ -642,6 +655,46 @@ class Trainer:
         self.config.moe_config.group_wise_a2a = group_wise_a2a
         self.config.moe_config.comp_comm_parallel = comp_comm_parallel
         self.config.moe_config.comp_comm_parallel_degree = comp_comm_parallel_degree
+
+        self.is_set_moe_config = True
+
+    def reset_model_instance(self):
+        """Reset model instance for new model config."""
+        if not (self.is_set_parallel_config and self.is_set_moe_config and self.is_set_recompute_config):
+            return
+
+        if self.is_set_parallel_config:
+            logger.info("The incoming model will be configured in parallel.")
+
+        if self.is_set_recompute_config:
+            logger.info("The incoming model will be configured in recompute.")
+
+        if self.is_set_moe_config:
+            logger.info("The incoming model will be configured in moe.")
+
+        if not isinstance(self.model, BaseModel):
+            raise NotImplementedError("Currently only the integrated model structure in MindFormers is supported.")
+
+        build_parallel_config(self.config)
+        model_config = self.model.config
+        model_config.parallel_config = self.config.parallel_config
+        model_config.moe_config = self.config.moe_config
+        self.model.__init__(model_config)
+        network = self.model
+        micro_batch_interleave_num = self.config.micro_batch_interleave_num
+        if ms.get_auto_parallel_context("pipeline_stages") > 1:
+            micro_batch_num = self.config.parallel_config.micro_batch_num
+            if micro_batch_interleave_num > 1:
+                logger.info("micro_batch_interleave_num > 1, the double copy parallel feature is turned on.")
+                network = PipelineCell(MicroBatchInterleaved(network, micro_batch_interleave_num),
+                                       micro_size=micro_batch_num)
+            else:
+                network = PipelineCell(network, micro_size=micro_batch_num)
+            self.model = _VirtualDatasetCell(network)
+        else:
+            if micro_batch_interleave_num > 1:
+                logger.info("micro_batch_interleave_num > 1, the double copy parallel feature is turned on.")
+                self.model = MicroBatchInterleaved(network, micro_batch_interleave_num)
 
     def get_train_dataloader(self):
         """get train dataloader of mindspore."""

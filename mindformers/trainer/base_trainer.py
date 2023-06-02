@@ -243,6 +243,10 @@ class BaseTrainer:
         """Create the network for task trainer."""
         logger.info(".........Build Network From Config..........")
         network = build_model(self.config.model, default_args=default_args)
+        micro_batch_interleave_num = self.config.micro_batch_interleave_num
+        if micro_batch_interleave_num > 1:
+            logger.info("micro_batch_interleave_num > 1, the double copy parallel feature is turned on.")
+            network = MicroBatchInterleaved(network, micro_batch_interleave_num)
         return network
 
     def create_pipeline_network(self, default_args: dict = None):
@@ -490,13 +494,19 @@ class BaseTrainer:
 
         # build network
         logger.info(".........Build Net For Train..........")
-        if network is None and wrapper is None:
+        if network is None and wrapper is None and \
+                self.model_wrapper is None and self.network is None:
+            # If neither network nor wrapper exists, create a network
             if self.get_pipeline_stages() > 1:
                 network = self.create_pipeline_network(default_args={"parallel_config": config.parallel_config,
                                                                      "moe_config": config.moe_config})
             else:
                 network = self.create_network(default_args={"parallel_config": config.parallel_config,
                                                             "moe_config": config.moe_config})
+        elif network is None and wrapper is None and self.network is not None:
+            logger.info(".........Using The Existing Network For Train:: %s", self.network.__class__.__name__)
+            network = self.network
+
         if network is not None:
             self.set_network(network, is_train=True)
 
@@ -507,7 +517,7 @@ class BaseTrainer:
 
         # build optimizer
         logger.info(".........Build Optimizer For Train..........")
-        if optimizer is None and wrapper is None:
+        if optimizer is None and wrapper is None and self.model_wrapper is None:
             optimizer = self.create_optimizer_scheduler(network, layer_scale=config.layer_scale)
 
         # build callback
@@ -521,9 +531,12 @@ class BaseTrainer:
                 "micro_batch_num": config.parallel_config.micro_batch_num})
 
         # build model wrapper
-        if wrapper is None:
+        if wrapper is None and self.model_wrapper is None:
             logger.info(".........Build Running Wrapper From Config For Train..........")
             wrapper = self.create_model_wrapper(network, optimizer)
+        elif wrapper is None and self.model_wrapper is not None:
+            logger.info(".........Using The Existing Model Wrapper: %s", self.model_wrapper.__class__.__name__)
+            wrapper = self.model_wrapper
 
         # define compute metrics for evaluate in training
         compute_metrics = None
@@ -595,11 +608,15 @@ class BaseTrainer:
         if dataset is None:
             dataset = self.create_eval_dataset()
         self.set_eval_dataset(dataset)
+        logger.info("Create evaluate dataset finish, dataset size:%d", dataset.get_dataset_size())
 
         # build network
-        if network is None:
+        if network is None and self.network is None:
             network = self.create_network(default_args={"parallel_config": config.parallel_config,
                                                         "moe_config": config.moe_config})
+        elif network is None and self.network is not None:
+            logger.info(".........Using The Existing Network For Evaluate: %s", self.network.__class__.__name__)
+            network = self.network
         self.set_network(network, is_train=False)
 
         self.count_parameters()
