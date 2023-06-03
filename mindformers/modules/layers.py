@@ -809,3 +809,56 @@ class FixedSparseAttention(nn.Cell):
             (0, 2, 3, 1))
 
         return q, k, v
+
+class AlibiTensor(nn.Cell):
+    """
+    Link to paper: https://arxiv.org/abs/2108.12409 Alibi tensor is not causal as the original paper mentions, it
+    relies on a translation invariance of softmax for quick implementation: with l being a tensor, and a fixed value
+    `softmax(l+a) = softmax(l)`. Based on
+    https://github.com/ofirpress/attention_with_linear_biases/blob/a35aaca144e0eb6b789dfcb46784c4b8e31b7983/fairseq/models/transformer.py#L742
+
+    Args:
+        seq_length(int) - length of sequence
+        num_heads(int) - number of heads
+
+    Inputs:
+        attention_mask(Tensor) - Token-wise attention mask, this should be of shape (batch_size, max_seq_len).
+        dtype(mstype) - dtype of the output tensor
+
+    Returns:
+        alibi(Tensor), ailibi tensor shaped (batch_size * num_heads, 1, max_seq_len)
+    """
+
+    def __init__(self, seq_length, num_heads):
+        super(AlibiTensor, self).__init__()
+        self.seq_length = seq_length
+        self.num_heads = num_heads
+        self.expand = P.ExpandDims()
+        self.expand.shard(((1, 1),))
+
+        # build slopes
+        closest_power_of_2 = 2 ** math.floor(math.log2(num_heads))
+        base = np.array(2 ** (-(2 ** -(math.log2(closest_power_of_2) - 3))), dtype=np.float32)
+        powers = np.arange(1, 1 + closest_power_of_2, dtype=np.int32)
+        slopes = np.power(base, powers)
+
+        if closest_power_of_2 != num_heads:
+            extra_base = np.array(
+                2 ** (-(2 ** -(math.log2(2 * closest_power_of_2) - 3))), dtype=np.float32
+            )
+            num_remaining_heads = min(closest_power_of_2, num_heads - closest_power_of_2)
+            extra_powers = np.arange(1, 1 + 2 * num_remaining_heads, 2, dtype=np.int32)
+            slopes = np.concatenate([slopes, np.power(extra_base, extra_powers)], axis=0)
+
+        self.slopes = Tensor(slopes[:, None], mstype.float32)
+
+    def construct(self, attention_mask, dtype):
+        """
+        Note: alibi will added to the attention bias that will be applied to the query, key product of attention
+        therefore alibi will have to be of shape (batch_size, num_heads, query_length, key_length)
+        """
+        batch_size = attention_mask.shape[0]
+        arange_tensor = (attention_mask.cumsum(axis=-1) - 1) * attention_mask
+        arange_tensor = self.expand(arange_tensor, 1)
+        alibi = self.slopes * arange_tensor
+        return alibi.reshape(batch_size, self.num_heads, 1, self.seq_length).astype(dtype)
