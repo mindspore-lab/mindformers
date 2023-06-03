@@ -63,6 +63,7 @@ def _last_transform(local_id, log=get_logger()):
             mox_adapter(src_dir=DEBUG_INFO_PATH, target_dir=os.path.join(target_dir, 'debug_info', node), log=log)
         if os.path.exists(PROFILE_INFO_PATH):
             mox_adapter(src_dir=PROFILE_INFO_PATH, target_dir=os.path.join(target_dir, 'profile'), log=log)
+        os.environ.setdefault('TRANSFORM_END_FLAG', '1')
     elif os.environ.get('OBS_PATH'):
         log.info("Wait for the first card to complete the file and send it back to OBS: %s.",
                  os.environ.get('OBS_PATH'))
