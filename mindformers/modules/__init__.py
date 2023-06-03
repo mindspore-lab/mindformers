@@ -15,7 +15,9 @@
 """MindFormers Transformers API."""
 from .transformer import *
 from .layers import *
+from .local_block_sparse_attention import *
 
 __all__ = []
 __all__.extend(transformer.__all__)
 __all__.extend(layers.__all__)
+__all__.extend(local_block_sparse_attention.__all__)
