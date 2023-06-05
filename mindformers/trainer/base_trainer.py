@@ -689,16 +689,24 @@ class BaseTrainer:
             **kwargs
         )
 
-        output_result = pipeline_task(input_data, top_k=top_k)
+        output_results = pipeline_task(input_data, top_k=top_k)
+
+        output_info = []
+
+        for one_output in output_results:
+            if isinstance(one_output, dict) and "info" in one_output:
+                output_info.append(one_output["info"])
+            else:
+                output_info.append(one_output)
 
         with open(save_file, 'w') as file:
-            file.write(str(output_result))
+            file.write(str(output_info))
         file.close()
 
-        logger.info("output result is: %s", str(output_result))
+        logger.info("output result is: %s", str(output_info))
         logger.info("output result is saved at: %s", save_file)
         logger.info(".........Predict Over!.............")
-        return output_result
+        return output_results
 
     def _evaluate_in_training(self, model: Model, eval_dataset: BaseDataset):
         origin_phase = model.eval_network.phase

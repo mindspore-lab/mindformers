@@ -30,6 +30,9 @@ from mindformers.core.loss import MSELoss
 from mindformers.models.mae.mae_config import ViTMAEConfig
 
 
+__all__ = ['ViTMAEModel', 'ViTMAEForPreTraining']
+
+
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
 class ViTMAEModel(BaseModel):
     """
@@ -270,6 +273,8 @@ class ViTMAEForPreTraining(BaseModel):
 
         self.init_weights()
         self.init_pos_emd()
+
+        self.load_checkpoint(config)
 
     def init_pos_emd(self):
         """init values of pos_embed"""

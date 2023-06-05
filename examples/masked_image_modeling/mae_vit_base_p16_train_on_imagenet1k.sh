@@ -1,3 +1,4 @@
+#!/bin/bash
 # Copyright 2022 Huawei Technologies Co., Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,13 +13,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-"""Mae Model API."""
-from .mae import *
-from .mae_config import *
-from .mae_processor import *
 
+echo "=============================================================================================================="
+echo "Please run the script as: "
+echo "bash examples/masked_image_modeling/mae_vit_base_p16_train_on_imagenet1k.sh"
+echo "It is better to use absolute path."
+echo "=============================================================================================================="
 
-__all__ = []
-__all__.extend(mae.__all__)
-__all__.extend(mae_config.__all__)
-__all__.extend(mae_processor.__all__)
+python run_mindformer.py --config ./configs/mae/run_mae_vit_base_p16_224_800ep.yaml

@@ -25,3 +25,10 @@ model:
     decoder_intermediate_size: 2048  # ffn_hidden_size of decoder
     norm_pix_loss: True  # if using norm pixel loss
     checkpoint_name_or_path: 'mae_vit_base_p16'
+
+processor:
+  type: ViTMAEProcessor
+
+  image_processor:
+    type: ViTMAEImageProcessor
+    size: 224  # input image size
