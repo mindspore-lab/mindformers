@@ -389,7 +389,7 @@ class Trainer:
         elif isinstance(resume_or_finetune_from_checkpoint, str):
             if do_finetune:
                 self.config.model.model_config.checkpoint_name_or_path = resume_or_finetune_from_checkpoint
-                self.config.resume_or_finetune_from_checkpoint = None
+                self.config.resume_or_finetune_checkpoint = None
             else:
                 self.config.model.model_config.checkpoint_name_or_path = None
                 self.config.resume_or_finetune_checkpoint = resume_or_finetune_from_checkpoint
