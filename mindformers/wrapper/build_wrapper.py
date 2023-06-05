@@ -23,6 +23,9 @@ from mindformers.tools.register import MindFormerRegister, MindFormerModuleType,
 from .wrapper import MFTrainOneStepCell, MFPipelineWithLossScaleCell
 
 
+WRAPPERS_MINDFORMERS_DEFINED = ["MFTrainOneStepCell", "MFPipelineWithLossScaleCell"]
+
+
 def build_wrapper(config: dict = None, default_args: dict = None,
                   module_type: str = 'wrapper', class_name: str = None, **kwargs):
     r"""Build Wrapper For MindFormer.
@@ -50,6 +53,9 @@ def build_wrapper(config: dict = None, default_args: dict = None,
     if config is not None:
         if isinstance(config, dict) and not isinstance(config, MindFormerConfig):
             config = MindFormerConfig(**config)
+        if config.type not in WRAPPERS_MINDFORMERS_DEFINED:
+            if default_args and "parallel_config" in default_args:
+                del default_args["parallel_config"]
         if config.scale_sense is not None:
             if isinstance(config.scale_sense, dict) and config.scale_sense.type is not None:
                 config.scale_sense = build_wrapper(config.scale_sense)
