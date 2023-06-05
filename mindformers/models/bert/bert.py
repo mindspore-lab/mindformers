@@ -391,13 +391,14 @@ class BertForQuestionAnswering(BaseModel):
         self.bert = BertModel(config, config.is_training, config.use_one_hot_embeddings)
         self.qa_outputs = nn.Dense(config.hidden_size, 2).to_float(config.compute_dtype)
         self.load_checkpoint(config)
+        self.split = P.Split(output_num=2, axis=-1)
 
     def construct(self, input_ids, input_mask, token_type_id, start_position=None, end_position=None, unique_id=None):
         """Get Training Loss or Logits"""
         bert_outputs = self.bert(input_ids=input_ids, input_mask=input_mask, token_type_ids=token_type_id)
         sequence_output = bert_outputs[0]
         logits = self.qa_outputs(sequence_output)
-        start_logits, end_logits = logits.split(output_num=2, axis=-1)
+        start_logits, end_logits = self.split(logits)
         start_logits = start_logits.squeeze(-1)
         end_logits = end_logits.squeeze(-1)
 

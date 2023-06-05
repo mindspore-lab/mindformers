@@ -15,8 +15,11 @@
 """Masked Image Modeling Dataset."""
 import os
 
+import mindspore
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.tools.logger import logger
+from mindformers.tools.utils import is_version_ge
+
 from .dataloader import build_dataset_loader
 from .mask import build_mask
 from .transforms import build_transforms
@@ -75,17 +78,25 @@ class MIMDataset(BaseDataset):
                     python_multiprocessing=dataset_config.python_multiprocessing)
 
         if mask is not None:
-            dataset = dataset.map(
-                operations=mask,
-                input_columns=dataset_config.input_columns,
-                column_order=dataset_config.column_order,
-                output_columns=dataset_config.output_columns,
-                num_parallel_workers=dataset_config.num_parallel_workers,
-                python_multiprocessing=dataset_config.python_multiprocessing)
+            if is_version_ge(mindspore.__version__, '2.0.0'):
+                dataset = dataset.map(
+                    operations=mask,
+                    input_columns=dataset_config.input_columns,
+                    output_columns=dataset_config.output_columns,
+                    num_parallel_workers=dataset_config.num_parallel_workers,
+                    python_multiprocessing=dataset_config.python_multiprocessing)
+            else:
+                dataset = dataset.map(
+                    operations=mask,
+                    input_columns=dataset_config.input_columns,
+                    column_order=dataset_config.column_order,
+                    output_columns=dataset_config.output_columns,
+                    num_parallel_workers=dataset_config.num_parallel_workers,
+                    python_multiprocessing=dataset_config.python_multiprocessing)
+
+        dataset = dataset.project(columns=dataset_config.output_columns)
         dataset = dataset.batch(dataset_config.batch_size,
                                 drop_remainder=dataset_config.drop_remainder,
-                                column_order=dataset_config.column_order,
-                                output_columns=dataset_config.output_columns,
                                 num_parallel_workers=dataset_config.num_parallel_workers)
         dataset = dataset.repeat(dataset_config.repeat)
         return dataset

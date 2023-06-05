@@ -23,15 +23,17 @@ from mindspore.common.tensor import Tensor
 from mindspore.common.initializer import initializer
 from mindspore.ops import operations as P
 from mindspore.ops import functional as F
+
 from mindformers.modules.transformer.moe import default_moe_config
 from mindformers.modules.layers import LayerNorm, Dropout
 from mindformers.core.loss import CrossEntropyLoss
-from mindformers.modules.transformer import AttentionMask, TransformerDecoder, VocabEmbedding
+from mindformers.modules.transformer import AttentionMask, VocabEmbedding
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.models.base_model import BaseModel
 from mindformers.mindformer_book import MindFormerBook
 from mindformers.tools.logger import logger
 from .gpt2_config import GPT2Config
+from .gpt_modules import GPTTransformerDecoderLayer
 
 __all__ = ['GPT2LMHeadModel']
 
@@ -238,22 +240,28 @@ class GPT2Model(nn.Cell):
         if not hasattr(config.parallel_config, "moe_config"):
             config.parallel_config.moe_config = default_moe_config
         moe_config = config.parallel_config.moe_config
-        self.blocks = TransformerDecoder(hidden_size=config.embedding_size,
-                                         batch_size=config.batch_size,
-                                         ffn_hidden_size=config.embedding_size * config.expand_ratio,
-                                         src_seq_length=config.seq_length,
-                                         tgt_seq_length=config.seq_length,
-                                         num_layers=config.num_layers,
-                                         num_heads=config.num_heads,
-                                         attention_dropout_rate=config.attention_probs_dropout_prob,
-                                         hidden_dropout_rate=config.hidden_dropout_prob,
-                                         hidden_act=config.hidden_act,
-                                         lambda_func=set_parallel_configure_for_layer,
-                                         param_init_type=config.param_init_type,
-                                         layernorm_compute_type=config.layernorm_dtype,
-                                         softmax_compute_type=config.softmax_dtype,
-                                         parallel_config=config.parallel_config,
-                                         moe_config=moe_config).blocks
+
+        self.blocks = nn.CellList()
+        for i in range(config.num_layers):
+            block = GPTTransformerDecoderLayer(
+                hidden_size=config.embedding_size,
+                batch_size=config.batch_size,
+                ffn_hidden_size=config.embedding_size * config.expand_ratio,
+                seq_length=config.seq_length,
+                num_heads=config.num_heads,
+                attention_dropout_rate=config.attention_probs_dropout_prob,
+                hidden_dropout_rate=config.hidden_dropout_prob,
+                hidden_act=config.hidden_act,
+                param_init_type=config.param_init_type,
+                layernorm_compute_type=config.layernorm_dtype,
+                softmax_compute_type=config.softmax_dtype,
+                parallel_config=config.parallel_config.dp_mp_config,
+                moe_config=moe_config)
+            set_parallel_configure_for_layer(
+                block, layer_id=i, layers=config.num_layers,
+                offset=0, parallel_config=config.parallel_config)
+            self.blocks.append(block)
+
         self.cast = P.Cast()
         self.tile = P.Tile().shard(((config.parallel_config.data_parallel,),))
         self.dtype = mstype.float16
@@ -262,8 +270,11 @@ class GPT2Model(nn.Cell):
 
     def construct(self, input_ids, attention_mask):
         """GPT model"""
-        batch_size, _ = F.shape(input_ids)
-        input_position = self.tile(self.input_position, (batch_size, 1))
+        batch_size, seq_length = F.shape(input_ids)
+        if batch_size == 1:
+            input_position = F.reshape(self.input_position, (1, seq_length))
+        else:
+            input_position = self.tile(self.input_position, (batch_size, 1))
 
         input_embedding, embedding_table = self.embedding(input_ids, input_position)
 
@@ -272,7 +283,7 @@ class GPT2Model(nn.Cell):
         hidden_states = F.reshape(hidden_states, (-1, hidden_shape[-1]))
 
         for i in range(self.num_layers):
-            hidden_states, _ = self.blocks[i](hidden_states, attention_mask)
+            hidden_states = self.blocks[i](hidden_states, attention_mask)
 
         output_state = self.layernorm(hidden_states)
 

@@ -136,7 +136,7 @@ class ImageClassificationPipeline(BasePipeline):
 
         image_processed = model_inputs["image_processed"]
 
-        logits_per_image, = self.model(image_processed)
+        logits_per_image = self.model(image_processed)[0]
         probs = P.Softmax()(logits_per_image).asnumpy()
         return {"probs": probs}
 

@@ -443,7 +443,11 @@ class PanguAlphaHeadModel(BaseModel):
 
         if input_position is None:
             input_position = F.tuple_to_array(F.make_range(seq_length))
-            input_position = P.Tile()(self.expand(input_position, 0), (batch_size, 1))
+            input_position = self.expand(input_position, 0)
+            if batch_size == 1:
+                input_position = F.reshape(input_position, (1, seq_length))
+            else:
+                input_position = self.tile(input_position, (batch_size, 1))
         else:
             input_position = self.slice(input_position, (0, 0), (batch_size, seq_length-1), (1, 1))
 
