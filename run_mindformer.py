@@ -24,7 +24,7 @@ from mindspore.common import set_seed
 
 from mindformers.tools.register import MindFormerConfig, ActionDict
 from mindformers.core.parallel_config import build_parallel_config
-from mindformers.tools.utils import str2bool, set_remote_save_url, check_in_modelarts
+from mindformers.tools.utils import str2bool, set_remote_save_url, check_in_modelarts, parse_value
 from mindformers.core.context import build_context, build_profile_cb
 from mindformers.trainer import build_trainer
 from mindformers.tools.cloud_adapter import cloud_monitor
@@ -174,7 +174,10 @@ if __name__ == "__main__":
         help='number of datasets samples used.'
              'Default: None')
 
-    args_ = parser.parse_args()
+    args_, rest_args_ = parser.parse_known_args()
+    if len(rest_args_) % 2 != 0:
+        raise ValueError(f"input arg key-values are not in pair, please check input args. ")
+
     if args_.config is not None:
         args_.config = os.path.join(work_path, args_.config)
     config_ = MindFormerConfig(args_.config)
@@ -231,4 +234,18 @@ if __name__ == "__main__":
             config_.train_dataset.data_loader.num_samples = args_.num_samples
         if config_.eval_dataset and config_.eval_dataset.data_loader:
             config_.eval_dataset.data_loader.num_samples = args_.num_samples
+
+    while rest_args_:
+        key = rest_args_.pop(0)
+        value = rest_args_.pop(0)
+        if not key.startswith("--"):
+            raise ValueError("Custom config key need to start with --.")
+        dists = key[2:].split(".")
+        dist_config = config_
+        while len(dists) > 1:
+            if dists[0] not in dist_config:
+                raise ValueError(f"{dists[0]} is not a key of {dist_config}, please check input arg keys. ")
+            dist_config = dist_config[dists.pop(0)]
+        dist_config[dists.pop()] = parse_value(value)
+
     main(config_)

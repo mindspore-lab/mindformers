@@ -13,6 +13,7 @@
 # limitations under the License.
 # ============================================================================
 """Utils For Tools."""
+import json
 import os
 from typing import Dict, List, Tuple, Union
 from multiprocessing import Process
@@ -314,3 +315,47 @@ def is_version_ge(current_version, base_version):
         if int(x) != int(y):
             return int(x) >= int(y)
     return True
+
+
+def parse_value(value):
+    """
+        parse value from command line.
+        handles with int, float, bool, string, list and dict.
+    """
+    def isint(x):
+        try:
+            a = float(x)
+            b = int(a)
+        except (TypeError, ValueError):
+            return False
+        else:
+            return a == b
+
+    def isfloat(x):
+        try:
+            float(x)
+        except (TypeError, ValueError):
+            return False
+        else:
+            return True
+
+    def isbool(x):
+        return x in ["True", "False"]
+
+    def isjson(x):
+        try:
+            json.loads(x)
+        except json.decoder.JSONDecodeError:
+            return False
+        else:
+            return True
+
+    if isint(value):
+        return int(value)
+    if isfloat(value):
+        return float(value)
+    if isbool(value):
+        return value == "True"
+    if isjson(value):
+        return json.loads(value)
+    return value
