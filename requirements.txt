@@ -5,3 +5,5 @@ regex
 tqdm>=3.3.0
 pyyaml
 jieba
+rouge_chinese
+nltk
