@@ -37,7 +37,7 @@ vit：全名vision transformer，不同于传统的基于CNN的网络结果，�
 python run_mindformer.py --config ./configs/vit/run_vit_base_p16_224_100ep.yaml --run_mode train
 
 # evaluate
-python run_mindformer.py --config ./configs/vit/run_vit_base_p16_224_100ep.yaml --run_mode eval --dataset_dir [DATASET_PATH]
+python run_mindformer.py --config ./configs/vit/run_vit_base_p16_224_100ep.yaml --run_mode eval --eval_dataset_dir [DATASET_PATH]
 
 # predict
 python run_mindformer.py --config ./configs/vit/run_vit_base_p16_224_100ep.yaml --run_mode predict --predict_data [PATH_TO_IMAGE]

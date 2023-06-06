@@ -59,10 +59,10 @@ CLIP (Contrastive Lanuguage-Image Pre-Training)：是一种基于图文对进行
 
 ```shell
 # pretrain
-python run_mindformer.py --config ./configs/clip/run_clip_vit_b_32_pretrain_flickr8k.yaml --run_mode train --dataset_dir [DATASET_PATH]
+python run_mindformer.py --config ./configs/clip/run_clip_vit_b_32_pretrain_flickr8k.yaml --run_mode train --train_dataset_dir [DATASET_PATH]
 
 # evaluate
-python run_mindformer.py --config ./configs/clip/run_clip_vit_b_32_zero_shot_image_classification_cifar100.yaml --run_mode eval --dataset_dir [DATASET_PATH]
+python run_mindformer.py --config ./configs/clip/run_clip_vit_b_32_zero_shot_image_classification_cifar100.yaml --run_mode eval --eval_dataset_dir [DATASET_PATH]
 
 # predict
 python run_mindformer.py --config ./configs/clip/run_clip_vit_b_32_zero_shot_image_classification_cifar100.yaml --run_mode predict --predict_data [PATH_TO_IMAGE]

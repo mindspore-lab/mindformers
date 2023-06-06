@@ -38,7 +38,7 @@ python -m preprocess.py --input_glob  'data/*.txt' --tokenizer jieba --eot 40000
 python run_mindformer.py --config configs/pangualpha/run_pangualpha_2_6b.yaml \
                          --run_mode train \
                          --device_target Ascend \
-                         --dataset_dir /your_path/wudao-mindrecord
+                         --train_dataset_dir /your_path/wudao-mindrecord
 ```
 
 其中`device_target`根据用户的运行设备不同，可选`GPU/Ascend`。另，模型和训练等相关配置可在`configs/pangualpha`目录下的yaml文件中配置。

@@ -112,6 +112,26 @@ train_dataset_task:
   type: CausalLanguageModelDataset
   dataset_config: *train_dataset
 
+# eval dataset
+eval_dataset: &eval_dataset
+  data_loader:
+    type: MindDataset
+    dataset_dir: ""
+    shuffle: False
+  tokenizer:
+    type: GPT2Tokenizer
+    max_length: 1024
+  input_columns: ["input_ids"]
+  num_parallel_workers: 8
+  python_multiprocessing: False
+  drop_remainder: False
+  repeat: 1
+  numa_enable: False
+  prefetch_size: 1
+eval_dataset_task:
+  type: CausalLanguageModelDataset
+  dataset_config: *eval_dataset
+
 # model
 model:
   model_config:

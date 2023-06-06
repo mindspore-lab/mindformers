@@ -122,8 +122,12 @@ if __name__ == "__main__":
         help='task running status, it support [train, finetune, eval, predict].'
              'Default: None')
     parser.add_argument(
-        '--dataset_dir', default=None, type=str,
-        help='dataset directory of data loader to train/finetune/eval. '
+        '--train_dataset_dir', default=None, type=str,
+        help='dataset directory of data loader to train/finetune. '
+             'Default: None')
+    parser.add_argument(
+        '--eval_dataset_dir', default=None, type=str,
+        help='dataset directory of data loader to eval. '
              'Default: None')
     parser.add_argument(
         '--predict_data', default=None, type=str,
@@ -192,11 +196,10 @@ if __name__ == "__main__":
         config_.merge_from_dict(args_.options)
     assert config_.run_mode in ['train', 'eval', 'predict', 'finetune'], \
         f"run status must be in {['train', 'eval', 'predict', 'finetune']}, but get {config_.run_mode}"
-    if args_.dataset_dir:
-        if config_.run_mode == 'train' or config_.run_mode == 'finetune':
-            config_.train_dataset.data_loader.dataset_dir = args_.dataset_dir
-        if config_.run_mode == 'eval':
-            config_.eval_dataset.data_loader.dataset_dir = args_.dataset_dir
+    if args_.train_dataset_dir:
+        config_.train_dataset.data_loader.dataset_dir = args_.train_dataset_dir
+    if args_.eval_dataset_dir:
+        config_.eval_dataset.data_loader.dataset_dir = args_.eval_dataset_dir
     if config_.run_mode == 'predict':
         if args_.predict_data is None:
             logger.info("dataset by config is used as input_data.")
@@ -214,8 +217,8 @@ if __name__ == "__main__":
     if args_.sink_mode is not None:
         config_.runner_config.sink_mode = args_.sink_mode
     if args_.num_samples is not None:
-        if config_.run_mode == 'train' or config_.run_mode == 'finetune':
+        if config_.train_dataset and config_.train_dataset.data_loader:
             config_.train_dataset.data_loader.num_samples = args_.num_samples
-        if config_.run_mode == 'eval':
+        if config_.eval_dataset and config_.eval_dataset.data_loader:
             config_.eval_dataset.data_loader.num_samples = args_.num_samples
     main(config_)

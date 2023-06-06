@@ -43,7 +43,7 @@ AttributeError: module 'tokenization' has no attribute 'FullTokenizer'
 ```shell
 python run_mindformer.py --config configs/bert/run_bert_base_uncased.yaml --run_mode train  \
                          --device_target Ascend \
-                         --dataset_dir /your_path/wiki_data
+                         --train_dataset_dir /your_path/wiki_data
 ```
 
 ### 调用API启动
