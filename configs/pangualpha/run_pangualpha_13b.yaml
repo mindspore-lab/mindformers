@@ -114,7 +114,7 @@ train_dataset_task:
   type: CausalLanguageModelDataset
   dataset_config: *train_dataset
 
-eval_dataset: &eval_datasete
+eval_dataset: &eval_dataset
   data_loader:
     type: MindDataset
     dataset_dir: ""
@@ -195,6 +195,10 @@ callbacks:
   - type: ObsMonitor
 eval_callbacks:
   - type: ObsMonitor
+
+# metric
+metric:
+  type: PerplexityMetric
 
 # processor
 processor:

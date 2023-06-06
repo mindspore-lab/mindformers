@@ -187,6 +187,10 @@ callbacks:
 eval_callbacks:
   - type: ObsMonitor
 
+# metric
+metric:
+  type: PerplexityMetric
+
 # processor
 processor:
   return_tensors: ms
