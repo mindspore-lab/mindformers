@@ -401,7 +401,7 @@ class Trainer:
             self.config.runner_config.initial_epoch = initial_epoch
 
         if self.is_model_instance:
-            self.reset_model_instance()
+            self.reset_model_instance(is_train=True)
 
         self.trainer.train(
             config=self.config, network=self.model,
@@ -447,7 +447,7 @@ class Trainer:
         self._check_checkpoint_config(eval_checkpoint)
 
         if self.is_model_instance:
-            self.reset_model_instance()
+            self.reset_model_instance(is_train=False)
 
         self.trainer.evaluate(
             config=self.config, network=self.model,
@@ -515,7 +515,7 @@ class Trainer:
         self.build_network(predict_checkpoint, is_train=False)
 
         if self.is_model_instance:
-            self.reset_model_instance()
+            self.reset_model_instance(is_train=False)
 
         output_result = self.trainer.predict(
             config=self.config, input_data=input_data,
@@ -658,9 +658,9 @@ class Trainer:
 
         self.is_set_moe_config = True
 
-    def reset_model_instance(self):
+    def reset_model_instance(self, is_train=True):
         """Reset model instance for new model config."""
-        if not (self.is_set_parallel_config and self.is_set_moe_config and self.is_set_recompute_config):
+        if True not in [self.is_set_parallel_config, self.is_set_moe_config, self.is_set_recompute_config]:
             return
 
         if self.is_set_parallel_config:
@@ -680,21 +680,26 @@ class Trainer:
         model_config.parallel_config = self.config.parallel_config
         model_config.moe_config = self.config.moe_config
         self.model.__init__(model_config)
+        self.model.set_train(is_train)
+        if not is_train:
+            return
         network = self.model
         micro_batch_interleave_num = self.config.micro_batch_interleave_num
         if ms.get_auto_parallel_context("pipeline_stages") > 1:
             micro_batch_num = self.config.parallel_config.micro_batch_num
             if micro_batch_interleave_num > 1:
                 logger.info("micro_batch_interleave_num > 1, the double copy parallel feature is turned on.")
-                network = PipelineCell(MicroBatchInterleaved(network, micro_batch_interleave_num),
+                network = PipelineCell(MicroBatchInterleaved(self.model, micro_batch_interleave_num),
                                        micro_size=micro_batch_num)
             else:
-                network = PipelineCell(network, micro_size=micro_batch_num)
-            self.model = _VirtualDatasetCell(network)
+                network = PipelineCell(self.model, micro_size=micro_batch_num)
+            network = _VirtualDatasetCell(network)
         else:
             if micro_batch_interleave_num > 1:
                 logger.info("micro_batch_interleave_num > 1, the double copy parallel feature is turned on.")
-                self.model = MicroBatchInterleaved(network, micro_batch_interleave_num)
+                network = MicroBatchInterleaved(self.model, micro_batch_interleave_num)
+        del self.model
+        self.model = network
 
     def get_train_dataloader(self):
         """get train dataloader of mindspore."""

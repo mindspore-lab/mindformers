@@ -164,6 +164,7 @@ class BaseTrainer:
                                 batch_size * dp * micro_batch_num * micro_batch_interleave_num)
                     self.config.runner_config.batch_size = \
                         batch_size * dp * micro_batch_num * micro_batch_interleave_num
+                    self._reset_wrapper_for_pipeline_parallel()
                 else:
                     logger.info("The current parallel mode is %s, full batch is True,"
                                 "so global batch size will be changed: "
@@ -182,10 +183,24 @@ class BaseTrainer:
                                 batch_size * micro_batch_num * micro_batch_interleave_num)
                     self.config.runner_config.batch_size = \
                         batch_size * micro_batch_num * micro_batch_interleave_num
+                    self._reset_wrapper_for_pipeline_parallel()
         else:
             logger.info("The current parallel mode is %s, batch size per card will not be changed: "
                         "batch_size_per_card = %s",
                         parallel_mode, batch_size)
+
+    def _reset_wrapper_for_pipeline_parallel(self):
+        """Reset wrapper when pipeline parallel."""
+        if self.config.runner_wrapper is not None:
+            self.config.runner_wrapper.type = "MFPipelineWithLossScaleCell" \
+                if self.config.runner_wrapper.type != "MFPipelineWithLossScaleCell" else self.config.runner_wrapper.type
+            self.config.runner_wrapper.micro_batch_num = self.config.parallel_config.micro_batch_num
+            logger.warning("When using the pipeline parallel mode, "
+                           "the MFPipelineWithLossScaleCell class is used by default.")
+        else:
+            logger.warning("When using the pipeline parallel mode, "
+                           "because the wrapper class is not specified, "
+                           "MindSpore's built-in PipelineCell is used by default")
 
     def _reset_dataset_batch_size(self):
         """Reset dataset batch size according to the global batch size of runner config."""
@@ -261,20 +276,6 @@ class BaseTrainer:
         else:
             network = PipelineCell(network, micro_size=micro_batch_num)
         network = _VirtualDatasetCell(network)
-
-        if isinstance(network, (Cell, BaseModel)):
-            network.set_train(True)
-
-        if self.config.runner_wrapper is not None:
-            self.config.runner_wrapper.type = "MFPipelineWithLossScaleCell" \
-                if self.config.runner_wrapper.type != "MFPipelineWithLossScaleCell" else self.config.runner_wrapper.type
-            self.config.runner_wrapper.micro_batch_num = self.config.parallel_config.micro_batch_num
-            logger.warning("When using the pipeline parallel mode, "
-                           "the MFPipelineWithLossScaleCell class is used by default.")
-        else:
-            logger.warning("When using the pipeline parallel mode, "
-                           "because the wrapper class is not specified, "
-                           "MindSpore's built-in PipelineCell is used by default")
         return network
 
     def create_image_processor(self, default_args: dict = None):
@@ -614,6 +615,7 @@ class BaseTrainer:
         elif network is None and self.network is not None:
             logger.info(".........Using The Existing Network For Evaluate: %s", self.network.__class__.__name__)
             network = self.network
+
         self.set_network(network, is_train=False)
 
         self.count_parameters()
