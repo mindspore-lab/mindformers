@@ -42,7 +42,7 @@ def test_clip_processor():
     image_size = 336
 
     yaml_path = os.path.join(MindFormerBook.get_project_path(), "configs",
-                             "clip", "model_config", model_type + ".yaml")
+                             "clip", "run_clip_vit_l_14@336_pretrain_flickr8k.yaml")
     img_processor = CLIPImageProcessor(image_resolution=image_size)
     # CLIPTokenizer requires downloading vocabulary files
     tokenizer = CLIPTokenizer.from_pretrained(model_type)

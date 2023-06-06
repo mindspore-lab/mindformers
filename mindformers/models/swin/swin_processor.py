@@ -124,7 +124,7 @@ class SwinProcessor(BaseProcessor):
         >>> from mindformers import MindFormerBook
         >>> from mindformers.models import SwinProcessor
         >>> yaml_path = os.path.join(MindFormerBook.get_project_path(), "configs",
-        ...                          "swin", "model_config", "swin_base_p4w7.yaml")
+        ...                          "swin", "run_swin_base_p4w7_224_100ep.yaml")
         >>> # build SwinProcessor from pretrained
         >>> pro_a = SwinProcessor.from_pretrained('swin_base_p4w7')
         >>> # build SwinProcessor from config

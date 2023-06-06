@@ -142,11 +142,17 @@ class BaseConfig(dict):
                 os.makedirs(checkpoint_path)
 
             yaml_file = os.path.join(checkpoint_path, yaml_name + ".yaml")
+
+            def get_default_yaml_file(model_name):
+                default_yaml_file = ""
+                for model_dict in MindFormerBook.get_trainer_support_task_list().values():
+                    if model_name in model_dict:
+                        default_yaml_file = model_dict.get(model_name)
+                        break
+                return default_yaml_file
+
             if not os.path.exists(yaml_file):
-                default_yaml_file = os.path.join(
-                    MindFormerBook.get_project_path(),
-                    "configs", yaml_name.split("_")[cls._model_type],
-                    "model_config", yaml_name + ".yaml")
+                default_yaml_file = get_default_yaml_file(yaml_name)
                 if os.path.realpath(default_yaml_file) and os.path.exists(default_yaml_file):
                     shutil.copy(default_yaml_file, yaml_file)
                     logger.info("default yaml config in %s is used.", yaml_file)

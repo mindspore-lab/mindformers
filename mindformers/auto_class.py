@@ -46,7 +46,7 @@ class AutoConfig:
         >>> # 2)  instantiates a config by yaml model path
         >>> from mindformers.mindformer_book import MindFormerBook
         >>> config_path = os.path.join(MindFormerBook.get_project_path(),
-        ...                            'configs', 'clip', 'model_config', "clip_vit_b_32.yaml")
+        ...                            'configs', 'clip', 'run_clip_vit_b_32_pretrain_flickr8k.yaml')
         >>> config_b = AutoConfig.from_pretrained(config_path)
     """
     _support_list = MindFormerBook.get_config_support_list()
@@ -133,11 +133,17 @@ class AutoConfig:
                 os.makedirs(checkpoint_path, exist_ok=True)
 
             yaml_file = os.path.join(checkpoint_path, yaml_name + ".yaml")
+
+            def get_default_yaml_file(model_name):
+                default_yaml_file = ""
+                for model_dict in MindFormerBook.get_trainer_support_task_list().values():
+                    if model_name in model_dict:
+                        default_yaml_file = model_dict.get(model_name)
+                        break
+                return default_yaml_file
+
             if not os.path.exists(yaml_file):
-                default_yaml_file = os.path.join(
-                    MindFormerBook.get_project_path(),
-                    "configs", yaml_name.split("_")[cls._model_type],
-                    "model_config", yaml_name + ".yaml")
+                default_yaml_file = get_default_yaml_file(yaml_name)
                 if os.path.realpath(default_yaml_file) and os.path.exists(default_yaml_file):
                     shutil.copy(default_yaml_file, yaml_file)
                     logger.info("default yaml config in %s is used.", yaml_file)
@@ -180,7 +186,7 @@ class AutoModel:
         >>> model_b = AutoModel.from_pretrained(checkpoint_dir)
         >>> # 3)  input yaml path, load model without weights
         >>> config_path = os.path.join(MindFormerBook.get_project_path(),
-        ...                            'configs', 'clip', 'model_config', "clip_vit_b_32.yaml")
+        ...                            'configs', 'clip', 'run_clip_vit_b_32_pretrain_flickr8k.yaml')
         >>> model_c = AutoModel.from_config(config_path)
         >>> # 4)  input config, load model without weights
         >>> config = AutoConfig.from_pretrained('clip_vit_b_32')
@@ -364,11 +370,16 @@ class AutoModel:
 
             yaml_file = os.path.join(checkpoint_path, pretrained_checkpoint_name + ".yaml")
 
+            def get_default_yaml_file(model_name):
+                default_yaml_file = ""
+                for model_dict in MindFormerBook.get_trainer_support_task_list().values():
+                    if model_name in model_dict:
+                        default_yaml_file = model_dict.get(model_name)
+                        break
+                return default_yaml_file
+
             if not os.path.exists(yaml_file):
-                default_yaml_file = os.path.join(
-                    MindFormerBook.get_project_path(),
-                    "configs", pretrained_checkpoint_name.split("_")[cls._model_type],
-                    "model_config", pretrained_checkpoint_name + ".yaml")
+                default_yaml_file = get_default_yaml_file(pretrained_checkpoint_name)
                 if os.path.realpath(default_yaml_file) and os.path.exists(default_yaml_file):
                     shutil.copy(default_yaml_file, yaml_file)
                     logger.info("default yaml config in %s is used.", yaml_file)
@@ -408,7 +419,7 @@ class AutoProcessor:
         >>> # 2)  instantiates a processor by yaml model path
         >>> from mindformers.mindformer_book import MindFormerBook
         >>> config_path = os.path.join(MindFormerBook.get_project_path(),
-        ...                            'configs', 'clip', 'model_config', "clip_vit_b_32.yaml")
+        ...                            'configs', 'clip', 'run_clip_vit_b_32_pretrain_flickr8k.yaml')
         >>> pro_b = AutoProcessor.from_pretrained(config_path)
     """
     _support_list = MindFormerBook.get_processor_support_list()
@@ -507,11 +518,17 @@ class AutoProcessor:
                 os.makedirs(checkpoint_path)
 
             yaml_file = os.path.join(checkpoint_path, yaml_name + ".yaml")
+
+            def get_default_yaml_file(model_name):
+                default_yaml_file = ""
+                for model_dict in MindFormerBook.get_trainer_support_task_list().values():
+                    if model_name in model_dict:
+                        default_yaml_file = model_dict.get(model_name)
+                        break
+                return default_yaml_file
+
             if not os.path.exists(yaml_file):
-                default_yaml_file = os.path.join(
-                    MindFormerBook.get_project_path(),
-                    "configs", yaml_name.split("_")[cls._model_type],
-                    "model_config", yaml_name + ".yaml")
+                default_yaml_file = get_default_yaml_file(yaml_name)
                 if os.path.realpath(default_yaml_file) and os.path.exists(default_yaml_file):
                     shutil.copy(default_yaml_file, yaml_file)
                     logger.info("default yaml config in %s is used.", yaml_file)
@@ -685,11 +702,17 @@ class AutoTokenizer:
                 os.makedirs(checkpoint_path)
 
             yaml_file = os.path.join(checkpoint_path, yaml_name + ".yaml")
+
+            def get_default_yaml_file(model_name):
+                default_yaml_file = ""
+                for model_dict in MindFormerBook.get_trainer_support_task_list().values():
+                    if model_name in model_dict:
+                        default_yaml_file = model_dict.get(model_name)
+                        break
+                return default_yaml_file
+
             if not os.path.exists(yaml_file):
-                default_yaml_file = os.path.join(
-                    MindFormerBook.get_project_path(),
-                    "configs", yaml_name.split("_")[cls._model_type],
-                    "model_config", yaml_name + ".yaml")
+                default_yaml_file = get_default_yaml_file(yaml_name)
                 if os.path.realpath(default_yaml_file) and os.path.exists(default_yaml_file):
                     shutil.copy(default_yaml_file, yaml_file)
                     logger.info("default yaml config in %s is used.", yaml_file)

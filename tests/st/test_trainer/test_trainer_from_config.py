@@ -50,7 +50,7 @@ def test_trainer_train_from_config():
     project_path = MindFormerBook.get_project_path()
 
     config_path = os.path.join(
-        project_path, "configs", "mae", "task_config", "mae_dataset.yaml"
+        project_path, "configs", "mae", "run_mae_vit_base_p16_224_800ep.yaml"
     )
     dataset_config = MindFormerConfig(config_path)
 

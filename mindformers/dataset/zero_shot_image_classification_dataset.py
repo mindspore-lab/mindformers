@@ -39,7 +39,7 @@ class ZeroShotImageClassificationDataset(BaseDataset):
         >>> from mindformers import MindFormerBook, MindFormerConfig, build_dataset
         >>> project_path = MindFormerBook.get_project_path()
         >>> config_path = os.path.join(project_path, "configs", "clip",
-        >>>                     "task_config", "clip_cifar100_dataset.yaml")
+        >>>                     "run_clip_vit_b_32_zero_shot_image_classification_cifar100.yaml")
         >>> config = MindFormerConfig(config_path)
             Note:
                 Put cifar100 dataset to ./

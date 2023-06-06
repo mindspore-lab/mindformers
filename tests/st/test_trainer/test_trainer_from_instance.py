@@ -51,7 +51,7 @@ def test_trainer_train_from_instance():
     project_path = MindFormerBook.get_project_path()
 
     config_path = os.path.join(
-        project_path, "configs", "mae", "task_config", "mae_dataset.yaml"
+        project_path, "configs", "mae", "run_mae_vit_base_p16_224_800ep.yaml"
     )
     dataset_config = MindFormerConfig(config_path)
 
@@ -100,7 +100,7 @@ def test_trainer_wrapper_from_instance():
     project_path = MindFormerBook.get_project_path()
 
     config_path = os.path.join(
-        project_path, "configs", "mae", "task_config", "mae_dataset.yaml"
+        project_path, "configs", "mae", "run_mae_vit_base_p16_224_800ep.yaml"
     )
     dataset_config = MindFormerConfig(config_path)
 
@@ -150,7 +150,7 @@ def test_trainer_general_from_instance():
     project_path = MindFormerBook.get_project_path()
 
     config_path = os.path.join(
-        project_path, "configs", "mae", "task_config", "mae_dataset.yaml"
+        project_path, "configs", "mae", "run_mae_vit_base_p16_224_800ep.yaml"
     )
     dataset_config = MindFormerConfig(config_path)
 
@@ -197,7 +197,7 @@ def test_trainer_auto_to_save_config():
     project_path = MindFormerBook.get_project_path()
 
     config_path = os.path.join(
-        project_path, "configs", "mae", "task_config", "mae_dataset.yaml"
+        project_path, "configs", "mae", "run_mae_vit_base_p16_224_800ep.yaml"
     )
     dataset_config = MindFormerConfig(config_path)
 

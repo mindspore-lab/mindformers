@@ -38,16 +38,14 @@ class TestModelMethod:
         self.tokcls_checkpoint_dir = os.path.join(MindFormerBook.get_default_checkpoint_download_folder(),
                                                   'tokcls')
         self.tokcls_config_path = os.path.join(MindFormerBook.get_project_path(),
-                                               'configs', 'tokcls', 'model_config',
-                                               'tokcls_bert_base_chinese.yaml')
+                                               'configs', 'tokcls', 'run_tokcls_bert_base_chinese.yaml')
         self.tokcls_config = AutoConfig.from_pretrained('tokcls_bert_base_chinese')
 
         # evaluation and prediction
         self.tokcls_cluener_checkpoint_dir = os.path.join(MindFormerBook.get_default_checkpoint_download_folder(),
                                                           'tokcls')
         self.tokcls_cluener_config_path = os.path.join(MindFormerBook.get_project_path(),
-                                                       'configs', 'tokcls', 'model_config',
-                                                       'tokcls_bert_base_chinese_cluener.yaml')
+                                                       'configs', 'tokcls', 'run_tokcls_bert_base_chinese_cluener.yaml')
         self.tokcls_cluener_config = AutoConfig.from_pretrained('tokcls_bert_base_chinese_cluener')
 
         # save path

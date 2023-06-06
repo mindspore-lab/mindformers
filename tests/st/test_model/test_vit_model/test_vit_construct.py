@@ -41,7 +41,7 @@ def test_construct():
     Expectation: NotImplementedError, ValueError
     """
     yaml_path = os.path.join(MindFormerBook.get_project_path(), "configs",
-                             "vit", "model_config", "vit_base_p16.yaml")
+                             "vit", "run_vit_base_p16_224_100ep.yaml")
 
     AutoModel.show_support_list()
     support_list = AutoModel.get_support_list()

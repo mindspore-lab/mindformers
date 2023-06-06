@@ -60,7 +60,7 @@ def main(config):
             config.eval_dataset.data_loader.dataset_dir, 'eval')
 
     if config.run_mode == 'train':
-        logger.warning("Train from scratch, remove checkpoint_name_or_path in model_config.yaml. ")
+        logger.warning("Train from scratch, remove checkpoint_name_or_path in model_config. ")
         config.model.model_config.checkpoint_name_or_path = None
         if config.resume_or_finetune_checkpoint:
             config.resume_or_finetune_checkpoint = cfts.get_checkpoint(config.resume_or_finetune_checkpoint)

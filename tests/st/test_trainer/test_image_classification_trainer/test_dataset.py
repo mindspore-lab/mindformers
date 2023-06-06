@@ -43,7 +43,7 @@ class TestVitTrainDataset:
 
         config_path = os.path.join(
             project_path, "configs", "vit",
-            "task_config", "vit_dataset.yaml"
+            "run_vit_base_p16_224_100ep.yaml"
         )
         config = MindFormerConfig(config_path)
 

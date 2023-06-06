@@ -38,7 +38,7 @@ class ViTMAEConfig(BaseConfig):
         >>> import os
         >>> from mindformers.mindformer_book import MindFormerBook
         >>> config_path = os.path.join(MindFormerBook.get_project_path(),
-        >>>                        'configs', 'mae', 'model_config', "mae_vit_base_p16.yaml")
+        >>>                        'configs', 'mae', 'run_mae_vit_base_p16_224_800ep.yaml')
         >>> config_b = ViTMAEConfig.from_pretrained(config_path)
         >>> # init a config with args
         >>> config_c = ViTMAEConfig(

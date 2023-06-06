@@ -67,7 +67,7 @@ class SwinConfig(BaseConfig):
         >>> import os
         >>> from mindformers.mindformer_book import MindFormerBook
         >>> config_path = os.path.join(MindFormerBook.get_project_path(),
-        >>>                        'configs', 'swin', 'model_config', "swin_base_p4w7.yaml")
+        >>>                        'configs', 'swin', 'run_swin_base_p4w7_224_100ep.yaml')
         >>> config_b = SwinConfig.from_pretrained(config_path)
         >>> # init a config with args
         >>> config_c = SwinConfig(

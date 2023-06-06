@@ -32,7 +32,7 @@ class TestModelMethod:
     def setup_method(self):
         """get_input"""
         self.config_path = os.path.join(MindFormerBook.get_project_path(),
-                                        'configs', 'filip', 'model_config', "filip_vit_l_14.yaml")
+                                        'configs', 'filip', 'run_filip_vit_l_14.yaml')
 
     # the first method to load model, AutoModel
     @pytest.mark.level0
@@ -65,7 +65,7 @@ class TestModelMethod:
         self.save_directory = os.path.join(MindFormerBook.get_project_path(),
                                            'checkpoint_save', 'filip')
         self.config_path = os.path.join(MindFormerBook.get_project_path(),
-                                        'configs', 'filip', 'model_config', "filip_vit_l_14.yaml")
+                                        'configs', 'filip', 'run_filip_vit_l_14.yaml')
 
         filip = AutoModel.from_config(self.config_path)
         filip.save_pretrained(self.save_directory, save_name='filip_test')

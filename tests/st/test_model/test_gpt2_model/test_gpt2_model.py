@@ -149,7 +149,7 @@ class TestModelForGptMethod:
         """
         AutoModel.show_support_list()
         self.config_path = os.path.join(MindFormerBook.get_project_path(),
-                                        'configs', 'gpt2', 'model_config', "gpt2.yaml")
+                                        'configs', 'gpt2', 'run_gpt2.yaml')
         support_list = AutoModel.get_support_list()
         logger.info(support_list)
         # input yaml path, load model without weights

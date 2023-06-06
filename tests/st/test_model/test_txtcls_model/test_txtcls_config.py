@@ -39,10 +39,9 @@ def test_config():
     Expectation: TypeError, ValueError
     """
     txtcls_config_path = os.path.join(MindFormerBook.get_project_path(),
-                                      'configs', 'txtcls', 'model_config', 'txtcls_bert_base_uncased.yaml')
+                                      'configs', 'txtcls', 'run_txtcls_bert_base_uncased.yaml')
     txtcls_mnli_config_path = os.path.join(MindFormerBook.get_project_path(),
-                                           'configs', 'txtcls', 'model_config',
-                                           'txtcls_bert_base_uncased_mnli.yaml')
+                                           'configs', 'txtcls', 'run_txtcls_bert_base_uncased_mnli.yaml')
     save_path = os.path.join(MindFormerBook.get_default_checkpoint_save_folder(), 'txtcls')
 
 

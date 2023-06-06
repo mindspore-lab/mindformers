@@ -35,16 +35,14 @@ class TestModelMethod:
         self.qa_checkpoint_dir = os.path.join(MindFormerBook.get_default_checkpoint_download_folder(),
                                               'qa')
         self.qa_config_path = os.path.join(MindFormerBook.get_project_path(),
-                                           'configs', 'qa', 'model_config',
-                                           'qa_bert_base_uncased.yaml')
+                                           'configs', 'qa', 'run_qa_bert_base_uncased.yaml')
         self.qa_config = AutoConfig.from_pretrained('qa_bert_base_uncased')
 
         # evaluation and prediction
         self.qa_squad_checkpoint_dir = os.path.join(MindFormerBook.get_default_checkpoint_download_folder(),
                                                     'qa')
         self.qa_squad_config_path = os.path.join(MindFormerBook.get_project_path(),
-                                                 'configs', 'qa', 'model_config',
-                                                 'qa_bert_base_uncased_squad.yaml')
+                                                 'configs', 'qa', 'run_qa_bert_base_uncased.yaml')
         self.qa_squad_config = AutoConfig.from_pretrained('qa_bert_base_uncased_squad')
 
         # save path

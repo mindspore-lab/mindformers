@@ -43,7 +43,7 @@ class TestTokenClassificationTrainDataset:
 
         config_path = os.path.join(
             project_path, "configs", "tokcls",
-            "task_config", "bert_cluener_dataset.yaml"
+            "run_tokcls_bert_base_chinese_cluener.yaml"
         )
 
         new_dataset_dir = "./test_tokcls_dataset/"

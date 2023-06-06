@@ -44,7 +44,7 @@ class TestQuestionAnsweringTrainDataset:
 
         config_path = os.path.join(
             project_path, "configs", "qa",
-            "task_config", "bert_squad_dataset.yaml"
+            "run_qa_bert_base_uncased.yaml"
         )
 
         self.new_dataset_dir = "./test_qa_dataset/"
