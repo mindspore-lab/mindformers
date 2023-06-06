@@ -26,7 +26,7 @@ from mindformers.core.clip_grad import ClipGradNorm
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 
 
-__all__ = ['TrainOneStepWithClipGN', 'MFTrainOneStepCell']
+__all__ = ['TrainOneStepWithClipGN', 'MFTrainOneStepCell', 'MFPipelineWithLossScaleCell']
 
 
 _grad_scale = C.MultitypeFuncGraph("grad_scale")
@@ -117,12 +117,17 @@ class MFTrainOneStepCell(nn.TrainOneStepWithLossScaleCell):
         ValueError: If shape of `scale_sense` is neither (1,) nor ().
     """
 
-    def __init__(self, network, optimizer,
-                 use_clip_grad=False, max_grad_norm=1.0,
-                 scale_sense=1.0):
+    def __init__(self,
+                 network,
+                 optimizer,
+                 use_clip_grad=False,
+                 max_grad_norm=1.0,
+                 scale_sense=1.0,
+                 **kwargs):
         super(MFTrainOneStepCell, self).__init__(network, optimizer, scale_sense)
         self.use_clip_grad = use_clip_grad
         self.clip_grad_norm = ClipGradNorm(max_norm=max_grad_norm)
+        self.parallel_config = kwargs.pop("parallel_config", None)
 
     def construct(self, *inputs):
         """forward and backward."""
@@ -200,7 +205,7 @@ class MFPipelineWithLossScaleCell(nn.TrainOneStepCell):
     """
 
     def __init__(self, network, optimizer, use_clip_grad=True, max_grad_norm=1.0,
-                 scale_sense=1.0, micro_batch_num=1):
+                 scale_sense=1.0, micro_batch_num=1, **kwargs):
         super(MFPipelineWithLossScaleCell, self).__init__(network, optimizer, sens=None)
         self.network = network
         self.network.add_flags(defer_inline=True)
@@ -241,6 +246,7 @@ class MFPipelineWithLossScaleCell(nn.TrainOneStepCell):
         self.use_clip_grad = use_clip_grad
         self.clip_grad_norm = ClipGradNorm(max_norm=max_grad_norm)
         self.micro_size = micro_batch_num
+        self.parallel_config = kwargs.pop("parallel_config", None)
 
     @C.add_flags(has_effect=True)
     def construct(self, *inputs):
