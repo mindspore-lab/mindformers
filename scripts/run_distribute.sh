@@ -72,6 +72,7 @@ else
 fi
 
 export RANK_TABLE_FILE=$PATH1
+export LOCAL_DEFAULT_PATH="../../output"
 
 shopt -s extglob
 if [ $# == 4 ]
