@@ -149,7 +149,7 @@ class ImageToTextRetrievalTrainer(BaseTrainer):
         model.train(
             config.runner_config.epochs, dataset, callbacks=callbacks,
             dataset_sink_mode=config.runner_config.sink_mode,
-            sink_size=config.runner_config.per_epoch_size)
+            sink_size=config.runner_config.sink_size)
 
 
     def evaluate(self,

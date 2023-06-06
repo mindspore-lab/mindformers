@@ -336,7 +336,7 @@ class BaseTrainer:
             if not self.config.runner_config.sink_mode:
                 total_steps = int(self.config.runner_config.epochs * train_data_size)
             else:
-                total_steps = int(self.config.runner_config.epochs * self.config.runner_config.per_epoch_size)
+                total_steps = int(self.config.runner_config.epochs * self.config.runner_config.sink_size)
 
             if warmup_epochs is not None and warmup_ratio is not None:
                 logger.warning("warmup_epochs and warmup_ratio are set simultaneously,"
@@ -583,7 +583,7 @@ class BaseTrainer:
         model.train(config.runner_config.epochs, dataset,
                     callbacks=callbacks,
                     dataset_sink_mode=config.runner_config.sink_mode,
-                    sink_size=config.runner_config.per_epoch_size,
+                    sink_size=config.runner_config.sink_size,
                     initial_epoch=config.runner_config.initial_epoch)
         logger.info(".........Training Over!.............")
 

@@ -43,7 +43,7 @@ def test_trainer_train_from_instance():
     Description: Test Trainer API to train from self-define instance API.
     Expectation: TypeError
     """
-    runner_config = RunnerConfig(epochs=2, batch_size=8, image_size=224, sink_mode=True, per_epoch_size=1)
+    runner_config = RunnerConfig(epochs=2, batch_size=8, image_size=224, sink_mode=True, sink_size=1)
     config = ConfigArguments(seed=2022, runner_config=runner_config)
 
     mae_model_with_loss = ViTMAEForPreTraining()
@@ -92,7 +92,7 @@ def test_trainer_wrapper_from_instance():
     Description: Test Trainer API to train from self-define instance API.
     Expectation: TypeError
     """
-    runner_config = RunnerConfig(epochs=2, batch_size=8, image_size=224, sink_mode=True, per_epoch_size=1)
+    runner_config = RunnerConfig(epochs=2, batch_size=8, image_size=224, sink_mode=True, sink_size=1)
     config = ConfigArguments(seed=2022, runner_config=runner_config)
 
     mae_model_with_loss = ViTMAEForPreTraining()
@@ -142,7 +142,7 @@ def test_trainer_general_from_instance():
     Description: Test Trainer API to train from self-define instance API.
     Expectation: TypeError
     """
-    runner_config = RunnerConfig(epochs=2, batch_size=8, image_size=224, sink_mode=True, per_epoch_size=1)
+    runner_config = RunnerConfig(epochs=2, batch_size=8, image_size=224, sink_mode=True, sink_size=1)
     config = ConfigArguments(seed=2022, runner_config=runner_config)
 
     mae_model_with_loss = ViTMAEForPreTraining()

@@ -57,7 +57,7 @@ class TestTrainer:
         """
         runner_config = RunnerConfig(
             epochs=2, batch_size=64,
-            sink_mode=False, per_epoch_size=-1, initial_epoch=0,
+            sink_mode=False, sink_size=-1, initial_epoch=0,
             has_trained_epoches=0, has_trained_steps=0
         )
         config = ConfigArguments(seed=2022, runner_config=runner_config)

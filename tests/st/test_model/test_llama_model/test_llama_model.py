@@ -60,7 +60,7 @@ def test_llama_trainer_train_from_instance():
     Expectation: TypeError
     """
     # Config definition
-    runner_config = RunnerConfig(epochs=1, batch_size=1, sink_mode=False, per_epoch_size=2)
+    runner_config = RunnerConfig(epochs=1, batch_size=1, sink_mode=False)
     optim_config = OptimizerConfig(optim_type='AdamWeightDecay', beta1=0.9, learning_rate=0.001)
     config = ConfigArguments(seed=2022, runner_config=runner_config, optimizer=optim_config)
 

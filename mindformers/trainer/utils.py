@@ -115,25 +115,25 @@ def check_runner_config(config, dataset):
     new_epochs = config.runner_config.epochs
     config.runner_config.origin_epochs = new_epochs
     if config.runner_config.sink_mode:
-        if config.runner_config.per_epoch_size != -1:
-            if config.runner_config.per_epoch_size <= 0:
+        if config.runner_config.sink_size != -1:
+            if config.runner_config.sink_size <= 0:
                 raise ValueError("per epoch size must be more than 0 or equal to -1, "
-                                 f"but get {config.runner_config.per_epoch_size}")
-            if data_size < config.runner_config.per_epoch_size:
+                                 f"but get {config.runner_config.sink_size}")
+            if data_size < config.runner_config.sink_size:
                 logger.warning("The data size %s (get from dataset.get_dataset_size()) is smaller "
-                               "than the per_epoch_size %s (get from config.runner_config.per_epoch_size), "
-                               "you should set the config.runner_config.per_epoch_size to %s",
-                               data_size, config.runner_config.per_epoch_size, data_size)
-            config.runner_config.epochs = int((data_size / config.runner_config.per_epoch_size) * new_epochs)
+                               "than the sink_size %s (get from config.runner_config.sink_size), "
+                               "you should set the config.runner_config.sink_size to %s",
+                               data_size, config.runner_config.sink_size, data_size)
+            config.runner_config.epochs = int((data_size / config.runner_config.sink_size) * new_epochs)
         else:
-            config.runner_config.per_epoch_size = data_size
+            config.runner_config.sink_size = data_size
     else:
         logger.warning("Sink mode is False, per epoch size is invalid, it will reset -1.")
-        config.runner_config.per_epoch_size = -1
+        config.runner_config.sink_size = -1
 
     config.data_size = data_size
     logger.info("Will be Training epochs:%d, sink_size:%d",
-                config.runner_config.epochs, config.runner_config.per_epoch_size)
+                config.runner_config.epochs, config.runner_config.sink_size)
     logger.info("Create training dataset finish, dataset size:%d", data_size)
 
 
@@ -230,8 +230,8 @@ def check_image_lr_config(config):
     _check_lr_config(lr_config, device_num=device_num, batch_size=batch_size, arch=config.model.arch.type)
     total_epochs = config.runner_config.epochs
     steps_per_epoch = config.data_size
-    if config.runner_config.per_epoch_size != -1:
-        total_steps = total_epochs * config.runner_config.per_epoch_size
+    if config.runner_config.sink_size != -1:
+        total_steps = total_epochs * config.runner_config.sink_size
     else:
         total_steps = total_epochs * steps_per_epoch
     lr_config.warmup_steps = int(lr_config.warmup_epochs * steps_per_epoch)
@@ -315,14 +315,14 @@ def resume_checkpoint_dict(config, checkpoint_dict, model, network, optimizer, d
             ['semi_auto_parallel', 'auto_parallel', 'hybrid_parallel']:
         if not config.runner_config.sink_mode:
             raise ValueError("When distributed loads are sliced weights, sink_mode must be set True.")
-        if config.runner_config.epochs > 1 and config.runner_config.per_epoch_size == 1:
+        if config.runner_config.epochs > 1 and config.runner_config.sink_size == 1:
             raise ValueError(f"When distributed loads are sliced weights, it does not support"
                              f"epochs = {config.runner_config.epochs} > 1 and "
-                             f"sink_size = {config.runner_config.per_epoch_size} = 1,"
+                             f"sink_size = {config.runner_config.sink_size} = 1,"
                              f"sink_size must be more than 1")
         model.build(train_dataset=dataset,
                     epoch=config.runner_config.epochs,
-                    sink_size=config.runner_config.per_epoch_size)
+                    sink_size=config.runner_config.sink_size)
     not_load_network_params = load_param_into_net(network, checkpoint_dict)
     not_load_optim_params = load_param_into_net(optimizer, checkpoint_dict)
     logger.info("Network parameters are not loaded：%s", str(not_load_network_params))

@@ -22,10 +22,10 @@ aicc_config:
 # runner
 runner_config:
   epochs: 100
-  batch_size: &bs 32
+  batch_size: 32
   image_size: 224
   sink_mode: True
-  per_epoch_size: -1
+  sink_size: 2
   initial_epoch: 0
   has_trained_epoches: 0
   has_trained_steps: 0
@@ -92,7 +92,7 @@ trainer:
 # train dataset
 train_dataset: &train_dataset
   seed: 2022
-  batch_size: *bs
+  batch_size: 32
   data_loader:
     type: ImageFolderDataset
     dataset_dir: "imageNet-1k/train"
@@ -145,7 +145,7 @@ train_dataset_task:
 # eval dataset
 eval_dataset: &eval_dataset
   seed: 2022
-  batch_size: *bs
+  batch_size: 32
   data_loader:
     type: ImageFolderDataset
     dataset_dir: "imageNet-1k/val"
