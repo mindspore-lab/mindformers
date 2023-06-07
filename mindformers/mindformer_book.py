@@ -190,6 +190,8 @@ class MindFormerBook:
                 _PROJECT_PATH, "configs/pangualpha/run_pangualpha_2_6b.yaml")),
             ("pangualpha_13b", os.path.join(
                 _PROJECT_PATH, "configs/pangualpha/run_pangualpha_13b.yaml")),
+            ("glm_6b", os.path.join(
+                _PROJECT_PATH, "configs/glm/run_glm_6b_finetune.yaml")),
             ("common", os.path.join(
                 _PROJECT_PATH, "configs/gpt2/run_gpt2.yaml"))])
          )
@@ -279,6 +281,8 @@ class MindFormerBook:
                 _PROJECT_PATH, "configs/pangualpha/run_pangualpha_2_6b.yaml")),
             ("pangualpha_13b", os.path.join(
                 _PROJECT_PATH, "configs/pangualpha/run_pangualpha_13b.yaml")),
+            ("glm_6b", os.path.join(
+                _PROJECT_PATH, "configs/glm/run_glm_6b_infer.yaml")),
             ("common", os.path.join(
                 _PROJECT_PATH, "configs/gpt2/run_gpt2.yaml"))
         ]))
@@ -335,6 +339,9 @@ class MindFormerBook:
         ]),
         ('pangualpha', [
             'pangualpha'
+        ]),
+        ('glm', [
+            'glm_6b'
         ])
     ])
 
@@ -394,6 +401,9 @@ class MindFormerBook:
         ]),
         ('pangualpha', [
             'pangualpha'
+        ]),
+        ('glm', [
+            'glm_6b'
         ])
     ])
 
@@ -438,6 +448,9 @@ class MindFormerBook:
         ]),
         ('pangualpha', [
             'pangualpha'
+        ]),
+        ('glm', [
+            'glm',
         ])
     ])
 
@@ -478,6 +491,9 @@ class MindFormerBook:
         ]),
         ('pangualpha', [
             'pangualpha'
+        ]),
+        ('glm', [
+            'glm_6b',
         ])
     ])
 
@@ -577,7 +593,11 @@ class MindFormerBook:
         ('pangualpha_13b',
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
           '/XFormer_for_mindspore/pangualpha/pangualpha_13b.ckpt'
-          ])
+          ]),
+        ('glm_6b',
+         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
+          '/XFormer_for_mindspore/glm/glm_6b.ckpt'
+          ]),
     ])
 
     _MODEL_CONFIG_URL_LIST = OrderedDict([
@@ -735,7 +755,11 @@ class MindFormerBook:
         ('pangualpha_13b',
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
           '/XFormer_for_mindspore/pangualpha/vocab.model'
-          ])
+          ]),
+        ('glm_6b',
+         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
+          '/XFormer_for_mindspore/glm/ice_text.model'
+          ]),
     ])
 
     _TOKENIZER_NAME_TO_PROCESSOR = OrderedDict([
