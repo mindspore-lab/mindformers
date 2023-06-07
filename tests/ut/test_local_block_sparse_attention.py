@@ -123,7 +123,7 @@ def test_local_block_sparse_attention():
 
     size_per_head = q.shape[-1]
     model1 = LocalBlockSparseAttention(seq_len, size_per_head, local_size,
-                                       block_size)
+                                       block_size, dropout_rate=0)
     model2 = SparseAttention(seq_len, size_per_head, local_size, block_size)
 
     out1 = model1(q, k, v, att_mask).asnumpy()
