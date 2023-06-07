@@ -180,6 +180,12 @@ class MindFormerBook:
                 _PROJECT_PATH, "configs/gpt2/run_gpt2_13b.yaml")),
             ("gpt2_52b", os.path.join(
                 _PROJECT_PATH, "configs/gpt2/run_gpt2_52b.yaml")),
+            ("llama_7b", os.path.join(
+                _PROJECT_PATH, "configs/llama/run_llama_7b.yaml")),
+            ("llama_13b", os.path.join(
+                _PROJECT_PATH, "configs/llama/run_llama_13b.yaml")),
+            ("llama_65b", os.path.join(
+                _PROJECT_PATH, "configs/llama/run_llama_65b.yaml")),
             ("pangualpha_2_6b", os.path.join(
                 _PROJECT_PATH, "configs/pangualpha/run_pangualpha_2_6b.yaml")),
             ("pangualpha_13b", os.path.join(
@@ -263,6 +269,12 @@ class MindFormerBook:
         ("text_generation", OrderedDict([
             ("gpt2", os.path.join(
                 _PROJECT_PATH, "configs/gpt2/run_gpt2.yaml")),
+            ("llama_7b", os.path.join(
+                _PROJECT_PATH, "configs/llama/run_llama_7b.yaml")),
+            ("llama_13b", os.path.join(
+                _PROJECT_PATH, "configs/llama/run_llama_13b.yaml")),
+            ("llama_65b", os.path.join(
+                _PROJECT_PATH, "configs/llama/run_llama_65b.yaml")),
             ("pangualpha_2_6b", os.path.join(
                 _PROJECT_PATH, "configs/pangualpha/run_pangualpha_2_6b.yaml")),
             ("pangualpha_13b", os.path.join(
@@ -315,6 +327,11 @@ class MindFormerBook:
         ]),
         ('gpt2', [
             'gpt2'
+        ]),
+        ('llama', [
+            'llama_7b',
+            'llama_13b',
+            'llama_65b'
         ]),
         ('pangualpha', [
             'pangualpha'
@@ -369,6 +386,11 @@ class MindFormerBook:
         ]),
         ('gpt2', [
             'gpt2'
+        ]),
+        ('llama', [
+            'llama_7b',
+            'llama_13b',
+            'llama_65b'
         ]),
         ('pangualpha', [
             'pangualpha'
@@ -450,6 +472,9 @@ class MindFormerBook:
         ]),
         ('gpt2', [
             'gpt2',
+        ]),
+        ('llama', [
+            'llama',
         ]),
         ('pangualpha', [
             'pangualpha'
