@@ -64,7 +64,10 @@ def main(config):
                              "load_checkpoint or resume_or_finetune_checkpoint is invalid, "
                              "it must be input")
 
-    if config.run_mode in ['eval', 'predict'] and config.resume_or_finetune_checkpoint:
+    if config.run_mode == 'eval' and config.resume_or_finetune_checkpoint:
+        config.model.model_config.checkpoint_name_or_path = None
+
+    if config.run_mode == "predict" and config.resume_or_finetune_checkpoint:
         config.model.model_config.checkpoint_name_or_path = config.resume_or_finetune_checkpoint
         config.resume_or_finetune_checkpoint = None
 

@@ -42,7 +42,7 @@ from mindformers.tools.logger import logger
 from mindformers.tools.utils import count_params
 from .config_args import ConfigArguments
 from .training_args import TrainingArguments
-from .utils import check_runner_config, load_checkpoint_for_training, resume_checkpoint_dict
+from .utils import check_runner_config, load_checkpoint_for_training, resume_checkpoint_dict, load_checkpoint_for_eval
 from .optimizer_grouped_parameters import get_optimizer_grouped_parameters
 from .utils import set_seed, check_train_data_loader_type, \
     check_eval_data_loader_type, check_optimizer_and_lr_type, check_wrapper_config
@@ -630,6 +630,10 @@ class BaseTrainer:
 
         logger.info(".........Starting Init Evaluate Model..........")
         model = Model(network, metrics=compute_metrics, eval_network=network)
+
+        if config.resume_or_finetune_checkpoint:
+            logger.info(".............Start load checkpoint for eval..................")
+            load_checkpoint_for_eval(config, model, network, dataset)
 
         logger.info(".........Starting Evaluate Model..........")
         output = model.eval(dataset,
