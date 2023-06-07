@@ -39,9 +39,8 @@ from mindformers.dataset import build_dataset, build_dataset_loader, \
 from mindformers.mindformer_book import MindFormerBook
 from mindformers.models import build_model, BaseModel, BaseImageProcessor, \
     BaseTokenizer, BaseAudioProcessor
-from mindformers.tools.cloud_adapter import CFTS
 from mindformers.tools.logger import logger
-from mindformers.tools.register import MindFormerConfig, MindFormerRegister
+from mindformers.tools.register import MindFormerConfig
 from mindformers.tools.register.config import ordered_yaml_dump
 from .build_trainer import build_trainer
 from .config_args import ConfigArguments
@@ -302,10 +301,6 @@ class Trainer:
         self.is_set_parallel_config = False
         self.is_set_moe_config = False
         self.is_set_recompute_config = False
-
-        # set cloud file transform for ModelArts.
-        cfts = CFTS(**self.config.aicc_config)
-        MindFormerRegister.register_cls(cfts, alias='cfts')
 
         # set seed
         set_seed(self.config.seed)

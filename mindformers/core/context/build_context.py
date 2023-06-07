@@ -21,9 +21,10 @@ from mindspore.communication.management import init, get_group_size, get_rank
 from mindspore.parallel import set_algo_parameters
 from mindspore.parallel._cost_model_context import _set_multi_subgraphs
 
+from mindformers.core.callback import ProfileMonitor
 from mindformers.trainer.config_args import ContextConfig, ParallelContextConfig
-from mindformers.tools.register import MindFormerRegister, MindFormerConfig
-from mindformers.tools import CFTS, PARALLEL_MODE, MODE, DEBUG_INFO_PATH, check_in_modelarts
+from mindformers.tools.register import MindFormerConfig
+from mindformers.tools import PARALLEL_MODE, MODE, get_output_subpath
 from mindformers.tools.logger import logger
 
 
@@ -36,7 +37,6 @@ def build_context(config):
     """Build context."""
     if isinstance(config, dict) and not isinstance(config, MindFormerConfig):
         config = MindFormerConfig(**config)
-    profile_cb = None
     if config.use_parallel and config.parallel_config.pipeline_stage > 1:
         config.parallel.pipeline_stages = config.parallel_config.pipeline_stage
     local_rank, device_num = init_context(use_parallel=config.use_parallel,
@@ -47,31 +47,8 @@ def build_context(config):
     config.device_num = device_num
     config.local_rank = local_rank
 
-    # init cfts
-    clould_file_trans_sys = CFTS(**config.aicc_config, rank_id=local_rank)
-
     if config.parallel.get("strategy_ckpt_load_file"):
-        config.parallel["strategy_ckpt_load_file"] = clould_file_trans_sys.get_checkpoint(
-            config.parallel.get("strategy_ckpt_load_file"))
-        context.set_auto_parallel_context(strategy_ckpt_load_file=config.parallel["strategy_ckpt_load_file"])
-
-    if config.profile:
-        profile_cb = clould_file_trans_sys.profile_monitor(start_step=config.profile_start_step,
-                                                           stop_step=config.profile_stop_step,
-                                                           start_profile=config.init_start_profile,
-                                                           profile_communication=config.profile_communication,
-                                                           profile_memory=config.profile_memory)
-        logger.warning(
-            "In profiler mode, data sink mode will be turned off. "
-            "Please reduce the data sample size with 'num_samples' in MindSpore data format according to "
-            "https://www.mindspore.cn/mindinsight/docs/zh-CN/master/performance_profiling_ascend.html.")
-        logger.warning("In profiler mode, auto-tune will be turned off.")
-        config.runner_config.sink_mode = False
-        config.auto_tune = False
-
-    MindFormerRegister.register_cls(clould_file_trans_sys, alias="cfts")
-
-    return clould_file_trans_sys, profile_cb
+        context.set_auto_parallel_context(strategy_ckpt_load_file=config.parallel.strategy_ckpt_load_file)
 
 
 def init_context(use_parallel=True, context_config=None, parallel_config=None):
@@ -114,6 +91,31 @@ def init_context(use_parallel=True, context_config=None, parallel_config=None):
     return rank_id, device_num
 
 
+def build_profile_cb(config):
+    """build profile callback from config."""
+    start_profile = config.init_start_profile
+    profile_communication = config.profile_communication
+    if config.device_num > 1:
+        logger.info("Device number is %s > 1, so profile_communication and start_profile will be set True ")
+        start_profile = True
+        profile_communication = True
+    profile_cb = ProfileMonitor(
+        start_step=config.profile_start_step,
+        stop_step=config.profile_stop_step,
+        start_profile=start_profile,
+        profile_communication=profile_communication,
+        profile_memory=config.profile_memory)
+    logger.warning(
+        "In profiler mode, data sink mode will be turned off. "
+        "Please reduce the data sample size with 'num_samples' in MindSpore data format according to "
+        "https://www.mindspore.cn/mindinsight/docs/zh-CN/master/performance_profiling_ascend.html.")
+    logger.warning("In profiler mode, auto-tune will be turned off.")
+    config.runner_config.sink_mode = False
+    config.auto_tune = False
+
+    return profile_cb
+
+
 def _set_check_context_config(config):
     """Set context config."""
     mode = config.get('mode')
@@ -130,21 +132,18 @@ def _set_check_context_config(config):
     if max_device_memory is None:
         config.setdefault('max_device_memory', '30GB')
 
-    if check_in_modelarts():
-        save_graph = config.get('save_graphs')
-        if save_graph:
-            save_graphs_path = config.get('save_graphs_path')
-            if save_graphs_path is None:
-                config.setdefault('save_graphs_path', save_graphs_path)
-                save_graphs_path = os.path.join(DEBUG_INFO_PATH, 'graphs_info')
-                config['save_graphs_path'] = save_graphs_path
-        enable_dump = config.get('enable_dump')
-        if enable_dump:
-            save_dump_path = config.get('save_dump_path')
-            if save_dump_path is None:
-                config.setdefault('save_dump_path', save_dump_path)
-                save_dump_path = os.path.join(DEBUG_INFO_PATH, 'dump_info')
-                config.setdefault('save_dump_path', save_dump_path)
+    save_graph = config.get('save_graphs')
+    if save_graph:
+        save_graphs_path = config.get('save_graphs_path')
+        if save_graphs_path is None:
+            save_graphs_path = get_output_subpath("debug/graphs_info", append_rank=False)
+        config.setdefault('save_graphs_path', save_graphs_path)
+    enable_dump = config.get('enable_dump')
+    if enable_dump:
+        save_dump_path = config.get('save_dump_path')
+        if save_dump_path is None:
+            save_dump_path = get_output_subpath("debug/dump_info", append_rank=False)
+        config.setdefault('save_dump_path', save_dump_path)
 
 
 def _set_check_parallel_config(config):

@@ -28,7 +28,7 @@ from mindspore.train.callback._callback import set_cur_net
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.tools.cloud_adapter.cloud_adapter import Local2ObsMonitor
 from mindformers.tools.logger import logger
-from mindformers.tools.utils import LOCAL_DEFAULT_PATH, check_in_modelarts, Validator, format_path
+from mindformers.tools.utils import get_output_root_path, get_output_subpath, get_remote_save_url
 
 __all__ = ['ObsMonitor', 'MFLossMonitor', 'CheckpointMointor', 'SummaryMonitor', 'ProfileMonitor', 'EvalCallBack']
 
@@ -45,12 +45,10 @@ class ObsMonitor:
                 rank_id: int = None,
                 upload_frequence: int = -1,
                 keep_last: bool = True):
-        is_cfts = MindFormerRegister.is_exist(
-            module_type=MindFormerModuleType.TOOLS, class_name="cfts")
-        if is_cfts:
-            cfts = MindFormerRegister.get_cls(
-                class_name="cfts", module_type=MindFormerModuleType.TOOLS)
-            return cfts.obs_monitor()
+        if src_dir is None:
+            src_dir = get_output_root_path()
+        if target_dir is None:
+            target_dir = get_remote_save_url()
         return Local2ObsMonitor(src_dir, target_dir, rank_id, upload_frequence, keep_last)
 
 
@@ -290,9 +288,8 @@ class SummaryMonitor:
                 max_file_size=None,
                 export_options=None):
         if summary_dir is None:
-            rank_id = os.getenv("RANK_ID", "0")
-            summary_dir = os.path.join(
-                LOCAL_DEFAULT_PATH, 'rank_{}'.format(rank_id), 'summary')
+            rank_id = int(os.getenv("RANK_ID", '0'))
+            summary_dir = get_output_subpath('summary', rank_id)
         kwargs = {
             "summary_dir": summary_dir,
             "collect_freq": collect_freq,
@@ -303,12 +300,6 @@ class SummaryMonitor:
             "max_file_size": max_file_size,
             "export_options": export_options
         }
-        is_cfts = MindFormerRegister.is_exist(
-            module_type=MindFormerModuleType.TOOLS, class_name="cfts")
-        if is_cfts:
-            cfts = MindFormerRegister.get_cls(
-                class_name="cfts", module_type=MindFormerModuleType.TOOLS)
-            return cfts.summary_monitor(**kwargs)
         return SummaryCollector(**kwargs)
 
 
@@ -328,12 +319,10 @@ class CheckpointMointor(ModelCheckpoint):
                  append_info=None,
                  enc_key=None,
                  enc_mode='AES-GCM',
-                 exception_save=False,
-                 ma_root_path='/cache'):
+                 exception_save=False):
 
         self.config = config
         self.rank_id = int(os.getenv("RANK_ID", '0'))
-        self.ma_local_path = os.path.join(ma_root_path, 'ma-user-work')
         prefix = prefix + "_rank_{}".format(self.rank_id)
 
         if append_info is None:
@@ -343,17 +332,7 @@ class CheckpointMointor(ModelCheckpoint):
                 "global_step": 0,
                 "loss_scale": 1
             }]
-        is_cfts = MindFormerRegister.is_exist(
-            module_type=MindFormerModuleType.TOOLS, class_name="cfts")
-        if is_cfts:
-            if check_in_modelarts():
-                directory = os.path.join(self.ma_local_path, 'checkpoint')
-                directory = os.path.join(directory, 'rank_{}'.format(self.rank_id))
-            elif directory is None:
-                directory = os.path.join(LOCAL_DEFAULT_PATH, 'checkpoint')
-                directory = os.path.join(directory, 'rank_{}'.format(self.rank_id))
-            Validator.check_type(directory, str)
-            format_path(directory)
+        directory = get_output_subpath('checkpoint', self.rank_id)
         if context.get_auto_parallel_context('parallel_mode') in \
                 ['semi_auto_parallel', 'auto_parallel', 'hybrid_parallel']:
             logger.info("Integrated_save is changed to False when using auto_parallel.")
@@ -369,7 +348,7 @@ class CheckpointMointor(ModelCheckpoint):
                                      enc_key=enc_key,
                                      enc_mode=enc_mode,
                                      exception_save=exception_save)
-        super().__init__(prefix, directory, config=config_ck)
+        super(CheckpointMointor, self).__init__(prefix, directory, config=config_ck)
 
     def _save_ckpt(self, cb_params, force_to_save=False):
         """Save checkpoint files."""
@@ -446,7 +425,9 @@ class ProfileMonitor(Callback):
         if profile_communication and not start_profile:
             raise ValueError("When profile_communication is True, start_profile must also be True")
 
-        output_path = os.path.join(LOCAL_DEFAULT_PATH, 'profile') if output_path is None else output_path
+        if output_path is None:
+            rank_id = int(os.getenv("RANK_ID", '0'))
+            output_path = get_output_subpath('profile', rank_id)
 
         if ms.get_context("device_target") == "GPU" and profile_memory:
             logger.warning("The parameter profile_memory is not supported on GPU currently, so is changed to False. ")
