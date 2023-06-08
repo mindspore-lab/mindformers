@@ -192,6 +192,8 @@ class MindFormerBook:
                 _PROJECT_PATH, "configs/pangualpha/run_pangualpha_13b.yaml")),
             ("glm_6b", os.path.join(
                 _PROJECT_PATH, "configs/glm/run_glm_6b_finetune.yaml")),
+            ("glm_6b_chat", os.path.join(
+                _PROJECT_PATH, "configs/glm/run_glm_6b_infer.yaml")),
             ("common", os.path.join(
                 _PROJECT_PATH, "configs/gpt2/run_gpt2.yaml"))])
          )
@@ -341,7 +343,8 @@ class MindFormerBook:
             'pangualpha'
         ]),
         ('glm', [
-            'glm_6b'
+            'glm_6b',
+            'glm_6b_chat'
         ])
     ])
 
@@ -403,7 +406,8 @@ class MindFormerBook:
             'pangualpha'
         ]),
         ('glm', [
-            'glm_6b'
+            'glm_6b',
+            'glm_6b_chat'
         ])
     ])
 
@@ -598,6 +602,10 @@ class MindFormerBook:
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
           '/XFormer_for_mindspore/glm/glm_6b.ckpt'
           ]),
+        ('glm_6b_chat',
+         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
+          '/XFormer_for_mindspore/glm/glm_6b.ckpt'
+          ]),
     ])
 
     _MODEL_CONFIG_URL_LIST = OrderedDict([
@@ -763,6 +771,7 @@ class MindFormerBook:
     ])
 
     _TOKENIZER_NAME_TO_PROCESSOR = OrderedDict([
+        ('ChatGLMTokenizer', 'GLMProcessor'),
         ('CLIPTokenizer', 'CLIPProcessor'),
         ('BertTokenizer', 'BertProcessor'),
         ('T5Tokenizer', 'T5Processor')

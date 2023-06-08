@@ -24,9 +24,16 @@ from ..auto_class import AutoProcessor, AutoModel
 from ..mindformer_book import MindFormerBook
 from .base_pipeline import BasePipeline
 from ..tools.register import MindFormerRegister, MindFormerModuleType
-from ..models import BaseModel, BaseTokenizer
+from ..models import BaseModel, BaseTokenizer, GLMForPreTraining
 
 __all__ = ['TextGenerationPipeline']
+
+
+def _setup_support_list(support_model_list):
+    support_list = []
+    for support_model in support_model_list:
+        support_list.append(MindFormerBook.get_model_support_list().get(support_model))
+    return support_list
 
 
 @MindFormerRegister.register(MindFormerModuleType.PIPELINE, alias="text_generation")
@@ -49,7 +56,7 @@ class TextGenerationPipeline(BasePipeline):
         >>> text_generate = TextGenerationPipeline("gpt2")
         >>> output = text_generate("I love Beijing, because ")
     """
-    _support_list = MindFormerBook.get_model_support_list()['gpt2']
+    _support_list = _setup_support_list(["gpt2", "glm"])
     return_name = 'text_generation'
 
     def __init__(self, model: Union[str, BaseModel],
@@ -70,6 +77,10 @@ class TextGenerationPipeline(BasePipeline):
         if not isinstance(model, BaseModel):
             raise TypeError(f"model should be inherited from BaseModel, but got type {type(model)}.")
 
+        # glm generate needs add_special_tokens
+        if isinstance(model, GLMForPreTraining):
+            kwargs['add_special_tokens'] = True
+
         if tokenizer is None:
             raise ValueError(f"{self.__class__.__name__}"
                              " requires for a tokenizer.")
@@ -82,7 +93,7 @@ class TextGenerationPipeline(BasePipeline):
         Args:
             pipeline_parameters (Optional[dict]): The parameter dict to be parsed.
         """
-        preprocess_keys = ['keys']
+        preprocess_keys = ['keys', 'add_special_tokens']
         preprocess_params = {}
         for item in preprocess_keys:
             if item in pipeline_parameters:
@@ -108,6 +119,7 @@ class TextGenerationPipeline(BasePipeline):
         Return:
             Processed text.
         """
+        add_special_tokens = preprocess_params.get('add_special_tokens', False)
         if isinstance(inputs, dict):
             keys = preprocess_params.get('keys', None)
             default_src_language_name = 'text'
@@ -116,7 +128,7 @@ class TextGenerationPipeline(BasePipeline):
             inputs = inputs[feature_name]
             if isinstance(inputs, mindspore.Tensor):
                 inputs = inputs.asnumpy().tolist()
-        input_ids = self.tokenizer(inputs, return_tensors=None, add_special_tokens=False)["input_ids"]
+        input_ids = self.tokenizer(inputs, return_tensors=None, add_special_tokens=add_special_tokens)["input_ids"]
         return {"input_ids": input_ids}
 
     def forward(self, model_inputs: dict,

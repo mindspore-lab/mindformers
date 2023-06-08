@@ -1,3 +1,22 @@
+seed: 0
+run_mode: 'train'
+output_dir: './output'  # 当前不支持自定义修改，请勿修改该默认值
+resume_or_finetune_checkpoint: '' # path or direction of resume checkpoint.
+
+# ==== context config ====
+context:
+  mode: 0 #0--Graph Mode; 1--Pynative Mode
+  device_target: "Ascend"
+  enable_graph_kernel: False
+  graph_kernel_flags: "--disable_expand_ops=Softmax,Dropout --enable_parallel_fusion=true --reduce_fuse_depth=8 --enable_auto_tensor_inplace=true"
+  max_call_depth: 10000
+  max_device_memory: "30GB"
+  save_graphs: False
+  device_id: 0
+
+# aicc
+remote_save_url: "Please input obs url on AICC platform."
+
 # ==== model config ====
 model:
   model_config:
@@ -35,6 +54,19 @@ model:
   arch:
     type: GLMForPreTraining # 1. GLMChatModel for eval; 2.GLMTrainModel for train 3. GLMTrainModelWithLora
 
+trainer:
+  type: CausalLanguageModelingTrainer
+  model_name: 'glm_6b'
+# if True, do evaluate during the training process. if false, do nothing.
+# note that the task trainer should support _evaluate_in_training function.
+do_eval: False
+eval_step_interval: -1        # num of step intervals between each eval, -1 means no step end eval.
+eval_epoch_interval: 1        # num of epoch intervals between each eval, 1 means eval on every epoch end.
+
+metric:
+  type: ADGENMetric
+  tokenizer_type: "glm_6b" # use ChatGLMTokenizer
+
 processor:
   return_tensors: ms
   tokenizer:
@@ -48,6 +80,11 @@ processor:
     pad_token: '<pad>'
     unk_token: '<unk>'
   type: GLMProcessor
+
+generate:
+  max_decode_length: 2048
+  top_p: 0.7
+  do_sample: False
 
 # ==== dataset config ====
 train_dataset: &train_dataset
@@ -63,6 +100,7 @@ train_dataset: &train_dataset
   repeat: 1
   numa_enable: False
   prefetch_size: 1
+  seed: 0
 
 train_dataset_task:
   type: CausalLanguageModelDataset
@@ -81,67 +119,21 @@ eval_dataset: &eval_dataset
   repeat: 1
   numa_enable: False
   prefetch_size: 1
+  seed: 0
 
 eval_dataset_task:
   type: CausalLanguageModelDataset
   dataset_config: *eval_dataset
-
-# ==== context config ====
-context:
-  mode: 0 #0--Graph Mode; 1--Pynative Mode
-  device_target: "Ascend"
-  enable_graph_kernel: False
-  graph_kernel_flags: "--disable_expand_ops=Softmax,Dropout --enable_parallel_fusion=true --reduce_fuse_depth=8 --enable_auto_tensor_inplace=true"
-  max_call_depth: 10000
-  max_device_memory: "25GB"
-  save_graphs: False
-  save_graphs_path: "./graph"
-  device_id: 0
-
-# parallel config
-parallel:
-  parallel_mode: 1 # 0-dataset, 1-semi, 2-auto, 3-hybrid
-  gradients_mean: False
-  loss_repeated_mean: True
-  enable_alltoall: False
-  full_batch: True
-  search_mode: "sharding_propagation"
-  enable_parallel_optimizer: False  # optimizer shard
-  strategy_ckpt_save_file: "./ckpt_strategy.ckpt"
-
-moe_config:
-  expert_num: 1
-  capacity_factor: 1.05
-  aux_loss_factor: 0.05
-  num_experts_chosen: 1
-
-recompute_config:
-  recompute: False
-  parallel_optimizer_comm_recompute: False
-  mp_comm_recompute: True
-  recompute_slice_activation: False
-
-parallel_config:
-  data_parallel: 1
-  model_parallel: 8
-  pipeline_stage: 1
-  expert_parallel: 1
-  optimizer_shard: False  # optimizer shard
-  micro_batch_num: 1
-  vocab_emb_dp: True
-  gradient_aggregation_group: 4
 
 # ==== runner config ====
 runner_config:
   epochs: 1
   batch_size: 8
   sink_mode: True
-  sink_size: 1
-  per_epoch_size: 4
+  sink_size: 4
   initial_epoch: 0
   has_trained_epoches: 0
   has_trained_steps: 0
-
 runner_wrapper:
   type: MFTrainOneStepCell
   scale_sense:
@@ -151,14 +143,6 @@ runner_wrapper:
     scale_window: 1000
   use_clip_grad: True
 
-# optimizer
-optimizer:
-  type: FusedAdamWeightDecay
-  beta1: 0.9
-  beta2: 0.95
-  eps: 0.00000001 # 1e-8
-  weight_decay: 0.1
-
 # lr sechdule
 lr_schedule:
   type: polynomial
@@ -167,6 +151,68 @@ lr_schedule:
   warmup_steps: 2000
   total_steps: -1 # -1 means it will load the total steps of the dataset
 
+# optimizer
+optimizer:
+  type: FusedAdamWeightDecay
+  beta1: 0.9
+  beta2: 0.95
+  eps: 0.00000001 # 1e-8
+  weight_decay: 0.1
+layer_scale: False
+layer_decay: 0.65
+lr_scale: False
+lr_scale_factor: 256
+
+# parallel config
+use_parallel: False
+parallel:
+  parallel_mode: 1 # 0-dataset, 1-semi, 2-auto, 3-hybrid
+  gradients_mean: False
+  loss_repeated_mean: True
+  enable_alltoall: False
+  full_batch: True
+  search_mode: "sharding_propagation"
+  enable_parallel_optimizer: False  # optimizer shard
+  strategy_ckpt_save_file: "./ckpt_strategy.ckpt"
+parallel_config:
+  data_parallel: 1
+  model_parallel: 8
+  pipeline_stage: 1
+  expert_parallel: 1
+  optimizer_shard: False  # optimizer shard
+  micro_batch_num: 1
+  vocab_emb_dp: True
+  gradient_aggregation_group: 4
+micro_batch_interleave_num: 1
+
+# moe
+moe_config:
+  expert_num: 1
+  capacity_factor: 1.05
+  aux_loss_factor: 0.05
+  num_experts_chosen: 1
+
+# recompute
+recompute_config:
+  recompute: False
+  parallel_optimizer_comm_recompute: False
+  mp_comm_recompute: True
+  recompute_slice_activation: False
+
+# autotune
+auto_tune: False
+filepath_prefix: './autotune'
+autotune_per_step: 10
+
+# profile
+profile: False
+profile_start_step: 1
+profile_stop_step: 10
+init_start_profile: True
+profile_communication: True
+profile_memory: True
+
+# callbacks
 callbacks:
   - type: MFLossMonitor
   - type: SummaryMonitor
@@ -178,60 +224,9 @@ callbacks:
     integrated_save: False
     async_save: False
   - type: ObsMonitor
-
-auto_tune: False
-autotune_per_step: 10
-
-profile: False
-profile_start_step: 1
-profile_stop_step: 10
-init_start_profile: True
-profile_communication: True
-profile_memory: True
-
-use_parallel: False
-
-micro_batch_interleave_num: 1
-
-seed: 0
-resume_or_finetune_checkpoint: "" # path or direction of resume checkpoint.
-
-
-run_mode: 'train'
-trainer:
-  type: CausalLanguageModelingTrainer
-  model_name: 'glm_6b'
-
-metric:
-  type: ADGENMetric
-  vocab_file: "ice_text.model" # Path of vocab file.
-
-generate:
-  max_decode_length: 2048
-  top_p: 0.7
-  do_sample: False
-
-filepath_prefix: './autotune'
-
-# if True, do evaluate during the training process. if false, do nothing.
-# note that the task trainer should support _evaluate_in_training function.
-do_eval: False
-eval_step_interval: -1        # num of step intervals between each eval, -1 means no step end eval.
-eval_epoch_interval: 1        # num of epoch intervals between each eval, 1 means eval on every epoch end.
-
-layer_scale: False
-layer_decay: 0.65
-
-lr_scale: False
-lr_scale_factor: 256
-
-output_dir: './output'  # 当前不支持自定义修改，请勿修改该默认值
-
+    upload_frequence: -1
+    keep_last: False
 eval_callbacks:
   - type: ObsMonitor
-
-# cfts init config
-aicc_config:
-  obs_path: "Please input obs url on AICC platform."
-  upload_frequence: 1
-  keep_last: False
+    upload_frequence: -1
+    keep_last: False
