@@ -30,7 +30,7 @@ from mindspore.common.parameter import Parameter
 import mindspore.common.dtype as mstype
 from mindspore.common.initializer import TruncatedNormal, initializer
 
-from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
+from mindspore.parallel._utils import _get_parallel_mode
 
 from mindformers.modules.layers import Linear, _check_past_none_input_none, _check_input_dtype
 from mindformers.modules.transformer.moe import MoE, _check_moe_config
@@ -767,7 +767,7 @@ class TransformerEncoderLayer(nn.Cell):
             self.mul = P.Mul().shard(((1, 1, 1, 1), (1,)))
             self.assign = P.Assign().shard(((1, 1, 1, 1), (1, 1, 1, 1)))
 
-        if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation():
+        if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,):
             pass
         elif _get_parallel_mode() not in (ParallelMode.AUTO_PARALLEL,):
             self.layernorm1.shard(((parallel_config.data_parallel, 1),))
@@ -1234,7 +1234,7 @@ class TransformerEncoder(nn.Cell):
                         offset=offset, parallel_config=parallel_config)
             self.blocks.append(block)
 
-        if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation():
+        if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,):
             pass
         elif _get_parallel_mode() not in (ParallelMode.AUTO_PARALLEL,):
             logger.warning("For parallel mode, sharding propagation is recommended, you can use it by setting "
@@ -1333,7 +1333,7 @@ class TransformerDecoder(nn.Cell):
 
             self.blocks.append(block)
 
-        if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation():
+        if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,):
             pass
         elif _get_parallel_mode() not in (ParallelMode.AUTO_PARALLEL,):
             logger.warning("For parallel mode, sharding propagation is recommended, you can use it by setting "
