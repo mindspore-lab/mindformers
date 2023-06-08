@@ -118,20 +118,20 @@ class RunnerConfig(BaseArgsConfig):
     """MindFormers' config when running model."""
 
     _support_kwargs = [
-        'epochs', 'batch_size', 'sink_mode', 'per_epoch_size', 'initial_epoch',
+        'epochs', 'batch_size', 'sink_mode', 'sink_size', 'initial_epoch',
         'has_trained_epoches', 'has_trained_steps', 'image_size', 'num_classes',
         'sink_size',
     ]
 
     def __init__(self,
                  epochs: int = None, batch_size: int = None,
-                 sink_mode: bool = None, per_epoch_size: int = None,
+                 sink_mode: bool = None, sink_size: int = None,
                  initial_epoch: int = None, has_trained_epoches: int = None,
                  has_trained_steps: int = None, **kwargs):
         super(RunnerConfig, self).__init__(epochs=epochs,
                                            batch_size=batch_size,
                                            sink_mode=sink_mode,
-                                           per_epoch_size=per_epoch_size,
+                                           sink_size=sink_size,
                                            initial_epoch=initial_epoch,
                                            has_trained_steps=has_trained_steps,
                                            has_trained_epoches=has_trained_epoches, **kwargs)

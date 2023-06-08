@@ -24,7 +24,7 @@ runner_config:
   epochs: 3
   batch_size: 24
   sink_mode: False
-  per_epoch_size: -1
+  sink_size: 2
   initial_epoch: 0
   has_trained_epoches: 0
   has_trained_steps: 0

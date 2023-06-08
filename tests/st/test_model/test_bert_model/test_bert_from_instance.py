@@ -63,7 +63,7 @@ def test_bert_trainer_train_from_instance():
     Expectation: TypeError
     """
     # Config definition
-    runner_config = RunnerConfig(epochs=1, batch_size=16, sink_mode=True, per_epoch_size=2)
+    runner_config = RunnerConfig(epochs=1, batch_size=16, sink_mode=True, sink_size=2)
     config = ConfigArguments(seed=2022, runner_config=runner_config)
 
     # Model
@@ -136,7 +136,7 @@ def test_bert_trainer_train_from_mlm():
     dataset = dataset.batch(batch_size=batch_size)
 
     # Config definition
-    runner_config = RunnerConfig(epochs=1, batch_size=batch_size, sink_mode=True, per_epoch_size=2,
+    runner_config = RunnerConfig(epochs=1, batch_size=batch_size, sink_mode=True,
                                  sink_size=2, initial_epoch=0)
     train_config = Tempconfig(runner_config=runner_config, data_size=dataset.get_dataset_size())
 

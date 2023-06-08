@@ -63,7 +63,7 @@ def test_gpt_trainer_train_from_instance():
     Expectation: TypeError
     """
     # Config definition
-    runner_config = RunnerConfig(epochs=1, batch_size=8, sink_mode=True, per_epoch_size=2)
+    runner_config = RunnerConfig(epochs=1, batch_size=8, sink_mode=True, sink_size=2)
     config = ConfigArguments(seed=2022, runner_config=runner_config)
 
     # Model

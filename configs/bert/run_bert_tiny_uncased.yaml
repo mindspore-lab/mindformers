@@ -25,10 +25,9 @@ aicc_config:
 runner_config:
   epochs: 1
   batch_size: 128
-  sink_size: 10
+  sink_size: 2
   image_size: 224
   sink_mode: True
-  per_epoch_size: -1
   initial_epoch: 0
   has_trained_epoches: 0
   has_trained_steps: 0

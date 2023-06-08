@@ -25,7 +25,7 @@ runner_config:
   batch_size: 32
   image_size: 224
   sink_mode: False
-  per_epoch_size: -1
+  sink_size: 2
   initial_epoch: 0
   has_trained_epoches: 0
   has_trained_steps: 0
