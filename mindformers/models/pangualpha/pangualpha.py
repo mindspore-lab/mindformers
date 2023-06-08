@@ -426,7 +426,8 @@ class PanguAlphaHeadModel(BaseModel):
         batch_size, seq_length = input_ids.shape
 
         if self.phase == "train":
-            tokens = self.slice(input_ids, (0, 0), (batch_size, seq_length - 1), (1, 1))
+            seq_length = seq_length - 1
+            tokens = self.slice(input_ids, (0, 0), (batch_size, seq_length), (1, 1))
         else:
             tokens = input_ids
 
@@ -438,7 +439,7 @@ class PanguAlphaHeadModel(BaseModel):
         else:
             attention_mask = self.cast(attention_mask, mstype.float32)
             attention_mask = self.slice2(attention_mask, (0, 0, 0),
-                                         (batch_size, seq_length-1, seq_length-1),
+                                         (batch_size, seq_length, seq_length),
                                          (1, 1, 1))
 
         if input_position is None:
@@ -449,7 +450,7 @@ class PanguAlphaHeadModel(BaseModel):
             else:
                 input_position = self.tile(input_position, (batch_size, 1))
         else:
-            input_position = self.slice(input_position, (0, 0), (batch_size, seq_length-1), (1, 1))
+            input_position = self.slice(input_position, (0, 0), (batch_size, seq_length), (1, 1))
 
         # [batch_size, seq_length, vocab_size]
         output_states, word_table = self.backbone(tokens, input_position, attention_mask,
@@ -464,7 +465,7 @@ class PanguAlphaHeadModel(BaseModel):
 
             return logits, tokens, input_mask
 
-        labels = self.slice(input_ids, (0, 1), (batch_size, seq_length), (1, 1))
+        labels = self.slice(input_ids, (0, 1), (batch_size, seq_length + 1), (1, 1))
         labels = self.reshape(labels, (-1,))
         input_mask = self.reshape(input_mask, (-1,))
         loss = self.loss(logits, labels, input_mask)
