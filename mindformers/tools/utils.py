@@ -48,6 +48,7 @@ MA_OUTPUT_ROOT = '/cache/ma-user-work'
 DEBUG_INFO_PATH = '/cache/debug'
 PROFILE_INFO_PATH = '/cache/profile'
 PLOG_PATH = '/root/ascend/log'
+LOCAL_DEFAULT_PATH = os.getenv("LOCAL_DEFAULT_PATH", './output')
 
 _PROTOCOL = 'obs'
 _PROTOCOL_S3 = 's3'
@@ -67,12 +68,6 @@ def check_in_modelarts():
            'S3_SECRET_ACCESS_KEY' in os.environ or \
            'BATCH_GROUP_NAME' in os.environ or \
            'MA_LOCAL_LOG_PATH' in os.environ
-
-
-if os.getenv("RANK_TABLE_FILE") is None or check_in_modelarts():
-    LOCAL_DEFAULT_PATH = os.getenv("LOCAL_DEFAULT_PATH", './output')
-else:
-    LOCAL_DEFAULT_PATH = os.getenv("LOCAL_DEFAULT_PATH", '../../output')
 
 
 class Validator:
@@ -111,7 +106,6 @@ def check_list(var_name: str, list_var: Union[Tuple, List], num: int):
     for value in list_var:
         if value >= num:
             raise ValueError('The index of the {} needs to be less than the number of nodes {}.'.format(var_name, num))
-
 
 
 def format_path(path):
