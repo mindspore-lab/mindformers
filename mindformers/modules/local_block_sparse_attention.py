@@ -208,7 +208,6 @@ class LocalBlockSparseAttention(nn.Cell):
         size_per_head=Validator.check_positive_int,
         local_size=Validator.check_positive_int,
         block_size=Validator.check_positive_int,
-        dropout_rate=Validator.check_positive_float,
         softmax_compute_type=_valid_value_checks(
             [mstype.float16, mstype.float32], "LocalBlockSparseAttention"),
         parallel_config=_valid_type_checks([OpParallelConfig],
