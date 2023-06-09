@@ -74,6 +74,7 @@ class GLMConfig(BaseConfig):
                  repetition_penalty: float = 1,
                  is_enhanced_encoder: bool = True,
                  is_npu_acceleration: bool = False,
+                 checkpoint_name_or_path: str = "",
                  **kwargs):
         super().__init__(**kwargs)
         self.batch_size = batch_size
@@ -93,7 +94,7 @@ class GLMConfig(BaseConfig):
         self.use_past = use_past
         if phase == 'train' and use_past:
             self.use_past = False
-            logger.warning(f"use_past can't be True when phase='train', it has been set to False")
+            logger.warning("use_past can't be True when phase='train', it has been set to False")
         self.parallel_config = parallel_config
         self.activation_func = activation_func
         self.phase = phase
@@ -113,3 +114,4 @@ class GLMConfig(BaseConfig):
         self.repetition_penalty = repetition_penalty
         self.is_enhanced_encoder = is_enhanced_encoder
         self.is_npu_acceleration = is_npu_acceleration
+        self.checkpoint_name_or_path = checkpoint_name_or_path

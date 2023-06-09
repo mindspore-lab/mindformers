@@ -179,7 +179,7 @@ class CLIPConfig(BaseConfig):
     def __init__(self, text_config: Optional[CLIPTextConfig] = None,
                  vision_config: Optional[CLIPVisionConfig] = None, projection_dim: Optional[int] = 512,
                  logit_scale_init_value: Optional[float] = 2.6592,
-                 checkpoint_name_or_path: Optional[str] = "clip_vit_b_32", dtype: Optional[str] = "float16",
+                 checkpoint_name_or_path: Optional[str] = "", dtype: Optional[str] = "float16",
                  **kwargs):
         if text_config is None:
             text_config = CLIPTextConfig()

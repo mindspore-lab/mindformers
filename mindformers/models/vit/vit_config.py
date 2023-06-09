@@ -69,7 +69,7 @@ class ViTConfig(BaseConfig):
                  num_labels: int = 1000,
                  loss_type: str = "SoftTargetCrossEntropy",
                  encoder_stride: int = 16,
-                 checkpoint_name_or_path: str = 'vit_base_p16',
+                 checkpoint_name_or_path: str = '',
                  layernorm_compute_type: mstype = mstype.float32,
                  softmax_compute_type: mstype = mstype.float32,
                  param_init_type: mstype = mstype.float32,

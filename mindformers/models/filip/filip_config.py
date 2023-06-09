@@ -53,7 +53,7 @@ class FilipConfig(BaseConfig):
     _support_list = MindFormerBook.get_model_support_list()['filip']
 
     def __init__(self, text_config=None, vision_config=None, projection_dim=256, ratio=64,
-                 checkpoint_name_or_path="wk200m_yfcc_vit_l_14_f_tkl_with_loss_ms", dtype="float16", **kwargs):
+                 checkpoint_name_or_path="", dtype="float16", **kwargs):
         if text_config is None:
             text_config = FilipTextConfig()
             logger.info("text_config is None. "
