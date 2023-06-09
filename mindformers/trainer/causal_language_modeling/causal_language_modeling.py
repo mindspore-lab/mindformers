@@ -14,6 +14,7 @@
 # ============================================================================
 """Causal Image Modeling Trainer."""
 import os
+import time
 from typing import Optional, List, Union
 
 from mindspore.train import Callback
@@ -22,7 +23,9 @@ from mindspore.dataset import GeneratorDataset
 
 from mindformers.dataset import BaseDataset
 from mindformers.models import BaseModel, BaseTokenizer
+from mindformers.tools.logger import logger
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType, MindFormerConfig
+from mindformers.core import build_metric
 
 from ..config_args import ConfigArguments
 from ..training_args import TrainingArguments
@@ -42,6 +45,7 @@ class CausalLanguageModelingTrainer(BaseTrainer):
     Raises:
         NotImplementedError: If train method or evaluate method or predict method not implemented.
     """
+
     def __init__(self, model_name: str = None):
         super(CausalLanguageModelingTrainer, self).__init__("text_generation", model_name)
 
@@ -124,14 +128,96 @@ class CausalLanguageModelingTrainer(BaseTrainer):
         """
         metric_name = "Text Generation Metric"
         kwargs.setdefault("metric_name", metric_name)
-        super().evaluate_process(
-            config=config,
-            network=network,
-            dataset=dataset,
-            compute_metrics=compute_metrics,
-            callbacks=callbacks,
-            **kwargs
-        )
+
+        is_enhanced_encoder = config.model.model_config.is_enhanced_encoder
+        if is_enhanced_encoder:
+            self.generate_evaluate(
+                config,
+                network=network,
+                dataset=dataset,
+                compute_metrics=compute_metrics,
+                **kwargs)
+        else:
+            self.evaluate_process(
+                config=config,
+                network=network,
+                dataset=dataset,
+                callbacks=callbacks,
+                compute_metrics=compute_metrics,
+                **kwargs)
+
+    def generate_evaluate(self,
+                          config,
+                          network=None,
+                          dataset=None,
+                          compute_metrics=None,
+                          **kwargs):
+        r"""Evaluate the text generate task. Return metrics with Rouge-1, Rouge-2, Rouge-l and BLEU. """
+        metric_name = kwargs.get("metric_name")
+        is_full_config = kwargs.get("is_full_config", False)
+        config = self.set_config(config, is_full_config)
+
+        # build dataset
+        logger.info(".........Build Dataset For Evaluate..........")
+        if dataset is None:
+            dataset = self.create_eval_dataset()
+        self.set_eval_dataset(dataset)
+
+        # build network
+        if network is None:
+            network = self.create_network(default_args={"parallel_config": config.parallel_config,
+                                                        "moe_config": config.moe_config})
+        self.set_network(network, is_train=False)
+
+        self.count_parameters()
+
+        # build metric
+        logger.info(".........Build Compute Metrics For Evaluate..........")
+        if compute_metrics is None:
+            compute_metrics = build_metric(config.metric)
+
+        logger.info('.........Starting Evaluate Model..........')
+
+        # generate config
+        top_p = config.generate.top_p
+        top_k = config.generate.top_k
+        max_decode_length = config.generate.max_decode_length
+
+        total_tokens_num = 0
+        total_time = 0.0001
+        for i, inputs in enumerate(dataset.create_dict_iterator()):
+            input_ids = inputs['input_ids'].asnumpy()
+            labels = inputs['label'].asnumpy()
+
+            start_time = time.time()
+            outputs = network.generate(input_ids, max_length=max_decode_length,
+                                       top_p=top_p, top_k=top_k)  # List[numpy]
+            end_time = time.time()
+            avg_cost_time = (end_time - start_time) / input_ids.shape[0]
+
+            tokens_num = 0
+            for batch_index in range(len(outputs)):
+                tokens_num += outputs[batch_index].shape[0]
+            if i != 0:
+                total_tokens_num += tokens_num
+                total_time += end_time - start_time
+
+            logger.info('Epoch %s Finished, cost time %s,  every example cost time is %s, '
+                        'generate speed: %s tokens/s, avg speed: %s tokens/s',
+                        i + 1, end_time - start_time, avg_cost_time,
+                        tokens_num / (end_time - start_time), total_tokens_num / total_time)
+
+            compute_metrics.update(outputs, labels)
+
+        output = compute_metrics.eval()
+        logger.info('metric: %s \n'
+                    'rouge-1: %s \n'
+                    'rouge-2: %s \n'
+                    'rouge-l: %s \n'
+                    'bleu-4:  %s ',
+                    metric_name, output["rouge-1"], output["rouge-2"], output["rouge-l"], output["bleu-4"])
+
+        logger.info('...........Evaluate Over!...............')
 
     def predict(self,
                 config: Optional[Union[dict, MindFormerConfig, ConfigArguments, TrainingArguments]] = None,

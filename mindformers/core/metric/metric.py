@@ -24,23 +24,28 @@ import math
 import string
 import shutil
 import six
+import jieba
 import numpy as np
+from rouge_chinese import Rouge
+from nltk.translate.bleu_score import sentence_bleu, SmoothingFunction
+
 import mindspore.nn as nn
 import mindspore as ms
 from mindspore.ops import operations as P
 from mindspore.communication import get_group_size, get_rank
-
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.models import BasicTokenizer
+from mindformers.models.glm.chatglm_6b_tokenizer import ChatGLMTokenizer
 from mindformers.core.loss import CrossEntropyLoss
 from ...dataset.labels import cluener_labels
 
-__all__ = ['EntityScore', 'SQuADMetric', 'PerplexityMetric']
+__all__ = ['EntityScore', 'SQuADMetric', 'PerplexityMetric', 'ADGENMetric']
 
 
 @MindFormerRegister.register(MindFormerModuleType.METRIC)
 class EntityScore(nn.Metric):
     """Compute the f1, precision and recall score of each entity"""
+
     def __init__(self):
         super(EntityScore, self).__init__()
         self.label2id = {label: label_id for label_id, label in enumerate(cluener_labels)}
@@ -126,9 +131,11 @@ class EntityScore(nn.Metric):
                 chunk = [-1, -1, -1]
         return chunks
 
+
 @MindFormerRegister.register(MindFormerModuleType.METRIC)
 class SQuADMetric(nn.Metric):
     """Compute the f1, precision and recall score of each entity"""
+
     def __init__(self, dataset_dir, n_best_size=20, max_answer_len=30, do_lower_case=True,
                  temp_file_dir="./squad_temp"):
         self.outputs = []
@@ -145,7 +152,6 @@ class SQuADMetric(nn.Metric):
     def clear(self):
         """Clearing the internal evaluation result."""
         return
-
 
     def update(self, *inputs):
         """Update results for every batch"""
@@ -179,7 +185,7 @@ class SQuADMetric(nn.Metric):
                     total += 1
                     if qa['id'] not in predictions:
                         message = 'Unanswered question ' + qa['id'] + \
-                                ' will receive score 0.'
+                                  ' will receive score 0.'
                         print(message, file=sys.stderr)
                         continue
                     ground_truths = list(map(lambda x: x['text'], qa['answers']))
@@ -208,6 +214,7 @@ class SQuADMetric(nn.Metric):
 
     def _normalize_answer(self, s):
         """Lower text and remove punctuation, articles and extra whitespace."""
+
         def remove_articles(text):
             return re.sub(r'\b(a|an|the)\b', ' ', text)
 
@@ -408,6 +415,7 @@ class SQuADMetric(nn.Metric):
 
     def _get_final_text(self, pred_text, orig_text):
         """Project the tokenized prediction back to the original text."""
+
         def _strip_spaces(text):
             ns_chars = []
             ns_to_s_map = collections.OrderedDict()
@@ -468,9 +476,11 @@ class SQuADMetric(nn.Metric):
             best_indexes.append(score[0])
         return best_indexes
 
+
 @MindFormerRegister.register(MindFormerModuleType.METRIC)
 class PerplexityMetric(nn.Metric):
     """Compute the loss and PPL of each entity"""
+
     def __init__(self):
         super(PerplexityMetric, self).__init__()
         self.num_data = None
@@ -551,3 +561,60 @@ class PerplexityMetric(nn.Metric):
         if self.pipeline_parallel:
             print("Average Loss and PPL Metric:", result)
         return result
+
+
+@MindFormerRegister.register(MindFormerModuleType.METRIC)
+class ADGENMetric(nn.Metric):
+    """Compute the f1, precision and recall score of each entity"""
+
+    def __init__(self, vocab_file, ignore_pad_token_for_loss=True):
+        self.tokenizer = ChatGLMTokenizer(vocab_file=vocab_file)
+        self.ignore_pad_token_for_loss = ignore_pad_token_for_loss
+        self.score_dict = {
+            "rouge-1": [],
+            "rouge-2": [],
+            "rouge-l": [],
+            "bleu-4": []
+        }
+
+    def clear(self):
+        self.score_dict = {
+            "rouge-1": [],
+            "rouge-2": [],
+            "rouge-l": [],
+            "bleu-4": []
+        }
+
+    def update(self, *inputs):
+        """Update results for every batch"""
+        preds = inputs[0]  # list[numpy]
+        labels = inputs[1]  # numpy
+
+        if isinstance(preds, tuple):
+            preds = preds[0]
+
+        decoded_preds = self.tokenizer.decode(preds, skip_special_tokens=True)
+
+        if self.ignore_pad_token_for_loss:
+            # Replace -100 in the labels as we can't decode them.
+            labels = np.where(labels != -100, labels, self.tokenizer.pad_token_id)
+        decoded_labels = self.tokenizer.decode(labels, skip_special_tokens=True)
+        print(f"pred is:\n {decoded_preds[0]}\n",
+              f"label is:\n {decoded_labels[0]}")
+        for pred, label in zip(decoded_preds, decoded_labels):
+            hypothesis = list(jieba.cut(pred))
+            reference = list(jieba.cut(label))
+            rouge = Rouge()
+            scores = rouge.get_scores(' '.join(hypothesis), ' '.join(reference))
+            result = scores[0]
+
+            for k, v in result.items():
+                self.score_dict[k].append(round(v["f"] * 100, 4))
+            bleu_score = sentence_bleu([list(label)], list(pred), smoothing_function=SmoothingFunction().method3)
+            self.score_dict["bleu-4"].append(round(bleu_score * 100, 4))
+
+    def eval(self):
+        """Compute final result"""
+        for k, v in self.score_dict.items():
+            self.score_dict[k] = float(np.mean(v))
+        return self.score_dict

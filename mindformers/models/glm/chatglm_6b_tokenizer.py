@@ -13,7 +13,7 @@
 # limitations under the License.
 # ============================================================================
 """Tokenization classes for ChatGLM."""
-
+import os
 import logging
 from typing import List, Optional, Union
 import sentencepiece as spm
@@ -287,19 +287,26 @@ class ChatGLMTokenizer(Tokenizer):
 
     def tokenize(self, text):
         """ Returns a tokenized string. """
+        return self._tokenize(text)
+
+    def _tokenize(self, text, **kwargs):
+        """ Returns a tokenized string. """
         text = self.preprocess_text(text)
         seq = self.sp_tokenizer.tokenize(text)
-
         return seq
 
-    def _decode(self, token_ids):
+    # pylint:disable=abstract-method
+    # pylint:disable=arguments-differ
+    def _decode(self, token_ids, skip_special_tokens):
         """ Decode id to text. """
+        _ = skip_special_tokens
         if isinstance(token_ids, int):
             token_ids = [token_ids]
         if self.pad_token_id in token_ids:  # remove pad
             token_ids = list(filter((self.pad_token_id).__ne__, token_ids))
         return self.sp_tokenizer.decode(token_ids)
 
+    # pylint:disable=arguments-differ
     def convert_tokens_to_ids(self, tokens: Union[str, List[str]]) -> Union[int, List[int]]:
         """
         Converts a token string (or a sequence of tokens) in a single integer id (or a sequence of ids), using the
@@ -344,6 +351,7 @@ class ChatGLMTokenizer(Tokenizer):
             return self.added_tokens_encoder[token]
         return self.sp_tokenizer[token]
 
+    # pylint:disable=arguments-differ
     def convert_ids_to_tokens(self, ids: Union[int, List[int]], skip_special_tokens: bool = False):
         """
         Converts a single index or a sequence of indices in a token or a sequence of tokens, using the vocabulary and
@@ -400,3 +408,29 @@ class ChatGLMTokenizer(Tokenizer):
         if token_ids_1 is not None:
             token_ids_0 = token_ids_0 + token_ids_1 + [eos_id]
         return token_ids_0
+
+    def save_vocabulary(self, save_directory, filename_prefix=None):
+        """
+        Save the vocabulary and special tokens file to a directory.
+
+        Args:
+            save_directory (`str`):
+                The directory in which to save the vocabulary.
+            filename_prefix (`str`, *optional*):
+                An optional prefix to add to the named of the saved files.
+
+        Returns:
+            `Tuple(str)`: Paths to the files saved.
+        """
+        if os.path.isdir(save_directory):
+            vocab_file = os.path.join(save_directory, self.VOCAB_FILES["vocab_file"])
+        else:
+            vocab_file = save_directory
+
+        with open(self.vocab_file, 'rb') as fin:
+            proto_str = fin.read()
+
+        with open(vocab_file, "wb") as writer:
+            writer.write(proto_str)
+
+        return (vocab_file,)
