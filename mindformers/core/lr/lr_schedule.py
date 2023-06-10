@@ -26,8 +26,7 @@ from mindspore.common.tensor import Tensor
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 
 __all__ = [
-    'LearningRateWiseLayer', 'WarmUpDecayLR',
-    'WarmUpCosineDecayV1', 'ConstantWarmUpLR',
+    'LearningRateWiseLayer', 'WarmUpDecayLR', 'ConstantWarmUpLR',
     'LinearWithWarmUpLR', 'CosineWithWarmUpLR',
     'CosineWithRestartsAndWarmUpLR', 'PolynomialWithWarmUpLR']
 
@@ -35,7 +34,7 @@ __all__ = [
 @MindFormerRegister.register(MindFormerModuleType.LR)
 class ConstantWarmUpLR(LearningRateSchedule):
     """ConstantWarmUpLR."""
-    def __init__(self, learning_rate: float, warmup_steps: int, warmup_lr_init: float = 0.):
+    def __init__(self, learning_rate: float, warmup_steps: int, warmup_lr_init: float = 0., **kwargs):
         super(ConstantWarmUpLR, self).__init__()
         warmup_steps = max(1, warmup_steps)
         self.learning_rate = learning_rate
@@ -43,6 +42,7 @@ class ConstantWarmUpLR(LearningRateSchedule):
         self.warmup_steps = Tensor(warmup_steps, mstype.float32)
         self.one_constant = Tensor(1.0, mstype.float32)
         self.greater = P.Greater()
+        self.total_steps = kwargs.get('total_steps', None)
 
     def construct(self, global_step):
         """compute current step lr."""
@@ -245,117 +245,3 @@ class WarmUpDecayLR(LearningRateSchedule):
         else:
             lr = decay_lr
         return lr
-
-
-def lr_adjust(max_lr, min_lr, step, warmup_steps, decay_steps, start_warmup_value=0.):
-    if step < warmup_steps:
-        lr = max_lr * step / warmup_steps + start_warmup_value
-    else:
-        lr = min_lr + (max_lr - min_lr) * 0.5 * (1. + math.cos(math.pi * (step - warmup_steps) / decay_steps))
-    return lr
-
-
-@MindFormerRegister.register(MindFormerModuleType.LR)
-class WarmUpCosineDecayV1(LearningRateSchedule):
-    """WarmUpCosineDecayV1 learning rate"""
-    def __init__(self, min_lr, base_lr, warmup_steps, decay_steps, warmup_lr=0.):
-        super(WarmUpCosineDecayV1, self).__init__()
-        self.schedule = Tensor([lr_adjust(base_lr, min_lr, i, warmup_steps, decay_steps, warmup_lr)
-                                for i in range(warmup_steps + decay_steps)])
-
-    def construct(self, global_step):
-        return self.schedule[global_step]
-
-
-@MindFormerRegister.register(MindFormerModuleType.LR)
-class WarmUpCosineDecayV2(LearningRateSchedule):
-    # This class was refer to project:
-    # https://github.com/rwightman/pytorch-image-models/blob/main/timm/scheduler/cosine_lr.py
-    """
-    WarmUpCosineDecayV2 learning rate
-    """
-    def __init__(self,
-                 base_lr: float,
-                 total_steps: int,
-                 min_lr: float = 0.,
-                 cycle_mul: float = 1.,
-                 cycle_decay: float = 1.,
-                 cycle_limit: int = 1,
-                 warmup_steps=0,
-                 warmup_lr=0.,
-                 warmup_prefix=False,
-                 t_in_epochs=True,
-                 k_decay=1.0) -> None:
-        super(WarmUpCosineDecayV2, self).__init__()
-
-        assert total_steps > 0
-        assert min_lr >= 0
-
-        self.t_initial = total_steps
-        self.min_lr = min_lr
-        self.cycle_mul = cycle_mul
-        self.cycle_decay = cycle_decay
-        self.cycle_limit = cycle_limit
-        self.warmup_steps = warmup_steps
-        self.warmup_lr = warmup_lr
-        self.warmup_prefix = warmup_prefix
-        self.t_in_epochs = t_in_epochs
-        self.k_decay = k_decay
-
-        self.base_values = [base_lr,]
-        if self.warmup_steps:
-            self.warmup_t = [(v - warmup_lr) / self.warmup_steps for v in self.base_values]
-        else:
-            self.warmup_t = [1 for _ in self.base_values]
-
-        self.lr_tensor = Tensor([self.get_epoch_values(i) for i in range(self.t_initial)], mstype.float32)
-
-    def _get_lr(self, t):
-        """get lr"""
-        if t < self.warmup_steps:
-            lrs = [self.warmup_lr + t * s for s in self.warmup_t]
-        else:
-            if self.warmup_prefix:
-                t = t - self.warmup_steps
-
-            if self.cycle_mul != 1:
-                i1 = math.floor(math.log(1 - t / self.t_initial * (1 - self.cycle_mul), self.cycle_mul))
-                t_i = self.cycle_mul ** i1 * self.t_initial
-                t_curr = t - (1 - self.cycle_mul ** i1) / (1 - self.cycle_mul) * self.t_initial
-            else:
-                i1 = t // self.t_initial
-                t_i = self.t_initial
-                t_curr = t - (self.t_initial * i1)
-
-            gamma = self.cycle_decay ** i1
-            lr_max_values = [v * gamma for v in self.base_values]
-            k = self.k_decay
-
-            if i1 < self.cycle_limit:
-                lrs = [
-                    self.min_lr + 0.5 * (lr_max - self.min_lr) * (1 + math.cos(math.pi * t_curr ** k / t_i ** k))
-                    for lr_max in lr_max_values
-                ]
-            else:
-                lrs = [self.min_lr for _ in self.base_values]
-
-        return lrs
-
-    def get_epoch_values(self, epoch: int):
-        if self.t_in_epochs:
-            return self._get_lr(epoch)
-        return None
-
-    def get_update_values(self, num_updates: int):
-        if not self.t_in_epochs:
-            return self._get_lr(num_updates)
-        return None
-
-    def get_cycle_length(self, cycles=0):
-        cycles = max(1, cycles or self.cycle_limit)
-        if self.cycle_mul == 1.0:
-            return self.t_initial * cycles
-        return int(math.floor(-self.t_initial * (self.cycle_mul ** cycles - 1) / (1 - self.cycle_mul)))
-
-    def construct(self, global_step):
-        return self.lr_tensor[global_step][0]
