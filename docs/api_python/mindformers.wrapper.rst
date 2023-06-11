@@ -3,7 +3,7 @@ mindformers.wrapper
 
 .. automodule:: mindformers.wrapper
 
-.. msplatformautosummary::
+.. autosummary::
     :toctree: wrapper
     :nosignatures:
     :template: classtemplate.rst

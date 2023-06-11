@@ -1,10 +1,3 @@
-### MindSpore 学习
-
-* 请参考MindSpore官方文档学习MindSpore相关[编程规范]()、[文档](https://www.mindspore.cn/docs/zh-CN/r1.8/index.html)、[教程](https://www.mindspore.cn/tutorials/zh-CN/r1.8/index.html)、[工具]()等
-
-* 请参考MindSpore官方文档了解MindSpore大规模分布式并行能力 [数据并行](https://www.mindspore.cn/docs/zh-CN/r1.8/design/distributed_training_design.html#%E6%95%B0%E6%8D%AE%E5%B9%B6%E8%A1%8C) [模型并行](https://www.mindspore.cn/tutorials/experts/zh-CN/r1.8/parallel/operator_parallel.html) [流水线并行](https://www.mindspore.cn/tutorials/experts/zh-CN/r1.8/parallel/pipeline_parallel.html) [优化器并行](https://www.mindspore.cn/tutorials/experts/zh-CN/r1.8/parallel/optimizer_parallel.html) [双副本并行]()
-* 请参考MindSpore官方文档了解MindSpore内存优化能力 [内存复用]() [重计算](https://www.mindspore.cn/tutorials/experts/zh-CN/r1.8/parallel/recompute.html) [CPU Off-Load]() [图算融合](https://www.mindspore.cn/docs/zh-CN/r2.0.0-alpha/design/graph_fusion_engine.html)
-
 ### GPT2-13B 分布式训练
 
 #### GPT2 模型介绍
@@ -41,12 +34,25 @@ GPT2配置文件路径: `configs/gpt2`
 ```bash
 # 套件提供三种不同参数量的gpt配置
 └── gpt2
+    ├── model_config
+        ├── gpt2.yaml
+        ├── gpt2_13b.yaml
+        ├── gpt2_52b.yaml
+    ├── task_config
+        ├── context.yaml
+        ├── gpt2_dataset.yaml
+        ├── runner.yaml
     ├── run_gpt2.yaml
     ├── run_gpt2_13b.yaml
     └── run_gpt2_52b.yaml
 ```
 
-[run_gpt2_13b.yaml等](https://gitee.com/mindspore/mindformers/blob/r0.3/configs/gpt2/run_gpt2.yaml)：主配置文件，其中的配置如与以上相同，则以该文件中的配置为准。需要修改配置时，推荐采用在该文件中复写配置的方式。
+- [model_config](https://gitee.com/mindspore/mindformers/tree/r0.3/configs/gpt2/model_config)：模型网络参数配置，其中的参数可以覆盖`mindformers/models/gpt2/gpt2_config.py`的配置；
+- [task_config](https://gitee.com/mindspore/mindformers/tree/r0.3/configs/gpt2/task_config)：
+  + [context.yaml](https://gitee.com/mindspore/mindformers/blob/r0.3/configs/gpt2/task_config/context.yaml)：运行环境、分布式并行等配置；
+  + [gpt2_dataset.yaml](https://gitee.com/mindspore/mindformers/blob/r0.3/configs/gpt2/task_config/gpt2_dataset.yaml)：数据集加载配置；
+  + [runner.yaml](https://gitee.com/mindspore/mindformers/blob/r0.3/configs/gpt2/task_config/runner.yaml)：学习率、优化器等配置；
+- [run_gpt2_13b.yaml等](https://gitee.com/mindspore/mindformers/blob/r0.3/configs/gpt2/run_gpt2.yaml)：主配置文件，其中的配置如与以上相同，则以该文件中的配置为准。需要修改配置时，推荐采用在该文件中复写配置的方式。
 
 ```text
 # 关键参数说明，以4机13B参数模型为例
@@ -196,113 +202,3 @@ AICC，人工智能计算中心，提供[ModelArts](https://support.huaweicloud.
   + `环境变量`填写模型训练所需要设置的环境变量
     ![img/img_8.png](img/img_8.png)
   + `启动方式`下的`预置框架`中可以选择用于自己的镜像，前提是用户已将镜像上传到`对象存储服务`，并通过`ModelArts`->`镜像管理`->`注册镜像`将镜像注册
-
-### Bert 下游任务微调
-
-#### Bert 模型介绍
-
-BERT:全名`Bidirectional Encoder Representations from Transformers`模型是谷歌在2018年基于Wiki数据集训练的Transformer模型。  
-
-[论文](https://arxiv.org/abs/1810.04805): J Devlin，et al., Pre-training of Deep Bidirectional Transformers for Language Understanding, 2019
-
-#### Bert 下游任务微调
-
-下面以question_answering任务为例介绍Bert下游任务微调的流程。
-
-- 数据集
-
-  SQuAD v1.1数据集：该数据集包含 10 万个（问题，原文，答案）三元组，原文来自于 536 篇维基百科文章，而问题和答案的构建主要是通过众包的方式，让标注人员提出最多 5 个基于文章内容的问题并提供正确答案，且答案出现在原文中。
-
-  下载地址：[SQuAD v1.1训练集](https://rajpurkar.github.io/SQuAD-explorer/dataset/train-v1.1.json)，[SQuAD v1.1验证集](https://rajpurkar.github.io/SQuAD-explorer/dataset/dev-v1.1.json)
-
-  新建名为squad文件夹，将下载的json格式数据集文件放入文件夹中。
-
-  ```bash
-  └─squad  
-   ├─train-v1.1.json
-   └─dev-v1.1.json
-  ```
-
-- 初始化question_answering任务trainer
-
-  使用mindformers.trainer.Trainer类，初始化question_answering任务的trainer。
-
-  ```python
-  from mindformers.trainer import Trainer
-  
-  # 初始化question_answering任务trainer
-  trainer = Trainer(task='question_answering',
-                    model='qa_bert_base_uncased',
-                    train_dataset='./squad/',
-                    eval_dataset='./squad/')
-  ```
-
-  参数含义如下：
-
-  - task(str) - 任务名称，'question_answering'为问答任务。
-
-  - model(str) - 模型名称， 'qa_bert_base_uncased'为Bert接question_answering下游任务模型。
-
-  - train_dataset(str) - 训练数据集所在路径。
-
-  - eval_dataset(str) - 评估数据集所在路径。
-
-- 使用现有的预训练权重进行finetune微调
-
-  从obs上下载bert_base_uncased预训练权重，加载预训练权重，并在下游任务qa_bert_base_uncased模型上进行微调。
-
-  ```python
-  # 使用现有的预训练权重进行finetune微调
-  trainer.train(resume_or_finetune_from_checkpoint="qa_bert_base_uncased",
-                do_finetune=True)
-  ```
-
-  参数含义如下：
-
-  - resume_or_finetune_from_checkpoint(str) - 权重名称，'qa_bert_base_uncased'为问答任务对应的Bert预训练权重。
-
-  - do_finetune(bool) - 是否进行微调，True表示以微调的方式加载权重。
-
-  训练过程中会实时打印训练时长、Loss等信息。
-
-- 使用finetune获得的权重进行eval评估
-
-  从finetune保存的权重文件中，取最后一次保存的checkpoint文件的权重加载进网络中，并进行评估。
-
-  ```python
-  # 使用finetune获得的最新权重进行eval评估
-  trainer.evaluate(eval_checkpoint=True)
-  ```
-
-  参数含义如下：
-
-  - eval_checkpoint(bool) - 是否加载最后一次保存的权重进行评估，True表示加载最后一次保存的权重文件中的权重进网络中。
-
-  obs上训练好的权重评估结果如下：
-
-  ```text
-  INFO - QA Metric = {'QA Metric': {'exact_match': 80.74739829706716, 'f1': 88.33552874684968}}
-  ```
-
-- 使用finetune获得的权重进行predict推理
-
-  从finetune保存的权重文件中，取最后一次保存的checkpoint文件的权重加载进网络中，并进行推理。推理输入的文本包括context和question两部分，两者以短横线“-”为标志分隔开。
-
-  ```python
-  # 使用finetune获得的最新权重进行predict推理
-  # 测试数据，测试数据分为context和question两部分，两者以 “-” 分隔
-  input_data = ["My name is Wolfgang and I live in Berlin - Where do I live?"]
-  trainer.predict(predict_checkpoint=True, input_data=input_data)
-  ```
-
-  参数含义如下：
-
-  - predict_checkpoint(bool) - 是否加载最后一次保存的权重进行推理，True表示加载最后一次保存的权重文件中的权重进网络中。
-
-  - input_data(str) - 输入文本，分为context和question两部分，两者以 “-” 分隔。
-
-  得到的输出为：
-
-  ```text
-  [{'text': 'Berlin', 'score': 0.9941, 'start': 34, 'end': 40}]
-  ```

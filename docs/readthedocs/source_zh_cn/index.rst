@@ -35,43 +35,78 @@ MindSpore Transformers是一个基于MindSpore的Python软件包。
 - 提供典型SOTA网络例如BERT的预训练、微调和部署能力。
 - 支持混合并行训练大模型能力。
 
-.. toctree::
-   :glob:
-   :maxdepth: 1
-   :caption: 开始
 
-   开始
+目录
+==========================
 
 .. toctree::
    :glob:
    :maxdepth: 1
-   :caption: 教程
+   :caption: 欢迎使用MindFormers
 
-   教程
+   README
 
 .. toctree::
    :glob:
    :maxdepth: 1
-   :caption: 实践教学
+   :caption: 特性
 
-   实践教学
+   feature/Trainer
+   feature/Pipeline
+   feature/AutoClass
 
 .. toctree::
+   :glob:
+   :maxdepth: 1
+   :caption: 开发实践
+
+   practice/bert
+   practice/gpt2
+   practice/mindspore
+
+.. toctree::
+   :glob:
+   :maxdepth: 1
+   :caption: 模型
+
+   model_cards/bert
+   model_cards/clip
+   model_cards/gpt2
+   model_cards/mae
+   model_cards/pangualpha
+   model_cards/swin
+   model_cards/t5
+   model_cards/vit
+
+.. toctree::
+   :glob:
+   :maxdepth: 1
+   :caption: 任务
+
+   task_cards/contrastive_language_image_pretrain
+   task_cards/image_classification
+   task_cards/question_answering
+   task_cards/text_classification
+   task_cards/token_classification
+   task_cards/zero_shot_image_classification
+
+.. toctree::
+   :glob:
    :maxdepth: 1
    :caption: API
 
-   mindformers
-   mindformers.core
-   mindformers.dataset
-   mindformers.models
-   mindformers.modules
-   mindformers.pipeline
-   mindformers.trainer
-   mindformers.wrapper
+   api_python/mindformers.core
+   api_python/mindformers.dataset
+   api_python/mindformers.models
+   api_python/mindformers.modules
+   api_python/mindformers.pipeline
+   api_python/mindformers
+   api_python/mindformers.trainer
+   api_python/mindformers.wrapper
 
 .. toctree::
    :glob:
    :maxdepth: 1
    :caption: FAQ
 
-   如何提交PR
+   FAQ

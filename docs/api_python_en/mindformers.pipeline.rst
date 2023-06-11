@@ -3,7 +3,7 @@ mindformers.pipeline
 
 .. automodule:: mindformers.pipeline
 
-.. msplatformautosummary::
+.. autosummary
     :toctree: pipeline
     :nosignatures:
     :template: classtemplate.rst

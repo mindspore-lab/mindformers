@@ -6,7 +6,7 @@ mindformers.core
 mindformers.core
 -----------------
 
-.. msplatformautosummary::
+.. autosummary
     :toctree: core
     :nosignatures:
     :template: classtemplate.rst
@@ -18,7 +18,7 @@ mindformers.core
 mindformers.core.callback
 --------------------------
 
-.. msplatformautosummary::
+.. autosummary
     :toctree: core
     :nosignatures:
     :template: classtemplate.rst
@@ -30,7 +30,7 @@ mindformers.core.callback
 mindformers.core.loss
 --------------------------
 
-.. msplatformautosummary::
+.. autosummary
     :toctree: core
     :nosignatures:
     :template: classtemplate.rst
@@ -43,7 +43,7 @@ mindformers.core.loss
 mindformers.core.lr
 --------------------------
 
-.. msplatformautosummary::
+.. autosummary
     :toctree: core
     :nosignatures:
     :template: classtemplate.rst
@@ -57,7 +57,7 @@ mindformers.core.lr
 mindformers.core.metric
 --------------------------
 
-.. msplatformautosummary::
+.. autosummary
     :toctree: core
     :nosignatures:
     :template: classtemplate.rst
@@ -68,7 +68,7 @@ mindformers.core.metric
 mindformers.core.optim
 --------------------------
 
-.. msplatformautosummary::
+.. autosummary
     :toctree: core
     :nosignatures:
     :template: classtemplate.rst
