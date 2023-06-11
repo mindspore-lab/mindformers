@@ -512,8 +512,6 @@ class SwinAttention(nn.Cell):
 
         self.softmax = nn.Softmax().to_float(softmax_compute_type)
         self.softmax.softmax.shard(((dp, mp, 1, 1),))
-        self.softmax_3d = nn.Softmax().to_float(softmax_compute_type)
-        self.softmax_3d.softmax.shard(((dp, mp, 1),))
         self.cast = P.Cast()
         self.reshape = P.Reshape()
         self.transpose = P.Transpose().shard(((dp, 1, 1, 1),))
@@ -534,16 +532,7 @@ class SwinAttention(nn.Cell):
         :param attention_scores: a 3d tensor before softmax
         :return: the attention scores.
         """
-
-        if self._is_ascend and self.softmax_dtype == mstype.float16 or not self._is_ascend:
-            attention_probs = self.softmax(attention_scores)
-        else:
-            shape = self.shape(attention_scores)
-            # attention probs
-            attention_probs = self.softmax_3d(
-                self.reshape(attention_scores,
-                             (shape[0], -1, shape[-1])))
-            attention_probs = self.reshape(attention_probs, shape)
+        attention_probs = self.softmax(attention_scores)
         return attention_probs
 
     def construct(self, x, mask=None):
