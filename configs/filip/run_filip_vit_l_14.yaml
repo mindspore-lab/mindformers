@@ -191,14 +191,14 @@ lr_schedule:
   decay_steps: 780
 layer_scale: False
 layer_decay: 0.65
-lr_scale: False
-lr_scale_factor: 256
 
 # optimizer
 optimizer:
   type: Lamb
   eps: 0.000001
   weight_decay: 0.0003
+lr_scale: False
+lr_scale_factor: 256
 no_decay_params: ['positional_embedding', 'class_embedding', 'scale', 'bias', 'ln', 'bn']
 
 # callbacks
