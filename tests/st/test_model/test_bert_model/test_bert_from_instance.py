@@ -50,7 +50,7 @@ class Tempconfig:
     seed: int = 0
     runner_config: RunnerConfig = None
     data_size: int = 0
-    resume_or_finetune_checkpoint: str = ""
+    load_checkpoint: str = ""
 
 # @pytest.mark.level0
 # @pytest.mark.platform_x86_ascend_training

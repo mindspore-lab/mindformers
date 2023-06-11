@@ -176,8 +176,8 @@ class TrainingArguments:
         task_config.data_seed = _check_training_args(task_config.data_seed, self.data_seed)
         task_config.profile = _check_training_args(task_config.profile, self.profile)
         task_config.use_parallel = _check_training_args(task_config.use_parallel, self.use_parallel)
-        task_config.resume_or_finetune_checkpoint = _check_training_args(
-            task_config.resume_or_finetune_checkpoint, self.resume_from_checkpoint)
+        task_config.load_checkpoint = _check_training_args(
+            task_config.load_checkpoint, self.resume_from_checkpoint)
 
     def _adapt_dataset_config(self, task_config):
         """adapt dataset config."""

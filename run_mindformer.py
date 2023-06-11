@@ -35,6 +35,20 @@ from mindformers.mindformer_book import MindFormerBook
 SUPPORT_MODEL_NAMES = MindFormerBook().get_model_name_support_list()
 
 
+def update_checkpoint_config(config, is_train=True):
+    """update checkpoint config depending on is_train"""
+    if (is_train and config.resume_training) or config.auto_trans_ckpt or os.path.isdir(config.load_checkpoint):
+        logger.info("Leave load_checkpoint may because: ")
+        logger.info("1. resume training need resume training info. ")
+        logger.info("2. need load distributed shard checkpoint. ")
+        if not config.load_checkpoint:
+            config.load_checkpoint = config.model.model_config.checkpoint_name_or_path
+        config.model.model_config.checkpoint_name_or_path = None
+    else:
+        config.model.model_config.checkpoint_name_or_path = config.load_checkpoint
+        config.load_checkpoint = None
+
+
 @cloud_monitor()
 def main(config):
     """main."""
@@ -52,24 +66,20 @@ def main(config):
     logger.info("moe config is: %s", config.moe_config)
 
     if config.run_mode == 'train':
-        logger.warning("Train from scratch, remove checkpoint_name_or_path in model_config. ")
-        config.model.model_config.checkpoint_name_or_path = None
+        update_checkpoint_config(config)
 
     if config.run_mode == 'finetune':
-        if config.resume_or_finetune_checkpoint:
-            config.model.model_config.checkpoint_name_or_path = config.resume_or_finetune_checkpoint
-            config.resume_or_finetune_checkpoint = None
-        else:
+        if not config.load_checkpoint:
             raise ValueError("if run status is finetune, "
-                             "load_checkpoint or resume_or_finetune_checkpoint is invalid, "
-                             "it must be input")
+                             "load_checkpoint must be input")
+        update_checkpoint_config(config)
 
-    if config.run_mode == 'eval' and config.resume_or_finetune_checkpoint:
-        config.model.model_config.checkpoint_name_or_path = None
+    if config.run_mode == 'eval':
+        update_checkpoint_config(config, is_train=False)
 
-    if config.run_mode == "predict" and config.resume_or_finetune_checkpoint:
-        config.model.model_config.checkpoint_name_or_path = config.resume_or_finetune_checkpoint
-        config.resume_or_finetune_checkpoint = None
+    if config.run_mode == "predict" and config.load_checkpoint:
+        config.model.model_config.checkpoint_name_or_path = config.load_checkpoint
+        config.load_checkpoint = None
 
     # remote save url
     if check_in_modelarts() and config.remote_save_url:
@@ -137,6 +147,9 @@ if __name__ == "__main__":
              "please refer to https://gitee.com/mindspore/mindformers#%E4%BB%8B%E7%BB%8D."
              "Default: None")
     parser.add_argument(
+        '--resume_training', default=None, type=str2bool,
+        help="whether to load training context info, such as optimizer and epoch num")
+    parser.add_argument(
         '--strategy_load_checkpoint', default=None, type=str,
         help='path to parallel strategy checkpoint to load, it support real data path or data directory.'
              'Default: None')
@@ -194,7 +207,9 @@ if __name__ == "__main__":
     if args_.use_parallel is not None:
         config_.use_parallel = args_.use_parallel
     if args_.load_checkpoint is not None:
-        config_.resume_or_finetune_checkpoint = args_.load_checkpoint
+        config_.load_checkpoint = args_.load_checkpoint
+    if args_.resume_training is not None:
+        config_.resume_training = args_.resume_training
     if args_.strategy_load_checkpoint is not None:
         if os.path.isdir(args_.strategy_load_checkpoint):
             ckpt_list = [os.path.join(args_.strategy_load_checkpoint, file)

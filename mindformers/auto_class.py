@@ -390,6 +390,9 @@ class AutoModel:
             config_args.model.model_config.update(
                 {"checkpoint_name_or_path": pretrained_model_name_or_dir})
             model = build_model(config_args.model)
+
+        cls.default_checkpoint_download_path = model.default_checkpoint_download_path
+
         logger.info("model built successfully!")
         return model
 

@@ -1,7 +1,9 @@
 seed: 42
 run_mode: 'train'
 output_dir: './output'  # 当前不支持自定义修改，请勿修改该默认值
-resume_or_finetune_checkpoint: ''
+load_checkpoint: ''
+auto_trans_ckpt: False  # If true, auto transform load_checkpoint to load in distributed model
+resume_training: False
 
 # context
 context:
@@ -25,9 +27,6 @@ runner_config:
   batch_size: 12
   sink_mode: False
   sink_size: 2
-  initial_epoch: 0
-  has_trained_epoches: 0
-  has_trained_steps: 0
 runner_wrapper:
   type: TrainOneStepCell
 

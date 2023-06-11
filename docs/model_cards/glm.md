@@ -209,7 +209,7 @@ RANK_TABLE_FILE 参考样例:
 #### 修改配置文件
 
 - 数据集：修改 `mindformers/configs/glm/glm/run_glm_6b_finetune.yaml` 脚本中`train_dataset` 的 `dataset_dir` 为前文生成的数据集路径。
-- 加载预训练模型权重：修改 `mindformers/configs/glm/glm/run_glm_6b_finetune.yaml` 脚本中的 `resume_or_finetune_checkpoint` 为预训练模型权重路径。
+- 加载预训练模型权重：修改 `mindformers/configs/glm/glm/run_glm_6b_finetune.yaml` 脚本中的 `load_checkpoint` 为预训练模型权重路径。
 
 #### 启动全参微调脚本
 

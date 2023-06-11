@@ -53,6 +53,7 @@ class BaseModel(nn.Cell, GeneratorMixin):
     def __init__(self, config: BaseConfig, **kwargs):
         super(BaseModel, self).__init__(**kwargs)
         self.config = config
+        self.default_checkpoint_download_path = None
 
     def load_checkpoint(self, config):
         """
@@ -113,7 +114,7 @@ class BaseModel(nn.Cell, GeneratorMixin):
                         logger.info("checkpoint download failed, and pretrained weights are unloaded.")
                         return
                 try_sync_file(ckpt_file)
-
+                self.default_checkpoint_download_path = ckpt_file
                 logger.info("start to read the ckpt file: %s", os.path.getsize(ckpt_file))
                 param = load_checkpoint(ckpt_file)
                 try:

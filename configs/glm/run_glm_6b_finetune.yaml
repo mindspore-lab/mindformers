@@ -1,7 +1,9 @@
 seed: 0
 run_mode: 'train'
 output_dir: './output'  # 当前不支持自定义修改，请勿修改该默认值
-resume_or_finetune_checkpoint: '' # path or direction of resume checkpoint.
+load_checkpoint: ''
+auto_trans_ckpt: False  # If true, auto transform load_checkpoint to load in distributed model
+resume_training: False
 
 # ==== context config ====
 context:
@@ -131,9 +133,7 @@ runner_config:
   batch_size: 8
   sink_mode: True
   sink_size: 4
-  initial_epoch: 0
-  has_trained_epoches: 0
-  has_trained_steps: 0
+
 runner_wrapper:
   type: MFTrainOneStepCell
   scale_sense:
@@ -150,6 +150,10 @@ lr_schedule:
   lr_end: 0.000001
   warmup_steps: 2000
   total_steps: -1 # -1 means it will load the total steps of the dataset
+layer_scale: False
+layer_decay: 0.65
+lr_scale: False
+lr_scale_factor: 256
 
 # optimizer
 optimizer:
@@ -158,10 +162,6 @@ optimizer:
   beta2: 0.95
   eps: 0.00000001 # 1e-8
   weight_decay: 0.1
-layer_scale: False
-layer_decay: 0.65
-lr_scale: False
-lr_scale_factor: 256
 
 # parallel config
 use_parallel: False
