@@ -19,7 +19,7 @@ How to run this:
 linux:  pytest ./tests/st/test_model/test_bert_model/test_bert_tokenizer.py
 """
 import os
-import shutil
+# import shutil
 import pytest
 
 from mindformers import BertTokenizer, AutoTokenizer
@@ -43,9 +43,9 @@ class TestBertTokenizerMethod:
         os.makedirs(self.bert_path_saved, exist_ok=True)
         self.generate_fake_vocab()
 
-    def teardown_method(self):
-        shutil.rmtree(self.output_path)
-        shutil.rmtree(self.bert_path_saved)
+    # def teardown_method(self):
+    #     shutil.rmtree(self.output_path)
+    #     shutil.rmtree(self.bert_path_saved)
 
     def test_from_pretrained(self):
         """

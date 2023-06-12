@@ -24,7 +24,7 @@ pytest ./tests/st/test_trainer/test_question_answering_trainer/test_dataset.py
 """
 import os
 import json
-import shutil
+# import shutil
 import pytest
 
 from mindformers.mindformer_book import MindFormerBook
@@ -74,9 +74,9 @@ class TestQuestionAnsweringTrainDataset:
         """make local directory"""
         os.makedirs(self.new_dataset_dir, exist_ok=True)
 
-    def teardown_method(self):
-        """delete local directory"""
-        shutil.rmtree(self.new_dataset_dir)
+    # def teardown_method(self):
+    #     """delete local directory"""
+    #     shutil.rmtree(self.new_dataset_dir)
 
     def make_dataset(self, repeat_num=30):
         """make a fake SQuAD dataset"""
