@@ -20,12 +20,17 @@ from mindformers.modules.transformer.transformer import default_transformer_conf
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.models.utils import convert_mstype
 from mindformers.models.base_config import BaseConfig
+from mindformers.mindformer_book import MindFormerBook
+
+__all__ = ['BloomConfig']
 
 @MindFormerRegister.register(MindFormerModuleType.CONFIG)
 class BloomConfig(BaseConfig):
     """
     Bloom config class which defines the model size
     """
+
+    _support_list = MindFormerBook.get_config_support_list()['bloom']
 
     def __init__(self,
                  dropout_prob: float = 0.1,
@@ -51,6 +56,11 @@ class BloomConfig(BaseConfig):
                  moe_config: MoEConfig = default_moe_config,
                  use_seq_parallel: bool = False,
                  use_select_recompute: bool = False,
+                 repetition_penalty: int = 1,
+                 max_decode_length: int = 1024,
+                 top_k: int = 5,
+                 top_p: int = 1,
+                 do_sample: bool = True,
                  **kwargs):
         super().__init__(**kwargs)
         self.dropout_prob = dropout_prob
@@ -76,3 +86,8 @@ class BloomConfig(BaseConfig):
         self.hidden_act = hidden_act
         self.use_seq_parallel = use_seq_parallel
         self.use_select_recompute = use_select_recompute
+        self.repetition_penalty = repetition_penalty
+        self.max_decode_length = max_decode_length
+        self.top_k = top_k
+        self.top_p = top_p
+        self.do_sample = do_sample
