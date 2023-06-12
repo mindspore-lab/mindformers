@@ -329,6 +329,24 @@ def resume_checkpoint_dict(config, checkpoint_dict, model, network, optimizer, d
     logger.info("Optimizer parameters are not loaded：%s", str(not_load_optim_params))
 
 
+def load_checkpoint_for_eval(config, model, network, dataset):
+    """Resume Checkpoint for eval."""
+    if not os.path.realpath(config.resume_or_finetune_checkpoint) or \
+            not os.path.exists(config.resume_or_finetune_checkpoint):
+        raise FileNotFoundError(f"The resume_or_finetune_checkpoint must be correct, "
+                                f"but get {config.resume_or_finetune_checkpoint}")
+    if context.get_auto_parallel_context('parallel_mode') in \
+            ['semi_auto_parallel', 'auto_parallel', 'hybrid_parallel']:
+        checkpoint_dict = load_distributed_checkpoint(config)
+        if not config.runner_config.sink_mode:
+            raise ValueError("When distributed loads are sliced weights, sink_mode must be set True.")
+        model.infer_predict_layout(*next(dataset.create_tuple_iterator()))
+    else:
+        checkpoint_dict = load_checkpoint(config.resume_or_finetune_checkpoint)
+    not_load_network_params = load_param_into_net(network, checkpoint_dict)
+    logger.info("Network parameters are not loaded：%s", str(not_load_network_params))
+
+
 def get_last_checkpoint(checkpoint_dir):
     """get last checkpoint for resuming or finetune."""
     if not os.path.isdir(checkpoint_dir):
