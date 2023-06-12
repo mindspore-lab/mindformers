@@ -296,8 +296,7 @@ def load_resume_context_from_checkpoint(config):
         raise FileNotFoundError(f"The load_checkpoint must be correct, "
                                 f"but get {config.load_checkpoint}")
 
-    if context.get_auto_parallel_context('parallel_mode') in \
-            ['semi_auto_parallel', 'auto_parallel', 'hybrid_parallel']:
+    if os.path.isdir(config.load_checkpoint):
         resume_dict = load_distributed_checkpoint(config, ["loss_scale", "epoch_num"])
         if not config.runner_config.sink_mode:
             raise ValueError("When distributed loads are sliced weights, sink_mode must be set True.")
@@ -352,8 +351,7 @@ def transform_and_load_checkpoint(config, model, network, dataset, optimizer=Non
             not os.path.exists(config.load_checkpoint):
         raise FileNotFoundError(f"The load_checkpoint must be correct, "
                                 f"but get {config.load_checkpoint}")
-    if context.get_auto_parallel_context('parallel_mode') in \
-            ['semi_auto_parallel', 'auto_parallel', 'hybrid_parallel']:
+    if os.path.isdir(config.load_checkpoint):
         checkpoint_dict = load_distributed_checkpoint(config)
     else:
         checkpoint_dict = load_checkpoint(config.load_checkpoint)
