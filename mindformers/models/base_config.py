@@ -43,7 +43,7 @@ class BaseConfig(dict):
         ...                  data_size: int = 32,
         ...                  net_size: list = [1, 2, 3],
         ...                  loss_type: str = "MyLoss",
-        ...                  checkpoint_name_or_path: str = 'my_model',
+        ...                  checkpoint_name_or_path: str = '',
         ...                  **kwargs):
         ...         self.data_size = data_size
         ...         self.net_size = net_size

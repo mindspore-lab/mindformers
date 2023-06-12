@@ -102,7 +102,7 @@ class SwinConfig(BaseConfig):
                  param_init_type: mstype = mstype.float32,
                  moe_config: MoEConfig = default_moe_config,
                  parallel_config: TransformerOpParallelConfig = default_parallel_config,
-                 checkpoint_name_or_path: str = 'swin_base_p4w7',
+                 checkpoint_name_or_path: str = '',
                  **kwargs):
         """Swin Base Config"""
         self.image_size = image_size

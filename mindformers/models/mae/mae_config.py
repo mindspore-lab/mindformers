@@ -71,7 +71,7 @@ class ViTMAEConfig(BaseConfig):
                  decoder_num_attention_heads: int = 16,
                  decoder_intermediate_size: int = 2048,
                  norm_pix_loss: bool = True,
-                 checkpoint_name_or_path: str = 'mae_vit_base_p16',
+                 checkpoint_name_or_path: str = '',
                  layernorm_compute_type: mstype = mstype.float32,
                  softmax_compute_type: mstype = mstype.float32,
                  param_init_type: mstype = mstype.float32,

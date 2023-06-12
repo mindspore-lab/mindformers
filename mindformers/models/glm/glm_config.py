@@ -74,6 +74,7 @@ class GLMConfig(BaseConfig):
                  repetition_penalty: float = 1,
                  is_enhanced_encoder: bool = True,
                  is_npu_acceleration: bool = False,
+                 checkpoint_name_or_path: str = "",
                  **kwargs):
         super().__init__(**kwargs)
         self.batch_size = batch_size
@@ -113,3 +114,4 @@ class GLMConfig(BaseConfig):
         self.repetition_penalty = repetition_penalty
         self.is_enhanced_encoder = is_enhanced_encoder
         self.is_npu_acceleration = is_npu_acceleration
+        self.checkpoint_name_or_path = checkpoint_name_or_path

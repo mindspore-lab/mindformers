@@ -59,7 +59,7 @@ class PanguAlphaConfig(BaseConfig):
                  use_moe: bool = False,
                  expert_num: int = 1,
                  per_token_num_experts_chosen: int = 1,
-                 checkpoint_name_or_path: str = 'pangualpha_2_6b',
+                 checkpoint_name_or_path: str = '',
                  **kwargs):
         super(PanguAlphaConfig, self).__init__(**kwargs)
         self.batch_size = batch_size

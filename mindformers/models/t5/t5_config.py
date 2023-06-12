@@ -107,7 +107,7 @@ class T5Config(BaseConfig):
                  has_relative_bias: bool = True,
                  scale_output: bool = True,
                  parallel_config: TransformerOpParallelConfig = None,
-                 checkpoint_name_or_path: str = None,
+                 checkpoint_name_or_path: str = '',
                  top_p=0.95,
                  top_k=1,
                  repetition_penalty=1,
