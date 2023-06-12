@@ -175,6 +175,7 @@ class Trainer:
                  audio_processor: Optional[BaseAudioProcessor] = None,
                  optimizers: Optional[Optimizer] = None,
                  wrapper: Optional[TrainOneStepCell] = None,
+                 pet_method: Optional[str] = '',
                  callbacks: Optional[Union[Callback, List[Callback]]] = None,
                  eval_callbacks: Optional[Union[Callback, List[Callback]]] = None,
                  compute_metrics: Optional[Union[dict, set]] = None,
@@ -182,6 +183,7 @@ class Trainer:
                  **kwargs):
         self.task = task
         self.model = model
+        self.pet_method = pet_method
         self.train_dataset = train_dataset
         self.eval_dataset = eval_dataset
         self.optimizers = optimizers
@@ -213,6 +215,7 @@ class Trainer:
         assert task in SUPPORT_TASKS.keys(), \
             f"task name must be in {SUPPORT_TASKS.keys()}, but get {task}."
         if isinstance(model, str):
+            model = model + '_{}'.format(pet_method) if pet_method else model
             assert model in SUPPORT_MODEL_NAMES, \
                 f"model must be in {SUPPORT_MODEL_NAMES} when model's type is string, but get {model}."
             self.model_name = model
@@ -223,6 +226,10 @@ class Trainer:
         if isinstance(self.model, (Cell, BaseModel)):
             logger.info("The model instance has been entered, "
                         "and the model will not be created from model_config")
+            if pet_method:
+                logger.warning("pet_method is not valid when a model instance is passed in."
+                               "Currently, only part of the model in MindFormers is supported."
+                               "Please pass in the model keyword")
             self.is_model_instance = True
         else:
             self.is_model_instance = False
@@ -259,12 +266,7 @@ class Trainer:
             elif isinstance(args, TrainingArguments):
                 logger.warning(
                     "When using the TrainingArguments class, "
-                    "its arguments will override the default config configuration,"
-                    "so it is required to inherit the TrainingArguments configuration,"
-                    "corresponding to the task and the complete training configuration of the model."
-                    "Otherwise, it will affect the default configuration parameters and cause training problems."
-                    "It is recommended to use the ConfigArguments class for training configuration."
-                )
+                    "its arguments will override the default config configuration.")
                 args.convert_args_to_mindformers_config(task_config)
 
             self.config = task_config
@@ -394,6 +396,86 @@ class Trainer:
 
         if initial_epoch != 0:
             self.config.runner_config.initial_epoch = initial_epoch
+
+        if self.is_model_instance:
+            self.reset_model_instance(is_train=True)
+
+        self.trainer.train(
+            config=self.config, network=self.model,
+            dataset=self.train_dataset, optimizer=self.optimizers,
+            eval_dataset=self.eval_dataset if do_eval else None,
+            wrapper=self.wrapper,
+            callbacks=self.callbacks,
+            is_full_config=True, **kwargs)
+
+    def finetune(self,
+                 finetune_checkpoint: Optional[Union[str, bool]] = False,
+                 resume_training: Optional[bool] = False,
+                 do_eval: bool = False,
+                 **kwargs):
+        r"""Finetune task for Trainer.
+        This function is used to fine-tune the network.
+
+        Args:
+            finetune_checkpoint (Optional[Union[str, bool]]):
+                Used to restore training or fine-tune the weight of the network.
+                It support real checkpoint path or valid model name of mindformers or bool value.
+                if it's true, the last checkpoint file saved from the previous training round is automatically used.
+                if resume_training is true, this checkpoint will be used to restore training of the network.
+                Default: False.
+            resume_training (bool): Whether to perform resume training. Default: False.
+            do_eval (bool): Whether evaluations are performed during training. Default: False.
+
+        Raises:
+            TypeError: if load_checkpoint is not bool or str type.
+
+        Examples:
+            >>> from mindformers import Trainer
+            >>> task_trainer = Trainer(task='text_generation',
+            ...                        model='gpt2',
+            ...                        pet_method='lora',
+            ...                        train_dataset='./train',
+            ...                        eval_dataset='./eval')
+            >>> # 1) default finetune task.
+            >>> task_trainer.finetune()
+            >>> # 2) eval network when finetune model.
+            >>> task_trainer.finetune(do_eval=True)
+            >>> # 3) The last weight in the output directory is automatically loaded to resume training.
+            >>> task_trainer.finetune(finetune_checkpoint=True, resume_training=True)
+            >>> # 4) The last weight in the output directory is automatically loaded for fine-tuning.
+            >>> task_trainer.finetune(finetune_checkpoint=True)
+            >>> # 5) Specify weights to fine-tune.
+            >>> task_trainer.finetune(finetune_checkpoint='./output/rank_0/checkpoint/mindformers.ckpt')
+            >>> # 6) Automatically load preset weights for fine-tuning.
+            >>> task_trainer.finetune(finetune_checkpoint='gpt2')
+        """
+        if finetune_checkpoint is not None and \
+                not isinstance(finetune_checkpoint, (bool, str)):
+            raise TypeError(f"load_checkpoint must be one of [None, string, bool], "
+                            f"but get {finetune_checkpoint}")
+        if finetune_checkpoint is False:
+            finetune_checkpoint = None
+
+        if do_eval:
+            logger.warning("do_eval is not supported yet."
+                           "It is a reserved interface and will be supported in future versions.")
+            if self.eval_dataset is None:
+                raise ValueError('When do_eval is enabled, the eval_dataset must be entered,'
+                                 'which can be the dataset path for the corresponding task '
+                                 'or a custom MindSpore Dataset instance')
+
+        if finetune_checkpoint is True:
+            self.config.model.model_config.checkpoint_name_or_path = None
+            self.config.load_checkpoint = self.get_last_checkpoint()
+        elif isinstance(finetune_checkpoint, str):
+            self.config.model.model_config.checkpoint_name_or_path = None
+            self.config.load_checkpoint = finetune_checkpoint
+        else:
+            self.default_checkpoint_name_or_path = self.config.model.model_config.checkpoint_name_or_path
+            self.config.load_checkpoint = self.config.model.model_config.checkpoint_name_or_path
+            self.config.model.model_config.checkpoint_name_or_path = None
+
+        self.config.resume_training = resume_training
 
         if self.is_model_instance:
             self.reset_model_instance(is_train=True)
