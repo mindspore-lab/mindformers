@@ -35,8 +35,8 @@ from mindspore.ops import operations as P
 from mindspore.communication import get_group_size, get_rank
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.models import BasicTokenizer
-from mindformers.models.glm.chatglm_6b_tokenizer import ChatGLMTokenizer
 from mindformers.core.loss import CrossEntropyLoss
+from ...auto_class import AutoTokenizer
 from ...dataset.labels import cluener_labels
 
 __all__ = ['EntityScore', 'SQuADMetric', 'PerplexityMetric', 'ADGENMetric']
@@ -567,8 +567,8 @@ class PerplexityMetric(nn.Metric):
 class ADGENMetric(nn.Metric):
     """Compute the f1, precision and recall score of each entity"""
 
-    def __init__(self, vocab_file, ignore_pad_token_for_loss=True):
-        self.tokenizer = ChatGLMTokenizer(vocab_file=vocab_file)
+    def __init__(self, tokenizer_type: str, ignore_pad_token_for_loss=True):
+        self.tokenizer = AutoTokenizer.from_pretrained(tokenizer_type)
         self.ignore_pad_token_for_loss = ignore_pad_token_for_loss
         self.score_dict = {
             "rouge-1": [],

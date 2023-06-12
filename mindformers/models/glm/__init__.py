@@ -19,4 +19,4 @@ from .glm import GLMModel, GLMForPreTraining, GLMChatModel
 from .chatglm_6b_tokenizer import ChatGLMTokenizer
 from .glm_processor import GLMProcessor
 
-__all__ = ['GLMConfig', 'GLMForPreTraining', 'GLMChatModel', 'GLMModel', 'ChatGLMTokenizer', 'GLMProcessor']
+__all__ = ['ChatGLMTokenizer', 'GLMConfig', 'GLMForPreTraining', 'GLMChatModel', 'GLMModel', 'GLMProcessor']

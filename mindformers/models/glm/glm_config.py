@@ -60,7 +60,7 @@ class GLMConfig(BaseConfig):
                  use_past: bool = False,
                  phase='test',
                  activation_func='GELU',
-                 position_encoding_2d: bool = False,
+                 position_encoding_2d: bool = True,
                  params_dtype="float16",
                  layernorm_dtype="float32",
                  softmax_dtype="float32",
@@ -93,7 +93,7 @@ class GLMConfig(BaseConfig):
         self.use_past = use_past
         if phase == 'train' and use_past:
             self.use_past = False
-            logger.warning(f"use_past can't be True when phase='train', it has been set to False")
+            logger.warning("use_past can't be True when phase='train', it has been set to False")
         self.parallel_config = parallel_config
         self.activation_func = activation_func
         self.phase = phase

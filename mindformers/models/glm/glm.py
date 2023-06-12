@@ -91,6 +91,8 @@ class GLMModel(nn.Cell):
         self.seq_length = config.seq_length
         self.use_past = config.use_past
         layernorm = LayerNorm
+        if config.parallel_config:
+            op_parallel_config = config.parallel_config
 
         # create embedding parameters
         if is_version_ge(ms.__version__, '2.0.0'):
@@ -216,13 +218,13 @@ class GLMForPreTraining(BaseModel):
     Args:
         config (GLMConfig): The config of GLMModel.
     """
+    _support_list = MindFormerBook.get_model_support_list()['glm']
 
     def __init__(self, config):
         super(GLMForPreTraining, self).__init__(config)
         self.config = config
         self.position_encoding_2d = config.position_encoding_2d
         self.transformer = GLMModel(config)
-        new_congfig = OpParallelConfig(data_parallel=1, model_parallel=4)
         self.lm_head = GLMHead(
             hidden_size=config.hidden_size,
             vocab_size=config.vocab_size,
@@ -230,10 +232,11 @@ class GLMForPreTraining(BaseModel):
             compute_dtype=config.compute_dtype,
             embed_parallel_config=config.parallel_config)
         self.stridedslice = ops.StridedSlice().shard(((1, 1),))
-        self.loss = CrossEntropyLoss(parallel_config=new_congfig)
+        self.loss = CrossEntropyLoss(parallel_config=config.parallel_config)
         self.phase = config.phase
         self.gmask = config.gmask_token_id
         self.bos_token_id = config.bos_token_id
+        self.ones = P.Ones()
         self.load_checkpoint(config)
 
     def get_masks_np(self, input_ids):
@@ -321,7 +324,7 @@ class GLMForPreTraining(BaseModel):
         logits_shape = logits.shape
         label = label.reshape((-1,))
         logits = logits.reshape((-1, logits_shape[-1]))
-        input_mask = ops.ones(tokens.shape)
+        input_mask = self.ones(tokens.shape, logits.dtype)
         input_mask = input_mask.reshape((-1,))
         loss = self.loss(logits, label, input_mask)
         return loss

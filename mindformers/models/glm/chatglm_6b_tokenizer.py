@@ -295,11 +295,10 @@ class ChatGLMTokenizer(Tokenizer):
         seq = self.sp_tokenizer.tokenize(text)
         return seq
 
-    # pylint:disable=abstract-method
-    # pylint:disable=arguments-differ
-    def _decode(self, token_ids, skip_special_tokens):
+    def _decode(self, token_ids, skip_special_tokens=False, **kwargs):
         """ Decode id to text. """
-        _ = skip_special_tokens
+        # unused in this tokenizer.
+        _, _ = skip_special_tokens, kwargs
         if isinstance(token_ids, int):
             token_ids = [token_ids]
         if self.pad_token_id in token_ids:  # remove pad
