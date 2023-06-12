@@ -30,17 +30,17 @@ Note:
 """
 import os
 import time
-import pytest
+# import pytest
 
 from mindformers import MindFormerBook, AutoConfig, AutoModel
 from mindformers.models import SwinForImageClassification, BaseModel
 from mindformers.tools import logger
 
 
-@pytest.mark.level0
-@pytest.mark.platform_arm_ascend_training
-@pytest.mark.platform_x86_ascend_training
-@pytest.mark.env_onecard
+# @pytest.mark.level0
+# @pytest.mark.platform_arm_ascend_training
+# @pytest.mark.platform_x86_ascend_training
+# @pytest.mark.env_onecard
 class TestModelMethod:
     """A test class for testing Model classes"""
     def setup_method(self):

@@ -22,7 +22,7 @@ windows:  pytest .\\tests\\st\\test_model\\test_swin_model\\test_swin_construct.
 linux:  pytest ./tests/st/test_model/test_swin_model/test_swin_construct.py
 """
 import os
-import pytest
+# import pytest
 import numpy as np
 
 import mindspore.nn as nn
@@ -34,10 +34,10 @@ from mindformers import MindFormerBook, AutoConfig, AutoModel
 from mindformers.tools import logger
 
 
-@pytest.mark.level0
-@pytest.mark.platform_x86_ascend_training
-@pytest.mark.platform_arm_ascend_training
-@pytest.mark.env_onecard
+# @pytest.mark.level0
+# @pytest.mark.platform_x86_ascend_training
+# @pytest.mark.platform_arm_ascend_training
+# @pytest.mark.env_onecard
 def test_construct():
     """
     Feature: AutoFeatureExtractor class

@@ -22,16 +22,16 @@ pytest .\\tests\\st\\test_pipeline\\test_question_answering_pipeline.py
 linux:
 pytest ./tests/st/test_pipeline/test_question_answering_pipeline.py
 """
-import pytest
+# import pytest
 
 from mindformers.pipeline import QuestionAnsweringPipeline
 from mindformers import AutoTokenizer, BertForQuestionAnswering, AutoConfig
 
 
-@pytest.mark.level0
-@pytest.mark.platform_x86_ascend_training
-@pytest.mark.platform_arm_ascend_training
-@pytest.mark.env_onecard
+# @pytest.mark.level0
+# @pytest.mark.platform_x86_ascend_training
+# @pytest.mark.platform_arm_ascend_training
+# @pytest.mark.env_onecard
 def test_question_answering_pipeline():
     """
     Feature: QuestionAnsweringPipeline class

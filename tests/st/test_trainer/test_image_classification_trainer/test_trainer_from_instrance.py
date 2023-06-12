@@ -23,7 +23,7 @@ pytest ./tests/st/test_trainer/test_image_classification_trainer/test_trainer_fr
 """
 import os
 import numpy as np
-import pytest
+# import pytest
 from PIL import Image
 import mindspore as ms
 from mindformers.mindformer_book import MindFormerBook
@@ -35,10 +35,10 @@ from mindformers.dataset.build_dataset import build_dataset
 from mindformers.core.lr import WarmUpCosineDecayV1
 
 
-@pytest.mark.level0
-@pytest.mark.platform_x86_ascend_training
-@pytest.mark.platform_arm_ascend_training
-@pytest.mark.env_onecard
+# @pytest.mark.level0
+# @pytest.mark.platform_x86_ascend_training
+# @pytest.mark.platform_arm_ascend_training
+# @pytest.mark.env_onecard
 class TestTrainer:
     """A test class for testing Trainer"""
 

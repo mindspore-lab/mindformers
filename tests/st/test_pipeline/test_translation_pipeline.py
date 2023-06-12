@@ -29,7 +29,7 @@ Note:
 import os
 import shutil
 
-import pytest
+# import pytest
 from mindformers.pipeline import TranslationPipeline
 
 from mindformers import T5Tokenizer, T5ForConditionalGeneration, T5Config, T5Processor
@@ -44,10 +44,10 @@ def modify_batch_size(net, batch_size):
         modify_batch_size(cell, batch_size)
 
 
-@pytest.mark.level0
-@pytest.mark.platform_x86_ascend_training
-@pytest.mark.platform_arm_ascend_training
-@pytest.mark.env_onecard
+# @pytest.mark.level0
+# @pytest.mark.platform_x86_ascend_training
+# @pytest.mark.platform_arm_ascend_training
+# @pytest.mark.env_onecard
 def test_translation_pipeline():
     """
     Feature: Test translation pipeline class

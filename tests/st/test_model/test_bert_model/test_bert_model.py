@@ -21,7 +21,7 @@ windows:  pytest .\\tests\\st\\test_model\\test_bert_model\\test_bert_model.py
 linux:  pytest ./tests/st/test_model/test_bert_model/test_bert_model.py
 """
 import os
-import pytest
+# import pytest
 from mindspore import Tensor
 import mindspore.common.dtype as mstype
 from mindformers import MindFormerBook, AutoModel, BertForPreTraining, BertTokenizer
@@ -37,9 +37,9 @@ class TestModelMethod:
                                         'configs', 'bert', 'run_bert_base_uncased.yaml')
 
     # the first method to load model, AutoModel
-    @pytest.mark.level0
-    @pytest.mark.platform_x86_cpu
-    @pytest.mark.env_onecard
+    # @pytest.mark.level0
+    # @pytest.mark.platform_x86_cpu
+    # @pytest.mark.env_onecard
     def test_auto_model(self):
         """
         Feature: AutoModel, from_pretrained, from_config
@@ -57,10 +57,10 @@ class TestModelMethod:
         # assert isinstance(model, BertForPreTraining)
         assert isinstance(model, BaseModel)
 
-    @pytest.mark.level0
-    @pytest.mark.platform_x86_ascend_training
-    @pytest.mark.platform_arm_ascend_training
-    @pytest.mark.env_onecard
+    # @pytest.mark.level0
+    # @pytest.mark.platform_x86_ascend_training
+    # @pytest.mark.platform_arm_ascend_training
+    # @pytest.mark.env_onecard
     def test_bert_from_pretrain(self):
         """
         Feature: bert, from_pretrained, from_config

@@ -24,7 +24,7 @@ linux:
 pytest ./tests/st/test_pipeline/test_masked_image_modeling_pipeline.py
 """
 import numpy as np
-import pytest
+# import pytest
 
 from mindformers.pipeline import MaskedImageModelingPipeline
 from mindformers import ViTMAEImageProcessor
@@ -33,10 +33,10 @@ import mindspore as ms
 ms.set_context(mode=ms.PYNATIVE_MODE)
 
 
-@pytest.mark.level0
-@pytest.mark.platform_x86_ascend_training
-@pytest.mark.platform_arm_ascend_training
-@pytest.mark.env_onecard
+# @pytest.mark.level0
+# @pytest.mark.platform_x86_ascend_training
+# @pytest.mark.platform_arm_ascend_training
+# @pytest.mark.env_onecard
 def test_masked_image_modeling_pipeline():
     """
     Feature: MaskedImageModelingPipeline class

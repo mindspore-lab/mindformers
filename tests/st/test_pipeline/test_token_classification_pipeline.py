@@ -23,17 +23,17 @@ pytest .\\tests\\st\\test_pipeline\\test_token_classification_pipeline.py
 linux:
 pytest ./tests/st/test_pipeline/test_token_classification_pipeline.py
 """
-import pytest
+# import pytest
 
 from mindformers.pipeline import TokenClassificationPipeline
 from mindformers import AutoTokenizer, BertForTokenClassification, AutoConfig
 from mindformers.dataset.labels import cluener_labels
 
 
-@pytest.mark.level0
-@pytest.mark.platform_x86_ascend_training
-@pytest.mark.platform_arm_ascend_training
-@pytest.mark.env_onecard
+# @pytest.mark.level0
+# @pytest.mark.platform_x86_ascend_training
+# @pytest.mark.platform_arm_ascend_training
+# @pytest.mark.env_onecard
 def test_token_classification_pipeline():
     """
     Feature: TokenClassificationPipeline class

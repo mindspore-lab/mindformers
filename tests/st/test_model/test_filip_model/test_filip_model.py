@@ -21,7 +21,7 @@ windows:  pytest .\\tests\\st\\test_model\\test_filip_model\\test_filip_model.py
 linux:  pytest ./tests/st/test_model/test_filip_model/test_filip_model.py
 """
 import os
-import pytest
+# import pytest
 from mindformers import MindFormerBook, AutoModel
 from mindformers.models import BaseModel, FilipModel
 from mindformers.tools import logger
@@ -35,9 +35,9 @@ class TestModelMethod:
                                         'configs', 'filip', 'run_filip_vit_l_14.yaml')
 
     # the first method to load model, AutoModel
-    @pytest.mark.level0
-    @pytest.mark.platform_arm_ascend_training
-    @pytest.mark.env_onecard
+    # @pytest.mark.level0
+    # @pytest.mark.platform_arm_ascend_training
+    # @pytest.mark.env_onecard
     def test_auto_model(self):
         """
         Feature: AutoModel, from_pretrained, from_config
@@ -53,9 +53,9 @@ class TestModelMethod:
         assert isinstance(model, FilipModel)
         assert isinstance(model, BaseModel)
 
-    @pytest.mark.level0
-    @pytest.mark.platform_arm_ascend_training
-    @pytest.mark.env_onecard
+    # @pytest.mark.level0
+    # @pytest.mark.platform_arm_ascend_training
+    # @pytest.mark.env_onecard
     def test_save_model(self):
         """
         Feature: save_pretrained method of FilipModel

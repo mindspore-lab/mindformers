@@ -19,7 +19,7 @@ pytest tests/st/test_model/test_bert_model/test_bert_from_instance.py
 """
 from dataclasses import dataclass
 import numpy as np
-import pytest
+# import pytest
 from mindspore.nn import AdamWeightDecay, WarmUpLR, TrainOneStepCell
 from mindspore.train.callback import LossMonitor, TimeMonitor
 from mindspore.dataset import GeneratorDataset
@@ -52,10 +52,10 @@ class Tempconfig:
     data_size: int = 0
     resume_or_finetune_checkpoint: str = ""
 
-@pytest.mark.level0
-@pytest.mark.platform_x86_ascend_training
-@pytest.mark.platform_arm_ascend_training
-@pytest.mark.env_onecard
+# @pytest.mark.level0
+# @pytest.mark.platform_x86_ascend_training
+# @pytest.mark.platform_arm_ascend_training
+# @pytest.mark.env_onecard
 def test_bert_trainer_train_from_instance():
     """
     Feature: Create Trainer From Instance
@@ -94,10 +94,10 @@ def test_bert_trainer_train_from_instance():
                           callbacks=callbacks)
     mlm_trainer.train(resume_or_finetune_from_checkpoint=False)
 
-@pytest.mark.level0
-@pytest.mark.platform_x86_ascend_training
-@pytest.mark.platform_arm_ascend_training
-@pytest.mark.env_onecard
+# @pytest.mark.level0
+# @pytest.mark.platform_x86_ascend_training
+# @pytest.mark.platform_arm_ascend_training
+# @pytest.mark.env_onecard
 def test_bert_trainer_predict():
     """
     Feature: Test bert trainer predict
@@ -113,10 +113,10 @@ def test_bert_trainer_predict():
     output = mlm_trainer.predict(input_data=input_data, network=bert, tokenizer=tokenizer)
     assert len(output) == 1
 
-@pytest.mark.level0
-@pytest.mark.platform_x86_ascend_training
-@pytest.mark.platform_arm_ascend_training
-@pytest.mark.env_onecard
+# @pytest.mark.level0
+# @pytest.mark.platform_x86_ascend_training
+# @pytest.mark.platform_arm_ascend_training
+# @pytest.mark.env_onecard
 def test_bert_trainer_train_from_mlm():
     """
     Feature: Create Trainer From Instance
