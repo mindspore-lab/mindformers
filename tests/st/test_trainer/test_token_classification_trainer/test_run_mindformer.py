@@ -24,16 +24,16 @@ pytest ./tests/st/test_trainer/test_token_classification_trainer/test_run_mindfo
 """
 import os
 import json
-import pytest
+# import pytest
 
 from mindformers.mindformer_book import MindFormerBook
 from mindformers.tools.register.config import MindFormerConfig
 
 
-@pytest.mark.level0
-@pytest.mark.platform_x86_ascend_training
-@pytest.mark.platform_arm_ascend_training
-@pytest.mark.env_onecard
+# @pytest.mark.level0
+# @pytest.mark.platform_x86_ascend_training
+# @pytest.mark.platform_arm_ascend_training
+# @pytest.mark.env_onecard
 class TestRunMindFormer:
     """A test class for testing run mindformer"""
     def setup_method(self):

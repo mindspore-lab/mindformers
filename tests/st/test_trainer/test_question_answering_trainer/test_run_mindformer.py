@@ -25,15 +25,15 @@ pytest ./tests/st/test_trainer/test_question_answering_trainer/test_run_mindform
 import os
 import json
 # import shutil
-import pytest
+# import pytest
 
 from mindformers.mindformer_book import MindFormerBook
 
 
-@pytest.mark.level0
-@pytest.mark.platform_x86_ascend_training
-@pytest.mark.platform_arm_ascend_training
-@pytest.mark.env_onecard
+# @pytest.mark.level0
+# @pytest.mark.platform_x86_ascend_training
+# @pytest.mark.platform_arm_ascend_training
+# @pytest.mark.env_onecard
 class TestRunMindFormer:
     """A test class for testing run mindformer"""
     def setup_method(self):

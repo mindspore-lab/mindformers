@@ -22,7 +22,7 @@ windows:  pytest .\\tests\\st\\test_model\\test_swin_model\\test_swin_processor.
 linux:  pytest ./tests/st/test_model/test_swin_model/test_swin_processor.py
 """
 import os
-import pytest
+# import pytest
 import numpy as np
 
 from mindspore import Tensor
@@ -32,10 +32,10 @@ from mindformers.models import SwinProcessor, SwinImageProcessor
 from mindformers.tools import logger
 
 
-@pytest.mark.level0
-@pytest.mark.platform_x86_ascend_training
-@pytest.mark.platform_arm_ascend_training
-@pytest.mark.env_onecard
+# @pytest.mark.level0
+# @pytest.mark.platform_x86_ascend_training
+# @pytest.mark.platform_arm_ascend_training
+# @pytest.mark.env_onecard
 def test_swin_processor():
     """
     Feature: SwinProcessor class

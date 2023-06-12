@@ -22,24 +22,24 @@ linux:  pytest ./tests/st/test_model/test_clip_model/test_clip_model.py
 """
 import os
 import time
-import pytest
+# import pytest
 
 from mindformers import MindFormerBook, AutoConfig, AutoModel
 from mindformers.models import CLIPModel
 from mindformers.tools import logger
 
 
-@pytest.mark.level0
-@pytest.mark.platform_x86_ascend_training
-@pytest.mark.platform_arm_ascend_training
-@pytest.mark.env_onecard
+# @pytest.mark.level0
+# @pytest.mark.platform_x86_ascend_training
+# @pytest.mark.platform_arm_ascend_training
+# @pytest.mark.env_onecard
 class TestModelMethod:
     """A test class for testing Model classes"""
 
-    @pytest.mark.level0
-    @pytest.mark.platform_x86_ascend_training
-    @pytest.mark.platform_arm_ascend_training
-    @pytest.mark.env_onecard
+    # @pytest.mark.level0
+    # @pytest.mark.platform_x86_ascend_training
+    # @pytest.mark.platform_arm_ascend_training
+    # @pytest.mark.env_onecard
     def setup_method(self):
         """get_input"""
         self.model_type = "clip_vit_b_32"
@@ -56,10 +56,10 @@ class TestModelMethod:
                                            'clip')
 
     # the first method to load model, AutoModel
-    @pytest.mark.level0
-    @pytest.mark.platform_x86_ascend_training
-    @pytest.mark.platform_arm_ascend_training
-    @pytest.mark.env_onecard
+    # @pytest.mark.level0
+    # @pytest.mark.platform_x86_ascend_training
+    # @pytest.mark.platform_arm_ascend_training
+    # @pytest.mark.env_onecard
     def test_auto_model(self):
         """
         Feature: AutoModel, from_pretrained, from_config

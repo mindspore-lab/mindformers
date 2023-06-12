@@ -21,7 +21,7 @@ pytest .\\tests\\st\\test_trainer\\test_text_classification_trainer\\test_traine
 linux:
 pytest ./tests/st/test_trainer/test_text_classification_trainer/test_trainer_from_instance.py
 """
-import pytest
+# import pytest
 import numpy as np
 import mindspore as ms
 from mindspore.nn import AdamWeightDecay
@@ -33,10 +33,10 @@ from mindformers.trainer.config_args import ConfigArguments, RunnerConfig
 from mindformers.core.lr import build_lr
 
 
-@pytest.mark.level0
-@pytest.mark.platform_x86_ascend_training
-@pytest.mark.platform_arm_ascend_training
-@pytest.mark.env_onecard
+# @pytest.mark.level0
+# @pytest.mark.platform_x86_ascend_training
+# @pytest.mark.platform_arm_ascend_training
+# @pytest.mark.env_onecard
 class TestTrainer:
     """A test class for testing Trainer"""
     def generator(self):

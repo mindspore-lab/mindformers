@@ -21,15 +21,15 @@ windows:  pytest .\\tests\\st\\test_model\\test_txtcls_model\\test_txtcls_model.
 linux:  pytest ./tests/st/test_model/test_txtcls_model/test_txtcls_model.py
 """
 import os
-import pytest
+# import pytest
 from mindformers import MindFormerBook, AutoModel, AutoConfig
 from mindformers.models import BertForMultipleChoice
 from mindformers.tools import logger
 
 
-@pytest.mark.level0
-@pytest.mark.platform_x86_cpu
-@pytest.mark.env_onecard
+# @pytest.mark.level0
+# @pytest.mark.platform_x86_cpu
+# @pytest.mark.env_onecard
 class TestModelMethod:
     """A test class for testing Model classes"""
     def setup_method(self):

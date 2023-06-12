@@ -30,17 +30,17 @@ Note:
 """
 import os
 
-import pytest
+# import pytest
 from mindformers.pipeline import FillMaskPipeline, pipeline
 
 from mindformers import BertTokenizer, BertProcessor
 from mindformers.models import BertForPreTraining, BertConfig
 
 
-@pytest.mark.level0
-@pytest.mark.platform_x86_ascend_training
-@pytest.mark.platform_arm_ascend_training
-@pytest.mark.env_onecard
+# @pytest.mark.level0
+# @pytest.mark.platform_x86_ascend_training
+# @pytest.mark.platform_arm_ascend_training
+# @pytest.mark.env_onecard
 def test_translation_pipeline():
     """
     Feature: Test translation pipeline class

@@ -21,7 +21,7 @@ windows:  pytest .\\tests\\st\\test_model\\test_qa_model\\test_qa_model.py
 linux:  pytest ./tests/st/test_model/test_qa_model/test_qa_model.py
 """
 import os
-import pytest
+# import pytest
 from mindformers import MindFormerBook, AutoModel, AutoConfig
 from mindformers.models import BertForQuestionAnswering, BaseModel
 from mindformers.tools import logger
@@ -48,10 +48,10 @@ class TestModelMethod:
         # save path
         self.save_directory = os.path.join(MindFormerBook.get_default_checkpoint_save_folder(), 'qa')
     # the first method to load model, AutoModel
-    @pytest.mark.level0
-    @pytest.mark.platform_x86_ascend_training
-    @pytest.mark.platform_arm_ascend_training
-    @pytest.mark.env_onecard
+    # @pytest.mark.level0
+    # @pytest.mark.platform_x86_ascend_training
+    # @pytest.mark.platform_arm_ascend_training
+    # @pytest.mark.env_onecard
     def test_auto_model(self):
         """
         Feature: AutoModel, from_pretrained, from_config

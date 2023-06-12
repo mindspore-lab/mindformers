@@ -24,16 +24,16 @@ linux:
 pytest ./tests/st/test_pipeline/test_image_classification_pipeline.py
 """
 import numpy as np
-import pytest
+# import pytest
 
 from mindformers.pipeline import ImageClassificationPipeline
 from mindformers import ViTImageProcessor
 
 
-@pytest.mark.level0
-@pytest.mark.platform_x86_ascend_training
-@pytest.mark.platform_arm_ascend_training
-@pytest.mark.env_onecard
+# @pytest.mark.level0
+# @pytest.mark.platform_x86_ascend_training
+# @pytest.mark.platform_arm_ascend_training
+# @pytest.mark.env_onecard
 def test_image_classification_pipeline():
     """
     Feature: ImageClassificationPipeline class

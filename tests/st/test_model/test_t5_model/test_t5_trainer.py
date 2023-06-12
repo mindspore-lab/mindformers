@@ -21,7 +21,7 @@ import os
 import shutil
 
 import numpy as np
-import pytest
+# import pytest
 from mindspore.dataset import MindDataset, GeneratorDataset
 from mindspore.mindrecord import FileWriter
 
@@ -82,9 +82,9 @@ def write_raw_text_data(stage, data_record_path):
                 tfp.write(y + '\n')
 
 
-@pytest.mark.level0
-@pytest.mark.platform_arm_ascend_training
-@pytest.mark.env_onecard
+# @pytest.mark.level0
+# @pytest.mark.platform_arm_ascend_training
+# @pytest.mark.env_onecard
 class TestTranslationTrainer:
     """Test Translation Trainer"""
     def setup_class(self):

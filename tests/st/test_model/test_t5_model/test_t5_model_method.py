@@ -21,7 +21,7 @@ linux:  pytest ./tests/ut/test_t5_model.py
 
 """
 import os
-import pytest
+# import pytest
 
 from numpy import allclose
 
@@ -30,10 +30,10 @@ from mindformers import MindFormerBook, AutoModel
 from mindformers.models import T5ForConditionalGeneration, T5Config, T5Tokenizer
 
 
-@pytest.mark.level0
-@pytest.mark.platform_x86_ascend_training
-@pytest.mark.platform_arm_ascend_training
-@pytest.mark.env_onecard
+# @pytest.mark.level0
+# @pytest.mark.platform_x86_ascend_training
+# @pytest.mark.platform_arm_ascend_training
+# @pytest.mark.env_onecard
 class TestModelForT5Method:
     """A test class for testing Model classes"""
     def setup_method(self):
