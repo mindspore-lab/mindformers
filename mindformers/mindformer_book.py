@@ -446,6 +446,9 @@ class MindFormerBook:
         ('gpt2', [
             'gpt2',
         ]),
+        ('llama', [
+            'llama',
+        ]),
         ('pangualpha', [
             'pangualpha'
         ]),
