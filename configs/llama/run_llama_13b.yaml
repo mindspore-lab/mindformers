@@ -14,7 +14,7 @@ runner_config:
   epochs: 2
   batch_size: 2
   sink_mode: True
-  per_epoch_size: 2
+  sink_size: 2
   initial_epoch: 0
   has_trained_epoches: 0
   has_trained_steps: 0
@@ -49,10 +49,26 @@ train_dataset: &train_dataset
   repeat: 1
   numa_enable: False
   prefetch_size: 1
-
 train_dataset_task:
   type: CausalLanguageModelDataset
   dataset_config: *train_dataset
+
+# eval dataset
+eval_dataset: &eval_dataset
+  data_loader:
+    type: MindDataset
+    dataset_dir: ""
+    shuffle: False
+  input_columns: ["input_ids"]
+  num_parallel_workers: 8
+  python_multiprocessing: False
+  drop_remainder: False
+  repeat: 1
+  numa_enable: False
+  prefetch_size: 1
+eval_dataset_task:
+  type: CausalLanguageModelDataset
+  dataset_config: *eval_dataset
 
 # default parallel of device num = 16 910A
 parallel_config:
@@ -131,6 +147,11 @@ model:
     use_past: False
     offset: 0
     checkpoint_name_or_path: "llama_13b"
+    repetition_penalty: 1
+    max_decode_length: 512
+    top_k: 3
+    top_p: 1
+    do_sample: False
   arch:
     type: LlamaForCausalLM
 
@@ -141,7 +162,12 @@ processor:
     bos_token: '<s>'
     eos_token: '</s>'
     pad_token: '<pad>'
-    type: LLaMATokenizer
+    type: LlamaTokenizer
+  type: LlamaProcessor
+
+# metric
+metric:
+  type: PerplexityMetric
 
 # wrapper cell config
 runner_wrapper:
