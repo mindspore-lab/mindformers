@@ -18,6 +18,7 @@ from functools import lru_cache
 import regex as re
 from mindformers import GPT2Tokenizer
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
+from mindformers.mindformer_book import MindFormerBook
 
 __all__ = ['BloomTokenizer']
 
@@ -51,6 +52,9 @@ class BloomTokenizer(GPT2Tokenizer):
     Outputs:
         A dict contains the processed ids
     """
+
+    _support_list = MindFormerBook.get_tokenizer_support_list()['bloom']
+
     def __init__(
             self,
             tokenizer_json_file,

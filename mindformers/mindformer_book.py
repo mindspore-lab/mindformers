@@ -194,6 +194,14 @@ class MindFormerBook:
                 _PROJECT_PATH, "configs/glm/run_glm_6b_finetune.yaml")),
             ("glm_6b_chat", os.path.join(
                 _PROJECT_PATH, "configs/glm/run_glm_6b_infer.yaml")),
+            ("bloom_560m", os.path.join(
+                _PROJECT_PATH, "configs/bloom/run_bloom_560m.yaml")),
+            ("bloom_7.1b", os.path.join(
+                _PROJECT_PATH, "configs/bloom/run_bloom_7.1b.yaml")),
+            ("bloom_65b", os.path.join(
+                _PROJECT_PATH, "configs/bloom/run_bloom_65b.yaml")),
+            ("bloom_176b", os.path.join(
+                _PROJECT_PATH, "configs/bloom/run_bloom_176b.yaml")),
             ("common", os.path.join(
                 _PROJECT_PATH, "configs/gpt2/run_gpt2.yaml"))])
          )
@@ -285,6 +293,14 @@ class MindFormerBook:
                 _PROJECT_PATH, "configs/pangualpha/run_pangualpha_13b.yaml")),
             ("glm_6b", os.path.join(
                 _PROJECT_PATH, "configs/glm/run_glm_6b_infer.yaml")),
+            ("bloom_560m", os.path.join(
+                _PROJECT_PATH, "configs/bloom/run_bloom_560m.yaml")),
+            ("bloom_7.1b", os.path.join(
+                _PROJECT_PATH, "configs/bloom/run_bloom_7.1b.yaml")),
+            ("bloom_65b", os.path.join(
+                _PROJECT_PATH, "configs/bloom/run_bloom_65b.yaml")),
+            ("bloom_176b", os.path.join(
+                _PROJECT_PATH, "configs/bloom/run_bloom_176b.yaml")),
             ("common", os.path.join(
                 _PROJECT_PATH, "configs/gpt2/run_gpt2.yaml"))
         ]))
@@ -341,6 +357,12 @@ class MindFormerBook:
         ]),
         ('pangualpha', [
             'pangualpha'
+        ]),
+        ('bloom', [
+            'bloom_560m',
+            'bloom_7.1b',
+            'bloom_65b',
+            'bloom_176b',
         ]),
         ('glm', [
             'glm_6b',
@@ -405,6 +427,12 @@ class MindFormerBook:
         ('pangualpha', [
             'pangualpha'
         ]),
+        ('bloom', [
+            'bloom_560m',
+            'bloom_7.1b',
+            'bloom_65b',
+            'bloom_176b',
+        ]),
         ('glm', [
             'glm_6b',
             'glm_6b_chat'
@@ -458,6 +486,9 @@ class MindFormerBook:
         ]),
         ('glm', [
             'glm',
+        ]),
+        ('bloom', [
+            'bloom',
         ])
     ])
 
@@ -501,6 +532,9 @@ class MindFormerBook:
         ]),
         ('glm', [
             'glm_6b',
+        ]),
+        ('bloom', [
+            'bloom',
         ])
     ])
 

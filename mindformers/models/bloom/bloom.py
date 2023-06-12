@@ -25,6 +25,7 @@ from mindformers.core.loss import CrossEntropyLoss
 from mindformers.models.base_model import BaseModel
 from mindformers.tools.logger import logger
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
+from mindformers.mindformer_book import MindFormerBook
 from .layers import BloomBlocks, CausalMask
 from .bloom_config import BloomConfig
 from ..utils import convert_mstype
@@ -59,7 +60,7 @@ class BloomEmbeddingLayer(nn.Cell):
         return embedding, word_table
 
 
-def set_parallel_configure_for_layer(network, layer_id, offset, parallel_config, layers, use_select_recompute):
+def set_parallel_configure_for_layer(network, layer_id, offset, parallel_config, layers, use_select_recompute=False):
     """
     Default setting for the pipeline is: `(layer_id + offset) // (layers / pipeline_stage)`.
 
@@ -206,6 +207,8 @@ class BloomLMHeadModel(BaseModel):
     Returns:
         Tensor, the loss or logits of the network.
     """
+
+    _support_list = MindFormerBook.get_model_support_list()['bloom']
 
     def __init__(self, config=None):
         config = config if config is not None else BloomConfig()

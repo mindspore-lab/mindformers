@@ -82,7 +82,7 @@ class BloomAttention(MultiHeadAttention):
                 self.mul_alibi1.recompute()
                 self.add.recompute()
                 self.add_alibi.recompute()
-                self.prob_dropout.dropout_do_mask.recompute()
+                self.prob_dropout.recompute()
                 self.softmax.softmax.recompute()
                 self.softmax_3d.recompute()
             if use_seq_parallel:
