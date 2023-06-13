@@ -182,7 +182,7 @@ class AiLogFastStreamRedirect2File(StreamRedirector):
         if self.is_redirect:
             self.target_stream.flush()
             if not os.path.exists(self.file_save_dir):
-                os.makedirs(self.file_save_dir)
+                os.makedirs(self.file_save_dir, exist_ok=True)
             self.target_stream.seek(0, 0)
             flags = os.O_WRONLY | os.O_CREAT
             modes = stat.S_IWUSR | stat.S_IRUSR
@@ -407,7 +407,7 @@ def get_logger(logger_name: str = 'mindformers', **kwargs) -> logging.Logger:
         path = os.path.realpath(path)
         base_dir = os.path.dirname(path)
         if not os.path.exists(base_dir):
-            os.makedirs(base_dir)
+            os.makedirs(base_dir, exist_ok=True)
         file_path.append(path)
 
     max_file_size = max_file_size * 1024 * 1024

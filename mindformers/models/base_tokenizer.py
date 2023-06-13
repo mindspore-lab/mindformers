@@ -480,7 +480,7 @@ class BaseTokenizer(SpecialTokensMixin):
             cache_path = os.path.join(MindFormerBook.get_default_checkpoint_download_folder(),
                                       name_or_path.split("_")[cls._model_type])
             if not os.path.exists(cache_path):
-                os.makedirs(cache_path)
+                os.makedirs(cache_path, exist_ok=True)
 
         # some tokenizers rely on more than one file, e.g gpt2
         tokenizer_need_files = MindFormerBook.get_tokenizer_url_support_list()[name_or_path]
