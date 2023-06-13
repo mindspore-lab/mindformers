@@ -2,7 +2,7 @@
 
 ## 模型描述
 
-LLaMA是由Meta于2023年发布。LLaMA模型是类GPT模型，是一个生成式的语言模型，主要是用于预测下一个单词。LLaMA目前按照参数量，目前有四个版本：LLaMA-7B（7B）、LLaMA-13B（13B）、LLaMA-33B（33B）以及LLaMA-65B（65B），目前在本仓库中，支持了7B，13B和65B三个规格的模型。
+LLaMA是由Meta于2023年发布。LLaMA模型是类GPT模型，是一个生成式的语言模型，主要是用于预测下一个单词。LLaMA目前按照参数量，目前有四个版本：LLaMA-7B（7B）、LLaMA-13B（13B）、LLaMA-33B（33B）以及LLaMA-65B（65B），目前在本仓库中，支持了7B，13B和65B三个规格的模型，权重文件来源于OpenLLaMA。
 
 [LLaMA: Open and Efficient Foundation Language Models](https://arxiv.org/abs/2302.13971)
 
@@ -181,15 +181,15 @@ print(pipeline_result)
 
 ### 预训练权重准备
 
-从huggingface下载英文预训练权重：
+从huggingface下载英文预训练权重（权重来源于OpenLLaMA）：
 
-- [llama-7b](https://huggingface.co/decapoda-research/llama-7b-hf/tree/main)
+- [llama-3b](https://huggingface.co/openlm-research/open_llama_3b)
 
-- [llama-13b](https://huggingface.co/decapoda-research/llama-13b-hf/tree/main)
+- [llama-7b](https://huggingface.co/openlm-research/open_llama_7b)
 
-- [llama-65b](https://huggingface.co/decapoda-research/llama-65b-hf/tree/main)
+- [llama-13b](https://huggingface.co/openlm-research/open_llama_13b_600bt)
 
-注意：需要下载所有文件；此权重是Meta开源的权重，仅限于研究用途使用。
+注意：65B权重OpenLLaMA未提供，如有需要，请开发者自行解决。
 
 下载完成后，运行如下转换脚本，将huggingface的权重转换为完整的ckpt权重。
 
