@@ -12,11 +12,11 @@ ChatGLM-6B 是一个开源的、支持中英双语的对话语言模型，基于
 
     ```bash
     glm
+        ├── __init__.py
         ├── attention.py            # 自注意力
         ├── chatglm_6b_tokenizer.py # tokenizer
         ├── glm_config.py           # 模型配置项
         ├── glm.py                  # 模型实现
-        ├── __init__.py  
         └── layers.py               # glm 层定义
     ```
 
@@ -24,24 +24,14 @@ ChatGLM-6B 是一个开源的、支持中英双语的对话语言模型，基于
 
     ```bash
     glm
-        ├── model_config
-        │   └── glm_6b.yaml            # 模型具体配置
-        ├── run_glm_6b_fintune.yaml    # 全量启动配置
-        └── run_glm_6b_lora.yaml       # 训练启动配置
-    ```
-
-3. 工具脚本
-
-    ```bash
-    ├── transform_ckpt.py                  # 权重合并脚本
-    ├── test_eval.py                       # 模型评估脚本
-    └── web_demo.py                        # 网页demo
+        ├── run_glm_6b_fintune.yaml     # 全量微调启动配置
+        ├── run_glm_6b_lora.yaml        # 低参微调启动配置
+        └── run_glm_6b_infer.yaml       # 推理启动配置
     ```
 
 ## 环境要求
 
 - 硬件：Ascend 910A
-- 驱动固件版本：xxx
 - MindSpore：2.0.0rc1 / 1.10.1
 - MindFormers版本：dev
 
@@ -55,15 +45,35 @@ ChatGLM-6B 是一个开源的、支持中英双语的对话语言模型，基于
 
 ### AutoClass推理
 
+可以使用AutoClass接口，通过模型名称获取相应的模型/tokenizer实例，并自动下载并加载权重
+
+`from_pretrained()` 接口会自动从云上下载预训练的模型，存储路径：`mindformers/checkpoint_download/glm`
+
+首次运行pipeline推理时需要进行模型编译，需等待一段时间
+
 ```python
-model = AutoModel.from_pretrained("glm_6b_chat")
-tokenizer = AutoTokenizer.from_pretrained("glm_6b")
-pipeline = TextGenerationPipeline(model, tokenizer, add_special_tokens=True, max_length=2048, do_sample=False, top_p=0.7, top_k=1)
-ret = pipeline("你好")
-print(ret)
+>>> from mindformers import AutoModel, AutoTokenizer, TextGenerationPipeline
+>>> model = AutoModel.from_pretrained("glm_6b_chat")
+>>> tokenizer = AutoTokenizer.from_pretrained("glm_6b")
+>>> pipeline = TextGenerationPipeline(model, tokenizer, max_length=2048)
+>>> pipeline("你好", top_p=0.7)
+[{'text_generation_text': ['你好 你好👋!我是人工智能助手 ChatGLM-6B,很高兴见到你,欢迎问我任何问题。']}]
 ```
 
-AutoModel推理会自动从云上下载预训练的模型，存储路径：`mindformers/checkpoint_download/glm`
+> 注：`AutoModel.from_pretrained()` 接口当前支持 `glm_6b` 和 `glm_6b_chat` 两类模型，前者为通用模型，后者具备推理加速特性，两者共享权重，在推理场景下建议使用后者
+
+### pipeline推理
+
+也可以不实例化构造模型，直接通过指定任务模型与模型名的方式进行pipeline的构造
+
+pipeline中，`glm_6b` 默认使用推理加速模型
+
+```python
+>>> from mindformers import pipeline
+>>> task_pipeline = pipeline(task='text_generation', model='glm_6b', max_length=2048)
+>>> task_pipeline('你好', top_p=0.7)
+[{'text_generation_text': ['你好 你好👋!我是人工智能助手 ChatGLM-6B,很高兴见到你,欢迎问我任何问题。']}]
+```
 
 ### 基于API接口的推理
 
@@ -79,7 +89,7 @@ from mindformers.models.glm.glm_processor import process_response
 
 config = GLMConfig(
     position_encoding_2d=True,
-    phase="test",
+    phase="predict",
     use_past=True,
     is_npu_acceleration=True,
 )
@@ -116,15 +126,6 @@ if __name__ == "__main__":
     chat_glm()
 ```
 
-### pipeline推理
-
-```python
-from mindformers import pipeline
-task_pipeline = pipeline(task='text_generation', model='glm_6b', add_special_tokens=True, max_length=20)
-ret = pipeline('你好', top_p=0.7)
-print(ret)
-```
-
 ## 微调
 
 下面以 [ADGEN](https://aclanthology.org/D19-1321.pdf) (广告生成) 数据集为例介绍代码的使用方法
@@ -140,9 +141,9 @@ ADGEN 数据集任务为根据输入（content）生成一段广告词（summary
 }
 ```
 
-从 [Google Drive](https://drive.google.com/file/d/13_vf0xRTQsyneRKdD1bZIr93vBGOczrk/view?usp=sharing) 或者 [Tsinghua Cloud](https://cloud.tsinghua.edu.cn/f/b3f119a008264b1cabd1/?dl=1) 下载处理好的 ADGEN 数据集，将解压后的 `AdvertiseGen` 任意目录下。
+从 [Google Drive](https://drive.google.com/file/d/13_vf0xRTQsyneRKdD1bZIr93vBGOczrk/view?usp=sharing) 或者 [Tsinghua Cloud](https://cloud.tsinghua.edu.cn/f/b3f119a008264b1cabd1/?dl=1) 下载处理好的 ADGEN 数据集，将解压后的 `AdvertiseGen` 任意目录下
 
-使用`mindformers/mindformers/dataset/glm_data_process/adgen_dataset.py`脚本将数据集处理成mindrecord格式。
+使用 `mindformers/mindformers/dataset/glm_data_process/adgen_dataset.py` 脚本将数据集处理成mindrecord格式
 
 执行命令生成训练数据集：
 
@@ -177,10 +178,11 @@ python adgen_dataset.py \
 python ./mindformers/tools/hccl_tools.py --device_num "[0,8)"
 ```
 
-RANK_TABLE_FILE 参考样例:
+> 注：若使用ModelArts的notebook环境，可从 `/user/config/jobstart_hccl.json` 路径下直接获取rank table，无需手动生成
+
+RANK_TABLE_FILE 单机8卡参考样例:
 
 ```json
-# 单机8卡
 {
     "version": "1.0",
     "server_count": "1",
@@ -201,7 +203,6 @@ RANK_TABLE_FILE 参考样例:
     ],
     "status": "completed"
 }
-
 ```
 
 ### 训练启动命令说明
@@ -217,7 +218,7 @@ RANK_TABLE_FILE 参考样例:
 cd scripts
 # Usage Help: bash run_distribute.sh [RANK_TABLE_FILE] [CONFIG_PATH] [DEVICE_RANGE] [RUN_STATUS]
 bash run_distribute.sh /path/to/hccl_8p_01234567_127.0.1.1.json ../configs/glm/run_glm_6b_finetune.yaml '[0,8]' finetune
-# 将此处rank_table_file替换为实际版本
+# 将此处rank_table_file替换为实际路径
 ```
 
 参数说明
@@ -226,8 +227,10 @@ bash run_distribute.sh /path/to/hccl_8p_01234567_127.0.1.1.json ../configs/glm/r
 RANK_TABLE_FILE: 由mindformers/tools/hccl_tools.py生成的分布式json文件
 CONFIG_PATH: 为configs文件夹下面的glm/run_glm_6b.yaml配置文件
 DEVICE_RANGE: 为单机分布式卡的范围，如 '[0,8]' 为8卡分布式，不包含8本身
-RUN_STATUS: 为任务运行状态，支持关键字 train\eval   # finetune\predict
+RUN_STATUS: 为任务运行状态，支持关键字 train\finetune\eval\predict
 ```
+
+> 注：由于GLM6B的模型较大，无法在单卡上运行，此处仅提供分布式启动脚本
 
 训练的log日志路径：mindformers/output/log
 
@@ -239,10 +242,10 @@ checkpoint存储路径：mindformers/output/checkpoint
 
 finetune所得到的权重文件为根据模型切分策略切分后的权重，我们需要手动将切分权重合一，以用于评估和推理
 
-1. 切分策略替换：不冻结参数，跑一个step，拿到不冻结参数的切分策略。
+1. 获取模型切分策略文件：
    在执行全参微调脚本时，模型完成编译后，将会在 `mindformers/scripts/mf_parallelx` 文件夹下，生成名为 `ckpt_strategy.ckpt` 的切分策略文件，将其保存
 
-2. MindSpore提供了根据切分策略转换模型权重切分的接口，[mindspore.transform_checkpoints](https://www.mindspore.cn/docs/zh-CN/r2.0/api_python/mindspore/mindspore.transform_checkpoints.html)，执行下列脚本，将8份模型文件合成一份
+2. MindSpore提供了根据切分策略转换模型权重切分的接口，[mindspore.transform_checkpoints](https://www.mindspore.cn/docs/zh-CN/r2.0/api_python/mindspore/mindspore.transform_checkpoints.html)，执行以下python脚本，将8份模型文件合成一份
 
     ```python
     from mindspore import transform_checkpoints
@@ -265,13 +268,15 @@ python run_mindformer.py --config configs/glm/run_glm_6b_finetune.yaml --run_mod
 
 各项参数：
 
-- `--config`: 指定用于评估的配置文件名称，此处为`configs/glm/run_glm_6b_infer.yaml`
+- `--config`: 指定用于评估的配置文件名称，此处为`configs/glm/run_glm_6b_finetune.yaml`
 - `run_mode`: 指定执行模式，此为`eval`，表示为评估模式
 - `load_checkpoint`: 指定要加载的checkpoint路径，此处为`checkpoint_download/glm/glm_6b.ckpt`，可替换为需加载的权重的真实路径
 - `eval_dataset_dir`: 评估数据集的路径
 - `device_id`: 指定要使用的设备编号（从0开始）
 
 评估完成后会打印评估指标 `bleu-4`、`rouge-1`、`rouge-2`、`rouge-l`
+
+> 注：由于默认评估指标的获取方式为生成完整文本后与预期文本做比较，评估速度将受限于文本生成速度，比较缓慢
 
 ## 模型权重转化
 
