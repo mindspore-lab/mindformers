@@ -146,7 +146,7 @@ if __name__ == '__main__':
 
     setup(
         name='mindformers',
-        version='dev',
+        version='0.3.0',
         author='The MindSpore Authors',
         author_email='contact@mindspore.cn',
         url='https://www.mindspore.cn',
