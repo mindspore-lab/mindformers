@@ -92,7 +92,7 @@ class LoraAdapter(PetAdapter):
         model (BaseModel): The model replace the linear layer with lora dense layer.
     Examples:
         1.modify certain task of gpt
-        >>> from mindformers.model.gpt import LoraAdapter
+        >>> from mindformers.pet import LoraAdapter, PetAdapter
         >>> class GPT2WithLora(GPT2LMHeadModel):
                 def __init__(self, config: GPT2Config = None, pet = None, **kwargs):
                     super().__init__(config)
@@ -103,7 +103,7 @@ class LoraAdapter(PetAdapter):
                     # freeze pretrained model
                     PetAdapter.freeze_pretrained_model(self, self.pet.pet_type)
         2.modify certain backbone of gpt
-        >>> from mindformers.model.gpt import LoraAdapter
+        >>> from mindformers.pet import LoraAdapter
         >>> from mindformers.model.gpt import GPT2Model
         >>> gpt_model = GPT2Model()
         >>> gpt_pet_model = LoraAdapter.get_pet_model(gpt_model, "lora")
