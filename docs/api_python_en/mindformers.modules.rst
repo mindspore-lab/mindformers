@@ -6,7 +6,7 @@ mindformers.modules
 mindformers.modules.layers
 ----------------------------------------------
 
-.. msplatformautosummary::
+.. autosummary::
     :toctree: modules
     :nosignatures:
     :template: classtemplate.rst
@@ -18,7 +18,7 @@ mindformers.modules.layers
 mindformers.modules.transformer
 ----------------------------------------------
 
-.. msplatformautosummary::
+.. autosummary
     :toctree: modules
     :nosignatures:
     :template: classtemplate.rst

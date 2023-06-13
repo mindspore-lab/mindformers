@@ -27,12 +27,8 @@
 """Configuration file for the Sphinx documentation builder."""
 
 import os
-import re
 import glob
 import shutil
-from sphinx.ext.autosummary import generate as g
-from sphinx.ext import autodoc as sphinx_autodoc
-from sphinx.ext.autosummary import Autosummary
 from sphinx.util import logging
 
 # -- Project information -----------------------------------------------------
@@ -96,105 +92,24 @@ gettext_compact = False
 
 html_theme = 'sphinx_rtd_theme'
 
-
-# Modify regex for sphinx.ext.autosummary.generate.find_autosummary_in_lines.
-gfile_abs_path = os.path.abspath(g.__file__)
-autosummary_re_line_old = r"autosummary_re = re.compile(r'^(\s*)\.\.\s+autosummary::\s*')"
-autosummary_re_line_new = r"autosummary_re = re.compile(r'^(\s*)\.\.\s+(ms[a-z]*)?autosummary::\s*')"
-with open(gfile_abs_path, "r+", encoding="utf8") as f:
-    data = f.read()
-    data = data.replace(autosummary_re_line_old, autosummary_re_line_new)
-    # pylint: disable=W0122
-    exec(data, g.__dict__)
-
-# Modify default signatures for autodoc.
-autodoc_source_path = os.path.abspath(sphinx_autodoc.__file__)
-autodoc_source_re = re.compile(r'stringify_signature\(.*?\)')
-get_param_func_str = r"""\
-import re
-import inspect as inspect_
-
-def get_param_func(func):
-    try:
-        source_code = inspect_.getsource(func)
-        if func.__doc__:
-            source_code = source_code.replace(func.__doc__, '')
-        all_params_str = re.findall(r"def [\w_\d\-]+\(([\S\s]*?)(\):|\) ->.*?:)", source_code)
-        all_params = re.sub("(self|cls)(,|, )?", '', all_params_str[0][0].replace("\n", "").replace("'", "\""))
-        return all_params
-    except:
-        return ''
-
-def get_obj(obj):
-    if isinstance(obj, type):
-        return obj.__init__
-
-    return obj
-"""
-
-with open(autodoc_source_path, "r+", encoding="utf8") as f:
-    code_str = f.read()
-    code_str = autodoc_source_re.sub('"(" + get_param_func(get_obj(self.object)) + ")"', code_str, count=0)
-    # pylint: disable=W0122
-    exec(get_param_func_str, sphinx_autodoc.__dict__)
-    # pylint: disable=W0122
-    exec(code_str, sphinx_autodoc.__dict__)
-
 # Copy source files of chinese python api from mindscience repository.
 logger = logging.getLogger(__name__)
 
 # src_dir_mfl = os.path.join(os.getenv("MFM_PATH"), 'docs/api_python')
 file_path = os.path.abspath('__ file __')
-src_dir_mfl = os.path.realpath(os.path.join(file_path, '../../../api_python'))
 
-for i in os.listdir(src_dir_mfl):
-    if os.path.isfile(os.path.join(src_dir_mfl, i)):
-        if os.path.exists('./'+i):
-            os.remove('./'+i)
-        shutil.copy(os.path.join(src_dir_mfl, i), './'+i)
-    else:
-        if os.path.exists('./'+i):
-            shutil.rmtree('./'+i)
-        shutil.copytree(os.path.join(src_dir_mfl, i), './'+i)
+readme_path = os.path.realpath(os.path.join(file_path, '../../../../README.md'))
+api_path = os.path.realpath(os.path.join(file_path, '../../../api_python'))
+model_cards_path = os.path.realpath(os.path.join(file_path, '../../../model_cards'))
+task_cards_path = os.path.realpath(os.path.join(file_path, '../../../task_cards'))
+
+shutil.copy(readme_path, './README.md')
+shutil.copytree(api_path, './api_python')
+shutil.copytree(model_cards_path, './model_cards')
+shutil.copytree(task_cards_path, './task_cards')
 
 rst_files = {i.replace('.rst', '') for i in glob.glob('./**/*.rst', recursive=True)}
 
 
 def setup(app):
-    app.add_directive('msplatformautosummary', MsPlatformAutoSummary)
     app.add_config_value('rst_files', set(), False)
-
-
-class MsAutosummary(Autosummary):
-    """
-    Inherited from sphinx's autosummary, add titles and a column for the generated table.
-    """
-
-    def init(self):
-        """
-        init method
-        """
-        self.find_doc_name = ""
-        self.third_title = ""
-        self.default_doc = ""
-
-    def extract_env_summary(self, doc) -> str:
-        """Extract env summary from docstring."""
-        env_sum = self.default_doc
-        for index, piece in enumerate(doc):
-            if piece.startswith(self.find_doc_name):
-                env_sum = doc[index+1][4:]
-        return env_sum
-
-
-class MsPlatformAutoSummary(MsAutosummary):
-    """
-    Inherited from MsAutosummary. Add a third column about `Supported Platforms` to the table.
-    """
-    def init(self):
-        """
-        init method
-        """
-        self.find_doc_name = "Supported Platforms:"
-        self.third_title = "**{}**".format(self.find_doc_name[:-1])
-        self.default_doc = "``Ascend`` ``GPU`` ``CPU``"

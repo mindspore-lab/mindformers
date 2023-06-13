@@ -3,7 +3,7 @@ mindformers.trainer
 
 .. automodule:: mindformers.trainer
 
-.. msplatformautosummary::
+.. autosummary::
     :toctree: trainer
     :nosignatures:
     :template: classtemplate.rst

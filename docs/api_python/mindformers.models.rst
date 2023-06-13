@@ -6,7 +6,7 @@ mindformers.models
 mindformers.models
 -------------------
 
-.. msplatformautosummary::
+.. autosummary
     :toctree: models
     :nosignatures:
     :template: classtemplate.rst
@@ -19,7 +19,7 @@ mindformers.models
 mindformers.models.bert
 ------------------------
 
-.. msplatformautosummary::
+.. autosummary::
     :toctree: models
     :nosignatures:
     :template: classtemplate.rst
@@ -34,7 +34,7 @@ mindformers.models.bert
 mindformers.models.t5
 ------------------------
 
-.. msplatformautosummary::
+.. autosummary::
     :toctree: models
     :nosignatures:
     :template: classtemplate.rst
@@ -47,7 +47,7 @@ mindformers.models.t5
 mindformers.models.clip
 ------------------------
 
-.. msplatformautosummary::
+.. autosummary::
     :toctree: models
     :nosignatures:
     :template: classtemplate.rst
@@ -63,7 +63,7 @@ mindformers.models.clip
 mindformers.models.mae
 ------------------------
 
-.. msplatformautosummary::
+.. autosummary::
     :toctree: models
     :nosignatures:
     :template: classtemplate.rst
@@ -74,7 +74,7 @@ mindformers.models.mae
 mindformers.models.swin
 ------------------------
 
-.. msplatformautosummary::
+.. autosummary::
     :toctree: models
     :nosignatures:
     :template: classtemplate.rst
@@ -88,7 +88,7 @@ mindformers.models.swin
 mindformers.models.vit
 ------------------------
 
-.. msplatformautosummary::
+.. autosummary
     :toctree: models
     :nosignatures:
     :template: classtemplate.rst
