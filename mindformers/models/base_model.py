@@ -159,7 +159,7 @@ class BaseModel(nn.Cell, GeneratorMixin):
                             f" but got {type(save_directory)} and {type(save_name)}.")
 
         if not os.path.exists(save_directory):
-            os.makedirs(save_directory)
+            os.makedirs(save_directory, exist_ok=True)
 
         checkpoint_path = os.path.join(save_directory, save_name + '.ckpt')
         config_path = os.path.join(save_directory, save_name + '.yaml')

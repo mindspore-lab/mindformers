@@ -139,7 +139,7 @@ class BaseConfig(dict):
                                                yaml_name_or_path.split('_')[cls._model_type])
 
             if not os.path.exists(checkpoint_path):
-                os.makedirs(checkpoint_path)
+                os.makedirs(checkpoint_path, exist_ok=True)
 
             yaml_file = os.path.join(checkpoint_path, yaml_name + ".yaml")
 
@@ -181,7 +181,7 @@ class BaseConfig(dict):
                             f" but got {type(save_directory)} and {type(save_name)}.")
 
         if not os.path.exists(save_directory):
-            os.makedirs(save_directory)
+            os.makedirs(save_directory, exist_ok=True)
 
         save_path = os.path.join(save_directory, save_name + ".yaml")
 

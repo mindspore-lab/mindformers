@@ -177,7 +177,7 @@ class BaseProcessor:
                             f" but got {type(save_directory)} and {type(save_name)}.")
 
         if not os.path.exists(save_directory):
-            os.makedirs(save_directory)
+            os.makedirs(save_directory, exist_ok=True)
 
         parsed_config = self._inverse_parse_config(self.config)
         wraped_config = self._wrap_config(parsed_config)
