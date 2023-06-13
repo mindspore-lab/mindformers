@@ -15,7 +15,7 @@
 """FusedAdamWeightDecay, a customized Adam for offloading."""
 import numpy as np
 
-from mindspore import nn
+from mindspore import context, nn
 from mindspore.common import dtype as mstype
 from mindspore.ops import operations as P
 from mindspore.ops import composite as C
@@ -279,6 +279,10 @@ class FusedAdamWeightDecay(Optimizer):
                 cur_dtype = old_param.dtype
             new_state = Parameter(initializer(param_init, shape=old_param.shape, dtype=cur_dtype))
             new_state.param_info = old_param.param_info.clone()
+            if hasattr(old_param.param_info, "cloned_obj"):
+                old_param.param_info.cloned_obj.append(new_state)
+            else:
+                old_param.param_info.cloned_obj = [new_state]
             new_state.is_init = False
             new_state.is_param_ps = old_param.is_param_ps
             new_state.init_in_server = old_param.init_in_server
@@ -395,14 +399,18 @@ class FP32StateAdamWeightDecay(nn.AdamWeightDecay):
    """
 
     def __init__(self, params, learning_rate=1e-3, beta1=0.9, beta2=0.999, eps=1e-6, weight_decay=0.0):
-        super(FP32StateAdamWeightDecay, self).__init__(params,
-                                                       learning_rate=learning_rate,
-                                                       beta1=beta1,
-                                                       beta2=beta2,
-                                                       eps=eps,
-                                                       weight_decay=weight_decay)
+        super(nn.AdamWeightDecay, self).__init__(learning_rate, params, weight_decay)
+        _check_param_value(beta1, beta2, eps, self.cls_name)
+        self.beta1 = Tensor(np.array([beta1]).astype(np.float32))
+        self.beta2 = Tensor(np.array([beta2]).astype(np.float32))
+        self.eps = Tensor(np.array([eps]).astype(np.float32))
         self.moments1 = self.clone_state(prefix='adam_m', init='zeros')
         self.moments2 = self.clone_state(prefix='adam_v', init='zeros')
+        self.fused_opt = P.AdamWeightDecay()
+        if context.get_context("device_target") == "CPU":
+            self.use_fused_opt = True
+        else:
+            self.use_fused_opt = False
 
     def clone_state(self, prefix, init):
         r"""
