@@ -688,10 +688,13 @@ class BaseTokenizer(SpecialTokensMixin):
         else:
             raise ValueError(f"file_format should be one of [json, yaml], but got {file_format}.")
 
-        output_name = self.VOCAB_FILES['vocab_file']
-        if isinstance(output_name, list):
-            output_name = output_name[0]
-        self.save_vocabulary(save_directory, output_name)
+        # some tokenizers rely on more than one file, e.g gpt2
+        name_keys = self.VOCAB_FILES.keys()
+        for name_key in name_keys:
+            output_name = self.VOCAB_FILES[name_key]
+            if isinstance(output_name, list):
+                output_name = output_name[0]
+            self.save_vocabulary(save_directory, output_name)
 
     def save_vocabulary(self, save_directory, filename_prefix):
         """Save the vocabulary to the specific path with name_prefix"""

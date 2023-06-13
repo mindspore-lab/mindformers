@@ -27,6 +27,7 @@ from mindspore.common.parameter import Parameter
 from mindformers.mindformer_book import MindFormerBook
 from mindformers.modules.transformer import VocabEmbedding, EmbeddingOpParallelConfig, OpParallelConfig
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
+from mindformers.tools import logger
 from mindformers.core.loss import CrossEntropyLoss
 from mindformers.modules.layers import LayerNorm
 from mindformers.tools.utils import is_version_ge
@@ -87,7 +88,7 @@ class GLMModel(nn.Cell):
         # recording parameters
         self.num_layers = config.num_layers
         self.hidden_size = config.hidden_size
-        self.num_attention_heads = config.num_attention_heads
+        self.num_heads = config.num_heads
         self.seq_length = config.seq_length
         self.use_past = config.use_past
         layernorm = LayerNorm
@@ -109,14 +110,19 @@ class GLMModel(nn.Cell):
         self.matmul = ops.MatMul().shard(((1, 1), (1, embed_parallel_config.model_parallel)))
         self.transpose = ops.Transpose().shard(((embed_parallel_config.model_parallel, 1),))
 
+        if self.phase == "train" and self.use_past:
+            logger.warning("The current use_past is True, but use_past can't be True when phase is train, "
+                           "so it has been set to False")
+            self.use_past = False
+
         def get_layer(layer_id):
             return DeepNormWithGLULayer(
                 self.num_layers,
                 self.hidden_size,
-                self.num_attention_heads,
+                self.num_heads,
                 config.batch_size,
-                config.attention_dropout_prob,
-                config.output_dropout_prob,
+                config.attention_dropout_rate,
+                config.hidden_dropout_rate,
                 config.layernorm_epsilon,
                 layer_id,
                 max_seq_len=self.seq_length,
@@ -127,9 +133,9 @@ class GLMModel(nn.Cell):
                 use_bias=True,
                 activation_func=config.activation_func,
                 position_encoding_2d=config.position_encoding_2d,
-                params_dtype=config.params_dtype,
-                layernorm_dtype=config.layernorm_dtype,
-                softmax_dtype=config.softmax_dtype,
+                params_dtype=config.param_init_type,
+                layernorm_dtype=config.layernorm_compute_type,
+                softmax_dtype=config.softmax_compute_type,
                 compute_dtype=config.compute_dtype,
                 use_past=self.use_past,
                 parallel_config=op_parallel_config,
@@ -188,11 +194,11 @@ class GLMHead(nn.Cell):
     def __init__(self,
                  hidden_size,
                  vocab_size,
-                 params_dtype=mstype.float32,
+                 param_init_type=mstype.float32,
                  compute_dtype=mstype.float16,
                  embed_parallel_config=None):
         super(GLMHead, self).__init__()
-        self.params_dtype = params_dtype
+        self.param_init_type = param_init_type
         self.compute_dtype = compute_dtype
         self.weight = Parameter(initializer("normal", [vocab_size, hidden_size], compute_dtype), name="weight")
         self.transpose = ops.Transpose().shard(((embed_parallel_config.model_parallel, 1),))
@@ -228,12 +234,11 @@ class GLMForPreTraining(BaseModel):
         self.lm_head = GLMHead(
             hidden_size=config.hidden_size,
             vocab_size=config.vocab_size,
-            params_dtype=config.params_dtype,
+            param_init_type=config.param_init_type,
             compute_dtype=config.compute_dtype,
             embed_parallel_config=config.parallel_config)
         self.stridedslice = ops.StridedSlice().shard(((1, 1),))
         self.loss = CrossEntropyLoss(parallel_config=config.parallel_config)
-        self.phase = config.phase
         self.gmask = config.gmask_token_id
         self.bos_token_id = config.bos_token_id
         self.ones = P.Ones()

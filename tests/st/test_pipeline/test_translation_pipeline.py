@@ -59,9 +59,9 @@ def test_translation_pipeline():
     tokenizer = T5Tokenizer.from_pretrained(os.path.join(os.path.dirname(__file__), '../test_model/test_t5_model'))
     tokenizer.save_pretrained(output_path)
 
-    model = T5ForConditionalGeneration(T5Config(num_layers=1, dropout_rate=0.0,
-                                                attention_probs_dropout_prob=0.0,
-                                                d_model=512,
+    model = T5ForConditionalGeneration(T5Config(num_layers=1, hidden_dropout_rate=0.0,
+                                                attention_dropout_rate=0.0,
+                                                hidden_size=512,
                                                 num_heads=8,
                                                 vocab_size=100,
                                                 batch_size=1, seq_length=32,

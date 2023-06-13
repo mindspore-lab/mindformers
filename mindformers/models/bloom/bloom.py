@@ -125,13 +125,13 @@ class BloomModel(nn.Cell):
                                   seq_length=config.seq_length,
                                   num_layers=config.num_layers,
                                   num_heads=config.num_heads,
-                                  attention_dropout_rate=config.attention_probs_dropout_prob,
-                                  hidden_dropout_rate=config.hidden_dropout_prob,
+                                  attention_dropout_rate=config.attention_dropout_rate,
+                                  hidden_dropout_rate=config.hidden_dropout_rate,
                                   hidden_act=config.hidden_act,
                                   lambda_func=set_parallel_configure_for_layer,
                                   param_init_type=config.param_init_type,
-                                  layernorm_compute_type=config.layernorm_dtype,
-                                  softmax_compute_type=config.softmax_dtype,
+                                  layernorm_compute_type=config.layernorm_compute_type,
+                                  softmax_compute_type=config.softmax_compute_type,
                                   use_seq_parallel=config.use_seq_parallel,
                                   use_select_recompute=config.use_select_recompute,
                                   parallel_config=config.parallel_config).blocks
@@ -214,7 +214,7 @@ class BloomLMHeadModel(BaseModel):
         config = config if config is not None else BloomConfig()
         super(BloomLMHeadModel, self).__init__(config, auto_prefix=False)
 
-        self.eos_token = self.config.eos_token
+        self.eos_token_id = self.config.eos_token_id
         parallel_config = self.config.parallel_config
         self.stridedslice = P.StridedSlice().shard(((parallel_config.data_parallel, 1),))
         self.not_equal = P.NotEqual().shard(((parallel_config.data_parallel, 1), ()))
@@ -258,7 +258,7 @@ class BloomLMHeadModel(BaseModel):
         else:
             tokens = input_ids
 
-        input_mask = self.not_equal(tokens, self.eos_token).astype(mstype.float32)
+        input_mask = self.not_equal(tokens, self.eos_token_id).astype(mstype.float32)
 
         # [batch_size, seq_length, vocab_size]
         output_states, embedding_table = self.transformer(tokens, input_mask)

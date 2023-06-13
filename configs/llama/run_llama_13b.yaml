@@ -140,8 +140,8 @@ model:
     pad_token_id: 32000
     ignore_token_id: -100
     compute_dtype: "float16"
-    layernorm_compute_dtype: "float32"
-    softmax_compute_dtype: "float32"
+    layernorm_compute_type: "float32"
+    softmax_compute_type: "float32"
     rotary_dtype: "float16"
     param_init_type: "float16"
     use_past: False

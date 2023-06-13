@@ -34,7 +34,7 @@ from mindformers.models import BaseModel
 
 def generator():
     """dataset generator"""
-    seq_len = 1025
+    seq_len = 513
     input_ids = np.random.randint(low=0, high=15, size=(seq_len,)).astype(np.int32)
     input_mask = np.ones_like(input_ids)
     label_ids = input_ids
@@ -60,15 +60,15 @@ def test_llama_trainer_train_from_instance():
     Expectation: TypeError
     """
     # Config definition
-    runner_config = RunnerConfig(epochs=1, batch_size=1, sink_mode=False)
+    runner_config = RunnerConfig(epochs=1, batch_size=4, sink_mode=False)
     optim_config = OptimizerConfig(optim_type='AdamWeightDecay', beta1=0.9, learning_rate=0.001)
     config = ConfigArguments(seed=2022, runner_config=runner_config, optimizer=optim_config)
 
     # Model Config
     llama_config = LlamaConfig(
         batch_size=1,
-        seq_length=1024,
-        hidden_size=512,
+        seq_length=512,
+        hidden_size=32,
         num_layers=1,
         num_heads=8,
     )

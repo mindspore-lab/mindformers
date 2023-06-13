@@ -50,8 +50,8 @@ class PanguAlphaConfig(BaseConfig):
                  compute_dtype: str = 'float16',
                  softmax_compute_type: str = 'float16',
                  embedding_dropout_prob: float = 0.1,
-                 hidden_dropout_prob: float = 0.1,
-                 attention_probs_dropout_prob: float = 0.1,
+                 hidden_dropout_rate: float = 0.1,
+                 attention_dropout_rate: float = 0.1,
                  hidden_act: str = 'fast_gelu',
                  use_past: bool = False,
                  parallel_config: TransformerOpParallelConfig = default_transformer_config,
@@ -60,6 +60,11 @@ class PanguAlphaConfig(BaseConfig):
                  expert_num: int = 1,
                  per_token_num_experts_chosen: int = 1,
                  checkpoint_name_or_path: str = '',
+                 repetition_penalty: float = 1.0,
+                 max_decode_length: int = 1024,
+                 top_k: int = 5,
+                 top_p: float = 1.0,
+                 do_sample: bool = True,
                  **kwargs):
         super(PanguAlphaConfig, self).__init__(**kwargs)
         self.batch_size = batch_size
@@ -77,8 +82,8 @@ class PanguAlphaConfig(BaseConfig):
         self.compute_dtype = convert_mstype(compute_dtype)
         self.softmax_compute_type = convert_mstype(softmax_compute_type)
         self.embedding_dropout_prob = embedding_dropout_prob
-        self.hidden_dropout_prob = hidden_dropout_prob
-        self.attention_probs_dropout_prob = attention_probs_dropout_prob
+        self.hidden_dropout_rate = hidden_dropout_rate
+        self.attention_dropout_rate = attention_dropout_rate
         self.hidden_act = hidden_act
         self.use_past = use_past
         self.parallel_config = parallel_config
@@ -87,3 +92,8 @@ class PanguAlphaConfig(BaseConfig):
         self.expert_num = expert_num
         self.per_token_num_experts_chosen = per_token_num_experts_chosen
         self.checkpoint_name_or_path = checkpoint_name_or_path
+        self.repetition_penalty = repetition_penalty
+        self.max_decode_length = max_decode_length
+        self.top_k = top_k
+        self.top_p = top_p
+        self.do_sample = do_sample
