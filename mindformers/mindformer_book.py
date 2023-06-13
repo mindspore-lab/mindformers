@@ -525,7 +525,9 @@ class MindFormerBook:
             'gpt2',
         ]),
         ('llama', [
-            'llama',
+            'llama_7b',
+            'llama_13b',
+            'llama_65b',
         ]),
         ('pangualpha', [
             'pangualpha'
@@ -643,6 +645,14 @@ class MindFormerBook:
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
           '/XFormer_for_mindspore/glm/glm_6b.ckpt'
           ]),
+        ('llama_7b',
+         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
+          '/XFormer_for_mindspore/llama/open_llama_7b.ckpt'
+          ]),
+        ('llama_13b',
+         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
+          '/XFormer_for_mindspore/llama/open_llama_13b.ckpt'
+          ])
     ])
 
     _MODEL_CONFIG_URL_LIST = OrderedDict([
@@ -805,13 +815,18 @@ class MindFormerBook:
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
           '/XFormer_for_mindspore/glm/ice_text.model'
           ]),
+        ('llama_7b',
+         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
+          '/XFormer_for_mindspore/llama/tokenizer.model'
+          ]),
     ])
 
     _TOKENIZER_NAME_TO_PROCESSOR = OrderedDict([
         ('ChatGLMTokenizer', 'GLMProcessor'),
         ('CLIPTokenizer', 'CLIPProcessor'),
         ('BertTokenizer', 'BertProcessor'),
-        ('T5Tokenizer', 'T5Processor')
+        ('T5Tokenizer', 'T5Processor'),
+        ('LlamaTokenizer', 'LlamaProcessor')
     ])
 
     @classmethod

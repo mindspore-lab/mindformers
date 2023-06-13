@@ -281,7 +281,10 @@ class LlamaForCausalLM(BaseModel):
                   batch_valid_length=None):
         """LlamaForCausalLM forward."""
         bsz, seqlen = input_ids.shape
-        tokens = self.slice(input_ids, (0, 0), (bsz, seqlen - 1), (1, 1))
+        if self.phase == "train":
+            tokens = self.slice(input_ids, (0, 0), (bsz, seqlen - 1), (1, 1))
+        else:
+            tokens = input_ids
         input_mask = self.cast(self.not_equal(tokens, self.pad_token_id), mstype.float32)
         if label_ids is None:
             label_ids = self.slice(input_ids, (0, 1), (bsz, seqlen), (1, 1))

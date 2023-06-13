@@ -128,6 +128,57 @@ bash run_distribute.sh {RANK_TABLE_FILE path of the first device} ../configs/lla
 bash run_distribute.sh {RANK_TABLE_FILE path of the second device} ../configs/llama/run_llama_13b.yaml [8,16] train 16
 ```
 
+### 调用API启动
+
+> 需开发者提前pip安装。具体接口说明请参考[API接口](https://gitee.com/mindspore/transformer/wikis/API/)
+
+- Model调用接口
+
+```python
+from mindformers import LlamaForCausalLM, LlamaTokenizer
+
+model = LlamaForCausalLM.from_pretrained('llama_7b')
+model.set_train(False)
+tokenizer = LlamaTokenizer.from_pretrained('llama_7b')
+inputs = tokenizer(["hello world"],
+                 padding='max_length',
+                 max_length=model.config.seq_length,
+                 return_tensors='ms')
+output = model(input_ids=inputs["input_ids"])
+print(output)  # 计算输出的logits
+
+model.set_train(True)
+inputs = tokenizer(["hello world"],
+                   padding='max_length',
+                   max_length=model.config.seq_length+1,
+                   return_tensors='ms')
+output = model(input_ids=inputs["input_ids"])
+print(output)  # 计算loss
+```
+
+- Trainer接口开启训练/推理：
+
+```python
+from mindformers.trainer import Trainer
+# 初始化预训练任务
+trainer = Trainer(task='text_generation', model='llama_7b', train_dataset="your data file path")
+# 方式1: 开启训练，并使用训练好的权重进行推理
+trainer.train()
+res = trainer.predict(predict_checkpoint=True, input_data="I love Beijing, because")
+
+# 方式2： 从obs下载训练好的权重并进行推理
+res = trainer.predict(input_data="I love Beijing, because")
+```
+
+- pipeline接口开启快速推理
+
+```python
+from mindformers.pipeline import pipeline
+pipeline_task = pipeline("text_generation", model='llama_7b', max_length=20)
+pipeline_result = pipeline_task("I love Beijing, because", top_k=3)
+print(pipeline_result)
+```
+
 ### 预训练权重准备
 
 从huggingface下载英文预训练权重：
