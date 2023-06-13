@@ -24,23 +24,22 @@ model:
     vocab_size: 130528
     hidden_size: 4096
     num_layers: 28
-    num_attention_heads: 32
+    num_heads: 32
     inner_hidden_size: 16384
     seq_length: 512  # 推理时, 输入pad到的长度, model里的最大句长
     embedding_dropout_prob: 0.0
-    attention_dropout_prob: 0.0
-    output_dropout_prob: 0.0
+    attention_dropout_rate: 0.0
+    hidden_dropout_rate: 0.0
     hidden_size_per_attention_head: # default "None" means hidden-size/num-attention-heads.
     layernorm_order: "post"
     layernorm_epsilon: 1.0e-5
     use_final_layernorm: True
     use_past: False
-    phase: 'train'
     activation_func: 'GELU'
     position_encoding_2d: True
-    params_dtype: "float16"
-    layernorm_dtype: "float32"
-    softmax_dtype: "float32"
+    param_init_type: "float16"
+    layernorm_compute_type: "float32"
+    softmax_compute_type: "float32"
     compute_dtype: "float16"
     bos_token_id: 130004
     eos_token_id: 130005
@@ -51,6 +50,9 @@ model:
     repetition_penalty: 1
     is_enhanced_encoder: True
     checkpoint_name_or_path: "glm_6b"
+    top_k: 5
+    top_p: 1
+    do_sample: True
   arch:
     type: GLMForPreTraining # 1. GLMChatModel for eval; 2.GLMTrainModel for train 3. GLMTrainModelWithLora
 

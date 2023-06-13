@@ -122,7 +122,7 @@ model:
   model_config:
     batch_size: 1
     d_ff: 2048
-    d_model: 512
+    hidden_size: 512
     do_sample: false
     eos_token_id: 1
     has_relative_bias: true
@@ -150,6 +150,15 @@ model:
     use_cache: true
     vocab_size: 32128
     checkpoint_name_or_path: t5_small
+    hidden_dropout_rate: 0.1
+    attention_dropout_rate: 0.1
+    embedding_dropout_prob: 0.1
+    param_init_type: float32
+    layernorm_compute_type: float32
+    softmax_compute_type: float32
+    post_layernorm_residual: False
+    offset: 0
+    use_past: False
 
 # lr sechdule
 lr_schedule:

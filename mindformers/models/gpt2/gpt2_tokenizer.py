@@ -21,6 +21,7 @@ import regex as re
 
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.models.base_tokenizer import Tokenizer
+from mindformers.tools import logger
 from ...mindformer_book import MindFormerBook
 
 __all__ = ['GPT2Tokenizer']
@@ -240,11 +241,28 @@ class GPT2Tokenizer(Tokenizer):
 
     def save_vocabulary(self, save_directory, filename_prefix):
         """write the word to the files"""
-        output_file_path = os.path.join(save_directory, filename_prefix)
-        with open(output_file_path, 'w') as fp:
-            for k in self.vocab_dict.keys():
-                fp.write(k + '\n')
-        return output_file_path
+        if filename_prefix.endswith("json"):
+            vocab_file = os.path.join(save_directory, filename_prefix)
+
+            with open(vocab_file, "w", encoding="utf-8") as f:
+                f.write(json.dumps(self.encoder))
+        else:
+            vocab_file = os.path.join(save_directory, filename_prefix)
+
+            index = 0
+            with open(vocab_file, "w", encoding="utf-8") as writer:
+                writer.write("#version: 0.2\n")
+                for bpe_tokens, token_index in sorted(self.bpe_ranks.items(), key=lambda kv: kv[1]):
+                    if index != token_index:
+                        logger.warning(
+                            "Saving vocabulary to %s: BPE merge indices are not consecutive."
+                            " Please check that the tokenizer is not corrupted!", vocab_file
+                        )
+                        index = token_index
+                    writer.write(" ".join(bpe_tokens) + "\n")
+                    index += 1
+
+        return vocab_file
 
     @property
     def vocab_size(self):

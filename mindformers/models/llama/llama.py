@@ -117,8 +117,8 @@ class LlamaModel(BaseModel):
                                          multiple_of=config.multiple_of,
                                          norm_eps=config.rms_norm_eps,
                                          compute_dtype=config.compute_dtype,
-                                         layernorm_compute_dtype=config.layernorm_compute_dtype,
-                                         softmax_compute_dtype=config.softmax_compute_dtype,
+                                         layernorm_compute_dtype=config.layernorm_compute_type,
+                                         softmax_compute_dtype=config.softmax_compute_type,
                                          param_init_type=config.param_init_type,
                                          use_past=config.use_past,
                                          parallel_config=config.parallel_config)
@@ -128,7 +128,7 @@ class LlamaModel(BaseModel):
 
             self.norm_out = LlamaRMSNorm(
                 config.hidden_size, config.rms_norm_eps,
-                param_init_type=config.param_init_type).to_float(config.layernorm_compute_dtype)
+                param_init_type=config.param_init_type).to_float(config.layernorm_compute_type)
 
             self.norm_out.pipeline_stage = config.parallel_config.pipeline_stage - 1
             if config.parallel_config.pipeline_stage > 1:
@@ -156,8 +156,8 @@ class LlamaModel(BaseModel):
                                          multiple_of=config.multiple_of,
                                          norm_eps=config.rms_norm_eps,
                                          compute_dtype=config.compute_dtype,
-                                         layernorm_compute_dtype=config.layernorm_compute_dtype,
-                                         softmax_compute_dtype=config.softmax_compute_dtype,
+                                         layernorm_compute_dtype=config.layernorm_compute_type,
+                                         softmax_compute_dtype=config.softmax_compute_type,
                                          param_init_type=config.param_init_type,
                                          use_past=config.use_past,
                                          parallel_config=config.parallel_config)
@@ -167,7 +167,7 @@ class LlamaModel(BaseModel):
 
             self.norm_out = LlamaRMSNorm(
                 config.hidden_size, config.rms_norm_eps,
-                param_init_type=config.param_init_type).to_float(config.layernorm_compute_dtype)
+                param_init_type=config.param_init_type).to_float(config.layernorm_compute_type)
             if config.parallel_config.pipeline_stage > 1:
                 self.norm_out.set_comm_fusion(2)
             else:

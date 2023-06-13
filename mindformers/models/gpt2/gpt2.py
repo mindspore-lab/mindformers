@@ -54,7 +54,7 @@ class GPT2LMHeadModel(BaseModel):
         config = config if config is not None else GPT2Config()
         super(GPT2LMHeadModel, self).__init__(config, auto_prefix=False)
 
-        self.eos_token = self.config.eos_token
+        self.eos_token_id = self.config.eos_token_id
         parallel_config = self.config.parallel_config
         self.stridedslice = P.StridedSlice().shard(((parallel_config.data_parallel, 1),))
         self.not_equal = P.NotEqual().shard(((parallel_config.data_parallel, 1), ()))
@@ -63,7 +63,7 @@ class GPT2LMHeadModel(BaseModel):
                                                 parallel_config=parallel_config.dp_mp_config)
 
         self.backbone = GPT2Model(config)
-        self.head = GPTHead(hidden_size=config.embedding_size,
+        self.head = GPTHead(hidden_size=config.hidden_size,
                             vocab_size=config.vocab_size,
                             parallel_config=self.config.parallel_config)
         if parallel_config.pipeline_stage > 1:
@@ -105,11 +105,11 @@ class GPT2LMHeadModel(BaseModel):
             if input_mask is not None:
                 input_mask = self.stridedslice(input_mask, (0, 0), (batch_size, seq_length - 1), (1, 1))
             else:
-                input_mask = self.not_equal(tokens, self.eos_token)
+                input_mask = self.not_equal(tokens, self.eos_token_id)
         else:
             tokens = input_ids
             if input_mask is None:
-                input_mask = self.not_equal(tokens, self.eos_token)
+                input_mask = self.not_equal(tokens, self.eos_token_id)
 
         input_mask = self.cast(input_mask, mstype.float32)
         attention_mask = self.get_attention_mask(input_mask)
@@ -149,23 +149,23 @@ class GPTEmbeddingLayer(nn.Cell):
             parallel_config.embedding_dp_mp_config.model_parallel = 1
 
         self.word_embedding = VocabEmbedding(vocab_size=vocab_size,
-                                             embedding_size=config.embedding_size,
+                                             embedding_size=config.hidden_size,
                                              param_init=initializer('normal',
-                                                                    [vocab_size, config.embedding_size],
+                                                                    [vocab_size, config.hidden_size],
                                                                     dtype=mstype.float32),
                                              parallel_config=parallel_config.embedding_dp_mp_config)
         new_parallel_config = copy.deepcopy(parallel_config)
         new_parallel_config.vocab_emb_dp = True
 
         self.position_embedding = VocabEmbedding(vocab_size=config.seq_length,
-                                                 embedding_size=config.embedding_size,
+                                                 embedding_size=config.hidden_size,
                                                  param_init=initializer('normal',
-                                                                        [config.seq_length, config.embedding_size],
+                                                                        [config.seq_length, config.hidden_size],
                                                                         dtype=mstype.float32),
                                                  parallel_config=new_parallel_config.embedding_dp_mp_config)
         self.add = P.Add().shard(
             ((parallel_config.data_parallel, 1, 1), (parallel_config.data_parallel, 1, 1)))
-        self.dropout = Dropout(1 - config.dropout_prob)
+        self.dropout = Dropout(1 - config.embedding_dropout_prob)
         self.dropout.shard(((parallel_config.data_parallel, 1, 1),))
 
     def construct(self, input_ids, input_position):
@@ -229,7 +229,7 @@ class GPT2Model(nn.Cell):
         self.embedding = GPTEmbeddingLayer(config)
         self.embedding.pipeline_stage = 0
 
-        self.layernorm = LayerNorm((config.embedding_size,)).to_float(config.layernorm_dtype)
+        self.layernorm = LayerNorm((config.hidden_size,)).to_float(config.layernorm_compute_type)
         if config.parallel_config.pipeline_stage > 1:
             self.layernorm.set_comm_fusion(2)
         else:
@@ -244,17 +244,17 @@ class GPT2Model(nn.Cell):
         self.blocks = nn.CellList()
         for i in range(config.num_layers):
             block = GPTTransformerDecoderLayer(
-                hidden_size=config.embedding_size,
+                hidden_size=config.hidden_size,
                 batch_size=config.batch_size,
-                ffn_hidden_size=config.embedding_size * config.expand_ratio,
+                ffn_hidden_size=config.hidden_size * config.expand_ratio,
                 seq_length=config.seq_length,
                 num_heads=config.num_heads,
-                attention_dropout_rate=config.attention_probs_dropout_prob,
-                hidden_dropout_rate=config.hidden_dropout_prob,
+                attention_dropout_rate=config.attention_dropout_rate,
+                hidden_dropout_rate=config.hidden_dropout_rate,
                 hidden_act=config.hidden_act,
                 param_init_type=config.param_init_type,
-                layernorm_compute_type=config.layernorm_dtype,
-                softmax_compute_type=config.softmax_dtype,
+                layernorm_compute_type=config.layernorm_compute_type,
+                softmax_compute_type=config.softmax_compute_type,
                 parallel_config=config.parallel_config.dp_mp_config,
                 moe_config=moe_config)
             set_parallel_configure_for_layer(

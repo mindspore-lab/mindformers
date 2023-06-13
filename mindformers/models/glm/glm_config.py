@@ -13,21 +13,15 @@
 # limitations under the License.
 # ============================================================================
 """GLM config"""
-import mindspore as ms
-
-from mindformers.tools.logger import logger
-from mindformers.modules.transformer.transformer import TransformerOpParallelConfig, OpParallelConfig
+from mindformers.modules.transformer.moe import MoEConfig
+from mindformers.modules.transformer.transformer import default_transformer_config, default_moe_config, \
+    TransformerOpParallelConfig, OpParallelConfig, EmbeddingOpParallelConfig, default_embedding_parallel_config
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
-from mindformers.models.base_config import BaseConfig
-from mindformers.modules.transformer import EmbeddingOpParallelConfig
-from mindformers.mindformer_book import MindFormerBook
+from ..utils import convert_mstype
+from ..base_config import BaseConfig
+from ...mindformer_book import MindFormerBook
 
 default_dpmp_config = OpParallelConfig()
-default_embedding_parallel_config = EmbeddingOpParallelConfig()
-default_transformer_config = TransformerOpParallelConfig()
-
-mstype_dict = {"float32": ms.float32,
-               "float16": ms.float16}
 
 __all__ = ['GLMConfig']
 
@@ -44,66 +38,66 @@ class GLMConfig(BaseConfig):
                  vocab_size: int = 130528,
                  hidden_size: int = 4096,
                  num_layers: int = 28,
-                 num_attention_heads: int = 32,
+                 num_heads: int = 32,
                  inner_hidden_size: int = 16384,
                  seq_length: int = 512,
                  embedding_dropout_prob: float = 0.0,
-                 attention_dropout_prob: float = 0.0,
-                 output_dropout_prob: float = 0.0,
-                 hidden_size_per_attention_head=None,
+                 attention_dropout_rate: float = 0.0,
+                 hidden_dropout_rate: float = 0.0,
+                 hidden_size_per_attention_head: bool = None,
                  layernorm_order: str = "post",
                  layernorm_epsilon: float = 1.0e-5,
                  use_final_layernorm: bool = True,
-                 op_parallel_config=default_dpmp_config,
-                 embed_parallel_config=default_embedding_parallel_config,
+                 op_parallel_config: OpParallelConfig = default_dpmp_config,
+                 embed_parallel_config: EmbeddingOpParallelConfig = default_embedding_parallel_config,
                  parallel_config: TransformerOpParallelConfig = default_transformer_config,
+                 moe_config: MoEConfig = default_moe_config,
                  use_past: bool = False,
-                 phase='test',
-                 activation_func='GELU',
+                 activation_func: str = 'GELU',
                  position_encoding_2d: bool = True,
-                 params_dtype="float16",
-                 layernorm_dtype="float32",
-                 softmax_dtype="float32",
-                 compute_dtype="float16",
-                 bos_token_id=130004,
-                 eos_token_id=130005,
-                 mask_token_id=130000,
-                 gmask_token_id=130001,
-                 pad_token_id=3,
-                 max_decode_length: int = 2048,
-                 repetition_penalty: float = 1,
+                 param_init_type: str = "float16",
+                 layernorm_compute_type: str = "float32",
+                 softmax_compute_type: str = "float32",
+                 compute_dtype: str = "float16",
+                 bos_token_id: int = 130004,
+                 eos_token_id: int = 130005,
+                 mask_token_id: int = 130000,
+                 gmask_token_id: int = 130001,
+                 pad_token_id: int = 3,
                  is_enhanced_encoder: bool = True,
                  is_npu_acceleration: bool = False,
                  checkpoint_name_or_path: str = "",
+                 repetition_penalty: float = 1.0,
+                 max_decode_length: int = 2048,
+                 top_k: int = 5,
+                 top_p: float = 1.0,
+                 do_sample: bool = True,
                  **kwargs):
         super().__init__(**kwargs)
         self.batch_size = batch_size
         self.vocab_size = vocab_size
         self.hidden_size = hidden_size
         self.num_layers = num_layers
-        self.num_attention_heads = num_attention_heads
+        self.num_heads = num_heads
         self.embedding_dropout_prob = embedding_dropout_prob
-        self.output_dropout_prob = output_dropout_prob
-        self.attention_dropout_prob = attention_dropout_prob
+        self.hidden_dropout_rate = hidden_dropout_rate
+        self.attention_dropout_rate = attention_dropout_rate
         self.hidden_size_per_attention_head = hidden_size_per_attention_head
         self.layernorm_order = layernorm_order
         self.layernorm_epsilon = layernorm_epsilon
         self.use_final_layernorm = use_final_layernorm
         self.op_parallel_config = op_parallel_config
         self.embed_parallel_config = embed_parallel_config
+        self.moe_config = moe_config
         self.use_past = use_past
-        if phase == 'train' and use_past:
-            self.use_past = False
-            logger.warning("use_past can't be True when phase='train', it has been set to False")
         self.parallel_config = parallel_config
         self.activation_func = activation_func
-        self.phase = phase
         self.inner_hidden_size = inner_hidden_size
         self.position_encoding_2d = position_encoding_2d
-        self.params_dtype = mstype_dict[params_dtype]
-        self.layernorm_dtype = mstype_dict[layernorm_dtype]
-        self.softmax_dtype = mstype_dict[softmax_dtype]
-        self.compute_dtype = mstype_dict[compute_dtype]
+        self.param_init_type = convert_mstype(param_init_type)
+        self.layernorm_compute_type = convert_mstype(layernorm_compute_type)
+        self.softmax_compute_type = convert_mstype(softmax_compute_type)
+        self.compute_dtype = convert_mstype(compute_dtype)
         self.bos_token_id = bos_token_id
         self.eos_token_id = eos_token_id
         self.mask_token_id = mask_token_id
@@ -115,3 +109,6 @@ class GLMConfig(BaseConfig):
         self.is_enhanced_encoder = is_enhanced_encoder
         self.is_npu_acceleration = is_npu_acceleration
         self.checkpoint_name_or_path = checkpoint_name_or_path
+        self.top_k = top_k
+        self.top_p = top_p
+        self.do_sample = do_sample

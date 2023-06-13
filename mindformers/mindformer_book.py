@@ -826,7 +826,8 @@ class MindFormerBook:
         ('CLIPTokenizer', 'CLIPProcessor'),
         ('BertTokenizer', 'BertProcessor'),
         ('T5Tokenizer', 'T5Processor'),
-        ('LlamaTokenizer', 'LlamaProcessor')
+        ('LlamaTokenizer', 'LlamaProcessor'),
+        ('GPT2Tokenizer', 'GPT2Processor')
     ])
 
     @classmethod

@@ -175,23 +175,23 @@ class MT5Model(T5Model):
         super(MT5Model, self).__init__(config)
         for block in self.tfm_encoder.blocks:
             block.output = T5FeedFowardGatedGelu(
-                hidden_size=config.d_model,
-                dropout_rate=config.dropout_rate,
+                hidden_size=config.hidden_size,
+                dropout_rate=config.hidden_dropout_rate,
                 ffn_hidden_size=config.d_ff,
                 hidden_act=config.hidden_act,
                 parallel_config=default_dpmp_config,
             )
         for block in self.tfm_decoder.blocks:
             block.output = T5FeedFowardGatedGelu(
-                hidden_size=config.d_model,
-                dropout_rate=config.dropout_rate,
+                hidden_size=config.hidden_size,
+                dropout_rate=config.hidden_dropout_rate,
                 ffn_hidden_size=config.d_ff,
                 hidden_act=config.hidden_act,
                 parallel_config=default_dpmp_config,
             )
         # no parameter sharing between embedding and classifier layer
         self.projection = MT5Head(
-            in_channels=config.d_model,
+            in_channels=config.hidden_size,
             out_channels=config.vocab_size,
             parallel_config=default_dpmp_config,
         )
