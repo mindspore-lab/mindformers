@@ -91,22 +91,24 @@ class LoraAdapter(PetAdapter):
     Return:
         model (BaseModel): The model replace the linear layer with lora dense layer.
     Examples:
-        1.modify certain task of gpt
-        >>> from mindformers.pet import LoraAdapter, PetAdapter
-        >>> class GPT2WithLora(GPT2LMHeadModel):
-                def __init__(self, config: GPT2Config = None, pet = None, **kwargs):
-                    super().__init__(config)
-                    # get Pet tuning model.
-                    self.pet = pet
-                    self.pet.pet_config.reg_rules = r'.*dense1*|.*dense3*'
-                    self.backbone = LoraAdapter.get_pet_model(self.backbone, self.pet.pet_config)
-                    # freeze pretrained model
-                    PetAdapter.freeze_pretrained_model(self, self.pet.pet_type)
-        2.modify certain backbone of gpt
-        >>> from mindformers.pet import LoraAdapter
-        >>> from mindformers.model.gpt import GPT2Model
-        >>> gpt_model = GPT2Model()
-        >>> gpt_pet_model = LoraAdapter.get_pet_model(gpt_model, "lora")
+        1.modify certain task of llama
+        >>> from mindformers.pet.tuners.lora_adapter import LoraAdapter
+        >>> class LlamaForCausalLMWithLora(LlamaForCausalLM):
+        >>>        def __init__(self, config: LlamaConfig = None, pet=None):
+        >>>            super().__init__(config)
+        >>>            # get Pet tuning model.
+        >>>            self.pet = pet
+        >>>            self.pet.pet_config.reg_rules = r'.*wq|.*wv'
+        >>>            self.model = LoraAdapter.get_pet_model(self.model, self.pet.pet_config)
+        >>>            # freeze pretrained model
+        >>>            PetAdapter.freeze_pretrained_model(self, self.pet.pet_type)
+        2.modify certain model of llama
+        >>> from mindformers.pet.tuners.lora_adapter import LoraAdapter
+        >>> from mindformers.model.llama import LlamaModel
+        >>> from mindformers.pet.pet_config import LoraConfig
+        >>> llama_model = LlamaModel()
+        >>> pet_config = LoraConfig()
+        >>> llama_pet_model = LoraAdapter.get_pet_model(llama_model, pet_config)
     """
     @classmethod
     def get_pet_model(cls, model: nn.Cell = None, config: PetConfig = None):

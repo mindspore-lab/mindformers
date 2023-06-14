@@ -186,6 +186,8 @@ class MindFormerBook:
                 _PROJECT_PATH, "configs/llama/run_llama_13b.yaml")),
             ("llama_65b", os.path.join(
                 _PROJECT_PATH, "configs/llama/run_llama_65b.yaml")),
+            ("llama_7b_lora", os.path.join(
+                _PROJECT_PATH, "configs/llama/run_llama_7b_lora.yaml")),
             ("pangualpha_2_6b", os.path.join(
                 _PROJECT_PATH, "configs/pangualpha/run_pangualpha_2_6b.yaml")),
             ("pangualpha_13b", os.path.join(
@@ -289,6 +291,8 @@ class MindFormerBook:
                 _PROJECT_PATH, "configs/llama/run_llama_13b.yaml")),
             ("llama_65b", os.path.join(
                 _PROJECT_PATH, "configs/llama/run_llama_65b.yaml")),
+            ("llama_7b_lora", os.path.join(
+                _PROJECT_PATH, "configs/llama/run_llama_7b_lora.yaml")),
             ("pangualpha_2_6b", os.path.join(
                 _PROJECT_PATH, "configs/pangualpha/run_pangualpha_2_6b.yaml")),
             ("pangualpha_13b", os.path.join(
@@ -359,7 +363,8 @@ class MindFormerBook:
         ('llama', [
             'llama_7b',
             'llama_13b',
-            'llama_65b'
+            'llama_65b',
+            'llama_7b_lora'
         ]),
         ('pangualpha', [
             'pangualpha'
@@ -428,7 +433,8 @@ class MindFormerBook:
         ('llama', [
             'llama_7b',
             'llama_13b',
-            'llama_65b'
+            'llama_65b',
+            'llama_7b_lora'
         ]),
         ('pangualpha', [
             'pangualpha'
@@ -535,6 +541,7 @@ class MindFormerBook:
             'llama_7b',
             'llama_13b',
             'llama_65b',
+            'llama_7b_lora'
         ]),
         ('pangualpha', [
             'pangualpha'
@@ -823,6 +830,10 @@ class MindFormerBook:
           '/XFormer_for_mindspore/glm/ice_text.model'
           ]),
         ('llama_7b',
+         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
+          '/XFormer_for_mindspore/llama/tokenizer.model'
+          ]),
+        ('llama_7b_lora',
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
           '/XFormer_for_mindspore/llama/tokenizer.model'
           ]),
