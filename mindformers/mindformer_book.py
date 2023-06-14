@@ -198,6 +198,8 @@ class MindFormerBook:
                 _PROJECT_PATH, "configs/glm/run_glm_6b_infer.yaml")),
             ("glm_6b_lora", os.path.join(
                 _PROJECT_PATH, "configs/glm/run_glm_6b_lora.yaml")),
+            ("glm_6b_lora_chat", os.path.join(
+                _PROJECT_PATH, "configs/glm/run_glm_6b_lora_infer.yaml")),
             ("bloom_560m", os.path.join(
                 _PROJECT_PATH, "configs/bloom/run_bloom_560m.yaml")),
             ("bloom_7.1b", os.path.join(
@@ -303,6 +305,8 @@ class MindFormerBook:
                 _PROJECT_PATH, "configs/glm/run_glm_6b_infer.yaml")),
             ("glm_6b_lora", os.path.join(
                 _PROJECT_PATH, "configs/glm/run_glm_6b_lora.yaml")),
+            ("glm_6b_lora_chat", os.path.join(
+                _PROJECT_PATH, "configs/glm/run_glm_6b_lora_infer.yaml")),
             ("bloom_560m", os.path.join(
                 _PROJECT_PATH, "configs/bloom/run_bloom_560m.yaml")),
             ("bloom_7.1b", os.path.join(
@@ -377,7 +381,9 @@ class MindFormerBook:
         ]),
         ('glm', [
             'glm_6b',
-            'glm_6b_chat'
+            'glm_6b_chat',
+            'glm_6b_lora',
+            'glm_6b_lora_chat'
         ])
     ])
 
@@ -448,7 +454,8 @@ class MindFormerBook:
         ('glm', [
             'glm_6b',
             'glm_6b_chat',
-            'glm_6b_lora'
+            'glm_6b_lora',
+            'glm_6b_lora_chat'
         ])
     ])
 
@@ -658,6 +665,14 @@ class MindFormerBook:
         ('glm_6b_chat',
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
           '/XFormer_for_mindspore/glm/glm_6b.ckpt'
+          ]),
+        ('glm_6b_lora',
+         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
+          '/XFormer_for_mindspore/glm/glm_6b_lora.ckpt'
+          ]),
+        ('glm_6b_lora_chat',
+         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
+          '/XFormer_for_mindspore/glm/glm_6b_lora.ckpt'
           ]),
         ('llama_7b',
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'

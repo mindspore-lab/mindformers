@@ -16,6 +16,8 @@
 """
 GLMProcessor
 """
+import re
+
 from mindformers.mindformer_book import MindFormerBook
 from mindformers.models.base_tokenizer import BaseTokenizer
 from mindformers.models.base_processor import BaseProcessor
@@ -56,3 +58,22 @@ class GLMProcessor(BaseProcessor):
                                          padding=self.padding)["input_ids"]
             output['text'] = text_output
         return output
+
+
+def process_response(response):
+    """
+    process the response of chat glm.
+    """
+    response = response.strip()
+    response = response.replace("[[训练时间]]", "2023年")
+    punkts = [
+        [",", "，"],
+        ["!", "！"],
+        [":", "："],
+        [";", "；"],
+        [r"\?", "？"],
+    ]
+    for item in punkts:
+        response = re.sub(r"([\u4e00-\u9fff])%s" % item[0], r"\1%s" % item[1], response)
+        response = re.sub(r"%s([\u4e00-\u9fff])" % item[0], r"%s\1" % item[1], response)
+    return response
