@@ -224,17 +224,14 @@ if __name__ == "__main__":
                         help="The output mindspore checkpoint path.")
     parser.add_argument("--max_source_length",
                         type=int,
-                        required=True,
                         default=64,
                         help="The max input sequence length")
     parser.add_argument("--max_target_length",
                         type=int,
-                        required=True,
                         default=64,
                         help="The max label sequence length")
     parser.add_argument("--mode",
                         type=str,
-                        required=True,
                         default="train",
                         help="Process train or eval dataset.")
 
@@ -247,6 +244,6 @@ if __name__ == "__main__":
         num_splits=1,
         max_source_length=opt.max_source_length,
         max_target_length=opt.max_target_length,
-        mode='train',
+        mode=opt.mode,
         ignore_pad_token_for_loss=True
     )

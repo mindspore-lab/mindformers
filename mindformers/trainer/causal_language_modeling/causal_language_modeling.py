@@ -17,6 +17,7 @@ import os
 import time
 from typing import Optional, List, Union
 
+from mindspore import Model
 from mindspore.train import Callback
 from mindspore.nn import TrainOneStepCell, Optimizer, Cell
 from mindspore.dataset import GeneratorDataset
@@ -176,12 +177,14 @@ class CausalLanguageModelingTrainer(BaseTrainer):
         if compute_metrics is None:
             compute_metrics = build_metric(config.metric)
 
-        logger.info('.........Starting Evaluate Model..........')
+        logger.info(".........Starting Init Evaluate Model..........")
+        model = Model(network, eval_network=network)
 
+        logger.info('.........Starting Evaluate Model..........')
         # generate config
-        top_p = config.generate.top_p
-        top_k = config.generate.top_k
-        max_decode_length = config.generate.max_decode_length
+        top_p = config.model.top_p
+        top_k = config.model.top_k
+        max_decode_length = config.model.max_decode_length
 
         total_tokens_num = 0
         total_time = 0.0001
@@ -190,8 +193,8 @@ class CausalLanguageModelingTrainer(BaseTrainer):
             labels = inputs['label'].asnumpy()
 
             start_time = time.time()
-            outputs = network.generate(input_ids, max_length=max_decode_length,
-                                       top_p=top_p, top_k=top_k)  # List[numpy]
+            outputs = model.predict_network.generate(input_ids, max_length=max_decode_length,
+                                                     top_p=top_p, top_k=top_k)  # List[numpy]
             end_time = time.time()
             avg_cost_time = (end_time - start_time) / input_ids.shape[0]
 

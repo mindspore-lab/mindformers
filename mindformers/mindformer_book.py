@@ -194,6 +194,8 @@ class MindFormerBook:
                 _PROJECT_PATH, "configs/glm/run_glm_6b_finetune.yaml")),
             ("glm_6b_chat", os.path.join(
                 _PROJECT_PATH, "configs/glm/run_glm_6b_infer.yaml")),
+            ("glm_6b_lora", os.path.join(
+                _PROJECT_PATH, "configs/glm/run_glm_6b_lora.yaml")),
             ("bloom_560m", os.path.join(
                 _PROJECT_PATH, "configs/bloom/run_bloom_560m.yaml")),
             ("bloom_7.1b", os.path.join(
@@ -292,7 +294,11 @@ class MindFormerBook:
             ("pangualpha_13b", os.path.join(
                 _PROJECT_PATH, "configs/pangualpha/run_pangualpha_13b.yaml")),
             ("glm_6b", os.path.join(
+                _PROJECT_PATH, "configs/glm/run_glm_6b_finetune.yaml")),
+            ("glm_6b_chat", os.path.join(
                 _PROJECT_PATH, "configs/glm/run_glm_6b_infer.yaml")),
+            ("glm_6b_lora", os.path.join(
+                _PROJECT_PATH, "configs/glm/run_glm_6b_lora.yaml")),
             ("bloom_560m", os.path.join(
                 _PROJECT_PATH, "configs/bloom/run_bloom_560m.yaml")),
             ("bloom_7.1b", os.path.join(
@@ -435,7 +441,8 @@ class MindFormerBook:
         ]),
         ('glm', [
             'glm_6b',
-            'glm_6b_chat'
+            'glm_6b_chat',
+            'glm_6b_lora'
         ])
     ])
 

@@ -27,11 +27,13 @@ from mindspore.common.parameter import Parameter
 from mindformers.mindformer_book import MindFormerBook
 from mindformers.modules.transformer import VocabEmbedding, EmbeddingOpParallelConfig, OpParallelConfig
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
-from mindformers.tools import logger
 from mindformers.core.loss import CrossEntropyLoss
 from mindformers.modules.layers import LayerNorm
 from mindformers.tools.utils import is_version_ge
+from mindformers.pet.tuners.pet_adapter import PetAdapter
+from mindformers.pet.tuners.lora_adapter import LoraAdapter
 
+from .glm_config import GLMConfig
 from .layers import DeepNormWithGLULayer
 from ..base_model import BaseModel
 
@@ -45,7 +47,7 @@ else:
 default_dpmp_config = OpParallelConfig()
 default_embedding_parallel_config = EmbeddingOpParallelConfig()
 
-__all__ = ['GLMForPreTraining', 'GLMChatModel']
+__all__ = ['GLMForPreTraining', 'GLMChatModel', 'GLMForPreTrainingWithLora', 'GLMChatModelWithLora']
 
 
 class ProcessLogits(nn.Cell):
@@ -109,11 +111,6 @@ class GLMModel(nn.Cell):
 
         self.matmul = ops.MatMul().shard(((1, 1), (1, embed_parallel_config.model_parallel)))
         self.transpose = ops.Transpose().shard(((embed_parallel_config.model_parallel, 1),))
-
-        if self.phase == "train" and self.use_past:
-            logger.warning("The current use_past is True, but use_past can't be True when phase is train, "
-                           "so it has been set to False")
-            self.use_past = False
 
         def get_layer(layer_id):
             return DeepNormWithGLULayer(
@@ -226,7 +223,7 @@ class GLMForPreTraining(BaseModel):
     """
     _support_list = MindFormerBook.get_model_support_list()['glm']
 
-    def __init__(self, config):
+    def __init__(self, config: GLMConfig):
         super(GLMForPreTraining, self).__init__(config)
         self.config = config
         self.position_encoding_2d = config.position_encoding_2d
@@ -346,7 +343,7 @@ class GLMChatModel(GLMForPreTraining):
     """
     _support_list = MindFormerBook.get_model_support_list()['glm']
 
-    def __init__(self, config, top_p=1, top_k=1, repetition_penalty=1):
+    def __init__(self, config: GLMConfig):
         super(GLMChatModel, self).__init__(config)
         self.e = ms.Tensor(np.e, dtype=mstype.float32)
         self.pow = P.Pow()
@@ -360,9 +357,11 @@ class GLMChatModel(GLMForPreTraining):
         self.batch_size = config.batch_size
         self.frequency_list = ms.Tensor([[0 for _ in range(self.vocab_size)]])
         self.post_logits = ProcessLogits(use_past=config.use_past)
-        self.top_p = top_p
-        self.top_k = top_k
-        self.repetition_penalty = repetition_penalty
+        # seems not supported yet.
+        # self.top_p = config.top_p
+        self.top_p = 1
+        self.top_k = config.top_k
+        self.repetition_penalty = config.repetition_penalty
         self.is_first_iteration = False
         self.is_npu_acceleration = config.is_npu_acceleration
 
@@ -377,10 +376,11 @@ class GLMChatModel(GLMForPreTraining):
         logits = self.pow(self.e, log_probs)
 
         # If top_p is less than 1.0, use top_p sampling
+        # seems not supported yet.
         if self.top_p < 1.0:
             sorted_logits, index = self.topk(logits, 5000)
             cumsum_logits = self.cumsum(sorted_logits, 1)
-            top_p_num = self.sum((cumsum_logits < self.top_p).astype(mstype.int32), dim=-1) + 1
+            top_p_num = self.sum((cumsum_logits < self.top_p).astype(mstype.int32), -1) + 1
             top_p_num = int(top_p_num)
             # Get the corresponding probs and indices
             probs = sorted_logits[:, :top_p_num]
@@ -397,7 +397,7 @@ class GLMChatModel(GLMForPreTraining):
     # pylint:disable=arguments-differ
     @ms_function(jit_config=JitConfig(jit_level=jit_level))  # GE  O3; VM jit_level=O1
     def construct(self, input_ids, position_ids=None, attention_mask=None,
-                  current_index=0, init_reset=True, batch_valid_length=None):
+                  current_index=None, init_reset=True, batch_valid_length=None):
         """Get probs and p_args"""
         # model forward
         output_states, _ = self.transformer(input_ids, position_ids, attention_mask, init_reset, batch_valid_length)
@@ -413,3 +413,43 @@ class GLMChatModel(GLMForPreTraining):
         probs, p_args = self.sample(log_probs)
 
         return probs, p_args
+
+
+@MindFormerRegister.register(MindFormerModuleType.MODELS)
+class GLMForPreTrainingWithLora(GLMForPreTraining):
+    """GLM Model for pretraining with LoRA
+
+    Args:
+        config (GLMConfig): The config of network.
+    """
+
+    def __init__(self, config: GLMConfig = None, pet=None, **kwargs):
+        _ = kwargs
+        super().__init__(config)
+        # get Pet tuning model.
+        self.pet = pet
+        self.pet.pet_config.reg_rules = r'.*query_key_value*'
+        self.transformer = LoraAdapter.get_pet_model(self.transformer, self.pet.pet_config)
+        # freeze pretrained model
+        PetAdapter.freeze_pretrained_model(self, self.pet.pet_type)
+
+
+@MindFormerRegister.register(MindFormerModuleType.MODELS)
+class GLMChatModelWithLora(GLMChatModel):
+    """GLM Model for pretraining with LoRA
+
+    Args:
+        config (GLMConfig): The config of network.
+    """
+
+    def __init__(self, config: GLMConfig = None, pet=None, **kwargs):
+        _ = kwargs
+        ckpt_cfg = config.checkpoint_name_or_path
+        config.checkpoint_name_or_path = None
+        super().__init__(config)
+        # get Pet tuning model.
+        self.pet = pet
+        self.pet.pet_config.reg_rules = r'.*query_key_value*'
+        self.transformer = LoraAdapter.get_pet_model(self.transformer, self.pet.pet_config)
+        config.checkpoint_name_or_path = ckpt_cfg
+        self.load_checkpoint(config)

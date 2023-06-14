@@ -67,10 +67,10 @@ class GLMConfig(BaseConfig):
                  is_enhanced_encoder: bool = True,
                  is_npu_acceleration: bool = False,
                  checkpoint_name_or_path: str = "",
-                 repetition_penalty: float = 1.0,
                  max_decode_length: int = 2048,
-                 top_k: int = 5,
-                 top_p: float = 1.0,
+                 top_k: int = 1,
+                 top_p: float = 1,
+                 repetition_penalty: float = 1.0,
                  do_sample: bool = True,
                  **kwargs):
         super().__init__(**kwargs)
@@ -105,10 +105,10 @@ class GLMConfig(BaseConfig):
         self.pad_token_id = pad_token_id
         self.max_decode_length = max_decode_length
         self.seq_length = seq_length
-        self.repetition_penalty = repetition_penalty
         self.is_enhanced_encoder = is_enhanced_encoder
         self.is_npu_acceleration = is_npu_acceleration
         self.checkpoint_name_or_path = checkpoint_name_or_path
         self.top_k = top_k
         self.top_p = top_p
+        self.repetition_penalty = repetition_penalty
         self.do_sample = do_sample
