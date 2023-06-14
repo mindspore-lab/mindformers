@@ -107,3 +107,11 @@ class TestGPTTrainerMethod:
         Expectation: TypeError, ValueError, RuntimeError
         """
         self.task_trainer.predict(input_data="hello world!")
+
+    def test_finetune(self):
+        """
+        Feature: Trainer.finetune()
+        Description: Test trainer for finetune.
+        Expectation: TypeError, ValueError, RuntimeError
+        """
+        self.task_trainer.finetune()
