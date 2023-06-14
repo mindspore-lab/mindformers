@@ -109,7 +109,7 @@ eval_dataset: &eval_dataset
   tokenizer:
     type: GPT2Tokenizer
     max_length: 1024
-  input_columns: ["input_ids"]
+  input_columns: ["input_ids", "input_mask"]
   num_parallel_workers: 8
   python_multiprocessing: False
   drop_remainder: False
