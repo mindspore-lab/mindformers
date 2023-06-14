@@ -291,6 +291,11 @@ def load_distributed_checkpoint(config, specify_prefix=None):
 
 def load_resume_context_from_checkpoint(config):
     """resume training, load training info from checkpoint to config"""
+    if not os.path.realpath(config.load_checkpoint) or \
+            not os.path.exists(config.load_checkpoint):
+        raise FileNotFoundError(f"The load_checkpoint must be correct, "
+                                f"but get {config.load_checkpoint}")
+
     if context.get_auto_parallel_context('parallel_mode') in \
             ['semi_auto_parallel', 'auto_parallel', 'hybrid_parallel']:
         resume_dict = load_distributed_checkpoint(config, ["loss_scale", "epoch_num"])
@@ -319,6 +324,11 @@ def transform_and_load_checkpoint(config, model, network, dataset, optimizer=Non
     3. load checkpoint params into dict
     4. load params into net
     """
+    if not os.path.realpath(config.load_checkpoint) or \
+            not os.path.exists(config.load_checkpoint):
+        raise FileNotFoundError(f"The load_checkpoint must be correct, "
+                                f"but get {config.load_checkpoint}")
+
     # 1. build net if parallel mode is auto_parallel
     if context.get_auto_parallel_context('parallel_mode') in \
             ['semi_auto_parallel', 'auto_parallel', 'hybrid_parallel']:

@@ -45,7 +45,8 @@ def update_checkpoint_config(config, is_train=True):
             config.load_checkpoint = config.model.model_config.checkpoint_name_or_path
         config.model.model_config.checkpoint_name_or_path = None
     else:
-        config.model.model_config.checkpoint_name_or_path = config.load_checkpoint
+        if config.load_checkpoint:
+            config.model.model_config.checkpoint_name_or_path = config.load_checkpoint
         config.load_checkpoint = None
 
 
@@ -78,6 +79,9 @@ def main(config):
         update_checkpoint_config(config, is_train=False)
 
     if config.run_mode == "predict" and config.load_checkpoint:
+        if config.auto_trans_ckpt:
+            logger.warning("In the predict mode, distributed loading weights are not supported."
+                           "Only single-card reasoning is supported")
         config.model.model_config.checkpoint_name_or_path = config.load_checkpoint
         config.load_checkpoint = None
 
