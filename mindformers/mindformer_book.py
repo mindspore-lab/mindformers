@@ -501,7 +501,10 @@ class MindFormerBook:
             'glm',
         ]),
         ('bloom', [
-            'bloom',
+            'bloom_560m',
+            'bloom_7.1b',
+            'bloom_65b',
+            'bloom_176b',
         ])
     ])
 
@@ -550,7 +553,10 @@ class MindFormerBook:
             'glm_6b',
         ]),
         ('bloom', [
-            'bloom',
+            'bloom_560m',
+            'bloom_7.1b',
+            'bloom_65b',
+            'bloom_176b',
         ])
     ])
 
@@ -666,7 +672,11 @@ class MindFormerBook:
         ('llama_13b',
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
           '/XFormer_for_mindspore/llama/open_llama_13b.ckpt'
-          ])
+          ]),
+        ('bloom_560m',
+         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
+          '/MindFormers/bloom/bloom_560m.ckpt'
+          ]),
     ])
 
     _MODEL_CONFIG_URL_LIST = OrderedDict([
@@ -837,6 +847,22 @@ class MindFormerBook:
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
           '/XFormer_for_mindspore/llama/tokenizer.model'
           ]),
+        ('bloom_560m',
+         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
+          '/MindFormers/bloom/tokenizer.json'
+          ]),
+        ('bloom_7.1b',
+         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
+          '/MindFormers/bloom/tokenizer.json'
+          ]),
+        ('bloom_65b',
+         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
+          '/MindFormers/bloom/tokenizer.json'
+          ]),
+        ('bloom_176b',
+         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
+          '/MindFormers/bloom/tokenizer.json'
+          ]),
     ])
 
     _TOKENIZER_NAME_TO_PROCESSOR = OrderedDict([
@@ -845,7 +871,8 @@ class MindFormerBook:
         ('BertTokenizer', 'BertProcessor'),
         ('T5Tokenizer', 'T5Processor'),
         ('LlamaTokenizer', 'LlamaProcessor'),
-        ('GPT2Tokenizer', 'GPT2Processor')
+        ('GPT2Tokenizer', 'GPT2Processor'),
+        ('BloomTokenizer', 'BloomProcessor')
     ])
 
     @classmethod
