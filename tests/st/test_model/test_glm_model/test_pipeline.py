@@ -18,6 +18,7 @@ How to run this:
 pytest tests/st/test_model/test_glm_model/test_pipeline.py
 """
 import pytest
+from mindspore import context
 
 # from mindformers import pipeline
 
@@ -29,7 +30,8 @@ class TestPipelineMethod:
     """A test class for testing pipeline."""
     def setup_method(self):
         """setup method."""
-        self.test_llm_list = ['glm_6b']
+        context.set_context(mode=0)
+        self.test_llm_list = ['glm_6b', 'glm_6b_chat']
 
     def test_pipeline(self):
         """
@@ -39,6 +41,5 @@ class TestPipelineMethod:
         """
         # Too time-cost, not used for now.
         # for model_type in self.test_llm_list:
-        #     # add_special_tokens should be True
-        #     task_pipeline = pipeline(task='text_generation', model=model_type, add_special_tokens=True, max_length=20)
+        #     task_pipeline = pipeline(task='text_generation', model=model_type, max_length=20)
         #     task_pipeline("你好", top_k=3)

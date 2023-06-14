@@ -1,9 +1,9 @@
 seed: 0
-run_mode: 'train'
-output_dir: './output'  # 当前不支持自定义修改，请勿修改该默认值
-load_checkpoint: ''
+run_mode: 'predict'
+load_checkpoint: ""
 auto_trans_ckpt: False  # If true, auto transform load_checkpoint to load in distributed model
 resume_training: False
+output_dir: './output'  # 当前不支持自定义修改，请勿修改该默认值
 
 # ==== context config ====
 context:
@@ -14,6 +14,7 @@ context:
   max_call_depth: 10000
   max_device_memory: "30GB"
   save_graphs: False
+  save_graphs_path: "./graph"
   device_id: 0
 
 # aicc
@@ -36,7 +37,7 @@ model:
     layernorm_order: "post"
     layernorm_epsilon: 1.0e-5
     use_final_layernorm: True
-    use_past: False
+    use_past: True              # True for incremental infer.
     activation_func: 'GELU'
     position_encoding_2d: True
     param_init_type: "float16"
@@ -50,23 +51,24 @@ model:
     pad_token_id: 3
     max_decode_length: 2048  # The maximum length of the generated words.
     is_enhanced_encoder: True
-    is_npu_acceleration: False
+    is_npu_acceleration: True   # sample in npu to acceleration
     checkpoint_name_or_path: "glm_6b"
     top_k: 1
-    top_p: 1
+    top_p: 1    # top_p not support for npu_acceleration yet 
     repetition_penalty: 1
     do_sample: True
   arch:
-    type: GLMForPreTraining
+    type: GLMChatModelWithLora
+    pet:
+      pet_type: lora
+      pet_config:
+        lora_rank: 8
+        lora_alpha: 32
+        lora_dropout: 0.1
 
 trainer:
   type: CausalLanguageModelingTrainer
-  model_name: 'glm_6b'
-# if True, do evaluate during the training process. if false, do nothing.
-# note that the task trainer should support _evaluate_in_training function.
-do_eval: False
-eval_step_interval: -1        # num of step intervals between each eval, -1 means no step end eval.
-eval_epoch_interval: 1        # num of epoch intervals between each eval, 1 means eval on every epoch end.
+  model_name: 'glm_6b_lora'
 
 metric:
   type: ADGENMetric
@@ -128,7 +130,7 @@ eval_dataset_task:
 # ==== runner config ====
 runner_config:
   epochs: 1
-  batch_size: 8
+  batch_size: 1
   sink_mode: True
   sink_size: 4
 
@@ -148,10 +150,6 @@ lr_schedule:
   lr_end: 1.e-6
   warmup_steps: 2000
   total_steps: -1 # -1 means it will load the total steps of the dataset
-layer_scale: False
-layer_decay: 0.65
-lr_scale: False
-lr_scale_factor: 256
 
 # optimizer
 optimizer:
@@ -216,7 +214,7 @@ callbacks:
   - type: SummaryMonitor
     keep_default_action: True
   - type: CheckpointMointor
-    prefix: "glm-6b"
+    prefix: "glm-6b-lora"
     save_checkpoint_steps: 500
     keep_checkpoint_max: 2
     integrated_save: False

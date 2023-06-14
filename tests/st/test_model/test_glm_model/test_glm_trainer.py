@@ -20,6 +20,7 @@ pytest tests/st/test_model/test_glm_model/test_glm_trainer.py
 import numpy as np
 import pytest
 
+from mindspore import context
 from mindspore.dataset import GeneratorDataset
 
 from mindformers import AutoTokenizer
@@ -58,6 +59,8 @@ class TestGLMTrainerMethod:
 
     def setup_method(self):
         """init task trainer."""
+        context.set_context(mode=0)
+
         args = TrainingArguments(num_train_epochs=1, batch_size=2)
         train_dataset = GeneratorDataset(generator_train,
                                          column_names=["input_ids", "label", "position_ids", "attention_mask"])
@@ -104,7 +107,7 @@ class TestGLMTrainerMethod:
         task_trainer = Trainer(task='text_generation',
                                model=model,
                                tokenizer=self.tokenizer)
-        task_trainer.predict(input_data="你好", add_special_tokens=True, max_length=20)
+        task_trainer.predict(input_data="你好", max_length=20)
 
     def test_finetune(self):
         """
@@ -112,3 +115,4 @@ class TestGLMTrainerMethod:
         Description: Test trainer for finetune.
         Expectation: TypeError, ValueError, RuntimeError
         """
+        self.task_trainer.finetune()

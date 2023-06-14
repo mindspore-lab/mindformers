@@ -14,9 +14,14 @@
 # ============================================================================
 """The export function for glm"""
 
-from .glm_config import GLMConfig
-from .glm import GLMModel, GLMForPreTraining, GLMChatModel
 from .chatglm_6b_tokenizer import ChatGLMTokenizer
+from .glm import (GLMChatModel, GLMChatModelWithLora, GLMForPreTraining,
+                  GLMForPreTrainingWithLora)
+from .glm_config import GLMConfig
 from .glm_processor import GLMProcessor
 
-__all__ = ['ChatGLMTokenizer', 'GLMConfig', 'GLMForPreTraining', 'GLMChatModel', 'GLMModel', 'GLMProcessor']
+__all__ = []
+__all__.extend(chatglm_6b_tokenizer.__all__)
+__all__.extend(glm.__all__)
+__all__.extend(glm_config.__all__)
+__all__.extend(glm_processor.__all__)

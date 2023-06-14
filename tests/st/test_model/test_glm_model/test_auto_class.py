@@ -20,6 +20,7 @@ pytest tests/st/test_model/test_glm_model/test_auto_class.py
 import os
 
 import pytest
+from mindspore import context
 
 from mindformers import MindFormerBook
 # from mindformers import AutoModel
@@ -36,6 +37,7 @@ class TestAutoClassMethod:
 
     def setup_method(self):
         """setup method."""
+        context.set_context(mode=0)
         self.save_directory = os.path.join(
             MindFormerBook.get_project_path(), "checkpoint_save"
         )
