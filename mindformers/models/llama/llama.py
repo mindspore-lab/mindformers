@@ -32,12 +32,14 @@ from mindformers.modules.layers import Linear
 from mindformers.modules.transformer.op_parallel_config import _check_config
 from mindformers.modules.transformer.transformer import AttentionMask
 from mindformers.tools.register.register import MindFormerModuleType, MindFormerRegister
+from mindformers.pet.tuners.pet_adapter import PetAdapter
+from mindformers.pet.tuners.lora_adapter import LoraAdapter
 
 from .llama_config import LlamaConfig
 from .llama_layer import LlamaEmbedding, LlamaRMSNorm, precompute_freqs_cis
 from .llama_transformer import LLamaDecodeLayer
 
-__all__ = ['LlamaModel', 'LlamaForCausalLM']
+__all__ = ['LlamaModel', 'LlamaForCausalLM', 'LlamaForCausalLMWithLora']
 
 def layer_compute_dtype(layer, layer_id, offset, parallel_config, n_layers):
     r"""
@@ -320,3 +322,14 @@ class LlamaForCausalLM(BaseModel):
         input_mask = self.reshape(input_mask, (-1,))
         loss = self.loss(logits, label_ids, input_mask)
         return loss
+
+@MindFormerRegister.register(MindFormerModuleType.MODELS)
+class LlamaForCausalLMWithLora(LlamaForCausalLM):
+    def __init__(self, config: LlamaConfig = None, pet=None):
+        super().__init__(config)
+        # get Pet tuning model.
+        self.pet = pet
+        self.pet.pet_config.reg_rules = r'.*wq|.*wv'
+        self.model = LoraAdapter.get_pet_model(self.model, self.pet.pet_config)
+        # freeze pretrained model
+        PetAdapter.freeze_pretrained_model(self, self.pet.pet_type)
