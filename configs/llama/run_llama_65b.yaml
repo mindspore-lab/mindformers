@@ -193,8 +193,5 @@ layer_scale: False
 layer_decay: 0.65
 lr_scale_factor: 256
 
-# cfts init config
-aicc_config:
-  obs_path: "Please input obs url on AICC platform."
-  upload_frequence: 1
-  keep_last: False
+# aicc
+remote_save_url: "Please input obs url on AICC platform."
