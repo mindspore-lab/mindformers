@@ -7,6 +7,7 @@ resume_training: False
 micro_batch_interleave_num: 1
 
 auto_tune: True
+filepath_prefix: './autotune'
 autotune_per_step: 8
 
 profile: False
@@ -19,23 +20,24 @@ model:
     type: BloomConfig
     seq_length: 2048
     vocab_size: 250880
-    embedding_size: 1024
+    hidden_size: 1024
     num_layers: 24
     num_heads: 16
     expand_ratio: 4
     hidden_act: "fast_gelu"
-    dropout_prob: 0.0
+    embedding_dropout_prob: 0.0
     hidden_dropout_prob: 0.1
-    attention_probs_dropout_prob: 0.1
+    attention_dropout_rate: 0.1
     initializer_range: 0.02
     param_init_type: "float16"
-    layernorm_dtype: "float32"
-    softmax_dtype: "float16"
+    layernorm_compute_type: "float32"
+    softmax_compute_type: "float16"
     compute_dtype: "float16"
     use_seq_parallel: False
     use_select_recompute: False
-    checkpoint_name_or_path: ""
-    eos_token: 2
+    checkpoint_name_or_path: "bloom_560m"
+    eos_token_id: 2
+    bos_token_id: 1
     repetition_penalty: 1
     max_decode_length: 1024
     top_k: 5
@@ -83,12 +85,8 @@ eval_dataset_task:
 processor:
   return_tensors: ms
   tokenizer:
-    bos_token: 1
-    eos_token: 2
-    pad_token: 3
-    unk_token: 4
     type: BloomTokenizer
-  type: BloomTokenizer
+  type: BloomProcessor
 
 
 context:
@@ -107,22 +105,22 @@ moe_config:
   num_experts_chosen: 1  
 
 # parallel
-use_parallel: True
+use_parallel: False
 parallel:
   parallel_optimizer_config: {"gradient_accumulation_shard": False}
-  parallel_mode: 1 # 0-dataset, 1-semi, 2-auto, 3-hybrid
+  parallel_mode: 0 # 0-dataset, 1-semi, 2-auto, 3-hybrid
   gradients_mean: False
   loss_repeated_mean: True
-  full_batch: True
+  full_batch: False
   search_mode: "sharding_propagation"
-  enable_parallel_optimizer: True
+  enable_parallel_optimizer: False
 
 parallel_config:
-  data_parallel: 2
-  model_parallel: 2
-  pipeline_stage: 2
-  optimizer_shard: True
-  micro_batch_num: 2
+  data_parallel: 1
+  model_parallel: 1
+  pipeline_stage: 1
+  optimizer_shard: False
+  micro_batch_num: 1
   vocab_emb_dp: True
   gradient_aggregation_group: 4
 

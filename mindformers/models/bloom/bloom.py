@@ -136,7 +136,7 @@ class BloomModel(nn.Cell):
                                   use_select_recompute=config.use_select_recompute,
                                   parallel_config=config.parallel_config).blocks
         self.num_layers = config.num_layers
-        self.ln_f = LayerNorm((config.hidden_size,)).to_float(config.layernorm_dtype)
+        self.ln_f = LayerNorm((config.hidden_size,)).to_float(config.layernorm_compute_type)
         if config.parallel_config.pipeline_stage > 1:
             self.ln_f.set_comm_fusion(2)
         else:

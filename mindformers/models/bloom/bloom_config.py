@@ -33,7 +33,7 @@ class BloomConfig(BaseConfig):
     _support_list = MindFormerBook.get_config_support_list()['bloom']
 
     def __init__(self,
-                 dropout_prob: float = 0.1,
+                 embedding_dropout_prob: float = 0.0,
                  batch_size: int = None,
                  seq_length: int = 1024,
                  vocab_size: int = 250880,
@@ -62,7 +62,7 @@ class BloomConfig(BaseConfig):
                  do_sample: bool = True,
                  **kwargs):
         super().__init__(**kwargs)
-        self.dropout_prob = dropout_prob
+        self.embedding_dropout_prob = embedding_dropout_prob
         self.batch_size = batch_size
         self.seq_length = seq_length
         self.vocab_size = vocab_size
