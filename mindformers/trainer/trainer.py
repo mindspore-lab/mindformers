@@ -385,7 +385,7 @@ class Trainer:
                 self.config.model.model_config.checkpoint_name_or_path = None
                 self.config.load_checkpoint = train_checkpoint
             else:
-                self.config.model.model_config.checkpoint_name_or_path = self.config.load_checkpoint
+                self.config.model.model_config.checkpoint_name_or_path = train_checkpoint
                 self.config.load_checkpoint = None
         else:
             self.default_checkpoint_name_or_path = self.config.model.model_config.checkpoint_name_or_path
@@ -465,12 +465,12 @@ class Trainer:
         if finetune_checkpoint is True:
             self.config.model.model_config.checkpoint_name_or_path = None
             self.config.load_checkpoint = self.get_last_checkpoint()
-        elif isinstance(load_checkpoint, str):
-            if resume_training or auto_trans_ckpt or os.path.isdir(load_checkpoint):
+        elif isinstance(finetune_checkpoint, str):
+            if resume_training or auto_trans_ckpt or os.path.isdir(finetune_checkpoint):
                 self.config.model.model_config.checkpoint_name_or_path = None
-                self.config.load_checkpoint = load_checkpoint
+                self.config.load_checkpoint = finetune_checkpoint
             else:
-                self.config.model.model_config.checkpoint_name_or_path = self.config.load_checkpoint
+                self.config.model.model_config.checkpoint_name_or_path = finetune_checkpoint
                 self.config.load_checkpoint = None
         else:
             self.default_checkpoint_name_or_path = self.config.model.model_config.checkpoint_name_or_path
@@ -527,12 +527,12 @@ class Trainer:
         if eval_checkpoint is True:
             self.config.model.model_config.checkpoint_name_or_path = None
             self.config.load_checkpoint = self.get_last_checkpoint()
-        elif isinstance(load_checkpoint, str):
-            if auto_trans_ckpt or os.path.isdir(load_checkpoint):
+        elif isinstance(eval_checkpoint, str):
+            if auto_trans_ckpt or os.path.isdir(eval_checkpoint):
                 self.config.model.model_config.checkpoint_name_or_path = None
-                self.config.load_checkpoint = load_checkpoint
+                self.config.load_checkpoint = eval_checkpoint
             else:
-                self.config.model.model_config.checkpoint_name_or_path = self.config.load_checkpoint
+                self.config.model.model_config.checkpoint_name_or_path = eval_checkpoint
                 self.config.load_checkpoint = None
         else:
             self.default_checkpoint_name_or_path = self.config.model.model_config.checkpoint_name_or_path
