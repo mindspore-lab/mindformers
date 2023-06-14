@@ -26,7 +26,7 @@ import mindspore as ms
 from mindspore import Tensor
 from mindspore.common import set_seed
 from mindspore import load_checkpoint, load_param_into_net
-from mindspore.nn import TrainOneStepCell, Optimizer, Cell,\
+from mindspore.nn import TrainOneStepCell, Optimizer, Cell, \
     PipelineCell, MicroBatchInterleaved
 from mindspore.nn.wrap.cell_wrapper import _VirtualDatasetCell
 from mindspore.train import Callback
@@ -319,23 +319,25 @@ class Trainer:
         if self.trainer is None:
             raise ModuleNotFoundError("config must be contain 'trainer' key, but get None.")
 
-    def train(self, resume_or_finetune_from_checkpoint: Optional[Union[str, bool]] = False,
-              initial_epoch: int = 0, do_eval: bool = False, do_finetune: bool = False, **kwargs):
+    def train(self,
+              train_checkpoint: Optional[Union[str, bool]] = False,
+              resume_training: Optional[bool] = False,
+              auto_trans_ckpt: bool = False,
+              do_eval: bool = False,
+              **kwargs):
         r"""Train task for Trainer.
         This function is used to train or fine-tune the network.
 
         Args:
-            resume_or_finetune_from_checkpoint (Optional[Union[str, bool]]):
+            train_checkpoint (Optional[Union[str, bool]]):
                 Used to restore training or fine-tune the weight of the network.
-                It support real checkpoint path or valid model name of mindformers or bool value.
+                It supports real checkpoint path or valid model name of mindformers or bool value.
                 if it's true, the last checkpoint file saved from the previous training round is automatically used.
-                if do_finetune is true, this checkpoint will be used to finetune the network.
+                If do_finetune is true, this checkpoint will be used to finetune the network.
                 Default: False.
-            initial_epoch (int): Epoch at which to start train, it used for resuming a previous training run.
-                Default: 0.
+            resume_training (bool): Whether to perform resume training. Default: False.
+            auto_trans_ckpt: auto transform checkpoint to load in distributed model
             do_eval (bool): Whether evaluations are performed during training. Default: False.
-            do_finetune: Whether to finetune network. When it's true, resume_or_finetune_from_checkpoint must be input.
-                Default: False.
 
         Raises:
             TypeError: if resume_or_finetune_from_checkpoint is not bool or str type.
@@ -351,7 +353,7 @@ class Trainer:
             >>> # 2) eval network when train task to reproduce model.
             >>> task_trainer.train(do_eval=True)
             >>> # 3) resume train task to auto load the last checkpoint, if training break after 10 epochs.
-            >>> task_trainer.train(resume_or_finetune_from_checkpoint=True, initial_epoch=10)
+            >>> task_trainer.train(train_checkpoint=True, initial_epoch=10)
             >>> # 4) resume train task according to checkpoint path, if training break after 10 epochs.
             >>> task_trainer.train(
             ...     resume_or_finetune_from_checkpoint='./output/rank_0/checkpoint/mindformers.ckpt',
@@ -359,17 +361,12 @@ class Trainer:
             >>> # 5) finetune train task according to resume_or_finetune_from_checkpoint.
             >>> task_trainer.train(resume_or_finetune_from_checkpoint='mae_vit_base_p16', do_finetune=True)
         """
-        if resume_or_finetune_from_checkpoint is not None and \
-                not isinstance(resume_or_finetune_from_checkpoint, (bool, str)):
+        if train_checkpoint is not None and \
+                not isinstance(train_checkpoint, (bool, str)):
             raise TypeError(f"resume_or_finetune_from_checkpoint must be one of [None, string, bool], "
-                            f"but get {resume_or_finetune_from_checkpoint}")
-        if resume_or_finetune_from_checkpoint is False:
-            resume_or_finetune_from_checkpoint = None
-
-        if do_finetune and resume_or_finetune_from_checkpoint is None:
-            logger.warning("if do_finetune is true, "
-                           "resume_or_finetune_from_checkpoint must be input and valid, "
-                           "but it's None.")
+                            f"but get {train_checkpoint}")
+        if train_checkpoint is False:
+            train_checkpoint = None
 
         if do_eval:
             logger.warning("do_eval is not supported yet."
@@ -380,22 +377,21 @@ class Trainer:
                 raise ValueError(f"if do_eval is true, eval_dataset must be input, "
                                  f"the task {self.task} is not support eval now.")
 
-        if resume_or_finetune_from_checkpoint is True:
+        if train_checkpoint is True:
             self.config.model.model_config.checkpoint_name_or_path = None
-            self.config.resume_or_finetune_checkpoint = self.get_last_checkpoint()
-        elif isinstance(resume_or_finetune_from_checkpoint, str):
-            if do_finetune:
-                self.config.model.model_config.checkpoint_name_or_path = resume_or_finetune_from_checkpoint
-                self.config.resume_or_finetune_checkpoint = None
-            else:
+            self.config.load_checkpoint = self.get_last_checkpoint()
+        elif isinstance(train_checkpoint, str):
+            if resume_training or auto_trans_ckpt or os.path.isdir(train_checkpoint):
                 self.config.model.model_config.checkpoint_name_or_path = None
-                self.config.resume_or_finetune_checkpoint = resume_or_finetune_from_checkpoint
+                self.config.load_checkpoint = train_checkpoint
+            else:
+                self.config.model.model_config.checkpoint_name_or_path = self.config.load_checkpoint
+                self.config.load_checkpoint = None
         else:
             self.default_checkpoint_name_or_path = self.config.model.model_config.checkpoint_name_or_path
             self.config.model.model_config.checkpoint_name_or_path = None
 
-        if initial_epoch != 0:
-            self.config.runner_config.initial_epoch = initial_epoch
+        self.config.resume_training = resume_training
 
         if self.is_model_instance:
             self.reset_model_instance(is_train=True)
@@ -411,6 +407,7 @@ class Trainer:
     def finetune(self,
                  finetune_checkpoint: Optional[Union[str, bool]] = False,
                  resume_training: Optional[bool] = False,
+                 auto_trans_ckpt: bool = False,
                  do_eval: bool = False,
                  **kwargs):
         r"""Finetune task for Trainer.
@@ -423,7 +420,8 @@ class Trainer:
                 if it's true, the last checkpoint file saved from the previous training round is automatically used.
                 if resume_training is true, this checkpoint will be used to restore training of the network.
                 Default: False.
-            resume_training (bool): Whether to perform resume training. Default: False.
+            resume_training (bool): Whether to perform resume training. Default: False
+            auto_trans_ckpt: auto transform checkpoint to load in distributed model
             do_eval (bool): Whether evaluations are performed during training. Default: False.
 
         Raises:
@@ -467,9 +465,13 @@ class Trainer:
         if finetune_checkpoint is True:
             self.config.model.model_config.checkpoint_name_or_path = None
             self.config.load_checkpoint = self.get_last_checkpoint()
-        elif isinstance(finetune_checkpoint, str):
-            self.config.model.model_config.checkpoint_name_or_path = None
-            self.config.load_checkpoint = finetune_checkpoint
+        elif isinstance(load_checkpoint, str):
+            if resume_training or auto_trans_ckpt or os.path.isdir(load_checkpoint):
+                self.config.model.model_config.checkpoint_name_or_path = None
+                self.config.load_checkpoint = load_checkpoint
+            else:
+                self.config.model.model_config.checkpoint_name_or_path = self.config.load_checkpoint
+                self.config.load_checkpoint = None
         else:
             self.default_checkpoint_name_or_path = self.config.model.model_config.checkpoint_name_or_path
             self.config.load_checkpoint = self.config.model.model_config.checkpoint_name_or_path
@@ -488,7 +490,7 @@ class Trainer:
             callbacks=self.callbacks,
             is_full_config=True, **kwargs)
 
-    def evaluate(self, eval_checkpoint: Optional[Union[str, bool]] = False, **kwargs):
+    def evaluate(self, eval_checkpoint: Optional[Union[str, bool]] = False, auto_trans_ckpt: bool = False, **kwargs):
         r"""Evaluate task for Trainer.
         This function is used to evaluate the network.
 
@@ -498,6 +500,7 @@ class Trainer:
                 It support real checkpoint path or valid model name of mindformers or bool value.
                 if it's true, the last checkpoint file saved from the previous training round is automatically used.
                 Default: False.
+            auto_trans_ckpt: auto transform checkpoint to load in distributed model
 
         Raises:
             TypeError: if eval_checkpoint is not bool or str type.
@@ -521,7 +524,23 @@ class Trainer:
         if eval_checkpoint is False:
             eval_checkpoint = None
 
-        self._check_checkpoint_config(eval_checkpoint)
+        if eval_checkpoint is True:
+            self.config.model.model_config.checkpoint_name_or_path = None
+            self.config.load_checkpoint = self.get_last_checkpoint()
+        elif isinstance(load_checkpoint, str):
+            if auto_trans_ckpt or os.path.isdir(load_checkpoint):
+                self.config.model.model_config.checkpoint_name_or_path = None
+                self.config.load_checkpoint = load_checkpoint
+            else:
+                self.config.model.model_config.checkpoint_name_or_path = self.config.load_checkpoint
+                self.config.load_checkpoint = None
+        else:
+            self.default_checkpoint_name_or_path = self.config.model.model_config.checkpoint_name_or_path
+            if auto_trans_ckpt:
+                self.config.model.model_config.checkpoint_name_or_path = None
+                self.config.load_checkpoint = self.config.model.model_config.checkpoint_name_or_path
+            else:
+                self.config.load_checkpoint = None
 
         if self.is_model_instance:
             self.reset_model_instance(is_train=False)

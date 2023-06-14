@@ -1,6 +1,8 @@
 seed: 0
 run_mode: 'predict'
-resume_or_finetune_checkpoint: "" # path or direction of resume checkpoint.
+load_checkpoint: ""
+auto_trans_ckpt: False  # If true, auto transform load_checkpoint to load in distributed model
+resume_training: False
 output_dir: './output'  # 当前不支持自定义修改，请勿修改该默认值
 
 # ==== context config ====
@@ -129,9 +131,7 @@ runner_config:
   batch_size: 8
   sink_mode: True
   sink_size: 4
-  initial_epoch: 0
-  has_trained_epoches: 0
-  has_trained_steps: 0
+
 runner_wrapper:
   type: MFTrainOneStepCell
   scale_sense:

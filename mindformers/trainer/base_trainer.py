@@ -40,9 +40,10 @@ from mindformers.wrapper import build_wrapper
 from mindformers.tools.register import MindFormerConfig
 from mindformers.tools.logger import logger
 from mindformers.tools.utils import count_params
+from mindformers.auto_class import AutoModel
 from .config_args import ConfigArguments
 from .training_args import TrainingArguments
-from .utils import check_runner_config, load_checkpoint_for_training, resume_checkpoint_dict, load_checkpoint_for_eval
+from .utils import check_runner_config, transform_and_load_checkpoint, load_resume_context_from_checkpoint
 from .optimizer_grouped_parameters import get_optimizer_grouped_parameters
 from .utils import set_seed, check_train_data_loader_type, \
     check_eval_data_loader_type, check_optimizer_and_lr_type, check_wrapper_config
@@ -482,10 +483,9 @@ class BaseTrainer:
         is_full_config = kwargs.get("is_full_config", False)
         config = self.set_config(config, is_full_config)
 
-        checkpoint_dict = None
-        if config.resume_or_finetune_checkpoint:
-            logger.info(".............Start load checkpoint for training..................")
-            checkpoint_dict = load_checkpoint_for_training(config)
+        if config.resume_training and config.load_checkpoint:
+            logger.info(".............Start load resume context from checkpoint..................")
+            load_resume_context_from_checkpoint(config)
 
         # build dataset
         logger.info(".........Build Dataset For Train..........")
@@ -543,14 +543,16 @@ class BaseTrainer:
             model = Model(network, optimizer=optimizer, metrics=compute_metrics, eval_network=network)
 
         # resume checkpoint
-        if config.resume_or_finetune_checkpoint:
-            if "epoch_num" in checkpoint_dict:
-                config.runner_config.initial_epoch = int(checkpoint_dict["epoch_num"])
+        if config.load_checkpoint:
+            if config.resume_training:
+                logger.info(".............Start resume training from checkpoint..................")
+                transform_and_load_checkpoint(config, model, network, dataset, optimizer=optimizer)
             else:
-                config.runner_config.initial_epoch = 0
-            logger.info(".............Start resume training from checkpoint dict..................")
-            resume_checkpoint_dict(config, checkpoint_dict, model, network, optimizer, dataset)
-            del checkpoint_dict
+                logger.info(".............Start load checkpoint from checkpoint..................")
+                if config.load_checkpoint in SUPPORT_MODEL_NAMES:
+                    config.load_checkpoint = \
+                        AutoModel.from_pretrained(config.load_checkpoint).default_checkpoint_download_path
+                transform_and_load_checkpoint(config, model, network, dataset)
 
         # build callback
         logger.info(".........Build Callbacks For Train..........")
@@ -561,7 +563,7 @@ class BaseTrainer:
                 "dataset_size": config.data_size,
                 "micro_batch_interleave_num": config.micro_batch_interleave_num,
                 "micro_batch_num": config.parallel_config.micro_batch_num,
-                "initial_epoch": config.runner_config.initial_epoch})
+                "initial_epoch": config.runner_config.initial_epoch if config.runner_config.initial_epoch else 0})
 
         # build evaluate in training
         if config.do_eval:
@@ -585,7 +587,7 @@ class BaseTrainer:
                     callbacks=callbacks,
                     dataset_sink_mode=config.runner_config.sink_mode,
                     sink_size=config.runner_config.sink_size,
-                    initial_epoch=config.runner_config.initial_epoch)
+                    initial_epoch=config.runner_config.initial_epoch if config.runner_config.initial_epoch else 0)
         logger.info(".........Training Over!.............")
 
     def evaluate_process(
@@ -633,9 +635,12 @@ class BaseTrainer:
         logger.info(".........Starting Init Evaluate Model..........")
         model = Model(network, metrics=compute_metrics, eval_network=network)
 
-        if config.resume_or_finetune_checkpoint:
+        if config.load_checkpoint:
+            if config.load_checkpoint in SUPPORT_MODEL_NAMES:
+                config.load_checkpoint = \
+                    AutoModel.from_pretrained(config.load_checkpoint).default_checkpoint_download_path
             logger.info(".............Start load checkpoint for eval..................")
-            load_checkpoint_for_eval(config, model, network, dataset)
+            transform_and_load_checkpoint(config, model, network, dataset, do_eval=True)
 
         logger.info(".........Starting Evaluate Model..........")
         output = model.eval(dataset,
