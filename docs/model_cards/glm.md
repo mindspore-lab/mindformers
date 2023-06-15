@@ -132,7 +132,7 @@ if __name__ == "__main__":
 
 ### 数据处理
 
-ADGEN 数据集任务为根据输入（content）生成一段广告词（summary）。
+ADGEN 数据集任务为根据输入（content）生成一段广告词（summary）。数据集可选离线生成 `Mindrecord` 或者实时生成两种方式
 
 ```json
 {
@@ -143,30 +143,88 @@ ADGEN 数据集任务为根据输入（content）生成一段广告词（summary
 
 从 [Google Drive](https://drive.google.com/file/d/13_vf0xRTQsyneRKdD1bZIr93vBGOczrk/view?usp=sharing) 或者 [Tsinghua Cloud](https://cloud.tsinghua.edu.cn/f/b3f119a008264b1cabd1/?dl=1) 下载处理好的 ADGEN 数据集，将解压后的 `AdvertiseGen` 任意目录下
 
-使用 `mindformers/mindformers/dataset/glm_data_process/adgen_dataset.py` 脚本将数据集处理成mindrecord格式
+#### 离线生成
+
+使用 `mindformers/tools/dataset_preprocess/glm/adgen_dataset.py` 脚本将数据集处理成mindrecord格式。
 
 执行命令生成训练数据集：
 
 ```bash
 python adgen_dataset.py \
---input_file /path/to/data/AdvertiseGen/train.json \
---vocab_file /path/to/ice_text.model\
---output_file /path/to/data/AdvertiseGen/train_0604_128.mindrecord \
---max_source_length 64 \
---max_target_length 64 \
---mode train
+    --input_file /path/to/AdvertiseGen/train.json \
+    --vocab_file /path/to/ice_text.model\
+    --output_file /path/to/AdvertiseGen/train_0604_128.mindrecord \
+    --max_source_length 64 \
+    --max_target_length 64 \
+    --mode train
 ```
 
 执行命令生成评估数据集：
 
 ```bash
 python adgen_dataset.py \
---input_file /path/to/data/AdvertiseGen/dev.json \
---vocab_file /path/to/ice_text.model \
---output_file /path/to/data/AdvertiseGen/eval_0604_256.mindrecord \
---max_source_length 256 \
---max_target_length 256 \
---mode eval
+    --input_file /path/to/AdvertiseGen/dev.json \
+    --vocab_file /path/to/ice_text.model \
+    --output_file /path/to/AdvertiseGen/eval_0604_256.mindrecord \
+    --max_source_length 256 \
+    --max_target_length 256 \
+    --mode eval
+```
+
+#### 在线加载
+
+在线生成不占用额外硬盘空间，推荐使用在线加载数据的方式。
+
+修改配置文件 `mindformers/configs/glm/glm/run_glm_6b_finetune.yaml`中的 `# ==== dataset config ====` 项如下：
+
+```yaml
+train_dataset: &train_dataset
+  data_loader:
+    type: ADGenDataLoader
+    dataset_dir: "/path/to/AdvertiseGen"
+    shuffle: True
+    phase: "train"
+    max_source_length: 64 # 请按照实际数据集设置长度
+    max_target_length: 64 # 请按照实际数据集设置长度
+    ignore_pad_token_for_loss: True
+  tokenizer_type: "glm_6b"
+  input_columns: ["input_ids", "label", "position_ids", "attention_mask"]
+  num_parallel_workers: 8
+  python_multiprocessing: False
+  drop_remainder: True
+  batch_size: 1
+  repeat: 1
+  numa_enable: False
+  prefetch_size: 1
+  seed: 0
+
+train_dataset_task:
+  type: GLMModelDataset
+  dataset_config: *train_dataset
+
+eval_dataset: &eval_dataset
+  data_loader:
+    type: ADGenDataLoader
+    dataset_dir: "/path/to/AdvertiseGen"
+    shuffle: False
+    phase: "eval"
+    max_source_length: 256 # 请按照实际数据集设置长度
+    max_target_length: 256 # 请按照实际数据集设置长度
+    ignore_pad_token_for_loss: True
+  tokenizer_type: "glm_6b"
+  input_columns: ["input_ids", "label"]
+  num_parallel_workers: 8
+  python_multiprocessing: False
+  drop_remainder: True
+  batch_size: 1
+  repeat: 1
+  numa_enable: False
+  prefetch_size: 1
+  seed: 0
+
+eval_dataset_task:
+  type: GLMModelDataset
+  dataset_config: *eval_dataset
 ```
 
 ### 生成HCCL文件
@@ -614,7 +672,7 @@ python task.py --task text_generation --model_type glm_6b_lora_chat --checkpoint
    git clone https://huggingface.co/THUDM/chatglm-6b
    ```
 
-2. 执行下列python脚本将8份分布式的pytorch模型文件保存成1份。
+2. 执行 python 脚本，合并模型权重。
 
    ```python
    from transformers import AutoModel
