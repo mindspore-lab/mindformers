@@ -7,6 +7,7 @@ resume_training: False
 micro_batch_interleave_num: 1
 
 auto_tune: True
+filepath_prefix: './autotune'
 autotune_per_step: 8
 
 profile: False
@@ -24,18 +25,18 @@ model:
     num_heads: 112
     expand_ratio: 4
     hidden_act: "fast_gelu"
-    dropout_prob: 0.0
-    hidden_dropout_prob: 0.1
-    attention_probs_dropout_prob: 0.1
+    hidden_dropout_rate: 0.1
+    attention_dropout_rate: 0.1
     initializer_range: 0.02
     param_init_type: "float16"
-    layernorm_dtype: "float32"
-    softmax_dtype: "float16"
+    layernorm_compute_type: "float32"
+    softmax_compute_type: "float16"
     compute_dtype: "float16"
     use_seq_parallel: False
     use_select_recompute: False
     checkpoint_name_or_path: ""
-    eos_token: 2
+    eos_token_id: 2
+    bos_token_id: 1
     repetition_penalty: 1
     max_decode_length: 1024
     top_k: 5
@@ -83,12 +84,8 @@ eval_dataset_task:
 processor:
   return_tensors: ms
   tokenizer:
-    bos_token: 1
-    eos_token: 2
-    pad_token: 3
-    unk_token: 4
     type: BloomTokenizer
-  type: BloomTokenizer
+  type: BloomProcessor
 
 context:
   mode: 0 #0--Graph Mode; 1--Pynative Mode
@@ -103,7 +100,7 @@ moe_config:
   expert_num: 1
   capacity_factor: 1.05
   aux_loss_factor: 0.05
-  num_experts_chosen: 1  
+  num_experts_chosen: 1
 
 # parallel
 use_parallel: True
@@ -141,6 +138,7 @@ runner_config:
   sink_mode: True
   sink_size: 8
   per_epoch_size: 8
+
 runner_wrapper:
   type: MFTrainOneStepCell
   scale_sense:

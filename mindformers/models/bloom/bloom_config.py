@@ -43,8 +43,10 @@ class BloomConfig(BaseConfig):
                  expand_ratio: int = 4,
                  hidden_dropout_rate: float = 0.1,
                  attention_dropout_rate: float = 0.1,
+                 unk_token_id: int = 0,
                  bos_token_id: int = 1,
                  eos_token_id: int = 2,
+                 pad_token_id: int = 3,
                  param_init_type: str = "float32",
                  layernorm_compute_type: str = "float32",
                  softmax_compute_type: str = "float32",
@@ -79,8 +81,10 @@ class BloomConfig(BaseConfig):
         self.parallel_config = parallel_config
         self.checkpoint_name_or_path = checkpoint_name_or_path
         self.moe_config = moe_config
+        self.unk_token_id = unk_token_id
         self.bos_token_id = bos_token_id
         self.eos_token_id = eos_token_id
+        self.pad_token_id = pad_token_id
         self.hidden_act = hidden_act
         self.use_seq_parallel = use_seq_parallel
         self.use_select_recompute = use_select_recompute

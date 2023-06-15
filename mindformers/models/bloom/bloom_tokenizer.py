@@ -16,7 +16,6 @@
 import json
 import os
 from functools import lru_cache
-from typing import List, Optional
 
 import regex as re
 
@@ -96,8 +95,8 @@ class BloomTokenizer(Tokenizer):
             pad_token="<|pad|>",
             add_prefix_space=False, **kwargs):
         super(BloomTokenizer, self).__init__(
-            **kwargs, unk_token=unk_token, bos_token=bos_token,
-            eos_token=eos_token, pad_token=pad_token)
+            unk_token=unk_token, bos_token=bos_token,
+            eos_token=eos_token, pad_token=pad_token, **kwargs)
         with open(vocab_file, 'r', encoding="utf-8") as vocab_handle:
             self.encoder = json.load(vocab_handle)["model"]["vocab"]
 
@@ -117,6 +116,11 @@ class BloomTokenizer(Tokenizer):
         self.pat = re.compile(r"""'s|'t|'re|'ve|'m|'ll|'d| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+""")
         self.add_prefix_space = add_prefix_space
         self.cache = {}
+
+        self._unk_token_id = 0
+        self._bos_token_id = 1
+        self._eos_token_id = 2
+        self._pad_token_id = 3
 
     def bpe(self, token):
         """ bpe encode """
@@ -208,24 +212,6 @@ class BloomTokenizer(Tokenizer):
         """Convert the tokens to the string"""
         return self._convert_tokens_to_string(tokens)
 
-    def build_inputs_with_special_tokens(self, token_ids_0: List[int], token_ids_1: Optional[List[int]] = None):
-        """
-        Build model inputs from a sequence or a pair of sequence by concatenating and adding special tokens.
-
-        A GPT2 sequence has the following format:
-        - single sequence: ``<bos> X <eos>``
-        - pair of sequences: ``<bos> A <eos> B <eos>``
-
-        Args:
-            token_ids_0 (List[int]): List of IDs to which the special tokens will be added
-            token_ids_1 (List[int], `optional`, defaults to `None`): Optional second list of IDs for sequence pairs.
-        """
-        bos = [self.bos_token_id]
-        eos = [self.eos_token_id]
-        if token_ids_1 is None:
-            return bos + token_ids_0 + eos
-        return bos + token_ids_0 + eos + token_ids_1 + eos
-
     def prepare_for_tokenization(self, text, is_pretokenized=False, **kwargs):
         """ whether to add a whitespace in the front of text """
         add_prefix_space = kwargs.pop("add_prefix_space", self.add_prefix_space)
@@ -262,3 +248,19 @@ class BloomTokenizer(Tokenizer):
     def vocab_size(self):
         """Get the vocab size of the """
         return len(self.decoder)
+
+    @property
+    def unk_token_id(self):
+        return self._unk_token_id
+
+    @property
+    def bos_token_id(self):
+        return self._bos_token_id
+
+    @property
+    def eos_token_id(self):
+        return self._eos_token_id
+
+    @property
+    def pad_token_id(self):
+        return self._pad_token_id
