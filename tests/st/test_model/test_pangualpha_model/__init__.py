@@ -12,15 +12,4 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-"""The export function for PanGu Alpha"""
-
-from .pangualpha import *
-from .pangualpha_config import *
-from .pangualpha_tokenizer import *
-from .pangualpha_processor import *
-
-__all__ = []
-__all__.extend(pangualpha.__all__)
-__all__.extend(pangualpha_config.__all__)
-__all__.extend(pangualpha_tokenizer.__all__)
-__all__.extend(pangualpha_processor.__all__)
+"""test pangualpha."""
