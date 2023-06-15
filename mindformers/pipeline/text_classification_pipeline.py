@@ -147,8 +147,12 @@ class TextClassificationPipeline(BasePipeline):
         if '-' not in inputs:
             raise ValueError("two texts of text pair should be split by -")
         inputs = inputs.split('-')
-        inputs_zero = self.tokenizer(inputs[0], return_tensors="ms", **preprocess_params)
-        inputs_one = self.tokenizer(inputs[1], return_tensors="ms", **preprocess_params)
+        max_length = preprocess_params.pop("max_length", 128)
+        padding = preprocess_params.pop("padding", "max_length")
+        inputs_zero = self.tokenizer(inputs[0], max_length=max_length, padding=padding,
+                                     return_tensors="ms", **preprocess_params)
+        inputs_one = self.tokenizer(inputs[1], max_length=max_length, padding=padding,
+                                    return_tensors="ms", **preprocess_params)
         inputs, mask, token_type = self.inputs_process(inputs_zero, inputs_one)
         inputs_final = {}
         inputs_final["input_ids"] = Tensor.from_numpy(np.array(inputs, dtype=np.int32))

@@ -149,11 +149,13 @@ class MaskedLanguageModelingTrainer(BaseTrainer):
 
         config.model.model_config.batch_size = 1
 
+        max_length = network.config.seq_length if network else config.model.model_config.seq_length
+
         return self.predict_process(config=config,
                                     input_data=input_data,
                                     task='fill_mask',
                                     network=network,
                                     tokenizer=tokenizer,
-                                    max_length=network.config.seq_length,
+                                    max_length=max_length,
                                     padding="max_length",
                                     **kwargs)

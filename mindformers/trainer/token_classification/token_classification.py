@@ -188,6 +188,8 @@ class TokenClassificationTrainer(BaseTrainer):
         # This is a known issue, you need to specify batch size equal to 1 when creating bert model.
         config.model.model_config.batch_size = 1
 
+        max_length = network.config.seq_length if network else config.model.model_config.seq_length
+
         id2label = {label_id: label for label_id, label in enumerate(cluener_labels)}
 
         return self.predict_process(config=config,
@@ -195,7 +197,7 @@ class TokenClassificationTrainer(BaseTrainer):
                                     task='token_classification',
                                     network=network,
                                     tokenizer=tokenizer,
-                                    max_length=network.config.seq_length,
+                                    max_length=max_length,
                                     padding="max_length",
                                     id2label=id2label,
                                     **kwargs)
