@@ -100,7 +100,10 @@ class FillMaskPipeline(BasePipeline):
             if isinstance(inputs, mindspore.Tensor):
                 inputs = inputs.asnumpy().tolist()
         self.input_text = inputs if isinstance(inputs, str) else ""
-        inputs = self.tokenizer(inputs, return_tensors="ms", **preprocess_params)
+        max_length = preprocess_params.pop("max_length", 128)
+        padding = preprocess_params.pop("padding", "max_length")
+        inputs = self.tokenizer(inputs, max_length=max_length, padding=padding,
+                                return_tensors="ms", **preprocess_params)
         expand_dims = ops.ExpandDims()
         return {"input_ids": expand_dims(inputs["input_ids"], 0),
                 "input_mask": expand_dims(inputs["attention_mask"], 0),
