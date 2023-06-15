@@ -12,11 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-"""The export function for gpt"""
+"""The export function for llama"""
 
 from .llama_config import LlamaConfig
-from .llama import LlamaForCausalLM, LlamaModel
+from .llama import LlamaForCausalLM, LlamaForCausalLMWithLora, LlamaModel
 from .llama_tokenizer import LlamaTokenizer
 from .llama_processor import LlamaProcessor
 
-__all__ = ['LlamaConfig', 'LlamaModel', 'LlamaForCausalLM', 'LlamaTokenizer', 'LlamaProcessor']
+__all__ = ['LlamaConfig', 'LlamaModel', 'LlamaForCausalLM', 'LlamaForCausalLMWithLora',
+           'LlamaTokenizer', 'LlamaProcessor']

@@ -673,6 +673,10 @@ class MindFormerBook:
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
           '/XFormer_for_mindspore/llama/open_llama_13b.ckpt'
           ]),
+        ('llama_7b_lora',
+         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
+          '/XFormer_for_mindspore/llama/open_llama_7b_lora.ckpt'
+          ]),
         ('bloom_560m',
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
           '/MindFormers/bloom/bloom_560m.ckpt'

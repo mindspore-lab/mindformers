@@ -69,6 +69,7 @@ class TestLlamaTrainerMethod:
 
         self.task_trainer = Trainer(task='text_generation',
                                     model=model,
+                                    model_name='llama_7b_lora',
                                     args=args,
                                     train_dataset=train_dataset,
                                     eval_dataset=eval_dataset)
