@@ -173,7 +173,62 @@ python adgen_dataset.py \
 
 #### 在线加载
 
-在线加载数据集的方式目前正在开发中，建议使用生成MindRecord的方式处理数据集
+将任务配置文件 `configs/glm/run_glm_6b_*.yaml` 中的 `==== dataset config ====` 部分替换成：
+```yaml
+train_dataset: &train_dataset
+  data_loader:
+    type: ADGenDataLoader
+    dataset_dir: "/path/to/AdvertiseGen"
+    shuffle: True
+    phase: "train"
+    max_source_length: 64
+    max_target_length: 64
+    ignore_pad_token_for_loss: True
+  tokenizer:
+    type: ChatGLMTokenizer
+    vocab_file: "/path/to/ice_text.model"
+  input_columns: ["input_ids", "label", "position_ids", "attention_mask"]
+  num_parallel_workers: 8
+  python_multiprocessing: False
+  drop_remainder: True
+  batch_size: 1
+  repeat: 1
+  numa_enable: False
+  prefetch_size: 1
+  seed: 0
+
+train_dataset_task:
+  type: KeyWordGenDataset
+  dataset_config: *train_dataset
+
+eval_dataset: &eval_dataset
+  data_loader:
+    type: ADGenDataLoader
+    dataset_dir: "/path/to/AdvertiseGen"
+    shuffle: False
+    phase: "eval"
+    max_source_length: 256
+    max_target_length: 256
+    ignore_pad_token_for_loss: True
+  tokenizer:
+    type: ChatGLMTokenizer
+    vocab_file: "/path/to/AdvertiseGen"
+  input_columns: ["input_ids", "label"]
+  num_parallel_workers: 8
+  python_multiprocessing: False
+  drop_remainder: True
+  batch_size: 1
+  repeat: 1
+  numa_enable: False
+  prefetch_size: 1
+  seed: 0
+
+eval_dataset_task:
+  type: KeyWordGenDataset
+  dataset_config: *eval_dataset
+```
+
+按照教程执行任务即可。
 
 ### 生成HCCL文件
 
