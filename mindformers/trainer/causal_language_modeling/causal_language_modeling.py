@@ -17,6 +17,7 @@ import os
 import time
 from typing import Optional, List, Union
 
+import numpy as np
 from mindspore import Model
 from mindspore.train import Callback
 from mindspore.nn import TrainOneStepCell, Optimizer, Cell
@@ -188,19 +189,30 @@ class CausalLanguageModelingTrainer(BaseTrainer):
 
         total_tokens_num = 0
         total_time = 0.0001
+        pad_token_id = self.config.model.model_config.pad_token_id
         for i, inputs in enumerate(dataset.create_dict_iterator()):
             input_ids = inputs['input_ids'].asnumpy()
             labels = inputs['label'].asnumpy()
 
+            valid_length_each_example = []
+            for j in range(input_ids.shape[0]):
+                # As the nonzero returns the index and we need length
+                valid_length_each_example.append(np.max(np.argwhere(input_ids[j] != pad_token_id)) + 1)
+            valid_length_each_example = np.array(valid_length_each_example)
+
             start_time = time.time()
             outputs = model.predict_network.generate(input_ids, max_length=max_decode_length,
                                                      top_p=top_p, top_k=top_k)  # List[numpy]
+            outputs = np.array(outputs)
+            output_ids = []
+            for j in range(input_ids.shape[0]):
+                output_ids.append(outputs[j, int(valid_length_each_example[j]):].astype(np.int32))
             end_time = time.time()
             avg_cost_time = (end_time - start_time) / input_ids.shape[0]
 
             tokens_num = 0
-            for batch_index in range(len(outputs)):
-                tokens_num += outputs[batch_index].shape[0]
+            for batch_index in range(len(output_ids)):
+                tokens_num += output_ids[batch_index].shape[0]
             if i != 0:
                 total_tokens_num += tokens_num
                 total_time += end_time - start_time
@@ -209,8 +221,7 @@ class CausalLanguageModelingTrainer(BaseTrainer):
                         'generate speed: %s tokens/s, avg speed: %s tokens/s',
                         i + 1, end_time - start_time, avg_cost_time,
                         tokens_num / (end_time - start_time), total_tokens_num / total_time)
-
-            compute_metrics.update(outputs, labels)
+            compute_metrics.update(output_ids, labels)
 
         output = compute_metrics.eval()
         logger.info('metric: %s \n'
