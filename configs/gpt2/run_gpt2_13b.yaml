@@ -27,7 +27,7 @@ runner_config:
   sink_mode: True
   sink_size: 2
 runner_wrapper:
-  type: MFPipelineWithLossScaleCell
+  type: MFTrainOneStepCell
   scale_sense:
     type: DynamicLossScaleUpdateCell
     loss_scale_value: 4294967296

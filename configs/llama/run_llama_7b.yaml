@@ -170,7 +170,7 @@ metric:
 
 # wrapper cell config
 runner_wrapper:
-  type: MFPipelineWithLossScaleCell
+  type: MFTrainOneStepCell
   scale_sense:
     type: DynamicLossScaleUpdateCell
     loss_scale_value: 65536
