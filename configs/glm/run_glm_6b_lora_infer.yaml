@@ -162,7 +162,7 @@ optimizer:
 # parallel config
 use_parallel: False
 parallel:
-  parallel_mode: 1 # 0-dataset, 1-semi, 2-auto, 3-hybrid
+  parallel_mode: 0 # 0-dataset, 1-semi, 2-auto, 3-hybrid
   gradients_mean: False
   loss_repeated_mean: True
   enable_alltoall: False
@@ -172,7 +172,7 @@ parallel:
   strategy_ckpt_save_file: "./ckpt_strategy.ckpt"
 parallel_config:
   data_parallel: 1
-  model_parallel: 8
+  model_parallel: 1
   pipeline_stage: 1
   expert_parallel: 1
   optimizer_shard: False  # optimizer shard
