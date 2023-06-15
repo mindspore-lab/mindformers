@@ -21,7 +21,8 @@ import json
 import os
 import re
 import numpy as np
-from fastchat.conversation import conv_v1_2
+# fschat >= 0.2.13
+from fastchat.conversation import get_conv_template
 
 from mindspore.mindrecord import FileWriter
 
@@ -88,7 +89,7 @@ def clean_wikitext(string):
 
 def preprocess(sources, tokenizer, seq_length):
     """conversation preprocess."""
-    conv = conv_v1_2.copy()
+    conv = get_conv_template("vicuna_v1.1").copy()
     roles = {"human": conv.roles[0], "gpt": conv.roles[1]}
 
     # Apply prompt templates
