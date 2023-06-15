@@ -90,6 +90,7 @@ class GPT2Tokenizer(Tokenizer):
     """
     VOCAB_FILES = {'merge_file': 'merges.txt', 'vocab_file': 'vocab.json'}
     FILE_LIST = ['tokenizer_config.json']
+    MODEL_INPUT_NAME = ["input_ids", "token_type_ids", "attention_mask"]
     _support_list = MindFormerBook.get_tokenizer_support_list()['gpt2']
 
     def __init__(

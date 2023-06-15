@@ -34,13 +34,16 @@ class PanguAlphaTokenizer(Tokenizer):
 
     Args:
         model_file(str): The vocabulary file path.
-        max_len(int): The max length of input and output tokens.
+        unk_token(str): The token that represents the unknown. Default "<unk>".
+        bos_token(str): The token that represents the begin-of-sentence. Default "<s>".
+        eos_token(str): The token that represents the end-of-sentence. Default "<eod>".
+        pad_token(str): The token that represents the pad. Default "<pad>".
         **kwargs: Other kwargs that will be passed into the base class of the `Tokenizer`.
 
     Examples:
         >>> from mindformers import PanguAlphaTokenizer
 
-        >>> tokenizer = PanguAlphaTokenizer.from_pretrained("pangualpha")
+        >>> tokenizer = PanguAlphaTokenizer.from_pretrained("pangualpha_2_6b")
         >>> res = tokenizer("你好，今天天气不错。")
         >>> print(res)
         {'input_ids': [5772, 10, 465, 235, 464, 1123, 12], \
@@ -53,24 +56,25 @@ class PanguAlphaTokenizer(Tokenizer):
     """
     VOCAB_FILES = {'merge_file': 'merges.txt', 'vocab_file': 'vocab.model'}
     FILE_LIST = ['tokenizer_config.json']
+    MODEL_INPUT_NAME = ["input_ids", "token_type_ids", "attention_mask"]
     _support_list = MindFormerBook.get_tokenizer_support_list()['pangualpha']
 
     def __init__(self,
                  vocab_file,
+                 unk_token="<unk>",
+                 bos_token="<s>",
+                 eos_token="<eod>",
+                 pad_token="<pad>",
                  **kwargs):
-        super(PanguAlphaTokenizer, self).__init__(**kwargs)
+        super(PanguAlphaTokenizer, self).__init__(
+            unk_token=unk_token, bos_token=bos_token, eos_token=eos_token, pad_token=pad_token, **kwargs
+        )
         self.encoder = {}
         self.sp = spm.SentencePieceProcessor(model_file=vocab_file)
 
         for i in range(self.sp.get_piece_size()):
             self.encoder[self.sp.id_to_piece(i)] = i
         self.translator = str.maketrans(" \n", "\u2582\u2583")
-
-        self.unk_token_id = self.encoder['<unk>']
-        self.mask_token_id = self.encoder['<mask>']
-        self.pad_token_id = self.encoder['<pad>']
-        self.eos_token_id = self.encoder['<eod>']
-        self.eot_token_id = self.encoder['<eot>']
 
     def tokenize(self, text):
         if not isinstance(text, str):
