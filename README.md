@@ -20,6 +20,8 @@ MindSpore Transformers套件基于MindSpore内置的并行技术和组件化设�
 
 - 模型readme：[docs/model_cards](docs/model_cards)
 - 任务readme：[docs/task_cards](docs/task_cards)
+- MindPet指导：[docs/pet_tuners](docs/pet_tuners)
+- AICC指导：[docs/aicc_cards](docs/aicc_cards)
 - 详细指导文档：[mindformers](https://mindformers.readthedocs.io/en/r0.3)
 
 目前支持的模型列表如下：
