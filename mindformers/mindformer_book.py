@@ -547,7 +547,8 @@ class MindFormerBook:
             'llama_7b_lora'
         ]),
         ('pangualpha', [
-            'pangualpha'
+            'pangualpha_2_6b',
+            'pangualpha_13b'
         ]),
         ('glm', [
             'glm_6b',
