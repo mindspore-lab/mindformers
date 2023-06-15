@@ -67,7 +67,7 @@ ModelArts上的所提供的预置训练镜像，通常MindSpore的版本较为�
 - 在一台准备好docker引擎的计算机上，root用户执行docker pull命令拉取该镜像
 
 ```bash
-docker pull swr.cn-central-221.ovaijisuan.com/mindformers/mindformers_dev_mindspore_1_10_1:mindformers_dev_20230607_py39
+docker pull swr.cn-central-221.ovaijisuan.com/mindformers/mindformers_dev_mindspore_1_10_1:mindformers_0.6.0dev_20230615_py39
 ```
 
 - 进入`容器镜像服务`的控制台界面，找到`客户端上传`镜像按钮，将会提示如何上传上一步拉取的镜像
