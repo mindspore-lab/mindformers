@@ -14,6 +14,7 @@
 # ============================================================================
 
 """Convert checkpoint from huggingface"""
+import os
 import re
 import argparse
 import torch
@@ -102,6 +103,9 @@ def hf_to_ms(hf_weights, args, ms_dtype=mindspore.float32, for_save=False):
 
 def process_hf_shard_files(file_list, args, save_dir=None, combine=False, ms_dtype=mindspore.float32):
     ''' torch ckpt files loop'''
+    if save_dir and not os.path.exists(save_dir):
+        os.makedirs(save_dir, exist_ok=True)
+
     combine_params = []
     file = None
     for file in file_list:
