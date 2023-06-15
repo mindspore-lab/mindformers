@@ -49,7 +49,7 @@ ModelArts上的所提供的预置训练镜像，通常MindSpore的版本较为�
 
 我们在[镜像仓库网 (hqcases.com)](http://ai.hqcases.com/mirrors.html)上发布了一些经过验证的**标准镜像版本**，可以通过几行简单的docker命令的形式，直接使用验证过的标准镜像拉起MindFormers套件的训练任务，而无需进行较为繁琐的自定义镜像并上传的步骤
 
-- 在镜像仓库网上找到当前版本的[MindFormers镜像](http://ai.hqcases.com/detail/74.html)，打开显示如下
+- 在镜像仓库网上找到当前版本的[MindFormers镜像](http://ai.hqcases.com/detail/78.html)，打开显示如下
 
 ![aihub](asserts/aihub.png)
 
