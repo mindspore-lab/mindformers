@@ -173,59 +173,7 @@ python adgen_dataset.py \
 
 #### 在线加载
 
-在线生成不占用额外硬盘空间，推荐使用在线加载数据的方式。
-
-修改配置文件 `mindformers/configs/glm/glm/run_glm_6b_finetune.yaml`中的 `# ==== dataset config ====` 项如下：
-
-```yaml
-train_dataset: &train_dataset
-  data_loader:
-    type: ADGenDataLoader
-    dataset_dir: "/path/to/AdvertiseGen"
-    shuffle: True
-    phase: "train"
-    max_source_length: 64 # 请按照实际数据集设置长度
-    max_target_length: 64 # 请按照实际数据集设置长度
-    ignore_pad_token_for_loss: True
-  tokenizer_type: "glm_6b"
-  input_columns: ["input_ids", "label", "position_ids", "attention_mask"]
-  num_parallel_workers: 8
-  python_multiprocessing: False
-  drop_remainder: True
-  batch_size: 1
-  repeat: 1
-  numa_enable: False
-  prefetch_size: 1
-  seed: 0
-
-train_dataset_task:
-  type: GLMModelDataset
-  dataset_config: *train_dataset
-
-eval_dataset: &eval_dataset
-  data_loader:
-    type: ADGenDataLoader
-    dataset_dir: "/path/to/AdvertiseGen"
-    shuffle: False
-    phase: "eval"
-    max_source_length: 256 # 请按照实际数据集设置长度
-    max_target_length: 256 # 请按照实际数据集设置长度
-    ignore_pad_token_for_loss: True
-  tokenizer_type: "glm_6b"
-  input_columns: ["input_ids", "label"]
-  num_parallel_workers: 8
-  python_multiprocessing: False
-  drop_remainder: True
-  batch_size: 1
-  repeat: 1
-  numa_enable: False
-  prefetch_size: 1
-  seed: 0
-
-eval_dataset_task:
-  type: GLMModelDataset
-  dataset_config: *eval_dataset
-```
+在线加载数据集的方式目前正在开发中，建议使用生成MindRecord的方式处理数据集
 
 ### 生成HCCL文件
 
