@@ -6,7 +6,7 @@
 
 |                             模型                             |                      任务（task name）                       | 模型（model name）                                           |
 | :----------------------------------------------------------: | :----------------------------------------------------------: | :----------------------------------------------------------- |
-| [BERT](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/bert.md) | masked_language_modeling text_classification [token_classification](https://gitee.com/mindspore/mindformers/blob/dev/docs/task_cards/token_classification.md) [question_answering](https://gitee.com/mindspore/mindformers/blob/dev/docs/task_cards/question_answering.md) | bert_base_uncased <br>txtcls_bert_base_uncased<br>txtcls_bert_base_uncased_mnli <br>tokcls_bert_base_chinese<br>tokcls_bert_base_chinese_cluener <br>qa_bert_base_uncased<br>qa_bert_base_chinese_uncased |
+| [BERT](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/bert.md) | masked_language_modeling [text_classification](https://gitee.com/mindspore/mindformers/blob/dev/docs/task_cards/text_classification.md) [token_classification](https://gitee.com/mindspore/mindformers/blob/dev/docs/task_cards/token_classification.md) [question_answering](https://gitee.com/mindspore/mindformers/blob/dev/docs/task_cards/question_answering.md) | bert_base_uncased <br>txtcls_bert_base_uncased<br>txtcls_bert_base_uncased_mnli <br>tokcls_bert_base_chinese<br>tokcls_bert_base_chinese_cluener <br>qa_bert_base_uncased<br>qa_bert_base_chinese_uncased |
 | [T5](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/t5.md) |                         translation                          | t5_small                                                     |
 | [GPT2](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/gpt2.md) |                       text_generation                        | gpt2_small <br>gpt2_13b <br>gpt2_52b                         |
 | [PanGuAlpha](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/pangualpha.md) |                       text_generation                        | pangualpha_2_6_b<br>pangualpha_13b                           |
@@ -18,15 +18,15 @@
 | [Swin](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/swin.md) | [image_classification](https://gitee.com/mindspore/mindformers/blob/dev/docs/task_cards/image_classification.md) | swin_base_p4w7                                               |
 | [CLIP](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/clip.md) | [contrastive_language_image_pretrain](https://gitee.com/mindspore/mindformers/blob/dev/docs/task_cards/contrastive_language_image_pretrain.md), [zero_shot_image_classification](https://gitee.com/mindspore/mindformers/blob/dev/docs/task_cards/zero_shot_image_classification.md) | clip_vit_b_32<br>clip_vit_b_16 <br>clip_vit_l_14<br>clip_vit_l_14@336 |
 
-**核心关键模型分布式并行能力一览表：**
+**核心关键模型能力一览表：**
 
-| 关键模型 |             并行模式             | 数据并行 | 优化器并行 | 模型并行 | 流水并行 | 多副本并行 | 是否上库 |
-| :------: | :------------------------------: | :------: | :--------: | :------: | :------: | :--------: | :------: |
-|   GPT    | data_parallel\semi_auto_parallel |    是    |     是     |    是    |    是    |     是     |    是    |
-|  PanGu   | data_parallel\semi_auto_parallel |    是    |     是     |    是    |    是    |     是     |    是    |
-|  Bloom   | data_parallel\semi_auto_parallel |    是    |     是     |    是    |    是    |     是     |    是    |
-|  LLaMa   | data_parallel\semi_auto_parallel |    是    |     是     |    是    |    是    |     是     |    是    |
-|   GLM    | data_parallel\semi_auto_parallel |    是    |     是     |    是    |    是    |     是     |    是    |
+| 关键模型 |             并行模式             | 数据并行 | 优化器并行 | 模型并行 | 流水并行 | 多副本并行 | 预训练 |        微调        |      评估      |     推理 | 是否上库 |
+| :------: | :------------------------------: | :------: | :--------: | :------: | :------: | :--------: | ------ | :----------------: | :------------: | -------: | :------: |
+|   GPT    | data_parallel\semi_auto_parallel |    是    |     是     |    是    |    是    |     是     | 是     |      全参微调      |    PPL评估     | 单卡推理 |    是    |
+|  PanGu   | data_parallel\semi_auto_parallel |    是    |     是     |    是    |    是    |     是     | 是     |      全参微调      |    PPL评估     | 单卡推理 |    是    |
+|  Bloom   | data_parallel\semi_auto_parallel |    是    |     是     |    是    |    是    |     是     | 是     |      全参微调      |     不支持     | 单卡推理 |    是    |
+|  LLaMa   | data_parallel\semi_auto_parallel |    是    |     是     |    是    |    是    |     是     | 是     | 全参微调，Lora微调 |    PPL评估     | 单卡推理 |    是    |
+|   GLM    | data_parallel\semi_auto_parallel |    是    |     是     |    是    |    是    |     是     | 是     | 全参微调，Lora微调 | Blue/Rouge评估 | 单卡推理 |    是    |
 
 **其余库上模型分布式支持情况一览表：**
 
