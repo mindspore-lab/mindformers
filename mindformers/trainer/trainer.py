@@ -79,6 +79,7 @@ class Trainer:
             It support model name supported or BaseModel or MindSpore Cell class.
             Supported model name can refer to https://gitee.com/mindspore/transformer#%E4%BB%8B%E7%BB%8D.
             Default: None.
+        model_name (Optional[Union[str]]): The model name supported. Default: None.
         train_dataset (Optional[Union[str, BaseDataset]]): The training dataset. It support real dataset path or
             BaseDateset class or MindSpore Dataset class.
             Default: None.
@@ -168,6 +169,7 @@ class Trainer:
                  args: Optional[Union[str, dict, ConfigArguments, TrainingArguments]] = None,
                  task: Optional[str] = 'general',
                  model: Optional[Union[str, Cell, BaseModel]] = None,
+                 model_name: Optional[Union[str]] = None,
                  train_dataset: Optional[Union[str, BaseDataset]] = None,
                  eval_dataset: Optional[Union[str, BaseDataset]] = None,
                  tokenizer: Optional[BaseTokenizer] = None,
@@ -183,6 +185,7 @@ class Trainer:
                  **kwargs):
         self.task = task
         self.model = model
+        self.model_name = model_name
         self.pet_method = pet_method
         self.train_dataset = train_dataset
         self.eval_dataset = eval_dataset
@@ -220,8 +223,6 @@ class Trainer:
                 f"model must be in {SUPPORT_MODEL_NAMES} when model's type is string, but get {model}."
             self.model_name = model
             self.model = None
-        else:
-            self.model_name = "common"
 
         if isinstance(self.model, (Cell, BaseModel)):
             logger.info("The model instance has been entered, "
@@ -233,6 +234,17 @@ class Trainer:
             self.is_model_instance = True
         else:
             self.is_model_instance = False
+
+        if self.is_model_instance and self.model_name is None:
+            logger.warning(
+                "Recognizing that a model instance is sent and model_name is None,")
+            logger.warning(
+                "it is recommended to select a model configuration that corresponds "
+                "to the support of MindFormers based on the instance model and set model_name.")
+            logger.warning(
+                "Otherwise, they will default to a general configuration."
+                "You are advised to pass instances such as optimizers, metric, tokenizer, and processor")
+            self.model_name = 'common'
 
         task_config = MindFormerConfig(SUPPORT_TASKS.get(self.task).get(self.model_name))
 
@@ -474,7 +486,18 @@ class Trainer:
                 self.config.load_checkpoint = None
         else:
             self.default_checkpoint_name_or_path = self.config.model.model_config.checkpoint_name_or_path
-            self.config.load_checkpoint = self.config.model.model_config.checkpoint_name_or_path
+            if auto_trans_ckpt:
+                if self.is_model_instance:
+                    logger.warning(
+                        "When a model instance is identified,"
+                        "the weights that are currently proposed to be fine-tune are specified"
+                        "by the finetune_checkpoint argument or a model instance "
+                        "with the model weights already loaded is imported")
+                else:
+                    self.config.load_checkpoint = self.config.model.model_config.checkpoint_name_or_path
+                self.config.model.model_config.checkpoint_name_or_path = None
+            else:
+                self.config.load_checkpoint = None
             self.config.model.model_config.checkpoint_name_or_path = None
 
         self.config.resume_training = resume_training
@@ -537,8 +560,15 @@ class Trainer:
         else:
             self.default_checkpoint_name_or_path = self.config.model.model_config.checkpoint_name_or_path
             if auto_trans_ckpt:
+                if self.is_model_instance:
+                    logger.warning(
+                        "When a model instance is identified,"
+                        "the weights that are currently proposed to be evaluated are specified"
+                        "by the eval_checkpoint argument or a model instance "
+                        "with the model weights already loaded is imported")
+                else:
+                    self.config.load_checkpoint = self.config.model.model_config.checkpoint_name_or_path
                 self.config.model.model_config.checkpoint_name_or_path = None
-                self.config.load_checkpoint = self.config.model.model_config.checkpoint_name_or_path
             else:
                 self.config.load_checkpoint = None
 
