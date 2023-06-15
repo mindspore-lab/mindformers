@@ -88,7 +88,7 @@ DEVICE_RANGE: 为单机分布式卡的范围，如[0,8]为8卡分布式，不包
 RUN_STATUS: 为任务运行状态，支持关键字 train\finetune\predict
 ```
 
-其中，模型和训练等相关配置可在`configs/llama`目录下的yaml文件中配置，如数据集路径，可在`configs/llama/run_llama_{7/13/65}b.yaml`中配置`dataset_dir`参数。
+其中，模型和训练等相关配置可在`configs/llama`目录下的yaml文件中配置，如数据集路径，可在`configs/llama/run_llama_{7/13/65}b.yaml`中配置中`train_dataset`的`dataset_dir`参数。
 
 #### 多机多卡启动
 
@@ -201,4 +201,104 @@ python mindformers/models/llama/convert_weight.py --torch_ckpt_dir TORCH_CKPT_DI
 # 参数说明
 TORCH_CKPT_DIR: huggingface权重保存目录路径
 mindspore_ckpt_path: 权重保存文件名，保存为TORCH_CKPT_DIR/OUTPUT_NAME, 也可以指定为自定义保存路径
+```
+
+### 指令微调
+
+#### 数据集准备
+
+目前支持增加alpaca数据的预处理：
+
+- 数据集下载[alpaca](https://github.com/tatsu-lab/stanford_alpaca/blob/main/alpaca_data.json)
+
+``` json
+# alpaca examples:
+    {
+        "instruction": "Describe a time when you had to make a difficult decision.",
+        "input": "",
+        "output": "I had to make a difficult decision when I was working as a project manager at a construction company. I was in charge of a project that needed to be completed by a certain date in order to meet the client\u2019s expectations. However, due to unexpected delays, we were not able to meet the deadline and so I had to make a difficult decision. I decided to extend the deadline, but I had to stretch the team\u2019s resources even further and increase the budget. Although it was a risky decision, I ultimately decided to go ahead with it to ensure that the project was completed on time and that the client\u2019s expectations were met. The project was eventually successfully completed and this was seen as a testament to my leadership and decision-making abilities."
+    },
+    {
+        "instruction": "Identify the odd one out.",
+        "input": "Twitter, Instagram, Telegram",
+        "output": "Telegram"
+    },
+```
+
+- 使用fastchat工具添加prompts模板，转换为多轮对话格式
+
+``` bash
+# 使用tools/dataset_preprocess/llama/alpaca_converter.py添加prompt模板
+# 执行转换脚本
+python alpaca_converter.py --data_path /{path}/alpaca_data.json --output_path /{path}/alpaca-data-conversation.json
+```
+
+```text
+# 参数说明
+data_path: 存放alpaca数据的路径
+output_path: 输出转换后对话格式的数据路径
+```
+
+- 执行llama预处理脚本，将带有prompt模板的数据转换为mindrecord格式
+
+```bash
+# 使用tools/dataset_preprocess/llama/llama_preprocess.py进行数据预处理
+# 数据预处理+Mindrecord数据生成
+# 由于此工具依赖fschat工具包解析prompt模板，请提前安装fschat >= 0.2.13
+python llama_preprocess.py --input_glob  '{path}/alpaca-data-conversation.json' --dataset_type qa --model_file /{path}/tokenizer.model --seq_length 2048 --output_file /{path}alpaca-fastchat2048.mindrecord
+```
+
+#### 全参微调
+
+以llama7b为例
+
+- step 1. 修改`config/llama/run_llama_7b.yaml`中训练数据集路径为微调数据集路径；
+
+``` json
+train_dataset: &train_dataset
+  data_loader:
+    type: MindDataset
+    dataset_dir: "/{path}alpaca-fastchat2048.mindrecord"
+    shuffle: True
+```
+
+- step 2. 修改训练时学习率和优化器参数，和预训练不同，微调学习率配置如下：
+
+``` json
+# optimizer
+optimizer:
+  type: FP32StateAdamWeightDecay
+  beta1: 0.9
+  beta2: 0.999
+  eps: 1.e-8 # 1e-8
+  learning_rate: 1.e-5
+
+# lr sechdule
+lr_schedule:
+  type: CosineWithWarmUpLR
+  learning_rate: 1.e-5
+  warmup_ratio: 0.03
+  total_steps: -1 # -1 means it will load the total steps of the dataset
+```
+
+- step 3. 添加预训练权重路径，修改配置文件中的`load_checkpoint`后配置预训练权重路径
+
+- step 4. 启动微调任务，7b可以使用单机八卡进行全参微调，命令如下：
+
+``` shell
+cd scripts
+bash run_distribute.sh {RANK_TABLE_FILE path of the first device} ../configs/llama/run_llama_7b.yaml [0,8] finetune
+```
+
+#### lora微调
+
+目前lora微调适配了llama_7b模型，并给出了默认配置文件`config/llama/run_llama_7b_lora.yaml`。
+
+- step 1. 参考全参微调修改训练数据集路径与预训练权重路径。
+
+- step 2. 启动lora微调任务，7b模型可以使用单机八卡进行训练，命令如下：
+
+``` shell
+cd scripts
+bash run_distribute.sh {RANK_TABLE_FILE path of the first device} ../configs/llama/run_llama_7b_lora.yaml [0,8] finetune
 ```

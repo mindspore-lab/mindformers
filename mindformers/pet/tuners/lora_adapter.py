@@ -69,7 +69,7 @@ def recursive_replace_dense_cell(net, config):
                                              (strategy_matmul[0][0], strategy_matmul[1][0])))
                     else:
                         dest_cell.lora_a_matmul.shard((strategy_matmul[0], (strategy_matmul[1][0], 1)))
-                        dest_cell.lora_b_matmul.shard(((strategy_matmul[0][0], 1), (1, strategy_matmul[1][1], 1)))
+                        dest_cell.lora_b_matmul.shard(((strategy_matmul[0][0], 1), (1, strategy_matmul[1][1])))
                         dest_cell.mul.shard(((strategy_matmul[0][0], strategy_matmul[1][1]), ()))
                         dest_cell.add.shard(((strategy_matmul[0][0], strategy_matmul[1][1]),
                                              (strategy_matmul[0][0], strategy_matmul[1][1])))
