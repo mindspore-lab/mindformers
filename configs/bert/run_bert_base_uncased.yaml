@@ -140,8 +140,6 @@ lr_schedule:
   total_steps: -1 # -1 means it will load the total steps of the dataset
 layer_scale: False
 layer_decay: 0.65
-lr_scale: False
-lr_scale_factor: 256
 
 # optimizer
 optimizer:
@@ -150,6 +148,8 @@ optimizer:
   beta2: 0.999
   eps: 0.00000001 # 1e-8
   weight_decay: 0.05
+lr_scale: False
+lr_scale_factor: 256
 
 # callbacks
 callbacks:

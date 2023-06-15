@@ -1,0 +1,154 @@
+# Config配置说明
+
+## 配置项顺序
+
+configs统一在run_xxx.yaml中，排序按照修改频率的顺序和一般的模型训练流程顺序（数据集->模型->训练、评估、推理），具体顺序如下
+
+- 非模块参数：seed、run_mode、output_dir、resume_or_finetune_checkpoint
+- 环境参数：context
+- AICC：aicc_config
+- 运行参数：runner_config、runner_wrapper
+- 并行设置：use_parallel、parallel、parallel_config
+- MOE：moe_config
+- 重计算：recompute_config
+- 算子调优：auto_tune
+- 性能工具：profile
+- Trainer：trainer
+- 数据集：train_dataset、train_dataset_task、eval_dataset、eval_dataset_task
+- 模型：model
+- 学习率：lr_schedule、layer_scale、layer_decay、lr_scale、lr_scale_factor
+- 优化器：optimizer
+- 回调函数：callbacks
+- 评估函数：metric
+- Processor：processor
+
+## 详细配置说明
+
+- seed: 随机种子，可以参考[mindspore.set_seed](https://www.mindspore.cn/docs/zh-CN/r2.0/api_python/mindspore/mindspore.set_seed.html)
+- run_mode: 运行模式，可选"train"、"finetune"、"eval"或"predict"
+- output_dir: './output'  输出路径，当前不支持修改该参数
+- load_checkpoint: 加载权重的模型名或权重路径
+- auto_trans_ckpt: 是否开启自动在线权重切分或转换
+- resume_checkpoint: 加载方式，为True时会加载训练过程信息，如优化器、epochs数等
+- context: 环境配置，可以参考: [mindspore.set_context](https://www.mindspore.cn/docs/zh-CN/r2.0/api_python/mindspore/mindspore.set_context.html)
+  - mode: 0代表Graph Mode， 1代表Pynative Mode
+  - device_target: 设备类型，Ascend、CPU或GPU，默认为Ascend
+  - enable_graph_kernel: 是否开启图算融合
+  - graph_kernel_flags: 图算融合等级
+  - max_call_depth: 函数调用的最大深度
+  - save_graphs: 是否保存图
+  - device_id: 默认设备id
+- remote_save_url: 使用AICC训练作业时的，目标桶的回传文件夹路径
+- runner_config: 运行配置
+  - epochs: 迭代次数
+  - batch_size: 数据批次大小，当前在使用yaml初始化训练时，会覆盖数据集配置中的batch_size，后面会删除改配置
+  - sink_mode: 是否开启数据下沉模式
+  - sink_size: 每次下沉数据大小，-1代表全量下沉
+- runner_wrapper: wrapper配置
+  - type: wrapper类
+  - scale_sense: 梯度缩放配置
+    - type: 梯度缩放类
+    - use_clip_grad: 是否开启梯度裁剪
+    - loss_scale_value: 缩放系数
+- use_parallel: 是否开启并行
+- parallel: 自动并行配置，可以参考：[mindspore.set_auto_parallel_context](https://www.mindspore.cn/docs/zh-CN/r2.0/api_python/mindspore/mindspore.set_auto_parallel_context.html)
+  - parallel_mode: 并行模式，0-dataset数据并行, 1-semi半自动并行, 2-auto自动并行, 3-hybrid手工实现并行
+  - gradients_mean: 是否在梯度AllReduce后执行平均算子。通常半自动并行模式下为False，数据并行模式下为True
+  - enable_alltoall: 允许在通信期间生成AllToAll通信算子的开关。通常仅在MOE场景下打开，默认False
+  - full_batch: 在auto_parallel模式下加载整个batch数据集时为True。半自动并行模式通常设置为True，数据并行模式必须设置为False，否则会报错
+  - search_mode: 策略搜索模式，有三种，分别是recursive_programming，dynamic_programming和sharding_propagation。仅在全自动并行模式下生效，其他模式不生效，实验性接口，谨慎使用
+  - enable_parallel_optimizer: 数据并行训练时对权重更新计算进行分片。优化器并行开关，在数据并行训练时默认会将模型权重参数切分成device_num份，与parallel_config中optimizer_shard保持一致；半自动并行时默认将模型权重参数切份data_parallel份
+  - strategy_ckpt_save_file: 保存并行切分策略的路径。
+- parallel_config: 并行策略配置，可以参考mindformers.modules.transformer.TransformerOpParallelConfig
+  - data_parallel: 数据并行
+  - model_parallel: 模型并行
+  - pipeline_stage: 流水线并行
+  - optimizer_shard: 是否开启优化器切分。优化器并行开关，通常在半自动并行模式下生效，与parallel中的enable_parallel_optimizer保持一致，默认将模型权重参数切份data_parallel份
+  - micro_batch_num: 流水线并行的微批次大小。pipeline_satge大于1时，开启流水并行时使用，此处需满足micro_batch_num >= pipeline_satge
+  - gradient_aggregation_group: 梯度通信算子融合组的大小
+- micro_batch_interleave_num: batch_size的拆分份数，多副本并行开关，通常在模型并行时使用，用于优化model_parallel时产生的通信损耗，纯流水并行时不建议使用。可以参考[mindspore.nn.MicroBatchInterleaved](https://www.mindspore.cn/docs/zh-CN/r2.0/api_python/nn/mindspore.nn.MicroBatchInterleaved.html)
+- moe_config: 混合专家配置，当前大部分仓上模型不支持，实验性接口，谨慎使用。可以参考mindformers.modules.transformer.moe.MoEConfig
+  - expert_num: 专家数量
+  - capacity_factor: 专家能力因子
+  - aux_loss_factor: loss贡献因子
+  - num_experts_chosen: 每个token选择专家数目
+- recompute_config：重计算配置，可以参考mindformers.modules.transformer.TransformerRecomputeConfig
+  - recompute: 是否开启重计算
+  - parallel_optimizer_comm_recompute: 由优化器并行引入的AllGather通信是否重计算
+  - mp_comm_recompute: 由模型并行引入的通信操作是否重计算
+  - recompute_slice_activation: 是否把保留在内存中的Cell输出切片
+- auto_tune: 是否开启自动数据加速，可以参考[mindspore.dataset.config.set_enable_autotune](https://www.mindspore.cn/docs/zh-CN/r2.0/api_python/dataset/mindspore.dataset.config.set_enable_autotune.html)
+- filepath_prefix: 优化后的全局配置的保存路径+文件前缀
+- autotune_per_step: 设置自动数据加速的配置调整step间隔，可以参考[mindspore.dataset.config.set_autotune_interval](https://www.mindspore.cn/docs/zh-CN/r2.0/api_python/dataset/mindspore.dataset.config.set_autotune_interval.html)
+- profile: 是否开启性能分析工具，可以参考[mindspore.Profiler](https://www.mindspore.cn/docs/zh-CN/r2.0/api_python/mindspore/mindspore.Profiler.html)
+- profile_start_step: 性能分析开始的step
+- profile_stop_step: 性能分析结束的step
+- profile_communication: 是否在多设备训练中收集通信性能数据
+- profile_memory: 是否收集Tensor内存数据
+- init_start_profile: 是否在Profiler初始化的时候开启数据采集
+- trainer: 训练流程配置
+  - type: 训练流程类
+  - model_name: 训练模型名
+- do_eval: 是否开启边训练边评估
+- eval_step_interval: 评估step间隔, -1代表每个step结束时都不进行评估
+- eval_epoch_interval: 评估epoch间隔, 1代表每个epoch结束时进行评估
+- train_dataset: 训练数据集配置，可以参考[mindspore.dataset.GeneratorDataset](https://www.mindspore.cn/docs/zh-CN/r2.0/api_python/dataset/mindspore.dataset.GeneratorDataset.html)
+  - seed: 随机种子
+  - batch_size: 批次大小，当前在使用yaml初始化训练时，该参数会被runner_config中的batch_size覆盖
+  - data_loader: 数据加载配置，可以参考[mindspore.dataset.ImageFolderDataset](https://www.mindspore.cn/docs/zh-CN/r2.0/api_python/dataset/mindspore.dataset.ImageFolderDataset.html)
+    - type: 数据加载类
+    - dataset_dir: 数据集的根目录或数据集文件的路径
+    - num_parallel_workers: 读取数据的工作线程数
+    - shuffle: 是否混洗数据集
+  - transforms: 数据增强操作
+  - tokenizer: 分词器配置
+    - type: 分词器类
+    - max_length: 分词器输出的最大长度
+  - mixup_op:  图像随机混合，可以参考[mindspore.dataset.vision.MixUp](https://www.mindspore.cn/docs/zh-CN/r2.0/api_python/dataset_vision/mindspore.dataset.vision.MixUp.html)
+  - input_columns: 输入数据列
+  - output_columns: 输出数据列
+  - column_order: 输出数据顺序
+  - num_parallel_workers: 读取数据的工作进程数/线程数
+  - python_multiprocessing: 启用Python多进程模式加速运算
+  - drop_remainder: 当最后一个批处理数据包含的数据条目小于batch_size时，是否将该批处理丢弃
+  - repeat: 重复此数据集count次
+  - numa_enable: 设置NUMA的默认状态为启动状态
+  - prefetch_size: 设置管道中线程的队列容量
+- eval_dataset: 评估数据集配置，具体配置说明可参考train_dataset
+- model: 模型配置
+  - arch: 模型类配置
+    - type: 模型类
+  - model_config: 模型参数配置
+    - type: 模型参数配置类
+    - checkpoint_name_or_path: 评估时不指定权重，模型默认加载的权重名
+- lr_schedule: 学习率配置
+  - type: 学习率类
+- layer_scale: 是否开启层衰减
+- layer_decay: 层衰减系数
+- optimizer: 优化器配置
+  - type: 优化器类
+  - weight_decay: 权重衰减值
+- lr_scale: 是否开启学习率缩放
+- lr_scale_factor: 学习率缩放系数
+- callbacks: 回调函数配置
+  - type: 回调函数类
+  - type: MFLossMonitor: loss打印
+  - type: SummaryMonitor: 收集summary数据，可以参考[mindspore.SummaryCollector](https://www.mindspore.cn/docs/zh-CN/r2.0/api_python/mindspore/mindspore.SummaryCollector.html)
+  - type: CheckpointMointor: checkpoint保存，可以参考[mindspore.save_checkpoint](https://www.mindspore.cn/docs/zh-CN/r2.0/api_python/mindspore/mindspore.save_checkpoint.html)
+    - prefix: 权重文件前缀
+    - save_checkpoint_steps: 每多少个step保存一次checkpoint
+    - integrated_save: 是否聚合保存。True时表示聚合所有卡权重，这时每张卡权重均一致；False时表示每张卡各自保存自己的权重；当半自动并行模式训练大模型时，通常需要设置为False，以保证权重保存时不会因为内存问题而失败
+    - async_save: 是否异步执行保存checkpoint文件
+  - type: ObsMonitor: obs数据上传
+  - upload_frequence: 上传频率，默认为-1，表示每个epoch结束后回传；设置大于0的值表示每隔所配置的step数后回传
+  - keep_last: 检查obs的文件与AI计算中心平台是否一致，默认True，表示仅保留最后一次回传的内容，前面几次回传内容将会被移除；设为False则会保留每次回传的内容
+- metric: 评估指标配置
+  - type: 评估指标类
+- processor: 推理时的数据处理
+  - return_tensors: 返回张量类型
+  - type: 数据处理类
+  - image_processor: 图像处理配置
+    - type: 图像处理类
+  - tokenizer: 分词器配置
+    - type: 分词器类
+ 

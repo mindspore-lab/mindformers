@@ -148,14 +148,14 @@ model:
 # lr sechdule
 layer_scale: False
 layer_decay: 0.65
-lr_scale: False
-lr_scale_factor: 256
 
 # optimizer
 optimizer:
   type: adamw
   weight_decay: 0.001
   learning_rate: 0.00001
+lr_scale: False
+lr_scale_factor: 256
 
 # callbacks
 callbacks:

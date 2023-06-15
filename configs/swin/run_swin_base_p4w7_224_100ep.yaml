@@ -26,7 +26,6 @@ runner_config:
   sink_mode: True
   sink_size: 2
   num_classes: 1000
-  layer_decay: 0.9
 runner_wrapper:
   type: MFTrainOneStepCell
   scale_sense:
@@ -220,8 +219,6 @@ lr_schedule:
   total_steps: -1 # -1 means it will load the total steps of the dataset
 layer_scale: True
 layer_decay: 0.9
-lr_scale: True
-lr_scale_factor: 512
 
 # optimizer
 optimizer:
@@ -230,6 +227,8 @@ optimizer:
   beta2: 0.999
   eps: 0.00000001 # 1e-8
   weight_decay: 0.05
+lr_scale: True
+lr_scale_factor: 512
 
 # callbacks
 callbacks:
