@@ -182,6 +182,12 @@ class BaseTrainer:
                                 "= %s * %s * %s = %s).",
                                 pp, batch_size, micro_batch_num, micro_batch_interleave_num,
                                 batch_size * micro_batch_num * micro_batch_interleave_num)
+                    logger.info(
+                        "global_batch_size = per_batch_size * device_num "
+                        "= %s * %s = %s",
+                        batch_size * micro_batch_num * micro_batch_interleave_num,
+                        int(os.getenv('RANK_SIZE', '1')),
+                        batch_size * micro_batch_num * micro_batch_interleave_num * int(os.getenv('RANK_SIZE', '1')))
                     self.config.runner_config.batch_size = \
                         batch_size * micro_batch_num * micro_batch_interleave_num
                     self._reset_wrapper_for_pipeline_parallel()
@@ -189,6 +195,18 @@ class BaseTrainer:
             logger.info("The current parallel mode is %s, batch size per card will not be changed: "
                         "batch_size_per_card = %s",
                         parallel_mode, batch_size)
+            logger.info(
+                "global_batch_size = batch_size_per_card * device_num "
+                "= %s * %s = %s",
+                batch_size, int(os.getenv('RANK_SIZE', '1')),
+                batch_size * int(os.getenv('RANK_SIZE', '1')))
+            self.config.parallel_config.data_parallel = 1
+            self.config.parallel_config.model_parallel = 1
+            self.config.parallel_config.pipeline_stage = 1
+            self.config.parallel_config.optimizer_shard = False
+            self.config.parallel_config.micro_batch_num = 1
+            logger.info("parallel_config will be change to default config: %s.",
+                        self.config.parallel_config)
 
     def _reset_wrapper_for_pipeline_parallel(self):
         """Reset wrapper when pipeline parallel."""
@@ -196,12 +214,15 @@ class BaseTrainer:
             self.config.runner_wrapper.type = "MFPipelineWithLossScaleCell" \
                 if self.config.runner_wrapper.type != "MFPipelineWithLossScaleCell" else self.config.runner_wrapper.type
             self.config.runner_wrapper.micro_batch_num = self.config.parallel_config.micro_batch_num
-            logger.warning("When using the pipeline parallel mode, "
-                           "the MFPipelineWithLossScaleCell class is used by default.")
+            logger.warning(
+                "When using the pipeline parallel mode, "
+                "the MFPipelineWithLossScaleCell class is used by default.")
         else:
-            logger.warning("When using the pipeline parallel mode, "
-                           "because the wrapper class is not specified, "
-                           "MindSpore's built-in PipelineCell is used by default")
+            logger.info(
+                "When using the pipeline parallel mode, "
+                "because the wrapper class is not specified, "
+                "MindSpore's built-in PipelineCell is used by default")
+        logger.info("PipelineWrapper under evaluate or predict mode will not take effect.")
 
     def _reset_dataset_batch_size(self):
         """Reset dataset batch size according to the global batch size of runner config."""
