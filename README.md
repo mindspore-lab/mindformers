@@ -45,7 +45,7 @@ MindSpore Transformers套件基于MindSpore内置的并行技术和组件化设�
 支持源码编译安装，用户可以执行下述的命令进行包的安装
 
 ```bash
-git clone -b r0.3 https://gitee.com/mindspore/mindformers.git
+git clone -b dev https://gitee.com/mindspore/mindformers.git
 cd mindformers
 bash build.sh
 ```
@@ -53,7 +53,7 @@ bash build.sh
 - 方式2：pip安装
 
 ```bash
-pip install https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/wheel_packages/0.3.0/mindformers/mindformers-0.3.0-py3-none-any.whl --trusted-host ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com -i https://pypi.tuna.tsinghua.edu.cn/simple
+pip install https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/wheel_packages/dev/0.6.0/mindformers-0.6.0.dev0-py3-none-any.whl --trusted-host ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com -i https://pypi.tuna.tsinghua.edu.cn/simple
 ```
 
 - 方式3：镜像
@@ -64,7 +64,7 @@ pip install https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFor
 
 |版本对应关系| MindFormers | MindSpore | python |
 |-----------|-------------| ----------| ----------|
-|版本号      | 0.3.0       | 1.8.1 | 3.7.5 |
+|版本号      | dev       | 2.0/1.10 | 3.7.5/3.9 |
 
 ## 四、快速使用
 
@@ -79,7 +79,7 @@ MindFormers套件对外提供两种使用和开发形式，为开发者提供灵
     - step1：git clone mindformers
 
   ```shell
-  git clone -b r0.3 https://gitee.com/mindspore/mindformers.git
+  git clone -b dev https://gitee.com/mindspore/mindformers.git
   cd mindformers
   ```
 
@@ -125,7 +125,7 @@ RUN_STATUS: 为任务运行状态，支持关键字 train\finetune\eval\predict
 
     - step 1：安装mindformers
 
-  具体安装请参考[第二章](https://gitee.com/mindspore/mindformers/blob/r0.3/README.md#%E4%BA%8Cmindformers%E5%AE%89%E8%A3%85)
+  具体安装请参考[第二章](https://gitee.com/mindspore/mindformers/blob/dev/README.md#%E4%BA%8Cmindformers%E5%AE%89%E8%A3%85)
 
     - step2: 准备数据
 
@@ -149,9 +149,9 @@ RUN_STATUS: 为任务运行状态，支持关键字 train\finetune\eval\predict
   # Example 1： 开启训练复现流程
   cls_trainer.train()
   # Example 2： 加载集成的mae权重，开启微调流程
-  cls_trainer.train(resume_or_finetune_from_checkpoint='mae_vit_base_p16', do_finetune=True)
+  cls_trainer.finetune(finetune_checkpoint='mae_vit_base_p16')
   # Example 3： 开启断点续训功能（如训练10epochs中断）
-  cls_trainer.train(resume_or_finetune_from_checkpoint=True, init_epochs=10)
+  cls_trainer.train(train_checkpoint=True, resume_training=True)
   ```
 
     - Trainer 评估启动
