@@ -132,7 +132,7 @@ if __name__ == "__main__":
 
 ### 数据处理
 
-ADGEN 数据集任务为根据输入（content）生成一段广告词（summary）。数据集可选离线生成 `Mindrecord` 或者实时生成两种方式
+ADGEN 数据集任务为根据输入（content）生成一段广告词（summary）。数据集可选离线生成 `Mindrecord` 或者实时生成两种方式，两种方式选其一即可。
 
 ```json
 {
@@ -143,7 +143,7 @@ ADGEN 数据集任务为根据输入（content）生成一段广告词（summary
 
 从 [Google Drive](https://drive.google.com/file/d/13_vf0xRTQsyneRKdD1bZIr93vBGOczrk/view?usp=sharing) 或者 [Tsinghua Cloud](https://cloud.tsinghua.edu.cn/f/b3f119a008264b1cabd1/?dl=1) 下载处理好的 ADGEN 数据集，将解压后的 `AdvertiseGen` 任意目录下
 
-#### 离线生成
+#### 1. 离线生成
 
 使用 `mindformers/tools/dataset_preprocess/glm/adgen_dataset.py` 脚本将数据集处理成mindrecord格式。
 
@@ -171,9 +171,65 @@ python adgen_dataset.py \
     --mode eval
 ```
 
-#### 在线加载
+#### 2. 在线加载
 
-在线加载数据集的方式目前正在开发中，建议使用生成MindRecord的方式处理数据集
+将任务配置文件 `configs/glm/run_glm_6b_*.yaml` 中的 `==== dataset config ====` 部分替换成：
+
+```yaml
+train_dataset: &train_dataset
+  data_loader:
+    type: ADGenDataLoader
+    dataset_dir: "/path/to/AdvertiseGen"
+    shuffle: True
+    phase: "train"
+  tokenizer:
+    type: ChatGLMTokenizer
+    vocab_file: "/path/to/ice_text.model"
+  input_columns: ["input_ids", "label", "position_ids", "attention_mask"]
+  max_source_length: 64
+  max_target_length: 64
+  ignore_pad_token_for_loss: True
+  num_parallel_workers: 8
+  python_multiprocessing: False
+  drop_remainder: True
+  batch_size: 1
+  repeat: 1
+  numa_enable: False
+  prefetch_size: 1
+  seed: 0
+
+train_dataset_task:
+  type: KeyWordGenDataset
+  dataset_config: *train_dataset
+
+eval_dataset: &eval_dataset
+  data_loader:
+    type: ADGenDataLoader
+    dataset_dir: "/path/to/AdvertiseGen"
+    shuffle: False
+    phase: "eval"
+  tokenizer:
+    type: ChatGLMTokenizer
+    vocab_file: "/path/to/ice_text.model"
+  max_source_length: 256
+  max_target_length: 256
+  ignore_pad_token_for_loss: True
+  input_columns: ["input_ids", "label"]
+  num_parallel_workers: 8
+  python_multiprocessing: False
+  drop_remainder: True
+  batch_size: 1
+  repeat: 1
+  numa_enable: False
+  prefetch_size: 1
+  seed: 0
+
+eval_dataset_task:
+  type: KeyWordGenDataset
+  dataset_config: *eval_dataset
+```
+
+按照教程执行任务即可。
 
 ### 生成HCCL文件
 
@@ -563,6 +619,8 @@ def __init__(self, config: GLMConfig = None, pet=None, **kwargs):
 python run_mindformer.py --config configs/glm/run_glm_6b_infer.yaml --run_mode eval --load_checkpoint /path/to/glm_6b.ckpt --eval_dataset_dir /path/to/data/AdvertiseGen/adgen_dev.mindrecord --device_id 0
 ```
 
+> 注：使用在线加载数据方式时，将 `eval_dataset_dir` 一项指向含有 `*.json` 的目录一级即可，如 `/path/to/data/AdvertiseGen/`。
+
 各项参数：
 
 - `config`: 指定用于评估的配置文件名称，此处为`configs/glm/run_glm_6b_infer.yaml`
@@ -583,7 +641,8 @@ python run_mindformer.py --config configs/glm/run_glm_6b_infer.yaml --run_mode e
 python task.py --task text_generation --model_type glm_6b_chat --checkpoint_path /path/to/glm_6b.ckpt --eval_dataset /path/to/data/AdvertiseGen/adgen_dev.mindrecord --run_mode eval --batch_size 1
 ```
 
-> 注：当前评估时，batch_size需为1，否则评估速度下降严重
+> 1. 当前评估时，batch_size需为1，否则评估速度下降严重
+> 2. 使用在线加载数据方式时，将 `eval_dataset` 一项指向含有 `*.json` 的目录一级即可，如 `/path/to/data/AdvertiseGen/`。
 
 ### 使用LoRA低参微调权重
 
@@ -599,6 +658,8 @@ python run_mindformer.py --config configs/glm/run_glm_6b_lora_infer.yaml --run_m
 
 各项参数同上，路径需替换为实际路径
 
+> 使用在线加载数据方式时，将 `eval_dataset` 一项指向含有 `*.json` 的目录一级即可，如 `/path/to/data/AdvertiseGen/`。
+
 #### Trainer高阶接口启动lora eval
 
 仍然可复用 `task.py` 脚本，启动命令：
@@ -607,7 +668,8 @@ python run_mindformer.py --config configs/glm/run_glm_6b_lora_infer.yaml --run_m
 python task.py --task text_generation --model_type glm_6b_lora_chat --checkpoint_path /path/to/glm_6b_lora.ckpt --eval_dataset /path/to/data/AdvertiseGen/adgen_dev.mindrecord --run_mode eval --batch_size 1
 ```
 
-> 注：当前评估时，batch_size需为1，否则评估速度下降严重
+> 1. 当前评估时，batch_size需为1，否则评估速度下降严重
+> 2. 使用在线加载数据方式时，将 `eval_dataset` 一项指向含有 `*.json` 的目录一级即可，如 `/path/to/data/AdvertiseGen/`。
 
 ## 模型权重转化
 
