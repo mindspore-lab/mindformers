@@ -49,6 +49,8 @@ def update_checkpoint_config(config, is_train=True):
             config.model.model_config.checkpoint_name_or_path = None
         elif config.run_mode == 'finetune':
             config.model.model_config.checkpoint_name_or_path = config.load_checkpoint
+        elif config.run_mode == 'eval' and config.load_checkpoint:
+            config.model.model_config.checkpoint_name_or_path = config.load_checkpoint
         config.load_checkpoint = None
 
 
