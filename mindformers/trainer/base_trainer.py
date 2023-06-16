@@ -589,7 +589,9 @@ class BaseTrainer:
         # build evaluate in training
         if config.do_eval:
             logger.info(".........Build Evaluate in Training Callback..........")
-            eval_dataset = self.create_eval_dataset()
+            eval_dataset = kwargs.get('eval_dataset', None)
+            if eval_dataset is None:
+                eval_dataset = self.create_eval_dataset()
 
             eval_callback = EvalCallBack(
                 partial(

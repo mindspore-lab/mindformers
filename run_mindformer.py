@@ -137,6 +137,10 @@ if __name__ == "__main__":
         help='task running status, it support [train, finetune, eval, predict].'
              'Default: None')
     parser.add_argument(
+        '--do_eval', default=None, type=str2bool,
+        help='whether do evaluate in training process.'
+             'Default: None')
+    parser.add_argument(
         '--train_dataset_dir', default=None, type=str,
         help='dataset directory of data loader to train/finetune. '
              'Default: None')
@@ -210,6 +214,8 @@ if __name__ == "__main__":
         config_.context.mode = args_.mode
     if args_.run_mode is not None:
         config_.run_mode = args_.run_mode
+    if args_.do_eval is not None:
+        config_.do_eval = args_.do_eval
     if args_.seed is not None:
         config_.seed = args_.seed
     if args_.use_parallel is not None:
