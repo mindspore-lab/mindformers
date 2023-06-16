@@ -1,5 +1,71 @@
 # MindFormers大模型使用教程
 
+## 配套版本
+
+| 版本对应关系 | MindFormers | MindPet | MindSpore |  Python   |        芯片        |
+| :----------: | :---------: | :-----: | :-------: | :-------: | :----------------: |
+|    版本号    |     dev     |  1.0.0  | 2.0/1.10  | 3.7.5/3.9 | Ascend910A NPU/CPU |
+
+## 支持镜像
+
+### 裸金属镜像
+
+* docker下载命令
+
+```shell
+docker pull swr.cn-central-221.ovaijisuan.com/mindformers/mindformers_dev_mindspore_2_0:mindformers_0.6.0dev_20230616_py39_37
+```
+
+* 创建容器
+
+```shell
+# --device用于控制指定容器的运行NPU卡号和范围
+# -v 用于映射容器外的目录
+# --name 用于自定义容器名称
+
+docker run -it -u root \
+--ipc=host \
+--network host \
+--device=/dev/davinci0 \
+--device=/dev/davinci1 \
+--device=/dev/davinci2 \
+--device=/dev/davinci3 \
+--device=/dev/davinci4 \
+--device=/dev/davinci5 \
+--device=/dev/davinci6 \
+--device=/dev/davinci7 \
+--device=/dev/davinci_manager \
+--device=/dev/devmm_svm \
+--device=/dev/hisi_hdc \
+-v /etc/localtime:/etc/localtime \
+-v /usr/local/Ascend/driver:/usr/local/Ascend/driver \
+-v /var/log/npu/:/usr/slog \
+-v /usr/local/bin/npu-smi:/usr/local/bin/npu-smi \
+--name {请手动输入容器名称} \
+10d2f632b11f \
+/bin/bash
+```
+
+### AICC镜像
+
+**详情请参考[MindFormers AICC使用教程](https://gitee.com/mindspore/mindformers/blob/dev/docs/aicc_cards/aicc_tutorial.md)**
+
+我们在[镜像仓库网 (hqcases.com)](https://gitee.com/link?target=http%3A%2F%2Fai.hqcases.com%2Fmirrors.html)上发布了一些经过验证的**标准镜像版本**，可以通过几行简单的docker命令的形式，直接使用验证过的标准镜像拉起MindFormers套件的训练任务，而无需进行较为繁琐的自定义镜像并上传的步骤。
+
+- 镜像列表
+
+```
+1. swr.cn-central-221.ovaijisuan.com/mindformers/mindformers_dev_mindspore_1_11:mindformers_0.6.0dev_20230615_py39
+2. swr.cn-central-221.ovaijisuan.com/mindformers/mindformers_dev_mindspore_1_10_1:mindformers_0.6.0dev_20230615_py39
+3. swr.cn-central-221.ovaijisuan.com/mindformers/mindformers_dev_mindspore_1_10_1:mindformers_0.6.0dev_20230615_py37
+```
+
+- 在一台准备好docker引擎的计算机上，root用户执行docker pull命令拉取该镜像
+
+```
+docker pull swr.cn-central-221.ovaijisuan.com/mindformers/mindformers_dev_mindspore_1_10_1:mindformers_0.6.0dev_20230615_py39
+```
+
 ## 模型矩阵
 
 **此处给出了MindFormers套件中支持的任务名称和模型名称，用于高阶开发时的索引名**
