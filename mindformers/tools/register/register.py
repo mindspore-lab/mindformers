@@ -174,7 +174,10 @@ class MindFormerRegister:
         args = cfg.copy()
         if default_args is not None:
             for k, v in default_args.items():
-                args.setdefault(k, v)
+                if k not in args:
+                    args.setdefault(k, v)
+                else:
+                    args[k] = v
 
         obj_type = args.pop('type')
         if isinstance(obj_type, str):
