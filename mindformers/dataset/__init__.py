@@ -35,13 +35,13 @@ from .text_classification_dataset import TextClassificationDataset
 from .question_answering_dataset import QuestionAnsweringDataset
 from .causal_language_model_dataset import CausalLanguageModelDataset
 from .utils import check_dataset_config
-
+from .keyword_gen_dataset import KeyWordGenDataset
 
 __all__ = ['MIMDataset', 'ImageCLSDataset', 'BaseDataset', 'check_dataset_config',
            'MaskLanguageModelDataset', 'ContrastiveLanguageImagePretrainDataset',
            'ZeroShotImageClassificationDataset', 'ImageToTextRetrievalDataset',
            'TextClassificationDataset', 'TokenClassificationDataset', 'QuestionAnsweringDataset',
-           'CausalLanguageModelDataset']
+           'CausalLanguageModelDataset', 'KeyWordGenDataset']
 __all__.extend(dataloader.__all__)
 __all__.extend(mask.__all__)
 __all__.extend(transforms.__all__)
