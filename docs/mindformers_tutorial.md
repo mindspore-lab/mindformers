@@ -42,7 +42,7 @@ docker run -it -u root \
 -v /var/log/npu/:/usr/slog \
 -v /usr/local/bin/npu-smi:/usr/local/bin/npu-smi \
 --name {请手动输入容器名称} \
-10d2f632b11f \
+swr.cn-central-221.ovaijisuan.com/mindformers/mindformers_dev_mindspore_2_0:mindformers_0.6.0dev_20230616_py39_37 \
 /bin/bash
 ```
 
