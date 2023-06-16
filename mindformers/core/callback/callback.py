@@ -332,7 +332,8 @@ class CheckpointMointor(ModelCheckpoint):
                 "global_step": 0,
                 "loss_scale": 1
             }]
-        directory = get_output_subpath('checkpoint', self.rank_id)
+        directory = os.path.join(directory, f"rank_{self.rank_id}") \
+            if directory else get_output_subpath('checkpoint', self.rank_id)
         if context.get_auto_parallel_context('parallel_mode') in \
                 ['semi_auto_parallel', 'auto_parallel', 'hybrid_parallel']:
             logger.info("Integrated_save is changed to False when using auto_parallel.")
