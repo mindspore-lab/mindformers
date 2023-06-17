@@ -376,23 +376,19 @@ class LLamaAttention(nn.Cell):
                     self.less(self.range, batch_valid_length.view(-1, 1, 1))).astype(self.dtype)
                 # Cover the key and value numbers corresponding to the padding position
                 key_present = self.mul1(
-                    key, self.expand_dims(valid_length_vector, 2))
+                    key, self.expand_dims(valid_length_vector, 3))
                 value_present = self.mul1(
                     value, self.expand_dims(valid_length_vector, 3))
             # The second graph with the inpus size of (bs, 1)
             else:
                 # Get the current token position index
-                valid_length = self.reducesum((self.not_equal(self.slice(key_past, (0, 0, 0, 0),
-                                                                         (key.shape[0], 1, 1,
-                                                                          self.src_seq_length),
-                                                                         (1, 1, 1, 1)),
-                                                              0)).astype(mstype.float32), (1, 2, 3))
+                valid_length = batch_valid_length - 1
                 valid_length = self.reshape(valid_length, (-1, 1, 1))
                 valid_length_vector = (self.equal(
                     valid_length, self.range)).astype(self.dtype)
                 # Pad the key and value to seq_length with only the position index not zero
-                current_key = self.mul1(self.tile(key, (1, 1, 1, self.seq_length)),
-                                        self.expand_dims(valid_length_vector, 2))
+                current_key = self.mul1(self.tile(key, (1, 1, self.seq_length, 1)),
+                                        self.expand_dims(valid_length_vector, 3))
                 current_value = self.mul1(self.tile(value, (1, 1, self.seq_length, 1)),
                                           self.expand_dims(valid_length_vector, 3))
                 # Concat the previous saved state and current state
@@ -511,16 +507,14 @@ class LLamaAttention(nn.Cell):
             if self.use_past and not self.is_first_iteration:
                 # Calculate the current total token
                 current_index = self.reducesum((self.not_equal(self.slice(key, (0, 0, 0, 0),
-                                                                          (query.shape[0], 1, 1,
-                                                                           self.seq_length),
+                                                                          (query.shape[0], 1, self.seq_length, 1),
                                                                           (1, 1, 1, 1)),
                                                                0)).astype(mstype.float32), (1, 2, 3))
                 # Get the precise position index
                 index = self.sub1(current_index.astype(mstype.int32), 1)
                 index = self.reshape(index, (-1, 1, 1))
                 # Calculate the attention_mask matrix via the position index
-                attention_mask = (self.tensor_le(
-                    self.range, index)).astype(mstype.int32)
+                attention_mask = (self.tensor_le(self.range, index)).astype(mstype.int32)
                 attention_mask = self.expand_dims(attention_mask, 2)
             # Minus 10000 for the position where masked to exclude them from softmax
             multiplu_out = self.sub(self.one, attention_mask.astype(self.dtype))  # dp,1,1,1->dp,1,1,1
@@ -674,7 +668,7 @@ class LLamaDecodeLayer(nn.Cell):
                 self.slice = P.StridedSlice().shard(((1, 1, 1, 1),))
                 size_per_head = self.hidden_size // self.n_head
                 self.key_shape = (batch_size, self.n_head,
-                                  size_per_head, seq_length)
+                                  seq_length, size_per_head)
                 self.value_shape = (batch_size, self.n_head,
                                     seq_length, size_per_head)
                 # parameters saving key and value states
@@ -739,7 +733,7 @@ class LLamaDecodeLayer(nn.Cell):
                 self.slice = P.StridedSlice().shard(((1, 1, 1, 1),))
                 size_per_head = self.hidden_size // self.n_head
                 self.key_shape = (batch_size, self.n_head,
-                                  size_per_head, seq_length)
+                                  seq_length, size_per_head)
                 self.value_shape = (batch_size, self.n_head,
                                     seq_length, size_per_head)
                 # parameters saving key and value states
@@ -756,8 +750,7 @@ class LLamaDecodeLayer(nn.Cell):
 
     def construct(self, x, freqs_cis, input_mask=None, init_reset=True, batch_valid_length=None):
         """ Forward of transformer block. """
-        self._check_input(x, freqs_cis, input_mask,
-                          init_reset, batch_valid_length)
+        self._check_input(x, freqs_cis, input_mask, init_reset, batch_valid_length)
         # dp, 1, 1 -> dp, 1, 1
         input_x = self.attention_norm(x)
         key_reset = None

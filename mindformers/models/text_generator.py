@@ -21,7 +21,6 @@ from typing import Optional, List, Union
 import numpy as np
 from mindspore.ops import functional as F
 from mindspore.ops import operations as P
-import mindspore.nn as nn
 import mindspore.common.dtype as mstype
 from mindspore.common.tensor import Tensor
 from mindformers.generation.streamers import BaseStreamer
@@ -150,7 +149,7 @@ class GeneratorMixin:
         elif current_index is not None:
             index = current_index.view(-1,)
             logits = P.Gather()(logits, index, 0)
-        outputs = nn.LogSoftmax()(logits)
+        outputs = P.LogSoftmax(-1)(logits)
         outputs = F.tensor_pow(np.e, outputs)
         return outputs
 
@@ -317,11 +316,40 @@ class GeneratorMixin:
                 inputs = Tensor(input_ids, mstype.int32)
                 seq_length = inputs.shape[1]
                 current_index = [valid_length_each_example[i] - 1 + i * seq_length for i in range(batch_size)]
+                current_index_tmp = int(current_index[0])
                 current_index = Tensor(current_index, mstype.int32)
                 logger.debug("validate length: %s", valid_length_each_example)
-                logits = self.construct(inputs)[0]
-                logits = logits.reshape(-1, logits.shape[-1])
-                log_probs = self.process_logits(logits, current_index)
+                is_first_iteration = True
+                if self.config.use_past:
+                    # Claim the first graph
+                    if first_iter:
+                        first_iter = False
+                        self.add_flags_recursive(is_first_iteration=True)
+                        is_first_iteration = True
+                        logits = self.construct(
+                            input_ids=Tensor(input_ids, mstype.int32),
+                            input_position=current_index,
+                            init_reset=init_false,  # init_reset (1,) bool False
+                            batch_valid_length=Tensor([valid_length_each_example], mstype.int32)
+                        )[0]  # batch_valid_length (1,) int32 4
+                    else:
+                        self.add_flags_recursive(is_first_iteration=False)
+                        is_first_iteration = False
+
+                        # use numpy to slice array to avoid complie ascend slice op
+                        inputs_tmp = input_ids[:, current_index_tmp:current_index_tmp + 1]
+                        # current_index = Tensor([0], mstype.int32)
+                        logits = self.construct(
+                            input_ids=Tensor(inputs_tmp, mstype.int32),
+                            input_position=current_index,
+                            init_reset=init_true,  # init_reset (1,) bool True
+                            batch_valid_length=Tensor([valid_length_each_example], mstype.int32)
+                        )[0]  # batch_valid_length (1,) int32 5
+                    logits = logits.reshape(-1, logits.shape[-1])
+                else:
+                    logits = self.construct(inputs)[0]
+                    logits = logits.reshape(-1, logits.shape[-1])
+                log_probs = self.process_logits(logits, current_index, is_first_iteration, self.config.use_past)
 
             if not is_npu_acceleration:
                 # Sample
