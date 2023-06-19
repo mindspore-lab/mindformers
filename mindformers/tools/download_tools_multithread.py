@@ -21,6 +21,12 @@ import urllib3
 from tqdm import tqdm
 
 from logger import logger
+try:
+    import fcntl
+except ImportError:
+    fcntl = None
+    logger.warning("The library fcntl is not found. This may cause the reading file failed "
+                   "when call the from_pretrained for different process.")
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -53,7 +59,7 @@ def download_chunk(url, start, end, file, pbar, lock, chunk_size=1024):
     else:
         logger.error("%s is unconnected!", url)
 
-def download_with_progress_bar(url, filepath, num_threads=8, timeout=4):
+def download_with_progress_bar(url, filepath, num_threads=1, timeout=4):
     """Downloads a file from the given URL with multi-threading support, resuming from breakpoints,
     and displays a progress bar to show the progress of the download.
 
@@ -116,6 +122,9 @@ def download_with_progress_bar(url, filepath, num_threads=8, timeout=4):
         start = file_size
 
     with open(filepath, 'ab') as file:
+        if fcntl:
+            fcntl.flock(file.fileno(), fcntl.LOCK_EX)
+
         chunk_size = (content_size - start) // num_threads
         with tqdm(total=content_size, initial=start, unit='B', unit_scale=True, desc=filepath.split('/')[-1]) as pbar:
             threads = []
