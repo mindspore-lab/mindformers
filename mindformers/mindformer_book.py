@@ -371,7 +371,8 @@ class MindFormerBook:
             'llama_7b_lora'
         ]),
         ('pangualpha', [
-            'pangualpha'
+            'pangualpha_2_6b',
+            'pangualpha_13b'
         ]),
         ('bloom', [
             'bloom_560m',
@@ -443,7 +444,8 @@ class MindFormerBook:
             'llama_7b_lora'
         ]),
         ('pangualpha', [
-            'pangualpha'
+            'pangualpha_2_6b',
+            'pangualpha_13b'
         ]),
         ('bloom', [
             'bloom_560m',
@@ -502,7 +504,8 @@ class MindFormerBook:
             'llama',
         ]),
         ('pangualpha', [
-            'pangualpha'
+            'pangualpha_2_6b',
+            'pangualpha_13b'
         ]),
         ('glm', [
             'glm',
@@ -850,11 +853,11 @@ class MindFormerBook:
         ('pangualpha_2_6b',
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
           '/XFormer_for_mindspore/pangualpha/vocab.model'
-          ]),
+         ]),
         ('pangualpha_13b',
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
           '/XFormer_for_mindspore/pangualpha/vocab.model'
-          ]),
+         ]),
         ('glm_6b',
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
           '/XFormer_for_mindspore/glm/ice_text.model'
@@ -892,6 +895,7 @@ class MindFormerBook:
         ('T5Tokenizer', 'T5Processor'),
         ('LlamaTokenizer', 'LlamaProcessor'),
         ('GPT2Tokenizer', 'GPT2Processor'),
+        ('PanguAlphaTokenizer', 'PanguAlphaProcessor'),
         ('BloomTokenizer', 'BloomProcessor')
     ])
 

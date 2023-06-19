@@ -34,16 +34,12 @@ class PanguAlphaTokenizer(Tokenizer):
 
     Args:
         model_file(str): The vocabulary file path.
-        unk_token(str): The token that represents the unknown. Default "<unk>".
-        bos_token(str): The token that represents the begin-of-sentence. Default "<s>".
-        eos_token(str): The token that represents the end-of-sentence. Default "<eod>".
-        pad_token(str): The token that represents the pad. Default "<pad>".
         **kwargs: Other kwargs that will be passed into the base class of the `Tokenizer`.
 
     Examples:
         >>> from mindformers import PanguAlphaTokenizer
 
-        >>> tokenizer = PanguAlphaTokenizer.from_pretrained("pangualpha_2_6b")
+        >>> tokenizer = PanguAlphaTokenizer.from_pretrained("pangualpha")
         >>> res = tokenizer("你好，今天天气不错。")
         >>> print(res)
         {'input_ids': [5772, 10, 465, 235, 464, 1123, 12], \
@@ -54,21 +50,22 @@ class PanguAlphaTokenizer(Tokenizer):
         A dict contains the processed ids, attention_mask that specific by the member `MODEL_INPUT_NAME`
         of the subclass.
     """
-    VOCAB_FILES = {'merge_file': 'merges.txt', 'vocab_file': 'vocab.model'}
-    FILE_LIST = ['tokenizer_config.json']
-    MODEL_INPUT_NAME = ["input_ids", "token_type_ids", "attention_mask"]
+    VOCAB_FILES = {"vocab_file": "vocab.model"}
+    MODEL_INPUT_NAME = ["input_ids", "position_id", "attention_mask"]
     _support_list = MindFormerBook.get_tokenizer_support_list()['pangualpha']
 
     def __init__(self,
                  vocab_file,
-                 unk_token="<unk>",
-                 bos_token="<s>",
-                 eos_token="<eod>",
-                 pad_token="<pad>",
+                 eos_token='<eod>',
+                 bos_token='<s>',
+                 unk_token='<unk>',
+                 pad_token='<pad>',
                  **kwargs):
-        super(PanguAlphaTokenizer, self).__init__(
-            unk_token=unk_token, bos_token=bos_token, eos_token=eos_token, pad_token=pad_token, **kwargs
-        )
+        super(PanguAlphaTokenizer, self).__init__(eos_token=eos_token,
+                                                  bos_token=bos_token,
+                                                  unk_token=unk_token,
+                                                  pad_token=pad_token,
+                                                  **kwargs)
         self.encoder = {}
         self.sp = spm.SentencePieceProcessor(model_file=vocab_file)
 
@@ -88,8 +85,12 @@ class PanguAlphaTokenizer(Tokenizer):
 
     def _convert_tokens_to_ids(self, tokens):
         """ the index of the tokens in the vocabulary. """
-        new_seg = " ".join(tokens)
-        return self.sp.encode(new_seg)
+        if isinstance(tokens, str):
+            ids = self.sp.piece_to_id(tokens)
+        elif isinstance(tokens, list):
+            tokens = " ".join(tokens)
+            ids = self.sp.encode(tokens)
+        return ids
 
     def _convert_ids_to_tokens(self, ids):
         """ return the origin bpe tokens according to ids """

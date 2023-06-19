@@ -25,7 +25,7 @@ runner_config:
   epochs: 2
   batch_size: 4
   sink_mode: True
-  per_epoch_size: 2
+  sink_size: 2
 runner_wrapper:
   type: MFTrainOneStepCell
   scale_sense:
@@ -146,7 +146,7 @@ model:
     num_layers: 40
     num_heads: 40
     pad_token_id: 6
-    eis_token_id: 8
+    eos_token_id: 6
     post_layernorm_residual: False
     param_init_type: 'float32'
     compute_dtype: 'float16'
@@ -159,14 +159,14 @@ model:
     use_moe: False
     expert_num: 1
     per_token_num_experts_chosen: 1
-    checkpoint_name_or_path: "pangualpha_2_6B"
+    checkpoint_name_or_path: "pangualpha_13b"
     repetition_penalty: 1
     max_decode_length: 1024
     top_k: 5
     top_p: 1
     do_sample: True
   arch:
-    type: PanguAlphaModel
+    type: PanguAlphaHeadModel
 
 # lr sechdule
 lr_schedule:
@@ -177,6 +177,8 @@ lr_schedule:
   total_steps: -1 # -1 means it will load the total steps of the dataset
 layer_scale: False
 layer_decay: 0.65
+lr_scale: False
+lr_scale_factor: 256
 
 # optimizer
 optimizer:
@@ -185,8 +187,6 @@ optimizer:
   beta2: 0.95
   eps: 0.00000001 # 1e-8
   weight_decay: 0.1
-lr_scale: False
-lr_scale_factor: 256
 
 # callbacks
 callbacks:
@@ -211,4 +211,4 @@ processor:
   return_tensors: ms
   tokenizer:
     type: PanguAlphaTokenizer
-  type: GPT2Processor
+  type: PanguAlphaProcessor
