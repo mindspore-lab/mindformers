@@ -438,7 +438,7 @@ def main(use_parallel=False,
          run_mode='train',
          task='text_generation',
          model_type='gpt2',
-         pet_method='all',
+         pet_method='',
          train_dataset='./train',
          eval_dataset='./eval',
          predict_data='hello!',
@@ -480,7 +480,7 @@ if __name__ == "__main__":
     parser.add_argument('--model_type', default='gpt2', required=True, help='set model type.')
     parser.add_argument('--train_dataset', default=None, help='set train dataset.')
     parser.add_argument('--eval_dataset', default=None, help='set eval dataset.')
-    parser.add_argument('--pet_method', default='all', help="set finetune method, now support type: ['all', 'lora']")
+    parser.add_argument('--pet_method', default='', help="set finetune method, now support type: ['', 'lora']")
     parser.add_argument('--data_parallel', default=1, type=int,help='set data parallel number. Default: None')
     parser.add_argument('--model_parallel', default=1, type=int, help='set model parallel number. Default: None')
     parser.add_argument('--pipeline_parallel', default=1, type=int, help='set pipeline parallel number. Default: None')
