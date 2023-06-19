@@ -23,14 +23,14 @@ LLaMA是由Meta于2023年发布。LLaMA模型是类GPT模型，是一个生成�
 
 - 数据集下载：[WikiText2数据集](https://s3.amazonaws.com/research.metamind.io/wikitext/wikitext-2-v1.zip)
 
-- 分词模型下载：[例如下载huggingface的tokenizer.model](https://huggingface.co/huggyllama/llama-13b/blob/main/tokenizer.model)
+- 分词模型下载：[例如下载huggingface的tokenizer.model](https://huggingface.co/openlm-research/open_llama_13b_600bt/resolve/main/tokenizer.model)
 
 - 使用预处理脚本生成mindrecord训练数据
 
 ```bash
 # 使用tools/dataset_preprocess/llama/llama_preprocess.py进行数据预处理
 # 数据预处理+Mindrecord数据生成
-python llama_preprocess.py --input_glob  'data/wiki.txt' --model_file /{path}/tokenizer.model --seq_length 2048 --output_file /{path}/wiki2048.mindrecord
+python llama_preprocess.py --input_glob  'data/wiki.train.tokens' --model_file /{path}/tokenizer.model --seq_length 2048 --output_file /{path}/wiki2048.mindrecord
 ```
 
 ### 脚本启动（LLaMA-7B为例）
@@ -183,8 +183,6 @@ print(pipeline_result)
 
 从huggingface下载英文预训练权重（权重来源于OpenLLaMA）：
 
-- [llama-3b](https://huggingface.co/openlm-research/open_llama_3b)
-
 - [llama-7b](https://huggingface.co/openlm-research/open_llama_7b)
 
 - [llama-13b](https://huggingface.co/openlm-research/open_llama_13b_600bt)
@@ -244,7 +242,7 @@ output_path: 输出转换后对话格式的数据路径
 ```bash
 # 使用tools/dataset_preprocess/llama/llama_preprocess.py进行数据预处理
 # 数据预处理+Mindrecord数据生成
-# 由于此工具依赖fschat工具包解析prompt模板，请提前安装fschat >= 0.2.13
+# 由于此工具依赖fschat工具包解析prompt模板，请提前安装fschat >= 0.2.13 python = 3.9
 python llama_preprocess.py --input_glob  '{path}/alpaca-data-conversation.json' --dataset_type qa --model_file /{path}/tokenizer.model --seq_length 2048 --output_file /{path}alpaca-fastchat2048.mindrecord
 ```
 
