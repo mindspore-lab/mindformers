@@ -321,7 +321,7 @@ bash run_distribute.sh RANK_TABLE_FILE ../configs/bloom/run_bloom_7.1b.yaml [0,8
 * __GBS__: Global Batch Size = num_uB * uB * DP.
 
 
-### 4.1 生成HCCL文件
+### 5.1 生成HCCL文件
 
 - step1: 参考单机多卡启动方式，在每台机器上运行mindformers/tools/hccl_tools.py生成RANK_TABLE_FILE的json文件；
 
@@ -341,7 +341,7 @@ python ./mindformers/tools/merge_hccl.py hccl*.json
 
 
 
-### 4.2 启动预训练或微调
+### 5.2 启动预训练或微调
 在每台机器上启动`bash run_distribute.sh`。
 
 ```bash
