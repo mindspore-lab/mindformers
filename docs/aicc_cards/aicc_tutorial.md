@@ -59,9 +59,7 @@ ModelArts上的所提供的预置训练镜像，通常MindSpore的版本较为�
 
 * 镜像列表
 ```text
-1. swr.cn-central-221.ovaijisuan.com/mindformers/mindformers_dev_mindspore_1_11:mindformers_0.6.0dev_20230615_py39
-2. swr.cn-central-221.ovaijisuan.com/mindformers/mindformers_dev_mindspore_1_10_1:mindformers_0.6.0dev_20230615_py39
-3. swr.cn-central-221.ovaijisuan.com/mindformers/mindformers_dev_mindspore_1_10_1:mindformers_0.6.0dev_20230615_py37
+1. swr.cn-central-221.ovaijisuan.com/mindformers/mindformers_dev_mindspore_1_10_1:mindformers_0.6.0dev_20230615_py39
 ```
 
 - 在一台准备好docker引擎的计算机上，root用户执行docker pull命令拉取该镜像
