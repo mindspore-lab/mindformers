@@ -203,3 +203,71 @@ print(pipeline_result)
 ```shell
 python mindformers/models/gpt2/convert_weight.py --layers 12 --torch_path pytorch_model.bin --mindspore_path ./mindspore_gpt2.ckpt
 ```
+
+## 指令微调
+
+### 全参微调
+
+#### 脚本启动
+
+- step 1. 添加`config/gpt2/run_gpt2.yaml`中预训练权重路径和微调数据集路径；
+
+```yaml
+# 预训练权重路径
+load_checkpoint: "/{path}/gpt2.ckpt"
+
+# 微调数据集路径
+train_dataset: &train_dataset
+  data_loader:
+    type: MindDataset
+    dataset_dir: "/{path}/train_dataset.mindrecord"
+    shuffle: True
+```
+
+- step 2. 启动微调任务；
+
+```shell
+cd scripts
+# 单卡
+bash run_standalone.sh ../configs/gpt2/run_gpt2.yaml [DEVICE_ID] finetune
+# 多卡
+bash run_distribute.sh [RANK_TABLE_FILE] ../configs/gpt2/run_gpt2.yaml [0,8] finetune
+```
+
+#### Trainer高阶接口启动
+
+```python
+from mindformers.trainer import Trainer
+# 初始化预训练任务
+trainer = Trainer(task='text_generation', model='gpt2', train_dataset="{dataset file path}")
+# 调用finetune接口进行微调
+trainer.finetune(finetune_checkpoint="{checkpoint file path}")
+```
+
+### LoRA微调
+
+目前LoRA微调适配了gpt2模型，并给出了默认配置文件`config/gpt2/run_gpt2_lora.yaml`。
+
+#### 脚本启动
+
+- step 1. 参考全参微调修改训练数据集路径与预训练权重路径；
+
+- step 2. 启动LoRA微调任务；
+
+```shell
+cd scripts
+# 单卡
+bash run_standalone.sh ../configs/gpt2/run_gpt2_lora.yaml [DEVICE_ID] finetune
+# 多卡
+bash run_distribute.sh [RANK_TABLE_FILE] ../configs/gpt2/run_gpt2_lora.yaml [DEVICE_RANGE] finetune
+```
+
+#### Trainer高阶接口启动
+
+```python
+from mindformers.trainer import Trainer
+# 初始化预训练任务
+trainer = Trainer(task='text_generation', model='gpt2', pet_method='lora', train_dataset="{dataset file path}")
+# 调用finetune接口进行微调
+trainer.finetune(finetune_checkpoint="{checkpoint file path}")
+```

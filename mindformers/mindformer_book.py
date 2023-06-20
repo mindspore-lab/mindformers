@@ -176,6 +176,8 @@ class MindFormerBook:
         ("text_generation", OrderedDict([
             ("gpt2", os.path.join(
                 _PROJECT_PATH, "configs/gpt2/run_gpt2.yaml")),
+            ("gpt2_lora", os.path.join(
+                _PROJECT_PATH, "configs/gpt2/run_gpt2_lora.yaml")),
             ("gpt2_13b", os.path.join(
                 _PROJECT_PATH, "configs/gpt2/run_gpt2_13b.yaml")),
             ("gpt2_52b", os.path.join(
