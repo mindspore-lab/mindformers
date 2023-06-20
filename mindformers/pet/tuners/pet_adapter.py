@@ -19,11 +19,7 @@ import os
 
 from mindspore import nn
 
-try:
-    from tk.graph.freeze_utils import freeze_delta
-except ModuleNotFoundError:
-    os.system("pip install https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/wheel_packages/mindpet/1.0.0/mindpet-1.0.0-py3-none-any.whl --trusted-host ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com -i https://pypi.tuna.tsinghua.edu.cn/simple")
-    from tk.graph.freeze_utils import freeze_delta
+from tk.graph.freeze_utils import freeze_delta
 
 from mindformers.auto_class import AutoModel
 from mindformers.mindformer_book import MindFormerBook
