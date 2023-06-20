@@ -131,6 +131,7 @@ parallel:
 model:
   model_config:
     type: LlamaConfig
+    batch_size: 1 # add for increase predict
     seq_length: 2048
     hidden_size: 8192
     num_layers: 80

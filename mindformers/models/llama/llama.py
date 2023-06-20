@@ -19,7 +19,7 @@ try:
     from mindspore._checkparam import Validator
 except ImportError:
     import mindspore._checkparam as Validator
-from mindspore import nn
+from mindspore import nn, ops
 from mindspore.common.tensor import Tensor
 from mindspore.context import ParallelMode
 from mindspore.ops import operations as P
@@ -189,20 +189,34 @@ class LlamaModel(BaseModel):
         self.not_equal = P.NotEqual().shard(((config.parallel_config.data_parallel, 1), ()))
         self.freqs_size = config.hidden_size // config.num_heads
 
-    def construct(self, input_ids: Tensor):
+        # used for increased predict
+        self.gather = P.Gather().shard(((1, 1), (1,)))
+        # when in train process,it's always True;when in predict process,only first iteration is True.
+        self.is_first_iteration = True
+        self.all_ones_attention_mask = ops.ones((1, 1, 1), mstype.float32)
+        self.use_past = config.use_past
+
+    def construct(self, input_ids: Tensor, input_position=None, init_reset=True, batch_valid_length=None):
         """Forward of llama model."""
-        _, seqlen = input_ids.shape
+        bs, _ = input_ids.shape
         # (b, t, d) , dp, 1, 1
         h = self.tok_embeddings(input_ids)
-        freqs_cis = (self.freqs_cos, self.freqs_sin, self.mins_mask, self.rotary_mask)
 
         mask = None
-        if seqlen > 0:
+        if self.is_first_iteration is False:
+            # for increase predict
+            freqs_cis = (self.gather(self.freqs_cos, input_position, 0),
+                         self.gather(self.freqs_sin, input_position, 0), self.mins_mask, self.rotary_mask)
+            mask = P.Tile()(self.all_ones_attention_mask, (bs, 1, 1))
+        else:
+            # first iteration of predict; all iterations of train
+            freqs_cis = (self.freqs_cos, self.freqs_sin, self.mins_mask, self.rotary_mask)
             input_mask = self.cast(self.not_equal(input_ids, self.pad_token_id), mstype.float32)
             mask = self.get_attention_mask(input_mask)
+
         # dp,1,1 -> dp,1,1
         for i in range(self.num_layers):
-            h, _ = self.layers[i](h, freqs_cis, mask)
+            h, _ = self.layers[i](h, freqs_cis, mask, init_reset=init_reset, batch_valid_length=batch_valid_length)
         # dp,1,1 -> dp,1,1
         output = self.norm_out(h)
         return output
@@ -219,6 +233,7 @@ class LlamaForCausalLM(BaseModel):
             input_ids(Tensor): the tokenized inputs with datatype int32, Tensor of shape :math:`(batch, seq\_length)`.
             label_ids(Tensor): the tokenized labels with datatype int32, Tensor of shape :math:`(batch, seq\_length)`
             input_position(Tensor): current position, used by model.predict
+            (bool, optional): Default: True.
             attention_mask(Tensor): Reserved param, not used.
             batch_valid_length(Tensor): Reserved param, not used.
 
@@ -270,8 +285,13 @@ class LlamaForCausalLM(BaseModel):
         self.reshape = P.Reshape()
         self.cast = P.Cast()
         self.mul = P.Mul()
-        self.gather = P.Gather().shard(((parallel_config.data_parallel, 1), (1,)))
         self.add = P.Add().shard(((parallel_config.data_parallel, 1), ()))
+
+        # used for increased predict
+        self.gather = P.Gather().shard(((1, 1), (1,)))
+        self.zero_index = Tensor([0], mstype.int32)
+        self.is_first_iteration = True
+
         self.load_checkpoint(config)
 
     # pylint: disable=W0613
@@ -280,6 +300,7 @@ class LlamaForCausalLM(BaseModel):
                   label_ids=None,
                   input_position=None,
                   attention_mask=None,
+                  init_reset=True,
                   batch_valid_length=None):
         """LlamaForCausalLM forward."""
         bsz, seqlen = input_ids.shape
@@ -287,6 +308,16 @@ class LlamaForCausalLM(BaseModel):
             tokens = self.slice(input_ids, (0, 0), (bsz, seqlen - 1), (1, 1))
         else:
             tokens = input_ids
+
+        output = self.model(tokens, input_position, init_reset, batch_valid_length)
+        if input_position is not None:
+            # predict
+            if self.is_first_iteration is False:
+                output = self.gather(output, self.zero_index, 1)
+            logits = self.lm_head(output)  # only compute last logits
+        else:
+            logits = self.lm_head(output)
+
         input_mask = self.cast(self.not_equal(tokens, self.pad_token_id), mstype.float32)
         if label_ids is None:
             label_ids = self.slice(input_ids, (0, 1), (bsz, seqlen), (1, 1))
@@ -295,20 +326,7 @@ class LlamaForCausalLM(BaseModel):
             label_mask = self.cast(self.not_equal(label_ids, self.ignore_token_id), mstype.float32)
             input_mask = self.mul(input_mask, label_mask)
 
-        output = self.model(tokens)
-        if input_position is not None:
-            # predict
-            if output.ndim > 2:
-                output = self.reshape(output, (-1, output.shape[-1]))
-            output = self.gather(output, input_position, 0)
-
-            logits = self.lm_head(output)  # only compute last logits
-        else:
-            tokens = input_ids
-            logits = self.lm_head(output)
-
         logits = self.cast(logits, mstype.float32)
-
         if self.phase != "train":
             logits = self.reshape(logits, (bsz, seqlen, -1))
 
@@ -322,6 +340,7 @@ class LlamaForCausalLM(BaseModel):
         input_mask = self.reshape(input_mask, (-1,))
         loss = self.loss(logits, label_ids, input_mask)
         return loss
+
 
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
 class LlamaForCausalLMWithLora(LlamaForCausalLM):
