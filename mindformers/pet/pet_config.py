@@ -43,7 +43,7 @@ class LoraConfig(PetConfig):
     def __init__(self,
                  lora_rank: int = 8,
                  lora_alpha: int = 16,
-                 lora_dropout: int = 0.01,
+                 lora_dropout: float = 0.01,
                  lora_a_init: str = 'normal',
                  lora_b_init: str = 'zero',
                  param_init_type: str = 'float16',
