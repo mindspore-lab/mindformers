@@ -91,7 +91,7 @@ then
       env > env.log
       mkdir -p ../../output/log/rank_$RANK_ID
       python run_mindformer.py --config=$CONFIG_FILE --use_parallel=True --run_mode=$RUN_STATUS \
-             &> ../../output/log/rank_$RANK_ID/mindformer.log &
+             &> ../../output/log/rank_$RANK_ID/mindformers.log &
       cd ..
   done
 else
@@ -109,7 +109,7 @@ else
       env > env.log
       mkdir -p ../../output/log/rank_$RANK_ID
       python run_mindformer.py --config=$CONFIG_FILE --use_parallel=True --run_mode=$RUN_STATUS \
-             &> ../../output/log/rank_$RANK_ID/mindformer.log &
+             &> ../../output/log/rank_$RANK_ID/mindformers.log &
       cd ..
   done
 fi

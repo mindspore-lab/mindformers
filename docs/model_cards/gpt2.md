@@ -20,7 +20,7 @@ GPT-2由OpenAI于2019年发布。GPT-2模型是继承于GPT模型，GPT-2是一�
 # 数据预处理示例代码，代码来源于ModelZoo
 # 1、数据清洗
 python task_dataset_preprocess.py --task "LanguageModeling" --input_file /{path}/wiki.train.tokens --dataset "wikitext2" --output_file /{path}/{cleaned_data_name}
-# 2、生成Mindrecord数据，其中output_file需以字符串mindrecord结尾
+# 2、生成Mindrecord数据，其中output_file需以.mindrecord为文件名后缀
 python create_lm_data.py --input_file /{path}/{cleaned_data_name} --output_file /{path}/{data_name.mindrecord} --num_splits 1 --max_length 1025 --vocab_file={path of vocab.json} --merge_file={path of merges.txt}
 ```
 

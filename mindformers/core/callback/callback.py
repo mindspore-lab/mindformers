@@ -140,7 +140,7 @@ class MFLossMonitor(Callback):
         epoch_mseconds = (time.time() - self.epoch_time) * 1000
         per_step_mseconds = epoch_mseconds / callback_params.batch_num
         logger.info(
-            "Epoch time: %5.3f ms, "
+            "Per sink_size step time: %5.3f ms, "
             "per step time: %5.3f ms, "
             "avg loss: %5.3f", epoch_mseconds, per_step_mseconds, np.mean(self.loss_list))
 
