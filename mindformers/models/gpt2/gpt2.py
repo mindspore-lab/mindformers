@@ -32,10 +32,11 @@ from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.models.base_model import BaseModel
 from mindformers.mindformer_book import MindFormerBook
 from mindformers.tools.logger import logger
+from mindformers.pet import LoraAdapter, PetAdapter
 from .gpt2_config import GPT2Config
 from .gpt_modules import GPTTransformerDecoderLayer
 
-__all__ = ['GPT2LMHeadModel']
+__all__ = ['GPT2LMHeadModel', 'GPT2WithLora']
 
 
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
@@ -52,7 +53,7 @@ class GPT2LMHeadModel(BaseModel):
 
     def __init__(self, config: GPT2Config = None):
         config = config if config is not None else GPT2Config()
-        super(GPT2LMHeadModel, self).__init__(config, auto_prefix=False)
+        super(GPT2LMHeadModel, self).__init__(config, auto_prefix=True)
 
         self.eos_token_id = self.config.eos_token_id
         parallel_config = self.config.parallel_config
@@ -321,6 +322,16 @@ class GPTHead(nn.Cell):
     def construct(self, state, embedding_table):
         logits = self.matmul(self.cast(state, self.dtype), self.cast(embedding_table, self.dtype))
         return logits
+
+
+@MindFormerRegister.register(MindFormerModuleType.MODELS)
+class GPT2WithLora(GPT2LMHeadModel):
+    def __init__(self, config: GPT2Config = None):
+        super().__init__(config)
+        config.pet_config.reg_rules = r'.*dense1.*|.*dense3.*'
+        self.backbone = LoraAdapter.get_pet_model(self.backbone, config.pet_config)
+        # freeze pretrained model
+        PetAdapter.freeze_pretrained_model(self, config.pet_config.pet_type)
 
 
 class CrossEntropyCalculationWithMask(nn.Cell):
