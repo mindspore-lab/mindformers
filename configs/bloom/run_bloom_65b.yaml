@@ -29,6 +29,7 @@ model:
     attention_dropout_rate: 0.1
     initializer_range: 0.02
     param_init_type: "float16"
+    embedding_init_type: "float32"
     layernorm_compute_type: "float32"
     softmax_compute_type: "float16"
     compute_dtype: "float16"
@@ -112,6 +113,7 @@ parallel:
   full_batch: True
   search_mode: "sharding_propagation"
   enable_parallel_optimizer: True
+  strategy_ckpt_save_file: "./ckpt_strategy.ckpt"
 
 parallel_config:
   data_parallel: 2

@@ -48,6 +48,7 @@ class BloomConfig(BaseConfig):
                  eos_token_id: int = 2,
                  pad_token_id: int = 3,
                  param_init_type: str = "float32",
+                 embedding_init_type: str = "float32",
                  layernorm_compute_type: str = "float32",
                  softmax_compute_type: str = "float32",
                  compute_dtype: str = "float16",
@@ -75,6 +76,7 @@ class BloomConfig(BaseConfig):
         self.hidden_dropout_rate = hidden_dropout_rate
         self.attention_dropout_rate = attention_dropout_rate
         self.param_init_type = convert_mstype(param_init_type)
+        self.embedding_init_type = convert_mstype(embedding_init_type)
         self.layernorm_compute_type = convert_mstype(layernorm_compute_type)
         self.softmax_compute_type = convert_mstype(softmax_compute_type)
         self.compute_dtype = convert_mstype(compute_dtype)

@@ -48,7 +48,7 @@ class BloomEmbeddingLayer(nn.Cell):
                                              embedding_size=config.hidden_size,
                                              param_init=initializer("normal",
                                                                     [vocab_size, config.hidden_size],
-                                                                    dtype=mstype.float32),
+                                                                    dtype=config.embedding_init_type),
                                              parallel_config=config.parallel_config.embedding_dp_mp_config)
         self.norm = LayerNorm((config.hidden_size,))
 

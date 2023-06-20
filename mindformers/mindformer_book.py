@@ -700,6 +700,10 @@ class MindFormerBook:
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
           '/MindFormers/bloom/bloom_560m.ckpt'
           ]),
+        ('bloom_7.1b',
+         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
+          '/MindFormers/bloom/bloom_7.1b.ckpt'
+          ]),
     ])
 
     _MODEL_CONFIG_URL_LIST = OrderedDict([

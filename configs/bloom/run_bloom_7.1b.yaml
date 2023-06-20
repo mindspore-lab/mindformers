@@ -29,6 +29,7 @@ model:
     attention_dropout_rate: 0.1
     initializer_range: 0.02
     param_init_type: "float16"
+    embedding_init_type: "float32"
     layernorm_compute_type: "float32"
     softmax_compute_type: "float16"
     compute_dtype: "float16"
@@ -113,6 +114,7 @@ parallel:
   full_batch: True
   search_mode: "sharding_propagation"
   enable_parallel_optimizer: True
+  strategy_ckpt_save_file: "./ckpt_strategy.ckpt"
 
 parallel_config:
   data_parallel: 1
@@ -135,7 +137,7 @@ remote_save_url: "Please input obs url on AICC platform."
 # runner config
 runner_config:
   epochs: 10
-  batch_size: 1
+  batch_size: 4
   sink_mode: True
   sink_size: 8
   per_epoch_size: 8
