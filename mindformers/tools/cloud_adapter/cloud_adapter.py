@@ -52,7 +52,8 @@ class Local2ObsMonitor(Callback):
                  src_dir,
                  target_dir,
                  rank_id=None,
-                 upload_frequence=-1,
+                 step_upload_frequence: int = -1,
+                 epoch_upload_frequence: int = 1,
                  keep_last=True,
                  retry=3,
                  retry_time=5,
@@ -60,7 +61,8 @@ class Local2ObsMonitor(Callback):
         super(Local2ObsMonitor, self).__init__()
         self.src_dir = src_dir
         self.target_dir = target_dir
-        self.upload_frequence = upload_frequence
+        self.step_upload_frequence = step_upload_frequence
+        self.epoch_upload_frequence = epoch_upload_frequence
         self.keep_last = keep_last
         self.is_special = False
         if rank_id is not None:
@@ -77,19 +79,26 @@ class Local2ObsMonitor(Callback):
             check_obs_url(target_dir)
 
     def step_end(self, run_context):
-        """Print training loss at the end of step."""
-        if self.on_modelarts and self.upload_frequence > 0:
-            self.cb_params = run_context.original_args()
-            if self.cb_params.cur_step_num % self.upload_frequence == 0 and os.listdir(self.src_dir):
-                self.log.info("Starting upload output file to obs!")
-                self.upload()
+        """upload files at the end of step."""
+        if not self.on_modelarts:
+            return
+        if self.step_upload_frequence <= 0:
+            return
+        self.cb_params = run_context.original_args()
+        if self.cb_params.cur_step_num % self.step_upload_frequence == 0 and os.listdir(self.src_dir):
+            self.log.info("Starting upload output file to obs!")
+            self.upload()
 
     def epoch_end(self, run_context):
-        if self.on_modelarts and self.upload_frequence < 0:
-            self.cb_params = run_context.original_args()
-            if os.listdir(self.src_dir):
-                self.log.info("Starting upload output file to obs!")
-                self.upload()
+        """upload files at the end of epoch."""
+        if not self.on_modelarts:
+            return
+        if self.epoch_upload_frequence <= 0:
+            return
+        self.cb_params = run_context.original_args()
+        if self.cb_params.cur_step_num % self.epoch_upload_frequence == 0 and os.listdir(self.src_dir):
+            self.log.info("Starting upload output file to obs!")
+            self.upload()
 
     def upload(self):
         """Upload Files to OBS."""
