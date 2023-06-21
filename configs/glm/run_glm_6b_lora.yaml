@@ -226,9 +226,7 @@ callbacks:
     integrated_save: False
     async_save: False
   - type: ObsMonitor
-    upload_frequence: -1
     keep_last: False
 eval_callbacks:
   - type: ObsMonitor
-    upload_frequence: -1
     keep_last: False

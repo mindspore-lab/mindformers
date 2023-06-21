@@ -87,8 +87,12 @@ class Validator:
 
 def check_obs_url(url):
     """Check obs url."""
+    if not isinstance(url, str):
+        raise TypeError('remote_save_url type should be a str, but get {}, '
+                        'please check your remote_save_url config'.format(type(url)))
     if not (url.startswith(_PROTOCOL + '://') or url.startswith(_PROTOCOL_S3 + '://')):
-        raise TypeError('obs url should be start with obs:// or s3://, but get {}'.format(url))
+        raise TypeError('remote_save_url should be start with obs:// or s3://, '
+                        'but get {}, please check your remote_save_url config'.format(url))
     return True
 
 
