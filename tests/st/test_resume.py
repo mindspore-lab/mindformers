@@ -1,0 +1,113 @@
+# Copyright 2023 Huawei Technologies Co., Ltd
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ============================================================================
+"""
+Test module for testing the gpt interface used for mindformers.
+How to run this:
+pytest tests/st/test_resume.py
+"""
+from dataclasses import dataclass
+import os
+import numpy as np
+import pytest
+from mindspore.train.callback import LossMonitor, TimeMonitor
+from mindspore.dataset import GeneratorDataset
+
+from mindformers.tools.utils import LOCAL_DEFAULT_PATH
+from mindformers.trainer import Trainer
+from mindformers.trainer.config_args import ConfigArguments, \
+    RunnerConfig
+from mindformers.models.gpt2.gpt2 import GPT2LMHeadModel
+from mindformers.core.lr import WarmUpDecayLR
+from mindformers import CheckpointMointor
+from mindformers.core.optim import FusedAdamWeightDecay
+
+
+def generator():
+    """dataset generator"""
+    seq_len = 1025
+    input_ids = np.random.randint(low=0, high=15, size=(seq_len,)).astype(np.int32)
+    input_mask = np.ones_like(input_ids)
+    train_data = (input_ids, input_mask)
+    for _ in range(32):
+        yield train_data
+
+@dataclass
+class Tempconfig:
+    seed: int = 0
+    runner_config: RunnerConfig = None
+    data_size: int = 0
+    train_checkpoint: str = ""
+
+@pytest.mark.level0
+@pytest.mark.platform_x86_ascend_training
+@pytest.mark.platform_arm_ascend_training
+@pytest.mark.env_onecard
+def test_gpt_trainer_train_from_instance():
+    """
+    Feature: Create Trainer From Instance
+    Description: Test Trainer API to train from self-define instance API.
+    Expectation: TypeError
+    """
+    # Config definition
+    runner_config = RunnerConfig(epochs=2, batch_size=8, sink_mode=True, sink_size=2)
+    config = ConfigArguments(seed=2022, runner_config=runner_config)
+
+    # Model
+    gpt_model = GPT2LMHeadModel()
+
+    # Dataset and operations
+    dataset = GeneratorDataset(generator, column_names=["input_ids", "input_mask"])
+    dataset = dataset.batch(batch_size=8)
+
+    # optimizer
+    lr_schedule = WarmUpDecayLR(learning_rate=0.0001, end_learning_rate=0.00001, warmup_steps=0, decay_steps=512)
+    optimizer = FusedAdamWeightDecay(beta1=0.009, beta2=0.999,
+                                     learning_rate=lr_schedule,
+                                     params=gpt_model.trainable_params())
+
+    # callback
+    loss_cb = LossMonitor(per_print_times=2)
+    time_cb = TimeMonitor()
+    ckpt_cb = CheckpointMointor()
+    callbacks = [loss_cb, time_cb, ckpt_cb]
+
+    lm_trainer = Trainer(model=gpt_model,
+                         config=config,
+                         optimizers=optimizer,
+                         train_dataset=dataset,
+                         callbacks=callbacks,
+                         task="text_generation")
+    lm_trainer.train(train_checkpoint=False)
+    checkpoint_dir = os.path.join(LOCAL_DEFAULT_PATH, "checkpoint", "rank_{}".format(int(os.getenv("RANK_ID", "0"))))
+    output_checkpoint_path = [
+        checkpoint for checkpoint in os.listdir(checkpoint_dir)
+        if checkpoint.endswith('.ckpt')
+    ]
+    output_checkpoint_path = sorted(output_checkpoint_path,
+                                    key=lambda x: os.path.getmtime(os.path.join(checkpoint_dir, x)))
+    for _ in range(2):
+        os.remove(os.path.join(checkpoint_dir, output_checkpoint_path.pop()))
+
+    # Dataset and operations
+    dataset = GeneratorDataset(generator, column_names=["input_ids", "input_mask"])
+    dataset = dataset.batch(batch_size=8)
+
+    lm_trainer = Trainer(model=gpt_model,
+                         config=config,
+                         optimizers=optimizer,
+                         train_dataset=dataset,
+                         callbacks=callbacks,
+                         task="text_generation")
+    lm_trainer.train(train_checkpoint=os.path.join(LOCAL_DEFAULT_PATH, "checkpoint"), resume_training=True)
