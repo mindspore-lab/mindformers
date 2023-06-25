@@ -73,6 +73,7 @@ class TestRunMindFormer:
         yaml_path = os.path.join(MindFormerBook.get_project_path(),
                                  "configs", "txtcls", "run_txtcls_bert_base_uncased.yaml")
         command = "python run_mindformer.py --config " + yaml_path + " --run_mode finetune"
+        command += " --runner_config.batch_size 1"
         os.system(command)
 
     def test_trainer_eval_method(self):
@@ -85,4 +86,5 @@ class TestRunMindFormer:
                                  "configs", "txtcls", "run_txtcls_bert_base_uncased.yaml")
         command = "python run_mindformer.py --config " + yaml_path + \
                   " --run_mode eval --load_checkpoint txtcls_bert_base_uncased_mnli"
+        command += " --runner_config.batch_size 1"
         os.system(command)
