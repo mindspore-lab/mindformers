@@ -15,7 +15,7 @@
 """
 Test module for testing the glm interface used for mindformers.
 How to run this:
-pytest tests/st/test_model/test_glm_model/test_glm_trainer.py
+pytest tests/st/test_model/test_glm_model/test_trainer.py
 """
 import numpy as np
 import pytest
@@ -74,11 +74,13 @@ class TestGLMTrainerMethod:
         self.tokenizer = AutoTokenizer.from_pretrained("glm_6b")
         self.task_trainer = Trainer(task='text_generation',
                                     model=model,
+                                    model_name='glm_6b',
                                     tokenizer=self.tokenizer,
                                     args=args,
                                     train_dataset=train_dataset,
                                     eval_dataset=eval_dataset)
 
+    @pytest.mark.run(order=1)
     def test_train(self):
         """
         Feature: Trainer.train()
@@ -87,6 +89,7 @@ class TestGLMTrainerMethod:
         """
         self.task_trainer.train()
 
+    # @pytest.mark.run(order=2)
     # def test_eval(self):
     #     """
     #     Feature: Trainer.evaluate()
@@ -95,13 +98,14 @@ class TestGLMTrainerMethod:
     #     """
     #     self.task_trainer.evaluate()
 
+    @pytest.mark.run(order=3)
     def test_predict(self):
         """
         Feature: Trainer.predict()
         Description: Test trainer for predict.
         Expectation: TypeError, ValueError, RuntimeError
         """
-        model_config = GLMConfig(num_layers=2, hidden_size=32, inner_hidden_size=None,
+        model_config = GLMConfig(num_layers=1, hidden_size=32, inner_hidden_size=None,
                                  num_heads=2, position_encoding_2d=True)
         model = GLMChatModel(model_config)
         task_trainer = Trainer(task='text_generation',
@@ -109,6 +113,7 @@ class TestGLMTrainerMethod:
                                tokenizer=self.tokenizer)
         task_trainer.predict(input_data="你好", max_length=20)
 
+    @pytest.mark.run(order=4)
     def test_finetune(self):
         """
         Feature: Trainer.finetune()

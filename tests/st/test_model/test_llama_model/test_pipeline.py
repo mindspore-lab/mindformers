@@ -13,9 +13,9 @@
 # limitations under the License.
 # ============================================================================
 """
-Test module for testing the gpt interface used for mindformers.
+Test module for testing the llama interface used for mindformers.
 How to run this:
-pytest tests/st/test_model/test_llm_model/test_pipeline.py
+pytest tests/st/test_model/test_llama_model/test_pipeline.py
 """
 import pytest
 
@@ -24,13 +24,13 @@ from mindformers import pipeline
 
 
 @pytest.mark.level0
-@pytest.mark.platform_x86_cpu
+@pytest.mark.platform_x86_ascend_training
+@pytest.mark.platform_arm_ascend_training
 @pytest.mark.env_onecard
-class TestPipelineMethod:
+class TestLlamaPipelineMethod:
     """A test class for testing pipeline."""
     def setup_method(self):
         """setup method."""
-         # 可往列表中添加llm类模型type 'pangualpha_2_6b', 'llama_7b', 'glm_6b', 'bloom_7b'
         self.test_llm_list = ['llama_7b']
 
     def test_pipeline(self):

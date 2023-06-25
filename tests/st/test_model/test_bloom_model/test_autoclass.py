@@ -26,16 +26,18 @@ from mindformers.models import BaseModel, BaseConfig, BaseTokenizer, BaseProcess
 
 
 @pytest.mark.level0
-@pytest.mark.platform_x86_cpu
+@pytest.mark.platform_x86_ascend_training
+@pytest.mark.platform_arm_ascend_training
 @pytest.mark.env_onecard
-class TestAutoClassMethod:
-    '''A test class for testing Model classes'''
+class TestBloomAutoClassMethod:
+    """A test class for testing Model classes"""
 
     def setup_method(self):
         """setup method."""
         self.save_directory = os.path.join(MindFormerBook.get_project_path(), 'checkpoint_save')
         self.test_llm_list = ['bloom_560m']
 
+    @pytest.mark.run(order=1)
     def test_llm_model(self):
         """
         Feature: AutoModel.
@@ -50,6 +52,7 @@ class TestAutoClassMethod:
                 save_directory=os.path.join(self.save_directory, model_type),
                 save_name=model_type + '_model')
 
+    @pytest.mark.run(order=2)
     def test_llm_config(self):
         """
         Feature: AutoConfig.
@@ -64,6 +67,7 @@ class TestAutoClassMethod:
                 save_directory=os.path.join(self.save_directory, config_type),
                 save_name=config_type + '_config')
 
+    @pytest.mark.run(order=3)
     def test_llm_processor(self):
         """
         Feature: AutoConfig.
@@ -78,6 +82,7 @@ class TestAutoClassMethod:
                 save_directory=os.path.join(self.save_directory, processor_type),
                 save_name=processor_type + '_processor')
 
+    @pytest.mark.run(order=4)
     def test_llm_tokenizer(self):
         """
         Feature: AutoTokenizer, input config.

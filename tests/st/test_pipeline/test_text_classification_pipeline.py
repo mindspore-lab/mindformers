@@ -23,16 +23,16 @@ pytest .\\tests\\st\\test_pipeline\\test_text_classification_pipeline.py
 linux:
 pytest ./tests/st/test_pipeline/test_text_classification_pipeline.py
 """
-# import pytest
+import pytest
 
 from mindformers.pipeline import TextClassificationPipeline
 from mindformers import AutoTokenizer, BertForMultipleChoice, AutoConfig
 
 
-# @pytest.mark.level0
-# @pytest.mark.platform_x86_ascend_training
-# @pytest.mark.platform_arm_ascend_training
-# @pytest.mark.env_onecard
+@pytest.mark.level0
+@pytest.mark.platform_x86_ascend_training
+@pytest.mark.platform_arm_ascend_training
+@pytest.mark.env_onecard
 def test_text_classification_pipeline():
     """
     Feature: TextClassificationPipeline class

@@ -73,6 +73,8 @@ class TestLlamaTrainerMethod:
                                     args=args,
                                     train_dataset=train_dataset,
                                     eval_dataset=eval_dataset)
+
+    @pytest.mark.run(order=1)
     def test_finetune(self):
         """
         Feature: Trainer.finetune()
@@ -82,6 +84,7 @@ class TestLlamaTrainerMethod:
         self.task_trainer.config.runner_config.epochs = 1
         self.task_trainer.finetune()
 
+    @pytest.mark.run(order=2)
     def test_predict(self):
         """
         Feature: Trainer.predict()

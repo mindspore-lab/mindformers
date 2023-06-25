@@ -15,7 +15,7 @@
 """
 Test module for testing the gpt interface used for mindformers.
 How to run this:
-pytest tests/st/test_model/test_llm_model/test_gpt_trainer.py
+pytest tests/st/test_model/test_gpt2_model/test_trainer.py
 """
 import numpy as np
 import pytest
@@ -66,6 +66,7 @@ class TestGPTTrainerMethod:
 
         self.task_trainer = Trainer(task='text_generation',
                                     model=model,
+                                    model_name='gpt2',
                                     args=args,
                                     train_dataset=train_dataset,
                                     eval_dataset=eval_dataset)

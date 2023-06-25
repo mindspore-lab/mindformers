@@ -13,44 +13,44 @@
 # limitations under the License.
 # ============================================================================
 """
-Test module for testing the gpt interface used for mindformers.
+Test module for testing the llama interface used for mindformers.
 How to run this:
-pytest tests/st/test_model/test_llm_model/test_auto_class.py
+pytest tests/st/test_model/test_llama_model/test_auto_class.py
 """
 import os
 import pytest
 
-# pylint: disable=W0611
 from mindformers import MindFormerBook, AutoModel, AutoConfig, AutoTokenizer, AutoProcessor
-# pylint: disable=W0611
 from mindformers.models import BaseModel, BaseConfig, BaseTokenizer, BaseProcessor
 
 
 @pytest.mark.level0
-@pytest.mark.platform_x86_cpu
+@pytest.mark.platform_x86_ascend_training
+@pytest.mark.platform_arm_ascend_training
 @pytest.mark.env_onecard
-class TestAutoClassMethod:
-    '''A test class for testing Model classes'''
+class TestLlamaAutoClassMethod:
+    """A test class for testing Model classes"""
     def setup_method(self):
         """setup method."""
         self.save_directory = os.path.join(MindFormerBook.get_project_path(), 'checkpoint_save')
-        # 可往列表中添加llm类模型type 'pangualpha_2_6b', 'llama_7b', 'glm_6b', 'bloom_7b'
         self.test_llm_list = ['llama_7b']
 
-    # def test_llm_model(self):
-    #     """
-    #     Feature: AutoModel.
-    #     Description: Test to get LL-Model instance by input model type.
-    #     Expectation: TypeError, ValueError, RuntimeError
-    #     """
-    #     # input model name, load model and weights
-    #     for model_type in self.test_llm_list:
-    #         model = AutoModel.from_pretrained(model_type)
-    #         assert isinstance(model, BaseModel)
-    #         model.save_pretrained(
-    #             save_directory=os.path.join(self.save_directory, model_type),
-    #             save_name=model_type + '_model')
+    @pytest.mark.run(order=1)
+    def test_llm_model(self):
+        """
+        Feature: AutoModel.
+        Description: Test to get LL-Model instance by input model type.
+        Expectation: TypeError, ValueError, RuntimeError
+        """
+        # input model name, load model and weights
+        for model_type in self.test_llm_list:
+            model = AutoModel.from_pretrained(model_type, download_checkpoint=False)
+            assert isinstance(model, BaseModel)
+            model.save_pretrained(
+                save_directory=os.path.join(self.save_directory, model_type),
+                save_name=model_type + '_model')
 
+    @pytest.mark.run(order=2)
     def test_llm_config(self):
         """
         Feature: AutoConfig.
@@ -65,10 +65,11 @@ class TestAutoClassMethod:
                 save_directory=os.path.join(self.save_directory, config_type),
                 save_name=config_type + '_config')
 
+    @pytest.mark.run(order=3)
     def test_llm_processor(self):
         """
-        Feature: AutoConfig.
-        Description: Test to get config instance by input config type.
+        Feature: AutoProcessor.
+        Description: Test to get processor instance by input processor type.
         Expectation: TypeError, ValueError, RuntimeError
         """
         # input processor name
@@ -79,6 +80,7 @@ class TestAutoClassMethod:
                 save_directory=os.path.join(self.save_directory, processor_type),
                 save_name=processor_type + '_processor')
 
+    @pytest.mark.run(order=4)
     def test_llm_tokenizer(self):
         """
         Feature: AutoTokenizer, input config.

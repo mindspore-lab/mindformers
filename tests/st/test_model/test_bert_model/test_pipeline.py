@@ -13,9 +13,9 @@
 # limitations under the License.
 # ============================================================================
 """
-Test module for testing the gpt interface used for mindformers.
+Test module for testing the bert interface used for mindformers.
 How to run this:
-pytest tests/st/test_model/test_gpt2_model/test_pipeline.py
+pytest tests/st/test_model/test_bert_model/test_pipeline.py
 """
 import pytest
 
@@ -26,11 +26,11 @@ from mindformers import pipeline
 @pytest.mark.platform_x86_ascend_training
 @pytest.mark.platform_arm_ascend_training
 @pytest.mark.env_onecard
-class TestGPTPipelineMethod:
+class TestBertPipelineMethod:
     """A test class for testing pipeline."""
     def setup_method(self):
         """setup method."""
-        self.test_llm_list = ['gpt2']
+        self.test_list = ['bert_base_uncased']
 
     def test_pipeline(self):
         """
@@ -38,6 +38,6 @@ class TestGPTPipelineMethod:
         Description: Test pipeline by input model type.
         Expectation: TypeError, ValueError, RuntimeError
         """
-        for model_type in self.test_llm_list:
-            task_pipeline = pipeline(task='text_generation', model=model_type, max_length=20)
-            task_pipeline("hello!", top_k=3)
+        for model_type in self.test_list:
+            task_pipeline = pipeline(task='fill_mask', model=model_type, max_length=128, padding='max_length')
+            task_pipeline([" Hello I am a [MASK] model.",])
