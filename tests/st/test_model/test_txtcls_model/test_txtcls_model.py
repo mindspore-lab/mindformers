@@ -21,18 +21,19 @@ windows:  pytest .\\tests\\st\\test_model\\test_txtcls_model\\test_txtcls_model.
 linux:  pytest ./tests/st/test_model/test_txtcls_model/test_txtcls_model.py
 """
 import os
-# import pytest
+import pytest
 from mindformers import MindFormerBook, AutoModel, AutoConfig
 from mindformers.models import BertForMultipleChoice
 from mindformers.tools import logger
 
 
-# @pytest.mark.level0
-# @pytest.mark.platform_x86_cpu
-# @pytest.mark.env_onecard
+@pytest.mark.level0
+@pytest.mark.platform_x86_ascend_training
+@pytest.mark.platform_arm_ascend_training
+@pytest.mark.env_onecard
 class TestModelMethod:
     """A test class for testing Model classes"""
-    def setup_method(self):
+    def setup_class(self):
         """get_input"""
         # fine-tuning
         self.txtcls_checkpoint_dir = os.path.join(MindFormerBook.get_default_checkpoint_download_folder(),
@@ -65,94 +66,14 @@ class TestModelMethod:
 
         # fine-tuning part
         # input model name
-        txtcls_model_a = AutoModel.from_pretrained('txtcls_bert_base_uncased')
-        # # input model directory
-        # txtcls_model_b = AutoModel.from_pretrained(self.txtcls_checkpoint_dir)
-        # # input yaml path
-        # txtcls_model_c = AutoModel.from_config(self.txtcls_config_path)
-        # # input config
-        # txtcls_model_d = AutoModel.from_config(self.txtcls_config)
+        txtcls_model_a = AutoModel.from_pretrained('txtcls_bert_base_uncased', download_checkpoint=False)
 
         txtcls_model_a.save_pretrained(self.save_directory, save_name='txtcls_bert_base_uncased')
 
-        # assert isinstance(txtcls_model_a, BertForMultipleChoice)
-        # assert isinstance(txtcls_model_b, BertForMultipleChoice)
-        # assert isinstance(txtcls_model_c, BertForMultipleChoice)
-        # assert isinstance(txtcls_model_d, BertForMultipleChoice)
-        #
-        # assert isinstance(txtcls_model_a, BaseModel)
-        # assert isinstance(txtcls_model_b, BaseModel)
-        # assert isinstance(txtcls_model_c, BaseModel)
-        # assert isinstance(txtcls_model_d, BaseModel)
-
         # evaluation and prediction test part
         # input model name
-        txtcls_mnli_model_a = AutoModel.from_pretrained('txtcls_bert_base_uncased_mnli')
-        # # input model directory
-        # txtcls_mnli_model_b = AutoModel.from_pretrained(self.txtcls_mnli_checkpoint_dir)
-        # # input yaml path
-        # txtcls_mnli_model_c = AutoModel.from_config(self.txtcls_mnli_config_path)
-        # # input config
-        # txtcls_mnli_model_d = AutoModel.from_config(self.txtcls_mnli_config)
+        txtcls_mnli_model_a = AutoModel.from_pretrained('txtcls_bert_base_uncased_mnli', download_checkpoint=False)
 
         txtcls_mnli_model_a.save_pretrained(self.save_directory, save_name='txtcls_bert_base_uncased_mnli')
 
         assert isinstance(txtcls_mnli_model_a, BertForMultipleChoice)
-        # assert isinstance(txtcls_mnli_model_b, BertForMultipleChoice)
-        # assert isinstance(txtcls_mnli_model_c, BertForMultipleChoice)
-        # assert isinstance(txtcls_mnli_model_d, BertForMultipleChoice)
-        #
-        # assert isinstance(txtcls_mnli_model_a, BaseModel)
-        # assert isinstance(txtcls_mnli_model_b, BaseModel)
-        # assert isinstance(txtcls_mnli_model_c, BaseModel)
-        # assert isinstance(txtcls_mnli_model_d, BaseModel)
-
-        # BertForMultipleChoice.show_support_list()
-        # support_list = BertForMultipleChoice.get_support_list()
-        # logger.info(support_list)
-
-        # fine-tuning part
-        # input model name, load model and weights
-        # txtcls_model_e = BertForMultipleChoice.from_pretrained('txtcls_bert_base_uncased')
-        # # input model directory, load model and weights
-        # txtcls_model_f = BertForMultipleChoice.from_pretrained(self.txtcls_checkpoint_dir)
-        # # input config, load model weights
-        # txtcls_model_g = BertForMultipleChoice(self.txtcls_config)
-        # # input config, load model without weights
-        # self.txtcls_config.checkpoint_name_or_path = None
-        # txtcls_model_h = BertForMultipleChoice(self.txtcls_config)
-
-        # txtcls_model_e.save_pretrained(self.save_directory, save_name='txtcls_bert_base_uncased')
-
-        # assert isinstance(txtcls_model_e, BertForMultipleChoice)
-        # assert isinstance(txtcls_model_f, BertForMultipleChoice)
-        # assert isinstance(txtcls_model_g, BertForMultipleChoice)
-        # assert isinstance(txtcls_model_h, BertForMultipleChoice)
-        #
-        # assert isinstance(txtcls_model_e, BaseModel)
-        # assert isinstance(txtcls_model_f, BaseModel)
-        # assert isinstance(txtcls_model_g, BaseModel)
-        # assert isinstance(txtcls_model_h, BaseModel)
-
-        # evaluation and prediction test part
-        # input model name, load model and weights
-        # txtcls_mnli_model_e = BertForMultipleChoice.from_pretrained('txtcls_bert_base_uncased_mnli')
-        # # input model directory, load model and weights
-        # txtcls_mnli_model_f = BertForMultipleChoice.from_pretrained(self.txtcls_mnli_checkpoint_dir)
-        # # input config, load model weights
-        # txtcls_mnli_model_g = BertForMultipleChoice(self.txtcls_mnli_config)
-        # # input config, load model without weights
-        # self.txtcls_mnli_config.checkpoint_name_or_path = None
-        # txtcls_mnli_model_h = BertForMultipleChoice(self.txtcls_mnli_config)
-        #
-        # txtcls_mnli_model_e.save_pretrained(self.save_directory, save_name='txtcls_bert_base_uncased_mnli')
-
-        # assert isinstance(txtcls_mnli_model_e, BertForMultipleChoice)
-        # assert isinstance(txtcls_mnli_model_f, BertForMultipleChoice)
-        # assert isinstance(txtcls_mnli_model_g, BertForMultipleChoice)
-        # assert isinstance(txtcls_mnli_model_h, BertForMultipleChoice)
-        #
-        # assert isinstance(txtcls_mnli_model_e, BaseModel)
-        # assert isinstance(txtcls_mnli_model_f, BaseModel)
-        # assert isinstance(txtcls_mnli_model_g, BaseModel)
-        # assert isinstance(txtcls_mnli_model_h, BaseModel)

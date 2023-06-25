@@ -22,24 +22,19 @@ linux:  pytest ./tests/st/test_model/test_clip_model/test_clip_model.py
 """
 import os
 import time
-# import pytest
+import pytest
 
 from mindformers import MindFormerBook, AutoConfig, AutoModel
-from mindformers.models import CLIPModel
+from mindformers.models import CLIPModel, BaseModel
 from mindformers.tools import logger
 
 
-# @pytest.mark.level0
-# @pytest.mark.platform_x86_ascend_training
-# @pytest.mark.platform_arm_ascend_training
-# @pytest.mark.env_onecard
-class TestModelMethod:
+@pytest.mark.level0
+@pytest.mark.platform_x86_ascend_training
+@pytest.mark.platform_arm_ascend_training
+@pytest.mark.env_onecard
+class TestCLIPModelMethod:
     """A test class for testing Model classes"""
-
-    # @pytest.mark.level0
-    # @pytest.mark.platform_x86_ascend_training
-    # @pytest.mark.platform_arm_ascend_training
-    # @pytest.mark.env_onecard
     def setup_method(self):
         """get_input"""
         self.model_type = "clip_vit_b_32"
@@ -55,11 +50,6 @@ class TestModelMethod:
         self.save_directory = os.path.join(MindFormerBook.get_default_checkpoint_save_folder(),
                                            'clip')
 
-    # the first method to load model, AutoModel
-    # @pytest.mark.level0
-    # @pytest.mark.platform_x86_ascend_training
-    # @pytest.mark.platform_arm_ascend_training
-    # @pytest.mark.env_onecard
     def test_auto_model(self):
         """
         Feature: AutoModel, from_pretrained, from_config
@@ -74,48 +64,48 @@ class TestModelMethod:
         logger.info(support_list)
         # input model name, load model and weights
         model_a = AutoModel.from_pretrained(self.model_type)
-        # # input model directory, load model and weights
-        # model_b = AutoModel.from_pretrained(self.checkpoint_dir)
-        # # input yaml path, load model without weights
-        # model_c = AutoModel.from_config(self.config_path)
-        # # input config, load model without weights
-        # model_d = AutoModel.from_config(self.config)
+        # input model directory, load model and weights
+        model_b = AutoModel.from_pretrained(self.checkpoint_dir)
+        # input yaml path, load model without weights
+        model_c = AutoModel.from_config(self.config_path)
+        # input config, load model without weights
+        model_d = AutoModel.from_config(self.config)
 
         model_a.save_pretrained(self.save_directory, save_name=self.model_type)
 
-        # CLIPModel.show_support_list()
-        # support_list = CLIPModel.get_support_list()
-        # logger.info(support_list)
-        # # input model name, load model and weights
-        # model_i = CLIPModel.from_pretrained(self.model_type)
-        # # input model directory, load model and weights
-        # model_j = CLIPModel.from_pretrained(self.checkpoint_dir)
-        # # input config, load model weights
-        # model_k = CLIPModel(self.config)
-        # # input config, load model without weights
-        # self.config.checkpoint_name_or_path = None
-        # model_l = CLIPModel(self.config)
+        CLIPModel.show_support_list()
+        support_list = CLIPModel.get_support_list()
+        logger.info(support_list)
+        # input model name, load model and weights
+        model_i = CLIPModel.from_pretrained(self.model_type)
+        # input model directory, load model and weights
+        model_j = CLIPModel.from_pretrained(self.checkpoint_dir)
+        # input config, load model weights
+        model_k = CLIPModel(self.config)
+        # input config, load model without weights
+        self.config.checkpoint_name_or_path = None
+        model_l = CLIPModel(self.config)
 
-        # model_i.save_pretrained(self.save_directory, save_name=self.model_type)
+        model_i.save_pretrained(self.save_directory, save_name=self.model_type)
 
         # all models are ClipModel class， and inherited from BaseModel
-        # assert isinstance(model_i, CLIPModel)
-        # assert isinstance(model_j, CLIPModel)
-        # assert isinstance(model_k, CLIPModel)
-        # assert isinstance(model_l, CLIPModel)
-        #
-        # assert isinstance(model_i, BaseModel)
-        # assert isinstance(model_j, BaseModel)
-        # assert isinstance(model_k, BaseModel)
-        # assert isinstance(model_l, BaseModel)
+        assert isinstance(model_i, CLIPModel)
+        assert isinstance(model_j, CLIPModel)
+        assert isinstance(model_k, CLIPModel)
+        assert isinstance(model_l, CLIPModel)
+
+        assert isinstance(model_i, BaseModel)
+        assert isinstance(model_j, BaseModel)
+        assert isinstance(model_k, BaseModel)
+        assert isinstance(model_l, BaseModel)
 
         # all models are CLIPModel class， and inherited from BaseModel
         assert isinstance(model_a, CLIPModel)
-        # assert isinstance(model_b, CLIPModel)
-        # assert isinstance(model_c, CLIPModel)
-        # assert isinstance(model_d, CLIPModel)
-        #
-        # assert isinstance(model_a, BaseModel)
-        # assert isinstance(model_b, BaseModel)
-        # assert isinstance(model_c, BaseModel)
-        # assert isinstance(model_d, BaseModel)
+        assert isinstance(model_b, CLIPModel)
+        assert isinstance(model_c, CLIPModel)
+        assert isinstance(model_d, CLIPModel)
+
+        assert isinstance(model_a, BaseModel)
+        assert isinstance(model_b, BaseModel)
+        assert isinstance(model_c, BaseModel)
+        assert isinstance(model_d, BaseModel)

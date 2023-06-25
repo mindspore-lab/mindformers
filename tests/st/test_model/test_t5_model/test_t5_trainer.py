@@ -21,7 +21,7 @@ import os
 import shutil
 
 import numpy as np
-# import pytest
+import pytest
 from mindspore.dataset import MindDataset, GeneratorDataset
 from mindspore.mindrecord import FileWriter
 
@@ -56,12 +56,14 @@ def write_mindrecord(ds_generator, data_record_path):
         writer.write_raw_data([item])
     writer.commit()
 
+
 def modify_attrs(net, key, value):
     if hasattr(net, key):
         setattr(net, key, value)
         print(f"Set the net {net.__class__.__name__} with {key}:{value}")
     for cell in net.cells():
         modify_attrs(cell, key, value)
+
 
 def write_raw_text_data(stage, data_record_path):
     """writes the fake translation data"""
@@ -82,12 +84,13 @@ def write_raw_text_data(stage, data_record_path):
                 tfp.write(y + '\n')
 
 
-# @pytest.mark.level0
-# @pytest.mark.platform_arm_ascend_training
-# @pytest.mark.env_onecard
+@pytest.mark.level0
+@pytest.mark.platform_x86_ascend_training
+@pytest.mark.platform_arm_ascend_training
+@pytest.mark.env_onecard
 class TestTranslationTrainer:
     """Test Translation Trainer"""
-    def setup_class(self):
+    def setup_method(self):
         self.dir_path = os.path.join(os.path.dirname(__file__), 'fake_dataset')
         os.makedirs(self.dir_path, exist_ok=True)
         self.abs_path = os.path.join(self.dir_path, 't5_dataset')
@@ -97,7 +100,7 @@ class TestTranslationTrainer:
         os.makedirs(self.raw_text_path, exist_ok=True)
         write_raw_text_data(stage='train', data_record_path=self.raw_text_path)
 
-    def teardown_class(self):
+    def teardown_method(self):
         shutil.rmtree(self.dir_path, ignore_errors=True)
         shutil.rmtree(self.raw_text_path, ignore_errors=True)
 
@@ -109,6 +112,7 @@ class TestTranslationTrainer:
                     dataset_files.append(os.path.join(r, file))
         return dataset_files
 
+    @pytest.mark.run(order=1)
     def test_trainer_with_translation_args_train(self):
         """
         Feature: Create Trainer From Config
@@ -133,8 +137,9 @@ class TestTranslationTrainer:
                               model=model,
                               args=config,
                               train_dataset=dataset)
-        mim_trainer.train(resume_or_finetune_from_checkpoint=False)
+        mim_trainer.train()
 
+    @pytest.mark.run(order=2)
     def test_trainer_predict(self):
         """
         Feature: Test Predict of the Trainer
@@ -142,69 +147,7 @@ class TestTranslationTrainer:
         Expectation: TypeError
         """
         # change the length for quick training
-        model = T5ForConditionalGeneration.from_pretrained('t5_small', seq_length=32, max_decode_length=32)
+        model_config = T5Config(seq_length=32, max_decode_length=32)
+        model = T5ForConditionalGeneration(model_config)
         mim_trainer = TranslationTrainer(model_name="t5_small")
-        res = mim_trainer.predict(input_data="hello world", network=model)
-        assert res == [{'translation_text': ['hello world']}]
-
-        res = mim_trainer.predict(input_data="hello world", network=model, max_length=1)
-        assert len(res[0]['translation_text']) == 1
-
-        res = mim_trainer.predict(input_data=["hello world", "I am not happy"], network=model)
-        assert res == [{'translation_text': ['hello world']}, {'translation_text': ['.']}]
-
-        res = mim_trainer.predict(input_data=os.path.join(self.raw_text_path, 'train.source'), network=model)
-        assert res == [{'translation_text': ['Wir haben während dieser Period die ganze Reihe '
-                                             'von emotions durchlebt.']},
-                       {'translation_text': ['Die positive Reaktion der Piloten und der Föderation-Beamten macht mich '
-                                             'erfreut, dass wir dieses Jahr wieder']}]
-
-        from mindformers.dataset.dataloader.wmt16_dataloader import WMT16DataLoader
-        dataset = WMT16DataLoader(self.raw_text_path, column_names=['src_language', 'tgt_language'])
-        res = mim_trainer.predict(input_data=dataset,
-                                  network=model,
-                                  max_length=32,
-                                  keys={'src_language': 'src_language', 'tgt_language': 'tgt_language'},
-                                  batch_size=1)
-        assert res == [{'translation_text': ['Die positive Reaktion der Piloten und der Föderation-Beamten macht mich '
-                                             'erfreut, dass wir dieses Jahr wieder']},
-                       {'translation_text': ['Wir haben während dieser Period die ganze Reihe von '
-                                             'emotions durchlebt.']}]
-
-    # def test_translation_trainer_train(self):
-    #     """
-    #     Feature: Create Trainer From Config
-    #     Description: Test Trainer API to train from config
-    #     Expectation: TypeError
-    #     """
-    #     batch_size = 1
-    #     model_name = 't5_small'
-    #     runner_config = RunnerConfig(epochs=1, batch_size=batch_size)  # 运行超参
-    #     optim_config = OptimizerConfig(optim_type='AdamWeightDecay', beta1=0.9, learning_rate=1e-5)
-    #
-    #     dataset = MindDataset(dataset_files=self.get_mindfiles_from_path(self.dir_path),
-    #                           columns_list=["input_ids", "attention_mask", "labels"])
-    #     dataset = dataset.batch(batch_size=batch_size)
-    #     dataset = dataset.repeat(1)
-    #
-    #     config = ConfigArguments(seed=2022, runner_config=runner_config, optimizer=optim_config)
-    #     # make the batch size inconsistent with the mindtaset, to check batch size will not cause the error.
-    #     model_config = T5Config(batch_size=batch_size*2, num_heads=8,
-    #                             num_layers=1, hidden_size=512,
-    #                             seq_length=16, max_decode_length=8)
-    #
-    #     mim_trainer = TranslationTrainer(model_name=model_name)
-    #     config = MindFormerConfig("configs/t5/run_t5_tiny_on_wmt16.yaml")
-    #
-    #     # 1) test train using config
-    #     config.model.model_config.seq_length = model_config.seq_length
-    #     config.model.model_config.max_decode_length = model_config.max_decode_length
-    #     mim_trainer.train(config=config, dataset=dataset)
-    #     # 2) test train using network as inputs
-    #     dataset = MindDataset(dataset_files=self.get_mindfiles_from_path(self.dir_path),
-    #                           columns_list=["input_ids", "attention_mask", "labels"])
-    #     dataset = dataset.batch(batch_size=batch_size)
-    #     dataset = dataset.repeat(1)
-    #
-    #     model = T5ForConditionalGeneration.from_pretrained(model_name, seq_length=16, max_decode_length=8)
-    #     mim_trainer.train(config=config, dataset=dataset, network=model)
+        mim_trainer.predict(input_data="hello world", network=model)

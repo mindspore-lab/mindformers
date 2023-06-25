@@ -31,8 +31,6 @@ def generator_train():
     """train dataset generator"""
     seq_len = 513
     input_ids = np.random.randint(low=0, high=15, size=(seq_len,)).astype(np.int32)
-    # input_mask = np.ones_like(input_ids)
-    # train_data = (input_ids, input_mask)
     for _ in range(16):
         yield input_ids
 
@@ -41,8 +39,6 @@ def generator_eval():
     """eval dataset generator"""
     seq_len = 512
     input_ids = np.random.randint(low=0, high=15, size=(seq_len,)).astype(np.int32)
-    # input_mask = np.ones_like(input_ids)
-    # train_data = (input_ids, input_mask)
     for _ in range(16):
         yield input_ids
 
@@ -51,7 +47,7 @@ def generator_eval():
 @pytest.mark.platform_x86_ascend_training
 @pytest.mark.platform_arm_ascend_training
 @pytest.mark.env_onecard
-class TestGPTTrainerMethod:
+class TestBloomTrainerMethod:
     """A test class for testing pipeline."""
 
     def setup_method(self):
@@ -72,6 +68,7 @@ class TestGPTTrainerMethod:
                                     train_dataset=train_dataset,
                                     eval_dataset=eval_dataset)
 
+    @pytest.mark.run(order=1)
     def test_train(self):
         """
         Feature: Trainer.train()
@@ -80,6 +77,7 @@ class TestGPTTrainerMethod:
         """
         self.task_trainer.train()
 
+    # @pytest.mark.run(order=2)
     # def test_eval(self):
     #     """
     #     Feature: Trainer.evaluate()
@@ -88,6 +86,7 @@ class TestGPTTrainerMethod:
     #     """
     #     self.task_trainer.evaluate()
 
+    @pytest.mark.run(order=3)
     def test_predict(self):
         """
         Feature: Trainer.predict()
@@ -96,6 +95,7 @@ class TestGPTTrainerMethod:
         """
         self.task_trainer.predict(input_data="hello world!", add_special_tokens=False, max_length=20)
 
+    # @pytest.mark.run(order=4)
     # def test_finetune(self):
     #     """
     #     Feature: Trainer.finetune()

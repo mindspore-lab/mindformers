@@ -13,7 +13,7 @@
 # limitations under the License.
 # ============================================================================
 """
-Test module for testing the gpt interface used for mindformers.
+Test module for testing the glm interface used for mindformers.
 How to run this:
 pytest tests/st/test_model/test_glm_model/test_pipeline.py
 """
@@ -24,9 +24,10 @@ from mindspore import context
 
 
 @pytest.mark.level0
-@pytest.mark.platform_x86_cpu
+@pytest.mark.platform_x86_ascend_training
+@pytest.mark.platform_arm_ascend_training
 @pytest.mark.env_onecard
-class TestPipelineMethod:
+class TestGLMPipelineMethod:
     """A test class for testing pipeline."""
     def setup_method(self):
         """setup method."""

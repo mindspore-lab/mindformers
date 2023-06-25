@@ -37,7 +37,7 @@ def test_auto_model_for_xihe():
         'mindspore/tokcls_bert_base_chinese_cluener', 'mindspore/txtcls_bert_base_uncased_mnli'
     ]
     for xihe_name in xihe_name_list:
-        model = AutoModel.from_pretrained(xihe_name)
+        model = AutoModel.from_pretrained(xihe_name, download_checkpoint=False)
         assert isinstance(model, BaseModel)
 
 

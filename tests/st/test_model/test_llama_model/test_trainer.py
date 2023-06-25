@@ -13,9 +13,9 @@
 # limitations under the License.
 # ============================================================================
 """
-Test module for testing the gpt interface used for mindformers.
+Test module for testing the llama interface used for mindformers.
 How to run this:
-pytest tests/st/test_model/test_llm_model/test_gpt_trainer.py
+pytest tests/st/test_model/test_llama_model/test_trainer.py
 """
 import numpy as np
 import pytest
@@ -70,6 +70,7 @@ class TestLlamaTrainerMethod:
                                     train_dataset=train_dataset,
                                     eval_dataset=eval_dataset)
 
+    @pytest.mark.run(order=1)
     def test_train(self):
         """
         Feature: Trainer.train()
@@ -79,6 +80,7 @@ class TestLlamaTrainerMethod:
         self.task_trainer.config.runner_config.epochs = 1
         self.task_trainer.train()
 
+    @pytest.mark.run(order=2)
     def test_eval(self):
         """
         Feature: Trainer.evaluate()
@@ -88,6 +90,7 @@ class TestLlamaTrainerMethod:
         self.task_trainer.model.set_train(False)
         self.task_trainer.evaluate()
 
+    @pytest.mark.run(order=3)
     def test_predict(self):
         """
         Feature: Trainer.predict()
@@ -96,6 +99,7 @@ class TestLlamaTrainerMethod:
         """
         self.task_trainer.predict(input_data="hello world!", max_length=20, repetition_penalty=1, top_k=3, top_p=1)
 
+    @pytest.mark.run(order=4)
     def test_finetune(self):
         """
         Feature: Trainer.finetune()

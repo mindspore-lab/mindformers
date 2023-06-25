@@ -167,7 +167,7 @@ class BertForPreTraining(BaseModel):
                                          embedding_table,
                                          masked_lm_positions)
         seq_relationship_score = self.nsploss(pooled_output)
-        if not self.is_training:
+        if not self.training:
             return sequence_output, pooled_output, prediction_scores, seq_relationship_score
         return prediction_scores, seq_relationship_score, moe_loss
 
@@ -180,7 +180,7 @@ class BertForPreTraining(BaseModel):
                   masked_lm_ids=None,
                   masked_lm_weights=None):
         """Get pre-training loss"""
-        if not self.is_training:
+        if not self.training:
             return self.bert_forward(input_ids, input_mask, token_type_id, masked_lm_positions)
 
         prediction_scores, seq_relationship_score, moe_loss = \

@@ -149,7 +149,6 @@ class AutoConfig:
                     logger.info("default yaml config in %s is used.", yaml_file)
                 else:
                     raise FileNotFoundError(f'default yaml file path must be correct, but get {default_yaml_file}')
-
             config_args = MindFormerConfig(yaml_file)
 
         config = build_model_config(config_args.model.model_config)
@@ -224,7 +223,7 @@ class AutoModel:
         return True
 
     @classmethod
-    def from_config(cls, config):
+    def from_config(cls, config, **kwargs):
         """
         From config method, which instantiates a Model by config.
 
@@ -238,6 +237,8 @@ class AutoModel:
         if config is None:
             raise ValueError("a model cannot be built from config with config is None.")
 
+        download_checkpoint = kwargs.pop("download_checkpoint", True)
+
         if isinstance(config, BaseConfig):
             inversed_config = cls._inverse_parse_config(config)
             config_args = cls._wrap_config(inversed_config)
@@ -246,7 +247,8 @@ class AutoModel:
         else:
             raise ValueError("config should be inherited from BaseConfig,"
                              " or a path to .yaml file for model config.")
-
+        if not download_checkpoint:
+            config_args.model.model_config.checkpoint_name_or_path = None
         model = build_model(config_args.model)
         logger.info("model built successfully!")
         return model
@@ -311,6 +313,7 @@ class AutoModel:
             A model, which inherited from BaseModel.
         """
         pretrained_model_name_or_path = kwargs.pop("pretrained_model_name_or_path", None)
+        download_checkpoint = kwargs.pop("download_checkpoint", True)
         if pretrained_model_name_or_path is not None:
             pretrained_model_name_or_dir = pretrained_model_name_or_path
 
@@ -389,6 +392,8 @@ class AutoModel:
             config_args = MindFormerConfig(yaml_file)
             config_args.model.model_config.update(
                 {"checkpoint_name_or_path": pretrained_model_name_or_dir})
+            if not download_checkpoint:
+                config_args.model.model_config.checkpoint_name_or_path = None
             model = build_model(config_args.model)
 
         cls.default_checkpoint_download_path = model.default_checkpoint_download_path
@@ -537,7 +542,6 @@ class AutoProcessor:
                     logger.info("default yaml config in %s is used.", yaml_file)
                 else:
                     raise FileNotFoundError(f'default yaml file path must be correct, but get {default_yaml_file}')
-
             config_args = MindFormerConfig(yaml_file)
 
         lib_path = yaml_name_or_path

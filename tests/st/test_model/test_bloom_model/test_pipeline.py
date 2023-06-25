@@ -26,7 +26,7 @@ from mindformers import pipeline
 @pytest.mark.platform_x86_ascend_training
 @pytest.mark.platform_arm_ascend_training
 @pytest.mark.env_onecard
-class TestPipelineMethod:
+class TestBloomPipelineMethod:
     """A test class for testing pipeline."""
     def setup_method(self):
         """setup method."""
