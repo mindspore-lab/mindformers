@@ -19,7 +19,7 @@ import traceback
 
 from mindformers.tools.logger import get_logger
 from .cloud_adapter import mox_adapter
-from ..utils import DEBUG_INFO_PATH, PROFILE_INFO_PATH, PLOG_PATH,\
+from ..utils import DEBUG_INFO_PATH, PROFILE_INFO_PATH, PLOG_PATH, LAST_TRANSFORM_LOCK_PATH,\
     get_output_root_path, get_remote_save_url
 
 
@@ -63,13 +63,12 @@ def _last_transform(local_id, log=get_logger()):
             mox_adapter(src_dir=DEBUG_INFO_PATH, target_dir=os.path.join(target_dir, 'debug_info', node), log=log)
         if os.path.exists(PROFILE_INFO_PATH):
             mox_adapter(src_dir=PROFILE_INFO_PATH, target_dir=os.path.join(target_dir, 'profile'), log=log)
-        os.environ.setdefault('TRANSFORM_END_FLAG', '1')
+        os.mknod(LAST_TRANSFORM_LOCK_PATH)
     elif get_remote_save_url():
         log.info("Wait for the first card to complete the file and send it back to OBS: %s.",
                  get_remote_save_url())
         while True:
-            end_flag = int(os.getenv("TRANSFORM_END_FLAG", "0"))
-            if end_flag == 1:
+            if os.path.exists(LAST_TRANSFORM_LOCK_PATH):
                 log.info("All files have been sent back to the OBS: %s,"
                          "and the process exits normally.", get_remote_save_url())
                 break

@@ -50,6 +50,7 @@ DEBUG_INFO_PATH = '/cache/debug'
 PROFILE_INFO_PATH = '/cache/profile'
 PLOG_PATH = '/root/ascend/log'
 LOCAL_DEFAULT_PATH = os.getenv("LOCAL_DEFAULT_PATH", './output')
+LAST_TRANSFORM_LOCK_PATH = "/tmp/last_transform_done.lock"
 
 _PROTOCOL = 'obs'
 _PROTOCOL_S3 = 's3'
