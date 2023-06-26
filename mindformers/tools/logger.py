@@ -358,10 +358,20 @@ def get_logger(logger_name: str = 'mindformers', **kwargs) -> logging.Logger:
 
     to_std = kwargs.get('to_std', True)
     stdout_nodes = kwargs.get('stdout_nodes', None)
-    if check_in_modelarts():
-        stdout_devices = kwargs.get('stdout_devices', (0,))
-    else:
-        stdout_devices = kwargs.get('stdout_devices', None)
+
+    def get_stdout_devices():
+        if os.getenv("STDOUT_DEVICES"):
+            devices = os.getenv("STDOUT_DEVICES")
+            if devices.startswith(("(", "[")) and devices.endswith((")", "]")):
+                devices = devices[1:-1]
+            devices = tuple(map(lambda x: int(x.strip()), devices.split(",")))
+        elif check_in_modelarts():
+            devices = kwargs.get('stdout_devices', (0,))
+        else:
+            devices = kwargs.get('stdout_devices', None)
+        return devices
+
+    stdout_devices = get_stdout_devices()
     stdout_level = kwargs.get('stdout_level', 'INFO')
     stdout_format = kwargs.get('stdout_format', '')
     file_level = kwargs.get('file_level', ('INFO', 'ERROR'))
