@@ -153,6 +153,67 @@ class GeneratorMixin:
         outputs = F.tensor_pow(np.e, outputs)
         return outputs
 
+    def generate_pos_id_and_mask_for_incr_infer(self, **kwargs):
+        """should be implemented in pretrained model,
+        if you need to generate position ids and attention mask before construct.
+        here gives None by default"""
+        _ = kwargs
+        return None, None
+
+    def _incremental_infer(self,
+                           input_ids,
+                           current_index,
+                           valid_length_each_example,
+                           position_ids=None,
+                           attention_mask=None):
+        """model forward for incremental infer."""
+        # Claim the first graph
+        if self.is_first_iteration:
+            self.add_flags_recursive(is_first_iteration=True)
+            position_ids_tmp = None
+            if position_ids:
+                position_ids_tmp = Tensor(position_ids, mstype.int32)
+            attention_mask_tmp = None
+            if attention_mask:
+                attention_mask_tmp = Tensor(attention_mask, mstype.float32)
+            res = self.construct(
+                input_ids=Tensor(input_ids, mstype.int32),
+                input_position=current_index,
+                position_ids=position_ids_tmp,
+                attention_mask=attention_mask_tmp,
+                init_reset=Tensor([False], mstype.bool_),  # init_reset (1,) bool False
+                batch_valid_length=Tensor([valid_length_each_example], mstype.int32),
+                # batch_valid_length (1,) int32 4
+            )
+            # first iter done, go to other iters
+            self.is_first_iteration = False
+        else:
+            self.add_flags_recursive(is_first_iteration=False)
+
+            current_index_tmp = int(current_index[0])  # TODO: multibatch
+            # use numpy to slice array to avoid complie ascend slice op
+            inputs_tmp = input_ids[:, current_index_tmp:current_index_tmp + 1]
+            position_ids_tmp = None
+            if position_ids:
+                position_ids_tmp = position_ids[..., current_index_tmp:current_index_tmp + 1]
+                position_ids_tmp = Tensor(position_ids_tmp, mstype.int32)
+            attention_mask_tmp = None
+            if attention_mask:
+                attention_mask_tmp = attention_mask[:, :, current_index_tmp:current_index_tmp + 1, :]
+                attention_mask_tmp = Tensor(attention_mask_tmp, mstype.float32)
+
+            res = self.construct(
+                input_ids=Tensor(inputs_tmp, mstype.int32),
+                input_position=current_index,
+                position_ids=position_ids_tmp,
+                attention_mask=attention_mask_tmp,
+                init_reset=Tensor([True], mstype.bool_),  # init_reset (1,) bool True
+                batch_valid_length=Tensor([valid_length_each_example], mstype.int32),
+                # batch_valid_length (1,) int32 5
+            )
+
+        return res
+
     def _forward(self,
                  origin_inputs,
                  top_k,
@@ -181,9 +242,6 @@ class GeneratorMixin:
         if pad_token_id is None:
             pad_token_id = 0
         # Get configurations for inference
-        init_true = Tensor([True], mstype.bool_)
-        init_false = Tensor([False], mstype.bool_)
-        first_iter = True
         use_pynative = True
 
         if streamer is not None:
@@ -191,8 +249,6 @@ class GeneratorMixin:
 
         batch_size = origin_inputs.shape[0]
         is_encoder_decoder = self.config.is_encoder_decoder
-        is_enhanced_encoder = self.config.is_enhanced_encoder
-        is_npu_acceleration = self.config.is_npu_acceleration
         logger.debug("The input shape is: %s", origin_inputs.shape)
         valid_length_each_example = []
         for i in range(batch_size):
@@ -211,11 +267,6 @@ class GeneratorMixin:
 
         logger.debug("pad the origin inputs from %s into shape: %s", origin_inputs.shape, input_ids.shape)
 
-        # for GLM `attention_mask` and `position_ids` generation
-        if is_enhanced_encoder:
-            attention_mask = self.get_masks_np(input_ids)
-            position_ids = self.create_position_ids_np(input_ids)
-
         input_mask = np.zeros_like(input_ids)
         for i in range(valid_length_each_example.shape[0]):
             input_mask[i, :valid_length_each_example[i]] = 1
@@ -233,6 +284,10 @@ class GeneratorMixin:
         # A single loop generates one token, loop until reaching target model_origin_max_length or generating eod token
         is_finished = [False] * batch_size
 
+        # setup is_first_iteration flag for incremental infer
+        if self.config.use_past:
+            self.is_first_iteration = True
+        is_first_iteration = False
         while np.sum(is_finished) != batch_size:
             if is_encoder_decoder:
                 inputs = Tensor(input_ids, mstype.int32)
@@ -247,121 +302,44 @@ class GeneratorMixin:
                                         decoder_input_ids=inputs,
                                         decoder_attention_mask=Tensor(target_mask, mstype.float32))
                 log_probs = self.process_logits(logits, current_index)
-            # branch for GLM generation
-            elif is_enhanced_encoder:
-                # model basic setting
-                self.top_p = top_p
-                self.top_k = top_k
-                self.repetition_penalty = repetition_penalty
-                self.is_first_iteration = False
-
-                seq_length = input_ids.shape[1]
-                current_index = [valid_length_each_example[i] - 1 + i * seq_length for i in range(batch_size)]
-                current_index_tmp = int(current_index[0])  # TODO: multibatch
-                current_index = Tensor(current_index, mstype.int32)
-                logger.debug("validate length: %s", valid_length_each_example)
-
-                if self.config.use_past:
-                    # Claim the first graph
-                    if first_iter:
-                        first_iter = False
-                        self.transformer.add_flags_recursive(is_first_iteration=True)
-                        self.is_first_iteration = True
-                        res = self.construct(
-                            input_ids=Tensor(input_ids, mstype.int32),
-                            # input_ids (1,512) int32
-                            position_ids=Tensor(position_ids, mstype.int32),
-                            # position_ids (1, 2, 512) int32
-                            attention_mask=Tensor(attention_mask, mstype.float32),
-                            # attention_mask (1, 1, 512, 512) float32
-                            current_index=current_index,
-                            init_reset=init_false,  # init_reset (1,) bool False
-                            batch_valid_length=Tensor([valid_length_each_example], mstype.int32)
-                        )  # batch_valid_length (1,) int32 4
-                    else:
-                        self.transformer.add_flags_recursive(is_first_iteration=False)
-                        self.is_first_iteration = False
-
-                        # use numpy to slice array to avoid complie ascend slice op
-                        inputs_tmp = input_ids[:, current_index_tmp:current_index_tmp + 1]
-                        position_ids_tmp = position_ids[..., current_index_tmp:current_index_tmp + 1]
-                        attention_mask_tmp = attention_mask[:, :, current_index_tmp:current_index_tmp + 1, :]
-
-                        res = self.construct(
-                            input_ids=Tensor(inputs_tmp, mstype.int32),
-                            # input_ids (1,512) int32
-                            position_ids=Tensor(position_ids_tmp, mstype.int32),
-                            # position_ids (1, 2, 1) int32
-                            attention_mask=Tensor(attention_mask_tmp, mstype.float32),
-                            # attention_mask (1, 1, 1, 512) float32
-                            current_index=current_index,
-                            init_reset=init_true,  # init_reset (1,) bool True
-                            batch_valid_length=Tensor([valid_length_each_example], mstype.int32)
-                        )  # batch_valid_length (1,) int32 5
-                else:
-                    res = self.construct(
-                        input_ids=Tensor(input_ids, mstype.int32),
-                        position_ids=Tensor(position_ids, mstype.int32),
-                        attention_mask=Tensor(attention_mask, mstype.float32)
-                    )
-                if is_npu_acceleration:
-                    p, p_args = res
-                    p = p.asnumpy()
-                    p_args = p_args.asnumpy()
-                    # Avoid rounding error
-                    p = precision_correct(p, top_p, top_k, batch_size)
-                else:
-                    log_probs = self.process_logits(res, current_index, self.is_first_iteration, self.config.use_past)
             else:
                 inputs = Tensor(input_ids, mstype.int32)
                 seq_length = inputs.shape[1]
                 current_index = [valid_length_each_example[i] - 1 + i * seq_length for i in range(batch_size)]
-                current_index_tmp = int(current_index[0])
                 current_index = Tensor(current_index, mstype.int32)
                 logger.debug("validate length: %s", valid_length_each_example)
-                is_first_iteration = True
                 if self.config.use_past:
-                    # Claim the first graph
-                    if first_iter:
-                        first_iter = False
-                        self.add_flags_recursive(is_first_iteration=True)
-                        is_first_iteration = True
-                        logits = self.construct(
-                            input_ids=Tensor(input_ids, mstype.int32),
-                            input_position=current_index,
-                            init_reset=init_false,  # init_reset (1,) bool False
-                            batch_valid_length=Tensor([valid_length_each_example], mstype.int32)
-                        )[0]  # batch_valid_length (1,) int32 4
-                    else:
-                        self.add_flags_recursive(is_first_iteration=False)
-                        is_first_iteration = False
-
-                        # use numpy to slice array to avoid complie ascend slice op
-                        inputs_tmp = input_ids[:, current_index_tmp:current_index_tmp + 1]
-                        # current_index = Tensor([0], mstype.int32)
-                        logits = self.construct(
-                            input_ids=Tensor(inputs_tmp, mstype.int32),
-                            input_position=current_index,
-                            init_reset=init_true,  # init_reset (1,) bool True
-                            batch_valid_length=Tensor([valid_length_each_example], mstype.int32)
-                        )[0]  # batch_valid_length (1,) int32 5
-                    logits = logits.reshape(-1, logits.shape[-1])
+                    is_first_iteration = self.is_first_iteration
+                    # generate input_position & attention_mask for incremental
+                    position_ids, attention_mask = self.generate_pos_id_and_mask_for_incr_infer(
+                        input_ids=inputs,
+                        current_index=current_index,
+                        valid_length_each_example=valid_length_each_example
+                    )
+                    # incremental generate
+                    logits = self._incremental_infer(
+                        input_ids=inputs,
+                        position_ids=position_ids,
+                        attention_mask=attention_mask,
+                        current_index=current_index,
+                        valid_length_each_example=valid_length_each_example
+                    )[0]
                 else:
+                    # auto-aggressive generate
                     logits = self.construct(inputs)[0]
-                    logits = logits.reshape(-1, logits.shape[-1])
+                logits = logits.reshape(-1, logits.shape[-1])
                 log_probs = self.process_logits(logits, current_index, is_first_iteration, self.config.use_past)
 
-            if not is_npu_acceleration:
-                # Sample
-                log_probs = log_probs.asnumpy()
-                vocab_size = log_probs.shape[-1]
-                if repetition_penalty != 1 and frequency_list is None:
-                    frequency_list = np.array([[0 for _ in range(vocab_size)]])
-                log_probs_revised = log_probs.reshape(batch_size, vocab_size)
-                if repetition_penalty != 1:
-                    log_probs_revised = log_probs - frequency_list * repetition_penalty - \
-                                        (frequency_list > 0) * repetition_penalty
-                p, p_args = sampler(log_probs_revised, top_p, top_k, use_pynative)
+            # Sample
+            log_probs = log_probs.asnumpy()
+            vocab_size = log_probs.shape[-1]
+            if repetition_penalty != 1 and frequency_list is None:
+                frequency_list = np.array([[0 for _ in range(vocab_size)]])
+            log_probs_revised = log_probs.reshape(batch_size, vocab_size)
+            if repetition_penalty != 1:
+                log_probs_revised = log_probs - frequency_list * repetition_penalty - \
+                                    (frequency_list > 0) * repetition_penalty
+            p, p_args = sampler(log_probs_revised, top_p, top_k, use_pynative)
 
             # Random select a token as final output for this round
             for i in range(batch_size):

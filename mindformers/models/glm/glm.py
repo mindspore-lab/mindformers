@@ -18,7 +18,7 @@ import numpy as np
 
 import mindspore as ms
 from mindspore import dtype as mstype
-from mindspore import nn, ops, ms_function, JitConfig
+from mindspore import nn, ops, ms_function, JitConfig, Tensor
 from mindspore.ops import functional as F
 from mindspore.ops import operations as P
 from mindspore.common.initializer import initializer
@@ -48,6 +48,86 @@ default_dpmp_config = OpParallelConfig()
 default_embedding_parallel_config = EmbeddingOpParallelConfig()
 
 __all__ = ['GLMForPreTraining', 'GLMChatModel', 'GLMForPreTrainingWithLora', 'GLMChatModelWithLora']
+
+
+def topk_fun(logits, topk=5):
+    """Get topk"""
+    batch_value = []
+    batch_index = []
+    for i in range(logits.shape[0]):
+        target_column = logits[i].tolist()
+        sorted_array = [(k, v) for k, v in enumerate(target_column)]
+        sorted_array.sort(key=lambda x: x[1], reverse=True)
+        topk_array = sorted_array[:topk]
+        index, value = zip(*topk_array)
+        batch_value.append(value)
+        batch_index.append(index)
+    return np.array(batch_value), np.array(batch_index)
+
+
+def batch_select(data, index):
+    """bathc operation to sorted_logits[:, :top_p_num]"""
+    output = []
+    for i in range(data.shape[0]):
+        res = data[i, :index[i]]
+        output.append(res.reshape(1, -1))
+    return np.concatenate(output, 0)
+
+
+def sampler(log_probs_revised, top_p, top_k, use_pynative=False):
+    """Convert the log_probs to probability"""
+    if use_pynative:
+        logits = P.Pow()(np.e, Tensor(log_probs_revised, mstype.float32))
+    else:
+        logits = np.power(np.e, np.array(log_probs_revised, np.float32))
+
+    # If top_p is less than 1.0, use top_p sampling
+    if top_p < 1.0:
+        # Only consider the 5000 largest logits to reduce computation
+        if use_pynative:
+            sorted_logits, index = P.TopK(sorted=True)(logits, 5000)
+            cumsum_logits = P.CumSum()(sorted_logits, 1)
+            cumsum_logits = cumsum_logits.asnumpy()
+            index = index.asnumpy()
+            sorted_logits = sorted_logits.asnumpy()
+        else:
+            sorted_logits, index = topk_fun(logits, 5000)
+            cumsum_logits = np.cumsum(sorted_logits, 1)
+        cumsum_logits = cumsum_logits
+        index = index
+        sorted_logits = sorted_logits
+        top_p_num = np.sum(cumsum_logits < top_p, axis=-1) + 1
+        # Get the corresponding probs and indices
+        probs = batch_select(sorted_logits, top_p_num)
+        p_args = batch_select(index, top_p_num)
+        p = probs / np.sum(probs, -1, keepdims=True)
+        # if top_p is set to 1.0, use top_k sampling
+    else:
+        # Get the corresponding probs and indices
+        if use_pynative:
+            probs, p_args = P.TopK(sorted=True)(logits, top_k)
+            probs = probs.asnumpy()
+            p_args = p_args.asnumpy()
+        else:
+            probs, p_args = topk_fun(logits, top_k)
+        probs = probs
+        p_args = p_args
+        # Avoid rounding error
+        for i in range(probs.shape[0]):
+            if np.sum(probs[i]) == 0:
+                probs[i] = np.array([1 / top_k for _ in range(top_k)])
+        p = probs / np.sum(probs, -1, keepdims=True)
+    return p, p_args
+
+
+def precision_correct(p, top_p, top_k, batch_size):
+    # Avoid rounding error
+    if top_p == 1:
+        for i in range(batch_size):
+            if np.sum(p[i]) == 0:
+                p[i] = np.array([1 / top_k for _ in range(top_k)])
+        p = p / np.sum(p, -1, keepdims=True)
+    return p
 
 
 class ProcessLogits(nn.Cell):
@@ -288,8 +368,195 @@ class GLMForPreTraining(BaseModel):
         position_ids = self.get_position_ids_np(input_ids, mask_positions, use_gmasks=None)
         return position_ids
 
+    def _incremental_infer(self,
+                           input_ids,
+                           current_index,
+                           valid_length_each_example,
+                           position_ids=None,
+                           attention_mask=None):
+        # Claim the first graph
+        if self.is_first_iteration:
+            self.add_flags_recursive(is_first_iteration=True)
+            res = self.construct(
+                input_ids=Tensor(input_ids, mstype.int32),
+                # input_ids (1,512) int32
+                position_ids=Tensor(position_ids, mstype.int32),
+                # position_ids (1, 2, 512) int32
+                attention_mask=Tensor(attention_mask, mstype.float32),
+                # attention_mask (1, 1, 512, 512) float32
+                input_position=current_index,
+                init_reset=Tensor([False], mstype.bool_),  # init_reset (1,) bool False
+                batch_valid_length=Tensor([valid_length_each_example], mstype.int32)
+            )  # batch_valid_length (1,) int32 4
+            # first iter done, go to other iters
+            self.is_first_iteration = False
+        else:
+            self.add_flags_recursive(is_first_iteration=False)
+
+            current_index_tmp = int(current_index[0])
+            # use numpy to slice array to avoid complie ascend slice op
+            inputs_tmp = input_ids[:, current_index_tmp:current_index_tmp + 1]
+            position_ids_tmp = position_ids[..., current_index_tmp:current_index_tmp + 1]
+            attention_mask_tmp = attention_mask[:, :, current_index_tmp:current_index_tmp + 1, :]
+
+            res = self.construct(
+                input_ids=Tensor(inputs_tmp, mstype.int32),
+                # input_ids (1,512) int32
+                position_ids=Tensor(position_ids_tmp, mstype.int32),
+                # position_ids (1, 2, 1) int32
+                attention_mask=Tensor(attention_mask_tmp, mstype.float32),
+                # attention_mask (1, 1, 1, 512) float32
+                input_position=current_index,
+                init_reset=Tensor([True], mstype.bool_),  # init_reset (1,) bool True
+                batch_valid_length=Tensor([valid_length_each_example], mstype.int32)
+            )  # batch_valid_length (1,) int32 5
+
+        return res
+
+    def _forward(self,
+                 origin_inputs,
+                 top_k,
+                 top_p,
+                 repetition_penalty,
+                 max_length,
+                 eos_token_id,
+                 streamer=None,
+                 pad_token_id=None):
+        """
+        Text generation given the model and origin inputs
+
+        Inputs:
+            model: The model to run the prediction
+            end_token(int): The model will stop generating the words when it reaches the end_token.
+            origin_inputs(list): The prompt for generation, should be a list of ids.
+            model_origin_max_length(int): The sequence length of the model trained.
+            max_length(int):  The maximum of generated length.
+            vocab_size(int): The vocabulary length of the model.
+            config: Inference configurations.
+            streamer: Streamer object that will be used to stream the generated sequences.
+
+        Returns:
+            outputs: the ids for the generated text
+        """
+        if pad_token_id is None:
+            pad_token_id = 0
+        # Get configurations for inference
+        use_pynative = True
+
+        if streamer is not None:
+            streamer.put(origin_inputs[0])
+
+        batch_size = origin_inputs.shape[0]
+        is_npu_acceleration = self.config.is_npu_acceleration
+        valid_length_each_example = []
+        for i in range(batch_size):
+            # As the nonzero returns the index and we need length
+            valid_length_each_example.append(np.max(np.argwhere(origin_inputs[i] != pad_token_id)) + 1)
+        valid_length_each_example = np.array(valid_length_each_example)
+        if np.max(valid_length_each_example) > max_length:
+            raise ValueError("The max_length set is smaller than the length in the input_ids. You shout set "
+                             f"max_length to {np.max(valid_length_each_example)}")
+        target_length = self.config.seq_length if max_length > self.config.seq_length else max_length
+        # A list of the frequency of each token
+        frequency_list = None
+        input_ids = self._pad_inputs_using_max_length(origin_inputs=origin_inputs, pad_token_id=pad_token_id)
+
+        # for GLM `attention_mask` and `position_ids` generation
+        attention_mask = self.get_masks_np(input_ids)
+        position_ids = self.create_position_ids_np(input_ids)
+
+        input_mask = np.zeros_like(input_ids)
+        for i in range(valid_length_each_example.shape[0]):
+            input_mask[i, :valid_length_each_example[i]] = 1
+
+        # A single loop generates one token, loop until reaching target model_origin_max_length or generating eod token
+        is_finished = [False] * batch_size
+
+        # setup is_first_iteration flag for incremental infer
+        if self.config.use_past:
+            self.is_first_iteration = True
+
+        is_first_iteration = False
+        while np.sum(is_finished) != batch_size:
+            # for GLM generation
+            # model basic setting
+            self.top_p = top_p
+            self.top_k = top_k
+            self.repetition_penalty = repetition_penalty
+
+            seq_length = input_ids.shape[1]
+            current_index = [valid_length_each_example[i] - 1 + i * seq_length for i in range(batch_size)]
+            current_index = Tensor(current_index, mstype.int32)
+
+            if self.config.use_past:
+                is_first_iteration = self.is_first_iteration
+                res = self._incremental_infer(
+                    input_ids=input_ids,
+                    position_ids=position_ids,
+                    attention_mask=attention_mask,
+                    current_index=current_index,
+                    valid_length_each_example=valid_length_each_example
+                )
+            else:
+                res = self.construct(
+                    input_ids=Tensor(input_ids, mstype.int32),
+                    position_ids=Tensor(position_ids, mstype.int32),
+                    attention_mask=Tensor(attention_mask, mstype.float32)
+                )
+            if is_npu_acceleration:
+                p, p_args = res
+                p = p.asnumpy()
+                p_args = p_args.asnumpy()
+                # Avoid rounding error
+                p = precision_correct(p, top_p, top_k, batch_size)
+            else:
+                log_probs = self.process_logits(res, current_index, is_first_iteration, self.config.use_past)
+                # Sample
+                log_probs = log_probs.asnumpy()
+                vocab_size = log_probs.shape[-1]
+                if repetition_penalty != 1 and frequency_list is None:
+                    frequency_list = np.array([[0 for _ in range(vocab_size)]])
+                log_probs_revised = log_probs.reshape(batch_size, vocab_size)
+                if repetition_penalty != 1:
+                    log_probs_revised = log_probs - frequency_list * repetition_penalty - \
+                                        (frequency_list > 0) * repetition_penalty
+                p, p_args = sampler(log_probs_revised, top_p, top_k, use_pynative)
+
+            # Random select a token as final output for this round
+            for i in range(batch_size):
+                if is_finished[i]:
+                    continue
+                target_index = np.random.choice(len(p[i]), p=p[i])
+
+                # update frequency list
+                target = p_args[i][target_index]
+
+                if repetition_penalty != 1:
+                    frequency_list[0][target] = frequency_list[0][target] + 1
+                input_ids[i, valid_length_each_example[i]] = p_args[i, target_index]
+
+                if streamer is not None:
+                    streamer.put(np.asarray([target]))
+
+                valid_length_each_example[i] += int(1)
+                input_mask[i][valid_length_each_example[i] - 1] = 1
+
+                # Stop judgment
+                if p_args[i][target_index] == eos_token_id or valid_length_each_example[i] == target_length:
+                    is_finished[i] = True
+                    continue
+
+        # Return valid outputs out of padded outputs
+        output_ids = []
+        for i in range(batch_size):
+            output_ids.append(input_ids[i, : int(valid_length_each_example[i])].astype(np.int32))
+        if streamer is not None:
+            streamer.end()
+        return output_ids
+
+    # pylint: disable=W0613
     def construct(self, input_ids, label=None, position_ids=None, attention_mask=None,
-                  init_reset=True, batch_valid_length=None):
+                  input_position=None, init_reset=True, batch_valid_length=None):
         """
         Extract logits and calculate loss
 
@@ -330,6 +597,7 @@ class GLMForPreTraining(BaseModel):
         input_mask = input_mask.reshape((-1,))
         loss = self.loss(logits, label, input_mask)
         return loss
+
 
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
 class GLMChatModel(GLMForPreTraining):
@@ -397,7 +665,7 @@ class GLMChatModel(GLMForPreTraining):
     # pylint:disable=arguments-differ
     @ms_function(jit_config=JitConfig(jit_level=jit_level))  # GE  O3; VM jit_level=O1
     def construct(self, input_ids, position_ids=None, attention_mask=None,
-                  current_index=None, init_reset=True, batch_valid_length=None):
+                  input_position=None, init_reset=True, batch_valid_length=None):
         """Get probs and p_args"""
         # model forward
         output_states, _ = self.transformer(input_ids, position_ids, attention_mask, init_reset, batch_valid_length)
@@ -407,7 +675,7 @@ class GLMChatModel(GLMForPreTraining):
             return logits
 
         # logit post process
-        log_probs = self.post_logits(logits, current_index, self.is_first_iteration)
+        log_probs = self.post_logits(logits, input_position, self.is_first_iteration)
 
         # logit sort and sample
         probs, p_args = self.sample(log_probs)

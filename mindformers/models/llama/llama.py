@@ -299,6 +299,7 @@ class LlamaForCausalLM(BaseModel):
                   input_ids,
                   label_ids=None,
                   input_position=None,
+                  position_ids=None,
                   attention_mask=None,
                   init_reset=True,
                   batch_valid_length=None):
