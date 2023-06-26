@@ -15,8 +15,11 @@
 
 """Bloom model"""
 import copy
+import os
+import numpy as np
 import mindspore.common.dtype as mstype
 from mindspore import nn
+from mindspore import Tensor
 from mindspore.common.initializer import initializer
 from mindspore.ops import operations as P
 from mindformers.modules.transformer import VocabEmbedding
@@ -29,6 +32,17 @@ from mindformers.mindformer_book import MindFormerBook
 from .layers import BloomBlocks, CausalMask
 from .bloom_config import BloomConfig
 from ..utils import convert_mstype
+
+
+def jit_inference_with_condition():
+    """allow jit inference"""
+    def decorator(func):
+        if os.getenv("JIT_INFERENCE", "NOT_FOUND") == "NOT_FOUND":
+            return func
+        from mindspore import jit, JitConfig
+        dec = jit(jit_config=JitConfig(jit_level="O2"))
+        return dec(func)
+    return decorator
 
 
 class BloomEmbeddingLayer(nn.Cell):
@@ -132,6 +146,7 @@ class BloomModel(nn.Cell):
                                   param_init_type=config.param_init_type,
                                   layernorm_compute_type=config.layernorm_compute_type,
                                   softmax_compute_type=config.softmax_compute_type,
+                                  use_past=config.use_past,
                                   use_seq_parallel=config.use_seq_parallel,
                                   use_select_recompute=config.use_select_recompute,
                                   parallel_config=config.parallel_config).blocks
@@ -144,7 +159,7 @@ class BloomModel(nn.Cell):
         self.ln_f.shard(((config.parallel_config.data_parallel, 1, 1),))
         self.ln_f.pipeline_stage = config.parallel_config.pipeline_stage - 1
 
-    def construct(self, input_ids, input_mask):
+    def construct(self, input_ids, input_mask, init_reset=True, batch_valid_length=None):
         """Bloom model"""
 
         input_embedding, embedding_table = self.embedding(input_ids)
@@ -156,7 +171,7 @@ class BloomModel(nn.Cell):
         alibi_tensor = self.build_alibi_tensor(input_mask, hidden_states.dtype)
 
         for i in range(self.num_layers):
-            hidden_states, _ = self.blocks[i](hidden_states, alibi_tensor, causal_mask)
+            hidden_states, _ = self.blocks[i](hidden_states, alibi_tensor, causal_mask, init_reset, batch_valid_length)
         hidden_states = hidden_states.reshape(hidden_states_shape)
         output_state = self.ln_f(hidden_states)
 
@@ -213,6 +228,15 @@ class BloomLMHeadModel(BaseModel):
     def __init__(self, config=None):
         config = config if config is not None else BloomConfig()
         super(BloomLMHeadModel, self).__init__(config, auto_prefix=False)
+        self.use_past = self.config.use_past
+        self.is_npu_acceleration = self.config.is_npu_acceleration
+
+        if self.use_past:
+            self.input_mask_all_ones = Tensor(
+                np.ones((self.config.batch_size, self.config.seq_length), np.float32), mstype.float32)
+
+        if self.is_npu_acceleration:
+            self.p_all_ones = Tensor(np.ones((self.config.batch_size, 1), np.float32), mstype.float32)
 
         self.eos_token_id = self.config.eos_token_id
         parallel_config = self.config.parallel_config
@@ -239,7 +263,9 @@ class BloomLMHeadModel(BaseModel):
         self.loss = CrossEntropyLoss(parallel_config=loss_parallel_config)
         self.load_checkpoint(config)
 
-    def construct(self, input_ids):
+    @jit_inference_with_condition()
+    def construct(self, input_ids, input_position=None, position_ids=None,
+                  attention_mask=None, init_reset=True, batch_valid_length=None):
         """
         construct function for Language Modeling
 
@@ -250,6 +276,9 @@ class BloomLMHeadModel(BaseModel):
             logits (Tensor) or loss (mstype.float32): if is_training is False, directly return the logits,
                                                       otherwise, return the computed loss.
         """
+        _ = input_position
+        _ = position_ids
+        _ = attention_mask
 
         batch_size, seq_length = input_ids.shape
 
@@ -258,13 +287,16 @@ class BloomLMHeadModel(BaseModel):
         else:
             tokens = input_ids
 
-        input_mask = self.not_equal(tokens, self.eos_token_id).astype(mstype.float32)
+        input_mask = self.not_equal(tokens, self.eos_token_id).astype(mstype.float32) \
+            if not self.use_past else self.input_mask_all_ones
 
         # [batch_size, seq_length, vocab_size]
-        output_states, embedding_table = self.transformer(tokens, input_mask)
+        output_states, embedding_table = self.transformer(tokens, input_mask, init_reset, batch_valid_length)
         logits = self.head(output_states, embedding_table)
 
         if self.phase != 'train':
+            if self.is_npu_acceleration:
+                return self.get_top_token_id(logits, current_index=input_position)
             return logits, tokens, input_mask
 
         labels = self.stridedslice(input_ids, (0, 1), (batch_size, seq_length), (1, 1))
@@ -272,3 +304,17 @@ class BloomLMHeadModel(BaseModel):
         input_mask = input_mask.reshape((-1,))
         loss = self.loss(logits, labels, input_mask)
         return loss
+
+
+    def get_top_token_id(self, logits, current_index=None):
+        """get_top_token_id"""
+        logits = logits.reshape(-1, logits.shape[-1])
+        if self.use_past and not self.is_first_iteration:
+            logits = logits
+        elif current_index is not None:
+            index = current_index.view(-1,)
+            logits = P.Gather()(logits, index, 0)
+        probabilities = P.Softmax(-1)(logits)
+        top_token_id = P.Argmax(-1)(probabilities)
+        top_token_id = top_token_id.view(-1, 1)
+        return self.p_all_ones, top_token_id
