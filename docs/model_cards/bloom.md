@@ -37,7 +37,7 @@ Bloom (BigScience Large Open-science Open-access Multilingual) 是一个开源�
 
 ### 1.3 环境要求
 - 硬件：Ascend 910A
-- MindSpore：2.0.0
+- MindSpore：2.0.0， 1.10.0
 - MindFormers版本：dev
 
 ---
@@ -64,7 +64,7 @@ python mindformers/tools/dataset_preprocess/bloom/make_mindrecord.py --input_dat
 Mindformers可以直接通过高级接口下载转换好的560M和7.1B两种规模的ckpt,无需手动转换。其中560m的原始Checkpoint来自于huggingface的[Bloomz-560m](https://huggingface.co/bigscience/bloomz-560m)；7.1B的原始Checkpoint来自于huggingface的[Bloomz-7B1-mt](https://huggingface.co/bigscience/bloomz-7b1-mt). higgingface到mindformers的CheckPoint转换由一下命令完成。
 ```bash
 cd mindformers/models/bloom
-python convert_weight.py --n_head=xx --hidden_size=xx --torch_path=[path_to_hf_bin_file_or_folder] --mindspore_path=[output_path]
+python convert_weight.py --n_head=xx --hidden_size=xx --torch_path=path_to_hf_bin_file_or_folder --mindspore_path=output_path
 ```
 
 其中`--n_head=xx --hidden_size=xx`根据模型定义，bloom_560m的分别为16/1024; bloom_7.1b的分别为32/4096.
@@ -91,7 +91,11 @@ import mindspore as ms
 # 如果src或dst策略为单机单卡而非分布式，则不需要提供策略文件。
 # src_checkpoints_dir/rank_0/xxx.ckpt, src_checkpoints_dir/rank_1/xxx.ckpt ...
 ms.transform_checkpoints(
-    src_checkpoints_dir, dst_checkpoints_dir,"./src_strategy.ckpt", "./dst_strategy.ckpt")
+    src_checkpoints_dir,
+    dst_checkpoints_dir,
+    ckpt_prefix = "new_",
+    src_strategy_file = "./src_strategy_file.ckpt", 
+    dst_strategy_file = "./dst_strategy_file.ckpt")
 ```
 
 
@@ -299,7 +303,7 @@ bash run_distribute.sh RANK_TABLE_FILE ../configs/bloom/run_bloom_7.1b.yaml [0,8
 # finetune
 bash run_distribute.sh RANK_TABLE_FILE ../configs/bloom/run_bloom_7.1b.yaml [0,8] finetune 8
 ```
-其中RANK_TABLE_FILE为上一步生成的rank table文件。执行后，相关日志输出在`mindformers/output/log/`训练过程中保存的ckpt存在`mindformers/output/checkpoint`目录下。可以通过`tail -f ../output/log/rank_7/mindformer.log`来查看当前的训练情况。
+其中RANK_TABLE_FILE为上一步生成的rank table文件。执行后，相关日志输出在`mindformers/output/log/`训练过程中保存的ckpt存在`mindformers/output/checkpoint`目录下。可以通过`tail -f ../output/log/rank_7/mindformers.log`来查看当前的训练情况。
 
 > 备注：finetune结束后，如果需要查看推理效果，请将每个rank的ckpt，策略文件拷贝统一的ckpt路径和策略文件路径下，参考2.2.2将分布式ckpt合并用于单机推理。
 
@@ -365,3 +369,161 @@ done
 ```bash
 IP_LIST=("192.168.0.0", "192.168.0.1", ..., "192.168.0.11")
 ```
+
+---
+
+## 附录A 更多推理技巧
+### A.1 模型并行推理（以1机8卡推理Bloom_7.1B为例）
+
+这里我们以1机器8卡推理bloom_7.1B为例。涉及两个文件`chat.py`和`run_chat.py`。
+
+```bash
+/SOME/PATH/
+    ├── chat.py # 负责定义一个并行进程
+    └── run_chat.py # 负责多次执行chat.py并拉起分布式
+```
+
+
+
+加载ckpt有两种方式, 由`run_chat.py` 中的`DISTRIBUTED_CKPT_PATH`变量来控制。这里默认使用`DISTRIBUTED_CKPT_PATH=""`代表的`Load then Shard`的方式加载ckpt.
+
+| 分布式加载ckpt的方法   | Load then Shard | Shard then Load |
+|-----------------------:|:-----------------|:-----------------|
+| DISTRIBUTED_CKPT_PATH= | "" | "/path/to/distributed/ckpt/" |
+|说明| 先加载全量ckpt，然后切分模型。|先切分模型，然后加载分布式ckpt。|
+|| 不用预先按照策略切分ckpt，推理时可以灵活调整策略。|需要确定推理的分布式策略，并按照策略预先切分ckpt。 |
+|| 对host内存的占用较高。| 对host内存的占用较低。|
+|适用| 适用于较小模型，如`560m`，`7.1b`。|适用于较大模型，如`65b`, `176b`。 |
+
+
+
+
+
+``` python
+# >>> `chat.py`文件
+
+import os
+import time
+import numpy as np
+
+import mindspore as ms
+from mindspore.train import Model
+from mindspore import load_checkpoint, load_param_into_net
+from mindspore.parallel import set_algo_parameters
+from mindspore.parallel._cost_model_context import _set_multi_subgraphs
+
+from mindformers import pipeline
+from mindformers import BloomLMHeadModel, BloomConfig, AutoTokenizer
+from mindformers import init_context
+from mindformers.modules import TransformerOpParallelConfig
+from mindformers.trainer.utils import get_last_checkpoint
+from mindformers.tools import logger
+
+SEQ_LENGTH = 256
+DISTRIBUTED_CKPT_PATH = os.getenv("DISTRIBUTED_CKPT_PATH", "")   
+
+
+# set context
+context_config = {"device_target": "Ascend", "mode": 0,  "max_device_memory": "31GB"}
+parallel_context_config = {"parallel_mode": 1, "gradients_mean": False, "full_batch": True}
+rank_id, device_num = init_context(use_parallel=True, context_config=context_config, parallel_config=parallel_context_config)
+set_algo_parameters(elementwise_op_strategy_follow=True, fully_use_devices=True)
+_set_multi_subgraphs()
+
+
+# config blooom 7.1b
+config = BloomConfig(
+    embedding_init_type="float32" if DISTRIBUTED_CKPT_PATH else "float16",
+    checkpoint_name_or_path="" if DISTRIBUTED_CKPT_PATH else "bloom_7.1b",
+    seq_length=SEQ_LENGTH,
+    hidden_size=4096,
+    num_layers=30,
+    num_heads=32,
+    hidden_dropout_rate=0.0,
+    attention_dropout_rate=0.0,
+    top_k=1, top_p=1, do_sample=True,
+    parallel_config=TransformerOpParallelConfig(
+        data_parallel=1, 
+        model_parallel=8,
+        pipeline_stage=1
+        )
+    )
+
+
+def chat():
+    # init bloom
+    tokenizer = AutoTokenizer.from_pretrained("bloom_560m")
+    bloom = BloomLMHeadModel(config)
+    bloom.set_train(False)
+    
+    if DISTRIBUTED_CKPT_PATH:
+        # find the sharded ckpt path for this rank
+        ckpt_path = os.path.join(DISTRIBUTED_CKPT_PATH, "rank_{}".format(rank_id))
+        ckpt_path = get_last_checkpoint(ckpt_path)
+        logger.info("ckpt path: %s", str(ckpt_path))
+
+        # shard bloom and load sharded ckpt
+        m = Model(bloom)
+        m.infer_predict_layout(ms.Tensor(np.ones(shape=(1, SEQ_LENGTH)), ms.int32))
+        checkpoint_dict = load_checkpoint(ckpt_path)
+        not_load_network_params = load_param_into_net(bloom, checkpoint_dict)
+        logger.info("Network parameters are not loaded: %s", str(not_load_network_params))
+
+
+    question_list = [
+        "请问为什么说地球是独一无二的？",
+        "Translate to English: Je t’aime.",
+        ]
+
+
+    for question in question_list:
+        inputs = tokenizer.encode(question)
+        inputs = np.array([inputs]).astype(np.int32) # add batch dim
+        outputs = bloom.generate(inputs, max_length=None, do_sample=False, eos_token_id=2)
+        outputs = outputs[0] # remove batch dim
+        print(tokenizer.decode(outputs))
+
+
+
+if __name__ == "__main__":
+    chat()
+
+
+```
+
+
+```bash
+# >>> `run_chat.py`文件
+
+# define variable
+export RANK_SIZE=8
+export RANK_TABLE_FILE="../hccl_8p.json" # <<< change to yours
+
+# distributed ckpt path to load after sharding model. 
+# use "" if load full ckpt before sharding model.
+export DISTRIBUTED_CKPT_PATH=""
+
+export START_RANK=0 # this server start rank
+export END_RANK=8 # this server end rank
+
+# run
+for((i=${START_RANK}; i<${END_RANK}; i++))
+do
+    export RANK_ID=$i
+    export DEVICE_ID=$((i-START_RANK))
+    echo "Start distribute running for rank $RANK_ID, device $DEVICE_ID"
+    python3 ./chat.py &> minformers_$RANK_ID.log &
+done
+
+```
+
+使用一下命令拉起分布式推理:
+```bash
+bash run_chat.sh 
+```
+
+日志可以通过`tail -f mindformers_0.log`查看。预期结果与单机单卡`bloom_7.1b`推理相同：
+
+* 请问为什么说地球是独一无二的？ _**地球是太阳系中唯一有生物的地方</s>**_
+
+* Translate to English: Je t’aime. _**I love you.</s>**_
