@@ -20,8 +20,12 @@ pytest tests/st/test_model/test_gpt2_model/test_auto_class.py
 import os
 import pytest
 
+import mindspore as ms
+
 from mindformers import MindFormerBook, AutoModel, AutoConfig, AutoTokenizer, AutoProcessor
 from mindformers.models import BaseModel, BaseConfig, BaseTokenizer, BaseProcessor
+
+ms.set_context(mode=0)
 
 
 @pytest.mark.level0

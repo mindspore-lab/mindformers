@@ -12,7 +12,6 @@
 | :----: | :------------------------------: | :------: | :-------: | :------------------------: | :----------------------------------------------------------: |
 | tokcls | tokcls_bert_case_chinese_cluener | CLUENER  |  0.7905   | finetune<br/>eval<br/>predict | [link](../../examples/token_classification/tokcls_bert_base_chinese_finetune_on_cluener.sh) <br/> [link](../../examples/token_classification/tokcls_bert_base_chinese_eval_on_cluener.sh) <br/> [link](../../examples/token_classification/tokcls_bert_base_chinese_predict_on_cluener.sh) |
 
-
 ### [CLUENER](https://github.com/CLUEbenchmark/CLUENER2020)
 
 - 数据集：训练集大小为10748个样本，验证集大小为1343个样本，10个类别，分别为: 地址（address），书名（book），公司（company），游戏（game），政府（government），电影（movie），姓名（name），组织机构（organization），职位（position），景点（scene）。

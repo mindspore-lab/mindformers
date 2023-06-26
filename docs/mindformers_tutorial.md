@@ -10,13 +10,13 @@
 
 ### 裸金属镜像
 
-* docker下载命令
+- docker下载命令
 
 ```shell
 docker pull swr.cn-central-221.ovaijisuan.com/mindformers/mindformers_dev_mindspore_2_0:mindformers_0.6.0dev_20230616_py39_37
 ```
 
-* 创建容器
+- 创建容器
 
 ```shell
 # --device用于控制指定容器的运行NPU卡号和范围
@@ -54,13 +54,13 @@ swr.cn-central-221.ovaijisuan.com/mindformers/mindformers_dev_mindspore_2_0:mind
 
 - 镜像列表
 
-```
+```text
 1. swr.cn-central-221.ovaijisuan.com/mindformers/mindformers_dev_mindspore_1_10_1:mindformers_0.6.0dev_20230615_py39
 ```
 
 - 在一台准备好docker引擎的计算机上，root用户执行docker pull命令拉取该镜像
 
-```
+```shell
 docker pull swr.cn-central-221.ovaijisuan.com/mindformers/mindformers_dev_mindspore_1_10_1:mindformers_0.6.0dev_20230615_py39
 ```
 
@@ -94,14 +94,10 @@ docker pull swr.cn-central-221.ovaijisuan.com/mindformers/mindformers_dev_mindsp
 
 **其余库上模型分布式支持情况一览表：**
 
-| 模型 |   并行模式    | 数据并行 | 优化器并行 | 模型并行 | 流水并行 | 多副本并行 | 是否上库 |
-| :--: | :-----------: | :------: | :--------: | :------: | :------: | :--------: | :------: |
-| MAE  | data_parallel |    是    |     是     |    否    |    否    |     否     |    是    |
-|  T5  | data_parallel |    是    |     是     |    否    |    否    |     否     |    是    |
-| Bert | data_parallel |    是    |     是     |    否    |    否    |     否     |    是    |
-| Swin | data_parallel |    是    |     是     |    否    |    否    |     否     |    是    |
-| VIT  | data_parallel |    是    |     是     |    否    |    否    |     否     |    是    |
-| CLIP | data_parallel |    是    |     是     |    否    |    否    |     否     |    是    |
+| 模型 | 并行模式 | 数据并行 | 优化器并行 | 模型并行 | 流水并行 | 多副本并行 | 是否上库 | | :--: | :-----------: | :------: | :--------: | :------: | :
+------: | :--------: | :------: | | MAE | data_parallel | 是 | 是 | 否 | 否 | 否 | 是 | | T5 | data_parallel | 是 | 是 | 否 | 否 |
+否 | 是 | | Bert | data_parallel | 是 | 是 | 否 | 否 | 否 | 是 | | Swin | data_parallel | 是 | 是 | 否 | 否 | 否 | 是 | | VIT |
+data_parallel | 是 | 是 | 否 | 否 | 否 | 是 | | CLIP | data_parallel | 是 | 是 | 否 | 否 | 否 | 是 |
 
 ## AutoClass
 
@@ -124,7 +120,7 @@ MindFormers大模型套件提供了AutoClass类，包含AutoConfig、AutoModel�
 from mindformers import AutoConfig, AutoModel
 
 gpt_config = AutoConfig.from_pretrained("gpt2")
-gpt_model = AutoModel.from_pretrained("gpt2") # 自动加载预置权重到网络中
+gpt_model = AutoModel.from_pretrained("gpt2")  # 自动加载预置权重到网络中
 ```
 
 使用已有模型配置或网络架构实例化相应的模型配置或网络架构实例：
@@ -133,7 +129,7 @@ gpt_model = AutoModel.from_pretrained("gpt2") # 自动加载预置权重到网�
 from mindformers import GPT2LMHeadModel, GPT2Config
 
 gpt_13b_config = GPT2Config.from_pretrained("gpt2_13b")
-gpt_13b_model = GPT2LMHeadModel.from_pretrained("gpt2_13b") # 自动加载预置权重到网络中
+gpt_13b_model = GPT2LMHeadModel.from_pretrained("gpt2_13b")  # 自动加载预置权重到网络中
 ```
 
 使用已有模型配置或模型架构进行二次开发：
@@ -274,6 +270,7 @@ mindspore相关环境的初始化，MindFormers中提供了init_context标准接
 ```python
 from mindformers import init_context, ContextConfig
 
+
 def context_init():
     """init context for mindspore."""
     context_config = ContextConfig(mode=0, device_target="Ascend", device_id=0)
@@ -284,11 +281,15 @@ def context_init():
 
 ```python
 from mindformers import init_context, ContextConfig, ParallelContextConfig
+
+
 def context_init():
     """init context for mindspore."""
     context_config = ContextConfig(mode=0, device_target="Ascend", device_id=0)
-    parallel_config = ParallelContextConfig(parallel_mode='DATA_PARALLEL', gradients_mean=True, enable_parallel_optimizer=False)
-    rank_id, device_num = init_context(use_parallel=True, context_config=context_config, parallel_config=parallel_config)
+    parallel_config = ParallelContextConfig(parallel_mode='DATA_PARALLEL', gradients_mean=True,
+                                            enable_parallel_optimizer=False)
+    rank_id, device_num = init_context(use_parallel=True, context_config=context_config,
+                                       parallel_config=parallel_config)
 ```
 
 多卡半自动并行模式初始化：
@@ -296,11 +297,14 @@ def context_init():
 ```python
 from mindformers import init_context, ContextConfig, ParallelContextConfig
 
+
 def context_init():
     """init context for mindspore."""
     context_config = ContextConfig(mode=0, device_target="Ascend", device_id=0)
-    parallel_config = ParallelContextConfig(parallel_mode='SEMI_AUTO_PARALLEL', gradients_mean=False, enable_parallel_optimizer=False, full_batch=True)
-    rank_id, device_num = init_context(use_parallel=True, context_config=context_config, parallel_config=parallel_config)
+    parallel_config = ParallelContextConfig(parallel_mode='SEMI_AUTO_PARALLEL', gradients_mean=False,
+                                            enable_parallel_optimizer=False, full_batch=True)
+    rank_id, device_num = init_context(use_parallel=True, context_config=context_config,
+                                       parallel_config=parallel_config)
 ```
 
 ### TrainingArguments&&Trainer
@@ -317,7 +321,8 @@ from mindformers import TrainingArguments
 # 环境初始化，参考上述`init_context`章节实现
 context_init()
 # 训练超参数定义
-training_args = TrainingArguments(num_train_epochs=3, batch_size=2, learning_rate=0.001, warmup_steps=1000, sink_mode=True)
+training_args = TrainingArguments(num_train_epochs=3, batch_size=2, learning_rate=0.001, warmup_steps=1000,
+                                  sink_mode=True)
 ```
 
 使用Trainer接口创建内部预置任务：数据集按照官方教程准备[GPT预训练数据集准备]()，自定义训练参数
@@ -328,9 +333,11 @@ from mindformers import Trainer, TrainingArguments
 # 环境初始化，参考上述`init_context`章节实现
 context_init()
 # 训练超参数定义
-training_args = TrainingArguments(num_train_epochs=3, batch_size=2, learning_rate=0.001, warmup_steps=1000, sink_mode=True)
+training_args = TrainingArguments(num_train_epochs=3, batch_size=2, learning_rate=0.001, warmup_steps=1000,
+                                  sink_mode=True)
 
-text_generation = Trainer(task='text_generation', model='gpt2', args=training_args, train_dataset='./train', eval_dataset='./eval')
+text_generation = Trainer(task='text_generation', model='gpt2', args=training_args, train_dataset='./train',
+                          eval_dataset='./eval')
 ```
 
 使用Trainer接口创建内部预置任务：自定义数据集，模型，训练参数
@@ -339,6 +346,7 @@ text_generation = Trainer(task='text_generation', model='gpt2', args=training_ar
 from mindspore.dataset import GeneratorDataset
 
 from mindformers import Trainer, TrainingArguments, AutoModel
+
 
 def generator():
     """text dataset generator."""
@@ -351,7 +359,8 @@ def generator():
 # 环境初始化，参考上述`init_context`章节实现
 context_init()
 # 自定义训练超参数
-training_args = TrainingArguments(num_train_epochs=3, batch_size=2, learning_rate=0.001, warmup_steps=1000, sink_mode=True)
+training_args = TrainingArguments(num_train_epochs=3, batch_size=2, learning_rate=0.001, warmup_steps=1000,
+                                  sink_mode=True)
 # 自定义模型
 pangu_model = AutoModel.from_pretrained("pangualpha_2_6b")
 # 自定义数据集
@@ -359,12 +368,14 @@ dataset = GeneratorDataset(generator, column_names=["input_ids"])
 train_dataset = dataset.batch(batch_size=4)
 eval_dataset = dataset.batch(batch_size=4)
 # 定义文本生成任务，传入自定义模型、数据集、超参数
-text_generation = Trainer(task='text_generation', model=pangu_model, args=training_args, train_dataset=train_dataset, eval_dataset=eval_dataset)
+text_generation = Trainer(task='text_generation', model=pangu_model, args=training_args, train_dataset=train_dataset,
+                          eval_dataset=eval_dataset)
 ```
 
 ### 并行&&重计算配置
 
-MindFormers的Trainer接口提供了并行的配置接口`set_parallel_config`和重计算配置接口`set_recompute_config`，其中`set_parallel_config`接口仅在**半自动并行**或**全自动并行模式**下生效，同时需要模型本身已支持或已配置[并行策略]();
+MindFormers的Trainer接口提供了并行的配置接口`set_parallel_config`和重计算配置接口`set_recompute_config`，其中`set_parallel_config`接口仅在**半自动并行**
+或**全自动并行模式**下生效，同时需要模型本身已支持或已配置[并行策略]();
 
 [set_parallel_config]()  [set_recompute_config]()
 
@@ -377,6 +388,7 @@ from mindspore.dataset import GeneratorDataset
 from mindformers import Trainer, TrainingArguments
 from mindformers import PanguAlphaHeadModel, PanguAlphaConfig
 
+
 def generator():
     """text dataset generator."""
     seq_len = 1025
@@ -388,7 +400,8 @@ def generator():
 # 环境初始化，参考上述`init_context`章节实现
 context_init()
 # 自定义训练超参数
-training_args = TrainingArguments(num_train_epochs=3, batch_size=2, learning_rate=0.001, warmup_steps=1000, sink_mode=True)
+training_args = TrainingArguments(num_train_epochs=3, batch_size=2, learning_rate=0.001, warmup_steps=1000,
+                                  sink_mode=True)
 # 自定义模型
 pangu_config = PanguAlphaConfig(hidden_size=768, ffn_hidden_size=768 * 4, num_layers=12, num_heads=12,
                                 checkpoint_name_or_path='')
@@ -398,10 +411,12 @@ dataset = GeneratorDataset(generator, column_names=["input_ids"])
 train_dataset = dataset.batch(batch_size=4)
 eval_dataset = dataset.batch(batch_size=4)
 # 定义文本生成任务，传入自定义模型、数据集、超参数
-text_generation = Trainer(task='text_generation', model=pangu_model, args=training_args, train_dataset=train_dataset, eval_dataset=eval_dataset)
+text_generation = Trainer(task='text_generation', model=pangu_model, args=training_args, train_dataset=train_dataset,
+                          eval_dataset=eval_dataset)
 
 # 设定并行策略，比如2机16卡,设定数据并行4 模型并行2 流水并行2 微批次大小为2 打开优化器并行
-text_generation.set_parallel_config(data_parallel=4, model_parallel=2, pipeline_stage=2, micro_batch_num=2, optimizer_shard=True)
+text_generation.set_parallel_config(data_parallel=4, model_parallel=2, pipeline_stage=2, micro_batch_num=2,
+                                    optimizer_shard=True)
 
 # 设置重计算配置，打开重计算
 text_generation.set_recompute_config(recompute=True)
@@ -409,15 +424,18 @@ text_generation.set_recompute_config(recompute=True)
 
 ### 训练&&微调&&评估&&推理
 
-MindFormers套件的Trainer高阶接口提供了`train`、`finetune`、`evaluate`、`predict`4个关键属性函数，帮助用户快速拉起任务的训练、微调、评估、推理流程：[Trainer.train]() [Trainer.finetune]() [Trainer.evaluate]() [Trainer.predict]()  
+MindFormers套件的Trainer高阶接口提供了`train`、`finetune`、`evaluate`、`predict`
+4个关键属性函数，帮助用户快速拉起任务的训练、微调、评估、推理流程：[Trainer.train]() [Trainer.finetune]() [Trainer.evaluate]() [Trainer.predict]()
 
-使用`Trainer.train` `Trainer.finetune` `Trainer.evaluate` `Trainer.predict` 拉起任务的训练、微调、评估、推理流程，以下为使用`Trainer`高阶接口进行全流程开发的使用样例（多卡分布式并行），命名为`task.py`：
+使用`Trainer.train` `Trainer.finetune` `Trainer.evaluate` `Trainer.predict` 拉起任务的训练、微调、评估、推理流程，以下为使用`Trainer`
+高阶接口进行全流程开发的使用样例（多卡分布式并行），命名为`task.py`：
 
 ```python
 import argparse
 
 from mindformers import Trainer, TrainingArguments
 from mindformers import init_context, ContextConfig, ParallelContextConfig
+
 
 def context_init(use_parallel=False, optimizer_parallel=False):
     """init context for mindspore."""
@@ -432,6 +450,7 @@ def context_init(use_parallel=False, optimizer_parallel=False):
                                        context_config=context_config,
                                        parallel_config=parallel_config)
 
+
 def main(use_parallel=False,
          run_mode='train',
          task='text_generation',
@@ -444,7 +463,8 @@ def main(use_parallel=False,
     # 环境初始化
     context_init(use_parallel, op)
     # 训练超参数定义
-    training_args = TrainingArguments(num_train_epochs=1, batch_size=2, learning_rate=0.001, warmup_steps=100, sink_mode=True, sink_size=2)
+    training_args = TrainingArguments(num_train_epochs=1, batch_size=2, learning_rate=0.001, warmup_steps=100,
+                                      sink_mode=True, sink_size=2)
     # 定义任务，预先准备好相应数据集
     task = Trainer(task=task,
                    model=model_type,
@@ -479,11 +499,12 @@ if __name__ == "__main__":
     parser.add_argument('--train_dataset', default=None, help='set train dataset.')
     parser.add_argument('--eval_dataset', default=None, help='set eval dataset.')
     parser.add_argument('--pet_method', default='', help="set finetune method, now support type: ['', 'lora']")
-    parser.add_argument('--data_parallel', default=1, type=int,help='set data parallel number. Default: None')
+    parser.add_argument('--data_parallel', default=1, type=int, help='set data parallel number. Default: None')
     parser.add_argument('--model_parallel', default=1, type=int, help='set model parallel number. Default: None')
     parser.add_argument('--pipeline_parallel', default=1, type=int, help='set pipeline parallel number. Default: None')
     parser.add_argument('--micro_size', default=1, type=int, help='set micro batch number. Default: None')
-    parser.add_argument('--optimizer_parallel', default=False, type=bool, help='whether use optimizer parallel. Default: None')
+    parser.add_argument('--optimizer_parallel', default=False, type=bool,
+                        help='whether use optimizer parallel. Default: None')
     args = parser.parse_args()
     main(run_mode=args.run_mode,
          task=args.task,
@@ -499,7 +520,7 @@ if __name__ == "__main__":
          op=args.optimizer_parallel)
 ```
 
-* 单卡使用样例：
+- 单卡使用样例：
 
 ```shell
 # 训练
@@ -515,179 +536,178 @@ python task.py --task text_generation --model_type gpt2 --train_dataset ./finetu
 python task.py --task text_generation --model_type gpt2 --predict_data 'hello!' --run_mode predict
 ```
 
-* 多卡分布式使用样例：
+- 多卡分布式使用样例：
 
-  * 单机多卡标准启动脚本：`run_distribute_single_node.sh`
+    - 单机多卡标准启动脚本：`run_distribute_single_node.sh`
 
-    ```bash
-    #!/bin/bash
-    # Copyright 2023 Huawei Technologies Co., Ltd
-    #
-    # Licensed under the Apache License, Version 2.0 (the "License");
-    # you may not use this file except in compliance with the License.
-    # You may obtain a copy of the License at
-    #
-    # http://www.apache.org/licenses/LICENSE-2.0
-    #
-    # Unless required by applicable law or agreed to in writing, software
-    # distributed under the License is distributed on an "AS IS" BASIS,
-    # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-    # See the License for the specific language governing permissions and
-    # limitations under the License.
-    # ============================================================================
-    
-    if [ $# != 4 ]
-    then
-      echo "Usage Help: bash run_distribute_single_node.sh [EXECUTE_ORDER] [RANK_TABLE_PATH]  [DEVICE_RANGE] [RANK_SIZE] For Multiple Devices In Single Machine"
-      exit 1
-    fi
-    
-    check_real_path(){
-      if [ "${1:0:1}" == "/" ]; then
-        echo "$1"
-      else
-        echo "$(realpath -m $PWD/$1)"
+      ```bash
+      #!/bin/bash
+      # Copyright 2023 Huawei Technologies Co., Ltd
+      #
+      # Licensed under the Apache License, Version 2.0 (the "License");
+      # you may not use this file except in compliance with the License.
+      # You may obtain a copy of the License at
+      #
+      # http://www.apache.org/licenses/LICENSE-2.0
+      #
+      # Unless required by applicable law or agreed to in writing, software
+      # distributed under the License is distributed on an "AS IS" BASIS,
+      # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      # See the License for the specific language governing permissions and
+      # limitations under the License.
+      # ============================================================================
+
+      if [ $# != 4 ]
+      then
+        echo "Usage Help: bash run_distribute_single_node.sh [EXECUTE_ORDER] [RANK_TABLE_PATH]  [DEVICE_RANGE] [RANK_SIZE] For Multiple Devices In Single Machine"
+        exit 1
       fi
-    }
-    
-    EXECUTE_ORDER=$1
-    RANK_TABLE_PATH=$(check_real_path $2)
-    DEVICE_RANGE=$3
-    
-    DEVICE_RANGE_LEN=${#DEVICE_RANGE}
-    DEVICE_RANGE=${DEVICE_RANGE:1:DEVICE_RANGE_LEN-2}
-    PREFIX=${DEVICE_RANGE%%","*}
-    INDEX=${#PREFIX}
-    START_DEVICE=${DEVICE_RANGE:0:INDEX}
-    END_DEVICE=${DEVICE_RANGE:INDEX+1:DEVICE_RANGE_LEN-INDEX}
-    
-    if [ ! -f $RANK_TABLE_PATH ]
-    then
-        echo "error: RANK_TABLE_FILE=$RANK_TABLE_PATH is not a file"
-    exit 1
-    fi
-    
-    
-    if [[ ! $START_DEVICE =~ ^[0-9]+$ ]]; then
-        echo "error: start_device=$START_DEVICE is not a number"
-    exit 1
-    fi
-    
-    if [[ ! $END_DEVICE =~ ^[0-9]+$ ]]; then
-        echo "error: end_device=$END_DEVICE is not a number"
-    exit 1
-    fi
-    
-    ulimit -u unlimited
-    
-    export RANK_SIZE=$4
-    export RANK_TABLE_FILE=$RANK_TABLE_PATH
-    
-    shopt -s extglob
-    
-    for((i=${START_DEVICE}; i<${END_DEVICE}; i++))
-    do
-        export DEVICE_ID=${i}
-        export RANK_ID=$((i-START_DEVICE))
-        mkdir -p ./output/log/rank_$RANK_ID
-        echo "start training for rank $RANK_ID, device $DEVICE_ID"
-        $EXECUTE_ORDER &> ./output/log/rank_$RANK_ID/mindformer.log &
-    done
-    
-    shopt -u extglob
-    ```
 
-  * 多机多卡标准启动脚本：`run_distribute_multi_node.sh`
+      check_real_path(){
+        if [ "${1:0:1}" == "/" ]; then
+          echo "$1"
+        else
+          echo "$(realpath -m $PWD/$1)"
+        fi
+      }
 
-    ```bash
-    #!/bin/bash
-    # Copyright 2023 Huawei Technologies Co., Ltd
-    #
-    # Licensed under the Apache License, Version 2.0 (the "License");
-    # you may not use this file except in compliance with the License.
-    # You may obtain a copy of the License at
-    #
-    # http://www.apache.org/licenses/LICENSE-2.0
-    #
-    # Unless required by applicable law or agreed to in writing, software
-    # distributed under the License is distributed on an "AS IS" BASIS,
-    # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-    # See the License for the specific language governing permissions and
-    # limitations under the License.
-    # ============================================================================
-    
-    if [ $# != 4 ]
-    then
-      echo "Usage Help: bash run_distribute_multi_node.sh [EXECUTE_ORDER] [RANK_TABLE_FILE] [DEVICE_RANGE] [RANK_SIZE]"
+      EXECUTE_ORDER=$1
+      RANK_TABLE_PATH=$(check_real_path $2)
+      DEVICE_RANGE=$3
+
+      DEVICE_RANGE_LEN=${#DEVICE_RANGE}
+      DEVICE_RANGE=${DEVICE_RANGE:1:DEVICE_RANGE_LEN-2}
+      PREFIX=${DEVICE_RANGE%%","*}
+      INDEX=${#PREFIX}
+      START_DEVICE=${DEVICE_RANGE:0:INDEX}
+      END_DEVICE=${DEVICE_RANGE:INDEX+1:DEVICE_RANGE_LEN-INDEX}
+
+      if [ ! -f $RANK_TABLE_PATH ]
+      then
+          echo "error: RANK_TABLE_FILE=$RANK_TABLE_PATH is not a file"
       exit 1
-    fi
-    
-    check_real_path(){
-      if [ "${1:0:1}" == "/" ]; then
-        echo "$1"
-      else
-        echo "$(realpath -m $PWD/$1)"
       fi
-    }
-    
-    EXECUTE_ORDER=$1
-    RANK_TABLE_PATH=$(check_real_path $2)
-    DEVICE_RANGE=$3
-    
-    DEVICE_RANGE_LEN=${#DEVICE_RANGE}
-    DEVICE_RANGE=${DEVICE_RANGE:1:DEVICE_RANGE_LEN-2}
-    PREFIX=${DEVICE_RANGE%%","*}
-    INDEX=${#PREFIX}
-    START_DEVICE=${DEVICE_RANGE:0:INDEX}
-    END_DEVICE=${DEVICE_RANGE:INDEX+1:DEVICE_RANGE_LEN-INDEX}
-    
-    if [ ! -f $RANK_TABLE_PATH ]
-    then
-        echo "error: RANK_TABLE_FILE=$RANK_TABLE_PATH is not a file"
-    exit 1
-    fi
-    
-    if [[ ! $START_DEVICE =~ ^[0-9]+$ ]]; then
-        echo "error: start_device=$START_DEVICE is not a number"
-    exit 1
-    fi
-    
-    if [[ ! $END_DEVICE =~ ^[0-9]+$ ]]; then
-        echo "error: end_device=$END_DEVICE is not a number"
-    exit 1
-    fi
-    
-    ulimit -u unlimited
-    
-    export RANK_SIZE=$4
-    export RANK_TABLE_FILE=$RANK_TABLE_PATH
-    
-    shopt -s extglob
-    for((i=${START_DEVICE}; i<${END_DEVICE}; i++))
-    do
-        export RANK_ID=${i}
-        export DEVICE_ID=$((i-START_DEVICE))
-        echo "start training for rank $RANK_ID, device $DEVICE_ID"
-        mkdir -p ./output/log/rank_$RANK_ID
-        $EXECUTE_ORDER &> ./output/log/rank_$RANK_ID/mindformer.log &
-    done
-    
-    shopt -u extglob
-    ```
 
-  * 分布式并行执行`task.py`样例：需提前生成`RANK_TABLE_FILE`，同时`task.py`中默认使用**半自动并行模式**。
+      if [[ ! $START_DEVICE =~ ^[0-9]+$ ]]; then
+          echo "error: start_device=$START_DEVICE is not a number"
+      exit 1
+      fi
 
-    **注意单机时使用{single}，多机时使用{multi}**
+      if [[ ! $END_DEVICE =~ ^[0-9]+$ ]]; then
+          echo "error: end_device=$END_DEVICE is not a number"
+      exit 1
+      fi
 
-    ```shell
-    # 分布式训练
-    bash run_distribute_{single/multi}_node.sh "python task.py --task text_generation --model_type gpt2 --train_dataset ./train --run_mode train --use_parallel True --data_parallel 1 --model_parallel 2 --pipeline_parallel 2 --micro_size 2" hccl_4p_0123_192.168.89.35.json [0,4] 4
-    
-    # 分布式评估
-    bash run_distribute_{single/multi}_node.sh "python task.py --task text_generation --model_type gpt2 --eval_dataset ./eval --run_mode eval --use_parallel True --data_parallel 1 --model_parallel 2 --pipeline_parallel 2 --micro_size 2" hccl_4p_0123_192.168.89.35.json [0,4] 4
-    
-    # 分布式微调
-    bash run_distribute_{single/multi}_node.sh "python task.py --task text_generation --model_type gpt2 --train_dataset ./train --run_mode finetune --pet_method lora --use_parallel True --data_parallel 1 --model_parallel 2 --pipeline_parallel 2 --micro_size 2" hccl_4p_0123_192.168.89.35.json [0,4] 4
-    
-    # 分布式推理，暂不支持, 630支持特性
-    ```
+      ulimit -u unlimited
+
+      export RANK_SIZE=$4
+      export RANK_TABLE_FILE=$RANK_TABLE_PATH
+
+      shopt -s extglob
+
+      for((i=${START_DEVICE}; i<${END_DEVICE}; i++))
+      do
+          export DEVICE_ID=${i}
+          export RANK_ID=$((i-START_DEVICE))
+          mkdir -p ./output/log/rank_$RANK_ID
+          echo "start training for rank $RANK_ID, device $DEVICE_ID"
+          $EXECUTE_ORDER &> ./output/log/rank_$RANK_ID/mindformer.log &
+      done
+
+      shopt -u extglob
+      ```
+
+    - 多机多卡标准启动脚本：`run_distribute_multi_node.sh`
+
+      ```bash
+      #!/bin/bash
+      # Copyright 2023 Huawei Technologies Co., Ltd
+      #
+      # Licensed under the Apache License, Version 2.0 (the "License");
+      # you may not use this file except in compliance with the License.
+      # You may obtain a copy of the License at
+      #
+      # http://www.apache.org/licenses/LICENSE-2.0
+      #
+      # Unless required by applicable law or agreed to in writing, software
+      # distributed under the License is distributed on an "AS IS" BASIS,
+      # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      # See the License for the specific language governing permissions and
+      # limitations under the License.
+      # ============================================================================
+
+      if [ $# != 4 ]
+      then
+        echo "Usage Help: bash run_distribute_multi_node.sh [EXECUTE_ORDER] [RANK_TABLE_FILE] [DEVICE_RANGE] [RANK_SIZE]"
+        exit 1
+      fi
+
+      check_real_path(){
+        if [ "${1:0:1}" == "/" ]; then
+          echo "$1"
+        else
+          echo "$(realpath -m $PWD/$1)"
+        fi
+      }
+
+      EXECUTE_ORDER=$1
+      RANK_TABLE_PATH=$(check_real_path $2)
+      DEVICE_RANGE=$3
+
+      DEVICE_RANGE_LEN=${#DEVICE_RANGE}
+      DEVICE_RANGE=${DEVICE_RANGE:1:DEVICE_RANGE_LEN-2}
+      PREFIX=${DEVICE_RANGE%%","*}
+      INDEX=${#PREFIX}
+      START_DEVICE=${DEVICE_RANGE:0:INDEX}
+      END_DEVICE=${DEVICE_RANGE:INDEX+1:DEVICE_RANGE_LEN-INDEX}
+
+      if [ ! -f $RANK_TABLE_PATH ]
+      then
+          echo "error: RANK_TABLE_FILE=$RANK_TABLE_PATH is not a file"
+      exit 1
+      fi
+
+      if [[ ! $START_DEVICE =~ ^[0-9]+$ ]]; then
+          echo "error: start_device=$START_DEVICE is not a number"
+      exit 1
+      fi
+
+      if [[ ! $END_DEVICE =~ ^[0-9]+$ ]]; then
+          echo "error: end_device=$END_DEVICE is not a number"
+      exit 1
+      fi
+
+      ulimit -u unlimited
+
+      export RANK_SIZE=$4
+      export RANK_TABLE_FILE=$RANK_TABLE_PATH
+
+      shopt -s extglob
+      for((i=${START_DEVICE}; i<${END_DEVICE}; i++))
+      do
+          export RANK_ID=${i}
+          export DEVICE_ID=$((i-START_DEVICE))
+          echo "start training for rank $RANK_ID, device $DEVICE_ID"
+          mkdir -p ./output/log/rank_$RANK_ID
+          $EXECUTE_ORDER &> ./output/log/rank_$RANK_ID/mindformer.log &
+      done
+
+      shopt -u extglob
+      ```
+
+    - 分布式并行执行`task.py`样例：需提前生成`RANK_TABLE_FILE`，同时`task.py`中默认使用**半自动并行模式**。
+
+      **注意单机时使用{single}，多机时使用{multi}**
+
+      ```shell
+      # 分布式训练
+      bash run_distribute_{single/multi}_node.sh "python task.py --task text_generation --model_type gpt2 --train_dataset ./train --run_mode train --use_parallel True --data_parallel 1 --model_parallel 2 --pipeline_parallel 2 --micro_size 2" hccl_4p_0123_192.168.89.35.json [0,4] 4
+
+      # 分布式评估
+      bash run_distribute_{single/multi}_node.sh "python task.py --task text_generation --model_type gpt2 --eval_dataset ./eval --run_mode eval --use_parallel True --data_parallel 1 --model_parallel 2 --pipeline_parallel 2 --micro_size 2" hccl_4p_0123_192.168.89.35.json [0,4] 4
+
+      # 分布式微调
+      bash run_distribute_{single/multi}_node.sh "python task.py --task text_generation --model_type gpt2 --train_dataset ./train --run_mode finetune --pet_method lora --use_parallel True --data_parallel 1 --model_parallel 2 --pipeline_parallel 2 --micro_size 2" hccl_4p_0123_192.168.89.35.json [0,4] 4
+
+      # 分布式推理，暂不支持, 630支持特性
+      ```

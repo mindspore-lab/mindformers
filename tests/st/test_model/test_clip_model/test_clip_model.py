@@ -24,9 +24,13 @@ import os
 import time
 import pytest
 
+import  mindspore as ms
+
 from mindformers import MindFormerBook, AutoConfig, AutoModel
 from mindformers.models import CLIPModel, BaseModel
 from mindformers.tools import logger
+
+ms.set_context(mode=0)
 
 
 @pytest.mark.level0

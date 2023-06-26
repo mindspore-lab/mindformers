@@ -25,11 +25,11 @@ pytest ./tests/st/test_pipeline/test_masked_image_modeling_pipeline.py
 """
 import numpy as np
 import pytest
+import mindspore as ms
 
 from mindformers.pipeline import MaskedImageModelingPipeline
 from mindformers import ViTMAEImageProcessor
 
-import mindspore as ms
 ms.set_context(mode=ms.GRAPH_MODE)
 
 

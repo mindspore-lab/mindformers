@@ -20,11 +20,14 @@ pytest tests/st/test_model/test_bloom_model/test_trainer.py
 import numpy as np
 import pytest
 
+import mindspore as ms
 from mindspore.dataset import GeneratorDataset
 
 from mindformers import AutoTokenizer
 from mindformers import BloomLMHeadModel, BloomConfig
 from mindformers import Trainer, TrainingArguments
+
+ms.set_context(mode=0)
 
 
 def generator_train():

@@ -256,8 +256,8 @@ class CLIPModel(BaseModel):
         text_ = text_.transpose(1, 0, 2)
         text_ = self.transformer(text_)
         text_ = text_.transpose(1, 0, 2)
-        text_ = self.ln_final(text_).astype(self.dtype)
+        text_ = self.ln_final(text_).astype(ms.float32)
 
-        text_ = ops.matmul(
+        text_ = ops.MatMul()(
             text_[ms.numpy.arange(text_.shape[0]), text.argmax(-1)], self.text_projection)
         return text_

@@ -42,9 +42,10 @@ def test_auto_model_for_xihe():
 
 
 @pytest.mark.level0
-@pytest.mark.platform_x86_cpu
+@pytest.mark.platform_x86_ascend_training
+@pytest.mark.platform_arm_ascend_training
 @pytest.mark.env_onecard
-def test_auto_config_for_xihe():
+def test_auto_config_and_processor_for_xihe():
     """
     Feature: Build Model Config from xihe.mindspore platform
     Description: Test build function to instance API from xihe.mindspore keys.
@@ -56,29 +57,14 @@ def test_auto_config_for_xihe():
     ]
     for xihe_name in xihe_name_list:
         config = AutoConfig.from_pretrained(xihe_name)
+        processor = AutoProcessor.from_pretrained(xihe_name)
+        assert isinstance(processor, BaseProcessor)
         assert isinstance(config, BaseConfig)
 
 
 @pytest.mark.level0
-@pytest.mark.platform_x86_cpu
-@pytest.mark.env_onecard
-def test_auto_processor_for_xihe():
-    """
-    Feature: Build Model Processor from xihe.mindspore platform
-    Description: Test build function to instance API from xihe.mindspore keys.
-    Expectation: ValueError
-    """
-    xihe_name_list = [
-        'mindspore/clip_vit_b_32', 'mindspore/vit_base_p16', 'mindspore/swin_base_p4w7',
-        'mindspore/tokcls_bert_base_chinese_cluener', 'mindspore/txtcls_bert_base_uncased_mnli'
-    ]
-    for xihe_name in xihe_name_list:
-        processor = AutoProcessor.from_pretrained(xihe_name)
-        assert isinstance(processor, BaseProcessor)
-
-
-@pytest.mark.level0
-@pytest.mark.platform_x86_cpu
+@pytest.mark.platform_x86_ascend_training
+@pytest.mark.platform_arm_ascend_training
 @pytest.mark.env_onecard
 def test_auto_tokenizer_for_xihe():
     """

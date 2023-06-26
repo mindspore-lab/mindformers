@@ -24,9 +24,12 @@ linux:
 pytest ./tests/st/test_pipeline/test_text_classification_pipeline.py
 """
 import pytest
+import mindspore as ms
 
 from mindformers.pipeline import TextClassificationPipeline
 from mindformers import AutoTokenizer, BertForMultipleChoice, AutoConfig
+
+ms.set_context(mode=0)
 
 
 @pytest.mark.level0
@@ -49,6 +52,7 @@ def test_text_classification_pipeline():
     # Because batch_size parameter is required when bert model is created, and pipeline
     # function deals with samples one by one, the batch_size parameter is seted one.
     txtcls_mnli_config.batch_size = 1
+    txtcls_mnli_config.checkpoint_name_or_path = ''
 
     model = BertForMultipleChoice(txtcls_mnli_config)
     txtcls_pipeline = TextClassificationPipeline(task='text_classification',

@@ -28,9 +28,9 @@ git clone https://gitee.com/mindspore/mindformers.git
 - 数据集预处理
     以Wikitext2数据集为例
 
-  - 数据集下载：[WikiText2数据集](https://gitee.com/link?target=https%3A%2F%2Fs3.amazonaws.com%2Fresearch.metamind.io%2Fwikitext%2Fwikitext-2-v1.zip)
-  - 词表下载：[vocab.json](https://gitee.com/link?target=https%3A%2F%2Fhuggingface.co%2Fgpt2%2Fblob%2Fmain%2Fvocab.json)，[merges.txt](https://gitee.com/link?target=https%3A%2F%2Fhuggingface.co%2Fgpt2%2Fresolve%2Fmain%2Fmerges.txt)
-  - 参考[ModelZoo](https://gitee.com/mindspore/models/tree/master/research/nlp/gpt2#language-modeling-%E8%AF%AD%E8%A8%80%E5%BB%BA%E6%A8%A1%E4%BB%BB%E5%8A%A1)，将数据处理成Mindrecord格式。注：训练数据处理时，长度应等于模型接收长度加一
+    - 数据集下载：[WikiText2数据集](https://gitee.com/link?target=https%3A%2F%2Fs3.amazonaws.com%2Fresearch.metamind.io%2Fwikitext%2Fwikitext-2-v1.zip)
+    - 词表下载：[vocab.json](https://gitee.com/link?target=https%3A%2F%2Fhuggingface.co%2Fgpt2%2Fblob%2Fmain%2Fvocab.json)，[merges.txt](https://gitee.com/link?target=https%3A%2F%2Fhuggingface.co%2Fgpt2%2Fresolve%2Fmain%2Fmerges.txt)
+    - 参考[ModelZoo](https://gitee.com/mindspore/models/tree/master/research/nlp/gpt2#language-modeling-%E8%AF%AD%E8%A8%80%E5%BB%BA%E6%A8%A1%E4%BB%BB%E5%8A%A1)，将数据处理成Mindrecord格式。注：训练数据处理时，长度应等于模型接收长度加一
 
 ### 云上对象存储准备
 
@@ -57,7 +57,8 @@ ModelArts上的所提供的预置训练镜像，通常MindSpore的版本较为�
 >
 > 注：当前版本镜像为每日开发版，稳定版将在后续推送至镜像仓库网
 
-* 镜像列表
+- 镜像列表
+
 ```text
 1. swr.cn-central-221.ovaijisuan.com/mindformers/mindformers_dev_mindspore_1_10_1:mindformers_0.6.0dev_20230615_py39
 ```
@@ -97,17 +98,17 @@ docker pull swr.cn-central-221.ovaijisuan.com/mindformers/mindformers_dev_mindsp
 ![train_args](asserts/train_args.png)
 
 - 训练输入：
-  - `train_dataset_dir`：选择数据集在云上的数据存储文件夹位置，作为训练数据集的路径；该参数名应当能够被启动脚本识别
+    - `train_dataset_dir`：选择数据集在云上的数据存储文件夹位置，作为训练数据集的路径；该参数名应当能够被启动脚本识别
     > 选择后，ModelArts将会在拉起训练作业时，将**云上的数据集拉取至指定的目录下**，然后将该入参的值从云上路径修改为镜像上被拉取的路径
 - 训练输出：
-  - 启用时，需要将文件输出在超参传入的路径下，训练结束后会进行回传；
-  - 由于输出通常较大，默认的路径下磁盘空间不足，我们会将输出统一放在/cahce目录下，因此MindFormers**不启用**该项参数
+    - 启用时，需要将文件输出在超参传入的路径下，训练结束后会进行回传；
+    - 由于输出通常较大，默认的路径下磁盘空间不足，我们会将输出统一放在/cahce目录下，因此MindFormers**不启用**该项参数
 - 必需超参：
-  - `config`：填入对应config文件在镜像上的绝对路径，在本案例下为 `/home/ma-user/modelarts/user-job-dir/mindformers/configs/gpt2/run_gpt2.yaml`
-  - `run_mode`：train，训练模式，将不加载权重进行训练
-  - `use_parallel`：True，在所选规格参数大于1卡时需要设置为True，单卡运行为False
-  - `remote_save_url`：obs://xxx/xxx/outputs/gpt2_test，填入对象存储服务中实际准备的OBS路径，**训练输出将会回传至该路径下**
-  > 其余可选超参可参照 `run_mindformers.py` 脚本入参进行选择
+    - `config`：填入对应config文件在镜像上的绝对路径，在本案例下为 `/home/ma-user/modelarts/user-job-dir/mindformers/configs/gpt2/run_gpt2.yaml`
+    - `run_mode`：train，训练模式，将不加载权重进行训练
+    - `use_parallel`：True，在所选规格参数大于1卡时需要设置为True，单卡运行为False
+    - `remote_save_url`：obs://xxx/xxx/outputs/gpt2_test，填入对象存储服务中实际准备的OBS路径，**训练输出将会回传至该路径下**
+    > 其余可选超参可参照 `run_mindformers.py` 脚本入参进行选择
 
 ![train_nodes](asserts/train_nodes.png)
 

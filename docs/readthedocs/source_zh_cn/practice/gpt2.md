@@ -8,7 +8,6 @@ GPT-2由OpenAI于2019年发布。GPT-2模型是继承于GPT模型，GPT-2是一�
 
 GPT2套件代码更多细节请参考[文档](https://gitee.com/mindspore/mindformers/blob/r0.3/docs/model_cards/gpt2.md)。
 
-
 #### GPT2 模型开发
 
 GPT2模型代码路径： `mindformers/models/gpt2`
@@ -48,10 +47,10 @@ GPT2配置文件路径: `configs/gpt2`
 ```
 
 - [model_config](https://gitee.com/mindspore/mindformers/tree/r0.3/configs/gpt2/model_config)：模型网络参数配置，其中的参数可以覆盖`mindformers/models/gpt2/gpt2_config.py`的配置；
-- [task_config](https://gitee.com/mindspore/mindformers/tree/r0.3/configs/gpt2/task_config)：
-  + [context.yaml](https://gitee.com/mindspore/mindformers/blob/r0.3/configs/gpt2/task_config/context.yaml)：运行环境、分布式并行等配置；
-  + [gpt2_dataset.yaml](https://gitee.com/mindspore/mindformers/blob/r0.3/configs/gpt2/task_config/gpt2_dataset.yaml)：数据集加载配置；
-  + [runner.yaml](https://gitee.com/mindspore/mindformers/blob/r0.3/configs/gpt2/task_config/runner.yaml)：学习率、优化器等配置；
+- [task_config](https://gitee.com/mindspore/mindformers/tree/r0.3/configs/gpt2/task_config)
+    - [context.yaml](https://gitee.com/mindspore/mindformers/blob/r0.3/configs/gpt2/task_config/context.yaml)：运行环境、分布式并行等配置；
+    - [gpt2_dataset.yaml](https://gitee.com/mindspore/mindformers/blob/r0.3/configs/gpt2/task_config/gpt2_dataset.yaml)：数据集加载配置；
+    - [runner.yaml](https://gitee.com/mindspore/mindformers/blob/r0.3/configs/gpt2/task_config/runner.yaml)：学习率、优化器等配置；
 - [run_gpt2_13b.yaml等](https://gitee.com/mindspore/mindformers/blob/r0.3/configs/gpt2/run_gpt2.yaml)：主配置文件，其中的配置如与以上相同，则以该文件中的配置为准。需要修改配置时，推荐采用在该文件中复写配置的方式。
 
 ```text
@@ -191,14 +190,14 @@ AICC，人工智能计算中心，提供[ModelArts](https://support.huaweicloud.
   ![img/img_1.png](img/img_1.png)
   ![img/img_3.png](img/img_3.png)
 - 点击`创建训练作业`，根据提示填写相关实验信息：
-  + `代码目录`填写代码文件夹的路径
-  + `启动文件`填写`代码目录`中的`run_mindformer.py`路径
+    - `代码目录`填写代码文件夹的路径
+    - `启动文件`填写`代码目录`中的`run_mindformer.py`路径
     ![img/img_4.png](img/img_4.png)
-  + `训练输入`填写`run_mindformer.py`中的入参`dataset`，该操作保证mindrecord数据和对应db文件能够同时拉取到缓存中
+    - `训练输入`填写`run_mindformer.py`中的入参`dataset`，该操作保证mindrecord数据和对应db文件能够同时拉取到缓存中
     ![img/img_5.png](img/img_5.png)
     ![img/img_6.png](img/img_6.png)
-  + `超参`填写`run_mindformer.py`中的入参，如和默认值相同，可不填写。其中，`dataset_id`是数据集名称
+    - `超参`填写`run_mindformer.py`中的入参，如和默认值相同，可不填写。其中，`dataset_id`是数据集名称
     ![img/img_7.png](img/img_7.png)
-  + `环境变量`填写模型训练所需要设置的环境变量
+    - `环境变量`填写模型训练所需要设置的环境变量
     ![img/img_8.png](img/img_8.png)
-  + `启动方式`下的`预置框架`中可以选择用于自己的镜像，前提是用户已将镜像上传到`对象存储服务`，并通过`ModelArts`->`镜像管理`->`注册镜像`将镜像注册
+    - `启动方式`下的`预置框架`中可以选择用于自己的镜像，前提是用户已将镜像上传到`对象存储服务`，并通过`ModelArts`->`镜像管理`->`注册镜像`将镜像注册

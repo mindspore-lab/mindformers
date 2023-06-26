@@ -31,8 +31,7 @@ MindFormers大模型套件为用户提供了pipeline高阶API，支持用户便�
 
 **支持模型**：
 
-* [GPT2](https://gitee.com/mindspore/mindformers/blob/r0.3/docs/model_cards/gpt2.md)
-
+- [GPT2](https://gitee.com/mindspore/mindformers/blob/r0.3/docs/model_cards/gpt2.md)
 
 **使用样例：**
 
@@ -51,7 +50,7 @@ print(pipeline_result)
 
 **支持模型**：
 
-* [BertForMultipleChoice](https://gitee.com/mindspore/mindformers/blob/r0.3/docs/task_cards/text_classification.md)
+- [BertForMultipleChoice](https://gitee.com/mindspore/mindformers/blob/r0.3/docs/task_cards/text_classification.md)
 
 **使用样例：**
 
@@ -90,7 +89,7 @@ print(results)
 
 **支持模型**：
 
-* [BertForTokenClassification](https://gitee.com/mindspore/mindformers/blob/r0.3/docs/task_cards/token_classification.md)
+- [BertForTokenClassification](https://gitee.com/mindspore/mindformers/blob/r0.3/docs/task_cards/token_classification.md)
 
 **使用样例：**
 
@@ -132,7 +131,7 @@ print(results)
 
 **支持模型**：
 
-* [BertForQuestionAnswering](https://gitee.com/mindspore/mindformers/blob/r0.3/docs/task_cards/question_answering.md)
+- [BertForQuestionAnswering](https://gitee.com/mindspore/mindformers/blob/r0.3/docs/task_cards/question_answering.md)
 
 **使用样例：**
 
@@ -168,8 +167,7 @@ print(results)
 
 **支持模型**：
 
-* [T5](https://gitee.com/mindspore/mindformers/blob/r0.3/docs/model_cards/t5.md)
-
+- [T5](https://gitee.com/mindspore/mindformers/blob/r0.3/docs/model_cards/t5.md)
 
 **使用样例：**
 
@@ -189,8 +187,7 @@ print(pipeline_result)
 
 **支持模型**：
 
-* [VIT](https://gitee.com/mindspore/mindformers/blob/r0.3/docs/model_cards/vit.md)
-
+- [VIT](https://gitee.com/mindspore/mindformers/blob/r0.3/docs/model_cards/vit.md)
 
 **使用样例：**
 
@@ -204,8 +201,7 @@ img = load_image("https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/X
 pipeline_result = pipeline_task(img, top_k=3)
 ```
 
-* [Swin](https://gitee.com/mindspore/mindformers/blob/r0.3/docs/model_cards/swin.md)
-
+- [Swin](https://gitee.com/mindspore/mindformers/blob/r0.3/docs/model_cards/swin.md)
 
 **使用样例：**
 
@@ -232,8 +228,7 @@ print(pipeline_result)
 
 **支持模型**：
 
-* [CLIP](https://gitee.com/mindspore/mindformers/blob/r0.3/docs/model_cards/clip.md)
-
+- [CLIP](https://gitee.com/mindspore/mindformers/blob/r0.3/docs/model_cards/clip.md)
 
 **使用样例：**
 

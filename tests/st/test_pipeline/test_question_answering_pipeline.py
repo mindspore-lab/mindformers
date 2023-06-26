@@ -24,8 +24,12 @@ pytest ./tests/st/test_pipeline/test_question_answering_pipeline.py
 """
 import pytest
 
+import mindspore as ms
+
 from mindformers.pipeline import QuestionAnsweringPipeline
 from mindformers import AutoTokenizer, BertForQuestionAnswering, AutoConfig
+
+ms.set_context(mode=0)
 
 
 @pytest.mark.level0
@@ -40,7 +44,6 @@ def test_question_answering_pipeline():
     """
 
     input_data = ["My name is Wolfgang and I live in Berlin - Where do I live?"]
-
 
     tokenizer = AutoTokenizer.from_pretrained('qa_bert_base_uncased_squad')
     qa_squad_config = AutoConfig.from_pretrained('qa_bert_base_uncased_squad')

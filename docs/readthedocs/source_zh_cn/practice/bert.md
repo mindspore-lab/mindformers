@@ -30,7 +30,7 @@ BERT:全名`Bidirectional Encoder Representations from Transformers`模型是谷
 
   ```python
   from mindformers.trainer import Trainer
-  
+
   # 初始化question_answering任务trainer
   trainer = Trainer(task='question_answering',
                     model='qa_bert_base_uncased',
@@ -39,14 +39,13 @@ BERT:全名`Bidirectional Encoder Representations from Transformers`模型是谷
   ```
 
   参数含义如下：
+    - task(str) - 任务名称，'question_answering'为问答任务。
 
-  - task(str) - 任务名称，'question_answering'为问答任务。
+    - model(str) - 模型名称， 'qa_bert_base_uncased'为Bert接question_answering下游任务模型。
 
-  - model(str) - 模型名称， 'qa_bert_base_uncased'为Bert接question_answering下游任务模型。
+    - train_dataset(str) - 训练数据集所在路径。
 
-  - train_dataset(str) - 训练数据集所在路径。
-
-  - eval_dataset(str) - 评估数据集所在路径。
+    - eval_dataset(str) - 评估数据集所在路径。
 
 - 使用现有的预训练权重进行finetune微调
 
