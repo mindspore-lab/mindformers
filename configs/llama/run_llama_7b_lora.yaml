@@ -1,6 +1,8 @@
 seed: 0
 output_dir: './output'  # 当前不支持自定义修改，请勿修改该默认值
-resume_or_finetune_checkpoint: ''
+load_checkpoint: 'llama_7b'
+auto_trans_ckpt: False  # If true, auto transform load_checkpoint to load in distributed model
+resume_training: False
 use_parallel: True
 run_mode: 'finetune'
 
@@ -15,9 +17,6 @@ runner_config:
   batch_size: 2
   sink_mode: True
   sink_size: 2
-  initial_epoch: 0
-  has_trained_epoches: 0
-  has_trained_steps: 0
 
 # optimizer
 optimizer:
@@ -103,8 +102,6 @@ callbacks:
     integrated_save: False
     async_save: False
   - type: ObsMonitor
-eval_callbacks:
-  - type: ObsMonitor
 
 # mindspore context init config
 context:
@@ -154,7 +151,12 @@ model:
     param_init_type: "float16"
     use_past: False
     offset: 0
-
+    checkpoint_name_or_path: "llama_7b_lora"
+    repetition_penalty: 1
+    max_decode_length: 512
+    top_k: 3
+    top_p: 1
+    do_sample: False
   arch:
     type: LlamaForCausalLMWithLora
     pet:
@@ -205,7 +207,4 @@ layer_decay: 0.65
 lr_scale_factor: 256
 
 # cfts init config
-aicc_config:
-  obs_path: "Please input obs url on AICC platform."
-  upload_frequence: 1
-  keep_last: False
+remote_save_url: "Please input obs url on AICC platform."

@@ -61,7 +61,7 @@ class TestLlamaTrainerMethod:
         train_dataset = train_dataset.batch(batch_size=4)
         eval_dataset = eval_dataset.batch(batch_size=4)
 
-        model_config = LlamaConfig(num_layers=2, embedding_size=32, num_heads=2, seq_length=512)
+        model_config = LlamaConfig(num_layers=2, hidden_size=32, num_heads=2, seq_length=512)
         pet = PetConfig()
         pet.pet_type = "lora"
         pet.pet_config = LoraConfig(lora_rank=8, lora_alpha=16, lora_dropout=0.05)
