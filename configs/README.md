@@ -140,7 +140,8 @@ configs统一在run_xxx.yaml中，排序按照修改频率的顺序和一般的�
     - integrated_save: 是否聚合保存。True时表示聚合所有卡权重，这时每张卡权重均一致；False时表示每张卡各自保存自己的权重；当半自动并行模式训练大模型时，通常需要设置为False，以保证权重保存时不会因为内存问题而失败
     - async_save: 是否异步执行保存checkpoint文件
   - type: ObsMonitor: obs数据上传
-  - upload_frequence: 上传频率，默认为-1，表示每个epoch结束后回传；设置大于0的值表示每隔所配置的step数后回传
+  - step_upload_frequence: 每隔多少个step上传一次，默认为-1，表示禁用step间隔上传；配置为大于0的数时，每隔配置数step后执行一次回传
+  - epoch_upload_frequence: 每隔多少个epoch上传一次，默认为1，表示每个epoch结束后回传；设置大于0的值表示每隔所配置的epoch数后回传，数据下沉模式时建议仅使用epoch配置
   - keep_last: 检查obs的文件与AI计算中心平台是否一致，默认True，表示仅保留最后一次回传的内容，前面几次回传内容将会被移除；设为False则会保留每次回传的内容
 - metric: 评估指标配置
   - type: 评估指标类
@@ -151,4 +152,3 @@ configs统一在run_xxx.yaml中，排序按照修改频率的顺序和一般的�
     - type: 图像处理类
   - tokenizer: 分词器配置
     - type: 分词器类
- 
