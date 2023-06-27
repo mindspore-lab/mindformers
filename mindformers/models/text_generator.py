@@ -303,8 +303,7 @@ class GeneratorMixin:
                                         decoder_attention_mask=Tensor(target_mask, mstype.float32))
                 log_probs = self.process_logits(logits, current_index)
             else:
-                inputs = Tensor(input_ids, mstype.int32)
-                seq_length = inputs.shape[1]
+                seq_length = input_ids.shape[1]
                 current_index = [valid_length_each_example[i] - 1 + i * seq_length for i in range(batch_size)]
                 current_index = Tensor(current_index, mstype.int32)
                 logger.debug("validate length: %s", valid_length_each_example)
@@ -312,13 +311,13 @@ class GeneratorMixin:
                     is_first_iteration = self.is_first_iteration
                     # generate input_position & attention_mask for incremental
                     position_ids, attention_mask = self.generate_pos_id_and_mask_for_incr_infer(
-                        input_ids=inputs,
+                        input_ids=input_ids,
                         current_index=current_index,
                         valid_length_each_example=valid_length_each_example
                     )
                     # incremental generate
                     logits = self._incremental_infer(
-                        input_ids=inputs,
+                        input_ids=input_ids,
                         position_ids=position_ids,
                         attention_mask=attention_mask,
                         current_index=current_index,
@@ -326,7 +325,7 @@ class GeneratorMixin:
                     )[0]
                 else:
                     # auto-aggressive generate
-                    logits = self.construct(inputs)[0]
+                    logits = self.construct(Tensor(input_ids, mstype.int32))[0]
                 logits = logits.reshape(-1, logits.shape[-1])
                 log_probs = self.process_logits(logits, current_index, is_first_iteration, self.config.use_past)
 
