@@ -24,7 +24,7 @@ from mindspore.parallel._cost_model_context import _set_multi_subgraphs
 from mindformers.core.callback import ProfileMonitor
 from mindformers.trainer.config_args import ContextConfig, ParallelContextConfig
 from mindformers.tools.register import MindFormerConfig
-from mindformers.tools import PARALLEL_MODE, MODE, get_output_subpath
+from mindformers.tools import PARALLEL_MODE, MODE, get_output_subpath, get_output_root_path
 from mindformers.tools.logger import logger
 
 
@@ -160,3 +160,9 @@ def _set_check_parallel_config(config):
     if parallel_mode not in PARALLEL_MODE.keys():
         raise IndexError(
             'Running parallel mode should be in {}, but get {}'.format(PARALLEL_MODE.keys(), parallel_mode))
+
+    strategy_ckpt_save_file = config.get('strategy_ckpt_save_file', "ckpt_strategy.ckpt")
+    rank_id = int(os.getenv("RANK_ID", "0"))
+    os.makedirs(os.path.join(get_output_root_path(), "strategy"), exist_ok=True)
+    config.strategy_ckpt_save_file = os.path.join(get_output_root_path(), "strategy",
+                                                  strategy_ckpt_save_file.replace(".ckpt", f"_rank_{rank_id}.ckpt"))
