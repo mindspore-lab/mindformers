@@ -182,6 +182,10 @@ class MindFormerBook:
                 _PROJECT_PATH, "configs/gpt2/run_gpt2_13b.yaml")),
             ("gpt2_52b", os.path.join(
                 _PROJECT_PATH, "configs/gpt2/run_gpt2_52b.yaml")),
+            ("gpt2_xl", os.path.join(
+                _PROJECT_PATH, "configs/gpt2/run_gpt2_xl.yaml")),
+            ("gpt2_xl_lora", os.path.join(
+                _PROJECT_PATH, "configs/gpt2/run_gpt2_xl_lora.yaml")),
             ("llama_7b", os.path.join(
                 _PROJECT_PATH, "configs/llama/run_llama_7b.yaml")),
             ("llama_13b", os.path.join(
@@ -289,6 +293,12 @@ class MindFormerBook:
         ("text_generation", OrderedDict([
             ("gpt2", os.path.join(
                 _PROJECT_PATH, "configs/gpt2/run_gpt2.yaml")),
+            ("gpt2_lora", os.path.join(
+                _PROJECT_PATH, "configs/gpt2/run_gpt2_lora.yaml")),
+            ("gpt2_xl", os.path.join(
+                _PROJECT_PATH, "configs/gpt2/run_gpt2_xl.yaml")),
+            ("gpt2_xl_lora", os.path.join(
+                _PROJECT_PATH, "configs/gpt2/run_gpt2_xl_lora.yaml")),
             ("llama_7b", os.path.join(
                 _PROJECT_PATH, "configs/llama/run_llama_7b.yaml")),
             ("llama_13b", os.path.join(
@@ -364,7 +374,10 @@ class MindFormerBook:
             'filip_vit_l_14',
         ]),
         ('gpt2', [
-            'gpt2'
+            'gpt2',
+            'gpt2_lora',
+            'gpt2_xl',
+            'gpt2_xl_lora'
         ]),
         ('llama', [
             'llama_7b',
@@ -437,7 +450,10 @@ class MindFormerBook:
             'filip_vit_l_14',
         ]),
         ('gpt2', [
-            'gpt2'
+            'gpt2',
+            'gpt2_lora',
+            'gpt2_xl',
+            'gpt2_xl_lora'
         ]),
         ('llama', [
             'llama_7b',
@@ -501,6 +517,9 @@ class MindFormerBook:
         ]),
         ('gpt2', [
             'gpt2',
+            'gpt2_lora',
+            'gpt2_xl',
+            'gpt2_xl_lora'
         ]),
         ('llama', [
             'llama',
@@ -661,6 +680,18 @@ class MindFormerBook:
         ('gpt2',
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
           '/XFormer_for_mindspore/gpt2/gpt2.ckpt'
+          ]),
+        ('gpt2_lora',
+         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
+          '/XFormer_for_mindspore/gpt2/gpt2_lora.ckpt'
+          ]),
+        ('gpt2_xl',
+         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
+          '/XFormer_for_mindspore/gpt2/gpt2_xl.ckpt'
+          ]),
+        ('gpt2_xl_lora',
+         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
+          '/XFormer_for_mindspore/gpt2/gpt2_xl_lora.ckpt'
           ]),
         ('pangualpha_2_6b',
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
@@ -851,6 +882,24 @@ class MindFormerBook:
           'XFormer_for_mindspore/bert/bert_base_english/vocab.txt'
           ]),
         ('gpt2',
+         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
+          '/XFormer_for_mindspore/gpt2/vocab.json',
+          'https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
+          '/XFormer_for_mindspore/gpt2/merges.txt'
+          ]),
+        ('gpt2_xl',
+         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
+          '/XFormer_for_mindspore/gpt2/vocab.json',
+          'https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
+          '/XFormer_for_mindspore/gpt2/merges.txt'
+          ]),
+        ('gpt2_lora',
+         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
+          '/XFormer_for_mindspore/gpt2/vocab.json',
+          'https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
+          '/XFormer_for_mindspore/gpt2/merges.txt'
+          ]),
+        ('gpt2_xl_lora',
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
           '/XFormer_for_mindspore/gpt2/vocab.json',
           'https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'

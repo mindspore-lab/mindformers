@@ -271,3 +271,29 @@ trainer = Trainer(task='text_generation', model='gpt2', pet_method='lora', train
 # 调用finetune接口进行微调
 trainer.finetune(finetune_checkpoint="{checkpoint file path}")
 ```
+
+#### 使用微调权重进行评估和推理
+
+Trainer高阶接口进行评估
+
+加载obs上权重gpt2_lora对wikitext-2测试集进行评估，得出PPL约为22.46。
+
+```python
+from mindformers.trainer import Trainer
+# 初始化预训练任务
+trainer = Trainer(task='text_generation', model='gpt2', pet_method='lora', train_dataset="{dataset file path}")
+# 调用evaluate接口进行评估
+trainer.evaluate(eval_checkpoint="gpt2_lora")
+# 'Text Generation Metric': {'loss': 3.1119116364103374, 'PPL': 22.463946278911905}
+```
+
+Pipeline接口进行推理
+
+```python
+from mindformers.pipeline import pipeline
+
+pipeline_task = pipeline("text_generation", model='gpt2_lora', max_length=20)
+pipeline_result = pipeline_task("I love Beijing, because", top_k=3)
+print(pipeline_result)
+# {'text_generation_text': ['I love Beijing, because it\'s the most vibrant city in Asia," says the Chinese-born entrepreneur']}
+```
