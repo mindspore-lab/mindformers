@@ -56,6 +56,7 @@ class BloomConfig(BaseConfig):
                  parallel_config: TransformerOpParallelConfig = default_transformer_config,
                  checkpoint_name_or_path: str = "",
                  moe_config: MoEConfig = default_moe_config,
+                 use_past: bool = False,
                  use_seq_parallel: bool = False,
                  use_select_recompute: bool = False,
                  repetition_penalty: int = 1,
@@ -63,6 +64,7 @@ class BloomConfig(BaseConfig):
                  top_k: int = 5,
                  top_p: int = 1,
                  do_sample: bool = True,
+                 is_npu_acceleration: bool = False,
                  **kwargs):
         super().__init__(**kwargs)
         self.embedding_dropout_prob = embedding_dropout_prob
@@ -83,6 +85,7 @@ class BloomConfig(BaseConfig):
         self.parallel_config = parallel_config
         self.checkpoint_name_or_path = checkpoint_name_or_path
         self.moe_config = moe_config
+        self.use_past = use_past
         self.unk_token_id = unk_token_id
         self.bos_token_id = bos_token_id
         self.eos_token_id = eos_token_id
@@ -95,3 +98,7 @@ class BloomConfig(BaseConfig):
         self.top_k = top_k
         self.top_p = top_p
         self.do_sample = do_sample
+        self.is_npu_acceleration = is_npu_acceleration
+        if self.batch_size is None:
+            self.use_past = False # currently require batch_size = 1
+            self.is_npu_acceleration = False # currently require batch_size = 1
