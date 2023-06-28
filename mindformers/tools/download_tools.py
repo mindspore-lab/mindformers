@@ -36,7 +36,14 @@ class StatusCode:
 
 
 def download_with_progress_bar(url, filepath, chunk_size=1024, timeout=4):
-    '''download_with_progress_bar'''
+    """download_with_progress_bar"""
+    local_id = int(os.getenv("RANK_ID", "0"))
+    if local_id % 8 != 0:
+        logger.info("Wait for the first card to download file. ")
+        while True:
+            if os.path.exists(filepath+".lock"):
+                return True
+
     if not os.path.exists(filepath):
         os.makedirs(os.path.dirname(filepath), exist_ok=True)
 
@@ -84,6 +91,8 @@ def download_with_progress_bar(url, filepath, chunk_size=1024, timeout=4):
                     pbar.update(1024)
         end = time.time()
         logger.info('Download completed!,times: %.2fs', (end - start))
+        if not os.path.exists(filepath+".lock"):
+            os.mknod(filepath+".lock")
         return True
 
     logger.error("%s is unconnected!", url)
