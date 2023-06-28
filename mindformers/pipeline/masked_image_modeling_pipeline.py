@@ -19,7 +19,7 @@ from typing import Optional, Union
 import numpy as np
 from PIL import Image
 
-from mindspore import Tensor
+from mindspore import Tensor, Model
 
 from mindformers.auto_class import AutoProcessor, AutoModel
 from mindformers.mindformer_book import MindFormerBook
@@ -62,7 +62,7 @@ class MaskedImageModelingPipeline(BasePipeline):
     """
     _support_list = MindFormerBook.get_pipeline_support_task_list()['masked_image_modeling'].keys()
 
-    def __init__(self, model: Union[str, BaseModel],
+    def __init__(self, model: Union[str, BaseModel, Model],
                  image_processor: Optional[BaseImageProcessor] = None,
                  **kwargs):
         if isinstance(model, str):
@@ -77,8 +77,8 @@ class MaskedImageModelingPipeline(BasePipeline):
                 raise ValueError(f"{model} is not supported by ImageClassificationForPipeline,"
                                  f"please selected from {self._support_list}.")
 
-        if not isinstance(model, BaseModel):
-            raise TypeError(f"model should be inherited from BaseModel, but got {type(model)}.")
+        if not isinstance(model, (BaseModel, Model)):
+            raise TypeError(f"model should be inherited from BaseModel or Model, but got type {type(model)}.")
 
         if image_processor is None:
             raise ValueError("MaskedImageModelingPipeline"
@@ -133,7 +133,7 @@ class MaskedImageModelingPipeline(BasePipeline):
 
         image_processed = model_inputs["image_processed"]
 
-        images_array = self.model(*image_processed)
+        images_array = self.network(*image_processed)
         images_array = images_array.asnumpy()
         return {"images_array": images_array}
 

@@ -315,7 +315,7 @@ def load_resume_context_from_checkpoint(config):
             break
 
 
-def transform_and_load_checkpoint(config, model, network, dataset, optimizer=None, do_eval=False):
+def transform_and_load_checkpoint(config, model, network, dataset, optimizer=None, do_eval=False, do_predict=False):
     """
     load checkpoint into net, transform checkpoint if transform is True
     1. build net if parallel mode is auto_parallel
@@ -333,7 +333,11 @@ def transform_and_load_checkpoint(config, model, network, dataset, optimizer=Non
             ['semi_auto_parallel', 'auto_parallel', 'hybrid_parallel']:
         if not config.runner_config.sink_mode:
             raise ValueError("When distributed loads are sliced weights, sink_mode must be set True.")
-        if not do_eval:
+        if do_eval:
+            model.infer_predict_layout(*next(dataset.create_tuple_iterator()))
+        elif do_predict:
+            model.infer_predict_layout(dataset)
+        else:
             if config.runner_config.epochs > 1 and config.runner_config.sink_size == 1:
                 raise ValueError(f"When distributed loads are sliced weights, it does not support"
                                  f"epochs = {config.runner_config.epochs} > 1 and "
@@ -341,8 +345,6 @@ def transform_and_load_checkpoint(config, model, network, dataset, optimizer=Non
                                  f"sink_size must be more than 1")
             model.build(train_dataset=dataset, epoch=config.runner_config.epochs,
                         sink_size=config.runner_config.sink_size)
-        else:
-            model.infer_predict_layout(*next(dataset.create_tuple_iterator()))
 
     # 2. transform checkpoint if needed
 

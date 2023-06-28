@@ -21,7 +21,7 @@ from typing import Optional, Union
 import numpy as np
 
 from tqdm import tqdm
-from mindspore import Tensor
+from mindspore import Tensor, Model
 from mindspore.dataset import (
     GeneratorDataset, VisionBaseDataset,
     SourceDataset, MappableDataset
@@ -30,6 +30,7 @@ from mindspore.dataset.engine.datasets import BatchDataset, RepeatDataset
 
 from mindformers.tools import logger
 from mindformers.mindformer_book import print_dict
+from ..auto_class import AutoModel
 from ..models import BaseModel, BaseTokenizer, BaseImageProcessor
 
 
@@ -48,12 +49,20 @@ class BasePipeline(ABC):
     """
     _support_list = {}
 
-    def __init__(self, model: Union[str, BaseModel],
+    def __init__(self, model: Union[str, BaseModel, Model],
                  tokenizer: Optional[BaseTokenizer] = None,
                  image_processor: Optional[BaseImageProcessor] = None,
                  **kwargs):
         super(BasePipeline, self).__init__()
         self.model = model
+        if isinstance(model, str) and model in self._support_list:
+            self.network = AutoModel.from_pretrained(model)
+        elif isinstance(model, BaseModel):
+            self.network = model
+        elif isinstance(model, Model):
+            self.network = model.predict_network
+        else:
+            raise TypeError(f"model should be str or inherited from BaseModel or Model, but got type {type(model)}.")
         self.tokenizer = tokenizer
         self.image_processor = image_processor
         self._preprocess_params, self._forward_params, \

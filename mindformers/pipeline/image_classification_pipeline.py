@@ -19,7 +19,7 @@ import numpy as np
 from PIL import Image
 
 from mindspore.ops import operations as P
-from mindspore import Tensor
+from mindspore import Tensor, Model
 
 from mindformers.auto_class import AutoProcessor, AutoModel
 from mindformers.mindformer_book import MindFormerBook
@@ -65,7 +65,7 @@ class ImageClassificationPipeline(BasePipeline):
     """
     _support_list = MindFormerBook.get_pipeline_support_task_list()['image_classification'].keys()
 
-    def __init__(self, model: Union[str, BaseModel],
+    def __init__(self, model: Union[str, BaseModel, Model],
                  image_processor: Optional[BaseImageProcessor] = None,
                  **kwargs):
         if isinstance(model, str):
@@ -80,8 +80,8 @@ class ImageClassificationPipeline(BasePipeline):
                 raise ValueError(f"{model} is not supported by ImageClassificationForPipeline,"
                                  f"please selected from {self._support_list}.")
 
-        if not isinstance(model, BaseModel):
-            raise TypeError(f"model should be inherited from BaseModel, but got {type(model)}.")
+        if not isinstance(model, (BaseModel, Model)):
+            raise TypeError(f"model should be inherited from BaseModel or Model, but got type {type(model)}.")
 
         if image_processor is None:
             raise ValueError("ImageClassificationFoPipeline"
@@ -136,7 +136,7 @@ class ImageClassificationPipeline(BasePipeline):
 
         image_processed = model_inputs["image_processed"]
 
-        logits_per_image = self.model(image_processed)[0]
+        logits_per_image = self.network(image_processed)[0]
         probs = P.Softmax()(logits_per_image).asnumpy()
         return {"probs": probs}
 

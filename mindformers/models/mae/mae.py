@@ -19,7 +19,6 @@ import numpy as np
 from mindspore import Tensor, Parameter, nn
 from mindspore import dtype as mstype
 from mindspore import ops as P
-from mindspore.ops import functional as F
 import mindspore.common.initializer as weight_init
 from mindformers.mindformer_book import MindFormerBook
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
@@ -171,7 +170,7 @@ class ViTMAEModel(BaseModel):
             (1, 1, 1))
         batch_size = image.shape[0]
         if batch_size == 1:
-            cls_tokens = F.reshape(self.cls_tokens, (1, image.shape[1], -1))
+            cls_tokens = self.cls_tokens
         else:
             cls_tokens = self.tile(self.cls_tokens, (batch_size, 1, 1))
         cls_tokens = self.add(cls_tokens, cls_pos_embedding)

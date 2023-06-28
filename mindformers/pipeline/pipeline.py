@@ -17,6 +17,7 @@
 pipeline
 """
 from typing import Optional, Union
+from mindspore import Model
 
 from mindformers.models import build_model, build_tokenizer, build_processor, \
     BaseModel, BaseTokenizer, BaseImageProcessor, BaseAudioProcessor
@@ -30,7 +31,7 @@ SUPPORT_MODEL_NAMES = MindFormerBook().get_model_name_support_list()
 
 def pipeline(
         task: str = None,
-        model: Optional[Union[str, BaseModel]] = None,
+        model: Optional[Union[str, BaseModel, Model]] = None,
         tokenizer: Optional[BaseTokenizer] = None,
         image_processor: Optional[BaseImageProcessor] = None,
         audio_processor: Optional[BaseAudioProcessor] = None,

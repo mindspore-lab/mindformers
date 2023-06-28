@@ -288,8 +288,6 @@ class LlamaForCausalLM(BaseModel):
         self.add = P.Add().shard(((parallel_config.data_parallel, 1), ()))
 
         # used for increased predict
-        self.gather = P.Gather().shard(((1, 1), (1,)))
-        self.zero_index = Tensor([0], mstype.int32)
         self.is_first_iteration = True
 
         self.load_checkpoint(config)
@@ -311,13 +309,7 @@ class LlamaForCausalLM(BaseModel):
             tokens = input_ids
 
         output = self.model(tokens, input_position, init_reset, batch_valid_length)
-        if input_position is not None:
-            # predict
-            if self.is_first_iteration is False:
-                output = self.gather(output, self.zero_index, 1)
-            logits = self.lm_head(output)  # only compute last logits
-        else:
-            logits = self.lm_head(output)
+        logits = self.lm_head(output)
 
         input_mask = self.cast(self.not_equal(tokens, self.pad_token_id), mstype.float32)
         if label_ids is None:

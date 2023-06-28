@@ -18,7 +18,7 @@ import os.path
 from typing import Union, Optional
 
 import mindspore
-from mindspore import Tensor
+from mindspore import Tensor, Model
 
 from ..auto_class import AutoProcessor, AutoModel
 from ..mindformer_book import MindFormerBook
@@ -52,7 +52,7 @@ class TranslationPipeline(BasePipeline):
     _support_list = MindFormerBook.get_model_support_list()['t5']
     return_name = 'translation'
 
-    def __init__(self, model: Union[str, BaseModel],
+    def __init__(self, model: Union[str, BaseModel, Model],
                  tokenizer: Optional[BaseTokenizer] = None,
                  **kwargs):
         if isinstance(model, str):
@@ -67,8 +67,8 @@ class TranslationPipeline(BasePipeline):
                 raise ValueError(f"{model} is not supported by {self.__class__.__name__},"
                                  f"please selected from {self._support_list}.")
 
-        if not isinstance(model, BaseModel):
-            raise TypeError(f"model should be inherited from BaseModel, but got type {type(model)}.")
+        if not isinstance(model, (BaseModel, Model)):
+            raise TypeError(f"model should be inherited from BaseModel or Model, but got type {type(model)}.")
 
         if tokenizer is None:
             raise ValueError(f"{self.__class__.__name__}"
@@ -129,7 +129,7 @@ class TranslationPipeline(BasePipeline):
         """
         forward_params.pop("None", None)
         input_ids = model_inputs["input_ids"]
-        output_ids = self.model.generate(input_ids, **forward_params)
+        output_ids = self.network.generate(input_ids, **forward_params)
         return {"output_ids": output_ids}
 
     def postprocess(self, model_outputs: dict,

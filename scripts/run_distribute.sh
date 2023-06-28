@@ -14,10 +14,12 @@
 # limitations under the License.
 # ============================================================================
 
-if [ $# != 4 ] && [ $# != 5 ]
+if [ $# != 4 ] && [ $# != 5 ] && [ $# != 6 ]
 then
   echo "Usage Help: bash run_distribute.sh [RANK_TABLE_FILE] [CONFIG_PATH] [DEVICE_RANGE] [RUN_STATUS] For Multiple Devices In Single Machine"
   echo "Usage Help: bash run_distribute.sh [RANK_TABLE_FILE] [CONFIG_PATH] [DEVICE_RANGE] [RUN_STATUS] [RANK_SIZE] For Multiple Devices In Multiple Machines"
+  echo "Usage Help: bash run_distribute.sh [RANK_TABLE_FILE] [CONFIG_PATH] [DEVICE_RANGE] predict [PREDICT_DATA] For Multiple Devices Predict In Single Machine"
+  echo "Usage Help: bash run_distribute.sh [RANK_TABLE_FILE] [CONFIG_PATH] [DEVICE_RANGE] predict [RANK_SIZE] [PREDICT_DATA] For Multiple Devices Predict In Multiple Machines"
   exit 1
 fi
 
@@ -63,12 +65,23 @@ exit 1
 fi
 
 ulimit -u unlimited
-
-if [ $# == 4 ]
+if [ $RUN_STATUS != "predict" ]
 then
-  export RANK_SIZE=$(($END_DEVICE - $START_DEVICE))
+  if [ $# == 4 ]
+  then
+    export RANK_SIZE=$(($END_DEVICE - $START_DEVICE))
+  else
+    export RANK_SIZE=$5
+  fi
 else
-  export RANK_SIZE=$5
+  if [ $# == 5 ]
+  then
+    export RANK_SIZE=$(($END_DEVICE - $START_DEVICE))
+    PREDICT_DATA=$5
+  else
+    export RANK_SIZE=$5
+    PREDICT_DATA=$6
+  fi
 fi
 
 export RANK_TABLE_FILE=$PATH1
@@ -77,43 +90,85 @@ export CHECKPOINT_DOWNLOAD_FOLDER="../../checkpoint_download"
 export CHECKPOINT_SAVE_FOLDER="../../checkpoint_save"
 
 shopt -s extglob
-if [ $# == 4 ]
+if [ $RUN_STATUS != "predict" ]
 then
-  for((i=${START_DEVICE}; i<${END_DEVICE}; i++))
-  do
-      export DEVICE_ID=${i}
-      export RANK_ID=$((i-START_DEVICE))
-      rm -rf ./mf_parallel$i/!(rank_*)
-      test -d ./mf_parallel$i || mkdir ./mf_parallel$i
-      cp ../*.py ./mf_parallel$i
-      cp -r ../configs ./mf_parallel$i
-      cp -r ../mindformers ./mf_parallel$i
-      cd ./mf_parallel$i || exit
-      echo "start training for rank $RANK_ID, device $DEVICE_ID"
-      env > env.log
-      mkdir -p ../../output/log/rank_$RANK_ID
-      python run_mindformer.py --config=$CONFIG_FILE --use_parallel=True --run_mode=$RUN_STATUS \
-             &> ../../output/log/rank_$RANK_ID/mindformers.log &
-      cd ..
-  done
+  if [ $# == 4 ]
+  then
+    for((i=${START_DEVICE}; i<${END_DEVICE}; i++))
+    do
+        export DEVICE_ID=${i}
+        export RANK_ID=$((i-START_DEVICE))
+        rm -rf ./mf_parallel$i/!(rank_*)
+        test -d ./mf_parallel$i || mkdir ./mf_parallel$i
+        cp ../*.py ./mf_parallel$i
+        cp -r ../configs ./mf_parallel$i
+        cp -r ../mindformers ./mf_parallel$i
+        cd ./mf_parallel$i || exit
+        echo "start training for rank $RANK_ID, device $DEVICE_ID"
+        env > env.log
+        mkdir -p ../../output/log/rank_$RANK_ID
+        python run_mindformer.py --config=$CONFIG_FILE --use_parallel=True --run_mode=$RUN_STATUS \
+               &> ../../output/log/rank_$RANK_ID/mindformer.log &
+        cd ..
+    done
+  else
+    for((i=${START_DEVICE}; i<${END_DEVICE}; i++))
+    do
+        export RANK_ID=${i}
+        export DEVICE_ID=$((i-START_DEVICE))
+        rm -rf ./mf_parallel$i/!(rank_*)
+        test -d ./mf_parallel$i || mkdir ./mf_parallel$i
+        cp ../*.py ./mf_parallel$i
+        cp -r ../configs ./mf_parallel$i
+        cp -r ../mindformers ./mf_parallel$i
+        cd ./mf_parallel$i || exit
+        echo "start training for rank $RANK_ID, device $DEVICE_ID"
+        env > env.log
+        mkdir -p ../../output/log/rank_$RANK_ID
+        python run_mindformer.py --config=$CONFIG_FILE --use_parallel=True --run_mode=$RUN_STATUS \
+               &> ../../output/log/rank_$RANK_ID/mindformer.log &
+        cd ..
+    done
+  fi
 else
-  for((i=${START_DEVICE}; i<${END_DEVICE}; i++))
-  do
-      export RANK_ID=${i}
-      export DEVICE_ID=$((i-START_DEVICE))
-      rm -rf ./mf_parallel$i/!(rank_*)
-      test -d ./mf_parallel$i || mkdir ./mf_parallel$i
-      cp ../*.py ./mf_parallel$i
-      cp -r ../configs ./mf_parallel$i
-      cp -r ../mindformers ./mf_parallel$i
-      cd ./mf_parallel$i || exit
-      echo "start training for rank $RANK_ID, device $DEVICE_ID"
-      env > env.log
-      mkdir -p ../../output/log/rank_$RANK_ID
-      python run_mindformer.py --config=$CONFIG_FILE --use_parallel=True --run_mode=$RUN_STATUS \
-             &> ../../output/log/rank_$RANK_ID/mindformers.log &
-      cd ..
-  done
+  if [ $# == 5 ]
+  then
+    for((i=${START_DEVICE}; i<${END_DEVICE}; i++))
+    do
+        export DEVICE_ID=${i}
+        export RANK_ID=$((i-START_DEVICE))
+        rm -rf ./mf_parallel$i/!(rank_*)
+        test -d ./mf_parallel$i || mkdir ./mf_parallel$i
+        cp ../*.py ./mf_parallel$i
+        cp -r ../configs ./mf_parallel$i
+        cp -r ../mindformers ./mf_parallel$i
+        cd ./mf_parallel$i || exit
+        echo "start training for rank $RANK_ID, device $DEVICE_ID"
+        env > env.log
+        mkdir -p ../../output/log/rank_$RANK_ID
+        python run_mindformer.py --config=$CONFIG_FILE --use_parallel=True --run_mode=$RUN_STATUS \
+               --predict_data "$PREDICT_DATA" &> ../../output/log/rank_$RANK_ID/mindformer.log &
+        cd ..
+    done
+  else
+    for((i=${START_DEVICE}; i<${END_DEVICE}; i++))
+    do
+        export RANK_ID=${i}
+        export DEVICE_ID=$((i-START_DEVICE))
+        rm -rf ./mf_parallel$i/!(rank_*)
+        test -d ./mf_parallel$i || mkdir ./mf_parallel$i
+        cp ../*.py ./mf_parallel$i
+        cp -r ../configs ./mf_parallel$i
+        cp -r ../mindformers ./mf_parallel$i
+        cd ./mf_parallel$i || exit
+        echo "start training for rank $RANK_ID, device $DEVICE_ID"
+        env > env.log
+        mkdir -p ../../output/log/rank_$RANK_ID
+        python run_mindformer.py --config=$CONFIG_FILE --use_parallel=True --run_mode=$RUN_STATUS \
+               --predict_data "$PREDICT_DATA" &> ../../output/log/rank_$RANK_ID/mindformer.log &
+        cd ..
+    done
+  fi
 fi
 shopt -u extglob
 
