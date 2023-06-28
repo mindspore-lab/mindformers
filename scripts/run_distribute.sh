@@ -73,6 +73,8 @@ fi
 
 export RANK_TABLE_FILE=$PATH1
 export LOCAL_DEFAULT_PATH="../../output"
+export CHECKPOINT_DOWNLOAD_FOLDER="../../checkpoint_download"
+export CHECKPOINT_SAVE_FOLDER="../../checkpoint_save"
 
 shopt -s extglob
 if [ $# == 4 ]
