@@ -71,6 +71,7 @@ class MaskLanguageModelDataset(BaseDataset):
                     for file in f:
                         if file.endswith(".mindrecord") or file.endswith(".tfrecord"):
                             dataset_files.append(os.path.join(r, file))
+                dataset_files.sort()
             else:
                 if data_dir.endswith(".mindrecord") or data_dir.endswith(".tfrecord"):
                     dataset_files = data_dir

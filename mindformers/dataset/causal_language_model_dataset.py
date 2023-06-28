@@ -194,6 +194,7 @@ class CausalLanguageModelDataset(BaseDataset):
                     for file in f:
                         if re.findall(mind_compile, file) or file.endswith(".tfrecord"):
                             dataset_files.append(os.path.join(r, file))
+                dataset_files.sort()
             else:
                 if re.findall(mind_compile, data_dir) or data_dir.endswith(".tfrecord"):
                     dataset_files = data_dir

@@ -140,6 +140,7 @@ class TranslationDataset(BaseDataset):
                     for file in f:
                         if file.endswith(".mindrecord"):
                             dataset_files.append(os.path.join(r, file))
+                dataset_files.sort()
             else:
                 if data_dir.endswith(".mindrecord"):
                     dataset_files = data_dir
