@@ -152,6 +152,9 @@ if __name__ == "__main__":
              "please refer to https://gitee.com/mindspore/mindformers#%E4%BB%8B%E7%BB%8D."
              "Default: None")
     parser.add_argument(
+        '--only_save_strategy', default=None, type=str2bool,
+        help="if true, when strategy files are saved, system exit. ")
+    parser.add_argument(
         '--resume_training', default=None, type=str2bool,
         help="whether to load training context info, such as optimizer and epoch num")
     parser.add_argument(
@@ -218,6 +221,8 @@ if __name__ == "__main__":
         config_.use_parallel = args_.use_parallel
     if args_.load_checkpoint is not None:
         config_.load_checkpoint = args_.load_checkpoint
+    if args_.only_save_strategy is not None:
+        config_.only_save_strategy = args_.only_save_strategy
     if args_.resume_training is not None:
         config_.resume_training = args_.resume_training
     if args_.strategy_load_checkpoint is not None:
