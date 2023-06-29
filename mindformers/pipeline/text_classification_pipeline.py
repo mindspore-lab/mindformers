@@ -17,7 +17,7 @@
 import os.path
 
 import numpy as np
-from mindspore import ops, Tensor
+from mindspore import ops, Tensor, Model
 from ..auto_class import AutoProcessor, AutoModel
 from ..mindformer_book import MindFormerBook
 from .base_pipeline import BasePipeline
@@ -74,8 +74,8 @@ class TextClassificationPipeline(BasePipeline):
                 raise ValueError(f"{model} is not supported by {self.__class__.__name__},"
                                  f"please selected from {self._support_list}.")
 
-        if not isinstance(model, BaseModel):
-            raise TypeError(f"model should be inherited from BaseModel, but got type {type(model)}.")
+        if not isinstance(model, (BaseModel, Model)):
+            raise TypeError(f"model should be inherited from BaseModel or Model, but got type {type(model)}.")
 
         if tokenizer is None:
             raise ValueError(f"{self.__class__.__name__}"
@@ -175,7 +175,7 @@ class TextClassificationPipeline(BasePipeline):
             probs dict.
         """
         forward_params.pop("None", None)
-        output_ids = self.model(**model_inputs)
+        output_ids = self.network(**model_inputs)
         return output_ids
 
     def softmax(self, outputs):

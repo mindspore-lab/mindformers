@@ -49,7 +49,7 @@ def update_checkpoint_config(config, is_train=True):
             config.model.model_config.checkpoint_name_or_path = None
         elif config.run_mode == 'finetune':
             config.model.model_config.checkpoint_name_or_path = config.load_checkpoint
-        elif config.run_mode == 'eval' and config.load_checkpoint:
+        elif config.run_mode in ['eval', 'predict'] and config.load_checkpoint:
             config.model.model_config.checkpoint_name_or_path = config.load_checkpoint
         config.load_checkpoint = None
 
@@ -79,15 +79,8 @@ def main(config):
                              "load_checkpoint must be input")
         update_checkpoint_config(config)
 
-    if config.run_mode == 'eval':
+    if config.run_mode in ['eval', 'predict']:
         update_checkpoint_config(config, is_train=False)
-
-    if config.run_mode == "predict" and config.load_checkpoint:
-        if config.auto_trans_ckpt:
-            logger.warning("In the predict mode, distributed loading weights are not supported."
-                           "Only single-card reasoning is supported")
-        config.model.model_config.checkpoint_name_or_path = config.load_checkpoint
-        config.load_checkpoint = None
 
     # remote save url
     if check_in_modelarts() and config.remote_save_url:

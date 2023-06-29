@@ -21,7 +21,7 @@ import collections
 import math
 import six
 
-from mindspore import Tensor
+from mindspore import Tensor, Model
 from mindspore.common import dtype as mstype
 from mindformers.models import BasicTokenizer
 from ..dataset.dataloader.squad_dataloader import convert_examples_to_features, SquadExample
@@ -78,8 +78,8 @@ class QuestionAnsweringPipeline(BasePipeline):
                 raise ValueError(f"{model} is not supported by {self.__class__.__name__},"
                                  f"please selected from {self._support_list}.")
 
-        if not isinstance(model, BaseModel):
-            raise TypeError(f"model should be inherited from BaseModel, but got type {type(model)}.")
+        if not isinstance(model, (BaseModel, Model)):
+            raise TypeError(f"model should be inherited from BaseModel or Model, but got type {type(model)}.")
 
         if tokenizer is None:
             raise ValueError(f"{self.__class__.__name__}"
@@ -179,7 +179,7 @@ class QuestionAnsweringPipeline(BasePipeline):
                             "end_position": Tensor(feature.end_position, mstype.int32).expand_dims(0),
                             "unique_id": Tensor(feature.unique_id, mstype.int32).expand_dims(0)}
 
-            ids, start, end = self.model(**model_inputs)
+            ids, start, end = self.network(**model_inputs)
 
             RawResult = collections.namedtuple("RawResult", ["unique_id", "start_logits", "end_logits"])
             unique_id = int(ids[0])

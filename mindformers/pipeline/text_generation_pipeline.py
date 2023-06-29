@@ -18,7 +18,7 @@ import os.path
 from typing import Union, Optional
 
 import mindspore
-from mindspore import Tensor
+from mindspore import Tensor, Model
 
 from ..auto_class import AutoProcessor, AutoModel
 from ..mindformer_book import MindFormerBook
@@ -59,7 +59,7 @@ class TextGenerationPipeline(BasePipeline):
     _support_list = _setup_support_list(["gpt2", "glm"])
     return_name = 'text_generation'
 
-    def __init__(self, model: Union[str, BaseModel],
+    def __init__(self, model: Union[str, BaseModel, Model],
                  tokenizer: Optional[BaseTokenizer] = None,
                  **kwargs):
         if isinstance(model, str):
@@ -74,11 +74,12 @@ class TextGenerationPipeline(BasePipeline):
                 raise ValueError(f"{model} is not supported by {self.__class__.__name__},"
                                  f"please selected from {self._support_list}.")
 
-        if not isinstance(model, BaseModel):
-            raise TypeError(f"model should be inherited from BaseModel, but got type {type(model)}.")
+        if not isinstance(model, (BaseModel, Model)):
+            raise TypeError(f"model should be inherited from BaseModel or Model, but got type {type(model)}.")
 
         # glm generate needs add_special_tokens
-        if isinstance(model, GLMForPreTraining):
+        if isinstance(model, GLMForPreTraining) or \
+                (isinstance(model, Model) and isinstance(model.predict_network, GLMForPreTraining)):
             kwargs['add_special_tokens'] = True
 
         if tokenizer is None:
@@ -141,7 +142,7 @@ class TextGenerationPipeline(BasePipeline):
         """
         forward_params.pop("None", None)
         input_ids = model_inputs["input_ids"]
-        output_ids = self.model.generate(input_ids, **forward_params)
+        output_ids = self.network.generate(input_ids, **forward_params)
         return {"output_ids": output_ids}
 
     def postprocess(self, model_outputs: dict,

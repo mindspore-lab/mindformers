@@ -359,7 +359,7 @@ class Trainer:
             >>> task_trainer = Trainer(task='image_classification',
             ...                        model='vit_base_p16',
             ...                        train_dataset='data/imagenet/train',
-            ...                        eval_dataset='data/imagenet/train')
+            ...                        eval_dataset='data/imagenet/eval')
             >>> # 1) default train task to reproduce model.
             >>> task_trainer.train()
             >>> # 2) eval network when train task to reproduce model.
@@ -582,6 +582,7 @@ class Trainer:
 
     def predict(self,
                 predict_checkpoint: Optional[Union[str, bool]] = None,
+                auto_trans_ckpt: bool = False,
                 input_data: Optional[Union[GeneratorDataset,
                                            Tensor, np.ndarray, Image, str, list]] = None, **kwargs):
         r"""Predict task for Trainer.
@@ -593,6 +594,7 @@ class Trainer:
                 It support real checkpoint path or valid model name of mindformers or bool value.
                 if it's true, the last checkpoint file saved from the previous training round is automatically used.
                 Default: False.
+            auto_trans_ckpt: auto transform checkpoint to load in distributed model
             input_data (Optional[Union[Tensor, np.ndarray, Image, str, list]]): The predict data. Default: None.
 
         Return:
@@ -626,6 +628,31 @@ class Trainer:
         if predict_checkpoint is False:
             predict_checkpoint = None
 
+        if predict_checkpoint is True:
+            self.config.model.model_config.checkpoint_name_or_path = None
+            self.config.load_checkpoint = self.get_last_checkpoint()
+        elif isinstance(predict_checkpoint, str):
+            if auto_trans_ckpt or os.path.isdir(predict_checkpoint):
+                self.config.model.model_config.checkpoint_name_or_path = None
+                self.config.load_checkpoint = predict_checkpoint
+            else:
+                self.config.model.model_config.checkpoint_name_or_path = predict_checkpoint
+                self.config.load_checkpoint = None
+        else:
+            self.default_checkpoint_name_or_path = self.config.model.model_config.checkpoint_name_or_path
+            if auto_trans_ckpt:
+                if self.is_model_instance:
+                    logger.warning(
+                        "When a model instance is identified,"
+                        "the weights that are currently proposed to be evaluated are specified"
+                        "by the eval_checkpoint argument or a model instance "
+                        "with the model weights already loaded is imported")
+                else:
+                    self.config.load_checkpoint = self.config.model.model_config.checkpoint_name_or_path
+                self.config.model.model_config.checkpoint_name_or_path = None
+            else:
+                self.config.load_checkpoint = None
+
         if input_data is None:
             input_data = build_dataset_loader(self.config.eval_dataset.data_loader)
             logger.info("dataset by config is used as input_data.")
@@ -634,11 +661,6 @@ class Trainer:
                                        np.ndarray, Image, str, list)), \
             "Input data's type must be one of [GeneratorDataset," \
             " str, ms.Tensor, np.ndarray, PIL.Image.Image]"
-
-        self._check_checkpoint_config(predict_checkpoint)
-
-        # build network
-        self.build_network(predict_checkpoint, is_train=False)
 
         if self.is_model_instance:
             self.reset_model_instance(is_train=False)

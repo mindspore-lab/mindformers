@@ -236,6 +236,18 @@ class RotaryEmbeddingFP32SoftmaxSelfAttention(nn.Cell):
         self.reduce_max = P.ReduceMax(keep_dims=False)
         self.split = P.Split(axis=-1, output_num=2)
 
+        self.merger_head_transpose = P.Transpose().shard(
+            ((parallel_config.data_parallel, parallel_config.model_parallel, 1, 1),))
+
+        self.concat_query = P.Concat(axis=3).shard(
+            ((parallel_config.data_parallel, parallel_config.model_parallel, 1, 1),
+             (parallel_config.data_parallel, parallel_config.model_parallel, 1, 1))
+        )
+        self.concat_key = P.Concat(axis=3).shard(
+            ((parallel_config.data_parallel, parallel_config.model_parallel, 1, 1),
+             (parallel_config.data_parallel, parallel_config.model_parallel, 1, 1))
+        )
+
         if self.use_past:
             # operators used for state reuse
             seq_range = np.arange(max_seq_len).reshape(1, 1, -1)  # [1, 1, config.seq_length]
@@ -253,18 +265,8 @@ class RotaryEmbeddingFP32SoftmaxSelfAttention(nn.Cell):
             self.tile = P.Tile().shard(((1, 1, 1, 1),))
             self.less = P.Less().shard(((1, 1, 1), (1, 1, 1)))
             self.mul1 = P.Mul().shard(((1, 1, 1, 1), (1, 1, 1, 1)))
-
-        self.merger_head_transpose = P.Transpose().shard(
-            ((parallel_config.data_parallel, parallel_config.model_parallel, 1, 1),))
-
-        self.concat_query = P.Concat(axis=3).shard(
-            ((parallel_config.data_parallel, parallel_config.model_parallel, 1, 1),
-             (parallel_config.data_parallel, parallel_config.model_parallel, 1, 1))
-        )
-        self.concat_key = P.Concat(axis=3).shard(
-            ((parallel_config.data_parallel, parallel_config.model_parallel, 1, 1),
-             (parallel_config.data_parallel, parallel_config.model_parallel, 1, 1))
-        )
+            self.concat_query = P.Concat(axis=3).shard(((1, 1, 1, 1), (1, 1, 1, 1)))
+            self.concat_key = P.Concat(axis=3).shard(((1, 1, 1, 1), (1, 1, 1, 1)))
 
     def attention_fn(
             self,

@@ -15,6 +15,8 @@
 
 """ZeroShotImageClassificationPipeline"""
 from typing import Union, Optional
+
+from mindspore import Model
 from mindspore.ops import operations as P
 
 from mindformers.mindformer_book import MindFormerBook
@@ -61,7 +63,7 @@ class ZeroShotImageClassificationPipeline(BasePipeline):
     """
     _support_list = MindFormerBook.get_pipeline_support_task_list()['zero_shot_image_classification'].keys()
 
-    def __init__(self, model: Union[str, BaseModel],
+    def __init__(self, model: Union[str, BaseModel, Model],
                  tokenizer: Optional[BaseTokenizer] = None,
                  image_processor: Optional[BaseImageProcessor] = None,
                  **kwargs):
@@ -82,8 +84,8 @@ class ZeroShotImageClassificationPipeline(BasePipeline):
                 raise ValueError(f"{model} is not supported by ZeroShotImageClassificationPipeline,"
                                  f"please selected from {self._support_list}.")
 
-        if not isinstance(model, BaseModel):
-            raise TypeError(f"model should be inherited from BaseModel, but got {type(model)}.")
+        if not isinstance(model, (BaseModel, Model)):
+            raise TypeError(f"model should be inherited from BaseModel or Model, but got type {type(model)}.")
 
         if tokenizer is None:
             raise ValueError("ZeroShotImageClassificationPipeline"
@@ -170,7 +172,7 @@ class ZeroShotImageClassificationPipeline(BasePipeline):
         image_processed = model_inputs["image_processed"]
         input_ids = model_inputs["input_ids"]
 
-        logits_per_image, _ = self.model(image_processed, input_ids)
+        logits_per_image, _ = self.network(image_processed, input_ids)
         probs = P.Softmax()(logits_per_image).asnumpy()
         return {"probs": probs, "candidate_labels": model_inputs["candidate_labels"]}
 

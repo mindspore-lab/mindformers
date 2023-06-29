@@ -27,6 +27,7 @@ from mindspore.dataset import GeneratorDataset
 from mindspore.nn.wrap.cell_wrapper import _VirtualDatasetCell
 from mindspore.nn import TrainOneStepCell, Optimizer, Cell, \
     PipelineCell, MicroBatchInterleaved
+from mindspore.common import initializer as init
 
 from mindformers.mindformer_book import MindFormerBook
 from mindformers.core import build_lr, build_optim, build_callback, build_metric
@@ -90,6 +91,7 @@ class BaseTrainer:
         self.model_wrapper = None
         self.compute_metrics = None
         self.kwargs = None
+        self.pipeline_task = None
 
         if not os.path.exists(os.path.join('.', DEFAULT_CONFIG_DIR)):
             configs_directory = os.path.join('.', DEFAULT_CONFIG_DIR)
@@ -682,30 +684,56 @@ class BaseTrainer:
                         image_processor: Optional[BaseImageProcessor] = None,
                         audio_processor: Optional[BaseImageProcessor] = None, **kwargs):
         """Predict for BaseTrainer in MindFormers."""
-        is_full_config = kwargs.get("is_full_config", False)
-        config = self.set_config(config, is_full_config)
+        if not self.pipeline_task:
+            is_full_config = kwargs.get("is_full_config", False)
+            config = self.set_config(config, is_full_config)
 
-        # build network
-        if network is None:
-            network = self.create_network(default_args={"parallel_config": config.parallel_config,
-                                                        "moe_config": config.moe_config})
-        self.set_network(network, is_train=False)
+            # build network
+            if network is None:
+                network = self.create_network(default_args={"parallel_config": config.parallel_config,
+                                                            "moe_config": config.moe_config})
+            self.set_network(network, is_train=False)
 
-        self.count_parameters()
+            self.count_parameters()
 
-        if tokenizer is None and config.processor.tokenizer:
-            tokenizer = build_tokenizer(config.processor.tokenizer)
+            if tokenizer is None and config.processor.tokenizer:
+                tokenizer = build_tokenizer(config.processor.tokenizer)
 
-        if image_processor is None and config.processor.image_processor:
-            image_processor = build_processor(config.processor.image_processor)
+            if image_processor is None and config.processor.image_processor:
+                image_processor = build_processor(config.processor.image_processor)
 
-        if audio_processor is None and config.processor.audio_processor:
-            audio_processor = build_processor(config.processor.audio_processor)
+            if audio_processor is None and config.processor.audio_processor:
+                audio_processor = build_processor(config.processor.audio_processor)
+
+            model = Model(network)
+
+            if config.load_checkpoint:
+                if ms.context.get_auto_parallel_context('parallel_mode') in \
+                        ['semi_auto_parallel', 'auto_parallel', 'hybrid_parallel']:
+                    if task not in ["translation", "text_generation"]:
+                        raise SystemExit("Currently distributed predict only support translation and text_generation. "
+                                         "Process exit!")
+                    seq_length = config.model.model_config.seq_length
+                    infer_data = Tensor(shape=(1, seq_length), dtype=ms.int32, init=init.One())
+                    transform_and_load_checkpoint(config, model, network, infer_data, do_predict=True)
+                else:
+                    transform_and_load_checkpoint(config, model, network, None, do_predict=True)
+
+            self.pipeline_task = pipeline(
+                task=task,
+                model=network,
+                tokenizer=tokenizer,
+                image_processor=image_processor,
+                audio_processor=audio_processor,
+                **kwargs
+            )
 
         top_k = kwargs.pop("top_k", None)
         if top_k is None:
             if config.top_k is not None:
                 top_k = config.top_k
+            elif config.model and config.model.model_config.top_k:
+                top_k = config.model.model_config.top_k
             else:
                 top_k = 1
 
@@ -716,16 +744,7 @@ class BaseTrainer:
             else:
                 save_file = f"{task}_result.txt"
 
-        pipeline_task = pipeline(
-            task=task,
-            model=network,
-            tokenizer=tokenizer,
-            image_processor=image_processor,
-            audio_processor=audio_processor,
-            **kwargs
-        )
-
-        output_results = pipeline_task(input_data, top_k=top_k)
+        output_results = self.pipeline_task(input_data, top_k=top_k)
 
         output_info = []
 

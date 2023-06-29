@@ -237,9 +237,9 @@ class MindFormerBook:
         ])),
         ('masked_image_modeling', OrderedDict([
             ('mae_vit_base_p16', os.path.join(
-                _PROJECT_PATH, "configs/mae/model_config/mae_vit_base_p16.yaml")),
+                _PROJECT_PATH, "configs/mae/run_mae_vit_base_p16_224_800ep.yaml")),
             ('common', os.path.join(
-                _PROJECT_PATH, "configs/mae/model_config/mae_vit_base_p16.yaml"))
+                _PROJECT_PATH, "configs/mae/run_mae_vit_base_p16_224_800ep.yaml"))
         ])),
         ('image_classification', OrderedDict([
             ('vit_base_p16', os.path.join(

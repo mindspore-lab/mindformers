@@ -391,21 +391,22 @@ class GeneratorMixin:
 
         Args:
             input_ids(List(str), List(List(str))): The token id list or a list of token id list.
-            do_sample(bool): Whether do sampling on the candidate ids. If set True it will be enabled, and set it to be
-                False to disable the sampling, equivalent to topk 1. If set None, it follow the setting in the
-                configureation in the model. Default None.
+            do_sample(bool): Whether to do sampling on the candidate ids.
+                If set True it will be enabled, and set it to be False to disable the sampling, equivalent to topk 1.
+                If set None, it follows the setting in the configureation in the model. Default None.
             top_k(int): Determine the topK numbers token id as candidate. This should be a positive number.
                 If set None, it follows the setting in the configureation in the model. Default None.
             top_p(float): The accumulation probability of the candidate token ids below the top_p will be select as the
-                condaite ids. The validate the value of top_p is between (0, 1]. If the value is larger than 1,
-                top_K algorithm will be enabled. If set None, it follow the setting in the configureation in the model.
+                condaite ids. The valid value of top_p is between (0, 1]. If the value is larger than 1,
+                top_K algorithm will be enabled. If set None, it follows the setting in the configureation in the model.
                 Default None.
-            eos_token_id(int): The end of sentence token id. If set None, it follow the setting in the configureation
+            eos_token_id(int): The end of sentence token id. If set None, it follows the setting in the configureation
                 in the model. Default None.
+            pad_token_id:
             repetition_penalty(float): The penalty factor of the frequency that generated words. The If set 1,
-                the repetition_penalty will not be enabled. If set None, it follow the setting in the configureation in
+                the repetition_penalty will not be enabled. If set None, it follows the setting in the configureation in
                 the model. Default None.
-            max_length: The maximum length of the generated words. If set None, it follow the setting in the
+            max_length: The maximum length of the generated words. If set None, it follows the setting in the
                 configureation in the model. Default None.
             streamer: The streamer that generator uses.
 

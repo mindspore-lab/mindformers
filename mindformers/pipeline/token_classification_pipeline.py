@@ -19,7 +19,7 @@
 import os.path
 
 import numpy as np
-from mindspore import ops
+from mindspore import ops, Model
 from ..auto_class import AutoProcessor, AutoModel
 from ..mindformer_book import MindFormerBook
 from .base_pipeline import BasePipeline
@@ -78,8 +78,8 @@ class TokenClassificationPipeline(BasePipeline):
                 raise ValueError(f"{model} is not supported by {self.__class__.__name__},"
                                  f"please selected from {self._support_list}.")
 
-        if not isinstance(model, BaseModel):
-            raise TypeError(f"model should be inherited from BaseModel, but got type {type(model)}.")
+        if not isinstance(model, (BaseModel, Model)):
+            raise TypeError(f"model should be inherited from BaseModel or Model, but got type {type(model)}.")
 
         if tokenizer is None:
             raise ValueError(f"{self.__class__.__name__}"
@@ -146,7 +146,7 @@ class TokenClassificationPipeline(BasePipeline):
             probs dict.
         """
         self.model.set_train(False)
-        logits = self.model(**model_inputs)
+        logits = self.network(**model_inputs)
         return {"logits": logits}
 
     def postprocess(self, model_outputs, **postprocess_params):
