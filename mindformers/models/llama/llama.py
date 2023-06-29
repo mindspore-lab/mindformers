@@ -284,7 +284,7 @@ class LlamaForCausalLM(BaseModel):
         self.not_equal = P.NotEqual().shard(((dp, 1), ()))
         self.reshape = P.Reshape()
         self.cast = P.Cast()
-        self.mul = P.Mul()
+        self.mul = P.Mul().shard(((parallel_config.data_parallel, 1), (parallel_config.data_parallel, 1)))
         self.add = P.Add().shard(((parallel_config.data_parallel, 1), ()))
 
         # used for increased predict
