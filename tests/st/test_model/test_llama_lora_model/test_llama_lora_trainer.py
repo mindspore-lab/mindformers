@@ -20,11 +20,14 @@ pytest tests/st/test_model/test_llama_lora_model/test_llama_lora_trainer.py
 import numpy as np
 import pytest
 
+import mindspore as ms
 from mindspore.dataset import GeneratorDataset
 from mindformers.models.llama.llama import LlamaForCausalLMWithLora
 from mindformers.models.llama.llama_config import LlamaConfig
 from mindformers.pet.pet_config import PetConfig, LoraConfig
 from mindformers import Trainer, TrainingArguments
+
+ms.set_context(mode=0)
 
 
 def generator_train():

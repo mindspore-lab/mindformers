@@ -52,10 +52,13 @@ Example:
 import os.path
 
 import pytest
+import mindspore as ms
 
 from mindformers.tools.image_tools import load_image
 from mindformers.pipeline import ZeroShotImageClassificationPipeline
 from mindformers import MindFormerBook
+
+ms.set_context(mode=0)
 
 
 @pytest.mark.level0

@@ -21,6 +21,8 @@ from dataclasses import dataclass
 import os
 import numpy as np
 import pytest
+import mindspore as ms
+
 from mindspore.train.callback import LossMonitor, TimeMonitor
 from mindspore.dataset import GeneratorDataset
 
@@ -32,6 +34,8 @@ from mindformers.models.gpt2.gpt2 import GPT2LMHeadModel
 from mindformers.core.lr import WarmUpDecayLR
 from mindformers import CheckpointMointor
 from mindformers.core.optim import FusedAdamWeightDecay
+
+ms.set_context(mode=0)
 
 
 def generator():

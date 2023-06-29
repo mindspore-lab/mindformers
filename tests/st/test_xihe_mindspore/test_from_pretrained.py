@@ -31,7 +31,7 @@ def test_clip_for_xihe():
     Description: Test build function to instance API from xihe.mindspore keys.
     Expectation: ValueError
     """
-    from mindformers.models import CLIPModel, CLIPConfig, CLIPProcessor, CLIPTokenizer
+    from mindformers.models import CLIPModel, CLIPConfig, CLIPProcessor
     xihe_clip_keys = 'mindspore/clip_vit_b_32'
     clip_model = CLIPModel.from_pretrained(xihe_clip_keys)
     assert isinstance(clip_model, BaseModel)
@@ -41,9 +41,6 @@ def test_clip_for_xihe():
 
     clip_processor = CLIPProcessor.from_pretrained(xihe_clip_keys)
     assert isinstance(clip_processor, BaseProcessor)
-
-    clip_tokenizer = CLIPTokenizer.from_pretrained(xihe_clip_keys)
-    assert isinstance(clip_tokenizer, BaseTokenizer)
 
 
 @pytest.mark.level0

@@ -20,11 +20,14 @@ pytest tests/st/test_model/test_gpt2_lora_model/test_gpt2_lora_trainer.py
 import numpy as np
 import pytest
 
+import mindspore as ms
 from mindspore.dataset import GeneratorDataset
 
 from mindformers.models.gpt2.gpt2 import GPT2WithLora
 from mindformers.pet.pet_config import LoraConfig
 from mindformers import Trainer, TrainingArguments, GPT2Config
+
+ms.set_context(mode=0)
 
 
 def generator_train():

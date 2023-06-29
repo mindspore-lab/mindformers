@@ -28,7 +28,7 @@ from mindformers.models import BaseModel, BaseConfig, BaseProcessor
 @pytest.mark.platform_x86_ascend_training
 @pytest.mark.platform_arm_ascend_training
 @pytest.mark.env_onecard
-class TestSwinAutoClassMethod:
+class TestVitAutoClassMethod:
     """A test class for testing Model classes"""
     def setup_method(self):
         """setup method."""

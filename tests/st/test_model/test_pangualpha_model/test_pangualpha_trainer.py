@@ -20,10 +20,14 @@ pytest tests/st/test_model/test_llm_model/test_pangualpha_trainer.py
 import numpy as np
 import pytest
 
+import mindspore as ms
+
 from mindspore.dataset import GeneratorDataset
 from mindformers.models.pangualpha.pangualpha import PanguAlphaHeadModel
 from mindformers.models.pangualpha.pangualpha_config import PanguAlphaConfig
 from mindformers import Trainer, TrainingArguments
+
+ms.set_context(mode=0)
 
 
 def generator_train():

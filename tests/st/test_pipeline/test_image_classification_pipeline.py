@@ -25,9 +25,12 @@ pytest ./tests/st/test_pipeline/test_image_classification_pipeline.py
 """
 import numpy as np
 import pytest
+import mindspore as ms
 
 from mindformers.pipeline import ImageClassificationPipeline
 from mindformers import ViTImageProcessor
+
+ms.set_context(mode=0)
 
 
 @pytest.mark.level0

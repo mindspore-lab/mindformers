@@ -21,8 +21,11 @@ linux:  pytest ./tests/st/test_model/test_t5_model/test_t5_generation.py
 
 """
 import pytest
+import mindspore as ms
 
 from mindformers.models import T5ForConditionalGeneration, T5Tokenizer
+
+ms.set_context(mode=0)
 
 
 def modify_batch_size(net, batch_size):

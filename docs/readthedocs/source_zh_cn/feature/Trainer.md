@@ -2,21 +2,19 @@
 
 **<font size=4>Task Trainer 设计</font>**
 
-* Task Trainer 结构
+- Task Trainer 结构
 
   Task Trainer开发依赖于MindFormers套件中的注册机制，方便开发者使用MindFormers套件提供的各个模块快速完成整网的搭建，各个模块之间可以做到有效的解耦。
 
 ![输入图片说明](https://foruda.gitee.com/images/1673431864815390341/da621a72_9324149.png "image-20230103154930330.png")
 
-* Task Trainer 启动
+- Task Trainer 启动
 
 ![输入图片说明](https://foruda.gitee.com/images/1673431893333966496/d7bee9e6_9324149.png "image-20230103165657205.png")
 
-
-
 **<font size=4>脚本启动</font>**
 
-​	MindFormers套件提供了run_mindformer.py脚本，为MindFormers套件中所有的任务提供了统一的启动接口，其中集成了任务的训练、微调、评估、推理4大流程的快捷启动方式和AICC平台文件交互能力。
+MindFormers套件提供了run_mindformer.py脚本，为MindFormers套件中所有的任务提供了统一的启动接口，其中集成了任务的训练、微调、评估、推理4大流程的快捷启动方式和AICC平台文件交互能力。
 
 - 启动脚本：[run_mindformers.py](https://gitee.com/mindspore/mindformers/blob/r0.3/run_mindformer.py)
 
@@ -25,48 +23,48 @@
 ```shell
 # vit 模型训练
 python run_mindformer.py \
-	--config configs/vit/run_vit_base_p16_100ep.yaml \
-	--dataset_dir ~/data/imagenet-1k/train \
-	--run_status train \
-	--device_id 0
+--config configs/vit/run_vit_base_p16_100ep.yaml \
+--train_dataset_dir ~/data/imagenet-1k/train \
+--run_status train \
+--device_id 0
 
 # 自动下载mae预训练权重，微调vit
 python run_mindformer.py \
-	--config configs/vit/run_vit_base_p16_100ep.yaml \
-	--dataset_dir ~/data/imagenet-1k/train \
-	--run_status finetune \
-	--device_id 0 \
-	--load_chenckpoint mae_vit_base_p16  # 支持套件已集成的预训练模型关键词，实现权重自动加载
+--config configs/vit/run_vit_base_p16_100ep.yaml \
+--train_dataset_dir ~/data/imagenet-1k/train \
+--run_status finetune \
+--device_id 0 \
+--load_chenckpoint mae_vit_base_p16  # 支持套件已集成的预训练模型关键词，实现权重自动加载
 
 # profile 性能分析
 python run_mindformer.py \
-	--config configs/vit/run_vit_base_p16_100ep.yaml \
-	--dataset_dir ~/data/imagenet-1k/train \
-	--run_status train \
-	--device_id 0
-	--profile True
+--config configs/vit/run_vit_base_p16_100ep.yaml \
+--train_dataset_dir ~/data/imagenet-1k/train \
+--run_status train \
+--device_id 0 \
+--profile True
 
 # 自动下载已集成的权重进行评估
 python run_mindformer.py \
-	--config configs/vit/run_vit_base_p16_100ep.yaml \
-	--dataset_dir ~/data/imagenet-1k/val \
-	--run_status eval \
-	--device_id 0
+--config configs/vit/run_vit_base_p16_100ep.yaml \
+--eval_dataset_dir ~/data/imagenet-1k/val \
+--run_status eval \
+--device_id 0
 
 # 自动下载已集成的权重进行推理
 python run_mindformer.py \
-	--config configs/vit/run_vit_base_p16_100ep.yaml \
-	--predict_data ~/predict_images/flower.jpg
-	--run_status predict \
-	--device_id 0
+--config configs/vit/run_vit_base_p16_100ep.yaml \
+--predict_data ~/predict_images/flower.jpg \
+--run_status predict \
+--device_id 0
 ```
 
 **<font size=4>Trainer 启动</font>**
 
 MindFormers套件为用户在pip安装mindformers之后可以有效的使用已集成的任务进行使用和开发，提供了Trainer易用性的高阶接口。
 
-* Trainer 接口代码：[Trainer](https://gitee.com/mindspore/mindformers/blob/r0.3/mindformers/trainer/trainer.py)
-* VIT模型使用示例: 用户可按照MindFormers `docs/model_cards/vit.md`使用教程提前下载好相应数据集[ImageNet1K数据集下载](https://gitee.com/mindspore/mindformers/blob/r0.3/docs/model_cards/vit.md#%E6%95%B0%E6%8D%AE%E9%9B%86%E5%87%86%E5%A4%87)
+- Trainer 接口代码：[Trainer](https://gitee.com/mindspore/mindformers/blob/r0.3/mindformers/trainer/trainer.py)
+- VIT模型使用示例: 用户可按照MindFormers `docs/model_cards/vit.md`使用教程提前下载好相应数据集[ImageNet1K数据集下载](https://gitee.com/mindspore/mindformers/blob/r0.3/docs/model_cards/vit.md#%E6%95%B0%E6%8D%AE%E9%9B%86%E5%87%86%E5%A4%87)
 
 ```python
 from mindformers.trainer import Trainer
@@ -111,8 +109,7 @@ Fill-Mask：俗称“完形填空”，是一种基于掩码语言建模的任�
 
 **支持模型**：
 
-* [BERT](https://gitee.com/mindspore/mindformers/blob/r0.3/docs/model_cards/bert.md)
-
+- [BERT](https://gitee.com/mindspore/mindformers/blob/r0.3/docs/model_cards/bert.md)
 
 脚本使用命令
 
@@ -143,8 +140,7 @@ trainer.train() # 开启预训练
 
 **支持模型**：
 
-* [GPT2](https://gitee.com/mindspore/mindformers/blob/r0.3/docs/model_cards/gpt2.md)
-
+- [GPT2](https://gitee.com/mindspore/mindformers/blob/r0.3/docs/model_cards/gpt2.md)
 
 脚本使用命令
 
@@ -177,8 +173,7 @@ res = trainer.predict(input_data="I love Beijing, because")
 
 **支持模型**：
 
-* [BertForMultipleChoice](https://gitee.com/mindspore/mindformers/blob/r0.3/docs/task_cards/text_classification.md)
-
+- [BertForMultipleChoice](https://gitee.com/mindspore/mindformers/blob/r0.3/docs/task_cards/text_classification.md)
 
 脚本使用命令
 
@@ -240,8 +235,7 @@ trainer.predict(input_data=input_data, top_k=1)
 
 **支持模型**：
 
-* [BertForTokenClassification](https://gitee.com/mindspore/mindformers/blob/r0.3/docs/task_cards/token_classification.md)
-
+- [BertForTokenClassification](https://gitee.com/mindspore/mindformers/blob/r0.3/docs/task_cards/token_classification.md)
 
 脚本使用命令
 
@@ -295,8 +289,7 @@ trainer.predict(input_data=input_data)
 
 **支持模型**：
 
-* [BertForQuestionAnswering](https://gitee.com/mindspore/mindformers/blob/r0.3/docs/task_cards/question_answering.md)
-
+- [BertForQuestionAnswering](https://gitee.com/mindspore/mindformers/blob/r0.3/docs/task_cards/question_answering.md)
 
 脚本使用命令
 
@@ -319,13 +312,13 @@ Trainer接口使用命令
 
 ```python
   from mindformers.trainer import Trainer
-  
+
   # 初始化trainer
   trainer = Trainer(task='question_answering',
                     model='qa_bert_base_uncased',
                     train_dataset='./squad/',
                     eval_dataset='./squad/')
-  
+
   #方式1：使用现有的预训练权重进行finetune， 并使用finetune获得的权重进行eval和推理
   trainer.train(resume_or_finetune_from_checkpoint="qa_bert_base_uncased",
                 do_finetune=True)
@@ -333,7 +326,7 @@ Trainer接口使用命令
   # 测试数据，测试数据分为context和question两部分，两者以 “-” 分隔
   input_data = ["My name is Wolfgang and I live in Berlin - Where do I live?"]
   trainer.predict(predict_checkpoint=True, input_data=input_data)
-  
+
   # 方式2： 从obs下载训练好的权重并进行eval和推理
   trainer.evaluate()
   # INFO - QA Metric = {'QA Metric': {'exact_match': 80.74739829706716, 'f1': 88.33552874684968}}
@@ -351,8 +344,7 @@ Trainer接口使用命令
 
 **支持模型**：
 
-* [T5](https://gitee.com/mindspore/mindformers/blob/r0.3/docs/model_cards/t5.md)
-
+- [T5](https://gitee.com/mindspore/mindformers/blob/r0.3/docs/model_cards/t5.md)
 
 脚本使用命令
 
@@ -389,8 +381,7 @@ print(res)
 
 **支持模型**：
 
-* [MAE](https://gitee.com/mindspore/mindformers/blob/r0.3/docs/model_cards/mae.md)
-
+- [MAE](https://gitee.com/mindspore/mindformers/blob/r0.3/docs/model_cards/mae.md)
 
 脚本使用命令
 
@@ -421,8 +412,7 @@ mae_trainer.train() # 开启训练
 
 **支持模型**：
 
-* [VIT](https://gitee.com/mindspore/mindformers/blob/r0.3/docs/model_cards/vit.md)
-
+- [VIT](https://gitee.com/mindspore/mindformers/blob/r0.3/docs/model_cards/vit.md)
 
 脚本使用命令
 
@@ -473,8 +463,7 @@ predict_result = vit_trainer.predict(input_data=img, top_k=3)
 print(predict_result)
 ```
 
-* [Swin](https://gitee.com/mindspore/mindformers/blob/r0.3/docs/model_cards/swin.md)
-
+- [Swin](https://gitee.com/mindspore/mindformers/blob/r0.3/docs/model_cards/swin.md)
 
 脚本使用命令
 
@@ -532,8 +521,7 @@ print(predict_result)
 
 **支持模型**：
 
-* [CLIP](https://gitee.com/mindspore/mindformers/blob/r0.3/docs/model_cards/clip.md)
-
+- [CLIP](https://gitee.com/mindspore/mindformers/blob/r0.3/docs/model_cards/clip.md)
 
 Trainer接口使用命令
 
@@ -564,8 +552,7 @@ trainer.train()
 
 **支持模型**：
 
-* [CLIP](https://gitee.com/mindspore/mindformers/blob/r0.3/docs/model_cards/clip.md)
-
+- [CLIP](https://gitee.com/mindspore/mindformers/blob/r0.3/docs/model_cards/clip.md)
 
 Trainer接口使用命令
 

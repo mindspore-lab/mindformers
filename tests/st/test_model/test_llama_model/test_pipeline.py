@@ -19,8 +19,12 @@ pytest tests/st/test_model/test_llama_model/test_pipeline.py
 """
 import pytest
 
+import mindspore as ms
+
 # pylint: disable=W0611
 from mindformers import pipeline
+
+ms.set_context(mode=0)
 
 
 @pytest.mark.level0

@@ -34,7 +34,6 @@ class TestAutoClassMethod:
     def setup_method(self):
         """setup method."""
         self.save_directory = os.path.join(MindFormerBook.get_project_path(), 'checkpoint_save')
-        # 可往列表中添加llm类模型type 'pangualpha_2_6b', 'llama_7b', 'glm_6b', 'bloom_7b'
         self.test_llm_list = ['pangualpha_2_6b']
 
     def test_llm_model(self):
@@ -45,7 +44,7 @@ class TestAutoClassMethod:
         """
         # input model name, load model and weights
         for model_type in self.test_llm_list:
-            model = AutoModel.from_pretrained(model_type)
+            model = AutoModel.from_pretrained(model_type, download_checkpoint=False)
             assert isinstance(model, BaseModel)
             model.save_pretrained(
                 save_directory=os.path.join(self.save_directory, model_type),

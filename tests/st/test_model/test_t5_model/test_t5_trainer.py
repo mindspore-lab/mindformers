@@ -22,6 +22,7 @@ import shutil
 
 import numpy as np
 import pytest
+import mindspore as ms
 from mindspore.dataset import MindDataset, GeneratorDataset
 from mindspore.mindrecord import FileWriter
 
@@ -29,6 +30,8 @@ from mindformers.trainer import Trainer, TranslationTrainer
 from mindformers.trainer.config_args import ConfigArguments, \
     OptimizerConfig, RunnerConfig
 from mindformers import T5Config, T5ForConditionalGeneration
+
+ms.set_context(mode=0)
 
 
 def generator(src_length=16, target_length=8):
