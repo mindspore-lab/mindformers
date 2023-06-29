@@ -688,6 +688,15 @@ class BaseTrainer:
             is_full_config = kwargs.get("is_full_config", False)
             config = self.set_config(config, is_full_config)
 
+            if ms.context.get_auto_parallel_context('parallel_mode') in \
+                    ['semi_auto_parallel', 'auto_parallel', 'hybrid_parallel']:
+                if task not in ["translation", "text_generation"]:
+                    raise SystemExit("Currently distributed predict only support translation and text_generation. "
+                                     "Process exit!")
+                if config.parallel_config.pipeline_stage > 1:
+                    raise SystemExit("Currently distributed predict dose not support pipeline parallel. "
+                                     "Process exit!")
+
             # build network
             if network is None:
                 network = self.create_network(default_args={"parallel_config": config.parallel_config,
@@ -710,9 +719,6 @@ class BaseTrainer:
             if config.load_checkpoint or config.only_save_strategy:
                 if ms.context.get_auto_parallel_context('parallel_mode') in \
                         ['semi_auto_parallel', 'auto_parallel', 'hybrid_parallel']:
-                    if task not in ["translation", "text_generation"]:
-                        raise SystemExit("Currently distributed predict only support translation and text_generation. "
-                                         "Process exit!")
                     seq_length = config.model.model_config.seq_length
                     infer_data = Tensor(shape=(1, seq_length), dtype=ms.int32, init=init.One())
                     transform_and_load_checkpoint(config, model, network, infer_data, do_predict=True)
