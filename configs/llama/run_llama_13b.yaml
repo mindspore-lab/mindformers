@@ -2,6 +2,7 @@ seed: 0
 output_dir: './output'  # 当前不支持自定义修改，请勿修改该默认值
 load_checkpoint: ''
 auto_trans_ckpt: False  # If true, auto transform load_checkpoint to load in distributed model
+only_save_strategy: False
 resume_training: False
 use_parallel: True
 run_mode: 'train'

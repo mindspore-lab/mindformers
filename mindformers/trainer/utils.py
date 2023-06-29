@@ -346,6 +346,9 @@ def transform_and_load_checkpoint(config, model, network, dataset, optimizer=Non
             model.build(train_dataset=dataset, epoch=config.runner_config.epochs,
                         sink_size=config.runner_config.sink_size)
 
+        if config.only_save_strategy:
+            raise SystemExit("Only_save_strategy is True, model.build() finished, system exit! ")
+
     # 2. transform checkpoint if needed
 
     # 3. load checkpoint params into dict

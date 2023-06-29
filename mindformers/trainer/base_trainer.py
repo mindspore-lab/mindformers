@@ -566,7 +566,7 @@ class BaseTrainer:
             model = Model(network, optimizer=optimizer, metrics=compute_metrics, eval_network=network)
 
         # resume checkpoint
-        if config.load_checkpoint:
+        if config.load_checkpoint or config.only_save_strategy:
             if config.resume_training:
                 logger.info(".............Start resume training from checkpoint..................")
                 transform_and_load_checkpoint(config, model, network, dataset, optimizer=optimizer)
@@ -660,7 +660,7 @@ class BaseTrainer:
         logger.info(".........Starting Init Evaluate Model..........")
         model = Model(network, metrics=compute_metrics, eval_network=network)
 
-        if config.load_checkpoint:
+        if config.load_checkpoint or config.only_save_strategy:
             if config.load_checkpoint in SUPPORT_MODEL_NAMES:
                 config.load_checkpoint = \
                     AutoModel.from_pretrained(config.load_checkpoint).default_checkpoint_download_path
@@ -707,7 +707,7 @@ class BaseTrainer:
 
             model = Model(network)
 
-            if config.load_checkpoint:
+            if config.load_checkpoint or config.only_save_strategy:
                 if ms.context.get_auto_parallel_context('parallel_mode') in \
                         ['semi_auto_parallel', 'auto_parallel', 'hybrid_parallel']:
                     if task not in ["translation", "text_generation"]:
