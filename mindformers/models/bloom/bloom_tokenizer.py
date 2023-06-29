@@ -16,7 +16,7 @@
 import json
 import os
 from functools import lru_cache
-
+from typing import List, Optional
 import regex as re
 
 from mindformers.models.base_tokenizer import Tokenizer
@@ -25,6 +25,9 @@ from mindformers.tools.logger import logger
 from mindformers.mindformer_book import MindFormerBook
 
 __all__ = ['BloomTokenizer']
+
+
+VOCAB_FILES_NAMES = {'vocab_file': 'tokenizer.json'}
 
 
 @lru_cache()
@@ -69,6 +72,8 @@ class BloomTokenizer(Tokenizer):
         eos_token(str): The token that represents the end-of-sentence. Default "<|/s|>".
         pad_token(str): The token that represents the pad. Default "<|pad|>".
         add_prefix_space(bool): whether to add a whitespace in the front of text. Default "False"
+        add_bos_token(bool): Whether or not to add the bos_token_id to the left of the input. Default "True"
+        add_eos_token(bool): Whether or not to add the eos_token_id to the right of the input. Default "True"
         **kwargs: Other kwargs that will be passed into the base class of the `Tokenizer`.
 
     Examples:
@@ -82,21 +87,32 @@ class BloomTokenizer(Tokenizer):
         A dict contains the processed ids, attention_mask that specific by the member `MODEL_INPUT_NAME`
         of the subclass.
     """
-    VOCAB_FILES = {'vocab_file': 'tokenizer.json'}
+    vocab_files_names = VOCAB_FILES_NAMES
     FILE_LIST = ['tokenizer_config.json']
+    model_input_names = ["input_ids", "token_type_ids", "attention_mask"]
     _support_list = MindFormerBook.get_tokenizer_support_list()['bloom']
 
     def __init__(
             self,
             vocab_file,
-            unk_token="<|unk|>",
-            bos_token="<|s|>",
-            eos_token="<|/s|>",
-            pad_token="<|pad|>",
-            add_prefix_space=False, **kwargs):
+            unk_token="<unk>",
+            bos_token="<s>",
+            eos_token="</s>",
+            pad_token="<pad>",
+            add_prefix_space=False,
+            add_bos_token=False,
+            add_eos_token=False,
+            **kwargs):
         super(BloomTokenizer, self).__init__(
-            unk_token=unk_token, bos_token=bos_token,
-            eos_token=eos_token, pad_token=pad_token, **kwargs)
+            unk_token=unk_token,
+            bos_token=bos_token,
+            eos_token=eos_token,
+            pad_token=pad_token,
+            **kwargs
+        )
+        self.add_bos_token = add_bos_token
+        self.add_eos_token = add_eos_token
+
         with open(vocab_file, 'r', encoding="utf-8") as vocab_handle:
             self.encoder = json.load(vocab_handle)["model"]["vocab"]
 
@@ -165,7 +181,7 @@ class BloomTokenizer(Tokenizer):
         self.cache[token] = word
         return word
 
-    def tokenize(self, text):
+    def tokenize(self, text, pair=None, add_special_tokens=True, **kwargs):
         if not isinstance(text, str):
             raise ValueError("Text should be type str, but found type", type(text))
         return self._tokenize(text)
@@ -181,26 +197,13 @@ class BloomTokenizer(Tokenizer):
             bpe_tokens.extend(bpe_token for bpe_token in self.bpe(token).split(" "))
         return bpe_tokens
 
-    def _convert_tokens_to_ids(self, tokens):
+    def _convert_token_to_id(self, token):
         """ the index of the tokens in the vocabulary. """
-        if isinstance(tokens, str):
-            return self.encoder.get(tokens, self.encoder.get(self.the_unk_token))
-        output = []
-        for token in tokens:
-            output.append(self.encoder.get(token, self.encoder.get(self.the_unk_token)))
-        return output
+        return self.encoder.get(token, self.encoder.get(self.the_unk_token))
 
-    def _convert_ids_to_tokens(self, ids):
+    def _convert_id_to_token(self, index):
         """ return the origin bpe tokens according to ids """
-        if isinstance(ids, int):
-            return self.decoder.get(ids)
-
-        if isinstance(ids, list):
-            output = []
-            for item in ids:
-                output.append(self.decoder.get(item))
-            return output
-        raise TypeError(f"The type of ids should be int or list, but found {type(ids)}.")
+        return self.decoder.get(index)
 
     def _convert_tokens_to_string(self, tokens):
         """ return a string according to the list of tokens"""
@@ -212,55 +215,77 @@ class BloomTokenizer(Tokenizer):
         """Convert the tokens to the string"""
         return self._convert_tokens_to_string(tokens)
 
-    def prepare_for_tokenization(self, text, is_pretokenized=False, **kwargs):
+    def prepare_for_tokenization(self, text, **kwargs):
         """ whether to add a whitespace in the front of text """
         add_prefix_space = kwargs.pop("add_prefix_space", self.add_prefix_space)
+        is_pretokenized = kwargs.pop("is_pretokenized", False)
         if is_pretokenized or add_prefix_space:
             text = " " + text
         return text
 
-    def save_vocabulary(self, save_directory, filename_prefix):
+    def save_vocabulary(self, save_directory, filename_prefix=None):
         """write the word to the files"""
-        if filename_prefix.endswith("json"):
-            vocab_file = os.path.join(save_directory, filename_prefix)
+        if not os.path.isdir(save_directory):
+            logger.error("Vocabulary path (%s) should be a directory", save_directory)
+            return None
 
-            with open(vocab_file, "w", encoding="utf-8") as f:
-                f.write(json.dumps(self.encoder))
-        else:
-            vocab_file = os.path.join(save_directory, filename_prefix)
+        output_file_path = os.path.join(
+            save_directory, (filename_prefix + "-" if filename_prefix else "") + VOCAB_FILES_NAMES["vocab_file"])
 
-            index = 0
-            with open(vocab_file, "w", encoding="utf-8") as writer:
-                writer.write("#version: 0.2\n")
-                for bpe_tokens, token_index in sorted(self.bpe_ranks.items(), key=lambda kv: kv[1]):
-                    if index != token_index:
-                        logger.warning(
-                            "Saving vocabulary to %s: BPE merge indices are not consecutive."
-                            " Please check that the tokenizer is not corrupted!", vocab_file
-                        )
-                        index = token_index
-                    writer.write(" ".join(bpe_tokens) + "\n")
-                    index += 1
+        with open(output_file_path, "w", encoding="utf-8") as f:
+            f.write(json.dumps(self.encoder))
 
-        return vocab_file
+        return output_file_path
 
     @property
     def vocab_size(self):
         """Get the vocab size of the """
         return len(self.decoder)
 
-    @property
-    def unk_token_id(self):
-        return self._unk_token_id
+    def build_inputs_with_special_tokens(self, token_ids_0, token_ids_1=None):
+        """Insert the special tokens to the input_ids. Currently"""
+        bos_token_id = [self.bos_token_id] if self.add_bos_token else []
+        eos_token_id = [self.eos_token_id] if self.add_eos_token else []
 
-    @property
-    def bos_token_id(self):
-        return self._bos_token_id
+        output = bos_token_id + token_ids_0 + eos_token_id
 
-    @property
-    def eos_token_id(self):
-        return self._eos_token_id
+        if token_ids_1 is not None:
+            output = output + bos_token_id + token_ids_1 + eos_token_id
 
-    @property
-    def pad_token_id(self):
-        return self._pad_token_id
+        return output
+
+    def create_token_type_ids_from_sequences(
+            self, token_ids_0: List[int], token_ids_1: Optional[List[int]] = None
+    ) -> List[int]:
+        """
+        Creates a mask from the two sequences passed to be used in a sequence-pair classification task. An ALBERT
+        sequence pair mask has the following format:
+
+        ```
+        0 0 0 0 0 0 0 0 0 0 0 1 1 1 1 1 1 1 1 1
+        | first sequence    | second sequence |
+        ```
+
+        if token_ids_1 is None, only returns the first portion of the mask (0s).
+
+        Args:
+            token_ids_0 (`List[int]`):
+                List of ids.
+            token_ids_1 (`List[int]`, *optional*):
+                Optional second list of IDs for sequence pairs.
+
+        Returns:
+            `List[int]`: List of [token type IDs](../glossary#token-type-ids) according to the given sequence(s).
+        """
+        bos_token_id = [self.bos_token_id] if self.add_bos_token else []
+        eos_token_id = [self.eos_token_id] if self.add_eos_token else []
+
+        output = [0] * len(bos_token_id + token_ids_0 + eos_token_id)
+
+        if token_ids_1 is not None:
+            output += [1] * len(bos_token_id + token_ids_1 + eos_token_id)
+
+        return output
+
+    def get_vocab(self):
+        return dict(self.encoder, **self.added_tokens_encoder)
