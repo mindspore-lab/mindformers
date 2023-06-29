@@ -53,17 +53,14 @@ BERT:全名`Bidirectional Encoder Representations from Transformers`模型是谷
 
   ```python
   # 使用现有的预训练权重进行finetune微调
-  trainer.train(resume_or_finetune_from_checkpoint="qa_bert_base_uncased",
-                do_finetune=True)
+  trainer.finetune(finetune_checkpoint="qa_bert_base_uncased")
   ```
 
   参数含义如下：
 
-  - resume_or_finetune_from_checkpoint(str) - 权重名称，'qa_bert_base_uncased'为问答任务对应的Bert预训练权重。
+  - finetune_checkpoint(str) - 权重名称，'qa_bert_base_uncased'为问答任务对应的Bert预训练权重。
 
-  - do_finetune(bool) - 是否进行微调，True表示以微调的方式加载权重。
-
-  训练过程中会实时打印训练时长、Loss等信息。
+  - 训练过程中会实时打印训练时长、Loss等信息。
 
 - 使用finetune获得的权重进行eval评估
 

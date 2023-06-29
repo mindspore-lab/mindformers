@@ -16,7 +16,7 @@
 
 MindFormers套件提供了run_mindformer.py脚本，为MindFormers套件中所有的任务提供了统一的启动接口，其中集成了任务的训练、微调、评估、推理4大流程的快捷启动方式和AICC平台文件交互能力。
 
-- 启动脚本：[run_mindformers.py](https://gitee.com/mindspore/mindformers/blob/r0.3/run_mindformer.py)
+- 启动脚本：[run_mindformers.py](https://gitee.com/mindspore/mindformers/blob/dev/run_mindformer.py)
 
 - VIT模型使用示例：用户可直接修改对应配置文件`configs`的yaml配置参数，也可直接使用提供的便捷命令完成参数修改，如下：
 
@@ -63,8 +63,8 @@ python run_mindformer.py \
 
 MindFormers套件为用户在pip安装mindformers之后可以有效的使用已集成的任务进行使用和开发，提供了Trainer易用性的高阶接口。
 
-- Trainer 接口代码：[Trainer](https://gitee.com/mindspore/mindformers/blob/r0.3/mindformers/trainer/trainer.py)
-- VIT模型使用示例: 用户可按照MindFormers `docs/model_cards/vit.md`使用教程提前下载好相应数据集[ImageNet1K数据集下载](https://gitee.com/mindspore/mindformers/blob/r0.3/docs/model_cards/vit.md#%E6%95%B0%E6%8D%AE%E9%9B%86%E5%87%86%E5%A4%87)
+- Trainer 接口代码：[Trainer](https://gitee.com/mindspore/mindformers/blob/dev/mindformers/trainer/trainer.py)
+- VIT模型使用示例: 用户可按照MindFormers `docs/model_cards/vit.md`使用教程提前下载好相应数据集[ImageNet1K数据集下载](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/vit.md#%E6%95%B0%E6%8D%AE%E9%9B%86%E5%87%86%E5%A4%87)
 
 ```python
 from mindformers.trainer import Trainer
@@ -88,18 +88,18 @@ predict_result = vit_trainer.predict(input_data=img, top_k=3) # 开启推理
 
 **MindFormers 任务支持情况一览表：**
 
-|                             任务                             | 支持模型                                                     | 支持运行模式（run_mindformer接口） | 支持接口属性（Trainer接口） |
-| :----------------------------------------------------------: | ------------------------------------------------------------ | ---------------------------------- | --------------------------- |
-|                          fill_mask                           | [bert_base_uncased](https://gitee.com/mindspore/mindformers/blob/r0.3/configs/bert/model_config/bert_base_uncased.yaml) | train                              | train                       |
-|                       text_generation                        | [gpt2](https://gitee.com/mindspore/mindformers/blob/r0.3/configs/gpt2/model_config/gpt2.yaml)<br/>[gpt2_13b](https://gitee.com/mindspore/mindformers/blob/r0.3/configs/gpt2/model_config/gpt2_13b.yaml)<br/>[gpt2_52b](https://gitee.com/mindspore/mindformers/blob/r0.3/configs/gpt2/model_config/gpt2_52b.yaml) | train                              | train、predict              |
-| [text_classification](https://gitee.com/mindspore/mindformers/blob/r0.3/docs/task_cards/text_classification.md) | [txtcls_bert_base_uncased](https://gitee.com/mindspore/mindformers/blob/r0.3/configs/txtcls/model_config/txtcls_bert_base_uncased.yaml)<br/> [txtcls_bert_base_uncased_mnli](https://gitee.com/mindspore/mindformers/blob/r0.3/configs/txtcls/model_config/txtcls_bert_base_uncased_mnli.yaml) | finetune、eval、predict            | train、evaluate、predict    |
-| [token_classification](https://gitee.com/mindspore/mindformers/blob/r0.3/docs/task_cards/token_classification.md) | [tokcls_bert_base_chinese_cluener](https://gitee.com/mindspore/mindformers/blob/r0.3/configs/tokcls/model_config/tokcls_bert_base_chinese_cluener.yaml) | finetune、eval、predict            | train、evaluate、predict    |
-| [question_answering](https://gitee.com/mindspore/mindformers/blob/r0.3/docs/task_cards/question_answering.md) | [qa_bert_case_uncased_squad](https://gitee.com/mindspore/mindformers/blob/r0.3/configs/qa/model_config/qa_bert_base_uncased_squad.yaml) | finetune、eval、predict            | train、evaluate、predict    |
-|                         translation                          | [t5_small](https://gitee.com/mindspore/mindformers/blob/r0.3/configs/t5/model_config/t5_small.yaml)<br/>[t5_tiny](https://gitee.com/mindspore/mindformers/blob/r0.3/configs/t5/model_config/t5_tiny.yaml) | train、finetune                    | train、predict              |
-|                    image_masked_modeling                     | [mae_vit_base_p16](https://gitee.com/mindspore/mindformers/blob/r0.3/configs/mae/model_config/mae_vit_base_p16.yaml) | train                              | train                       |
-|                     image_classification                     | [vit_base_p16](https://gitee.com/mindspore/mindformers/blob/r0.3/configs/vit/model_config/vit_base_p16.yaml)<br/>[swin_base_p4w7](https://gitee.com/mindspore/mindformers/blob/r0.3/configs/swin/model_config/swin_base_p4w7.yaml) | train、finetune、eval、predict     | train、evaluate、predict    |
-| [contrastive_language_image_pretrain](https://gitee.com/mindspore/mindformers/blob/r0.3/docs/task_cards/contrastive_language_image_pretrain.md) | [clip_vit_b_32](https://gitee.com/mindspore/mindformers/blob/r0.3/configs/clip/model_config/clip_vit_b_32.yaml) <br/> [clip_vit_b_16](https://gitee.com/mindspore/mindformers/blob/r0.3/configs/clip/model_config/clip_vit_b_16.yaml) <br/> [clip_vit_l_14](https://gitee.com/mindspore/mindformers/blob/r0.3/configs/clip/model_config/clip_vit_l_14.yaml) <br/> [clip_vit_l_14@336](https://gitee.com/mindspore/mindformers/blob/r0.3/configs/clip/model_config/clip_vit_l_14@336.yaml) | train                              | train                       |
-| [zero_shot_image_classification](https://gitee.com/mindspore/mindformers/blob/r0.3/docs/task_cards/zero_shot_image_classification.md) | [clip_vit_b_32](https://gitee.com/mindspore/mindformers/blob/r0.3/configs/clip/model_config/clip_vit_b_32.yaml) <br/> [clip_vit_b_16](https://gitee.com/mindspore/mindformers/blob/r0.3/configs/clip/model_config/clip_vit_b_16.yaml) <br/> [clip_vit_l_14](https://gitee.com/mindspore/mindformers/blob/r0.3/configs/clip/model_config/clip_vit_l_14.yaml) <br/> [clip_vit_l_14@336](https://gitee.com/mindspore/mindformers/blob/r0.3/configs/clip/model_config/clip_vit_l_14@336.yaml) | eval、predict                      | evaluate、predict           |
+|                             任务                             | 支持模型                                                     | 运行模式                       |
+| :----------------------------------------------------------: | ------------------------------------------------------------ | ------------------------------ |
+|                          fill_mask                           | bert_base_uncased                                            | train                          |
+| [text_generation](https://gitee.com/mindspore/mindformers/blob/dev/docs/task_cards/text_generation.md) | gpt2<br/>gpt2_13b<br/>gpt2_52b<br/>pangualpha_2_6_b<br/>pangualpha_13b<br/>glm_6b<br/>glm_6b_lora<br/>llama_7b<br/>llama_13b<br/>llama_65b<br/>llama_7b_lora<br/>bloom_560m<br/>bloom_7.1b<br/>bloom_65b<br/>bloom_176b | train、finetune、eval、predict |
+| [text_classification](https://gitee.com/mindspore/mindformers/blob/dev/docs/task_cards/text_classification.md) | txtcls_bert_base_uncased<br/>txtcls_bert_base_uncased_mnli   | finetune、eval、predict        |
+| [token_classification](https://gitee.com/mindspore/mindformers/blob/dev/docs/task_cards/token_classification.md) | tokcls_bert_base_chinese<br/>tokcls_bert_base_chinese_cluener | finetune、eval、predict        |
+| [question_answering](https://gitee.com/mindspore/mindformers/blob/dev/docs/task_cards/question_answering.md) | qa_bert_base_uncased<br/>qa_bert_base_chinese_uncased        | finetune、eval、predict        |
+|                         translation                          | t5_small                                                     | train、finetune、predict       |
+|                    image_masked_modeling                     | mae_vit_base_p16                                             | train、predict                 |
+| [image_classification](https://gitee.com/mindspore/mindformers/blob/dev/docs/task_cards/image_classification.md) | vit_base_p16<br/>swin_base_p4w7                              | train、finetune、eval、predict |
+| [contrastive_language_image_pretrain](https://gitee.com/mindspore/mindformers/blob/dev/docs/task_cards/contrastive_language_image_pretrain.md) | clip_vit_b_32<br/>clip_vit_b_16<br/>clip_vit_l_14<br/>clip_vit_l_14@336 | train                          |
+| [zero_shot_image_classification](https://gitee.com/mindspore/mindformers/blob/dev/docs/task_cards/zero_shot_image_classification.md) | clip_vit_b_32<br/>clip_vit_b_16<br/>clip_vit_l_14<br/>clip_vit_l_14@336 | eval、predict                  |
 
 #### 完形填空
 
@@ -109,7 +109,7 @@ Fill-Mask：俗称“完形填空”，是一种基于掩码语言建模的任�
 
 **支持模型**：
 
-- [BERT](https://gitee.com/mindspore/mindformers/blob/r0.3/docs/model_cards/bert.md)
+- [BERT](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/bert.md)
 
 脚本使用命令
 
@@ -140,7 +140,7 @@ trainer.train() # 开启预训练
 
 **支持模型**：
 
-- [GPT2](https://gitee.com/mindspore/mindformers/blob/r0.3/docs/model_cards/gpt2.md)
+- [GPT2](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/gpt2.md)
 
 脚本使用命令
 
@@ -173,7 +173,7 @@ res = trainer.predict(input_data="I love Beijing, because")
 
 **支持模型**：
 
-- [BertForMultipleChoice](https://gitee.com/mindspore/mindformers/blob/r0.3/docs/task_cards/text_classification.md)
+- [BertForMultipleChoice](https://gitee.com/mindspore/mindformers/blob/dev/docs/task_cards/text_classification.md)
 
 脚本使用命令
 
@@ -235,7 +235,7 @@ trainer.predict(input_data=input_data, top_k=1)
 
 **支持模型**：
 
-- [BertForTokenClassification](https://gitee.com/mindspore/mindformers/blob/r0.3/docs/task_cards/token_classification.md)
+- [BertForTokenClassification](https://gitee.com/mindspore/mindformers/blob/dev/docs/task_cards/token_classification.md)
 
 脚本使用命令
 
@@ -289,7 +289,7 @@ trainer.predict(input_data=input_data)
 
 **支持模型**：
 
-- [BertForQuestionAnswering](https://gitee.com/mindspore/mindformers/blob/r0.3/docs/task_cards/question_answering.md)
+- [BertForQuestionAnswering](https://gitee.com/mindspore/mindformers/blob/dev/docs/task_cards/question_answering.md)
 
 脚本使用命令
 
@@ -344,7 +344,7 @@ Trainer接口使用命令
 
 **支持模型**：
 
-- [T5](https://gitee.com/mindspore/mindformers/blob/r0.3/docs/model_cards/t5.md)
+- [T5](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/t5.md)
 
 脚本使用命令
 
@@ -381,7 +381,7 @@ print(res)
 
 **支持模型**：
 
-- [MAE](https://gitee.com/mindspore/mindformers/blob/r0.3/docs/model_cards/mae.md)
+- [MAE](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/mae.md)
 
 脚本使用命令
 
@@ -412,7 +412,7 @@ mae_trainer.train() # 开启训练
 
 **支持模型**：
 
-- [VIT](https://gitee.com/mindspore/mindformers/blob/r0.3/docs/model_cards/vit.md)
+- [VIT](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/vit.md)
 
 脚本使用命令
 
@@ -463,7 +463,7 @@ predict_result = vit_trainer.predict(input_data=img, top_k=3)
 print(predict_result)
 ```
 
-- [Swin](https://gitee.com/mindspore/mindformers/blob/r0.3/docs/model_cards/swin.md)
+- [Swin](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/swin.md)
 
 脚本使用命令
 
@@ -521,7 +521,7 @@ print(predict_result)
 
 **支持模型**：
 
-- [CLIP](https://gitee.com/mindspore/mindformers/blob/r0.3/docs/model_cards/clip.md)
+- [CLIP](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/clip.md)
 
 Trainer接口使用命令
 
@@ -552,7 +552,7 @@ trainer.train()
 
 **支持模型**：
 
-- [CLIP](https://gitee.com/mindspore/mindformers/blob/r0.3/docs/model_cards/clip.md)
+- [CLIP](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/clip.md)
 
 Trainer接口使用命令
 

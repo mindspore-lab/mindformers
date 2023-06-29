@@ -9,3 +9,4 @@ mindformers.wrapper
     :template: classtemplate.rst
 
     mindformers.wrapper.MFTrainOneStepCell
+    mindformers.wrapper.MFPipelineWithLossScaleCell

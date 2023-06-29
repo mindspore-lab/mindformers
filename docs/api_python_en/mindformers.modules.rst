@@ -14,11 +14,12 @@ mindformers.modules.layers
     mindformers.modules.layers.Dropout
     mindformers.modules.layers.FixedSparseAttention
     mindformers.modules.layers.LayerNorm
+    mindformers.modules.layers.Linear
 
 mindformers.modules.transformer
 ----------------------------------------------
 
-.. autosummary
+.. autosummary::
     :toctree: modules
     :nosignatures:
     :template: classtemplate.rst

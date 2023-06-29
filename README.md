@@ -31,11 +31,11 @@ MindSpore Transformers套件基于MindSpore内置的并行技术和组件化设�
 | :----------------------------------------------------------: | :----------------------------------------------------------: | :----------------------------------------------------------- |
 | [BERT](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/bert.md) | masked_language_modeling [text_classification](https://gitee.com/mindspore/mindformers/blob/dev/docs/task_cards/text_classification.md) [token_classification](https://gitee.com/mindspore/mindformers/blob/dev/docs/task_cards/token_classification.md) [question_answering](https://gitee.com/mindspore/mindformers/blob/dev/docs/task_cards/question_answering.md) | bert_base_uncased <br>txtcls_bert_base_uncased<br>txtcls_bert_base_uncased_mnli <br>tokcls_bert_base_chinese<br>tokcls_bert_base_chinese_cluener <br>qa_bert_base_uncased<br>qa_bert_base_chinese_uncased |
 | [T5](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/t5.md) |                         translation                          | t5_small                                                     |
-| [GPT2](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/gpt2.md) |                       text_generation                        | gpt2_small <br>gpt2_13b <br>gpt2_52b                         |
-| [PanGuAlpha](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/pangualpha.md) |                       text_generation                        | pangualpha_2_6_b<br>pangualpha_13b                           |
-| [GLM](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/glm.md) |                       text_generation                        | glm_6b<br>glm_6b_lora                                        |
-| [LLama](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/llama.md) |                       text_generation                        | llama_7b <br>llama_13b <br>llama_65b <br>llama_7b_lora       |
-|                            [Bloom](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/bloom.md)                             |                       text_generation                        | bloom_560m<br>bloom_7.1b <br>bloom_65b<br>bloom_176b         |
+| [GPT2](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/gpt2.md) | [text_generation](https://gitee.com/mindspore/mindformers/blob/dev/docs/task_cards/text_generation.md) | gpt2_small <br>gpt2_13b <br>gpt2_52b                         |
+| [PanGuAlpha](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/pangualpha.md) | [text_generation](https://gitee.com/mindspore/mindformers/blob/dev/docs/task_cards/text_generation.md) | pangualpha_2_6_b<br>pangualpha_13b                           |
+| [GLM](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/glm.md) | [text_generation](https://gitee.com/mindspore/mindformers/blob/dev/docs/task_cards/text_generation.md) | glm_6b<br>glm_6b_lora                                        |
+| [LLama](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/llama.md) | [text_generation](https://gitee.com/mindspore/mindformers/blob/dev/docs/task_cards/text_generation.md) | llama_7b <br>llama_13b <br>llama_65b <br>llama_7b_lora       |
+| [Bloom](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/bloom.md) | [text_generation](https://gitee.com/mindspore/mindformers/blob/dev/docs/task_cards/text_generation.md) | bloom_560m<br>bloom_7.1b <br>bloom_65b<br>bloom_176b         |
 | [MAE](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/mae.md) |                    masked_image_modeling                     | mae_vit_base_p16                                             |
 | [VIT](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/vit.md) | [image_classification](https://gitee.com/mindspore/mindformers/blob/dev/docs/task_cards/image_classification.md) | vit_base_p16                                                 |
 | [Swin](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/swin.md) | [image_classification](https://gitee.com/mindspore/mindformers/blob/dev/docs/task_cards/image_classification.md) | swin_base_p4w7                                               |
@@ -56,7 +56,7 @@ bash build.sh
 - 方式2：pip安装
 
 ```bash
-pip install https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/wheel_packages/dev/0.6.0/mindformers-0.6.0.dev0-py3-none-any.whl --trusted-host ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com -i https://pypi.tuna.tsinghua.edu.cn/simple
+pip install https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/wheel_packages/dev/mindformers-1.0.0.dev202307-py3-none-any.whl --trusted-host ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com -i https://pypi.tuna.tsinghua.edu.cn/simple
 ```
 
 - 方式3：镜像
@@ -65,9 +65,9 @@ pip install https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFor
 
 ## 三、版本匹配关系
 
-| 版本对应关系 | MindFormers | MindPet | MindSpore |  Python   |
-| :----------: | :---------: | :-----: | :-------: | :-------: |
-|    版本号    |     dev     |  1.0.0  | 2.0/1.10  | 3.7.5/3.9 |
+| 版本对应关系 | MindFormers | MindPet | MindSpore |  Python   |    芯片     |
+| :----------: | :---------: | :-----: | :-------: | :-------: | :---------: |
+|    版本号    |     dev     |  1.0.0  | 2.0/1.10  | 3.7.5/3.9 | Ascend 910A |
 
 ## 四、快速使用
 
@@ -155,7 +155,7 @@ RUN_STATUS: 为任务运行状态，支持关键字 train\finetune\eval\predict
   cls_trainer.train()
   # Example 2： 加载集成的mae权重，开启微调流程
   cls_trainer.finetune(finetune_checkpoint='mae_vit_base_p16')
-  # Example 3： 开启断点续训功能（如训练10epochs中断）
+  # Example 3： 开启断点续训功能
   cls_trainer.train(train_checkpoint=True, resume_training=True)
   ```
 
@@ -174,7 +174,7 @@ RUN_STATUS: 为任务运行状态，支持关键字 train\finetune\eval\predict
   # Example 2： 开启评估训练得到的最后一个权重
   cls_trainer.evaluate(eval_checkpoint=True)
   # Example 3： 开启评估指定的模型权重
-  cls_trainer.evaluate(eval_checkpoint='./output/rank_0/checkpoint/mindformers.ckpt')
+  cls_trainer.evaluate(eval_checkpoint='./output/checkpoint/rank_0/mindformers.ckpt')
   ```
 
   ```text
@@ -197,7 +197,7 @@ RUN_STATUS: 为任务运行状态，支持关键字 train\finetune\eval\predict
   # Example 2： 开启推理（自动加载训练得到的最后一个权重）
   predict_result_b = cls_trainer.predict(input_data=input_data, predict_checkpoint=True)
   # Example 3： 加载指定的权重以完成推理
-  predict_result_c = cls_trainer.predict(input_data=input_data, predict_checkpoint='./output/rank_0/checkpoint/mindformers.ckpt')
+  predict_result_c = cls_trainer.predict(input_data=input_data, predict_checkpoint='./output/checkpoint/rank_0/mindformers.ckpt')
   print(predict_result_d)
   ```
 

@@ -9,10 +9,10 @@ mindformers.pipeline
     :template: classtemplate.rst
 
     mindformers.pipeline.BasePipeline
-    mindformers.pipeline.FillMaskPipeline
-    mindformers.pipeline.ImageClassificationPipeline
     mindformers.pipeline.pipeline
+    mindformers.pipeline.FillMaskPipeline
+    mindformers.pipeline.TranslationPipeline
+    mindformers.pipeline.ImageClassificationPipeline
     mindformers.pipeline.TextClassificationPipeline
     mindformers.pipeline.TokenClassificationPipeline
-    mindformers.pipeline.TranslationPipeline
     mindformers.pipeline.ZeroShotImageClassificationPipeline

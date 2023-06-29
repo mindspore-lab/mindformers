@@ -13,15 +13,16 @@ MindFormers大模型套件为用户提供了pipeline高阶API，支持用户便�
 
 **MindFormers 任务推理支持情况一览表：**
 
-|                             任务                             | 支持模型                                                     | 支持推理数据   |
-| :----------------------------------------------------------: | ------------------------------------------------------------ | -------------- |
-|                       text_generation                        | [gpt2](https://gitee.com/mindspore/mindformers/blob/r0.3/configs/gpt2/model_config/gpt2.yaml)<br/>[gpt2_13b](https://gitee.com/mindspore/mindformers/blob/r0.3/configs/gpt2/model_config/gpt2_13b.yaml)<br/>[gpt2_52b](https://gitee.com/mindspore/mindformers/blob/r0.3/configs/gpt2/model_config/gpt2_52b.yaml) | 文本数据       |
-| [text_classification](https://gitee.com/mindspore/mindformers/blob/r0.3/docs/task_cards/text_classification.md) | [txtcls_bert_base_uncased](https://gitee.com/mindspore/mindformers/blob/r0.3/configs/txtcls/model_config/txtcls_bert_base_uncased.yaml)<br/> [txtcls_bert_base_uncased_mnli](https://gitee.com/mindspore/mindformers/blob/r0.3/configs/txtcls/model_config/txtcls_bert_base_uncased_mnli.yaml) | 文本数据       |
-| [token_classification](https://gitee.com/mindspore/mindformers/blob/r0.3/docs/task_cards/token_classification.md) | [tokcls_bert_base_chinese_cluener](https://gitee.com/mindspore/mindformers/blob/r0.3/configs/tokcls/model_config/tokcls_bert_base_chinese_cluener.yaml) | 文本数据       |
-| [question_answering](https://gitee.com/mindspore/mindformers/blob/r0.3/docs/task_cards/question_answering.md) | [qa_bert_case_uncased_squad](https://gitee.com/mindspore/mindformers/blob/r0.3/configs/qa/model_config/qa_bert_base_uncased_squad.yaml) | 文本数据       |
-|                         translation                          | [t5_small](https://gitee.com/mindspore/mindformers/blob/r0.3/configs/t5/model_config/t5_small.yaml)<br/>[t5_tiny](https://gitee.com/mindspore/mindformers/blob/r0.3/configs/t5/model_config/t5_tiny.yaml) | 文本数据       |
-|                     image_classification                     | [vit_base_p16](https://gitee.com/mindspore/mindformers/blob/r0.3/configs/vit/model_config/vit_base_p16.yaml)<br/>[swin_base_p4w7](https://gitee.com/mindspore/mindformers/blob/r0.3/configs/swin/model_config/swin_base_p4w7.yaml) | 图像数据       |
-| [zero_shot_image_classification](https://gitee.com/mindspore/mindformers/blob/r0.3/docs/task_cards/zero_shot_image_classification.md) | [clip_vit_b_32](https://gitee.com/mindspore/mindformers/blob/r0.3/configs/clip/model_config/clip_vit_b_32.yaml) <br/> [clip_vit_b_16](https://gitee.com/mindspore/mindformers/blob/r0.3/configs/clip/model_config/clip_vit_b_16.yaml) <br/> [clip_vit_l_14](https://gitee.com/mindspore/mindformers/blob/r0.3/configs/clip/model_config/clip_vit_l_14.yaml) <br/> [clip_vit_l_14@336](https://gitee.com/mindspore/mindformers/blob/r0.3/configs/clip/model_config/clip_vit_l_14@336.yaml) | 图像和文本数据 |
+|                             任务                             | 支持模型                                                     | 支持推理数据     |
+| :----------------------------------------------------------: | ------------------------------------------------------------ | ---------------- |
+| [text_generation](https://gitee.com/mindspore/mindformers/blob/dev/docs/task_cards/text_generation.md) | gpt2<br/>gpt2_13b<br/>gpt2_52b<br/>pangualpha_2_6_b<br/>pangualpha_13b<br/>glm_6b<br/>glm_6b_lora<br/>llama_7b<br/>llama_13b<br/>llama_65b<br/>llama_7b_lora<br/>bloom_560m<br/>bloom_7.1b<br/>bloom_65b<br/>bloom_176b | 文本数据         |
+| [text_classification](https://gitee.com/mindspore/mindformers/blob/dev/docs/task_cards/text_classification.md) | txtcls_bert_base_uncased<br/>txtcls_bert_base_uncased_mnli   | 文本数据         |
+| [token_classification](https://gitee.com/mindspore/mindformers/blob/dev/docs/task_cards/token_classification.md) | tokcls_bert_base_chinese<br/>tokcls_bert_base_chinese_cluener | 文本数据         |
+| [question_answering](https://gitee.com/mindspore/mindformers/blob/dev/docs/task_cards/question_answering.md) | qa_bert_base_uncased<br/>qa_bert_base_chinese_uncased        | 文本数据         |
+|                         translation                          | t5_small                                                     | 文本数据         |
+|                    masked_image_modeling                     | mae_vit_base_p16                                             |                  |
+| [image_classification](https://gitee.com/mindspore/mindformers/blob/dev/docs/task_cards/image_classification.md) | vit_base_p16<br/>swin_base_p4w7                              | 图像数据         |
+| [zero_shot_image_classification](https://gitee.com/mindspore/mindformers/blob/dev/docs/task_cards/zero_shot_image_classification.md) | clip_vit_b_32<br/>clip_vit_b_16<br/>clip_vit_l_14<br/>clip_vit_l_14@336 | 图像和文本对数据 |
 
 #### 文本生成
 
@@ -31,7 +32,11 @@ MindFormers大模型套件为用户提供了pipeline高阶API，支持用户便�
 
 **支持模型**：
 
-- [GPT2](https://gitee.com/mindspore/mindformers/blob/r0.3/docs/model_cards/gpt2.md)
+- [GPT2](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/gpt2.md)
+- [GLM](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/glm.md)
+- [LLama](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/llama.md)
+- [Bloom](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/bloom.md)
+- [PanGuAlpha](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/pangualpha.md)
 
 **使用样例：**
 
@@ -50,7 +55,7 @@ print(pipeline_result)
 
 **支持模型**：
 
-- [BertForMultipleChoice](https://gitee.com/mindspore/mindformers/blob/r0.3/docs/task_cards/text_classification.md)
+- [BertForMultipleChoice](https://gitee.com/mindspore/mindformers/blob/dev/docs/task_cards/text_classification.md)
 
 **使用样例：**
 
@@ -89,7 +94,7 @@ print(results)
 
 **支持模型**：
 
-- [BertForTokenClassification](https://gitee.com/mindspore/mindformers/blob/r0.3/docs/task_cards/token_classification.md)
+- [BertForTokenClassification](https://gitee.com/mindspore/mindformers/blob/dev/docs/task_cards/token_classification.md)
 
 **使用样例：**
 
@@ -131,7 +136,7 @@ print(results)
 
 **支持模型**：
 
-- [BertForQuestionAnswering](https://gitee.com/mindspore/mindformers/blob/r0.3/docs/task_cards/question_answering.md)
+- [BertForQuestionAnswering](https://gitee.com/mindspore/mindformers/blob/dev/docs/task_cards/question_answering.md)
 
 **使用样例：**
 
@@ -167,7 +172,7 @@ print(results)
 
 **支持模型**：
 
-- [T5](https://gitee.com/mindspore/mindformers/blob/r0.3/docs/model_cards/t5.md)
+- [T5](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/t5.md)
 
 **使用样例：**
 
@@ -179,6 +184,28 @@ print(pipeline_result)
 #[{'translation_text': ['un băiat bun!']}]
 ```
 
+#### 图像掩码建模
+
+**任务简介**:
+
+图像掩码建模：通过遮蔽图像中的某些部分来预测被遮蔽的部分。这个任务通常涉及在图像中指定一个区域，并将该区域遮蔽，然后使用遮蔽的图像作为输入，从未遮蔽的图像区域中预测遮蔽的部分。这种任务在计算机视觉中被广泛应用，例如，在图像修复和图像合成中，可以使用遮蔽建模来修复或合成图像中的缺失或不完整部分。
+
+**支持模型**：
+
+- [MAE](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/mae.md)
+
+**使用样例：**
+
+```python
+from mindformers.pipeline import pipeline
+from mindformers.tools.image_tools import load_image
+
+
+pipeline_task = pipeline("masked_image_modeling", model='mae_vit_base_p16')
+img = load_image("https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/XFormer_for_mindspore/clip/sunflower.png")
+pipeline_result = pipeline_task(img)
+```
+
 #### 图像分类
 
 **任务简介**:
@@ -187,7 +214,7 @@ print(pipeline_result)
 
 **支持模型**：
 
-- [VIT](https://gitee.com/mindspore/mindformers/blob/r0.3/docs/model_cards/vit.md)
+- [VIT](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/vit.md)
 
 **使用样例：**
 
@@ -201,7 +228,7 @@ img = load_image("https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/X
 pipeline_result = pipeline_task(img, top_k=3)
 ```
 
-- [Swin](https://gitee.com/mindspore/mindformers/blob/r0.3/docs/model_cards/swin.md)
+- [Swin](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/swin.md)
 
 **使用样例：**
 
@@ -228,7 +255,7 @@ print(pipeline_result)
 
 **支持模型**：
 
-- [CLIP](https://gitee.com/mindspore/mindformers/blob/r0.3/docs/model_cards/clip.md)
+- [CLIP](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/clip.md)
 
 **使用样例：**
 
