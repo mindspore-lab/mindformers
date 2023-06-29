@@ -94,10 +94,14 @@ docker pull swr.cn-central-221.ovaijisuan.com/mindformers/mindformers_dev_mindsp
 
 **其余库上模型分布式支持情况一览表：**
 
-| 模型 | 并行模式 | 数据并行 | 优化器并行 | 模型并行 | 流水并行 | 多副本并行 | 是否上库 | | :--: | :-----------: | :------: | :--------: | :------: | :
-------: | :--------: | :------: | | MAE | data_parallel | 是 | 是 | 否 | 否 | 否 | 是 | | T5 | data_parallel | 是 | 是 | 否 | 否 |
-否 | 是 | | Bert | data_parallel | 是 | 是 | 否 | 否 | 否 | 是 | | Swin | data_parallel | 是 | 是 | 否 | 否 | 否 | 是 | | VIT |
-data_parallel | 是 | 是 | 否 | 否 | 否 | 是 | | CLIP | data_parallel | 是 | 是 | 否 | 否 | 否 | 是 |
+| 模型 | 并行模式      | 数据并行 | 优化器并行 | 模型并行 | 流水并行 | 多副本并行 | 是否上库 |
+| ---- | ------------- | -------- | ---------- | -------- | -------- | ---------- | -------- |
+| MAE  | data_parallel | 是       | 是         | 否       | 否       | 否         | 是       |
+| T5   | data_parallel | 是       | 是         | 否       | 否       | 否         | 是       |
+| Bert | data_parallel | 是       | 是         | 否       | 否       | 否         | 是       |
+| Swin | data_parallel | 是       | 是         | 否       | 否       | 否         | 是       |
+| VIT  | data_parallel | 是       | 是         | 否       | 否       | 否         | 是       |
+| CLIP | data_parallel | 是       | 是         | 否       | 否       | 否         | 是       |
 
 ## AutoClass
 
