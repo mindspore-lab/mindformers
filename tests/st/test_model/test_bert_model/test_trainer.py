@@ -20,9 +20,13 @@ pytest tests/st/test_model/test_bert_model/test_gpt_trainer.py
 import numpy as np
 import pytest
 
+import  mindspore as ms
+
 from mindspore.dataset import GeneratorDataset
 from mindformers.models import BertConfig, BertForPreTraining
 from mindformers import Trainer, TrainingArguments
+
+ms.set_context(mode=0)
 
 
 def generator():

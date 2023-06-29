@@ -14,10 +14,10 @@
 # ============================================================================
 """Tokenization classes for ChatGLM."""
 import os
-import logging
 from typing import List, Optional, Union
 import sentencepiece as spm
 
+from mindformers.tools import logger
 from mindformers.mindformer_book import MindFormerBook
 from mindformers.models.base_tokenizer import Tokenizer
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
@@ -26,7 +26,7 @@ EncodedInput = List[int]
 
 __all__ = ['ChatGLMTokenizer']
 
-logger = logging.getLogger(__name__)
+VOCAB_FILES_NAMES = {"vocab_file": "ice_text.model"}
 
 
 class TextTokenizer:
@@ -196,8 +196,9 @@ class ChatGLMTokenizer(Tokenizer):
         A dict contains the processed ids, attention_mask that specific by the member `MODEL_INPUT_NAME`
         of the subclass.
     """
-    VOCAB_FILES = {"vocab_file": "ice_text.model"}
-    model_input_names = ["input_ids"]
+    vocab_files_names = VOCAB_FILES_NAMES
+    model_input_names = ["input_ids", "token_type_ids", "attention_mask"]
+    FILE_LIST = ['tokenizer_config.json']
     _support_list = MindFormerBook.get_tokenizer_support_list()['glm']
 
     def __init__(
@@ -210,7 +211,6 @@ class ChatGLMTokenizer(Tokenizer):
             end_token='</s>',
             mask_token='[MASK]',
             gmask_token='[gMASK]',
-            padding_side="left",
             pad_token="<pad>",
             unk_token="<unk>",
             num_image_tokens=0,
@@ -219,7 +219,6 @@ class ChatGLMTokenizer(Tokenizer):
         super().__init__(
             do_lower_case=do_lower_case,
             remove_space=remove_space,
-            padding_side=padding_side,
             bos_token=bos_token,
             eos_token=eos_token,
             end_token=end_token,
@@ -285,7 +284,7 @@ class ChatGLMTokenizer(Tokenizer):
 
         return outputs
 
-    def tokenize(self, text):
+    def tokenize(self, text, pair=None, add_special_tokens=True, **kwargs):
         """ Returns a tokenized string. """
         return self._tokenize(text)
 
@@ -295,14 +294,14 @@ class ChatGLMTokenizer(Tokenizer):
         seq = self.sp_tokenizer.tokenize(text)
         return seq
 
-    def _decode(self, token_ids, skip_special_tokens=False, **kwargs):
+    def _decode(self, token_ids, skip_special_tokens=False, clean_up_tokenization_spaces=None, **kwargs):
         """ Decode id to text. """
         # unused in this tokenizer.
         _, _ = skip_special_tokens, kwargs
         if isinstance(token_ids, int):
             token_ids = [token_ids]
         if self.pad_token_id in token_ids:  # remove pad
-            token_ids = list(filter((self.pad_token_id).__ne__, token_ids))
+            token_ids = list(filter(self.pad_token_id.__ne__, token_ids))
         return self.sp_tokenizer.decode(token_ids)
 
     # pylint:disable=arguments-differ
@@ -343,6 +342,15 @@ class ChatGLMTokenizer(Tokenizer):
         return ids
 
     def _convert_token_to_id_with_added_voc(self, token):
+        if token is None:
+            return None
+
+        if token in self.added_tokens_encoder:
+            return self.added_tokens_encoder[token]
+        return self.sp_tokenizer[token]
+
+    def _convert_token_to_id(self, token):
+        """copy from _convert_token_to_id_with_added_voc"""
         if token is None:
             return None
 
@@ -421,10 +429,12 @@ class ChatGLMTokenizer(Tokenizer):
         Returns:
             `Tuple(str)`: Paths to the files saved.
         """
-        if os.path.isdir(save_directory):
-            vocab_file = os.path.join(save_directory, self.VOCAB_FILES["vocab_file"])
-        else:
-            vocab_file = save_directory
+        if not os.path.isdir(save_directory):
+            logger.error("Vocabulary path (%s) should be a directory", save_directory)
+            return None
+
+        vocab_file = os.path.join(
+            save_directory, (filename_prefix + "-" if filename_prefix else "") + VOCAB_FILES_NAMES["vocab_file"])
 
         with open(self.vocab_file, 'rb') as fin:
             proto_str = fin.read()
@@ -432,4 +442,34 @@ class ChatGLMTokenizer(Tokenizer):
         with open(vocab_file, "wb") as writer:
             writer.write(proto_str)
 
-        return (vocab_file,)
+        return vocab_file
+
+    def create_token_type_ids_from_sequences(
+            self, token_ids_0: List[int], token_ids_1: Optional[List[int]] = None
+    ) -> List[int]:
+        """
+        Creates a mask from the two sequences passed to be used in a sequence-pair classification task. An ALBERT
+        sequence pair mask has the following format:
+
+        ```
+        0 0 0 0 0 0 0 0 0 0 0 1 1 1 1 1 1 1 1 1
+        | first sequence    | second sequence |
+        ```
+
+        if token_ids_1 is None, only returns the first portion of the mask (0s).
+
+        Args:
+            token_ids_0 (`List[int]`):
+                List of ids.
+            token_ids_1 (`List[int]`, *optional*):
+                Optional second list of IDs for sequence pairs.
+
+        Returns:
+            `List[int]`: List of [token type IDs](../glossary#token-type-ids) according to the given sequence(s).
+        """
+        output = [0] * (len(token_ids_0) + 1 + 1)
+
+        if token_ids_1 is not None:
+            output += [1] * (len(token_ids_1) + 1)
+
+        return output

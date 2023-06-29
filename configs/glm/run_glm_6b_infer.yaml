@@ -77,7 +77,6 @@ processor:
     end_token: '</s>'
     mask_token: '[MASK]'
     gmask_token: '[gMASK]'
-    padding_side: 'left'
     pad_token: '<pad>'
     unk_token: '<unk>'
   type: GLMProcessor
