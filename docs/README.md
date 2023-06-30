@@ -4,7 +4,7 @@
 
 | 版本对应关系 | MindFormers | MindPet | MindSpore |   Python    |        芯片        |
 | :----------: | :---------: | :-----: | :-------: | :---------: | :----------------: |
-|    版本号    |     dev     |  1.0.0  | 2.0/1.10  | 3.7.5/3.9.0 | Ascend910A NPU/CPU |
+|    版本号    |     0.6rc1     |  1.0.0  | 2.0/1.10  | 3.7.5/3.9.0 | Ascend910A NPU/CPU |
 
 ## 支持镜像
 
@@ -48,7 +48,7 @@ swr.cn-central-221.ovaijisuan.com/mindformers/mindformers_dev_mindspore_2_0:mind
 
 ### AICC镜像
 
-**详情请参考[MindFormers AICC使用教程](https://gitee.com/mindspore/mindformers/blob/dev/docs/aicc_cards/aicc_tutorial.md)**
+**详情请参考[MindFormers AICC使用教程](https://gitee.com/mindspore/mindformers/blob/0.6rc1/docs/aicc_cards/aicc_tutorial.md)**
 
 我们在[镜像仓库网 (hqcases.com)](https://gitee.com/link?target=http%3A%2F%2Fai.hqcases.com%2Fmirrors.html)上发布了一些经过验证的**标准镜像版本**，可以通过几行简单的docker命令的形式，直接使用验证过的标准镜像拉起MindFormers套件的训练任务，而无需进行较为繁琐的自定义镜像并上传的步骤。
 
@@ -70,17 +70,17 @@ docker pull swr.cn-central-221.ovaijisuan.com/mindformers/mindformers_dev_mindsp
 
 |                             模型                             |                      任务（task name）                       | 模型（model name）                                           |
 | :----------------------------------------------------------: | :----------------------------------------------------------: | :----------------------------------------------------------- |
-| [BERT](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/bert.md) | masked_language_modeling [text_classification](https://gitee.com/mindspore/mindformers/blob/dev/docs/task_cards/text_classification.md) [token_classification](https://gitee.com/mindspore/mindformers/blob/dev/docs/task_cards/token_classification.md) [question_answering](https://gitee.com/mindspore/mindformers/blob/dev/docs/task_cards/question_answering.md) | bert_base_uncased <br>txtcls_bert_base_uncased<br>txtcls_bert_base_uncased_mnli <br>tokcls_bert_base_chinese<br>tokcls_bert_base_chinese_cluener <br>qa_bert_base_uncased<br>qa_bert_base_chinese_uncased |
-| [T5](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/t5.md) |                         translation                          | t5_small                                                     |
-| [GPT2](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/gpt2.md) |                       text_generation                        | gpt2_small <br>gpt2_13b <br>gpt2_52b                         |
-| [PanGuAlpha](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/pangualpha.md) |                       text_generation                        | pangualpha_2_6_b<br>pangualpha_13b                           |
-| [GLM](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/glm.md) |                       text_generation                        | glm_6b<br>glm_6b_lora                                        |
-| [LLama](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/llama.md) |                       text_generation                        | llama_7b <br>llama_13b <br>llama_65b <br>llama_7b_lora       |
-|                            [Bloom](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/bloom.md)                             |                       text_generation                        | bloom_560m<br>bloom_7.1b <br>bloom_65b<br>bloom_176b         |
-| [MAE](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/mae.md) |                    masked_image_modeling                     | mae_vit_base_p16                                             |
-| [VIT](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/vit.md) | [image_classification](https://gitee.com/mindspore/mindformers/blob/dev/docs/task_cards/image_classification.md) | vit_base_p16                                                 |
-| [Swin](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/swin.md) | [image_classification](https://gitee.com/mindspore/mindformers/blob/dev/docs/task_cards/image_classification.md) | swin_base_p4w7                                               |
-| [CLIP](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/clip.md) | [contrastive_language_image_pretrain](https://gitee.com/mindspore/mindformers/blob/dev/docs/task_cards/contrastive_language_image_pretrain.md), [zero_shot_image_classification](https://gitee.com/mindspore/mindformers/blob/dev/docs/task_cards/zero_shot_image_classification.md) | clip_vit_b_32<br>clip_vit_b_16 <br>clip_vit_l_14<br>clip_vit_l_14@336 |
+| [BERT](https://gitee.com/mindspore/mindformers/blob/0.6rc1/docs/model_cards/bert.md) | masked_language_modeling [text_classification](https://gitee.com/mindspore/mindformers/blob/0.6rc1/docs/task_cards/text_classification.md) [token_classification](https://gitee.com/mindspore/mindformers/blob/0.6rc1/docs/task_cards/token_classification.md) [question_answering](https://gitee.com/mindspore/mindformers/blob/0.6rc1/docs/task_cards/question_answering.md) | bert_base_uncased <br>txtcls_bert_base_uncased<br>txtcls_bert_base_uncased_mnli <br>tokcls_bert_base_chinese<br>tokcls_bert_base_chinese_cluener <br>qa_bert_base_uncased<br>qa_bert_base_chinese_uncased |
+| [T5](https://gitee.com/mindspore/mindformers/blob/0.6rc1/docs/model_cards/t5.md) |                         translation                          | t5_small                                                     |
+| [GPT2](https://gitee.com/mindspore/mindformers/blob/0.6rc1/docs/model_cards/gpt2.md) |                       text_generation                        | gpt2_small <br>gpt2_13b <br>gpt2_52b                         |
+| [PanGuAlpha](https://gitee.com/mindspore/mindformers/blob/0.6rc1/docs/model_cards/pangualpha.md) |                       text_generation                        | pangualpha_2_6_b<br>pangualpha_13b                           |
+| [GLM](https://gitee.com/mindspore/mindformers/blob/0.6rc1/docs/model_cards/glm.md) |                       text_generation                        | glm_6b<br>glm_6b_lora                                        |
+| [LLama](https://gitee.com/mindspore/mindformers/blob/0.6rc1/docs/model_cards/llama.md) |                       text_generation                        | llama_7b <br>llama_13b <br>llama_65b <br>llama_7b_lora       |
+|                            [Bloom](https://gitee.com/mindspore/mindformers/blob/0.6rc1/docs/model_cards/bloom.md)                             |                       text_generation                        | bloom_560m<br>bloom_7.1b <br>bloom_65b<br>bloom_176b         |
+| [MAE](https://gitee.com/mindspore/mindformers/blob/0.6rc1/docs/model_cards/mae.md) |                    masked_image_modeling                     | mae_vit_base_p16                                             |
+| [VIT](https://gitee.com/mindspore/mindformers/blob/0.6rc1/docs/model_cards/vit.md) | [image_classification](https://gitee.com/mindspore/mindformers/blob/0.6rc1/docs/task_cards/image_classification.md) | vit_base_p16                                                 |
+| [Swin](https://gitee.com/mindspore/mindformers/blob/0.6rc1/docs/model_cards/swin.md) | [image_classification](https://gitee.com/mindspore/mindformers/blob/0.6rc1/docs/task_cards/image_classification.md) | swin_base_p4w7                                               |
+| [CLIP](https://gitee.com/mindspore/mindformers/blob/0.6rc1/docs/model_cards/clip.md) | [contrastive_language_image_pretrain](https://gitee.com/mindspore/mindformers/blob/0.6rc1/docs/task_cards/contrastive_language_image_pretrain.md), [zero_shot_image_classification](https://gitee.com/mindspore/mindformers/blob/0.6rc1/docs/task_cards/zero_shot_image_classification.md) | clip_vit_b_32<br>clip_vit_b_16 <br>clip_vit_l_14<br>clip_vit_l_14@336 |
 
 **核心关键模型能力一览表：**
 
@@ -267,7 +267,7 @@ MindFormers大模型套件面向任务设计Trainer接口，旨在让用户可�
 
 mindspore相关环境的初始化，MindFormers中提供了init_context标准接口帮助用户完成单卡或多卡并行环境的初始化：
 
-[init_context](https://gitee.com/mindspore/mindformers/blob/dev/mindformers/core/context/build_context.py#L53)  [ContextConfig](https://gitee.com/mindspore/mindformers/blob/dev/mindformers/trainer/config_args.py#L26) [ParallelContextConfig](https://gitee.com/mindspore/mindformers/blob/dev/mindformers/trainer/config_args.py#L26)
+[init_context](https://gitee.com/mindspore/mindformers/blob/0.6rc1/mindformers/core/context/build_context.py#L53)  [ContextConfig](https://gitee.com/mindspore/mindformers/blob/0.6rc1/mindformers/trainer/config_args.py#L26) [ParallelContextConfig](https://gitee.com/mindspore/mindformers/blob/0.6rc1/mindformers/trainer/config_args.py#L26)
 
 单卡初始化：
 
@@ -313,7 +313,7 @@ def context_init():
 
 ### TrainingArguments&&Trainer
 
-MindFormers套件对用户提供了`TrainingArguments`类，用于自定义大模型训练过程中的各类参数，支持参数详见：[TrainingArguments](https://gitee.com/mindspore/mindformers/blob/dev/mindformers/trainer/training_args.py)
+MindFormers套件对用户提供了`TrainingArguments`类，用于自定义大模型训练过程中的各类参数，支持参数详见：[TrainingArguments](https://gitee.com/mindspore/mindformers/blob/0.6rc1/mindformers/trainer/training_args.py)
 
 同时，MindFormers也提供了`Trainer`高阶接口，用于大模型任务的开发、训练、微调、评估、推理等流程；
 
@@ -329,7 +329,7 @@ training_args = TrainingArguments(num_train_epochs=3, batch_size=2, learning_rat
                                   sink_mode=True)
 ```
 
-使用Trainer接口创建内部预置任务：数据集按照官方教程准备[GPT预训练数据集准备](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/gpt2.md)，自定义训练参数
+使用Trainer接口创建内部预置任务：数据集按照官方教程准备[GPT预训练数据集准备](https://gitee.com/mindspore/mindformers/blob/0.6rc1/docs/model_cards/gpt2.md)，自定义训练参数
 
 ```python
 from mindformers import Trainer, TrainingArguments
@@ -381,7 +381,7 @@ text_generation = Trainer(task='text_generation', model=pangu_model, args=traini
 MindFormers的Trainer接口提供了并行的配置接口`set_parallel_config`和重计算配置接口`set_recompute_config`，其中`set_parallel_config`接口仅在**半自动并行**
 或**全自动并行模式**下生效，同时需要模型本身已支持或已配置[并行策略](https://www.mindspore.cn/tutorials/experts/zh-CN/r2.0/parallel/introduction.html);
 
-[set_parallel_config](https://gitee.com/mindspore/mindformers/blob/dev/mindformers/trainer/trainer.py#L690)  [set_recompute_config](https://gitee.com/mindspore/mindformers/blob/dev/mindformers/trainer/trainer.py#L731)
+[set_parallel_config](https://gitee.com/mindspore/mindformers/blob/0.6rc1/mindformers/trainer/trainer.py#L690)  [set_recompute_config](https://gitee.com/mindspore/mindformers/blob/0.6rc1/mindformers/trainer/trainer.py#L731)
 
 使用Trainer高阶接口，自定义并行和重计算配置：
 
@@ -429,7 +429,7 @@ text_generation.set_recompute_config(recompute=True)
 ### 训练&&微调&&评估&&推理
 
 MindFormers套件的Trainer高阶接口提供了`train`、`finetune`、`evaluate`、`predict`
-4个关键属性函数，帮助用户快速拉起任务的训练、微调、评估、推理流程：[Trainer.train](https://gitee.com/mindspore/mindformers/blob/dev/mindformers/trainer/trainer.py#L334) [Trainer.finetune](https://gitee.com/mindspore/mindformers/blob/dev/mindformers/trainer/trainer.py#L419) [Trainer.evaluate](https://gitee.com/mindspore/mindformers/blob/dev/mindformers/trainer/trainer.py#L516) [Trainer.predict](https://gitee.com/mindspore/mindformers/blob/dev/mindformers/trainer/trainer.py#L583)
+4个关键属性函数，帮助用户快速拉起任务的训练、微调、评估、推理流程：[Trainer.train](https://gitee.com/mindspore/mindformers/blob/0.6rc1/mindformers/trainer/trainer.py#L334) [Trainer.finetune](https://gitee.com/mindspore/mindformers/blob/0.6rc1/mindformers/trainer/trainer.py#L419) [Trainer.evaluate](https://gitee.com/mindspore/mindformers/blob/0.6rc1/mindformers/trainer/trainer.py#L516) [Trainer.predict](https://gitee.com/mindspore/mindformers/blob/0.6rc1/mindformers/trainer/trainer.py#L583)
 
 使用`Trainer.train` `Trainer.finetune` `Trainer.evaluate` `Trainer.predict` 拉起任务的训练、微调、评估、推理流程，以下为使用`Trainer`
 高阶接口进行全流程开发的使用样例（多卡分布式并行），命名为`task.py`：
@@ -721,15 +721,15 @@ python task.py --task text_generation --model_type gpt2 --predict_data 'hello!' 
 
 MindPet（Pet：Parameter-Efficient Tuning）是属于Mindspore领域的微调算法套件。随着计算算力不断增加，大模型无限的潜力也被挖掘出来。但随之在应用和训练上带来了巨大的花销，导致商业落地困难。因此，出现一种新的参数高效（parameter-efficient）算法，与标准的全参数微调相比，这些算法仅需要微调小部分参数，可以大大降低计算和存储成本，同时可媲美全参微调的性能。
 
-[特性文档](https://gitee.com/mindspore/mindformers/tree/dev/docs/pet_tuners)
+[特性文档](https://gitee.com/mindspore/mindformers/tree/0.6rc1/docs/pet_tuners)
 
 #### 微调支持列表
 
 |                             模型                             | 微调算法 |        运行模式         |
 | :----------------------------------------------------------: | :------: | :---------------------: |
-| [GPT](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/gpt2.md) |   Lora   | finetune、eval、predict |
-| [LLama](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/llama.md) |   Lora   | finetune、eval、predict |
-| [GLM](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/glm.md) |   Lora   | finetune、eval、predict |
+| [GPT](https://gitee.com/mindspore/mindformers/blob/0.6rc1/docs/model_cards/gpt2.md) |   Lora   | finetune、eval、predict |
+| [LLama](https://gitee.com/mindspore/mindformers/blob/0.6rc1/docs/model_cards/llama.md) |   Lora   | finetune、eval、predict |
+| [GLM](https://gitee.com/mindspore/mindformers/blob/0.6rc1/docs/model_cards/glm.md) |   Lora   | finetune、eval、predict |
 
 #### 使用入门
 
@@ -743,12 +743,12 @@ Mindformers大模型套件提供了text generator方法，旨在让用户能够�
 
 |    model    |                         模型文档链接                         | 增量推理 | 流式推理 |
 | :---------: | :----------------------------------------------------------: | :------: | :------: |
-|    bloom    | [link](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/bloom.md) |    ×     |    √     |
-|     GLM     | [link](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/glm.md) |    √     |    √     |
-|     GPT     | [link](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/gpt2.md) |    ×     |    √     |
-|    llama    | [link](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/llama.md) |    √     |    √     |
-| pangu-alpha | [link](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/pangualpha.md) |    ×     |    √     |
-|     T5      | [link](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/t5.md) |    ×     |    √     |
+|    bloom    | [link](https://gitee.com/mindspore/mindformers/blob/0.6rc1/docs/model_cards/bloom.md) |    ×     |    √     |
+|     GLM     | [link](https://gitee.com/mindspore/mindformers/blob/0.6rc1/docs/model_cards/glm.md) |    √     |    √     |
+|     GPT     | [link](https://gitee.com/mindspore/mindformers/blob/0.6rc1/docs/model_cards/gpt2.md) |    ×     |    √     |
+|    llama    | [link](https://gitee.com/mindspore/mindformers/blob/0.6rc1/docs/model_cards/llama.md) |    √     |    √     |
+| pangu-alpha | [link](https://gitee.com/mindspore/mindformers/blob/0.6rc1/docs/model_cards/pangualpha.md) |    ×     |    √     |
+|     T5      | [link](https://gitee.com/mindspore/mindformers/blob/0.6rc1/docs/model_cards/t5.md) |    ×     |    √     |
 
 #### 增量推理
 
@@ -792,7 +792,7 @@ _ = model.generate(inputs["input_ids"], streamer=streamer, max_length=20, top_k=
 
 **说明:** 由于MindSpore版本问题，分布式推理仅支持MindSpore 2.0及以上版本，且暂不支持流水并行推理模式。
 
-[分布式推理参考用例](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/bloom.md#a1-%E6%A8%A1%E5%9E%8B%E5%B9%B6%E8%A1%8C%E6%8E%A8%E7%90%86%E4%BB%A51%E6%9C%BA8%E5%8D%A1%E6%8E%A8%E7%90%86bloom_71b%E4%B8%BA%E4%BE%8B)
+[分布式推理参考用例](https://gitee.com/mindspore/mindformers/blob/0.6rc1/docs/model_cards/bloom.md#a1-%E6%A8%A1%E5%9E%8B%E5%B9%B6%E8%A1%8C%E6%8E%A8%E7%90%86%E4%BB%A51%E6%9C%BA8%E5%8D%A1%E6%8E%A8%E7%90%86bloom_71b%E4%B8%BA%E4%BE%8B)
 
 ### 边训练边评估
 
@@ -890,7 +890,7 @@ eval_epoch_interval: 50   # num of epoch intervals between each eval, 1 means ev
 
 - step1（默认已有待切分权重相对应的策略文件，若没有，也可参考以下方法生成）
 
-在`config`中配置`only_save_strategy: True`，正常启动[分布式训练/评估/推理](https://gitee.com/mindspore/mindformers/tree/dev#%E6%96%B9%E5%BC%8F%E4%B8%80%E4%BD%BF%E7%94%A8%E5%B7%B2%E6%9C%89%E8%84%9A%E6%9C%AC%E5%90%AF%E5%8A%A8)，生成目标卡数的分布式策略文件后将会退出。生成的分布式策略文件保存在`output/strategy`目录下。
+在`config`中配置`only_save_strategy: True`，正常启动[分布式训练/评估/推理](https://gitee.com/mindspore/mindformers/tree/0.6rc1#%E6%96%B9%E5%BC%8F%E4%B8%80%E4%BD%BF%E7%94%A8%E5%B7%B2%E6%9C%89%E8%84%9A%E6%9C%AC%E5%90%AF%E5%8A%A8)，生成目标卡数的分布式策略文件后将会退出。生成的分布式策略文件保存在`output/strategy`目录下。
 
 ```yaml
 only_save_strategy: True
