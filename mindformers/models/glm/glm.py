@@ -18,7 +18,7 @@ import numpy as np
 
 import mindspore as ms
 from mindspore import dtype as mstype
-from mindspore import nn, ops, ms_function, JitConfig, Tensor
+from mindspore import nn, ops, Tensor
 from mindspore.ops import functional as F
 from mindspore.ops import operations as P
 from mindspore.common.initializer import initializer
@@ -225,6 +225,7 @@ class GLMModel(nn.Cell):
         self.use_final_layernorm = config.use_final_layernorm
         if config.use_final_layernorm:
             self.final_layernorm = layernorm(config.hidden_size, eps=config.layernorm_epsilon)
+            self.final_layernorm.shard(((op_parallel_config.data_parallel, 1, 1),))
 
     def construct(self, input_ids, position_ids, attention_mask, init_reset=True, batch_valid_length=None):
         """
@@ -377,7 +378,7 @@ class GLMForPreTraining(BaseModel):
         # Claim the first graph
         if self.is_first_iteration:
             self.add_flags_recursive(is_first_iteration=True)
-            res = self.construct(
+            res = self(
                 input_ids=Tensor(input_ids, mstype.int32),
                 # input_ids (1,512) int32
                 position_ids=Tensor(position_ids, mstype.int32),
@@ -399,7 +400,7 @@ class GLMForPreTraining(BaseModel):
             position_ids_tmp = position_ids[..., current_index_tmp:current_index_tmp + 1]
             attention_mask_tmp = attention_mask[:, :, current_index_tmp:current_index_tmp + 1, :]
 
-            res = self.construct(
+            res = self(
                 input_ids=Tensor(inputs_tmp, mstype.int32),
                 # input_ids (1,512) int32
                 position_ids=Tensor(position_ids_tmp, mstype.int32),
@@ -498,7 +499,7 @@ class GLMForPreTraining(BaseModel):
                     valid_length_each_example=valid_length_each_example
                 )
             else:
-                res = self.construct(
+                res = self(
                     input_ids=Tensor(input_ids, mstype.int32),
                     position_ids=Tensor(position_ids, mstype.int32),
                     attention_mask=Tensor(attention_mask, mstype.float32)
@@ -663,7 +664,6 @@ class GLMChatModel(GLMForPreTraining):
         return p, p_args
 
     # pylint:disable=arguments-differ
-    @ms_function(jit_config=JitConfig(jit_level=jit_level))  # GE  O3; VM jit_level=O1
     def construct(self, input_ids, position_ids=None, attention_mask=None,
                   input_position=None, init_reset=True, batch_valid_length=None):
         """Get probs and p_args"""
