@@ -222,7 +222,7 @@ class ViTForImageClassification(BaseModel):
 
     def construct(self, image, target=None):
         """construct of vit"""
-        out = self.vit.construct(image)
+        out = self.vit(image)
         out = self.head(out)
         if self.phase != "train":
             return out, target
