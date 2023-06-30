@@ -13,7 +13,7 @@
 - docker下载命令
 
 ```shell
-docker pull swr.cn-central-221.ovaijisuan.com/mindformers/mindformers_dev_mindspore_2_0:mindformers_0.6.0dev_20230616_py39_37
+docker pull swr.cn-central-221.ovaijisuan.com/mindformers/mindformers_0.6rc1_mindspore_2_0:mindformers_0.6rc1_mindspore_2_0_bare_metal
 ```
 
 - 创建容器
@@ -42,7 +42,7 @@ docker run -it -u root \
 -v /var/log/npu/:/usr/slog \
 -v /usr/local/bin/npu-smi:/usr/local/bin/npu-smi \
 --name {请手动输入容器名称} \
-swr.cn-central-221.ovaijisuan.com/mindformers/mindformers_dev_mindspore_2_0:mindformers_0.6.0dev_20230616_py39_37 \
+swr.cn-central-221.ovaijisuan.com/mindformers/mindformers_0.6rc1_mindspore_2_0:mindformers_0.6rc1_mindspore_2_0_bare_metal \
 /bin/bash
 ```
 
@@ -55,13 +55,14 @@ swr.cn-central-221.ovaijisuan.com/mindformers/mindformers_dev_mindspore_2_0:mind
 - 镜像列表
 
 ```text
-1. swr.cn-central-221.ovaijisuan.com/mindformers/mindformers_dev_mindspore_1_10_1:mindformers_0.6.0dev_20230615_py39
+1. swr.cn-central-221.ovaijisuan.com/mindformers/mindformers_0.6rc1_mindspore_1_10_1:mindformers_0.6rc1_mindspore_1_10_1
+2. swr.cn-central-221.ovaijisuan.com/mindformers/mindformers_0.6rc1_mindspore_2_0:mindformers_0.6rc1_mindspore_2_0 (MS 2.0必须升级配套的固件和驱动才能使用)
 ```
 
-- 在一台准备好docker引擎的计算机上，root用户执行docker pull命令拉取该镜像
+- 在一台准备好docker引擎的计算机上，root用户执行docker pull命令拉取该镜像，然后`docker tag`命令更改为相应计算中心的标签再推送至自己的计算中心平台;
 
 ```shell
-docker pull swr.cn-central-221.ovaijisuan.com/mindformers/mindformers_dev_mindspore_1_10_1:mindformers_0.6.0dev_20230615_py39
+docker pull swr.cn-central-221.ovaijisuan.com/mindformers/mindformers_0.6rc1_mindspore_1_10_1:mindformers_0.6rc1_mindspore_1_10_1
 ```
 
 ## 模型矩阵
