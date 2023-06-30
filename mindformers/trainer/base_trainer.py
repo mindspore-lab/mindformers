@@ -586,7 +586,7 @@ class BaseTrainer:
                 "dataset_size": config.data_size,
                 "micro_batch_interleave_num": config.micro_batch_interleave_num,
                 "micro_batch_num": config.parallel_config.micro_batch_num,
-                "initial_epoch": config.runner_config.initial_epoch if config.runner_config.initial_epoch else 0})
+                "initial_epoch": config.runner_config.initial_epoch})
 
         # build evaluate in training
         if config.do_eval:
@@ -612,7 +612,7 @@ class BaseTrainer:
                     callbacks=callbacks,
                     dataset_sink_mode=config.runner_config.sink_mode,
                     sink_size=config.runner_config.sink_size,
-                    initial_epoch=config.runner_config.initial_epoch if config.runner_config.initial_epoch else 0)
+                    initial_epoch=config.runner_config.initial_epoch)
         logger.info(".........Training Over!.............")
 
     def evaluate_process(
