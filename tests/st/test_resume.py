@@ -47,12 +47,14 @@ def generator():
     for _ in range(32):
         yield train_data
 
+
 @dataclass
 class Tempconfig:
     seed: int = 0
     runner_config: RunnerConfig = None
     data_size: int = 0
     train_checkpoint: str = ""
+
 
 @pytest.mark.level0
 @pytest.mark.platform_x86_ascend_training
@@ -88,7 +90,7 @@ def test_gpt_trainer_train_from_instance():
     callbacks = [loss_cb, time_cb, ckpt_cb]
 
     lm_trainer = Trainer(model=gpt_model,
-                         config=config,
+                         args=config,
                          optimizers=optimizer,
                          train_dataset=dataset,
                          callbacks=callbacks,
@@ -108,8 +110,14 @@ def test_gpt_trainer_train_from_instance():
     dataset = GeneratorDataset(generator, column_names=["input_ids", "input_mask"])
     dataset = dataset.batch(batch_size=8)
 
+    # callback
+    loss_cb = LossMonitor(per_print_times=2)
+    time_cb = TimeMonitor()
+    ckpt_cb = CheckpointMointor()
+    callbacks = [loss_cb, time_cb, ckpt_cb]
+
     lm_trainer = Trainer(model=gpt_model,
-                         config=config,
+                         args=config,
                          optimizers=optimizer,
                          train_dataset=dataset,
                          callbacks=callbacks,
