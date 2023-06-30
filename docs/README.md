@@ -792,7 +792,7 @@ _ = model.generate(inputs["input_ids"], streamer=streamer, max_length=20, top_k=
 
 **说明:** 由于MindSpore版本问题，分布式推理仅支持MindSpore 2.0及以上版本，且暂不支持流水并行推理模式。
 
-[分布式参考用例2](https://gitee.com/mindspore/mindformers/blob/0.6rc1/docs/model_cards/bloom.md#a1-%E6%A8%A1%E5%9E%8B%E5%B9%B6%E8%A1%8C%E6%8E%A8%E7%90%86%E4%BB%A51%E6%9C%BA8%E5%8D%A1%E6%8E%A8%E7%90%86bloom_71b%E4%B8%BA%E4%BE%8B)
+[分布式推理参考用例](https://gitee.com/mindspore/mindformers/blob/0.6rc1/docs/model_cards/bloom.md#a1-%E6%A8%A1%E5%9E%8B%E5%B9%B6%E8%A1%8C%E6%8E%A8%E7%90%86%E4%BB%A51%E6%9C%BA8%E5%8D%A1%E6%8E%A8%E7%90%86bloom_71b%E4%B8%BA%E4%BE%8B)
 
 ### 边训练边评估
 

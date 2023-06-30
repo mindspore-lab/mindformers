@@ -491,7 +491,7 @@ if __name__ == "__main__":
 ```
 
 ```bash
-# >>> `run_chat.py`文件
+# >>> `run_chat.sh`文件
 
 # define variable
 export RANK_SIZE=8
