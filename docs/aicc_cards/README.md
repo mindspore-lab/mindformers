@@ -55,18 +55,19 @@ ModelArts上的所提供的预置训练镜像，通常MindSpore的版本较为�
 
 > 可以复制其docker pull命令拉取该镜像，在镜像仓库网上的镜像权限均为公开，无需登录可以直接拉取
 >
-> 注：当前版本镜像为每日开发版，稳定版将在后续推送至镜像仓库网
+> 注：当前版本镜像为0.6rc1；
 
 - 镜像列表
 
 ```text
-1. swr.cn-central-221.ovaijisuan.com/mindformers/mindformers_dev_mindspore_1_10_1:mindformers_0.6.0dev_20230615_py39
+1. swr.cn-central-221.ovaijisuan.com/mindformers/mindformers_0.6rc1_mindspore_1_10_1:mindformers_0.6rc1_mindspore_1_10_1
+2. swr.cn-central-221.ovaijisuan.com/mindformers/mindformers_0.6rc1_mindspore_2_0:mindformers_0.6rc1_mindspore_2_0 (MS 2.0必须升级配套的固件和驱动才能使用)
 ```
 
 - 在一台准备好docker引擎的计算机上，root用户执行docker pull命令拉取该镜像
 
-```bash
-docker pull swr.cn-central-221.ovaijisuan.com/mindformers/mindformers_dev_mindspore_1_10_1:mindformers_0.6.0dev_20230615_py39
+```shell
+docker pull swr.cn-central-221.ovaijisuan.com/mindformers/mindformers_0.6rc1_mindspore_1_10_1:mindformers_0.6rc1_mindspore_1_10_1
 ```
 
 - 进入`容器镜像服务`的控制台界面，找到`客户端上传`镜像按钮，将会提示如何上传上一步拉取的镜像
