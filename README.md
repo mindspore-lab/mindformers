@@ -22,7 +22,7 @@ MindSpore Transformers套件基于MindSpore内置的并行技术和组件化设�
 - 任务README：[docs/task_cards](docs/task_cards)
 - MindPet指导教程：[docs/pet_tuners](docs/pet_tuners)
 - AICC指导教程：[docs/aicc_cards](docs/aicc_cards)
-- 高阶API指导文档: [docs/mindformers_tutorial.md](docs/mindformers_tutorial.md)
+- 高阶API指导文档: [docs/mindformers_tutorial.md](docs/README.md)
 - 在线文档：[mindformers](https://mindformers.readthedocs.io/zh_CN/latest)
 
 目前支持的模型列表如下：
@@ -61,7 +61,7 @@ pip install https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFor
 
 - 方式3：镜像
 
-具体参考[镜像安装](docs/mindformers_tutorial.md#%E6%94%AF%E6%8C%81%E9%95%9C%E5%83%8F)
+具体参考[镜像安装](docs/README.md#%E6%94%AF%E6%8C%81%E9%95%9C%E5%83%8F)
 
 ## 三、版本匹配关系
 
@@ -124,7 +124,7 @@ RUN_STATUS: 为任务运行状态，支持关键字 train\finetune\eval\predict
 
 ### 方式二：调用API启动
 
-**详细高阶API使用教程请参考：**[MindFormers大模型使用教程](docs/mindformers_tutorial.md)
+**详细高阶API使用教程请参考：**[MindFormers大模型使用教程](docs/README.md)
 
 - 准备工作
 
