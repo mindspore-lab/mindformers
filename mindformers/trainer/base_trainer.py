@@ -571,7 +571,6 @@ class BaseTrainer:
                 logger.info(".............Start resume training from checkpoint..................")
                 transform_and_load_checkpoint(config, model, network, dataset, optimizer=optimizer)
             else:
-                logger.info(".............Start load checkpoint from checkpoint..................")
                 if config.load_checkpoint in SUPPORT_MODEL_NAMES:
                     config.load_checkpoint = \
                         AutoModel.from_pretrained(config.load_checkpoint).default_checkpoint_download_path
