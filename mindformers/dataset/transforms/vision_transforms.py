@@ -22,11 +22,20 @@ from PIL import Image
 from mindspore.dataset import vision
 import mindspore as ms
 
+from mindspore.dataset.vision.utils import Inter
+from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 
 __all__ = [
     'BatchResize', 'BCHW2BHWC', 'BatchPILize',
-    'BatchNormalize', 'BatchCenterCrop', 'BatchToTensor'
+    'BatchNormalize', 'BatchCenterCrop', 'BatchToTensor',
+    'RandomCropDecodeResize', 'RandomResizedCrop', 'Resize'
 ]
+
+INTERPOLATION = {'nearest': Inter.NEAREST,
+                 'antialias': Inter.ANTIALIAS,
+                 'linear': Inter.LINEAR,
+                 'cubic': Inter.PILCUBIC,
+                 'bicubic': Inter.BICUBIC}
 
 
 class BCHW2BHWC:
@@ -42,6 +51,7 @@ class BCHW2BHWC:
          transformed image batch: for numpy or tensor input, return a numpy array, the channel
          is (bz, h, w, c) or (h, w, c); for PIL.Image input, it is returned directly.
     """
+
     def __call__(self, image_batch):
         """the call function"""
         if isinstance(image_batch, ms.Tensor):
@@ -60,6 +70,7 @@ class BCHW2BHWC:
             return image_batch
         raise TypeError(f"the type {type(image_batch)} of image_batch is unsupported.")
 
+
 class BatchResize:
     """
     Resize a batch of image to the given shape.
@@ -67,6 +78,7 @@ class BatchResize:
     Args:
          image_resolution (int): the target size.
     """
+
     def __init__(self, image_resolution):
         self.sizer = vision.Resize(image_resolution)
 
@@ -100,6 +112,7 @@ class BatchResize:
             return self.sizer(image_batch)
         raise TypeError(f"the type {type(image_batch)} of image_batch is unsupported.")
 
+
 class BatchCenterCrop:
     """
     CenterCrop a batch of image to the given shape.
@@ -107,6 +120,7 @@ class BatchCenterCrop:
     Args:
          image_resolution (int): the target size.
     """
+
     def __init__(self, image_resolution):
         self.crop = vision.CenterCrop(image_resolution)
 
@@ -142,8 +156,10 @@ class BatchCenterCrop:
             return self.crop(image_batch)
         raise TypeError(f"the type {type(image_batch)} of image_batch is unsupported.")
 
+
 class BatchToTensor:
     """Transform a batch of image to tensor and scale to (0, 1)."""
+
     def __init__(self):
         self.totensor = ms.dataset.vision.ToTensor()
 
@@ -175,8 +191,10 @@ class BatchToTensor:
             return self.totensor(image_batch)
         raise TypeError(f"the type {type(image_batch)} of image_batch is unsupported.")
 
+
 class BatchNormalize:
     """Normalize a batch of image."""
+
     def __init__(
             self,
             mean=(0.48145466, 0.4578275, 0.40821073),
@@ -211,8 +229,10 @@ class BatchNormalize:
                              f" but got {len(image_batch.shape)}")
         raise TypeError(f"the type {type(image_batch)} of image_batch is unsupported.")
 
+
 class BatchPILize:
     """transform a batch of image to PIL.Image list."""
+
     def __call__(self, image_batch):
         """
         The forward process.
@@ -247,3 +267,42 @@ class BatchPILize:
                              f" but got {len(image_batch.shape)}")
 
         raise ValueError("unsupported input type.")
+
+
+@MindFormerRegister.register(MindFormerModuleType.TRANSFORMS)
+class RandomCropDecodeResize(vision.transforms.RandomCropDecodeResize):
+    """wrapper of RandomCropDecodeResize"""
+
+    def __init__(self, size, scale=(0.08, 1.0), ratio=(3. / 4., 4. / 3.),
+                 interpolation='cubic', max_attempts=10):
+        self.size = size
+        self.scale = scale
+        self.ratio = ratio
+        self.interpolation = INTERPOLATION.get(interpolation)
+        self.max_attempts = max_attempts
+        super(RandomCropDecodeResize, self).__init__(size, scale, ratio, self.interpolation, max_attempts)
+
+
+@MindFormerRegister.register(MindFormerModuleType.TRANSFORMS)
+class RandomResizedCrop(vision.transforms.RandomResizedCrop):
+    """wrapper of RandomCropDecodeResize"""
+
+    def __init__(self, size, scale=(0.08, 1.0), ratio=(3. / 4., 4. / 3.),
+                 interpolation='cubic', max_attempts=10):
+        self.size = size
+        self.scale = scale
+        self.ratio = ratio
+        self.interpolation = INTERPOLATION.get(interpolation)
+        self.max_attempts = max_attempts
+        super(RandomResizedCrop, self).__init__(size, scale, ratio, self.interpolation, max_attempts)
+
+
+@MindFormerRegister.register(MindFormerModuleType.TRANSFORMS)
+class Resize(vision.transforms.Resize):
+    """wrapper of Resize"""
+
+    def __init__(self, size, interpolation='cubic'):
+        self.size = size
+        self.interpolation = INTERPOLATION.get(interpolation)
+        self.random = False
+        super(Resize, self).__init__(size, self.interpolation)

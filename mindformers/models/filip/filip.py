@@ -1,4 +1,4 @@
-# Copyright 2022 Huawei Technologies Co., Ltd
+# Copyright 2023 Huawei Technologies Co., Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,13 +16,18 @@
 """
 FilipModel
 """
+import math
+import os
+
+import numpy as np
 
 import mindspore as ms
 import mindspore.ops as ops
 from mindspore.ops import functional as F
 from mindspore import nn, Parameter, Tensor
 from mindspore.common import dtype as mstype
-from mindspore.communication.management import get_rank, create_group
+from mindspore.communication.management import get_group_size, get_rank, create_group
+from mindspore.nn.wrap.grad_reducer import DistributedGradReducer
 from mindspore.ops.primitive import constexpr
 
 from ...mindformer_book import MindFormerBook
@@ -45,7 +50,6 @@ class SoftCrossEntropyLoss(nn.Cell):
         self.smooth = smooth
         self.expand_op = ops.ExpandDims()
         self.concat_op = ops.Concat(1)
-        self.scatter = ops.ScatterNd()
         self.ones = ops.Ones()
         self.on_value = Tensor(1.0, ms.float32)
         self.off_value = Tensor(0.0, ms.float32)
@@ -99,20 +103,30 @@ class FilipTopKFeature(nn.Cell):
         super(FilipTopKFeature, self).__init__()
         self.percent_i, self.percent_t = top_token_percent
         self.local_group_size = local_group_size
-        rank_id = get_rank()
-        sub_group = rank_id // local_group_size
-        group = "{}-{}".format(sub_group * local_group_size, (sub_group + 1) * local_group_size)
-        rank_ids = list(range(sub_group * local_group_size, (sub_group + 1) * local_group_size))
-        create_group(group, rank_ids)
-        self.local_gather = ops.AllGather(group)
+
+        self.rank_size = int(os.getenv("RANK_SIZE", '1'))
+        if self.rank_size > 1:
+            rank_id = get_rank()
+            sub_group = rank_id // local_group_size
+            group = "{}-{}".format(sub_group * local_group_size, (sub_group + 1) * local_group_size)
+            rank_ids = list(range(sub_group * local_group_size, (sub_group + 1) * local_group_size))
+            create_group(group, rank_ids)
+            self.local_gather = ops.AllGather(group)
+
         self.matmul = ops.MatMul(transpose_b=True)
         self.topk = ops.TopK(sorted=True)
         self.expand_dim = ops.ExpandDims()
 
     def construct(self, image_feature, text_feature, text_pad_mask):
         """construct of FilipTopKFeature"""
-        text_local_gather = self.local_gather(text_feature)
-        image_local_gather = self.local_gather(image_feature)
+
+        if self.rank_size > 1:
+            text_local_gather = self.local_gather(text_feature)
+            image_local_gather = self.local_gather(image_feature)
+        else:
+            text_local_gather = text_feature
+            image_local_gather = image_feature
+
         # get image features
         batch_size, n_token1, feat_dim = image_feature.shape
         output = self.matmul(image_feature.reshape((-1, feat_dim)), text_local_gather.reshape((-1, feat_dim)))
@@ -143,8 +157,8 @@ class FilipLogit(nn.Cell):
         super(FilipLogit, self).__init__()
         self.use_mask_flag = use_mask_flag
         self.matmul = ops.MatMul(transpose_b=True)
-        logit_value = 3.8665097
-        self.logit_scale = Parameter(Tensor(logit_value, dtype=ms.float32))
+        logit_value = math.exp(3.8665097)
+        self.logit_scale = Parameter(Tensor(np.log(logit_value), dtype=ms.float32))
         self.exp = ops.Exp()
         self.cast = ops.Cast()
 
@@ -178,11 +192,21 @@ class FilipGather(nn.Cell):
         self.top_k_feature = FilipTopKFeature(top_token_percent, local_group_size)
         self.get_img_logits = FilipLogit()
         self.get_txt_logits = FilipLogit(True)
-        self.all_gather = ops.AllGather()
+        self.rank_size = int(os.getenv("RANK_SIZE", '1'))
+        if self.rank_size > 1:
+            self.all_gather = ops.AllGather()
 
     def construct(self, image_features, text_features, text_pad_mask):
-        image_gather = self.all_gather(image_features)
-        text_gather = self.all_gather(text_features)
+        """
+        construct of FilipGather
+        """
+        if self.rank_size > 1:
+            image_gather = self.all_gather(image_features)
+            text_gather = self.all_gather(text_features)
+        else:
+            image_gather = image_features
+            text_gather = text_features
+
         logits_per_image = self.get_img_logits(image_features, text_gather)
         logits_per_text = self.get_txt_logits(text_features, image_gather, text_pad_mask)
         return logits_per_image, logits_per_text
@@ -202,9 +226,15 @@ class FilipLossCell(nn.Cell):
         self.top_token_percent = top_token_percent
         self.process_img_features = FilipImgProcess()
         self.process_text_features = FilipTextProcess()
-        self.rank = get_rank()
+
+        self.rank_size = int(os.getenv("RANK_SIZE", '1'))
+        if self.rank_size > 1:
+            self.rank = get_rank()
+        else:
+            self.rank = 0
+
         self.two = Tensor(2.0, dtype=mstype.float32)
-        self.all_gather = ops.AllGather()
+        # self.all_gather = ops.AllGather()
         self.equal = ops.Equal()
         self.cast = ops.Cast()
         self.logsoftmax = nn.LogSoftmax()
@@ -237,12 +267,16 @@ class FilipModel(BaseModel):
     """
     _support_list = MindFormerBook.get_model_support_list()['filip']
 
-    def __init__(self, config):
+    def __init__(self, config, is_training=True):
         super(FilipModel, self).__init__(config)
         self.image_encoder = VisualTransformer(config=config)
         self.text_encoder = TextTransformer(config=config)
         self.image_norm = nn.Norm(axis=-1, keep_dims=True)
         self.text_norm = nn.Norm(axis=-1, keep_dims=True)
+        self.is_training = is_training
+        self.loss = FilipLossCell()
+        self.cast = ops.Cast()
+        self.load_checkpoint(config)
 
     def get_image_feature(self, image):
         image_features = self.image_encoder(image)
@@ -255,4 +289,99 @@ class FilipModel(BaseModel):
     def construct(self, image, text):
         image_features = self.image_encoder(image)
         text_features = self.text_encoder(text)
-        return image_features, text_features
+        if not self.is_training:
+            return image_features, text_features
+
+        total_loss = self.loss(image_features, text_features, text)
+        total_loss = self.cast(total_loss, mstype.float32)
+        return total_loss
+
+
+GRADIENT_CLIP_TYPE = 1
+GRADIENT_CLIP_VALUE = 1.0
+
+clip_grad = ops.MultitypeFuncGraph("clip_grad")
+
+@clip_grad.register("Number", "Number", "Tensor")
+def _clip_grad(clip_type, clip_value, grad):
+    """
+    Clip gradients.
+
+    Inputs:
+        clip_type (int): The way to clip, 0 for 'value', 1 for 'norm'.
+        clip_value (float): Specifies how much to clip.
+        grad (tuple[Tensor]): Gradients.
+
+    Outputs:
+        tuple[Tensor], clipped gradients.
+    """
+    if clip_type not in (0, 1):
+        return grad
+    dt = F.dtype(grad)
+    if clip_type == 0:
+        new_grad = ops.clip_by_value(grad, F.cast(F.tuple_to_array((-clip_value,)), dt),
+                                     F.cast(F.tuple_to_array((clip_value,)), dt))
+    else:
+        new_grad = nn.ClipByNorm()(grad, F.cast(F.tuple_to_array((clip_value,)), dt))
+    return new_grad
+
+grad_scale = ops.MultitypeFuncGraph("grad_scale")
+reciprocal = ops.Reciprocal()
+
+@grad_scale.register("Tensor", "Tensor")
+def tensor_grad_scale(scale, grad):
+    """Construct the trainer of Bert."""
+    return grad * reciprocal(scale)
+
+_grad_overflow = ops.MultitypeFuncGraph("_grad_overflow")
+grad_overflow = ops.FloatStatus()
+
+@_grad_overflow.register("Tensor")
+def _tensor_grad_overflow(grad):
+    """Construct the trainer of Bert."""
+    return grad_overflow(grad)
+
+@MindFormerRegister.register(MindFormerModuleType.WRAPPER, alias="FilipTrainOneStepWithLossScaleWrapper")
+class FilipTrainOneStepWithLossScaleCell(nn.TrainOneStepWithLossScaleCell):
+    """
+    FilipTrainOneStepWithLossScaleCell wrapper
+    """
+    def __init__(self, network, optimizer, scale_update_cell=None):
+        super(FilipTrainOneStepWithLossScaleCell, self).__init__(network, optimizer, scale_update_cell)
+        self.cast = ops.Cast()
+        self.degree = 1
+        if self.reducer_flag:
+            self.degree = get_group_size()
+            self.grad_reducer = DistributedGradReducer(optimizer.parameters, False, self.degree)
+
+        self.loss_scale = None
+        self.loss_scaling_manager = scale_update_cell
+        if scale_update_cell:
+            self.loss_scale = Parameter(Tensor(scale_update_cell.get_loss_scale(), dtype=mstype.float32))
+
+    def construct(self, image, text, sens=None):
+        """
+        construct of FilipTrainOneStepWithLossScaleCell
+        """
+        weights = self.weights
+        loss = self.network(image, text)
+        if sens is None:
+            scaling_sens = self.loss_scale
+        else:
+            scaling_sens = sens
+        status, scaling_sens = self.start_overflow_check(loss, scaling_sens)
+        grads = self.grad(self.network, weights)(image, text, self.cast(scaling_sens, mstype.float32))
+        # apply grad reducer on grads
+        grads = self.grad_reducer(grads)
+        grads = self.hyper_map(F.partial(grad_scale, scaling_sens * self.degree), grads)
+        grads = self.hyper_map(F.partial(clip_grad, GRADIENT_CLIP_TYPE, GRADIENT_CLIP_VALUE), grads)
+
+        cond = self.get_overflow_status(status, grads)
+        overflow = cond
+        if sens is None:
+            overflow = self.loss_scaling_manager(self.loss_scale, cond)
+        if not overflow:
+            loss = F.depend(loss, self.optimizer(grads))
+        else:
+            print(">>>>overflow")
+        return loss, cond, scaling_sens

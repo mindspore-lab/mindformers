@@ -28,7 +28,7 @@ from mindspore import Parameter, Tensor
 
 from mindformers.tools import logger
 from mindformers.tools import MindFormerConfig, MindFormerRegister, MindFormerModuleType
-from mindformers import build_lr, build_optim, build_loss, build_metric
+from mindformers.core import build_lr, build_optim, build_loss, build_metric
 from mindformers.trainer import build_trainer, BaseTrainer
 from mindformers.models import build_model, BaseModel, build_processor
 from mindformers.dataset import build_dataset, build_sampler, check_dataset_config, \
@@ -228,8 +228,7 @@ class TestProcessor:
 class TestTaskTrainer(BaseTrainer):
     """Test TimeMonitor API For Register."""
     def __init__(self, model_name='vit'):
-        super(TestTaskTrainer, self).__init__(model_name)
-        self.model_name = model_name
+        super(TestTaskTrainer, self).__init__(model_name=model_name)
 
 
 @pytest.mark.level0

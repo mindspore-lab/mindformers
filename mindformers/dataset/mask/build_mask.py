@@ -13,16 +13,37 @@
 # limitations under the License.
 # ============================================================================
 """Build Mask API."""
-from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
+from mindformers.tools.register import MindFormerRegister, MindFormerModuleType, MindFormerConfig
 
 
 def build_mask(
         config: dict = None, default_args: dict = None,
         module_type: str = 'mask_policy', class_name: str = None, **kwargs):
-    """Build mask API."""
+    r"""Build mask For MindFormer.
+    Instantiate the mask from MindFormerRegister's registry.
+
+    Args:
+        config (dict): The task mask's config. Default: None.
+        default_args (dict): The default argument of mask API. Default: None.
+        module_type (str): The module type of MindFormerModuleType. Default: 'mask'.
+        class_name (str): The class name of mask API. Default: None.
+
+    Return:
+        The function instance of mask API.
+
+    Examples:
+        >>> from mindformers import build_mask
+        >>> mask_config = {'type': 'SimMask', 'input_size': 224}
+        >>> # 1) use config dict to build mask
+        >>> mask_from_config = build_mask(mask_config)
+        >>> # 2) use class name to build mask
+        >>> mask_class_name = build_mask(class_name='SimMask', input_size=224)
+    """
     if config is None and class_name is None:
         return None
     if config is not None:
+        if isinstance(config, dict) and not isinstance(config, MindFormerConfig):
+            config = MindFormerConfig(**config)
         return MindFormerRegister.get_instance_from_cfg(
             config, MindFormerModuleType.MASK_POLICY, default_args=default_args)
     return MindFormerRegister.get_instance(module_type, class_name, **kwargs)

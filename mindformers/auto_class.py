@@ -18,24 +18,40 @@ AutoConfig、AutoModel
 """
 import os
 import json
-
+import shutil
 
 from .mindformer_book import MindFormerBook, print_dict
-from .models import build_feature_extractor, build_processor
+from .models.build_processor import build_processor
 from .models.base_config import BaseConfig
 from .models.build_model import build_model
 from .models.build_config import build_model_config
 from .tools import logger
 from .tools.register.config import MindFormerConfig
-from .tools.download_tools import downlond_with_progress_bar
 
 
-__all__ = ['AutoConfig', 'AutoModel', 'AutoProcessor', 'AutoFeatureExtractor', 'AutoTokenizer']
+__all__ = ['AutoConfig', 'AutoModel', 'AutoProcessor', 'AutoTokenizer']
 
 
 class AutoConfig:
-    """ AutoConfig """
-    _support_list = MindFormerBook.get_model_support_list()
+    """
+    AutoConfig class,
+    helps instantiates a config by yaml model name or path.
+    If using a model name, the config yaml will be downloaded from obs to ./checkpoint_download dir
+
+    Examples:
+        >>> from mindformers.auto_class import AutoConfig
+        >>>
+        >>> # 1)  instantiates a config by yaml model name
+        >>> config_a = AutoConfig.from_pretrained('clip_vit_b_32')
+        >>> # 2)  instantiates a config by yaml model path
+        >>> from mindformers.mindformer_book import MindFormerBook
+        >>> config_path = os.path.join(MindFormerBook.get_project_path(),
+        ...                            'configs', 'clip', 'run_clip_vit_b_32_pretrain_flickr8k.yaml')
+        >>> config_b = AutoConfig.from_pretrained(config_path)
+    """
+    _support_list = MindFormerBook.get_config_support_list()
+    _model_type = 0
+    _model_name = 1
 
     def __init__(self):
         raise EnvironmentError(
@@ -44,18 +60,43 @@ class AutoConfig:
         )
 
     @classmethod
-    def from_pretrained(cls, yaml_name_or_path):
+    def invalid_yaml_name(cls, yaml_name_or_path):
+        """Check whether it is a valid yaml name"""
+        if yaml_name_or_path.startswith('mindspore'):
+            # Adaptation the name of yaml at the beginning of mindspore,
+            # the relevant file will be downloaded from the Xihe platform.
+            # such as "mindspore/vit_base_p16"
+            yaml_name_or_path = yaml_name_or_path.split('/')[cls._model_name]
+        local_value = cls._support_list[yaml_name_or_path.split('_')[cls._model_type]]
+
+        if yaml_name_or_path.split('_')[cls._model_type] in cls._support_list.keys():
+            return False
+        if yaml_name_or_path not in local_value:
+            if isinstance(local_value, dict) and yaml_name_or_path in \
+                    local_value[yaml_name_or_path.split('_')[cls._model_name]]:
+                return False
+        return True
+
+    @classmethod
+    def from_pretrained(cls, yaml_name_or_path, **kwargs):
         """
         From pretrain method, which instantiates a config by yaml model name or path.
 
         Args:
-            yaml_name_or_path (str): A supported model name or a path to model
-            config (.yaml), the supported model name could be selected from
-            AutoConfig.show_support_list().
+            yaml_name_or_path (str): A supported model name or a path to model config (.yaml),
+                the supported model name could be selected from AutoConfig.show_support_list().
+                If yaml_name_or_path is model name, it supports model names beginning with mindspore or
+                the model name itself, such as "mindspore/vit_base_p16" or "vit_base_p16".
+            pretrained_model_name_or_path (Optional[str]): Equal to "yaml_name_or_path",
+                if "pretrained_model_name_or_path" is set, "yaml_name_or_path" is useless.
 
         Returns:
             A model config, which inherited from BaseConfig.
         """
+        pretrained_model_name_or_path = kwargs.pop("pretrained_model_name_or_path", None)
+        if pretrained_model_name_or_path is not None:
+            yaml_name_or_path = pretrained_model_name_or_path
+
         if not isinstance(yaml_name_or_path, str):
             raise TypeError(f"yaml_name_or_path should be a str,"
                             f" but got {type(yaml_name_or_path)}.")
@@ -68,35 +109,50 @@ class AutoConfig:
             config_args = MindFormerConfig(yaml_name_or_path)
             logger.info("the content in %s is used for"
                         " config building.", yaml_name_or_path)
-        elif yaml_name_or_path.split('_')[0] not in cls._support_list.keys() or\
-                yaml_name_or_path not in cls._support_list[yaml_name_or_path.split('_')[0]]:
+        elif cls.invalid_yaml_name(yaml_name_or_path):
             raise ValueError(f"{yaml_name_or_path} is not a supported"
                              f" model type or a valid path to model config."
                              f" supported model could be selected from {cls._support_list}.")
         else:
-            checkpoint_path = os.path.join(MindFormerBook.get_default_checkpoint_download_folder(),
-                                           yaml_name_or_path.split('_')[0])
+            yaml_name = yaml_name_or_path
+            if yaml_name_or_path.startswith('mindspore'):
+                # Adaptation the name of yaml at the beginning of mindspore,
+                # the relevant file will be downloaded from the Xihe platform.
+                # such as "mindspore/vit_base_p16"
+                yaml_name = yaml_name_or_path.split('/')[cls._model_name]
+                checkpoint_path = os.path.join(MindFormerBook.get_xihe_checkpoint_download_folder(),
+                                               yaml_name.split('_')[cls._model_type])
+            else:
+                # Default the name of yaml,
+                # the relevant file will be downloaded from the Obs platform.
+                # such as "vit_base_p16"
+                checkpoint_path = os.path.join(MindFormerBook.get_default_checkpoint_download_folder(),
+                                               yaml_name_or_path.split('_')[cls._model_type])
+
             if not os.path.exists(checkpoint_path):
-                os.makedirs(checkpoint_path)
+                os.makedirs(checkpoint_path, exist_ok=True)
 
-            yaml_file = os.path.join(checkpoint_path, yaml_name_or_path + ".yaml")
+            yaml_file = os.path.join(checkpoint_path, yaml_name + ".yaml")
+
+            def get_default_yaml_file(model_name):
+                default_yaml_file = ""
+                for model_dict in MindFormerBook.get_trainer_support_task_list().values():
+                    if model_name in model_dict:
+                        default_yaml_file = model_dict.get(model_name)
+                        break
+                return default_yaml_file
+
             if not os.path.exists(yaml_file):
-                url = MindFormerBook.get_model_config_url_list()[yaml_name_or_path][0]
-                succeed = downlond_with_progress_bar(url, yaml_file)
-
-                if not succeed:
-                    yaml_file = os.path.join(
-                        MindFormerBook.get_project_path(),
-                        "configs", yaml_name_or_path.split('_')[0], "model_config",
-                        yaml_name_or_path + ".yaml"
-                    )
-                    logger.info("yaml download failed, default config in %s is used.", yaml_file)
+                default_yaml_file = get_default_yaml_file(yaml_name)
+                if os.path.realpath(default_yaml_file) and os.path.exists(default_yaml_file):
+                    shutil.copy(default_yaml_file, yaml_file)
+                    logger.info("default yaml config in %s is used.", yaml_file)
                 else:
-                    logger.info("config in %s is used.", yaml_file)
-
+                    raise FileNotFoundError(f'default yaml file path must be correct, but get {default_yaml_file}')
             config_args = MindFormerConfig(yaml_file)
 
         config = build_model_config(config_args.model.model_config)
+        MindFormerBook.set_model_config_to_name(id(config), config_args.model.arch.type)
         return config
 
     @classmethod
@@ -110,9 +166,34 @@ class AutoConfig:
         """get support list method"""
         return cls._support_list
 
+
 class AutoModel:
-    """ AutoModel """
+    """
+    AutoModel class
+    helps instantiates a model by yaml model name, path or config.
+    If using a model name,
+    the config yaml and checkpoint file will be downloaded from obs to ./checkpoint_download dir
+
+    Examples:
+        >>> from mindformers.auto_class import AutoModel
+        >>>
+        >>> # 1)  input model name, load model and weights
+        >>> model_a = AutoModel.from_pretrained('clip_vit_b_32')
+        >>> # 2)  input model directory, load model and weights
+        >>> from mindformers.mindformer_book import MindFormerBook
+        >>> checkpoint_dir = os.path.join(MindFormerBook.get_default_checkpoint_download_folder(), 'clip')
+        >>> model_b = AutoModel.from_pretrained(checkpoint_dir)
+        >>> # 3)  input yaml path, load model without weights
+        >>> config_path = os.path.join(MindFormerBook.get_project_path(),
+        ...                            'configs', 'clip', 'run_clip_vit_b_32_pretrain_flickr8k.yaml')
+        >>> model_c = AutoModel.from_config(config_path)
+        >>> # 4)  input config, load model without weights
+        >>> config = AutoConfig.from_pretrained('clip_vit_b_32')
+        >>> model_d = AutoModel.from_config(config)
+    """
     _support_list = MindFormerBook.get_model_support_list()
+    _model_type = 0
+    _model_name = 1
 
     def __init__(self):
         raise EnvironmentError(
@@ -122,7 +203,27 @@ class AutoModel:
         )
 
     @classmethod
-    def from_config(cls, config):
+    def invalid_model_name(cls, pretrained_model_name_or_dir):
+        """Check whether it is a valid model name"""
+        if pretrained_model_name_or_dir.startswith('mindspore'):
+            # Adaptation the name of model at the beginning of mindspore,
+            # the relevant file will be downloaded from the Xihe platform.
+            # such as "mindspore/vit_base_p16"
+            pretrained_model_name_or_dir = pretrained_model_name_or_dir.split('/')[cls._model_name]
+
+        local_value = cls._support_list[pretrained_model_name_or_dir.split('_')[cls._model_type]]
+
+        if pretrained_model_name_or_dir.split('_')[cls._model_type] in cls._support_list.keys():
+            return False
+        if pretrained_model_name_or_dir not in local_value:
+            if isinstance(local_value, dict) and \
+                pretrained_model_name_or_dir in \
+                    local_value[pretrained_model_name_or_dir.split('_')[cls._model_name]]:
+                return False
+        return True
+
+    @classmethod
+    def from_config(cls, config, **kwargs):
         """
         From config method, which instantiates a Model by config.
 
@@ -136,6 +237,8 @@ class AutoModel:
         if config is None:
             raise ValueError("a model cannot be built from config with config is None.")
 
+        download_checkpoint = kwargs.pop("download_checkpoint", True)
+
         if isinstance(config, BaseConfig):
             inversed_config = cls._inverse_parse_config(config)
             config_args = cls._wrap_config(inversed_config)
@@ -144,7 +247,8 @@ class AutoModel:
         else:
             raise ValueError("config should be inherited from BaseConfig,"
                              " or a path to .yaml file for model config.")
-
+        if not download_checkpoint:
+            config_args.model.model_config.checkpoint_name_or_path = None
         model = build_model(config_args.model)
         logger.info("model built successfully!")
         return model
@@ -183,30 +287,36 @@ class AutoModel:
         Returns:
             A model config, which has the same content as a yaml file.
         """
-        config_name = config.type
-        model_name = MindFormerBook.get_model_config_to_name().get(config_name, None)
-        if not model_name:
-            raise ValueError("cannot get model_name from model_config, please use"
-                             " MindFormerBook.set_model_config_to_name(model_config, model_name).")
+        model_name = config.pop("model_name", None)
+        if model_name is None:
+            model_name = MindFormerBook.get_model_config_to_name().get(id(config), None)
 
         arch = BaseConfig(type=model_name)
         model = BaseConfig(model_config=config, arch=arch)
         return BaseConfig(model=model)
 
     @classmethod
-    def from_pretrained(cls, pretrained_model_name_or_dir):
+    def from_pretrained(cls, pretrained_model_name_or_dir, **kwargs):
         """
         From pretrain method, which instantiates a Model by pretrained model name or path.
 
         Args:
-            pretrained_model_name_or_path (str): A supported model name or a
-            directory to model checkpoint (including .yaml file for config
-            and .ckpt file for weights), the supported model name could be
-            selected from AutoModel.show_support_list().
+            pretrained_model_name_or_dir (str): A supported model name or a directory to model checkpoint
+                (including .yaml file for config and .ckpt file for weights), the supported model name could be
+                selected from AutoModel.show_support_list().
+                If pretrained_model_name_or_dir is model name, it supports model names beginning with mindspore or
+                the model name itself, such as "mindspore/vit_base_p16" or "vit_base_p16".
+            pretrained_model_name_or_path (Optional[str]): Equal to "pretrained_model_name_or_dir",
+                if "pretrained_model_name_or_path" is set, "pretrained_model_name_or_dir" is useless.
 
         Returns:
             A model, which inherited from BaseModel.
         """
+        pretrained_model_name_or_path = kwargs.pop("pretrained_model_name_or_path", None)
+        download_checkpoint = kwargs.pop("download_checkpoint", True)
+        if pretrained_model_name_or_path is not None:
+            pretrained_model_name_or_dir = pretrained_model_name_or_path
+
         if not isinstance(pretrained_model_name_or_dir, str):
             raise TypeError(f"pretrained_model_name_or_dir should be a str,"
                             f" but got {type(pretrained_model_name_or_dir)}")
@@ -218,9 +328,7 @@ class AutoModel:
             if not is_dir:
                 raise ValueError(f"{pretrained_model_name_or_dir} is not a directory.")
         else:
-            model_type = pretrained_model_name_or_dir.split('_')[0]
-            if model_type not in cls._support_list.keys() or pretrained_model_name_or_dir \
-                    not in cls._support_list[model_type]:
+            if cls.invalid_model_name(pretrained_model_name_or_dir):
                 raise ValueError(f"{pretrained_model_name_or_dir} is not a supported model"
                                  f" type or a valid path to model config. supported model"
                                  f" could be selected from {cls._support_list}.")
@@ -234,8 +342,8 @@ class AutoModel:
                 raise FileNotFoundError(f"there is no yaml file for model config or ckpt file"
                                         f" for model weights in {pretrained_model_name_or_dir}")
 
-            yaml_file = os.path.join(pretrained_model_name_or_dir, yaml_list[0])
-            ckpt_file = os.path.join(pretrained_model_name_or_dir, ckpt_list[0])
+            yaml_file = os.path.join(pretrained_model_name_or_dir, yaml_list[cls._model_type])
+            ckpt_file = os.path.join(pretrained_model_name_or_dir, ckpt_list[cls._model_type])
             logger.info("config in %s and weights in %s are used for model"
                         " building.", yaml_file, ckpt_file)
 
@@ -243,30 +351,53 @@ class AutoModel:
             config_args.model.model_config.update({"checkpoint_name_or_path": ckpt_file})
             model = build_model(config_args.model)
         else:
-            checkpoint_path = os.path.join(MindFormerBook.get_default_checkpoint_download_folder(),
-                                           pretrained_model_name_or_dir.split("_")[0])
+            pretrained_checkpoint_name = pretrained_model_name_or_dir
+            if pretrained_model_name_or_dir.startswith('mindspore'):
+                # Adaptation the name of model at the beginning of mindspore,
+                # the relevant file will be downloaded from the Xihe platform.
+                # such as "mindspore/vit_base_p16"
+                pretrained_checkpoint_name = pretrained_model_name_or_dir.split('/')[cls._model_name]
+                checkpoint_path = os.path.join(
+                    MindFormerBook.get_xihe_checkpoint_download_folder(),
+                    pretrained_checkpoint_name.split('_')[cls._model_type])
+            else:
+                # Default the name of model,
+                # the relevant file will be downloaded from the Obs platform.
+                # such as "vit_base_p16"
+                checkpoint_path = os.path.join(
+                    MindFormerBook.get_default_checkpoint_download_folder(),
+                    pretrained_model_name_or_dir.split("_")[cls._model_type])
+
             if not os.path.exists(checkpoint_path):
-                os.makedirs(checkpoint_path)
+                os.makedirs(checkpoint_path, exist_ok=True)
 
-            yaml_file = os.path.join(checkpoint_path, pretrained_model_name_or_dir+".yaml")
+            yaml_file = os.path.join(checkpoint_path, pretrained_checkpoint_name + ".yaml")
+
+            def get_default_yaml_file(model_name):
+                default_yaml_file = ""
+                for model_dict in MindFormerBook.get_trainer_support_task_list().values():
+                    if model_name in model_dict:
+                        default_yaml_file = model_dict.get(model_name)
+                        break
+                return default_yaml_file
+
             if not os.path.exists(yaml_file):
-                url = MindFormerBook.get_model_config_url_list()[pretrained_model_name_or_dir][0]
-                succeed = downlond_with_progress_bar(url, yaml_file)
-
-                if not succeed:
-                    yaml_file = os.path.join(
-                        MindFormerBook.get_project_path(),
-                        "configs", pretrained_model_name_or_dir.split('_')[0],
-                        "model_config", pretrained_model_name_or_dir + ".yaml"
-                    )
-                    logger.info("yaml download failed, default config in %s is used.", yaml_file)
+                default_yaml_file = get_default_yaml_file(pretrained_checkpoint_name)
+                if os.path.realpath(default_yaml_file) and os.path.exists(default_yaml_file):
+                    shutil.copy(default_yaml_file, yaml_file)
+                    logger.info("default yaml config in %s is used.", yaml_file)
                 else:
-                    logger.info("config in %s is used for model building.", yaml_file)
+                    raise FileNotFoundError(f'default yaml file path must be correct, but get {default_yaml_file}')
 
             config_args = MindFormerConfig(yaml_file)
             config_args.model.model_config.update(
                 {"checkpoint_name_or_path": pretrained_model_name_or_dir})
+            if not download_checkpoint:
+                config_args.model.model_config.checkpoint_name_or_path = None
             model = build_model(config_args.model)
+
+        cls.default_checkpoint_download_path = model.default_checkpoint_download_path
+
         logger.info("model built successfully!")
         return model
 
@@ -282,94 +413,26 @@ class AutoModel:
         return cls._support_list
 
 
-class AutoFeatureExtractor:
-    """ AutoFeatureExtractor """
-    _support_list = MindFormerBook.get_model_support_list()
-
-    def __init__(self):
-        raise EnvironmentError(
-            "AutoFeatureExtractor is designed to be instantiated "
-            "using the `AutoFeatureExtractor.from_pretrained(yaml_name_or_path)` method."
-        )
-
-    @classmethod
-    def from_pretrained(cls, yaml_name_or_path):
-        """
-        From pretrain method, which instantiates a feature extractor by yaml name or path.
-
-        Args:
-            yaml_name_or_path (str): A supported yaml name or a path to .yaml file,
-            the supported model name could be selected from .show_support_list().
-
-        Returns:
-            A feature extractor which inherited from BaseFeatureExtractor.
-        """
-        if not isinstance(yaml_name_or_path, str):
-            raise TypeError(f"yaml_name_or_path should be a str,"
-                            f" but got {type(yaml_name_or_path)}")
-
-        is_exist = os.path.exists(yaml_name_or_path)
-        model_name = yaml_name_or_path.split("_")[0]
-        if not is_exist and model_name not in cls._support_list.keys():
-            raise ValueError(f'{yaml_name_or_path} does not exist,'
-                             f' and it is not supported by {cls.__name__}. '
-                             f'please select from {cls._support_list}.')
-
-        if is_exist:
-            logger.info("config in %s is used for feature extractor"
-                        " building.", yaml_name_or_path)
-
-            config_args = MindFormerConfig(yaml_name_or_path)
-        else:
-            if model_name in cls._support_list.keys() and \
-                    yaml_name_or_path in cls._support_list[model_name]:
-                checkpoint_path = os.path.join(
-                    MindFormerBook.get_default_checkpoint_download_folder(), model_name)
-            else:
-                raise ValueError(f'{yaml_name_or_path} does not exist,'
-                                 f' or it is not supported by {cls.__name__}.'
-                                 f' please select from {cls._support_list}.')
-
-            if not os.path.exists(checkpoint_path):
-                os.makedirs(checkpoint_path, exist_ok=True)
-
-            yaml_file = os.path.join(checkpoint_path, yaml_name_or_path + ".yaml")
-            if not os.path.exists(yaml_file):
-                url = MindFormerBook.get_model_config_url_list()[yaml_name_or_path][0]
-                succeed = downlond_with_progress_bar(url, yaml_file)
-
-                if not succeed:
-                    yaml_file = os.path.join(
-                        MindFormerBook.get_project_path(),
-                        "configs", yaml_name_or_path.split("_")[0],
-                        "model_config", yaml_name_or_path + ".yaml"
-                    )
-                    logger.info("yaml download failed, default config in %s is used.", yaml_file)
-                else:
-                    logger.info("config in %s is used for feature extractor"
-                                " building.", yaml_file)
-
-            config_args = MindFormerConfig(yaml_file)
-
-        feature_extractor = build_feature_extractor(config_args.processor.feature_extractor)
-        logger.info("feature extractor built successfully!")
-        return feature_extractor
-
-    @classmethod
-    def show_support_list(cls):
-        """show support list method"""
-        logger.info("support list of %s is:", cls.__name__)
-        print_dict(cls._support_list)
-
-    @classmethod
-    def get_support_list(cls):
-        """get support list method"""
-        return cls._support_list
-
-
 class AutoProcessor:
-    """ AutoProcessor """
-    _support_list = MindFormerBook.get_model_support_list()
+    """
+    AutoProcessor
+    helps instantiates a processor by yaml model name or path.
+    If using a model name, the config yaml will be downloaded from obs to ./checkpoint_download dir
+
+    Examples:
+        >>> from mindformers.auto_class import AutoProcessor
+        >>>
+        >>> # 1)  instantiates a processor by yaml model name
+        >>> pro_a = AutoProcessor.from_pretrained('clip_vit_b_32')
+        >>> # 2)  instantiates a processor by yaml model path
+        >>> from mindformers.mindformer_book import MindFormerBook
+        >>> config_path = os.path.join(MindFormerBook.get_project_path(),
+        ...                            'configs', 'clip', 'run_clip_vit_b_32_pretrain_flickr8k.yaml')
+        >>> pro_b = AutoProcessor.from_pretrained(config_path)
+    """
+    _support_list = MindFormerBook.get_processor_support_list()
+    _model_type = 0
+    _model_name = 1
 
     def __init__(self):
         raise EnvironmentError(
@@ -378,65 +441,113 @@ class AutoProcessor:
         )
 
     @classmethod
-    def from_pretrained(cls, yaml_name_or_path):
+    def invalid_yaml_name(cls, yaml_name_or_path):
+        """Check whether it is a valid yaml name"""
+
+        if yaml_name_or_path.startswith('mindspore'):
+            # Adaptation the name of yaml at the beginning of mindspore,
+            # the relevant file will be downloaded from the Xihe platform.
+            # such as "mindspore/vit_base_p16"
+            yaml_name_or_path = yaml_name_or_path.split('/')[cls._model_name]
+
+        local_value = cls._support_list[yaml_name_or_path.split('_')[cls._model_type]]
+
+        if yaml_name_or_path.split('_')[cls._model_type] in cls._support_list.keys():
+            return False
+        if yaml_name_or_path not in local_value:
+            if isinstance(local_value, dict) and yaml_name_or_path in \
+                    local_value[yaml_name_or_path.split('_')[cls._model_name]]:
+                return False
+        return True
+
+    @classmethod
+    def from_pretrained(cls, yaml_name_or_path, **kwargs):
         """
         From pretrain method, which instantiated a processor by yaml name or path.
 
         Args:
             yaml_name_or_path (str): A supported yaml name or a path to .yaml file,
-            the supported model name could be selected from .show_support_list().
+                the supported model name could be selected from .show_support_list().
+                If yaml_name_or_path is model name, it supports model names beginning with mindspore or
+                the model name itself, such as "mindspore/vit_base_p16" or "vit_base_p16".
+            pretrained_model_name_or_path (Optional[str]): Equal to "yaml_name_or_path",
+                if "pretrained_model_name_or_path" is set, "yaml_name_or_path" is useless.
 
         Returns:
             A processor which inherited from BaseProcessor.
         """
+        pretrained_model_name_or_path = kwargs.pop("pretrained_model_name_or_path", None)
+        if pretrained_model_name_or_path is not None:
+            yaml_name_or_path = pretrained_model_name_or_path
+
         if not isinstance(yaml_name_or_path, str):
             raise TypeError(f"yaml_name_or_path should be a str,"
                             f" but got {type(yaml_name_or_path)}")
 
         is_exist = os.path.exists(yaml_name_or_path)
-        model_name = yaml_name_or_path.split("_")[0]
+        model_name = yaml_name_or_path.split('/')[cls._model_name].split("_")[cls._model_type] \
+            if yaml_name_or_path.startswith('mindspore') else yaml_name_or_path.split("_")[cls._model_type]
         if not is_exist and model_name not in cls._support_list.keys():
             raise ValueError(f'{yaml_name_or_path} does not exist,'
                              f' and it is not supported by {cls.__name__}. '
                              f'please select from {cls._support_list}.')
 
         if is_exist:
-            logger.info("config in %s is used for feature extractor"
+            logger.info("config in %s is used for auto processor"
                         " building.", yaml_name_or_path)
-
-            config_args = MindFormerConfig(yaml_name_or_path)
+            if os.path.isdir(yaml_name_or_path):
+                yaml_list = [file for file in os.listdir(yaml_name_or_path) if file.endswith(".yaml")]
+                yaml_name = os.path.join(yaml_name_or_path, yaml_list[cls._model_type])
+                config_args = MindFormerConfig(yaml_name)
+            else:
+                config_args = MindFormerConfig(yaml_name_or_path)
         else:
-            if model_name in cls._support_list.keys() and \
-                    yaml_name_or_path in cls._support_list[model_name]:
-                checkpoint_path = os.path.join(
-                    MindFormerBook.get_default_checkpoint_download_folder(),
-                    model_name)
+            yaml_name = yaml_name_or_path
+            if not cls.invalid_yaml_name(yaml_name_or_path):
+                if yaml_name_or_path.startswith('mindspore'):
+                    # Adaptation the name of yaml at the beginning of mindspore,
+                    # the relevant file will be downloaded from the Xihe platform.
+                    # such as "mindspore/vit_base_p16"
+                    yaml_name = yaml_name_or_path.split('/')[cls._model_name]
+                    checkpoint_path = os.path.join(MindFormerBook.get_xihe_checkpoint_download_folder(),
+                                                   yaml_name.split('_')[cls._model_type])
+                else:
+                    # Default the name of yaml,
+                    # the relevant file will be downloaded from the Obs platform.
+                    # such as "vit_base_p16"
+                    checkpoint_path = os.path.join(MindFormerBook.get_default_checkpoint_download_folder(),
+                                                   yaml_name_or_path.split('_')[cls._model_type])
             else:
                 raise ValueError(f'{yaml_name_or_path} does not exist,'
                                  f' or it is not supported by {cls.__name__}.'
                                  f' please select from {cls._support_list}.')
 
             if not os.path.exists(checkpoint_path):
-                os.makedirs(checkpoint_path)
+                os.makedirs(checkpoint_path, exist_ok=True)
 
-            yaml_file = os.path.join(checkpoint_path, yaml_name_or_path + ".yaml")
+            yaml_file = os.path.join(checkpoint_path, yaml_name + ".yaml")
+
+            def get_default_yaml_file(model_name):
+                default_yaml_file = ""
+                for model_dict in MindFormerBook.get_trainer_support_task_list().values():
+                    if model_name in model_dict:
+                        default_yaml_file = model_dict.get(model_name)
+                        break
+                return default_yaml_file
+
             if not os.path.exists(yaml_file):
-                url = MindFormerBook.get_model_config_url_list()[yaml_name_or_path][0]
-                succeed = downlond_with_progress_bar(url, yaml_file)
-
-                if not succeed:
-                    yaml_file = os.path.join(
-                        MindFormerBook.get_project_path(),
-                        "configs", yaml_name_or_path.split("_")[0],
-                        "model_config", yaml_name_or_path + ".yaml"
-                    )
-                    logger.info("yaml download failed, default config in %s is used.", yaml_file)
+                default_yaml_file = get_default_yaml_file(yaml_name)
+                if os.path.realpath(default_yaml_file) and os.path.exists(default_yaml_file):
+                    shutil.copy(default_yaml_file, yaml_file)
+                    logger.info("default yaml config in %s is used.", yaml_file)
                 else:
-                    logger.info("config in %s is used for processor building.", yaml_file)
-
+                    raise FileNotFoundError(f'default yaml file path must be correct, but get {default_yaml_file}')
             config_args = MindFormerConfig(yaml_file)
 
-        processor = build_processor(config_args.processor)
+        lib_path = yaml_name_or_path
+        if not os.path.isdir(lib_path):
+            lib_path = None
+        processor = build_processor(config_args.processor, lib_path=lib_path)
         logger.info("processor built successfully!")
         return processor
 
@@ -454,31 +565,68 @@ class AutoProcessor:
 
 class AutoTokenizer:
     """
-        Load the tokenizer according to the `yaml_name_or_path`. It supports the following situations
+    Load the tokenizer according to the `yaml_name_or_path`. It supports the following situations
+    1. `yaml_name_or_path` is the model name.
+    2. `yaml_name_or_path` is the path to the downloaded files.
 
-        1. `yaml_name_or_path` is the path to the downloaded files.
-        2. `yaml_name_or_path` is the model name.
-
+    Examples:
+        >>> from mindformers.auto_class import AutoTokenizer
+        >>>
+        >>> # 1)  instantiates a tokenizer by the model name
+        >>> tokenizer_a = AutoTokenizer.from_pretrained("clip_vit_b_32")
+        >>> # 2)  instantiates a tokenizer by the path to the downloaded files.
+        >>> from mindformers.models.clip.clip_tokenizer import CLIPTokenizer
+        >>> clip_tokenizer = CLIPTokenizer.from_pretrained("clip_vit_b_32")
+        >>> clip_tokenizer.save_pretrained(path_saved)
+        >>> restore_tokenizer = AutoTokenizer.from_pretrained(path_saved)
     """
     _support_list = MindFormerBook.get_tokenizer_support_list()
+    _model_type = 0
+    _model_name = 1
+
+    @classmethod
+    def invalid_yaml_name(cls, yaml_name_or_path):
+        """Check whether it is a valid yaml name"""
+        if yaml_name_or_path.startswith('mindspore'):
+            # Adaptation the name of yaml at the beginning of mindspore,
+            # the relevant file will be downloaded from the Xihe platform.
+            # such as "mindspore/vit_base_p16"
+            yaml_name_or_path = yaml_name_or_path.split('/')[cls._model_name]
+        local_value = cls._support_list[yaml_name_or_path.split('_')[cls._model_type]]
+
+        if yaml_name_or_path.split('_')[cls._model_type] in cls._support_list.keys():
+            return False
+        if yaml_name_or_path not in local_value:
+            if isinstance(local_value, dict) and yaml_name_or_path in \
+                    local_value[yaml_name_or_path.split('_')[cls._model_name]]:
+                return False
+        return True
 
     @classmethod
     def _get_class_name_from_yaml(cls, yaml_name_or_path):
-        """Try to find the yaml form the given path"""
+        """
+        Try to find the yaml from the given path
+        Args:
+            yaml_name_or_path (str): the directory of the config yaml
+
+        Returns:
+            The class name of the tokenizer in the config yaml.
+        """
         is_exist = os.path.exists(yaml_name_or_path)
         is_dir = os.path.isdir(yaml_name_or_path)
-        if not is_exist:
-            raise ValueError(f"{yaml_name_or_path} does not exist, Please pass a valid the directory.")
-        if not is_dir:
-            raise ValueError(f"{yaml_name_or_path} is not a directory. You should pass the directory.")
-
-        # If passed a directory, load the file from the yaml files
-        yaml_list = [file for file in os.listdir(yaml_name_or_path) if file.endswith(".yaml")]
-        if not yaml_list:
-            return None
-        if len(yaml_list) > 1:
-            raise ValueError(f"There should be only one yaml file under the directory {yaml_name_or_path}.")
-        yaml_file = os.path.join(yaml_name_or_path, yaml_list[0])
+        is_file = os.path.isfile(yaml_name_or_path)
+        if not is_file:
+            if not is_exist:
+                raise ValueError(f"{yaml_name_or_path} does not exist, Please pass a valid the directory.")
+            if not is_dir:
+                raise ValueError(f"{yaml_name_or_path} is not a directory. You should pass the directory.")
+            # If passed a directory, load the file from the yaml files
+            yaml_list = [file for file in os.listdir(yaml_name_or_path) if file.endswith(".yaml")]
+            if not yaml_list:
+                return None
+            yaml_file = os.path.join(yaml_name_or_path, yaml_list[cls._model_type])
+        else:
+            yaml_file = yaml_name_or_path
         logger.info("Config in the yaml file %s are used for tokenizer building.", yaml_file)
         config = MindFormerConfig(yaml_file)
 
@@ -492,7 +640,14 @@ class AutoTokenizer:
 
     @classmethod
     def _get_class_name_from_tokenizer_config_file(cls, yaml_name_or_path):
-        """try to get the tokenizer type from tokenizer_config.json"""
+        """
+        try to get the tokenizer type from tokenizer_config.json
+        Args:
+            yaml_name_or_path (str): the directory of tokenizer_config.json
+
+        Returns:
+            The class name of the tokenizer in tokenizer_config.json
+        """
         tokenizer_config_path = os.path.join(yaml_name_or_path, 'tokenizer_config.json')
         if not os.path.exists(tokenizer_config_path):
             raise FileNotFoundError(f"The file `tokenizer_config.json` should exits in the "
@@ -506,30 +661,71 @@ class AutoTokenizer:
         return class_name
 
     @classmethod
-    def from_pretrained(cls, yaml_name_or_path):
+    def from_pretrained(cls, yaml_name_or_path, **kwargs):
         """
         From pretrain method, which instantiates a tokenizer by yaml name or path.
 
         Args:
             yaml_name_or_path (str): A supported yaml name or a path to .yaml file,
-            the supported model name could be selected from .show_support_list().
+                the supported model name could be selected from .show_support_list().
+                If yaml_name_or_path is model name, it supports model names beginning with mindspore or
+                the model name itself, such as "mindspore/clip_vit_b_32" or "clip_vit_b_32".
+            pretrained_model_name_or_path (Optional[str]): Equal to "yaml_name_or_path",
+                if "pretrained_model_name_or_path" is set, "yaml_name_or_path" is useless.
 
         Returns:
             A tokenizer which inherited from PretrainedTokenizer.
         """
+        pretrained_model_name_or_path = kwargs.pop("pretrained_model_name_or_path", None)
+        if pretrained_model_name_or_path is not None:
+            yaml_name_or_path = pretrained_model_name_or_path
+
         from . import MindFormerRegister
         if not isinstance(yaml_name_or_path, str):
             raise TypeError(f"yaml_name_or_path should be a str,"
                             f" but got {type(yaml_name_or_path)}")
         # Try to load from the remote
-        if yaml_name_or_path in cls._support_list.keys():
-            # Should download the files from the remote storage
-            # We call the basic `from_pretrained` method to download the corresponding tokenizer
-            class_name = MindFormerBook.TOKENIZER_NAME_TO_TOKENIZER[yaml_name_or_path.split('_')[0]]
-        elif os.path.isdir(yaml_name_or_path):
+        if os.path.isdir(yaml_name_or_path):
             class_name = cls._get_class_name_from_yaml(yaml_name_or_path)
             if not class_name:
                 class_name = cls._get_class_name_from_tokenizer_config_file(yaml_name_or_path)
+        elif not cls.invalid_yaml_name(yaml_name_or_path):
+            # Should download the files from the remote storage
+            yaml_name = yaml_name_or_path
+            if yaml_name_or_path.startswith('mindspore'):
+                # Adaptation the name of yaml at the beginning of mindspore,
+                # the relevant file will be downloaded from the Xihe platform.
+                # such as "mindspore/vit_base_p16"
+                yaml_name = yaml_name_or_path.split('/')[cls._model_name]
+                checkpoint_path = os.path.join(MindFormerBook.get_xihe_checkpoint_download_folder(),
+                                               yaml_name.split('_')[cls._model_type])
+            else:
+                # Default the name of yaml,
+                # the relevant file will be downloaded from the Obs platform.
+                # such as "vit_base_p16"
+                checkpoint_path = os.path.join(MindFormerBook.get_default_checkpoint_download_folder(),
+                                               yaml_name_or_path.split('_')[cls._model_type])
+            if not os.path.exists(checkpoint_path):
+                os.makedirs(checkpoint_path, exist_ok=True)
+
+            yaml_file = os.path.join(checkpoint_path, yaml_name + ".yaml")
+
+            def get_default_yaml_file(model_name):
+                default_yaml_file = ""
+                for model_dict in MindFormerBook.get_trainer_support_task_list().values():
+                    if model_name in model_dict:
+                        default_yaml_file = model_dict.get(model_name)
+                        break
+                return default_yaml_file
+
+            if not os.path.exists(yaml_file):
+                default_yaml_file = get_default_yaml_file(yaml_name)
+                if os.path.realpath(default_yaml_file) and os.path.exists(default_yaml_file):
+                    shutil.copy(default_yaml_file, yaml_file)
+                    logger.info("default yaml config in %s is used.", yaml_file)
+                else:
+                    raise FileNotFoundError(f'default yaml file path must be correct, but get {default_yaml_file}')
+            class_name = cls._get_class_name_from_yaml(yaml_file)
         else:
             raise FileNotFoundError(f"{yaml_name_or_path} does not exist. "
                                     f"You can select one from {cls._support_list.keys()}."
@@ -545,3 +741,8 @@ class AutoTokenizer:
         """show support list method"""
         logger.info("support list of %s is:", cls.__name__)
         print_dict(cls._support_list)
+
+    @classmethod
+    def get_support_list(cls):
+        """get support list method"""
+        return cls._support_list

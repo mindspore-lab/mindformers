@@ -1,4 +1,4 @@
-# Copyright 2022 Huawei Technologies Co., Ltd
+# Copyright 2023 Huawei Technologies Co., Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,7 +15,10 @@
 """Base Dataset."""
 import os
 
+import mindspore as ms
 import mindspore.dataset as ds
+
+from mindformers.tools.logger import logger
 
 
 class BaseDataset:
@@ -26,6 +29,9 @@ class BaseDataset:
     @classmethod
     def init_dataset_config(cls, dataset_config):
         """Init dataset config."""
+        if dataset_config is None:
+            raise ValueError("dataset_config cannot be None!")
+
         ds.config.set_seed(dataset_config.seed)
         ds.config.set_prefetch_size(dataset_config.prefetch_size)
         ds.config.set_numa_enable(dataset_config.numa_enable)
@@ -39,3 +45,27 @@ class BaseDataset:
             dataset_config.filepath_prefix = os.path.join(dataset_config.filepath_prefix, "autotune")
             ds.config.set_enable_autotune(True, filepath_prefix=dataset_config.filepath_prefix)
             ds.config.set_autotune_interval(dataset_config.autotune_per_step)
+
+        if cls._is_semi_full_batch():
+            logger.info("Now the semi auto parallel mode is used and full_batch is True,"
+                        "and the shuffle of the dataset is required to be False,"
+                        "so as to ensure that the data loaded on each card is consistent "
+                        "and to avoid the problem of non-convergence of loss.")
+            dataset_config.data_loader.shuffle = False
+
+    @classmethod
+    def _check_device_rank_for_parallel(cls, rank_id, device_num):
+        """Check device num and rank id in auto parallel mode."""
+        if cls._is_semi_full_batch():
+            rank_id = None
+            device_num = None
+        return rank_id, device_num
+
+    @classmethod
+    def _is_semi_full_batch(cls):
+        return ((ms.context.get_auto_parallel_context("parallel_mode") in ['semi_auto_parallel', 'auto_parallel'])
+                and ms.context.get_auto_parallel_context("full_batch"))
+
+    @classmethod
+    def _is_data_parallel(cls):
+        return ms.context.get_auto_parallel_context("parallel_mode") == ms.context.ParallelMode.DATA_PARALLEL

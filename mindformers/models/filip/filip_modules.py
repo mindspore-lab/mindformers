@@ -1,4 +1,4 @@
-# Copyright 2022 Huawei Technologies Co., Ltd
+# Copyright 2023 Huawei Technologies Co., Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -26,9 +26,9 @@ import mindspore.nn as nn
 import mindspore.ops as ops
 from mindspore import Parameter, Tensor
 from mindspore.ops.primitive import constexpr
-from mindspore.parallel.nn.transformer import Transformer
 from mindspore.common.initializer import TruncatedNormal, initializer
-from mindspore.nn.transformer import TransformerOpParallelConfig, TransformerRecomputeConfig
+from mindformers.modules.transformer import Transformer
+from mindformers.modules import TransformerOpParallelConfig, TransformerRecomputeConfig
 
 
 class QuickGELU(nn.Cell):
@@ -59,7 +59,7 @@ class VisualTransformer(nn.Cell):
             self.heads = self.width // config.ratio
         else:
             self.heads = int(self.heads)
-        self.token_learner_flag = config.token_learner_config.token_learner
+        self.token_learner_flag = config.vision_config.token_learner
         self.output_dim = config.projection_dim
         self.conv1 = nn.Conv2d(3, self.width, self.patch_size, self.patch_size)
         scale = self.width ** -0.5
@@ -81,7 +81,8 @@ class VisualTransformer(nn.Cell):
                                        attention_dropout_rate=0.0,
                                        hidden_dropout_rate=0.0,
                                        decoder_layers=0,
-                                       hidden_act=QuickGELU,
+                                       # hidden_act=QuickGELU,
+                                       hidden_act='fast_gelu',
                                        layernorm_compute_type=ms.float16,
                                        softmax_compute_type=ms.float16,
                                        param_init_type=ms.float16,
@@ -98,9 +99,9 @@ class VisualTransformer(nn.Cell):
         self.expand_dims = ops.ExpandDims()
         if self.token_learner_flag:
             self.token_learner = TokenLearner(in_channels=self.output_dim,
-                                              num_tokens=config.token_learner_config.num_tokens,
-                                              num_groups=config.token_learner_config.num_token_groups,
-                                              dropout_rate=config.token_learner_config.token_learner_dropout)
+                                              num_tokens=config.vision_config.num_tokens,
+                                              num_groups=config.vision_config.num_token_groups,
+                                              dropout_rate=config.vision_config.token_learner_dropout)
 
     def construct(self, x):
         """construct of VisualTransformer"""
@@ -175,7 +176,8 @@ class TextTransformer(nn.Cell):
                                              attention_dropout_rate=0.0,
                                              hidden_dropout_rate=0.0,
                                              decoder_layers=0,
-                                             hidden_act=QuickGELU,
+                                             # hidden_act=QuickGELU,
+                                             hidden_act='fast_gelu',
                                              layernorm_compute_type=ms.float16,
                                              softmax_compute_type=ms.float16,
                                              param_init_type=ms.float16,
@@ -190,61 +192,6 @@ class TextTransformer(nn.Cell):
         gather_result = self.gather(self.embedding_table, flatten_id, 0)
         x = self.reshape(gather_result, (bsz, ctx_len, -1))
         x = x + self.positional_embedding
-        mask_tensor = build_attntion_mask(bsz, self.context_length)
-        x = self.transformer_layer(x, mask_tensor)[0]
-        x = self.ln_final(x)
-        x = ops.matmul(x, self.text_projection)
-        return x
-
-
-class TextTransformerInfer(nn.Cell):
-    """TextTransformerInfer of Filip"""
-    def __init__(self, config):
-        super(TextTransformerInfer, self).__init__()
-        self.batch_size = config.batch_size
-        self.context_length = config.text_config.max_position_embeddins
-        self.vocab_size = config.text_config.vocab_size
-        self.width = config.text_config.hidden_size
-        self.heads = config.text_config.num_heads
-        if not self.heads:
-            self.heads = self.width // config.ratio
-        else:
-            self.heads = int(self.heads)
-        self.layers = config.text_config.num_hidden_layers
-        self.output_dim = config.projection_dim
-
-        self.embedding_table = Parameter(initializer(TruncatedNormal(0.02), [self.vocab_size, self.width]))
-        self.gather = ops.Gather()
-        self.reshape = ops.Reshape()
-        self.not_equal = ops.NotEqual()
-        self.expand_dim = ops.ExpandDims()
-        self.cast = ops.Cast()
-        self.positional_embedding = Parameter(initializer(TruncatedNormal(0.01), [self.context_length, self.width]))
-        self.ln_final = nn.LayerNorm([self.width])
-        self.text_projection = Parameter(Tensor(np.random.normal(0, self.width ** -0.5, size=(
-            self.width, self.output_dim)).astype(np.float32)))
-        self.transformer_layer = Transformer(hidden_size=self.width,
-                                             batch_size=self.batch_size,
-                                             num_heads=self.heads,
-                                             ffn_hidden_size=self.width * 4,
-                                             encoder_layers=self.layers,
-                                             attention_dropout_rate=0.0,
-                                             hidden_dropout_rate=0.0,
-                                             decoder_layers=0,
-                                             hidden_act=QuickGELU,
-                                             layernorm_compute_type=ms.float16,
-                                             softmax_compute_type=ms.float16,
-                                             param_init_type=ms.float16,
-                                             src_seq_length=self.context_length,
-                                             tgt_seq_length=self.context_length)
-
-    def construct(self, text):
-        """construct of TextTransformerInfer"""
-        bsz, ctx_len = text.shape
-        flatten_id = text.flatten()
-        gather_result = self.gather(self.embedding_table, flatten_id, 0)
-        x = self.reshape(gather_result, (bsz, ctx_len, -1))
-        x = x + self.expand_dim(self.positional_embedding, 0)
         mask_tensor = build_attntion_mask(bsz, self.context_length)
         x = self.transformer_layer(x, mask_tensor)[0]
         x = self.ln_final(x)

@@ -38,6 +38,7 @@ do
     [[ -e "${package}" ]] || break
     sha256sum ${package} > ${package}.sha256
 done
+pip install mindformers*whl -i https://pypi.tuna.tsinghua.edu.cn/simple
 cd ${BASEPATH} || exit
 rm -rf *-info
 echo "---------------- MindFormers: build end   ----------------"

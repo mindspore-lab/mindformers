@@ -26,7 +26,8 @@ from typing import Dict, List, Tuple, Union
 
 from mindformers.tools.utils import get_num_nodes_devices, get_rank_info, \
     convert_nodes_devices_input, generate_rank_list,\
-    check_in_modelarts, check_list, LOCAL_DEFAULT_PATH
+    check_in_modelarts, check_list, LOCAL_DEFAULT_PATH,\
+    get_output_root_path
 
 
 logger_list = []
@@ -157,9 +158,7 @@ class AiLogFastStreamRedirect2File(StreamRedirector):
         file_name = kwargs.get('file_name', '')
 
         if not file_save_dir:
-            file_save_dir = LOCAL_DEFAULT_LOG_FILE_DIR
-        if check_in_modelarts():
-            file_save_dir = MODELARTS_LOG_FILE_DIR
+            file_save_dir = os.path.join(get_output_root_path(), 'log')
         if append_rank_dir:
             rank_str = RANK_DIR_FORMATTER.format(rank_id)
             file_save_dir = os.path.join(file_save_dir, rank_str)
@@ -183,7 +182,7 @@ class AiLogFastStreamRedirect2File(StreamRedirector):
         if self.is_redirect:
             self.target_stream.flush()
             if not os.path.exists(self.file_save_dir):
-                os.makedirs(self.file_save_dir)
+                os.makedirs(self.file_save_dir, exist_ok=True)
             self.target_stream.seek(0, 0)
             flags = os.O_WRONLY | os.O_CREAT
             modes = stat.S_IWUSR | stat.S_IRUSR
@@ -359,13 +358,26 @@ def get_logger(logger_name: str = 'mindformers', **kwargs) -> logging.Logger:
 
     to_std = kwargs.get('to_std', True)
     stdout_nodes = kwargs.get('stdout_nodes', None)
-    stdout_devices = kwargs.get('stdout_devices', (0,))
+
+    def get_stdout_devices():
+        if os.getenv("STDOUT_DEVICES"):
+            devices = os.getenv("STDOUT_DEVICES")
+            if devices.startswith(("(", "[")) and devices.endswith((")", "]")):
+                devices = devices[1:-1]
+            devices = tuple(map(lambda x: int(x.strip()), devices.split(",")))
+        elif check_in_modelarts():
+            devices = kwargs.get('stdout_devices', (0,))
+        else:
+            devices = kwargs.get('stdout_devices', None)
+        return devices
+
+    stdout_devices = get_stdout_devices()
     stdout_level = kwargs.get('stdout_level', 'INFO')
     stdout_format = kwargs.get('stdout_format', '')
     file_level = kwargs.get('file_level', ('INFO', 'ERROR'))
     file_save_dir = kwargs.get('file_save_dir', '')
     append_rank_dir = kwargs.get('append_rank_dir', True)
-    file_name = kwargs.get('file_name', (f'{logger_name}.log', 'error.log'))
+    file_name = kwargs.get('file_name', (f'info.log', 'error.log'))
     max_file_size = kwargs.get('max_file_size', 50)
     max_num_of_files = kwargs.get('max_num_of_files', 5)
 
@@ -393,11 +405,8 @@ def get_logger(logger_name: str = 'mindformers', **kwargs) -> logging.Logger:
         logging_level.append(_convert_level(level))
 
     if not file_save_dir:
-        file_save_dir = LOCAL_DEFAULT_LOG_FILE_DIR
+        file_save_dir = os.path.join(get_output_root_path(), 'log')
     rank_dir = RANK_DIR_FORMATTER
-    if check_in_modelarts():
-        file_save_dir = MODELARTS_LOG_FILE_DIR
-        rank_dir = os.path.join(RANK_DIR_FORMATTER, 'log')
     if append_rank_dir:
         rank_str = rank_dir.format(rank_id)
         file_save_dir = os.path.join(file_save_dir, rank_str)
@@ -408,7 +417,7 @@ def get_logger(logger_name: str = 'mindformers', **kwargs) -> logging.Logger:
         path = os.path.realpath(path)
         base_dir = os.path.dirname(path)
         if not os.path.exists(base_dir):
-            os.makedirs(base_dir)
+            os.makedirs(base_dir, exist_ok=True)
         file_path.append(path)
 
     max_file_size = max_file_size * 1024 * 1024
@@ -424,9 +433,45 @@ def get_logger(logger_name: str = 'mindformers', **kwargs) -> logging.Logger:
 
     mf_logger.setLevel(_convert_level('INFO'))
 
+    mf_logger.propagate = False
+
     logger_list.append(logger_name)
 
     return mf_logger
+
+
+class _LogActionOnce:
+    """
+    A wrapper for modify the warning logging to an empty function. This is used when we want to only log
+    once to avoid the repeated logging.
+
+    Args:
+        logger (logging): The logger object.
+
+    """
+    is_logged = dict()
+
+    def __init__(self, m_logger, key, no_warning=False):
+        self.logger = m_logger
+        self.key = key
+        self.no_warning = no_warning
+
+    def __call__(self, func):
+        def wrapper(*args, **kwargs):
+            if not hasattr(self.logger, 'warning'):
+                return func(*args, **kwargs)
+
+            old_func = self.logger.warning
+            if self.no_warning or self.key in _LogActionOnce.is_logged:
+                self.logger.warning = lambda x: x
+            else:
+                _LogActionOnce.is_logged[self.key] = True
+            res = func(*args, **kwargs)
+            if hasattr(self.logger, 'warning'):
+                self.logger.warning = old_func
+            return res
+
+        return wrapper
 
 
 logger = get_logger()

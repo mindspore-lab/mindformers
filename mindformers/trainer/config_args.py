@@ -18,14 +18,14 @@ from typing import Optional, Union
 from dataclasses import dataclass
 import inspect
 
-from mindformers.common.callback import CheckpointMointor
+from mindformers.core.callback import CheckpointMointor
 from mindformers.tools.register import MindFormerRegister, \
     MindFormerModuleType
 
 
 __all__ = ['BaseArgsConfig', 'RunnerConfig', 'DatasetConfig', 'DataLoaderConfig',
            'ConfigArguments', 'ContextConfig', 'CloudConfig', 'CheckpointConfig',
-           'ParallelContextConfig', 'OptimizerConfig', 'LRConfig']
+           'ParallelContextConfig', 'OptimizerConfig', 'LRConfig', 'WrapperConfig']
 
 
 @dataclass
@@ -118,19 +118,20 @@ class RunnerConfig(BaseArgsConfig):
     """MindFormers' config when running model."""
 
     _support_kwargs = [
-        'epochs', 'batch_size', 'sink_mode', 'per_epoch_size', 'initial_epoch',
-        'has_trained_epoches', 'has_trained_steps', 'image_size'
+        'epochs', 'batch_size', 'sink_mode', 'sink_size', 'initial_epoch',
+        'has_trained_epoches', 'has_trained_steps', 'image_size', 'num_classes',
+        'sink_size',
     ]
 
     def __init__(self,
-                 epochs: int = 100, batch_size: int = 64,
-                 sink_mode: bool = True, per_epoch_size: int = 0,
-                 initial_epoch: int = 0, has_trained_epoches: int = 0,
-                 has_trained_steps: int = 0, **kwargs):
+                 epochs: int = None, batch_size: int = None,
+                 sink_mode: bool = None, sink_size: int = None,
+                 initial_epoch: int = None, has_trained_epoches: int = None,
+                 has_trained_steps: int = None, **kwargs):
         super(RunnerConfig, self).__init__(epochs=epochs,
                                            batch_size=batch_size,
                                            sink_mode=sink_mode,
-                                           per_epoch_size=per_epoch_size,
+                                           sink_size=sink_size,
                                            initial_epoch=initial_epoch,
                                            has_trained_steps=has_trained_steps,
                                            has_trained_epoches=has_trained_epoches, **kwargs)
@@ -197,6 +198,22 @@ class OptimizerConfig(BaseArgsConfig):
 
 
 @dataclass
+class WrapperConfig(BaseArgsConfig):
+    """MindFormers' wrapper config."""
+    _support_kwargs = [
+        'type', 'sens', 'scale_sense'
+    ]
+
+    def __init__(self, wrapper_type: str = None, **kwargs):
+        if wrapper_type is not None:
+            wrapper = MindFormerRegister.get_cls(
+                module_type=MindFormerModuleType.WRAPPER, class_name=wrapper_type)
+            self._support_kwargs.extend(inspect.getfullargspec(wrapper).args)
+
+        super(WrapperConfig, self).__init__(type=wrapper_type, **kwargs)
+
+
+@dataclass
 class DataLoaderConfig(BaseArgsConfig):
     """MindFormers' data loader config."""
     _support_kwargs = [
@@ -248,7 +265,7 @@ class ConfigArguments(BaseArgsConfig):
     _support_kwargs = [
         'output_dir', 'profile', 'auto_tune', 'filepath_prefix', 'autotune_per_step',
         'train_dataset', 'eval_dataset', 'predict_dataset', 'runner_config', 'optimizer',
-        'lr_schedule', 'save_checkpoint', 'cloud_config', 'seed'
+        'lr_schedule', 'save_checkpoint', 'cloud_config', 'seed', 'runner_wrapper'
     ]
 
     def __init__(self, output_dir: str = './output', profile: bool = False,
@@ -258,6 +275,7 @@ class ConfigArguments(BaseArgsConfig):
                  eval_dataset: Optional[Union[dict, BaseArgsConfig]] = None,
                  runner_config: Optional[Union[dict, BaseArgsConfig]] = None,
                  optimizer: Optional[Union[dict, BaseArgsConfig]] = None,
+                 runner_wrapper: Optional[Union[dict, BaseArgsConfig]] = None,
                  lr_schedule: Optional[Union[dict, BaseArgsConfig]] = None,
                  save_checkpoint: Optional[Union[dict, BaseArgsConfig]] = None,
                  cloud_config: Optional[Union[dict, BaseArgsConfig]] = None):
@@ -271,6 +289,7 @@ class ConfigArguments(BaseArgsConfig):
                                               eval_dataset=eval_dataset,
                                               runner_config=runner_config,
                                               optimizer=optimizer,
+                                              runner_wrapper=runner_wrapper,
                                               lr_schedule=lr_schedule,
                                               save_checkpoint=save_checkpoint,
                                               cloud_config=cloud_config)

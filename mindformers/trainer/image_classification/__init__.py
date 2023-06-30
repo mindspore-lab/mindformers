@@ -14,6 +14,7 @@
 # ============================================================================
 """Image Classification Trainer API."""
 from .image_classification import ImageClassificationTrainer
+from .zero_shot_image_classification import ZeroShotImageClassificationTrainer
 
 
-__all__ = ['ImageClassificationTrainer']
+__all__ = ['ImageClassificationTrainer', 'ZeroShotImageClassificationTrainer']

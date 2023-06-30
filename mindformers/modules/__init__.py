@@ -12,12 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-"""MindFormers Modules API."""
-from .build_module import build_module, register_ms_transformer
-from .attention import Attention
-from .block import Block
-from .moe import Moe
-from .mlp import MLP
-from .patch import PatchEmbed
+"""MindFormers Transformers API."""
+from .transformer import *
+from .layers import *
+from .local_block_sparse_attention import *
 
 __all__ = []
+__all__.extend(transformer.__all__)
+__all__.extend(layers.__all__)
+__all__.extend(local_block_sparse_attention.__all__)

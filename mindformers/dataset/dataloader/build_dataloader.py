@@ -17,16 +17,38 @@ import inspect
 
 from mindspore import dataset as ds
 
-from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
+from mindformers.tools.register import MindFormerRegister, MindFormerModuleType, MindFormerConfig
 
 
 def build_dataset_loader(
         config: dict = None, default_args: dict = None,
         module_type: str = 'dataset_loader', class_name: str = None, **kwargs):
-    """Build dataset loader API."""
+    r"""Build dataset loader For MindFormer.
+    Instantiate the dataset loader from MindFormerRegister's registry.
+
+    Args:
+        config (dict): The task dataset loader's config. Default: None.
+        default_args (dict): The default argument of dataset loader API. Default: None.
+        module_type (str): The module type of MindFormerModuleType. Default: 'dataset loader'.
+        class_name (str): The class name of dataset loader API. Default: None.
+
+    Return:
+        The function instance of dataset loader API.
+
+    Examples:
+        >>> from mindformers.dataset.dataloader import build_dataset_loader
+        >>> dataset_loader_config = {'type': 'ImageFolderDataset', 'dataset_dir': './imagenet/train'}
+        >>> # 1) use config dict to build dataset loader
+        >>> dataset_loader_from_config = build_dataset_loader(dataset_loader_config)
+        >>> # 2) use class name to build dataset loader
+        >>> dataset_loader_class_name = build_dataset_loader(
+        ...     class_name='ImageFolderDataset', dataset_dir='./imagenet/train')
+    """
     if config is None and class_name is None:
         return None
     if config is not None:
+        if isinstance(config, dict) and not isinstance(config, MindFormerConfig):
+            config = MindFormerConfig(**config)
         return MindFormerRegister.get_instance_from_cfg(
             config, MindFormerModuleType.DATASET_LOADER, default_args=default_args)
     return MindFormerRegister.get_instance(module_type, class_name, **kwargs)

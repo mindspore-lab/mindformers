@@ -14,24 +14,26 @@
 # ============================================================================
 
 """mindformers init"""
-from mindformers import common, auto_class, dataset, \
+from mindformers import core, auto_class, dataset, \
     models, modules, wrapper, tools
 from mindformers.pipeline import *
 from mindformers.trainer import *
-from mindformers.common import *
+from mindformers.core import *
 from mindformers.dataset import *
 from mindformers.models import *
 from mindformers.modules import *
 from mindformers.wrapper import *
 from mindformers.tools import *
 from mindformers.auto_class import *
+from mindformers.generation import *
+from mindformers.pet import *
 from .mindformer_book import MindFormerBook
 
 
 __all__ = []
 __all__.extend(dataset.__all__)
 __all__.extend(models.__all__)
-__all__.extend(common.__all__)
-__all__.extend(modules.__all__)
+__all__.extend(core.__all__)
 __all__.extend(tools.__all__)
 __all__.extend(auto_class.__all__)
+__all__.extend(generation.__all__)

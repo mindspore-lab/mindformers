@@ -11,6 +11,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+# This file was refer to project:
+# https://github.com/zzwj66/models/blob/master/research/nlp/albert/src/tokenization.py
 # ============================================================================
 """The bert tokenizer"""
 import collections
@@ -19,9 +21,10 @@ import os
 import unicodedata
 
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
-from mindformers.models.base_tokenizer import PretrainedTokenizer
+from mindformers.models.base_tokenizer import Tokenizer
+from ...mindformer_book import MindFormerBook
 
-__all__ = ['BertTokenizer']
+__all__ = ['BertTokenizer', 'BasicTokenizer']
 
 def convert_to_unicode(text):
     """
@@ -303,12 +306,17 @@ def _is_punctuation(char):
     return False
 
 @MindFormerRegister.register(MindFormerModuleType.TOKENIZER)
-class BertTokenizer(PretrainedTokenizer):
+class BertTokenizer(Tokenizer):
     """
         Bert Tokenizer.
     """
     VOCAB_FILES = {'vocab_file': 'vocab.txt'}
     FILE_LIST = ['tokenizer_config.json', 'special_tokens_map.json']
+    _support_list = MindFormerBook.get_tokenizer_support_list()['bert']
+    _support_list.extend(MindFormerBook.get_config_support_list()['tokcls']['bert'])
+    _support_list.extend(MindFormerBook.get_config_support_list()['txtcls']['bert'])
+    _support_list.extend(MindFormerBook.get_config_support_list()['qa']['bert'])
+
     def __init__(self,
                  vocab_file,
                  do_lower_case=True,
@@ -318,6 +326,7 @@ class BertTokenizer(PretrainedTokenizer):
                  pad_token="[PAD]",
                  cls_token="[CLS]",
                  mask_token="[MASK]",
+                 is_tokenize_char=False,
                  **kwargs):
         super(BertTokenizer, self).__init__(do_lower_case=do_lower_case,
                                             do_basic_tokenize=do_basic_tokenize,
@@ -335,6 +344,8 @@ class BertTokenizer(PretrainedTokenizer):
         self.vocab_dict = vocab_to_dict_key_token(vocab_file)
         self.vocab_id2token = {v: k for k, v in self.vocab_dict.items()}
         self.word_piece_tokenizer = WordpieceTokenizer(vocab=self.vocab_dict)
+        self.mask_index = []
+        self.is_tokenize_char = is_tokenize_char
 
     def build_inputs_with_special_tokens(self, token_ids_0, token_ids_1=None):
         if token_ids_1:
@@ -343,19 +354,43 @@ class BertTokenizer(PretrainedTokenizer):
         return [self.cls_token_id] + token_ids_0 + [self.sep_token_id]
 
     def tokenize(self, text):
+        text = convert_to_unicode(text)
         if not isinstance(text, str):
             raise ValueError("Text should be type str, but found type", type(text))
         return self._tokenize(text)
 
+    def _process_mask_tokens(self, text):
+        """process mask tokens in text"""
+        text_tokenize = []
+        if self._mask_token in text:
+            while self._mask_token in text:
+                ind = text.index(self._mask_token)
+                text_tokenize.extend(self.basic_tokenizer.tokenize(text[:ind]))
+                text_tokenize.append(self._mask_token)
+                text = text[ind + len(self._mask_token):]
+            text_tokenize.extend(self.basic_tokenizer.tokenize(text))
+            self.mask_index = [ind for ind, x in enumerate(text_tokenize) if x == self._mask_token]
+        else:
+            text_tokenize = self.basic_tokenizer.tokenize(text)
+        return text_tokenize
+
     def _tokenize(self, text, **kwargs):
         tokens_ret = []
-        text = convert_to_unicode(text)
-        if self.do_basic_tokenize:
-            for tokens in self.basic_tokenizer.tokenize(text):
-                wordpiece_tokens = self.word_piece_tokenizer.tokenize(tokens)
-                tokens_ret.extend(wordpiece_tokens)
+        if self.is_tokenize_char:
+            for character in text:
+                if self.do_lower_case:
+                    character = character.lower()
+                if character in self.vocab_dict:
+                    tokens_ret.append(character)
+                else:
+                    tokens_ret.append(self.unk_token)
         else:
-            tokens_ret = self.word_piece_tokenizer.tokenize(text)
+            if self.do_basic_tokenize:
+                for tokens in self._process_mask_tokens(text):
+                    wordpiece_tokens = self.word_piece_tokenizer.tokenize(tokens)
+                    tokens_ret.extend(wordpiece_tokens)
+            else:
+                tokens_ret = self.word_piece_tokenizer.tokenize(text)
         return tokens_ret
 
     def _convert_tokens_to_ids(self, tokens):
@@ -367,10 +402,15 @@ class BertTokenizer(PretrainedTokenizer):
         return output
 
     def _convert_ids_to_tokens(self, ids):
-        output = []
-        for item in ids:
-            output.append(self.vocab_id2token[item])
-        return output
+        if isinstance(ids, int):
+            return self.vocab_id2token[ids]
+
+        if isinstance(ids, list):
+            output = []
+            for item in ids:
+                output.append(self.vocab_id2token[item])
+            return output
+        raise TypeError(f"The type of ids should be int or list, but found {type(ids)}.")
 
     def save_vocabulary(self, save_directory, filename_prefix):
         """write the word to the files"""
@@ -379,3 +419,8 @@ class BertTokenizer(PretrainedTokenizer):
             for k in self.vocab_dict.keys():
                 fp.write(k + '\n')
         return output_file_path
+
+    @property
+    def vocab_size(self):
+        """Return the vocab size"""
+        return len(self.vocab_dict)

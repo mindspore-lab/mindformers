@@ -13,8 +13,12 @@
 # limitations under the License.
 # ============================================================================
 """Mae Model API."""
-from .mae import MaeModel
-from .mae_encoder import MaeEncoder
-from .mae_config import MaeConfig
+from .mae import *
+from .mae_config import *
+from .mae_processor import *
 
-__all__ = ['MaeModel', 'MaeConfig', 'MaeEncoder']
+
+__all__ = []
+__all__.extend(mae.__all__)
+__all__.extend(mae_config.__all__)
+__all__.extend(mae_processor.__all__)

@@ -14,9 +14,8 @@
 # ============================================================================
 """MindFormers Cloud Adapter API."""
 from .cloud_adapter import *
-from .cfts import CFTS
 from .cloud_monitor import cloud_monitor
 
 
-__all__ = ['CFTS', 'cloud_monitor']
+__all__ = ['cloud_monitor']
 __all__.extend(cloud_adapter.__all__)

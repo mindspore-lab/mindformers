@@ -17,5 +17,5 @@ from .build_mask import build_mask
 from .vision_mask import *
 
 
-__all__ = ['build_mask']
+__all__ = []
 __all__.extend(vision_mask.__all__)

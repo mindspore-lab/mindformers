@@ -18,21 +18,45 @@ BaseConfig class,
 which is all model configs' base class
 """
 import os
+import shutil
+
 import yaml
 
 from ..mindformer_book import MindFormerBook
 from ..mindformer_book import print_path_or_list
 from ..tools import logger
 from ..tools.register.config import MindFormerConfig
-from ..tools.download_tools import downlond_with_progress_bar
 from ..models.build_config import build_model_config
 
 
 class BaseConfig(dict):
     """
     Base Config for all models' config
+
+    Examples:
+        >>> from mindformers.mindformer_book import MindFormerBook
+        >>> from mindformers.models.base_config import BaseConfig
+        >>> class MyConfig(BaseConfig):
+        ...     _support_list = MindFormerBook.get_config_support_list()['my_model']
+        ...
+        ...     def __init__(self,
+        ...                  data_size: int = 32,
+        ...                  net_size: list = [1, 2, 3],
+        ...                  loss_type: str = "MyLoss",
+        ...                  checkpoint_name_or_path: str = '',
+        ...                  **kwargs):
+        ...         self.data_size = data_size
+        ...         self.net_size = net_size
+        ...         loss_type = loss_type
+        ...         self.checkpoint_name_or_path = checkpoint_name_or_path
+        ...         super(MyConfig, self).__init__(**kwargs)
+        ...
+        >>> mynet = MyModel(MyConfig)
+        >>> output = mynet(input)
     """
     _support_list = []
+    _model_type = 0
+    _model_name = 1
 
     def __init__(self, **kwargs):
         super(BaseConfig, self).__init__()
@@ -62,18 +86,26 @@ class BaseConfig(dict):
         return return_dict
 
     @classmethod
-    def from_pretrained(cls, yaml_name_or_path):
+    def from_pretrained(cls, yaml_name_or_path, **kwargs):
         """
         From pretrain method, which instantiates a config by yaml name or path.
 
         Args:
-            yaml_name_or_path (str): A supported model name or a path to model
-            config (.yaml), the supported model name could be selected from
-            AutoConfig.show_support_list().
+            yaml_name_or_path (str): A supported model name or a path to model config (.yaml),
+                the supported model name could be selected from AutoConfig.show_support_list().
+                If yaml_name_or_path is model name,
+                it supports model names beginning with mindspore or the model name itself,
+                such as "mindspore/vit_base_p16" or "vit_base_p16".
+            pretrained_model_name_or_path (Optional[str]): Equal to "yaml_name_or_path",
+                if "pretrained_model_name_or_path" is set, "yaml_name_or_path" is useless.
 
         Returns:
             A model config, which inherited from BaseConfig.
         """
+        pretrained_model_name_or_path = kwargs.pop("pretrained_model_name_or_path", None)
+        if pretrained_model_name_or_path is not None:
+            yaml_name_or_path = pretrained_model_name_or_path
+
         if not isinstance(yaml_name_or_path, str):
             raise TypeError(f"yaml_name_or_path should be a str,"
                             f" but got {type(yaml_name_or_path)}.")
@@ -91,29 +123,45 @@ class BaseConfig(dict):
                              f" model type or a valid path to model config."
                              f" supported model could be selected from {cls._support_list}.")
         else:
-            checkpoint_path = os.path.join(MindFormerBook.get_default_checkpoint_download_folder(),
-                                           yaml_name_or_path.split('_')[0])
+            yaml_name = yaml_name_or_path
+            if yaml_name_or_path.startswith('mindspore'):
+                # Adaptation the name of yaml at the beginning of mindspore,
+                # the relevant file will be downloaded from the Xihe platform.
+                # such as "mindspore/vit_base_p16"
+                yaml_name = yaml_name_or_path.split('/')[cls._model_name]
+                checkpoint_path = os.path.join(MindFormerBook.get_xihe_checkpoint_download_folder(),
+                                               yaml_name.split('_')[cls._model_type])
+            else:
+                # Default the name of yaml,
+                # the relevant file will be downloaded from the Obs platform.
+                # such as "vit_base_p16"
+                checkpoint_path = os.path.join(MindFormerBook.get_default_checkpoint_download_folder(),
+                                               yaml_name_or_path.split('_')[cls._model_type])
+
             if not os.path.exists(checkpoint_path):
-                os.makedirs(checkpoint_path)
+                os.makedirs(checkpoint_path, exist_ok=True)
 
-            yaml_file = os.path.join(checkpoint_path, yaml_name_or_path + ".yaml")
+            yaml_file = os.path.join(checkpoint_path, yaml_name + ".yaml")
+
+            def get_default_yaml_file(model_name):
+                default_yaml_file = ""
+                for model_dict in MindFormerBook.get_trainer_support_task_list().values():
+                    if model_name in model_dict:
+                        default_yaml_file = model_dict.get(model_name)
+                        break
+                return default_yaml_file
+
             if not os.path.exists(yaml_file):
-                url = MindFormerBook.get_model_config_url_list()[yaml_name_or_path][0]
-                succeed = downlond_with_progress_bar(url, yaml_file)
-
-                if not succeed:
-                    yaml_file = os.path.join(
-                        MindFormerBook.get_project_path(),
-                        "configs", yaml_name_or_path.split('_')[0],
-                        "model_config", yaml_name_or_path + ".yaml"
-                    )
-                    logger.info("yaml download failed, default config in %s is used.", yaml_file)
+                default_yaml_file = get_default_yaml_file(yaml_name)
+                if os.path.realpath(default_yaml_file) and os.path.exists(default_yaml_file):
+                    shutil.copy(default_yaml_file, yaml_file)
+                    logger.info("default yaml config in %s is used.", yaml_file)
                 else:
-                    logger.info("the content in %s is used for"
-                                " config building.", yaml_file)
+                    raise FileNotFoundError(f'default yaml file path must be correct, but get {default_yaml_file}')
             config_args = MindFormerConfig(yaml_file)
 
         config = build_model_config(config_args.model.model_config)
+        MindFormerBook.set_model_config_to_name(id(config), config_args.model.arch.type)
         return config
 
     def save_pretrained(self, save_directory=None, save_name="mindspore_model"):
@@ -133,12 +181,15 @@ class BaseConfig(dict):
                             f" but got {type(save_directory)} and {type(save_name)}.")
 
         if not os.path.exists(save_directory):
-            os.makedirs(save_directory)
+            os.makedirs(save_directory, exist_ok=True)
 
         save_path = os.path.join(save_directory, save_name + ".yaml")
 
-        parsed_config = self._inverse_parse_config()
+        parsed_config, removed_list = self._inverse_parse_config()
         wraped_config = self._wrap_config(parsed_config)
+        for key, val in removed_list:
+            self[key] = val
+        self.remove_type()
 
         meraged_dict = {}
         if os.path.exists(save_path):
@@ -150,11 +201,22 @@ class BaseConfig(dict):
         with open(save_path, 'w') as file_pointer:
             file_pointer.write(yaml.dump(meraged_dict))
         file_pointer.close()
-        logger.info("model saved successfully!")
+        logger.info("config saved successfully!")
+
+    def remove_type(self):
+        """remove type caused by save’"""
+        if isinstance(self, BaseConfig):
+            self.pop("type")
+
+        for key, val in self.items():
+            if isinstance(val, BaseConfig):
+                val.pop("type")
+                self.update({key: val})
 
     def inverse_parse_config(self):
         """inverse_parse_config"""
-        return self._inverse_parse_config()
+        val, _ = self._inverse_parse_config()
+        return val
 
     def _inverse_parse_config(self):
         """
@@ -164,13 +226,19 @@ class BaseConfig(dict):
             A model config, which follows the yaml content.
         """
         self.update({"type": self.__class__.__name__})
+        removed_list = []
 
         for key, val in self.items():
             if isinstance(val, BaseConfig):
                 val = val.inverse_parse_config()
+            elif not isinstance(val, (str, int, float, bool)):
+                removed_list.append((key, val))
+                continue
             self.update({key: val})
 
-        return self
+        for key, _ in removed_list:
+            self.pop(key)
+        return self, removed_list
 
     def _wrap_config(self, config):
         """
@@ -182,11 +250,10 @@ class BaseConfig(dict):
         Returns:
             A (config) dict for yaml.dump.
         """
-        config_name = self.__class__.__name__
-        model_name = MindFormerBook.get_model_config_to_name().get(config_name, None)
-        if not model_name:
-            raise ValueError("cannot get model_name from model_config, please use"
-                             " MindFormerBook.set_model_config_to_name(model_config, model_name).")
+        model_name = self.pop("model_name", None)
+        if model_name is None:
+            model_name = MindFormerBook.get_model_config_to_name().get(id(config), None)
+
         return {"model": {"model_config": config.to_dict(), "arch": {"type": model_name}}}
 
     @classmethod

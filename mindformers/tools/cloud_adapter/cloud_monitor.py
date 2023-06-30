@@ -17,10 +17,10 @@
 import os
 import traceback
 
-from mindformers.tools.logger import get_logger, AiLogFastStreamRedirect2File
+from mindformers.tools.logger import get_logger
 from .cloud_adapter import mox_adapter
-from ..utils import SAVE_WORK_PATH, DEBUG_INFO_PATH,\
-    PROFILE_INFO_PATH, PLOG_PATH, SLOG_PATH
+from ..utils import DEBUG_INFO_PATH, PROFILE_INFO_PATH, PLOG_PATH, LAST_TRANSFORM_LOCK_PATH,\
+    get_output_root_path, get_remote_save_url
 
 
 def cloud_monitor(log=get_logger()):
@@ -28,19 +28,14 @@ def cloud_monitor(log=get_logger()):
     def decorator(run_func):
 
         def wrapper(*args, **kwargs):
-            stream_redirector = AiLogFastStreamRedirect2File()
-            stream_redirector.start()
             local_id = int(os.getenv('RANK_ID', '0'))
-            result = None
             try:
                 result = run_func(*args, **kwargs)
             except BaseException as exc:  # pylint: disable=W0703
                 error = traceback.format_exc()
                 log.error(error)
-                if local_id % 8 == 0:
-                    raise exc
+                raise exc
             finally:
-                stream_redirector.stop()
                 _last_transform(local_id, log)
             return result
         return wrapper
@@ -50,26 +45,33 @@ def cloud_monitor(log=get_logger()):
 
 def _last_transform(local_id, log=get_logger()):
     """Transform file when progress ending or except."""
-    if os.environ.get("SPECIAL_ID") and os.environ.get("OBS_PATH"):
-        target_dir = os.path.join(os.environ.get("OBS_PATH"), "rank_{}".format(os.environ.get("SPECIAL_ID")))
-        mox_adapter(src_dir=SAVE_WORK_PATH.format(os.environ.get("SPECIAL_ID")),
-                    target_dir=target_dir, log=log)
+    if os.environ.get("SPECIAL_ID") and get_remote_save_url():
+        target_dir = get_remote_save_url()
+        mox_adapter(src_dir=get_output_root_path(),
+                    target_dir=get_remote_save_url(), log=log)
     else:
-        if local_id % 8 == 0 and os.environ.get('OBS_PATH'):
-            target_dir = os.path.join(os.environ.get('OBS_PATH'), 'rank_{}'.format(int(local_id)))
-            mox_adapter(src_dir=SAVE_WORK_PATH.format(local_id), target_dir=target_dir, log=log)
-    if local_id % 8 == 0 and os.environ.get('OBS_PATH'):
-        target_dir = os.environ.get('OBS_PATH')
+        if local_id % 8 == 0 and get_remote_save_url():
+            target_dir = get_remote_save_url()
+            mox_adapter(src_dir=get_output_root_path(), target_dir=target_dir, log=log)
+    if local_id % 8 == 0 and get_remote_save_url():
+        target_dir = get_remote_save_url()
         task_dir = os.path.join(target_dir, 'ascend-log')
         node = 'node_{}'.format(local_id)
         if os.path.exists(PLOG_PATH):
             mox_adapter(src_dir=PLOG_PATH, target_dir=os.path.join(task_dir, 'plog', node), log=log)
-        if os.path.exists(SLOG_PATH):
-            mox_adapter(src_dir=SLOG_PATH, target_dir=os.path.join(task_dir, 'slog', node), log=log)
         if os.path.exists(DEBUG_INFO_PATH):
             mox_adapter(src_dir=DEBUG_INFO_PATH, target_dir=os.path.join(target_dir, 'debug_info', node), log=log)
         if os.path.exists(PROFILE_INFO_PATH):
             mox_adapter(src_dir=PROFILE_INFO_PATH, target_dir=os.path.join(target_dir, 'profile'), log=log)
+        os.mknod(LAST_TRANSFORM_LOCK_PATH)
+    elif get_remote_save_url():
+        log.info("Wait for the first card to complete the file and send it back to OBS: %s.",
+                 get_remote_save_url())
+        while True:
+            if os.path.exists(LAST_TRANSFORM_LOCK_PATH):
+                log.info("All files have been sent back to the OBS: %s,"
+                         "and the process exits normally.", get_remote_save_url())
+                break
 
 
 def upload_log():

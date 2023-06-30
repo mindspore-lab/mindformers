@@ -16,22 +16,31 @@
 # ============================================================================
 
 """
-Modules of ClipModel, including MultiheadAttention，VisionTransformer,
+Modules of CLIPModel, including MultiheadAttention，VisionTransformer,
 QuickGELU, ResidualAttentionBlock, Transformer
 """
 from collections import OrderedDict
+from typing import Optional
 import numpy as np
 
 import mindspore as ms
 import mindspore.nn as nn
 import mindspore.ops as ops
+from mindspore import dtype as mstype
 from mindspore.ops import operations as P
 from mindspore import Parameter, Tensor
 from mindspore.common.initializer import Normal
 
+
 class LayerNorm(nn.LayerNorm):
-    """
-    Implementation that supports fp16 inputs but fp32 gains/biases.
+    r"""Implementation That Supports Fp16 Inputs But Fp32 Gains Biases.
+
+    Args:
+        x (ms.Tensor): Input tensor.
+            The detailed function could refer to mindspore.nn.LayerNorm.
+
+    Return:
+        y (ms.Tensor): Normalized tensor.
     """
     def construct(self, x: ms.Tensor):
         """construct"""
@@ -40,15 +49,15 @@ class LayerNorm(nn.LayerNorm):
         return y
 
 class MultiheadAttention(nn.Cell):
-    """
-    MultiheadAttention, with layers as input for initialization
+    r"""MultiheadAttention, With Layers As Input For Initialization
 
     Args:
-        d_model (int): the feature dimension
-        n_head (int): the number of attention heads
-        layers (int): the number of transformers, used for weight initialization
+        d_model (int): The feature dimension
+        n_head (int): The number of attention heads
+        layers (int): The number of transformers, used for weight initialization
+        dtype (mstype): The type of calculation, [mstype.float32, mstype.float16].
     """
-    def __init__(self, d_model, n_head, layers, dtype):
+    def __init__(self, d_model: int, n_head: int, layers: int, dtype: mstype):
         super(MultiheadAttention, self).__init__()
 
         self.num_heads = n_head
@@ -65,8 +74,16 @@ class MultiheadAttention(nn.Cell):
         self.in_proj = nn.Dense(d_model, 3 * d_model,
                                 weight_init=Normal(mean=0.0, sigma=attn_std)).to_float(dtype)
 
-    def construct(self, query, attn_mask=None):
-        """construct"""
+    def construct(self, query: ms.Tensor, attn_mask: Optional[ms.Tensor] = None):
+        r"""Construct
+
+        Args:
+            query (ms.Tensor): query of attention.
+            attn_mask (Optional[ms.Tensor]): attention mask.
+
+        Returns:
+            attn_output (ms.Tensor): attention output.
+        """
         len_tgt, batch_size, width = query.shape
         qkv = self.in_proj(query).view(len_tgt, batch_size, 3, width).transpose((2, 0, 1, 3))
 
@@ -99,18 +116,19 @@ class MultiheadAttention(nn.Cell):
 
 
 class VisionTransformer(nn.Cell):
-    """
-    VisionTransformer of ClipModel
+    r"""VisionTransformer Of CLIPModel
 
     Args:
-        input_resolution (int): the image size of input
-        patch_size (int): the patch size of vision transformer
-        width (int): the dimension of vision transformer
-        layers (int): the number of layers of vision transformer
-        heads (int): the number of attention heads
-        output_dim (int): the output dimension of vision transformer
+        input_resolution (int): The image size of input.
+        patch_size (int): The patch size of vision transformer.
+        width (int): The dimension of vision transformer.
+        layers (int): The number of layers of vision transformer.
+        heads (int): The number of attention heads.
+        output_dim (int): The output dimension of vision transformer.
+        dtype (mstype): The type of calculation, [mstype.float32, mstype.float16].
     """
-    def __init__(self, input_resolution, patch_size, width, layers, heads, output_dim, dtype):
+    def __init__(self, input_resolution: int, patch_size: int, width: int,
+                 layers: int, heads: int, output_dim: int, dtype: mstype):
         super(VisionTransformer, self).__init__()
         self.conv1 = \
             nn.Conv2d(
@@ -135,8 +153,15 @@ class VisionTransformer(nn.Cell):
         self.slice = P.StridedSlice()
         self.dtype = dtype
 
-    def construct(self, input_x):
-        """construct"""
+    def construct(self, input_x: ms.Tensor):
+        r"""Construct
+
+        Args:
+            input_x (ms.Tensor): Input tensor.
+
+        Returns:
+            input_x (ms.Tensor): Output tensor.
+        """
         input_x = self.conv1(input_x)
         input_x = input_x.reshape(input_x.shape[0], input_x.shape[1], -1)
         input_x = input_x.transpose(0, 2, 1)
@@ -159,28 +184,30 @@ class VisionTransformer(nn.Cell):
 
 
 class QuickGELU(nn.Cell):
-    """QuickGELU of Clip"""
-    def __init__(self, ratio=1.702):
+    r"""QuickGELU of CLIP"""
+    def __init__(self, ratio: Optional[int] = 1.702):
         super(QuickGELU, self).__init__()
         self.ratio = ratio
         self.sigmoid = nn.Sigmoid()
 
-    def construct(self, input_x):
+    def construct(self, input_x: ms.Tensor):
         '''construct'''
         return input_x * self.sigmoid(self.ratio * input_x)
 
 
 class ResidualAttentionBlock(nn.Cell):
-    """
-    ResidualAttentionBlock of Clip
+    r"""
+    ResidualAttentionBlock of CLIP
 
     Args:
-        d_model (int): the dimension of features
-        n_head (int): the number of attention heads
-        layers (int): the number of transformer layers for weight initialization
-        attn_mask (tensor): attention mask
+        d_model (int): The dimension of features.
+        n_head (int): The number of attention heads.
+        layers (int): The number of transformer layers for weight initialization.
+        dtype (mstype): The type of calculation, [mstype.float32, mstype.float16].
+        attn_mask (Optional[ms.Tensor]): attention mask.
     """
-    def __init__(self, d_model, n_head, layers, dtype, attn_mask=None):
+    def __init__(self, d_model: int, n_head: int, layers: int,
+                 dtype: mstype, attn_mask: Optional[ms.Tensor] = None):
         super(ResidualAttentionBlock, self).__init__()
 
         proj_std = (d_model ** -0.5) * ((2 * layers) ** -0.5)
@@ -198,26 +225,27 @@ class ResidualAttentionBlock(nn.Cell):
         self.ln_2 = LayerNorm([d_model], epsilon=1e-5)
         self.attn_mask = attn_mask
 
-    def construct(self, input_x):
-        """construct"""
+    def construct(self, input_x: ms.Tensor):
+        r"""Construct"""
         input_x = ops.Add()(input_x, self.attention(self.ln_1(input_x)))
         input_x = ops.Add()(input_x, self.mlp(self.ln_2(input_x)))
         return input_x
 
-    def attention(self, input_x):
-        """attention"""
+    def attention(self, input_x: ms.Tensor):
+        r"""Attention"""
         return self.attn(input_x, self.attn_mask)
 
 
 class Transformer(nn.Cell):
-    """
-    Text Transformer of Clip
+    r"""
+    Text Transformer of CLIP
 
     Args:
-        width (int): the dimension of input features
-        layers (int): the number of transformer layers
-        heads (int): the number of attention heads
-        attn_mask (tensor):  attention mask
+        width (int): The dimension of input features.
+        layers (int): The number of transformer layers.
+        heads (int): The number of attention heads.
+        attn_mask (ms.Tensor):  Attention mask.
+        dtype (mstype): The type of calculation, [mstype.float32, mstype.float16].
     """
     def __init__(self, width, layers, heads, dtype, attn_mask=None):
         super(Transformer, self).__init__()
@@ -228,5 +256,5 @@ class Transformer(nn.Cell):
         )
 
     def construct(self, input_x):
-        """construct"""
+        r"""Construct"""
         return self.resblocks(input_x)

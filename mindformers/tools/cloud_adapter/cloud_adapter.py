@@ -16,7 +16,7 @@
 import os
 import time
 
-from mindspore.train.callback import Callback, ModelCheckpoint, CheckpointConfig
+from mindspore.train.callback import Callback
 
 from ..logger import logger
 from ..utils import check_obs_url, check_in_modelarts, \
@@ -26,7 +26,7 @@ if check_in_modelarts():
     import moxing as mox
 
 
-__all__ = ['Local2ObsMonitor', 'Obs2Local', 'CheckpointCallBack', 'mox_adapter', 'obs_register']
+__all__ = ['Local2ObsMonitor', 'Obs2Local', 'mox_adapter']
 
 
 class Local2ObsMonitor(Callback):
@@ -38,7 +38,7 @@ class Local2ObsMonitor(Callback):
         rank_id (int): the device's contents will be saved according to the actual rank_id.
             Default: None, means only the contents of the first device of each node are saved.
         upload_frequence (int): How often files are saved in AI computing center platform.
-            Default: 1.
+            Default: -1.
         keep_last (bool): Check whether files in the OBS are consistent with AI computing center platform.
             Default: True, means old file will be removed.
         retry (int): The number of attempts to save again if the first attempt fails.
@@ -52,7 +52,8 @@ class Local2ObsMonitor(Callback):
                  src_dir,
                  target_dir,
                  rank_id=None,
-                 upload_frequence=10,
+                 step_upload_frequence: int = -1,
+                 epoch_upload_frequence: int = 1,
                  keep_last=True,
                  retry=3,
                  retry_time=5,
@@ -60,7 +61,8 @@ class Local2ObsMonitor(Callback):
         super(Local2ObsMonitor, self).__init__()
         self.src_dir = src_dir
         self.target_dir = target_dir
-        self.upload_frequence = upload_frequence
+        self.step_upload_frequence = step_upload_frequence
+        self.epoch_upload_frequence = epoch_upload_frequence
         self.keep_last = keep_last
         self.is_special = False
         if rank_id is not None:
@@ -77,12 +79,26 @@ class Local2ObsMonitor(Callback):
             check_obs_url(target_dir)
 
     def step_end(self, run_context):
-        """Print training loss at the end of step."""
-        if self.on_modelarts:
-            self.cb_params = run_context.original_args()
-            if self.cb_params.cur_step_num % self.upload_frequence == 0 and os.listdir(self.src_dir):
-                self.log.info("Starting upload output file to obs!")
-                self.upload()
+        """upload files at the end of step."""
+        if not self.on_modelarts:
+            return
+        if self.step_upload_frequence <= 0:
+            return
+        self.cb_params = run_context.original_args()
+        if self.cb_params.cur_step_num % self.step_upload_frequence == 0 and os.listdir(self.src_dir):
+            self.log.info("Starting upload output file to obs!")
+            self.upload()
+
+    def epoch_end(self, run_context):
+        """upload files at the end of epoch."""
+        if not self.on_modelarts:
+            return
+        if self.epoch_upload_frequence <= 0:
+            return
+        self.cb_params = run_context.original_args()
+        if self.cb_params.cur_step_num % self.epoch_upload_frequence == 0 and os.listdir(self.src_dir):
+            self.log.info("Starting upload output file to obs!")
+            self.upload()
 
     def upload(self):
         """Upload Files to OBS."""
@@ -100,8 +116,6 @@ class Local2ObsMonitor(Callback):
     @sync_trans
     def sync2obs(self, src_dir, target_dir):
         """Asynchronous transfer to OBS."""
-        src_dir = os.path.join(src_dir, "rank_{}".format(self.rank_id))
-        target_dir = os.path.join(target_dir, "rank_{}".format(self.rank_id))
         if self.keep_last and mox.file.exists(target_dir):
             mox.file.remove(target_dir, recursive=True)
         mox_adapter(src_dir, target_dir, self.retry, self.retry_time, self.log)
@@ -161,88 +175,6 @@ class Obs2Local:
         return local_url
 
 
-class CheckpointCallBack:
-    """
-    Args:
-        prefix (str): The prefix name of checkpoint files. Default: "CKP".
-        directory (str): The path of the folder which will be saved in the checkpoint file.
-            By default, the file is saved in the current directory. Default: None.
-        config (CheckpointConfig): Checkpoint strategy configuration. Default: None.
-        save_checkpoint_steps (int): Steps to save checkpoint. Default: 1.
-        save_checkpoint_seconds (int): Seconds to save checkpoint.
-            Can't be used with save_checkpoint_steps at the same time. Default: 0.
-        keep_checkpoint_max (int): Maximum number of checkpoint files can be saved. Default: 5.
-        keep_checkpoint_per_n_minutes (int): Save the checkpoint file every `keep_checkpoint_per_n_minutes` minutes.
-            Can't be used with keep_checkpoint_max at the same time. Default: 0.
-        integrated_save (bool): Whether to merge and save the split Tensor in the automatic parallel scenario.
-            Integrated save function is only supported in automatic parallel scene, not supported
-            in manual parallel. Default: True.
-        async_save (bool): Whether asynchronous execution saves the checkpoint to a file. Default: False.
-        saved_network (Cell): Network to be saved in checkpoint file. If the saved_network has no relation
-            with the network in training, the initial value of saved_network will be saved. Default: None.
-        append_info (list): The information save to checkpoint file. Support "epoch_num", "step_num" and dict.
-            The key of dict must be str, the value of dict must be one of int float and bool. Default: None.
-        enc_key (Union[None, bytes]): Byte type key used for encryption. If the value is None, the encryption
-                                      is not required. Default: None.
-        enc_mode (str): This parameter is valid only when enc_key is not set to None. Specifies the encryption
-                        mode, currently supports 'AES-GCM' and 'AES-CBC'. Default: 'AES-GCM'.
-        exception_save (bool): Whether to save the current checkpoint when an exception occurs. Default: False.
-
-    Raises:
-        ValueError: If input parameter is not the correct type.
-        ValueError: If the prefix is invalid.
-        TypeError: If the config is not CheckpointConfig type.
-    """
-    def __init__(self,
-                 prefix='CKP',
-                 directory=None,
-                 config=None,
-                 save_checkpoint_steps=1,
-                 save_checkpoint_seconds=0,
-                 keep_checkpoint_max=5,
-                 keep_checkpoint_per_n_minutes=0,
-                 integrated_save=True,
-                 async_save=False,
-                 saved_network=None,
-                 append_info=None,
-                 enc_key=None,
-                 enc_mode='AES-GCM',
-                 exception_save=False
-                 ):
-        self.prefix = prefix
-        self.directory = directory
-        self.config = config
-        self.save_checkpoint_steps = save_checkpoint_steps
-        self.save_checkpoint_seconds = save_checkpoint_seconds
-        self.keep_checkpoint_max = keep_checkpoint_max
-        self.keep_checkpoint_per_n_minutes = keep_checkpoint_per_n_minutes
-        self.integrated_save = integrated_save
-        self.async_save = async_save
-        self.saved_network = saved_network
-        self.append_info = append_info
-        self.enc_key = enc_key
-        self.enc_mode = enc_mode
-        self.exception_save = exception_save
-
-    def save_checkpoint(self):
-        """Save Checkpoint."""
-        config_ck = CheckpointConfig(save_checkpoint_steps=self.save_checkpoint_steps,
-                                     save_checkpoint_seconds=self.save_checkpoint_seconds,
-                                     keep_checkpoint_max=self.keep_checkpoint_max,
-                                     keep_checkpoint_per_n_minutes=self.keep_checkpoint_per_n_minutes,
-                                     integrated_save=self.integrated_save,
-                                     async_save=self.async_save,
-                                     saved_network=self.saved_network,
-                                     append_info=self.append_info,
-                                     enc_key=self.enc_key,
-                                     enc_mode=self.enc_mode,
-                                     exception_save=self.exception_save)
-        ckpoint_cb = ModelCheckpoint(prefix=self.prefix,
-                                     directory=self.directory,
-                                     config=config_ck)
-        return ckpoint_cb
-
-
 def mox_adapter(src_dir, target_dir, retry=3, retry_time=5, log=logger):
     """File interaction with Moxing."""
     success = False
@@ -268,11 +200,3 @@ def mox_adapter(src_dir, target_dir, retry=3, retry_time=5, log=logger):
                 log.info("Pull/Push file %s success, cost time: %f", target_dir, end - start)
                 break
     return success
-
-
-def obs_register(ak=None, sk=None, server=None):
-    """OBS register with Moxing."""
-    if check_in_modelarts():
-        os.environ.pop('CREDENTIAL_PROFILES_FILE', None)
-        os.environ.pop('AWS_SHARED_CREDENTIALS_FILE', None)
-        mox.file.set_auth(ak=ak, sk=sk, server=server)

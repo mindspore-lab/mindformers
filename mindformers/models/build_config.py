@@ -16,17 +16,38 @@
 """
 build model config modules
 """
-from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
+from mindformers.tools.register import MindFormerRegister, MindFormerModuleType, MindFormerConfig
 
 
 def build_model_config(
         config: dict = None, default_args: dict = None,
         module_type: str = 'config', class_name: str = None,
         **kwargs):
-    '''build model config'''
+    r"""Build model config For MindFormer.
+    Instantiate the model config from MindFormerRegister's registry.
+
+    Args:
+        config (dict): The task model config's config. Default: None.
+        default_args (dict): The default argument of model config API. Default: None.
+        module_type (str): The module type of MindFormerModuleType. Default: 'config'.
+        class_name (str): The class name of model config API. Default: None.
+
+    Return:
+        The function instance of model config API.
+
+    Examples:
+        >>> from mindformers import build_model_config
+        >>> model_config = {'type': 'ViTConfig'}
+        >>> # 1) use config dict to build model
+        >>> model_config_from_config = build_model_config(model_config)
+        >>> # 2) use class name to build model
+        >>> model_config_class_name = build_model_config(class_name='ViTConfig')
+    """
     if config is None and class_name is None:
         return None
     if config is not None:
+        if isinstance(config, dict) and not isinstance(config, MindFormerConfig):
+            config = MindFormerConfig(**config)
         if config.text_config is not None:
             config.text_config = build_model_config(config.text_config)
         if config.vision_config is not None:

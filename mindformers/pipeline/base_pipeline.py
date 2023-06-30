@@ -17,40 +17,70 @@
 
 """BasePipeline"""
 from abc import ABC, abstractmethod
+from typing import Optional, Union
+import numpy as np
 
 from tqdm import tqdm
+from mindspore import Tensor, Model
 from mindspore.dataset import (
     GeneratorDataset, VisionBaseDataset,
     SourceDataset, MappableDataset
 )
+from mindspore.dataset.engine.datasets import BatchDataset, RepeatDataset
+
 from mindformers.tools import logger
 from mindformers.mindformer_book import print_dict
+from ..auto_class import AutoModel
+from ..models import BaseModel, BaseTokenizer, BaseImageProcessor
 
 
 class BasePipeline(ABC):
-    """Base pipeline"""
+    r"""
+    Base Pipeline For All Task Pipelines
+
+    Args:
+        model (Union[str, BaseModel]): The model used to perform task,
+            the input could be a supported model name, or a model instance
+            inherited from BaseModel.
+        tokenizer (Optional[BaseTokenizer]): The tokenizer of model, it could be
+            None if the model do not need tokenizer.
+        image_processor (Optional[BaseImageProcessor]): The image_processor of model,
+            it could be None if the model do not need image_processor.
+    """
     _support_list = {}
 
-    def __init__(self, model, tokenizer=None, feature_extractor=None, **kwargs):
+    def __init__(self, model: Union[str, BaseModel, Model],
+                 tokenizer: Optional[BaseTokenizer] = None,
+                 image_processor: Optional[BaseImageProcessor] = None,
+                 **kwargs):
         super(BasePipeline, self).__init__()
         self.model = model
+        if isinstance(model, str) and model in self._support_list:
+            self.network = AutoModel.from_pretrained(model)
+        elif isinstance(model, BaseModel):
+            self.network = model
+        elif isinstance(model, Model):
+            self.network = model.predict_network
+        else:
+            raise TypeError(f"model should be str or inherited from BaseModel or Model, but got type {type(model)}.")
         self.tokenizer = tokenizer
-        self.feature_extractor = feature_extractor
-        self._preprocess_params, self._forward_params,\
+        self.image_processor = image_processor
+        self._preprocess_params, self._forward_params, \
         self._postprocess_params = self._sanitize_parameters(**kwargs)
         self.call_count = 0
 
         self._batch_size = kwargs.pop("batch_size", None)
 
-    def __call__(self, inputs, batch_size=None, **kwargs):
-        """
-        Call method
+    def __call__(self, inputs: Union[GeneratorDataset, list, str, Tensor, np.array],
+                 batch_size: Optional[int] = None,
+                 **kwargs):
+        r"""Call Method
 
         Args:
-            inputs (Dataset, list, etc): the inputs of pipeline, the type of input depends on task.
-
-        Return:
-            outputs, depends on task
+            inputs (Union[GeneratorDataset, list, str, etc]): The inputs of pipeline,
+                the type of inputs depends on task.
+            batch_size (Optional[int]): The batch size for a GeneratorDataset input, for
+                other types of inputs, the batch size would be set to 1 by default.
         """
         preprocess_params, forward_params, postprocess_params = self._sanitize_parameters(**kwargs)
         preprocess_params = {**self._preprocess_params, **preprocess_params}
@@ -63,7 +93,7 @@ class BasePipeline(ABC):
         is_list = isinstance(inputs, list)
 
         self.call_count += 1
-        if self.call_count > 10 and not is_dataset:
+        if self.call_count == 20 and not is_dataset:
             logger.info("You seem to be using the pipeline sequentially for"
                         " numerous samples. In order to maximize efficiency"
                         " please set input a mindspore.dataset.GeneratorDataset.")
@@ -80,7 +110,8 @@ class BasePipeline(ABC):
 
         if is_dataset:
             logger.info("dataset is processing.")
-            inputs = inputs.batch(batch_size)
+            if not isinstance(inputs, (BatchDataset, RepeatDataset)):
+                inputs = inputs.batch(batch_size)
 
             outputs = []
             for items in tqdm(inputs.create_dict_iterator()):
@@ -95,18 +126,48 @@ class BasePipeline(ABC):
 
     @abstractmethod
     def _sanitize_parameters(self, **pipeline_parameters):
-        """sanitize parameters for preprocess, forward and postprocess."""
+        r"""Sanitize Parameters
+
+        Args:
+            pipeline_parameters (Optional[dict]): The parameter dict to be parsed.
+
+        Raises:
+            NotImplementedError: If the method is not implemented.
+        """
         raise NotImplementedError("_sanitize_parameters not implemented")
 
-    def run_single(self, inputs, preprocess_params, forward_params, postprocess_params):
-        """run a single input"""
+    def run_single(self, inputs: Union[dict, str, np.array, Tensor],
+                   preprocess_params: dict,
+                   forward_params: dict,
+                   postprocess_params: dict):
+        r"""Run Single method
+        This function is used to run a single forward process for task.
+
+        Args:
+            inputs (Union[dict, str, etc]): The inputs of pipeline,
+                the type of inputs depends on task.
+            preprocess_params (dict): The parameter dict for preprocess.
+            forward_params (dict): The parameter dict for model forward process.
+            postprocess_params (dict): The parameter dict for postprocess.
+        """
         model_inputs = self.preprocess(inputs, **preprocess_params)
         model_outputs = self.forward(model_inputs, **forward_params)
         outputs = self.postprocess(model_outputs, **postprocess_params)
         return outputs
 
-    def run_multi(self, inputs, preprocess_params, forward_params, postprocess_params):
-        """run multiple input"""
+    def run_multi(self, inputs: Union[list, tuple],
+                  preprocess_params: dict,
+                  forward_params: dict,
+                  postprocess_params: dict):
+        r"""Run Multiple Method
+        This function is used to run a list input for task.
+
+        Args:
+            inputs (Union[list, tuple, iterator]): The iterable input for pipeline.
+            preprocess_params (dict): The parameter dict for preprocess.
+            forward_params (dict): The parameter dict for model forward process.
+            postprocess_params (dict): The parameter dict for postprocess.
+        """
         outputs = []
         for item in inputs:
             outputs.extend(self.run_single(item, preprocess_params,
@@ -114,18 +175,48 @@ class BasePipeline(ABC):
         return outputs
 
     @abstractmethod
-    def preprocess(self, inputs, **preprocess_params):
-        """preprocess"""
+    def preprocess(self, inputs: Union[dict, str, np.array, Tensor],
+                   **preprocess_params):
+        r"""The Preprocess For Task
+
+        Args:
+            inputs (Union[dict, str, etc]): The inputs of pipeline,
+                the type of inputs depends on task.
+            preprocess_params (dict): The parameter dict for preprocess.
+
+        Raises:
+            NotImplementedError: If the method is not implemented.
+        """
         raise NotImplementedError("preprocess not implemented.")
 
     @abstractmethod
-    def forward(self, model_inputs, **forward_params):
-        """forward"""
+    def forward(self, model_inputs: Union[dict, str, np.array, Tensor],
+                **forward_params):
+        r"""The Forward Process of Model
+
+        Args:
+            model_inputs (Union[dict, str, etc]): The output of preprocess,
+                the type of model_inputs depends on task.
+            forward_params (dict): The parameter dict for model forward.
+
+        Raises:
+            NotImplementedError: If the method is not implemented.
+        """
         raise NotImplementedError("forward not implemented.")
 
     @abstractmethod
-    def postprocess(self, model_outputs, **postprocess_params):
-        """postprocess"""
+    def postprocess(self, model_outputs: Union[dict, str, np.array, Tensor],
+                    **postprocess_params):
+        r"""The Postprocess of Task
+
+        Args:
+            model_outputs (Union[dict, str, etc]): The output of model forward,
+                the type of model_outputs depends on task.
+            postprocess_params (dict): The parameter dict for post process.
+
+        Raises:
+            NotImplementedError: If the method is not implemented.
+        """
         raise NotImplementedError("postprocess not implemented.")
 
     @classmethod

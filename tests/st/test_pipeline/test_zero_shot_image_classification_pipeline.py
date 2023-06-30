@@ -51,11 +51,20 @@ Example:
 """
 import os.path
 
+import pytest
+import mindspore as ms
+
 from mindformers.tools.image_tools import load_image
 from mindformers.pipeline import ZeroShotImageClassificationPipeline
 from mindformers import MindFormerBook
 
+ms.set_context(mode=0)
 
+
+@pytest.mark.level0
+@pytest.mark.platform_x86_ascend_training
+@pytest.mark.platform_arm_ascend_training
+@pytest.mark.env_onecard
 def test_zsic_pipeline():
     """
     Feature: ZeroShotImageClassificationPipeline class
@@ -77,6 +86,8 @@ def test_zsic_pipeline():
         img = load_image(image_path)
     res_single = classifier(img)
     res_multi = classifier([img, img, img])
+
+    print(res_single)
 
     assert len(res_single) == 1
     assert len(res_multi) == 3

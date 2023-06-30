@@ -13,15 +13,20 @@
 # limitations under the License.
 # ============================================================================
 """Utils For Tools."""
+import json
 import os
 from typing import Dict, List, Tuple, Union
 from multiprocessing import Process
+
+try:
+    import fcntl
+except ImportError:
+    fcntl = None
 
 import numpy as np
 
 from mindspore import Tensor
 from mindspore import context
-
 
 PARALLEL_MODE = {'DATA_PARALLEL': context.ParallelMode.DATA_PARALLEL,
                  'SEMI_AUTO_PARALLEL': context.ParallelMode.SEMI_AUTO_PARALLEL,
@@ -39,15 +44,32 @@ MODE = {'PYNATIVE_MODE': context.PYNATIVE_MODE,
         1: context.PYNATIVE_MODE}
 
 SAVE_WORK_PATH = '/cache/ma-user-work/rank_{}'
-LOCAL_DEFAULT_PATH = os.getenv("LOCAL_DEFAULT_PATH", './output')
+
+MA_OUTPUT_ROOT = '/cache/ma-user-work'
 DEBUG_INFO_PATH = '/cache/debug'
 PROFILE_INFO_PATH = '/cache/profile'
-SLOG_PATH = '/var/log/npu/slog'
-PLOG_PATH = '/root/ascend/log/plog'
-
+PLOG_PATH = '/root/ascend/log'
+LOCAL_DEFAULT_PATH = os.getenv("LOCAL_DEFAULT_PATH", './output')
+LAST_TRANSFORM_LOCK_PATH = "/tmp/last_transform_done.lock"
 
 _PROTOCOL = 'obs'
 _PROTOCOL_S3 = 's3'
+
+
+def check_in_modelarts():
+    """Check if the training is on modelarts.
+
+    Returns:
+        (bool): If it is True, it means ModelArts environment.
+    """
+    # 'KUBERNETES_PORT' in os.environ or \
+    return 'MA_LOG_DIR' in os.environ or \
+           'MA_JOB_DIR' in os.environ or \
+           'MA_LOCAL_LOG_PATH' in os.environ or \
+           'S3_ACCESS_KEY_ID' in os.environ or \
+           'S3_SECRET_ACCESS_KEY' in os.environ or \
+           'BATCH_GROUP_NAME' in os.environ or \
+           'MA_LOCAL_LOG_PATH' in os.environ
 
 
 class Validator:
@@ -67,8 +89,12 @@ class Validator:
 
 def check_obs_url(url):
     """Check obs url."""
+    if not isinstance(url, str):
+        raise TypeError('remote_save_url type should be a str, but get {}, '
+                        'please check your remote_save_url config'.format(type(url)))
     if not (url.startswith(_PROTOCOL + '://') or url.startswith(_PROTOCOL_S3 + '://')):
-        raise TypeError('obs url should be start with obs:// or s3://, but get {}'.format(url))
+        raise TypeError('remote_save_url should be start with obs:// or s3://, '
+                        'but get {}, please check your remote_save_url config'.format(url))
     return True
 
 
@@ -88,22 +114,6 @@ def check_list(var_name: str, list_var: Union[Tuple, List], num: int):
             raise ValueError('The index of the {} needs to be less than the number of nodes {}.'.format(var_name, num))
 
 
-def check_in_modelarts():
-    """Check if the training is on modelarts.
-
-    Returns:
-        (bool): If it is True, it means ModelArts environment.
-    """
-    # 'KUBERNETES_PORT' in os.environ or \
-    return 'MA_LOG_DIR' in os.environ or \
-           'MA_JOB_DIR' in os.environ or \
-           'MA_LOCAL_LOG_PATH' in os.environ or \
-           'S3_ACCESS_KEY_ID' in os.environ or \
-           'S3_SECRET_ACCESS_KEY' in os.environ or\
-           'BATCH_GROUP_NAME' in os.environ or \
-           'MA_LOCAL_LOG_PATH' in os.environ
-
-
 def format_path(path):
     """Check path."""
     return os.path.realpath(path)
@@ -116,9 +126,36 @@ def sync_trans(f):
             pro = Process(target=f, args=args, kwargs=kwargs)
             pro.start()
             return pro
+
         return wrapper
     except Exception as e:
         raise e
+
+
+def get_output_root_path():
+    """get default output path in local/AICC."""
+    if check_in_modelarts():
+        return MA_OUTPUT_ROOT
+    return LOCAL_DEFAULT_PATH
+
+
+def get_output_subpath(sub_class, rank_id=0, append_rank=True):
+    """get output store path for sub output class."""
+    Validator.check_type(sub_class, str)
+    root_path = get_output_root_path()
+    directory = os.path.join(root_path, sub_class)
+    if append_rank:
+        directory = os.path.join(directory, 'rank_{}'.format(rank_id))
+    return format_path(directory)
+
+
+def set_remote_save_url(remote_save_url):
+    check_obs_url(remote_save_url)
+    os.environ.setdefault('REMOTE_SAVE_URL', remote_save_url)
+
+
+def get_remote_save_url():
+    return os.environ.get('REMOTE_SAVE_URL', None)
 
 
 def get_net_outputs(params):
@@ -166,6 +203,7 @@ def get_num_nodes_devices(rank_size: int) -> Tuple[int, int]:
 
 class Const:
     """Const."""
+
     def __setattr__(self, key, value):
         if key in self.__dict__:
             raise PermissionError('Can not change const {0}.'.format(key))
@@ -189,7 +227,7 @@ def generate_rank_list(stdout_nodes: Union[List, Tuple], stdout_devices: Union[L
     rank_list = []
     for node in stdout_nodes:
         for device in stdout_devices:
-            rank_list.append(8*node + device)
+            rank_list.append(8 * node + device)
 
     return rank_list
 
@@ -233,3 +271,90 @@ def count_params(net):
     """
     total_params = [np.prod(param.shape) for param in net.trainable_params()]
     return sum(total_params) // 1000000
+
+
+def try_sync_file(file_name):
+    """If the file is still downloading, we need to wait before the file finished downloading"""
+    if fcntl:
+        with open(file_name, 'r') as fp:
+            fcntl.flock(fp.fileno(), fcntl.LOCK_EX)
+
+
+def is_version_le(current_version, base_version):
+    """
+        return current_version <= base_version.
+        Check whether the current version is lower than or equal to the base version.
+        For example: for current_version: 1.8.1, base_version: 2.0.0, it return True.
+    """
+    version_split_char = '.'
+    if version_split_char not in base_version or version_split_char not in current_version:
+        raise ValueError("The version string will contain the `.`."
+                         "For example, current_version 1.8.1, base_version: 2.0.0.")
+    for x, y in zip(current_version.split(version_split_char), base_version.split(version_split_char)):
+        if not x.isdigit() or not y.isdigit():
+            continue
+        if int(x) != int(y):
+            return int(x) <= int(y)
+    return True
+
+
+def is_version_ge(current_version, base_version):
+    """
+        return current_version >= base_version.
+        Check whether the current version is higher than or equal to the base version.
+        for current_version: 1.8.1, base_version: 2.0.0, it return False.
+    """
+    version_split_char = '.'
+    if version_split_char not in base_version or version_split_char not in current_version:
+        raise ValueError("The version string will contain the `.`."
+                         "For example, current_version 1.8.1， base_version: 2.0.0.")
+    for x, y in zip(current_version.split(version_split_char), base_version.split(version_split_char)):
+        if not x.isdigit() or not y.isdigit():
+            continue
+        if int(x) != int(y):
+            return int(x) >= int(y)
+    return True
+
+
+def parse_value(value):
+    """
+        parse value from command line.
+        handles with int, float, bool, string, list and dict.
+    """
+    def isint(x):
+        try:
+            a = float(x)
+            b = int(a)
+        except (TypeError, ValueError):
+            return False
+        else:
+            return a == b
+
+    def isfloat(x):
+        try:
+            float(x)
+        except (TypeError, ValueError):
+            return False
+        else:
+            return True
+
+    def isbool(x):
+        return x in ["True", "False"]
+
+    def isjson(x):
+        try:
+            json.loads(x)
+        except json.decoder.JSONDecodeError:
+            return False
+        else:
+            return True
+
+    if isint(value):
+        return int(value)
+    if isfloat(value):
+        return float(value)
+    if isbool(value):
+        return value == "True"
+    if isjson(value):
+        return json.loads(value)
+    return value

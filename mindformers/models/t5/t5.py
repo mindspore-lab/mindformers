@@ -1,4 +1,4 @@
-# Copyright 2020-2022 Huawei Technologies Co., Ltd
+# Copyright 2023 Huawei Technologies Co., Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,7 +19,6 @@ import numpy as np
 import mindspore.ops as ops
 import mindspore.nn as nn
 from mindspore import context
-from mindspore import log as logger
 from mindspore.ops.primitive import constexpr
 from mindspore.ops import functional as F
 from mindspore.ops import operations as P
@@ -31,25 +30,31 @@ from mindspore.common.parameter import Parameter
 import mindspore.common.dtype as mstype
 from mindspore.common.initializer import TruncatedNormal, initializer
 
-from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
+from mindspore.parallel._utils import _get_parallel_mode
 
-from mindspore.nn.transformer.layers import _Linear, _check_input_shape, \
-    _check_shape_equal, _check_past_none_input_none, _check_input_dtype
-from mindspore.nn.transformer.moe import MoE, _check_moe_config
-from mindspore.nn.transformer.transformer import default_transformer_config, default_moe_config, default_dpmp_config
-from mindspore.nn.transformer.loss import CrossEntropyLoss
-from mindspore.nn.transformer import VocabEmbedding
+from mindformers.modules.layers import Linear, _check_past_none_input_none, _check_input_dtype
+from mindformers.modules.transformer.moe import MoE, _check_moe_config
+from mindformers.modules.transformer.transformer import default_transformer_config, default_moe_config, \
+    default_dpmp_config, \
+    EmbeddingOpParallelConfig, OpParallelConfig
+from mindformers.core.loss import CrossEntropyLoss
+from mindformers.modules import VocabEmbedding
+
+from .t5_config import T5Config
 
 from ..base_model import BaseModel
+from ...tools import logger
 from ...tools.register import MindFormerRegister, MindFormerModuleType
+from ...mindformer_book import MindFormerBook
 
-__all__ = ['T5Model', 'T5ModelForGeneration']
+__all__ = ['T5ForConditionalGeneration']
 
 
 class LayerNorm(nn.Cell):
     """
         T5 layer norm nn.Cell
     """
+
     def __init__(self, normalized_shape, eps=1e-5, param_init_type=mstype.float32):
         super(LayerNorm, self).__init__()
         if param_init_type not in [mstype.float32, mstype.float16]:
@@ -105,6 +110,7 @@ class T5FeedFoward(nn.Cell):
     """
         T5 feedfoward cell with relu as hidden act
     """
+
     def __init__(self, hidden_size,
                  ffn_hidden_size,
                  dropout_rate,
@@ -136,15 +142,15 @@ class T5FeedFoward(nn.Cell):
         output_size = ffn_hidden_size
 
         # Project to ffn_hidden_size
-        self.mapping = _Linear(in_channels=input_size,
-                               out_channels=output_size,
-                               activation=hidden_act,
-                               transpose_b=False,
-                               expert_num=expert_num,
-                               expert_group_size=expert_group_size,
-                               outer_batch=dp,
-                               param_init_type=param_init_type)
-        self.mapping.has_bias = False
+        self.mapping = Linear(in_channels=input_size,
+                              out_channels=output_size,
+                              activation=hidden_act,
+                              transpose_b=False,
+                              has_bias=False,
+                              expert_num=expert_num,
+                              expert_group_size=expert_group_size,
+                              outer_batch=dp,
+                              param_init_type=param_init_type)
 
         if expert_num > 1:
             self.mapping.shard(strategy_matmul=((dp, ep, 1, 1), (ep, 1, mp)),
@@ -155,21 +161,20 @@ class T5FeedFoward(nn.Cell):
                                strategy_bias=((dp, mp), (mp,)),
                                strategy_activation=((dp, mp),))
         # Project back to hidden_size
-        self.projection = _Linear(in_channels=output_size,
-                                  out_channels=input_size,
-                                  transpose_b=False,
-                                  expert_num=expert_num,
-                                  expert_group_size=expert_group_size,
-                                  outer_batch=dp,
-                                  param_init_type=param_init_type)
-        self.projection.has_bias = False
+        self.projection = Linear(in_channels=output_size,
+                                 out_channels=input_size,
+                                 transpose_b=False,
+                                 expert_num=expert_num,
+                                 has_bias=False,
+                                 expert_group_size=expert_group_size,
+                                 outer_batch=dp,
+                                 param_init_type=param_init_type)
         if expert_num > 1:
             self.projection.shard(strategy_matmul=((dp, ep, 1, mp), (ep, mp, 1)),
                                   strategy_bias=((dp, ep, 1, 1), (1, ep, 1, 1)))
         else:
             self.projection.shard(strategy_matmul=((dp, mp), (mp, 1)),
                                   strategy_bias=((dp, 1), (1,)))
-        self.projection.bias.parallel_optimizer = False
         self.dropout = nn.Dropout(1 - dropout_rate)
         self.dropout.dropout.shard(((dp, 1),))
         self.dropout_3d = nn.Dropout(1 - dropout_rate)
@@ -180,7 +185,6 @@ class T5FeedFoward(nn.Cell):
 
     def construct(self, x):
         """The forward function of FFN"""
-        _check_input_shape(F.shape(x), "x", self.cls_name, [2, 3])
         _check_input_dtype(F.dtype(x), "x", [mstype.float32, mstype.float16], self.cls_name)
         x = self.cast(x, mstype.float16)
         # returned shape is [bs, seq_length, ffn_hidden_size] or [bs * seq_length, ffn_hidden_size]
@@ -200,6 +204,7 @@ class RelaPosMatrixGenerator(nn.Cell):
     """
         The relative position index generator. The result of the cell should be feed into the bias embedding table.
     """
+
     def __init__(self, max_relative_position, log_relative_distance):
         super(RelaPosMatrixGenerator, self).__init__()
         self._max_relative_position = max_relative_position
@@ -237,6 +242,7 @@ class RelaPosMatrixGenerator(nn.Cell):
 
 class RelaPosEmbeddingsGenerator(nn.Cell):
     """The relative position embedding generator."""
+
     def __init__(self,
                  depth,
                  max_relative_position,
@@ -286,11 +292,13 @@ class T5MultiHeadAttention(nn.Cell):
     """
         T5 multi head attention
     """
+
     def __init__(self, batch_size,
                  src_seq_length,
                  tgt_seq_length,
                  hidden_size,
                  num_heads,
+                 kv_size=64,
                  hidden_dropout_rate=0.1,
                  attention_dropout_rate=0.1,
                  compute_dtype=mstype.float16,
@@ -331,17 +339,17 @@ class T5MultiHeadAttention(nn.Cell):
                              "and the parallel_config.data_parallel is {}."
                              .format(batch_size, parallel_config.data_parallel))
         self.is_first_iteration = True
+        self.inner_dim = num_heads * kv_size
         # Output layer
-        self.projection = _Linear(in_channels=hidden_size,
-                                  out_channels=hidden_size,
-                                  transpose_b=False,
-                                  compute_dtype=compute_dtype,
-                                  param_init_type=param_init_type)
-        self.projection.has_bias = False
+        self.projection = Linear(in_channels=self.inner_dim,
+                                 out_channels=hidden_size,
+                                 transpose_b=False,
+                                 has_bias=False,
+                                 compute_dtype=compute_dtype,
+                                 param_init_type=param_init_type)
         self.projection.shard(strategy_bias=((parallel_config.data_parallel, 1), (1,)),
                               strategy_matmul=((parallel_config.data_parallel, parallel_config.model_parallel),
                                                (parallel_config.model_parallel, 1)))
-        self.projection.bias.parallel_optimizer = False
         self.transpose = P.Transpose().shard(
             ((parallel_config.data_parallel, 1, parallel_config.model_parallel, 1),))
         self.merger_head_transpose = P.Transpose().shard(
@@ -349,7 +357,7 @@ class T5MultiHeadAttention(nn.Cell):
         self.reshape = P.Reshape()
         self.n_head = num_heads
         # embedding size per head
-        self.size_per_head = hidden_size // self.n_head
+        self.size_per_head = kv_size
         self.concat_k = P.Concat(axis=3)
         self.concat_v = P.Concat(axis=2)
         self.multiply_data = Tensor([
@@ -381,30 +389,30 @@ class T5MultiHeadAttention(nn.Cell):
         self.expand_dims = P.ExpandDims().shard(((parallel_config.data_parallel, 1, 1),))
 
         # Query
-        self.dense1 = _Linear(hidden_size,
-                              hidden_size,
-                              compute_dtype=compute_dtype,
-                              param_init_type=param_init_type)
-        self.dense1.has_bias = False
+        self.dense1 = Linear(hidden_size,
+                             self.inner_dim,
+                             has_bias=False,
+                             compute_dtype=compute_dtype,
+                             param_init_type=param_init_type)
         self.dense1.shard(strategy_matmul=((parallel_config.data_parallel, 1), (parallel_config.model_parallel, 1)),
                           strategy_bias=((parallel_config.data_parallel, parallel_config.model_parallel),
                                          (parallel_config.model_parallel,)))
         # Key
-        self.dense2 = _Linear(hidden_size,
-                              hidden_size,
-                              compute_dtype=compute_dtype,
-                              param_init_type=param_init_type)
-        self.dense2.has_bias = False
+        self.dense2 = Linear(hidden_size,
+                             self.inner_dim,
+                             has_bias=False,
+                             compute_dtype=compute_dtype,
+                             param_init_type=param_init_type)
         self.dense2.shard(strategy_matmul=((parallel_config.data_parallel, 1), (parallel_config.model_parallel, 1)),
                           strategy_bias=((parallel_config.data_parallel, parallel_config.model_parallel),
                                          (parallel_config.model_parallel,)))
 
         # Value
-        self.dense3 = _Linear(hidden_size,
-                              hidden_size,
-                              compute_dtype=compute_dtype,
-                              param_init_type=param_init_type)
-        self.dense3.has_bias = False
+        self.dense3 = Linear(hidden_size,
+                             self.inner_dim,
+                             has_bias=False,
+                             compute_dtype=compute_dtype,
+                             param_init_type=param_init_type)
         self.dense3.shard(strategy_matmul=((parallel_config.data_parallel, 1), (parallel_config.model_parallel, 1)),
                           strategy_bias=((parallel_config.data_parallel, parallel_config.model_parallel),
                                          (parallel_config.model_parallel,)))
@@ -414,16 +422,17 @@ class T5MultiHeadAttention(nn.Cell):
         self.is_decoder = is_decoder
         self.has_relative_bias = has_relative_bias
 
-        self.cross_attention = is_cross_atten
+        self.is_cross_atten = is_cross_atten
         self.cross_bias = None
-        if self.cross_attention:
-            self.cross_bias = Parameter(initializer("zero", [1, self.src_seq_length, self.tgt_seq_length]),
-                                        name='cross_attention_bias', parallel_optimizer=False)
         if self.has_relative_bias:
-            self.bias_generator = RelaPosEmbeddingsGenerator(depth=num_heads,
-                                                             max_relative_position=32,
-                                                             initializer_range=0.02,
-                                                             is_decoder=self.is_decoder)
+            if not self.is_cross_atten:
+                self.bias_generator = RelaPosEmbeddingsGenerator(depth=num_heads,
+                                                                 max_relative_position=32,
+                                                                 initializer_range=0.02,
+                                                                 is_decoder=self.is_decoder)
+            else:
+                self.cross_bias = Parameter(initializer("zero", [1, self.src_seq_length, self.tgt_seq_length]),
+                                            name='cross_attention_bias', parallel_optimizer=False)
 
         if self.use_past:
             # operators used for state reuse
@@ -532,28 +541,6 @@ class T5MultiHeadAttention(nn.Cell):
     def _check_inputs(self, query_tensor, key_tensor, value_tensor, attention_mask, key_past=None,
                       value_past=None, batch_valid_length=None):
         r"""Check inputs"""
-        if not self.use_past or (self.use_past and self.is_first_iteration):
-            _check_shape_equal(F.shape(query_tensor), "query_tensor", self.cls_name,
-                               [[self.batch_size, self.src_seq_length, self.hidden_size],
-                                [self.batch_size * self.src_seq_length, self.hidden_size]])
-            _check_shape_equal(F.shape(key_tensor), "key_tensor", self.cls_name,
-                               [[self.batch_size, self.tgt_seq_length, self.hidden_size],
-                                [self.batch_size * self.tgt_seq_length, self.hidden_size]])
-            _check_shape_equal(F.shape(value_tensor), "value_tensor", self.cls_name,
-                               [[self.batch_size, self.tgt_seq_length, self.hidden_size],
-                                [self.batch_size * self.tgt_seq_length, self.hidden_size]])
-            _check_shape_equal(F.shape(attention_mask), "attention_mask", self.cls_name,
-                               [self.batch_size, self.src_seq_length, self.tgt_seq_length])
-        else:
-            _check_shape_equal(F.shape(query_tensor), "query_tensor", self.cls_name,
-                               [[self.batch_size, 1, self.hidden_size], [self.batch_size, self.hidden_size]])
-            _check_shape_equal(F.shape(key_tensor), "key_tensor", self.cls_name,
-                               [[self.batch_size, 1, self.hidden_size], [self.batch_size, self.hidden_size]])
-            _check_shape_equal(F.shape(value_tensor), "value_tensor", self.cls_name,
-                               [[self.batch_size, 1, self.hidden_size], [self.batch_size, self.hidden_size]])
-            _check_shape_equal(F.shape(attention_mask), "attention_mask", self.cls_name,
-                               [[self.batch_size, 1, self.tgt_seq_length], [self.batch_size, self.hidden_size]])
-
         _check_input_dtype(F.dtype(query_tensor), "query_tensor", [mstype.float32, mstype.float16], self.cls_name)
         _check_input_dtype(F.dtype(key_tensor), "key_tensor", [mstype.float32, mstype.float16], self.cls_name)
         _check_input_dtype(F.dtype(value_tensor), "value_tensor", [mstype.float32, mstype.float16], self.cls_name)
@@ -571,15 +558,6 @@ class T5MultiHeadAttention(nn.Cell):
                                     value_is_default)
         _check_past_none_input_none(self.use_past, "batch_valid_length", self.cls_name, None,
                                     batch_valid_length_is_tensor, batch_is_default)
-        if self.use_past:
-            _check_shape_equal(F.shape(key_past), "key_past", self.cls_name,
-                               [self.batch_size, self.n_head, self.size_per_head, self.tgt_seq_length])
-            _check_input_dtype(F.dtype(key_past), "key_past", [mstype.float16], self.cls_name)
-            _check_shape_equal(F.shape(value_past), "value_past", self.cls_name,
-                               [self.batch_size, self.n_head, self.tgt_seq_length, self.size_per_head])
-            _check_input_dtype(F.dtype(value_past), "value_past", [mstype.float16], self.cls_name)
-            _check_shape_equal(F.shape(batch_valid_length), "batch_valid_length", self.cls_name, [self.batch_size])
-            _check_input_dtype(F.dtype(batch_valid_length), "batch_valid_length", [mstype.int32], self.cls_name)
         return True
 
     def _convert_to_2d_tensor(self, query_tensor, key_tensor, value_tensor, attention_mask):
@@ -661,10 +639,10 @@ class T5MultiHeadAttention(nn.Cell):
             # Calculate the attention_mask matrix via the position index
             attention_mask = F.cast(self.tensor_le(self.range, index), mstype.int32)
             attention_mask = self.expand_dims(attention_mask, 2)
-        if bias is None:
-            if self.has_relative_bias:
-                bias = self.bias_generator(self.src_seq_length, self.tgt_seq_length)
-            elif self.cross_attention:
+        if bias is None and self.has_relative_bias:
+            if not self.is_cross_atten:
+                bias = self.bias_generator(F.shape(score)[-1], F.shape(score)[-1])
+            else:
                 bias = P.ExpandDims()(self.cross_bias, 0)
 
         score = self.add(score, bias)
@@ -690,18 +668,21 @@ class TransformerEncoderLayer(nn.Cell):
     """
         Transformer Encoder Layer
     """
+
     def __init__(self,
                  batch_size,
                  hidden_size,
                  ffn_hidden_size,
                  num_heads,
                  seq_length,
+                 kv_size=64,
                  attention_dropout_rate=0.1,
                  hidden_dropout_rate=0.1,
                  post_layernorm_residual=False,
                  layernorm_compute_type=mstype.float32,
                  softmax_compute_type=mstype.float32,
                  param_init_type=mstype.float32,
+                 layer_norm_epsilon=1e-6,
                  hidden_act='gelu',
                  use_past=False,
                  moe_config=default_moe_config,
@@ -730,14 +711,15 @@ class TransformerEncoderLayer(nn.Cell):
         self.seq_length = seq_length
         self.hidden_size = hidden_size
         self.batch_size = batch_size
-        self.layernorm1 = LayerNorm((hidden_size,)).to_float(layernorm_compute_type)
-        self.layernorm2 = LayerNorm((hidden_size,)).to_float(layernorm_compute_type)
+        self.layernorm1 = LayerNorm((hidden_size,), eps=layer_norm_epsilon).to_float(layernorm_compute_type)
+        self.layernorm2 = LayerNorm((hidden_size,), eps=layer_norm_epsilon).to_float(layernorm_compute_type)
 
         self.attention = T5MultiHeadAttention(batch_size=batch_size,
                                               src_seq_length=seq_length,
                                               tgt_seq_length=seq_length,
                                               hidden_size=hidden_size,
                                               num_heads=num_heads,
+                                              kv_size=kv_size,
                                               hidden_dropout_rate=hidden_dropout_rate,
                                               attention_dropout_rate=attention_dropout_rate,
                                               softmax_compute_type=softmax_compute_type,
@@ -785,7 +767,7 @@ class TransformerEncoderLayer(nn.Cell):
             self.mul = P.Mul().shard(((1, 1, 1, 1), (1,)))
             self.assign = P.Assign().shard(((1, 1, 1, 1), (1, 1, 1, 1)))
 
-        if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation():
+        if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,):
             pass
         elif _get_parallel_mode() not in (ParallelMode.AUTO_PARALLEL,):
             self.layernorm1.shard(((parallel_config.data_parallel, 1),))
@@ -870,16 +852,6 @@ class TransformerEncoderLayer(nn.Cell):
 
     def _check_input(self, x, input_mask, init_reset, batch_valid_length):
         r"""Check inputs"""
-        if not self.use_past or (self.use_past and self.is_first_iteration):
-            _check_shape_equal(F.shape(x), "x", self.cls_name,
-                               [[self.batch_size, self.seq_length, self.hidden_size],
-                                [self.batch_size * self.seq_length, self.hidden_size]])
-            _check_shape_equal(F.shape(input_mask), "input_mask", self.cls_name,
-                               [self.batch_size, self.seq_length, self.seq_length])
-        else:
-            _check_shape_equal(F.shape(x), "x", self.cls_name, [self.batch_size, 1, self.hidden_size])
-            _check_shape_equal(F.shape(input_mask), "input_mask", self.cls_name,
-                               [self.batch_size, 1, self.seq_length])
         _check_input_dtype(F.dtype(x), "x", [mstype.float32, mstype.float16], self.cls_name)
         _check_input_dtype(F.dtype(input_mask), "input_mask", [mstype.float32, mstype.float16], self.cls_name)
 
@@ -893,9 +865,7 @@ class TransformerEncoderLayer(nn.Cell):
                                     batch_valid_length_is_tensor, batch_is_default)
 
         if self.use_past:
-            _check_shape_equal(F.shape(init_reset), "init_reset", self.cls_name, [1])
             _check_input_dtype(F.dtype(init_reset), "init_reset", [mstype.bool_], self.cls_name)
-            _check_shape_equal(F.shape(batch_valid_length), "batch_valid_length", self.cls_name, [self.batch_size])
             _check_input_dtype(F.dtype(batch_valid_length), "batch_valid_length", [mstype.int32], self.cls_name)
         return True
 
@@ -904,12 +874,14 @@ class TransformerDecoderLayer(nn.Cell):
     """
         The Transformer Decoder Layer
     """
+
     def __init__(self, hidden_size,
                  ffn_hidden_size,
                  num_heads,
                  batch_size,
                  src_seq_length,
                  tgt_seq_length,
+                 kv_size=64,
                  attention_dropout_rate=0.1,
                  hidden_dropout_rate=0.1,
                  post_layernorm_residual=False,
@@ -917,6 +889,7 @@ class TransformerDecoderLayer(nn.Cell):
                  layernorm_compute_type=mstype.float32,
                  softmax_compute_type=mstype.float32,
                  param_init_type=mstype.float32,
+                 layer_norm_epsilon=1e-6,
                  hidden_act='gelu',
                  has_bias=False,
                  moe_config=default_moe_config,
@@ -950,13 +923,14 @@ class TransformerDecoderLayer(nn.Cell):
         self.use_past = use_past
         self.hidden_size = hidden_size
 
-        self.layernorm1 = LayerNorm((hidden_size,)).to_float(layernorm_compute_type)
+        self.layernorm1 = LayerNorm((hidden_size,), eps=layer_norm_epsilon).to_float(layernorm_compute_type)
         self.layernorm1.shard(((parallel_config.data_parallel, 1),))
-        self.layernorm2 = LayerNorm((hidden_size,)).to_float(layernorm_compute_type)
+        self.layernorm2 = LayerNorm((hidden_size,), eps=layer_norm_epsilon).to_float(layernorm_compute_type)
         self.layernorm2.shard(((parallel_config.data_parallel, 1),))
         self.attention = T5MultiHeadAttention(hidden_size=hidden_size,
                                               num_heads=num_heads,
                                               batch_size=batch_size,
+                                              kv_size=kv_size,
                                               src_seq_length=tgt_seq_length,
                                               tgt_seq_length=tgt_seq_length,
                                               hidden_dropout_rate=hidden_dropout_rate,
@@ -973,6 +947,7 @@ class TransformerDecoderLayer(nn.Cell):
         self.cross_attention = T5MultiHeadAttention(hidden_size=hidden_size,
                                                     num_heads=num_heads,
                                                     batch_size=batch_size,
+                                                    kv_size=kv_size,
                                                     src_seq_length=tgt_seq_length,
                                                     tgt_seq_length=src_seq_length,
                                                     hidden_dropout_rate=hidden_dropout_rate,
@@ -981,11 +956,11 @@ class TransformerDecoderLayer(nn.Cell):
                                                     use_past=use_past,
                                                     is_decoder=True,
                                                     is_cross_atten=True,
-                                                    has_relative_bias=False,
+                                                    has_relative_bias=has_bias,
                                                     param_init_type=param_init_type,
                                                     parallel_config=parallel_config.dpmp
                                                     if self.use_moe else parallel_config)
-        self.cross_attention_layernorm = LayerNorm((hidden_size,)).to_float(
+        self.cross_attention_layernorm = LayerNorm((hidden_size,), eps=layer_norm_epsilon).to_float(
             layernorm_compute_type)
         self.cross_attention_layernorm.shard(((parallel_config.data_parallel, 1),))
 
@@ -1128,29 +1103,12 @@ class TransformerDecoderLayer(nn.Cell):
 
     def _check_input(self, hidden_states, attention_mask, encoder_output, memory_mask, init_reset, batch_valid_length):
         r"""Check inputs"""
-        if not self.use_past or (self.use_past and self.is_first_iteration):
-            _check_shape_equal(F.shape(hidden_states), "hidden_states", self.cls_name,
-                               [[self.batch_size, self.tgt_seq_length, self.hidden_size],
-                                [self.batch_size * self.tgt_seq_length, self.hidden_size]])
-            _check_shape_equal(F.shape(attention_mask), "attention_mask", self.cls_name,
-                               [self.batch_size, self.tgt_seq_length, self.tgt_seq_length])
-
-        else:
-            _check_shape_equal(F.shape(hidden_states), "hidden_states", self.cls_name,
-                               [self.batch_size, 1, self.hidden_size])
-            _check_shape_equal(F.shape(attention_mask), "attention_mask", self.cls_name,
-                               [self.batch_size, 1, self.tgt_seq_length])
         _check_input_dtype(F.dtype(hidden_states), "hidden_states", [mstype.float32, mstype.float16], self.cls_name)
         _check_input_dtype(F.dtype(attention_mask), "attention_mask", [mstype.float32, mstype.float16], self.cls_name)
         if encoder_output is not None:
-            _check_shape_equal(F.shape(encoder_output), "encoder_output", self.cls_name,
-                               [[self.batch_size, self.src_seq_length, self.hidden_size],
-                                [self.batch_size * self.src_seq_length, self.hidden_size]])
             _check_input_dtype(F.dtype(encoder_output), "encoder_output",
                                [mstype.float32, mstype.float16], self.cls_name)
         if memory_mask is not None:
-            _check_shape_equal(F.shape(memory_mask), "memory_mask", self.cls_name,
-                               [self.batch_size, self.tgt_seq_length, self.src_seq_length])
             _check_input_dtype(F.dtype(memory_mask), "memory_mask",
                                [mstype.float32, mstype.float16], self.cls_name)
 
@@ -1164,9 +1122,7 @@ class TransformerDecoderLayer(nn.Cell):
                                     batch_valid_length_is_tensor, batch_is_default)
 
         if self.use_past:
-            _check_shape_equal(F.shape(init_reset), "init_reset", self.cls_name, [1])
             _check_input_dtype(F.dtype(init_reset), "init_reset", [mstype.bool_], self.cls_name)
-            _check_shape_equal(F.shape(batch_valid_length), "batch_valid_length", self.cls_name, [self.batch_size])
             _check_input_dtype(F.dtype(batch_valid_length), "batch_valid_length", [mstype.int32], self.cls_name)
         return True
 
@@ -1221,6 +1177,7 @@ def _get_lambda_func(total_layer=None):
 
 class TransformerEncoder(nn.Cell):
     """The TransformerEncoder Cell"""
+
     def __init__(self,
                  batch_size,
                  num_layers,
@@ -1228,9 +1185,11 @@ class TransformerEncoder(nn.Cell):
                  ffn_hidden_size,
                  seq_length,
                  num_heads,
+                 kv_size=64,
                  attention_dropout_rate=0.1,
                  hidden_dropout_rate=0.1,
                  hidden_act='gelu',
+                 layer_norm_epsilon=1e-6,
                  post_layernorm_residual=False,
                  layernorm_compute_type=mstype.float32,
                  softmax_compute_type=mstype.float32,
@@ -1256,9 +1215,11 @@ class TransformerEncoder(nn.Cell):
                                             hidden_dropout_rate=hidden_dropout_rate,
                                             layernorm_compute_type=layernorm_compute_type,
                                             softmax_compute_type=softmax_compute_type,
+                                            kv_size=kv_size,
                                             num_heads=num_heads,
                                             hidden_act=hidden_act,
                                             has_bias=(i == 0),
+                                            layer_norm_epsilon=layer_norm_epsilon,
                                             post_layernorm_residual=post_layernorm_residual,
                                             param_init_type=param_init_type,
                                             use_past=use_past,
@@ -1273,7 +1234,7 @@ class TransformerEncoder(nn.Cell):
                         offset=offset, parallel_config=parallel_config)
             self.blocks.append(block)
 
-        if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation():
+        if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,):
             pass
         elif _get_parallel_mode() not in (ParallelMode.AUTO_PARALLEL,):
             logger.warning("For parallel mode, sharding propagation is recommended, you can use it by setting "
@@ -1312,6 +1273,7 @@ class TransformerEncoder(nn.Cell):
 
 class TransformerDecoder(nn.Cell):
     """The TransformerDecoder cell"""
+
     def __init__(self,
                  num_layers,
                  batch_size,
@@ -1320,12 +1282,14 @@ class TransformerDecoder(nn.Cell):
                  src_seq_length,
                  tgt_seq_length,
                  num_heads,
+                 kv_size=64,
                  attention_dropout_rate=0.1,
                  hidden_dropout_rate=0.1,
                  post_layernorm_residual=False,
                  layernorm_compute_type=mstype.float32,
                  softmax_compute_type=mstype.float32,
                  param_init_type=mstype.float32,
+                 layer_norm_epsilon=1e-6,
                  hidden_act='gelu',
                  lambda_func=None,
                  use_past=False,
@@ -1351,10 +1315,12 @@ class TransformerDecoder(nn.Cell):
                                             layernorm_compute_type=layernorm_compute_type,
                                             softmax_compute_type=softmax_compute_type,
                                             hidden_act=hidden_act,
+                                            kv_size=kv_size,
                                             use_past=use_past,
                                             has_bias=(i == 0),
                                             param_init_type=param_init_type,
                                             post_layernorm_residual=post_layernorm_residual,
+                                            layer_norm_epsilon=layer_norm_epsilon,
                                             moe_config=moe_config,
                                             parallel_config=parallel_config.moe_parallel_config if self.use_moe
                                             else parallel_config.dp_mp_config)
@@ -1367,7 +1333,7 @@ class TransformerDecoder(nn.Cell):
 
             self.blocks.append(block)
 
-        if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation():
+        if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,):
             pass
         elif _get_parallel_mode() not in (ParallelMode.AUTO_PARALLEL,):
             logger.warning("For parallel mode, sharding propagation is recommended, you can use it by setting "
@@ -1496,7 +1462,6 @@ class CreateAttentionMaskFromInputMask(nn.Cell):
 
     def __init__(self, parallel_config):
         super(CreateAttentionMaskFromInputMask, self).__init__()
-        self.cast = ops.Cast()
         self.reshape = ops.Reshape()
         self.shape = ops.Shape()
         self.batch_matmul = ops.BatchMatMul().shard(
@@ -1508,7 +1473,7 @@ class CreateAttentionMaskFromInputMask(nn.Cell):
         shape_right = (input_shape[0], 1, input_shape[1])
         shape_left = input_shape + (1,)
 
-        input_mask = self.cast(input_mask, mstype.float32)
+        input_mask = F.cast(input_mask, mstype.float32)
         mask_left = self.reshape(input_mask, shape_left)
         mask_right = self.reshape(input_mask, shape_right)
         attention_mask = self.batch_matmul(mask_left, mask_right)
@@ -1555,15 +1520,12 @@ class T5Head(nn.Cell):
         return logits
 
 
-@MindFormerRegister.register(MindFormerModuleType.MODELS)
 class T5Model(BaseModel):
     """
     T5Model with encoder and decoder.
 
     Args:
         config (Class): Configuration for T5Model.
-        is_training (bool): True for training mode. False for eval mode.
-        use_one_hot_embeddings (bool): Specifies whether to use one hot encoding form. Default: False.
     """
 
     def __init__(self,
@@ -1572,52 +1534,65 @@ class T5Model(BaseModel):
 
         self.batch_size = config.batch_size
         self.hidden_size = config.hidden_size
-        self.num_hidden_layers = config.num_hidden_layers
-        self.embedding_size = config.hidden_size
-        self.seq_length = config.seq_length
-
-        self.last_idx = self.num_hidden_layers - 1
-        self.beam_width = config.beam_width
         self.max_decode_length = config.max_decode_length
         self.scale_output = config.scale_output
-
+        embedding_config = EmbeddingOpParallelConfig(data_parallel=config.parallel_config.data_parallel,
+                                                     model_parallel=config.parallel_config.model_parallel)
         self.tfm_embedding_lookup = VocabEmbedding(vocab_size=config.vocab_size,
-                                                   embedding_size=self.embedding_size,
-                                                   parallel_config=config.parallel_config.embedding_dp_mp_config)
+                                                   embedding_size=config.hidden_size,
+                                                   parallel_config=embedding_config)
         self.tfm_embedding_postprocessor_for_encoder = EmbeddingPostprocessor(embedding_size=
-                                                                              self.embedding_size,
+                                                                              config.hidden_size,
                                                                               max_position_embeddings=
                                                                               config.max_position_embeddings,
                                                                               dropout_prob=
-                                                                              config.hidden_dropout_prob)
+                                                                              config.embedding_dropout_prob)
         self.tfm_embedding_postprocessor_for_decoder = EmbeddingPostprocessor(
-            embedding_size=self.embedding_size,
+            embedding_size=config.hidden_size,
             max_position_embeddings=config.max_position_embeddings,
-            dropout_prob=config.hidden_dropout_prob)
+            dropout_prob=config.embedding_dropout_prob)
         self.tfm_encoder = TransformerEncoder(
             batch_size=self.batch_size,
-            hidden_size=self.hidden_size,
+            hidden_size=config.hidden_size,
             num_heads=config.num_heads,
-            num_layers=self.num_hidden_layers,
+            num_layers=config.num_layers,
             seq_length=config.seq_length,
-            ffn_hidden_size=config.intermediate_size,
-            attention_dropout_rate=config.attention_probs_dropout_prob,
-            hidden_dropout_rate=config.hidden_dropout_prob,
-            hidden_act=config.hidden_act)
+            ffn_hidden_size=config.d_ff,
+            attention_dropout_rate=config.attention_dropout_rate,
+            hidden_dropout_rate=config.hidden_dropout_rate,
+            layer_norm_epsilon=config.layer_norm_epsilon,
+            kv_size=config.kv_size,
+            hidden_act=config.hidden_act,
+            param_init_type=config.param_init_type,
+            layernorm_compute_type=config.layernorm_compute_type,
+            softmax_compute_type=config.softmax_compute_type,
+            post_layernorm_residual=config.post_layernorm_residual,
+            offset=config.offset,
+            use_past=config.use_past,
+            moe_config=config.moe_config)
 
         self.tfm_decoder = TransformerDecoder(
             batch_size=self.batch_size,
-            hidden_size=self.hidden_size,
+            hidden_size=config.hidden_size,
             src_seq_length=config.seq_length,
             tgt_seq_length=config.max_decode_length,
             num_heads=config.num_heads,
-            ffn_hidden_size=config.intermediate_size,
-            attention_dropout_rate=config.attention_probs_dropout_prob,
-            hidden_dropout_rate=config.hidden_dropout_prob,
-            num_layers=config.num_hidden_layers,
-            hidden_act=config.hidden_act)
+            ffn_hidden_size=config.d_ff,
+            attention_dropout_rate=config.attention_dropout_rate,
+            hidden_dropout_rate=config.hidden_dropout_rate,
+            layer_norm_epsilon=config.layer_norm_epsilon,
+            kv_size=config.kv_size,
+            num_layers=config.num_decoder_layers if config.num_decoder_layers else config.num_layers,
+            hidden_act=config.hidden_act,
+            param_init_type=config.param_init_type,
+            layernorm_compute_type=config.layernorm_compute_type,
+            softmax_compute_type=config.softmax_compute_type,
+            post_layernorm_residual=config.post_layernorm_residual,
+            offset=config.offset,
+            use_past=config.use_past,
+            moe_config=config.moe_config)
 
-        self.projection = T5Head(self.hidden_size,
+        self.projection = T5Head(config.hidden_size,
                                  compute_dtype=mstype.float16,
                                  parallel_config=config.parallel_config)
 
@@ -1627,15 +1602,26 @@ class T5Model(BaseModel):
         self.expand = ops.ExpandDims()
         self.multiply = ops.Mul()
         self.shape = ops.Shape()
-        self.encoder_layernorm = LayerNorm(normalized_shape=(self.embedding_size,)).to_float(mstype.float32)
-        self.decoder_layernorm = LayerNorm(normalized_shape=(self.embedding_size,)).to_float(mstype.float32)
+        self.encoder_layernorm = LayerNorm(normalized_shape=(config.hidden_size,),
+                                           eps=config.layer_norm_epsilon).to_float(mstype.float32)
+        self.decoder_layernorm = LayerNorm(normalized_shape=(config.hidden_size,),
+                                           eps=config.layer_norm_epsilon).to_float(mstype.float32)
         self.encoder_layernorm.shard(((config.parallel_config.data_parallel, 1),))
         self.decoder_layernorm.shard(((config.parallel_config.data_parallel, 1),))
         self._create_attention_mask_from_input_mask = CreateAttentionMaskFromInputMask(config.parallel_config)
+        self.ones_like = P.OnesLike()
 
-    def construct(self, source_ids=None, source_mask=None, target_ids=None, target_mask=None, memory_mask=None,
+    def construct(self,
+                  source_ids=None,
+                  source_mask=None,
+                  target_ids=None,
+                  target_mask=None,
+                  memory_mask=None,
                   encoder_cache=None):
         """T5Model with encoder and decoder."""
+        if source_mask is None and source_ids is not None:
+            source_mask = self.ones_like(source_ids)
+            source_mask = self._create_attention_mask_from_input_mask(source_mask)
         if source_ids is not None:
             encoder_output = self.encoder_forward(source_ids, source_mask)
         else:
@@ -1697,22 +1683,38 @@ class T5Model(BaseModel):
 
 
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
-class T5ModelForGeneration(BaseModel):
+class T5ForConditionalGeneration(BaseModel):
     """
-    Provide  transformer training loss through network.
+    A T5 model with the loss added.
 
     Args:
-        model_config : The network of the transformer.
+        config(T5Config) : The network of the transformer.
 
-    Returns:
-        Tensor, the loss of the network.
+
+    Examples:
+        >>> from mindformers import T5ForConditionalGeneration, T5Tokenizer
+        >>> model = T5ForConditionalGeneration.from_pretrained('t5_small')
+        >>> tokenizer = T5Tokenizer.from_pretrained('t5_small')
+        >>> src_output = tokenizer(["hello world"], padding='max_length', max_length=model.config.seq_length,
+        ...                        return_tensors='ms')
+        >>> model_input = tokenizer(["So happy to see you!"], padding='max_length',
+        ...                         max_length=model.config.max_decode_length,
+        ...                         return_tensors='ms')["input_ids"]
+        >>> input_ids = src_output['input_ids']
+        >>> attention_mask = src_output['attention_mask']
+        >>> output = model(input_ids, attention_mask, model_input)
+        >>> print(output)
+        [5.64458]
     """
+    _support_list = MindFormerBook.get_model_support_list()['t5']
 
-    def __init__(self, model_config):
-        super(T5ModelForGeneration, self).__init__(model_config)
-        parallel_config = model_config.parallel_config
-        self.t5_model = T5Model(config=model_config)
-        self.loss = CrossEntropyLoss(parallel_config=parallel_config.dp_mp_config)
+    def __init__(self, config: T5Config):
+        super(T5ForConditionalGeneration, self).__init__(config)
+        parallel_config = config.parallel_config
+        self.t5_model = T5Model(config=config)
+
+        self.loss = CrossEntropyLoss(parallel_config=OpParallelConfig(data_parallel=parallel_config.data_parallel,
+                                                                      model_parallel=parallel_config.model_parallel))
         self.cast = ops.Cast()
         self.shape = ops.Shape()
 
@@ -1727,6 +1729,7 @@ class T5ModelForGeneration(BaseModel):
             if ('bias' in param.name or 'beta' in param.name) and 'relative' not in param.name:
                 param.requires_grad = False
         self.set_train(True)
+        self.load_checkpoint(config)
 
     def _add_start_to_inputs(self, target_ids):
         """concat the start id to the decoder inputs"""
@@ -1740,65 +1743,38 @@ class T5ModelForGeneration(BaseModel):
         inputs_with_eos = self.concat((target_ids, eod_token))
         return inputs_with_eos
 
+    def encoder_forward(self, source_ids, source_mask):
+        """Execute the encoder forward process"""
+        return self.t5_model.encoder_forward(source_ids, source_mask)
+
     def construct(self,
-                  source_ids,
-                  source_mask,
-                  target_ids,
-                  target_mask=None,
-                  memory_mask=None):
+                  input_ids,
+                  attention_mask,
+                  labels=None,
+                  decoder_input_ids=None,
+                  decoder_attention_mask=None,
+                  memory_mask=None,
+                  encoder_outputs=None,
+                  return_loss=False):
         """t5_model network with loss."""
-        labels = target_ids
-        if target_mask is None:
-            target_mask = F.cast(labels != 0, mstype.float32)
+        if decoder_attention_mask is None:
+            decoder_attention_mask = F.cast(labels != 0, mstype.float32)
 
-        decoder_inputs = self._add_start_to_inputs(target_ids[:, :-1])
+        if decoder_input_ids is None:
+            decoder_input_ids = self._add_start_to_inputs(labels[:, :-1])
+        logits = self.t5_model(input_ids, attention_mask, decoder_input_ids, decoder_attention_mask, memory_mask,
+                               encoder_cache=encoder_outputs)
 
-        logits = self.t5_model(source_ids, source_mask, decoder_inputs, target_mask, memory_mask)
+        total_loss = None
+        if labels is not None:
+            label_ids = ops.Reshape()(labels, (-1,))
+            label_weights = ops.Reshape()(decoder_attention_mask, (-1,))
+            total_loss = self.loss(logits, label_ids, self.cast(label_weights, mstype.float32))
 
-        label_ids = ops.Reshape()(labels, (-1,))
-        label_weights = ops.Reshape()(target_mask, (-1,))
-        total_loss = self.loss(logits, label_ids, self.cast(label_weights, mstype.float32))
-        return total_loss
+        if self.phase == 'train':
+            return total_loss
 
+        if return_loss:
+            return total_loss
 
-class EvalNet(nn.Cell):
-    """
-    T5 evaluation net
-
-    Args:
-        backbone(nn.Cell): backbone network of GPT2/3
-        generate(bool): enable generate mode
-
-    Returns:
-        outputs: Tensor, corresponding output for different tasks
-    """
-
-    def __init__(self, backbone, generate=False):
-        super(EvalNet, self).__init__(auto_prefix=False)
-        self.backbone = backbone
-        self.argmax = P.Argmax()
-        self.generate = generate
-        self.cast = P.Cast()
-        self.gather = P.Gather()
-        self.pad_token = 0
-
-    def construct(self, input_ids, input_mask, current_index=None,
-                  cache_encoder=None, target_id=None, target_mask=None):
-        """evaluation net"""
-        if cache_encoder is None:
-            input_mask = self.cast(input_mask, mstype.float32)
-            outputs = self.backbone(input_ids, input_mask)
-        else:
-            input_mask = self.cast(input_mask, mstype.float32)
-            if target_mask is None:
-                target_mask = F.cast(target_id != self.pad_token, mstype.float32)
-            logits = self.backbone(None, input_mask, target_id, target_mask, None, cache_encoder)
-            outputs = None
-            if self.generate:
-                index = current_index.view(1,)
-                logits = self.gather(logits, index, 0)
-                outputs = nn.LogSoftmax()(logits)
-                outputs = F.tensor_pow(np.e, outputs)
-            else:
-                outputs = self.argmax(logits)
-        return outputs
+        return logits

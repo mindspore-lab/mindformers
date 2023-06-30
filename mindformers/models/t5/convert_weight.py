@@ -159,8 +159,6 @@ if __name__ == '__main__':
         "t5_model.tfm_embedding_lookup.embedding_table",
         "t5_model.tfm_encoder.blocks.0.attention.bias_generator.embeddings_table",
         "t5_model.tfm_decoder.blocks.0.attention.bias_generator.embeddings_table",
-        "t5_model.tfm_decoder.blocks.0.cross_attention.bias_generator.embeddings_table",
-
     ]
 
     addition_torch = [
@@ -169,7 +167,6 @@ if __name__ == '__main__':
         "shared.weight",
         "encoder.block.0.layer.0.SelfAttention.relative_attention_bias.weight",
         "decoder.block.0.layer.0.SelfAttention.relative_attention_bias.weight",
-        "decoder.block.0.layer.1.EncDecAttention.relative_attention_bias.weight",
     ]
 
 

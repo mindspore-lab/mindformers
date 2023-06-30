@@ -11,63 +11,180 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+# This file was refer to project:
+# https://gitee.com/mindspore/models/blob/master/official/nlp/Bert/src/bert_model.py
 # ============================================================================
 """BERT Model."""
-import copy
 import numpy as np
 import mindspore
 import mindspore.common.dtype as mstype
 import mindspore.nn as nn
+import mindspore.ops as ops
 import mindspore.ops.functional as F
 from mindspore import Tensor, Parameter
 from mindspore.common.initializer import TruncatedNormal, initializer
 from mindspore.ops import operations as P
-from mindspore.nn.transformer.layers import _LayerNorm
-from mindspore.nn.transformer.transformer import Transformer, VocabEmbedding, default_moe_config
+from mindformers.modules.layers import LayerNorm
+from mindformers.modules.transformer import Transformer, VocabEmbedding
+from mindformers.modules.transformer.moe import default_moe_config
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.models.base_model import BaseModel
-from .bert_config import BertConfig
+from mindformers.mindformer_book import MindFormerBook
+from mindformers.models.bert.bert_config import BertConfig
 
-__all__ = ['BertForPretraining']
+__all__ = ['BertConfig', 'BertModel', 'BertForPreTraining', 'BertForTokenClassification', 'BertForMultipleChoice',
+           'BertForQuestionAnswering']
 
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
-class BertForPretraining(BaseModel):
+class BertForTokenClassification(BaseModel):
+    """
+    Bert with dense layer for name entity recoginition task.
+
+    Args:
+        config (BertConfig): The config of BertForTokenClassification.
+
+    Returns:
+        Tensor, loss, logits.
+
+    Examples:
+        >>> from mindformers import BertForTokenClassification, BertTokenizer
+        >>> model = BertForTokenClassification.from_pretrained('tokcls_bert_base_chinese')
+        >>> tokenizer = BertTokenizer.from_pretrained('tokcls_bert_base_chinese')
+        >>> data = tokenizer(["我在杭州华为工作。"], return_tensors='ms', max_length=128, padding='max_length')
+        >>> input_ids = data['input_ids']
+        >>> attention_mask = data['attention_mask']
+        >>> token_type_ids = data['token_type_ids']
+        >>> output = model(input_ids, attention_mask, token_type_ids)
+        >>> print(output)
+        [[[ 0.0886748  -0.23066735 -0.03969013 ...  0.07333283 -0.02968273
+            0.06125224]
+          [-0.03115104 -0.47599065  0.01928361 ...  0.22821501  0.42415133
+            0.14563856]
+          [ 0.05570185 -0.36168078  0.00884905 ... -0.15357454 -0.33119604
+           -0.09889631]
+          ...
+          [ 0.01028904 -0.20403272 -0.1117363  ... -0.03601318  0.034153
+            0.12492958]
+          [-0.00420664 -0.1786235  -0.11332294 ... -0.07119732  0.02407441
+            0.14775723]
+          [-0.04674841 -0.1608555  -0.0781534  ... -0.06064402  0.0439388
+            0.20419256]]]
+    """
+
+    _support_list = MindFormerBook.get_model_support_list()['tokcls']['bert']
+
+    def __init__(self, config=BertConfig()):
+        super(BertForTokenClassification, self).__init__(config)
+        self.num_labels = config.num_labels
+        self.bert = BertModel(config, config.is_training, config.use_one_hot_embeddings)
+        self.dropout = nn.Dropout(1 - config.hidden_dropout_prob)
+        self.classifier = nn.Dense(config.hidden_size, config.num_labels).to_float(config.compute_dtype)
+        self.cross_entropy_loss = nn.CrossEntropyLoss()
+        self.reshape = P.Reshape()
+        self.load_checkpoint(config)
+
+    def construct(self, input_ids, input_mask, token_type_ids, label_ids=None):
+        """Get Training Loss or Logits"""
+        bert_outputs = self.bert(input_ids=input_ids, input_mask=input_mask, token_type_ids=token_type_ids)
+        sequence_output = bert_outputs[0]
+        sequence_output = self.dropout(sequence_output)
+        logits = self.classifier(sequence_output)
+
+        if self.training:
+            logits = self.reshape(logits, (-1, self.num_labels))
+            label_ids = self.reshape(label_ids, (-1,))
+            output = self.cross_entropy_loss(logits, label_ids)
+        else:
+            if label_ids is None:
+                output = logits
+            else:
+                output = (logits, label_ids)
+
+        return output
+
+
+@MindFormerRegister.register(MindFormerModuleType.MODELS)
+class BertForPreTraining(BaseModel):
     """
     Provide bert pre-training loss through network.
 
     Args:
-        config (BertConfig): The config of BertModel.
+        config (BertConfig): The config of BertForPreTraining.
         is_training (bool): Specifies whether to use the training mode.
         use_one_hot_embeddings (bool): Specifies whether to use one-hot for embeddings. Default: False.
 
     Returns:
         Tensor, the loss of the network.
+
+    Examples:
+        >>> from mindspore import Tensor
+        >>> import mindspore.common.dtype as mstype
+        >>> from mindformers import BertForPreTraining, BertTokenizer
+        >>> model = BertForPreTraining.from_pretrained('bert_base_uncased')
+        >>> tokenizer = BertTokenizer.from_pretrained('bert_base_uncased')
+        >>> data = tokenizer(["Paris is the [MASK] of France."],
+        ...                  return_tensors='ms', max_length=128, padding="max_length")
+        >>> input_ids = data['input_ids']
+        >>> attention_mask = data['attention_mask']
+        >>> token_type_ids = data['token_type_ids']
+        >>> masked_lm_positions = Tensor([[4]], mstype.int32)
+        >>> next_sentence_labels = Tensor([[1]], mstype.int32)
+        >>> masked_lm_weights = Tensor([[1]], mstype.int32)
+        >>> masked_lm_ids = Tensor([[3007]], mstype.int32)
+        >>> output = model(input_ids, attention_mask, token_type_ids, next_sentence_labels,
+        ...                masked_lm_positions, masked_lm_ids, masked_lm_weights)
+        >>> print(output)
+        [0.6706]
     """
 
-    def __init__(self, config=BertConfig(), is_training=True, use_one_hot_embeddings=False):
-        super(BertForPretraining, self).__init__(config)
-        self.is_training = is_training
-        self.bert = BertScore(config, is_training, use_one_hot_embeddings)
+    _support_list = MindFormerBook.get_model_support_list()['bert']
+
+    def __init__(self, config=BertConfig()):
+        super(BertForPreTraining, self).__init__(config)
+        self.is_training = config.is_training
+        # self.bert = BertScore(config, config.is_training, config.use_one_hot_embeddings)
+        self.bert = BertModel(config, config.is_training, config.use_one_hot_embeddings)
+        self.mlmloss = GetMaskedLMOutput(config)
+        self.nsploss = GetNextSentenceOutput(config)
         self.loss = BertLoss(config)
         self.cast = P.Cast()
-        self.use_moe = False
+        self.use_moe = (config.parallel_config.moe_config.expert_num > 1)
         self.add = P.Add().shard(((1,), ()))
-        self._load_checkpoint(config)
+        self.load_checkpoint(config)
+
+    def bert_forward(self, input_ids, input_mask, token_type_id,
+                     masked_lm_positions=None):
+        """connect backbone and heads."""
+        moe_loss = 0
+        if self.use_moe:
+            sequence_output, pooled_output, embedding_table, moe_loss = \
+                self.bert(input_ids, token_type_id, input_mask)
+        else:
+            sequence_output, pooled_output, embedding_table = \
+                self.bert(input_ids, token_type_id, input_mask)
+
+        prediction_scores = self.mlmloss(sequence_output,
+                                         embedding_table,
+                                         masked_lm_positions)
+        seq_relationship_score = self.nsploss(pooled_output)
+        if not self.training:
+            return sequence_output, pooled_output, prediction_scores, seq_relationship_score
+        return prediction_scores, seq_relationship_score, moe_loss
 
     def construct(self,
                   input_ids,
                   input_mask,
                   token_type_id,
-                  next_sentence_labels,
-                  masked_lm_positions,
-                  masked_lm_ids,
-                  masked_lm_weights):
+                  next_sentence_labels=None,
+                  masked_lm_positions=None,
+                  masked_lm_ids=None,
+                  masked_lm_weights=None):
         """Get pre-training loss"""
-        if not self.is_training:
-            return self.bert(input_ids, input_mask, token_type_id, masked_lm_positions)
+        if not self.training:
+            return self.bert_forward(input_ids, input_mask, token_type_id, masked_lm_positions)
 
         prediction_scores, seq_relationship_score, moe_loss = \
-            self.bert(input_ids, input_mask, token_type_id, masked_lm_positions)
+            self.bert_forward(input_ids, input_mask, token_type_id, masked_lm_positions)
         total_loss = self.loss(prediction_scores, seq_relationship_score,
                                masked_lm_ids, masked_lm_weights, next_sentence_labels)
         if self.use_moe:
@@ -89,25 +206,24 @@ class BertModel(nn.Cell):
                  is_training=False,
                  use_one_hot_embeddings=False):
         super(BertModel, self).__init__()
-        config = copy.deepcopy(config)
         if not is_training:
             config.hidden_dropout_prob = 0.0
             config.attention_probs_dropout_prob = 0.0
 
         self.get_attention_mask = CreateAttentionMaskFromInputMask(config)
-        self.hidden_size = config.embedding_size
-        self.num_hidden_layers = config.num_layers
-        self.embedding_size = config.embedding_size
+        self.hidden_size = config.hidden_size
+        self.num_hidden_layers = config.num_hidden_layers
+        self.embedding_size = config.hidden_size
         self.token_type_ids = None
         if not hasattr(config.parallel_config, "moe_config"):
             config.parallel_config.moe_config = default_moe_config
         moe_config = config.parallel_config.moe_config
-        self.use_moe = False
+        self.use_moe = (config.parallel_config.moe_config.expert_num > 1)
 
         self.word_embedding = VocabEmbedding(vocab_size=config.vocab_size,
-                                             embedding_size=config.embedding_size,
+                                             embedding_size=config.hidden_size,
                                              param_init=initializer("truncatedNormal",
-                                                                    [config.vocab_size, config.embedding_size],
+                                                                    [config.vocab_size, config.hidden_size],
                                                                     dtype=mstype.float32),
                                              parallel_config=config.parallel_config.embedding_dp_mp_config)
 
@@ -125,13 +241,13 @@ class BertModel(nn.Cell):
 
 
         self.bert_encoder = Transformer(
-            hidden_size=config.embedding_size,
+            hidden_size=config.hidden_size,
             batch_size=config.batch_size,
-            ffn_hidden_size=config.embedding_size * config.expand_ratio,
+            ffn_hidden_size=config.intermediate_size,
             src_seq_length=config.seq_length,
             tgt_seq_length=config.seq_length,
-            num_heads=config.num_heads,
-            encoder_layers=config.num_layers,
+            num_heads=config.num_attention_heads,
+            encoder_layers=config.num_hidden_layers,
             parallel_config=config.parallel_config,
             decoder_layers=0,
             moe_config=moe_config,
@@ -179,6 +295,132 @@ class BertModel(nn.Cell):
             moe_loss = encoder_output[-1]
             return sequence_output, pooled_output, embedding_tables, moe_loss
         return sequence_output, pooled_output, embedding_tables
+
+
+@MindFormerRegister.register(MindFormerModuleType.MODELS)
+class BertForMultipleChoice(BaseModel):
+    """
+    Bert with dense layer for txt classification task.
+
+    Args:
+        config (BertConfig): The config of BertForMultipleChoice.
+
+    Returns:
+        Tensor, loss, logits.
+    Examples:
+        >>> from mindformers import BertForMultipleChoice, BertTokenizer
+        >>> model = BertForMultipleChoice.from_pretrained('txtcls_bert_base_uncased')
+        >>> tokenizer = BertTokenizer.from_pretrained('txtcls_bert_base_uncased')
+        >>> data = tokenizer(["The new rights are nice enough-Everyone really likes the newest benefits "],
+        ...                  return_tensors='ms', max_length=128, padding='max_length')
+        >>> input_ids = data['input_ids']
+        >>> attention_mask = data['attention_mask']
+        >>> token_type_ids = data['token_type_ids']
+        >>> output = model(input_ids, attention_mask, token_type_ids)
+        >>> print(output)
+        [[0.05121157 0.3273056  0.31614417]]
+    """
+    _support_list = MindFormerBook.get_model_support_list()['txtcls']['bert']
+
+    def __init__(self, config=BertConfig()):
+        super(BertForMultipleChoice, self).__init__(config)
+        self.num_labels = config.num_labels
+        self.bert = BertModel(config, config.is_training, config.use_one_hot_embeddings)
+        self.weight_init = TruncatedNormal(config.initializer_range)
+        self.classifier = nn.Dense(config.hidden_size, self.num_labels, weight_init=self.weight_init,
+                                   has_bias=True).to_float(config.compute_dtype)
+        self.dropout = nn.Dropout(1 - config.dropout_prob)
+        self.cross_entropy_loss = nn.CrossEntropyLoss()
+        self.cast = P.Cast()
+        self.reshape = P.Reshape()
+        self.dtype = config.dtype
+        self.compute_dtype = config.compute_dtype
+        self.load_checkpoint(config)
+
+    def construct(self, input_ids, input_mask, token_type_id, label_ids=None):
+        """Get Training Loss or Logits"""
+        _, pooled_output, _ = self.bert(input_ids, token_type_id, input_mask)
+        pooled_output = self.dropout(pooled_output)
+        logits = self.classifier(pooled_output)
+
+        if self.training:
+            logits = self.reshape(logits, (-1, self.num_labels))
+            label_ids = self.reshape(label_ids, (-1,))
+            output = self.cross_entropy_loss(logits, label_ids)
+        else:
+            if label_ids is None:
+                output = logits
+            else:
+                label_ids = self.reshape(label_ids, (-1,))
+                output = (logits, label_ids)
+
+        return output
+
+
+@MindFormerRegister.register(MindFormerModuleType.MODELS)
+class BertForQuestionAnswering(BaseModel):
+    """
+        Bert with dense layer for question answering task.
+
+        Args:
+            config (BertConfig): The config of BertModel.
+
+        Returns:
+            Tensor, loss, logits.
+        Examples:
+            >>> from mindformers import BertForQuestionAnswering, BertTokenizer
+            >>> model = BertForQuestionAnswering.from_pretrained('qa_bert_base_uncased')
+            >>> tokenizer = BertTokenizer.from_pretrained('qa_bert_base_uncased')
+            >>> data = tokenizer(["The new rights are nice enough-Everyone really likes the newest benefits "],
+            ...                  return_tensors='ms', max_length=384, padding='max_length')
+            >>> input_ids = data['input_ids']
+            >>> attention_mask = data['attention_mask']
+            >>> token_type_ids = data['token_type_ids']
+            >>> output = model(input_ids, attention_mask, token_type_ids)
+            >>> print(output)
+            (Tensor(shape=[1, 384], dtype=Float32, value=
+            [[ 5.30713797e-02,  1.08105361e-01,  1.55855455e-02 ... -3.73562761e-02,
+              -1.89271923e-02, -2.99206823e-02]]), Tensor(shape=[1, 384], dtype=Float32, value=
+            [[ 2.39873882e-02,  2.35675126e-01,  1.52210891e-01 ... -2.11214088e-02,
+               4.84664962e-02, -4.52579707e-02]]))
+        """
+    _support_list = MindFormerBook.get_model_support_list()['qa']['bert']
+
+    def __init__(self, config=BertConfig()):
+        super(BertForQuestionAnswering, self).__init__(config)
+        self.bert = BertModel(config, config.is_training, config.use_one_hot_embeddings)
+        self.qa_outputs = nn.Dense(config.hidden_size, 2).to_float(config.compute_dtype)
+        self.load_checkpoint(config)
+        self.split = P.Split(output_num=2, axis=-1)
+
+    def construct(self, input_ids, input_mask, token_type_id, start_position=None, end_position=None, unique_id=None):
+        """Get Training Loss or Logits"""
+        bert_outputs = self.bert(input_ids=input_ids, input_mask=input_mask, token_type_ids=token_type_id)
+        sequence_output = bert_outputs[0]
+        logits = self.qa_outputs(sequence_output)
+        start_logits, end_logits = self.split(logits)
+        start_logits = start_logits.squeeze(-1)
+        end_logits = end_logits.squeeze(-1)
+
+        if self.training:
+            if len(start_position.shape) > 1:
+                start_position = start_position.squeeze(-1)
+            if len(end_position.shape) > 1:
+                end_position = end_position.squeeze(-1)
+            ignored_index = start_logits.shape[1]
+            start_position = ops.clip_by_value(start_position, 0, ignored_index)
+            end_position = ops.clip_by_value(end_position, 0, ignored_index)
+
+            loss_fct = nn.CrossEntropyLoss(ignore_index=ignored_index)
+            start_loss = loss_fct(start_logits, start_position)
+            end_loss = loss_fct(end_logits, end_position)
+            total_loss = (start_loss + end_loss) / 2
+            output = total_loss
+        else:
+            output = (unique_id, start_logits, end_logits)
+
+        return output
+
 
 class EmbeddingPostprocessor(nn.Cell):
     """
@@ -236,7 +478,7 @@ class EmbeddingPostprocessor(nn.Cell):
                                                                              dtype=mstype.float32),
                                                       parallel_config=config.parallel_config.embedding_dp_mp_config)
 
-        self.layernorm = _LayerNorm((embedding_size,)).to_float(mstype.float32)
+        self.layernorm = LayerNorm((embedding_size,)).to_float(mstype.float32)
         self.layernorm.shard(((config.parallel_config.data_parallel, 1, 1),))
         self.position_ids = Tensor(np.arange(seq).reshape(-1, seq).astype(np.int32))
         self.add = P.Add().shard(
@@ -291,7 +533,7 @@ class CreateAttentionMaskFromInputMask(nn.Cell):
     Create attention mask according to input mask.
 
     Args:
-        config (Class): Configuration for BertModel.
+        config (Class): Configuration for BertForPreTraining.
     """
     def __init__(self, config):
         super(CreateAttentionMaskFromInputMask, self).__init__()
@@ -306,54 +548,12 @@ class CreateAttentionMaskFromInputMask(nn.Cell):
         attention_mask = self.tile(attention_mask, (1, seq_length, 1))
         return attention_mask
 
-class BertScore(nn.Cell):
-    """
-    Bert pretraining network.
-
-    Args:
-        config (BertConfig): The config of BertModel.
-        is_training (bool): Specifies whether to use the training mode.
-        use_one_hot_embeddings (bool): Specifies whether to use one-hot for embeddings.
-
-    Returns:
-        Tensor, prediction_scores, seq_relationship_score.
-    """
-
-    def __init__(self, config, is_training, use_one_hot_embeddings):
-        super(BertScore, self).__init__()
-        self.bert = BertModel(config, is_training, use_one_hot_embeddings)
-        self.mlmloss = GetMaskedLMOutput(config)
-        self.nsploss = GetNextSentenceOutput(config)
-        self.use_moe = False
-        self.is_training = is_training
-
-    def construct(self, input_ids, input_mask, token_type_id,
-                  masked_lm_positions):
-        """connect backbone and heads."""
-        moe_loss = 0
-        if self.use_moe:
-            sequence_output, pooled_output, embedding_table, moe_loss = \
-                self.bert(input_ids, token_type_id, input_mask)
-        else:
-            sequence_output, pooled_output, embedding_table = \
-                self.bert(input_ids, token_type_id, input_mask)
-
-        if not self.is_training:
-            return sequence_output, pooled_output
-
-        prediction_scores = self.mlmloss(sequence_output,
-                                         embedding_table,
-                                         masked_lm_positions)
-        seq_relationship_score = self.nsploss(pooled_output)
-        return prediction_scores, seq_relationship_score, moe_loss
-
-
 class BertLoss(nn.Cell):
     """
     Provide bert pre-training loss.
 
     Args:
-        config (BertConfig): The config of BertModel.
+        config (BertConfig): The config of BertForPreTraining.
 
     Returns:
         Tensor, total loss.
@@ -407,7 +607,7 @@ class GetMaskedLMOutput(nn.Cell):
     Get masked lm output.
 
     Args:
-        config (BertConfig): The config of BertModel.
+        config (BertConfig): The config of BertForPreTraining.
 
     Returns:
         Tensor, masked lm output.
@@ -415,7 +615,7 @@ class GetMaskedLMOutput(nn.Cell):
 
     def __init__(self, config):
         super(GetMaskedLMOutput, self).__init__()
-        self.width = config.embedding_size
+        self.width = config.hidden_size
         self.reshape = P.Reshape()
         self.gather = P.Gather()
         self.gather.shard(((1, 1), (1,)))
@@ -423,7 +623,7 @@ class GetMaskedLMOutput(nn.Cell):
 
 
         self.dense = nn.Dense(self.width,
-                              config.embedding_size,
+                              config.hidden_size,
                               weight_init=weight_init,
                               activation=config.hidden_act).to_float(config.compute_dtype)
 
@@ -433,7 +633,7 @@ class GetMaskedLMOutput(nn.Cell):
             self.dense.matmul.shard(((config.parallel_config.data_parallel, 1), (
                 1, config.parallel_config.model_parallel)))
 
-        self.layernorm = _LayerNorm((config.embedding_size,)).to_float(config.compute_dtype)
+        self.layernorm = LayerNorm((config.hidden_size,)).to_float(config.compute_dtype)
         self.layernorm.shard(((config.parallel_config.data_parallel, 1),))
         self.output_bias = Parameter(
             initializer(
@@ -488,7 +688,7 @@ class GetNextSentenceOutput(nn.Cell):
         self.log_softmax = P.LogSoftmax()
         self.log_softmax.shard(((config.parallel_config.data_parallel, 1),))
         weight_init = TruncatedNormal(config.initializer_range)
-        self.dense = nn.Dense(config.embedding_size, 2,
+        self.dense = nn.Dense(config.hidden_size, 2,
                               weight_init=weight_init, has_bias=True).to_float(config.compute_dtype)
 
         if config.parallel_config.vocab_emb_dp:
