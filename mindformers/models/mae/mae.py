@@ -313,7 +313,7 @@ class ViTMAEForPreTraining(BaseModel):
         """construct of VisionTransformerForMae"""
         self.images_summary("input images", image)
 
-        encoder_tokens = self.vit.construct(image, unmask_index)
+        encoder_tokens = self.vit(image, unmask_index)
 
         unmask_tokens = self.decoder_embed(encoder_tokens)
         unmask_tokens = self.cast(unmask_tokens, mstype.float32)
