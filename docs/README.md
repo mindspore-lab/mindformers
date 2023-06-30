@@ -758,9 +758,11 @@ Mindformers大模型套件的`text generator`方法支持增量推理逻辑，�
 通过实例化的模型调用：
 
 ```python
+from mindspore import set_context
 from mindformers import GLMChatModel, ChatGLMTokenizer, GLMConfig
+set_context(mode=0)
 # use_past设置成True时为增量推理，反之为自回归推理
-glm_config = GLMConfig(use_past=True)
+glm_config = GLMConfig(use_past=True, checkpoint_name_or_path="glm_6b")
 glm_model = GLMChatModel(glm_config)
 tokenizer = ChatGLMTokenizer.from_pretrained("glm_6b")
 words = "中国的首都是哪个城市？"
@@ -768,6 +770,7 @@ words = tokenizer(words)['input_ids']
 output = glm_model.generate(words, max_length=20, top_k=1)
 output = tokenizer.decode(output[0], skip_special_tokens=True)
 print(output)
+# 中国的首都是哪个城市? 中国的首都是北京。
 ```
 
 #### 流式推理
