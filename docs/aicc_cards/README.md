@@ -22,7 +22,7 @@ MindFormers套件当前具备AICC适配的特性，用户在ModelArts平台启�
 - 模型代码
 
 ```bash
-git clone https://gitee.com/mindspore/mindformers.git
+git clone -b 0.6rc1 https://gitee.com/mindspore/mindformers.git
 ```
 
 - 数据集预处理
