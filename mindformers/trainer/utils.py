@@ -52,9 +52,6 @@ class LRType(BaseEnum):
     """
     Stores the acceptable string identifiers for learning rate schedule.
     """
-    # supported item for test, will be delete in the future.
-    WARMUPCOSINEV1 = "WarmUpCosineDecayV1"
-
     # will be support item for future.
     LINEAR = "linear"
     COSINE = "cosine"
@@ -197,49 +194,6 @@ def check_optimizer_and_lr_type(new_config, old_config):
                     "Please make sure to input the corresponding parameter values manually.",
                     lr_type)
                 old_config.lr_schedule = None
-
-
-def check_lr_config(new_config, old_config):
-    """Check lr schedule config."""
-    lr_type = new_config.lr_schedule.type
-    if old_config.lr_schedule is not None and lr_type is not None:
-        default_lr_type = old_config.lr_schedule.type
-        if lr_type != default_lr_type:
-            logger.warning(
-                "lr schedule type is changed to %s."
-                "The default parameters will be cleared."
-                "Please make sure to input the corresponding parameter values manually.",
-                lr_type)
-            old_config.lr_schedule = None
-
-
-def _check_lr_config(config, device_num=1, batch_size=128, arch="SwinForImageClassification"):
-    if arch in ('SwinForMaskedImageModeling', 'SwinForImageClassification'):
-        config.base_lr = (config.base_lr * device_num * batch_size) / 512
-        config.min_lr = (config.min_lr * device_num * batch_size) / 512
-        config.warmup_lr = (config.warmup_lr * device_num * batch_size) / 512
-    if arch in ('ViTMAEForPreTraining', 'ViTForImageClassification'):
-        config.base_lr = (config.base_lr * device_num * batch_size) / 256
-
-
-def check_image_lr_config(config):
-    """config lr"""
-    lr_config = config.lr_schedule
-    device_num = config.device_num
-    batch_size = config.runner_config.batch_size
-    _check_lr_config(lr_config, device_num=device_num, batch_size=batch_size, arch=config.model.arch.type)
-    total_epochs = config.runner_config.epochs
-    steps_per_epoch = config.data_size
-    if config.runner_config.sink_size != -1:
-        total_steps = total_epochs * config.runner_config.sink_size
-    else:
-        total_steps = total_epochs * steps_per_epoch
-    lr_config.warmup_steps = int(lr_config.warmup_epochs * steps_per_epoch)
-    if config.lr_schedule.type == 'WarmUpCosineDecayV1':
-        lr_config.decay_steps = total_steps - lr_config.warmup_steps
-    elif config.lr_schedule.type == 'WarmUpCosineDecayV2':
-        lr_config.total_steps = total_steps
-    del lr_config.warmup_epochs
 
 
 def check_wrapper_config(new_config, old_config):
