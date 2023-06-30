@@ -84,7 +84,7 @@ class CausalLanguageModelDataset(BaseDataset):
         >>> config.train_dataset.data_loader.dataset_dir = "The required task dataset path"
             Note:
                 The detailed data setting could refer to
-                https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/gpt2.md
+                https://gitee.com/mindspore/mindformers/blob/0.6rc1/docs/model_cards/gpt2.md
         >>> check_dataset_config(config)
         >>> # 1) use config dict to build dataset
         >>> dataset_from_config = build_dataset(config.train_dataset_task)

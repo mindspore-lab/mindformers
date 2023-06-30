@@ -6,7 +6,7 @@ GPT-2由OpenAI于2019年发布。GPT-2模型是继承于GPT模型，GPT-2是一�
 
 [论文](https://arxiv.org/abs/1810.04805)J Devlin，et al., Pre-training of Deep Bidirectional Transformers for Language Understanding, 2019
 
-GPT2套件代码更多细节请参考[文档](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/gpt2.md)。
+GPT2套件代码更多细节请参考[文档](https://gitee.com/mindspore/mindformers/blob/0.6rc1/docs/model_cards/gpt2.md)。
 
 #### GPT2 模型开发
 
@@ -22,11 +22,11 @@ GPT2模型代码路径： `mindformers/models/gpt2`
     └── gpt2_tokenizer.py
 ```
 
-- [convert_weight.py](https://gitee.com/mindspore/mindformers/blob/dev/mindformers/models/gpt2/convert_weight.py)：权重转化脚本，将pytorch权重转化为mindspore权重；
-- [gpt2.py](https://gitee.com/mindspore/mindformers/blob/dev/mindformers/models/gpt2/gpt2.py)：gpt2模型架构代码，由词嵌入层、自注意力层等组成；
-- [gpt2_config.py](https://gitee.com/mindspore/mindformers/blob/dev/mindformers/models/gpt2/gpt2_config.py)：gpt2模型结构配置，如层数、自注意头数等；
-- [gpt2_processor.py](https://gitee.com/mindspore/mindformers/blob/dev/mindformers/models/gpt2/gpt2_processor.py)：pipeline时文本切词预处理脚本；
-- [gpt2_tokenizer.py](https://gitee.com/mindspore/mindformers/blob/dev/mindformers/models/gpt2/gpt2_tokenizer.py)：gpt2切词脚本。
+- [convert_weight.py](https://gitee.com/mindspore/mindformers/blob/0.6rc1/mindformers/models/gpt2/convert_weight.py)：权重转化脚本，将pytorch权重转化为mindspore权重；
+- [gpt2.py](https://gitee.com/mindspore/mindformers/blob/0.6rc1/mindformers/models/gpt2/gpt2.py)：gpt2模型架构代码，由词嵌入层、自注意力层等组成；
+- [gpt2_config.py](https://gitee.com/mindspore/mindformers/blob/0.6rc1/mindformers/models/gpt2/gpt2_config.py)：gpt2模型结构配置，如层数、自注意头数等；
+- [gpt2_processor.py](https://gitee.com/mindspore/mindformers/blob/0.6rc1/mindformers/models/gpt2/gpt2_processor.py)：pipeline时文本切词预处理脚本；
+- [gpt2_tokenizer.py](https://gitee.com/mindspore/mindformers/blob/0.6rc1/mindformers/models/gpt2/gpt2_tokenizer.py)：gpt2切词脚本。
 
 GPT2配置文件路径: `configs/gpt2`
 
@@ -38,7 +38,7 @@ GPT2配置文件路径: `configs/gpt2`
     └── run_gpt2_52b.yaml
 ```
 
-- [run_gpt2_13b.yaml等](https://gitee.com/mindspore/mindformers/blob/dev/configs/gpt2/run_gpt2.yaml)：主配置文件，其中的配置如与以上相同，则以该文件中的配置为准。需要修改配置时，推荐采用在该文件中复写配置的方式。
+- [run_gpt2_13b.yaml等](https://gitee.com/mindspore/mindformers/blob/0.6rc1/configs/gpt2/run_gpt2.yaml)：主配置文件，其中的配置如与以上相同，则以该文件中的配置为准。需要修改配置时，推荐采用在该文件中复写配置的方式。
 
 ```text
 # 关键参数说明，以4机13B参数模型为例
