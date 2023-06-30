@@ -2,9 +2,9 @@
 
 ## 配套版本
 
-| 版本对应关系 | MindFormers | MindPet | MindSpore |  Python   |        芯片        |
-| :----------: | :---------: | :-----: | :-------: | :-------: | :----------------: |
-|    版本号    |     dev     |  1.0.0  | 2.0/1.10  | 3.7.5/3.9 | Ascend910A NPU/CPU |
+| 版本对应关系 | MindFormers | MindPet | MindSpore |   Python    |        芯片        |
+| :----------: | :---------: | :-----: | :-------: | :---------: | :----------------: |
+|    版本号    |     dev     |  1.0.0  | 2.0/1.10  | 3.7.5/3.9.0 | Ascend910A NPU/CPU |
 
 ## 支持镜像
 
@@ -84,13 +84,13 @@ docker pull swr.cn-central-221.ovaijisuan.com/mindformers/mindformers_dev_mindsp
 
 **核心关键模型能力一览表：**
 
-| 关键模型 |             并行模式             | 数据并行 | 优化器并行 | 模型并行 | 流水并行 | 多副本并行 | 预训练 |        微调        |      评估      |     推理 | 是否上库 |
-| :------: | :------------------------------: | :------: | :--------: | :------: | :------: | :--------: | ------ | :----------------: | :------------: | -------: | :------: |
-|   GPT    | data_parallel\semi_auto_parallel |    是    |     是     |    是    |    是    |     是     | 是     |      全参微调      |    PPL评估     | 单卡推理 |    是    |
-|  PanGu   | data_parallel\semi_auto_parallel |    是    |     是     |    是    |    是    |     是     | 是     |      全参微调      |    PPL评估     | 单卡推理 |    是    |
-|  Bloom   | data_parallel\semi_auto_parallel |    是    |     是     |    是    |    是    |     是     | 是     |      全参微调      |     不支持     | 单卡推理 |    是    |
-|  LLaMa   | data_parallel\semi_auto_parallel |    是    |     是     |    是    |    是    |     是     | 是     | 全参微调，Lora微调 |    PPL评估     | 单卡推理 |    是    |
-|   GLM    | data_parallel\semi_auto_parallel |    是    |     是     |    是    |    是    |     是     | 是     | 全参微调，Lora微调 | Blue/Rouge评估 | 单卡推理 |    是    |
+| 关键模型 |             并行模式             | 数据并行 | 优化器并行 | 模型并行 | 流水并行 | 多副本并行 | 预训练 |        微调        |      评估      | 推理 | 是否上库 |
+| :------: | :------------------------------: | :------: | :--------: | :------: | :------: | :--------: | ------ | :----------------: | :------------: | ---: | :------: |
+|   GPT    | data_parallel\semi_auto_parallel |    是    |     是     |    是    |    是    |     是     | 是     |      全参微调      |    PPL评估     | 推理 |    是    |
+|  PanGu   | data_parallel\semi_auto_parallel |    是    |     是     |    是    |    是    |     是     | 是     |      全参微调      |    PPL评估     | 推理 |    是    |
+|  Bloom   | data_parallel\semi_auto_parallel |    是    |     是     |    是    |    是    |     是     | 是     |      全参微调      |     不支持     | 推理 |    是    |
+|  LLaMa   | data_parallel\semi_auto_parallel |    是    |     是     |    是    |    是    |     是     | 是     | 全参微调，Lora微调 |    PPL评估     | 推理 |    是    |
+|   GLM    | data_parallel\semi_auto_parallel |    是    |     是     |    是    |    是    |     是     | 是     | 全参微调，Lora微调 | Blue/Rouge评估 | 推理 |    是    |
 
 **其余库上模型分布式支持情况一览表：**
 
@@ -267,7 +267,7 @@ MindFormers大模型套件面向任务设计Trainer接口，旨在让用户可�
 
 mindspore相关环境的初始化，MindFormers中提供了init_context标准接口帮助用户完成单卡或多卡并行环境的初始化：
 
-[init_context]()  [ContextConfig]() [ParallelContextConfig]()
+[init_context](https://gitee.com/mindspore/mindformers/blob/dev/mindformers/core/context/build_context.py#L53)  [ContextConfig](https://gitee.com/mindspore/mindformers/blob/dev/mindformers/trainer/config_args.py#L26) [ParallelContextConfig](https://gitee.com/mindspore/mindformers/blob/dev/mindformers/trainer/config_args.py#L26)
 
 单卡初始化：
 
@@ -313,7 +313,7 @@ def context_init():
 
 ### TrainingArguments&&Trainer
 
-MindFormers套件对用户提供了`TrainingArguments`类，用于自定义大模型训练过程中的各类参数，支持参数详见：[TrainingArguments]()
+MindFormers套件对用户提供了`TrainingArguments`类，用于自定义大模型训练过程中的各类参数，支持参数详见：[TrainingArguments](https://gitee.com/mindspore/mindformers/blob/dev/mindformers/trainer/training_args.py)
 
 同时，MindFormers也提供了`Trainer`高阶接口，用于大模型任务的开发、训练、微调、评估、推理等流程；
 
@@ -329,7 +329,7 @@ training_args = TrainingArguments(num_train_epochs=3, batch_size=2, learning_rat
                                   sink_mode=True)
 ```
 
-使用Trainer接口创建内部预置任务：数据集按照官方教程准备[GPT预训练数据集准备]()，自定义训练参数
+使用Trainer接口创建内部预置任务：数据集按照官方教程准备[GPT预训练数据集准备](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/gpt2.md)，自定义训练参数
 
 ```python
 from mindformers import Trainer, TrainingArguments
@@ -379,9 +379,9 @@ text_generation = Trainer(task='text_generation', model=pangu_model, args=traini
 ### 并行&&重计算配置
 
 MindFormers的Trainer接口提供了并行的配置接口`set_parallel_config`和重计算配置接口`set_recompute_config`，其中`set_parallel_config`接口仅在**半自动并行**
-或**全自动并行模式**下生效，同时需要模型本身已支持或已配置[并行策略]();
+或**全自动并行模式**下生效，同时需要模型本身已支持或已配置[并行策略](https://www.mindspore.cn/tutorials/experts/zh-CN/r2.0/parallel/introduction.html);
 
-[set_parallel_config]()  [set_recompute_config]()
+[set_parallel_config](https://gitee.com/mindspore/mindformers/blob/dev/mindformers/trainer/trainer.py#L690)  [set_recompute_config](https://gitee.com/mindspore/mindformers/blob/dev/mindformers/trainer/trainer.py#L731)
 
 使用Trainer高阶接口，自定义并行和重计算配置：
 
@@ -429,7 +429,7 @@ text_generation.set_recompute_config(recompute=True)
 ### 训练&&微调&&评估&&推理
 
 MindFormers套件的Trainer高阶接口提供了`train`、`finetune`、`evaluate`、`predict`
-4个关键属性函数，帮助用户快速拉起任务的训练、微调、评估、推理流程：[Trainer.train]() [Trainer.finetune]() [Trainer.evaluate]() [Trainer.predict]()
+4个关键属性函数，帮助用户快速拉起任务的训练、微调、评估、推理流程：[Trainer.train](https://gitee.com/mindspore/mindformers/blob/dev/mindformers/trainer/trainer.py#L334) [Trainer.finetune](https://gitee.com/mindspore/mindformers/blob/dev/mindformers/trainer/trainer.py#L419) [Trainer.evaluate](https://gitee.com/mindspore/mindformers/blob/dev/mindformers/trainer/trainer.py#L516) [Trainer.predict](https://gitee.com/mindspore/mindformers/blob/dev/mindformers/trainer/trainer.py#L583)
 
 使用`Trainer.train` `Trainer.finetune` `Trainer.evaluate` `Trainer.predict` 拉起任务的训练、微调、评估、推理流程，以下为使用`Trainer`
 高阶接口进行全流程开发的使用样例（多卡分布式并行），命名为`task.py`：
@@ -488,8 +488,6 @@ def main(use_parallel=False,
     elif run_mode == 'eval':
         task.evaluate()
     elif run_mode == 'predict':
-        # 推理，仅支持单卡推理
-        assert use_parallel == False, "only support predict under stand_alone mode."
         result = task.predict(input_data=predict_data)
         print(result)
 
@@ -713,5 +711,269 @@ python task.py --task text_generation --model_type gpt2 --predict_data 'hello!' 
       # 分布式微调
       bash run_distribute_{single/multi}_node.sh "python task.py --task text_generation --model_type gpt2 --train_dataset ./train --run_mode finetune --pet_method lora --use_parallel True --data_parallel 1 --model_parallel 2 --pipeline_parallel 2 --micro_size 2" hccl_4p_0123_192.168.89.35.json [0,4] 4
 
-      # 分布式推理，暂不支持, 630支持特性
+      # 分布式推理（不支持流水并行）
+      bash run_distribute_{single/multi}_node.sh "python task.py --task text_generation --model_type gpt2 --predict_data 'hello!' ./train --run_mode predict --pet_method lora --use_parallel True --data_parallel 1 --model_parallel 2" hccl_4p_0123_192.168.89.35.json [0,4] 4
       ```
+
+## 特性
+
+### MindPet微调
+
+MindPet（Pet：Parameter-Efficient Tuning）是属于Mindspore领域的微调算法套件。随着计算算力不断增加，大模型无限的潜力也被挖掘出来。但随之在应用和训练上带来了巨大的花销，导致商业落地困难。因此，出现一种新的参数高效（parameter-efficient）算法，与标准的全参数微调相比，这些算法仅需要微调小部分参数，可以大大降低计算和存储成本，同时可媲美全参微调的性能。
+
+[特性文档](https://gitee.com/mindspore/mindformers/tree/dev/docs/pet_tuners)
+
+#### 微调支持列表
+
+|                             模型                             | 微调算法 |        运行模式         |
+| :----------------------------------------------------------: | :------: | :---------------------: |
+| [GPT](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/gpt2.md) |   Lora   | finetune、eval、predict |
+| [LLama](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/llama.md) |   Lora   | finetune、eval、predict |
+| [GLM](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/glm.md) |   Lora   | finetune、eval、predict |
+
+#### 使用入门
+
+[参考Trainer章节进行使用](###训练&&微调&&评估&&推理)
+
+### Text Generator
+
+Mindformers大模型套件提供了text generator方法，旨在让用户能够便捷地使用生成类语言模型进行文本生成任务，包括但不限于解答问题、填充不完整文本或翻译源语言到目标语言等。
+
+当前该方法支持Minformers大模型套件中6个生成类语言模型
+
+|    model    |                         模型文档链接                         | 增量推理 | 流式推理 |
+| :---------: | :----------------------------------------------------------: | :------: | :------: |
+|    bloom    | [link](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/bloom.md) |    ×     |    √     |
+|     GLM     | [link](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/glm.md) |    √     |    √     |
+|     GPT     | [link](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/gpt2.md) |    ×     |    √     |
+|    llama    | [link](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/llama.md) |    √     |    √     |
+| pangu-alpha | [link](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/pangualpha.md) |    ×     |    √     |
+|     T5      | [link](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/t5.md) |    ×     |    √     |
+
+#### 增量推理
+
+Mindformers大模型套件的`text generator`方法支持增量推理逻辑，该逻辑旨在加快用户在调用`text generator`方法进行文本生成时的文本生成速度。
+
+通过实例化的模型调用：
+
+```python
+from mindformers import GLMChatModel, ChatGLMTokenizer, GLMConfig
+# use_past设置成True时为增量推理，反之为自回归推理
+glm_config = GLMConfig(use_past=True)
+glm_model = GLMChatModel(glm_config)
+tokenizer = ChatGLMTokenizer.from_pretrained("glm_6b")
+words = "中国的首都是哪个城市？"
+words = tokenizer(words)['input_ids']
+output = glm_model.generate(words, max_length=20, top_k=1)
+output = tokenizer.decode(output[0], skip_special_tokens=True)
+print(output)
+```
+
+#### 流式推理
+
+Mindformers大模型套件提供Streamer类，旨在用户在调用text generator方法进行文本生成时能够实时看到生成的每一个词，而不必等待所有结果均生成结束。
+
+实例化streamer并向text generator方法传入该实例：
+
+```python
+from mindformers import GPT2LMHeadModel, GPT2Tokenizer, TextStreamer
+
+tok = GPT2Tokenizer.from_pretrained("gpt2")
+model = GPT2LMHeadModel.from_pretrained("gpt2")
+inputs = tok(["An increasing sequence: one,"], return_tensors=None, add_special_tokens=False)
+
+streamer = TextStreamer(tok)
+
+_ = model.generate(inputs["input_ids"], streamer=streamer, max_length=20, top_k=1)
+# 'An increasing sequence: one, two, three, four, five, six, seven, eight, nine, ten, eleven,'
+```
+
+#### 分布式推理
+
+[分布式参考用例1](###训练&&微调&&评估&&推理)
+
+[分布式参考用例2](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/bloom.md#a1-%E6%A8%A1%E5%9E%8B%E5%B9%B6%E8%A1%8C%E6%8E%A8%E7%90%86%E4%BB%A51%E6%9C%BA8%E5%8D%A1%E6%8E%A8%E7%90%86bloom_71b%E4%B8%BA%E4%BE%8B)
+
+### 边训练边评估
+
+大模型的训练效果需要评测任务来作为衡量标准，而当前大模型的训练耗时长，等到训练整体结束后再进行评测任务的时间与算力成本过高
+
+本功能提供了一套在训练过程中进行评估的流程方法，以动态观察模型的评估结果，具有以下特性：
+
+1. 能够在训练过程中执行评估流程，并在日志中打印相关的评估结果信息；
+2. 具有功能开关，根据开关状态决定是否启用边训练边评估功能；
+3. 具备调用间隔控制项，根据该控制项决定调用边训练边评估功能的时间间隔；
+4. 支持多种模型，只要模型能够调用Model.eval()完成评估，都可以复用该项功能；无法通过Model.eval()完成评估的模型则需要额外编码适配，暂不支持；
+
+#### 支持列表
+
+| 模型        |       评估指标        | 可用Model.eval完成评估 | 是否支持 | 数据并行模式 | 半自动并行模式  |
+| ----------- | :-------------------: | :--------------------: | -------- | ------------ | :-------------: |
+| bert        |           -           |           -            | -        | -            |        -        |
+| bloom       |           -           |           -            | -        | -            |        -        |
+| clip        |           -           |           -            | -        | -            |        -        |
+| filip       |           -           |           -            | -        | -            |        -        |
+| glm         |      Rouge，Bleu      |           否           | 否       | ×            |        ×        |
+| gpt2        |          PPL          |           是           | 是       | √            |        √        |
+| llama       |          PPL          |           是           | 是       | √            | √（7b 至少8卡） |
+| MAE         |         暂缺          |           -            | -        | -            |        -        |
+| pangu alpha |          PPL          |           是           | 是       | √            |        √        |
+| qa-bert     | f1, precision, recall |           是           | 是       | √            |        ×        |
+| swin        |       Accuracy        |           是           | 是       | √            |        ×        |
+| t5          |         暂缺          |           -            | -        | -            |        -        |
+| tokcls-bert | f1, precision, recall |           是           | 是       | √            |        ×        |
+| txtcls-bert |       Accuracy        |           是           | 是       | √            |        ×        |
+| vit         |       Accuracy        |           是           | 是       | √            |        ×        |
+
+> 说明：边训练边评估功能需模型已支持评估，并且该评估指标可以通过Model.eval()完成
+
+#### 使用用例
+
+- run_mindformer启用边训练边评估
+
+描述：通过run_mindformers脚本参数，启用边训练边评估功能
+测试方式：`--do_eval`开关启用边训练边评估功能，`--eval_dataset_dir`指定评估数据集
+
+```shell
+python run_mindformer.py \
+--config configs/gpt2/run_gpt2.yaml \
+--run_mode train \
+--train_dataset_dir /your_path/wikitext-2-train-mindrecord \
+--eval_dataset_dir /your_path/wikitext-2-eval-mindrecord \
+--do_eval True
+```
+
+- trainer启用边训练边评估
+
+描述：通过Trainer高阶接口入参，启用边训练边评估功能
+测试方式：执行以下python脚本，其中数据集路径替换为实际路径
+
+```python
+def test_trainer_do_eval():
+    from mindformers.trainer import Trainer
+    # 初始化预训练任务
+    trainer = Trainer(task='text_generation', model='gpt2',
+                      train_dataset="/your_path/wikitext-2-train-mindrecord",
+                      eval_dataset="/your_path/wikitext-2-eval-mindrecord")
+    # 开启训练，并打开do_eval开关
+    trainer.train(do_eval=True)
+
+if __name__ == "__main__":
+    test_trainer_do_eval()
+```
+
+- 配置评估间隔时间
+
+描述：更改评估间隔时间，以控制执行评估的频率
+测试方式：更改配置项，将 `configs/gpt2/run_gpt2.yaml` 文件中的 `eval_epoch_interval` 项修改为其他数值
+
+执行`run_mindformer.py`启用边训练边评估中的启动脚本
+
+```yaml
+do_eval: False
+eval_step_interval: -1    # num of step intervals between each eval, -1 means no step end eval.
+# 修改此项eval_epoch_interval数值：
+eval_epoch_interval: 50   # num of epoch intervals between each eval, 1 means eval on every epoch end.
+```
+
+### 权重离线切分转换
+
+该特性适用于：1.  权重过大，单卡无法加载；2. 权重为切分权重且与目标网络和运行卡数不匹配；
+
+此时可利用本特性进行权重的切分和转换，以适配目标网络运行；
+
+使用场景：1. 分布式恢复训练（恢复时卡数或者并行策略发生改变）；2. 评估/推理场景（权重需要进一步切分或者合并）
+
+#### 物理机
+
+##### 方案1：源码执行
+
+- step1（默认已有待切分权重相对应的策略文件，若没有，也可参考以下方法生成）
+
+在`config`中配置`only_save_strategy: True`，正常启动[分布式训练/评估/推理](https://gitee.com/mindspore/mindformers/tree/dev#%E6%96%B9%E5%BC%8F%E4%B8%80%E4%BD%BF%E7%94%A8%E5%B7%B2%E6%9C%89%E8%84%9A%E6%9C%AC%E5%90%AF%E5%8A%A8)，生成目标卡数的分布式策略文件后将会退出。生成的分布式策略文件保存在`output/strategy`目录下。
+
+```yaml
+only_save_strategy: True
+```
+
+- step2
+
+在物理机上，运行如下脚本完成权重切分转换
+
+```shell
+python mindformers/tools/transform_ckpt.py --src_ckpt_strategy SRC_CKPT_STRATEGY --dst_ckpt_strategy DST_CKPT_STRATEGY --src_ckpt_dir SRC_CKPT_DIR --dst_ckpt_dir DST_CKPT_DIR
+# 参数说明
+# src_ckpt_strategy：待转权重的分布式策略文件路径。
+  若为None,表示待转权重为完整权重;
+  若为切分策略文件,表示原始的权重对应的策略文件;
+  若为文件夹,表示需要合并文件夹内策略文件(仅在流水并行生成的策略文件时需要),合并后的策略文件保存在`SRC_CKPT_STRATEGY/merged_ckpt_strategy.ckpt`路径下;
+# dst_ckpt_strategy：目标权重的分布式策略文件路径。即step1中生成的分布式策略文件路径。
+  若为None,表示将待转权重合并为完整权重;
+  若为切分策略文件,表示目标卡数对应的策略文件
+  若为文件夹,表示需要合并文件夹内策略文件(仅在流水并行生成的策略文件时需要),合并后的策略文件保存在`DST_CKPT_STRATEGY/merged_ckpt_strategy.ckpt`路径下;
+# src_ckpt_dir: 待转权重路径，须按照`SRC_CKPT_DIR/rank_{i}/checkpoint_{i}.ckpt`存放，比如单一权重存放格式为`SRC_CKPT_DIR/rank_0/checkpoint_0.ckpt`。
+# dst_ckpt_dir：目标权重保存路径，为自定义空文件夹路径，转换后模型以`DST_CKPT_DIR/rank_{i}/xxx.ckpt`存放。
+```
+
+- step3
+
+将`config`的配置文件中`load_checkpoint`关键字指定为转换的目标权重保存路径，若转换后仍为切分权重，传入转换后的权重文件夹路径即可；若转换后为完整权重，传入权重文件路径即可正常启动训练。
+
+```yaml
+load_checkpoint: "{转换后权重文件夹/文件路径}"
+```
+
+##### 方案2：高阶API 执行
+
+[参考Trainer API使用](###训练&&微调&&评估&&推理)
+
+使用`TrainingArguments`类打开`only_save_strategy`字段，其余步骤可参考**方案1**
+
+#### AICC
+
+基本步骤和物理机相同，需要先通过`NoteBook`或者`训练作业`来收集原始或目标网络的并行策略文件；
+
+注意：`mindformers/tools/transform_ckpt.py`转换接口仅在`MindSpore2.0`环境下使用，可以在`NoteBook`中安装`MindSpore2.0 CPU`版本，进行离线转换；
+
+- step1
+
+  在`config`或者`训练作业`中配置超参`only_save_strategy=True`，拉起训练作业，仅生成分布式策略文件。
+
+  生成的分布式策略文件保存在`remote_save_url/strategy`目录下。(`remote_save_url`表示obs存储路径)
+
+    - 方式1：config中修改only_save_strategy参数
+
+  ```yaml
+  only_save_strategy: True
+  ```
+
+    - 方式2：训练作业界面中增加`only_save_strategy`超参
+
+  ![](https://foruda.gitee.com/images/1687916968422798842/7975fa97_11500692.png)
+
+- step2
+
+ 启动`NoteBook`任务，运行如下脚本完成权重切分转换（注意在`MindSpore 2.0`版本下）
+
+```shell
+python mindformers/tools/transform_ckpt.py --src_ckpt_strategy SRC_CKPT_STRATEGY --dst_ckpt_strategy DST_CKPT_STRATEGY --src_ckpt_dir SRC_CKPT_DIR --dst_ckpt_dir DST_CKPT_DIR
+# 参数说明
+# src_ckpt_strategy：待转权重的分布式策略文件路径。
+  若为None,表示待转权重为完整权重;
+  若为切分策略文件,表示原始的权重对应的策略文件;
+  若为文件夹,表示需要合并文件夹内策略文件(仅在流水并行生成的策略文件时需要),合并后的策略文件保存在`SRC_CKPT_STRATEGY/merged_ckpt_strategy.ckpt`路径下;
+# dst_ckpt_strategy：目标权重的分布式策略文件路径。即step1中生成的分布式策略文件路径。
+  若为None,表示将待转权重合并为完整权重;
+  若为切分策略文件,表示目标卡数对应的策略文件
+  若为文件夹,表示需要合并文件夹内策略文件(仅在流水并行生成的策略文件时需要),合并后的策略文件保存在`DST_CKPT_STRATEGY/merged_ckpt_strategy.ckpt`路径下;
+# src_ckpt_dir: 待转权重路径，须按照`SRC_CKPT_DIR/rank_{i}/checkpoint_{i}.ckpt`存放，比如单一权重存放格式为`SRC_CKPT_DIR/rank_0/checkpoint_0.ckpt`。
+# dst_ckpt_dir：目标权重保存路径，为自定义空文件夹路径，转换后模型以`DST_CKPT_DIR/rank_{i}/xxx.ckpt`存放。
+```
+
+- step3
+
+将切分转换好的权重传到`OBS`（若仅在`NoteBook`上运行可不用传输到`OBS`上），将`config`的配置文件中`load_checkpoint`关键字指定为转换的目标权重保存路径，若转换后仍为切分权重，传入转换后的权重文件夹路径即可；若转换后为完整权重，传入权重文件路径即可正常启动训练。
+
+```yaml
+load_checkpoint: "{转换后权重文件夹/文件路径}"
+```

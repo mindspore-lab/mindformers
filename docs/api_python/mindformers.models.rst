@@ -6,7 +6,7 @@ mindformers.models
 mindformers.models
 -------------------
 
-.. autosummary
+.. autosummary::
     :toctree: models
     :nosignatures:
     :template: classtemplate.rst
@@ -15,6 +15,7 @@ mindformers.models
     mindformers.models.BaseImageProcessor
     mindformers.models.BaseModel
     mindformers.models.BaseProcessor
+    mindformers.models.Tokenizer
 
 mindformers.models.bert
 ------------------------
@@ -25,11 +26,13 @@ mindformers.models.bert
     :template: classtemplate.rst
 
     mindformers.models.bert.BertConfig
+    mindformers.models.bert.BertModel
     mindformers.models.bert.BertForMultipleChoice
     mindformers.models.bert.BertForPreTraining
     mindformers.models.bert.BertForQuestionAnswering
-    mindformers.models.bert.BertForTokenClassification
-    mindformers.models.bert.BertModel
+    mindformers.models.bert.BertForTokenClassificatio
+    mindformers.models.bert.BertTokenizer
+    mindformers.models.bert.BertProcessor
 
 mindformers.models.t5
 ------------------------
@@ -53,12 +56,12 @@ mindformers.models.clip
     :template: classtemplate.rst
 
     mindformers.models.clip.CLIPConfig
-    mindformers.models.clip.CLIPImageProcessor
-    mindformers.models.clip.CLIPModel
-    mindformers.models.clip.CLIPProcessor
-    mindformers.models.clip.CLIPTextConfig
-    mindformers.models.clip.CLIPTokenizer
     mindformers.models.clip.CLIPVisionConfig
+    mindformers.models.clip.CLIPTextConfig
+    mindformers.models.clip.CLIPModel
+    mindformers.models.clip.CLIPTokenizer
+    mindformers.models.clip.CLIPProcessor
+    mindformers.models.clip.CLIPImageProcessor
 
 mindformers.models.mae
 ------------------------
@@ -70,6 +73,8 @@ mindformers.models.mae
 
     mindformers.models.mae.ViTMAEConfig
     mindformers.models.mae.ViTMAEForPreTraining
+    mindformers.models.mae.ViTMAEProcessor
+    mindformers.models.mae.ViTMAEImageProcessor
 
 mindformers.models.swin
 ------------------------
@@ -80,20 +85,80 @@ mindformers.models.swin
     :template: classtemplate.rst
 
     mindformers.models.swin.SwinConfig
+    mindformers.models.swin.SwinModel
     mindformers.models.swin.SwinForImageClassification
     mindformers.models.swin.SwinImageProcessor
-    mindformers.models.swin.SwinModel
     mindformers.models.swin.SwinProcessor
 
 mindformers.models.vit
 ------------------------
 
-.. autosummary
+.. autosummary::
     :toctree: models
     :nosignatures:
     :template: classtemplate.rst
 
     mindformers.models.vit.ViTConfig
+    mindformers.models.vit.ViTModel
     mindformers.models.vit.ViTProcessor
     mindformers.models.vit.ViTImageProcessor
     mindformers.models.vit.ViTForImageClassification
+
+mindformers.models.gpt2
+------------------------
+
+.. autosummary::
+    :toctree: models
+    :nosignatures:
+    :template: classtemplate.rst
+
+    mindformers.models.gpt2.GPT2Config
+    mindformers.models.gpt2.GPT2Model
+    mindformers.models.gpt2.GPT2LMHeadModel
+    mindformers.models.gpt2.GPT2Tokenizer
+    mindformers.models.gpt2.GPT2Processor
+
+mindformers.models.glm
+------------------------
+
+.. autosummary::
+    :toctree: models
+    :nosignatures:
+    :template: classtemplate.rst
+
+    mindformers.models.glm.GLMConfig
+    mindformers.models.glm.GLMChatModel
+    mindformers.models.glm.GLMForPreTraining
+    mindformers.models.glm.GLMForPreTrainingWithLora
+    mindformers.models.glm.GLMChatModelWithLora
+    mindformers.models.glm.ChatGLMTokenizer
+    mindformers.models.glm.GLMProcessor
+
+mindformers.models.llama
+------------------------
+
+.. autosummary::
+    :toctree: models
+    :nosignatures:
+    :template: classtemplate.rst
+
+    mindformers.models.llama.LlamaConfig
+    mindformers.models.llama.LlamaModel
+    mindformers.models.llama.LlamaForCausalLM
+    mindformers.models.llama.LlamaForCausalLMWithLora
+    mindformers.models.llama.LlamaTokenizer
+    mindformers.models.llama.LlamaProcessor
+
+mindformers.models.bloom
+------------------------
+
+.. autosummary::
+    :toctree: models
+    :nosignatures:
+    :template: classtemplate.rst
+
+    mindformers.models.bloom.BloomConfig
+    mindformers.models.bloom.BloomModel
+    mindformers.models.bloom.BloomLMHeadModel
+    mindformers.models.bloom.BloomTokenizer
+    mindformers.models.bloom.BloomProcessor

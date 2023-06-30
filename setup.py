@@ -21,8 +21,6 @@ import os
 import shutil
 import stat
 import platform
-import shlex
-import subprocess
 from importlib import import_module
 from setuptools import setup, find_packages
 from setuptools.command.egg_info import egg_info
@@ -63,19 +61,6 @@ def get_description():
     """
     os_info = get_platform()
     cpu_info = platform.machine().strip()
-
-    cmd = "git log --format='[sha1]:%h, [branch]:%d' -1"
-    process = subprocess.Popen(
-        shlex.split(cmd),
-        shell=False,
-        stdin=subprocess.PIPE,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE
-    )
-    stdout, _ = process.communicate()
-    if not process.returncode:
-        git_version = stdout.decode().strip()
-        return 'mindformers platform: %s, cpu: %s, git version: %s' % (os_info, cpu_info, git_version)
 
     return 'mindformers platform: %s, cpu: %s' % (os_info, cpu_info)
 
@@ -146,7 +131,7 @@ if __name__ == '__main__':
 
     setup(
         name='mindformers',
-        version='1.0',
+        version='1.0.0dev202307',
         author='The MindSpore Authors',
         author_email='contact@mindspore.cn',
         url='https://www.mindspore.cn',

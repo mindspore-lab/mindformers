@@ -6,7 +6,7 @@ GPT-2由OpenAI于2019年发布。GPT-2模型是继承于GPT模型，GPT-2是一�
 
 [论文](https://arxiv.org/abs/1810.04805)J Devlin，et al., Pre-training of Deep Bidirectional Transformers for Language Understanding, 2019
 
-GPT2套件代码更多细节请参考[文档](https://gitee.com/mindspore/mindformers/blob/r0.3/docs/model_cards/gpt2.md)。
+GPT2套件代码更多细节请参考[文档](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/gpt2.md)。
 
 #### GPT2 模型开发
 
@@ -22,36 +22,23 @@ GPT2模型代码路径： `mindformers/models/gpt2`
     └── gpt2_tokenizer.py
 ```
 
-- [convert_weight.py](https://gitee.com/mindspore/mindformers/blob/r0.3/mindformers/models/gpt2/convert_weight.py)：权重转化脚本，将pytorch权重转化为mindspore权重；
-- [gpt2.py](https://gitee.com/mindspore/mindformers/blob/r0.3/mindformers/models/gpt2/gpt2.py)：gpt2模型架构代码，由词嵌入层、自注意力层等组成；
-- [gpt2_config.py](https://gitee.com/mindspore/mindformers/blob/r0.3/mindformers/models/gpt2/gpt2_config.py)：gpt2模型结构配置，如层数、自注意头数等；
-- [gpt2_processor.py](https://gitee.com/mindspore/mindformers/blob/r0.3/mindformers/models/gpt2/gpt2_processor.py)：pipeline时文本切词预处理脚本；
-- [gpt2_tokenizer.py](https://gitee.com/mindspore/mindformers/blob/r0.3/mindformers/models/gpt2/gpt2_tokenizer.py)：gpt2切词脚本。
+- [convert_weight.py](https://gitee.com/mindspore/mindformers/blob/dev/mindformers/models/gpt2/convert_weight.py)：权重转化脚本，将pytorch权重转化为mindspore权重；
+- [gpt2.py](https://gitee.com/mindspore/mindformers/blob/dev/mindformers/models/gpt2/gpt2.py)：gpt2模型架构代码，由词嵌入层、自注意力层等组成；
+- [gpt2_config.py](https://gitee.com/mindspore/mindformers/blob/dev/mindformers/models/gpt2/gpt2_config.py)：gpt2模型结构配置，如层数、自注意头数等；
+- [gpt2_processor.py](https://gitee.com/mindspore/mindformers/blob/dev/mindformers/models/gpt2/gpt2_processor.py)：pipeline时文本切词预处理脚本；
+- [gpt2_tokenizer.py](https://gitee.com/mindspore/mindformers/blob/dev/mindformers/models/gpt2/gpt2_tokenizer.py)：gpt2切词脚本。
 
 GPT2配置文件路径: `configs/gpt2`
 
 ```bash
 # 套件提供三种不同参数量的gpt配置
 └── gpt2
-    ├── model_config
-        ├── gpt2.yaml
-        ├── gpt2_13b.yaml
-        ├── gpt2_52b.yaml
-    ├── task_config
-        ├── context.yaml
-        ├── gpt2_dataset.yaml
-        ├── runner.yaml
     ├── run_gpt2.yaml
     ├── run_gpt2_13b.yaml
     └── run_gpt2_52b.yaml
 ```
 
-- [model_config](https://gitee.com/mindspore/mindformers/tree/r0.3/configs/gpt2/model_config)：模型网络参数配置，其中的参数可以覆盖`mindformers/models/gpt2/gpt2_config.py`的配置；
-- [task_config](https://gitee.com/mindspore/mindformers/tree/r0.3/configs/gpt2/task_config)
-    - [context.yaml](https://gitee.com/mindspore/mindformers/blob/r0.3/configs/gpt2/task_config/context.yaml)：运行环境、分布式并行等配置；
-    - [gpt2_dataset.yaml](https://gitee.com/mindspore/mindformers/blob/r0.3/configs/gpt2/task_config/gpt2_dataset.yaml)：数据集加载配置；
-    - [runner.yaml](https://gitee.com/mindspore/mindformers/blob/r0.3/configs/gpt2/task_config/runner.yaml)：学习率、优化器等配置；
-- [run_gpt2_13b.yaml等](https://gitee.com/mindspore/mindformers/blob/r0.3/configs/gpt2/run_gpt2.yaml)：主配置文件，其中的配置如与以上相同，则以该文件中的配置为准。需要修改配置时，推荐采用在该文件中复写配置的方式。
+- [run_gpt2_13b.yaml等](https://gitee.com/mindspore/mindformers/blob/dev/configs/gpt2/run_gpt2.yaml)：主配置文件，其中的配置如与以上相同，则以该文件中的配置为准。需要修改配置时，推荐采用在该文件中复写配置的方式。
 
 ```text
 # 关键参数说明，以4机13B参数模型为例
@@ -178,26 +165,3 @@ bash run_distribute.sh {RANK_TABLE_FILE path of the third device} ../configs/gpt
 # 第四台机器
 bash run_distribute.sh {RANK_TABLE_FILE path of the forth device} ../configs/gpt2/run_gpt2_13b.yaml [24,32] train 32
 ```
-
-##### AICC计算中心
-
-AICC，人工智能计算中心，提供[ModelArts](https://support.huaweicloud.com/bestpractice-modelarts/modelarts_10_0080.html)服务和Ascend 910算力。
-
-- 进入`存储`标题下的`对象存储服务`，将训练代码和数据上传，以下提及路径均指`对象存储服务`中的路径；
-  ![img/img.png](img/img.png)
-  ![img/img_2.png](img/img_2.png)
-- 进入`EI企业智能`标题下的`ModelArts`，打开`训练管理`标题下的`训练作业New`；
-  ![img/img_1.png](img/img_1.png)
-  ![img/img_3.png](img/img_3.png)
-- 点击`创建训练作业`，根据提示填写相关实验信息：
-    - `代码目录`填写代码文件夹的路径
-    - `启动文件`填写`代码目录`中的`run_mindformer.py`路径
-    ![img/img_4.png](img/img_4.png)
-    - `训练输入`填写`run_mindformer.py`中的入参`dataset`，该操作保证mindrecord数据和对应db文件能够同时拉取到缓存中
-    ![img/img_5.png](img/img_5.png)
-    ![img/img_6.png](img/img_6.png)
-    - `超参`填写`run_mindformer.py`中的入参，如和默认值相同，可不填写。其中，`dataset_id`是数据集名称
-    ![img/img_7.png](img/img_7.png)
-    - `环境变量`填写模型训练所需要设置的环境变量
-    ![img/img_8.png](img/img_8.png)
-    - `启动方式`下的`预置框架`中可以选择用于自己的镜像，前提是用户已将镜像上传到`对象存储服务`，并通过`ModelArts`->`镜像管理`->`注册镜像`将镜像注册

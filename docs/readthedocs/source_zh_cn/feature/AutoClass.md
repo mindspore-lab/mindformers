@@ -15,7 +15,7 @@ MindFormers大模型套件提供了AutoClass类，包含AutoConfig、AutoModel�
 | AutoProcessor |                 √                 |               ×               |
 | AutoTokenizer |                 √                 |               ×               |
 
-* AutoClass接口代码：[AutoClass](https://gitee.com/mindspore/mindformers/blob/r0.3/mindformers/auto_class.py)
+* AutoClass接口代码：[AutoClass](https://gitee.com/mindspore/mindformers/blob/dev/mindformers/auto_class.py)
 * AutoConfig 使用样例：利用`from_pretrained`属性完成模型配置的实例化
 
 ```python
