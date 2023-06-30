@@ -38,7 +38,7 @@ Bloom (BigScience Large Open-science Open-access Multilingual) 是一个开源�
 
 - 硬件：Ascend 910A
 - MindSpore：2.0.0， 1.10.0
-- MindFormers版本：dev
+- MindFormers版本：0.6rc1
 
 ---
 ## 2. 前期准备

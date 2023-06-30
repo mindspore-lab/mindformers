@@ -34,7 +34,7 @@ ChatGLM-6B 是一个开源的、支持中英双语的对话语言模型，基于
 
 - 硬件：Ascend 910A
 - MindSpore：2.0.0rc1 / 1.10.1
-- MindFormers版本：dev
+- MindFormers版本：0.6rc1
 
 推理可在单机单卡上完成部署
 

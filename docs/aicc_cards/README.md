@@ -17,7 +17,7 @@ MindFormers套件当前具备AICC适配的特性，用户在ModelArts平台启�
 
 ### 模型准备
 
-本案例使用MindFormers套件内的GPT2模型作为教程案例，请参照[GPT2 model card](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/gpt2.md)进行模型代码和训练数据集的准备
+本案例使用MindFormers套件内的GPT2模型作为教程案例，请参照[GPT2 model card](https://gitee.com/mindspore/mindformers/blob/0.6rc1/docs/model_cards/gpt2.md)进行模型代码和训练数据集的准备
 
 - 模型代码
 

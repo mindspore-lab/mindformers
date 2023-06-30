@@ -11,9 +11,9 @@
 |    model    |                                           链接                                            |
 |:-----------:|:---------------------------------------------------------------------------------------:|
 |    bloom    |                                           --                                            |
-|     GLM     |    [link](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/glm.md)     |
-|     GPT     |    [link](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/gpt2.md)    |
-|    llama    |   [link](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/llama.md)    |
-| pangu-alpha | [link](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/pangualpha.md) |
-|     T5      |     [link](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/t5.md)     |
+|     GLM     |    [link](https://gitee.com/mindspore/mindformers/blob/0.6rc1/docs/model_cards/glm.md)     |
+|     GPT     |    [link](https://gitee.com/mindspore/mindformers/blob/0.6rc1/docs/model_cards/gpt2.md)    |
+|    llama    |   [link](https://gitee.com/mindspore/mindformers/blob/0.6rc1/docs/model_cards/llama.md)    |
+| pangu-alpha | [link](https://gitee.com/mindspore/mindformers/blob/0.6rc1/docs/model_cards/pangualpha.md) |
+|     T5      |     [link](https://gitee.com/mindspore/mindformers/blob/0.6rc1/docs/model_cards/t5.md)     |
 

@@ -15,14 +15,14 @@ MindFormers大模型套件为用户提供了pipeline高阶API，支持用户便�
 
 |                             任务                             | 支持模型                                                     | 支持推理数据     |
 | :----------------------------------------------------------: | ------------------------------------------------------------ | ---------------- |
-| [text_generation](https://gitee.com/mindspore/mindformers/blob/dev/docs/task_cards/text_generation.md) | gpt2<br/>gpt2_13b<br/>gpt2_52b<br/>pangualpha_2_6_b<br/>pangualpha_13b<br/>glm_6b<br/>glm_6b_lora<br/>llama_7b<br/>llama_13b<br/>llama_65b<br/>llama_7b_lora<br/>bloom_560m<br/>bloom_7.1b<br/>bloom_65b<br/>bloom_176b | 文本数据         |
-| [text_classification](https://gitee.com/mindspore/mindformers/blob/dev/docs/task_cards/text_classification.md) | txtcls_bert_base_uncased<br/>txtcls_bert_base_uncased_mnli   | 文本数据         |
-| [token_classification](https://gitee.com/mindspore/mindformers/blob/dev/docs/task_cards/token_classification.md) | tokcls_bert_base_chinese<br/>tokcls_bert_base_chinese_cluener | 文本数据         |
-| [question_answering](https://gitee.com/mindspore/mindformers/blob/dev/docs/task_cards/question_answering.md) | qa_bert_base_uncased<br/>qa_bert_base_chinese_uncased        | 文本数据         |
+| [text_generation](https://gitee.com/mindspore/mindformers/blob/0.6rc1/docs/task_cards/text_generation.md) | gpt2<br/>gpt2_13b<br/>gpt2_52b<br/>pangualpha_2_6_b<br/>pangualpha_13b<br/>glm_6b<br/>glm_6b_lora<br/>llama_7b<br/>llama_13b<br/>llama_65b<br/>llama_7b_lora<br/>bloom_560m<br/>bloom_7.1b<br/>bloom_65b<br/>bloom_176b | 文本数据         |
+| [text_classification](https://gitee.com/mindspore/mindformers/blob/0.6rc1/docs/task_cards/text_classification.md) | txtcls_bert_base_uncased<br/>txtcls_bert_base_uncased_mnli   | 文本数据         |
+| [token_classification](https://gitee.com/mindspore/mindformers/blob/0.6rc1/docs/task_cards/token_classification.md) | tokcls_bert_base_chinese<br/>tokcls_bert_base_chinese_cluener | 文本数据         |
+| [question_answering](https://gitee.com/mindspore/mindformers/blob/0.6rc1/docs/task_cards/question_answering.md) | qa_bert_base_uncased<br/>qa_bert_base_chinese_uncased        | 文本数据         |
 |                         translation                          | t5_small                                                     | 文本数据         |
 |                    masked_image_modeling                     | mae_vit_base_p16                                             |                  |
-| [image_classification](https://gitee.com/mindspore/mindformers/blob/dev/docs/task_cards/image_classification.md) | vit_base_p16<br/>swin_base_p4w7                              | 图像数据         |
-| [zero_shot_image_classification](https://gitee.com/mindspore/mindformers/blob/dev/docs/task_cards/zero_shot_image_classification.md) | clip_vit_b_32<br/>clip_vit_b_16<br/>clip_vit_l_14<br/>clip_vit_l_14@336 | 图像和文本对数据 |
+| [image_classification](https://gitee.com/mindspore/mindformers/blob/0.6rc1/docs/task_cards/image_classification.md) | vit_base_p16<br/>swin_base_p4w7                              | 图像数据         |
+| [zero_shot_image_classification](https://gitee.com/mindspore/mindformers/blob/0.6rc1/docs/task_cards/zero_shot_image_classification.md) | clip_vit_b_32<br/>clip_vit_b_16<br/>clip_vit_l_14<br/>clip_vit_l_14@336 | 图像和文本对数据 |
 
 #### 文本生成
 
@@ -32,11 +32,11 @@ MindFormers大模型套件为用户提供了pipeline高阶API，支持用户便�
 
 **支持模型**：
 
-- [GPT2](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/gpt2.md)
-- [GLM](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/glm.md)
-- [LLama](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/llama.md)
-- [Bloom](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/bloom.md)
-- [PanGuAlpha](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/pangualpha.md)
+- [GPT2](https://gitee.com/mindspore/mindformers/blob/0.6rc1/docs/model_cards/gpt2.md)
+- [GLM](https://gitee.com/mindspore/mindformers/blob/0.6rc1/docs/model_cards/glm.md)
+- [LLama](https://gitee.com/mindspore/mindformers/blob/0.6rc1/docs/model_cards/llama.md)
+- [Bloom](https://gitee.com/mindspore/mindformers/blob/0.6rc1/docs/model_cards/bloom.md)
+- [PanGuAlpha](https://gitee.com/mindspore/mindformers/blob/0.6rc1/docs/model_cards/pangualpha.md)
 
 **使用样例：**
 
@@ -55,7 +55,7 @@ print(pipeline_result)
 
 **支持模型**：
 
-- [BertForMultipleChoice](https://gitee.com/mindspore/mindformers/blob/dev/docs/task_cards/text_classification.md)
+- [BertForMultipleChoice](https://gitee.com/mindspore/mindformers/blob/0.6rc1/docs/task_cards/text_classification.md)
 
 **使用样例：**
 
@@ -94,7 +94,7 @@ print(results)
 
 **支持模型**：
 
-- [BertForTokenClassification](https://gitee.com/mindspore/mindformers/blob/dev/docs/task_cards/token_classification.md)
+- [BertForTokenClassification](https://gitee.com/mindspore/mindformers/blob/0.6rc1/docs/task_cards/token_classification.md)
 
 **使用样例：**
 
@@ -136,7 +136,7 @@ print(results)
 
 **支持模型**：
 
-- [BertForQuestionAnswering](https://gitee.com/mindspore/mindformers/blob/dev/docs/task_cards/question_answering.md)
+- [BertForQuestionAnswering](https://gitee.com/mindspore/mindformers/blob/0.6rc1/docs/task_cards/question_answering.md)
 
 **使用样例：**
 
@@ -172,7 +172,7 @@ print(results)
 
 **支持模型**：
 
-- [T5](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/t5.md)
+- [T5](https://gitee.com/mindspore/mindformers/blob/0.6rc1/docs/model_cards/t5.md)
 
 **使用样例：**
 
@@ -192,7 +192,7 @@ print(pipeline_result)
 
 **支持模型**：
 
-- [MAE](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/mae.md)
+- [MAE](https://gitee.com/mindspore/mindformers/blob/0.6rc1/docs/model_cards/mae.md)
 
 **使用样例：**
 
@@ -214,7 +214,7 @@ pipeline_result = pipeline_task(img)
 
 **支持模型**：
 
-- [VIT](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/vit.md)
+- [VIT](https://gitee.com/mindspore/mindformers/blob/0.6rc1/docs/model_cards/vit.md)
 
 **使用样例：**
 
@@ -228,7 +228,7 @@ img = load_image("https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/X
 pipeline_result = pipeline_task(img, top_k=3)
 ```
 
-- [Swin](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/swin.md)
+- [Swin](https://gitee.com/mindspore/mindformers/blob/0.6rc1/docs/model_cards/swin.md)
 
 **使用样例：**
 
@@ -255,7 +255,7 @@ print(pipeline_result)
 
 **支持模型**：
 
-- [CLIP](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/clip.md)
+- [CLIP](https://gitee.com/mindspore/mindformers/blob/0.6rc1/docs/model_cards/clip.md)
 
 **使用样例：**
 

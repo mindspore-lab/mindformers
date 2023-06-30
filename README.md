@@ -29,17 +29,17 @@ MindSpore Transformers套件基于MindSpore内置的并行技术和组件化设�
 
 |                             模型                             |                      任务（task name）                       | 模型（model name）                                           |
 | :----------------------------------------------------------: | :----------------------------------------------------------: | :----------------------------------------------------------- |
-| [BERT](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/bert.md) | masked_language_modeling [text_classification](https://gitee.com/mindspore/mindformers/blob/dev/docs/task_cards/text_classification.md) [token_classification](https://gitee.com/mindspore/mindformers/blob/dev/docs/task_cards/token_classification.md) [question_answering](https://gitee.com/mindspore/mindformers/blob/dev/docs/task_cards/question_answering.md) | bert_base_uncased <br>txtcls_bert_base_uncased<br>txtcls_bert_base_uncased_mnli <br>tokcls_bert_base_chinese<br>tokcls_bert_base_chinese_cluener <br>qa_bert_base_uncased<br>qa_bert_base_chinese_uncased |
-| [T5](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/t5.md) |                         translation                          | t5_small                                                     |
-| [GPT2](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/gpt2.md) | [text_generation](https://gitee.com/mindspore/mindformers/blob/dev/docs/task_cards/text_generation.md) | gpt2_small <br>gpt2_13b <br>gpt2_52b                         |
-| [PanGuAlpha](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/pangualpha.md) | [text_generation](https://gitee.com/mindspore/mindformers/blob/dev/docs/task_cards/text_generation.md) | pangualpha_2_6_b<br>pangualpha_13b                           |
-| [GLM](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/glm.md) | [text_generation](https://gitee.com/mindspore/mindformers/blob/dev/docs/task_cards/text_generation.md) | glm_6b<br>glm_6b_lora                                        |
-| [LLama](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/llama.md) | [text_generation](https://gitee.com/mindspore/mindformers/blob/dev/docs/task_cards/text_generation.md) | llama_7b <br>llama_13b <br>llama_65b <br>llama_7b_lora       |
-| [Bloom](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/bloom.md) | [text_generation](https://gitee.com/mindspore/mindformers/blob/dev/docs/task_cards/text_generation.md) | bloom_560m<br>bloom_7.1b <br>bloom_65b<br>bloom_176b         |
-| [MAE](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/mae.md) |                    masked_image_modeling                     | mae_vit_base_p16                                             |
-| [VIT](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/vit.md) | [image_classification](https://gitee.com/mindspore/mindformers/blob/dev/docs/task_cards/image_classification.md) | vit_base_p16                                                 |
-| [Swin](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/swin.md) | [image_classification](https://gitee.com/mindspore/mindformers/blob/dev/docs/task_cards/image_classification.md) | swin_base_p4w7                                               |
-| [CLIP](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/clip.md) | [contrastive_language_image_pretrain](https://gitee.com/mindspore/mindformers/blob/dev/docs/task_cards/contrastive_language_image_pretrain.md), [zero_shot_image_classification](https://gitee.com/mindspore/mindformers/blob/dev/docs/task_cards/zero_shot_image_classification.md) | clip_vit_b_32<br>clip_vit_b_16 <br>clip_vit_l_14<br>clip_vit_l_14@336 |
+| [BERT](https://gitee.com/mindspore/mindformers/blob/0.6rc1/docs/model_cards/bert.md) | masked_language_modeling [text_classification](https://gitee.com/mindspore/mindformers/blob/0.6rc1/docs/task_cards/text_classification.md) [token_classification](https://gitee.com/mindspore/mindformers/blob/0.6rc1/docs/task_cards/token_classification.md) [question_answering](https://gitee.com/mindspore/mindformers/blob/0.6rc1/docs/task_cards/question_answering.md) | bert_base_uncased <br>txtcls_bert_base_uncased<br>txtcls_bert_base_uncased_mnli <br>tokcls_bert_base_chinese<br>tokcls_bert_base_chinese_cluener <br>qa_bert_base_uncased<br>qa_bert_base_chinese_uncased |
+| [T5](https://gitee.com/mindspore/mindformers/blob/0.6rc1/docs/model_cards/t5.md) |                         translation                          | t5_small                                                     |
+| [GPT2](https://gitee.com/mindspore/mindformers/blob/0.6rc1/docs/model_cards/gpt2.md) | [text_generation](https://gitee.com/mindspore/mindformers/blob/0.6rc1/docs/task_cards/text_generation.md) | gpt2_small <br>gpt2_13b <br>gpt2_52b                         |
+| [PanGuAlpha](https://gitee.com/mindspore/mindformers/blob/0.6rc1/docs/model_cards/pangualpha.md) | [text_generation](https://gitee.com/mindspore/mindformers/blob/0.6rc1/docs/task_cards/text_generation.md) | pangualpha_2_6_b<br>pangualpha_13b                           |
+| [GLM](https://gitee.com/mindspore/mindformers/blob/0.6rc1/docs/model_cards/glm.md) | [text_generation](https://gitee.com/mindspore/mindformers/blob/0.6rc1/docs/task_cards/text_generation.md) | glm_6b<br>glm_6b_lora                                        |
+| [LLama](https://gitee.com/mindspore/mindformers/blob/0.6rc1/docs/model_cards/llama.md) | [text_generation](https://gitee.com/mindspore/mindformers/blob/0.6rc1/docs/task_cards/text_generation.md) | llama_7b <br>llama_13b <br>llama_65b <br>llama_7b_lora       |
+| [Bloom](https://gitee.com/mindspore/mindformers/blob/0.6rc1/docs/model_cards/bloom.md) | [text_generation](https://gitee.com/mindspore/mindformers/blob/0.6rc1/docs/task_cards/text_generation.md) | bloom_560m<br>bloom_7.1b <br>bloom_65b<br>bloom_176b         |
+| [MAE](https://gitee.com/mindspore/mindformers/blob/0.6rc1/docs/model_cards/mae.md) |                    masked_image_modeling                     | mae_vit_base_p16                                             |
+| [VIT](https://gitee.com/mindspore/mindformers/blob/0.6rc1/docs/model_cards/vit.md) | [image_classification](https://gitee.com/mindspore/mindformers/blob/0.6rc1/docs/task_cards/image_classification.md) | vit_base_p16                                                 |
+| [Swin](https://gitee.com/mindspore/mindformers/blob/0.6rc1/docs/model_cards/swin.md) | [image_classification](https://gitee.com/mindspore/mindformers/blob/0.6rc1/docs/task_cards/image_classification.md) | swin_base_p4w7                                               |
+| [CLIP](https://gitee.com/mindspore/mindformers/blob/0.6rc1/docs/model_cards/clip.md) | [contrastive_language_image_pretrain](https://gitee.com/mindspore/mindformers/blob/0.6rc1/docs/task_cards/contrastive_language_image_pretrain.md), [zero_shot_image_classification](https://gitee.com/mindspore/mindformers/blob/0.6rc1/docs/task_cards/zero_shot_image_classification.md) | clip_vit_b_32<br>clip_vit_b_16 <br>clip_vit_l_14<br>clip_vit_l_14@336 |
 
 ## 二、mindformers安装
 
@@ -48,7 +48,7 @@ MindSpore Transformers套件基于MindSpore内置的并行技术和组件化设�
 支持源码编译安装，用户可以执行下述的命令进行包的安装
 
 ```bash
-git clone -b dev https://gitee.com/mindspore/mindformers.git
+git clone -b 0.6rc1 https://gitee.com/mindspore/mindformers.git
 cd mindformers
 bash build.sh
 ```
@@ -56,7 +56,7 @@ bash build.sh
 - 方式2：pip安装
 
 ```bash
-pip install https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/wheel_packages/dev/mindformers-1.0.0.dev202307-py3-none-any.whl --trusted-host ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com -i https://pypi.tuna.tsinghua.edu.cn/simple
+pip install https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/wheel_packages/0.6rc1/mindformers-0.6rc1-py3-none-any.whl --trusted-host ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com -i https://pypi.tuna.tsinghua.edu.cn/simple
 ```
 
 - 方式3：镜像
@@ -67,7 +67,7 @@ pip install https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFor
 
 | 版本对应关系 | MindFormers | MindPet | MindSpore |  Python   |    芯片     |
 | :----------: | :---------: | :-----: | :-------: | :-------: | :---------: |
-|    版本号    |     dev     |  1.0.0  | 2.0/1.10  | 3.7.5/3.9 | Ascend 910A |
+|    版本号    |     0.6rc1     |  1.0.0  | 2.0/1.10  | 3.7.5/3.9 | Ascend 910A |
 
 ## 四、快速使用
 
@@ -82,7 +82,7 @@ MindFormers套件对外提供两种使用和开发形式，为开发者提供灵
     - step1：git clone mindformers
 
   ```shell
-  git clone -b dev https://gitee.com/mindspore/mindformers.git
+  git clone -b 0.6rc1 https://gitee.com/mindspore/mindformers.git
   cd mindformers
   ```
 
@@ -130,7 +130,7 @@ RUN_STATUS: 为任务运行状态，支持关键字 train\finetune\eval\predict
 
     - step 1：安装mindformers
 
-  具体安装请参考[第二章](https://gitee.com/mindspore/mindformers/blob/dev/README.md#%E4%BA%8Cmindformers%E5%AE%89%E8%A3%85)
+  具体安装请参考[第二章](https://gitee.com/mindspore/mindformers/blob/0.6rc1/README.md#%E4%BA%8Cmindformers%E5%AE%89%E8%A3%85)
 
     - step2: 准备数据
 
