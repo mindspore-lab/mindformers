@@ -122,6 +122,8 @@ def check_runner_config(config, dataset):
                                "you should set the config.runner_config.sink_size to %s",
                                data_size, config.runner_config.sink_size, data_size)
             config.runner_config.epochs = int((data_size / config.runner_config.sink_size) * new_epochs)
+            config.runner_config.initial_epoch = int(config.runner_config.initial_epoch *
+                                                     config.runner_config.sink_size / data_size)
         else:
             config.runner_config.sink_size = data_size
     else:
