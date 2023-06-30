@@ -311,10 +311,6 @@ def transform_and_load_checkpoint(config, model, network, dataset, optimizer=Non
         raise SystemExit("only_save_strategy is True, "
                          "but stand_alone and data_parallel mode do not have strategy file, system exit! ")
 
-    elif config.only_save_strategy:
-        raise SystemExit("only_save_strategy is True, "
-                         "but stand_alone and data_parallel mode do not have strategy file, system exit! ")
-
     # 2. transform checkpoint if needed
 
     # 3. load checkpoint params into dict
