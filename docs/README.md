@@ -744,7 +744,7 @@ Mindformers大模型套件提供了text generator方法，旨在让用户能够�
 
 |    model    |                         模型文档链接                         | 增量推理 | 流式推理 |
 | :---------: | :----------------------------------------------------------: | :------: | :------: |
-|    bloom    | [link](https://gitee.com/mindspore/mindformers/blob/0.6rc1/docs/model_cards/bloom.md) |    ×     |    √     |
+|    bloom    | [link](https://gitee.com/mindspore/mindformers/blob/0.6rc1/docs/model_cards/bloom.md) |    √     |    √     |
 |     GLM     | [link](https://gitee.com/mindspore/mindformers/blob/0.6rc1/docs/model_cards/glm.md) |    √     |    √     |
 |     GPT     | [link](https://gitee.com/mindspore/mindformers/blob/0.6rc1/docs/model_cards/gpt2.md) |    ×     |    √     |
 |    llama    | [link](https://gitee.com/mindspore/mindformers/blob/0.6rc1/docs/model_cards/llama.md) |    √     |    √     |
