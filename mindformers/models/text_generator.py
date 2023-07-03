@@ -389,7 +389,8 @@ class GeneratorMixin:
                  pad_token_id: Optional[int] = None,
                  repetition_penalty: Optional[float] = None,
                  max_length: Optional[int] = None,
-                 streamer: Optional[BaseStreamer] = None):
+                 streamer: Optional[BaseStreamer] = None,
+                 seed: Optional[int] = None):
         """
         Generate the words according to the given the input ids.
 
@@ -413,6 +414,7 @@ class GeneratorMixin:
             max_length: The maximum length of the generated words. If set None, it follows the setting in the
                 configureation in the model. Default None.
             streamer: The streamer that generator uses.
+            seed: Random seed used in sample.
 
 
         Examples:
@@ -450,6 +452,8 @@ class GeneratorMixin:
         eos_token_id = config.eos_token_id if eos_token_id is None else eos_token_id
         pad_token_id = config.pad_token_id if pad_token_id is None else pad_token_id
         do_sample = config.do_sample if do_sample is None else do_sample
+        seed = 0 if seed is None else seed
+        np.random.seed(seed)
 
         if not do_sample:
             top_p = 1
