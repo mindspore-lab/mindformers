@@ -141,6 +141,10 @@ trainer.train() # 开启预训练
 **支持模型**：
 
 - [GPT2](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/gpt2.md)
+- [GLM](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/glm.md)
+- [LLama](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/llama.md)
+- [Bloom](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/bloom.md)
+- [PanGuAlpha](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/pangualpha.md)
 
 脚本使用命令
 
