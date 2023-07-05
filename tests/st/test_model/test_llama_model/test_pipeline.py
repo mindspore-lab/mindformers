@@ -17,20 +17,13 @@ Test module for testing the llama interface used for mindformers.
 How to run this:
 pytest tests/st/test_model/test_llama_model/test_pipeline.py
 """
-import pytest
-
 import mindspore as ms
 
-# pylint: disable=W0611
 from mindformers import pipeline
 
 ms.set_context(mode=0)
 
 
-@pytest.mark.level0
-@pytest.mark.platform_x86_ascend_training
-@pytest.mark.platform_arm_ascend_training
-@pytest.mark.env_onecard
 class TestLlamaPipelineMethod:
     """A test class for testing pipeline."""
     def setup_method(self):
@@ -43,6 +36,6 @@ class TestLlamaPipelineMethod:
         Description: Test pipeline by input model type.
         Expectation: TypeError, ValueError, RuntimeError
         """
-        # for model_type in self.test_llm_list:
-        #     task_pipeline = pipeline(task='text_generation', model=model_type, max_length=20)
-        #     task_pipeline("hello!", top_k=3)
+        for model_type in self.test_llm_list:
+            task_pipeline = pipeline(task='text_generation', model=model_type, max_length=20)
+            task_pipeline("hello!", top_k=3)

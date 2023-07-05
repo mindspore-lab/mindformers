@@ -22,9 +22,8 @@ linux:  pytest ./tests/st/test_model/test_clip_model/test_clip_model.py
 """
 import os
 import time
-import pytest
 
-import  mindspore as ms
+import mindspore as ms
 
 from mindformers import MindFormerBook, AutoConfig, AutoModel
 from mindformers.models import CLIPModel, BaseModel
@@ -33,10 +32,6 @@ from mindformers.tools import logger
 ms.set_context(mode=0)
 
 
-@pytest.mark.level0
-@pytest.mark.platform_x86_ascend_training
-@pytest.mark.platform_arm_ascend_training
-@pytest.mark.env_onecard
 class TestCLIPModelMethod:
     """A test class for testing Model classes"""
     def setup_method(self):

@@ -18,7 +18,6 @@ How to run this:
 pytest tests/st/test_model/test_llm_model/test_auto_class.py
 """
 import os
-import pytest
 
 # pylint: disable=W0611
 from mindformers import MindFormerBook, AutoModel, AutoConfig, AutoTokenizer, AutoProcessor
@@ -26,9 +25,6 @@ from mindformers import MindFormerBook, AutoModel, AutoConfig, AutoTokenizer, Au
 from mindformers.models import BaseModel, BaseConfig, BaseTokenizer, BaseProcessor
 
 
-@pytest.mark.level0
-@pytest.mark.platform_x86_cpu
-@pytest.mark.env_onecard
 class TestAutoClassMethod:
     '''A test class for testing Model classes'''
     def setup_method(self):
