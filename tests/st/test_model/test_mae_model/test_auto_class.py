@@ -32,7 +32,7 @@ class TestMaeAutoClassMethod:
     """A test class for testing Model classes"""
     def setup_method(self):
         """setup method."""
-        self.save_directory = os.path.join(MindFormerBook.get_project_path(), 'checkpoint_save')
+        self.save_directory = MindFormerBook.get_default_checkpoint_save_folder()
         self.test_list = ['mae_vit_base_p16']
 
     @pytest.mark.run(order=1)
