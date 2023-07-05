@@ -18,23 +18,15 @@ Test Module for testing Tokenizer class
 How to run this:
 linux:  pytest ./tests/st/test_model/test_t5_model/test_t5_tokenizer.py
 """
-
-import pytest
-
 from mindformers import T5Tokenizer, AutoTokenizer
 
 
-@pytest.mark.level0
-@pytest.mark.platform_x86_ascend_training
-@pytest.mark.platform_arm_ascend_training
-@pytest.mark.env_onecard
 class TestT5TokenizerMethod:
     """A test class for testing the BertTokenizer"""
     def setup_method(self):
         self.tokenizer = T5Tokenizer.from_pretrained('t5_small')
         self.auto_tokenizer = AutoTokenizer.from_pretrained('t5_small')
 
-    @pytest.mark.run(order=1)
     def test_from_pretrained_tokenizer(self):
         """
         Feature: The T5Tokenizer test using from python class
@@ -44,7 +36,6 @@ class TestT5TokenizerMethod:
         self.tokenizer.show_support_list()
         self.tokenizer("hello world")
 
-    @pytest.mark.run(order=2)
     def test_auto_tokenizer(self):
         """
         Feature: The T5Tokenizer test using auto_class

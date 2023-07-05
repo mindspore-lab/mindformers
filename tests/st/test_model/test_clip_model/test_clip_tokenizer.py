@@ -36,9 +36,6 @@ def generate_fake_vocab(output_path):
             fp.write(item + '\n')
 
 
-@pytest.mark.level0
-@pytest.mark.platform_x86_cpu
-@pytest.mark.env_onecard
 class TestAutoTokenizerMethod:
     """A test class for testing the AutoTokenizer"""
     def setup_method(self):
@@ -74,9 +71,6 @@ class TestAutoTokenizerMethod:
         assert res == ['hello</w>', 'world</w>', '?</w>']
 
 
-@pytest.mark.level0
-@pytest.mark.platform_x86_cpu
-@pytest.mark.env_onecard
 class TestPretrainedTokenizerMethod:
     """A test class for testing the PretrainedTokenizer"""
     def generate_fake_vocab(self):
@@ -105,9 +99,6 @@ class TestPretrainedTokenizerMethod:
             tokenizer("hello world")
 
 
-@pytest.mark.level0
-@pytest.mark.platform_x86_cpu
-@pytest.mark.env_onecard
 class TestClipTokenizerMethod:
     """Test the basic usage of the CLIPTokenizer"""
     def test_padding(self):
