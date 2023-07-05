@@ -17,7 +17,6 @@ Test module for testing the bert interface used for mindformers.
 How to run this:
 pytest tests/st/test_model/test_bert_model/test_pipeline.py
 """
-import pytest
 import mindspore as ms
 
 from mindformers import pipeline
@@ -25,10 +24,6 @@ from mindformers import pipeline
 ms.set_context(mode=0)
 
 
-@pytest.mark.level0
-@pytest.mark.platform_x86_ascend_training
-@pytest.mark.platform_arm_ascend_training
-@pytest.mark.env_onecard
 class TestBertPipelineMethod:
     """A test class for testing pipeline."""
     def setup_method(self):

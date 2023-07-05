@@ -18,19 +18,13 @@ Test Module for testing Tokenizer class
 How to run this:
 linux:  pytest ./tests/st/test_model/test_tokcls_model/test_tokcls_tokenizer.py
 """
-import pytest
 
 from mindformers import BertTokenizer, AutoTokenizer
 
 
-@pytest.mark.level0
-@pytest.mark.platform_x86_ascend_training
-@pytest.mark.platform_arm_ascend_training
-@pytest.mark.env_onecard
 class TestBertTokenizerForChineseMethod:
     """A test class for testing the AutoTokenizer"""
 
-    @pytest.mark.run(order=1)
     def test_from_pretrained(self):
         """
         Feature: The BertTokenizer test using from python class
@@ -51,7 +45,6 @@ class TestBertTokenizerForChineseMethod:
         assert isinstance(tokenizer, BertTokenizer)
         assert res == ['你', '好', '，', '世', '界', '！']
 
-    @pytest.mark.run(order=2)
     def test_auto_tokenizer(self):
         """
         Feature: The BertTokenizer test using auto_class
