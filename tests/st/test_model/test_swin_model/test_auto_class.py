@@ -32,7 +32,7 @@ class TestSwinAutoClassMethod:
     """A test class for testing Model classes"""
     def setup_method(self):
         """setup method."""
-        self.save_directory = os.path.join(MindFormerBook.get_project_path(), 'checkpoint_save')
+        self.save_directory = MindFormerBook.get_default_checkpoint_save_folder()
         self.test_list = ['swin_base_p4w7']
 
     @pytest.mark.run(order=1)
