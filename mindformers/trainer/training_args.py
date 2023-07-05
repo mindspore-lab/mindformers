@@ -57,6 +57,10 @@ class TrainingArguments:
         default=None,
         metadata={"help": "The profile is used to enable profiling of the network."}
     )
+    only_save_strategy: bool = field(
+        default=None,
+        metadata={"help": "The only_save_strategy is used to enable save strategy of the network."}
+    )
     sink_mode: bool = field(
         default=None,
         metadata={"help": "The sink_mode is used to enable data sink of the network."}
@@ -175,6 +179,8 @@ class TrainingArguments:
         task_config.seed = _check_training_args(task_config.seed, self.seed)
         task_config.data_seed = _check_training_args(task_config.data_seed, self.data_seed)
         task_config.profile = _check_training_args(task_config.profile, self.profile)
+        task_config.only_save_strategy = _check_training_args(task_config.only_save_strategy,
+                                                              self.only_save_strategy)
         task_config.use_parallel = _check_training_args(task_config.use_parallel, self.use_parallel)
         task_config.load_checkpoint = _check_training_args(
             task_config.load_checkpoint, self.resume_from_checkpoint)

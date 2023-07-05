@@ -4,9 +4,9 @@
 
 configs统一在run_xxx.yaml中，排序按照修改频率的顺序和一般的模型训练流程顺序（数据集->模型->训练、评估、推理），具体顺序如下
 
-- 非模块参数：seed、run_mode、output_dir、resume_or_finetune_checkpoint
+- 非模块参数：seed、run_mode、output_dir、load_checkpoint、resume_training、auto_trans_ckpt
 - 环境参数：context
-- AICC：aicc_config
+- AICC：remote_save_url
 - 运行参数：runner_config、runner_wrapper
 - 并行设置：use_parallel、parallel、parallel_config
 - MOE：moe_config
@@ -28,8 +28,8 @@ configs统一在run_xxx.yaml中，排序按照修改频率的顺序和一般的�
 - run_mode: 运行模式，可选"train"、"finetune"、"eval"或"predict"
 - output_dir: './output'  输出路径，当前不支持修改该参数
 - load_checkpoint: 加载权重的模型名或权重路径
-- auto_trans_ckpt: 是否开启自动在线权重切分或转换
-- resume_checkpoint: 加载方式，为True时会加载训练过程信息，如优化器、epochs数等
+- auto_trans_ckpt: 是否开启自动在线权重切分或转换（目前尚不支持）
+- resume_training: 加载方式，为True时会加载训练过程信息，如优化器、epochs数等
 - context: 环境配置，可以参考: [mindspore.set_context](https://www.mindspore.cn/docs/zh-CN/r2.0/api_python/mindspore/mindspore.set_context.html)
     - mode: 0代表Graph Mode， 1代表Pynative Mode
     - device_target: 设备类型，Ascend、CPU或GPU，默认为Ascend

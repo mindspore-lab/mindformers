@@ -36,8 +36,6 @@ except ImportError:
 expand_dims = P.ExpandDims().add_prim_attr("grad_scale", True)
 get_square_sum = C.MultitypeFuncGraph("get_square_sum")
 apply_global_norm = C.MultitypeFuncGraph("apply_global_norm")
-inf = Tensor(np.log(0.0), mstype.float32)
-clip_clamped_max = Tensor(1.0, mstype.float32)
 
 
 @get_square_sum.register("Tensor")
@@ -51,7 +49,8 @@ def _get_square_sum(x):
 def _apply_global_norm(clip_norm, global_norm, x):
     x_dtype = F.dtype(x)
     clip_coef = clip_norm / (global_norm + 1e-6)
-    clip_coef_clamped = ops.clip_by_value(clip_coef, clip_value_max=clip_clamped_max, clip_value_min=inf)
+    clip_coef_clamped = ops.clip_by_value(clip_coef, clip_value_max=Tensor(1.0, mstype.float32),
+                                          clip_value_min=Tensor(np.log(0.0), mstype.float32))
     x = x * clip_coef_clamped
     x = F.cast(x, x_dtype)
     return x

@@ -16,13 +16,7 @@
 
 echo "---------------- MindFormers: build start ----------------"
 BASEPATH=$(cd "$(dirname $0)"; pwd)
-COMMITID=$(git log --format='[sha1]:%h,[branch]:%d' --abbrev=8 -1)
-COMMITRET=$?
-if [ ${COMMITRET} -ne 0 ]; then
-  echo "Get commit id info failed, exec command(git log --format='[sha1]:%h,[branch]:%d' --abbrev=8 -1) failed!"
-  exit ${COMMITRET}
-fi
-export COMMIT_ID=${COMMITID}
+
 export BUILD_PATH="${BASEPATH}/build/"
 
 python3 setup.py bdist_wheel -d ${BASEPATH}/output
@@ -41,4 +35,4 @@ done
 pip install mindformers*whl -i https://pypi.tuna.tsinghua.edu.cn/simple
 cd ${BASEPATH} || exit
 rm -rf *-info
-echo "---------------- MindFormers: build end   ----------------"
+echo "---------------- MindFormers: build and install end   ----------------"

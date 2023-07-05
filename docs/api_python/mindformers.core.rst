@@ -6,7 +6,7 @@ mindformers.core
 mindformers.core
 -----------------
 
-.. autosummary
+.. autosummary::
     :toctree: core
     :nosignatures:
     :template: classtemplate.rst
@@ -18,7 +18,7 @@ mindformers.core
 mindformers.core.callback
 --------------------------
 
-.. autosummary
+.. autosummary::
     :toctree: core
     :nosignatures:
     :template: classtemplate.rst
@@ -26,11 +26,14 @@ mindformers.core.callback
     mindformers.core.callback.CheckpointMointor
     mindformers.core.callback.MFLossMonitor
     mindformers.core.callback.ObsMonitor
+    mindformers.core.callback.SummaryMonitor
+    mindformers.core.callback.ProfileMonitor
+    mindformers.core.callback.EvalCallBack
 
 mindformers.core.loss
 --------------------------
 
-.. autosummary
+.. autosummary::
     :toctree: core
     :nosignatures:
     :template: classtemplate.rst
@@ -43,7 +46,7 @@ mindformers.core.loss
 mindformers.core.lr
 --------------------------
 
-.. autosummary
+.. autosummary::
     :toctree: core
     :nosignatures:
     :template: classtemplate.rst
@@ -57,20 +60,23 @@ mindformers.core.lr
 mindformers.core.metric
 --------------------------
 
-.. autosummary
+.. autosummary::
     :toctree: core
     :nosignatures:
     :template: classtemplate.rst
 
     mindformers.core.metric.EntityScore
     mindformers.core.metric.SQuADMetric
+    mindformers.core.metric.PerplexityMetric
+    mindformers.core.metric.ADGENMetric
 
 mindformers.core.optim
 --------------------------
 
-.. autosummary
+.. autosummary::
     :toctree: core
     :nosignatures:
     :template: classtemplate.rst
 
     mindformers.core.optim.FusedAdamWeightDecay
+    mindformers.core.optim.FP32StateAdamWeightDecay
