@@ -44,6 +44,7 @@ class GPT2Config(BaseConfig):
                  hidden_size: int = 768,
                  num_layers: int = 12,
                  num_heads: int = 12,
+                 num_labels: int = 2,
                  expand_ratio: int = 4,
                  embedding_dropout_prob: float = 0.1,
                  hidden_dropout_rate: float = 0.1,
@@ -76,6 +77,7 @@ class GPT2Config(BaseConfig):
         self.hidden_size = hidden_size
         self.num_layers = num_layers
         self.num_heads = num_heads
+        self.num_labels = num_labels
         self.expand_ratio = expand_ratio
         self.embedding_dropout_prob = embedding_dropout_prob
         self.hidden_dropout_rate = hidden_dropout_rate

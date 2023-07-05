@@ -25,7 +25,7 @@ from mindspore.ops import operations as P
 from mindspore.ops import functional as F
 
 from mindformers.modules.transformer.moe import default_moe_config
-from mindformers.modules.layers import LayerNorm, Dropout
+from mindformers.modules.layers import LayerNorm, Dropout, Linear
 from mindformers.core.loss import CrossEntropyLoss
 from mindformers.modules.transformer import AttentionMask, VocabEmbedding
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
@@ -36,7 +36,7 @@ from mindformers.pet import LoraAdapter, PetAdapter
 from .gpt2_config import GPT2Config
 from .gpt_modules import GPTTransformerDecoderLayer
 
-__all__ = ['GPT2LMHeadModel', 'GPT2WithLora', 'GPT2Model', 'GPTHead']
+__all__ = ['GPT2LMHeadModel', 'GPT2WithLora', 'GPT2ForSequenceClassification', 'GPT2Model', 'GPTHead']
 
 
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
@@ -134,6 +134,104 @@ class GPT2LMHeadModel(BaseModel):
 
         loss = self.loss(logits, labels, loss_mask)
         return loss
+
+
+@MindFormerRegister.register(MindFormerModuleType.MODELS)
+class GPT2ForSequenceClassification(BaseModel):
+    r"""
+        Provide gpt training loss or logits through network.
+        Args:
+            config (GPT2Config): The config of Gpt2Model.
+
+        Returns:
+            Tensor, the loss or logits of the network.
+        """
+    _support_list = MindFormerBook.get_model_support_list()['gpt2']
+
+    def __init__(self, config: GPT2Config = None):
+        self.config = config if config is not None else GPT2Config()
+        super(GPT2ForSequenceClassification, self).__init__(self.config, auto_prefix=True)
+
+        self.eos_token = self.config.eos_token
+        self.seq_length = self.config.seq_length
+        self.num_labels = self.config.num_labels
+        self.hidden_size = self.config.hidden_size
+
+        parallel_config = self.config.parallel_config
+        dp = parallel_config.data_parallel
+        mp = parallel_config.model_parallel
+
+        self.get_attention_mask = AttentionMask(seq_length=self.seq_length,
+                                                parallel_config=parallel_config.dp_mp_config)
+
+        self.backbone = GPT2Model(self.config)
+        self.score = Linear(in_channels=self.hidden_size,
+                            out_channels=self.num_labels,
+                            has_bias=False,
+                            compute_dtype=self.config.compute_dtype)
+        self.score.shard(strategy_matmul=((dp, 1), (1, 1)))
+        if parallel_config.pipeline_stage > 1:
+            self.head.pipeline_stage = parallel_config.pipeline_stage - 1
+            self.backbone.embedding.word_embedding.embedding_table.add_pipeline_stage(self.head.pipeline_stage)
+
+        vocab_size = self.config.vocab_size
+        loss_parallel_config = copy.deepcopy(parallel_config)
+        if vocab_size % mp != 0:
+            logger.warning("The vocab size of GPT Loss is: %s, it is not divide by model_parallel: %s",
+                           vocab_size, mp)
+            logger.warning("Now, the model_parallel num of GPT Loss will be changed: mp = 1")
+            loss_parallel_config.model_parallel = 1
+
+        self.loss = nn.CrossEntropyLoss()
+
+        self.reshape = P.Reshape()
+        self.cast = P.Cast()
+        self.load_checkpoint(config)
+        self.reduce_sum = P.ReduceSum().shard(((dp, 1),))
+        self.add = P.Add().shard(((dp,), (dp,)))
+        self.sub = P.Sub().shard(((1,), ()))
+        self.gather = P.Gather().shard(((1, 1), (1,)))
+
+    def construct(self, input_ids, attention_mask, labels=None):
+        r"""
+            construct function for GPT2 Text Classification Model
+
+            Args:
+                input_ids (Tensor): the indices of input sequence tokens in the vocabulary.
+                attention_mask (Tensor): input sentences padding mask, where 0 indicates padding position.
+                labels (Tensor): the labels of corresponding input sequences
+
+            Returns:
+                (logits, labels) (Tensor, Tensor) or logits (Tensor) or loss (mstype.float32): in train mode,
+                return loss; in eval mode, return logits and loss; in predict mode, return logits.
+        """
+
+        attention_mask = self.cast(attention_mask, mstype.float32)
+        attention_mask_lower_triangle = self.get_attention_mask(attention_mask)
+
+        output_states, _ = self.backbone(input_ids, attention_mask_lower_triangle)
+
+        output_states = self.reshape(output_states, (-1, self.hidden_size))
+        logits = self.score(output_states)
+
+        # get the last logit of each sequence
+        last_indices = self.sub(self.reduce_sum(attention_mask, -1), 1)
+        batch_size = attention_mask.shape[0]
+        indices_increments = Tensor(np.arange(0, self.seq_length * batch_size, self.seq_length))
+        last_indices = self.cast(self.add(last_indices, indices_increments), mstype.int32)
+        pooled_logits = self.gather(logits, last_indices, 0)
+
+        if labels is not None:
+            labels = self.reshape(labels, (-1,))
+        if self.training:
+            output = self.loss(pooled_logits, labels)
+        else:
+            if labels is not None:
+                output = (pooled_logits, labels)
+            else:
+                output = pooled_logits
+
+        return output
 
 
 class GPTEmbeddingLayer(nn.Cell):

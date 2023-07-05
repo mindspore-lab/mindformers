@@ -23,7 +23,7 @@ from ..mindformer_book import MindFormerBook
 from .base_pipeline import BasePipeline
 from ..tools.register import MindFormerRegister, MindFormerModuleType
 from ..models import BaseModel, Tokenizer
-from ..dataset.labels import mnli_labels
+from ..dataset.labels import labels
 
 __all__ = ['TextClassificationPipeline']
 
@@ -103,6 +103,11 @@ class TextClassificationPipeline(BasePipeline):
 
         if "top_k" in pipeline_parameters:
             postprocess_params["top_k"] = pipeline_parameters.get("top_k")
+        if "dataset" in pipeline_parameters:
+            postprocess_params["dataset"] = pipeline_parameters.get("dataset")
+            if not labels.get(postprocess_params["dataset"]):
+                raise ValueError(f"The dataset does not support {postprocess_params['dataset']}, "
+                                 f"but only support {labels.keys()}")
         return preprocess_params, forward_kwargs, postprocess_params
 
     def inputs_process(self, inputs_zero, inputs_one):
@@ -144,6 +149,16 @@ class TextClassificationPipeline(BasePipeline):
         """
         if not isinstance(inputs, str):
             raise ValueError("Inputs type must be str")
+
+        expand_dims = ops.ExpandDims()
+
+        if self.model.model_name == "gpt2_txtcls":
+            tokens = self.tokenizer(inputs, return_tensors="ms", **preprocess_params)
+            input_ids = tokens["input_ids"]
+            attention_mask = tokens["attention_mask"]
+            return {"input_ids": expand_dims(input_ids, 0),
+                    "attention_mask": expand_dims(attention_mask, 0)}
+
         if '-' not in inputs:
             raise ValueError("two texts of text pair should be split by -")
         inputs = inputs.split('-')
@@ -189,13 +204,16 @@ class TextClassificationPipeline(BasePipeline):
 
         Args:
             model_outputs (dict): outputs of forward process.
-            top_k (int): Return top_k probs of result
 
         Return:
             Classification results
         """
         top_k = postprocess_params.pop("top_k", None)
-        id2label = {id: label for id, label in enumerate(mnli_labels)}
+        dataset = postprocess_params.pop("dataset", None)
+        if dataset:
+            id2label = {id: label for id, label in enumerate(labels.get(dataset))}
+        else:
+            id2label = {id: label for id, label in enumerate(labels.get("mnli"))}
         outputs = model_outputs[0]
         outputs = outputs.asnumpy()
         scores = self.softmax(outputs)

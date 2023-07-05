@@ -153,6 +153,8 @@ class MindFormerBook:
                 _PROJECT_PATH, "configs/txtcls/run_txtcls_bert_base_uncased_mnli.yaml")),
             ("mindspore/txtcls_bert_base_uncased_mnli", os.path.join(
                 _PROJECT_PATH, "configs/txtcls/run_txtcls_bert_base_uncased_mnli.yaml")),
+            ("gpt2_txtcls", os.path.join(
+                _PROJECT_PATH, "configs/gpt2/run_gpt2_txtcls.yaml")),
             ("common", os.path.join(
                 _PROJECT_PATH, "configs/txtcls/run_txtcls_bert_base_uncased.yaml"))])
          ),
@@ -276,6 +278,8 @@ class MindFormerBook:
                 _PROJECT_PATH, "configs/txtcls/run_txtcls_bert_base_uncased_mnli.yaml")),
             ("mindspore/txtcls_bert_base_uncased_mnli", os.path.join(
                 _PROJECT_PATH, "configs/txtcls/run_txtcls_bert_base_uncased_mnli.yaml")),
+            ("gpt2_txtcls", os.path.join(
+                _PROJECT_PATH, "configs/gpt2/run_gpt2_txtcls.yaml")),
             ("common", os.path.join(
                 _PROJECT_PATH, "configs/txtcls/run_txtcls_bert_base_uncased.yaml"))
         ])),
@@ -366,7 +370,8 @@ class MindFormerBook:
         ('txtcls', OrderedDict([
             ('bert', ['txtcls_bert_base_uncased',
                       'txtcls_bert_base_uncased_mnli',
-                      'mindspore/txtcls_bert_base_uncased_mnli'])
+                      'mindspore/txtcls_bert_base_uncased_mnli']),
+            ('gpt2', ['gpt2_txtcls'])
         ])),
         ('qa', OrderedDict([
             ('bert', ['qa_bert_base_uncased',
@@ -440,7 +445,8 @@ class MindFormerBook:
         ('txtcls', OrderedDict([
             ('bert', ['txtcls_bert_base_uncased',
                       'txtcls_bert_base_uncased_mnli',
-                      'mindspore/txtcls_bert_base_uncased_mnli'])
+                      'mindspore/txtcls_bert_base_uncased_mnli']),
+            ('gpt2', ['gpt2_txtcls'])
         ])),
         ('qa', OrderedDict([
             ('bert', ['qa_bert_base_uncased',
@@ -516,7 +522,8 @@ class MindFormerBook:
         ('txtcls', OrderedDict([
             ('bert', ['txtcls_bert_base_uncased',
                       'txtcls_bert_base_uncased_mnli',
-                      'mindspore/txtcls_bert_base_uncased_mnli'])
+                      'mindspore/txtcls_bert_base_uncased_mnli']),
+            ('gpt2', ['gpt2_txtcls'])
         ])),
         ('t5', [
             't5_small',
@@ -565,7 +572,8 @@ class MindFormerBook:
         ('txtcls', OrderedDict([
             ('bert', ['txtcls_bert_base_uncased',
                       'txtcls_bert_base_uncased_mnli',
-                      'mindspore/txtcls_bert_base_uncased_mnli'])
+                      'mindspore/txtcls_bert_base_uncased_mnli']),
+            ('gpt2', ['gpt2_txtcls'])
         ])),
         ('qa', OrderedDict([
             ('bert', ['qa_bert_base_uncased',

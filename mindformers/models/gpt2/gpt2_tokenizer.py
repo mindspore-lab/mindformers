@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-"""GPT2 Tokenzier"""
+"""GPT2 Tokenizer"""
 import json
 from functools import lru_cache
 from typing import List, Optional
