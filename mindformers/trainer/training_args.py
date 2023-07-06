@@ -130,9 +130,20 @@ class TrainingArguments:
         default=None,
         metadata={"help": "The path to a folder with a valid checkpoint for your model."},
     )
-    initial_epoch: int = field(
-        default=None,
-        metadata={"help": "The initial_epoch is used to resume training from the init epoch."}
+    auto_trans_ckpt: bool = field(
+        default=None, metadata={"help": "Whether to transform checkpoint according to parallel config. "}
+    )
+    resume_training: bool = field(
+        default=None, metadata={"help": "Whether to load training context info, such as optimizer and epoch num. "}
+    )
+    do_eval: bool = field(
+        default=None, metadata={"help": "Whether to eval current model while Training. "}
+    )
+    eval_step_interval: int = field(
+        default=None, metadata={"help": "Num of step intervals between each eval, -1 means no step end eval. "}
+    )
+    eval_epoch_interval: int = field(
+        default=None, metadata={"help": "Num of epoch intervals between each eval, 1 means eval on every epoch end. "}
     )
 
     device_num = int(os.getenv("RANK_SIZE", "1"))
@@ -184,6 +195,16 @@ class TrainingArguments:
         task_config.use_parallel = _check_training_args(task_config.use_parallel, self.use_parallel)
         task_config.load_checkpoint = _check_training_args(
             task_config.load_checkpoint, self.resume_from_checkpoint)
+        task_config.auto_trans_ckpt = _check_training_args(
+            task_config.auto_trans_ckpt, self.auto_trans_ckpt)
+        task_config.resume_training = _check_training_args(
+            task_config.resume_training, self.resume_training)
+        task_config.do_eval = _check_training_args(
+            task_config.do_eval, self.do_eval)
+        task_config.eval_step_interval = _check_training_args(
+            task_config.eval_step_interval, self.eval_step_interval)
+        task_config.eval_epoch_interval = _check_training_args(
+            task_config.eval_epoch_interval, self.eval_epoch_interval)
 
     def _adapt_dataset_config(self, task_config):
         """adapt dataset config."""
@@ -217,8 +238,6 @@ class TrainingArguments:
                 task_config.runner_config.per_epoch_size, self.sink_size)
             task_config.runner_config.sink_mode = _check_training_args(
                 task_config.runner_config.sink_mode, self.sink_mode)
-            task_config.runner_config.initial_epoch = _check_training_args(
-                task_config.runner_config.initial_epoch, self.initial_epoch)
 
     def _adapt_lr_schedule_config(self, task_config):
         """adapt lr schedule config."""
