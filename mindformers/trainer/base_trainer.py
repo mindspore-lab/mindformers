@@ -13,6 +13,7 @@
 # limitations under the License.
 # ============================================================================
 """Base Trainer."""
+import math
 import os
 import shutil
 from functools import partial
@@ -20,7 +21,7 @@ from typing import Optional, Union, List
 import numpy as np
 from PIL.Image import Image
 import mindspore as ms
-from mindspore import Tensor
+from mindspore import Tensor, DatasetHelper
 from mindspore.train.model import Model
 from mindspore.train import Callback
 from mindspore.dataset import GeneratorDataset
@@ -516,6 +517,12 @@ class BaseTrainer:
             dataset = self.create_train_dataset()
         self.set_train_dataset(dataset)
         check_runner_config(config, dataset)
+        if config.runner_config.sink_mode:
+            epoch_num = math.ceil((config.runner_config.epochs - config.runner_config.initial_epoch)
+                                  * config.runner_config.sink_size / dataset.get_dataset_size())
+            # pylint: disable=W0212
+            dataset._dataset_helper = DatasetHelper(dataset, config.runner_config.sink_mode,
+                                                    config.runner_config.sink_size, epoch_num)
 
         # build network
         logger.info(".........Build Net For Train..........")
