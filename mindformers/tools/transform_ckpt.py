@@ -78,7 +78,7 @@ if __name__ == '__main__':
     dst_ckpt_dir = args.dst_ckpt_dir
     prefix = args.prefix
 
-    assert os.path.exists(args.src_ckpt), f'{args.src_ckpt} not found!'
+    assert os.path.exists(args.src_ckpt_dir), f'{args.src_ckpt_dir} not found!'
 
     print(f"src_ckpt_strategy: {src_ckpt_strategy}")
     print(f"dst_ckpt_strategy: {dst_ckpt_strategy}")
