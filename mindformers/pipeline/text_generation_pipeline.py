@@ -102,7 +102,7 @@ class TextGenerationPipeline(BasePipeline):
 
         postprocess_params = {}
 
-        forward_key_name = ['top_k', 'top_p', 'do_sample', 'eos_token_id', 'repetition_penalty', 'max_length']
+        forward_key_name = ['top_k', 'top_p', 'do_sample', 'eos_token_id', 'repetition_penalty', 'max_length', 'seed']
         forward_kwargs = {}
         for item in forward_key_name:
             if item in pipeline_parameters:
