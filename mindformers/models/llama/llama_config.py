@@ -33,7 +33,7 @@ class LlamaConfig(BaseConfig):
     _support_list = MindFormerBook.get_config_support_list()['llama']
 
     def __init__(self,
-                 batch_size: int = None,
+                 batch_size: int = 1,
                  seq_length: int = 2048,
                  hidden_size: int = 4096,
                  num_layers: int = 32,
