@@ -48,9 +48,9 @@ swr.cn-central-221.ovaijisuan.com/mindformers/mindformers_dev_mindspore_2_0:mind
 
 ### AICC镜像
 
-**详情请参考[MindFormers AICC使用教程](https://gitee.com/mindspore/mindformers/blob/dev/docs/aicc_cards/aicc_tutorial.md)**
+**详情请参考[MindFormers AICC使用教程](https://gitee.com/mindspore/mindformers/blob/dev/docs/aicc_cards/README.md)**
 
-我们在[镜像仓库网 (hqcases.com)](https://gitee.com/link?target=http%3A%2F%2Fai.hqcases.com%2Fmirrors.html)上发布了一些经过验证的**标准镜像版本**，可以通过几行简单的docker命令的形式，直接使用验证过的标准镜像拉起MindFormers套件的训练任务，而无需进行较为繁琐的自定义镜像并上传的步骤。
+我们在[镜像仓库网 (hqcases.com)](http://mirrors.cn-central-221.ovaijisuan.com/)上发布了一些经过验证的**标准镜像版本**，可以通过几行简单的docker命令的形式，直接使用验证过的标准镜像拉起MindFormers套件的训练任务，而无需进行较为繁琐的自定义镜像并上传的步骤。
 
 - 镜像列表
 
