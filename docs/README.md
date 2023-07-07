@@ -48,7 +48,7 @@ swr.cn-central-221.ovaijisuan.com/mindformers/mindformers_0.6rc1_mindspore_2_0:m
 
 ### AICC镜像
 
-**详情请参考[MindFormers AICC使用教程](https://gitee.com/mindspore/mindformers/blob/0.6rc1/docs/aicc_cards/aicc_tutorial.md)**
+**详情请参考[MindFormers AICC使用教程](https://gitee.com/mindspore/mindformers/blob/0.6rc1/docs/aicc_cards/)**
 
 我们在[镜像仓库网 (hqcases.com)](https://gitee.com/link?target=http%3A%2F%2Fai.hqcases.com%2Fmirrors.html)上发布了一些经过验证的**标准镜像版本**，可以通过几行简单的docker命令的形式，直接使用验证过的标准镜像拉起MindFormers套件的训练任务，而无需进行较为繁琐的自定义镜像并上传的步骤。
 
@@ -56,7 +56,7 @@ swr.cn-central-221.ovaijisuan.com/mindformers/mindformers_0.6rc1_mindspore_2_0:m
 
 ```text
 1. swr.cn-central-221.ovaijisuan.com/mindformers/mindformers_0.6rc1_mindspore_1_10_1:mindformers_0.6rc1_mindspore_1_10_1
-2. swr.cn-central-221.ovaijisuan.com/mindformers/mindformers_0.6rc1_mindspore_2_0:mindformers_0.6rc1_mindspore_2_0 (MS 2.0必须升级配套的固件和驱动才能使用)
+2. swr.cn-central-221.ovaijisuan.com/mindformers/mindformers_0.6rc1_mindspore_2_0:mindformers_0.6rc1_mindspore_2_0_modelarts (MS 2.0必须升级配套的固件和驱动才能使用)
 ```
 
 - 在一台准备好docker引擎的计算机上，root用户执行docker pull命令拉取该镜像，然后`docker tag`命令更改为相应计算中心的标签再推送至自己的计算中心平台;
