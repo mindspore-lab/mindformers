@@ -95,7 +95,7 @@ class Flickr8kDataLoader:
 
         kwargs.pop("None", None)
         flick8k_dataset = Flickr8kDataSet(dataset_dir, annotation_dir, stage)
-        return GeneratorDataset(flick8k_dataset, column_names)
+        return GeneratorDataset(flick8k_dataset, column_names, **kwargs)
 
 class Flickr8kDataSet:
     """Flickr8k DataSet"""
