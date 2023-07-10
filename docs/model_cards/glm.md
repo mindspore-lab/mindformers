@@ -38,7 +38,7 @@ ChatGLM-6B 是一个开源的、支持中英双语的对话语言模型，基于
 
 推理可在单机单卡上完成部署
 
-训练需要最少单机8卡
+全量微调训练需要最少单机8卡，Lora微调训练最少需要1卡
 
 ## ChatGLM6B推理
 
@@ -130,7 +130,7 @@ if __name__ == "__main__":
 
 下面以 [ADGEN](https://aclanthology.org/D19-1321.pdf) (广告生成) 数据集为例介绍代码的使用方法
 
-### 数据处理
+### 数据处理（在线加载与离线生成二选一，优先推荐在线加载方式）
 
 ADGEN 数据集任务为根据输入（content）生成一段广告词（summary）。数据集可选离线生成 `Mindrecord` 或者实时生成两种方式，两种方式选其一即可。
 
@@ -143,7 +143,53 @@ ADGEN 数据集任务为根据输入（content）生成一段广告词（summary
 
 从 [Google Drive](https://drive.google.com/file/d/13_vf0xRTQsyneRKdD1bZIr93vBGOczrk/view?usp=sharing) 或者 [Tsinghua Cloud](https://cloud.tsinghua.edu.cn/f/b3f119a008264b1cabd1/?dl=1) 下载处理好的 ADGEN 数据集，将解压后的 `AdvertiseGen` 任意目录下
 
-#### 1. 离线生成
+#### 1. 在线加载
+
+按照教程执行任务即可。
+
+#### 2. 离线生成
+
+将任务配置文件 `configs/glm/run_glm_6b_*.yaml` 中的 `==== dataset config ====` 部分替换成：
+
+```yaml
+train_dataset: &train_dataset
+  data_loader:
+    type: MindDataset
+    dataset_dir: ""
+    shuffle: True
+  input_columns: ["input_ids", "label", "position_ids", "attention_mask"]
+  num_parallel_workers: 8
+  python_multiprocessing: False
+  drop_remainder: True
+  batch_size: 1
+  repeat: 1
+  numa_enable: False
+  prefetch_size: 1
+  seed: 0
+
+train_dataset_task:
+  type: CausalLanguageModelDataset
+  dataset_config: *train_dataset
+
+eval_dataset: &eval_dataset
+  data_loader:
+    type: MindDataset
+    dataset_dir: ""
+    shuffle: True
+  input_columns: ["input_ids", "label"]
+  num_parallel_workers: 8
+  python_multiprocessing: False
+  drop_remainder: True
+  batch_size: 1
+  repeat: 1
+  numa_enable: False
+  prefetch_size: 1
+  seed: 0
+
+eval_dataset_task:
+  type: CausalLanguageModelDataset
+  dataset_config: *eval_dataset
+```
 
 使用 `mindformers/tools/dataset_preprocess/glm/adgen_dataset.py` 脚本将数据集处理成mindrecord格式。
 
@@ -170,66 +216,6 @@ python adgen_dataset.py \
     --max_target_length 256 \
     --mode eval
 ```
-
-#### 2. 在线加载
-
-将任务配置文件 `configs/glm/run_glm_6b_*.yaml` 中的 `==== dataset config ====` 部分替换成：
-
-```yaml
-train_dataset: &train_dataset
-  data_loader:
-    type: ADGenDataLoader
-    dataset_dir: "/path/to/AdvertiseGen"
-    shuffle: True
-    phase: "train"
-  tokenizer:
-    type: ChatGLMTokenizer
-    vocab_file: "/path/to/ice_text.model"
-  input_columns: ["input_ids", "label", "position_ids", "attention_mask"]
-  max_source_length: 64
-  max_target_length: 64
-  ignore_pad_token_for_loss: True
-  num_parallel_workers: 8
-  python_multiprocessing: False
-  drop_remainder: True
-  batch_size: 1
-  repeat: 1
-  numa_enable: False
-  prefetch_size: 1
-  seed: 0
-
-train_dataset_task:
-  type: KeyWordGenDataset
-  dataset_config: *train_dataset
-
-eval_dataset: &eval_dataset
-  data_loader:
-    type: ADGenDataLoader
-    dataset_dir: "/path/to/AdvertiseGen"
-    shuffle: False
-    phase: "eval"
-  tokenizer:
-    type: ChatGLMTokenizer
-    vocab_file: "/path/to/ice_text.model"
-  max_source_length: 256
-  max_target_length: 256
-  ignore_pad_token_for_loss: True
-  input_columns: ["input_ids", "label"]
-  num_parallel_workers: 8
-  python_multiprocessing: False
-  drop_remainder: True
-  batch_size: 1
-  repeat: 1
-  numa_enable: False
-  prefetch_size: 1
-  seed: 0
-
-eval_dataset_task:
-  type: KeyWordGenDataset
-  dataset_config: *eval_dataset
-```
-
-按照教程执行任务即可。
 
 ### 生成HCCL文件
 
@@ -335,6 +321,10 @@ def main(use_parallel=False,
          predict_data='你好',
          batch_size=4,
          dp=1, mp=1, pp=1, micro_size=1, op=False):
+    if use_parallel.lower() == "true":
+        use_parallel = True
+    else:
+        use_parallel = False
     # 环境初始化
     context_init(use_parallel, op)
     # 训练超参数定义
@@ -521,14 +511,32 @@ checkpoint存储路径：mindformers/output/checkpoint
 - 数据集：修改 `mindformers/configs/glm/run_glm_6b_lora.yaml` 脚本中`train_dataset` 的 `dataset_dir` 为前文生成的数据集路径。
 - 加载预训练模型权重：修改 `mindformers/configs/glm/run_glm_6b_lora.yaml` 脚本中的 `load_checkpoint` 为预训练模型权重路径。
 
-启动LoRA低参微调脚本(4卡)：
+#### 启动LoRA低参微调脚本(1卡)：
 
-> 注：因低参微调所需内存减少，此处用4卡并行即可训练，需重新生成4卡训练所需的rank table file
+执行命令：
+
+```shell
+cd scripts
+# Usage Help: bash run_stanalone.sh [CONFIG_PATH] [DEVICE_ID] [RUN_STATUS]
+bash run_stanalone.sh ../configs/glm/run_glm_6b_lora.yaml 0 finetune
+```
+
+训练的log日志路径：mindformers/scripts/mf_standalone/
+
+checkpoint存储路径：mindformers/scripts/mf_standalone/output/checkpoint
+
+#### 启动LoRA低参微调脚本(4卡)：
+
+> 注：如果需要进行多卡训练，则需要对`glm/run_glm_6b_lora.yaml`配置文件对应参数进行修改，以4卡为例，需要重新生成4卡的HCCL文件：
+
+```shell
+data_parallel: 4
+```
 
 ```shell
 cd scripts
 # Usage Help: bash run_distribute.sh [RANK_TABLE_FILE] [CONFIG_PATH] [DEVICE_RANGE] [RUN_STATUS]
-bash run_distribute.sh /path/to/hccl_4p_0123_xxx.json ../configs/glm/run_glm_6b_lora.yaml '[0,4]' finetune
+bash run_distribute.sh /path/to/hccl_4_0123_xxx.json ../configs/glm/run_glm_6b_lora.yaml '[0,4]' finetune
 # 将此处rank_table_file替换为实际路径
 ```
 
@@ -547,19 +555,216 @@ checkpoint存储路径：mindformers/output/checkpoint
 4卡分布式启动命令：
 
 ```bash
-bash run_distribute_single_node.sh "python task.py --task text_generation --model_type glm_6b_lora --checkpoint_path ./glm_6b.ckpt --train_dataset ./train --run_mode finetune --use_parallel True --data_parallel 1 --model_parallel 4" /path/to/hccl_4p_xxx.json '[0,4]' 4
+bash run_distribute_single_node.sh "python task.py --task text_generation --model_type glm_6b_lora --checkpoint_path ./glm_6b.ckpt --train_dataset ./train --run_mode finetune --use_parallel True --data_parallel 4 --model_parallel 1" /path/to/hccl_4p_xxx.json '[0,4]' 4
 ```
 
 参数说明：对比全参微调启动，仅改动以下几点：
 
 - `model_type`: 指定模型类型为 `glm_6b_lora`，表示使用低参微调算法
-- `model_parallel`: 4卡启动，模型并行数改为4
+- `data_parallel`: 4卡启动，数据并行改为4
 - `/path/to/hccl_4p_xxx.json`: 使用4卡的rank_table_file
 - `'[0,4]' 4`: 使用0~3共4卡
 
 训练的log日志路径：mindformers/output/log
 
 checkpoint存储路径：mindformers/output/checkpoint
+
+1卡启动命令：
+
+```shell
+python task.py --task text_generation --model_type glm_6b_lora --checkpoint_path ./glm_6b.ckpt --train_dataset ./train --run_mode finetune --use_parallel False --data_parallel 1 --model_parallel 1
+```
+
+### 多机多卡微调训练
+
+多机多卡启动
+首先在每台机器上运行mindformers/tools/hccl_tools.py生成RANK_TABLE_FILE的json文件；
+
+将不同机器上生成的RANK_TABLE_FILE文件中的server_list合并，server_count设为机器数，rank_id顺序增加，并保证不同机器上的RANK_TABLE_FILE相同；
+
+在多机上同时拉起任务，拉起方式为
+
+cd scripts
+bash run_distribute.sh RANK_TABLE_FILE CONFIG_PATH DEVICE_RANGE RUN_MODE RANK_SIZE
+
+#### 参数说明
+
+- RANK_TABLE_FILE: 由mindformers/tools/hccl_tools.py生成的分布式json文件
+- CONFIG_PATH: 为configs文件夹下面的gpt2/run_gpt2*.yaml配置文件
+- DEVICE_RANGE: 为单机分布式卡的范围, 如[0,8]为8卡分布式，不包含8本身
+- RUN_MODE: 为任务运行状态，支持关键字 train 预训练、predict（文本生成预测）
+- RANK_SIZE: 总运行卡数
+
+#### 4机32卡参考RANK_TABLE_FILE样例
+
+```text
+{
+  "version": "1.0",
+  "server_count": "4",
+  "server_list": [
+    {
+      "server_id": "10.155.111.140",
+      "device": [
+        {"device_id": "0","device_ip": "192.1.27.6","rank_id": "0"},
+        {"device_id": "1","device_ip": "192.2.27.6","rank_id": "1"},
+        {"device_id": "2","device_ip": "192.3.27.6","rank_id": "2"},
+        {"device_id": "3","device_ip": "192.4.27.6","rank_id": "3"},
+        {"device_id": "4","device_ip": "192.1.27.7","rank_id": "4"},
+        {"device_id": "5","device_ip": "192.2.27.7","rank_id": "5"},
+        {"device_id": "6","device_ip": "192.3.27.7","rank_id": "6"},
+        {"device_id": "7","device_ip": "192.4.27.7","rank_id": "7"}],
+      "host_nic_ip": "reserve"
+    },
+    {
+      "server_id": "10.155.111.141",
+      "device": [
+        {"device_id": "0","device_ip": "192.1.27.8","rank_id": "8"},
+        {"device_id": "1","device_ip": "192.2.27.8","rank_id": "9"},
+        {"device_id": "2","device_ip": "192.3.27.8","rank_id": "10"},
+        {"device_id": "3","device_ip": "192.4.27.8","rank_id": "11"},
+        {"device_id": "4","device_ip": "192.1.27.9","rank_id": "12"},
+        {"device_id": "5","device_ip": "192.2.27.9","rank_id": "13"},
+        {"device_id": "6","device_ip": "192.3.27.9","rank_id": "14"},
+        {"device_id": "7","device_ip": "192.4.27.9","rank_id": "15"}],
+      "host_nic_ip": "reserve"
+    },
+    {
+      "server_id": "10.155.111.142",
+      "device": [
+        {"device_id": "0","device_ip": "192.1.27.10","rank_id": "16"},
+        {"device_id": "1","device_ip": "192.2.27.10","rank_id": "17"},
+        {"device_id": "2","device_ip": "192.3.27.10","rank_id": "18"},
+        {"device_id": "3","device_ip": "192.4.27.10","rank_id": "19"},
+        {"device_id": "4","device_ip": "192.1.27.11","rank_id": "20"},
+        {"device_id": "5","device_ip": "192.2.27.11","rank_id": "21"},
+        {"device_id": "6","device_ip": "192.3.27.11","rank_id": "22"},
+        {"device_id": "7","device_ip": "192.4.27.11","rank_id": "23"}],
+      "host_nic_ip": "reserve"
+    },
+    {
+      "server_id": "10.155.111.143",
+      "device": [
+        {"device_id": "0","device_ip": "192.1.27.12","rank_id": "24"},
+        {"device_id": "1","device_ip": "192.2.27.12","rank_id": "25"},
+        {"device_id": "2","device_ip": "192.3.27.12","rank_id": "26"},
+        {"device_id": "3","device_ip": "192.4.27.12","rank_id": "27"},
+        {"device_id": "4","device_ip": "192.1.27.13","rank_id": "28"},
+        {"device_id": "5","device_ip": "192.2.27.13","rank_id": "29"},
+        {"device_id": "6","device_ip": "192.3.27.13","rank_id": "30"},
+        {"device_id": "7","device_ip": "192.4.27.13","rank_id": "31"}],
+      "host_nic_ip": "reserve"
+    }
+  ],
+  "status": "completed"
+}
+```
+
+#### 任务拉起命令示例
+
+```shell
+# 第一台机器
+bash run_distribute.sh {RANK_TABLE_FILE path of the first device} ../configs/glm/run_glm_6b_lora.yaml [0,8] train 32
+# 第二台机器
+bash run_distribute.sh {RANK_TABLE_FILE path of the first device} ../configs/glm/run_glm_6b_lora.yaml [8,16] train 32
+# 第三台机器
+bash run_distribute.sh {RANK_TABLE_FILE path of the first device} ../configs/glm/run_glm_6b_lora.yaml [16,24] train 32
+# 第四台机器
+bash run_distribute.sh {RANK_TABLE_FILE path of the first device} ../configs/glm/run_glm_6b_lora.yaml [24,32] train 32
+```
+
+### 微调后推理
+
+#### 推理样例脚本
+
+下面提供一个模型推理样例脚本 `infer.py`
+
+```python
+import time
+import mindspore as ms
+import numpy as np
+import argparse
+from mindformers.models.glm import GLMConfig, GLMChatModel, GLMChatModelWithLora
+from mindformers.models.glm.chatglm_6b_tokenizer import ChatGLMTokenizer
+from mindformers.models.glm.glm_processor import process_response
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--seq_length', default=1024, type=int, help='Which device to run service.')
+parser.add_argument('--device_id', default=0, type=int, help='Which device to run service.')
+parser.add_argument('--checkpoint_path', type=str, default='/path/chatglm6b.ckpt', help='Checkpoint file to load on.')
+parser.add_argument('--vocab_path', type=str, default='/path/ice_text.model', help='Vocab file to load on.')
+parser.add_argument('--is_lora', type=str, default='false',help='Whether is lora model.')
+
+args = parser.parse_args()
+
+if args.is_lora.lower() == "true":
+    is_lora = True
+else:
+    is_lora = False
+
+config = GLMConfig(
+    position_encoding_2d=True,
+    use_past=True,
+    is_npu_acceleration=True,
+)
+
+class PetConfig:
+    lora_rank = 8
+    lora_alpha = 32
+    lora_dropout = 0.1
+    exclude_layers = None
+
+class Pet:
+    pet_type = 'lora'
+    pet_config = PetConfig()
+
+def chat_glm():
+    ms.set_context(mode=ms.GRAPH_MODE, device_target="Ascend", device_id=args.device_id)
+    if is_lora:
+        model = GLMChatModelWithLora(config,)
+    else:
+        model = GLMChatModel(config)
+    ms.load_checkpoint(args.checkpoint_path, model)
+    tokenizer = ChatGLMTokenizer(args.vocab_path)
+
+    prompts = ["你好", "请介绍一下华为", "用Python写一个快排"]
+    history = []
+    for query in prompts:
+        if not history:
+            prompt = query
+        else:
+            prompt = ""
+            for i, (old_query, response) in enumerate(history):
+                prompt += "[Round {}]\n问：{}\n答：{}\n".format(i, old_query, response)
+            prompt += "[Round {}]\n问：{}\n答：".format(len(history), query)
+        inputs = tokenizer(prompt)
+
+        start_time = time.time()
+        outputs = model.generate(np.expand_dims(np.array(inputs['input_ids']).astype(np.int32), 0),
+                                 max_length=config.max_decode_length, do_sample=False, top_p=0.7, top_k=1)
+        end_time = time.time()
+        print(f'generate speed: {outputs[0].shape[0]/(end_time-start_time):.2f} tokens/s')
+        response = tokenizer.decode(outputs)
+        response = process_response(response[0])
+        history = history + [(query, response)]
+        print(response)
+
+if __name__ == "__main__":
+    chat_glm()
+```
+
+#### 运行命令
+
+```shell
+python infer.py --seq_length 1024 --device_id 0  --checkpoint_path /path/chatglm6b.ckpt --vocab_path /path/ice_text.model --is_lora True
+```
+
+参数说明：
+
+- `seq_length`: 用于指定推理输入长度
+- `device_id`: 指定推理在那张设备运行
+- `checkpoint_path`: 指定训练出来的模型文件路径用于推理
+- `vocab_path`: 模型词表
+- `is_lora`: 用于区分是否是lora模型，设置为true表示为lora微调训练模型
 
 ## 评估
 
@@ -568,7 +773,7 @@ checkpoint存储路径：mindformers/output/checkpoint
 微调所得到的权重文件为根据模型切分策略切分后的权重，我们需要手动将切分权重合一，以用于评估和推理
 
 1. 获取模型切分策略文件：
-   在执行全参微调脚本时，模型完成编译后，将会在运行路径下，生成名为 `ckpt_strategy.ckpt` 的切分策略文件，将其保存
+   在执行全参微调脚本时，模型完成编译后，将会在运行路径下，生成名为 `ckpt_strategy.ckpt` 的切分策略文件，该文件将用于第二步模型合成
 
 2. MindSpore提供了根据切分策略转换模型权重切分的接口，[mindspore.transform_checkpoints](https://www.mindspore.cn/docs/zh-CN/r2.0/api_python/mindspore/mindspore.transform_checkpoints.html)，执行以下python脚本，将8份模型文件合成一份
 
@@ -584,28 +789,6 @@ checkpoint存储路径：mindformers/output/checkpoint
     ```
 
 > 注：`transform_checkpoints` 接口当前仅mindspore 2.0以上版本支持，如当前硬件环境只支持2.0以下版本，可以新建conda环境安装mindspore 2.0的cpu版本以执行该脚本
->
-> 此外，非2.0版本的mindspore，在低参微调时，生成的切分策略文件将不包含被冻结的权重，导致权重文件合并失败；此时，需将 `mindformers/models/glm/glm.py` 文件中有关LoRA冻结权重的代码注释后，重新运行微调脚本，获取到正确的切分策略文件后停止训练进程；相关代码如下
-
-```python
-@MindFormerRegister.register(MindFormerModuleType.MODELS)
-class GLMForPreTrainingWithLora(GLMForPreTraining):
-    """GLM Model for pretraining with LoRA
-
-Args:
-    config (GLMConfig): The config of network.
-"""
-
-def __init__(self, config: GLMConfig = None, pet=None, **kwargs):
-    _ = kwargs
-    super().__init__(config)
-    # get Pet tuning model.
-    self.pet = pet
-    self.pet.pet_config.reg_rules = r'.*query_key_value*'
-    self.transformer = LoraAdapter.get_pet_model(self.transformer, self.pet.pet_config)
-    # freeze pretrained model
-    PetAdapter.freeze_pretrained_model(self, self.pet.pet_type)     # 注释此行以生成新的策略文件
-```
 
 ### 使用全参微调权重
 
@@ -616,10 +799,10 @@ def __init__(self, config: GLMConfig = None, pet=None, **kwargs):
 配置文件选择 `configs/glm/run_glm_6b_infer.yaml` glm模型推理配置，此配置下评估速度更快
 
 ```bash
-python run_mindformer.py --config configs/glm/run_glm_6b_infer.yaml --run_mode eval --load_checkpoint /path/to/glm_6b.ckpt --eval_dataset_dir /path/to/data/AdvertiseGen/adgen_dev.mindrecord --device_id 0
+python run_mindformer.py --config configs/glm/run_glm_6b_infer.yaml --run_mode eval --load_checkpoint /path/to/glm_6b.ckpt --eval_dataset_dir /path/to/data/AdvertiseGen/ --device_id 0
 ```
 
-> 注：使用在线加载数据方式时，将 `eval_dataset_dir` 一项指向含有 `*.json` 的目录一级即可，如 `/path/to/data/AdvertiseGen/`。
+> 注：使用离线生成数据方式时，将 `eval_dataset_dir` 一项指向`.mindrecord`文件，如 `/path/to/data/AdvertiseGen/adgen_dev.mindrecord`。
 
 各项参数：
 
@@ -638,11 +821,11 @@ python run_mindformer.py --config configs/glm/run_glm_6b_infer.yaml --run_mode e
 仍然可复用 `task.py` 脚本，启动命令：
 
 ```bash
-python task.py --task text_generation --model_type glm_6b_chat --checkpoint_path /path/to/glm_6b.ckpt --eval_dataset /path/to/data/AdvertiseGen/adgen_dev.mindrecord --run_mode eval --batch_size 1
+python task.py --task text_generation --model_type glm_6b_chat --checkpoint_path /path/to/glm_6b.ckpt --eval_dataset /path/to/data/AdvertiseGen/ --run_mode eval --batch_size 1
 ```
 
 > 1. 当前评估时，batch_size需为1，否则评估速度下降严重
-> 2. 使用在线加载数据方式时，将 `eval_dataset` 一项指向含有 `*.json` 的目录一级即可，如 `/path/to/data/AdvertiseGen/`。
+> 2. 使用离线生成数据方式时，将 `eval_dataset` 一项指向`.mindrecord`文件，如 `/path/to/data/AdvertiseGen/adgen_dev.mindrecord`。
 
 ### 使用LoRA低参微调权重
 
@@ -653,23 +836,23 @@ python task.py --task text_generation --model_type glm_6b_chat --checkpoint_path
 配置文件选择 `configs/glm/run_glm_6b_lora_infer.yaml` glm_lora模型推理配置，此配置可用于lora模型，并且评估速度更快
 
 ```bash
-python run_mindformer.py --config configs/glm/run_glm_6b_lora_infer.yaml --run_mode eval --load_checkpoint /path/to/glm_6b_lora.ckpt --eval_dataset_dir /path/to/data/AdvertiseGen/adgen_dev.mindrecord --device_id 0
+python run_mindformer.py --config configs/glm/run_glm_6b_lora_infer.yaml --run_mode eval --load_checkpoint /path/to/glm_6b_lora.ckpt --eval_dataset_dir /path/to/data/AdvertiseGen/ --device_id 0
 ```
 
 各项参数同上，路径需替换为实际路径
 
-> 使用在线加载数据方式时，将 `eval_dataset` 一项指向含有 `*.json` 的目录一级即可，如 `/path/to/data/AdvertiseGen/`。
+> 使用离线生成数据方式时，将 `eval_dataset_dir` 一项指向`.mindrecord`文件，如 `/path/to/data/AdvertiseGen/adgen_dev.mindrecord`。
 
 #### Trainer高阶接口启动lora eval
 
 仍然可复用 `task.py` 脚本，启动命令：
 
 ```bash
-python task.py --task text_generation --model_type glm_6b_lora_chat --checkpoint_path /path/to/glm_6b_lora.ckpt --eval_dataset /path/to/data/AdvertiseGen/adgen_dev.mindrecord --run_mode eval --batch_size 1
+python task.py --task text_generation --model_type glm_6b_lora_chat --checkpoint_path /path/to/glm_6b_lora.ckpt --eval_dataset /path/to/data/AdvertiseGen/ --run_mode eval --batch_size 1
 ```
 
 > 1. 当前评估时，batch_size需为1，否则评估速度下降严重
-> 2. 使用在线加载数据方式时，将 `eval_dataset` 一项指向含有 `*.json` 的目录一级即可，如 `/path/to/data/AdvertiseGen/`。
+> 2. 使用离线生成数据方式时，将 `eval_dataset_dir` 一项指向`.mindrecord`文件，如 `/path/to/data/AdvertiseGen/adgen_dev.mindrecord`。
 
 ## 模型权重转化
 
