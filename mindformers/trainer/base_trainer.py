@@ -13,6 +13,7 @@
 # limitations under the License.
 # ============================================================================
 """Base Trainer."""
+import math
 import os
 import shutil
 from functools import partial
@@ -20,7 +21,7 @@ from typing import Optional, Union, List
 import numpy as np
 from PIL.Image import Image
 import mindspore as ms
-from mindspore import Tensor
+from mindspore import Tensor, DatasetHelper
 from mindspore.train.model import Model
 from mindspore.train import Callback
 from mindspore.dataset import GeneratorDataset
@@ -516,6 +517,12 @@ class BaseTrainer:
             dataset = self.create_train_dataset()
         self.set_train_dataset(dataset)
         check_runner_config(config, dataset)
+        if config.runner_config.sink_mode:
+            epoch_num = math.ceil((config.runner_config.epochs - config.runner_config.initial_epoch)
+                                  * config.runner_config.sink_size / dataset.get_dataset_size())
+            # pylint: disable=W0212
+            dataset._dataset_helper = DatasetHelper(dataset, config.runner_config.sink_mode,
+                                                    config.runner_config.sink_size, epoch_num)
 
         # build network
         logger.info(".........Build Net For Train..........")
@@ -571,7 +578,6 @@ class BaseTrainer:
                 logger.info(".............Start resume training from checkpoint..................")
                 transform_and_load_checkpoint(config, model, network, dataset, optimizer=optimizer)
             else:
-                logger.info(".............Start load checkpoint from checkpoint..................")
                 if config.load_checkpoint in SUPPORT_MODEL_NAMES:
                     config.load_checkpoint = \
                         AutoModel.from_pretrained(config.load_checkpoint).default_checkpoint_download_path
@@ -586,7 +592,7 @@ class BaseTrainer:
                 "dataset_size": config.data_size,
                 "micro_batch_interleave_num": config.micro_batch_interleave_num,
                 "micro_batch_num": config.parallel_config.micro_batch_num,
-                "initial_epoch": config.runner_config.initial_epoch if config.runner_config.initial_epoch else 0})
+                "initial_epoch": config.runner_config.initial_epoch})
 
         # build evaluate in training
         if config.do_eval:
@@ -612,7 +618,7 @@ class BaseTrainer:
                     callbacks=callbacks,
                     dataset_sink_mode=config.runner_config.sink_mode,
                     sink_size=config.runner_config.sink_size,
-                    initial_epoch=config.runner_config.initial_epoch if config.runner_config.initial_epoch else 0)
+                    initial_epoch=config.runner_config.initial_epoch)
         logger.info(".........Training Over!.............")
 
     def evaluate_process(

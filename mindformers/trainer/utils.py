@@ -111,6 +111,8 @@ def check_runner_config(config, dataset):
     data_size = dataset.get_dataset_size()
     new_epochs = config.runner_config.epochs
     config.runner_config.origin_epochs = new_epochs
+    if config.runner_config.initial_epoch is None:
+        config.runner_config.initial_epoch = 0
     if config.runner_config.sink_mode:
         if config.runner_config.sink_size != -1:
             if config.runner_config.sink_size <= 0:
@@ -277,8 +279,8 @@ def transform_and_load_checkpoint(config, model, network, dataset, optimizer=Non
     3. load checkpoint params into dict
     4. load params into net
     """
-    if not os.path.realpath(config.load_checkpoint) or \
-            not os.path.exists(config.load_checkpoint):
+    if not config.only_save_strategy and (not os.path.realpath(config.load_checkpoint) or
+                                          not os.path.exists(config.load_checkpoint)):
         raise FileNotFoundError(f"The load_checkpoint must be correct, "
                                 f"but get {config.load_checkpoint}")
 
@@ -301,7 +303,11 @@ def transform_and_load_checkpoint(config, model, network, dataset, optimizer=Non
                         sink_size=config.runner_config.sink_size)
 
         if config.only_save_strategy:
-            raise SystemExit("Only_save_strategy is True, model.build() finished, system exit! ")
+            raise SystemExit("Only_save_strategy is True, model.compile() finished, system exit! ")
+
+    elif config.only_save_strategy:
+        raise SystemExit("only_save_strategy is True, "
+                         "but stand_alone and data_parallel mode do not have strategy file, system exit! ")
 
     # 2. transform checkpoint if needed
 
@@ -310,6 +316,8 @@ def transform_and_load_checkpoint(config, model, network, dataset, optimizer=Non
             not os.path.exists(config.load_checkpoint):
         raise FileNotFoundError(f"The load_checkpoint must be correct, "
                                 f"but get {config.load_checkpoint}")
+
+    logger.info(".............Start load checkpoint from checkpoint..................")
     if os.path.isdir(config.load_checkpoint):
         checkpoint_dict = load_distributed_checkpoint(config)
     else:

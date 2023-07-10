@@ -18,24 +18,18 @@ How to run this:
 pytest tests/st/test_model/test_swin_model/test_auto_class.py
 """
 import os
-import pytest
 
 from mindformers import MindFormerBook, AutoModel, AutoConfig, AutoProcessor
 from mindformers.models import BaseModel, BaseConfig, BaseProcessor
 
 
-@pytest.mark.level0
-@pytest.mark.platform_x86_ascend_training
-@pytest.mark.platform_arm_ascend_training
-@pytest.mark.env_onecard
 class TestVitAutoClassMethod:
     """A test class for testing Model classes"""
     def setup_method(self):
         """setup method."""
-        self.save_directory = os.path.join(MindFormerBook.get_project_path(), 'checkpoint_save')
+        self.save_directory = MindFormerBook.get_default_checkpoint_save_folder()
         self.test_list = ['vit_base_p16']
 
-    @pytest.mark.run(order=1)
     def test_auto_model(self):
         """
         Feature: AutoModel.
@@ -50,7 +44,6 @@ class TestVitAutoClassMethod:
                 save_directory=os.path.join(self.save_directory, model_type),
                 save_name=model_type + '_model')
 
-    @pytest.mark.run(order=2)
     def test_auto_config(self):
         """
         Feature: AutoConfig.
@@ -65,7 +58,6 @@ class TestVitAutoClassMethod:
                 save_directory=os.path.join(self.save_directory, config_type),
                 save_name=config_type + '_config')
 
-    @pytest.mark.run(order=3)
     def test_auto_processor(self):
         """
         Feature: AutoProcessor.

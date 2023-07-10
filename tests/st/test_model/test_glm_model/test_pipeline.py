@@ -17,16 +17,11 @@ Test module for testing the glm interface used for mindformers.
 How to run this:
 pytest tests/st/test_model/test_glm_model/test_pipeline.py
 """
-import pytest
 from mindspore import context
 
-# from mindformers import pipeline
+from mindformers import pipeline
 
 
-@pytest.mark.level0
-@pytest.mark.platform_x86_ascend_training
-@pytest.mark.platform_arm_ascend_training
-@pytest.mark.env_onecard
 class TestGLMPipelineMethod:
     """A test class for testing pipeline."""
     def setup_method(self):
@@ -41,6 +36,6 @@ class TestGLMPipelineMethod:
         Expectation: TypeError, ValueError, RuntimeError
         """
         # Too time-cost, not used for now.
-        # for model_type in self.test_llm_list:
-        #     task_pipeline = pipeline(task='text_generation', model=model_type, max_length=20)
-        #     task_pipeline("你好", top_k=3)
+        for model_type in self.test_llm_list:
+            task_pipeline = pipeline(task='text_generation', model=model_type, max_length=20)
+            task_pipeline("你好", top_k=3)

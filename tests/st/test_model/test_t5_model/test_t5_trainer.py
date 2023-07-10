@@ -93,7 +93,7 @@ def write_raw_text_data(stage, data_record_path):
 @pytest.mark.env_onecard
 class TestTranslationTrainer:
     """Test Translation Trainer"""
-    def setup_method(self):
+    def setup_class(self):
         self.dir_path = os.path.join(os.path.dirname(__file__), 'fake_dataset')
         os.makedirs(self.dir_path, exist_ok=True)
         self.abs_path = os.path.join(self.dir_path, 't5_dataset')
@@ -103,7 +103,7 @@ class TestTranslationTrainer:
         os.makedirs(self.raw_text_path, exist_ok=True)
         write_raw_text_data(stage='train', data_record_path=self.raw_text_path)
 
-    def teardown_method(self):
+    def teardown_class(self):
         shutil.rmtree(self.dir_path, ignore_errors=True)
         shutil.rmtree(self.raw_text_path, ignore_errors=True)
 

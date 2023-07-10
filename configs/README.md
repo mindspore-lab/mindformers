@@ -121,6 +121,14 @@ configs统一在run_xxx.yaml中，排序按照修改频率的顺序和一般的�
     - model_config: 模型参数配置
         - type: 模型参数配置类
         - checkpoint_name_or_path: 评估时不指定权重，模型默认加载的权重名
+
+          *\# 以下配置针对大规模语言模型推理*
+        - top_k: 从概率最大的top_k个tokens中采样
+        - top_p: 从概率最大且概率累计不超过top_p的tokens中采样
+        - do_sample: 使能top_k或top_p采样，为False时top_k和top_p均重置为1
+        - use_past: 使能增量推理，为True时为增量推理，否则为自回归推理，使用时请参考[模型支持列表](https://gitee.com/mindspore/mindformers/tree/dev/docs#text-generator)
+        - max_decode_length: 文本生成最大长度（输入长度统计在内）
+        - repetition_penalty: 重复文本惩罚系数，该值不小于1，等于1时不惩罚
 - lr_schedule: 学习率配置
     - type: 学习率类
 - layer_scale: 是否开启层衰减

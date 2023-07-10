@@ -21,16 +21,12 @@ windows:  pytest .\\tests\\st\\test_model\\test_qa_model\\test_qa_model.py
 linux:  pytest ./tests/st/test_model/test_qa_model/test_qa_model.py
 """
 import os
-import pytest
+
 from mindformers import MindFormerBook, AutoModel, AutoConfig
 from mindformers.models import BertForQuestionAnswering, BaseModel
 from mindformers.tools import logger
 
 
-@pytest.mark.level0
-@pytest.mark.platform_x86_ascend_training
-@pytest.mark.platform_arm_ascend_training
-@pytest.mark.env_onecard
 class TestModelMethod:
     """A test class for testing Model classes"""
     def setup_method(self):

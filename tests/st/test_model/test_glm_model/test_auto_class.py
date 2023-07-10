@@ -19,7 +19,6 @@ pytest tests/st/test_model/test_glm_model/test_auto_class.py
 """
 import os
 
-import pytest
 from mindspore import context
 
 from mindformers import MindFormerBook
@@ -29,22 +28,15 @@ from mindformers.models import BaseModel
 from mindformers.models import BaseConfig, BaseTokenizer, BaseProcessor
 
 
-@pytest.mark.level0
-@pytest.mark.platform_x86_ascend_training
-@pytest.mark.platform_arm_ascend_training
-@pytest.mark.env_onecard
 class TestGLMAutoClassMethod:
     """A test class for testing Model classes"""
 
     def setup_method(self):
         """setup method."""
         context.set_context(mode=0)
-        self.save_directory = os.path.join(
-            MindFormerBook.get_project_path(), "checkpoint_save"
-        )
+        self.save_directory = MindFormerBook.get_default_checkpoint_save_folder()
         self.test_llm_list = ["glm_6b", "glm_6b_chat"]
 
-    @pytest.mark.run(order=1)
     def test_glm_model(self):
         """
         Feature: AutoModel.
@@ -61,7 +53,6 @@ class TestGLMAutoClassMethod:
                 save_name=model_type + "_model",
             )
 
-    @pytest.mark.run(order=2)
     def test_glm_config(self):
         """
         Feature: AutoConfig.
@@ -77,7 +68,6 @@ class TestGLMAutoClassMethod:
                 save_name=config_type + "_config",
             )
 
-    @pytest.mark.run(order=3)
     def test_glm_processor(self):
         """
         Feature: AutoProcessor.
@@ -93,7 +83,6 @@ class TestGLMAutoClassMethod:
                 save_name=processor_type + "_processor",
             )
 
-    @pytest.mark.run(order=4)
     def test_glm_tokenizer(self):
         """
         Feature: AutoTokenizer, input config.
