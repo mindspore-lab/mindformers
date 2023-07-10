@@ -80,6 +80,7 @@ def pipeline(
         model_name = "common"
 
     pipeline_config = MindFormerConfig(SUPPORT_PIPELINES.get(task).get(model_name))
+    pipeline_config.model.model_config.update({"checkpoint_name_or_path": model_name})
 
     if model is None:
         model = build_model(pipeline_config.model)
