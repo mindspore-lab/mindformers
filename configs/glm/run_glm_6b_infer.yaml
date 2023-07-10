@@ -53,7 +53,7 @@ model:
     max_decode_length: 2048  # The maximum length of the generated words.
     is_enhanced_encoder: True
     is_npu_acceleration: True   # sample in npu to acceleration
-    checkpoint_name_or_path: "glm_6b"
+    checkpoint_name_or_path: "glm_6b_chat"
     top_k: 1
     top_p: 1    # top_p not support for npu_acceleration yet 
     repetition_penalty: 1
