@@ -146,6 +146,8 @@ configs统一在run_xxx.yaml中，排序按照修改频率的顺序和一般的�
         - prefix: 权重文件前缀
         - save_checkpoint_steps: 每多少个step保存一次checkpoint
         - integrated_save: 是否聚合保存。True时表示聚合所有卡权重，这时每张卡权重均一致；False时表示每张卡各自保存自己的权重；当半自动并行模式训练大模型时，通常需要设置为False，以保证权重保存时不会因为内存问题而失败
+        - save_network_params（新增）: 是否额外保存瘦身后的权重。默认为True。
+        - save_trainable_params（新增）: 是否额外保存可训练的参数权重，即微调部分参数的权重。默认为False。
         - async_save: 是否异步执行保存checkpoint文件
     - type: ObsMonitor: obs数据上传
         - step_upload_frequence: 每隔多少个step上传一次，默认为-1，表示禁用step间隔上传；配置为大于0的数时，每隔配置数step后执行一次回传
