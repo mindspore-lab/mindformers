@@ -181,6 +181,8 @@ callbacks:
     prefix: "gpt"
     save_checkpoint_steps: 1
     integrated_save: True
+    save_network_params: True
+    save_trainable_params: False
     async_save: False
   - type: ObsMonitor
 eval_callbacks:

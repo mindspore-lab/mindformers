@@ -15,15 +15,17 @@
 """MindFormer Self-Define Callback."""
 import os
 import time
+from collections import OrderedDict
 from copy import deepcopy
 from typing import Callable, Optional, Union
 
 import numpy as np
 import mindspore as ms
-from mindspore import Callback, Profiler, ModelCheckpoint, CheckpointConfig, context, save_checkpoint
+from mindspore import Callback, Profiler, ModelCheckpoint, CheckpointConfig, context, save_checkpoint, Tensor
 from mindspore.train.callback import SummaryCollector
 from mindspore.nn.learning_rate_schedule import LearningRateSchedule
 from mindspore.train.callback._callback import set_cur_net
+from mindspore.train.serialization import _get_merged_param_data
 
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.tools.cloud_adapter.cloud_adapter import Local2ObsMonitor
@@ -321,6 +323,8 @@ class CheckpointMointor(ModelCheckpoint):
                  keep_checkpoint_max=5,
                  keep_checkpoint_per_n_minutes=0,
                  integrated_save=True,
+                 save_network_params=True,
+                 save_trainable_params=False,
                  async_save=False,
                  saved_network=None,
                  append_info=None,
@@ -329,6 +333,8 @@ class CheckpointMointor(ModelCheckpoint):
                  exception_save=False):
 
         self.config = config
+        self.save_network_params = save_network_params
+        self.save_trainable_params = save_trainable_params
         self.rank_id = int(os.getenv("RANK_ID", '0'))
         prefix = prefix + "_rank_{}".format(self.rank_id)
 
@@ -412,6 +418,42 @@ class CheckpointMointor(ModelCheckpoint):
             network = self._config.saved_network if self._config.saved_network is not None else cb_params.train_network
             save_checkpoint(network, cur_file, self._config.integrated_save, self._config.async_save,
                             self._append_dict, self._config.enc_key, self._config.enc_mode)
+
+            def save_only_network_params():
+                save_obj = cb_params.network
+                if save_obj.optimizer is not None:
+                    save_obj = save_obj.network
+
+                if self.save_network_params:
+                    cb_cur_ckpoint_file = self._prefix + "-" + "network" + ".ckpt"
+                    cb_cur_file = os.path.join(self._directory, cb_cur_ckpoint_file)
+                    save_checkpoint(save_obj, cb_cur_file, self._config.integrated_save, self._config.async_save,
+                                    {}, self._config.enc_key, self._config.enc_mode)
+
+                if self.save_trainable_params:
+                    save_obj.init_parameters_data()
+                    param_dict = OrderedDict()
+                    for param in save_obj.trainable_params():
+                        param_dict[param.name] = param
+                    param_list = []
+                    for (key, value) in param_dict.items():
+                        each_param = {"name": key}
+                        param_data = Tensor(value.data.asnumpy())
+
+                        # in automatic model parallel scenario, some parameters were split to all the devices,
+                        # which should be combined before saving
+                        if key in save_obj.parameter_layout_dict:
+                            param_data = _get_merged_param_data(save_obj, key, param_data, self._config.integrated_save)
+
+                        each_param["data"] = param_data
+                        param_list.append(each_param)
+                    save_obj = param_list
+                    cb_cur_ckpoint_file = self._prefix + "-" + "trainable_params" + ".ckpt"
+                    cb_cur_file = os.path.join(self._directory, cb_cur_ckpoint_file)
+                    save_checkpoint(save_obj, cb_cur_file, self._config.integrated_save,
+                                    self._config.async_save, {}, self._config.enc_key, self._config.enc_mode)
+
+            save_only_network_params()
 
             self._latest_ckpt_file_name = cur_file
 
