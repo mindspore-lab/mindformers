@@ -577,8 +577,6 @@ class GLMForPreTraining(BaseModel):
         """
         batch_size, seq_length = input_ids.shape
 
-        attention_mask = attention_mask.view(batch_size, 1, seq_length, -1)
-
         if self.phase == "train":
             tokens = self.stridedslice(input_ids, (0, 0), (batch_size, seq_length), (1, 1))
         else:
