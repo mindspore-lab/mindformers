@@ -37,7 +37,7 @@ Bloom (BigScience Large Open-science Open-access Multilingual) 是一个开源�
 ### 1.3 环境要求
 
 - 硬件：Ascend 910A
-- MindSpore：2.0.0， 1.10.0
+- MindSpore：2.0.0
 - MindFormers版本：dev
 
 ---
@@ -50,10 +50,10 @@ Bloom (BigScience Large Open-science Open-access Multilingual) 是一个开源�
 然后调用`mindformers/tools/dataset_preprocess/bloom/make_mindrecord.py`脚本将json转换成mindrecord文件。
 
 ```bash
-python mindformers/tools/dataset_preprocess/bloom/make_mindrecord.py --input_dataset_file=XXX/alpaca_data.json --output_path=XXX --N=10240
+python mindformers/tools/dataset_preprocess/bloom/make_mindrecord.py --input_dataset_file=XXX/alpaca_data.json --output_path=XXX --N=51200
 ```
 
-其中`--N=10240`表示将json中的52002条数据中的前10240转换成mindrecord，`--N=-1`将转换全部json中的数据. 在执行此脚本时，对于每个prompt如下操作将被执行：
+其中`--N=51200`表示将json中的52002条数据中的前51200转换成mindrecord(推荐)，`--N=-1`将转换全部json中的数据. 在执行此脚本时，对于每个prompt如下操作将被执行：
 
 - 将问题和回答按照模板制作成prompt text;
 - 使用BloomTokenizer将prompt从text转成token ids;
@@ -61,7 +61,7 @@ python mindformers/tools/dataset_preprocess/bloom/make_mindrecord.py --input_dat
 
 执行文本后，`--output_path`目录下将生成mindrecord文件。
 
-### 2.2 CheckPoint转换
+### 2.2 CheckPoint转换（选读）
 
 作为参考，这里描述CheckPoint在HuggingFace和MindSpore间的转换，在不同分布式策略间的转换。Bloom_7.1bB的推理、预训练、finetune对这部分没有依赖，可以直接跳到下一章。
 
@@ -151,9 +151,11 @@ print(result)
 
 ```python
 import numpy as np
+import mindspore as ms
 from mindformers import AutoTokenizer
 from mindformers.models.bloom import BloomConfig, BloomLMHeadModel
 
+ms.set_context(mode=ms.GRAPH_MODE, device_target="Ascend", device_id=0)
 
 # ##############################
 # # bloom_560m config
@@ -203,7 +205,7 @@ def chat():
     model.set_train(False)
 
     question_list = [
-        "请问为什么说地球是独一无二的？",
+        "what color is the sky?",
         "Translate to English: Je t’aime.",
         ]
 
@@ -226,18 +228,15 @@ if __name__ == "__main__":
 
 - Bloom_560m的预期输出为:
 
-    - 请问为什么说地球是独一无二的？_**因为地球是独一无二的。</s>**_
+    - what color is the sky?_**blue</s>**_
     - Translate to English: Je t’aime. _**I love you.</s>**_
 
 - Bloom_7.1B的预期输出为:
 
-    - 请问为什么说地球是独一无二的？ _**地球是太阳系中唯一有生物的地方</s>**_
-
+    - what color is the sky?_**blue</s>**_
     - Translate to English: Je t’aime. _**I love you.</s>**_
 
 ---
-
-> 进一步提高推理性能可以参考章节`A.2 JIT静态图推理`。
 
 ## 4. 单机8卡训练或微调
 
@@ -298,6 +297,13 @@ RANK_TABLE_FILE 单机8卡参考样例:
 |--------------------------------------------:  |:----------:|:----------:|
 | `load_checkpoint` |     ""     | "xxx/bloom_7.1b.ckpt'"|
 | `train_dataset:data_loader:dataset_dir`      | PRETRAIN_DATASET | FINETUNE_DATASET |
+| `parallel_config.micro_batch_num`      | 16 | 16 |
+| `runner_config.epochs` | 1 | 3 |
+| `lr_schedule.learning_rate` | 0.00001 | 0.000001 |
+| `lr_schedule.lr_end` | 0.000001 | 0.000001 |
+| `lr_schedule.warmup_steps` | 1000 | 0 |
+| `lr_schedule.total_steps` | -1 | -1 |
+| `callbacks.save_checkpoint_steps` | 1000 | 400 |
 | 初始loss      | 12.xx | 3.xx |
 
 其中`PRETRAIN_DATASET`和`FINETUNE_DATASET`都可以用alpaca_2049调试。
@@ -314,7 +320,124 @@ bash run_distribute.sh RANK_TABLE_FILE ../configs/bloom/run_bloom_7.1b.yaml [0,8
 
 其中RANK_TABLE_FILE为上一步生成的rank table文件。执行后，相关日志输出在`mindformers/output/log/`训练过程中保存的ckpt存在`mindformers/output/checkpoint`目录下。可以通过`tail -f ../output/log/rank_7/mindformers.log`来查看当前的训练情况。
 
-> 备注：finetune结束后，如果需要查看推理效果，请将每个rank的ckpt，策略文件拷贝统一的ckpt路径和策略文件路径下，参考2.2.2将分布式ckpt合并用于单机推理。
+>默认情况下，图编译大约1.5小时，51200条alpaca数据集微调大约4小时/epoch.
+
+### 4.3 微调后对话效果
+
+在`mindformers/scripts`路径下执行以下脚本`combine_ckpt.py`.这个脚本会
+
+- 对strategy进行合并
+- 清理微调ckpt文件中的优化器状态
+- 合并微调ckpt文件用于单机推理
+
+```python
+# combine_ckpt.py
+import os
+import mindspore as ms
+
+CKPT_SUFFIX = "300_8" # 300(sink number) * 8 (sink size) = 2400 step
+CLEANED_CKPT_DIR = "../output/checkpoint_cleaned"
+COMBINED_CKPT_DIR = "../output/checkpoint_combined"
+COMBINED_STGY = "../output/strategy/ckpt_strategy.ckpt"
+
+
+# combine straegies
+ms.merge_pipeline_strategys("../output/strategy", COMBINED_STGY)
+
+
+# clean ckpt by removing optimizer states
+for rank_id in range(8):
+    input_file_name = f"../output/checkpoint/rank_{rank_id}/mindformers_rank_{rank_id}-{CKPT_SUFFIX}.ckpt"
+    params = ms.load_checkpoint(input_file_name)
+    new_params = [{"name": key, "data": val}  for key, val in params.items() if not ("accu_grads" in key or "adam_" in key) ]
+
+    save_path = os.path.join(CLEANED_CKPT_DIR, f"rank_{rank_id}")
+    os.makedirs(save_path, exist_ok=True)
+    ms.save_checkpoint(new_params, f"{save_path}/cleaned.ckpt")
+    print(f"saved {save_path}")
+
+
+# combine ckpt
+ms.transform_checkpoints(CLEANED_CKPT_DIR, COMBINED_CKPT_DIR, ckpt_prefix = "combined_", src_strategy_file = COMBINED_STGY)
+```
+
+然后执行以下脚本进行新的对话。相比与3.2章的脚本，这里有三个改动：
+
+- `CKPT_FILE`改成新生成的ckpt文件
+- 对问题使用了Alpaca数据集相同prompt模板
+- 模型embedding_init_type改成FP32因为SFT用的是FP32
+
+> 以下脚本针对Alpaca数据集的prompt模板。如果使用其他数据集微调，请更换对应模板。
+
+```python
+import numpy as np
+import mindspore as ms
+from mindformers import AutoTokenizer
+from mindformers.models.bloom import BloomConfig, BloomLMHeadModel
+
+ms.set_context(mode=ms.GRAPH_MODE, device_target="Ascend", device_id=0)
+
+alpaca_prompt = (
+    "Below is an instruction that describes a task. "
+    "Write a response that appropriately completes the request.\n\n"
+    "### Instruction:\n{instruction}\n\n### Response:\n")
+
+# 7B
+CKPT_FILE = "xxx/mindformers/output/checkpoint_combined/rank_0/combined_0.ckpt"
+SEQ_LENGTH = 1024
+config = BloomConfig(
+    param_init_type="float16",
+    embedding_init_type="float32",
+    checkpoint_name_or_path=CKPT_FILE,
+    max_decode_length=SEQ_LENGTH,
+    seq_length=SEQ_LENGTH,
+    hidden_size=4096,
+    num_layers=30,
+    num_heads=32,
+    hidden_dropout_rate=0.0,
+    attention_dropout_rate=0.0,
+    batch_size = 1,
+    use_past = True
+)
+
+
+def chat():
+    tokenizer = AutoTokenizer.from_pretrained("bloom_560m")
+    model = BloomLMHeadModel(config)
+    model.set_train(False)
+
+    question_list = [
+        "why the earth is unique?",
+        "why the sky is blue?",
+        "write a job application for a data scientist and explain your related work experience."
+        ]
+
+
+    while True:
+        if question_list:
+            question = question_list.pop(0)
+        else:
+            question = input("please input your question: ")
+        question = alpaca_prompt.format_map({"instruction":question})
+        inputs = tokenizer.encode(question)
+        inputs = np.array([inputs]).astype(np.int32) # add batch dim
+        outputs = model.generate(inputs, max_length=None, do_sample=False, eos_token_id=2)
+        outputs = outputs[0] # remove batch dim
+        print(tokenizer.decode(outputs))
+
+
+if __name__ == "__main__":
+    chat()
+
+```
+
+预期的对话效果大致为下表所示
+|                                                                                        |                      Before                     |                                                                                                                                                                                                                                   After                                                                                                                                                                                                                                  |
+|:--------------------------------------------------------------------------------------:|:-----------------------------------------------:|:------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:|
+| why the sky is blue?                                                                   | light from the sun is scattered<EOS>              | The sky is blue because of the presence of water droplets in the atmosphere. These droplets reflect light back to the sky, causing the sky to appear blue.<EOS>                                                                                                                                                                                                                                                                                                           |
+| what would be the best way to travel from San Fransisco to New York?                   | take a flight<EOS>                                | The best way to travel from San Francisco to New York is by taking the flight. The flight is the fastest and most convenient way to travel from San Francisco to New York.<EOS>                                                                                                                                                                                                                                                                                            |
+| write a job application for a data scientist and explain your related work experience. | <EOS>                                             | Dear Employer, I am writing to apply for the position of Data Scientist. I have over 5 years of experience in data science and machine learning, and I am excited to join your team. I have experience in supervised and unsupervised machine learning algorithms, data visualization, and data cleaning. I am also proficient in Python, R, and SQL. I am looking forward to discussing my qualifications further and hearing from you soon. Sincerely, [Your Name]<EOS>  |
+| why the earth is unique?                                                               | it is the only planet with a liquid surface<EOS>  | The Earth is unique because it is the only planet with a liquid surface, a magnetic field, and a protective atmosphere. It is also the only planet with a life-supporting atmosphere and a diverse and abundant life-supporting ecosystem.<EOS>                                                                                                                                                                                                                            |
 
 ## 5. 多机多卡的训练
 
