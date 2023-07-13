@@ -385,7 +385,7 @@ class GLMForPreTraining(BaseModel):
                 # position_ids (1, 2, 512) int32
                 attention_mask=Tensor(attention_mask, mstype.float32),
                 # attention_mask (1, 1, 512, 512) float32
-                input_position=current_index,
+                input_position=Tensor(current_index, mstype.int32),
                 init_reset=Tensor([False], mstype.bool_),  # init_reset (1,) bool False
                 batch_valid_length=Tensor([valid_length_each_example], mstype.int32)
             )  # batch_valid_length (1,) int32 4
@@ -394,12 +394,18 @@ class GLMForPreTraining(BaseModel):
         else:
             self.add_flags_recursive(is_first_iteration=False)
 
-            current_index_tmp = int(current_index[0])
-            # use numpy to slice array to avoid complie ascend slice op
-            inputs_tmp = input_ids[:, current_index_tmp:current_index_tmp + 1]
-            position_ids_tmp = position_ids[..., current_index_tmp:current_index_tmp + 1]
-            attention_mask_tmp = attention_mask[:, :, current_index_tmp:current_index_tmp + 1, :]
-
+            inputs_tmp = []
+            position_ids_tmp = []
+            attention_mask_tmp = []
+            for i in range(len(current_index)):
+                current_index_tmp = int(current_index[i]) - i * input_ids.shape[1]  # multibatch
+                # use numpy to slice array to avoid complie ascend slice op
+                inputs_tmp.append(input_ids[i][current_index_tmp:current_index_tmp + 1])
+                position_ids_tmp.append(position_ids[i][..., current_index_tmp:current_index_tmp + 1])
+                attention_mask_tmp.append(attention_mask[i][:, current_index_tmp:current_index_tmp + 1, :])
+            inputs_tmp = np.array(inputs_tmp, dtype=np.int32)
+            position_ids_tmp = np.array(position_ids_tmp, dtype=np.int32)
+            attention_mask_tmp = np.array(attention_mask_tmp, dtype=np.float32)
             res = self(
                 input_ids=Tensor(inputs_tmp, mstype.int32),
                 # input_ids (1,512) int32
@@ -407,7 +413,7 @@ class GLMForPreTraining(BaseModel):
                 # position_ids (1, 2, 1) int32
                 attention_mask=Tensor(attention_mask_tmp, mstype.float32),
                 # attention_mask (1, 1, 1, 512) float32
-                input_position=current_index,
+                input_position=Tensor(current_index, mstype.int32),
                 init_reset=Tensor([True], mstype.bool_),  # init_reset (1,) bool True
                 batch_valid_length=Tensor([valid_length_each_example], mstype.int32)
             )  # batch_valid_length (1,) int32 5
@@ -487,7 +493,6 @@ class GLMForPreTraining(BaseModel):
 
             seq_length = input_ids.shape[1]
             current_index = [valid_length_each_example[i] - 1 + i * seq_length for i in range(batch_size)]
-            current_index = Tensor(current_index, mstype.int32)
 
             if self.config.use_past:
                 is_first_iteration = self.is_first_iteration
@@ -511,7 +516,8 @@ class GLMForPreTraining(BaseModel):
                 # Avoid rounding error
                 p = precision_correct(p, top_p, top_k, batch_size)
             else:
-                log_probs = self.process_logits(res, current_index, is_first_iteration, self.config.use_past)
+                log_probs = self.process_logits(res, Tensor(current_index, mstype.int32),
+                                                is_first_iteration, self.config.use_past)
                 # Sample
                 log_probs = log_probs.asnumpy()
                 vocab_size = log_probs.shape[-1]

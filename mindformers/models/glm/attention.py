@@ -400,7 +400,7 @@ class RotaryEmbeddingFP32SoftmaxSelfAttention(nn.Cell):
             # The first graph with the input size of (bs, seq_length)
             if self.is_first_iteration:
                 # Get the valid input length without padding
-                valid_length_vector = F.cast(self.less(self.range, batch_valid_length.view(1, 1, -1)),
+                valid_length_vector = F.cast(self.less(self.range, batch_valid_length.view(-1, 1, 1)),
                                              self.params_dtype)  # [bs, 1, seq_len]
                 # Cover the key and value numbers corresponding to the padding position
                 key_present = self.mul1(key_present, self.expand_dims(valid_length_vector, 2))
