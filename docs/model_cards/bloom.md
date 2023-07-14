@@ -318,9 +318,11 @@ bash run_distribute.sh RANK_TABLE_FILE ../configs/bloom/run_bloom_7.1b.yaml [0,8
 bash run_distribute.sh RANK_TABLE_FILE ../configs/bloom/run_bloom_7.1b.yaml [0,8] finetune 8
 ```
 
-其中RANK_TABLE_FILE为上一步生成的rank table文件。执行后，相关日志输出在`mindformers/output/log/`训练过程中保存的ckpt存在`mindformers/output/checkpoint`目录下。可以通过`tail -f ../output/log/rank_7/mindformers.log`来查看当前的训练情况。
+其中RANK_TABLE_FILE为上一步生成的rank table文件。执行后，相关日志输出在`mindformers/output/log/`训练过程中保存的ckpt存在`mindformers/output/checkpoint`目录下。可以通过`tail -f ../output/log/rank_7/mindformers.log`来查看当前的训练情况。参考收敛曲线如下图所示。
 
 >默认情况下，图编译大约1.5小时，51200条alpaca数据集微调大约4小时/epoch.
+
+![输入图片说明](https://foruda.gitee.com/images/1689316828651589261/75882b0b_11484396.png)
 
 ### 4.3 微调后对话效果
 
