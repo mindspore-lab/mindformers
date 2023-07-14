@@ -349,7 +349,7 @@ class LlamaForCausalLMWithLora(LlamaForCausalLM):
         super().__init__(config)
         # get Pet tuning model.
         self.pet = pet
-        self.pet.pet_config.reg_rules = r'.*wq|.*wv'
+        self.pet.pet_config.reg_rules = r'.*wq|.*wk|.*wv|.*wo'
         self.model = LoraAdapter.get_pet_model(self.model, self.pet.pet_config)
         # load lora ckpt
         config.checkpoint_name_or_path = ckpt_cfg
