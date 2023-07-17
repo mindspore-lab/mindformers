@@ -359,6 +359,8 @@ def get_logger(logger_name: str = 'mindformers', **kwargs) -> logging.Logger:
     to_std = kwargs.get('to_std', True)
     stdout_nodes = kwargs.get('stdout_nodes', None)
 
+    rank_id, rank_size = get_rank_info()
+
     def get_stdout_devices():
         if os.getenv("STDOUT_DEVICES"):
             devices = os.getenv("STDOUT_DEVICES")
@@ -366,7 +368,7 @@ def get_logger(logger_name: str = 'mindformers', **kwargs) -> logging.Logger:
                 devices = devices[1:-1]
             devices = tuple(map(lambda x: int(x.strip()), devices.split(",")))
         elif check_in_modelarts():
-            devices = kwargs.get('stdout_devices', (0,))
+            devices = kwargs.get('stdout_devices', (min(rank_size - 1, 7),))
         else:
             devices = kwargs.get('stdout_devices', None)
         return devices
@@ -383,8 +385,6 @@ def get_logger(logger_name: str = 'mindformers', **kwargs) -> logging.Logger:
 
     validate_std_input_format(to_std, stdout_nodes, stdout_devices, stdout_level)
     validate_file_input_format(file_level, file_save_dir, append_rank_dir, file_name)
-
-    rank_id, rank_size = get_rank_info()
 
     to_std = judge_stdout(rank_id=rank_id,
                           rank_size=rank_size,
