@@ -12,12 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-""" Mindformers generation."""
-from .generation_config import *
-from .streamers import *
-from .text_generator import *
+"""utils for text generation."""
 
-__all__ = []
-__all__.extend(generation_config.__all__)
-__all__.extend(streamers.__all__)
-__all__.extend(text_generator.__all__)
+import numpy as np
+
+
+def softmax(x, axis=None):
+    """numpy implemented softmax function.
+    refers to https://github.com/scipy/scipy/blob/v1.11.1/scipy/special/_logsumexp.py"""
+    x_max = np.amax(x, axis=axis, keepdims=True)
+    exp_x_shifted = np.exp(x - x_max)
+    return exp_x_shifted / np.sum(exp_x_shifted, axis=axis, keepdims=True)

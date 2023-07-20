@@ -25,6 +25,7 @@ import mindspore as ms
 from mindspore import nn
 from mindspore.train.serialization import load_checkpoint, load_param_into_net
 
+from ..generation import GeneratorMixin
 from ..mindformer_book import MindFormerBook, print_path_or_list
 from .build_config import build_model_config
 from .base_config import BaseConfig
@@ -32,7 +33,6 @@ from ..tools.register import MindFormerConfig
 from ..tools.download_tools import download_with_progress_bar
 from ..tools.logger import logger
 from ..tools.utils import try_sync_file
-from .text_generator import GeneratorMixin
 
 
 class BaseModel(nn.Cell, GeneratorMixin):

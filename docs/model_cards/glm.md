@@ -91,7 +91,7 @@ from mindformers.models.glm.glm_processor import process_response
 config = GLMConfig(
     position_encoding_2d=True,
     use_past=True,
-    is_npu_acceleration=True,
+    is_sample_acceleration=True,
 )
 
 def chat_glm():
@@ -704,7 +704,7 @@ else:
 config = GLMConfig(
     position_encoding_2d=True,
     use_past=True,
-    is_npu_acceleration=True,
+    is_sample_acceleration=True,
 )
 
 class PetConfig:

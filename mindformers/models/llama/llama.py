@@ -300,6 +300,11 @@ class LlamaForCausalLM(BaseModel):
 
         self.load_checkpoint(config)
 
+    def prepare_inputs_for_generation(self, input_ids, **kwargs):
+        return {
+            "input_ids": Tensor(input_ids, mstype.int32)
+        }
+
     # pylint: disable=W0613
     def construct(self,
                   input_ids,
