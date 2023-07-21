@@ -239,7 +239,13 @@ class MFLossMonitor(Callback):
                         global_step = cb_params.optimizer.global_step
                     else:
                         global_step = cb_params.network.optimizer.global_step
+
+                    # temporary set_train to avoid error on 910B
+                    origin_phase = cb_params.train_network.phase
+                    cb_params.train_network.set_train(False)
                     current_lr = self.learning_rate(global_step)
+                    cb_params.train_network.set_train(origin_phase)
+
                     current_lr = np.array2string(current_lr.asnumpy())
             else:
                 if self.print_warning_flag:
