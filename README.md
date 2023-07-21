@@ -48,7 +48,7 @@ MindSpore Transformers套件基于MindSpore内置的并行技术和组件化设�
 支持源码编译安装，用户可以执行下述的命令进行包的安装
 
 ```bash
-git clone -b dev https://gitee.com/mindspore/mindformers.git
+git clone -b r0.6 https://gitee.com/mindspore/mindformers.git
 cd mindformers
 bash build.sh
 ```
@@ -56,7 +56,7 @@ bash build.sh
 - 方式2：pip安装
 
 ```bash
-pip install https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/wheel_packages/dev/mindformers-1.0.0.dev202307-py3-none-any.whl --trusted-host ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com -i https://pypi.tuna.tsinghua.edu.cn/simple
+pip install mindformers==0.6.0 -i https://pypi.tuna.tsinghua.edu.cn/simple
 ```
 
 - 方式3：镜像
@@ -67,7 +67,7 @@ pip install https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFor
 
 | 版本对应关系 | MindFormers | MindPet | MindSpore |  Python   |    芯片     |
 | :----------: | :---------: | :-----: | :-------: | :-------: | :---------: |
-|    版本号    |     dev     |  1.0.0  | 2.0/1.10  | 3.7.5/3.9 | Ascend 910A |
+|    版本号    |    0.6.0     |  1.0.1  | 2.0/1.10  | 3.7/3.9 | Ascend 910A |
 
 ## 四、快速使用
 
@@ -82,7 +82,7 @@ MindFormers套件对外提供两种使用和开发形式，为开发者提供灵
     - step1：git clone mindformers
 
   ```shell
-  git clone -b dev https://gitee.com/mindspore/mindformers.git
+  git clone -b r0.6 https://gitee.com/mindspore/mindformers.git
   cd mindformers
   ```
 
