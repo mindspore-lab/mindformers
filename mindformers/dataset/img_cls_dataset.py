@@ -87,7 +87,7 @@ class ImageCLSDataset(BaseDataset):
                                 num_parallel_workers=dataset_config.num_parallel_workers)
         if not dataset_config.do_eval and dataset_config.mixup_op is not None:
             mixup_op = build_transforms(class_name="Mixup", **dataset_config.mixup_op)
-            if is_version_ge(mindspore.__version__, '2.0.0'):
+            if is_version_ge(mindspore.__version__, '1.11.0'):
                 dataset = dataset.map(
                     operations=mixup_op, input_columns=dataset_config.input_columns,
                     output_columns=dataset_config.output_columns,

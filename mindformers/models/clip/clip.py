@@ -93,7 +93,7 @@ class CLIPModel(BaseModel):
         self.logit_scale = Parameter(Tensor(np.log(1 / 0.07)).astype(ms.float32))
         self.exp = ops.Exp()
         self.load_checkpoint(config)
-        self.is_version_2_0 = is_version_ge(ms.__version__, '2.0.0')
+        self.is_version_2_0 = is_version_ge(ms.__version__, '1.11.0')
 
     def get_dtype(self, dtype: str):
         """Get_dtype"""

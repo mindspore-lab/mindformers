@@ -77,7 +77,7 @@ class TokenClassificationDataset(BaseDataset):
             dataset = dataset.use_sampler(sampler)
 
         if text_transforms is not None:
-            if is_version_ge(mindspore.__version__, '2.0.0'):
+            if is_version_ge(mindspore.__version__, '1.11.0'):
                 dataset = dataset.map(
                     input_columns=dataset_config.input_columns,
                     operations=text_transforms,
