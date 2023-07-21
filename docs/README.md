@@ -48,7 +48,7 @@ swr.cn-central-221.ovaijisuan.com/mindformers/mindformers_dev_mindspore_2_0:mind
 
 ### AICC镜像
 
-**详情请参考[MindFormers AICC使用教程](https://gitee.com/mindspore/mindformers/blob/dev/docs/aicc_cards/README.md)**
+**详情请参考[MindFormers AICC使用教程](docs/aicc_cards/AICC.md)**
 
 我们在[镜像仓库网 (hqcases.com)](http://mirrors.cn-central-221.ovaijisuan.com/)上发布了一些经过验证的**标准镜像版本**，可以通过几行简单的docker命令的形式，直接使用验证过的标准镜像拉起MindFormers套件的训练任务，而无需进行较为繁琐的自定义镜像并上传的步骤。
 
@@ -70,17 +70,17 @@ docker pull swr.cn-central-221.ovaijisuan.com/mindformers/mindformers_dev_mindsp
 
 |                             模型                             |                      任务（task name）                       | 模型（model name）                                           |
 | :----------------------------------------------------------: | :----------------------------------------------------------: | :----------------------------------------------------------- |
-| [BERT](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/bert.md) | masked_language_modeling [text_classification](https://gitee.com/mindspore/mindformers/blob/dev/docs/task_cards/text_classification.md) [token_classification](https://gitee.com/mindspore/mindformers/blob/dev/docs/task_cards/token_classification.md) [question_answering](https://gitee.com/mindspore/mindformers/blob/dev/docs/task_cards/question_answering.md) | bert_base_uncased <br>txtcls_bert_base_uncased<br>txtcls_bert_base_uncased_mnli <br>tokcls_bert_base_chinese<br>tokcls_bert_base_chinese_cluener <br>qa_bert_base_uncased<br>qa_bert_base_chinese_uncased |
-| [T5](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/t5.md) |                         translation                          | t5_small                                                     |
-| [GPT2](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/gpt2.md) |                       text_generation                        | gpt2_small <br>gpt2_13b <br>gpt2_52b                         |
-| [PanGuAlpha](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/pangualpha.md) |                       text_generation                        | pangualpha_2_6_b<br>pangualpha_13b                           |
-| [GLM](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/glm.md) |                       text_generation                        | glm_6b<br>glm_6b_lora                                        |
-| [LLama](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/llama.md) |                       text_generation                        | llama_7b <br>llama_13b <br>llama_65b <br>llama_7b_lora       |
-|                            [Bloom](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/bloom.md)                             |                       text_generation                        | bloom_560m<br>bloom_7.1b <br>bloom_65b<br>bloom_176b         |
-| [MAE](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/mae.md) |                    masked_image_modeling                     | mae_vit_base_p16                                             |
-| [VIT](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/vit.md) | [image_classification](https://gitee.com/mindspore/mindformers/blob/dev/docs/task_cards/image_classification.md) | vit_base_p16                                                 |
-| [Swin](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/swin.md) | [image_classification](https://gitee.com/mindspore/mindformers/blob/dev/docs/task_cards/image_classification.md) | swin_base_p4w7                                               |
-| [CLIP](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/clip.md) | [contrastive_language_image_pretrain](https://gitee.com/mindspore/mindformers/blob/dev/docs/task_cards/contrastive_language_image_pretrain.md), [zero_shot_image_classification](https://gitee.com/mindspore/mindformers/blob/dev/docs/task_cards/zero_shot_image_classification.md) | clip_vit_b_32<br>clip_vit_b_16 <br>clip_vit_l_14<br>clip_vit_l_14@336 |
+| [BERT](docs/model_cards/bert.md) | masked_language_modeling [text_classification](docs/task_cards/text_classification.md) [token_classification](docs/task_cards/token_classification.md) [question_answering](docs/task_cards/question_answering.md) | bert_base_uncased <br>txtcls_bert_base_uncased<br>txtcls_bert_base_uncased_mnli <br>tokcls_bert_base_chinese<br>tokcls_bert_base_chinese_cluener <br>qa_bert_base_uncased<br>qa_bert_base_chinese_uncased |
+| [T5](docs/model_cards/t5.md) |                         translation                          | t5_small                                                     |
+| [GPT2](docs/model_cards/gpt2.md) |                       text_generation                        | gpt2_small <br>gpt2_13b <br>gpt2_52b                         |
+| [PanGuAlpha](docs/model_cards/pangualpha.md) |                       text_generation                        | pangualpha_2_6_b<br>pangualpha_13b                           |
+| [GLM](docs/model_cards/glm.md) |                       text_generation                        | glm_6b<br>glm_6b_lora                                        |
+| [LLama](docs/model_cards/llama.md) |                       text_generation                        | llama_7b <br>llama_13b <br>llama_65b <br>llama_7b_lora       |
+|                            [Bloom](docs/model_cards/bloom.md)                             |                       text_generation                        | bloom_560m<br>bloom_7.1b <br>bloom_65b<br>bloom_176b         |
+| [MAE](docs/model_cards/mae.md) |                    masked_image_modeling                     | mae_vit_base_p16                                             |
+| [VIT](docs/model_cards/vit.md) | [image_classification](docs/task_cards/image_classification.md) | vit_base_p16                                                 |
+| [Swin](docs/model_cards/swin.md) | [image_classification](docs/task_cards/image_classification.md) | swin_base_p4w7                                               |
+| [CLIP](docs/model_cards/clip.md) | [contrastive_language_image_pretrain](docs/task_cards/contrastive_language_image_pretrain.md), [zero_shot_image_classification](docs/task_cards/zero_shot_image_classification.md) | clip_vit_b_32<br>clip_vit_b_16 <br>clip_vit_l_14<br>clip_vit_l_14@336 |
 
 **核心关键模型能力一览表：**
 
@@ -329,7 +329,7 @@ training_args = TrainingArguments(num_train_epochs=3, batch_size=2, learning_rat
                                   sink_mode=True)
 ```
 
-使用Trainer接口创建内部预置任务：数据集按照官方教程准备[GPT预训练数据集准备](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/gpt2.md)，自定义训练参数
+使用Trainer接口创建内部预置任务：数据集按照官方教程准备[GPT预训练数据集准备](docs/model_cards/gpt2.md)，自定义训练参数
 
 ```python
 from mindformers import Trainer, TrainingArguments
@@ -727,9 +727,9 @@ MindPet（Pet：Parameter-Efficient Tuning）是属于Mindspore领域的微调�
 
 |                             模型                             | 微调算法 |        运行模式         |
 | :----------------------------------------------------------: | :------: | :---------------------: |
-| [GPT](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/gpt2.md) |   Lora   | finetune、eval、predict |
-| [LLama](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/llama.md) |   Lora   | finetune、eval、predict |
-| [GLM](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/glm.md) |   Lora   | finetune、eval、predict |
+| [GPT](docs/model_cards/gpt2.md) |   Lora   | finetune、eval、predict |
+| [LLama](docs/model_cards/llama.md) |   Lora   | finetune、eval、predict |
+| [GLM](docs/model_cards/glm.md) |   Lora   | finetune、eval、predict |
 
 #### 使用入门
 
@@ -743,12 +743,12 @@ Mindformers大模型套件提供了text generator方法，旨在让用户能够�
 
 |    model    |                         模型文档链接                         | 增量推理 | 流式推理 |
 | :---------: | :----------------------------------------------------------: | :------: | :------: |
-|    bloom    | [link](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/bloom.md) |    √     |    √     |
-|     GLM     | [link](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/glm.md) |    √     |    √     |
-|     GPT     | [link](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/gpt2.md) |    ×     |    √     |
-|    llama    | [link](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/llama.md) |    √     |    √     |
-| pangu-alpha | [link](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/pangualpha.md) |    ×     |    √     |
-|     T5      | [link](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/t5.md) |    ×     |    √     |
+|    bloom    | [link](docs/model_cards/bloom.md) |    √     |    √     |
+|     GLM     | [link](docs/model_cards/glm.md) |    √     |    √     |
+|     GPT     | [link](docs/model_cards/gpt2.md) |    ×     |    √     |
+|    llama    | [link](docs/model_cards/llama.md) |    √     |    √     |
+| pangu-alpha | [link](docs/model_cards/pangualpha.md) |    ×     |    √     |
+|     T5      | [link](docs/model_cards/t5.md) |    ×     |    √     |
 
 #### 增量推理
 
@@ -795,7 +795,7 @@ _ = model.generate(inputs["input_ids"], streamer=streamer, max_length=20, top_k=
 
 **说明:** 由于MindSpore版本问题，分布式推理仅支持MindSpore 2.0及以上版本，且暂不支持流水并行推理模式。
 
-[分布式推理参考用例](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/bloom.md#a1-%E6%A8%A1%E5%9E%8B%E5%B9%B6%E8%A1%8C%E6%8E%A8%E7%90%86%E4%BB%A51%E6%9C%BA8%E5%8D%A1%E6%8E%A8%E7%90%86bloom_71b%E4%B8%BA%E4%BE%8B)
+[分布式推理参考用例](docs/model_cards/bloom.md#a1-%E6%A8%A1%E5%9E%8B%E5%B9%B6%E8%A1%8C%E6%8E%A8%E7%90%86%E4%BB%A51%E6%9C%BA8%E5%8D%A1%E6%8E%A8%E7%90%86bloom_71b%E4%B8%BA%E4%BE%8B)
 
 ### 边训练边评估
 
