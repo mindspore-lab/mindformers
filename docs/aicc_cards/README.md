@@ -17,7 +17,7 @@ MindFormers套件当前具备AICC适配的特性，用户在ModelArts平台启�
 
 ### 模型准备
 
-本案例使用MindFormers套件内的GPT2模型作为教程案例，请参照[GPT2 model card](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/gpt2.md)进行模型代码和训练数据集的准备
+本案例使用MindFormers套件内的GPT2模型作为教程案例，请参照[GPT2](../model_cards/gpt2.md)进行模型代码和训练数据集的准备
 
 - 模型代码
 
@@ -27,7 +27,6 @@ git clone https://gitee.com/mindspore/mindformers.git
 
 - 数据集预处理
     以Wikitext2数据集为例
-
     - 数据集下载：[WikiText2数据集](https://gitee.com/link?target=https%3A%2F%2Fs3.amazonaws.com%2Fresearch.metamind.io%2Fwikitext%2Fwikitext-2-v1.zip)
     - 词表下载：[vocab.json](https://gitee.com/link?target=https%3A%2F%2Fhuggingface.co%2Fgpt2%2Fblob%2Fmain%2Fvocab.json)，[merges.txt](https://gitee.com/link?target=https%3A%2F%2Fhuggingface.co%2Fgpt2%2Fresolve%2Fmain%2Fmerges.txt)
     - 参考[ModelZoo](https://gitee.com/mindspore/models/tree/master/research/nlp/gpt2#language-modeling-%E8%AF%AD%E8%A8%80%E5%BB%BA%E6%A8%A1%E4%BB%BB%E5%8A%A1)，将数据处理成Mindrecord格式。注：训练数据处理时，长度应等于模型接收长度加一
@@ -37,11 +36,11 @@ git clone https://gitee.com/mindspore/mindformers.git
 准备好代码与数据集后，需将其上传至AICC的对象存储服务上
 
 - 进入`存储`标题下的`对象存储服务`，将训练代码和数据等输入内容上传，并准备好用于回传训练输出的路径；
-    ![obs_prepare](asserts/obs_prepare.png)
+    ![obs_prepare](assets/obs_prepare.png)
 - 进入`对象存储服务`的任一文件夹，点击界面上方的复制按钮，即可获得当前文件夹的OBS路径映射
     如：obs://huawei/xxx/mindformers
 
-    ![obs_url_bt](asserts/obs_url_bt.png)
+    ![obs_url_bt](assets/obs_url_bt.png)
 
 ### 镜像准备
 
@@ -51,7 +50,7 @@ ModelArts上的所提供的预置训练镜像，通常MindSpore的版本较为�
 
 - 在镜像仓库网上找到当前版本的[MindFormers镜像](http://mirrors.cn-central-221.ovaijisuan.com/detail/78.html)，打开显示如下
 
-![aihub](asserts/aihub.png)
+![aihub](assets/aihub.png)
 
 > 可以复制其docker pull命令拉取该镜像，在镜像仓库网上的镜像权限均为公开，无需登录可以直接拉取
 >
@@ -71,7 +70,7 @@ docker pull swr.cn-central-221.ovaijisuan.com/mindformers/mindformers_dev_mindsp
 
 - 进入`容器镜像服务`的控制台界面，找到`客户端上传`镜像按钮，将会提示如何上传上一步拉取的镜像
 
-![mirrors_upload](asserts/mirrors_upload.png)
+![mirrors_upload](assets/mirrors_upload.png)
 
 按照操作执行完后将会在该镜像列表中看到上传的镜像，并能够在ModelArts中选取
 
@@ -80,29 +79,29 @@ docker pull swr.cn-central-221.ovaijisuan.com/mindformers/mindformers_dev_mindsp
 ### 训练作业配置
 
 - 进入`ModelArts控制台`的训练作业功能区，点击页面右上角的`创建作业`按钮，开始创建训练作业
-    ![train_entry](asserts/train_entry.png)
-    ![train_task1](asserts/train_task1.png)
+    ![train_entry](assets/train_entry.png)
+    ![train_task1](assets/train_task1.png)
 
 下面将较为详细地解释拉起训练时**所需的每个入参及其含义**
 
 - 名称/描述/新建实验名称：按实际填写即可
 - 创建方式/启动方式：
     我们需要使用之前准备的镜像环境，但拉取方式仍可复用预置命令
-    ![choose_mirror](asserts/choose_mirror.png)
+    ![choose_mirror](assets/choose_mirror.png)
     这里选择自定义，即可在镜像一栏选择之前准备并上传好的镜像
 - 代码目录选择上传的代码路径
 - 启动文件选择run_mindformers.py脚本
     > 注意，在AICC上拉起训练任务时，即使需要多卡启动，也只需指定python脚本作为启动文件，作业启动引擎会自动完成ranktable与环境变量等内容的配置，并多进程拉起python脚本，不需要额外的分布式启动shell脚本
 - 本地代码目录与工作目录保持默认即可
 
-![train_args](asserts/train_args.png)
+![train_args](assets/train_args.png)
 
 - 训练输入：
     - `train_dataset_dir`：选择数据集在云上的数据存储文件夹位置，作为训练数据集的路径；该参数名应当能够被启动脚本识别
     > 选择后，ModelArts将会在拉起训练作业时，将**云上的数据集拉取至指定的目录下**，然后将该入参的值从云上路径修改为镜像上被拉取的路径
 - 训练输出：
     - 启用时，需要将文件输出在超参传入的路径下，训练结束后会进行回传；
-    - 由于输出通常较大，默认的路径下磁盘空间不足，我们会将输出统一放在/cahce目录下，因此MindFormers**不启用**该项参数
+   - 由于输出通常较大，默认的路径下磁盘空间不足，我们会将输出统一放在/cahce目录下，因此MindFormers**不启用**该项参数
 - 必需超参：
     - `config`：填入对应config文件在镜像上的绝对路径，在本案例下为 `/home/ma-user/modelarts/user-job-dir/mindformers/configs/gpt2/run_gpt2.yaml`
     - `run_mode`：train，训练模式，将不加载权重进行训练
@@ -110,7 +109,7 @@ docker pull swr.cn-central-221.ovaijisuan.com/mindformers/mindformers_dev_mindsp
     - `remote_save_url`：obs://xxx/xxx/outputs/gpt2_test，填入对象存储服务中实际准备的OBS路径，**训练输出将会回传至该路径下**
     > 其余可选超参可参照 `run_mindformers.py` 脚本入参进行选择
 
-![train_nodes](asserts/train_nodes.png)
+![train_nodes](assets/train_nodes.png)
 
 - 按需求选择资源池，规格和计算节点数，配置作业日志回传路径
   卡数=单节点规格数 \* 节点数
@@ -119,12 +118,104 @@ docker pull swr.cn-central-221.ovaijisuan.com/mindformers/mindformers_dev_mindsp
 
 完成后拉起训练作业，耐心等待输出作业日志
 如果一切正常，将会输出如下日志：
-![train_logs](asserts/train_logs.png)
+![train_logs](assets/train_logs.png)
 
 **并且在 `remote_save_url` 参数所对应的OBS路径下有输出回传**：
-![train_outputs](asserts/train_outputs.png)
+![train_outputs](assets/train_outputs.png)
 
 ### 常见问题
 
 - 启动作业后报**module not found**：
   标准镜像可能缺少几个pip安装包，将相应的包名加入代码主目录下的requirements.txt文件下，拉起时会自动读取并安装相应的包
+
+- 回传过于频繁导致影响训练
+  可以通过所训练模型的配置文件`callback`中`ObsMonitor`
+  新增参数`upload_sequence`：表示多少step回传一次output目录下的内容到obs中。
+
+```yaml
+# callbacks
+callbacks:
+  - type: MFLossMonitor
+  - type: SummaryMonitor
+    keep_default_action: True
+  - type: CheckpointMointor
+    prefix: "mindformers"
+    save_checkpoint_steps: 100
+    integrated_save: True
+    async_save: False
+  - type: ObsMonitor
+    upload_sequence: 10000
+eval_callbacks:
+  - type: ObsMonitor
+```
+
+### [断点续训](../feature_cards/Resume_Training.md)
+
+训练作业界面中增加`load_checkpoint`训练输入，设置为需要恢复训练的obs权重路径。
+
+训练作业界面中`run_mode`超参设置为`Train`，`resume_training`为`False`，会加载指定训练输入中的权重重新开始训练。
+
+训练作业界面中`run_mode`超参设置为`Train`，`resume_training`为`True`，会加载指定训练输入中的权重并恢复`loss scale`,`learning rate`,`step_num`等信息从上次训练中断处继续训练。
+
+todo
+
+### [权重离线切分转换](../feature_cards/Transform_Ckpt.md)
+
+注意：`mindformers/tools/transform_ckpt.py`转换接口仅在`MindSpore2.0`环境下使用，可以在`NoteBook`中安装`MindSpore2.0 CPU`版本，进行离线转换；
+
+- step1
+
+  在`config`或者`训练作业`中配置超参`only_save_strategy=True`，拉起训练作业，仅生成分布式策略文件。
+
+  生成的分布式策略文件保存在`remote_save_url/strategy`目录下。(`remote_save_url`表示obs存储路径)
+
+  训练作业界面中增加`only_save_strategy`超参
+
+  ![](https://foruda.gitee.com/images/1687916968422798842/7975fa97_11500692.png)
+
+- step2
+
+ 启动`NoteBook`任务，运行如下脚本完成权重切分转换（注意在`MindSpore 2.0`版本下）
+
+```shell
+python mindformers/tools/transform_ckpt.py --src_ckpt_strategy SRC_CKPT_STRATEGY --dst_ckpt_strategy DST_CKPT_STRATEGY --src_ckpt_dir SRC_CKPT_DIR --dst_ckpt_dir DST_CKPT_DIR
+```
+
+参数说明
+`src_ckpt_strategy`：待转权重的分布式策略文件路径。
+  若为None,表示待转权重为完整权重;
+  若为切分策略文件,表示原始的权重对应的策略文件;
+  若为文件夹,表示需要合并文件夹内策略文件(仅在流水并行生成的策略文件时需要),合并后的策略文件保存在`SRC_CKPT_STRATEGY/merged_ckpt_strategy.ckpt`路径下;
+
+`dst_ckpt_strategy`：目标权重的分布式策略文件路径。即step1中生成的分布式策略文件路径。
+  若为None,表示将待转权重合并为完整权重;
+  若为切分策略文件,表示目标卡数对应的策略文件
+  若为文件夹,表示需要合并文件夹内策略文件(仅在流水并行生成的策略文件时需要),合并后的策略文件保存在`DST_CKPT_STRATEGY/merged_ckpt_strategy.ckpt`路径下;
+
+`src_ckpt_dir`: 待转权重路径，须按照`SRC_CKPT_DIR/rank_{i}/checkpoint_{i}.ckpt`存放，比如单一权重存放格式为`SRC_CKPT_DIR/rank_0/checkpoint_0.ckpt`。
+
+`dst_ckpt_dir`：目标权重保存路径，为自定义空文件夹路径，转换后模型以`DST_CKPT_DIR/rank_{i}/xxx.ckpt`存放。
+
+- step3
+
+将切分转换好的权重传到`OBS`
+
+- step4
+
+训练作业界面中增加`load_checkpoint`超参，输入转换好的checkpoint的文件夹obs路径。
+
+### [profiler](../feature_cards/Performance_Tuning.md#profiler数据采集)
+
+训练作业界面中增加`profile`超参，设置为True，即可开启profile功能。此时profiler参数均为默认值。
+
+采集完毕后，profiler文件数据会回传至`remote_save_url`路径下
+
+### [dump](../feature_cards/Precision_Optimization.md#dump使用方法)
+
+参考高阶特性精度调优中dump使用方法，创建json文件，并上传至obs中。
+
+json中dump数据输出路径指定为`mindformers/output/dump`
+
+训练作业界面中增加`MINDSPORE_DUMP_CONFIG`环境变量，并设置为modelarts中json文件绝对路径。
+
+训练作业结束后，dump数据会自动回传至obs中。
