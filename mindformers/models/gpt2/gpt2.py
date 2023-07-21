@@ -326,10 +326,22 @@ class GPTHead(nn.Cell):
 
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
 class GPT2WithLora(GPT2LMHeadModel):
+    """
+    GPT2LMHeadModel with LoRA parameter-efficient tuning algorithm
+    Args:
+        config (GPT2Config): The config of Gpt2Model.
+
+    Returns:
+        Tensor, the loss or logits of the network.
+    """
+
     def __init__(self, config: GPT2Config = None):
+        checkpoint_name_or_path = config.pop("checkpoint_name_or_path")
         super().__init__(config)
         config.pet_config.reg_rules = r'.*dense1.*|.*dense3.*'
         self.backbone = LoraAdapter.get_pet_model(self.backbone, config.pet_config)
+        config.checkpoint_name_or_path = checkpoint_name_or_path
+        self.load_checkpoint(config)
         # freeze pretrained model
         PetAdapter.freeze_pretrained_model(self, config.pet_config.pet_type)
 
