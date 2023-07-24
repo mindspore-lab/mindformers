@@ -67,7 +67,7 @@ config = ViTMAEConfig.from_pretrained("mae_vit_base_p16")
 model = ViTMAEForPreTraining(config)
  ```
 
-- Trainer接口开启训练/评估/推理：
+- Trainer接口开启训练/推理：
 
 ```python
 from mindformers.trainer import Trainer

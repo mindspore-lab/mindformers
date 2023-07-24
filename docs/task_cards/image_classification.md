@@ -30,7 +30,7 @@
 
 ## 快速任务接口
 
-- Trainer接口开启评估/推理：
+- Trainer接口开启训练/评估/推理：
 
 ```python
 from mindformers import MindFormerBook
