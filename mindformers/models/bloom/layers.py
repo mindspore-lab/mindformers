@@ -87,7 +87,7 @@ class BloomAttention(MultiHeadAttention):
                 self.softmax_3d.recompute()
             if use_seq_parallel:
                 mindformer_logger.info("Using seq parallel mode!")
-                self.dropout.shard(((parallel_config.data_parallel * parallel_config.model_parallel, 1),))
+                self.dropout.dropout.shard(((parallel_config.data_parallel * parallel_config.model_parallel, 1),))
                 self.projection.shard(
                     strategy_bias=((parallel_config.data_parallel * parallel_config.model_parallel, 1), (1,)),
                     strategy_matmul=((parallel_config.data_parallel, parallel_config.model_parallel),
@@ -327,7 +327,8 @@ class BloomBlock(TransformerEncoderLayer):
                     strategy_matmul=((parallel_config.data_parallel, parallel_config.model_parallel),
                                      (parallel_config.model_parallel, 1)),
                     out_strategy_matmul=((parallel_config.data_parallel * parallel_config.model_parallel, 1),))
-                self.output.dropout.shard(((parallel_config.data_parallel * parallel_config.model_parallel, 1),))
+                self.output.dropout.dropout.shard(
+                    ((parallel_config.data_parallel * parallel_config.model_parallel, 1),))
 
     # pylint: disable=arguments-differ
     def construct(self, x, alibi_tensor, input_mask=None, init_reset=True, batch_valid_length=None):
