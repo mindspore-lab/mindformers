@@ -53,12 +53,6 @@ cd mindformers
 bash build.sh
 ```
 
-- 方式2：pip安装
-
-```bash
-pip install https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/wheel_packages/dev/mindformers-1.0.0.dev202307-py3-none-any.whl --trusted-host ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com -i https://pypi.tuna.tsinghua.edu.cn/simple
-```
-
 - 方式3：镜像
 
 具体参考[镜像安装](docs/README.md#%E6%94%AF%E6%8C%81%E9%95%9C%E5%83%8F)
