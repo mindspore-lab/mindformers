@@ -178,7 +178,7 @@ class GLMModel(nn.Cell):
             op_parallel_config = config.parallel_config
 
         # create embedding parameters
-        if is_version_ge(ms.__version__, '2.0.0'):
+        if is_version_ge(ms.__version__, '1.11.0'):
             self.embedding_dropout = nn.Dropout(p=config.embedding_dropout_prob)
         else:
             self.embedding_dropout = nn.Dropout(keep_prob=1 - config.embedding_dropout_prob)
@@ -616,7 +616,7 @@ class GLMChatModel(GLMForPreTraining):
         self.pow = P.Pow()
         self.topk = P.TopK(sorted=True)
         self.cumsum = P.CumSum()
-        if is_version_ge(ms.__version__, '2.0.0'):
+        if is_version_ge(ms.__version__, '1.11.0'):
             self.sum = ops.sum
         else:
             self.sum = P.ReduceSum(keep_dims=False)

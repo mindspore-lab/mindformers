@@ -80,7 +80,7 @@ class KeyWordGenDataset(BaseDataset):
         train_output_columns = ["input_ids", "label", "position_ids", "attention_mask"]
         eval_output_columns = ["input_ids", "label"]
 
-        if is_version_ge(mindspore.__version__, "2.0.0"):
+        if is_version_ge(mindspore.__version__, "1.11.0"):
             if phase == "train":
                 dataset = dataset.map(cls.train_dataset_function,
                                       input_columns=input_columns,

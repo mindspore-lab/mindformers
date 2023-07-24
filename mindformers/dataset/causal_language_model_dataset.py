@@ -129,7 +129,7 @@ class CausalLanguageModelDataset(BaseDataset):
                                                                         eos_token_id=dataset_config.eos_token_id,
                                                                         rank_id=rank_id,
                                                                         dis=dis)
-            if is_version_ge(mindspore.__version__, '2.0.0'):
+            if is_version_ge(mindspore.__version__, '1.11.0'):
                 dataset = dataset.map(operations=map_func, input_columns=dataset_config.input_columns,
                                       output_columns=dataset_config.output_columns)
             else:

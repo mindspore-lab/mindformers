@@ -85,7 +85,7 @@ class MLPWithGEGLU(nn.Cell):
             strategy_bias=((parallel_config.data_parallel, 1), (1,))
             )
 
-        if is_version_ge(ms.__version__, '2.0.0'):
+        if is_version_ge(ms.__version__, '1.11.0'):
             self.dropout = nn.Dropout(p=output_dropout_prob)
         else:
             self.dropout = nn.Dropout(keep_prob=1 - output_dropout_prob)
