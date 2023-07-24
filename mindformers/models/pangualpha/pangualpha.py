@@ -34,7 +34,7 @@ from mindformers.mindformer_book import MindFormerBook
 from .pangualpha_config import PanguAlphaConfig
 
 
-__all__ = ['PanguAlphaHeadModel', 'PanguAlphaModel']
+__all__ = ['PanguAlphaHeadModel', 'PanguAlphaModel', 'PanguAlphaPromptTextClassificationModel']
 
 
 class EmbeddingLayer(nn.Cell):
@@ -471,3 +471,61 @@ class PanguAlphaHeadModel(BaseModel):
         loss = self.loss(logits, labels, input_mask)
 
         return loss
+
+
+@MindFormerRegister.register(MindFormerModuleType.MODELS)
+class PanguAlphaPromptTextClassificationModel(PanguAlphaHeadModel):
+    """
+        The PanguAlpha network for prompt text classification consisting of two parts the backbone and the head
+        Args:
+            config(PanguAlphaConfig): the config of network
+        Inputs:
+            input_ids: the tokenized inputs, shape is [num_labels, seq_length]
+            labels: the index of the true label, shape is [1,]
+            attention_mask: the mask indicating whether each position is a valid input and is not the added prompt,
+                            shape is [num_labels, seq_length]
+        Returns:
+            logits: Tensor: corresponding outputs for calculating metrics
+
+        Examples:
+            >>> # input model name, load model and weights
+            >>> model_a = PanguAlphaHeadModel.from_pretrained('pangualpha_2_6b')
+            >>> # input config, load model without weights
+            >>> from mindformers import AutoConfig
+            >>> config = AutoConfig.from_pretrained('pangualpha_2_6b')
+            >>> model_b = PanguAlphaPromptTextClassificationModel(config)
+        """
+
+    def __init__(self, config: PanguAlphaConfig = None):
+        config = config if config is not None else PanguAlphaConfig()
+        super().__init__(config)
+        self.num_labels = config.num_labels
+
+    # pylint: disable=arguments-differ
+    def construct(self, input_ids=None, labels=None, attention_mask=None, position_ids=None, input_embeds=None,
+                  init_reset=True, batch_valid_length=None):
+        r"""forward pass of the model"""
+        if self.phase == "train":
+            raise ValueError("PanguAlphaPromptTextClassificationModel just supports evaluate mode, "
+                             "please set run_mode to eval")
+        if input_ids is None and input_embeds is None:
+            raise ValueError("input_ids and input_embeds can not be all None")
+        batch_size, num_labels_mul_seq_length = input_ids.shape
+        seq_length = num_labels_mul_seq_length // self.num_labels
+
+        input_ids = self.reshape(input_ids, (-1, seq_length))
+        input_mask = self.cast(self.reshape(attention_mask, (-1, seq_length)), mstype.float32)
+
+        attention_mask = self.cast(self.not_equal(input_ids, self.pad_token_id), mstype.float32)
+        attention_mask = self.get_attention_mask(attention_mask)
+
+        if position_ids is None:
+            position_ids = F.tuple_to_array(F.make_range(seq_length))
+            position_ids = self.expand(position_ids, 0)
+            position_ids = self.tile(position_ids, (self.num_labels * batch_size, 1))
+
+        logits, vocab_table = self.backbone(input_ids, position_ids, attention_mask, init_reset, batch_valid_length)
+        logits = self.head(logits, vocab_table)
+        logits = self.reshape(logits, (batch_size, self.num_labels, seq_length, -1))
+
+        return logits, input_ids, input_mask, labels
