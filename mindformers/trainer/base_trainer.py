@@ -560,6 +560,17 @@ class BaseTrainer:
             logger.info(".........Using The Existing Model Wrapper: %s", self.model_wrapper.__class__.__name__)
             wrapper = self.model_wrapper
 
+        # build callback
+        logger.info(".........Build Callbacks For Train..........")
+        if callbacks is None:
+            callbacks = self.create_callbacks(default_args={
+                "learning_rate": optimizer.learning_rate if optimizer else wrapper.optimizer.learning_rate,
+                "origin_epochs": config.runner_config.origin_epochs,
+                "dataset_size": config.data_size,
+                "micro_batch_interleave_num": config.micro_batch_interleave_num,
+                "micro_batch_num": config.parallel_config.micro_batch_num,
+                "initial_epoch": config.runner_config.initial_epoch})
+
         # define compute metrics for evaluate in training
         compute_metrics = None
         if config.do_eval:
@@ -582,17 +593,6 @@ class BaseTrainer:
                     config.load_checkpoint = \
                         AutoModel.from_pretrained(config.load_checkpoint).default_checkpoint_download_path
                 transform_and_load_checkpoint(config, model, network, dataset)
-
-        # build callback
-        logger.info(".........Build Callbacks For Train..........")
-        if callbacks is None:
-            callbacks = self.create_callbacks(default_args={
-                "learning_rate": optimizer.learning_rate if optimizer else wrapper.optimizer.learning_rate,
-                "origin_epochs": config.runner_config.origin_epochs,
-                "dataset_size": config.data_size,
-                "micro_batch_interleave_num": config.micro_batch_interleave_num,
-                "micro_batch_num": config.parallel_config.micro_batch_num,
-                "initial_epoch": config.runner_config.initial_epoch})
 
         # build evaluate in training
         if config.do_eval:

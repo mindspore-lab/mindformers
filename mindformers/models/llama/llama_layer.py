@@ -241,7 +241,7 @@ class LlamaRMSNorm(nn.Cell):
     def __init__(self, dim, eps=1e-6, param_init_type=mstype.float32):
         super(LlamaRMSNorm, self).__init__()
         self.eps = eps
-        self.weight = Parameter(initializer('ones', (dim,), dtype=param_init_type))
+        self.weight = Parameter(initializer('ones', (dim,), dtype=param_init_type), parallel_optimizer=False)
         self.square = P.Square()
         self.mean = P.ReduceMean(keep_dims=True)
         self.add = P.Add()

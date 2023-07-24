@@ -503,7 +503,7 @@ class FeedForward(Cell):
             else:
                 self.projection.shard(strategy_matmul=((dp, mp), (mp, 1)))
             self.projection.bias.parallel_optimizer = False
-            if is_version_ge(mindspore.__version__, '2.0.0'):
+            if is_version_ge(mindspore.__version__, '1.11.0'):
                 self.dropout = nn.Dropout(p=dropout_rate)
                 self.dropout_3d = nn.Dropout(p=dropout_rate)
                 self.dropout_4d = nn.Dropout(p=dropout_rate)
@@ -568,7 +568,7 @@ class FeedForward(Cell):
                 self.projection.shard(strategy_matmul=((dp, mp), (mp, 1)),
                                       strategy_bias=((dp, 1), (1,)))
             self.projection.bias.parallel_optimizer = False
-            if is_version_ge(mindspore.__version__, '2.0.0'):
+            if is_version_ge(mindspore.__version__, '1.11.0'):
                 self.dropout = nn.Dropout(p=dropout_rate)
                 self.dropout_3d = nn.Dropout(p=dropout_rate)
                 self.dropout_4d = nn.Dropout(p=dropout_rate)
@@ -976,7 +976,7 @@ class MultiHeadAttention(Cell):
             # Normalize factor for attention, sqrt(dk) as widely used
             self.scale_factor = Tensor(math.sqrt(math.sqrt(self.size_per_head)))
             self.use_past = use_past
-            if is_version_ge(mindspore.__version__, '2.0.0'):
+            if is_version_ge(mindspore.__version__, '1.11.0'):
                 self.dropout = nn.Dropout(p=hidden_dropout_rate)
                 self.prob_dropout = nn.Dropout(p=attention_dropout_rate)
             else:
@@ -1081,7 +1081,7 @@ class MultiHeadAttention(Cell):
             # Normalize factor for attention, sqrt(dk) as widely used
             self.scale_factor = Tensor(math.sqrt(math.sqrt(self.size_per_head)))
             self.use_past = use_past
-            if is_version_ge(mindspore.__version__, '2.0.0'):
+            if is_version_ge(mindspore.__version__, '1.11.0'):
                 self.dropout = nn.Dropout(p=hidden_dropout_rate)
                 self.prob_dropout = nn.Dropout(p=attention_dropout_rate)
             else:

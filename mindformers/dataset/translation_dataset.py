@@ -99,7 +99,7 @@ class TranslationDataset(BaseDataset):
             labels = np.array(tgt_output['input_ids'], np.int32)
             return input_ids, attention_mask, labels
 
-        if is_version_ge(mindspore.__version__, "2.0.0"):
+        if is_version_ge(mindspore.__version__, "1.11.0"):
             dataset = dataset.map(pad_max_function,
                                   input_columns=['source', 'target'],
                                   output_columns=['input_ids', 'attention_mask', 'labels'])

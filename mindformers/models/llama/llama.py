@@ -337,11 +337,22 @@ class LlamaForCausalLM(BaseModel):
 
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
 class LlamaForCausalLMWithLora(LlamaForCausalLM):
+    """Llama Model for finetuning with LoRA
+
+    Args:
+        config (LlamaConfig): The config of network.
+    """
+
     def __init__(self, config: LlamaConfig = None, pet=None):
+        ckpt_cfg = config.checkpoint_name_or_path
+        config.checkpoint_name_or_path = None
         super().__init__(config)
         # get Pet tuning model.
         self.pet = pet
-        self.pet.pet_config.reg_rules = r'.*wq|.*wv'
+        self.pet.pet_config.reg_rules = r'.*wq|.*wk|.*wv|.*wo'
         self.model = LoraAdapter.get_pet_model(self.model, self.pet.pet_config)
+        # load lora ckpt
+        config.checkpoint_name_or_path = ckpt_cfg
+        self.load_checkpoint(config)
         # freeze pretrained model
         PetAdapter.freeze_pretrained_model(self, self.pet.pet_type)

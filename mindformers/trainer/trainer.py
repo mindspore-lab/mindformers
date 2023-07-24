@@ -333,8 +333,8 @@ class Trainer:
 
     def train(self,
               train_checkpoint: Optional[Union[str, bool]] = False,
-              resume_training: Optional[bool] = False,
-              auto_trans_ckpt: bool = False,
+              resume_training: Optional[bool] = None,
+              auto_trans_ckpt: Optional[bool] = None,
               do_eval: bool = False,
               **kwargs):
         r"""Train task for Trainer.
@@ -393,17 +393,16 @@ class Trainer:
             self.config.model.model_config.checkpoint_name_or_path = None
             self.config.load_checkpoint = self.get_last_checkpoint()
         elif isinstance(train_checkpoint, str):
-            if resume_training or auto_trans_ckpt or os.path.isdir(train_checkpoint):
-                self.config.model.model_config.checkpoint_name_or_path = None
-                self.config.load_checkpoint = train_checkpoint
-            else:
-                self.config.model.model_config.checkpoint_name_or_path = train_checkpoint
-                self.config.load_checkpoint = None
+            self.config.model.model_config.checkpoint_name_or_path = None
+            self.config.load_checkpoint = train_checkpoint
         else:
             self.default_checkpoint_name_or_path = self.config.model.model_config.checkpoint_name_or_path
             self.config.model.model_config.checkpoint_name_or_path = None
 
-        self.config.resume_training = resume_training
+        if resume_training is not None:
+            self.config.resume_training = resume_training
+        if auto_trans_ckpt is not None:
+            self.config.auto_trans_ckpt = auto_trans_ckpt
 
         if self.is_model_instance:
             self.reset_model_instance(is_train=True)
@@ -418,8 +417,8 @@ class Trainer:
 
     def finetune(self,
                  finetune_checkpoint: Optional[Union[str, bool]] = False,
-                 resume_training: Optional[bool] = False,
-                 auto_trans_ckpt: bool = False,
+                 resume_training: Optional[bool] = None,
+                 auto_trans_ckpt: Optional[bool] = None,
                  do_eval: bool = False,
                  **kwargs):
         r"""Finetune task for Trainer.
@@ -478,12 +477,8 @@ class Trainer:
             self.config.model.model_config.checkpoint_name_or_path = None
             self.config.load_checkpoint = self.get_last_checkpoint()
         elif isinstance(finetune_checkpoint, str):
-            if resume_training or auto_trans_ckpt or os.path.isdir(finetune_checkpoint):
-                self.config.model.model_config.checkpoint_name_or_path = None
-                self.config.load_checkpoint = finetune_checkpoint
-            else:
-                self.config.model.model_config.checkpoint_name_or_path = finetune_checkpoint
-                self.config.load_checkpoint = None
+            self.config.model.model_config.checkpoint_name_or_path = None
+            self.config.load_checkpoint = finetune_checkpoint
         else:
             self.default_checkpoint_name_or_path = self.config.model.model_config.checkpoint_name_or_path
             if auto_trans_ckpt:
@@ -500,7 +495,10 @@ class Trainer:
                 self.config.load_checkpoint = None
             self.config.model.model_config.checkpoint_name_or_path = None
 
-        self.config.resume_training = resume_training
+        if resume_training is not None:
+            self.config.resume_training = resume_training
+        if auto_trans_ckpt is not None:
+            self.config.auto_trans_ckpt = auto_trans_ckpt
 
         if self.is_model_instance:
             self.reset_model_instance(is_train=True)
@@ -513,7 +511,8 @@ class Trainer:
             callbacks=self.callbacks,
             is_full_config=True, **kwargs)
 
-    def evaluate(self, eval_checkpoint: Optional[Union[str, bool]] = False, auto_trans_ckpt: bool = False, **kwargs):
+    def evaluate(self, eval_checkpoint: Optional[Union[str, bool]] = False, auto_trans_ckpt: Optional[bool] = None,
+                 **kwargs):
         r"""Evaluate task for Trainer.
         This function is used to evaluate the network.
 
@@ -551,12 +550,8 @@ class Trainer:
             self.config.model.model_config.checkpoint_name_or_path = None
             self.config.load_checkpoint = self.get_last_checkpoint()
         elif isinstance(eval_checkpoint, str):
-            if auto_trans_ckpt or os.path.isdir(eval_checkpoint):
-                self.config.model.model_config.checkpoint_name_or_path = None
-                self.config.load_checkpoint = eval_checkpoint
-            else:
-                self.config.model.model_config.checkpoint_name_or_path = eval_checkpoint
-                self.config.load_checkpoint = None
+            self.config.model.model_config.checkpoint_name_or_path = None
+            self.config.load_checkpoint = eval_checkpoint
         else:
             self.default_checkpoint_name_or_path = self.config.model.model_config.checkpoint_name_or_path
             if auto_trans_ckpt:
@@ -572,6 +567,9 @@ class Trainer:
             else:
                 self.config.load_checkpoint = None
 
+        if auto_trans_ckpt is not None:
+            self.config.auto_trans_ckpt = auto_trans_ckpt
+
         if self.is_model_instance:
             self.reset_model_instance(is_train=False)
 
@@ -582,7 +580,7 @@ class Trainer:
 
     def predict(self,
                 predict_checkpoint: Optional[Union[str, bool]] = None,
-                auto_trans_ckpt: bool = False,
+                auto_trans_ckpt: Optional[bool] = None,
                 input_data: Optional[Union[GeneratorDataset,
                                            Tensor, np.ndarray, Image, str, list]] = None, **kwargs):
         r"""Predict task for Trainer.
@@ -632,12 +630,8 @@ class Trainer:
             self.config.model.model_config.checkpoint_name_or_path = None
             self.config.load_checkpoint = self.get_last_checkpoint()
         elif isinstance(predict_checkpoint, str):
-            if auto_trans_ckpt or os.path.isdir(predict_checkpoint):
-                self.config.model.model_config.checkpoint_name_or_path = None
-                self.config.load_checkpoint = predict_checkpoint
-            else:
-                self.config.model.model_config.checkpoint_name_or_path = predict_checkpoint
-                self.config.load_checkpoint = None
+            self.config.model.model_config.checkpoint_name_or_path = None
+            self.config.load_checkpoint = predict_checkpoint
         else:
             self.default_checkpoint_name_or_path = self.config.model.model_config.checkpoint_name_or_path
             if auto_trans_ckpt:
@@ -652,6 +646,9 @@ class Trainer:
                 self.config.model.model_config.checkpoint_name_or_path = None
             else:
                 self.config.load_checkpoint = None
+
+        if auto_trans_ckpt is not None:
+            self.config.auto_trans_ckpt = auto_trans_ckpt
 
         if input_data is None:
             input_data = build_dataset_loader(self.config.eval_dataset.data_loader)

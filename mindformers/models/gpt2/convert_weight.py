@@ -130,57 +130,55 @@ if __name__ == '__main__':
     print_dict(state_dict)
 
     ms_name = [
-        "gpt2.backbone.transformer.encoder.blocks.{}.layernorm1.gamma",
-        "gpt2.backbone.transformer.encoder.blocks.{}.layernorm1.beta",
-        "gpt2.backbone.transformer.encoder.blocks.{}.layernorm2.gamma",
-        "gpt2.backbone.transformer.encoder.blocks.{}.layernorm2.beta",
-        "gpt2.backbone.transformer.encoder.blocks.{}.attention.projection.weight",
-        "gpt2.backbone.transformer.encoder.blocks.{}.attention.projection.bias",
-        "gpt2.backbone.transformer.encoder.blocks.{}.attention.dense1.weight",
-        "gpt2.backbone.transformer.encoder.blocks.{}.attention.dense1.bias",
-        "gpt2.backbone.transformer.encoder.blocks.{}.attention.dense2.weight",
-        "gpt2.backbone.transformer.encoder.blocks.{}.attention.dense2.bias",
-        "gpt2.backbone.transformer.encoder.blocks.{}.attention.dense3.weight",
-        "gpt2.backbone.transformer.encoder.blocks.{}.attention.dense3.bias",
-        "gpt2.backbone.transformer.encoder.blocks.{}.output.mapping.weight",
-        "gpt2.backbone.transformer.encoder.blocks.{}.output.mapping.bias",
-        "gpt2.backbone.transformer.encoder.blocks.{}.output.projection.weight",
-        "gpt2.backbone.transformer.encoder.blocks.{}.output.projection.bias",
+        "backbone.blocks.{}.layernorm1.gamma",
+        "backbone.blocks.{}.layernorm1.beta",
+        "backbone.blocks.{}.layernorm2.gamma",
+        "backbone.blocks.{}.layernorm2.beta",
+        "backbone.blocks.{}.attention.projection.weight",
+        "backbone.blocks.{}.attention.projection.bias",
+        "backbone.blocks.{}.attention.dense1.weight",
+        "backbone.blocks.{}.attention.dense1.bias",
+        "backbone.blocks.{}.attention.dense2.weight",
+        "backbone.blocks.{}.attention.dense2.bias",
+        "backbone.blocks.{}.attention.dense3.weight",
+        "backbone.blocks.{}.attention.dense3.bias",
+        "backbone.blocks.{}.output.mapping.weight",
+        "backbone.blocks.{}.output.mapping.bias",
+        "backbone.blocks.{}.output.projection.weight",
+        "backbone.blocks.{}.output.projection.bias",
     ]
 
     torch_name = [
-        "transformer.h.{}.ln_1.weight",
-        "transformer.h.{}.ln_1.bias",
-        "transformer.h.{}.ln_2.weight",
-        "transformer.h.{}.ln_2.bias",
-        "transformer.h.{}.attn.c_proj.weight",
-        "transformer.h.{}.attn.c_proj.bias",
-        "transformer.h.{}.attn.c_attn.weight.q",
-        "transformer.h.{}.attn.c_attn.bias.q",
-        "transformer.h.{}.attn.c_attn.weight.k",
-        "transformer.h.{}.attn.c_attn.bias.k",
-        "transformer.h.{}.attn.c_attn.weight.v",
-        "transformer.h.{}.attn.c_attn.bias.v",
-        "transformer.h.{}.mlp.c_fc.weight",
-        "transformer.h.{}.mlp.c_fc.bias",
-        "transformer.h.{}.mlp.c_proj.weight",
-        "transformer.h.{}.mlp.c_proj.bias"
+        "h.{}.ln_1.weight",
+        "h.{}.ln_1.bias",
+        "h.{}.ln_2.weight",
+        "h.{}.ln_2.bias",
+        "h.{}.attn.c_proj.weight",
+        "h.{}.attn.c_proj.bias",
+        "h.{}.attn.c_attn.weight.q",
+        "h.{}.attn.c_attn.bias.q",
+        "h.{}.attn.c_attn.weight.k",
+        "h.{}.attn.c_attn.bias.k",
+        "h.{}.attn.c_attn.weight.v",
+        "h.{}.attn.c_attn.bias.v",
+        "h.{}.mlp.c_fc.weight",
+        "h.{}.mlp.c_fc.bias",
+        "h.{}.mlp.c_proj.weight",
+        "h.{}.mlp.c_proj.bias"
     ]
 
     addition_mindspore = [
-        "gpt2.backbone.layernorm.gamma",
-        "gpt2.backbone.layernorm.beta",
+        "backbone.layernorm.gamma",
+        "backbone.layernorm.beta",
         "backbone.embedding.word_embedding.embedding_table",
         "backbone.embedding.position_embedding.embedding_table",
-        # "gpt2.dense1.weight",   # for the model with head
     ]
 
     addition_torch = [
-        "transformer.ln_f.weight",
-        "transformer.ln_f.bias",
-        "transformer.wte.weight",
-        "transformer.wpe.weight",
-        # "transformer.wte.weight",   # for the model with head
+        "ln_f.weight",
+        "ln_f.bias",
+        "wte.weight",
+        "wpe.weight",
     ]
 
     mapped_param = generate_params_dict(total_layers=opt.layers,

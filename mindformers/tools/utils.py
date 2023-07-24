@@ -284,12 +284,12 @@ def is_version_le(current_version, base_version):
     """
         return current_version <= base_version.
         Check whether the current version is lower than or equal to the base version.
-        For example: for current_version: 1.8.1, base_version: 2.0.0, it return True.
+        For example: for current_version: 1.8.1, base_version: 1.11.0, it return True.
     """
     version_split_char = '.'
     if version_split_char not in base_version or version_split_char not in current_version:
         raise ValueError("The version string will contain the `.`."
-                         "For example, current_version 1.8.1, base_version: 2.0.0.")
+                         "For example, current_version 1.8.1, base_version: 1.11.0.")
     for x, y in zip(current_version.split(version_split_char), base_version.split(version_split_char)):
         if not x.isdigit() or not y.isdigit():
             continue
@@ -302,12 +302,12 @@ def is_version_ge(current_version, base_version):
     """
         return current_version >= base_version.
         Check whether the current version is higher than or equal to the base version.
-        for current_version: 1.8.1, base_version: 2.0.0, it return False.
+        for current_version: 1.8.1, base_version: 1.11.0, it return False.
     """
     version_split_char = '.'
     if version_split_char not in base_version or version_split_char not in current_version:
         raise ValueError("The version string will contain the `.`."
-                         "For example, current_version 1.8.1， base_version: 2.0.0.")
+                         "For example, current_version 1.8.1， base_version: 1.11.0.")
     for x, y in zip(current_version.split(version_split_char), base_version.split(version_split_char)):
         if not x.isdigit() or not y.isdigit():
             continue
