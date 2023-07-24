@@ -56,7 +56,7 @@ python run_mindformer.py --config ./configs/txtcls/run_txtcls_bert_base_uncased.
 
 ### 调用API启动
 
-- Trainer接口开启评估/推理：
+- Trainer接口开启训练/评估/推理：
 
 ```python
 from mindformers import MindFormerBook
