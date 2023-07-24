@@ -285,8 +285,9 @@ def transform_and_load_checkpoint(config, model, network, dataset, optimizer=Non
                                 f"but get {config.load_checkpoint}")
 
     # 1. build net if parallel mode is auto_parallel
-    if context.get_auto_parallel_context('parallel_mode') in \
-            ['semi_auto_parallel', 'auto_parallel', 'hybrid_parallel']:
+    if (os.path.isdir(config.load_checkpoint) or config.auto_trans_ckpt) and \
+            context.get_auto_parallel_context('parallel_mode') in ['semi_auto_parallel', 'auto_parallel',
+                                                                   'hybrid_parallel']:
         if not config.runner_config.sink_mode:
             raise ValueError("When distributed loads are sliced weights, sink_mode must be set True.")
         if do_eval:
