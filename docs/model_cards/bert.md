@@ -123,7 +123,7 @@ tail -f run_distributed_train_bert/1/rank.0/stdout
 要完成上述训练只需输入命令
 
 ```bash
-bash examples/masked_language_modeling/bert_pretrain_distributed.sh RANK_SIZE hostfile
+bash scripts/examples/masked_language_modeling/bert_pretrain_distributed_gpu.sh RANK_SIZE hostfile
 ```
 
 即可。
