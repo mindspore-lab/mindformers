@@ -78,7 +78,7 @@ class MIMDataset(BaseDataset):
                     python_multiprocessing=dataset_config.python_multiprocessing)
 
         if mask is not None:
-            if is_version_ge(mindspore.__version__, '2.0.0'):
+            if is_version_ge(mindspore.__version__, '1.11.0'):
                 dataset = dataset.map(
                     operations=mask,
                     input_columns=dataset_config.input_columns,
