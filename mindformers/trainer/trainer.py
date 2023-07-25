@@ -345,8 +345,6 @@ class Trainer:
                 Used to restore training or fine-tune the weight of the network.
                 It supports real checkpoint path or valid model name of mindformers or bool value.
                 if it's true, the last checkpoint file saved from the previous training round is automatically used.
-                If do_finetune is true, this checkpoint will be used to finetune the network.
-                Default: False.
             resume_training (bool): Whether to perform resume training. Default: False.
             auto_trans_ckpt: auto transform checkpoint to load in distributed model
             do_eval (bool): Whether evaluations are performed during training. Default: False.
@@ -365,13 +363,11 @@ class Trainer:
             >>> # 2) eval network when train task to reproduce model.
             >>> task_trainer.train(do_eval=True)
             >>> # 3) resume train task to auto load the last checkpoint, if training break after 10 epochs.
-            >>> task_trainer.train(train_checkpoint=True, initial_epoch=10)
+            >>> task_trainer.train(train_checkpoint=True, resume_training=True)
             >>> # 4) resume train task according to checkpoint path, if training break after 10 epochs.
             >>> task_trainer.train(
             ...     resume_or_finetune_from_checkpoint='./output/rank_0/checkpoint/mindformers.ckpt',
-            ...     initial_epoch=10)
-            >>> # 5) finetune train task according to resume_or_finetune_from_checkpoint.
-            >>> task_trainer.train(resume_or_finetune_from_checkpoint='mae_vit_base_p16', do_finetune=True)
+            ...     resume_training=True)
         """
         if train_checkpoint is not None and \
                 not isinstance(train_checkpoint, (bool, str)):
