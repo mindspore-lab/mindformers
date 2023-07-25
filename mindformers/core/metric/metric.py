@@ -39,7 +39,7 @@ from mindformers.core.loss import CrossEntropyLoss
 from ...auto_class import AutoTokenizer
 from ...dataset.labels import cluener_labels
 
-__all__ = ['EntityScore', 'SQuADMetric', 'PerplexityMetric', 'ADGENMetric']
+__all__ = ['EntityScore', 'SQuADMetric', 'PerplexityMetric', 'ADGENMetric', 'PromptAccMetric']
 
 
 @MindFormerRegister.register(MindFormerModuleType.METRIC)
@@ -618,3 +618,118 @@ class ADGENMetric(nn.Metric):
         for k, v in self.score_dict.items():
             self.score_dict[k] = float(np.mean(v))
         return self.score_dict
+
+
+@MindFormerRegister.register(MindFormerModuleType.METRIC)
+class PromptAccMetric(nn.Metric):
+    r"""
+        Computes the prompt acc of each entity. The prompt acc is the accuracy of text classification base on building
+        prompt. The accurate index is the index of the prompt which has the minimum perplexity.
+        1. Build the prompt for this metric is described as follows:
+            这是关于**体育**的文章：$passage
+            这是关于**文化**的文章：$passage
+        2. Computes perplexity of each generated context based on prompt.
+        Perplexity is a measurement about how well a probability distribution or a model predicts a sample.
+        A low perplexity indicates the model can predict the sample well. The function is shown as follows:
+
+        .. math::
+            PP(W)=P(w_{1}w_{2}...w_{N})^{-\frac{1}{N}}=\sqrt[N]{\frac{1}{P(w_{1}w_{2}...w_{N})}}
+
+        Where :math:`w` represents words in corpus.
+        3. Compute classification result by choosing the index of the prompt which has the minimum perplexity.
+        4. Count the number of correctly classified and the total number of samples and compute the acc as follows:
+
+        .. math::
+            \text{accuracy} =\frac{\text{correct_sample_nums}}{\text{total_sample_nums}}
+
+        """
+
+    def __init__(self):
+        super(PromptAccMetric, self).__init__()
+        self.num_data = None
+        self.total_acc_num = None
+        self.loss = CrossEntropyLoss()
+        self.pipeline_stages = ms.get_auto_parallel_context('pipeline_stages')
+        self.pipeline_parallel = self.pipeline_stages > 1
+        self.last_card_id = 0
+        self.rank_id = 0
+        self.device_num = 1
+        self.cast = P.Cast()
+        self.reshape = P.Reshape()
+        self.equal = P.Equal()
+        self.softmax = P.Softmax()
+        self.argmin = P.Argmin()
+        self.sum = P.ReduceSum()
+
+        if self.pipeline_parallel:
+            self.rank_id = get_rank()
+            self.device_num = get_group_size()
+
+        per_stage_device_num = self.device_num // self.pipeline_stages
+        stage_id = self.rank_id // per_stage_device_num
+        self.is_last_stage = (stage_id == self.pipeline_stages - 1)
+
+        self.parallel_mode = ms.get_auto_parallel_context("parallel_mode")
+        self.full_batch = ms.get_auto_parallel_context("full_batch")
+        self.auto_parallel = self.parallel_mode in ['semi_auto_parallel', 'auto_parallel']
+
+    def clear(self):
+        """Clearing the internal evaluation result."""
+        self.num_data = 0
+        self.total_acc_num = 0
+
+    def calculate_circle(self, *inputs):
+        """The main calculate logic."""
+        logits, input_ids, input_mask, labels = inputs[0], inputs[1], inputs[2], inputs[3]
+        batch_size, num_labels, seq_length, _ = logits.shape
+        logits = self.reshape(logits, (batch_size*num_labels, seq_length, -1))
+        ppl_list = []
+        for index in range(batch_size*num_labels):
+            sub_logits, sub_tokens, sub_mask_list = logits[index], input_ids[index], input_mask[index]
+
+            sub_logits = sub_logits[:-1, ::]
+            sub_tokens = sub_tokens[1:]
+            sub_mask_list = sub_mask_list[1:]
+
+            loss = self.loss(sub_logits, sub_tokens, sub_mask_list)
+            loss = float(loss.asnumpy())
+            ppl_list.append(loss)  # smaller, better
+        ppl_ms = ms.Tensor(ppl_list, dtype=ms.float32)
+        ppl_ms = self.reshape(ppl_ms, (batch_size, num_labels))
+        ppl_ms = self.cast(self.argmin(ppl_ms), ms.int32)
+        label = self.reshape(labels, (-1,))
+        cur_acc_num = self.cast(self.equal(ppl_ms, label), ms.float16).sum().asnumpy()
+        self.num_data += batch_size
+        self.total_acc_num += cur_acc_num
+
+    def update(self, *inputs):
+        """Update results for every batch"""
+        if self.pipeline_parallel:
+            if not self.is_last_stage:
+                return
+            if self.auto_parallel:
+                ms.context.set_auto_parallel_context(parallel_mode='data_parallel', full_batch=False)
+
+            self.calculate_circle(*inputs)
+
+            if self.auto_parallel:
+                ms.set_auto_parallel_context(parallel_mode=self.parallel_mode,
+                                             full_batch=True,
+                                             pipeline_stages=self.pipeline_stages)
+        else:
+            self.calculate_circle(*inputs)
+        print("Current data num is {}, total acc num is {}, ACC is {}".format(
+            self.num_data, self.total_acc_num, "%.3f" % (self.total_acc_num / self.num_data)))
+        return
+
+    def eval(self):
+        """Compute final result"""
+        if self.pipeline_parallel and not self.is_last_stage:
+            return None
+        acc_rate = float(self.total_acc_num / self.num_data)
+        result = {"ACC is:": ("%.3f" % acc_rate),
+                  "total_acc_num is: ": self.total_acc_num,
+                  "total_num is: ": self.num_data}
+        if self.pipeline_parallel:
+            print("ACC Metric is:", acc_rate)
+        return result
