@@ -119,7 +119,7 @@ RANK_TABLE_FILE: 由mindformers/tools/hccl_tools.py生成的分布式json文件
 CONFIG_PATH: 为configs文件夹下面的{model_name}/run_*.yaml配置文件
 DEVICE_ID: 为设备卡，范围为0~7
 DEVICE_RANGE: 为单机分布式卡的范围, 如[0,8]为8卡分布式，不包含8本身
-RUN_STATUS: 为任务运行状态，支持关键字 train\finetune\eval\predict
+RUN_MODE: 为任务运行状态，支持关键字 train\finetune\eval\predict
 ```
 
 ### 方式二：调用API启动
