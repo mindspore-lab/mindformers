@@ -10,7 +10,7 @@
 
 | model |                                   type                                   | datasets |                Top1-accuracy                 |      stage       |                                                                                          example                                                                                          |
 |:-----:|:------------------------------------------------------------------------:|:--------:|:--------------------------------------------:|:----------------:|:-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:|
-| clip  | clip_vit_b_32 <br/>clip_vit_b_16<br/>clip_vit_l_14<br/>clip_vit_l_14@336 | Cifar100 | 57.24% <br/> 61.41% <br/> 69.67%<br/> 68.19% | eval<br/>predict | [link](../../examples/zero_shot_image_classification/clip_vit_b_32_eval_on_cifar100.sh) <br/> [link](../../examples/zero_shot_image_classification/clip_vit_b_32_predict_on_cifar100.sh) |
+| clip  | clip_vit_b_32 <br/>clip_vit_b_16<br/>clip_vit_l_14<br/>clip_vit_l_14@336 | Cifar100 | 57.24% <br/> 61.41% <br/> 69.67%<br/> 68.19% | eval<br/>predict | [link](../../scripts/examples/zero_shot_image_classification/clip_vit_b_32_eval_on_cifar100.sh) <br/> [link](../../scripts/examples/zero_shot_image_classification/clip_vit_b_32_predict_on_cifar100.sh) |
 
 ### [Cifar100](http://www.cs.toronto.edu/~kriz/cifar-100-python.tar.gz)
 
