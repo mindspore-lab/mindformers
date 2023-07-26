@@ -80,7 +80,7 @@ docker pull swr.cn-central-221.ovaijisuan.com/mindformers/mindformers_dev_mindsp
 | [MAE](docs/model_cards/mae.md) |                    masked_image_modeling                     | mae_vit_base_p16                                             |
 | [VIT](docs/model_cards/vit.md) | [image_classification](docs/task_cards/image_classification.md) | vit_base_p16                                                 |
 | [Swin](docs/model_cards/swin.md) | [image_classification](docs/task_cards/image_classification.md) | swin_base_p4w7                                               |
-| [CLIP](docs/model_cards/clip.md) | [contrastive_language_image_pretrain](docs/task_cards/contrastive_language_image_pretrain.md), [zero_shot_image_classification](docs/task_cards/zero_shot_image_classification.md) | clip_vit_b_32<br>clip_vit_b_16 <br>clip_vit_l_14<br>clip_vit_l_14@336 |
+| [CLIP](docs/model_cards/clip.md) | [contrastive_language_image_pretrain](docs/task_cards/contrastive_language_image_pretrain.md)<br> [zero_shot_image_classification](docs/task_cards/zero_shot_image_classification.md) | clip_vit_b_32<br>clip_vit_b_16 <br>clip_vit_l_14<br>clip_vit_l_14@336 |
 
 **核心关键模型能力一览表：**
 
