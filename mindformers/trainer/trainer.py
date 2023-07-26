@@ -702,7 +702,8 @@ class Trainer:
 
     def set_parallel_config(
             self, data_parallel=1, model_parallel=1, expert_parallel=1, pipeline_stage=1, micro_batch_interleave_num=1,
-            micro_batch_num=1, optimizer_shard=False, gradient_aggregation_group=4, vocab_emb_dp=True):
+            micro_batch_num=1, use_seq_parallel=False, optimizer_shard=False,
+            gradient_aggregation_group=4, vocab_emb_dp=True):
         r"""
         set_parallel_config for the setting global data parallel, model parallel and fusion group.
         The parallel configure setting for Trainer.
@@ -716,6 +717,7 @@ class Trainer:
                 is applied. This value specifies the number of partitions to split the experts into.
             pipeline_stage (int): The number of the pipeline stage. Should be a positive value. Default: 1.
             micro_batch_num (int): The micro size of the batches for the pipeline training. Default: 1.
+            use_seq_parallel (bool): Whether to enable sequence parallel. Default False.
             optimizer_shard (bool): Whether to enable optimizer shard. Default False.
             gradient_aggregation_group (int): The fusion group size of the optimizer state sharding. Default: 4.
             vocab_emb_dp (bool): Shard embedding in model parallel or data parallel. Default: True.
@@ -733,6 +735,7 @@ class Trainer:
         self.config.parallel_config.model_parallel = model_parallel
         self.config.parallel_config.expert_parallel = expert_parallel
         self.config.parallel_config.pipeline_stage = pipeline_stage
+        self.config.parallel_config.use_seq_parallel = use_seq_parallel
         self.config.parallel_config.optimizer_shard = optimizer_shard
         self.config.parallel_config.micro_batch_num = micro_batch_num
         self.config.parallel_config.vocab_emb_dp = vocab_emb_dp
@@ -741,13 +744,14 @@ class Trainer:
 
         self.is_set_parallel_config = True
 
-    def set_recompute_config(self, recompute=False, parallel_optimizer_comm_recompute=False,
+    def set_recompute_config(self, recompute=False, parallel_optimizer_comm_recompute=False, select_recompute=False,
                              mp_comm_recompute=True, recompute_slice_activation=False):
         r"""Set recompute config.
         TransformerRecomputeConfig for the setting recompute attributes for encoder/decoder layers.
 
         Args:
             recompute (bool): Enable recomputation of the transformer block or not. Default: False.
+            select_recompute (bool): Only Enable recomputation of the attention layer or not. Default: False.
             parallel_optimizer_comm_recompute (bool): Specifies whether the communication operator allgathers
                 introduced by optimizer shard are recomputed in auto parallel or semi auto parallel mode.
                 Default: False.
@@ -764,6 +768,7 @@ class Trainer:
             >>> task_trainer.set_recompute_config(recompute=True)
         """
         self.config.recompute_config.recompute = recompute
+        self.config.recompute_config.select_recompute = select_recompute
         self.config.recompute_config.parallel_optimizer_comm_recompute = parallel_optimizer_comm_recompute
         self.config.recompute_config.mp_comm_recompute = mp_comm_recompute
         self.config.recompute_config.recompute_slice_activation = recompute_slice_activation

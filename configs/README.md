@@ -63,6 +63,7 @@ configs统一在run_xxx.yaml中，排序按照修改频率的顺序和一般的�
     - data_parallel: 数据并行
     - model_parallel: 模型并行
     - pipeline_stage: 流水线并行
+    - use_seq_parallel: 是否开启序列并行
     - optimizer_shard: 是否开启优化器切分。优化器并行开关，通常在半自动并行模式下生效，与parallel中的enable_parallel_optimizer保持一致，默认将模型权重参数切份data_parallel份
     - micro_batch_num: 流水线并行的微批次大小。pipeline_satge大于1时，开启流水并行时使用，此处需满足micro_batch_num >= pipeline_satge
     - gradient_aggregation_group: 梯度通信算子融合组的大小
@@ -74,6 +75,7 @@ configs统一在run_xxx.yaml中，排序按照修改频率的顺序和一般的�
     - num_experts_chosen: 每个token选择专家数目
 - recompute_config：重计算配置，可以参考mindformers.modules.transformer.TransformerRecomputeConfig
     - recompute: 是否开启重计算
+    - select_recompute: 是否开启选择重计算，只针对attention层的算子进行重计算
     - parallel_optimizer_comm_recompute: 由优化器并行引入的AllGather通信是否重计算
     - mp_comm_recompute: 由模型并行引入的通信操作是否重计算
     - recompute_slice_activation: 是否把保留在内存中的Cell输出切片
@@ -144,7 +146,11 @@ configs统一在run_xxx.yaml中，排序按照修改频率的顺序和一般的�
     - type: SummaryMonitor: 收集summary数据，可以参考[mindspore.SummaryCollector](https://www.mindspore.cn/docs/zh-CN/r2.0/api_python/mindspore/mindspore.SummaryCollector.html)
     - type: CheckpointMointor: checkpoint保存，可以参考[mindspore.save_checkpoint](https://www.mindspore.cn/docs/zh-CN/r2.0/api_python/mindspore/mindspore.save_checkpoint.html)
         - prefix: 权重文件前缀
+        - directory: 保存权重的目录
+        - save_checkpoint_seconds: 设定多少s保存一次ckpt
         - save_checkpoint_steps: 每多少个step保存一次checkpoint
+        - keep_checkpoint_max: 设定保存ckpt的最大数量，超过则会删除最旧的权重，以保证数量不变
+        - keep_checkpoint_per_n_minutes: 设定多少minutes保存一次ckpt
         - integrated_save: 是否聚合保存。True时表示聚合所有卡权重，这时每张卡权重均一致；False时表示每张卡各自保存自己的权重；当半自动并行模式训练大模型时，通常需要设置为False，以保证权重保存时不会因为内存问题而失败
         - save_network_params（新增）: 是否额外保存瘦身后的权重。默认为True。
         - save_trainable_params（新增）: 是否额外保存可训练的参数权重，即微调部分参数的权重。默认为False。

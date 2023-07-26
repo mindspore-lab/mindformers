@@ -87,10 +87,17 @@ class EmbeddingOpParallelConfig(_Config):
             >>> config=EmbeddingOpParallelConfig(data_parallel=1, model_parallel=1, vocab_emb_dp=True)
     """
 
-    def __init__(self, data_parallel=1, model_parallel=1, vocab_emb_dp=True):
-        self._dp_mp_config = OpParallelConfig(data_parallel=data_parallel, model_parallel=model_parallel)
+    def __init__(self, data_parallel=1, model_parallel=1,
+                 use_seq_parallel=False, select_recompute=False,
+                 vocab_emb_dp=True):
+        self._dp_mp_config = OpParallelConfig(data_parallel=data_parallel,
+                                              use_seq_parallel=use_seq_parallel,
+                                              model_parallel=model_parallel,
+                                              select_recompute=select_recompute)
         Validator.check_bool(vocab_emb_dp, "vocab_emb_dp")
         self.vocab_emb_dp = vocab_emb_dp
+        self.use_seq_parallel = use_seq_parallel
+        self.select_recompute = select_recompute
 
     @property
     def data_parallel(self):
@@ -144,13 +151,16 @@ class TransformerRecomputeConfig(_Config):
             ...                                   mp_comm_recompute=True, recompute_slice_activation=True)
     """
 
-    def __init__(self, recompute=False, parallel_optimizer_comm_recompute=False,
+    def __init__(self, recompute=False, select_recompute=False,
+                 parallel_optimizer_comm_recompute=False,
                  mp_comm_recompute=True, recompute_slice_activation=False):
         Validator.check_bool(recompute, "recompute")
         Validator.check_bool(parallel_optimizer_comm_recompute, "parallel_optimizer_comm_recompute")
         Validator.check_bool(mp_comm_recompute, "mp_comm_recompute")
+        Validator.check_bool(select_recompute, "select_recompute")
         Validator.check_bool(recompute_slice_activation, "recompute_slice_activation")
         self._recompute = recompute
+        self._select_recompute = select_recompute
         self._parallel_optimizer_comm_recompute = parallel_optimizer_comm_recompute
         self._mp_comm_recompute = mp_comm_recompute
         self._recompute_slice_activation = recompute_slice_activation
@@ -163,6 +173,15 @@ class TransformerRecomputeConfig(_Config):
     def recompute(self, value):
         Validator.check_bool(value, "recompute")
         self._recompute = value
+
+    @property
+    def select_recompute(self):
+        return self._select_recompute
+
+    @select_recompute.setter
+    def select_recompute(self, value):
+        Validator.check_bool(value, "select_recompute")
+        self._select_recompute = value
 
     @property
     def parallel_optimizer_comm_recompute(self):
@@ -234,16 +253,22 @@ class TransformerOpParallelConfig(_Config):
     """
 
     def __init__(self, data_parallel=1, model_parallel=1, expert_parallel=1, pipeline_stage=1, micro_batch_num=1,
-                 recompute=default_transformer_recompute_config,
+                 recompute=default_transformer_recompute_config, use_seq_parallel=False,
                  optimizer_shard=False, gradient_aggregation_group=4, vocab_emb_dp=True):
         self.recompute = recompute
+        self.select_recompute = recompute.select_recompute
+        self.use_seq_parallel = use_seq_parallel
         self.optimizer_shard = optimizer_shard
         self.gradient_aggregation_group = gradient_aggregation_group
-        self._embed_dp_mp_config = EmbeddingOpParallelConfig(data_parallel=data_parallel, model_parallel=model_parallel,
-                                                             vocab_emb_dp=vocab_emb_dp)
+        self._embed_dp_mp_config = EmbeddingOpParallelConfig(
+            data_parallel=data_parallel, model_parallel=model_parallel,
+            vocab_emb_dp=vocab_emb_dp, use_seq_parallel=use_seq_parallel,
+            select_recompute=recompute.select_recompute)
         self._pp_config = _PipeLineConfig(pipeline_stage=pipeline_stage, micro_batch_num=micro_batch_num)
-        self._moe_config = MoEParallelConfig(data_parallel=data_parallel, model_parallel=model_parallel,
-                                             expert_parallel=expert_parallel)
+        self._moe_config = MoEParallelConfig(
+            data_parallel=data_parallel, model_parallel=model_parallel,
+            select_recompute=recompute.select_recompute,
+            expert_parallel=expert_parallel, use_seq_parallel=use_seq_parallel)
 
     @property
     def recompute(self):
@@ -1220,6 +1245,26 @@ class MultiHeadAttention(Cell):
                 self.less = P.Less().shard(((1, 1, 1), (1, 1, 1)))
                 self.mul1 = P.Mul().shard(((1, 1, 1, 1), (1, 1, 1, 1)))
 
+            if parallel_config.use_seq_parallel:
+                self.dropout.dropout.shard(((parallel_config.data_parallel * parallel_config.model_parallel, 1),))
+                self.projection.shard(
+                    strategy_bias=((parallel_config.data_parallel * parallel_config.model_parallel, 1), (1,)),
+                    strategy_matmul=((parallel_config.data_parallel, parallel_config.model_parallel),
+                                     (parallel_config.model_parallel, 1)),
+                    out_strategy_matmul=((parallel_config.data_parallel * parallel_config.model_parallel, 1),))
+
+        if parallel_config.select_recompute:
+            # _attn中涉及的关键算子使用重计算逻辑，通常配合序列并行使用，会有较好的性能提升效果
+            self.batch_matmul.recompute()
+            self.sub.recompute()
+            self.add.recompute()
+            self.merger_head_transpose.recompute()
+            self.softmax_reshape.recompute()
+            self.prob_dropout.recompute()
+            self.softmax_cast.recompute()
+            self.softmax.softmax.recompute()
+            self.softmax_3d.recompute()
+
     def construct(self, query_tensor, key_tensor, value_tensor, attention_mask, key_past=None,
                   value_past=None, batch_valid_length=None):
         """Forward process of the MultiHeadAttention"""
@@ -1754,6 +1799,23 @@ class TransformerEncoderLayer(Cell):
                 self.tile = P.Tile().shard(((1, 1),))
                 self.mul = P.Mul().shard(((1, 1, 1, 1), (1,)))
                 self.assign = P.Assign().shard(((1, 1, 1, 1), (1, 1, 1, 1)))
+
+            if parallel_config.use_seq_parallel:
+                self.add.shard(((parallel_config.data_parallel * parallel_config.model_parallel, 1),
+                                (parallel_config.data_parallel * parallel_config.model_parallel, 1)))
+                self.layernorm1.shard(((parallel_config.data_parallel * parallel_config.model_parallel, 1),))
+                self.layernorm2.shard(((parallel_config.data_parallel * parallel_config.model_parallel, 1),))
+                if parallel_config.recompute.select_recompute:
+                    # 此处会消耗较大内存，开启后会损失一部分计算性能
+                    self.layernorm2.layer_norm.recompute()
+                if not self.use_moe:
+                    self.output.projection.shard(
+                        strategy_bias=((parallel_config.data_parallel * parallel_config.model_parallel, 1), (1,)),
+                        strategy_matmul=((parallel_config.data_parallel, parallel_config.model_parallel),
+                                         (parallel_config.model_parallel, 1)),
+                        out_strategy_matmul=((parallel_config.data_parallel * parallel_config.model_parallel, 1),))
+                    self.output.dropout.dropout.shard(
+                        ((parallel_config.data_parallel * parallel_config.model_parallel, 1),))
         else:
             raise RuntimeError(f"The {self.cls_name} only support sharding propagation or "
                                f"semi-auto parallel mode now.")
@@ -2187,6 +2249,23 @@ class TransformerDecoderLayer(Cell):
                 self.tile = P.Tile().shard(((1, 1),))
                 self.mul = P.Mul().shard(((1, 1, 1, 1), (1,)))
                 self.assign = P.Assign().shard(((1, 1, 1, 1), (1, 1, 1, 1)))
+
+            if parallel_config.use_seq_parallel:
+                self.add.shard(((parallel_config.data_parallel * parallel_config.model_parallel, 1),
+                                (parallel_config.data_parallel * parallel_config.model_parallel, 1)))
+                self.layernorm1.shard(((parallel_config.data_parallel * parallel_config.model_parallel, 1),))
+                self.layernorm2.shard(((parallel_config.data_parallel * parallel_config.model_parallel, 1),))
+                if parallel_config.recompute.select_recompute:
+                    # 此处会消耗较大内存，开启后会损失一部分计算性能
+                    self.layernorm2.layer_norm.recompute()
+                if not self.use_moe:
+                    self.output.projection.shard(
+                        strategy_bias=((parallel_config.data_parallel * parallel_config.model_parallel, 1), (1,)),
+                        strategy_matmul=((parallel_config.data_parallel, parallel_config.model_parallel),
+                                         (parallel_config.model_parallel, 1)),
+                        out_strategy_matmul=((parallel_config.data_parallel * parallel_config.model_parallel, 1),))
+                    self.output.dropout.dropout.shard(
+                        ((parallel_config.data_parallel * parallel_config.model_parallel, 1),))
         else:
             raise RuntimeError(f"The {self.cls_name} only support sharding propagation or "
                                f"semi-auto parallel mode now.")
@@ -2352,10 +2431,10 @@ def _get_lambda_func(total_layer=None):
         network.set_comm_fusion((layer_id + offset) // dis + 1)
         # Used for enabling recomputation of the block
         if isinstance(parallel_config.recompute, bool):
-            if parallel_config.recompute:
+            if parallel_config.recompute and not parallel_config.select_recompute:
                 network.recompute()
         else:
-            if parallel_config.recompute.recompute:
+            if parallel_config.recompute.recompute and not parallel_config.recompute.select_recompute:
                 paralel_op_comm_compute = parallel_config.recompute.parallel_optimizer_comm_recompute
                 network.recompute(parallel_optimizer_comm_recompute=paralel_op_comm_compute,
                                   mp_comm_recompute=parallel_config.recompute.mp_comm_recompute,
