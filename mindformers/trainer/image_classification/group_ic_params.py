@@ -50,7 +50,6 @@ def get_group_parameters(config, model, base_lr):
     parameter_group_vars = {}
 
     for param in model.trainable_params():
-
         if len(param.shape) == 1 or param.name.endswith(".bias") or (param.name in skip) or \
                 check_keywords_in_name(param.name, skip_keywords):
             group_name = "no_decay"
