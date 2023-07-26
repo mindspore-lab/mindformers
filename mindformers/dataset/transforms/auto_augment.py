@@ -1,34 +1,19 @@
-# Copyright 2022 Huawei Technologies Co., Ltd
-# Copyright 2022 Aerospace Information Research Institute,
-# Chinese Academy of Sciences.
+# AutoAugment, RandAugment, and AugMix for MindSpore
 #
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
+# This code implements the searched ImageNet policies with various tweaks and improvements and
+# does not include any of the search code.
 #
-# http://www.apache.org/licenses/LICENSE-2.0
+# AA and RA Implementation adapted from:
+#     https://github.com/tensorflow/tpu/blob/master/models/official/efficientnet/autoaugment.py, Apache 2.0
 #
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-# This file was refer to project:
-# https://github.com/rwightman/pytorch-image-models/blob/main/timm/data/auto_augment.py
+# AugMix adapted from:
+#     https://github.com/google-research/augmix, Apache 2.0
+#
+# Hacked together by / Copyright 2020 Ross Wightman
+#
+# has been modified to adapt mindspore and mindformers
 # ============================================================================
-""" AutoAugment, RandAugment, and AugMix for MindSpore
-
-This code implements the searched ImageNet policies with various tweaks and improvements and
-does not include any of the search code.
-
-AA and RA Implementation adapted from:
-    https://github.com/tensorflow/tpu/blob/master/models/official/efficientnet/autoaugment.py
-
-AugMix adapted from:
-    https://github.com/google-research/augmix
-
-Hacked together by / Copyright 2020 Ross Wightman
-"""
+"""AutoAugment, RandAugment, and AugMix for MindSpore"""
 import math
 import random
 import re
