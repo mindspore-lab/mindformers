@@ -1,0 +1,107 @@
+# Copyright 2023 Huawei Technologies Co., Ltd
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ============================================================================
+"""
+Convert Baichuan weight.
+Support huggingface format.
+"""
+
+import os
+import json
+import argparse
+
+import mindspore as ms
+
+
+def read_json(path):
+    with open(path, "r") as f:
+        return json.load(f)
+
+
+def name_replace(name: str):
+    """replace hf param name to ms."""
+    name = name.replace('embed_tokens.weight', 'tok_embeddings.embedding_weight')
+    name = name.replace('.self_attn.q_proj.', '.attention.wq.')
+    name = name.replace('.self_attn.k_proj.', '.attention.wk.')
+    name = name.replace('.self_attn.v_proj.', '.attention.wv.')
+    name = name.replace('.self_attn.o_proj.', '.attention.wo.')
+    name = name.replace('.mlp.gate_proj.', '.feed_forward.w1.')
+    name = name.replace('.mlp.down_proj.', '.feed_forward.w2.')
+    name = name.replace('.mlp.up_proj.', '.feed_forward.w3.')
+    name = name.replace('.input_layernorm.', '.attention_norm.')
+    name = name.replace('.post_attention_layernorm.', '.ffn_norm.')
+    name = name.replace('.norm.', '.norm_out.')
+    return name
+
+
+def convert_baichuan_7b_hf_ckpt(ckpt_dir, output_name, dtype=ms.float16):
+    """convert baichuan hf weight to ms."""
+    print(f"Trying to convert huggingface checkpoint in '{ckpt_dir}'.", flush=True)
+    import torch
+    from transformers import AutoModelForCausalLM
+
+    try:
+        model_hf = AutoModelForCausalLM.from_pretrained(ckpt_dir, trust_remote_code=True)
+        args_hf = read_json(os.path.join(ckpt_dir, "config.json"))
+    # pylint: disable=W0703
+    except Exception as e:
+        print(f"Error {e.message}.", flush=True)
+        return False
+
+    n_heads = args_hf["num_attention_heads"]
+    dim = args_hf["hidden_size"]
+
+    def permute_inv(w):
+        return w.view(n_heads, 2, dim // n_heads // 2, dim).transpose(1, 2).reshape(dim, dim)
+
+    ckpt_list = []
+    for name, value in model_hf.named_parameters():
+        name = name_replace(name)
+        if 'W_pack' in name:
+            values = torch.split(value, 4096)
+            wq = name.replace('.self_attn.W_pack', '.attention.wq') #'.self_attn.q_proj.', '.attention.wq.'
+            q_value = permute_inv(values[0])
+            wk = name.replace('.self_attn.W_pack', '.attention.wk')
+            k_value = permute_inv(values[1])
+            wv = name.replace('.self_attn.W_pack', '.attention.wv')
+            v_value = values[2]
+            print(f'\rprocessing parameter: {wq} {q_value.shape}     ', end='', flush=True)
+            ckpt_list.append({'name': wq, 'data': ms.Tensor(q_value.detach().numpy(), dtype=dtype)})
+            print(f'\rprocessing parameter: {wk} {k_value.shape}     ', end='', flush=True)
+            ckpt_list.append({'name': wk, 'data': ms.Tensor(k_value.detach().numpy(), dtype=dtype)})
+            print(f'\rprocessing parameter: {wv} {v_value.shape}     ', end='', flush=True)
+            ckpt_list.append({'name': wv, 'data': ms.Tensor(v_value.detach().numpy(), dtype=dtype)})
+            continue
+        if 'wq' in name or 'wk' in name:
+            value = permute_inv(value)
+        if name == 'norm.weight':
+            name = 'norm_out.weight'
+        if name[:7] == 'layers.':
+            name = name[7:]
+        value = value.detach().numpy()
+        print(f'\rprocessing parameter: {name} {value.shape}     ', end='', flush=True)
+        ckpt_list.append({'name': name, 'data': ms.Tensor(value, dtype=dtype)})
+
+    ckpt_file = os.path.join(ckpt_dir, output_name)
+    ms.save_checkpoint(ckpt_list, os.path.join(ckpt_file))
+    print(f"\rConvert baichuan 7b checkpoint finished, the mindspore checkpoint is saved in '{ckpt_file}'.", flush=True)
+    return True
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--torch_ckpt_dir', default='./')
+    parser.add_argument('--mindspore_ckpt_path', default='transform.ckpt')
+    args = parser.parse_args()
+    convert_baichuan_7b_hf_ckpt(ckpt_dir=args.torch_ckpt_dir, output_name=args.mindspore_ckpt_path)
