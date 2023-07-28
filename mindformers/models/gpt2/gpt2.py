@@ -86,34 +86,34 @@ class GPT2LMHeadModel(BaseModel):
         self.load_checkpoint(config)
         self.add = P.Add().shard(((parallel_config.data_parallel, 1), ()))
 
-    def construct(self, input_ids, input_mask=None):
+    def construct(self, input_ids, attention_mask=None):
         r"""
             construct function for Language Modeling
 
             Args:
-                input_ids (Tensor): the indices of input sequence tokens in the vocabulary.
-                input_mask (Tensor): input sentences padding mask, where 0 indicates padding position.
+                input_ids (Tensor): the indices of input sequence tokens in the vocabulary with datatype int64,
+                                    Tensor of shape :math:`(batch, seq\_length)`.
+                attention_mask (Tensor): input sentences padding mask, where 0 indicates padding position with
+                                         datatype int64, Tensor of shape :math:`(batch, seq\_length)`.
 
             Returns:
                 logits (Tensor) or loss (mstype.float32): if is_training is False, directly return the logits,
                                                          otherwise, return the computed loss.
         """
+        if attention_mask is None:
+            attention_mask = self.not_equal(input_ids, self.eos_token_id)
 
         batch_size, seq_length = input_ids.shape
+        attention_mask = self.cast(attention_mask, mstype.float32)
+        loss_mask = attention_mask
 
-        if self.phase == "train":
-            tokens = self.stridedslice(input_ids, (0, 0), (batch_size, seq_length - 1), (1, 1))
-            if input_mask is not None:
-                input_mask = self.stridedslice(input_mask, (0, 0), (batch_size, seq_length - 1), (1, 1))
-            else:
-                input_mask = self.not_equal(tokens, self.eos_token_id)
-        else:
+        if self.phase != "train":
             tokens = input_ids
-            if input_mask is None:
-                input_mask = self.not_equal(tokens, self.eos_token_id)
+        else:
+            tokens = self.stridedslice(input_ids, (0, 0), (batch_size, seq_length - 1), (1, 1))
+            attention_mask = self.stridedslice(attention_mask, (0, 0), (batch_size, seq_length - 1), (1, 1))
 
-        input_mask = self.cast(input_mask, mstype.float32)
-        attention_mask = self.get_attention_mask(input_mask)
+        attention_mask = self.get_attention_mask(attention_mask)
 
         # [batch_size, seq_length, vocab_size]
         output_states, embedding_table = self.backbone(tokens, attention_mask)
@@ -123,15 +123,16 @@ class GPT2LMHeadModel(BaseModel):
             logits = self.reshape(logits, (batch_size, seq_length, -1))
 
             # makes cast effective to avoid allgather issue in Mindspore1.10
-            input_mask = self.add(input_mask, 1)
+            loss_mask = self.add(loss_mask, 1)
 
-            return logits, tokens, input_mask
+            return logits, tokens, loss_mask
 
+        loss_mask = self.stridedslice(loss_mask, (0, 1), (batch_size, seq_length), (1, 1))
         labels = self.stridedslice(input_ids, (0, 1), (batch_size, seq_length), (1, 1))
         labels = self.reshape(labels, (-1,))
-        input_mask = self.reshape(input_mask, (-1,))
+        loss_mask = self.reshape(loss_mask, (-1,))
 
-        loss = self.loss(logits, labels, input_mask)
+        loss = self.loss(logits, labels, loss_mask)
         return loss
 
 
