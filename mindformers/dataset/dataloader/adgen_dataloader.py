@@ -80,7 +80,7 @@ class ADGenDataLoader:
 
         info = f"[DATASET] shuffle status is {shuffle}, phase is {phase}."
         logger.info(info)
-        return GeneratorDataset(adgen_dataset, column_names, shuffle=shuffle)
+        return GeneratorDataset(adgen_dataset, column_names, shuffle=shuffle, **kwargs)
 
 
 class ADGenDataset:

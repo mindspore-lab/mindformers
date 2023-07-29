@@ -22,6 +22,7 @@ from .clip import *
 from .t5 import *
 from .gpt2 import *
 from .glm import *
+from .glm2 import *
 from .llama import *
 from .pangualpha import *
 from .filip import *
@@ -46,6 +47,7 @@ __all__.extend(clip.__all__)
 __all__.extend(t5.__all__)
 __all__.extend(gpt2.__all__)
 __all__.extend(glm.__all__)
+__all__.extend(glm2.__all__)
 __all__.extend(llama.__all__)
 __all__.extend(pangualpha.__all__)
 __all__.extend(filip.__all__)
