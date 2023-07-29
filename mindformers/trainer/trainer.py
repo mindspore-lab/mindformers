@@ -376,8 +376,10 @@ class Trainer:
         if train_checkpoint is False:
             train_checkpoint = None
 
+        do_eval = do_eval or self.config.do_eval
         if do_eval:
             if self.eval_dataset is None:
+                logger.info("do_eval is enabled, building eval_dataset from config.")
                 self.eval_dataset = build_dataset(self.config.eval_dataset_task)
             if self.eval_dataset is None:
                 raise ValueError(f"if do_eval is true, eval_dataset must be input, "
@@ -461,13 +463,16 @@ class Trainer:
         if finetune_checkpoint is False:
             finetune_checkpoint = None
 
+        do_eval = do_eval or self.config.do_eval
         if do_eval:
-            logger.warning("do_eval is not supported yet."
-                           "It is a reserved interface and will be supported in future versions.")
             if self.eval_dataset is None:
-                raise ValueError('When do_eval is enabled, the eval_dataset must be entered,'
-                                 'which can be the dataset path for the corresponding task '
-                                 'or a custom MindSpore Dataset instance')
+                logger.info("do_eval is enabled, building eval_dataset from config.")
+                self.eval_dataset = build_dataset(self.config.eval_dataset_task)
+            if self.eval_dataset is None:
+                raise ValueError(f"if do_eval is true, eval_dataset must be input, "
+                                 f"the task {self.task} is not support eval now.")
+            # open do_eval for trainer config
+            self.config.do_eval = True
 
         if finetune_checkpoint is True:
             self.config.model.model_config.checkpoint_name_or_path = None
