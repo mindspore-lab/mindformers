@@ -15,6 +15,7 @@
 """Run MindFormer."""
 import argparse
 import os
+import shutil
 from pprint import pprint
 
 import numpy as np
@@ -29,8 +30,12 @@ from mindformers.core.context import build_context, build_profile_cb
 from mindformers.trainer import build_trainer
 from mindformers.tools.cloud_adapter import cloud_monitor
 from mindformers.tools.logger import logger
+from mindformers.tools.utils import is_version_ge
+from mindformers.tools import get_output_root_path
 from mindformers.mindformer_book import MindFormerBook
 
+if check_in_modelarts():
+    import moxing as mox
 
 SUPPORT_MODEL_NAMES = MindFormerBook().get_model_name_support_list()
 
@@ -54,9 +59,33 @@ def update_checkpoint_config(config, is_train=True):
         config.load_checkpoint = None
 
 
+def clear_auto_trans_output(config):
+    """clear transformed_checkpoint and strategy"""
+    if check_in_modelarts():
+        obs_strategy_dir = os.path.join(config.remote_save_url, "strategy")
+        if mox.file.exists(obs_strategy_dir):
+            mox.file.remove(obs_strategy_dir, recursive=True)
+        obs_transformed_ckpt_dir = os.path.join(config.remote_save_url, "transformed_checkpoint")
+        if mox.file.exists(obs_transformed_ckpt_dir):
+            mox.file.remove(obs_transformed_ckpt_dir, recursive=True)
+        mox.file.make_dirs(obs_strategy_dir)
+        mox.file.make_dirs(obs_transformed_ckpt_dir)
+    else:
+        strategy_dir = os.path.join(get_output_root_path(), "strategy")
+        if os.path.exists(strategy_dir):
+            shutil.rmtree(strategy_dir)
+        transformed_ckpt_dir = os.path.join(get_output_root_path(), "transformed_checkpoint")
+        if os.path.exists(transformed_ckpt_dir):
+            shutil.rmtree(transformed_ckpt_dir)
+        os.makedirs(strategy_dir, exist_ok=True)
+        os.makedirs(transformed_ckpt_dir, exist_ok=True)
+
+
 @cloud_monitor()
 def main(config):
     """main."""
+    config.is_version_ge = is_version_ge(ms.__version__, '2.0.0')
+
     # init context
     build_context(config)
 
@@ -90,6 +119,9 @@ def main(config):
     # define callback and add profile callback
     if config.profile:
         config.profile_cb = build_profile_cb(config)
+
+    if config.auto_trans_ckpt:
+        clear_auto_trans_output(config)
 
     if config.local_rank % 8 == 0:
         pprint(config)
@@ -151,6 +183,15 @@ if __name__ == "__main__":
              "it is also support input model name, such as 'mae_vit_base_p16', "
              "please refer to https://gitee.com/mindspore/mindformers#%E4%BB%8B%E7%BB%8D."
              "Default: None")
+    parser.add_argument(
+        '--src_strategy_path_or_dir', default=None, type=str,
+        help="The strategy of load_checkpoint, "
+             "if dir, it will be merged before transform checkpoint, "
+             "if file, it will be used in transform checkpoint directly, "
+             "Default: None, means load_checkpoint is a single whole ckpt, not distributed")
+    parser.add_argument(
+        '--auto_trans_ckpt', default=None, type=str2bool,
+        help="if true, auto transform load_checkpoint to load in distributed model. ")
     parser.add_argument(
         '--only_save_strategy', default=None, type=str2bool,
         help="if true, when strategy files are saved, system exit. ")
@@ -221,6 +262,10 @@ if __name__ == "__main__":
         config_.use_parallel = args_.use_parallel
     if args_.load_checkpoint is not None:
         config_.load_checkpoint = args_.load_checkpoint
+    if args_.src_strategy_path_or_dir is not None:
+        config_.src_strategy_path_or_dir = args_.src_strategy_path_or_dir
+    if args_.auto_trans_ckpt is not None:
+        config_.auto_trans_ckpt = args_.auto_trans_ckpt
     if args_.only_save_strategy is not None:
         config_.only_save_strategy = args_.only_save_strategy
     if args_.resume_training is not None:

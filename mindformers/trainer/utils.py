@@ -14,17 +14,27 @@
 # ============================================================================
 """Trainer Utils."""
 import os
+import time
 import random
+from glob import glob
 from enum import Enum
 
 import numpy as np
 
+import mindspore as ms
+from mindspore.communication.management import get_rank, get_group_size
 from mindspore import context, load_checkpoint, load_param_into_net
 from mindspore import set_seed as ms_set_seed
 
 from mindformers.tools.logger import logger
 from mindformers.tools.register import MindFormerConfig
+from mindformers.tools.utils import check_in_modelarts, get_output_root_path
+from mindformers.tools.transform_ckpt import get_strategy
 
+if check_in_modelarts():
+    import moxing as mox
+
+ELAPSE_TIME = 7200
 
 class BaseEnum(str, Enum):
     """
@@ -275,31 +285,47 @@ def transform_and_load_checkpoint(config, model, network, dataset, optimizer=Non
     """
     load checkpoint into net, transform checkpoint if transform is True
     1. build net if parallel mode is auto_parallel
-    2. transform checkpoint if need
-    3. load checkpoint params into dict
-    4. load params into net
+    2. get strategy
+    3. transform checkpoint if need
+    4. load ckpt
     """
     if not config.only_save_strategy and (not os.path.realpath(config.load_checkpoint) or
                                           not os.path.exists(config.load_checkpoint)):
         raise FileNotFoundError(f"The load_checkpoint must be correct, "
                                 f"but get {config.load_checkpoint}")
 
-    # 1. build net if parallel mode is auto_parallel
-    if (os.path.isdir(config.load_checkpoint) or config.auto_trans_ckpt) and \
-            context.get_auto_parallel_context('parallel_mode') in ['semi_auto_parallel', 'auto_parallel',
-                                                                   'hybrid_parallel']:
+    if config.only_save_strategy or (config.is_version_ge and config.auto_trans_ckpt):
+        # 1. build net if parallel mode is auto_parallel
+        build_model(config, model, network, dataset, do_eval=do_eval, do_predict=do_predict)
+        # 2. get strategy
+        dst_ckpt_strategy = get_dst_strategy(config)
+        # 3. transform checkpoint if needed
+        transform_ckpt(config, dst_ckpt_strategy=dst_ckpt_strategy)
+    # 4. load ckpt
+    load_ckpt(config, network, optimizer=optimizer)
+
+
+def build_model(config, model, network, dataset, do_eval=False, do_predict=False):
+    """build model, generate strategy file"""
+    if context.get_auto_parallel_context('parallel_mode') in ['semi_auto_parallel', 'auto_parallel',
+                                                              'hybrid_parallel']:
         if not config.runner_config.sink_mode:
             raise ValueError("When distributed loads are sliced weights, sink_mode must be set True.")
         if do_eval:
             model.infer_predict_layout(*next(dataset.create_tuple_iterator()))
         elif do_predict:
+            if config.model.model_config.use_past:
+                network.add_flags_recursive(use_past=False)
             model.infer_predict_layout(dataset)
+            if config.model.model_config.use_past:
+                network.add_flags_recursive(use_past=True)
         else:
             if config.runner_config.epochs > 1 and config.runner_config.sink_size == 1:
                 raise ValueError(f"When distributed loads are sliced weights, it does not support"
                                  f"epochs = {config.runner_config.epochs} > 1 and "
                                  f"sink_size = {config.runner_config.sink_size} = 1,"
                                  f"sink_size must be more than 1")
+            logger.info(".........Building model.........")
             model.build(train_dataset=dataset, epoch=config.runner_config.epochs,
                         sink_size=config.runner_config.sink_size)
 
@@ -310,26 +336,211 @@ def transform_and_load_checkpoint(config, model, network, dataset, optimizer=Non
         raise SystemExit("only_save_strategy is True, "
                          "but stand_alone and data_parallel mode do not have strategy file, system exit! ")
 
-    # 2. transform checkpoint if needed
 
-    # 3. load checkpoint params into dict
-    if not os.path.realpath(config.load_checkpoint) or \
-            not os.path.exists(config.load_checkpoint):
-        raise FileNotFoundError(f"The load_checkpoint must be correct, "
-                                f"but get {config.load_checkpoint}")
+def get_dst_strategy(config):
+    """get strategy"""
+    rank_id = get_rank()
+    world_size = get_group_size()
+    dst_strategy_path = None
+    if check_in_modelarts():
+        # local send all strategy file to obs
+        obs_save_dir = os.path.join(config.remote_save_url, "strategy")
+        mox.file.make_dirs(obs_save_dir)
+        local_strategy_path = config.parallel.strategy_ckpt_save_file
+        obs_strategy_path = os.path.join(obs_save_dir, os.path.basename(local_strategy_path))
+        mox.file.copy(local_strategy_path, obs_strategy_path)
 
+        # obs send all strategy to each node
+        logger.info(".........Collecting strategy.........")
+        local_strategy_dir = os.path.join(get_output_root_path(), "strategy")
+        if rank_id % 8 == 0:
+            wait_collect_all_strategy(local_strategy_dir, world_size, obs_save_dir)
+        else:
+            wait_collect_all_strategy(local_strategy_dir, world_size)
+
+        logger.info(".........All strtegy as follow.........")
+        local_strategy_paths = glob(os.path.join(local_strategy_dir, "*_rank_*.ckpt"))
+        local_strategy_paths.sort()
+        for local_strategy_path in local_strategy_paths:
+            logger.info("strategy: %s", local_strategy_path)
+        logger.info(".........Collecting %d strategy.........", len(local_strategy_paths))
+
+        # merge strategy if pipeline_stage > 1
+        if config.parallel_config.pipeline_stage > 1:
+            if rank_id % 8 == 0:
+                logger.info(".........Merging strategy.........")
+                merged_strategy_path = get_strategy(local_strategy_dir)
+                merged_strategy_name = os.path.basename(merged_strategy_path)
+                obs_merged_strategy_path = os.path.join(obs_save_dir, merged_strategy_name)
+                mox.file.copy(merged_strategy_path, obs_merged_strategy_path)
+                logger.info("Save %s to %s", merged_strategy_path, obs_merged_strategy_path)
+                logger.info(".........Merging succeed.........")
+                dst_strategy_path = merged_strategy_path
+            else:
+                dst_strategy_path = None
+        else:
+            dst_strategy_path = local_strategy_path
+    else:
+        logger.info(".........Collecting strategy.........")
+        local_strategy_path = config.parallel.strategy_ckpt_save_file
+        local_strategy_dir = os.path.dirname(local_strategy_path)
+        if world_size <= 8:
+            wait_collect_all_strategy(local_strategy_dir, world_size)
+
+            logger.info(".........All strtegy as follow.........")
+            local_strategy_paths = glob(os.path.join(local_strategy_dir, "*_rank_*.ckpt"))
+            local_strategy_paths.sort()
+            for local_strategy_path in local_strategy_paths:
+                logger.info("strategy: %s", local_strategy_path)
+            logger.info(".........Collecting %d strategy.........", len(local_strategy_paths))
+
+            # merge strategy if pipeline_stage > 1
+            if config.parallel_config.pipeline_stage > 1:
+                if rank_id % 8 == 0:
+                    logger.info(".........Merging strategy.........")
+                    merged_strategy_path = get_strategy(local_strategy_dir)
+                    logger.info(".........Merging succeed.........")
+                    dst_strategy_path = merged_strategy_path
+                else:
+                    dst_strategy_path = None
+            else:
+                dst_strategy_path = local_strategy_path
+        else:
+            logger.warning("Can't collecting all strategy, device num > 8!")
+            config.auto_trans_ckpt = False
+            dst_strategy_path = None
+
+    return dst_strategy_path
+
+
+def transform_ckpt(config, dst_ckpt_strategy=None):
+    """auto transform ckpt"""
+    rank_id = get_rank() if config.use_parallel else 0
+    world_size = get_group_size() if config.use_parallel else 1
+    transformed_ckpt_dir = os.path.join(get_output_root_path(), "transformed_checkpoint")
+    os.makedirs(transformed_ckpt_dir, exist_ok=True)
+    if rank_id % 8 == 0:
+        logger.info(".........Transforming ckpt.........")
+        src_ckpt_strategy = get_strategy(config.src_strategy_path_or_dir)
+
+        logger.info("Src ckpt strategy: %s", src_ckpt_strategy)
+        logger.info("Src ckpt: %s", config.load_checkpoint)
+        logger.info("Dst ckpt strategy: %s", dst_ckpt_strategy)
+        logger.info("Dst ckpt: %s", transformed_ckpt_dir)
+        ms.transform_checkpoints(config.load_checkpoint,
+                                 transformed_ckpt_dir,
+                                 'checkpoint_',
+                                 src_ckpt_strategy,
+                                 dst_ckpt_strategy)
+        logger.info(".........Transform succeed!.........")
+        transform_succeed_txt = os.path.join(transformed_ckpt_dir, f'transform_succeed_rank_{rank_id}.txt')
+        f = open(transform_succeed_txt, 'w')
+        f.close()
+        if check_in_modelarts():
+            transformed_ckpt_dir_obs = os.path.join(config.remote_save_url, "transformed_checkpoint")
+            mox.file.make_dirs(transformed_ckpt_dir_obs)
+            transform_succeed_txt_obs = os.path.join(transformed_ckpt_dir_obs, f'transform_succeed_rank_{rank_id}.txt')
+            mox.file.copy(transform_succeed_txt, transform_succeed_txt_obs)
+
+    wait_transform(config, rank_id, world_size)
+
+    if check_in_modelarts():
+        transformed_ckpt_dir_obs = os.path.join(config.remote_save_url, "transformed_checkpoint")
+        rank_transformed_ckpt_dir_obs = os.path.join(transformed_ckpt_dir_obs, f'rank_{rank_id}')
+        rank_transformed_ckpt_dir = os.path.join(get_output_root_path(), "transformed_checkpoint", f'rank_{rank_id}')
+        mox.file.copy_parallel(rank_transformed_ckpt_dir, rank_transformed_ckpt_dir_obs)
+        print(f"Rank {rank_id}: Save {rank_transformed_ckpt_dir} to {rank_transformed_ckpt_dir_obs}")
+
+    config.load_checkpoint = transformed_ckpt_dir
+
+
+def wait_transform(config, rank_id, world_size):
+    """wait all node transform over"""
+    print(f'Rank {rank_id}: Waiting transforming ckpt......')
+    time_out = False
+    if check_in_modelarts():
+        transformed_ckpt_dir_obs = os.path.join(config.remote_save_url, "transformed_checkpoint")
+        transform_succeed_txts_obs = [os.path.join(transformed_ckpt_dir_obs, f'transform_succeed_rank_{int(i/8)*8}.txt')
+                                      for i in range(0, world_size, 8)]
+        total_num = len(transform_succeed_txts_obs)
+        all_node_transform_succeed = False
+        start_time = time.time()
+        while not all_node_transform_succeed:
+            node_transform_succeed_num = 0
+            for transform_succeed_txt in transform_succeed_txts_obs:
+                if mox.file.exists(transform_succeed_txt):
+                    node_transform_succeed_num += 1
+                else:
+                    break
+            if node_transform_succeed_num == total_num:
+                all_node_transform_succeed = True
+            else:
+                elapsed_time = time.time() - start_time
+                if elapsed_time >= ELAPSE_TIME:
+                    logger.warning("Automatic weight transform is timed out!")
+                    time_out = True
+                    break
+                time.sleep(5)
+    else:
+        transformed_ckpt_dir = os.path.join(get_output_root_path(), "transformed_checkpoint")
+        transform_succeed_txt = os.path.join(transformed_ckpt_dir, f'transform_succeed_rank_0.txt')
+        start_time = time.time()
+        while not os.path.exists(transform_succeed_txt):
+            elapsed_time = time.time() - start_time
+            if elapsed_time >= ELAPSE_TIME:
+                time_out = True
+                break
+            time.sleep(5)
+    print(f'Rank {rank_id}: Transform succeed!')
+    if time_out:
+        return False
+    return True
+
+
+def wait_collect_all_strategy(strategy_dir, total_num, obs_strategy_dir=None):
+    """wait all strategy collect over"""
+    start_time = time.time()
+    time_out = False
+    while True:
+        if obs_strategy_dir:
+            obs_strategy_paths = mox.file.glob(os.path.join(obs_strategy_dir, "*.ckpt"))
+            if len(obs_strategy_paths) < total_num:
+                time.sleep(5)
+                continue
+            for obs_strategy_path in obs_strategy_paths:
+                local_strategy_path = os.path.join(strategy_dir, os.path.basename(obs_strategy_path))
+                mox.file.copy(obs_strategy_path, local_strategy_path)
+
+        local_strategy_paths = glob(os.path.join(strategy_dir, "*_rank_*.ckpt"))
+        if len(local_strategy_paths) == total_num:
+            break
+        else:
+            elapsed_time = time.time() - start_time
+            if elapsed_time >= ELAPSE_TIME:
+                logger.warning("Collection of all strategy timed out!")
+                time_out = True
+                break
+            time.sleep(5)
+    if time_out:
+        return False
+    return True
+
+
+def load_ckpt(config, network, optimizer=None):
+    """load checkpoint"""
+    # load checkpoint params into dict
     logger.info(".............Start load checkpoint from checkpoint..................")
     if os.path.isdir(config.load_checkpoint):
         checkpoint_dict = load_distributed_checkpoint(config)
     else:
         checkpoint_dict = load_checkpoint(config.load_checkpoint)
 
-    # 4. load params into net
+    # load params into net
     not_load_network_params = load_param_into_net(network, checkpoint_dict)
-    logger.info("Network parameters are not loaded：%s", str(not_load_network_params))
+    logger.info("Network parameters are not loaded: %s", str(not_load_network_params))
     if optimizer:
         not_load_optim_params = load_param_into_net(optimizer, checkpoint_dict)
-        logger.info("Optimizer parameters are not loaded：%s", str(not_load_optim_params))
+        logger.info("Optimizer parameters are not loaded: %s", str(not_load_optim_params))
 
 
 def get_last_checkpoint(checkpoint_dir):

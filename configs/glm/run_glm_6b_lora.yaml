@@ -1,6 +1,7 @@
 seed: 0
 run_mode: 'finetune'
 load_checkpoint: ""
+src_strategy_path_or_dir: ''
 auto_trans_ckpt: False  # If true, auto transform load_checkpoint to load in distributed model
 only_save_strategy: False
 resume_training: False
