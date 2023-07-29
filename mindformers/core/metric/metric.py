@@ -36,10 +36,9 @@ from mindspore.communication import get_group_size, get_rank
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.models import BasicTokenizer
 from mindformers.core.loss import CrossEntropyLoss
-from ...auto_class import AutoTokenizer
 from ...dataset.labels import cluener_labels
 
-__all__ = ['EntityScore', 'SQuADMetric', 'PerplexityMetric', 'ADGENMetric', 'PromptAccMetric']
+__all__ = ['EntityScore', 'SQuADMetric', 'PerplexityMetric', 'ADGENMetric', 'PromptAccMetric', 'EmF1Metric']
 
 
 @MindFormerRegister.register(MindFormerModuleType.METRIC)
@@ -567,9 +566,8 @@ class PerplexityMetric(nn.Metric):
 class ADGENMetric(nn.Metric):
     """Compute the f1, precision and recall score of each entity"""
 
-    def __init__(self, tokenizer_type: str, ignore_pad_token_for_loss=True):
-        self.tokenizer = AutoTokenizer.from_pretrained(tokenizer_type)
-        self.ignore_pad_token_for_loss = ignore_pad_token_for_loss
+    def __init__(self):
+        super(ADGENMetric, self).__init__()
         self.score_dict = {
             "rouge-1": [],
             "rouge-2": [],
@@ -593,15 +591,9 @@ class ADGENMetric(nn.Metric):
         if isinstance(preds, tuple):
             preds = preds[0]
 
-        decoded_preds = self.tokenizer.decode(preds, skip_special_tokens=True)
-
-        if self.ignore_pad_token_for_loss:
-            # Replace -100 in the labels as we can't decode them.
-            labels = np.where(labels != -100, labels, self.tokenizer.pad_token_id)
-        decoded_labels = self.tokenizer.decode(labels, skip_special_tokens=True)
-        print(f"pred is:\n {decoded_preds[0]}\n",
-              f"label is:\n {decoded_labels[0]}")
-        for pred, label in zip(decoded_preds, decoded_labels):
+        print(f"pred is:\n {preds[0]}\n",
+              f"label is:\n {labels[0]}")
+        for pred, label in zip(preds, labels):
             hypothesis = list(jieba.cut(pred))
             reference = list(jieba.cut(label))
             rouge = Rouge()
@@ -617,6 +609,16 @@ class ADGENMetric(nn.Metric):
         """Compute final result"""
         for k, v in self.score_dict.items():
             self.score_dict[k] = float(np.mean(v))
+        print('metric: %s \n '
+              'rouge-1: %s \n '
+              'rouge-2: %s \n '
+              'rouge-l: %s \n '
+              'bleu-4:  %s ',
+              "ADGENMetric",
+              self.score_dict["rouge-1"],
+              self.score_dict["rouge-2"],
+              self.score_dict["rouge-l"],
+              self.score_dict["bleu-4"])
         return self.score_dict
 
 
@@ -727,9 +729,166 @@ class PromptAccMetric(nn.Metric):
         if self.pipeline_parallel and not self.is_last_stage:
             return None
         acc_rate = float(self.total_acc_num / self.num_data)
-        result = {"ACC is:": ("%.3f" % acc_rate),
-                  "total_acc_num is: ": self.total_acc_num,
-                  "total_num is: ": self.num_data}
-        if self.pipeline_parallel:
-            print("ACC Metric is:", acc_rate)
+        result = {"Acc": acc_rate}
+        print(f"Acc: {('%.3f' % result.get('Acc', 0))}, total_acc_num: {self.total_acc_num}, "
+              f"total_num: {self.num_data}")
         return result
+
+
+@MindFormerRegister.register(MindFormerModuleType.METRIC)
+class EmF1Metric(nn.Metric):
+    """
+    Compute the Em/F1 scores of examples.
+    Em score is the prediction exact matches the labels except the punctuations.
+    For example, the question is "河南的省会是哪里？" and the label is "郑州市",
+        when prediction is "郑州市", Em score is 100;
+        when prediction is "郑州市。", Em score is 100;
+        when prediction is "郑州", Em score is 0.
+
+    F1 score is calculated as
+        2*precision*recall/(precision+recall),
+    the precision and recall are calculated as
+        precision = lcs_length/len(prediction_segment),
+        recall = lcs_length/len(label_segment),
+    lcs_length is the length of the longest common subsequence.
+    """
+    def __init__(self):
+        super(EmF1Metric, self).__init__()
+        self.gens = None
+        self.labels = None
+        self.metrics = None
+        self.num_data = None
+
+    def clear(self):
+        """Clearing the internal evaluation result."""
+        self.gens = []
+        self.labels = []
+        self.metrics = {
+            'Em': 0.0,
+            'F1': 0.0
+        }
+        self.num_data = 0
+
+    def update(self, *inputs):
+        """Update results for every batch"""
+        gen, label = inputs[0], inputs[1]
+        for i in range(len(gen)):
+            gen[i] = gen[i].split("\n")[0]
+
+        print(f"pred is:\n {gen}\n",
+              f"label is:\n {label}")
+
+        self.gens.extend(gen)
+        self.labels.extend(label)
+        self.num_data += len(gen)
+
+        result, current_count = self.evaluate_pairs(gen, label)
+        print("The F1/Em of this example is: ", result)
+        if self.num_data % 10 == 0:
+            result, current_count = self.evaluate_pairs(self.gens, self.labels)
+            print(f"F1 score: {result.get('F1', 0)}, Em score: {result.get('Em', 0)}, current_count: {current_count}")
+
+    def eval(self):
+        """Compute final result"""
+        result, total_count = self.evaluate_pairs(self.gens, self.labels)
+        print(f"F1 score: {result.get('F1', 0)}, Em score: {result.get('Em', 0)}, total_count: {total_count}")
+        return result
+
+    def mixed_segmentation(self, in_str, rm_punc=False):
+        """cut input for calculating lcs"""
+        in_str = str(in_str).lower().strip()
+        segs_out = []
+        temp_str = ""
+        sp_char = ['-', ':', '_', '*', '^', '/', '\\', '~', '`', '+', '=',
+                   '，', '。', '：', '？', '！', '“', '”', '；', '’', '《', '》', '……', '·', '、',
+                   '「', '」', '（', '）', '－', '～', '『', '』']
+        for char in in_str:
+            if rm_punc and char in sp_char:
+                continue
+            if re.search(r'[\u4e00-\u9fa5]', char) or char in sp_char:
+                if temp_str != "":
+                    ss = list(jieba.cut(temp_str))
+                    segs_out.extend(ss)
+                    temp_str = ""
+                segs_out.append(char)
+            else:
+                temp_str += char
+
+        if temp_str != "":
+            ss = list(jieba.cut(temp_str))
+            segs_out.extend(ss)
+
+        return segs_out
+
+    def remove_punctuation(self, in_str):
+        """remove punctuations in inputs"""
+        in_str = str(in_str).lower().strip()
+        sp_char = ['-', ':', '_', '*', '^', '/', '\\', '~', '`', '+', '=',
+                   '，', '。', '：', '？', '！', '“', '”', '；', '’', '《', '》', '……', '·', '、',
+                   '「', '」', '（', '）', '－', '～', '『', '』']
+        out_segs = []
+        for char in in_str:
+            if char in sp_char:
+                continue
+            else:
+                out_segs.append(char)
+        return ''.join(out_segs)
+
+    def find_lcs(self, s1, s2):
+        """calculate the length of lcs"""
+        m = [[0 for i in range(len(s2) + 1)] for j in range(len(s1) + 1)]
+        mmax = 0
+        p = 0
+        for i in range(len(s1)):
+            for j in range(len(s2)):
+                if s1[i] == s2[j]:
+                    m[i + 1][j + 1] = m[i][j] + 1
+                    if m[i + 1][j + 1] > mmax:
+                        mmax = m[i + 1][j + 1]
+                        p = i + 1
+        return s1[p - mmax:p], mmax
+
+    def calc_f1_score(self, answers, prediction):
+        """calculate f1 score"""
+        f1_scores = []
+        for ans in answers:
+            ans_segs = self.mixed_segmentation(ans, rm_punc=True)
+            prediction_segs = self.mixed_segmentation(prediction, rm_punc=True)
+            _, lcs_len = self.find_lcs(ans_segs, prediction_segs)
+            if lcs_len == 0:
+                f1_scores.append(0)
+                continue
+            precision = 1.0 * lcs_len / len(prediction_segs)
+            recall = 1.0 * lcs_len / len(ans_segs)
+            f1 = (2 * precision * recall) / (precision + recall)
+            f1_scores.append(f1)
+        return max(f1_scores)
+
+    def calc_em_score(self, answers, prediction):
+        """calculate em score"""
+        em = 0
+        for ans in answers:
+            ans_ = self.remove_punctuation(ans)
+            prediction_ = self.remove_punctuation(prediction)
+            if ans_ == prediction_:
+                em = 1
+                break
+        return em
+
+    def evaluate_pairs(self, pred_, ans_):
+        """calculate metric"""
+        f1 = 0
+        em = 0
+        total_count = 0
+        for (prediction, answer) in zip(pred_, ans_):
+            total_count += 1
+            f1 += self.calc_f1_score([answer], prediction)
+            em += self.calc_em_score([answer], prediction)
+        if total_count > 0:
+            f1_score = 100.0 * f1 / total_count
+            em_score = 100.0 * em / total_count
+            result = {'F1': f1_score, 'Em': em_score}
+        else:
+            print("total_count is zero")
+            result = {}
+        return result, total_count
