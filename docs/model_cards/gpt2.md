@@ -297,3 +297,71 @@ pipeline_result = pipeline_task("I love Beijing, because", top_k=3)
 print(pipeline_result)
 # {'text_generation_text': ['I love Beijing, because it\'s the most vibrant city in Asia," says the Chinese-born entrepreneur']}
 ```
+
+## 评测
+
+GPT2支持文本生成和文本分类两个任务的评测。
+
+- 文本生成：
+    - 获取数据集：
+        - [WikiText2数据集](https://s3.amazonaws.com/research.metamind.io/wikitext/wikitext-2-v1.zip)是从维基百科上经过验证的优质文章集中提取的超过1亿个token的集合。
+    - 处理数据成mindrecord格式
+        - WikiText2：
+
+        ```bash
+        cd mindformers/tools/dataset_preprocess/gpt2
+        python wikitext2_data_process.py --input_file {your_path/wiki.valid.tokens} \
+                                       --output_file {your_path/wikitext-2.mindrecord}
+        ```
+
+    - 开启评测：
+        - WikiText2
+
+        ```bash
+        python run_mindformers.py --config configs/gpt2/run_gpt2.yaml \
+                                  --eval_dataset_dir {your_path/wikitext-2.mindrecord} \
+                                  --run_mode eval \
+                                  --epochs 1
+        # PerplexityMetric: {'PerplexityMetric': {'loss': 3.24, 'PPL': 25.55}
+        ```
+
+- 文本分类：
+    - 获取数据集:
+        - [SST-2数据集](https://dl.fbaipublicfiles.com/glue/data/SST-2.zip)数据集包含电影评论中的句子和它们情感的人类注释。类别分为两类正面情感（positive，样本标签对应为1）和负面情感（negative，样本标签对应为0）
+        - [IMDB数据集](https://www.kaggle.com/datasets/lakshmi25npathi/imdb-dataset-of-50k-movie-reviews)影评数据集，包含5万条IMDB影评，评论的情绪是二元的，专门用于情绪分析。
+        - [AG-News数据集](http://groups.di.unipi.it/~gulli/AG_corpus_of_news_articles.html)数据集包含496,835条来自AG新闻语料库4大类别超过2000个新闻源的新闻文章。
+        - [COLA数据集](https://nyu-mll.github.io/CoLA/)数据集来自语言理论的书籍和期刊，每个句子被标注为是否合乎语法的单词序列。
+    - 处理数据成mindrecord格式
+
+        ```bash
+        # 因评测前需要微调模型，所以需要生成训练/评测数据集。注：生成的数据集文件需以.mindrecord结尾
+        cd mindformers/tools/dataset_preprocess/gpt2
+        python txtcls_dataset_to_mindrecord.py --dataset_name {select one from ['cola', 'sst_2', 'ag_news', 'imdb']}
+                                               --input_file {your_path/train.tsv} \
+                                               --output_file {your_path/dataset_name.train.mindrecord}
+        python txtcls_dataset_to_mindrecord.py --dataset_name {the same as above}
+                                               --input_file {your_path/dev.tsv} \
+                                               --output_file {your_path/dataset_name.dev.mindrecord}
+        ```
+
+    - 开启微调：因为原始权重中不包含隐向量向类别映射的参数，所以无法进行zero-shot，评测前需要事先进行微调。
+
+    ```bash
+    # 运行前请确保run_gpt2_txtcls.yaml中的model.model_config.num_labels准确，具体的，
+    # sst2/cola/imdb: num_labels = 2, agnews: num_labels = 4
+    python run_mindformers.py --config configs/gpt2/run_gpt2_txtcls.yaml \
+                              --train_dataset_dir {your_path/dataset_name.train.mindrecord} \
+                              --run_mode finetune
+    ```
+
+    - 开启评测：评测指标为ACC
+
+    ```bash
+    # 运行前请确保run_gpt2_txtcls.yaml中的model.model_config.num_labels准确，具体的，
+    # sst2/cola/imdb: num_labels = 2, agnews: num_labels = 4
+    python run_mindformers.py --config configs/gpt2/run_gpt2_txtcls.yaml \
+                              --eval_dataset_dir {your_path/dataset_name.dev.mindrecord} \
+                              --run_mode eval \
+                              --epochs 1
+    # ACC: COLA-0.693, SST-2-0.908, IMDB-0.934, AG-News-0.941
+    ```
