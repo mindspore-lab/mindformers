@@ -143,11 +143,11 @@ bash run_distribute.sh {RANK_TABLE_FILE path of the forth device} ../configs/pan
 - Model调用接口
 
 ```python
-from mindformers import PanguAlphaModel, PanGuTokenizer
+from mindformers import PanguAlphaModel, PanguAlphaTokenizer
 
 model = PanguAlphaModel.from_pretrained('pangualpha_2_6b')
 model.set_train(False)
-tokenizer = PanGuTokenizer.from_pretrained('pangualpha_2_6b')
+tokenizer = PanguAlphaTokenizer.from_pretrained('pangualpha_2_6b')
 inputs = tokenizer(["今天天气很好"],
                  padding='max_length',
                  max_length=model.config.seq_length,
