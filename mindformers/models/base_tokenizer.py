@@ -1818,6 +1818,7 @@ class BaseTokenizer(SpecialTokensMixin):
     _model_name = 1
 
     def __init__(self, **kwargs):
+        super().__init__(self)
         # inputs and kwargs for saving and re-loading (see ``from_pretrained`` and ``save_pretrained``)
         self.init_inputs = ()
         self.init_kwargs = copy.deepcopy(kwargs)
