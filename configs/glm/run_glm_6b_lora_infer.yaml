@@ -74,7 +74,6 @@ trainer:
 
 metric:
   type: ADGENMetric
-  tokenizer_type: "glm_6b" # use ChatGLMTokenizer
 
 processor:
   return_tensors: ms
@@ -95,7 +94,7 @@ train_dataset: &train_dataset
     type: MindDataset
     dataset_dir: ""
     shuffle: True
-  input_columns: ["input_ids", "label", "position_ids", "attention_mask"]
+  input_columns: ["input_ids", "labels", "position_ids", "attention_mask"]
   num_parallel_workers: 8
   python_multiprocessing: False
   drop_remainder: True

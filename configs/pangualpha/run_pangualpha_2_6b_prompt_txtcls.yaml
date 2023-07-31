@@ -23,7 +23,7 @@ remote_save_url: "Please input obs url on AICC platform."
 
 # runner
 runner_config:
-  epochs: 2
+  epochs: 1
   batch_size: 1
   sink_mode: True
   sink_size: 2
