@@ -31,7 +31,7 @@ from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.mindformer_book import MindFormerBook
 from .layers import BloomBlocks, CausalMask
 from .bloom_config import BloomConfig
-from ..utils import convert_mstype
+from ..utils import convert_mstype, cell_reuse
 
 
 def jit_inference_with_condition():
@@ -225,6 +225,7 @@ class BloomLMHeadModel(BaseModel):
 
     _support_list = MindFormerBook.get_model_support_list()['bloom']
 
+    @cell_reuse()
     def __init__(self, config=None):
         config = config if config is not None else BloomConfig()
         super(BloomLMHeadModel, self).__init__(config, auto_prefix=False)
