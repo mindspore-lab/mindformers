@@ -98,7 +98,17 @@ class BaseTrainer:
             configs_directory = os.path.join('.', DEFAULT_CONFIG_DIR)
             if os.path.exists(os.path.join(CURRENT_PROJECT_PATH, DEFAULT_CONFIG_DIR)):
                 mindformers_configs_directory = os.path.join(CURRENT_PROJECT_PATH, DEFAULT_CONFIG_DIR)
-                shutil.copytree(mindformers_configs_directory, configs_directory)
+                # python 3.7 版本不支持dirs_exist_ok入参, python 3.8及以上版本支持
+                try:
+                    # adapt to python 3.8+
+                    # pylint: disable=E1123
+                    shutil.copytree(mindformers_configs_directory, configs_directory, dirs_exist_ok=True)
+                except TypeError:
+                    try:
+                        # adapt to python 3.7 to avoid dirs_exist_ok=False
+                        shutil.copytree(mindformers_configs_directory, configs_directory)
+                    except FileExistsError:
+                        pass
 
         if task not in SUPPORT_TASKS.keys():
             logger.warning("Input task name is not in the supported list or unspecified.")
