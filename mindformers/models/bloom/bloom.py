@@ -131,7 +131,9 @@ class BloomModel(nn.Cell):
         self.make_causal_attention = CausalMask(seq_length=config.seq_length,
                                                 parallel_config=config.parallel_config.dp_mp_config)
 
-        self.build_alibi_tensor = AlibiTensor(seq_length=config.seq_length, num_heads=config.num_heads)
+        self.build_alibi_tensor = AlibiTensor(seq_length=config.seq_length,
+                                              num_heads=config.num_heads,
+                                              parallel_config=config.parallel_config)
 
         self.blocks = BloomBlocks(hidden_size=config.hidden_size,
                                   batch_size=config.batch_size,
