@@ -118,7 +118,7 @@ context:
 
 # parallel context config
 parallel:
-  parallel_mode: 1 # 0-dataset, 1-semi, 2-auto, 3-hybrid
+  parallel_mode: 1 # 0-data parallel, 1-semi-auto parallel, 2-auto parallel, 3-hybrid parallel
   gradients_mean: False
   enable_alltoall: False
   full_batch: True

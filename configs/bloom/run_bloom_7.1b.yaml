@@ -110,7 +110,7 @@ moe_config:
 use_parallel: True
 parallel:
   parallel_optimizer_config: {"gradient_accumulation_shard": False}
-  parallel_mode: 1 # 0-dataset, 1-semi, 2-auto, 3-hybrid
+  parallel_mode: 1 # 0-data parallel, 1-semi-auto parallel, 2-auto parallel, 3-hybrid parallel
   gradients_mean: False
   loss_repeated_mean: True
   full_batch: True
