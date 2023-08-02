@@ -77,8 +77,8 @@ class KeyWordGenDataset(BaseDataset):
         logger.info("Start tokenize on the dataset using tokenizer: %s", tokenizer_config)
 
         input_columns = ["prompt", "answer"]
-        train_output_columns = ["input_ids", "label", "position_ids", "attention_mask"]
-        eval_output_columns = ["input_ids", "label"]
+        train_output_columns = ["input_ids", "labels", "position_ids", "attention_mask"]
+        eval_output_columns = ["input_ids", "labels"]
 
         if is_version_ge(mindspore.__version__, "1.11.0"):
             if phase == "train":
