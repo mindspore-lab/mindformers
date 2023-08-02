@@ -36,7 +36,7 @@ from mindformers.pet import LoraAdapter, PetAdapter
 from .gpt2_config import GPT2Config
 from .gpt_modules import GPTTransformerDecoderLayer
 
-__all__ = ['GPT2LMHeadModel', 'GPT2WithLora']
+__all__ = ['GPT2LMHeadModel', 'GPT2WithLora', 'GPT2Model', 'GPTHead']
 
 
 @MindFormerRegister.register(MindFormerModuleType.MODELS)

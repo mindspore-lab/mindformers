@@ -50,6 +50,7 @@ from mindformers.tools.utils import is_version_ge
 
 __all__ = [
     "AttentionMask",
+    "AttentionMaskHF",
     "VocabEmbedding",
     "MultiHeadAttention",
     "FeedForward",
@@ -659,6 +660,80 @@ class AttentionMask(Cell):
         """Forward process of the AttentionMask"""
         _check_input_dtype(F.dtype(input_mask), "input_mask", [mstype.float32, mstype.float16], self.cls_name)
         input_mask = P.Cast()(self.not_equal(input_mask, 0), mstype.float16)
+        input_shape = P.Shape()(input_mask)
+        shape_right = (input_shape[0], 1, input_shape[1])
+        shape_left = input_shape + (1,)
+        # Mask the padded inputs
+        mask_left = self.reshape(input_mask, shape_left)
+        mask_right = self.reshape(input_mask, shape_right)
+        attention_mask = self.mul(mask_left, mask_right)
+        lower_traiangle = self.expand_dim(self.lower_triangle_mask, 0)
+        # the returned shape is [bs, seq_length, seq_length]
+        attention_mask = self.multiply(
+            attention_mask, lower_traiangle)
+        return attention_mask
+
+
+class AttentionMaskHF(Cell):
+    r"""
+        Get the Lower triangular matrix from the input mask. The input mask is a 2D tensor (batch_size, seq_length).
+
+        Args:
+            seq_length(int): The sequence length of the input tensor.
+            parallel_config(OpParallelConfig): The parallel configure. Default `default_dpmp_config`,
+                                               an instance of `OpParallelConfig` with default args.
+
+        Inputs:
+            - **input_mask** (Tensor) - The mask indicating whether each position is a valid input with
+              (batch_size, seq_length).
+
+        Outputs:
+            Tensor. The attention mask matrix with shape (batch_size, seq_length, seq_length).
+
+        Raises:
+            TypeError: `seq_length` is not an integer.
+            ValueError: `seq_length` is not a positive value.
+            TypeError: `parallel_config` is not a subclass of OpParallelConfig.
+
+        Supported Platforms:
+            ``Ascend`` ``GPU``
+
+        Examples:
+            >>> import numpy as np
+            >>> from mindformers.modules.transformer import AttentionMaskHF
+            >>> from mindspore import Tensor
+            >>> mask = AttentionMaskHF(seq_length=4)
+            >>> mask_array = np.array([[1, 1, 1, 0]], np.float32)
+            >>> inputs = Tensor(mask_array)
+            >>> res = mask(inputs)
+            >>> print(res)
+            [[[1. 0. 0. 0]
+              [1. 1. 0. 0]
+              [1. 1. 1. 0]
+              [1. 1. 1. 1]]]
+    """
+
+    @_LogActionOnce(m_logger=logger, key='AttentionMaskHF',
+                    no_warning=_get_parallel_mode() in (ParallelMode.STAND_ALONE,))
+    @_args_type_validator_check(seq_length=Validator.check_positive_int,
+                                parallel_config=_valid_type_checks([OpParallelConfig], "AttentionMaskHF"))
+    def __init__(self, seq_length, parallel_config=default_dpmp_config):
+        super(AttentionMaskHF, self).__init__()
+        self.seq_length = seq_length
+        self.not_equal = P.NotEqual().shard(((parallel_config.data_parallel, 1), ()))
+        self.reshape = P.Reshape()
+        self.mul = P.BatchMatMul().shard(
+            ((parallel_config.data_parallel, 1, 1), (parallel_config.data_parallel, 1, 1)))
+        self.expand_dim = P.ExpandDims().shard(((1, 1),))
+        ones = np.ones(shape=(seq_length, seq_length))
+        # Default lower triangle mask matrix
+        self.lower_triangle_mask = Tensor(np.tril(ones), mstype.float32)
+        self.multiply = P.Mul().shard(((parallel_config.data_parallel, 1, 1), (1, 1, 1)))
+
+    def construct(self, input_mask):
+        """Forward process of the AttentionMaskHF"""
+        _check_input_dtype(F.dtype(input_mask), "input_mask", [mstype.float32, mstype.float16], self.cls_name)
+        input_mask = P.Cast()(P.OnesLike()(input_mask), mstype.float16)
         input_shape = P.Shape()(input_mask)
         shape_right = (input_shape[0], 1, input_shape[1])
         shape_left = input_shape + (1,)
