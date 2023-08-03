@@ -18,7 +18,9 @@ from .bloom_config import BloomConfig
 from .bloom import BloomModel, BloomLMHeadModel
 from .bloom_tokenizer import BloomTokenizer
 from .bloom_processor import BloomProcessor
+from .bloom_reward import *
 
 __all__ = ['BloomConfig', 'BloomModel',
            'BloomLMHeadModel', 'BloomTokenizer',
            'BloomProcessor']
+__all__.extend(bloom_reward.__all__)

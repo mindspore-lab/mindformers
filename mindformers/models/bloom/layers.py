@@ -541,11 +541,8 @@ class CausalMask(AttentionMask):
         input_mask = self.not_equal(input_mask, 0).astype(mstype.float32)
         input_shape = input_mask.shape
         shape_right = (input_shape[0], 1, input_shape[1])
-        shape_left = input_shape + (1,)
         # Mask the padded inputs
-        mask_left = input_mask.reshape(shape_left)
-        mask_right = input_mask.reshape(shape_right)
-        attention_mask = self.mul(mask_left, mask_right)
+        attention_mask = input_mask.reshape(shape_right)
         lower_traiangle = self.expand_dim(self.lower_triangle_mask, 0)
         # the returned shape is [bs, seq_length, seq_length]
         attention_mask = self.multiply(
