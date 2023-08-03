@@ -157,7 +157,7 @@ train_dataset: &train_dataset
     type: MindDataset
     dataset_dir: ""
     shuffle: True
-  input_columns: ["input_ids", "label", "position_ids", "attention_mask"]
+  input_columns: ["input_ids", "labels", "position_ids", "attention_mask"]
   num_parallel_workers: 8
   python_multiprocessing: False
   drop_remainder: True
@@ -176,7 +176,7 @@ eval_dataset: &eval_dataset
     type: MindDataset
     dataset_dir: ""
     shuffle: True
-  input_columns: ["input_ids", "label"]
+  input_columns: ["input_ids", "labels"]
   num_parallel_workers: 8
   python_multiprocessing: False
   drop_remainder: True

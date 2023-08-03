@@ -562,14 +562,14 @@ class GLMForPreTraining(BaseModel):
         return output_ids
 
     # pylint: disable=W0613
-    def construct(self, input_ids, label=None, position_ids=None, attention_mask=None,
+    def construct(self, input_ids, labels=None, position_ids=None, attention_mask=None,
                   input_position=None, init_reset=True, batch_valid_length=None):
         """
         Extract logits and calculate loss
 
         Inputs:
             input_ids (Tensor): The tokenized inputs with dtype int32.
-            label (Tensor): The indices of input sequence tokens in the vocabulary.
+            labels (Tensor): The indices of input sequence tokens in the vocabulary.
             position_ids (Tensor): Used to identify each token's position in the list of tokens.
             attention_mask (Tensor): Used when batching sequences together.
             init_reset (bool, optional): Default: True.
@@ -596,11 +596,11 @@ class GLMForPreTraining(BaseModel):
             return logits
 
         logits_shape = logits.shape
-        label = label.reshape((-1,))
+        labels = labels.reshape((-1,))
         logits = logits.reshape((-1, logits_shape[-1]))
         input_mask = self.ones(tokens.shape, logits.dtype)
         input_mask = input_mask.reshape((-1,))
-        loss = self.loss(logits, label, input_mask)
+        loss = self.loss(logits, labels, input_mask)
         return loss
 
 
