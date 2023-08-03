@@ -1,6 +1,7 @@
 seed: 0
 run_mode: 'predict'
 load_checkpoint: ""
+src_strategy_path_or_dir: ''
 auto_trans_ckpt: False  # If true, auto transform load_checkpoint to load in distributed model
 only_save_strategy: False
 resume_training: False
@@ -67,7 +68,6 @@ trainer:
 
 metric:
   type: ADGENMetric
-  tokenizer_type: "glm_6b" # use ChatGLMTokenizer
 
 processor:
   return_tensors: ms
@@ -78,7 +78,6 @@ processor:
     end_token: '</s>'
     mask_token: '[MASK]'
     gmask_token: '[gMASK]'
-    padding_side: 'left'
     pad_token: '<pad>'
     unk_token: '<unk>'
   type: GLMProcessor
@@ -93,7 +92,7 @@ train_dataset: &train_dataset
   tokenizer:
     type: ChatGLMTokenizer
     vocab_file: "/path/to/ice_text.model"
-  input_columns: ["input_ids", "label", "position_ids", "attention_mask"]
+  input_columns: ["input_ids", "labels", "position_ids", "attention_mask"]
   max_source_length: 64
   max_target_length: 64
   ignore_pad_token_for_loss: True

@@ -24,7 +24,7 @@ def check_and_add_vocab_file_path(config, **kwargs):
     class_name = config['type']
     dynamic_class = MindFormerRegister.get_cls(module_type='tokenizer', class_name=class_name)
     # If the tokenizer does not require the vocab_file, just stop
-    if not dynamic_class.VOCAB_FILES:
+    if not dynamic_class.vocab_files_names:
         return
     name_or_path = class_name
     path = kwargs.pop('lib_path', None)

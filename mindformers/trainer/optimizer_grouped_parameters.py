@@ -30,10 +30,12 @@ from .utils import check_keywords_in_name
 def get_optimizer_grouped_parameters(model: Optional[BaseModel] = None,
                                      weight_decay: float = 0.0,
                                      dynamic_lr_schedule: Optional[LearningRateSchedule] = None,
-                                     layer_scale: bool = False, layer_decay: float = 1.0):
+                                     layer_scale: bool = False, param_group: bool = True, layer_decay: float = 1.0):
     """Get grouped parameters of the network for training."""
     if not isinstance(model, (Cell, BaseModel)):
         raise TypeError(f"model type should be BaseModel, but get {type(model)}")
+    if not param_group:
+        return model.trainable_params()
 
     skip_params = {}
     skip_keywords = {}

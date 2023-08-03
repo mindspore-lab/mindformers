@@ -21,15 +21,22 @@ import html
 import os
 import shutil
 from functools import lru_cache
-
+from typing import List, Optional
 import ftfy
 import regex as re
 
+from mindformers.tools import logger
 from mindformers.tools.utils import try_sync_file
 from ...mindformer_book import MindFormerBook
 from ...tools.register import MindFormerRegister, MindFormerModuleType
 from ...tools.download_tools import download_with_progress_bar
 from ..base_tokenizer import Tokenizer
+
+
+__all__ = ['CLIPTokenizer']
+
+
+VOCAB_FILES_NAMES = {'vocab_file': ['vocab.txt', 'bpe_simple_vocab_16e6.txt.gz']}
 
 @lru_cache()
 def default_bpe():
@@ -43,6 +50,7 @@ def default_bpe():
     try_sync_file(path)
     return path
 
+
 def get_pairs(input_wd):
     r"""Get_pairs"""
     output = set()
@@ -51,6 +59,7 @@ def get_pairs(input_wd):
         output.add((prev_char, char))
         prev_char = char
     return output
+
 
 @lru_cache()
 def bytes_to_unicode():
@@ -67,17 +76,20 @@ def bytes_to_unicode():
     output_cd = [chr(item) for item in output_cd]
     return dict(zip(input_bt, output_cd))
 
+
 def whitespace_clean(input_text):
     r"""Whitespace clean"""
     input_text = re.sub(r'\s+', ' ', input_text)
     input_text = input_text.strip()
     return input_text
 
+
 def basic_clean(input_text):
     r"""Basic_clean"""
     input_text = ftfy.fix_text(input_text)
     input_text = html.unescape(html.unescape(input_text))
     return input_text.strip()
+
 
 class TempTokenizer:
     r"""Simple Tokenizer"""
@@ -147,17 +159,22 @@ class TempTokenizer:
         print("res is:", output_ids)
         return output_ids
 
+
 @MindFormerRegister.register(MindFormerModuleType.TOKENIZER)
 class CLIPTokenizer(Tokenizer):
     r"""
     CLIP Tokenizer
 
     Args:
-        vocab_file (str): File path of vocab.
-        eos_token (str): Eos_token.
-        bos_token (str): Bos_token.
-        pad_token (str): Pad_token.
-        unk_token (str): Unk_token.
+        vocab_file(str): The vocabulary file path.
+        eos_token(str): The token that represents the end-of-sentence. Default "<|endoftext|>".
+        bos_token(str): The token that represents the begin-of-sentence. Default "<|startoftext|>"".
+        pad_token(str): The token that represents the pad. Default "<|endoftext|>".
+        unk_token(str): The token that represents the unknown. Default "<|endoftext|>".
+        add_prefix_space(bool): whether to add a whitespace in the front of text. Default "False"
+        add_bos_token(bool): Whether or not to add the bos_token_id to the left of the input. Default "True"
+        add_eos_token(bool): Whether or not to add the eos_token_id to the right of the input. Default "True"
+        **kwargs: Other kwargs that will be passed into the base class of the `Tokenizer`.
 
     Examples:
         >>> from mindformers import CLIPTokenizer
@@ -169,22 +186,31 @@ class CLIPTokenizer(Tokenizer):
         >>> tokenizer("a boy")
             {'input_ids': [49406, 320, 1876, 49407], 'attention_mask': [1, 1, 1, 1]}
     """
-    MODEL_INPUT_NAME = ["input_ids", "attention_mask"]
-    VOCAB_FILES = {'vocab_file': ['vocab.txt', 'bpe_simple_vocab_16e6.txt.gz']}
+    model_input_names = ["input_ids", "attention_mask"]
+    vocab_files_names = VOCAB_FILES_NAMES
     FILE_LIST = ['tokenizer_config.json']
     '''clip tokenizer'''
     _support_list = MindFormerBook.get_tokenizer_support_list()['clip']
+
     def __init__(self,
-                 vocab_file: str,
-                 eos_token: str = "<|endoftext|>",
-                 bos_token: str = "<|startoftext|>",
-                 pad_token: str = "<|endoftext|>",
-                 unk_token: str = "<|endoftext|>"):
-        super(CLIPTokenizer, self).__init__(eos_token=eos_token,
-                                            bos_token=bos_token,
-                                            pad_token=pad_token,
-                                            unk_token=unk_token)
+                 vocab_file,
+                 eos_token="<|endoftext|>",
+                 bos_token="<|startoftext|>",
+                 pad_token="<|endoftext|>",
+                 unk_token="<|endoftext|>",
+                 add_bos_token=True,
+                 add_eos_token=True
+                 ):
+        super(CLIPTokenizer, self).__init__(
+            eos_token=eos_token,
+            bos_token=bos_token,
+            pad_token=pad_token,
+            unk_token=unk_token
+        )
         self.path = vocab_file
+        self.add_bos_token = add_bos_token
+        self.add_eos_token = add_eos_token
+
         merges = self._read_merge_files(vocab_file)
         vocab = list(bytes_to_unicode().values())
         vocab = vocab + [v + '</w>' for v in vocab]
@@ -196,7 +222,6 @@ class CLIPTokenizer(Tokenizer):
         self.tool = TempTokenizer(merges, vocab, flag_dict)
         self.pat = re.compile(r"""<\|startoftext\|>|<\|endoftext\|>|'s|'t|'re|
         've|'m|'ll|'d|[\p{L}]+|[\p{N}]|[^\s\p{L}\p{N}]+""", re.IGNORECASE)
-
 
     @staticmethod
     def _read_merge_files(text_path, start_pos=1, end_pos=49152-256-2+1):
@@ -223,36 +248,82 @@ class CLIPTokenizer(Tokenizer):
         r"""
         Insert the special tokens to the input_ids. Currently, we support token_ids_0 is a list of ids.
         """
-        if token_ids_1:
-            raise ValueError("The token_ids_1 is not supported yet.")
-        if not token_ids_0:
-            raise ValueError("The length of the token_ids should be larger than 0.")
-        res = [self.bos_token_id]
-        res.extend(token_ids_0)
-        res.extend([self.eos_token_id])
-        return res
+        bos_token_id = [self.bos_token_id] if self.add_bos_token else []
+        eos_token_id = [self.eos_token_id] if self.add_eos_token else []
 
-    def save_vocabulary(self, save_directory, filename_prefix):
+        output = bos_token_id + token_ids_0 + eos_token_id
+
+        if token_ids_1 is not None:
+            output = output + bos_token_id + token_ids_1 + eos_token_id
+
+        return output
+
+    def save_vocabulary(self, save_directory, filename_prefix=None):
         r"""Save_vocabulary"""
-        output_file_path = os.path.join(save_directory, filename_prefix)
+        if not os.path.isdir(save_directory):
+            logger.error("Vocabulary path (%s) should be a directory", save_directory)
+            return None
+
+        output_file_path = os.path.join(
+            save_directory, (filename_prefix + "-" if filename_prefix else "") + VOCAB_FILES_NAMES["vocab_file"][0])
+
         shutil.copy(self.path, output_file_path)
         return output_file_path
 
-    def tokenize(self, text):
+    def tokenize(self, text, pair=None, add_special_tokens=True, **kwargs):
         r"""Tokenizer the input_text"""
         if not isinstance(text, str):
             raise ValueError("Text should be type str, but found type", type(text))
         return self._tokenize(text)
 
-    def _convert_tokens_to_ids(self, input_tokens):
-        r"""Convert_tokens_to_ids"""
-        if not input_tokens:
-            raise ValueError(f"Input token {input_tokens} is None.")
-        if isinstance(input_tokens, str):
-            return self.tool.encoder[input_tokens]
-        return [self.tool.encoder[bpe_token] for bpe_token in input_tokens]
+    def _convert_token_to_id(self, token):
+        r"""Convert_token_to_id"""
+        return self.tool.encoder[token]
+
+    def _convert_id_to_token(self, index):
+        r"""Convert_id_to_token"""
+        return self.tool.decoder[index]
 
     @property
     def vocab_size(self):
         r"""Get the vocab size"""
         return len(self.tool.encoder)
+
+    def create_token_type_ids_from_sequences(
+            self, token_ids_0: List[int], token_ids_1: Optional[List[int]] = None
+    ) -> List[int]:
+        """
+        Creates a mask from the two sequences passed to be used in a sequence-pair classification task. An ALBERT
+        sequence pair mask has the following format:
+
+        ```
+        0 0 0 0 0 0 0 0 0 0 0 1 1 1 1 1 1 1 1 1
+        | first sequence    | second sequence |
+        ```
+
+        if token_ids_1 is None, only returns the first portion of the mask (0s).
+
+        Args:
+            token_ids_0 (`List[int]`):
+                List of ids.
+            token_ids_1 (`List[int]`, *optional*):
+                Optional second list of IDs for sequence pairs.
+
+        Returns:
+            `List[int]`: List of [token type IDs](../glossary#token-type-ids) according to the given sequence(s).
+        """
+        bos_token_id = [self.bos_token_id] if self.add_bos_token else []
+        eos_token_id = [self.eos_token_id] if self.add_eos_token else []
+
+        output = [0] * len(bos_token_id + token_ids_0 + eos_token_id)
+
+        if token_ids_1 is not None:
+            output += [1] * len(bos_token_id + token_ids_1 + eos_token_id)
+
+        return output
+
+    def get_vocab(self):
+        """Returns vocab as a dict"""
+        vocab = {self.convert_ids_to_tokens(i): i for i in range(self.vocab_size)}
+        vocab.update(self.added_tokens_encoder)
+        return vocab

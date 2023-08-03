@@ -13,7 +13,7 @@
 
 | model |            type            |  datasets  |  EM   | F1    |           stage            |                           example                            |
 | :---: | :------------------------: | :--------: | :---: | ----- | :------------------------: | :----------------------------------------------------------: |
-|  q'a  | qa_bert_case_uncased_squad | SQuAD v1.1 | 80.74 | 88.33 | finetune<br/>eval<br/>predict | [link](../../examples/question_answering/qa_bert_base_uncased_finetune_on_squad.sh) <br/> [link](../../examples/question_answering/qa_bert_base_uncased_eval_on_squad.sh) <br/> [link](../../examples/question_answering/qa_bert_base_uncased_predict_on_squad.sh) |
+|  q'a  | qa_bert_case_uncased_squad | SQuAD v1.1 | 80.74 | 88.33 | finetune<br/>eval<br/>predict | [link](../../scripts/examples/question_answering/qa_bert_base_uncased_finetune_on_squad.sh) <br/> [link](../../scripts/examples/question_answering/qa_bert_base_uncased_eval_on_squad.sh) <br/> [link](../../scripts/examples/question_answering/qa_bert_base_uncased_predict_on_squad.sh) |
 
 ### [SQuAD v1.1](https://rajpurkar.github.io/SQuAD-explorer/)
 

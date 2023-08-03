@@ -24,7 +24,7 @@ from mindspore.nn import TrainOneStepCell, Optimizer, Cell
 from mindspore.dataset import GeneratorDataset
 
 from mindformers.dataset import BaseDataset
-from mindformers.models import BaseModel, BaseTokenizer
+from mindformers.models import BaseModel, BaseTokenizer, build_tokenizer
 from mindformers.tools.logger import logger
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType, MindFormerConfig
 from mindformers.core import build_metric
@@ -32,6 +32,8 @@ from mindformers.core import build_metric
 from ..config_args import ConfigArguments
 from ..training_args import TrainingArguments
 from ..base_trainer import BaseTrainer
+
+GENERATE_METRIC_NAMES = ['ADGENMetric', 'EmF1Metric']
 
 
 @MindFormerRegister.register(MindFormerModuleType.TRAINER)
@@ -128,11 +130,10 @@ class CausalLanguageModelingTrainer(BaseTrainer):
                 It supports dict or set in MindSpore's Metric class.
                 Default: None.
         """
-        metric_name = "Text Generation Metric"
+        metric_name = config.metric.type
         kwargs.setdefault("metric_name", metric_name)
 
-        is_enhanced_encoder = config.model.model_config.is_enhanced_encoder
-        if is_enhanced_encoder:
+        if metric_name in GENERATE_METRIC_NAMES:
             self.generate_evaluate(
                 config,
                 network=network,
@@ -153,11 +154,20 @@ class CausalLanguageModelingTrainer(BaseTrainer):
                           network=None,
                           dataset=None,
                           compute_metrics=None,
+                          tokenizer=None,
                           **kwargs):
         r"""Evaluate the text generate task. Return metrics with Rouge-1, Rouge-2, Rouge-l and BLEU. """
         metric_name = kwargs.get("metric_name")
         is_full_config = kwargs.get("is_full_config", False)
         config = self.set_config(config, is_full_config)
+
+        enable_max_new_tokens = bool(config.model.model_config.max_new_tokens)
+        # it does not support max_new_tokens as input parameter in text_generate, so reset batch_size to 1 when the
+        # follow scenario happens
+        if metric_name == "EmF1Metric" and enable_max_new_tokens and config.runner_config.batch_size != 1:
+            logger.info("For metric %s, it only supports batch size equals 1, so reset batch size to 1 here.",
+                        metric_name)
+            config.runner_config.batch_size = 1
 
         # build dataset
         logger.info(".........Build Dataset For Evaluate..........")
@@ -177,22 +187,29 @@ class CausalLanguageModelingTrainer(BaseTrainer):
         logger.info(".........Build Compute Metrics For Evaluate..........")
         if compute_metrics is None:
             compute_metrics = build_metric(config.metric)
+            compute_metrics.clear()
+
+        # build tokenizer
+        logger.info(".........Build tokenizer For Evaluate..........")
+        if tokenizer is None and config.processor.tokenizer:
+            tokenizer = build_tokenizer(config.processor.tokenizer)
 
         logger.info(".........Starting Init Evaluate Model..........")
         model = Model(network, eval_network=network)
 
         logger.info('.........Starting Evaluate Model..........')
         # generate config
-        top_p = config.model.top_p
-        top_k = config.model.top_k
-        max_decode_length = config.model.max_decode_length
+        do_sample = config.model.model_config.do_sample
+        top_p = config.model.model_config.top_p
+        top_k = config.model.model_config.top_k
+        max_length = config.model.model_config.max_decode_length
 
         total_tokens_num = 0
         total_time = 0.0001
-        pad_token_id = self.config.model.model_config.pad_token_id
+        pad_token_id = tokenizer.pad_token_id
         for i, inputs in enumerate(dataset.create_dict_iterator()):
             input_ids = inputs['input_ids'].asnumpy()
-            labels = inputs['label'].asnumpy()
+            labels = inputs['labels'].asnumpy()
 
             valid_length_each_example = []
             for j in range(input_ids.shape[0]):
@@ -200,9 +217,14 @@ class CausalLanguageModelingTrainer(BaseTrainer):
                 valid_length_each_example.append(np.max(np.argwhere(input_ids[j] != pad_token_id)) + 1)
             valid_length_each_example = np.array(valid_length_each_example)
 
+            if enable_max_new_tokens:
+                # When we act as it, the batch_size is 1. it will be replaced when text_generator supports batch_size
+                # inference quickly or text_generator supports max_new_tokens as the input parameter.
+                max_length = valid_length_each_example[0] + self.config.model.model_config.max_new_tokens
+
             start_time = time.time()
-            outputs = model.predict_network.generate(input_ids, max_length=max_decode_length,
-                                                     top_p=top_p, top_k=top_k)  # List[numpy]
+            outputs = model.predict_network.generate(input_ids, do_sample=do_sample, max_length=max_length,
+                                                     top_p=top_p, top_k=top_k)
             outputs = np.array(outputs)
             output_ids = []
             for j in range(input_ids.shape[0]):
@@ -221,15 +243,13 @@ class CausalLanguageModelingTrainer(BaseTrainer):
                         'generate speed: %s tokens/s, avg speed: %s tokens/s',
                         i + 1, end_time - start_time, avg_cost_time,
                         tokens_num / (end_time - start_time), total_tokens_num / total_time)
-            compute_metrics.update(output_ids, labels)
+            # decode input_id and label to string
+            pres_str = tokenizer.decode(output_ids, skip_special_tokens=True)
+            labels_str = tokenizer.decode(labels, skip_special_tokens=True)
 
-        output = compute_metrics.eval()
-        logger.info('metric: %s \n'
-                    'rouge-1: %s \n'
-                    'rouge-2: %s \n'
-                    'rouge-l: %s \n'
-                    'bleu-4:  %s ',
-                    metric_name, output["rouge-1"], output["rouge-2"], output["rouge-l"], output["bleu-4"])
+            compute_metrics.update(pres_str, labels_str)
+
+        compute_metrics.eval()
 
         logger.info('...........Evaluate Over!...............')
 

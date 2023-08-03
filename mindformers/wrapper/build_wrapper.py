@@ -20,10 +20,10 @@ import mindspore as ms
 from mindspore import nn, Tensor
 
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType, MindFormerConfig
-from .wrapper import MFTrainOneStepCell, MFPipelineWithLossScaleCell
+from .wrapper import MFTrainOneStepCell, MFPipelineWithLossScaleCell, ScaleTrainOneStepCell
 
 
-WRAPPERS_MINDFORMERS_DEFINED = ["MFTrainOneStepCell", "MFPipelineWithLossScaleCell"]
+WRAPPERS_MINDFORMERS_DEFINED = ["MFTrainOneStepCell", "MFPipelineWithLossScaleCell", "ScaleTrainOneStepCell"]
 
 
 def build_wrapper(config: dict = None, default_args: dict = None,
@@ -95,6 +95,10 @@ def register_mf_wrapper():
     MindFormerRegister.register_cls(
         MFPipelineWithLossScaleCell,
         module_type=MindFormerModuleType.WRAPPER, alias="pipeline_wrapper")
+
+    MindFormerRegister.register_cls(
+        ScaleTrainOneStepCell,
+        module_type=MindFormerModuleType.WRAPPER, alias="scale_wrapper")
 
 
 register_ms_wrap()

@@ -98,7 +98,17 @@ class BaseTrainer:
             configs_directory = os.path.join('.', DEFAULT_CONFIG_DIR)
             if os.path.exists(os.path.join(CURRENT_PROJECT_PATH, DEFAULT_CONFIG_DIR)):
                 mindformers_configs_directory = os.path.join(CURRENT_PROJECT_PATH, DEFAULT_CONFIG_DIR)
-                shutil.copytree(mindformers_configs_directory, configs_directory)
+                # python 3.7 版本不支持dirs_exist_ok入参, python 3.8及以上版本支持
+                try:
+                    # adapt to python 3.8+
+                    # pylint: disable=E1123
+                    shutil.copytree(mindformers_configs_directory, configs_directory, dirs_exist_ok=True)
+                except TypeError:
+                    try:
+                        # adapt to python 3.7 to avoid dirs_exist_ok=False
+                        shutil.copytree(mindformers_configs_directory, configs_directory)
+                    except FileExistsError:
+                        pass
 
         if task not in SUPPORT_TASKS.keys():
             logger.warning("Input task name is not in the supported list or unspecified.")
@@ -329,10 +339,12 @@ class BaseTrainer:
 
         weight_decay = self.config.optimizer.weight_decay if self.config.optimizer.weight_decay else 0.
         layer_decay = self.config.layer_decay if self.config.layer_decay else 1.0
+        param_group = self.config.param_group if self.config.layer_decay else True
         group_params = get_optimizer_grouped_parameters(network,
                                                         weight_decay,
                                                         lr_schedule,
                                                         layer_scale=layer_scale,
+                                                        param_group=param_group,
                                                         layer_decay=layer_decay)
         if lr_schedule is not None:
             self.optimizer = build_optim(

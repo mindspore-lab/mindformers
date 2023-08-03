@@ -116,13 +116,13 @@ def preprocess_function(input_file, vocab_file, output_file, num_splits, max_sou
     writer = FileWriter(output_file, num_splits, overwrite=True)
     if mode == 'train':
         data_schema = {"input_ids": {"type": "int32", "shape": [-1]},
-                       "label": {"type": "int32", "shape": [-1]},
+                       "labels": {"type": "int32", "shape": [-1]},
                        "position_ids": {"type": "int32", "shape": [2, max_seq_length]},
                        "attention_mask": {"type": "int32", "shape": [max_seq_length, max_seq_length]}
                        }
     else:
         data_schema = {"input_ids": {"type": "int32", "shape": [-1]},
-                       "label": {"type": "int32", "shape": [-1]}}
+                       "labels": {"type": "int32", "shape": [-1]}}
 
     writer.add_schema(data_schema, "lm-schema")
 
@@ -196,7 +196,7 @@ def preprocess_function(input_file, vocab_file, output_file, num_splits, max_sou
                 input_ids = input_ids + [tokenizer.pad_token_id] * pad_len
 
             model_inputs["input_ids"] = np.array(input_ids)
-            model_inputs["label"] = np.array(label)
+            model_inputs["labels"] = np.array(label)
 
             writer.write_raw_data([model_inputs])
             total_written += 1

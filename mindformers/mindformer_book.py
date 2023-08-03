@@ -215,6 +215,12 @@ class MindFormerBook:
                 _PROJECT_PATH, "configs/bloom/run_bloom_65b.yaml")),
             ("bloom_176b", os.path.join(
                 _PROJECT_PATH, "configs/bloom/run_bloom_176b.yaml")),
+            ("baichuan_7b", os.path.join(
+                _PROJECT_PATH, "research/baichuan/run_baichuan_7b.yaml")),
+            ("cpm_2b", os.path.join(
+                _PROJECT_PATH, "configs/cpm/run_cpm_2b_finetune.yaml")),
+            ("cpm_10b", os.path.join(
+                _PROJECT_PATH, "configs/cpm/run_cpm_10b_finetune.yaml")),
             ("common", os.path.join(
                 _PROJECT_PATH, "configs/gpt2/run_gpt2.yaml"))])
          )
@@ -328,6 +334,12 @@ class MindFormerBook:
                 _PROJECT_PATH, "configs/bloom/run_bloom_65b.yaml")),
             ("bloom_176b", os.path.join(
                 _PROJECT_PATH, "configs/bloom/run_bloom_176b.yaml")),
+            ("baichuan_7b", os.path.join(
+                _PROJECT_PATH, "research/baichuan/run_baichuan_7b.yaml")),
+            ("cpm_2b", os.path.join(
+                _PROJECT_PATH, "configs/cpm/run_cpm_2b_finetune.yaml")),
+            ("cpm_10b", os.path.join(
+                _PROJECT_PATH, "configs/cpm/run_cpm_10b_finetune.yaml")),
             ("common", os.path.join(
                 _PROJECT_PATH, "configs/gpt2/run_gpt2.yaml"))
         ]))
@@ -384,7 +396,8 @@ class MindFormerBook:
             'llama_7b',
             'llama_13b',
             'llama_65b',
-            'llama_7b_lora'
+            'llama_7b_lora',
+            'baichuan_7b'
         ]),
         ('pangualpha', [
             'pangualpha_2_6b',
@@ -401,6 +414,10 @@ class MindFormerBook:
             'glm_6b_chat',
             'glm_6b_lora',
             'glm_6b_lora_chat'
+        ]),
+        ('cpm', [
+            'cpm_2b',
+            'cpm_10b'
         ])
     ])
 
@@ -477,6 +494,10 @@ class MindFormerBook:
             'glm_6b_chat',
             'glm_6b_lora',
             'glm_6b_lora_chat'
+        ]),
+        ('cpm', [
+            'cpm_2b',
+            'glm_10b',
         ])
     ])
 
@@ -537,7 +558,10 @@ class MindFormerBook:
             'bloom_7.1b',
             'bloom_65b',
             'bloom_176b',
-        ])
+        ]),
+        ('cpm', [
+            'cpm',
+        ]),
     ])
 
     _TOKENIZER_SUPPORT_LIST = OrderedDict([
@@ -576,7 +600,8 @@ class MindFormerBook:
             'llama_7b',
             'llama_13b',
             'llama_65b',
-            'llama_7b_lora'
+            'llama_7b_lora',
+            'baichuan_7b'
         ]),
         ('pangualpha', [
             'pangualpha_2_6b',
@@ -590,7 +615,11 @@ class MindFormerBook:
             'bloom_7.1b',
             'bloom_65b',
             'bloom_176b',
-        ])
+        ]),
+        ('cpm', [
+            'cpm_2b',
+            'cpm_10b',
+        ]),
     ])
 
     _MODEL_CONFIG_TO_NAME = OrderedDict([
@@ -952,7 +981,8 @@ class MindFormerBook:
         ('LlamaTokenizer', 'LlamaProcessor'),
         ('GPT2Tokenizer', 'GPT2Processor'),
         ('PanguAlphaTokenizer', 'PanguAlphaProcessor'),
-        ('BloomTokenizer', 'BloomProcessor')
+        ('BloomTokenizer', 'BloomProcessor'),
+        ('CPMBeeTokenizer', 'CPMProcessor'),
     ])
 
     @classmethod

@@ -10,7 +10,7 @@
 
 | model  |               type               | datasets | Entity F1 |           stage            |                           example                            |
 | :----: | :------------------------------: | :------: | :-------: | :------------------------: | :----------------------------------------------------------: |
-| tokcls | tokcls_bert_case_chinese_cluener | CLUENER  |  0.7905   | finetune<br/>eval<br/>predict | [link](../../examples/token_classification/tokcls_bert_base_chinese_finetune_on_cluener.sh) <br/> [link](../../examples/token_classification/tokcls_bert_base_chinese_eval_on_cluener.sh) <br/> [link](../../examples/token_classification/tokcls_bert_base_chinese_predict_on_cluener.sh) |
+| tokcls | tokcls_bert_case_chinese_cluener | CLUENER  |  0.7905   | finetune<br/>eval<br/>predict | [link](../../scripts/examples/token_classification/tokcls_bert_base_chinese_finetune_on_cluener.sh) <br/> [link](../../scripts/examples/token_classification/tokcls_bert_base_chinese_eval_on_cluener.sh) <br/> [link](../../scripts/examples/token_classification/tokcls_bert_base_chinese_predict_on_cluener.sh) |
 
 ### [CLUENER](https://github.com/CLUEbenchmark/CLUENER2020)
 

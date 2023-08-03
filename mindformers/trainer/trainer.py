@@ -205,7 +205,17 @@ class Trainer:
             configs_directory = os.path.join('.', DEFAULT_CONFIG_DIR)
             if os.path.exists(os.path.join(CURRENT_PROJECT_PATH, DEFAULT_CONFIG_DIR)):
                 mindformers_configs_directory = os.path.join(CURRENT_PROJECT_PATH, DEFAULT_CONFIG_DIR)
-                shutil.copytree(mindformers_configs_directory, configs_directory)
+                # python 3.7 版本不支持dirs_exist_ok入参, python 3.8及以上版本支持
+                try:
+                    # adapt to python 3.8+
+                    # pylint: disable=E1123
+                    shutil.copytree(mindformers_configs_directory, configs_directory, dirs_exist_ok=True)
+                except TypeError:
+                    try:
+                        # adapt to python 3.7
+                        shutil.copytree(mindformers_configs_directory, configs_directory)
+                    except FileExistsError:
+                        pass
 
         if wrapper is not None:
             if model is not None:
@@ -345,8 +355,6 @@ class Trainer:
                 Used to restore training or fine-tune the weight of the network.
                 It supports real checkpoint path or valid model name of mindformers or bool value.
                 if it's true, the last checkpoint file saved from the previous training round is automatically used.
-                If do_finetune is true, this checkpoint will be used to finetune the network.
-                Default: False.
             resume_training (bool): Whether to perform resume training. Default: False.
             auto_trans_ckpt: auto transform checkpoint to load in distributed model
             do_eval (bool): Whether evaluations are performed during training. Default: False.
@@ -365,13 +373,11 @@ class Trainer:
             >>> # 2) eval network when train task to reproduce model.
             >>> task_trainer.train(do_eval=True)
             >>> # 3) resume train task to auto load the last checkpoint, if training break after 10 epochs.
-            >>> task_trainer.train(train_checkpoint=True, initial_epoch=10)
+            >>> task_trainer.train(train_checkpoint=True, resume_training=True)
             >>> # 4) resume train task according to checkpoint path, if training break after 10 epochs.
             >>> task_trainer.train(
             ...     resume_or_finetune_from_checkpoint='./output/rank_0/checkpoint/mindformers.ckpt',
-            ...     initial_epoch=10)
-            >>> # 5) finetune train task according to resume_or_finetune_from_checkpoint.
-            >>> task_trainer.train(resume_or_finetune_from_checkpoint='mae_vit_base_p16', do_finetune=True)
+            ...     resume_training=True)
         """
         if train_checkpoint is not None and \
                 not isinstance(train_checkpoint, (bool, str)):
@@ -380,8 +386,10 @@ class Trainer:
         if train_checkpoint is False:
             train_checkpoint = None
 
+        do_eval = do_eval or self.config.do_eval
         if do_eval:
             if self.eval_dataset is None:
+                logger.info("do_eval is enabled, building eval_dataset from config.")
                 self.eval_dataset = build_dataset(self.config.eval_dataset_task)
             if self.eval_dataset is None:
                 raise ValueError(f"if do_eval is true, eval_dataset must be input, "
@@ -465,13 +473,16 @@ class Trainer:
         if finetune_checkpoint is False:
             finetune_checkpoint = None
 
+        do_eval = do_eval or self.config.do_eval
         if do_eval:
-            logger.warning("do_eval is not supported yet."
-                           "It is a reserved interface and will be supported in future versions.")
             if self.eval_dataset is None:
-                raise ValueError('When do_eval is enabled, the eval_dataset must be entered,'
-                                 'which can be the dataset path for the corresponding task '
-                                 'or a custom MindSpore Dataset instance')
+                logger.info("do_eval is enabled, building eval_dataset from config.")
+                self.eval_dataset = build_dataset(self.config.eval_dataset_task)
+            if self.eval_dataset is None:
+                raise ValueError(f"if do_eval is true, eval_dataset must be input, "
+                                 f"the task {self.task} is not support eval now.")
+            # open do_eval for trainer config
+            self.config.do_eval = True
 
         if finetune_checkpoint is True:
             self.config.model.model_config.checkpoint_name_or_path = None
