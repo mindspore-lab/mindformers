@@ -179,7 +179,7 @@ class GeneratorMixin:
             # pylint: disable=E1102
             res = self(
                 input_ids=Tensor(input_ids, mstype.int32),
-                input_position=current_index,
+                input_position=Tensor(current_index, mstype.int32),
                 position_ids=position_ids_tmp,
                 attention_mask=attention_mask_tmp,
                 init_reset=Tensor([False], mstype.bool_),  # init_reset (1,) bool False
@@ -191,9 +191,12 @@ class GeneratorMixin:
         else:
             self.add_flags_recursive(is_first_iteration=False)
 
-            current_index_tmp = int(current_index[0])  # TODO: multibatch
-            # use numpy to slice array to avoid complie ascend slice op
-            inputs_tmp = input_ids[:, current_index_tmp:current_index_tmp + 1]
+            inputs_tmp = []
+            for i in range(len(current_index)):
+                current_index_tmp = int(current_index[i]) - i * input_ids.shape[1]  # multibatch
+                # use numpy to slice array to avoid complie ascend slice op
+                inputs_tmp.append(input_ids[i][current_index_tmp:current_index_tmp + 1])
+            inputs_tmp = np.array(inputs_tmp, dtype=np.int32)
             position_ids_tmp = None
             if position_ids:
                 position_ids_tmp = position_ids[..., current_index_tmp:current_index_tmp + 1]
@@ -206,7 +209,7 @@ class GeneratorMixin:
             # pylint: disable=E1102
             res = self(
                 input_ids=Tensor(inputs_tmp, mstype.int32),
-                input_position=current_index,
+                input_position=Tensor(current_index, mstype.int32),
                 position_ids=position_ids_tmp,
                 attention_mask=attention_mask_tmp,
                 init_reset=Tensor([True], mstype.bool_),  # init_reset (1,) bool True
@@ -308,7 +311,6 @@ class GeneratorMixin:
             else:
                 seq_length = input_ids.shape[1]
                 current_index = [valid_length_each_example[i] - 1 + i * seq_length for i in range(batch_size)]
-                current_index = Tensor(current_index, mstype.int32)
                 logger.debug("validate length: %s", valid_length_each_example)
                 # incremental generate
                 if self.config.use_past:
@@ -329,9 +331,10 @@ class GeneratorMixin:
                     )[0]
                 # auto-aggressive generate
                 else:
-                    logits = self(Tensor(input_ids, mstype.int32))[0]   # pylint: disable=E1102
+                    logits = self(Tensor(input_ids, mstype.int32))[0]  # pylint: disable=E1102
                 logits = logits.reshape(-1, logits.shape[-1])
-                log_probs = self.process_logits(logits, current_index, is_first_iteration, self.config.use_past)
+                log_probs = self.process_logits(logits, Tensor(current_index, mstype.int32),
+                                                is_first_iteration, self.config.use_past)
 
             # Sample
             log_probs = log_probs.asnumpy()
