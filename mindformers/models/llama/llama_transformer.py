@@ -428,12 +428,11 @@ class LLamaAttention(nn.Cell):
 
     def _check_inputs(self, x, freqs_cis, attention_mask, key_past=None, value_past=None, batch_valid_length=None):
         r"""Check inputs"""
-        freqs_cos, freqs_sin, minus_mask, rotary_mask = freqs_cis
+        freqs_cos, freqs_sin, swap_mask = freqs_cis
         _check_input_dtype(x.dtype, "x", [mstype.float32, mstype.float16], self.cls_name)
         _check_input_dtype(freqs_cos.dtype, "freqs_cos", [mstype.float32, mstype.float16], self.cls_name)
         _check_input_dtype(freqs_sin.dtype, "freqs_sin", [mstype.float32, mstype.float16], self.cls_name)
-        _check_input_dtype(minus_mask.dtype, "mins_mask", [mstype.float32, mstype.float16], self.cls_name)
-        _check_input_dtype(rotary_mask.dtype, "rotary_mask", [mstype.float32, mstype.float16], self.cls_name)
+        _check_input_dtype(swap_mask.dtype, "swap_mask", [mstype.float32, mstype.float16], self.cls_name)
         if attention_mask is not None:
             _check_input_dtype(attention_mask.dtype, "attention_mask", [mstype.float32, mstype.float16], self.cls_name)
 
@@ -802,11 +801,10 @@ class LLamaDecodeLayer(nn.Cell):
         r"""Check inputs"""
         _check_input_dtype(
             x.dtype, "x", [mstype.float32, mstype.float16], self.cls_name)
-        freqs_cos, freqs_sin, mins_mask, rotary_mask = freqs_cis
+        freqs_cos, freqs_sin, swap_mask = freqs_cis
         _check_input_dtype(freqs_cos.dtype, "freqs_cos", [mstype.float32, mstype.float16], self.cls_name)
         _check_input_dtype(freqs_sin.dtype, "freqs_sin", [mstype.float32, mstype.float16], self.cls_name)
-        _check_input_dtype(mins_mask.dtype, "mins_mask", [mstype.float32, mstype.float16], self.cls_name)
-        _check_input_dtype(rotary_mask.dtype, "rotary_mask", [mstype.float32, mstype.float16], self.cls_name)
+        _check_input_dtype(swap_mask.dtype, "swap_mask", [mstype.float32, mstype.float16], self.cls_name)
         if input_mask is not None:
             _check_input_dtype(input_mask.dtype, "input_mask", [mstype.float32, mstype.float16], self.cls_name)
 

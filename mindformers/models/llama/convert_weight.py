@@ -24,6 +24,7 @@ from pathlib import Path
 
 import numpy as np
 import mindspore as ms
+from mindspore import ops
 
 
 def convert_meta_torch_ckpt(ckpt_dir, output_name, dtype=ms.float16):
@@ -52,6 +53,14 @@ def convert_meta_torch_ckpt(ckpt_dir, output_name, dtype=ms.float16):
     if not ckpt_paths:
         print(f"Do not find pytorch checkpoint in '{ckpt_dir}'.", flush=True)
         return False
+    with open(Path(ckpt_dir) / "params.json", "r") as f:
+        model_args = json.loads(f.read())
+    n_heads = model_args["n_heads"]
+    dim = model_args["dim"]
+
+    def permute(w):
+        return w.view(n_heads, dim // n_heads // 2, 2, dim).transpose(1, 2).reshape(dim, dim)
+
     checkpoints = []
     for i in range(len(ckpt_paths)):
         checkpoints.append(load(ckpt_paths[i], map_location="cpu"))
@@ -66,14 +75,15 @@ def convert_meta_torch_ckpt(ckpt_dir, output_name, dtype=ms.float16):
                     value = checkpoints[0][name].numpy()
         if name == 'norm.weight':
             name = 'norm_out.weight'
-
         if name == 'output.weight':
             name = 'lm_head.weight'
         else:
             name = 'model.' + name
-
         if 'rope.freqs' in name:
             continue
+
+        if 'wq' in name or 'wk' in name:
+            value = permute(value)
         print(f'\rprocessing parameter: {name} {value.shape}     ', end='', flush=True)
         ckpt_list.append({'name': name, 'data': ms.Tensor(value, dtype=dtype)})
 
@@ -114,23 +124,13 @@ def convert_hf_ckpt(ckpt_dir, output_name, dtype=ms.float16):
 
     try:
         model_hf = LlamaForCausalLM.from_pretrained(ckpt_dir)
-        args_hf = read_json(os.path.join(ckpt_dir, "config.json"))
     # pylint: disable=W0703
     except Exception as e:
         print(f"Do not find huggingface checkpoint in '{ckpt_dir}', Error {e.message}.", flush=True)
         return False
-
-    n_heads = args_hf["num_attention_heads"]
-    dim = args_hf["hidden_size"]
-
-    def permute_inv(w):
-        return w.view(n_heads, 2, dim // n_heads // 2, dim).transpose(1, 2).reshape(dim, dim)
-
     ckpt_list = []
     for name, value in model_hf.named_parameters():
         name = name_replace(name)
-        if 'wq' in name or 'wk' in name:
-            value = permute_inv(value)
         if name == 'norm.weight':
             name = 'norm_out.weight'
         if name[:7] == 'layers.':
@@ -144,9 +144,37 @@ def convert_hf_ckpt(ckpt_dir, output_name, dtype=ms.float16):
     print(f"\rConvert huggingface checkpoint finished, the mindspore checkpoint is saved in '{ckpt_file}'.", flush=True)
     return True
 
+
+def convert_to_new_ckpt(ckpt_path, config_path):
+    """convert previous ckpt to new ckpt"""
+    load_path = ckpt_path.split('.ckpt')[0]
+    save_path = load_path + "_hf"
+    params = ms.load_checkpoint(load_path.split('.ckpt')[0] + '.ckpt')
+    with open(config_path, "r") as f:
+        model_args = json.loads(f.read())
+    n_heads = model_args["n_heads"]
+    dim = model_args["dim"]
+    def permute(w):
+        return ops.transpose(w.reshape(n_heads, dim // n_heads // 2, 2, dim), (0, 2, 1, 3)).reshape(dim, dim)
+
+    ckpt_list = []
+    for name in params.keys():
+        value = params[name].value()
+        ckpt_list.append({'name': name, 'data': value})
+        if '.wq' in name or '.wk' in name:
+            value = permute(value)
+        print("\r", name, value.shape, end="               ")
+
+    ms.save_checkpoint(ckpt_list, save_path)
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--torch_ckpt_dir', default='./llama_model/llama-13b-hf/')
     parser.add_argument('--mindspore_ckpt_path', default='transform.ckpt')
+    parser.add_argument('--pre_ckpt_path', default=None)
+    parser.add_argument('--config_path', default=None)
     args = parser.parse_args()
-    convert_hf_ckpt(ckpt_dir=args.torch_ckpt_dir, output_name=args.mindspore_ckpt_path)
+    if args.pre_ckpt_path is not None and args.config_path is not None:
+        convert_to_new_ckpt(args.pre_ckpt_path, args.config_path)
+    else:
+        convert_hf_ckpt(ckpt_dir=args.torch_ckpt_dir, output_name=args.mindspore_ckpt_path)

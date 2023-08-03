@@ -14,6 +14,7 @@
 # ============================================================================
 """LLaMA Model Layers' APIs."""
 
+from enum import Enum
 import numpy as np
 
 from mindspore.common.tensor import Tensor
@@ -39,6 +40,13 @@ from mindformers.modules.transformer import TransformerOpParallelConfig
 from mindformers.tools.logger import _LogActionOnce
 
 
+class SeqExtendMethod(Enum):
+    """Stores the acceptable string identifiers for seq length extend method"""
+    PI = "PI"
+    NTK = "NTK"
+    NONE = "None"
+
+
 class LlamaSiLU(Cell):
     r"""
     A self-defined SwiGlu.
@@ -62,41 +70,45 @@ class LlamaSiLU(Cell):
         return self.mul(x, self.sigmoid(x))
 
 
-def get_rotary_mask(head_dim):
-    """Rotary embedding help mask."""
-    rot_np = np.zeros((head_dim, head_dim), dtype=np.float32)
-    for i in range(head_dim):
-        if i < head_dim // 2:
-            rot_np[2 * i, i] = 1.0
-        else:
-            rot_np[2 * (i - head_dim // 2) + 1, i] = 1.0
-    return rot_np
+def get_swap_mask(head_dim):
+    """Swap matrix"""
+    zero_block = np.zeros((head_dim // 2, head_dim // 2), dtype=np.float32)
+    id_block = np.identity(head_dim // 2, dtype=np.float32)
+    return np.block([[zero_block, id_block], [-id_block, zero_block]])
 
 
-def precompute_freqs_cis(dim: int, end: int, theta: float = 10000.0, dtype=mstype.float32):
+def precompute_freqs_cis(
+        dim: int,
+        end: int,
+        theta: float = 10000.0,
+        dtype=mstype.float32,
+        pretrain_seqlen=2048,
+        extend_method=SeqExtendMethod.NONE.value):
     """
     Precompute of freqs and mask for rotary embedding.
     """
+    ratio = 1.
+    if extend_method != SeqExtendMethod.NONE.value and end > pretrain_seqlen:
+        ratio = end / pretrain_seqlen
+    if extend_method == SeqExtendMethod.NTK.value:
+        theta *= ratio
     freqs_base = np.arange(0, dim, 2)[: (dim // 2)].astype(np.float32) # (head_dim // 2, )
     freqs = 1.0 / (theta ** (freqs_base / dim)) # (head_dim // 2, )
-    t = np.arange(0, end, 1).astype(np.float32)  # type: ignore # (seq_len,)
+    if extend_method == SeqExtendMethod.PI.value:
+        t = np.arange(0, end / ratio, 1 / ratio).astype(np.float32)
+    else:
+        t = np.arange(0, end, 1).astype(np.float32)  # type: ignore # (seq_len,)
     freqs = np.outer(t, freqs)  # type: ignore (seq_len, head_dim // 2)
-    freqs = np.expand_dims(freqs, axis=-1)
-    freqs = np.tile(freqs, (1, 1, 2))
-    emb = freqs.reshape((end, -1))
+    emb = np.concatenate((freqs, freqs), axis=-1)
     freqs_cos = np.cos(emb) # (seq_len, head_dim)
     freqs_sin = np.sin(emb) # (seq_len, head_dim)
     freqs_cos = Tensor(freqs_cos, dtype=dtype)
     freqs_sin = Tensor(freqs_sin, dtype=dtype)
 
-    # minus_mask
-    minus_mask = Tensor([[0, 1], [-1, 0]], dtype=dtype)
+    swap_mask = get_swap_mask(dim)
+    swap_mask = Tensor(swap_mask, dtype=dtype)
 
-    # rotary_mask
-    rotary_mask = get_rotary_mask(dim)
-    rotary_mask = Tensor(rotary_mask, dtype=dtype)
-
-    return freqs_cos, freqs_sin, minus_mask, rotary_mask
+    return freqs_cos, freqs_sin, swap_mask
 
 
 class LlamaRotaryEmbedding(Cell):
@@ -130,39 +142,25 @@ class LlamaRotaryEmbedding(Cell):
         dp = parallel_config.data_parallel
 
         self.add = P.Add().shard(((dp, mp, 1, 1), (dp, mp, 1, 1)))
-        self.bmm_minus = P.BatchMatMul().shard(((parallel_config.data_parallel, parallel_config.model_parallel, 1, 1,),
-                                                (1, 1)))
-        self.bmm_rot = P.BatchMatMul().shard(((parallel_config.data_parallel, parallel_config.model_parallel, 1, 1),
-                                              (1, 1)))
+        self.bmm_swap = P.BatchMatMul().shard(((dp, mp, 1, 1,), (1, 1)))
         self.mul = P.Mul().shard(((dp, mp, 1, 1), (1, 1,)))
-        self.matmul = P.MatMul().shard(((dp, mp), (mp, 1)))
 
     # rotary pos emb helpers:
-    def rotate_half(self, x, minus_mask):
-        # x: b, head_num, T, H_D
-        batch_size, head_num, seq_length, head_dim = x.shape
+    def rotate_half(self, x, swap_mask):
         # shard:(dp, mp, 1, 1)
-        x = self.reshape(x, (batch_size, head_num, seq_length * head_dim // 2, 2))
-        # shard:(dp, mp, 1, 1)
-        x = self.bmm_minus(x, minus_mask)
-        # shard:(dp, mp, 1, 1)
-        x = self.reshape(x, (batch_size, head_num, seq_length, head_dim))
+        x = self.bmm_swap(x, swap_mask)
         return x
 
     def construct(self, xq: Tensor, xk: Tensor, freqs_cis):
         """Forward of rotary position embedding."""
-        # xq, xk: b, t, head_num, head_dim
-        freqs_cos, freqs_sin, mins_mask, rotary_mask = freqs_cis
+        # xq, xk: b, head_num, t, head_dim
+        freqs_cos, freqs_sin, swap_mask = freqs_cis
 
         xq_out = self.add(self.mul(xq, freqs_cos),
-                          self.mul(self.rotate_half(xq, mins_mask), freqs_sin))
-
-        xq_out = self.bmm_rot(xq_out, rotary_mask)
+                          self.mul(self.rotate_half(xq, swap_mask), freqs_sin))
 
         xk_out = self.add(self.mul(xk, freqs_cos),
-                          self.mul(self.rotate_half(xk, mins_mask), freqs_sin))
-
-        xk_out = self.bmm_rot(xk_out, rotary_mask)
+                          self.mul(self.rotate_half(xk, swap_mask), freqs_sin))
 
         return xq_out, xk_out
 

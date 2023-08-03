@@ -14,12 +14,13 @@
 # ============================================================================
 """LLaMA models' APIs."""
 
+import numpy as np
 import mindspore.common.dtype as mstype
 try:
     from mindspore._checkparam import Validator
 except ImportError:
     import mindspore._checkparam as Validator
-from mindspore import nn, ops
+from mindspore import nn
 from mindspore.common.tensor import Tensor
 from mindspore.context import ParallelMode
 from mindspore.ops import operations as P
@@ -115,7 +116,7 @@ class LlamaModel(BaseModel):
                                          config.seq_length,
                                          layer_id,
                                          dim=config.hidden_size,
-                                         n_heads=config.num_layers,
+                                         n_heads=config.num_heads,
                                          multiple_of=config.multiple_of,
                                          norm_eps=config.rms_norm_eps,
                                          compute_dtype=config.compute_dtype,
@@ -181,9 +182,9 @@ class LlamaModel(BaseModel):
             else:
                 self.norm_out.set_comm_fusion(config.parallel_config.gradient_aggregation_group)
 
-        self.freqs_cos, self.freqs_sin, self.mins_mask, self.rotary_mask = precompute_freqs_cis(
-            config.hidden_size // config.num_heads, config.seq_length, dtype=config.compute_dtype
-        )
+        self.freqs_cos, self.freqs_sin, self.swap_mask = precompute_freqs_cis(
+            config.hidden_size // config.num_heads, config.seq_length, dtype=config.compute_dtype,
+            pretrain_seqlen=config.pretrain_seqlen, extend_method=config.extend_method)
         self.get_attention_mask = AttentionMask(
             config.seq_length, parallel_config=config.parallel_config.dp_mp_config).to_float(config.compute_dtype)
         self.not_equal = P.NotEqual().shard(((config.parallel_config.data_parallel, 1), ()))
@@ -193,8 +194,10 @@ class LlamaModel(BaseModel):
         self.gather = P.Gather().shard(((1, 1), (1,)))
         # when in train process,it's always True;when in predict process,only first iteration is True.
         self.is_first_iteration = True
-        self.all_ones_attention_mask = ops.ones((1, 1, 1), mstype.float32)
+        self.all_ones_attention_mask = P.Ones()((1, 1, 1), mstype.float32)
         self.use_past = config.use_past
+        self.input_position_delta = Tensor(np.arange(0, config.batch_size), mstype.int32) * config.seq_length
+        self.sub = P.Sub()
 
     def construct(self, input_ids: Tensor, input_position=None, init_reset=True, batch_valid_length=None):
         """Forward of llama model."""
@@ -205,14 +208,16 @@ class LlamaModel(BaseModel):
         mask = None
         if self.is_first_iteration is False:
             # for increase predict
-            input_position = ops.ones_like(input_position) * input_position[0]
+            input_position = self.sub(input_position, self.input_position_delta)
             freqs_cis = (self.reshape(self.gather(self.freqs_cos, input_position, 0), (bs, 1, seq_len, -1)),
                          self.reshape(self.gather(self.freqs_sin, input_position, 0), (bs, 1, seq_len, -1)),
-                         self.mins_mask, self.rotary_mask)
+                         self.swap_mask)
             mask = P.Tile()(self.all_ones_attention_mask, (bs, 1, 1))
         else:
             # first iteration of predict; all iterations of train
-            freqs_cis = (self.freqs_cos, self.freqs_sin, self.mins_mask, self.rotary_mask)
+            freqs_cis = (self.reshape(self.freqs_cos, (1, 1, seq_len, -1)),
+                         self.reshape(self.freqs_sin, (1, 1, seq_len, -1)),
+                         self.swap_mask)
             input_mask = self.cast(self.not_equal(input_ids, self.pad_token_id), mstype.float32)
             mask = self.get_attention_mask(input_mask)
 

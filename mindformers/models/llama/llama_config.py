@@ -51,6 +51,8 @@ class LlamaConfig(BaseConfig):
                  param_init_type: str = "float16",
                  parallel_config: TransformerOpParallelConfig = default_transformer_config,
                  use_past: bool = False,
+                 pretrain_seqlen: int = 2048,
+                 extend_method: str = "None",
                  offset: int = 0,
                  checkpoint_name_or_path: str = "",
                  repetition_penalty: float = 1.0,
@@ -79,6 +81,8 @@ class LlamaConfig(BaseConfig):
         self.pad_token_id = pad_token_id
         self.ignore_token_id = ignore_token_id
         self.use_past = use_past
+        self.pretrain_seqlen = pretrain_seqlen
+        self.extend_method = extend_method
         self.offset = offset
         self.repetition_penalty = repetition_penalty
         self.max_decode_length = max_decode_length
