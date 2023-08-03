@@ -115,7 +115,14 @@ class PanguAlphaTokenizer(Tokenizer):
 
     def _convert_id_to_token(self, index):
         """ return the origin bpe tokens according to ids """
-        return self.sp.id_to_piece(index)
+        text = self.sp.decode(index)
+        text = text.replace(' ', '').replace('\u2582', ' ').replace('\u2583', '\n')
+        return text
+
+    def convert_tokens_to_string(self, tokens):
+        """Converts a sequence of tokens (string) in a single string."""
+        text = "".join(tokens)
+        return text
 
     def process_tokens(self, text):
         r"""replace special tokens with space and \n"""
