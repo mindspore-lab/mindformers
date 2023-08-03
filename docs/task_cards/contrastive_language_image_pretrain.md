@@ -10,7 +10,7 @@
 
 | model |                                     type                                     | Datasets | Performance |  stage   |         example         |
 |:-----:|:----------------------------------------------------------------------------:|:--------:|:-----------:|:--------:|:-----------------------:|
-| clip  | clip_vit_b_32 <br/> clip_vit_b_16 <br/> clip_vit_l_14<br/> clip_vit_l_14@336 | Flickr8k |     --      | pretrain | [link](../../examples/contrastive_language_image_pretrain/clip_vit_b_32_pretrain_on_flickr8k.sh) |
+| clip  | clip_vit_b_32 <br/> clip_vit_b_16 <br/> clip_vit_l_14<br/> clip_vit_l_14@336 | Flickr8k |     --      | pretrain | [link](../../scripts/examples/contrastive_language_image_pretrain/clip_vit_b_32_pretrain_on_flickr8k.sh) |
 
 ### Flickr8k([链接](https://pan.baidu.com/s/1LRlQUL1MRipPL4MLOdExzg)，密码: s4be)
 

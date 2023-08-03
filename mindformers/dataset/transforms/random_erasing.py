@@ -1,26 +1,13 @@
-# Copyright 2022 Huawei Technologies Co., Ltd
-# Copyright 2022 Aerospace Information Research Institute,
-# Chinese Academy of Sciences.
+# Random Erasing (Cutout) for MindSpore
 #
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
+# Originally inspired by impl at https://github.com/zhunzhong07/Random-Erasing, Apache 2.0
+# Copyright Zhun Zhong & Liang Zheng
 #
-# http://www.apache.org/licenses/LICENSE-2.0
+# Hacked together by / Copyright 2020 Ross Wightman
 #
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# has been modified to adapt mindspore and mindformers
 # ============================================================================
-""" Random Erasing (Cutout)
-
-Originally inspired by impl at https://github.com/zhunzhong07/Random-Erasing, Apache 2.0
-Copyright Zhun Zhong & Liang Zheng
-
-Hacked together by / Copyright 2020 Ross Wightman
-"""
+"""Random Erasing (Cutout) for MindSpore"""
 import math
 import random
 
