@@ -689,15 +689,14 @@ class GLMForPreTrainingWithLora(GLMForPreTraining):
         config (GLMConfig): The config of network.
     """
 
-    def __init__(self, config: GLMConfig = None, pet=None, **kwargs):
+    def __init__(self, config: GLMConfig = None, **kwargs):
         _ = kwargs
         super().__init__(config)
         # get Pet tuning model.
-        self.pet = pet
-        self.pet.pet_config.reg_rules = r'.*query_key_value*'
-        self.transformer = LoraAdapter.get_pet_model(self.transformer, self.pet.pet_config)
+        config.pet_config.reg_rules = r'.*query_key_value*'
+        self.transformer = LoraAdapter.get_pet_model(self.transformer, config.pet_config)
         # freeze pretrained model
-        PetAdapter.freeze_pretrained_model(self, self.pet.pet_type)
+        PetAdapter.freeze_pretrained_model(self, config.pet_config.pet_type)
 
 
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
@@ -708,14 +707,13 @@ class GLMChatModelWithLora(GLMChatModel):
         config (GLMConfig): The config of network.
     """
 
-    def __init__(self, config: GLMConfig = None, pet=None, **kwargs):
+    def __init__(self, config: GLMConfig = None, **kwargs):
         _ = kwargs
         ckpt_cfg = config.checkpoint_name_or_path
         config.checkpoint_name_or_path = None
         super().__init__(config)
         # get Pet tuning model.
-        self.pet = pet
-        self.pet.pet_config.reg_rules = r'.*query_key_value*'
-        self.transformer = LoraAdapter.get_pet_model(self.transformer, self.pet.pet_config)
+        config.pet_config.reg_rules = r'.*query_key_value*'
+        self.transformer = LoraAdapter.get_pet_model(self.transformer, config.pet_config)
         config.checkpoint_name_or_path = ckpt_cfg
         self.load_checkpoint(config)

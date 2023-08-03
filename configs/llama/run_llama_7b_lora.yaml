@@ -159,17 +159,16 @@ model:
     top_k: 3
     top_p: 1
     do_sample: False
+    pet_config:
+      pet_type: lora
+      # configuration of lora
+      in_channels: 4096
+      out_channels: 4096
+      lora_rank: 16
+      lora_alpha: 16
+      lora_dropout: 0.05
   arch:
     type: LlamaForCausalLMWithLora
-    pet:
-      pet_type: lora
-      pet_config:
-        # configurition of lora
-        in_channels: 4096 
-        out_channels: 4096
-        lora_rank: 16
-        lora_alpha: 16
-        lora_dropout: 0.05
 
 processor:
   return_tensors: ms
