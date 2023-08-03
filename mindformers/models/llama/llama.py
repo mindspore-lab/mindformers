@@ -198,15 +198,17 @@ class LlamaModel(BaseModel):
 
     def construct(self, input_ids: Tensor, input_position=None, init_reset=True, batch_valid_length=None):
         """Forward of llama model."""
-        bs, _ = input_ids.shape
+        bs, seq_len = input_ids.shape
         # (b, t, d) , dp, 1, 1
         h = self.tok_embeddings(input_ids)
 
         mask = None
         if self.is_first_iteration is False:
             # for increase predict
-            freqs_cis = (self.gather(self.freqs_cos, input_position, 0),
-                         self.gather(self.freqs_sin, input_position, 0), self.mins_mask, self.rotary_mask)
+            input_position = ops.ones_like(input_position) * input_position[0]
+            freqs_cis = (self.reshape(self.gather(self.freqs_cos, input_position, 0), (bs, 1, seq_len, -1)),
+                         self.reshape(self.gather(self.freqs_sin, input_position, 0), (bs, 1, seq_len, -1)),
+                         self.mins_mask, self.rotary_mask)
             mask = P.Tile()(self.all_ones_attention_mask, (bs, 1, 1))
         else:
             # first iteration of predict; all iterations of train
