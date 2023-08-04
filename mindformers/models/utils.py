@@ -18,6 +18,8 @@ import mindspore.common.dtype as mstype
 
 def convert_mstype(ms_type: str = "float16"):
     """Convert the string type to MindSpore type."""
+    if isinstance(ms_type, mstype.Float):
+        return ms_type
     if ms_type == "float16":
         return mstype.float16
     if ms_type == "float32":
