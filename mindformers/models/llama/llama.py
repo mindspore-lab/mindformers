@@ -198,6 +198,7 @@ class LlamaModel(BaseModel):
         self.use_past = config.use_past
         self.input_position_delta = Tensor(np.arange(0, config.batch_size), mstype.int32) * config.seq_length
         self.sub = P.Sub()
+        self.tile = P.Tile()
 
     def construct(self, input_ids: Tensor, input_position=None, init_reset=True, batch_valid_length=None):
         """Forward of llama model."""
@@ -212,11 +213,11 @@ class LlamaModel(BaseModel):
             freqs_cis = (self.reshape(self.gather(self.freqs_cos, input_position, 0), (bs, 1, seq_len, -1)),
                          self.reshape(self.gather(self.freqs_sin, input_position, 0), (bs, 1, seq_len, -1)),
                          self.swap_mask)
-            mask = P.Tile()(self.all_ones_attention_mask, (bs, 1, 1))
+            mask = self.tile(self.all_ones_attention_mask, (bs, 1, 1))
         else:
             # first iteration of predict; all iterations of train
-            freqs_cis = (self.reshape(self.freqs_cos, (1, 1, seq_len, -1)),
-                         self.reshape(self.freqs_sin, (1, 1, seq_len, -1)),
+            freqs_cis = (self.tile(self.reshape(self.freqs_cos, (1, 1, seq_len, -1)), (bs, 1, 1, 1)),
+                         self.tile(self.reshape(self.freqs_sin, (1, 1, seq_len, -1)), (bs, 1, 1, 1)),
                          self.swap_mask)
             input_mask = self.cast(self.not_equal(input_ids, self.pad_token_id), mstype.float32)
             mask = self.get_attention_mask(input_mask)
