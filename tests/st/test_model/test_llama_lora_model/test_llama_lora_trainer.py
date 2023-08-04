@@ -24,7 +24,7 @@ import mindspore as ms
 from mindspore.dataset import GeneratorDataset
 from mindformers.models.llama.llama import LlamaForCausalLMWithLora
 from mindformers.models.llama.llama_config import LlamaConfig
-from mindformers.pet.pet_config import PetConfig, LoraConfig
+from mindformers.pet.pet_config import LoraConfig
 from mindformers import Trainer, TrainingArguments
 
 ms.set_context(mode=0)
@@ -65,10 +65,8 @@ class TestLlamaTrainerMethod:
         eval_dataset = eval_dataset.batch(batch_size=4)
 
         model_config = LlamaConfig(num_layers=2, hidden_size=32, num_heads=2, seq_length=512)
-        pet = PetConfig()
-        pet.pet_type = "lora"
-        pet.pet_config = LoraConfig(lora_rank=8, lora_alpha=16, lora_dropout=0.05)
-        model = LlamaForCausalLMWithLora(model_config, pet)
+        model_config.pet_config = LoraConfig(lora_rank=8, lora_alpha=16, lora_dropout=0.05)
+        model = LlamaForCausalLMWithLora(model_config)
 
         self.task_trainer = Trainer(task='text_generation',
                                     model=model,
