@@ -103,7 +103,7 @@ train_dataset: &train_dataset
   tokenizer:
     type: GPT2Tokenizer
     max_length: 1025
-  input_columns: ["input_ids", "input_mask"]
+  input_columns: ["input_ids", "attention_mask"]
   num_parallel_workers: 8
   python_multiprocessing: False
   drop_remainder: True
@@ -124,7 +124,7 @@ eval_dataset: &eval_dataset
   tokenizer:
     type: GPT2Tokenizer
     max_length: 1024
-  input_columns: ["input_ids", "input_mask"]
+  input_columns: ["input_ids", "attention_mask"]
   num_parallel_workers: 8
   python_multiprocessing: False
   drop_remainder: False
