@@ -18,8 +18,6 @@ import os
 import mindspore as ms
 import mindspore.dataset as ds
 
-from mindformers.tools.logger import logger
-
 
 class BaseDataset:
     """Base Dataset."""
@@ -45,13 +43,6 @@ class BaseDataset:
             dataset_config.filepath_prefix = os.path.join(dataset_config.filepath_prefix, "autotune")
             ds.config.set_enable_autotune(True, filepath_prefix=dataset_config.filepath_prefix)
             ds.config.set_autotune_interval(dataset_config.autotune_per_step)
-
-        if cls._is_semi_full_batch():
-            logger.info("Now the semi auto parallel mode is used and full_batch is True,"
-                        "and the shuffle of the dataset is required to be False,"
-                        "so as to ensure that the data loaded on each card is consistent "
-                        "and to avoid the problem of non-convergence of loss.")
-            dataset_config.data_loader.shuffle = False
 
     @classmethod
     def _check_device_rank_for_parallel(cls, rank_id, device_num):
