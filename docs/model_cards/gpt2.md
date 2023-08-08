@@ -14,14 +14,13 @@ GPT-2由OpenAI于2019年发布。GPT-2模型是继承于GPT模型，GPT-2是一�
 
 - 词表下载：[vocab.json](https://huggingface.co/gpt2/blob/main/vocab.json)，[merges.txt](https://huggingface.co/gpt2/resolve/main/merges.txt)
 
-- 参考[ModelZoo](https://gitee.com/mindspore/models/tree/master/research/nlp/gpt2#language-modeling-%E8%AF%AD%E8%A8%80%E5%BB%BA%E6%A8%A1%E4%BB%BB%E5%8A%A1)，将数据处理成Mindrecord格式。注：训练数据处理时，长度应等于模型接收长度加一
+- 参考[wikitext-2处理脚本](https://gitee.com/mindspore/mindformers/blob/931cf93045473d5827ee26638d83fabe94058d28/mindformers/tools/dataset_preprocess/gpt2/wikitext2_data_process.py#)，将数据处理成Mindrecord格式。注：训练数据处理时，长度应等于模型接收长度加一
 
 ```bash
-# 数据预处理示例代码，代码来源于ModelZoo
-# 1、数据清洗
-python task_dataset_preprocess.py --task "LanguageModeling" --input_file /{path}/wiki.train.tokens --dataset "wikitext2" --output_file /{path}/{cleaned_data_name}
-# 2、生成Mindrecord数据，其中output_file需以.mindrecord为文件名后缀
-python create_lm_data.py --input_file /{path}/{cleaned_data_name} --output_file /{path}/{data_name.mindrecord} --num_splits 1 --max_length 1025 --vocab_file={path of vocab.json} --merge_file={path of merges.txt}
+# 训练
+python mindformers/tools/dataset_preprocess/gpt2/wikitext2_data_process.py --input_file ./wikitext-2/wiki.train.tokens --output_file ./wikitext-2.train..mindrecord --max_length 1025
+# 评测
+python mindformers/tools/dataset_preprocess/gpt2/wikitext2_data_process.py --input_file ./wikitext-2/wiki.valid.tokens --output_file ./wikitext-2.valid.mindrecord --max_length 1024
 ```
 
 ## 快速使用

@@ -49,10 +49,77 @@ from __future__ import print_function
 import argparse
 import collections
 import logging
+import re
 import numpy as np
 
 from mindspore.mindrecord import FileWriter
 from mindformers.auto_class import AutoTokenizer
+
+
+def wikitext_clean(string):
+    """ string clean """
+    # contractions
+    string = string.replace("s '", "s'")
+    string = re.sub(r"/' [0-9]/", r"/'[0-9]/", string)
+    # number separators
+    string = string.replace(" @-@ ", "-")
+    string = string.replace(" @,@ ", ",")
+    string = string.replace(" @.@ ", ".")
+    # punctuation
+    string = string.replace(" : ", ": ")
+    string = string.replace(" ; ", "; ")
+    string = string.replace(" . ", ". ")
+    string = string.replace(" .", ".")
+    string = string.replace(" ! ", "! ")
+    string = string.replace(" ? ", "? ")
+    string = string.replace(" , ", ", ")
+    # double brackets
+    string = re.sub(r"\(\s*([^\)]*?)\s*\)", r"(\1)", string)
+    string = re.sub(r"\[\s*([^\]]*?)\s*\]", r"[\1]", string)
+    string = re.sub(r"{\s*([^}]*?)\s*}", r"{\1}", string)
+    string = re.sub(r"\"\s*([^\"]*?)\s*\"", r'"\1"', string)
+    string = re.sub(r"'\s*([^']*?)\s*'", r"'\1'", string)
+    # miscellaneous
+    string = string.replace("= = = =", "====")
+    string = string.replace("= = =", "===")
+    string = string.replace("= =", "==")
+    string = string.replace(" " + chr(176) + " ", chr(176))
+    string = string.replace(" \n", "\n")
+    string = string.replace("\n ", "\n")
+    string = string.replace(" N ", " 1 ")
+    string = string.replace(" 's", "'s")
+
+    return string
+
+
+def preprocess_data(input_file):
+    """ preprocess data """
+    dataset_valid = []
+    passage = []
+    count = 0
+    with open(input_file, 'r', encoding='utf-8') as f:
+        for line in f:
+            line = line.strip()
+            if line:
+                if line.startswith('=') and line.endswith('=') and passage:
+                    dataset_valid.append(passage)
+                    count += 1
+                    passage = []
+                elif line.startswith('=') and line.endswith('='):
+                    continue
+                else:
+                    passage.append(line)
+    print('read {} file finished!\n total count = {}'.format(input_file, count))
+
+    res = []
+    for line in dataset_valid:
+        text = ""
+        for sentence in line:
+            sentence = wikitext_clean(sentence)
+            text = text + " " + sentence
+        text = text.strip()
+        res.append(text)
+    return res
 
 
 def create_instance(tokenizer, sentence, ids, max_length=None):
@@ -64,7 +131,7 @@ def create_instance(tokenizer, sentence, ids, max_length=None):
 
     output = tokenizer.prepare_for_model(ids=ids,
                                          pair_ids=pair_ids,
-                                         add_special_tokens=True,
+                                         add_special_tokens=False,
                                          max_length=max_length,
                                          padding='max_length',
                                          truncate_direction="LEFT",
@@ -100,7 +167,7 @@ def main():
     parser.add_argument("--tokenizer_type", type=str, default="gpt2",
                         help="Tokenizer type, can be set to any tokenizer "
                              "if its relevant model supports prompt text classification. ")
-    parser.add_argument("--data_columns", type=list, default=["input_ids", "attention_mask", "labels"],
+    parser.add_argument("--data_columns", type=list, default=["input_ids", "attention_mask"],
                         help="The data columns which should be saved in mindrecord. This can refer used yaml file. ")
 
     args = parser.parse_args()
@@ -118,9 +185,9 @@ def main():
     logging.info("Output File: %s", output_file)
 
     writer = FileWriter(output_file, args.num_splits)
-    data_schema = {"input_ids": {"type": "int64", "shape": [-1]},
-                   "attention_mask": {"type": "int64", "shape": [-1]},
-                   "labels": {"type": "int64", "shape": [-1]}
+    data_schema = {"input_ids": {"type": "int32", "shape": [-1]},
+                   "attention_mask": {"type": "int32", "shape": [-1]},
+                   "labels": {"type": "int32", "shape": [-1]}
                    }
     data_columns = args.data_columns
     need_del_keys = set(data_columns) - set(data_schema.keys())
@@ -128,28 +195,25 @@ def main():
         del data_schema[need_del_key]
     writer.add_schema(data_schema, "lm-schema")
 
+    dataset_valid = preprocess_data(args.input_file)
+
     total_written = 0
     logging.info("***** Reading from  %s *****", input_file)
-    text_total = ''
-    with open(input_file, "r") as f:
-        while True:
-            line = f.readline()
-            if not line:
-                break
-            text_total = text_total + line
-        sentence = text_total.strip().split("\t")
-        block_size = args.max_length
-        total_ids = tokenizer.encode(sentence[0])
-        total_length = len(total_ids)
-        total_length = (total_length // block_size) * block_size
-        print("total_length", total_length)
-        for i in range(total_length // block_size):
-            ids = total_ids[block_size*i:block_size*(i+1)]
+    text_total = "\n".join(dataset_valid)  # the logic of \n is copied from modelzoo
 
-            output = create_instance(tokenizer, sentence, ids, args.max_length)
+    sentence = text_total.strip().split("\t")
+    block_size = args.max_length
+    total_ids = tokenizer.encode(sentence[0])
+    total_length = len(total_ids)
+    total_length = (total_length // block_size) * block_size
+    print("total_length", total_length)
+    for i in range(total_length // block_size):
+        ids = total_ids[block_size*i:block_size*(i+1)]
 
-            write_instance_to_file(writer, instance=output)
-            total_written += 1
+        output = create_instance(tokenizer, sentence, ids, args.max_length)
+
+        write_instance_to_file(writer, instance=output)
+        total_written += 1
 
     writer.commit()
     logging.info("Wrote %d total instances", total_written)
