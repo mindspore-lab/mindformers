@@ -827,15 +827,23 @@ class AlibiTensor(nn.Cell):
         dtype(mstype) - dtype of the output tensor
 
     Returns:
-        alibi(Tensor), ailibi tensor shaped (batch_size * num_heads, 1, max_seq_len)
+        alibi(Tensor), ailibi tensor shaped (batch_size, num_heads, 1, max_seq_len)
     """
 
-    def __init__(self, seq_length, num_heads):
+    def __init__(self, seq_length, num_heads, parallel_config=default_dpmp_config):
         super(AlibiTensor, self).__init__()
+        dp = parallel_config.data_parallel
+
         self.seq_length = seq_length
         self.num_heads = num_heads
-        self.expand = P.ExpandDims()
-        self.expand.shard(((1, 1),))
+        self.minus_one = Tensor(-np.ones(seq_length), mstype.float32)
+
+        self.expand_2d = P.ExpandDims().shard(((dp, 1),))
+        self.expand_3d = P.ExpandDims().shard(((dp, 1, 1),))
+        self.cumsum = P.CumSum().shard(((dp, 1),))
+        self.add = P.Add().shard(((dp, 1), (1,)))
+        self.mul = P.Mul().shard(((dp, 1), (dp, 1)))
+        self.mul_slope = P.Mul().shard(((1, 1), (dp, 1, 1)))
 
         # build slopes
         closest_power_of_2 = 2 ** math.floor(math.log2(num_heads))
@@ -851,15 +859,17 @@ class AlibiTensor(nn.Cell):
             extra_powers = np.arange(1, 1 + 2 * num_remaining_heads, 2, dtype=np.int32)
             slopes = np.concatenate([slopes, np.power(extra_base, extra_powers)], axis=0)
 
-        self.slopes = Tensor(slopes[:, None], mstype.float32)
+        self.slopes = Tensor(slopes[:, None], mstype.float32) # (num_heads, 1)
 
     def construct(self, attention_mask, dtype):
         """
         Note: alibi will added to the attention bias that will be applied to the query, key product of attention
         therefore alibi will have to be of shape (batch_size, num_heads, query_length, key_length)
         """
-        batch_size = attention_mask.shape[0]
-        arange_tensor = (attention_mask.cumsum(axis=-1) - 1) * attention_mask
-        arange_tensor = self.expand(arange_tensor, 1)
-        alibi = self.slopes * arange_tensor
-        return alibi.reshape(batch_size, self.num_heads, 1, self.seq_length).astype(dtype)
+        arange_tensor = self.cumsum(attention_mask, -1) # (batch_size, seq_len)
+        arange_tensor = self.add(arange_tensor, self.minus_one) # (batch_size, seq_len)
+        arange_tensor = self.mul(arange_tensor, attention_mask) # (batch_size, seq_len)
+        arange_tensor = self.expand_2d(arange_tensor, 1) # (batch_size, 1, seq_len)
+        alibi = self.mul_slope(self.slopes, arange_tensor) # (batch_size, num_heads, seq_len)
+        alibi = self.expand_3d(alibi, 2).astype(dtype) # (batch_size, num_heads, 1, seq_len)
+        return alibi
