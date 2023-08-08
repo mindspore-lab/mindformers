@@ -224,12 +224,12 @@ class _NLLLoss(nn.Cell):
     Outputs:
         Tensor. The corresponding loss results.
     """
-    def __init__(self, parallel_config=default_dpmp_config):
+    def __init__(self, parallel_config=default_dpmp_config, eps_const=1e-24):
         super(_NLLLoss, self).__init__()
         dp = parallel_config.data_parallel
         mp = parallel_config.model_parallel
         self.repeat_loss = 1
-        self.eps_const = Tensor(1e-24, mstype.float32)
+        self.eps_const = Tensor(eps_const, mstype.float32)
         # In auto parallel, there will be a virtual div in the back propagation begins. As we use custom bprop function
         # we need to eliminate this virtual div by adding a factor "mp".
         if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL, ParallelMode.SEMI_AUTO_PARALLEL):
@@ -300,7 +300,7 @@ class CrossEntropyLoss(nn.Cell):
     """
     @_LogActionOnce(m_logger=logger, key='CrossEntropyLoss',
                     no_warning=_get_parallel_mode() in (ParallelMode.STAND_ALONE,))
-    def __init__(self, parallel_config=default_dpmp_config):
+    def __init__(self, parallel_config=default_dpmp_config, eps_const=1e-24):
         super(CrossEntropyLoss, self).__init__()
         dp = parallel_config.data_parallel
         mp = parallel_config.model_parallel
@@ -317,7 +317,7 @@ class CrossEntropyLoss(nn.Cell):
         self.relu = P.ReLU().shard(((1,),))
 
         self._softmax = _Softmax(parallel_config)
-        self._nllloss = _NLLLoss(parallel_config)
+        self._nllloss = _NLLLoss(parallel_config, eps_const)
 
     @staticmethod
     def _check_and_modify_sharding_context(dp):

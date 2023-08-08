@@ -316,10 +316,12 @@ class GLMForPreTraining(BaseModel):
             compute_dtype=config.compute_dtype,
             embed_parallel_config=config.parallel_config)
         self.stridedslice = ops.StridedSlice().shard(((1, 1),))
-        self.loss = CrossEntropyLoss(parallel_config=config.parallel_config)
+        self.loss = CrossEntropyLoss(parallel_config=config.parallel_config, eps_const=3.4e-38)
         self.gmask = config.gmask_token_id
         self.bos_token_id = config.bos_token_id
         self.ones = P.Ones()
+        self.not_equal = P.NotEqual()
+        self.ignore_index = config.ignore_index
         self.load_checkpoint(config)
 
     def get_masks_np(self, input_ids):
@@ -598,7 +600,7 @@ class GLMForPreTraining(BaseModel):
         logits_shape = logits.shape
         labels = labels.reshape((-1,))
         logits = logits.reshape((-1, logits_shape[-1]))
-        input_mask = self.ones(tokens.shape, logits.dtype)
+        input_mask = self.not_equal(labels, self.ignore_index).astype(logits.dtype)
         input_mask = input_mask.reshape((-1,))
         loss = self.loss(logits, labels, input_mask)
         return loss
