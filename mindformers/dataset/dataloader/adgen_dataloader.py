@@ -21,14 +21,11 @@ from mindspore.dataset import GeneratorDataset
 from mindformers.tools.logger import logger
 from mindformers.tools.register import MindFormerModuleType, MindFormerRegister
 
-prompt_column = "content"
-response_column = "summary"
-
 
 @MindFormerRegister.register(MindFormerModuleType.DATASET_LOADER)
 class ADGenDataLoader:
     """ADGen Dataloader"""
-    def __new__(cls, dataset_dir, phase, shuffle, **kwargs):
+    def __new__(cls, dataset_dir, phase, shuffle, origin_columns, **kwargs):
         r"""
         ADGen Dataloader API.
 
@@ -54,7 +51,7 @@ class ADGenDataLoader:
             >>>     print(item)
             >>>     break
         """
-        if not os.path.isdir(dataset_dir):
+        if not os.path.isfile(dataset_dir):
             raise ValueError(f"{dataset_dir} is not existed.")
 
         if phase not in ["train", "eval"]:
@@ -62,17 +59,24 @@ class ADGenDataLoader:
 
         column_names = ["prompt", "answer"]
 
+        # verify dataset column names
         if not isinstance(column_names, (tuple, list)):
             raise TypeError(f"column_names should be a tuple or a list"
-                            f" of string with length 7, but got {type(column_names)}")
+                            f" of string with length 2, but got {type(column_names)}, length {len(column_names)}")
 
         for name in column_names:
             if not isinstance(name, str):
                 raise ValueError(f"the item type of column_names should be string,"
                                  f" but got {type(name)}")
 
+        # verify origin column names
+        if not isinstance(origin_columns, (tuple, list)) or len(origin_columns) != 2:
+            raise TypeError(f"origin_columns should be a tuple or a list"
+                            f" of string with length 2, but got {type(origin_columns)}, length {len(origin_columns)}")
+
+
         kwargs.pop("None", None)
-        adgen_dataset = ADGenDataset(dataset_dir, phase)
+        adgen_dataset = ADGenDataset(dataset_dir, origin_columns, phase)
 
         info = f"[DATASET] shuffle status is {shuffle}, phase is {phase}."
         logger.info(info)
@@ -82,7 +86,7 @@ class ADGenDataLoader:
 class ADGenDataset:
     """ADGen Dataset"""
 
-    def __init__(self, dataset_dir, phase="train"):
+    def __init__(self, dataset_dir, origin_columns, phase="train"):
         r"""
         ADGen Dataset
 
@@ -96,39 +100,31 @@ class ADGenDataset:
         Raises:
             ValueError: Error input for dataset_dir, phase.
         """
-        if not os.path.isdir(dataset_dir):
+        if not os.path.isfile(dataset_dir):
             raise ValueError(f"{dataset_dir} is not existed.")
 
         self.dataset_dir = dataset_dir
         self.phase = phase
 
-        if phase == "train":
-            self.is_training = True
-            data_path = os.path.join(dataset_dir, "train.json")
-        elif phase == "eval":
-            self.is_training = False
-            data_path = os.path.join(dataset_dir, "dev.json")
-        else:
-            raise ValueError("unsupported phase.")
-
         examples = {}
         content_list = []
         summary_list = []
-
-        with open(data_path) as fp:
+        self.prompt_column = origin_columns[0]
+        self.response_column = origin_columns[1]
+        with open(self.dataset_dir) as fp:
             for line in fp:
-                content_list.append(json.loads(line)[prompt_column])
-                summary_list.append(json.loads(line)[response_column])
-            examples[prompt_column] = content_list
-            examples[response_column] = summary_list
+                content_list.append(json.loads(line)[self.prompt_column])
+                summary_list.append(json.loads(line)[self.response_column])
+            examples[self.prompt_column] = content_list
+            examples[self.response_column] = summary_list
         self.examples = examples
 
     def __len__(self):
         """Get the size of dataset"""
-        return len(self.examples[prompt_column])
+        return len(self.examples[self.prompt_column])
 
     def __getitem__(self, i):
         """Return input data for model"""
-        prompt, answer = self.examples[prompt_column][i], self.examples[response_column][i]
+        prompt, answer = self.examples[self.prompt_column][i], self.examples[self.response_column][i]
 
         return prompt, answer

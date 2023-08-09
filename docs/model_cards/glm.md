@@ -145,7 +145,7 @@ ADGEN 数据集任务为根据输入（content）生成一段广告词（summary
 
 #### 1. 在线加载
 
-将任务配置文件 `configs/glm/run_glm_6b_*.yaml` 中的 `==== dataset config ====` 部分中的 `dataset_dir` 和 `vocab_file` 修改为真实路径，**跳过** “2. 离线生成” 步骤。
+将任务配置文件 `configs/glm/run_glm_6b_*.yaml` 中的 `==== dataset config ====` 部分中的 `dataset_dir` 指向 `*.json` 文件，`vocab_file` 指向词表文件，**跳过** “2. 离线生成” 步骤。
 
 #### 2. 离线生成
 

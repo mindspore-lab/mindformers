@@ -56,7 +56,7 @@ model:
     is_sample_acceleration: True   # sample in npu to acceleration
     checkpoint_name_or_path: "glm_6b_lora_chat"
     top_k: 1
-    top_p: 1    # top_p not support for npu_acceleration yet 
+    top_p: 1    # top_p not support for npu_acceleration yet
     repetition_penalty: 1
     do_sample: True
     pet_config:
@@ -90,10 +90,18 @@ processor:
 # ==== dataset config ====
 train_dataset: &train_dataset
   data_loader:
-    type: MindDataset
-    dataset_dir: ""
+    type: ADGenDataLoader
+    dataset_dir: "/path/to/train.json"
     shuffle: True
+    phase: "train"
+    origin_columns: ["content", "summary"]
+  tokenizer:
+    type: ChatGLMTokenizer
+    vocab_file: "/path/to/ice_text.model"
   input_columns: ["input_ids", "labels", "position_ids", "attention_mask"]
+  max_source_length: 64
+  max_target_length: 64
+  ignore_pad_token_for_loss: True
   num_parallel_workers: 8
   python_multiprocessing: False
   drop_remainder: True
@@ -104,14 +112,22 @@ train_dataset: &train_dataset
   seed: 0
 
 train_dataset_task:
-  type: CausalLanguageModelDataset
+  type: KeyWordGenDataset
   dataset_config: *train_dataset
 
 eval_dataset: &eval_dataset
   data_loader:
-    type: MindDataset
-    dataset_dir: ""
-    shuffle: True
+    type: ADGenDataLoader
+    dataset_dir: "/path/to/dev.json"
+    shuffle: False
+    phase: "eval"
+    origin_columns: ["content", "summary"]
+  tokenizer:
+    type: ChatGLMTokenizer
+    vocab_file: "/path/to/ice_text.model"
+  max_source_length: 256
+  max_target_length: 256
+  ignore_pad_token_for_loss: True
   input_columns: ["input_ids", "labels"]
   num_parallel_workers: 8
   python_multiprocessing: False
@@ -123,7 +139,7 @@ eval_dataset: &eval_dataset
   seed: 0
 
 eval_dataset_task:
-  type: CausalLanguageModelDataset
+  type: KeyWordGenDataset
   dataset_config: *eval_dataset
 
 # ==== runner config ====

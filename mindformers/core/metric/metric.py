@@ -609,16 +609,11 @@ class ADGENMetric(nn.Metric):
         """Compute final result"""
         for k, v in self.score_dict.items():
             self.score_dict[k] = float(np.mean(v))
-        print('metric: %s \n '
-              'rouge-1: %s \n '
-              'rouge-2: %s \n '
-              'rouge-l: %s \n '
-              'bleu-4:  %s ',
-              "ADGENMetric",
-              self.score_dict["rouge-1"],
-              self.score_dict["rouge-2"],
-              self.score_dict["rouge-l"],
-              self.score_dict["bleu-4"])
+        print('metric: ADGENMetric\n' +
+              f'rouge-1: {self.score_dict["rouge-1"]:.4f}\n' +
+              f'rouge-2: {self.score_dict["rouge-2"]:.4f}\n' +
+              f'rouge-l: {self.score_dict["rouge-l"]:.4f}\n' +
+              f'bleu-4:  {self.score_dict["bleu-4"]:.4f}')
         return self.score_dict
 
 

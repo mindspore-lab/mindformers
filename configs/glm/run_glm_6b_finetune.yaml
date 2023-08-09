@@ -90,9 +90,10 @@ processor:
 train_dataset: &train_dataset
   data_loader:
     type: ADGenDataLoader
-    dataset_dir: "/path/to/AdvertiseGen"
+    dataset_dir: "/path/to/train.json"
     shuffle: True
     phase: "train"
+    origin_columns: ["content", "summary"]
   tokenizer:
     type: ChatGLMTokenizer
     vocab_file: "/path/to/ice_text.model"
@@ -116,9 +117,10 @@ train_dataset_task:
 eval_dataset: &eval_dataset
   data_loader:
     type: ADGenDataLoader
-    dataset_dir: "/path/to/AdvertiseGen"
+    dataset_dir: "/path/to/dev.json"
     shuffle: False
     phase: "eval"
+    origin_columns: ["content", "summary"]
   tokenizer:
     type: ChatGLMTokenizer
     vocab_file: "/path/to/ice_text.model"
