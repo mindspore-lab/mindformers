@@ -24,7 +24,7 @@ from ..auto_class import AutoProcessor, AutoModel
 from ..mindformer_book import MindFormerBook
 from .base_pipeline import BasePipeline
 from ..tools.register import MindFormerRegister, MindFormerModuleType
-from ..models import BaseModel, BaseTokenizer, GLMForPreTraining
+from ..models import BaseModel, BaseTokenizer
 
 __all__ = ['TextGenerationPipeline']
 
@@ -77,11 +77,6 @@ class TextGenerationPipeline(BasePipeline):
         if not isinstance(model, (BaseModel, Model)):
             raise TypeError(f"model should be inherited from BaseModel or Model, but got type {type(model)}.")
 
-        # glm generate needs add_special_tokens
-        if isinstance(model, GLMForPreTraining) or \
-                (isinstance(model, Model) and isinstance(model.predict_network, GLMForPreTraining)):
-            kwargs['add_special_tokens'] = True
-
         if tokenizer is None:
             raise ValueError(f"{self.__class__.__name__}"
                              " requires for a tokenizer.")
@@ -120,7 +115,7 @@ class TextGenerationPipeline(BasePipeline):
         Return:
             Processed text.
         """
-        add_special_tokens = preprocess_params.get('add_special_tokens', False)
+        add_special_tokens = preprocess_params.get('add_special_tokens', True)
         if isinstance(inputs, dict):
             keys = preprocess_params.get('keys', None)
             default_src_language_name = 'text'
