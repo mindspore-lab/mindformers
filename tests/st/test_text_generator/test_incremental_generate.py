@@ -13,9 +13,9 @@
 # limitations under the License.
 # ============================================================================
 """
-Test module for testing the incremental infer for text generator.
+Test module for testing the incremental generate for text generator.
 How to run this:
-pytest tests/st/test_text_generator/test_incremental_infer.py
+pytest tests/st/test_text_generator/test_incremental_generate.py
 """
 import mindspore as ms
 

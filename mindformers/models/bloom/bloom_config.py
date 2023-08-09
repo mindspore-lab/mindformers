@@ -64,7 +64,7 @@ class BloomConfig(BaseConfig):
                  top_k: int = 5,
                  top_p: int = 1,
                  do_sample: bool = True,
-                 is_npu_acceleration: bool = False,
+                 is_sample_acceleration: bool = False,
                  **kwargs):
         super().__init__(**kwargs)
         self.embedding_dropout_prob = embedding_dropout_prob
@@ -98,7 +98,7 @@ class BloomConfig(BaseConfig):
         self.top_k = top_k
         self.top_p = top_p
         self.do_sample = do_sample
-        self.is_npu_acceleration = is_npu_acceleration
+        self.is_sample_acceleration = is_sample_acceleration
         if self.batch_size is None:
             self.use_past = False # currently require batch_size = 1
-            self.is_npu_acceleration = False # currently require batch_size = 1
+            self.is_sample_acceleration = False # currently require batch_size = 1

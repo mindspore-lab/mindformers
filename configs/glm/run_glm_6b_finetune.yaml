@@ -52,7 +52,7 @@ model:
     pad_token_id: 3
     max_decode_length: 2048  # The maximum length of the generated words.
     is_enhanced_encoder: True
-    is_npu_acceleration: False
+    is_sample_acceleration: False
     checkpoint_name_or_path: "glm_6b"
     top_k: 1
     top_p: 1

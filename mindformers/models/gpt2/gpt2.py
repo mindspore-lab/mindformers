@@ -86,6 +86,11 @@ class GPT2LMHeadModel(BaseModel):
         self.load_checkpoint(config)
         self.add = P.Add().shard(((parallel_config.data_parallel, 1), ()))
 
+    def prepare_inputs_for_generation(self, input_ids, **kwargs):
+        return {
+            "input_ids": Tensor(input_ids, mstype.int32)
+        }
+
     def construct(self, input_ids, attention_mask=None):
         r"""
             construct function for Language Modeling

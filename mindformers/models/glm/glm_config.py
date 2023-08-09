@@ -65,7 +65,7 @@ class GLMConfig(BaseConfig):
                  gmask_token_id: int = 130001,
                  pad_token_id: int = 3,
                  is_enhanced_encoder: bool = True,
-                 is_npu_acceleration: bool = False,
+                 is_sample_acceleration: bool = False,
                  checkpoint_name_or_path: str = "",
                  max_decode_length: int = 2048,
                  top_k: int = 1,
@@ -106,7 +106,7 @@ class GLMConfig(BaseConfig):
         self.max_decode_length = max_decode_length
         self.seq_length = seq_length
         self.is_enhanced_encoder = is_enhanced_encoder
-        self.is_npu_acceleration = is_npu_acceleration
+        self.is_sample_acceleration = is_sample_acceleration
         self.checkpoint_name_or_path = checkpoint_name_or_path
         self.top_k = top_k
         self.top_p = top_p

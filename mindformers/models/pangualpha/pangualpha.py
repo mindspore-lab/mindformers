@@ -420,6 +420,11 @@ class PanguAlphaHeadModel(BaseModel):
 
         self.load_checkpoint(config)
 
+    def prepare_inputs_for_generation(self, input_ids, **kwargs):
+        return {
+            "input_ids": Tensor(input_ids, mstype.int32)
+        }
+
     def construct(self, input_ids, input_position=None, attention_mask=None,
                   init_reset=True, batch_valid_length=None):
         r"""forward pass of the model"""

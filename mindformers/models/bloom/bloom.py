@@ -231,13 +231,13 @@ class BloomLMHeadModel(BaseModel):
         config = config if config is not None else BloomConfig()
         super(BloomLMHeadModel, self).__init__(config, auto_prefix=False)
         self.use_past = self.config.use_past
-        self.is_npu_acceleration = self.config.is_npu_acceleration
+        self.is_sample_acceleration = self.config.is_sample_acceleration
 
         if self.use_past:
             self.input_mask_all_ones = Tensor(
                 np.ones((self.config.batch_size, self.config.seq_length), np.float32), mstype.float32)
 
-        if self.is_npu_acceleration:
+        if self.is_sample_acceleration:
             self.p_all_ones = Tensor(np.ones((self.config.batch_size, 1), np.float32), mstype.float32)
 
         self.eos_token_id = self.config.eos_token_id
@@ -264,6 +264,11 @@ class BloomLMHeadModel(BaseModel):
 
         self.loss = CrossEntropyLoss(parallel_config=loss_parallel_config)
         self.load_checkpoint(config)
+
+    def prepare_inputs_for_generation(self, input_ids, **kwargs):
+        return {
+            "input_ids": Tensor(input_ids, mstype.int32)
+        }
 
     @jit_inference_with_condition()
     def construct(self, input_ids, input_position=None, position_ids=None,
@@ -297,7 +302,7 @@ class BloomLMHeadModel(BaseModel):
         logits = self.head(output_states, embedding_table)
 
         if self.phase != 'train':
-            if self.is_npu_acceleration:
+            if self.is_sample_acceleration:
                 return self.get_top_token_id(logits, current_index=input_position)
             return logits, tokens, input_mask
 
