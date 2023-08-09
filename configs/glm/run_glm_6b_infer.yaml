@@ -56,7 +56,7 @@ model:
     is_npu_acceleration: True   # sample in npu to acceleration
     checkpoint_name_or_path: "glm_6b_chat"
     top_k: 1
-    top_p: 1    # top_p not support for npu_acceleration yet 
+    top_p: 1    # top_p not support for npu_acceleration yet
     repetition_penalty: 1
     do_sample: True
   arch:
@@ -86,9 +86,10 @@ processor:
 train_dataset: &train_dataset
   data_loader:
     type: ADGenDataLoader
-    dataset_dir: "/path/to/AdvertiseGen"
+    dataset_dir: "/path/to/train.json"
     shuffle: True
     phase: "train"
+    origin_columns: ["content", "summary"]
   tokenizer:
     type: ChatGLMTokenizer
     vocab_file: "/path/to/ice_text.model"
@@ -112,9 +113,10 @@ train_dataset_task:
 eval_dataset: &eval_dataset
   data_loader:
     type: ADGenDataLoader
-    dataset_dir: "/path/to/AdvertiseGen"
+    dataset_dir: "/path/to/dev.json"
     shuffle: False
     phase: "eval"
+    origin_columns: ["content", "summary"]
   tokenizer:
     type: ChatGLMTokenizer
     vocab_file: "/path/to/ice_text.model"

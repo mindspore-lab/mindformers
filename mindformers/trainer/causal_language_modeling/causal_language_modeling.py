@@ -207,6 +207,7 @@ class CausalLanguageModelingTrainer(BaseTrainer):
         total_tokens_num = 0
         total_time = 0.0001
         pad_token_id = tokenizer.pad_token_id
+        len_dataset = len(dataset)
         for i, inputs in enumerate(dataset.create_dict_iterator()):
             input_ids = inputs['input_ids'].asnumpy()
             labels = inputs['labels'].asnumpy()
@@ -239,10 +240,11 @@ class CausalLanguageModelingTrainer(BaseTrainer):
                 total_tokens_num += tokens_num
                 total_time += end_time - start_time
 
-            logger.info('Epoch %s Finished, cost time %s,  every example cost time is %s, '
-                        'generate speed: %s tokens/s, avg speed: %s tokens/s',
-                        i + 1, end_time - start_time, avg_cost_time,
-                        tokens_num / (end_time - start_time), total_tokens_num / total_time)
+            logger.info(f"Step[{i+1}/{len_dataset}], cost time {end_time-start_time:.4f}s, "+
+                        f"every example cost time is {avg_cost_time:.4f}, "+
+                        f"generate speed: {tokens_num/(end_time-start_time):.4f} tokens/s, "+
+                        f"avg speed: {total_tokens_num/total_time:.4f} tokens/s")
+
             # decode input_id and label to string
             pres_str = tokenizer.decode(output_ids, skip_special_tokens=True)
             labels_str = tokenizer.decode(labels, skip_special_tokens=True)
