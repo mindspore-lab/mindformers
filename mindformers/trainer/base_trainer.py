@@ -339,10 +339,12 @@ class BaseTrainer:
 
         weight_decay = self.config.optimizer.weight_decay if self.config.optimizer.weight_decay else 0.
         layer_decay = self.config.layer_decay if self.config.layer_decay else 1.0
+        param_group = self.config.param_group if self.config.layer_decay else True
         group_params = get_optimizer_grouped_parameters(network,
                                                         weight_decay,
                                                         lr_schedule,
                                                         layer_scale=layer_scale,
+                                                        param_group=param_group,
                                                         layer_decay=layer_decay)
         if lr_schedule is not None:
             self.optimizer = build_optim(

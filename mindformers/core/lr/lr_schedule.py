@@ -34,6 +34,7 @@ __all__ = [
 @MindFormerRegister.register(MindFormerModuleType.LR)
 class ConstantWarmUpLR(LearningRateSchedule):
     """ConstantWarmUpLR."""
+
     def __init__(self, learning_rate: float, warmup_steps: int, warmup_lr_init: float = 0., **kwargs):
         super(ConstantWarmUpLR, self).__init__()
         warmup_steps = max(1, warmup_steps)
@@ -58,6 +59,7 @@ class ConstantWarmUpLR(LearningRateSchedule):
 @MindFormerRegister.register(MindFormerModuleType.LR)
 class LinearWithWarmUpLR(LearningRateSchedule):
     """LinearWithWarmUpLR."""
+
     def __init__(self, learning_rate: float, warmup_steps: int, total_steps: int,
                  warmup_lr_init: float = 0.):
         super(LinearWithWarmUpLR, self).__init__()
@@ -88,6 +90,7 @@ class LinearWithWarmUpLR(LearningRateSchedule):
 @MindFormerRegister.register(MindFormerModuleType.LR)
 class CosineWithWarmUpLR(LearningRateSchedule):
     """CosineWithWarmUpLR."""
+
     def __init__(self, learning_rate: float, warmup_steps: int, total_steps: int,
                  num_cycles: float = 0.5, lr_end: float = 0., warmup_lr_init: float = 0.):
         super(CosineWithWarmUpLR, self).__init__()
@@ -124,6 +127,7 @@ class CosineWithWarmUpLR(LearningRateSchedule):
 @MindFormerRegister.register(MindFormerModuleType.LR)
 class CosineWithRestartsAndWarmUpLR(LearningRateSchedule):
     """CosineWithRestartsAndWarmUpLR."""
+
     def __init__(self, learning_rate: float, total_steps: int, warmup_steps: int,
                  num_cycles: float = 0.5, lr_end: float = 0., warmup_lr_init: float = 0.):
         super(CosineWithRestartsAndWarmUpLR, self).__init__()
@@ -165,6 +169,7 @@ class CosineWithRestartsAndWarmUpLR(LearningRateSchedule):
 @MindFormerRegister.register(MindFormerModuleType.LR)
 class PolynomialWithWarmUpLR(LearningRateSchedule):
     """PolynomialWithWarmUpLR."""
+
     def __init__(self, learning_rate: float, warmup_steps: int, total_steps: int,
                  lr_end: float = 1e-7, power: float = 1.0, warmup_lr_init: float = 0.):
         super(PolynomialWithWarmUpLR, self).__init__()
@@ -245,3 +250,28 @@ class WarmUpDecayLR(LearningRateSchedule):
         else:
             lr = decay_lr
         return lr
+
+
+@MindFormerRegister.register(MindFormerModuleType.LR)
+class NoamLR(LearningRateSchedule):
+    def __init__(self, learning_rate, warmup_iter, end_iter, total_steps=-1):
+        super(NoamLR, self).__init__()
+        self.learning_rate = learning_rate
+        self.warmup_iter = warmup_iter
+        self.end_iter = end_iter
+        self.total_steps = total_steps
+        self.scalar_to_tensor = P.ScalarToTensor()
+        self.sqrt = P.Sqrt()
+
+    def get_lr_warmup(self, num_iter):
+        return self.learning_rate / self.sqrt(
+            self.scalar_to_tensor(self.warmup_iter, mstype.float32)) * num_iter / self.warmup_iter
+
+    def get_lr_decay(self, num_iter):
+        return self.learning_rate / self.sqrt(num_iter.to(mstype.float32))
+
+    def construct(self, global_step):
+        if global_step < self.warmup_iter:
+            return self.get_lr_warmup(global_step)
+        else:
+            return self.get_lr_decay(global_step)

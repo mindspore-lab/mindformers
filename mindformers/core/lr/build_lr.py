@@ -19,7 +19,7 @@ from mindspore import nn
 
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType, MindFormerConfig
 from .lr_schedule import ConstantWarmUpLR, CosineWithWarmUpLR, \
-    LinearWithWarmUpLR, CosineWithRestartsAndWarmUpLR, PolynomialWithWarmUpLR
+    LinearWithWarmUpLR, CosineWithRestartsAndWarmUpLR, PolynomialWithWarmUpLR, NoamLR
 
 
 def build_lr(
@@ -84,6 +84,9 @@ def register_mf_lr():
 
     MindFormerRegister.register_cls(
         PolynomialWithWarmUpLR, module_type=MindFormerModuleType.LR, alias="polynomial")
+
+    MindFormerRegister.register_cls(
+        NoamLR, module_type=MindFormerModuleType.LR, alias="noam")
 
 
 register_ms_lr()

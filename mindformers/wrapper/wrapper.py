@@ -21,16 +21,44 @@ from mindspore.ops import operations as P
 from mindspore import nn, Parameter, ParallelMode
 from mindspore.parallel._utils import _get_enable_parallel_optimizer
 import mindspore.common.dtype as mstype
+from mindspore.nn.wrap.loss_scale import _grad_scale
+from mindspore.ops.primitive import _primexpr
+from mindspore import _checkparam as Validator
+from mindspore.nn.cell import Cell
 
 from mindformers.core.clip_grad import ClipGradNorm
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 
+__all__ = ['MFTrainOneStepCell', 'MFPipelineWithLossScaleCell', 'ScaleTrainOneStepCell']
 
-__all__ = ['MFTrainOneStepCell', 'MFPipelineWithLossScaleCell']
-
-
+state_rescale = C.MultitypeFuncGraph("state_rescale")
 _grad_scale = C.MultitypeFuncGraph("grad_scale")
+get_square_sum = C.MultitypeFuncGraph("get_square_sum")
+apply_global_norm = C.MultitypeFuncGraph("apply_global_norm")
+expand_dims = P.ExpandDims().add_prim_attr("grad_scale", True)
 reciprocal = P.Reciprocal()
+
+
+@state_rescale.register("Tensor", "Tensor", "Tensor")
+def _state_rescale(scale, m, v):
+    F.assign(m, F.cast(m * scale, F.dtype(m)))
+    F.assign(v, F.cast(v * scale, F.dtype(v)))
+    return m
+
+
+@get_square_sum.register("Tensor")
+def _get_square_sum(x):
+    norm = P.ReduceSum(False)(F.square(F.cast(x, mstype.float32)), ())
+    norm = expand_dims(norm, 0)
+    return norm
+
+
+@apply_global_norm.register("Tensor", "Tensor", "Tensor")
+def _apply_global_norm(clip_norm, global_norm, x):
+    x_dtype = F.dtype(x)
+    x = x * clip_norm / global_norm
+    x = F.cast(x, x_dtype)
+    return x
 
 
 @_grad_scale.register("Tensor", "Tensor")
@@ -43,6 +71,89 @@ def tensor_grad_scale_row_tensor(scale, grad):
     return RowTensor(grad.indices,
                      grad.values * F.cast(reciprocal(scale), F.dtype(grad.values)),
                      grad.dense_shape)
+
+
+class _ClipByGlobalNorm(Cell):
+    r"""
+    Clips tensor values by the ratio of the sum of their norms.
+
+    Args:
+        clip_norm (Union(float, int)): The clipping ratio. Default: 1.0
+        use_norm (Union(float, None)): The global norm. Default: ``None``
+
+    Inputs:
+        - **x** (Union(tuple[Tensor], list[Tensor])) - Input data to clip.
+
+    Outputs:
+        Tensor, a clipped Tensor.
+    """
+
+    def __init__(self, clip_norm=1.0, use_norm=None):
+        """Initialize _ClipByGlobalNorm."""
+        super(_ClipByGlobalNorm, self).__init__()
+        # Add interface. This parameter is not used at present
+        if use_norm is not None:
+            raise ValueError(f"For '{self.cls_name}', input 'use_norm' only supports None currently, "
+                             f"but got 'use_norm': {use_norm}")
+        Validator.check_number("clip_norm", clip_norm, 0.0, Validator.GT, self.cls_name)
+        self.clip_norm = Tensor([clip_norm], mstype.float32)
+        self.hyper_map = C.HyperMap()
+        self.greater_equal = P.GreaterEqual()
+
+    def construct(self, x, scaling):
+        square_sum = self.hyper_map(get_square_sum, x)
+        global_norm = F.sqrt(F.addn(square_sum))
+        cond = self.greater_equal(global_norm, self.clip_norm * scaling)
+        global_norm = F.select(cond, global_norm, self.clip_norm * scaling)
+        clip_x = self.hyper_map(F.partial(apply_global_norm, self.clip_norm * scaling, global_norm), x)
+        return clip_x
+
+
+@_primexpr
+def _check_value(clip_norm):
+    Validator.check_number("clip_norm", clip_norm, 0.0, Validator.GT, "clip_by_global_norm")
+
+
+def clip_by_global_norm(x, scaling, clip_norm=1.0, use_norm=None):
+    r"""
+    Clips tensor values by the ratio of the sum of their norms.
+
+    Note:
+        - Input `x` should be a tuple or list of tensors. Otherwise, it will raise an error.
+        - On the SEMI_AUTO_PARALLEL mode or AUTO_PARALLEL mode, if the input `x` is the gradient,
+          the gradient norm values on all devices will be automatically aggregated by allreduce inserted after
+          the local square sum of the gradients.
+
+    Args:
+        x (Union(tuple[Tensor], list[Tensor])): Input data to clip.
+        clip_norm (Union(float, int)): The clipping ratio, it should be greater than 0. Default: ``1.0`` .
+        use_norm (None): The global norm. Default: ``None`` . Currently only none is supported.
+
+    Returns:
+        tuple[Tensor], a clipped Tensor. It has the same data type as `x` and each Tensor in the output tuple is the
+        same as the original input shape.
+
+    Supported Platforms:
+        ``Ascend`` ``GPU`` ``CPU``
+
+    Examples:
+        >>> from mindspore import Tensor, ops
+        >>> import numpy as np
+        >>> x1 = np.array([[2., 3.], [1., 2.]]).astype(np.float32)
+        >>> x2 = np.array([[1., 4.], [3., 1.]]).astype(np.float32)
+        >>> input_x = (Tensor(x1), Tensor(x2))
+        >>> out = ops.clip_by_global_norm(input_x, 1.0)
+        >>> print(out)
+        (Tensor(shape=[2, 2], dtype=Float32, value=
+        [[ 2.98142403e-01,  4.47213590e-01],
+         [ 1.49071202e-01,  2.98142403e-01]]), Tensor(shape=[2, 2], dtype=Float32, value=
+        [[ 1.49071202e-01,  5.96284807e-01],
+         [ 4.47213590e-01,  1.49071202e-01]]))
+    """
+
+    _check_value(clip_norm)
+    clip_val = _ClipByGlobalNorm(clip_norm, use_norm)(x, scaling)
+    return clip_val
 
 
 @MindFormerRegister.register(MindFormerModuleType.WRAPPER)
@@ -114,6 +225,87 @@ class MFTrainOneStepCell(nn.TrainOneStepWithLossScaleCell):
                 grads, _ = self.clip_grad_norm(grads)
             loss = F.depend(loss, self.optimizer(grads))
         return loss, overflow, scaling_sens
+
+
+@MindFormerRegister.register(MindFormerModuleType.WRAPPER)
+class ScaleTrainOneStepCell(nn.TrainOneStepWithLossScaleCell):
+    def __init__(self, network, optimizer, scale_sense, use_clip_grad=True, max_grad_norm=1.0,
+                 move_scaling_to_adam=True, **kwargs):
+        super().__init__(network, optimizer, scale_sense)
+        self.move_scaling_to_adam = move_scaling_to_adam
+        self.step = Parameter(Tensor(0, dtype=mstype.int32), name='step_count')
+        self.ones_like = P.OnesLike()
+        self.partial = P.Partial()
+        self.depend = P.Depend()
+        self.clip_grad_norm = ClipGradNorm(max_norm=max_grad_norm)
+        self.max_grad_norm = max_grad_norm
+        self.use_clip_grad = use_clip_grad
+        self.parallel_config = kwargs.pop("parallel_config", None)
+        self.cur_iter = Parameter(Tensor(1, dtype=mstype.int32), name="current_iterator_step")
+        self.last_overflow_iter = Parameter(Tensor(0, dtype=mstype.int32), name="last_overflow_iterator_step")
+        self.select = P.Select()
+        self.max = P.Maximum()
+        self.minimum_loss_scale = Tensor(1.0, dtype=mstype.float32)
+        self.reciprocal = P.Reciprocal()
+        self.less_equal = P.LessEqual()
+        self.logic_and = P.LogicalAnd()
+        self.logic_not = P.LogicalNot()
+        self.logic_or = P.LogicalOr()
+        self.const_true = Tensor(True, dtype=mstype.bool_)
+
+    def construct(self, *inputs):
+        weights = self.weights
+        loss = self.network(*inputs)
+        scaling_sens = self.scale_sense
+        status = Tensor([0] * 8, mstype.int32)
+
+        scaling_sens_filled = self.ones_like(loss) * scaling_sens.astype(loss.dtype)
+        grads = self.grad(self.network, weights)(*inputs, scaling_sens_filled)
+        if not self.move_scaling_to_adam:
+            grads = self.hyper_map(self.partial(_grad_scale, scaling_sens), grads)
+        # apply grad reducer on grads
+        grads = self.grad_reducer(grads)
+
+        # get the overflow buffer
+        cond = self.get_overflow_status(status, grads)
+        overflow, should_update_mv, rate = self.process_loss_scale(scaling_sens, cond)
+
+        if should_update_mv:
+            loss = self.depend(loss, self._rescale_mv(rate))
+        # if there is no overflow, do optimize
+        if not overflow:
+            if self.move_scaling_to_adam:
+                grads = clip_by_global_norm(grads, scaling_sens, self.max_grad_norm)
+                loss = self.depend(loss, self.optimizer(grads, scaling_sens, self.step))
+            else:
+                if self.use_clip_grad:
+                    grads = self.clip_by_global_norm(grads, self.max_grad_norm)
+                loss = self.depend(loss, self.optimizer(grads))
+            self.step += 1
+        return loss, cond, scaling_sens
+
+    def _rescale_mv(self, rate):
+
+        self.hyper_map(self.partial(_state_rescale, rate), self.optimizer.moments1, self.optimizer.moments2)
+
+    def process_loss_scale(self, loss_scale, overflow):
+        overflow_cond = overflow
+        loss_scale_on_overflow = self.select(overflow_cond, self.max(
+            loss_scale * self.reciprocal(self.loss_scaling_manager.scale_factor),
+            self.minimum_loss_scale), loss_scale)
+        should_inc = self.less_equal(self.loss_scaling_manager.scale_window, self.cur_iter - self.last_overflow_iter)
+        last_iter_cond = self.logic_or(overflow_cond, should_inc)
+        last_overflow_iter = self.select(last_iter_cond, self.cur_iter, self.last_overflow_iter)
+        last_iter = F.assign(self.last_overflow_iter, last_overflow_iter)
+        update_scale_cond = self.logic_and(should_inc, self.logic_not(overflow_cond))
+        scale_mul_res = loss_scale_on_overflow * self.loss_scaling_manager.scale_factor
+        scaled_loss_scale = self.select(update_scale_cond, scale_mul_res, loss_scale_on_overflow)
+        rate = scaled_loss_scale / loss_scale
+        F.assign(loss_scale, scaled_loss_scale)
+        inc_cur_iter = self.cur_iter + 1
+        inc_cur_iter = F.depend(inc_cur_iter, last_iter)
+        F.assign(self.cur_iter, inc_cur_iter)
+        return overflow, update_scale_cond, rate
 
 
 grad_scale = C.MultitypeFuncGraph("grad_scale")
