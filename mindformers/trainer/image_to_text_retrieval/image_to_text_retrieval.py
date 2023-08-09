@@ -34,18 +34,18 @@ from mindformers.trainer.utils import check_runner_config
 from mindformers.tools.logger import logger
 from mindformers.tools.utils import count_params
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
-from .eval_utils import get_metrics_ms
+from .eval_utils import compute_itm_scores, extract_image_text_mapping
 from ..config_args import ConfigArguments
 from ..base_trainer import BaseTrainer
 from ..utils import check_runner_config
 
 
 
-@MindFormerRegister.register(MindFormerModuleType.TRAINER, alias="itr")
+@MindFormerRegister.register(MindFormerModuleType.TRAINER, alias="image_to_text_retrieval")
 class ImageToTextRetrievalTrainer(BaseTrainer):
     """Image-to-text Retrieval Trainer."""
     def __init__(self, model_name: str = None):
-        super(ImageToTextRetrievalTrainer, self).__init__(model_name)
+        super(ImageToTextRetrievalTrainer, self).__init__("image_to_text_retrieval", model_name)
         self.model_name = model_name
         self.kwargs = None
 
@@ -162,6 +162,8 @@ class ImageToTextRetrievalTrainer(BaseTrainer):
         Evaluation task for ImageToTextRetrievalTrainer Trainer.
         """
         self.kwargs = kwargs
+        is_full_config = kwargs.get("is_full_config", False)
+        config = self.set_config(config, is_full_config)
         # build dataset
         logger.info(".........Build Dataset..........")
         check_dataset_config(config)
@@ -179,6 +181,10 @@ class ImageToTextRetrievalTrainer(BaseTrainer):
 
         network = network.to_float(mstype.float16)
 
+        # checkpoint
+        logger.info(".........Loading Checkpoint..........")
+        if config.model.model_config.checkpoint_name_or_path is not None:
+            network.load_checkpoint(config.model.model_config)
         logger.info("Network Parameters: %s M.", str(count_params(network)))
 
         # build callback
@@ -191,32 +197,108 @@ class ImageToTextRetrievalTrainer(BaseTrainer):
 
         logger.info(".........Starting Evaling Model..........")
 
-        image_feature_list = []
-        text_feature_list = []
-        for data in dataset:
-            image, text = data
-            image_feature_batch = network.get_image_feature(image)
-            image_feature_batch = image_feature_batch.asnumpy()
-            image_feature_batch = image_feature_batch / (
-                np.linalg.norm(image_feature_batch, axis=-1, keepdims=True) + 1e-6)
-            image_feature_list.append(image_feature_batch)
-            text_feature_batch = network.get_text_feature(text)
-            text_feature_batch = text_feature_batch.asnumpy()
-            text_feature_batch = text_feature_batch / (
-                np.linalg.norm(text_feature_batch, axis=-1, keepdims=True) + 1e-6)
-            text_feature_list.append(text_feature_batch)
-        image_feature = np.vstack(image_feature_list)
-        text_feature = np.vstack(text_feature_list)
-        metrics = get_metrics_ms(image_feature, text_feature)
-        img_acc1, img_acc5, img_acc10 = (metrics["image_to_text_R@1"],
-                                         metrics["image_to_text_R@5"],
-                                         metrics["image_to_text_R@10"])
-        txt_acc1, txt_acc5, txt_acc10 = (metrics["text_to_image_R@1"],
-                                         metrics["text_to_image_R@5"],
-                                         metrics["text_to_image_R@10"])
-        logger.info('img: acc1: {:.2f}%, acc5: {:.2f}%, acc10: {:.2f}%'
-                    .format(img_acc1.item() * 100, img_acc5.item() * 100, img_acc10.item() * 100))
-        logger.info('txt: acc1: {:.2f}%, acc5: {:.2f}%, acc10: {:.2f}%'
-                    .format(txt_acc1.item() * 100, txt_acc5.item() * 100, txt_acc10.item() * 100))
+        # prepare inputs for computing simliarity matrix
+        eval_inputs = network.prepare_inputs_for_itm_eval(dataset)
 
+        # k_test value, for topk
+        k_test = config.eval_dataset.k_test if \
+            config.eval_dataset.k_test is not None else 128
+        # trainer arguments overrides top_k
+        k_test = kwargs.pop('k_test', k_test)
+
+        # whether adding additional itm score
+        add_extra_itm_score = config.eval_dataset.add_extra_itm_score
+
+        # compute image-to-text/text-to-image similarity scores
+        score_i2t, score_t2i = compute_itm_scores(network,
+                                                  eval_inputs,
+                                                  k_test=k_test,
+                                                  add_extra_itm_score=add_extra_itm_score)
+
+        # ground-truth image-text mapping
+        img2txt, txt2img = extract_image_text_mapping(config.eval_dataset, score_i2t, score_t2i)
+
+        # report evaluation results
+        eval_result = self._report_metrics(
+            score_i2t.asnumpy(),
+            score_t2i.asnumpy(),
+            img2txt,
+            txt2img,
+        )
+
+        logger.info(eval_result)
         logger.info(".........Evaluate Over!.............")
+        return eval_result
+
+    def _report_metrics(self, scores_i2t, scores_t2i, img2txt, txt2img):
+        """
+        report metrics for image-text matching
+
+        Args:
+            scores_i2t: image-to-text similarity score matrix
+            scores_t2i: text-to-image similarity score matrix
+            img2txt: image-to-text ground truth mapping
+            txt2img: text-to-image ground truth mapping
+
+        Returns:
+            eval_result: A dictionary containing r1, r5, r10 scores
+        """
+        def get_lowest_from_ranks(ranks, ground_truth):
+            if isinstance(ground_truth, int):
+                return np.where(ranks == ground_truth)[0][0]
+            assert isinstance(ground_truth, list), "img2txt or txt2img should be list[int] or list[list[int]]!"
+            rank = 1e20
+            for i in ground_truth:
+                tmp = np.where(ranks == i)[0][0]
+                if tmp < rank:
+                    rank = tmp
+            return rank
+        # Images->Text
+        ranks = np.zeros(scores_i2t.shape[0])
+        for index, score in enumerate(scores_i2t):
+            print("img2txt[{}]: {}".format(index, img2txt[index]))
+            inds = np.argsort(score)[::-1]
+            print("most similarity:", inds)
+            # Score
+            ranks[index] = get_lowest_from_ranks(inds, img2txt[index])
+
+        # 计算度量, 100 是百分比基数,
+        # ranks为每张图ground-truth对应的
+        # text在similarity score中排位的最小值。
+        tr1 = 100.0 * len(np.where(ranks < 1)[0]) / len(ranks)
+        tr5 = 100.0 * len(np.where(ranks < 5)[0]) / len(ranks)
+        tr10 = 100.0 * len(np.where(ranks < 10)[0]) / len(ranks)
+
+        # Text->Images
+        ranks = np.zeros(scores_t2i.shape[0])
+
+        for index, score in enumerate(scores_t2i):
+            print("txt2img[{}]: {}".format(index, txt2img[index]))
+            inds = np.argsort(score)[::-1]
+            print("most similarity:", inds)
+            ranks[index] = get_lowest_from_ranks(inds, txt2img[index])
+
+        # 此段逻辑同上注释，以text为基准。
+        ir1 = 100.0 * len(np.where(ranks < 1)[0]) / len(ranks)
+        ir5 = 100.0 * len(np.where(ranks < 5)[0]) / len(ranks)
+        ir10 = 100.0 * len(np.where(ranks < 10)[0]) / len(ranks)
+
+        tr_mean = (tr1 + tr5 + tr10) / 3
+        ir_mean = (ir1 + ir5 + ir10) / 3
+        r_mean = (tr_mean + ir_mean) / 2
+
+        agg_metrics = (tr1 + tr5 + tr10) / 3
+
+        eval_result = {
+            "txt_r1": tr1,
+            "txt_r5": tr5,
+            "txt_r10": tr10,
+            "txt_r_mean": tr_mean,
+            "img_r1": ir1,
+            "img_r5": ir5,
+            "img_r10": ir10,
+            "img_r_mean": ir_mean,
+            "r_mean": r_mean,
+            "agg_metrics": agg_metrics,
+        }
+        return eval_result

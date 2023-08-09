@@ -13,12 +13,15 @@
 # limitations under the License.
 # ============================================================================
 """Text Transforms."""
+import re
+
 import numpy as np
 from ...tools.register import MindFormerRegister, MindFormerModuleType
 
 
 __all__ = [
-    'RandomChoiceTokenizerForward', 'TokenizerForward', 'TokenizeWithLabel', 'LabelPadding'
+    'RandomChoiceTokenizerForward', 'TokenizerForward', 'TokenizeWithLabel', 'LabelPadding',
+    'CaptionTransform'
 ]
 
 
@@ -37,8 +40,8 @@ class RandomChoiceTokenizerForward:
         index = np.random.choice(len(text_list))
 
         token_id = self.tokenizer(
-            text_list[index].decode("utf-8", "ignore") if \
-                isinstance(text_list[index], bytes) else text_list[index],
+            text_list[index].decode("utf-8", "ignore") if
+            isinstance(text_list[index], bytes) else text_list[index],
             max_length=self.max_length,
             padding=self.padding
         )["input_ids"]
@@ -111,3 +114,60 @@ class LabelPadding:
         pad_label_id = np.array(pad_label_id, dtype=np.int32)
 
         return pad_label_id
+
+
+@MindFormerRegister.register(MindFormerModuleType.TRANSFORMS)
+class CaptionTransform:
+    """
+    Caption Transform, preprocess captions and tokenize it,
+    align with torch impl.
+    """
+    def __init__(self, tokenizer, prompt="", max_words=50, max_length=32,
+                 padding="max_length", random_seed=2022, truncation=True):
+        self.tokenizer = tokenizer
+        self.prompt = prompt
+        self.max_words = max_words
+        self.max_length = max_length
+        self.padding = padding
+        self.random_seed = random_seed
+        self.truncation = truncation
+
+    def __call__(self, caption):
+        if caption.ndim == 1:
+            caption_list = []
+            for i in range(caption.shape[0]):
+                caption_list.append(self.pre_caption(caption[i]))
+            return caption_list
+
+        input_ids = self.pre_caption(caption)
+        return input_ids
+
+    def pre_caption(self, caption):
+        """
+        Caption preprocessing removes any punctuationmarks except commas,
+        tailing spaces and transform sentence into lower case.
+        """
+        caption = str(caption)
+        caption = self.prompt + caption
+        caption = re.sub(
+            r"([.!\"()*#:;~])",
+            " ",
+            caption.lower(),
+        )
+        caption = re.sub(
+            r"\s{2,}",
+            " ",
+            caption,
+        )
+        caption = caption.rstrip("\n")
+        caption = caption.strip(" ")
+
+        # truncate caption
+        caption_words = caption.split(" ")
+        if len(caption_words) > self.max_words:
+            caption = " ".join(caption_words[: self.max_words])
+
+        output = self.tokenizer(caption, max_length=self.max_length,
+                                padding=self.padding, truncation=self.truncation)
+        input_ids = np.array(output["input_ids"], dtype=np.int32)
+        return input_ids
