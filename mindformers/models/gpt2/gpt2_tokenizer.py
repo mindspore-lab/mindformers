@@ -158,8 +158,8 @@ class GPT2Tokenizer(Tokenizer):
             eos_token="<|endoftext|>",
             pad_token="<|endoftext|>",
             add_prefix_space=False,
-            add_bos_token=True,
-            add_eos_token=True,
+            add_bos_token=False,
+            add_eos_token=False,
             **kwargs,
     ):
         bos_token = AddedToken(bos_token, lstrip=False, rstrip=False) if isinstance(bos_token, str) else bos_token
