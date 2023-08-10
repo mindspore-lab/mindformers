@@ -50,7 +50,8 @@ from mindformers.modules.transformer.op_parallel_config import default_dpmp_conf
 __all__ = [
     "FixedSparseAttention",
     "Dropout",
-    "LayerNorm"
+    "LayerNorm",
+    "Linear"
 ]
 
 
