@@ -72,6 +72,7 @@ class GLMConfig(BaseConfig):
                  top_p: float = 1,
                  repetition_penalty: float = 1.0,
                  do_sample: bool = True,
+                 ignore_index: int = -100,
                  **kwargs):
         super().__init__(**kwargs)
         self.batch_size = batch_size
@@ -112,3 +113,4 @@ class GLMConfig(BaseConfig):
         self.top_p = top_p
         self.repetition_penalty = repetition_penalty
         self.do_sample = do_sample
+        self.ignore_index = ignore_index
