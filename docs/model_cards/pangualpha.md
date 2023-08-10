@@ -28,7 +28,7 @@ python -m preprocess.py --input_glob  'data/*.txt' --tokenizer jieba --eot 40000
 
 > 需开发者提前clone工程。
 
-- 请参考[使用脚本启动](https://gitee.com/mindspore/transformer/blob/master/README.md#%E6%96%B9%E5%BC%8F%E4%B8%80clone-%E5%B7%A5%E7%A8%8B%E4%BB%A3%E7%A0%81)
+- 请参考[使用脚本启动](https://gitee.com/mindspore/mindformers/blob/r0.6/README.md#方式一使用已有脚本启动)
 
 示例命令如下，将会执行2.6b大小的pangualpha模型训练
 
@@ -143,11 +143,11 @@ bash run_distribute.sh {RANK_TABLE_FILE path of the forth device} ../configs/pan
 - Model调用接口
 
 ```python
-from mindformers import PanguAlphaModel, PanGuTokenizer
+from mindformers import PanguAlphaModel, PanguAlphaTokenizer
 
 model = PanguAlphaModel.from_pretrained('pangualpha_2_6b')
 model.set_train(False)
-tokenizer = PanGuTokenizer.from_pretrained('pangualpha_2_6b')
+tokenizer = PanguAlphaTokenizer.from_pretrained('pangualpha_2_6b')
 inputs = tokenizer(["今天天气很好"],
                  padding='max_length',
                  max_length=model.config.seq_length,
@@ -191,3 +191,54 @@ print(pipeline_result)
 
 [盘古Alpha权重下载](https://openi.pcl.ac.cn/PCL-Platform.Intelligence/PanGu-Alpha)
 
+## 评测
+
+盘古α支持TNEWS和CMRC2018两个中文数据集的评测。
+
+- 文本分类：
+    - 获取数据集:
+        - [TNEWS数据集](https://storage.googleapis.com/cluebenchmark/tasks/tnews_public.zip)自今日头条的新闻版块，共提取了15个类别的新闻，包括旅游，教育，金融，军事等。
+    - 处理数据成mindrecord格式
+        - TNEWS：
+
+        ```bash
+        # 注：生成的数据集文件需以.mindrecord结尾
+        cd mindformers/tools/dataset_preprocess/pangualpha
+        python tnews_data_process.py --input_file {your_path/dev.json} \
+                                     --label_file {your_path/labels.json} \
+                                     --output_file {your_path/tnews.mindrecord}
+        ```
+
+    - 开启评测：评测指标为ACC
+        - TNEWS
+
+        ```bash
+        python run_mindformers.py --config configs/pangualpha/run_pangualpha_2_6b_prompt_txtcls.yaml \
+                                  --eval_dataset_dir {your_path/tnews.mindrecord} \
+                                  --run_mode eval
+        # ACC: 0.646, total_acc_num: 6458, total_num: 10000
+        ```
+
+- 阅读理解：
+    - 获取数据集:
+        - [CMRC2018数据集](https://storage.googleapis.com/cluebenchmark/tasks/cmrc2018_public.zip)是用于中文机器阅读理解的片段抽取任务(Span-Extraction)的数据，这个数据集由近20000个真实的问题组成，这些问题由人类专家在维基百科的段落中注释。
+    - 处理数据成mindrecord格式
+        - CMRC2018：
+
+        ```bash
+        # 注：生成的数据集文件需以.mindrecord结尾
+        cd mindformers/tools/dataset_preprocess/pangualpha
+        python wikitext2_data_process.py --train_file {your_path/train.json} \
+                                         --dev_file {your_path/dev.json} \
+                                         --output_file {your_path/cmrc2018.mindrecord}
+        ```
+
+    - 开启评测：评测指标为Em/F1
+        - CMRC2018
+
+        ```bash
+        python run_mindformers.py --config configs/pangualpha/run_pangualpha_2_6b_em_f1.yaml \
+                                  --eval_dataset_dir {your_path/cmrc2018.mindrecord} \
+                                  --run_mode eval
+        # F1 score: 21.12, Em score: 2.10, total_count: 1806
+        ```

@@ -91,7 +91,7 @@ from mindformers.models.glm.glm_processor import process_response
 config = GLMConfig(
     position_encoding_2d=True,
     use_past=True,
-    is_npu_acceleration=True,
+    is_sample_acceleration=True,
 )
 
 def chat_glm():
@@ -145,7 +145,7 @@ ADGEN 数据集任务为根据输入（content）生成一段广告词（summary
 
 #### 1. 在线加载
 
-按照教程执行任务即可。
+将任务配置文件 `configs/glm/run_glm_6b_*.yaml` 中的 `==== dataset config ====` 部分中的 `dataset_dir` 指向 `*.json` 文件，`vocab_file` 指向词表文件，**跳过** “2. 离线生成” 步骤。
 
 #### 2. 离线生成
 
@@ -157,7 +157,7 @@ train_dataset: &train_dataset
     type: MindDataset
     dataset_dir: ""
     shuffle: True
-  input_columns: ["input_ids", "label", "position_ids", "attention_mask"]
+  input_columns: ["input_ids", "labels", "position_ids", "attention_mask"]
   num_parallel_workers: 8
   python_multiprocessing: False
   drop_remainder: True
@@ -176,7 +176,7 @@ eval_dataset: &eval_dataset
     type: MindDataset
     dataset_dir: ""
     shuffle: True
-  input_columns: ["input_ids", "label"]
+  input_columns: ["input_ids", "labels"]
   num_parallel_workers: 8
   python_multiprocessing: False
   drop_remainder: True
@@ -704,7 +704,7 @@ else:
 config = GLMConfig(
     position_encoding_2d=True,
     use_past=True,
-    is_npu_acceleration=True,
+    is_sample_acceleration=True,
 )
 
 class PetConfig:

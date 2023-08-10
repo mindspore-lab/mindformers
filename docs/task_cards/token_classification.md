@@ -33,7 +33,7 @@
 
 > 需开发者提前clone工程。
 
-- 请参考[使用脚本启动](https://gitee.com/mindspore/transformer/blob/master/README.md#%E6%96%B9%E5%BC%8F%E4%B8%80clone-%E5%B7%A5%E7%A8%8B%E4%BB%A3%E7%A0%81)
+- 请参考[使用脚本启动](https://gitee.com/mindspore/mindformers/blob/r0.6/README.md#方式一使用已有脚本启动)
 
 - 在脚本执行目录创建 `cluener` 文件夹，然后将数据集放入其中
 
