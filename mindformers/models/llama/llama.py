@@ -39,6 +39,7 @@ from mindformers.pet.tuners.lora_adapter import LoraAdapter
 from .llama_config import LlamaConfig
 from .llama_layer import LlamaEmbedding, LlamaRMSNorm, precompute_freqs_cis
 from .llama_transformer import LLamaDecodeLayer
+from ..utils import cell_reuse
 
 __all__ = ['LlamaModel', 'LlamaForCausalLM', 'LlamaForCausalLMWithLora']
 
@@ -256,6 +257,7 @@ class LlamaForCausalLM(BaseModel):
         """
     _support_list = MindFormerBook.get_model_support_list()['llama']
 
+    @cell_reuse()
     def __init__(self, config: LlamaConfig = None):
         super(LlamaForCausalLM, self).__init__(config, auto_prefix=True)
         _check_config(config.parallel_config)
