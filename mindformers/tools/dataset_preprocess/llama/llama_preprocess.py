@@ -235,16 +235,18 @@ if __name__ == '__main__':
     if not os.path.exists(args.model_file):
         raise FileNotFoundError(f"file {args.model_file} do not exists.")
 
-
     transforms_count = 0
+    word_tokenizer = LlamaTokenizer(vocab_file=args.model_file)
+    if hasattr(word_tokenizer, 'add_bos_token'):
+        word_tokenizer.add_bos_token = True
+    if hasattr(word_tokenizer, 'add_eos_token'):
+        word_tokenizer.add_eos_token = True
     if args.dataset_type == 'wiki':
-        word_tokenizer = LlamaTokenizer(vocab_file=args.model_file)
         for x in tokenize_wiki(word_tokenizer, args.input_glob, args.seq_length + 1, args.repeat):
             transforms_count += 1
             writer.write_raw_data([x])
         print("Transformed {} records.".format(transforms_count))
     elif args.dataset_type == 'qa':
-        word_tokenizer = LlamaTokenizer(vocab_file=args.model_file)
         for x in tokenize_qa(word_tokenizer, args.input_glob, args.seq_length + 1):
             transforms_count += 1
             writer.write_raw_data([x])
