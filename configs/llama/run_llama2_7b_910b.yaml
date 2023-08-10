@@ -16,7 +16,7 @@ trainer:
 # runner config
 runner_config:
   epochs: 2
-  batch_size: 4
+  batch_size: 8
   sink_mode: True
   sink_size: 2
 
@@ -24,15 +24,15 @@ runner_config:
 optimizer:
   type: FP32StateAdamWeightDecay
   beta1: 0.9
-  beta2: 0.95
+  beta2: 0.999
   eps: 1.e-8 # 1e-8
-  learning_rate: 3.e-4
+  learning_rate: 1.e-5
 
 # lr sechdule
 lr_schedule:
   type: CosineWithWarmUpLR
-  learning_rate: 3.e-4
-  lr_end: 3.e-5
+  learning_rate: 1.e-5
+  lr_end: 0.
   warmup_ratio: 0.03
   total_steps: -1 # -1 means it will load the total steps of the dataset
 
@@ -78,11 +78,11 @@ eval_dataset_task:
 
 # default parallel of device num = 8 910A
 parallel_config:
-  data_parallel: 2
+  data_parallel: 8
   model_parallel: 1
-  pipeline_stage: 4
+  pipeline_stage: 1
   optimizer_shard: True
-  micro_batch_num: 16
+  micro_batch_num: 4
   vocab_emb_dp: True
   gradient_aggregation_group: 4
 # when model parallel is greater than 1, we can set micro_batch_interleave_num=2, that may accelerate the train process.
@@ -112,7 +112,7 @@ context:
   enable_graph_kernel: False
   graph_kernel_flags: "--disable_expand_ops=Softmax,Dropout --enable_parallel_fusion=true --reduce_fuse_depth=8 --enable_auto_tensor_inplace=true"
   max_call_depth: 10000
-  max_device_memory: "31GB"
+  max_device_memory: "58GB"
   save_graphs: False
   save_graphs_path: "./graph"
   device_id: 0
@@ -135,7 +135,7 @@ model:
   model_config:
     type: LlamaConfig
     batch_size: 1 # add for increase predict
-    seq_length: 2048
+    seq_length: 4096
     hidden_size: 4096
     num_layers: 32
     num_heads: 32
@@ -148,13 +148,13 @@ model:
     ignore_token_id: -100
     compute_dtype: "float16"
     layernorm_compute_type: "float32"
-    softmax_compute_type: "float32"
+    softmax_compute_type: "float16"
     rotary_dtype: "float16"
     param_init_type: "float16"
     use_past: False
-    pretrain_seqlen: 2048 # seqlen of the pretrain checkpoint: 2048 for llama and 4096 for llama2
+    pretrain_seqlen: 4096 # seqlen of the pretrain checkpoint: 2048 for llama and 4096 for llama2
     extend_method: "None"
-    compute_in_2d: False
+    compute_in_2d: True
     offset: 0
     checkpoint_name_or_path: "llama_7b"
     repetition_penalty: 1

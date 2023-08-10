@@ -108,6 +108,7 @@ class LLamaAttention(nn.Cell):
                  softmax_compute_dtype=mstype.float32,
                  param_init_type=mstype.float32,
                  use_past=False,
+                 compute_in_2d=False,
                  parallel_config=TransformerOpParallelConfig()):
         super().__init__()
         self._is_ascend = context.get_context('device_target') in ["Ascend"]
@@ -116,6 +117,7 @@ class LLamaAttention(nn.Cell):
             ParallelMode.SEMI_AUTO_PARALLEL, ParallelMode.AUTO_PARALLEL)
         if batch_size:
             Validator.check_positive_int(batch_size)
+        self.compute_in_2d = compute_in_2d
         self.apply_rotary_emb = LlamaRotaryEmbedding(head_dim, compute_dtype, parallel_config)
         self.reshape = P.Reshape()
         if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation():
@@ -466,9 +468,12 @@ class LLamaAttention(nn.Cell):
         x = self.merger_head_transpose(
             x, (0, 2, 1, 3))  # bs, seq_length, head, size_per_head
         x_shape = x.shape
-        new_shape = (x_shape[0], x_shape[1], -1)
-        # new_shape = (-1, x_shape[-2] * x_shape[-1])
-        # dp,1，mp,1 -> dp,mp
+        if self.compute_in_2d:
+            # [bs * seq/1, hidden_dim]
+            new_shape = (-1, x_shape[-2] * x_shape[-1])
+        else:
+            # [bs, seq/1, hidden_dim]
+            new_shape = (x_shape[0], x_shape[1], -1)
         x_merge = self.reshape(x, new_shape)
         return x_merge
 
@@ -604,12 +609,14 @@ class LLamaDecodeLayer(nn.Cell):
                  softmax_compute_dtype=mstype.float32,
                  param_init_type=mstype.float32,
                  use_past=False,
+                 compute_in_2d=False,
                  parallel_config=TransformerOpParallelConfig()):
         super().__init__()
         if batch_size or use_past:
             Validator.check_positive_int(batch_size)
         self.batch_size = batch_size
         self.use_past = use_past
+        self.compute_in_2d = compute_in_2d
         self.seq_length = seq_length
         self.layer_id = layer_id
         self.hidden_size = dim
@@ -644,6 +651,7 @@ class LLamaDecodeLayer(nn.Cell):
                                             softmax_compute_dtype=softmax_compute_dtype,
                                             param_init_type=param_init_type,
                                             use_past=use_past,
+                                            compute_in_2d=compute_in_2d,
                                             parallel_config=parallel_config)
             self.feed_forward = LlamaFeedForward(dim=self.hidden_size,
                                                  hidden_dim=4*self.hidden_size,
@@ -651,10 +659,7 @@ class LLamaDecodeLayer(nn.Cell):
                                                  compute_dtype=compute_dtype,
                                                  param_init_type=param_init_type,
                                                  parallel_config=parallel_config)
-            self.add = P.Add().shard(((parallel_config.data_parallel, 1),
-                                      (parallel_config.data_parallel, 1)))
-            self.add_3d = P.Add().shard(((parallel_config.data_parallel, 1, 1),
-                                         (parallel_config.data_parallel, 1, 1)))
+            self.add = P.Add()
             self.dtype = compute_dtype
             self.key_past = None
             self.value_past = None
@@ -709,6 +714,7 @@ class LLamaDecodeLayer(nn.Cell):
                                             softmax_compute_dtype=softmax_compute_dtype,
                                             param_init_type=param_init_type,
                                             use_past=use_past,
+                                            compute_in_2d=compute_in_2d,
                                             parallel_config=parallel_config)
             self.feed_forward = LlamaFeedForward(dim=self.hidden_size,
                                                  hidden_dim=4 * self.hidden_size,
@@ -716,10 +722,19 @@ class LLamaDecodeLayer(nn.Cell):
                                                  compute_dtype=compute_dtype,
                                                  param_init_type=param_init_type,
                                                  parallel_config=parallel_config)
-            self.add = P.Add().shard(((parallel_config.data_parallel, 1),
-                                      (parallel_config.data_parallel, 1)))
-            self.add_3d = P.Add().shard(((parallel_config.data_parallel, 1, 1),
-                                         (parallel_config.data_parallel, 1, 1)))
+            self.add = P.Add()
+            if self.compute_in_2d:
+                self.attention_norm.shard(((parallel_config.data_parallel, 1),))
+                self.ffn_norm.shard(((parallel_config.data_parallel, 1),))
+                self.add.shard(((parallel_config.data_parallel, 1),
+                                (parallel_config.data_parallel, 1)))
+                self.feed_forward.mul.shard(((parallel_config.data_parallel, parallel_config.model_parallel),
+                                             (parallel_config.data_parallel, parallel_config.model_parallel)))
+            else:
+                self.attention_norm.shard(((parallel_config.data_parallel, 1, 1),))
+                self.ffn_norm.shard(((parallel_config.data_parallel, 1, 1),))
+                self.add.shard(((parallel_config.data_parallel, 1, 1),
+                                (parallel_config.data_parallel, 1, 1)))
             self.dtype = compute_dtype
             self.key_past = None
             self.value_past = None
@@ -750,6 +765,8 @@ class LLamaDecodeLayer(nn.Cell):
     def construct(self, x, freqs_cis, input_mask=None, init_reset=True, batch_valid_length=None):
         """ Forward of transformer block. """
         self._check_input(x, freqs_cis, input_mask, init_reset, batch_valid_length)
+        if self.compute_in_2d:
+            x = self.reshape(x, (-1, x.shape[-1]))
         # dp, 1, 1 -> dp, 1, 1
         input_x = self.attention_norm(x)
         key_reset = None
@@ -770,7 +787,7 @@ class LLamaDecodeLayer(nn.Cell):
         # dp, 1, 1 -> dp, 1, 1
         h, layer_present = self.attention(input_x, freqs_cis, input_mask,
                                           self.key_past, self.value_past, batch_valid_length)
-        h = self.add_3d(x, h)
+        h = self.add(x, h)
         # dp, 1, 1 -> dp, 1, 1
         ffn_norm = self.ffn_norm(h)
         # dp, 1, 1 -> dp, 1, 1
@@ -794,7 +811,7 @@ class LLamaDecodeLayer(nn.Cell):
         ffn_out = ops.depend(ffn_out, value_update)
         ffn_out = ops.depend(ffn_out, key_update)
         # if shape is 3d, we reshape the inputs of the add
-        out = self.add_3d(h, ffn_out)
+        out = self.add(h, ffn_out)
         return out, layer_present
 
     def _check_input(self, x, freqs_cis, input_mask, init_reset, batch_valid_length):

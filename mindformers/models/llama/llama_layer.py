@@ -143,7 +143,7 @@ class LlamaRotaryEmbedding(Cell):
 
         self.add = P.Add().shard(((dp, mp, 1, 1), (dp, mp, 1, 1)))
         self.bmm_swap = P.BatchMatMul().shard(((dp, mp, 1, 1,), (1, 1)))
-        self.mul = P.Mul().shard(((dp, mp, 1, 1), (dp, mp, 1, 1,)))
+        self.mul = P.Mul().shard(((dp, mp, 1, 1), (dp, 1, 1, 1,)))
 
     # rotary pos emb helpers:
     def rotate_half(self, x, swap_mask):
