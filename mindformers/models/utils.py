@@ -13,7 +13,12 @@
 # limitations under the License.
 # ============================================================================
 """Check Model Input Config."""
+import os
+
+import mindspore as ms
 import mindspore.common.dtype as mstype
+from ..tools.utils import is_version_ge
+from ..tools.logger import logger
 
 
 def convert_mstype(ms_type: str = "float16"):
@@ -26,3 +31,14 @@ def convert_mstype(ms_type: str = "float16"):
         return mstype.float32
     raise KeyError(f"Supported data type keywords include: "
                    f"[float16, float32], but get {ms_type}")
+
+
+def cell_reuse():
+    """Cell reuse decorator."""
+    def decorator(func):
+        if os.getenv("MS_DEV_CELL_REUSE", "0") == "0" or not is_version_ge(ms.__version__, "2.1.0"):
+            return func
+        logger.info("Enable cell use mode at %s.", func.__class__.__name__)
+        from mindspore._extends import cell_attr_register
+        return cell_attr_register()(func)
+    return decorator
