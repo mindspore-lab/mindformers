@@ -408,7 +408,7 @@ bert_trainer.train()
 
 可以看到，相比于`使用模型trainer进行训练`中使用的`MaskedLanguageModelingTrainer`而言，使用`Trainer`及yaml文件进行训练，会更加方便和简洁。
 
-在完成上述训练类的定义后，`MindFormers`也提供了一个统一的运行文件[run_mindformer.py](https://gitee.com/mindspore/mindformers/blob/r0.3/run_mindformer.py)，方便读者训练自己的网络，运行指令如下：
+在完成上述训练类的定义后，`MindFormers`也提供了一个统一的运行文件[run_mindformer.py](https://gitee.com/mindspore/mindformers/blob/dev/run_mindformer.py)，方便读者训练自己的网络，运行指令如下：
 
 ```shell
 python run_mindformer.py --config /path/run_bert_base_uncased.yaml --run_mode train --dataset_dir /datasetpath/

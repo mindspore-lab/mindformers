@@ -20,8 +20,8 @@ MindSpore Transformers套件基于MindSpore内置的并行技术和组件化设�
 
 - 模型README：[docs/model_cards](https://gitee.com/mindspore/mindformers/tree/dev/docs/model_cards)
 - 任务README：[docs/task_cards](https://gitee.com/mindspore/mindformers/tree/dev/docs/task_cards)
-- MindPet指导教程：[docs/pet_tuners](https://gitee.com/mindspore/mindformers/tree/dev/docs/pet_tuners)
-- AICC指导教程：[docs/aicc_cards](https://gitee.com/mindspore/mindformers/tree/dev/docs/aicc_cards)
+- MindPet指导教程：[docs/pet_tuners](https://gitee.com/mindspore/mindformers/blob/dev/docs/feature_cards/Pet_Tuners.md)
+- AICC指导教程：[docs/aicc_cards](https://gitee.com/mindspore/mindformers/tree/dev/docs/aicc_cards/README.md)
 - 高阶API指导文档: [docs/mindformers_tutorial.md](https://gitee.com/mindspore/mindformers/tree/dev/docs/README.md)
 - 在线文档：[mindformers](https://mindformers.readthedocs.io/zh_CN/latest)
 
@@ -307,7 +307,7 @@ RUN_MODE: 为任务运行状态，支持关键字 train\finetune\eval\predict
 
 ## 五、贡献
 
-欢迎参与社区贡献，可参考MindSpore贡献要求[Contributor Wiki](https://gitee.com/mindspore/mindspore/blob/master/CONTRIBUTING_CN.md)。
+欢迎参与社区贡献，可参考MindSpore贡献要求[Contributor Wiki](https://gitee.com/mindspore/mindspore/blob/dev/CONTRIBUTING_CN.md)。
 
 ## 六、许可证
 
