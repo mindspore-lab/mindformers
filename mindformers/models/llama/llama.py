@@ -124,6 +124,7 @@ class LlamaModel(BaseModel):
                                          softmax_compute_dtype=config.softmax_compute_type,
                                          param_init_type=config.param_init_type,
                                          use_past=config.use_past,
+                                         compute_in_2d=config.compute_in_2d,
                                          parallel_config=config.parallel_config)
                 layer_compute_dtype(layer, layer_id, config.offset,
                                     config.parallel_config, self.num_layers)

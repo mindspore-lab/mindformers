@@ -53,6 +53,7 @@ class LlamaConfig(BaseConfig):
                  use_past: bool = False,
                  pretrain_seqlen: int = 2048,
                  extend_method: str = "None",
+                 compute_in_2d=False,
                  offset: int = 0,
                  checkpoint_name_or_path: str = "",
                  repetition_penalty: float = 1.0,
@@ -83,6 +84,7 @@ class LlamaConfig(BaseConfig):
         self.use_past = use_past
         self.pretrain_seqlen = pretrain_seqlen
         self.extend_method = extend_method
+        self.compute_in_2d = compute_in_2d
         self.offset = offset
         self.repetition_penalty = repetition_penalty
         self.max_decode_length = max_decode_length

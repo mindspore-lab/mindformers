@@ -11,28 +11,32 @@ run_mode: 'train'
 # trainer config
 trainer:
   type: CausalLanguageModelingTrainer
-  model_name: 'llama_7b'
+  model_name: 'llama_65b'
+# if True, do evaluate during the training process. if false, do nothing.
+# note that the task trainer should support _evaluate_in_training function.
+do_eval: False
+eval_step_interval: -1        # num of step intervals between each eval, -1 means no step end eval.
+eval_epoch_interval: 50        # num of epoch intervals between each eval, 1 means eval on every epoch end.
 
 # runner config
 runner_config:
   epochs: 2
-  batch_size: 4
+  batch_size: 2
   sink_mode: True
   sink_size: 2
-
 # optimizer
 optimizer:
   type: FP32StateAdamWeightDecay
   beta1: 0.9
-  beta2: 0.95
+  beta2: 0.999
   eps: 1.e-8 # 1e-8
-  learning_rate: 3.e-4
+  learning_rate: 1.e-5
 
 # lr sechdule
 lr_schedule:
   type: CosineWithWarmUpLR
-  learning_rate: 3.e-4
-  lr_end: 3.e-5
+  learning_rate: 1.e-5
+  lr_end: 0.
   warmup_ratio: 0.03
   total_steps: -1 # -1 means it will load the total steps of the dataset
 
@@ -53,11 +57,6 @@ train_dataset: &train_dataset
 train_dataset_task:
   type: CausalLanguageModelDataset
   dataset_config: *train_dataset
-# if True, do evaluate during the training process. if false, do nothing.
-# note that the task trainer should support _evaluate_in_training function.
-do_eval: False
-eval_step_interval: -1        # num of step intervals between each eval, -1 means no step end eval.
-eval_epoch_interval: 50        # num of epoch intervals between each eval, 1 means eval on every epoch end.
 
 # eval dataset
 eval_dataset: &eval_dataset
@@ -76,10 +75,10 @@ eval_dataset_task:
   type: CausalLanguageModelDataset
   dataset_config: *eval_dataset
 
-# default parallel of device num = 8 910A
+# default parallel of device num = 128 910A
 parallel_config:
-  data_parallel: 2
-  model_parallel: 1
+  data_parallel: 1
+  model_parallel: 8
   pipeline_stage: 4
   optimizer_shard: True
   micro_batch_num: 16
@@ -99,7 +98,7 @@ recompute_config:
 callbacks:
   - type: MFLossMonitor
   - type: CheckpointMointor
-    prefix: "llama_7b"
+    prefix: "llama_65b"
     save_checkpoint_steps: 100
     integrated_save: False
     async_save: False
@@ -112,7 +111,7 @@ context:
   enable_graph_kernel: False
   graph_kernel_flags: "--disable_expand_ops=Softmax,Dropout --enable_parallel_fusion=true --reduce_fuse_depth=8 --enable_auto_tensor_inplace=true"
   max_call_depth: 10000
-  max_device_memory: "31GB"
+  max_device_memory: "58GB"
   save_graphs: False
   save_graphs_path: "./graph"
   device_id: 0
@@ -136,9 +135,9 @@ model:
     type: LlamaConfig
     batch_size: 1 # add for increase predict
     seq_length: 2048
-    hidden_size: 4096
-    num_layers: 32
-    num_heads: 32
+    hidden_size: 8192
+    num_layers: 80
+    num_heads: 64
     vocab_size: 32000
     multiple_of: 256
     rms_norm_eps: 1.0e-6
@@ -148,15 +147,14 @@ model:
     ignore_token_id: -100
     compute_dtype: "float16"
     layernorm_compute_type: "float32"
-    softmax_compute_type: "float32"
+    softmax_compute_type: "float16"
     rotary_dtype: "float16"
     param_init_type: "float16"
     use_past: False
     pretrain_seqlen: 2048 # seqlen of the pretrain checkpoint: 2048 for llama and 4096 for llama2
     extend_method: "None"
-    compute_in_2d: False
-    offset: 0
-    checkpoint_name_or_path: "llama_7b"
+    compute_in_2d: True
+    checkpoint_name_or_path: "llama_65b"
     repetition_penalty: 1
     max_decode_length: 512
     top_k: 3
@@ -172,7 +170,7 @@ processor:
     bos_token: '<s>'
     eos_token: '</s>'
     pad_token: '<pad>'
-    type: LlamaTokenizer
+    type: LLaMATokenizer
   type: LlamaProcessor
 
 # metric
