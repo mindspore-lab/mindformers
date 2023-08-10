@@ -28,7 +28,7 @@ vit：全名vision transformer，不同于传统的基于CNN的网络结果，�
 
 > 需开发者提前clone工程。
 
-- 请参考[使用脚本启动](https://gitee.com/mindspore/transformer/blob/master/README.md#%E6%96%B9%E5%BC%8F%E4%B8%80clone-%E5%B7%A5%E7%A8%8B%E4%BB%A3%E7%A0%81)
+- 请参考[使用脚本启动](../../README.md#方式一使用已有脚本启动)
 
 - 脚本运行测试
 
