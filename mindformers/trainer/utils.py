@@ -294,13 +294,17 @@ def transform_and_load_checkpoint(config, model, network, dataset, optimizer=Non
         raise FileNotFoundError(f"The load_checkpoint must be correct, "
                                 f"but get {config.load_checkpoint}")
 
-    if config.only_save_strategy or (config.is_version_ge and config.auto_trans_ckpt):
+    if context.get_auto_parallel_context('parallel_mode') in ['semi_auto_parallel', 'auto_parallel',
+                                                              'hybrid_parallel']:
         # 1. build net if parallel mode is auto_parallel
         build_model(config, model, network, dataset, do_eval=do_eval, do_predict=do_predict)
+
+    if config.auto_trans_ckpt:
         # 2. get strategy
         dst_ckpt_strategy = get_dst_strategy(config)
         # 3. transform checkpoint if needed
         transform_ckpt(config, dst_ckpt_strategy=dst_ckpt_strategy)
+
     # 4. load ckpt
     load_ckpt(config, network, optimizer=optimizer)
 
@@ -339,9 +343,12 @@ def build_model(config, model, network, dataset, do_eval=False, do_predict=False
 
 def get_dst_strategy(config):
     """get strategy"""
-    rank_id = get_rank()
-    world_size = get_group_size()
+    rank_id = int(os.getenv('RANK_ID', '0'))
+    world_size = int(os.getenv('RANK_SIZE', '1'))
     dst_strategy_path = None
+    if world_size == 1:
+        return dst_strategy_path
+
     if check_in_modelarts():
         # local send all strategy file to obs
         obs_save_dir = os.path.join(config.remote_save_url, "strategy")
