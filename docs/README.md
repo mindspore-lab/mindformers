@@ -712,7 +712,7 @@ python task.py --task text_generation --model_type gpt2 --predict_data 'hello!' 
       bash run_distribute_{single/multi}_node.sh "python task.py --task text_generation --model_type gpt2 --train_dataset ./train --run_mode finetune --pet_method lora --use_parallel True --data_parallel 1 --model_parallel 2 --pipeline_parallel 2 --micro_size 2" hccl_4p_0123_192.168.89.35.json [0,4] 4
 
       # 分布式推理（不支持流水并行,试用特性）
-      bash run_distribute_{single/multi}_node.sh "python task.py --task text_generation --model_type gpt2 --predict_data 'hello!' ./train --run_mode predict --pet_method lora --use_parallel True --data_parallel 1 --model_parallel 2" hccl_4p_0123_192.168.89.35.json [0,4] 4
+      bash run_distribute_{single/multi}_node.sh "python task.py --task text_generation --model_type gpt2 --predict_data 'hello!' --run_mode predict --pet_method lora --use_parallel True --data_parallel 1 --model_parallel 2" hccl_4p_0123_192.168.89.35.json [0,4] 4
       ```
 
 ## 特性
