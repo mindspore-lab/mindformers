@@ -386,26 +386,21 @@ class LLamaAttention(nn.Cell):
                 # Get the current token position index
                 valid_length = batch_valid_length - 1
                 valid_length = self.reshape(valid_length, (-1, 1, 1))
-                valid_length_vector = (self.equal(
-                    valid_length, self.range)).astype(self.dtype)
+                valid_length_vector = (self.equal(self.range, valid_length)).astype(self.dtype)
                 # Pad the key and value to seq_length with only the position index not zero
-                current_key = self.mul1(self.tile(key, (1, 1, self.seq_length, 1)),
-                                        self.expand_dims(valid_length_vector, 3))
-                current_value = self.mul1(self.tile(value, (1, 1, self.seq_length, 1)),
-                                          self.expand_dims(valid_length_vector, 3))
+                current_key = self.mul1(key, self.expand_dims(valid_length_vector, 3))
+                current_value = self.mul1(value, self.expand_dims(valid_length_vector, 3))
                 # Concat the previous saved state and current state
                 key = self.add(key_past, current_key)
                 value = self.add(value_past, current_value)
                 # Update key_present and value_present for state update
                 key_present = key
                 value_present = value
-                attention_mask = self.reshape(self.attention_mask,
-                                              (self.seq_length, self.seq_length, 1, 1))
 
         layer_present = (key_present, value_present)
         # multi head attention considering attention mask
         # the return shape is [bs * seq_length, hidden_size]
-        attention = self._attn(query, key, value, attention_mask)
+        attention = self._attn(query, key, value, attention_mask, batch_valid_length)
 
         # Output
         output = self.wo(attention)
@@ -486,7 +481,7 @@ class LLamaAttention(nn.Cell):
         attention_probs = self.softmax(attention_scores)
         return attention_probs
 
-    def _attn(self, query, key, value, attention_mask):
+    def _attn(self, query, key, value, attention_mask, valid_length):
         """
         Get the weighted score along the seq_length
 
@@ -509,14 +504,7 @@ class LLamaAttention(nn.Cell):
         # the shape of attention_mask matrix should be (bs, 1, 1, seq_length)
         if attention_mask is not None:
             if self.use_past and not self.is_first_iteration:
-                # Calculate the current total token
-                current_index = self.reducesum((self.not_equal(self.slice(key, (0, 0, 0, 0),
-                                                                          (query.shape[0], 1, self.seq_length, 1),
-                                                                          (1, 1, 1, 1)),
-                                                               0)).astype(mstype.float32), (1, 2, 3))
-                # Get the precise position index
-                index = self.sub1(current_index.astype(mstype.int32), 1)
-                index = self.reshape(index, (-1, 1, 1))
+                index = self.reshape(valid_length - 1, (-1, 1, 1))
                 # Calculate the attention_mask matrix via the position index
                 attention_mask = (self.tensor_le(self.range, index)).astype(mstype.int32)
                 attention_mask = self.expand_dims(attention_mask, 2)
@@ -622,6 +610,7 @@ class LLamaDecodeLayer(nn.Cell):
         self.hidden_size = dim
         self.n_head = n_heads
         self.head_dim = self.hidden_size // self.n_head
+        self.is_first_iteration = True
         if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation():
             _check_config(parallel_config)
             if self.n_head % parallel_config.model_parallel != 0:
@@ -772,7 +761,7 @@ class LLamaDecodeLayer(nn.Cell):
         key_reset = None
         value_reset = None
 
-        if self.use_past:
+        if self.use_past and self.is_first_iteration:
             # reset states, init_reset True for reuse and False for reset
             self.assign(self.key_past, self.mul(
                 self.key_past, init_reset.astype(self.dtype)))
