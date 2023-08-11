@@ -90,6 +90,7 @@ class MFTrainOneStepCell(nn.TrainOneStepWithLossScaleCell):
         self.use_clip_grad = use_clip_grad
         self.clip_grad_norm = ClipGradNorm(max_norm=max_grad_norm)
         self.parallel_config = kwargs.pop("parallel_config", None)
+        self.learning_rate = self.optimizer.learning_rate
 
     def construct(self, *inputs):
         """forward and backward."""
@@ -105,6 +106,13 @@ class MFTrainOneStepCell(nn.TrainOneStepWithLossScaleCell):
         # apply grad reducer on grads
         grads = self.grad_reducer(grads)
 
+        learning_rate = self.learning_rate
+        if self.optimizer.dynamic_lr:
+            if self.optimizer.is_group_lr:
+                learning_rate = self.learning_rate[-1](self.optimizer.global_step).reshape(())
+            else:
+                learning_rate = self.learning_rate(self.optimizer.global_step).reshape(())
+
         # get the overflow buffer
         cond = self.get_overflow_status(status, grads)
         overflow = self.process_loss_scale(cond)
@@ -113,7 +121,7 @@ class MFTrainOneStepCell(nn.TrainOneStepWithLossScaleCell):
             if self.use_clip_grad:
                 grads, _ = self.clip_grad_norm(grads)
             loss = F.depend(loss, self.optimizer(grads))
-        return loss, overflow, scaling_sens
+        return loss, overflow, scaling_sens, learning_rate
 
 
 grad_scale = C.MultitypeFuncGraph("grad_scale")
@@ -209,6 +217,7 @@ class MFPipelineWithLossScaleCell(nn.TrainOneStepCell):
         self.clip_grad_norm = ClipGradNorm(max_norm=max_grad_norm)
         self.micro_size = micro_batch_num
         self.parallel_config = kwargs.pop("parallel_config", None)
+        self.learning_rate = self.optimizer.learning_rate
 
     @C.add_flags(has_effect=True)
     def construct(self, *inputs):
@@ -240,6 +249,13 @@ class MFPipelineWithLossScaleCell(nn.TrainOneStepCell):
         if self.use_clip_grad:
             grads, _ = self.clip_grad_norm(grads)
 
+        learning_rate = self.learning_rate
+        if self.optimizer.dynamic_lr:
+            if self.optimizer.is_group_lr:
+                learning_rate = self.learning_rate[-1](self.optimizer.global_step).reshape(())
+            else:
+                learning_rate = self.learning_rate(self.optimizer.global_step).reshape(())
+
         # sum overflow flag over devices
         flag_reduce = self.allreduce(flag_sum)
         cond = self.less_equal(self.base, flag_reduce)
@@ -251,4 +267,4 @@ class MFPipelineWithLossScaleCell(nn.TrainOneStepCell):
         if not overflow:
             loss = F.depend(loss, self.optimizer(grads))
 
-        return loss, overflow, scaling_sens.value()
+        return loss, overflow, scaling_sens.value(), learning_rate
