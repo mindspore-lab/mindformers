@@ -13,6 +13,7 @@
 # limitations under the License.
 # ============================================================================
 """MindFormer Self-Define Callback."""
+import json
 import os
 import time
 from collections import OrderedDict
@@ -30,7 +31,7 @@ from mindspore.train.serialization import _get_merged_param_data
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.tools.cloud_adapter.cloud_adapter import Local2ObsMonitor
 from mindformers.tools.logger import logger
-from mindformers.tools.utils import get_output_root_path, get_output_subpath, get_remote_save_url
+from mindformers.tools.utils import get_output_root_path, get_output_subpath, get_remote_save_url, check_in_modelarts
 
 __all__ = ['ObsMonitor', 'MFLossMonitor', 'CheckpointMointor', 'SummaryMonitor', 'ProfileMonitor', 'EvalCallBack']
 
@@ -200,6 +201,69 @@ class MFLossMonitor(Callback):
             self.print_output_info(cb_params, cur_epoch_num, origin_epochs,
                                    cur_step_num, steps_per_epoch, loss, step_seconds,
                                    overflow, scaling_sens)
+
+        def dump_info_to_modelarts(ma_step_num, ma_loss):
+            """dump modelarts info to display evaluation result page"""
+            ma_loss = np.float(ma_loss)
+            obj = None
+            modelarts_dir = os.path.join(get_output_root_path(), "modelarts")
+            if not os.path.exists(modelarts_dir):
+                os.mkdir(modelarts_dir)
+            if not os.path.exists(os.path.join(modelarts_dir, "model_analysis_results.json")):
+                obj = {
+                    "en-us": {
+                        "common": {},
+                        "precision_performance": {
+                            "pr": {
+                                "title": "loss", "description": "loss of model", "value": {"current_loss": 0},
+                                "line_chart": {
+                                    "pr_line_chart": {
+                                        "name": "loss line chart of model",
+                                        "x_axis_name": "step",
+                                        "y_axis_name": "loss",
+                                        "curve": {"loss": []}}}}},
+                        "feature_sensitivity": {},
+                        "computational_performance": {},
+                        "abstract_feature": {},
+                        "adversary": {}
+                    },
+                    "zh-cn": {
+                        "common": {},
+                        "precision_performance": {
+                            "pr": {
+                                "title": "loss", "description": "模型损失", "value": {"当前loss": 0},
+                                "line_chart": {
+                                    "pr_line_chart": {
+                                        "name": "loss line chart of model",
+                                        "x_axis_name": "step",
+                                        "y_axis_name": "loss",
+                                        "curve": {"loss": []}}}}},
+                        "feature_sensitivity": {},
+                        "computational_performance": {},
+                        "abstract_feature": {},
+                        "adversary": {}
+                    }
+                }
+            else:
+                with open(os.path.join(modelarts_dir, "model_analysis_results.json"), "r") as fp:
+                    obj = json.load(fp)
+
+            if obj is not None:
+                en_precision_performance = obj["en-us"]["precision_performance"]
+                en_precision_performance["pr"]["value"]["loss_value"] = ma_loss
+                en_loss_list = en_precision_performance["pr"]["line_chart"]["pr_line_chart"]["curve"]["loss"]
+                en_loss_list.append([ma_step_num, ma_loss])
+
+                zh_precision_performance = obj["zh-cn"]["precision_performance"]
+                zh_precision_performance["pr"]["value"]["当前loss"] = ma_loss
+                zh_loss_list = zh_precision_performance["pr"]["line_chart"]["pr_line_chart"]["curve"]["loss"]
+                zh_loss_list.append([ma_step_num, ma_loss])
+
+                with open(os.path.join(modelarts_dir, "model_analysis_results.json"), "w") as fp:
+                    json.dump(obj, fp)
+
+        if check_in_modelarts():
+            dump_info_to_modelarts(ma_step_num=cur_step_num, ma_loss=loss)
 
         if auto_parallel:
             ms.context.set_auto_parallel_context(parallel_mode=parallel_mode, full_batch=full_batch)
