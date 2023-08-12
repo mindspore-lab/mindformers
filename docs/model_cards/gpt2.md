@@ -14,14 +14,13 @@ GPT-2由OpenAI于2019年发布。GPT-2模型是继承于GPT模型，GPT-2是一�
 
 - 词表下载：[vocab.json](https://huggingface.co/gpt2/blob/main/vocab.json)，[merges.txt](https://huggingface.co/gpt2/resolve/main/merges.txt)
 
-- 参考[ModelZoo](https://gitee.com/mindspore/models/tree/master/research/nlp/gpt2#language-modeling-%E8%AF%AD%E8%A8%80%E5%BB%BA%E6%A8%A1%E4%BB%BB%E5%8A%A1)，将数据处理成Mindrecord格式。注：训练数据处理时，长度应等于模型接收长度加一
+- 参考[wikitext-2处理脚本](https://gitee.com/mindspore/mindformers/blob/931cf93045473d5827ee26638d83fabe94058d28/mindformers/tools/dataset_preprocess/gpt2/wikitext2_data_process.py#)，将数据处理成Mindrecord格式。注：训练数据处理时，长度应等于模型接收长度加一
 
 ```bash
-# 数据预处理示例代码，代码来源于ModelZoo
-# 1、数据清洗
-python task_dataset_preprocess.py --task "LanguageModeling" --input_file /{path}/wiki.train.tokens --dataset "wikitext2" --output_file /{path}/{cleaned_data_name}
-# 2、生成Mindrecord数据，其中output_file需以.mindrecord为文件名后缀
-python create_lm_data.py --input_file /{path}/{cleaned_data_name} --output_file /{path}/{data_name.mindrecord} --num_splits 1 --max_length 1025 --vocab_file={path of vocab.json} --merge_file={path of merges.txt}
+# 训练
+python mindformers/tools/dataset_preprocess/gpt2/wikitext2_data_process.py --input_file ./wikitext-2/wiki.train.tokens --output_file ./wikitext-2.train..mindrecord --max_length 1025
+# 评测
+python mindformers/tools/dataset_preprocess/gpt2/wikitext2_data_process.py --input_file ./wikitext-2/wiki.valid.tokens --output_file ./wikitext-2.valid.mindrecord --max_length 1024
 ```
 
 ## 快速使用
@@ -30,7 +29,7 @@ python create_lm_data.py --input_file /{path}/{cleaned_data_name} --output_file 
 
 > 需开发者提前clone工程。
 
-- 请参考[使用脚本启动](https://gitee.com/mindspore/transformer/blob/master/README.md#%E6%96%B9%E5%BC%8F%E4%B8%80clone-%E5%B7%A5%E7%A8%8B%E4%BB%A3%E7%A0%81)
+- 请参考[使用脚本启动](https://gitee.com/mindspore/mindformers/blob/r0.6/README.md#方式一使用已有脚本启动)
 
 示例命令如下，将会执行一个12层的GPT2模型训练
 
@@ -297,3 +296,71 @@ pipeline_result = pipeline_task("I love Beijing, because", top_k=3)
 print(pipeline_result)
 # {'text_generation_text': ['I love Beijing, because it\'s the most vibrant city in Asia," says the Chinese-born entrepreneur']}
 ```
+
+## 评测
+
+GPT2支持文本生成和文本分类两个任务的评测。
+
+- 文本生成：
+    - 获取数据集：
+        - [WikiText2数据集](https://s3.amazonaws.com/research.metamind.io/wikitext/wikitext-2-v1.zip)是从维基百科上经过验证的优质文章集中提取的超过1亿个token的集合。
+    - 处理数据成mindrecord格式
+        - WikiText2：
+
+        ```bash
+        cd mindformers/tools/dataset_preprocess/gpt2
+        python wikitext2_data_process.py --input_file {your_path/wiki.valid.tokens} \
+                                       --output_file {your_path/wikitext-2.mindrecord}
+        ```
+
+    - 开启评测：
+        - WikiText2
+
+        ```bash
+        python run_mindformers.py --config configs/gpt2/run_gpt2.yaml \
+                                  --eval_dataset_dir {your_path/wikitext-2.mindrecord} \
+                                  --run_mode eval \
+                                  --epochs 1
+        # PerplexityMetric: {'PerplexityMetric': {'loss': 3.24, 'PPL': 25.55}
+        ```
+
+- 文本分类：
+    - 获取数据集:
+        - [SST-2数据集](https://dl.fbaipublicfiles.com/glue/data/SST-2.zip)数据集包含电影评论中的句子和它们情感的人类注释。类别分为两类正面情感（positive，样本标签对应为1）和负面情感（negative，样本标签对应为0）
+        - [IMDB数据集](https://www.kaggle.com/datasets/lakshmi25npathi/imdb-dataset-of-50k-movie-reviews)影评数据集，包含5万条IMDB影评，评论的情绪是二元的，专门用于情绪分析。
+        - [AG-News数据集](http://groups.di.unipi.it/~gulli/AG_corpus_of_news_articles.html)数据集包含496,835条来自AG新闻语料库4大类别超过2000个新闻源的新闻文章。
+        - [COLA数据集](https://nyu-mll.github.io/CoLA/)数据集来自语言理论的书籍和期刊，每个句子被标注为是否合乎语法的单词序列。
+    - 处理数据成mindrecord格式
+
+        ```bash
+        # 因评测前需要微调模型，所以需要生成训练/评测数据集。注：生成的数据集文件需以.mindrecord结尾
+        cd mindformers/tools/dataset_preprocess/gpt2
+        python txtcls_dataset_to_mindrecord.py --dataset_name {select one from ['cola', 'sst_2', 'ag_news', 'imdb']}
+                                               --input_file {your_path/train.tsv} \
+                                               --output_file {your_path/dataset_name.train.mindrecord}
+        python txtcls_dataset_to_mindrecord.py --dataset_name {the same as above}
+                                               --input_file {your_path/dev.tsv} \
+                                               --output_file {your_path/dataset_name.dev.mindrecord}
+        ```
+
+    - 开启微调：因为原始权重中不包含隐向量向类别映射的参数，所以无法进行zero-shot，评测前需要事先进行微调。
+
+    ```bash
+    # 运行前请确保run_gpt2_txtcls.yaml中的model.model_config.num_labels准确，具体的，
+    # sst2/cola/imdb: num_labels = 2, agnews: num_labels = 4
+    python run_mindformers.py --config configs/gpt2/run_gpt2_txtcls.yaml \
+                              --train_dataset_dir {your_path/dataset_name.train.mindrecord} \
+                              --run_mode finetune
+    ```
+
+    - 开启评测：评测指标为ACC
+
+    ```bash
+    # 运行前请确保run_gpt2_txtcls.yaml中的model.model_config.num_labels准确，具体的，
+    # sst2/cola/imdb: num_labels = 2, agnews: num_labels = 4
+    python run_mindformers.py --config configs/gpt2/run_gpt2_txtcls.yaml \
+                              --eval_dataset_dir {your_path/dataset_name.dev.mindrecord} \
+                              --run_mode eval \
+                              --epochs 1
+    # ACC: COLA-0.693, SST-2-0.908, IMDB-0.934, AG-News-0.941
+    ```

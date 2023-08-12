@@ -51,7 +51,7 @@ CLIP (Contrastive Lanuguage-Image Pre-Training)：是一种基于图文对进行
 
 > 需开发者提前clone工程。
 
-- 请参考[使用脚本启动](https://gitee.com/mindspore/transformer/blob/master/README.md#%E6%96%B9%E5%BC%8F%E4%B8%80clone-%E5%B7%A5%E7%A8%8B%E4%BB%A3%E7%A0%81)
+- 请参考[使用脚本启动](https://gitee.com/mindspore/mindformers/blob/r0.6/README.md#方式一使用已有脚本启动)
 
 - 脚本运行测试
 
@@ -145,8 +145,8 @@ classifier(img)
 
 | model |           task_type            |                                  model_Type                                   | datasets |              Top1-accuracy              | log |                                                                                                example                                                                                                |
 |:-----:|:------------------------------:|:-----------------------------------------------------------------------------:|:--------:|:---------------------------------------:|:---:|:-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:|
-| clip  |           pretrained           | clip_vit_b_32 <br/> clip_vit_b_16 <br/> clip_vit_l_14 <br/> clip_vit_l_14@336 | flickr8k |                    \                    |  \  |                                               pretrain [link](../../examples/contrastive_language_image_pretrain/clip_vit_b_32_pretrain_on_flickr8k.sh)                                               | \|
-| clip  | zero_shot_image_classification | clip_vit_b_32 <br/> clip_vit_b_16 <br/> clip_vit_l_14 <br/> clip_vit_l_14@336 | cifar100 | 57.24%<br/>61.41%<br/>69.67%<br/>68.19% |  \  | eval [link](../../examples/zero_shot_image_classification/clip_vit_b_32_eval_on_cifar100.sh) <br/> predict [link](../../examples/zero_shot_image_classification/clip_vit_b_32_predict_on_cifar100.sh) |
+| clip  |           pretrained           | clip_vit_b_32 <br/> clip_vit_b_16 <br/> clip_vit_l_14 <br/> clip_vit_l_14@336 | flickr8k |                    \                    |  \  |                                               pretrain [link](../../scripts/examples/contrastive_language_image_pretrain/clip_vit_b_32_pretrain_on_flickr8k.sh)                                               | \|
+| clip  | zero_shot_image_classification | clip_vit_b_32 <br/> clip_vit_b_16 <br/> clip_vit_l_14 <br/> clip_vit_l_14@336 | cifar100 | 57.24%<br/>61.41%<br/>69.67%<br/>68.19% |  \  | eval [link](../../scripts/examples/zero_shot_image_classification/clip_vit_b_32_eval_on_cifar100.sh) <br/> predict [link](../../scripts/examples/zero_shot_image_classification/clip_vit_b_32_predict_on_cifar100.sh) |
 
 ## 模型权重
 

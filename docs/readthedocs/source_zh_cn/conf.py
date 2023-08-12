@@ -1,4 +1,4 @@
-# Copyright 2022 Huawei Technologies Co., Ltd
+# Copyright 2023 Huawei Technologies Co., Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -27,7 +27,6 @@
 """Configuration file for the Sphinx documentation builder."""
 
 import os
-import glob
 import shutil
 from sphinx.util import logging
 
@@ -35,37 +34,25 @@ from sphinx.util import logging
 
 project = 'mindformers'
 # pylint: disable=W0622
-copyright = '2022, mindformers contributors'
+copyright = '2023, mindformers contributors'
 author = 'mindformers contributors'
 
 # The full version, including alpha/beta/rc tags
-release = 'master'
+release = 'dev'
 
 # -- General configuration ---------------------------------------------------
 
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
-extensions = [
-    'sphinx.ext.autodoc',
-    'sphinx.ext.doctest',
-    'sphinx.ext.autosummary',
-    'sphinx.ext.intersphinx',
-    'sphinx.ext.todo',
-    'sphinx.ext.coverage',
-    'sphinx.ext.napoleon',
-    'sphinx.ext.viewcode',
-    'sphinx_markdown_tables',
-    'myst_parser',
-    'nbsphinx',
-    'sphinx.ext.mathjax',
-    'IPython.sphinxext.ipython_console_highlighting'
-]
+extensions = ['myst_parser',
+              'sphinx.ext.autodoc',
+              'sphinx.ext.viewcode',
+              'sphinx.ext.autosummary',
+              'sphinx.ext.intersphinx']
 
-source_suffix = {
-    '.rst': 'restructuredtext',
-    '.md': 'markdown',
-}
+source_suffix = {'.rst': 'restructuredtext',
+                 '.md': 'markdown'}
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -89,27 +76,55 @@ gettext_compact = False
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
-
 html_theme = 'sphinx_rtd_theme'
+html_static_path = ['_static']
 
 # Copy source files of chinese python api from mindscience repository.
 logger = logging.getLogger(__name__)
 
-# src_dir_mfl = os.path.join(os.getenv("MFM_PATH"), 'docs/api_python')
-file_path = os.path.abspath('__ file __')
 
-readme_path = os.path.realpath(os.path.join(file_path, '../../../../README.md'))
-api_path = os.path.realpath(os.path.join(file_path, '../../../api_python'))
-model_cards_path = os.path.realpath(os.path.join(file_path, '../../../model_cards'))
-task_cards_path = os.path.realpath(os.path.join(file_path, '../../../task_cards'))
+copy_path = ['../../../../README.md',
+             '../../../aicc_cards',
+             '../../../feature_cards',
+             '../../../model_cards',
+             '../../../task_cards',
+             '../../../FAQ.md',
+             '../../../transformer仓Python编程规范.md']
 
-shutil.copy(readme_path, './README.md')
-shutil.copytree(api_path, './api_python')
-shutil.copytree(model_cards_path, './model_cards')
-shutil.copytree(task_cards_path, './task_cards')
 
-rst_files = {i.replace('.rst', '') for i in glob.glob('./**/*.rst', recursive=True)}
+def copy_file_to_docs(ori_name):
+    """copy dir in docs to readthedocs workspace."""
+    current_path = os.path.abspath('__file__')
+    ori_path = os.path.realpath(os.path.join(current_path, ori_name))
+    new_path = os.path.realpath('/'.join(ori_path.split('/')[-2:]))
+    if ori_name.endswith('README.md'):
+        new_path = os.path.realpath(ori_path.split('/')[-1])
+        shutil.copy(ori_path, new_path)
+    elif ori_name.endswith('.md'):
+        shutil.copy(ori_path, new_path)
+    else:
+        shutil.copytree(ori_path, new_path)
 
+for file_path in copy_path:
+    copy_file_to_docs(file_path)
+
+# split README
+with open('README.md', 'r') as f:
+    title_list = ['Introduction', 'Install', 'Version_Match', 'Quick_Tour', 'Contribution', 'License']
+    title_for_index = ['# 一、介绍', '# 二、安装', '# 三、版本配套', '# 四、快速开始', '-', '-']
+    file_count = 0
+    fn = None
+    for line in f:
+        if line.startswith('##') and not line.startswith('###'):
+            if fn:
+                fn.close()
+            fn = open(f'docs/start/{title_list[file_count]}.md', 'w')
+            fn.write(title_for_index[file_count])
+            file_count += 1
+            continue
+        if fn:
+            fn.write(line)
+    fn.close()
 
 def setup(app):
-    app.add_config_value('rst_files', set(), False)
+    app.add_css_file('my_theme.css')

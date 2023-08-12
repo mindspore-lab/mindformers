@@ -37,7 +37,7 @@ python llama_preprocess.py --input_glob  'data/wiki.train.tokens' --model_file /
 
 > 需开发者提前clone工程。
 
-- 请参考[使用脚本启动](https://gitee.com/mindspore/transformer/blob/master/README.md#%E6%96%B9%E5%BC%8F%E4%B8%80clone-%E5%B7%A5%E7%A8%8B%E4%BB%A3%E7%A0%81)
+- 请参考[使用脚本启动](https://gitee.com/mindspore/mindformers/blob/r0.6/README.md#方式一使用已有脚本启动)
 
 #### 单机多卡启动
 
@@ -185,7 +185,7 @@ print(pipeline_result)
 
 - [llama-7b](https://huggingface.co/openlm-research/open_llama_7b)
 
-- [llama-13b](https://huggingface.co/openlm-research/open_llama_13b_600bt)
+- [llama-13b](https://huggingface.co/openlm-research/open_llama_13b)
 
 注意：65B权重OpenLLaMA未提供，如有需要，请开发者自行解决。
 
@@ -292,6 +292,8 @@ bash run_distribute.sh {RANK_TABLE_FILE path of the first device} ../configs/lla
 
 目前lora微调适配了llama_7b模型，并给出了默认配置文件`config/llama/run_llama_7b_lora.yaml`。
 
+微调流程：
+
 - step 1. 参考全参微调修改训练数据集路径与预训练权重路径。
 
 - step 2. 启动lora微调任务，7b模型可以使用单机八卡进行训练，命令如下：
@@ -300,3 +302,90 @@ bash run_distribute.sh {RANK_TABLE_FILE path of the first device} ../configs/lla
 cd scripts
 bash run_distribute.sh {RANK_TABLE_FILE path of the first device} ../configs/llama/run_llama_7b_lora.yaml [0,8] finetune
 ```
+
+### 推理
+
+#### lora推理
+
+- 以高级接口开启推理为例，脚本如下：
+
+```python
+from mindformers import Trainer
+import mindspore as ms
+
+cls_trainer = Trainer(task='text_generation', # 已支持的任务名
+                      model='llama_7b',
+                      pet_method='lora') # 已支持的模型名
+
+# 根据alpaca数据集的prompt模板，在instruction处填入自定义指令
+input_data = "Below is an instruction that describes a task. \
+              Write a response that appropriately completes the request.\n\n \
+              ### Instruction:\n{}\n\n### Response:".format("Tell me about alpacas.")
+
+# 方式1： 传入lora微调后的权重进行推理
+lora_ckpt = "./llama_7b_lora.ckpt"
+predict_result = cls_trainer.predict(input_data=input_data,
+                                     predict_checkpoint=lora_ckpt)
+
+# 方式1： 从obs下载训练好的权重进行推理
+predict_result = cls_trainer.predict(input_data=input_data)
+
+print(predict_result[0]['text_generation_text'][0])
+
+# output:
+# Alpacas are a species of South American camelid. They are domesticated animals that are raised for their wool, which is used to make clothing and other products. Alpacas are gentle, docile animals that are very friendly and easy to care for. They are also very intelligent and can be trained to perform certain tasks.
+```
+
+- lora推理结果示例
+
+**Instruction**: Tell me about the president of Mexico in 2019.
+
+**Output**: The president of Mexico in 2019 is Andrés Manuel López Obrador. He was elected in 2018 and is the first left-wing president of Mexico in over 70 years. He has focused on reducing corruption, increasing social welfare, and improving the economy. He has also been working to reduce violence in the country and has been working to improve relations with the United States.
+
+---
+
+**Instruction**: List all Canadian provinces in alphabetical order.
+
+**Output**: Alberta, British Columbia, Manitoba, New Brunswick, Newfoundland and Labrador, Nova Scotia, Ontario, Prince Edward Island, Quebec, Saskatchewan, and Yukon.
+
+---
+
+**Instruction**: Write a Python program that prints the first 10 Fibonacci numbers.
+
+**Output**:
+
+```python
+def fibonacci(n):
+    if n == 0:
+        print(0)
+    elif n == 1:
+        print(1)
+    else:
+        print(fibonacci(n-1)+fibonacci(n-2))
+```
+
+---
+
+**Instruction**: Write a program that prints the numbers from 1 to 100. But for multiples of three print 'Fizz' instead of the number and for the multiples of five print 'Buzz'. For numbers which are multiples of both three and five print 'FizzBuzz'.
+
+**Output**:
+
+```python
+def fizzbuzz(n):
+    if n % 3 == 0 and n % 5 == 0:
+        print('FizzBuzz')
+    elif n % 3 == 0:
+        print('Fizz')
+    elif n % 5 == 0:
+        print('Buzz')
+    else:
+        print(n)
+```
+
+---
+
+**Instruction**: Translate the sentence 'I have no mouth but I must scream' into Spanish.
+
+**Output**: No tengo boca pero tengo que gritar.
+
+---
