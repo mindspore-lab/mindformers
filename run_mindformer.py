@@ -50,9 +50,7 @@ def update_checkpoint_config(config, is_train=True):
             config.load_checkpoint = config.model.model_config.checkpoint_name_or_path
         config.model.model_config.checkpoint_name_or_path = None
     else:
-        if config.run_mode == 'train':
-            config.model.model_config.checkpoint_name_or_path = None
-        elif config.run_mode == 'finetune':
+        if config.run_mode in ('train', 'finetune'):
             config.model.model_config.checkpoint_name_or_path = config.load_checkpoint
         elif config.run_mode in ['eval', 'predict'] and config.load_checkpoint:
             config.model.model_config.checkpoint_name_or_path = config.load_checkpoint
