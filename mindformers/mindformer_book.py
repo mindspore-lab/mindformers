@@ -209,6 +209,10 @@ class MindFormerBook:
                 _PROJECT_PATH, "configs/glm/run_glm_6b_lora.yaml")),
             ("glm_6b_lora_chat", os.path.join(
                 _PROJECT_PATH, "configs/glm/run_glm_6b_lora_infer.yaml")),
+            ("glm2_6b", os.path.join(
+                _PROJECT_PATH, "configs/glm2/run_glm2_6b.yaml")),
+            ("glm2_6b_lora", os.path.join(
+                _PROJECT_PATH, "configs/glm2/run_glm2_6b_lora.yaml")),
             ("bloom_560m", os.path.join(
                 _PROJECT_PATH, "configs/bloom/run_bloom_560m.yaml")),
             ("bloom_7.1b", os.path.join(
@@ -326,6 +330,10 @@ class MindFormerBook:
                 _PROJECT_PATH, "configs/glm/run_glm_6b_lora.yaml")),
             ("glm_6b_lora_chat", os.path.join(
                 _PROJECT_PATH, "configs/glm/run_glm_6b_lora_infer.yaml")),
+            ("glm2_6b", os.path.join(
+                _PROJECT_PATH, "configs/glm2/run_glm2_6b.yaml")),
+            ("glm2_6b_lora", os.path.join(
+                _PROJECT_PATH, "configs/glm2/run_glm2_6b_lora.yaml")),
             ("bloom_560m", os.path.join(
                 _PROJECT_PATH, "configs/bloom/run_bloom_560m.yaml")),
             ("bloom_7.1b", os.path.join(
@@ -411,7 +419,11 @@ class MindFormerBook:
             'glm_6b_chat',
             'glm_6b_lora',
             'glm_6b_lora_chat'
-        ])
+        ]),
+        ('glm2', [
+            'glm2_6b',
+            'glm2_6b_lora',
+        ]),
     ])
 
     _MODEL_SUPPORT_LIST = OrderedDict([
@@ -488,6 +500,10 @@ class MindFormerBook:
             'glm_6b_chat',
             'glm_6b_lora',
             'glm_6b_lora_chat'
+        ]),
+        ('glm2', [
+            'glm2_6b',
+            'glm2_6b_lora'
         ])
     ])
 
@@ -598,6 +614,9 @@ class MindFormerBook:
         ]),
         ('glm', [
             'glm_6b',
+        ]),
+        ('glm2', [
+            'glm2_6b'
         ]),
         ('bloom', [
             'bloom_560m',
@@ -731,6 +750,14 @@ class MindFormerBook:
         ('glm_6b_lora_chat',
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
           '/XFormer_for_mindspore/glm/glm_6b_lora.ckpt'
+          ]),
+        ('glm2_6b',
+         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
+          '/XFormer_for_mindspore/glm2/glm2_6b.ckpt'
+          ]),
+        ('glm2_6b_lora',
+         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
+          '/XFormer_for_mindspore/glm2/glm2_6b_lora.ckpt'
           ]),
         ('llama_7b',
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
@@ -932,6 +959,10 @@ class MindFormerBook:
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
           '/XFormer_for_mindspore/glm/ice_text.model'
           ]),
+        ('glm2_6b',
+         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
+          '/XFormer_for_mindspore/glm2/tokenizer.model'
+          ]),
         ('llama_7b',
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
           '/XFormer_for_mindspore/llama/tokenizer.model'
@@ -960,6 +991,7 @@ class MindFormerBook:
 
     _TOKENIZER_NAME_TO_PROCESSOR = OrderedDict([
         ('ChatGLMTokenizer', 'GLMProcessor'),
+        ('ChatGLM2Tokenizer', 'GLMProcessor'),
         ('CLIPTokenizer', 'CLIPProcessor'),
         ('BertTokenizer', 'BertProcessor'),
         ('T5Tokenizer', 'T5Processor'),

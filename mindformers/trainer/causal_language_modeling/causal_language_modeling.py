@@ -28,12 +28,16 @@ from mindformers.models import BaseModel, BaseTokenizer, build_tokenizer
 from mindformers.tools.logger import logger
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType, MindFormerConfig
 from mindformers.core import build_metric
+from mindformers.auto_class import AutoModel
+from mindformers.mindformer_book import MindFormerBook
 
 from ..config_args import ConfigArguments
 from ..training_args import TrainingArguments
 from ..base_trainer import BaseTrainer
+from ..utils import transform_and_load_checkpoint
 
 GENERATE_METRIC_NAMES = ['ADGENMetric', 'EmF1Metric']
+SUPPORT_MODEL_NAMES = MindFormerBook().get_model_name_support_list()
 
 
 @MindFormerRegister.register(MindFormerModuleType.TRAINER)
@@ -196,6 +200,13 @@ class CausalLanguageModelingTrainer(BaseTrainer):
 
         logger.info(".........Starting Init Evaluate Model..........")
         model = Model(network, eval_network=network)
+
+        if config.load_checkpoint or config.only_save_strategy:
+            if config.load_checkpoint in SUPPORT_MODEL_NAMES:
+                config.load_checkpoint = \
+                    AutoModel.from_pretrained(config.load_checkpoint).default_checkpoint_download_path
+            logger.info(".............Start load checkpoint for eval..................")
+            transform_and_load_checkpoint(config, model, network, dataset, do_eval=True)
 
         logger.info('.........Starting Evaluate Model..........')
         # generate config

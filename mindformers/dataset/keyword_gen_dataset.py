@@ -21,6 +21,7 @@ import mindspore.common.dtype as mstype
 import mindspore.dataset.transforms.c_transforms as C
 import numpy as np
 
+from mindformers.models.base_tokenizer import BaseTokenizer
 from mindformers.dataset.base_dataset import BaseDataset
 from mindformers.dataset.dataloader import build_dataset_loader
 from mindformers.models.build_tokenizer import build_tokenizer
@@ -47,13 +48,17 @@ class KeyWordGenDataset(BaseDataset):
     def __new__(cls, dataset_config: dict = None):
         logger.info("Now Create Keyword Generation Dataset.")
         cls.init_dataset_config(dataset_config)
-        cls.tokenizer = build_tokenizer(dataset_config.tokenizer)
+        if isinstance(dataset_config.tokenizer, BaseTokenizer):
+            cls.tokenizer = dataset_config.tokenizer
+        else:
+            cls.tokenizer = build_tokenizer(dataset_config.tokenizer)
         cls.ignore_pad_token_for_loss = dataset_config.ignore_pad_token_for_loss
         cls.max_source_length = dataset_config.max_source_length
         cls.max_target_length = dataset_config.max_target_length
         cls.max_seq_length = cls.max_source_length + cls.max_target_length
 
         cls.phase = dataset_config.data_loader.phase
+        cls.version = dataset_config.data_loader.version
 
         if dataset_config.data_loader.type != 'MindDataset':
             dataset = cls._process_raw_text_data(dataset_config)
@@ -74,32 +79,41 @@ class KeyWordGenDataset(BaseDataset):
         """Maps the tokenizer on the source and the output"""
 
         phase = cls.phase
+        version = cls.version if cls.version else 1
+
         logger.info("Start tokenize on the dataset using tokenizer: %s", tokenizer_config)
 
+        if version == 2:
+            train_dataset_function = cls.train_dataset_functionv2
+            train_output_columns = ["input_ids", "labels"]
+            eval_dataset_function = cls.eval_dataset_functionv2
+        else:
+            train_dataset_function = cls.train_dataset_function
+            train_output_columns = ["input_ids", "labels", "position_ids", "attention_mask"]
+            eval_dataset_function = cls.eval_dataset_function
         input_columns = ["prompt", "answer"]
-        train_output_columns = ["input_ids", "labels", "position_ids", "attention_mask"]
         eval_output_columns = ["input_ids", "labels"]
 
         if is_version_ge(mindspore.__version__, "1.11.0"):
             if phase == "train":
-                dataset = dataset.map(cls.train_dataset_function,
+                dataset = dataset.map(train_dataset_function,
                                       input_columns=input_columns,
                                       output_columns=train_output_columns)
                 dataset = dataset.project(columns=train_output_columns)
             if phase == "eval":
-                dataset = dataset.map(cls.eval_dataset_function,
+                dataset = dataset.map(eval_dataset_function,
                                       input_columns=input_columns,
                                       output_columns=eval_output_columns)
                 dataset = dataset.project(columns=eval_output_columns)
 
         else:
             if phase == "train":
-                dataset = dataset.map(cls.train_dataset_function,
+                dataset = dataset.map(train_dataset_function,
                                       input_columns=input_columns,
                                       output_columns=train_output_columns,
                                       column_order=train_output_columns)
             if phase == "eval":
-                dataset = dataset.map(cls.eval_dataset_function,
+                dataset = dataset.map(eval_dataset_function,
                                       input_columns=input_columns,
                                       output_columns=eval_output_columns,
                                       column_order=eval_output_columns)
@@ -180,6 +194,52 @@ class KeyWordGenDataset(BaseDataset):
         attention_mask = cls.get_masks(np.array(input_ids))
 
         return input_ids, label, position_ids, attention_mask
+
+    @classmethod
+    def train_dataset_functionv2(cls, prompt, answer):
+        """generates train dataset"""
+        max_seq_length = cls.max_source_length + cls.max_target_length + 1
+        prompt, answer = prompt.tolist(), answer.tolist()
+        history = None
+        prompt = cls.tokenizer.build_prompt(prompt, history)
+        prompt_ids = cls.tokenizer.encode(text=prompt, add_special_tokens=True, max_length=cls.max_source_length)
+        answer_ids = cls.tokenizer.encode(text=answer, add_special_tokens=False, max_length=cls.max_target_length)
+
+        if len(prompt_ids) > cls.max_source_length - 1:
+            prompt_ids = prompt_ids[: cls.max_source_length - 1]
+
+        if len(answer_ids) > cls.max_target_length - 2:
+            answer_ids = answer_ids[: cls.max_target_length - 2]
+
+        context_length = len(prompt_ids)
+        input_ids = prompt_ids + answer_ids + [cls.tokenizer.eos_token_id]
+        labels = [cls.tokenizer.pad_token_id] * context_length + answer_ids[1:] + [cls.tokenizer.eos_token_id]
+
+        pad_len = max_seq_length - len(input_ids)
+        input_ids = input_ids + [cls.tokenizer.pad_token_id] * pad_len
+        labels = labels + [cls.tokenizer.pad_token_id] * (pad_len + 1)  # +1 for logits shift
+
+        if cls.ignore_pad_token_for_loss:
+            labels = [(l if l != cls.tokenizer.pad_token_id else -100) for l in labels]
+        return input_ids, labels
+
+    @classmethod
+    def eval_dataset_functionv2(cls, prompt, answer):
+        """generates eval dataset"""
+        prompt, answer = prompt.tolist(), answer.tolist()
+        history = None
+        prompt = cls.tokenizer.build_prompt(prompt, history)
+
+        if len(prompt) > cls.max_source_length - 1:
+            prompt = prompt[: cls.max_source_length - 1]
+
+        if len(answer) > cls.max_target_length - 1:
+            answer = answer[: cls.max_target_length - 1]
+
+        input_ids = cls.tokenizer.encode(text=prompt, add_special_tokens=True, max_length=cls.max_source_length)
+        label = cls.tokenizer.encode(text=answer, add_special_tokens=True, max_length=cls.max_target_length)
+
+        return input_ids, label
 
     @classmethod
     def eval_dataset_function(cls, prompt, answer):
