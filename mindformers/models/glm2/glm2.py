@@ -36,7 +36,7 @@ from .glm2_config import ChatGLM2Config
 from .glm2_modules import precompute_rotary_emb_cache
 from .glm2_transformer import ChatGLM2Transformer
 
-__all__ = ['ChatGLM2ForConditionalGeneration', 'ChatGLM2WithLora']
+__all__ = ['ChatGLM2ForConditionalGeneration', 'ChatGLM2WithLora', 'ChatGLM2Model']
 
 
 class ChatGLM2Model(nn.Cell):
