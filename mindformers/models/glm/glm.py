@@ -49,6 +49,32 @@ default_embedding_parallel_config = EmbeddingOpParallelConfig()
 
 __all__ = ['GLMForPreTraining', 'GLMChatModel', 'GLMForPreTrainingWithLora', 'GLMChatModelWithLora']
 
+def set_parallel_configure_for_layer(network, layer_id, offset, parallel_config, layers):
+    r"""
+        Default setting for the pipeline is: `(layer_id + offset) // (layers / pipeline_stage)`.
+
+
+        Args:
+            network(Cell) - Represents the transformer block
+            layer_id(int) - Means the layer index for the current module, counts from zero.
+            offset(int) - Means the layer_index needs a offset, if there are other modules in the net.
+            layers(int) - The total layers used for the model.
+    """
+
+    # Used for optimizer's fusion tag
+    dis = max(int((layers + 1) / parallel_config.gradient_aggregation_group), 1)
+    if parallel_config.pipeline_stage > 1:
+        # we give the fusion in pipeline mode a fixed value, otherwise the performance may become worse.
+        network.set_comm_fusion(2)
+    else:
+        network.set_comm_fusion(int((layer_id + offset) / dis) + 1)
+    # Used for enabling recomputation of the block
+    if isinstance(parallel_config.recompute, bool):
+        if parallel_config.recompute:
+            network.recompute()
+    else:
+        if parallel_config.recompute.recompute:
+            network.recompute(recompute_slice_activation=parallel_config.recompute.recompute_slice_activation)
 
 class ProcessLogits(nn.Cell):
     r"""Process logits into probability distribution."""
@@ -108,6 +134,7 @@ class GLMModel(nn.Cell):
         embed_parallel_config.vocab_emb_dp = False
         self.word_embeddings = VocabEmbedding(vocab_size=config.vocab_size, embedding_size=config.hidden_size,
                                               parallel_config=embed_parallel_config)
+        self.word_embeddings.set_comm_fusion(config.parallel_config.gradient_aggregation_group)
 
         self.matmul = ops.MatMul().shard(((1, 1), (1, embed_parallel_config.model_parallel)))
         self.transpose = ops.Transpose().shard(((embed_parallel_config.model_parallel, 1),))
@@ -138,8 +165,12 @@ class GLMModel(nn.Cell):
                 parallel_config=op_parallel_config,
             )
 
-        self.layers = nn.CellList(
-            [get_layer(layer_id) for layer_id in range(config.num_layers)])
+        self.layers = nn.CellList()
+        for i in range(config.num_layers):
+            layer = get_layer(i+1)
+            set_parallel_configure_for_layer(layer, layer_id=i, layers=config.num_layers,
+                                             offset=0, parallel_config=op_parallel_config)
+            self.layers.append(layer)
 
         # Final layer norm before output.
         self.use_final_layernorm = config.use_final_layernorm

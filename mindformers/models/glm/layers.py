@@ -178,6 +178,7 @@ class DeepNormWithGLULayer(nn.Cell):
         # Layernorm on the input data.
         self.input_layernorm = layernorm(hidden_size, param_init_type=layernorm_dtype, eps=layernorm_epsilon)
         self.input_layernorm.shard(((parallel_config.data_parallel, 1, 1),))
+        self.input_layernorm.set_comm_fusion(parallel_config.gradient_aggregation_group)
 
         # Self attention.
         self.attention = RotaryEmbeddingFP32SoftmaxSelfAttention(
@@ -201,6 +202,8 @@ class DeepNormWithGLULayer(nn.Cell):
         # Layernorm on the input data.
         self.post_attention_layernorm = layernorm(hidden_size, param_init_type=layernorm_dtype, eps=layernorm_epsilon)
         self.post_attention_layernorm.shard(((parallel_config.data_parallel, 1, 1),))
+        self.post_attention_layernorm.set_comm_fusion(parallel_config.gradient_aggregation_group)
+
         if self.layernorm_order == 'sandwich':
             self.third_layernorm = layernorm(hidden_size, param_init_type=layernorm_dtype, eps=layernorm_epsilon)
             self.fourth_layernorm = layernorm(hidden_size, param_init_type=layernorm_dtype, eps=layernorm_epsilon)
