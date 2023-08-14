@@ -36,7 +36,7 @@ def precompute_rotary_emb_cache(seq_len: int, dim: int, dtype=np.float32, base: 
     # Calculate the product of position index and $\theta_i$
     idx_theta = np.outer(seq_idx, theta).astype(np.float32)
 
-    cache = np.stack([np.cos(idx_theta), np.sin(idx_theta)], axis=-1).astype(dtype)
+    cache = np.stack((np.cos(idx_theta), np.sin(idx_theta)), axis=-1).astype(dtype)
     return cache
 
 

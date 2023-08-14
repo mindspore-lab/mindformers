@@ -381,8 +381,8 @@ class RotaryEmbeddingFP32SoftmaxSelfAttention(nn.Cell):
                                                position_ids[:, 1, :]
             q1, k1 = self.rotary_emb(q1, k1, position_ids)
             q2, k2 = self.rotary_emb(q2, k2, block_position_ids)
-            query_layer = self.concat_query([q1, q2])
-            key_layer = self.concat_query([k1, k2])
+            query_layer = self.concat_query((q1, q2))
+            key_layer = self.concat_query((k1, k2))
         else:
             # apply rotary embed on q, k: [bs, seq,  num_heads, hidden_size]
             # position_ids: bs, 2, seq_length
