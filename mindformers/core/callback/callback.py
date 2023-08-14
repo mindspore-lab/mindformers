@@ -42,6 +42,7 @@ SAVE_DIR = _cur_dir
 @MindFormerRegister.register(MindFormerModuleType.CALLBACK)
 class ObsMonitor:
     """Obs Monitor For AICC and Local"""
+
     def __new__(cls,
                 src_dir: str = None,
                 target_dir: str = None,
@@ -61,9 +62,14 @@ def _get_loss_output(output):
     overflow = False
     scaling_sens = False
     loss = output
+    learning_rate = None
     if isinstance(output, (tuple, list)):
         if len(output) == 3:
             loss, overflow, scaling_sens = output
+            if isinstance(scaling_sens, ms.Tensor):
+                scaling_sens = scaling_sens.asnumpy()
+        elif len(output) == 4:
+            loss, overflow, scaling_sens, learning_rate = output
             if isinstance(scaling_sens, ms.Tensor):
                 scaling_sens = scaling_sens.asnumpy()
         else:
@@ -78,7 +84,7 @@ def _get_loss_output(output):
         invalid_loss_info = "NaN" if np.isnan(loss) else "Inf"
         raise ValueError(f"The current value of loss is {invalid_loss_info}, terminate training.")
 
-    return loss, overflow, scaling_sens
+    return loss, overflow, scaling_sens, learning_rate
 
 
 @MindFormerRegister.register(MindFormerModuleType.CALLBACK)
@@ -173,7 +179,9 @@ class MFLossMonitor(Callback):
         cb_params = run_context.original_args()
         step_seconds = (time.time() - self.step_time) * 1000
         net_outputs = cb_params.net_outputs
-        loss, overflow, scaling_sens = _get_loss_output(net_outputs)
+        loss, overflow, scaling_sens, learning_rate = _get_loss_output(net_outputs)
+        if learning_rate is not None:
+            self.learning_rate = learning_rate
         loss = self._fix_loss_for_parallel(loss)
         self.loss_list.append(loss)
 
@@ -290,7 +298,7 @@ class MFLossMonitor(Callback):
                           overflow, scaling_sens):
         """print output information."""
         if self.learning_rate is not None:
-            if isinstance(self.learning_rate, float):
+            if isinstance(self.learning_rate, (float, Tensor)):
                 current_lr = str(self.learning_rate)
             elif isinstance(self.learning_rate, LearningRateSchedule):
                 if ms.context.get_context('device_target') == 'CPU':
@@ -351,6 +359,7 @@ class MFLossMonitor(Callback):
 @MindFormerRegister.register(MindFormerModuleType.CALLBACK)
 class SummaryMonitor:
     """Summary Monitor For AICC and Local"""
+
     def __new__(cls,
                 summary_dir=None,
                 collect_freq=10,
@@ -379,6 +388,7 @@ class SummaryMonitor:
 @MindFormerRegister.register(MindFormerModuleType.CALLBACK)
 class CheckpointMointor(ModelCheckpoint):
     """Checkpoint Monitor For Save LossScale"""
+
     def __init__(self, prefix='CKP',
                  directory=None,
                  config=None,
@@ -443,7 +453,7 @@ class CheckpointMointor(ModelCheckpoint):
 
         if save_ckpt:
             cur_ckpoint_file = self._prefix + "-" + str(cb_params.cur_epoch_num) + "_" \
-                + str(step_num_in_epoch) + ".ckpt"
+                               + str(step_num_in_epoch) + ".ckpt"
             # update checkpoint file list.
             self._manager.update_ckpoint_filelist(self._directory, self._prefix)
             # keep checkpoint files number equal max number.
@@ -527,6 +537,7 @@ class ProfileMonitor(Callback):
     """
     Profile analysis in training.
     """
+
     def __init__(self, start_step=1, stop_step=10,
                  output_path=None, start_profile=True,
                  profile_communication=False, profile_memory=True, **kwargs):
@@ -595,6 +606,7 @@ class EvalCallBack(Callback):
         epoch_interval (int): determine the num of epoch intervals between each eval.
             Default 1, means eval on every epoch end.
     """
+
     def __init__(self, eval_func: Callable, step_interval: int = -1, epoch_interval: int = 1):
         self.eval_func = eval_func
         self.step_interval = step_interval
