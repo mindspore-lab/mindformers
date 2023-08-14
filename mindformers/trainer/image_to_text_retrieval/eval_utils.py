@@ -13,71 +13,107 @@
 # limitations under the License.
 # ============================================================================
 """Image-to-text Retrieval Trainer Utils."""
-import math
-import numpy as np
-import mindspore
-import mindspore.nn as nn
+import mindspore as ms
 import mindspore.ops as ops
-from mindspore import Tensor
 from mindspore import dtype as mstype
 
+from mindformers.tools.logger import logger
+from mindformers.dataset.dataloader.multi_image_cap_dataloader import MultiImgCapDataLoader
 
-class LateSimilarity(nn.Cell):
-    """Late Similarity Class"""
-    def __init__(self):
-        super(LateSimilarity, self).__init__()
-        self.matmul = ops.MatMul(transpose_b=True)
-        self.concat = ops.Concat(1)
-        self.topk = ops.TopK(sorted=True)
-        self.equal = ops.Equal()
-        self.cast = ops.Cast()
+def extract_image_text_mapping(eval_dataloader, score_i2t, score_t2i):
+    """extract_image_text_mapping from eval_dataloader.
 
-    def construct(self, rep1, rep2):
-        batch_size1, n_token1, feat_dim = rep1.shape
-        _, n_token2, _ = rep2.shape
-        rep1 = rep1.reshape(-1, feat_dim)
-        rep2 = rep2.reshape(-1, feat_dim)
-        out = self.matmul(rep1, rep2)
-        out = out.reshape(batch_size1, n_token1, -1, n_token2)
-        out = out.max(3)
-        out = out.mean(1)
-        return out
+    Args:
+        eval_dataloader: evaluation dataloader
+        score_i2t, score_t2i: two score matrix (I2T, T2I)
+
+    Returns:
+        img2txt, txt2img: ground truth image-text mapping
+    """
+    dataloader = eval_dataloader
+    while hasattr(dataloader, "children") and dataloader.children is not None:
+        dataloader = dataloader.children[0]
+    if isinstance(dataloader, MultiImgCapDataLoader):
+        dataset = dataloader.source
+        return dataset.img2txt, dataset.txt2img
+    logger.warning("expect the eval dataset to be generate \
+        from MultiImgCapDataLoader, but is %s, will generate \
+        image-text mapping with accumulate indexes by default.", type(dataloader))
+    assert (score_i2t.shape[0], score_i2t.shape[1]) == (score_t2i.shape[1], score_t2i.shape[0])
+    image_num = score_i2t.shape[0]
+    text_num = score_t2i.shape[0]
+    if image_num == text_num:
+        inds = [i for i in range(image_num)]
+        return inds, inds
+    bigger = image_num if image_num > text_num else text_num
+    smaller = text_num if bigger == image_num else image_num
+    factor = bigger // smaller
+    smaller_inds = [[min(i + k * factor, bigger) for i in range(factor)] for k in range(smaller)]
+    bigger_inds = []
+    for i in range(smaller - 1):
+        bigger_inds += [i] * factor
+    last_num = bigger - (smaller - 1) * factor
+    bigger_inds += [smaller - 1] * last_num
+    if bigger == image_num:
+        return bigger_inds, smaller_inds
+    return smaller_inds, bigger_inds
 
 
-def late_similarity(rep1, rep2):
-    """Compute late similarity between rep1 and rep2"""
-    bs, _, _ = rep2.shape
-    matrix = LateSimilarity()
-    chunk_size = 128
-    num_shards = math.ceil(bs // 128)
-    result = []
-    for i in range(num_shards):
-        rep2_seg = rep2[chunk_size * i: chunk_size * (i + 1)]
-        result_seg = matrix(rep1, rep2_seg)
-        result.append(result_seg)
-    result = ops.Concat(1)(result)
-    return result
+def compute_itm_scores(network, eval_inputs, k_test=128, add_extra_itm_score=False):
+    """
+    compute image-text matching scores, in matrix format.
 
+    Args:
+        network (BaseModel): network for evaluate ITM
+        eval_inputs (tuple): inputs for evaluate itm scores.
+        k_test (int, optional): k_test num, Defaults to 128.
+        add_extra_itm_score (bool, optional): whether to add extra scores (model decides), Defaults to False.
 
-def get_metrics_ms(image_features: np.ndarray, text_features: np.ndarray):
-    """get evaluation metric"""
-    image_features = Tensor(image_features, dtype=mstype.float32)
-    text_features = Tensor(text_features, dtype=mstype.float32)
-    metrics = {}
+    Returns:
+        score_matrix_i2t, score_matrix_t2i: two score matrix (I2T, T2I)
+    """
+    logger.info("========= k_text num: %d =========", k_test)
+    sims_matrix = []
+    image_feats, text_feats, extra_args = eval_inputs[0], eval_inputs[1], eval_inputs[2:]
+    image_feats = ops.Cast()(image_feats, mstype.float16)
+    text_feats = ops.Cast()(text_feats, mstype.float16)
+    for image_feat in image_feats:
+        print(image_feat.shape, image_feat.dtype, text_feats.T.shape, text_feats.dtype)
+        sim_q2t = ops.matmul(image_feat, text_feats.T)
+        sim_i2t = sim_q2t.max(0)
+        sims_matrix.append(sim_i2t)
+    sims_matrix = ops.stack(sims_matrix, axis=0)
+    sims_matrix = ops.Cast()(sims_matrix, mstype.float32)
 
-    logits_per_image = late_similarity(image_features, text_features)
-    logits_per_text = late_similarity(text_features, image_features)
+    score_matrix_i2t = ms.numpy.full(
+        (image_feats.shape[0], text_feats.shape[0]), -100.0
+    )
 
-    logits = {"image_to_text": logits_per_image, "text_to_image": logits_per_text}
-    ground_truth = Tensor(np.arange(len(text_features)).reshape((-1, 1)), mindspore.int32)
+    for i, sims in enumerate(sims_matrix):
+        if i % 50 == 0:
+            print(f"I2T: {i}/{sims_matrix.shape[0]} - sims.shape: {sims.shape}")
+        topk_sim, topk_idx = ops.top_k(sims.T, k_test)
+        topk_sim = topk_sim.T
+        topk_idx = topk_idx.T
+        score_matrix_i2t[i, topk_idx] = topk_sim.astype(mstype.float32)
+        if add_extra_itm_score:
+            score = network.compute_extra_itm(extra_args, i, k_test, topk_idx, i2t=True)
+            score_matrix_i2t[i, topk_idx] += score
 
-    for name, logit in logits.items():
-        _, ranking = ops.Sort(descending=True)(logit)
-        condition = ops.equal(ranking, ground_truth)
-        condition = condition.asnumpy()
-        preds = np.nonzero(condition)[1]
-        metrics[f"{name}_mean_rank"] = preds.mean() + 1
-        metrics[f"{name}_median_rank"] = np.floor(np.median(preds)) + 1
-        for k in [1, 5, 10]:
-            metrics[f"{name}_R@{k}"] = np.mean(preds < k)
-    return metrics
+    sims_matrix = sims_matrix.T
+    score_matrix_t2i = ms.numpy.full(
+        (text_feats.shape[0], image_feats.shape[0]), -100.0
+    )
+
+    for i, sims in enumerate(sims_matrix):
+        if i % 50 == 0:
+            print(f"T2I: {i}/{sims_matrix.shape[0]} - sims.shape: {sims.shape}")
+        topk_sim, topk_idx = ops.top_k(sims.T, k_test)
+        topk_sim = topk_sim.T
+        topk_idx = topk_idx.T
+        score_matrix_t2i[i, topk_idx] = topk_sim
+        if add_extra_itm_score:
+            score = network.compute_extra_itm(extra_args, i, k_test, topk_idx, i2t=False)
+            score_matrix_t2i[i, topk_idx] += score
+
+    return score_matrix_i2t, score_matrix_t2i
