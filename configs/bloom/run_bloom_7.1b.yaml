@@ -37,7 +37,7 @@ model:
     compute_dtype: "float16"
     use_seq_parallel: False
     use_select_recompute: False
-    checkpoint_name_or_path: ""
+    checkpoint_name_or_path: "bloom_7.1b"
     eos_token_id: 2
     bos_token_id: 1
     repetition_penalty: 1
