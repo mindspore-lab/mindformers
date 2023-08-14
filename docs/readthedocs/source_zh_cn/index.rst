@@ -37,6 +37,7 @@
    docs/feature_cards/Pet_Tuners.md
    docs/feature_cards/Precision_Optimization.md
    docs/feature_cards/Performance_Tuning.md
+   docs/feature_cards/Chat_Web.md
 
 
 .. toctree::
