@@ -94,19 +94,19 @@ class ChatGLM2Tokenizer(Tokenizer):
 
     Examples:
         >>> from mindformers import AutoTokenizer
-        >>> tokenize = AutoTokenizer.from_pretrained('glm_6b')
+        >>> tokenize = AutoTokenizer.from_pretrained('glm2_6b')
         >>> tokenize("你好")
-        {'input_ids': [5, 74874, 130001, 130004], 'token_type_ids': [0, 0, 0, 0], 'attention_mask': [1, 1, 1, 1]}
+        {'input_ids': [64790, 64792, 36474, 54591], 'attention_mask': [1, 1, 1, 1]}
         >>> from mindformers import ChatGLM2Tokenizer
-        >>> tokenizer = ChatGLM2Tokenizer('ice_text.model')
+        >>> tokenizer = ChatGLM2Tokenizer('tokenizer.model')
         >>> prompts = ["晚上睡不着应该怎么办"]
         >>> token_id = tokenizer(prompts)
         >>> input_ids = token_id['input_ids']
         >>> print(input_ids)
-        [64790, 64792, 30910, 32820, 54266, 31876, 35153]
+        [[64790, 64792, 30910, 32820, 54266, 31876, 35153]]
         >>> response = tokenizer.decode(input_ids)
         >>> print(response)
-        晚上睡不着应该怎么办
+        ['晚上睡不着应该怎么办']
 
 
     Outputs:
