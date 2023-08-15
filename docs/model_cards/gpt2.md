@@ -310,17 +310,17 @@ GPT2支持文本生成和文本分类两个任务的评测。
         ```bash
         cd mindformers/tools/dataset_preprocess/gpt2
         python wikitext2_data_process.py --input_file {your_path/wiki.valid.tokens} \
-                                       --output_file {your_path/wikitext-2.mindrecord}
+                                         --output_file {your_path/wikitext-2.mindrecord}
         ```
 
     - 开启评测：
         - WikiText2
 
         ```bash
-        python run_mindformers.py --config configs/gpt2/run_gpt2.yaml \
-                                  --eval_dataset_dir {your_path/wikitext-2.mindrecord} \
-                                  --run_mode eval \
-                                  --epochs 1
+        python run_mindformer.py --config configs/gpt2/run_gpt2.yaml \
+                                 --eval_dataset_dir {your_path/wikitext-2.mindrecord} \
+                                 --run_mode eval \
+                                 --epochs 1
         # PerplexityMetric: {'PerplexityMetric': {'loss': 3.24, 'PPL': 25.55}
         ```
 
@@ -348,9 +348,9 @@ GPT2支持文本生成和文本分类两个任务的评测。
     ```bash
     # 运行前请确保run_gpt2_txtcls.yaml中的model.model_config.num_labels准确，具体的，
     # sst2/cola/imdb: num_labels = 2, agnews: num_labels = 4
-    python run_mindformers.py --config configs/gpt2/run_gpt2_txtcls.yaml \
-                              --train_dataset_dir {your_path/dataset_name.train.mindrecord} \
-                              --run_mode finetune
+    python run_mindformer.py --config configs/gpt2/run_gpt2_txtcls.yaml \
+                             --train_dataset_dir {your_path/dataset_name.train.mindrecord} \
+                             --run_mode finetune
     ```
 
     - 开启评测：评测指标为ACC
@@ -358,9 +358,9 @@ GPT2支持文本生成和文本分类两个任务的评测。
     ```bash
     # 运行前请确保run_gpt2_txtcls.yaml中的model.model_config.num_labels准确，具体的，
     # sst2/cola/imdb: num_labels = 2, agnews: num_labels = 4
-    python run_mindformers.py --config configs/gpt2/run_gpt2_txtcls.yaml \
-                              --eval_dataset_dir {your_path/dataset_name.dev.mindrecord} \
-                              --run_mode eval \
-                              --epochs 1
+    python run_mindformer.py --config configs/gpt2/run_gpt2_txtcls.yaml \
+                             --eval_dataset_dir {your_path/dataset_name.dev.mindrecord} \
+                             --run_mode eval \
+                             --epochs 1
     # ACC: COLA-0.693, SST-2-0.908, IMDB-0.934, AG-News-0.941
     ```

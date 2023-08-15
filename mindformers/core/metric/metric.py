@@ -768,6 +768,7 @@ class EmF1Metric(nn.Metric):
         """Update results for every batch"""
         gen, label = inputs[0], inputs[1]
         for i in range(len(gen)):
+            gen[i] = gen[i].strip()
             gen[i] = gen[i].split("\n")[0]
 
         print(f"pred is:\n {gen}\n",
