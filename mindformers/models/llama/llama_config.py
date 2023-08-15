@@ -53,7 +53,7 @@ class LlamaConfig(BaseConfig):
                  use_past: bool = False,
                  pretrain_seqlen: int = 2048,
                  extend_method: str = "None",
-                 compute_in_2d=False,
+                 compute_in_2d: bool = False,
                  offset: int = 0,
                  checkpoint_name_or_path: str = "",
                  repetition_penalty: float = 1.0,

@@ -165,6 +165,7 @@ class LlamaModel(BaseModel):
                                          softmax_compute_dtype=config.softmax_compute_type,
                                          param_init_type=config.param_init_type,
                                          use_past=config.use_past,
+                                         compute_in_2d=config.compute_in_2d,
                                          parallel_config=config.parallel_config)
                 layer_compute_dtype(layer, layer_id, config.offset,
                                     config.parallel_config, self.num_layers)
@@ -177,7 +178,10 @@ class LlamaModel(BaseModel):
                 self.norm_out.set_comm_fusion(2)
             else:
                 self.norm_out.set_comm_fusion(config.parallel_config.gradient_aggregation_group)
-            self.norm_out.shard(((config.parallel_config.data_parallel, 1, 1),))
+            if config.compute_in_2d:
+                self.norm_out.shard(((config.parallel_config.data_parallel, 1),))
+            else:
+                self.norm_out.shard(((config.parallel_config.data_parallel, 1, 1),))
             self.norm_out.pipeline_stage = config.parallel_config.pipeline_stage - 1
             if config.parallel_config.pipeline_stage > 1:
                 self.norm_out.set_comm_fusion(2)
