@@ -270,7 +270,7 @@ class MFLossMonitor(Callback):
                 with open(os.path.join(modelarts_dir, "model_analysis_results.json"), "w") as fp:
                     json.dump(obj, fp)
 
-        if check_in_modelarts():
+        if check_in_modelarts() and int(os.getenv("RANK_ID", "0")) == int(os.getenv("RANK_SIZE", "1")) - 1:
             dump_info_to_modelarts(ma_step_num=cur_step_num, ma_loss=loss)
 
         if auto_parallel:

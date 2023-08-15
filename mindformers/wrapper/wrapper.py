@@ -13,6 +13,7 @@
 # limitations under the License.
 # ============================================================================
 """Self-Define Wrapper."""
+from copy import deepcopy
 from mindspore.common.tensor import Tensor
 from mindspore.common import RowTensor
 from mindspore.ops import composite as C
@@ -90,7 +91,7 @@ class MFTrainOneStepCell(nn.TrainOneStepWithLossScaleCell):
         self.use_clip_grad = use_clip_grad
         self.clip_grad_norm = ClipGradNorm(max_norm=max_grad_norm)
         self.parallel_config = kwargs.pop("parallel_config", None)
-        self.learning_rate = self.optimizer.learning_rate
+        self.learning_rate = deepcopy(self.optimizer.learning_rate)
 
     def construct(self, *inputs):
         """forward and backward."""
@@ -217,7 +218,7 @@ class MFPipelineWithLossScaleCell(nn.TrainOneStepCell):
         self.clip_grad_norm = ClipGradNorm(max_norm=max_grad_norm)
         self.micro_size = micro_batch_num
         self.parallel_config = kwargs.pop("parallel_config", None)
-        self.learning_rate = self.optimizer.learning_rate
+        self.learning_rate = deepcopy(self.optimizer.learning_rate)
 
     @C.add_flags(has_effect=True)
     def construct(self, *inputs):
