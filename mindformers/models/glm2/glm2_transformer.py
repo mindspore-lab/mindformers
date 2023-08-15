@@ -233,7 +233,7 @@ class ChatGLM2SelfAttention(nn.Cell):
         rope_cache_0, rope_cache_1 = ops.split(rope_cache, 1, -1)
         x_out1 = self.sub(self.mul(xshaped_0, rope_cache_0), self.mul(xshaped_1, rope_cache_1))
         x_out2 = self.add(self.mul(xshaped_1, rope_cache_0), self.mul(xshaped_0, rope_cache_1))
-        x_out = self.stack([x_out1, x_out2])
+        x_out = self.stack((x_out1, x_out2))
         x_out = self.reshape(x_out, (x_out.shape[0], x_out.shape[1], x_out.shape[2], -1))
         # [bs, sq, nh, hidden_size_per_head]
         return self.concat((x_out, x_pass))
