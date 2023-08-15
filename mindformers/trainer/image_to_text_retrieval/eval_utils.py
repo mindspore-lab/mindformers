@@ -13,11 +13,11 @@
 # limitations under the License.
 # ============================================================================
 """Image-to-text Retrieval Trainer Utils."""
-import mindspore as ms
-import mindspore.ops as ops
-from mindspore import dtype as mstype
+import numpy as np
+from mindspore import Tensor
 
 from mindformers.tools.logger import logger
+from mindformers.generation.utils import topk
 from mindformers.dataset.dataloader.multi_image_cap_dataloader import MultiImgCapDataLoader
 
 def extract_image_text_mapping(eval_dataloader, score_i2t, score_t2i):
@@ -58,7 +58,6 @@ def extract_image_text_mapping(eval_dataloader, score_i2t, score_t2i):
         return bigger_inds, smaller_inds
     return smaller_inds, bigger_inds
 
-
 def compute_itm_scores(network, eval_inputs, k_test=128, add_extra_itm_score=False):
     """
     compute image-text matching scores, in matrix format.
@@ -75,45 +74,46 @@ def compute_itm_scores(network, eval_inputs, k_test=128, add_extra_itm_score=Fal
     logger.info("========= k_text num: %d =========", k_test)
     sims_matrix = []
     image_feats, text_feats, extra_args = eval_inputs[0], eval_inputs[1], eval_inputs[2:]
-    image_feats = ops.Cast()(image_feats, mstype.float16)
-    text_feats = ops.Cast()(text_feats, mstype.float16)
+    image_feats = image_feats.asnumpy()
+    text_feats = text_feats.asnumpy()
     for image_feat in image_feats:
         print(image_feat.shape, image_feat.dtype, text_feats.T.shape, text_feats.dtype)
-        sim_q2t = ops.matmul(image_feat, text_feats.T)
+        sim_q2t = np.matmul(image_feat, text_feats.T)
         sim_i2t = sim_q2t.max(0)
         sims_matrix.append(sim_i2t)
-    sims_matrix = ops.stack(sims_matrix, axis=0)
-    sims_matrix = ops.Cast()(sims_matrix, mstype.float32)
+    sims_matrix = np.stack(sims_matrix, axis=0)
 
-    score_matrix_i2t = ms.numpy.full(
+    score_matrix_i2t = np.full(
         (image_feats.shape[0], text_feats.shape[0]), -100.0
     )
 
     for i, sims in enumerate(sims_matrix):
         if i % 50 == 0:
             print(f"I2T: {i}/{sims_matrix.shape[0]} - sims.shape: {sims.shape}")
-        topk_sim, topk_idx = ops.top_k(sims.T, k_test)
+        topk_sim, topk_idx = topk(sims.T, k_test)
         topk_sim = topk_sim.T
         topk_idx = topk_idx.T
-        score_matrix_i2t[i, topk_idx] = topk_sim.astype(mstype.float32)
+        score_matrix_i2t[i, topk_idx] = topk_sim # .astype(mstype.float32)
         if add_extra_itm_score:
-            score = network.compute_extra_itm(extra_args, i, k_test, topk_idx, i2t=True)
-            score_matrix_i2t[i, topk_idx] += score
+            topk_idx_ms = Tensor.from_numpy(topk_idx)
+            score = network.compute_extra_itm(extra_args, i, k_test, topk_idx_ms, i2t=True)
+            score_matrix_i2t[i, topk_idx] += score.asnumpy()
 
     sims_matrix = sims_matrix.T
-    score_matrix_t2i = ms.numpy.full(
+    score_matrix_t2i = np.full(
         (text_feats.shape[0], image_feats.shape[0]), -100.0
     )
 
     for i, sims in enumerate(sims_matrix):
         if i % 50 == 0:
             print(f"T2I: {i}/{sims_matrix.shape[0]} - sims.shape: {sims.shape}")
-        topk_sim, topk_idx = ops.top_k(sims.T, k_test)
+        topk_sim, topk_idx = topk(sims.T, k_test)
         topk_sim = topk_sim.T
         topk_idx = topk_idx.T
         score_matrix_t2i[i, topk_idx] = topk_sim
         if add_extra_itm_score:
-            score = network.compute_extra_itm(extra_args, i, k_test, topk_idx, i2t=False)
-            score_matrix_t2i[i, topk_idx] += score
+            topk_idx_ms = Tensor.from_numpy(topk_idx)
+            score = network.compute_extra_itm(extra_args, i, k_test, topk_idx_ms, i2t=False)
+            score_matrix_t2i[i, topk_idx] += score.asnumpy()
 
     return score_matrix_i2t, score_matrix_t2i
