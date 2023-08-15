@@ -238,6 +238,7 @@ if __name__ == "__main__":
              'Default: None')
 
     args_, rest_args_ = parser.parse_known_args()
+    rest_args_ = [i for item in rest_args_ for i in item.split("=")]
     if len(rest_args_) % 2 != 0:
         raise ValueError(f"input arg key-values are not in pair, please check input args. ")
 
