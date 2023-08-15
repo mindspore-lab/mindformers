@@ -93,7 +93,7 @@ print(response)
 >>> task_pipeline = Pipeline(task='text_generation', model='glm2_6b', max_length=2048)
 >>> task_pipeline('你好')
 [{'text_generation_text': ['你好，我是 ChatGLM2-6B， 一个人工智能助手。我背后使用的模型是 GLM2-6B， 是一种大型语言模型， 具有超过 2000 亿参数，支持多种任务。']}]
->>> pipeline = TextGenerationPipeline(model='glm2_6b', tokenizer, max_length=2048)
+>>> pipeline = TextGenerationPipeline(model='glm2_6b', max_length=2048)
 >>> pipeline("你好")
 [{'text_generation_text': ['你好，我是 ChatGLM2-6B， 一个人工智能助手。我背后使用的模型是 GLM2-6B， 是一种大型语言模型， 具有超过 2000 亿参数，支持多种任务。']}]
 ```
@@ -233,7 +233,7 @@ RANK_TABLE_FILE 单机8卡参考样例:
 ```shell
 cd scripts
 # Usage Help: bash run_distribute.sh [RANK_TABLE_FILE] [CONFIG_PATH] [DEVICE_RANGE] [RUN_STATUS]
-bash run_distribute.sh /path/to/hccl_8p_01234567_127.0.1.1.json ../configs/glm2/run_glm2_6b_finetune.yaml '[0,8]' finetune
+bash run_distribute.sh /path/to/hccl_8p_01234567_127.0.1.1.json ../configs/glm2/run_glm2_6b.yaml '[0,8]' finetune
 # 将此处rank_table_file替换为实际路径
 ```
 
