@@ -218,7 +218,7 @@ class CausalLanguageModelingTrainer(BaseTrainer):
         total_tokens_num = 0
         total_time = 0.0001
         pad_token_id = tokenizer.pad_token_id
-        len_dataset = len(dataset)
+        len_dataset = dataset.get_dataset_size()
         for i, inputs in enumerate(dataset.create_dict_iterator()):
             input_ids = inputs['input_ids'].asnumpy()
             labels = inputs['labels'].asnumpy()
