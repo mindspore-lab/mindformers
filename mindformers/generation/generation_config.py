@@ -1,18 +1,16 @@
-# Copyright 2023 Huawei Technologies Co., Ltd
+# Copyright 2022 The HuggingFace Inc. team.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-# http://www.apache.org/licenses/LICENSE-2.0
+#     http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# This file was refer to project:
-# https://github.com/huggingface/transformers/blob/main/src/transformers/generation/configuration_utils.py
 # ============================================================================
 """generation config."""
 import copy
@@ -55,6 +53,10 @@ class GenerationConfig:
         encoder_repetition_penalty (`float`, *optional*, defaults to 1.0):
             The parameter for encoder_repetition_penalty. An exponential penalty on sequences
             that are not in the original input. 1.0 means no penalty.
+        renormalize_logits (`bool`, *optional*, defaults to `False`):
+            Whether to renormalize the logits after applying all the logits processors or warpers (including the custom
+            ones). It's highly recommended to set this flag to `True` as the search algorithms suppose the score logits
+            are normalized but some logit processors or warpers break the normalization.
 
         > Special tokens that can be used at generation time
 
@@ -88,6 +90,7 @@ class GenerationConfig:
         self.top_p = kwargs.pop("top_p", 1.0)
         self.repetition_penalty = kwargs.pop("repetition_penalty", 1.0)
         self.encoder_repetition_penalty = kwargs.pop("encoder_repetition_penalty", 1.0)
+        self.renormalize_logits = kwargs.pop("renormalize_logits", False)
 
         # Special tokens that can be used at generation time
         self.pad_token_id = kwargs.pop("pad_token_id", None)
