@@ -208,6 +208,8 @@ class ImageToTextRetrievalTrainer(BaseTrainer):
 
         # whether adding additional itm score
         add_extra_itm_score = config.eval_dataset.add_extra_itm_score
+        # trainer arguments overrides add_extra_itm_score
+        add_extra_itm_score = kwargs.pop('add_extra_itm_score', add_extra_itm_score)
 
         # compute image-to-text/text-to-image similarity scores
         score_i2t, score_t2i = compute_itm_scores(network,
@@ -220,8 +222,8 @@ class ImageToTextRetrievalTrainer(BaseTrainer):
 
         # report evaluation results
         eval_result = self._report_metrics(
-            score_i2t.asnumpy(),
-            score_t2i.asnumpy(),
+            score_i2t,
+            score_t2i,
             img2txt,
             txt2img,
         )

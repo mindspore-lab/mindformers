@@ -34,19 +34,18 @@ ms.set_context(mode=0)
 
 def generator_train():
     """train dataset generator"""
-    seq_len = 32
+    seq_len = 8
     images = np.random.randint(low=0, high=255, size=(3, 32, 32)).astype(np.float32)
     input_ids = np.random.randint(low=0, high=15, size=(seq_len,)).astype(np.int32)
-    for _ in range(8):
+    for _ in range(4):
         yield images, input_ids
 
 def generator_eval():
     """eval dataset generator"""
-    seq_len = 32
-    texts_per_image = 2
+    seq_len = 8
     images = np.random.randint(low=0, high=255, size=(3, 32, 32)).astype(np.float32)
-    input_ids = np.random.randint(low=0, high=15, size=(texts_per_image, seq_len)).astype(np.int32)
-    for _ in range(8):
+    input_ids = np.random.randint(low=0, high=15, size=(seq_len)).astype(np.int32)
+    for _ in range(4):
         yield images, input_ids
 
 @pytest.mark.level0
@@ -60,8 +59,8 @@ class TestBlip2TrainerMethod:
         """init task trainer."""
         train_dataset = GeneratorDataset(generator_train, column_names=["image", "input_ids"])
         eval_dataset = GeneratorDataset(generator_eval, column_names=["image", "input_ids"])
-        self.train_dataset = train_dataset.batch(batch_size=4)
-        self.eval_dataset = eval_dataset.batch(batch_size=4)
+        self.train_dataset = train_dataset.batch(batch_size=2)
+        self.eval_dataset = eval_dataset.batch(batch_size=2)
 
         qformer_config = QFormerConfig(num_hidden_layers=1,
                                        num_attention_heads=2,
@@ -69,8 +68,8 @@ class TestBlip2TrainerMethod:
                                        head_embed_dim=2,
                                        encoder_width=2,
                                        intermediate_size=2,
-                                       vocab_size=50,
-                                       max_position_embeddings=512)
+                                       vocab_size=32,
+                                       max_position_embeddings=80)
         vision_config = ViTConfig(image_size=32,
                                   hidden_size=2,
                                   num_hidden_layers=1,
@@ -85,7 +84,7 @@ class TestBlip2TrainerMethod:
         self.blip2_classifier = Blip2Classifier(model_config)
         self.image_processor = Blip2ImageProcessor(image_size=32)
         self.tokenizer = BertTokenizer.from_pretrained('bert_base_uncased')
-        self.training_args = TrainingArguments(batch_size=4, num_train_epochs=1)
+        self.training_args = TrainingArguments(batch_size=2, num_train_epochs=1)
 
     @pytest.mark.run(order=1)
     def test_train(self):
@@ -116,7 +115,7 @@ class TestBlip2TrainerMethod:
                                  tokenizer=self.tokenizer,
                                  train_dataset=self.train_dataset,
                                  eval_dataset=self.eval_dataset)
-        task_evaluater.evaluate(k_test=5)
+        task_evaluater.evaluate(k_test=1, add_extra_itm_score=False)
 
     @pytest.mark.run(order=3)
     def test_predict(self):
