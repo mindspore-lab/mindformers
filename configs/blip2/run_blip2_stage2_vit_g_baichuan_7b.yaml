@@ -1,5 +1,5 @@
 seed: 42
-run_mode: 'train'
+run_mode: 'finetune'
 output_dir: './output'  # 当前不支持自定义修改，请勿修改该默认值
 load_checkpoint: ''
 src_strategy_path_or_dir: ''
@@ -25,7 +25,7 @@ remote_save_url: "Please input obs url on AICC platform."
 # runner
 runner_config:
   epochs: 10
-  batch_size: 80
+  batch_size: &batch_size 16
   sink_size: 2
   image_size: 224
   sink_mode: True
@@ -37,7 +37,7 @@ runner_wrapper:
   sens: 1024
 
 # parallel
-use_parallel: True
+use_parallel: False
 parallel:
   parallel_mode: 0 # 0-dataset, 1-semi, 2-auto, 3-hybrid
   gradients_mean: True
@@ -45,7 +45,7 @@ parallel:
   enable_parallel_optimizer: False
   full_batch: False
 parallel_config:
-  data_parallel: 2
+  data_parallel: 1
   model_parallel: 1
   pipeline_stage: 1
   optimizer_shard: False
@@ -77,7 +77,7 @@ profile_memory: True
 # Trainer
 trainer:
   type: ContrastiveLanguageImagePretrainTrainer
-  model_name: 'blip2_vit_g'
+  model_name: 'blip2_stage2_vit_g_baichuan_7b'
 
 # train dataset
 train_dataset: &train_dataset
@@ -94,6 +94,7 @@ train_dataset: &train_dataset
     ]
     stage: "train"
     column_names: ["image", "text"]
+    shuffle: True
   transforms:
     - type: RandomResizedCrop
       size: 224
@@ -109,42 +110,51 @@ train_dataset: &train_dataset
     type: CaptionTransform
     prompt: ""
     max_words: 50
-    max_length: 32
+    max_length: 33  # it equals to Blip2Config.max_txt_len + 1 for constructing labels
     padding: 'max_length'
     random_seed: 2022
     truncation: True
-  tokenizer:
-    type: BertTokenizer
-    pad_token: '[PAD]'
-    bos_token: '[DEC]'
     add_special_tokens: True
+  tokenizer:
+    type: LlamaTokenizer
+    unk_token: '<unk>'
+    bos_token: '<s>'
+    eos_token: '</s>'
+    pad_token: '<pad>'
+    add_special_tokens: False
     padding: 'max_length'
     truncation: True
-    max_length: 32
+    max_length: 33  # it equals to Blip2Config.max_txt_len + 1 for constructing labels
+    add_bos_token: False
+    add_eos_token: True
+    vocab_file: ""
+
   num_parallel_workers: 8
   python_multiprocessing: False
   drop_remainder: True
-  batch_size: 1
+  batch_size: 4
   repeat: 1
   numa_enable: False
   prefetch_size: 30
   seed: 2022
-  return_attention_mask: True
 train_dataset_task:
   type: ContrastiveLanguageImagePretrainDataset
   dataset_config: *train_dataset
-
 # model
 model:
   model_config:
     type: Blip2Config
+    batch_size: *batch_size
     freeze_vision: True
+    freeze_text: True
     max_txt_len: 32
     checkpoint_name_or_path: ""
     dtype: "float32"
     compute_dtype: "float16"
     layernorm_dtype: "float32"
     softmax_dtype: "float32"
+    prompt: False
+    prompt_length: 0
     vision_config:
       type: ViTConfig
       image_size: 224
@@ -155,7 +165,7 @@ model:
       num_hidden_layers: 39
       num_attention_heads: 16
       intermediate_size: 6144
-      qkv_bias: true
+      qkv_bias: True
       hidden_act: gelu
       post_layernorm_residual: false
       layer_norm_eps: 1.0e-6
@@ -164,88 +174,88 @@ model:
       drop_path_rate: 0.0
       use_mean_pooling: false
       encoder_stride: 16
-      checkpoint_name_or_path: "vit_large_p16"
+      checkpoint_name_or_path: "vit_g_p16"
 
     qformer_config:
-      num_hidden_layers: 12
-      num_attention_heads: 12
-      query_length: 32
-      vocab_size: 30522
-      hidden_size: 768
-      encoder_width: 1408
-      bos_token_id: 30522
-      sep_token_id: 102
-      pad_token_id: 0
-      max_position_embeddings: 512
-      layer_norm_eps: 1.e-12
-      hidden_dropout_prob: 0.1
-      attention_probs_dropout_prob: 0.1
-      chunk_size_feed_forward: 0
-      cross_attention_freq: 2
-      intermediate_size: 3072
-      initializer_range: 0.02
-      hidden_act: "gelu"
-      dtype: "float32"
-      layernorm_dtype: "float32"
-      softmax_dtype: "float32"
-      compute_dtype: "float16"
-      add_cross_attention: True
-      use_relative_positions: False
-      tie_word_embeddings: True
-      output_attentions: False
-      output_hidden_states: False
-      use_return_dict: False
-      convert_param_from_bert: True
-      checkpoint_name_or_path: "bert_base_uncased"
-  arch:
-    type: Blip2Qformer
+      vocab_size: 44728
 
-# lr sechdule
+    text_config:
+      type: LlamaConfig
+      seq_length: 64  # sum of max_txt_len and num_query_token
+      hidden_size: 4096
+      num_layers: 32
+      num_heads: 32
+      vocab_size: 64001
+      multiple_of: 256
+      rms_norm_eps: 1.0e-6
+      bos_token_id: 1
+      eos_token_id: 2
+      pad_token_id: 0
+      ignore_token_id: -100
+      compute_dtype: "float16"
+      layernorm_compute_type: "float32"
+      softmax_compute_type: "float32"
+      rotary_dtype: "float16"
+      param_init_type: "float16"
+      use_past: False
+      offset: 0
+      repetition_penalty: 1
+      max_decode_length: 512
+      top_k: 3
+      top_p: 1
+      do_sample: False
+      checkpoint_name_or_path: ""
+  arch:
+    type: Blip2Llama
+
+# lr schedule
 lr_schedule:
-  type: cosine
+  type: CosineWithWarmUpLR
   learning_rate: 1.e-4
   lr_end: 1.e-5
   warmup_lr_init: 1.e-6
-  warmup_steps: 5000
+  warmup_steps: 2000
   total_steps: -1 # -1 means it will load the total steps of the dataset
 layer_scale: False
+layer_decay: 0.65
 lr_scale: False
+lr_scale_factor: 256
 
 # optimizer
 optimizer:
-  type: adamw
+  type: FP32StateAdamWeightDecay
   beta1: 0.9
   beta2: 0.98
-  eps: 1.e-8
+  eps: 1.e-8 # 1e-8
   weight_decay: 0.05
+  learning_rate: 1.e-4
 
 # callbacks
 callbacks:
   - type: MFLossMonitor
   - type: CheckpointMointor
-    prefix: "blip2_qformer"
+    prefix: "blip2_stage2_vig_g_baichuan_7b"
     save_checkpoint_steps: 10000
     integrated_save: True
     async_save: False
   - type: ObsMonitor
-    step_upload_frequence: 1000
 eval_callbacks:
   - type: ObsMonitor
 
-# image processor, tokenizer for prediction
+
+# processor
 processor:
   type: Blip2Processor
   image_processor:
     type: Blip2ImageProcessor
-    image_size: 224
-    mean: [0.48145466, 0.4578275, 0.40821073]
-    std: [0.26862954, 0.26130258, 0.27577711]
-    is_hwc: False
+    image_size: 224  # input image size
   tokenizer:
-    type: BertTokenizer
-    pad_token: '[PAD]'
-    bos_token: '[DEC]'
-    add_special_tokens: True
+    type: LlamaTokenizer
+    pad_token: '<pad>'
+    bos_token: '<s>'
+    unk_token: '</s>'
+    eos_token: '</s>'
+    add_special_tokens: False
     padding: 'max_length'
     truncation: True
     max_length: 32

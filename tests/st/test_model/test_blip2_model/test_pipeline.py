@@ -20,7 +20,7 @@ pytest tests/st/test_model/test_blip2_model/test_pipeline.py
 from PIL import Image
 import mindspore as ms
 
-from mindformers import pipeline
+from mindformers import pipeline, BasePipeline
 
 ms.set_context(mode=0, device_id=7)
 
@@ -29,7 +29,7 @@ class TestBlip2PipelineMethod:
     """A test class for testing pipeline."""
     def setup_method(self):
         """setup method."""
-        self.test_llm_list = ['blip2_classification']
+        self.test_llm_list = ['blip2_stage1_classification']
 
     def test_pipeline(self):
         """
@@ -45,3 +45,23 @@ class TestBlip2PipelineMethod:
 
             image = Image.new('RGB', (512, 512))
             classifier(image)
+
+
+class TestBlip2SecondStagePipelineMethod:
+    """A test class for testing pipeline of ImageToTextGeneration."""
+    def setup_method(self):
+        """setup method."""
+        self.test_llm_list = ['itt_blip2_stage2_vit_g_llama_7b']
+
+    def test_pipeline(self):
+        """
+        Feature: pipeline.
+        Description: Test pipeline by input model type.
+        Expectation: TypeError, ValueError, RuntimeError
+        """
+        for model_type in self.test_llm_list:
+            generator = pipeline("image_to_text_generation",
+                                 model=model_type, max_length=32)
+            assert isinstance(generator, BasePipeline)
+            image = Image.new('RGB', (448, 448))
+            generator(image, hypothesis_template='a picture of ')

@@ -123,7 +123,7 @@ class CaptionTransform:
     align with torch impl.
     """
     def __init__(self, tokenizer, prompt="", max_words=50, max_length=32,
-                 padding="max_length", random_seed=2022, truncation=True):
+                 padding="max_length", random_seed=2022, truncation=True, add_special_tokens=True):
         self.tokenizer = tokenizer
         self.prompt = prompt
         self.max_words = max_words
@@ -131,6 +131,7 @@ class CaptionTransform:
         self.padding = padding
         self.random_seed = random_seed
         self.truncation = truncation
+        self.add_special_tokens = add_special_tokens
 
     def __call__(self, caption):
         if caption.ndim == 1:
@@ -168,6 +169,7 @@ class CaptionTransform:
             caption = " ".join(caption_words[: self.max_words])
 
         output = self.tokenizer(caption, max_length=self.max_length,
-                                padding=self.padding, truncation=self.truncation)
+                                padding=self.padding, truncation=self.truncation,
+                                add_special_tokens=self.add_special_tokens)
         input_ids = np.array(output["input_ids"], dtype=np.int32)
         return input_ids

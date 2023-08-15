@@ -33,7 +33,57 @@ class TestBlip2AutoClassMethod:
     def setup_method(self):
         """setup method."""
         self.save_directory = MindFormerBook.get_default_checkpoint_save_folder()
-        self.test_llm_list = ['blip2_vit_g']
+        self.test_llm_list = ['blip2_stage1_vit_g']
+
+    def test_llm_model(self):
+        """
+        Feature: AutoModel.
+        Description: Test to get LL-Model instance by input model type.
+        Expectation: TypeError, ValueError, RuntimeError
+        """
+        # input model name, load model and weights
+        for model_type in self.test_llm_list:
+            model = AutoModel.from_pretrained(model_type)
+            assert isinstance(model, BaseModel)
+            model.save_pretrained(
+                save_directory=os.path.join(self.save_directory, model_type),
+                save_name=model_type + '_model')
+
+    def test_llm_config(self):
+        """
+        Feature: AutoConfig.
+        Description: Test to get config instance by input config type.
+        Expectation: TypeError, ValueError, RuntimeError
+        """
+        # input model config name, load model and weights
+        for config_type in self.test_llm_list:
+            model_config = AutoConfig.from_pretrained(config_type)
+            assert isinstance(model_config, BaseConfig)
+            model_config.save_pretrained(
+                save_directory=os.path.join(self.save_directory, config_type),
+                save_name=config_type + '_config')
+
+    def test_llm_processor(self):
+        """
+        Feature: AutoConfig.
+        Description: Test to get config instance by input config type.
+        Expectation: TypeError, ValueError, RuntimeError
+        """
+        # input processor name
+        for processor_type in self.test_llm_list:
+            processor = AutoProcessor.from_pretrained(processor_type)
+            assert isinstance(processor, BaseProcessor)
+            processor.save_pretrained(
+                save_directory=os.path.join(self.save_directory, processor_type),
+                save_name=processor_type + '_processor')
+
+
+class TestBlip2SecondStageAutoClassMethod:
+    """A test class for testing Model classes of Blip2 second stage"""
+    def setup_method(self):
+        """setup method."""
+        self.save_directory = MindFormerBook.get_default_checkpoint_save_folder()
+        self.test_llm_list = ['blip2_stage2_vit_g_llama_7b', 'itt_blip2_stage2_vit_g_llama_7b']
 
     def test_llm_model(self):
         """

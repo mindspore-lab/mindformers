@@ -28,6 +28,7 @@ from mindspore import Tensor
 import mindspore.numpy as np
 from mindspore.ops import operations as P
 
+from mindformers.mindformer_book import MindFormerBook
 from mindformers.modules.layers import Linear
 from mindformers.models.blip2.blip2 import Blip2Base
 from mindformers.models.blip2.blip2_config import Blip2Config
@@ -62,8 +63,10 @@ class Blip2Qformer(Blip2Base):
     BLIP2 first-stage model with Q-former and ViT.
     Usage:
         >>> from mindformers.models.blip2 import Blip2Qformer
-        >>> model = Blip2Qformer.from_pretrained("blip2_vit_g")
+        >>> model = Blip2Qformer.from_pretrained("blip2_stage1_vit_g")
     """
+
+    _support_list = MindFormerBook.get_model_support_list()['blip2']['1-stg']
 
     def __init__(self, config: Blip2Config, **kwargs):
         super(Blip2Qformer, self).__init__(config, **kwargs)
@@ -516,7 +519,7 @@ class Blip2Classifier(Blip2Qformer):
     Blip2Classifier rely on Blip2Qformer, used for zero-shot classification.
     Usage:
         >>> from mindformers import AutoModel
-        >>> model_type = 'blip2_classification'
+        >>> model_type = 'blip2_stage1_classification'
         >>> model = AutoModel.from_pretrained(model_type)
     """
 
