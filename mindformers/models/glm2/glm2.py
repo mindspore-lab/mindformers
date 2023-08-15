@@ -110,7 +110,7 @@ class ChatGLM2Model(nn.Cell):
         attention_mask = self.less(low_triangle, 0.5)
         if self.use_past and not self.is_first_iteration:
             # [bs, 1, seq_len] for incremental infer
-            attention_mask = self.gather(attention_mask, input_position, 1)
+            attention_mask = self.gather(attention_mask.view(-1, self.seq_length), input_position, 0)
         # [bs, 1, seq_len, seq_len] for normal, [bs, 1, 1, seq_len] for incremental infer
         attention_mask = self.reshape(attention_mask, (batch_size, 1, -1, self.seq_length))
         return attention_mask
@@ -136,10 +136,10 @@ class ChatGLM2Model(nn.Cell):
 
         # (sen length, kv_channels // 4, 2)
         rotary_pos_emb = self.rotary_pos_emb
-        if self.use_past and not self.is_first_iteration and input_position is not None:
+        if self.use_past and not self.is_first_iteration and batch_valid_length is not None:
             # only take [bs, 1, kv_channels // 4, 2]
-            input_position = input_position.view(-1, 1)  # [bs, seq_len=1]
-            rotary_pos_emb = self.gather(rotary_pos_emb, input_position, 0)
+            batch_gather_position = batch_valid_length.view(-1, 1) - 1  # [bs, seq_len=1]
+            rotary_pos_emb = self.gather(rotary_pos_emb, batch_gather_position, 0)
 
         # Run encoder.
         hidden_states = self.encoder(
