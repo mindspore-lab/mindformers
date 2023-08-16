@@ -89,8 +89,8 @@ print(response)
 也可以不实例化构造模型，直接通过指定任务模型与模型名的方式进行pipeline的构造
 
 ```python
->>> from mindformers import Pipeline, TextGenerationPipeline
->>> task_pipeline = Pipeline(task='text_generation', model='glm2_6b', max_length=2048)
+>>> from mindformers import pipeline, TextGenerationPipeline
+>>> task_pipeline = pipeline(task='text_generation', model='glm2_6b', max_length=2048)
 >>> task_pipeline('你好')
 [{'text_generation_text': ['你好，我是 ChatGLM2-6B， 一个人工智能助手。我背后使用的模型是 GLM2-6B， 是一种大型语言模型， 具有超过 2000 亿参数，支持多种任务。']}]
 >>> pipeline = TextGenerationPipeline(model='glm2_6b', max_length=2048)
