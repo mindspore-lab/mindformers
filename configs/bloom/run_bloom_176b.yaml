@@ -22,7 +22,7 @@ model:
     type: BloomConfig
     seq_length: 2048
     vocab_size: 250880
-    embedding_size: 14336
+    hidden_size: 14336
     num_layers: 70
     num_heads: 112
     expand_ratio: 4

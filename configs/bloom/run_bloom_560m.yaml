@@ -26,12 +26,12 @@ model:
     num_layers: 24
     num_heads: 16
     expand_ratio: 4
-    hidden_act: "gelu"
-    hidden_dropout_rate: 0.0
-    attention_dropout_rate: 0.0
+    hidden_act: "fast_gelu"
+    hidden_dropout_rate: 0.1
+    attention_dropout_rate: 0.1
     initializer_range: 0.02
     param_init_type: "float16"
-    embedding_init_type: "float16"
+    embedding_init_type: "float32"
     layernorm_compute_type: "float32"
     softmax_compute_type: "float16"
     compute_dtype: "float16"
@@ -42,7 +42,7 @@ model:
     bos_token_id: 1
     repetition_penalty: 1
     max_decode_length: 1024
-    top_k: 1
+    top_k: 5
     top_p: 1
   arch:
     type: BloomLMHeadModel
@@ -110,10 +110,10 @@ moe_config:
 use_parallel: False
 parallel:
   parallel_optimizer_config: {"gradient_accumulation_shard": False}
-  parallel_mode: 0 # 0-data parallel, 1-semi-auto parallel, 2-auto parallel, 3-hybrid parallel
+  parallel_mode: 1 # 0-data parallel, 1-semi-auto parallel, 2-auto parallel, 3-hybrid parallel
   gradients_mean: False
   loss_repeated_mean: True
-  full_batch: False
+  full_batch: True
   search_mode: "sharding_propagation"
   enable_parallel_optimizer: False
   strategy_ckpt_save_file: "./ckpt_strategy.ckpt"
