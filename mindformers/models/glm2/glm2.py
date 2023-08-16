@@ -14,7 +14,6 @@
 # ============================================================================
 """ChatGLM2 model."""
 import mindspore.ops as ops
-import mindspore as ms
 import mindspore.common.dtype as mstype
 import mindspore.ops.operations as P
 from mindspore import Tensor, nn
@@ -24,10 +23,10 @@ from mindformers.mindformer_book import MindFormerBook
 from mindformers.modules import VocabEmbedding, EmbeddingOpParallelConfig
 from mindformers.modules.layers import Linear
 from mindformers.tools.register import MindFormerModuleType, MindFormerRegister
-from mindformers.tools.utils import is_version_ge
 from mindformers.core.loss import CrossEntropyLoss
 from mindformers.pet.tuners.pet_adapter import PetAdapter
 from mindformers.pet.tuners.lora_adapter import LoraAdapter
+from mindformers.version_control import get_tril
 
 from ..base_model import BaseModel
 from .glm2_config import ChatGLM2Config
@@ -83,10 +82,7 @@ class ChatGLM2Model(nn.Cell):
                                                  (config.parallel_config.model_parallel, 1)))
         self.output_layer.set_comm_fusion(config.parallel_config.gradient_aggregation_group)
 
-        if is_version_ge(ms.__version__, '1.11.0'):
-            self.tril = P.Tril()
-        else:
-            self.tril = nn.Tril()
+        self.tril = get_tril()
         self.ones = P.Ones()
         self.less = P.Less()
         self.gather = P.Gather()

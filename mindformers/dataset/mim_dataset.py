@@ -15,10 +15,9 @@
 """Masked Image Modeling Dataset."""
 import os
 
-import mindspore
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.tools.logger import logger
-from mindformers.tools.utils import is_version_ge
+from mindformers.version_control import get_dataset_map
 
 from .dataloader import build_dataset_loader
 from .mask import build_mask
@@ -71,28 +70,17 @@ class MIMDataset(BaseDataset):
 
         if transforms is not None:
             for column in dataset_config.input_columns:
-                dataset = dataset.map(
-                    input_columns=column,
-                    operations=transforms,
-                    num_parallel_workers=dataset_config.num_parallel_workers,
-                    python_multiprocessing=dataset_config.python_multiprocessing)
+                dataset = get_dataset_map(dataset, transforms,
+                                          input_columns=column,
+                                          num_parallel_workers=dataset_config.num_parallel_workers,
+                                          python_multiprocessing=dataset_config.python_multiprocessing)
 
         if mask is not None:
-            if is_version_ge(mindspore.__version__, '1.11.0'):
-                dataset = dataset.map(
-                    operations=mask,
-                    input_columns=dataset_config.input_columns,
-                    output_columns=dataset_config.output_columns,
-                    num_parallel_workers=dataset_config.num_parallel_workers,
-                    python_multiprocessing=dataset_config.python_multiprocessing)
-            else:
-                dataset = dataset.map(
-                    operations=mask,
-                    input_columns=dataset_config.input_columns,
-                    column_order=dataset_config.column_order,
-                    output_columns=dataset_config.output_columns,
-                    num_parallel_workers=dataset_config.num_parallel_workers,
-                    python_multiprocessing=dataset_config.python_multiprocessing)
+            dataset = get_dataset_map(dataset, mask,
+                                      input_columns=dataset_config.input_columns,
+                                      output_columns=dataset_config.output_columns,
+                                      num_parallel_workers=dataset_config.num_parallel_workers,
+                                      python_multiprocessing=dataset_config.python_multiprocessing)
 
         dataset = dataset.project(columns=dataset_config.output_columns)
         dataset = dataset.batch(dataset_config.batch_size,

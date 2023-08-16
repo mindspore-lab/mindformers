@@ -26,7 +26,6 @@ from mindspore.common.parameter import Parameter
 from mindspore.common.initializer import initializer
 from mindspore import nn
 from mindspore import context
-import mindspore
 import mindspore.common.dtype as mstype
 from mindspore.ops import operations as P
 from mindspore.ops import functional as F
@@ -44,9 +43,9 @@ from mindformers.modules.layers import LayerNorm, Linear, \
 from mindformers.modules.transformer.op_parallel_config import default_dpmp_config, _PipeLineConfig, OpParallelConfig, \
     _Config, _check_config, MoEParallelConfig
 from mindformers.modules.transformer.moe import default_moe_config, MoE, _check_moe_config
+from mindformers.version_control import get_dropout
 
 from mindformers.tools.logger import _LogActionOnce
-from mindformers.tools.utils import is_version_ge
 
 __all__ = [
     "AttentionMask",
@@ -529,14 +528,9 @@ class FeedForward(Cell):
             else:
                 self.projection.shard(strategy_matmul=((dp, mp), (mp, 1)))
             self.projection.bias.parallel_optimizer = False
-            if is_version_ge(mindspore.__version__, '1.11.0'):
-                self.dropout = nn.Dropout(p=dropout_rate)
-                self.dropout_3d = nn.Dropout(p=dropout_rate)
-                self.dropout_4d = nn.Dropout(p=dropout_rate)
-            else:
-                self.dropout = nn.Dropout(1 - dropout_rate)
-                self.dropout_3d = nn.Dropout(1 - dropout_rate)
-                self.dropout_4d = nn.Dropout(1 - dropout_rate)
+            self.dropout = get_dropout(dropout_rate)
+            self.dropout_3d = get_dropout(dropout_rate)
+            self.dropout_4d = get_dropout(dropout_rate)
             self.cast = P.Cast()
         else:
             _check_config(parallel_config)
@@ -594,14 +588,9 @@ class FeedForward(Cell):
                 self.projection.shard(strategy_matmul=((dp, mp), (mp, 1)),
                                       strategy_bias=((dp, 1), (1,)))
             self.projection.bias.parallel_optimizer = False
-            if is_version_ge(mindspore.__version__, '1.11.0'):
-                self.dropout = nn.Dropout(p=dropout_rate)
-                self.dropout_3d = nn.Dropout(p=dropout_rate)
-                self.dropout_4d = nn.Dropout(p=dropout_rate)
-            else:
-                self.dropout = nn.Dropout(1 - dropout_rate)
-                self.dropout_3d = nn.Dropout(1 - dropout_rate)
-                self.dropout_4d = nn.Dropout(1 - dropout_rate)
+            self.dropout = get_dropout(dropout_rate)
+            self.dropout_3d = get_dropout(dropout_rate)
+            self.dropout_4d = get_dropout(dropout_rate)
             self.dropout.dropout.shard(((dp, 1),))
             self.dropout_3d.dropout.shard(((dp, 1, 1),))
             self.dropout_4d.dropout.shard(((dp, ep, 1, 1),))
@@ -842,7 +831,6 @@ class VocabEmbedding(Cell):
         self.embedding_table = Parameter(initializer(param_init, [self.vocab_size, self.embedding_size]),
                                          name='embedding_table', parallel_optimizer=False)
 
-        self.is_value_return_support = is_version_ge(mindspore.__version__, '1.9.0')
         if parallel_config.vocab_emb_dp:
             self.gather = P.Gather().shard(((1, 1), (parallel_config.data_parallel, 1)))
             logger.info(f"Using {parallel_config.data_parallel} data parallel for the embedding lookup.")
@@ -857,9 +845,7 @@ class VocabEmbedding(Cell):
     def construct(self, input_ids):
         _check_input_dtype(F.dtype(input_ids), "input_ids", [mstype.int32], self.cls_name)
         output = self.gather(self.embedding_table, input_ids, 0)
-        if self.is_value_return_support:
-            return output, self.embedding_table.value()
-        return output, self.embedding_table
+        return output, self.embedding_table.value()
 
 
 class MultiHeadAttention(Cell):
@@ -1076,12 +1062,8 @@ class MultiHeadAttention(Cell):
             # Normalize factor for attention, sqrt(dk) as widely used
             self.scale_factor = Tensor(math.sqrt(math.sqrt(self.size_per_head)))
             self.use_past = use_past
-            if is_version_ge(mindspore.__version__, '1.11.0'):
-                self.dropout = nn.Dropout(p=hidden_dropout_rate)
-                self.prob_dropout = nn.Dropout(p=attention_dropout_rate)
-            else:
-                self.dropout = nn.Dropout(1 - hidden_dropout_rate)
-                self.prob_dropout = nn.Dropout(1 - attention_dropout_rate)
+            self.dropout = get_dropout(hidden_dropout_rate)
+            self.prob_dropout = get_dropout(attention_dropout_rate)
             self.softmax = nn.Softmax().to_float(softmax_compute_type)
             self.softmax_3d = nn.Softmax().to_float(softmax_compute_type)
             self.softmax_cast = P.Cast()
@@ -1183,12 +1165,8 @@ class MultiHeadAttention(Cell):
             # Normalize factor for attention, sqrt(dk) as widely used
             self.scale_factor = Tensor(math.sqrt(math.sqrt(self.size_per_head)))
             self.use_past = use_past
-            if is_version_ge(mindspore.__version__, '1.11.0'):
-                self.dropout = nn.Dropout(p=hidden_dropout_rate)
-                self.prob_dropout = nn.Dropout(p=attention_dropout_rate)
-            else:
-                self.dropout = nn.Dropout(1 - hidden_dropout_rate)
-                self.prob_dropout = nn.Dropout(1 - attention_dropout_rate)
+            self.dropout = get_dropout(hidden_dropout_rate)
+            self.prob_dropout = get_dropout(attention_dropout_rate)
             self.dropout.dropout.shard(((parallel_config.data_parallel, 1),))
             self.prob_dropout.dropout.shard(
                 ((parallel_config.data_parallel, parallel_config.model_parallel, 1, 1),))

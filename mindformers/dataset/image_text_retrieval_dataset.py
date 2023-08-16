@@ -19,6 +19,7 @@ import mindspore.dataset as ds
 import mindspore.dataset.transforms.c_transforms as C
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.tools.logger import logger
+from mindformers.version_control import get_dataset_map
 from .base_dataset import BaseDataset
 from .transforms import build_transforms
 
@@ -37,15 +38,15 @@ class ImageToTextRetrievalDataset(BaseDataset):
                                  shard_id=rank_id)
         transforms = build_transforms(dataset_config.transforms)
         if transforms is not None:
-            dataset = dataset.map(
-                operations=transforms,
-                num_parallel_workers=dataset_config.num_parallel_workers,
-                python_multiprocessing=dataset_config.python_multiprocessing,
-                input_columns="image", output_columns=['image']
-            )
+            dataset = get_dataset_map(dataset, transforms,
+                                      num_parallel_workers=dataset_config.num_parallel_workers,
+                                      python_multiprocessing=dataset_config.python_multiprocessing,
+                                      input_columns="image", output_columns=['image'])
 
         type_cast_op = C.TypeCast(mstype.float32)
-        dataset = dataset.map(operations=type_cast_op, input_columns="image", output_columns=['image'])
+        dataset = get_dataset_map(dataset, type_cast_op,
+                                  input_columns="image",
+                                  output_columns=['image'])
 
         dataset = dataset.project(["image", "token"])
         dataset = dataset.batch(dataset_config.batch_size, drop_remainder=dataset_config.drop_remainder)

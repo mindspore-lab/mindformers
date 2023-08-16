@@ -17,13 +17,12 @@ import os
 import copy
 import re
 import numpy as np
-import mindspore
 import mindspore.common.dtype as mstype
 import mindspore.dataset.transforms.c_transforms as C
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.tools.logger import logger
+from mindformers.version_control import get_dataset_map
 from mindformers.models.build_tokenizer import build_tokenizer
-from mindformers.tools.utils import is_version_ge
 from .dataloader import build_dataset_loader
 from .base_dataset import BaseDataset
 
@@ -117,22 +116,18 @@ class RewardModelDataset(BaseDataset):
                                                        position_id, loss_mask, end_ind, rank_id, dis=dis,
                                                        pad_id=pad_id))
 
-        if is_version_ge(mindspore.__version__, '2.0.0'):
-            dataset = dataset.map(operations=map_func, input_columns=dataset_config.input_columns,
+        dataset = get_dataset_map(dataset, map_func,
+                                  input_columns=dataset_config.input_columns,
                                   output_columns=dataset_config.output_columns)
-        else:
-            dataset = dataset.map(operations=map_func, input_columns=dataset_config.input_columns,
-                                  output_columns=dataset_config.output_columns,
-                                  column_order=dataset_config.output_columns)
         dataset = dataset.project(columns=dataset_config.output_columns)
 
         type_cast_op = C.TypeCast(mstype.int32)
         type_cast_op_float = C.TypeCast(mstype.float16)
-        dataset = dataset.map(input_columns="input_ids", operations=type_cast_op)
-        dataset = dataset.map(input_columns="position_id", operations=type_cast_op)
-        dataset = dataset.map(input_columns="attention_mask", operations=type_cast_op_float)
-        dataset = dataset.map(input_columns="loss_mask", operations=type_cast_op_float)
-        dataset = dataset.map(input_columns="end_ind", operations=type_cast_op)
+        dataset = get_dataset_map(dataset, input_columns="input_ids", operations=type_cast_op)
+        dataset = get_dataset_map(dataset, input_columns="position_id", operations=type_cast_op)
+        dataset = get_dataset_map(dataset, input_columns="attention_mask", operations=type_cast_op_float)
+        dataset = get_dataset_map(dataset, input_columns="loss_mask", operations=type_cast_op_float)
+        dataset = get_dataset_map(dataset, input_columns="end_ind", operations=type_cast_op)
         dataset = dataset.repeat(dataset_config.repeat)
         return dataset
 
@@ -149,8 +144,9 @@ class RewardModelDataset(BaseDataset):
                                   add_special_tokens=False)
             return input_ids.get('input_ids')
 
-        dataset = dataset.map(map_func, input_columns=dataset_config.input_columns,
-                              output_columns=dataset_config.input_columns)
+        dataset = get_dataset_map(dataset, map_func,
+                                  input_columns=dataset_config.input_columns,
+                                  output_columns=dataset_config.input_columns)
         return dataset
 
     @classmethod

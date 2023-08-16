@@ -17,13 +17,12 @@ import os
 import copy
 import re
 import numpy as np
-import mindspore
 import mindspore.common.dtype as mstype
 import mindspore.dataset.transforms.c_transforms as C
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.tools.logger import logger
 from mindformers.models.build_tokenizer import build_tokenizer
-from mindformers.tools.utils import is_version_ge
+from mindformers.version_control import get_dataset_map
 from .dataloader import build_dataset_loader
 from .base_dataset import BaseDataset
 
@@ -129,17 +128,14 @@ class CausalLanguageModelDataset(BaseDataset):
                                                                         eos_token_id=dataset_config.eos_token_id,
                                                                         rank_id=rank_id,
                                                                         dis=dis)
-            if is_version_ge(mindspore.__version__, '1.11.0'):
-                dataset = dataset.map(operations=map_func, input_columns=dataset_config.input_columns,
+            dataset = get_dataset_map(dataset, map_func,
+                                      input_columns=dataset_config.input_columns,
                                       output_columns=dataset_config.output_columns)
-            else:
-                dataset = dataset.map(operations=map_func, input_columns=dataset_config.input_columns,
-                                      output_columns=dataset_config.output_columns,
-                                      column_order=dataset_config.output_columns)
             dataset = dataset.project(columns=dataset_config.output_columns)
 
             for input_arg in dataset_config.output_columns:
-                dataset = dataset.map(operations=type_cast_op, input_columns=input_arg)
+                dataset = get_dataset_map(dataset, type_cast_op,
+                                          input_columns=input_arg)
         else:
             dataset = dataset.batch(dataset_config.batch_size,
                                     drop_remainder=dataset_config.drop_remainder,
@@ -147,7 +143,8 @@ class CausalLanguageModelDataset(BaseDataset):
                                     num_parallel_workers=dataset_config.num_parallel_workers)
             dataset = dataset.project(columns=dataset_config.input_columns)
             for input_arg in dataset_config.input_columns:
-                dataset = dataset.map(operations=type_cast_op, input_columns=input_arg)
+                dataset = get_dataset_map(dataset, type_cast_op,
+                                          input_columns=input_arg)
 
         dataset = dataset.repeat(dataset_config.repeat)
 
@@ -166,8 +163,9 @@ class CausalLanguageModelDataset(BaseDataset):
                                   add_special_tokens=False)
             return input_ids.get('input_ids')
 
-        dataset = dataset.map(map_func, input_columns=dataset_config.input_columns,
-                              output_columns=dataset_config.input_columns)
+        dataset = get_dataset_map(dataset, map_func,
+                                  input_columns=dataset_config.input_columns,
+                                  output_columns=dataset_config.input_columns)
         return dataset
 
     @classmethod

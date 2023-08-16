@@ -35,7 +35,6 @@ import numpy as np
 import mindspore as ms
 
 from mindformers.tools import logger
-from mindformers.tools.utils import is_version_ge
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType, MindFormerConfig
 from .build_tokenizer import build_tokenizer
 from ..tools.download_tools import download_with_progress_bar
@@ -681,12 +680,9 @@ class BatchEncoding(UserDict):
         if tensor_type == TensorType.MINDSPORE:
             tensor_dtype = ms.int32
             as_tensor = ms.Tensor
-            if is_version_ge(ms.__version__, '2.0.0'):
-                is_tensor = ms.ops.is_tensor
-            else:
-                def is_ms_tensor(x):
-                    return isinstance(x, ms.Tensor)
-                is_tensor = is_ms_tensor
+            def is_ms_tensor(x):
+                return isinstance(x, ms.Tensor)
+            is_tensor = is_ms_tensor
         else:
 
             def as_tensor(value, dtype=None):

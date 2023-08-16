@@ -16,15 +16,14 @@
 import math
 import numpy as np
 
-import mindspore as ms
 import mindspore.ops.functional as F
 import mindspore.ops.operations as P
 from mindspore import Parameter, Tensor, nn, ops
 from mindspore import dtype as mstype
 
 from mindformers.modules import LayerNorm
-from mindformers.tools.utils import is_version_ge
 from mindformers.modules.layers import Linear
+from mindformers.version_control import get_dropout
 
 from .glm2_config import ChatGLM2Config
 from .glm2_modules import ChatGLM2MLP, ChatGLM2RMSNorm
@@ -54,10 +53,7 @@ class CoreAttention(nn.Cell):
         self.coeff = coeff
 
         # Strided linear layer.
-        if is_version_ge(ms.__version__, '1.11.0'):
-            self.attention_dropout = nn.Dropout(p=config.attention_dropout)
-        else:
-            self.attention_dropout = nn.Dropout(keep_prob=1 - config.attention_dropout)
+        self.attention_dropout = get_dropout(config.attention_dropout)
 
         parallel_config = config.parallel_config
 
@@ -401,10 +397,7 @@ class ChatGLM2Block(nn.Cell):
         # MLP
         self.mlp = ChatGLM2MLP(config)
 
-        if is_version_ge(ms.__version__, '1.11.0'):
-            self.dropout = nn.Dropout(p=self.hidden_dropout)
-        else:
-            self.dropout = nn.Dropout(keep_prob=1 - self.hidden_dropout)
+        self.dropout = get_dropout(self.hidden_dropout)
         self.dropout.dropout.shard(((config.parallel_config.data_parallel, 1, 1),))
 
         self.cast = P.Cast()

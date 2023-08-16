@@ -20,6 +20,7 @@ import mindspore.common.dtype as mstype
 import mindspore.dataset.transforms.c_transforms as C
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.tools.logger import logger
+from mindformers.version_control import get_dataset_map
 from .dataloader import build_dataset_loader
 from .base_dataset import BaseDataset
 
@@ -94,5 +95,5 @@ class MaskLanguageModelDataset(BaseDataset):
         dataset = dataset.repeat(dataset_config.repeat)
         type_cast_op = C.TypeCast(mstype.int32)
         for input_arg in dataset_config.input_columns:
-            dataset = dataset.map(operations=type_cast_op, input_columns=input_arg)
+            dataset = get_dataset_map(dataset, type_cast_op, input_columns=input_arg)
         return dataset

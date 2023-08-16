@@ -14,7 +14,7 @@
 # ============================================================================
 """Zero Shot Image Classification Dataset."""
 import os
-
+from mindformers.version_control import get_dataset_map
 from .dataloader import build_dataset_loader
 from .transforms import build_transforms
 from .base_dataset import BaseDataset
@@ -83,20 +83,18 @@ class ZeroShotImageClassificationDataset(BaseDataset):
                                            default_args={"tokenizer": tokenizer})
 
         if transforms is not None:
-            dataset = dataset.map(
-                input_columns="image",
-                operations=transforms,
-                num_parallel_workers=dataset_config.num_parallel_workers,
-                python_multiprocessing=dataset_config.python_multiprocessing
-            )
+            dataset = get_dataset_map(dataset,
+                                      input_columns="image",
+                                      operations=transforms,
+                                      num_parallel_workers=dataset_config.num_parallel_workers,
+                                      python_multiprocessing=dataset_config.python_multiprocessing)
 
         if text_transforms is not None:
-            dataset = dataset.map(
-                input_columns="text",
-                operations=text_transforms,
-                num_parallel_workers=dataset_config.num_parallel_workers,
-                python_multiprocessing=dataset_config.python_multiprocessing
-            )
+            dataset = get_dataset_map(dataset,
+                                      input_columns="text",
+                                      operations=text_transforms,
+                                      num_parallel_workers=dataset_config.num_parallel_workers,
+                                      python_multiprocessing=dataset_config.python_multiprocessing)
 
         dataset = dataset.batch(dataset_config.batch_size,
                                 drop_remainder=dataset_config.drop_remainder,
