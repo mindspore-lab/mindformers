@@ -47,8 +47,8 @@ class ObsMonitor:
                 src_dir: str = None,
                 target_dir: str = None,
                 rank_id: int = None,
-                step_upload_frequence: int = -1,
-                epoch_upload_frequence: int = 1,
+                step_upload_frequence: int = 100,
+                epoch_upload_frequence: int = -1,
                 keep_last: bool = True):
         if src_dir is None:
             src_dir = get_output_root_path()
@@ -607,7 +607,7 @@ class EvalCallBack(Callback):
             Default 1, means eval on every epoch end.
     """
 
-    def __init__(self, eval_func: Callable, step_interval: int = -1, epoch_interval: int = 1):
+    def __init__(self, eval_func: Callable, step_interval: int = 100, epoch_interval: int = -1):
         self.eval_func = eval_func
         self.step_interval = step_interval
         self.epoch_interval = epoch_interval

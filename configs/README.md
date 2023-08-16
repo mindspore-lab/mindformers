@@ -90,8 +90,8 @@ configs统一在run_xxx.yaml中，排序按照修改频率的顺序和一般的�
     - type: 训练流程类
     - model_name: 训练模型名
 - do_eval: 是否开启边训练边评估
-- eval_step_interval: 评估step间隔, -1代表每个step结束时都不进行评估
-- eval_epoch_interval: 评估epoch间隔, 1代表每个epoch结束时进行评估
+- eval_step_interval: 评估step间隔, 默认为100，表示每100个step间隔执行一次评估；配置为大于0的数表示每隔所配置的step数后执行一次评估，配置为小于0的数则表示禁用step评估
+- eval_epoch_interval: 评估epoch间隔, 默认为-1，表示禁用epoch结束时的评估；配置为大于0的数表示每隔所配置的epoch数后执行一次评估，配置为小于0的数则表示禁用epoch评估；注意：数据下沉模式下，epoch所包含的step数将从数据集大小变为sink size的大小，不建议在数据下沉模式下使用本项配置
 - train_dataset: 训练数据集配置，可以参考[mindspore.dataset.GeneratorDataset](https://www.mindspore.cn/docs/zh-CN/r2.0/api_python/dataset/mindspore.dataset.GeneratorDataset.html)
     - seed: 随机种子
     - batch_size: 批次大小，当前在使用yaml初始化训练时，该参数会被runner_config中的batch_size覆盖
@@ -150,8 +150,8 @@ configs统一在run_xxx.yaml中，排序按照修改频率的顺序和一般的�
         - save_trainable_params（新增）: 是否额外保存可训练的参数权重，即微调部分参数的权重。默认为False。
         - async_save: 是否异步执行保存checkpoint文件
     - type: ObsMonitor: obs数据上传
-        - step_upload_frequence: 每隔多少个step上传一次，默认为-1，表示禁用step间隔上传；配置为大于0的数时，每隔配置数step后执行一次回传
-        - epoch_upload_frequence: 每隔多少个epoch上传一次，默认为1，表示每个epoch结束后回传；设置大于0的值表示每隔所配置的epoch数后回传，数据下沉模式时建议仅使用epoch配置
+        - step_upload_frequence: 每隔多少个step上传一次，默认为100，表示每100个step执行一次数据上传；配置为大于0的数时，每隔配置数step后执行一次回传，小于0的数则表示禁用step回传
+        - epoch_upload_frequence: 每隔多少个epoch上传一次，默认为-1，表示禁用epoch回传；设置大于0的值表示每隔所配置的epoch数后回传；注意：数据下沉模式下，epoch所包含的step数将从数据集大小变为sink size的大小，不建议在数据下沉模式下使用本项配置
         - keep_last: 检查obs的文件与AI计算中心平台是否一致，默认True，表示仅保留最后一次回传的内容，前面几次回传内容将会被移除；设为False则会保留每次回传的内容
 - metric: 评估指标配置
     - type: 评估指标类
