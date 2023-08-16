@@ -118,7 +118,7 @@ def preprocess_function(input_file, vocab_file, output_file, num_splits, max_sou
         data_schema = {"input_ids": {"type": "int32", "shape": [-1]},
                        "labels": {"type": "int32", "shape": [-1]},
                        "position_ids": {"type": "int32", "shape": [2, max_seq_length]},
-                       "attention_mask": {"type": "int32", "shape": [max_seq_length, max_seq_length]}
+                       "attention_mask": {"type": "int32", "shape": [1, max_seq_length, max_seq_length]}
                        }
     else:
         data_schema = {"input_ids": {"type": "int32", "shape": [-1]},
