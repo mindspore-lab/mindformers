@@ -231,6 +231,10 @@ class MindFormerBook:
                 _PROJECT_PATH, "configs/bloom/run_bloom_176b.yaml")),
             ("baichuan_7b", os.path.join(
                 _PROJECT_PATH, "research/baichuan/run_baichuan_7b.yaml")),
+            ("internlm_7b", os.path.join(
+                _PROJECT_PATH, "research/internlm/run_internlm_7b.yaml")),
+            ("internlm_7b_lora", os.path.join(
+                _PROJECT_PATH, "research/internlm/run_internlm_7b_lora.yaml")),
             ("common", os.path.join(
                 _PROJECT_PATH, "configs/gpt2/run_gpt2.yaml"))])
          )
@@ -354,6 +358,10 @@ class MindFormerBook:
                 _PROJECT_PATH, "configs/bloom/run_bloom_176b.yaml")),
             ("baichuan_7b", os.path.join(
                 _PROJECT_PATH, "research/baichuan/run_baichuan_7b.yaml")),
+            ("internlm_7b", os.path.join(
+                _PROJECT_PATH, "research/internlm/run_internlm_7b.yaml")),
+            ("internlm_7b_lora", os.path.join(
+                _PROJECT_PATH, "research/internlm/run_internlm_7b_lora.yaml")),
             ("common", os.path.join(
                 _PROJECT_PATH, "configs/gpt2/run_gpt2.yaml"))
         ])),
@@ -420,7 +428,9 @@ class MindFormerBook:
             'llama_13b',
             'llama_65b',
             'llama_7b_lora',
-            'baichuan_7b'
+            'baichuan_7b',
+            'internlm_7b',
+            'internlm_7b_lora',
         ]),
         ('pangualpha', [
             'pangualpha_2_6b',
@@ -527,7 +537,11 @@ class MindFormerBook:
         ('glm2', [
             'glm2_6b',
             'glm2_6b_lora'
-        ])
+        ]),
+        ('internlm', [
+            'internlm_7b',
+            'internlm_7b_lora',
+        ]),
     ])
 
     _PROCESSOR_SUPPORT_LIST = OrderedDict([
@@ -655,7 +669,11 @@ class MindFormerBook:
             'bloom_7.1b',
             'bloom_65b',
             'bloom_176b',
-        ])
+        ]),
+        ('internlm', [
+            'internlm_7b',
+            'internlm_7b_lora',
+        ]),
     ])
 
     _MODEL_CONFIG_TO_NAME = OrderedDict([
@@ -1050,7 +1068,8 @@ class MindFormerBook:
         ('LlamaTokenizer', 'LlamaProcessor'),
         ('GPT2Tokenizer', 'GPT2Processor'),
         ('PanguAlphaTokenizer', 'PanguAlphaProcessor'),
-        ('BloomTokenizer', 'BloomProcessor')
+        ('BloomTokenizer', 'BloomProcessor'),
+        ('InternLMTokenizer', 'LlamaProcessor')
     ])
 
     @classmethod
