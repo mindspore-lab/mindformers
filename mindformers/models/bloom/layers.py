@@ -15,8 +15,9 @@
 
 """Bloom custom layers"""
 import math
+import numpy as np
 from mindspore.common.tensor import Tensor
-from mindspore import nn, ops
+from mindspore import nn, ops, Parameter
 import mindspore.common.dtype as mstype
 from mindspore.ops import operations as P
 from mindspore.context import ParallelMode
@@ -74,10 +75,14 @@ class BloomAttention(MultiHeadAttention):
             self.inv_norm_factor = Tensor([1.0 / math.sqrt(self.size_per_head)])
             self.beta = Tensor([1.0])
             self.cast = P.Cast().shard(((parallel_config.data_parallel, parallel_config.model_parallel, 1, 1),))
+            self.batch_matmul_trans_b = P.BatchMatMul(transpose_b=True).shard(
+                ((parallel_config.data_parallel, parallel_config.model_parallel, 1, 1),
+                 (parallel_config.data_parallel, parallel_config.model_parallel, 1, 1)))
             if use_select_recompute:
                 mindformer_logger.info("Using select recompute mode!")
                 self.cast.recompute()
                 self.batch_matmul.recompute()
+                self.batch_matmul_trans_b.recompute()
                 self.sub.recompute()
                 self.mul_alibi1.recompute()
                 self.add.recompute()
@@ -121,7 +126,7 @@ class BloomAttention(MultiHeadAttention):
         # the returned shape is [bs, num_heads, size_per_head, seq_length]
         key = self.transpose(
             key.reshape((batch_size, self._get_seq_length_under_incremental(self.tgt_seq_length),
-                         self.n_head, self.size_per_head)), (0, 2, 3, 1))
+                         self.n_head, self.size_per_head)), (0, 2, 1, 3))
 
         # the returned shape is [bs, num_heads, seq_length, size_per_head]
         value = self.transpose(
@@ -140,36 +145,30 @@ class BloomAttention(MultiHeadAttention):
                 # Get the valid input length without padding
                 valid_length_vector = (self.less(self.range, batch_valid_length.view(-1, 1, 1))).astype(self.dtype)
                 # Cover the key and value numbers corresponding to the padding position
-                key_present = self.mul1(key, self.expand_dims(valid_length_vector, 2))
+                key_present = self.mul1(key, self.expand_dims(valid_length_vector, 3))
                 value_present = self.mul1(value, self.expand_dims(valid_length_vector, 3))
             # The second graph with the inpus size of (bs, 1)
             # the shape of query is (bs, num_heads, 1, size_per_head)
             # the shape of key is   (bs, num_heads, size_per_head, 1)
             # the shape of value is (bs, num_heads, 1, size_per_head)
             else:
-                # Get the current token position index
-                valid_length = self.reducesum((self.not_equal(
-                    self.slice(key_past, (0, 0, 0, 0), (key_tensor.shape[0], 1, 1, self.src_seq_length), (1, 1, 1, 1)),
-                    0)).astype(mstype.float32), (1, 2, 3))
-                valid_length = valid_length.reshape((-1, 1, 1))
-                valid_length_vector = (self.equal(valid_length, self.range)).astype(self.dtype)
+                current_index = batch_valid_length - 1
+                current_index = current_index.reshape((-1, 1, 1))
+                current_mask = (self.equal(self.range, current_index)).astype(self.dtype)
                 # Pad the key and value to seq_length with only the position index not zero
-                current_key = self.mul1(self.tile(key, (1, 1, 1, self.seq_length)),
-                                        self.expand_dims(valid_length_vector, 2))
-                current_value = self.mul1(self.tile(value, (1, 1, self.seq_length, 1)),
-                                          self.expand_dims(valid_length_vector, 3))
+                current_key = self.mul1(key, self.expand_dims(current_mask, 3))
+                current_value = self.mul1(value, self.expand_dims(current_mask, 3))
                 # Concat the previous saved state and current state
                 key = self.add(key_past, current_key)
                 value = self.add(value_past, current_value)
                 # Update key_present and value_present for state update
                 key_present = key
                 value_present = value
-                attention_mask = self.attention_mask.reshape((self.seq_length, self.seq_length, 1, 1))
 
         layer_present = (key_present, value_present)
         # multi head attention considering attention mask
         # the return shape is [bs * seq_length, hidden_size]
-        attention = self._attn(query, key, value, alibi_tensor, attention_mask)
+        attention = self._attn(query, key, value, alibi_tensor, attention_mask, batch_valid_length)
 
         # Output
         output = self.projection(attention)
@@ -188,7 +187,7 @@ class BloomAttention(MultiHeadAttention):
 
         return attention_probs
 
-    def _attn(self, query, key, value, alibi_tensor, attention_mask):
+    def _attn(self, query, key, value, alibi_tensor, attention_mask, batch_valid_length):
         """
         Get the weighted score along the seq_length
 
@@ -205,7 +204,7 @@ class BloomAttention(MultiHeadAttention):
         # Normalize query and key before MatMul, default off
         # Attention score [bs, num_heads, seq_length, seq_length]
         ori_dtype = query.dtype
-        score = self.batch_matmul(query.astype(self.dtype), key.astype(self.dtype))
+        score = self.batch_matmul_trans_b(query.astype(self.dtype), key.astype(self.dtype))
         score = self.add_alibi(
             self.mul_alibi1(score, self.inv_norm_factor.astype(ori_dtype)),
             self.mul_alibi(alibi_tensor, self.beta.astype(ori_dtype))
@@ -216,12 +215,9 @@ class BloomAttention(MultiHeadAttention):
         if attention_mask is not None:
             if self.use_past and not self.is_first_iteration:
                 # Calculate the current total token
-                current_index = self.reducesum((self.not_equal(
-                    self.slice(key, (0, 0, 0, 0), (query.shape[0], 1, 1, self.seq_length), (1, 1, 1, 1)),
-                    0)).astype(mstype.float32), (1, 2, 3))
-                # Get the precise position index
-                index = self.sub1(current_index.astype(mstype.int32), 1)
-                index = index.reshape((-1, 1, 1))
+                # bs, 1 -> bs, 1, 1
+                batch_valid_length = batch_valid_length - 1
+                index = batch_valid_length.reshape((-1, 1, 1))
                 # Calculate the attention_mask matrix via the position index
                 attention_mask = (self.tensor_le(self.range, index)).astype(mstype.int32)
                 attention_mask = self.expand_dims(attention_mask, 2)
@@ -284,7 +280,7 @@ class BloomBlock(TransformerEncoderLayer):
                                          moe_config,
                                          parallel_config)
 
-        if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation():
+        if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,):
             self.use_past = use_past
             attention_parallel_config = parallel_config.dpmp if self.use_moe else parallel_config
             self.attention = BloomAttention(batch_size=batch_size,
@@ -316,6 +312,10 @@ class BloomBlock(TransformerEncoderLayer):
                                             use_seq_parallel=use_seq_parallel,
                                             use_select_recompute=use_select_recompute,
                                             parallel_config=attention_parallel_config)
+        if self.use_past:
+            size_per_head = hidden_size // num_heads
+            self.key_shape = (batch_size, num_heads, seq_length, size_per_head)
+            self.key_past = Parameter(Tensor(np.zeros(shape=self.key_shape), self.dtype), name="key_past")
         if use_seq_parallel:
             self.add.shard(((parallel_config.data_parallel*parallel_config.model_parallel, 1),
                             (parallel_config.data_parallel*parallel_config.model_parallel, 1)))
@@ -344,7 +344,7 @@ class BloomBlock(TransformerEncoderLayer):
         key_reset = None
         value_reset = None
 
-        if self.use_past:
+        if self.use_past and self.is_first_iteration:
             # reset states, init_reset True for reuse and False for reset
             self.assign(self.key_past, self.mul(self.key_past, init_reset.astype(self.dtype)))
             key_reset = self.key_past
