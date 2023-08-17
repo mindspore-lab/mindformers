@@ -148,6 +148,7 @@ model:
     top_k: 5
     top_p: 1
     do_sample: True
+    use_past: False
   arch:
     type: GPT2LMHeadModel
 
