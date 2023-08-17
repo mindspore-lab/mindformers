@@ -52,8 +52,8 @@ class Local2ObsMonitor(Callback):
                  src_dir,
                  target_dir,
                  rank_id=None,
-                 step_upload_frequence: int = -1,
-                 epoch_upload_frequence: int = 1,
+                 step_upload_frequence: int = 100,
+                 epoch_upload_frequence: int = -1,
                  keep_last=True,
                  retry=3,
                  retry_time=5,
@@ -96,7 +96,7 @@ class Local2ObsMonitor(Callback):
         if self.epoch_upload_frequence <= 0:
             return
         self.cb_params = run_context.original_args()
-        if self.cb_params.cur_step_num % self.epoch_upload_frequence == 0 and os.listdir(self.src_dir):
+        if self.cb_params.cur_epoch_num % self.epoch_upload_frequence == 0 and os.listdir(self.src_dir):
             self.log.info("Starting upload output file to obs!")
             self.upload()
 
