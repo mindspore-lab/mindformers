@@ -16,25 +16,34 @@
 """
 pipeline
 """
-from typing import Optional, Union
+from enum import Enum
+from typing import Optional, Union, Tuple
 from mindspore import Model
 
 from mindformers.models import build_model, build_tokenizer, build_processor, \
     BaseModel, BaseTokenizer, BaseImageProcessor, BaseAudioProcessor
 from mindformers.mindformer_book import MindFormerBook
+from mindformers.infer import get_mslite_pipeline
 from mindformers.tools.register import MindFormerConfig
 from .build_pipeline import build_pipeline
+
 
 SUPPORT_PIPELINES = MindFormerBook().get_pipeline_support_task_list()
 SUPPORT_MODEL_NAMES = MindFormerBook().get_model_name_support_list()
 
 
+class Backend(Enum):
+    MS = "ms"
+    MS_LITE = "mslite"
+
+
 def pipeline(
         task: str = None,
-        model: Optional[Union[str, BaseModel, Model]] = None,
+        model: Optional[Union[str, BaseModel, Model, Tuple[str, str]]] = None,
         tokenizer: Optional[BaseTokenizer] = None,
         image_processor: Optional[BaseImageProcessor] = None,
         audio_processor: Optional[BaseAudioProcessor] = None,
+        backend: str = "ms",
         **kwargs):
     r"""Pipeline for downstream tasks
 
@@ -66,10 +75,18 @@ def pipeline(
             {'score': 6.75336e-06, 'label': 'tree'},
             {'score': 2.396818e-06, 'label': 'cat'}]]
     """
+    if backend == Backend.MS_LITE.value:
+        task_pipeline = get_mslite_pipeline(task, model, tokenizer, image_processor, audio_processor, **kwargs)
+    else:
+        task_pipeline = get_ms_pipeline(task, model, tokenizer, image_processor, audio_processor, **kwargs)
+    return task_pipeline
+
+
+def get_ms_pipeline(task, model, tokenizer, image_processor, audio_processor, kwargs):
+    """get mindspore infer pipeline."""
     if task not in SUPPORT_PIPELINES.keys():
         raise KeyError(f"{task} is not supported by pipeline. please select"
                        f" a task from {SUPPORT_PIPELINES.keys()}.")
-
     if isinstance(model, str):
         if model not in SUPPORT_MODEL_NAMES:
             raise KeyError(
@@ -78,22 +95,16 @@ def pipeline(
         model = None
     else:
         model_name = "common"
-
     pipeline_config = MindFormerConfig(SUPPORT_PIPELINES.get(task).get(model_name))
     pipeline_config.model.model_config.update({"checkpoint_name_or_path": model_name})
-
     if model is None:
         model = build_model(pipeline_config.model)
-
     if image_processor is None and hasattr(pipeline_config.processor, 'image_processor'):
         image_processor = build_processor(pipeline_config.processor.image_processor)
-
     if audio_processor is None and hasattr(pipeline_config.processor, 'audio_processor'):
         audio_processor = build_processor(pipeline_config.processor.audio_processor)
-
     if tokenizer is None:
         tokenizer = build_tokenizer(pipeline_config.processor.tokenizer)
-
     task_pipeline = build_pipeline(class_name=task,
                                    model=model,
                                    image_processor=image_processor,
