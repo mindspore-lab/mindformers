@@ -48,6 +48,11 @@ class KeyWordGenDataset(BaseDataset):
     def __new__(cls, dataset_config: dict = None):
         logger.info("Now Create Keyword Generation Dataset.")
         cls.init_dataset_config(dataset_config)
+        rank_id = int(os.getenv("RANK_ID", "0"))
+        device_num = int(os.getenv("RANK_SIZE", "1"))
+        rank_id, device_num = cls._check_device_rank_for_parallel(rank_id, device_num)
+        dataset_config.rank_id = rank_id
+        dataset_config.device_num = device_num
         if isinstance(dataset_config.tokenizer, BaseTokenizer):
             cls.tokenizer = dataset_config.tokenizer
         else:
@@ -122,12 +127,11 @@ class KeyWordGenDataset(BaseDataset):
     @classmethod
     def _process_raw_text_data(cls, dataset_config):
         """Process the text data"""
-        rank_id = int(os.getenv("RANK_ID", "0"))
-        device_num = int(os.getenv("RANK_SIZE", "1"))
         dataset_dir = dataset_config.data_loader.pop("dataset_dir")
         dataset = build_dataset_loader(
             dataset_config.data_loader, default_args={'dataset_dir': dataset_dir,
-                                                      'num_shards': device_num, 'shard_id': rank_id})
+                                                      'num_shards': dataset_config.device_num,
+                                                      'shard_id': dataset_config.rank_id})
 
         dataset = cls._tokenizer_map(dataset, dataset_config.tokenizer)
         return dataset
@@ -135,8 +139,6 @@ class KeyWordGenDataset(BaseDataset):
     @classmethod
     def _process_mindrecord_data(cls, dataset_config):
         """Process the mindrecord data"""
-        rank_id = int(os.getenv("RANK_ID", "0"))
-        device_num = int(os.getenv("RANK_SIZE", "1"))
         dataset_config = copy.deepcopy(dataset_config)
 
         dataset_files = []
@@ -162,7 +164,8 @@ class KeyWordGenDataset(BaseDataset):
         logger.info("Using args %s to instance the dataset.", dataset_config.data_loader)
         dataset = build_dataset_loader(
             dataset_config.data_loader, default_args={'dataset_files': dataset_files,
-                                                      'num_shards': device_num, 'shard_id': rank_id,
+                                                      'num_shards': dataset_config.device_num,
+                                                      'shard_id': dataset_config.rank_id,
                                                       'columns_list': dataset_config.input_columns})
         return dataset
 
