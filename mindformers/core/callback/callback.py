@@ -487,7 +487,7 @@ class CheckpointMointor(ModelCheckpoint):
                 self._append_dict["global_step"] = cb_params.network.optimizer.global_step
             if "loss_scale" in self._append_dict:
                 outputs = cb_params.net_outputs
-                if isinstance(outputs, (tuple, list)) and len(outputs) == 3:
+                if isinstance(outputs, (tuple, list)) and len(outputs) >= 3:
                     self._append_dict["loss_scale"] = outputs[2]
             network = self._config.saved_network if self._config.saved_network is not None else cb_params.train_network
             save_checkpoint(network, cur_file, self._config.integrated_save, self._config.async_save,
