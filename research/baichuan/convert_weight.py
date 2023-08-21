@@ -53,16 +53,19 @@ def convert_baichuan_7b_hf_ckpt(ckpt_dir, output_name, dtype=ms.float16):
 
     try:
         model_hf = AutoModelForCausalLM.from_pretrained(ckpt_dir, trust_remote_code=True)
+        args_hf = read_json(os.path.join(ckpt_dir, "config.json"))
     # pylint: disable=W0703
     except Exception as e:
         print(f"Error {e.message}.", flush=True)
         return False
 
+    dim = args_hf["hidden_size"]
+
     ckpt_list = []
     for name, value in model_hf.named_parameters():
         name = name_replace(name)
         if 'W_pack' in name:
-            values = torch.split(value, 4096)
+            values = torch.split(value, dim)
             wq = name.replace('.self_attn.W_pack', '.attention.wq') #'.self_attn.q_proj.', '.attention.wq.'
             q_value = values[0]
             wk = name.replace('.self_attn.W_pack', '.attention.wk')
