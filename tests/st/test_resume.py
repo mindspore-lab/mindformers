@@ -30,7 +30,7 @@ from mindformers.tools.utils import LOCAL_DEFAULT_PATH
 from mindformers.trainer import Trainer
 from mindformers.trainer.config_args import ConfigArguments, \
     RunnerConfig
-from mindformers.models.gpt2.gpt2 import GPT2LMHeadModel
+from mindformers.models.gpt2 import GPT2LMHeadModel, GPT2Config
 from mindformers.core.lr import WarmUpDecayLR
 from mindformers import CheckpointMointor
 from mindformers.core.optim import FusedAdamWeightDecay
@@ -71,7 +71,8 @@ def test_gpt_trainer_train_from_instance():
     config = ConfigArguments(seed=2022, runner_config=runner_config)
 
     # Model
-    gpt_model = GPT2LMHeadModel()
+    model_config = GPT2Config(num_layers=2)
+    gpt_model = GPT2LMHeadModel(model_config)
 
     # Dataset and operations
     dataset = GeneratorDataset(generator, column_names=["input_ids", "input_mask"])
