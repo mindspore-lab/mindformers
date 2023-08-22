@@ -1265,8 +1265,7 @@ class MultiHeadAttention(Cell):
             # The first graph with the input size of (bs, seq_length)
             if self.is_first_iteration:
                 # Get the valid input length without padding
-                valid_length_vector = F.cast(self.tensor_le(self.range, batch_valid_length.view(-1, 1, 1)), self.dtype)
-                # Cover the key and value numbers corresponding to the padding position
+                valid_length_vector = F.cast(self.less(self.range, batch_valid_length.view(-1, 1, 1)), self.dtype)                # Cover the key and value numbers corresponding to the padding position
                 key_present = self.mul1(key, self.expand_dims(valid_length_vector, 2))
                 value_present = self.mul1(value, self.expand_dims(valid_length_vector, 3))
             # The second graph with the inpus size of (bs, 1)
@@ -1275,12 +1274,8 @@ class MultiHeadAttention(Cell):
             # the shape of value is (bs, num_heads, 1, size_per_head)
             else:
                 # Get the current token position index
-                valid_length = self.reducesum(F.cast(self.not_equal(self.slice(key_past, (0, 0, 0, 0),
-                                                                               (F.shape(key_tensor)[0], 1, 1,
-                                                                                self.src_seq_length),
-                                                                               (1, 1, 1, 1)),
-                                                                    0), mstype.float32), (1, 2, 3))
-                valid_length = F.reshape(valid_length, (-1, 1, 1))
+                valid_length = batch_valid_length - 1
+                valid_length = self.reshape(valid_length, (-1, 1, 1))
                 valid_length_vector = F.cast(self.equal(valid_length, self.range), self.dtype)
                 # Pad the key and value to seq_length with only the position index not zero
                 current_key = self.mul1(self.tile(key, (1, 1, 1, self.seq_length)),
