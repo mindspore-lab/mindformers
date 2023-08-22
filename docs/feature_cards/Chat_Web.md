@@ -13,6 +13,7 @@ Chat Web提供了一个网页界面，让用户可以通过类似线上聊天的
 | 模型    | 规格            | 分词器           | 增量推理 |
 |-------|---------------|---------------|------|
 | GLM   | glm_6b        | glm_6b        | 支持   |
+| GLM2  | glm2_6b       | glm2_6b       | 支持   |
 | BLOOM | bloom_7.1b    | bloom_7.1b    | 支持   |
 | LLAMA | llama_7b_lora | llama_7b_lora | 支持   |
 
@@ -31,6 +32,7 @@ python run_chat_web.py --device_target Ascend\
                        --device_id 0 \
                        --model glm_6b \
                        --tokenizer glm_6b \
+                       --ckeckpoint_path /path/to/glm_6b.ckpt \
                        --seq_length 512 \
                        --use_past False \
                        --host 0.0.0.0 \
@@ -43,6 +45,7 @@ python run_chat_web.py --device_target Ascend\
 * **device_id** (int) - 表示要运行的卡，取值为`[0,8)`。该值只在`device_target==Ascend`时生效。默认值：`0`。
 * **model** (str) - 表示用来生成回答的模型，取值见上节。
 * **tokenizer** (str) - 表示用来编解码输入输出的分词器，取值见上节。
+* **checkpoint_path** (str) - 表示加载的模型权重文件路径，此参数缺省时将会加载模型默认的权重文件，默认值：`None`。
 * **seq_length** (int) - 表示模型中的序列长度。默认值：`512`。
 * **use_past** (bool) - 表示是否使用增量推理。默认值：`False`。
 * **host** (str) - 表示web服务运行的host ip。设置为`0.0.0.0`可远程访问。默认值：`127.0.0.1`。
@@ -72,10 +75,11 @@ python run_chat_web.py --device_target Ascend\
 
     * **top k** (滑块) - 从前k个可能性最大的候选词中采样。取值范围：`[0,10]`。
     * **top p** (滑块) - 从可能性加起来为p的候选词中采样。取值范围：`[0,1]`。
+    * **temperature** (输入框) - 用来调节候选词的可能性得分。取值范围：`(0,∞)`。
 
 * **repetition penalty** (输入框) - 重复惩罚因子。`1.0`表示无惩罚。取值范围：`(0,∞)`。
 
-* **max length** (输入框) - 输入与回答的最大长度，不能超过模型的`seq_length`。取值范围：`(输入长度,seq_length)`。
+* **max length** (输入框) - 输入与回答的最大长度，不能超过模型的`seq_length`（注意：多轮对话时，输入将包括前几轮对话）。取值范围：`(输入长度,seq_length)`。
 
 * **prompt** (输入框) - 提示词模板，与输入拼接后传进模型。输入框下方提供了一些样例模板，用户也可以输入自定义的模板，需要包含占位符`{}`，代表替换输入的位置。
 
