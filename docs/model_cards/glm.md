@@ -517,8 +517,8 @@ checkpoint存储路径：mindformers/output/checkpoint
 
 ```shell
 cd scripts
-# Usage Help: bash run_stanalone.sh [CONFIG_PATH] [DEVICE_ID] [RUN_STATUS]
-bash run_stanalone.sh ../configs/glm/run_glm_6b_lora.yaml 0 finetune
+# Usage Help: bash run_standalone.sh [CONFIG_PATH] [DEVICE_ID] [RUN_STATUS]
+bash run_standalone.sh ../configs/glm/run_glm_6b_lora.yaml 0 finetune
 ```
 
 训练的log日志路径：mindformers/scripts/mf_standalone/
