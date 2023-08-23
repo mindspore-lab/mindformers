@@ -120,14 +120,8 @@ class Baichuan13bForCausalLM(BaseModel):
         }
 
     # pylint: disable=W0613
-    def construct(self,
-                  input_ids,
-                  label_ids=None,
-                  input_position=None,
-                  position_ids=None,
-                  attention_mask=None,
-                  init_reset=True,
-                  batch_valid_length=None):
+    def construct(self, input_ids, labels=None, input_position=None, position_ids=None, attention_mask=None,
+                  input_embeds=None, init_reset=True, batch_valid_length=None):
         """Baichuan13bForCausalLM forward."""
         bsz, seqlen = input_ids.shape
         if self.phase == "train":
@@ -151,19 +145,19 @@ class Baichuan13bForCausalLM(BaseModel):
             input_mask = self.add(input_mask, 1)
             return logits, tokens, input_mask
 
-        if label_ids is None:
-            label_ids = self.slice(input_ids, (0, 1), (bsz, seqlen), (1, 1))
+        if labels is None:
+            labels = self.slice(input_ids, (0, 1), (bsz, seqlen), (1, 1))
         else:
-            label_ids = self.slice(label_ids, (0, 1), (bsz, seqlen), (1, 1))
+            labels = self.slice(labels, (0, 1), (bsz, seqlen), (1, 1))
             label_mask = self.cast(self.not_equal(
-                label_ids, self.ignore_token_id), mstype.float32)
+                labels, self.ignore_token_id), mstype.float32)
             input_mask = self.mul(input_mask, label_mask)
 
         if logits.ndim > 2:
             logits = self.reshape(logits, (-1, logits.shape[-1]))
-        label_ids = self.reshape(label_ids, (-1,))
+        labels = self.reshape(labels, (-1,))
         input_mask = self.reshape(input_mask, (-1,))
-        loss = self.loss(logits, label_ids, input_mask)
+        loss = self.loss(logits, labels, input_mask)
         return loss
 
 
