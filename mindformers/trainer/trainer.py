@@ -327,8 +327,11 @@ class Trainer:
         self.is_set_recompute_config = False
 
         # set seed
-        set_seed(self.config.seed)
-        np.random.seed(self.config.seed)
+        if self.config.seed and \
+                ms.context.get_auto_parallel_context("parallel_mode") \
+                not in ["semi_auto_parallel", "auto_parallel"]:
+            set_seed(self.config.seed)
+            np.random.seed(self.config.seed)
 
         # set output directory
         os.environ.setdefault("LOCAL_DEFAULT_PATH", self.config.output_dir)
