@@ -686,6 +686,7 @@ import argparse
 from mindformers.models.glm import GLMConfig, GLMChatModel, GLMChatModelWithLora
 from mindformers.models.glm.chatglm_6b_tokenizer import ChatGLMTokenizer
 from mindformers.models.glm.glm_processor import process_response
+from mindformers.pet.pet_config import LoraConfig
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--seq_length', default=1024, type=int, help='Which device to run service.')
@@ -707,20 +708,18 @@ config = GLMConfig(
     is_sample_acceleration=True,
 )
 
-class PetConfig:
-    lora_rank = 8
-    lora_alpha = 32
-    lora_dropout = 0.1
-    exclude_layers = None
+pet_config = LoraConfig(
+    lora_rank=8,
+    lora_alpha=32,
+    lora_dropout=0.1
+)
 
-class Pet:
-    pet_type = 'lora'
-    pet_config = PetConfig()
 
 def chat_glm():
     ms.set_context(mode=ms.GRAPH_MODE, device_target="Ascend", device_id=args.device_id)
     if is_lora:
-        model = GLMChatModelWithLora(config,)
+       config.pet_config = pet_config
+       model = GLMChatModelWithLora(config)
     else:
         model = GLMChatModel(config)
     ms.load_checkpoint(args.checkpoint_path, model)
