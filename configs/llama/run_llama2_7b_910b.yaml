@@ -139,7 +139,7 @@ model:
     num_heads: 32
     vocab_size: 32000
     multiple_of: 256
-    rms_norm_eps: 1.0e-6
+    rms_norm_eps: 1.0e-5
     bos_token_id: 1
     eos_token_id: 2
     pad_token_id: 0
