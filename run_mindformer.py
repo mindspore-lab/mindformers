@@ -87,7 +87,9 @@ def main(config):
     # init context
     build_context(config)
 
-    if ms.context.get_auto_parallel_context("parallel_mode") not in ["semi_auto_parallel", "auto_parallel"]:
+    if config.seed and \
+            ms.context.get_auto_parallel_context("parallel_mode") \
+            not in ["semi_auto_parallel", "auto_parallel"]:
         set_seed(config.seed)
         np.random.seed(config.seed)
 
