@@ -629,12 +629,8 @@ class InternLMDecodeLayer(nn.Cell):
                     "For 'TransformerEncoderLayer', the class variable 'hidden_size' must be divisibled by "
                     "the 'parallel_config.model_parallel', but got the hidden_size is {} and parallel_config."
                     " model_parallel is {}.".format(self.hidden_size, parallel_config.model_parallel))
-            self.attention_norm = LlamaRMSNorm(self.hidden_size, norm_eps,
-                                               param_init_type=param_init_type).to_float(layernorm_compute_dtype)
-            #   parallel_config=parallel_config).to_float(layernorm_compute_dtype)
-            self.ffn_norm = LlamaRMSNorm(self.hidden_size, norm_eps,
-                                         param_init_type=param_init_type).to_float(layernorm_compute_dtype)
-            # parallel_config=parallel_config).to_float(layernorm_compute_dtype)
+            self.attention_norm = LlamaRMSNorm(self.hidden_size, norm_eps, compute_type=layernorm_compute_dtype)
+            self.ffn_norm = LlamaRMSNorm(self.hidden_size, norm_eps, compute_type=layernorm_compute_dtype)
 
             self.attention = InternLMAttention(batch_size=batch_size,
                                                src_seq_length=seq_length,
@@ -692,13 +688,9 @@ class InternLMDecodeLayer(nn.Cell):
                     "For 'TransformerEncoderLayer', the class variable 'hidden_size' must be divisibled by "
                     "the 'parallel_config.model_parallel', but got the hidden_size is {} and parallel_config."
                     " model_parallel is {}.".format(self.hidden_size, parallel_config.model_parallel))
-            self.attention_norm = LlamaRMSNorm(self.hidden_size,
-                                               norm_eps,
-                                               param_init_type=param_init_type).to_float(layernorm_compute_dtype)
+            self.attention_norm = LlamaRMSNorm(self.hidden_size, norm_eps, compute_type=layernorm_compute_dtype)
             self.attention_norm.shard(((parallel_config.data_parallel, 1, 1),))
-            self.ffn_norm = LlamaRMSNorm(self.hidden_size,
-                                         norm_eps,
-                                         param_init_type=param_init_type).to_float(layernorm_compute_dtype)
+            self.ffn_norm = LlamaRMSNorm(self.hidden_size, norm_eps, compute_type=layernorm_compute_dtype)
             self.ffn_norm.shard(((parallel_config.data_parallel, 1, 1),))
 
             self.attention = InternLMAttention(batch_size=batch_size,

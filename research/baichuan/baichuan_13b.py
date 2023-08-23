@@ -226,7 +226,7 @@ class Baichuan13bModel(BaseModel):
 
         self.norm_out = LlamaRMSNorm(
             config.hidden_size, config.rms_norm_eps,
-            param_init_type=config.param_init_type).to_float(config.layernorm_compute_type)
+            compute_type=config.layernorm_compute_type)
         if config.parallel_config.pipeline_stage > 1:
             self.norm_out.set_comm_fusion(2)
         else:
@@ -379,13 +379,9 @@ class Baichuan13bDecodeLayer(nn.Cell):
                 "For 'TransformerEncoderLayer', the class variable 'hidden_size' must be divisibled by "
                 "the 'parallel_config.model_parallel', but got the hidden_size is {} and parallel_config."
                 " model_parallel is {}.".format(self.hidden_size, parallel_config.model_parallel))
-        self.attention_norm = LlamaRMSNorm(self.hidden_size,
-                                           norm_eps,
-                                           param_init_type=param_init_type).to_float(layernorm_compute_dtype)
+        self.attention_norm = LlamaRMSNorm(self.hidden_size, norm_eps, compute_type=layernorm_compute_dtype)
         self.attention_norm.shard(((parallel_config.data_parallel, 1, 1),))
-        self.ffn_norm = LlamaRMSNorm(self.hidden_size,
-                                     norm_eps,
-                                     param_init_type=param_init_type).to_float(layernorm_compute_dtype)
+        self.ffn_norm = LlamaRMSNorm(self.hidden_size, norm_eps, compute_type=layernorm_compute_dtype)
         self.ffn_norm.shard(((parallel_config.data_parallel, 1, 1),))
 
         self.attention = Baichuan13bAttention(batch_size=batch_size,

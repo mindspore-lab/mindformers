@@ -83,7 +83,7 @@ def main(task='text_generation',
         task = Trainer(args=config,
                        task=task,
                        pet_method=pet_method)
-        prompt = "<s><s><|User|>:{}<eoh>\n<|Bot|>:".format(predict_data)
+        prompt = "<s><|User|>:{}<eoh>\n<|Bot|>:".format(predict_data)
         result = task.predict(input_data=prompt,
                               predict_checkpoint=ckpt, max_length=int(max_length))
         print(result)
