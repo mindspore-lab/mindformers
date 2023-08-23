@@ -271,22 +271,29 @@ class BloomLMHeadModel(BaseModel):
             "input_ids": Tensor(input_ids, mstype.int32)
         }
 
+    # pylint: disable=W0613
     @jit_inference_with_condition()
-    def construct(self, input_ids, input_position=None, position_ids=None,
-                  attention_mask=None, init_reset=True, batch_valid_length=None):
+    def construct(self, input_ids, input_position=None, position_ids=None, attention_mask=None,
+                  input_embeds=None, labels=None, init_reset=True, batch_valid_length=None):
         """
         construct function for Language Modeling
 
         Args:
             input_ids (Tensor): the indices of input sequence tokens in the vocabulary.
+            input_position(Tensor): current position, used by model.predict. Default None.
+            position_ids(Tensor): Reserved param, not used.
+            attention_mask(Tensor): Reserved param, not used.
+            input_embeds(Tensor): Reserved param, not used.
+            labels(Tensor): Reserved param, not used.
+            init_reset(bool, optional): A bool tensor with shape [1], used to clear the past key parameter and
+              past value parameter used in the incremental prediction. Default True.
+            batch_valid_length(Tensor): the past calculated the index with datatype int32, used for incremental
+              prediction. Tensor of shape :math:`(batch_size,)`. Default None.
 
         Returns:
             logits (Tensor) or loss (mstype.float32): if is_training is False, directly return the logits,
                                                       otherwise, return the computed loss.
         """
-        _ = input_position
-        _ = position_ids
-        _ = attention_mask
 
         batch_size, seq_length = input_ids.shape
 

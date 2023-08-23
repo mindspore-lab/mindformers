@@ -15,6 +15,7 @@
 """PanGuAlpha model"""
 import copy
 import numpy as np
+
 import mindspore.nn as nn
 import mindspore.common.dtype as mstype
 from mindspore import Tensor
@@ -165,7 +166,6 @@ class QueryLayer(TransformerEncoderLayer):
         return output, layer_present
 
 
-@MindFormerRegister.register(MindFormerModuleType.HEAD)
 class PanguAlphaHead(nn.Cell):
     """
     Head to get the logits of each token in the vocab
@@ -367,8 +367,16 @@ class PanguAlphaHeadModel(BaseModel):
         config(PanguAlphaConfig): the config of network
     Inputs:
         input_ids: the tokenized inputs
-        input_mask: the mask indicating whether each position is a valid input
-        past: the previous feature map
+        input_position(Tensor): current position, used by model.predict.
+        attention_mask(Tensor): input sentences padding mask, where 0 indicates padding position.
+        position_ids(Tensor): used to identify each token's position in the list of tokens.
+        input_embeds(Tensor): reserved param, not used.
+        labels(Tensor): the labels of corresponding input sequences.
+        init_reset(bool, optional): A bool tensor with shape [1], used to clear the past key parameter and
+            past value parameter used in the incremental prediction. Default True.
+        batch_valid_length(Tensor): the past calculated the index with datatype int32, used for incremental
+            prediction. Tensor of shape :math:`(batch_size,)`. Default None.
+
     Returns:
         logits: Tensor: the logits of the corresponding inputs with shape (batch_size, seq_length, vocab_size)
 
@@ -425,8 +433,9 @@ class PanguAlphaHeadModel(BaseModel):
             "input_ids": Tensor(input_ids, mstype.int32)
         }
 
-    def construct(self, input_ids, input_position=None, attention_mask=None,
-                  init_reset=True, batch_valid_length=None):
+    # pylint: disable=W0613
+    def construct(self, input_ids, input_position=None, attention_mask=None, position_ids=None,
+                  input_embeds=None, labels=None, init_reset=True, batch_valid_length=None):
         r"""forward pass of the model"""
         batch_size, seq_length = input_ids.shape
 
@@ -507,8 +516,8 @@ class PanguAlphaPromptTextClassificationModel(PanguAlphaHeadModel):
         self.num_labels = config.num_labels
 
     # pylint: disable=arguments-differ
-    def construct(self, input_ids=None, labels=None, attention_mask=None, position_ids=None, input_embeds=None,
-                  init_reset=True, batch_valid_length=None):
+    def construct(self, input_ids=None, labels=None, attention_mask=None, position_ids=None,
+                  input_embeds=None, input_position=None, init_reset=True, batch_valid_length=None):
         r"""forward pass of the model"""
         if self.phase == "train":
             raise ValueError("PanguAlphaPromptTextClassificationModel just supports evaluate mode, "

@@ -13,15 +13,14 @@
 # limitations under the License.
 # ============================================================================
 """LLaMA models' APIs."""
-
 import numpy as np
 import mindspore.common.dtype as mstype
+
 try:
     from mindspore._checkparam import Validator
 except ImportError:
     import mindspore._checkparam as Validator
-from mindspore import nn
-from mindspore.common.tensor import Tensor
+from mindspore import Tensor, nn
 from mindspore.context import ParallelMode
 from mindspore.ops import operations as P
 from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
@@ -245,11 +244,15 @@ class LlamaForCausalLM(BaseModel):
 
         Inputs:
             input_ids(Tensor): the tokenized inputs with datatype int32, Tensor of shape :math:`(batch, seq\_length)`.
-            label_ids(Tensor): the tokenized labels with datatype int32, Tensor of shape :math:`(batch, seq\_length)`
-            input_position(Tensor): current position, used by model.predict
-            (bool, optional): Default: True.
+            labels(Tensor): the tokenized labels with datatype int32, Tensor of shape :math:`(batch, seq\_length)`.
+            input_position(Tensor): current position, used by model.predict.
+            position_ids(Tensor): Reserved param, not used.
             attention_mask(Tensor): Reserved param, not used.
-            batch_valid_length(Tensor): Reserved param, not used.
+            input_embeds(Tensor): Reserved param, not used.
+            init_reset(bool, optional): A bool tensor with shape [1], used to clear the past key parameter and
+              past value parameter used in the incremental prediction. Default True.
+            batch_valid_length(Tensor): the past calculated the index with datatype int32, used for incremental
+              prediction. Tensor of shape :math:`(batch_size,)`. Default None.
 
         Returns:
             Tensor, the loss or logits of the network.
@@ -313,14 +316,8 @@ class LlamaForCausalLM(BaseModel):
         }
 
     # pylint: disable=W0613
-    def construct(self,
-                  input_ids,
-                  label_ids=None,
-                  input_position=None,
-                  position_ids=None,
-                  attention_mask=None,
-                  init_reset=True,
-                  batch_valid_length=None):
+    def construct(self, input_ids, labels=None, input_position=None, position_ids=None, attention_mask=None,
+                  input_embeds=None, init_reset=True, batch_valid_length=None):
         """LlamaForCausalLM forward."""
         bsz, seqlen = input_ids.shape
         if self.phase == "train":
@@ -332,11 +329,11 @@ class LlamaForCausalLM(BaseModel):
         logits = self.lm_head(output)
 
         input_mask = self.cast(self.not_equal(tokens, self.pad_token_id), mstype.float32)
-        if label_ids is None:
-            label_ids = self.slice(input_ids, (0, 1), (bsz, seqlen), (1, 1))
+        if labels is None:
+            labels = self.slice(input_ids, (0, 1), (bsz, seqlen), (1, 1))
         else:
-            label_ids = self.slice(label_ids, (0, 1), (bsz, seqlen), (1, 1))
-            label_mask = self.cast(self.not_equal(label_ids, self.ignore_token_id), mstype.float32)
+            labels = self.slice(labels, (0, 1), (bsz, seqlen), (1, 1))
+            label_mask = self.cast(self.not_equal(labels, self.ignore_token_id), mstype.float32)
             input_mask = self.mul(input_mask, label_mask)
 
         logits = self.cast(logits, mstype.float32)
@@ -349,9 +346,9 @@ class LlamaForCausalLM(BaseModel):
 
         if logits.ndim > 2:
             logits = self.reshape(logits, (-1, logits.shape[-1]))
-        label_ids = self.reshape(label_ids, (-1,))
+        labels = self.reshape(labels, (-1,))
         input_mask = self.reshape(input_mask, (-1,))
-        loss = self.loss(logits, label_ids, input_mask)
+        loss = self.loss(logits, labels, input_mask)
         return loss
 
 

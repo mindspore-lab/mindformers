@@ -373,15 +373,17 @@ class GLMForPreTraining(BaseModel):
 
     # pylint: disable=W0613
     def construct(self, input_ids, labels=None, position_ids=None, attention_mask=None,
-                  input_position=None, init_reset=True, batch_valid_length=None):
+                  input_position=None, input_embeds=None, init_reset=True, batch_valid_length=None):
         """
         Extract logits and calculate loss
 
         Inputs:
-            input_ids (Tensor): The tokenized inputs with dtype int32.
-            labels (Tensor): The indices of input sequence tokens in the vocabulary.
-            position_ids (Tensor): Used to identify each token's position in the list of tokens.
-            attention_mask (Tensor): Used when batching sequences together.
+            input_ids (Tensor): the tokenized inputs with dtype int32.
+            labels (Tensor): the indices of input sequence tokens in the vocabulary.
+            position_ids (Tensor): used to identify each token's position in the list of tokens.
+            attention_mask (Tensor): used when batching sequences together.
+            input_position(Tensor): Reserved param, not used.
+            input_embeds(Tensor): Reserved param, not used.
             init_reset (bool, optional): Default: True.
             batch_valid_length(Tensor, optional): Default: None.
 
@@ -477,9 +479,9 @@ class GLMChatModel(GLMForPreTraining):
 
         return p, p_args
 
-    # pylint:disable=arguments-differ
-    def construct(self, input_ids, position_ids=None, attention_mask=None,
-                  input_position=None, init_reset=True, batch_valid_length=None):
+    # pylint:disable=arguments-differ,W0613
+    def construct(self, input_ids, position_ids=None, attention_mask=None, input_position=None,
+                  labels=None, input_embeds=None, init_reset=True, batch_valid_length=None):
         """Get probs and p_args"""
         # model forward
         output_states, _ = self.transformer(input_ids, position_ids, attention_mask, init_reset, batch_valid_length)
