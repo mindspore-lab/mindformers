@@ -229,14 +229,14 @@ class LlamaRMSNorm(nn.Cell):
         Args:
             dim (tuple): The shape of the input tensor
             eps (float): The epsilon value of the denominator. Default 1e-5.
-            param_init_type: The param init type.
+            compute_type: The compute type.
         Inputs:
             - **x** (Tensor) - Tensor of shape :math:`(batch, seq\_length, hidden\_size)`.
 
         Outputs:
             Tensor of shape :math:`(batch, seq_length, hidden_size)`.
     """
-    def __init__(self, dim, eps=1e-6):
+    def __init__(self, dim, eps=1e-6, compute_type=mstype.float32):
         super(LlamaRMSNorm, self).__init__()
         self.eps = eps
         self.weight = Parameter(initializer('ones', (dim,), dtype=mstype.float32), parallel_optimizer=False)
@@ -246,6 +246,8 @@ class LlamaRMSNorm(nn.Cell):
         self.rsqrt = P.Rsqrt()
         self.mul = P.Mul()
         self.mul2 = P.Mul()
+        self.cast = P.Cast()
+        self.compute_type = compute_type
 
     def _norm(self, x):
         # shard:(dp, 1, 1)
@@ -253,12 +255,19 @@ class LlamaRMSNorm(nn.Cell):
         norm_factor = self.mean(norm_factor, -1)
         norm_factor = self.add(norm_factor, self.eps)
         norm_factor = self.rsqrt(norm_factor)
+        x = self.cast(x, mstype.float16)
+        norm_factor = self.cast(norm_factor, mstype.float16)
         return self.mul(x, norm_factor)
 
     def construct(self, x):
         """Forward of RMSNorm."""
+        original_type = x.dtype
+        x = self.cast(x, self.compute_type)
         output = self._norm(x)
-        output = self.mul2(output, self.weight)
+        output = self.cast(output, mstype.float16)
+        weight = self.cast(self.weight, mstype.float16)
+        output = self.mul2(output, weight)
+        output = self.cast(output, original_type)
         return output
 
     def shard(self, strategy):
