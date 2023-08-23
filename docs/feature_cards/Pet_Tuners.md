@@ -2,13 +2,7 @@
 
 MindPet（Pet：Parameter-Efficient Tuning）是属于Mindspore领域的微调算法套件。随着计算算力不断增加，大模型无限的潜力也被挖掘出来。但随之在应用和训练上带来了巨大的花销，导致商业落地困难。因此，出现一种新的参数高效（parameter-efficient）算法，与标准的全参数微调相比，这些算法仅需要微调小部分参数，可以大大降低计算和存储成本，同时可媲美全参微调的性能。
 
-## 微调支持列表
-
-|                             模型                             | 微调算法 |        运行模式         |
-| :----------------------------------------------------------: | :------: | :---------------------: |
-| [GPT2](../model_cards/gpt2.md) |   Lora   | finetune、eval、predict |
-| [LLama](../model_cards/llama.md) |   Lora   | finetune、eval、predict |
-| [GLM](../model_cards/glm.md) |   Lora   | finetune、eval、predict |
+## [微调支持列表](../model_support_list.md#微调支持列表)
 
 ## 使用示例
 

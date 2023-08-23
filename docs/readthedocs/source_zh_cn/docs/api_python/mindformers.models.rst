@@ -30,7 +30,7 @@ mindformers.models.bert
     mindformers.models.bert.BertForMultipleChoice
     mindformers.models.bert.BertForPreTraining
     mindformers.models.bert.BertForQuestionAnswering
-    mindformers.models.bert.BertForTokenClassificatio
+    mindformers.models.bert.BertForTokenClassification
     mindformers.models.bert.BertTokenizer
     mindformers.models.bert.BertProcessor
 

@@ -4,14 +4,7 @@ Mindformers大模型套件提供了text generator方法，旨在让用户能够�
 
 当前该方法支持Minformers大模型套件中6个生成类语言模型
 
-|    model    |                         模型文档链接                         | 增量推理 | 流式推理 |
-| :---------: | :----------------------------------------------------------: | :------: | :------: |
-|    bloom    | [link](../model_cards/bloom.md) |    √     |    √     |
-|     GLM     | [link](../model_cards/glm.md) |    √     |    √     |
-|     GPT     | [link](../model_cards/gpt2.md) |    ×     |    √     |
-|    llama    | [link](../model_cards/llama.md) |    √     |    √     |
-| pangu-alpha | [link](../model_cards/pangualpha.md) |    ×     |    √     |
-|     T5      | [link](../model_cards/t5.md) |    ×     |    √     |
+## [Text Generator支持度表](../model_support_list.md#text-generator支持度表)
 
 ## 增量推理
 
