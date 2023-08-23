@@ -85,21 +85,47 @@ class GPT2LMHeadModel(BaseModel):
         self.cast = P.Cast()
         self.load_checkpoint(config)
         self.add = P.Add().shard(((parallel_config.data_parallel, 1), ()))
+        self.tile = P.Tile()
+        self.is_first_iteration = True
+        self.all_ones_attention_mask = P.Ones()((1, 1, 1), mstype.float32)
 
     def prepare_inputs_for_generation(self, input_ids, **kwargs):
         return {
             "input_ids": Tensor(input_ids, mstype.int32)
         }
 
-    def construct(self, input_ids, attention_mask=None):
+    # pylint: disable=W0613
+    def construct(self,
+                  input_ids,
+                  attention_mask=None,
+                  labels=None,
+                  input_position=None,
+                  position_ids=None,
+                  inputs_embeds=None,
+                  init_reset=True,
+                  batch_valid_length=None
+                  ):
         r"""
             construct function for Language Modeling
 
             Args:
-                input_ids (Tensor): the indices of input sequence tokens in the vocabulary with datatype int64,
+                input_ids (Tensor): the indices of input sequence tokens in the vocabulary with data type int64/int32,
                                     Tensor of shape :math:`(batch, seq\_length)`.
                 attention_mask (Tensor): input sentences padding mask, where 0 indicates padding position with
-                                         datatype int64, Tensor of shape :math:`(batch, seq\_length)`.
+                                         data type int64/int32, Tensor of shape :math:`(batch, seq\_length)`.
+                labels (Tensor): the labels of inputs with data type int64/int32, Tensor of
+                                shape :math:`(batch, seq\_length)`.
+                input_position (Tensor): the position ids of inputs (at incremental reasoning mode) which is
+                                an increasing sequence with data type int64/int32, Tensor :math:`(bacth, seq\_length)`.
+                position_ids (Tensor): the position ids of inputs which is an increasing sequence with data type
+                                    int64/int32, Tensor :math:`(bacth, seq\_length)`.
+                inputs_embeds (Tensor): the embedding of inputs with data type float32/float16, Tensor of
+                                    shape :math:`(batch, seq\_length, hidden_size)
+                init_reset (bool): A bool tensor with shape [1], used to clear the past key parameter and
+                                past value parameter used in the incremental prediction. Only valid
+                                when use_past is True. Default True.
+                batch_valid_length (Tensor): Int32 tensor with shape [batch_size] the past calculated the index.
+                                Used for incremental prediction when the use_past is True. Default None.
 
             Returns:
                 logits (Tensor) or loss (mstype.float32): if is_training is False, directly return the logits,
@@ -119,9 +145,12 @@ class GPT2LMHeadModel(BaseModel):
             attention_mask = self.stridedslice(attention_mask, (0, 0), (batch_size, seq_length - 1), (1, 1))
 
         attention_mask = self.get_attention_mask(attention_mask)
+        if not self.is_first_iteration:
+            attention_mask = self.tile(self.all_ones_attention_mask, (batch_size, 1, 1))
 
         # [batch_size, seq_length, vocab_size]
-        output_states, embedding_table = self.backbone(tokens, attention_mask)
+        output_states, embedding_table = self.backbone(tokens, attention_mask, input_position, init_reset,
+                                                       batch_valid_length)
         logits = self.head(output_states, embedding_table)
 
         if self.phase != 'train':
@@ -330,7 +359,7 @@ class GPT2Model(nn.Cell):
 
     def __init__(self, config):
         super(GPT2Model, self).__init__()
-
+        self.config = config
         self.embedding = GPTEmbeddingLayer(config)
         self.embedding.pipeline_stage = 0
 
@@ -361,7 +390,9 @@ class GPT2Model(nn.Cell):
                 layernorm_compute_type=config.layernorm_compute_type,
                 softmax_compute_type=config.softmax_compute_type,
                 parallel_config=config.parallel_config.dp_mp_config,
-                moe_config=moe_config)
+                moe_config=moe_config,
+                use_past=config.use_past
+            )
             set_parallel_configure_for_layer(
                 block, layer_id=i, layers=config.num_layers,
                 offset=0, parallel_config=config.parallel_config)
@@ -371,15 +402,26 @@ class GPT2Model(nn.Cell):
         self.tile = P.Tile().shard(((config.parallel_config.data_parallel,),))
         self.dtype = mstype.float16
         self.num_layers = config.num_layers
-        self.input_position = Tensor(np.arange(config.seq_length), mstype.int32)
+        self.position_ids = Tensor(np.arange(config.seq_length), mstype.int32)
+        self.is_first_iteration = True
 
-    def construct(self, input_ids, attention_mask):
+    def construct(self, input_ids, attention_mask, input_position=None, init_reset=True, batch_valid_length=None):
         """GPT model"""
         batch_size, seq_length = F.shape(input_ids)
-        if batch_size == 1:
-            input_position = F.reshape(self.input_position, (1, seq_length))
+
+        # When input_position is None, the phase is train mode. When the phase is train mode and is the first iteration
+        # of incremental reasoning, it goes into the following logic.
+        if input_position is None or self.is_first_iteration:
+            if batch_size == 1:
+                input_position = F.reshape(self.position_ids, (1, seq_length))
+            else:
+                input_position = self.tile(self.position_ids, (batch_size, 1))
+        # when the phase is not train and incremental reasoning is not the first iteration, it goes into the
+        # following logic.
         else:
-            input_position = self.tile(self.input_position, (batch_size, 1))
+            bias = Tensor(np.arange(batch_size) * self.config.seq_length, mstype.int32)
+            input_position = F.sub(input_position, bias)
+            input_position = F.reshape(input_position, (batch_size, 1))
 
         input_embedding, embedding_table = self.embedding(input_ids, input_position)
 
@@ -388,7 +430,7 @@ class GPT2Model(nn.Cell):
         hidden_states = F.reshape(hidden_states, (-1, hidden_shape[-1]))
 
         for i in range(self.num_layers):
-            hidden_states = self.blocks[i](hidden_states, attention_mask)
+            hidden_states = self.blocks[i](hidden_states, attention_mask, init_reset, batch_valid_length)
 
         output_state = self.layernorm(hidden_states)
 

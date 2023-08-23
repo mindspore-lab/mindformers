@@ -34,7 +34,7 @@ class GPT2Config(BaseConfig):
     _support_list = MindFormerBook.get_config_support_list()['gpt2']
 
     def __init__(self,
-                 batch_size: int = None,
+                 batch_size: int = 1,
                  eos_token_id: int = 50256,
                  pad_token_id: int = 50256,
                  bos_token_id: int = 50256,
