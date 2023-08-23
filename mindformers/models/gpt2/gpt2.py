@@ -19,7 +19,7 @@ import numpy as np
 
 import mindspore.nn as nn
 import mindspore.common.dtype as mstype
-from mindspore.common.tensor import Tensor
+from mindspore import Tensor
 from mindspore.common.initializer import initializer
 from mindspore.ops import operations as P
 from mindspore.ops import functional as F
@@ -95,16 +95,8 @@ class GPT2LMHeadModel(BaseModel):
         }
 
     # pylint: disable=W0613
-    def construct(self,
-                  input_ids,
-                  attention_mask=None,
-                  labels=None,
-                  input_position=None,
-                  position_ids=None,
-                  inputs_embeds=None,
-                  init_reset=True,
-                  batch_valid_length=None
-                  ):
+    def construct(self, input_ids, attention_mask=None, input_embeds=None, labels=None, input_position=None,
+                  position_ids=None, init_reset=True, batch_valid_length=None):
         r"""
             construct function for Language Modeling
 
@@ -226,14 +218,21 @@ class GPT2ForSequenceClassification(BaseModel):
         self.sub = P.Sub().shard(((1,), ()))
         self.gather = P.Gather().shard(((1, 1), (1,)))
 
-    def construct(self, input_ids, attention_mask, labels=None):
+    # pylint: disable=W0613
+    def construct(self, input_ids, attention_mask, labels=None, input_embeds=None,
+                  input_position=None, position_ids=None, init_reset=True, batch_valid_length=None):
         r"""
             construct function for GPT2 Text Classification Model
 
             Args:
                 input_ids (Tensor): the indices of input sequence tokens in the vocabulary.
                 attention_mask (Tensor): input sentences padding mask, where 0 indicates padding position.
-                labels (Tensor): the labels of corresponding input sequences
+                labels (Tensor): the labels of corresponding input sequences.
+                input_embeds(Tensor): Reserved param, not used.
+                input_position(Tensor): Reserved param, not used.
+                position_ids(Tensor): Reserved param, not used.
+                init_reset(Tensor): Reserved param, not used.
+                batch_valid_length(Tensor): Reserved param, not used.
 
             Returns:
                 (logits, labels) (Tensor, Tensor) or logits (Tensor) or loss (mstype.float32): in train mode,

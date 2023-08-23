@@ -13,8 +13,6 @@
 # limitations under the License.
 # ============================================================================
 """ChatGLM2 model."""
-from typing import Optional
-
 import mindspore.ops as ops
 import mindspore as ms
 import mindspore.common.dtype as mstype
@@ -115,15 +113,8 @@ class ChatGLM2Model(nn.Cell):
         attention_mask = self.reshape(attention_mask, (batch_size, 1, -1, self.seq_length))
         return attention_mask
 
-    def construct(self,
-                  input_ids,
-                  position_ids: Optional[Tensor] = None,
-                  attention_mask: Optional[Tensor] = None,
-                  full_attention_mask: Optional[Tensor] = None,
-                  inputs_embeds: Optional[Tensor] = None,
-                  input_position: Optional[Tensor] = None,
-                  init_reset=True,
-                  batch_valid_length=None):
+    def construct(self, input_ids, position_ids=None, attention_mask=None, full_attention_mask=None,
+                  inputs_embeds=None, input_position=None, init_reset=True, batch_valid_length=None):
         """ChatGLM2 model."""
         _ = position_ids
         batch_size, _ = input_ids.shape
@@ -181,15 +172,8 @@ class ChatGLM2ForConditionalGeneration(BaseModel):
             "input_ids": Tensor(input_ids, mstype.int32)
         }
 
-    def construct(self,
-                  input_ids: Optional[Tensor] = None,
-                  labels: Optional[Tensor] = None,
-                  position_ids: Optional[Tensor] = None,
-                  attention_mask: Optional[Tensor] = None,
-                  inputs_embeds: Optional[Tensor] = None,
-                  input_position: Optional[Tensor] = None,
-                  init_reset=True,
-                  batch_valid_length=None):
+    def construct(self, input_ids=None, labels=None, position_ids=None, attention_mask=None,
+                  inputs_embeds=None, input_position=None, init_reset=True, batch_valid_length=None):
         """ChatGLM2 for conditional generation model."""
         # input_ids: (bs, seq_len)
         # position_ids: (bs, seq_len)
