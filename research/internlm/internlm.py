@@ -98,7 +98,7 @@ class InternLMModel(BaseModel):
 
             self.norm_out = LlamaRMSNorm(
                 config.hidden_size, config.rms_norm_eps,
-                param_init_type=config.param_init_type).to_float(config.layernorm_compute_type)
+                compute_type=config.layernorm_compute_type)
 
             self.norm_out.pipeline_stage = config.parallel_config.pipeline_stage - 1
             if config.parallel_config.pipeline_stage > 1:
@@ -137,7 +137,7 @@ class InternLMModel(BaseModel):
 
             self.norm_out = LlamaRMSNorm(
                 config.hidden_size, config.rms_norm_eps,
-                param_init_type=config.param_init_type).to_float(config.layernorm_compute_type)
+                compute_type=config.layernorm_compute_type)
             if config.parallel_config.pipeline_stage > 1:
                 self.norm_out.set_comm_fusion(2)
             else:
@@ -260,6 +260,12 @@ class InternLMForCausalLM(BaseModel):
         self.is_first_iteration = True
 
         self.load_checkpoint(config)
+
+    # pylint: disable=unused-argument
+    def prepare_inputs_for_generation(self, input_ids, **kwargs):
+        return {
+            "input_ids": Tensor(input_ids, mstype.int32)
+        }
 
     # pylint: disable=W0613
     def construct(self,
