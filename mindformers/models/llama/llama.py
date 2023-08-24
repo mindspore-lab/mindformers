@@ -131,8 +131,9 @@ class LlamaModel(BaseModel):
                                     config.parallel_config, self.num_layers)
                 self.layers.append(layer)
 
-            self.norm_out = LlamaRMSNorm(config.hidden_size,
-                                         config.rms_norm_eps).to_float(config.layernorm_compute_type)
+            self.norm_out = LlamaRMSNorm(
+                config.hidden_size, config.rms_norm_eps,
+                compute_type=config.layernorm_compute_type)
 
             self.norm_out.pipeline_stage = config.parallel_config.pipeline_stage - 1
             if config.parallel_config.pipeline_stage > 1:
@@ -170,8 +171,9 @@ class LlamaModel(BaseModel):
                                     config.parallel_config, self.num_layers)
                 self.layers.append(layer)
 
-            self.norm_out = LlamaRMSNorm(config.hidden_size,
-                                         config.rms_norm_eps).to_float(config.layernorm_compute_type)
+            self.norm_out = LlamaRMSNorm(
+                config.hidden_size, config.rms_norm_eps,
+                compute_type=config.layernorm_compute_type)
             if config.parallel_config.pipeline_stage > 1:
                 self.norm_out.set_comm_fusion(2)
             else:
