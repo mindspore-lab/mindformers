@@ -87,17 +87,22 @@ mindspore_ckpt_path: 权重保存文件名，可以指定自定义保存路径
 
 > 注：lora微调时需要确认配置文件`parallel context config`中`only_trainable_params`为`False`，以获取所有参数完整策略。
 
-- step 2. 运行以下脚本进行多卡权重合并：
+- step 2. 运行`mindformers/tools/transform_ckpt.py`脚本进行多卡权重合并：
 
-```python
-from mindspore import transform_checkpoints
-transform_checkpoints(
-  src_checkpoints_dir="./output/checkpoint/", # 原切分权重文件夹
-  dst_checkpoints_dir="./target_checkpoint/", # 目标路径
-  ckpt_prefix="llama_7b", # .ckpt文件前缀名
-  src_strategy_file="./output/strategy/", # 步骤1中的切分策略文件路径
-  dst_strategy_file=None # None表示不切分，权重合一
-)
+```shell
+python transform_ckpt.py \
+--src_ckpt_strategy {path}/output/strategy/ \
+--src_ckpt_dir {path}/output/checkpoint/ \
+--dst_ckpt_dir {path}/target_checkpoint/ \
+--prefix llama_7b
+```
+
+```text
+# 参数说明
+src_ckpt_strategy: 步骤1中的切分策略文件路径
+src_ckpt_dir: 原切分权重文件夹
+dst_ckpt_dir: 目标路径
+prefix: ckpt文件前缀名
 ```
 
 > 注：`transform_checkpoints` 接口当前仅mindspore 2.0以上版本支持，如当前硬件环境只支持2.0以下版本，可以新建conda环境安装mindspore 2.0的cpu版本以执行该脚本
