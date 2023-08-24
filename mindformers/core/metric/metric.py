@@ -591,9 +591,9 @@ class ADGENMetric(nn.Metric):
         if isinstance(preds, tuple):
             preds = preds[0]
 
-        print(f"pred is:\n {preds[0]}\n",
-              f"label is:\n {labels[0]}")
         for pred, label in zip(preds, labels):
+            print(f"pred is:\n {pred}\n",
+                  f"label is:\n {label}")
             hypothesis = list(jieba.cut(pred))
             reference = list(jieba.cut(label))
             rouge = Rouge()
