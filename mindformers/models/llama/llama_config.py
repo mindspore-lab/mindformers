@@ -48,6 +48,7 @@ class LlamaConfig(BaseConfig):
                  compute_dtype: str = "float16",
                  layernorm_compute_type: str = "float32",
                  softmax_compute_type: str = "float32",
+                 rotary_dtype: str = "float32",
                  param_init_type: str = "float16",
                  parallel_config: TransformerOpParallelConfig = default_transformer_config,
                  use_past: bool = False,
@@ -74,6 +75,7 @@ class LlamaConfig(BaseConfig):
         self.param_init_type = convert_mstype(param_init_type)
         self.layernorm_compute_type = convert_mstype(layernorm_compute_type)
         self.softmax_compute_type = convert_mstype(softmax_compute_type)
+        self.rotary_dtype = convert_mstype(rotary_dtype)
         self.compute_dtype = convert_mstype(compute_dtype)
         self.parallel_config = parallel_config
         self.checkpoint_name_or_path = checkpoint_name_or_path

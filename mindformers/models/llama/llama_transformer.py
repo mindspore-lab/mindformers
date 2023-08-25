@@ -106,6 +106,7 @@ class LLamaAttention(nn.Cell):
                  n_heads: int = 8,
                  compute_dtype=mstype.float16,
                  softmax_compute_dtype=mstype.float32,
+                 rotary_dtype=mstype.float32,
                  param_init_type=mstype.float32,
                  use_past=False,
                  compute_in_2d=False,
@@ -118,7 +119,7 @@ class LLamaAttention(nn.Cell):
         if batch_size:
             Validator.check_positive_int(batch_size)
         self.compute_in_2d = compute_in_2d
-        self.apply_rotary_emb = LlamaRotaryEmbedding(head_dim, compute_dtype, parallel_config)
+        self.apply_rotary_emb = LlamaRotaryEmbedding(head_dim, rotary_dtype, parallel_config)
         self.reshape = P.Reshape()
         if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation():
             _check_config(parallel_config)
@@ -595,6 +596,7 @@ class LLamaDecodeLayer(nn.Cell):
                  compute_dtype=mstype.float16,
                  layernorm_compute_dtype=mstype.float32,
                  softmax_compute_dtype=mstype.float32,
+                 rotary_dtype=mstype.float32,
                  param_init_type=mstype.float32,
                  use_past=False,
                  compute_in_2d=False,
@@ -634,6 +636,7 @@ class LLamaDecodeLayer(nn.Cell):
                                             n_heads=n_heads,
                                             compute_dtype=compute_dtype,
                                             softmax_compute_dtype=softmax_compute_dtype,
+                                            rotary_dtype=rotary_dtype,
                                             param_init_type=param_init_type,
                                             use_past=use_past,
                                             compute_in_2d=compute_in_2d,
@@ -693,6 +696,7 @@ class LLamaDecodeLayer(nn.Cell):
                                             n_heads=n_heads,
                                             compute_dtype=compute_dtype,
                                             softmax_compute_dtype=softmax_compute_dtype,
+                                            rotary_dtype=rotary_dtype,
                                             param_init_type=param_init_type,
                                             use_past=use_past,
                                             compute_in_2d=compute_in_2d,

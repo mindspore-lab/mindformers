@@ -129,7 +129,7 @@ class LlamaRotaryEmbedding(Cell):
     def __init__(
             self,
             head_dim=128,
-            compute_dtype=mstype.float16,
+            compute_dtype=mstype.float32,
             parallel_config=TransformerOpParallelConfig()
     ):
         super().__init__(auto_prefix=False)
@@ -145,6 +145,8 @@ class LlamaRotaryEmbedding(Cell):
         self.bmm_swap = P.BatchMatMul().shard(((dp, mp, 1, 1,), (1, 1)))
         self.mul = P.Mul().shard(((dp, mp, 1, 1), (dp, 1, 1, 1,)))
 
+        self.cast = P.Cast()
+
     # rotary pos emb helpers:
     def rotate_half(self, x, swap_mask):
         # shard:(dp, mp, 1, 1)
@@ -154,6 +156,9 @@ class LlamaRotaryEmbedding(Cell):
     def construct(self, xq: Tensor, xk: Tensor, freqs_cis):
         """Forward of rotary position embedding."""
         # xq, xk: b, head_num, t, head_dim
+        original_type = xq.dtype
+        xq = self.cast(xq, self.dtype)
+        xk = self.cast(xk, self.dtype)
         freqs_cos, freqs_sin, swap_mask = freqs_cis
 
         xq_out = self.add(self.mul(xq, freqs_cos),
@@ -162,6 +167,8 @@ class LlamaRotaryEmbedding(Cell):
         xk_out = self.add(self.mul(xk, freqs_cos),
                           self.mul(self.rotate_half(xk, swap_mask), freqs_sin))
 
+        xq_out = self.cast(xq_out, original_type)
+        xk_out = self.cast(xk_out, original_type)
         return xq_out, xk_out
 
 

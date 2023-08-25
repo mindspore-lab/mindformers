@@ -122,6 +122,7 @@ class LlamaModel(BaseModel):
                                          compute_dtype=config.compute_dtype,
                                          layernorm_compute_dtype=config.layernorm_compute_type,
                                          softmax_compute_dtype=config.softmax_compute_type,
+                                         rotary_dtype=config.rotary_dtype,
                                          param_init_type=config.param_init_type,
                                          use_past=config.use_past,
                                          compute_in_2d=config.compute_in_2d,
@@ -162,6 +163,7 @@ class LlamaModel(BaseModel):
                                          compute_dtype=config.compute_dtype,
                                          layernorm_compute_dtype=config.layernorm_compute_type,
                                          softmax_compute_dtype=config.softmax_compute_type,
+                                         rotary_dtype=config.rotary_dtype,
                                          param_init_type=config.param_init_type,
                                          use_past=config.use_past,
                                          compute_in_2d=config.compute_in_2d,
@@ -188,7 +190,7 @@ class LlamaModel(BaseModel):
                 self.norm_out.set_comm_fusion(config.parallel_config.gradient_aggregation_group)
 
         self.freqs_cos, self.freqs_sin, self.swap_mask = precompute_freqs_cis(
-            config.hidden_size // config.num_heads, config.seq_length, dtype=config.compute_dtype,
+            config.hidden_size // config.num_heads, config.seq_length, dtype=config.rotary_dtype,
             pretrain_seqlen=config.pretrain_seqlen, extend_method=config.extend_method)
         self.get_attention_mask = AttentionMask(
             config.seq_length, parallel_config=config.parallel_config.dp_mp_config).to_float(config.compute_dtype)
