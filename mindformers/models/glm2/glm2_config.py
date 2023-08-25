@@ -58,7 +58,6 @@ class ChatGLM2Config(BaseConfig):
                  param_init_type: str = "float16",
                  compute_dtype: str = "float16",
                  layernorm_compute_type: str = "float32",
-                 softmax_compute_type: str = "float32",
                  use_past=False,
                  eos_token_id=2,
                  pad_token_id=0,
@@ -95,7 +94,6 @@ class ChatGLM2Config(BaseConfig):
         self.param_init_type = convert_mstype(param_init_type)
         self.compute_dtype = convert_mstype(compute_dtype)
         self.layernorm_compute_type = convert_mstype(layernorm_compute_type)
-        self.softmax_compute_type = convert_mstype(softmax_compute_type)
         self.use_past = use_past
         self.eos_token_id = eos_token_id
         self.pad_token_id = pad_token_id
