@@ -342,7 +342,7 @@ class TextGeneratorInfer(BaseInfer):
         logits_warper = self._get_logits_warper(generation_config)
 
         if streamer:
-            streamer.put(input_ids[0])
+            streamer.put(np.array(input_ids[0]))
 
         batch_size = len(input_ids)
         valid_length = []
