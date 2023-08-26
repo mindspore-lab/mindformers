@@ -42,7 +42,7 @@ def generator_train():
 
 def generator_eval():
     """eval dataset generator"""
-    seq_len = 512
+    seq_len = 128
     input_ids = np.random.randint(low=0, high=15, size=(seq_len,)).astype(np.int32)
     labels = np.random.randint(low=0, high=15, size=(seq_len,)).astype(np.int32)
     eval_data = (input_ids, labels)
@@ -68,7 +68,7 @@ class TestGLM2TrainerMethod:
         train_dataset = train_dataset.batch(batch_size=2)
         eval_dataset = eval_dataset.batch(batch_size=2)
 
-        model_config = ChatGLM2Config(num_layers=2, hidden_size=32, inner_hidden_size=None,
+        model_config = ChatGLM2Config(num_layers=2, seq_length=128, hidden_size=32, inner_hidden_size=None,
                                       num_heads=2, position_encoding_2d=True)
         model = ChatGLM2ForConditionalGeneration(model_config)
         self.tokenizer = AutoTokenizer.from_pretrained("glm2_6b")
