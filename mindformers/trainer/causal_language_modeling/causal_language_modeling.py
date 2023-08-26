@@ -237,10 +237,9 @@ class CausalLanguageModelingTrainer(BaseTrainer):
             start_time = time.time()
             outputs = model.predict_network.generate(input_ids, do_sample=do_sample, max_length=max_length,
                                                      top_p=top_p, top_k=top_k)
-            outputs = np.array(outputs)
             output_ids = []
             for j in range(input_ids.shape[0]):
-                output_ids.append(outputs[j, int(valid_length_each_example[j]):].astype(np.int32))
+                output_ids.append(outputs[j][int(valid_length_each_example[j]):])
             end_time = time.time()
             avg_cost_time = (end_time - start_time) / input_ids.shape[0]
 

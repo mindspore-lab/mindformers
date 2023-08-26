@@ -242,6 +242,11 @@ class KeyWordGenDataset(BaseDataset):
         input_ids = cls.tokenizer.encode(text=prompt, add_special_tokens=True, max_length=cls.max_source_length)
         label = cls.tokenizer.encode(text=answer, add_special_tokens=True, max_length=cls.max_target_length)
 
+        pad_len = cls.max_source_length - len(input_ids)
+        input_ids = input_ids + [cls.tokenizer.pad_token_id] * pad_len
+        pad_len = cls.max_target_length - len(label)
+        label = label + [cls.tokenizer.pad_token_id] * pad_len
+
         return input_ids, label
 
     @classmethod
@@ -259,6 +264,8 @@ class KeyWordGenDataset(BaseDataset):
 
         pad_len = cls.max_source_length - len(input_ids)
         input_ids = input_ids + [cls.tokenizer.pad_token_id] * pad_len
+        pad_len = cls.max_target_length - len(label)
+        label = label + [cls.tokenizer.pad_token_id] * pad_len
 
         return input_ids, label
 
