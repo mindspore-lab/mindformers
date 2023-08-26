@@ -245,6 +245,9 @@ class BloomLMHeadModel(BaseModel):
         parallel_config = self.config.parallel_config
         self.stridedslice = P.StridedSlice().shard(((parallel_config.data_parallel, 1),))
         self.not_equal = P.NotEqual().shard(((parallel_config.data_parallel, 1), ()))
+        self.gt = P.Greater().shard(((parallel_config.data_parallel, 1), ()))
+        self.mul = P.Mul().shard(((parallel_config.data_parallel, 1), (parallel_config.data_parallel, 1)))
+        self.abs = P.Abs().shard(((parallel_config.data_parallel, 1),))
 
         self.transformer = BloomModel(self.config)
         self.head = BloomHead(hidden_size=config.hidden_size,
@@ -305,6 +308,9 @@ class BloomLMHeadModel(BaseModel):
         input_mask = self.not_equal(tokens, self.eos_token_id).astype(mstype.float32) \
             if not self.use_past else self.input_mask_all_ones
 
+        loss_mask = self.mul(input_mask, self.gt(tokens, 0).astype(mstype.float32))
+        tokens = self.abs(tokens)
+
         # [batch_size, seq_length, vocab_size]
         output_states, embedding_table = self.transformer(tokens, input_mask, init_reset, batch_valid_length)
         logits = self.head(output_states, embedding_table)
@@ -316,8 +322,8 @@ class BloomLMHeadModel(BaseModel):
 
         labels = self.stridedslice(input_ids, (0, 1), (batch_size, seq_length), (1, 1))
         labels = labels.reshape((-1,))
-        input_mask = input_mask.reshape((-1,))
-        loss = self.loss(logits, labels, input_mask)
+        loss_mask = loss_mask.reshape((-1,))
+        loss = self.loss(logits, labels, loss_mask)
         return loss
 
 

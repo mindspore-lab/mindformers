@@ -27,10 +27,11 @@ class AlpacaDatasetMaker:
     """
     AlpacaDatasetMaker
     """
-    def __init__(self, input_dataset_file, output_dataset_file, seq_length):
+    def __init__(self, input_dataset_file, output_dataset_file, seq_length, for_finetune):
         self.input_dataset_file = input_dataset_file
         self.output_dataset_file = output_dataset_file
         self.seq_length = seq_length
+        self.for_finetune = for_finetune
 
         self.tokenizer = AutoTokenizer.from_pretrained("bloom_560m")
         self.eos_token_id = self.tokenizer.eos_token_id
@@ -39,12 +40,12 @@ class AlpacaDatasetMaker:
         self.prompt_with_input = (
             "Below is an instruction that describes a task, paired with an input that provides further context. "
             "Write a response that appropriately completes the request.\n\n"
-            "### Instruction:\n{instruction}\n\n### Input:\n{input}\n\n### Response:\n{output}"
+            "### Instruction:\n{instruction}\n\n### Input:\n{input}\n\n### Response:\n"
         )
         self.prompt_without_input = (
             "Below is an instruction that describes a task. "
             "Write a response that appropriately completes the request.\n\n"
-            "### Instruction:\n{instruction}\n\n### Response:\n{output}"
+            "### Instruction:\n{instruction}\n\n### Response:\n"
         )
 
     def make(self, num_of_prompts):
@@ -70,27 +71,39 @@ class AlpacaDatasetMaker:
     def make_prompt_ids(self, prompt):
         """make prompt dict into ids"""
         if 'input' in prompt:
-            text = self.prompt_with_input.format_map(prompt)
+            prompt_text = self.prompt_with_input.format_map(prompt)
         else:
-            text = self.prompt_without_input.format_map(prompt)
+            prompt_text = self.prompt_without_input.format_map(prompt)
 
-        prompt_ids = self.tokenizer(text)["input_ids"]
-        if len(prompt_ids) > self.seq_length:
-            prompt_ids = prompt_ids[:self.seq_length]
+        # question
+        prompt_ids = self.tokenizer(prompt_text)["input_ids"]
+        if self.for_finetune:
+            prompt_ids = list(-np.array(prompt_ids, dtype=np.int32))
 
-        self._add_eos_token_id(prompt_ids)
-        self._add_pad_token_id(prompt_ids)
-        return prompt_ids
+        # answer
+        output_text = prompt["output"]
+        if output_text:
+            output_ids = self.tokenizer(output_text)["input_ids"]
+        else:
+            output_ids = []
 
-    def _add_eos_token_id(self, prompt_ids):
-        if len(prompt_ids) < self.seq_length:
-            prompt_ids.append(self.eos_token_id)
+        # Q+A
+        ids = prompt_ids + output_ids
+        if len(ids) > self.seq_length:
+            ids = ids[:self.seq_length]
 
-    def _add_pad_token_id(self, prompt_ids):
-        if len(prompt_ids) < self.seq_length:
+        self._add_eos_token_id(ids)
+        self._add_pad_token_id(ids)
+        return ids
+
+    def _add_eos_token_id(self, ids):
+        if len(ids) < self.seq_length:
+            ids.append(self.eos_token_id)
+
+    def _add_pad_token_id(self, ids):
+        if len(ids) < self.seq_length:
             # pad eos instead of pad
-            prompt_ids += [self.eos_token_id] * \
-                (self.seq_length - len(prompt_ids))
+            ids += [self.eos_token_id] * (self.seq_length - len(ids))
 
 
 if __name__ == "__main__":
@@ -102,6 +115,7 @@ if __name__ == "__main__":
                         default="/home/work/czh/data/alpaca_2049/")
     parser.add_argument("--seq_length", type=int, default=2049)
     parser.add_argument("--N", type=int, default=-1)
+    parser.add_argument("--for_finetune", type=int, default=1)
     args = parser.parse_args()
 
     if args.output_path and not os.path.exists(args.output_path):
@@ -110,5 +124,5 @@ if __name__ == "__main__":
         args.output_path, "dataset.mindrecord")
 
     maker = AlpacaDatasetMaker(
-        args.input_dataset_file, args.output_dataset_file, args.seq_length)
+        args.input_dataset_file, args.output_dataset_file, args.seq_length, args.for_finetune)
     maker.make(args.N)
