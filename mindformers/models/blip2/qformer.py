@@ -910,10 +910,10 @@ class BertPreTrainedModel(BaseModel, nn.Cell):
                 [0] * 2 for _ in range(output_embeddings.bias.value().ndim)]
             paddings[-1][-1] = output_embeddings.weight.shape[0] - \
                 output_embeddings.bias.shape[0]
-            output_embeddings.bias.assign_value(P.pad(
-                output_embeddings.bias.value(),
-                paddings=tuple(paddings)
-            ))
+            pad_op = P.Pad(paddings=tuple(paddings))
+            output_embeddings.bias.assign_value(
+                pad_op(output_embeddings.bias.value())
+            )
         if hasattr(output_embeddings, "out_channels") and hasattr(input_embeddings, "vocab_size"):
             output_embeddings.out_channels = input_embeddings.vocab_size
 
