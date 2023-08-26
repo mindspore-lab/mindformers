@@ -652,26 +652,29 @@ bash run_chat.sh
 
 - Translate to English: Je t’aime. _**I love you.</s>**_
 
-### A.2 JIT静态图推理
+## 附录B BELLE
 
-在参考章节`3.2 基于API接口推理`进行Bloom推理时，脚本实际采用了mindspore的默认动态图模式(Pynative_mode)。为了进一步提高性能，可以通过`export JIT_INFERENCE="1"`的环境变量，可以针对Bloom模型使用JIT编译提高推理性能，同时保证内存占用不超出910A单机单卡内存容量。
+[BELLE](https://github.com/LianjiaTech/BELLE)（Be Everyone's Large Language model Engine）是一个旨在促进中文对话大模型开源社区发展的组织。BELLE-7B是基于Bloomz-7B-mt，使用中文问答数据集微调出来开源的中文对话模型。根据微调所使用的中文数据大小分为0.2M, 0.6M, 1M, 2M四个权重。
+微调的模板为
+> Human: {input} \n\nAssistant:{output}
 
-> 注意：由于Bloom的25万词汇量的词表较大，全局开启静态图模式`ms.set_context(mode=ms.GRAPH_MODE)`会使Bloom-7.1B在910A单卡上, seq_length=1024, batch_size=1的推理Out of Memory. 推理时, MindSpore 2.0及以上建议使用`export JIT_INFERENCE="1"`环境变量对Bloom模型进行静态编译。在seq_length=1024, batch_size=1时，Bloom-7.1B在910A单卡上的推理速度为18 tokens/s左右。
+原始的开源BELLE的数据集和权重可以通过以下链接获得
 
-- 静态图推理
+|          | 文件 | 链接                                                     |
+|----------| --- |--------------------------------------------------------|
+| 2M SFT数据集 | train_2M_CN.json | https://huggingface.co/BelleGroup/BELLE-7B-2M          |
+| 2M 模型权重   | pytorch_model.bin | https://huggingface.co/datasets/BelleGroup/train_2M_CN |
+
+数据集和权重的转换参考2.1章和2.2章，命令如下：
 
 ```bash
-export JIT_INFERENCE="1"
+# 数据集转换
+python mindformers/tools/dataset_preprocess/bloom/make_mindrecord.py --input_dataset_file=XXX/train_2M_CN.json --output_path=XXX
+
+# 权重转换
+cd mindformers/models/bloom
+python convert_weight.py --n_head=32 --hidden_size=4096 --torch_path=xxx/pytorch_model.bin --mindspore_path=output_path
+
 ```
 
-- 动态推理或训练时
-
-```bash
-unset JIT_INFERENCE
-```
-
-### A.3 KV-Cache增量推理
-
-> `3.2 基于API接口推理`已默认开启。
-
-在`seq_length`较大时，可以考虑开启KV-Cache增量推理来进一步提高推理性能。开启方式是在config中添加`batch_size = 1`和`use_past = True`字段。
+数据集和权重的转换到mindspore后，可以按照Bloom的方式进行推理和微调。
