@@ -389,8 +389,7 @@ def get_dst_strategy(config):
             dst_strategy_path = local_strategy_path
     else:
         logger.info(".........Collecting strategy.........")
-        local_strategy_path = config.parallel.strategy_ckpt_save_file
-        local_strategy_dir = os.path.dirname(local_strategy_path)
+        local_strategy_dir = os.path.join(get_output_root_path(), "strategy")
         if world_size <= 8:
             wait_collect_all_strategy(local_strategy_dir, world_size)
 
@@ -411,7 +410,7 @@ def get_dst_strategy(config):
                 else:
                     dst_strategy_path = None
             else:
-                dst_strategy_path = local_strategy_path
+                dst_strategy_path = local_strategy_paths[0]
         else:
             logger.warning("Can't collecting all strategy, device num > 8!")
             config.auto_trans_ckpt = False
