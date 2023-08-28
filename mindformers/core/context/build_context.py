@@ -137,13 +137,13 @@ def _set_check_context_config(config):
         save_graphs_path = config.get('save_graphs_path') if not check_in_modelarts() else None
         if save_graphs_path is None:
             save_graphs_path = get_output_subpath("debug/graphs_info", append_rank=False)
-        config.setdefault('save_graphs_path', save_graphs_path)
+        config['save_graphs_path'] = save_graphs_path
     enable_dump = config.get('enable_dump')
     if enable_dump:
         save_dump_path = config.get('save_dump_path') if not check_in_modelarts() else None
         if save_dump_path is None:
             save_dump_path = get_output_subpath("debug/dump_info", append_rank=False)
-        config.setdefault('save_dump_path', save_dump_path)
+        config['save_dump_path'] = save_dump_path
 
 
 def _set_check_parallel_config(config):
