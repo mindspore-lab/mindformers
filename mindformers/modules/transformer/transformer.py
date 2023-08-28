@@ -1059,6 +1059,8 @@ class MultiHeadAttention(Cell):
                 self.prob_dropout = nn.Dropout(1 - attention_dropout_rate)
             self.softmax = nn.Softmax().to_float(softmax_compute_type)
             self.softmax_3d = nn.Softmax().to_float(softmax_compute_type)
+            self.softmax_cast = P.Cast()
+            self.softmax_reshape = P.Reshape()
             self.expand_dims = P.ExpandDims()
 
             # Query
@@ -1169,6 +1171,8 @@ class MultiHeadAttention(Cell):
             self.softmax.softmax.shard(((parallel_config.data_parallel, parallel_config.model_parallel, 1, 1),))
             self.softmax_3d = nn.Softmax().to_float(softmax_compute_type)
             self.softmax_3d.softmax.shard(((parallel_config.data_parallel, parallel_config.model_parallel, 1),))
+            self.softmax_cast = P.Cast()
+            self.softmax_reshape = P.Reshape()
             self.expand_dims = P.ExpandDims().shard(((parallel_config.data_parallel, 1, 1),))
 
             # Query
@@ -1385,9 +1389,8 @@ class MultiHeadAttention(Cell):
             shape = F.shape(attention_scores)
             # attention probs
             attention_probs = self.softmax_3d(
-                F.reshape(attention_scores,
-                          (shape[0], -1, shape[-1])))
-            attention_probs = F.reshape(attention_probs, shape)
+                self.softmax_reshape(attention_scores, (shape[0], -1, shape[-1])))
+            attention_probs = self.softmax_reshape(attention_probs, shape)
         return attention_probs
 
     def _attn(self, query, key, value, attention_mask):
@@ -1411,7 +1414,7 @@ class MultiHeadAttention(Cell):
         score = self.batch_matmul(query, key)
 
         ori_dtype = P.DType()(score)
-        attention_scores = P.Cast()(score, self.softmax_dtype)
+        attention_scores = self.softmax_cast(score, self.softmax_dtype)
 
         # for input size of (bs, 1) namely the second graph,
         # the shape of attention_mask matrix should be (bs, 1, 1, seq_length)
@@ -1439,7 +1442,7 @@ class MultiHeadAttention(Cell):
 
         # attention probs
         attention_probs = self._softmax(attention_scores)
-        attention_probs = P.Cast()(attention_probs, ori_dtype)
+        attention_probs = self.softmax_cast(attention_probs, ori_dtype)
 
         attention_probs = self.prob_dropout(attention_probs)
         # Weighted sum output [bs, num_heads, seq_length, size_per_head]
