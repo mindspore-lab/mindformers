@@ -288,9 +288,9 @@ class Blip2Qformer(Blip2Base):
             hidden_states, image_embeds_frozen, past_key_values (optional)
         """
         image_embeds_frozen = self.ln_vision(self.visual_encoder(image))
-        image_atts = ops.ones(
-            image_embeds_frozen.shape[:-1], type=mstype.float32)
-        query_tokens = ops.broadcast_to(
+        image_atts = self.ones(
+            image_embeds_frozen.shape[:-1], mstype.float32)
+        query_tokens = self.broadcast_to(
             self.query_tokens, (image_embeds_frozen.shape[0], -1, -1))
 
         query_output = self.qformer.bert(
@@ -340,12 +340,12 @@ class Blip2Qformer(Blip2Base):
             image_embeds_frozen = image_inputs
         text_atts = self.cast(self.not_equal(
             text_ids, self.pad_token_id), mstype.float32)
-        image_atts = ops.ones(
-            image_embeds_frozen.shape[:-1], type=mstype.float32)
-        query_tokens = ops.broadcast_to(
+        image_atts = self.ones(
+            image_embeds_frozen.shape[:-1], mstype.float32)
+        query_tokens = self.broadcast_to(
             self.query_tokens, (image_embeds_frozen.shape[0], -1, -1))
-        query_atts = ops.ones(query_tokens.shape[:-1], type=mstype.float32)
-        attention_mask = ops.concat([query_atts, text_atts], axis=1)
+        query_atts = self.ones(query_tokens.shape[:-1], mstype.float32)
+        attention_mask = self.concat([query_atts, text_atts], axis=1)
 
         output_itm = self.qformer.bert(
             text_ids,
