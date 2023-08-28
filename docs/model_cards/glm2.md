@@ -273,7 +273,7 @@ checkpoint存储路径：mindformers/output/checkpoint
 ```shell
 cd scripts
 # Usage Help: bash run_stanalone.sh [CONFIG_PATH] [DEVICE_ID] [RUN_STATUS]
-bash run_stanalone.sh ../configs/glm2/run_glm2_6b_lora.yaml 0 finetune
+bash run_standalone.sh ../configs/glm2/run_glm2_6b_lora.yaml 0 finetune
 ```
 
 训练的log日志路径：mindformers/scripts/mf_standalone/
@@ -357,7 +357,7 @@ print(tokenizer.decode(outputs))
 
 使用全参微调权重时，启动如下shell脚本，执行单卡评估
 
-配置文件选择 `configs/glm2/run_glm2_6b.yaml` glm2模型推理配置，此配置下评估速度更快
+配置文件选择 `configs/glm2/run_glm2_6b.yaml` glm2模型推理配置，修改其中`model`字段下`model_config`中`use_past: True`开启增量推理使评估速度更快
 
 ```bash
 python run_mindformer.py --config configs/glm2/run_glm2_6b.yaml --run_mode eval --load_checkpoint /path/to/glm2_6b_finetune.ckpt --eval_dataset_dir /path/to/data/AdvertiseGen/ --device_id 0
@@ -382,13 +382,15 @@ python run_mindformer.py --config configs/glm2/run_glm2_6b.yaml --run_mode eval 
 与上文类似：
 
 ```bash
-from mindformers import Trainer
-trainer = Trainer(task="text_generation", model="glm2_6b"
-                  eval_dataset="/path/to/AdvertiseGen/dev.json")
-trainer.evaluate(finetune_checkpoint="/path/to/glm2_6b_finetune.ckpt")
-```
+from mindformers import Trainer, ChatGLM2Config, ChatGLM2ForConditionalGeneration
 
-> 1. 当前评估时，batch_size需为1，否则评估速度下降严重
+# 开启增量推理使评估速度更快
+config = ChatGLM2Config(use_past=True)
+model = ChatGLM2ForConditionalGeneration(config)
+trainer = Trainer(task="text_generation", model=model,
+                  eval_dataset="/path/to/AdvertiseGen/dev.json")
+trainer.evaluate(eval_checkpoint="/path/to/glm2_6b_finetune.ckpt")
+```
 
 ### 使用LoRA低参微调权重
 
@@ -396,7 +398,7 @@ trainer.evaluate(finetune_checkpoint="/path/to/glm2_6b_finetune.ckpt")
 
 使用LoRA低参微调权重时，启动如下shell脚本，执行单卡评估
 
-配置文件选择 `configs/glm2/run_glm2_6b_lora.yaml` glm2_lora模型推理配置，此配置可用于lora模型，并且评估速度更快
+配置文件选择 `configs/glm2/run_glm2_6b_lora.yaml` glm2_lora模型推理配置，此配置可用于lora模型，修改其中`model`字段下`model_config`中`use_past: True`开启增量推理使评估速度更快
 
 ```bash
 python run_mindformer.py --config configs/glm2/run_glm2_6b_lora.yaml --run_mode eval --load_checkpoint /path/to/glm2_6b_lora.ckpt --eval_dataset_dir /path/to/data/AdvertiseGen/ --device_id 0
@@ -409,13 +411,17 @@ python run_mindformer.py --config configs/glm2/run_glm2_6b_lora.yaml --run_mode 
 与上文类似：
 
 ```bash
-from mindformers import Trainer
-trainer = Trainer(task="text_generation", model="glm2_6b", pet_method="lora",
-                  eval_dataset="/path/to/AdvertiseGen/dev.json")
-trainer.evaluate(finetune_checkpoint="/path/to/glm2_6b_lora.ckpt")
-```
+from mindformers import Trainer, ChatGLM2Config, ChatGLM2WithLora
+from mindformers.pet.pet_config import LoraConfig
 
-> 1. 当前评估时，batch_size需为1，否则评估速度下降严重
+# 开启增量推理使评估速度更快
+config = ChatGLM2Config(use_past=True)
+config.pet_config = LoraConfig()
+model = ChatGLM2WithLora(config)
+trainer = Trainer(task="text_generation", model=model,
+                  eval_dataset="/path/to/AdvertiseGen/dev.json")
+trainer.evaluate(eval_checkpoint="/path/to/glm2_6b_lora.ckpt")
+```
 
 ## 模型权重转化
 
