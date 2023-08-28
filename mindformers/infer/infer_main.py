@@ -14,6 +14,7 @@
 # ============================================================================
 """lite infer main."""
 
+import sys
 import argparse
 from threading import Thread
 
@@ -21,7 +22,9 @@ from threading import Thread
 # pylint: disable=W0611
 import mindspore_lite as mslite
 
-from mindformers.models import BloomTokenizer   #, ChatGLMTokenizer, LlamaTokenizer
+from mindformers.models.base_tokenizer import Tokenizer
+from mindformers.models import BloomTokenizer, LlamaTokenizer
+from mindformers.models import ChatGLMTokenizer, ChatGLM2Tokenizer
 from mindformers.pipeline import pipeline
 from mindformers.generation import TextIteratorStreamer
 from mindformers.tools.utils import str2bool
@@ -88,12 +91,30 @@ def pipeline_from_infer_config(args_, tokenizer):
     return lite_pipeline
 
 
+# the model name list that mslite inference has supported.
+LITE_SUPPORT_MODELS = ('bloom', 'glm', 'glm2', 'llama')
+
+
+def get_tokenizer(model_name: str) -> Tokenizer:
+    """get tokenizer with model name."""
+    tokenizer = None
+    if model_name == 'bloom':
+        tokenizer = BloomTokenizer.from_pretrained("bloom_560m")
+    elif model_name == 'glm':
+        tokenizer = ChatGLMTokenizer.from_pretrained("glm_6b")
+    elif model_name == 'glm2':
+        tokenizer = ChatGLM2Tokenizer.from_pretrained("glm2_6b")
+    elif model_name == 'llama':
+        tokenizer = LlamaTokenizer.from_pretrained("llama_7b")
+    else:
+        raise ValueError(
+            f"model must be in {LITE_SUPPORT_MODELS} when getting tokenizer, but got input {model_name}.")
+    return tokenizer
+
+
 def infer_main(args_):
     """lite infer main."""
-    tokenizer = BloomTokenizer.from_pretrained("bloom_560m")
-    # tokenizer = ChatGLMTokenizer.from_pretrained("glm_6b")
-    # tokenizer = LlamaTokenizer.from_pretrained("llama_7b")
-
+    tokenizer = get_tokenizer(args_.model_name.lower())
     lite_pipeline = pipeline_from_model_paths(
         args_, tokenizer
     )
@@ -102,24 +123,25 @@ def infer_main(args_):
         user_input = input("Please enter your predict data: \n")
         if user_input == "exit":
             print("Task is over.")
-            exit()
+            sys.exit()
         output = lite_pipeline(user_input, is_sample_acceleration=args_.is_sample_acceleration,
                                add_special_tokens=args_.add_special_tokens)
         print(output)
 
 
 def infer_stream_main(args_):
-    tokenizer = BloomTokenizer.from_pretrained("bloom_560m")
+    """main entry for infer stream."""
+    tokenizer = get_tokenizer(args_.model_name.lower())
     streamer = TextIteratorStreamer(tokenizer, skip_prompt=True)
     lite_pipeline = pipeline_from_model_paths(
         args_, tokenizer
     )
 
     while True:
-        user_input = input("Please enter your predict data: \n")
+        user_input = input("Please enter your predict data(input 'exit' to quit): \n")
         if user_input == "exit":
-            print("Task is over.")
-            exit()
+            print("Quit now, this may take a while.")
+            sys.exit()
         generation_kwargs = dict(inputs=user_input,
                                  streamer=streamer,
                                  is_sample_acceleration=args_.is_sample_acceleration,
@@ -149,7 +171,7 @@ if __name__ == "__main__":
              "Default: None")
     parser.add_argument(
         '--model_name', default="common", type=str,
-        help="This model dir path. "
+        help=f"The model name, only supports name in {LITE_SUPPORT_MODELS}. "
              "Default: None")
     parser.add_argument(
         '--seq_length', default=2048, type=int,
