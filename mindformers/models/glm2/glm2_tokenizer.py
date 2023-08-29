@@ -26,6 +26,7 @@ __all__ = ['ChatGLM2Tokenizer']
 
 class SPTokenizer:
     """Tokenizer process special tokens."""
+
     def __init__(self, model_path: str):
         # reload tokenizer
         assert os.path.isfile(model_path), model_path
@@ -118,8 +119,24 @@ class ChatGLM2Tokenizer(Tokenizer):
     model_input_names = ["input_ids", "attention_mask", "position_ids"]
     _support_list = MindFormerBook.get_tokenizer_support_list()['glm2']
 
-    def __init__(self, vocab_file, **kwargs):
-        super().__init__(**kwargs)
+    def __init__(self,
+                 vocab_file,
+                 bos_token='<sop>',
+                 eos_token='<eop>',
+                 end_token='</s>',
+                 mask_token='[MASK]',
+                 gmask_token='[gMASK]',
+                 pad_token='<pad>',
+                 unk_token='<unk>',
+                 **kwargs):
+        super().__init__(bos_token=bos_token,
+                         eos_token=eos_token,
+                         end_token=end_token,
+                         mask_token=mask_token,
+                         gmask_token=gmask_token,
+                         pad_token=pad_token,
+                         unk_token=unk_token,
+                         **kwargs)
         self.name = "ChatGLM2Tokenizer"
 
         self.vocab_file = vocab_file
@@ -129,6 +146,12 @@ class ChatGLM2Tokenizer(Tokenizer):
             "<eos>": self.tokenizer.eos_id,
             "<pad>": self.tokenizer.pad_id
         }
+
+        self._bos_token = bos_token
+        self._eos_token = eos_token
+        self._end_token = end_token
+        self._mask_token = mask_token
+        self._gmask_token = gmask_token
 
     def get_command(self, token):
         if token in self.special_tokens:
