@@ -297,7 +297,7 @@ class GeneratorMixin:
                 input_ids,
                 target_mask,
             ) = self._prepare_model_inputs_for_decoder(input_ids, input_mask)
-            valid_length_each_example = np.ones((batch_size, 1)).astype(np.int32)
+            valid_length_each_example = [1 for _ in range(batch_size)]
         # A single loop generates one token, loop until reaching target
         # model_origin_max_length or generating eod token
         is_finished = [False] * batch_size
