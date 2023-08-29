@@ -231,6 +231,8 @@ class MindFormerBook:
                 _PROJECT_PATH, "configs/bloom/run_bloom_176b.yaml")),
             ("baichuan_7b", os.path.join(
                 _PROJECT_PATH, "research/baichuan/run_baichuan_7b.yaml")),
+            ("ziya_13b", os.path.join(
+                _PROJECT_PATH, "research/ziya/run_ziya_13b.yaml")),
             ("internlm_7b", os.path.join(
                 _PROJECT_PATH, "research/internlm/run_internlm_7b.yaml")),
             ("internlm_7b_lora", os.path.join(
@@ -358,6 +360,8 @@ class MindFormerBook:
                 _PROJECT_PATH, "configs/bloom/run_bloom_176b.yaml")),
             ("baichuan_7b", os.path.join(
                 _PROJECT_PATH, "research/baichuan/run_baichuan_7b.yaml")),
+            ("ziya_13b", os.path.join(
+                _PROJECT_PATH, "research/ziya/run_ziya_13b.yaml")),
             ("internlm_7b", os.path.join(
                 _PROJECT_PATH, "research/internlm/run_internlm_7b.yaml")),
             ("internlm_7b_lora", os.path.join(
@@ -429,6 +433,7 @@ class MindFormerBook:
             'llama_65b',
             'llama_7b_lora',
             'baichuan_7b',
+            'ziya_13b',
             'internlm_7b',
             'internlm_7b_lora',
         ]),
@@ -652,7 +657,8 @@ class MindFormerBook:
             'llama_13b',
             'llama_65b',
             'llama_7b_lora',
-            'baichuan_7b'
+            'baichuan_7b',
+            'ziya_13b'
         ]),
         ('pangualpha', [
             'pangualpha_2_6b',
