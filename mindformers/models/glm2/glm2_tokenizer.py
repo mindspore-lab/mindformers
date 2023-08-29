@@ -195,6 +195,10 @@ class ChatGLM2Tokenizer(Tokenizer):
 
     def _convert_id_to_token(self, index):
         """Converts an index (integer) in a token (str) using the vocab."""
+        if index >= self.vocab_size:
+            raise IndexError(
+                f"The token id {index} is out of the size of vocabulary, please check your tokenizer "
+                f"and corresponding vocabulary files.")
         return self.tokenizer.convert_id_to_token(index)
 
     def convert_tokens_to_string(self, tokens: List[str]) -> str:

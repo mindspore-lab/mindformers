@@ -302,6 +302,10 @@ class ChatGLMTokenizer(Tokenizer):
             token_ids = [token_ids]
         if self.pad_token_id in token_ids:  # remove pad
             token_ids = list(filter(self.pad_token_id.__ne__, token_ids))
+        for token_id in token_ids:
+            if token_id not in self.added_tokens_decoder and token_id >= self.vocab_size:
+                raise IndexError(f"The token id {token_id} is out of the size of vocabulary, please check "
+                                 f"your tokenizer and corresponding vocabulary files.")
         return self.sp_tokenizer.decode(token_ids)
 
     # pylint:disable=arguments-differ
@@ -357,36 +361,6 @@ class ChatGLMTokenizer(Tokenizer):
         if token in self.added_tokens_encoder:
             return self.added_tokens_encoder[token]
         return self.sp_tokenizer[token]
-
-    # pylint:disable=arguments-differ
-    def convert_ids_to_tokens(self, ids: Union[int, List[int]], skip_special_tokens: bool = False):
-        """
-        Converts a single index or a sequence of indices in a token or a sequence of tokens, using the vocabulary and
-        added tokens.
-
-        Args:
-            ids (`int` or `List[int]`):
-                The token id (or token ids) to convert to tokens.
-            skip_special_tokens (`bool`, *optional*, defaults to `False`):
-                Whether or not to remove special tokens in the decoding.
-
-        Returns:
-            `str` or `List[str]`: The decoded token(s).
-        """
-        if isinstance(ids, int):
-            if ids in self.added_tokens_decoder:
-                return self.added_tokens_decoder[ids]
-            return self._convert_id_to_token(ids)
-        tokens = []
-        for index in ids:
-            index = int(index)
-            if skip_special_tokens and index in self.all_special_ids:
-                continue
-            if index in self.added_tokens_decoder:
-                tokens.append(self.added_tokens_decoder[index])
-            else:
-                tokens.append(self._convert_id_to_token(index))
-        return tokens
 
     def _convert_id_to_token(self, index):
         """Converts an index (integer) in a token (str) using the vocab."""
