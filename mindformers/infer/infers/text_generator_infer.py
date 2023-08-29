@@ -160,6 +160,7 @@ class InputOfInfer:
         "bloom": CommonInputsOfInfer,
         "llama": CommonInputsOfInfer,
         "glm": GLMInputsOfInfer,
+        "glm2": CommonInputsOfInfer,
         "common": CommonInputsOfInfer
     }
 
@@ -240,9 +241,16 @@ class TextGeneratorInfer(BaseInfer):
             outputs of model infer
         """
         input_ids = self.preprocess(inputs, add_special_tokens)
+
+        start = time.time()
         output_ids = self.generate(input_ids, do_sample, top_k, top_p, temperature,
                                    repetition_penalty, eos_token_id, pad_token_id,
                                    max_length, is_sample_acceleration, streamer, **kwargs)
+        end = time.time()
+        total_time = end - start
+        out_len = len(output_ids[0]) - len(input_ids[0])
+        avg_time = out_len / total_time
+        print(f'output {out_len} token(s) in {total_time}s, average speed is {avg_time} tokens/s.')
         outputs = self.postprocess(output_ids)
         return outputs
 
@@ -409,19 +417,24 @@ class TextGeneratorInfer(BaseInfer):
                 else:
                     # greedy
                     target_index = np.argmax(p[i])
-
-                # update frequency list
                 target = p_args[i][target_index]
+
+                # Stop judgment when length exceeds target_length.
+                if valid_length[i] >= target_length:
+                    is_finished[i] = True
+                    continue
+
                 input_ids[i, valid_length[i]] = target
                 if streamer:
                     streamer.put(np.asarray([target]))
-
                 valid_length[i] += int(1)
 
-                # Stop judgment
-                if p_args[i][target_index] == eos_token_id or valid_length[i] == target_length:
+                # Stop judgment when output is EOS token, with the output
+                # is appended to input_ids and streamer.
+                if target == eos_token_id:
                     is_finished[i] = True
                     continue
+
             is_first_iteration = not use_past
             print(f"one token takes {time.time() - start_time} s")
 

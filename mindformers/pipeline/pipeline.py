@@ -82,7 +82,7 @@ def pipeline(
     return task_pipeline
 
 
-def get_ms_pipeline(task, model, tokenizer, image_processor, audio_processor, kwargs):
+def get_ms_pipeline(task, model, tokenizer, image_processor, audio_processor, **kwargs):
     """get mindspore infer pipeline."""
     if task not in SUPPORT_PIPELINES.keys():
         raise KeyError(f"{task} is not supported by pipeline. please select"
