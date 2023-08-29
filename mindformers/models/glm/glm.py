@@ -272,6 +272,9 @@ class GLMForPreTraining(BaseModel):
         self.bos_token_id = config.bos_token_id
         self.ones = P.Ones()
         self.not_equal = P.NotEqual()
+        self.gather = P.Gather()
+        self.use_past = config.use_past
+        self.is_first_iteration = True
         self.ignore_index = config.ignore_index
         self.load_checkpoint(config)
 
@@ -336,10 +339,14 @@ class GLMForPreTraining(BaseModel):
         """prepare inputs for generation."""
         attention_mask = kwargs.get("attention_mask", None)
         position_ids = kwargs.get("position_ids", None)
+        input_position = kwargs.get("current_index", None)
+        if input_position is not None:
+            input_position = Tensor(input_position, mstype.int32)
         return {
             "input_ids": Tensor(input_ids, mstype.int32),
             "attention_mask": Tensor(attention_mask, mstype.int32),
-            "position_ids": Tensor(position_ids, mstype.int32)
+            "position_ids": Tensor(position_ids, mstype.int32),
+            "input_position": input_position
         }
 
     def slice_incremental_inputs(self, model_inputs: dict, current_index):
@@ -404,10 +411,14 @@ class GLMForPreTraining(BaseModel):
                                             attention_mask, init_reset, batch_valid_length)
         logits = self.lm_head(output_states)
 
+        logits_shape = logits.shape
         if self.phase != 'train':
+            logits = logits.reshape((-1, logits_shape[-1]))
+            # only gather in auto-aggressive generate or first iteration
+            if (not self.use_past or self.is_first_iteration) and input_position is not None:
+                logits = self.gather(logits, input_position, 0)
             return (logits,)
 
-        logits_shape = logits.shape
         labels = labels.reshape((-1,))
         logits = logits.reshape((-1, logits_shape[-1]))
         input_mask = self.not_equal(labels, self.ignore_index).astype(logits.dtype)

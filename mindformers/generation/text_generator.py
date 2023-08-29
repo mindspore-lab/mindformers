@@ -17,6 +17,7 @@
 For text generation
 """
 import copy
+import time
 from typing import Optional, List, Union
 
 import numpy as np
@@ -189,17 +190,17 @@ class GeneratorMixin:
         )
         return input_ids
 
-    def _incremental_infer(self, model_inputs, current_index, valid_length_each_example):
+    def _incremental_infer(self, model_inputs: dict, current_index, valid_length_each_example):
         """model forward for incremental infer."""
         # Claim the first graph
         if self.is_first_iteration:
             self.add_flags_recursive(is_first_iteration=True)
+            model_inputs["input_position"] = Tensor(current_index, mstype.int32)
+            model_inputs["init_reset"] = Tensor([False], mstype.bool_)  # init_reset (1,) bool False
+            model_inputs["batch_valid_length"] = Tensor([valid_length_each_example], mstype.int32)
             # pylint: disable=E1102
             res = self(
                 **model_inputs,
-                input_position=Tensor(current_index, mstype.int32),
-                init_reset=Tensor([False], mstype.bool_),  # init_reset (1,) bool False
-                batch_valid_length=Tensor([valid_length_each_example], mstype.int32),
             )
             # first iter done, go to other iters
             self.is_first_iteration = False
@@ -207,12 +208,12 @@ class GeneratorMixin:
             self.add_flags_recursive(is_first_iteration=False)
             # slice model inputs for incremental infer
             self.slice_incremental_inputs(model_inputs, current_index)
+            model_inputs["input_position"] = Tensor(current_index, mstype.int32)
+            model_inputs["init_reset"] = Tensor([True], mstype.bool_)  # init_reset (1,) bool True
+            model_inputs["batch_valid_length"] = Tensor([valid_length_each_example], mstype.int32)
             # pylint: disable=E1102
             res = self(
                 **model_inputs,
-                input_position=Tensor(current_index, mstype.int32),
-                init_reset=Tensor([True], mstype.bool_),  # init_reset (1,) bool True
-                batch_valid_length=Tensor([valid_length_each_example], mstype.int32),
             )
 
         return res
@@ -237,6 +238,8 @@ class GeneratorMixin:
         Returns:
             outputs: the ids for the generated text
         """
+        total_time = time.time()
+        prepare_time = time.time()
         if generation_config.pad_token_id is None:
             generation_config.pad_token_id = 0
 
@@ -305,16 +308,22 @@ class GeneratorMixin:
         # setup is_first_iteration flag for incremental infer
         if generation_config.use_past:
             self.is_first_iteration = True
-        keep_all = False
+        need_gather_logits = True
+
+        origin_len = np.sum(valid_length_each_example)
+        prepare_time = time.time() - prepare_time
+        logger.debug("forward prepare time: %s s", prepare_time)
+
         while np.sum(is_finished) != batch_size:
+            forward_time = time.time()
+            seq_length = input_ids.shape[1]
+            current_index = [
+                valid_length_each_example[i] - 1 + i * seq_length
+                for i in range(batch_size)
+            ]
+            logger.debug("validate length: %s", valid_length_each_example)
             if is_encoder_decoder:
                 inputs = Tensor(input_ids, mstype.int32)
-                seq_length = inputs.shape[1]
-                current_index = [
-                    valid_length_each_example[i] - 1 + i * seq_length
-                    for i in range(batch_size)
-                ]
-                logger.debug("validate length: %s", valid_length_each_example)
                 # pylint: disable=E1102
                 res = self(
                     input_ids=None,
@@ -324,20 +333,15 @@ class GeneratorMixin:
                     decoder_attention_mask=Tensor(target_mask, mstype.float32),
                 )
             else:
+                model_kwargs["current_index"] = current_index
                 # model prepare input dict
                 model_inputs = self.prepare_inputs_for_generation( # pylint: disable=E1111
                     input_ids, **model_kwargs
                 )
-                seq_length = input_ids.shape[1]
-                current_index = [
-                    valid_length_each_example[i] - 1 + i * seq_length
-                    for i in range(batch_size)
-                ]
-                logger.debug("validate length: %s", valid_length_each_example)
                 # incremental generate
                 if generation_config.use_past:
-                    # when first iteration, keep last logits; others keep all logits.
-                    keep_all = not self.is_first_iteration
+                    # when first iteration, gather last logits; others keep all logits.
+                    need_gather_logits = self.is_first_iteration
                     # incremental generate
                     res = self._incremental_infer(
                         model_inputs=model_inputs,
@@ -347,18 +351,20 @@ class GeneratorMixin:
                 # auto-aggressive generate
                 else:
                     res = self(**model_inputs)  # pylint: disable=E1102
+            forward_time = time.time() - forward_time
 
+            sample_time = time.time()
             # post process logits; skip this phase if post process is done in graph
             if not self.config.is_sample_acceleration:
                 # convert to numpy for post process
                 logits = res[0] if isinstance(res, tuple) else res
                 if isinstance(logits, Tensor):
-                    logits = logits.asnumpy().astype(np.float32)
+                    logits = logits.asnumpy()
                 logits = np.reshape(logits, (-1, logits.shape[-1]))
                 # need gather last seq logits using current_index
-                if not keep_all:
+                # compare length to determine if need gather; if not, gather should be done in model construct
+                if need_gather_logits and logits.shape[0] > len(current_index):
                     logits = logits[current_index]
-
                 # post process logits, without changing logits shape and order
                 probs = logits_processor(input_ids, logits)
                 probs = logits_warper(input_ids, probs)
@@ -366,10 +372,12 @@ class GeneratorMixin:
             else:
                 probs, p_args = res
                 if isinstance(probs, Tensor):
-                    probs = probs.asnumpy().astype(np.float32)
+                    probs = probs.asnumpy()
                 if isinstance(p_args, Tensor):
                     p_args = p_args.asnumpy()
+            sample_time = time.time() - sample_time
 
+            update_time = time.time()
             # Random select a token as final output for this round
             for i in range(batch_size):
                 if is_finished[i]:
@@ -400,6 +408,9 @@ class GeneratorMixin:
                     or valid_length_each_example[i] == target_length:
                     is_finished[i] = True
                     continue
+            update_time = time.time() - update_time
+            logger.debug("forward time: %s s; sample time: %s s; update time: %s s; total count: %s s",
+                         forward_time, sample_time, update_time, forward_time + sample_time + update_time)
 
         # Return valid outputs out of padded outputs
         output_ids = []
@@ -408,8 +419,15 @@ class GeneratorMixin:
                 input_ids[i, : int(valid_length_each_example[i])].astype(np.int32)
             )
         logger.debug("The output is: %s", output_ids)
+
         if streamer is not None:
             streamer.end()
+
+        generate_len = np.sum(valid_length_each_example) - origin_len
+        total_time = time.time() - total_time
+        logger.info("total time: %s s; generated tokens: %s tokens; generate speed: %s tokens/s",
+                    total_time, generate_len, generate_len / total_time)
+
         return output_ids
 
     def generate(self,

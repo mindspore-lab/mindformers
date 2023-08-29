@@ -163,13 +163,19 @@ class ChatGLM2ForConditionalGeneration(BaseModel):
         self.loss = CrossEntropyLoss(parallel_config=config.parallel_config)
         self.gmask = config.gmask_token_id
         self.bos_token_id = config.bos_token_id
+        self.use_past = config.use_past
+        self.is_first_iteration = True
         self.not_equal = P.NotEqual()
         self.load_checkpoint(config)
 
     def prepare_inputs_for_generation(self, input_ids, **kwargs):
         """prepare inputs for generation."""
+        input_position = kwargs.get("current_index", None)
+        if input_position is not None:
+            input_position = Tensor(input_position, mstype.int32)
         return {
-            "input_ids": Tensor(input_ids, mstype.int32)
+            "input_ids": Tensor(input_ids, mstype.int32),
+            "input_position": input_position
         }
 
     def construct(self, input_ids=None, labels=None, position_ids=None, attention_mask=None,
@@ -199,6 +205,9 @@ class ChatGLM2ForConditionalGeneration(BaseModel):
             loss = self.loss(logits, labels, input_mask)
             return loss
 
+        lm_logits = lm_logits.reshape((-1, lm_logits.shape[-1]))
+        if (not self.use_past or self.is_first_iteration) and input_position is not None:
+            lm_logits = self.gather(lm_logits, input_position, 0)
         return (lm_logits,)
 
 
