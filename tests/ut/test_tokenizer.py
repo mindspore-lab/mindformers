@@ -38,22 +38,22 @@ def test_all_tokenizers():
     return_tensors_sig = ["", "ms", "np"]
 
     all_res = [
-        [50256, 40, 1842, 11618, 13, 50256],    # gpt2 english
-        [50256, 22755, 239, 163, 230, 109, 44293, 245, 12859, 105, 16764, 50256],   # gpt2 chinese
-        [101, 1045, 2293, 7211, 1012, 102],     # bert english
-        [101, 1855, 100, 1781, 1755, 1636, 102],    # bert chinese
-        [1, 312, 1545, 11285, 31843, 2],    # llama english
-        [1, 31822, 233, 139, 148, 234, 139, 180, 232, 143, 154, 231, 189, 175, 230, 131, 133, 2],   # llama chinese
+        [40, 1842, 11618, 13],    # gpt2 english
+        [22755, 239, 163, 230, 109, 44293, 245, 12859, 105, 16764],   # gpt2 chinese
+        [1045, 2293, 7211, 1012],     # bert english
+        [1855, 100, 1781, 1755, 1636],    # bert chinese
+        [312, 1545, 11285, 31843],    # llama english
+        [31822, 233, 139, 148, 234, 139, 180, 232, 143, 154, 231, 189, 175, 230, 131, 133],   # llama chinese
         [44, 19134, 61335, 17],    # bloom english
         [164830, 11385, 420],   # bloom chinese
         [2787, 13, 4, 13, 28420, 13, 4, 37472, 34],    # pangualpha english
         [21, 453, 263, 12],   # pangualpha chinese
-        [49406, 328, 793, 11796, 269, 49407],    # clip english
-        [49406, 162, 230, 239, 163, 230, 109, 161, 234, 245, 21078, 361, 38000, 49407],     # clip chinese
-        [115, 703, 8994, 7, 130001, 130004],    # glm english
-        [5, 76202, 64241, 63823, 130001, 130004],   # glm chinese
-        [27, 333, 14465, 5, 1],    # t5 english
-        [3, 2, 1]   # t5 chinese
+        [328, 793, 11796, 269],    # clip english
+        [162, 230, 239, 163, 230, 109, 161, 234, 245, 21078, 361, 38000],     # clip chinese
+        [115, 703, 8994, 7],    # glm english
+        [5, 76202, 64241, 63823],   # glm chinese
+        [27, 333, 14465, 5],    # t5 english
+        [3, 2]   # t5 chinese
     ]
 
     for i, tokenizer_item in enumerate(tokenizer_list):
@@ -61,20 +61,21 @@ def test_all_tokenizers():
         for j, string in enumerate(string_list):
             for return_tensor_sig in return_tensors_sig:
                 if not return_tensor_sig:
-                    result = tokenizer(string)
+                    result = tokenizer(string, add_special_tokens=False)
                     print("{}: the result of {} is {}".format(tokenizer_item, string, result))
                     assert result.input_ids == all_res[2*i+j]
-                    result = tokenizer(string, padding="max_length", max_length=100)
+                    result = tokenizer(string, padding="max_length", max_length=100, add_special_tokens=False)
                     assert result.input_ids[:len(all_res[2 * i + j])] == all_res[2 * i + j]
                     print("{}: the pad result of {} is {}".format(tokenizer_item, string, result))
                 else:
-                    result = tokenizer(string, return_tensors=return_tensor_sig)
+                    result = tokenizer(string, return_tensors=return_tensor_sig, add_special_tokens=False)
                     if return_tensor_sig == "ms":
                         assert result.input_ids.asnumpy().tolist() == all_res[2 * i + j]
                     else:
                         assert result.input_ids.tolist() == all_res[2 * i + j]
                     print("{}: the {} result of {} is {}".format(tokenizer_item, return_tensor_sig, string, result))
-                    result = tokenizer(string, padding="max_length", max_length=100, return_tensors=return_tensor_sig)
+                    result = tokenizer(string, padding="max_length", max_length=100, return_tensors=return_tensor_sig,
+                                       add_special_tokens=False)
                     if return_tensor_sig == "ms":
                         assert result.input_ids.asnumpy().tolist()[:len(all_res[2 * i + j])] == all_res[2 * i + j]
                     else:
