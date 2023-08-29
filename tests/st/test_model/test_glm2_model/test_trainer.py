@@ -36,13 +36,13 @@ def generator_train():
     input_ids = np.random.randint(low=0, high=15, size=(seq_len,)).astype(np.int32)
     labels = np.random.randint(low=0, high=15, size=(seq_len,)).astype(np.int32)
     train_data = (input_ids, labels)
-    for _ in range(512):
+    for _ in range(32):
         yield train_data
 
 
 def generator_eval():
     """eval dataset generator"""
-    seq_len = 128
+    seq_len = 127
     input_ids = np.random.randint(low=0, high=15, size=(seq_len,)).astype(np.int32)
     labels = np.random.randint(low=0, high=15, size=(seq_len,)).astype(np.int32)
     eval_data = (input_ids, labels)
@@ -90,14 +90,15 @@ class TestGLM2TrainerMethod:
         if is_version_ge(mindspore.__version__, "1.11.0"):
             self.task_trainer.train()
 
-    # @pytest.mark.run(order=2)
-    # def test_eval(self):
-    #     """
-    #     Feature: Trainer.evaluate()
-    #     Description: Test trainer for evaluate.
-    #     Expectation: TypeError, ValueError, RuntimeError
-    #     """
-    #     self.task_trainer.evaluate()
+    @pytest.mark.run(order=2)
+    def test_eval(self):
+        """
+        Feature: Trainer.evaluate()
+        Description: Test trainer for evaluate.
+        Expectation: TypeError, ValueError, RuntimeError
+        """
+        if is_version_ge(mindspore.__version__, "1.11.0"):
+            self.task_trainer.evaluate()
 
     @pytest.mark.run(order=3)
     def test_predict(self):
