@@ -99,26 +99,33 @@ class KeyWordGenDataset(BaseDataset):
         input_columns = ["prompt", "answer"]
         eval_output_columns = ["input_ids", "labels"]
 
+        # Avoid to_json error when summary monitor is opened
+        def train_dataset_func(prompt, answer):
+            return train_dataset_function(prompt, answer)
+
+        def eval_dataset_func(prompt, answer):
+            return eval_dataset_function(prompt, answer)
+
         if is_version_ge(mindspore.__version__, "1.11.0"):
             if phase == "train":
-                dataset = dataset.map(train_dataset_function,
+                dataset = dataset.map(train_dataset_func,
                                       input_columns=input_columns,
                                       output_columns=train_output_columns)
                 dataset = dataset.project(columns=train_output_columns)
             if phase == "eval":
-                dataset = dataset.map(eval_dataset_function,
+                dataset = dataset.map(eval_dataset_func,
                                       input_columns=input_columns,
                                       output_columns=eval_output_columns)
                 dataset = dataset.project(columns=eval_output_columns)
 
         else:
             if phase == "train":
-                dataset = dataset.map(train_dataset_function,
+                dataset = dataset.map(train_dataset_func,
                                       input_columns=input_columns,
                                       output_columns=train_output_columns,
                                       column_order=train_output_columns)
             if phase == "eval":
-                dataset = dataset.map(eval_dataset_function,
+                dataset = dataset.map(eval_dataset_func,
                                       input_columns=input_columns,
                                       output_columns=eval_output_columns,
                                       column_order=eval_output_columns)
