@@ -64,7 +64,7 @@ model:
 
 trainer:
   type: CausalLanguageModelingTrainer
-  model_name: 'glm_6b'
+  model_name: 'glm_6b_chat'
 
 metric:
   type: ADGENMetric
