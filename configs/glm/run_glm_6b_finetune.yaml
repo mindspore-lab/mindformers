@@ -227,8 +227,6 @@ profile_memory: True
 # callbacks
 callbacks:
   - type: MFLossMonitor
-  - type: SummaryMonitor
-    keep_default_action: True
   - type: CheckpointMointor
     prefix: "glm-6b"
     save_checkpoint_steps: 500
