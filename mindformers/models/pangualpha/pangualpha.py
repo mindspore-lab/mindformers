@@ -145,7 +145,7 @@ class QueryLayer(TransformerEncoderLayer):
 
         value_update = None
         key_update = None
-        if self.use_past and self.is_first_iteration:
+        if self.use_past:
             # current key and value
             key_present, value_present = layer_present
             # update key and value calculated this step
@@ -425,12 +425,23 @@ class PanguAlphaHeadModel(BaseModel):
         self.input_position = Tensor(np.arange(config.seq_length), mstype.int32)
         self.expand = P.ExpandDims()
         self.add = P.Add().shard(((dp, 1), ()))
+        self.gather = P.Gather()
+
+        self.use_past = config.use_past
+        self.is_first_iteration = True
+
+        self.position_ids = Tensor(np.arange(config.seq_length), mstype.int32)
+        self.all_ones_attention_mask = P.Ones()((1, 1, 1), mstype.float32)
 
         self.load_checkpoint(config)
 
     def prepare_inputs_for_generation(self, input_ids, **kwargs):
+        input_position = kwargs.get("current_index", None)
+        if input_position is not None:
+            input_position = Tensor(input_position, mstype.int32)
         return {
-            "input_ids": Tensor(input_ids, mstype.int32)
+            "input_ids": Tensor(input_ids, mstype.int32),
+            "input_position": input_position
         }
 
     # pylint: disable=W0613
@@ -442,29 +453,31 @@ class PanguAlphaHeadModel(BaseModel):
         if self.phase == "train":
             seq_length = seq_length - 1
             tokens = self.slice(input_ids, (0, 0), (batch_size, seq_length), (1, 1))
-        else:
-            tokens = input_ids
-
-        input_mask = F.cast(self.not_equal(tokens, self.pad_token_id),
-                            mstype.float32)
-
-        if attention_mask is None:
-            attention_mask = self.get_attention_mask(input_mask)
-        else:
+            input_mask = F.cast(self.not_equal(tokens, self.pad_token_id), mstype.float32)
+            input_position = self.slice(input_position, (0, 0), (batch_size, seq_length), (1, 1))
             attention_mask = self.cast(attention_mask, mstype.float32)
             attention_mask = self.slice2(attention_mask, (0, 0, 0),
                                          (batch_size, seq_length, seq_length),
                                          (1, 1, 1))
-
-        if input_position is None:
-            input_position = F.tuple_to_array(F.make_range(seq_length))
-            input_position = self.expand(input_position, 0)
-            if batch_size == 1:
-                input_position = F.reshape(input_position, (1, seq_length))
-            else:
-                input_position = self.tile(input_position, (batch_size, 1))
         else:
-            input_position = self.slice(input_position, (0, 0), (batch_size, seq_length), (1, 1))
+            tokens = input_ids
+            input_mask = F.cast(self.not_equal(tokens, self.pad_token_id), mstype.float32)
+
+            if attention_mask is None:
+                attention_mask = self.get_attention_mask(input_mask)
+                if not self.is_first_iteration:
+                    attention_mask = self.tile(self.all_ones_attention_mask, (batch_size, 1, 1))
+
+            if input_position is None or self.is_first_iteration:
+                if batch_size == 1:
+                    input_position = F.reshape(self.position_ids, (1, seq_length))
+                else:
+                    input_position = self.tile(self.position_ids, (batch_size, 1))
+            # when incremental reasoning is not the first iteration, it goes into the following logic.
+            else:
+                bias = Tensor(np.arange(batch_size) * self.config.seq_length, mstype.int32)
+                input_position = F.sub(input_position, bias)
+                input_position = F.reshape(input_position, (batch_size, 1))
 
         # [batch_size, seq_length, vocab_size]
         output_states, word_table = self.backbone(tokens, input_position, attention_mask,
@@ -472,11 +485,10 @@ class PanguAlphaHeadModel(BaseModel):
         logits = self.head(output_states, word_table)
 
         if self.phase != 'train':
-            logits = self.reshape(logits, (batch_size, seq_length, -1))
-
-            # makes cast effective to avoid allgather issue in Mindspore1.10
-            input_mask = self.add(input_mask, 1)
-
+            logits = logits.reshape((batch_size, seq_length, -1))
+            logits = logits.reshape((-1, logits.shape[-1]))
+            if (not self.use_past or self.is_first_iteration) and input_position is not None:
+                logits = self.gather(logits, input_position, 0)
             return logits, tokens, input_mask
 
         labels = self.slice(input_ids, (0, 1), (batch_size, seq_length + 1), (1, 1))
