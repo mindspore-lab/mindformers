@@ -321,7 +321,8 @@ GPT2支持文本生成和文本分类两个任务的评测。
                                  --eval_dataset_dir {your_path/wikitext-2.mindrecord} \
                                  --run_mode eval \
                                  --epochs 1
-        # PerplexityMetric: {'PerplexityMetric': {'loss': 3.24, 'PPL': 25.55}
+        # gpt2: PerplexityMetric: {'PerplexityMetric': {'loss': 3.24, 'PPL': 25.55}
+        # gpt2_13b(需替换yaml文件): PerplexityMetric: {'PerplexityMetric': {'loss': 2.35, 'PPL': 10.49}
         ```
 
 - 文本分类：
