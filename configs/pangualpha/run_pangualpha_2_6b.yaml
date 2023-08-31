@@ -189,8 +189,6 @@ optimizer:
 # callbacks
 callbacks:
   - type: MFLossMonitor
-  - type: SummaryMonitor
-    keep_default_action: True
   - type: CheckpointMointor
     prefix: "PanguAlpha-2_6b"
     save_checkpoint_steps: 500

@@ -38,7 +38,11 @@ profile_memory: True
 ......
 ```
 
-## Summary数据采集
+## [Summary](https://www.mindspore.cn/docs/zh-CN/r2.0/api_python/mindspore/mindspore.SummaryCollector.html)数据采集
+
+> ### 使用约束
+>
+> 使用SummaryMonitor时，如果使用Trainer高阶接口启动任务，则**必须**将代码放置到 `if __name__ == “__main__”` 中运行。
 
 在配置文件的callbacks中添加SummaryMonitor和相关参数：
 

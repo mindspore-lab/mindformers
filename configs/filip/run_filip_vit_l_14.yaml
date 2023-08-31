@@ -206,8 +206,6 @@ no_decay_params: ['positional_embedding', 'class_embedding', 'scale', 'bias', 'l
 # callbacks
 callbacks:
   - type: MFLossMonitor
-  - type: SummaryMonitor
-    keep_default_action: True
   - type: CheckpointMointor
     prefix: "mindformers"
     save_checkpoint_steps: 100
