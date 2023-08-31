@@ -64,7 +64,7 @@ class BloomEmbeddingLayer(nn.Cell):
                                                                     [vocab_size, config.hidden_size],
                                                                     dtype=config.embedding_init_type),
                                              parallel_config=config.parallel_config.embedding_dp_mp_config)
-        self.norm = LayerNorm((config.hidden_size,))
+        self.norm = LayerNorm((config.hidden_size,)).shard(((1, 1, 1), (1,), (1,)))
 
     def construct(self, input_ids):
         """The forward compute of Embedding Layer."""

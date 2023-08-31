@@ -72,6 +72,26 @@ class BloomAttention(MultiHeadAttention):
                 ((parallel_config.data_parallel, parallel_config.model_parallel, 1, 1), (1,)))
             self.mul_alibi1 = P.Mul().shard(
                 ((parallel_config.data_parallel, parallel_config.model_parallel, 1, 1), (1,)))
+            # [B, 1, S, S] + [B, H, S, S]
+            self.add_atten_score = P.Add().shard(
+                ((parallel_config.data_parallel, 1, 1, 1),
+                 (parallel_config.data_parallel, parallel_config.model_parallel, 1, 1)))
+            # [B, H, S, D] * [B, 1, S, 1]
+            self.mul_key = P.Mul().shard(
+                ((parallel_config.data_parallel, parallel_config.model_parallel, 1, 1),
+                 (1, 1, 1, 1)))
+            # [B, H, S, D] * [B, 1, S, 1]
+            self.mul_value = P.Mul().shard(
+                ((parallel_config.data_parallel, parallel_config.model_parallel, 1, 1),
+                 (1, 1, 1, 1)))
+            # [B, H, S, D] * [B, H, S, D]
+            self.add_key = P.Add().shard(
+                ((parallel_config.data_parallel, parallel_config.model_parallel, 1, 1),
+                 (parallel_config.data_parallel, parallel_config.model_parallel, 1, 1)))
+            # [B, H, S, D] * [B, H, S, D]
+            self.add_value = P.Add().shard(
+                ((parallel_config.data_parallel, parallel_config.model_parallel, 1, 1),
+                 (parallel_config.data_parallel, parallel_config.model_parallel, 1, 1)))
             self.inv_norm_factor = Tensor([1.0 / math.sqrt(self.size_per_head)])
             self.beta = Tensor([1.0])
             self.cast = P.Cast().shard(((parallel_config.data_parallel, parallel_config.model_parallel, 1, 1),))
@@ -145,8 +165,8 @@ class BloomAttention(MultiHeadAttention):
                 # Get the valid input length without padding
                 valid_length_vector = (self.less(self.range, batch_valid_length.view(-1, 1, 1))).astype(self.dtype)
                 # Cover the key and value numbers corresponding to the padding position
-                key_present = self.mul1(key, self.expand_dims(valid_length_vector, 3))
-                value_present = self.mul1(value, self.expand_dims(valid_length_vector, 3))
+                key_present = self.mul_key(key, self.expand_dims(valid_length_vector, 3))
+                value_present = self.mul_value(value, self.expand_dims(valid_length_vector, 3))
             # The second graph with the inpus size of (bs, 1)
             # the shape of query is (bs, num_heads, 1, size_per_head)
             # the shape of key is   (bs, num_heads, size_per_head, 1)
@@ -156,11 +176,11 @@ class BloomAttention(MultiHeadAttention):
                 current_index = current_index.reshape((-1, 1, 1))
                 current_mask = (self.equal(self.range, current_index)).astype(self.dtype)
                 # Pad the key and value to seq_length with only the position index not zero
-                current_key = self.mul1(key, self.expand_dims(current_mask, 3))
-                current_value = self.mul1(value, self.expand_dims(current_mask, 3))
+                current_key = self.mul_key(key, self.expand_dims(current_mask, 3))
+                current_value = self.mul_value(value, self.expand_dims(current_mask, 3))
                 # Concat the previous saved state and current state
-                key = self.add(key_past, current_key)
-                value = self.add(value_past, current_value)
+                key = self.add_key(key_past, current_key)
+                value = self.add_value(value_past, current_value)
                 # Update key_present and value_present for state update
                 key_present = key
                 value_present = value
@@ -227,7 +247,7 @@ class BloomAttention(MultiHeadAttention):
                 attention_mask.astype(attention_scores.dtype))
 
             adder = self.mul(multiplu_out, self.multiply_data)
-            attention_scores = self.add(adder, attention_scores)
+            attention_scores = self.add_atten_score(adder, attention_scores)
 
         # attention probs
         attention_probs = self._softmax(attention_scores)
@@ -316,6 +336,18 @@ class BloomBlock(TransformerEncoderLayer):
             size_per_head = hidden_size // num_heads
             self.key_shape = (batch_size, num_heads, seq_length, size_per_head)
             self.key_past = Parameter(Tensor(np.zeros(shape=self.key_shape), self.dtype), name="key_past")
+            # [B, H, S, D] * [1]
+            self.mul_init_reset = P.Mul().shard(
+                ((parallel_config.data_parallel, parallel_config.model_parallel, 1, 1),
+                 (1,)))
+            # [B, H, S, D]
+            self.assign_key_past = P.Assign().shard(
+                ((parallel_config.data_parallel, parallel_config.model_parallel, 1, 1),
+                 (parallel_config.data_parallel, parallel_config.model_parallel, 1, 1)))
+            # [B, H, S, D]
+            self.assign_value_past = P.Assign().shard(
+                ((parallel_config.data_parallel, parallel_config.model_parallel, 1, 1),
+                 (parallel_config.data_parallel, parallel_config.model_parallel, 1, 1)))
         if use_seq_parallel:
             self.add.shard(((parallel_config.data_parallel*parallel_config.model_parallel, 1),
                             (parallel_config.data_parallel*parallel_config.model_parallel, 1)))
@@ -346,9 +378,9 @@ class BloomBlock(TransformerEncoderLayer):
 
         if self.use_past and self.is_first_iteration:
             # reset states, init_reset True for reuse and False for reset
-            self.assign(self.key_past, self.mul(self.key_past, init_reset.astype(self.dtype)))
+            self.assign_key_past(self.key_past, self.mul_init_reset(self.key_past, init_reset.astype(self.dtype)))
             key_reset = self.key_past
-            self.assign(self.value_past, self.mul(self.value_past, init_reset.astype(self.dtype)))
+            self.assign_value_past(self.value_past, self.mul_init_reset(self.value_past, init_reset.astype(self.dtype)))
             value_reset = self.value_past
             # add dependency for desired execution order
             input_x = ops.depend(input_x, key_reset)
@@ -377,9 +409,9 @@ class BloomBlock(TransformerEncoderLayer):
             # current key and value
             key_present, value_present = layer_present
             # update key and value calculated this step
-            self.assign(self.key_past, key_present)
+            self.assign_key_past(self.key_past, key_present)
             key_update = self.key_past
-            self.assign(self.value_past, value_present)
+            self.assign_value_past(self.value_past, value_present)
             value_update = self.value_past
             # add dependency for desired execution order
             key_update = ops.depend(key_update, key_reset)
