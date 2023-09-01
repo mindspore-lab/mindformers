@@ -102,10 +102,10 @@
 |    bloom    |        [link](../model_cards/bloom.md)        |    √     |    √     |
 |     GLM     |         [link](../model_cards/glm.md)         |    √     |    √     |
 |    GLM2     |        [link](../model_cards/glm2.md)         |    √     |    √     |
-|     GPT     |        [link](../model_cards/gpt2.md)         |    ×     |    √     |
+|     GPT     |        [link](../model_cards/gpt2.md)         |    √     |    √     |
 |    llama    |        [link](../model_cards/llama.md)        |    √     |    √     |
 |   llama2    |        [link](../model_cards/llama.md)        |    √     |    √     |
-| pangu-alpha |     [link](../model_cards/pangualpha.md)      |    ×     |    √     |
+| pangu-alpha |     [link](../model_cards/pangualpha.md)      |    √     |    √     |
 |     T5      |         [link](../model_cards/t5.md)          |    ×     |    √     |
 |  research   |                   research                    | research | research |
 |  baichuan   |  [link](../../research/baichuan/baichuan.md)  |    √     |    √     |
