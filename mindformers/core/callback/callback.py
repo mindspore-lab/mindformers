@@ -421,8 +421,12 @@ class CheckpointMointor(ModelCheckpoint):
                 "global_step": 0,
                 "loss_scale": 1
             }]
-        directory = os.path.join(directory, f"rank_{self.rank_id}") \
+        ckpt_directory = os.path.join(directory, f"checkpoint/rank_{self.rank_id}") \
             if directory else get_output_subpath('checkpoint', self.rank_id)
+        self.network_directory = os.path.join(directory, f"checkpoint_network/rank_{self.rank_id}") \
+            if directory else get_output_subpath('checkpoint_network', self.rank_id)
+        self.trainable_directory = os.path.join(directory, f"checkpoint_trainable/rank_{self.rank_id}") \
+            if directory else get_output_subpath('checkpoint_trainable', self.rank_id)
         if context.get_auto_parallel_context('parallel_mode') in \
                 ['semi_auto_parallel', 'auto_parallel', 'hybrid_parallel']:
             logger.info("Integrated_save is changed to False when using auto_parallel.")
@@ -438,7 +442,7 @@ class CheckpointMointor(ModelCheckpoint):
                                      enc_key=enc_key,
                                      enc_mode=enc_mode,
                                      exception_save=exception_save)
-        super(CheckpointMointor, self).__init__(prefix, directory, config=config_ck)
+        super(CheckpointMointor, self).__init__(prefix, ckpt_directory, config=config_ck)
 
     def _save_ckpt(self, cb_params, force_to_save=False):
         """Save checkpoint files."""
@@ -502,7 +506,8 @@ class CheckpointMointor(ModelCheckpoint):
 
                 if self.save_network_params:
                     cb_cur_ckpoint_file = self._prefix + "-" + "network" + ".ckpt"
-                    cb_cur_file = os.path.join(self._directory, cb_cur_ckpoint_file)
+                    cb_cur_file = os.path.join(self.network_directory, cb_cur_ckpoint_file)
+                    os.makedirs(self.network_directory, exist_ok=True)
                     save_checkpoint(save_obj, cb_cur_file, self._config.integrated_save, self._config.async_save,
                                     {}, self._config.enc_key, self._config.enc_mode)
 
@@ -525,7 +530,8 @@ class CheckpointMointor(ModelCheckpoint):
                         param_list.append(each_param)
                     save_obj = param_list
                     cb_cur_ckpoint_file = self._prefix + "-" + "trainable_params" + ".ckpt"
-                    cb_cur_file = os.path.join(self._directory, cb_cur_ckpoint_file)
+                    cb_cur_file = os.path.join(self.trainable_directory, cb_cur_ckpoint_file)
+                    os.makedirs(self.trainable_directory, exist_ok=True)
                     save_checkpoint(save_obj, cb_cur_file, self._config.integrated_save,
                                     self._config.async_save, {}, self._config.enc_key, self._config.enc_mode)
 
