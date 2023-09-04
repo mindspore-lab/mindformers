@@ -14,7 +14,7 @@
 
 ## 接口设计
 
-**PetAdapert**
+**PetAdapter**
 
 ```python
 class PetAdapter:
@@ -45,47 +45,47 @@ class PetAdapter:
 
 PetAdapter是所有微调算法适配器的基类，针对于具体的微调算法，一般只需要实现实现`get_pet_model()`接口，将微调算法的改动添加到用户的模型中。
 
-**PetAdapetr.get_pet_model(cls, model: nn.Cell = None, config: PetConfig = None)**
+**PetAdapter.get_pet_model(cls, model: nn.Cell = None, config: PetConfig = None)**
 
-``` python
-功能
+``` text
+功能:
 
 获取微调算法适配的预训练模型
 
-参数
+参数:
 
-    - model(nn.Cell)：原预训练模型，支持用户直接输入模型实例，默认是None，当输入是None值，则是从config中由用户输入的模型实例化MindFormer中支持的模型。
-    - config(PetConfig)：微调算法的配置，包含微调算法的超参或者需要实例化的预训练模型。
+- model(nn.Cell)：原预训练模型，支持用户直接输入模型实例，默认是None，当输入是None值，则是从config中由用户输入的模型实例化MindFormer中支持的模型。
+- config(PetConfig)：微调算法的配置，包含微调算法的超参或者需要实例化的预训练模型。
 
 返回值：
 
-    适配了微调算法的预训练模型(nn.Cell)
+适配了微调算法的预训练模型(nn.Cell)
 ```
 
-**PetAdapetr.get_pretrained_model(cls, config: PetConfig)**
+**PetAdapter.get_pretrained_model(cls, config: PetConfig)**
 
-``` python
-功能
+``` text
+功能:
 
 实例化预训练模型，当用户不传入模型实例时
 
-参数
+参数:
 
 - config：微调算法的配置参数
 
-返回值
+返回值:
 
 返回预训练模型
 ```
 
-**PetAdapetr.freeze_pretrained_model(cls, model, pet_type:PetType)**
+**PetAdapter.freeze_pretrained_model(cls, model, pet_type:PetType)**
 
-``` python
-功能
+``` text
+功能:
 
 根据微调算法类型冻结预训练模型权重
 
-参数
+参数:
 
 - model：需要冻结权重的预训练模型
 - pet_type： 微调算法类型
