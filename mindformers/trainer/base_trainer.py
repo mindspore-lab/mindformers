@@ -612,8 +612,8 @@ class BaseTrainer:
                     model=model,
                     eval_dataset=eval_dataset,
                 ),
-                step_interval=config.eval_step_interval if config.eval_step_interval else -1,
-                epoch_interval=config.eval_epoch_interval if config.eval_epoch_interval else 1,
+                step_interval=config.eval_step_interval if config.eval_step_interval else 100,
+                epoch_interval=config.eval_epoch_interval if config.eval_epoch_interval else -1,
             )
             callbacks.append(eval_callback)
 
