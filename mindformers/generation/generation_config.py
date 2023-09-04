@@ -28,7 +28,10 @@ class GenerationConfig:
         > Parameters that control the length of the output
 
         max_length (`int`, *optional*, defaults to 20):
-            The maximum length the generated tokens can have.
+            The maximum length the generated tokens can have. Corresponds to the length of the input prompt +
+            `max_new_tokens`. Its effect is overridden by `max_new_tokens`, if also set.
+        max_new_tokens (`int`, *optional*):
+            The maximum numbers of tokens to generate, ignoring the number of tokens in the prompt.
 
         > Parameters that control the generation strategy used
 
@@ -79,6 +82,7 @@ class GenerationConfig:
         # max generate length
         self.max_length = kwargs.pop("max_decode_length", 20)
         self.max_length = kwargs.pop("max_length", self.max_length)
+        self.max_new_tokens = kwargs.pop("max_new_tokens", None)
 
         # do sample or not
         self.do_sample = kwargs.pop("do_sample", False)
