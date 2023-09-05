@@ -60,19 +60,19 @@ def clear_auto_trans_output(config):
     """clear transformed_checkpoint and strategy"""
     if check_in_modelarts():
         obs_strategy_dir = os.path.join(config.remote_save_url, "strategy")
-        if mox.file.exists(obs_strategy_dir):
+        if mox.file.exists(obs_strategy_dir) and config.local_rank == 0:
             mox.file.remove(obs_strategy_dir, recursive=True)
         obs_transformed_ckpt_dir = os.path.join(config.remote_save_url, "transformed_checkpoint")
-        if mox.file.exists(obs_transformed_ckpt_dir):
+        if mox.file.exists(obs_transformed_ckpt_dir) and config.local_rank == 0:
             mox.file.remove(obs_transformed_ckpt_dir, recursive=True)
         mox.file.make_dirs(obs_strategy_dir)
         mox.file.make_dirs(obs_transformed_ckpt_dir)
     else:
         strategy_dir = os.path.join(get_output_root_path(), "strategy")
-        if os.path.exists(strategy_dir):
+        if os.path.exists(strategy_dir) and config.local_rank % 8 == 0:
             shutil.rmtree(strategy_dir)
         transformed_ckpt_dir = os.path.join(get_output_root_path(), "transformed_checkpoint")
-        if os.path.exists(transformed_ckpt_dir):
+        if os.path.exists(transformed_ckpt_dir) and config.local_rank % 8 == 0:
             shutil.rmtree(transformed_ckpt_dir)
         os.makedirs(strategy_dir, exist_ok=True)
         os.makedirs(transformed_ckpt_dir, exist_ok=True)
