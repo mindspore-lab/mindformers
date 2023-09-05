@@ -30,7 +30,6 @@ from mindformers.core.context import build_context, build_profile_cb
 from mindformers.trainer import build_trainer
 from mindformers.tools.cloud_adapter import cloud_monitor
 from mindformers.tools.logger import logger
-from mindformers.tools.utils import is_version_ge
 from mindformers.tools import get_output_root_path
 from mindformers.mindformer_book import MindFormerBook
 
@@ -82,8 +81,6 @@ def clear_auto_trans_output(config):
 @cloud_monitor()
 def main(config):
     """main."""
-    config.is_version_ge = is_version_ge(ms.__version__, '2.0.0')
-
     # init context
     build_context(config)
 

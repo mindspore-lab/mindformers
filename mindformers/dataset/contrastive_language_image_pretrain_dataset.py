@@ -14,7 +14,7 @@
 # ============================================================================
 """Contrastive Language Image Pretrain Dataset."""
 import os
-
+from mindformers.version_control import get_dataset_map
 from .dataloader import build_dataset_loader
 from .transforms import build_transforms
 from .sampler import build_sampler
@@ -22,7 +22,6 @@ from .base_dataset import BaseDataset
 from ..tools import logger
 from ..models.build_tokenizer import build_tokenizer
 from ..tools.register import MindFormerRegister, MindFormerModuleType
-
 
 @MindFormerRegister.register(MindFormerModuleType.DATASET)
 class ContrastiveLanguageImagePretrainDataset(BaseDataset):
@@ -83,20 +82,16 @@ class ContrastiveLanguageImagePretrainDataset(BaseDataset):
             dataset = dataset.use_sampler(sampler)
 
         if transforms is not None:
-            dataset = dataset.map(
-                input_columns="image",
-                operations=transforms,
-                num_parallel_workers=dataset_config.num_parallel_workers,
-                python_multiprocessing=dataset_config.python_multiprocessing
-            )
+            dataset = get_dataset_map(dataset, transforms,
+                                      input_columns="image",
+                                      num_parallel_workers=dataset_config.num_parallel_workers,
+                                      python_multiprocessing=dataset_config.python_multiprocessing)
 
         if text_transforms is not None:
-            dataset = dataset.map(
-                input_columns="text",
-                operations=text_transforms,
-                num_parallel_workers=dataset_config.num_parallel_workers,
-                python_multiprocessing=dataset_config.python_multiprocessing
-            )
+            dataset = get_dataset_map(dataset, text_transforms,
+                                      input_columns="text",
+                                      num_parallel_workers=dataset_config.num_parallel_workers,
+                                      python_multiprocessing=dataset_config.python_multiprocessing)
 
         dataset = dataset.batch(dataset_config.batch_size,
                                 drop_remainder=dataset_config.drop_remainder,

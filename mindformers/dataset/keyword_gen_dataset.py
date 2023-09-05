@@ -16,7 +16,6 @@
 import copy
 import os
 
-import mindspore
 import mindspore.common.dtype as mstype
 import mindspore.dataset.transforms.c_transforms as C
 import numpy as np
@@ -27,7 +26,7 @@ from mindformers.dataset.dataloader import build_dataset_loader
 from mindformers.models.build_tokenizer import build_tokenizer
 from mindformers.tools.logger import logger
 from mindformers.tools.register import MindFormerModuleType, MindFormerRegister
-from mindformers.tools.utils import is_version_ge
+from mindformers.version_control import get_dataset_map
 
 
 @MindFormerRegister.register(MindFormerModuleType.DATASET)
@@ -76,7 +75,7 @@ class KeyWordGenDataset(BaseDataset):
         dataset = dataset.repeat(dataset_config.repeat)
         type_cast_op = C.TypeCast(mstype.int32)
         for input_arg in dataset_config.input_columns:
-            dataset = dataset.map(operations=type_cast_op, input_columns=input_arg)
+            dataset = get_dataset_map(dataset, type_cast_op, input_columns=input_arg)
         return dataset
 
     @classmethod
@@ -106,29 +105,18 @@ class KeyWordGenDataset(BaseDataset):
         def eval_dataset_func(prompt, answer):
             return eval_dataset_function(prompt, answer)
 
-        if is_version_ge(mindspore.__version__, "1.11.0"):
-            if phase == "train":
-                dataset = dataset.map(train_dataset_func,
+        if phase == "train":
+            dataset = get_dataset_map(dataset,
+                                      train_dataset_func,
                                       input_columns=input_columns,
                                       output_columns=train_output_columns)
-                dataset = dataset.project(columns=train_output_columns)
-            if phase == "eval":
-                dataset = dataset.map(eval_dataset_func,
+            dataset = dataset.project(columns=train_output_columns)
+        if phase == "eval":
+            dataset = get_dataset_map(dataset,
+                                      eval_dataset_func,
                                       input_columns=input_columns,
                                       output_columns=eval_output_columns)
-                dataset = dataset.project(columns=eval_output_columns)
-
-        else:
-            if phase == "train":
-                dataset = dataset.map(train_dataset_func,
-                                      input_columns=input_columns,
-                                      output_columns=train_output_columns,
-                                      column_order=train_output_columns)
-            if phase == "eval":
-                dataset = dataset.map(eval_dataset_func,
-                                      input_columns=input_columns,
-                                      output_columns=eval_output_columns,
-                                      column_order=eval_output_columns)
+            dataset = dataset.project(columns=eval_output_columns)
         return dataset
 
     @classmethod

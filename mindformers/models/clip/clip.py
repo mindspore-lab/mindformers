@@ -27,7 +27,7 @@ from mindspore.common.initializer import Normal, initializer
 from mindspore import Parameter, Tensor
 import mindspore.ops as ops
 
-from mindformers.tools.utils import is_version_ge
+from mindformers.version_control import get_norm
 from ...mindformer_book import MindFormerBook
 from ..base_model import BaseModel
 from .clip_modules import VisionTransformer, Transformer, LayerNorm
@@ -92,8 +92,8 @@ class CLIPModel(BaseModel):
             [config.text_config.hidden_size, config.projection_dim], ms.float32))
         self.logit_scale = Parameter(Tensor(np.log(1 / 0.07)).astype(ms.float32))
         self.exp = ops.Exp()
+        self.norm = get_norm()
         self.load_checkpoint(config)
-        self.is_version_2_0 = is_version_ge(ms.__version__, '1.11.0')
 
     def get_dtype(self, dtype: str):
         """Get_dtype"""
@@ -157,12 +157,8 @@ class CLIPModel(BaseModel):
         image_features = self.get_image_features(image)
         text_features = self. get_text_features(text)
 
-        if self.is_version_2_0:
-            image_features = image_features / image_features.norm(dim=1, keepdim=True)
-            text_features = text_features / text_features.norm(dim=1, keepdim=True)
-        else:
-            image_features = image_features / image_features.norm(1, keep_dims=True)
-            text_features = text_features / text_features.norm(1, keep_dims=True)
+        image_features = image_features / self.norm(image_features, dim=1, keepdim=True)
+        text_features = text_features / self.norm(text_features, dim=1, keepdim=True)
 
         logit_scale = self.exp(self.logit_scale)
 

@@ -15,10 +15,9 @@
 """Token classification Dataset."""
 import os
 
-import mindspore
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.tools.logger import logger
-from mindformers.tools.utils import is_version_ge
+from mindformers.version_control import get_dataset_map
 
 from .dataloader import build_dataset_loader
 from ..models.build_tokenizer import build_tokenizer
@@ -77,31 +76,19 @@ class TokenClassificationDataset(BaseDataset):
             dataset = dataset.use_sampler(sampler)
 
         if text_transforms is not None:
-            if is_version_ge(mindspore.__version__, '1.11.0'):
-                dataset = dataset.map(
-                    input_columns=dataset_config.input_columns,
-                    operations=text_transforms,
-                    output_columns=dataset_config.output_columns,
-                    num_parallel_workers=dataset_config.num_parallel_workers,
-                    python_multiprocessing=dataset_config.python_multiprocessing
-                )
-            else:
-                dataset = dataset.map(
-                    input_columns=dataset_config.input_columns,
-                    operations=text_transforms,
-                    column_order=dataset_config.output_columns,
-                    output_columns=dataset_config.output_columns,
-                    num_parallel_workers=dataset_config.num_parallel_workers,
-                    python_multiprocessing=dataset_config.python_multiprocessing
-                )
+            dataset = get_dataset_map(dataset,
+                                      input_columns=dataset_config.input_columns,
+                                      operations=text_transforms,
+                                      output_columns=dataset_config.output_columns,
+                                      num_parallel_workers=dataset_config.num_parallel_workers,
+                                      python_multiprocessing=dataset_config.python_multiprocessing)
 
         if label_transforms is not None:
-            dataset = dataset.map(
-                input_columns=dataset_config.input_columns[1],
-                operations=label_transforms,
-                num_parallel_workers=dataset_config.num_parallel_workers,
-                python_multiprocessing=dataset_config.python_multiprocessing
-            )
+            dataset = get_dataset_map(dataset,
+                                      input_columns=dataset_config.input_columns[1],
+                                      operations=label_transforms,
+                                      num_parallel_workers=dataset_config.num_parallel_workers,
+                                      python_multiprocessing=dataset_config.python_multiprocessing)
 
         dataset = dataset.batch(dataset_config.batch_size,
                                 drop_remainder=dataset_config.drop_remainder,

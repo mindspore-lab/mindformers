@@ -15,7 +15,6 @@
 """attention modules."""
 import numpy as np
 
-import mindspore as ms
 from mindspore import Tensor
 from mindspore import dtype as mstype
 from mindspore import nn, ops
@@ -24,7 +23,7 @@ from mindspore.ops import operations as P
 
 from mindformers.modules.transformer import OpParallelConfig
 from mindformers.modules.layers import Linear
-from mindformers.tools.utils import is_version_ge
+from mindformers.version_control import get_dropout
 
 default_dpmp_config = OpParallelConfig()
 
@@ -210,11 +209,7 @@ class RotaryEmbeddingFP32SoftmaxSelfAttention(nn.Cell):
                            (parallel_config.model_parallel,))
         )
 
-        if is_version_ge(ms.__version__, '1.11.0'):
-            self.attention_dropout = nn.Dropout(p=attention_dropout_prob)
-        else:
-            self.attention_dropout = nn.Dropout(keep_prob=1 - attention_dropout_prob)
-
+        self.attention_dropout = get_dropout(attention_dropout_prob)
         self.dense = Linear(
             self.inner_hidden_size,
             hidden_size,
@@ -225,10 +220,7 @@ class RotaryEmbeddingFP32SoftmaxSelfAttention(nn.Cell):
         self.dense.shard(
             strategy_matmul=((parallel_config.data_parallel, 1), (parallel_config.model_parallel, 1)),
             strategy_bias=((parallel_config.data_parallel, 1), (1,)))
-        if is_version_ge(ms.__version__, '1.11.0'):
-            self.output_dropout = nn.Dropout(p=output_dropout_prob)
-        else:
-            self.output_dropout = nn.Dropout(keep_prob=1 - output_dropout_prob)
+        self.output_dropout = get_dropout(output_dropout_prob)
         self.matmul = P.BatchMatMul()
         self.matmul.shard(((parallel_config.data_parallel, parallel_config.model_parallel, 1, 1),
                            (parallel_config.data_parallel, parallel_config.model_parallel, 1, 1)))

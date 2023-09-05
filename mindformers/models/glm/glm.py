@@ -29,9 +29,9 @@ from mindformers.modules.transformer import VocabEmbedding, EmbeddingOpParallelC
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.core.loss import CrossEntropyLoss
 from mindformers.modules.layers import LayerNorm
-from mindformers.tools.utils import is_version_ge
 from mindformers.pet.tuners.pet_adapter import PetAdapter
 from mindformers.pet.tuners.lora_adapter import LoraAdapter
+from mindformers.version_control import get_dropout
 
 from .glm_config import GLMConfig
 from .layers import DeepNormWithGLULayer
@@ -124,10 +124,7 @@ class GLMModel(nn.Cell):
             op_parallel_config = config.parallel_config
 
         # create embedding parameters
-        if is_version_ge(ms.__version__, '1.11.0'):
-            self.embedding_dropout = nn.Dropout(p=config.embedding_dropout_prob)
-        else:
-            self.embedding_dropout = nn.Dropout(keep_prob=1 - config.embedding_dropout_prob)
+        self.embedding_dropout = get_dropout(config.embedding_dropout_prob)
 
         embed_parallel_config.data_parallel = op_parallel_config.data_parallel
         embed_parallel_config.model_parallel = op_parallel_config.model_parallel
@@ -445,10 +442,7 @@ class GLMChatModel(GLMForPreTraining):
         self.pow = P.Pow()
         self.topk = P.TopK(sorted=True)
         self.cumsum = P.CumSum()
-        if is_version_ge(ms.__version__, '1.11.0'):
-            self.sum = ops.sum
-        else:
-            self.sum = P.ReduceSum(keep_dims=False)
+        self.sum = P.ReduceSum(keep_dims=False)
         self.vocab_size = config.vocab_size
         self.batch_size = config.batch_size
         self.frequency_list = ms.Tensor([[0 for _ in range(self.vocab_size)]])

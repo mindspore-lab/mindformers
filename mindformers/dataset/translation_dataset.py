@@ -17,14 +17,12 @@ import os
 import copy
 import numpy as np
 
-
-import mindspore
 import mindspore.common.dtype as mstype
 import mindspore.dataset.transforms.c_transforms as C
 
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.tools.logger import logger
-from mindformers.tools.utils import is_version_ge
+from mindformers.version_control import get_dataset_map
 from .dataloader import build_dataset_loader
 from .base_dataset import BaseDataset
 from ..auto_class import AutoTokenizer
@@ -71,7 +69,7 @@ class TranslationDataset(BaseDataset):
         dataset = dataset.repeat(dataset_config.repeat)
         type_cast_op = C.TypeCast(mstype.int32)
         for input_arg in dataset_config.input_columns:
-            dataset = dataset.map(operations=type_cast_op, input_columns=input_arg)
+            dataset = get_dataset_map(dataset, operations=type_cast_op, input_columns=input_arg)
         return dataset
 
     @classmethod
@@ -99,17 +97,10 @@ class TranslationDataset(BaseDataset):
             labels = np.array(tgt_output['input_ids'], np.int32)
             return input_ids, attention_mask, labels
 
-        if is_version_ge(mindspore.__version__, "1.11.0"):
-            dataset = dataset.map(pad_max_function,
+        dataset = get_dataset_map(dataset, pad_max_function,
                                   input_columns=['source', 'target'],
                                   output_columns=['input_ids', 'attention_mask', 'labels'])
-            dataset = dataset.project(columns=['input_ids', 'attention_mask', 'labels'])
-
-        else:
-            dataset = dataset.map(pad_max_function,
-                                  input_columns=['source', 'target'],
-                                  output_columns=['input_ids', 'attention_mask', 'labels'],
-                                  column_order=['input_ids', 'attention_mask', 'labels'])
+        dataset = dataset.project(columns=['input_ids', 'attention_mask', 'labels'])
         return dataset
 
     @classmethod

@@ -1,7 +1,6 @@
 """base transformer layer."""
 import numpy as np
 
-import mindspore as ms
 from mindspore import Parameter, Tensor
 from mindspore import dtype as mstype
 from mindspore import nn
@@ -10,8 +9,7 @@ from mindspore.ops import operations as P
 from mindspore import ops
 
 from mindformers.modules.layers import LayerNorm, Linear
-from mindformers.tools.utils import is_version_ge
-
+from mindformers.version_control import get_dropout
 from mindformers.models.glm.attention import RotaryEmbeddingFP32SoftmaxSelfAttention
 
 
@@ -85,10 +83,7 @@ class MLPWithGEGLU(nn.Cell):
             strategy_bias=((parallel_config.data_parallel, 1), (1,))
             )
 
-        if is_version_ge(ms.__version__, '1.11.0'):
-            self.dropout = nn.Dropout(p=output_dropout_prob)
-        else:
-            self.dropout = nn.Dropout(keep_prob=1 - output_dropout_prob)
+        self.dropout = get_dropout(output_dropout_prob)
         self.dropout.dropout.shard(((parallel_config.data_parallel, parallel_config.model_parallel),))
 
     def mlp_forward(self, hidden_states):

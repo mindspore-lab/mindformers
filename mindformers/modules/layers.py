@@ -23,7 +23,6 @@ import inspect
 import math
 import numpy as np
 
-import mindspore
 from mindspore import nn, context
 from mindspore.common.parameter import Parameter
 from mindspore.common.initializer import initializer, Tensor
@@ -44,7 +43,6 @@ from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagati
 from mindspore.context import ParallelMode
 
 from mindformers.tools.logger import logger
-from mindformers.tools.utils import is_version_ge
 from mindformers.modules.transformer.op_parallel_config import default_dpmp_config, OpParallelConfig, MoEParallelConfig
 
 __all__ = [
@@ -312,10 +310,6 @@ class LayerNorm(Cell):
             raise TypeError("The type of parameter 'param_init_type' should in [float32, float16], "
                             "but got the type : {}.".format(type(param_init_type)))
         # Since the mindspore 1.10 version, the layernorm has been changed to P.LayerNorm
-        if is_version_ge(mindspore.__version__, '1.10.0'):
-            self.is_self_defined = False
-        else:
-            self.is_self_defined = True
         self.is_self_defined = is_self_defined
         if not self.is_self_defined:
             self.layer_norm = P.LayerNorm(begin_norm_axis=-1,
