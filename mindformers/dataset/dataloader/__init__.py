@@ -17,6 +17,7 @@ from .build_dataloader import build_dataset_loader
 from .flickr8k_dataloader import Flickr8kDataLoader
 from .multi_image_cap_dataloader import MultiImgCapDataLoader
 from .cifar100_dataloader import Cifar100DataLoader
+from .multi_source_dataloader import MultiSourceDataLoader
 from .wmt16_dataloader import WMT16DataLoader
 from .cluener_dataloader import CLUENERDataLoader
 from .squad_dataloader import SQuADDataLoader
@@ -24,4 +25,4 @@ from .adgen_dataloader import ADGenDataLoader
 
 __all__ = ['Flickr8kDataLoader', 'Cifar100DataLoader', 'WMT16DataLoader',
            'CLUENERDataLoader', 'SQuADDataLoader', 'ADGenDataLoader',
-           'MultiImgCapDataLoader']
+           'MultiImgCapDataLoader', 'MultiSourceDataLoader']
