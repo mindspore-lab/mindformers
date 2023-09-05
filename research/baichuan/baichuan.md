@@ -1,6 +1,8 @@
 # 百川
 
-百川大模型系列是由百川智能研究的大规模语言预训练模型，目前有Baichuan-7B、Baichuan-13B-base和Baichuan-13B-Chat三个系列。目前支持`Baichuan-7B`和`Baichuan-13B-base`预训练模型。
+百川大模型系列是由百川智能研究的大规模语言预训练模型，目前有Baichuan-7B、Baichuan-13B-base和Baichuan-13B-Chat三个系列。目前MindFormers已全部支持。
+
+**注: 7B与13B实现方式不同，请参考对应参数的文档进行使用**
 
 ## Baichuan-7B
 
@@ -34,7 +36,9 @@ TORCH_CKPT_DIR: huggingface权重保存目录路径
 mindspore_ckpt_path: 权重保存文件名，保存为TORCH_CKPT_DIR/OUTPUT_NAME, 也可以指定为自定义保存路径
 ```
 
-#### API方式调用
+#### [多卡权重切分](../../docs/feature_cards/Transform_Ckpt.md#方案1源码执行)
+
+#### 脚本启动
 
 > 需开发者提前pip安装。具体接口说明请参考[API接口](https://gitee.com/mindspore/transformer/wikis/API/)
 > `遵从Baichuan-7B的license，本模型需要用户自行下载权重进行处理，故使用时和llama存在一定区别，具体如下：`
@@ -124,9 +128,9 @@ License: Baichuan-13B-base License
 
 ### 快速使用
 
-#### Baichuan-13B 预训练权重转换
+#### Baichuan-13B-Base/Chat 权重转换
 
-从huggingface下载[Baichuan-13B-base](https://huggingface.co/baichuan-inc/Baichuan-13B-Base/tree/main);需要将整个工程下载下来。
+从huggingface下载[Baichuan-13B-base](https://huggingface.co/baichuan-inc/Baichuan-13B-Base/tree/main)或者[Baichuan-13B-chat](https://huggingface.co/baichuan-inc/Baichuan-13B-Chat/tree/main)，需要将整个工程下载下来。
 
 执行权重转换脚本
 
@@ -140,35 +144,35 @@ TORCH_CKPT_DIR: huggingface权重保存目录路径(即刚刚从hugging face下�
 mindspore_ckpt_path: 权重保存文件名，默认保存为TORCH_CKPT_DIR/OUTPUT_NAME, 也可以指定为自定义保存路径
 ```
 
-#### API方式调用
+#### [多卡权重切分](../../docs/feature_cards/Transform_Ckpt.md#方案1源码执行)
+非单卡运行，无论是train, finetune, eval, predict均需要把权重按照并行配置进行切分！
 
-> 需开发者提前pip安装。具体接口说明请参考[API接口](https://gitee.com/mindspore/mindformer/wikis/API/)
+#### 脚本启动Baichuan-13B-Base
+
+> 需开发者提前pip安装。具体接口说明请参考[API接口](../../README.md#二mindformers安装)
 > `遵从Baichuan-13B-base的license，本模型需要用户自行下载权重进行处理`
 
-`Baichuan-13B-base`的高阶接口使用脚本已集成在`run_baichuan_13b.py`脚本中
+`Baichuan-13B-base`的高阶接口使用脚本已集成在`run_baichuan_13b_base.py`脚本中
 
-**注1**：由于模型较大，910A不支持单卡推理，不支持8卡训练，910B支持单卡推理，单机8卡训练。如果使用910A，并且推理对于seq_length不硬性要求4096，可以在yaml中修改seq_length为1024，910A也可以单卡运行推理。
 
-**注2**: 由于baichuan-13B-base基于高阶接口的形式开发，存放于research文件夹下，使用时需要将mindformers[安装](../../README.md#二mindformers安装)为python的包，才能直接进入research目录下执行相关命令。
+**注1**：由于模型较大，910A不支持单卡推理，不支持单机8卡训练。如果使用910A进行单卡推理，需要修改`run_baichuan_13b.yaml`中`seq_length`为1024。
 
-**注3**: 当前`run_baichuan_13b.yaml`文件默认为train配置，用于eval和predict时需要修改并行策略。910B请使用`run_baichuan_13b_910b.yaml`
+**注2**：增量推理需要修改`run_baichuan_13b.yaml`中`use_past`为True。
 
-**注4**: 加载权重和并行策略强相关，指定并行策略（数据并行data_parallel, 模型并行model_parallel)后, 需要根据相应的strategy文件，将单卡权重切分为对应并行的权重，之后才能加载进行微调或者评估推理！！！ **[多卡权重的切分与合并](../../docs/feature_cards/Transform_Ckpt.md)**，由于使用自定义脚本启动，不能使用`权重自动转换`，请使用`权重离线切分转换`！！！
-
-**注5**：使用predict前需要下载baichuan13b的tokenizer文件，并且在`baichuan/run_baichuan_13b.yaml`该文件中修改tokenzier路径到hugging face`Baichuan-13B-Base/tokenizer.model`文件
+**注3**：使用predict前需要下载baichuan13b的tokenizer文件，并且在`baichuan/run_baichuan_13b.yaml`该文件中修改tokenzier路径到hugging face`Baichuan-13B-Base/tokenizer.model`文件
 
 - 910B单卡eval示例
 
 ```shell
 cd mindformers/research
-python baichuan/run_baichuan_13b.py --config baichuan/run_baichuan_13b_910b.yaml --load_checkpoint path/to/baichuan_13b.ckpt --run_mode=eval --eval_data path/to/mindrecord_dir
+python baichuan/run_baichuan_13b_base.py --config baichuan/run_baichuan_13b_910b.yaml --load_checkpoint path/to/baichuan_13b.ckpt --run_mode=eval --eval_data path/to/mindrecord_dir --use_parallel False
 ```
 
 - 910B单卡predict示例
 
 ```shell
 cd mindformers/research
-python baichuan/run_baichuan_13b.py --config baichuan/run_baichuan_13b_910b.yaml --load_checkpoint path/to/baichuan_13b.ckpt --run_mode=predict --predict_data TLS1.2协议的基本流程 --predict_length 100 --use_parallel False
+python baichuan/run_baichuan_13b_base.py --config baichuan/run_baichuan_13b_910b.yaml --load_checkpoint path/to/baichuan_13b.ckpt --run_mode=predict --predict_data TLS1.2协议的基本流程 --predict_length 100 --use_parallel False
 #运行结果：[{'text_generation_text': ['TLS1.2协议的基本流程如下: 1.客户端向服务器发送一个ClientHello消息,其中包含客户端支持的加密算法、压缩算法、随机数、客户端支持的扩展等信息。 2.服务器收到ClientHello消息后,向客户端发送一个ServerHello消息,其中包含服务器支持的加密算法、压缩算法、随机数、服务器支持的扩展等信息。 3.客户端收到ServerHello消息后,向服务']}]
 ```
 
@@ -176,38 +180,61 @@ python baichuan/run_baichuan_13b.py --config baichuan/run_baichuan_13b_910b.yaml
 
 ```shell
 cd mindformers/research
-bash run_singlenode.sh "python baichuan/run_baichuan_13b.py --config baichuan/run_baichuan_13b.yaml --load_checkpoint path/to/baichuan_13b_ckpt_dp1mp2 --run_mode=eval --eval_data path/to/mindrecord_dir" path/to/rank_table_file [0,2] 2
+bash run_singlenode.sh "python baichuan/run_baichuan_13b_base.py --config baichuan/run_baichuan_13b.yaml --load_checkpoint path/to/baichuan_13b_ckpt_dp1mp2 --run_mode=eval --eval_data path/to/mindrecord_dir" path/to/rank_table_file [0,2] 2
 ```
 
-**注意看，这里load checkpoint后的路径为多卡切分权重**
+**注意，此处load checkpoint后的路径为多卡切分权重**
 
 - 单机多卡运行predict示例
 
 ```shell
 cd mindformers/research
-bash run_singlenode.sh "python baichuan/run_baichuan_13b.py --config baichuan/run_baichuan_13b.yaml --load_checkpoint path/to/baichuan_13b_ckpt_dp1mp2 --run_mode=predict --predict_data TLS1.2协议的基本流程 --predict_length 100" path/to/rank_table_file [0,2] 2
+bash run_singlenode.sh "python baichuan/run_baichuan_13b_base.py --config baichuan/run_baichuan_13b.yaml --load_checkpoint path/to/baichuan_13b_ckpt_dp1mp2 --run_mode=predict --predict_data TLS1.2协议的基本流程 --predict_length 100" path/to/rank_table_file [0,2] 2
 #运行结果：[{'text_generation_text': ['TLS1.2协议的基本流程如下: 1.客户端向服务器发送一个ClientHello消息,其中包含客户端支持的加密算法、压缩算法、随机数、客户端支持的扩展等信息。 2.服务器收到ClientHello消息后,向客户端发送一个ServerHello消息,其中包含服务器支持的加密算法、压缩算法、随机数、服务器支持的扩展等信息。 3.客户端收到ServerHello消息后,向服务']}]
 ```
 
-**注意看，这里load checkpoint后的路径为多卡切分权重**
+**注意，此处load checkpoint后的路径为多卡切分权重**
 
 - 多机多卡运行train示例
 
 ```shell
 # node 1
 cd mindformers/research
-bash run_multinode.sh "python baichuan/run_baichuan_13b.py --config baichuan/run_baichuan_13b.yaml --load_checkpoint path/to/baichuan_13b_ckpt_dp1mp2 --run_mode=train --train_data path/to/mindrecord_dir" path/to/rank_table_file [0,8] 16
+bash run_multinode.sh "python baichuan/run_baichuan_13b_base.py --config baichuan/run_baichuan_13b.yaml --load_checkpoint path/to/baichuan_13b_ckpt_dp1mp2 --run_mode=train --train_data path/to/mindrecord_dir" path/to/rank_table_file [0,8] 16
 # node 2
 cd mindformers/research
-bash run_multinode.sh "python baichuan/run_baichuan_13b.py --config baichuan/run_baichuan_13b.yaml --load_checkpoint path/to/baichuan_13b_ckpt_dp1mp2 --run_mode=train --train_data path/to/mindrecord_dir" .path/to/rank_table_file [8,16] 16
+bash run_multinode.sh "python baichuan/run_baichuan_13b_base.py --config baichuan/run_baichuan_13b.yaml --load_checkpoint path/to/baichuan_13b_ckpt_dp1mp2 --run_mode=train --train_data path/to/mindrecord_dir" .path/to/rank_table_file [8,16] 16
 ```
 
 **参数说明**
   `config`: huggingface权重保存目录路径(即刚刚从hugging face下载的工程目录)
   `load_checkpoint`: 推理所使用的的权重，需从huggingface获取，通过conver_weight转换为mindspore单卡权重，参考[权重切分](../../docs/feature_cards/Transform_Ckpt.md)转换为多卡权重
   `run_mode`：运行模式，包括train，finetune，eval，predict
-  `train_data`：eval数据，训练时需要填入，数据获取方法参考[llama数据准备](../../docs/model_cards/llama.md#数据集准备)，注意tokenzier需使用baichuan的。
+  `train_data`：train数据，训练时需要填入，数据获取方法参考[llama数据准备](../../docs/model_cards/llama.md#数据集准备)，注意tokenzier需使用baichuan的。
   `eval_data`：eval数据，eval是需要填入，同train。
   `predict_data`：predict数据，predict时需要填入
 
-  更多输入可参考`run_baichuan_13b.py`脚本内入参
+  更多输入可参考`run_baichuan_13b_base.py`脚本内入参
+
+#### 脚本启动Baichuan-13B-Chat
+
+> 需开发者提前pip安装。具体接口说明请参考[API接口](../../README.md#二mindformers安装)
+> `遵从Baichuan-13B-chat的license，本模型需要用户自行下载权重进行处理`
+
+`Baichuan-13B-chat`的高阶接口使用脚本已集成在`run_baichuan_13b_chat.py`脚本中
+
+```shell
+cd mindformers/research
+python baichuan/run_baichuan_13b_chat.py --config baichuan --load_checkpoint path/to/baichuan_13b.ckpt --max_new_tokens 512
+#请输入：世界上第二高的山峰是哪座？
+#世界上第二高的山峰是喀喇昆仑山脉的乔戈里峰(K2)，海拔8,611米(28,251英尺)。它位于巴基斯坦和中国边境附近，是喀喇昆仑山脉的最高峰峰。</s>
+#请输入：那第三高的山峰呢？
+#世界第三高的山峰是喜马拉雅山脉的康峰(Kangchenjunga)，海拔8,586米(28,169英尺)。它位于尼泊尔和印度边境附近，是世界上最高的14座山峰之一一。</s>
+#请输入：我想攀爬高峰，在前面说的两座高峰里，你推荐我先爬哪一座？
+#在选择攀爬的顺序时，需要考虑多种因素，如个人体能、技能水平、时间限制等。以下是一些建议供您参考：...(省略更多输出)
+```
+
+**参数说明**
+  `config`: 用于生成tokenizer的配置文件，路径指定到文件夹，需把yaml文件单独放置于一个文件夹内
+  `load_checkpoint`: 推理所使用的的权重，需从huggingface获取，通过conver_weight转换为mindspore单卡权重，参考[权重切分](../../docs/feature_cards/Transform_Ckpt.md)转换为多卡权重
+  `max_new_tokens`: 最大生成tokens数，多轮对话时，如果记忆的总tokens大于`seq_length-max_new_tokens`会遗忘以前的对话。
