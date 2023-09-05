@@ -87,7 +87,7 @@ def test_gpt_trainer_train_from_instance():
     # callback
     loss_cb = LossMonitor(per_print_times=2)
     time_cb = TimeMonitor()
-    ckpt_cb = CheckpointMointor()
+    ckpt_cb = CheckpointMointor(directory=os.path.join(LOCAL_DEFAULT_PATH, "test_resume"))
     callbacks = [loss_cb, time_cb, ckpt_cb]
 
     lm_trainer = Trainer(model=gpt_model,
@@ -97,7 +97,9 @@ def test_gpt_trainer_train_from_instance():
                          callbacks=callbacks,
                          task="text_generation")
     lm_trainer.train(train_checkpoint=False)
-    checkpoint_dir = os.path.join(LOCAL_DEFAULT_PATH, "checkpoint", "rank_{}".format(int(os.getenv("RANK_ID", "0"))))
+
+    checkpoint_dir = os.path.join(LOCAL_DEFAULT_PATH, "test_resume", "checkpoint",
+                                  "rank_{}".format(int(os.getenv("RANK_ID", "0"))))
     output_checkpoint_path = [
         checkpoint for checkpoint in os.listdir(checkpoint_dir)
         if checkpoint.endswith('.ckpt')
@@ -114,7 +116,7 @@ def test_gpt_trainer_train_from_instance():
     # callback
     loss_cb = LossMonitor(per_print_times=2)
     time_cb = TimeMonitor()
-    ckpt_cb = CheckpointMointor()
+    ckpt_cb = CheckpointMointor(directory=os.path.join(LOCAL_DEFAULT_PATH, "test_resume"))
     callbacks = [loss_cb, time_cb, ckpt_cb]
 
     lm_trainer = Trainer(model=gpt_model,
@@ -123,4 +125,5 @@ def test_gpt_trainer_train_from_instance():
                          train_dataset=dataset,
                          callbacks=callbacks,
                          task="text_generation")
-    lm_trainer.train(train_checkpoint=os.path.join(LOCAL_DEFAULT_PATH, "checkpoint"), resume_training=True)
+    lm_trainer.train(train_checkpoint=os.path.join(LOCAL_DEFAULT_PATH, "test_resume", "checkpoint"),
+                     resume_training=True)
