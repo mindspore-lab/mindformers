@@ -336,10 +336,6 @@ class BloomBlock(TransformerEncoderLayer):
             size_per_head = hidden_size // num_heads
             self.key_shape = (batch_size, num_heads, seq_length, size_per_head)
             self.key_past = Parameter(Tensor(np.zeros(shape=self.key_shape), self.dtype), name="key_past")
-            # [B, H, S, D] * [1]
-            self.mul_init_reset = P.Mul().shard(
-                ((parallel_config.data_parallel, parallel_config.model_parallel, 1, 1),
-                 (1,)))
             # [B, H, S, D]
             self.assign_key_past = P.Assign().shard(
                 ((parallel_config.data_parallel, parallel_config.model_parallel, 1, 1),
@@ -378,9 +374,9 @@ class BloomBlock(TransformerEncoderLayer):
 
         if self.use_past and self.is_first_iteration:
             # reset states, init_reset True for reuse and False for reset
-            self.assign_key_past(self.key_past, self.mul_init_reset(self.key_past, init_reset.astype(self.dtype)))
+            self.assign_key_past(self.key_past, init_reset)
             key_reset = self.key_past
-            self.assign_value_past(self.value_past, self.mul_init_reset(self.value_past, init_reset.astype(self.dtype)))
+            self.assign_value_past(self.value_past, init_reset)
             value_reset = self.value_past
             # add dependency for desired execution order
             input_x = ops.depend(input_x, key_reset)
