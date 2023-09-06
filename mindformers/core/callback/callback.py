@@ -46,7 +46,6 @@ class ObsMonitor:
     def __new__(cls,
                 src_dir: str = None,
                 target_dir: str = None,
-                rank_id: int = None,
                 step_upload_frequence: int = 100,
                 epoch_upload_frequence: int = -1,
                 keep_last: bool = True):
@@ -54,7 +53,7 @@ class ObsMonitor:
             src_dir = get_output_root_path()
         if target_dir is None:
             target_dir = get_remote_save_url()
-        return Local2ObsMonitor(src_dir, target_dir, rank_id, step_upload_frequence, epoch_upload_frequence, keep_last)
+        return Local2ObsMonitor(src_dir, target_dir, step_upload_frequence, epoch_upload_frequence, keep_last)
 
 
 def _get_loss_output(output):

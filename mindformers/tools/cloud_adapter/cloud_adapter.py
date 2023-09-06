@@ -51,7 +51,6 @@ class Local2ObsMonitor(Callback):
     def __init__(self,
                  src_dir,
                  target_dir,
-                 rank_id=None,
                  step_upload_frequence: int = 100,
                  epoch_upload_frequence: int = -1,
                  keep_last=True,
@@ -64,10 +63,6 @@ class Local2ObsMonitor(Callback):
         self.step_upload_frequence = step_upload_frequence
         self.epoch_upload_frequence = epoch_upload_frequence
         self.keep_last = keep_last
-        self.is_special = False
-        if rank_id is not None:
-            self.is_special = True
-            self.special_id = int(rank_id) if isinstance(rank_id, str) else rank_id
         self.rank_id = int(os.getenv('RANK_ID', '0'))
         self.retry_time = retry_time
         self.retry = retry
@@ -102,23 +97,28 @@ class Local2ObsMonitor(Callback):
 
     def upload(self):
         """Upload Files to OBS."""
-        if self.is_special:
-            if self.rank_id == self.special_id:
-                if self.pro:
-                    self.pro.join()
-                self.pro = self.sync2obs(self.src_dir, self.target_dir)
-        else:
-            if self.rank_id % 8 == 0:
-                if self.pro:
-                    self.pro.join()
-                self.pro = self.sync2obs(self.src_dir, self.target_dir)
+        if self.pro:
+            # wait for last upload done
+            self.pro.join()
+        self.pro = self.sync2obs(self.src_dir, self.target_dir)
 
     @sync_trans
     def sync2obs(self, src_dir, target_dir):
         """Asynchronous transfer to OBS."""
-        if self.keep_last and mox.file.exists(target_dir):
-            mox.file.remove(target_dir, recursive=True)
-        mox_adapter(src_dir, target_dir, self.retry, self.retry_time, self.log)
+        sub_dir_list = os.listdir(src_dir)
+        for sub_dir in sub_dir_list:
+            if 'checkpoint' in sub_dir:
+                # for checkpoint, all processes upload its own checkpoint
+                scr_ckpt_dir = os.path.join(src_dir, sub_dir, f"rank_{self.rank_id}")
+                target_ckpt_dir = os.path.join(target_dir, sub_dir, f"rank_{self.rank_id}")
+                if self.keep_last and mox.file.exists(target_ckpt_dir):
+                    mox.file.remove(target_ckpt_dir, recursive=True)
+                mox_adapter(scr_ckpt_dir, target_ckpt_dir, self.retry, self.retry_time, self.log)
+            elif self.rank_id % 8 == 0:
+                # for other outputs, one rank upload all
+                mox_adapter(os.path.join(src_dir, sub_dir),
+                            os.path.join(target_dir, sub_dir),
+                            self.retry, self.retry_time, self.log)
 
 
 class Obs2Local:
@@ -181,7 +181,7 @@ def mox_adapter(src_dir, target_dir, retry=3, retry_time=5, log=logger):
     for i in range(retry + 1):
         start = time.time()
         try:
-            mox.file.copy_parallel(src_url=src_dir, dst_url=target_dir)
+            mox.file.copy_parallel(src_url=src_dir, dst_url=target_dir, threads=0, is_processing=False)
         except (FileNotFoundError, RuntimeError) as e:
             log.info("%s, from %s download to %s failed, will retry(%d) again.",
                      e, src_dir, target_dir, i)
