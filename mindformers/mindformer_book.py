@@ -231,6 +231,10 @@ class MindFormerBook:
                 _PROJECT_PATH, "configs/bloom/run_bloom_176b.yaml")),
             ("baichuan_7b", os.path.join(
                 _PROJECT_PATH, "research/baichuan/run_baichuan_7b.yaml")),
+            ("baichuan2_7b", os.path.join(
+                _PROJECT_PATH, "research/baichuan2/run_baichuan2_7b.yaml")),
+            ("baichuan2_13b", os.path.join(
+                _PROJECT_PATH, "research/baichuan2/run_baichuan2_13b.yaml")),
             ("ziya_13b", os.path.join(
                 _PROJECT_PATH, "research/ziya/run_ziya_13b.yaml")),
             ("internlm_7b", os.path.join(
@@ -362,6 +366,10 @@ class MindFormerBook:
                 _PROJECT_PATH, "configs/bloom/run_bloom_176b.yaml")),
             ("baichuan_7b", os.path.join(
                 _PROJECT_PATH, "research/baichuan/run_baichuan_7b.yaml")),
+            ("baichuan2_7b", os.path.join(
+                _PROJECT_PATH, "research/baichuan2/run_baichuan2_7b.yaml")),
+            ("baichuan2_13b", os.path.join(
+                _PROJECT_PATH, "research/baichuan2/run_baichuan2_13b.yaml")),
             ("ziya_13b", os.path.join(
                 _PROJECT_PATH, "research/ziya/run_ziya_13b.yaml")),
             ("internlm_7b", os.path.join(
@@ -436,6 +444,8 @@ class MindFormerBook:
             'llama_65b',
             'llama_7b_lora',
             'baichuan_7b',
+            'baichuan2_7b',
+            'baichuan2_13b',
             'ziya_13b',
             'internlm_7b',
             'internlm_7b_lora',
@@ -684,6 +694,10 @@ class MindFormerBook:
         ('internlm', [
             'internlm_7b',
             'internlm_7b_lora',
+        ]),
+        ('baichuan2', [
+            'baichuan2_7b',
+            'baichuan2_13b',
         ]),
     ])
 
@@ -1090,7 +1104,8 @@ class MindFormerBook:
         ('GPT2Tokenizer', 'GPT2Processor'),
         ('PanguAlphaTokenizer', 'PanguAlphaProcessor'),
         ('BloomTokenizer', 'BloomProcessor'),
-        ('InternLMTokenizer', 'LlamaProcessor')
+        ('InternLMTokenizer', 'LlamaProcessor'),
+        ('Baichuan2Tokenizer', 'LlamaProcessor')
     ])
 
     @classmethod
