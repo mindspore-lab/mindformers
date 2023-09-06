@@ -1899,7 +1899,6 @@ class TransformerEncoderLayer(Cell):
                                     batch_valid_length_is_tensor, batch_is_default)
 
         if self.use_past:
-            _check_input_dtype(F.dtype(init_reset), "init_reset", [mstype.bool_], self.cls_name)
             _check_input_dtype(F.dtype(batch_valid_length), "batch_valid_length", [mstype.int32], self.cls_name)
         return True
 

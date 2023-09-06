@@ -161,6 +161,11 @@ class BloomModel(nn.Cell):
         self.ln_f.shard(((config.parallel_config.data_parallel, 1, 1),))
         self.ln_f.pipeline_stage = config.parallel_config.pipeline_stage - 1
 
+        self.use_past = config.use_past
+        self.dtype = convert_mstype(config.param_init_type)
+        self.mul_init_reset = P.Mul().shard(
+            ((config.parallel_config.data_parallel, config.parallel_config.model_parallel, 1, 1), (1,)))
+
     def construct(self, input_ids, input_mask, init_reset=True, batch_valid_length=None):
         """Bloom model"""
 
@@ -172,6 +177,8 @@ class BloomModel(nn.Cell):
         causal_mask = self.make_causal_attention(input_mask)
         alibi_tensor = self.build_alibi_tensor(input_mask, hidden_states.dtype)
 
+        if self.use_past:
+            init_reset = self.mul_init_reset(self.blocks[0].key_past, init_reset.astype(self.dtype))
         for i in range(self.num_layers):
             hidden_states, _ = self.blocks[i](hidden_states, alibi_tensor, causal_mask, init_reset, batch_valid_length)
         hidden_states = hidden_states.reshape(hidden_states_shape)
