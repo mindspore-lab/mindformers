@@ -147,11 +147,30 @@ mindspore_ckpt_path: 权重保存文件名，默认保存为TORCH_CKPT_DIR/OUTPU
 
 `Baichuan-13B-base`的高阶接口使用脚本已集成在`run_baichuan_13b.py`脚本中
 
-**注1**：由于模型较大，不支持单卡训练以及单卡推理
+**注1**：由于模型较大，910A不支持单卡推理，不支持8卡训练，910B支持单卡推理，单机8卡训练。如果使用910A，并且推理对于seq_length不硬性要求4096，可以在yaml中修改seq_length为1024，910A也可以单卡运行推理。
 
-**注2**: 由于baichuan-13B-base基于高阶接口的形式开发，存放于research文件夹下，使用时需要将mindformers安装为python的包，才能直接进入research目录下执行相关命令。
+**注2**: 由于baichuan-13B-base基于高阶接口的形式开发，存放于research文件夹下，使用时需要将mindformers[安装](../../README.md#二mindformers安装)为python的包，才能直接进入research目录下执行相关命令。
 
-**注3**: 当前`run_baichuan_13b.yaml`文件默认为train配置，用于eval和predict时需要修改并行策略。
+**注3**: 当前`run_baichuan_13b.yaml`文件默认为train配置，用于eval和predict时需要修改并行策略。910B请使用`run_baichuan_13b_910b.yaml`
+
+**注4**: 加载权重和并行策略强相关，指定并行策略（数据并行data_parallel, 模型并行model_parallel)后, 需要根据相应的strategy文件，将单卡权重切分为对应并行的权重，之后才能加载进行微调或者评估推理！！！ **[多卡权重的切分与合并](../../docs/feature_cards/Transform_Ckpt.md)**，由于使用自定义脚本启动，不能使用`权重自动转换`，请使用`权重离线切分转换`！！！
+
+**注5**：使用predict前需要下载baichuan13b的tokenizer文件，并且在`baichuan/run_baichuan_13b.yaml`该文件中修改tokenzier路径到hugging face`Baichuan-13B-Base/tokenizer.model`文件
+
+- 910B单卡eval示例
+
+```shell
+cd mindformers/research
+python baichuan/run_baichuan_13b.py --config baichuan/run_baichuan_13b_910b.yaml --load_checkpoint path/to/baichuan_13b.ckpt --run_mode=eval --eval_data path/to/mindrecord_dir
+```
+
+- 910B单卡predict示例
+
+```shell
+cd mindformers/research
+python baichuan/run_baichuan_13b.py --config baichuan/run_baichuan_13b_910b.yaml --load_checkpoint path/to/baichuan_13b.ckpt --run_mode=predict --predict_data TLS1.2协议的基本流程 --predict_length 100 --use_parallel False
+#运行结果：[{'text_generation_text': ['TLS1.2协议的基本流程如下: 1.客户端向服务器发送一个ClientHello消息,其中包含客户端支持的加密算法、压缩算法、随机数、客户端支持的扩展等信息。 2.服务器收到ClientHello消息后,向客户端发送一个ServerHello消息,其中包含服务器支持的加密算法、压缩算法、随机数、服务器支持的扩展等信息。 3.客户端收到ServerHello消息后,向服务']}]
+```
 
 - 单机多卡运行eval示例
 
@@ -159,6 +178,8 @@ mindspore_ckpt_path: 权重保存文件名，默认保存为TORCH_CKPT_DIR/OUTPU
 cd mindformers/research
 bash run_singlenode.sh "python baichuan/run_baichuan_13b.py --config baichuan/run_baichuan_13b.yaml --load_checkpoint path/to/baichuan_13b_ckpt_dp1mp2 --run_mode=eval --eval_data path/to/mindrecord_dir" path/to/rank_table_file [0,2] 2
 ```
+
+**注意看，这里load checkpoint后的路径为多卡切分权重**
 
 - 单机多卡运行predict示例
 
@@ -168,17 +189,17 @@ bash run_singlenode.sh "python baichuan/run_baichuan_13b.py --config baichuan/ru
 #运行结果：[{'text_generation_text': ['TLS1.2协议的基本流程如下: 1.客户端向服务器发送一个ClientHello消息,其中包含客户端支持的加密算法、压缩算法、随机数、客户端支持的扩展等信息。 2.服务器收到ClientHello消息后,向客户端发送一个ServerHello消息,其中包含服务器支持的加密算法、压缩算法、随机数、服务器支持的扩展等信息。 3.客户端收到ServerHello消息后,向服务']}]
 ```
 
-**注4**：使用predict前需要下载baichuan13b的tokenizer文件，并且在`baichuan/run_baichuan_13b.yaml`该文件中修改tokenzier路径到hugging face`Baichuan-13B-Base/tokenizer.model`文件
+**注意看，这里load checkpoint后的路径为多卡切分权重**
 
 - 多机多卡运行train示例
 
 ```shell
 # node 1
 cd mindformers/research
-bash run_singlenode.sh "python baichuan/run_baichuan_13b.py --config baichuan/run_baichuan_13b.yaml --load_checkpoint path/to/baichuan_13b_ckpt_dp1mp2 --run_mode=train --train_data path/to/mindrecord_dir" path/to/rank_table_file [0,8] 16
+bash run_multinode.sh "python baichuan/run_baichuan_13b.py --config baichuan/run_baichuan_13b.yaml --load_checkpoint path/to/baichuan_13b_ckpt_dp1mp2 --run_mode=train --train_data path/to/mindrecord_dir" path/to/rank_table_file [0,8] 16
 # node 2
 cd mindformers/research
-bash run_singlenode.sh "python baichuan/run_baichuan_13b.py --config baichuan/run_baichuan_13b.yaml --load_checkpoint path/to/baichuan_13b_ckpt_dp1mp2 --run_mode=train --train_data path/to/mindrecord_dir" .path/to/rank_table_file [8,16] 16
+bash run_multinode.sh "python baichuan/run_baichuan_13b.py --config baichuan/run_baichuan_13b.yaml --load_checkpoint path/to/baichuan_13b_ckpt_dp1mp2 --run_mode=train --train_data path/to/mindrecord_dir" .path/to/rank_table_file [8,16] 16
 ```
 
 **参数说明**
