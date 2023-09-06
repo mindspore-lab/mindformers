@@ -109,7 +109,7 @@ python run_baichuan2.py \
 # output: [{'text_generation_text': ['将以下内容翻译成英文：你今天真好看。 \nYou look really nice today.']}]
 ```
 
-### Pipeline推理
+#### Pipeline推理
 
 ```python
 from mindspore import context
@@ -211,7 +211,7 @@ python ./mindformers/tools/merge_hccl.py hccl*.json
 
 ```shell
 # 以baichuan2-7B模型两机训练为例，默认配置2机16卡，如果节点数有变，需要修改相应的配置。
-# 配置文件路径：../configs/llama/run_llama_13b.yaml
+# 配置文件路径：./research/baichuan2/run_baichuan2_7b.yaml
 parallel_config:
   data_parallel: 2
   model_parallel: 4
