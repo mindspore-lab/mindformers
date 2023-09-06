@@ -868,3 +868,37 @@ class AlibiTensor(nn.Cell):
         alibi = self.mul_slope(self.slopes, arange_tensor) # (batch_size, num_heads, seq_len)
         alibi = self.expand_3d(alibi, 2).astype(dtype) # (batch_size, num_heads, 1, seq_len)
         return alibi
+
+
+def _get_interleave(n):
+    """calculate slopes of alibi tensor"""
+    def _get_interleave_power_of_2(n):
+        start = (2 ** (-2 ** -(math.log2(n) - 3)))
+        ratio = start
+        return [start * ratio ** i for i in range(n)]
+
+    if math.log2(n).is_integer():
+        return _get_interleave_power_of_2(n)
+
+    closest_power_of_2 = 2 ** math.floor(math.log2(n))
+    return _get_interleave_power_of_2(closest_power_of_2) + \
+           _get_interleave(2 * closest_power_of_2)[0::2][:n - closest_power_of_2]
+
+
+def build_alibi_tensor_v2(seq_len, num_heads, return_tensors='ms', dtype=mstype.float32):
+    """build alibi tensor"""
+    assert return_tensors in ['np', 'ms'],\
+           f"return tensors must be 'np' or 'ms', {return_tensors} not support."
+    slopes = _get_interleave(num_heads)
+    slopes = np.expand_dims(np.expand_dims(slopes, 1), 1)
+    position_point = np.arange(seq_len) - seq_len + 1
+    position_point = np.expand_dims(np.expand_dims(position_point, 0), 0)
+    position_point = np.tile(position_point, (num_heads, seq_len, 1))
+    diag = np.diag(position_point[0])
+    diag = np.expand_dims(np.expand_dims(diag, 0), 0)
+    diag = np.transpose(diag, (0, 2, 1))
+    position_point = position_point - diag
+    alibi = slopes * position_point
+    if return_tensors == 'np':
+        return alibi
+    return Tensor(alibi, dtype=dtype)
