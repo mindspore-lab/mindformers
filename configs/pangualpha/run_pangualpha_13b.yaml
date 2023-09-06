@@ -14,7 +14,7 @@ context:
   enable_graph_kernel: False
   graph_kernel_flags: "--disable_expand_ops=Softmax,Dropout --enable_parallel_fusion=true --reduce_fuse_depth=8 --enable_auto_tensor_inplace=true"
   max_call_depth: 10000
-  max_device_memory: "30GB"
+  max_device_memory: "31GB"
   save_graphs: False
   save_graphs_path: "./graph"
   device_id: 0
@@ -25,7 +25,7 @@ remote_save_url: "Please input obs url on AICC platform."
 # runner
 runner_config:
   epochs: 2
-  batch_size: 4
+  batch_size: 8
   sink_mode: True
   sink_size: 2
 runner_wrapper:
@@ -107,7 +107,7 @@ train_dataset: &train_dataset
   num_parallel_workers: 8
   python_multiprocessing: False
   drop_remainder: True
-  batch_size: 4
+  batch_size: 8
   repeat: 1
   numa_enable: False
   prefetch_size: 1
@@ -126,7 +126,7 @@ eval_dataset: &eval_dataset
   num_parallel_workers: 8
   python_multiprocessing: False
   drop_remainder: True
-  batch_size: 4
+  batch_size: 8
   repeat: 1
   numa_enable: False
   prefetch_size: 1
@@ -138,7 +138,7 @@ eval_dataset_task:
 model:
   model_config:
     type: PanguAlphaConfig
-    batch_size: 4
+    batch_size: 1
     seq_length: 1024
     vocab_size: 40000
     hidden_size: 5120

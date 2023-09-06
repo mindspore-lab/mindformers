@@ -36,7 +36,7 @@ class PanguAlphaConfig(BaseConfig):
     _support_list = MindFormerBook.get_config_support_list()['pangualpha']
 
     def __init__(self,
-                 batch_size: int = 16,
+                 batch_size: int = 1,
                  seq_length: int = 1024,
                  vocab_size: int = 40000,
                  hidden_size: int = 2560,

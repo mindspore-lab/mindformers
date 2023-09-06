@@ -168,13 +168,13 @@ print(output)  # 计算loss
 
 ```python
 from mindformers.trainer import Trainer
-# 初始化预训练任务
+# 方式1: 开启训练，并使用训练完成后的权重进行推理
 trainer = Trainer(task='text_generation', model='pangualpha_2_6b', train_dataset="your data file path")
-# 方式1: 开启训练，并使用训练好的权重进行推理
 trainer.train()
 res = trainer.predict(predict_checkpoint=True, input_data="我喜欢北京，因为")
 
 # 方式2： 从obs下载训练好的权重并进行推理
+trainer = Trainer(task='text_generation', model='pangualpha_2_6b')
 res = trainer.predict(input_data="我喜欢北京，因为")
 ```
 
@@ -182,9 +182,25 @@ res = trainer.predict(input_data="我喜欢北京，因为")
 
 ```python
 from mindformers.pipeline import pipeline
-pipeline_task = pipeline("text_generation", model='pangualpha_2_6b', max_length=20)
+pipeline_task = pipeline("text_generation", model='pangualpha_2_6b', max_length=50)
 pipeline_result = pipeline_task("我喜欢北京，因为", top_k=3)
 print(pipeline_result)
+```
+
+**注：**，要提高推理速度，可在`config`yaml文件中进行如下配置，设置增量推理`use_past`为True。
+
+```python
+# model config
+use_past: True          # 开启增量推理
+use_moe: False
+expert_num: 1
+per_token_num_experts_chosen: 1
+checkpoint_name_or_path: "pangualpha_2_6b"
+repetition_penalty: 1
+max_decode_length: 1024
+top_k: 3
+top_p: 1
+do_sample: False
 ```
 
 ## 模型权重下载

@@ -136,7 +136,7 @@ eval_dataset_task:
 model:
   model_config:
     type: PanguAlphaConfig
-    batch_size: 16
+    batch_size: 1
     seq_length: 1024
     vocab_size: 40000
     hidden_size: 2560
