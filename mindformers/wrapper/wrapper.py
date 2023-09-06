@@ -25,7 +25,7 @@ import mindspore.common.dtype as mstype
 
 from mindformers.core.clip_grad import ClipGradNorm
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
-
+from mindformers.version_control import get_identity
 
 __all__ = ['MFTrainOneStepCell', 'MFPipelineWithLossScaleCell']
 
@@ -184,7 +184,7 @@ class MFPipelineWithLossScaleCell(nn.TrainOneStepCell):
         self.accu_grads = self.weights.clone(prefix="accu_grads", init="zeros")
         self.optimizer = optimizer
         self.grad = C.GradOperation(get_by_list=True, sens_param=True)
-        self.grad_reducer = nn.Identity()
+        self.grad_reducer = get_identity()
         self.degree = 1
         self.cast = P.Cast()
         self.alloc_status = P.NPUAllocFloatStatus()

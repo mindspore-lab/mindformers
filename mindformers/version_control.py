@@ -82,3 +82,8 @@ def get_dataset_map(dataset, operations, input_columns=None, output_columns=None
                        cache=kwargs.get('cache', None),
                        callbacks=kwargs.get('callbacks', None),
                        offload=kwargs.get('offload', None))
+
+def get_identity():
+    if is_version_ge(ms.__version__, "1.11.0"):
+        return nn.Identity()
+    return F.identity
