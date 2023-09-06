@@ -31,11 +31,9 @@ except ImportError:
     import mindspore._checkparam as Validator
 from mindspore import log as logger
 from mindspore.common.initializer import initializer
-from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
+from mindspore.parallel._utils import _get_parallel_mode
 from mindspore.context import ParallelMode
 from mindformers.modules.layers import Linear, _check_input_dtype, _args_type_validator_check, _valid_value_checks
-from mindformers.modules.transformer.op_parallel_config import _check_config
-from mindformers.modules.transformer import TransformerOpParallelConfig
 
 from mindformers.tools.logger import _LogActionOnce
 
@@ -126,50 +124,42 @@ class LlamaRotaryEmbedding(Cell):
             Tensor of shape :math:`(batch, seq_length, hidden_size)`.
     """
 
-    def __init__(
-            self,
-            head_dim=128,
-            compute_dtype=mstype.float32,
-            parallel_config=TransformerOpParallelConfig()
-    ):
+    def __init__(self, head_dim=128, compute_dtype=mstype.float32):
         super().__init__(auto_prefix=False)
-        self.dtype = compute_dtype
-        self.shape = P.Shape()
-        self.reshape = P.Reshape()
-        self.rank = P.Rank()
         self.head_dim = head_dim
-        mp = parallel_config.model_parallel
-        dp = parallel_config.data_parallel
+        self.dtype = compute_dtype
 
-        self.add = P.Add().shard(((dp, mp, 1, 1), (dp, mp, 1, 1)))
-        self.bmm_swap = P.BatchMatMul().shard(((dp, mp, 1, 1,), (1, 1)))
-        self.mul = P.Mul().shard(((dp, mp, 1, 1), (dp, 1, 1, 1,)))
+        self.add = P.Add()
+        self.bmm_swap = P.BatchMatMul()
+        self.mul = P.Mul()
 
         self.cast = P.Cast()
 
-    # rotary pos emb helpers:
     def rotate_half(self, x, swap_mask):
-        # shard:(dp, mp, 1, 1)
+        # [bs, n_head/n_kv_head, seq/1, head_dim], [head_dim, head_dim]
         x = self.bmm_swap(x, swap_mask)
         return x
 
     def construct(self, xq: Tensor, xk: Tensor, freqs_cis):
         """Forward of rotary position embedding."""
-        # xq, xk: b, head_num, t, head_dim
         original_type = xq.dtype
         xq = self.cast(xq, self.dtype)
         xk = self.cast(xk, self.dtype)
+        # xq, xk: [bs, n_head/n_kv_head, seq/1, head_dim]
         freqs_cos, freqs_sin, swap_mask = freqs_cis
-
         xq_out = self.add(self.mul(xq, freqs_cos),
                           self.mul(self.rotate_half(xq, swap_mask), freqs_sin))
-
         xk_out = self.add(self.mul(xk, freqs_cos),
                           self.mul(self.rotate_half(xk, swap_mask), freqs_sin))
 
         xq_out = self.cast(xq_out, original_type)
         xk_out = self.cast(xk_out, original_type)
         return xq_out, xk_out
+
+    def shard(self, strategy_in):
+        self.add.shard((strategy_in, strategy_in))
+        self.bmm_swap.shard((strategy_in, (1, 1)))
+        self.mul.shard((strategy_in, (strategy_in[0], 1, 1, 1)))
 
 
 class LlamaEmbedding(Cell):
@@ -197,36 +187,35 @@ class LlamaEmbedding(Cell):
                     no_warning=_get_parallel_mode() in (ParallelMode.STAND_ALONE,))
     @_args_type_validator_check(vocab_table_size=Validator.check_positive_int,
                                 embedding_size=Validator.check_positive_int)
-    def __init__(self, vocab_table_size, embedding_size, param_init_type=mstype.float32,
-                 parallel_config=TransformerOpParallelConfig(), param_init='normal'):
+    def __init__(self, vocab_table_size, embedding_size, param_init_type=mstype.float32, param_init='normal'):
         super().__init__()
-        _check_config(parallel_config)
         self.vocab_table_size = vocab_table_size
         self.embedding_size = embedding_size
-        self.embedding_weight = Parameter(initializer(param_init,
-                                                      [self.vocab_table_size, self.embedding_size],
-                                                      dtype=param_init_type),
-                                          name='embedding_weight', parallel_optimizer=False)
-
-        dp = parallel_config.data_parallel
-        mp = parallel_config.model_parallel
-
-        if parallel_config.vocab_emb_dp:
-            self.gather = P.Gather().shard(((1, 1), (dp, 1)))
-            logger.info(f"Using {dp} data parallel for the embedding lookup.")
-        else:
-            if self.vocab_table_size % mp != 0:
-                raise ValueError(f"The vocab size of the embedding {self.vocab_table_size} must be a "
-                                 f"multiple of parallel_config.model_parallel {mp}.")
-            self.gather = P.Gather().shard(((mp, 1), (dp, 1)))
-            logger.info(f"Using {dp} data parallel and {mp} "
-                        f"model parallel for the embedding lookup.")
+        self.embedding_weight = Parameter(
+            initializer(param_init, [self.vocab_table_size, self.embedding_size], dtype=param_init_type),
+            name='embedding_weight', parallel_optimizer=False)
+        self.gather = P.Gather()
 
     def construct(self, input_ids):
         """Forward of vocab embedding."""
         _check_input_dtype(F.dtype(input_ids), "input_ids", [mstype.int32, mstype.int64], self.cls_name)
         output = self.gather(self.embedding_weight, input_ids, 0)
         return output
+
+    def shard(self, parallel_config):
+        """sharding for embedding"""
+        dp = parallel_config.data_parallel
+        mp = parallel_config.model_parallel
+        if parallel_config.vocab_emb_dp:
+            self.gather.shard(((1, 1), (dp, 1)))
+            logger.info(f"Using {dp} data parallel for the embedding lookup.")
+        else:
+            if self.vocab_table_size % mp != 0:
+                raise ValueError(f"The vocab size of the embedding {self.vocab_table_size} must be a "
+                                 f"multiple of parallel_config.model_parallel {mp}.")
+            self.gather.shard(((mp, 1), (dp, 1)))
+            logger.info(f"Using {dp} data parallel and {mp} "
+                        f"model parallel for the embedding lookup.")
 
 
 class LlamaRMSNorm(nn.Cell):
@@ -257,7 +246,6 @@ class LlamaRMSNorm(nn.Cell):
         self.compute_type = compute_type
 
     def _norm(self, x):
-        # shard:(dp, 1, 1)
         norm_factor = self.square(x)
         norm_factor = self.mean(norm_factor, -1)
         norm_factor = self.add(norm_factor, self.eps)
@@ -277,14 +265,14 @@ class LlamaRMSNorm(nn.Cell):
         output = self.cast(output, original_type)
         return output
 
-    def shard(self, strategy):
+    def shard(self, strategy_in):
         """Parallel strategy configuratiuon interface."""
-        self.square.shard(strategy)
-        self.mean.shard(strategy)
-        self.rsqrt.shard(strategy)
-        self.add.shard((strategy[0], ()))
-        self.mul.shard((strategy[0], strategy[0]))
-        self.mul2.shard((strategy[0], (1,)))
+        self.square.shard((strategy_in,))
+        self.mean.shard((strategy_in,))
+        self.rsqrt.shard((strategy_in,))
+        self.add.shard((strategy_in, ()))
+        self.mul.shard((strategy_in, strategy_in))
+        self.mul2.shard((strategy_in, (1,)))
 
 
 class LlamaFeedForward(Cell):
@@ -320,82 +308,72 @@ class LlamaFeedForward(Cell):
                  hidden_dim,
                  multiple_of,
                  hidden_act=LlamaSiLU,
+                 ffn_dim_multiplier=None,
                  compute_dtype=mstype.float16,
-                 param_init_type=mstype.float32,
-                 parallel_config=TransformerOpParallelConfig()):
+                 param_init_type=mstype.float32):
         super().__init__()
 
         if hidden_act is None or not (isinstance(hidden_act, str) or issubclass(hidden_act, nn.Cell)):
             raise TypeError(f"For FeedForward cell, the hidden_act should str type or nn.Cell type, "
                             f"but got {hidden_act}.")
 
+        if ffn_dim_multiplier is not None:
+            hidden_dim = int((ffn_dim_multiplier + 0.01) * hidden_dim)
         hidden_dim = int(2 * hidden_dim / 3)
         hidden_dim = multiple_of * \
             ((hidden_dim + multiple_of - 1) // multiple_of)
 
-        mp = parallel_config.model_parallel
-        # ffn use less dp than other ops when use_moe, due to there are ops use dp and ep.
-        dp = parallel_config.data_parallel
-        if hidden_dim % mp != 0:
-            raise ValueError("For 'FeedForward', the class variable 'hidden_dim' must be a multiple of the"
-                             "num of model parallel, but got the hidden_dim is {} and the num of model "
-                             "parallel is {}.".format(hidden_dim, mp))
-        if dim % mp != 0:
-            raise ValueError("For 'FeedForward', the class variable 'dim' must be a multiple of the num of "
-                             "model parallel, but got the dim is {} and the num of model parallel is {}."
-                             .format(dim, mp))
-
-        input_size = dim
-        output_size = hidden_dim
         self.dtype = compute_dtype
+        self.hidden_act = hidden_act
+        self.dim = dim
+        self.hidden_dim = hidden_dim
 
-        _check_config(parallel_config)
-
-        self.w1 = Linear(in_channels=input_size,
-                         out_channels=output_size,
+        self.mul = P.Mul()
+        self.cast = P.Cast()
+        self.w1 = Linear(in_channels=dim,
+                         out_channels=hidden_dim,
                          activation=hidden_act,
                          has_bias=False,
-                         outer_batch=dp,
                          compute_dtype=compute_dtype,
                          param_init_type=param_init_type)
 
-        self.w2 = Linear(in_channels=output_size,
-                         out_channels=input_size,
+        self.w2 = Linear(in_channels=hidden_dim,
+                         out_channels=dim,
                          has_bias=False,
-                         outer_batch=dp,
                          compute_dtype=compute_dtype,
                          param_init_type=param_init_type)
 
-        self.w3 = Linear(in_channels=input_size,
-                         out_channels=output_size,
+        self.w3 = Linear(in_channels=dim,
+                         out_channels=hidden_dim,
                          has_bias=False,
-                         outer_batch=dp,
                          compute_dtype=compute_dtype,
                          param_init_type=param_init_type)
-
-        if not (_get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation()):
-            self.w1.shard(strategy_matmul=((dp, 1), (mp, 1)), strategy_activation=((dp, mp),))
-            if hidden_act == LlamaSiLU:
-                self.w1.activation.shard(((dp, mp),))
-
-        self.w2.shard(strategy_matmul=((dp, mp), (1, mp)))
-        self.w3.shard(strategy_matmul=((dp, 1), (mp, 1)))
-        self.mul = P.Mul().shard(((dp, 1, mp), (dp, 1, mp)))
-
-        self.cast = P.Cast()
 
     def construct(self, x):
         """Forward process of the FeedForward"""
         _check_input_dtype(F.dtype(x), "x", [mstype.float32, mstype.float16], self.cls_name)
         x = self.cast(x, self.dtype)
-        # returned shape is [bs, seq_length, hidden_dim] or [bs * seq_length, hidden_dim]
-        # dp,1 -> dp, mp
-        gate = self.w1(x)
-        # dp,1 -> dp, mp
-        hidden = self.w3(x)
-        # dp,mp -> dp, mp
-        hidden = self.mul(hidden, gate)
-        # dp,mp -> dp, 1
-        output = self.w2(hidden)
-
+        # [bs, seq, hidden_dim] or [bs * seq, hidden_dim]
+        gate = self.w1(x) # dp,1 -> dp, mp
+        hidden = self.w3(x) # dp,1 -> dp, mp
+        hidden = self.mul(hidden, gate) # dp,mp -> dp, mp
+        output = self.w2(hidden) # dp,mp -> dp, 1
         return output
+
+    def shard(self, parallel_config):
+        """sharding for feedforward"""
+        dp = parallel_config.data_parallel
+        mp = parallel_config.model_parallel
+        if self.hidden_dim % mp != 0:
+            raise ValueError("For 'FeedForward', the class variable 'hidden_dim' must be a multiple of the"
+                             "num of model parallel, but got the hidden_dim is {} and the num of model "
+                             "parallel is {}.".format(self.hidden_dim, mp))
+        if self.dim % mp != 0:
+            raise ValueError("For 'FeedForward', the class variable 'dim' must be a multiple of the num of "
+                             "model parallel, but got the dim is {} and the num of model parallel is {}."
+                             .format(self.dim, mp))
+        self.w1.shard(((dp, 1), (mp, 1)), strategy_activation=((dp, mp),))
+        self.w1.activation.shard(((dp, mp),))
+        self.w2.shard(((dp, mp), (1, mp)))
+        self.w3.shard(((dp, 1), (mp, 1)))
+        self.mul.shard(((dp, mp), (dp, mp)))

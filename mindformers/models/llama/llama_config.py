@@ -15,6 +15,7 @@
 """Llama Config API."""
 
 
+from typing import Optional
 from mindformers.modules.transformer.transformer import default_transformer_config, TransformerOpParallelConfig
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from ..utils import convert_mstype
@@ -40,6 +41,8 @@ class LlamaConfig(BaseConfig):
                  num_heads: int = 32,
                  vocab_size: int = 32000,   # defined later by tokenizer
                  multiple_of: int = 256,    # make SwiGLU hidden layer size multiple of large power of 2
+                 n_kv_heads: Optional[int] = None,
+                 ffn_dim_multiplier: Optional[int] = None,
                  rms_norm_eps: float = 1e-5,
                  bos_token_id: int = 1,
                  eos_token_id: int = 2,
@@ -55,7 +58,9 @@ class LlamaConfig(BaseConfig):
                  pretrain_seqlen: int = 2048,
                  extend_method: str = "None",
                  compute_in_2d: bool = False,
+                 use_flash_attention: bool = False,
                  offset: int = 0,
+                 use_past_shard: bool = False,
                  checkpoint_name_or_path: str = "",
                  repetition_penalty: float = 1.0,
                  max_decode_length: int = 1024,
@@ -71,6 +76,8 @@ class LlamaConfig(BaseConfig):
         self.num_layers = num_layers
         self.num_heads = num_heads
         self.multiple_of = multiple_of
+        self.n_kv_heads = n_kv_heads
+        self.ffn_dim_multiplier = ffn_dim_multiplier
         self.rms_norm_eps = rms_norm_eps
         self.param_init_type = convert_mstype(param_init_type)
         self.layernorm_compute_type = convert_mstype(layernorm_compute_type)
@@ -87,7 +94,9 @@ class LlamaConfig(BaseConfig):
         self.pretrain_seqlen = pretrain_seqlen
         self.extend_method = extend_method
         self.compute_in_2d = compute_in_2d
+        self.use_flash_attention = use_flash_attention
         self.offset = offset
+        self.use_past_shard = use_past_shard
         self.repetition_penalty = repetition_penalty
         self.max_decode_length = max_decode_length
         self.top_k = top_k

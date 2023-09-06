@@ -5,7 +5,6 @@ src_strategy_path_or_dir: ''
 auto_trans_ckpt: False  # If true, auto transform load_checkpoint to load in distributed model
 only_save_strategy: False
 resume_training: False
-use_parallel: True
 run_mode: 'train'
 
 # trainer config
@@ -26,15 +25,15 @@ runner_config:
 optimizer:
   type: FP32StateAdamWeightDecay
   beta1: 0.9
-  beta2: 0.999
+  beta2: 0.95
   eps: 1.e-8 # 1e-8
-  learning_rate: 1.e-5
+  learning_rate: 3.e-4
 
 # lr sechdule
 lr_schedule:
   type: CosineWithWarmUpLR
-  learning_rate: 1.e-5
-  lr_end: 0.
+  learning_rate: 3.e-4
+  lr_end: 3.e-5
   warmup_ratio: 0.03
   total_steps: -1 # -1 means it will load the total steps of the dataset
 
@@ -73,11 +72,25 @@ eval_dataset_task:
   type: CausalLanguageModelDataset
   dataset_config: *eval_dataset
 
-# default parallel of device num = 128 910A
+use_parallel: True
+# parallel context config
+parallel:
+  parallel_mode: 1 # 0-data parallel, 1-semi-auto parallel, 2-auto parallel, 3-hybrid parallel
+  gradients_mean: False
+  enable_alltoall: False
+  full_batch: True
+  search_mode: "sharding_propagation"
+  enable_parallel_optimizer: True
+  strategy_ckpt_save_file: "./ckpt_strategy.ckpt"
+  parallel_optimizer_config:
+    gradient_accumulation_shard: False
+    parallel_optimizer_threshold: 64
+# default parallel of device num = 32 910B
 parallel_config:
   data_parallel: 1
   model_parallel: 8
   pipeline_stage: 4
+  use_seq_parallel: False
   optimizer_shard: True
   micro_batch_num: 16
   vocab_emb_dp: True
@@ -88,6 +101,7 @@ micro_batch_interleave_num: 1
 # recompute config
 recompute_config:
   recompute: True
+  select_recompute: False
   parallel_optimizer_comm_recompute: False
   mp_comm_recompute: True
   recompute_slice_activation: True
@@ -114,19 +128,6 @@ context:
   save_graphs_path: "./graph"
   device_id: 0
 
-# parallel context config
-parallel:
-  parallel_mode: 1 # 0-data parallel, 1-semi-auto parallel, 2-auto parallel, 3-hybrid parallel
-  gradients_mean: False
-  enable_alltoall: False
-  full_batch: True
-  search_mode: "sharding_propagation"
-  enable_parallel_optimizer: True
-  strategy_ckpt_save_file: "./ckpt_strategy.ckpt"
-  parallel_optimizer_config:
-    gradient_accumulation_shard: False
-    parallel_optimizer_threshold: 64
-
 # model config
 model:
   model_config:
@@ -150,8 +151,11 @@ model:
     param_init_type: "float16"
     use_past: False
     pretrain_seqlen: 2048 # seqlen of the pretrain checkpoint: 2048 for llama and 4096 for llama2
-    extend_method: "None"
+    extend_method: "None" # support "None", "PI", "NTK"
     compute_in_2d: True
+    use_flash_attention: False
+    offset: 0
+    use_past_shard: False
     checkpoint_name_or_path: "llama_65b"
     repetition_penalty: 1
     max_decode_length: 512
@@ -180,7 +184,7 @@ runner_wrapper:
   type: MFTrainOneStepCell
   scale_sense:
     type: DynamicLossScaleUpdateCell
-    loss_scale_value: 65536
+    loss_scale_value: 4294967296
     scale_factor: 2
     scale_window: 1000
   use_clip_grad: True

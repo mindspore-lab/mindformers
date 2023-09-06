@@ -203,6 +203,12 @@ class MindFormerBook:
                 _PROJECT_PATH, "configs/llama/run_llama_13b.yaml")),
             ("llama_65b", os.path.join(
                 _PROJECT_PATH, "configs/llama/run_llama_65b.yaml")),
+            ("llama2_7b", os.path.join(
+                _PROJECT_PATH, "configs/llama2/run_llama2_7b.yaml")),
+            ("llama2_13b", os.path.join(
+                _PROJECT_PATH, "configs/llama2/run_llama2_13b.yaml")),
+            ("llama2_70b", os.path.join(
+                _PROJECT_PATH, "configs/llama2/run_llama2_70b.yaml")),
             ("llama_7b_lora", os.path.join(
                 _PROJECT_PATH, "configs/llama/run_llama_7b_lora.yaml")),
             ("pangualpha_2_6b", os.path.join(
@@ -330,6 +336,12 @@ class MindFormerBook:
                 _PROJECT_PATH, "configs/llama/run_llama_13b.yaml")),
             ("llama_65b", os.path.join(
                 _PROJECT_PATH, "configs/llama/run_llama_65b.yaml")),
+            ("llama2_7b", os.path.join(
+                _PROJECT_PATH, "configs/llama2/run_llama2_7b.yaml")),
+            ("llama2_13b", os.path.join(
+                _PROJECT_PATH, "configs/llama2/run_llama2_13b.yaml")),
+            ("llama2_70b", os.path.join(
+                _PROJECT_PATH, "configs/llama2/run_llama2_70b.yaml")),
             ("llama_7b_lora", os.path.join(
                 _PROJECT_PATH, "configs/llama/run_llama_7b_lora.yaml")),
             ("pangualpha_2_6b", os.path.join(
@@ -427,6 +439,9 @@ class MindFormerBook:
             'llama_7b',
             'llama_13b',
             'llama_65b',
+            'llama2_7b',
+            'llama2_13b',
+            'llama2_70b',
             'llama_7b_lora',
             'baichuan_7b',
             'internlm_7b',
@@ -516,6 +531,9 @@ class MindFormerBook:
             'llama_7b',
             'llama_13b',
             'llama_65b',
+            'llama2_7b',
+            'llama2_13b',
+            'llama2_70b',
             'llama_7b_lora'
         ]),
         ('pangualpha', [
@@ -651,6 +669,9 @@ class MindFormerBook:
             'llama_7b',
             'llama_13b',
             'llama_65b',
+            'llama2_7b',
+            'llama2_13b',
+            'llama2_70b',
             'llama_7b_lora',
             'baichuan_7b'
         ]),
