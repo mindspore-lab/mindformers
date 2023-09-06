@@ -72,7 +72,7 @@ def main(task='text_generation',
     if os.path.exists(config) and config.endswith(('.yaml', '.yml')):
         config = MindFormerConfig(os.path.realpath(config))
         config.use_parallel = use_parallel
-        config.device_id = device_id
+        config.context.device_id = device_id
         build_context(config)
         # define callback and add profile callback
         if config.profile:
