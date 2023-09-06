@@ -13,6 +13,13 @@ Baichuan2 是由百川智能开发的开源可商用的大规模预训练语言�
 - [baichuan2-13B-Base](https://huggingface.co/baichuan-inc/Baichuan2-13B-Base)
 - [baichuan2-13B-Chat](https://huggingface.co/baichuan-inc/Baichuan2-13B-Chat)
 
+**注**: 请安装torch=2.0.0和transformers=4.29.2版本
+
+```shell
+pip install torch==2.0.0 -i https://pypi.tuna.tsinghua.edu.cn/simple
+pip install transformers==4.29.2 -i https://pypi.tuna.tsinghua.edu.cn/simple
+```
+
 下载完成后，运行`/research/baichuan/convert_weight.py`转换脚本，将huggingface的权重转换为完整的ckpt权重。
 
 ```shell
@@ -116,7 +123,7 @@ from mindspore import context
 from mindformers.pipeline import pipeline
 from mindformers.models import LlamaConfig
 
-from baichuan2 import Baichuan27BForCausalLM
+from baichuan2_7b import Baichuan7BV2ForCausalLM
 from baichuan2_tokenizer import Baichuan2Tokenizer
 
 context.set_context(device_id=1)
@@ -241,7 +248,7 @@ path/to/rank_table_file [0,8] 16
 # node 2
 cd mindformers/research
 bash run_singlenode.sh \
-"python baichuan/run_baichuan2.py \
+"python baichuan2/run_baichuan2.py \
 --config baichuan2/run_baichuan2_7b.yaml \
 --load_checkpoint path/to/baichuan2_7b_ckpt \
 --auto_trans_ckpt True \

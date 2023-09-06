@@ -15,6 +15,7 @@
 """Baichuan2 Train/Finetune/Eval/Predict scripts."""
 import os
 import sys
+import shutil
 import argparse
 
 # pylint: disable=W0611
@@ -23,6 +24,7 @@ from mindformers import init_context, ContextConfig, ParallelContextConfig
 from mindformers.tools.utils import check_in_modelarts, set_remote_save_url, str2bool
 from mindformers.tools.cloud_adapter import cloud_monitor
 from mindformers.core.context import build_context, build_profile_cb
+from mindformers.tools import get_output_root_path
 
 import baichuan2_7b
 import baichuan2_13b
@@ -30,7 +32,33 @@ from baichuan2_tokenizer import Baichuan2Tokenizer
 
 import mindspore as ms
 
+if check_in_modelarts():
+    import moxing as mox
+
 sys.path.insert(0, os.getcwd().split('research')[0])
+
+
+def clear_auto_trans_output(config):
+    """clear transformed_checkpoint and strategy"""
+    if check_in_modelarts():
+        obs_strategy_dir = os.path.join(config.remote_save_url, "strategy")
+        if mox.file.exists(obs_strategy_dir) and config.local_rank == 0:
+            mox.file.remove(obs_strategy_dir, recursive=True)
+        obs_transformed_ckpt_dir = os.path.join(config.remote_save_url, "transformed_checkpoint")
+        if mox.file.exists(obs_transformed_ckpt_dir) and config.local_rank == 0:
+            mox.file.remove(obs_transformed_ckpt_dir, recursive=True)
+        mox.file.make_dirs(obs_strategy_dir)
+        mox.file.make_dirs(obs_transformed_ckpt_dir)
+    else:
+        strategy_dir = os.path.join(get_output_root_path(), "strategy")
+        if os.path.exists(strategy_dir) and config.local_rank % 8 == 0:
+            shutil.rmtree(strategy_dir)
+        transformed_ckpt_dir = os.path.join(get_output_root_path(), "transformed_checkpoint")
+        if os.path.exists(transformed_ckpt_dir) and config.local_rank % 8 == 0:
+            shutil.rmtree(transformed_ckpt_dir)
+        os.makedirs(strategy_dir, exist_ok=True)
+        os.makedirs(transformed_ckpt_dir, exist_ok=True)
+
 
 def context_init(use_parallel=False, optimizer_parallel=False, device_id=0):
     """init context for mindspore."""
@@ -58,27 +86,32 @@ def main(task='text_generation',
          eval_dataset='',
          predict_data='',
          max_length=512,
-         op=True,
          remote_save_url=None,
          device_id=0):
     """main function."""
 
-    # 适配aicc
+    # 环境初始化
+    assert os.path.exists(config) and config.endswith(('.yaml', '.yml'))
+
+    config = MindFormerConfig(os.path.realpath(config))
+    config.use_parallel = use_parallel
+    config.device_id = device_id
+    build_context(config)
+    # define callback and add profile callback
+    if config.profile:
+        config.profile_cb = build_profile_cb(config)
+
     if check_in_modelarts() and remote_save_url:
         print("remote_save_url is %s, the output file will be uploaded to here.", remote_save_url)
         set_remote_save_url(remote_save_url)
+        config.remote_save_url = remote_save_url
 
-    # 环境初始化
-    if os.path.exists(config) and config.endswith(('.yaml', '.yml')):
-        config = MindFormerConfig(os.path.realpath(config))
-        config.use_parallel = use_parallel
-        config.context.device_id = device_id
-        build_context(config)
-        # define callback and add profile callback
-        if config.profile:
-            config.profile_cb = build_profile_cb(config)
-    else:
-        context_init(use_parallel, op, device_id)
+    if run_mode in ['train', 'finetune']:
+        config.model.model_config.use_past = False
+
+    auto_trans_ckpt = auto_trans_ckpt or config.auto_trans_ckpt
+    if auto_trans_ckpt:
+        clear_auto_trans_output(config)
 
     # 定义任务，预先准备好相应数据集
     if run_mode == 'train':
@@ -110,15 +143,15 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--task', default='text_generation', type=str,
                         help='set task type.')
-    parser.add_argument('--config', default='run_baichuan2_7b.yaml', type=str,
+    parser.add_argument('--config', default='baichuan2/run_baichuan2_7b.yaml', type=str,
                         help='set task type.')
     parser.add_argument('--run_mode', default='train', type=str,
                         help='set run mode for model.')
     parser.add_argument('--use_parallel', default=False, type=str2bool,
                         help='open parallel for model.')
-    parser.add_argument('--load_checkpoint', default="", type=str,
+    parser.add_argument('--load_checkpoint', default=None, type=str,
                         help='checkpoint name or dir to load.')
-    parser.add_argument('--auto_trans_ckpt', default=False, type=bool,
+    parser.add_argument('--auto_trans_ckpt', default=False, type=str2bool,
                         help='whether to transform checkpoint to the checkpoint matching current distribute strategy.')
     parser.add_argument('--resume', default=False, type=str2bool,
                         help='whether resume training.')
@@ -130,8 +163,6 @@ if __name__ == "__main__":
                         help='input predict data.')
     parser.add_argument('--predict_length', default=512, type=int,
                         help='max length for predict output.')
-    parser.add_argument('--optimizer_parallel', default=True, type=str2bool,
-                        help='whether use optimizer parallel. Default: None')
     parser.add_argument('--remote_save_url', default="", type=str,
                         help='whether use optimizer parallel. Default: None')
     parser.add_argument('--device_id', default=1, type=int,
@@ -149,6 +180,5 @@ if __name__ == "__main__":
          eval_dataset=args.eval_dataset,
          predict_data=args.predict_data,
          max_length=args.predict_length,
-         op=args.optimizer_parallel,
          remote_save_url=args.remote_save_url,
          device_id=args.device_id)
