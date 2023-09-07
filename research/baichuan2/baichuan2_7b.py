@@ -308,18 +308,11 @@ class Baichuan7BV2ForCausalLM(BaseModel):
         self.loss = CrossEntropyLoss(parallel_config=config.parallel_config)
 
         dp = config.parallel_config.data_parallel
-        mp = config.parallel_config.model_parallel
         if not (_get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation()):
             self.slice.shard(((dp, 1),))
             self.not_equal.shard(((dp, 1), ()))
             self.mul.shard(((dp, 1), (dp, 1)))
             self.add.shard(((dp, 1), ()))
-            if config.parallel_config.vocab_emb_dp:
-                self.lm_head.shard(strategy_matmul=((dp, 1), (1, 1)))
-            else:
-                self.lm_head.shard(strategy_matmul=((dp, 1), (mp, 1)))
-            if config.parallel_config.pipeline_stage > 1:
-                self.lm_head.pipeline_stage = config.parallel_config.pipeline_stage - 1
 
         self.load_checkpoint(config)
 
