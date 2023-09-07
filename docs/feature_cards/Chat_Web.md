@@ -4,22 +4,7 @@
 
 Chat Web提供了一个网页界面，让用户可以通过类似线上聊天的方式使用MindFormers大语言模型（LLM）推理能力。
 
-## 支持模型
-
-目前该方法支持MindFormers套件中以下几个生成类大语言模型。
-
-### 单卡
-
-| 模型    | 规格            | 分词器           | 增量推理 |
-|-------|---------------|---------------|------|
-| GLM   | glm_6b        | glm_6b        | 支持   |
-| GLM2  | glm2_6b       | glm2_6b       | 支持   |
-| BLOOM | bloom_7.1b    | bloom_7.1b    | 支持   |
-| LLAMA | llama_7b_lora | llama_7b_lora | 支持   |
-
-### 多卡
-
-暂不支持
+## [Chat Web支持模型](../model_support_list.md#chat-web支持列表)
 
 ## 使用方式
 

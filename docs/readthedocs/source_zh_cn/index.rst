@@ -6,11 +6,11 @@
    :maxdepth: 1
    :caption: 开始
 
-   docs/start/Introduction.md
-   docs/start/Install.md
-   docs/start/Version_Match.md
-   docs/start/Quick_Tour.md
-   docs/start/Model_Support_List.md
+   Introduction.md
+   Install.md
+   Version_Match.md
+   Quick_Tour.md
+   docs/model_support_list.md
 
 .. toctree::
    :glob:
@@ -62,8 +62,8 @@
    :maxdepth: 1
    :caption: 开发实践
 
+   docs/practice/Using_Api.md
    docs/practice/Develop_With_Api.md
-   docs/practice/Train_Finetune.md
    docs/practice/Bert_Example.md
 
 
