@@ -138,7 +138,7 @@ class Baichuan13BV2ForCausalLM(BaseModel):
                 input_mask = self.mul(input_mask, label_mask)
 
         logits = self.cast(logits, mstype.float32)
-        if self.training:
+        if not self.training:
             logits = self.reshape(logits, (bsz, seqlen, -1))
             # makes cast effective to avoid allgather issue in Mindspore1.10
             input_mask = self.add(input_mask, 1)

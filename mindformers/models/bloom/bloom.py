@@ -307,7 +307,7 @@ class BloomLMHeadModel(BaseModel):
 
         batch_size, seq_length = input_ids.shape
 
-        if self.phase == "train":
+        if self.training:
             tokens = self.stridedslice(input_ids, (0, 0), (batch_size, seq_length - 1), (1, 1))
         else:
             tokens = input_ids
@@ -322,7 +322,7 @@ class BloomLMHeadModel(BaseModel):
         output_states, embedding_table = self.transformer(tokens, input_mask, init_reset, batch_valid_length)
         logits = self.head(output_states, embedding_table)
 
-        if self.phase != 'train':
+        if not self.training:
             if self.is_sample_acceleration:
                 return self.get_top_token_id(logits, current_index=input_position)
             return logits, tokens, input_mask

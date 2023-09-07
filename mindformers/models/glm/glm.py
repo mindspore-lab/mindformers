@@ -399,7 +399,7 @@ class GLMForPreTraining(BaseModel):
         """
         batch_size, seq_length = input_ids.shape
 
-        if self.phase == "train":
+        if self.training:
             tokens = self.stridedslice(input_ids, (0, 0), (batch_size, seq_length), (1, 1))
         else:
             tokens = input_ids
@@ -409,7 +409,7 @@ class GLMForPreTraining(BaseModel):
         logits = self.lm_head(output_states)
 
         logits_shape = logits.shape
-        if self.phase != 'train':
+        if not self.training:
             logits = logits.reshape((-1, logits_shape[-1]))
             # only gather in auto-aggressive generate or first iteration
             if (not self.use_past or self.is_first_iteration) and input_position is not None:

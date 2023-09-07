@@ -280,23 +280,32 @@ class BaseTrainer:
         """Create the eval dataset for evaluate."""
         logger.info(".........Build Dataset From Config..........")
         self._reset_dataset_batch_size()
+        # reduce batch size on eval mode, for that micro_batch will not take effect on eval.
+        parallel_mode = ms.get_auto_parallel_context("parallel_mode")
+        if parallel_mode in ["semi_auto_parallel", "auto_parallel"]:
+            self.config.eval_dataset.batch_size = \
+                self.config.eval_dataset.batch_size // self.config.parallel_config.micro_batch_num
+            self.config.eval_dataset.batch_size = \
+                self.config.eval_dataset.batch_size // self.config.micro_batch_interleave_num
         eval_dataset = build_dataset(self.config.eval_dataset_task, default_args=default_args)
         return eval_dataset
 
     def create_network(self, default_args: dict = None):
         """Create the network for task trainer."""
         logger.info(".........Build Network From Config..........")
-        network = build_model(self.config.model, default_args=default_args)
+        eval_network = build_model(self.config.model, default_args=default_args)
+        network = eval_network
         micro_batch_interleave_num = self.config.micro_batch_interleave_num
         if micro_batch_interleave_num > 1:
             logger.info("micro_batch_interleave_num > 1, the double copy parallel feature is turned on.")
             network = MicroBatchInterleaved(network, micro_batch_interleave_num)
-        return network
+        return network, eval_network
 
     def create_pipeline_network(self, default_args: dict = None):
         """Create the network of pipeline parallel for task trainer."""
         logger.info(".........Build Pipeline Network From Config..........")
-        network = build_model(self.config.model, default_args=default_args)
+        eval_network = build_model(self.config.model, default_args=default_args)
+        network = eval_network
         micro_batch_interleave_num = self.config.micro_batch_interleave_num
         micro_batch_num = self.config.parallel_config.micro_batch_num
         if micro_batch_interleave_num > 1:
@@ -306,7 +315,7 @@ class BaseTrainer:
         else:
             network = PipelineCell(network, micro_size=micro_batch_num)
         network = _VirtualDatasetCell(network)
-        return network
+        return network, eval_network
 
     def create_image_processor(self, default_args: dict = None):
         """Create the image processor for predict."""
@@ -531,22 +540,26 @@ class BaseTrainer:
 
         # build network
         logger.info(".........Build Net For Train..........")
+        eval_network = None
         if network is None and wrapper is None and \
                 self.model_wrapper is None and self.network is None:
             # If neither network nor wrapper exists, create a network
             if self.get_pipeline_stages() > 1:
-                network = self.create_pipeline_network(default_args={"parallel_config": config.parallel_config,
-                                                                     "moe_config": config.moe_config})
+                network, eval_network = self.create_pipeline_network(
+                    default_args={"parallel_config": config.parallel_config,
+                                  "moe_config": config.moe_config})
             else:
-                network = self.create_network(default_args={"parallel_config": config.parallel_config,
-                                                            "moe_config": config.moe_config})
+                network, eval_network = self.create_network(
+                    default_args={"parallel_config": config.parallel_config,
+                                  "moe_config": config.moe_config})
         elif network is None and wrapper is None and self.network is not None:
             logger.info(".........Using The Existing Network For Train:: %s", self.network.__class__.__name__)
             network = self.network
 
         if network is not None:
             self.set_network(network, is_train=True)
-
+        if eval_network is None:
+            eval_network = network
         if wrapper is not None:
             self.set_model_wrapper(wrapper)
 
@@ -584,9 +597,9 @@ class BaseTrainer:
         # define Model and begin training
         logger.info(".........Starting Init Train Model..........")
         if wrapper is not None:
-            model = Model(wrapper, metrics=compute_metrics, eval_network=network)
+            model = Model(wrapper, metrics=compute_metrics, eval_network=eval_network)
         else:
-            model = Model(network, optimizer=optimizer, metrics=compute_metrics, eval_network=network)
+            model = Model(network, optimizer=optimizer, metrics=compute_metrics, eval_network=eval_network)
 
         # resume checkpoint
         if config.load_checkpoint or config.only_save_strategy:
@@ -647,15 +660,18 @@ class BaseTrainer:
         logger.info("Create evaluate dataset finish, dataset size:%d", dataset.get_dataset_size())
 
         # build network
+        eval_network = None
         if network is None and self.network is None:
-            network = self.create_network(default_args={"parallel_config": config.parallel_config,
-                                                        "moe_config": config.moe_config})
+            network, eval_network = self.create_network(
+                default_args={"parallel_config": config.parallel_config,
+                              "moe_config": config.moe_config})
         elif network is None and self.network is not None:
             logger.info(".........Using The Existing Network For Evaluate: %s", self.network.__class__.__name__)
             network = self.network
 
         self.set_network(network, is_train=False)
-
+        if eval_network is None:
+            eval_network = network
         self.count_parameters()
 
         # build metric
@@ -669,7 +685,7 @@ class BaseTrainer:
             callbacks = self.create_eval_callbacks()
 
         logger.info(".........Starting Init Evaluate Model..........")
-        model = Model(network, metrics=compute_metrics, eval_network=network)
+        model = Model(network, metrics=compute_metrics, eval_network=eval_network)
 
         if config.load_checkpoint or config.only_save_strategy:
             if config.load_checkpoint in SUPPORT_MODEL_NAMES:
@@ -710,8 +726,9 @@ class BaseTrainer:
 
             # build network
             if network is None:
-                network = self.create_network(default_args={"parallel_config": config.parallel_config,
-                                                            "moe_config": config.moe_config})
+                network, _ = self.create_network(
+                    default_args={"parallel_config": config.parallel_config,
+                                  "moe_config": config.moe_config})
             self.set_network(network, is_train=False)
 
             network.model_name = kwargs.get("model_name", None)

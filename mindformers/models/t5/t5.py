@@ -1771,7 +1771,7 @@ class T5ForConditionalGeneration(BaseModel):
             label_weights = ops.Reshape()(decoder_attention_mask, (-1,))
             total_loss = self.loss(logits, label_ids, self.cast(label_weights, mstype.float32))
 
-        if self.phase == 'train':
+        if self.training:
             return total_loss
 
         if return_loss:

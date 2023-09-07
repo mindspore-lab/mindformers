@@ -296,7 +296,7 @@ class MT5ForConditionalGeneration(BaseModel):
         # reshape: [bs, seq_len, hidden_size] -> [bs*seq, hidden_size]
         logits = self.reshape(logits, (-1, self.vocab_size))
 
-        if self.phase == "train":
+        if self.training:
             return total_loss
 
         return logits

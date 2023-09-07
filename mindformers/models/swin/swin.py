@@ -210,7 +210,7 @@ class SwinForImageClassification(SwinBaseModel):
     def construct(self, image, target=None):
         x = self.encoder(image)
         out = self.head(x)
-        if self.phase != "train":
+        if not self.training:
             return out, target
         loss = self.loss(out, target)
         return loss

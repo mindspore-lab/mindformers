@@ -315,7 +315,7 @@ class LlamaForCausalLM(BaseModel):
                   input_embeds=None, init_reset=True, batch_valid_length=None):
         """LlamaForCausalLM forward."""
         bsz, seqlen = input_ids.shape
-        if self.phase == "train":
+        if self.training:
             tokens = self.slice(input_ids, (0, 0), (bsz, seqlen - 1), (1, 1))
         else:
             tokens = input_ids
@@ -328,13 +328,13 @@ class LlamaForCausalLM(BaseModel):
             labels = self.slice(input_ids, (0, 1), (bsz, seqlen), (1, 1))
         else:
             if labels.ndim > 1:
-                if self.phase == "train":
+                if self.training:
                     labels = self.slice(labels, (0, 1), (bsz, seqlen), (1, 1))
                 label_mask = self.cast(self.not_equal(labels, self.ignore_token_id), self.dtype)
                 input_mask = self.mul(input_mask, label_mask)
 
         logits = self.cast(logits, mstype.float32)
-        if self.phase != "train":
+        if not self.training:
             logits = self.reshape(logits, (bsz, seqlen, -1))
             # makes cast effective to avoid allgather issue in Mindspore1.10
             input_mask = self.add(input_mask, 1)

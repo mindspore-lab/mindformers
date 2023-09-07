@@ -450,7 +450,7 @@ class PanguAlphaHeadModel(BaseModel):
         r"""forward pass of the model"""
         batch_size, seq_length = input_ids.shape
 
-        if self.phase == "train":
+        if self.training:
             seq_length = seq_length - 1
             tokens = self.slice(input_ids, (0, 0), (batch_size, seq_length), (1, 1))
             input_mask = F.cast(self.not_equal(tokens, self.pad_token_id), mstype.float32)
@@ -484,7 +484,7 @@ class PanguAlphaHeadModel(BaseModel):
                                                   init_reset, batch_valid_length)
         logits = self.head(output_states, word_table)
 
-        if self.phase != 'train':
+        if not self.training:
             logits = logits.reshape((batch_size, seq_length, -1))
             logits = logits.reshape((-1, logits.shape[-1]))
             if (not self.use_past or self.is_first_iteration) and input_position is not None:
@@ -531,7 +531,7 @@ class PanguAlphaPromptTextClassificationModel(PanguAlphaHeadModel):
     def construct(self, input_ids=None, labels=None, attention_mask=None, position_ids=None,
                   input_embeds=None, input_position=None, init_reset=True, batch_valid_length=None):
         r"""forward pass of the model"""
-        if self.phase == "train":
+        if self.training:
             raise ValueError("PanguAlphaPromptTextClassificationModel just supports evaluate mode, "
                              "please set run_mode to eval")
         if input_ids is None and input_embeds is None:

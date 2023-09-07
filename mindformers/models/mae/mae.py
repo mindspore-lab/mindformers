@@ -355,7 +355,7 @@ class ViTMAEForPreTraining(BaseModel):
         reconstruct_images = self.unpatchify(pred)
         self.images_summary("reconstruct image", reconstruct_images)
 
-        if self.phase != "train":
+        if not self.training:
             return reconstruct_images
 
         patches = self.patchify(image)
