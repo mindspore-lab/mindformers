@@ -38,13 +38,14 @@
    docs/feature_cards/Precision_Optimization.md
    docs/feature_cards/Performance_Tuning.md
    docs/feature_cards/Chat_Web.md
+   docs/feature_cards/Inference.md
 
 
 .. toctree::
    :glob:
    :maxdepth: 1
    :caption: AICC
-   
+
    docs/aicc_cards/README.md
 
 
