@@ -899,6 +899,7 @@ def build_alibi_tensor_v2(seq_len, num_heads, return_tensors='ms', dtype=mstype.
     diag = np.transpose(diag, (0, 2, 1))
     position_point = position_point - diag
     alibi = slopes * position_point
+    alibi = np.expand_dims(alibi, 0)
     if return_tensors == 'np':
         return alibi
     return Tensor(alibi, dtype=dtype)
