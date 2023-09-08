@@ -258,17 +258,24 @@ class GeneratorMixin:
             )
         valid_length_each_example = np.array(valid_length_each_example)
         logger.debug("Get the valid for each example is: %s", valid_length_each_example)
-        if not is_encoder_decoder and np.max(valid_length_each_example) > generation_config.max_length:
+
+        # Prepare `max_length` depending on other stopping criteria.
+        input_ids_length = np.max(valid_length_each_example)
+        if generation_config.max_new_tokens is not None:
+            generation_config.max_length = generation_config.max_new_tokens + input_ids_length
+
+        if generation_config.max_length > self.config.seq_length:
+            logger.warning("max_length %s can not exceeds model seq_length %s, set max_length = seq_length.",
+                           generation_config.max_length, self.config.seq_length)
+            generation_config.max_length = self.config.seq_length
+
+        logger.debug("max length is: %s", generation_config.max_length)
+        if not is_encoder_decoder and input_ids_length >= generation_config.max_length:
             raise ValueError(
-                "The max_length set is smaller than the length in the input_ids."
-                f"You shout set max_length to {np.max(valid_length_each_example)}"
+                f"the input_ids length {input_ids_length} exceeds the max length config {generation_config.max_length}."
+                f"check your inputs and set max_length larger than your inputs length."
             )
-        target_length = (
-            self.config.seq_length
-            if generation_config.max_length > self.config.seq_length
-            else generation_config.max_length
-        )
-        logger.debug("max target_length is: %s", target_length)
+
         input_ids = self._pad_inputs_using_max_length(
             origin_inputs=origin_inputs, pad_token_id=generation_config.pad_token_id
         )
@@ -285,9 +292,9 @@ class GeneratorMixin:
         encoder_output = None
         encoder_mask = None
         if is_encoder_decoder:
-            if target_length > self.config.max_decode_length:
-                target_length = self.config.max_decode_length
-            logger.debug("target_length is: %s", target_length)
+            if generation_config.max_length > self.config.max_decode_length:
+                generation_config.max_length = self.config.max_decode_length
+            logger.debug("max decode length is: %s", generation_config.max_length)
 
             # When do encoder and decoder prediction, the encoder can be cached
             # to speed up the inference
@@ -405,7 +412,7 @@ class GeneratorMixin:
 
                 # Stop judgment
                 if p_args[i][target_index] == generation_config.eos_token_id \
-                    or valid_length_each_example[i] == target_length:
+                    or valid_length_each_example[i] == generation_config.max_length:
                     is_finished[i] = True
                     continue
             update_time = time.time() - update_time
@@ -467,7 +474,10 @@ class GeneratorMixin:
                 forwarded to the `forward` function of the model. Supported `generate_config` keywords can be
                 checked in [`GenerationConfig`]'s documentation. Mainly used Keywords are shown below:
 
-                max_length(int): The maximum length the generated tokens can have.
+                max_length(int): The maximum length the generated tokens can have. Corresponds to the length of
+                    the input prompt + `max_new_tokens`. Its effect is overridden by `max_new_tokens`, if also set.
+                max_new_tokens (int): The maximum numbers of tokens to generate, ignoring the number of
+                    tokens in the prompt.
                 do_sample(bool): Whether to do sampling on the candidate ids.
                     If set True it will be enabled, and set it to be False to disable the sampling,
                     equivalent to topk 1.
