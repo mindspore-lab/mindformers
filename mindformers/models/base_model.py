@@ -58,7 +58,6 @@ class BaseModel(nn.Cell, GeneratorMixin):
     def load_checkpoint(self, config):
         """
         load checkpoint for models.
-        (only support standalone mode, and distribute mode waits for developing)
 
         Args:
             config (ModelConfig): a model config instance, which could have attribute
