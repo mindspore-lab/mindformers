@@ -14,8 +14,8 @@ trainer:
 
 # runner config
 runner_config:
-  epochs: 1
-  batch_size: 4
+  epochs: 4
+  batch_size: 2
   sink_mode: True
   sink_size: 2
 
@@ -23,16 +23,17 @@ runner_config:
 optimizer:
   type: FP32StateAdamWeightDecay
   beta1: 0.9
-  beta2: 0.95
+  beta2: 0.98
   eps: 1.e-8 # 1e-8
+  weight_decay: 1.e-4
 
 # lr sechdule
 lr_schedule:
-  type: CosineWithWarmUpLR
-  learning_rate: 1.e-5
-  lr_end: 1.e-6
-  warmup_ratio: 0.03
+  type: ConstantWarmUpLR
+  learning_rate: 2.e-5
+  warmup_ratio: 0.0
   total_steps: -1 # -1 means it will load the total steps of the dataset
+
 
 # dataset
 train_dataset: &train_dataset
@@ -76,11 +77,11 @@ eval_dataset_task:
 
 # default parallel of device num = 16 910A
 parallel_config:
-  data_parallel: 8
+  data_parallel: 4
   model_parallel: 1
-  pipeline_stage: 1
+  pipeline_stage: 2
   optimizer_shard: True
-  micro_batch_num: 4
+  micro_batch_num: 8
   vocab_emb_dp: True
   gradient_aggregation_group: 4
 # when model parallel is greater than 1, we can set micro_batch_interleave_num=2, that may accelerate the train process.
@@ -133,7 +134,7 @@ model:
   model_config:
     type: LlamaConfig
     batch_size: 1 # add for increase predict
-    seq_length: 2048
+    seq_length: 512
     hidden_size: 4096
     num_layers: 32
     num_heads: 32
