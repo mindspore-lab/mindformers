@@ -249,6 +249,16 @@ class MindFormerBook:
                 _PROJECT_PATH, "research/internlm/run_internlm_7b_lora.yaml")),
             ("common", os.path.join(
                 _PROJECT_PATH, "configs/gpt2/run_gpt2.yaml"))])
+         ),
+        ("segment_anything", OrderedDict([
+            ("sam_vit_b", os.path.join(
+                _PROJECT_PATH, "configs/sam/run_sam_vit-b.yaml")),
+            ("sam_vit_l", os.path.join(
+                _PROJECT_PATH, "configs/sam/run_sam_vit-l.yaml")),
+            ("sam_vit_h", os.path.join(
+                _PROJECT_PATH, "configs/sam/run_sam_vit-h.yaml")),
+            ("common", os.path.join(
+                _PROJECT_PATH, "configs/sam/run_sam_vit-h.yaml"))])
          )
     ])
 
@@ -395,6 +405,16 @@ class MindFormerBook:
             ("blip2_vit_g", os.path.join(
                 _PROJECT_PATH, "configs/blip2/run_blip2_vit_g_retrieval_flickr30k.yaml"))
         ])),
+        ("segment_anything", OrderedDict([
+            ("sam_vit_b", os.path.join(
+                _PROJECT_PATH, "configs/sam/run_sam_vit-b.yaml")),
+            ("sam_vit_l", os.path.join(
+                _PROJECT_PATH, "configs/sam/run_sam_vit-l.yaml")),
+            ("sam_vit_h", os.path.join(
+                _PROJECT_PATH, "configs/sam/run_sam_vit-h.yaml")),
+            ("common", os.path.join(
+                _PROJECT_PATH, "configs/sam/run_sam_vit-h.yaml"))
+        ]))
     ])
 
     _CONFIG_SUPPORT_LIST = OrderedDict([
@@ -485,6 +505,11 @@ class MindFormerBook:
             'glm2_6b',
             'glm2_6b_lora',
         ]),
+        ('sam', [
+            'sam_vit_b',
+            'sam_vit_l',
+            'sam_vit_h'
+        ])
     ])
 
     _MODEL_SUPPORT_LIST = OrderedDict([
@@ -579,6 +604,11 @@ class MindFormerBook:
             'internlm_7b',
             'internlm_7b_lora',
         ]),
+        ('sam', [
+            'sam_vit_b',
+            'sam_vit_l',
+            'sam_vit_h'
+        ])
     ])
 
     _PROCESSOR_SUPPORT_LIST = OrderedDict([
@@ -645,6 +675,11 @@ class MindFormerBook:
             'bloom_7.1b',
             'bloom_65b',
             'bloom_176b',
+        ]),
+        ('sam', [
+            'sam_vit_b',
+            'sam_vit_l',
+            'sam_vit_h'
         ])
     ])
 
@@ -887,6 +922,18 @@ class MindFormerBook:
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
           '/MindFormers/bloom/bloom_7.1b.ckpt'
           ]),
+        ('sam_vit_b',
+         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
+          '/MindFormers/sam/sam_vit_b_01ec64.ckpt'
+          ]),
+        ('sam_vit_l',
+         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
+          '/MindFormers/sam/sam_vit_l_0b3195.ckpt'
+          ]),
+        ('sam_vit_h',
+         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
+          '/MindFormers/sam/sam_vit_h_4b8939.ckpt'
+          ])
     ])
 
     _MODEL_CONFIG_URL_LIST = OrderedDict([
