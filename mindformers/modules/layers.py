@@ -870,6 +870,93 @@ class AlibiTensor(nn.Cell):
         return alibi
 
 
+class AlibiTensorV2(nn.Cell):
+    """
+    Link to paper: https://arxiv.org/abs/2108.12409 Alibi tensor is not causal as the original paper mentions, it
+    relies on a translation invariance of softmax for quick implementation: with l being a tensor, and a fixed value
+    `softmax(l+a) = softmax(l)`. Based on
+    https://github.com/ofirpress/attention_with_linear_biases/blob/a35aaca144e0eb6b789dfcb46784c4b8e31b7983/fairseq/models/transformer.py#L742
+
+    Args:
+        seq_length(int) - length of sequence
+        num_heads(int) - number of heads
+
+    Inputs:
+        attention_mask(Tensor) - Token-wise attention mask, this should be of shape (batch_size, max_seq_len).
+        dtype(mstype) - dtype of the output tensor
+
+    Returns:
+        alibi(Tensor), ailibi tensor shaped (batch_size, num_heads, 1, max_seq_len)
+    """
+
+    def __init__(self, seq_length, num_heads):
+        super(AlibiTensorV2, self).__init__()
+
+        self.seq_length = seq_length
+        self.num_heads = num_heads
+        self.minus_one = Tensor(-np.ones(seq_length), mstype.float32)
+
+        self.expand_2d = P.ExpandDims()
+        self.expand_3d = P.ExpandDims()
+        self.cumsum = P.CumSum()
+        self.add_2d = P.Add()
+        self.add_3d = P.Add()
+        self.mul = P.Mul()
+        self.mul_slope = P.Mul()
+        self.transpose = P.Transpose()
+        self.reshape = P.Reshape()
+        self.mul_mask = P.Mul()
+
+        # build slopes
+        closest_power_of_2 = 2 ** math.floor(math.log2(num_heads))
+        base = np.array(2 ** (-(2 ** -(math.log2(closest_power_of_2) - 3))), dtype=np.float32)
+        powers = np.arange(1, 1 + closest_power_of_2, dtype=np.int32)
+        slopes = np.power(base, powers)
+
+        if closest_power_of_2 != num_heads:
+            extra_base = np.array(
+                2 ** (-(2 ** -(math.log2(2 * closest_power_of_2) - 3))), dtype=np.float32
+            )
+            num_remaining_heads = min(closest_power_of_2, num_heads - closest_power_of_2)
+            extra_powers = np.arange(1, 1 + 2 * num_remaining_heads, 2, dtype=np.int32)
+            slopes = np.concatenate([slopes, np.power(extra_base, extra_powers)], axis=0)
+
+        self.slopes = Tensor(slopes[None, :, None, None], mstype.float32) # (num_heads, 1)
+
+    def construct(self, attention_mask, dtype=mstype.float32):
+        """
+        Note: alibi will added to the attention bias that will be applied to the query, key product of attention
+        therefore alibi will have to be of shape (batch_size, num_heads, query_length, key_length)
+        """
+        bs, seqlen = attention_mask.shape
+        arange_tensor = self.cumsum(attention_mask, -1) # (batch_size, seq_len)
+        max_pos = -arange_tensor[:, -1:] # (batch_size, 1)
+        arange_tensor = self.add_2d(arange_tensor, max_pos) # (batch_size, seq_len)
+        arange_tensor = self.expand_2d(arange_tensor, 1) # (batch_size, 1, seq_len)
+        diag = -self.transpose(arange_tensor, (0, 2, 1)) # (batch_size, seq_len, 1)
+        arange_tensor = self.add_3d(arange_tensor, diag)    # (batch_size, seq_len, seq_len)
+        arange_tensor = self.expand_3d(arange_tensor, 1) # (batch_size, 1, seq_len, seq_len)
+        alibi = self.mul_slope(self.slopes, arange_tensor) # (batch_size, num_heads, seq_len, seq_len)
+        alibi_mask = self.mul_mask(alibi, self.reshape(attention_mask, (bs, 1, seqlen, 1))) # (batch_size, num_heads, seq_len, seq_len)
+        alibi_mask = self.mul_mask(alibi_mask, self.reshape(attention_mask, (bs, 1, 1, seqlen))) # (batch_size, num_heads, seq_len, seq_len)
+        return alibi_mask.astype(dtype)
+
+    def shard(self, parallel_config):
+        """Parallel strategy configuratiuon interface."""
+        dp = parallel_config.data_parallel
+        mp = parallel_config.model_parallel
+
+        self.expand_2d.shard(((dp, 1),))
+        self.expand_3d.shard(((dp, 1, 1),))
+        self.cumsum.shard(((dp, 1),))
+        self.add_2d.shard(((dp, 1), (dp, 1)))
+        self.add_3d.shard(((dp, 1, 1), (dp, 1, 1)))
+        self.mul.shard(((dp, 1), (dp, 1)))
+        self.mul_slope.shard(((1, 1, 1, 1), (dp, 1, 1, 1)))
+        self.transpose.shard(((dp, 1, 1),))
+        self.mul_mask.shard(((dp, mp, 1, 1), (dp, 1, 1, 1)))
+
+
 def _get_interleave(n):
     """calculate slopes of alibi tensor"""
     def _get_interleave_power_of_2(n):
