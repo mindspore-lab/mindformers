@@ -23,7 +23,6 @@ from mindspore import Model
 from mindformers.models import build_model, build_tokenizer, build_processor, \
     BaseModel, BaseTokenizer, BaseImageProcessor, BaseAudioProcessor
 from mindformers.mindformer_book import MindFormerBook
-from mindformers.inference import get_mslite_pipeline
 from mindformers.tools.register import MindFormerConfig
 from .build_pipeline import build_pipeline
 
@@ -77,6 +76,7 @@ def pipeline(
             {'score': 2.396818e-06, 'label': 'cat'}]]
     """
     if backend == Backend.MS_LITE.value:
+        from mindformers.inference import get_mslite_pipeline
         task_pipeline = get_mslite_pipeline(task, model, tokenizer, image_processor, audio_processor, **kwargs)
     elif backend == Backend.MS.value:
         task_pipeline = get_ms_pipeline(task, model, tokenizer, image_processor, audio_processor, **kwargs)
