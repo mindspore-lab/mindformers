@@ -13,7 +13,9 @@
 # limitations under the License.
 # ============================================================================
 """Image-to-text Retrieval Trainer."""
+import os
 from typing import List, Optional, Union
+from pprint import pprint
 
 import numpy as np
 import mindspore as ms
@@ -146,6 +148,8 @@ class ImageToTextRetrievalTrainer(BaseTrainer):
         logger.info(".........Starting Init Train Model..........")
         model = Model(model)
 
+        if int(os.getenv("RANK_ID", '0')) % 8 == 0:
+            pprint(config)
         model.train(
             config.runner_config.epochs, dataset, callbacks=callbacks,
             dataset_sink_mode=config.runner_config.sink_mode,
@@ -196,6 +200,8 @@ class ImageToTextRetrievalTrainer(BaseTrainer):
             callbacks.extend(build_callback(config.eval_callbacks))
 
         logger.info(".........Starting Evaling Model..........")
+        if int(os.getenv("RANK_ID", '0')) % 8 == 0:
+            pprint(config)
 
         # prepare inputs for computing simliarity matrix
         eval_inputs = network.prepare_inputs_for_itm_eval(dataset)

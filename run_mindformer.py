@@ -16,7 +16,6 @@
 import argparse
 import os
 import shutil
-from pprint import pprint
 
 import numpy as np
 
@@ -119,9 +118,6 @@ def main(config):
 
     if config.auto_trans_ckpt:
         clear_auto_trans_output(config)
-
-    if config.local_rank % 8 == 0:
-        pprint(config)
 
     trainer = build_trainer(config.trainer)
     if config.run_mode == 'train' or config.run_mode == 'finetune':

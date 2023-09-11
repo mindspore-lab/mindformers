@@ -16,6 +16,7 @@
 import math
 import os
 import shutil
+from pprint import pprint
 from functools import partial
 from typing import Optional, Union, List
 import numpy as np
@@ -587,7 +588,9 @@ class BaseTrainer:
                 "dataset_size": config.data_size,
                 "micro_batch_interleave_num": config.micro_batch_interleave_num,
                 "micro_batch_num": config.parallel_config.micro_batch_num,
-                "initial_epoch": config.runner_config.initial_epoch})
+                "initial_epoch": config.runner_config.initial_epoch,
+                "global_batch_size": self.config.runner_config.batch_size,
+                "device_num": int(os.getenv('RANK_SIZE', '1'))})
 
         # define compute metrics for evaluate in training
         compute_metrics = None
@@ -631,6 +634,8 @@ class BaseTrainer:
             callbacks.append(eval_callback)
 
         logger.info(".........Starting Training Model..........")
+        if int(os.getenv("RANK_ID", '0')) % 8 == 0:
+            pprint(config)
         logger.info(".........Model Compiling, Please Wait a Moment...........")
         model.train(config.runner_config.epochs, dataset,
                     callbacks=callbacks,
@@ -695,6 +700,8 @@ class BaseTrainer:
             transform_and_load_checkpoint(config, model, network, dataset, do_eval=True)
 
         logger.info(".........Starting Evaluate Model..........")
+        if int(os.getenv("RANK_ID", '0')) % 8 == 0:
+            pprint(config)
         output = model.eval(dataset,
                             callbacks=callbacks,
                             dataset_sink_mode=config.runner_config.sink_mode)
@@ -780,6 +787,8 @@ class BaseTrainer:
             else:
                 save_file = f"{task}_result.txt"
 
+        if int(os.getenv("RANK_ID", '0')) % 8 == 0:
+            pprint(config)
         output_results = self.pipeline_task(input_data, top_k=top_k)
 
         output_info = []

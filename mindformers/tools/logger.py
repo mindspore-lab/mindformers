@@ -38,7 +38,7 @@ LOCAL_DEFAULT_LOG_FILE_DIR = os.path.join(
 RANK_DIR_FORMATTER = 'rank_{}/'
 DEFAULT_FILEHANDLER_FORMAT = '[%(levelname)s] %(asctime)s ' \
                              '[%(pathname)s:%(lineno)d] %(funcName)s: %(message)s'
-DEFAULT_STDOUT_FORMAT = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+DEFAULT_STDOUT_FORMAT = '%(asctime)s - %(name)s[%(filename)s:%(lineno)d] - %(levelname)s - %(message)s'
 DEFAULT_REDIRECT_FILE_NAME = 'mindspore.log'
 
 
