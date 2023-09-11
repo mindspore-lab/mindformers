@@ -104,6 +104,6 @@ class BloomRewardModel(BaseModel):
         logits = logits.squeeze(-1)
         logits = F.reshape(logits, (-1, self.seq_length))
         loss, chosen_end_scores, reject_end_scores = self.loss(logits, loss_mask, end_ind)
-        if self.phase == "train":
+        if self.training:
             return loss
         return loss, chosen_end_scores, reject_end_scores

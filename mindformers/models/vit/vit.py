@@ -224,7 +224,7 @@ class ViTForImageClassification(BaseModel):
         """construct of vit"""
         out = self.vit(image)
         out = self.head(out)
-        if self.phase != "train":
+        if not self.training:
             return out, target
         loss = self.loss(out, target)
         return loss
@@ -286,7 +286,7 @@ class ViTForMaskedImageModeling(BaseModel):
         height = width = math.floor(s ** 0.5)
         x = self.reshape(self.transpose(x, (0, 2, 1)), (b, c, height, width))
         reconstruct_images = self.decoder(x)
-        if self.phase != "train":
+        if not self.training:
             return reconstruct_images
         size = self.config.image_size // self.config.patch_size
         mask = self.reshape(mask, (-1, size, size))

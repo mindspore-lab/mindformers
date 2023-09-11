@@ -124,7 +124,7 @@ class Baichuan13bForCausalLM(BaseModel):
                   input_embeds=None, init_reset=True, batch_valid_length=None):
         """Baichuan13bForCausalLM forward."""
         bsz, seqlen = input_ids.shape
-        if self.phase == "train":
+        if self.training:
             tokens = self.slice(input_ids, (0, 0), (bsz, seqlen - 1), (1, 1))
         else:
             tokens = input_ids
@@ -138,7 +138,7 @@ class Baichuan13bForCausalLM(BaseModel):
         logits = self.lm_head(output)
 
         logits = self.cast(logits, mstype.float32)
-        if self.phase != "train":
+        if not self.training:
             logits = self.reshape(logits, (bsz, seqlen, -1))
 
             # makes cast effective to avoid allgather issue in Mindspore1.10

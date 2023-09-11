@@ -130,7 +130,7 @@ class GPT2LMHeadModel(BaseModel):
         attention_mask = self.cast(attention_mask, mstype.float32)
         loss_mask = attention_mask
 
-        if self.phase != "train":
+        if not self.training:
             tokens = input_ids
         else:
             tokens = self.stridedslice(input_ids, (0, 0), (batch_size, seq_length - 1), (1, 1))
@@ -145,7 +145,7 @@ class GPT2LMHeadModel(BaseModel):
                                                        batch_valid_length)
         logits = self.head(output_states, embedding_table)
 
-        if self.phase != 'train':
+        if not self.training:
             logits = self.reshape(logits, (batch_size, seq_length, -1))
 
             # makes cast effective to avoid allgather issue in Mindspore1.10
