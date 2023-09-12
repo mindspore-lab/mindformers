@@ -1551,7 +1551,7 @@ class BertLMHeadModel(BertPreTrainedModel):
         Example::
             >>> from mindformers import BertTokenizer, Blip2Config, BertLMHeadModel
             >>> tokenizer = BertTokenizer.from_pretrained('bert-base-cased')
-            >>> config = Blip2Config.from_pretrained("blip2_vit_g")
+            >>> config = Blip2Config.from_pretrained("blip2_stage1_vit_g")
             >>> model = BertLMHeadModel(config=config)
             >>> inputs = tokenizer("Hello, my dog is cute")
             >>> outputs = model(**inputs)

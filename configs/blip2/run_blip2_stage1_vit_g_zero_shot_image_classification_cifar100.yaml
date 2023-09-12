@@ -71,7 +71,7 @@ profile_memory: True
 # Trainer
 trainer:
   type: ZeroShotImageClassificationTrainer
-  model_name: 'blip2_classification'
+  model_name: 'blip2_stage1_classification'
 
 # eval dataset
 eval_dataset:  &eval_dataset
@@ -101,7 +101,7 @@ model:
     type: Blip2Config
     freeze_vision: True
     max_txt_len: 32
-    checkpoint_name_or_path: "blip2_classification"
+    checkpoint_name_or_path: "blip2_stage1_classification"
     dtype: "float32"
     compute_dtype: "float16"
     layernorm_dtype: "float32"
@@ -125,7 +125,7 @@ model:
       drop_path_rate: 0.0
       use_mean_pooling: false
       encoder_stride: 16
-      checkpoint_name_or_path: "vit_large_p16"
+      checkpoint_name_or_path: "vit_g_p16"
 
     qformer_config:
       num_hidden_layers: 12
@@ -186,7 +186,7 @@ optimizer:
 callbacks:
   - type: MFLossMonitor
   - type: CheckpointMointor
-    prefix: "blip2_classification"
+    prefix: "blip2_stage1_classification"
     save_checkpoint_steps: 10000
     integrated_save: True
     async_save: False

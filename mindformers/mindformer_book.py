@@ -113,8 +113,12 @@ class MindFormerBook:
         ("contrastive_language_image_pretrain", OrderedDict([
             ("clip_vit_b_32", os.path.join(
                 _PROJECT_PATH, "configs/clip/run_clip_vit_b_32_pretrain_flickr8k.yaml")),
-            ("blip2_vit_g", os.path.join(
-                _PROJECT_PATH, "configs/blip2/run_blip2_vit_g_qformer_pretrain.yaml")),
+            ("blip2_stage1_vit_g", os.path.join(
+                _PROJECT_PATH, "configs/blip2/run_blip2_stage1_vit_g_qformer_pretrain.yaml")),
+            ("blip2_stage2_vit_g_baichuan_7b", os.path.join(
+                _PROJECT_PATH, "configs/blip2/run_blip2_stage2_vit_g_baichuan_7b.yaml")),
+            ("blip2_stage2_vit_g_llama_7b", os.path.join(
+                _PROJECT_PATH, "configs/blip2/run_blip2_stage2_vit_g_llama_7b.yaml")),
             ("mindspore/clip_vit_b_32", os.path.join(
                 _PROJECT_PATH, "configs/clip/run_clip_vit_b_32_pretrain_flickr8k.yaml")),
             ("clip_vit_b_16", os.path.join(
@@ -127,8 +131,8 @@ class MindFormerBook:
                 _PROJECT_PATH, "configs/clip/run_clip_vit_b_32_pretrain_flickr8k.yaml"))])
          ),
         ("image_to_text_retrieval", OrderedDict([
-            ("blip2_vit_g", os.path.join(
-                _PROJECT_PATH, "configs/blip2/run_blip2_vit_g_retrieval_flickr30k.yaml"))])
+            ("blip2_stage1_vit_g", os.path.join(
+                _PROJECT_PATH, "configs/blip2/run_blip2_stage1_vit_g_retrieval_flickr30k.yaml"))])
          ),
         ("zero_shot_image_classification", OrderedDict([
             ("clip_vit_b_32", os.path.join(
@@ -141,10 +145,18 @@ class MindFormerBook:
                 _PROJECT_PATH, "configs/clip/run_clip_vit_l_14_zero_shot_image_classification_cifar100.yaml")),
             ("clip_vit_l_14@336", os.path.join(
                 _PROJECT_PATH, "configs/clip/run_clip_vit_l_14@336_zero_shot_image_classification_cifar100.yaml")),
-            ('blip2_classification', os.path.join(
-                _PROJECT_PATH, "configs/blip2/run_blip2_vit_g_zero_shot_image_classification_cifar100.yaml")),
+            ('blip2_stage1_classification', os.path.join(
+                _PROJECT_PATH, "configs/blip2/run_blip2_stage1_vit_g_zero_shot_image_classification_cifar100.yaml")),
             ("common", os.path.join(
                 _PROJECT_PATH, "configs/clip/run_clip_vit_b_32_zero_shot_image_classification_cifar100.yaml"))])
+         ),
+        ("image_to_text_generation", OrderedDict([
+            ("itt_blip2_stage2_vit_g_baichuan_7b", os.path.join(
+                _PROJECT_PATH, "configs/blip2/run_blip2_stage2_vit_g_baichuan_7b_image_to_text_generation.yaml")),
+            ("itt_blip2_stage2_vit_g_llama_7b", os.path.join(
+                _PROJECT_PATH, "configs/blip2/run_blip2_stage2_vit_g_llama_7b_image_to_text_generation.yaml")),
+            ("common", os.path.join(
+                _PROJECT_PATH, "configs/clip/run_blip2_stage2_vit_g_llama_7b_image_to_text_generation.yaml"))])
          ),
         ("translation", OrderedDict([
             ("t5_small", os.path.join(
@@ -276,8 +288,16 @@ class MindFormerBook:
                 _PROJECT_PATH, "configs/clip/run_clip_vit_l_14@336_zero_shot_image_classification_cifar100.yaml")),
             ('common', os.path.join(
                 _PROJECT_PATH, "configs/clip/run_clip_vit_b_32_zero_shot_image_classification_cifar100.yaml")),
-            ('blip2_classification', os.path.join(
-                _PROJECT_PATH, "configs/blip2/run_blip2_vit_g_zero_shot_image_classification_cifar100.yaml"))
+            ('blip2_stage1_classification', os.path.join(
+                _PROJECT_PATH, "configs/blip2/run_blip2_stage1_vit_g_zero_shot_image_classification_cifar100.yaml"))
+        ])),
+        ('image_to_text_generation', OrderedDict([
+            ('itt_blip2_stage2_vit_g_baichuan_7b', os.path.join(
+                _PROJECT_PATH, "configs/blip2/run_blip2_stage2_vit_g_baichuan_7b_image_to_text_generation.yaml")),
+            ('itt_blip2_stage2_vit_g_llama_7b', os.path.join(
+                _PROJECT_PATH, "configs/blip2/run_blip2_stage2_vit_g_llama_7b_image_to_text_generation.yaml")),
+            ("common", os.path.join(
+                _PROJECT_PATH, "configs/blip2/run_blip2_stage2_vit_g_llama_7b_image_to_text_generation.yaml"))
         ])),
         ('masked_image_modeling', OrderedDict([
             ('mae_vit_base_p16', os.path.join(
@@ -402,8 +422,8 @@ class MindFormerBook:
                 _PROJECT_PATH, "configs/gpt2/run_gpt2.yaml"))
         ])),
         ("image_to_text_retrieval", OrderedDict([
-            ("blip2_vit_g", os.path.join(
-                _PROJECT_PATH, "configs/blip2/run_blip2_vit_g_retrieval_flickr30k.yaml"))
+            ("blip2_stage1_vig_g", os.path.join(
+                _PROJECT_PATH, "configs/blip2/run_blip2_stage1_vit_g_retrieval_flickr30k.yaml"))
         ])),
         ("segment_anything", OrderedDict([
             ("sam_vit_b", os.path.join(
@@ -426,14 +446,21 @@ class MindFormerBook:
             'mindspore/clip_vit_b_32'
         ]),
         ('blip2', [
-            'blip2_vit_g',
-            'blip2_classification'
+            'blip2_stage1_vig_g',
+            'blip2_stage1_classification',
+            'blip2_stage2_vit_g_baichuan_7b',
+            'blip2_stage2_vit_g_llama_7b',
+            'itt_blip2_stage2_vit_g_baichuan_7b',
+            'itt_blip2_stage2_vit_g_llama_7b',
         ]),
+        ('itt', OrderedDict([
+            ('blip2', ['itt_blip2_stage2_vit_g_baichuan_7b', 'itt_blip2_stage2_vit_g_llama_7b'])
+        ])),
         ('mae', [
             'mae_vit_base_p16',
         ]),
         ('vit', [
-            'vit_base_p16', 'mindspore/vit_base_p16', 'vit_large_p16'
+            'vit_base_p16', 'mindspore/vit_base_p16', 'vit_g_p16'
         ]),
         ('swin', [
             'swin_base_p4w7', 'mindspore/swin_base_p4w7'
@@ -520,10 +547,13 @@ class MindFormerBook:
             'clip_vit_l_14@336',
             'mindspore/clip_vit_b_32'
         ]),
-        ('blip2', [
-            'blip2_vit_g',
-            'blip2_classification'
-        ]),
+        ('blip2', OrderedDict([
+            ('1-stg', ['blip2_stage1_vit_g', 'blip2_stage1_classification']),
+            ('2-stg', ['blip2_stage1_pretrained', 'blip2_stage2_vit_g_baichuan_7b', 'blip2_stage2_vit_g_llama_7b'])
+        ])),
+        ('itt', OrderedDict([
+            ('blip2', ['itt_blip2_stage2_vit_g_baichuan_7b', 'itt_blip2_stage2_vit_g_llama_7b'])
+        ])),
         ('mae', [
             'mae_vit_base_p16',
         ]),
@@ -531,7 +561,7 @@ class MindFormerBook:
             'vit_base_p16',
             'mindspore/vit_base_p16',
             'mae_vit_base_p16',
-            'vit_large_p16'
+            'vit_g_p16'
         ]),
         ('swin', [
             'swin_base_p4w7', 'mindspore/swin_base_p4w7'
@@ -620,16 +650,21 @@ class MindFormerBook:
             'mindspore/clip_vit_b_32'
         ]),
         ('blip2', [
-            'blip2_vit_g',
-            'blip2_classification'
+            'blip2_stage1_vit_g',
+            'blip2_stage1_classification',
+            'blip2_stage2_vit_g_baichuan_7b',
+            'blip2_stage2_vit_g_llama_7b'
         ]),
+        ('itt', OrderedDict([
+            ('blip2', ['itt_blip2_stage2_vit_g_baichuan_7b', 'itt_blip2_stage2_vit_g_llama_7b'])
+        ])),
         ('mae', [
             'mae_vit_base_p16',
         ]),
         ('vit', [
             'vit_base_p16',
             'mindspore/vit_base_p16',
-            'vit_large_p16'
+            'vit_g_p16'
         ]),
         ('swin', [
             'swin_base_p4w7',
@@ -692,8 +727,8 @@ class MindFormerBook:
             'mindspore/clip_vit_b_32'
         ]),
         ('blip2', [
-            'blip2_vit_g',
-            'blip2_classification'
+            'blip2_stage1_vit_g',
+            'blip2_stage1_classification'
         ]),
         ('bert', [
             'bert_base_uncased',
@@ -787,11 +822,31 @@ class MindFormerBook:
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
           '/XFormer_for_mindspore/vit/vit_base_p16.ckpt'
           ]),
-        ('vit_large_p16',
+        ('vit_g_p16',
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
-          '/MindFormers/blip2/vit_large_p16.ckpt'
+          '/MindFormers/blip2/vit_g_p16.ckpt'
           ]),
-        ('blip2_classification',
+        ('blip2_stage1_classification',
+         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
+          '/MindFormers/blip2/blip2_pretrained.ckpt'
+          ]),
+        ('blip2_stage1_pretrained',
+         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
+          '/MindFormers/blip2/blip2_pretrained.ckpt'
+          ]),
+        ('blip2_stage2_vit_g_baichuan_7b',
+         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
+          '/MindFormers/blip2/blip2_pretrained.ckpt'
+          ]),
+        ('itt_blip2_stage2_vit_g_baichuan_7b',
+         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
+          '/MindFormers/blip2/blip2_pretrained.ckpt'
+          ]),
+        ('blip2_stage2_vit_g_llama_7b',
+         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
+          '/MindFormers/blip2/blip2_pretrained.ckpt'
+          ]),
+        ('itt_blip2_stage2_vit_g_llama_7b',
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
           '/MindFormers/blip2/blip2_pretrained.ckpt'
           ]),
@@ -953,13 +1008,13 @@ class MindFormerBook:
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
           '/MindFormers/clip/clip_vit_l_14%40336.yaml'
           ]),
-        ('blip2_vit_g',
+        ('blip2_stage1_vit_g',
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
-          '/MindFormers/blip2/blip2_vit_g.yaml'
+          '/MindFormers/blip2/blip2_stage1_vit_g.yaml'
           ]),
-        ('blip2_classification',
+        ('blip2_stage1_classification',
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
-          '/MindFormers/blip2/blip2_classification.yaml'
+          '/MindFormers/blip2/blip2_stage1_classification.yaml'
           ]),
         ('mae_vit_base_p16',
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
@@ -969,9 +1024,9 @@ class MindFormerBook:
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
           '/XFormer_for_mindspore/vit/vit_base_p16.yaml'
           ]),
-        ('vit_large_p16',
+        ('vit_g_p16',
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
-          '/MindFormers/blip2/vit_large_p16.yaml'
+          '/MindFormers/blip2/vit_g_p16.yaml'
           ]),
         ('swin_base_p4w7',
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'

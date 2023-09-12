@@ -78,7 +78,7 @@ class Blip2Config(BaseConfig):
                  freeze_vision: bool = True,
                  freeze_text: bool = True,
                  max_txt_len: int = 32,
-                 prompt: str = '',
+                 prompt: bool = False,
                  prompt_length: int = 0,
                  checkpoint_name_or_path: str = None,
                  dtype: str = "float32",

@@ -79,7 +79,7 @@ profile_memory: True
 # Trainer
 trainer:
   type: image_to_text_retrieval
-  model_name: 'blip2_vit_g'
+  model_name: 'blip2_stage1_vit_g'
 
 # eval dataset
 eval_dataset: &eval_dataset
@@ -165,7 +165,7 @@ model:
       drop_path_rate: 0.0
       use_mean_pooling: false
       encoder_stride: 16
-      checkpoint_name_or_path: "vit_large_p16"
+      checkpoint_name_or_path: "vit_g_p16"
 
     qformer_config:
       num_hidden_layers: 12

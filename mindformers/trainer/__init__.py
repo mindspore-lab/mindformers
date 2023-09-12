@@ -20,6 +20,7 @@ from .masked_language_modeling import *
 from .general_task_trainer import *
 from .contrastive_language_image_pretrain import *
 from .image_to_text_retrieval import *
+from .image_to_text_generation import *
 from .translation import *
 from .text_classfication import *
 from .token_classification import *
@@ -39,6 +40,7 @@ __all__.extend(masked_language_modeling.__all__)
 __all__.extend(general_task_trainer.__all__)
 __all__.extend(contrastive_language_image_pretrain.__all__)
 __all__.extend(image_to_text_retrieval.__all__)
+__all__.extend(image_to_text_generation.__all__)
 __all__.extend(translation.__all__)
 __all__.extend(text_classfication.__all__)
 __all__.extend(token_classification.__all__)

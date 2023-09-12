@@ -136,9 +136,9 @@ class Blip2Processor(BaseProcessor):
         >>> text = ["a boy", "a girl"]
         >>> Blip2Processor.show_support_list()
             INFO - support list of Blip2Processor is:
-            INFO -    ['blip2_vit_g', 'blip2_classification']
+            INFO -    ['blip2_stage1_vit_g', 'blip2_stage1_classification']
             INFO - -------------------------------------
-        >>> processor = Blip2Processor.from_pretrained('blip2_vit_g')
+        >>> processor = Blip2Processor.from_pretrained('blip2_stage1_vit_g')
             INFO - processor built successfully!
         >>> processor(image, text)
             {'image': Tensor(shape=[1, 3, 224, 224], dtype=Float32, value=
