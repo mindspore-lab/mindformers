@@ -28,6 +28,7 @@ from .llama import *
 from .pangualpha import *
 from .filip import *
 from .bloom import *
+from .sam import *
 from .base_tokenizer import *
 from .base_config import BaseConfig
 from .base_model import BaseModel
