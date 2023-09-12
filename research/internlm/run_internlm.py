@@ -13,12 +13,14 @@
 # limitations under the License.
 # ============================================================================
 """InternLM Train/Finetune/Eval/Predict scripts."""
-
+import os
 import argparse
 
-from mindformers import Trainer
+from mindformers import Trainer, MindFormerConfig
 from mindformers import init_context, ContextConfig, ParallelContextConfig
-from mindformers.tools.utils import str2bool
+from mindformers.tools.utils import check_in_modelarts, set_remote_save_url, str2bool
+from mindformers.tools.cloud_adapter import cloud_monitor
+from mindformers.core.context import build_context, build_profile_cb
 
 # pylint: disable=W0611
 import internlm
@@ -40,6 +42,7 @@ def context_init(use_parallel=False, optimizer_parallel=False, device_id=0):
                  parallel_config=parallel_config)
 
 
+@cloud_monitor()
 def main(task='text_generation',
          config='run_internlm_7b.yaml',
          run_mode='train',
@@ -52,10 +55,25 @@ def main(task='text_generation',
          predict_data='',
          max_length=512,
          op=True,
-         device_id=0):
+         device_id=0,
+         remote_save_url=None):
     """main function."""
+    # 适配aicc
+    if check_in_modelarts() and remote_save_url:
+        print("remote_save_url is %s, the output file will be uploaded to here.", remote_save_url)
+        set_remote_save_url(remote_save_url)
+
     # 环境初始化
-    context_init(use_parallel, op, device_id)
+    if os.path.exists(config) and config.endswith(('.yaml', '.yml')):
+        config = MindFormerConfig(os.path.realpath(config))
+        config.use_parallel = use_parallel
+        config.context.device_id = device_id
+        build_context(config)
+        # define callback and add profile callback
+        if config.profile:
+            config.profile_cb = build_profile_cb(config)
+    else:
+        context_init(use_parallel, op, device_id)
 
     # 定义任务，预先准备好相应数据集
     if run_mode == 'train':
@@ -117,6 +135,8 @@ if __name__ == "__main__":
                         help='whether use optimizer parallel. Default: False')
     parser.add_argument('--device_id', default=0, type=int,
                         help='ID of the target device, the value must be in [0, device_num_per_host-1]')
+    parser.add_argument('--remote_save_url', default="", type=str,
+                        help='whether use optimizer parallel. Default: None')
     args = parser.parse_args()
 
     main(task=args.task,
@@ -131,4 +151,5 @@ if __name__ == "__main__":
          predict_data=args.predict_data,
          max_length=args.predict_length,
          op=args.optimizer_parallel,
-         device_id=args.device_id)
+         device_id=args.device_id,
+         remote_save_url=args.remote_save_url)

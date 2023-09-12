@@ -50,14 +50,10 @@ def convert_hf_ckpt(ckpt_dir, output_name, dtype=ms.float16):
     print(f"Trying to convert huggingface checkpoint in '{ckpt_dir}'.", flush=True)
     try:
         from transformers import AutoModelForCausalLM
-    except:
-        raise ImportError(f"Failed to load huggingface checkpoint. Please make sure transformers is available.")
-
-    try:
         model_hf = AutoModelForCausalLM.from_pretrained(ckpt_dir, trust_remote_code=True)
     # pylint: disable=W0703
     except Exception as e:
-        print(f"Do not find huggingface checkpoint in '{ckpt_dir}', Error {e.message}.", flush=True)
+        print(f"Do not find huggingface checkpoint in '{ckpt_dir}', Error {e}.", flush=True)
         return False
 
     ckpt_list = []
