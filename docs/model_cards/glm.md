@@ -100,27 +100,20 @@ def chat_glm():
     ms.load_checkpoint("./checkpoint_download/glm/glm_6b.ckpt", model)
     tokenizer = ChatGLMTokenizer('./checkpoint_download/glm/ice_text.model')
 
-    prompts = ["你好", "请介绍一下华为"]
+    prompts = ["你好", "请介绍一下华为", "用python写一个快排"]
     history = []
     for query in prompts:
-        if not history:
-            prompt = query
-        else:
-            prompt = ""
-            for i, (old_query, response) in enumerate(history):
-                prompt += "[Round {}]\n问：{}\n答：{}\n".format(i, old_query, response)
-            prompt += "[Round {}]\n问：{}\n答：".format(len(history), query)
-        inputs = tokenizer(prompt)
+        input_ids = tokenizer(query)['input_ids']
 
         start_time = time.time()
-        outputs = model.generate(np.expand_dims(np.array(inputs['input_ids']).astype(np.int32), 0),
-                                    max_length=config.max_decode_length, do_sample=False, top_p=0.7, top_k=1)
+        outputs = model.generate(input_ids, max_length=config.max_decode_length, do_sample=False)
         end_time = time.time()
         print(f'generate speed: {outputs[0].shape[0]/(end_time-start_time):.2f} tokens/s')
+
         response = tokenizer.decode(outputs)
         response = process_response(response[0])
-        history = history + [(query, response)]
         print(response)
+
 
 if __name__ == "__main__":
     chat_glm()
@@ -725,27 +718,23 @@ def chat_glm():
     ms.load_checkpoint(args.checkpoint_path, model)
     tokenizer = ChatGLMTokenizer(args.vocab_path)
 
-    prompts = ["你好", "请介绍一下华为", "用Python写一个快排"]
-    history = []
-    for query in prompts:
-        if not history:
-            prompt = query
-        else:
-            prompt = ""
-            for i, (old_query, response) in enumerate(history):
-                prompt += "[Round {}]\n问：{}\n答：{}\n".format(i, old_query, response)
-            prompt += "[Round {}]\n问：{}\n答：".format(len(history), query)
-        inputs = tokenizer(prompt)
+    inputs = ["你好",
+              "请介绍一下华为",
+              "用Python写一个快排",
+              "类型#上衣*材质#牛仔布*颜色#白色*风格#简约*图案#刺绣*衣样式#外套*衣款式#破洞"]
+
+    for query in inputs:
+        input_ids = tokenizer(query)['input_ids']
 
         start_time = time.time()
-        outputs = model.generate(np.expand_dims(np.array(inputs['input_ids']).astype(np.int32), 0),
-                                 max_length=config.max_decode_length, do_sample=False, top_p=0.7, top_k=1)
+        outputs = model.generate(input_ids, max_length=config.max_decode_length, do_sample=False)
         end_time = time.time()
         print(f'generate speed: {outputs[0].shape[0]/(end_time-start_time):.2f} tokens/s')
+
         response = tokenizer.decode(outputs)
         response = process_response(response[0])
-        history = history + [(query, response)]
         print(response)
+
 
 if __name__ == "__main__":
     chat_glm()
