@@ -461,6 +461,12 @@ class Baichuan13BDecodeLayer(nn.Cell):
 
     def construct(self, x, alibi_tensor, mask=None, init_reset=True, batch_valid_length=None):
         """ Forward of transformer block. """
+        bs = x.shape[0]
+        if self.use_past:
+            if not isinstance(init_reset, Tensor):
+                init_reset = Tensor([init_reset], mstype.bool_)
+            if not isinstance(batch_valid_length, Tensor):
+                batch_valid_length = self.ones((bs, 1), mstype.int32)
         self._check_input(x, alibi_tensor, mask, init_reset, batch_valid_length)
         # [bs, seq/1, hidden_dim] (first) [bs * seq/1, hidden_dim] (others)
         if self.compute_in_2d and x.ndim != 2:

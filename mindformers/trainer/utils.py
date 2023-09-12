@@ -297,7 +297,7 @@ def transform_and_load_checkpoint(config, model, network, dataset, optimizer=Non
     if context.get_auto_parallel_context('parallel_mode') in ['semi_auto_parallel', 'auto_parallel',
                                                               'hybrid_parallel']:
         # 1. build net if parallel mode is auto_parallel
-        build_model(config, model, network, dataset, do_eval=do_eval, do_predict=do_predict)
+        build_model(config, model, dataset, do_eval=do_eval, do_predict=do_predict)
 
     if config.auto_trans_ckpt:
         # 2. get strategy
@@ -309,7 +309,7 @@ def transform_and_load_checkpoint(config, model, network, dataset, optimizer=Non
     load_ckpt(config, network, optimizer=optimizer)
 
 
-def build_model(config, model, network, dataset, do_eval=False, do_predict=False):
+def build_model(config, model, dataset, do_eval=False, do_predict=False):
     """build model, generate strategy file"""
     if context.get_auto_parallel_context('parallel_mode') in ['semi_auto_parallel', 'auto_parallel',
                                                               'hybrid_parallel']:
@@ -318,11 +318,7 @@ def build_model(config, model, network, dataset, do_eval=False, do_predict=False
         if do_eval:
             model.infer_predict_layout(*next(dataset.create_tuple_iterator()))
         elif do_predict:
-            if config.model.model_config.use_past:
-                network.add_flags_recursive(use_past=False)
             model.infer_predict_layout(dataset)
-            if config.model.model_config.use_past:
-                network.add_flags_recursive(use_past=True)
         else:
             if config.runner_config.epochs > 1 and config.runner_config.sink_size == 1:
                 raise ValueError(f"When distributed loads are sliced weights, it does not support"
