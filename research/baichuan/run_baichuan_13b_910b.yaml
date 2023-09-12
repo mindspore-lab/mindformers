@@ -1,10 +1,10 @@
 seed: 0
 output_dir: './output'  # 当前不支持自定义修改，请勿修改该默认值
 load_checkpoint: ''
+src_strategy_path_or_dir: ''
 auto_trans_ckpt: False  # If true, auto transform load_checkpoint to load in distributed model
 only_save_strategy: False
 resume_training: False
-use_parallel: True
 run_mode: 'train'
 
 # trainer config
@@ -14,8 +14,6 @@ trainer:
 # if True, do evaluate during the training process. if false, do nothing.
 # note that the task trainer should support _evaluate_in_training function.
 do_eval: False
-eval_step_interval: -1        # num of step intervals between each eval, -1 means no step end eval.
-eval_epoch_interval: 50        # num of epoch intervals between each eval, 1 means eval on every epoch end.
 
 # runner config
 runner_config:
@@ -75,13 +73,27 @@ eval_dataset_task:
   type: CausalLanguageModelDataset
   dataset_config: *eval_dataset
 
+use_parallel: True
+# parallel context config
+parallel:
+  parallel_mode: 1 # 0-data parallel, 1-semi-auto parallel, 2-auto parallel, 3-hybrid parallel
+  gradients_mean: False
+  enable_alltoall: False
+  full_batch: True
+  search_mode: "sharding_propagation"
+  enable_parallel_optimizer: True
+  strategy_ckpt_save_file: "./ckpt_strategy.ckpt"
+  parallel_optimizer_config:
+    gradient_accumulation_shard: False
+    parallel_optimizer_threshold: 64
 # default parallel of device num = 8 910B
 parallel_config:
   data_parallel: 8
   model_parallel: 1
   pipeline_stage: 1
+  use_seq_parallel: False
   optimizer_shard: True
-  micro_batch_num: 32
+  micro_batch_num: 1
   vocab_emb_dp: True
   gradient_aggregation_group: 4
 # when model parallel is greater than 1, we can set micro_batch_interleave_num=2, that may accelerate the train process.
@@ -90,6 +102,7 @@ micro_batch_interleave_num: 1
 # recompute config
 recompute_config:
   recompute: True
+  select_recompute: False
   parallel_optimizer_comm_recompute: False
   mp_comm_recompute: True
   recompute_slice_activation: True
@@ -111,23 +124,10 @@ context:
   enable_graph_kernel: False
   graph_kernel_flags: "--disable_expand_ops=Softmax,Dropout --enable_parallel_fusion=true --reduce_fuse_depth=8 --enable_auto_tensor_inplace=true"
   max_call_depth: 10000
-  max_device_memory: "58GB"
+  max_device_memory: "57GB"
   save_graphs: False
   save_graphs_path: "./graph"
   device_id: 0
-
-# parallel context config
-parallel:
-  parallel_mode: 1 # 0-dataset, 1-semi, 2-auto, 3-hybrid
-  gradients_mean: False
-  enable_alltoall: False
-  full_batch: True
-  search_mode: "sharding_propagation"
-  enable_parallel_optimizer: True
-  strategy_ckpt_save_file: "./ckpt_strategy.ckpt"
-  parallel_optimizer_config:
-    gradient_accumulation_shard: False
-    parallel_optimizer_threshold: 64
 
 # model config
 model:
@@ -147,12 +147,15 @@ model:
     ignore_token_id: -100
     compute_dtype: "float16"
     layernorm_compute_type: "float32"
-    softmax_compute_type: "float32"
+    softmax_compute_type: "float16"
     rotary_dtype: "float16"
     param_init_type: "float16"
     use_past: False
-    compute_in_2d: False
+    extend_method: "None" # support "None", "PI", "NTK"
+    compute_in_2d: True
+    use_flash_attention: False
     offset: 0
+    use_past_shard: False
     checkpoint_name_or_path: ""
     repetition_penalty: 1
     max_decode_length: 512
@@ -160,7 +163,7 @@ model:
     top_p: 1
     do_sample: False
   arch:
-    type: Baichuan13bForCausalLM
+    type: Baichuan13BForCausalLM
 
 processor:
   return_tensors: ms
@@ -184,7 +187,7 @@ runner_wrapper:
   type: MFTrainOneStepCell
   scale_sense:
     type: DynamicLossScaleUpdateCell
-    loss_scale_value: 65536
+    loss_scale_value: 4294967296
     scale_factor: 2
     scale_window: 1000
   use_clip_grad: True
