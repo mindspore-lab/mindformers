@@ -67,6 +67,9 @@ InternLM ，即书生·浦语大模型，是由上海人工智能实验室和来
 下载完成后，运行如下转换脚本，将huggingface的权重转换为完整的ckpt权重。
 
 ```shell
+# 请安装torch=2.0.0和transformers=4.29.2版本:
+# pip install torch==2.0.0 -i https://pypi.tuna.tsinghua.edu.cn/simple
+# pip install transformers==4.29.2 -i https://pypi.tuna.tsinghua.edu.cn/simple
 python ./research/internlm/convert_weight.py --torch_ckpt_dir TORCH_CKPT_DIR --mindspore_ckpt_path MS_CKPT_NAME
 ```
 
