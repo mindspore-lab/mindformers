@@ -160,9 +160,9 @@ def convert_to_new_ckpt(ckpt_path, config_path):
     ckpt_list = []
     for name in params.keys():
         value = params[name].value()
-        ckpt_list.append({'name': name, 'data': value})
         if '.wq' in name or '.wk' in name:
             value = permute(value)
+        ckpt_list.append({'name': name, 'data': value})
         print("\r", name, value.shape, end="               ")
 
     ms.save_checkpoint(ckpt_list, save_path)

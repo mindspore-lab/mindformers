@@ -36,7 +36,7 @@ except ImportError:
     FLASHATTENTION_VALID = False
 
 from mindformers.models.llama.llama_layer import LlamaFeedForward, LlamaRMSNorm, LlamaRotaryEmbedding
-from mindformers.modules.layers import _check_past_none_input_none, _check_input_dtype, Linear
+from mindformers.modules.layers import _check_input_dtype, Linear
 from mindformers.modules.transformer import TransformerOpParallelConfig
 
 
@@ -206,7 +206,8 @@ class LLamaAttention(nn.Cell):
                 self.batch_matmul.recompute()
 
         if self.use_flash_attention:
-            self.flash_attention = FlashAttention(self.head_dim, dp=dp, mp=mp, next_block_num=0)
+            self.flash_attention = FlashAttention(self.head_dim, dp=dp, mp=mp, next_block_num=0,
+                                                  high_precision=(softmax_compute_dtype == mstype.float32))
             if not (_get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation()):
                 self.flash_attention.shard(((dp, mp, 1, 1), (dp, mp, 1, 1), (dp, mp, 1, 1), (dp, 1, 1), ()))
             if parallel_config.recompute.select_recompute:
@@ -512,6 +513,7 @@ class LLamaDecodeLayer(nn.Cell):
             kv_shape = (batch_size, self.n_kv_head, seq_length, self.head_dim)
             self.key_past = Parameter(Tensor(np.zeros(kv_shape), self.dtype), name="key_past")
             self.value_past = Parameter(Tensor(np.zeros(kv_shape), self.dtype), name="value_past")
+            self.ones = P.Ones()
             self.mul_past = P.Mul().shard(((dp, 1, 1, 1), (1,)))
             self.assign_past = P.Assign().shard(((dp, 1, 1, 1), (dp, 1, 1, 1)))
             if use_past_shard:
@@ -578,16 +580,12 @@ class LLamaDecodeLayer(nn.Cell):
         if mask is not None:
             _check_input_dtype(mask.dtype, "input_mask", [mstype.float32, mstype.float16], self.cls_name)
 
-        init_reset_is_tensor = isinstance(init_reset, Tensor)
-        init_reset_is_default = init_reset is True
-        batch_valid_length_is_tensor = isinstance(batch_valid_length, Tensor)
-        batch_is_default = batch_valid_length is None
-        _check_past_none_input_none(self.use_past, "init_reset", self.cls_name, True, init_reset_is_tensor,
-                                    init_reset_is_default)
-        _check_past_none_input_none(self.use_past, "batch_valid_length", self.cls_name, None,
-                                    batch_valid_length_is_tensor, batch_is_default)
-
+        bs = freqs_cis[0].shape[0]
         if self.use_past:
+            if not isinstance(init_reset, Tensor):
+                init_reset = Tensor([init_reset], mstype.bool_)
+            if not isinstance(batch_valid_length, Tensor):
+                batch_valid_length = self.ones((bs, 1), mstype.int32)
             _check_input_dtype(init_reset.dtype, "init_reset", [mstype.bool_], self.cls_name)
             _check_input_dtype(batch_valid_length.dtype, "batch_valid_length", [mstype.int32], self.cls_name)
         return True
