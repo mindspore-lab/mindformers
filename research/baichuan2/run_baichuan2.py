@@ -78,24 +78,37 @@ def context_init(use_parallel=False, optimizer_parallel=False, device_id=0):
 def main(task='text_generation',
          config='run_baichuan2_7b.yaml',
          run_mode='train',
-         use_parallel=False,
+         seq_length=None,
+         mode=None,
+         use_parallel=None,
          ckpt=None,
-         auto_trans_ckpt=False,
+         auto_trans_ckpt=None,
          resume=False,
          train_dataset='',
          eval_dataset='',
          predict_data='',
          max_length=512,
          remote_save_url=None,
-         device_id=0):
+         device_id=None,
+         vocab_file=None,
+         data_parallel=None,
+         model_parallel=None,
+         pipeline_stage=None,
+         micro_batch_num=None):
     """main function."""
 
     # 环境初始化
     assert os.path.exists(config) and config.endswith(('.yaml', '.yml'))
 
     config = MindFormerConfig(os.path.realpath(config))
-    config.use_parallel = use_parallel
-    config.device_id = device_id
+    if mode is not None:
+        config.context.mode = mode
+        if mode:
+            config.recompute_config.recompute = False
+    if use_parallel is not None:
+        config.use_parallel = use_parallel
+    if device_id is not None:
+        config.device_id = device_id
     build_context(config)
     # define callback and add profile callback
     if config.profile:
@@ -109,9 +122,22 @@ def main(task='text_generation',
     if run_mode in ['train', 'finetune']:
         config.model.model_config.use_past = False
 
-    auto_trans_ckpt = auto_trans_ckpt or config.auto_trans_ckpt
-    if auto_trans_ckpt:
-        clear_auto_trans_output(config)
+    if seq_length is not None:
+        config.model.model_config.seq_length = seq_length
+    if auto_trans_ckpt is not None:
+        config.auto_trans_ckpt = auto_trans_ckpt
+        if config.auto_trans_ckpt:
+            clear_auto_trans_output(config)
+    if vocab_file is not None:
+        config.processor.tokenizer.vocab_file = vocab_file
+    if data_parallel is not None:
+        config.parallel_config.data_parallel = data_parallel
+    if model_parallel is not None:
+        config.parallel_config.model_parallel = model_parallel
+    if pipeline_stage is not None:
+        config.parallel_config.pipeline_stage = pipeline_stage
+    if micro_batch_num is not None:
+        config.parallel_config.micro_batch_num = micro_batch_num
 
     # 定义任务，预先准备好相应数据集
     if run_mode == 'train':
@@ -147,11 +173,15 @@ if __name__ == "__main__":
                         help='set task type.')
     parser.add_argument('--run_mode', default='train', type=str,
                         help='set run mode for model.')
+    parser.add_argument('--seq_length', default=512, type=int,
+                        help='seq_length')
     parser.add_argument('--use_parallel', default=False, type=str2bool,
                         help='open parallel for model.')
-    parser.add_argument('--load_checkpoint', default=None, type=str,
+    parser.add_argument('--mode', default=0, type=int,
+                        help='0--Graph Mode; 1--Pynative Mode')
+    parser.add_argument('--load_checkpoint', default="", type=str,
                         help='checkpoint name or dir to load.')
-    parser.add_argument('--auto_trans_ckpt', default=False, type=str2bool,
+    parser.add_argument('--auto_trans_ckpt', default=None, type=str2bool,
                         help='whether to transform checkpoint to the checkpoint matching current distribute strategy.')
     parser.add_argument('--resume', default=False, type=str2bool,
                         help='whether resume training.')
@@ -161,17 +191,29 @@ if __name__ == "__main__":
                         help='set eval dataset.')
     parser.add_argument('--predict_data', default='', type=str,
                         help='input predict data.')
-    parser.add_argument('--predict_length', default=512, type=int,
+    parser.add_argument('--predict_length', default=128, type=int,
                         help='max length for predict output.')
     parser.add_argument('--remote_save_url', default="", type=str,
                         help='whether use optimizer parallel. Default: None')
-    parser.add_argument('--device_id', default=1, type=int,
+    parser.add_argument('--device_id', default=0, type=int,
                         help='device id set when run on single card. Default: 0')
+    parser.add_argument('--vocab_file', default=None, type=str,
+                        help='tokenizer model')
+    parser.add_argument('--dp', default=None, type=int,
+                        help='data parallel')
+    parser.add_argument('--mp', default=None, type=int,
+                        help='model parallel')
+    parser.add_argument('--pp', default=None, type=int,
+                        help='pipeline stage')
+    parser.add_argument('--micro_batch_num', default=None, type=int,
+                        help='micro batch num')
     args = parser.parse_args()
 
     main(task=args.task,
          config=args.config,
          run_mode=args.run_mode,
+         seq_length=args.seq_length,
+         mode=args.mode,
          use_parallel=args.use_parallel,
          ckpt=args.load_checkpoint,
          auto_trans_ckpt=args.auto_trans_ckpt,
@@ -181,4 +223,9 @@ if __name__ == "__main__":
          predict_data=args.predict_data,
          max_length=args.predict_length,
          remote_save_url=args.remote_save_url,
-         device_id=args.device_id)
+         device_id=args.device_id,
+         vocab_file=args.vocab_file,
+         data_parallel=args.dp,
+         model_parallel=args.mp,
+         pipeline_stage=args.pp,
+         micro_batch_num=args.micro_batch_num)

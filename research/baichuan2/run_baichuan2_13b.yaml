@@ -43,7 +43,7 @@ train_dataset: &train_dataset
     type: MindDataset
     dataset_dir: ""
     shuffle: True
-  input_columns: ["input_ids"]  # "input_ids", "labels" , labels are used in instruction finetune.
+  input_columns: ["input_ids", "labels"]  # "input_ids", "labels" , labels are used in instruction finetune.
   num_parallel_workers: 8
   python_multiprocessing: False
   drop_remainder: True
@@ -61,7 +61,7 @@ eval_dataset: &eval_dataset
     type: MindDataset
     dataset_dir: ""
     shuffle: False
-  input_columns: ["input_ids"]
+  input_columns: ["input_ids", "labels"]
   num_parallel_workers: 8
   python_multiprocessing: False
   drop_remainder: False
@@ -89,7 +89,7 @@ parallel:
 parallel_config:
   data_parallel: 1
   model_parallel: 8
-  pipeline_stage: 4
+  pipeline_stage: 2
   use_seq_parallel: False
   optimizer_shard: True
   micro_batch_num: 16
@@ -133,7 +133,7 @@ model:
   model_config:
     type: LlamaConfig
     batch_size: 1 # add for increase predict
-    seq_length: 4096
+    seq_length: 512
     hidden_size: 5120
     num_layers: 40
     num_heads: 40

@@ -38,7 +38,7 @@ from mindformers.models.base_model import BaseModel
 from mindformers.models.utils import cell_reuse
 from mindformers.modules.transformer.op_parallel_config import _check_config
 from mindformers.modules.transformer import AttentionMask, TransformerOpParallelConfig
-from mindformers.modules.layers import Linear, _check_input_dtype, _check_past_none_input_none, build_alibi_tensor_v2
+from mindformers.modules.layers import Linear, _check_input_dtype, _check_past_none_input_none, AlibiTensorV2
 from mindformers.tools.register.register import MindFormerModuleType, MindFormerRegister
 
 from mindformers.models.llama.llama import layer_compute_dtype
@@ -187,6 +187,7 @@ class Baichuan13BV2Model(BaseModel):
             config.seq_length, parallel_config=config.parallel_config.dp_mp_config).to_float(config.compute_dtype)
         self.multiply_data = Tensor([-10000.0], dtype=config.compute_dtype)
         self.one = Tensor([1.0], dtype=config.compute_dtype)
+        self.all_ones_attention_mask_alibi = P.Ones()((1, config.seq_length), self.dtype)
         self.reshape = P.Reshape()
         self.cast = P.Cast()
         self.tile = P.Tile()
@@ -196,6 +197,7 @@ class Baichuan13BV2Model(BaseModel):
         self.expand_dims = P.ExpandDims()
         self.not_equal = P.NotEqual()
         self.gather = P.Gather()
+        self.transpose = P.Transpose()
 
         self.tok_embeddings = LlamaEmbedding(
             config.vocab_size, config.hidden_size, param_init_type=config.param_init_type)
@@ -225,10 +227,8 @@ class Baichuan13BV2Model(BaseModel):
         self.norm_out = LlamaRMSNorm(config.hidden_size, config.rms_norm_eps,
                                      compute_type=config.layernorm_compute_type)
 
-        self.alibi_tensor = build_alibi_tensor_v2(seq_len=config.seq_length,
-                                                  num_heads=config.num_heads,
-                                                  return_tensors='ms',
-                                                  dtype=self.dtype)
+        self.build_alibi_tensor = AlibiTensorV2(seq_length=config.seq_length,
+                                                num_heads=config.num_heads)
 
         dp = config.parallel_config.data_parallel
         mp = config.parallel_config.model_parallel
@@ -242,6 +242,7 @@ class Baichuan13BV2Model(BaseModel):
             self.norm_out.set_comm_fusion(config.parallel_config.gradient_aggregation_group)
 
         self.tok_embeddings.shard(config.parallel_config)
+        self.build_alibi_tensor.shard(config.parallel_config)
 
         self.tile.shard(((1, 1, 1, 1), ()))
         self.sub.shard(((1,), (dp, 1, 1)))
@@ -250,6 +251,7 @@ class Baichuan13BV2Model(BaseModel):
         self.expand_dims.shard(((dp, 1, 1),))
         self.not_equal.shard(((dp, 1), ()))
         self.gather.shard(((dp, mp, 1, 1), (1,)))
+        self.transpose.shard(((1, mp, dp, 1),))
         if config.compute_in_2d:
             self.norm_out.shard((dp, 1))
         else:
@@ -273,20 +275,19 @@ class Baichuan13BV2Model(BaseModel):
             if not isinstance(batch_valid_length, Tensor):
                 batch_valid_length = self.ones((bs, 1), mstype.int32)
 
-        alibi_tensor = self.tile(self.alibi_tensor, (bs, 1, 1, 1))
         if self.is_first_iteration:
             input_mask = self.cast(self.not_equal(tokens, self.pad_token_id), self.dtype)
             mask = self.get_attention_mask(input_mask)
-            alibi_tensor = self.mul_alibi(alibi_tensor, self.reshape(input_mask, (bs, 1, -1, 1))) # (batch_size, num_heads, seq_len, seq_len)
-            alibi_tensor = self.mul_alibi(alibi_tensor, self.reshape(input_mask, (bs, 1, 1, -1)))
+            alibi_tensor = self.build_alibi_tensor(input_mask, self.dtype)
             # mask: [bs, seq, seq]
         else:
             cur_pos = batch_valid_length - 1
             valid_length = self.reshape(cur_pos, (-1, 1, 1))
             mask = self.cast(self.le_past(self.range, valid_length), self.dtype)
+            alibi_tensor = self.build_alibi_tensor(self.all_ones_attention_mask_alibi, self.dtype)
+            alibi_tensor = self.tile(alibi_tensor, (bs, 1, 1, 1))
             alibi_tensor = self.gather(alibi_tensor, cur_pos[0], 2)
-            alibi_tensor = alibi_tensor.transpose(2, 1, 0, 3)
-            alibi_tensor = self.mul_alibi(alibi_tensor, self.expand_dims(mask, 1))
+            alibi_tensor = self.transpose(alibi_tensor, (2, 1, 0, 3))
             # mask: [bs, 1, 1]
         mask = self.sub(self.one, self.cast(mask, self.dtype))
         if not self.use_flash_attention:
