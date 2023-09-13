@@ -56,27 +56,39 @@ class LlamaModelForBlip2(LlamaModel):
                   input_position=None,
                   init_reset=True,
                   batch_valid_length=None):
-        h = input_embeddings
-        bs, seq_len, _ = input_embeddings.shape
 
-        if self.is_first_iteration is False:
-            # for increase predict
-            input_position = self.sub(input_position, self.input_position_delta)
-            freqs_cis = (self.reshape(self.gather(self.freqs_cos, input_position, 0), (bs, 1, seq_len, -1)),
-                         self.reshape(self.gather(self.freqs_sin, input_position, 0), (bs, 1, seq_len, -1)),
-                         self.swap_mask)
-            mask = self.tile(self.all_ones_attention_mask, (bs, 1, 1))
-        else:
-            # first iteration of predict; all iterations of train
+        bs, seq_len, _ = input_embeddings.shape
+        if self.use_past:
+            if not isinstance(init_reset, Tensor):
+                init_reset = Tensor([init_reset], mstype.bool_)
+            if not isinstance(batch_valid_length, Tensor):
+                batch_valid_length = self.ones((bs, 1), mstype.int32)
+
+        if self.is_first_iteration:
             freqs_cis = (self.tile(self.reshape(self.freqs_cos, (1, 1, seq_len, -1)), (bs, 1, 1, 1)),
                          self.tile(self.reshape(self.freqs_sin, (1, 1, seq_len, -1)), (bs, 1, 1, 1)),
                          self.swap_mask)
             mask = self.get_attention_mask(input_attention_masks)
+            # mask: [bs, seq, seq]
+        else:
+            cur_pos = batch_valid_length - 1
+            valid_length = self.reshape(cur_pos, (-1, 1, 1))
+            freqs_cis = (self.reshape(self.gather_past(self.freqs_cos, cur_pos, 0), (bs, 1, seq_len, -1)),
+                         self.reshape(self.gather_past(self.freqs_sin, cur_pos, 0), (bs, 1, seq_len, -1)),
+                         self.swap_mask)
+            mask = self.cast(self.le_past(self.range, valid_length), self.dtype)
+            # mask: [bs, 1, 1]
 
-        # dp,1,1 -> dp,1,1
+        mask = self.sub(self.one, self.cast(mask, self.dtype))
+        if not self.use_flash_attention:
+            mask = self.expand_dims(mask, 1)
+            mask = self.mul_mask(mask, self.multiply_data)
+
+        h = input_embeddings
+        # h: [bs, seq/1, hidden_dim]
         for i in range(self.num_layers):
-            h, _ = self.layers[i](h, freqs_cis, mask, init_reset=init_reset, batch_valid_length=batch_valid_length)
-        # dp,1,1 -> dp,1,1
+            h, _ = self.layers[i](h, freqs_cis, mask,
+                                  init_reset=init_reset, batch_valid_length=batch_valid_length)
         output = self.norm_out(h)
         return output
 
@@ -120,10 +132,12 @@ class LlamaForBlip2(LlamaForCausalLM):
         self.ones = P.Ones()
         self.cast = P.Cast()
 
+        self.is_first_iteration = True
+
     # pylint: disable=W0221
     def construct(self, input_embeddings=None,
                   input_ids=None,
-                  label_ids=None,
+                  labels=None,
                   input_position=None,
                   attention_mask=None,
                   init_reset=True,
@@ -142,23 +156,24 @@ class LlamaForBlip2(LlamaForCausalLM):
         logits = self.lm_head(output)
         logits = self.cast(logits, mstype.float32)
 
-        if label_ids is None:
+        if labels is None:
+            # inference
             logits = self.reshape(logits, (batch_size, seq_length, -1))
             return logits, attention_mask
 
         if logits.ndim > 2:
             logits = self.reshape(logits, (-1, logits.shape[-1]))
 
-        label_ids = self.reshape(label_ids, (-1,))
-        label_mask = self.cast(self.not_equal(label_ids, self.ignore_token_id), mstype.float32)
+        labels = self.reshape(labels, (-1,))
+        label_mask = self.cast(self.not_equal(labels, self.ignore_token_id), mstype.float32)
         attention_mask = self.reshape(attention_mask, (-1,))
         input_mask = self.mul(attention_mask, label_mask)
         input_mask = self.reshape(input_mask, (-1,))
-        loss = self.loss(logits, label_ids, input_mask)
+        loss = self.loss(logits, labels, input_mask)
         return loss
 
     def prepare_inputs_for_generation(self, input_ids, **kwargs):
-        if self.model.is_first_iteration or not self.config.use_past:
+        if self.is_first_iteration or not self.config.use_past:
             image_embeddings = kwargs.pop("image_embeds")
             image_embeddings_atts = self.ones(image_embeddings.shape[:-1], mstype.float32)
 
@@ -304,7 +319,7 @@ class Blip2Llama(Blip2Base):
 
         loss = self.llama_model(
             input_embeddings=llama_inputs_embeds,
-            label_ids=targets,
+            labels=targets,
             attention_mask=llama_inputs_attention_mask
         )
         return loss
