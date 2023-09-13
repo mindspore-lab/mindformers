@@ -192,7 +192,6 @@ class LlamaModel(BaseModel):
 
         if self.use_past:
             seq_range = np.arange(config.seq_length).reshape(1, 1, -1)
-            self.ones = P.Ones()
             self.range = Tensor(np.tile(seq_range, (config.batch_size, 1, 1)), mstype.int32)
             self.gather_past = P.Gather()
             self.expand_dims = P.ExpandDims()
@@ -202,11 +201,6 @@ class LlamaModel(BaseModel):
         """Forward of llama model."""
         # preprocess
         bs, seq_len = tokens.shape
-        if self.use_past:
-            if not isinstance(init_reset, Tensor):
-                init_reset = Tensor([init_reset], mstype.bool_)
-            if not isinstance(batch_valid_length, Tensor):
-                batch_valid_length = self.ones((bs, 1), mstype.int32)
         if self.is_first_iteration:
             freqs_cis = (self.tile(self.reshape(self.freqs_cos, (1, 1, seq_len, -1)), (bs, 1, 1, 1)),
                          self.tile(self.reshape(self.freqs_sin, (1, 1, seq_len, -1)), (bs, 1, 1, 1)),

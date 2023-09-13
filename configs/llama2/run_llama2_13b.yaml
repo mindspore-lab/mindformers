@@ -10,7 +10,7 @@ run_mode: 'train'
 # trainer config
 trainer:
   type: CausalLanguageModelingTrainer
-  model_name: 'llama_13b'
+  model_name: 'llama2_13b'
 # if True, do evaluate during the training process. if false, do nothing.
 # note that the task trainer should support _evaluate_in_training function.
 do_eval: False
