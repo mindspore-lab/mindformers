@@ -4,34 +4,6 @@
 
 Baichuan2 是由百川智能开发的开源可商用的大规模预训练语言模型，基于 Transformer 结构，支持中英双语，上下文窗口长度为 4096。目前支持Baichuan2-7B和Baichuan2-13B模型，参数量分别为70亿和130亿。 本仓库提供了Baichuan2-7B和Baichuan2-13B预训练模型。
 
-## <span id="jump">权重准备</span>
-
-从huggingface下载预训练权重用于训练/微调/推理，需要下载整个工程，Base用于微调，Chat用于推理：
-
-- [baichuan2-7B-Base](https://huggingface.co/baichuan-inc/Baichuan2-7B-Base)
-- [baichuan2-7B-Chat](https://huggingface.co/baichuan-inc/Baichuan2-7B-Chat)
-- [baichuan2-13B-Base](https://huggingface.co/baichuan-inc/Baichuan2-13B-Base)
-- [baichuan2-13B-Chat](https://huggingface.co/baichuan-inc/Baichuan2-13B-Chat)
-
-**注**: 请安装torch=2.0.0和transformers=4.29.2版本
-
-```shell
-pip install torch==2.0.0 -i https://pypi.tuna.tsinghua.edu.cn/simple
-pip install transformers==4.29.2 -i https://pypi.tuna.tsinghua.edu.cn/simple
-```
-
-下载完成后，运行`/research/baichuan/convert_weight.py`转换脚本，将huggingface的权重转换为完整的ckpt权重。
-
-```shell
-python ./research/baichuan/convert_weight.py --torch_ckpt_dir TORCH_CKPT_DIR --mindspore_ckpt_path MS_CKPT_NAME
-```
-
-```text
-# 参数说明
-TORCH_CKPT_DIR: huggingface权重保存目录路径
-mindspore_ckpt_path: 权重保存文件名，保存为TORCH_CKPT_DIR/OUTPUT_NAME, 也可以指定为自定义保存路径
-```
-
 ## 代码结构介绍
 
 `Baichuan2` 基于 `mindformers` 实现，主要涉及的文件有：
@@ -55,10 +27,11 @@ mindspore_ckpt_path: 权重保存文件名，保存为TORCH_CKPT_DIR/OUTPUT_NAME
         └── run_baichuan2_13b_910b.yaml       # 13B全量微调910b启动配置
     ```
 
-3. 任务启动脚本：`research/baichuan2`
+3. 数据处理脚本和任务启动脚本：`research/baichuan2`
 
     ```bash
     baichuan2
+        ├── belle_preprocess.py            # belle数据集预处理脚本
         └── run_baichuan2.py               # baichuan2高阶接口使用脚本
     ```
 
@@ -69,6 +42,58 @@ mindspore_ckpt_path: 权重保存文件名，保存为TORCH_CKPT_DIR/OUTPUT_NAME
 - MindFormers版本：dev
 
 注：Baichuan2-7B推理可在单机单卡上完成部署，全量微调至少需要16卡。Baichuan2-13B推理至少需要4卡，全量微调至少需要16卡。
+
+## <span id="jump">权重准备</span>
+
+本仓库提供已经转换完成的预训练权重用于训练/微调/推理，用户可自行从下方链接拉取后直接使用，Base用于微调，Chat用于推理。
+
+- [Baichuan2-7B-Base](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/baichuan2/Baichuan2_7B_Base.ckpt)
+- [Baichuan2-7B-Chat](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/baichuan2/Baichuan2_7B_Chat.ckpt)
+- [Baichuan2-13B-Base](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/baichuan2/Baichuan2_13B_Base.ckpt)
+- [Baichuan2-13B-Chat](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/baichuan2/Baichuan2-13B-Chat.ckpt)
+
+也可选择从huggingface下载预训练权重后根据以下步骤进行权重转换，需要下载整个工程，huffingface权重的链接如下：
+
+- [Baichuan2-7B-Base](https://huggingface.co/baichuan-inc/Baichuan2-7B-Base)
+- [Baichuan2-7B-Chat](https://huggingface.co/baichuan-inc/Baichuan2-7B-Chat)
+- [Baichuan2-13B-Base](https://huggingface.co/baichuan-inc/Baichuan2-13B-Base)
+- [Baichuan2-13B-Chat](https://huggingface.co/baichuan-inc/Baichuan2-13B-Chat)
+
+**注**: 请安装torch=2.0.0和transformers=4.29.2版本
+
+```shell
+pip install torch==2.0.0 -i https://pypi.tuna.tsinghua.edu.cn/simple
+pip install transformers==4.29.2 -i https://pypi.tuna.tsinghua.edu.cn/simple
+```
+
+下载完成后，运行`/research/baichuan/convert_weight.py`转换脚本，将huggingface的权重转换为完整的ckpt权重。
+
+```shell
+python ./research/baichuan/convert_weight.py --torch_ckpt_dir TORCH_CKPT_DIR --mindspore_ckpt_path MS_CKPT_NAME
+```
+
+```text
+# 参数说明
+TORCH_CKPT_DIR: huggingface权重保存目录路径
+mindspore_ckpt_path: 权重保存文件名，保存为TORCH_CKPT_DIR/OUTPUT_NAME, 也可以指定为自定义保存路径
+```
+
+## SFT数据集准备
+
+当前提供belle_chat_ramdon数据集的预处理和微调样例，用于对Baichuan2-7B-Base，Baichuan2-13B-Base模型进行微调。数据集下载链接如下：
+
+- [belle_chat_ramdon_10k](https://github.com/baichuan-inc/Baichuan2/blob/main/fine-tune/data/belle_chat_ramdon_10k.json)
+
+执行`belle_preprocess.py`，进行数据预处理、Mindrecord数据生成，将带有prompt模板的数据转换为mindrecord格式。
+
+```bash
+# 脚本路径：research/baichuan2/belle_preprocess.py
+python belle_preprocess.py \
+--input_glob /{path}/belle_chat_ramdon_10k.json \
+--model_file /{path}/tokenizer.model \
+--output_file /{path}/belle_512.mindrecord \
+--seq_length 512
+```
 
 ## Baichuan2-7B
 
@@ -159,24 +184,7 @@ print(pipeline_result)
 
 全参微调需要多卡启动，以`belle_chat_ramdon_10k.json`数据集为例,给出了默认配置文件`run_baichuan2_7b.yaml`。
 
-1. 数据集准备
-
-数据集下载链接如下：
-
-- [belle_chat_ramdon_10k](https://github.com/baichuan-inc/Baichuan2/blob/main/fine-tune/data/belle_chat_ramdon_10k.json)
-
-执行`belle_preprocess.py`，进行数据预处理、Mindrecord数据生成，将带有prompt模板的数据转换为mindrecord格式。
-
-```bash
-# 脚本路径：research/baichuan2/belle_preprocess.py
-python belle_preprocess.py \
---input_glob /{path}/belle_chat_ramdon_10k.json \
---model_file /{path}/tokenizer.model \
---output_file /{path}/belle_512.mindrecord \
---seq_length 512
-```
-
-2. 权重准备
+1. 权重准备
 
 权重支持在线/离线切分方式。在线切分则会在启动微调任务后自动按照分布式策略进行权重切分，离线切分需要在任务前手动进行切分。
 
@@ -190,7 +198,7 @@ python belle_preprocess.py \
 
 若使用离线切分，配置参数`auto_trans_ckpt`置为`False`，`load_checkpoint`传入权重路径文件夹即可。
 
-3. 修改`run_baichuan2_7b.yaml`中相关配置
+2. 修改`run_baichuan2_7b.yaml`中相关配置
 
 ```python
 output_dir: './output'
@@ -211,7 +219,7 @@ train_dataset: &train_dataset
 # 继续预训练时（如wikitext2数据集），input_columns: ["input_ids"]
 ```
 
-4. 启动微调任务，以默认配置2机16卡为例，按照以下步骤启动：
+3. 启动微调任务，以默认配置2机16卡为例，按照以下步骤启动：
 
 - step 1. 首先参考在每台机器上运行`mindformers/tools/hccl_tools.py`生成`RANK_TABLE_FILE`的json文件。
 
@@ -241,7 +249,7 @@ parallel_config:
   model_parallel: 4
   pipeline_stage: 2
   optimizer_shard: True
-  micro_batch_num: 4
+  micro_batch_num: 8
   vocab_emb_dp: True
   gradient_aggregation_group: 4
 ```
