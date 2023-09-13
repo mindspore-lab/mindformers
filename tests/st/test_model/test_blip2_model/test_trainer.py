@@ -171,7 +171,7 @@ class TestBlip2SecondStageTrainerMethod:
                                   num_labels=10,
                                   checkpoint_name_or_path="")
 
-        text_config_for_trainer = LlamaConfig(seq_length=40,
+        text_config_for_trainer = LlamaConfig(seq_length=39,
                                               hidden_size=8,
                                               num_layers=2,
                                               num_heads=2,
@@ -182,13 +182,14 @@ class TestBlip2SecondStageTrainerMethod:
                                                qformer_config=qformer_config,
                                                text_config=text_config_for_trainer,
                                                checkpoint_name_or_path="",
-                                               max_txt_len=8)
+                                               max_txt_len=7)
 
         text_config_for_generator = LlamaConfig(seq_length=128,
                                                 hidden_size=8,
                                                 num_layers=2,
                                                 num_heads=2,
-                                                checkpoint_name_or_path="")
+                                                checkpoint_name_or_path="",
+                                                use_past=True)
         model_config_for_generator = Blip2Config(batch_size=1,
                                                  vision_config=vision_config,
                                                  qformer_config=qformer_config,
