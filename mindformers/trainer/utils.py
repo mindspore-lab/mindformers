@@ -121,6 +121,8 @@ def check_runner_config(config, dataset):
     data_size = dataset.get_dataset_size()
     new_epochs = config.runner_config.epochs
     config.runner_config.origin_epochs = new_epochs
+    if config.runner_config.gradient_accumulation_steps is None:
+        config.runner_config.gradient_accumulation_steps = 1
     if config.runner_config.initial_epoch is None:
         config.runner_config.initial_epoch = 0
     if config.runner_config.sink_mode:

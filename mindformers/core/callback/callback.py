@@ -129,7 +129,8 @@ class MFLossMonitor(Callback):
                  dataset_size: int = None,
                  initial_epoch: int = 0,
                  initial_step: int = 0,
-                 global_batch_size: int = 0):
+                 global_batch_size: int = 0,
+                 gradient_accumulation_steps: int = 1):
         super(MFLossMonitor, self).__init__()
         self.per_print_times = per_print_times
         self.learning_rate = deepcopy(learning_rate)
@@ -146,6 +147,7 @@ class MFLossMonitor(Callback):
         self.initial_epoch = initial_epoch
         self.initial_step = initial_step
         self.global_batch_size = global_batch_size
+        self.gradient_accumulation_steps = gradient_accumulation_steps
         self.device_num = int(os.getenv('RANK_SIZE', '1'))
 
     def epoch_begin(self, run_context):
@@ -250,9 +252,11 @@ class MFLossMonitor(Callback):
             logger.warning("micro_batch_interleave_num: %s > 1, multiple copies in parallel is open.")
 
         if pipeline_stages > 1:
-            loss = loss / (self.mirco_size * self.micro_batch_interleave_num)
-        elif self.micro_batch_interleave_num > 1:
+            loss = loss / self.mirco_size
+        if self.micro_batch_interleave_num > 1:
             loss = loss / self.micro_batch_interleave_num
+        if self.gradient_accumulation_steps > 1:
+            loss = loss / self.gradient_accumulation_steps
 
         return loss
 

@@ -28,6 +28,12 @@ from mindspore.dataset import GeneratorDataset
 from mindspore.nn.wrap.cell_wrapper import _VirtualDatasetCell
 from mindspore.nn import TrainOneStepCell, Optimizer, Cell, \
     PipelineCell, MicroBatchInterleaved
+try:
+    # new interface in ms2.1.1
+    from mindspore.nn.wrap.cell_wrapper import GradAccumulationCell
+    GRAD_ACCUMULATION_VALID = True
+except ImportError:
+    GRAD_ACCUMULATION_VALID = False
 from mindspore.common import initializer as init
 
 from mindformers.mindformer_book import MindFormerBook
@@ -136,6 +142,7 @@ class BaseTrainer:
             self.setup_task_config()
             self.config = self.default_task_config
         build_parallel_config(self.config)
+        self._check_grad_accumulation_steps()
         self._check_global_batch_size_for_auto_parallel()
 
         return self.config
@@ -156,6 +163,7 @@ class BaseTrainer:
     def _check_global_batch_size_for_auto_parallel(self):
         """Check global batch size in auto parallel mode."""
         batch_size = self.config.runner_config.batch_size
+        gradient_accumulation_steps = self.config.runner_config.gradient_accumulation_steps
         dp = self.config.parallel_config.data_parallel
         micro_batch_num = self.config.parallel_config.micro_batch_num
         micro_batch_interleave_num = self.config.micro_batch_interleave_num
@@ -168,65 +176,96 @@ class BaseTrainer:
                 if pp > 1:
                     self.global_batch_size = batch_size * dp * micro_batch_num * micro_batch_interleave_num
                     logger.info("Pipeline parallel was opened: pipeline_stages = %s, full batch is True, "
+                                "gradient_accumulation_steps will not take effect in pipeline parallel, "
                                 "global batch size will be changed: "
                                 "global_batch_size = "
                                 "batch_size * data_parallel * micro_batch_num * micro_batch_interleave_num "
-                                "= %s * %s * %s * %s = %s).",
-                                pp, batch_size, dp, micro_batch_num, micro_batch_interleave_num,
-                                self.global_batch_size)
+                                "= %s = %s * %s * %s * %s).",
+                                pp, self.global_batch_size, batch_size, dp, micro_batch_num,
+                                micro_batch_interleave_num)
                     self.config.runner_config.batch_size = self.global_batch_size
                     self._reset_wrapper_for_pipeline_parallel()
                 else:
-                    self.global_batch_size = batch_size * dp * micro_batch_interleave_num
+                    self.global_batch_size = batch_size * dp * micro_batch_interleave_num * gradient_accumulation_steps
                     logger.info("The current parallel mode is %s, full batch is True,"
                                 "so global batch size will be changed: "
                                 "global_batch_size = batch_size * data_parallel * micro_batch_interleave_num "
-                                "= %s * %s * %s = %s",
-                                parallel_mode, batch_size, dp, micro_batch_interleave_num,
-                                self.global_batch_size)
+                                "* gradient_accumulation_steps = %s = %s * %s * %s * %s",
+                                parallel_mode, self.global_batch_size, batch_size, dp, micro_batch_interleave_num,
+                                gradient_accumulation_steps)
                     self.config.runner_config.batch_size = self.global_batch_size
             else:
                 if pp > 1:
                     per_batch_size = batch_size * micro_batch_num * micro_batch_interleave_num
                     self.global_batch_size = per_batch_size * int(os.getenv('RANK_SIZE', '1'))
                     logger.info("Pipeline parallel was opened: pipeline_stages = %s, full batch is False, "
+                                "gradient_accumulation_steps will not take effect in pipeline parallel, "
                                 "batch size per card will be changed: "
                                 "per_batch_size = batch_size * micro_batch_num * micro_batch_interleave_num "
-                                "= %s * %s * %s = %s).",
-                                pp, batch_size, micro_batch_num, micro_batch_interleave_num,
-                                per_batch_size)
+                                "= %s = %s * %s * %s).",
+                                pp, per_batch_size, batch_size, micro_batch_num,
+                                micro_batch_interleave_num)
                     logger.info("global_batch_size = per_batch_size * device_num = %s * %s = %s",
                                 per_batch_size, int(os.getenv('RANK_SIZE', '1')), self.global_batch_size)
                     self.config.runner_config.batch_size = per_batch_size
                     self._reset_wrapper_for_pipeline_parallel()
                 else:
-                    per_batch_size = batch_size * micro_batch_interleave_num
+                    per_batch_size = batch_size * micro_batch_interleave_num * gradient_accumulation_steps
                     self.global_batch_size = per_batch_size * int(os.getenv('RANK_SIZE', '1'))
                     logger.info("The current parallel mode is %s, full batch is False, "
                                 "batch size per card will be changed: "
-                                "per_batch_size = batch_size * micro_batch_interleave_num "
-                                "= %s * %s = %s).",
-                                parallel_mode, batch_size, micro_batch_interleave_num,
-                                per_batch_size)
+                                "per_batch_size = batch_size * micro_batch_interleave_num * "
+                                "gradient_accumulation_steps = %s = %s * %s * %s).",
+                                parallel_mode, per_batch_size, batch_size, micro_batch_interleave_num,
+                                gradient_accumulation_steps)
                     logger.info("global_batch_size = per_batch_size * device_num = %s * %s = %s",
                                 per_batch_size, int(os.getenv('RANK_SIZE', '1')), self.global_batch_size)
                     self.config.runner_config.batch_size = per_batch_size
+            if gradient_accumulation_steps > 1:
+                self._reset_wrapper_for_grad_accu()
         else:
             logger.info("The current parallel mode is %s, batch size per card will not be changed: "
                         "batch_size_per_card = %s",
                         parallel_mode, batch_size)
+            self.global_batch_size = batch_size * int(os.getenv('RANK_SIZE', '1')) * gradient_accumulation_steps
             logger.info(
-                "global_batch_size = batch_size_per_card * device_num "
-                "= %s * %s = %s",
-                batch_size, int(os.getenv('RANK_SIZE', '1')),
-                batch_size * int(os.getenv('RANK_SIZE', '1')))
-            self.global_batch_size = batch_size * int(os.getenv('RANK_SIZE', '1'))
+                "global_batch_size = batch_size_per_card * device_num * gradient_accumulation_steps "
+                "= %s = %s * %s * %s",
+                self.global_batch_size, batch_size, int(os.getenv('RANK_SIZE', '1')),
+                gradient_accumulation_steps)
+            self.config.runner_config.batch_size = batch_size * gradient_accumulation_steps
             self.config.parallel_config.data_parallel = 1
             self.config.parallel_config.model_parallel = 1
             self.config.parallel_config.pipeline_stage = 1
             self.config.parallel_config.micro_batch_num = 1
             logger.info("parallel_config will be change to default config: %s.",
                         self.config.parallel_config)
+
+    def _check_grad_accumulation_steps(self):
+        """check the gradient accumulation steps."""
+        if self.config.runner_config.gradient_accumulation_steps is None:
+            self.config.runner_config.gradient_accumulation_steps = 1
+        if not GRAD_ACCUMULATION_VALID and self.config.runner_config.gradient_accumulation_steps > 1:
+            logger.warning("gradient_accumulation_steps only surpport mindspore version later than 2.1.1, "
+                           "reset the gradient_accumulation_steps from %s to 1.",
+                           self.config.runner_config.gradient_accumulation_steps)
+            self.config.runner_config.gradient_accumulation_steps = 1
+        parallel_mode = ms.get_auto_parallel_context("parallel_mode")
+        pp = self.get_pipeline_stages()
+        if parallel_mode in ["semi_auto_parallel", "auto_parallel"] and pp > 1 \
+            and self.config.runner_config.gradient_accumulation_steps > 1:
+            logger.warning("gradient_accumulation_steps will not take effect when using pipeline parallel, "
+                           "reset the gradient_accumulation_steps from %s to 1.",
+                           self.config.runner_config.gradient_accumulation_steps)
+            self.config.runner_config.gradient_accumulation_steps = 1
+        # grad accumulation not supported in data parallel/standalone mode for now
+        if self.config.runner_config.gradient_accumulation_steps > 1 and \
+            parallel_mode not in ["semi_auto_parallel", "auto_parallel"]:
+            logger.warning("gradient_accumulation_steps currently need to be used in semi/auto parallel mode, "
+                           "but got %s mode, please check your runner config and parallel config. "
+                           "Reset the gradient_accumulation_steps from %s to 1. ",
+                           parallel_mode, self.config.runner_config.gradient_accumulation_steps)
+            self.config.runner_config.gradient_accumulation_steps = 1
 
     def _reset_wrapper_for_pipeline_parallel(self):
         """Reset wrapper when pipeline parallel."""
@@ -243,6 +282,17 @@ class BaseTrainer:
                 "because the wrapper class is not specified, "
                 "MindSpore's built-in PipelineCell is used by default")
         logger.info("PipelineWrapper under evaluate or predict mode will not take effect.")
+
+    def _reset_wrapper_for_grad_accu(self):
+        """Reset wrapper when using grad accumulation."""
+        if self.config.runner_wrapper is not None:
+            self.config.runner_wrapper.type = "MFPipelineWithLossScaleCell" \
+                if self.config.runner_wrapper.type != "MFPipelineWithLossScaleCell" else self.config.runner_wrapper.type
+        else:
+            self.config.runner_wrapper.type = "MFPipelineWithLossScaleCell"
+        logger.warning(
+            "When using the gradient_accumulation_steps in semi/auto parallel mode, "
+            "the MFPipelineWithLossScaleCell class is used by default.")
 
     def _reset_dataset_batch_size(self):
         """Reset dataset batch size according to the global batch size of runner config."""
@@ -299,6 +349,13 @@ class BaseTrainer:
                 self.config.eval_dataset.batch_size // self.config.parallel_config.micro_batch_num
             self.config.eval_dataset.batch_size = \
                 self.config.eval_dataset.batch_size // self.config.micro_batch_interleave_num
+        # reduce batch size for that gradient_accumulation_steps will not take effect on eval
+        if self.config.runner_config.gradient_accumulation_steps > 1:
+            self.config.eval_dataset.batch_size = \
+                self.config.eval_dataset.batch_size // self.config.runner_config.gradient_accumulation_steps
+        logger.info("For evaluate phase, batch size for eval dataset is %s, different from training, "
+                    "not multiplied by micro_batch_num, micro_batch_interleave_num and gradient_accumulation_steps",
+                    self.config.eval_dataset.batch_size)
         eval_dataset = build_dataset(self.config.eval_dataset_task, default_args=default_args)
         return eval_dataset
 
@@ -317,6 +374,13 @@ class BaseTrainer:
         if micro_batch_interleave_num > 1:
             logger.info("micro_batch_interleave_num > 1, the double copy parallel feature is turned on.")
             network = MicroBatchInterleaved(network, micro_batch_interleave_num)
+        gradient_accumulation_steps = self.config.runner_config.gradient_accumulation_steps
+        if gradient_accumulation_steps > 1:
+            logger.info("gradient_accumulation_steps > 1, GradAccumulationCell is wrapped on network. "
+                        "It is suggested to execute `export ENABLE_CELL_REUSE=1` to save compiling time.")
+            network = GradAccumulationCell(network, gradient_accumulation_steps)
+        if ms.context.get_auto_parallel_context("parallel_mode") in ["semi_auto_parallel", "auto_parallel"]:
+            network = _VirtualDatasetCell(network)
         return network, eval_network
 
     def create_pipeline_network(self, default_args: dict = None):
@@ -608,7 +672,8 @@ class BaseTrainer:
             "micro_batch_num": config.parallel_config.micro_batch_num,
             "initial_epoch": config.runner_config.initial_epoch,
             "initial_step": config.runner_config.initial_step,
-            "global_batch_size": self.global_batch_size})
+            "global_batch_size": self.global_batch_size,
+            "gradient_accumulation_steps": self.config.runner_config.gradient_accumulation_steps})
         if callbacks is not None:
             if isinstance(callbacks, list):
                 default_callbacks.extend(callbacks)

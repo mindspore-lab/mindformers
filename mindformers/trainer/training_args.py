@@ -72,6 +72,10 @@ class TrainingArguments:
     batch_size: int = field(
         default=None, metadata={"help": "Global batch size per GPU/TPU core/CPU for training and evaluation."}
     )
+    gradient_accumulation_steps: int = field(
+        default=None, metadata={"help": "Number of updates steps to accumulate before performing "
+                                        "a backward/update pass."}
+    )
     per_device_train_batch_size: int = field(
         default=None, metadata={"help": "Batch size per GPU/TPU core/CPU for training."}
     )
@@ -232,6 +236,8 @@ class TrainingArguments:
                 task_config.runner_config.epochs, self.num_train_epochs)
             task_config.runner_config.batch_size = _check_training_args(
                 task_config.runner_config.batch_size, self.batch_size)
+            task_config.runner_config.gradient_accumulation_steps = _check_training_args(
+                task_config.runner_config.gradient_accumulation_steps, self.gradient_accumulation_steps)
             task_config.runner_config.sink_size = _check_training_args(
                 task_config.runner_config.sink_size, self.sink_size)
             task_config.runner_config.per_epoch_size = _check_training_args(
