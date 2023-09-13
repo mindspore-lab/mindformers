@@ -100,8 +100,6 @@ class CoreAttention(nn.Cell):
         # [b, heads, seq, seq]
         attention_scores = matmul_result
 
-        if self.attention_softmax_in_fp32:
-            attention_scores = F.cast(attention_scores, mstype.float32)
         if self.coeff is not None:
             attention_scores = attention_scores * self.coeff
         if attention_mask is None and attention_scores.shape[2] == attention_scores.shape[3]:
@@ -113,6 +111,9 @@ class CoreAttention(nn.Cell):
             attention_mask = ~attention_mask
         if attention_mask is not None:
             attention_scores = attention_scores.masked_fill(attention_mask, -10000)
+
+        if self.attention_softmax_in_fp32:
+            attention_scores = F.cast(attention_scores, mstype.float32)
 
         attention_probs = self.softmax(attention_scores)
         attention_probs = F.cast(attention_probs, attention_scores_dtype)

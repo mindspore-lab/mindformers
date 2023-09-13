@@ -13,8 +13,8 @@ context:
   enable_graph_kernel: False
   graph_kernel_flags: "--disable_expand_ops=Softmax,Dropout --enable_parallel_fusion=true --reduce_fuse_depth=8 --enable_auto_tensor_inplace=true"
   max_call_depth: 10000
-  max_device_memory: "30GB"
-  save_graphs: True
+  max_device_memory: "30GB" # 59GB for 910B
+  save_graphs: False
   device_id: 0
 
 # aicc
@@ -52,7 +52,6 @@ model:
     param_init_type: "float16"
     compute_dtype: "float16"
     layernorm_compute_type: "float32"
-    softmax_compute_type: "float32"
     use_past: False
     eos_token_id: 2
     pad_token_id: 0
@@ -148,7 +147,7 @@ eval_dataset_task:
 # ==== runner config ====
 runner_config:
   epochs: 1
-  batch_size: 8
+  batch_size: 8 # eval: 1
   sink_mode: True
   sink_size: 4
 
@@ -156,7 +155,7 @@ runner_wrapper:
   type: MFTrainOneStepCell
   scale_sense:
     type: DynamicLossScaleUpdateCell
-    loss_scale_value: 4294967296
+    loss_scale_value: 65536
     scale_factor: 2
     scale_window: 1000
   use_clip_grad: True
@@ -166,14 +165,14 @@ lr_schedule:
   type: polynomial
   learning_rate: 5.e-5
   lr_end: 1.e-6
-  warmup_steps: 2000
+  warmup_steps: 0
   total_steps: -1 # -1 means it will load the total steps of the dataset
 layer_scale: False
 layer_decay: 0.65
 
 # optimizer
 optimizer:
-  type: FusedAdamWeightDecay
+  type: FP32StateAdamWeightDecay
   beta1: 0.9
   beta2: 0.95
   eps: 1.e-8
@@ -237,7 +236,7 @@ callbacks:
     keep_default_action: True
   - type: CheckpointMointor
     prefix: "glm2-6b"
-    save_checkpoint_steps: 500
+    save_checkpoint_steps: 1000
     keep_checkpoint_max: 2
     integrated_save: False
     async_save: False
