@@ -16,7 +16,6 @@
 import os
 import shutil
 from collections import OrderedDict
-from pprint import pprint
 from typing import List, Optional, Union
 
 import numpy as np
@@ -335,9 +334,6 @@ class Trainer:
 
         # set output directory
         os.environ.setdefault("LOCAL_DEFAULT_PATH", self.config.output_dir)
-
-        # pprint last config
-        pprint(self.config)
 
         # build task trainer
         self.trainer = build_trainer(self.config.trainer)

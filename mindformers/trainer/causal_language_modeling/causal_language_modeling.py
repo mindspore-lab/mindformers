@@ -15,7 +15,9 @@
 """Causal Image Modeling Trainer."""
 import os
 import time
+import datetime
 from typing import Optional, List, Union
+from pprint import pprint
 
 import numpy as np
 from mindspore import Model
@@ -209,6 +211,8 @@ class CausalLanguageModelingTrainer(BaseTrainer):
             transform_and_load_checkpoint(config, model, network, dataset, do_eval=True)
 
         logger.info('.........Starting Evaluate Model..........')
+        if int(os.getenv("RANK_ID", '0')) % 8 == 0:
+            pprint(config)
         # generate config
         do_sample = config.model.model_config.do_sample
         top_p = config.model.model_config.top_p
@@ -250,10 +254,14 @@ class CausalLanguageModelingTrainer(BaseTrainer):
                 total_tokens_num += tokens_num
                 total_time += end_time - start_time
 
+            # compute time remaining
+            avg_time = total_time / (i + 1)
+            remain_time = (len_dataset - i - 1) * avg_time
             logger.info(f"Step[{i+1}/{len_dataset}], cost time {end_time-start_time:.4f}s, "+
                         f"every example cost time is {avg_cost_time:.4f}, "+
                         f"generate speed: {tokens_num/(end_time-start_time):.4f} tokens/s, "+
-                        f"avg speed: {total_tokens_num/total_time:.4f} tokens/s")
+                        f"avg speed: {total_tokens_num/total_time:.4f} tokens/s, "
+                        f"remaining time: {datetime.timedelta(seconds=int(remain_time))}")
 
             # decode input_id and label to string
             pres_str = tokenizer.decode(output_ids, skip_special_tokens=True)

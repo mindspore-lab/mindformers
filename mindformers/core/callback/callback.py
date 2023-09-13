@@ -16,6 +16,8 @@
 import json
 import os
 import time
+import datetime
+
 from collections import OrderedDict
 from copy import deepcopy
 from typing import Callable, Optional, Union
@@ -37,7 +39,6 @@ __all__ = ['ObsMonitor', 'MFLossMonitor', 'CheckpointMointor', 'SummaryMonitor',
 
 _cur_dir = os.getcwd()
 SAVE_DIR = _cur_dir
-
 
 @MindFormerRegister.register(MindFormerModuleType.CALLBACK)
 class ObsMonitor:
@@ -112,7 +113,9 @@ class MFLossMonitor(Callback):
                  micro_batch_interleave_num: int = 1,
                  origin_epochs: int = None,
                  dataset_size: int = None,
-                 initial_epoch: int = 0):
+                 initial_epoch: int = 0,
+                 global_batch_size: int = 0,
+                 device_num: int = 0):
         super(MFLossMonitor, self).__init__()
         self.per_print_times = per_print_times
         self.learning_rate = deepcopy(learning_rate)
@@ -127,6 +130,10 @@ class MFLossMonitor(Callback):
         self.micro_batch_interleave_num = micro_batch_interleave_num
         self.origin_epochs = origin_epochs
         self.initial_epoch = initial_epoch
+        self.global_batch_size = global_batch_size
+        self.device_num = device_num
+        self.step_time_list = []
+        self.first_step = True
 
     def epoch_begin(self, run_context):
         """
@@ -146,13 +153,6 @@ class MFLossMonitor(Callback):
         Args:
             run_context (RunContext): Context of the process running.
         """
-        callback_params = run_context.original_args()
-        epoch_mseconds = (time.time() - self.epoch_time) * 1000
-        per_step_mseconds = epoch_mseconds / callback_params.batch_num
-        logger.info(
-            "Per sink_size step time: %5.3f ms, "
-            "per step time: %5.3f ms, "
-            "avg loss: %5.3f", epoch_mseconds, per_step_mseconds, np.mean(self.loss_list))
 
     def step_begin(self, run_context):
         """
@@ -185,8 +185,6 @@ class MFLossMonitor(Callback):
         loss = self._fix_loss_for_parallel(loss)
         self.loss_list.append(loss)
 
-        cur_step_in_epoch = (cb_params.cur_step_num - 1) % cb_params.batch_num + 1
-
         if not overflow:
             overflow = "False"
         if not scaling_sens:
@@ -194,21 +192,40 @@ class MFLossMonitor(Callback):
 
         if cb_params.dataset_sink_mode:
             origin_epochs = self.origin_epochs
+            per_step_seconds = step_seconds / cb_params.batch_num
             steps_per_epoch = self.steps_per_epoch
             cur_epoch_num = (cb_params.cur_step_num - 1) // steps_per_epoch \
                             + self.initial_epoch * cb_params.batch_num // steps_per_epoch + 1
             cur_step_num = (cb_params.cur_step_num - 1) % steps_per_epoch + 1
         else:
             origin_epochs = self.origin_epochs
+            per_step_seconds = step_seconds
             steps_per_epoch = cb_params.batch_num
-            cur_step_num = cur_step_in_epoch
             cur_epoch_num = cb_params.cur_epoch_num
+            cur_step_num = (cb_params.cur_step_num - 1) % cb_params.batch_num + 1
+
+        # add step time to list
+        if overflow != 'False' or self.first_step:
+            self.first_step = False
+        else:
+            self.step_time_list.append(per_step_seconds)
+            per_step_seconds = np.mean(self.step_time_list)
+
+        # compute time remaining
+        step_remain = (origin_epochs - cur_epoch_num + 1) * steps_per_epoch - cur_step_num
+        time_remain = step_remain * per_step_seconds / 1000
+
+        # compute throughput
+        throughput = self.global_batch_size / self.device_num / (per_step_seconds / 1000)
+
+        # compute percent
+        percent = ((cur_epoch_num - 1) * steps_per_epoch +  cur_step_num) / origin_epochs / steps_per_epoch * 100
 
         if (cb_params.cur_step_num - self.last_print_time) >= self.per_print_times:
             self.last_print_time = cb_params.cur_step_num
-            self.print_output_info(cb_params, cur_epoch_num, origin_epochs,
-                                   cur_step_num, steps_per_epoch, loss, step_seconds,
-                                   overflow, scaling_sens)
+            self.print_output_info(cb_params, cur_epoch_num, origin_epochs, throughput,
+                                   cur_step_num, steps_per_epoch, loss, per_step_seconds,
+                                   overflow, scaling_sens, time_remain, percent)
 
 
         if check_in_modelarts() and int(os.getenv("RANK_ID", "0")) == int(os.getenv("RANK_SIZE", "1")) - 1:
@@ -234,9 +251,9 @@ class MFLossMonitor(Callback):
 
         return loss
 
-    def print_output_info(self, cb_params, cur_epoch_num, origin_epochs,
-                          cur_step_num, steps_per_epoch, loss, step_seconds,
-                          overflow, scaling_sens):
+    def print_output_info(self, cb_params, cur_epoch_num, origin_epochs, throughput,
+                          cur_step_num, steps_per_epoch, loss, per_step_seconds,
+                          overflow, scaling_sens, time_remain, percent):
         """print output information."""
         if self.learning_rate is not None:
             if isinstance(self.learning_rate, (float, Tensor)):
@@ -282,19 +299,33 @@ class MFLossMonitor(Callback):
             current_lr = None
 
         if current_lr is not None:
-            logger.info(
-                "Epoch:[%3d/%3d], step:[%5d/%5d], "
-                "loss:[%5.3f/%5.3f], time:%5.3f ms, "
-                "lr:%s, overflow cond: %s, loss_scale: %s", cur_epoch_num, origin_epochs,
-                cur_step_num, steps_per_epoch, loss, np.mean(self.loss_list),
-                step_seconds, current_lr, overflow, scaling_sens)
+            if cb_params.dataset_sink_mode:
+                logger.info("{ Epoch:[%3d/%3d], step:[%5d/%5d], loss: %5.3f, "
+                            "per_step_time: %dms, lr: %s, overflow cond: %s, loss_scale: %s",
+                            cur_epoch_num, origin_epochs, cur_step_num, steps_per_epoch, loss,
+                            int(per_step_seconds), current_lr, overflow, scaling_sens)
+            else:
+                logger.info("{ Epoch:[%3d/%3d], step:[%5d/%5d], loss:[%5.3f/%5.3f], "
+                            "per_step_time: %dms, lr: %s, overflow cond: %s, loss_scale: %s",
+                            cur_epoch_num, origin_epochs, cur_step_num, steps_per_epoch, loss, np.mean(self.loss_list),
+                            int(per_step_seconds), current_lr, overflow, scaling_sens)
+            show_str = ('|%%-%ds|' % 50) % (int(50 * percent / 100) * "▮")
+            logger.info("  %4.1f%% %s %.2f samples/s/p  %s }", percent, show_str, throughput,
+                        datetime.timedelta(seconds=int(time_remain)))
         else:
-            logger.info(
-                "Epoch:[%3d/%3d], step:[%5d/%5d], "
-                "loss:[%5.3f/%5.3f], time:%5.3f ms, "
-                "overflow cond: %s, loss_scale: %s", cur_epoch_num, origin_epochs,
-                cur_step_num, steps_per_epoch, loss, np.mean(self.loss_list),
-                step_seconds, overflow, scaling_sens)
+            if cb_params.dataset_sink_mode:
+                logger.info("{ Epoch:[%3d/%3d], step:[%5d/%5d], loss: %5.3f, "
+                            "per_step_time: %dms, overflow cond: %s, loss_scale: %s",
+                            cur_epoch_num, origin_epochs, cur_step_num, steps_per_epoch, loss,
+                            int(per_step_seconds), overflow, scaling_sens)
+            else:
+                logger.info("{ Epoch:[%3d/%3d], step:[%5d/%5d], loss:[%5.3f/%5.3f], "
+                            "per_step_time: %dms, overflow cond: %s, loss_scale: %s",
+                            cur_epoch_num, origin_epochs, cur_step_num, steps_per_epoch, loss, np.mean(self.loss_list),
+                            int(per_step_seconds), overflow, scaling_sens)
+            show_str = ('|%%-%ds|' % 50) % (int(50 * percent / 100) * "▮")
+            logger.info("  %4.1f%% %s %.2f samples/s/p  %s }", percent, show_str, throughput,
+                        datetime.timedelta(seconds=int(time_remain)))
 
     def dump_info_to_modelarts(self, ma_step_num, ma_loss):
         """dump modelarts info to display evaluation result page"""
@@ -458,6 +489,7 @@ class CheckpointMointor(ModelCheckpoint):
         step_num_in_epoch = int((cb_params.cur_step_num - 1) % cb_params.batch_num + 1)
 
         if save_ckpt:
+            logger.info('......Saving ckpt......')
             cur_ckpoint_file = self._prefix + "-" + str(cb_params.cur_epoch_num) + "_" \
                                + str(step_num_in_epoch) + ".ckpt"
             # update checkpoint file list.
