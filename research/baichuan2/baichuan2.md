@@ -157,9 +157,26 @@ print(pipeline_result)
 
 ### 全参微调
 
-全参微调需要多卡启动，以`wikitext2`数据集为例,给出了默认配置文件`run_baichuan2_7b.yaml`对于`wikitext2`数据集的预处理及格式转换，请参考`llama`模型指导文档中的[数据集准备章节](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/llama.md#%E6%95%B0%E6%8D%AE%E9%9B%86%E5%87%86%E5%A4%87)：
+全参微调需要多卡启动，以`belle_chat_ramdon_10k.json`数据集为例,给出了默认配置文件`run_baichuan2_7b.yaml`。
 
-1. 权重准备
+1. 数据集准备
+
+数据集下载链接如下：
+
+- [belle_chat_ramdon_10k](https://github.com/baichuan-inc/Baichuan2/blob/main/fine-tune/data/belle_chat_ramdon_10k.json)
+
+执行`belle_preprocess.py`，进行数据预处理、Mindrecord数据生成，将带有prompt模板的数据转换为mindrecord格式。
+
+```bash
+# 脚本路径：research/baichuan2/belle_preprocess.py
+python belle_preprocess.py \
+--input_glob /{path}/belle_chat_ramdon_10k.json \
+--model_file /{path}/tokenizer.model \
+--output_file /{path}/belle_512.mindrecord \
+--seq_length 512
+```
+
+2. 权重准备
 
 权重支持在线/离线切分方式。在线切分则会在启动微调任务后自动按照分布式策略进行权重切分，离线切分需要在任务前手动进行切分。
 
@@ -173,7 +190,7 @@ print(pipeline_result)
 
 若使用离线切分，配置参数`auto_trans_ckpt`置为`False`，`load_checkpoint`传入权重路径文件夹即可。
 
-2. 修改`run_baichuan2_7b.yaml`中相关配置
+3. 修改`run_baichuan2_7b.yaml`中相关配置
 
 ```python
 output_dir: './output'
@@ -187,14 +204,14 @@ run_mode: 'finetune'
 train_dataset: &train_dataset
   data_loader:
     type: MindDataset
-    dataset_dir: "{path}/wiki2048.mindrecord"   # 修改训练数据集路径
+    dataset_dir: "{path}/belle512.mindrecord"   # 修改训练数据集路径
     shuffle: True
-  input_columns: ["input_ids"]
-# 指令微调时（如alpaca数据集），input_columns: ["input_ids", "labels"]
+  input_columns: ["input_ids", "labels"]
+# 指令微调时（如belle数据集），input_columns: ["input_ids", "labels"]
 # 继续预训练时（如wikitext2数据集），input_columns: ["input_ids"]
 ```
 
-2. 启动微调任务，以默认配置2机16卡为例，按照以下步骤启动：
+4. 启动微调任务，以默认配置2机16卡为例，按照以下步骤启动：
 
 - step 1. 首先参考在每台机器上运行`mindformers/tools/hccl_tools.py`生成`RANK_TABLE_FILE`的json文件。
 
@@ -224,7 +241,7 @@ parallel_config:
   model_parallel: 4
   pipeline_stage: 2
   optimizer_shard: True
-  micro_batch_num: 8
+  micro_batch_num: 4
   vocab_emb_dp: True
   gradient_aggregation_group: 4
 ```
@@ -241,7 +258,8 @@ bash run_singlenode.sh \
 --config baichuan2/run_baichuan2_7b.yaml \
 --load_checkpoint path/to/baichuan2_7b_ckpt \
 --auto_trans_ckpt True \
---run_mode=finetune \
+--use_parallel True \
+--run_mode finetune \
 --train_data path/to/mindrecord_dir" \
 path/to/rank_table_file [0,8] 16
 
@@ -252,7 +270,8 @@ bash run_singlenode.sh \
 --config baichuan2/run_baichuan2_7b.yaml \
 --load_checkpoint path/to/baichuan2_7b_ckpt \
 --auto_trans_ckpt True \
---run_mode=finetune \
+--use_parallel True \
+--run_mode finetune \
 --train_data path/to/mindrecord_dir" \
 path/to/rank_table_file [8,16] 16
 ```
