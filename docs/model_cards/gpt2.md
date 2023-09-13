@@ -18,7 +18,7 @@ GPT-2由OpenAI于2019年发布。GPT-2模型是继承于GPT模型，GPT-2是一�
 
 ```bash
 # 训练
-python mindformers/tools/dataset_preprocess/gpt2/wikitext2_data_process.py --input_file ./wikitext-2/wiki.train.tokens --output_file ./wikitext-2.train..mindrecord --max_length 1025
+python mindformers/tools/dataset_preprocess/gpt2/wikitext2_data_process.py --input_file ./wikitext-2/wiki.train.tokens --output_file ./wikitext-2.train.mindrecord --max_length 1025
 # 评测
 python mindformers/tools/dataset_preprocess/gpt2/wikitext2_data_process.py --input_file ./wikitext-2/wiki.valid.tokens --output_file ./wikitext-2.valid.mindrecord --max_length 1024
 ```
@@ -41,7 +41,7 @@ python mindformers/tools/dataset_preprocess/gpt2/wikitext2_data_process.py --inp
 python run_mindformer.py --config configs/gpt2/run_gpt2.yaml \
                          --run_mode train \
                          --device_target Ascend \
-                         --train_dataset_dir /your_path/wikitext-2-mindrecord
+                         --train_dataset_dir /your_path/wikitext-2.train.mindrecord
 ```
 
 其中`device_target`根据用户的运行设备不同，可选`CPU/Ascend`。另，模型和训练等相关配置可在`configs/gpt2`目录下的yaml文件中配置。
@@ -310,7 +310,7 @@ GPT2支持文本生成和文本分类两个任务的评测。
         ```bash
         cd mindformers/tools/dataset_preprocess/gpt2
         python wikitext2_data_process.py --input_file {your_path/wiki.valid.tokens} \
-                                         --output_file {your_path/wikitext-2.mindrecord}
+                                         --output_file {your_path/wikitext-2.valid.mindrecord}
         ```
 
     - 开启评测：
@@ -318,7 +318,7 @@ GPT2支持文本生成和文本分类两个任务的评测。
 
         ```bash
         python run_mindformer.py --config configs/gpt2/run_gpt2.yaml \
-                                 --eval_dataset_dir {your_path/wikitext-2.mindrecord} \
+                                 --eval_dataset_dir {your_path/wikitext-2.valid.mindrecord} \
                                  --run_mode eval \
                                  --epochs 1
         # gpt2: PerplexityMetric: {'PerplexityMetric': {'loss': 3.24, 'PPL': 25.55}
