@@ -522,12 +522,6 @@ class LLamaDecodeLayer(nn.Cell):
 
     def construct(self, x, freqs_cis, mask=None, init_reset=True, batch_valid_length=None):
         """ Forward of transformer block. """
-        bs = x.shape[0]
-        if self.use_past:
-            if not isinstance(init_reset, Tensor):
-                init_reset = Tensor([init_reset], mstype.bool_)
-            if not isinstance(batch_valid_length, Tensor):
-                batch_valid_length = self.ones((bs, 1), mstype.int32)
         self._check_input(x, freqs_cis, mask, init_reset, batch_valid_length)
         # [bs, seq/1, hidden_dim] (first) [bs * seq/1, hidden_dim] (others)
         if self.compute_in_2d and x.ndim != 2:
@@ -586,11 +580,11 @@ class LLamaDecodeLayer(nn.Cell):
         if mask is not None:
             _check_input_dtype(mask.dtype, "input_mask", [mstype.float32, mstype.float16], self.cls_name)
 
-        bs = freqs_cis[0].shape[0]
         if self.use_past:
             if not isinstance(init_reset, Tensor):
                 init_reset = Tensor([init_reset], mstype.bool_)
             if not isinstance(batch_valid_length, Tensor):
+                bs = freqs_cis[0].shape[0]
                 batch_valid_length = self.ones((bs, 1), mstype.int32)
             _check_input_dtype(init_reset.dtype, "init_reset", [mstype.bool_], self.cls_name)
             _check_input_dtype(batch_valid_length.dtype, "batch_valid_length", [mstype.int32], self.cls_name)
