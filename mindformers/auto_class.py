@@ -67,15 +67,24 @@ class AutoConfig:
             # the relevant file will be downloaded from the Xihe platform.
             # such as "mindspore/vit_base_p16"
             yaml_name_or_path = yaml_name_or_path.split('/')[cls._model_name]
-        local_value = cls._support_list[yaml_name_or_path.split('_')[cls._model_type]]
 
-        if yaml_name_or_path.split('_')[cls._model_type] in cls._support_list.keys():
+        if not yaml_name_or_path.split('_')[cls._model_type] in cls._support_list.keys():
+            return True
+
+        local_model_type = yaml_name_or_path.split('_')[cls._model_type]
+        local_model_list = cls._support_list[local_model_type]
+        if not isinstance(local_model_list, dict) and yaml_name_or_path in local_model_list:
             return False
-        if yaml_name_or_path not in local_value:
-            if isinstance(local_value, dict) and yaml_name_or_path in \
-                    local_value[yaml_name_or_path.split('_')[cls._model_name]]:
-                return False
-        return True
+        local_model_names = local_model_list.keys()
+        if len(yaml_name_or_path.split('_')) <= cls._model_name or \
+            not yaml_name_or_path.split('_')[cls._model_name] in local_model_names:
+            raise ValueError(f'\'{yaml_name_or_path}\' is not supported by \'{local_model_type}\', '
+                             f'please select from {local_model_list}')
+        local_model_name = yaml_name_or_path.split('_')[cls._model_name]
+        if not yaml_name_or_path in local_model_list[local_model_name]:
+            raise ValueError(f'\'{yaml_name_or_path}\' is not supported by \'{local_model_type}_{local_model_name}\', '
+                             f'please select from {local_model_list[local_model_name]}')
+        return False
 
     @classmethod
     def from_pretrained(cls, yaml_name_or_path, **kwargs):
@@ -211,16 +220,24 @@ class AutoModel:
             # such as "mindspore/vit_base_p16"
             pretrained_model_name_or_dir = pretrained_model_name_or_dir.split('/')[cls._model_name]
 
-        local_value = cls._support_list[pretrained_model_name_or_dir.split('_')[cls._model_type]]
+        if not pretrained_model_name_or_dir.split('_')[cls._model_type] in cls._support_list.keys():
+            return True
 
-        if pretrained_model_name_or_dir.split('_')[cls._model_type] in cls._support_list.keys():
+        local_model_type = pretrained_model_name_or_dir.split('_')[cls._model_type]
+        local_model_list = cls._support_list[local_model_type]
+        if not isinstance(local_model_list, dict) and pretrained_model_name_or_dir in local_model_list:
             return False
-        if pretrained_model_name_or_dir not in local_value:
-            if isinstance(local_value, dict) and \
-                pretrained_model_name_or_dir in \
-                    local_value[pretrained_model_name_or_dir.split('_')[cls._model_name]]:
-                return False
-        return True
+        local_model_names = local_model_list.keys()
+        if len(pretrained_model_name_or_dir.split('_')) <= cls._model_name or \
+            not pretrained_model_name_or_dir.split('_')[cls._model_name] in local_model_names:
+            raise ValueError(f'\'{pretrained_model_name_or_dir}\' is not supported by \'{local_model_type}\', '
+                             f'please select from {local_model_list}')
+        local_model_name = pretrained_model_name_or_dir.split('_')[cls._model_name]
+        if not pretrained_model_name_or_dir in local_model_list[local_model_name]:
+            raise ValueError(f'\'{pretrained_model_name_or_dir}\' is not supported by '
+                             f'\'{local_model_type}_{local_model_name}\', please select from '
+                             f'{local_model_list[local_model_name]}')
+        return False
 
     @classmethod
     def from_config(cls, config, **kwargs):
@@ -450,15 +467,20 @@ class AutoProcessor:
             # such as "mindspore/vit_base_p16"
             yaml_name_or_path = yaml_name_or_path.split('/')[cls._model_name]
 
-        local_value = cls._support_list[yaml_name_or_path.split('_')[cls._model_type]]
-
-        if yaml_name_or_path.split('_')[cls._model_type] in cls._support_list.keys():
+        local_model_type = yaml_name_or_path.split('_')[cls._model_type]
+        local_model_list = cls._support_list[local_model_type]
+        if not isinstance(local_model_list, dict) and yaml_name_or_path in local_model_list:
             return False
-        if yaml_name_or_path not in local_value:
-            if isinstance(local_value, dict) and yaml_name_or_path in \
-                    local_value[yaml_name_or_path.split('_')[cls._model_name]]:
-                return False
-        return True
+        local_model_names = local_model_list.keys()
+        if len(yaml_name_or_path.split('_')) <= cls._model_name or \
+            not yaml_name_or_path.split('_')[cls._model_name] in local_model_names:
+            raise ValueError(f'\'{yaml_name_or_path}\' is not supported by \'{local_model_type}\', '
+                             f'please select from {local_model_list}')
+        local_model_name = yaml_name_or_path.split('_')[cls._model_name]
+        if not yaml_name_or_path in local_model_list[local_model_name]:
+            raise ValueError(f'\'{yaml_name_or_path}\' is not supported by \'{local_model_type}_{local_model_name}\', '
+                             f'please select from {local_model_list[local_model_name]}')
+        return False
 
     @classmethod
     def from_pretrained(cls, yaml_name_or_path, **kwargs):
@@ -592,15 +614,24 @@ class AutoTokenizer:
             # the relevant file will be downloaded from the Xihe platform.
             # such as "mindspore/vit_base_p16"
             yaml_name_or_path = yaml_name_or_path.split('/')[cls._model_name]
-        local_value = cls._support_list[yaml_name_or_path.split('_')[cls._model_type]]
 
-        if yaml_name_or_path.split('_')[cls._model_type] in cls._support_list.keys():
+        if not yaml_name_or_path.split('_')[cls._model_type] in cls._support_list.keys():
+            return True
+
+        local_model_type = yaml_name_or_path.split('_')[cls._model_type]
+        local_model_list = cls._support_list[local_model_type]
+        if not isinstance(local_model_list, dict) and yaml_name_or_path in local_model_list:
             return False
-        if yaml_name_or_path not in local_value:
-            if isinstance(local_value, dict) and yaml_name_or_path in \
-                    local_value[yaml_name_or_path.split('_')[cls._model_name]]:
-                return False
-        return True
+        local_model_names = local_model_list.keys()
+        if len(yaml_name_or_path.split('_')) <= cls._model_name or \
+            not yaml_name_or_path.split('_')[cls._model_name] in local_model_names:
+            raise ValueError(f'\'{yaml_name_or_path}\' is not supported by \'{local_model_type}\', '
+                             f'please select from {local_model_list}')
+        local_model_name = yaml_name_or_path.split('_')[cls._model_name]
+        if not yaml_name_or_path in local_model_list[local_model_name]:
+            raise ValueError(f'\'{yaml_name_or_path}\' is not supported by \'{local_model_type}_{local_model_name}\', '
+                             f'please select from {local_model_list[local_model_name]}')
+        return False
 
     @classmethod
     def _get_class_name_from_yaml(cls, yaml_name_or_path):
