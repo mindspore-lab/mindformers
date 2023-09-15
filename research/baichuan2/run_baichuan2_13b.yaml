@@ -32,8 +32,8 @@ optimizer:
 # lr sechdule
 lr_schedule:
   type: CosineWithWarmUpLR
-  learning_rate: 3.e-4 # 1.e-5
-  lr_end: 3.e-5 # 1.e-6
+  learning_rate: 2.e-5 # pretrain：3.e-4
+  lr_end: 1.e-6 # pretrain：3.e-5
   warmup_ratio: 0.03
   total_steps: -1 # -1 means it will load the total steps of the dataset
 

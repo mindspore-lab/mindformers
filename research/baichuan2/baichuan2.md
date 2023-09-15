@@ -151,7 +151,7 @@ from mindformers.models import LlamaConfig
 from baichuan2_7b import Baichuan7BV2ForCausalLM
 from baichuan2_tokenizer import Baichuan2Tokenizer
 
-context.set_context(device_id=1)
+context.set_context(device_id=0, mode=0)
 # init model
 baichuan2_model_path = "/path/Baichuan2-7B/baichuan2_7b.ckpt" # Baichuan2-7B ckpt path
 baichuan2_config = LlamaConfig(
@@ -161,7 +161,7 @@ baichuan2_config = LlamaConfig(
     checkpoint_name_or_path=baichuan2_model_path,
     use_past=True
 )
-baichuan2_model = Baichuan27BForCausalLM(
+baichuan2_model = Baichuan7BV2ForCausalLM(
     config=baichuan2_config
 )
 # init tokenizer
@@ -303,13 +303,15 @@ train_data: 训练数据集路径
 
 `Baichuan2-13B`的高阶接口使用脚本已集成在`run_baichuan2.py`脚本中
 
-**注1**：由于模型较大，不支持单卡训练以及单卡推理
+### 910A
+
+**注1**：Baichuan2-13B-Chat用于推理，seq_length默认为512，推理需要2卡，不支持单卡推理。
 
 **注2**: 由于baichuan2-13B基于高阶接口的形式开发，存放于research文件夹下，使用时需要将mindformers安装为python的包，才能直接进入research目录下执行相关命令。
 
 **注3**: 当前`run_baichuan2_13b.yaml`文件默认为train配置，用于eval和predict时需要修改并行策略。
 
-- **单机多卡运行推理**
+- **单机多卡运行推理**：2卡为例
 
 1. 主要参数配置参考
 
@@ -322,7 +324,7 @@ vocab_file: 'path/to/tokenizer.model'
 # 分布式配置
 parallel_config:
   data_parallel: 1
-  model_parallel: 4
+  model_parallel: 2
   pipeline_stage: 1
   optimizer_shard: True
   micro_batch_num: 1
@@ -332,10 +334,10 @@ parallel_config:
 micro_batch_interleave_num: 1
 ```
 
-2. 生成4卡的rank_table_file
+2. 生成2卡的rank_table_file
 
 ```shell
-python mindformers/tools/hccl_tools.py --device_num [0,4]
+python mindformers/tools/hccl_tools.py --device_num [0,2]
 ```
 
 3. 启动推理
@@ -343,7 +345,7 @@ python mindformers/tools/hccl_tools.py --device_num [0,4]
 ```shell
 cd research
 # 推理命令中参数会覆盖yaml文件中的相同参数
-./run_singlenode.sh "python baichuan2/run_baichuan2.py --config baichuan2/run_baichuan2_13b.yaml --run_mode predict --use_parallel True --load_checkpoint model_dir --auto_trans_ckpt True --predict_data 你是谁？" rank_table_file [0,4] 4
+./run_singlenode.sh "python baichuan2/run_baichuan2.py --config baichuan2/run_baichuan2_13b.yaml --run_mode predict --use_parallel True --load_checkpoint model_dir --auto_trans_ckpt True --predict_data 你是谁？" rank_table_file [0,2] 2
 
 # output: [{'text_generation_text': ['你是谁？ \n我是百川大模型，是由百川智能的工程师们创造的大语言模型，我可以和人类进行自然交流、解答问题、协助创作，帮助大众轻松、普惠的获得世界知识和专业服务。如果你有任何问题，可以随时向我提问']}]
 ```
@@ -355,21 +357,126 @@ load_checkpoint: 'transformed_checkpoint' # 完整模型存放格式为"transfor
 auto_trans_ckpt: False # 关闭权重自动转换
 ```
 
-- **多机多卡运行训练**
+- **多机多卡运行微调训练**：2节点为例
 
-seq_length默认为4096，分布式训练需要4节点。
+Baichuan2-13B-Base用于微调，seq_length默认为512，分布式训练需要2节点。
+
+1. 主要参数配置参考
+
+```shell
+load_checkpoint: 'model_dir' # 完整模型存放格式为"model_dir/rank_0/xxx.ckpt"
+auto_trans_ckpt: True # 打开权重自动转换
+input_columns: ["inputs", "labels"] # 如果是预训练，请改为["inputs"]
+learning_rate: 2.e-5 # 预训练建议用3.e-4
+lr_end: 1.e-6 # 预训练建议用3.e-5
+
+# 分布式配置
+parallel_config:
+  data_parallel: 1
+  model_parallel: 8
+  pipeline_stage: 2
+  optimizer_shard: True
+  micro_batch_num: 16
+  vocab_emb_dp: True
+  gradient_aggregation_group: 4
+# when model parallel is greater than 1, we can set micro_batch_interleave_num=2, that may accelerate the train process.
+micro_batch_interleave_num: 1
+```
+
+2. 生成合并后的rank_table_file
+
+```shell
+# step1: 先为每个节点生成rank_table_file
+python ./mindformers/tools/hccl_tools.py --device_num "[0,8)"
+# step2：拷贝所有节点的rank_table_file到同一节点，进行合并
+python ./mindformers/tools/merge_hccl.py hccl*.json
+# step3：将合并后的rank_table_file复制到所有节点
+```
+
+3. 拉起分布式训练
 
 ```shell
 # node 1
 cd mindformers/research
-bash run_singlenode.sh "python baichuan2/run_baichuan2.py --config baichuan2/run_baichuan2_13b.yaml --load_checkpoint path/to/baichuan2_13b_ckpt --run_mode=train --train_data path/to/mindrecord_dir" path/to/rank_table_file [0,8] 32
+bash run_singlenode.sh "python baichuan2/run_baichuan2.py --config baichuan2/run_baichuan2_13b.yaml --load_checkpoint path/to/baichuan2_13b_ckpt --run_mode=train --train_data path/to/mindrecord_dir" path/to/rank_table_file [0,8] 16
 # node 2
 cd mindformers/research
-bash run_singlenode.sh "python baichuan2/run_baichuan2.py --config baichuan2/run_baichuan2_13b.yaml --load_checkpoint path/to/baichuan2_13b_ckpt --run_mode=train --train_data path/to/mindrecord_dir" .path/to/rank_table_file [8,16] 32
-# node 3
+bash run_singlenode.sh "python baichuan2/run_baichuan2.py --config baichuan2/run_baichuan2_13b.yaml --load_checkpoint path/to/baichuan2_13b_ckpt --run_mode=train --train_data path/to/mindrecord_dir" path/to/rank_table_file [8,16] 16
+```
+
+### 910B
+
+**注1**：Baichuan2-13B-Chat用于推理，seq_length默认为512，支持单卡推理。
+
+**注2**: 由于baichuan2-13B基于高阶接口的形式开发，存放于research文件夹下，使用时需要将mindformers安装为python的包，才能直接进入research目录下执行相关命令。
+
+**注3**: 当前`run_baichuan2_13b.yaml`文件默认为train配置，用于eval和predict时需要修改并行策略。
+
+- **单机单卡运行推理**
+
+1. 主要参数配置参考
+
+```shell
+auto_trans_ckpt: False # 关闭权重自动转换
+use_past: True # 打开增量推理
+vocab_file: 'path/to/tokenizer.model'
+
+# 分布式配置
+parallel_config:
+  data_parallel: 1
+  model_parallel: 1
+  pipeline_stage: 1
+  optimizer_shard: True
+  micro_batch_num: 1
+  vocab_emb_dp: True
+  gradient_aggregation_group: 4
+# when model parallel is greater than 1, we can set micro_batch_interleave_num=2, that may accelerate the train process.
+micro_batch_interleave_num: 1
+```
+
+2. 启动推理
+
+```shell
+cd research
+# 推理命令中参数会覆盖yaml文件中的相同参数
+python baichuan2/run_baichuan2.py --config baichuan2/run_baichuan2_13b.yaml --run_mode predict --use_parallel False --load_checkpoint path/to/baichuan2-13b-chat.ckpt --predict_data 你是谁？
+
+# output: [{'text_generation_text': ['你是谁？ \n我是百川大模型，是由百川智能的工程师们创造的大语言模型，我可以和人类进行自然交流、解答问题、协助创作，帮助大众轻松、普惠的获得世界知识和专业服务。如果你有任何问题，可以随时向我提问']}]
+```
+
+- **单机多卡运行微调训练**：8卡为例
+
+1. 主要参数配置参考
+
+```shell
+load_checkpoint: 'model_dir' # 完整模型存放格式为"model_dir/rank_0/xxx.ckpt"
+auto_trans_ckpt: True # 打开权重自动转换
+input_columns: ["inputs", "labels"] # 如果是预训练，请改为["inputs"]
+learning_rate: 2.e-5 # 预训练建议用3.e-4
+lr_end: 1.e-6 # 预训练建议用3.e-5
+
+# 分布式配置
+parallel_config:
+  data_parallel: 1
+  model_parallel: 2
+  pipeline_stage: 4
+  optimizer_shard: True
+  micro_batch_num: 16
+  vocab_emb_dp: True
+  gradient_aggregation_group: 4
+# when model parallel is greater than 1, we can set micro_batch_interleave_num=2, that may accelerate the train process.
+micro_batch_interleave_num: 1
+```
+
+2. 生成8卡的rank_table_file
+
+```shell
+python mindformers/tools/hccl_tools.py --device_num [0,8]
+```
+
+3. 拉起分布式训练
+
+```shell
 cd mindformers/research
-bash run_singlenode.sh "python baichuan2/run_baichuan2.py --config baichuan2/run_baichuan2_13b.yaml --load_checkpoint path/to/baichuan2_13b_ckpt --run_mode=train --train_data path/to/mindrecord_dir" path/to/rank_table_file [16,24] 32
-# node 4
-cd mindformers/research
-bash run_singlenode.sh "python baichuan2/run_baichuan2.py --config baichuan2/run_baichuan2_13b.yaml --load_checkpoint path/to/baichuan2_13b_ckpt --run_mode=train --train_data path/to/mindrecord_dir" .path/to/rank_table_file [24,32] 32
+bash run_singlenode.sh "python baichuan2/run_baichuan2.py --config baichuan2/run_baichuan2_13b.yaml --load_checkpoint model_dir --auto_trans_ckpt True --run_mode=train --train_data path/to/mindrecord_dir" path/to/rank_table_file [0,8] 8
 ```
