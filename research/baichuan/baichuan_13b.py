@@ -204,7 +204,6 @@ class Baichuan13BModel(BaseModel):
         self.sub = P.Sub()
         self.expand_dims = P.ExpandDims()
         self.not_equal = P.NotEqual()
-        self.gather = P.Gather()
 
         self.tok_embeddings = LlamaEmbedding(
             config.vocab_size, config.hidden_size, param_init_type=config.param_init_type)
@@ -266,8 +265,6 @@ class Baichuan13BModel(BaseModel):
             self.ones = P.Ones()
             self.range = Tensor(
                 np.tile(seq_range, (config.batch_size, 1, 1)), mstype.int32)
-            self.gather_past = P.Gather()
-            self.expand_dims = P.ExpandDims()
             self.le_past = P.LessEqual()
             self.input_mask_all_ones = Tensor(
                 np.ones((self.config.batch_size, self.config.seq_length), np.float32), mstype.float32)
@@ -389,8 +386,6 @@ class Baichuan13BDecodeLayer(nn.Cell):
         if batch_size or use_past:
             Validator.check_positive_int(batch_size)
         self.batch_size = batch_size
-
-        self.compute_in_2d = compute_in_2d
         self.seq_length = seq_length
         self.layer_id = layer_id
         self.hidden_size = dim
@@ -462,6 +457,7 @@ class Baichuan13BDecodeLayer(nn.Cell):
                 Tensor(np.zeros(kv_shape), self.dtype), name="key_past")
             self.value_past = Parameter(
                 Tensor(np.zeros(kv_shape), self.dtype), name="value_past")
+            self.ones = P.Ones()
             self.mul_past = P.Mul().shard(((dp, 1, 1, 1), (1,)))
             self.assign_past = P.Assign().shard(((dp, 1, 1, 1), (dp, 1, 1, 1)))
             if use_past_shard:
@@ -654,7 +650,6 @@ class Baichuan13BAttention(nn.Cell):
 
         self.inv_norm_factor = Tensor(
             1.0 / math.sqrt(self.head_dim), dtype=compute_dtype)
-        self.beta = Tensor(1.0)
 
         self.reshape = P.Reshape()
         self.transpose = P.Transpose()
@@ -663,7 +658,6 @@ class Baichuan13BAttention(nn.Cell):
         self.batch_matmul_q_k = P.BatchMatMul(transpose_b=True)
         self.mul = P.Mul()
         self.add = P.Add()
-        self.mul_alibi = P.Mul()
         self.add_alibi = P.Add()
         self.softmax = nn.Softmax().to_float(softmax_compute_dtype)
         self.cast = P.Cast()
@@ -699,7 +693,6 @@ class Baichuan13BAttention(nn.Cell):
         self.batch_matmul.shard(((dp, mp, 1, 1), (dp, mp, 1, 1)))
         self.mul.shard(((dp, mp, 1, 1), ()))
         self.add.shard(((dp, 1, 1, 1), (dp, mp, 1, 1)))
-        self.mul_alibi.shard(((dp, mp, 1, 1), ()))
         self.add_alibi.shard(((dp, mp, 1, 1), (dp, mp, 1, 1)))
         self.softmax.softmax.shard(((dp, mp, 1, 1),))
         self.tile_kv.shard(((dp * mp, 1, 1, 1),))
@@ -878,7 +871,6 @@ class Baichuan13BAttention(nn.Cell):
         score = self.batch_matmul_q_k(query, key)
         # score: [bs, n_head, seq/1, seq]
         score = self.mul(score, self.inv_norm_factor)
-        alibi_tensor = self.mul_alibi(alibi_tensor, self.beta)
         score = self.add_alibi(score, alibi_tensor)
 
         score = self.add(mask, score)
