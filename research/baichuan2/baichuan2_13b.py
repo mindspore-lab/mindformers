@@ -77,7 +77,6 @@ class Baichuan13BV2ForCausalLM(BaseModel):
             >>> config = LlamaConfig(batch_size=2)
             >>> network = Baichuan13BV2ForCausalLM(config=config)
         """
-    _support_list = MindFormerBook.get_model_support_list()['llama']
 
     @cell_reuse()
     def __init__(self, config: LlamaConfig = None):
