@@ -42,6 +42,7 @@ parallel_config:
   data_parallel: 1
   model_parallel: 1
   pipeline_stage: 1
+  use_seq_parallel: False
   optimizer_shard: False
   micro_batch_num: 1
   vocab_emb_dp: True
@@ -58,6 +59,7 @@ moe_config:
 # recompute
 recompute_config:
   recompute: False
+  select_recompute: False
   parallel_optimizer_comm_recompute: False
   mp_comm_recompute: True
   recompute_slice_activation: False
