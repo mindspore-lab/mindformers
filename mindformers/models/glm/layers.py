@@ -19,7 +19,7 @@ class GEGLU(nn.Cell):
     def __init__(self, parallel_config):
         super(GEGLU, self).__init__()
         self.split = ops.Split(output_num=2, axis=-1)
-        self.activation_fn = nn.GELU().gelu
+        self.activation_fn = P.GeLU()
         self.parallel_config = parallel_config
 
     def construct(self, x):
@@ -52,8 +52,8 @@ class MLPWithGEGLU(nn.Cell):
             self.activation_func = GEGLU(parallel_config)
             h_to_4h_output_channel = 2 * self.inner_hidden_size
         elif activation_func == 'GELU':
-            self.activation_func = nn.GELU()
-            self.activation_func.gelu.shard(((parallel_config.data_parallel, 1, parallel_config.model_parallel),))
+            self.activation_func = P.GeLU()
+            self.activation_func.shard(((parallel_config.data_parallel, 1, parallel_config.model_parallel),))
             h_to_4h_output_channel = self.inner_hidden_size
 
         self.dense_h_to_4h = Linear(
