@@ -18,7 +18,7 @@ How to run this:
 pytest tests/st/test_model/test_blip2_model/test_trainer.py
 """
 import numpy as np
-import pytest
+# import pytest
 from PIL import Image
 
 import mindspore as ms
@@ -52,10 +52,6 @@ def generator_eval():
         yield images, input_ids
 
 
-@pytest.mark.level0
-@pytest.mark.platform_x86_ascend_training
-@pytest.mark.platform_arm_ascend_training
-@pytest.mark.env_onecard
 class TestBlip2TrainerMethod:
     """A test class for testing pipeline."""
 
@@ -90,7 +86,6 @@ class TestBlip2TrainerMethod:
         self.tokenizer = BertTokenizer.from_pretrained('bert_base_uncased')
         self.training_args = TrainingArguments(batch_size=2, num_train_epochs=1)
 
-    @pytest.mark.run(order=1)
     def test_train(self):
         """
         Feature: Trainer.train()
@@ -106,7 +101,6 @@ class TestBlip2TrainerMethod:
                                eval_dataset=self.eval_dataset)
         task_trainer.train()
 
-    @pytest.mark.run(order=2)
     def test_eval(self):
         """
         Feature: Trainer.evaluate()
@@ -121,7 +115,6 @@ class TestBlip2TrainerMethod:
                                  eval_dataset=self.eval_dataset)
         task_evaluater.evaluate(k_test=1, add_extra_itm_score=False)
 
-    @pytest.mark.run(order=3)
     def test_predict(self):
         """
         Feature: Trainer.predict()
@@ -141,10 +134,6 @@ class TestBlip2TrainerMethod:
         task_predictor.predict(input_data=input_data)
 
 
-@pytest.mark.level0
-@pytest.mark.platform_x86_ascend_training
-@pytest.mark.platform_arm_ascend_training
-@pytest.mark.env_onecard
 class TestBlip2SecondStageTrainerMethod:
     """A test class for testing blip2 second stage trainers."""
 
@@ -204,7 +193,6 @@ class TestBlip2SecondStageTrainerMethod:
         self.tokenizer = LlamaTokenizer.from_pretrained('llama_7b')
         self.training_args = TrainingArguments(batch_size=4, num_train_epochs=1)
 
-    @pytest.mark.run(order=1)
     def test_train(self):
         """
         Feature: Trainer.train()
@@ -219,7 +207,6 @@ class TestBlip2SecondStageTrainerMethod:
                                train_dataset=self.train_dataset)
         task_trainer.train(train_checkpoint='')
 
-    @pytest.mark.run(order=2)
     def test_predict(self):
         """
         Feature: Trainer.predict()
