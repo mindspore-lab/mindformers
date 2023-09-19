@@ -105,6 +105,12 @@ class Baichuan13BV2ForCausalLM(BaseModel):
         self.add.shard(((dp, 1), ()))
         self.lm_head.shard(config.parallel_config)
 
+        if config.parallel_config.pipeline_stage > 1:
+            self.lm_head.pipeline_stage = config.parallel_config.pipeline_stage - 1
+            self.lm_head.set_comm_fusion(2)
+        else:
+            self.lm_head.set_comm_fusion(config.parallel_config.gradient_aggregation_group)
+
         self.load_checkpoint(config)
 
     # pylint: disable=W0613
@@ -886,6 +892,8 @@ class NormHead(nn.Cell):
         self.sqrt = P.Sqrt()
         self.add = P.Add()
         self.real_div = P.RealDiv()
+        self.reshape = P.Reshape()
+        self.sum = P.ReduceSum()
         self.eps = Tensor([eps], mstype.float32)
 
         self.matmul = P.MatMul(transpose_b=True)
@@ -897,16 +905,18 @@ class NormHead(nn.Cell):
     def construct(self, hidden_states):
         """Forward process of the NormHead"""
         out_shape = P.Shape()(hidden_states)[:-1] + (self.vocab_size,)
-        hidden_states = P.Reshape()(hidden_states, (-1, self.hidden_size))
+        hidden_states = self.reshape(hidden_states, (-1, self.hidden_size))
 
-        variance = self.square(self.weight).sum(axis=1).reshape(-1, 1)
+        variance = self.square(self.weight)
+        variance = self.sum(variance, 1)
+        variance = self.reshape(variance, (-1, 1))
         variance_eps = self.sqrt(self.add(variance, self.eps))
         norm_weight = self.real_div(self.weight, variance_eps)
 
         ori_type = hidden_states.dtype
         out = self.matmul(hidden_states.astype(self.compute_dtype),
                           norm_weight.astype(self.compute_dtype))
-        out = P.Reshape()(out, out_shape)
+        out = self.reshape(out, out_shape)
         return self.cast(out, ori_type)
 
     def shard(self, parallel_config):
@@ -916,6 +926,7 @@ class NormHead(nn.Cell):
             self.sqrt.shard(((1, 1),))
             self.add.shard(((1, 1), (1,)))
             self.real_div.shard(((1, 1), (1, 1)))
+            self.sum.shard(((1, 1),))
             self.matmul.shard(((parallel_config.data_parallel, 1), (1, 1)))
         else:
             self.square.shard(((parallel_config.model_parallel, 1),))
@@ -923,8 +934,6 @@ class NormHead(nn.Cell):
             self.add.shard(((parallel_config.model_parallel, 1), (1,)))
             self.real_div.shard(((parallel_config.model_parallel, 1),
                                  (parallel_config.model_parallel, 1)))
+            self.sum.shard(((parallel_config.model_parallel, 1),))
             self.matmul.shard(((parallel_config.data_parallel, 1),
                                (parallel_config.model_parallel, 1)))
-
-        if parallel_config.pipeline_stage > 1:
-            self.matmul.pipeline_stage = parallel_config.pipeline_stage - 1
