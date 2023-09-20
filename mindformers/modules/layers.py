@@ -30,7 +30,6 @@ import mindspore.common.dtype as mstype
 from mindspore.common.seed import _get_graph_seed
 from mindspore._extends import cell_attr_register
 from mindspore.nn.cell import Cell
-from mindspore.nn.layer.activation import get_activation
 from mindspore.ops import functional as F
 from mindspore.ops import operations as P
 from mindspore.ops.primitive import constexpr
@@ -43,6 +42,7 @@ from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagati
 from mindspore.context import ParallelMode
 
 from mindformers.tools.logger import logger
+from mindformers.modules.activation import get_activation
 from mindformers.modules.transformer.op_parallel_config import default_dpmp_config, OpParallelConfig, MoEParallelConfig
 
 __all__ = [
