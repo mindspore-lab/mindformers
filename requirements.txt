@@ -1,5 +1,5 @@
 numpy
-setuptools>=68.0.0
+setuptools
 sentencepiece>=0.1.97
 ftfy>=6.1.1
 regex>=2022.10.31
