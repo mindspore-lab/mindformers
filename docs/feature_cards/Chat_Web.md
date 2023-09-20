@@ -13,11 +13,11 @@ Chat Web提供了一个网页界面，让用户可以通过类似线上聊天的
 示例命令如下，将会启动一个网页app，使用glm_6b模型进行回答生成。
 
 ```bash
-python run_chat_web.py --device_target Ascend\
+python run_chat_web.py --device_target Ascend \
                        --device_id 0 \
                        --model glm_6b \
                        --tokenizer glm_6b \
-                       --ckeckpoint_path /path/to/glm_6b.ckpt \
+                       --checkpoint_path /path/to/glm_6b.ckpt \
                        --seq_length 512 \
                        --use_past False \
                        --host 0.0.0.0 \
@@ -28,9 +28,9 @@ python run_chat_web.py --device_target Ascend\
 
 * **device_target** (str) - 表示要运行的目标设备，取值为`Ascend/CPU`。如果所安装的MindSpore版本不支持`Ascend`，将运行在CPU上。默认值：`Ascend`。
 * **device_id** (int) - 表示要运行的卡，取值为`[0,8)`。该值只在`device_target==Ascend`时生效。默认值：`0`。
-* **model** (str) - 表示用来生成回答的模型，取值见上节。
-* **tokenizer** (str) - 表示用来编解码输入输出的分词器，取值见上节。
-* **checkpoint_path** (str) - 表示加载的模型权重文件路径，此参数缺省时将会加载模型默认的权重文件，默认值：`None`。
+* **model** (str) - 表示用来生成回答的模型的名称，取值见上节。
+* **tokenizer** (str) - 表示用来编解码输入输出的分词器的名称，取值见上节。
+* **checkpoint_path** (str) - 表示加载的模型权重文件路径，此参数缺省时将会下载模型默认的权重文件，默认值：`None`。
 * **seq_length** (int) - 表示模型中的序列长度。默认值：`512`。
 * **use_past** (bool) - 表示是否使用增量推理。默认值：`False`。
 * **host** (str) - 表示web服务运行的host ip。设置为`0.0.0.0`可远程访问。默认值：`127.0.0.1`。
