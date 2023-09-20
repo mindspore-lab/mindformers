@@ -31,6 +31,7 @@ except ImportError:
     import mindspore._checkparam as validator
     import mindspore._checkparam as Rel
 from mindspore.nn.optim.optimizer import Optimizer
+from mindformers.version_control import fix_optim_global_step_sig
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 
 __all__ = ['FusedAdamWeightDecay', 'FP32StateAdamWeightDecay']
@@ -233,9 +234,14 @@ class FusedAdamWeightDecay(Optimizer):
         if offload:
             self.opt.add_prim_attr("primitive_target", "CPU")
 
+        self.version_flag = fix_optim_global_step_sig()
+
+
     def construct(self, gradients):
         """construct with gradients"""
         lr = self.get_lr()
+        if self.version_flag:
+            self.assignadd(self.global_step, self.global_step_increase_tensor)
         if self.is_group:
             if self.is_group_lr:
                 optim_result = self.map_reverse(F.partial(_adam_opt, self.opt,
