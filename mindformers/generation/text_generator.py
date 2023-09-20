@@ -244,7 +244,7 @@ class GeneratorMixin:
             generation_config.pad_token_id = 0
 
         if streamer is not None:
-            streamer.put(origin_inputs[0])
+            streamer.put(origin_inputs)
 
         batch_size = origin_inputs.shape[0]
         is_encoder_decoder = self.config.is_encoder_decoder
@@ -386,6 +386,7 @@ class GeneratorMixin:
 
             update_time = time.time()
             # Random select a token as final output for this round
+            target_list = [[] for _ in range(batch_size)]
             for i in range(batch_size):
                 if is_finished[i]:
                     continue
@@ -402,7 +403,8 @@ class GeneratorMixin:
                 input_ids[i, valid_length_each_example[i]] = target
 
                 if streamer is not None:
-                    streamer.put(np.asarray([target]))
+                    # assign target element
+                    target_list[i] = [target]
 
                 if is_encoder_decoder:
                     target_mask[i][valid_length_each_example[i]] = int(1)
@@ -415,6 +417,11 @@ class GeneratorMixin:
                     or valid_length_each_example[i] == generation_config.max_length:
                     is_finished[i] = True
                     continue
+            if streamer is not None:
+                if batch_size == 1:
+                    streamer.put(target_list[0])
+                else:
+                    streamer.put(target_list)
             update_time = time.time() - update_time
             logger.debug("forward time: %s s; sample time: %s s; update time: %s s; total count: %s s",
                          forward_time, sample_time, update_time, forward_time + sample_time + update_time)

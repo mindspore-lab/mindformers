@@ -66,3 +66,36 @@ def test_text_iterator_streamer_schedule():
         generated_text = "".join([generated_text, new_text])
 
     assert generated_text == "An increasing sequence: one, two, three, four, five, six, seven, eight,"
+
+@pytest.mark.level0
+@pytest.mark.platform_x86_cpu
+@pytest.mark.env_onecard
+def test_text_iterator_streamer_schedule_batch():
+    """
+    Feature: Test Batch Streamer Schedule
+    Description: Test TextIteratorStreamer Generation.Streamer Schedule, with batch input.
+    Expectation: ValueError
+    """
+    tok = GPT2Tokenizer.from_pretrained("gpt2")
+    model = GPT2LMHeadModel.from_pretrained("gpt2")
+    text_batch = ["An increasing sequence: one,",
+                  "The highest mountain in the world is",
+                  "The largest river in China is"]
+    inputs = tok(text_batch, max_length=8, padding='max_length', return_tensors=None, add_special_tokens=False)
+
+    streamer = TextIteratorStreamer(tok)
+
+    # Run the generation in a separate thread, so that we can fetch the generated text in a non-blocking way.
+    generation_kwargs = dict(input_ids=inputs["input_ids"], streamer=streamer, max_length=20, top_k=1)
+    thread = Thread(target=model.generate, kwargs=generation_kwargs)
+    thread.start()
+    batch_size = len(text_batch)
+    generated_text = [""] * batch_size
+    for new_text in streamer:
+        for i in range(batch_size):
+            generated_text[i] = "".join([generated_text[i], new_text[i]])
+
+    assert generated_text == \
+        ['An increasing sequence: one, two, three, four, five, six, seven, eight,',
+         'The highest mountain in the world is the Himalayas, which is the highest mountain in the world',
+         'The largest river in China is the Yangtze River, which flows through the heart of the country']

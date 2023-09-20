@@ -17,6 +17,7 @@
 """Streamers for text generation."""
 from queue import Queue
 from typing import Optional
+import numpy as np
 from mindformers.models.base_tokenizer import BaseTokenizer
 
 __all__ = ['BaseStreamer', 'TextStreamer', 'TextIteratorStreamer']
@@ -74,13 +75,17 @@ class TextStreamer(BaseStreamer):
     def __init__(self,
                  tokenizer: Optional[BaseTokenizer] = None,
                  skip_prompt: bool = False,
+                 skip_special_tokens: bool = True,
                  **decode_kwargs):
         self.tokenizer = tokenizer
         self.skip_prompt = skip_prompt
+        self.skip_special_tokens = skip_special_tokens
         self.decode_kwargs = decode_kwargs
 
         # variables used in the streaming process
+        self.batch_stream = False
         self.token_cache = []
+        self.text_cache = ""
         self.print_len = 0
         self.next_tokens_are_prompt = True
 
@@ -88,19 +93,48 @@ class TextStreamer(BaseStreamer):
         """
         Receives tokens, decodes them, and prints them to stdout as soon as they form entire words.
         """
-        if len(value.shape) > 1 and value.shape[0] > 1:
-            raise ValueError("TextStreamer only supports batch size 1")
-        if len(value.shape) > 1:
-            value = value[0]
+
+        if isinstance(value, int):
+            self.token_cache.append(value)
+        if isinstance(value, np.ndarray):
+            value = value.tolist()
+        if isinstance(value, list):
+            if len(value) > 1 and isinstance(value[0], list):
+                # switch from single mode to batch mode
+                if not self.batch_stream:
+                    self.batch_stream = True
+                    self.text_cache = ""
+            else:
+                # batch that equals 1
+                if len(value) == 1 and isinstance(value[0], list):
+                    value = value[0]
+                # switch from batch mode to single mode
+                if self.batch_stream:
+                    self.batch_stream = False
+                    self.token_cache = []
+                    self.print_len = 0
+                self.token_cache.extend(value)
+        else:
+            raise ValueError("TextStreamer only supports int, or 1 ~ 2 dim numpy.ndarray/list as inputs.")
 
         if self.skip_prompt and self.next_tokens_are_prompt:
             self.next_tokens_are_prompt = False
             return
 
         # Add the new token to the cache and decodes the entire thing.
-        self.token_cache.extend(value.tolist())
-        text = self.tokenizer.decode(self.token_cache, **self.decode_kwargs)
+        if self.batch_stream:
+            text = self.tokenizer.batch_decode(value, self.skip_special_tokens, **self.decode_kwargs)
+        else:
+            text = self.tokenizer.decode(self.token_cache, self.skip_special_tokens, **self.decode_kwargs)
 
+        printable_text = self.get_printable_text(text)
+        self.on_finalized_text(printable_text)
+
+    def get_printable_text(self, text):
+        """Get printable text when a new element comes in."""
+        # for batch streamer, we directly return the text
+        if self.batch_stream:
+            return text
         # After the symbol for a new line, we flush the cache.
         if text.endswith("\n"):
             printable_text = text[self.print_len :]
@@ -115,26 +149,35 @@ class TextStreamer(BaseStreamer):
         else:
             printable_text = text[self.print_len : text.rfind(" ") + 1]
             self.print_len += len(printable_text)
-
-        self.on_finalized_text(printable_text)
+        return printable_text
 
     def end(self):
         """Flushes any remaining cache and prints a newline to stdout."""
         # Flush the cache, if it exists
-        if self.token_cache:
-            text = self.tokenizer.decode(self.token_cache, **self.decode_kwargs)
+        if not self.batch_stream and self.token_cache:
+            text = self.tokenizer.decode(self.token_cache, self.skip_special_tokens, **self.decode_kwargs)
             printable_text = text[self.print_len :]
-            self.token_cache = []
-            self.print_len = 0
         else:
             printable_text = ""
 
-        self.next_tokens_are_prompt = True
         self.on_finalized_text(printable_text, stream_end=True)
+
+        # always reset values when stream ends
+        self.next_tokens_are_prompt = True
+        self.token_cache = []
+        self.text_cache = ""
+        self.print_len = 0
 
     def on_finalized_text(self, text: str, stream_end: bool = False):
         """Prints the new text to stdout. If the stream is ending, also prints a newline."""
-        print(text, flush=True, end="" if not stream_end else None)
+        if self.batch_stream:
+            if not self.text_cache:
+                self.text_cache = text
+            elif text:
+                self.text_cache = [i + j for i, j in zip(self.text_cache, text)]
+            print(f'\r{self.text_cache}', flush=True, end="" if not stream_end else None)
+        else:
+            print(text, flush=True, end="" if not stream_end else None)
 
     def _is_chinese_char(self, cp):
         """Checks whether CP is the codepoint of a CJK character."""
@@ -220,7 +263,8 @@ class TextIteratorStreamer(TextStreamer):
 
     def on_finalized_text(self, text: str, stream_end: bool = False):
         """Put the new text in the queue. If the stream is ending, also put a stop signal in the queue."""
-        self.text_queue.put(text, timeout=self.timeout)
+        if text:
+            self.text_queue.put(text, timeout=self.timeout)
         if stream_end:
             self.text_queue.put(self.stop_signal, timeout=self.timeout)
 

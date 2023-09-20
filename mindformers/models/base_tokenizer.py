@@ -3385,7 +3385,7 @@ class BaseTokenizer(SpecialTokensMixin):
                 clean_up_tokenization_spaces=clean_up_tokenization_spaces,
                 **kwargs,
             )
-            for seq in sequences
+            if seq else "" for seq in sequences
         ]
 
     def decode(
