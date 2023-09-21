@@ -82,8 +82,6 @@ def main():
                         help="Tokenizer type, can be set to any tokenizer "
                              "if its relevant model supports prompt text classification. ",
                         choices=tokenizer_support_list)
-    parser.add_argument("--mindrecord_schema", type=str, required=True,
-                        help="The name of mindrecord_schema. ")
     parser.add_argument("--data_columns", type=list, default=["input_ids", "labels", "attention_mask"],
                         help="The data columns which should be saved in mindrecord. This can refer used yaml file. ")
     parser.add_argument("--input_file", type=str, required=True, help='Input raw text file. ')
@@ -92,7 +90,7 @@ def main():
     parser.add_argument("--header", type=bool, default=True, help='Has header or not. ')
     args = parser.parse_args()
 
-    tokenizer = AutoTokenizer.from_pretrained(args.tokenizer)
+    tokenizer = AutoTokenizer.from_pretrained(args.tokenizer_type)
 
     input_file = args.input_file
     logger.info("***** Reading from input files *****")
@@ -111,7 +109,7 @@ def main():
     need_del_keys = set(data_columns) - set(data_schema.keys())
     for need_del_key in need_del_keys:
         del data_schema[need_del_key]
-    writer.add_schema(data_schema, args.mindrecord_schema)
+    writer.add_schema(data_schema)
 
     total_written = 0
     total_read = 0
