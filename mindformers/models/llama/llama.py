@@ -266,7 +266,6 @@ class LlamaForCausalLM(BaseModel):
         _check_config(config.parallel_config)
         self.ignore_token_id = config.ignore_token_id
         self.pad_token_id = config.pad_token_id
-        self.dtype = config.compute_dtype
 
         self.reshape = P.Reshape()
         self.cast = P.Cast()
@@ -317,14 +316,14 @@ class LlamaForCausalLM(BaseModel):
         output = self.model(tokens, input_position, init_reset, batch_valid_length)
         logits = self.lm_head(output)
 
-        input_mask = self.cast(self.not_equal(tokens, self.pad_token_id), self.dtype)
+        input_mask = self.cast(self.not_equal(tokens, self.pad_token_id), mstype.float32)
         if labels is None:
             labels = self.slice(input_ids, (0, 1), (bsz, seqlen), (1, 1))
         else:
             if labels.ndim > 1:
                 if self.training:
                     labels = self.slice(labels, (0, 1), (bsz, seqlen), (1, 1))
-                label_mask = self.cast(self.not_equal(labels, self.ignore_token_id), self.dtype)
+                label_mask = self.cast(self.not_equal(labels, self.ignore_token_id), mstype.float32)
                 input_mask = self.mul(input_mask, label_mask)
 
         logits = self.cast(logits, mstype.float32)
