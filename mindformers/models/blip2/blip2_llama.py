@@ -114,6 +114,8 @@ class LlamaForBlip2(LlamaForCausalLM):
             >>> from mindformers.models.blip2.blip2_llama import LlamaForBlip2
             >>> config = LlamaConfig(batch_size=1)
             >>> network = LlamaForBlip2(config=config)
+            >>> type(network)
+            <class 'mindformers.models.blip2.blip2_llama.LlamaForBlip2'>
         """
 
     def __init__(self, config: LlamaConfig = None):
@@ -200,7 +202,7 @@ class LlamaForBlip2(LlamaForCausalLM):
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
 class Blip2Llama(Blip2Base):
     """
-    BLIP2 Llama model
+    BLIP2 Llama model.
     """
     _support_list = MindFormerBook.get_model_support_list()['blip2']['stage2']
 
@@ -345,10 +347,15 @@ class Blip2Llama(Blip2Base):
 class Blip2ImageToTextGeneration(Blip2Llama):
     """
     Blip2ImageToTextGeneration rely on Blip2Llama, used for image to text genearation.
-    Usage:
-        >>> from mindformers import AutoModel
-        >>> model_type = 'itt_blip2_stage2_vit_g_llama_7b'
-        >>> model = AutoModel.from_pretrained(model_type)
+
+    Args:
+        config (Blip2Config): The config of Blip2ImageToTextGeneration.
+
+    Examples:
+        >>> from mindformers import Blip2ImageToTextGeneration
+        >>> model = Blip2ImageToTextGeneration.from_pretrained('itt_blip2_stage2_vit_g_llama_7b')
+        >>> type(model)
+        <class 'mindformers.models.blip2.blip2_llama.Blip2ImageToTextGeneration'>
     """
     _support_list = MindFormerBook.get_model_support_list()['itt']['blip2']
 

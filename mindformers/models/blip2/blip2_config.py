@@ -39,36 +39,42 @@ class Blip2Config(BaseConfig):
     Config For BLIP2 Module
 
     Args:
-        model_type (Optional[int]): model type for blip2 model, default is 'blip2'.
-        batch_size (Optional[int]): batch size for the model
-        freeze_vision (Optional[bool]): whether to freeze vit weights, default is True.
-        freeze_text (Optional[bool]): whether to freeze LLM weights, default is True.
-        max_txt_len (Optional[int]): max text length for llama model.
-        prompt (Optional[str]): prompt for llama model.
-        prompt_length (Optional[int]): prompt length for llama model.
-        checkpoint_name_or_path (Optional[str]): checkpoint path or name.
-        dtype (Optional[str]): layer digital type, default is "float32".
-        compute_dtype (Optional[str]): Linear layer compute dtype, default is "float16".
-        layernorm_compute_type (Optional[str]): layernorm compute dtype, default is "float32".
-        softmax_compute_type (Optional[str]):softmax compute dtype, default is "float32".
-        vision_config (Optional[ViTConfig]): config for ViTModel.
-        qformer_config (Optional[QFormerConfig]): config for qformer.
-        text_config (Optional[LlamaConfig]): config for LLM model, like llama.
-        parallel_config (TransformerOpParallelConfig): parallel_config.
+        model_type (Optional[int]):
+            model type for blip2 model, default is 'blip2'.
+        batch_size (Optional[int]):
+            batch size for input data, use in predict.
+        freeze_vision (Optional[bool]):
+            whether to freeze vit weights, default is True.
+        freeze_text (Optional[bool]):
+            whether to freeze LLM weights, default is True.
+        max_txt_len (Optional[int]):
+            max text length for llama model.
+        prompt (Optional[str]):
+            prompt for llama model.
+        prompt_length (Optional[int]):
+            prompt length for llama model.
+        checkpoint_name_or_path (Optional[str]):
+            checkpoint path or name used to load to the network.
+        dtype (Optional[str]):
+            layer digital type, default is "float32".
+        compute_dtype (Optional[str]):
+            Linear layer compute dtype, default is "float16".
+        layernorm_compute_type (Optional[str]):
+            layernorm compute dtype, default is "float32".
+        softmax_compute_type (Optional[str]):
+            softmax compute dtype, default is "float32".
+        vision_config (Optional[ViTConfig]):
+            config for ViTModel.
+        qformer_config (Optional[QFormerConfig]):
+            config for qformer.
+        text_config (Optional[LlamaConfig]):
+            config for LLM model, like llama.
+        parallel_config(TransformerOpParallelConfig):
+            The parallel configure. Default `default_transformer_config`,
+            an instance of `TransformerOpParallelConfig` with default args.
         is_training (Optional[bool]): whether the model is in training state.
-
-    Examples:
-        >>> from mindformers import Blip2Config
-        >>> Blip2Config()
-            {'model_type': 'blip2',
-             'batch_size': 8,
-             'freeze_vision': True,
-             'freeze_text': True,
-             'max_txt_len': 32,
-             'checkpoint_name_or_path': None,
-             'prompt': '',
-             'prompt_length': 0
-             ....}
+    Returns:
+        Class, Blip2Config.
     """
     _support_list = MindFormerBook.get_config_support_list()['blip2']
 

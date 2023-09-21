@@ -28,6 +28,24 @@ class BloomProcessor(BaseProcessor):
     """
     Bloom processor,
     consists of a tokenizer (BaseTokenizer) for text input.
+    Args:
+        tokenizer (BaseTokenizer): The tokenizer of Bloom.
+        max_length (`int`, *optional*, defaults to 128):
+            The maximum length (in number of tokens) for the inputs to Bloom.
+        padding (`str`, *optional*, defaults to `max_length`):
+            Activates and controls padding. Accepts the following values:
+
+            - `True` or `'longest'`: Pad to the longest sequence in the batch (or no padding if only a single
+              sequence if provided).
+            - `'max_length'`: Pad to a maximum length specified with the argument `max_length` or to the maximum
+              acceptable input length for the model if that argument is not provided.
+            - `False` or `'do_not_pad'` (default): No padding (i.e., can output a batch with sequences of different
+              lengths).
+        return_tensors (`str` or [`~utils.TensorType`], *optional*):
+            If set, will return tensors instead of list of python integers. Acceptable values are:
+
+            - `'np'`: Return Numpy `np.ndarray` objects.
+            - `'ms'`: Return Numpy `ms.Tensor` objects.
     """
 
     _support_list = MindFormerBook.get_processor_support_list()['bloom']
