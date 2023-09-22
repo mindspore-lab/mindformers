@@ -512,6 +512,11 @@ class MindFormerBook:
             'internlm_7b',
             'internlm_7b_lora',
         ]),
+        ('llama2', [
+            'llama2_7b',
+            'llama2_13b',
+            'llama2_70b',
+        ]),
         ('pangualpha', [
             'pangualpha_2_6b',
             'pangualpha_13b'
@@ -609,6 +614,11 @@ class MindFormerBook:
             'llama2_13b',
             'llama2_70b',
             'llama_7b_lora'
+        ]),
+        ('llama2', [
+            'llama2_7b',
+            'llama2_13b',
+            'llama2_70b',
         ]),
         ('pangualpha', [
             'pangualpha_2_6b',
@@ -765,6 +775,11 @@ class MindFormerBook:
             'llama_7b_lora',
             'baichuan_7b',
             'ziya_13b'
+        ]),
+        ('llama2', [
+            'llama2_7b',
+            'llama2_13b',
+            'llama2_70b',
         ]),
         ('pangualpha', [
             'pangualpha_2_6b',
@@ -964,6 +979,14 @@ class MindFormerBook:
         ('llama_13b',
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
           '/XFormer_for_mindspore/llama/open_llama_13b.ckpt'
+          ]),
+        ('llama2_7b',
+         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
+          '/MindFormers/llama2/llama2_7b.ckpt'
+          ]),
+        ('llama2_13b',
+         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
+          '/MindFormers/llama2/llama2-13b-fp16.ckpt'
           ]),
         ('llama_7b_lora',
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
@@ -1198,6 +1221,10 @@ class MindFormerBook:
         ('llama_7b_lora',
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
           '/XFormer_for_mindspore/llama/tokenizer.model'
+          ]),
+        ('llama2_7b',
+         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
+          '/MindFormers/llama2/tokenizer.model'
           ]),
         ('bloom_560m',
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
