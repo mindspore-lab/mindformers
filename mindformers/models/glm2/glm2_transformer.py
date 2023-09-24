@@ -23,6 +23,7 @@ from mindspore import dtype as mstype
 
 from mindformers.modules import LayerNorm
 from mindformers.modules.layers import Linear
+from mindformers.pet.tuners.ptuning2_adapter import Ptuning2Adapter
 from mindformers.version_control import get_dropout
 
 from .glm2_config import ChatGLM2Config
@@ -155,6 +156,7 @@ class ChatGLM2SelfAttention(nn.Cell):
         self.compute_dtype = config.compute_dtype
         self.batch_size = config.batch_size
         self.seq_length = config.seq_length
+        self.pre_seq_len = config.pre_seq_len
 
         self.multi_query_attention = config.multi_query_attention
         self.qkv_hidden_size = 3 * self.projection_size
@@ -202,7 +204,10 @@ class ChatGLM2SelfAttention(nn.Cell):
         self.use_past = config.use_past
         if self.use_past:
             self.is_first_iteration = True
-            seq_range = np.arange(self.seq_length).reshape(1, 1, -1)
+            total_seq_length = self.seq_length
+            if isinstance(config.pre_seq_len, int):
+                total_seq_length = total_seq_length + config.pre_seq_len
+            seq_range = np.arange(total_seq_length).reshape(1, 1, -1)
             self.range = Tensor(
                 np.tile(seq_range, (self.batch_size, 1, 1)), mstype.int32)
             self.less = P.Less()
@@ -235,8 +240,32 @@ class ChatGLM2SelfAttention(nn.Cell):
         # [bs, sq, nh, hidden_size_per_head]
         return self.concat((x_out, x_pass))
 
+    def add_prefix_if_need(self, prefix_key_value, key_layer, value_layer, attention_mask):
+        """
+        add p-tuning v2 prefix if need
+        """
+        if not isinstance(self.pre_seq_len, int) or self.pre_seq_len <= 0:
+            return key_layer, value_layer, attention_mask
+
+        seq_len = key_layer.shape[2]
+
+        key_layer, value_layer = Ptuning2Adapter.add_prefix(
+            prefix_key_value,
+            key_layer,
+            value_layer
+        )
+
+        if attention_mask is not None:
+            batch_size = attention_mask.shape[0]
+            prefix_mask = attention_mask.new_zeros((batch_size, 1, seq_len, self.pre_seq_len))
+            m_cat = P.Concat(3)
+            # [bs, 1, seq_len, pre_seq_len + seq_len]
+            attention_mask = m_cat((prefix_mask, attention_mask))
+
+        return key_layer, value_layer, attention_mask
+
     def construct(self, hidden_states, attention_mask, rotary_pos_emb, key_past=None, value_past=None,
-                  batch_valid_length=None):
+                  batch_valid_length=None, prefix_key_value=None):
         """Forward process of self-attention."""
         # hidden_states: [bs, seq_len, hidden_size]
         # attention_mask (bs, 1, seq_len, seq_len)
@@ -292,6 +321,13 @@ class ChatGLM2SelfAttention(nn.Cell):
             # [bs, multi_query_groups, seq_len, hidden_size_per_attention_head]
             key_layer = self.apply_rotary_pos_emb(key_layer, rotary_pos_emb)
 
+        key_layer, value_layer, attention_mask = self.add_prefix_if_need(
+            prefix_key_value,
+            key_layer,
+            value_layer,
+            attention_mask
+        )
+
         # key and value for current token(s)
         # [bs, heads, seq_len, hidden_size_per_head]
         key_present = key_layer
@@ -317,10 +353,8 @@ class ChatGLM2SelfAttention(nn.Cell):
                 # self.range: [bs, 1, config.seq_len]
                 valid_length_vector = F.cast(self.equal(valid_length, self.range), self.params_dtype)
                 # Pad the key and value to seq_length with only the position index not zero
-                current_key = self.mul1(self.tile(key_present, (1, 1, self.seq_length, 1)),
-                                        self.expand_dims(valid_length_vector, 3))
-                current_value = self.mul1(self.tile(value_present, (1, 1, self.seq_length, 1)),
-                                          self.expand_dims(valid_length_vector, 3))
+                current_key = self.mul1(key_present, self.expand_dims(valid_length_vector, 3))
+                current_value = self.mul1(value_present, self.expand_dims(valid_length_vector, 3))
                 # Concat the previous saved state and current state
                 # [batch_size, multi_query_groups, seq_length, size_per_head]
                 key_present = self.add(key_past, current_key)
@@ -410,7 +444,12 @@ class ChatGLM2Block(nn.Cell):
             kv_num_partition = config.num_attention_heads
             if config.multi_query_attention:
                 kv_num_partition = config.multi_query_group_num
-            kv_shape = (config.batch_size, kv_num_partition, self.seq_length, size_per_head)
+
+            total_seq_length = self.seq_length
+            if isinstance(config.pre_seq_len, int):
+                total_seq_length = total_seq_length + config.pre_seq_len
+
+            kv_shape = (config.batch_size, kv_num_partition, total_seq_length, size_per_head)
             # parameters saving key and value states
             self.key_past = Parameter(
                 Tensor(np.zeros(shape=kv_shape), self.params_dtype), name="key_past")
@@ -420,7 +459,7 @@ class ChatGLM2Block(nn.Cell):
             self.assign = P.Assign().shard(((1, 1, 1, 1), (1, 1, 1, 1)))
 
     def construct(self, hidden_states, attention_mask, rotary_pos_emb,
-                  init_reset=True, batch_valid_length=None):
+                  init_reset=True, batch_valid_length=None, prefix_key_value=None):
         """Forward process of the transformer layer."""
         # hidden_states: [bs, seq_len, hidden_size]
         # attention_mask first: (bs, 1, seq_len, seq_len), after: (bs, 1, 1, seq_len)
@@ -451,7 +490,8 @@ class ChatGLM2Block(nn.Cell):
             rotary_pos_emb,
             self.key_past,
             self.value_past,
-            batch_valid_length
+            batch_valid_length,
+            prefix_key_value
         )
 
         # Residual connection.
@@ -541,6 +581,8 @@ class ChatGLM2Transformer(nn.Cell):
         # Number of layers.
         self.num_layers = config.num_layers
 
+        self.pre_seq_len = config.pre_seq_len
+
         # Transformer layers.
         def build_layer(layer_number):
             return ChatGLM2Block(config, layer_number)
@@ -565,18 +607,29 @@ class ChatGLM2Transformer(nn.Cell):
                   attention_mask,
                   rotary_pos_emb,
                   init_reset=True,
-                  batch_valid_length=None):
+                  batch_valid_length=None,
+                  prefix_key_values=None):
         """Forward process of the transformer."""
         # hidden_states (bs, seq_len, hs)
         # attention_mask (bs, 1, seq_len, seq_len)
         # rotary_pos_emb: first: (sen length, kv_channels//2, 2)， after:[1, kv_channels // 2, 2]
-        for layer in self.layers:
+
+        if batch_valid_length is not None and isinstance(self.pre_seq_len, int):
+            batch_valid_length = batch_valid_length + self.pre_seq_len
+
+        for i in range(self.num_layers):
+            prefix_key_value = None
+            if prefix_key_values is not None:
+                prefix_key_value = prefix_key_values[i]
+            layer = self.layers[i]
+
             hidden_states = layer(
                 hidden_states,
                 attention_mask,
                 rotary_pos_emb,
                 init_reset=init_reset,
                 batch_valid_length=batch_valid_length,
+                prefix_key_value=prefix_key_value
             )
 
         # Final layer norm.

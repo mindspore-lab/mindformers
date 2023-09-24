@@ -19,13 +19,15 @@ ChatGLM**2**-6B 是开源中英双语对话模型 [ChatGLM2-6B](https://github.c
 
 **GLM2_6b**:
 
-| config                                                   | task            | Datasets | metric                                  | phase               | score                                                                              | performance                                    |
-|----------------------------------------------------------|-----------------|----------|-----------------------------------------|---------------------|------------------------------------------------------------------------------------|------------------------------------------------|
-| [glm2_6b](../../configs/glm2/run_glm2_6b.yaml)           | text_generation | ADGEN    | -                                       | [finetune](#全量微调)   | -                                                                                  | 815.2059134 tokens/s/p                         |
-| [glm2_6b_lora](../../configs/glm2/run_glm2_6b_lora.yaml) | text_generation | ADGEN    | -                                       | [finetune](#lora微调) | -                                                                                  | 3243.697479 tokens/s/p                         |
-| [glm2_6b](../../configs/glm2/run_glm2_6b.yaml)           | text_generation | ADGEN    | rouge-1<br>rouge-2<br>rouge-l<br>bleu-4 | [eval](#评测)         | 30.784298224299064<br>7.073415046728972<br>24.773958598130843<br>7.466147757009345 | -                                              |
-| [glm2_6b_lora](../../configs/glm2/run_glm2_6b_lora.yaml) | text_generation | ADGEN    | rouge-1<br>rouge-2<br>rouge-l<br>bleu-4 | [eval](#评测)         | 31.05639289719626<br>7.1753861682243<br>24.229674859813084<br>7.229435140186916    | -                                              |
-| [glm2_6b](../../configs/glm2/run_glm2_6b.yaml)           | text_generation | -        | -                                       | [predict](#推理)      | -                                                                                  | 32.08 tokens/s (use_past=True, seq_length=512) |
+| config                                                      | task            | Datasets | metric                                  | phase                   | score                                   | performance                                    |
+|-------------------------------------------------------------|-----------------|----------|-----------------------------------------|-------------------------|-----------------------------------------|------------------------------------------------|
+| [glm2_6b](../../configs/glm2/run_glm2_6b.yaml)              | text_generation | ADGEN    | -                                       | [finetune](#全量微调)       | -                                       | 815.2059134 tokens/s/p                         |
+| [glm2_6b_lora](../../configs/glm2/run_glm2_6b_lora.yaml)    | text_generation | ADGEN    | -                                       | [finetune](#lora微调)     | -                                       | 3243.697479 tokens/s/p                         |
+| [glm2_6b_ptuning2](../../configs/glm2/run_glm2_6b_ptuning2.yaml) | text_generation | ADGEN    | -                                       | [finetune](#ptuning2微调) | -                                       | 4150.537634 tokens/s/p                         |
+| [glm2_6b](../../configs/glm2/run_glm2_6b.yaml)              | text_generation | ADGEN    | rouge-1<br>rouge-2<br>rouge-l<br>bleu-4 | [eval](#评测)             | 30.7842<br>7.0734<br>24.7739<br>7.4661  | -                                              |
+| [glm2_6b_lora](../../configs/glm2/run_glm2_6b_lora.yaml)    | text_generation | ADGEN    | rouge-1<br>rouge-2<br>rouge-l<br>bleu-4 | [eval](#评测)             | 31.0563<br>7.1753<br>24.2296<br>7.2294  | -                                              |
+| [glm2_6b_ptuning2](../../configs/glm2/run_glm2_6b_ptuning2.yaml)      | text_generation | ADGEN    | rouge-1<br>rouge-2<br>rouge-l<br>bleu-4 | [eval](#评测)             | 31.5933<br>7.4504<br>24.7071<br>7.3042  | -                                              |
+| [glm2_6b](../../configs/glm2/run_glm2_6b.yaml)              | text_generation | -        | -                                       | [predict](#推理)          | -                                       | 32.08 tokens/s (use_past=True, seq_length=512) |
 
 ## 仓库介绍
 
@@ -570,6 +572,44 @@ done
 
 ```bash
 IP_LIST=("192.168.0.0", "192.168.0.1", ..., "192.168.0.11")
+```
+
+### p-tuning v2低参微调
+
+对于每个下游任务，在网络的每一层添加一份连续提示向量，冻结预训练模型的其他参数，只训练这些向量。
+
+#### run_mindformers脚本启动p-tuning v2低参微调
+
+使用p-tuning v2算法进行低参微调时，使用 `configs/glm2/run_glm2_6b_ptuning2.yaml` 配置文件，该配置文件包含了p-tuning v2低参微调算法所需的配置项
+
+修改数据集/模型权重配置路径：
+
+- 数据集：修改 `mindformers/configs/glm2/run_glm2_6b_ptuning2.yaml` 脚本中`train_dataset` 的 `dataset_dir` 为前文生成的数据集路径。
+- 加载预训练模型权重：修改 `mindformers/configs/glm2/run_glm2_6b_ptuning2.yaml` 脚本中的 `load_checkpoint` 为预训练模型权重路径。
+
+#### 启动p-tuning v2低参微调脚本(1卡)：
+
+执行命令：
+
+```shell
+cd scripts
+# Usage Help: bash run_stanalone.sh [CONFIG_PATH] [DEVICE_ID] [RUN_STATUS]
+bash run_standalone.sh ../configs/glm2/run_glm2_6b_ptuning2.yaml 0 finetune
+```
+
+训练的log日志路径：mindformers/scripts/mf_standalone/
+
+checkpoint存储路径：mindformers/scripts/mf_standalone/output/checkpoint
+
+#### Trainer高阶接口启动p-tuning v2低参微调
+
+示例脚本如下，需要指定训练数据集路径和微调权重。
+
+```python
+from mindformers import Trainer
+trainer = Trainer(task="text_generation", model="glm2_6b", pet_method="ptuning2",
+                  train_dataset="/path/to/AdvertiseGen/train.json")
+trainer.finetune(finetune_checkpoint="glm2_6b")
 ```
 
 ## 评测

@@ -13,27 +13,29 @@
 # limitations under the License.
 # ============================================================================
 """
-Note: Constants used by pet modules.
+p-tuning-v2 adapter
+https://arxiv.org/pdf/2110.07602.pdf
 """
-import enum
+
+from mindspore.ops import operations as P
 
 
-class PetType(str, enum.Enum):
-    r"""
-        The enum of pet methods.
+class Ptuning2Adapter:
     """
-    LORA = "lora"
-    ADAPTER = "adapter"
-    ADALORA = "low_rank_adapter"
-    PREFIX_TUNING = "prefixtuning"
-    P_TUNING_V2 = "ptuning2"
-
-
-class BaseModelInitType(str, enum.Enum):
-    r"""
-        The enum of base model initial.
+    Ptuning2Adapter is the adapter to modify the pretrained model, which uses p-tuning-v2.
     """
-    MODEL_NAME = "MODEL_NAME"
-    MODEL_DIR = "MODEL_DIR"
-    MODEL_CONFIG = "MODEL_CONFIG"
-    MODEL_INSTANCE = "MODEL_INSTANCE"
+
+    @staticmethod
+    def add_prefix(prefix_key_value, key, value, seq_len_dim=2):
+        """
+        Add p-tuning v2 prefix for key, vale.
+        """
+
+        if prefix_key_value is not None:
+            prefix_key = prefix_key_value[0]
+            prefix_value = prefix_key_value[1]
+            cat = P.Concat(seq_len_dim)
+            key = cat([prefix_key, key])
+            value = cat([prefix_value, value])
+
+        return key, value

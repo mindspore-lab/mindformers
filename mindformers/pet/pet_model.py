@@ -19,6 +19,7 @@ from mindformers.pet.constants import PetType
 from mindformers.pet.models.lora import LoraModel
 from mindformers.pet.pet_config import LoraConfig
 from mindformers.pet.tuners.pet_adapter import PetAdapter
+from mindformers.tools import logger
 
 
 # Mapping of pet models.
@@ -75,5 +76,11 @@ def get_pet_model(base_model: BaseModel, config: dict):
     Return:
         model(BaseModel)
     """
+
+    pet_type = config.get("pet_type")
+    if not PET_TYPE_TO_MODEL_MAPPING.get(pet_type):
+        logger.warning("%s doesn't have pet model currently.", pet_type)
+        return base_model
+
     # return pet model.
     return PetModel(config=BaseConfig(**config), base_model=base_model)

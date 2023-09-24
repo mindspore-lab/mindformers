@@ -17,6 +17,7 @@ import mindspore.ops as ops
 import mindspore.common.dtype as mstype
 import mindspore.ops.operations as P
 from mindspore import Tensor, nn
+from mindpet.delta.ptuning2 import PrefixEncoder
 
 import numpy as np
 from mindformers.mindformer_book import MindFormerBook
@@ -33,7 +34,7 @@ from .glm2_config import ChatGLM2Config
 from .glm2_modules import precompute_rotary_emb_cache
 from .glm2_transformer import ChatGLM2Transformer
 
-__all__ = ['ChatGLM2ForConditionalGeneration', 'ChatGLM2WithLora', 'ChatGLM2Model']
+__all__ = ['ChatGLM2ForConditionalGeneration', 'ChatGLM2WithLora', 'ChatGLM2Model', 'ChatGLM2WithPtuning2']
 
 
 class ChatGLM2Model(nn.Cell):
@@ -110,7 +111,8 @@ class ChatGLM2Model(nn.Cell):
         return attention_mask
 
     def construct(self, input_ids, position_ids=None, attention_mask=None, full_attention_mask=None,
-                  inputs_embeds=None, input_position=None, init_reset=True, batch_valid_length=None):
+                  inputs_embeds=None, input_position=None, init_reset=True, batch_valid_length=None,
+                  prefix_key_values=None):
         """ChatGLM2 model."""
         _ = position_ids
         batch_size, _ = input_ids.shape
@@ -131,7 +133,8 @@ class ChatGLM2Model(nn.Cell):
         # Run encoder.
         hidden_states = self.encoder(
             inputs_embeds, full_attention_mask, rotary_pos_emb=rotary_pos_emb,
-            init_reset=init_reset, batch_valid_length=batch_valid_length)
+            init_reset=init_reset, batch_valid_length=batch_valid_length,
+            prefix_key_values=prefix_key_values)
 
         return hidden_states
 
@@ -176,7 +179,8 @@ class ChatGLM2ForConditionalGeneration(BaseModel):
         }
 
     def construct(self, input_ids=None, labels=None, position_ids=None, attention_mask=None,
-                  inputs_embeds=None, input_position=None, init_reset=True, batch_valid_length=None):
+                  inputs_embeds=None, input_position=None, init_reset=True, batch_valid_length=None,
+                  prefix_key_values=None):
         """ChatGLM2 for conditional generation model."""
         # input_ids: (bs, seq_len)
         # position_ids: (bs, seq_len)
@@ -189,6 +193,7 @@ class ChatGLM2ForConditionalGeneration(BaseModel):
             input_position=input_position,
             init_reset=init_reset,
             batch_valid_length=batch_valid_length,
+            prefix_key_values=prefix_key_values
         )
         lm_logits = self.transformer.output_layer(hidden_states)
 
@@ -229,3 +234,66 @@ class ChatGLM2WithLora(ChatGLM2ForConditionalGeneration):
             self.load_checkpoint(config)
         # freeze pretrained model
         PetAdapter.freeze_pretrained_model(self, config.pet_config.pet_type)
+
+
+@MindFormerRegister.register(MindFormerModuleType.MODELS)
+class ChatGLM2WithPtuning2(ChatGLM2ForConditionalGeneration):
+    """
+    ChatGLM2 Model for pretraining with p-tuning-v2
+
+    Args:
+        config (ChatGLM2Config): The config of network.
+    """
+
+    def __init__(self, config: ChatGLM2Config = None, **kwargs):
+        ckpt_cfg = config.checkpoint_name_or_path
+        config.checkpoint_name_or_path = None
+        config.pre_seq_len = config.pet_config.pre_seq_len
+
+        super().__init__(config, **kwargs)
+
+        # get Pet tuning model.
+        self.use_past = config.use_past
+        config.pet_config.num_layers = config.num_layers
+        config.pet_config.kv_channels = config.kv_channels
+        if config.multi_query_attention:
+            config.pet_config.num_heads = config.multi_query_group_num
+        else:
+            config.pet_config.num_heads = config.num_attention_heads
+        self.prefix_encoder = PrefixEncoder(
+            config.pet_config.pre_seq_len,
+            config.pet_config.num_layers,
+            config.pet_config.num_heads,
+            config.pet_config.kv_channels,
+            config.pet_config.prefix_projection,
+            config.pet_config.projection_dim,
+            config.pet_config.dropout_prob
+        )
+
+        if ckpt_cfg:
+            # load ckpt
+            config.checkpoint_name_or_path = ckpt_cfg
+            self.load_checkpoint(config)
+
+        # freeze pretrained model
+        PetAdapter.freeze_pretrained_model(self, config.pet_config.pet_type)
+
+    def construct(self, input_ids=None, labels=None, position_ids=None, attention_mask=None,
+                  inputs_embeds=None, input_position=None, init_reset=True,
+                  batch_valid_length=None, prefix_key_values=None):
+
+        if not self.use_past or self.is_first_iteration:
+            batch_size = input_ids.shape[0]
+            prefix_key_values = self.prefix_encoder(batch_size)
+
+        return super().construct(
+            input_ids,
+            labels,
+            position_ids,
+            attention_mask,
+            inputs_embeds,
+            input_position,
+            init_reset,
+            batch_valid_length,
+            prefix_key_values
+        )
