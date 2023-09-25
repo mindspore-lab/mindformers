@@ -271,6 +271,7 @@ class GLMForPreTraining(BaseModel):
             embed_parallel_config=config.parallel_config)
         self.stridedslice = ops.StridedSlice().shard(((1, 1),))
         self.loss = CrossEntropyLoss(parallel_config=config.parallel_config, eps_const=3.4e-38)
+        self.seq_length = config.seq_length
         self.gmask = config.gmask_token_id
         self.bos_token_id = config.bos_token_id
         self.ones = P.Ones()

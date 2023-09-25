@@ -312,3 +312,13 @@ class CausalLanguageModelingTrainer(BaseTrainer):
                                     network=network,
                                     tokenizer=tokenizer,
                                     **kwargs)
+
+
+    def export(self,
+               config: Optional[Union[dict, MindFormerConfig, ConfigArguments, TrainingArguments]] = None,
+               network: Optional[Union[Cell, BaseModel]] = None,
+               **kwargs):
+
+        return self.export_process(config=config,
+                                   network=network,
+                                   **kwargs)

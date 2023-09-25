@@ -76,6 +76,16 @@ def clear_auto_trans_output(config):
         os.makedirs(strategy_dir, exist_ok=True)
         os.makedirs(transformed_ckpt_dir, exist_ok=True)
 
+def create_task_trainer(config):
+    trainer = build_trainer(config.trainer)
+    if config.run_mode == 'train' or config.run_mode == 'finetune':
+        trainer.train(config, is_full_config=True)
+    elif config.run_mode == 'eval':
+        trainer.evaluate(config, is_full_config=True)
+    elif config.run_mode == 'predict':
+        trainer.predict(config, is_full_config=True)
+    elif config.run_mode == 'export':
+        trainer.export(config, is_full_config=True)
 
 @cloud_monitor()
 def main(config):
@@ -124,13 +134,8 @@ def main(config):
     if config.auto_trans_ckpt:
         clear_auto_trans_output(config)
 
-    trainer = build_trainer(config.trainer)
-    if config.run_mode == 'train' or config.run_mode == 'finetune':
-        trainer.train(config, is_full_config=True)
-    elif config.run_mode == 'eval':
-        trainer.evaluate(config, is_full_config=True)
-    elif config.run_mode == 'predict':
-        trainer.predict(config, is_full_config=True)
+    create_task_trainer(config)
+
 
 
 if __name__ == "__main__":
@@ -281,8 +286,8 @@ if __name__ == "__main__":
         config_.profile = args_.profile
     if args_.options is not None:
         config_.merge_from_dict(args_.options)
-    assert config_.run_mode in ['train', 'eval', 'predict', 'finetune'], \
-        f"run status must be in {['train', 'eval', 'predict', 'finetune']}, but get {config_.run_mode}"
+    assert config_.run_mode in ['train', 'eval', 'predict', 'finetune', 'export'], \
+        f"run status must be in {['train', 'eval', 'predict', 'finetune', 'export']}, but get {config_.run_mode}"
     if args_.train_dataset_dir:
         config_.train_dataset.data_loader.dataset_dir = args_.train_dataset_dir
     if args_.eval_dataset_dir:

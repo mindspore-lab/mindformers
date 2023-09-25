@@ -274,6 +274,7 @@ class BloomLMHeadModel(BaseModel):
             loss_parallel_config.model_parallel = 1
 
         self.loss = CrossEntropyLoss(parallel_config=loss_parallel_config)
+        self.seq_length = config.seq_length
         self.load_checkpoint(config)
 
     def prepare_inputs_for_generation(self, input_ids, **kwargs):

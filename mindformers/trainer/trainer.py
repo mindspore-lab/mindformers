@@ -579,6 +579,67 @@ class Trainer:
             is_full_config=True, **kwargs)
         return output_result
 
+
+    def export(self,
+               predict_checkpoint: Optional[Union[str, bool]] = None,
+               auto_trans_ckpt: Optional[bool] = None):
+        """
+        The export API of Trainer. After setting custom settings, implement export by calling the
+        export method of task-trainer instance.
+
+        Args:
+            None
+
+        Return:
+            None
+
+        Raises:
+            TypeError: if predict_checkpoint is not bool or str type.
+            TypeError: if input_data is not Tensor or np.ndarray or Image or str or list.
+        """
+        if predict_checkpoint is not None and not isinstance(predict_checkpoint, (bool, str)):
+            raise TypeError(f"predict_checkpoint must be one of [None, string, bool], "
+                            f"but get {predict_checkpoint}")
+
+        if self.task not in SUPPORT_PIPELINES.keys():
+            raise NotImplementedError(f"The {self.task} not support predict, "
+                                      f"now this tasks {SUPPORT_PIPELINES.keys()} is support predict.")
+
+        if predict_checkpoint is False:
+            predict_checkpoint = None
+
+        if predict_checkpoint is True:
+            self.config.model.model_config.checkpoint_name_or_path = None
+            self.config.load_checkpoint = self.get_last_checkpoint()
+        elif isinstance(predict_checkpoint, str):
+            self.config.model.model_config.checkpoint_name_or_path = None
+            self.config.load_checkpoint = predict_checkpoint
+        else:
+            self.default_checkpoint_name_or_path = self.config.model.model_config.checkpoint_name_or_path
+            if auto_trans_ckpt:
+                if self.is_model_instance:
+                    logger.warning(
+                        "When a model instance is identified,"
+                        "the weights that are currently proposed to be evaluated are specified"
+                        "by the eval_checkpoint argument or a model instance "
+                        "with the model weights already loaded is imported")
+                else:
+                    self.config.load_checkpoint = self.config.model.model_config.checkpoint_name_or_path
+                self.config.model.model_config.checkpoint_name_or_path = None
+            else:
+                self.config.load_checkpoint = None
+
+        if auto_trans_ckpt is not None:
+            self.config.auto_trans_ckpt = auto_trans_ckpt
+
+        if self.is_model_instance:
+            self.reset_model_instance(is_train=False)
+
+        self.trainer.export(config=self.config,
+                            network=self.model,
+                            is_full_config=True)
+
+
     def build_network(self, input_checkpoint: Optional[Union[str, bool]] = None, is_train: bool = True):
         """build network for trainer."""
         if self.model is None and self.task != 'general':
