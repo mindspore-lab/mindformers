@@ -177,20 +177,12 @@ class ChatGLMTokenizer(Tokenizer):
 
     Examples:
         >>> from mindformers import AutoTokenizer
-        >>> tokenize = AutoTokenizer.from_pretrained('glm_6b')
-        >>> tokenize("你好")
+        >>> tokenizer = AutoTokenizer.from_pretrained('glm_6b')
+        >>> input_ids = tokenizer("你好")
+        >>> input_ids
         {'input_ids': [5, 74874, 130001, 130004], 'token_type_ids': [0, 0, 0, 0], 'attention_mask': [1, 1, 1, 1]}
-        >>> from mindformers.models.glm.chatglm_6b_tokenizer import ChatGLMTokenizer
-        >>> tokenizer = ChatGLMTokenizer('ice_text.model')
-        >>> prompts_list = ["晚上睡不着应该怎么办"]
-        >>> token_id = tokenizer(prompts)
-        >>> input_ids = token_id['input_ids']
-        >>> print(input_ids)
-        [[74747, 83400, 64213, 66846, 130001, 130004]]
-        >>> response = tokenizer.decode(input_ids)
-        >>> print(response)
-        ['晚上睡不着应该怎么办']
-
+        >>> tokenizer.decode(input_ids['input_ids'])
+        '你好'
 
     Outputs:
         A dict contains the processed ids, attention_mask that specific by the member `MODEL_INPUT_NAME`
