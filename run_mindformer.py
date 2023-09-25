@@ -91,6 +91,9 @@ def main(config):
 
     # build context config
     logger.info(".........Build context config..........")
+    if config.run_mode == 'predict':
+        if config.use_parallel and config.parallel.parallel_mode == 1 and config.parallel_config.data_parallel != 1:
+            raise ValueError("The value of data parallel can only be set to 1, since the batch size of input is 1. ")
     build_parallel_config(config)
     logger.info("context config is: %s", config.parallel_config)
     logger.info("moe config is: %s", config.moe_config)
