@@ -32,7 +32,7 @@ from mindformers.core.loss.loss import CrossEntropyLoss
 from mindformers.models.base_model import BaseModel
 from mindformers.models.utils import cell_reuse
 from mindformers.modules.transformer.op_parallel_config import _check_config
-from mindformers.modules.transformer import AttentionMask, TransformerOpParallelConfig
+from mindformers.modules.transformer import AttentionMask
 from mindformers.tools.register.register import MindFormerModuleType, MindFormerRegister
 
 from mindformers.models.llama.llama import layer_compute_dtype
@@ -149,6 +149,7 @@ class Baichuan7BV2Model(BaseModel):
             self.gather_past = P.Gather()
             self.expand_dims = P.ExpandDims()
             self.le_past = P.LessEqual()
+
     # pylint: disable=W0613
     def construct(self, tokens: Tensor, input_position=None, init_reset=True, batch_valid_length=None):
         """Forward of llama model."""
@@ -197,7 +198,7 @@ class NormHead(nn.Cell):
             hidden_size (int): The hidden size of the input.
             vocab_size (int): Size of the dictionary of embeddings.
             compute_type (dtype.Number): The compute type.
-            parallel_config (TransformerOpParallelConfig): The parallel config of network.
+            eps (number): A small positive value prevents division by zero.
 
         Inputs:
             - hidden_states (Tensor) - Tensor of shape :math:`(batch, seq_length, hidden_size)`.
@@ -209,8 +210,7 @@ class NormHead(nn.Cell):
                  hidden_size,
                  vocab_size,
                  compute_dtype=mstype.float32,
-                 eps=1e-5,
-                 parallel_config=TransformerOpParallelConfig()):
+                 eps=1e-5):
         super().__init__()
         self.weight = Parameter(
             initializer(HeUniform(negative_slope=math.sqrt(5)),
@@ -222,6 +222,8 @@ class NormHead(nn.Cell):
         self.sqrt = P.Sqrt()
         self.add = P.Add()
         self.real_div = P.RealDiv()
+        self.reshape = P.Reshape()
+        self.sum = P.ReduceSum()
         self.eps = Tensor([eps], mstype.float32)
 
         self.matmul = P.MatMul(transpose_b=True)
@@ -230,11 +232,31 @@ class NormHead(nn.Cell):
         self.hidden_size = hidden_size
         self.vocab_size = vocab_size
 
+    def construct(self, hidden_states):
+        """Forward process of the NormHead"""
+        out_shape = P.Shape()(hidden_states)[:-1] + (self.vocab_size,)
+        hidden_states = self.reshape(hidden_states, (-1, self.hidden_size))
+
+        variance = self.square(self.weight)
+        variance = self.sum(variance, 1)
+        variance = self.reshape(variance, (-1, 1))
+        variance_eps = self.sqrt(self.add(variance, self.eps))
+        norm_weight = self.real_div(self.weight, variance_eps)
+
+        ori_type = hidden_states.dtype
+        out = self.matmul(hidden_states.astype(self.compute_dtype),
+                          norm_weight.astype(self.compute_dtype))
+        out = self.reshape(out, out_shape)
+        return self.cast(out, ori_type)
+
+    def shard(self, parallel_config):
+        """sharding for norm head"""
         if parallel_config.vocab_emb_dp:
             self.square.shard(((1, 1),))
             self.sqrt.shard(((1, 1),))
             self.add.shard(((1, 1), (1,)))
             self.real_div.shard(((1, 1), (1, 1)))
+            self.sum.shard(((1, 1),))
             self.matmul.shard(((parallel_config.data_parallel, 1), (1, 1)))
         else:
             self.square.shard(((parallel_config.model_parallel, 1),))
@@ -242,26 +264,9 @@ class NormHead(nn.Cell):
             self.add.shard(((parallel_config.model_parallel, 1), (1,)))
             self.real_div.shard(((parallel_config.model_parallel, 1),
                                  (parallel_config.model_parallel, 1)))
+            self.sum.shard(((parallel_config.model_parallel, 1),))
             self.matmul.shard(((parallel_config.data_parallel, 1),
                                (parallel_config.model_parallel, 1)))
-
-        if parallel_config.pipeline_stage > 1:
-            self.matmul.pipeline_stage = parallel_config.pipeline_stage - 1
-
-    def construct(self, hidden_states):
-        """Forward process of the NormHead"""
-        out_shape = P.Shape()(hidden_states)[:-1] + (self.vocab_size,)
-        hidden_states = P.Reshape()(hidden_states, (-1, self.hidden_size))
-
-        variance = self.square(self.weight).sum(axis=1).reshape(-1, 1)
-        variance_eps = self.sqrt(self.add(variance, self.eps))
-        norm_weight = self.real_div(self.weight, variance_eps)
-
-        ori_type = hidden_states.dtype
-        out = self.matmul(hidden_states.astype(self.compute_dtype),
-                          norm_weight.astype(self.compute_dtype))
-        out = P.Reshape()(out, out_shape)
-        return self.cast(out, ori_type)
 
 
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
@@ -303,16 +308,21 @@ class Baichuan7BV2ForCausalLM(BaseModel):
         self.model = Baichuan7BV2Model(config=config)
         self.lm_head = NormHead(hidden_size=config.hidden_size,
                                 vocab_size=config.vocab_size,
-                                compute_dtype=config.compute_dtype,
-                                parallel_config=config.parallel_config)
+                                compute_dtype=config.compute_dtype)
         self.loss = CrossEntropyLoss(parallel_config=config.parallel_config)
 
         dp = config.parallel_config.data_parallel
-        if not (_get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation()):
-            self.slice.shard(((dp, 1),))
-            self.not_equal.shard(((dp, 1), ()))
-            self.mul.shard(((dp, 1), (dp, 1)))
-            self.add.shard(((dp, 1), ()))
+        self.slice.shard(((dp, 1),))
+        self.not_equal.shard(((dp, 1), ()))
+        self.mul.shard(((dp, 1), (dp, 1)))
+        self.add.shard(((dp, 1), ()))
+        self.lm_head.shard(config.parallel_config)
+
+        if config.parallel_config.pipeline_stage > 1:
+            self.lm_head.pipeline_stage = config.parallel_config.pipeline_stage - 1
+            self.lm_head.set_comm_fusion(2)
+        else:
+            self.lm_head.set_comm_fusion(config.parallel_config.gradient_aggregation_group)
 
         self.load_checkpoint(config)
 
