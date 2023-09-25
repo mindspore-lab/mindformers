@@ -63,6 +63,7 @@ configs统一在run_xxx.yaml中，排序按照修改频率的顺序和一般的�
     - data_parallel: 数据并行
     - model_parallel: 模型并行
     - pipeline_stage: 流水线并行
+  > 需要满足实际运行的卡数 device_num = data_parallel × model_parallel × pipeline_stage
     - use_seq_parallel: 是否开启序列并行
     - optimizer_shard: 是否开启优化器切分。优化器并行开关，通常在半自动并行模式下生效，与parallel中的enable_parallel_optimizer保持一致，默认将模型权重参数切份data_parallel份
     - micro_batch_num: 流水线并行的微批次大小。pipeline_satge大于1时，开启流水并行时使用，此处需满足micro_batch_num >= pipeline_satge
