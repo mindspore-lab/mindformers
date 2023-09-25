@@ -45,13 +45,9 @@ class CLIPModel(BaseModel):
 
     Examples:
         >>> from mindformers import CLIPModel
-        >>> CLIPModel.show_support_list()
-            INFO - support list of CLIPModel is:
-            INFO -    ['clip_vit_b_32']
-            INFO - -------------------------------------
         >>> model = CLIPModel.from_pretrained('clip_vit_b_32')
         >>> type(model)
-            <class 'mindformers.models.clip.clip.CLIPModel'>
+        <class 'mindformers.models.clip.clip.CLIPModel'>
     """
     _support_list = MindFormerBook.get_model_support_list()['clip']
 
@@ -128,22 +124,6 @@ class CLIPModel(BaseModel):
                     label: The classification label.
             else:
                 loss: Constructive language image pretraining loss.
-
-        Examples:
-            >>> import numpy as np
-            >>> from mindformers import CLIPModel, CLIPProcessor
-            >>> processor = CLIPProcessor.from_pretrained('clip_vit_b_32')
-            >>> model = CLIPModel.from_pretrained('clip_vit_b_32')
-            >>> fake_image_batch = np.random.random((5, 3, 578, 213))
-            >>> fake_text_batch = ["a boy", "a girl", "a women", "a men"]
-            >>> model(**processor(fake_image_batch, fake_text_batch))
-                (Tensor(shape=[5, 4], dtype=Float32, value=
-                [[2.26097965e+001, 2.29247952e+001, 2.40179482e+001, 2.30396290e+001],
-                 [2.26102257e+001, 2.29256859e+001, 2.40180817e+001, 2.30393028e+001],
-                 [2.26097965e+001, 2.29247952e+001, 2.40179482e+001, 2.30396290e+001],
-                 [2.26109924e+001, 2.29261818e+001, 2.40193062e+001, 2.30404854e+001],
-                 [2.26097965e+001, 2.29247952e+001, 2.40179482e+001, 2.30396290e+001]]),
-                 Tensor(shape=[4, 5], dtype=Float32, value= ...))
         """
         if pixel_values is not None:
             image = pixel_values

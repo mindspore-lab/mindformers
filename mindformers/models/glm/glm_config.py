@@ -30,6 +30,92 @@ __all__ = ['GLMConfig']
 class GLMConfig(BaseConfig):
     """
     GLM config class which defines the model size
+    Args:
+        batch_size (`int`, *optional*, defaults to 1):
+            batch size for input data, use in predict.
+        vocab_size (`int`, *optional*, defaults to 130528):
+            Vocabulary size of the GLM model. Defines the maximum number of different tokens that
+            can be represented by the `inputs_ids` passed when calling [`GLMModel`].
+        hidden_size (`int`, *optional*, defaults to 4096):
+            Dimensionality of the embeddings and hidden states.
+        num_layers (`int`, *optional*, defaults to 28):
+            Number of hidden layers in the Transformer encoder.
+        num_heads (`int`, *optional*, defaults to 32):
+            Number of attention heads for each attention layer in the Transformer encoder.
+        inner_hidden_size (`int`, *optional*, defaults to 16384):
+            Dimensionality of hidden states in FeedForward.
+        seq_length (`int`, *optional*, defaults to 512):
+            The sequence length of input_ids, default is 512.
+        embedding_dropout_prob (`float`, *optional*, defaults to 0.0):
+            Dropout rate applied to the embedding probs.
+        attention_dropout_rate (`float`, *optional*, defaults to 0.1):
+            Dropout rate applied to the attention probs.
+        hidden_size_per_attention_head (`int`, *optional*, defaults to None):
+            hidden size per attention head. default "None" means hidden-size/num-attention-heads.
+        layernorm_order (`str`, *optional*, defaults to `post`):
+            define where is the layernorm added in transformer layers,
+            support "pre" "post" "sandwich", default is "post".
+        layernorm_epsilon (`float`, *optional*, defaults to 1.0e-5):
+            epsilon value in layernorm, default is 1.0e-5.
+        use_final_layernorm (`bool`, *optional*, defaults to True):
+            whether to use final layernorm or not after all layers, default is True.
+        embed_parallel_config(EmbeddingOpParallelConfig):
+            The parallel configure. Default `default_embedding_parallel_config`,
+            an instance of `TransformerOpParallelConfig` with default args.
+        parallel_config(TransformerOpParallelConfig):
+            The parallel configure. Default `default_transformer_config`,
+            an instance of `TransformerOpParallelConfig` with default args.
+        moe_config(MoEConfig):
+            The configuration of MoE (Mixture of Expert). Default is an instance of MoEConfig
+            with default values. Please see `MoEConfig`.
+        use_past (`bool`, *optional*, defaults to `False`):
+            Whether or not the model should use the past last key/values attentions
+            (if applicable to the model) to speed up decoding. only available for generation.
+        activation_func (`str`, *optional*, defaults to `GELU`):
+            The activate function used in Linear, default is GELU.
+        position_encoding_2d (`bool`, *optional*, defaults to `True`):
+            Whether to use 2d format of position encoding for GLM model, default is True.
+        param_init_type (`str`, *optional*, defaults to  = "float16"):
+            Network parameter initialization type, default is "float16".
+        layernorm_compute_type (`str`, *optional*, defaults to  = "floa32"):
+            compute dtype for layernorm, default is "float32".
+        softmax_compute_type (`str`, *optional*, defaults to  = "floa32"):
+            compute dtype for softmax, default is "float32".
+        compute_dtype (`str`, *optional*, defaults to  = "floa16"):
+            compute dtype for network, default is "float16".
+        bos_token_id (`int`, *optional*, defaults to 130004):
+            A special token representing the beginning of a sentence.
+        eos_token_id (`int`, *optional*, defaults to 130005):
+            A special token representing the end of a sentence.
+        mask_token_id (`int`, *optional*, defaults to 130000):
+            A special token representing an mask token.
+        gmask_token_id (`int`, *optional*, defaults to 130000):
+            A special token representing an gmask token.
+        pad_token_id (`int`, *optional*, defaults to 3):
+            A special token used to make arrays of tokens the same size for batching purpose.
+            Will then be ignored by attention mechanisms or loss computation.
+        is_enhanced_encoder (`bool`, *optional*, defaults to `True`):
+            glm specified branch control, deprecated.
+        is_sample_acceleration (`bool`, *optional*, defaults to `False`):
+            Whether to do sample in construct to accelerate generation.
+            This can accelerate post process a bit during generation, but will lose the
+            flexibility of generation config, not commended. Default to False.
+        checkpoint_name_or_path (`str`, *optional*, defaults to "")
+            checkpoint path or name used to load to the network.
+        max_decode_length (`int`, *optional*, defaults to 2048):
+            The maximum length the generated tokens can have.
+        top_k (`int`, *optional*, defaults to 5):
+            The number of highest probability vocabulary tokens to keep for top-k-filtering.
+        top_p (`float`, *optional*, defaults to 1.0):
+            If set to float < 1, only the smallest set of most probable tokens with probabilities
+            that add up to `top_p` or higher are kept for generation.
+        repetition_penalty (`float`, *optional*, defaults to 1.0):
+            The parameter for repetition penalty. 1.0 means no penalty. See [this
+            paper](https://arxiv.org/pdf/1909.05858.pdf) for more details.
+        do_sample (`bool`, *optional*, defaults to `False`):
+            Whether or not to use sampling; use greedy decoding otherwise.
+        ignore_index (`int`, *optional*, defaults to -100):
+            index that will be ignored in input_ids and labels for training.
     """
     _support_list = MindFormerBook.get_config_support_list()['glm']
 
@@ -44,7 +130,7 @@ class GLMConfig(BaseConfig):
                  embedding_dropout_prob: float = 0.0,
                  attention_dropout_rate: float = 0.0,
                  hidden_dropout_rate: float = 0.0,
-                 hidden_size_per_attention_head: bool = None,
+                 hidden_size_per_attention_head: int = None,
                  layernorm_order: str = "post",
                  layernorm_epsilon: float = 1.0e-5,
                  use_final_layernorm: bool = True,

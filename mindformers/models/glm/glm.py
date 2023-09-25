@@ -249,6 +249,12 @@ class GLMForPreTraining(BaseModel):
 
     Args:
         config (GLMConfig): The config of GLMModel.
+
+    Examples:
+        >>> from mindformers import GLMForPreTraining
+        >>> model = GLMForPreTraining.from_pretrained("glm_6b")
+        >>> type(model)
+        <class 'mindformers.models.glm.glm.GLMForPreTraining'>
     """
     _support_list = MindFormerBook.get_model_support_list()['glm']
 
