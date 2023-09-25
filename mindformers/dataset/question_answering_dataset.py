@@ -32,6 +32,12 @@ class QuestionAnsweringDataset(BaseDataset):
     """
     Question Answering Dataset.
 
+    Args:
+        dataset_config (dict): Config for dataset.
+
+    Returns:
+        A dataset for QuestionAnsweringDataset.
+
     Examples:
         >>> from mindformers.tools.register import MindFormerConfig
         >>> from mindformers import MindFormerBook
@@ -42,16 +48,11 @@ class QuestionAnsweringDataset(BaseDataset):
         >>> # Initialize a MindFormerConfig instance with a specific config file of yaml.
         >>> config = MindFormerConfig(config_path)
         >>> config.train_dataset.data_loader.dataset_dir = "The required task dataset path"
-            Note:
-                The detailed data setting could refer to
-                https://gitee.com/mindspore/mindformers/blob/r0.3/docs/task_cards/question_answering.md
+        >>> # Note:
+        >>> #     The detailed data setting could refer to
+        >>> #     https://gitee.com/mindspore/mindformers/blob/dev/docs/task_cards/question_answering.md
         >>> check_dataset_config(config)
-        >>> # 1) use config dict to build dataset
-        >>> dataset_from_config = build_dataset(config.train_dataset_task)
-        >>> # 2) use class name to build dataset
-        >>> dataset_from_name = build_dataset(class_name='QuestionAnsweringDataset',
-        ...                                   dataset_config=config.train_dataset_task.dataset_config)
-        >>> # 3) use class to build dataset
+        >>> # use class to build dataset
         >>> dataset_from_class = QuestionAnsweringDataset(config.train_dataset_task.dataset_config)
     """
     def __new__(cls, dataset_config: dict = None):

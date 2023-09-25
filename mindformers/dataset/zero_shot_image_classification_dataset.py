@@ -32,40 +32,24 @@ class ZeroShotImageClassificationDataset(BaseDataset):
         dataset_config (dict): Config for dataset.
 
     Returns:
-        A dataset for ZeroShotImageClassificationTrainer.
+        A dataset for ZeroShotImageClassificationDataset.
 
     Examples:
-        >>> import os
-        >>> from mindformers import MindFormerBook, MindFormerConfig, build_dataset
-        >>> project_path = MindFormerBook.get_project_path()
-        >>> config_path = os.path.join(project_path, "configs", "clip",
-        >>>                     "run_clip_vit_b_32_zero_shot_image_classification_cifar100.yaml")
+        >>> from mindformers.tools.register import MindFormerConfig
+        >>> from mindformers import MindFormerBook
+        >>> from mindformers.dataset import ZeroShotImageClassificationDataset
+        >>> from mindformers.dataset import build_dataset, check_dataset_config
+        >>> config_dict_list = MindFormerBook.get_trainer_support_task_list()
+        >>> config_path = config_dict_list['zero_shot_image_classification']['clip_vit_b_32']
+        >>> # Initialize a MindFormerConfig instance with a specific config file of yaml.
         >>> config = MindFormerConfig(config_path)
-            Note:
-                Put cifar100 dataset to ./
-                The detailed data setting could refer to ./configs/clip/clip.md
-        >>> config.eval_dataset_task.dataset_config.batch_size = 1
-        >>> dataset = build_dataset(config.eval_dataset_task)
-        >>> for item in dataset:
-        >>>     print(item)
-        >>>     break
-        [Tensor(shape=[1, 3, 224, 224], dtype=Float32, value=
-        [[[[1.11282456e+000, 1.11282456e+000, ... 1.47778523e+000, 1.47778523e+000],
-        [1.11282456e+000, 1.11282456e+000, ... 1.47778523e+000, 1.47778523e+000],
-        [1.11282456e+000, 1.11282456e+000, ... 1.47778523e+000, 1.47778523e+000],
-        ...
-        [1.97748125e-001, 1.97748125e-001, ... 1.12205243e+000, 1.12205243e+000],
-        [1.97748125e-001, 1.97748125e-001, ... 1.12205243e+000, 1.12205243e+000],
-        [1.97748125e-001, 1.97748125e-001, ... 1.12205243e+000, 1.12205243e+000]]]]),
-        Tensor(shape=[1, 100, 77], dtype=Int32, value=
-        [[[49406,   320,  1674 ...     0,     0,     0],
-        [49406,   320,  1674 ...     0,     0,     0],
-        [49406,   320,  1674 ...     0,     0,     0],
-        ...
-        [49406,   320,  1674 ...     0,     0,     0],
-        [49406,   320,  1674 ...     0,     0,     0],
-        [49406,   320,  1674 ...     0,     0,     0]]]),
-        Tensor(shape=[1], dtype=Int32, value= [49])]
+        >>> config.train_dataset.data_loader.dataset_dir = "The required task dataset path"
+        >>> # Note:
+        >>> #     The detailed data setting could refer to
+        >>> #     https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/clip.md
+        >>> check_dataset_config(config)
+        >>> # use class to build dataset
+        >>> dataset_from_class = ZeroShotImageClassificationDataset(config.train_dataset_task.dataset_config)
     """
     def __new__(cls, dataset_config: dict = None):
         """New method"""

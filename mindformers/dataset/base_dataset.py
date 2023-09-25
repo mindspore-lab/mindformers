@@ -20,7 +20,13 @@ import mindspore.dataset as ds
 
 
 class BaseDataset:
-    """Base Dataset."""
+    """
+    Base Dataset.
+
+    Args:
+        dataset_config (dict): Config for dataset.
+
+    """
     def __init__(self, dataset_config: dict = None):
         self.dataset_config = dataset_config
 
