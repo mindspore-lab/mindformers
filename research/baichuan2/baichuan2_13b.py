@@ -84,7 +84,6 @@ class Baichuan13BV2ForCausalLM(BaseModel):
         _check_config(config.parallel_config)
         self.ignore_token_id = config.ignore_token_id
         self.pad_token_id = config.pad_token_id
-        self.dtype = config.compute_dtype
 
         self.reshape = P.Reshape()
         self.cast = P.Cast()
@@ -132,14 +131,14 @@ class Baichuan13BV2ForCausalLM(BaseModel):
         output = self.model(tokens, input_position, init_reset, batch_valid_length)
         logits = self.lm_head(output)
 
-        input_mask = self.cast(self.not_equal(tokens, self.pad_token_id), self.dtype)
+        input_mask = self.cast(self.not_equal(tokens, self.pad_token_id), mstype.float32)
         if labels is None:
             labels = self.slice(input_ids, (0, 1), (bsz, seqlen), (1, 1))
         else:
             if labels.ndim > 1:
                 if self.training:
                     labels = self.slice(labels, (0, 1), (bsz, seqlen), (1, 1))
-                label_mask = self.cast(self.not_equal(labels, self.ignore_token_id), self.dtype)
+                label_mask = self.cast(self.not_equal(labels, self.ignore_token_id), mstype.float32)
                 input_mask = self.mul(input_mask, label_mask)
 
         logits = self.cast(logits, mstype.float32)
@@ -177,7 +176,6 @@ class Baichuan13BV2Model(BaseModel):
         _check_config(config.parallel_config)
         if config.batch_size or config.use_past:
             Validator.check_positive_int(config.batch_size)
-        self.dtype = config.compute_dtype
         self.num_layers = config.num_layers
         self.pad_token_id = config.pad_token_id
         self.is_first_iteration = True
@@ -192,10 +190,9 @@ class Baichuan13BV2Model(BaseModel):
             config.seq_length, parallel_config=config.parallel_config.dp_mp_config).to_float(config.compute_dtype)
         self.multiply_data = Tensor([-10000.0], dtype=config.compute_dtype)
         self.one = Tensor([1.0], dtype=config.compute_dtype)
-        self.all_ones_attention_mask_alibi = P.Ones()((1, config.seq_length), self.dtype)
+        self.all_ones_attention_mask_alibi = P.Ones()((1, config.seq_length), mstype.float32)
         self.reshape = P.Reshape()
         self.cast = P.Cast()
-        self.tile = P.Tile()
         self.mul_mask = P.Mul()
         self.mul_alibi = P.Mul()
         self.sub = P.Sub()
@@ -249,7 +246,6 @@ class Baichuan13BV2Model(BaseModel):
         self.tok_embeddings.shard(config.parallel_config)
         self.build_alibi_tensor.shard(config.parallel_config)
 
-        self.tile.shard(((1, 1, 1, 1), ()))
         self.sub.shard(((1,), (dp, 1, 1)))
         self.mul_mask.shard(((dp, 1, 1, 1), (1,)))
         self.mul_alibi.shard(((dp, mp, 1, 1), (dp, 1, 1, 1))) # (dp, mp, 1, 1)
@@ -281,20 +277,19 @@ class Baichuan13BV2Model(BaseModel):
                 batch_valid_length = self.ones((bs, 1), mstype.int32)
 
         if self.is_first_iteration:
-            input_mask = self.cast(self.not_equal(tokens, self.pad_token_id), self.dtype)
+            input_mask = self.cast(self.not_equal(tokens, self.pad_token_id), mstype.float32)
             mask = self.get_attention_mask(input_mask)
-            alibi_tensor = self.build_alibi_tensor(input_mask, self.dtype)
+            alibi_tensor = self.build_alibi_tensor(input_mask, mstype.float32)
             # mask: [bs, seq, seq]
         else:
             cur_pos = batch_valid_length - 1
             valid_length = self.reshape(cur_pos, (-1, 1, 1))
-            mask = self.cast(self.le_past(self.range, valid_length), self.dtype)
-            alibi_tensor = self.build_alibi_tensor(self.all_ones_attention_mask_alibi, self.dtype)
-            alibi_tensor = self.tile(alibi_tensor, (bs, 1, 1, 1))
+            mask = self.cast(self.le_past(self.range, valid_length), mstype.float32)
+            alibi_tensor = self.build_alibi_tensor(self.all_ones_attention_mask_alibi, mstype.float32)
             alibi_tensor = self.gather(alibi_tensor, cur_pos[0], 2)
             alibi_tensor = self.transpose(alibi_tensor, (2, 1, 0, 3))
             # mask: [bs, 1, 1]
-        mask = self.sub(self.one, self.cast(mask, self.dtype))
+        mask = self.sub(self.one, self.cast(mask, mstype.float32))
         if not self.use_flash_attention:
             mask = self.expand_dims(mask, 1)
             mask = self.mul_mask(mask, self.multiply_data)
