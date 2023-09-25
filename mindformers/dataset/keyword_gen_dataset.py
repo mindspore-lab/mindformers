@@ -31,17 +31,32 @@ from mindformers.version_control import get_dataset_map
 
 @MindFormerRegister.register(MindFormerModuleType.DATASET)
 class KeyWordGenDataset(BaseDataset):
-    """Keyword generation dataset.
+    """
+    Keyword generation dataset.
+
+    Args:
+        dataset_config (dict): Config for dataset.
+
+    Returns:
+        A dataset for KeyWordGenDataset.
 
     Examples:
         >>> from mindformers.dataset.dataloader.adgen_dataloader import ADGenDataLoader
-        >>> from mindformers.dataset import build_dataset
-        >>> from mindformers import MindFormerConfig
-        >>> cfg = MindFormerConfig("./configs/glm/run_glm_6b_finetune.yaml")
-        >>> dataset = build_dataset(cfg.eval_dataset_task)
-        >>> for item in dataset.create_dict_iterator():
-        >>>     print(item)
-        >>>     break
+        >>> from mindformers.tools.register import MindFormerConfig
+        >>> from mindformers import MindFormerBook
+        >>> from mindformers.dataset import KeyWordGenDataset
+        >>> from mindformers.dataset import build_dataset, check_dataset_config
+        >>> config_dict_list = MindFormerBook.get_trainer_support_task_list()
+        >>> config_path = config_dict_list['text_generation']['glm_6b']
+        >>> # Initialize a MindFormerConfig instance with a specific config file of yaml.
+        >>> config = MindFormerConfig(config_path)
+        >>> config.train_dataset.data_loader.dataset_dir = "The required task dataset path"
+        >>> # Note:
+        >>> #     The detailed data setting could refer to
+        >>> #     https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/glm.md
+        >>> check_dataset_config(config)
+        >>> # use class to build dataset
+        >>> dataset_from_class = KeyWordGenDataset(config.train_dataset_task.dataset_config)
     """
 
     def __new__(cls, dataset_config: dict = None):
