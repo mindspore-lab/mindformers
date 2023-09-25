@@ -108,7 +108,7 @@ def main(task='text_generation',
     if use_parallel is not None:
         config.use_parallel = use_parallel
     if device_id is not None:
-        config.device_id = device_id
+        config.context.device_id = device_id
     build_context(config)
     # define callback and add profile callback
     if config.profile:
@@ -173,7 +173,7 @@ if __name__ == "__main__":
                         help='set task type.')
     parser.add_argument('--run_mode', default='train', type=str,
                         help='set run mode for model.')
-    parser.add_argument('--seq_length', default=512, type=int,
+    parser.add_argument('--seq_length', default=None, type=int,
                         help='seq_length')
     parser.add_argument('--use_parallel', default=False, type=str2bool,
                         help='open parallel for model.')

@@ -261,7 +261,7 @@ parallel_config:
 ```shell
 # node 1
 cd mindformers/research
-bash run_singlenode.sh \
+bash run_multinode.sh \
 "python baichuan2/run_baichuan2.py \
 --config baichuan2/run_baichuan2_7b.yaml \
 --load_checkpoint path/to/baichuan2_7b_ckpt \
@@ -273,7 +273,7 @@ path/to/rank_table_file [0,8] 16
 
 # node 2
 cd mindformers/research
-bash run_singlenode.sh \
+bash run_multinode.sh \
 "python baichuan2/run_baichuan2.py \
 --config baichuan2/run_baichuan2_7b.yaml \
 --load_checkpoint path/to/baichuan2_7b_ckpt \
@@ -345,7 +345,14 @@ python mindformers/tools/hccl_tools.py --device_num [0,2]
 ```shell
 cd research
 # 推理命令中参数会覆盖yaml文件中的相同参数
-./run_singlenode.sh "python baichuan2/run_baichuan2.py --config baichuan2/run_baichuan2_13b.yaml --run_mode predict --use_parallel True --load_checkpoint model_dir --auto_trans_ckpt True --predict_data 你是谁？" rank_table_file [0,2] 2
+bash ./run_singlenode.sh \
+"python baichuan2/run_baichuan2.py \
+--config baichuan2/run_baichuan2_13b.yaml \
+--run_mode predict \
+--use_parallel True \
+--load_checkpoint model_dir \
+--auto_trans_ckpt True \
+--predict_data 你是谁？" rank_table_file [0,2] 2
 
 # output: [{'text_generation_text': ['你是谁？ \n我是百川大模型，是由百川智能的工程师们创造的大语言模型，我可以和人类进行自然交流、解答问题、协助创作，帮助大众轻松、普惠的获得世界知识和专业服务。如果你有任何问题，可以随时向我提问']}]
 ```
@@ -398,10 +405,24 @@ python ./mindformers/tools/merge_hccl.py hccl*.json
 ```shell
 # node 1
 cd mindformers/research
-bash run_singlenode.sh "python baichuan2/run_baichuan2.py --config baichuan2/run_baichuan2_13b.yaml --load_checkpoint path/to/baichuan2_13b_ckpt --run_mode=train --train_data path/to/mindrecord_dir" path/to/rank_table_file [0,8] 16
+bash run_multinode.sh \
+"python baichuan2/run_baichuan2.py \
+--config baichuan2/run_baichuan2_13b.yaml \
+--load_checkpoint path/to/baichuan2_13b_ckpt \
+--run_mode train \
+--use_parallel True \
+--train_data path/to/mindrecord_dir" \
+path/to/rank_table_file [0,8] 16
 # node 2
 cd mindformers/research
-bash run_singlenode.sh "python baichuan2/run_baichuan2.py --config baichuan2/run_baichuan2_13b.yaml --load_checkpoint path/to/baichuan2_13b_ckpt --run_mode=train --train_data path/to/mindrecord_dir" path/to/rank_table_file [8,16] 16
+bash run_multinode.sh \
+"python baichuan2/run_baichuan2.py \
+--config baichuan2/run_baichuan2_13b.yaml \
+--load_checkpoint path/to/baichuan2_13b_ckpt \
+--run_mode train \
+--use_parallel True \
+--train_data path/to/mindrecord_dir" \
+ path/to/rank_table_file [8,16] 16
 ```
 
 ### 910B
@@ -439,7 +460,12 @@ micro_batch_interleave_num: 1
 ```shell
 cd research
 # 推理命令中参数会覆盖yaml文件中的相同参数
-python baichuan2/run_baichuan2.py --config baichuan2/run_baichuan2_13b.yaml --run_mode predict --use_parallel False --load_checkpoint path/to/baichuan2-13b-chat.ckpt --predict_data 你是谁？
+python baichuan2/run_baichuan2.py \
+--config baichuan2/run_baichuan2_13b.yaml \
+--run_mode predict \
+--use_parallel False \
+--load_checkpoint path/to/baichuan2-13b-chat.ckpt \
+--predict_data 你是谁？
 
 # output: [{'text_generation_text': ['你是谁？ \n我是百川大模型，是由百川智能的工程师们创造的大语言模型，我可以和人类进行自然交流、解答问题、协助创作，帮助大众轻松、普惠的获得世界知识和专业服务。如果你有任何问题，可以随时向我提问']}]
 ```
@@ -478,5 +504,13 @@ python mindformers/tools/hccl_tools.py --device_num [0,8]
 
 ```shell
 cd mindformers/research
-bash run_singlenode.sh "python baichuan2/run_baichuan2.py --config baichuan2/run_baichuan2_13b.yaml --load_checkpoint model_dir --auto_trans_ckpt True --run_mode=train --train_data path/to/mindrecord_dir" path/to/rank_table_file [0,8] 8
+bash run_singlenode.sh \
+"python baichuan2/run_baichuan2.py \
+--config baichuan2/run_baichuan2_13b.yaml \
+--load_checkpoint model_dir \
+--auto_trans_ckpt True \
+--run_mode train \
+--use_parallel True \
+--train_data path/to/mindrecord_dir" \
+path/to/rank_table_file [0,8] 8
 ```

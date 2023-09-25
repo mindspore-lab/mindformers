@@ -153,8 +153,10 @@ model:
     rotary_dtype: "float32"
     param_init_type: "float16"
     use_past: False
+    compute_in_2d: True
+    use_flash_attention: False
     offset: 0
-    checkpoint_name_or_path: "baichuan2_7b"
+    checkpoint_name_or_path: "path/to/baichuan2-7B-Chat.ckpt"
     repetition_penalty: 1.05
     max_decode_length: 512
     top_k: 5
