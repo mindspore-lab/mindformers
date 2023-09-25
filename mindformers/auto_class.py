@@ -622,6 +622,9 @@ class AutoTokenizer:
         local_model_list = cls._support_list[local_model_type]
         if not isinstance(local_model_list, dict) and yaml_name_or_path in local_model_list:
             return False
+        if not isinstance(local_model_list, dict):
+            return True
+
         local_model_names = local_model_list.keys()
         if len(yaml_name_or_path.split('_')) <= cls._model_name or \
             not yaml_name_or_path.split('_')[cls._model_name] in local_model_names:
@@ -758,9 +761,9 @@ class AutoTokenizer:
                     raise FileNotFoundError(f'default yaml file path must be correct, but get {default_yaml_file}')
             class_name = cls._get_class_name_from_yaml(yaml_file)
         else:
-            raise FileNotFoundError(f"{yaml_name_or_path} does not exist. "
-                                    f"You can select one from {cls._support_list.keys()}."
-                                    f"Or make sure the {yaml_name_or_path} is a directory.")
+            raise FileNotFoundError(f"Tokenizer type `{yaml_name_or_path}` does not exist. "
+                                    f"Use `{cls.__name__}.show_support_list()` to check the supported tokenizer. "
+                                    f"Or make sure the `{yaml_name_or_path}` is a directory.")
 
         dynamic_class = MindFormerRegister.get_cls(module_type='tokenizer', class_name=class_name)
         instanced_class = dynamic_class.from_pretrained(yaml_name_or_path)
