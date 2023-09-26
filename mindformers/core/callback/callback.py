@@ -131,8 +131,6 @@ class MFLossMonitor(Callback):
         self.initial_epoch = initial_epoch
         self.global_batch_size = global_batch_size
         self.device_num = device_num
-        self.step_time_list = []
-        self.first_step = True
 
     def epoch_begin(self, run_context):
         """
@@ -202,13 +200,6 @@ class MFLossMonitor(Callback):
             steps_per_epoch = cb_params.batch_num
             cur_epoch_num = cb_params.cur_epoch_num
             cur_step_num = (cb_params.cur_step_num - 1) % cb_params.batch_num + 1
-
-        # add step time to list
-        if overflow != 'False' or self.first_step:
-            self.first_step = False
-        else:
-            self.step_time_list.append(per_step_seconds)
-            per_step_seconds = np.mean(self.step_time_list)
 
         # compute time remaining
         step_remain = (origin_epochs - cur_epoch_num + 1) * steps_per_epoch - cur_step_num
