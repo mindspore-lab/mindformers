@@ -31,27 +31,16 @@ from ..base_trainer import BaseTrainer
 
 @MindFormerRegister.register(MindFormerModuleType.TRAINER)
 class TextClassificationTrainer(BaseTrainer):
-    r"""TextClassification Task For Trainer.
+    """
+    Trainer of text classification task. It provides training, evaluation and prediction interfaces for
+    text classification task, allowing users to quickly start the process according to the model name,
+    and also provides a large number of customizable items to meet user needs.
+
     Args:
-        model_name (str): The model name of Task-Trainer. Default: None
-    Examples:
-        >>> import numpy as np
-        >>> from mindspore.nn import AdamWeightDecay, TrainOneStepCell
-        >>> from mindformers.core.lr import build_lr
-        >>> from mindformers.trainer import TextClassificationTrainer
-        >>> from mindformers.tools.register import MindFormerConfig
-        >>> from mindformers.models import BertForMultipleChoice, BertConfig
-        >>> config = MindFormerConfig("configs/txtcls/run_txtcls_bert_base_uncased.yaml")
-        >>> #1) use default config to train
-        >>> txtcls_task = TextClassificationTrainer(model_name='bert_for_multiple_choice')
-        >>> txtcls_task.train(config=config)
-        >>> txtcls_task.evaluate(config=config)
-        >>> input_data = ["The new rights are nice enough-Everyone really likes the newest benefits ",
-        ...               "i don't know um do you do a lot of camping-I know exactly."]
-        >>> res = txtcls_task.predict(input_data=input_data)
-        >>> #2) use instance function to train
+        model_name (str): The model name of text classification task trainer. Default: None
+
     Raises:
-        NotImplementedError: If train method or evaluate method or predict method not implemented.
+        NotImplementedError: If train method, evaluate method or predict method not implemented.
     """
 
     def __init__(self, model_name: str = None):
@@ -65,11 +54,10 @@ class TextClassificationTrainer(BaseTrainer):
               optimizer: Optional[Optimizer] = None,
               callbacks: Optional[Union[Callback, List[Callback]]] = None,
               **kwargs):
-        r"""Train task for TextClassification Trainer.
-        This function is used to train or fine-tune the network.
-
-        The trainer interface is used to quickly start training for general task.
-        It also allows users to customize the network, optimizer, dataset, wrapper, callback.
+        """
+        The training API of question answering task. It allows to quickly start training or fine-tuning based on
+        initialization conditions or by passing in custom configurations. The configurable items include the network,
+        optimizer, dataset, wrapper, callbacks.
 
         Args:
             config (Optional[Union[dict, MindFormerConfig, ConfigArguments, TrainingArguments]]):
@@ -80,19 +68,19 @@ class TextClassificationTrainer(BaseTrainer):
                 It supports model name or BaseModel or MindSpore Cell class.
                 Default: None.
             dataset (Optional[Union[BaseDataset, GeneratorDataset]]): The training dataset.
-                It support real dataset path or BaseDateset class or MindSpore Dataset class.
+                It supports real dataset path or BaseDateset class or MindSpore Dataset class.
                 Default: None.
-            optimizer (Optional[Optimizer]): The training network's optimizer. It support Optimizer class of MindSpore.
+            optimizer (Optional[Optimizer]): The training network's optimizer. It supports Optimizer class of MindSpore.
                 Default: None.
             wrapper (Optional[TrainOneStepCell]): Wraps the `network` with the `optimizer`.
-                It support TrainOneStepCell class of MindSpore.
+                It supports TrainOneStepCell class of MindSpore.
                 Default: None.
             callbacks (Optional[Union[Callback, List[Callback]]]): The training callback function.
-                It support CallBack or CallBack List of MindSpore.
+                It supports CallBack or CallBack List of MindSpore.
                 Default: None.
 
-        Raises:
-            NotImplementedError: If wrapper not implemented.
+        Returns:
+            None
         """
         self.training_process(
             config=config,
@@ -110,11 +98,10 @@ class TextClassificationTrainer(BaseTrainer):
                  callbacks: Optional[Union[Callback, List[Callback]]] = None,
                  compute_metrics: Optional[Union[dict, set]] = None,
                  **kwargs):
-        r"""Evaluate task for TextClassification Trainer.
-        This function is used to evaluate the network.
-
-        The trainer interface is used to quickly start training for general task.
-        It also allows users to customize the network, dataset, callbacks, compute_metrics.
+        """
+        The evaluation API of question answering task. It allows to quickly start evaluation based on
+        initialization conditions or by passing in custom configurations. The configurable items include the network,
+        dataset, callbacks, compute_metrics and callbacks.
 
         Args:
             config (Optional[Union[dict, MindFormerConfig, ConfigArguments, TrainingArguments]]):
@@ -125,14 +112,17 @@ class TextClassificationTrainer(BaseTrainer):
                 It supports model name or BaseModel or MindSpore Cell class.
                 Default: None.
             dataset (Optional[Union[BaseDataset, GeneratorDataset]]): The evaluate dataset.
-                It support real dataset path or BaseDateset class or MindSpore Dataset class.
+                It supports real dataset path or BaseDateset class or MindSpore Dataset class.
                 Default: None.
             callbacks (Optional[Union[Callback, List[Callback]]]): The training callback function.
-                It support CallBack or CallBack List of MindSpore.
+                It supports CallBack or CallBack List of MindSpore.
                 Default: None.
             compute_metrics (Optional[Union[dict, set]]): The metric of evaluating.
-                It support dict or set in MindSpore's Metric class.
+                It supports dict or set in MindSpore's Metric class.
                 Default: None.
+
+        Returns:
+            None
         """
         metric_name = "Top1 Accuracy"
         kwargs.setdefault("metric_name", metric_name)
@@ -152,7 +142,9 @@ class TextClassificationTrainer(BaseTrainer):
                 tokenizer: Optional[BaseTokenizer] = None,
                 **kwargs):
         """
-        Executes the predict of the trainer.
+        The prediction API of question answering task. It allows to quickly start prediction based on
+        initialization conditions or by passing in custom configurations. The configurable items include the network,
+        input data, and tokenizer.
 
         Args:
             config (Optional[Union[dict, MindFormerConfig, ConfigArguments, TrainingArguments]]):
@@ -167,8 +159,7 @@ class TextClassificationTrainer(BaseTrainer):
                 Default: None.
 
         Returns:
-            A list of prediction.
-
+           A list of prediction results.
         """
         config = self.set_config(config)
 
