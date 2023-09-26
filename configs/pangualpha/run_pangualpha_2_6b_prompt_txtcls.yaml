@@ -98,7 +98,7 @@ eval_dataset: &eval_dataset
     dataset_dir: ""
     shuffle: True
   input_columns: ["input_ids", "labels", "attention_mask"]
-  eos_reset: False
+  eod_reset: False
   num_parallel_workers: 8
   python_multiprocessing: False
   drop_remainder: True
@@ -122,7 +122,8 @@ model:
     num_layers: 32
     num_heads: 32
     pad_token_id: 6
-    eos_token_id: 6
+    eod_token_id: 6
+    eos_token_id: 9
     post_layernorm_residual: False
     param_init_type: 'float32'
     compute_dtype: 'float16'
