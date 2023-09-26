@@ -16,9 +16,10 @@
 Question Answer Trainer.
 """
 from typing import Optional, List, Union
-from mindspore.train import Callback
+
 from mindspore.dataset import GeneratorDataset
 from mindspore.nn import TrainOneStepCell, Optimizer, Cell
+from mindspore.train import Callback
 
 from mindformers.dataset import BaseDataset
 from mindformers.models import BaseModel, BaseTokenizer
@@ -31,25 +32,19 @@ from ..training_args import TrainingArguments
 
 __all__ = ['QuestionAnsweringTrainer']
 
+
 @MindFormerRegister.register(MindFormerModuleType.TRAINER)
 class QuestionAnsweringTrainer(BaseTrainer):
-    r"""QuestionAnswering Task For Trainer.
+    """
+    Trainer of question answering task. It provides training, evaluation and prediction interfaces for
+    question answering task, allowing users to quickly start the process according to the model name,
+    and also provides a large number of customizable items to meet user needs.
+
     Args:
-        model_name (str): The model name of Task-Trainer. Default: None
-    Examples:
-            >>> import numpy as np
-            >>> from mindspore.nn import AdamWeightDecay, TrainOneStepCell
-            >>> from mindformers.core.lr import build_lr
-            >>> from mindformers.trainer import GeneralTaskTrainer
-            >>> from mindformers.tools.register import MindFormerConfig
-            >>> from mindformers.models import BertForQuestionAnswering, BertConfig
-            >>> config = MindFormerConfig("configs/qa/run_qa_bert_base_uncased.yaml")
-            >>> #1) use config to train
-            >>> cls_task = QuestionAnsweringTrainer(model_name='qa_bert_base_uncased')
-            >>> cls_task.train(config=config)
-            >>> #2) use instance function to train
+        model_name (str): The model name of question answering task trainer. Default: None
+
     Raises:
-        NotImplementedError: If train method or evaluate method or predict method not implemented.
+        NotImplementedError: If train method, evaluate method or predict method not implemented.
     """
 
     def __init__(self, model_name: str = None):
@@ -63,11 +58,10 @@ class QuestionAnsweringTrainer(BaseTrainer):
               optimizer: Optional[Optimizer] = None,
               callbacks: Optional[Union[Callback, List[Callback]]] = None,
               **kwargs):
-        r"""Train task for TokenClassification Trainer.
-        This function is used to train or fine-tune the network.
-
-        The trainer interface is used to quickly start training for general task.
-        It also allows users to customize the network, optimizer, dataset, wrapper, callback.
+        """
+        The training API of question answering task. It allows to quickly start training or fine-tuning based on
+        initialization conditions or by passing in custom configurations. The configurable items include the network,
+        optimizer, dataset, wrapper, and callbacks.
 
         Args:
             config (Optional[Union[dict, MindFormerConfig, ConfigArguments, TrainingArguments]]):
@@ -78,19 +72,19 @@ class QuestionAnsweringTrainer(BaseTrainer):
                 It supports model name or BaseModel or MindSpore Cell class.
                 Default: None.
             dataset (Optional[Union[BaseDataset, GeneratorDataset]]): The training dataset.
-                It support real dataset path or BaseDateset class or MindSpore Dataset class.
+                It supports real dataset path or BaseDateset class or MindSpore Dataset class.
                 Default: None.
-            optimizer (Optional[Optimizer]): The training network's optimizer. It support Optimizer class of MindSpore.
+            optimizer (Optional[Optimizer]): The training network's optimizer. It supports Optimizer class of MindSpore.
                 Default: None.
             wrapper (Optional[TrainOneStepCell]): Wraps the `network` with the `optimizer`.
-                It support TrainOneStepCell class of MindSpore.
+                It supports TrainOneStepCell class of MindSpore.
                 Default: None.
             callbacks (Optional[Union[Callback, List[Callback]]]): The training callback function.
-                It support CallBack or CallBack List of MindSpore.
+                It supports CallBack or CallBack List of MindSpore.
                 Default: None.
 
-        Raises:
-            NotImplementedError: If wrapper not implemented.
+        Returns:
+            None
         """
         self.training_process(
             config=config,
@@ -108,11 +102,10 @@ class QuestionAnsweringTrainer(BaseTrainer):
                  callbacks: Optional[Union[Callback, List[Callback]]] = None,
                  compute_metrics: Optional[Union[dict, set]] = None,
                  **kwargs):
-        r"""Evaluate task for TokenClassification Trainer.
-        This function is used to evaluate the network.
-
-        The trainer interface is used to quickly start training for general task.
-        It also allows users to customize the network, dataset, callbacks, compute_metrics.
+        """
+        The evaluation API of question answering task. It allows to quickly start evaluation based on
+        initialization conditions or by passing in custom configurations. The configurable items include the network,
+        dataset, callbacks, compute_metrics and callbacks.
 
         Args:
             config (Optional[Union[dict, MindFormerConfig, ConfigArguments, TrainingArguments]]):
@@ -123,14 +116,17 @@ class QuestionAnsweringTrainer(BaseTrainer):
                 It supports model name or BaseModel or MindSpore Cell class.
                 Default: None.
             dataset (Optional[Union[BaseDataset]]): The evaluate dataset.
-                It support real dataset path or BaseDateset class or MindSpore Dataset class.
+                It supports real dataset path or BaseDateset class or MindSpore Dataset class.
                 Default: None.
             callbacks (Optional[Union[Callback, List[Callback]]]): The eval callback function.
-                It support CallBack or CallBack List of MindSpore.
+                It supports CallBack or CallBack List of MindSpore.
                 Default: None.
             compute_metrics (Optional[Union[dict, set]]): The metric of evaluating.
-                It support dict or set in MindSpore's Metric class.
+                It supports dict or set in MindSpore's Metric class.
                 Default: None.
+
+        Returns:
+            None
         """
         metric_name = "QA Metric"
         kwargs.setdefault("metric_name", metric_name)
@@ -150,7 +146,9 @@ class QuestionAnsweringTrainer(BaseTrainer):
                 tokenizer: Optional[BaseTokenizer] = None,
                 **kwargs):
         """
-        Executes the predict of the trainer.
+        The prediction API of question answering task. It allows to quickly start prediction based on
+        initialization conditions or by passing in custom configurations. The configurable items include the network,
+        input data, and tokenizer.
 
         Args:
             config (Optional[Union[dict, MindFormerConfig, ConfigArguments, TrainingArguments]]):
@@ -163,8 +161,9 @@ class QuestionAnsweringTrainer(BaseTrainer):
                 Default: None.
             tokenizer (Optional[BaseTokenizer]): The tokenizer for tokenizing the input text.
                 Default: None.
+
         Returns:
-            A list of prediction.
+            A list of prediction results.
         """
 
         logger.info(".........Build Input Data For Predict..........")
