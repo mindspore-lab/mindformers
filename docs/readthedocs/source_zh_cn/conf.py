@@ -87,7 +87,6 @@ copy_path = ['../../../README.md',
              '../../FAQ.md',
              '../../model_support_list.md',
              '../../transformer仓Python编程规范.md'
-             '../../aicc_cards',
              '../../feature_cards',
              '../../model_cards',
              '../../task_cards']
@@ -124,7 +123,7 @@ for file_path in copy_path:
 with open('README.md', 'r') as f:
     title_list = ['Introduction', 'Install', 'Version_Match',
                   'Quick_Tour', 'Contribution', 'License']
-    title_for_index = ['# 一、介绍', '# 二、安装', '# 三、版本配套', '# 四、快速开始', '-', '-']
+    title_for_index = ['# 介绍', '# 安装', '# 版本配套', '# 快速开始', '-', '-']
     file_count = 0
     fn = None
     for line in f:
