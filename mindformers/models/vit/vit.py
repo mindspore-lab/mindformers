@@ -1,4 +1,4 @@
-# Copyright 2022 Huawei Technologies Co., Ltd
+# Copyright 2023 Huawei Technologies Co., Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -40,12 +40,16 @@ class ViTModel(BaseModel):
         config (ViTConfig): the config of Vit model.
 
     Examples:
+        >>> from mindformers import ViTModel, AutoConfig
         >>> # input model name, load model and weights
         >>> model_a = ViTModel.from_pretrained('vit_base_p16')
+        >>> type(model_a)
+        <class 'mindformers.models.vit.vit.ViTModel'>
         >>> # input config, load model without weights
-        >>> from mindformers import AutoConfig
         >>> config = AutoConfig.from_pretrained('vit_base_p16')
         >>> model_b = ViTModel(config)
+        >>> type(model_b)
+        <class 'mindformers.models.vit.vit.ViTModel'>
     """
     _support_list = MindFormerBook.get_model_support_list()['vit']
 

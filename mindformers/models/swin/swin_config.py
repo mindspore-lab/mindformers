@@ -1,4 +1,4 @@
-# Copyright 2022 Huawei Technologies Co., Ltd
+# Copyright 2023 Huawei Technologies Co., Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -35,46 +35,74 @@ class SwinConfig(BaseConfig):
     Swin config class which defines the model size
 
     Args:
-         image_size: The input image size, Default 224.
-         patch_size: patch size, Default 4.
-         num_channels: channels of input images, Default 3.
-         embed_dim: embedding dimension, Default 128.
-         depths: number of transformer blocks for each swin layer, Default (2, 2, 18, 2).
-         num_heads: number of attention heads for each swin layer, Default (4, 8, 16, 32).
-         window_size: window size for swin, Default 7.
-         shift_size: window shift size, Default 0.
-         mlp_ratio: ffn_hidden_size = mlp_ratio * embed_dim, Default 4.
-         qkv_bias: has transformer qkv bias or not, Default True.
-         hidden_dropout_prob: drop rate of MLP, Default 0.
-         attention_probs_dropout_prob: drop rate of Attention, Default 0.
-         drop_path_rate: drop path rate of transformer blocks, Default 0.1.
-         use_absolute_embeddings: if using absolute position embedding, Default False.
-         patch_norm: use norm in SwinPatchEmbeddings, Default True.
-         hidden_act: activation of MLP, Default "gelu".
-         weight_init: weight initialize type, Default "normal".
-         num_labels: number of labels in downstream tasks, Default 1000.
-         loss_type: loss type, Default "SoftTargetCrossEntropy".
-         param_init_type:, Default mstype.float32.
-         moe_config:, Default default_moe_config.
-         parallel_config:, Default default_parallel_config.
-         checkpoint_name_or_path:, Default "swin_base_p4w7".
-         **kwargs
+         image_size (`int`, *optional*, defaults to 224):
+            The size (resolution) of each image.
+         patch_size (`int`, *optional*, defaults to 4):
+            The size (resolution) of each patch.
+         num_channels (`int`, *optional*, defaults to 3):
+            The number of input channels.
+         embed_dim (`int`, *optional*, defaults to 128):
+            Dimensionality of patch embedding.
+         depths (`list(int)`, *optional*, defaults to [2, 2, 18, 2]):
+            Depth of each layer in the Transformer encoder.
+         num_heads (`list(int)`, *optional*, defaults to [4, 8, 16, 32]):
+            Number of attention heads in each layer of the Transformer encoder.
+         window_size (`int`, *optional*, defaults to 7):
+            Size of windows.
+         shift_size (`int`, *optional*, defaults to 0):
+            The window shift size.
+         mlp_ratio (`float`, *optional*, defaults to 4.0):
+            Ratio of MLP hidden dimensionality to embedding dimensionality.
+         qkv_bias (`bool`, *optional*, defaults to True):
+            Whether a learnable bias should be added to the queries, keys and values.
+         hidden_dropout_prob (`float`, *optional*, defaults to 0.0):
+            The dropout probability for all fully connected layers in the embeddings and encoder.
+         attention_probs_dropout_prob (`float`, *optional*, defaults to 0.0):
+            The dropout ratio for the attention probabilities.
+         drop_path_rate (`float`, *optional*, defaults to 0.1):
+            Stochastic depth rate.
+         use_absolute_embeddings (`bool`, *optional*, defaults to False):
+            Whether to add absolute position embeddings to the patch embeddings.
+         patch_norm (`bool`, *optional*, defaults to `True`):
+            Whether to use norm in SwinPatchEmbeddings.
+         hidden_act (`str` or `function`, *optional*, defaults to `"gelu"`):
+            The non-linear activation function (function or string) in the encoder. If string, `"gelu"`, `"relu"`,
+            `"selu"` and `"gelu_new"` are supported.
+         weight_init (`str`, *optional*, defaults to "normal"):
+            Weight initialize type.
+         num_labels (`int`, *optional*, defaults to 1000):
+            The number of labels in downstream tasks.
+         loss_type (`str`, *optional*, defaults to "SoftTargetCrossEntropy"):
+            The type of loss function.
+         param_init_type (`str`, *optional*, defaults to "float32"):
+            Network parameter initialization type.
+         moe_config(MoEConfig):
+            The configuration of MoE (Mixture of Expert). Default is an instance of MoEConfig
+            with default values. Please see `MoEConfig`.
+         parallel_config(TransformerOpParallelConfig):
+            The parallel configure. Default `default_transformer_config`,
+            an instance of `TransformerOpParallelConfig` with default args.
+         checkpoint_name_or_path (`string`, *optional*, defaults to "swin_base_p4w7):
+            checkpoint path or name used to load to the network.
 
     Examples:
-        >>> # init a config with a model name
-        >>> config_a = SwinConfig.from_pretrained('swin_base_p4w7')
-        >>> # init a config with a config path
         >>> import os
         >>> from mindformers.mindformer_book import MindFormerBook
+        >>> from mindformers import SwinConfig
+        >>> # init a config with a model name
+        >>> config_a = SwinConfig.from_pretrained('swin_base_p4w7')
+        >>> type(config_a)
+        <class 'mindformers.models.swin.swin_config.SwinConfig'>
+        >>> # init a config with a config path
         >>> config_path = os.path.join(MindFormerBook.get_project_path(),
-        >>>                        'configs', 'swin', 'run_swin_base_p4w7_224_100ep.yaml')
+        ...                        'configs', 'swin', 'run_swin_base_p4w7_224_100ep.yaml')
         >>> config_b = SwinConfig.from_pretrained(config_path)
+        >>> type(config_b)
+        <class 'mindformers.models.swin.swin_config.SwinConfig'>
         >>> # init a config with args
-        >>> config_c = SwinConfig(
-        >>>     patch_size=4,
-        >>>     in_chans=3,
-        >>>     ...
-        >>>     )
+        >>> config_c = SwinConfig()
+        >>> type(config_c)
+        <class 'mindformers.models.swin.swin_config.SwinConfig'>
     """
     _support_list = MindFormerBook.get_config_support_list()['swin']
 

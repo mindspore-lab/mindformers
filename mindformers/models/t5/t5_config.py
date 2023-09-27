@@ -28,6 +28,101 @@ __all__ = ['T5Config']
 class T5Config(BaseConfig):
     """
     T5 config class which defines the model size
+
+    Args:
+        vocab_size (`int`, *optional*, defaults to 32128):
+            Vocabulary size of the T5 model. Defines the number of different tokens that can be represented by the
+            `inputs_ids` passed when calling [`T5ForConditionalGeneration`].
+        hidden_size (`int`, *optional*, defaults to 512):
+            Dimension of the embeddings and hidden states.
+        d_kv (`int`, *optional*, defaults to 64):
+            Size of the key, query, value projections per attention head. The `inner_dim` of the projection layer will
+            be defined as `num_heads * d_kv`.
+        d_ff (`int`, *optional*, defaults to 2048):
+            Size of the intermediate feed forward layer in each `T5Block`.
+        num_layers (`int`, *optional*, defaults to 6):
+            Number of hidden layers in the Transformer encoder.
+        num_decoder_layers (`int`, *optional*):
+            Number of hidden layers in the Transformer decoder. Will use the same value as `num_layers` if not set.
+        num_heads (`int`, *optional*, defaults to 8):
+            Number of attention heads for each attention layer in the Transformer encoder.
+        relative_attention_num_buckets (`int`, *optional*, defaults to 32):
+            The number of buckets to use for each attention layer.
+        hidden_dropout_rate (`float`, *optional*, defaults to 0.1):
+            Dropout rate of the dropout function on the bias dropout.
+        attention_dropout_rate (`float`, *optional*, defaults to 0.1):
+            Dropout rate applied to the attention probs.
+        embedding_dropout_prob (`float`, *optional*, defaults to 0.0):
+            Dropout rate applied to the embedding probs.
+        layer_norm_epsilon (`float`, *optional*, defaults to 1e-6):
+            The epsilon of layer norm in Transformer.
+        initializer_factor (`float`, *optional*, defaults to 1.0):
+            A factor for initializing all weight matrices (should be kept to 1, used internally for initialization
+            testing).
+        is_encoder_decoder (`bool`, *optional*, defaults to `False`):
+            Whether the model if Transformer encoder-decoder structure.
+        use_cache (`bool`, *optional*, defaults to `True`):
+            Whether the model should return the last key/values attentions (not used by all models).
+        pad_token_id (`int`, *optional*, defaults to 0):
+            A special token used to make arrays of tokens the same size for batching purpose. Will then be ignored by
+            attention mechanisms or loss computation.
+        start_token_id (`int`, *optional*, defaults to 1):
+            A special token representing the beginning of a sentence.
+        eos_token_id (`int`, *optional*, defaults to 2):
+            A special token representing the end of a sentence.
+        batch_size (`int`, *optional*, defaults to 1):
+            Batch size for input data, use in train/finetune/evaluate/predict.
+        seq_length (`int`, *optional*, defaults to 1024):
+            The sequence length of input_ids, defaults is 1024.
+        max_position_embeddings (`int`, *optional*, defaults to 1024):
+            Maximum length of sequences used in this model.
+        initializer_range (`float`, *optional*, defaults to 0.02):
+            Initialization value of TruncatedNormal in embedding layers.
+        max_decode_length (`int`, *optional*, defaults to 128):
+            The maximum length the generated tokens can have.
+        compute_dtype (`str`, *optional*, defaults to "float32):
+            Linear layer compute dtype.
+        has_relative_bias (`bool`, *optional*, defaults to `True`):
+            Whether to add bias to the result of query multiply value matrix.
+        scale_output (`bool`, *optional*, defaults to `True`):
+            Whether to scale the output of decoder.
+        parallel_config (TransformerOpParallelConfig, defaults to default_transformer_config):
+            The parallel configure. Default `default_transformer_config`,
+            an instance of `TransformerOpParallelConfig` with default args.
+        checkpoint_name_or_path (`str`, *optional*, defaults to None):
+            checkpoint path or name used to load to the network.
+        top_p (`float`, *optional*, defaults to 0.95):
+            If set to float < 1, only the smallest set of most probable tokens with probabilities
+            that add up to `top_p` or higher are kept for generation.
+        top_k (`int`, *optional*, defaults to 1):
+            The number of the highest probability vocabulary tokens to keep for top-k-filtering.
+        repetition_penalty (`float`, *optional*, defaults to 1.0):
+            The parameter for repetition penalty. 1.0 means no penalty. See [this
+            paper](https://arxiv.org/pdf/1909.05858.pdf) for more details.
+        max_length (`int`, *optional*, defaults to 20):
+            The maximum length the generated tokens can have.
+        do_sample (`bool`, *optional*, defaults to `False`):
+            Whether to use sampling ; use greedy decoding otherwise.
+        param_init_type (`float`, *optional*, defaults to "float32"):
+            The type of parameters initializer.
+        layernorm_compute_type (`str`, *optional*, defaults to "float32"):
+            layernorm compute dtype.
+        softmax_compute_type (`str`, *optional*, defaults to "float32"):
+            softmax compute dtype.
+        hidden_act (`str` or `Callable`, *optional*, defaults to "relu"):
+            The non-linear activation function (function or string) in the encoder and pooler.
+        post_layernorm_residual (`bool`, *optional*, defaults to `False`):
+            Whether to use post layernorm in Transformer.
+        offset (`int`, *optional*, defaults to 1):
+            The offset value of the layer_index in pipeline parallel.
+        use_past (`bool`, *optional*, defaults to `False`):
+            Whether the model should use the past last key/values attentions
+        moe_config (MoEConfig):
+            The configuration of MoE (Mixture of Expert). Default is an instance of MoEConfig
+            with default values. Please see `MoEConfig`.
+
+    Returns:
+        Class, T5Config.
     """
     _support_list = MindFormerBook.get_config_support_list()['t5']
 
