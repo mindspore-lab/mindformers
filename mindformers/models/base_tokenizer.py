@@ -37,7 +37,7 @@ import mindspore as ms
 from mindformers.tools import logger
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType, MindFormerConfig
 from .build_tokenizer import build_tokenizer
-from ..tools.download_tools import download_with_progress_bar
+from ..tools.download_tools import download_with_progress_bar, del_incomplete_download_file
 from ..tools.utils import try_sync_file
 from ..mindformer_book import MindFormerBook
 
@@ -2038,6 +2038,7 @@ class BaseTokenizer(SpecialTokensMixin):
         for url_file in tokenizer_need_files:
             local_file_name = url_file.split('/')[-1]
             file_path = os.path.join(cache_path, local_file_name)
+            del_incomplete_download_file(file_path)
             if not os.path.exists(file_path):
                 logger.info("Download the vocab from the url %s to %s.", url_file, file_path)
                 download_with_progress_bar(url_file, file_path)
@@ -2060,6 +2061,7 @@ class BaseTokenizer(SpecialTokensMixin):
         for url_file in tokenizer_need_files:
             local_file_name = url_file.split('/')[-1]
             file_path = os.path.join(cache_path, local_file_name)
+            del_incomplete_download_file(file_path)
             if not os.path.exists(file_path):
                 logger.info("Download the yaml from the url %s to %s.", url_file, file_path)
                 download_with_progress_bar(url_file, file_path)
