@@ -23,6 +23,7 @@ import mindspore as ms
 import gradio as gr
 
 from mindformers import AutoModel, AutoTokenizer, TextIteratorStreamer, AutoConfig, logger
+from mindformers.tools.utils import str2bool
 
 
 def get_model_and_tokenizer(model_config, tokenizer_name):
@@ -38,7 +39,7 @@ parser.add_argument('--model', type=str, help='Which model to generate text.')
 parser.add_argument('--tokenizer', type=str, help='Which tokenizer to tokenize text.')
 parser.add_argument('--checkpoint_path', type=str, default=None, help='The path of model checkpoint.')
 parser.add_argument('--seq_length', default="512", type=int, help="Sequence length of the model. Default: 512.")
-parser.add_argument('--use_past', default=False, type=bool,
+parser.add_argument('--use_past', default=False, type=str2bool,
                     help='Whether to enable incremental inference. Default: False.')
 parser.add_argument('--host', default="127.0.0.1", type=str,
                     help="Which host ip to run the service. Default: 127.0.0.1.")
