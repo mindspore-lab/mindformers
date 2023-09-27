@@ -87,3 +87,7 @@ def get_identity():
     if is_version_ge(ms.__version__, "1.11.0"):
         return nn.Identity()
     return F.identity
+
+def fix_optim_global_step_sig():
+    # when the version of mindspore bigger than 2.2.0, it should update global step explicitly.
+    return is_version_ge(ms.__version__, "2.2.0")
