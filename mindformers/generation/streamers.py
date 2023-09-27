@@ -17,6 +17,10 @@
 """Streamers for text generation."""
 from queue import Queue
 from typing import Optional
+try:
+    from mindspore._checkparam import Validator
+except ImportError:
+    import mindspore._checkparam as Validator
 from mindformers.models.base_tokenizer import BaseTokenizer
 
 __all__ = ['BaseStreamer', 'TextStreamer', 'TextIteratorStreamer']
@@ -75,6 +79,7 @@ class TextStreamer(BaseStreamer):
                  tokenizer: Optional[BaseTokenizer] = None,
                  skip_prompt: bool = False,
                  **decode_kwargs):
+        Validator.check_value_type("skip_prompt", skip_prompt, [bool], self.__class__.__name__)
         self.tokenizer = tokenizer
         self.skip_prompt = skip_prompt
         self.decode_kwargs = decode_kwargs
