@@ -31,22 +31,16 @@ from ..training_args import TrainingArguments
 
 @MindFormerRegister.register(MindFormerModuleType.TRAINER)
 class TranslationTrainer(BaseTrainer):
-    r"""Translation Task For Trainer.
+    """
+    Trainer of translation task. It provides training and prediction interfaces for
+    translation task, allowing users to quickly start the process according to the model name,
+    and also provides a large number of customizable items to meet user needs.
+
     Args:
-        model_name (str): The model name of Task-Trainer. Default: None
-    Examples:
-        >>> from mindformers.trainer import TranslationTrainer
-        >>> from mindformers import T5ForConditionalGeneration, TranslationTrainer
-        >>> # follow the instruction in t5 section in the README.md and download wmt16 dataset.
-        >>> # change the dataset_files path of configs/t5/wmt16_dataset.yaml
-        >>> trans_trainer = TranslationTrainer(model_name='t5_small')
-        >>> trans_trainer.train()
-        >>> model = T5ForConditionalGeneration.from_pretrained('t5_small')
-        >>> trans_trainer = TranslationTrainer(model_name="t5_small")
-        >>> res = trans_trainer.predict(input_data="translate the English to Romanian: a good boy!", network=model)
-            [{'translation_text': ['hello world']}]
+        model_name (str): The model name of translation task trainer. Default: None
+
     Raises:
-        NotImplementedError: If train method or evaluate method or predict method not implemented.
+        NotImplementedError: If train method, evaluate method or predict method not implemented.
     """
     def __init__(self, model_name: str = None):
         super(TranslationTrainer, self).__init__("translation", model_name)
@@ -59,11 +53,10 @@ class TranslationTrainer(BaseTrainer):
               optimizer: Optional[Optimizer] = None,
               callbacks: Optional[Union[Callback, List[Callback]]] = None,
               **kwargs):
-        r"""Train task for Translation Trainer.
-        This function is used to train or fine-tune the network.
-
-        The trainer interface is used to quickly start training for general task.
-        It also allows users to customize the network, optimizer, dataset, wrapper, callback.
+        """
+        The training API of translation task. It allows to quickly start training or fine-tuning based on
+        initialization conditions or by passing in custom configurations. The configurable items include the network,
+        optimizer, dataset, wrapper, and callbacks.
 
         Args:
             config (Optional[Union[dict, MindFormerConfig, ConfigArguments, TrainingArguments]]):
@@ -74,18 +67,19 @@ class TranslationTrainer(BaseTrainer):
                 It supports model name or BaseModel or MindSpore Cell class.
                 Default: None.
             dataset (Optional[Union[BaseDataset, GeneratorDataset]]): The training dataset.
-                It support real dataset path or BaseDateset class or MindSpore Dataset class.
+                It supports real dataset path or BaseDateset class or MindSpore Dataset class.
                 Default: None.
             optimizer (Optional[Optimizer]): The training network's optimizer. It support Optimizer class of MindSpore.
                 Default: None.
             wrapper (Optional[TrainOneStepCell]): Wraps the `network` with the `optimizer`.
-                It support TrainOneStepCell class of MindSpore.
+                It supports TrainOneStepCell class of MindSpore.
                 Default: None.
             callbacks (Optional[Union[Callback, List[Callback]]]): The training callback function.
-                It support CallBack or CallBack List of MindSpore.
+                It supports CallBack or CallBack List of MindSpore.
                 Default: None.
-        Raises:
-            NotImplementedError: If wrapper not implemented.
+
+        Returns:
+            None
         """
         self.training_process(
             config=config,
@@ -107,7 +101,9 @@ class TranslationTrainer(BaseTrainer):
                 tokenizer: Optional[BaseTokenizer] = None,
                 **kwargs):
         """
-        Executes the predict of the trainer.
+        The prediction API of translation task. It allows to quickly start prediction based on
+        initialization conditions or by passing in custom configurations. The configurable items include the network,
+        input data, and tokenizer.
 
         Args:
             config (Optional[Union[dict, MindFormerConfig, ConfigArguments, TrainingArguments]]):
@@ -122,8 +118,9 @@ class TranslationTrainer(BaseTrainer):
                 Default: None.
             tokenizer (Optional[BaseTokenizer]): The tokenizer for tokenizing the input text.
                 Default: None.
+
         Returns:
-            A list of prediction.
+            A list of prediction results.
 
         """
         if input_data is None:

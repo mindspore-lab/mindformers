@@ -59,23 +59,22 @@ DEFAULT_CONFIG_DIR = 'configs'
 
 
 class Trainer:
-    r"""
-    Trainer package to train\evaluate\predict class.
-
-    The trainer interface is used to quickly start training, evaluation and predict
-    for integrated tasks. It also allows users to customize the model, optimizer, dataset,
-    tokenizer, processor, train_one_step, callback, and metric.
+    """
+    Executor of general task trainers. It can initialize a trainer instance of the specific task through the task name
+    and configuration file. It provides users with the ability to implement different tasks by encapsulating
+    the training, fine-tuning evaluation and prediction of trainer instance. It also allows users to customize
+    the model, optimizer, dataset, tokenizer, processor, train_one_step, callback, and metric.
 
     Args:
         args (Optional[Union[str, dict, ConfigArguments, TrainingArguments]]): The task config which is used to
-            configure the dataset, the hyper-parameter, optimizer, etc. It support yaml path or
+            configure the dataset, the hyper-parameter, optimizer, etc. It supports yaml path or
             config dict or ConfigArguments class.
             Default: None.
         task (str): The task name supported.
             Please refer to https://gitee.com/mindspore/transformer#%E4%BB%8B%E7%BB%8D.
             Default: 'general'.
         model (Optional[Union[str, Cell, BaseModel]]): The network for trainer.
-            It support model name supported or BaseModel or MindSpore Cell class.
+            It supports model name supported or BaseModel or MindSpore Cell class.
             Supported model name can refer to https://gitee.com/mindspore/transformer#%E4%BB%8B%E7%BB%8D.
             Default: None.
         model_name (Optional[Union[str]]): The model name supported. Default: None.
@@ -88,80 +87,29 @@ class Trainer:
         tokenizer (Optional[BaseTokenizer]): The tokenizer for text preprocessing. It support BaseTokenizer class.
             Default: None.
         image_processor (Optional[BaseImageProcessor]): The processor for image preprocessing.
-            It support BaseImageProcessor class.
+            It supports BaseImageProcessor class.
             Default: None.
         audio_processor (Optional[BaseAudioProcessor]): The processor for audio preprocessing.
-            It support BaseAudioProcessor class.
+            It supports BaseAudioProcessor class.
             Default: None.
         optimizers (Optional[Optimizer]): The training network's optimizer. It support Optimizer class of MindSpore.
             Default: None.
         wrapper (Optional[TrainOneStepCell]): Wraps the `network` with the `optimizer`.
-            It support TrainOneStepCell class of MindSpore.
+            It supports TrainOneStepCell class of MindSpore.
             Default: None.
         callbacks (Optional[Union[Callback, List[Callback]]]): The training callback function.
-            It support CallBack or CallBack List of MindSpore.
+            It supports CallBack or CallBack List of MindSpore.
             Default: None.
         eval_callbacks (Optional[Union[Callback, List[Callback]]]): The evaluate callback function.
-            It support CallBack or CallBack List of MindSpore.
+            It supports CallBack or CallBack List of MindSpore.
             Default: None.
         compute_metrics (Optional[Union[dict, set]]): The metric of evaluating.
-            It support dict or set in MindSpore's Metric class.
+            It supports dict or set in MindSpore's Metric class.
             Default: None.
         save_config (bool): Save current the config of task. Default: False.
 
     Raises:
         KeyError: If 'task' or 'model' not in supported trainer.
-
-    Examples:
-        >>> from mindformers import Trainer
-        >>> import numpy as np
-        >>> from mindspore.dataset import GeneratorDataset
-        >>> class MyDataLoader:
-        ...    def __init__(self):
-        ...        self._data = [np.zeros((3, 224, 224), np.float32) for _ in range(64)]
-        ...
-        ...    def __getitem__(self, index):
-        ...        return self._data[index]
-        ...
-        ...    def __len__(self):
-        ...        return len(self._data)
-        >>> #1) input task name and model name to init trainer
-        >>> task_trainer = Trainer(task='image_classification',
-        ...                        model='vit_base_p16',
-        ...                        train_dataset='data/imagenet/train')
-        >>> #2) input config to init trainer
-        >>> from mindformers.trainer.config_args import ConfigArguments, OptimizerConfig, \
-        ...     RunnerConfig, LRConfig, WrapperConfig
-        >>> from mindspore.nn import AdamWeightDecay, WarmUpLR, \
-        ...     DynamicLossScaleUpdateCell, TrainOneStepWithLossScaleCell
-        >>> from mindspore.train.callback import LossMonitor
-        >>> runner_config = RunnerConfig(epochs=10, batch_size=2, image_size=224)
-        >>> lr_schedule_config = LRConfig(lr_type='WarmUpLR', learning_rate=0.001, warmup_steps=10)
-        >>> optim_config = OptimizerConfig(optim_type='Adam', beta1=0.009, learning_rate=lr_schedule_config)
-        >>> loss_scale = DynamicLossScaleUpdateCell(loss_scale_value=2**12, scale_factor=2, scale_window=1000)
-        >>> wrapper_config = WrapperConfig(wrapper_type='TrainOneStepWithLossScaleCell', scale_sense=loss_scale)
-        >>> dataset = GeneratorDataset(source=MyDataLoader(), column_names='image')
-        >>> dataset = dataset.batch(batch_size=2)
-        >>> config = ConfigArguments(seed=2022, runner_config=runner_config,
-        ...                          optimizer=optim_config, runner_wrapper=wrapper_config)
-        >>> task_trainer = Trainer(task='image_classification',
-        ...                        model='vit_base_p16',
-        ...                        args=config, train_dataset=dataset)
-        >>> #3) input instance to init trainer
-        >>> from mindformers.models import ViTForImageClassification
-        >>> vit_model_with_loss = ViTForImageClassification()
-        >>> lr_schedule = WarmUpLR(learning_rate=0.001, warmup_steps=100)
-        >>> optimizer = AdamWeightDecay(beta1=0.009, beta2=0.999,
-        ...                             learning_rate=lr_schedule,
-        ...                             params=vit_model_with_loss.trainable_params())
-        >>> loss_cb = LossMonitor(per_print_times=2)
-        >>> callbacks = [loss_cb]
-        >>> task_trainer = Trainer(task='image_classification',
-        ...                        model=vit_model_with_loss,
-        ...                        args=config,
-        ...                        optimizers=optimizer,
-        ...                        train_dataset=dataset,
-        ...                        callbacks=callbacks)
     """
 
     def __init__(self,
@@ -346,8 +294,9 @@ class Trainer:
               auto_trans_ckpt: Optional[bool] = None,
               do_eval: bool = False,
               **kwargs):
-        r"""Train task for Trainer.
-        This function is used to train or fine-tune the network.
+        """
+        The training API of Trainer. After setting custom settings, implement training by calling the
+        training method of task-trainer instance.
 
         Args:
             train_checkpoint (Optional[Union[str, bool]]):
@@ -358,25 +307,11 @@ class Trainer:
             auto_trans_ckpt: auto transform checkpoint to load in distributed model
             do_eval (bool): Whether evaluations are performed during training. Default: False.
 
+        Returns:
+            None
+
         Raises:
             TypeError: if resume_or_finetune_from_checkpoint is not bool or str type.
-
-        Examples:
-            >>> from mindformers import Trainer
-            >>> task_trainer = Trainer(task='image_classification',
-            ...                        model='vit_base_p16',
-            ...                        train_dataset='data/imagenet/train',
-            ...                        eval_dataset='data/imagenet/eval')
-            >>> # 1) default train task to reproduce model.
-            >>> task_trainer.train()
-            >>> # 2) eval network when train task to reproduce model.
-            >>> task_trainer.train(do_eval=True)
-            >>> # 3) resume train task to auto load the last checkpoint, if training break after 10 epochs.
-            >>> task_trainer.train(train_checkpoint=True, resume_training=True)
-            >>> # 4) resume train task according to checkpoint path, if training break after 10 epochs.
-            >>> task_trainer.train(
-            ...     resume_or_finetune_from_checkpoint='./output/rank_0/checkpoint/mindformers.ckpt',
-            ...     resume_training=True)
         """
         if train_checkpoint is not None and \
                 not isinstance(train_checkpoint, (bool, str)):
@@ -428,13 +363,14 @@ class Trainer:
                  auto_trans_ckpt: Optional[bool] = None,
                  do_eval: bool = False,
                  **kwargs):
-        r"""Finetune task for Trainer.
-        This function is used to fine-tune the network.
+        """
+        The fine-tuning API of Trainer. After setting custom settings, implement fine-tuning by calling the
+        training method of task-trainer instance.
 
         Args:
             finetune_checkpoint (Optional[Union[str, bool]]):
                 Used to restore training or fine-tune the weight of the network.
-                It support real checkpoint path or valid model name of mindformers or bool value.
+                It supports real checkpoint path or valid model name of mindformers or bool value.
                 if it's true, the last checkpoint file saved from the previous training round is automatically used.
                 if resume_training is true, this checkpoint will be used to restore training of the network.
                 Default: False.
@@ -442,28 +378,11 @@ class Trainer:
             auto_trans_ckpt: auto transform checkpoint to load in distributed model
             do_eval (bool): Whether evaluations are performed during training. Default: False.
 
+        Returns:
+            None
+
         Raises:
             TypeError: if load_checkpoint is not bool or str type.
-
-        Examples:
-            >>> from mindformers import Trainer
-            >>> task_trainer = Trainer(task='text_generation',
-            ...                        model='gpt2',
-            ...                        pet_method='lora',
-            ...                        train_dataset='./train',
-            ...                        eval_dataset='./eval')
-            >>> # 1) default finetune task.
-            >>> task_trainer.finetune()
-            >>> # 2) eval network when finetune model.
-            >>> task_trainer.finetune(do_eval=True)
-            >>> # 3) The last weight in the output directory is automatically loaded to resume training.
-            >>> task_trainer.finetune(finetune_checkpoint=True, resume_training=True)
-            >>> # 4) The last weight in the output directory is automatically loaded for fine-tuning.
-            >>> task_trainer.finetune(finetune_checkpoint=True)
-            >>> # 5) Specify weights to fine-tune.
-            >>> task_trainer.finetune(finetune_checkpoint='./output/rank_0/checkpoint/mindformers.ckpt')
-            >>> # 6) Automatically load preset weights for fine-tuning.
-            >>> task_trainer.finetune(finetune_checkpoint='gpt2')
         """
         if finetune_checkpoint is not None and \
                 not isinstance(finetune_checkpoint, (bool, str)):
@@ -523,31 +442,23 @@ class Trainer:
 
     def evaluate(self, eval_checkpoint: Optional[Union[str, bool]] = False, auto_trans_ckpt: Optional[bool] = None,
                  **kwargs):
-        r"""Evaluate task for Trainer.
-        This function is used to evaluate the network.
+        """
+        The evaluation API of Trainer. After setting custom settings, implement evaluation by calling the
+        evaluation method of task-trainer instance.
 
         Args:
             eval_checkpoint (Optional[Union[str, bool]]):
                 Used to evaluate the weight of the network.
-                It support real checkpoint path or valid model name of mindformers or bool value.
+                It supports real checkpoint path or valid model name of mindformers or bool value.
                 if it's true, the last checkpoint file saved from the previous training round is automatically used.
                 Default: False.
             auto_trans_ckpt: auto transform checkpoint to load in distributed model
 
+        Returns:
+            None
+
         Raises:
             TypeError: if eval_checkpoint is not bool or str type.
-
-        Examples:
-            >>> from mindformers import Trainer
-            >>> task_trainer = Trainer(task='image_classification',
-            ...                        model='vit_base_p16',
-            ...                        eval_dataset='data/imagenet/train')
-            >>> # 1) default evaluate task to test model.
-            >>> task_trainer.evaluate()
-            >>> # 2) evaluate task to auto load the last checkpoint.
-            >>> task_trainer.evaluate(eval_checkpoint=True)
-            >>> # 3) evaluate task according to checkpoint path.
-            >>> task_trainer.evaluate(eval_checkpoint='./output/rank_0/checkpoint/mindformers.ckpt')
         """
         if eval_checkpoint is not None and not isinstance(eval_checkpoint, (bool, str)):
             raise TypeError(f"eval_checkpoint must be one of [None, string, bool], "
@@ -593,13 +504,14 @@ class Trainer:
                 auto_trans_ckpt: Optional[bool] = None,
                 input_data: Optional[Union[GeneratorDataset,
                                            Tensor, np.ndarray, Image, str, list]] = None, **kwargs):
-        r"""Predict task for Trainer.
-        This function is used to predict the network.
+        """
+        The prediction API of Trainer. After setting custom settings, implement prediction by calling the
+        prediction method of task-trainer instance.
 
         Args:
             predict_checkpoint (Optional[Union[str, bool]]):
                 Used to predict the weight of the network.
-                It support real checkpoint path or valid model name of mindformers or bool value.
+                It supports real checkpoint path or valid model name of mindformers or bool value.
                 if it's true, the last checkpoint file saved from the previous training round is automatically used.
                 Default: False.
             auto_trans_ckpt: auto transform checkpoint to load in distributed model
@@ -611,19 +523,6 @@ class Trainer:
         Raises:
             TypeError: if predict_checkpoint is not bool or str type.
             TypeError: if input_data is not Tensor or np.ndarray or Image or str or list.
-
-        Examples:
-            >>> from mindformers import Trainer
-            >>> task_trainer = Trainer(task='image_classification',
-            ...                        model='vit_base_p16')
-            >>> input_data = "./sunflower.png"
-            >>> # 1) predict task to auto load the last checkpoint.
-            >>> task_trainer.predict(predict_checkpoint=True, input_data=input_data)
-            >>> # 2) predict task according to checkpoint path.
-            >>> task_trainer.predict(predict_checkpoint='./output/rank_0/checkpoint/mindformers.ckpt',
-            ...                      input_data=input_data)
-            >>> # 3) download and auto load the checkpoint on obs and predict.
-            >>> task_trainer.predict(input_data=input_data)
         """
         if predict_checkpoint is not None and not isinstance(predict_checkpoint, (bool, str)):
             raise TypeError(f"predict_checkpoint must be one of [None, string, bool], "
@@ -698,14 +597,14 @@ class Trainer:
             self, data_parallel=1, model_parallel=1, expert_parallel=1, pipeline_stage=1, micro_batch_interleave_num=1,
             micro_batch_num=1, use_seq_parallel=False, optimizer_shard=False,
             gradient_aggregation_group=4, vocab_emb_dp=True):
-        r"""
+        """
         set_parallel_config for the setting global data parallel, model parallel and fusion group.
         The parallel configure setting for Trainer.
 
         Args:
             data_parallel (int): The data parallel way. The input data will be sliced into n parts for each layer
                 according to the data parallel way. Default: 1.
-            model_parallel (int): The model parallel way. The parameters of dense layers in MultiheadAttention and
+            model_parallel (int): The model parallel way. The parameters of dense layers in Multi-head Attention and
                 FeedForward layer will be sliced according to the model parallel way. Default: 1.
             expert_parallel (int): The expert parallel way. This is effective only when MoE (Mixture of Experts)
                 is applied. This value specifies the number of partitions to split the experts into.
@@ -717,13 +616,8 @@ class Trainer:
             vocab_emb_dp (bool): Shard embedding in model parallel or data parallel. Default: True.
             micro_batch_interleave_num (int): split num of batch size. Default: 1.
 
-        Examples:
-            >>> from mindformers.trainer import Trainer
-            >>> task_trainer = Trainer(task='image_classification',
-            ...                        model='vit_base_p16',
-            ...                        train_dataset='data/imagenet/train',
-            ...                        eval_dataset='data/imagenet/train')
-            >>> task_trainer.set_parallel_config(data_parallel=2, model_parallel=2)
+        Returns:
+            None
         """
         self.config.parallel_config.data_parallel = data_parallel
         self.config.parallel_config.model_parallel = model_parallel
@@ -740,8 +634,8 @@ class Trainer:
 
     def set_recompute_config(self, recompute=False, parallel_optimizer_comm_recompute=False, select_recompute=False,
                              mp_comm_recompute=True, recompute_slice_activation=False):
-        r"""Set recompute config.
-        TransformerRecomputeConfig for the setting recompute attributes for encoder/decoder layers.
+        r"""
+        Set recompute config.
 
         Args:
             recompute (bool): Enable recomputation of the transformer block or not. Default: False.
@@ -753,13 +647,8 @@ class Trainer:
                 in the cell are recomputed in auto parallel or semi auto parallel mode. Default: True.
             recompute_slice_activation (bool): Slice the cell output which would remains in memory. Default: False.
 
-        Examples:
-            >>> from mindformers.trainer import Trainer
-            >>> task_trainer = Trainer(task='image_classification',
-            ...                        model='vit_base_p16',
-            ...                        train_dataset='data/imagenet/train',
-            ...                        eval_dataset='data/imagenet/train')
-            >>> task_trainer.set_recompute_config(recompute=True)
+        Returns:
+            None
         """
         self.config.recompute_config.recompute = recompute
         self.config.recompute_config.select_recompute = select_recompute
@@ -778,7 +667,8 @@ class Trainer:
                        group_wise_a2a=False,
                        comp_comm_parallel=False,
                        comp_comm_parallel_degree=2):
-        r"""The configuration of MoE (Mixture of Expert).
+        """
+        Sef the configuration of MoE (Mixture of Expert).
 
         Args:
             expert_num (int): The number of experts employed. Default: 1
@@ -786,26 +676,20 @@ class Trainer:
                 which is >=1.0. Default: 1.1.
             aux_loss_factor (float): The factor is used to indicate how much the load balance loss (produced by the
                 router) to be added to the entire model loss, which is < 1.0. Default: 0.05.
-            num_experts_chosen (int): The number of experts is chosen by each token and it should not be larger
+            num_experts_chosen (int): The number of experts is chosen by each token, it should not be larger
                 than expert_num. Default: 1.
             expert_group_size (int): The number of tokens in each data parallel group. Default: None. This parameter is
                 effective only when in AUTO_PARALLEL mode, and NOT SHARDING_PROPAGATION.
             group_wise_a2a (bool): Whether to enable group-wise alltoall communication, which can reduce communication
-                time by converting part of inter communication into intra communication. Default: False. This parameter
+                time by converting part of intercommunication into intra communication. Default: False. This parameter
                 is effective only when model parallel > 1 and data_parallel equal to expert parallel.
             comp_comm_parallel (bool): Whether to enable ffn compute and communication parallel, which can reduce pure
-                communicattion time by splitting and overlapping compute and communication. Default: False.
+                communication time by splitting and overlapping compute and communication. Default: False.
             comp_comm_parallel_degree (int): The split number of compute and communication. The larger the numbers,
                 the more overlap there will be but will consume more memory. Default: 2. This parameter is effective
                 only when comp_comm_parallel enable.
-
-        Examples:
-            >>> from mindformers.trainer import Trainer
-            >>> task_trainer = Trainer(task='image_classification',
-            ...                        model='vit_base_p16',
-            ...                        train_dataset='data/imagenet/train',
-            ...                        eval_dataset='data/imagenet/train')
-            >>> task_trainer.set_moe_config(expert_num=2, capacity_factor=1.2, aux_loss_factor=0.001)
+        Returns:
+            None
         """
         self.config.moe_config.expert_num = expert_num
         self.config.moe_config.capacity_factor = capacity_factor
@@ -938,11 +822,15 @@ class Trainer:
 
 
 def _save_config_to_yaml(save_file_path: str = None, save_config: dict = None):
-    r"""Save Config to Yaml File.
+    """
+    Save config to yaml file.
 
     Args:
         save_file_path (str): The real path to save yaml file. Default: None.
         save_config (dict): The task config. Default: None.
+
+    Returns:
+        None
     """
     if save_config is None:
         save_config = {}
@@ -956,10 +844,14 @@ def _save_config_to_yaml(save_file_path: str = None, save_config: dict = None):
 
 
 def _reset_config_for_save(config: dict = None):
-    r"""Reset Config According to Yaml File Number.
+    """
+    Reset config according to the yaml file number.
+
     Args:
         config (dict): The task config. Default: None.
-        model_name (str): The model name to save. Default: 'common'.
+
+    Returns:
+        the reset config
     """
     if config is None:
         config = {}

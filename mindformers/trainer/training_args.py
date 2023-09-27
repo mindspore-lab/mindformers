@@ -43,7 +43,7 @@ def _check_training_args(ori_value, new_value):
 class TrainingArguments:
     """
     TrainingArguments is the subset of the arguments we use
-    in our default config **which is relate to the training in MindSpore**.
+    in our default config **which is related to the training in MindSpore**.
     """
     output_dir: str = field(
         default=None,

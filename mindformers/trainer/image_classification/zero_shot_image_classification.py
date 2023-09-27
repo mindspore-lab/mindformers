@@ -38,19 +38,16 @@ __all__ = ['ZeroShotImageClassificationTrainer']
 
 @MindFormerRegister.register(MindFormerModuleType.TRAINER)
 class ZeroShotImageClassificationTrainer(BaseTrainer):
-    r"""ZeroShotImageClassification Task For Trainer.
+    """
+    Trainer of zero-shot image classification task. It provides evaluation and prediction interfaces for
+    zero-shot image classification task, allowing users to quickly start the process according to the model name,
+    and also provides a large number of customizable items to meet user needs.
 
     Args:
-        model_name (str): The model name of Task-Trainer. Default: None
+        model_name (str): The model name of zero-shot image classification task trainer. Default: None
 
     Raises:
-        NotImplementedError: If train method or evaluate method or predict method not implemented.
-
-    Examples:
-        >>> from mindformers import ZeroShotImageClassificationTrainer
-        >>> trainer = ZeroShotImageClassificationTrainer(model_name="clip_vit_b_32")
-        >>> trainer.evaluate()
-        >>> trainer.predict()
+        NotImplementedError: If train method, evaluate method or predict method not implemented.
     """
 
     def __init__(self, model_name: str = None):
@@ -67,11 +64,10 @@ class ZeroShotImageClassificationTrainer(BaseTrainer):
                  callbacks: Optional[Union[Callback, List[Callback]]] = None,
                  compute_metrics: Optional[Union[dict, set]] = None,
                  **kwargs):
-        r"""Evaluate task for ZeroShotImageClassification Trainer.
-        This function is used to evaluate the network.
-
-        The trainer interface is used to quickly start training for general task.
-        It also allows users to customize the network, dataset, callbacks, compute_metrics.
+        """
+        The evaluation API of zero-shot image classification task. It allows to quickly start evaluation based on
+        initialization conditions or by passing in custom configurations. The configurable items include the network,
+        dataset, callbacks, compute_metrics, and callbacks.
 
         Args:
             config (Optional[Union[dict, MindFormerConfig, ConfigArguments, TrainingArguments]]):
@@ -90,6 +86,9 @@ class ZeroShotImageClassificationTrainer(BaseTrainer):
             compute_metrics (Optional[Union[dict, set]]): The metric of evaluating.
                 It supports dict or set in MindSpore's Metric class.
                 Default: None.
+
+        Returns:
+            None
         """
         metric_name = "Top1 Accuracy"
         kwargs.setdefault("metric_name", metric_name)
@@ -109,8 +108,10 @@ class ZeroShotImageClassificationTrainer(BaseTrainer):
                 network: Optional[Union[Cell, BaseModel]] = None,
                 tokenizer: Optional[BaseTokenizer] = None,
                 image_processor: Optional[BaseImageProcessor] = None, **kwargs):
-        r"""Predict task for ZeroShotImageClassification Trainer.
-        This function is used to predict the network.
+        """
+        The prediction API of zero-shot image classification task. It allows to quickly start prediction based on
+        initialization conditions or by passing in custom configurations. The configurable items include the network,
+        input data, tokenizer and the processor of image.
 
         Args:
             config (Optional[Union[dict, MindFormerConfig, ConfigArguments, TrainingArguments]]):
@@ -126,6 +127,9 @@ class ZeroShotImageClassificationTrainer(BaseTrainer):
                 Default: None.
             tokenizer (Optional[BaseTokenizer]): Used for text process.
             image_processor (Optional[BaseImageProcessor]): Used for image process.
+
+        Returns:
+            A list of prediction results.
         """
         config = self.set_config(config)
 
