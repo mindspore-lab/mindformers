@@ -50,28 +50,27 @@ def get_input_data_batch_slice_map(chosen_input_ids, chosen_attention_mask,
 
 @MindFormerRegister.register(MindFormerModuleType.DATASET)
 class RewardModelDataset(BaseDataset):
-    """Causal Language Model pretrain dataset.
+    """Reward Model dataset.
+
+    Args:
+        dataset_config (dict): Config for dataset.
+
+    Returns:
+        A dataset for RewardModelDataset.
 
     Examples:
         >>> from mindformers.tools.register import MindFormerConfig
-        >>> from mindformers import MindFormerBook
         >>> from mindformers.dataset import RewardModelDataset
         >>> from mindformers.dataset import build_dataset, check_dataset_config
-        >>> config_dict_list = MindFormerBook.get_trainer_support_task_list()
-        >>> config_path = config_dict_list['text_generation']['gpt2']
+        >>> config_path = 'mindformers/research/rewardmodel/run_bloom_7.1b_reward.yaml'
         >>> # Initialize a MindFormerConfig instance with a specific config file of yaml.
         >>> config = MindFormerConfig(config_path)
         >>> config.train_dataset.data_loader.dataset_dir = "The required task dataset path"
-            Note:
-                The detailed data setting could refer to
-                https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/gpt2.md
+        >>> # Note:
+        >>> #     The detailed data setting could refer to
+        >>> #     https://gitee.com/mindspore/mindformers/blob/dev/research/rewardmodel/run_bloom_7.1b_reward.yaml
         >>> check_dataset_config(config)
-        >>> # 1) use config dict to build dataset
-        >>> dataset_from_config = build_dataset(config.train_dataset_task)
-        >>> # 2) use class name to build dataset
-        >>> dataset_from_name = build_dataset(class_name='RewardModelDataset',
-        ...                                   dataset_config=config.train_dataset_task.dataset_config)
-        >>> # 3) use class to build dataset
+        >>> # use class to build dataset
         >>> dataset_from_class = RewardModelDataset(config.train_dataset_task.dataset_config)
     """
     def __new__(cls, dataset_config: dict = None):

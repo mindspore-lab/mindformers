@@ -26,7 +26,32 @@ from .transforms import build_transforms
 
 @MindFormerRegister.register(MindFormerModuleType.DATASET)
 class ImageToTextRetrievalDataset(BaseDataset):
-    """Image-text Retrieval Dataset for filip fine-tuning and evaluation."""
+    """
+    Image-text Retrieval Dataset API.
+
+    Args:
+        dataset_config (dict): Config for dataset.
+
+    Returns:
+        A dataset for ImageToTextRetrievalDataset.
+
+    Examples:
+        >>> from mindformers.tools.register import MindFormerConfig
+        >>> from mindformers import MindFormerBook
+        >>> from mindformers.dataset import ImageToTextRetrievalDataset
+        >>> from mindformers.dataset import build_dataset, check_dataset_config
+        >>> config_dict_list = MindFormerBook.get_trainer_support_task_list()
+        >>> config_path = config_dict_list['image_to_text_retrieval']['blip2_stage1_vit_g']
+        >>> # Initialize a MindFormerConfig instance with a specific config file of yaml.
+        >>> config = MindFormerConfig(config_path)
+        >>> config.train_dataset.data_loader.dataset_dir = "The required task dataset path"
+        >>> # Note:
+        >>> #     The detailed data setting could refer to
+        >>> #     https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/blip2.md
+        >>> check_dataset_config(config)
+        >>> # use class to build dataset
+        >>> dataset_from_class = ImageToTextRetrievalDataset(config.train_dataset_task.dataset_config)
+    """
     def __new__(cls, dataset_config: dict = None):
         logger.info("Now Create Image-text Retrieval Dataset.")
         cls.init_dataset_config(dataset_config)
