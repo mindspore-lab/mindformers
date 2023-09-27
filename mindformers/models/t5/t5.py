@@ -1690,7 +1690,6 @@ class T5ForConditionalGeneration(BaseModel):
     Args:
         config(T5Config) : The network of the transformer.
 
-
     Examples:
         >>> from mindformers import T5ForConditionalGeneration, T5Tokenizer
         >>> model = T5ForConditionalGeneration.from_pretrained('t5_small')
