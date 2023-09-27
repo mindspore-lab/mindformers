@@ -73,8 +73,12 @@ class AutoConfig:
 
         local_model_type = yaml_name_or_path.split('_')[cls._model_type]
         local_model_list = cls._support_list[local_model_type]
-        if not isinstance(local_model_list, dict) and yaml_name_or_path in local_model_list:
-            return False
+        if not isinstance(local_model_list, dict):
+            if yaml_name_or_path in local_model_list:
+                return False
+            raise ValueError(f'\'{yaml_name_or_path}\' is not supported by \'{local_model_type}\', '
+                             f'please select from {local_model_list}')
+
         local_model_names = local_model_list.keys()
         if len(yaml_name_or_path.split('_')) <= cls._model_name or \
             not yaml_name_or_path.split('_')[cls._model_name] in local_model_names:
@@ -225,8 +229,12 @@ class AutoModel:
 
         local_model_type = pretrained_model_name_or_dir.split('_')[cls._model_type]
         local_model_list = cls._support_list[local_model_type]
-        if not isinstance(local_model_list, dict) and pretrained_model_name_or_dir in local_model_list:
-            return False
+        if not isinstance(local_model_list, dict):
+            if pretrained_model_name_or_dir in local_model_list:
+                return False
+            raise ValueError(f'\'{pretrained_model_name_or_dir}\' is not supported by \'{local_model_type}\', '
+                             f'please select from {local_model_list}')
+
         local_model_names = local_model_list.keys()
         if len(pretrained_model_name_or_dir.split('_')) <= cls._model_name or \
             not pretrained_model_name_or_dir.split('_')[cls._model_name] in local_model_names:
@@ -469,8 +477,12 @@ class AutoProcessor:
 
         local_model_type = yaml_name_or_path.split('_')[cls._model_type]
         local_model_list = cls._support_list[local_model_type]
-        if not isinstance(local_model_list, dict) and yaml_name_or_path in local_model_list:
-            return False
+        if not isinstance(local_model_list, dict):
+            if yaml_name_or_path in local_model_list:
+                return False
+            raise ValueError(f'\'{yaml_name_or_path}\' is not supported by \'{local_model_type}\', '
+                             f'please select from {local_model_list}')
+
         local_model_names = local_model_list.keys()
         if len(yaml_name_or_path.split('_')) <= cls._model_name or \
             not yaml_name_or_path.split('_')[cls._model_name] in local_model_names:
@@ -620,10 +632,11 @@ class AutoTokenizer:
 
         local_model_type = yaml_name_or_path.split('_')[cls._model_type]
         local_model_list = cls._support_list[local_model_type]
-        if not isinstance(local_model_list, dict) and yaml_name_or_path in local_model_list:
-            return False
         if not isinstance(local_model_list, dict):
-            return True
+            if yaml_name_or_path in local_model_list:
+                return False
+            raise ValueError(f'\'{yaml_name_or_path}\' is not supported by \'{local_model_type}\', '
+                             f'please select from {local_model_list}')
 
         local_model_names = local_model_list.keys()
         if len(yaml_name_or_path.split('_')) <= cls._model_name or \
