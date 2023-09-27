@@ -209,7 +209,7 @@ class Blip2Llama(Blip2Base):
     """
     BLIP2 Llama model
     """
-    _support_list = MindFormerBook.get_model_support_list()['blip2']['2-stg']
+    _support_list = MindFormerBook.get_model_support_list()['blip2']['stage2']
 
     def __init__(self, config: Blip2Config, **kwargs):
         super(Blip2Llama, self).__init__(config, **kwargs)
@@ -342,8 +342,7 @@ class Blip2Llama(Blip2Base):
         query_output = self.qformer.bert(query_embeds=query_tokens,
                                          encoder_hidden_states=image_embeds,
                                          encoder_attention_mask=image_atts,
-                                         use_cache=True,
-                                         return_dict=True)
+                                         use_cache=True)
 
         # [batch_size, query_size, qformer_hidden_size] -> [batch_size, query_size, llama_hidden_size]
         return self.llama_proj(query_output[0])
