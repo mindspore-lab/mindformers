@@ -1992,7 +1992,15 @@ class BaseTokenizer(SpecialTokensMixin):
         if not class_name:
             class_name = cls.__name__
         logger.info("build tokenizer class name is: %s using args %s.", class_name, kwargs)
-        return build_tokenizer(class_name=class_name, **kwargs)
+        tokenizer = build_tokenizer(class_name=class_name, **kwargs)
+        # Check all our special tokens are registered as "no split" token (we don't cut them) and are in the vocab
+        added_tokens = tokenizer.sanitize_special_tokens()
+        if added_tokens:
+            logger.warning(
+                "Special tokens have been added in the vocabulary, make sure the associated word embeddings are"
+                " fine-tuned or trained."
+            )
+        return tokenizer
 
     @classmethod
     def _download_using_name(cls, name_or_path):
