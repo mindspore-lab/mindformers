@@ -31,18 +31,21 @@ from ..base_trainer import BaseTrainer
 
 @MindFormerRegister.register(MindFormerModuleType.TRAINER)
 class ContrastiveLanguageImagePretrainTrainer(BaseTrainer):
-    r"""Contrastive Language Image Pretrain Trainer.
+    """
+    Contrastive Language Image Pretrain Trainer.
 
     Args:
         model_name (str): The model name of Task-Trainer. Default: None
 
     Raises:
-        NotImplementedError: If train method or evaluate method or predict method not implemented.
+        NotImplementedError: If evaluate method or predict method not implemented.
 
     Examples:
         >>> from mindformers import ContrastiveLanguageImagePretrainTrainer
         >>> trainer = ContrastiveLanguageImagePretrainTrainer(model_name="clip_vit_b_b32")
-        >>> trainer.train()
+        >>> type(trainer)
+        <class 'mindformers.trainer.contrastive_language_image_pretrain.
+        contrastive_language_image_pretrain.ContrastiveLanguageImagePretrainTrainer'>
     """
 
     def __init__(self, model_name: str = None):
@@ -57,26 +60,27 @@ class ContrastiveLanguageImagePretrainTrainer(BaseTrainer):
               wrapper: Optional[TrainOneStepCell] = None,
               callbacks: Optional[Union[Callback, List[Callback]]] = None,
               **kwargs):
-        r"""Train For Trainer.
+        """
+        Train For Trainer.
 
         Args:
             config (Optional[Union[dict, MindFormerConfig, ConfigArguments, TrainingArguments]]):
                 The task config which is used to configure the dataset, the hyper-parameter, optimizer, etc.
                 It supports config dict or MindFormerConfig or TrainingArguments or ConfigArguments class.
                 Default: None.
-            network (Optional[Union[Cell, BaseModel]]): The network for trainer.
-                It supports model name or BaseModel or MindSpore Cell class.
+            network (Optional[Union[Cell, BaseModel]]):
+                The network for trainer.It supports model name or BaseModel or MindSpore Cell class.
                 Default: None.
-            dataset (Optional[Union[BaseDataset, GeneratorDataset]]): The training dataset.
-                It supports real dataset path or BaseDateset class or MindSpore Dataset class.
+            dataset (Optional[Union[BaseDataset, GeneratorDataset]]):
+                The training dataset. It supports real dataset path or BaseDateset class or MindSpore Dataset class.
                 Default: None.
-            optimizer (Optional[Optimizer]): The optimizer used for training .Default: None.
-            wrapper (Optional[TrainOneStepCell]): Wraps the `network` with the `optimizer`.
-                It support TrainOneStepCell class of MindSpore.
+            optimizer (Optional[Optimizer]):
+                The optimizer used for training. Default: None.
+            wrapper (Optional[TrainOneStepCell]):
+                Wraps the `network` with the `optimizer`. It support TrainOneStepCell class of MindSpore.
                 Default: None.
-            callbacks (Optional[Union[Callback, List[Callback]]]): The training callback function.
-                It supports CallBack or CallBack List of MindSpore.
-                Default: None.
+            callbacks (Optional[Union[Callback, List[Callback]]]):
+                The training callback function. It supports CallBack or CallBack List of MindSpore. Default: None.
         """
         self.training_process(
             config=config,
