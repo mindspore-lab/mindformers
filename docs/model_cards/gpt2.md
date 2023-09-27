@@ -13,11 +13,11 @@ Mindspore: 2.0.0rc1
 Ascend: 910A
 ```
 
-|               config                |        task         |              Datasets              |  metric  |                score                | train performance |           predict performance            |
-| :---------------------------------: | :-----------------: | :--------------------------------: | :------: | :---------------------------------: | :---------------: | :--------------------------------------: |
-|    [gpt2](https://gitee.com/mindspore/mindformers/blob/dev/configs/gpt2/run_gpt2.yaml)     |   text_generation   |             wikitext2              |   ppl    |                22.11                |   1265 tokens/s   | 4.66/11.37 tokens/s(use past True/False) |
-|  [gpt2_lora](https://gitee.com/mindspore/mindformers/blob/dev/configs/gpt2/run_gpt2_lora.yaml)  |   text_generation   |             wikitext2              |    -     |                  -                  |   1428 tokens/s   |                    -                     |
-| [gpt2_txtcls](https://gitee.com/mindspore/mindformers/blob/dev/configs/gpt2/run_gpt2_txtcls.yaml) | text_classification | SST-2<br/>IMDB<br/>AGNews<br/>COLA | accuracy | 0.908<br/>0.934<br/>0.941<br/>0.693 |         -         |                    -                     |
+|               config                |        task         |              Datasets              | [metric](#评测) |                score                | [train performance](#预训练) |         [predict performance](#推理)         |
+| :---------------------------------: | :-----------------: | :--------------------------------: |:-----------:| :---------------------------------: |:----------------------:|:----------------------------------------:|
+|    [gpt2](https://gitee.com/mindspore/mindformers/blob/dev/configs/gpt2/run_gpt2.yaml)     |   text_generation   |             wikitext2              |     ppl     |                22.11                |     1265 tokens/s      | 4.66/11.37 tokens/s(use past True/False) |
+|  [gpt2_lora](https://gitee.com/mindspore/mindformers/blob/dev/configs/gpt2/run_gpt2_lora.yaml)  |   text_generation   |             wikitext2              |      -      |                  -                  |     1428 tokens/s      |                    -                     |
+| [gpt2_txtcls](https://gitee.com/mindspore/mindformers/blob/dev/configs/gpt2/run_gpt2_txtcls.yaml) | text_classification | SST-2<br/>IMDB<br/>AGNews<br/>COLA |  accuracy   | 0.908<br/>0.934<br/>0.941<br/>0.693 |           -            |                    -                     |
 
 ## 仓库介绍
 
@@ -26,7 +26,7 @@ Ascend: 910A
 `gpt2`基于`mindformers`实现，主要涉及的文件有：
 
 ```bash
-model
+gpt2
     ├── __init__.py
     ├── convert_weight.py           # 权重转换脚本
     ├── gpt2.py                     # 模型实现
@@ -52,7 +52,7 @@ gpt2
 3、预处理脚本和任务启动脚本：`mindformers/tools/dataset_preprocess/gpt2`
 
 ```bash
-model
+gpt2
     ├── txtcls_dataset_to_mindrecord.py     # 文本分类数据集预处理
     └── wikitext2_data_process.py           # wikitext2数据集预处理
 ```
@@ -102,6 +102,13 @@ RANK_TABLE_FILE 单机8卡参考样例:
 ### 多机RANK_TABLE_FILE合并(多机多卡必备环节)
 
 - step 1. 首先根据上章节内容，在每个机器上生成各自的`RANK_TABLE_FILE`文件，然后将不同机器上生成的`RANK_TABLE_FILE`文件全部拷贝到同一台机器上。
+
+```bash
+# 运行如下命令，生成当前机器的RANK_TABLE_FILE的json文件
+python ./mindformers/tools/hccl_tools.py --device_num "[0,8)" --server_ip xx.xx.xx.xx
+```
+
+**注：需要根据机器的ip地址指定 --server_ip，避免由于不同机器server_ip不同，导致多节点间通信失败。**
 
 - step 2. 运行mindformers/tools/merge_hccl.py将不同机器上生成的`RANK_TABLE_FILE`文件合并
 
@@ -293,6 +300,7 @@ trainer.finetune(finetune_checkpoint="gpt2")
 
 ```python
 # 以gpt2 small为例
+# 单卡推理支持gpt2、gpt2 xl、gpt2 lora三个模型
 import mindspore
 from mindformers.pipeline import pipeline
 
@@ -303,8 +311,6 @@ pipeline_result = pipeline_task("An increasing sequence: one,", do_sample=False,
 print(pipeline_result)
 # [{'text_generation_text': ['An increasing sequence: one, two, three, four, five, six, seven, eight,']}]
 ```
-
-**注：**要提高推理速度，可在对应模型配置文件中进行如下配置，设置增量推理`use_past`为True。
 
 ## 预训练
 
@@ -527,81 +533,81 @@ IP_LIST=("192.168.0.0", "192.168.0.1", ..., "192.168.0.11")
 
 GPT2支持文本生成和文本分类两个任务的评测。
 
-- 文本生成：
+### 文本生成
 
-    - 获取数据集：
+#### 获取数据集
 
-        - [WikiText2数据集](https://s3.amazonaws.com/research.metamind.io/wikitext/wikitext-2-v1.zip)是从维基百科上经过验证的优质文章集中提取的超过1亿个token的集合。
+- [WikiText2数据集](https://s3.amazonaws.com/research.metamind.io/wikitext/wikitext-2-v1.zip)是从维基百科上经过验证的优质文章集中提取的超过1亿个token的集合。
 
-    - 处理数据成mindrecord格式
+#### 处理数据成mindrecord格式
 
-        - WikiText2：
+```bash
+cd mindformers/tools/dataset_preprocess/gpt2
+python wikitext2_data_process.py --input_file {your_path/wiki.valid.tokens} \
+                             --output_file {your_path/wikitext-2.valid.mindrecord}
+```
 
-        ```bash
-        cd mindformers/tools/dataset_preprocess/gpt2
-        python wikitext2_data_process.py --input_file {your_path/wiki.valid.tokens} \
-                                       --output_file {your_path/wikitext-2.valid.mindrecord}
-        ```
+#### 开启评测
 
-    - 开启评测：
+```bash
+python run_mindformer.py --config configs/gpt2/run_gpt2.yaml \
+                         --eval_dataset_dir {your_path/wikitext-2.valid.mindrecord} \
+                         --run_mode eval \
+                         --epochs 1
+# gpt2: PerplexityMetric: {'PerplexityMetric': {'loss': 3.24, 'PPL': 25.55}
+# gpt2_13b(需替换yaml文件): PerplexityMetric: {'PerplexityMetric': {'loss': 2.35, 'PPL': 10.49}
+```
 
-        - WikiText2
+### 文本分类
 
-        ```bash
-        python run_mindformer.py --config configs/gpt2/run_gpt2.yaml \
-                                 --eval_dataset_dir {your_path/wikitext-2.valid.mindrecord} \
-                                 --run_mode eval \
-                                 --epochs 1
-        # gpt2: PerplexityMetric: {'PerplexityMetric': {'loss': 3.24, 'PPL': 25.55}
-        # gpt2_13b(需替换yaml文件): PerplexityMetric: {'PerplexityMetric': {'loss': 2.35, 'PPL': 10.49}
-        ```
+#### 获取数据集
 
-- 文本分类：
+- [SST-2数据集](https://dl.fbaipublicfiles.com/glue/data/SST-2.zip)数据集包含电影评论中的句子和它们情感的人类注释。类别分为两类正面情感（positive，样本标签对应为1）和负面情感（negative，样本标签对应为0）
 
-    - 获取数据集:
+- [IMDB数据集](https://www.kaggle.com/datasets/lakshmi25npathi/imdb-dataset-of-50k-movie-reviews)影评数据集，包含5万条IMDB影评，评论的情绪是二元的，专门用于情绪分析。
 
-        - [SST-2数据集](https://dl.fbaipublicfiles.com/glue/data/SST-2.zip)数据集包含电影评论中的句子和它们情感的人类注释。类别分为两类正面情感（positive，样本标签对应为1）和负面情感（negative，样本标签对应为0）
+- [AG-News数据集](http://groups.di.unipi.it/~gulli/AG_corpus_of_news_articles.html)数据集包含496,835条来自AG新闻语料库4大类别超过2000个新闻源的新闻文章。
 
-        - [IMDB数据集](https://www.kaggle.com/datasets/lakshmi25npathi/imdb-dataset-of-50k-movie-reviews)影评数据集，包含5万条IMDB影评，评论的情绪是二元的，专门用于情绪分析。
+- [COLA数据集](https://nyu-mll.github.io/CoLA/)数据集来自语言理论的书籍和期刊，每个句子被标注为是否合乎语法的单词序列。
 
-        - [AG-News数据集](http://groups.di.unipi.it/~gulli/AG_corpus_of_news_articles.html)数据集包含496,835条来自AG新闻语料库4大类别超过2000个新闻源的新闻文章。
+#### 处理数据成mindrecord格式
 
-        - [COLA数据集](https://nyu-mll.github.io/CoLA/)数据集来自语言理论的书籍和期刊，每个句子被标注为是否合乎语法的单词序列。
+```bash
+# 因评测前需要微调模型，所以需要生成训练/评测数据集。注：生成的数据集文件需以.mindrecord结尾
+cd mindformers/tools/dataset_preprocess/gpt2
+python txtcls_dataset_to_mindrecord.py --dataset_name {select one from ['cola', 'sst_2', 'ag_news', 'imdb']}
+                                     --input_file {your_path/train.tsv} \
+                                     --output_file {your_path/dataset_name.train.mindrecord}
+python txtcls_dataset_to_mindrecord.py --dataset_name {the same as above}
+                                     --input_file {your_path/dev.tsv} \
+                                     --output_file {your_path/dataset_name.dev.mindrecord}
+```
 
-    - 处理数据成mindrecord格式
+#### 开启微调
 
-    ```bash
-    # 因评测前需要微调模型，所以需要生成训练/评测数据集。注：生成的数据集文件需以.mindrecord结尾
-    cd mindformers/tools/dataset_preprocess/gpt2
-    python txtcls_dataset_to_mindrecord.py --dataset_name {select one from ['cola', 'sst_2', 'ag_news', 'imdb']}
-                                           --input_file {your_path/train.tsv} \
-                                           --output_file {your_path/dataset_name.train.mindrecord}
-    python txtcls_dataset_to_mindrecord.py --dataset_name {the same as above}
-                                           --input_file {your_path/dev.tsv} \
-                                           --output_file {your_path/dataset_name.dev.mindrecord}
-    ```
+- 因为原始权重中不包含隐向量向类别映射的参数，所以无法进行zero-shot，评测前需要事先进行微调。
 
-    - 开启微调：因为原始权重中不包含隐向量向类别映射的参数，所以无法进行zero-shot，评测前需要事先进行微调。
+```bash
+# 运行前请确保run_gpt2_txtcls.yaml中的model.model_config.num_labels准确，具体的，
+# sst2/cola/imdb: num_labels = 2, agnews: num_labels = 4
+python run_mindformer.py --config configs/gpt2/run_gpt2_txtcls.yaml \
+                       --train_dataset_dir {your_path/dataset_name.train.mindrecord} \
+                       --run_mode finetune
+```
 
-    ```bash
-    # 运行前请确保run_gpt2_txtcls.yaml中的model.model_config.num_labels准确，具体的，
-    # sst2/cola/imdb: num_labels = 2, agnews: num_labels = 4
-    python run_mindformer.py --config configs/gpt2/run_gpt2_txtcls.yaml \
-                             --train_dataset_dir {your_path/dataset_name.train.mindrecord} \
-                             --run_mode finetune
-    ```
+#### 开启评测
 
-    - 开启评测：评测指标为ACC
+- 评测指标为ACC
 
-    ```bash
-    # 运行前请确保run_gpt2_txtcls.yaml中的model.model_config.num_labels准确，具体的，
-    # sst2/cola/imdb: num_labels = 2, agnews: num_labels = 4
-    python run_mindformer.py --config configs/gpt2/run_gpt2_txtcls.yaml \
-                             --eval_dataset_dir {your_path/dataset_name.dev.mindrecord} \
-                             --run_mode eval \
-                             --epochs 1
-    # ACC: COLA-0.693, SST-2-0.908, IMDB-0.934, AG-News-0.941
-    ```
+```bash
+# 运行前请确保run_gpt2_txtcls.yaml中的model.model_config.num_labels准确，具体的，
+# sst2/cola/imdb: num_labels = 2, agnews: num_labels = 4
+python run_mindformer.py --config configs/gpt2/run_gpt2_txtcls.yaml \
+                       --eval_dataset_dir {your_path/dataset_name.dev.mindrecord} \
+                       --run_mode eval \
+                       --epochs 1
+# ACC: COLA-0.693, SST-2-0.908, IMDB-0.934, AG-News-0.941
+```
 
 ## 推理
 
@@ -923,7 +929,7 @@ python predict_custom.py
 #### 多卡generate推理
 
 ```bash
-bash run_predict.sh RANK_TABLE_FILE path/to/pangualpha_2_6b_shard_checkpoint_dir
+bash run_predict.sh RANK_TABLE_FILE path/to/gpt2_shard_checkpoint_dir
 ```
 
 ### 脚本启动
@@ -931,8 +937,9 @@ bash run_predict.sh RANK_TABLE_FILE path/to/pangualpha_2_6b_shard_checkpoint_dir
 #### 单卡推理
 
 ```bash
-python run_mindformer.py --config configs/pangualpha/run_pangualpha_2_6b.yaml --run_mode predict --predict_data 上联：欢天喜地度佳节 下联： --use_parallel False
-# output result is: [{'text_generation_text': ['上联:欢天喜地度佳节 下联:笑逐颜开迎佳期 横批:幸福快乐<eot>']}]
+python run_mindformer.py --config configs/gpt2/run_gpt2.yaml --run_mode predict --predict_data "An increasing sequence: one," --use_parallel False
+# 以下结果是在do_sample=False，max_decode_length=30的配置下跑出的，两处配置可在yaml文件中进行设置。
+# output result is: [{'text_generation_text': ['An increasing sequence: one, two, three, four, five, six, seven, eight, nine, ten, eleven, twelve, thirteen,']}]
 ```
 
 **注**：要提高推理速度，可在对应模型配置文件中进行如下配置，设置增量推理`use_past`为True。
@@ -950,3 +957,7 @@ top_k: 3
 top_p: 1
 do_sample: True
 ```
+
+## [mindspore-lite](../feature_cards/Inference.md)
+
+如需导出模型，使用mindspore-lite进行离线推理请参考[推理特性使用文档](../feature_cards/Inference.md)
