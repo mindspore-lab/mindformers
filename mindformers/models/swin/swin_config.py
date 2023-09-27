@@ -1,4 +1,4 @@
-# Copyright 2022 Huawei Technologies Co., Ltd
+# Copyright 2023 Huawei Technologies Co., Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -91,10 +91,14 @@ class SwinConfig(BaseConfig):
         >>> from mindformers import SwinConfig
         >>> # init a config with a model name
         >>> config_a = SwinConfig.from_pretrained('swin_base_p4w7')
+        >>> type(config_c)
+        <class 'mindformers.models.swin.swin_config.SwinConfig'>
         >>> # init a config with a config path
         >>> config_path = os.path.join(MindFormerBook.get_project_path(),
         ...                        'configs', 'swin', 'run_swin_base_p4w7_224_100ep.yaml')
         >>> config_b = SwinConfig.from_pretrained(config_path)
+        >>> type(config_c)
+        <class 'mindformers.models.swin.swin_config.SwinConfig'>
         >>> # init a config with args
         >>> config_c = SwinConfig()
         >>> type(config_c)
