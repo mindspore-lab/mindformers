@@ -672,8 +672,6 @@ class Trainer:
         if self.is_model_instance:
             self.reset_model_instance(is_train=False)
 
-        kwargs['model_name'] = self.model_name
-
         output_result = self.trainer.predict(
             config=self.config, input_data=input_data,
             network=self.model, image_processor=self.image_processor,
