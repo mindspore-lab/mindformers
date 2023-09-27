@@ -738,8 +738,6 @@ class BaseTrainer:
                                   "moe_config": config.moe_config})
             self.set_network(network, is_train=False)
 
-            network.model_name = kwargs.get("model_name", None)
-
             self.count_parameters()
 
             if tokenizer is None and config.processor.tokenizer:

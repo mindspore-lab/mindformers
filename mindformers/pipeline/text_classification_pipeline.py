@@ -18,12 +18,14 @@ import os.path
 
 import numpy as np
 from mindspore import ops, Tensor, Model
-from ..auto_class import AutoProcessor, AutoModel
-from ..mindformer_book import MindFormerBook
-from .base_pipeline import BasePipeline
-from ..tools.register import MindFormerRegister, MindFormerModuleType
-from ..models import BaseModel, Tokenizer
-from ..dataset.labels import labels
+
+from mindformers.models import GPT2ForSequenceClassification
+from mindformers.auto_class import AutoProcessor, AutoModel
+from mindformers.mindformer_book import MindFormerBook
+from mindformers.pipeline.base_pipeline import BasePipeline
+from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
+from mindformers.models import BaseModel, Tokenizer
+from mindformers.dataset.labels import labels
 
 __all__ = ['TextClassificationPipeline']
 
@@ -152,7 +154,7 @@ class TextClassificationPipeline(BasePipeline):
 
         expand_dims = ops.ExpandDims()
 
-        if self.model.model_name == "gpt2_txtcls":
+        if isinstance(self.model, GPT2ForSequenceClassification):
             tokens = self.tokenizer(inputs, return_tensors="ms", **preprocess_params)
             input_ids = tokens["input_ids"]
             attention_mask = tokens["attention_mask"]
