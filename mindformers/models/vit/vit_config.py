@@ -1,4 +1,4 @@
-# Copyright 2022 Huawei Technologies Co., Ltd
+# Copyright 2023 Huawei Technologies Co., Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -31,21 +31,78 @@ class ViTConfig(BaseConfig):
     """
     Config for ViT model
 
+    Args:
+        image_size (`int`, *optional*, defaults to 224):
+            The size (resolution) of each image.
+        patch_size (`int`, *optional*, defaults to 16):
+            The size (resolution) of each patch.
+        num_channels (`int`, *optional*, defaults to 3):
+            The number of input channels.
+        initializer_range (`float`, *optional*, defaults to 0.02):
+            The standard deviation of the truncated_normal_initializer for initializing all weight matrices.
+        hidden_size (`int`, *optional*, defaults to 768):
+            Dimension of the embeddings and hidden states.
+        num_hidden_layers (`int`, *optional*, defaults to 12):
+            Number of hidden layers in the Transformer encoder.
+        num_attention_heads (`int`, *optional*, defaults to 12):
+            Number of attention heads for each attention layer in the Transformer encoder.
+        intermediate_size (`int`, *optional*, defaults to 3072):
+            Dimensionality of the "intermediate" (i.e., feed-forward) layer in the Transformer encoder.
+        qkv_bias (`bool`, *optional*, defaults to `True`):
+            Whether to add a bias to the queries, keys and values.
+        hidden_act (`str` or `Callable`, *optional*, defaults to "gelu"):
+            The non-linear activation function (function or string) in the encoder and pooler.
+        post_layernorm_residual (`bool`, *optional*, defaults to `False`):
+            Whether to use post layernorm in Transformer.
+        layer_norm_eps (`float`, *optional*, defaults to 1e-12):
+            The epsilon used by the layer normalization layers.
+        attention_probs_dropout_prob (`float`, *optional*, defaults to 0.0):
+            Dropout rate applied to the attention probs.
+        hidden_dropout_prob (`float`, *optional*, defaults to 0.0):
+            Dropout rate of the dropout function on the bias dropout.
+        drop_path_rate (`float`, *optional*, defaults to 0.1):
+            drop path rate of transformer blocks
+        use_mean_pooling (`bool`, *optional*, defaults to `True`):
+            Whether to use mean pooling.
+        num_labels (`int`, *optional*, defaults to 1000):
+            The number of labels in downstream tasks.
+        loss_type (`str`, *optional*, defaults to "SoftTargetCrossEntropy"):
+            The type of loss function.
+        encoder_stride (`int`, *optional*, defaults to 16):
+            Factors that increase spatial resolution in the decoder header for mask image modeling
+        checkpoint_name_or_path (`str`, *optional*, defaults to ""):
+            checkpoint path or name used to load to the network.
+        layernorm_compute_type (`str`, *optional*, defaults to "float32"):
+            layernorm compute dtype.
+        softmax_compute_type (`str`, *optional*, defaults to "float32"):
+            softmax compute dtype.
+        param_init_type (`float`, *optional*, defaults to "float32"):
+            The type of parameters initializer.
+        parallel_config (TransformerOpParallelConfig, defaults to default_transformer_config):
+            The parallel configure. Default `default_transformer_config`,
+            an instance of `TransformerOpParallelConfig` with default args.
+        moe_config (MoEConfig):
+            The configuration of MoE (Mixture of Expert). Default is an instance of MoEConfig
+            with default values. Please see `MoEConfig`.
+
     Examples:
+        >>> import os
+        >>> from mindformers import ViTConfig
+        >>> from mindformers.mindformer_book import MindFormerBook
         >>> # init a config with a model name
         >>> config_a = ViTConfig.from_pretrained('vit_base_p16')
+        >>> type(config_a)
+        <class 'mindformers.models.vit.vit_config.ViTConfig'>
         >>> # init a config with a config path
-        >>> import os
-        >>> from mindformers.mindformer_book import MindFormerBook
         >>> config_path = os.path.join(MindFormerBook.get_project_path(),
-        >>>                        'configs', 'vit', 'run_vit_base_p16_224_100ep.yaml')
+        ...                        'configs', 'vit', 'run_vit_base_p16_224_100ep.yaml')
         >>> config_b = ViTConfig.from_pretrained(config_path)
+        >>> type(config_b)
+        <class 'mindformers.models.vit.vit_config.ViTConfig'>
         >>> # init a config with args
-        >>> config_c = ViTConfig(
-        >>>     patch_size=16,
-        >>>     in_chans=3,
-        >>>     ...
-        >>>     )
+        >>> config_c = ViTConfig()
+        >>> type(config_c)
+        <class 'mindformers.models.vit.vit_config.ViTConfig'>
     """
     _support_list = MindFormerBook.get_config_support_list()['vit']
 

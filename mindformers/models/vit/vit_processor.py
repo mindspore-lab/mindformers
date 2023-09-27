@@ -1,4 +1,4 @@
-# Copyright 2022 Huawei Technologies Co., Ltd
+# Copyright 2023 Huawei Technologies Co., Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -35,6 +35,12 @@ class ViTImageProcessor(BaseImageProcessor):
 
     Args:
         image_resolution (int): the target size.
+
+    Examples:
+        >>> from mindformers import ViTImageProcessor
+        >>> vit_image_processor = ViTImageProcessor(224)
+        >>> type(vit_image_processor)
+        <class 'mindformers.models.vit.vit_processor.ViTImageProcessor'>
     """
 
     def __init__(self, size=224):
