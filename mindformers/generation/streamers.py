@@ -18,6 +18,10 @@
 from queue import Queue
 from typing import Optional
 import numpy as np
+try:
+    from mindspore._checkparam import Validator
+except ImportError:
+    import mindspore._checkparam as Validator
 from mindformers.models.base_tokenizer import BaseTokenizer
 
 __all__ = ['BaseStreamer', 'TextStreamer', 'TextIteratorStreamer']
@@ -77,6 +81,8 @@ class TextStreamer(BaseStreamer):
                  skip_prompt: bool = False,
                  skip_special_tokens: bool = True,
                  **decode_kwargs):
+        Validator.check_value_type("skip_prompt", skip_prompt, [bool], self.__class__.__name__)
+        Validator.check_value_type("skip_special_tokens", skip_special_tokens, [bool], self.__class__.__name__)
         self.tokenizer = tokenizer
         self.skip_prompt = skip_prompt
         self.skip_special_tokens = skip_special_tokens
