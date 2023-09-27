@@ -35,6 +35,12 @@ class ViTImageProcessor(BaseImageProcessor):
 
     Args:
         image_resolution (int): the target size.
+
+    Examples:
+        >>> from mindformers import ViTImageProcessor
+        >>> vit_image_processor = ViTImageProcessor(224)
+        >>> type(vit_image_processor)
+        <class 'mindformers.models.vit.vit_processor.ViTImageProcessor'>
     """
 
     def __init__(self, size=224):

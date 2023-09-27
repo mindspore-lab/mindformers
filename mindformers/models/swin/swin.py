@@ -180,12 +180,16 @@ class SwinForImageClassification(SwinBaseModel):
         config (SwinConfig): the config of Swin model.
 
     Examples:
+        >>> from mindformers import SwinForImageClassification, AutoConfig
         >>> # input model name, load model and weights
         >>> model_a = SwinForImageClassification.from_pretrained('swin_base_p4w7')
+        >>> type(model_a)
+        <class 'mindformers.models.swin.swin.SwinForImageClassification'>
         >>> # input config, load model without weights
-        >>> from mindformers import AutoConfig
         >>> config = AutoConfig.from_pretrained('swin_base_p4w7')
         >>> model_b = SwinForImageClassification(config)
+        >>> type(model_b)
+        <class 'mindformers.models.swin.swin.SwinForImageClassification'>
     """
     _support_list = MindFormerBook.get_model_support_list()['swin']
 

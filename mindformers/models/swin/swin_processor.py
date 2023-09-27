@@ -121,14 +121,19 @@ class SwinProcessor(BaseProcessor):
     consists of a feature extractor (BaseFeatureEXtractor) for image input.
 
     Examples:
+        >>> import os
         >>> from mindformers import MindFormerBook
         >>> from mindformers.models import SwinProcessor
         >>> yaml_path = os.path.join(MindFormerBook.get_project_path(), "configs",
         ...                          "swin", "run_swin_base_p4w7_224_100ep.yaml")
         >>> # build SwinProcessor from pretrained
         >>> pro_a = SwinProcessor.from_pretrained('swin_base_p4w7')
+        >>> type(pro_a)
+        <class 'mindformers.models.swin.swin_processor.SwinProcessor'>
         >>> # build SwinProcessor from config
         >>> pro_b = SwinProcessor.from_pretrained(yaml_path)
+        >>> type(pro_b)
+        <class 'mindformers.models.swin.swin_processor.SwinProcessor'>
     """
     _support_list = MindFormerBook.get_processor_support_list()['swin']
 
