@@ -236,7 +236,6 @@ class FusedAdamWeightDecay(Optimizer):
 
         self.version_flag = fix_optim_global_step_sig()
 
-
     def construct(self, gradients):
         """construct with gradients"""
         lr = self.get_lr()
