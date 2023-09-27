@@ -34,15 +34,25 @@ class StatusCode:
     '''StatusCode'''
     succeed = 200
 
+def del_incomplete_download_file(filepath):
+    """del incomplete download file, it will be removed when mindformers supports resume download from breakpoint."""
+    if not os.path.exists(filepath+".lock") and os.path.exists(filepath):
+        logger.info("The file %s is existed but not download completely, "
+                    "so it is deleted and re-download.", filepath)
+        os.remove(filepath)
 
 def download_with_progress_bar(url, filepath, chunk_size=1024, timeout=4):
     """download_with_progress_bar"""
     local_id = int(os.getenv("RANK_ID", "0"))
+    if os.path.exists(filepath + ".error"):
+        os.remove(filepath + ".error")
     if local_id % 8 != 0:
         logger.info("Wait for the first card to download file. ")
         while True:
             if os.path.exists(filepath+".lock"):
                 return True
+            if os.path.exists(filepath+".error"):
+                return False
 
     if not os.path.exists(filepath):
         os.makedirs(os.path.dirname(filepath), exist_ok=True)
@@ -60,6 +70,8 @@ def download_with_progress_bar(url, filepath, chunk_size=1024, timeout=4):
             requests.exceptions.ProxyError,
             requests.exceptions.ConnectionError):
         logger.error("Connect error, please download %s to %s.", url, filepath)
+        if not os.path.exists(filepath+".error"):
+            os.mknod(filepath+".error")
         return False
 
     content_size = response.headers.get('content-length')
@@ -72,6 +84,8 @@ def download_with_progress_bar(url, filepath, chunk_size=1024, timeout=4):
             content_size = int(response.headers.get('content-length'))
         else:
             logger.error("Download url parsing failed from json file, please download %s to %s.", url, filepath)
+            if not os.path.exists(filepath + ".error"):
+                os.mknod(filepath + ".error")
             return False
     else:
         content_size = int(content_size)
@@ -96,4 +110,6 @@ def download_with_progress_bar(url, filepath, chunk_size=1024, timeout=4):
         return True
 
     logger.error("%s is unconnected!", url)
+    if not os.path.exists(filepath + ".error"):
+        os.mknod(filepath + ".error")
     return False
