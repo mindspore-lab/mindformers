@@ -89,7 +89,7 @@ train_dataset: &train_dataset
     shuffle: True
   input_columns: ["input_ids"]
   output_columns: ["input_ids", "position_id", "attention_mask"]
-  eos_reset: True
+  eod_reset: True
   num_parallel_workers: 8
   python_multiprocessing: False
   drop_remainder: True
@@ -113,6 +113,7 @@ model:
     num_layers: 40
     num_heads: 40
     pad_token_id: 50256
+    eod_token_id: 50256
     eos_token_id: 50256
     post_layernorm_residual: False
     dropout_rate: 0.1
