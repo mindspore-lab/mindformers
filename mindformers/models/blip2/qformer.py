@@ -699,7 +699,6 @@ class BertEncoder(nn.Cell):
             use_cache=None,
             output_attentions=False,
             output_hidden_states=False,
-            return_dict=True,
             query_length=0,
     ):
         """
@@ -749,8 +748,6 @@ class BertEncoder(nn.Cell):
 
         value_list = [hidden_states, next_decoder_cache,
                       all_hidden_states, all_self_attentions, all_cross_attentions]
-        if not return_dict:
-            return tuple(v for v in value_list if v is not None)
         return tuple(value_list)
 
 class BertPredictionHeadTransform(nn.Cell):
@@ -1096,7 +1093,6 @@ class BertModel(BertPreTrainedModel):
         self.num_hidden_layers = self.config.num_hidden_layers
         self.output_attentions = self.config.output_attentions
         self.output_hidden_states = self.config.output_hidden_states
-        self.use_return_dict = self.config.use_return_dict
         self.query_length = self.config.query_length
         self.embeddings = BertEmbeddings(config)
         self.encoder = BertEncoder(config)
@@ -1213,7 +1209,6 @@ class BertModel(BertPreTrainedModel):
             use_cache=None,
             output_attentions=None,
             output_hidden_states=None,
-            return_dict=None,
             is_decoder=False,
     ):
         r"""
@@ -1245,11 +1240,6 @@ class BertModel(BertPreTrainedModel):
             output_hidden_states
             if output_hidden_states is not None
             else self.output_hidden_states
-        )
-        return_dict = (
-            return_dict
-            if return_dict is not None
-            else self.use_return_dict
         )
 
         if input_ids is None:
@@ -1336,22 +1326,11 @@ class BertModel(BertPreTrainedModel):
             use_cache=use_cache,
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
-            return_dict=return_dict,
             query_length=query_length,
         )
         sequence_output = encoder_outputs[0]
 
-        if not return_dict:
-            return (sequence_output,) + encoder_outputs[1:]
-
-        return (
-            sequence_output,
-            encoder_outputs[1],
-            encoder_outputs[2],
-            encoder_outputs[3],
-            encoder_outputs[4],
-        )
-
+        return (sequence_output,) + encoder_outputs[1:]
 
 class BertLMHeadModel(BertPreTrainedModel):
     """ BertLMHeadModel, the main model for Qformer
@@ -1517,7 +1496,6 @@ class BertLMHeadModel(BertPreTrainedModel):
             use_cache=True,
             output_attentions=None,
             output_hidden_states=None,
-            return_dict=None,
             return_logits=False,
             is_decoder=True
     ):
@@ -1557,9 +1535,7 @@ class BertLMHeadModel(BertPreTrainedModel):
             >>> outputs = model(**inputs)
             >>> prediction_logits = outputs.logits
         """
-        return_dict = (
-            return_dict if return_dict is not None else self.config.use_return_dict
-        )
+
         if labels is not None:
             use_cache = False
         if past_key_values is not None:
@@ -1577,7 +1553,6 @@ class BertLMHeadModel(BertPreTrainedModel):
             use_cache=use_cache,
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
-            return_dict=return_dict,
             is_decoder=is_decoder,
         )
 
@@ -1602,15 +1577,5 @@ class BertLMHeadModel(BertPreTrainedModel):
             if self.reduction == "none":
                 lm_loss = lm_loss.view(prediction_scores.size(0), -1).sum(1)
 
-        if not return_dict:
-            output = (prediction_scores,) + outputs[1:]
-            return ((lm_loss,) + output) if lm_loss is not None else output
-
-        return (
-            lm_loss,
-            prediction_scores,
-            outputs[1],
-            outputs[2],
-            outputs[3],
-            outputs[4],
-        )
+        output = (prediction_scores,) + outputs[1:]
+        return ((lm_loss,) + output) if lm_loss is not None else output
