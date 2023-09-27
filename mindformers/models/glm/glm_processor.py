@@ -31,6 +31,29 @@ class GLMProcessor(BaseProcessor):
     """
     GLM processor,
     consists of a tokenizer (BaseTokenizer) for text input.
+
+    Args:
+        tokenizer (Optional[BaseTokenizer]): text tokenizer for glm.
+        max_length (`int`, *optional*):
+            Controls the maximum length to use by one of the truncation/padding parameters.
+
+            If left unset or set to `None`, this will use the predefined model maximum length if a maximum length
+            is required by one of the truncation/padding parameters. If the model has no specific maximum input
+            length (like XLNet) truncation/padding to a maximum length will be deactivated.
+        padding (`bool` or `str`, *optional*, defaults to `max_length`):
+            Activates and controls padding. Accepts the following values:
+
+            `True` or `'longest'`: Pad to the longest sequence in the batch (or no padding if only a single
+                sequence if provided).
+            `'max_length'`: Pad to a maximum length specified with the argument `max_length` or to the maximum
+                acceptable input length for the model if that argument is not provided.
+            `False` or `'do_not_pad'`: No padding (i.e., can output a batch with sequences of different
+                lengths).
+        return_tensors (`str`, *optional*):
+            If set, will return tensors instead of list of python integers. Acceptable values are:
+
+            `'np'`: Return Numpy `np.ndarray` objects.
+            `'ms'`: Return Numpy `ms.Tensor` objects.
     """
     _support_list = MindFormerBook.get_processor_support_list()['glm']
 
