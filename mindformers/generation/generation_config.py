@@ -24,7 +24,7 @@ __all__ = ["GenerationConfig"]
 
 class GenerationConfig:
     """Class that holds a configuration for a generation task.
-    Arg:
+    Args:
         > Parameters that control the length of the output
 
         max_length (`int`, *optional*, defaults to 20):
@@ -36,9 +36,9 @@ class GenerationConfig:
         > Parameters that control the generation strategy used
 
         do_sample (`bool`, *optional*, defaults to `False`):
-            Whether or not to use sampling ; use greedy decoding otherwise.
+            Whether to use sampling ; use greedy decoding otherwise.
         use_past (`bool`, *optional*, defaults to `False`):
-            Whether or not the model should use the past last key/values attentions
+            Whether the model should use the past last key/values attentions
             (if applicable to the model) to speed up decoding.
 
         > Parameters for manipulation of the model output logits

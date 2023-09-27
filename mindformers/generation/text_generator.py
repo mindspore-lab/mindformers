@@ -25,16 +25,15 @@ from mindspore.ops import functional as F
 from mindspore.ops import operations as P
 import mindspore.common.dtype as mstype
 from mindspore.common.tensor import Tensor
-from mindformers.generation.streamers import BaseStreamer
 
-from .generation_config import GenerationConfig
-from .logits_process import (LogitNormalization, LogitsProcessorList,
-                             RepetitionPenaltyLogitsProcessor,
-                             TemperatureLogitsWarper, TopKLogitsWarper,
-                             TopPLogitsWarper)
-from .streamers import BaseStreamer
-from .utils import softmax
-from ..tools import logger
+from mindformers.generation.generation_config import GenerationConfig
+from mindformers.generation.logits_process import (LogitNormalization, LogitsProcessorList,
+                                                   RepetitionPenaltyLogitsProcessor,
+                                                   TemperatureLogitsWarper, TopKLogitsWarper,
+                                                   TopPLogitsWarper)
+from mindformers.generation.streamers import BaseStreamer
+from mindformers.generation.utils import softmax
+from mindformers.tools import logger
 
 __all__ = ["GeneratorMixin"]
 
@@ -105,7 +104,7 @@ class GeneratorMixin:
         processors = LogitsProcessorList()
 
         if generation_config.repetition_penalty is not None and generation_config.repetition_penalty != 1.0:
-            processors.append(RepetitionPenaltyLogitsProcessor(penalty=generation_config.repetition_penalty))
+            processors.append(RepetitionPenaltyLogitsProcessor(repetition_penalty=generation_config.repetition_penalty))
         processors = self._merge_processor_list(processors, logits_processor)
         # `LogitNormalization` should always be the last logit processor, when present
         if generation_config.renormalize_logits is True:
@@ -228,7 +227,7 @@ class GeneratorMixin:
         """
         Text generation given the model and origin inputs
 
-        Inputs:
+        Args:
             origin_inputs(list): The prompt for generation, should be a list of ids.
             generation_config(GenerationConfig): The controlling config for text generation.
             streamer: Streamer object that will be used to stream the generated sequences.
@@ -515,7 +514,7 @@ class GeneratorMixin:
             >>> output = t5.generate(words, do_sample=True, top_k=10, top_p=1)
             >>> output = tokenizer.decode(output[0], skip_special_tokens=True)
             >>> print(output)
-            Este comist de stat ale stateului membre nai uzusepa şi ONU
+            eful ONU declară că nu există o soluţie militară în Siria
 
         Returns:
             A list of the generated token ids
