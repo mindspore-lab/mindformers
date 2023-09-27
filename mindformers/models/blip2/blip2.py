@@ -83,7 +83,6 @@ class Blip2Base(BaseModel):
         """
         vision_config = self.config.vision_config
         if vision_config is not None:
-            vision_config.parallel_config = self.config.parallel_config
             visual_encoder = ViTModelForBlip2(vision_config)
         if visual_encoder is None:
             raise ValueError("visual_encoder configuration is wrong. \
