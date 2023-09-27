@@ -44,16 +44,17 @@ SUPPORT_MODEL_NAMES = MindFormerBook().get_model_name_support_list()
 
 @MindFormerRegister.register(MindFormerModuleType.TRAINER)
 class CausalLanguageModelingTrainer(BaseTrainer):
-    r"""CausalLanguageModelingTrainer Task For Trainer.
+    """
+    CausalLanguageModelingTrainer Task For Trainer.
+
     Args:
         model_name (str): The model name of Task-Trainer. Default: None
+
     Examples:
         >>> from mindformers import CausalLanguageModelingTrainer
         >>> gen_trainer = CausalLanguageModelingTrainer(model_name="gpt2")
-        >>> gen_trainer.train()
-        >>> res = gen_trainer.predict(input_data = "hello world [MASK]")
-    Raises:
-        NotImplementedError: If train method or evaluate method or predict method not implemented.
+        >>> type(gen_trainer)
+        <class 'mindformers.trainer.causal_language_modeling.causal_language_modeling.CausalLanguageModelingTrainer'>
     """
 
     def __init__(self, model_name: str = None):
@@ -67,9 +68,9 @@ class CausalLanguageModelingTrainer(BaseTrainer):
               optimizer: Optional[Optimizer] = None,
               callbacks: Optional[Union[Callback, List[Callback]]] = None,
               **kwargs):
-        r"""Train task for CausalLanguageModeling Trainer.
+        """
+        Train task for CausalLanguageModeling Trainer.
         This function is used to train or fine-tune the network.
-
         The trainer interface is used to quickly start training for general task.
         It also allows users to customize the network, optimizer, dataset, wrapper, callback.
 
@@ -78,23 +79,19 @@ class CausalLanguageModelingTrainer(BaseTrainer):
                 The task config which is used to configure the dataset, the hyper-parameter, optimizer, etc.
                 It supports config dict or MindFormerConfig or TrainingArguments or ConfigArguments class.
                 Default: None.
-            network (Optional[Union[Cell, BaseModel]]): The network for trainer.
-                It supports model name or BaseModel or MindSpore Cell class.
+            network (Optional[Union[Cell, BaseModel]]):
+                The network for trainer.It supports model name or BaseModel or MindSpore Cell class.
                 Default: None.
-            dataset (Optional[Union[BaseDataset, GeneratorDataset]]): The training dataset.
-                It support real dataset path or BaseDateset class or MindSpore Dataset class.
+            dataset (Optional[Union[BaseDataset, GeneratorDataset]]):
+                The training dataset.It support real dataset path or BaseDateset class or MindSpore
+                Dataset class. Default: None.
+            wrapper (Optional[TrainOneStepCell]):
+                Wraps the `network` with the `optimizer`.It support TrainOneStepCell class of MindSpore.
                 Default: None.
-            optimizer (Optional[Optimizer]): The training network's optimizer. It support Optimizer class of MindSpore.
-                Default: None.
-            wrapper (Optional[TrainOneStepCell]): Wraps the `network` with the `optimizer`.
-                It support TrainOneStepCell class of MindSpore.
-                Default: None.
-            callbacks (Optional[Union[Callback, List[Callback]]]): The training callback function.
-                It support CallBack or CallBack List of MindSpore.
-                Default: None.
-
-        Raises:
-            NotImplementedError: If wrapper not implemented.
+            optimizer (Optional[Optimizer]):
+                he training network's optimizer. It support Optimizer class of MindSpore. Default: None.
+            callbacks (Optional[Union[Callback, List[Callback]]]):
+                The training callback function. It support CallBack or CallBack List of MindSpore. Default: None.
         """
         self.training_process(
             config=config,
@@ -112,9 +109,8 @@ class CausalLanguageModelingTrainer(BaseTrainer):
                  callbacks: Optional[Union[Callback, List[Callback]]] = None,
                  compute_metrics: Optional[Union[dict, set]] = None,
                  **kwargs):
-        r"""Evaluate task for CausalLanguageModeling Trainer.
-        This function is used to evaluate the network.
-
+        """
+        Evaluate task for CausalLanguageModeling Trainer. This function is used to evaluate the network.
         The trainer interface is used to quickly start training for general task.
         It also allows users to customize the network, dataset, callbacks, compute_metrics.
 
@@ -123,18 +119,15 @@ class CausalLanguageModelingTrainer(BaseTrainer):
                 The task config which is used to configure the dataset, the hyper-parameter, optimizer, etc.
                 It supports config dict or MindFormerConfig or TrainingArguments or ConfigArguments class.
                 Default: None.
-            network (Optional[Union[Cell, BaseModel]]): The network for trainer.
-                It supports model name or BaseModel or MindSpore Cell class.
+            network (Optional[Union[Cell, BaseModel]]):
+                The network for trainer. It supports model name or BaseModel or MindSpore Cell class. Default: None.
+            dataset (Optional[Union[BaseDataset]]):
+                The evaluate dataset. It supports real dataset path or BaseDateset class or MindSpore Dataset class.
                 Default: None.
-            dataset (Optional[Union[BaseDataset]]): The evaluate dataset.
-                It supports real dataset path or BaseDateset class or MindSpore Dataset class.
-                Default: None.
-            callbacks (Optional[Union[Callback, List[Callback]]]): The eval callback function.
-                It supports CallBack or CallBack List of MindSpore.
-                Default: None.
-            compute_metrics (Optional[Union[dict, set]]): The metric of evaluating.
-                It supports dict or set in MindSpore's Metric class.
-                Default: None.
+            callbacks (Optional[Union[Callback, List[Callback]]]):
+                The eval callback function. It supports CallBack or CallBack List of MindSpore. Default: None.
+            compute_metrics (Optional[Union[dict, set]]):
+                The metric of evaluating. It supports dict or set in MindSpore's Metric class. Default: None.
         """
         metric_name = config.metric.type
         kwargs.setdefault("metric_name", metric_name)
@@ -287,17 +280,17 @@ class CausalLanguageModelingTrainer(BaseTrainer):
                 The task config which is used to configure the dataset, the hyper-parameter, optimizer, etc.
                 It supports config dict or MindFormerConfig or TrainingArguments or ConfigArguments class.
                 Default: None.
-            input_data (Optional[Union[Tensor, str, list]]): The predict data. It supports 1) a text string to be
-                translated, 1) a file name where each line is a text to be translated  and 3) a generator dataset.
+            input_data (Optional[Union[Tensor, str, list]]):
+                The predict data. It supports 1) a text string to be translated, 1) a file name where each
+                line is a text to be translated  and 3) a generator dataset. Default: None.
+            network (Optional[Union[Cell, BaseModel]]):
+                The network for trainer. It supports model name or BaseModel or MindSpore Cell class.
                 Default: None.
-            network (Optional[Union[Cell, BaseModel]]): The network for trainer.
-                It supports model name or BaseModel or MindSpore Cell class.
-                Default: None.
-            tokenizer (Optional[BaseTokenizer]): The tokenizer for tokenizing the input text.
-                Default: None.
-        Returns:
-            A list of prediction.
+            tokenizer (Optional[BaseTokenizer]):
+                The tokenizer for tokenizing the input text. Default: None.
 
+        Returns:
+            List, a list of prediction.
         """
         if input_data is None:
             input_data = config.input_data

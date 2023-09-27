@@ -36,7 +36,8 @@ __all__ = ['ImageToTextGenerationTrainer']
 
 @MindFormerRegister.register(MindFormerModuleType.TRAINER)
 class ImageToTextGenerationTrainer(BaseTrainer):
-    r"""ImageToTextGenerationTrainer Task For Trainer.
+    """
+    ImageToTextGenerationTrainer Task For Trainer.
 
     Args:
         model_name (str): The model name of Task-Trainer. Default: None
@@ -47,7 +48,8 @@ class ImageToTextGenerationTrainer(BaseTrainer):
     Examples:
         >>> from mindformers.trainer import ImageToTextGenerationTrainer
         >>> trainer = ImageToTextGenerationTrainer(model_name="blip2_stage2_vit_g_llama_7b")
-        >>> trainer.predict()
+        >>> type(trainer)
+        <class 'mindformers.trainer.image_to_text_generation.image_to_text_generation.ImageToTextGenerationTrainer'>
     """
 
     def __init__(self, model_name: str = None):
@@ -68,7 +70,8 @@ class ImageToTextGenerationTrainer(BaseTrainer):
                 network: Optional[Union[Cell, BaseModel]] = None,
                 tokenizer: Optional[BaseTokenizer] = None,
                 image_processor: Optional[BaseImageProcessor] = None, **kwargs):
-        r"""Predict task for ZeroShotImageToTextGenerationTrainer Trainer.
+        """
+        Predict task for ZeroShotImageToTextGenerationTrainer Trainer.
         This function is used to predict the network.
 
         Args:
@@ -76,15 +79,16 @@ class ImageToTextGenerationTrainer(BaseTrainer):
                 The task config which is used to configure the dataset, the hyper-parameter, optimizer, etc.
                 It supports config dict or MindFormerConfig or TrainingArguments or ConfigArguments class.
                 Default: None.
-            network (Optional[Union[Cell, BaseModel]]): The network for trainer.
-                It supports model name or BaseModel or MindSpore Cell class.
-                Default: None.
             input_data (Optional[Union[GeneratorDataset, Tensor, np.ndarray, Image, str, list]]):
-                The dataset. It supports real dataset path or
-                BaseDateset class or MindSpore Dataset class.
+                The dataset. It supports real dataset path or BaseDateset class or MindSpore Dataset class.
                 Default: None.
-            tokenizer (Optional[BaseTokenizer]): Used for text process.
-            image_processor (Optional[BaseImageProcessor]): Used for image process.
+            network (Optional[Union[Cell, BaseModel]]):
+                The network for trainer. It supports model name or BaseModel or MindSpore Cell class.
+                Default: None.
+            tokenizer (Optional[BaseTokenizer]):
+                Used for text process. Default: None.
+            image_processor (Optional[BaseImageProcessor]):
+                Used for image process. Default: None.
         """
         config = self.set_config(config)
 
