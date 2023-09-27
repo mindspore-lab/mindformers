@@ -45,7 +45,18 @@ from ..utils import check_runner_config
 
 @MindFormerRegister.register(MindFormerModuleType.TRAINER, alias="image_to_text_retrieval")
 class ImageToTextRetrievalTrainer(BaseTrainer):
-    """Image-to-text Retrieval Trainer."""
+    """
+    Image-to-text Retrieval Trainer.
+
+    Args:
+        model_name (str): The model name of Task-Trainer. Default: None
+
+    Examples:
+        >>> from mindformers.trainer import ImageToTextRetrievalTrainer
+        >>> trainer = ImageToTextRetrievalTrainer(model_name="blip2_stage1_vit_g")
+        >>> type(trainer)
+        <class 'mindformers.trainer.image_to_text_retrieval.image_to_text_retrieval.ImageToTextRetrievalTrainer'>
+    """
     def __init__(self, model_name: str = None):
         super(ImageToTextRetrievalTrainer, self).__init__("image_to_text_retrieval", model_name)
         self.model_name = model_name
@@ -61,6 +72,25 @@ class ImageToTextRetrievalTrainer(BaseTrainer):
               **kwargs):
         """
         Training task for ImageToTextRetrievalTrainer Trainer.
+        This function is used to train or fine-tune the network.
+        The trainer interface is used to quickly start training for general task.
+        It also allows users to customize the network, optimizer, dataset, wrapper, callback.
+
+        Args:
+            config (Optional[Union[dict, ConfigArguments]]):
+                The task config which is used to configure the dataset, the hyper-parameter, optimizer, etc.
+                It supports config dict or ConfigArguments class. Default: None.
+            network (Optional[Union[str, BaseModel]]):
+                The network for trainer. It supports model name or MindSpore Cell class. Default: None.
+            dataset (Optional[Union[str, GeneratorDataset]]):
+                The training dataset. It support real dataset path or MindSpore Dataset class. Default: None.
+            wrapper (Optional[TrainOneStepCell]):
+                Wraps the `network` with the `optimizer`. It support TrainOneStepCell class of MindSpore.
+                Default: None.
+            optimizer (Optional[Optimizer]):
+                The training network's optimizer. It support Optimizer class of MindSpore. Default: None.
+            callbacks (Optional[Union[Callback, List[Callback]]]):
+                The training callback function. It support CallBack or CallBack List of MindSpore. Default: None.
         """
         # check mindspore version
         # currently, filip only support training under mindspore2.0
@@ -164,6 +194,17 @@ class ImageToTextRetrievalTrainer(BaseTrainer):
                  **kwargs):
         """
         Evaluation task for ImageToTextRetrievalTrainer Trainer.
+
+        Args:
+            config (Optional[Union[dict, ConfigArguments]]):
+                The task config which is used to configure the dataset, the hyper-parameter, optimizer, etc.
+                It supports config dict or ConfigArguments class. Default: None.
+            network (Optional[Union[str, BaseModel]]):
+                The network for trainer. It supports model name or MindSpore Cell class. Default: None.
+            dataset (Optional[Union[str, GeneratorDataset]]):
+                The training dataset. It support real dataset path or MindSpore Dataset class. Default: None.
+            callbacks (Optional[Union[Callback, List[Callback]]]):
+                The training callback function. It support CallBack or CallBack List of MindSpore. Default: None.
         """
         self.kwargs = kwargs
         is_full_config = kwargs.get("is_full_config", False)
