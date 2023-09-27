@@ -73,6 +73,37 @@ def judge_redirect(rank_id: int,
     return is_redirect
 
 
+class LimitedRepeatHandler(logging.StreamHandler):
+    """Limited Repeat Handler"""
+    def __init__(self, max_repeats=10, stream=None):
+        """
+        Limited Repeat Handler init
+
+        Args:
+            max_repeats(int): max repeats of same log, default: 10.
+            stream: stream.
+        """
+        super().__init__(stream=stream)
+        self.max_repeats = max_repeats
+        self.latest_log = ''
+        self.count = 1
+
+    def emit(self, record):
+        """emit"""
+        log_message = record.getMessage()
+        if log_message == self.latest_log:
+            self.count += 1
+            if self.count <= self.max_repeats:
+                self._emit(record)
+        else:
+            self.count = 1
+            self.latest_log = log_message
+            self._emit(record)
+
+    def _emit(self, record):
+        super().emit(record)
+
+
 class StreamRedirector:
     """Stream Re-director for Log."""
 
@@ -394,7 +425,7 @@ def get_logger(logger_name: str = 'mindformers', **kwargs) -> logging.Logger:
     if to_std:
         if not stdout_format:
             stdout_format = DEFAULT_STDOUT_FORMAT
-        stream_handler = logging.StreamHandler(sys.stdout)
+        stream_handler = LimitedRepeatHandler(10, sys.stdout)
         stream_handler.setLevel(_convert_level(stdout_level))
         stream_formatter = logging.Formatter(stdout_format)
         stream_handler.setFormatter(stream_formatter)
