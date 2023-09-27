@@ -31,30 +31,16 @@ from ...dataset.labels import cluener_labels
 
 @MindFormerRegister.register(MindFormerModuleType.TRAINER)
 class TokenClassificationTrainer(BaseTrainer):
-    r"""TokenClassification Task For Trainer.
+    """
+    Trainer of token classification task. It provides training, evaluation and prediction interfaces for
+    question answering task, allowing users to quickly start the process according to the model name,
+    and also provides a large number of customizable items to meet user needs.
+
     Args:
-        model_name (str): The model name of Task-Trainer. Default: None
-    Examples:
-        >>> import numpy as np
-        >>> from mindspore.dataset import GeneratorDataset
-        >>> from mindspore.nn import AdamWeightDecay, TrainOneStepCell
-        >>> from mindformers.core.lr import build_lr
-        >>> from mindformers.trainer import TokenClassificationTrainer
-        >>> from mindformers.tools.register import MindFormerConfig
-        >>> from mindformers.models import BertForTokenClassification, BertConfig
-        >>> config = MindFormerConfig("configs/tokcls/run_tokcls_bert_base_chinese.yaml")
-        >>> #1) use config to train or evaluate or predict
-        >>> tokcls_task = TokenClassificationTrainer(model_name='tokcls_bert_base_chinese')
-        >>> tokcls_task.train(config=config)
-        >>> tokcls_task.evaluate(config=config)
-        >>> input_data = ["表身刻有代表日内瓦钟表匠freresoltramare的“fo”字样。", "的时间会去玩玩星际2。"]
-        >>> res = tokcls_task.predict(input_data=input_data)
-        >>> print(res)
-            [[{'entity_group': 'address', 'word': '日内瓦', 'start': 6, 'end': 9}],
-            [{'entity_group': 'game', 'word': '星际2', 'start': 7, 'end': 10}]]
-        >>> #2) use instance function to train or evaluate or predict
+        model_name (str): The model name of token classification task trainer. Default: None
+
     Raises:
-        NotImplementedError: If train method or evaluate method or predict method not implemented.
+        NotImplementedError: If train method, evaluate method or predict method not implemented.
     """
 
     def __init__(self, model_name: str = None):
@@ -68,11 +54,10 @@ class TokenClassificationTrainer(BaseTrainer):
               optimizer: Optional[Optimizer] = None,
               callbacks: Optional[Union[Callback, List[Callback]]] = None,
               **kwargs):
-        r"""Train task for TokenClassification Trainer.
-        This function is used to train or fine-tune the network.
-
-        The trainer interface is used to quickly start training for general task.
-        It also allows users to customize the network, optimizer, dataset, wrapper, callback.
+        """
+        The training API of token classification task. It allows to quickly start training or fine-tuning based on
+        initialization conditions or by passing in custom configurations. The configurable items include the network,
+        optimizer, dataset, wrapper, and callbacks.
 
         Args:
             config (Optional[Union[dict, MindFormerConfig, ConfigArguments, TrainingArguments]]):
@@ -83,19 +68,19 @@ class TokenClassificationTrainer(BaseTrainer):
                 It supports model name or BaseModel or MindSpore Cell class.
                 Default: None.
             dataset (Optional[Union[BaseDataset, GeneratorDataset]]): The training dataset.
-                It support real dataset path or BaseDateset class or MindSpore Dataset class.
+                It supports real dataset path or BaseDateset class or MindSpore Dataset class.
                 Default: None.
             optimizer (Optional[Optimizer]): The training network's optimizer. It support Optimizer class of MindSpore.
                 Default: None.
             wrapper (Optional[TrainOneStepCell]): Wraps the `network` with the `optimizer`.
-                It support TrainOneStepCell class of MindSpore.
+                It supports TrainOneStepCell class of MindSpore.
                 Default: None.
             callbacks (Optional[Union[Callback, List[Callback]]]): The training callback function.
-                It support CallBack or CallBack List of MindSpore.
+                It supports CallBack or CallBack List of MindSpore.
                 Default: None.
 
-        Raises:
-            NotImplementedError: If wrapper not implemented.
+        Returns:
+            None
         """
         self.training_process(
             config=config,
@@ -113,11 +98,10 @@ class TokenClassificationTrainer(BaseTrainer):
                  callbacks: Optional[Union[Callback, List[Callback]]] = None,
                  compute_metrics: Optional[Union[dict, set]] = None,
                  **kwargs):
-        r"""Evaluate task for TokenClassification Trainer.
-        This function is used to evaluate the network.
-
-        The trainer interface is used to quickly start training for general task.
-        It also allows users to customize the network, dataset, callbacks, compute_metrics.
+        """
+        The evaluation API of token classification task. It allows to quickly start evaluation based on
+        initialization conditions or by passing in custom configurations. The configurable items include the network,
+        dataset, callbacks, compute_metrics and callbacks.
 
         Args:
             config (Optional[Union[dict, MindFormerConfig, ConfigArguments, TrainingArguments]]):
@@ -128,14 +112,17 @@ class TokenClassificationTrainer(BaseTrainer):
                 It supports model name or BaseModel or MindSpore Cell class.
                 Default: None.
             dataset (Optional[Union[BaseDataset]]): The evaluate dataset.
-                It support real dataset path or BaseDateset class or MindSpore Dataset class.
+                It supports real dataset path or BaseDateset class or MindSpore Dataset class.
                 Default: None.
             callbacks (Optional[Union[Callback, List[Callback]]]): The eval callback function.
-                It support CallBack or CallBack List of MindSpore.
+                It supports CallBack or CallBack List of MindSpore.
                 Default: None.
             compute_metrics (Optional[Union[dict, set]]): The metric of evaluating.
-                It support dict or set in MindSpore's Metric class.
+                It supports dict or set in MindSpore's Metric class.
                 Default: None.
+
+        Returns:
+            None
         """
         metric_name = "Entity Metric"
         kwargs.setdefault("metric_name", metric_name)
@@ -155,7 +142,9 @@ class TokenClassificationTrainer(BaseTrainer):
                 tokenizer: Optional[BaseTokenizer] = None,
                 **kwargs):
         """
-        Executes the predict of the trainer.
+        The prediction API of token classification task. It allows to quickly start prediction based on
+        initialization conditions or by passing in custom configurations. The configurable items include the network,
+        input data, and tokenizer.
 
         Args:
             config (Optional[Union[dict, MindFormerConfig, ConfigArguments, TrainingArguments]]):
@@ -168,8 +157,9 @@ class TokenClassificationTrainer(BaseTrainer):
                 Default: None.
             tokenizer (Optional[BaseTokenizer]): The tokenizer for tokenizing the input text.
                 Default: None.
+
         Returns:
-            A list of prediction.
+            A list of prediction results.
         """
         config = self.set_config(config)
 
