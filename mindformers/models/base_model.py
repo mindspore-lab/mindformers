@@ -1,4 +1,4 @@
-# Copyright 2022 Huawei Technologies Co., Ltd
+# Copyright 2023 Huawei Technologies Co., Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -30,7 +30,7 @@ from ..mindformer_book import MindFormerBook, print_path_or_list
 from .build_config import build_model_config
 from .base_config import BaseConfig
 from ..tools.register import MindFormerConfig
-from ..tools.download_tools import download_with_progress_bar
+from ..tools.download_tools import download_with_progress_bar, del_incomplete_download_file
 from ..tools.logger import logger
 from ..tools.utils import try_sync_file
 
@@ -106,6 +106,7 @@ class BaseModel(nn.Cell, GeneratorMixin):
                     os.makedirs(default_checkpoint_download_folder, exist_ok=True)
 
                 ckpt_file = os.path.join(default_checkpoint_download_folder, checkpoint_name + ".ckpt")
+                del_incomplete_download_file(ckpt_file)
                 if not os.path.exists(ckpt_file):
                     url = MindFormerBook.get_model_ckpt_url_list()[checkpoint_name_or_path][self._model_type]
                     succeed = download_with_progress_bar(url, ckpt_file)
