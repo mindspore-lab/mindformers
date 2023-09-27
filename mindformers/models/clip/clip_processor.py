@@ -42,20 +42,9 @@ class CLIPImageProcessor(BaseImageProcessor):
 
     Examples:
         >>> from mindformers import CLIPImageProcessor
-        >>> from mindformers.tools.image_tools import load_image
         >>> processor = CLIPImageProcessor(image_resolution=256)
-        >>> image = load_image("https://ascend-repo-modelzoo.obs.cn-east-2."
-        ...                    "myhuaweicloud.com/XFormer_for_mindspore/clip/sunflower.png")
-        >>> processor(image)
-            Tensor(shape=[1, 3, 256, 256], dtype=Float32, value=
-            [[[[-1.52949083e+000, -1.52949083e+000, ... -1.48569560e+000, -1.50029397e+000],
-            [-1.52949083e+000, -1.52949083e+000, ... -1.50029397e+000, -1.50029397e+000],
-            [-1.51489246e+000, -1.51489246e+000, ... -1.48569560e+000, -1.48569560e+000],
-            ...
-            ...
-            [8.66091192e-001, 8.80311251e-001, ... -1.36645925e+000, -1.45177972e+000],
-            [8.09210956e-001, 8.23431015e-001, ... -1.29535890e+000, -1.43755960e+000],
-            [7.09670484e-001, 7.94990897e-001, ... -1.26691878e+000, -1.42333949e+000]]]])
+        >>> type(processor)
+        <class 'mindformers.models.clip.clip_processor.CLIPImageProcessor'>
     """
     def __init__(self, image_resolution: Optional[int] = 224):
         super(CLIPImageProcessor, self).__init__(
@@ -122,27 +111,9 @@ class CLIPProcessor(BaseProcessor):
 
     Examples:
         >>> from mindformers import CLIPProcessor
-        >>> from mindformers.tools.image_tools import load_image
-        >>> image = load_image("https://ascend-repo-modelzoo.obs.cn-east-2."
-        ...                    "myhuaweicloud.com/XFormer_for_mindspore/clip/sunflower.png")
-        >>> text = ["a boy", "a girl"]
-        >>> CLIPProcessor.show_support_list()
-            INFO - support list of CLIP Processor is:
-            INFO -    ['clip_vit_b_32']
-            INFO - -------------------------------------
         >>> processor = CLIPProcessor.from_pretrained('clip_vit_b_32')
-        >>> processor(image, text)
-            {'image': Tensor(shape=[1, 3, 224, 224], dtype=Float32, value=
-            [[[[-1.52949083e+000, -1.52949083e+000,... -1.48569560e+000, -1.50029397e+000],
-            [-1.52949083e+000, -1.52949083e+000, ... -1.50029397e+000, -1.50029397e+000],
-            [-1.50029397e+000, -1.50029397e+000 ... -1.48569560e+000, -1.50029397e+000],
-            ...
-            [8.23431015e-001, 8.80311251e-001, ... -1.33801913e+000, -1.43755960e+000],
-            [7.80770779e-001, 8.37651074e-001, ... -1.23847866e+000, -1.39489937e+000],
-            [6.10130012e-001, 7.66550720e-001, ... -1.19581854e+000, -1.38067937e+000]]]]),
-             'text': Tensor(shape=[2, 77], dtype=Int32, value=
-            [[49406,   320,  1876 ...     0,     0,     0],
-            [49406,   320,  1611 ...     0,     0,     0]])}
+        >>> type(processor)
+        <class 'mindformers.models.clip.clip_processor.CLIPProcessor'>
     """
     _support_list = MindFormerBook.get_processor_support_list()['clip']
 

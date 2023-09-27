@@ -49,13 +49,8 @@ class CLIPTextConfig(BaseConfig):
         initializer_factor (Optional[float]): A factor for initializing all weight matrices
             (should be kept to 1, used internally for initialization testing).
 
-    Examples:
-        >>> from mindformers import CLIPTextConfig
-        >>> CLIPTextConfig(hidden_size=256, vocab_size=40000)
-            {'vocab_size': 40000, 'hidden_size': 256, 'intermediate_size': 2048,
-             'num_hidden_layers': 12, 'num_attention_heads': 8, 'max_position_embeddings': 77,
-              'hidden_act': 'quick_gelu', 'attention_dropout': 0.0, 'initializer_range': 0.02,
-               'initializer_factor': 1.0}
+    Returns:
+        Class, CLIPTextConfig
     """
     def __init__(self, vocab_size: Optional[int] = 49408,
                  hidden_size: Optional[int] = 512,
@@ -107,13 +102,8 @@ class CLIPVisionConfig(BaseConfig):
         initializer_factor (Optional[float]): A factor for initializing all weight matrices
             (should be kept to 1, used internally for initialization testing).
 
-    Examples:
-        >>> from mindformers import CLIPVisionConfig
-        >>> CLIPVisionConfig(hidden_size=512, image_size=256)
-            {'hidden_size': 512, 'intermediate_size': 3072, 'num_hidden_layers': 12,
-             'num_attention_heads': 16, 'image_size': 256, 'patch_size': 32,
-              'hidden_act': 'quick_gelu', 'dropout': 0.0, 'attention_dropout': 0.0,
-               'initializer_range': 0.02, 'initializer_factor': 1.0}
+    Returns:
+        Class, CLIPVisionConfig
     """
     def __init__(self, hidden_size: Optional[int] = 768,
                  intermediate_size: Optional[int] = 3072,
@@ -159,20 +149,8 @@ class CLIPConfig(BaseConfig):
          TypeError: If the type of text_config is not CLIPTextConfig or the type of vision_config
             is not CLIPVisionConfig
 
-    Examples:
-        >>> from mindformers import CLIPConfig
-        >>> CLIPConfig.show_support_list()
-            INFO - support list of CLIPConfig is:
-            INFO -    ['clip_vit_b_32']
-            INFO - -------------------------------------
-        >>> config = CLIPConfig.from_pretrained('clip_vit_b_32')
-        >>> config
-            {'text_config': {'hidden_size': 512, 'vocab_size': 49408, 'max_position_embeddings': 77,
-             'num_hidden_layers': 12}, 'vision_config': {'hidden_size': 768, 'image_size': 224,
-              'patch_size': 32, 'num_hidden_layers': 12}, 'projection_dim': 512, 'ratio': 64,
-               'checkpoint_name_or_path': 'clip_vit_b_32', 'dtype': 'float16'}
-        >>> config.save_pretrained(save_directory="./", save_name="clip_config")
-            INFO - config saved successfully!
+    Returns:
+        Class, CLIPConfig
     """
     _support_list = MindFormerBook.get_config_support_list()['clip']
 
