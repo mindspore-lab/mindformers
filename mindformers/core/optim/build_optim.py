@@ -39,12 +39,19 @@ def build_optim(
         The function instance of optim API.
 
     Examples:
-        >>> from mindformers import build_optim
-        >>> optim_config = {'type': 'AdamWeightDecay', 'weight_decay':0.05}
+        >>> from mindformers.core import build_optim
+        >>> from mindspore.common.parameter import Parameter
+        >>> from mindspore.common import Tensor
+        >>> params = [{"params": [Parameter(Tensor([1]), requires_grad=True, name=f"param_{i}") for i in range(2)]}]
         >>> # 1) use config dict to build optim
+        >>> optim_config = {'type': 'AdamWeightDecay', 'weight_decay':0.05, 'params':params}
         >>> optim_from_config = build_optim(optim_config)
+        >>> optim_from_config
+        AdamWeightDecay<>
         >>> # 2) use class name to build optim
-        >>> optim_class_name = build_optim(class_name='AdamWeightDecay', weight_decay=0.05)
+        >>> optim_from_class_name = build_optim(class_name='AdamWeightDecay', weight_decay=0.05, params=params)
+        >>> optim_from_class_name
+        AdamWeightDecay<>
     """
     if config is None and class_name is None:
         return None

@@ -40,6 +40,7 @@ apply_global_norm = C.MultitypeFuncGraph("apply_global_norm")
 
 @get_square_sum.register("Tensor")
 def _get_square_sum(x):
+    """get square summation for a Tensor."""
     norm = P.ReduceSum(False)(F.square(x), ())
     norm = expand_dims(F.cast(norm, mstype.float32), 0)
     return norm
@@ -47,6 +48,7 @@ def _get_square_sum(x):
 
 @apply_global_norm.register("Tensor", "Tensor", "Tensor")
 def _apply_global_norm(clip_norm, global_norm, x):
+    """apply global normalization for a Tensor."""
     x_dtype = F.dtype(x)
     clip_coef = clip_norm / (global_norm + 1e-6)
     clip_coef_clamped = ops.clip_by_value(clip_coef, clip_value_max=Tensor(1.0, mstype.float32),
@@ -83,7 +85,15 @@ class ClipGradNorm(Cell):
         self.greater_equal = P.GreaterEqual()
 
     def construct(self, x):
-        """clip grad."""
+        """
+        clip gradient.
+
+        Args:
+            - **x** (Union(tuple[Tensor], list[Tensor])) - Input gradient to clip.
+
+        Returns:
+            Tensor, a clipped gradient.
+        """
         square_sum = self.hyper_map(get_square_sum, x)
         global_norm = F.sqrt(F.addn(square_sum))
         cond = self.greater_equal(global_norm, self.clip_norm)
