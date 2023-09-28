@@ -77,7 +77,6 @@ def compute_itm_scores(network, eval_inputs, k_test=128, add_extra_itm_score=Fal
     image_feats = image_feats.asnumpy()
     text_feats = text_feats.asnumpy()
     for image_feat in image_feats:
-        print(image_feat.shape, image_feat.dtype, text_feats.T.shape, text_feats.dtype)
         sim_q2t = np.matmul(image_feat, text_feats.T)
         sim_i2t = sim_q2t.max(0)
         sims_matrix.append(sim_i2t)

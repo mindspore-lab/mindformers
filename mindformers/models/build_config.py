@@ -16,6 +16,7 @@
 """
 build model config modules
 """
+import copy
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType, MindFormerConfig
 
 
@@ -48,6 +49,7 @@ def build_model_config(
     if config is not None:
         if isinstance(config, dict) and not isinstance(config, MindFormerConfig):
             config = MindFormerConfig(**config)
+        config = copy.deepcopy(config)
         if config.text_config is not None:
             config.text_config = build_model_config(config.text_config)
         if config.vision_config is not None:
