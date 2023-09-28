@@ -358,6 +358,11 @@ run_mode: 'predict'
 
 # 打开增量推理
 use_past: True
+
+# 配置词表路径
+processor:
+  tokenizer:
+    vocab_file: "/worker/checkpoint/llama-7b/tokenizer.model"
 ```
 
 ③ 启动推理
@@ -428,6 +433,11 @@ parallel_config:
   gradient_aggregation_group: 4
 # when model parallel is greater than 1, we can set micro_batch_interleave_num=2, that may accelerate the train process.
 micro_batch_interleave_num: 1
+
+# 配置词表路径
+processor:
+  tokenizer:
+    vocab_file: "/worker/checkpoint/llama-7b/tokenizer.model"
 ```
 
 ② 启动推理
@@ -498,6 +508,11 @@ parallel_config:
   gradient_aggregation_group: 4
 # when model parallel is greater than 1, we can set micro_batch_interleave_num=2, that may accelerate the train process.
 micro_batch_interleave_num: 1
+
+# 配置词表路径
+processor:
+  tokenizer:
+    vocab_file: "/worker/checkpoint/llama-7b/tokenizer.model"
 ```
 
 ② 启动推理
