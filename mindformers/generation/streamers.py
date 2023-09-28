@@ -50,7 +50,7 @@ class TextStreamer(BaseStreamer):
 
     </Tip>
 
-    Parameters:
+    Args:
         tokenizer (`BaseTokenizer`):
             The tokenized used to decode the tokens.
         skip_prompt (`bool`, *optional*, defaults to `False`):
@@ -59,8 +59,6 @@ class TextStreamer(BaseStreamer):
             Additional keyword arguments to pass to the tokenizer's `decode` method.
 
     Examples:
-
-        ```python
         >>> from mindformers import GPT2LMHeadModel, GPT2Tokenizer, TextStreamer
 
         >>> tok = GPT2Tokenizer.from_pretrained("gpt2")
@@ -71,8 +69,7 @@ class TextStreamer(BaseStreamer):
 
         >>> # Despite returning the usual output, the streamer will also print the generated text to stdout.
         >>> _ = model.generate(inputs["input_ids"], streamer=streamer, max_length=20, top_k=1)
-        >>> 'An increasing sequence: one, two, three, four, five, six, seven, eight, nine, ten, eleven,'
-        ```
+        An increasing sequence: one, two, three, four, five, six, seven, eight,
     """
 
     def __init__(self,
@@ -178,7 +175,7 @@ class TextIteratorStreamer(TextStreamer):
 
     </Tip>
 
-    Parameters:
+    Args:
         tokenizer (`BaseTokenizer`):
             The tokenized used to decode the tokens.
         skip_prompt (`bool`, *optional*, defaults to `False`):
@@ -190,8 +187,6 @@ class TextIteratorStreamer(TextStreamer):
             Additional keyword arguments to pass to the tokenizer's `decode` method.
 
     Examples:
-
-        ```python
         >>> from mindformers import GPT2LMHeadModel, GPT2Tokenizer, TextIteratorStreamer
         >>> from threading import Thread
 
@@ -202,15 +197,14 @@ class TextIteratorStreamer(TextStreamer):
         >>> streamer = TextIteratorStreamer(tok)
 
         >>> # Run the generation in a separate thread, so that we can fetch the generated text in a non-blocking way.
-        >>> generation_kwargs = dict(inputs["input_ids"], streamer=streamer, max_length=20, top_k=1)
+        >>> generation_kwargs = dict(input_ids=inputs["input_ids"], streamer=streamer, max_length=20, top_k=1)
         >>> thread = Thread(target=model.generate, kwargs=generation_kwargs)
         >>> thread.start()
         >>> generated_text = ""
         >>> for new_text in streamer:
         ...     generated_text += new_text
         >>> generated_text
-        'An increasing sequence: one, two, three, four, five, six, seven, eight,'
-        ```
+        An increasing sequence: one, two, three, four, five, six, seven, eight,
     """
 
     def __init__(self,

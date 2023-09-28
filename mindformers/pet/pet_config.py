@@ -39,6 +39,27 @@ class PetConfig(BaseConfig):
 class LoraConfig(PetConfig):
     """
     Lora tuning algorithm config.
+
+    Args:
+        lora_rank (`int`, *optional*, defaults to 8):
+            The number of rows(columns) in LoRA matrices.
+        lora_alpha (`int`, *optional*, defaults to 16):
+            A constant in lora_rank.
+        lora_dropout (`float`, *optional*, defaults to 0.01):
+            The dropout rate, greater equal than 0 and less than 1.
+        lora_a_init (`str`, *optional*, defaults to 'normal'):
+            The initialization strategy of LoRA A matrix.
+            Refers to (https://www.mindspore.cn/docs/zh-CN/master/api_python/mindspore.common.initializer.html)
+        lora_b_init (`str`, *optional*, defaults to 'zero'):
+            The initialization strategy of LoRA B matrix.
+            Refers to (https://www.mindspore.cn/docs/zh-CN/master/api_python/mindspore.common.initializer.html)
+        param_init_type (`str`, *optional*, defaults to 'float16'):
+            The type of data in initialized tensor.
+        compute_dtype (`str`, *optional*, defaults to 'float16'):
+            The compute type of data.
+
+    Returns:
+        Class, LoraConfig.
     """
     def __init__(self,
                  lora_rank: int = 8,
