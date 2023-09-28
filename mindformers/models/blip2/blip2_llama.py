@@ -133,6 +133,7 @@ class LlamaForBlip2(LlamaForCausalLM):
         self.not_equal = P.NotEqual()
         self.ones = P.Ones()
         self.cast = P.Cast()
+        self.gather = P.Gather().shard(((1, 1), (1,)))
 
         self.is_first_iteration = True
         self.use_past = self.config.use_past
