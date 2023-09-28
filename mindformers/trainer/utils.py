@@ -14,6 +14,7 @@
 # ============================================================================
 """Trainer Utils."""
 import os
+import sys
 import time
 import random
 from glob import glob
@@ -298,6 +299,13 @@ def transform_and_load_checkpoint(config, model, network, dataset, optimizer=Non
                                                               'hybrid_parallel']:
         # 1. build net if parallel mode is auto_parallel
         build_model(config, model, dataset, do_eval=do_eval, do_predict=do_predict)
+        if config.only_save_strategy:
+            logger.info("Only_save_strategy is True, model.compile() finished, system exit! ")
+            sys.exit(0)
+    elif config.only_save_strategy:
+        logger.info("only_save_strategy is True, "
+                    "but stand_alone and data_parallel mode do not have strategy file, system exit! ")
+        sys.exit(0)
 
     if config.auto_trans_ckpt:
         # 2. get strategy
@@ -328,13 +336,6 @@ def build_model(config, model, dataset, do_eval=False, do_predict=False):
             logger.info(".........Building model.........")
             model.build(train_dataset=dataset, epoch=config.runner_config.epochs,
                         sink_size=config.runner_config.sink_size)
-
-        if config.only_save_strategy:
-            raise SystemExit("Only_save_strategy is True, model.compile() finished, system exit! ")
-
-    elif config.only_save_strategy:
-        raise SystemExit("only_save_strategy is True, "
-                         "but stand_alone and data_parallel mode do not have strategy file, system exit! ")
 
 
 def get_dst_strategy(config):
