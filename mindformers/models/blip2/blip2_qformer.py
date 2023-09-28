@@ -57,13 +57,22 @@ def choose_idx_with_prob(weight: Tensor, batch_size: int = 1):
     data_id = idx % batch_size
     return rank_id, data_id
 
+
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
 class Blip2Qformer(Blip2Base):
     """
     BLIP2 first-stage model with Q-former and ViT.
-    Usage:
+    Args:
+        config (Blip2Config): The config of Blip2Qformer.
+
+    Returns:
+        Tensor, loss, logits.
+
+    Examples:
         >>> from mindformers.models.blip2 import Blip2Qformer
         >>> model = Blip2Qformer.from_pretrained("blip2_stage1_vit_g")
+        >>> type(model)
+        <class 'mindformers.models.blip2.blip2_qformer.Blip2Qformer'>
     """
 
     _support_list = MindFormerBook.get_model_support_list()['blip2']['stage1']
@@ -157,6 +166,22 @@ class Blip2Qformer(Blip2Base):
     def construct(self, image: ms.Tensor, text_input_ids: ms.Tensor, return_tuple: bool = False):
         """
         forwarding image and text, compute itc, itm and lm losses.
+
+        Args:
+            image (Tensor):
+                The indices of images.
+            text_input_ids (Tensor):
+                The indices of input sequence tokens in the vocabulary.
+            return_tuple (bool, defaults to False):
+                Whether to return the output separately. If set to True,
+                the loss, loss_itc, loss_itm and loss_lm will be returned as a tuple,
+                otherwise only the loss will be returned.
+
+        Returns:
+            loss (Tensor) or loss_tuple (tuple):
+                if return_tuple is False, directly return the loss.
+                otherwise, loss, loss_itc, loss_itm and loss_lm will be
+                returned as a tuple.
         """
         image_feats, image_embeds, past_key_values = self.forward_image(
             image, use_cache=True)
@@ -514,10 +539,16 @@ class Blip2Qformer(Blip2Base):
 class Blip2Classifier(Blip2Qformer):
     """
     Blip2Classifier rely on Blip2Qformer, used for zero-shot classification.
-    Usage:
-        >>> from mindformers import AutoModel
+
+    Args:
+        config (Blip2Config): The config of Blip2Qformer.
+
+    Examples:
+        >>> from mindformers import Blip2Classifier
         >>> model_type = 'blip2_stage1_classification'
-        >>> model = AutoModel.from_pretrained(model_type)
+        >>> model = Blip2Classifier.from_pretrained(model_type)
+        >>> type(model)
+        <class 'mindformers.models.blip2.blip2_qformer.Blip2Classifier'>
     """
 
     def __init__(self, config: Blip2Config, **kwargs):
