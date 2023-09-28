@@ -121,7 +121,7 @@ class TextClassificationPipeline(BasePipeline):
             inputs_one (str): the second sentence
 
         Return:
-            processed inputs, mask, token_type about two sentences
+            Processed inputs, mask, token_type about two sentences.
         """
         len_inputs = len(inputs_zero["input_ids"])
         inputs_zero_input = list(inputs_zero["input_ids"].asnumpy())
@@ -147,7 +147,7 @@ class TextClassificationPipeline(BasePipeline):
             return_tensors ("ms"): the type of returned tensors
 
         Return:
-            processed text.
+            Processed text.
         """
         if not isinstance(inputs, str):
             raise ValueError("Inputs type must be str")
@@ -189,7 +189,7 @@ class TextClassificationPipeline(BasePipeline):
             model_inputs (dict): outputs of preprocess.
 
         Return:
-            probs dict.
+            Probs dict.
         """
         forward_params.pop("None", None)
         output_ids = self.network(**model_inputs)
@@ -208,7 +208,7 @@ class TextClassificationPipeline(BasePipeline):
             model_outputs (dict): outputs of forward process.
 
         Return:
-            Classification results
+            Classification results.
         """
         top_k = postprocess_params.pop("top_k", None)
         dataset = postprocess_params.pop("dataset", None)

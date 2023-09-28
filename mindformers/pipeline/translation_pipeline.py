@@ -31,7 +31,7 @@ __all__ = ['TranslationPipeline']
 
 @MindFormerRegister.register(MindFormerModuleType.PIPELINE, alias="translation")
 class TranslationPipeline(BasePipeline):
-    r"""Pipeline for Translation
+    """Pipeline for Translation
 
     Args:
         model (Union[str, BaseModel]): The model used to perform task,
@@ -47,7 +47,9 @@ class TranslationPipeline(BasePipeline):
     Examples:
         >>> from mindformers.pipeline import TranslationPipeline
         >>> translator = TranslationPipeline("t5_small")
-        >>> output = translator("abc")
+        >>> output = translator("translate the English to Romanian: a good boy!")
+        >>> print(output)
+        [{'translation_text': ['un băiat bun!']}]
     """
     _support_list = MindFormerBook.get_model_support_list()['t5']
     return_name = 'translation'
@@ -77,7 +79,7 @@ class TranslationPipeline(BasePipeline):
         super().__init__(model, tokenizer, **kwargs)
 
     def _sanitize_parameters(self, **pipeline_parameters):
-        r"""Sanitize Parameters
+        """Sanitize Parameters
 
         Args:
             pipeline_parameters (Optional[dict]): The parameter dict to be parsed.
@@ -99,7 +101,7 @@ class TranslationPipeline(BasePipeline):
 
     def preprocess(self, inputs: Union[str, dict, Tensor],
                    **preprocess_params):
-        r"""The Preprocess For Translation
+        """The Preprocess For Translation
 
         Args:
             inputs (Union[str, dict, Tensor]): The text to be classified.
@@ -121,11 +123,14 @@ class TranslationPipeline(BasePipeline):
 
     def forward(self, model_inputs: dict,
                 **forward_params):
-        r"""The Forward Process of Model
+        """The Forward Process of Model
 
         Args:
             inputs (dict): The output of preprocess.
             forward_params (dict): The parameter dict for model forward.
+
+        Return:
+            Dict of output_ids.
         """
         forward_params.pop("None", None)
         input_ids = model_inputs["input_ids"]
@@ -134,13 +139,13 @@ class TranslationPipeline(BasePipeline):
 
     def postprocess(self, model_outputs: dict,
                     **postprocess_params):
-        r"""Postprocess
+        """Postprocess
 
         Args:
             model_outputs (dict): Outputs of forward process.
 
         Return:
-            translation results.
+            Translation results.
         """
         outputs = self.tokenizer.decode(model_outputs["output_ids"], skip_special_tokens=True)
         return [{self.return_name + '_text': outputs}]

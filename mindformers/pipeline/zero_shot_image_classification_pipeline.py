@@ -30,7 +30,7 @@ from ..models import BaseTokenizer
 
 @MindFormerRegister.register(MindFormerModuleType.PIPELINE, alias="zero_shot_image_classification")
 class ZeroShotImageClassificationPipeline(BasePipeline):
-    r"""Pipeline For Zero Shot Image Classification
+    """Pipeline For Zero Shot Image Classification
 
     Args:
         model (Union[str, BaseModel]): The model used to perform task,
@@ -55,11 +55,11 @@ class ZeroShotImageClassificationPipeline(BasePipeline):
         >>> img = load_image("https://ascend-repo-modelzoo.obs.cn-east-2."
         ...                  "myhuaweicloud.com/XFormer_for_mindspore/clip/sunflower.png")
         >>> classifier(img)
-            [[{'score': 0.99995565, 'label': 'sunflower'},
-            {'score': 2.5318595e-05, 'label': 'toy'},
-            {'score': 9.903885e-06, 'label': 'dog'},
-            {'score': 6.75336e-06, 'label': 'tree'},
-            {'score': 2.396818e-06, 'label': 'cat'}]]
+        [[{'score': 0.99995565, 'label': 'sunflower'},
+        {'score': 1.7425227e-05, 'label': 'toy'},
+        {'score': 1.2095777e-05, 'label': 'tree'},
+        {'score': 1.1771376e-05, 'label': 'dog'},
+        {'score': 2.1342253e-06, 'label': 'cat'}]]
     """
     _support_list = MindFormerBook.get_pipeline_support_task_list()['zero_shot_image_classification'].keys()
 
@@ -97,7 +97,7 @@ class ZeroShotImageClassificationPipeline(BasePipeline):
         super().__init__(model, tokenizer, image_processor, **kwargs)
 
     def _sanitize_parameters(self, **pipeline_parameters):
-        r"""Sanitize Parameters
+        """Sanitize Parameters
 
         Args:
             pipeline_parameters (Optional[dict]): The parameter dict to be parsed.
@@ -116,7 +116,7 @@ class ZeroShotImageClassificationPipeline(BasePipeline):
         return preprocess_params, {}, postprocess_params
 
     def preprocess(self, inputs: dict, **preprocess_params):
-        r"""Preprocess of ZeroShotImageClassificationPipeline
+        """Preprocess of ZeroShotImageClassificationPipeline
 
         Args:
             inputs (Union[url, PIL.Image, tensor, numpy]): The image to be classified.
@@ -159,7 +159,7 @@ class ZeroShotImageClassificationPipeline(BasePipeline):
                 "input_ids": input_ids, "candidate_labels": candidate_labels}
 
     def forward(self, model_inputs: dict, **forward_params):
-        r"""Forward process
+        """Forward process
 
         Args:
             model_inputs (dict): Outputs of preprocess.
@@ -177,7 +177,7 @@ class ZeroShotImageClassificationPipeline(BasePipeline):
         return {"probs": probs, "candidate_labels": model_inputs["candidate_labels"]}
 
     def postprocess(self, model_outputs: dict, **postprocess_params):
-        r"""Postprocess
+        """Postprocess
 
         Args:
             model_outputs (dict): Outputs of forward process.

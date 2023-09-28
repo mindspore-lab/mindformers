@@ -83,7 +83,7 @@ class BatchResize:
 
     def __init__(self, image_resolution, interpolation='cubic'):
         self.interpolation = INTERPOLATION.get(interpolation)
-        self.resize = vision.Resize(image_resolution, self.interpolation)
+        self.resize = vision.c_transforms.Resize(image_resolution, self.interpolation)
 
     def __call__(self, image_batch):
         """
