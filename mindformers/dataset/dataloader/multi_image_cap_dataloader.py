@@ -37,7 +37,7 @@ class MultiImgCapDataLoader:
                 column_names: Optional[Union[List[str], Tuple[str]]] = None,
                 stage: Optional[str] = "train",
                 repeat_images: Optional[bool] = False,
-                shuffle: Optional[bool] = False,
+                shuffle: Optional[bool] = True,
                 **kwargs):
         r"""
         MultiImgCapDataLoader Dataloader API.

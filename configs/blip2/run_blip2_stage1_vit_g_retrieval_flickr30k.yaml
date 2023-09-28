@@ -141,7 +141,7 @@ model:
     type: Blip2Config
     freeze_vision: True
     max_txt_len: 32
-    checkpoint_name_or_path: "" # pretrained model dict here
+    checkpoint_name_or_path: "blip2_stage1_pretrained" # pretrained model dict here
     dtype: "float32"
     compute_dtype: "float16"
     layernorm_dtype: "float32"
