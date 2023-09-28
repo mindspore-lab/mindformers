@@ -23,28 +23,29 @@ from .mask.build_mask import build_mask
 from .sampler.build_sampler import build_sampler
 from .transforms.build_transforms import build_transforms
 from .base_dataset import BaseDataset
-from .mim_dataset import MIMDataset
-from .img_cls_dataset import ImageCLSDataset
-from .contrastive_language_image_pretrain_dataset import ContrastiveLanguageImagePretrainDataset
-from .zero_shot_image_classification_dataset import ZeroShotImageClassificationDataset
-from .token_classification_dataset import TokenClassificationDataset
-from .mask_language_model_dataset import MaskLanguageModelDataset
-from .translation_dataset import TranslationDataset
-from .image_text_retrieval_dataset import ImageToTextRetrievalDataset
-from .text_classification_dataset import TextClassificationDataset
-from .question_answering_dataset import QuestionAnsweringDataset
 from .causal_language_model_dataset import CausalLanguageModelDataset
-from .reward_model_dataset import RewardModelDataset
-from .utils import check_dataset_config
+from .contrastive_language_image_pretrain_dataset import ContrastiveLanguageImagePretrainDataset
+from .image_text_retrieval_dataset import ImageToTextRetrievalDataset
+from .img_cls_dataset import ImageCLSDataset
 from .keyword_gen_dataset import KeyWordGenDataset
+from .mask_language_model_dataset import MaskLanguageModelDataset
+from .mim_dataset import MIMDataset
+from .question_answering_dataset import QuestionAnsweringDataset
+from .reward_model_dataset import RewardModelDataset
+from .text_classification_dataset import TextClassificationDataset
+from .token_classification_dataset import TokenClassificationDataset
+from .translation_dataset import TranslationDataset
+from .zero_shot_image_classification_dataset import ZeroShotImageClassificationDataset
+from .utils import check_dataset_config
 
-__all__ = ['MIMDataset', 'ImageCLSDataset', 'BaseDataset', 'check_dataset_config',
-           'MaskLanguageModelDataset', 'ContrastiveLanguageImagePretrainDataset',
-           'ZeroShotImageClassificationDataset', 'ImageToTextRetrievalDataset',
-           'TextClassificationDataset', 'TokenClassificationDataset', 'QuestionAnsweringDataset',
-           'CausalLanguageModelDataset', 'KeyWordGenDataset', 'RewardModelDataset']
+
+__all__ = ['BaseDataset', 'CausalLanguageModelDataset', 'ContrastiveLanguageImagePretrainDataset',
+           'ImageToTextRetrievalDataset', 'ImageCLSDataset', 'KeyWordGenDataset', 'MaskLanguageModelDataset',
+           'MIMDataset', 'QuestionAnsweringDataset', 'RewardModelDataset', 'TextClassificationDataset',
+           'TokenClassificationDataset', 'TranslationDataset', 'ZeroShotImageClassificationDataset',
+           'check_dataset_config']
+
 __all__.extend(dataloader.__all__)
 __all__.extend(mask.__all__)
 __all__.extend(transforms.__all__)
 __all__.extend(sampler.__all__)
-__all__.extend(translation_dataset.__all__)
