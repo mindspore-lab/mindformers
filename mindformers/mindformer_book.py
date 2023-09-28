@@ -863,7 +863,7 @@ class MindFormerBook:
           ]),
         ('itt_blip2_stage2_vit_g_llama_7b',
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
-          '/MindFormers/blip2/blip2_pretrained.ckpt'
+          '/MindFormers/blip2/blip2_stage2_vig_g_llama_7b_pretrained.ckpt'
           ]),
         ('mindspore/vit_base_p16',
          ['https://xihe.mindspore.cn/api/v1/repo/model/MindSpore/vit_base_p16/file/vit_base_p16.ckpt']),
