@@ -22,7 +22,17 @@ default_parallel_config = TransformerOpParallelConfig(recompute=default_recomput
 
 
 def build_parallel_config(config):
-    """Build context config."""
+    """
+    Build context config.
+
+    Args:
+            - config (Union[MindFormerConfig, Dict]) - Input config.
+
+    Returns:
+            - config (Union[MindFormerConfig, Dict]) - Output config,
+                with its moe_config, recompute_config and parallel_config
+                are initialized from dict or assigned with a default one.
+    """
     if config.moe_config:
         if not isinstance(config.moe_config, MoEConfig):
             logger.info("initial moe_config from dict: %s", config.moe_config)
