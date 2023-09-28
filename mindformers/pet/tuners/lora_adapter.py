@@ -23,9 +23,9 @@ from tk.delta.lora import LoRADense
 
 from mindformers.modules.layers import Linear
 from mindformers.tools.logger import logger
-from .pet_adapter import PetAdapter
-from ..pet_config import PetConfig
-from ..utils import re_match_list
+from mindformers.pet.tuners.pet_adapter import PetAdapter
+from mindformers.pet.pet_config import PetConfig
+from mindformers.pet.utils import re_match_list
 
 
 def recursive_replace_dense_cell(net, config):
@@ -84,34 +84,30 @@ def recursive_replace_dense_cell(net, config):
 class LoraAdapter(PetAdapter):
     r"""
     LoraAdapter is the adapter to modify the pretrained model, which uses lora tuning algorithm.
-
-    Args:
-        model (BaseModel): The base pretrained model of mindformers.
-        pet_config (PetConfig): The configurition of the Pet model.
-    Return:
-        model (BaseModel): The model replace the linear layer with lora dense layer.
-    Examples:
-        1.modify certain task of llama
-        >>> from mindformers.pet.tuners.lora_adapter import LoraAdapter
-        >>> class LlamaForCausalLMWithLora(LlamaForCausalLM):
-        >>>        def __init__(self, config: LlamaConfig = None, pet=None):
-        >>>            super().__init__(config)
-        >>>            # get Pet tuning model.
-        >>>            self.pet = pet
-        >>>            self.pet.pet_config.reg_rules = r'.*wq|.*wv'
-        >>>            self.model = LoraAdapter.get_pet_model(self.model, self.pet.pet_config)
-        >>>            # freeze pretrained model
-        >>>            PetAdapter.freeze_pretrained_model(self, self.pet.pet_type)
-        2.modify certain model of llama
-        >>> from mindformers.pet.tuners.lora_adapter import LoraAdapter
-        >>> from mindformers.model.llama import LlamaModel
-        >>> from mindformers.pet.pet_config import LoraConfig
-        >>> llama_model = LlamaModel()
-        >>> pet_config = LoraConfig()
-        >>> llama_pet_model = LoraAdapter.get_pet_model(llama_model, pet_config)
     """
     @classmethod
     def get_pet_model(cls, model: nn.Cell = None, config: PetConfig = None):
+        """
+        Add LoRA tuning parameters to ptm.
+
+        Args:
+            model (BaseModel): The base pretrained model of mindformers.
+            config (PetConfig): The configurition of the Pet model.
+
+        Return:
+            model (BaseModel): The model replace the linear layer with lora dense layer.
+
+        Examples:
+            >>> from mindformers.pet.tuners.lora_adapter import LoraAdapter
+            >>> from mindformers.models.llama import LlamaModel, LlamaConfig
+            >>> from mindformers.pet.pet_config import LoraConfig
+            >>> config = LlamaConfig()
+            >>> llama_model = LlamaModel(config)
+            >>> pet_config = LoraConfig()
+            >>> llama_pet_model = LoraAdapter.get_pet_model(llama_model, pet_config)
+            >>> print(type(llama_pet_model))
+            <class 'mindformers.models.llama.llama.LlamaModel'>
+        """
         model = model if model else PetAdapter.get_pretrained_model(config)
         if config.reg_rules is None:
             logger.warning("Lora Adapter use default replace rules: \'.*dense*|*linear*\'")

@@ -18,7 +18,8 @@ import numpy as np
 
 from .utils import log_softmax, softmax, topk
 
-__all__ = ["LogitsProcessor", "LogitsWarper", "LogitsProcessorList"]
+__all__ = ["LogitsProcessor", "LogitsWarper", "LogitsProcessorList", "RepetitionPenaltyLogitsProcessor",
+           "LogitNormalization", "TemperatureLogitsWarper", "TopKLogitsWarper", "TopPLogitsWarper"]
 
 
 class LogitsProcessor:
@@ -97,14 +98,14 @@ class RepetitionPenaltyLogitsProcessor(LogitsProcessor):
             paper](https://arxiv.org/pdf/1909.05858.pdf) for more details.
     """
 
-    def __init__(self, penalty: float):
-        penalty = float(penalty)
-        if penalty <= 0:
+    def __init__(self, repetition_penalty: float):
+        repetition_penalty = float(repetition_penalty)
+        if repetition_penalty <= 0:
             raise ValueError(
-                f"`penalty` has to be a strictly positive float, but is {penalty}"
+                f"`penalty` has to be a strictly positive float, but is {repetition_penalty}"
             )
 
-        self.penalty = penalty
+        self.penalty = repetition_penalty
 
     def __call__(self, input_ids, scores):
         score = np.take_along_axis(scores, input_ids, axis=1)
@@ -131,13 +132,13 @@ class TopPLogitsWarper(LogitsWarper):
             All filtered values will be set to this float value.
         min_tokens_to_keep (`int`, *optional*, defaults to 1):
             Minimum number of tokens that cannot be filtered.
-        candicate_token_num (`int`, *optional*, defaults to 200):
-            Number of candicate tokens to calculate top_p. this can avoid sorting a huge seq,
+        candidate_token_num (`int`, *optional*, defaults to 200):
+            Number of candidate tokens to calculate top_p. this can avoid sorting a huge seq,
             save time to speed up generation.
     """
 
     def __init__(self, top_p: float, filter_value: float = -50000, min_tokens_to_keep: int = 1,
-                 candicate_token_num: int = 200):
+                 candidate_token_num: int = 200):
         top_p = float(top_p)
         if top_p < 0 or top_p > 1.0:
             raise ValueError(f"`top_p` has to be a float > 0 and < 1, but is {top_p}")
@@ -149,11 +150,11 @@ class TopPLogitsWarper(LogitsWarper):
         self.top_p = top_p
         self.filter_value = float(filter_value)
         self.min_tokens_to_keep = min_tokens_to_keep
-        self.candicate_token_num = candicate_token_num
+        self.candicate_token_num = candidate_token_num
 
     def __call__(self, input_ids, scores):
-        candicate_logits, candicate_indices = topk(scores, self.candicate_token_num)
-        cumulative_probs = softmax(candicate_logits)
+        candidate_logits, candidate_indices = topk(scores, self.candicate_token_num)
+        cumulative_probs = softmax(candidate_logits)
         cumulative_probs = np.cumsum(cumulative_probs, axis=-1)
         # Remove tokens with cumulative top_p above the threshold (token with 0 are kept)
         sorted_indices_to_keep = cumulative_probs < self.top_p
@@ -168,7 +169,7 @@ class TopPLogitsWarper(LogitsWarper):
         # set remove indices, filter negative value
         indices_to_remove = np.ones_like(scores).astype(np.bool_)
         np.put_along_axis(
-            indices_to_remove, candicate_indices, ~sorted_indices_to_keep, axis=-1
+            indices_to_remove, candidate_indices, ~sorted_indices_to_keep, axis=-1
         )
         scores[indices_to_remove] = self.filter_value
 
