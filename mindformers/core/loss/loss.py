@@ -35,7 +35,21 @@ __all__ = ['SoftTargetCrossEntropy', 'MSELoss', 'L1Loss', 'CrossEntropyLoss', 'C
 
 @MindFormerRegister.register(MindFormerModuleType.LOSS)
 class SoftTargetCrossEntropy(LossBase):
-    """SoftTargetCrossEntropy for MixUp Augment."""
+    """
+    Calculate the SoftTargetCrossEntropy loss with given logits and labels.
+
+    Args:
+        parallel_config (OpParallelConfig): The parallel configuration. Default `default_dpmp_config`,
+            an instance of `OpParallelConfig` with default args.
+
+    Inputs:
+        - **logits** (Tensor) - The output logits of the backbone.
+
+        - **label** (Tensor) - The ground truth label of the sample.
+
+    Returns:
+        The corresponding loss results.
+    """
 
     def __init__(self, parallel_config=default_dpmp_config):
         super(SoftTargetCrossEntropy, self).__init__()
@@ -58,7 +72,25 @@ class SoftTargetCrossEntropy(LossBase):
 
 @MindFormerRegister.register(MindFormerModuleType.LOSS)
 class MSELoss(nn.Cell):
-    """MSELoss for parallel."""
+    """
+    Calculate the MSE loss with given logits and labels.
+
+    Args:
+        parallel_config (OpParallelConfig): The parallel configuration. Default `default_dpmp_config`,
+            an instance of `OpParallelConfig` with default args.
+
+    Inputs:
+        - **pred** (Tensor) - The output pred of the backbone.
+
+        - **target** (Tensor) - The ground truth label of the sample.
+
+        - **mask** (Tensor) - mask indicates whether there are padded inputs and for padded inputs,
+          it will not be counted into loss.
+
+    Returns:
+        The corresponding loss results.
+    """
+
     def __init__(self, norm_pixel_loss=True, parallel_config=default_dpmp_config):
         super(MSELoss, self).__init__()
         dp = parallel_config.data_parallel
@@ -153,22 +185,22 @@ class L1Loss(LossBase):
 
 class _Softmax(nn.Cell):
     """
-    Calculate the softmax results with given logits.
-
-    Note:
-        The bprop of the cell is rewritten, just returns the accepted dout as returns. This cell should be used
-        together with _NLLoss, to optimize the bprop of the cross entroy loss.
+    Calculate the softmax results with given logits. The bprop of the cell is rewritten,
+    just returns the accepted dout as returns. This cell should be used together with _NLLoss,
+    to optimize the bprop of the cross entroy loss.
 
     Args:
-        parallel_config (OpParallelConfig): The parallel configure. Default `default_dpmp_config`,
+        parallel_config (OpParallelConfig): The parallel configuration. Default `default_dpmp_config`,
             an instance of `OpParallelConfig` with default args.
 
     Inputs:
         - **logits** (Tensor) - Tensor of shape (N, C). Data type must be float16 or float32. The output logits of
           the backbone.
 
-    Outputs:
-        Tensor. The corresponding softmax results.
+        - **label** (Tensor) - Tensor of shape (N, 1). The ground truth label of the sample.
+
+    Returns:
+        The corresponding softmax results.
     """
     def __init__(self, parallel_config=default_dpmp_config):
         super(_Softmax, self).__init__()
@@ -208,21 +240,19 @@ class _Softmax(nn.Cell):
 
 class _NLLLoss(nn.Cell):
     """
-    Calculate the NLLLoss results with given softmax results and the label.
-
-    Note:
-        The bprop of the cell is rewritten. This cell should be used
-        together with _Softmax, to optimize the bprop of the cross entroy loss.
+    Calculate the NLLLoss results with given softmax results and the label. The bprop of the cell is rewritten.
+    This cell should be used together with _Softmax, to optimize the bprop of the cross entroy loss.
 
     Args:
-        parallel_config (OpParallelConfig): The parallel configure. Default `default_dpmp_config`,
+        parallel_config (OpParallelConfig): The parallel configuration. Default `default_dpmp_config`,
             an instance of `OpParallelConfig` with default args.
 
     Inputs:
-        - **loss** (Tensor) - Tensor of shape (N, C). Data type is float32.
+        - **softmax_result** (Tensor) - Tensor of shape (N, C). Data type is float32.
+        - **one_hot_label** (Tensor) - Tensor of shape (N, C). The ground truth label in one-hot format of the sample.
 
-    Outputs:
-        Tensor. The corresponding loss results.
+    Returns:
+        The corresponding loss results.
     """
     def __init__(self, parallel_config=default_dpmp_config, eps_const=1e-24):
         super(_NLLLoss, self).__init__()
@@ -268,7 +298,7 @@ class CrossEntropyLoss(nn.Cell):
     Calculate the cross entropy loss.
 
     Args:
-        parallel_config (OpParallelConfig): The parallel configure. Default `default_dpmp_config`,
+        parallel_config (OpParallelConfig): The parallel configuration. Default `default_dpmp_config`,
             an instance of `OpParallelConfig` with default args.
 
     Inputs:
@@ -280,8 +310,8 @@ class CrossEntropyLoss(nn.Cell):
         - **input_mask** (Tensor) - Tensor of shape (N, ). input_mask indicates whether there are padded inputs and for
           padded inputs it will not be counted into loss.
 
-    Outputs:
-        Tensor. The corresponding cross entropy loss.
+    Returns:
+        The corresponding cross entropy loss.
 
     Examples:
         >>> import numpy as np
@@ -289,13 +319,12 @@ class CrossEntropyLoss(nn.Cell):
         >>> from mindspore import Tensor
         >>> from mindformers.core import CrossEntropyLoss
         >>> loss = CrossEntropyLoss()
-        >>>
         >>> logits = Tensor(np.array([[3, 5, 6, 9, 12, 33, 42, 12, 32, 72]]), mstype.float32)
         >>> labels_np = np.array([1]).astype(np.int32)
         >>> input_mask = Tensor(np.ones(1).astype(np.float32))
         >>> labels = Tensor(labels_np)
         >>> output = loss(logits, labels, input_mask)
-        >>> print(output.shape)
+        >>> output.shape
         (1,)
     """
     @_LogActionOnce(m_logger=logger, key='CrossEntropyLoss',
@@ -364,10 +393,8 @@ class CompareLoss(nn.Cell):
 
         - **end_ind** (Tensor) - Tensor of shape (B, ). end index of all tensors.
 
-    Outputs:
-        Tensor. The corresponding loss.
-
-    Examples:
+    Returns:
+        The corresponding loss.
     """
     def __init__(self, config):
         super(CompareLoss, self).__init__()
