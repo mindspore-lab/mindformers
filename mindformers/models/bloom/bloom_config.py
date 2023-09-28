@@ -34,7 +34,7 @@ class BloomConfig(BaseConfig):
 
     def __init__(self,
                  embedding_dropout_prob: float = 0.0,
-                 batch_size: int = None,
+                 batch_size: int = 1,
                  seq_length: int = 1024,
                  vocab_size: int = 250880,
                  hidden_size: int = 64,
