@@ -30,7 +30,7 @@ __all__ = ['TokenClassificationPipeline']
 
 @MindFormerRegister.register(MindFormerModuleType.PIPELINE, alias="token_classification")
 class TokenClassificationPipeline(BasePipeline):
-    r"""Pipeline for token classification
+    """Pipeline for token classification
 
     Args:
         model (Union[str, BaseModel]): The model used to perform task,
@@ -119,7 +119,7 @@ class TokenClassificationPipeline(BasePipeline):
             return_tensors ("ms"): the type of returned tensors
 
         Return:
-            processed text.
+            Processed text.
         """
         if not isinstance(inputs, str):
             raise ValueError("Inputs type must be str")
@@ -143,7 +143,7 @@ class TokenClassificationPipeline(BasePipeline):
             model_inputs (dict): outputs of preprocess.
 
         Return:
-            probs dict.
+            Probs dict.
         """
         self.model.set_train(False)
         logits = self.network(**model_inputs)
@@ -157,7 +157,7 @@ class TokenClassificationPipeline(BasePipeline):
             model_outputs (dict): outputs of forward process.
 
         Return:
-            The generated results
+            The generated results.
         """
 
         logits = model_outputs["logits"].asnumpy()
@@ -191,15 +191,12 @@ class TokenClassificationPipeline(BasePipeline):
 
     def get_entities_bios(self, seq):
         """Gets entities from sequence.
-        note: BIOS
+
         Args:
             seq (list): sequence of labels.
+
         Returns:
-            list: list of (chunk_type, chunk_start, chunk_end).
-        Example:
-            # >>> seq = ['B-PER', 'I-PER', 'O', 'S-LOC']
-            # >>> get_entity_bios(seq)
-            [['PER', 0, 1], ['LOC', 3, 3]]
+            List of (chunk_type, chunk_start, chunk_end).
         """
         chunks = []
         chunk = [-1, -1, -1]
