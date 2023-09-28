@@ -34,13 +34,6 @@ class StatusCode:
     '''StatusCode'''
     succeed = 200
 
-def del_incomplete_download_file(filepath):
-    """del incomplete download file, it will be removed when mindformers supports resume download from breakpoint."""
-    if not os.path.exists(filepath+".lock") and os.path.exists(filepath):
-        logger.info("The file %s is existed but not download completely, "
-                    "so it is deleted and re-download.", filepath)
-        os.remove(filepath)
-
 def download_with_progress_bar(url, filepath, chunk_size=1024, timeout=4):
     """download_with_progress_bar"""
     local_id = int(os.getenv("RANK_ID", "0"))
