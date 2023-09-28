@@ -23,8 +23,9 @@ from mindformers.tools.register import MindFormerRegister, MindFormerModuleType,
 def build_loss(
         config: dict = None, default_args: dict = None,
         module_type: str = 'loss', class_name: str = None, **kwargs):
-    r"""Build loss For MindFormer.
-    Instantiate the loss from MindFormerRegister's registry.
+    """
+    API of building loss for MindFormers. Obtain the corresponding loss class from the registry through the
+    configuration file or specify the class name, and instantiate the loss class according to the given parameters.
 
     Args:
         config (dict): The task loss's config. Default: None.
@@ -36,12 +37,16 @@ def build_loss(
         The function instance of loss API.
 
     Examples:
-        >>> from mindformers import build_loss
+        >>> from mindformers.core import build_loss
         >>> loss_config = {'type': 'L1Loss'}
-        >>> # 1) use config dict to build loss
+        >>> # use config dict to build loss
         >>> loss_from_config = build_loss(loss_config)
-        >>> # 2) use class name to build loss
+        >>> type(loss_from_config)
+        <class 'mindformers.core.loss.loss.L1Loss'>
+        >>> # use class name to build loss
         >>> loss_class_name = build_loss(class_name='L1Loss')
+        >>> type(loss_from_config)
+        <class 'mindformers.core.loss.loss.L1Loss'>
     """
     if config is None and class_name is None:
         return None
