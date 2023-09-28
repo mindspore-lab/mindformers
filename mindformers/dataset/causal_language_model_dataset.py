@@ -27,19 +27,19 @@ from .dataloader import build_dataset_loader
 from .base_dataset import BaseDataset
 
 
-def get_input_data_batch_slice_map(input_ids, eos_token_id, dis, rank_id: int = 0):
+def get_input_data_batch_slice_map(input_ids, eod_token_id, dis, rank_id: int = 0):
     """
-    Generate position_id and attention_mask according to input_ids considering eos reset
+    Generate position_id and attention_mask according to input_ids considering eod reset
 
     Args:
         input_ids: the input token ids
-        eos_token_id: the id for <EOS>
+        eod_token_id: the id for <EOD>
         dis: the slice value for each rank
         rank_id: the current rank id
     Returns:
         batch_input_ids: the input token ids
-        batch_position_ids: the position ids cosidering eos reset
-        batch_attention_mask: the attention mask considering eos reset
+        batch_position_ids: the position ids cosidering eod reset
+        batch_attention_mask: the attention mask considering eod reset
     """
     rank = int(rank_id)
     input_ids = input_ids[rank*dis: (rank + 1)*dis]
@@ -56,11 +56,11 @@ def get_input_data_batch_slice_map(input_ids, eos_token_id, dis, rank_id: int = 
         batch_attention_mask[bs_i] = np.tril(np.ones(shape=(seq_length, seq_length)))
         batch_position_ids[bs_i] = np.arange(seq_length)
         # Find the index of <EOS>
-        eos_index = batch_position_ids[bs_i, local_ids[:-1] == eos_token_id].astype(np.int32)
+        eod_index = batch_position_ids[bs_i, local_ids[:-1] == eod_token_id].astype(np.int32)
         prev_index = 0
-        for i in range(eos_index.size):
+        for i in range(eod_index.size):
             # Reset position_ids and attention_mask considering <EOS>
-            index = eos_index[i]
+            index = eod_index[i]
             batch_attention_mask[bs_i, (index + 1):, :(index + 1)] = 0
             batch_position_ids[bs_i, (index + 1):] -= (index + 1 - prev_index)
             prev_index = index + 1
@@ -112,7 +112,7 @@ class CausalLanguageModelDataset(BaseDataset):
             dataset = cls._process_mindrecord_data(dataset_config)
 
         type_cast_op = C.TypeCast(mstype.int32)
-        if dataset_config.eos_reset:
+        if dataset_config.eod_reset:
             if cls._is_semi_full_batch() or cls._is_data_parallel():
                 rank_id = 0
                 dis = dataset_config.batch_size
@@ -128,7 +128,7 @@ class CausalLanguageModelDataset(BaseDataset):
                                     drop_remainder=dataset_config.drop_remainder,
                                     output_columns=dataset_config.input_columns)
             map_func = lambda input_ids: get_input_data_batch_slice_map(input_ids,
-                                                                        eos_token_id=dataset_config.eos_token_id,
+                                                                        eod_token_id=dataset_config.eod_token_id,
                                                                         rank_id=rank_id,
                                                                         dis=dis)
             dataset = get_dataset_map(dataset, map_func,
