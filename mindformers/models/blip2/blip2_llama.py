@@ -133,6 +133,7 @@ class LlamaForBlip2(LlamaForCausalLM):
         self.cast = P.Cast()
 
         self.is_first_iteration = True
+        self.use_past = self.config.use_past
 
     # pylint: disable=W0221
     def construct(self, input_embeddings=None,
@@ -146,8 +147,6 @@ class LlamaForBlip2(LlamaForCausalLM):
         if input_embeddings is None and input_ids is not None:  # for incremental infer
             input_embeddings = self.model.tok_embeddings(input_ids)
 
-        batch_size, seq_length, _ = input_embeddings.shape
-
         output = self.model(input_embeddings=input_embeddings,
                             input_attention_masks=attention_mask,
                             input_position=input_position,
@@ -158,8 +157,10 @@ class LlamaForBlip2(LlamaForCausalLM):
 
         if labels is None:
             # inference
-            logits = self.reshape(logits, (batch_size, seq_length, -1))
-            return logits, attention_mask
+            logits = self.reshape(logits, (-1, logits.shape[-1]))
+            if (self.is_first_iteration or not self.use_past) and input_position is not None:
+                logits = self.gather(logits, input_position, 0)
+            return logits
 
         if logits.ndim > 2:
             logits = self.reshape(logits, (-1, logits.shape[-1]))
@@ -173,7 +174,11 @@ class LlamaForBlip2(LlamaForCausalLM):
         return loss
 
     def prepare_inputs_for_generation(self, input_ids, **kwargs):
-        if self.is_first_iteration or not self.config.use_past:
+        input_position = kwargs.pop("current_index", None)
+        if input_position is not None:
+            input_position = Tensor(input_position, mstype.int32)
+
+        if self.is_first_iteration or not self.use_past:
             image_embeddings = kwargs.pop("image_embeds")
             image_embeddings_atts = self.ones(image_embeddings.shape[:-1], mstype.float32)
 
@@ -188,12 +193,14 @@ class LlamaForBlip2(LlamaForCausalLM):
             return {
                 "input_ids": Tensor(input_ids, mstype.int32),
                 "input_embeddings": llama_inputs_embeds,
-                "attention_mask": llama_inputs_attention_mask
+                "attention_mask": llama_inputs_attention_mask,
+                "input_position": input_position
             }
         return {
             "input_ids": Tensor(input_ids, mstype.int32),
             "input_embeddings": None,
-            "attention_mask": None
+            "attention_mask": None,
+            "input_position": input_position
         }
 
 
