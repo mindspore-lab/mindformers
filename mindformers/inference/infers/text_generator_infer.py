@@ -386,7 +386,7 @@ class TextGeneratorInfer(BaseInfer):
                     logits = logits.reshape(batch_size, -1, vocab_size)
 
                 # gather logits
-                if is_first_iteration:
+                if is_first_iteration and logits.shape[1] > 1:
                     logits = np.array([logits[i][current_index[i] - i * seq_length, :] for i in range(batch_size)])
                 else:
                     logits = np.array([logits[i][0, :] for i in range(batch_size)])
