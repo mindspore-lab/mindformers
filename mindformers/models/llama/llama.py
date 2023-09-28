@@ -96,11 +96,14 @@ class LlamaModel(BaseModel):
     Args:
         config(LlamaConfig): the config of network
 
-    Inputs:
-        input_ids: the tokenized inputs with datatype int32
-
     Returns:
-        output: Tensor, the output of llama decoderlayer
+            output: Tensor, the output of llama decoderlayer
+
+    Examples:
+        >>> from mindformers import LlamaModel
+        >>> network = LlamaModel.from_pretrained('llama_7b')
+        >>> type(network)
+        <class 'mindformers.models.llama.llama.LlamaModel'>
     """
     _support_list = MindFormerBook.get_model_support_list()['llama']
 
@@ -196,9 +199,23 @@ class LlamaModel(BaseModel):
             self.gather_past = P.Gather()
             self.expand_dims = P.ExpandDims()
             self.le_past = P.LessEqual()
+
     # pylint: disable=W0613
     def construct(self, tokens: Tensor, input_position=None, init_reset=True, batch_valid_length=None):
-        """Forward of llama model."""
+        """
+        Forward of llama model.
+
+        Args:
+            tokens: the tokenized inputs with datatype int32
+            input_position(Tensor): current position, used by model.predict.
+            init_reset(bool, optional): A bool tensor with shape [1], used to clear the past key parameter and
+                past value parameter used in the incremental prediction. Default True.
+            batch_valid_length(Tensor): the past calculated the index with datatype int32, used for incremental
+                prediction. Tensor of shape :math:`(batch_size,)`. Default None.
+
+        Returns:
+            output: Tensor, the output of llama decoderlayer
+        """
         # preprocess
         bs, seq_len = tokens.shape
         if self.is_first_iteration:
@@ -235,28 +252,23 @@ class LlamaModel(BaseModel):
 class LlamaForCausalLM(BaseModel):
     r"""
         Provide llama training loss or logits through network.
+
         Args:
             config (LlamaConfig): The config of llama model.
 
-        Inputs:
-            input_ids(Tensor): the tokenized inputs with datatype int32, Tensor of shape :math:`(batch, seq\_length)`.
-            labels(Tensor): the tokenized labels with datatype int32, Tensor of shape :math:`(batch, seq\_length)`.
-            input_position(Tensor): current position, used by model.predict.
-            position_ids(Tensor): Reserved param, not used.
-            attention_mask(Tensor): Reserved param, not used.
-            input_embeds(Tensor): Reserved param, not used.
-            init_reset(bool, optional): A bool tensor with shape [1], used to clear the past key parameter and
-              past value parameter used in the incremental prediction. Default True.
-            batch_valid_length(Tensor): the past calculated the index with datatype int32, used for incremental
-              prediction. Tensor of shape :math:`(batch_size,)`. Default None.
-
         Returns:
-            Tensor, the loss or logits of the network.
+            output: Tensor, the output of llama decoderlayer
 
         Examples:
             >>> from mindformers.models.llama import LlamaConfig, LlamaForCausalLM
             >>> config = LlamaConfig(batch_size=2)
             >>> network = LlamaForCausalLM(config=config)
+            >>> type(network)
+            <class 'mindformers.models.llama.llama.LlamaForCausalLM'>
+            >>> from mindformers import LlamaForCausalLM
+            >>> network = LlamaForCausalLM.from_pretrained('llama_7b')
+            >>> type(network)
+            <class 'mindformers.models.llama.llama.LlamaForCausalLM'>
         """
     _support_list = MindFormerBook.get_model_support_list()['llama']
 
@@ -306,7 +318,24 @@ class LlamaForCausalLM(BaseModel):
     # pylint: disable=W0613
     def construct(self, input_ids, labels=None, input_position=None, position_ids=None, attention_mask=None,
                   input_embeds=None, init_reset=True, batch_valid_length=None):
-        """LlamaForCausalLM forward."""
+        r"""
+        LlamaForCausalLM forward.
+
+        Args:
+            input_ids(Tensor): the tokenized inputs with datatype int32, Tensor of shape :math:`(batch, seq\_length)`.
+            labels(Tensor): the tokenized labels with datatype int32, Tensor of shape :math:`(batch, seq\_length)`.
+            input_position(Tensor): current position, used by model.predict.
+            position_ids(Tensor): Reserved param, not used.
+            attention_mask(Tensor): Reserved param, not used.
+            input_embeds(Tensor): Reserved param, not used.
+            init_reset(bool, optional): A bool tensor with shape [1], used to clear the past key parameter and
+                past value parameter used in the incremental prediction. Default True.
+            batch_valid_length(Tensor): the past calculated the index with datatype int32, used for incremental
+                prediction. Tensor of shape :math:`(batch_size,)`. Default None.
+
+        Returns:
+            Tensor: The loss or (logits, tokens, input_mask) of the network.
+        """
         bsz, seqlen = input_ids.shape
         if self.training:
             tokens = self.slice(input_ids, (0, 0), (bsz, seqlen - 1), (1, 1))

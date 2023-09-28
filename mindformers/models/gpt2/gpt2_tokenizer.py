@@ -132,10 +132,6 @@ class GPT2Tokenizer(Tokenizer):
         >>> tokenizer = GPT2Tokenizer.from_pretrained("gpt2")
         >>> res = tokenizer("Hello world")
         >>> print(res)
-        {'input_ids': [50256, 15496, 995, 50256], 'token_type_ids': [0, 0, 0, 0], 'attention_mask': [1, 1, 1, 1]}
-        >>> tokenizer = GPT2Tokenizer.from_pretrained("gpt2")
-        >>> res = tokenizer("Hello world", add_special_tokens=False)
-        >>> print(res)
         {'input_ids': [15496, 995], 'token_type_ids': [0, 0], 'attention_mask': [1, 1]}
 
     Outputs:

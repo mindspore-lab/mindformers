@@ -29,6 +29,71 @@ __all__ = ['GPT2Config']
 class GPT2Config(BaseConfig):
     """
     Gpt config class which defines the model size
+
+    Args:
+        batch_size (Optional[int]): batch size for input data, use in predict.
+        eos_token_id (Optional[int]): The id of the *end-of-sequence* token.
+        pad_token_id (Optional[int]): The id of the *padding* token.
+        bos_token_id (Optional[int]): The id of the *beginning-of-sequence* token.
+        unk_token_id (Optional[int]): The id of the *unknown* token.
+        seq_length (Optional[int]): The sequence length of input_ids, default is 1024.
+        vocab_size (`int`, *optional*, defaults to 50257):
+            Vocabulary size of the BERT model.
+        hidden_size (`int`, *optional*, defaults to 768):
+            Dimensionality of the encoder layers and the pooler layer.
+        num_layers (`int`, *optional*, defaults to 12):
+            Number of hidden layers in the Transformer encoder.
+        num_heads (`int`, *optional*, defaults to 12):
+            Number of attention heads for each attention layer in the Transformer encoder.
+        num_labels (Optional[int]): The number of label, default is 2.
+        expand_ratio (Optional[int]): The expand ratio, default 4.
+        embedding_dropout_prob (Optional[float]): The dropout ratio of embedding layer, default 0.1.
+        hidden_dropout_rate (Optional[float]): The dropout ratio of hidden ffn layer, default 0.1.
+        attention_dropout_rate (Optional[float]): The dropout ratio of attention layer, default 0.1.
+        param_init_type (Optional[str]):
+            parameter initial dtype, default is "float32".
+        layernorm_compute_type (Optional[str]):
+            layernorm compute dtype, default is "float32".
+        softmax_compute_type (Optional[str]):
+            softmax compute dtype, default is "float32".
+        compute_dtype (Optional[str]):
+            Linear layer compute dtype, default is "float16".
+        hidden_act(str):
+            The activation of the internal feedforward layer. Supports 'relu',
+            'relu6', 'tanh', 'gelu', 'fast_gelu', 'elu', 'sigmoid', 'prelu', 'leakyrelu', 'hswish',
+            'hsigmoid', 'logsigmoid' and so on. User can provide custom activition to the argument.
+            If user wants to run the net in the parallel mode, the custom activation must also provide
+            the `activation_shard` function. Please see the examples of the
+            class:`mindformers.modules.transformer.FeedForward`. Default: gelu.
+        use_past (`bool`, *optional*, defaults to `False`):
+            Whether or not the model should use the past last key/values attentions
+            (if applicable to the model) to speed up decoding.
+        post_layernorm_residual(bool): Whether use post layernorm, defaylt False.
+        offset(int): Offset of transformer layer when set pipeline stage number.
+        checkpoint_name_or_path (Optional[str]):
+            checkpoint path or name used to load to the network.
+        parallel_config(TransformerOpParallelConfig):
+            The parallel configure. Default `default_transformer_config`,
+            an instance of `TransformerOpParallelConfig` with default args.
+        moe_config(MoEConfig):
+            The configuration of MoE (Mixture of Expert). Default is an instance of MoEConfig
+            with default values. Please see `MoEConfig`.
+        repetition_penalty (`float`, *optional*, defaults to 1.0):
+            The parameter for repetition penalty. 1.0 means no penalty. See [this
+            paper](https://arxiv.org/pdf/1909.05858.pdf) for more details.
+        max_decode_length (`int`, *optional*, defaults to 1024):
+            The maximum length the generated tokens can have. Corresponds to the length of the input prompt +
+            `max_new_tokens`. Its effect is overridden by `max_new_tokens`, if also set.
+        top_k (`int`, *optional*, defaults to 5):
+            The number of highest probability vocabulary tokens to keep for top-k-filtering.
+        top_p (`float`, *optional*, defaults to 1.0):
+            If set to float < 1, only the smallest set of most probable tokens with probabilities
+            that add up to `top_p` or higher are kept for generation.
+        do_sample (`bool`, *optional*, defaults to `False`):
+            Whether or not to use sampling ; use greedy decoding otherwise.
+
+    Returns:
+        Class, GPT2Config.
     """
 
     _support_list = MindFormerBook.get_config_support_list()['gpt2']

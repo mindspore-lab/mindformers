@@ -38,6 +38,8 @@ class ViTMAEImageProcessor(BaseImageProcessor):
 
     Args:
         image_resolution (int): the target size.
+        patch_size(int): patch size.
+        mask_ratio(float): mask ratio of image.
     """
     def __init__(self, size=224, patch_size=16, mask_ratio=0.75):
         super(ViTMAEImageProcessor, self).__init__(image_resolution=size)
@@ -139,12 +141,13 @@ class ViTMAEProcessor(BaseProcessor):
     Examples:
         >>> from mindformers import MindFormerBook
         >>> from mindformers.models import ViTMAEProcessor
+        >>> import os
         >>> yaml_path = os.path.join(MindFormerBook.get_project_path(), "configs",
         ...                          "mae", "model_config", "mae_vit_base_p16.yaml")
         >>> # build ViTMAEProcessor from pretrained
         >>> pro_a = ViTMAEProcessor.from_pretrained('mae_vit_base_p16')
-        >>> # build ViTMAEProcessor from config
-        >>> pro_b = ViTMAEProcessor.from_pretrained(yaml_path)
+        >>> type(pro_a)
+        <class 'mindformers.models.mae.mae_processor.ViTMAEProcessor'>
     """
     _support_list = MindFormerBook.get_processor_support_list()['mae']
 
