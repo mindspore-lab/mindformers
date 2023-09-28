@@ -6,70 +6,83 @@ GPT-2由OpenAI于2019年发布。GPT-2模型是继承于GPT模型，GPT-2是一�
 
 [论文](https://d4mucfpksywv.cloudfront.net/better-language-models/language_models_are_unsupervised_multitask_learners.pdf)A Radford，et al., Language Models are Unsupervised Multitask Learners, 2019
 
-## 数据集准备
+## 模型性能
 
-以Wikitext2数据集为例
+```txt
+Mindspore: 2.0.0rc1
+Ascend: 910A
+```
 
-- 数据集下载：[WikiText2数据集](https://s3.amazonaws.com/research.metamind.io/wikitext/wikitext-2-v1.zip)
+|               config                |        task         |              Datasets              | [metric](#评测) |                score                | [train performance](#预训练) |         [predict performance](#推理)         |
+| :---------------------------------: | :-----------------: | :--------------------------------: |:-----------:| :---------------------------------: |:----------------------:|:----------------------------------------:|
+|    [gpt2](https://gitee.com/mindspore/mindformers/blob/dev/configs/gpt2/run_gpt2.yaml)     |   text_generation   |             wikitext2              |     ppl     |                22.11                |     1265 tokens/s      | 4.66/11.37 tokens/s(use past True/False) |
+|  [gpt2_lora](https://gitee.com/mindspore/mindformers/blob/dev/configs/gpt2/run_gpt2_lora.yaml)  |   text_generation   |             wikitext2              |      -      |                  -                  |     1428 tokens/s      |                    -                     |
+| [gpt2_txtcls](https://gitee.com/mindspore/mindformers/blob/dev/configs/gpt2/run_gpt2_txtcls.yaml) | text_classification | SST-2<br/>IMDB<br/>AGNews<br/>COLA |  accuracy   | 0.908<br/>0.934<br/>0.941<br/>0.693 |           -            |                    -                     |
 
-- 词表下载：[vocab.json](https://huggingface.co/gpt2/blob/main/vocab.json)，[merges.txt](https://huggingface.co/gpt2/resolve/main/merges.txt)
+## 仓库介绍
 
-- 参考[wikitext-2处理脚本](https://gitee.com/mindspore/mindformers/blob/931cf93045473d5827ee26638d83fabe94058d28/mindformers/tools/dataset_preprocess/gpt2/wikitext2_data_process.py#)，将数据处理成Mindrecord格式。注：训练数据处理时，长度应等于模型接收长度加一
+1、模型具体实现：`mindformers/models/gpt2`
+
+`gpt2`基于`mindformers`实现，主要涉及的文件有：
 
 ```bash
-# 训练
-python mindformers/tools/dataset_preprocess/gpt2/wikitext2_data_process.py --input_file ./wikitext-2/wiki.train.tokens --output_file ./wikitext-2.train.mindrecord --max_length 1025
-# 评测
-python mindformers/tools/dataset_preprocess/gpt2/wikitext2_data_process.py --input_file ./wikitext-2/wiki.valid.tokens --output_file ./wikitext-2.valid.mindrecord --max_length 1024
+gpt2
+    ├── __init__.py
+    ├── convert_weight.py           # 权重转换脚本
+    ├── gpt2.py                     # 模型实现
+    ├── gpt2_config.py              # 模型配置项
+    ├── gpt2_processor.py           # gpt2预处理
+    ├── gpt2_tokenizer.py           # tokenizer
+    └── gpt2_modules.py             # transformer层实现
 ```
 
-## 快速使用
+2、模型配置：`configs/gpt2`
 
-### 脚本启动
-
-> 需开发者提前clone工程。
-
-- 请参考[使用脚本启动](../../README.md#方式一使用已有脚本启动)
-
-示例命令如下，将会执行一个12层的GPT2模型训练
-
-#### 单卡启动
-
-```shell
-# dataset_dir可指定文件目录或文件路径，指定文件路径时，读取单文件，
-# 指定目录时，读取目录下所有以字符串mindrecord结尾的数据文件
-python run_mindformer.py --config configs/gpt2/run_gpt2.yaml \
-                         --run_mode train \
-                         --device_target Ascend \
-                         --train_dataset_dir /your_path/wikitext-2.train.mindrecord
+```bash
+gpt2
+    ├── run_gpt2.yaml           # gpt2 small模型启动配置
+    ├── run_gpt2_13b.yaml       # gpt 13b模型启动配置
+    ├── run_gpt2_52b.yaml       # gpt 52b模型启动配置
+    ├── run_gpt2_lora.yaml      # gpt2 small lora低参微调启动配置
+    ├── run_gpt2_txtcls.yaml    # gpt2 small文本分类模型启动配置
+    ├── run_gpt2_xl.yaml        # gpt2 xlarge模型启动配置
+    └── run_model_xl_lora.yaml  # gpt2 xlarge lora低参微调启动配置
 ```
 
-其中`device_target`根据用户的运行设备不同，可选`CPU/Ascend`。另，模型和训练等相关配置可在`configs/gpt2`目录下的yaml文件中配置。
+3、预处理脚本和任务启动脚本：`mindformers/tools/dataset_preprocess/gpt2`
 
-#### 单机多卡启动
+```bash
+gpt2
+    ├── txtcls_dataset_to_mindrecord.py     # 文本分类数据集预处理
+    └── wikitext2_data_process.py           # wikitext2数据集预处理
+```
 
-- 运行mindformers/tools/hccl_tools.py生成RANK_TABLE_FILE的json文件；
+## 前期准备
 
-```shell
+### [mindformers安装](https://gitee.com/mindspore/mindformers/tree/dev#%E4%BA%8Cmindformers%E5%AE%89%E8%A3%85)
 
-# step1：机器上运行如下命令，生成各自的RANK_TABLE_FILE的json文件
+### 生成RANK_TABLE_FILE(多卡运行必备环节)
+
+运行`mindformers/tools/hccl_tools.py`生成RANK_TABLE_FILE的json文件
+
+```bash
+# 运行如下命令，生成当前机器的RANK_TABLE_FILE的json文件
 python ./mindformers/tools/hccl_tools.py --device_num "[0,8)"
-
-# step2：# 执行运行脚本：8卡分布式运行， DEVICE_RANGE = [0, 8]， 不包含8本身。
-cd scripts
-bash run_distribute.sh RANK_TABLE_FILE CONFIG_PATH DEVICE_RANGE RUN_STATUS
-
 ```
 
-```python
-# RANK_TABLE_FILE 参考样例
-# 单机8卡
+**注：若使用ModelArts的notebook环境，可从 `/user/config/jobstart_hccl.json` 路径下直接获取rank table，无需手动生成**
+
+RANK_TABLE_FILE 单机8卡参考样例:
+
+**其中`server_id`是机器ip地址**
+
+```json
 {
     "version": "1.0",
     "server_count": "1",
     "server_list": [
         {
-            "server_id": "10.155.111.140",
+            "server_id": "xx.xx.xx.xx",
             "device": [
                 {"device_id": "0","device_ip": "192.1.27.6","rank_id": "0"},
                 {"device_id": "1","device_ip": "192.2.27.6","rank_id": "1"},
@@ -86,282 +99,865 @@ bash run_distribute.sh RANK_TABLE_FILE CONFIG_PATH DEVICE_RANGE RUN_STATUS
 }
 ```
 
-```text
-# 参数说明
-RANK_TABLE_FILE: 由mindformers/tools/hccl_tools.py生成的分布式json文件
-CONFIG_PATH: 为configs文件夹下面的gpt2/run_gpt2*.yaml配置文件
-DEVICE_ID: 为设备卡，范围为0~7
-DEVICE_RANGE: 为单机分布式卡的范围，如[0,8]为8卡分布式，不包含8本身
-RUN_STATUS: 为任务运行状态，支持关键字 train\finetune\predict
+### 多机RANK_TABLE_FILE合并(多机多卡必备环节)
+
+- step 1. 首先根据上章节内容，在每个机器上生成各自的`RANK_TABLE_FILE`文件，然后将不同机器上生成的`RANK_TABLE_FILE`文件全部拷贝到同一台机器上。
+
+```bash
+# 运行如下命令，生成当前机器的RANK_TABLE_FILE的json文件
+python ./mindformers/tools/hccl_tools.py --device_num "[0,8)" --server_ip xx.xx.xx.xx
 ```
 
-其中，模型和训练等相关配置可在`configs/gpt2`目录下的yaml文件中配置，如数据集路径，可在`configs/gpt2/run_gpt2_***.yaml`中配置`dataset_dir`参数。
-`dataset_dir`可指定文件目录或文件路径，指定文件路径时，读取单文件，指定目录时，读取目录下所有以字符串mindrecord结尾的数据文件
+**注：需要根据机器的ip地址指定 --server_ip，避免由于不同机器server_ip不同，导致多节点间通信失败。**
 
-#### 多机多卡启动
+- step 2. 运行mindformers/tools/merge_hccl.py将不同机器上生成的`RANK_TABLE_FILE`文件合并
 
-- 首先参考单机多卡启动方式，在每台机器上运行mindformers/tools/hccl_tools.py生成RANK_TABLE_FILE的json文件；
-
-- 执行merge_hccl.py脚本将不同机器上生成的RANK_TABLE_FILE文件中的hccl*.json进行合并，包括server_list合并，server_count设为机器数，rank_id顺序增加，并保证不同机器上的RANK_TABLE_FILE相同；
-
-- 在多机上同时拉起任务，每台机器拉起方式参考单机多卡启动方式，需注意的是，多机多卡的拉起方式，相对于单机多卡，多了一个总卡数`[RANK_SIZE]`的入参。
-
-```shell
-# step1：在每个机器上运行如下命令，生成各自的RANK_TABLE_FILE的json文件。
-python ./mindformers/tools/hccl_tools.py --device_num "[0,8)"
-
-# step2：运行如下命令，合并每个机器上的RANK_TABLE_FILE文件。
+```bash
+# 运行如下命令，合并每个机器上的RANK_TABLE_FILE的json文件。
 python ./mindformers/tools/merge_hccl.py hccl*.json
-
-# step3：将step2得到的合并后的RANK_TABLE_FILE文件分别复制到所有的机器上。
-
-# step4：根据服务器节点数等信息，修改相应的配置
-'''
-以gpt2-13b模型四机训练为例，默认配置4机32卡，如果节点数有变，需要修改相应的配置。配置文件在../configs/gpt2/run_gpt2_13b.yaml
-
-parallel_config:
-  data_parallel: 4
-  model_parallel: 2
-  pipeline_stage: 4
-  optimizer_shard: True
-  micro_batch_num: 24
-  vocab_emb_dp: True
-  gradient_aggregation_group: 4
-'''
-
-# step5：执行运行脚本
-# 第一台机器
-bash run_distribute.sh {RANK_TABLE_FILE path of the first device} ../configs/gpt2/run_gpt2_13b.yaml [0,8] train 32
-# 第二台机器
-bash run_distribute.sh {RANK_TABLE_FILE path of the second device} ../configs/gpt2/run_gpt2_13b.yaml [8,16] train 32
-# 第三台机器
-bash run_distribute.sh {RANK_TABLE_FILE path of the third device} ../configs/gpt2/run_gpt2_13b.yaml [16,24] train 32
-# 第四台机器
-bash run_distribute.sh {RANK_TABLE_FILE path of the forth device} ../configs/gpt2/run_gpt2_13b.yaml [24,32] train 32
 ```
 
-### 调用API启动
+- step 3. 将合并后的`RANK_TABLE_FILE`文件拷贝到所有机器中，保证不同机器上的`RANK_TABLE_FILE`相同。
 
-> 需开发者提前pip安装。具体接口说明请参考[API接口](https://gitee.com/mindspore/transformer/wikis/API/)
+RANK_TABLE_FILE 双机16卡参考样例:
 
-- Model调用接口
+以下`server_id`为机器ip地址，不同机器需设置不同的值
+
+```json
+{
+    "version": "1.0",
+    "server_count": "2",
+    "server_list": [
+        {
+            "server_id": "xx.xx.xx.xx",
+            "device": [
+                {
+                    "device_id": "0", "device_ip": "192.168.0.0", "rank_id": "0"
+                },
+                {
+                    "device_id": "1", "device_ip": "192.168.1.0", "rank_id": "1"
+                },
+                {
+                    "device_id": "2", "device_ip": "192.168.2.0", "rank_id": "2"
+                },
+                {
+                    "device_id": "3", "device_ip": "192.168.3.0", "rank_id": "3"
+                },
+                {
+                    "device_id": "4", "device_ip": "192.168.0.1", "rank_id": "4"
+                },
+                {
+                    "device_id": "5", "device_ip": "192.168.1.1", "rank_id": "5"
+                },
+                {
+                    "device_id": "6", "device_ip": "192.168.2.1", "rank_id": "6"
+                },
+                {
+                    "device_id": "7", "device_ip": "192.168.3.1", "rank_id": "7"
+                }
+            ],
+            "host_nic_ip": "reserve"
+        },
+        {
+            "server_id": "xx.xx.xx.xx",
+            "device": [
+                {
+                    "device_id": "0", "device_ip": "192.168.0.1", "rank_id": "8"
+                },
+                {
+                    "device_id": "1", "device_ip": "192.168.1.1", "rank_id": "9"
+                },
+                {
+                    "device_id": "2", "device_ip": "192.168.2.1", "rank_id": "10"
+                },
+                {
+                    "device_id": "3", "device_ip": "192.168.3.1", "rank_id": "11"
+                },
+                {
+                    "device_id": "4", "device_ip": "192.168.0.2", "rank_id": "12"
+                },
+                {
+                    "device_id": "5", "device_ip": "192.168.1.2", "rank_id": "13"
+                },
+                {
+                    "device_id": "6", "device_ip": "192.168.2.2", "rank_id": "14"
+                },
+                {
+                    "device_id": "7", "device_ip": "192.168.3.2", "rank_id": "15"
+                }
+            ],
+            "host_nic_ip": "reserve"
+        }
+    ],
+    "status": "completed"
+}
+```
+
+### 模型权重下载与转换
+
+作为参考，这里描述CheckPoint在HuggingFace或者官方开源github仓库和MindSpore间的转换，在不同分布式策略间的转换。
+
+Huggingface权重：  
+    [gpt2 small](https://huggingface.co/gpt2/resolve/main/pytorch_model.bin)  
+    [gpt2 xlarge](https://huggingface.co/gpt2-xl/resolve/main/pytorch_model.bin)  
+    [gpt2 13b](https://huggingface.co/cerebras/Cerebras-GPT-13B/tree/main)
+
+其中，13b的权重需要将上述链接下的`pytorch_model-00001-of-00002.bin`、`pytorch_model-00002-of-00002.bin`、`pytorch_model.bin.index.json
+`、`config.json`下载并存到一个文件夹`torch_weights`中，然后使用如下命令将Huggingface的权重进行合并
 
 ```python
-from mindformers import GPT2LMHeadModel, GPT2Tokenizer
+from transformers import AutoModelForCausalLM
+model = AutoModelForCausalLM.from_pretrained("torch_weights")
+model.save_pretrained("gpt_13b.bin", max_shard_size="60GB")
+```
 
-model = GPT2LMHeadModel.from_pretrained('gpt2')
+权重转换：
+
+```bash
+# gpt2 small
+python mindformers/models/gpt2/convert_weight.py --layers 12 --torch_path gpt2_small.bin --mindspore_path ./gpt2_small.ckpt
+# gpt2 xlarge
+python mindformers/models/gpt2/convert_weight.py --layers 48 --torch_path gpt2_small.bin --mindspore_path ./gpt2_xlarge.ckpt
+# gpt2 13b
+python mindformers/models/gpt2/convert_weight.py --layers 40 --torch_path gpt_13b.bin --mindspore_path ./gpt_13b.ckpt
+```
+
+另，`mindformers`已经提供转换好的权重（其中lora权重为mindformers训练得到，非Huggingface官方权重转化得到）：  
+    [gpt2 small](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/XFormer_for_mindspore/gpt2/gpt2.ckpt)  
+    [gpt2 small lora](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/XFormer_for_mindspore/gpt2/gpt2_lora.ckpt)  
+    [gpt2 xlarge](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/XFormer_for_mindspore/gpt2/gpt2_xl.ckpt)  
+    [gpt2 xlarge lora](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/XFormer_for_mindspore/gpt2/gpt2_xl_lora.ckpt)
+    [gpt2 13b](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/XFormer_for_mindspore/gpt2/gpt2_13b.ckpt)
+
+### [模型权重切分与合并](https://gitee.com/mindspore/mindformers/blob/dev/docs/feature_cards/Transform_Ckpt.md)
+
+从hugging face或官方github仓库转换而来的权重通常是单卡权重，基于该权重进行多卡微调，评测，推理，涉及ckpt从单机策略到分布式策略的切换。
+
+通常训练采用分布式训练，基于该权重进行评测，推理多采用单卡，涉及ckpt从分布式策略到单机策略的切换。
+
+以上涉及到ckpt的单卡，多卡转换，详细教程请参考特性文档模型[权重切分与合并](https://gitee.com/mindspore/mindformers/blob/dev/docs/feature_cards/Transform_Ckpt.md)
+
+## 基于API的快速使用
+
+### 基于AutoClass的使用
+
+可以使用AutoClass接口，通过模型名称获取相应的model/preprocess/tokenizer等实例，并自动下载并加载权重
+
+`from_pretrained()` 接口会自动从云上下载预训练的模型，存储路径：`mindformers/checkpoint_download/gpt2`
+
+```python
+# 以gpt2 small为例
+import mindspore
+from mindformers import AutoModel, AutoTokenizer
+
+# 指定图模式，指定使用训练卡id
+mindspore.set_context(mode=0, device_id=0)
+
+tokenizer = AutoTokenizer.from_pretrained("gpt2")
+model = AutoModel.from_pretrained("gpt2")
 model.set_train(False)
-tokenizer = GPT2Tokenizer.from_pretrained('gpt2')
-inputs = tokenizer(["hello world"],
-                 padding='max_length',
-                 max_length=model.config.seq_length,
-                 return_tensors='ms')
-output = model(input_ids=inputs["input_ids"], input_mask=inputs["attention_mask"])
-print(output)  # 计算输出的logits
-
-model.set_train(True)
-inputs = tokenizer(["hello world"],
-                   padding='max_length',
-                   max_length=model.config.seq_length+1,
-                   return_tensors='ms')
-output = model(input_ids=inputs["input_ids"], input_mask=inputs["attention_mask"])
-print(output)  # 计算loss
+inputs = tokenizer("An increasing sequence: one,")
+outputs = model.generate(inputs["input_ids"], max_length=20, do_sample=20)
+response = tokenizer.decode(outputs)[0]
+print(response)
+# An increasing sequence: one, two, three, four, five, six, seven, eight,
 ```
 
-- Trainer接口开启训练/推理：
+### 基于Trainer的训练，微调，评测，推理
 
 ```python
+# 以gpt2 small为例
+import mindspore
 from mindformers.trainer import Trainer
-# 初始化预训练任务
-trainer = Trainer(task='text_generation', model='gpt2', train_dataset="your data file path")
-# 方式1: 开启训练，并使用训练好的权重进行推理
-trainer.train()
-res = trainer.predict(predict_checkpoint=True, input_data="I love Beijing, because")
 
-# 方式2： 从obs下载训练好的权重并进行推理
-res = trainer.predict(input_data="I love Beijing, because")
+# 指定图模式，指定使用训练卡id
+mindspore.set_context(mode=0, device_id=0)
+# 初始化预训练任务
+trainer = Trainer(task='text_generation',
+                  model='gpt2',
+                  train_dataset='path/to/train_dataset',
+                  eval_dataset='path/to/eval_dataset')
+# 开启预训练
+trainer.train()
+
+# 开启全量微调
+trainer.finetune()
+
+# 开启评测
+trainer.evaluate()
+
+ # 开启推理
+predict_result = trainer.predict(input_data="An increasing sequence: one,", do_sample=False, max_length=20)
+print(predict_result)
+# output result is: [{'text_generation_text': ['An increasing sequence: one, two, three, four, five, six, seven, eight,']}]
+# Lora微调
+trainer = Trainer(task="text_generation", model="gpt2", pet_method="lora",
+                  train_dataset="path/to/train_dataset")
+trainer.finetune(finetune_checkpoint="gpt2")
 ```
 
-- pipeline接口开启快速推理
+### 基于Pipeline的推理
 
 ```python
+# 以gpt2 small为例
+# 单卡推理支持gpt2、gpt2 xl、gpt2 lora三个模型
+import mindspore
 from mindformers.pipeline import pipeline
-pipeline_task = pipeline("text_generation", model='gpt2', max_length=20)
-pipeline_result = pipeline_task("I love Beijing, because", top_k=3)
+
+# 指定图模式，指定使用训练卡id
+mindspore.set_context(mode=0, device_id=0)
+pipeline_task = pipeline(task="text_generation", model="gpt2")
+pipeline_result = pipeline_task("An increasing sequence: one,", do_sample=False, max_length=20)
 print(pipeline_result)
+# [{'text_generation_text': ['An increasing sequence: one, two, three, four, five, six, seven, eight,']}]
 ```
 
-## 模型权重
+## 预训练
 
-本仓库中的`gpt2`来自于HuggingFace的[gpt2](https://huggingface.co/gpt2/blob/main/pytorch_model.bin), 基于下述的步骤获取：
+### 数据集准备-预训练
 
-- 从上述的链接中下载`gpt2`的HuggingFace权重，文件名为`pytorch_model.bin`
+以Wikitext2数据集为例
 
-- 执行转换脚本，得到转换后的输出文件`mindspore_gpt2.ckpt`
+1、数据集下载：[WikiText2数据集](https://s3.amazonaws.com/research.metamind.io/wikitext/wikitext-2-v1.zip)
 
-```shell
-python mindformers/models/gpt2/convert_weight.py --layers 12 --torch_path pytorch_model.bin --mindspore_path ./mindspore_gpt2.ckpt
+2、词表下载：[vocab.json](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/XFormer_for_mindspore/gpt2/vocab.json)，[merges.txt](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/XFormer_for_mindspore/gpt2/merges.txt)
+
+3、参考[wikitext-2处理脚本](https://gitee.com/mindspore/mindformers/blob/931cf93045473d5827ee26638d83fabe94058d28/mindformers/tools/dataset_preprocess/gpt2/wikitext2_data_process.py#)，将数据处理成Mindrecord格式。注：训练数据处理时，长度应等于模型接收长度加一
+
+```bash
+# 训练
+python mindformers/tools/dataset_preprocess/gpt2/wikitext2_data_process.py \
+                              --input_file ./wikitext-2/wiki.train.tokens \
+                              --output_file ./wikitext-2.train.mindrecord \
+                              --max_length 1025
 ```
 
-## 指令微调
+### 脚本启动
+
+#### 单卡训练
+
+- python启动
+
+```bash
+# dataset_dir可指定文件目录或文件路径，指定文件路径时，读取单文件，
+# 指定目录时，读取目录下所有以字符串mindrecord结尾的数据文件
+python run_mindformer.py --config configs/gpt2/run_gpt2.yaml \
+                         --run_mode train \
+                         --train_dataset_dir ./wikitext-2.train.mindrecord
+```
+
+- bash启动
+
+```bash
+cd scripts
+bash run_standalone.sh ../configs/gpt2/run_gpt2.yaml [DEVICE_ID] train
+```
+
+#### 多卡训练
+
+多卡运行需要RANK_FILE_TABLE，请参考前期准备-[生成RANK_TABLE_FILE](#生成rank_table_file多卡运行必备环节)
+
+- 单机多卡
+
+请提前在yaml文件中修改相应的分布式配置，配置参考[并行配置](https://gitee.com/mindspore/mindformers/blob/dev/docs/readthedocs/source_zh_cn/docs/design/Parallel_Design.md#config-%E5%B9%B6%E8%A1%8C%E9%85%8D%E7%BD%AE)
+
+**请提前将yaml文件中train_dataset配置中的dataset_dir设置为处理好的mindrecord数据路径**
+
+```bash
+cd scripts
+bash run_distribute.sh RANK_TABLE_FILE ../configs/gpt2/run_gpt2.yaml [0,8] train
+```
+
+- 多机多卡
+
+在每台机器上启动`bash run_distribute.sh`。
+
+请提前在yaml文件中修改相应的分布式配置，配置参考[并行配置](https://gitee.com/mindspore/mindformers/blob/dev/docs/readthedocs/source_zh_cn/docs/design/Parallel_Design.md#config-%E5%B9%B6%E8%A1%8C%E9%85%8D%E7%BD%AE)
+
+**请提前将yaml文件中train_dataset配置中的dataset_dir设置为处理好的mindrecord数据路径**
+
+```bash
+server_count=12
+device_num=8*$server_count
+# launch ranks in the 0th server
+cd scripts
+bash run_distribute.sh $RANK_TABLE_FILE path/to/config.yaml [0,8] train $device_num
+
+# launch ranks in the 1-11 server via ssh
+for idx in {1..11}
+do  
+    let rank_start=8*$idx
+    let rank_end=$rank_start+8
+    ssh ${IP_LIST[$idx]} "cd scripts; bash run_distribute.sh $RANK_TABLE_FILE path/to/config.yaml [$rank_start,$rank_end] train $device_num"
+done
+```
+
+其中
+
+- `RANK_TABLE_FILE`为上一步汇总并分发的总rank table文件；
+- `IP_LIST`为12台服务器的IP地址。如192.168.0.[0-11]
+
+```bash
+IP_LIST=("192.168.0.0", "192.168.0.1", ..., "192.168.0.11")
+```
+
+## 微调
+
+### 数据集准备-微调数据集
+
+- [参考预训练数据集制作](#数据集准备-预训练)
 
 ### 全参微调
 
-#### 脚本启动
+#### 单卡微调
 
-- step 1. 添加`config/gpt2/run_gpt2.yaml`中预训练权重路径和微调数据集路径；
+- python启动
 
-```yaml
-# 预训练权重路径
-load_checkpoint: "/{path}/gpt2.ckpt"
-
-# 微调数据集路径
-train_dataset: &train_dataset
-  data_loader:
-    type: MindDataset
-    dataset_dir: "/{path}/train_dataset.mindrecord"
-    shuffle: True
+```bash
+python run_mindformer.py --config configs/gpt2/run_gpt2.yaml \
+                         --run_mode finetune \
+                         --train_dataset_dir ./wikitext-2.train.mindrecord
 ```
 
-- step 2. 启动微调任务；
+- bash启动
 
-```shell
+**请提前将yaml文件中train_dataset配置中的dataset_dir设置为处理好的mindrecord数据路径**
+
+```bash
 cd scripts
-# 单卡
 bash run_standalone.sh ../configs/gpt2/run_gpt2.yaml [DEVICE_ID] finetune
-# 多卡
-bash run_distribute.sh [RANK_TABLE_FILE] ../configs/gpt2/run_gpt2.yaml [0,8] finetune
 ```
 
-#### Trainer高阶接口启动
+#### 多卡微调
 
-```python
-from mindformers.trainer import Trainer
-# 初始化预训练任务
-trainer = Trainer(task='text_generation', model='gpt2', train_dataset="{dataset file path}")
-# 调用finetune接口进行微调
-trainer.finetune(finetune_checkpoint="{checkpoint file path}")
-```
+多卡运行需要RANK_FILE_TABLE，请参考前期准备-[生成RANK_TABLE_FILE](#生成rank_table_file多卡运行必备环节)
 
-### LoRA微调
+- 单机多卡
 
-目前LoRA微调适配了gpt2模型，并给出了默认配置文件`config/gpt2/run_gpt2_lora.yaml`。
+**请提前将yaml文件中train_dataset配置中的dataset_dir设置为处理好的mindrecord数据路径**
 
-#### 脚本启动
-
-- step 1. 参考全参微调修改训练数据集路径与预训练权重路径；
-
-- step 2. 启动LoRA微调任务；
-
-```shell
+```bash
 cd scripts
-# 单卡
+bash run_distribute.sh RANK_TABLE_FILE ../configs/gpt2/run_gpt2.yaml [0,8] finetune 8
+```
+
+多机多卡运行需要合并不同机器的RANK_FILE_TABLE，参考前期准备-[多机RANK_TABLE_FILE合并](#多机rank_table_file合并多机多卡必备环节)
+
+- 多机多卡
+
+**请提前将yaml文件中train_dataset配置中的dataset_dir设置为处理好的mindrecord数据路径**
+
+在每台机器上启动`bash run_distribute.sh`。
+
+```bash
+server_count=12
+device_num=8*$server_count
+# launch ranks in the 0th server
+cd scripts
+bash run_distribute.sh $RANK_TABLE_FILE path/to/config.yaml [0,8] finetune $device_num
+
+# launch ranks in the 1-11 server via ssh
+for idx in {1..11}
+do  
+    let rank_start=8*$idx
+    let rank_end=$rank_start+8
+    ssh ${IP_LIST[$idx]} "cd scripts; bash run_distribute.sh $RANK_TABLE_FILE path/to/config.yaml [$rank_start,$rank_end] finetune $device_num"
+done
+```
+
+其中
+
+- `RANK_TABLE_FILE`为上一步汇总并分发的总rank table文件；
+- `IP_LIST`为12台服务器的IP地址。如192.168.0.[0-11]
+
+```bash
+IP_LIST=("192.168.0.0", "192.168.0.1", ..., "192.168.0.11")
+```
+
+### Lora微调
+
+#### 单卡微调
+
+```bash
+python run_mindformer.py --config configs/gpt2/run_gpt2_lora.yaml --run_mode finetune
+```
+
+```bash
+cd scripts
 bash run_standalone.sh ../configs/gpt2/run_gpt2_lora.yaml [DEVICE_ID] finetune
-# 多卡
-bash run_distribute.sh [RANK_TABLE_FILE] ../configs/gpt2/run_gpt2_lora.yaml [DEVICE_RANGE] finetune
 ```
 
-#### Trainer高阶接口启动
+#### 多卡微调
 
-```python
-from mindformers.trainer import Trainer
-# 初始化预训练任务
-trainer = Trainer(task='text_generation', model='gpt2', pet_method='lora', train_dataset="{dataset file path}")
-# 调用finetune接口进行微调
-trainer.finetune(finetune_checkpoint="{checkpoint file path}")
+多卡运行需要RANK_FILE_TABLE，请参考前期准备-[生成RANK_TABLE_FILE](#生成rank_table_file多卡运行必备环节)
+
+- 单机多卡
+
+```bash
+cd scripts
+bash run_distribute.sh RANK_TABLE_FILE path/to/config_lora.yaml [0,8] finetune 8
 ```
 
-#### 使用微调权重进行评估和推理
+多机多卡运行需要合并不同机器的RANK_FILE_TABLE，参考前期准备-[多机RANK_TABLE_FILE合并](#多机生成rank_table_file合并多机多卡必备环节)
 
-Trainer高阶接口进行评估
+- 多机多卡
 
-加载obs上权重gpt2_lora对wikitext-2测试集进行评估，得出PPL约为22.46。
+在每台机器上启动`bash run_distribute.sh`。
 
-```python
-from mindformers.trainer import Trainer
-# 初始化预训练任务
-trainer = Trainer(task='text_generation', model='gpt2', pet_method='lora', train_dataset="{dataset file path}")
-# 调用evaluate接口进行评估
-trainer.evaluate(eval_checkpoint="gpt2_lora")
-# 'Text Generation Metric': {'loss': 3.1119116364103374, 'PPL': 22.463946278911905}
+```bash
+server_count=12
+device_num=8*$server_count
+# launch ranks in the 0th server
+cd scripts
+bash run_distribute.sh $RANK_TABLE_FILE path/to/config_lora.yaml [0,8] finetune $device_num
+
+# launch ranks in the 1-11 server via ssh
+for idx in {1..11}
+do  
+    let rank_start=8*$idx
+    let rank_end=$rank_start+8
+    ssh ${IP_LIST[$idx]} "cd scripts; bash run_distribute.sh $RANK_TABLE_FILE path/to/config_lora.yaml [$rank_start,$rank_end] finetune $device_num"
+done
 ```
 
-Pipeline接口进行推理
+其中
 
-```python
-from mindformers.pipeline import pipeline
+- `RANK_TABLE_FILE`为上一步汇总并分发的总rank table文件；
+- `IP_LIST`为12台服务器的IP地址。如192.168.0.[0-11]
 
-pipeline_task = pipeline("text_generation", model='gpt2_lora', max_length=20)
-pipeline_result = pipeline_task("I love Beijing, because", top_k=3)
-print(pipeline_result)
-# {'text_generation_text': ['I love Beijing, because it\'s the most vibrant city in Asia," says the Chinese-born entrepreneur']}
+```bash
+IP_LIST=("192.168.0.0", "192.168.0.1", ..., "192.168.0.11")
 ```
 
 ## 评测
 
 GPT2支持文本生成和文本分类两个任务的评测。
 
-- 文本生成：
-    - 获取数据集：
-        - [WikiText2数据集](https://s3.amazonaws.com/research.metamind.io/wikitext/wikitext-2-v1.zip)是从维基百科上经过验证的优质文章集中提取的超过1亿个token的集合。
-    - 处理数据成mindrecord格式
-        - WikiText2：
+### 文本生成
 
-        ```bash
-        cd mindformers/tools/dataset_preprocess/gpt2
-        python wikitext2_data_process.py --input_file {your_path/wiki.valid.tokens} \
-                                         --output_file {your_path/wikitext-2.valid.mindrecord}
-        ```
+#### 获取数据集
 
-    - 开启评测：
-        - WikiText2
+- [WikiText2数据集](https://s3.amazonaws.com/research.metamind.io/wikitext/wikitext-2-v1.zip)是从维基百科上经过验证的优质文章集中提取的超过1亿个token的集合。
 
-        ```bash
-        python run_mindformer.py --config configs/gpt2/run_gpt2.yaml \
-                                 --eval_dataset_dir {your_path/wikitext-2.valid.mindrecord} \
-                                 --run_mode eval \
-                                 --epochs 1
-        # gpt2: PerplexityMetric: {'PerplexityMetric': {'loss': 3.24, 'PPL': 25.55}
-        # gpt2_13b(需替换yaml文件): PerplexityMetric: {'PerplexityMetric': {'loss': 2.35, 'PPL': 10.49}
-        ```
+#### 处理数据成mindrecord格式
 
-- 文本分类：
-    - 获取数据集:
-        - [SST-2数据集](https://dl.fbaipublicfiles.com/glue/data/SST-2.zip)数据集包含电影评论中的句子和它们情感的人类注释。类别分为两类正面情感（positive，样本标签对应为1）和负面情感（negative，样本标签对应为0）
-        - [IMDB数据集](https://www.kaggle.com/datasets/lakshmi25npathi/imdb-dataset-of-50k-movie-reviews)影评数据集，包含5万条IMDB影评，评论的情绪是二元的，专门用于情绪分析。
-        - [AG-News数据集](http://groups.di.unipi.it/~gulli/AG_corpus_of_news_articles.html)数据集包含496,835条来自AG新闻语料库4大类别超过2000个新闻源的新闻文章。
-        - [COLA数据集](https://nyu-mll.github.io/CoLA/)数据集来自语言理论的书籍和期刊，每个句子被标注为是否合乎语法的单词序列。
-    - 处理数据成mindrecord格式
+```bash
+cd mindformers/tools/dataset_preprocess/gpt2
+python wikitext2_data_process.py --input_file {your_path/wiki.valid.tokens} \
+                             --output_file {your_path/wikitext-2.valid.mindrecord}
+```
 
-        ```bash
-        # 因评测前需要微调模型，所以需要生成训练/评测数据集。注：生成的数据集文件需以.mindrecord结尾
-        cd mindformers/tools/dataset_preprocess/gpt2
-        python txtcls_dataset_to_mindrecord.py --dataset_name {select one from ['cola', 'sst_2', 'ag_news', 'imdb']}
-                                               --input_file {your_path/train.tsv} \
-                                               --output_file {your_path/dataset_name.train.mindrecord}
-        python txtcls_dataset_to_mindrecord.py --dataset_name {the same as above}
-                                               --input_file {your_path/dev.tsv} \
-                                               --output_file {your_path/dataset_name.dev.mindrecord}
-        ```
+#### 开启评测
 
-    - 开启微调：因为原始权重中不包含隐向量向类别映射的参数，所以无法进行zero-shot，评测前需要事先进行微调。
+```bash
+python run_mindformer.py --config configs/gpt2/run_gpt2.yaml \
+                         --eval_dataset_dir {your_path/wikitext-2.valid.mindrecord} \
+                         --run_mode eval \
+                         --epochs 1
+# gpt2: PerplexityMetric: {'PerplexityMetric': {'loss': 3.24, 'PPL': 25.55}
+# gpt2_13b(需替换yaml文件): PerplexityMetric: {'PerplexityMetric': {'loss': 2.35, 'PPL': 10.49}
+```
 
-    ```bash
-    # 运行前请确保run_gpt2_txtcls.yaml中的model.model_config.num_labels准确，具体的，
-    # sst2/cola/imdb: num_labels = 2, agnews: num_labels = 4
-    python run_mindformer.py --config configs/gpt2/run_gpt2_txtcls.yaml \
-                             --train_dataset_dir {your_path/dataset_name.train.mindrecord} \
-                             --run_mode finetune
-    ```
+### 文本分类
 
-    - 开启评测：评测指标为ACC
+#### 获取数据集
 
-    ```bash
-    # 运行前请确保run_gpt2_txtcls.yaml中的model.model_config.num_labels准确，具体的，
-    # sst2/cola/imdb: num_labels = 2, agnews: num_labels = 4
-    python run_mindformer.py --config configs/gpt2/run_gpt2_txtcls.yaml \
-                             --eval_dataset_dir {your_path/dataset_name.dev.mindrecord} \
-                             --run_mode eval \
-                             --epochs 1
-    # ACC: COLA-0.693, SST-2-0.908, IMDB-0.934, AG-News-0.941
-    ```
+- [SST-2数据集](https://dl.fbaipublicfiles.com/glue/data/SST-2.zip)数据集包含电影评论中的句子和它们情感的人类注释。类别分为两类正面情感（positive，样本标签对应为1）和负面情感（negative，样本标签对应为0）
+
+- [IMDB数据集](https://www.kaggle.com/datasets/lakshmi25npathi/imdb-dataset-of-50k-movie-reviews)影评数据集，包含5万条IMDB影评，评论的情绪是二元的，专门用于情绪分析。
+
+- [AG-News数据集](http://groups.di.unipi.it/~gulli/AG_corpus_of_news_articles.html)数据集包含496,835条来自AG新闻语料库4大类别超过2000个新闻源的新闻文章。
+
+- [COLA数据集](https://nyu-mll.github.io/CoLA/)数据集来自语言理论的书籍和期刊，每个句子被标注为是否合乎语法的单词序列。
+
+#### 处理数据成mindrecord格式
+
+```bash
+# 因评测前需要微调模型，所以需要生成训练/评测数据集。注：生成的数据集文件需以.mindrecord结尾
+cd mindformers/tools/dataset_preprocess/gpt2
+python txtcls_dataset_to_mindrecord.py --dataset_name {select one from ['cola', 'sst_2', 'ag_news', 'imdb']}
+                                     --input_file {your_path/train.tsv} \
+                                     --output_file {your_path/dataset_name.train.mindrecord}
+python txtcls_dataset_to_mindrecord.py --dataset_name {the same as above}
+                                     --input_file {your_path/dev.tsv} \
+                                     --output_file {your_path/dataset_name.dev.mindrecord}
+```
+
+#### 开启微调
+
+- 因为原始权重中不包含隐向量向类别映射的参数，所以无法进行zero-shot，评测前需要事先进行微调。
+
+```bash
+# 运行前请确保run_gpt2_txtcls.yaml中的model.model_config.num_labels准确，具体的，
+# sst2/cola/imdb: num_labels = 2, agnews: num_labels = 4
+python run_mindformer.py --config configs/gpt2/run_gpt2_txtcls.yaml \
+                       --train_dataset_dir {your_path/dataset_name.train.mindrecord} \
+                       --run_mode finetune
+```
+
+#### 开启评测
+
+- 评测指标为ACC
+
+```bash
+# 运行前请确保run_gpt2_txtcls.yaml中的model.model_config.num_labels准确，具体的，
+# sst2/cola/imdb: num_labels = 2, agnews: num_labels = 4
+python run_mindformer.py --config configs/gpt2/run_gpt2_txtcls.yaml \
+                       --eval_dataset_dir {your_path/dataset_name.dev.mindrecord} \
+                       --run_mode eval \
+                       --epochs 1
+# ACC: COLA-0.693, SST-2-0.908, IMDB-0.934, AG-News-0.941
+```
+
+## 推理
+
+### 基于pipeline的推理
+
+Pipeline接口进行推理
+
+```python
+from mindformers.pipeline import pipeline
+
+pipeline_task = pipeline("text_generation", model='gpt2', max_length=20)
+pipeline_result = pipeline_task("I love Beijing, because", do_sample=False)
+print(pipeline_result)
+# [{'text_generation_text': ["I love Beijing, because it's a beautiful city. It's a beautiful city. It's a"]}]
+```
+
+以下为基于pipeline接口的自定义推理脚本，支持多卡多batch推理。
+
+```python
+# predict_custom.py 文件
+import os
+import argparse
+import numpy as np
+import mindspore as ms
+from mindspore.train import Model
+from mindspore import load_checkpoint, load_param_into_net
+
+from mindformers import AutoConfig, AutoTokenizer, AutoModel, pipeline
+from mindformers import init_context, ContextConfig, ParallelContextConfig
+from mindformers.trainer.utils import get_last_checkpoint
+from mindformers.tools.utils import str2bool
+
+
+def context_init(use_parallel=False, device_id=0):
+    """init context for mindspore."""
+    context_config = ContextConfig(mode=0, device_target="Ascend", device_id=device_id)
+    parallel_config = None
+    if use_parallel:
+        parallel_config = ParallelContextConfig(parallel_mode='SEMI_AUTO_PARALLEL',
+                                                gradients_mean=False,
+                                                full_batch=True)
+    init_context(use_parallel=use_parallel,
+                 context_config=context_config,
+                 parallel_config=parallel_config)
+
+
+def main(use_parallel=False,
+         device_id=0,
+         checkpoint_path="",
+         use_past=True,
+         do_sample=False,
+         max_decode_length=30):
+    """main function."""
+    # 初始化单卡/多卡环境
+    context_init(use_parallel, device_id)
+
+    # 多batch输入
+    inputs = ["I love Beijing, because",
+              "An increasing sequence: one,"]
+
+    # set model config
+    model_config = AutoConfig.from_pretrained("gpt2")
+    model_config.use_past = use_past
+    model_config.do_sample = do_sample
+    model_config.max_decode_length = max_decode_length
+    if checkpoint_path and not use_parallel:
+        model_config.checkpoint_name_or_path = checkpoint_path
+    print(f"config is: {model_config}")
+
+    # build tokenizer
+    tokenizer = AutoTokenizer.from_pretrained("gpt2")
+    # build model from config
+    network = AutoModel.from_config(model_config)
+
+    # if use parallel, load distributed checkpoints
+    if use_parallel:
+        # find the sharded ckpt path for this rank
+        ckpt_path = os.path.join(checkpoint_path, "rank_{}".format(os.getenv("RANK_ID", "0")))
+        ckpt_path = get_last_checkpoint(ckpt_path)
+        print("ckpt path: %s", str(ckpt_path))
+
+        # shard gpt2 and load sharded ckpt
+        model = Model(network)
+        model.infer_predict_layout(ms.Tensor(np.ones(shape=(1, model_config.seq_length)), ms.int32))
+        checkpoint_dict = load_checkpoint(ckpt_path)
+        not_load_network_params = load_param_into_net(model, checkpoint_dict)
+        print("Network parameters are not loaded: %s", str(not_load_network_params))
+
+    text_generation_pipeline = pipeline(task="text_generation", model=network, tokenizer=tokenizer)
+    outputs = text_generation_pipeline(inputs)
+    for output in outputs:
+        print(output)
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--use_parallel', default=False, type=str2bool,
+                        help='whether use parallel.')
+    parser.add_argument('--device_id', default=0, type=int,
+                        help='set device id.')
+    parser.add_argument('--checkpoint_path', default='', type=str,
+                        help='set checkpoint path.')
+    parser.add_argument('--use_past', default=True, type=str2bool,
+                        help='whether use past.')
+    parser.add_argument('--do_sample', default=False, type=str2bool,
+                        help='whether enable do_sample.')
+    parser.add_argument('--max_decode_length', default=30, type=int,
+                        help='the length of generated text.')
+    args = parser.parse_args()
+
+    main(args.use_parallel,
+         args.device_id,
+         args.checkpoint_path,
+         args.use_past,
+         args.do_sample,
+         args.max_decode_length)
+# {'text_generation_text': ["I love Beijing, because it's a beautiful city. It's a beautiful city. It's a beautiful city. It's a beautiful city. It"]}
+# {'text_generation_text': ['An increasing sequence: one, two, three, four, five, six, seven, eight, nine, ten, eleven, twelve, thirteen,']}
+```
+
+以下为多卡运行自定义多batch推理的脚本
+
+```bash
+# >>> `run_predict.sh`文件
+CHECKPOINT_PATH=$2
+export RANK_TABLE_FILE=$1
+
+# define variable
+export RANK_SIZE=8
+export START_RANK=0 # this server start rank
+export END_RANK=8 # this server end rank
+
+# run
+for((i=${START_RANK}; i<${END_RANK}; i++))
+do
+    export RANK_ID=$i
+    export DEVICE_ID=$((i-START_RANK))
+    echo "Start distribute running for rank $RANK_ID, device $DEVICE_ID"
+    python3 ./predict_custom.py --use_parallel True --checkpoint_path CHECKPOINT_PATH &> minformers_$RANK_ID.log &
+done
+```
+
+#### 单卡pipeline推理
+
+```bash
+python predict_custom.py
+```
+
+#### 多卡pipeline推理
+
+```bash
+bash run_predict.sh RANK_TABLE_FILE path/to/gpt2_shard_checkpoint_dir
+```
+
+### 基于generate的推理
+
+Generate接口进行推理
+
+```python
+# 使用AutoModel.from_pretrained实例化模型
+from mindformers import AutoModel, AutoTokenizer
+
+model = AutoModel.from_pretrained("gpt2")
+tokenizer = AutoTokenizer.from_pretrained("gpt2")
+input_ids = tokenizer("I love Beijing, because")["input_ids"]
+generated_ids = model.generate(input_ids, do_sample=False, max_length=30)
+generate_result = tokenizer.decode(generated_ids)
+print(generate_result)
+# ["I love Beijing, because it's a beautiful city. It's a beautiful city. It's a beautiful city. It's a beautiful city. It"]
+```
+
+```python
+# 使用AutoModel.from_config实例化模型
+from mindformers import AutoModel, AutoTokenizer, AutoConfig
+
+# 可对model_config进行修改，如model_config.do_sample = False
+model_config = AutoConfig.from_pretrained("gpt2")
+model = AutoModel.from_config(model_config)
+tokenizer = AutoTokenizer.from_pretrained("gpt2")
+input_ids = tokenizer("I love Beijing, because")["input_ids"]
+generate_result = model.generate(input_ids, do_sample=False, max_length=30)
+print(generate_result)
+# ["I love Beijing, because it's a beautiful city. It's a beautiful city. It's a beautiful city. It's a beautiful city. It"]
+```
+
+以下为基于model.generate接口的自定义推理脚本，支持多卡多batch推理。
+
+```python
+# predict_custom.py 文件
+import os
+import argparse
+import numpy as np
+import mindspore as ms
+from mindspore.train import Model
+from mindspore import load_checkpoint, load_param_into_net
+
+from mindformers import AutoConfig, AutoTokenizer, AutoModel
+from mindformers import init_context, ContextConfig, ParallelContextConfig
+from mindformers.trainer.utils import get_last_checkpoint
+from mindformers.tools.utils import str2bool
+
+
+def context_init(use_parallel=False, device_id=0):
+    """init context for mindspore."""
+    context_config = ContextConfig(mode=0, device_target="Ascend", device_id=device_id)
+    parallel_config = None
+    if use_parallel:
+        parallel_config = ParallelContextConfig(parallel_mode='SEMI_AUTO_PARALLEL',
+                                                gradients_mean=False,
+                                                full_batch=True)
+    init_context(use_parallel=use_parallel,
+                 context_config=context_config,
+                 parallel_config=parallel_config)
+
+
+def main(use_parallel=False,
+         device_id=0,
+         checkpoint_path="",
+         use_past=True,
+         do_sample=False,
+         max_decode_length=30):
+    """main function."""
+    # 初始化单卡/多卡环境
+    context_init(use_parallel, device_id)
+
+    # 多batch输入
+    inputs = ["I love Beijing, because",
+              "An increasing sequence: one,"]
+
+    # set model config
+    model_config = AutoConfig.from_pretrained("gpt2")
+    model_config.batch_size = len(inputs)
+    model_config.use_past = use_past
+    model_config.do_sample = do_sample
+    model_config.max_decode_length = max_decode_length
+    if checkpoint_path and not use_parallel:
+        model_config.checkpoint_name_or_path = checkpoint_path
+    print(f"config is: {model_config}")
+
+    # build tokenizer
+    tokenizer = AutoTokenizer.from_pretrained("gpt2")
+    # build model from config
+    model = AutoModel.from_config(model_config)
+
+    # if use parallel, load distributed checkpoints
+    if use_parallel:
+        # find the sharded ckpt path for this rank
+        ckpt_path = os.path.join(checkpoint_path, "rank_{}".format(os.getenv("RANK_ID", "0")))
+        ckpt_path = get_last_checkpoint(ckpt_path)
+        print("ckpt path: %s", str(ckpt_path))
+
+        # shard gpt2 and load sharded ckpt
+        model = Model(model)
+        model.infer_predict_layout(ms.Tensor(np.ones(shape=(1, model_config.seq_length)), ms.int32))
+        checkpoint_dict = load_checkpoint(ckpt_path)
+        not_load_network_params = load_param_into_net(model, checkpoint_dict)
+        print("Network parameters are not loaded: %s", str(not_load_network_params))
+
+    inputs_ids = tokenizer(inputs, max_length=model_config.max_decode_length, padding="max_length")["input_ids"]
+    outputs = model.generate(inputs_ids, max_length=model_config.max_decode_length)
+    for output in outputs:
+        print(tokenizer.decode(output))
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--use_parallel', default=False, type=str2bool,
+                        help='whether use parallel.')
+    parser.add_argument('--device_id', default=0, type=int,
+                        help='set device id.')
+    parser.add_argument('--checkpoint_path', default='', type=str,
+                        help='set checkpoint path.')
+    parser.add_argument('--use_past', default=True, type=str2bool,
+                        help='whether use past.')
+    parser.add_argument('--do_sample', default=False, type=str2bool,
+                        help='whether enable do_sample.')
+    parser.add_argument('--max_decode_length', default=30, type=int,
+                        help='the length of generated text.')
+    args = parser.parse_args()
+
+    main(args.use_parallel,
+         args.device_id,
+         args.checkpoint_path,
+         args.use_past,
+         args.do_sample,
+         args.max_decode_length)
+# I love Beijing, because it's a beautiful city. It's a beautiful city. It's a beautiful city. It's a beautiful city. It
+# An increasing sequence: one, two, three, four, five, six, seven, eight, nine, ten, eleven, twelve, thirteen,
+```
+
+以下为多卡运行自定义多batch推理的脚本
+
+```bash
+# >>> `run_predict.sh`文件
+CHECKPOINT_PATH=$2
+export RANK_TABLE_FILE=$1
+
+# define variable
+export RANK_SIZE=8
+export START_RANK=0 # this server start rank
+export END_RANK=8 # this server end rank
+
+# run
+for((i=${START_RANK}; i<${END_RANK}; i++))
+do
+    export RANK_ID=$i
+    export DEVICE_ID=$((i-START_RANK))
+    echo "Start distribute running for rank $RANK_ID, device $DEVICE_ID"
+    python3 ./predict_custom.py --use_parallel True --checkpoint_path CHECKPOINT_PATH &> minformers_$RANK_ID.log &
+done
+```
+
+#### 单卡generate推理
+
+```bash
+python predict_custom.py
+```
+
+#### 多卡generate推理
+
+```bash
+bash run_predict.sh RANK_TABLE_FILE path/to/gpt2_shard_checkpoint_dir
+```
+
+### 脚本启动
+
+#### 单卡推理
+
+```bash
+python run_mindformer.py --config configs/gpt2/run_gpt2.yaml --run_mode predict --predict_data "An increasing sequence: one," --use_parallel False
+# 以下结果是在do_sample=False，max_decode_length=30的配置下跑出的，两处配置可在yaml文件中进行设置。
+# output result is: [{'text_generation_text': ['An increasing sequence: one, two, three, four, five, six, seven, eight, nine, ten, eleven, twelve, thirteen,']}]
+```
+
+**注**：要提高推理速度，可在对应模型配置文件中进行如下配置，设置增量推理`use_past`为True。
+
+```yaml
+# model config
+use_past: True          # 开启增量推理
+use_moe: False
+expert_num: 1
+per_token_num_experts_chosen: 1
+checkpoint_name_or_path: "gpt2"
+repetition_penalty: 1
+max_decode_length: 1024
+top_k: 3
+top_p: 1
+do_sample: True
+```
+
+## [mindspore-lite](../feature_cards/Inference.md)
+
+如需导出模型，使用mindspore-lite进行离线推理请参考[推理特性使用文档](../feature_cards/Inference.md)
