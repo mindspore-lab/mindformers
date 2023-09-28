@@ -35,6 +35,7 @@ from mindformers.models.bert.bert_config import BertConfig
 __all__ = ['BertConfig', 'BertModel', 'BertForPreTraining', 'BertForTokenClassification', 'BertForMultipleChoice',
            'BertForQuestionAnswering']
 
+
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
 class BertForTokenClassification(BaseModel):
     """
@@ -47,28 +48,10 @@ class BertForTokenClassification(BaseModel):
         Tensor, loss, logits.
 
     Examples:
-        >>> from mindformers import BertForTokenClassification, BertTokenizer
+        >>> from mindformers import BertForTokenClassification
         >>> model = BertForTokenClassification.from_pretrained('tokcls_bert_base_chinese')
-        >>> tokenizer = BertTokenizer.from_pretrained('tokcls_bert_base_chinese')
-        >>> data = tokenizer(["我在杭州华为工作。"], return_tensors='ms', max_length=128, padding='max_length')
-        >>> input_ids = data['input_ids']
-        >>> attention_mask = data['attention_mask']
-        >>> token_type_ids = data['token_type_ids']
-        >>> output = model(input_ids, attention_mask, token_type_ids)
-        >>> print(output)
-        [[[ 0.0886748  -0.23066735 -0.03969013 ...  0.07333283 -0.02968273
-            0.06125224]
-          [-0.03115104 -0.47599065  0.01928361 ...  0.22821501  0.42415133
-            0.14563856]
-          [ 0.05570185 -0.36168078  0.00884905 ... -0.15357454 -0.33119604
-           -0.09889631]
-          ...
-          [ 0.01028904 -0.20403272 -0.1117363  ... -0.03601318  0.034153
-            0.12492958]
-          [-0.00420664 -0.1786235  -0.11332294 ... -0.07119732  0.02407441
-            0.14775723]
-          [-0.04674841 -0.1608555  -0.0781534  ... -0.06064402  0.0439388
-            0.20419256]]]
+        >>> type(model)
+        <class 'mindformers.models.bert.bert.BertForTokenClassification'>
     """
 
     _support_list = MindFormerBook.get_model_support_list()['tokcls']['bert']
@@ -76,7 +59,7 @@ class BertForTokenClassification(BaseModel):
     def __init__(self, config=BertConfig()):
         super(BertForTokenClassification, self).__init__(config)
         self.num_labels = config.num_labels
-        self.bert = BertModel(config, config.is_training, config.use_one_hot_embeddings)
+        self.bert = BertModel(config, config.use_one_hot_embeddings)
         self.dropout = nn.Dropout(1 - config.hidden_dropout_prob)
         self.classifier = nn.Dense(config.hidden_size, config.num_labels).to_float(config.compute_dtype)
         self.cross_entropy_loss = nn.CrossEntropyLoss()
@@ -110,40 +93,21 @@ class BertForPreTraining(BaseModel):
 
     Args:
         config (BertConfig): The config of BertForPreTraining.
-        is_training (bool): Specifies whether to use the training mode.
-        use_one_hot_embeddings (bool): Specifies whether to use one-hot for embeddings. Default: False.
-
     Returns:
         Tensor, the loss of the network.
 
     Examples:
-        >>> from mindspore import Tensor
-        >>> import mindspore.common.dtype as mstype
-        >>> from mindformers import BertForPreTraining, BertTokenizer
+        >>> from mindformers import BertForPreTraining
         >>> model = BertForPreTraining.from_pretrained('bert_base_uncased')
-        >>> tokenizer = BertTokenizer.from_pretrained('bert_base_uncased')
-        >>> data = tokenizer(["Paris is the [MASK] of France."],
-        ...                  return_tensors='ms', max_length=128, padding="max_length")
-        >>> input_ids = data['input_ids']
-        >>> attention_mask = data['attention_mask']
-        >>> token_type_ids = data['token_type_ids']
-        >>> masked_lm_positions = Tensor([[4]], mstype.int32)
-        >>> next_sentence_labels = Tensor([[1]], mstype.int32)
-        >>> masked_lm_weights = Tensor([[1]], mstype.int32)
-        >>> masked_lm_ids = Tensor([[3007]], mstype.int32)
-        >>> output = model(input_ids, attention_mask, token_type_ids, next_sentence_labels,
-        ...                masked_lm_positions, masked_lm_ids, masked_lm_weights)
-        >>> print(output)
-        [0.6706]
+        >>> type(model)
+        <class 'mindformers.models.bert.bert.BertForPreTraining'>
     """
 
     _support_list = MindFormerBook.get_model_support_list()['bert']
 
     def __init__(self, config=BertConfig()):
         super(BertForPreTraining, self).__init__(config)
-        self.is_training = config.is_training
-        # self.bert = BertScore(config, config.is_training, config.use_one_hot_embeddings)
-        self.bert = BertModel(config, config.is_training, config.use_one_hot_embeddings)
+        self.bert = BertModel(config, config.use_one_hot_embeddings)
         self.mlmloss = GetMaskedLMOutput(config)
         self.nsploss = GetNextSentenceOutput(config)
         self.loss = BertLoss(config)
@@ -198,15 +162,13 @@ class BertModel(nn.Cell):
 
     Args:
         config (Class): Configuration for BertModel.
-        is_training (bool): True for training mode. False for eval mode.
         use_one_hot_embeddings (bool): Specifies whether to use one hot encoding form. Default: False.
     """
     def __init__(self,
                  config=None,
-                 is_training=False,
                  use_one_hot_embeddings=False):
         super(BertModel, self).__init__()
-        if not is_training:
+        if not self.training:
             config.hidden_dropout_prob = 0.0
             config.attention_probs_dropout_prob = 0.0
 
@@ -307,25 +269,19 @@ class BertForMultipleChoice(BaseModel):
 
     Returns:
         Tensor, loss, logits.
+
     Examples:
-        >>> from mindformers import BertForMultipleChoice, BertTokenizer
+        >>> from mindformers import BertForMultipleChoice
         >>> model = BertForMultipleChoice.from_pretrained('txtcls_bert_base_uncased')
-        >>> tokenizer = BertTokenizer.from_pretrained('txtcls_bert_base_uncased')
-        >>> data = tokenizer(["The new rights are nice enough-Everyone really likes the newest benefits "],
-        ...                  return_tensors='ms', max_length=128, padding='max_length')
-        >>> input_ids = data['input_ids']
-        >>> attention_mask = data['attention_mask']
-        >>> token_type_ids = data['token_type_ids']
-        >>> output = model(input_ids, attention_mask, token_type_ids)
-        >>> print(output)
-        [[0.05121157 0.3273056  0.31614417]]
+        >>> type(model)
+        <class 'mindformers.models.bert.bert.BertForMultipleChoice'>
     """
     _support_list = MindFormerBook.get_model_support_list()['txtcls']['bert']
 
     def __init__(self, config=BertConfig()):
         super(BertForMultipleChoice, self).__init__(config)
         self.num_labels = config.num_labels
-        self.bert = BertModel(config, config.is_training, config.use_one_hot_embeddings)
+        self.bert = BertModel(config, config.use_one_hot_embeddings)
         self.weight_init = TruncatedNormal(config.initializer_range)
         self.classifier = nn.Dense(config.hidden_size, self.num_labels, weight_init=self.weight_init,
                                    has_bias=True).to_float(config.compute_dtype)
@@ -367,28 +323,18 @@ class BertForQuestionAnswering(BaseModel):
 
         Returns:
             Tensor, loss, logits.
+
         Examples:
-            >>> from mindformers import BertForQuestionAnswering, BertTokenizer
+            >>> from mindformers import BertForQuestionAnswering
             >>> model = BertForQuestionAnswering.from_pretrained('qa_bert_base_uncased')
-            >>> tokenizer = BertTokenizer.from_pretrained('qa_bert_base_uncased')
-            >>> data = tokenizer(["The new rights are nice enough-Everyone really likes the newest benefits "],
-            ...                  return_tensors='ms', max_length=384, padding='max_length')
-            >>> input_ids = data['input_ids']
-            >>> attention_mask = data['attention_mask']
-            >>> token_type_ids = data['token_type_ids']
-            >>> output = model(input_ids, attention_mask, token_type_ids)
-            >>> print(output)
-            (Tensor(shape=[1, 384], dtype=Float32, value=
-            [[ 5.30713797e-02,  1.08105361e-01,  1.55855455e-02 ... -3.73562761e-02,
-              -1.89271923e-02, -2.99206823e-02]]), Tensor(shape=[1, 384], dtype=Float32, value=
-            [[ 2.39873882e-02,  2.35675126e-01,  1.52210891e-01 ... -2.11214088e-02,
-               4.84664962e-02, -4.52579707e-02]]))
+            >>> type(model)
+            <class 'mindformers.models.bert.bert.BertForQuestionAnswering'>
         """
     _support_list = MindFormerBook.get_model_support_list()['qa']['bert']
 
     def __init__(self, config=BertConfig()):
         super(BertForQuestionAnswering, self).__init__(config)
-        self.bert = BertModel(config, config.is_training, config.use_one_hot_embeddings)
+        self.bert = BertModel(config, config.use_one_hot_embeddings)
         self.qa_outputs = nn.Dense(config.hidden_size, 2).to_float(config.compute_dtype)
         self.load_checkpoint(config)
         self.split = P.Split(output_num=2, axis=-1)
@@ -433,7 +379,6 @@ class EmbeddingPostprocessor(nn.Cell):
         use_token_type (bool): Specifies whether to use token type embeddings. Default: False.
         token_type_vocab_size (int): Size of token type vocab. Default: 16.
         use_one_hot_embeddings (bool): Specifies whether to use one hot encoding form. Default: False.
-        initializer_range (float): Initialization value of TruncatedNormal. Default: 0.02.
         max_position_embeddings (int): Maximum length of sequences used in this
                                  model. Default: 512.
         dropout_prob (float): The dropout probability. Default: 0.1.
@@ -508,7 +453,6 @@ class SaturateCast(nn.Cell):
     the danger that the value will overflow or underflow.
 
     Args:
-        src_type (:class:`mindspore.dtype`): The type of the elements of the input tensor. Default: mstype.float32.
         dst_type (:class:`mindspore.dtype`): The type of the elements of the output tensor. Default: mstype.float32.
     """
     def __init__(self, dst_type=mstype.float32):
@@ -527,6 +471,7 @@ class SaturateCast(nn.Cell):
         out = self.max_op(x, self.tensor_min_type)
         out = self.min_op(out, self.tensor_max_type)
         return self.cast(out, self.dst_type)
+
 
 class CreateAttentionMaskFromInputMask(nn.Cell):
     """
@@ -547,6 +492,7 @@ class CreateAttentionMaskFromInputMask(nn.Cell):
         attention_mask = self.cast(self.reshape(input_mask, (-1, 1, seq_length)), mstype.float16)
         attention_mask = self.tile(attention_mask, (1, seq_length, 1))
         return attention_mask
+
 
 class BertLoss(nn.Cell):
     """

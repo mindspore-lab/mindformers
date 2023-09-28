@@ -25,7 +25,61 @@ __all__ = ['BertConfig']
 @MindFormerRegister.register(MindFormerModuleType.CONFIG)
 class BertConfig(BaseConfig):
     """
-    BERT config class which defines the model size
+    BERT config class which defines the model size.
+
+    Args:
+        model_type (Optional[str]): model type for bert model, default is 'bert'.
+        batch_size (Optional[int]): batch size for input data, use in predict.
+        seq_length (Optional[int]): The sequence length of input_ids, default is 128.
+        vocab_size (`int`, *optional*, defaults to 30522):
+            Vocabulary size of the BERT model.
+        use_one_hot_embeddings (Optional[bool]): whether to use One-Hot embedding, default is False.
+        hidden_size (`int`, *optional*, defaults to 768):
+            Dimensionality of the encoder layers and the pooler layer.
+        num_hidden_layers (`int`, *optional*, defaults to 12):
+            Number of hidden layers in the Transformer encoder.
+        num_labels (Optional[int]): The number of label, default is 1.
+        num_attention_heads (`int`, *optional*, defaults to 12):
+            Number of attention heads for each attention layer in the Transformer encoder.
+        intermediate_size (`int`, *optional*, defaults to 3072):
+            Dimensionality of the "intermediate" (often named feed-forward) layer in the Transformer encoder.
+        hidden_act (str, nn.Cell):
+            The activation of the internal feedforward layer. Supports 'relu',
+            'relu6', 'tanh', 'gelu', 'fast_gelu', 'elu', 'sigmoid', 'prelu', 'leakyrelu', 'hswish',
+            'hsigmoid', 'logsigmoid' and so on. User can provide custom activition to the argument.
+            If user wants to run the net in the parallel mode, the custom activation must also provide
+            the `activation_shard` function. Please see the examples of the
+            class:`mindformers.modules.transformer.FeedForward`. Default: gelu.
+        type_vocab_size (`int`, *optional*, defaults to 2):
+            The vocabulary size of the `token_type_ids`.
+        hidden_dropout_prob (`float`, *optional*, defaults to 0.1):
+            The dropout probability for all fully connected layers in the embeddings, encoder, and pooler.
+        attention_probs_dropout_prob (`float`, *optional*, defaults to 0.1):
+            The dropout ratio for the attention probabilities.
+        max_position_embeddings (`int`, *optional*, defaults to 512):
+            The maximum sequence length that this model might ever be used with. Typically set this to something large
+            just in case (e.g., 512 or 1024 or 2048).
+        initializer_range (`float`, *optional*, defaults to 0.02):
+            The standard deviation of the truncated_normal_initializer for initializing all weight matrices.
+        checkpoint_name_or_path (Optional[str]):
+            checkpoint path or name used to load to the network.
+        dtype (Optional[str]):
+            layer digital type, default is "float32".
+        compute_dtype (Optional[str]):
+            Linear layer compute dtype, default is "float16".
+        layernorm_dtype (Optional[str]):
+            layernorm compute dtype, default is "float32".
+        softmax_dtype (Optional[str]):
+            softmax compute dtype, default is "float32".
+        moe_config(MoEConfig):
+            The configuration of MoE (Mixture of Expert). Default is an instance of MoEConfig
+            with default values. Please see `MoEConfig`.
+        parallel_config(TransformerOpParallelConfig):
+            The parallel configure. Default `default_transformer_config`,
+            an instance of `TransformerOpParallelConfig` with default args.
+
+    Returns:
+        Class, BertConfig.
     """
     _support_list = MindFormerBook.get_config_support_list()['bert']
     _support_list.extend(MindFormerBook.get_config_support_list()['tokcls']['bert'])
@@ -61,7 +115,6 @@ class BertConfig(BaseConfig):
                  parallel_config: str = "default",
                  checkpoint_name_or_path: str = "",
                  moe_config: str = "default",
-                 is_training: bool = True,
                  **kwargs):
         super(BertConfig, self).__init__(**kwargs)
         self.model_type = model_type
@@ -92,4 +145,3 @@ class BertConfig(BaseConfig):
         self.checkpoint_name_or_path = checkpoint_name_or_path
         self.parallel_config = default_transformer_config if parallel_config == "default" else parallel_config
         self.moe_config = default_moe_config if moe_config == "default" else moe_config
-        self.is_training = is_training
