@@ -60,13 +60,14 @@ class LlamaTokenizer(Tokenizer):
         >>> tokenizer = LlamaTokenizer.from_pretrained("llama_7b")
         >>> res = tokenizer("hello world")
         >>> print(res)
-        {'input_ids': [1, 22172, 3186, 2]}
+        {'input_ids': [1, 27701, 924], 'attention_mask': [1, 1, 1]}
         >>> res = tokenizer("hello world", padding='max_length', max_length=10)
         >>> print(res)
-        {'input_ids': [1, 22172, 3186, 2, 0, 0, 0, 0, 0, 0]}
+        {'input_ids': [1, 27701, 924, 0, 0, 0, 0, 0, 0, 0], 'attention_mask': [1, 1, 1, 0, 0, 0, 0, 0, 0, 0]}
         >>> res = tokenizer("hello world", return_tensors='ms')
         >>> print(res)
-        {'input_ids': Tensor(shape=[3], dtype=Int32, value= [1, 22172, 3186, 2])}
+        {'input_ids': Tensor(shape=[3], dtype=Int32, value= [    1, 27701,   924]), 'attention_mask': Tensor(shape=[3],
+        dtype=Int32, value= [1, 1, 1])}
 
     Outputs:
         A dict contains the processed ids, attention_mask that specific by the member `MODEL_INPUT_NAME`

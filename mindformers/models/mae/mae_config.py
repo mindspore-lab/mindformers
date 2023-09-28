@@ -31,21 +31,54 @@ class ViTMAEConfig(BaseConfig):
     """
     Config for Mae model
 
-    Examples:
-        >>> # init a config with a model name
-        >>> config_a = ViTMAEConfig.from_pretrained('mae_vit_base_p16')
-        >>> # init a config with a config path
-        >>> import os
-        >>> from mindformers.mindformer_book import MindFormerBook
-        >>> config_path = os.path.join(MindFormerBook.get_project_path(),
-        >>>                        'configs', 'mae', 'run_mae_vit_base_p16_224_800ep.yaml')
-        >>> config_b = ViTMAEConfig.from_pretrained(config_path)
-        >>> # init a config with args
-        >>> config_c = ViTMAEConfig(
-        >>>     patch_size=16,
-        >>>     in_chans=3,
-        >>>     ...
-        >>>     )
+    Args:
+        mask_ratio(float): The mask ratio of image, default 0.75.
+        image_size(int): The size of image, default 224.
+        patch_size(int): The patch size of image, default 16.
+        num_channels(int): The channel number of image, default 3.
+        initializer_range(float): The initializer range, default 0.02.
+        hidden_size (`int`, *optional*, defaults to 768):
+            Dimensionality of the encoder layers and the pooler layer.
+        num_hidden_layers(`int`, *optional*, defaults to 12):
+            Number of hidden layers in the Transformer encoder.
+        num_attention_heads(`int`, *optional*, defaults to 12):
+            Number of attention heads for each attention layer in the Transformer encoder.
+        intermediate_size(int): 3072,
+        qkv_bias(bool): The QKV projection layer whether add bias, default True.
+        hidden_act(str): The activation of the internal feedforward layer. Supports 'relu',
+            'relu6', 'tanh', 'gelu', 'fast_gelu', 'elu', 'sigmoid', 'prelu', 'leakyrelu', 'hswish',
+            'hsigmoid', 'logsigmoid' and so on. User can provide custom activition to the argument.
+            If user wants to run the net in the parallel mode, the custom activation must also provide
+            the `activation_shard` function. Please see the examples of the
+            class:`mindformers.modules.transformer.FeedForward`. Default: gelu.
+        post_layernorm_residual(bool): Whether use post layernorm, defaylt False.
+        layer_norm_eps(float): The epsilon value of the denominator. Default 1e-6.
+        attention_probs_dropout_prob(float): The dropout ratio of attention layer, default 0.0.
+        hidden_dropout_prob(float): The dropout ratio of hidden ffn layer, default 0.0.
+        drop_path_rate(float): The dropout ratio of path, default 0.
+        decoder_hidden_size(int): The hidden size of decoder layer, default 512.
+        decoder_num_hidden_layers(int): The number of decoder hidden layers, default 8.
+        decoder_num_attention_heads(`int`, *optional*, defaults to 16):
+            Number of attention heads for each attention layer in the Transformer decoder.
+        decoder_intermediate_size(int): 2048.
+        norm_pix_loss(bool): True.
+        checkpoint_name_or_path (Optional[str]):
+            checkpoint path or name used to load to the network.
+        layernorm_compute_type (Optional[str]):
+            layernorm compute dtype, default is "float32".
+        softmax_compute_type (Optional[str]):
+            softmax compute dtype, default is "float32".
+        param_init_type (Optional[str]):
+            parameter initial dtype, default is "float32".
+        parallel_config(TransformerOpParallelConfig):
+            The parallel configure. Default `default_transformer_config`,
+            an instance of `TransformerOpParallelConfig` with default args.
+        moe_config(MoEConfig):
+            The configuration of MoE (Mixture of Expert). Default is an instance of MoEConfig
+            with default values. Please see `MoEConfig`.
+
+    Returns:
+        Class, ViTMAEConfig.
     """
     _support_list = MindFormerBook.get_config_support_list()['mae']
 

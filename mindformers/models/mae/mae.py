@@ -196,12 +196,14 @@ class ViTMAEForPreTraining(BaseModel):
         config (ViTMAEConfig): the config of Mae model.
 
     Examples:
-        >>> # input model name
+        >>> from mindformers import ViTMAEForPreTraining
         >>> model_a = ViTMAEForPreTraining.from_pretrained('mae_vit_base_p16')
+        <class 'mindformers.models.mae.mae.ViTMAEForPreTraining'>
         >>> # input config
         >>> from mindformers import AutoConfig
         >>> config = AutoConfig.from_pretrained('mae_vit_base_p16')
         >>> model_b = ViTMAEForPreTraining(config)
+        <class 'mindformers.models.mae.mae.ViTMAEForPreTraining'>
     """
     _support_list = MindFormerBook.get_model_support_list()['mae']
 
