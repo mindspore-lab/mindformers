@@ -31,7 +31,13 @@ def cloud_monitor(log=get_logger()):
             local_id = int(os.getenv('RANK_ID', '0'))
             try:
                 result = run_func(*args, **kwargs)
-            except BaseException as exc:  # pylint: disable=W0703
+            except SystemExit as exc:
+                if exc.code == 0:
+                    return 0
+                error = traceback.format_exc()
+                log.error(error)
+                raise exc
+            except BaseException as exc:
                 error = traceback.format_exc()
                 log.error(error)
                 raise exc
