@@ -202,19 +202,24 @@ class FusedAdamWeightDecay(Optimizer):
         ``CPU``
 
     Examples:
-        >>> net = Net()
+        >>> import mindspore as ms
+        >>> import mindspore.nn as nn
+        >>> from mindformers import AutoModel
+        >>> from mindformers.core.optim import FusedAdamWeightDecay
+        >>>
+        >>> net = AutoModel.from_pretrained("vit_base_p16")
         >>> #1) All parameters use the same learning rate and weight decay
         >>> optim = FusedAdamWeightDecay(params=net.trainable_params())
         >>>
         >>> #2) Use parameter groups and set different values
-        >>> conv_params = list(filter(lambda x: 'conv' in x.name, net.trainable_params()))
-        >>> no_conv_params = list(filter(lambda x: 'conv' not in x.name, net.trainable_params()))
-        >>> group_params = [{'params': conv_params, 'weight_decay': 0.01},
-        ...                 {'params': no_conv_params, 'lr': 0.01},
+        >>> layernorm_params = list(filter(lambda x: 'layernorm' in x.name, net.trainable_params()))
+        >>> no_layernorm_params = list(filter(lambda x: 'layernorm' not in x.name, net.trainable_params()))
+        >>> group_params = [{'params': layernorm_params, 'weight_decay': 0.01},
+        ...                 {'params': no_layernorm_params, 'lr': 0.01},
         ...                 {'order_params': net.trainable_params()}]
         >>> optim = FusedAdamWeightDecay(group_params, learning_rate=0.1, weight_decay=0.0)
-        >>> # The conv_params's parameters will use default learning rate of 0.1 and weight decay of 0.01.
-        >>> # The no_conv_params's parameters will use learning rate of 0.01 and default weight decay of 0.0.
+        >>> # The layernorm_params's parameters will use default learning rate of 0.1 and weight decay of 0.01.
+        >>> # The no_layernorm_params's parameters will use learning rate of 0.01 and default weight decay of 0.0.
         >>> # The final parameters order in which the optimizer will be followed is the value of 'order_params'.
         >>>
         >>> loss = nn.SoftmaxCrossEntropyWithLogits()
@@ -382,21 +387,23 @@ class FP32StateAdamWeightDecay(nn.AdamWeightDecay):
 
     Examples:
         >>> import mindspore as ms
+        >>> import mindspore.nn as nn
+        >>> from mindformers import AutoModel
         >>> from mindformers.core.optim import FP32StateAdamWeightDecay
         >>>
-        >>> net = Net()
+        >>> net = AutoModel.from_pretrained("vit_base_p16")
         >>> #1) All parameters use the same learning rate and weight decay
         >>> optim = FP32StateAdamWeightDecay(params=net.trainable_params())
         >>>
         >>> #2) Use parameter groups and set different values
-        >>> conv_params = list(filter(lambda x: 'conv' in x.name, net.trainable_params()))
-        >>> no_conv_params = list(filter(lambda x: 'conv' not in x.name, net.trainable_params()))
-        >>> group_params = [{'params': conv_params, 'weight_decay': 0.01},
-        ...                 {'params': no_conv_params, 'lr': 0.01},
+        >>> layernorm_params = list(filter(lambda x: 'layernorm' in x.name, net.trainable_params()))
+        >>> no_layernorm_params = list(filter(lambda x: 'layernorm' not in x.name, net.trainable_params()))
+        >>> group_params = [{'params': layernorm_params, 'weight_decay': 0.01},
+        ...                 {'params': no_layernorm_params, 'lr': 0.01},
         ...                 {'order_params': net.trainable_params()}]
         >>> optim = FP32StateAdamWeightDecay(group_params, learning_rate=0.1, weight_decay=0.0)
-        >>> # The conv_params's parameters will use default learning rate of 0.1 and weight decay of 0.01.
-        >>> # The no_conv_params's parameters will use learning rate of 0.01 and default weight decay of 0.0.
+        >>> # The layernorm_params's parameters will use default learning rate of 0.1 and weight decay of 0.01.
+        >>> # The no_layernorm_params's parameters will use learning rate of 0.01 and default weight decay of 0.0.
         >>> # The final parameters order in which the optimizer will be followed is the value of 'order_params'.
         >>>
         >>> loss = nn.SoftmaxCrossEntropyWithLogits()
