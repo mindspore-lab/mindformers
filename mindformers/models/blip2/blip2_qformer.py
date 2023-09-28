@@ -66,7 +66,7 @@ class Blip2Qformer(Blip2Base):
         >>> model = Blip2Qformer.from_pretrained("blip2_stage1_vit_g")
     """
 
-    _support_list = MindFormerBook.get_model_support_list()['blip2']['1-stg']
+    _support_list = MindFormerBook.get_model_support_list()['blip2']['stage1']
 
     def __init__(self, config: Blip2Config, **kwargs):
         super(Blip2Qformer, self).__init__(config, **kwargs)
@@ -264,7 +264,6 @@ class Blip2Qformer(Blip2Base):
             decoder_input_ids,
             attention_mask=attention_mask,
             past_key_values=past_key_values,
-            return_dict=True,
             labels=labels,
         )
 
@@ -319,8 +318,7 @@ class Blip2Qformer(Blip2Base):
             text_input_ids, self.pad_token_id), mstype.float32)
         text_output = self.qformer.bert(
             text_input_ids,
-            attention_mask=attention_mask,
-            return_dict=True
+            attention_mask=attention_mask
         )
         # text embeddings and mask
         return text_output[0], attention_mask
@@ -355,8 +353,7 @@ class Blip2Qformer(Blip2Base):
             query_embeds=query_tokens,
             attention_mask=attention_mask,
             encoder_hidden_states=image_embeds_frozen,
-            encoder_attention_mask=image_atts,
-            return_dict=True
+            encoder_attention_mask=image_atts
         )
         # multimodal embeddings
         multimodal_embeds = output_itm[0][:, : query_tokens.shape[1], :]

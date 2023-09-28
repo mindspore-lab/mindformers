@@ -305,9 +305,7 @@ class ImageToTextRetrievalTrainer(BaseTrainer):
         # Images->Text
         ranks = np.zeros(scores_i2t.shape[0])
         for index, score in enumerate(scores_i2t):
-            print("img2txt[{}]: {}".format(index, img2txt[index]))
             inds = np.argsort(score)[::-1]
-            print("most similarity:", inds)
             # Score
             ranks[index] = get_lowest_from_ranks(inds, img2txt[index])
 
@@ -322,9 +320,7 @@ class ImageToTextRetrievalTrainer(BaseTrainer):
         ranks = np.zeros(scores_t2i.shape[0])
 
         for index, score in enumerate(scores_t2i):
-            print("txt2img[{}]: {}".format(index, txt2img[index]))
             inds = np.argsort(score)[::-1]
-            print("most similarity:", inds)
             ranks[index] = get_lowest_from_ranks(inds, txt2img[index])
 
         # 此段逻辑同上注释，以text为基准。

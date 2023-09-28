@@ -61,7 +61,6 @@ class QFormerConfig(BertConfig):
                  tie_word_embeddings: bool = True,
                  output_attentions: bool = False,
                  output_hidden_states: bool = False,
-                 use_return_dict: bool = False,
                  convert_param_from_bert: bool = False,
                  parallel_config: str = "default",
                  moe_config: str = "default",
@@ -97,17 +96,13 @@ class QFormerConfig(BertConfig):
         self.tie_word_embeddings = tie_word_embeddings
         self.output_attentions = output_attentions
         self.output_hidden_states = output_hidden_states
-        self.use_return_dict = use_return_dict
         self.convert_param_from_bert = convert_param_from_bert
 
         self.parallel_config = default_transformer_config if parallel_config == "default" \
                                                           else parallel_config
         self.moe_config = default_moe_config if moe_config == "default" else moe_config
 
+        # additional args, not commonly used.
         self.chunk_size_feed_forward = kwargs.pop("chunk_size_feed_forward", 0)
         self.position_embedding_type = "absolute" if not use_relative_positions else "relative"
-        # Whether input and output word embeddings should be tied.
-        self.tie_word_embeddings = kwargs.pop(
-            "tie_word_embeddings", True
-        )
         self.loss_reduction = kwargs.pop("loss_reduction", "mean")

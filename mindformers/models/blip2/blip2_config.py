@@ -108,7 +108,7 @@ class Blip2Config(BaseConfig):
         self.dtype = mstype.float32 if dtype == "float32" else mstype.float16
         self.is_training = is_training
 
-        self.vision_config = vision_config if vision_config is not None else ViTConfig()
+        self.vision_config = ViTConfig(**vision_config) if vision_config is not None else ViTConfig()
         self.qformer_config = QFormerConfig(**qformer_config) if qformer_config is not None else QFormerConfig()
 
         self.text_config = text_config
