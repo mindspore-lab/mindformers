@@ -48,6 +48,12 @@ class GPT2LMHeadModel(BaseModel):
 
         Returns:
             Tensor, the loss or logits of the network.
+
+        Examples:
+            >>> from mindformers import GPT2LMHeadModel
+            >>> model = GPT2LMHeadModel.from_pretrained('gpt2')
+            >>> type(model)
+            <class 'mindformers.models.gpt2.gpt2.GPT2LMHeadModel'>
         """
     _support_list = MindFormerBook.get_model_support_list()['gpt2']
 
@@ -171,6 +177,12 @@ class GPT2ForSequenceClassification(BaseModel):
 
         Returns:
             Tensor, the loss or logits of the network.
+
+        Examples:
+            >>> from mindformers import GPT2ForSequenceClassification
+            >>> model = GPT2ForSequenceClassification.from_pretrained('gpt2')
+            >>> type(model)
+            <class 'mindformers.models.gpt2.gpt2.GPT2ForSequenceClassification'>
         """
     _support_list = MindFormerBook.get_model_support_list()['gpt2']
 
@@ -478,6 +490,12 @@ class GPT2WithLora(GPT2LMHeadModel):
 
     Returns:
         Tensor, the loss or logits of the network.
+
+    Examples:
+        >>> from mindformers import GPT2WithLora
+        >>> model = GPT2WithLora.from_pretrained('gpt2')
+        >>> type(model)
+        <class 'mindformers.models.gpt2.gpt2.GPT2ForSequenceClassification'>
     """
 
     def __init__(self, config: GPT2Config = None):
