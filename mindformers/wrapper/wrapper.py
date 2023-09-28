@@ -46,9 +46,10 @@ def tensor_grad_scale_row_tensor(scale, grad):
                      grad.dense_shape)
 
 
+# pylint: disable=W1401
 @MindFormerRegister.register(MindFormerModuleType.WRAPPER)
 class MFTrainOneStepCell(nn.TrainOneStepWithLossScaleCell):
-    r"""TrainOneStep For MindFormer.
+    """TrainOneStep For MindFormer.
     Network training with loss scaling, grad clip, gradient accumulation, exponential moving average and so on.
 
     This is a training step with loss scaling. It takes a network, an optimizer and a scale update Cell(or a Tensor) as
@@ -147,10 +148,11 @@ def tensor_shard_grad_scale_pipeline(scale, grad, accu_grad):
     return new_grad
 
 
+# pylint: disable=W1401
 @MindFormerRegister.register(MindFormerModuleType.WRAPPER)
 class MFPipelineWithLossScaleCell(nn.TrainOneStepCell):
-    r"""
-    Append an train one step cell with loss scale of pipeline parallel for MindFormers.
+    """
+    Append a train-one-step cell with loss scale of pipeline parallel for MindFormers.
 
     Args:
         network (Cell): The training network. Note that loss function should have been added.
