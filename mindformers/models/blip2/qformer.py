@@ -1503,59 +1503,63 @@ class BertLMHeadModel(BertPreTrainedModel):
         logger.info("weights tied.")
         super(BertLMHeadModel, self).tie_weights()
 
-    def construct(
-            self,
-            input_ids=None,
-            attention_mask=None,
-            position_ids=None,
-            head_mask=None,
-            query_embeds=None,
-            encoder_hidden_states=None,
-            encoder_attention_mask=None,
-            labels=None,
-            past_key_values=None,
-            use_cache=True,
-            output_attentions=None,
-            output_hidden_states=None,
-            return_dict=None,
-            return_logits=False,
-            is_decoder=True
-    ):
-        r"""
-        encoder_hidden_states `Tensor` of shape : (batch_size, sequence_length, hidden_size)`
-            Sequence of hidden-states at the output of the last layer of the encoder.
-            Used in the cross-attention if the model is configured as a decoder.
-        encoder_attention_mask `Tensor` of shape : (batch_size, sequence_length)`, `optional`)
-            Mask to avoid performing attention on the padding token indices of the encoder input.
-            This mask is used in the cross-attention if the model is configured as a decoder.
-            Mask values selected in ``[0, 1]``: - 1 for tokens that are **not masked**,
-            - 0 for tokens that are **masked**.
-        labels `Tensor(mstype.int32)` of shape : (batch_size, sequence_length)`, `optional`)
-            Labels for computing the left-to-right language modeling loss (next word prediction).
-            Indices should be in ``[-100, 0, ..., config.vocab_size]`` (see ``input_ids`` docstring)
-            Tokens with indices set to ``-100`` are ignored (masked), the loss is
-            only computed for the tokens with labels n ``[0, ..., config.vocab_size]``,
-            past_key_values (:obj:`tuple(tuple(Tensor(mstype.float)))` of length:
-            `config.n_layers` with each tuple having 4 tensors of shape
-            (batch_size, num_heads, sequence_length - 1, embed_size_per_head)),
-            Contains precomputed key and value hidden states of the attention blocks.
-            Can be used to speed up decoding. If :obj:`past_key_values` are used, the user
-            can optionally input only the last :obj:`decoder_input_ids`
-            (those that don't have their past key value states given to this model) of
-            shape (batch_size, 1)` instead of all :obj:`decoder_input_ids` of shape
-            (batch_size, sequence_length)`.
-        use_cache (:obj:`bool`, `optional`):
-            If set to :obj:`True`, :obj:`past_key_values` key value states are returned
-            and can be used to speed up decoding (see :obj:`past_key_values`).
+    # pylint: disable=W0613
+    def construct(self, input_ids=None, attention_mask=None, position_ids=None, head_mask=None,
+                  query_embeds=None, encoder_hidden_states=None, encoder_attention_mask=None, labels=None,
+                  past_key_values=None, use_cache=True, output_attentions=None, output_hidden_states=None,
+                  return_dict=None, return_logits=False, is_decoder=True):
+        """
+        construct function for QFormer.
+
+        Args:
+            input_ids (Tensor): the indices of input sequence tokens in the vocabulary.
+            position_ids (Tensor): used to identify each token's position in the list of tokens.
+            attention_mask (Tensor): used when batching sequences together.
+            query_embeds (Tensor): to be supplemented.
+            return_dict(bool): Reserved param, not used.
+            head_mask (Tensor): to be supplemented.
+            encoder_hidden_states (`Tensor` of shape : (batch_size, sequence_length, hidden_size)`)
+                Sequence of hidden-states at the output of the last layer of the encoder.
+                Used in the cross-attention if the model is configured as a decoder.
+            encoder_attention_mask (`Tensor` of shape : (batch_size, sequence_length)`, `optional`))
+                Mask to avoid performing attention on the padding token indices of the encoder input.
+                This mask is used in the cross-attention if the model is configured as a decoder.
+                Mask values selected in ``[0, 1]``:
+                1 for tokens that are **not masked**,
+                0 for tokens that are **masked**.
+            past_key_values: Reserved param, not used.
+            labels (`Tensor(mstype.int32)` of shape : (batch_size, sequence_length)`, `optional`))
+                Labels for computing the left-to-right language modeling loss (next word prediction).
+                Indices should be in ``[-100, 0, ..., config.vocab_size]`` (see ``input_ids`` docstring)
+                Tokens with indices set to ``-100`` are ignored (masked), the loss is
+                only computed for the tokens with labels n ``[0, ..., config.vocab_size]``,
+                past_key_values (:obj:`tuple(tuple(Tensor(mstype.float)))` of length:
+                `config.n_layers` with each tuple having 4 tensors of shape
+                (batch_size, num_heads, sequence_length - 1, embed_size_per_head)),
+                Contains precomputed key and value hidden states of the attention blocks.
+                Can be used to speed up decoding. If :obj:`past_key_values` are used, the user
+                can optionally input only the last :obj:`decoder_input_ids`
+                (those that don't have their past key value states given to this model) of
+                shape (batch_size, 1)` instead of all :obj:`decoder_input_ids` of shape
+                (batch_size, sequence_length)`.
+            use_cache (bool, `optional`, default is True):
+                If set to :obj:`True`, :obj:`past_key_values` key value states are returned
+                and can be used to speed up decoding (see :obj:`past_key_values`).
+            output_attentions (bool, `optional`, default is None):
+                whether to append self-attentions as a part of outputs in the BertSelfAttention layer.
+            output_hidden_states (bool, `optional`, default is None):
+                whether to return all hidden states in the output of the BertEncoder layer.
+            return_logits (bool, `optional`, default is False):
+                whether to only return prediction_scores other than lm_loss as output.
+            is_decoder (bool, `optional`, default is True):
+                specify whether the BertModel is encoder or decoder.
+
         Returns:
-        Example::
-            >>> from mindformers import BertTokenizer, Blip2Config, BertLMHeadModel
-            >>> tokenizer = BertTokenizer.from_pretrained('bert-base-cased')
-            >>> config = Blip2Config.from_pretrained("blip2_stage1_vit_g")
-            >>> model = BertLMHeadModel(config=config)
-            >>> inputs = tokenizer("Hello, my dog is cute")
-            >>> outputs = model(**inputs)
-            >>> prediction_logits = outputs.logits
+            output (tuple of Tensors):
+                if return_logits is True, directly return prediction_scores as output.
+                if label input is not None, return lm_loss, prediction_scores and BertModel outputs
+                (except sequence_output), otherwise return prediction_scores and BertModel outputs
+                (except sequence_output) as output.
         """
         return_dict = (
             return_dict if return_dict is not None else self.config.use_return_dict

@@ -41,7 +41,7 @@ class Blip2ImageProcessor(BaseImageProcessor):
     Blip2ImageProcessor.
 
     Args:
-        image_resolution (int): The target size.
+        image_size (int): The target size.
 
     Examples:
         >>> from mindformers import Blip2ImageProcessor
@@ -132,27 +132,27 @@ class Blip2Processor(BaseProcessor):
         >>> from mindformers import Blip2Processor
         >>> from mindformers.tools.image_tools import load_image
         >>> image = load_image("https://ascend-repo-modelzoo.obs.cn-east-2."
-            "myhuaweicloud.com/XFormer_for_mindspore/clip/sunflower.png")
+        ...  "myhuaweicloud.com/XFormer_for_mindspore/clip/sunflower.png")
         >>> text = ["a boy", "a girl"]
         >>> Blip2Processor.show_support_list()
-            INFO - support list of Blip2Processor is:
-            INFO -    ['blip2_stage1_vit_g', 'blip2_stage1_classification']
-            INFO - -------------------------------------
+        INFO - support list of Blip2Processor is:
+        INFO -    ['blip2_stage1_vit_g', 'blip2_stage1_classification']
+        INFO - -------------------------------------
         >>> processor = Blip2Processor.from_pretrained('blip2_stage1_vit_g')
-            INFO - processor built successfully!
+        INFO - processor built successfully!
         >>> processor(image, text)
-            {'image': Tensor(shape=[1, 3, 224, 224], dtype=Float32, value=
-        [[[[-1.55868769e+00, -1.52949083e+00, -1.55868769e+00 ... -1.48569560e+00, -1.48569560e+00],
-           [-1.54408932e+00, -1.52949083e+00, -1.54408932e+00 ... -1.50029397e+00, -1.50029397e+00],
-           [-1.52949083e+00, -1.52949083e+00, -1.52949083e+00 ... -1.50029397e+00, -1.50029397e+00],
-           ...
-           [-1.38067937e+00, -1.48021984e+00, -1.38067937e+00 ... -1.30957901e+00, -1.40911949e+00],
-           [-1.46599972e+00, -1.43755960e+00, -1.26691878e+00 ... -1.48021984e+00, -1.43755960e+00],
-           [-1.40911949e+00, -1.28113890e+00, -1.30957901e+00 ... -1.48021984e+00, -1.43755960e+00]
-           ]]]),
-           'text': Tensor(shape=[2, 32], dtype=Int32, value=
-           [[ 101, 1037, 2879 ...    0,    0,    0],
-           [ 101, 1037, 2611 ...    0,    0,    0]])}
+        {'image': Tensor(shape=[1, 3, 224, 224], dtype=Float32, value=
+    [[[[-1.55868769e+00, -1.52949083e+00, -1.55868769e+00 ... -1.48569560e+00, -1.48569560e+00],
+       [-1.54408932e+00, -1.52949083e+00, -1.54408932e+00 ... -1.50029397e+00, -1.50029397e+00],
+       [-1.52949083e+00, -1.52949083e+00, -1.52949083e+00 ... -1.50029397e+00, -1.50029397e+00],
+       ...
+       [-1.38067937e+00, -1.48021984e+00, -1.38067937e+00 ... -1.30957901e+00, -1.40911949e+00],
+       [-1.46599972e+00, -1.43755960e+00, -1.26691878e+00 ... -1.48021984e+00, -1.43755960e+00],
+       [-1.40911949e+00, -1.28113890e+00, -1.30957901e+00 ... -1.48021984e+00, -1.43755960e+00]
+       ]]]),
+       'text': Tensor(shape=[2, 32], dtype=Int32, value=
+       [[ 101, 1037, 2879 ...    0,    0,    0],
+       [ 101, 1037, 2611 ...    0,    0,    0]])}
     """
     _support_list = MindFormerBook.get_processor_support_list()['blip2']
 

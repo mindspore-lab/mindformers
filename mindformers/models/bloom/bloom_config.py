@@ -27,7 +27,75 @@ __all__ = ['BloomConfig']
 @MindFormerRegister.register(MindFormerModuleType.CONFIG)
 class BloomConfig(BaseConfig):
     """
-    Bloom config class which defines the model size
+    Bloom config class which defines the model size.
+
+    Args:
+        vocab_size (`int`, *optional*, defaults to 250880):
+            Vocabulary size of the Bloom model. Defines the maximum number of different tokens that can be represented
+            by the `inputs_ids` passed when calling [`BloomLMHeadModel`].
+        batch_size (Optional[int]): batch size for input data, use in predict.
+        seq_length (Optional[int]): The sequence length of input_ids, default is 1024.
+        hidden_size (`int`, *optional*, defaults to 64):
+            Dimension of the embeddings and hidden states.
+        num_layers (`int`, *optional*, defaults to 2):
+            Number of hidden layers in the Transformer encoder.
+        num_heads (`int`, *optional*, defaults to 8):
+            Number of attention heads for each attention layer in the Transformer decoder.
+        hidden_dropout_rate (`float`, *optional*, defaults to 0.1):
+            Dropout rate of the dropout function on the bias dropout.
+        attention_dropout_rate (`float`, *optional*, defaults to 0.1):
+            Dropout rate applied to the attention probs.
+        embedding_dropout_prob (`float`, *optional*, defaults to 0.0):
+            Dropout rate applied to the embedding probs.
+        hidden_act (`str` or `Callable`, *optional*, defaults to "gelu"):
+            The non-linear activation function (function or string) in the encoder and pooler.
+        param_init_type (Optional[str]):
+            Network parameter initialization type, default is "float32".
+        embedding_init_type (Optional[str]):
+            Embedding compute dtype, default is "float32".
+        compute_dtype (Optional[str]):
+            Linear layer compute dtype, default is "float16".
+        layernorm_compute_type (Optional[str]):
+            layernorm compute dtype, default is "float32".
+        softmax_compute_type (Optional[str]):
+            softmax compute dtype, default is "float32".
+        moe_config(MoEConfig):
+            The configuration of MoE (Mixture of Expert). Default is an instance of MoEConfig
+            with default values. Please see `MoEConfig`.
+        parallel_config(TransformerOpParallelConfig):
+            The parallel configure. Default `default_transformer_config`,
+            an instance of `TransformerOpParallelConfig` with default args.
+        checkpoint_name_or_path (Optional[str]):
+            checkpoint path or name used to load to the network.
+        use_past (`bool`, *optional*, defaults to `False`):
+            Whether or not the model should use the past last key/values attentions
+            (if applicable to the model) to speed up decoding.
+        bos_token_id (`int`, *optional*, defaults to 1):
+            A special token representing the beginning of a sentence.
+        eos_token_id (`int`, *optional*, defaults to 2):
+            A special token representing the end of a sentence.
+        unk_token_id (`int`, *optional*, defaults to 0):
+            A special token representing an out-of-vocabulary token.
+        pad_token_id (`int`, *optional*, defaults to 3):
+            A special token used to make arrays of tokens the same size for batching purpose. Will then be ignored by
+            attention mechanisms or loss computation.
+        repetition_penalty (`float`, *optional*, defaults to 1.0):
+            The parameter for repetition penalty. 1.0 means no penalty. See [this
+            paper](https://arxiv.org/pdf/1909.05858.pdf) for more details.
+        max_decode_length (`int`, *optional*, defaults to 1024):
+            The maximum length the generated tokens can have.
+        top_k (`int`, *optional*, defaults to 5):
+            The number of the highest probability vocabulary tokens to keep for top-k-filtering.
+        top_p (`float`, *optional*, defaults to 1.0):
+            If set to float < 1, only the smallest set of most probable tokens with probabilities
+            that add up to `top_p` or higher are kept for generation.
+        do_sample (`bool`, *optional*, defaults to `False`):
+            Whether to use sampling ; use greedy decoding otherwise.
+        is_sample_acceleration(`bool`, *optional*, defaults to `False`):
+            When it is used for network inference, the sampling process is completed in construct.
+
+    Returns:
+        Class, BloomConfig.
     """
 
     _support_list = MindFormerBook.get_config_support_list()['bloom']
@@ -43,10 +111,6 @@ class BloomConfig(BaseConfig):
                  expand_ratio: int = 4,
                  hidden_dropout_rate: float = 0.1,
                  attention_dropout_rate: float = 0.1,
-                 unk_token_id: int = 0,
-                 bos_token_id: int = 1,
-                 eos_token_id: int = 2,
-                 pad_token_id: int = 3,
                  param_init_type: str = "float32",
                  embedding_init_type: str = "float32",
                  layernorm_compute_type: str = "float32",
@@ -56,9 +120,13 @@ class BloomConfig(BaseConfig):
                  parallel_config: TransformerOpParallelConfig = default_transformer_config,
                  checkpoint_name_or_path: str = "",
                  moe_config: MoEConfig = default_moe_config,
-                 use_past: bool = False,
                  use_seq_parallel: bool = False,
                  use_select_recompute: bool = False,
+                 use_past: bool = False,
+                 unk_token_id: int = 0,
+                 bos_token_id: int = 1,
+                 eos_token_id: int = 2,
+                 pad_token_id: int = 3,
                  repetition_penalty: int = 1,
                  max_decode_length: int = 1024,
                  top_k: int = 5,
@@ -100,5 +168,5 @@ class BloomConfig(BaseConfig):
         self.do_sample = do_sample
         self.is_sample_acceleration = is_sample_acceleration
         if self.batch_size is None:
-            self.use_past = False # currently require batch_size = 1
-            self.is_sample_acceleration = False # currently require batch_size = 1
+            self.use_past = False  # currently require batch_size = 1
+            self.is_sample_acceleration = False  # currently require batch_size = 1

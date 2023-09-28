@@ -29,6 +29,7 @@ from mindformers.models.blip2.qformer import BertLMHeadModel
 from mindformers.models.vit.vit import ViTModel, ViTConfig
 from mindformers.modules.layers import LayerNorm
 
+
 class ViTModelForBlip2(ViTModel):
     """
     ViTModel For Blip2 Models, loading a pretrained weight.
@@ -41,6 +42,7 @@ class ViTModelForBlip2(ViTModel):
 
     def construct(self, image):
         return self.construct_without_pool(image)
+
 
 class Blip2Base(BaseModel):
     """
