@@ -34,8 +34,8 @@ class FillMaskPipeline(BasePipeline):
     Pipeline for mask fill
 
     Args:
-        model: a pretrained model (str or BaseModel) in _supproted_list.
-        tokenizer : a tokenizer (None or Tokenizer) for text processing
+        model: A pretrained model (str or BaseModel) in _supproted_list.
+        tokenizer : A tokenizer (None or Tokenizer) for text processing.
     """
     _support_list = MindFormerBook.get_model_support_list()['bert']
     return_name = 'fillmask'
@@ -87,13 +87,13 @@ class FillMaskPipeline(BasePipeline):
         Preprocess of mask fill
 
         Args:
-            inputs (url, PIL.Image, tensor, numpy): the image to be classified.
-            max_length (int): max length of tokenizer's output
-            padding (False / "max_length"): padding for max_length
-            return_tensors ("ms"): the type of returned tensors
+            inputs (url, PIL.Image, tensor, numpy): The image to be classified.
+            max_length (int): Max length of tokenizer's output
+            padding (False / "max_length"): Padding for max_length
+            return_tensors ("ms"): The type of returned tensors
 
         Return:
-            processed image.
+            Processed image.
         """
         if isinstance(inputs, dict):
             inputs = inputs['text']
@@ -115,10 +115,10 @@ class FillMaskPipeline(BasePipeline):
         Forward process
 
         Args:
-            model_inputs (dict): outputs of preprocess.
+            model_inputs (dict): Outputs of preprocess.
 
         Return:
-            probs dict.
+            Probs dict.
         """
         forward_params.pop("None", None)
         output_ids = self.network(**model_inputs)
@@ -129,7 +129,7 @@ class FillMaskPipeline(BasePipeline):
         Postprocess
 
         Args:
-            model_outputs (dict): outputs of forward process.
+            model_outputs (dict): Outputs of forward process.
 
         Return:
             The generated results
