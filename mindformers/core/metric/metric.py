@@ -36,6 +36,8 @@ from mindspore.communication import get_group_size, get_rank
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.models import BasicTokenizer
 from mindformers.core.loss import CrossEntropyLoss
+
+from .utils import PerplexityCell
 from ...dataset.labels import cluener_labels
 
 __all__ = ['EntityScore', 'SQuADMetric', 'PerplexityMetric', 'ADGENMetric', 'PromptAccMetric', 'EmF1Metric']
@@ -493,6 +495,7 @@ class PerplexityMetric(nn.Metric):
         self.reshape = P.Reshape()
         self.not_equal = P.NotEqual()
         self.sub = P.Sub()
+        self.ppl_loss = PerplexityCell(self.pipeline_parallel)
 
         if self.pipeline_parallel:
             self.rank_id = get_rank()
@@ -518,18 +521,7 @@ class PerplexityMetric(nn.Metric):
                 return
             if self.auto_parallel:
                 ms.context.set_auto_parallel_context(parallel_mode='data_parallel', full_batch=False)
-            logits, labels, input_mask = inputs[0], inputs[1], inputs[2]
-
-            # input_mask was added 1 in GPT2LMModel to avoid allgather issue in Mindspore1.10
-            input_mask = self.sub(input_mask, 1)
-
-            batch_size, seq_length, _ = logits.shape
-
-            logits = self.reshape(logits[::, :-1, ::], (batch_size * (seq_length - 1), -1))
-            labels = self.reshape(labels[::, 1:], (-1,))
-            input_mask = self.reshape(input_mask[::, 1:], (-1,))
-
-            loss = self.loss(logits, labels, input_mask)
+            loss = self.ppl_loss(*inputs)
             loss = float(loss.asnumpy())
             self.total_loss += loss
             self.num_data += 1
@@ -538,15 +530,7 @@ class PerplexityMetric(nn.Metric):
                                              full_batch=True,
                                              pipeline_stages=self.pipeline_stages)
         else:
-            logits, labels, input_mask = inputs[0], inputs[1], inputs[2]
-
-            batch_size, seq_length, _ = logits.shape
-
-            logits = self.reshape(logits[::, :-1, ::], (batch_size * (seq_length - 1), -1))
-            labels = self.reshape(labels[::, 1:], (-1,))
-            input_mask = self.reshape(input_mask[::, 1:], (-1,))
-
-            loss = self.loss(logits, labels, input_mask)
+            loss = self.ppl_loss(*inputs)
             loss = float(loss.asnumpy())
             self.total_loss += loss
             self.num_data += 1
