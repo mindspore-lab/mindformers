@@ -4,13 +4,36 @@
 
 ChatGLM**2**-6B 是开源中英双语对话模型 [ChatGLM2-6B](https://github.com/THUDM/ChatGLM2-6B) 的第二代版本，在保留了初代模型对话流畅、部署门槛较低等众多优秀特性的基础之上，ChatGLM**2**-6B引入了新特征：**更强大的性能**、**更长的上下文**、**更高效的推理**、**更开放的协议**。
 
+```text
+@article{zeng2022glm,
+  title={Glm-130b: An open bilingual pre-trained model},
+  author={Zeng, Aohan and Liu, Xiao and Du, Zhengxiao and Wang, Zihan and Lai, Hanyu and Ding, Ming and Yang, Zhuoyi and Xu, Yifan and Zheng, Wendi and Xia, Xiao and others},
+  journal={arXiv preprint arXiv:2210.02414},
+  year={2022}
+}
+```
+
+## 模型性能
+
+- 基于910A
+
+**GLM2_6b**:
+
+| config                                                   | task            | Datasets | metric                                  | phase               | score                                                                              | performance                                    |
+|----------------------------------------------------------|-----------------|----------|-----------------------------------------|---------------------|------------------------------------------------------------------------------------|------------------------------------------------|
+| [glm2_6b](../../configs/glm2/run_glm2_6b.yaml)           | text_generation | ADGEN    | -                                       | [finetune](#全量微调)   | -                                                                                  | 815.2059134 tokens/s/p                         |
+| [glm2_6b_lora](../../configs/glm2/run_glm2_6b_lora.yaml) | text_generation | ADGEN    | -                                       | [finetune](#lora微调) | -                                                                                  | 3243.697479 tokens/s/p                         |
+| [glm2_6b](../../configs/glm2/run_glm2_6b.yaml)           | text_generation | ADGEN    | rouge-1<br>rouge-2<br>rouge-l<br>bleu-4 | [eval](#评测)         | 30.784298224299064<br>7.073415046728972<br>24.773958598130843<br>7.466147757009345 | -                                              |
+| [glm2_6b_lora](../../configs/glm2/run_glm2_6b_lora.yaml) | text_generation | ADGEN    | rouge-1<br>rouge-2<br>rouge-l<br>bleu-4 | [eval](#评测)         | 31.05639289719626<br>7.1753861682243<br>24.229674859813084<br>7.229435140186916    | -                                              |
+| [glm2_6b](../../configs/glm2/run_glm2_6b.yaml)           | text_generation | -        | -                                       | [predict](#推理)      | -                                                                                  | 32.08 tokens/s (use_past=True, seq_length=512) |
+
 ## 仓库介绍
 
 `chatGLM2-6B` 基于 `mindformers` 实现，主要涉及的文件有：
 
 1. 模型具体实现：`mindformers/models/glm2`
 
-    ```bash
+    ```text
     glm2
         ├── __init__.py
         ├── glm2.py                  # 模型实现
@@ -28,81 +51,313 @@ ChatGLM**2**-6B 是开源中英双语对话模型 [ChatGLM2-6B](https://github.c
         └── run_glm2_6b_lora.yaml     # lora低参微调启动配置
     ```
 
-## 环境要求
+## 前期准备
 
-- 硬件：Ascend 910A
-- MindSpore：2.0
+### 生成RANK_TABLE_FILE
 
-推理可在单机单卡上完成部署
+运行mindformers/tools/hccl_tools.py生成RANK_TABLE_FILE的json文件
 
-全量微调训练需要最少单机8卡，Lora微调训练最少需要1卡
-
-## 基线
-
-测试环境同上述环境要求
-
-### 性能
-
-|          | data parallel | model parallel | pipeline parallel | batch size | sink size | sequence length | accumulate | per step time (ms) | tokens/s/p  | 优化器并行 | 重计算 | Memory (GB) |
-| -------- | ------------- | -------------- | ----------------- | ---------- | --------- | --------------- | ---------- | ------------------ | ----------- | ---------- | ------ | ----------- |
-| 全量微调 | 8             | 1              | 1                 | 8          | 4         | 193             | 1          | 1894               | 815.2059134 | True       | True   | 25.2        |
-| LoRA微调 | 4             | 1              | 1                 | 8          | 4         | 193             | 1          | 476                | 3243.697479 | False      | False  | 22.38       |
-
-### 评估指标
-
-|          | rouge-1            | rouge-2           | rouge-l            | bleu-4            |
-| -------- | ------------------ | ----------------- |--------------------| ----------------- |
-| 全量微调 | 30.784298224299064 | 7.073415046728972 | 24.773958598130843 | 7.466147757009345 |
-| LoRA微调 | 31.05639289719626  | 7.1753861682243   | 24.229674859813084 | 7.229435140186916 |
-
-## ChatGLM2-6B推理
-
-> 需开发者提前pip安装。具体接口说明请参[API接口](https://gitee.com/mindspore/transformer/wikis/API/)
-
-### AutoClass推理
-
-可以使用AutoClass接口，通过模型名称获取相应的模型/tokenizer实例，并自动下载并加载权重
-
-`from_pretrained()` 接口会自动从云上下载预训练的模型，存储路径：`mindformers/checkpoint_download/glm2`
-
-首次运行pipeline推理时需要进行模型编译，需等待一段时间
-
-```python
-from mindformers import AutoTokenizer, AutoModel
-
-
-tokenizer = AutoTokenizer.from_pretrained("glm2_6b")
-model = AutoModel.from_pretrained("glm2_6b")
-
-query = "你好"
-
-prompted_inputs = tokenizer.build_prompt(query)
-input_tokens = tokenizer([prompted_inputs])
-
-outputs = model.generate(input_tokens["input_ids"], max_length=100)
-response = tokenizer.decode(outputs)[0]
-print(response)
+```bash
+# 运行如下命令，生成当前机器的RANK_TABLE_FILE的json文件
+python ./mindformers/tools/hccl_tools.py --device_num "[0,8)"
 ```
 
-### pipeline推理
+**注：若使用ModelArts的notebook环境，可从 `/user/config/jobstart_hccl.json` 路径下直接获取rank table，无需手动生成**
 
-也可以不实例化构造模型，直接通过指定任务模型与模型名的方式进行pipeline的构造
+RANK_TABLE_FILE 单机8卡参考样例:
+
+```json
+{
+    "version": "1.0",
+    "server_count": "1",
+    "server_list": [
+        {
+            "server_id": "xx.xx.xx.xx",
+            "device": [
+                {"device_id": "0","device_ip": "192.1.27.6","rank_id": "0"},
+                {"device_id": "1","device_ip": "192.2.27.6","rank_id": "1"},
+                {"device_id": "2","device_ip": "192.3.27.6","rank_id": "2"},
+                {"device_id": "3","device_ip": "192.4.27.6","rank_id": "3"},
+                {"device_id": "4","device_ip": "192.1.27.7","rank_id": "4"},
+                {"device_id": "5","device_ip": "192.2.27.7","rank_id": "5"},
+                {"device_id": "6","device_ip": "192.3.27.7","rank_id": "6"},
+                {"device_id": "7","device_ip": "192.4.27.7","rank_id": "7"}],
+             "host_nic_ip": "reserve"
+        }
+    ],
+    "status": "completed"
+}
+```
+
+### 多机RANK_TABLE_FILE合并
+
+- step 1. 首先根据上章节内容，在每个机器上生成各自的`RANK_TABLE_FILE`文件，然后将不同机器上生成的`RANK_TABLE_FILE`文件全部拷贝到同一台机器上。
+
+```bash
+# 运行如下命令，生成当前机器的RANK_TABLE_FILE的json文件
+python ./mindformers/tools/hccl_tools.py --device_num "[0,8)" --server_ip xx.xx.xx.xx
+```
+
+**注：需要根据机器的ip地址指定 --server_ip，避免由于不同机器server_ip不同，导致多节点间通信失败。**
+
+- step 2. 运行mindformers/tools/merge_hccl.py将不同机器上生成的`RANK_TABLE_FILE`文件合并
+
+```bash
+# 运行如下命令，合并每个机器上的RANK_TABLE_FILE的json文件。
+python ./mindformers/tools/merge_hccl.py hccl*.json
+```
+
+- step 3. 将合并后的`RANK_TABLE_FILE`文件拷贝到所有机器中，保证不同机器上的`RANK_TABLE_FILE`相同。
+
+RANK_TABLE_FILE 双机16卡参考样例:
+
+```json
+{
+    "version": "1.0",
+    "server_count": "2",
+    "server_list": [
+        {
+            "server_id": "xx.xx.xx.xx",
+            "device": [
+                {
+                    "device_id": "0", "device_ip": "192.168.0.0", "rank_id": "0"
+                },
+                {
+                    "device_id": "1", "device_ip": "192.168.1.0", "rank_id": "1"
+                },
+                {
+                    "device_id": "2", "device_ip": "192.168.2.0", "rank_id": "2"
+                },
+                {
+                    "device_id": "3", "device_ip": "192.168.3.0", "rank_id": "3"
+                },
+                {
+                    "device_id": "4", "device_ip": "192.168.0.1", "rank_id": "4"
+                },
+                {
+                    "device_id": "5", "device_ip": "192.168.1.1", "rank_id": "5"
+                },
+                {
+                    "device_id": "6", "device_ip": "192.168.2.1", "rank_id": "6"
+                },
+                {
+                    "device_id": "7", "device_ip": "192.168.3.1", "rank_id": "7"
+                }
+            ],
+            "host_nic_ip": "reserve"
+        },
+        {
+            "server_id": "xx.xx.xx.xx",
+            "device": [
+                {
+                    "device_id": "0", "device_ip": "192.168.0.1", "rank_id": "8"
+                },
+                {
+                    "device_id": "1", "device_ip": "192.168.1.1", "rank_id": "9"
+                },
+                {
+                    "device_id": "2", "device_ip": "192.168.2.1", "rank_id": "10"
+                },
+                {
+                    "device_id": "3", "device_ip": "192.168.3.1", "rank_id": "11"
+                },
+                {
+                    "device_id": "4", "device_ip": "192.168.0.2", "rank_id": "12"
+                },
+                {
+                    "device_id": "5", "device_ip": "192.168.1.2", "rank_id": "13"
+                },
+                {
+                    "device_id": "6", "device_ip": "192.168.2.2", "rank_id": "14"
+                },
+                {
+                    "device_id": "7", "device_ip": "192.168.3.2", "rank_id": "15"
+                }
+            ],
+            "host_nic_ip": "reserve"
+        }
+    ],
+    "status": "completed"
+}
+```
+
+### 模型权重下载与转换
+
+开发者可以下载获取官方权重后，通过下面提供的**权重转换脚本**，将官方权重转换为MindSpore权重；或直接使用MindFormers提供的**已转换权重**
+
+1. 使用官方权重进行转换
+
+   克隆glm2-6b代码仓，下载分布式的模型文件。
+
+   ```shell
+   git lfs install
+   git clone https://huggingface.co/THUDM/chatglm2-6b
+   ```
+
+   执行 python 脚本，合并模型权重。
+
+   ```python
+   from transformers import AutoTokenizer, AutoModel
+   import torch
+
+   tokenizer = AutoTokenizer.from_pretrained("THUDM/chatglm2-6b", trust_remote_code=True)
+   model = AutoModel.from_pretrained("THUDM/chatglm2-6b", trust_remote_code=True)
+
+   with open("pt_model_arch.txt", "w") as fp:
+       print(model, file=fp, flush=True)
+   with open("pt_ckpt.txt", "w") as fp:
+       for name, param in model.named_parameters():
+           fp.write(f"{name} {param.shape} {param.dtype}\n")
+   torch.save(model.state_dict(), "glm2_6b.pth")
+   ```
+
+   执行转换脚本，得到转换后的输出文件`glm2_6b.ckpt`。
+
+   ```python
+   import mindspore as ms
+   import torch as pt
+   from tqdm import tqdm
+
+   pt_ckpt_path = "glm2_6b.pth"
+   pt_param = pt.load(pt_ckpt_path)
+
+   type_map = {"torch.float16": "ms.float16",
+               "torch.float32": "ms.float32"}
+   ms_param = []
+   with open("check_pt_ckpt.txt", "w") as fp:
+       for k, v in tqdm(pt_param.items()):
+           if "word_embeddings.weight" in k:
+               k = k.replace("word_embeddings.weight", "embedding_table")
+           fp.write(f"{k} {v.shape} {v.dtype}\n")
+           ms_param.append({"name": k, "data": ms.Tensor(v.numpy())})
+
+   ms.save_checkpoint(ms_param, "glm2_6b.ckpt")
+   ```
+
+2. 获取MindFormers提供的已转换权重
+
+   可通过from_pretrained接口下载，也可直接从下面的链接获取
+
+   [glm2_6b权重](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/XFormer_for_mindspore/glm2/glm2_6b.ckpt)
+
+   [tokenizer文件](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/XFormer_for_mindspore/glm2/tokenizer.model)
+
+### [分布式训练/微调权重合并](../feature_cards/Transform_Ckpt.md)
+
+分布式训练/微调后所得到的权重文件为根据策略切分后的权重，需要手动将切分权重合一，以用于评估和推理。
+
+涉及到ckpt的单卡，多卡转换，详细教程请参考特性文档模型[权重切分与合并](../feature_cards/Transform_Ckpt.md)
+
+- step 1. 获取模型切分策略文件：
+
+在执行微调脚本时，模型完成编译后，将会在`output/strategy`路径下生成各卡的切分策略文件，用于权重合并。
+
+> 注：lora微调时需要确认配置文件`parallel context config`中`only_trainable_params`设为`False`，以获取所有参数完整策略。
+
+- step 2. 运行`mindformers/tools/transform_ckpt.py`脚本进行多卡权重合并：
+
+```shell
+python transform_ckpt.py \
+--src_ckpt_strategy {path}/output/strategy/ \
+--src_ckpt_dir {path}/output/checkpoint/ \
+--dst_ckpt_dir {path}/target_checkpoint/ \
+--prefix glm2_6b
+```
+
+```text
+# 参数说明
+src_ckpt_strategy: 步骤1中的切分策略文件路径
+src_ckpt_dir: 原切分权重文件夹
+dst_ckpt_dir: 目标路径
+prefix: ckpt文件前缀名
+```
+
+> 注：`transform_checkpoints` 接口当前仅mindspore 2.0以上版本支持，如当前硬件环境只支持2.0以下版本，可以新建conda环境安装mindspore 2.0的cpu版本以执行该脚本
+
+## 基于API的快速使用
+
+### 基于AutoClass的快速使用
+
+可以使用AutoClass接口，通过模型名称获取相应的model/preprocess/tokenizer等实例，并自动下载并加载权重
+
+`from_pretrained()` 接口会自动从云上下载预训练的模型，存储路径：`./checkpoint_download/glm2`
 
 ```python
->>> from mindformers import pipeline, TextGenerationPipeline
->>> task_pipeline = pipeline(task='text_generation', model='glm2_6b', max_length=2048)
->>> task_pipeline('你好')
-[{'text_generation_text': ['你好，我是 ChatGLM2-6B， 一个人工智能助手。我背后使用的模型是 GLM2-6B， 是一种大型语言模型， 具有超过 2000 亿参数，支持多种任务。']}]
->>> pipeline = TextGenerationPipeline(model='glm2_6b', max_length=2048)
->>> pipeline("你好")
-[{'text_generation_text': ['你好，我是 ChatGLM2-6B， 一个人工智能助手。我背后使用的模型是 GLM2-6B， 是一种大型语言模型， 具有超过 2000 亿参数，支持多种任务。']}]
+import mindspore
+from mindformers import AutoConfig, AutoModel, AutoTokenizer
+
+# 指定图模式，指定使用训练卡id
+mindspore.set_context(mode=0, device_id=0)
+
+tokenizer = AutoTokenizer.from_pretrained('glm2_6b')
+
+# model的实例化有以下两种方式，选择其中一种进行实例化即可
+# 1. 直接根据默认配置实例化
+model = AutoModel.from_pretrained('glm2_6b')
+# 2. 自定义修改配置后实例化
+config = AutoConfig.from_pretrained('glm2_6b')
+config.use_past = True                  # 此处修改默认配置，开启增量推理能够加速推理性能
+# config.xxx = xxx                      # 根据需求自定义修改其余模型配置
+model = AutoModel.from_config(config)   # 从自定义配置项中实例化模型
+
+inputs = tokenizer("你好")["input_ids"]
+# 首次调用model.generate()进行推理将包含图编译时间，推理性能显示不准确，多次重复调用以获取准确的推理性能
+outputs = model.generate(inputs, max_new_tokens=20, do_sample=True, top_k=3)
+response = tokenizer.decode(outputs)
+print(response)
+# ['你好，作为一名人工智能助手，我欢迎您随时向我提问。']
+```
+
+### 基于Trainer的快速训练，微调，评测，推理
+
+> 注：下面仅显示接口使用方式，模型启动训练需求多卡分布式训练，训练脚本需配合分布式脚本启动
+
+```python
+import mindspore
+from mindformers.trainer import Trainer
+
+# 指定图模式，指定使用训练卡id
+mindspore.set_context(mode=0, device_id=0)
+
+# 初始化预训练任务
+trainer = Trainer(task='text_generation',
+                  model='glm2_6b',
+                  train_dataset='path/to/train_dataset',
+                  eval_dataset='path/to/eval_dataset')
+
+# 开启预训练
+# 请参照多卡训练，glm2_6b不支持单卡启动训练
+# trainer.train()
+
+# 开启全量微调
+# 请参照多卡微调，glm2_6b不支持单卡启动全量微调
+# trainer.finetune()
+
+# 开启评测
+trainer.evaluate()
+
+# 开启推理
+predict_result = trainer.predict(input_data="你好")
+# [{'text_generation_text': ['你好，我是 ChatGLM2-6B， 一个人工智能助手。我背后使用的模型是 GLM2-6B， 是一种大型语言模型， 具有超过 2000 亿参数，支持多种任务。']}]
+```
+
+### 基于Pipeline的快速推理
+
+```python
+from mindformers import pipeline, TextGenerationPipeline
+task_pipeline = pipeline(task='text_generation', model='glm2_6b', max_length=2048)
+task_pipeline('你好')
+# [{'text_generation_text': ['你好，我是 ChatGLM2-6B， 一个人工智能助手。我背后使用的模型是 GLM2-6B， 是一种大型语言模型， 具有超过 2000 亿参数，支持多种任务。']}]
+pipeline = TextGenerationPipeline(model='glm2_6b', max_length=2048)
+pipeline("你好")
+# [{'text_generation_text': ['你好，我是 ChatGLM2-6B， 一个人工智能助手。我背后使用的模型是 GLM2-6B， 是一种大型语言模型， 具有超过 2000 亿参数，支持多种任务。']}]
 ```
 
 ## 微调
 
 下面以 [ADGEN](https://aclanthology.org/D19-1321.pdf) (广告生成) 数据集为例介绍代码的使用方法
 
-### 数据处理
+### 数据集准备
 
 ADGEN 数据集任务为根据输入（content）生成一段广告词（summary）。
 
@@ -115,7 +370,7 @@ ADGEN 数据集任务为根据输入（content）生成一段广告词（summary
 
 从 [Google Drive](https://drive.google.com/file/d/13_vf0xRTQsyneRKdD1bZIr93vBGOczrk/view?usp=sharing) 或者 [Tsinghua Cloud](https://cloud.tsinghua.edu.cn/f/b3f119a008264b1cabd1/?dl=1) 下载处理好的 ADGEN 数据集，目录结构为
 
-```shell
+```text
 AdvertiseGen
   ├── train.json
   └── dev.json
@@ -181,54 +436,24 @@ eval_dataset_task:
   dataset_config: *eval_dataset
 ```
 
-### 生成HCCL文件
-
-运行mindformers/tools/hccl_tools.py生成RANK_TABLE_FILE的json文件；
-
-```shell
-# step1：机器上运行如下命令，生成各自的RANK_TABLE_FILE的json文件
-python ./mindformers/tools/hccl_tools.py --device_num "[0,8)"
-```
-
-> 注：若使用ModelArts的notebook环境，可从 `/user/config/jobstart_hccl.json` 路径下直接获取rank table，无需手动生成
-
-RANK_TABLE_FILE 单机8卡参考样例:
-
-```json
-{
-    "version": "1.0",
-    "server_count": "1",
-    "server_list": [
-        {
-            "server_id": "xx.xx.xx.xx",
-            "device": [
-                {"device_id": "0","device_ip": "192.1.27.6","rank_id": "0"},
-                {"device_id": "1","device_ip": "192.2.27.6","rank_id": "1"},
-                {"device_id": "2","device_ip": "192.3.27.6","rank_id": "2"},
-                {"device_id": "3","device_ip": "192.4.27.6","rank_id": "3"},
-                {"device_id": "4","device_ip": "192.1.27.7","rank_id": "4"},
-                {"device_id": "5","device_ip": "192.2.27.7","rank_id": "5"},
-                {"device_id": "6","device_ip": "192.3.27.7","rank_id": "6"},
-                {"device_id": "7","device_ip": "192.4.27.7","rank_id": "7"}],
-             "host_nic_ip": "reserve"
-        }
-    ],
-    "status": "completed"
-}
-```
-
 ### 全参微调
-
-#### run_mindformers脚本启动全参微调
 
 全参微调使用 `configs/glm2/run_glm2_6b.yaml` 配置文件，配置文件中定义了微调所需的各配置项
 
 修改数据集/模型权重配置路径：
 
-- 数据集：修改 `mindformers/configs/glm2/run_glm2_6b.yaml` 脚本中`train_dataset` 的 `dataset_dir` 为前文生成的数据集路径。
-- 加载预训练模型权重：修改 `mindformers/configs/glm2/run_glm2_6b.yaml` 脚本中的 `load_checkpoint` 为预训练模型权重路径。
+- 数据集：修改 `configs/glm2/run_glm2_6b.yaml` 脚本中`train_dataset` 的 `dataset_dir` 为前文生成的数据集路径。
+- 加载预训练模型权重：修改 `configs/glm2/run_glm2_6b.yaml` 脚本中的 `load_checkpoint` 为预训练模型权重路径。
 
-启动全参微调脚本：
+#### 单卡微调
+
+由于glm2_6b模型较大，全量微调不支持单卡运行
+
+#### 多卡微调
+
+- 单机多卡
+
+多卡运行需要RANK_FILE_TABLE，请参考前期准备-[生成RANK_TABLE_FILE](#生成ranktablefile)
 
 ```shell
 cd scripts
@@ -246,18 +471,45 @@ DEVICE_RANGE: 为单机分布式卡的范围，如 '[0,8]' 为8卡分布式，�
 RUN_STATUS: 为任务运行状态，支持关键字 train\finetune\eval\predict
 ```
 
-> 注：由于GLM2_6B的模型较大，无法在单卡上运行，此处仅提供分布式启动脚本
-
 训练的log日志路径：mindformers/output/log
 
 checkpoint存储路径：mindformers/output/checkpoint
 
-### LoRA低参微调
+- 多机多卡
 
-全参微调能够在微调数据集上取得良好效果，但存在遗忘预训练知识的现象
+多机多卡运行需要合并不同机器的RANK_FILE_TABLE，参考前期准备-[多机RANK_TABLE_FILE合并](#多机ranktablefile合并)
+
+在每台机器上启动`bash run_distribute.sh`。
+
+```bash
+server_count=12
+device_num=8*$server_count
+# launch ranks in the 0th server
+cd scripts
+bash run_distribute.sh $RANK_TABLE_FILE path/to/config.yaml [0,8] finetune $device_num
+
+# launch ranks in the 1-11 server via ssh
+for idx in {1..11}
+do  
+    let rank_start=8*$idx
+    let rank_end=$rank_start+8
+    ssh ${IP_LIST[$idx]} "cd scripts; bash run_distribute.sh $RANK_TABLE_FILE path/to/config.yaml [$rank_start,$rank_end] finetune $device_num"
+done
+```
+
+其中
+
+- `RANK_TABLE_FILE`为上一步汇总并分发的总rank table文件；
+- `IP_LIST`为12台服务器的IP地址。如192.168.0.[0-11]
+
+```bash
+IP_LIST=("192.168.0.0", "192.168.0.1", ..., "192.168.0.11")
+```
+
+### LoRA微调
+
+全参微调能够在微调数据集上取得良好效果，但存在遗忘预训练知识的现象。
 因此推荐使用低参微调算法，冻结原模型权重，仅在小规模参数量上进行训练，在微调数据集上取得良好效果的同时，缓解模型遗忘现象
-
-#### run_mindformers脚本启动LoRA低参微调
 
 使用LoRA算法进行低参微调时，使用 `configs/glm2/run_glm2_6b_lora.yaml` 配置文件，该配置文件包含了lora低参微调算法所需的配置项
 
@@ -266,9 +518,7 @@ checkpoint存储路径：mindformers/output/checkpoint
 - 数据集：修改 `mindformers/configs/glm2/run_glm2_6b_lora.yaml` 脚本中`train_dataset` 的 `dataset_dir` 为前文生成的数据集路径。
 - 加载预训练模型权重：修改 `mindformers/configs/glm2/run_glm2_6b_lora.yaml` 脚本中的 `load_checkpoint` 为预训练模型权重路径。
 
-#### 启动LoRA低参微调脚本(1卡)：
-
-执行命令：
+#### 单卡微调
 
 ```shell
 cd scripts
@@ -280,20 +530,106 @@ bash run_standalone.sh ../configs/glm2/run_glm2_6b_lora.yaml 0 finetune
 
 checkpoint存储路径：mindformers/scripts/mf_standalone/output/checkpoint
 
-#### Trainer高阶接口启动LoRA低参微调
+#### 多卡微调
 
-示例脚本如下，需要指定训练数据集路径和微调权重。
+在每台机器上启动`bash run_distribute.sh`。
 
-```python
-from mindformers import Trainer
-trainer = Trainer(task="text_generation", model="glm2_6b", pet_method="lora",
-                  train_dataset="/path/to/AdvertiseGen/train.json")
-trainer.finetune(finetune_checkpoint="glm2_6b")
+```bash
+server_count=12
+device_num=8*$server_count
+# launch ranks in the 0th server
+cd scripts
+bash run_distribute.sh $RANK_TABLE_FILE path/to/config_lora.yaml [0,8] finetune $device_num
+
+# launch ranks in the 1-11 server via ssh
+for idx in {1..11}
+do  
+    let rank_start=8*$idx
+    let rank_end=$rank_start+8
+    ssh ${IP_LIST[$idx]} "cd scripts; bash run_distribute.sh $RANK_TABLE_FILE path/to/config_lora.yaml [$rank_start,$rank_end] finetune $device_num"
+done
 ```
 
-### 微调后推理
+其中
 
-#### 推理样例脚本
+- `RANK_TABLE_FILE`为上一步汇总并分发的总rank table文件；
+- `IP_LIST`为12台服务器的IP地址。如192.168.0.[0-11]
+
+```bash
+IP_LIST=("192.168.0.0", "192.168.0.1", ..., "192.168.0.11")
+```
+
+## 评测
+
+### 文本生成
+
+### 数据集准备-文本生成
+
+见微调章节的[数据集准备](#数据集准备)
+
+### 单卡评测
+
+使用全参微调权重时，启动如下shell脚本，执行单卡评估
+
+配置文件选择 `configs/glm2/run_glm2_6b.yaml` glm2模型推理配置，修改其中`model`字段下`model_config`中`use_past: True`开启增量推理使评估速度更快
+
+```bash
+python run_mindformer.py --config configs/glm2/run_glm2_6b.yaml --run_mode eval --load_checkpoint /path/to/glm2_6b_finetune.ckpt --eval_dataset_dir /path/to/data/AdvertiseGen/ --device_id 0
+```
+
+使用LoRA低参微调权重时，启动如下shell脚本，执行单卡评估
+
+配置文件选择 `configs/glm2/run_glm2_6b_lora.yaml` glm2_lora模型推理配置，此配置可用于lora模型，修改其中`model`字段下`model_config`中`use_past: True`开启增量推理使评估速度更快
+
+```bash
+python run_mindformer.py --config configs/glm2/run_glm2_6b_lora.yaml --run_mode eval --load_checkpoint /path/to/glm2_6b_lora.ckpt --eval_dataset_dir /path/to/data/AdvertiseGen/ --device_id 0
+```
+
+### 多卡评测
+
+- 单机多卡
+
+多卡运行需要RANK_FILE_TABLE，请参考前期准备-[生成RANK_TABLE_FILE](#生成ranktablefile)
+
+```shell
+cd scripts
+bash run_distribute.sh RANK_TABLE_FILE path/to/config.yaml [0,8] eval 8
+```
+
+- 多机多卡
+
+多机多卡运行需要合并不同机器的RANK_FILE_TABLE，参考前期准备-[多机RANK_TABLE_FILE合并](#多机ranktablefile合并)
+
+在每台机器上启动`bash run_distribute.sh`。
+
+```bash
+server_count=12
+device_num=8*$server_count
+# launch ranks in the 0th server
+cd scripts
+bash run_distribute.sh $RANK_TABLE_FILE path/to/config.yaml [0,8] eval $device_num
+
+# launch ranks in the 1-11 server via ssh
+for idx in {1..11}
+do  
+    let rank_start=8*$idx
+    let rank_end=$rank_start+8
+    ssh ${IP_LIST[$idx]} "cd scripts; bash run_distribute.sh $RANK_TABLE_FILE path/to/config.yaml [$rank_start,$rank_end] eval $device_num"
+done
+```
+
+其中
+
+- `RANK_TABLE_FILE`为上一步汇总并分发的总rank table文件；
+- `IP_LIST`为12台服务器的IP地址。如192.168.0.[0-11]
+
+```bash
+IP_LIST=("192.168.0.0", "192.168.0.1", ..., "192.168.0.11")
+```
+
+## 推理
+
+### 基于generate的推理
 
 下面提供一个模型推理样例脚本 `infer.py`
 
@@ -327,149 +663,56 @@ outputs = model.generate(inputs, max_length=128)
 print(tokenizer.decode(outputs))
 ```
 
-## 评估
+### 脚本启动
 
-### 模型权重文件合一
-
-微调所得到的权重文件为根据模型切分策略切分后的权重，我们需要手动将切分权重合一，以用于评估和推理
-
-1. 获取模型切分策略文件：
-   在执行全参微调脚本时，模型完成编译后，将会在运行路径下，生成名为 `ckpt_strategy.ckpt` 的切分策略文件，该文件将用于第二步模型合成
-
-2. MindSpore提供了根据切分策略转换模型权重切分的接口，[mindspore.transform_checkpoints](https://www.mindspore.cn/docs/zh-CN/r2.0/api_python/mindspore/mindspore.transform_checkpoints.html)，执行以下python脚本，将8份模型文件合成一份
-
-    ```python
-    from mindspore import transform_checkpoints
-    transform_checkpoints(
-        src_checkpoints_dir="./output/checkpoint/", # 原切分权重文件夹
-        dst_checkpoints_dir="./target_checkpoint/", # 目标路径
-        ckpt_prefix="glm2-6b", # .ckpt文件前缀名
-        src_strategy_file="ckpt_stragery.ckpt", # 步骤1中的切分策略文件路径
-        dst_strategy_file=None # None表示不切分，权重合一
-    )
-    ```
-
-> 注：`transform_checkpoints` 接口当前仅mindspore 2.0以上版本支持，如当前硬件环境只支持2.0以下版本，可以新建conda环境安装mindspore 2.0的cpu版本以执行该脚本
-
-### 使用全参微调权重
-
-#### run_mindformers启动eval
-
-使用全参微调权重时，启动如下shell脚本，执行单卡评估
-
-配置文件选择 `configs/glm2/run_glm2_6b.yaml` glm2模型推理配置，修改其中`model`字段下`model_config`中`use_past: True`开启增量推理使评估速度更快
+#### 单卡推理
 
 ```bash
-python run_mindformer.py --config configs/glm2/run_glm2_6b.yaml --run_mode eval --load_checkpoint /path/to/glm2_6b_finetune.ckpt --eval_dataset_dir /path/to/data/AdvertiseGen/ --device_id 0
+python run_mindformer.py --config path/to/config.yaml --run_mode predict --predict_data 你好
 ```
 
-> 注：使用离线生成数据方式时，将 `eval_dataset_dir` 一项指向`.mindrecord`文件，如 `/path/to/data/AdvertiseGen/adgen_dev.mindrecord`。
+#### 多卡推理
 
-各项参数：
+多卡运行需要RANK_FILE_TABLE，请参考前期准备-[生成RANK_TABLE_FILE](#生成ranktablefile)
 
-- `config`: 指定用于评估的配置文件名称，此处为`configs/glm2/run_glm2_6b.yaml`
-- `run_mode`: 指定执行模式，此为`eval`，表示为评估模式
-- `load_checkpoint`: 指定要加载的checkpoint路径，此处为`/path/to/glm2_6b_finetune.ckpt`，替换为需加载的权重的真实路径
-- `eval_dataset_dir`: 评估数据集的路径
-- `device_id`: 指定要使用的设备编号（从0开始）
+- 单机多卡
 
-评估完成后会打印评估指标 `bleu-4`、`rouge-1`、`rouge-2`、`rouge-l`
+```shell
+cd scripts
+bash run_distribute.sh RANK_TABLE_FILE path/to/config.yaml [0,8] predict 8 你好
+```
 
-> 注：由于默认评估指标的获取方式为生成完整文本后与预期文本做比较，评估速度将受限于模型大小与文本生成速度，评估流程可能较为缓慢
+多机多卡运行需要合并不同机器的RANK_FILE_TABLE，参考前期准备-[多机RANK_TABLE_FILE合并](#多机ranktablefile合并)
 
-#### Trainer高阶接口启动eval
+- 多机多卡
 
-与上文类似：
+在每台机器上启动`bash run_distribute.sh`。
 
 ```bash
-from mindformers import Trainer, ChatGLM2Config, ChatGLM2ForConditionalGeneration
+server_count=12
+device_num=8*$server_count
+# launch ranks in the 0th server
+cd scripts
+bash run_distribute.sh $RANK_TABLE_FILE path/to/config.yaml [0,8] predict $device_num 你好
 
-# 开启增量推理使评估速度更快
-config = ChatGLM2Config(use_past=True)
-model = ChatGLM2ForConditionalGeneration(config)
-trainer = Trainer(task="text_generation", model=model,
-                  eval_dataset="/path/to/AdvertiseGen/dev.json")
-trainer.evaluate(eval_checkpoint="/path/to/glm2_6b_finetune.ckpt")
+# launch ranks in the 1-11 server via ssh
+for idx in {1..11}
+do  
+    let rank_start=8*$idx
+    let rank_end=$rank_start+8
+    ssh ${IP_LIST[$idx]} "cd scripts; bash run_distribute.sh $RANK_TABLE_FILE path/to/config.yaml [$rank_start,$rank_end] predict $device_num 你好"
+done
 ```
 
-### 使用LoRA低参微调权重
+其中
 
-#### run_mindformers启动lora eval
-
-使用LoRA低参微调权重时，启动如下shell脚本，执行单卡评估
-
-配置文件选择 `configs/glm2/run_glm2_6b_lora.yaml` glm2_lora模型推理配置，此配置可用于lora模型，修改其中`model`字段下`model_config`中`use_past: True`开启增量推理使评估速度更快
+- `RANK_TABLE_FILE`为上一步汇总并分发的总rank table文件；
+- `IP_LIST`为12台服务器的IP地址。如192.168.0.[0-11]
 
 ```bash
-python run_mindformer.py --config configs/glm2/run_glm2_6b_lora.yaml --run_mode eval --load_checkpoint /path/to/glm2_6b_lora.ckpt --eval_dataset_dir /path/to/data/AdvertiseGen/ --device_id 0
+IP_LIST=("192.168.0.0", "192.168.0.1", ..., "192.168.0.11")
 ```
 
-各项参数同上，路径需替换为实际路径
+## [mindspore-lite](../feature_cards/Inference.md)
 
-#### Trainer高阶接口启动lora eval
-
-与上文类似：
-
-```bash
-from mindformers import Trainer, ChatGLM2Config, ChatGLM2WithLora
-from mindformers.pet.pet_config import LoraConfig
-
-# 开启增量推理使评估速度更快
-config = ChatGLM2Config(use_past=True)
-config.pet_config = LoraConfig()
-model = ChatGLM2WithLora(config)
-trainer = Trainer(task="text_generation", model=model,
-                  eval_dataset="/path/to/AdvertiseGen/dev.json")
-trainer.evaluate(eval_checkpoint="/path/to/glm2_6b_lora.ckpt")
-```
-
-## 模型权重转化
-
-本仓库中的`glm2`来自于HuggingFace的 [ChatGLM2-6B](https://huggingface.co/THUDM/chatglm2-6b)，基于下述的步骤获取：
-
-1. 克隆chatglm2-6b代码仓，下载分布式的模型文件。
-
-   ```shell
-   git lfs install
-   git clone https://huggingface.co/THUDM/chatglm2-6b
-   ```
-
-2. 执行 python 脚本，合并模型权重。
-
-   ```python
-   from transformers import AutoTokenizer, AutoModel
-   import torch
-
-   tokenizer = AutoTokenizer.from_pretrained("THUDM/chatglm2-6b", trust_remote_code=True)
-   model = AutoModel.from_pretrained("THUDM/chatglm2-6b", trust_remote_code=True)
-
-   with open("pt_model_arch.txt", "w") as fp:
-       print(model, file=fp, flush=True)
-   with open("pt_ckpt.txt", "w") as fp:
-       for name, param in model.named_parameters():
-           fp.write(f"{name} {param.shape} {param.dtype}\n")
-   torch.save(model.state_dict(), "glm2_6b.pth")
-   ```
-
-3. 执行转换脚本，得到转换后的输出文件`glm2_6b.ckpt`。
-
-   ```python
-   import mindspore as ms
-   import torch as pt
-   from tqdm import tqdm
-
-   pt_ckpt_path = "glm2_6b.pth"
-   pt_param = pt.load(pt_ckpt_path)
-
-   type_map = {"torch.float16": "ms.float16",
-               "torch.float32": "ms.float32"}
-   ms_param = []
-   with open("check_pt_ckpt.txt", "w") as fp:
-       for k, v in tqdm(pt_param.items()):
-           if "word_embeddings.weight" in k:
-               k = k.replace("word_embeddings.weight", "embedding_table")
-           fp.write(f"{k} {v.shape} {v.dtype}\n")
-           ms_param.append({"name": k, "data": ms.Tensor(v.numpy())})
-
-   ms.save_checkpoint(ms_param, "glm2_6b.ckpt")
-   ```
+如需导出模型，使用mindspore-lite进行离线推理请参考[推理特性使用文档](../feature_cards/Inference.md)
