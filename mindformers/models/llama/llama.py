@@ -272,7 +272,7 @@ class LlamaForCausalLM(BaseModel):
         """
     _support_list = MindFormerBook.get_model_support_list()['llama']
 
-    @cell_reuse()
+    @cell_reuse
     def __init__(self, config: LlamaConfig = None):
         super(LlamaForCausalLM, self).__init__(config, auto_prefix=True)
         _check_config(config.parallel_config)
