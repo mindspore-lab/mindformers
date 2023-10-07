@@ -16,6 +16,7 @@
 import mindspore.common.dtype as mstype
 from ..version_control import get_cell_reuse
 
+
 def convert_mstype(ms_type: str = "float16"):
     """Convert the string type to MindSpore type."""
     if isinstance(ms_type, mstype.Float):
@@ -27,5 +28,5 @@ def convert_mstype(ms_type: str = "float16"):
     raise KeyError(f"Supported data type keywords include: "
                    f"[float16, float32], but get {ms_type}")
 
-def cell_reuse():
-    return get_cell_reuse()
+
+cell_reuse = get_cell_reuse
