@@ -11,4 +11,4 @@ mindpet==1.0.1
 pydantic==1.10.11
 mdtex2html
 gradio
-opencv-python
+opencv-python-headless

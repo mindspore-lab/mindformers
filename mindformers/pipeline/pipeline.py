@@ -55,7 +55,7 @@ def pipeline(
         audio_processor (Optional[BaseAudioProcessor]): The audio processor of the model.
         backend(str): The inference backend. Default "ms", now support ["ms", "mslite"].
 
-    Return:
+    Returns:
         A task pipeline.
 
     Raises:
@@ -69,11 +69,11 @@ def pipeline(
         >>> img = load_image("https://ascend-repo-modelzoo.obs.cn-east-2."
             "myhuaweicloud.com/XFormer_for_mindspore/clip/sunflower.png")
         >>> classifier(img)
-            [[{'score': 0.99995565, 'label': 'sunflower'},
-            {'score': 2.5318595e-05, 'label': 'toy'},
-            {'score': 9.903885e-06, 'label': 'dog'},
-            {'score': 6.75336e-06, 'label': 'tree'},
-            {'score': 2.396818e-06, 'label': 'cat'}]]
+        [[{'score': 0.99995565, 'label': 'sunflower'},
+        {'score': 2.5318595e-05, 'label': 'toy'},
+        {'score': 9.903885e-06, 'label': 'dog'},
+        {'score': 6.75336e-06, 'label': 'tree'},
+        {'score': 2.396818e-06, 'label': 'cat'}]]
     """
     if backend == Backend.MS_LITE.value:
         from mindformers.inference import get_mslite_pipeline
@@ -100,7 +100,7 @@ def get_ms_pipeline(task, model, tokenizer, image_processor, audio_processor, **
     else:
         model_name = "common"
     pipeline_config = MindFormerConfig(SUPPORT_PIPELINES.get(task).get(model_name))
-    pipeline_config.model.model_config.update({"checkpoint_name_or_path": model_name})
+
     if model is None:
         model = build_model(pipeline_config.model)
     if image_processor is None and hasattr(pipeline_config.processor, 'image_processor'):

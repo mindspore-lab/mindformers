@@ -81,6 +81,9 @@ class BasePipeline(ABC):
                 the type of inputs depends on task.
             batch_size (Optional[int]): The batch size for a GeneratorDataset input, for
                 other types of inputs, the batch size would be set to 1 by default.
+
+        Returns:
+            outputs: The outputs of pipeline, the type of outputs depends on task.
         """
         preprocess_params, forward_params, postprocess_params = self._sanitize_parameters(**kwargs)
         preprocess_params = {**self._preprocess_params, **preprocess_params}
