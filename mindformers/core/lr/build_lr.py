@@ -18,7 +18,7 @@ import inspect
 from mindspore import nn
 
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType, MindFormerConfig
-from .lr_schedule import ConstantWarmUpLR, CosineWithWarmUpLR, \
+from mindformers.core.lr.lr_schedule import ConstantWarmUpLR, CosineWithWarmUpLR, \
     LinearWithWarmUpLR, CosineWithRestartsAndWarmUpLR, PolynomialWithWarmUpLR
 
 
@@ -38,13 +38,17 @@ def build_lr(
         The function instance of lr API.
 
     Examples:
-        >>> from mindformers import build_lr
+        >>> from mindformers.core.lr import build_lr
         >>> lr_config = {'type': 'CosineDecayLR', 'max_lr': 0.001,
         ...              'min_lr': 0., 'decay_steps':10}
         >>> # 1) use config dict to build lr
         >>> lr_from_config = build_lr(lr_config)
+        >>> print(type(lr_from_config))
+        <class 'mindspore.nn.learning_rate_schedule.CosineDecayLR'>
         >>> # 2) use class name to build lr
         >>> lr_class_name = build_lr(class_name='CosineDecayLR', max_lr=0.001, min_lr=0., decay_steps=10)
+        >>> print(type(lr_class_name))
+        <class 'mindspore.nn.learning_rate_schedule.CosineDecayLR'>
     """
     if config is None and class_name is None:
         return None
@@ -68,7 +72,7 @@ def register_ms_lr():
 
 
 def register_mf_lr():
-    """ register MindFomrers builtin LR class. """
+    """ register MindFormers builtin LR class. """
     # adapt huggingface
     MindFormerRegister.register_cls(
         ConstantWarmUpLR, module_type=MindFormerModuleType.LR, alias="constant_with_warmup")
