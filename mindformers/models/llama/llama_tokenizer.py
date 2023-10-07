@@ -84,7 +84,7 @@ class LlamaTokenizer(Tokenizer):
             unk_token="<unk>",
             bos_token="<s>",
             eos_token="</s>",
-            pad_token="<pad>",
+            pad_token="<unk>",
             sp_model_kwargs: Optional[Dict[str, Any]] = None,
             add_bos_token=True,
             add_eos_token=False,
