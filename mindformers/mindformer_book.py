@@ -1222,6 +1222,10 @@ class MindFormerBook:
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
           '/XFormer_for_mindspore/llama/tokenizer.model'
           ]),
+        ('llama_13b',
+         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
+          '/XFormer_for_mindspore/llama/tokenizer.model'
+          ]),
         ('llama2_7b',
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
           '/MindFormers/llama2/tokenizer.model'
