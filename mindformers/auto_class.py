@@ -201,6 +201,7 @@ class AutoModel:
         ...                            'configs', 'clip', 'run_clip_vit_b_32_pretrain_flickr8k.yaml')
         >>> model_c = AutoModel.from_config(config_path)
         >>> # 4)  input config, load model without weights
+        >>> from mindformers import AutoConfig
         >>> config = AutoConfig.from_pretrained('clip_vit_b_32')
         >>> model_d = AutoModel.from_config(config)
     """
@@ -284,7 +285,7 @@ class AutoModel:
         Inverse parse config method, which builds yaml file content for model config.
 
         Args:
-            config (BaseConfig): a model config inherited from BaseConfig.
+            config (BaseConfig): A model config inherited from BaseConfig.
 
         Returns:
             A model config, which follows the yaml content.
@@ -307,7 +308,7 @@ class AutoModel:
         Wrap config function, which wraps a config to rebuild content of yaml file.
 
         Args:
-            config (BaseConfig): a config processed by _inverse_parse_config function.
+            config (BaseConfig): A config processed by _inverse_parse_config function.
 
         Returns:
             A model config, which has the same content as a yaml file.
@@ -654,7 +655,7 @@ class AutoTokenizer:
         """
         Try to find the yaml from the given path
         Args:
-            yaml_name_or_path (str): the directory of the config yaml
+            yaml_name_or_path (str): The directory of the config yaml
 
         Returns:
             The class name of the tokenizer in the config yaml.
@@ -690,7 +691,7 @@ class AutoTokenizer:
         """
         try to get the tokenizer type from tokenizer_config.json
         Args:
-            yaml_name_or_path (str): the directory of tokenizer_config.json
+            yaml_name_or_path (str): The directory of tokenizer_config.json
 
         Returns:
             The class name of the tokenizer in tokenizer_config.json

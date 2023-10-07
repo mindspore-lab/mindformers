@@ -113,7 +113,7 @@ class ImageClassificationPipeline(BasePipeline):
             inputs (Union[url, PIL.Image, tensor, numpy]): The image to be classified.
             preprocess_params (dict): The parameter dict for preprocess.
 
-        Return:
+        Returns:
             Processed image.
         """
         if isinstance(inputs, dict):
@@ -131,6 +131,9 @@ class ImageClassificationPipeline(BasePipeline):
         Args:
             model_inputs (dict): The output of preprocess.
             forward_params (dict): The parameter dict for model forward.
+
+        Returns:
+            Probs of classification
         """
         forward_params.pop("None", None)
 
@@ -147,8 +150,8 @@ class ImageClassificationPipeline(BasePipeline):
             model_outputs (dict): Outputs of forward process.
             top_k (int): Return top_k probs of result.
 
-        Return:
-            classification results.
+        Returns:
+            outputs (list): Classification results.
         """
         top_k = postprocess_params.pop("top_k", 3)
         candidate_labels = postprocess_params.pop("candidate_labels", 'imagenet')
