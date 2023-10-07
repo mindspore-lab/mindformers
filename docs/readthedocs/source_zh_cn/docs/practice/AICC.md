@@ -265,13 +265,13 @@ python mindformers/tools/transform_ckpt.py --src_ckpt_strategy SRC_CKPT_STRATEGY
 
 训练作业界面中增加`load_checkpoint`超参，输入转换好的checkpoint的文件夹obs路径。
 
-### [profiler](../feature_cards/Performance_Tuning.md#profiler数据采集)
+### [profiler](../Debugging_Tuning/Performance_Tuning.md#profiler数据采集)
 
 训练作业界面中增加`profile`超参，设置为True，即可开启profile功能。此时profiler参数均为默认值。
 
 采集完毕后，profiler文件数据会回传至`remote_save_url`路径下
 
-### [dump](../feature_cards/Precision_Optimization.md#dump使用方法)
+### [dump](../Debugging_Tuning/Precision_Optimization.md#dump使用方法)
 
 参考高阶特性精度调优中dump使用方法，创建json文件，并上传至obs中。
 

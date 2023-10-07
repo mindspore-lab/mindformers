@@ -18,17 +18,16 @@ MindSpore Transformers套件基于MindSpore内置的并行技术和组件化设�
 
 如果您对MindSpore Transformers有任何建议，请通过issue与我们联系，我们将及时处理。
 
-- 模型README：[docs/model_cards](https://gitee.com/mindspore/mindformers/tree/dev/docs/model_cards)
-- 任务README：[docs/task_cards](https://gitee.com/mindspore/mindformers/tree/dev/docs/task_cards)
-- MindPet指导教程：[docs/pet_tuners](https://gitee.com/mindspore/mindformers/blob/dev/docs/feature_cards/Pet_Tuners.md)
-- AICC指导教程：[docs/aicc_cards](https://gitee.com/mindspore/mindformers/blob/dev/docs/aicc_cards/README.md)
-- 高阶API指导文档: [docs/mindformers_tutorial.md](https://gitee.com/mindspore/mindformers/blob/dev/docs/README.md)
-- 在线文档：[mindformers](https://mindformers.readthedocs.io/zh_CN/latest)
+- **[MindFromers教程文档](https://mindformers.readthedocs.io/zh_CN/latest)**
+- [模型README](https://gitee.com/mindspore/mindformers/tree/dev/docs/model_cards)
+- [任务README](https://gitee.com/mindspore/mindformers/tree/dev/docs/task_cards)
+- [MindPet指导教程](docs/feature_cards/Pet_Tuners.md)
+- [AICC指导教程](docs/readthedocs/source_zh_cn/docs/practice/AICC.md)
 
 目前支持的模型列表如下：
 
-|                     模型                     |                                                                                                         任务（task name）                                                                                                         | 模型（model name）                                                                                                                                                                                            |
-| :------------------------------------------: |:-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:|:----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+|                     模型                     |                                                                                                       任务（task name）                                                                                                       | 模型（model name）                                                                                                                                                                                        |
+| :------------------------------------------: | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------: | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 |       [BERT](docs/model_cards/bert.md)       | masked_language_modeling<br>[text_classification](docs/task_cards/text_classification.md) <br>[token_classification](docs/task_cards/token_classification.md) <br>[question_answering](docs/task_cards/question_answering.md) | bert_base_uncased <br>txtcls_bert_base_uncased<br>txtcls_bert_base_uncased_mnli <br>tokcls_bert_base_chinese<br>tokcls_bert_base_chinese_cluener <br>qa_bert_base_uncased<br>qa_bert_base_chinese_uncased |
 |         [T5](docs/model_cards/t5.md)         |                                                                                                          translation                                                                                                          | t5_small                                                                                                                                                                                                  |
 |       [GPT2](docs/model_cards/gpt2.md)       |                                                                                     [text_generation](docs/task_cards/text_generation.md)                                                                                     | gpt2_small <br>gpt2_13b <br>gpt2_52b                                                                                                                                                                      |
@@ -42,7 +41,7 @@ MindSpore Transformers套件基于MindSpore内置的并行技术和组件化设�
 |        [VIT](docs/model_cards/vit.md)        |                                                                                [image_classification](docs/task_cards/image_classification.md)                                                                                | vit_base_p16                                                                                                                                                                                              |
 |       [Swin](docs/model_cards/swin.md)       |                                                                                [image_classification](docs/task_cards/image_classification.md)                                                                                | swin_base_p4w7                                                                                                                                                                                            |
 |       [CLIP](docs/model_cards/clip.md)       |                     [contrastive_language_image_pretrain](docs/task_cards/contrastive_language_image_pretrain.md)<br> [zero_shot_image_classification](docs/task_cards/zero_shot_image_classification.md)                     | clip_vit_b_32<br>clip_vit_b_16 <br>clip_vit_l_14<br>clip_vit_l_14@336                                                                                                                                     |
-|      [BLIP2](docs/model_cards/blip2.md)      |                    [contrastive_language_image_pretrain](docs/task_cards/contrastive_language_image_pretrain.md)<br> [zero_shot_image_classification](docs/task_cards/zero_shot_image_classification.md)                      | blip2_stage1_vit_g                                                                                                                                                                                        |
+|      [BLIP2](docs/model_cards/blip2.md)      |                     [contrastive_language_image_pretrain](docs/task_cards/contrastive_language_image_pretrain.md)<br> [zero_shot_image_classification](docs/task_cards/zero_shot_image_classification.md)                     | blip2_stage1_vit_g                                                                                                                                                                                        |
 
 目前在research中支持的模型列表如下：
 
@@ -182,7 +181,7 @@ RUN_MODE: 为任务运行状态，支持关键字 train\finetune\eval\predict
 
     - Trainer 训练\微调启动
 
-  用户可使用`Trainer.train`接口完成模型的训练\微调\断点续训。
+  用户可使用`Trainer.train`或者`Trainer.finetunne`接口完成模型的训练\微调\断点续训。
 
   ```python
   from mindformers import Trainer
@@ -253,20 +252,17 @@ RUN_MODE: 为任务运行状态，支持关键字 train\finetune\eval\predict
     - pipeline 使用
 
   ```python
-  from mindformers import pipeline
-  from mindformers.tools.image_tools import load_image
+  # 以gpt2 small为例
+  from mindformers.pipeline import pipeline
 
-  test_img = load_image("./sunflower.png") # 一朵太阳花图片
-  classifier = pipeline("zero_shot_image_classification",
-                        model='clip_vit_b_32',
-                        candidate_labels=["sunflower", "tree", "dog", "cat", "toy"])
-  predict_result = classifier(test_img)
-  print(predict_result)
+  pipeline_task = pipeline(task="text_generation", model="gpt2")
+  pipeline_result = pipeline_task("An increasing sequence: one,", do_sample=False, max_length=20)
+  print(pipeline_result)
   ```
 
   ```text
-  结果打印示例(已集成的clip_vit_b_32模型权重推理结果)：
-   [[{'score': 0.9999547, 'label': 'sunflower'}, {'score': 1.8684346e-05, 'label': 'toy'}, {'score': 1.3045716e-05, 'label': 'dog'}, {'score': 1.129241e-05, 'label': 'tree'}, {'score': 2.1734568e-06, 'label': 'cat'}]]
+  结果打印示例(已集成的gpt2模型权重推理结果)：
+   # [{'text_generation_text': ['An increasing sequence: one, two, three, four, five, six, seven, eight,']}]
   ```
 
 - AutoClass 快速入门
@@ -278,8 +274,8 @@ RUN_MODE: 为任务运行状态，支持关键字 train\finetune\eval\predict
   ```python
   from mindformers import AutoConfig
 
-  # 获取clip_vit_b_32的模型配置
-  clip_vit_b_32_config = AutoConfig.from_pretrained('clip_vit_b_32')
+  # 获取gpt2的模型配置
+  gpt2_config = AutoConfig.from_pretrained('gpt2')
   # 获取vit_base_p16的模型配置
   vit_base_p16_config = AutoConfig.from_pretrained('vit_base_p16')
   ```
@@ -290,12 +286,12 @@ RUN_MODE: 为任务运行状态，支持关键字 train\finetune\eval\predict
   from mindformers import AutoModel
 
   # 利用from_pretrained功能实现模型的实例化（默认加载对应权重）
-  clip_vit_b_32_a = AutoModel.from_pretrained('clip_vit_b_32')
+  gpt2 = AutoModel.from_pretrained('gpt2')
   # 利用from_config功能实现模型的实例化（默认加载对应权重）
-  clip_vit_b_32_config = AutoConfig.from_pretrained('clip_vit_b_32')
-  clip_vit_b_32_b = AutoModel.from_config(clip_vit_b_32_config)
+  gpt2_config = AutoConfig.from_pretrained('gpt2')
+  gpt2 = AutoModel.from_config(gpt2_config)
   # 利用save_pretrained功能保存模型对应配置
-  clip_vit_b_32_b.save_pretrained('./clip', save_name='clip_vit_b_32')
+  gpt2.save_pretrained('./gpt2', save_name='gpt2')
   ```
 
     - AutoProcessor 获取已支持的预处理方法
@@ -303,18 +299,18 @@ RUN_MODE: 为任务运行状态，支持关键字 train\finetune\eval\predict
   ```python
   from mindformers import AutoProcessor
 
-  # 通过模型名关键字获取对应模型预处理过程（实例化clip的预处理过程，通常用于Trainer/pipeline推理入参）
-  clip_processor_a = AutoProcessor.from_pretrained('clip_vit_b_32')
+  # 通过模型名关键字获取对应模型预处理过程（实例化gpt2的预处理过程，通常用于Trainer/pipeline推理入参）
+  gpt2_processor_a = AutoProcessor.from_pretrained('gpt2')
   # 通过yaml文件获取相应的预处理过程
-  clip_processor_b = AutoProcessor.from_pretrained('configs/clip/run_clip_vit_b_32_zero_shot_image_classification_cifar100.yaml')
+  gpt2_processor_b = AutoProcessor.from_pretrained('configs/gpt2/run_gpt2.yaml')
   ```
 
     - AutoTokenizer 获取已支持的tokenizer方法
 
   ```python
   from mindformers import AutoTokenizer
-  # 通过模型名关键字获取对应模型预处理过程（实例化clip的tokenizer，通常用于Trainer/pipeline推理入参）
-  clip_tokenizer = AutoTokenizer.from_pretrained('clip_vit_b_32')
+  # 通过模型名关键字获取对应模型预处理过程（实例化gpt2的tokenizer，通常用于Trainer/pipeline推理入参）
+  gpt2_tokenizer = AutoTokenizer.from_pretrained('gpt2')
   ```
 
 ## 五、贡献
