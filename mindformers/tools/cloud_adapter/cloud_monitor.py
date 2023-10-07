@@ -17,13 +17,13 @@
 import os
 import traceback
 
-from mindformers.tools.logger import get_logger
+from mindformers.tools.logger import logger
 from .cloud_adapter import mox_adapter
 from ..utils import DEBUG_INFO_PATH, PROFILE_INFO_PATH, PLOG_PATH, LAST_TRANSFORM_LOCK_PATH,\
     get_output_root_path, get_remote_save_url
 
 
-def cloud_monitor(log=get_logger()):
+def cloud_monitor(log=logger):
     """Aicc monitor for main function."""
     def decorator(run_func):
 
@@ -49,7 +49,7 @@ def cloud_monitor(log=get_logger()):
     return decorator
 
 
-def _last_transform(local_id, log=get_logger()):
+def _last_transform(local_id, log=logger):
     """Transform file when progress ending or except."""
     if os.environ.get("SPECIAL_ID") and get_remote_save_url():
         target_dir = get_remote_save_url()

@@ -136,8 +136,19 @@ def get_output_root_path():
     """get default output path in local/AICC."""
     if check_in_modelarts():
         return MA_OUTPUT_ROOT
-    return LOCAL_DEFAULT_PATH
+    return os.getenv("LOCAL_DEFAULT_PATH", './output')
 
+def set_output_path(path):
+    """set output path"""
+    from .logger import logger
+    warning = False
+    if path is None:
+        path = './output'
+        warning = True
+    os.environ['LOCAL_DEFAULT_PATH'] = path
+    if warning:
+        logger.warning(f"path is None, it will be set to './output'")
+    logger.info(f"set output path to '{path}'")
 
 def get_output_subpath(sub_class, rank_id=0, append_rank=True):
     """get output store path for sub output class."""

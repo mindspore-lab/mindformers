@@ -29,7 +29,7 @@ from mindformers.core.context import build_context, build_profile_cb
 from mindformers.trainer import build_trainer
 from mindformers.tools.cloud_adapter import cloud_monitor
 from mindformers.tools.logger import logger
-from mindformers.tools import get_output_root_path
+from mindformers.tools import get_output_root_path, set_output_path
 from mindformers.mindformer_book import MindFormerBook
 
 if check_in_modelarts():
@@ -80,6 +80,9 @@ def clear_auto_trans_output(config):
 @cloud_monitor()
 def main(config):
     """main."""
+    # set output path
+    set_output_path(config.output_dir)
+
     # init context
     build_context(config)
 
@@ -236,6 +239,9 @@ if __name__ == "__main__":
         '--num_samples', default=None, type=int,
         help='number of datasets samples used.'
              'Default: None')
+    parser.add_argument(
+        '--output_dir', default=None, type=str,
+        help='output directory.')
 
     args_, rest_args_ = parser.parse_known_args()
     rest_args_ = [i for item in rest_args_ for i in item.split("=")]
@@ -245,6 +251,7 @@ if __name__ == "__main__":
     if args_.config is not None:
         args_.config = os.path.join(work_path, args_.config)
     config_ = MindFormerConfig(args_.config)
+
     if args_.device_id is not None:
         config_.context.device_id = args_.device_id
     if args_.device_target is not None:
@@ -308,6 +315,8 @@ if __name__ == "__main__":
             config_.train_dataset.data_loader.num_samples = args_.num_samples
         if config_.eval_dataset and config_.eval_dataset.data_loader:
             config_.eval_dataset.data_loader.num_samples = args_.num_samples
+    if args_.output_dir is not None:
+        config_.output_dir = args_.output_dir
 
     while rest_args_:
         key = rest_args_.pop(0)
