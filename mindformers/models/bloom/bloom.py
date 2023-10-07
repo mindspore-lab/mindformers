@@ -235,7 +235,7 @@ class BloomLMHeadModel(BaseModel):
 
     _support_list = MindFormerBook.get_model_support_list()['bloom']
 
-    @cell_reuse()
+    @cell_reuse
     def __init__(self, config=None):
         config = config if config is not None else BloomConfig()
         super(BloomLMHeadModel, self).__init__(config, auto_prefix=False)

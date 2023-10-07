@@ -78,7 +78,7 @@ class Baichuan13BV2ForCausalLM(BaseModel):
             >>> network = Baichuan13BV2ForCausalLM(config=config)
         """
 
-    @cell_reuse()
+    @cell_reuse
     def __init__(self, config: LlamaConfig = None):
         super(Baichuan13BV2ForCausalLM, self).__init__(config, auto_prefix=True)
         _check_config(config.parallel_config)
