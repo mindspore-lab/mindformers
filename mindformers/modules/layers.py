@@ -190,16 +190,16 @@ class _LayerInputCheck:
 
 @constexpr
 def _check_past_none_input_none(use_past, param_name, func_name, default_value, is_tensor, is_default):
-    """ If the past is True, check whether the inputs is None"""
+    """ If the use_past is True, check whether the inputs is None"""
     if not use_past:
         if is_tensor:
-            raise TypeError(f"{func_name} {param_name} must be {default_value}, if use_pat is False, but found "
+            raise TypeError(f"{func_name} {param_name} must be {default_value}, if use_past is False, but found "
                             f"a tensor")
         if not is_default:
-            raise TypeError(f"{func_name} {param_name} must be {default_value}, if use_pat is False.")
+            raise TypeError(f"{func_name} {param_name} must be {default_value}, if use_past is False.")
     else:
         if not is_tensor:
-            raise TypeError(f"{func_name} {param_name} must be tensor, if use_pat is True")
+            raise TypeError(f"{func_name} {param_name} must be tensor, if use_past is True")
     return True
 
 
