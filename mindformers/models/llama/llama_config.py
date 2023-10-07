@@ -106,7 +106,7 @@ class LlamaConfig(BaseConfig):
                  rms_norm_eps: float = 1e-5,
                  bos_token_id: int = 1,
                  eos_token_id: int = 2,
-                 pad_token_id: int = 32000,
+                 pad_token_id: int = 0,
                  ignore_token_id: int = -100,
                  compute_dtype: str = "float16",
                  layernorm_compute_type: str = "float32",
