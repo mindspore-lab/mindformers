@@ -492,7 +492,7 @@ python tnews_data_process.py --input_file {your_path/dev.json} \
 #### 单卡评测
 
 ```bash
-python run_mindformers.py --config configs/pangualpha/run_pangualpha_2_6b_prompt_txtcls.yaml \
+python run_mindformer.py --config configs/pangualpha/run_pangualpha_2_6b_prompt_txtcls.yaml \
                             --eval_dataset_dir {your_path/tnews.mindrecord} \
                             --run_mode eval
 # ACC: 0.646, total_acc_num: 6458, total_num: 10000
@@ -509,7 +509,7 @@ python run_mindformers.py --config configs/pangualpha/run_pangualpha_2_6b_prompt
 ```bash
 # 注：生成的数据集文件需以.mindrecord结尾
 cd mindformers/tools/dataset_preprocess/pangualpha
-python wikitext2_data_process.py --train_file {your_path/train.json} \
+python cmrc2018_data_process.py --train_file {your_path/train.json} \
                                     --dev_file {your_path/dev.json} \
                                     --output_file {your_path/cmrc2018.mindrecord}
 ```
@@ -517,7 +517,7 @@ python wikitext2_data_process.py --train_file {your_path/train.json} \
 #### 单卡评测
 
 ```bash
-python run_mindformers.py --config configs/pangualpha/run_pangualpha_2_6b_prompt_txtcls.yaml \
+python run_mindformer.py --config configs/pangualpha/run_pangualpha_2_6b_prompt_txtcls.yaml \
                           --eval_dataset_dir {your_path/tnews.mindrecord} \
                           --run_mode eval
 # ACC: 0.646, total_acc_num: 6458, total_num: 10000
