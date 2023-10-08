@@ -33,7 +33,20 @@ __all__ = [
 
 @MindFormerRegister.register(MindFormerModuleType.LR)
 class ConstantWarmUpLR(LearningRateSchedule):
-    """ConstantWarmUpLR."""
+    """
+    Constant Warm Up Learning Rate.
+
+    Args:
+        learning_rate (`float`):
+            Initial value of learning rate.
+        warmup_steps (`int`):
+            The number of warm up steps.
+        warmup_lr_init (`float`, *optional*, defaults to 0.):
+            Initial learning rate in warm up steps.
+
+    Returns:
+        Class, ConstantWarmUpLR
+    """
     def __init__(self, learning_rate: float, warmup_steps: int, warmup_lr_init: float = 0., **kwargs):
         super(ConstantWarmUpLR, self).__init__()
         warmup_steps = max(1, warmup_steps)
@@ -57,7 +70,22 @@ class ConstantWarmUpLR(LearningRateSchedule):
 
 @MindFormerRegister.register(MindFormerModuleType.LR)
 class LinearWithWarmUpLR(LearningRateSchedule):
-    """LinearWithWarmUpLR."""
+    """
+    Linear with Warm Up Learning Rate.
+
+    Args:
+        learning_rate (`float`):
+            Initial value of learning rate.
+        warmup_steps (`int`):
+            The number of warm up steps.
+        total_steps (`int`):
+            The number of total steps.
+        warmup_lr_init (`float`, *optional*, defaults to 0.):
+            Initial learning rate in warm up steps.
+
+    Returns:
+        Class, LinearWithWarmUpLR
+    """
     def __init__(self, learning_rate: float, warmup_steps: int, total_steps: int,
                  warmup_lr_init: float = 0.):
         super(LinearWithWarmUpLR, self).__init__()
@@ -87,7 +115,27 @@ class LinearWithWarmUpLR(LearningRateSchedule):
 
 @MindFormerRegister.register(MindFormerModuleType.LR)
 class CosineWithWarmUpLR(LearningRateSchedule):
-    """CosineWithWarmUpLR."""
+    """
+    Cosine with Warm Up Learning Rate.
+
+    Args:
+        learning_rate (`float`):
+            Initial value of learning rate.
+        warmup_steps (`int`):
+            The number of warm up steps.
+        total_steps (`int`):
+            The number of total steps.
+        num_cycles (`float`, *optional*, defaults to 0.5):
+            The number of waves in the cosine schedule (the defaults is to just decrease from the max value to 0
+            following a half-cosine).
+        lr_end (`float`, *optional*, defaults to 0.):
+            Final value of learning rate.
+        warmup_lr_init (`float`, *optional*, defaults to 0.):
+            Initial learning rate in warm up steps.
+
+    Returns:
+        Class, CosineWithWarmUpLR
+    """
     def __init__(self, learning_rate: float, warmup_steps: int, total_steps: int,
                  num_cycles: float = 0.5, lr_end: float = 0., warmup_lr_init: float = 0.):
         super(CosineWithWarmUpLR, self).__init__()
@@ -123,7 +171,27 @@ class CosineWithWarmUpLR(LearningRateSchedule):
 
 @MindFormerRegister.register(MindFormerModuleType.LR)
 class CosineWithRestartsAndWarmUpLR(LearningRateSchedule):
-    """CosineWithRestartsAndWarmUpLR."""
+    """
+    Cosine with Restarts and Warm Up Learning Rate.
+
+    Args:
+        learning_rate (`float`):
+            Initial value of learning rate.
+        warmup_steps (`int`):
+            The number of warm up steps.
+        total_steps (`int`):
+            The number of total steps.
+        num_cycles (`float`, *optional*, defaults to 0.5):
+            The number of waves in the cosine schedule (the defaults is to just decrease from the max value to 0
+            following a half-cosine).
+        lr_end (`float`, *optional*, defaults to 0.):
+            Final value of learning rate.
+        warmup_lr_init (`float`, *optional*, defaults to 0.):
+            Initial learning rate in warm up steps.
+
+    Returns:
+        Class, CosineWithRestartsAndWarmUpLR
+    """
     def __init__(self, learning_rate: float, total_steps: int, warmup_steps: int,
                  num_cycles: float = 0.5, lr_end: float = 0., warmup_lr_init: float = 0.):
         super(CosineWithRestartsAndWarmUpLR, self).__init__()
@@ -164,7 +232,26 @@ class CosineWithRestartsAndWarmUpLR(LearningRateSchedule):
 
 @MindFormerRegister.register(MindFormerModuleType.LR)
 class PolynomialWithWarmUpLR(LearningRateSchedule):
-    """PolynomialWithWarmUpLR."""
+    """
+    Polynomial with Warm Up Learning Rate.
+
+    Args:
+        learning_rate (`float`):
+            Initial value of learning rate.
+        warmup_steps (`int`):
+            The number of warm up steps.
+        total_steps (`int`):
+            The number of total steps.
+        power (`float`, *optional*, defaults to 1.0):
+            The power of the polynomial.
+        lr_end (`float`, *optional*, defaults to 0.):
+            Final value of learning rate.
+        warmup_lr_init (`float`, *optional*, defaults to 0.):
+            Initial learning rate in warm up steps.
+
+    Returns:
+        Class, PolynomialWithWarmUpLR
+    """
     def __init__(self, learning_rate: float, warmup_steps: int, total_steps: int,
                  lr_end: float = 1e-7, power: float = 1.0, warmup_lr_init: float = 0.):
         super(PolynomialWithWarmUpLR, self).__init__()
@@ -199,7 +286,18 @@ class PolynomialWithWarmUpLR(LearningRateSchedule):
 
 @MindFormerRegister.register(MindFormerModuleType.LR)
 class LearningRateWiseLayer(LearningRateSchedule):
-    """LearningRateWiseLayer."""
+    """
+    Learning Rate Wise Layer.
+
+    Args:
+        base_lr (`LearningRateSchedule`):
+            The base learning rate schedule.
+        lr_scale (`float`):
+            The value for learning rate scaling.
+
+    Returns:
+        Class, LearningRateWiseLayer
+    """
 
     def __init__(self, base_lr, lr_scale):
         super(LearningRateWiseLayer, self).__init__()
@@ -215,6 +313,23 @@ class LearningRateWiseLayer(LearningRateSchedule):
 class WarmUpDecayLR(LearningRateSchedule):
     """
     Warmup-decay learning rate for Bert network.
+
+    Args:
+        learning_rate (`float`):
+            Initial value of learning rate.
+        end_learning_rate (`float`):
+            Final value of learning rate.
+        warmup_steps (`int`):
+            The number of warm up steps.
+        decay_steps (`int`):
+            The number of decay steps.
+        power (`float`, *optional*, defaults to 1.0):
+            The power of the polynomial.
+        use_cosine (`bool`, *optional*, defaults to False):
+            whether to use cosine decay learning rate.
+
+    Returns:
+        Class, WarmUpDecayLR
     """
 
     def __init__(self, learning_rate, end_learning_rate, warmup_steps, decay_steps, power=1.0, use_cosine=False):
