@@ -176,7 +176,7 @@ python mindformers/tools/export.py --model_dir /path/test_model_dir
 
 推理模块提供了一键启动脚本，帮助用户快速上手使用Inference模块进行模型推理。
 
-step1. 利用执行`模型导出`章节，得到MindIR图，如果是全量模型，则会得到两个MindIR图（bloom_560m_prefill.mindir和bloom_560m_inc.mindir）。
+step1. 利用执行`模型导出`章节，得到MindIR图，如果是增量模型，则会得到两个MindIR图（bloom_560m_prefill.mindir和bloom_560m_inc.mindir）。
 
 step2. 执行run_infer_main.py脚本，调起推理：
 
