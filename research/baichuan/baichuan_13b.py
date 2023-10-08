@@ -36,7 +36,7 @@ from mindformers.models.base_model import BaseModel
 from mindformers.models.utils import cell_reuse
 from mindformers.modules.transformer.op_parallel_config import _check_config
 from mindformers.modules.transformer import AttentionMask, TransformerOpParallelConfig
-from mindformers.modules.layers import Linear, _check_input_dtype, _check_past_none_input_none, AlibiTensor
+from mindformers.modules.layers import Linear, _check_input_dtype, AlibiTensor
 from mindformers.tools.register.register import MindFormerModuleType, MindFormerRegister
 
 from mindformers.models.llama.llama import layer_compute_dtype
@@ -83,7 +83,6 @@ class Baichuan13BForCausalLM(BaseModel):
         _check_config(config.parallel_config)
         self.ignore_token_id = config.ignore_token_id
         self.pad_token_id = config.pad_token_id
-        self.dtype = config.compute_dtype
 
         self.reshape = P.Reshape()
         self.cast = P.Cast()
@@ -137,7 +136,7 @@ class Baichuan13BForCausalLM(BaseModel):
         logits = self.lm_head(output)
 
         input_mask = self.cast(self.not_equal(
-            tokens, self.pad_token_id), self.dtype)
+            tokens, self.pad_token_id), mstype.float32)
         if labels is None:
             labels = self.slice(input_ids, (0, 1), (bsz, seqlen), (1, 1))
         else:
@@ -145,7 +144,7 @@ class Baichuan13BForCausalLM(BaseModel):
                 if self.training:
                     labels = self.slice(labels, (0, 1), (bsz, seqlen), (1, 1))
                 label_mask = self.cast(self.not_equal(
-                    labels, self.ignore_token_id), self.dtype)
+                    labels, self.ignore_token_id), mstype.float32)
                 input_mask = self.mul(input_mask, label_mask)
 
         logits = self.cast(logits, mstype.float32)
@@ -466,12 +465,6 @@ class Baichuan13BDecodeLayer(nn.Cell):
 
     def construct(self, x, alibi_tensor, mask=None, init_reset=True, batch_valid_length=None):
         """ Forward of transformer block. """
-        bs, _ = x.shape
-        if self.use_past:
-            if not isinstance(init_reset, Tensor):
-                init_reset = Tensor([init_reset], mstype.bool_)
-            if not isinstance(batch_valid_length, Tensor):
-                batch_valid_length = self.ones((bs, 1), mstype.int32)
         self._check_input(x, alibi_tensor, mask,
                           init_reset, batch_valid_length)
         # [bs, seq/1, hidden_dim] (first) [bs * seq/1, hidden_dim] (others)
@@ -531,20 +524,14 @@ class Baichuan13BDecodeLayer(nn.Cell):
         if mask is not None:
             _check_input_dtype(mask.dtype, "input_mask", [mstype.float32, mstype.float16], self.cls_name)
 
-        init_reset_is_tensor = isinstance(init_reset, Tensor)
-        init_reset_is_default = init_reset is True
-        batch_valid_length_is_tensor = isinstance(batch_valid_length, Tensor)
-        batch_is_default = batch_valid_length is None
-        _check_past_none_input_none(self.use_past, "init_reset", self.cls_name, True, init_reset_is_tensor,
-                                    init_reset_is_default)
-        _check_past_none_input_none(self.use_past, "batch_valid_length", self.cls_name, None,
-                                    batch_valid_length_is_tensor, batch_is_default)
-
         if self.use_past:
-            _check_input_dtype(init_reset.dtype, "init_reset",
-                               [mstype.bool_], self.cls_name)
-            _check_input_dtype(batch_valid_length.dtype, "batch_valid_length",
-                               [mstype.int32], self.cls_name)
+            if not isinstance(init_reset, Tensor):
+                init_reset = Tensor([init_reset], mstype.bool_)
+            if not isinstance(batch_valid_length, Tensor):
+                bs = x.shape[0]
+                batch_valid_length = self.ones((bs, 1), mstype.int32)
+            _check_input_dtype(init_reset.dtype, "init_reset", [mstype.bool_], self.cls_name)
+            _check_input_dtype(batch_valid_length.dtype, "batch_valid_length", [mstype.int32], self.cls_name)
         return True
 
 
