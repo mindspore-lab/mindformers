@@ -165,41 +165,51 @@ class BaseTrainer:
         if parallel_mode in ["semi_auto_parallel", "auto_parallel"]:
             if full_batch:
                 if pp > 1:
+                    self.global_batch_size = batch_size * dp * micro_batch_num * micro_batch_interleave_num
                     logger.info("Pipeline parallel was opened: pipeline_stages = %s, full batch is True, "
                                 "global batch size will be changed: "
                                 "global_batch_size = "
                                 "batch_size * data_parallel * micro_batch_num * micro_batch_interleave_num "
                                 "= %s * %s * %s * %s = %s).",
                                 pp, batch_size, dp, micro_batch_num, micro_batch_interleave_num,
-                                batch_size * dp * micro_batch_num * micro_batch_interleave_num)
-                    self.config.runner_config.batch_size = \
-                        batch_size * dp * micro_batch_num * micro_batch_interleave_num
+                                self.global_batch_size)
+                    self.config.runner_config.batch_size = self.global_batch_size
                     self._reset_wrapper_for_pipeline_parallel()
                 else:
+                    self.global_batch_size = batch_size * dp * micro_batch_interleave_num
                     logger.info("The current parallel mode is %s, full batch is True,"
                                 "so global batch size will be changed: "
                                 "global_batch_size = batch_size * data_parallel * micro_batch_interleave_num "
                                 "= %s * %s * %s = %s",
                                 parallel_mode, batch_size, dp, micro_batch_interleave_num,
-                                batch_size * dp * micro_batch_interleave_num)
-                    self.config.runner_config.batch_size = batch_size * dp * micro_batch_interleave_num
+                                self.global_batch_size)
+                    self.config.runner_config.batch_size = self.global_batch_size
             else:
                 if pp > 1:
+                    per_batch_size = batch_size * micro_batch_num * micro_batch_interleave_num
+                    self.global_batch_size = per_batch_size * int(os.getenv('RANK_SIZE', '1'))
                     logger.info("Pipeline parallel was opened: pipeline_stages = %s, full batch is False, "
                                 "batch size per card will be changed: "
                                 "per_batch_size = batch_size * micro_batch_num * micro_batch_interleave_num "
                                 "= %s * %s * %s = %s).",
                                 pp, batch_size, micro_batch_num, micro_batch_interleave_num,
-                                batch_size * micro_batch_num * micro_batch_interleave_num)
-                    logger.info(
-                        "global_batch_size = per_batch_size * device_num "
-                        "= %s * %s = %s",
-                        batch_size * micro_batch_num * micro_batch_interleave_num,
-                        int(os.getenv('RANK_SIZE', '1')),
-                        batch_size * micro_batch_num * micro_batch_interleave_num * int(os.getenv('RANK_SIZE', '1')))
-                    self.config.runner_config.batch_size = \
-                        batch_size * micro_batch_num * micro_batch_interleave_num
+                                per_batch_size)
+                    logger.info("global_batch_size = per_batch_size * device_num = %s * %s = %s",
+                                per_batch_size, int(os.getenv('RANK_SIZE', '1')), self.global_batch_size)
+                    self.config.runner_config.batch_size = per_batch_size
                     self._reset_wrapper_for_pipeline_parallel()
+                else:
+                    per_batch_size = batch_size * micro_batch_interleave_num
+                    self.global_batch_size = per_batch_size * int(os.getenv('RANK_SIZE', '1'))
+                    logger.info("The current parallel mode is %s, full batch is False, "
+                                "batch size per card will be changed: "
+                                "per_batch_size = batch_size * micro_batch_interleave_num "
+                                "= %s * %s = %s).",
+                                parallel_mode, batch_size, micro_batch_interleave_num,
+                                per_batch_size)
+                    logger.info("global_batch_size = per_batch_size * device_num = %s * %s = %s",
+                                per_batch_size, int(os.getenv('RANK_SIZE', '1')), self.global_batch_size)
+                    self.config.runner_config.batch_size = per_batch_size
         else:
             logger.info("The current parallel mode is %s, batch size per card will not be changed: "
                         "batch_size_per_card = %s",
@@ -209,10 +219,10 @@ class BaseTrainer:
                 "= %s * %s = %s",
                 batch_size, int(os.getenv('RANK_SIZE', '1')),
                 batch_size * int(os.getenv('RANK_SIZE', '1')))
+            self.global_batch_size = batch_size * int(os.getenv('RANK_SIZE', '1'))
             self.config.parallel_config.data_parallel = 1
             self.config.parallel_config.model_parallel = 1
             self.config.parallel_config.pipeline_stage = 1
-            self.config.parallel_config.optimizer_shard = False
             self.config.parallel_config.micro_batch_num = 1
             logger.info("parallel_config will be change to default config: %s.",
                         self.config.parallel_config)
@@ -589,8 +599,7 @@ class BaseTrainer:
                 "micro_batch_interleave_num": config.micro_batch_interleave_num,
                 "micro_batch_num": config.parallel_config.micro_batch_num,
                 "initial_epoch": config.runner_config.initial_epoch,
-                "global_batch_size": self.config.runner_config.batch_size,
-                "device_num": int(os.getenv('RANK_SIZE', '1'))})
+                "global_batch_size": self.global_batch_size})
 
         # define compute metrics for evaluate in training
         compute_metrics = None
