@@ -291,7 +291,7 @@ class Baichuan7BV2ForCausalLM(BaseModel):
             Tensor, the loss or logits of the network.
         """
 
-    @cell_reuse()
+    @cell_reuse
     def __init__(self, config: LlamaConfig = None):
         super(Baichuan7BV2ForCausalLM, self).__init__(config, auto_prefix=True)
         _check_config(config.parallel_config)
