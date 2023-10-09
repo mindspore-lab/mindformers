@@ -159,3 +159,7 @@ class ZeroShotImageClassificationTrainer(BaseTrainer):
                                     candidate_labels=candidate_labels,
                                     hypothesis_template=hypothesis_template,
                                     **kwargs)
+
+    def export(self, **kwargs):
+        raise NotImplementedError(
+            "The image classification task does not support export, please customize pipeline inference.")
