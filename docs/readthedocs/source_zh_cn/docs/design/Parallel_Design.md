@@ -596,13 +596,12 @@ MindFormers支持基于`Transformer API`开发的大模型通过配置化接口�
     - enable_alltoall: 允许在通信期间生成AllToAll通信算子的开关。通常仅在MOE场景下打开，默认False
     - full_batch: 在auto_parallel模式下加载整个batch数据集时为True。半自动并行模式通常设置为True，数据并行模式必须设置为False，否则会报错
     - search_mode: 策略搜索模式，有三种，分别是recursive_programming，dynamic_programming和sharding_propagation。仅在全自动并行模式下生效，其他模式不生效，实验性接口，谨慎使用
-    - enable_parallel_optimizer: 数据并行训练时对权重更新计算进行分片。优化器并行开关，在数据并行训练时默认会将模型权重参数切分成device_num份，与parallel_config中optimizer_shard保持一致；半自动并行时默认将模型权重参数切份data_parallel份
+    - enable_parallel_optimizer: 数据并行训练时对权重更新计算进行分片。优化器并行开关，在数据并行训练时默认会将模型权重参数切分成device_num份；半自动并行时默认将模型权重参数切份data_parallel份
     - strategy_ckpt_save_file: 保存并行切分策略的路径。
 - parallel_config: 并行策略配置，相关入参配置可参考[transformer.TransformerOpParallelConfig](https://gitee.com/mindspore/mindformers/blob/dev/mindformers/modules/transformer/transformer.py#L197)
     - data_parallel: 数据并行
     - model_parallel: 模型并行
     - pipeline_stage: 流水线并行
-    - optimizer_shard: 是否开启优化器切分。优化器并行开关，通常在半自动并行模式下生效，与parallel中的enable_parallel_optimizer保持一致，默认将模型权重参数切份data_parallel份
     - micro_batch_num: 流水线并行的微批次大小。pipeline_satge大于1时，开启流水并行时使用，此处需满足micro_batch_num >= pipeline_satge
     - gradient_aggregation_group: 梯度通信算子融合组的大小
 
@@ -661,7 +660,6 @@ def main(use_parallel=False,
     task.set_parallel_config(data_parallel=dp,
                              model_parallel=mp,
                              pipeline_stage=pp,
-                             optimizer_shard=op,
                              micro_batch_num=micro_size)
     ############################################# 设定并行策略 ##################################################
     if run_mode == 'train':

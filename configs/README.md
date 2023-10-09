@@ -57,7 +57,7 @@ configs统一在run_xxx.yaml中，排序按照修改频率的顺序和一般的�
     - enable_alltoall: 允许在通信期间生成AllToAll通信算子的开关。通常仅在MOE场景下打开，默认False
     - full_batch: 在auto_parallel模式下加载整个batch数据集时为True。半自动并行模式通常设置为True，数据并行模式必须设置为False，否则会报错
     - search_mode: 策略搜索模式，有三种，分别是recursive_programming，dynamic_programming和sharding_propagation。仅在全自动并行模式下生效，其他模式不生效，实验性接口，谨慎使用
-    - enable_parallel_optimizer: 数据并行训练时对权重更新计算进行分片。优化器并行开关，在数据并行训练时默认会将模型权重参数切分成device_num份，与parallel_config中optimizer_shard保持一致；半自动并行时默认将模型权重参数切份data_parallel份
+    - enable_parallel_optimizer: 数据并行训练时对权重更新计算进行分片。优化器并行开关，在数据并行训练时默认会将模型权重参数切分成device_num份；半自动并行时默认将模型权重参数切份data_parallel份
     - strategy_ckpt_save_file: 保存并行切分策略的路径。
 - parallel_config: 并行策略配置，可以参考mindformers.modules.transformer.TransformerOpParallelConfig
     - data_parallel: 数据并行
@@ -65,7 +65,6 @@ configs统一在run_xxx.yaml中，排序按照修改频率的顺序和一般的�
     - pipeline_stage: 流水线并行
   > 需要满足实际运行的卡数 device_num = data_parallel × model_parallel × pipeline_stage
     - use_seq_parallel: 是否开启序列并行
-    - optimizer_shard: 是否开启优化器切分。优化器并行开关，通常在半自动并行模式下生效，与parallel中的enable_parallel_optimizer保持一致，默认将模型权重参数切份data_parallel份
     - micro_batch_num: 流水线并行的微批次大小。pipeline_satge大于1时，开启流水并行时使用，此处需满足micro_batch_num >= pipeline_satge
     - gradient_aggregation_group: 梯度通信算子融合组的大小
 - micro_batch_interleave_num: batch_size的拆分份数，多副本并行开关，通常在模型并行时使用，用于优化model_parallel时产生的通信损耗，纯流水并行时不建议使用。可以参考[mindspore.nn.MicroBatchInterleaved](https://www.mindspore.cn/docs/zh-CN/r2.0/api_python/nn/mindspore.nn.MicroBatchInterleaved.html)
