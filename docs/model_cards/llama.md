@@ -242,7 +242,7 @@ RANK_TABLE_FILE 双机16卡参考样例:
 2. 获取MindFormers提供的已转换权重
    可通过from_pretrained接口下载，也可直接从下面的链接获取
    - [llama_7b权重](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/XFormer_for_mindspore/llama/open_llama_7b.ckpt)
-   - [llama_13b权重](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/XFormer_for_mindspore/llama/open_llama_7b.ckpt)
+   - [llama_13b权重](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/XFormer_for_mindspore/llama/open_llama_13b.ckpt)
    - [tokenizer文件](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/XFormer_for_mindspore/llama/tokenizer.model)
 
 ### [分布式训练/微调权重合并](../feature_cards/Transform_Ckpt.md)
@@ -421,7 +421,7 @@ RUN_MODE: 为任务运行状态，支持关键字 train\finetune\eval\predict
 
 - step 2. 根据服务器节点数等信息，修改相应的配置。
 
-```shell
+```yaml
 # 以llama-13b模型两机训练为例，默认配置2机16卡，如果节点数有变，需要修改相应的配置。
 # 配置文件路径：../configs/llama/run_llama_13b.yaml
 parallel_config:
@@ -525,7 +525,7 @@ python llama_preprocess.py \
 
 - step 1. 修改`config/llama/run_llama_7b.yaml`中训练数据集路径为微调数据集路径，并在`input_columns`中添加`labels`。
 
-```python
+```yaml
 train_dataset: &train_dataset
   data_loader:
     type: MindDataset
@@ -536,7 +536,7 @@ train_dataset: &train_dataset
 
 - step 2. 修改训练时学习率和优化器参数，与预训练不同，微调学习率配置如下：
 
-```python
+```yaml
 # optimizer
 optimizer:
   type: FP32StateAdamWeightDecay
@@ -676,7 +676,7 @@ Cam Newton
 
 step 3. 修改配置文件，eval_dataset的input_columns中增加`labels`，修改metric类型为`EmF1Metric`
 
-```python
+```yaml
 # eval dataset
 eval_dataset: &eval_dataset
   data_loader:
@@ -692,7 +692,7 @@ metric:
 
 此外，要提高推理速度，可以进行如下配置，设置增量推理`use_past`，并限制生成最大长度`max_new_tokens`。
 
-```python
+```yaml
 # model config
 use_past: True          # 开启增量推理
 pretrain_seqlen: 2048
@@ -793,7 +793,7 @@ def main(model_type='llama_7b',
         ckpt_path = get_last_checkpoint(ckpt_path)
         print("ckpt path: %s", str(ckpt_path))
 
-        # shard pangualpha and load sharded ckpt
+        # shard model and load sharded ckpt
         model = Model(network)
         model.infer_predict_layout(ms.Tensor(np.ones(shape=(1, model_config.seq_length)), ms.int32))
         checkpoint_dict = load_checkpoint(ckpt_path)
