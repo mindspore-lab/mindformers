@@ -43,14 +43,14 @@ SAVE_DIR = _cur_dir
 @MindFormerRegister.register(MindFormerModuleType.CALLBACK)
 class ObsMonitor:
     """
-    Obs Monitor For AICC and Local.
+    Obs Monitor For Local and AICC.
 
     Args:
-        src_dir (str): The output path in local/AICC. Default: None.
+        src_dir (str): The output path in Local/AICC. Default: None.
         target_dir (str): The remote url to save files. Default: None.
-        step_upload_frequence (int): Step interval of uploading. Default: 100.
-        epoch_upload_frequence (int): Epoch interval of uploading. Default: -1, which means epoch upload is disabled.
-        keep_last (bool): Training epoches. Default: True
+        step_upload_frequence (int): The step interval of uploading. Default: 100.
+        epoch_upload_frequence (int): The epoch interval of uploading. Default: -1, means epoch upload is disabled.
+        keep_last (bool): Check the consistency of obs files and AICC. Default: True.
     Examples:
         >>> from mindformers.core.callback import ObsMonitor
         >>> monitor = ObsMonitor(src_dir='./root_path', target_dir='./remote_url')
@@ -111,6 +111,9 @@ class MFLossMonitor(Callback):
         micro_batch_interleave_num (int): split num of batch size. Default: 1.
         origin_epochs (int): Training epoches. Default: None.
         dataset_size (int): Training dataset size. Default: None.
+        initial_epoch (int): The beginning epoch. Default: 0.
+        global_batch_size (int): The total batch size. Default: 0.
+        device_num (int): The number of device in use. Default: 0.
     Examples:
         >>> from mindformers.core.callback import MFLossMonitor
         >>> lr = [0.01, 0.008, 0.006, 0.005, 0.002]
@@ -395,16 +398,17 @@ class MFLossMonitor(Callback):
 class SummaryMonitor:
     """
     Summary Monitor For AICC and Local.
-    
+
     Args:
         summary_dir (str): The collected data will be persisted to this directory. Default: None.
-        collect_freq (int): Set the frequency of data collection, it should be greater than zero, and the unit is `step`. Default: 10.
+        collect_freq (int): Set the step frequency of data collection. Default: 10.
         collect_specified_data (Union[None, dict]): Perform custom operations on the collected data. Default: None.
-        keep_default_action (bool): This field affects the collection behavior of the 'collect_specified_data' field. Default: True.
-        custom_lineage_data (Union[dict, None]): Allows you to customize the data and present it on the MingInsight lineage page. Default: None.
-        collect_tensor_freq (Optional[int]): The same semantics as the `collect_freq`, but controls TensorSummary only. Default: None.
-        max_file_size (Optional[int]): The maximum size in bytes of each file that can be written to the disk. Default: None.
-        export_options (Union[None, dict]): Perform custom operations on the export data. Default: None.     
+        keep_default_action (bool): Affect the collection behavior of "collect_specified_data". Default: True.
+        custom_lineage_data (Union[dict, None]): Customize the data and present it on the MingInsight lineage page.
+                                                 Default: None.
+        collect_tensor_freq (Optional[int]): Control TensorSummary only as "collect_freq". Default: None.
+        max_file_size (Optional[int]): Maximum size in bytes of each file that can be written to disk. Default: None.
+        export_options (Union[None, dict]): Perform custom operations on the export data. Default: None.
     Examples:
         >>> from mindformers.core.callback import SummaryMonitor
         >>> monitor = SummaryMonitor(summary_dir='./summary_dir')
@@ -439,17 +443,35 @@ class SummaryMonitor:
 class CheckpointMointor(ModelCheckpoint):
     """
     Checkpoint Monitor For Save LossScale.
-    
+
     Args:
         prefix (str): The prefix name of checkpoint files. Default: 'CKP'.
         directory (str): The path of the folder which will be saved in the checkpoint file. Default: None.
         config (CheckpointConfig): Checkpoint strategy configuration. Default: None.
+        save_checkpoint_steps (int): Steps to save checkpoint. Default: 1.
+        save_checkpoint_seconds (int): Seconds to save checkpoint.
+                                       Can't be used with save_checkpoint_steps at the same time. Default: 0.
+        keep_checkpoint_max (int): Maximum number of checkpoint files can be saved. Default: 5.
+        keep_checkpoint_per_n_minutes (int): Save the checkpoint file every "keep_checkpoint_per_n_minutes" minutes.
+                                             Can't be used with keep_checkpoint_max at the same time. Default: 0.
+        integrated_save (bool): Whether to merge and save the split Tensor in the automatic parallel scenario.
+                                Integrated save function is only supported in automatic parallel scene. Default: True.
+        save_network_params (bool): Whether to only save network weights additionally. Default: True.
+        save_trainable_params (bool): Whether to save fine-tuned weights additionally. Default: False.
+        async_save (bool): Whether asynchronous execution saves the checkpoint to a file. Default: False.
+        saved_network (Cell): Network to be saved in checkpoint file. Default: None.
+        append_info (list): The information save to checkpoint file.
+                            Support "epoch_num", "step_num" and dict. Default: None.
+        enc_key (Union[None, bytes]): Byte type key used for encryption. Default: None.
+        enc_mode (str): This parameter is valid only when "enc_key" is not set to None. Specifies the encryption
+                        mode, currently supports 'AES-GCM', 'AES-CBC' and 'SM4-CBC'. Default: 'AES-GCM'.
+        exception_save (bool): Whether to save the current checkpoint when an exception occurs. Default: False.
 
     Raises:
         ValueError: If `prefix` is not str or contains the '/' character.
         ValueError: If `directory` is not str.
         TypeError: If the config is not CheckpointConfig type.
-        
+
     Examples:
         >>> from mindformers.core.callback import CheckpointMointor
         >>> monitor = CheckpointMointor(directory='./checkpoint_dir')
@@ -609,14 +631,15 @@ class CheckpointMointor(ModelCheckpoint):
 class ProfileMonitor(Callback):
     """
     Profile analysis in training.
-    
+
     Args:
         start_step (int): The step to start profiling. Default: 1.
         stop_step (int): The step to stop profiling. Default: 10.
         output_path (str): The result of profiling will be saved in this path. Default: None.
         start_profile (str): Whether to enable profiling. Default: True.
-        profile_communication (str): Whether to collect communication performance data during multi-device training. Default: False.
-        profile_memory (str): Whether to collect Tensor memory data. Default: True.       
+        profile_communication (str): Whether to collect communication performance data
+                                     during multi-device training. Default: False.
+        profile_memory (str): Whether to collect Tensor memory data. Default: True.
     Examples:
         >>> from mindformers.core.callback import ProfileMonitor
         >>> monitor = ProfileMonitor(output_path='./profile_dir')
@@ -684,12 +707,12 @@ class EvalCallBack(Callback):
     Evaluate Callback used in training progress.
 
     Args:
-        eval_func (Callable): the function to calculate eval result, task specific
-        step_interval (int): determine the num of step intervals between each eval.
-            Default 100, means only eval on epoch end, do not eval between steps.
-            Note that it will not take effects when running in data sink mode.
-        epoch_interval (int): determine the num of epoch intervals between each eval.
-            Default -1, means eval on every epoch end.
+        eval_func (Callable): The function calculates eval result and is task specific.
+        step_interval (int): Determine the num of step intervals between each eval.
+                             Default 100, means only eval on epoch end, do not eval between steps.
+                             Note that it will not take effects when running in data sink mode.
+        epoch_interval (int): Determine the num of epoch intervals between each eval.
+                              Default -1, means eval on every epoch end.
     Examples:
         >>> from mindformers.core.callback import EvalCallBack
         >>> def eval_func():
