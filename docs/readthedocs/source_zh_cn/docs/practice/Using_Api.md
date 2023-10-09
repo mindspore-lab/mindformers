@@ -303,8 +303,7 @@ text_generation = Trainer(task='text_generation', model=pangu_model, args=traini
                           eval_dataset=eval_dataset)
 
 # 设定并行策略，比如2机16卡,设定数据并行4 模型并行2 流水并行2 微批次大小为2 打开优化器并行
-text_generation.set_parallel_config(data_parallel=4, model_parallel=2, pipeline_stage=2, micro_batch_num=2,
-                                    optimizer_shard=True)
+text_generation.set_parallel_config(data_parallel=4, model_parallel=2, pipeline_stage=2, micro_batch_num=2)
 
 # 设置重计算配置，打开重计算
 text_generation.set_recompute_config(recompute=True)

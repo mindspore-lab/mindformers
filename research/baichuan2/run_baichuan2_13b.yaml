@@ -91,7 +91,6 @@ parallel_config:
   model_parallel: 8
   pipeline_stage: 2
   use_seq_parallel: False
-  optimizer_shard: True
   micro_batch_num: 16
   vocab_emb_dp: True
   gradient_aggregation_group: 4

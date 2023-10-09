@@ -196,7 +196,6 @@ parallel_config:
   model_parallel: 1
   pipeline_stage: 1
   expert_parallel: 1
-  optimizer_shard: True  # optimizer shard
   micro_batch_num: 1
   vocab_emb_dp: True
   gradient_aggregation_group: 4

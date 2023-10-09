@@ -51,7 +51,6 @@ def main(use_parallel=False,
     task.set_parallel_config(data_parallel=dp,
                              model_parallel=mp,
                              pipeline_stage=pp,
-                             optimizer_shard=op,
                              micro_batch_num=micro_size)
     if run_mode == 'train':
         task.train()
