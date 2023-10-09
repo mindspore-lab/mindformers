@@ -65,13 +65,13 @@ class QuestionAnsweringDataset(BaseDataset):
         tokenizer = build_tokenizer(dataset_config.tokenizer)
 
         dataset = build_dataset_loader(
-            class_name=dataset_config.data_loader.type,
-            dataset_dir=dataset_config.data_loader.dataset_dir,
-            tokenizer=tokenizer,
-            stage=dataset_config.data_loader.stage,
-            column_names=dataset_config.data_loader.column_names,
-            num_parallel_workers=dataset_config.num_parallel_workers,
-            num_shards=device_num, shard_id=rank_id
+            dataset_config.data_loader,
+            default_args={
+                'tokenizer': tokenizer,
+                'num_parallel_workers': dataset_config.num_parallel_workers,
+                'num_shards': device_num,
+                'shard_id': rank_id
+            }
         )
 
         sampler = build_sampler(dataset_config.sampler)
