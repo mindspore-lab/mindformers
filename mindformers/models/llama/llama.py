@@ -282,6 +282,7 @@ class LlamaForCausalLM(BaseModel):
                               param_init_type=config.param_init_type,
                               weight_init="normal") # meta default: xavier_normal
         self.loss = CrossEntropyLoss(parallel_config=config.parallel_config)
+        self.seq_length = config.seq_length
 
         dp = config.parallel_config.data_parallel
         mp = config.parallel_config.model_parallel

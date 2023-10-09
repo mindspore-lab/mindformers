@@ -226,3 +226,7 @@ class ImageClassificationTrainer(BaseTrainer):
                                     network=network,
                                     image_processor=image_processor,
                                     **kwargs)
+
+    def export(self, **kwargs):
+        raise NotImplementedError(
+            "The image classification task does not support export, please customize pipeline inference.")

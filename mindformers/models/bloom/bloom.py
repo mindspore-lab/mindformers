@@ -17,7 +17,6 @@
 import copy
 import os
 import numpy as np
-import mindspore as ms
 import mindspore.common.dtype as mstype
 from mindspore import nn
 from mindspore import Tensor
@@ -281,22 +280,6 @@ class BloomLMHeadModel(BaseModel):
         return {
             "input_ids": Tensor(input_ids, mstype.int32)
         }
-
-    def prepare_inputs_for_export(self, full_model=True):
-        seq_length = self.seq_length
-        if full_model:
-            logger.info('\nexporting with batch_size = %s, seq = %s ...', self.config.batch_size, seq_length)
-            input_ids = Tensor(np.ones([self.config.batch_size, seq_length]), dtype=ms.int32)
-            input_position = Tensor([1] * self.config.batch_size, dtype=ms.int32)
-            init_reset = Tensor([False], ms.bool_)
-            batch_valid_length = Tensor([1] * self.config.batch_size, dtype=ms.int32)
-        else:
-            logger.info('\nexporting with batch_size = %s, seq = 1 ...', self.config.batch_size)
-            input_ids = Tensor(np.ones([self.config.batch_size, 1]), dtype=ms.int32)
-            input_position = Tensor([1] * self.config.batch_size, dtype=ms.int32)
-            init_reset = Tensor([True], ms.bool_)
-            batch_valid_length = Tensor([1] * self.config.batch_size, dtype=ms.int32)
-        return input_ids, input_position, None, None, None, None, init_reset, batch_valid_length
 
     # pylint: disable=W0613
     @jit_inference_with_condition()

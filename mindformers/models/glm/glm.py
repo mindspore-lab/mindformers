@@ -36,7 +36,6 @@ from mindformers.version_control import get_dropout
 from .glm_config import GLMConfig
 from .layers import DeepNormWithGLULayer
 from ..base_model import BaseModel
-from ...tools.logger import logger
 
 #  Get MS backend: 0 vm 1 GE
 is_ge = os.getenv('MS_ENABLE_GE')
@@ -346,26 +345,6 @@ class GLMForPreTraining(BaseModel):
             "position_ids": Tensor(position_ids, mstype.int32),
             "input_position": input_position
         }
-
-    def prepare_inputs_for_export(self, full_model=True):
-        seq_length = self.seq_length
-        if full_model:
-            logger.info('\nexporting with batch_size = %s, seq = %s ...', self.config.batch_size, seq_length)
-            input_ids = Tensor(np.ones([self.config.batch_size, seq_length]), dtype=ms.int32)
-            input_position = Tensor([1] * self.config.batch_size, dtype=ms.int32)
-            init_reset = Tensor([False], ms.bool_)
-            batch_valid_length = Tensor([1] * self.config.batch_size, dtype=ms.int32)
-            position_ids = ms.Tensor(np.ones([self.config.batch_size, 2, seq_length]).astype(np.int32))
-            attention_mask = ms.Tensor(np.ones([self.config.batch_size, 1, seq_length, seq_length]).astype(np.int32))
-        else:
-            logger.info('\nexporting with batch_size = %s, seq = 1 ...', self.config.batch_size)
-            input_ids = Tensor(np.ones([self.config.batch_size, 1]), dtype=ms.int32)
-            input_position = Tensor([1] * self.config.batch_size, dtype=ms.int32)
-            init_reset = Tensor([True], ms.bool_)
-            batch_valid_length = Tensor([1] * self.config.batch_size, dtype=ms.int32)
-            position_ids = ms.Tensor(np.ones([self.config.batch_size, 2, 1]).astype(np.int32))
-            attention_mask = ms.Tensor(np.ones([self.config.batch_size, 1, 1, seq_length]).astype(np.int32))
-        return input_ids, position_ids, attention_mask, input_position, None, None, init_reset, batch_valid_length
 
     def slice_incremental_inputs(self, model_inputs: dict, current_index):
         """used for non-first iterations, slice the inputs to length 1."""
