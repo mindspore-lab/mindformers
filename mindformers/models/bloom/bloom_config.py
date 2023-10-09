@@ -33,8 +33,10 @@ class BloomConfig(BaseConfig):
         vocab_size (`int`, *optional*, defaults to 250880):
             Vocabulary size of the Bloom model. Defines the maximum number of different tokens that can be represented
             by the `inputs_ids` passed when calling [`BloomLMHeadModel`].
-        batch_size (Optional[int]): batch size for input data, use in predict.
-        seq_length (Optional[int]): The sequence length of input_ids, default is 1024.
+        batch_size (`int`, *optional*, defaults to 1):
+            batch size for input data, use in predict.
+        seq_length (`int`, *optional*, defaults to 1024):
+            The sequence length of input_ids.
         hidden_size (`int`, *optional*, defaults to 64):
             Dimension of the embeddings and hidden states.
         num_layers (`int`, *optional*, defaults to 2):
