@@ -107,7 +107,7 @@ def export_single_model(config, batch_size, model_type: str = 'MINDIR', model_di
     if model_dir:
         model = AutoModel.from_pretrained(model_dir)
     else:
-        model = AutoModel.from_pretrained(model_name)
+        model = AutoModel.from_config(config)
     model.set_train(False)
     inputs = ()
     for item in PREFILL_MODEL_INPUT_MAP:
@@ -136,7 +136,7 @@ def export_inc_model(config, batch_size, model_type: str = 'MINDIR', model_dir=N
     if model_dir:
         model = AutoModel.from_pretrained(model_dir)
     else:
-        model = AutoModel.from_pretrained(model_name)
+        model = AutoModel.from_config(config)
     model.set_train(False)
     func = None
     for item in INCREMENT_MODEL_INPUT_MAP:
