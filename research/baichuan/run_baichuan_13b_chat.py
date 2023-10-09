@@ -16,6 +16,8 @@
 
 import argparse
 
+import mindspore as ms
+
 from mindformers import LlamaConfig, LlamaTokenizer, TextStreamer
 
 from baichuan_13b import Baichuan13BForCausalLM
@@ -26,6 +28,9 @@ ASSISTANT_TOKEN_ID = 196
 
 def main(tk_config='./', ckpt=None, max_new_tokens=512):
     """main function."""
+
+    # initialize Graph Mode
+    ms.set_context(mode=0)
 
     tokenizer = LlamaTokenizer.from_pretrained(tk_config)
 
