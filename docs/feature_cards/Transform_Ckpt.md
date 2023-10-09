@@ -212,7 +212,6 @@ parallel_config:
   data_parallel: 2
   model_parallel: 1
   pipeline_stage: 4
-  optimizer_shard: True
   micro_batch_num: 4
   vocab_emb_dp: True
   gradient_aggregation_group: 4
@@ -291,7 +290,6 @@ parallel_config:
   data_parallel: 1
   model_parallel: 2
   pipeline_stage: 2
-  optimizer_shard: True
   micro_batch_num: 2
   vocab_emb_dp: True
   gradient_aggregation_group: 4
@@ -427,7 +425,6 @@ parallel_config:
   data_parallel: 1
   model_parallel: 2
   pipeline_stage: 1
-  optimizer_shard: True
   micro_batch_num: 1
   vocab_emb_dp: True
   gradient_aggregation_group: 4
@@ -502,7 +499,6 @@ parallel_config:
   data_parallel: 1
   model_parallel: 2
   pipeline_stage: 1
-  optimizer_shard: True
   micro_batch_num: 1
   vocab_emb_dp: True
   gradient_aggregation_group: 4
@@ -557,7 +553,6 @@ parallel_config:
   data_parallel: 2
   model_parallel: 4
   pipeline_stage: 2
-  optimizer_shard: True
   micro_batch_num: 2
   vocab_emb_dp: True
   gradient_aggregation_group: 4
