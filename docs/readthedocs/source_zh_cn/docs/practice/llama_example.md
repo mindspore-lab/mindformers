@@ -806,7 +806,6 @@ parallel_config:
   data_parallel: 2
   model_parallel: 1
   pipeline_stage: 4
-  optimizer_shard: True
   micro_batch_num: 16
   vocab_emb_dp: True
   gradient_aggregation_group: 4
