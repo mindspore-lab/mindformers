@@ -113,8 +113,7 @@ class MFLossMonitor(Callback):
                  origin_epochs: int = None,
                  dataset_size: int = None,
                  initial_epoch: int = 0,
-                 global_batch_size: int = 0,
-                 device_num: int = 0):
+                 global_batch_size: int = 0):
         super(MFLossMonitor, self).__init__()
         self.per_print_times = per_print_times
         self.learning_rate = deepcopy(learning_rate)
@@ -130,7 +129,7 @@ class MFLossMonitor(Callback):
         self.origin_epochs = origin_epochs
         self.initial_epoch = initial_epoch
         self.global_batch_size = global_batch_size
-        self.device_num = device_num
+        self.device_num = int(os.getenv('RANK_SIZE', '1'))
 
     def epoch_begin(self, run_context):
         """
