@@ -48,7 +48,6 @@ parallel_config:
   data_parallel: 2
   model_parallel: 1
   pipeline_stage: 1
-  optimizer_shard: False
   micro_batch_num: 1
   vocab_emb_dp: True
   gradient_aggregation_group: 4

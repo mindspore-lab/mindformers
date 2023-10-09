@@ -51,7 +51,6 @@ parallel_config:
   model_parallel: 1
   expert_parallel: 1
   pipeline_stage: 1
-  optimizer_shard: False
   micro_batch_num: 1
   gradient_aggregation_group: 4
 micro_batch_interleave_num: 1
