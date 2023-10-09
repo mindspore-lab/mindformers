@@ -179,3 +179,7 @@ class GeneralTaskTrainer(BaseTrainer):
     def predict(self, **kwargs):
         raise NotImplementedError(
             "The general task does not support predict, please customize pipeline inference.")
+
+    def export(self, **kwargs):
+        raise NotImplementedError(
+            "The general task does not support export, please customize pipeline inference.")

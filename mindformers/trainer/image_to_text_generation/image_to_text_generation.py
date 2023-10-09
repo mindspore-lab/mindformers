@@ -129,3 +129,7 @@ class ImageToTextGenerationTrainer(BaseTrainer):
                                     padding=padding,
                                     hypothesis_template=hypothesis_template,
                                     **kwargs)
+
+    def export(self, **kwargs):
+        raise NotImplementedError(
+            "The image to text generation task does not support export, please customize pipeline inference.")

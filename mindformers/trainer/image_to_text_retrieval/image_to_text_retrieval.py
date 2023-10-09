@@ -347,3 +347,7 @@ class ImageToTextRetrievalTrainer(BaseTrainer):
             "agg_metrics": agg_metrics,
         }
         return eval_result
+
+    def export(self, **kwargs):
+        raise NotImplementedError(
+            "The image to text retrieval task does not support export, please customize pipeline inference.")
