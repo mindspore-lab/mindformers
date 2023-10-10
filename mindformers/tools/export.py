@@ -38,7 +38,7 @@ def get_glm_prefill_model_input(batch_size, seq_length):
 def get_llm_common_prefill_model_input(batch_size, seq_length):
     """get llama model input tuple."""
     x = ms.Tensor(np.ones([batch_size, seq_length]).astype(np.int32))
-    return x
+    return (x,)
 
 
 def get_bloom_inc_model_input(batch_size, seq_length, prefill):
