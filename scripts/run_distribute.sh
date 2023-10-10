@@ -142,6 +142,10 @@ else
         cp ../*.py ./mf_parallel$i
         cp -r ../configs ./mf_parallel$i
         cp -r ../mindformers ./mf_parallel$i
+        if [ -f "$PREDICT_DATA" ]
+        then
+          cp "$PREDICT_DATA" ./mf_parallel$i
+        fi
         cd ./mf_parallel$i || exit
         echo "start training for rank $RANK_ID, device $DEVICE_ID"
         env > env.log
@@ -160,6 +164,10 @@ else
         cp ../*.py ./mf_parallel$i
         cp -r ../configs ./mf_parallel$i
         cp -r ../mindformers ./mf_parallel$i
+        if [ -f "$PREDICT_DATA" ]
+        then
+          cp "$PREDICT_DATA" ./mf_parallel$i
+        fi
         cd ./mf_parallel$i || exit
         echo "start training for rank $RANK_ID, device $DEVICE_ID"
         env > env.log
