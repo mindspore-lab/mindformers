@@ -310,7 +310,8 @@ class CausalLanguageModelingTrainer(BaseTrainer):
             with open(input_data, 'r') as fp:
                 input_data_list = []
                 for line in fp:
-                    input_data_list.extend(line)
+                    line = line.strip('\n')
+                    input_data_list.append(line)
             input_data = input_data_list
 
         return self.predict_process(config=config,
@@ -319,7 +320,6 @@ class CausalLanguageModelingTrainer(BaseTrainer):
                                     network=network,
                                     tokenizer=tokenizer,
                                     **kwargs)
-
 
     def export(self,
                config: Optional[Union[dict, MindFormerConfig, ConfigArguments, TrainingArguments]] = None,
