@@ -515,7 +515,7 @@ processor:
 
 ```shell
 cd script
-./run_distribute.sh rank_table_2.json configs/llama/run_llama_13b.yaml [0,2] predict "<human>:你是谁？\n<bot>:"
+./run_distribute.sh rank_table_2.json configs/llama/run_llama_13b.yaml [0,2] predict "I love beijing, because"
 ```
 
 ③ 查看权重转换相关日志
@@ -540,7 +540,7 @@ cd script
 
 ### ModelArts训练案例
 
-**案例描述**：基于一份完整的llama-13B预训练权重，在Modelarts上使用16卡进行分布式训练。
+**案例描述**：基于一份完整的llama-7B预训练权重，在Modelarts上使用16卡进行分布式训练。
 
 **步骤**：
 
@@ -562,24 +562,22 @@ micro_batch_interleave_num: 1
 
 ② 训练作业配置
 
-![llama13b_autotrans_1to16_train_modelarts_inputs](assets/Transform_Ckpt/llama13b_autotrans_1to16_train_modelarts_inputs.png)
-
-![llama13b_autotrans_1to16_train_modelarts_params](assets/Transform_Ckpt/llama13b_autotrans_1to16_train_modelarts_params.png)
+![llama13b_autotrans_1to16_train_modelarts_inputs](assets/Transform_Ckpt/llama7b_autotrans_1to16_train_modelarts_config.png)
 
 ③ 提交训练作业，查看训练日志
 
-![llama13b_autotrans_1to16_train_modelarts_log1](assets/Transform_Ckpt/llama13b_autotrans_1to16_train_modelarts_log1.png)
+![llama13b_autotrans_1to16_train_modelarts_log1](assets/Transform_Ckpt/llama7b_autotrans_1to16_train_modelarts_log1.png)
 
-![llama13b_autotrans_1to16_train_modelarts_log2](assets/Transform_Ckpt/llama13b_autotrans_1to16_train_modelarts_log2.png)
+![llama13b_autotrans_1to16_train_modelarts_log2](assets/Transform_Ckpt/llama7b_autotrans_1to16_train_modelarts_log2.png)
 
 ④ 查看转换生成的文件
 
 **分布式策略文件**：保存在`remote_save_url/strategy`文件夹下，由于开启了**流水线并行**，会对所有`ckpt_strategy_rank_x.ckpt`进行合并，得到`merged_ckpt_strategy.ckpt`。若不开启流水线并行，则不会合并。
 
-![llama13b_autotrans_1to16_train_modelarts_strategy](assets/Transform_Ckpt/llama13b_autotrans_1to16_train_modelarts_strategy.png)
+![llama13b_autotrans_1to16_train_modelarts_strategy](assets/Transform_Ckpt/llama7b_autotrans_1to16_train_modelarts_strategy.png)
 
 **分布式权重**：保存在`output/transformed_checkpoint`文件夹下
 
-![llama13b_autotrans_1to16_train_modelarts_distribute_ckpt](assets/Transform_Ckpt/llama13b_autotrans_1to16_train_modelarts_distribute_ckpt.png)
+![llama13b_autotrans_1to16_train_modelarts_distribute_ckpt](assets/Transform_Ckpt/llama7b_autotrans_1to16_train_modelarts_transformed_checkpoint.png)
 
 注：**strategy**和**transformed_checkpoint**两个文件夹请及时保存到**自定义文件夹**中，以免被后续转换任务清空。
