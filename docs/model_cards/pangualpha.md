@@ -26,6 +26,7 @@
     ```bash
     pangualpha
         ├── __init__.py
+        ├── convert_weight.py              # 权重转换脚本
         ├── pangualpha.py                  # 模型实现
         ├── pangualpha_config.py           # 模型配置项
         ├── pangualpha_processor.py        # Model预处理
@@ -46,6 +47,7 @@
 
     ```bash
     pangualpha
+        ├── pretrain_data_process.py     # wikitext-2等纯文本数据集预处理
         ├── cmrc2018_data_process.py     # cmrc2018数据集预处理
         └── tnews_data_process.py        # tnews数据集预处理
     ```
@@ -184,15 +186,40 @@ RANK_TABLE_FILE 双机16卡参考样例:
 
 ### 模型权重下载与转换
 
-作为参考，这里描述CheckPoint在HuggingFace或者官方开源github仓库和MindSpore间的转换，在不同分布式策略间的转换。
+开发者可以下载获取官方权重后，通过下面提供的**权重转换脚本**，将官方权重转换为MindSpore权重；或直接使用MindFormers提供的**已转换权重**
 
-PanguAlpha模型原生基于MindSpore发布，权重也为MindSpore格式，无需进行转换。
+1. 使用官方权重进行转换
+    [官方盘古Alpha权重下载](https://openi.pcl.ac.cn/PCL-Platform.Intelligence/PanGu-Alpha)
 
-[官方盘古Alpha权重下载](https://openi.pcl.ac.cn/PCL-Platform.Intelligence/PanGu-Alpha)
+    **下载清单：xxB_part0-4.tar，xxB_xxx_embedding.npy，pangu_alpha_xxB_ckpt_strategy.ckpt**
+    需要全部下载xxB_part0-4.tar4个压缩包（解压后共有**512**个ckpt文件），**3**个不同的embedding.npy，以及对应参数的**strategy.ckpt**文件。
 
-[MindFormers盘古Alpha2.6B权重下载](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/XFormer_for_mindspore/pangualpha/pangualpha_2_6b.ckpt)
+    下载完成后，首先解压4个压缩包到同一个文件夹`path/to/512ckpt`
 
-官方权重基于512卡进行训练，需要进行模型权重的合并，可以根据后续文档说明自自行合并，也可以通过from_pretrained接口下载以及合并
+    然后把3个不同的embedding.npy放置于同一个文件夹`path/to/embedding_dir`
+
+    以上两个文件夹可以相同。
+
+    然后运行如下转换脚本，将官方盘古Alpha的权重转换为完整的ckpt权重。
+
+    ```shell
+    python mindformers/models/pangualpha/convert_weight.py --config_path_or_name path/to/config --official_strategy_path path/to/pangu_alpha_13B_cktp_strategy.ckpt --official_ckpt_dir path/to/512ckpt --official_npy_dir path/to/embedding_dir --ckpt_save_path path/to/pangualpha.ckpt
+    ```
+
+    ```text
+    # 参数说明
+    config_path_or_name: 需要转换的模型配置文件，例如：'pangualpha_13b'或者 'path/to/run_pangualpha_13b.yaml'
+    official_strategy_path: 官方权重的切分策略文件，例如pangu_alpha_13B_ckpt_strategy.ckpt
+    official_ckpt_dir：官方权重文件夹，即path/to/512ckpt，存放了解压后的512个ckpt文件
+    official_npy_dir：官方embedding文件夹，即path/to/embedding_dir，存放了3个不同的embedding.npy文件
+    ckpt_save_path：你想存储最终转换完成的权重的路径以及权重名称
+    ```
+
+2. 获取MindFormers提供的已转换权重
+   可通过from_pretrained接口下载，也可直接从下面的链接获取
+    [MindFormers盘古Alpha2.6B权重下载](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/XFormer_for_mindspore/pangualpha/pangualpha_2_6b.ckpt)
+
+    [MindFormers盘古Alpha13B权重下载](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/XFormer_for_mindspore/pangualpha/pangualpha_13b.ckpt)
 
 ### [模型权重切分与合并](../feature_cards/Transform_Ckpt.md)
 
@@ -288,17 +315,17 @@ print(pipeline_result)
 
 - 数据集下载：[WikiText2数据集](https://s3.amazonaws.com/research.metamind.io/wikitext/wikitext-2-v1.zip)
 
-- 词表下载：[model.vocab](https://openi.pcl.ac.cn/PCL-Platform.Intelligence/PanGu-Alpha/src/branch/master/tokenizer/vocab.model)
+- 词表下载：[model.vocab](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/XFormer_for_mindspore/pangualpha/vocab.model)
 
-- 参考[ModelZoo](https://gitee.com/mindspore/models/tree/master/official/nlp/Pangu_alpha#%E6%95%B0%E6%8D%AE%E9%9B%86%E7%94%9F%E6%88%90)，将数据处理成Mindrecord格式。注：训练数据处理时，长度应等于模型接收长度加一。
+将数据处理成Mindrecord格式。注：训练数据处理时，长度应等于模型接收长度加一。
 
 ```bash
-# 数据预处理示例代码，代码来源于ModelZoo
+cd mindformers/tools/dataset_preprocess/pangualpha
 # 生成Mindrecord数据，其中output_file需以字符串mindrecord结尾
 # 训练
-python -m preprocess.py --input_glob  'data/*.txt' --tokenizer jieba --eot 40000 --data_column_name input_ids --seq_length 1025
+python pretrain_data_process.py --input_glob  'data/*.txt' --tokenizer jieba --eot 40000 --data_column_name input_ids --seq_length 1025
 # 评测
-python -m preprocess.py --input_glob  'data/*.txt' --tokenizer jieba --eot 40000 --data_column_name input_ids --seq_length 1024
+python pretrain_data_process.py --input_glob  'data/*.txt' --tokenizer jieba --eot 40000 --data_column_name input_ids --seq_length 1024
 ```
 
 ### 脚本启动
