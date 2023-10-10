@@ -251,8 +251,8 @@ class AutoModel:
         From config method, which instantiates a Model by config.
 
         Args:
-            config (str, BaseConfig): A model config inherited from BaseConfig,
-            or a path to .yaml file for model config.
+            config (str, BaseConfig, MindFormerConfig): A model config inherited from BaseConfig,
+            or a path to .yaml file for model config, or a model config inherited from MindFormerConfig.
 
         Returns:
             A model, which inherited from BaseModel.
@@ -262,7 +262,9 @@ class AutoModel:
 
         download_checkpoint = kwargs.pop("download_checkpoint", True)
 
-        if isinstance(config, BaseConfig):
+        if isinstance(config, MindFormerConfig):
+            config_args = config
+        elif isinstance(config, BaseConfig):
             inversed_config = cls._inverse_parse_config(config)
             config_args = cls._wrap_config(inversed_config)
         elif os.path.exists(config) and config.endswith(".yaml"):

@@ -24,6 +24,7 @@ import mindspore as ms
 import mindspore.common.dtype as mstype
 
 from mindformers import AutoModel
+from mindformers.models import build_model
 from mindformers.tools.register import MindFormerConfig
 
 
@@ -107,15 +108,14 @@ def export_single_model(config, batch_size, model_type: str = 'MINDIR', model_di
     if model_dir:
         model = AutoModel.from_pretrained(model_dir)
     else:
-        model = AutoModel.from_config(config)
+        model = build_model(config.model)
     model.set_train(False)
-    inputs = ()
-    for item in PREFILL_MODEL_INPUT_MAP:
-        if model_name.startswith(item):
-            inputs = PREFILL_MODEL_INPUT_MAP[item](batch_size, config.infer.infer_seq_length)
-            break
-    if not inputs:
+    model_prefix = model_name.split('_')[0]
+    if model_prefix in PREFILL_MODEL_INPUT_MAP.keys():
+        inputs = PREFILL_MODEL_INPUT_MAP[model_prefix](batch_size, config.infer.infer_seq_length)
+    else:
         raise NotImplementedError(f"model {model_name} not implemented.")
+
     suffix = model_type.lower()
     filename = config.infer.prefill_model_path.rstrip("." + suffix)
     model.add_flags_recursive(is_first_iteration=True)
@@ -136,14 +136,12 @@ def export_inc_model(config, batch_size, model_type: str = 'MINDIR', model_dir=N
     if model_dir:
         model = AutoModel.from_pretrained(model_dir)
     else:
-        model = AutoModel.from_config(config)
+        model = build_model(config.model)
     model.set_train(False)
-    func = None
-    for item in INCREMENT_MODEL_INPUT_MAP:
-        if model_name.startswith(item):
-            func = INCREMENT_MODEL_INPUT_MAP[item]
-            break
-    if not func:
+    model_prefix = model_name.split('_')[0]
+    if model_prefix in INCREMENT_MODEL_INPUT_MAP.keys():
+        func = INCREMENT_MODEL_INPUT_MAP[model_prefix]
+    else:
         raise NotImplementedError(f"model {model_name} not implemented.")
 
     suffix = model_type.lower()
