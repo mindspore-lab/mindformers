@@ -22,7 +22,8 @@ from .wmt16_dataloader import WMT16DataLoader
 from .cluener_dataloader import CLUENERDataLoader
 from .squad_dataloader import SQuADDataLoader
 from .adgen_dataloader import ADGenDataLoader
+from .sft_dataloader import SFTDataLoader
+from .training_dataloader import TrainingDataLoader
 
-__all__ = ['Flickr8kDataLoader', 'Cifar100DataLoader', 'WMT16DataLoader',
-           'CLUENERDataLoader', 'SQuADDataLoader', 'ADGenDataLoader',
-           'MultiImgCapDataLoader', 'MultiSourceDataLoader']
+__all__ = ['Flickr8kDataLoader', 'Cifar100DataLoader', 'WMT16DataLoader', 'CLUENERDataLoader', 'SQuADDataLoader',
+           'ADGenDataLoader', 'MultiImgCapDataLoader', 'MultiSourceDataLoader', 'SFTDataLoader', 'TrainingDataLoader']

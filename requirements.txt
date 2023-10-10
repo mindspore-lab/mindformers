@@ -13,3 +13,4 @@ pydantic==1.10.11
 mdtex2html
 gradio
 opencv-python-headless
+pyarrow==12.0.1
