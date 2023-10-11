@@ -173,7 +173,7 @@ processor:
     unk_token: '<unk>'
     bos_token: '<s>'
     eos_token: '</s>'
-    pad_token: '<pad>'
+    pad_token: '<unk>'
     type: LLaMATokenizer
   type: LlamaProcessor
 
