@@ -92,7 +92,7 @@ def get_infer_pipeline_from_dir(task, model, tokenizer, image_processor,
         ge_config_path = os.path.join(proj_dir, "config.ini")
     if not os.path.exists(ge_config_path):
         raise ValueError(f"There is ge config.ini file in {model}.")
-    config.infer.config_path = ge_config_path
+    config.infer.ge_config_path = ge_config_path
 
     # graph.mindir
     graphs = glob.glob(proj_dir + "/*.mindir")
@@ -160,6 +160,13 @@ def get_infer_pipeline_from_model_name(task, model, tokenizer, image_processor,
         tokenizer = build_tokenizer(pipeline_config.processor.tokenizer)
 
     pipeline_config.infer.model_name = model
+
+    # check ge config.ini
+    if ge_config_path is not None:
+        ge_config_path = os.path.realpath(ge_config_path)
+        if not os.path.exists(ge_config_path):
+            raise ValueError(f"GE config {ge_config_path} does not exist.")
+        pipeline_config.infer.ge_config_path = ge_config_path
 
     # set device id and rank id
     if "device_id" in kwargs:
