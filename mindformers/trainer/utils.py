@@ -31,6 +31,7 @@ from mindformers.tools.logger import logger
 from mindformers.tools.register import MindFormerConfig
 from mindformers.tools.utils import check_in_modelarts, get_output_root_path
 from mindformers.tools.transform_ckpt import get_strategy
+from mindformers.tools.cloud_adapter import mox_adapter
 
 if check_in_modelarts():
     import moxing as mox
@@ -478,7 +479,7 @@ def transform_ckpt(config, src_ckpt_strategy=None, dst_ckpt_strategy=None):
         transformed_ckpt_dir_obs = os.path.join(config.remote_save_url, "transformed_checkpoint")
         rank_transformed_ckpt_dir_obs = os.path.join(transformed_ckpt_dir_obs, f'rank_{rank_id}')
         rank_transformed_ckpt_dir = os.path.join(get_output_root_path(), "transformed_checkpoint", f'rank_{rank_id}')
-        mox.file.copy_parallel(rank_transformed_ckpt_dir, rank_transformed_ckpt_dir_obs)
+        mox_adapter(rank_transformed_ckpt_dir, rank_transformed_ckpt_dir_obs)
         print(f"Rank {rank_id}: Save {rank_transformed_ckpt_dir} to {rank_transformed_ckpt_dir_obs}")
 
     config.load_checkpoint = transformed_ckpt_dir
