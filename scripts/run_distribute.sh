@@ -85,7 +85,31 @@ else
 fi
 
 export RANK_TABLE_FILE=$PATH1
-export LOCAL_DEFAULT_PATH="../../output"
+
+output_dir=$(cat $CONFIG_FILE | grep output_dir)
+if [ ! -n "$output_dir" ]; then
+  echo "Error: No output_dir in $CONFIG_FILE"
+  exit 1
+fi
+if [[ ! $output_dir =~ "'" ]]&&[[ ! $output_dir =~ "\"" ]]; then
+  echo "Error: Please use ' or \" to enclose output_dir"
+  exit 1
+elif [[ $output_dir =~ "'" ]]; then
+  output_dir=${output_dir#*\'}
+  output_dir=${output_dir%\'*}
+else
+  output_dir=${output_dir#*\"}
+  output_dir=${output_dir%\"*}
+fi
+if [[ $output_dir == "./output" ]]
+then
+  echo "output_dir is ./output"
+  export LOCAL_DEFAULT_PATH="../../output"
+else
+  echo "output_dir is $output_dir"
+  export LOCAL_DEFAULT_PATH=$output_dir
+fi
+
 export CHECKPOINT_DOWNLOAD_FOLDER="../../checkpoint_download"
 export CHECKPOINT_SAVE_FOLDER="../../checkpoint_save"
 
@@ -106,9 +130,9 @@ then
         cd ./mf_parallel$i || exit
         echo "start training for rank $RANK_ID, device $DEVICE_ID"
         env > env.log
-        mkdir -p ../../output/log/rank_$RANK_ID
+        mkdir -p $LOCAL_DEFAULT_PATH/log/rank_$RANK_ID
         python run_mindformer.py --config=$CONFIG_FILE --use_parallel=True --run_mode=$RUN_STATUS \
-               &> ../../output/log/rank_$RANK_ID/mindformer.log &
+               &> $LOCAL_DEFAULT_PATH/log/rank_$RANK_ID/mindformer.log &
         cd ..
     done
   else
@@ -124,9 +148,9 @@ then
         cd ./mf_parallel$i || exit
         echo "start training for rank $RANK_ID, device $DEVICE_ID"
         env > env.log
-        mkdir -p ../../output/log/rank_$RANK_ID
+        mkdir -p $LOCAL_DEFAULT_PATH/log/rank_$RANK_ID
         python run_mindformer.py --config=$CONFIG_FILE --use_parallel=True --run_mode=$RUN_STATUS \
-               &> ../../output/log/rank_$RANK_ID/mindformer.log &
+               &> $LOCAL_DEFAULT_PATH/log/rank_$RANK_ID/mindformer.log &
         cd ..
     done
   fi
@@ -149,9 +173,9 @@ else
         cd ./mf_parallel$i || exit
         echo "start training for rank $RANK_ID, device $DEVICE_ID"
         env > env.log
-        mkdir -p ../../output/log/rank_$RANK_ID
+        mkdir -p $LOCAL_DEFAULT_PATH/log/rank_$RANK_ID
         python run_mindformer.py --config=$CONFIG_FILE --use_parallel=True --run_mode=$RUN_STATUS \
-               --predict_data "$PREDICT_DATA" &> ../../output/log/rank_$RANK_ID/mindformer.log &
+               --predict_data "$PREDICT_DATA" &> $LOCAL_DEFAULT_PATH/log/rank_$RANK_ID/mindformer.log &
         cd ..
     done
   else
@@ -171,9 +195,9 @@ else
         cd ./mf_parallel$i || exit
         echo "start training for rank $RANK_ID, device $DEVICE_ID"
         env > env.log
-        mkdir -p ../../output/log/rank_$RANK_ID
+        mkdir -p $LOCAL_DEFAULT_PATH/log/rank_$RANK_ID
         python run_mindformer.py --config=$CONFIG_FILE --use_parallel=True --run_mode=$RUN_STATUS \
-               --predict_data "$PREDICT_DATA" &> ../../output/log/rank_$RANK_ID/mindformer.log &
+               --predict_data "$PREDICT_DATA" &> $LOCAL_DEFAULT_PATH/log/rank_$RANK_ID/mindformer.log &
         cd ..
     done
   fi

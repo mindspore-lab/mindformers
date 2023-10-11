@@ -38,6 +38,30 @@ then
 exit 1
 fi
 
+output_dir=$(cat $CONFIG_FILE | grep output_dir)
+if [ ! -n "$output_dir" ]; then
+  echo "Error: No output_dir in $CONFIG_FILE"
+  exit 1
+fi
+if [[ ! $output_dir =~ "'" ]]&&[[ ! $output_dir =~ "\"" ]]; then
+  echo "Error: Please use ' or \" to enclose output_dir"
+  exit 1
+elif [[ $output_dir =~ "'" ]]; then
+  output_dir=${output_dir#*\'}
+  output_dir=${output_dir%\'*}
+else
+  output_dir=${output_dir#*\"}
+  output_dir=${output_dir%\"*}
+fi
+if [[ $output_dir == "./output" ]]
+then
+  echo "output_dir is ./output"
+  export LOCAL_DEFAULT_PATH="../../output"
+else
+  echo "output_dir is $output_dir"
+  export LOCAL_DEFAULT_PATH=$output_dir
+fi
+
 ulimit -u unlimited
 export DEVICE_ID=${DEVICE_ID}
 
@@ -49,7 +73,8 @@ cp -r ../mindformers ./mf_standalone
 cd ./mf_standalone || exit
 echo "start training for device $DEVICE_ID"
 env > env.log
-python run_mindformer.py --config=$CONFIG_FILE --use_parallel=False --run_mode=$RUN_STATUS &> mindformer.log &
+mkdir -p $LOCAL_DEFAULT_PATH/log/rank_0
+python run_mindformer.py --config=$CONFIG_FILE --use_parallel=False --run_mode=$RUN_STATUS &> $LOCAL_DEFAULT_PATH/log/rank_0/mindformer.log &
 cd ..
 
 # if you want kill current job, you can use as follow:

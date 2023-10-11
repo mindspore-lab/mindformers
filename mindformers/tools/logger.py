@@ -19,6 +19,7 @@ import logging.handlers
 import os
 import stat
 import sys
+import traceback
 
 from functools import wraps
 from tempfile import TemporaryFile
@@ -37,9 +38,82 @@ LOCAL_DEFAULT_LOG_FILE_DIR = os.path.join(
     os.getenv("LOCAL_DEFAULT_PATH", LOCAL_DEFAULT_PATH), 'log')
 RANK_DIR_FORMATTER = 'rank_{}/'
 DEFAULT_FILEHANDLER_FORMAT = '[%(levelname)s] %(asctime)s ' \
-                             '[%(pathname)s:%(lineno)d] %(funcName)s: %(message)s'
-DEFAULT_STDOUT_FORMAT = '%(asctime)s - %(name)s[%(filename)s:%(lineno)d] - %(levelname)s - %(message)s'
+                             '[%(filepath)s:%(lineno)d] %(funcName)s: %(message)s'
+DEFAULT_STDOUT_FORMAT = '%(asctime)s - %(name)s[%(filepath)s:%(lineno)d] - %(levelname)s - %(message)s'
 DEFAULT_REDIRECT_FILE_NAME = 'mindspore.log'
+
+
+class _DataFormatter(logging.Formatter):
+    """Log formatter"""
+    def format(self, record):
+        """
+        Apply log format with specified pattern.
+
+        Args:
+            record (str): Format pattern.
+
+        Returns:
+            str, formatted log content according to format pattern.
+        """
+        # NOTICE: when the Installation directory of mindspore changed,
+        # ms_home_path must be changed
+        ms_install_home_path = 'mindformers'
+        idx = record.pathname.rfind(ms_install_home_path)
+        if idx >= 0:
+            # Get the relative path of the file
+            record.filepath = record.pathname[idx:]
+        else:
+            record.filepath = record.pathname
+        return super().format(record)
+
+
+def _get_stack_info(frame):
+    """
+    Get the stack information.
+
+    Args:
+        frame(frame): the frame requiring information.
+
+    Returns:
+        str, the string of the stack information.
+    """
+    stack_prefix = 'Stack (most recent call last):\n'
+    sinfo = stack_prefix + "".join(traceback.format_stack(frame))
+    return sinfo
+
+# pylint: disable=W0613
+def _find_caller(stack_info=False, stacklevel=1):
+    """
+    Find the stack frame of the caller.
+
+    Override findCaller on the logger, Support for getting log record.
+    Find the stack frame of the caller so that we can note the source
+    file name, function name and line number.
+
+    Args:
+        stack_info (bool): If the value is true, print stack information to the log. Default: False.
+
+    Returns:
+        tuple, the tuple of the frame data.
+    """
+    # pylint: disable=W0212
+    f = sys._getframe(3)
+    sinfo = None
+    # log_file is used to check caller stack frame
+    log_file = os.path.normcase(f.f_code.co_filename)
+    f = f.f_back
+    rv = "(unknown file)", 0, "(unknown function)", None
+    while f:
+        co = f.f_code
+        filename = os.path.normcase(co.co_filename)
+        if log_file == filename:
+            f = f.f_back
+            continue
+        if stack_info:
+            sinfo = _get_stack_info(f)
+        rv = (co.co_filename, f.f_lineno, co.co_name, sinfo)
+        break
+    return rv
 
 
 def judge_redirect(rank_id: int,
@@ -384,6 +458,7 @@ def get_logger(logger_name: str = 'mindformers', **kwargs) -> logging.Logger:
         logger (logging.Logger): Logger.
     """
     mf_logger = logging.getLogger(logger_name)
+    mf_logger.findCaller = _find_caller
     if logger_name in logger_list:
         return mf_logger
 
@@ -427,7 +502,7 @@ def get_logger(logger_name: str = 'mindformers', **kwargs) -> logging.Logger:
             stdout_format = DEFAULT_STDOUT_FORMAT
         stream_handler = LimitedRepeatHandler(10, sys.stdout)
         stream_handler.setLevel(_convert_level(stdout_level))
-        stream_formatter = logging.Formatter(stdout_format)
+        stream_formatter = _DataFormatter(stdout_format)
         stream_handler.setFormatter(stream_formatter)
         mf_logger.addHandler(stream_handler)
 
@@ -453,7 +528,7 @@ def get_logger(logger_name: str = 'mindformers', **kwargs) -> logging.Logger:
 
     max_file_size = max_file_size * 1024 * 1024
 
-    file_formatter = logging.Formatter(DEFAULT_FILEHANDLER_FORMAT)
+    file_formatter = _DataFormatter(DEFAULT_FILEHANDLER_FORMAT)
     for i, level in enumerate(file_level):
         file_handler = logging.handlers.RotatingFileHandler(filename=file_path[i],
                                                             maxBytes=max_file_size,
@@ -504,5 +579,30 @@ class _LogActionOnce:
 
         return wrapper
 
+# pylint: disable=C0103
+class logger:
+    """A class to call logger"""
+    # pylint: disable=E0213
+    def info(msg, *args, **kwargs):
+        """Log a message with severity 'INFO' on the Mindformers logger."""
+        get_logger().info(msg, *args, **kwargs)
 
-logger = get_logger()
+    # pylint: disable=E0213
+    def debug(msg, *args, **kwargs):
+        """Log a message with severity 'DEBUG' on the Mindformers logger."""
+        get_logger().debug(msg, *args, **kwargs)
+
+    # pylint: disable=E0213
+    def error(msg, *args, **kwargs):
+        """Log a message with severity 'ERROR' on the Mindformers logger."""
+        get_logger().error(msg, *args, **kwargs)
+
+    # pylint: disable=E0213
+    def warning(msg, *args, **kwargs):
+        """Log a message with severity 'WARNING' on the Mindformers logger."""
+        get_logger().warning(msg, *args, **kwargs)
+
+    # pylint: disable=E0213
+    def critical(msg, *args, **kwargs):
+        """Log a message with severity 'CRITICAL' on the Mindformers logger."""
+        get_logger().critical(msg, *args, **kwargs)
