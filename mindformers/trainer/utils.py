@@ -31,11 +31,10 @@ from mindformers.tools.logger import logger
 from mindformers.tools.register import MindFormerConfig
 from mindformers.tools.utils import check_in_modelarts, get_output_root_path
 from mindformers.tools.transform_ckpt import get_strategy
+from mindformers.tools.cloud_adapter import mox_adapter
 
 if check_in_modelarts():
     import moxing as mox
-
-ELAPSE_TIME = 7200
 
 class BaseEnum(str, Enum):
     """
@@ -309,9 +308,10 @@ def transform_and_load_checkpoint(config, model, network, dataset, optimizer=Non
 
     if config.auto_trans_ckpt:
         # 2. get strategy
+        src_ckpt_strategy = get_strategy(config.src_strategy_path_or_dir)
         dst_ckpt_strategy = get_dst_strategy(config)
         # 3. transform checkpoint if needed
-        transform_ckpt(config, dst_ckpt_strategy=dst_ckpt_strategy)
+        transform_ckpt(config, src_ckpt_strategy=src_ckpt_strategy, dst_ckpt_strategy=dst_ckpt_strategy)
 
     # 4. load ckpt
     load_ckpt(config, network, optimizer=optimizer)
@@ -416,98 +416,133 @@ def get_dst_strategy(config):
     return dst_strategy_path
 
 
-def transform_ckpt(config, dst_ckpt_strategy=None):
+def transform_ckpt(config, src_ckpt_strategy=None, dst_ckpt_strategy=None):
     """auto transform ckpt"""
+    if not config.load_checkpoint or not os.path.exists(config.load_checkpoint):
+        raise ValueError("The load_checkpoint should be exist, "
+                         f"but get {config.load_checkpoint}.")
+    if not os.path.isdir(config.load_checkpoint) or \
+        not glob(os.path.join(config.load_checkpoint, "rank*")):
+        raise ValueError("The load_checkpoint must be a dir and "
+                         "ckpt should be stored in the format of load_checkpoint/rank_x/xxx.ckpt,"
+                         f"but get {config.load_checkpoint}.")
+
     rank_id = get_rank() if config.use_parallel else 0
     world_size = get_group_size() if config.use_parallel else 1
     transformed_ckpt_dir = os.path.join(get_output_root_path(), "transformed_checkpoint")
     os.makedirs(transformed_ckpt_dir, exist_ok=True)
     if rank_id % 8 == 0:
         logger.info(".........Transforming ckpt.........")
-        src_ckpt_strategy = get_strategy(config.src_strategy_path_or_dir)
-
         logger.info("Src ckpt strategy: %s", src_ckpt_strategy)
         logger.info("Src ckpt: %s", config.load_checkpoint)
         logger.info("Dst ckpt strategy: %s", dst_ckpt_strategy)
         logger.info("Dst ckpt: %s", transformed_ckpt_dir)
-        ms.transform_checkpoints(config.load_checkpoint,
-                                 transformed_ckpt_dir,
-                                 'checkpoint_',
-                                 src_ckpt_strategy,
-                                 dst_ckpt_strategy)
-        logger.info(".........Transform succeed!.........")
-        transform_succeed_txt = os.path.join(transformed_ckpt_dir, f'transform_succeed_rank_{rank_id}.txt')
-        f = open(transform_succeed_txt, 'w')
-        f.close()
+        try:
+            ms.transform_checkpoints(config.load_checkpoint,
+                                     transformed_ckpt_dir,
+                                     'checkpoint_',
+                                     src_ckpt_strategy,
+                                     dst_ckpt_strategy)
+            logger.info(".........Transform succeed!.........")
+            transform_succeed_txt = os.path.join(transformed_ckpt_dir,
+                                                 f'transform_succeed_rank_{rank_id}.txt')
+            f = open(transform_succeed_txt, 'w')
+            f.close()
+        except RuntimeError:
+            logger.error(".........Transform failed!.........")
+            transform_failed_txt = os.path.join(transformed_ckpt_dir,
+                                                f'transform_failed_rank_{rank_id}.txt')
+            f = open(transform_failed_txt, 'w')
+            f.close()
+
         if check_in_modelarts():
             transformed_ckpt_dir_obs = os.path.join(config.remote_save_url, "transformed_checkpoint")
             mox.file.make_dirs(transformed_ckpt_dir_obs)
-            transform_succeed_txt_obs = os.path.join(transformed_ckpt_dir_obs, f'transform_succeed_rank_{rank_id}.txt')
-            mox.file.copy(transform_succeed_txt, transform_succeed_txt_obs)
 
-    wait_transform(config, rank_id, world_size)
+            transform_succeed_txt = os.path.join(transformed_ckpt_dir,
+                                                 f'transform_succeed_rank_{rank_id}.txt')
+            if os.path.exists(transform_succeed_txt):
+                transform_succeed_txt_obs = os.path.join(transformed_ckpt_dir_obs,
+                                                         f'transform_succeed_rank_{rank_id}.txt')
+                mox.file.copy(transform_succeed_txt, transform_succeed_txt_obs)
+
+            transform_failed_txt = os.path.join(transformed_ckpt_dir,
+                                                f'transform_failed_rank_{rank_id}.txt')
+            if os.path.exists(transform_failed_txt):
+                transform_failed_txt_obs = os.path.join(transformed_ckpt_dir_obs,
+                                                        f'transform_failed_rank_{rank_id}.txt')
+                mox.file.copy(transform_failed_txt, transform_failed_txt_obs)
+
+    wait_transform(config, world_size)
 
     if check_in_modelarts():
         transformed_ckpt_dir_obs = os.path.join(config.remote_save_url, "transformed_checkpoint")
         rank_transformed_ckpt_dir_obs = os.path.join(transformed_ckpt_dir_obs, f'rank_{rank_id}')
         rank_transformed_ckpt_dir = os.path.join(get_output_root_path(), "transformed_checkpoint", f'rank_{rank_id}')
-        mox.file.copy_parallel(rank_transformed_ckpt_dir, rank_transformed_ckpt_dir_obs)
+        mox_adapter(rank_transformed_ckpt_dir, rank_transformed_ckpt_dir_obs)
         print(f"Rank {rank_id}: Save {rank_transformed_ckpt_dir} to {rank_transformed_ckpt_dir_obs}")
 
     config.load_checkpoint = transformed_ckpt_dir
 
 
-def wait_transform(config, rank_id, world_size):
+def wait_transform(config, world_size):
     """wait all node transform over"""
-    print(f'Rank {rank_id}: Waiting transforming ckpt......')
-    time_out = False
+    last_count = -1
     if check_in_modelarts():
         transformed_ckpt_dir_obs = os.path.join(config.remote_save_url, "transformed_checkpoint")
-        transform_succeed_txts_obs = [os.path.join(transformed_ckpt_dir_obs, f'transform_succeed_rank_{int(i/8)*8}.txt')
-                                      for i in range(0, world_size, 8)]
-        total_num = len(transform_succeed_txts_obs)
-        all_node_transform_succeed = False
-        start_time = time.time()
-        while not all_node_transform_succeed:
-            node_transform_succeed_num = 0
-            for transform_succeed_txt in transform_succeed_txts_obs:
-                if mox.file.exists(transform_succeed_txt):
-                    node_transform_succeed_num += 1
-                else:
-                    break
-            if node_transform_succeed_num == total_num:
-                all_node_transform_succeed = True
-            else:
-                elapsed_time = time.time() - start_time
-                if elapsed_time >= ELAPSE_TIME:
-                    logger.warning("Automatic weight transform is timed out!")
-                    time_out = True
-                    break
+        while True:
+            transform_failed_txts_obs = mox.file.glob(os.path.join(transformed_ckpt_dir_obs,
+                                                                   f'transform_failed_rank_*.txt'))
+            if transform_failed_txts_obs:
+                raise ValueError(f"Transform failed, find {transform_failed_txts_obs}.")
+
+            transform_succeed_txts_obs = mox.file.glob(os.path.join(transformed_ckpt_dir_obs,
+                                                                    f'transform_succeed_rank_*.txt'))
+            current_count = len(transform_succeed_txts_obs)
+            total_num = len(list(range(0, world_size, 8)))
+            progress = (current_count / total_num) * 100
+            if current_count != last_count:
+                show_progress(progress, prefix="Transforming checkpoint")
+                last_count = current_count
+            if current_count < total_num:
                 time.sleep(5)
+            else:
+                break
     else:
         transformed_ckpt_dir = os.path.join(get_output_root_path(), "transformed_checkpoint")
-        transform_succeed_txt = os.path.join(transformed_ckpt_dir, f'transform_succeed_rank_0.txt')
-        start_time = time.time()
-        while not os.path.exists(transform_succeed_txt):
-            elapsed_time = time.time() - start_time
-            if elapsed_time >= ELAPSE_TIME:
-                time_out = True
+        while True:
+            transform_failed_txts = glob(os.path.join(transformed_ckpt_dir,
+                                                      f'transform_failed_rank_*.txt'))
+            if transform_failed_txts:
+                raise ValueError(f"Transform failed, find {transform_failed_txts}.")
+
+            transform_succeed_txts = glob(os.path.join(transformed_ckpt_dir,
+                                                       f'transform_succeed_rank_*.txt'))
+            current_count = len(transform_succeed_txts)
+            total_num = len(list(range(0, world_size, 8)))
+            progress = (current_count / total_num) * 100
+            if current_count != last_count:
+                show_progress(progress, prefix="Transforming checkpoint")
+                last_count = current_count
+            if current_count < total_num:
+                time.sleep(5)
+            else:
                 break
-            time.sleep(5)
-    print(f'Rank {rank_id}: Transform succeed!')
-    if time_out:
-        return False
-    return True
 
 
 def wait_collect_all_strategy(strategy_dir, total_num, obs_strategy_dir=None):
     """wait all strategy collect over"""
-    start_time = time.time()
-    time_out = False
+    last_count = -1
+    last_count_obs = -1
     while True:
         if obs_strategy_dir:
             obs_strategy_paths = mox.file.glob(os.path.join(obs_strategy_dir, "*.ckpt"))
-            if len(obs_strategy_paths) < total_num:
+            obs_current_count = len(obs_strategy_paths)
+            progress = (obs_current_count / total_num) * 100
+            if obs_current_count != last_count_obs:
+                show_progress(progress, prefix="Collecting strategy")
+                last_count_obs = obs_current_count
+            if obs_current_count < total_num:
                 time.sleep(5)
                 continue
             for obs_strategy_path in obs_strategy_paths:
@@ -515,18 +550,21 @@ def wait_collect_all_strategy(strategy_dir, total_num, obs_strategy_dir=None):
                 mox.file.copy(obs_strategy_path, local_strategy_path)
 
         local_strategy_paths = glob(os.path.join(strategy_dir, "*_rank_*.ckpt"))
-        if len(local_strategy_paths) == total_num:
-            break
-        else:
-            elapsed_time = time.time() - start_time
-            if elapsed_time >= ELAPSE_TIME:
-                logger.warning("Collection of all strategy timed out!")
-                time_out = True
-                break
+        local_current_count = len(local_strategy_paths)
+        progress = (local_current_count / total_num) * 100
+        if local_current_count != last_count:
+            show_progress(progress, prefix="Collecting strategy")
+            last_count = local_current_count
+        if local_current_count < total_num:
             time.sleep(5)
-    if time_out:
-        return False
-    return True
+        else:
+            break
+
+
+def show_progress(progress, prefix=''):
+    """show progress"""
+    show_str = ('|%%-%ds|' % 50) % (int(50 * progress / 100) * "▮")
+    logger.info("%s: %s%d%%", prefix, show_str, progress)
 
 
 def load_ckpt(config, network, optimizer=None):
