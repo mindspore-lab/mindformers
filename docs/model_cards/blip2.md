@@ -249,16 +249,16 @@ RANK_TABLE_FILE 双机16卡参考样例:
 
 ### 模型权重下载与转换
 
-本仓库中的`blip2_stage1_classification`来自于LAVIS的一阶段预训练权重[`blip2_stage1_pretrained`](https://storage.googleapis.com/sfr-vision-language-research/LAVIS/models/BLIP2/blip2_pretrained.pth), 基于下述的步骤获取：
+本仓库中的`blip2_stage1_classification`来自于LAVIS的一阶段预训练权重`blip2_stage1_pretrained`, 基于下述的步骤获取：
 
-1. 从上述的链接中下载`blip2_stage1_pretrained`的pytorch权重，文件名为`blip2_pretrained.pth`
+1. 从[此链接](https://storage.googleapis.com/sfr-vision-language-research/LAVIS/models/BLIP2/blip2_pretrained.pth)中下载`blip2_stage1_pretrained`的pytorch权重，文件名为`blip2_pretrained.pth`
 
 2. 执行转换脚本，得到转换后的输出文件`blip2_stage1_pretrained.ckpt`
 
 权重转换步骤+权重转换命令
 
 ```bash
-python path/to/convert_weight.py --torch_path blip2_pretrained.pth --mindspore_path ./blip2_stage1_pretrained.ckpt
+python mindformers/models/blip2/convert_weight.py --torch_path blip2_pretrained.pth --mindspore_path ./blip2_stage1_pretrained.ckpt
 ```
 
 ### 模型权重切分与合并
@@ -553,74 +553,7 @@ done
 IP_LIST=("192.168.0.0", "192.168.0.1", ..., "192.168.0.11")
 ```
 
-## 微调
-
-### 数据集准备-微调数据集
-
-1. 在`BLIP-2`一阶段中，可使用新的Lavis开源预训练模型进行微调，模型转换可参考[BLIP-2模型转换](#模型权重下载与转换)
-
-2. 本项目基于Llama7b和Baichuan7b作为语言模型，官方并未有该实现，所以无开源模型，无法进行微调；
-
-### 全参微调
-
-#### 单卡微调
-
-- python启动微调`BLIP-2`一阶段
-
-```bash
-python run_mindformer.py --config configs/blip2/run_blip2_stage1_vit_g_qformer_pretrain.yaml --run_mode finetune
-```
-
-- bash启动微调`BLIP-2`一阶段
-
-```bash
-cd scripts
-bash run_standalone.sh configs/blip2/run_blip2_stage1_vit_g_qformer_pretrain.yaml [DEVICE_ID] finetune
-```
-
-#### 多卡微调
-
-多卡运行需要RANK_FILE_TABLE，请参考前期准备-[生成RANK_TABLE_FILE](#生成rank_table_file多卡运行必须环节)，以下展示通过同种方式微调`BLIP-2`一阶段
-
-- 单机多卡
-
-```bash
-cd scripts
-bash run_distribute.sh RANK_TABLE_FILE configs/blip2/run_blip2_stage1_vit_g_qformer_pretrain.yaml [0,8] finetune 8
-```
-
-多机多卡运行需要合并不同机器的RANK_FILE_TABLE，参考前期准备-[多机RANK_TABLE_FILE合并](#多机rank_table_file合并多机多卡必备环节)
-
-- 多机多卡
-
-在每台机器上启动`bash run_distribute.sh`。
-
-```bash
-server_count=12
-device_num=8*$server_count
-# launch ranks in the 0th server
-cd scripts
-bash run_distribute.sh $RANK_TABLE_FILE configs/blip2/run_blip2_stage1_vit_g_qformer_pretrain.yaml [0,8] finetune $device_num
-
-# launch ranks in the 1-11 server via ssh
-for idx in {1..11}
-do  
-    let rank_start=8*$idx
-    let rank_end=$rank_start+8
-    ssh ${IP_LIST[$idx]} "cd scripts; bash run_distribute.sh $RANK_TABLE_FILE configs/blip2/run_blip2_stage1_vit_g_qformer_pretrain.yaml [$rank_start,$rank_end] finetune $device_num"
-done
-```
-
-其中
-
-- `RANK_TABLE_FILE`为上一步汇总并分发的总rank table文件；
-- `IP_LIST`为12台服务器的IP地址。如192.168.0.[0-11]
-
-```bash
-IP_LIST=("192.168.0.0", "192.168.0.1", ..., "192.168.0.11")
-```
-
-### Lora微调
+### 全参微调与Lora微调
 
 暂不支持
 
