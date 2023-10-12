@@ -279,6 +279,7 @@ class LlamaForCausalLM(BaseModel):
         _check_config(config.parallel_config)
         self.ignore_token_id = config.ignore_token_id
         self.pad_token_id = config.pad_token_id
+        self.use_past = config.use_past
 
         self.reshape = P.Reshape()
         self.cast = P.Cast()
@@ -286,6 +287,7 @@ class LlamaForCausalLM(BaseModel):
         self.not_equal = P.NotEqual()
         self.mul = P.Mul()
         self.add = P.Add()
+        self.ones = P.Ones()
         self.model = LlamaModel(config=config)
         self.lm_head = Linear(in_channels=config.hidden_size,
                               out_channels=config.vocab_size,
@@ -355,6 +357,11 @@ class LlamaForCausalLM(BaseModel):
             Tensor: The loss or (logits, tokens, input_mask) of the network.
         """
         bsz, seqlen = input_ids.shape
+        if self.use_past:
+            if not isinstance(init_reset, Tensor):
+                init_reset = Tensor([init_reset], mstype.bool_)
+            if not isinstance(batch_valid_length, Tensor):
+                batch_valid_length = self.ones((bsz, 1), mstype.int32)
         if self.training:
             tokens = self.slice(input_ids, (0, 0), (bsz, seqlen - 1), (1, 1))
         else:
