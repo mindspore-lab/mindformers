@@ -132,6 +132,7 @@ then
         env > env.log
         mkdir -p $LOCAL_DEFAULT_PATH/log/rank_$RANK_ID
         python run_mindformer.py --config=$CONFIG_FILE --use_parallel=True --run_mode=$RUN_STATUS \
+               --output_dir=$LOCAL_DEFAULT_PATH \
                &> $LOCAL_DEFAULT_PATH/log/rank_$RANK_ID/mindformer.log &
         cd ..
     done
@@ -150,6 +151,7 @@ then
         env > env.log
         mkdir -p $LOCAL_DEFAULT_PATH/log/rank_$RANK_ID
         python run_mindformer.py --config=$CONFIG_FILE --use_parallel=True --run_mode=$RUN_STATUS \
+               --output_dir=$LOCAL_DEFAULT_PATH \
                &> $LOCAL_DEFAULT_PATH/log/rank_$RANK_ID/mindformer.log &
         cd ..
     done
@@ -175,7 +177,8 @@ else
         env > env.log
         mkdir -p $LOCAL_DEFAULT_PATH/log/rank_$RANK_ID
         python run_mindformer.py --config=$CONFIG_FILE --use_parallel=True --run_mode=$RUN_STATUS \
-               --predict_data "$PREDICT_DATA" &> $LOCAL_DEFAULT_PATH/log/rank_$RANK_ID/mindformer.log &
+               --output_dir=$LOCAL_DEFAULT_PATH --predict_data "$PREDICT_DATA" \
+               &> $LOCAL_DEFAULT_PATH/log/rank_$RANK_ID/mindformer.log &
         cd ..
     done
   else
@@ -197,7 +200,8 @@ else
         env > env.log
         mkdir -p $LOCAL_DEFAULT_PATH/log/rank_$RANK_ID
         python run_mindformer.py --config=$CONFIG_FILE --use_parallel=True --run_mode=$RUN_STATUS \
-               --predict_data "$PREDICT_DATA" &> $LOCAL_DEFAULT_PATH/log/rank_$RANK_ID/mindformer.log &
+               --output_dir=$LOCAL_DEFAULT_PATH --predict_data "$PREDICT_DATA" \
+               &> $LOCAL_DEFAULT_PATH/log/rank_$RANK_ID/mindformer.log &
         cd ..
     done
   fi
