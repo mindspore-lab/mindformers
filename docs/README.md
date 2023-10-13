@@ -154,11 +154,11 @@ gpt_model = GPT2LMHeadModel(gpt_config)
 from mindformers import AutoTokenizer
 
 gpt_tokenizer = AutoTokenizer.from_pretrained("gpt2")
-gpt_tokenizer("hello!")
+print(gpt_tokenizer("hello!", add_special_tokens=False))
 ```
 
 ```text
-{'input_ids': [50256, 31373, 0, 50256], 'token_type_ids': [0, 0, 0, 0], 'attention_mask': [1, 1, 1, 1]}
+{'input_ids': [31373, 0], 'token_type_ids': [0, 0], 'attention_mask': [1, 1]}
 ```
 
 使用已有Tokenizer函数对文本进行分词：
@@ -167,11 +167,11 @@ gpt_tokenizer("hello!")
 from mindformers import GPT2Tokenizer
 
 gpt_tokenizer = GPT2Tokenizer.from_pretrained("gpt2")
-gpt_tokenizer("hello!")
+print(gpt_tokenizer("hello!", add_special_tokens=False))
 ```
 
 ```text
-{'input_ids': [50256, 31373, 0, 50256], 'token_type_ids': [0, 0, 0, 0], 'attention_mask': [1, 1, 1, 1]}
+{'input_ids': [31373, 0], 'token_type_ids': [0, 0], 'attention_mask': [1, 1]}
 ```
 
 ### AutoProcessor
@@ -182,12 +182,12 @@ gpt_tokenizer("hello!")
 from mindformers import AutoProcessor
 
 gpt_processor = AutoProcessor.from_pretrained("gpt2")
-gpt_processor("hello!")
+print(gpt_processor("hello!", add_special_tokens=False))
 ```
 
 ```text
 {'text': Tensor(shape=[1, 128], dtype=Int32, value=
-[[50256, 31373,     0 ... 50256, 50256, 50256]])}
+[[31373,     0, 50256 ... 50256, 50256, 50256]])}
 ```
 
 使用已有模型数据预处理过程对相应数据做模型输入前的预处理：
@@ -196,12 +196,12 @@ gpt_processor("hello!")
 from mindformers import GPT2Processor
 
 gpt_processor = GPT2Processor.from_pretrained('gpt2')
-gpt_processor("hello!")
+print(gpt_processor("hello!"))
 ```
 
 ```text
 {'text': Tensor(shape=[1, 128], dtype=Int32, value=
-[[50256, 31373,     0 ... 50256, 50256, 50256]])}
+[[31373,     0, 50256 ... 50256, 50256, 50256]])}
 ```
 
 使用已有数据预处理过程进行二次开发：
@@ -212,12 +212,12 @@ from mindformers import GPT2Processor, GPT2Tokenizer
 # 自定义 tokenizer
 tok = GPT2Tokenizer.from_pretrained("gpt2")
 gpt_processor = GPT2Processor(tokenizer=tok, max_length=256, return_tensors='ms')
-gpt_processor("hello!")
+print(gpt_processor("hello!"))
 ```
 
 ```text
 {'text': Tensor(shape=[1, 256], dtype=Int32, value=
-[[50256, 31373,     0 ... 50256, 50256, 50256]])}
+[[31373,     0, 50256 ... 50256, 50256, 50256]])}
 ```
 
 ## pipeline
@@ -233,29 +233,29 @@ MindFormers大模型套件面向任务设计pipeline推理接口，旨在让用�
 ```python
 from mindformers import pipeline
 
-text_generation = pipeline(task='text_generation', model='gpt2', max_length=50)
-text_generation("I love Beijing, because", top_k=3)
+text_generation = pipeline(task='text_generation', model='gpt2', max_length=10)
+print(text_generation("I love Beijing, because", do_sample=False))
 ```
 
 ```text
-[{'text_generation_text': ['I love Beijing, because of all its beautiful scenery and beautiful people," said the mayor of Beijing, who was visiting the capital for the first time since he took office.\n\n"The Chinese government is not interested in any of this," he added']}]
+[{'text_generation_text': ["I love Beijing, because it's a beautiful city"]}]
 ```
 
 使用自定义的模型、tokenizer等进行任务推理：
 
 ```python
 from mindformers import pipeline
-from mindformers import GPT2LMHeadModel, GPT2Config, GPT2Tokenizer
+from mindformers import GPT2LMHeadModel, GPT2Tokenizer
 
 tok = GPT2Tokenizer.from_pretrained("gpt2")
 gpt_model = GPT2LMHeadModel.from_pretrained("gpt2")
 
-text_generation = pipeline(task='text_generation', model=gpt_model, tokenizer=tok, max_length=50)
-text_generation("I love Beijing, because", top_k=3)
+text_generation = pipeline(task='text_generation', model=gpt_model, tokenizer=tok, max_length=10)
+print(text_generation("I love Beijing, because", do_sample=False))
 ```
 
 ```text
-[{'text_generation_text': ['I love Beijing, because of all its beautiful scenery and beautiful people," said the mayor of Beijing, who was visiting the capital for the first time since he took office.\n\n"The Chinese government is not interested in any of this," he added']}]
+[{'text_generation_text': ["I love Beijing, because it's a beautiful city"]}]
 ```
 
 ## Trainer
