@@ -24,6 +24,7 @@ ChatGLM**2**-6B 是开源中英双语对话模型 [ChatGLM2-6B](https://github.c
 
     ```bash
     glm2
+        ├── export_glm2_6b.yaml       # 导出MindIR配置
         ├── run_glm2_6b_fintune.yaml  # 全量微调启动配置
         └── run_glm2_6b_lora.yaml     # lora低参微调启动配置
     ```
@@ -473,3 +474,78 @@ trainer.evaluate(eval_checkpoint="/path/to/glm2_6b_lora.ckpt")
 
    ms.save_checkpoint(ms_param, "glm2_6b.ckpt")
    ```
+
+## Mindspore-Lite 推理及量化
+
+### 基本介绍
+
+　　MindFormers 定位打造训练->微调->部署的端到端大模型工具套件，为了更好性能地部署已经微调训练好的大模型，我们利用MindSpore打造的推理引擎 [MindSpore_lite](https://gitee.com/link?target=https%3A%2F%2Fwww.mindspore.cn%2Flite)，为用户提供了开箱即用的推理部署方案，为用户提供端到端的大模型解决方案，帮助用户使能大模型业务。
+
+　　Lite 推理大致分两步：权重转换导出 MindIR -> Lite 推理，接下来分别描述上述两个过程。
+
+### MindIR 导出
+
+　　1. 修改模型相关的配置文件 configs/glm2/export_glm2_6b.yaml，其中需要关注这几项：
+
+```yaml
+# export
+infer:
+    prefill_model_path: "glm2_export/glm2_6b_prefill_seq512.mindir" # 保存mindir的位置
+    increment_model_path: "glm2_export/glm2_6b_inc_seq512.mindir"   # 保存mindir的位置
+    infer_seq_length: 512 # 需要保持跟 model-model_config-seq_length 一致
+
+# ==== model config ====
+model:
+  model_config:
+    seq_length: 512
+    checkpoint_name_or_path: "/path/to/your/checkpoint"
+```
+
+2. 执行export.py，完成模型转换
+
+```bash
+python mindformers/tools/export.py --config_path configs/glm2/export_glm2_6b.yaml
+```
+
+1. 分别对 `prefill_model`​ 和 `increment_model`​ 执行转换
+
+### 执行推理
+
+1. 新建推理配置文件：lite.ini
+
+    ```ini
+    [ascend_context]
+    provider=ge
+
+    [ge_session_options]
+    ge.exec.formatMode=1
+    ge.exec.precision_mode=must_keep_origin_dtype
+    ```
+
+2. 执行命令：
+
+```bash
+python run_infer_main.py --device_id 0 --model_name glm2 --prefill_model_path glm2_export/glm2_6b_prefill_seq512_graph.mindir --increment_model_path glm2_export/glm2_6b_inc_seq512_graph.mindir --config_path lite.ini --is_sample_acceleration False --seq_length 512 --add_special_tokens True
+```
+
+　　等待模型载入、编译后，出现：
+
+```bash
+Please enter your predict data:
+```
+
+　　输入：
+
+```bash
+[Round 1]
+
+问：你好。
+
+答：
+```
+
+　　输出：
+
+```bash
+['[Round 1]\n\n问：你好。\n\n答： 你好👋！我是人工智能助手 ChatGLM2-6B，很高兴见到你，欢迎问我任何问题。']
+```
