@@ -36,6 +36,8 @@ class QFormerConfig(BertConfig):
                  num_hidden_layers: int = 12,
                  num_attention_heads: int = 12,
                  query_length: int = 32,
+                 resize_token_embeddings: bool = True,
+                 special_token_nums: int = 1,
                  vocab_size: int = 30523,
                  hidden_size: int = 768,
                  encoder_width: int = 1408,
@@ -71,6 +73,8 @@ class QFormerConfig(BertConfig):
         self.num_hidden_layers = num_hidden_layers
         self.num_attention_heads = num_attention_heads
         self.query_length = query_length
+        self.resize_token_embeddings = resize_token_embeddings
+        self.special_token_nums = special_token_nums
         self.vocab_size = vocab_size
         self.hidden_size = hidden_size
         self.encoder_width = encoder_width

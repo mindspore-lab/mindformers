@@ -27,6 +27,7 @@ from mindspore.dataset import GeneratorDataset
 from mindformers import Trainer, TrainingArguments, Blip2Llama, LlamaTokenizer
 from mindformers.models.bert.bert_tokenizer import BertTokenizer
 from mindformers.models.blip2 import Blip2Qformer, Blip2Classifier, Blip2Config, Blip2ImageProcessor
+from mindformers.models.blip2.blip2_itm_evaluator import Blip2ItmEvaluator
 from mindformers.models.blip2.blip2_llama import Blip2ImageToTextGeneration
 from mindformers.models.blip2.qformer import QFormerConfig
 from mindformers.models.llama.llama_config import LlamaConfig
@@ -80,6 +81,7 @@ class TestBlip2TrainerMethod:
                                    qformer_config=qformer_config)
         # for train and evaluation
         self.blip2_qformer = Blip2Qformer(model_config)
+        self.blip2_evaluator = Blip2ItmEvaluator(model_config, self.blip2_qformer)
         # for prediction
         self.blip2_classifier = Blip2Classifier(model_config)
         self.image_processor = Blip2ImageProcessor(image_size=32)
@@ -108,10 +110,9 @@ class TestBlip2TrainerMethod:
         Expectation: TypeError, ValueError, RuntimeError
         """
         task_evaluater = Trainer(task='image_to_text_retrieval',
-                                 model=self.blip2_qformer,
-                                 model_name='blip2_stage1_vit_g',
+                                 model=self.blip2_evaluator,
+                                 model_name='blip2_stage1_evaluator',
                                  tokenizer=self.tokenizer,
-                                 train_dataset=self.train_dataset,
                                  eval_dataset=self.eval_dataset)
         task_evaluater.evaluate(k_test=1, add_extra_itm_score=False)
 

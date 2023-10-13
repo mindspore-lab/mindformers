@@ -36,27 +36,31 @@ from mindformers.models.blip2.qformer import CrossEntropyLoss
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.tools.logger import logger
 
-def locate_card(rank_id: Tensor, group_size: int = 1):
-    """
-    locate card number for ops.BroadCast, for graph mode.
-    """
-    for i in range(0, group_size):
-        if i == rank_id:
-            return i
-    return 0
-
-
-def choose_idx_with_prob(weight: Tensor, batch_size: int = 1):
+def choose_idx_with_prob(weight: Tensor):
     """
     choose idx depend on probability, replace torch.multinomial
     """
     weight_acc = ops.cumsum(weight, -1)
     rand_x = np.rand([1], dtype=weight_acc.dtype) * weight_acc[-1]
     idx = np.argmax(weight_acc > rand_x)
-    rank_id = idx // batch_size
-    data_id = idx % batch_size
-    return rank_id, data_id
+    return idx
 
+class AllGatherWithGrad(nn.Cell):
+    """
+    AllGather Layer which does not cut gradients.
+    """
+    def __init__(self):
+        super(AllGatherWithGrad, self).__init__()
+        self.all_gather = ops.AllGather()
+        self.reduce_scatter = ops.ReduceScatter(ops.ReduceOp.SUM)
+
+    def construct(self, x):
+        return self.all_gather(x)
+
+    def bprop(self, x, out, dout):
+        x = x
+        out = out
+        return (self.reduce_scatter(dout),)
 
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
 class Blip2Qformer(Blip2Base):
@@ -91,10 +95,22 @@ class Blip2Qformer(Blip2Base):
             self.visual_encoder.set_train(False)
             logger.info("freeze vision encoder")
 
-        self.qformer, self.query_tokens = self.init_qformer()
         qformer_config = self.config.qformer_config
-        # note special token added: bos_token -> [DEC]
-        self.qformer.resize_token_embeddings(qformer_config.vocab_size + 1)
+
+        # note on 910b, function resize_token_embeddings() is not supported,
+        # thus in this case, a resized weight will be loaded, i.e:
+        # 1) vocab_size = vocab_size + special_token_nums,
+        # 2) special_token_nums = 0
+        if not qformer_config.resize_token_embeddings:
+            qformer_config.vocab_size = qformer_config.vocab_size + qformer_config.special_token_nums
+            qformer_config.special_token_nums = 0
+
+        # init qformer
+        self.qformer, self.query_tokens = self.init_qformer()
+
+        if qformer_config.resize_token_embeddings:
+            # note special token added: bos_token -> [DEC]
+            self.qformer.resize_token_embeddings(qformer_config.vocab_size + qformer_config.special_token_nums)
 
         params = self.qformer.get_parameters()
         # modify layer names
@@ -128,6 +144,7 @@ class Blip2Qformer(Blip2Base):
                                compute_dtype=config.compute_dtype)
         self.itm_head.shard(strategy_matmul=((dp, mp), (1, mp)))
 
+        self.gather = P.Gather()
         self.matmul = P.BatchMatMul()
         self.matmul.shard(((dp, mp, 1, 1), (dp, mp, 1, 1)))
         self.concat = ops.concat
@@ -156,7 +173,7 @@ class Blip2Qformer(Blip2Base):
 
         if self.group_size > 1:
             self.all_gather = ops.AllGather()
-            self.broadcast = ops.Broadcast
+            self.all_gather_with_grad = AllGatherWithGrad()
         self.not_equal = P.NotEqual()
         self.cast = P.Cast()
 
@@ -429,30 +446,25 @@ class Blip2Qformer(Blip2Base):
             image_embeds_neg (Tensor): negative image_embeds
             text_ids_neg (Tensor): negative text ids
         """
+        if self.group_size > 1:
+            # do all_gather with grads, align with torch impl.
+            image_embeds_gathered = self.all_gather_with_grad(image_embeds)
+            text_ids_gathered = self.all_gather(text_input_ids)
+        else:
+            image_embeds_gathered = image_embeds
+            text_ids_gathered = text_input_ids
+
         # select a negative image for each text
-        image_embeds_neg = []
+        image_embeds_neg_idx = self.zeros(batch_size, mstype.int32)
         for i in range(batch_size):
-            rank_id, data_id = choose_idx_with_prob(weights_t2i[i], batch_size)
-            if self.group_size > 1:
-                card_id = locate_card(rank_id, self.group_size)
-                image_embeds_temp = self.broadcast(card_id)((image_embeds,))[0]
-            else:
-                image_embeds_temp = image_embeds
-            image_embeds_neg.append(image_embeds_temp[data_id])
-        image_embeds_neg = self.stack(image_embeds_neg, axis=0)
+            image_embeds_neg_idx[i] = choose_idx_with_prob(weights_t2i[i])
+        image_embeds_neg = self.gather(image_embeds_gathered, image_embeds_neg_idx, 0)
 
         # select a negative text for each image
-        text_ids_neg = []
+        text_ids_neg_idx = self.zeros(batch_size, mstype.int32)
         for i in range(batch_size):
-            rank_id, data_id = choose_idx_with_prob(weights_i2t[i], batch_size)
-            if self.group_size > 1:
-                card_id = locate_card(rank_id, self.group_size)
-                text_input_ids_temp = self.broadcast(
-                    card_id)((text_input_ids,))[0]
-            else:
-                text_input_ids_temp = text_input_ids
-            text_ids_neg.append(text_input_ids_temp[data_id])
-        text_ids_neg = self.stack(text_ids_neg, axis=0)
+            text_ids_neg_idx[i] = choose_idx_with_prob(weights_i2t[i])
+        text_ids_neg = self.gather(text_ids_gathered, text_ids_neg_idx, 0)
 
         return image_embeds_neg, text_ids_neg
 
