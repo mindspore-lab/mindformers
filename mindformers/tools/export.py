@@ -36,6 +36,15 @@ def get_glm_prefill_model_input(batch_size, seq_length):
     return x, position_ids, attention_mask
 
 
+def get_glm2_prefill_model_input(batch_size, seq_length):
+    """get glm2 model input tuple."""
+    input_ids = ms.Tensor(np.ones((batch_size, seq_length)), ms.int32)
+    input_position = ms.Tensor(np.ones((batch_size, 1)), ms.int32)
+    init_reset = ms.Tensor([False], ms.bool_)
+    batch_valid_length = ms.Tensor(np.ones([batch_size, 1]), ms.int32)
+    return input_ids, None, None, None, None, input_position, init_reset, batch_valid_length
+
+
 def get_llm_common_prefill_model_input(batch_size, seq_length):
     """get llama model input tuple."""
     x = ms.Tensor(np.ones([batch_size, seq_length]).astype(np.int32))
@@ -71,25 +80,16 @@ def get_glm2_inc_model_input(batch_size, seq_length, prefill):
     # export first iteration
     if prefill:
         input_ids = ms.Tensor(np.ones((batch_size, seq_length)), ms.int32)
-        position_ids = None
-        attention_mask = None
-        inputs_embeds = None
-        labels = None
         input_position = ms.Tensor(np.ones((batch_size, 1)), ms.int32)
         init_reset = ms.Tensor([False], ms.bool_)
         batch_valid_length = ms.Tensor(np.ones([batch_size, 1]), ms.int32)
     # export later iteration
     else:
         input_ids = ms.Tensor(np.ones((batch_size, 1)), ms.int32)
-        position_ids = None
-        attention_mask = None
-        inputs_embeds = None
-        labels = None
         input_position = ms.Tensor(np.ones((batch_size, 1)), ms.int32)
         init_reset = ms.Tensor([True], ms.bool_)
         batch_valid_length = ms.Tensor(np.ones([batch_size, 1]), ms.int32)
-    return input_ids, position_ids, attention_mask, inputs_embeds, labels,\
-           input_position, init_reset, batch_valid_length
+    return input_ids, None, None, None, None, input_position, init_reset, batch_valid_length
 
 
 def get_glm_inc_model_input(batch_size, seq_length, prefill):
@@ -113,13 +113,14 @@ PREFILL_MODEL_INPUT_MAP = {
     "bloom": get_llm_common_prefill_model_input,
     "llama": get_llm_common_prefill_model_input,
     "glm": get_glm_prefill_model_input,
+    "glm2": get_glm2_prefill_model_input
 }
 
 INCREMENT_MODEL_INPUT_MAP = {
     "bloom": get_bloom_inc_model_input,
     "llama": get_llama_inc_model_input,
-    "glm2": get_glm2_inc_model_input,
-    "glm": get_glm_inc_model_input
+    "glm": get_glm_inc_model_input,
+    "glm2": get_glm2_inc_model_input
 }
 
 
