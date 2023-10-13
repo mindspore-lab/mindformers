@@ -101,7 +101,7 @@ train_dataset: &train_dataset
     shuffle: True
   tokenizer:
     type: GPT2Tokenizer
-    max_length: 1025
+    max_length: 2049
   input_columns: ["input_ids", "attention_mask"]
   num_parallel_workers: 8
   python_multiprocessing: False
@@ -122,7 +122,7 @@ eval_dataset: &eval_dataset
     shuffle: False
   tokenizer:
     type: GPT2Tokenizer
-    max_length: 1024
+    max_length: 2048
   input_columns: ["input_ids", "attention_mask"]
   num_parallel_workers: 8
   python_multiprocessing: False
@@ -138,7 +138,7 @@ eval_dataset_task:
 model:
   model_config:
     type: GPT2Config
-    seq_length: 1024
+    seq_length: 2048
     vocab_size: 50257
     hidden_size: 5120
     num_layers: 40
@@ -154,7 +154,7 @@ model:
     checkpoint_name_or_path: ""
     eos_token_id: 50256
     repetition_penalty: 1
-    max_decode_length: 1024
+    max_decode_length: 2048
     top_k: 5
     top_p: 1
     do_sample: True
