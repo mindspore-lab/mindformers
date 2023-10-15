@@ -22,7 +22,12 @@ import os
 import re
 import numpy as np
 # fschat >= 0.2.13
-from fastchat.conversation import get_conv_template
+try:
+    from fastchat.conversation import get_conv_template
+except ImportError:
+    def get_conv_template():
+        raise ImportError("fastchat is not installed. \
+                          Please install fastchat by 'pip install fschat==0.2.13'.")
 
 from mindspore.mindrecord import FileWriter
 
