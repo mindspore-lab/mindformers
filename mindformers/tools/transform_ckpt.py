@@ -28,7 +28,7 @@ def get_strategy(startegy_path, rank_id=None):
     Returns:
         None or strategy path
     """
-    if not startegy_path:
+    if not startegy_path or startegy_path == "None":
         return None
 
     assert os.path.exists(startegy_path), f'{startegy_path} not found!'
@@ -77,8 +77,6 @@ if __name__ == '__main__':
     src_ckpt_dir = args.src_ckpt_dir
     dst_ckpt_dir = args.dst_ckpt_dir
     prefix = args.prefix
-
-    assert os.path.exists(args.src_ckpt_dir), f'{args.src_ckpt_dir} not found!'
 
     print(f"src_ckpt_strategy: {src_ckpt_strategy}")
     print(f"dst_ckpt_strategy: {dst_ckpt_strategy}")

@@ -1,146 +1,157 @@
-# 权重离线切分转换
+# 离线权重转换
 
-该特性适用于：1.  权重过大，单卡无法加载；2. 权重为切分权重且与目标网络和运行卡数不匹配；
+## 概述
 
-此时可利用本特性进行权重的切分和转换，以适配目标网络运行；
+目前分布式训练/推理，当预训练权重与分布式策略不匹配时，需要**将预训练权重转换为对应分布式策略的权重**，主要适用场景如下：
 
-使用场景：1. 分布式恢复训练（恢复时卡数或者并行策略发生改变）；2. 评估/推理场景（权重需要进一步切分或者合并）
+- 基于完整权重的分布式训练/推理：需要将完整权重转换为多卡分布式权重。
+- 修改分布式策略进行训练/推理：需要将权重转换为对应分布式策略的权重。
+
+**离线权重转换**需要以下3个步骤：
+
+1、获取当前任务的分布式策略文件；
+
+2、运行离线转换脚本获得目标权重；
+
+3、配置load_checkpoint参数，启动分布式训练/推理。
+
+主要参考：[mindspore分布式弹性训练与推理](https://www.mindspore.cn/tutorials/experts/zh-CN/r2.1/parallel/resilience_train_and_predict.html)
 
 ## 方案1：源码执行
 
-- step1（默认已有待切分权重相对应的策略文件，若没有，也可参考以下方法生成）
+### step1：获取当前任务的分布式策略文件
 
-在config中配置`only_save_strategy: True`，正常启动分布式训练/评估/推理，生成目标卡数的分布式策略文件后将会退出。生成的分布式策略文件保存在`output/strategy`目录下。
+在yaml文件中配置only_save_strategy=True，正常启动分布式任务，生成对应的分布式策略文件后，任务将会主动退出。
+
+分布式策略文件保存为`output/strategy/ckpt_strategy_rank_x.ckpt`，**ckpt_strategy_rank_x.ckpt**数量和卡数相同。
 
 ```yaml
 only_save_strategy: True
 ```
 
-- step2
-
-运行如下脚本完成权重切分转换
+### step2：运行离线转换脚本获得目标权重
 
 ```shell
-python mindformers/tools/transform_ckpt.py --src_ckpt_strategy SRC_CKPT_STRATEGY --dst_ckpt_strategy DST_CKPT_STRATEGY --src_ckpt_dir SRC_CKPT_DIR --dst_ckpt_dir DST_CKPT_DIR
+python mindformers/tools/transform_ckpt.py \
+--src_ckpt_strategy src_strategy_path_or_dir \
+--dst_ckpt_strategy dst_strategy_path_or_dir \
+--src_ckpt_dir src_ckpt_dir \
+--dst_ckpt_dir dst_ckpt_dir \
+--prefix "checkpoint_"
 ```
 
 参数说明:
 
-`src_ckpt_strategy`：待转权重的分布式策略文件路径。
-  若为None,表示待转权重为完整权重;
-  若为切分策略文件,表示原始的权重对应的策略文件;
-  若为文件夹,表示需要合并文件夹内策略文件(仅在流水并行生成的策略文件时需要),合并后的策略文件保存在`SRC_CKPT_STRATEGY/merged_ckpt_strategy.ckpt`路径下;
+- src_ckpt_strategy：源权重对应的分布式策略文件路径。**源权重为完整权重则不填写**；若为分布式权重，视以下情况填写：
 
-`dst_ckpt_strategy`：目标权重的分布式策略文件路径。即step1中生成的分布式策略文件路径。
-  若为None,表示将待转权重合并为完整权重;
-  若为切分策略文件,表示目标卡数对应的策略文件
-  若为文件夹,表示需要合并文件夹内策略文件(仅在流水并行生成的策略文件时需要),合并后的策略文件保存在`DST_CKPT_STRATEGY/merged_ckpt_strategy.ckpt`路径下;
+  1. 源权重开启了流水线并行：权重转换基于**合并的策略文件**，填写**分布式策略文件夹路径**，脚本会自动将文件夹内所有**ckpt_strategy_rank_x.ckpt**合并，并在文件夹下生成**merged_ckpt_strategy.ckpt**；如果已有**merged_ckpt_strategy.ckpt**，可以直接填写该文件路径。
 
-`src_ckpt_dir`: 待转权重路径，须按照`SRC_CKPT_DIR/rank_{i}/checkpoint_{i}.ckpt`存放，比如单一权重存放格式为`SRC_CKPT_DIR/rank_0/checkpoint_0.ckpt`。
+  2. 源权重未开启流水线并行：权重转换基于**任一策略文件**，填写任一**ckpt_strategy_rank_x.ckpt**路径即可。
 
-`dst_ckpt_dir`：目标权重保存路径，为自定义空文件夹路径，转换后模型以`DST_CKPT_DIR/rank_{i}/xxx.ckpt`存放。
+  **注**：如果策略文件夹下存在**merged_ckpt_strategy.ckpt**，仍传入文件夹路径，脚本首先会将旧的**merged_ckpt_strategy.ckpt**删除，再合并一个新的**merged_ckpt_strategy.ckpt**用于权重转换，因此需要确保文件夹有足够的写入权限，否则将会报错。
 
-- step3
+- dst_ckpt_strategy：目标权重的分布式策略文件路径。**目标权重为完整权重则不填写**；若为分布式权重，请参考src_ckpt_strategy；
 
-将`config`的配置文件中`load_checkpoint`关键字指定为转换的目标权重保存路径，若转换后仍为切分权重，传入转换后的权重文件夹路径即可；若转换后为完整权重，传入权重文件路径即可正常启动训练。
+- src_ckpt_dir：源权重所在的文件夹路径，源权重须按照`model_dir/rank_x/xxx.ckpt`格式存放，文件夹路径填写为**model_dir**。
+
+- dst_ckpt_dir：目标权重保存路径，为自定义空文件夹路径，目标权重的保存格式为`model_dir/rank_x/xxx.ckpt`。
+
+- prefix：目标权重保存名前缀，默认为"checkpoint_"，即权重按照`model_dir/rank_x/checkpoint_x.ckpt`保存。
+
+### step3：配置load_checkpoint参数
+
+将yaml配置文件中`load_checkpoint`关键字指定为目标权重路径，视以下情况填写：
+
+- 目标权重为分布式切分权重：填写权重文件夹路径，即model_dir；
+- 目标权重为完整权重：填写权重文件路径，即model_dir/rank_0/xxx.ckpt；
 
 ```yaml
-load_checkpoint: "{转换后权重文件夹/文件路径}"
+load_checkpoint: model_dir_or_path
 ```
 
 ## 方案2：高阶API 执行
 
 参考Trainer API使用
 
-使用`TrainingArguments`类打开`only_save_strategy`字段，其余步骤可参考**方案1**
+使用`TrainingArguments`类打开`only_save_strategy`字段，获取当前任务的分布式策略文件，其余步骤可参考**方案1**。
 
-# 权重自动切分转换
+# 自动权重转换（推荐）
 
 ## 概述
 
-目前分布式训练/推理，当权重与分布式策略不匹配时，往往涉及到离线转ckpt，大致需要以下3个步骤：
+Mindformer支持**自动权重转换**，当预训练权重与分布式策略不匹配时，将**auto_trans_ckpt**开关置为True，并配置权重转换相关参数，由Mindformer自动完成权重转换，相比**权重离线切分转换**提升了任务启动效率。
 
-1、获取分布式权重策略文件；
+**自动权重转换**只需要配置以下参数：
 
-2、离线转换，将权重转换为分布式训练/推理所需权重；
+- **load_checkpoint**：源权重所在的文件夹路径，源权重须按照`model_dir/rank_x/xxx.ckpt`格式存放，文件夹路径填写为**model_dir**。
 
-3、启动分布式训练/推理。
+- **src_strategy_path_or_dir**：源权重对应的分布式策略文件路径。**源权重为完整权重则不填写**；若为分布式权重，视以下情况填写：
 
-以上流程对外部客户来说易用性较差，因此设计**分布式权重自动转换方案**，在分布式训练/推理时能够无痛转换，提升分布式训练/推理任务启动效率。
+  1. 源权重开启了流水线并行：权重转换基于**合并的策略文件**，填写**分布式策略文件夹路径**，Mindformer会自动将文件夹内所有**ckpt_strategy_rank_x.ckpt**合并，并在文件夹下生成**merged_ckpt_strategy.ckpt**；如果已有**merged_ckpt_strategy.ckpt**，可以直接填写该文件路径。
 
-**权重自动切分转换**会在`output`文件夹下生成两个结果文件夹，分别是**strategy**和 **transformed_checkpoint**：
+  2. 源权重未开启流水线并行：权重转换基于**任一策略文件**，填写任一**ckpt_strategy_rank_x.ckpt**路径即可。
 
-- strategy：保存**分布式策略文件**，主要有以下两种文件：
+  **注**：如果策略文件夹下存在**merged_ckpt_strategy.ckpt**，仍传入文件夹路径，Mindformer首先会将旧的**merged_ckpt_strategy.ckpt**删除，再合并一个新的**merged_ckpt_strategy.ckpt**用于权重转换，因此需要确保文件夹有足够的写入权限，否则将会报错。
 
-  ① **ckpt_strategy_rank_x.ckpt**：rank x的分布式策略文件；
+- **auto_trans_ckpt**：权重自动转换开关，为True开启，默认False。
 
-  ② **merged_ckpt_strategy.ckpt**: 所有rank的分布式策略文件合并后的分布式策略文件；（开启流水线并行时才会合并）
+**自动权重转换**会在`output`文件夹下输出两个结果文件夹，分别是**strategy**和 **transformed_checkpoint**：
 
-- transformed_checkpoint：保存**转换后的权重**，权重文件按照`transformed_checkpoint/rank_x/checkpoint_x.ckpt`格式保存：
+- **strategy**：保存当前任务的**分布式策略文件**，文件夹内主要有以下两种文件：
 
-**注：**每次转换结束后需要**将strategy和transformed_checkpoint保存到自定义文件夹**，因为每次拉起新的任务，如果开启了权重自动转换，会将这两个文件夹清空，然后保存最新任务的转换结果。
+  ① **ckpt_strategy_rank_x.ckpt**：rank_x的分布式策略文件；
+
+  ② **merged_ckpt_strategy.ckpt**: 所有**ckpt_strategy_rank_x.ckpt**合并成的分布式策略文件；
+
+  ​     只有开启流水线并行，才会有 **merged_ckpt_strategy.ckpt**。
+
+- **transformed_checkpoint**：保存**转换后的目标权重**，目标权重的保存格式为`transformed_checkpoint/rank_x/checkpoint_x.ckpt`
 
 ## 适用场景
 
-### 1. 完整权重转为分布式权重
+Mindformer的**自动权重转换**特性适用于以下三大任务场景，基本可以满足各种权重转换需求：
 
-- 适用：**使用完整权重进行分布式训练/推理**
+- **基于完整权重，启动分布式任务**
+- **修改分布式策略，启动分布式任务**
+- **基于分布式权重，启动单卡任务**
 
-① 配置`load_checkpoint`参数为**完整权重文件夹路径**，权重需要按照`{model_dir}/rank_0/xxx.ckpt`格式存放，路径填写到**model_dir**为止；
+针对以上适用场景，本文档列举了六种使用**权重自动转换**特性的训练/推理案例，供用户参考：
 
-② 配置`auto_trans_ckpt`参数为**True**；
+- 训练案例一：基于完整权重，启动8卡分布式训练；
+- 训练案例二：基于8卡分布式权重，启动4卡分布式训练；
+- 推理案例一：基于8卡分布式权重，启动单卡推理；
+- 推理案例二：基于8卡分布式权重，启动2卡分布式推理；
+- 推理案例三：基于完整权重，启动2卡分布式推理；
 
-③ 正常拉起分布式训练/推理；
-
-### 2.分布式权重转为分布式权重
-
-- 适用：**修改分布式策略后训练/推理**，如：16卡训练，4卡推理；16卡预训练，8卡微调等场景。
-
-① 配置`load_checkpoint`参数为**分布式权重文件夹路径**，权重需要按照`{model_dir}/rank_x/xxx.ckpt`格式存放，路径填写到**model_dir**为止；
-
-② 配置`src_strategy_path_or_dir`参数为**分布式策略文件路径**，有两种情况：
-
-- 如果**原分布式权重训练时开启了流水线并行**，则需要传入合并后的策略文件，找到原分布式权重训练时保存的`strategy`文件夹，如果有**merged_ckpt_strategy.ckpt**，`src_strategy_path_or_dir`填写为**merged_ckpt_strategy.ckpt**的路径；如果只有**ckpt_strategy_rank_x.ckpt**，说明原分布式权重训练时没有使用权重自动转换，`src_strategy_path_or_dir`填写为 `strategy`文件夹路径，权重自动转换会首先将 `strategy`文件夹内所有**ckpt_strategy_rank_x.ckpt**合并成一个**merged_ckpt_strategy.ckpt**后，再进行转换；
-
-- 如果**原分布式权重训练时未开启流水线并行**，则`src_strategy_path_or_dir`填写任一**ckpt_strategy_rank_x.ckpt**路径即可。
-
-③ 配置`auto_trans_ckpt`参数为**True**；
-
-④ 正常拉起分布式训练/推理；
-
-### 3.分布式权重转为完整权重
-
-- 适用：**分布式训练结束，使用单卡推理**，如：16卡训练，单卡推理
-
-① 配置`load_checkpoint`参数为**分布式权重文件夹路径**，权重需要按照`{model_dir}/rank_x/xxx.ckpt`格式存放，路径填写到**model_dir**为止；
-
-② 配置`src_strategy_path_or_dir`参数为**分布式策略文件路径**，有两种情况：
-
-- 如果**原分布式权重训练时开启了流水线并行**，则需要传入合并后的策略文件，找到原分布式权重训练时保存的`strategy`文件夹，如果有**merged_ckpt_strategy.ckpt**，`src_strategy_path_or_dir`填写为**merged_ckpt_strategy.ckpt**的路径；如果只有**ckpt_strategy_rank_x.ckpt**，说明原分布式权重训练时没有使用权重自动转换，`src_strategy_path_or_dir`填写为 `strategy`文件夹路径，权重自动转换会首先将 `strategy`文件夹内所有**ckpt_strategy_rank_x.ckpt**合并成一个**merged_ckpt_strategy.ckpt**后，再进行转换；
-
-- 如果**原分布式权重训练时未开启流水线并行**，则`src_strategy_path_or_dir`填写任一**ckpt_strategy_rank_x.ckpt**路径即可。
-
-② 配置`auto_trans_ckpt`参数为**True**，`use_parallel`参数为**False**；
-
-③ 正常拉起推理；
+- ModelArts训练案例：基于完整权重，启动2节点16卡分布式训练；
 
 ## 注意事项
 
-**注1**：权重需要按照`{model_dir}/rank_x/xxx.ckpt`格式存放，确保每个`rank_x`文件夹下**仅存放一个ckpt文件**。
+**注1**：传入权重需要按照`model_dir/rank_x/xxx.ckpt`格式存放，确保每个`rank_x`文件夹下**仅存放一个ckpt文件**。
 
-**注2**：分布式推理的并行策略目前仅支持"数据并行"和"模型并行"，暂时不支持"流水线并行"，pipeline_stage需要固定设置为1。
+**注2**：开启**自动权重转换**后，任务首先会删除`output`下旧的strategy和transformed_checkpoint，然后保存当前任务的输出结果。因此上一次转换任务结束后，如有必要**请将strategy和transformed_checkpoint保存到自定义文件夹，避免误删**。
 
-**注3**：以下**自动转换案例**中的**推理案例二**和**推理案例三**，仅考虑"模型并行"的分布式推理场景，data_parallel固定设置为1，主要是因为通过run_distribute.sh启动分布式推理，暂时不支持batch推理。
+**注3**：**分布式推理案例仅使用"模型并行"**，主要原因有以下两点：
+
+- 分布式推理暂时不支持"流水线并行"，pipeline_stage固定设置为1。
+
+- 案例采用run_distribute.sh启动分布式推理，仅支持单batch输入，data_parallel固定设置为1。
 
 ## 自动转换案例
 
 ### 前期准备
 
+- 权重
+
+[llama7B完整权重](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/XFormer_for_mindspore/llama/open_llama_7b.ckpt)
+
+- 词表
+
+llama7B的[tokenizer.model](https://huggingface.co/openlm-research/open_llama_7b/resolve/main/tokenizer.model)
+
 - 数据集
 
-数据集下载：[WikiText2数据集](https://s3.amazonaws.com/research.metamind.io/wikitext/wikitext-2-v1.zip)
-
-分词模型下载：例如下载huggingface的[tokenizer.model](https://huggingface.co/openlm-research/open_llama_7b/blob/main/tokenizer.model)
+[WikiText2数据集](https://s3.amazonaws.com/research.metamind.io/wikitext/wikitext-2-v1.zip)
 
 使用以下预处理脚本生成mindrecord训练数据
 
@@ -154,10 +165,6 @@ python llama_preprocess.py \
 --output_file /{path}/wiki2048.mindrecord
 ```
 
-- 权重
-
-[llama7B完整权重](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/XFormer_for_mindspore/llama/open_llama_7b.ckpt)
-
 - rank_table_file
 
 案例中分别会用到8卡、4卡、2卡对应的rank_table_file
@@ -167,16 +174,16 @@ python llama_preprocess.py \
 python mindformers/tools/hccl_tools.py --device_num [0,8]
 mv hccl*.json rank_table_8.json
 
-# 4卡的rank_table_file：自行重命名为rank_table_4_npu0-4.json，原文件为hccl_xxx.json
+# 4卡的rank_table_file：自行重命名为rank_table_4_id04.json，原文件为hccl_xxx.json
 python mindformers/tools/hccl_tools.py --device_num [0,4]
-mv hccl*.json rank_table_4_npu0-4.json
+mv hccl*.json rank_table_4_id04.json
 
-# 2卡的rank_table_file：自行重命名为rank_table_2_npu0-2.json，原文件为hccl_xxx.json
+# 2卡的rank_table_file：自行重命名为rank_table_2_id02.json，原文件为hccl_xxx.json
 python mindformers/tools/hccl_tools.py --device_num [0,2]
-mv hccl*.json rank_table_2_npu0-2.json
+mv hccl*.json rank_table_2_id02.json
 ```
 
-### 训练案例一：完整权重自动切分为8卡分布式权重
+### 训练案例一：基于完整权重，启动8卡分布式训练
 
 **案例描述**：基于一份完整的llama-7B预训练权重，使用8卡进行分布式训练。
 
@@ -193,21 +200,20 @@ mv hccl*.json rank_table_2_npu0-2.json
 ① 配置参数
 
 ```yaml
-# 配置预训练权重路径，预训练权重需要按照{model_dir}/rank_0/xxx.ckpt格式存放，填写到model_dir为止
+# 配置预训练权重路径，预训练权重需要按照model_dir/rank_x/xxx.ckpt格式存放，填写model_dir
 load_checkpoint: "/worker/checkpoint/llama-7b/single/"
 
 # 设置auto_trans_ckpt为True
 auto_trans_ckpt: True
 
-# 设置数据集
+# 配置数据集
 train_dataset: &train_dataset
   data_loader:
     type: MindDataset
     dataset_dir: "/worker/dataset/wikitext_2048/"
     shuffle: True
 
-# 8卡分布式配置参考
-# default parallel of device num = 8 910A
+# 配置8卡分布式策略，仅供参考
 parallel_config:
   data_parallel: 2
   model_parallel: 1
@@ -215,8 +221,6 @@ parallel_config:
   micro_batch_num: 4
   vocab_emb_dp: True
   gradient_aggregation_group: 4
-# when model parallel is greater than 1, we can set micro_batch_interleave_num=2, that may accelerate the train process.
-micro_batch_interleave_num: 1
 ```
 
 ② 启动训练
@@ -268,7 +272,7 @@ mv ../output/strategy/ /worker/checkpoint/llama-7b/multi_dp2mp1pp4/
 ① 配置参数
 
 ```yaml
-# 配置预训练权重路径，预训练权重需要按照{model_dir}/rank_x/xxx.ckpt格式存放
+# 配置预训练权重路径，预训练权重需要按照model_dir/rank_x/xxx.ckpt格式存放，填写model_dir
 load_checkpoint: "/worker/checkpoint/llama-7b/multi_dp2mp1pp4/"
 
 # 配置分布式策略文件路径
@@ -293,15 +297,13 @@ parallel_config:
   micro_batch_num: 2
   vocab_emb_dp: True
   gradient_aggregation_group: 4
-# when model parallel is greater than 1, we can set micro_batch_interleave_num=2, that may accelerate the train process.
-micro_batch_interleave_num: 1
 ```
 
 ② 启动训练
 
 ```shell
 cd script
-./run_distribute.sh ../rank_table_4.json ../configs/llama/run_llama_7b.yaml [0,4] train
+./run_distribute.sh ../rank_table_4_id04.json ../configs/llama/run_llama_7b.yaml [0,4] train
 ```
 
 ③ 查看权重转换相关日志
@@ -339,7 +341,7 @@ cd script
 ① 配置参数
 
 ```yaml
-# 配置预训练权重路径，预训练权重需要按照{model_dir}/rank_x/xxx.ckpt格式存放
+# 配置预训练权重路径，预训练权重需要按照model_dir/rank_x/xxx.ckpt格式存放，填写model_dir
 load_checkpoint: "/worker/checkpoint/llama-7b/multi_dp2mp1pp4/"
 
 # 配置分布式策略文件路径
@@ -400,7 +402,7 @@ python run_mindformer.py --config configs/llama/run_llama_7b.yaml --predict_data
 ① 配置参数
 
 ```yaml
-# 配置预训练权重路径，预训练权重需要按照{model_dir}/rank_x/xxx.ckpt格式存放
+# 配置预训练权重路径，预训练权重需要按照model_dir/rank_x/xxx.ckpt格式存放，填写model_dir
 load_checkpoint: "/worker/checkpoint/llama-7b/multi_dp2mp1pp4/"
 
 # 配置分布式策略文件路径
@@ -428,8 +430,6 @@ parallel_config:
   micro_batch_num: 1
   vocab_emb_dp: True
   gradient_aggregation_group: 4
-# when model parallel is greater than 1, we can set micro_batch_interleave_num=2, that may accelerate the train process.
-micro_batch_interleave_num: 1
 
 # 配置词表路径
 processor:
@@ -441,7 +441,7 @@ processor:
 
 ```shell
 cd script
-./run_distribute.sh rank_table_2.json configs/llama/run_llama_7b.yaml [0,2] predict "I love beijing, because"
+./run_distribute.sh rank_table_2_id02.json configs/llama/run_llama_7b.yaml [0,2] predict "I love beijing, because"
 ```
 
 ④ 查看权重转换相关日志
@@ -477,7 +477,7 @@ cd script
 ① 配置参数
 
 ```yaml
-# 配置预训练权重路径，预训练权重需要按照{dir}/rank_0/xxx.ckpt格式存放
+# 配置预训练权重路径，预训练权重需要按照model_dir/rank_x/xxx.ckpt格式存放，填写model_dir
 load_checkpoint: "/worker/checkpoint/llama-7b/single/"
 
 # 设置auto_trans_ckpt为True
@@ -515,7 +515,7 @@ processor:
 
 ```shell
 cd script
-./run_distribute.sh rank_table_2.json configs/llama/run_llama_13b.yaml [0,2] predict "I love beijing, because"
+./run_distribute.sh rank_table_2_id02.json configs/llama/run_llama_13b.yaml [0,2] predict "I love beijing, because"
 ```
 
 ③ 查看权重转换相关日志
