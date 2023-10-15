@@ -148,6 +148,7 @@ class ChatGLM2ForConditionalGeneration(BaseModel):
         Tensor, the loss or logits of the network.
     """
     _support_list = MindFormerBook.get_model_support_list()['glm2']
+    _support_list.extend(MindFormerBook.get_model_support_list()['codegeex2'])
 
     def __init__(self, config: ChatGLM2Config, **kwargs):
         super(ChatGLM2ForConditionalGeneration, self).__init__(config, **kwargs)
