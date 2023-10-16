@@ -120,7 +120,8 @@ INCREMENT_MODEL_INPUT_MAP = {
     "bloom": get_bloom_inc_model_input,
     "llama": get_llama_inc_model_input,
     "glm": get_glm_inc_model_input,
-    "glm2": get_glm2_inc_model_input
+    "glm2": get_glm2_inc_model_input,
+    "codegeex2": get_glm2_inc_model_input
 }
 
 

@@ -91,7 +91,7 @@ def pipeline_from_infer_config(args_, tokenizer):
 
 
 # the model name list that mslite inference has supported.
-LITE_SUPPORT_MODELS = ('bloom', 'glm', 'glm2', 'llama')
+LITE_SUPPORT_MODELS = ('bloom', 'glm', 'glm2', 'codegeex2', 'llama')
 
 
 def get_tokenizer(model_name: str) -> Tokenizer:
@@ -103,6 +103,8 @@ def get_tokenizer(model_name: str) -> Tokenizer:
         tokenizer = ChatGLMTokenizer.from_pretrained("glm_6b")
     elif model_name == 'glm2':
         tokenizer = ChatGLM2Tokenizer.from_pretrained("glm2_6b")
+    elif model_name == 'codegeex2':
+        tokenizer = ChatGLM2Tokenizer.from_pretrained("codegeex2_6b")
     elif model_name == 'llama':
         tokenizer = LlamaTokenizer.from_pretrained("llama_7b")
     else:
