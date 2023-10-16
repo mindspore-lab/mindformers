@@ -235,7 +235,8 @@ class TransformerOpParallelConfig(_Config):
                 is applied. This value specifies the number of partitions to split the experts into.
             pipeline_stage (int): The number of the pipeline stage. Should be a positive value. Default: 1.
             micro_batch_num (int): The micro size of the batches for the pipeline training. Default: 1.
-            optimizer_shard (bool): Whether to enable optimizer shard. Default False.
+            optimizer_shard (bool): *optimizer_shard is deprecated from MindFormers r0.7. It will not have any effect.
+                It will be removed in the future version. Using parallel.enable_parallel_optimizer instead.*
             gradient_aggregation_group (int): The fusion group size of the optimizer state sharding. Default: 4.
             recompute (Union[TransformerRecomputeConfig, bool]): The configuration of recomputation for
                 the transformer block. Default: An instance of TransformerRecomputeConfig with default values.
@@ -253,7 +254,7 @@ class TransformerOpParallelConfig(_Config):
 
     def __init__(self, data_parallel=1, model_parallel=1, expert_parallel=1, pipeline_stage=1, micro_batch_num=1,
                  recompute=default_transformer_recompute_config, use_seq_parallel=False,
-                 optimizer_shard=False, gradient_aggregation_group=4, vocab_emb_dp=True):
+                 optimizer_shard=None, gradient_aggregation_group=4, vocab_emb_dp=True):
         self.recompute = recompute
         self.select_recompute = recompute.select_recompute
         self.use_seq_parallel = use_seq_parallel
@@ -346,9 +347,11 @@ class TransformerOpParallelConfig(_Config):
 
     @optimizer_shard.setter
     def optimizer_shard(self, value):
-        Validator.check_bool(value, "optimizer_shard")
-        self._optimizer_shard = value
-        context.set_auto_parallel_context(enable_parallel_optimizer=value)
+        if value:
+            self._optimizer_shard = value
+            logger.warning("\"parallel_config.optimizer_shard\" is deprecated from MindFormers r0.7. It will not have "
+                           "any effect. Please use \"parallel.enable_parallel_optimizer\" to turn on or off the "
+                           "optimizer parallel.")
 
     @property
     def embedding_dp_mp_config(self):
