@@ -723,7 +723,10 @@ class MindFormerBook:
             'pangualpha_13b'
         ]),
         ('glm', [
-            'glm',
+            'glm_6b',
+        ]),
+        ('glm2', [
+            'glm2_6b',
         ]),
         ('bloom', [
             'bloom_560m',
