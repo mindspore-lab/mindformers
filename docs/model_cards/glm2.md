@@ -335,6 +335,7 @@ trainer = Trainer(task='text_generation',
 # trainer.finetune()
 
 # 开启评测
+# 需要在configs/glm2/run_glm2_6b.yaml中将seq_length修改为256
 trainer.evaluate()
 
 # 开启推理
@@ -436,6 +437,9 @@ eval_dataset_task:
   type: KeyWordGenDataset
   dataset_config: *eval_dataset
 ```
+
+> 注意：微调时的模型`seq_length`需要等于微调数据集的`max_source_length + max_target_length + 1`。
+> yaml文件中默认的`seq_length: 193`以及`max_source_length: 64`和`max_target_length: 128`适用于ADGEN数据集
 
 ### 全参微调
 
@@ -567,6 +571,14 @@ IP_LIST=("192.168.0.0", "192.168.0.1", ..., "192.168.0.11")
 ### 数据集准备-文本生成
 
 见微调章节的[数据集准备](#数据集准备)
+
+评测时模型`seq_length`需要等于评测数据集的`max_source_length`和`max_target_length`。因此修改yaml中模型`seq_length`为256：
+
+```yaml
+model:
+  model_config:
+    seq_length: 256
+```
 
 ### 单卡评测
 
