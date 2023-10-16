@@ -32,7 +32,7 @@ __all__ = ['TextGenerationPipeline']
 def _setup_support_list(support_model_list):
     support_list = []
     for support_model in support_model_list:
-        support_list.append(MindFormerBook.get_model_support_list().get(support_model))
+        support_list.extend(MindFormerBook.get_model_support_list().get(support_model))
     return support_list
 
 
@@ -56,7 +56,7 @@ class TextGenerationPipeline(BasePipeline):
         >>> text_generate = TextGenerationPipeline("gpt2")
         >>> output = text_generate("I love Beijing, because ")
     """
-    _support_list = _setup_support_list(["gpt2", "glm"])
+    _support_list = _setup_support_list(["gpt2", "glm", "glm2"])
     return_name = 'text_generation'
 
     def __init__(self, model: Union[str, BaseModel, Model],
