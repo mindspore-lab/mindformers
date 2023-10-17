@@ -214,19 +214,19 @@ python convert_weight.py --n_head=xx --hidden_size=xx --torch_path=path_to_hf_bi
 `from_pretrained()` 接口会自动从云上下载预训练的模型，存储路径：`mindformers/checkpoint_download/model_name`
 
 ```python
-import mindspore
+import mindspore as ms
 from mindformers import AutoModel, AutoTokenizer
 
 # 指定图模式，指定使用训练卡id
-mindspore.set_context(mode=0, device_id=0)
+ms.set_context(mode=0, device_id=0)
 
 tokenizer = AutoTokenizer.from_pretrained("bloom_560m")
 model = AutoModel.from_pretrained("bloom_560m")
 
 inputs = tokenizer("what color is the sky?")
 
-outputs = model.generate(input_tokens["input_ids"], max_length=100)
-response = tokenizer.decode(outputs)[0]
+outputs = model.generate(inputs["input_ids"], max_length=100)
+response = tokenizer.decode(outputs, skip_special_tokens=True)[0]
 print(response)
 # output
 # what color is the sky? blue
@@ -235,10 +235,11 @@ print(response)
 ### 基于Pipeline的快速推理
 
 ```python
-from mindformers.pipeline import pipeline
 from mindformers import AutoModel, AutoTokenizer, TextGenerationPipeline
+import mindspore as ms
+
 # 指定图模式，指定使用训练卡id
-mindspore.set_context(mode=0, device_id=0)
+ms.set_context(mode=0, device_id=0)
 
 model = AutoModel.from_pretrained("bloom_560m")
 tokenizer = AutoTokenizer.from_pretrained("bloom_560m")
@@ -617,7 +618,6 @@ bash run_predict.sh RANK_TABLE_FILE path/to/bloom_7.1b_shard_checkpoint_dir
 #### 单卡generate推理
 
 ```python
-import numpy as np
 import mindspore as ms
 from mindformers import AutoTokenizer
 from mindformers.models.bloom import BloomConfig, BloomLMHeadModel
@@ -661,8 +661,8 @@ config = BloomConfig(
     num_heads=32,
     hidden_dropout_rate=0.0,
     attention_dropout_rate=0.0,
-    batch_size = 1,
-    use_past = True
+    batch_size=1,
+    use_past=True
 )
 
 
@@ -676,17 +676,12 @@ def chat():
         "Translate to English: Je t’aime.",
         ]
 
-
-    while True:
-        if question_list:
-            question = question_list.pop(0)
-        else:
-            question = input("please input your question: ")
+    for question in question_list:
         inputs = tokenizer.encode(question)
-        inputs = np.array([inputs]).astype(np.int32) # add batch dim
-        outputs = model.generate(inputs, max_length=None, do_sample=False, eos_token_id=2)
-        outputs = outputs[0] # remove batch dim
-        print(tokenizer.decode(outputs))
+        inputs = [inputs]  # add batch dim
+        outputs = model.generate(inputs, max_length=100, do_sample=False)
+        outputs = outputs[0]  # remove batch dim
+        print(tokenizer.decode(outputs, skip_special_tokens=True))
 
 
 if __name__ == "__main__":
@@ -695,13 +690,13 @@ if __name__ == "__main__":
 
 - Bloom_560m的预期输出为:
 
-    - what color is the sky?_**blue</s>**_
-    - Translate to English: Je t’aime. _**I love you.</s>**_
+    - what color is the sky?_**blue**_
+    - Translate to English: Je t’aime. _**I love you.**_
 
 - Bloom_7.1B的预期输出为:
 
-    - what color is the sky?_**blue</s>**_
-    - Translate to English: Je t’aime. _**I love you.</s>**_
+    - what color is the sky?_**blue**_
+    - Translate to English: Je t’aime. _**I love you.**_
 
 #### 多卡generate推理
 
@@ -723,11 +718,10 @@ if __name__ == "__main__":
 || 对host内存的占用较高。| 对host内存的占用较低。|
 |适用| 适用于较小模型，如`560m`，`7.1b`。|适用于较大模型，如`65b`, `176b`。 |
 
-``` python
+```python
 # >>> `chat.py`文件
 
 import os
-import time
 import numpy as np
 
 import mindspore as ms
@@ -736,7 +730,6 @@ from mindspore import load_checkpoint, load_param_into_net
 from mindspore.parallel import set_algo_parameters
 from mindspore.parallel._cost_model_context import _set_multi_subgraphs
 
-from mindformers import pipeline
 from mindformers import BloomLMHeadModel, BloomConfig, AutoTokenizer
 from mindformers import init_context
 from mindformers.modules import TransformerOpParallelConfig
@@ -797,13 +790,12 @@ def chat():
         "Translate to English: Je t’aime.",
         ]
 
-
     for question in question_list:
         inputs = tokenizer.encode(question)
-        inputs = np.array([inputs]).astype(np.int32) # add batch dim
-        outputs = bloom.generate(inputs, max_length=None, do_sample=False, eos_token_id=2)
-        outputs = outputs[0] # remove batch dim
-        print(tokenizer.decode(outputs))
+        inputs = [inputs]  # add batch dim
+        outputs = bloom.generate(inputs, max_length=100, do_sample=False)
+        outputs = outputs[0]  # remove batch dim
+        print(tokenizer.decode(outputs, skip_special_tokens=True))
 
 
 if __name__ == "__main__":
@@ -844,9 +836,9 @@ bash run_chat.sh
 
 日志可以通过`tail -f mindformers_0.log`查看。预期结果与单机单卡`bloom_7.1b`推理相同：
 
-- 请问为什么说地球是独一无二的？ _**地球是太阳系中唯一有生物的地方</s>**_
+- 请问为什么说地球是独一无二的？ _**地球是太阳系中唯一有生物的地方**_
 
-- Translate to English: Je t’aime. _**I love you.</s>**_
+- Translate to English: Je t’aime. _**I love you.**_
 
 ## mindspore-lite
 
