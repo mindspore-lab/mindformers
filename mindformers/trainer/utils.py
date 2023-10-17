@@ -362,7 +362,7 @@ def get_dst_strategy(config):
         else:
             wait_collect_all_strategy(local_strategy_dir, world_size)
 
-        logger.info(".........All strtegy as follow.........")
+        logger.info(".........All strategy as follow.........")
         local_strategy_paths = glob(os.path.join(local_strategy_dir, "*_rank_*.ckpt"))
         local_strategy_paths.sort()
         for local_strategy_path in local_strategy_paths:
@@ -390,7 +390,7 @@ def get_dst_strategy(config):
         if world_size <= 8:
             wait_collect_all_strategy(local_strategy_dir, world_size)
 
-            logger.info(".........All strtegy as follow.........")
+            logger.info(".........All strategy as follow.........")
             local_strategy_paths = glob(os.path.join(local_strategy_dir, "*_rank_*.ckpt"))
             local_strategy_paths.sort()
             for local_strategy_path in local_strategy_paths:
