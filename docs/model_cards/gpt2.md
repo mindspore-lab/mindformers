@@ -415,15 +415,18 @@ IP_LIST=("192.168.0.0", "192.168.0.1", ..., "192.168.0.11")
 
 - python启动
 
+**微调需传入`load_checkpoint`入参，可以是已经预训练好的模型权重（以.ckpt结尾），也可以是模型名，如`gpt2`。**
+
 ```bash
 python run_mindformer.py --config configs/gpt2/run_gpt2.yaml \
                          --run_mode finetune \
+                         --load_checkpoint "the path of pretrained ckpt or gpt2" \
                          --train_dataset_dir ./wikitext-2.train.mindrecord
 ```
 
 - bash启动
 
-**请提前将yaml文件中train_dataset配置中的dataset_dir设置为处理好的mindrecord数据路径**
+**请提前将yaml文件中`train_dataset`配置中的`dataset_dir`设置为处理好的`mindrecord`数据路径，并指定`load_checkpoint`为预训练权重路径。**
 
 ```bash
 cd scripts
@@ -436,7 +439,7 @@ bash run_standalone.sh ../configs/gpt2/run_gpt2.yaml [DEVICE_ID] finetune
 
 - 单机多卡
 
-**请提前将yaml文件中train_dataset配置中的dataset_dir设置为处理好的mindrecord数据路径**
+**请提前将yaml文件中`train_dataset`配置中的`dataset_dir`设置为处理好的`mindrecord`数据路径，并指定`load_checkpoint`为预训练权重路径。**
 
 ```bash
 cd scripts
@@ -447,7 +450,7 @@ bash run_distribute.sh RANK_TABLE_FILE ../configs/gpt2/run_gpt2.yaml [0,8] finet
 
 - 多机多卡
 
-**请提前将yaml文件中train_dataset配置中的dataset_dir设置为处理好的mindrecord数据路径**
+**请提前将yaml文件中`train_dataset`配置中的`dataset_dir`设置为处理好的`mindrecord`数据路径，并指定`load_checkpoint`为预训练权重路径。**
 
 在每台机器上启动`bash run_distribute.sh`。
 
@@ -594,6 +597,7 @@ python txtcls_dataset_to_mindrecord.py --dataset_name {the same as above}
 # sst2/cola/imdb: num_labels = 2, agnews: num_labels = 4
 python run_mindformer.py --config configs/gpt2/run_gpt2_txtcls.yaml \
                        --train_dataset_dir {your_path/dataset_name.train.mindrecord} \
+                       --load_checkpoint {the path of pretrained ckpt} \
                        --run_mode finetune
 ```
 
