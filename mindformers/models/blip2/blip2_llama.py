@@ -372,8 +372,13 @@ class Blip2ImageToTextGeneration(Blip2Llama):
 
         self.llama_model.set_train(False)
         self.one_prefix = ops.Ones()
+        self.expand_dims = P.ExpandDims()
 
     def generate_text_for_image(self, image: ms.Tensor, prompt_input_ids: ms.Tensor):
+        """generate text for image by calling llama generate"""
+        if len(prompt_input_ids.shape) == 1:
+            prompt_input_ids = self.expand_dims(prompt_input_ids, 0)
+
         batch_size = image.shape[0]
         prefix_ones = self.one_prefix((batch_size, self.config.qformer_config.query_length), mstype.int32)
 
