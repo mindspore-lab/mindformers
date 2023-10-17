@@ -7,12 +7,14 @@ Bloom (BigScience Large Open-science Open-access Multilingual) 是一个开源�
 [BLOOM: A 176B-Parameter Open-Access Multilingual Language Model](https://arxiv.org/abs/2211.05100)
 
 ## 模型性能
+
 |                    config                     |         task         |  Datasets   |  metric  | score | [train performance](#预训练) |     [predict performance](#基于pipeline的推理)     |
 | :-------------------------------------------: | :------------------: | :---------: | :------: | :---: | :---------------: | :-------------------------: |
 |   run_bloom_560m.yaml    |   text_generation    |  -  |   -    |  -   |   -    | - |
 |   run_bloom_7.1b.yaml    |   text_generation    |  Alpaca  |   -    |  -   |   1063tokens/s/p    | 21.33tokens/s(use_past True) |
 | run_bloom_65b.yaml |   text_generation    |   -  |   -    |  -   |   -    | - |
 |   run_bloom_176b.yaml    | text_generation | -  |   -    |  -   |   -    | - |
+
 ## 仓库介绍
 
 `Bloom` 基于 `mindformers` 实现，主要涉及的文件有：
@@ -38,6 +40,7 @@ Bloom (BigScience Large Open-science Open-access Multilingual) 是一个开源�
         ├── run_bloom_65b.yaml      # 65b  用于96卡训练
         └── run_bloom_176b.yaml     # 176b 用于128卡训练
     ```
+
     其中Bloom_7.1b可在单机单卡上推理，在单机8卡上训练；Bloom-65B训练至少96卡；Bloom_176B训练至少128卡。
 
 ## 前期准备
@@ -191,6 +194,7 @@ higgingface到mindformers的CheckPoint转换由以下命令完成。
 cd mindformers/models/bloom
 python convert_weight.py --n_head=xx --hidden_size=xx --torch_path=path_to_hf_bin_file_or_folder --mindspore_path=output_path
 ```
+
 其中`--n_head=xx --hidden_size=xx`根据模型定义，bloom_560m的分别为16/1024；bloom_7.1b的分别为32/4096.
 
 ### [模型权重切分与合并](../feature_cards/Transform_Ckpt.md)
@@ -210,19 +214,19 @@ python convert_weight.py --n_head=xx --hidden_size=xx --torch_path=path_to_hf_bi
 `from_pretrained()` 接口会自动从云上下载预训练的模型，存储路径：`mindformers/checkpoint_download/model_name`
 
 ```python
-import mindspore
+import mindspore as ms
 from mindformers import AutoModel, AutoTokenizer
 
 # 指定图模式，指定使用训练卡id
-mindspore.set_context(mode=0, device_id=0) 
+ms.set_context(mode=0, device_id=0)
 
 tokenizer = AutoTokenizer.from_pretrained("bloom_560m")
 model = AutoModel.from_pretrained("bloom_560m")
 
 inputs = tokenizer("what color is the sky?")
 
-outputs = model.generate(input_tokens["input_ids"], max_length=100)
-response = tokenizer.decode(outputs)[0]
+outputs = model.generate(inputs["input_ids"], max_length=100)
+response = tokenizer.decode(outputs, skip_special_tokens=True)[0]
 print(response)
 # output
 # what color is the sky? blue
@@ -231,10 +235,11 @@ print(response)
 ### 基于Pipeline的快速推理
 
 ```python
-from mindformers.pipeline import pipeline
 from mindformers import AutoModel, AutoTokenizer, TextGenerationPipeline
+import mindspore as ms
+
 # 指定图模式，指定使用训练卡id
-mindspore.set_context(mode=0, device_id=0)
+ms.set_context(mode=0, device_id=0)
 
 model = AutoModel.from_pretrained("bloom_560m")
 tokenizer = AutoTokenizer.from_pretrained("bloom_560m")
@@ -322,7 +327,9 @@ IP_LIST=("192.168.0.0", "192.168.0.1", ..., "192.168.0.11")
 参考[数据集准备-预训练](#数据集准备-预训练)
 
 ### 全参微调
+
 通过`/configs/bloom/run_bloom_7.1b.yaml`中的`load_checkpoint:`字段来控制是否加载CKPT
+
 #### 多卡微调
 
 多卡运行需要RANK_FILE_TABLE，请参考前期准备-[生成RANK_TABLE_FILE](#生成rank_table_file多卡运行必须环节)
@@ -366,6 +373,7 @@ IP_LIST=("192.168.0.0", "192.168.0.1", ..., "192.168.0.11")
 ```
 
 ### 微调后对话效果
+
 在`mindformers/scripts`路径下执行以下脚本`combine_ckpt.py`.这个脚本会
 
 - 对strategy进行合并
@@ -475,7 +483,9 @@ if __name__ == "__main__":
 | why the earth is unique?                                                               | it is the only planet with a liquid surface<EOS>  | The Earth is unique because it is the only planet with a liquid surface, a magnetic field, and a protective atmosphere. It is also the only planet with a life-supporting atmosphere and a diverse and abundant life-supporting ecosystem.<EOS>                                                                                                                                                                                                                            |
 
 ## 推理
+
 ### 基于pipeline的推理
+
 以下为基于pipeline接口的自定义推理脚本，支持多卡多batch推理。
 
 ```python
@@ -608,7 +618,6 @@ bash run_predict.sh RANK_TABLE_FILE path/to/bloom_7.1b_shard_checkpoint_dir
 #### 单卡generate推理
 
 ```python
-import numpy as np
 import mindspore as ms
 from mindformers import AutoTokenizer
 from mindformers.models.bloom import BloomConfig, BloomLMHeadModel
@@ -652,8 +661,8 @@ config = BloomConfig(
     num_heads=32,
     hidden_dropout_rate=0.0,
     attention_dropout_rate=0.0,
-    batch_size = 1,
-    use_past = True
+    batch_size=1,
+    use_past=True
 )
 
 
@@ -667,17 +676,12 @@ def chat():
         "Translate to English: Je t’aime.",
         ]
 
-
-    while True:
-        if question_list:
-            question = question_list.pop(0)
-        else:
-            question = input("please input your question: ")
+    for question in question_list:
         inputs = tokenizer.encode(question)
-        inputs = np.array([inputs]).astype(np.int32) # add batch dim
-        outputs = model.generate(inputs, max_length=None, do_sample=False, eos_token_id=2)
-        outputs = outputs[0] # remove batch dim
-        print(tokenizer.decode(outputs))
+        inputs = [inputs]  # add batch dim
+        outputs = model.generate(inputs, max_length=100, do_sample=False)
+        outputs = outputs[0]  # remove batch dim
+        print(tokenizer.decode(outputs, skip_special_tokens=True))
 
 
 if __name__ == "__main__":
@@ -686,14 +690,13 @@ if __name__ == "__main__":
 
 - Bloom_560m的预期输出为:
 
-    - what color is the sky?_**blue</s>**_
-    - Translate to English: Je t’aime. _**I love you.</s>**_
+    - what color is the sky?_**blue**_
+    - Translate to English: Je t’aime. _**I love you.**_
 
 - Bloom_7.1B的预期输出为:
 
-    - what color is the sky?_**blue</s>**_
-    - Translate to English: Je t’aime. _**I love you.</s>**_
-
+    - what color is the sky?_**blue**_
+    - Translate to English: Je t’aime. _**I love you.**_
 
 #### 多卡generate推理
 
@@ -715,11 +718,10 @@ if __name__ == "__main__":
 || 对host内存的占用较高。| 对host内存的占用较低。|
 |适用| 适用于较小模型，如`560m`，`7.1b`。|适用于较大模型，如`65b`, `176b`。 |
 
-``` python
+```python
 # >>> `chat.py`文件
 
 import os
-import time
 import numpy as np
 
 import mindspore as ms
@@ -728,7 +730,6 @@ from mindspore import load_checkpoint, load_param_into_net
 from mindspore.parallel import set_algo_parameters
 from mindspore.parallel._cost_model_context import _set_multi_subgraphs
 
-from mindformers import pipeline
 from mindformers import BloomLMHeadModel, BloomConfig, AutoTokenizer
 from mindformers import init_context
 from mindformers.modules import TransformerOpParallelConfig
@@ -789,13 +790,12 @@ def chat():
         "Translate to English: Je t’aime.",
         ]
 
-
     for question in question_list:
         inputs = tokenizer.encode(question)
-        inputs = np.array([inputs]).astype(np.int32) # add batch dim
-        outputs = bloom.generate(inputs, max_length=None, do_sample=False, eos_token_id=2)
-        outputs = outputs[0] # remove batch dim
-        print(tokenizer.decode(outputs))
+        inputs = [inputs]  # add batch dim
+        outputs = bloom.generate(inputs, max_length=100, do_sample=False)
+        outputs = outputs[0]  # remove batch dim
+        print(tokenizer.decode(outputs, skip_special_tokens=True))
 
 
 if __name__ == "__main__":
@@ -836,12 +836,16 @@ bash run_chat.sh
 
 日志可以通过`tail -f mindformers_0.log`查看。预期结果与单机单卡`bloom_7.1b`推理相同：
 
-- 请问为什么说地球是独一无二的？ _**地球是太阳系中唯一有生物的地方</s>**_
+- 请问为什么说地球是独一无二的？ _**地球是太阳系中唯一有生物的地方**_
 
-- Translate to English: Je t’aime. _**I love you.</s>**_
+- Translate to English: Je t’aime. _**I love you.**_
+
 ## mindspore-lite
+
 可参考[mindspore-lite特性文档](../feature_cards/Inference.md)，具体内容待补充。
+
 ## 附录
+
 ### 附录A BELLE
 
 [BELLE](https://github.com/LianjiaTech/BELLE)（Be Everyone's Large Language model Engine）是一个旨在促进中文对话大模型开源社区发展的组织。BELLE-7B是基于Bloomz-7B-mt，使用中文问答数据集微调出来开源的中文对话模型。根据微调所使用的中文数据大小分为0.2M, 0.6M, 1M, 2M四个权重。
