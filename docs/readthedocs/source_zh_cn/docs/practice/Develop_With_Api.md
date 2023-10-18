@@ -71,6 +71,7 @@ if __name__ == "__main__":
     parser.add_argument('--model_type', default='gpt2', required=True, help='set model type.')
     parser.add_argument('--train_dataset', default=None, help='set train dataset.')
     parser.add_argument('--eval_dataset', default=None, help='set eval dataset.')
+    parser.add_argument('--predict_data', default='hello!', help='input data used to predict.')
     parser.add_argument('--pet_method', default='', help="set finetune method, now support type: ['', 'lora']")
     parser.add_argument('--data_parallel', default=1, type=int, help='set data parallel number. Default: None')
     parser.add_argument('--model_parallel', default=1, type=int, help='set model parallel number. Default: None')
@@ -86,6 +87,7 @@ if __name__ == "__main__":
          pet_method=args.pet_method,
          train_dataset=args.train_dataset,
          eval_dataset=args.eval_dataset,
+         predict_data=args.predict_data,
          dp=args.data_parallel,
          mp=args.model_parallel,
          pp=args.pipeline_parallel,
