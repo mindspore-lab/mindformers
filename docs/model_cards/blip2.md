@@ -295,7 +295,7 @@ input_ids = tokenizer("it is a photo of", padding="max_length", return_tensors="
 outputs = model.generate_text_for_image(input_images, input_ids)
 response = tokenizer.decode(outputs, skip_special_tokens=True)
 print(response)
-# ['it is a photo of a girl']
+# ['it is a photo of a girl holding an umbrella']
 ```
 
 **注：快速使用仅限单卡**
