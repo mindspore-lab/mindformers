@@ -3386,6 +3386,9 @@ class BaseTokenizer(SpecialTokensMixin):
         Returns:
             `List[str]`: The list of decoded sentences.
         """
+        # Convert inputs to python lists
+        sequences = to_py_obj(sequences)
+
         return [
             self.decode(
                 seq,
