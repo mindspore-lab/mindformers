@@ -54,7 +54,11 @@ Baichuan2 是由百川智能开发的开源可商用的大规模预训练语言�
 - MindSpore：2.0.0 / 1.10.1
 - MindFormers版本：dev
 
-注：Baichuan2-7B推理可在单机单卡上完成部署，全量微调至少需要16卡。Baichuan2-13B推理至少需要4卡，全量微调至少需要16卡。
+注：
+
+对于910A，Baichuan2-7B推理可在单机单卡上完成部署，全量微调至少需要16卡。Baichuan2-13B推理至少需要4卡，全量微调至少需要16卡。
+
+对于910B，Baichuan2-7B、Baichuan2-13B推理可在单机单卡上完成部署，全量微调至少需要8卡。
 
 ### 生成RANK_TABLE_FILE(多卡运行必须环节)
 
@@ -92,7 +96,7 @@ RANK_TABLE_FILE 单机8卡参考样例:
 }
 ```
 
-### 多机RANK_TABLE_FILE合并(多机多卡必备环)
+### 多机RANK_TABLE_FILE合并(多机多卡必备环节)
 
 - step 1. 首先根据上章节内容，在每个机器上生成各自的`RANK_TABLE_FILE`文件，然后将不同机器上生成的`RANK_TABLE_FILE`文件全部拷贝到同一台机器上。
 
@@ -186,25 +190,26 @@ RANK_TABLE_FILE 双机16卡参考样例:
 
 ### 模型权重下载与转换
 
-本仓库提供已经转换完成的预训练权重用于训练/微调/推理，用户可自行从下方链接拉取后直接使用，Base用于微调，Chat用于推理。
+本仓库提供已经转换完成的预训练权重、词表文件用于训练/微调/推理，用户可自行从下方链接拉取后直接使用，Base用于微调，Chat用于推理。
 
 - [Baichuan2-7B-Base](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/baichuan2/Baichuan2_7B_Base.ckpt)
 - [Baichuan2-7B-Chat](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/baichuan2/Baichuan2_7B_Chat.ckpt)
 - [Baichuan2-13B-Base](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/baichuan2/Baichuan2_13B_Base.ckpt)
 - [Baichuan2-13B-Chat](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/baichuan2/Baichuan2-13B-Chat.ckpt)
+- [tokenizer.model](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/baichuan2/toeknizer.model)
 
-也可选择从huggingface下载预训练权重后根据以下步骤进行权重转换，需要下载整个工程，huffingface权重的链接如下：
+也可选择从huggingface下载预训练权重后根据以下步骤进行权重转换，需要下载整个工程，huggingface权重的链接如下：
 
 - [Baichuan2-7B-Base](https://huggingface.co/baichuan-inc/Baichuan2-7B-Base)
 - [Baichuan2-7B-Chat](https://huggingface.co/baichuan-inc/Baichuan2-7B-Chat)
 - [Baichuan2-13B-Base](https://huggingface.co/baichuan-inc/Baichuan2-13B-Base)
 - [Baichuan2-13B-Chat](https://huggingface.co/baichuan-inc/Baichuan2-13B-Chat)
 
-**注**: 请安装torch=2.0.0和transformers=4.29.2版本
+**注**: 请安装torch=2.0.0和transformers=4.30.2版本
 
 ```bash
 pip install torch==2.0.0 -i https://pypi.tuna.tsinghua.edu.cn/simple
-pip install transformers==4.29.2 -i https://pypi.tuna.tsinghua.edu.cn/simple
+pip install transformers==4.30.2 -i https://pypi.tuna.tsinghua.edu.cn/simple
 ```
 
 下载完成后，运行`/research/baichuan/convert_weight.py`转换脚本，将huggingface的权重转换为完整的ckpt权重。
@@ -222,7 +227,7 @@ mindspore_ckpt_path: 权重保存文件名，保存为TORCH_CKPT_DIR/OUTPUT_NAME
 
 通常训练采用分布式训练，基于该权重进行评测，推理多采用单卡，涉及ckpt从分布式策略到单机策略的切换。
 
-以上涉及到ckpt的单卡，多卡转换，详细教程请参考特性文档模型[权重切分与合并](path/to/docs/feature_cards/Transform_Ckpt.md)
+以上涉及到ckpt的单卡，多卡转换，详细教程请参考特性文档模型[权重切分与合并](path/to/docs/feature_cards/Transform_Ckpt.md)。
 
 - ## Baichuan2-7B
 
@@ -247,11 +252,13 @@ python belle_preprocess.py \
 
 ### 全参微调
 
-全参微调需要多卡启动，以`belle_chat_ramdon_10k.json`数据集为例,给出了默认配置文件`run_baichuan2_7b.yaml`。
+- #### 910A
+
+Baichuan2-7B-Base用于微调，seq_length默认为512，分布式微调训练在910A上需要2节点多卡启动。以`belle_chat_ramdon_10k.json`数据集为例，给出了默认配置文件`run_baichuan2_7b.yaml`。
 
 1. 权重准备
 
-权重支持在线/离线切分方式。在线切分则会在启动微调任务后自动按照分布式策略进行权重切分，离线切分需要在任务前手动进行切分。
+当前云上多节点分布式训练可直接使用自动权重切分（`auto_trans_ckpt`)， 物理机的多机分布式训练不支持自动权重切分，需要进行离线切分后传入网络进行训练。在线切分则会在启动微调任务后自动按照分布式策略进行权重切分，离线切分需要在任务前手动进行切分。
 
 若使用在线切分，则需要将完整权重文件按如下路径放置，并将启动配置参数`auto_trans_ckpt`置为`True`。
 
@@ -261,7 +268,7 @@ python belle_preprocess.py \
             └── baichuan2_7b.ckpt
 ```
 
-若使用离线切分，配置参数`auto_trans_ckpt`置为`False`，`load_checkpoint`传入权重路径文件夹即可。
+若使用离线切分，配置参数`auto_trans_ckpt`置为`False`，`load_checkpoint`传入切分好的权重路径文件夹即可。步骤参考[权重切分与合并](path/to/docs/feature_cards/Transform_Ckpt.md)。
 
 2. 修改`run_baichuan2_7b.yaml`中相关配置
 
@@ -355,6 +362,12 @@ auto_trans_ckpt: 是否进行权重自动切分
 run_mode: 运行模式，微调时设置为finetune
 train_data: 训练数据集路径
 ```
+
+- #### 910B
+
+Baichuan2-7B-Base用于微调，seq_length默认为512，分布式微调训练在910B上单节点即可启动。以`belle_chat_ramdon_10k.json`数据集为例，给出了默认配置文件`run_baichuan2_7b_910b.yaml`。
+
+启动流程参考[Baichuan2-13B的910B微调流程](#jump)。
 
 ## 推理
 
@@ -485,17 +498,17 @@ Baichuan2-13B-Base用于微调，seq_length默认为512，分布式微调训练�
 
 1. 权重准备
 
-权重支持在线/离线切分方式。在线切分则会在启动微调任务后自动按照分布式策略进行权重切分，离线切分需要在任务前手动进行切分。
+当前云上多节点分布式训练可直接使用自动权重切分（`auto_trans_ckpt`)， 物理机的多机分布式训练不支持自动权重切分，需要进行离线切分后传入网络进行训练。在线切分则会在启动微调任务后自动按照分布式策略进行权重切分，离线切分需要在任务前手动进行切分。
 
 若使用在线切分，则需要将完整权重文件按如下路径放置，并将启动配置参数`auto_trans_ckpt`置为`True`。
 
 ```text
     └── path of ckpt
         └── rank_0
-            └── baichuan2_13b.ckpt
+            └── baichuan2_7b.ckpt
 ```
 
-若使用离线切分，配置参数`auto_trans_ckpt`置为`False`，`load_checkpoint`传入权重路径文件夹即可。
+若使用离线切分，配置参数`auto_trans_ckpt`置为`False`，`load_checkpoint`传入切分好的权重路径文件夹即可。步骤参考[权重切分与合并](path/to/docs/feature_cards/Transform_Ckpt.md)。
 
 2. 修改`run_baichuan2_13b.yaml`中相关配置
 
@@ -588,13 +601,13 @@ run_mode: 运行模式，微调时设置为finetune
 train_data: 训练数据集路径
 ```
 
-- #### 910B
+- #### <span id="jump">910B</span>
 
 Baichuan2-13B-Base用于微调，seq_length默认为512，分布式微调训练在910B上单节点即可启动。以`belle_chat_ramdon_10k.json`数据集为例，给出了默认配置文件`run_baichuan2_13b_910b.yaml`。
 
 1. 权重准备
 
-权重支持在线/离线切分方式。在线切分则会在启动微调任务后自动按照分布式策略进行权重切分，离线切分需要在任务前手动进行切分。
+单节点微调时权重支持在线/离线切分方式。在线切分则会在启动微调任务后自动按照分布式策略进行权重切分，离线切分需要在任务前手动进行切分。
 
 若使用在线切分，则需要将完整权重文件按如下路径放置，并将启动配置参数`auto_trans_ckpt`置为`True`。
 
