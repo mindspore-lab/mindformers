@@ -46,7 +46,7 @@ Baichuan2 是由百川智能开发的开源可商用的大规模预训练语言�
 
 ## 前期准备
 
-### [mindformers安装](../../README.md#二mindformers安装)
+### [mindformers安装](path/to/README.md#二mindformers安装)
 
 ### 环境要求
 
@@ -54,7 +54,11 @@ Baichuan2 是由百川智能开发的开源可商用的大规模预训练语言�
 - MindSpore：2.0.0 / 1.10.1
 - MindFormers版本：dev
 
-注：Baichuan2-7B推理可在单机单卡上完成部署，全量微调至少需要16卡。Baichuan2-13B推理至少需要4卡，全量微调至少需要16卡。
+注：
+
+对于910A，Baichuan2-7B推理可在单机单卡上完成部署，全量微调至少需要16卡。Baichuan2-13B推理至少需要4卡，全量微调至少需要16卡。
+
+对于910B，Baichuan2-7B、Baichuan2-13B推理可在单机单卡上完成部署，全量微调至少需要8卡。
 
 ### 生成RANK_TABLE_FILE(多卡运行必须环节)
 
@@ -92,7 +96,7 @@ RANK_TABLE_FILE 单机8卡参考样例:
 }
 ```
 
-### 多机RANK_TABLE_FILE合并(多机多卡必备环)
+### 多机RANK_TABLE_FILE合并(多机多卡必备环节)
 
 - step 1. 首先根据上章节内容，在每个机器上生成各自的`RANK_TABLE_FILE`文件，然后将不同机器上生成的`RANK_TABLE_FILE`文件全部拷贝到同一台机器上。
 
@@ -186,25 +190,26 @@ RANK_TABLE_FILE 双机16卡参考样例:
 
 ### 模型权重下载与转换
 
-本仓库提供已经转换完成的预训练权重用于训练/微调/推理，用户可自行从下方链接拉取后直接使用，Base用于微调，Chat用于推理。
+本仓库提供已经转换完成的预训练权重、词表文件用于训练/微调/推理，用户可自行从下方链接拉取后直接使用，Base用于微调，Chat用于推理。
 
 - [Baichuan2-7B-Base](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/baichuan2/Baichuan2_7B_Base.ckpt)
 - [Baichuan2-7B-Chat](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/baichuan2/Baichuan2_7B_Chat.ckpt)
 - [Baichuan2-13B-Base](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/baichuan2/Baichuan2_13B_Base.ckpt)
 - [Baichuan2-13B-Chat](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/baichuan2/Baichuan2-13B-Chat.ckpt)
+- [tokenizer.model](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/baichuan2/toeknizer.model)
 
-也可选择从huggingface下载预训练权重后根据以下步骤进行权重转换，需要下载整个工程，huffingface权重的链接如下：
+也可选择从huggingface下载预训练权重后根据以下步骤进行权重转换，需要下载整个工程，huggingface权重的链接如下：
 
 - [Baichuan2-7B-Base](https://huggingface.co/baichuan-inc/Baichuan2-7B-Base)
 - [Baichuan2-7B-Chat](https://huggingface.co/baichuan-inc/Baichuan2-7B-Chat)
 - [Baichuan2-13B-Base](https://huggingface.co/baichuan-inc/Baichuan2-13B-Base)
 - [Baichuan2-13B-Chat](https://huggingface.co/baichuan-inc/Baichuan2-13B-Chat)
 
-**注**: 请安装torch=2.0.0和transformers=4.29.2版本
+**注**: 请安装torch=2.0.0和transformers=4.30.2版本
 
 ```bash
 pip install torch==2.0.0 -i https://pypi.tuna.tsinghua.edu.cn/simple
-pip install transformers==4.29.2 -i https://pypi.tuna.tsinghua.edu.cn/simple
+pip install transformers==4.30.2 -i https://pypi.tuna.tsinghua.edu.cn/simple
 ```
 
 下载完成后，运行`/research/baichuan/convert_weight.py`转换脚本，将huggingface的权重转换为完整的ckpt权重。
@@ -216,19 +221,19 @@ TORCH_CKPT_DIR: huggingface权重保存目录路径
 mindspore_ckpt_path: 权重保存文件名，保存为TORCH_CKPT_DIR/OUTPUT_NAME, 也可以指定为自定义保存路径
 ```
 
-### [模型权重切分与合并](../../docs/feature_cards/Transform_Ckpt.md)
+### [模型权重切分与合并](path/to/docs/feature_cards/Transform_Ckpt.md)
 
 从hugging face或官方github仓库转换而来的权重通常是单卡权重，基于该权重进行多卡微调，评测，推理，涉及ckpt从单机策略到分布式策略的切换。
 
 通常训练采用分布式训练，基于该权重进行评测，推理多采用单卡，涉及ckpt从分布式策略到单机策略的切换。
 
-以上涉及到ckpt的单卡，多卡转换，详细教程请参考特性文档[模型权重切分与合并](../../docs/feature_cards/Transform_Ckpt.md)
+以上涉及到ckpt的单卡，多卡转换，详细教程请参考特性文档模型[权重切分与合并](path/to/docs/feature_cards/Transform_Ckpt.md)。
 
 - ## Baichuan2-7B
 
-### 微调
+## 微调
 
-#### 数据集准备-SFT微调数据集
+### 数据集准备-SFT微调数据集
 
 当前提供belle_chat_ramdon数据集的预处理和微调样例，用于对Baichuan2-7B-Base，Baichuan2-13B-Base模型进行微调。数据集下载链接如下：
 
@@ -245,13 +250,15 @@ python belle_preprocess.py \
 --seq_length 512
 ```
 
-#### 全参微调
+### 全参微调
 
-全参微调需要多卡启动，以`belle_chat_ramdon_10k.json`数据集为例,给出了默认配置文件`run_baichuan2_7b.yaml`。
+- #### 910A
+
+Baichuan2-7B-Base用于微调，seq_length默认为512，分布式微调训练在910A上需要2节点多卡启动。以`belle_chat_ramdon_10k.json`数据集为例，给出了默认配置文件`run_baichuan2_7b.yaml`。
 
 1. 权重准备
 
-权重支持在线/离线切分方式。在线切分则会在启动微调任务后自动按照分布式策略进行权重切分，离线切分需要在任务前手动进行切分。
+当前云上多节点分布式训练可直接使用自动权重切分（`auto_trans_ckpt`)， 物理机的多机分布式训练不支持自动权重切分，需要进行离线切分后传入网络进行训练。在线切分则会在启动微调任务后自动按照分布式策略进行权重切分，离线切分需要在任务前手动进行切分。
 
 若使用在线切分，则需要将完整权重文件按如下路径放置，并将启动配置参数`auto_trans_ckpt`置为`True`。
 
@@ -261,13 +268,13 @@ python belle_preprocess.py \
             └── baichuan2_7b.ckpt
 ```
 
-若使用离线切分，配置参数`auto_trans_ckpt`置为`False`，`load_checkpoint`传入权重路径文件夹即可。
+若使用离线切分，配置参数`auto_trans_ckpt`置为`False`，`load_checkpoint`传入切分好的权重路径文件夹即可。步骤参考[权重切分与合并](path/to/docs/feature_cards/Transform_Ckpt.md)。
 
 2. 修改`run_baichuan2_7b.yaml`中相关配置
 
 ```yaml
 output_dir: './output'
-load_checkpoint: '{path}/'        # 添加预训练权重路径
+load_checkpoint: '{path}/'          # 添加预训练权重路径
 auto_trans_ckpt: True
 only_save_strategy: False
 resume_training: False
@@ -277,7 +284,7 @@ run_mode: 'finetune'
 train_dataset: &train_dataset
   data_loader:
     type: MindDataset
-    dataset_dir: "{path}/belle512.mindrecord"        # 修改训练数据集路径
+    dataset_dir: "{path}/belle512.mindrecord"   # 修改训练数据集路径
     shuffle: True
   input_columns: ["input_ids", "labels"]
 # 指令微调时（如belle数据集），input_columns: ["input_ids", "labels"]
@@ -356,9 +363,15 @@ run_mode: 运行模式，微调时设置为finetune
 train_data: 训练数据集路径
 ```
 
-### 推理
+- #### 910B
 
-#### 基于高阶接口的推理
+Baichuan2-7B-Base用于微调，seq_length默认为512，分布式微调训练在910B上单节点即可启动。以`belle_chat_ramdon_10k.json`数据集为例，给出了默认配置文件`run_baichuan2_7b_910b.yaml`。
+
+启动流程参考[Baichuan2-13B的910B微调流程](#jump)。
+
+## 推理
+
+### 基于高阶接口的推理
 
 1. 配置文件设置，添加tokenizer路径`vocab_file`，并设置`batch_size`值为`1`
 
@@ -400,7 +413,7 @@ python run_baichuan2.py \
 # output: [{'text_generation_text': ['将以下内容翻译成英文：你今天真好看。 \nYou look really nice today.']}]
 ```
 
-#### 基于Pipeline的推理
+### 基于Pipeline的推理
 
 ```python
 # predict_custom.py 文件
@@ -438,19 +451,14 @@ pipeline_result = pipeline_task("诗词接龙：白日依山尽的下一句是�
 print(pipeline_result)
 
 # output: [{'text_generation_text': ['诗词接龙：白日依山尽的下一句是什么？ \n答：黄河入海流。']}]
-```
-
-以下为多卡运行自定义多batch推理的脚本
-
-```python
-# run_predict.sh 文件
+# >>> `run_predict.sh`文件
 CHECKPOINT_PATH=$2
 export RANK_TABLE_FILE=$1
 
 # define variable
 export RANK_SIZE=8
-export START_RANK=0    # this server start rank
-export END_RANK=8      # this server end rank
+export START_RANK=0 # this server start rank
+export END_RANK=8 # this server end rank
 
 # run
 for((i=${START_RANK}; i<${END_RANK}; i++))
@@ -462,13 +470,13 @@ do
 done
 ```
 
-##### 单卡pipeline推理
+#### 单卡pipeline推理
 
 ```bash
 python predict_custom.py
 ```
 
-##### 多卡pipeline推理
+#### 多卡pipeline推理
 
 ```bash
 bash run_predict.sh RANK_TABLE_FILE path/to/baichuan2_7b_shard_checkpoint_dir
@@ -476,45 +484,45 @@ bash run_predict.sh RANK_TABLE_FILE path/to/baichuan2_7b_shard_checkpoint_dir
 
 - ## Baichuan2-13B
 
-### 微调
+## 微调
 
-#### 数据集准备-SFT微调数据集
+### 数据集准备-SFT微调数据集
 
-参考[Baichuan2-7B-微调-数据集准备](##Baichuan2-7B)
+参考[Baichuan2_7B-微调-数据集准备](#Baichuan2_7B)
 
-#### 全参微调
+### 全参微调
 
-- ##### 910A
+- #### 910A
 
 Baichuan2-13B-Base用于微调，seq_length默认为512，分布式微调训练在910A上需要2节点多卡启动。以`belle_chat_ramdon_10k.json`数据集为例，给出了默认配置文件`run_baichuan2_13b.yaml`。
 
 1. 权重准备
 
-权重支持在线/离线切分方式。在线切分则会在启动微调任务后自动按照分布式策略进行权重切分，离线切分需要在任务前手动进行切分。
+当前云上多节点分布式训练可直接使用自动权重切分（`auto_trans_ckpt`)， 物理机的多机分布式训练不支持自动权重切分，需要进行离线切分后传入网络进行训练。在线切分则会在启动微调任务后自动按照分布式策略进行权重切分，离线切分需要在任务前手动进行切分。
 
 若使用在线切分，则需要将完整权重文件按如下路径放置，并将启动配置参数`auto_trans_ckpt`置为`True`。
 
 ```text
     └── path of ckpt
         └── rank_0
-            └── baichuan2_13b.ckpt
+            └── baichuan2_7b.ckpt
 ```
 
-若使用离线切分，配置参数`auto_trans_ckpt`置为`False`，`load_checkpoint`传入权重路径文件夹即可。
+若使用离线切分，配置参数`auto_trans_ckpt`置为`False`，`load_checkpoint`传入切分好的权重路径文件夹即可。步骤参考[权重切分与合并](path/to/docs/feature_cards/Transform_Ckpt.md)。
 
 2. 修改`run_baichuan2_13b.yaml`中相关配置
 
 ```yaml
 output_dir: './output'
-load_checkpoint: '{path}/'      # 完整模型存放格式为"model_dir/rank_0/xxx.ckpt"
-auto_trans_ckpt: True           # 打开权重自动转换
-use_parallel: True
+load_checkpoint: '{path}/'   # 完整模型存放格式为"model_dir/rank_0/xxx.ckpt"
+auto_trans_ckpt: True        # 打开权重自动转换
+use_past: True               # 打开增量推理
 run_mode: 'finetune'
 # dataset
 train_dataset: &train_dataset
   data_loader:
     type: MindDataset
-    dataset_dir: "{path}/belle512.mindrecord"       # 修改训练数据集路径
+    dataset_dir: "{path}/belle512.mindrecord"   # 修改训练数据集路径
     shuffle: True
   input_columns: ["input_ids", "labels"]
 # 指令微调时（如belle数据集），input_columns: ["input_ids", "labels"]
@@ -593,13 +601,13 @@ run_mode: 运行模式，微调时设置为finetune
 train_data: 训练数据集路径
 ```
 
-- ##### 910B
+- #### <span id="jump">910B</span>
 
 Baichuan2-13B-Base用于微调，seq_length默认为512，分布式微调训练在910B上单节点即可启动。以`belle_chat_ramdon_10k.json`数据集为例，给出了默认配置文件`run_baichuan2_13b_910b.yaml`。
 
 1. 权重准备
 
-权重支持在线/离线切分方式。在线切分则会在启动微调任务后自动按照分布式策略进行权重切分，离线切分需要在任务前手动进行切分。
+单节点微调时权重支持在线/离线切分方式。在线切分则会在启动微调任务后自动按照分布式策略进行权重切分，离线切分需要在任务前手动进行切分。
 
 若使用在线切分，则需要将完整权重文件按如下路径放置，并将启动配置参数`auto_trans_ckpt`置为`True`。
 
@@ -615,15 +623,15 @@ Baichuan2-13B-Base用于微调，seq_length默认为512，分布式微调训练�
 
 ```yaml
 output_dir: './output'
-load_checkpoint: '{path}/'      # 完整模型存放格式为"model_dir/rank_0/xxx.ckpt"
-auto_trans_ckpt: True           # 打开权重自动转换
-use_parallel: True
+load_checkpoint: '{path}/'   # 完整模型存放格式为"model_dir/rank_0/xxx.ckpt"
+auto_trans_ckpt: True        # 打开权重自动转换
+use_past: True               # 打开增量推理
 run_mode: 'finetune'
 # dataset
 train_dataset: &train_dataset
   data_loader:
     type: MindDataset
-    dataset_dir: "{path}/belle512.mindrecord"       # 修改训练数据集路径
+    dataset_dir: "{path}/belle512.mindrecord"   # 修改训练数据集路径
     shuffle: True
   input_columns: ["input_ids", "labels"]
 # 指令微调时（如belle数据集），input_columns: ["input_ids", "labels"]
@@ -676,11 +684,11 @@ run_mode: 运行模式，微调时设置为finetune
 train_data: 训练数据集路径
 ```
 
-### 推理
+## 推理
 
-#### 基于高阶接口的推理
+### 基于高阶接口的推理
 
-- ##### 910A
+- #### 910A
 
 **注1**：Baichuan2-13B-Chat用于推理，seq_length默认为512，推理需要2卡，不支持单卡推理。
 
@@ -693,7 +701,7 @@ train_data: 训练数据集路径
 1. 主要参数配置参考
 
 ```yaml
-load_checkpoint: '{path}/'   # 完整模型存放格式为"model_dir/rank_0/xxx.ckpt"
+load_checkpoint: '{path}/'   # 完整模型存放格式为"model_dir/rank_0/xxx.ckpt"load_checkpoint: 'model_dir'
 auto_trans_ckpt: True        # 打开权重自动转换
 use_past: True               # 打开增量推理
 vocab_file: 'path/to/tokenizer.model'
@@ -724,7 +732,7 @@ bash ./run_singlenode.sh \
 --config baichuan2/run_baichuan2_13b.yaml \
 --run_mode predict \
 --use_parallel True \
---load_checkpoint path/to/baichuan2-13b-chat.ckpt \
+--load_checkpoint model_dir \
 --auto_trans_ckpt True \
 --predict_data 你是谁？" rank_table_file [0,2] 2
 
@@ -738,7 +746,7 @@ load_checkpoint: 'transformed_checkpoint' # 完整模型存放格式为"transfor
 auto_trans_ckpt: False                    # 关闭权重自动转换
 ```
 
-- ##### 910B
+- #### 910B
 
 **注1**：Baichuan2-13B-Chat用于推理，seq_length默认为512，支持单卡推理。
 
@@ -749,7 +757,7 @@ auto_trans_ckpt: False                    # 关闭权重自动转换
 1. 主要参数配置参考
 
 ```yaml
-load_checkpoint: '{path}/'   # 完整模型存放格式为"model_dir/rank_0/xxx.ckpt"
+load_checkpoint: '{path}/'   # 完整模型存放格式为"model_dir/rank_0/xxx.ckpt"load_checkpoint: 'model_dir'
 auto_trans_ckpt: False       # 关闭权重自动转换
 use_past: True               # 打开增量推理
 vocab_file: 'path/to/tokenizer.model'
@@ -770,24 +778,31 @@ parallel_config:
 cd research
 # 推理命令中参数会覆盖yaml文件中的相同参数
 python baichuan2/run_baichuan2.py \
---config baichuan2/run_baichuan2_13b_910b.yaml \
+--config baichuan2/run_baichuan2_13b.yaml \
 --run_mode predict \
 --use_parallel True \
---load_checkpoint path/to/baichuan2-13b-chat.ckpt \
+--load_checkpoint model_dir \
 --auto_trans_ckpt True \
 --predict_data 你是谁？
 
 # output: [{'text_generation_text': ['你是谁？ \n我是百川大模型，是由百川智能的工程师们创造的大语言模型，我可以和人类进行自然交流、解答问题、协助创作，帮助大众轻松、普惠的获得世界知识和专业服务。如果你有任何问题，可以随时向我提问']}]
 ```
 
-#### 基于Pipeline的推理
+- 注：推理结束后，保存`output/transformed_checkpoint`到自定义文件夹下，后续分布式推理可以直接加载`transformed_checkpoint`里面的4卡分布式权重，配置修改如下：
 
-- ##### 910A
+```yaml
+load_checkpoint: 'transformed_checkpoint' # 完整模型存放格式为"transformed_checkpoint/rank_x/xxx.ckpt"
+auto_trans_ckpt: False                    # 关闭权重自动转换
+```
+
+### 基于Pipeline的推理
+
+- #### 910A
 
 1. 主要参数配置参考
 
 ```yaml
-load_checkpoint: '{path}/'   # 完整模型存放格式为"model_dir/rank_0/xxx.ckpt"
+load_checkpoint: '{path}/'   # 完整模型存放格式为"model_dir/rank_0/xxx.ckpt"load_checkpoint: 'model_dir'
 auto_trans_ckpt: True        # 打开权重自动转换
 use_past: True               # 打开增量推理
 vocab_file: 'path/to/tokenizer.model'
@@ -840,7 +855,7 @@ transform_and_load_checkpoint(baichuan2_config, baichuan2_model, baichuan2_netwo
 
 # init tokenizer
 tokenizer = Baichuan2Tokenizer(
-    vocab_file=baichuan2_config.processor.tokenizer.vocab_file
+    vocab_file=baichuan2_config.processor.tokenizer.vovab_file
 )
 pipeline_task = pipeline(task="text_generation", model=baichuan2_model, tokenizer=tokenizer)
 pipeline_result = pipeline_task("你是谁？",
@@ -865,14 +880,14 @@ path/to/rank_table_file [0,2] 2
 # output: [{'text_generation_text': ['你是谁？ \n我是百川大模型，是由百川智能的工程师们创造的大语言模型，我可以和人类进行自然交流、解答问题、协助创作，帮助大众轻松、普惠的获得世界知识和专业服务。如果你有任何问题，可以随时向我提问']}]
 ```
 
-- ##### 910B
+- 910B
 
 1. 主要参数配置参考
 
 ```yaml
 load_checkpoint: ''                                        # 单卡推理时，只需配置checkpoint_name_or_path
 auto_trans_ckpt: False                                     # 关闭权重自动转换
-checkpoint_name_or_path: 'path/to/baichuan2-13B-Chat.ckpt' # 填写权重绝对路径
+checkpoint_name_or_path: 'path/to/baichuan2-13B-Chat.ckpt' # 填写绝对路径
 use_past: True                                             # 打开增量推理
 vocab_file: 'path/to/tokenizer.model'
 use_parallel: False
@@ -882,6 +897,7 @@ use_parallel: False
 
 ```python
 from mindspore import context
+
 from mindformers.pipeline import pipeline
 from mindformers.models import LlamaConfig
 from mindformers import MindFormerConfig
@@ -891,17 +907,17 @@ from baichuan2_tokenizer import Baichuan2Tokenizer
 
 context.set_context(device_id=0, mode=0)
 # init model
-baichuan2_config_path = "research/baichuan2/run_baichuan2_13b_910b.yaml"
+baichuan2_config_path = "research/baichuan2/run_baichuan2_13b.yaml"
 baichuan2_config = MindFormerConfig(baichuan2_config_path)
 
 baichuan2_model_config = LlamaConfig(**baichuan2_config.model.model_config)
-baichuan2_model = Baichuan13BV2ForCausalLM(
+baichuan2_network = Baichuan13BV2ForCausalLM(
     config=baichuan2_model_config
 )
 
 # init tokenizer
 tokenizer = Baichuan2Tokenizer(
-    vocab_file=baichuan2_config.processor.tokenizer.vocab_file
+    vocab_file=baichuan2_config.processor.tokenizer.vovab_file
 )
 pipeline_task = pipeline(task="text_generation", model=baichuan2_model, tokenizer=tokenizer)
 pipeline_result = pipeline_task("你是谁？",
@@ -917,14 +933,14 @@ print(pipeline_result)
 # output: [{'text_generation_text': ['你是谁？ \n我是百川大模型，是由百川智能的工程师们创造的大语言模型，我可以和人类进行自然交流、解答问题、协助创作，帮助大众轻松、普惠的获得世界知识和专业服务。如果你有任何问题，可以随时向我提问']}]
 ```
 
-#### 基于Generate的推理
+### 基于Generate的推理
 
-- ##### 910A
+- #### 910A
 
 1. 主要参数配置参考
 
 ```yaml
-load_checkpoint: '{path}/'   # 完整模型存放格式为"model_dir/rank_0/xxx.ckpt"
+load_checkpoint: '{path}/'   # 完整模型存放格式为"model_dir/rank_0/xxx.ckpt"load_checkpoint: 'model_dir'
 auto_trans_ckpt: True        # 打开权重自动转换
 use_past: True               # 打开增量推理
 vocab_file: 'path/to/tokenizer.model'
@@ -946,6 +962,7 @@ micro_batch_interleave_num: 1
 
 ```python
 import mindspore as ms
+from mindspore import context
 from mindspore import Model
 from mindspore import Tensor
 from mindspore.common import initializer as init
@@ -979,7 +996,7 @@ transform_and_load_checkpoint(baichuan2_config, baichuan2_model, baichuan2_netwo
 
 # init tokenizer
 tokenizer = Baichuan2Tokenizer(
-    vocab_file=baichuan2_config.processor.tokenizer.vocab_file
+    vocab_file=baichuan2_config.processor.tokenizer.vovab_file
 )
 inputs_ids = tokenizer("你是谁？", max_length=baichuan2_model_config.max_decode_length, padding="max_length")["input_ids"]
 outputs = baichuan2_network.generate(inputs_ids,
@@ -1004,23 +1021,24 @@ path/to/rank_table_file [0,2] 2
 # output: [{'text_generation_text': ['你是谁？ \n我是百川大模型，是由百川智能的工程师们创造的大语言模型，我可以和人类进行自然交流、解答问题、协助创作，帮助大众轻松、普惠的获得世界知识和专业服务。如果你有任何问题，可以随时向我提问']}]
 ```
 
-- ##### 910B
+- #### 910B
 
 1. 主要参数配置参考
 
 ```yaml
 load_checkpoint: ''                                        # 单卡推理时，只需配置checkpoint_name_or_path
 auto_trans_ckpt: False                                     # 关闭权重自动转换
-checkpoint_name_or_path: 'path/to/baichuan2-13B-Chat.ckpt' # 填写权重绝对路径
+checkpoint_name_or_path: 'path/to/baichuan2-13B-Chat.ckpt' # 填写绝对路径
 use_past: True                                             # 打开增量推理
 vocab_file: 'path/to/tokenizer.model'
 use_parallel: False
 ```
 
-2. 运行run_baichuan2_generate.py
+2. 运行run_baichuan2_pipeline.py
 
 ```python
 from mindspore import context
+
 from mindformers.pipeline import pipeline
 from mindformers.models import LlamaConfig
 from mindformers import MindFormerConfig
@@ -1030,7 +1048,7 @@ from baichuan2_tokenizer import Baichuan2Tokenizer
 
 context.set_context(device_id=0, mode=0)
 # init model
-baichuan2_config_path = "research/baichuan2/run_baichuan2_13b_910b.yaml"
+baichuan2_config_path = "research/baichuan2/run_baichuan2_13b.yaml"
 baichuan2_config = MindFormerConfig(baichuan2_config_path)
 
 baichuan2_model_config = LlamaConfig(**baichuan2_config.model.model_config)
@@ -1040,7 +1058,7 @@ baichuan2_network = Baichuan13BV2ForCausalLM(
 
 # init tokenizer
 tokenizer = Baichuan2Tokenizer(
-    vocab_file=baichuan2_config.processor.tokenizer.vocab_file
+    vocab_file=baichuan2_config.processor.tokenizer.vovab_file
 )
 inputs_ids = tokenizer("你是谁？", max_length=baichuan2_model_config.max_decode_length, padding="max_length")["input_ids"]
 outputs = baichuan2_network.generate(inputs_ids,
