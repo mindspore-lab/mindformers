@@ -2,7 +2,7 @@
 
 ## 模型描述
 
-MAE是一种基于MIM（Masked Imange Modeling）的无监督学习方法。
+MAE是一种基于MIM（Masked Image Modeling）的无监督学习方法。
 
 MAE由何恺明团队提出，将NLP领域大获成功的自监督预训练模式用在了计算机视觉任务上，效果拔群，在NLP和CV两大领域间架起了一座更简便的桥梁。
 
@@ -206,18 +206,16 @@ mindspore.set_context(mode=0, device_id=0)
 model = AutoModel.from_pretrained("mae_vit_base_p16")
 
 #模型配置加载模型
-config = AutoConfig("mae_vit_base_p16")
+config = AutoConfig.from_pretrained("mae_vit_base_p16")
 # {'decoder_dim': 512, 'patch_size': 16, 'in_chans': 3, 'embed_dim': 768, 'depth': 12,
 # ..., 'decoder_embed_dim': 512, 'norm_pixel_loss': True, 'window_size': None}
-model = AutoModel(config)
+model = AutoModel.from_config(config)
 
-img = load_image("https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/XFormer_for_mindspore/clip/sunflower.png")
-
-outputs = model(img)
+print(model)
 # output
 ```
 
-### 基于Trainer的快速训练、评测、推理
+### 基于Trainer的快速训练、推理
 
 ```python
 import mindspore
@@ -241,6 +239,7 @@ print(predict_result)
 # 方式2： 从obs下载训练好的权重并进行推理
 predict_result = mae_trainer.predict(input_data=img)
 print(predict_result)
+# output
 ```
 
 ### 基于Pipeline的快速推理
