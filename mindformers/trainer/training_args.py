@@ -65,7 +65,7 @@ class TrainingArguments:
         default=None,
         metadata={"help": "The sink_mode is used to enable data sink of the network."}
     )
-    sink_size: bool = field(
+    sink_size: int = field(
         default=None,
         metadata={"help": "The sink_size is used to enable data sink number per step for training or evaluation."}
     )
