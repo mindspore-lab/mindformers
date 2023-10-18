@@ -196,6 +196,8 @@ python mindformers/models/vit/convert_weight.py --torch_path "PATH OF ViT-Base.p
 ```python
 import mindspore
 from mindformers import AutoModel, AutoConfig
+from mindformers.tools.image_tools import load_image
+from mindformers import ViTImageProcessor
 
 # 指定图模式，指定使用训练卡id
 mindspore.set_context(mode=0, device_id=0)
@@ -204,15 +206,21 @@ mindspore.set_context(mode=0, device_id=0)
 model = AutoModel.from_pretrained("vit_base_p16")
 
 #模型配置加载模型
-config = AutoConfig("vit_base_p16")
+config = AutoConfig.from_pretrained("vit_base_p16")
 # {'patch_size': 16, 'in_chans': 3, 'embed_dim': 768, 'depth': 12, 'num_heads': 12, 'mlp_ratio': 4,
 # ..., 'batch_size': 32, 'image_size': 224, 'num_classes': 1000}
-model = AutoModel(config)
+model = AutoModel.from_config(config)
 
 img = load_image("https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/XFormer_for_mindspore/clip/sunflower.png")
+image_processor = ViTImageProcessor(size=224)
+processed_img = image_processor(img)
 
-outputs = model(img)
+predict_result = model(processed_img)
+print(predict_result)
+
 # output
+# (Tensor(shape=[1, 1000], dtype=Float32, value=
+# [[-5.38996577e-01, -2.30418444e-02,  2.06433788e-01 ... -6.59191251e-01,  8.57466936e-01,  6.56416774e-01]]), None)
 ```
 
 ### 基于Trainer的快速训练、评测、推理
@@ -248,6 +256,10 @@ print(predict_result)
 vit_trainer.evaluate()
 predict_result = vit_trainer.predict(input_data=img, top_k=3)
 print(predict_result)
+
+# output
+# - mindformers - INFO - output result is: [[{'score': 0.8880876, 'label': 'daisy'},
+# {'score': 0.0049882396, 'label': 'bee'}, {'score': 0.0031068476, 'label': 'vase'}]]
 ```
 
 ### 基于Pipeline的快速推理
@@ -263,7 +275,10 @@ pipeline_task = pipeline("image_classification", model='vit_base_p16')
 img = load_image("https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/XFormer_for_mindspore/clip/sunflower.png")
 pipeline_result = pipeline_task(img, top_k=3)
 print(pipeline_result)
+
 # output
+# [[{'score': 0.8880876, 'label': 'daisy'}, {'score': 0.0049882396, 'label': 'bee'},
+# {'score': 0.0031068476, 'label': 'vase'}]]
 ```
 
  Trainer和pipeline接口默认支持的task和model关键入参

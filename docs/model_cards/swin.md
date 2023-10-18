@@ -206,6 +206,8 @@ python mindformers/models/swin/convert_weight.py --torch_path simmim_pretrain_sw
 ```python
 import mindspore
 from mindformers import AutoModel, AutoConfig
+from mindformers.tools.image_tools import load_image
+from mindformers import SwinImageProcessor
 
 # 指定图模式，指定使用训练卡id
 mindspore.set_context(mode=0, device_id=0)
@@ -214,16 +216,21 @@ mindspore.set_context(mode=0, device_id=0)
 model = AutoModel.from_pretrained("swin_base_p4w7")
 
 #模型配置加载模型
-config = AutoConfig("swin_base_p4w7")
+config = AutoConfig.from_pretrained("swin_base_p4w7")
 # {'batch_size': 128, 'image_size': 224, 'patch_size': 4, 'num_labels': 1000, 'num_channels': 3,
 # 'embed_dim': 128, 'depths': [2, 2, 18, 2], 'num_heads': [4, 8, 16, 32],
 # 'checkpoint_name_or_path': 'swin_base_p4w7'}
-model = AutoModel(config)
+model = AutoModel.from_config(config)
 
 img = load_image("https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/XFormer_for_mindspore/clip/sunflower.png")
+image_processor = SwinImageProcessor(size=224)
+processed_img = image_processor(img)
 
-outputs = model(img)
+predict_result = model(processed_img)
+
 # output
+# (Tensor(shape=[1, 1000], dtype=Float32, value=
+# [[-5.19241571e-01, -1.37802780e-01,  3.77173603e-01 ... -5.00497580e-01,  5.52467167e-01, -2.11867809e-01]]), None)
 ```
 
 ### 基于Trainer的快速训练、评测、推理
@@ -272,6 +279,7 @@ pipeline_task = pipeline("image_classification", model='swin_base_p4w7')
 img = load_image("https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/XFormer_for_mindspore/clip/sunflower.png")
 pipeline_result = pipeline_task(img, top_k=3)
 print(pipeline_result)
+
 # output
 # [[{'score': 0.89573187, 'label': 'daisy'}, {'score': 0.005366202, 'label': 'bee'},
 # {'score': 0.0013296203, 'label': 'fly'}]]
