@@ -180,7 +180,7 @@ RANK_TABLE_FILE 双机16卡参考样例:
    git clone https://huggingface.co/THUDM/codegeex2-6b
    ```
 
-2. 执行 python 脚本，合并模型权重。
+2. 执行 python 脚本，合并模型权重,模型转换权重需要依赖transformer版本为4.30.2，可参阅[CodeGeeX2-6B](https://huggingface.co/THUDM/codegeex2-6b)。
 
    ```python
    from transformers import AutoTokenizer, AutoModel
@@ -291,7 +291,7 @@ trainer.evaluate()
 
 # 开启推理
 predict_result = trainer.predict(input_data="# language: Python\n# write a bubble sort function\n")
-# output result is: [{'text_generation_text': ['def bubble_sort(list):\n for i in range(len(list) - 1):\n for j in range(len(list) - 1):\n if list[j] > list[j + 1]:\n list[j], list[j + 1] = list[j + 1], list[j]\n return list\n print(bubble_sort([5, 2, 4, 6, 1, 3]))']}]
+# output result is: [{'text_generation_text': ['def bubble_sort(list):\n for i in range(len(list) - 1):\n for j in range(len(list) - 1):\n if list[j] > list[j + 1]:\n list[j], list[j + 1] = list[j + 1], list[j]\n return list\n print(bubble_sort([5, 2, 1, 8, 4]))']}]
 ```
 
 **注：多卡请参考[使用高阶接口开发教程](https://mindformers.readthedocs.io/zh_CN/latest/docs/practice/Develop_With_Api.html)。**
@@ -306,12 +306,12 @@ from mindformers.pipeline import pipeline
 mindspore.set_context(mode=0, device_id=0)
 
 pipeline_task = pipeline("text_generation", model='codegeex2_6b', max_length=500)
-pipeline_result = pipeline_task("# language: Python\n# write a bubble sort function\n", top_k=3)
+pipeline_result = pipeline_task("# language: Python\n# write a bubble sort function\n", top_k=1)
 print(pipeline_result)
-# [{'text_generation_text': ['def bubble_sort(list):\n for i in range(len(list) - 1):\n for j in range(len(list) - 1):\n if list[j] > list[j + 1]:\n list[j], list[j + 1] = list[j + 1], list[j]\n return list\n print(bubble_sort([5, 2, 4, 6, 1, 3]))']}]
+# [{'text_generation_text': ['def bubble_sort(list):\n for i in range(len(list) - 1):\n for j in range(len(list) - 1):\n if list[j] > list[j + 1]:\n list[j], list[j + 1] = list[j + 1], list[j]\n return list\n print(bubble_sort([5, 2, 1, 8, 4]))']}]
 ```
 
-**注：快速使用仅限单卡，该示例支持2.6B和13B模型。**
+**注：快速使用仅限单卡，该示例支持6B模型。**
 **注：多卡请参考[基于pipeline的推理](#基于pipeline的推理)。**
 
 ## 微调
@@ -335,7 +335,7 @@ CodeAlpaca
   └── dev.json
 ```
 
-将任务配置文件 `configs/codegeex2/run_codegeex2_6b_finetune_2048*.yaml` 中的 `==== dataset config ====` 部分替换成：
+将任务配置文件 `configs/codegeex2/run_codegeex2_6b_finetune_2048.yaml` 中的 `==== dataset config ====` 部分替换成：
 
 ```yaml
 train_dataset: &train_dataset
@@ -403,19 +403,19 @@ eval_dataset_task:
 
 #### 单机多卡全参微调
 
-全参微调使用 `configs/codegeex2/run_codegeex2_6b_finetune.yaml` 配置文件，配置文件中定义了微调所需的各配置项
+全参微调使用 `configs/codegeex2/run_codegeex2_6b_finetune_2048.yaml` 配置文件，配置文件中定义了微调所需的各配置项
 
 修改数据集/模型权重配置路径：
 
-- 数据集：修改 `mindformers/configs/codegeex2/run_codegeex2_6b_finetune.yaml` 脚本中`train_dataset` 的 `dataset_dir` 为前文生成的数据集路径。
-- 加载预训练模型权重：修改 `mindformers/configs/codegeex2/run_codegeex2_6b_fine.yaml` 脚本中的 `load_checkpoint` 为预训练模型权重路径。
+- 数据集：修改 `mindformers/configs/codegeex2/run_codegeex2_6b_finetune_2048.yaml` 脚本中`train_dataset` 的 `dataset_dir` 为前文生成的数据集路径。
+- 加载预训练模型权重：修改 `mindformers/configs/codegeex2/run_codegeex2_6b_finetune_2048.yaml` 脚本中的 `load_checkpoint` 为预训练模型权重路径。
 
 启动全参微调脚本：
 
 ```shell
 cd scripts
 # Usage Help: bash run_distribute.sh [RANK_TABLE_FILE] [CONFIG_PATH] [DEVICE_RANGE] [RUN_STATUS]
-bash run_distribute.sh /path/to/hccl_8p_01234567_127.0.1.1.json ../configs/codegeex2/run_codegeex2_6b_finetune.yaml '[0,8]' finetune
+bash run_distribute.sh /path/to/hccl_8p_01234567_127.0.1.1.json ../configs/codegeex2/run_codegeex2_6b_finetune_2048.yaml '[0,8]' finetune
 # 将此处rank_table_file替换为实际路径
 ```
 
@@ -423,7 +423,7 @@ bash run_distribute.sh /path/to/hccl_8p_01234567_127.0.1.1.json ../configs/codeg
 
 ```text
 RANK_TABLE_FILE: 由mindformers/tools/hccl_tools.py生成的分布式json文件
-CONFIG_PATH: 为configs文件夹下面的codegeex2/run_codegeex2_6b_finetune.yaml配置文件
+CONFIG_PATH: 为configs文件夹下面的codegeex2/run_codegeex2_6b_finetune_2048.yaml配置文件
 DEVICE_RANGE: 为单机分布式卡的范围，如 '[0,8]' 为8卡分布式，不包含8本身
 RUN_STATUS: 为任务运行状态，支持关键字 train\finetune\eval\predict
 ```
@@ -456,7 +456,7 @@ python ./mindformers/tools/merge_hccl.py hccl*.json
 
 ```shell
 # 以codegeex2-6b模型两机训练为例，默认配置2机16卡，如果节点数有变，需要修改相应的配置。
-# 配置文件路径：../configs/codegeex2/run_codegeex2_6b.yaml
+# 配置文件路径：../configs/codegeex2/run_codegeex2_6b_finetune_2048.yaml
 parallel_config:
   data_parallel: 2
   model_parallel: 4
@@ -473,9 +473,9 @@ parallel_config:
 
 ```shell
 # 第一台机器
-bash run_distribute.sh {RANK_TABLE_FILE path of the first device} ../configs/codegeex2/run_codegeex2_6b_finetune.yaml [0,8] finetune 16
+bash run_distribute.sh {RANK_TABLE_FILE path of the first device} ../configs/codegeex2/run_codegeex2_6b_finetune_2048.yaml [0,8] finetune 16
 # 第二台机器
-bash run_distribute.sh {RANK_TABLE_FILE path of the second device} ../configs/codegeex2/run_codegeex2_6b_finetune.yaml [8,16] finetune 16
+bash run_distribute.sh {RANK_TABLE_FILE path of the second device} ../configs/codegeex2/run_codegeex2_6b_finetune_2048.yaml [8,16] finetune 16
 ```
 
 ## 推理
@@ -747,7 +747,7 @@ bash run_predict.sh RANK_TABLE_FILE path/to/codegeex2_6b_shard_checkpoint_dir
 
 ```bash
 python run_mindformer.py --config configs/codegeex2/run_codegeex2_6b.yaml --run_mode predict --predict_data  # language: Python\n# write a bubble sort function\n --use_parallel False
-# output result is: [{'text_generation_text': ['def bubble_sort(list):\n for i in range(len(list) - 1):\n for j in range(len(list) - 1):\n if list[j] > list[j + 1]:\n list[j], list[j + 1] = list[j + 1], list[j]\n return list\n print(bubble_sort([5, 2, 4, 6, 1, 3]))']}]
+# output result is: [{'text_generation_text': ['def bubble_sort(list):\n for i in range(len(list) - 1):\n for j in range(len(list) - 1):\n if list[j] > list[j + 1]:\n list[j], list[j + 1] = list[j + 1], list[j]\n return list\n print(bubble_sort([5, 2, 1, 8, 4]))']}]
 ```
 
 **注**：要提高推理速度，可在对应模型配置文件中进行如下配置，设置增量推理`use_past`为True。
@@ -802,15 +802,30 @@ python mindformers/tools/export.py --config_path configs/codegeex2/run_codegeex2
 
     ```ini
     [ascend_context]
+    plugin_custom_ops=All
     provider=ge
 
     [ge_session_options]
-    ge.exec.formatMode=1
     ge.exec.precision_mode=must_keep_origin_dtype
+
+    [ge_graph_options]
+    ge.exec.formatMode=1
     ```
 
 2. 执行命令：
 
 ```bash
-python run_infer_main.py --device_id 0 --model_name codegeex2 --prefill_model_path codegeex2_export/codegeex2_6b_prefill_seq1024_graph.mindir --increment_model_path codegeex2_export/codegeex2_6b_inc_seq1024_graph.mindir --config_path lite.ini --seq_length 1024 --max_length 512
+python run_infer_main.py --device_id 0 --model_name codegeex2 --prefill_model_path codegeex2_export/codegeex2_6b_prefill_seq1024_graph.mindir --increment_model_path codegeex2_export/codegeex2_6b_inc_seq1024_graph.mindir --config_path lite.ini --seq_length 1024 --max_length 512 --add_special_tokens True
+```
+
+　　输入：
+
+```bash
+#language: Python #write a bubble sort function
+```
+
+　　输出：
+
+```bash
+ ['def bubble_sort(list):\n for i in range(len(list) - 1):\n for j in range(len(list) - 1):\n if list[j] > list[j + 1]:\n list[j], list[j + 1] = list[j + 1], list[j]\n return list\n print(bubble_sort([5, 2, 1, 8, 4]))']}]
 ```
