@@ -372,14 +372,11 @@ cls_trainer = Trainer(task='zero_shot_image_classification',
 # 加载输入，一张太阳花图片
 input_data = load_image("https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/XFormer_for_mindspore/clip/sunflower.png")
 
-# 加载指定的权重以完成推理
-predict_result = cls_trainer.predict(input_data=input_data,
-                                     predict_checkpoint='your_path_to/blip2_pretrained.ckpt')
+# 加载默认的权重以完成推理
+predict_result = cls_trainer.predict(input_data=input_data)
 print(predict_result)
 # 输出
-# output result is: [[{'score': 0.99999976, 'label': 'sunflower'}]]
-# output result is saved at: zero_shot_image_classification_result.txt
-# .........Predict Over!.............
+# [[{'score': 0.99999976, 'label': 'sunflower'}]]
 ```
 
 - `BLIP-2`二阶段推理
@@ -399,7 +396,7 @@ predict_result = generate_trainer.predict(input_data=input_data,
                                           hypothesis_template="a picture of")
 print(predict_result)
 # 输出
-# output result is: ['a picture of a yellow flower']
+# ['a picture of a yellow flower']
 ```
 
 注：基于`Baichuan7b`的`BLIP-2`未提供预训练模型。
@@ -418,10 +415,11 @@ mindspore.set_context(mode=0, device_id=0)
 
 pipeline_task = pipeline(task="zero_shot_image_classification", model="blip2_stage1_classification")
 
-img = load_image("https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/XFormer_for_mindspore/clip/sunflower.png")
-pipeline_result = pipeline_task("predict_data",
-    candidate_labels=["sunflower", "tree", "dog", "cat", "toy"],
-    hypothesis_template="This is a photo of {}.")
+input_data = load_image(
+    "https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/XFormer_for_mindspore/clip/sunflower.png")
+pipeline_result = pipeline_task(input_data,
+                                candidate_labels=["sunflower", "tree", "dog", "cat", "toy"],
+                                hypothesis_template="This is a photo of {}.")
 print(pipeline_result)
 # 输出
 # [[{'score': 0.99999714, 'label': 'sunflower'},
@@ -437,7 +435,6 @@ print(pipeline_result)
 ```python
 import mindspore as ms
 
-from mindformers import Trainer
 from mindformers.pipeline import pipeline
 from mindformers.tools.image_tools import load_image
 
@@ -446,10 +443,6 @@ ms.set_context(mode=0, device_id=0)
 
 pipeline_task = pipeline(task="image_to_text_generation", model="itt_blip2_stage2_vit_g_llama_7b")
 
-img = load_image("https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/XFormer_for_mindspore/clip/sunflower.png")
-
-generate_trainer = Trainer(task='image_to_text_generation',
-                           model='itt_blip2_stage2_vit_g_baichuan_7b')
 # 加载输入，一张太阳花图片
 input_data = load_image(
     "https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/XFormer_for_mindspore/clip/sunflower.png")
@@ -457,7 +450,7 @@ input_data = load_image(
 predict_result = pipeline_task(input_data, hypothesis_template="a picture of")
 print(predict_result)
 # 输出
-# output result is: ['a picture of a yellow flower']
+# ['a picture of a yellow flower']
 ```
 
 **注：快速使用仅限单卡**
