@@ -96,6 +96,9 @@ class TextStreamer(BaseStreamer):
         """
         Receives tokens, decodes them, and prints them to stdout as soon as they form entire words.
         """
+        if self.skip_prompt and self.next_tokens_are_prompt:
+            self.next_tokens_are_prompt = False
+            return
 
         if isinstance(value, int):
             self.token_cache.append(value)
@@ -119,10 +122,6 @@ class TextStreamer(BaseStreamer):
                 self.token_cache.extend(value)
         else:
             raise ValueError("TextStreamer only supports int, or 1 ~ 2 dim numpy.ndarray/list as inputs.")
-
-        if self.skip_prompt and self.next_tokens_are_prompt:
-            self.next_tokens_are_prompt = False
-            return
 
         # Add the new token to the cache and decodes the entire thing.
         if self.batch_stream:
