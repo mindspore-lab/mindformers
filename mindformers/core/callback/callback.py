@@ -522,7 +522,7 @@ class CheckpointMointor(ModelCheckpoint):
 
             def save_only_network_params():
                 save_obj = cb_params.network
-                if save_obj.optimizer is not None:
+                if hasattr(save_obj, 'optimizer') and save_obj.optimizer is not None:
                     save_obj = save_obj.network
 
                 if self.save_network_params:
