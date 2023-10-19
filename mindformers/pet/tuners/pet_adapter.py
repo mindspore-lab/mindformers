@@ -19,7 +19,7 @@ import os
 
 from mindspore import nn
 
-from tk.graph.freeze_utils import freeze_delta
+from mindpet.graph.freeze_utils import freeze_delta
 
 from mindformers.auto_class import AutoModel
 from mindformers.mindformer_book import MindFormerBook
