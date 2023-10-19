@@ -368,10 +368,12 @@ plugin_custom_ops=All
 provider=ge
 
 [ge_session_options]
-ge.exec.precision_mode=must_keep_origin_dtype
-
-[ge_graph_options]
+ge.externalWeight=1
 ge.exec.formatMode=1
+ge.exec.atomicCleanPolicy=1
+ge.event=notify
+ge.exec.staticMemoryPolicy=2
+ge.exec.precision_mode=must_keep_origin_dtype
 ```
 
 针对于GE参数的详细说明可以参考[GE options参数说明](https://www.hiascend.com/document/detail/zh/CANNCommunityEdition/70RC1alpha002/infacldevg/graphdevg/atlasgeapi_07_0118.html)
