@@ -393,7 +393,7 @@ RUN_MODE: 为任务运行状态，支持关键字 train\finetune\eval\predict
 
 ```yaml
 # 以llama2-13b模型两机训练为例，默认配置2机16卡，如果节点数有变，需要修改相应的配置。
-# 配置文件路径：../configs/llama/run_llama2_13b.yaml
+# 配置文件路径：../configs/llama2/run_llama2_13b.yaml
 parallel_config:
   data_parallel: 2
   model_parallel: 4
@@ -1006,6 +1006,3 @@ max_new_tokens: 128      #设置最大生成长度
 cd script
 bash run_distribute.sh rank_table_2.json configs/llama/run_llama_13b.yaml [0,2] predict "I love beijing, because"
 ```
-
-
-
