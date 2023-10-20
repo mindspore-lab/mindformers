@@ -47,9 +47,17 @@ ChatGLM**2**-6B 是开源中英双语对话模型 [ChatGLM2-6B](https://github.c
 
     ```bash
     glm2
-        ├── export_glm2_6b.yaml       # 导出MindIR配置
-        ├── run_glm2_6b_fintune.yaml  # 全量微调启动配置
-        └── run_glm2_6b_lora.yaml     # lora低参微调启动配置
+        ├── export_glm2_6b.yaml                # 导出mindir配置
+        ├── run_glm2_6b_finetune_2k_910b.yaml  # 910b最佳性能全量微调启动配置
+        ├── run_glm2_6b_finetune_2k.yaml       # 910a最佳性能全量微调启动配置
+        ├── run_glm2_6b_finetune_910b.yaml     # 910b ADGEN全量微调启动配置
+        ├── run_glm2_6b_finetune.yaml          # 910a ADGEN全量微调启动配置
+        ├── run_glm2_6b_finetune_eval.yaml     # 全量微调评估配置
+        ├── run_glm2_6b_lora_2k_910b.yaml      # 910b最佳性能lora微调启动配置
+        ├── run_glm2_6b_lora_2k.yaml           # 910a最佳性能lora微调启动配置
+        ├── run_glm2_6b_lora_910b.yaml         # 910a ADGEN lora微调启动配置
+        ├── run_glm2_6b_lora.yaml              # 910a ADGEN lora微调启动配置
+        └── run_glm2_6b_lora_eval.yaml         # lora微调评估配置
     ```
 
 ## 前期准备
