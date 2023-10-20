@@ -203,12 +203,6 @@ class KeyWordGenDataset(BaseDataset):
         prompt_ids = cls.tokenizer.encode(text=prompt, add_special_tokens=True, max_length=cls.max_source_length)
         answer_ids = cls.tokenizer.encode(text=answer, add_special_tokens=False, max_length=cls.max_target_length)
 
-        if len(prompt_ids) > cls.max_source_length - 1:
-            prompt_ids = prompt_ids[: cls.max_source_length - 1]
-
-        if len(answer_ids) > cls.max_target_length - 2:
-            answer_ids = answer_ids[: cls.max_target_length - 2]
-
         context_length = len(prompt_ids)
         input_ids = prompt_ids + answer_ids + [cls.tokenizer.eos_token_id]
         labels = [cls.tokenizer.pad_token_id] * context_length + answer_ids[1:] + [cls.tokenizer.eos_token_id]
