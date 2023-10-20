@@ -31,7 +31,7 @@ model:
     ffn_hidden_size: 13696
     kv_channels: 128
     num_attention_heads: 32
-    seq_length: 193
+    seq_length: 256
     hidden_dropout: 0.0
     attention_dropout: 0.0
     layernorm_epsilon: 1e-5
@@ -186,7 +186,7 @@ lr_scale: False
 lr_scale_factor: 256
 
 # parallel config
-use_parallel: True
+use_parallel: False
 parallel:
   parallel_mode: 1 # 0-dataset, 1-semi, 2-auto, 3-hybrid
   gradients_mean: False
