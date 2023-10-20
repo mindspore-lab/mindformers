@@ -1,6 +1,6 @@
 # GPT2从头开始实现
 
-**注：本章节基于MindFormers提供Base_Trainer，Task等基础功能已实现的情况下，从开开始实现一个模型。**
+**注：本章节基于MindFormers提供Base_Trainer，Task等基础功能已实现的情况下，从头开始实现一个模型。**
 
 ## 1 模型构建及注册（以预训练语言模型为例）
 
