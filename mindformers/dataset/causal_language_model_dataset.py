@@ -159,16 +159,56 @@ class CausalLanguageModelDataset(BaseDataset):
         tokenizer_config = dataset_config.tokenizer
         tokenizer = build_tokenizer(tokenizer_config)
         max_length = tokenizer_config.max_length
+        input_columns = dataset_config.input_columns
+        return_token_type_ids = "token_type_ids" in input_columns
+        return_attention_mask = "attention_mask" in input_columns
 
-        def map_func(input_data):
-            input_data = input_data.tolist()
-            input_ids = tokenizer(input_data, padding='max_length', max_length=max_length, truncation=True,
-                                  add_special_tokens=False)
-            return input_ids.get('input_ids')
+        def train_map_func(ids):
+            """Preparing input data for model training."""
+            ids = ids.tolist()
+            result = tokenizer.prepare_for_model(ids=ids,
+                                                 pair_ids=None,
+                                                 add_special_tokens=True,
+                                                 max_length=max_length,
+                                                 padding='max_length',
+                                                 truncation=True,
+                                                 truncate_direction="LEFT",
+                                                 return_token_type_ids=return_token_type_ids,
+                                                 return_attention_mask=return_attention_mask)
+            return_list = []
+            for col in input_columns:
+                return_list.append(result[col])
+            return tuple(return_list)
 
-        dataset = get_dataset_map(dataset, map_func,
-                                  input_columns=dataset_config.input_columns,
-                                  output_columns=dataset_config.input_columns)
+        def sft_map_func(prompt, answer=None, label=None):
+            """Prepare input data for model fine-tuning or evaluation."""
+            ids = tokenizer.encode(prompt.tolist())
+            pair_ids = tokenizer.encode(answer.tolist()) if answer else None
+            result = tokenizer.prepare_for_model(ids=ids,
+                                                 pair_ids=pair_ids,
+                                                 add_special_tokens=True,
+                                                 max_length=max_length,
+                                                 padding='max_length',
+                                                 truncation=True,
+                                                 truncate_direction="LEFT",
+                                                 return_token_type_ids=return_token_type_ids,
+                                                 return_attention_mask=return_attention_mask)
+            return_list = []
+            for col in input_columns:
+                if col != "labels":
+                    return_list.append(result[col])
+                elif "labels" in result:
+                    return_list.append(result["labels"])
+                else:
+                    return_list.append(label)
+            return tuple(return_list)
+
+        if dataset_config.data_loader.get("tokenizer"):
+            dataset = dataset.map(train_map_func, input_columns=["input"], output_columns=input_columns)
+        else:
+            dataset = dataset.map(sft_map_func,
+                                  input_columns=["prompt", "answer", "label"],
+                                  output_columns=input_columns)
         return dataset
 
     @classmethod
