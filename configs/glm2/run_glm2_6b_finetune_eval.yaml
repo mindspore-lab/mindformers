@@ -13,7 +13,7 @@ context:
   enable_graph_kernel: False
   graph_kernel_flags: "--disable_expand_ops=Softmax,Dropout --enable_parallel_fusion=true --reduce_fuse_depth=8 --enable_auto_tensor_inplace=true"
   max_call_depth: 10000
-  max_device_memory: "30GB"  # 59GB for 910B
+  max_device_memory: "30GB" # 59GB for 910B
   save_graphs: False
   device_id: 0
 
@@ -31,7 +31,7 @@ model:
     ffn_hidden_size: 13696
     kv_channels: 128
     num_attention_heads: 32
-    seq_length: 193
+    seq_length: 256
     hidden_dropout: 0.0
     attention_dropout: 0.0
     layernorm_epsilon: 1e-5
@@ -52,7 +52,7 @@ model:
     param_init_type: "float16"
     compute_dtype: "float16"
     layernorm_compute_type: "float32"
-    use_past: False
+    use_past: True
     eos_token_id: 2
     pad_token_id: 0
     repetition_penalty: 1.0
@@ -61,17 +61,12 @@ model:
     top_k: 1
     top_p: 1
     do_sample: True
-    pet_config:
-      pet_type: lora
-      lora_rank: 8
-      lora_alpha: 32
-      lora_dropout: 0.1
   arch:
-    type: ChatGLM2WithLora
+    type: ChatGLM2ForConditionalGeneration
 
 trainer:
   type: CausalLanguageModelingTrainer
-  model_name: 'glm2_6b_lora'
+  model_name: 'glm2_6b'
 # if True do, evaluate during the training process. if false, do nothing.
 # note that the task trainer should support _evaluate_in_training function.
 do_eval: False
@@ -186,7 +181,7 @@ lr_scale: False
 lr_scale_factor: 256
 
 # parallel config
-use_parallel: True
+use_parallel: False
 parallel:
   parallel_mode: 1 # 0-dataset, 1-semi, 2-auto, 3-hybrid
   gradients_mean: False
@@ -197,7 +192,7 @@ parallel:
   enable_parallel_optimizer: True  # optimizer shard
   strategy_ckpt_save_file: "./ckpt_strategy.ckpt"
 parallel_config:
-  data_parallel: 8
+  data_parallel: 4
   model_parallel: 1
   pipeline_stage: 1
   expert_parallel: 1
@@ -237,7 +232,7 @@ profile_memory: True
 callbacks:
   - type: MFLossMonitor
   - type: CheckpointMointor
-    prefix: "glm2-6b-lora"
+    prefix: "glm2-6b"
     save_checkpoint_steps: 1000
     keep_checkpoint_max: 1
     integrated_save: False
