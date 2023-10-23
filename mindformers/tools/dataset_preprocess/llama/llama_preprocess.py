@@ -21,18 +21,12 @@ import json
 import os
 import re
 import numpy as np
-# fschat >= 0.2.13
-try:
-    from fastchat.conversation import get_conv_template
-except ImportError:
-    def get_conv_template():
-        raise ImportError("fastchat is not installed. \
-                          Please install fastchat by 'pip install fschat==0.2.13'.")
 
 from mindspore.mindrecord import FileWriter
 
 from mindformers.models.llama.llama_tokenizer import LlamaTokenizer
 
+from conversation import get_default_conv_template
 
 IGNORE_TOKEN_ID = -100
 
@@ -94,7 +88,7 @@ def clean_wikitext(string):
 
 def preprocess(sources, tokenizer, seq_length):
     """conversation preprocess."""
-    conv = get_conv_template("vicuna_v1.1").copy()
+    conv = get_default_conv_template("vicuna").copy()
     roles = {"human": conv.roles[0], "gpt": conv.roles[1]}
 
     # Apply prompt templates
