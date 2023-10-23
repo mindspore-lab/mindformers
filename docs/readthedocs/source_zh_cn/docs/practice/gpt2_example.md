@@ -384,13 +384,13 @@
   # test from_pretrained
   from mindformers import GPT2Config, GPT2LMHeadModel
 
-  print(GPT2Config._support_list)
-  # ['gpt2']
-  config = GPT2Config.from_pretrained("gpt2")
+    print(GPT2Config._support_list)
+    # ['gpt2']
+    config = GPT2Config.from_pretrained("gpt2")
 
-  print(GPT2LMHeadModel._support_list)
-  # ['gpt2']
-  model = GPT2LMHeadModel.from_pretrained("gpt2")
+    print(GPT2LMHeadModel._support_list)
+    # ['gpt2']
+    model = GPT2LMHeadModel.from_pretrained("gpt2")
   ```
 
 - 代码测试
@@ -577,33 +577,33 @@ from mindformers.auto_class import AutoTokenizer
 ```python
 
 def preprocess_data(input_file):
-""" 数据读入 """
-dataset_valid = []
-passage = []
-count = 0
-with open(input_file, 'r', encoding='utf-8') as f:
-    for line in f:
-        line = line.strip()
-        if line:
-            if line.startswith('=') and line.endswith('=') and passage:
-                dataset_valid.append(passage)
-                count += 1
-                passage = []
-            elif line.startswith('=') and line.endswith('='):
-                continue
-            else:
-                passage.append(line)
-print('read {} file finished!\n total count = {}'.format(input_file, count))
+  """ 数据读入 """
+  dataset_valid = []
+  passage = []
+  count = 0
+  with open(input_file, 'r', encoding='utf-8') as f:
+      for line in f:
+          line = line.strip()
+          if line:
+              if line.startswith('=') and line.endswith('=') and passage:
+                  dataset_valid.append(passage)
+                  count += 1
+                  passage = []
+              elif line.startswith('=') and line.endswith('='):
+                  continue
+              else:
+                  passage.append(line)
+  print('read {} file finished!\n total count = {}'.format(input_file, count))
 
-res = []
-for line in dataset_valid:
-    text = ""
-    for sentence in line:
-        sentence = wikitext_clean(sentence)
-        text = text + " " + sentence
-    text = text.strip()
-    res.append(text)
-return res
+  res = []
+  for line in dataset_valid:
+      text = ""
+      for sentence in line:
+          sentence = wikitext_clean(sentence)
+          text = text + " " + sentence
+      text = text.strip()
+      res.append(text)
+  return res
 ```
 
 #### 数据清洗
@@ -612,39 +612,39 @@ return res
 
 ```python
 def wikitext_clean(string):
-""" 数据清洗 """
-# 消除空格
-string = string.replace("s '", "s'")
-string = re.sub(r"/' [0-9]/", r"/'[0-9]/", string)
-# 处理数字分隔符
-string = string.replace(" @-@ ", "-")
-string = string.replace(" @,@ ", ",")
-string = string.replace(" @.@ ", ".")
-# 处理标点符号
-string = string.replace(" : ", ": ")
-string = string.replace(" ; ", "; ")
-string = string.replace(" . ", ". ")
-string = string.replace(" .", ".")
-string = string.replace(" ! ", "! ")
-string = string.replace(" ? ", "? ")
-string = string.replace(" , ", ", ")
-# 处理括号
-string = re.sub(r"\(\s*([^\)]*?)\s*\)", r"(\1)", string)
-string = re.sub(r"\[\s*([^\]]*?)\s*\]", r"[\1]", string)
-string = re.sub(r"{\s*([^}]*?)\s*}", r"{\1}", string)
-string = re.sub(r"\"\s*([^\"]*?)\s*\"", r'"\1"', string)
-string = re.sub(r"'\s*([^']*?)\s*'", r"'\1'", string)
-# 其他处理项
-string = string.replace("= = = =", "====")
-string = string.replace("= = =", "===")
-string = string.replace("= =", "==")
-string = string.replace(" " + chr(176) + " ", chr(176))
-string = string.replace(" \n", "\n")
-string = string.replace("\n ", "\n")
-string = string.replace(" N ", " 1 ")
-string = string.replace(" 's", "'s")
+  """ 数据清洗 """
+  # 消除空格
+  string = string.replace("s '", "s'")
+  string = re.sub(r"/' [0-9]/", r"/'[0-9]/", string)
+  # 处理数字分隔符
+  string = string.replace(" @-@ ", "-")
+  string = string.replace(" @,@ ", ",")
+  string = string.replace(" @.@ ", ".")
+  # 处理标点符号
+  string = string.replace(" : ", ": ")
+  string = string.replace(" ; ", "; ")
+  string = string.replace(" . ", ". ")
+  string = string.replace(" .", ".")
+  string = string.replace(" ! ", "! ")
+  string = string.replace(" ? ", "? ")
+  string = string.replace(" , ", ", ")
+  # 处理括号
+  string = re.sub(r"\(\s*([^\)]*?)\s*\)", r"(\1)", string)
+  string = re.sub(r"\[\s*([^\]]*?)\s*\]", r"[\1]", string)
+  string = re.sub(r"{\s*([^}]*?)\s*}", r"{\1}", string)
+  string = re.sub(r"\"\s*([^\"]*?)\s*\"", r'"\1"', string)
+  string = re.sub(r"'\s*([^']*?)\s*'", r"'\1'", string)
+  # 其他处理项
+  string = string.replace("= = = =", "====")
+  string = string.replace("= = =", "===")
+  string = string.replace("= =", "==")
+  string = string.replace(" " + chr(176) + " ", chr(176))
+  string = string.replace(" \n", "\n")
+  string = string.replace("\n ", "\n")
+  string = string.replace(" N ", " 1 ")
+  string = string.replace(" 's", "'s")
 
-return string
+  return string
 ```
 
 #### 文本转换为token
@@ -653,19 +653,19 @@ return string
 
 ```python
 def create_instance(tokenizer, sentence, ids, max_length=None):
-"""文本转token"""
-pair_ids = None
-if len(sentence) == 2:
-    pair_ids = tokenizer.encode(sentence[1])
-output = tokenizer.prepare_for_model(ids=ids,
-                                        pair_ids=pair_ids,
-                                        add_special_tokens=False,
-                                        max_length=max_length,
-                                        padding='max_length',
-                                        truncate_direction="LEFT",
-                                        return_overflowing_tokens=False,
-                                        return_attention_mask=True)
-return output
+  """文本转token"""
+  pair_ids = None
+  if len(sentence) == 2:
+      pair_ids = tokenizer.encode(sentence[1])
+  output = tokenizer.prepare_for_model(ids=ids,
+                                          pair_ids=pair_ids,
+                                          add_special_tokens=False,
+                                          max_length=max_length,
+                                          padding='max_length',
+                                          truncate_direction="LEFT",
+                                          return_overflowing_tokens=False,
+                                          return_attention_mask=True)
+  return output
 ```
 
 #### Mindrecord格式转换
@@ -674,20 +674,20 @@ return output
 
 ```python
 def write_instance_to_file(writer, instance):
-"""将数据写入mindrecord中"""
-input_ids = instance["input_ids"]
-attention_mask = instance["attention_mask"]
-labels = instance["input_ids"]
+  """将数据写入mindrecord中"""
+  input_ids = instance["input_ids"]
+  attention_mask = instance["attention_mask"]
+  labels = instance["input_ids"]
 
-features = collections.OrderedDict()
-features["input_ids"] = np.asarray(input_ids)
-features["attention_mask"] = np.asarray(attention_mask)
-features["labels"] = np.asarray(labels)
+  features = collections.OrderedDict()
+  features["input_ids"] = np.asarray(input_ids)
+  features["attention_mask"] = np.asarray(attention_mask)
+  features["labels"] = np.asarray(labels)
 
-# 转换为mindrecord
-writer.write_raw_data([features])
+  # 转换为mindrecord
+  writer.write_raw_data([features])
 
-return features
+  return features
 ```
 
 #### 主函数
