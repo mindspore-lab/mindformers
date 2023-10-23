@@ -44,6 +44,7 @@ from mindformers.tools.register import MindFormerConfig
 from mindformers.tools.logger import logger
 from mindformers.tools.utils import count_params, get_output_subpath
 from mindformers.auto_class import AutoModel
+from mindformers.pet import get_pet_model
 from .config_args import ConfigArguments
 from .training_args import TrainingArguments
 from .utils import check_runner_config, transform_and_load_checkpoint, load_resume_context_from_checkpoint
@@ -305,6 +306,8 @@ class BaseTrainer:
         """Create the network for task trainer."""
         logger.info(".........Build Network From Config..........")
         eval_network = build_model(self.config.model, default_args=default_args)
+        if self.config.model.model_config.pet_config:
+            eval_network = get_pet_model(eval_network, self.config.model.model_config.pet_config)
         network = eval_network
         micro_batch_interleave_num = self.config.micro_batch_interleave_num
         if micro_batch_interleave_num > 1:
@@ -316,6 +319,8 @@ class BaseTrainer:
         """Create the network of pipeline parallel for task trainer."""
         logger.info(".........Build Pipeline Network From Config..........")
         eval_network = build_model(self.config.model, default_args=default_args)
+        if self.config.model.model_config.pet_config:
+            eval_network = get_pet_model(eval_network, self.config.model.model_config.pet_config)
         network = eval_network
         micro_batch_interleave_num = self.config.micro_batch_interleave_num
         micro_batch_num = self.config.parallel_config.micro_batch_num

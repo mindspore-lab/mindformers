@@ -26,14 +26,15 @@ __all__ = ['LoraConfig']
 class PetConfig(BaseConfig):
     """
     Pet model config class which defines the tuning algorithm and pretrained for tuning.
+
+    Args:
+        pet_type: (`str`, *optional*, defaults to None): The Pet method type.
     """
     def __init__(self,
-                 pet_type=PetType.LORA,
-                 base_mode=None,
+                 pet_type: str = None,
                  **kwargs):
         super().__init__(**kwargs)
         self.pet_type = pet_type
-        self.base_mode = base_mode
 
 
 class LoraConfig(PetConfig):
@@ -57,6 +58,10 @@ class LoraConfig(PetConfig):
             The type of data in initialized tensor.
         compute_dtype (`str`, *optional*, defaults to 'float16'):
             The compute type of data.
+        target_modules (`str`, *optional*, defaults None):
+            The Layers that require replacement with LoRa algorithm.
+        exclude_layers (`str`, *optional*, defaults None):
+            The layers that do not require replacement with the LoRa algorithm.
 
     Returns:
         Class, LoraConfig.
@@ -69,8 +74,10 @@ class LoraConfig(PetConfig):
                  lora_b_init: str = 'zero',
                  param_init_type: str = 'float16',
                  compute_dtype: str = 'float16',
+                 target_modules: str = None,
+                 exclude_layers: str = None,
                  **kwargs):
-        super().__init__(pet_type=PetType.LORA, **kwargs)
+        super().__init__(pet_type=PetType.LORA.value, **kwargs)
         self.lora_rank = lora_rank
         self.lora_alpha = lora_alpha
         self.lora_dropout = lora_dropout
@@ -78,3 +85,5 @@ class LoraConfig(PetConfig):
         self.lora_b_init = lora_b_init
         self.param_init_type = convert_mstype(param_init_type)
         self.compute_dtype = convert_mstype(compute_dtype)
+        self.target_modules = target_modules
+        self.exclude_layers = exclude_layers
