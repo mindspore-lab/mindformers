@@ -12,13 +12,4 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-
-"""modules init"""
-from .models import *
-from .pet_config import *
-from .tuners import *
-from .pet_model import get_pet_model
-
-__all__ = []
-__all__.extend(pet_config.__all__)
-__all__.extend(tuners.__all__)
+"""The pet model modules."""
