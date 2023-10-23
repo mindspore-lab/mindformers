@@ -306,30 +306,38 @@ print(response)
 
 ```python
 import mindspore
-
-from mindformers.dataset import MultiImgCapDataLoader
 from mindformers.trainer import Trainer
 
 # 指定图模式，指定使用训练卡id
 mindspore.set_context(mode=0, device_id=0)
 
-# 初始化图像-文本数据集
-dataset_dir = "/data"
-annotation_files = [
-  "vg/annotations/vg_caption.json",
-  "coco2014/coco/annotations/coco_karpathy_train.json"
-]
-image_dirs = [
-  "vg/images",
-  "coco2014/coco/images"
-]
-train_dataset = MultiImgCapDataLoader(dataset_dir=dataset_dir, annotation_files=annotation_files, image_dirs = image_dirs, stage="train")
+# 初始化图像-文本数据集配置
+data_loader = dict(
+    type = 'MultiImgCapDataLoader',
+    dataset_dir = "/data",
+    annotation_files = [
+      "vg/annotations/vg_caption.json",
+      "coco2014/coco/annotations/coco_karpathy_train.json"
+    ],
+    image_dirs = [
+     "vg/images",
+      "coco2014/coco/images"
+    ],
+    stage = "train",
+    column_names = ["image", "text"],
+    shuffle = True,
+)
 
+# 通过修改args参数间接修改配置文件中的dataset设置，而且不改变transform过程
+dataset_config = dict(data_loader=data_loader)
+train_dataset_task = dict(dataset_config=dataset_config)
+args = dict(train_dataset_task=train_dataset_task,
+           train_dataset=dataset_config)
 
 # BLIP-2一阶段初始化预训练任务
 trainer = Trainer(task='contrastive_language_image_pretrain',
     model='blip2_stage1_vit_g',
-    train_dataset=train_dataset)
+    args=args)
 
 # 开启预训练
 trainer.train()
@@ -338,26 +346,40 @@ trainer.train()
 - `BLIP-2`一阶段评估
 
 ```python
-from mindformers.dataset.dataloader import MultiImgCapDataLoader
+import mindspore
 from mindformers.trainer import Trainer
 
-# 初始化图像-文本数据集
-dataset_dir = "/data"
-annotation_files = [
-  "flickr30k/annotations/test.json"
-]
-image_dirs = [
-  "flickr30k/images"
-]
-eval_dataset = MultiImgCapDataLoader(dataset_dir=dataset_dir, annotation_files=annotation_files, image_dirs = image_dirs, stage="eval")
+# 指定图模式，指定使用训练卡id
+mindspore.set_context(mode=0, device_id=0)
+
+# 初始化图像-文本数据集配置
+data_loader = dict(
+    type = 'MultiImgCapDataLoader',
+    dataset_dir = "/data",
+    annotation_files = [
+      "flickr30k/annotations/test.json"
+    ],
+    image_dirs = [
+     "flickr30k/images"
+    ],
+    stage = "eval",
+    column_names = ["image", "text"],
+    shuffle = False,
+)
+
+# 通过修改args参数间接修改配置文件中的dataset设置，而且不改变transform过程
+dataset_config = dict(data_loader=data_loader)
+eval_dataset_task = dict(dataset_config=dataset_config)
+args = dict(eval_dataset_task=eval_dataset_task,
+           eval_dataset=dataset_config)
 
 # 初始化评估任务
 trainer = Trainer(task='image_to_text_retrieval',
-    model='blip2_stage1_vit_g',
-    eval_dataset=eval_dataset)
+    model='blip2_stage1_evaluator',
+    args=args)
 
 # 开启评估
-trainer.eval()
+trainer.evaluate()
 ```
 
 - `BLIP-2`一阶段推理
