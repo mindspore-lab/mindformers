@@ -165,13 +165,12 @@ model:
     pet_config:
       pet_type: lora
       # configuration of lora
-      in_channels: 4096
-      out_channels: 4096
       lora_rank: 16
       lora_alpha: 16
       lora_dropout: 0.05
+      target_modules: '.*wq|.*wk|.*wv|.*wo'
   arch:
-    type: LlamaForCausalLMWithLora
+    type: LlamaForCausalLM
 
 processor:
   return_tensors: ms

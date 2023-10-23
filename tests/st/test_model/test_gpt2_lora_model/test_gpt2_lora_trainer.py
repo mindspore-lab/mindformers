@@ -23,8 +23,9 @@ import pytest
 import mindspore as ms
 from mindspore.dataset import GeneratorDataset
 
-from mindformers.models.gpt2.gpt2 import GPT2WithLora
+from mindformers.models.gpt2.gpt2 import GPT2LMHeadModel
 from mindformers.pet.pet_config import LoraConfig
+from mindformers.pet import get_pet_model
 from mindformers import Trainer, TrainingArguments, GPT2Config
 
 ms.set_context(mode=0)
@@ -67,9 +68,10 @@ class TestGPT2LoraTrainerMethod:
         eval_dataset = eval_dataset.batch(batch_size=2)
 
         model_config = GPT2Config(num_layers=2, embedding_size=32, num_heads=2, seq_length=64)
-        pet_config = LoraConfig(lora_rank=8, lora_alpha=16, lora_dropout=0.05)
+        pet_config = LoraConfig(lora_rank=8, lora_alpha=16, lora_dropout=0.05, target_modules='.*dense1.*|.*dense3.*')
         model_config.pet_config = pet_config
-        model = GPT2WithLora(model_config)
+        model = GPT2LMHeadModel(model_config)
+        model = get_pet_model(model, model_config.pet_config)
 
         self.task_trainer = Trainer(task='text_generation',
                                     model=model,

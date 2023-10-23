@@ -64,11 +64,13 @@ model:
     do_sample: True
     pet_config:
       pet_type: lora
+      # configuration of lora
       lora_rank: 8
       lora_alpha: 32
       lora_dropout: 0.1
+      target_modules: '.*query_key_value*'
   arch:
-    type: ChatGLM2WithLora
+    type: ChatGLM2ForConditionalGeneration
 
 trainer:
   type: CausalLanguageModelingTrainer

@@ -151,13 +151,12 @@ model:
     use_past: False
     pet_config:
       pet_type: lora
-      in_channels: 768
-      out_channels: 768
       lora_rank: 64
       lora_alpha: 128
       lora_dropout: 0.1
+      target_modules: '.*dense1.*|.*dense3.*'
   arch:
-    type: GPT2WithLora
+    type: GPT2LMHeadModel
 
 # lr sechdule
 lr_schedule:
