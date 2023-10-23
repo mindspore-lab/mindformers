@@ -771,7 +771,7 @@ python blip2_stage2_pipeline_test.py --device_id 0 --generate_repeat_time 3 --us
 python blip2_stage2_pipeline_test.py --device_id 0 --generate_repeat_time 3 --use_past True --do_sample True --top_k 3 --image_path /your/path/to/image --prompt your_promt
 
 # 增量推理 开采样 指定输入
-python blip2_stage2_pipeline_test.py --device_id 0 --generate_repeat_time 3 --use_past True --do_sample True --top_k 3 --image_path /your/path/to/image1,/your/path/to/image2,/your/path/to/image3 --prompt your_promt1,,your_promt3`
+python blip2_stage2_pipeline_test.py --device_id 0 --generate_repeat_time 3 --use_past True --do_sample True --top_k 3 --image_path /your/path/to/image1,/your/path/to/image2,/your/path/to/image3 --prompt your_promt1,,your_promt3
 
 ```
 
@@ -781,7 +781,7 @@ python blip2_stage2_pipeline_test.py --device_id 0 --generate_repeat_time 3 --us
 - `image_path`: 指定推理的图片路径，支持输入多张图片路径，路径通过英文逗号`,`间隔，例如
 
   ```bash
-  --image_path /your/path/to/image1,/your/path/to/image2,/your/path/to/image3`
+  --image_path /your/path/to/image1,/your/path/to/image2,/your/path/to/image3
   ```
 
   当不指定路径时，会使用默认的图片进行推理；
@@ -1014,7 +1014,7 @@ python blip2_stage2_generation_test.py --device_id 0 --batch_infer True --genera
 python blip2_stage2_generation_test.py --device_id 0 --batch_infer False --generate_repeat_time 3 --use_past True --do_sample True --top_k 3 --image_path /your/path/to/image --prompt your_promt
 
 # 单batch 增量推理 开采样 指定输入
-python blip2_stage2_generation_test.py --device_id 0 --batch_infer False --generate_repeat_time 3 --use_past True --do_sample True --top_k 3 --image_path /your/path/to/image1,/your/path/to/image2,/your/path/to/image3 --prompt your_promt1,,your_promt3`
+python blip2_stage2_generation_test.py --device_id 0 --batch_infer False --generate_repeat_time 3 --use_past True --do_sample True --top_k 3 --image_path /your/path/to/image1,/your/path/to/image2,/your/path/to/image3 --prompt your_promt1,,your_promt3
 
 ```
 
@@ -1025,7 +1025,7 @@ python blip2_stage2_generation_test.py --device_id 0 --batch_infer False --gener
 - `image_path`: 指定推理的图片路径，支持输入多张图片路径，路径通过英文逗号`,`间隔，例如
 
   ```bash
-  --image_path /your/path/to/image1,/your/path/to/image2,/your/path/to/image3`
+  --image_path /your/path/to/image1,/your/path/to/image2,/your/path/to/image3
   ```
 
   当不指定路径时，会使用默认的图片进行推理；
