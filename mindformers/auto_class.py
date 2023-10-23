@@ -17,7 +17,6 @@
 AutoConfig、AutoModel
 """
 import os
-import json
 import shutil
 
 from .mindformer_book import MindFormerBook, print_dict
@@ -685,28 +684,6 @@ class AutoTokenizer:
         return class_name
 
     @classmethod
-    def _get_class_name_from_tokenizer_config_file(cls, yaml_name_or_path):
-        """
-        try to get the tokenizer type from tokenizer_config.json
-        Args:
-            yaml_name_or_path (str): the directory of tokenizer_config.json
-
-        Returns:
-            The class name of the tokenizer in tokenizer_config.json
-        """
-        tokenizer_config_path = os.path.join(yaml_name_or_path, 'tokenizer_config.json')
-        if not os.path.exists(tokenizer_config_path):
-            raise FileNotFoundError(f"The file `tokenizer_config.json` should exits in the "
-                                    f"path {tokenizer_config_path}, but not found.")
-        with open(tokenizer_config_path, 'r') as fp:
-            config_kwargs = json.load(fp)
-        class_name = config_kwargs.pop('tokenizer_class', None)
-        if not class_name:
-            raise ValueError(f"There should be the key word`tokenizer_class` in {tokenizer_config_path}, but "
-                             f"not found. The optional keys are {config_kwargs.keys()}")
-        return class_name
-
-    @classmethod
     def from_pretrained(cls, yaml_name_or_path, **kwargs):
         """
         From pretrain method, which instantiates a tokenizer by yaml name or path.
@@ -731,11 +708,7 @@ class AutoTokenizer:
             raise TypeError(f"yaml_name_or_path should be a str,"
                             f" but got {type(yaml_name_or_path)}")
         # Try to load from the remote
-        if os.path.isdir(yaml_name_or_path):
-            class_name = cls._get_class_name_from_yaml(yaml_name_or_path)
-            if not class_name:
-                class_name = cls._get_class_name_from_tokenizer_config_file(yaml_name_or_path)
-        elif not cls.invalid_yaml_name(yaml_name_or_path):
+        if not cls.invalid_yaml_name(yaml_name_or_path):
             # Should download the files from the remote storage
             yaml_name = yaml_name_or_path
             if yaml_name_or_path.startswith('mindspore'):
@@ -772,6 +745,12 @@ class AutoTokenizer:
                 else:
                     raise FileNotFoundError(f'default yaml file path must be correct, but get {default_yaml_file}')
             class_name = cls._get_class_name_from_yaml(yaml_file)
+        elif os.path.isdir(yaml_name_or_path):
+            class_name = cls._get_class_name_from_yaml(yaml_name_or_path)
+            if not class_name:
+                raise ValueError(f"The file `model_name.yaml` should exist in the path "
+                                 f"{yaml_name_or_path}/model_name.yaml and should have `processor` configs like "
+                                 f"configs/gpt2/run_gpt2.yaml, but not found.")
         else:
             raise FileNotFoundError(f"Tokenizer type `{yaml_name_or_path}` does not exist. "
                                     f"Use `{cls.__name__}.show_support_list()` to check the supported tokenizer. "
