@@ -19,7 +19,7 @@ Reference: https://arxiv.org/abs/2106.09685
 import re
 
 from mindspore import nn
-from tk.delta.lora import LoRADense
+from mindpet.delta.lora import LoRADense
 
 from mindformers.modules.layers import Linear
 from mindformers.tools.logger import logger
