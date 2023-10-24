@@ -18,7 +18,7 @@ import copy
 import re
 import numpy as np
 import mindspore.common.dtype as mstype
-import mindspore.dataset.transforms.c_transforms as C
+from mindspore.dataset.transforms import TypeCast
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.tools.logger import logger
 from mindformers.models.build_tokenizer import build_tokenizer
@@ -111,7 +111,7 @@ class CausalLanguageModelDataset(BaseDataset):
         else:
             dataset = cls._process_mindrecord_data(dataset_config)
 
-        type_cast_op = C.TypeCast(mstype.int32)
+        type_cast_op = TypeCast(mstype.int32)
         if dataset_config.eod_reset:
             if cls._is_semi_full_batch() or cls._is_data_parallel():
                 rank_id = 0

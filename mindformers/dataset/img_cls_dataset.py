@@ -15,7 +15,7 @@
 """Image Classification Dataset."""
 import os
 
-import mindspore.dataset.transforms.c_transforms as C
+from mindspore.dataset.transforms import TypeCast
 import mindspore.common.dtype as mstype
 
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
@@ -66,7 +66,7 @@ class ImageCLSDataset(BaseDataset):
             dataset_config.data_loader, default_args={'num_shards': device_num, 'shard_id': rank_id})
         transforms = build_transforms(dataset_config.transforms)
         sampler = build_sampler(dataset_config.sampler)
-        type_cast_op = C.TypeCast(mstype.int32)
+        type_cast_op = TypeCast(mstype.int32)
 
         if sampler is not None:
             dataset = dataset.use_sampler(sampler)
