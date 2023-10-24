@@ -78,7 +78,7 @@ eval_dataset:  &eval_dataset
     dataset_dir: "./checkpoint_download/Flickr8k"
     stage: "train"
     column_names: [ "image", "text"]
-    hypothesis_template: "a picture of "
+    hypothesis_template: "{}"
   transforms:
     - type: ToPIL
     - type: Resize
@@ -110,7 +110,7 @@ model:
     batch_size: *batch_size
     freeze_vision: True
     freeze_text: True
-    max_txt_len: 128
+    max_txt_len: 32
     checkpoint_name_or_path: "itt_blip2_stage2_vit_g_llama_7b"
     dtype: "float32"
     compute_dtype: "float16"
@@ -139,7 +139,7 @@ model:
 
     text_config:
       type: LlamaConfig
-      seq_length: 2048  # sum of max_txt_len and num_query_token
+      seq_length: 64  # sum of max_txt_len and num_query_token
       hidden_size: 4096
       num_layers: 32
       num_heads: 32
@@ -181,7 +181,7 @@ processor:
     add_special_tokens: False
     padding: 'max_length'
     truncation: True
-    max_length: 128
+    max_length: 32
     checkpoint_name_or_path: "llama_7b"
 
 
