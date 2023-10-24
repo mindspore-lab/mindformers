@@ -16,7 +16,7 @@
 import os
 import mindspore.common.dtype as mstype
 import mindspore.dataset as ds
-import mindspore.dataset.transforms.c_transforms as C
+from mindspore.dataset.transforms import TypeCast
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.tools.logger import logger
 from mindformers.version_control import get_dataset_map
@@ -68,7 +68,7 @@ class ImageToTextRetrievalDataset(BaseDataset):
                                       python_multiprocessing=dataset_config.python_multiprocessing,
                                       input_columns="image", output_columns=['image'])
 
-        type_cast_op = C.TypeCast(mstype.float32)
+        type_cast_op = TypeCast(mstype.float32)
         dataset = get_dataset_map(dataset, type_cast_op,
                                   input_columns="image",
                                   output_columns=['image'])

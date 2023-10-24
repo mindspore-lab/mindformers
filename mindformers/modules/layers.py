@@ -23,11 +23,10 @@ import inspect
 import math
 import numpy as np
 
-from mindspore import nn, context
+from mindspore import nn
 from mindspore.common.parameter import Parameter
 from mindspore.common.initializer import initializer, Tensor
 import mindspore.common.dtype as mstype
-from mindspore.common.seed import _get_graph_seed
 from mindspore._extends import cell_attr_register
 from mindspore.nn.cell import Cell
 from mindspore.ops import functional as F
@@ -232,7 +231,7 @@ def _check_shape_equal_without_batch(input_shape, param_name, func_name, target_
 
 class Dropout(nn.Cell):
     r"""
-        A Dropout Implements with P.DropoutGenMask and  P.DropoutDoMask for parallel training.
+        A Dropout Implements with P.Dropout and  P.DropoutDoMask for parallel training.
     """
 
     def __init__(self, keep_prob=0.5, dtype=mstype.float32):
@@ -244,18 +243,7 @@ class Dropout(nn.Cell):
         Validator.check_subclass("dtype", dtype, mstype.number_type, self.cls_name)
         Validator.check_value_type('keep_prob', keep_prob, [float], self.cls_name)
         self.keep_prob = keep_prob
-        self.is_ascend = context.get_context('device_target') in ["Ascend"]
-        if self.is_ascend:
-            seed0, seed1 = _get_graph_seed(0, "dropout")
-            self.seed0 = seed0
-            self.seed1 = seed1
-            self.dtype = dtype
-            self.get_shape = P.Shape()
-            self.dropout_gen_mask = P.DropoutGenMask(Seed0=self.seed0, Seed1=self.seed1)
-            self.dropout_do_mask = P.DropoutDoMask()
-            self.cast = P.Cast()
-        else:
-            self.dropout = P.Dropout(keep_prob)
+        self.dropout = P.Dropout(keep_prob)
 
     def construct(self, x):
         r"""
@@ -268,25 +256,14 @@ class Dropout(nn.Cell):
         if self.keep_prob == 1:
             return x
 
-        if not self.is_ascend:
-            out, _ = self.dropout(x)
-            return out
-
-        shape = self.get_shape(x)
-        dtype = P.DType()(x)
-        keep_prob = self.cast(self.keep_prob, dtype)
-        output = self.dropout_gen_mask(shape, keep_prob)
-        return self.dropout_do_mask(x, output, keep_prob)
+        out, _ = self.dropout(x)
+        return out
 
     def extend_repr(self):
         return 'keep_prob={}'.format(self.keep_prob)
 
     def shard(self, strategy):
-        if self.is_ascend:
-            self.dropout_gen_mask.shard(strategy)
-            self.dropout_do_mask.shard(strategy)
-        else:
-            self.dropout.shard(strategy)
+        self.dropout.shard(strategy)
 
 
 class LayerNorm(Cell):
