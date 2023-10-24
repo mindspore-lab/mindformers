@@ -724,12 +724,12 @@ MindPet（Pet：Parameter-Efficient Tuning）是属于Mindspore领域的微调�
 
 #### 微调支持列表
 
-|             模型              | 微调算法 |        运行模式         |
-| :---------------------------: | :------: | :---------------------: |
-|  [GPT](model_cards/gpt2.md)   |   Lora   | finetune、eval、predict |
-| [LLama](model_cards/llama.md) |   Lora   | finetune、eval、predict |
-|   [GLM](model_cards/glm.md)   |   Lora   | finetune、eval、predict |
-|  [GLM2](model_cards/glm2.md)  |   Lora   | finetune、eval、predict |
+|             模型              |       微调算法       |        运行模式         |
+| :---------------------------: |:----------------:| :---------------------: |
+|  [GPT](model_cards/gpt2.md)   |       Lora       | finetune、eval、predict |
+| [LLama](model_cards/llama.md) |       Lora       | finetune、eval、predict |
+|   [GLM](model_cards/glm.md)   |       Lora       | finetune、eval、predict |
+|  [GLM2](model_cards/glm2.md)  | Lora、P-Tuning-v2 | finetune、eval、predict |
 
 #### 使用入门
 

@@ -87,3 +87,20 @@ class LoraConfig(PetConfig):
         self.compute_dtype = convert_mstype(compute_dtype)
         self.target_modules = target_modules
         self.exclude_layers = exclude_layers
+
+
+class Ptuning2Config(PetConfig):
+    """
+    p tuning v2 tuning algorithm config.
+    """
+    def __init__(self,
+                 pre_seq_len: int = 128,
+                 prefix_projection: bool = False,
+                 projection_dim: int = 128,
+                 dropout_prob: float = 0.01,
+                 **kwargs):
+        super().__init__(pet_type=PetType.P_TUNING_V2, **kwargs)
+        self.pre_seq_len = pre_seq_len
+        self.prefix_projection = prefix_projection
+        self.projection_dim = projection_dim
+        self.dropout_prob = dropout_prob

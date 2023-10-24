@@ -12,28 +12,4 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-"""
-Note: Constants used by pet modules.
-"""
-import enum
-
-
-class PetType(str, enum.Enum):
-    r"""
-        The enum of pet methods.
-    """
-    LORA = "lora"
-    ADAPTER = "adapter"
-    ADALORA = "low_rank_adapter"
-    PREFIX_TUNING = "prefixtuning"
-    P_TUNING_V2 = "ptuning2"
-
-
-class BaseModelInitType(str, enum.Enum):
-    r"""
-        The enum of base model initial.
-    """
-    MODEL_NAME = "MODEL_NAME"
-    MODEL_DIR = "MODEL_DIR"
-    MODEL_CONFIG = "MODEL_CONFIG"
-    MODEL_INSTANCE = "MODEL_INSTANCE"
+"""test glm2 p tuning v2."""

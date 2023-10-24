@@ -239,6 +239,8 @@ class MindFormerBook:
                 _PROJECT_PATH, "configs/glm2/run_glm2_6b.yaml")),
             ("glm2_6b_lora", os.path.join(
                 _PROJECT_PATH, "configs/glm2/run_glm2_6b_lora.yaml")),
+            ("glm2_6b_ptuning2", os.path.join(
+                _PROJECT_PATH, "configs/glm2/run_glm2_6b_ptuning2.yaml")),
             ("codegeex2_6b", os.path.join(
                 _PROJECT_PATH, "configs/codegeex2/run_codegeex2_6b.yaml")),
             ("bloom_560m", os.path.join(
@@ -400,6 +402,8 @@ class MindFormerBook:
                 _PROJECT_PATH, "configs/glm2/run_glm2_6b.yaml")),
             ("glm2_6b_lora", os.path.join(
                 _PROJECT_PATH, "configs/glm2/run_glm2_6b_lora.yaml")),
+            ("glm2_6b_ptuning2", os.path.join(
+                _PROJECT_PATH, "configs/glm2/run_glm2_6b_ptuning2.yaml")),
             ("codegeex2_6b", os.path.join(
                 _PROJECT_PATH, "configs/codegeex2/run_codegeex2_6b.yaml")),
             ("bloom_560m", os.path.join(
@@ -540,6 +544,7 @@ class MindFormerBook:
         ('glm2', [
             'glm2_6b',
             'glm2_6b_lora',
+            'glm2_6b_ptuning2'
         ]),
         ('codegeex2', [
             'codegeex2_6b',
@@ -645,7 +650,8 @@ class MindFormerBook:
         ]),
         ('glm2', [
             'glm2_6b',
-            'glm2_6b_lora'
+            'glm2_6b_lora',
+            'glm2_6b_ptuning2'
         ]),
         ('codegeex2', [
             'codegeex2_6b',
@@ -802,7 +808,8 @@ class MindFormerBook:
             'glm_6b',
         ]),
         ('glm2', [
-            'glm2_6b'
+            'glm2_6b',
+            'glm2_6b_ptuning2',
         ]),
         ('codegeex2', [
             'codegeex2_6b'
@@ -987,6 +994,10 @@ class MindFormerBook:
         ('glm2_6b_lora',
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
           '/XFormer_for_mindspore/glm2/glm2_6b_lora.ckpt'
+          ]),
+        ('glm2_6b_ptuning2',
+         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
+          '/XFormer_for_mindspore/glm2/glm2_6b_ptuning2.ckpt'
           ]),
         ('codegeex2_6b',
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
@@ -1231,6 +1242,10 @@ class MindFormerBook:
           '/XFormer_for_mindspore/glm/ice_text.model'
           ]),
         ('glm2_6b',
+         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
+          '/XFormer_for_mindspore/glm2/tokenizer.model'
+          ]),
+        ('glm2_6b_ptuning2',
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
           '/XFormer_for_mindspore/glm2/tokenizer.model'
           ]),
