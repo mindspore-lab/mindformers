@@ -447,7 +447,9 @@ pipeline_task = pipeline(task="image_to_text_generation", model="itt_blip2_stage
 input_data = load_image(
     "https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/XFormer_for_mindspore/clip/sunflower.png")
 
-predict_result = pipeline_task(input_data, hypothesis_template="a picture of")
+predict_result = pipeline_task({
+    "image": input_data,
+    "prompt": "a picture of"})
 print(predict_result)
 # 输出
 # ['a picture of a yellow flower']
@@ -670,8 +672,12 @@ def main(args):
 
     model = AutoModel.from_config(model_config)
     pipeline_task = pipeline("image_to_text_generation", model=model)
+
+    inputs = [{"image": image_filepath[index],
+               "prompt": prompts[index]}
+              for index in range(len(image_filepath))]
     for _ in range(args.generate_repeat_time):
-        output = pipeline_task(image_filepath, hypothesis_template=prompts)
+        output = pipeline_task(inputs)
         print(output)
 
 

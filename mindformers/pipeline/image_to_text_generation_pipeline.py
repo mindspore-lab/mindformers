@@ -100,35 +100,37 @@ class ImageToTextGenerationPipeline(BasePipeline):
 
         return preprocess_params, forward_params, postprocess_params
 
-    def preprocess(self, inputs: (Union[str, Image.Image, Tensor, np.ndarray]),
+    def preprocess(self, inputs: (Union[str, dict, Image.Image, Tensor, np.ndarray]),
                    **preprocess_params):
         r"""The Preprocess For Task
 
         Args:
-            inputs (Union[url, PIL.Image, tensor, numpy]): The image to be classified.
+            inputs (Union[url, dict, PIL.Image, tensor, numpy]): Inputs used to generate text, including image,
+                and prompt (if provided).
             preprocess_params (dict): The parameter dict for preprocess.
 
         Return:
-            Processed image.
+            Processed image and prompt.
         """
         if isinstance(inputs, dict):
-            inputs = inputs['image']
-        if isinstance(inputs, str):
-            inputs = load_image(inputs)
+            image = inputs['image']
+            prompt = inputs.get('prompt', None)
+        else:
+            image = inputs
+            prompt = ""
 
-        if isinstance(inputs, list):
-            inputs = [load_image(item) for item in inputs]
-
-        image_processed = self.image_processor(inputs)
+        if isinstance(image, str):
+            image = load_image(image)
+        image_processed = self.image_processor(image)
 
         max_length = preprocess_params.pop("max_length", 32)
         padding = preprocess_params.pop("padding", "max_length")
         hypothesis_template = preprocess_params.pop("hypothesis_template", None)
         if hypothesis_template is not None:
-            self.hypothesis_template = hypothesis_template
-
-        prompt_list = [self.hypothesis_template] * image_processed.shape[0]
-        prompt_processed = self.tokenizer(prompt_list,
+            prompt = hypothesis_template.format(prompt).strip()
+        else:
+            prompt = self.hypothesis_template.format(prompt).strip()
+        prompt_processed = self.tokenizer(prompt,
                                           max_length=max_length,
                                           padding=padding,
                                           return_tensors="ms",
