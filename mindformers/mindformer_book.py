@@ -1042,6 +1042,14 @@ class MindFormerBook:
         ('sam_vit_h',
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
           '/MindFormers/sam/sam_vit_h_4b8939.ckpt'
+          ]),
+        ('qwen_7b',
+         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
+          '/MindFormers/qwen/qwen_7b_base.ckpt'
+          ]),
+        ('qwen_7b_chat',
+         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
+          '/MindFormers/qwen/qwen_7b_chat.ckpt'
           ])
     ])
 
@@ -1284,6 +1292,10 @@ class MindFormerBook:
         ('bloom_176b',
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
           '/MindFormers/bloom/tokenizer.json'
+          ]),
+        ('qwen',
+         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
+          '/MindFormers/qwen/qwen.tiktoken'
           ]),
     ])
 
