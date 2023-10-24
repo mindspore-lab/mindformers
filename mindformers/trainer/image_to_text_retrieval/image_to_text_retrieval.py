@@ -27,6 +27,7 @@ from mindformers.core.callback import build_callback
 from mindformers.tools.logger import logger
 from mindformers.tools.utils import count_params
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
+from mindformers.tools.check_rules import check_rules
 from .eval_utils import compute_itm_scores, extract_image_text_mapping, \
     prepare_inputs_for_itm_eval, report_metrics
 from ..config_args import ConfigArguments
@@ -82,6 +83,10 @@ class ImageToTextRetrievalTrainer(BaseTrainer):
         # build dataset
         logger.info(".........Build Dataset..........")
         check_dataset_config(config)
+
+        # check rules
+        check_rules(config, mode='eval')
+
         if dataset is None:
             dataset = build_dataset(config.eval_dataset_task)
         logger.info("Create eval dataset finish, dataset size:%d", dataset.get_dataset_size())
