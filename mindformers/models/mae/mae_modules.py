@@ -215,7 +215,7 @@ class Linear(layers.Linear):
 class Dropout(layers.Dropout):
     # pylint: disable=W0212
     r"""
-        A Dropout Implements with P.DropoutGenMask and  P.DropoutDoMask for context training.
+        A Dropout Implements with P.Dropout and  P.DropoutDoMask for context training.
     """
 
     def __init__(self, keep_prob=0.5, dtype=mstype.float32):
