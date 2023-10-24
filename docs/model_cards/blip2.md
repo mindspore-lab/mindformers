@@ -95,7 +95,7 @@ model:
 
     text_config:             # 二阶段语言模型相关配置
       type: LlamaConfig
-      seq_length: 160        # 语言模型的输入seq_length大小，在训练时该值要等于qformer的query数目+语言模型输入文字token id长度
+      seq_length: 64        # 语言模型的输入seq_length大小，在训练时该值要等于qformer的query数目+语言模型输入文字token id长度
                              # 即 seq_length=model.model_config.qformer_config.query_length + model.model_config.max_txt_len
       checkpoint_name_or_path: ""  # 语言模型权重文件
   arch:
@@ -111,7 +111,7 @@ processor:
     image_size: 224          # 输入图像大小
   tokenizer:
     type: LlamaTokenizer
-    max_length: 128
+    max_length: 32
     vocab_file: ""           # 词表文件路径
 ```
 
