@@ -118,7 +118,7 @@ class ImageToTextGenerationTrainer(BaseTrainer):
             if config.eval_dataset.data_loader.hypothesis_template is not None:
                 hypothesis_template = config.eval_dataset.data_loader.hypothesis_template
             else:
-                hypothesis_template = ""
+                hypothesis_template = "{}"
         return self.predict_process(config=config,
                                     input_data=input_data,
                                     task='image_to_text_generation',
