@@ -392,14 +392,12 @@ class MFLossMonitor(Callback):
                 json.dump(obj, fp)
 
 
-
 @MindFormerRegister.register(MindFormerModuleType.CALLBACK)
 class SummaryMonitor:
     """
     Summary Monitor For AICC and Local.
 
     Args:
-<<<<<<< HEAD
         summary_dir (str):
             The collected data will be persisted to this directory. Default: None.
         collect_freq (int):
@@ -417,17 +415,6 @@ class SummaryMonitor:
             The maximum size in bytes of each file that can be written to the disk. Default: None.
         export_options (Union[None, dict]):
             Perform custom operations on the export data. Default: None.
-=======
-        summary_dir (str): The collected data will be persisted to this directory. Default: None.
-        collect_freq (int): Set the step frequency of data collection. Default: 10.
-        collect_specified_data (Union[None, dict]): Perform custom operations on the collected data. Default: None.
-        keep_default_action (bool): Affect the collection behavior of "collect_specified_data". Default: True.
-        custom_lineage_data (Union[dict, None]): Customize the data and present it on the MingInsight lineage page.
-                                                 Default: None.
-        collect_tensor_freq (Optional[int]): Control TensorSummary only as "collect_freq". Default: None.
-        max_file_size (Optional[int]): Maximum size in bytes of each file that can be written to disk. Default: None.
-        export_options (Union[None, dict]): Perform custom operations on the export data. Default: None.
->>>>>>> aa139fd4 (Callback修改)
     Examples:
         >>> from mindformers.core.callback import SummaryMonitor
         >>> monitor = SummaryMonitor(summary_dir='./summary_dir')
@@ -657,11 +644,7 @@ class ProfileMonitor(Callback):
         output_path (str): The result of profiling will be saved in this path. Default: None.
         start_profile (str): Whether to enable profiling. Default: True.
         profile_communication (str): Whether to collect communication performance data
-<<<<<<< HEAD
-            during multi-device training. Default: False.
-=======
                                      during multi-device training. Default: False.
->>>>>>> aa139fd4 (Callback修改)
         profile_memory (str): Whether to collect Tensor memory data. Default: True.
     Examples:
         >>> from mindformers.core.callback import ProfileMonitor
