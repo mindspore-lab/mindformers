@@ -60,6 +60,7 @@ class LLamaAttention(nn.Cell):
                 Should be mstype.float32 or mstype.float16.
             - **param_init_type** (dtype.Number): The parameter initialization type of the module. Default mstype.
                 float32. Should be mstype.float32 or mstype.float16.
+            - **qkv_has_bias** (bool): Whether Q/K/V in attention has bias or not.
             - **use_past** (bool): Use the past state to compute, used for incremental prediction.
                 For example, if we have two words and want to generate the ten more words.
                 We just need to compute the two words' state only once, and generate the next word one by one.
@@ -110,6 +111,7 @@ class LLamaAttention(nn.Cell):
                  softmax_compute_dtype=mstype.float32,
                  rotary_dtype=mstype.float32,
                  param_init_type=mstype.float32,
+                 qkv_has_bias=False,
                  use_past=False,
                  use_flash_attention=False,
                  compute_in_2d=False,
@@ -162,17 +164,17 @@ class LLamaAttention(nn.Cell):
                          param_init_type=param_init_type)
         self.wq = Linear(self.hidden_size,
                          self.hidden_size,
-                         has_bias=False,
+                         has_bias=qkv_has_bias,
                          compute_dtype=compute_dtype,
                          param_init_type=param_init_type)
         self.wk = Linear(self.hidden_size,
                          self.n_kv_head * self.head_dim,
-                         has_bias=False,
+                         has_bias=qkv_has_bias,
                          compute_dtype=compute_dtype,
                          param_init_type=param_init_type)
         self.wv = Linear(self.hidden_size,
                          self.n_kv_head * self.head_dim,
-                         has_bias=False,
+                         has_bias=qkv_has_bias,
                          compute_dtype=compute_dtype,
                          param_init_type=param_init_type)
 
@@ -383,6 +385,7 @@ class LLamaDecodeLayer(nn.Cell):
                 Should be mstype.float32 or mstype.float16. Default mstype.float32.
             param_init_type(dtype.Number): The parameter initialization type of the module.
                 Should be mstype.float32 or mstype.float16. Default mstype.float32.
+            qkv_has_bias(bool): Whether Q/K/V in attention has bias or not.
             use_past(bool): Use the past state to compute, used for incremental prediction. For example, if we have two
                 words and want to generate the ten more words. We just need to compute the two words' state only once,
                 and generate the next word one by one. When use_past is True, there are two steps to run the prediction.
@@ -434,6 +437,7 @@ class LLamaDecodeLayer(nn.Cell):
                  softmax_compute_dtype=mstype.float32,
                  rotary_dtype=mstype.float32,
                  param_init_type=mstype.float32,
+                 qkv_has_bias=False,
                  use_past=False,
                  use_flash_attention=False,
                  compute_in_2d=False,
@@ -472,6 +476,7 @@ class LLamaDecodeLayer(nn.Cell):
                                         softmax_compute_dtype=softmax_compute_dtype,
                                         rotary_dtype=rotary_dtype,
                                         param_init_type=param_init_type,
+                                        qkv_has_bias=qkv_has_bias,
                                         use_past=use_past,
                                         use_flash_attention=use_flash_attention,
                                         compute_in_2d=compute_in_2d,
@@ -575,7 +580,8 @@ class LLamaDecodeLayer(nn.Cell):
         freqs_cos, freqs_sin, swap_mask = freqs_cis
         _check_input_dtype(freqs_cos.dtype, "freqs_cos", [mstype.float32, mstype.float16], self.cls_name)
         _check_input_dtype(freqs_sin.dtype, "freqs_sin", [mstype.float32, mstype.float16], self.cls_name)
-        _check_input_dtype(swap_mask.dtype, "swap_mask", [mstype.float32, mstype.float16], self.cls_name)
+        if swap_mask is not None:
+            _check_input_dtype(swap_mask.dtype, "swap_mask", [mstype.float32, mstype.float16], self.cls_name)
         if mask is not None:
             _check_input_dtype(mask.dtype, "input_mask", [mstype.float32, mstype.float16], self.cls_name)
 
