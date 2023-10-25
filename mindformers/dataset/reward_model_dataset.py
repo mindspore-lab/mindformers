@@ -18,7 +18,7 @@ import copy
 import re
 import numpy as np
 import mindspore.common.dtype as mstype
-import mindspore.dataset.transforms.c_transforms as C
+from mindspore.dataset.transforms import TypeCast
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.tools.logger import logger
 from mindformers.version_control import get_dataset_map
@@ -90,7 +90,6 @@ class RewardModelDataset(BaseDataset):
         else:
             dataset = cls._process_mindrecord_data(dataset_config)
         logger.info("Now Create Reward Model Dataset1.5")
-        # type_cast_op = C.TypeCast(mstype.int32)
         if cls._is_semi_full_batch() or cls._is_data_parallel():
             rank_id = 0
             dis = dataset_config.batch_size
@@ -120,8 +119,8 @@ class RewardModelDataset(BaseDataset):
                                   output_columns=dataset_config.output_columns)
         dataset = dataset.project(columns=dataset_config.output_columns)
 
-        type_cast_op = C.TypeCast(mstype.int32)
-        type_cast_op_float = C.TypeCast(mstype.float16)
+        type_cast_op = TypeCast(mstype.int32)
+        type_cast_op_float = TypeCast(mstype.float16)
         dataset = get_dataset_map(dataset, input_columns="input_ids", operations=type_cast_op)
         dataset = get_dataset_map(dataset, input_columns="position_id", operations=type_cast_op)
         dataset = get_dataset_map(dataset, input_columns="attention_mask", operations=type_cast_op_float)
