@@ -369,6 +369,69 @@ Baichuan2-7B-Base用于微调，seq_length默认为512，分布式微调训练�
 
 启动流程参考[Baichuan2-13B的910B微调流程](#jump)。
 
+### Lora微调
+
+Baichuan2-7B-Base用于Lora微调，seq_length默认为512。Lora微调支持910A/B，配置文件基本相同。以`belle_chat_ramdon_10k.json`数据集为例，给出910B的默认配置文件`run_baichuan2_7b_lora_910b.yaml`。
+
+若要在910A上运行，只需修改配置文件中的内存如下：
+
+```yaml
+# research/baichuan2/run_baichuan2_7b_lora_910b.yaml
+# context
+  max_device_memory: "31GB"      # 910A将最大内存改为31GB即可
+  save_graphs: False
+  save_graphs_path: "./graph"
+  device_id: 0
+```
+
+1. 权重准备
+
+单节点微调时权重支持在线/离线切分方式。在线切分则会在启动微调任务后自动按照分布式策略进行权重切分，离线切分需要在任务前手动进行切分。
+
+若使用在线切分，则需要将完整权重文件按如下路径放置，并将启动配置参数`auto_trans_ckpt`置为`True`。
+
+```text
+    └── path of ckpt
+        └── rank_0
+            └── baichuan2_13b.ckpt
+```
+
+若使用离线切分，配置参数`auto_trans_ckpt`置为`False`，`load_checkpoint`传入权重路径文件夹即可。
+
+2. 启动Lora微调任务
+
+以默认配置单机8卡为例，按照以下步骤启动：
+
+- step 1. 首先运行`mindformers/tools/hccl_tools.py`生成`RANK_TABLE_FILE`的json文件
+
+```bash
+# 运行如下命令，生成RANK_TABLE_FILE的json文件。
+python ./mindformers/tools/hccl_tools.py --device_num [0,8]
+```
+
+- step 2. 执行运行脚本
+
+在单机上拉起任务：
+
+```bash
+cd mindformers/research
+bash run_singlenode.sh \
+"python baichuan2/run_baichuan2.py \
+--config baichuan2/run_baichuan2_7b_lora_910b.yaml \
+--load_checkpoint path/to/baichuan2_7b_base_ckpt \
+--auto_trans_ckpt True \
+--use_parallel True \
+--run_mode finetune \
+--train_data path/to/mindrecord_dir" \
+path/to/rank_table_file [0,8] 8
+# 参数说明
+config: 配置文件路径
+load_checkpoint: 权重文件夹路径
+auto_trans_ckpt: 是否进行权重自动切分
+run_mode: 运行模式，微调时设置为finetune
+train_data: 训练数据集路径
+```
+
 ## 推理
 
 ### 基于高阶接口的推理
@@ -683,6 +746,12 @@ auto_trans_ckpt: 是否进行权重自动切分
 run_mode: 运行模式，微调时设置为finetune
 train_data: 训练数据集路径
 ```
+
+### Lora微调
+
+Baichuan2-13B-Base用于Lora微调，seq_length默认为512。Lora微调支持910A/B，配置文件基本相同。以`belle_chat_ramdon_10k.json`数据集为例，给出910B的默认配置文件`run_baichuan2_13b_lora_910b.yaml`。
+
+流程参考Baichuan2-7B的Lora微调流程。
 
 ## 推理
 
