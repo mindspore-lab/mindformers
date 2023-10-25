@@ -39,6 +39,7 @@ from mindformers.models.llama.llama import layer_compute_dtype
 from mindformers.models.llama.llama_config import LlamaConfig
 from mindformers.models.llama.llama_layer import LlamaEmbedding, LlamaRMSNorm, precompute_freqs_cis
 from mindformers.models.llama.llama_transformer import LLamaDecodeLayer
+from mindformers.tools.logger import logger
 
 __all__ = ['Baichuan7BV2ForCausalLM', 'Baichuan7BV2Model']
 
@@ -297,6 +298,8 @@ class Baichuan7BV2ForCausalLM(BaseModel):
         _check_config(config.parallel_config)
         self.ignore_token_id = config.ignore_token_id
         self.pad_token_id = config.pad_token_id
+        self.seq_length = config.seq_length
+
         self.reshape = P.Reshape()
         self.cast = P.Cast()
         self.slice = P.StridedSlice()
@@ -329,6 +332,24 @@ class Baichuan7BV2ForCausalLM(BaseModel):
         return {
             "input_ids": Tensor(input_ids, mstype.int32)
         }
+
+    # pylint: disable=W0613
+    def prepare_inputs_for_export(self, full_model=True):
+        """Get Baichuan7BV2 model input tuple for export."""
+        seq_length = self.seq_length
+        if full_model:
+            logger.info('\nexporting with batch_size = %s, seq = %s ...', self.config.batch_size, seq_length)
+            input_ids = Tensor(np.ones([self.config.batch_size, seq_length]), dtype=mstype.int32)
+            input_position = Tensor([1] * self.config.batch_size, dtype=mstype.int32)
+            init_reset = Tensor([False], mstype.bool_)
+            batch_valid_length = Tensor([[1] * self.config.batch_size], dtype=mstype.int32)
+        else:
+            logger.info('\nexporting with batch_size = %s, seq = 1 ...', self.config.batch_size)
+            input_ids = Tensor(np.ones([self.config.batch_size, 1]), dtype=mstype.int32)
+            input_position = Tensor([1] * self.config.batch_size, dtype=mstype.int32)
+            init_reset = Tensor([True], mstype.bool_)
+            batch_valid_length = Tensor([[1] * self.config.batch_size], dtype=mstype.int32)
+        return input_ids, None, input_position, None, None, None, init_reset, batch_valid_length
 
     # pylint: disable=W0613
     def construct(self, input_ids, labels=None, input_position=None, position_ids=None, attention_mask=None,
