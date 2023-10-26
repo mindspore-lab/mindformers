@@ -313,7 +313,7 @@ class MFLossMonitor(Callback):
                             "per_step_time: %dms, lr: %s, overflow cond: %s, loss_scale: %s",
                             cur_epoch_num, origin_epochs, cur_step_num, steps_per_epoch, loss, np.mean(self.loss_list),
                             int(per_step_seconds), current_lr, overflow, scaling_sens)
-            show_str = ('|%%-%ds|' % 50) % (int(50 * percent / 100) * "▮")
+            show_str = ('|%%-%ds|' % 50) % (int(50 * percent / 100) * "█")
             logger.info("  %4.1f%% %s %.2f samples/s/p  %s }", percent, show_str, throughput,
                         datetime.timedelta(seconds=int(time_remain)))
         else:
@@ -327,7 +327,7 @@ class MFLossMonitor(Callback):
                             "per_step_time: %dms, overflow cond: %s, loss_scale: %s",
                             cur_epoch_num, origin_epochs, cur_step_num, steps_per_epoch, loss, np.mean(self.loss_list),
                             int(per_step_seconds), overflow, scaling_sens)
-            show_str = ('|%%-%ds|' % 50) % (int(50 * percent / 100) * "▮")
+            show_str = ('|%%-%ds|' % 50) % (int(50 * percent / 100) * "█")
             logger.info("  %4.1f%% %s %.2f samples/s/p  %s }", percent, show_str, throughput,
                         datetime.timedelta(seconds=int(time_remain)))
 
@@ -392,22 +392,29 @@ class MFLossMonitor(Callback):
                 json.dump(obj, fp)
 
 
-
 @MindFormerRegister.register(MindFormerModuleType.CALLBACK)
 class SummaryMonitor:
     """
     Summary Monitor For AICC and Local.
 
     Args:
-        summary_dir (str): The collected data will be persisted to this directory. Default: None.
-        collect_freq (int): Set the step frequency of data collection. Default: 10.
-        collect_specified_data (Union[None, dict]): Perform custom operations on the collected data. Default: None.
-        keep_default_action (bool): Affect the collection behavior of "collect_specified_data". Default: True.
-        custom_lineage_data (Union[dict, None]): Customize the data and present it on the MingInsight lineage page.
-                                                 Default: None.
-        collect_tensor_freq (Optional[int]): Control TensorSummary only as "collect_freq". Default: None.
-        max_file_size (Optional[int]): Maximum size in bytes of each file that can be written to disk. Default: None.
-        export_options (Union[None, dict]): Perform custom operations on the export data. Default: None.
+        summary_dir (str):
+            The collected data will be persisted to this directory. Default: None.
+        collect_freq (int):
+            Set the frequency of data collection, it should be greater than zero, and the unit is `step`.
+            Default: 10.
+        collect_specified_data (Union[None, dict]):
+            Perform custom operations on the collected data. Default: None.
+        keep_default_action (bool):
+            This field affects the collection behavior of the 'collect_specified_data' field. Default: True.
+        custom_lineage_data (Union[dict, None]):
+            Allows you to customize the data and present it on the MingInsight lineage page. Default: None.
+        collect_tensor_freq (Optional[int]):
+            The same semantics as the `collect_freq`, but controls TensorSummary only. Default: None.
+        max_file_size (Optional[int]):
+            The maximum size in bytes of each file that can be written to the disk. Default: None.
+        export_options (Union[None, dict]):
+            Perform custom operations on the export data. Default: None.
     Examples:
         >>> from mindformers.core.callback import SummaryMonitor
         >>> monitor = SummaryMonitor(summary_dir='./summary_dir')
