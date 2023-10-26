@@ -26,6 +26,9 @@ import mindspore.common.dtype as mstype
 from mindformers import AutoModel
 from mindformers.models import build_model
 from mindformers.tools.register import MindFormerConfig
+# pylint: disable=W0611
+from research.baichuan2.baichuan2_7b import Baichuan7BV2ForCausalLM
+from research.baichuan2.baichuan2_13b import Baichuan13BV2ForCausalLM
 
 
 def get_glm_prefill_model_input(batch_size, seq_length):
@@ -109,11 +112,24 @@ def get_glm_inc_model_input(batch_size, seq_length, prefill):
     return input_ids, position_ids, attention_mask, input_position, None, None, init_reset, batch_valid_length
 
 
+def get_baichuan2_inc_model_input(batch_size, seq_length, prefill):
+    """get baichuan2 kv cache model input tuple."""
+    if not prefill:
+        seq_length = 1
+    init_reset = not prefill
+    input_ids = ms.Tensor(np.ones((batch_size, seq_length)), mstype.int32)
+    input_position = ms.Tensor([127] * batch_size, mstype.int32)
+    init_reset = ms.Tensor([init_reset], mstype.bool_)
+    batch_valid_length = ms.Tensor([[128] * batch_size], mstype.int32)
+    return input_ids, None, input_position, None, None, None, init_reset, batch_valid_length
+
+
 PREFILL_MODEL_INPUT_MAP = {
     "bloom": get_llm_common_prefill_model_input,
     "llama": get_llm_common_prefill_model_input,
     "glm": get_glm_prefill_model_input,
-    "glm2": get_glm2_prefill_model_input
+    "glm2": get_glm2_prefill_model_input,
+    "baichuan2": get_llm_common_prefill_model_input
 }
 
 INCREMENT_MODEL_INPUT_MAP = {
@@ -121,7 +137,8 @@ INCREMENT_MODEL_INPUT_MAP = {
     "llama": get_llama_inc_model_input,
     "glm": get_glm_inc_model_input,
     "glm2": get_glm2_inc_model_input,
-    "codegeex2": get_glm2_inc_model_input
+    "codegeex2": get_glm2_inc_model_input,
+    "baichuan2": get_baichuan2_inc_model_input
 }
 
 
