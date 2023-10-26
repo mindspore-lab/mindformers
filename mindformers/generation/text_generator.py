@@ -522,7 +522,12 @@ class GeneratorMixin:
         """
         origin_phase = self.phase
         self.set_train(False)
-        input_ids = np.array(input_ids).reshape(-1, np.shape(input_ids)[-1])
+        try:
+            input_ids = np.array(input_ids)
+        except ValueError as e:
+            raise ValueError(str(e) + " Please check your inputs of model.generate(),"
+                             " and make sure the inputs are padded to same length.")
+        input_ids = np.reshape(input_ids, (-1, np.shape(input_ids)[-1]))
         seed = 0 if seed is None else seed
         np.random.seed(seed)
 

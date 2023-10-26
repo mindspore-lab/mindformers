@@ -83,7 +83,7 @@ def create_task_trainer(config):
     elif config.run_mode == 'eval':
         trainer.evaluate(config, is_full_config=True)
     elif config.run_mode == 'predict':
-        trainer.predict(config, is_full_config=True)
+        trainer.predict(config, is_full_config=True, batch_size=config.predict_batch_size)
     elif config.run_mode == 'export':
         trainer.export(config, is_full_config=True)
 
@@ -137,7 +137,6 @@ def main(config):
     create_task_trainer(config)
 
 
-
 if __name__ == "__main__":
     work_path = os.path.dirname(os.path.abspath(__file__))
     parser = argparse.ArgumentParser()
@@ -177,8 +176,12 @@ if __name__ == "__main__":
         help='dataset directory of data loader to eval. '
              'Default: None')
     parser.add_argument(
-        '--predict_data', default=None, type=str,
+        '--predict_data', default=None, type=str, nargs='+',
         help='input data for predict, it support real data path or data directory.'
+             'Default: None')
+    parser.add_argument(
+        '--predict_batch_size', default=None, type=int,
+        help='batch size for predict data, set to perform batch predict.'
              'Default: None')
     parser.add_argument(
         '--load_checkpoint', default=None, type=str,
@@ -295,13 +298,20 @@ if __name__ == "__main__":
     if config_.run_mode == 'predict':
         if args_.predict_data is None:
             logger.info("dataset by config is used as input_data.")
-        elif os.path.isdir(args_.predict_data) and os.path.exists(args_.predict_data):
+        if isinstance(args_.predict_data, list):
+            if len(args_.predict_data) > 1:
+                logger.info("predict data is a list, take it as input text list.")
+            else:
+                args_.predict_data = args_.predict_data[0]
+        if isinstance(args_.predict_data, str) and os.path.isdir(args_.predict_data):
             predict_data = [os.path.join(root, file)
                             for root, _, file_list in os.walk(os.path.join(args_.predict_data)) for file in file_list
                             if file.endswith(".jpg") or file.endswith(".png") or file.endswith(".jpeg")
                             or file.endswith(".JPEG") or file.endswith("bmp")]
             args_.predict_data = predict_data
         config_.input_data = args_.predict_data
+        if args_.predict_batch_size is not None:
+            config_.predict_batch_size = args_.predict_batch_size
     if args_.epochs is not None:
         config_.runner_config.epochs = args_.epochs
     if args_.batch_size is not None:
