@@ -102,7 +102,16 @@ def get_ms_pipeline(task, model, tokenizer, image_processor, audio_processor, **
     pipeline_config = MindFormerConfig(SUPPORT_PIPELINES.get(task).get(model_name))
 
     if model is None:
-        model = build_model(pipeline_config.model)
+        batch_size = kwargs.get("batch_size", None)
+        build_names = ["batch_size", "use_past", "seq_length"]
+        build_args = {}
+        for build_name in build_names:
+            if build_name in kwargs:
+                build_args[build_name] = kwargs.pop(build_name)
+        model = build_model(pipeline_config.model,
+                            default_args=build_args)
+        if batch_size is not None:
+            kwargs["batch_size"] = batch_size
     if image_processor is None and hasattr(pipeline_config.processor, 'image_processor'):
         image_processor = build_processor(pipeline_config.processor.image_processor)
     if audio_processor is None and hasattr(pipeline_config.processor, 'audio_processor'):

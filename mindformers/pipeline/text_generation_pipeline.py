@@ -15,16 +15,16 @@
 
 """TextGenerationPipeline"""
 import os.path
-from typing import Union, Optional
+from typing import Optional, Union
 
 import mindspore
-from mindspore import Tensor, Model
+from mindspore import Model, Tensor
 
-from ..auto_class import AutoProcessor, AutoModel
+from ..auto_class import AutoConfig, AutoModel, AutoProcessor
 from ..mindformer_book import MindFormerBook
-from .base_pipeline import BasePipeline
-from ..tools.register import MindFormerRegister, MindFormerModuleType
 from ..models import BaseModel, BaseTokenizer
+from ..tools.register import MindFormerModuleType, MindFormerRegister
+from .base_pipeline import BasePipeline
 
 __all__ = ['TextGenerationPipeline']
 
@@ -57,19 +57,23 @@ class TextGenerationPipeline(BasePipeline):
         >>> output = text_generate("I love Beijing, because ")
     """
     _support_list = _setup_support_list(["gpt2", "glm", "glm2"])
+    _model_build_kwargs = ["batch_size", "use_past", "seq_length"]
     return_name = 'text_generation'
 
     def __init__(self, model: Union[str, BaseModel, Model],
                  tokenizer: Optional[BaseTokenizer] = None,
                  **kwargs):
+        batch_size = kwargs.get("batch_size", None)
         if isinstance(model, str):
             if model in self._support_list or os.path.isdir(model):
                 if tokenizer is None:
                     tokenizer = AutoProcessor.from_pretrained(model).tokenizer
-                model = AutoModel.from_pretrained(model)
-                if not isinstance(tokenizer, BaseTokenizer):
-                    raise TypeError(f"tokenizer should be inherited from"
-                                    f" BaseTokenizer, but got {type(tokenizer)}.")
+                # build model using parameters
+                model_config = AutoConfig.from_pretrained(model)
+                for build_arg in self._model_build_kwargs:
+                    model_config[build_arg] = kwargs.pop(build_arg, \
+                        model_config.get(build_arg, None))
+                model = AutoModel.from_config(model_config)
             else:
                 raise ValueError(f"{model} is not supported by {self.__class__.__name__},"
                                  f"please selected from {self._support_list}.")
@@ -82,6 +86,7 @@ class TextGenerationPipeline(BasePipeline):
                              " requires for a tokenizer.")
 
         super().__init__(model, tokenizer, **kwargs)
+        self._batch_size = batch_size
 
     def _sanitize_parameters(self, **pipeline_parameters):
         r"""Sanitize Parameters
@@ -93,15 +98,13 @@ class TextGenerationPipeline(BasePipeline):
         preprocess_params = {}
         for item in preprocess_keys:
             if item in pipeline_parameters:
-                preprocess_params[item] = pipeline_parameters.get(item)
+                preprocess_params[item] = pipeline_parameters.pop(item)
 
         postprocess_params = {}
 
-        forward_key_name = ['top_k', 'top_p', 'do_sample', 'eos_token_id', 'repetition_penalty', 'max_length', 'seed']
-        forward_kwargs = {}
-        for item in forward_key_name:
-            if item in pipeline_parameters:
-                forward_kwargs[item] = pipeline_parameters.get(item)
+        # all other pipeline_parameters are passed to text generator to handle
+        forward_kwargs = pipeline_parameters
+
         return preprocess_params, forward_kwargs, postprocess_params
 
     def preprocess(self, inputs: Union[str, dict, Tensor],
@@ -124,7 +127,11 @@ class TextGenerationPipeline(BasePipeline):
             inputs = inputs[feature_name]
             if isinstance(inputs, mindspore.Tensor):
                 inputs = inputs.asnumpy().tolist()
-        input_ids = self.tokenizer(inputs, return_tensors=None, add_special_tokens=add_special_tokens)["input_ids"]
+        # for batch inputs, pad to longest
+        input_ids = self.tokenizer(inputs,
+                                   return_tensors=None,
+                                   add_special_tokens=add_special_tokens,
+                                   padding=True)["input_ids"]
         return {"input_ids": input_ids}
 
     def forward(self, model_inputs: dict,

@@ -524,7 +524,9 @@ class Trainer:
                 predict_checkpoint: Optional[Union[str, bool]] = None,
                 auto_trans_ckpt: Optional[bool] = None,
                 input_data: Optional[Union[GeneratorDataset,
-                                           Tensor, np.ndarray, Image, str, list]] = None, **kwargs):
+                                           Tensor, np.ndarray, Image, str, list]] = None,
+                batch_size: int = None,
+                **kwargs):
         """
         The prediction API of Trainer. After setting custom settings, implement prediction by calling the
         prediction method of task-trainer instance.
@@ -537,6 +539,7 @@ class Trainer:
                 Default: False.
             auto_trans_ckpt: auto transform checkpoint to load in distributed model
             input_data (Optional[Union[Tensor, np.ndarray, Image, str, list]]): The predict data. Default: None.
+            batch_size (Optional[int]): Batch size of predict data. Default: None.
 
         Return:
             predict result (dict).
@@ -552,6 +555,9 @@ class Trainer:
         if self.task not in SUPPORT_PIPELINES.keys():
             raise NotImplementedError(f"The {self.task} not support predict, "
                                       f"now this tasks {SUPPORT_PIPELINES.keys()} is support predict.")
+
+        if batch_size is not None:
+            kwargs["batch_size"] = batch_size
 
         if predict_checkpoint is False:
             predict_checkpoint = None
@@ -597,7 +603,8 @@ class Trainer:
             network=self.model, image_processor=self.image_processor,
             audio_processor=self.audio_processor,
             tokenizer=self.tokenizer,
-            is_full_config=True, **kwargs)
+            is_full_config=True,
+            **kwargs)
         return output_result
 
 
