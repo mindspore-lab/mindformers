@@ -24,7 +24,7 @@ remote_save_url: "Please input obs url on AICC platform."
 model:
   model_config:
     type: ChatGLM2Config
-    batch_size: 1   # only for incremental infer
+    batch_size: 8   # only for incremental infer
     num_layers: 28
     padded_vocab_size: 65024
     hidden_size: 4096
@@ -52,7 +52,7 @@ model:
     param_init_type: "float16"
     compute_dtype: "float16"
     layernorm_compute_type: "float32"
-    use_past: False
+    use_past: True
     eos_token_id: 2
     pad_token_id: 0
     repetition_penalty: 1.0
@@ -77,6 +77,8 @@ trainer:
 # if True do, evaluate during the training process. if false, do nothing.
 # note that the task trainer should support _evaluate_in_training function.
 do_eval: False
+eval_step_interval: 500
+eval_epoch_interval: -1
 
 metric:
   type: ADGENMetric
@@ -197,7 +199,9 @@ parallel:
   full_batch: True
   search_mode: "sharding_propagation"
   enable_parallel_optimizer: True  # optimizer shard
-  strategy_ckpt_save_file: "./ckpt_strategy.ckpt"
+  strategy_ckpt_config:
+    save_file: "./ckpt_strategy.ckpt"
+    only_trainable_params: False # 设置成 False，才能在策略文件中保存所有参数
 parallel_config:
   data_parallel: 8
   model_parallel: 1

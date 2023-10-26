@@ -572,6 +572,27 @@ done
 IP_LIST=("192.168.0.0", "192.168.0.1", ..., "192.168.0.11")
 ```
 
+### 边训边推
+
+将训练配置文件的 `do_eval: False` 设置为 `do_eval: True`，并且需要将 `train_dataset` 和 `eval_dataset` 的 `max_source_length`、`max_target_length` 以及 `batch_size`项设置为相同值，并且保持 `max_source_length + max_target_length + 1 = seq_length`，如下所示：
+
+```yaml
+model:
+  model_config:
+    seq_length: 193
+train_dataset: &train_dataset
+  max_source_length: 64
+  max_target_length: 128
+  batch_size: 8
+eval_dataset: &eval_dataset
+  max_source_length: 64
+  max_target_length: 128
+  batch_size: 8
+
+eval_step_interval: 500 # 表示每 500 step 评估 1 次，-1 表示step不评估
+eval_epoch_interval: -1 # 表示间隔多少 epoch 评估 1 次，-1 表示epoch不评估
+```
+
 ## 评测
 
 ### 文本生成
@@ -757,7 +778,7 @@ infer:
 model:
   model_config:
     seq_length: 512
-    checkpoint_name_or_path: "/path/to/your/checkpoint"
+    checkpoint_name_or_path: "/path/to/your/*.ckpt"
 ```
 
 2. 执行export.py，完成模型转换

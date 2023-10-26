@@ -329,3 +329,89 @@ class CausalLanguageModelingTrainer(BaseTrainer):
         return self.export_process(config=config,
                                    network=network,
                                    **kwargs)
+
+    def _evaluate_in_training(self, model, eval_dataset):
+        logger.info('Starting Evaluate Model')
+        if self.config.metric.type in GENERATE_METRIC_NAMES:
+            config = self.config
+            dataset = eval_dataset
+            model = model.eval_network
+            enable_max_new_tokens = bool(config.model.model_config.max_new_tokens)
+
+            # build metric
+
+            compute_metrics = self.compute_metrics.get(list(self.compute_metrics.keys())[0],
+                                                       build_metric(config.metric))
+            compute_metrics.clear()
+
+            # build tokenizer
+            if not hasattr(self, 'tokenizer') or self.tokenizer is None:
+                logger.info("Build tokenizer For Evaluate")
+                self.tokenizer = build_tokenizer(config.processor.tokenizer)
+
+            self.set_network(model, is_train=False)
+
+            # generate config
+            do_sample = config.model.model_config.do_sample
+            top_p = config.model.model_config.top_p
+            top_k = config.model.model_config.top_k
+            max_length = config.model.model_config.max_decode_length
+
+            total_tokens_num = 0
+            total_time = 0.0001
+            pad_token_id = self.tokenizer.pad_token_id
+            len_dataset = dataset.get_dataset_size()
+            for i, inputs in enumerate(dataset.create_dict_iterator()):
+                input_ids = inputs['input_ids'].asnumpy()
+                labels = inputs['labels'].asnumpy()
+
+                valid_length_each_example = []
+                for j in range(input_ids.shape[0]):
+                    # As the nonzero returns the index and we need length
+                    valid_length_each_example.append(np.max(np.argwhere(input_ids[j] != pad_token_id)) + 1)
+                valid_length_each_example = np.array(valid_length_each_example)
+
+                if enable_max_new_tokens:
+                    # When we act as it, the batch_size is 1. it will be replaced when text_generator supports batch_size
+                    # inference quickly or text_generator supports max_new_tokens as the input parameter.
+                    max_length = valid_length_each_example[0] + self.config.model.model_config.max_new_tokens
+
+                start_time = time.time()
+                outputs = model.generate(input_ids, do_sample=do_sample, max_length=max_length,
+                                         top_p=top_p, top_k=top_k)
+                output_ids = []
+                for j in range(input_ids.shape[0]):
+                    output_ids.append(outputs[j][int(valid_length_each_example[j]):])
+                end_time = time.time()
+                avg_cost_time = (end_time - start_time) / input_ids.shape[0]
+
+                tokens_num = 0
+                for batch_index in range(len(output_ids)):
+                    tokens_num += output_ids[batch_index].shape[0]
+                if i != 0:
+                    total_tokens_num += tokens_num
+                    total_time += end_time - start_time
+
+                # compute time remaining
+                avg_time = total_time / (i + 1)
+                remain_time = (len_dataset - i - 1) * avg_time
+                logger.info(f"Step[{i+1}/{len_dataset}], cost time {end_time-start_time:.4f}s, "+
+                            f"every example cost time is {avg_cost_time:.4f}, "+
+                            f"generate speed: {tokens_num/(end_time-start_time):.4f} tokens/s, "+
+                            f"avg speed: {total_tokens_num/total_time:.4f} tokens/s, "
+                            f"remaining time: {datetime.timedelta(seconds=int(remain_time))}")
+
+                # decode input_id and label to string
+                pres_str = self.tokenizer.decode(output_ids, skip_special_tokens=True)
+                labels_str = self.tokenizer.decode(labels, skip_special_tokens=True)
+                compute_metrics.update(pres_str, labels_str)
+
+            score_dict = compute_metrics.eval()
+
+            self.set_network(model, is_train=True)
+
+            logger.info('Evaluate Over!.....')
+            output = score_dict
+        else:
+            output = super()._evaluate_in_training(model=model, eval_dataset=eval_dataset)
+        return output
