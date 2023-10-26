@@ -65,8 +65,9 @@ class TestGlm2Ptuning2TrainerMethod:
         train_dataset = train_dataset.batch(batch_size=2)
         eval_dataset = eval_dataset.batch(batch_size=2)
 
+        # padded_vocab_size=64793 to avoid tokenizer index violation
         config = ChatGLM2Config(num_layers=2, seq_length=65, hidden_size=32, inner_hidden_size=None,
-                                num_heads=2, position_encoding_2d=True)
+                                num_heads=2, position_encoding_2d=True, padded_vocab_size=64793)
         config.pet_config = Ptuning2Config(pre_seq_len=8)
 
         model = ChatGLM2WithPtuning2(config=config)

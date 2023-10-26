@@ -78,6 +78,8 @@ trainer:
 # if True do, evaluate during the training process. if false, do nothing.
 # note that the task trainer should support _evaluate_in_training function.
 do_eval: False
+eval_step_interval: 500
+eval_epoch_interval: -1
 
 metric:
   type: ADGENMetric
@@ -198,7 +200,9 @@ parallel:
   full_batch: True
   search_mode: "sharding_propagation"
   enable_parallel_optimizer: True  # optimizer shard
-  strategy_ckpt_save_file: "./ckpt_strategy.ckpt"
+  strategy_ckpt_config:
+    save_file: "./ckpt_strategy.ckpt"
+    only_trainable_params: False # 设置成 False，才能在策略文件中保存所有参数
 parallel_config:
   data_parallel: 8
   model_parallel: 1
