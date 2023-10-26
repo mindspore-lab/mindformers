@@ -816,7 +816,6 @@ _ = model.generate(inputs["input_ids"], streamer=streamer, max_length=20, top_k=
 | bert        |           -           |           -            | -        | -            |        -        |
 | bloom       |           -           |           -            | -        | -            |        -        |
 | clip        |           -           |           -            | -        | -            |        -        |
-| filip       |           -           |           -            | -        | -            |        -        |
 | glm         |      Rouge，Bleu      |           否           | 否       | ×            |        ×        |
 | glm2        |      Rouge，Bleu      |           否           | 否       | ×            |        ×        |
 | gpt2        |          PPL          |           是           | 是       | √            |        √        |

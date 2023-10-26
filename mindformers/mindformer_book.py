@@ -495,9 +495,6 @@ class MindFormerBook:
         ('t5', [
             't5_small',
         ]),
-        ('filip', [
-            'filip_vit_l_14',
-        ]),
         ('gpt2', [
             'gpt2',
             'gpt2_lora',
@@ -607,9 +604,6 @@ class MindFormerBook:
         ]),
         ('mt5', [
             't5_pegasus_base',
-        ]),
-        ('filip', [
-            'filip_vit_l_14',
         ]),
         ('gpt2', [
             'gpt2',
