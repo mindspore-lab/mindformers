@@ -107,10 +107,6 @@ class BasePipeline(ABC):
             else:
                 batch_size = self._batch_size
 
-        if batch_size > 1 and not is_dataset:
-            batch_size = 1
-            logger.info("batch_size is set to 1 for non-dataset inputs.")
-
         if is_dataset:
             logger.info("dataset is processing.")
             if not isinstance(inputs, (BatchDataset, RepeatDataset)):
@@ -121,11 +117,23 @@ class BasePipeline(ABC):
                 outputs.extend(self.run_single(items, preprocess_params,
                                                forward_params, postprocess_params))
         elif is_list:
-            outputs = self.run_multi(inputs, preprocess_params, forward_params, postprocess_params)
+            outputs = self.run_multi(inputs, batch_size, preprocess_params, forward_params, postprocess_params)
         else:
             outputs = self.run_single(inputs, preprocess_params, forward_params, postprocess_params)
 
         return outputs
+
+    @property
+    def batch_size(self):
+        return self._batch_size
+
+    @batch_size.setter
+    def batch_size(self, bs: int):
+        if not isinstance(bs, int):
+            raise ValueError('batch_size must be an integer!')
+        if bs < 0:
+            raise ValueError('batch_size must be positive!')
+        self._batch_size = bs
 
     @abstractmethod
     def _sanitize_parameters(self, **pipeline_parameters):
@@ -159,6 +167,7 @@ class BasePipeline(ABC):
         return outputs
 
     def run_multi(self, inputs: Union[list, tuple],
+                  batch_size: int,
                   preprocess_params: dict,
                   forward_params: dict,
                   postprocess_params: dict):
@@ -167,12 +176,20 @@ class BasePipeline(ABC):
 
         Args:
             inputs (Union[list, tuple, iterator]): The iterable input for pipeline.
+            batch_size (int): Batch size of pipeline input.
             preprocess_params (dict): The parameter dict for preprocess.
             forward_params (dict): The parameter dict for model forward process.
             postprocess_params (dict): The parameter dict for postprocess.
         """
+        if len(inputs) % batch_size != 0:
+            raise ValueError(f"When running multi input pipeline, the length of inputs {len(inputs)}"
+                             f" should be multiple of batch size {batch_size}. Please check yout inputs.")
         outputs = []
-        for item in inputs:
+        if batch_size > 1:
+            batch_inputs = [inputs[i:i+batch_size] for i in range(0, len(inputs), batch_size)]
+        else:
+            batch_inputs = inputs
+        for item in batch_inputs:
             outputs.extend(self.run_single(item, preprocess_params,
                                            forward_params, postprocess_params))
         return outputs
