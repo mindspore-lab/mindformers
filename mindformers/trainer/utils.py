@@ -357,14 +357,6 @@ def get_dst_strategy(config):
         # obs send all strategy to each node
         logger.info(".........Collecting strategy.........")
         local_strategy_dir = os.path.join(get_output_root_path(), "strategy")
-
-        if config.parallel_config.pipeline_stage == 1:
-            local_strategy_paths = glob(os.path.join(local_strategy_dir, "*_rank_*.ckpt"))
-            local_strategy_paths.sort()
-            dst_strategy_path = local_strategy_paths[0]
-            logger.info("pipeline_stage = 1, strategy using %s", dst_strategy_path)
-            return dst_strategy_path
-
         if rank_id % 8 == 0:
             wait_collect_all_strategy(local_strategy_dir, world_size, obs_save_dir)
         else:
@@ -378,48 +370,47 @@ def get_dst_strategy(config):
         logger.info(".........Collecting %d strategy.........", len(local_strategy_paths))
 
         # merge strategy if pipeline_stage > 1
-        if rank_id % 8 == 0:
-            logger.info(".........Merging strategy.........")
-            merged_strategy_path = get_strategy(local_strategy_dir)
-            merged_strategy_name = os.path.basename(merged_strategy_path)
-            obs_merged_strategy_path = os.path.join(obs_save_dir, merged_strategy_name)
-            mox.file.copy(merged_strategy_path, obs_merged_strategy_path)
-            logger.info("Save %s to %s", merged_strategy_path, obs_merged_strategy_path)
-            logger.info(".........Merging succeed.........")
-            dst_strategy_path = merged_strategy_path
+        if config.parallel_config.pipeline_stage > 1:
+            if rank_id % 8 == 0:
+                logger.info(".........Merging strategy.........")
+                merged_strategy_path = get_strategy(local_strategy_dir)
+                merged_strategy_name = os.path.basename(merged_strategy_path)
+                obs_merged_strategy_path = os.path.join(obs_save_dir, merged_strategy_name)
+                mox.file.copy(merged_strategy_path, obs_merged_strategy_path)
+                logger.info("Save %s to %s", merged_strategy_path, obs_merged_strategy_path)
+                logger.info(".........Merging succeed.........")
+                dst_strategy_path = merged_strategy_path
+            else:
+                dst_strategy_path = None
         else:
-            dst_strategy_path = None
+            dst_strategy_path = local_strategy_path
     else:
         logger.info(".........Collecting strategy.........")
         local_strategy_dir = os.path.join(get_output_root_path(), "strategy")
+        if world_size <= 8:
+            wait_collect_all_strategy(local_strategy_dir, world_size)
 
-        if config.parallel_config.pipeline_stage == 1:
+            logger.info(".........All strategy as follow.........")
             local_strategy_paths = glob(os.path.join(local_strategy_dir, "*_rank_*.ckpt"))
             local_strategy_paths.sort()
-            dst_strategy_path = local_strategy_paths[0]
-            logger.info("pipeline_stage = 1, strategy using %s", dst_strategy_path)
-            return dst_strategy_path
+            for local_strategy_path in local_strategy_paths:
+                logger.info("strategy: %s", local_strategy_path)
+            logger.info(".........Collecting %d strategy.........", len(local_strategy_paths))
 
-        if world_size >= 8:
-            logger.warning("device num > 8, ensure that the output directory \
-                           is a shared directory that can be accessed by all nodes")
-
-        wait_collect_all_strategy(local_strategy_dir, world_size)
-
-        logger.info(".........All strategy as follow.........")
-        local_strategy_paths = glob(os.path.join(local_strategy_dir, "*_rank_*.ckpt"))
-        local_strategy_paths.sort()
-        for local_strategy_path in local_strategy_paths:
-            logger.info("strategy: %s", local_strategy_path)
-        logger.info(".........Collecting %d strategy.........", len(local_strategy_paths))
-
-        # merge strategy if pipeline_stage > 1
-        if rank_id % 8 == 0:
-            logger.info(".........Merging strategy.........")
-            merged_strategy_path = get_strategy(local_strategy_dir)
-            logger.info(".........Merging succeed.........")
-            dst_strategy_path = merged_strategy_path
+            # merge strategy if pipeline_stage > 1
+            if config.parallel_config.pipeline_stage > 1:
+                if rank_id % 8 == 0:
+                    logger.info(".........Merging strategy.........")
+                    merged_strategy_path = get_strategy(local_strategy_dir)
+                    logger.info(".........Merging succeed.........")
+                    dst_strategy_path = merged_strategy_path
+                else:
+                    dst_strategy_path = None
+            else:
+                dst_strategy_path = local_strategy_paths[0]
         else:
+            logger.warning("Can't collecting all strategy, device num > 8!")
+            config.auto_trans_ckpt = False
             dst_strategy_path = None
 
     return dst_strategy_path
@@ -543,7 +534,6 @@ def wait_collect_all_strategy(strategy_dir, total_num, obs_strategy_dir=None):
     """wait all strategy collect over"""
     last_count = -1
     last_count_obs = -1
-    start_time = time.time()
     while True:
         if obs_strategy_dir:
             obs_strategy_paths = mox.file.glob(os.path.join(obs_strategy_dir, "*.ckpt"))
@@ -566,8 +556,6 @@ def wait_collect_all_strategy(strategy_dir, total_num, obs_strategy_dir=None):
             show_progress(progress, prefix="Collecting strategy")
             last_count = local_current_count
         if local_current_count < total_num:
-            if time.time() - start_time > 7200:
-                raise TimeoutError("Timeout while collecting all strategy!")
             time.sleep(5)
         else:
             break
