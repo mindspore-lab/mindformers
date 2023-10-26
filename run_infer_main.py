@@ -29,6 +29,7 @@ from mindformers.pipeline import pipeline
 from mindformers.generation import TextIteratorStreamer
 from mindformers.tools.utils import str2bool
 from mindformers.inference import InferConfig, InferTask
+from research.baichuan2.baichuan2_tokenizer import Baichuan2Tokenizer
 
 
 def pipeline_from_model_paths(args_, tokenizer):
@@ -91,30 +92,51 @@ def pipeline_from_infer_config(args_, tokenizer):
 
 
 # the model name list that mslite inference has supported.
-LITE_SUPPORT_MODELS = ('bloom', 'glm', 'glm2', 'llama')
+LITE_SUPPORT_MODELS = {
+    'bloom': BloomTokenizer,
+    'glm': ChatGLMTokenizer,
+    'glm2': ChatGLM2Tokenizer,
+    'codegeex2': ChatGLM2Tokenizer,
+    'llama': LlamaTokenizer,
+    'baichuan2': Baichuan2Tokenizer
+}
 
 
-def get_tokenizer(model_name: str) -> Tokenizer:
+def get_tokenizer(model_name: str, tokenizer_path: str) -> Tokenizer:
     """get tokenizer with model name."""
     tokenizer = None
-    if model_name == 'bloom':
-        tokenizer = BloomTokenizer.from_pretrained("bloom_560m")
-    elif model_name == 'glm':
-        tokenizer = ChatGLMTokenizer.from_pretrained("glm_6b")
-    elif model_name == 'glm2':
-        tokenizer = ChatGLM2Tokenizer.from_pretrained("glm2_6b")
-    elif model_name == 'llama':
-        tokenizer = LlamaTokenizer.from_pretrained("llama_7b")
+    lite_support_model = model_name.split('_')[0]
+    if lite_support_model in LITE_SUPPORT_MODELS:
+        if tokenizer_path is not None:
+            tokenizer = LITE_SUPPORT_MODELS[lite_support_model](vocab_file=tokenizer_path)
+        else:
+            tokenizer = LITE_SUPPORT_MODELS[lite_support_model].from_pretrained(model_name)
     else:
+        lite_support_list = tuple(LITE_SUPPORT_MODELS.keys())
         raise ValueError(
-            f"model must be in {LITE_SUPPORT_MODELS} when getting tokenizer, but got input {model_name}.")
+            f"model must be in {lite_support_list} when getting tokenizer, but got input {model_name}.")
     return tokenizer
+
+
+def build_prompt(inputs, model_name, prompt):
+    """build prompt for inputs"""
+    if model_name.startswith('baichuan2'):
+        if not prompt:
+            prompt = "<reserved_106>{}<reserved_107>"
+        else:
+            prompt = "<reserved_106>" + prompt + "<reserved_107>"
+    if not prompt:
+        return inputs
+    if prompt.find("{}") != -1:
+        return prompt.format(inputs)
+    raise ValueError(
+        "The prompt is invalid! Please make sure your prompt contains placeholder '{}' to replace user input.")
 
 
 def infer_main(args_):
     """lite infer main."""
-    tokenizer = get_tokenizer(args_.model_name.lower())
-    lite_pipeline = pipeline_from_model_paths(
+    tokenizer = get_tokenizer(args_.model_name.lower(), args_.tokenizer_path)
+    lite_pipeline = pipeline_from_infer_config(
         args_, tokenizer
     )
 
@@ -123,14 +145,22 @@ def infer_main(args_):
         if user_input == "exit":
             print("Task is over.")
             sys.exit()
-        output = lite_pipeline(user_input, is_sample_acceleration=args_.is_sample_acceleration,
-                               add_special_tokens=args_.add_special_tokens)
+        user_input = build_prompt(user_input, args_.model_name.lower(), args_.prompt)
+        output = lite_pipeline.infer(user_input,
+                                     do_sample=args_.do_sample,
+                                     top_k=args_.top_k,
+                                     top_p=args_.top_p,
+                                     repetition_penalty=args_.repetition_penalty,
+                                     temperature=args_.temperature,
+                                     max_length=args_.max_length,
+                                     is_sample_acceleration=args_.is_sample_acceleration,
+                                     add_special_tokens=args_.add_special_tokens)
         print(output)
 
 
 def infer_stream_main(args_):
     """main entry for infer stream."""
-    tokenizer = get_tokenizer(args_.model_name.lower())
+    tokenizer = get_tokenizer(args_.model_name.lower(), args_.tokenizer_path)
     streamer = TextIteratorStreamer(tokenizer, skip_prompt=True)
     lite_pipeline = pipeline_from_model_paths(
         args_, tokenizer
@@ -141,6 +171,7 @@ def infer_stream_main(args_):
         if user_input == "exit":
             print("Quit now, this may take a while.")
             sys.exit()
+        user_input = build_prompt(user_input, args_.model_name.lower(), args_.prompt)
         generation_kwargs = dict(inputs=user_input,
                                  streamer=streamer,
                                  is_sample_acceleration=args_.is_sample_acceleration,
@@ -158,36 +189,64 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
         '--device_id', default=0, type=int,
-        help='ID of the target device, the value must be in [0, device_num_per_host-1], '
+        help='ID of the target device, the value must be in [0, device_num_per_host-1],'
              'while device_num_per_host should be no more than 4096. Default: None')
     parser.add_argument(
         '--rank_id', default=0, type=int,
-        help='ID of the target device, the value must be in [0, device_num_per_host-1], '
+        help='ID of the target device, the value must be in [0, device_num_per_host-1],'
              'while device_num_per_host should be no more than 4096. Default: None')
     parser.add_argument(
         '--model_dir', default=None, type=str,
-        help="This model dir path. "
+        help="This model dir path."
              "Default: None")
     parser.add_argument(
         '--model_name', default="common", type=str,
-        help=f"The model name, only supports name in {LITE_SUPPORT_MODELS}. "
+        help=f"The model name, only supports name in {LITE_SUPPORT_MODELS}."
              "Default: None")
     parser.add_argument(
         '--seq_length', default=2048, type=int,
-        help="This model dir path. "
+        help="This model dir path."
+             "Default: None")
+    parser.add_argument(
+        '--tokenizer_path', default=None, type=str,
+        help="Tokenizer model to load."
              "Default: None")
     parser.add_argument(
         '--prefill_model_path', default=None, type=str,
-        help="This full model path. "
+        help="This full model path."
              "Default: None")
     parser.add_argument(
         '--increment_model_path', default=None, type=str,
-        help="When use kv-cache, this is cache mode path. "
+        help="When use kv-cache, this is cache mode path."
              "Default: None")
     parser.add_argument(
         '--config_path', default=None, type=str,
-        help="ge config file path. "
+        help="ge config file path."
              "Default: None")
+    parser.add_argument(
+        '--do_sample', default=False, type=str2bool,
+        help="Whether postprocess in graph or not."
+             "Default: False")
+    parser.add_argument(
+        '--top_k', default=1, type=int,
+        help="top k."
+             "Default: 1")
+    parser.add_argument(
+        '--top_p', default=1.0, type=float,
+        help="top p."
+             "Default: 1.0")
+    parser.add_argument(
+        '--repetition_penalty', default=1.0, type=float,
+        help="repetition penalty."
+             "Default: 1.0")
+    parser.add_argument(
+        '--temperature', default=1.0, type=float,
+        help="The value used to modulate the next token probabilities."
+             "Default: 1.0")
+    parser.add_argument(
+        '--max_length', default=512, type=int,
+        help="The maximum word length that can be generated."
+             "Default: 512")
     parser.add_argument(
         '--is_sample_acceleration', default=False, type=str2bool,
         help="Whether postprocess in graph or not."
@@ -200,6 +259,10 @@ if __name__ == "__main__":
         '--stream', default=False, type=str2bool,
         help="Whether decode in stream or not."
              "Default: False")
+    parser.add_argument(
+        '--prompt', default=None, type=str,
+        help="The content of prompt."
+             "Default: None")
 
     args = parser.parse_args()
     if args.stream:
