@@ -581,7 +581,11 @@ class ADGENMetric(nn.Metric):
             hypothesis = list(jieba.cut(pred))
             reference = list(jieba.cut(label))
             rouge = Rouge()
-            scores = rouge.get_scores(' '.join(hypothesis), ' '.join(reference))
+            hypothesis = ' '.join(hypothesis)
+            reference = ' '.join(reference)
+            if hypothesis.strip() == "":
+                continue
+            scores = rouge.get_scores(hypothesis, reference)
             result = scores[0]
 
             for k, v in result.items():
