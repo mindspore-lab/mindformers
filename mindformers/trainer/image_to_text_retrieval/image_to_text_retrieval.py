@@ -27,7 +27,8 @@ from mindformers.core.callback import build_callback
 from mindformers.tools.logger import logger
 from mindformers.tools.utils import count_params
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
-from .eval_utils import compute_itm_scores, extract_image_text_mapping
+from .eval_utils import compute_itm_scores, extract_image_text_mapping, \
+    prepare_inputs_for_itm_eval, report_metrics
 from ..config_args import ConfigArguments
 from ..base_trainer import BaseTrainer
 
@@ -113,31 +114,47 @@ class ImageToTextRetrievalTrainer(BaseTrainer):
         if int(os.getenv("RANK_ID", '0')) % 8 == 0:
             pprint(config)
 
-        # prepare inputs for computing simliarity matrix
-        eval_inputs = network.prepare_inputs_for_itm_eval(dataset)
-
         # k_test value, for topk
         k_test = config.eval_dataset.k_test if \
             config.eval_dataset.k_test is not None else 128
         # trainer arguments overrides top_k
         k_test = kwargs.pop('k_test', k_test)
+        logger.info("========= k_text num: %d =========", k_test)
 
         # whether adding additional itm score
         add_extra_itm_score = config.eval_dataset.add_extra_itm_score
         # trainer arguments overrides add_extra_itm_score
         add_extra_itm_score = kwargs.pop('add_extra_itm_score', add_extra_itm_score)
 
+        # prepare inputs for computing simliarity matrix
+        image_feats, text_feats, vit_outputs, text_ids = prepare_inputs_for_itm_eval(network, dataset)
+        logger.info("prepare_inputs_for_itm_eval finished.")
+
         # compute image-to-text/text-to-image similarity scores
+        sims_matrix, vit_outputs, text_ids = network(image_feats,
+                                                     text_feats,
+                                                     vit_outputs,
+                                                     text_ids,
+                                                     add_extra_itm_score=add_extra_itm_score)
+        logger.info("sims_matrix computed.")
+
         score_i2t, score_t2i = compute_itm_scores(network,
-                                                  eval_inputs,
-                                                  k_test=k_test,
-                                                  add_extra_itm_score=add_extra_itm_score)
+                                                  sims_matrix.asnumpy(),
+                                                  vit_outputs.asnumpy(),
+                                                  text_ids.asnumpy(),
+                                                  k_test,
+                                                  add_extra_itm_score)
 
         # ground-truth image-text mapping
-        img2txt, txt2img = extract_image_text_mapping(config.eval_dataset, score_i2t, score_t2i)
+        img2txt, txt2img = extract_image_text_mapping(dataset, score_i2t, score_t2i)
+
+        # ground-truth type validation
+        assert isinstance(img2txt, (np.ndarray, list, dict)) and \
+               isinstance(txt2img, (np.ndarray, list, dict)), \
+        "img2txt and txt2img should both be numpy.ndarray, list or dict."
 
         # report evaluation results
-        eval_result = self._report_metrics(
+        eval_result = report_metrics(
             score_i2t,
             score_t2i,
             img2txt,
@@ -146,75 +163,6 @@ class ImageToTextRetrievalTrainer(BaseTrainer):
 
         logger.info(eval_result)
         logger.info(".........Evaluate Over!.............")
-        return eval_result
-
-    def _report_metrics(self, scores_i2t, scores_t2i, img2txt, txt2img):
-        """
-        report metrics for image-text matching
-
-        Args:
-            scores_i2t: image-to-text similarity score matrix
-            scores_t2i: text-to-image similarity score matrix
-            img2txt: image-to-text ground truth mapping
-            txt2img: text-to-image ground truth mapping
-
-        Returns:
-            eval_result: A dictionary containing r1, r5, r10 scores
-        """
-        def get_lowest_from_ranks(ranks, ground_truth):
-            if isinstance(ground_truth, int):
-                return np.where(ranks == ground_truth)[0][0]
-            assert isinstance(ground_truth, list), "img2txt or txt2img should be list[int] or list[list[int]]!"
-            rank = 1e20
-            for i in ground_truth:
-                tmp = np.where(ranks == i)[0][0]
-                if tmp < rank:
-                    rank = tmp
-            return rank
-        # Images->Text
-        ranks = np.zeros(scores_i2t.shape[0])
-        for index, score in enumerate(scores_i2t):
-            inds = np.argsort(score)[::-1]
-            # Score
-            ranks[index] = get_lowest_from_ranks(inds, img2txt[index])
-
-        # 计算度量, 100 是百分比基数,
-        # ranks为每张图ground-truth对应的
-        # text在similarity score中排位的最小值。
-        tr1 = 100.0 * len(np.where(ranks < 1)[0]) / len(ranks)
-        tr5 = 100.0 * len(np.where(ranks < 5)[0]) / len(ranks)
-        tr10 = 100.0 * len(np.where(ranks < 10)[0]) / len(ranks)
-
-        # Text->Images
-        ranks = np.zeros(scores_t2i.shape[0])
-
-        for index, score in enumerate(scores_t2i):
-            inds = np.argsort(score)[::-1]
-            ranks[index] = get_lowest_from_ranks(inds, txt2img[index])
-
-        # 此段逻辑同上注释，以text为基准。
-        ir1 = 100.0 * len(np.where(ranks < 1)[0]) / len(ranks)
-        ir5 = 100.0 * len(np.where(ranks < 5)[0]) / len(ranks)
-        ir10 = 100.0 * len(np.where(ranks < 10)[0]) / len(ranks)
-
-        tr_mean = (tr1 + tr5 + tr10) / 3
-        ir_mean = (ir1 + ir5 + ir10) / 3
-        r_mean = (tr_mean + ir_mean) / 2
-
-        agg_metrics = (tr1 + tr5 + tr10) / 3
-
-        eval_result = {
-            "txt_r1": tr1,
-            "txt_r5": tr5,
-            "txt_r10": tr10,
-            "txt_r_mean": tr_mean,
-            "img_r1": ir1,
-            "img_r5": ir5,
-            "img_r10": ir10,
-            "img_r_mean": ir_mean,
-            "r_mean": r_mean,
-            "agg_metrics": agg_metrics,
-        }
         return eval_result
 
     def export(self, **kwargs):
