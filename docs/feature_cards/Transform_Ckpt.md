@@ -48,7 +48,7 @@ python mindformers/tools/transform_ckpt.py \
 
   2. 源权重未开启流水线并行：权重转换基于**任一策略文件**，填写任一**ckpt_strategy_rank_x.ckpt**路径即可。
 
-  **注**：如果策略文件夹下存在**merged_ckpt_strategy.ckpt**，仍传入文件夹路径，脚本首先会将旧的**merged_ckpt_strategy.ckpt**删除，再合并一个新的**merged_ckpt_strategy.ckpt**用于权重转换，因此需要确保文件夹有足够的写入权限，否则将会报错。
+  **注**：如果策略文件夹下存在**merged_ckpt_strategy.ckpt**，仍传入文件夹路径，脚本首先会将旧的**merged_ckpt_strategy.ckpt**删除，再合并一个新的**merged_ckpt_strategy.ckpt**用于权重转换，因此需要**确保文件夹有足够的写入权限**，否则将会报错。
 
 - dst_ckpt_strategy：目标权重的分布式策略文件路径。**目标权重为完整权重则不填写**；若为分布式权重，请参考src_ckpt_strategy；
 
@@ -115,7 +115,7 @@ Mindformer的**自动权重转换**特性适用于以下三大任务场景，基
 - **修改分布式策略，启动分布式任务**
 - **基于分布式权重，启动单卡任务**
 
-针对以上适用场景，本文档列举了七种使用**权重自动转换**特性的训练/推理案例，供用户参考：
+针对以上适用场景，本文档列举了六种使用**权重自动转换**特性的训练/推理案例，供用户参考：
 
 - 训练案例一：基于完整权重，启动8卡分布式训练；
 - 训练案例二：基于8卡分布式权重，启动4卡分布式训练；
@@ -123,9 +123,7 @@ Mindformer的**自动权重转换**特性适用于以下三大任务场景，基
 - 推理案例二：基于8卡分布式权重，启动2卡分布式推理；
 - 推理案例三：基于完整权重，启动2卡分布式推理；
 
-- ModelArts多机多卡训练案例：基于完整权重，启动2节点16卡分布式训练；
-
-- 物理机多机多卡训练案例：基于完整权重，启动2节点16卡分布式训练；(暂时仅提供操作步骤)
+- ModelArts训练案例：基于完整权重，启动2节点16卡分布式训练；
 
 ## 注意事项
 
@@ -138,8 +136,6 @@ Mindformer的**自动权重转换**特性适用于以下三大任务场景，基
 - 分布式推理暂时不支持"流水线并行"，pipeline_stage固定设置为1。
 
 - 案例采用run_distribute.sh启动分布式推理，仅支持单batch输入，data_parallel固定设置为1。
-
-**注4**：**物理机多机多卡任务**可以参考**物理机多机多卡训练案例**。
 
 ## 自动转换案例
 
@@ -160,7 +156,7 @@ llama7B的[tokenizer.model](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweic
 使用以下预处理脚本生成mindrecord训练数据
 
 ```bash
-# 使用tools/dataset_preprocess/llama/llama_preprocess.py进行数据预处理+Mindrecord数据生成
+# 使用mindformers/tools/dataset_preprocess/llama/llama_preprocess.py进行数据预处理+Mindrecord数据生成
 python llama_preprocess.py \
 --dataset_type wiki \
 --input_glob  /{path}/wiki.train.tokens \
@@ -367,13 +363,13 @@ run_mode: 'predict'
 # 打开增量推理
 use_past: True
 
-# 配置词表路径（如果配置文件没有vocab_file关键字请自行补上）
+# 配置词表路径
 processor:
   tokenizer:
     vocab_file: "/worker/checkpoint/llama-7b/tokenizer.model"
 ```
 
-③ 启动推理
+② 启动推理
 
 ```shell
 python run_mindformer.py --config configs/llama/run_llama_7b.yaml --predict_data "I love beijing, because"
@@ -441,7 +437,7 @@ parallel_config:
 # when model parallel is greater than 1, we can set micro_batch_interleave_num=2, that may accelerate the train process.
 micro_batch_interleave_num: 1
 
-# 配置词表路径（如果配置文件没有vocab_file关键字请自行补上）
+# 配置词表路径
 processor:
   tokenizer:
     vocab_file: "/worker/checkpoint/llama-7b/tokenizer.model"
@@ -451,10 +447,10 @@ processor:
 
 ```shell
 cd script
-bash run_distribute.sh rank_table_2_id02.json configs/llama/run_llama_7b.yaml [0,2] predict "I love beijing, because"
+bash run_distribute.sh rank_table_2_id02.json ../configs/llama/run_llama_7b.yaml [0,2] predict "I love beijing, because"
 ```
 
-④ 查看权重转换相关日志
+③ 查看权重转换相关日志
 
 ![](assets/Transform_Ckpt/llama7b_autotrans_8to2_predict_log1.png)
 
@@ -462,7 +458,7 @@ bash run_distribute.sh rank_table_2_id02.json configs/llama/run_llama_7b.yaml [0
 
 ![llama7b_autotrans_8to2_predict_log2](assets/Transform_Ckpt/llama7b_autotrans_8to2_predict_log2.png)
 
-⑤ 查看转换生成的文件
+④ 查看转换生成的文件
 
 **分布式策略文件**：保存在`output/strategy`文件夹下
 
@@ -515,7 +511,7 @@ parallel_config:
 # when model parallel is greater than 1, we can set micro_batch_interleave_num=2, that may accelerate the train process.
 micro_batch_interleave_num: 1
 
-# 配置词表路径（如果配置文件没有vocab_file关键字请自行补上）
+# 配置词表路径
 processor:
   tokenizer:
     vocab_file: "/worker/checkpoint/llama-7b/tokenizer.model"
@@ -525,7 +521,7 @@ processor:
 
 ```shell
 cd script
-bash run_distribute.sh rank_table_2_id02.json configs/llama/run_llama_7b.yaml [0,2] predict "I love beijing, because"
+bash run_distribute.sh rank_table_2_id02.json ../configs/llama/run_llama_7b.yaml [0,2] predict "I love beijing, because"
 ```
 
 ③ 查看权重转换相关日志
@@ -548,7 +544,7 @@ bash run_distribute.sh rank_table_2_id02.json configs/llama/run_llama_7b.yaml [0
 
 注：**strategy**和**transformed_checkpoint**两个文件夹请及时保存到**自定义文件夹**中，以免被后续转换任务清空。
 
-### ModelArts多机多卡训练案例
+### ModelArts训练案例
 
 **案例描述**：基于一份完整的llama-7B预训练权重，在Modelarts上使用16卡进行分布式训练。
 
@@ -591,237 +587,3 @@ micro_batch_interleave_num: 1
 ![llama13b_autotrans_1to16_train_modelarts_distribute_ckpt](assets/Transform_Ckpt/llama7b_autotrans_1to16_train_modelarts_transformed_checkpoint.png)
 
 注：**strategy**和**transformed_checkpoint**两个文件夹请及时保存到**自定义文件夹**中，以免被后续转换任务清空。
-
-### 物理机多机多卡训练案例
-
-**案例描述**：基于一份完整的llama-7B预训练权重，在2台910服务器上使用16卡进行分布式训练。
-
-**前提**：请确保服务器之间已经组网。
-
-根据分布式训练是否使用流水线并行，分不同情况考虑：
-
-**一、不使用流水线并行**
-
-**步骤**
-
-① 准备rank_table_file
-
-```shell
-# step1：每台机器生成各自的rank_table_file
-python mindformers/tools/hccl_tools.py --device_num [0,8]
-
-# step2：将所有机器的rank_table_file保存到一台机器，进行合并
-python mindformers/tools/merge_hccl.py hccl*.json
-
-# step3：将合并后的rank_table_file复制到所有机器
-```
-
-② 配置参数
-
-```yaml
-# 配置预训练权重路径，预训练权重需要按照model_dir/rank_x/xxx.ckpt格式存放，填写model_dir
-load_checkpoint: "/worker/checkpoint/llama-7b/single/"
-
-# 设置auto_trans_ckpt为True
-auto_trans_ckpt: True
-
-# 配置数据集
-train_dataset: &train_dataset
-  data_loader:
-    type: MindDataset
-    dataset_dir: "/worker/dataset/wikitext_2048/"
-    shuffle: True
-
-# 配置16卡分布式策略，仅供参考
-parallel_config:
-  data_parallel: 4
-  model_parallel: 4
-  pipeline_stage: 1
-  micro_batch_num: 1
-  vocab_emb_dp: True
-  gradient_aggregation_group: 4
-# when model parallel is greater than 1, we can set micro_batch_interleave_num=2, that may accelerate the train process.
-micro_batch_interleave_num: 1
-```
-
-③ 启动训练
-
-```shell
-cd script
-# 第一台机器（0节点）
-bash run_distribute.sh RANK_TABLE_FILE ../configs/llama/run_llama_7b.yaml [0,8] train 16
-# 第二台机器（1节点）
-bash run_distribute.sh RANK_TABLE_FILE ../configs/llama/run_llama_7b.yaml [8,16] train 16
-```
-
-**二、使用流水线并行**
-
-根据是否有共享盘，分为以下两种情况：
-
-**1. 服务器之间有共享盘：支持自动权重转换**
-
-假设`/public`为服务器共享盘。
-
-**步骤**：
-
-① 准备rank_table_file
-
-```shell
-# step1：每台机器生成各自的rank_table_file
-python mindformers/tools/hccl_tools.py --device_num [0,8]
-
-# step2：将所有机器的rank_table_file保存到一台机器，进行合并
-python mindformers/tools/merge_hccl.py hccl*.json
-
-# step3：将合并后的rank_table_file复制到所有机器
-```
-
-② 配置参数
-
-```yaml
-# 修改输出保存路径到共享盘目录
-output_dir: "/public/output"
-
-# 配置预训练权重路径，预训练权重需要按照model_dir/rank_x/xxx.ckpt格式存放，填写model_dir
-load_checkpoint: "/worker/checkpoint/llama-7b/single/"
-
-# 设置auto_trans_ckpt为True
-auto_trans_ckpt: True
-
-# 配置数据集
-train_dataset: &train_dataset
-  data_loader:
-    type: MindDataset
-    dataset_dir: "/worker/dataset/wikitext_2048/"
-    shuffle: True
-
-# 配置16卡分布式策略，仅供参考
-parallel_config:
-  data_parallel: 2
-  model_parallel: 4
-  pipeline_stage: 2
-  micro_batch_num: 2
-  vocab_emb_dp: True
-  gradient_aggregation_group: 4
-# when model parallel is greater than 1, we can set micro_batch_interleave_num=2, that may accelerate the train process.
-micro_batch_interleave_num: 1
-```
-
-③ 启动训练
-
-```shell
-cd script
-# 第一台机器（0节点）
-bash run_distribute.sh RANK_TABLE_FILE ../configs/llama/run_llama_7b.yaml [0,8] train 16
-# 第二台机器（0节点）
-bash run_distribute.sh RANK_TABLE_FILE ../configs/llama/run_llama_7b.yaml [8,16] train 16
-```
-
-**2. 服务器之间无共享盘：不支持自动权重转换，使用离线权重转换**
-
-**步骤**：
-
-① 准备rank_table_file
-
-```shell
-# step1：每台机器生成各自的rank_table_file
-python mindformers/tools/hccl_tools.py --device_num [0,8]
-
-# step2：将所有机器的rank_table_file保存到一台机器，进行合并
-python mindformers/tools/merge_hccl.py hccl*.json
-
-# step3：将合并后的rank_table_file复制到所有机器
-```
-
-② 配置参数
-
-```yaml
-# 配置only_save_strategy=True，拉起分布式任务以获取所有节点的分布式策略文件
-only_save_strategy: True
-
-# 配置数据集
-train_dataset: &train_dataset
-  data_loader:
-    type: MindDataset
-    dataset_dir: "/worker/dataset/wikitext_2048/"
-    shuffle: True
-
-# 配置16卡分布式策略，仅供参考
-parallel_config:
-  data_parallel: 2
-  model_parallel: 4
-  pipeline_stage: 2
-  micro_batch_num: 2
-  vocab_emb_dp: True
-  gradient_aggregation_group: 4
-# when model parallel is greater than 1, we can set micro_batch_interleave_num=2, that may accelerate the train process.
-micro_batch_interleave_num: 1
-```
-
-③ 启动训练任务，目的是获取所有分布式策略文件
-
-```shell
-cd script
-# 第一台机器（0节点）
-bash run_distribute.sh RANK_TABLE_FILE ../configs/llama/run_llama_7b.yaml [0,8] train 16
-# 第二台机器（1节点）
-bash run_distribute.sh RANK_TABLE_FILE ../configs/llama/run_llama_7b.yaml [8,16] train 16
-```
-
-各节点的策略文件保存在各自的`output/strategy`目录下，其中0节点保存`ckpt_strategy_rank_0-7.ckpt`，1节点保存`ckpt_strategy_rank_8-15.ckpt`。
-
-④ 离线权重切分
-
-**将1节点的ckpt_strategy_rank_8-15.ckpt拷贝到0节点目录下**，0节点收集到所有16个策略文件后，对**完整权重进行离线切分**，运行离线切分脚本
-
-```shell
-# 具体参数说明见离线权重转换章节
-python mindformers/tools/transform_ckpt.py \
---src_ckpt_strategy None \ # 填None或不填，表示原始权重是完整权重
---dst_ckpt_strategy output/strategy \ # 保存16个策略文件的文件夹路径
---src_ckpt_dir “/worker/checkpoint/llama-7b/single/” \
---dst_ckpt_dir “/worker/checkpoint/llama-7b/multi_dp2mp4pp2/”
-```
-
-⑤ 1节点获取其对应的分布式权重，以下两种方式均可：
-
-- 拷贝分布式权重到1节点，可以拷贝完整分布式权重，也可以只拷贝**rank_8到rank_15**，建议使用scp命令传输。(推荐)
-- 1节点同样按照步骤**④ 离线权重切分**获取完整分布式权重。
-
-⑥  配置参数
-
-```yaml
-# 配置预训练权重路径，预训练权重需要按照model_dir/rank_x/xxx.ckpt格式存放，填写model_dir
-load_checkpoint: "/worker/checkpoint/llama-7b/multi_dp2mp4pp2/"
-
-# 设置auto_trans_ckpt为False
-auto_trans_ckpt: False
-
-# 配置数据集
-train_dataset: &train_dataset
-  data_loader:
-    type: MindDataset
-    dataset_dir: "/worker/dataset/wikitext_2048/"
-    shuffle: True
-
-# 配置16卡分布式策略，仅供参考
-parallel_config:
-  data_parallel: 2
-  model_parallel: 4
-  pipeline_stage: 2
-  micro_batch_num: 2
-  vocab_emb_dp: True
-  gradient_aggregation_group: 4
-# when model parallel is greater than 1, we can set micro_batch_interleave_num=2, that may accelerate the train process.
-micro_batch_interleave_num: 1
-```
-
-③ 启动训练
-
-```shell
-cd script
-# 第一台机器（0节点）
-bash run_distribute.sh RANK_TABLE_FILE ../configs/llama/run_llama_7b.yaml [0,8] train 16
-# 第二台机器（1节点）
-bash run_distribute.sh RANK_TABLE_FILE ../configs/llama/run_llama_7b.yaml [8,16] train 16
-```
