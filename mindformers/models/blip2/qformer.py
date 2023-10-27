@@ -21,10 +21,11 @@ import os
 
 import mindspore.common.dtype as mstype
 import mindspore.numpy as np
-import mindspore.ops as P
-from mindspore.train.serialization import load_checkpoint
+import mindspore.ops as ops
+import mindspore.ops.operations as P
+from mindspore.train.serialization import load_checkpoint, load_param_into_net
 from mindspore import nn, Parameter, Tensor
-from mindspore.common.initializer import initializer, Normal, Zero
+from mindspore.common.initializer import initializer, Zero
 from mindspore.nn import LossBase
 
 from mindformers.mindformer_book import MindFormerBook
@@ -38,43 +39,106 @@ from mindformers.modules.layers import Dropout, LayerNorm, Linear
 
 
 class CrossEntropyLoss(LossBase):
-    """Label smoothing align with torch implementation."""
-
-    def __init__(self, weight=None, ignore_index=-100, reduction='mean',
-                 label_smoothing=0.0):
-        super().__init__(reduction)
+    """
+    Calculate the cross entropy loss.
+    """
+    def __init__(self, target_dim=-1, weight=None, ignore_index=-100, reduction='mean', label_smoothing=0.0):
+        super(CrossEntropyLoss, self).__init__()
+        self.target_dim = target_dim
         self.weight = weight
         self.ignore_index = ignore_index
         self.reduction = reduction
         self.label_smoothing = label_smoothing
-        self.log_softmax = nn.LogSoftmax(axis=-1)
-        self.cross_entropy = nn.CrossEntropyLoss(
-            reduction=self.reduction, label_smoothing=0.0)
 
-    @staticmethod
-    def reduce_loss(loss, reduction='mean'):
-        """reduce_loss.
+        self.exp = P.Exp()
+        self.log = P.Log()
+        self.neg = P.Neg()
+        self.gather = P.Gather()
+        self.ones_like = P.OnesLike()
+        self.equal = P.Equal()
 
-        Args:
-            loss (float): loss
-            reduction (str, optional): reduction method. Defaults to 'mean'.
 
-        Returns:
-            reduced_loss: reduced_loss
+    def logsumexp(self, x, axis, keep_dims=False):
         """
-        if reduction == 'mean':
-            return loss.mean()
+        Reduces a dimension of a tensor by calculating exponential for all elements in the dimension,
+        then calculate logarithm of the sum.
+        """
+        reduce_sum = P.ReduceSum(keep_dims)
+
+        x_max = x.max(axis=axis, keepdims=True)
+        x_exp = self.exp(x - x_max)
+        x_sumexp = reduce_sum(x_exp, axis)
+        x_logsumexp = self.log(x_sumexp)
+        if not keep_dims:
+            x_max = x_max.squeeze(axis=axis)
+        return x_logsumexp + x_max
+
+    def log_softmax(self, inputs, axis):
+        """inner implementation of log_softmax, since the LogSoftmaxGrad op do not support inputs > 2d"""
+        return inputs - self.logsumexp(inputs, axis, True)
+
+    def gather_d(self, inputs, target_dim, target):
+        """
+        Rewrite P.GatherD(), align with it.
+        """
+        pred_x = np.arange(target.shape[0]) * inputs.shape[-1]
+        pred_mod = ops.floor_mod(target, inputs.shape[-1])
+        pred_idx = pred_x + pred_mod
+        return (inputs.flatten())[pred_idx].expand_dims(target_dim)
+
+    def nll_loss(self,
+                 inputs,
+                 target,
+                 target_dim=-1,
+                 weight=None,
+                 ignore_index=None,
+                 reduction='none',
+                 label_smoothing=0.0):
+        """nll loss inner function"""
+        if target.ndim == inputs.ndim - 1:
+            target = target.expand_dims(target_dim)
+        if ignore_index is not None:
+            non_pad_mask = self.equal(target, ignore_index)
+            target = target.masked_fill(non_pad_mask, 0)
+        else:
+            non_pad_mask = target
+        target = target.squeeze(target_dim)
+        loss = self.neg(self.gather_d(inputs, target_dim, target))
+        smooth_loss = self.neg(inputs.sum(axis=target_dim, keepdims=False))
+
+        if weight is not None:
+            loss_weights = self.gather(weight, target, 0)
+            loss = loss * loss_weights
+        else:
+            loss_weights = self.ones_like(loss)
+        if ignore_index is not None:
+            loss = loss.masked_fill(non_pad_mask, 0.)
+            loss_weights = loss_weights.masked_fill(non_pad_mask, 0.)
+
+        loss = loss.squeeze(target_dim)
         if reduction == 'sum':
-            return loss.sum()
+            loss = loss.sum()
+            smooth_loss = smooth_loss.sum()
+        if reduction == 'mean':
+            loss = loss.sum() / loss_weights.sum()
+            smooth_loss = smooth_loss.mean()
+
+        loss = (1. - label_smoothing) * loss + label_smoothing * smooth_loss / inputs.shape[target_dim]
         return loss
 
-    def construct(self, logits, labels):
-        loss_fct = self.cross_entropy(logits, labels)
-        log_preds = self.log_softmax(logits)
-        loss = self.reduce_loss(-log_preds.sum(axis=-1),
-                                reduction=self.reduction)
-        n_class = logits.shape[-1]
-        return (loss / n_class) * self.label_smoothing + loss_fct * (1 - self.label_smoothing)
+    def construct(self, inputs, target):
+        r"""
+        The cross entropy loss between input and target.
+        """
+        class_dim = 0 if inputs.ndim == 1 else 1
+        log_softmax_result = self.log_softmax(inputs, class_dim)
+        return self.nll_loss(log_softmax_result,
+                             target,
+                             self.target_dim,
+                             self.weight,
+                             self.ignore_index,
+                             self.reduction,
+                             self.label_smoothing)
 
 
 ACT2CLS = {
@@ -138,11 +202,10 @@ class BertEmbeddings(nn.Cell):
         self.concat = P.Concat(axis=1)
 
         # position_ids (1, len position emb) is contiguous in memory and exported when serialized
-        self.expand_x = P.BroadcastTo((1, config.max_position_embeddings))
         position_embeds = Tensor(
-            [i for i in range(config.max_position_embeddings)], dtype=mstype.int32)
+            [[i for i in range(config.max_position_embeddings)]], dtype=mstype.int32)
         self.position_ids = Parameter(
-            self.expand_x(position_embeds),
+            position_embeds,
             requires_grad=False
         )
         self.position_embedding_type = getattr(
@@ -837,37 +900,6 @@ class BertPreTrainedModel(BaseModel, nn.Cell):
         self.zeros_like = P.ZerosLike()
         self.expand_dims = P.ExpandDims().shard(((1, 1, 1, 1, 1),))
 
-    def init_weights(self):
-        """ init_weights recursively for BertPreTrainedModel. """
-        # Initialize weights, recursively.
-        recursive_apply(self, self._init_weights)
-
-    def _init_weights(self, module):
-        """Initialize the weights"""
-        if isinstance(module, nn.Embedding):
-            # Slightly different from the TF version which uses truncated_normal for initialization
-            normed = initializer(Normal(sigma=self.config.initializer_range, mean=0.0),
-                                 shape=module.embedding_table.data.shape)
-            module.embedding_table.set_data(normed)
-        elif isinstance(module, Linear):
-            normed = initializer(Normal(sigma=self.config.initializer_range, mean=0.0), shape=module.weight.data.shape,
-                                 dtype=self.config.compute_dtype)
-            module.weight.set_data(normed)
-            if module.bias is not None:
-                module.bias.set_data(self.zeros_like(module.bias.value()))
-        elif isinstance(module, LayerNorm):
-            module.gamma.set_data(self.ones_like(module.gamma.value()))
-            module.beta.set_data(self.zeros_like(module.beta.value()))
-
-    @classmethod
-    def from_config(cls, config, **kwargs):
-        """
-        All context managers that the model should be initialized under go here.
-        """
-
-        model = cls(config, **kwargs)
-        return model
-
     def get_input_embeddings(self) -> nn.Cell:
         """ get input embeddings. """
         raise NotImplementedError
@@ -972,9 +1004,6 @@ class BertPreTrainedModel(BaseModel, nn.Cell):
         new_embeddings = nn.Embedding(new_num_tokens, old_embedding_dim)
         new_embeddings.embedding_table.name = old_embeddings.embedding_table.name
 
-        # initialize all new embeddings (in particular added tokens)
-        self._init_weights(new_embeddings)
-
         # Copy token embeddings from the previous weights
         # numbers of tokens to copy
         remain_num = min(old_num_tokens, new_num_tokens)
@@ -1015,9 +1044,6 @@ class BertPreTrainedModel(BaseModel, nn.Cell):
                              has_bias=has_new_lm_head_bias,
                              compute_dtype=self.config.compute_dtype,
                              param_init_type=self.config.dtype)
-
-        # initialize new lm head (in particular added tokens)
-        self._init_weights(new_lm_head)
 
         num_tokens_to_copy = min(old_num_tokens, new_num_tokens)
 
@@ -1104,8 +1130,6 @@ class BertModel(BertPreTrainedModel):
 
         self.concat_one = P.Concat(axis=1)
         self.concat_minus_one = P.Concat(axis=-1)
-
-        self.init_weights()
 
     def get_input_embeddings(self) -> nn.Cell:
         return self.embeddings.word_embeddings
@@ -1344,6 +1368,7 @@ class BertLMHeadModel(BertPreTrainedModel):
     Returns:
         a BertLMHeadModel instance.
     """
+    _support_list = ["bert_base_uncased", "bert_base_uncased_resized"]
 
     def __init__(self, config: QFormerConfig):
         super(BertLMHeadModel, self).__init__(config)
@@ -1359,7 +1384,6 @@ class BertLMHeadModel(BertPreTrainedModel):
         self.bert = BertModel(config)
         self.cls = BertOnlyMLMHead(config)
 
-        self.init_weights()
         if self.config.checkpoint_name_or_path:
             self.load_checkpoint(config)
 
@@ -1409,6 +1433,20 @@ class BertLMHeadModel(BertPreTrainedModel):
                 new_data = new_data.T
             data.assign_value(new_data)
 
+    def load_bert_model_params(self, config: QFormerConfig, param):
+        """
+        load parameters for BertLMHeadModel, if the weights come from
+        mindformers.models.bert.BertModel, param conversion is needed.
+
+        Args:
+            config (QFormerConfig): config for the Q-Former model.
+            param (OrderedDict): the params to be loaded.
+        """
+        if config.resize_token_embeddings and config.convert_param_from_bert:
+            self.convert_bert_model_params(param)
+        else:
+            load_param_into_net(self, param)
+
     def load_checkpoint(self, config: QFormerConfig):
         """
         load checkpoint for BertLMHeadModel. (we can use the param for BertModel on obs,
@@ -1420,40 +1458,41 @@ class BertLMHeadModel(BertPreTrainedModel):
             model name or a path to checkpoint, to load model weights.
         """
         checkpoint_name_or_path = config.checkpoint_name_or_path
-        # direct loading, no param conversion
-        if not config.convert_param_from_bert:
-            super(BertLMHeadModel, self).load_checkpoint(config)
-        # convert params and load from BertModel
-        else:
-            # the relevant file will be downloaded from the Obs platform.
-            if not os.path.exists(checkpoint_name_or_path):
-                support_list = MindFormerBook.get_model_support_list()['bert']
-                if checkpoint_name_or_path not in support_list:
-                    raise ValueError(f"{checkpoint_name_or_path} is not a supported default model"
-                                     f" or a valid path to checkpoint,"
-                                     f" please select from {support_list}.")
-                checkpoint_name = checkpoint_name_or_path
-                default_checkpoint_download_folder = os.path.join(
-                    MindFormerBook.get_default_checkpoint_download_folder(),
-                    checkpoint_name_or_path.split("_")[0])
-                if not os.path.exists(default_checkpoint_download_folder):
-                    os.makedirs(default_checkpoint_download_folder, exist_ok=True)
+        # the relevant file will be downloaded from the Obs platform.
+        if not os.path.exists(checkpoint_name_or_path):
+            if checkpoint_name_or_path not in self._support_list:
+                raise ValueError(f"{checkpoint_name_or_path} is not a supported default model"
+                                 f" or a valid path to checkpoint,"
+                                 f" please select from {self._support_list}.")
+            # on 910B, load the 'resized' checkpoint.
+            if not config.resize_token_embeddings and not checkpoint_name_or_path.endswith("_resized"):
+                checkpoint_name_or_path = checkpoint_name_or_path + "_resized"
+            checkpoint_name = checkpoint_name_or_path
+            default_checkpoint_download_folder = os.path.join(
+                MindFormerBook.get_default_checkpoint_download_folder(),
+                checkpoint_name_or_path.split("_")[0])
+            if not os.path.exists(default_checkpoint_download_folder):
+                os.makedirs(default_checkpoint_download_folder, exist_ok=True)
 
-                ckpt_file = os.path.join(default_checkpoint_download_folder, checkpoint_name + ".ckpt")
-                if not os.path.exists(ckpt_file):
-                    url = MindFormerBook.get_model_ckpt_url_list()[checkpoint_name_or_path][0]
-                    succeed = download_with_progress_bar(url, ckpt_file)
-                    if not succeed:
-                        logger.info("checkpoint download failed, and pretrained weights are unloaded.")
-                        return
-                try_sync_file(ckpt_file)
-                self.default_checkpoint_download_path = ckpt_file
-                logger.info("start to read the ckpt file: %s", os.path.getsize(ckpt_file))
-            else:
-                ckpt_file = checkpoint_name_or_path
-            param = load_checkpoint(ckpt_file)
-            self.convert_bert_model_params(param)
+            ckpt_file = os.path.join(default_checkpoint_download_folder, checkpoint_name + ".ckpt")
+            if not os.path.exists(ckpt_file):
+                url = MindFormerBook.get_model_ckpt_url_list()[checkpoint_name_or_path][0]
+                succeed = download_with_progress_bar(url, ckpt_file)
+                if not succeed:
+                    logger.info("checkpoint download failed, and pretrained weights are unloaded.")
+                    return
+            try_sync_file(ckpt_file)
+            self.default_checkpoint_download_path = ckpt_file
+            logger.info("start to read the ckpt file: %s", os.path.getsize(ckpt_file))
+        else:
+            ckpt_file = checkpoint_name_or_path
+        param = load_checkpoint(ckpt_file)
+        try:
+            self.load_bert_model_params(config, param)
             logger.info("weights in %s are loaded", ckpt_file)
+        except RuntimeError:
+            logger.error("the given config and weights in %s are"
+                         " mismatched, and weights load failed", ckpt_file)
 
     def get_input_embeddings(self) -> nn.Cell:
         return self.bert.get_input_embeddings()

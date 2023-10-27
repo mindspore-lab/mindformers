@@ -83,14 +83,11 @@ class MultiImgCapDataLoader:
         kwargs.pop("None", None)
         multicap_dataset = MultiImgCapDataSet(image_dirs, annotation_files,
                                               stage, repeat_images)
-        if stage == 'train':
-            return GeneratorDataset(multicap_dataset,
-                                    column_names,
-                                    shuffle=shuffle,
-                                    **kwargs)
+
         return GeneratorDataset(multicap_dataset,
                                 column_names,
-                                shuffle=shuffle)
+                                shuffle=shuffle,
+                                **kwargs)
 
 
 class MultiImgCapDataSet:

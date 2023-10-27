@@ -28,7 +28,7 @@ runner_config:
   batch_size: 80
   sink_size: 2
   image_size: 224
-  sink_mode: True
+  sink_mode: False
   initial_epoch: 0
   has_trained_epoches: 0
   has_trained_steps: 0
@@ -169,6 +169,8 @@ model:
       num_hidden_layers: 12
       num_attention_heads: 12
       query_length: 32
+      resize_token_embeddings: True # if run on 910B, turn it to False
+      special_token_nums: 1
       vocab_size: 30522
       hidden_size: 768
       encoder_width: 1408
@@ -223,7 +225,7 @@ callbacks:
   - type: MFLossMonitor
   - type: CheckpointMointor
     prefix: "blip2_qformer"
-    save_checkpoint_steps: 10000
+    save_checkpoint_steps: 7084
     integrated_save: True
     async_save: False
   - type: ObsMonitor
