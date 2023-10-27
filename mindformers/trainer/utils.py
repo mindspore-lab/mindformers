@@ -29,7 +29,7 @@ from mindspore import set_seed as ms_set_seed
 
 from mindformers.tools.logger import logger
 from mindformers.tools.register import MindFormerConfig
-from mindformers.tools.utils import check_in_modelarts, get_output_root_path
+from mindformers.tools.utils import check_in_modelarts, get_output_root_path, replace_tk_to_mindpet
 from mindformers.tools.transform_ckpt import get_strategy
 from mindformers.tools.cloud_adapter import mox_adapter
 
@@ -575,6 +575,9 @@ def load_ckpt(config, network, optimizer=None):
         checkpoint_dict = load_distributed_checkpoint(config)
     else:
         checkpoint_dict = load_checkpoint(config.load_checkpoint)
+
+    # replace tk in checkpoint_dict.keys()
+    checkpoint_dict = replace_tk_to_mindpet(checkpoint_dict)
 
     # load params into net
     not_load_network_params = load_param_into_net(network, checkpoint_dict)

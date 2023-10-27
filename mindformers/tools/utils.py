@@ -358,3 +358,11 @@ def parse_value(value):
     if isjson(value):
         return json.loads(value)
     return value
+
+
+def replace_tk_to_mindpet(ckpt_dict):
+    """replace 'tk_delta' in para name to 'mindpet_delta'"""
+    ckpt_new = {}
+    for k, v in ckpt_dict.items():
+        ckpt_new[k.replace('tk_delta', 'mindpet_delta')] = v
+    return ckpt_new
