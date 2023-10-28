@@ -127,6 +127,7 @@ def get_baichuan2_inc_model_input(batch_size, seq_length, prefill):
 PREFILL_MODEL_INPUT_MAP = {
     "bloom": get_llm_common_prefill_model_input,
     "llama": get_llm_common_prefill_model_input,
+    "llama2": get_llm_common_prefill_model_input,
     "glm": get_glm_prefill_model_input,
     "glm2": get_glm2_prefill_model_input,
     "baichuan2": get_llm_common_prefill_model_input
@@ -135,6 +136,7 @@ PREFILL_MODEL_INPUT_MAP = {
 INCREMENT_MODEL_INPUT_MAP = {
     "bloom": get_bloom_inc_model_input,
     "llama": get_llama_inc_model_input,
+    "llama2": get_llama_inc_model_input,
     "glm": get_glm_inc_model_input,
     "glm2": get_glm2_inc_model_input,
     "codegeex2": get_glm2_inc_model_input,
