@@ -287,13 +287,13 @@ class ChatGLM2WithPtuning2(ChatGLM2ForConditionalGeneration):
             prefix_key_values = self.prefix_encoder(batch_size)
 
         return super().construct(
-            input_ids,
-            labels,
-            position_ids,
-            attention_mask,
-            inputs_embeds,
-            input_position,
-            init_reset,
-            batch_valid_length,
-            prefix_key_values
+            input_ids=input_ids,
+            labels=labels,
+            position_ids=position_ids,
+            attention_mask=attention_mask,
+            inputs_embeds=inputs_embeds,
+            input_position=input_position,
+            init_reset=init_reset,
+            batch_valid_length=batch_valid_length,
+            prefix_key_values=prefix_key_values
         )
