@@ -78,6 +78,23 @@ def get_llama_inc_model_input(batch_size, seq_length, prefill):
     return input_ids, None, input_position, None, None, None, init_reset, batch_valid_length
 
 
+def get_gpt2_model_input(batch_size, seq_length, prefill=True):
+    """get gpt2 kv cache model input tuple."""
+    # export first iteration
+    if prefill:
+        input_ids = ms.Tensor(np.ones((batch_size, seq_length)), ms.int32)
+        input_position = ms.Tensor(np.ones((batch_size,)), ms.int32)
+        init_reset = ms.Tensor([False], ms.bool_)
+        batch_valid_length = ms.Tensor(np.ones([batch_size, 1]), ms.int32)
+    # export later iteration
+    else:
+        input_ids = ms.Tensor(np.ones((batch_size, 1)), ms.int32)
+        input_position = ms.Tensor(np.ones((batch_size,)), ms.int32)
+        init_reset = ms.Tensor([True], ms.bool_)
+        batch_valid_length = ms.Tensor(np.ones([batch_size, 1]), ms.int32)
+    return input_ids, None, None, None, input_position, None, init_reset, batch_valid_length
+
+
 def get_glm2_inc_model_input(batch_size, seq_length, prefill):
     """get glm2 kv cache model input tuple."""
     # export first iteration
@@ -129,6 +146,7 @@ PREFILL_MODEL_INPUT_MAP = {
     "llama": get_llm_common_prefill_model_input,
     "llama2": get_llm_common_prefill_model_input,
     "glm": get_glm_prefill_model_input,
+    "gpt2": get_gpt2_model_input,
     "glm2": get_glm2_prefill_model_input,
     "baichuan2": get_llm_common_prefill_model_input
 }
@@ -138,6 +156,7 @@ INCREMENT_MODEL_INPUT_MAP = {
     "llama": get_llama_inc_model_input,
     "llama2": get_llama_inc_model_input,
     "glm": get_glm_inc_model_input,
+    "gpt2": get_gpt2_model_input,
     "glm2": get_glm2_inc_model_input,
     "codegeex2": get_glm2_inc_model_input,
     "baichuan2": get_baichuan2_inc_model_input

@@ -100,6 +100,24 @@ class GPT2LMHeadModel(BaseModel):
             "input_ids": Tensor(input_ids, mstype.int32)
         }
 
+    def prepare_inputs_for_export(self, full_model=True):
+        """ inputs for model export """
+        seq_length = self.config.seq_length
+        batch_size = self.config.batch_size
+        if full_model:
+            logger.info('\nexporting with batch_size = %s, seq = %s ...', batch_size, seq_length)
+            input_ids = Tensor(np.ones((batch_size, seq_length)), mstype.int32)
+            input_position = Tensor(np.ones((batch_size,)), mstype.int32)
+            init_reset = Tensor([False], mstype.bool_)
+            batch_valid_length = Tensor(np.ones([batch_size, 1]), mstype.int32)
+        else:
+            logger.info('\nexporting with batch_size = %s, seq = 1 ...', batch_size)
+            input_ids = Tensor(np.ones((batch_size, 1)), mstype.int32)
+            input_position = Tensor(np.ones((batch_size,)), mstype.int32)
+            init_reset = Tensor([True], mstype.bool_)
+            batch_valid_length = Tensor(np.ones([batch_size, 1]), mstype.int32)
+        return input_ids, None, None, None, input_position, None, init_reset, batch_valid_length
+
     # pylint: disable=W0613
     def construct(self, input_ids, attention_mask=None, input_embeds=None, labels=None, input_position=None,
                   position_ids=None, init_reset=True, batch_valid_length=None):
