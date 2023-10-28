@@ -15,8 +15,7 @@
 """The export function for glm"""
 
 from .chatglm_6b_tokenizer import ChatGLMTokenizer
-from .glm import (GLMChatModel, GLMChatModelWithLora, GLMForPreTraining,
-                  GLMForPreTrainingWithLora)
+from .glm import GLMChatModel, GLMForPreTraining
 from .glm_config import GLMConfig
 from .glm_processor import GLMProcessor
 

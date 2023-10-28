@@ -39,8 +39,6 @@ from mindformers.modules.layers import Linear
 from mindformers.modules.transformer.op_parallel_config import _check_config
 from mindformers.modules.transformer.transformer import AttentionMask
 from mindformers.tools.register.register import MindFormerModuleType, MindFormerRegister
-from mindformers.pet.tuners.pet_adapter import PetAdapter
-from mindformers.pet.tuners.lora_adapter import LoraAdapter
 
 from .llama_config import LlamaConfig
 from .llama_layer import LlamaEmbedding, LlamaRMSNorm, precompute_freqs_cis
@@ -48,7 +46,7 @@ from .llama_transformer import LLamaDecodeLayer
 from ..utils import cell_reuse
 from ...tools.logger import logger
 
-__all__ = ['LlamaModel', 'LlamaForCausalLM', 'LlamaForCausalLMWithLora']
+__all__ = ['LlamaModel', 'LlamaForCausalLM']
 
 def layer_compute_dtype(layer, layer_id, offset, parallel_config, n_layers, select_recompute=False):
     r"""
@@ -398,25 +396,3 @@ class LlamaForCausalLM(BaseModel):
         input_mask = self.reshape(input_mask, (-1,))
         loss = self.loss(logits, labels, input_mask)
         return loss
-
-
-@MindFormerRegister.register(MindFormerModuleType.MODELS)
-class LlamaForCausalLMWithLora(LlamaForCausalLM):
-    """Llama Model for finetuning with LoRA
-
-    Args:
-        config (LlamaConfig): The config of network.
-    """
-
-    def __init__(self, config: LlamaConfig = None):
-        ckpt_cfg = config.checkpoint_name_or_path
-        config.checkpoint_name_or_path = None
-        super().__init__(config)
-        # get Pet tuning model.
-        config.pet_config.reg_rules = r'.*wq|.*wk|.*wv|.*wo'
-        self.model = LoraAdapter.get_pet_model(self.model, config.pet_config)
-        # load lora ckpt
-        config.checkpoint_name_or_path = ckpt_cfg
-        self.load_checkpoint(config)
-        # freeze pretrained model
-        PetAdapter.freeze_pretrained_model(self, config.pet_config.pet_type)

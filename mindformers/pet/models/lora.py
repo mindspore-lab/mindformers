@@ -18,6 +18,7 @@ from mindformers.models.base_model import BaseModel
 
 from mindformers.pet.pet_config import LoraConfig
 from mindformers.pet.tuners.lora_adapter import LoraAdapter
+from mindformers.tools import logger
 
 
 class LoraModel(BaseModel):
@@ -43,13 +44,16 @@ class LoraModel(BaseModel):
         elif hasattr(base_model, "transformer"):
             base_model.transformer = LoraAdapter.get_pet_model(base_model.transformer, self.config)
         else:
-            raise AttributeError("The base model must has an attribute named in \'backbone\',"
-                                 "\'model\', or \'transformer\', which define transformer blocks.")
+            logger.warning("The base model must has an attribute named in \'backbone\',"
+                           "\'model\', or \'transformer\', which define transformer blocks.")
         return base_model
 
     def _check_config(self):
         if self.config.target_modules is None:
             raise ValueError(f"No target modules for lora layer.")
+
+    def update_model_kwargs_before_generate(self, input_ids, model_kwargs: dict):
+        return self.base_model.update_model_kwargs_before_generate(input_ids, model_kwargs)
 
     def prepare_inputs_for_generation(self, input_ids, **kwargs):
         return self.base_model.prepare_inputs_for_generation(input_ids, **kwargs)
@@ -57,7 +61,16 @@ class LoraModel(BaseModel):
     def prepare_inputs_for_export(self, full_model=True):
         return self.base_model.prepare_inputs_for_export(full_model)
 
+    def slice_incremental_inputs(self, model_inputs: dict, current_index):
+        return self.base_model.slice_incremental_inputs(model_inputs, current_index)
+
     def construct(self, input_ids, labels=None, input_position=None, position_ids=None, attention_mask=None,
                   input_embeds=None, init_reset=True, batch_valid_length=None):
-        return  self.base_model(input_ids, labels, input_position, position_ids,
-                                attention_mask, input_embeds, init_reset, batch_valid_length)
+        return  self.base_model(input_ids=input_ids,
+                                labels=labels,
+                                input_position=input_position,
+                                position_ids=position_ids,
+                                attention_mask=attention_mask,
+                                input_embeds=input_embeds,
+                                init_reset=init_reset,
+                                batch_valid_length=batch_valid_length)

@@ -129,8 +129,6 @@ mindformers.models.glm
     mindformers.models.glm.GLMConfig
     mindformers.models.glm.GLMChatModel
     mindformers.models.glm.GLMForPreTraining
-    mindformers.models.glm.GLMForPreTrainingWithLora
-    mindformers.models.glm.GLMChatModelWithLora
     mindformers.models.glm.ChatGLMTokenizer
     mindformers.models.glm.GLMProcessor
 
@@ -145,7 +143,6 @@ mindformers.models.llama
     mindformers.models.llama.LlamaConfig
     mindformers.models.llama.LlamaModel
     mindformers.models.llama.LlamaForCausalLM
-    mindformers.models.llama.LlamaForCausalLMWithLora
     mindformers.models.llama.LlamaTokenizer
     mindformers.models.llama.LlamaProcessor
 
