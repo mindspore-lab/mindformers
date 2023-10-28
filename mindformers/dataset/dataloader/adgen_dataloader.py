@@ -113,9 +113,14 @@ class ADGenDataset:
         self.prompt_column = origin_columns[0]
         self.response_column = origin_columns[1]
         with open(self.dataset_dir) as fp:
-            for line in fp:
-                content_list.append(json.loads(line)[self.prompt_column])
-                summary_list.append(json.loads(line)[self.response_column])
+            for i, line in enumerate(fp):
+                prompt = json.loads(line)[self.prompt_column]
+                response = json.loads(line)[self.response_column]
+                if prompt.strip() != "" and response.strip() != "":
+                    content_list.append(prompt)
+                    summary_list.append(response)
+                else:
+                    logger.warning("Drop %s:%d due to null value, line is:\n%s", self.dataset_dir, i, line)
             examples[self.prompt_column] = content_list
             examples[self.response_column] = summary_list
         self.examples = examples
