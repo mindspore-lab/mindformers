@@ -5,7 +5,7 @@ src_strategy_path_or_dir: ''
 auto_trans_ckpt: False  # If true, auto transform load_checkpoint to load in distributed model
 only_save_strategy: False
 resume_training: False
-run_mode: 'train'
+run_mode: 'finetune'
 
 # trainer config
 trainer:
@@ -15,7 +15,7 @@ trainer:
 # runner config
 runner_config:
   epochs: 2
-  batch_size: 8
+  batch_size: 2
   sink_mode: True
   sink_size: 2
 
@@ -23,14 +23,14 @@ runner_config:
 optimizer:
   type: FP32StateAdamWeightDecay
   beta1: 0.9
-  beta2: 0.95
+  beta2: 0.999
   eps: 1.e-8
-  learning_rate: 5.e-5
+  learning_rate: 1.e-6
 
 # lr sechdule
 lr_schedule:
   type: CosineWithWarmUpLR
-  learning_rate: 5.e-5
+  learning_rate: 1.e-6
   lr_end: 0
   warmup_ratio: 0.03
   total_steps: -1 # -1 means it will load the total steps of the dataset
@@ -41,7 +41,7 @@ train_dataset: &train_dataset
     type: MindDataset
     dataset_dir: ""
     shuffle: True
-  input_columns: ["input_ids"]  # "input_ids", "labels" , labels are used in instruction finetune.
+  input_columns: ["input_ids", "labels"]  # "input_ids", "labels" , labels are used in instruction finetune.
   num_parallel_workers: 8
   python_multiprocessing: False
   drop_remainder: True
@@ -88,11 +88,11 @@ parallel:
     parallel_optimizer_threshold: 64
 # default parallel of device num = 8 910B
 parallel_config:
-  data_parallel: 8
+  data_parallel: 2
   model_parallel: 1
-  pipeline_stage: 1
+  pipeline_stage: 4
   use_seq_parallel: False
-  micro_batch_num: 4
+  micro_batch_num: 64
   vocab_emb_dp: True
   gradient_aggregation_group: 4
 # when model parallel is greater than 1, we can set micro_batch_interleave_num=2, that may accelerate the train process.
@@ -101,7 +101,7 @@ micro_batch_interleave_num: 1
 # recompute config
 recompute_config:
   recompute: True
-  select_recompute: False
+  select_recompute: True
   parallel_optimizer_comm_recompute: False
   mp_comm_recompute: True
   recompute_slice_activation: True
@@ -133,7 +133,7 @@ model:
   model_config:
     type: LlamaConfig
     batch_size: 1 # add for increase predict
-    seq_length: 4096
+    seq_length: 2048
     hidden_size: 4096
     num_layers: 32
     num_heads: 32

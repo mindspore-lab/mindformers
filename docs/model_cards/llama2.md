@@ -491,7 +491,7 @@ python llama_preprocess.py \
 
 以llama2 7b为例
 
-- step 1. 修改`config/llama2/run_llama2_7b.yaml`中训练数据集路径为微调数据集路径，并在`input_columns`中添加`labels`。
+- step 1. 参考`config/llama2/run_llama2_7b_910b_finetune.yaml`中训练数据集路径为微调数据集路径，并在`input_columns`中添加`labels`。
 
 ```python
 train_dataset: &train_dataset
@@ -533,7 +533,7 @@ context:
   runtime_num_threads: 1
 ```
 
-​		注意：alpaca数据集最长不超过2048，因此seq_length采用2048即可。
+>注意：alpaca数据集最长不超过2048，因此seq_length采用2048即可。
 
 - step 3. 微调`llama2-7b`时修改并行策略配置，配置如下：
 
@@ -551,7 +551,7 @@ parallel_config:
 export MS_DEV_SIDE_EFFECT_LOAD_ELIM=3  # 去除TensorMove
 export MS_MEMORY_POOL_RECYCLE=1  # 内存优化
 export GE_NOT_CUT=1   # 内存优化
-export MS_ASCEND_CHECK_OVERFLOW_MODE="INFNAN_MODE"
+export MS_ASCEND_CHECK_OVERFLOW_MODE="INFNAN_MODE"  # llama2_7b 不用设置该项
 ```
 
 - step 5. 添加预训练权重路径，修改配置文件中的`load_checkpoint`，配置预训练权重路径。
@@ -559,10 +559,54 @@ export MS_ASCEND_CHECK_OVERFLOW_MODE="INFNAN_MODE"
 
 ```shell
 cd scripts
-bash run_distribute.sh [RANK_TABLE_FILE] ../configs/llama2/run_llama2_7b.yaml [0,8] finetune
+bash run_distribute.sh [RANK_TABLE_FILE] ../configs/llama2/run_llama2_7b_910b_finetune.yaml [0,8] finetune
 ```
 
 多机多卡微调任务启动参考[预训练章节](#预训练)，添加预训练权重，修改启动脚本中的`RUN_MODE`为`finetune`即可。
+
+### LoRA微调
+
+使用LoRA低参微调算法，冻结原模型权重，仅在小规模参数量上进行训练，使大模型在少量资源的情况下也能训练。
+
+使用LoRA算法进行低参微调时，使用 `configs/llama2/run_llama2_7b_lora_910b.yaml` 配置文件，该配置文件包含了lora低参微调算法所需的配置项
+
+修改数据集/模型权重配置路径：
+
+- 数据集：修改 `mindformers/configs/llama2/run_llama2_7b_lora_910b.yaml` 脚本中`train_dataset` 的 `dataset_dir` 为前文生成的数据集路径。
+
+- 加载预训练模型权重：修改 `mindformers/configs/llama2/run_llama2_7b_lora_910b.yaml` 脚本中的 `load_checkpoint` 为预训练模型权重路径。以llama2-7b 为例，有以下两种导入方式。
+
+  1. 直接导入完整权重：
+
+  ```yaml
+  # 以llama2-7b为例
+  load_checkpoint: {path}/llama2_7b.ckpt
+  auto_trans_ckpt: False
+  ```
+
+  2. 使用分布式导入权重，路径设置为rank_0的上一层路径
+
+  ```yaml
+  # 将llama2_7b.ckpt 放入文件夹名称为rank_0的文件夹中，
+  load_checkpoint: path/to/your/rank_0_file
+  anto_trans_ckpt: True
+  ```
+
+#### 脚本启动
+
+- step 1. 修改配置文件，参考全参微调修改训练数据集路径与预训练权重路径。
+
+- step 2. 启动lora微调任务。
+
+> 注：llama2_7b_lora模型支持单卡启动，需将配置文件中的`use_parallel`参数置为`False`。
+
+```shell
+cd scripts
+# 单卡启动
+bash run_standalone.sh ../configs/llama2/run_llama2_7b_910b_lora.yaml [DEVICE_ID] finetune
+# 多卡启动（以单机八卡为例）
+bash run_distribute.sh [RANK_TABLE_FILE] ../configs/llama2/run_llama2_7b_910b_lora.yaml [0,8] finetune
+```
 
 ## 评测
 
@@ -603,7 +647,7 @@ python run_mindformer.py \
 --use_parallel False \
 --device_id 0
 
-# PerplexityMetric = {'PerplexityMetric': {'loss': 2.1142693907022476, 'PPL': 8.283531529594038}}
+# PerplexityMetric = {'PerplexityMetric': {'loss': 2.1142693907022476, 'PPL': 6.58}}
 ```
 
 - 阅读理解：
@@ -692,10 +736,8 @@ python run_mindformer.py \
 --use_parallel False \
 --device_id 0
 
-# F1 score: 48.48954955952303, Em score: 26.850507982583455, total_count: 2067
+# F1 score: 60.5, Em score: 39.6, total_count: 2067
 ```
-
-
 
 ## 推理
 
@@ -705,18 +747,18 @@ python run_mindformer.py \
 
 ```python
 # predict_custom.py 文件
-import os
 import argparse
-import numpy as np
-
 import mindspore as ms
-from mindspore.train import Model
+import numpy as np
+import os
 from mindspore import load_checkpoint, load_param_into_net
+from mindspore.train import Model
 
-from mindformers import MindformerConfig,LlamaConfig,TransformerOpParallelConfig, AutoTokenizer, AutoModel
+from mindformers import MindformerConfig, LlamaConfig, TransformerOpParallelConfig, AutoTokenizer, LlamaForCausalLM
 from mindformers import init_context, ContextConfig, ParallelContextConfig
-from mindformers.trainer.utils import get_last_checkpoint
 from mindformers.tools.utils import str2bool
+from mindformers.trainer.utils import get_last_checkpoint
+
 
 def main(args):
     """main function."""
@@ -727,12 +769,12 @@ def main(args):
 
     # set model config
     config = MindFormerConfig(args.yaml_file)
-    
+
     # 初始化环境
     init_context(use_parallel=config.use_parallel,
                  context_config=config.context,
                  parallel_config=config.parallel)
-    
+
     model_config = LlamaConfig(**config.model.model_config)
     model_config.parallel_config = TransformerOpParallelConfig(**config.parallel_config)
     model_config.batch_size = len(inputs)
@@ -740,19 +782,19 @@ def main(args):
     model_config.do_sample = args.do_sample
     model_config.top_k = args.top_k
     model_config.seq_length = args.seq_length
-    if args.transformed_checkpoint_path and not config.use_parallel:
-        model_config.checkpoint_name_or_path = args.transformed_checkpoint_path
+    if args.checkpoint_path and not config.use_parallel:
+        model_config.checkpoint_name_or_path = args.checkpoint_path
     print(f"config is: {model_config}")
 
     # build tokenizer
     tokenizer = AutoTokenizer.from_pretrained(args.model_type)
     # build model from config
-    model = AutoModel.from_config(model_config)
+    model = LlamaForCalsualLM(model_config)
 
     # if use parallel, load distributed checkpoints
     if config.use_parallel:
         # find the sharded ckpt path for this rank
-        ckpt_path = os.path.join(args.transformed_checkpoint_path, "rank_{}".format(os.getenv("RANK_ID", "0")))
+        ckpt_path = os.path.join(args.checkpoint_path, "rank_{}".format(os.getenv("RANK_ID", "0")))
         ckpt_path = get_last_checkpoint(ckpt_path)
         print("ckpt path: %s", str(ckpt_path))
 
@@ -779,7 +821,7 @@ if __name__ == "__main__":
                         help='which model to use.')
     parser.add_argument('--device_id', default=0, type=int,
                         help='set device id.')
-    parser.add_argument('--transformed_checkpoint_path', default='', type=str,
+    parser.add_argument('--checkpoint_path', default='', type=str,
                         help='set checkpoint path.')
     parser.add_argument('--use_past', default=True, type=str2bool,
                         help='whether use past.')
@@ -788,7 +830,6 @@ if __name__ == "__main__":
     parser.add_argument('--seq_length', default=512, type=int,
                         help='predict max length')
     args = parser.parse_args()
-
     main(args)
 ```
 
@@ -810,20 +851,29 @@ do
     export RANK_ID=$i
     export DEVICE_ID=$((i-START_RANK))
     echo "Start distribute running for rank $RANK_ID, device $DEVICE_ID"
-    python3 ./predict_custom.py --transformed_checkpoint_path $CHECKPOINT_PATH --yaml_file ${YAML_FILE} &> minformers_$RANK_ID.log &
+    python3 ./predict_custom.py --checkpoint_path $CHECKPOINT_PATH --yaml_file ${YAML_FILE} &> minformers_$RANK_ID.log &
 done
 ```
 
 #### 单卡generate推理
 
+1. 修改yaml文件
+
+```python
+use_parallel: False
+```
+
+2. 执行以下命令
+
 ```bash
-python predict_custom.py --yaml_file path/to/config_yaml
+# 以llama2-7b 单卡推理为例,checkpoint_path为权重文件，后缀为.ckpt
+python predict_custom.py --yaml_file path/to/config_yaml --checkpoint_path path/to/checkpoint.ckpt --model_type llama2_7b
 ```
 
 #### 多卡generate推理
 
 ```bash
-# 以llama2-7b 2卡推理为例,此时的checkpoint必须是已经切分好的ckpt
+# 以llama2-7b 2卡推理为例,此时的checkpoint必须是已经切分好的ckpt,shard_checkpoint_dir文件夹下为rank_{}的文件夹。
 bash run_predict.sh RANK_TABLE_FILE path/to/shard_checkpoint_dir path/to/config_yaml 2 0
 ```
 
@@ -850,18 +900,18 @@ micro_batch_interleave_num: 1
 
 ```python
 # predict_custom.py 文件
-import os
 import argparse
-import numpy as np
-
 import mindspore as ms
-from mindspore.train import Model
+import numpy as np
+import os
 from mindspore import load_checkpoint, load_param_into_net
+from mindspore.train import Model
 
 from mindformers import AutoConfig, AutoTokenizer, AutoModel, pipeline
 from mindformers import init_context, ContextConfig, ParallelContextConfig
-from mindformers.trainer.utils import get_last_checkpoint
 from mindformers.tools.utils import str2bool
+from mindformers.trainer.utils import get_last_checkpoint
+
 
 def main(args):
     """main function."""
@@ -872,12 +922,12 @@ def main(args):
 
     # set model config
     config = MindFormerConfig(args.yaml_file)
-    
+
     # 初始化环境
     init_context(use_parallel=config.use_parallel,
                  context_config=config.context,
                  parallel_config=config.parallel)
-    
+
     model_config = LlamaConfig(**config.model.model_config)
     model_config.parallel_config = TransformerOpParallelConfig(**config.parallel_config)
     model_config.batch_size = len(inputs)
@@ -885,8 +935,8 @@ def main(args):
     model_config.do_sample = args.do_sample
     model_config.top_k = args.top_k
     model_config.seq_length = args.seq_length
-    if args.transformed_checkpoint_path and not config.use_parallel:
-        model_config.checkpoint_name_or_path = args.transformed_checkpoint_path
+    if args.checkpoint_path and not config.use_parallel:
+        model_config.checkpoint_name_or_path = args.checkpoint_path
     print(f"config is: {model_config}")
 
     # build tokenizer
@@ -897,7 +947,7 @@ def main(args):
     # if use parallel, load distributed checkpoints
     if config.use_parallel:
         # find the sharded ckpt path for this rank
-        ckpt_path = os.path.join(args.transformed_checkpoint_path, "rank_{}".format(os.getenv("RANK_ID", "0")))
+        ckpt_path = os.path.join(args.checkpoint_path, "rank_{}".format(os.getenv("RANK_ID", "0")))
         ckpt_path = get_last_checkpoint(ckpt_path)
         print("ckpt path: %s", str(ckpt_path))
 
@@ -924,7 +974,7 @@ if __name__ == "__main__":
                         help='which model to use.')
     parser.add_argument('--device_id', default=0, type=int,
                         help='set device id.')
-    parser.add_argument('--transformed_checkpoint_path', default='', type=str,
+    parser.add_argument('--checkpoint_path', default='', type=str,
                         help='set checkpoint path.')
     parser.add_argument('--use_past', default=True, type=str2bool,
                         help='whether use past.')
@@ -933,7 +983,6 @@ if __name__ == "__main__":
     parser.add_argument('--seq_length', default=512, type=int,
                         help='predict max length')
     args = parser.parse_args()
-
     main(args)
 ```
 
@@ -1005,4 +1054,93 @@ max_new_tokens: 128      #设置最大生成长度
 # 以llama2-7b 2卡推理为例,参考案例三，使用完整权重推理2卡
 cd script
 bash run_distribute.sh rank_table_2.json configs/llama/run_llama_13b.yaml [0,2] predict "I love beijing, because"
+```
+
+## Mindspore-Lite 推理
+
+### 基本介绍
+
+　　MindFormers 定位打造训练->微调->部署的端到端大模型工具套件，为了更好性能地部署已经微调训练好的大模型，我们利用MindSpore打造的推理引擎 [MindSpore_lite](https://gitee.com/link?target=https%3A%2F%2Fwww.mindspore.cn%2Flite)，为用户提供了开箱即用的推理部署方案，为用户提供端到端的大模型解决方案，帮助用户使能大模型业务。
+
+　　Lite 推理大致分两步：权重转换导出 MindIR -> Lite 推理，接下来分别描述上述两个过程。
+
+### MindIR 导出
+
+  　　1. 以llama2_7b为例，修改模型相关的配置文件 configs/llama2/export_llama2_7b.yaml，其中需要关注这几项：
+
+```yaml
+# export
+infer:
+    prefill_model_path: "llama2_export/llama2_7b_prefill_seq512.mindir" # 保存mindir的位置
+    increment_model_path: "llama2_export/llama2_7b_inc_seq512.mindir"   # 保存mindir的位置
+    infer_seq_length: 512 # 需要保持跟 model-model_config-seq_length 一致
+
+# ==== model config ====
+model:
+  model_config:
+    seq_length: 512
+    checkpoint_name_or_path: "/path/to/your/*.ckpt"
+```
+
+2. 执行export.py，完成模型转换
+
+```bash
+python mindformers/tools/export.py --config_path configs/llama2/export_llama2_7b.yaml
+```
+
+### 执行推理
+
+1. 新建推理配置文件：lite.ini
+
+   910A配置如下：
+
+   ```ini
+   [ascend_context]
+   plugin_custom_ops=All
+   provider=ge
+   [ge_session_options]
+   ge.externalWeight=1
+   ge.exec.atomicCleanPolicy=1
+   ge.event=notify
+   ge.exec.staticMemoryPolicy=2
+   ge.exec.precision_mode=must_keep_origin_dtype
+   ```
+
+   910B配置如下：
+
+   ```ini
+   [ascend_context]
+   plugin_custom_ops=All
+   provider=ge
+   [ge_session_options]
+   ge.externalWeight=1
+   ge.exec.formatMode=1
+   ge.exec.atomicCleanPolicy=1
+   ge.event=notify
+   ge.exec.staticMemoryPolicy=2
+   ge.exec.precision_mode=must_keep_origin_dtype
+   ```
+
+2. 执行命令：
+
+```bash
+python run_infer_main.py --device_id 0 --model_name llama2 --prefill_model_path llama2_export/llama2_7b_prefill_seq512_graph.mindir --increment_model_path llama2_export/llama2_7b_inc_seq512_graph.mindir --config_path lite.ini --is_sample_acceleration False --seq_length 512 --add_special_tokens True：
+```
+
+　　等待模型载入、编译后，出现：
+
+```bash
+Please enter your predict data:
+```
+
+　　输入：
+
+```bash
+I love Beijing, because
+```
+
+　　输出：
+
+```bash
+I love Beijing, because it is a city that is constantly changing. I have been living here for years and I...
 ```
