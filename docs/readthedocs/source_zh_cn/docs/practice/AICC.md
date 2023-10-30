@@ -9,15 +9,15 @@ MindFormers套件当前具备AICC适配的特性，用户在ModelArts平台启�
 3. 训练后将训练输出整体回传指定文件夹
 4. 训练过程中，通过回调函数将训练输出回传至指定文件夹
 
-下面将提供在AICC上完成GPT2模型的训练样例，用户可以按照此样例学习MindFormers套件在ModelArts训练作业上的使用方式
+下面将提供在AICC上完成GPT2模型的训练样例，用户可以按照此样例学习MindFormers套件在ModelArts训练作业上的使用方式。
 
-使用前需对AICC的[AI开发平台ModelArts](https://support.huaweicloud.com/modelarts/index.html)，[对象存储服务 OBS](https://support.huaweicloud.com/obs/index.html)和[容器镜像服务 SWR](https://support.huaweicloud.com/swr/index.html)有初步的了解
+使用前需对AICC的[AI开发平台ModelArts](https://support.huaweicloud.com/modelarts/index.html)，[对象存储服务 OBS](https://support.huaweicloud.com/obs/index.html)和[容器镜像服务 SWR](https://support.huaweicloud.com/swr/index.html)有初步的了解。
 
 ## 准备工作
 
 ### 模型准备
 
-本案例使用MindFormers套件内的GPT2模型作为教程案例，请参照[GPT2](../model_cards/gpt2.md)进行模型代码和训练数据集的准备
+本案例使用MindFormers套件内的GPT2模型作为教程案例，请参照[GPT2](../model_cards/gpt2.md)进行模型代码和训练数据集的准备。
 
 - 模型代码
 
@@ -33,22 +33,25 @@ git clone https://gitee.com/mindspore/mindformers.git
 
 ### 云上对象存储准备
 
-准备好代码与数据集后，需将其上传至AICC的对象存储服务上
+准备好代码与数据集后，需将其上传至AICC的对象存储服务上。
 
 - 进入`存储`标题下的`对象存储服务`，将训练代码和数据等输入内容上传，并准备好用于回传训练输出的路径；
     ![obs_prepare](assets/obs_prepare.png)
-- 进入`对象存储服务`的任一文件夹，点击界面上方的复制按钮，即可获得当前文件夹的OBS路径映射
+
+  注意：通过网页页面上传有文件数量与大小限制，可以通过分批上传或使用[OBS Browser+软件](https://support.huaweicloud.com/browsertg-obs/obs_03_1003.html)上传以规避，详细请参考软件使用文档
+
+- 进入`对象存储服务`的任一文件夹，点击界面上方的复制按钮，即可获得当前文件夹的OBS路径映射，
     如：obs://huawei/xxx/mindformers
 
     ![obs_url_bt](assets/obs_url_bt.png)
 
 ### 镜像准备
 
-ModelArts上的所提供的预置训练镜像，通常MindSpore的版本较为老旧，不满足MindFormers套件的运行需求，所以通常需要自定义镜像，安装合适版本的MindSpore包以运行套件
+ModelArts上的所提供的预置训练镜像，通常MindSpore的版本较为老旧，不满足MindFormers套件的运行需求，所以通常需要自定义镜像，安装合适版本的MindSpore包以运行套件。
 
-我们在[镜像仓库网 (hqcases.com)](http://mirrors.cn-central-221.ovaijisuan.com/)上发布了一些经过验证的**标准镜像版本**，可以通过几行简单的docker命令的形式，直接使用验证过的标准镜像拉起MindFormers套件的训练任务，而无需进行较为繁琐的自定义镜像并上传的步骤
+我们在[镜像仓库网 (hqcases.com)](http://mirrors.cn-central-221.ovaijisuan.com/)上发布了一些经过验证的**标准镜像版本**，可以通过几行简单的docker命令的形式，直接使用验证过的标准镜像拉起MindFormers套件的训练任务，而无需进行较为繁琐的自定义镜像并上传的步骤。
 
-- 在镜像仓库网上找到当前版本的[MindFormers镜像](http://mirrors.cn-central-221.ovaijisuan.com/detail/78.html)，打开显示如下（截图部分仅供参考，具体镜像版本以链接为主）
+- 在镜像仓库网上找到当前版本的[MindFormers镜像](http://mirrors.cn-central-221.ovaijisuan.com/detail/110.html)，打开显示如下（截图部分仅供参考，具体镜像版本以链接为主）：
 
 ![aihub](assets/aihub.png)
 
@@ -59,20 +62,32 @@ ModelArts上的所提供的预置训练镜像，通常MindSpore的版本较为�
 - 镜像列表
 
 ```text
-1. swr.cn-central-221.ovaijisuan.com/mindformers/mindformers_dev_mindspore_1_10_1:mindformers_0.6.0dev_20230615_py39
+1. swr.cn-central-221.ovaijisuan.com/mindformers/mindformers0.8.0_mindspore2.2.0:aicc_20231025
 ```
 
 - 在一台准备好docker引擎的计算机上，root用户执行docker pull命令拉取该镜像
 
 ```bash
-docker pull swr.cn-central-221.ovaijisuan.com/mindformers/mindformers_dev_mindspore_1_10_1:mindformers_0.6.0dev_20230615_py39
+docker pull swr.cn-central-221.ovaijisuan.com/mindformers/mindformers0.8.0_mindspore2.2.0:aicc_20231025
+```
+
+如因网络环境等问题无法直接执行`docker pull`命令，可在另一台可执行该命令的机器上拉取镜像后，使用`docker save`命令将镜像打包为离线文件：
+
+```bash
+docker save {镜像ID} -o image.tar
+```
+
+而后可以将该离线文件传输至目标机器上，使用`docker load`命令加载镜像：
+
+```bash
+docker load -i image.tar
 ```
 
 - 进入`容器镜像服务`的控制台界面，找到`客户端上传`镜像按钮，将会提示如何上传上一步拉取的镜像
 
 ![mirrors_upload](assets/mirrors_upload.png)
 
-按照操作执行完后将会在该镜像列表中看到上传的镜像，并能够在ModelArts中选取
+按照操作执行完后将会在该镜像列表中看到上传的镜像，并能够在ModelArts中选取。
 
 ## 拉起训练流程
 
@@ -132,7 +147,7 @@ docker pull swr.cn-central-221.ovaijisuan.com/mindformers/mindformers_dev_mindsp
 
 ### 低参微调
 
-使用lora等算法进行低参微调时，与全参微调没有区别，需要把config指定为使用lora微调的config
+使用lora等算法进行低参微调时，与全参微调没有区别，需要把config指定为使用lora微调的config。
 
 - 训练输入：
     - `load_checkpoint`: 低参微调时，该路径与全参微调一致，需指定finetune使用的原始权重
