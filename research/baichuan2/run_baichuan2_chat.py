@@ -13,7 +13,7 @@
 # limitations under the License.
 # ============================================================================
 """Baichuan13b chat scripts."""
-
+import os
 import argparse
 
 import mindspore as ms
@@ -40,11 +40,14 @@ model_dict = {
 }
 
 def main(config='./',
+         use_parallel=None,
+         device_id=None,
          ckpt=None,
+         strategy=None,
          auto_trans_ckpt=None,
-         tokenizer_model=None,
-         max_new_tokens=2048,
-         use_past=None,
+         vocab_file=None,
+         max_new_tokens=512,
+         use_past=True,
          do_sample=True,
          top_k=3,
          top_p=0.85,
@@ -54,23 +57,40 @@ def main(config='./',
 
     config = MindFormerConfig(config)
 
-    if tokenizer_model is None:
-        tokenizer_model = config.processor.tokenizer.vocab_file
-    tokenizer = Baichuan2Tokenizer(vocab_file=tokenizer_model)
+    if use_parallel is not None:
+        config.use_parallel = use_parallel
+    if device_id is not None:
+        config.context.device_id = device_id
     if ckpt is not None:
-        config.load_checkpoint = ckpt
-        config.model.model_config.checkpoint_name_or_path = None
+        assert os.path.exists(ckpt), f"{ckpt} is not found!"
+        if os.path.isfile(ckpt):
+            config.load_checkpoint = None
+            config.model.model_config.checkpoint_name_or_path = ckpt
+        elif os.path.isdir(ckpt):
+            config.load_checkpoint = ckpt
+            config.model.model_config.checkpoint_name_or_path = None
+    if strategy is not None and os.path.exists(strategy):
+        config.src_strategy_path_or_dir = strategy
     if auto_trans_ckpt is not None:
         config.auto_trans_ckpt = auto_trans_ckpt
+    if vocab_file is None:
+        assert config.processor.tokenizer.vocab_file is not None, \
+               "vocab_file can't be None."
+        vocab_file = config.processor.tokenizer.vocab_file
     if use_past is not None:
         config.model.model_config.use_past = use_past
     build_context(config)
 
+    # init tokenizer
+    tokenizer = Baichuan2Tokenizer(vocab_file=vocab_file)
+
+    # init model
     model_config = LlamaConfig(**config.model.model_config)
     model_name = config.trainer.model_name
     network = model_dict[model_name](model_config)
     model = Model(network)
 
+    # load checkpoint
     if config.load_checkpoint:
         logger.info("------------Transform and Load checkpoint------------")
         if ms.context.get_auto_parallel_context('parallel_mode') in \
@@ -96,7 +116,7 @@ def main(config='./',
                                    repetition_penalty=repetition_penalty,
                                    do_sample=do_sample)
         response = tokenizer.decode(outputs[0][len(input_ids):], skip_speical_tokens=True)
-        print(response)
+        logger.info(response)
         messages.append({"role": "assistant", "content": response})
 
 
@@ -151,11 +171,17 @@ if __name__ == "__main__":
 
     parser.add_argument('--config', default="baichuan2/run_baichuan2_7b.yaml", type=str,
                         help='config of task')
-    parser.add_argument('--load_checkpoint', default="", type=str,
+    parser.add_argument('--use_parallel', default=None, type=str2bool,
+                        help='use parallel')
+    parser.add_argument('--device_id', default=None, type=int,
+                        help='device id')
+    parser.add_argument('--load_checkpoint', default=None, type=str,
                         help='checkpoint name or dir to load.')
-    parser.add_argument('--auto_trans_ckpt', default=False, type=str2bool,
+    parser.add_argument('--src_strategy', default=None, type=str,
+                        help='strategy of load_checkpoint')
+    parser.add_argument('--auto_trans_ckpt', default=None, type=str2bool,
                         help='auto trans ckpt')
-    parser.add_argument('--tokenizer_model', default="", type=str,
+    parser.add_argument('--vocab_file', default=None, type=str,
                         help='tokenizer model to load.')
     parser.add_argument('--max_new_tokens', default=512, type=int,
                         help='max new tokens will be generated.')
@@ -174,9 +200,12 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     main(config=args.config,
+         use_parallel=args.use_parallel,
+         device_id=args.device_id,
          ckpt=args.load_checkpoint,
+         strategy=args.src_strategy,
          auto_trans_ckpt=args.auto_trans_ckpt,
-         tokenizer_model=args.tokenizer_model,
+         vocab_file=args.vocab_file,
          max_new_tokens=args.max_new_tokens,
          use_past=args.use_past,
          do_sample=args.do_sample,

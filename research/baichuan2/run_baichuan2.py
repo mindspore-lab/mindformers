@@ -22,6 +22,7 @@ import argparse
 from mindformers import Trainer, MindFormerConfig
 from mindformers import init_context, ContextConfig, ParallelContextConfig
 from mindformers.tools.utils import check_in_modelarts, set_remote_save_url, str2bool
+from mindformers.tools.logger import logger
 from mindformers.tools.cloud_adapter import cloud_monitor
 from mindformers.core.context import build_context, build_profile_cb
 from mindformers.tools import get_output_root_path
@@ -81,7 +82,9 @@ def main(task='text_generation',
          seq_length=None,
          mode=None,
          use_parallel=None,
+         device_id=None,
          ckpt=None,
+         strategy=None,
          auto_trans_ckpt=None,
          resume=False,
          train_dataset='',
@@ -89,7 +92,6 @@ def main(task='text_generation',
          predict_data='',
          max_length=512,
          remote_save_url=None,
-         device_id=None,
          vocab_file=None,
          data_parallel=None,
          model_parallel=None,
@@ -97,10 +99,12 @@ def main(task='text_generation',
          micro_batch_num=None):
     """main function."""
 
-    # 环境初始化
     assert os.path.exists(config) and config.endswith(('.yaml', '.yml'))
 
+    # init config
     config = MindFormerConfig(os.path.realpath(config))
+    if seq_length is not None:
+        config.model.model_config.seq_length = seq_length
     if mode is not None:
         config.context.mode = mode
         if mode:
@@ -109,21 +113,10 @@ def main(task='text_generation',
         config.use_parallel = use_parallel
     if device_id is not None:
         config.context.device_id = device_id
-    build_context(config)
-    # define callback and add profile callback
-    if config.profile:
-        config.profile_cb = build_profile_cb(config)
-
-    if check_in_modelarts() and remote_save_url:
-        print("remote_save_url is %s, the output file will be uploaded to here.", remote_save_url)
-        set_remote_save_url(remote_save_url)
-        config.remote_save_url = remote_save_url
-
-    if run_mode in ['train', 'finetune']:
-        config.model.model_config.use_past = False
-
-    if seq_length is not None:
-        config.model.model_config.seq_length = seq_length
+    if ckpt is None:
+        ckpt = config.load_checkpoint
+    if strategy is not None and os.path.exists(strategy):
+        config.src_strategy_path_or_dir = strategy
     if auto_trans_ckpt is not None:
         config.auto_trans_ckpt = auto_trans_ckpt
         if config.auto_trans_ckpt:
@@ -139,7 +132,22 @@ def main(task='text_generation',
     if micro_batch_num is not None:
         config.parallel_config.micro_batch_num = micro_batch_num
 
-    # 定义任务，预先准备好相应数据集
+    # init context
+    build_context(config)
+
+    # define callback and add profile callback
+    if config.profile:
+        config.profile_cb = build_profile_cb(config)
+
+    if check_in_modelarts() and remote_save_url:
+        logger.info("remote_save_url is %s, the output file will be uploaded to here.", remote_save_url)
+        set_remote_save_url(remote_save_url)
+        config.remote_save_url = remote_save_url
+
+    if run_mode in ['train', 'finetune']:
+        config.model.model_config.use_past = False
+
+    # start task
     if run_mode == 'train':
         trainer = Trainer(args=config,
                           task=task,
@@ -162,7 +170,7 @@ def main(task='text_generation',
                                  predict_checkpoint=ckpt,
                                  auto_trans_ckpt=auto_trans_ckpt,
                                  max_length=int(max_length))
-        print(result)
+        logger.info(result)
 
 
 if __name__ == "__main__":
@@ -175,15 +183,19 @@ if __name__ == "__main__":
                         help='set run mode for model.')
     parser.add_argument('--seq_length', default=None, type=int,
                         help='seq_length')
-    parser.add_argument('--use_parallel', default=False, type=str2bool,
+    parser.add_argument('--use_parallel', default=None, type=str2bool,
                         help='open parallel for model.')
+    parser.add_argument('--device_id', default=None, type=int,
+                        help='device id set when run on single card. Default: 0')
     parser.add_argument('--mode', default=0, type=int,
                         help='0--Graph Mode; 1--Pynative Mode')
-    parser.add_argument('--load_checkpoint', default="", type=str,
+    parser.add_argument('--load_checkpoint', default=None, type=str,
                         help='checkpoint name or dir to load.')
+    parser.add_argument('--src_strategy', default=None, type=str,
+                        help='strategy of load_checkpoint')
     parser.add_argument('--auto_trans_ckpt', default=None, type=str2bool,
                         help='whether to transform checkpoint to the checkpoint matching current distribute strategy.')
-    parser.add_argument('--resume', default=False, type=str2bool,
+    parser.add_argument('--resume', default=None, type=str2bool,
                         help='whether resume training.')
     parser.add_argument('--train_dataset', default='', type=str,
                         help='set train dataset.')
@@ -191,12 +203,10 @@ if __name__ == "__main__":
                         help='set eval dataset.')
     parser.add_argument('--predict_data', default='', type=str,
                         help='input predict data.')
-    parser.add_argument('--predict_length', default=128, type=int,
+    parser.add_argument('--max_length', default=512, type=int,
                         help='max length for predict output.')
-    parser.add_argument('--remote_save_url', default="", type=str,
+    parser.add_argument('--remote_save_url', default='', type=str,
                         help='whether use optimizer parallel. Default: None')
-    parser.add_argument('--device_id', default=0, type=int,
-                        help='device id set when run on single card. Default: 0')
     parser.add_argument('--vocab_file', default=None, type=str,
                         help='tokenizer model')
     parser.add_argument('--dp', default=None, type=int,
@@ -215,15 +225,16 @@ if __name__ == "__main__":
          seq_length=args.seq_length,
          mode=args.mode,
          use_parallel=args.use_parallel,
+         device_id=args.device_id,
          ckpt=args.load_checkpoint,
+         strategy=args.src_strategy,
          auto_trans_ckpt=args.auto_trans_ckpt,
          resume=args.resume,
          train_dataset=args.train_dataset,
          eval_dataset=args.eval_dataset,
          predict_data=args.predict_data,
-         max_length=args.predict_length,
+         max_length=args.max_length,
          remote_save_url=args.remote_save_url,
-         device_id=args.device_id,
          vocab_file=args.vocab_file,
          data_parallel=args.dp,
          model_parallel=args.mp,
