@@ -103,8 +103,9 @@ configs统一在run_xxx.yaml中，排序按照修改频率的顺序和一般的�
         - num_parallel_workers: 读取数据的工作线程数
         - shuffle: 是否混洗数据集
     - transforms: 数据增强操作
-    - tokenizer: 分词器配置
+    - tokenizer: 训练数据预处理使用的分词器
         - type: 分词器类
+        - vocab_file: 词表文件路径
         - max_length: 分词器输出的最大长度
     - mixup_op:  图像随机混合，可以参考[mindspore.dataset.vision.MixUp](https://www.mindspore.cn/docs/zh-CN/r2.0/api_python/dataset_vision/mindspore.dataset.vision.MixUp.html)
     - input_columns: 输入数据列
@@ -166,5 +167,6 @@ configs统一在run_xxx.yaml中，排序按照修改频率的顺序和一般的�
     - type: 数据处理类
     - image_processor: 图像处理配置
         - type: 图像处理类
-    - tokenizer: 分词器配置
+    - tokenizer: 文本生成所使用的分词器配置
         - type: 分词器类
+        - vocab_file：词表文件路径，默认会自动下载至默认路径下。
