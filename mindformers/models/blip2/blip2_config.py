@@ -96,6 +96,7 @@ class Blip2Config(BaseConfig):
                  text_config: Optional[LlamaConfig] = None,
                  parallel_config: TransformerOpParallelConfig = default_parallel_config,
                  is_training: bool = True,
+                 micro_batch_interleave_num=1,
                  **kwargs):
         super(Blip2Config, self).__init__(**kwargs)
         self.model_type = model_type
@@ -113,11 +114,22 @@ class Blip2Config(BaseConfig):
         self.softmax_compute_type = mstype.float32 if softmax_compute_type == "float32" else mstype.float16
         self.dtype = mstype.float32 if dtype == "float32" else mstype.float16
         self.is_training = is_training
+        self.micro_batch_interleave_num = micro_batch_interleave_num
 
         self.vision_config = vision_config if vision_config is not None else ViTConfig()
         self.qformer_config = QFormerConfig(**qformer_config) if qformer_config is not None else QFormerConfig()
 
         self.text_config = text_config
+
+        # first stage is without text config
+        if self.text_config is not None:
+            self.text_config.parallel_config = parallel_config
+            self.text_config.compute_dtype = self.compute_dtype
+            self.text_config.layernorm_compute_type = self.layernorm_compute_type
+            self.text_config.softmax_compute_type = self.softmax_compute_type
+            self.text_config.dtype = self.dtype
+
+        parallel_config.pipeline_stage = 1
 
         # pass configs to submodule config
         self.qformer_config.encoder_width = self.vision_config.embed_dim
@@ -132,11 +144,3 @@ class Blip2Config(BaseConfig):
         self.vision_config.layernorm_compute_type = self.layernorm_compute_type
         self.vision_config.softmax_compute_type = self.softmax_compute_type
         self.vision_config.dtype = self.dtype
-
-        # first stage is without text config
-        if self.text_config is not None:
-            self.text_config.parallel_config = parallel_config
-            self.text_config.compute_dtype = self.compute_dtype
-            self.text_config.layernorm_compute_type = self.layernorm_compute_type
-            self.text_config.softmax_compute_type = self.softmax_compute_type
-            self.text_config.dtype = self.dtype

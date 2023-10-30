@@ -1,6 +1,6 @@
 seed: 42
-run_mode: 'finetune'
-output_dir: './output'
+run_mode: 'train'
+output_dir: './output'  # 当前不支持自定义修改，请勿修改该默认值
 load_checkpoint: 'blip2_stage1_pretrained'
 src_strategy_path_or_dir: ''
 auto_trans_ckpt: False  # If true, auto transform load_checkpoint to load in distributed model
@@ -14,6 +14,7 @@ context:
   enable_graph_kernel: False
   graph_kernel_flags: str = "--disable_expand_ops=Softmax,Dropout " \
                               "--enable_parallel_fusion=true --reduce_fuse_depth=8 --enable_auto_tensor_inplace=true"
+  max_device_memory: "30GB"
   max_call_depth: 10000
   save_graphs: False
   save_graphs_path: "./graph"
@@ -24,7 +25,7 @@ remote_save_url: "Please input obs url on AICC platform."
 
 # runner
 runner_config:
-  epochs: 10
+  epochs: 1
   batch_size: &batch_size 24
   sink_size: 2
   image_size: 224
@@ -51,7 +52,7 @@ parallel_config:
   micro_batch_num: 1
   vocab_emb_dp: True
   gradient_aggregation_group: 4
-micro_batch_interleave_num: 1
+micro_batch_interleave_num: &micro_batch_interleave_num 1
 
 # recompute
 recompute_config:
@@ -82,13 +83,11 @@ trainer:
 train_dataset: &train_dataset
   data_loader:
     type: MultiImgCapDataLoader
-    dataset_dir: "/data"
+    dataset_dir: "/disk1/data"
     annotation_files: [
-      "vg/annotations/vg_caption.json",
       "coco2014/coco/annotations/coco_karpathy_train.json"
     ]
     image_dirs: [
-      "vg/images",
       "coco2014/coco/images"
     ]
     stage: "train"
@@ -144,6 +143,7 @@ model:
   model_config:
     type: Blip2Config
     batch_size: *batch_size
+    micro_batch_interleave_num: *micro_batch_interleave_num
     freeze_vision: True
     freeze_text: True
     max_txt_len: 32
@@ -205,7 +205,7 @@ model:
       do_sample: False
       checkpoint_name_or_path: "llama_7b"
   arch:
-    type: Blip2Llama
+    type: Blip2Llm
 
 # lr schedule
 lr_schedule:
@@ -233,7 +233,7 @@ optimizer:
 callbacks:
   - type: MFLossMonitor
   - type: CheckpointMointor
-    prefix: "blip2_stage2_vig_g_llama_7b"
+    prefix: "20231121_blip2_stage2_vig_g_llama_7b"
     save_checkpoint_steps: 5000
     integrated_save: True
     async_save: False

@@ -22,16 +22,17 @@ BLIP-2: 全名`Bootstrapping Language-Image Pre-training - 2`模型是2023 年 S
 
 - 基于910A
 
-|                                                    config                                                             |             task             |              Datasets                   |  metric   |           score            | [train performance](#预训练)| [predict performance](#基于pipeline的推理) |
-| :-------------------------------------------------------------------------------------------------------------------: | :--------------------------: |:---------------------------------------:|:---------:|:--------------------------:|:--------------------------:|:-------------------------------------:|
-|   [blip2_stage1_vit_g](https://gitee.com/mindspore/mindformers/blob/dev/configs/blip2/run_blip2_stage1_vit_g_qformer_pretrain.yaml)                                                     |   BLIP-2 stage1 pretrain     | [train]: coco  [eval]: flickr30k (test) | itm_score | txt_r1: 89.8 img_r1: 77.08 |      49.97 samples/s       |                   -                   |
-|   [blip2_stage1_classification](https://gitee.com/mindspore/mindformers/blob/dev/configs/blip2/run_blip2_stage1_vit_g_zero_shot_image_classification_cifar100.yaml)    |   image_classification       |            [eval]: cifar100             | accuracy  |             -              |             -              |             5.61 iters/s              |
-|   [itt_blip2_stage2_vit_g_llama_7b](https://gitee.com/mindspore/mindformers/blob/dev/configs/blip2/run_blip2_stage2_vit_g_llama_7b_image_to_text_generation.yaml)      |   image_to_text_generation   |                    -                    |     -     |             -              |             -              |      22 tokens/s(use past True)       |
+|                                                                              config                                                                               |                 task                 |                Datasets                 |  metric   |           score            | [train performance](#预训练) | [predict performance](#基于pipeline的推理) |
+|:-----------------------------------------------------------------------------------------------------------------------------------------------------------------:|:------------------------------------:|:---------------------------------------:|:---------:|:--------------------------:|:-------------------------:|:-------------------------------------:|
+|                 [blip2_stage1_vit_g](https://gitee.com/mindspore/mindformers/blob/dev/configs/blip2/run_blip2_stage1_vit_g_qformer_pretrain.yaml)                 |        BLIP-2 stage1 pretrain        | [train]: coco  [eval]: flickr30k (test) | itm_score | txt_r1: 89.8 img_r1: 77.08 |      49.97 samples/s      |                   -                   |
+| [blip2_stage1_classification](https://gitee.com/mindspore/mindformers/blob/dev/configs/blip2/run_blip2_stage1_vit_g_zero_shot_image_classification_cifar100.yaml) |         image_classification         |            [eval]: cifar100             | accuracy  |             -              |             -             |             5.61 iters/s              |
+|                [blip2_stage2_vit_g_llama_7b](https://gitee.com/mindspore/mindformers/blob/dev/configs/blip2/run_blip2_stage2_vit_g_llama_7b.yaml)                 | BLIP-2 stage2 pretrain with llama_7b |            [train]: coco2014            |     -     |             -              |       37 samples/s        |                   -                   |
+|  [itt_blip2_stage2_vit_g_llama_7b](https://gitee.com/mindspore/mindformers/blob/dev/configs/blip2/run_blip2_stage2_vit_g_llama_7b_image_to_text_generation.yaml)  |       image_to_text_generation       |                    -                    |     -     |             -              |             -             |      22 tokens/s(use past True)       |
 
 ## 仓库介绍
 
-`BLIP-2` 基于 `mindformers` 实现，目前支持一阶段的训练，评估，推理以及二阶段的推理（语言模型包含Llama7b及Baichuan7b）。 在二阶段使用`baichuan_7b`作为语言模型时进行推理时，需要自行在配置文件`configs/blip2/run_blip2_stage2_vit_g_baichuan_7b_image_to_text_generation.yaml`中
-配置对应的baichuan-7b权重文件及词表文件，如何配置可参考上文中关键配置项说明章节；权重文件和词表文件的获取及转换参考[baichuan_7b](https://gitee.com/mindspore/mindformers/blob/dev/research/baichuan/baichuan.md)，未配置词表文件会造成`AutoProcessor`功能报错。
+`BLIP-2` 基于 `mindformers` 实现，目前支持一阶段的训练，评估，推理以及二阶段的训练，推理（语言模型包含Llama7b及Baichuan7b）。 在二阶段使用`baichuan_7b`作为语言模型时进行训练/推理时，需要自行在配置文件`configs/blip2/run_blip2_stage2_vit_g_baichuan_7b_image_to_text_generation.yaml`中
+配置对应的baichuan-7b权重文件及词表文件，如何配置可参考上文中关键配置项说明章节；权重文件和词表文件的获取及转换参考[baichuan_7b](https://gitee.com/mindspore/mindformers/blob/dev/research/baichuan/baichuan.md).
 
 本实现主要涉及的文件有：
 
@@ -44,10 +45,12 @@ BLIP-2: 全名`Bootstrapping Language-Image Pre-training - 2`模型是2023 年 S
         ├── blip2.py                  # 模型基础类实现
         ├── qformer.py                # QFormer实现
         ├── blip2_qformer.py          # BLIP-2一阶段QFormer实现
+        ├── blip2_vit.py              # BLIP-2使用的vit模型实现
         ├── blip2_llama.py            # BLIP-2二阶段接入Llama模型实现
+        ├── blip2_llm.py              # BLIP-2二阶段训练及推理类
         ├── qformer_config.py         # QFormer配置项
         ├── blip2_config.py           # BLIP-2配置项，包含QFormer配置项
-        ├── blip2_processor.py        # Model预处理
+        └── blip2_processor.py        # Model预处理
     ```
 
 2. 模型配置：`configs/blip2`
@@ -401,6 +404,45 @@ print(predict_result)
 # [[{'score': 0.99999976, 'label': 'sunflower'}]]
 ```
 
+- `BLIP-2`二阶段训练
+
+```python
+import mindspore
+from mindformers.trainer import Trainer
+
+# 指定图模式，指定使用训练卡id
+mindspore.set_context(mode=0, device_id=0)
+
+# 初始化图像-文本数据集配置
+data_loader = dict(
+    type = 'MultiImgCapDataLoader',
+    dataset_dir = "/data",
+    annotation_files = [
+      "coco2014/coco/annotations/coco_karpathy_train.json"
+    ],
+    image_dirs = [
+      "coco2014/coco/images"
+    ],
+    stage = "train",
+    column_names = ["image", "text"],
+    shuffle = True,
+)
+
+# 通过修改args参数间接修改配置文件中的dataset设置，而且不改变transform过程
+dataset_config = dict(data_loader=data_loader)
+train_dataset_task = dict(dataset_config=dataset_config)
+args = dict(train_dataset_task=train_dataset_task,
+           train_dataset=dataset_config)
+
+# BLIP-2二阶段初始化预训练任务(使用llama_7b作为语言模型)
+trainer = Trainer(task='contrastive_language_image_pretrain',
+    model='blip2_stage2_vit_g_llama_7b',
+    args=args)
+
+# 开启预训练
+trainer.train()
+```
+
 - `BLIP-2`二阶段推理
 
 ```python
@@ -516,33 +558,47 @@ print(predict_result)
 
 #### 单卡训练
 
-- python启动训练`BLIP-2`一阶段
+- python启动训练`BLIP-2`
 
 ```bash
+# 一阶段训练
 python run_mindformer.py --config configs/blip2/run_blip2_stage1_vit_g_qformer_pretrain.yaml --run_mode train
+
+# 二阶段训练
+python run_mindformer.py --config configs/blip2/run_blip2_stage2_vit_g_llama_7b.yaml --run_mode train
 ```
 
-- bash启动训练`BLIP-2`一阶段
+- bash启动训练`BLIP-2`
 
 ```bash
 cd scripts
+
+# 一阶段训练
 bash run_standalone.sh --config configs/blip2/run_blip2_stage1_vit_g_qformer_pretrain.yaml [DEVICE_ID] train
+
+# 二阶段训练
+bash run_standalone.sh --config configs/blip2/run_blip2_stage2_vit_g_llama_7b.yaml [DEVICE_ID] train
 ```
 
 #### 多卡训练
 
 多卡运行需要RANK_FILE_TABLE，请参考前期准备-[生成RANK_TABLE_FILE](#生成rank_table_file多卡运行必须环节)
 
-- 单机多卡训练`BLIP-2`一阶段
+- 单机多卡训练`BLIP-2`
 
 ```bash
 cd scripts
+
+# 一阶段训练
 bash run_distribute.sh RANK_TABLE_FILE --config configs/blip2/run_blip2_stage1_vit_g_qformer_pretrain.yaml [0,8] train 8
+
+# 二阶段训练
+bash run_distribute.sh RANK_TABLE_FILE --config configs/blip2/run_blip2_stage2_vit_g_llama_7b.yaml [0,8] train 8
 ```
 
 多机多卡运行需要合并不同机器的RANK_FILE_TABLE，参考前期准备-[多机RANK_TABLE_FILE合并](#多机rank_table_file合并多机多卡必备环节)
 
-- 多机多卡训练`BLIP-2`一阶段
+- 多机多卡训练`BLIP-2`
 
 在每台机器上启动`bash run_distribute.sh`。
 

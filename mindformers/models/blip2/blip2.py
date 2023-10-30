@@ -15,35 +15,19 @@
 # https://github.com/salesforce/LAVIS/tree/main/lavis/models/blip2_models
 # ============================================================================
 """
-BLIP2 Base Model, contains Blip2Base, ViTModelForBlip2,
-as well as itm computing procedures.
+BLIP2 Base Model
 """
 import mindspore as ms
-import mindspore.common.dtype as mstype
 import mindspore.nn as nn
 from mindspore.common.initializer import initializer, Normal
-from mindspore.ops import operations as P
 
 from mindformers.mindformer_book import MindFormerBook
 from mindformers.models.base_model import BaseModel
+from mindformers.models.blip2.blip2_llama import LlamaForBlip2
+from mindformers.models.blip2.blip2_vit import ViTModelForBlip2
 from mindformers.models.blip2.qformer import BertLMHeadModel
-from mindformers.models.vit.vit import ViTModel, ViTConfig
+from mindformers.models.llama import LlamaConfig
 from mindformers.modules.layers import LayerNorm
-
-
-class ViTModelForBlip2(ViTModel):
-    """
-    ViTModel For Blip2 Models, loading a pretrained weight.
-    forward will return the penultimate output.
-    """
-    _support_list = MindFormerBook.get_config_support_list()['vit']
-
-    def __init__(self, config: ViTConfig):
-        super(ViTModelForBlip2, self).__init__(config)
-        self.load_checkpoint(config)
-
-    def construct(self, image):
-        return self.construct_without_pool(image)
 
 
 class Blip2Base(BaseModel):
@@ -97,27 +81,24 @@ class Blip2Base(BaseModel):
         ln_vision = LayerNorm(visual_encoder.config.embed_dim)
         return visual_encoder, ln_vision
 
+    def init_llm(self):
+        """"
+        init llm model for blip2 model
 
-class ImageTextEmbeddingConcat(nn.Cell):
-    """
-    Layer to concat image embedding and text embedding
-    """
-    def __init__(self, pad_token_id):
-        super().__init__()
-        self.concat_2d = P.Concat(axis=1)
-        self.concat_3d = P.Concat(axis=1)
-        self.not_equal = P.NotEqual()
-        self.ones = P.Ones()
-        self.cast = P.Cast()
+        Raises:
+            ValueError: text config is wrong
 
-        self.pad_token_id = pad_token_id
+        Returns:
+            llm model
 
-    def construct(self, image_embeddings: ms.Tensor, text_embeddings: ms.Tensor, text_input_ids: ms.Tensor):
-        text_embeddings = self.cast(text_embeddings, mstype.float32)
-        text_embeddings_atts = self.cast(self.not_equal(text_input_ids, self.pad_token_id), mstype.float32)
+        """
+        llm_config = self.config.text_config
+        if not llm_config:
+            raise ValueError("llm configuration is wrong. \
+                        please check 'text_config' is set in Blip2Config")
 
-        image_embeddings_atts = self.ones(image_embeddings.shape[:-1], mstype.float32)
-
-        concat_embeds = self.concat_3d([image_embeddings, text_embeddings])
-        concat_attention_mask = self.concat_2d([image_embeddings_atts, text_embeddings_atts])
-        return concat_embeds, concat_attention_mask
+        if isinstance(llm_config, LlamaConfig):
+            llm_model = LlamaForBlip2(llm_config)
+        else:
+            raise ValueError("the llama-arch is support by the blip2")
+        return llm_model
