@@ -32,7 +32,7 @@ from .base_config import BaseConfig
 from ..tools.register import MindFormerConfig
 from ..tools.download_tools import download_with_progress_bar
 from ..tools.logger import logger
-from ..tools.utils import try_sync_file
+from ..tools.utils import try_sync_file, replace_tk_to_mindpet
 
 
 class BaseModel(nn.Cell, GeneratorMixin):
@@ -73,13 +73,6 @@ class BaseModel(nn.Cell, GeneratorMixin):
             if os.path.exists(checkpoint_name_or_path):
                 param = load_checkpoint(checkpoint_name_or_path)
                 ckpt_file = checkpoint_name_or_path
-
-                try:
-                    load_param_into_net(self, param)
-                    logger.info("weights in %s are loaded", ckpt_file)
-                except RuntimeError:
-                    logger.error("the given config and weights in %s are"
-                                 " mismatched, and weights load failed", ckpt_file)
             elif checkpoint_name_or_path not in self._support_list:
                 raise ValueError(f"{checkpoint_name_or_path} is not a supported default model"
                                  f" or a valid path to checkpoint,"
@@ -116,12 +109,14 @@ class BaseModel(nn.Cell, GeneratorMixin):
                 self.default_checkpoint_download_path = ckpt_file
                 logger.info("start to read the ckpt file: %s", os.path.getsize(ckpt_file))
                 param = load_checkpoint(ckpt_file)
-                try:
-                    load_param_into_net(self, param)
-                    logger.info("weights in %s are loaded", ckpt_file)
-                except RuntimeError:
-                    logger.error("the given config and weights in %s are"
-                                 " mismatched, and weights load failed", ckpt_file)
+
+            param = replace_tk_to_mindpet(param)
+            try:
+                load_param_into_net(self, param)
+                logger.info("weights in %s are loaded", ckpt_file)
+            except RuntimeError:
+                logger.error("the given config and weights in %s are"
+                             " mismatched, and weights load failed", ckpt_file)
         else:
             logger.info("model built, but weights is unloaded, since the config has no"
                         " checkpoint_name_or_path attribute or"
