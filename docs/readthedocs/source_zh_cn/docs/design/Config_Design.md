@@ -14,7 +14,7 @@ MindformerConfig是Mindformers整体的配置类，里面包含Mindformers中的
 - 如果使用run_mindformer.py方式启动，可以通过命令行参数修改配置中的参数。
 - 如果使用Trainer高阶接口方式启动，可以通过TrainArguments修改配置中的参数。
 
-MindformerConfig中包含的具体配置可以参考[Config.md](../../../../../configs/README.md)
+MindformerConfig中包含的具体配置可以参考[Config.md](https://gitee.com/mindspore/mindformers/blob/r0.7/configs/README.md)
 
 ## API组件注册机制
 
