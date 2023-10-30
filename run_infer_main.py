@@ -30,6 +30,7 @@ from mindformers.generation import TextIteratorStreamer
 from mindformers.tools.utils import str2bool
 from mindformers.inference import InferConfig, InferTask
 from research.baichuan2.baichuan2_tokenizer import Baichuan2Tokenizer
+from research.qwen.qwen_tokenizer import QwenTokenizer
 
 
 def pipeline_from_model_paths(args_, tokenizer):
@@ -97,6 +98,7 @@ LITE_SUPPORT_MODELS = {
     'glm': ChatGLMTokenizer,
     'glm2': ChatGLM2Tokenizer,
     'codegeex2': ChatGLM2Tokenizer,
+    'qwen': QwenTokenizer,
     'llama': LlamaTokenizer,
     'baichuan2': Baichuan2Tokenizer
 }
