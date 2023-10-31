@@ -311,6 +311,7 @@ class CausalLanguageModelingTrainer(BaseTrainer):
                 input_data_list = []
                 for line in fp:
                     line = line.strip('\n')
+                    line = line.replace(r"\n", "\n")
                     input_data_list.append(line)
             input_data = input_data_list
 
