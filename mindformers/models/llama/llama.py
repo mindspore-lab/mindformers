@@ -280,6 +280,7 @@ class LlamaForCausalLM(BaseModel):
         self.ignore_token_id = config.ignore_token_id
         self.pad_token_id = config.pad_token_id
         self.use_past = config.use_past
+        self.vocab_size = config.vocab_size
 
         self.reshape = P.Reshape()
         self.cast = P.Cast()
@@ -288,6 +289,7 @@ class LlamaForCausalLM(BaseModel):
         self.mul = P.Mul()
         self.add = P.Add()
         self.ones = P.Ones()
+        self.gather = P.Gather()
         self.model = LlamaModel(config=config)
         self.lm_head = Linear(in_channels=config.hidden_size,
                               out_channels=config.vocab_size,
@@ -305,6 +307,7 @@ class LlamaForCausalLM(BaseModel):
             self.not_equal.shard(((dp, 1), ()))
             self.mul.shard(((dp, 1), (dp, 1)))
             self.add.shard(((dp, 1), ()))
+            self.gather.shard(((dp, 1), (dp,)))
             if config.parallel_config.vocab_emb_dp:
                 self.lm_head.shard(strategy_matmul=((dp, 1), (1, 1)))
             else:
@@ -385,6 +388,8 @@ class LlamaForCausalLM(BaseModel):
             logits = self.reshape(logits, (bsz, seqlen, -1))
             # makes cast effective to avoid allgather issue in Mindspore1.10
             input_mask = self.add(input_mask, 1)
+            if (not self.use_past or self.is_first_iteration) and input_position is not None:
+                logits = self.gather(logits.view(-1, self.vocab_size), input_position, 0) # axis=0
             return logits, tokens, input_mask
 
         if logits.ndim > 2:
