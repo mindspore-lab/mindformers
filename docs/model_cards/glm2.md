@@ -350,6 +350,7 @@ trainer.evaluate()
 
 # 开启推理
 predict_result = trainer.predict(input_data="你好")
+print(predict_result)
 # [{'text_generation_text': ['你好，我是 ChatGLM2-6B， 一个人工智能助手。我背后使用的模型是 GLM2-6B， 是一种大型语言模型， 具有超过 2000 亿参数，支持多种任务。']}]
 ```
 
@@ -361,7 +362,8 @@ task_pipeline = pipeline(task='text_generation', model='glm2_6b', max_length=204
 task_pipeline('你好')
 # [{'text_generation_text': ['你好，我是 ChatGLM2-6B， 一个人工智能助手。我背后使用的模型是 GLM2-6B， 是一种大型语言模型， 具有超过 2000 亿参数，支持多种任务。']}]
 pipeline = TextGenerationPipeline(model='glm2_6b', max_length=2048)
-pipeline("你好")
+predict_result = pipeline("你好")
+print(predict_result)
 # [{'text_generation_text': ['你好，我是 ChatGLM2-6B， 一个人工智能助手。我背后使用的模型是 GLM2-6B， 是一种大型语言模型， 具有超过 2000 亿参数，支持多种任务。']}]
 ```
 
@@ -747,10 +749,15 @@ print(tokenizer.decode(outputs))
 
 ### 脚本启动
 
+> GLM2使用脚本进行推理时需要手动对输入问题添加prompt，prompt模板的形式为`[Round 1]\n\n问：{此处填写问题}\n\n答：`。
+>
+> 如果问题是`为什么说地球是独一无二的`，添加prompt后为`[Round 1]\n\n问：为什么说地球是独一无二的\n\n答：`。
+
 #### 单卡推理
 
 ```bash
-python run_mindformer.py --config path/to/config.yaml --run_mode predict --predict_data 你好
+python run_mindformer.py --config path/to/config.yaml --run_mode predict --predict_data "[Round 1]\n\n问：你好\n\n答："
+#  [{'text_generation_text': ['[Round 1]\n\n问：你好\n\n答： 你好👋！我是人工智能助手 ChatGLM2-6B，很高兴见到你，欢迎问我任何问题。']}]
 ```
 
 #### 多卡推理
@@ -761,7 +768,7 @@ python run_mindformer.py --config path/to/config.yaml --run_mode predict --predi
 
 ```shell
 cd scripts
-bash run_distribute.sh RANK_TABLE_FILE path/to/config.yaml [0,8] predict 8 你好
+bash run_distribute.sh RANK_TABLE_FILE path/to/config.yaml [0,8] predict 8 "[Round 1]\n\n问：你好\n\n答："
 ```
 
 多机多卡运行需要合并不同机器的RANK_FILE_TABLE，参考前期准备-[多机RANK_TABLE_FILE合并](#多机ranktablefile合并)
@@ -782,7 +789,7 @@ for idx in {1..11}
 do
     let rank_start=8*$idx
     let rank_end=$rank_start+8
-    ssh ${IP_LIST[$idx]} "cd scripts; bash run_distribute.sh $RANK_TABLE_FILE path/to/config.yaml [$rank_start,$rank_end] predict $device_num 你好"
+    ssh ${IP_LIST[$idx]} "cd scripts; bash run_distribute.sh $RANK_TABLE_FILE path/to/config.yaml [$rank_start,$rank_end] predict $device_num \"[Round 1]\n\n问：你好\n\n答：\""
 done
 ```
 
