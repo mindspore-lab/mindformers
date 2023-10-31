@@ -103,13 +103,13 @@ class KeyWordGenDataset(BaseDataset):
         logger.info("Start tokenize on the dataset using tokenizer: %s", tokenizer_config)
 
         if version == 2:
-            train_dataset_function = cls.train_dataset_functionv2
+            train_dataset_function = cls._train_dataset_functionv2
             train_output_columns = ["input_ids", "labels"]
-            eval_dataset_function = cls.eval_dataset_functionv2
+            eval_dataset_function = cls._eval_dataset_functionv2
         else:
-            train_dataset_function = cls.train_dataset_function
+            train_dataset_function = cls._train_dataset_function
             train_output_columns = ["input_ids", "labels", "position_ids", "attention_mask"]
-            eval_dataset_function = cls.eval_dataset_function
+            eval_dataset_function = cls._eval_dataset_function
         input_columns = ["prompt", "answer"]
         eval_output_columns = ["input_ids", "labels"]
 
@@ -180,7 +180,7 @@ class KeyWordGenDataset(BaseDataset):
         return dataset
 
     @classmethod
-    def train_dataset_function(cls, prompt, answer):
+    def _train_dataset_function(cls, prompt, answer):
         """generates train dataset"""
         prompt, answer = prompt.tolist(), answer.tolist()
         prompt_ids = cls.tokenizer.encode(text=prompt, add_special_tokens=False)
@@ -203,13 +203,13 @@ class KeyWordGenDataset(BaseDataset):
         if cls.ignore_pad_token_for_loss:
             label = [(l if l != cls.tokenizer.pad_token_id else -100) for l in label]
 
-        position_ids = cls.create_position_ids(np.array(input_ids))
-        attention_mask = cls.get_masks(np.array(input_ids))
+        position_ids = cls._create_position_ids(np.array(input_ids))
+        attention_mask = cls._get_masks(np.array(input_ids))
 
         return input_ids, label, position_ids, attention_mask
 
     @classmethod
-    def train_dataset_functionv2(cls, prompt, answer):
+    def _train_dataset_functionv2(cls, prompt, answer):
         """generates train dataset"""
         max_seq_length = cls.max_source_length + cls.max_target_length + 1
         prompt, answer = prompt.tolist(), answer.tolist()
@@ -231,7 +231,7 @@ class KeyWordGenDataset(BaseDataset):
         return input_ids, labels
 
     @classmethod
-    def eval_dataset_functionv2(cls, prompt, answer):
+    def _eval_dataset_functionv2(cls, prompt, answer):
         """generates eval dataset"""
         prompt, answer = prompt.tolist(), answer.tolist()
         history = None
@@ -254,7 +254,7 @@ class KeyWordGenDataset(BaseDataset):
         return input_ids, label
 
     @classmethod
-    def eval_dataset_function(cls, prompt, answer):
+    def _eval_dataset_function(cls, prompt, answer):
         """generates eval dataset"""
         prompt, answer = prompt.tolist(), answer.tolist()
         if len(prompt) > cls.max_source_length - 2:
@@ -274,7 +274,7 @@ class KeyWordGenDataset(BaseDataset):
         return input_ids, label
 
     @classmethod
-    def get_masks(cls, input_ids, bos_token_id=130004):
+    def _get_masks(cls, input_ids, bos_token_id=130004):
         """generate mask from input id"""
 
         seq_length = input_ids.shape[0]
@@ -294,8 +294,8 @@ class KeyWordGenDataset(BaseDataset):
         return attention_mask
 
     @classmethod
-    def get_position_ids(cls, input_ids, mask_positions, use_gmasks=None,
-                         bos_token_id=130004, position_encoding_2d=True):
+    def _get_position_ids(cls, input_ids, mask_positions, use_gmasks=None,
+                          bos_token_id=130004, position_encoding_2d=True):
         """generate position ids from input id and mask positions"""
 
         seq_length = input_ids.shape[0]
@@ -323,7 +323,7 @@ class KeyWordGenDataset(BaseDataset):
         return position_ids
 
     @classmethod
-    def create_position_ids(cls, input_ids, gmask_token_id=130001):
+    def _create_position_ids(cls, input_ids, gmask_token_id=130001):
         """generate position ids from input id"""
 
         seq_length = input_ids.shape[0]
@@ -333,5 +333,5 @@ class KeyWordGenDataset(BaseDataset):
         mask = np.equal(seqs, use_gmasks)
         mask_positions = np.argwhere(mask)[:, -1]
 
-        position_ids = cls.get_position_ids(input_ids, mask_positions=mask_positions, use_gmasks=use_gmasks)
+        position_ids = cls._get_position_ids(input_ids, mask_positions=mask_positions, use_gmasks=use_gmasks)
         return position_ids
