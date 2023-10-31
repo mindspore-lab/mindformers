@@ -45,7 +45,7 @@ def get_glm2_prefill_model_input(batch_size, seq_length):
     input_position = ms.Tensor(np.ones((batch_size, 1)), ms.int32)
     init_reset = ms.Tensor([False], ms.bool_)
     batch_valid_length = ms.Tensor(np.ones([batch_size, 1]), ms.int32)
-    return input_ids, None, None, None, None, input_position, init_reset, batch_valid_length
+    return input_ids, None, input_position, None, None, None, init_reset, batch_valid_length
 
 
 def get_llm_common_prefill_model_input(batch_size, seq_length):
@@ -92,7 +92,7 @@ def get_glm2_inc_model_input(batch_size, seq_length, prefill):
         input_position = ms.Tensor(np.ones((batch_size, 1)), ms.int32)
         init_reset = ms.Tensor([True], ms.bool_)
         batch_valid_length = ms.Tensor(np.ones([batch_size, 1]), ms.int32)
-    return input_ids, None, None, None, None, input_position, init_reset, batch_valid_length
+    return input_ids, None, input_position, None, None, None, init_reset, batch_valid_length
 
 
 def get_glm_inc_model_input(batch_size, seq_length, prefill):

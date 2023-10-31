@@ -110,8 +110,8 @@ class ChatGLM2Model(nn.Cell):
         attention_mask = self.reshape(attention_mask, (batch_size, 1, -1, self.seq_length))
         return attention_mask
 
-    def construct(self, input_ids, position_ids=None, attention_mask=None, full_attention_mask=None,
-                  inputs_embeds=None, input_position=None, init_reset=True, batch_valid_length=None,
+    def construct(self, input_ids, input_position=None, position_ids=None, attention_mask=None,
+                  inputs_embeds=None, init_reset=True, batch_valid_length=None, full_attention_mask=None,
                   prefix_key_values=None):
         """ChatGLM2 model."""
         _ = position_ids
@@ -178,19 +178,18 @@ class ChatGLM2ForConditionalGeneration(BaseModel):
             "input_position": input_position
         }
 
-    def construct(self, input_ids=None, labels=None, position_ids=None, attention_mask=None,
-                  inputs_embeds=None, input_position=None, init_reset=True, batch_valid_length=None,
-                  prefix_key_values=None):
+    def construct(self, input_ids=None, labels=None, input_position=None, position_ids=None, attention_mask=None,
+                  inputs_embeds=None, init_reset=True, batch_valid_length=None, prefix_key_values=None):
         """ChatGLM2 for conditional generation model."""
         # input_ids: (bs, seq_len)
         # position_ids: (bs, seq_len)
         # attention_mask: (bs, seq_len)
         hidden_states = self.transformer(
             input_ids=input_ids,
+            input_position=input_position,
             position_ids=position_ids,
             attention_mask=attention_mask,
             inputs_embeds=inputs_embeds,
-            input_position=input_position,
             init_reset=init_reset,
             batch_valid_length=batch_valid_length,
             prefix_key_values=prefix_key_values
@@ -278,9 +277,8 @@ class ChatGLM2WithPtuning2(ChatGLM2ForConditionalGeneration):
         # freeze pretrained model
         PetAdapter.freeze_pretrained_model(self, config.pet_config.pet_type)
 
-    def construct(self, input_ids=None, labels=None, position_ids=None, attention_mask=None,
-                  inputs_embeds=None, input_position=None, init_reset=True,
-                  batch_valid_length=None, prefix_key_values=None):
+    def construct(self, input_ids=None, labels=None, input_position=None, position_ids=None, attention_mask=None,
+                  inputs_embeds=None, init_reset=True, batch_valid_length=None, prefix_key_values=None):
 
         if not self.use_past or self.is_first_iteration:
             batch_size = input_ids.shape[0]
@@ -289,10 +287,10 @@ class ChatGLM2WithPtuning2(ChatGLM2ForConditionalGeneration):
         return super().construct(
             input_ids=input_ids,
             labels=labels,
+            input_position=input_position,
             position_ids=position_ids,
             attention_mask=attention_mask,
             inputs_embeds=inputs_embeds,
-            input_position=input_position,
             init_reset=init_reset,
             batch_valid_length=batch_valid_length,
             prefix_key_values=prefix_key_values
