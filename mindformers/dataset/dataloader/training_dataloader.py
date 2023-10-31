@@ -95,10 +95,9 @@ class TrainingDataLoader:
                                            is_align=is_align, tokenizer=tokenizer, text_col=text_col,
                                            file_format=file_format, customized_reader=customized_reader,
                                            shuffle=shuffle, samples_num=samples_num, file_limit=file_limit)
-        if kwargs.get("shard_id"):
-            kwargs.pop("shard_id")
-        if kwargs.get("num_shards"):
-            kwargs.pop("num_shards")
+
+        kwargs["num_shards"] = None
+        kwargs["shard_id"] = None
         gen_dataset = GeneratorDataset(training_dataset, column_names=["input"], shuffle=shuffle, **kwargs)
         logger.info("NOTE: The sample of Dataset will skip %s", skip_num)
         gen_dataset = gen_dataset.skip(skip_num)
@@ -392,6 +391,8 @@ class TrainingDataset:
             logger.info("Detect local dataset directory: %s. Traverse local directory", dataset_dir)
             current_list = [os.path.join(dataset_dir, file) for file in os.listdir(dataset_dir)
                             if file.endswith(file_format)]
+        elif os.path.exists(dataset_dir) and os.path.isfile(dataset_dir):
+            current_list = [dataset_dir]
         else:
             # Obtaining files in HDFS
             logger.info("Can not find local dataset. Traverse HDFS directory: %s", dataset_dir)
