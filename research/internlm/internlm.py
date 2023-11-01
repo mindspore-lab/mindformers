@@ -37,6 +37,7 @@ from mindformers.tools.register.register import MindFormerModuleType, MindFormer
 from mindformers.pet.tuners.pet_adapter import PetAdapter
 from mindformers.pet.tuners.lora_adapter import LoraAdapter
 from mindformers.models.utils import cell_reuse
+from mindformers.tools.logger import logger
 from internlm_transformer import InternLMDecodeLayer
 
 

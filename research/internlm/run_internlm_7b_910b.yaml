@@ -10,7 +10,7 @@ run_mode: 'finetune'
 # trainer config
 trainer:
   type: CausalLanguageModelingTrainer
-  model_name: 'internlm_7b_lora'
+  model_name: 'internlm_7b'
 
 # runner config
 runner_config:
@@ -25,12 +25,12 @@ optimizer:
   beta1: 0.9
   beta2: 0.999
   eps: 1.e-8
-  weight_decay: 0.01
+  weight_decay: 0.1
 
 # lr sechdule
 lr_schedule:
   type: CosineWithWarmUpLR
-  learning_rate: 5.e-5
+  learning_rate: 1.e-5
   warmup_ratio: 0.03
   total_steps: -1 # -1 means it will load the total steps of the dataset
 
@@ -73,12 +73,12 @@ eval_dataset_task:
   type: CausalLanguageModelDataset
   dataset_config: *eval_dataset
 
-# default parallel of device num = 8 910A
+# default parallel of device num = 8 910B
 parallel_config:
   data_parallel: 8
   model_parallel: 1
   pipeline_stage: 1
-  micro_batch_num: 4
+  micro_batch_num: 1
   vocab_emb_dp: True
   gradient_aggregation_group: 4
 # when model parallel is greater than 1, we can set micro_batch_interleave_num=2, that may accelerate the train process.
@@ -95,11 +95,11 @@ recompute_config:
 callbacks:
   - type: MFLossMonitor
   - type: CheckpointMointor
-    prefix: "internlm_7b_lora"
+    prefix: "internlm_7b"
     save_checkpoint_steps: 500
+    keep_checkpoint_max: 3
     integrated_save: False
     async_save: False
-    keep_checkpoint_max: 3
   - type: ObsMonitor
 
 # mindspore context init config
@@ -109,7 +109,7 @@ context:
   enable_graph_kernel: False
   graph_kernel_flags: "--disable_expand_ops=Softmax,Dropout --enable_parallel_fusion=true --reduce_fuse_depth=8 --enable_auto_tensor_inplace=true"
   max_call_depth: 10000
-  max_device_memory: "31GB"
+  max_device_memory: "59GB"
   save_graphs: False
   save_graphs_path: "./graph"
   device_id: 0
@@ -122,9 +122,7 @@ parallel:
   full_batch: True
   search_mode: "sharding_propagation"
   enable_parallel_optimizer: True
-  strategy_ckpt_config:
-    save_file: "./ckpt_strategy.ckpt"
-    only_trainable_params: False
+  strategy_ckpt_save_file: "./ckpt_strategy.ckpt"
   parallel_optimizer_config:
     gradient_accumulation_shard: False
     parallel_optimizer_threshold: 64
@@ -154,19 +152,12 @@ model:
     pretrain_seqlen: 2048
     extend_method: "None"
     offset: 0
-    checkpoint_name_or_path: "internlm_7b_lora"
-    repetition_penalty: 1.02
-    max_decode_length: 100
-    top_k: 50
-    top_p: 0.9
-    do_sample: True
-    pet_config:
-      pet_type: lora
-      # configuration of lora
-      lora_rank: 8
-      lora_alpha: 16
-      lora_dropout: 0.05
-      target_modules: '.*wq|.*wk|.*wv|.*wo'
+    checkpoint_name_or_path: "internlm_7b"
+    repetition_penalty: 1.00
+    max_decode_length: 512
+    top_k: 3
+    top_p: 0.8
+    do_sample: False
   arch:
     type: InternLMForCausalLM
 
