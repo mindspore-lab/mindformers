@@ -56,20 +56,26 @@ InternLM ，即书生·浦语大模型，是由上海人工智能实验室和来
 
 ## <span id="jump">权重转换</span>
 
-从huggingface下载预训练权重用于训练/微调/推理，需要下载整个工程，包含对应的分词模型：
+本仓库提供已经转换完成的预训练权重用于训练/微调/推理，用户可自行从下方链接拉取后直接使用，Base用于微调，Chat用于推理。
 
-- [internlm-7b](https://huggingface.co/internlm/internlm-7b)
+- [internlm-7b](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/internlm/internlm.ckpt)
 
-- [internlm-chat-7b](https://huggingface.co/internlm/internlm-chat-7b)
+- [internlm-chat-7b](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/internlm/internlm-chat.ckpt)
+
+也可选择从huggingface下载预训练权重后根据以下步骤进行权重转换，包含对应的分词模型，需要下载整个工程，huggingface权重的链接如下：
+
+- [internlm-7b-hf](https://huggingface.co/internlm/internlm-7b)
+
+- [internlm-chat-7b-hf](https://huggingface.co/internlm/internlm-chat-7b)
 
 注：internlm-7b权重用于训练/微调，internlm-chat-7b用于直接开启快速推理。
 
 下载完成后，运行如下转换脚本，将huggingface的权重转换为完整的ckpt权重。
 
 ```shell
-# 请安装torch=2.0.0和transformers=4.29.2版本:
+# 请安装torch=2.0.0和transformers=4.30.2版本:
 # pip install torch==2.0.0 -i https://pypi.tuna.tsinghua.edu.cn/simple
-# pip install transformers==4.29.2 -i https://pypi.tuna.tsinghua.edu.cn/simple
+# pip install transformers==4.30.2 -i https://pypi.tuna.tsinghua.edu.cn/simple
 python ./research/internlm/convert_weight.py --torch_ckpt_dir TORCH_CKPT_DIR --mindspore_ckpt_path MS_CKPT_NAME
 ```
 
@@ -214,14 +220,28 @@ python alpaca_data_preprocess.py \
 
 ### 全参微调
 
-全参微调需要多卡启动，以alpaca_data数据集为例,给出了默认配置文件`run_internlm_7b.yaml`：
+internlm-7b用于微调，seq_length默认为2048，分布式微调训练在单机八卡上即可启动。以alpaca_data数据集为例,给出了默认配置文件`run_internlm_7b.yaml`。
 
-1. 修改`run_internlm_7b.yaml`中相关配置
+1. 权重准备
+
+权重支持在线/离线切分方式。在线切分则会在启动微调任务后自动按照分布式策略进行权重切分，离线切分需要在任务前手动进行切分。
+
+若使用在线切分，则需要将完整权重文件按如下路径放置，并将启动配置参数`auto_trans_ckpt`置为`True`。
+
+```text
+    └── path of ckpt
+        └── rank_0
+            └── baichuan2_13b.ckpt
+```
+
+若使用离线切分，配置参数`auto_trans_ckpt`置为`False`，`load_checkpoint`传入切分好的权重路径文件夹即可。
+
+2. 修改`run_internlm_7b.yaml`中相关配置
 
 ```python
 output_dir: './output'
-load_checkpoint: './internlm.ckpt'          # 添加预训练权重路径
-auto_trans_ckpt: False
+load_checkpoint: 'path/of/ckpt'          # 添加预训练权重路径
+auto_trans_ckpt: True                       # 开启权重自动切分
 only_save_strategy: False
 resume_training: False
 use_parallel: True
@@ -242,10 +262,11 @@ train_dataset: &train_dataset
 ```shell
 bash run_singlenode.sh \
 "python internlm/run_internlm.py \
---run_mode=finetune \
+--run_mode finetune \
 --use_parallel True \
 --config internlm/run_internlm_7b.yaml \
---load_checkpoint ckpt_path_or_dir \
+--load_checkpoint path/of/ckpt \
+--auto_trans_ckpt True \
 --train_dataset {path}/train_data" \
 hccl_xp_xxx.json [0,8] 8
 ```
@@ -264,9 +285,9 @@ Lora微调支持单卡/多卡启动，以alpaca-gpt4-data-zh数据集为例,给�
 python run_internlm.py \
 --config run_internlm_7b_lora.yaml \
 --run_mode finetune \
---pet_method lora \
 --use_parallel False \
---load_checkpoint ckpt_path_or_dir \
+--load_checkpoint path/of/ckpt \
+--auto_trans_ckpt True \
 --train_dataset {path}/train_data \
 --device_id 0
 ```
@@ -277,10 +298,10 @@ python run_internlm.py \
 bash run_singlenode.sh \
 "python internlm/run_internlm.py \
 --config internlm/run_internlm_7b_lora.yaml \
---run_mode=finetune \
---pet_method lora \
+--run_mode finetune \
 --use_parallel True \
---load_checkpoint ckpt_path_or_dir \
+--load_checkpoint path/of/ckpt \
+--auto_trans_ckpt True \
 --train_dataset {path}/train_data" \
 hccl_xp_xxx.json [0,8] 8
 ```

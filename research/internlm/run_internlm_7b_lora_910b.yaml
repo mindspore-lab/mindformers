@@ -15,7 +15,7 @@ trainer:
 # runner config
 runner_config:
   epochs: 1
-  batch_size: 1
+  batch_size: 4
   sink_mode: True
   sink_size: 2
 
@@ -73,12 +73,12 @@ eval_dataset_task:
   type: CausalLanguageModelDataset
   dataset_config: *eval_dataset
 
-# default parallel of device num = 8 910A
+# default parallel of device num = 8 910B
 parallel_config:
   data_parallel: 8
   model_parallel: 1
   pipeline_stage: 1
-  micro_batch_num: 4
+  micro_batch_num: 1
   vocab_emb_dp: True
   gradient_aggregation_group: 4
 # when model parallel is greater than 1, we can set micro_batch_interleave_num=2, that may accelerate the train process.
@@ -109,7 +109,7 @@ context:
   enable_graph_kernel: False
   graph_kernel_flags: "--disable_expand_ops=Softmax,Dropout --enable_parallel_fusion=true --reduce_fuse_depth=8 --enable_auto_tensor_inplace=true"
   max_call_depth: 10000
-  max_device_memory: "31GB"
+  max_device_memory: "59GB"
   save_graphs: False
   save_graphs_path: "./graph"
   device_id: 0
