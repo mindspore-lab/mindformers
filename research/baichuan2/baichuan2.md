@@ -8,10 +8,10 @@ Baichuan2 是由百川智能开发的开源可商用的大规模预训练语言�
 
 |                            config                            |      task       | Datasets | [train performance](#全参微调) |  [predict performance](#推理)  |
 | :----------------------------------------------------------: | :-------------: | :------: | :----------------------------: | :----------------------------: |
-| [baichuan2_7b](../../research/baichuan2/run_baichuan2_7b.yaml) | text_generation |  belle   |         513.8 tokens/s         | 20.83 tokens/s (use_past=True) |
+| [baichuan2_7b](../../research/baichuan2/run_baichuan2_7b.yaml) | text_generation |  belle   |         550 tokens/s         | 20.54 tokens/s (use_past=True) |
 | [baichuan2_13b](../../research/baichuan2/run_baichuan2_13b.yaml) | text_generation |  belle   |          393 tokens/s          | 15.77 tokens/s (use_past=True) |
-| [baichuan2_7b_910b](../../research/baichuan2/run_baichuan2_7b_910b.yaml) | text_generation |  belle   |        2037.8 tokens/s         | 14.71 tokens/s (use_past=True) |
-| [baichuan2_13b_910b](../../research/baichuan2/run_baichuan2_13b_910b.yaml) | text_generation |  belle   |          525 tokens/s          | 9.25 tokens/s (use_past=True)  |
+| [baichuan2_7b_910b](../../research/baichuan2/run_baichuan2_7b_910b.yaml) | text_generation |  belle   |        1264 tokens/s         | 23.69 tokens/s (use_past=True) |
+| [baichuan2_13b_910b](../../research/baichuan2/run_baichuan2_13b_910b.yaml) | text_generation |  belle   |          525 tokens/s          | 16.65 tokens/s (use_past=True)  |
 
 ## 仓库介绍
 
@@ -44,6 +44,7 @@ Baichuan2 是由百川智能开发的开源可商用的大规模预训练语言�
    baichuan2
        ├── belle_preprocess.py     # belle数据集预处理脚本
        └── run_baichuan2.py        # baichuan2高阶接口使用脚本
+       └── run_baichuan2_chat.py   # baichuan2 chat推理使用脚本
    ```
 
 ## 前期准备
@@ -53,18 +54,22 @@ Baichuan2 是由百川智能开发的开源可商用的大规模预训练语言�
 ### 环境要求
 
 - 硬件：Ascend 910A/B
-- MindSpore：2.0.0 / 1.10.1
+- MindSpore：2.2
 - MindFormers版本：dev
+- 硬件支持矩阵
 
-注：
+|     模型      | 硬件 | 全量微调 | lora微调 | 推理 |
+| :-----------: | :--: | :------: | :------: | :--: |
+| Baichuan2-7b  | 910A |  ≥2节点  |  单节点  | 单卡 |
+| Baichuan2-7b  | 910B |  单节点  |  单节点  | 单卡 |
+| Baichuan2-13b | 910A |  ≥2节点  |  单节点  | ≥4卡 |
+| Baichuan2-13b | 910B |  单节点  |  单节点  | 单卡 |
 
-对于910A，Baichuan2-7B推理可在单机单卡上完成部署，全量微调至少需要16卡；Baichuan2-13B推理至少需要4卡，全量微调至少需要16卡。
+### RANK_TABLE_FILE准备
 
-对于910B，Baichuan2-7B和Baichuan2-13B推理可在单机单卡上完成部署，全量微调至少需要8卡。
+- **单机8卡**
 
-### 生成RANK_TABLE_FILE(多卡运行必须环节)
-
-运行mindformers/tools/hccl_tools.py生成RANK_TABLE_FILE的json文件
+运行`mindformers/tools/hccl_tools.py`，生成`RANK_TABLE_FILE`文件
 
 ```shell
 # 运行如下命令，生成当前机器的RANK_TABLE_FILE的json文件
@@ -98,9 +103,9 @@ RANK_TABLE_FILE 单机8卡参考样例:
 }
 ```
 
-### 多机RANK_TABLE_FILE合并(多机多卡必备环节)
+- **2机16卡**
 
-- step 1. 首先根据上章节内容，在每个机器上生成各自的`RANK_TABLE_FILE`文件，然后将不同机器上生成的`RANK_TABLE_FILE`文件全部拷贝到同一台机器上。
+1. 在每个机器上运行`mindformers/tools/hccl_tools.py`，生成各自的`RANK_TABLE_FILE`文件。
 
 ```shell
 # 运行如下命令，生成当前机器的RANK_TABLE_FILE的json文件
@@ -109,14 +114,14 @@ python ./mindformers/tools/hccl_tools.py --device_num "[0,8)" --server_ip xx.xx.
 
 **注：需要根据机器的ip地址指定 --server_ip，避免由于不同机器server_ip不同，导致多节点间通信失败。**
 
-- step 2. 运行mindformers/tools/merge_hccl.py将不同机器上生成的`RANK_TABLE_FILE`文件合并
+2. 将不同机器的`RANK_TABLE_FILE`文件全部拷贝到同一台机器上，运行`mindformers/tools/merge_hccl.py`合并`RANK_TABLE_FILE`文件
 
 ```shell
-# 运行如下命令，合并每个机器上的RANK_TABLE_FILE的json文件。
+# 运行如下命令，合并每个机器的RANK_TABLE_FILE文件。
 python ./mindformers/tools/merge_hccl.py hccl*.json
 ```
 
-- step 3. 将合并后的`RANK_TABLE_FILE`文件拷贝到所有机器中，保证不同机器上的`RANK_TABLE_FILE`相同。
+3. 将合并后的`RANK_TABLE_FILE`文件拷贝到所有机器中，保证不同机器上的`RANK_TABLE_FILE`相同。
 
 RANK_TABLE_FILE 双机16卡参考样例:
 
@@ -190,7 +195,26 @@ RANK_TABLE_FILE 双机16卡参考样例:
 }
 ```
 
-### 模型权重下载与转换
+**注：多机多卡获取`RANK_TABLE_FILE`步骤同2机16卡。**
+
+### 数据集准备
+
+当前提供belle_chat_ramdon数据集的预处理和微调样例，用于对Baichuan2-7B-Base，Baichuan2-13B-Base模型进行微调。数据集下载链接如下：
+
+- [belle_chat_ramdon_10k](https://github.com/baichuan-inc/Baichuan2/blob/main/fine-tune/data/belle_chat_ramdon_10k.json)
+
+执行`belle_preprocess.py`，进行数据预处理、Mindrecord数据生成，将带有prompt模板的数据转换为mindrecord格式。
+
+```shell
+# 脚本路径：research/baichuan2/belle_preprocess.py
+python research/baichuan2/belle_preprocess.py \
+--input_glob /{path}/belle_chat_ramdon_10k.json \
+--model_file /{path}/tokenizer.model \
+--output_file /{path}/belle_512.mindrecord \
+--seq_length 512
+```
+
+### 模型权重准备
 
 本仓库提供已经转换完成的预训练权重、词表文件用于训练/微调/推理，用户可自行从下方链接拉取后直接使用，Base用于微调，Chat用于推理。
 
@@ -224,103 +248,54 @@ TORCH_CKPT_DIR: huggingface权重保存目录路径
 mindspore_ckpt_path: 权重保存文件名，保存为TORCH_CKPT_DIR/OUTPUT_NAME, 也可以指定为自定义保存路径
 ```
 
-### [模型权重切分与合并](../../docs/feature_cards/Transform_Ckpt.md)
+### [模型权重转换](../../docs/feature_cards/Transform_Ckpt.md)
 
-从hugging face或官方github仓库转换而来的权重通常是单卡权重，基于该权重进行多卡微调，评测，推理，涉及ckpt从单机策略到分布式策略的切换。
+从hugging face或官方github仓库转换而来的权重通常是完整权重。
 
-通常训练采用分布式训练，基于该权重进行评测，推理多采用单卡，涉及ckpt从分布式策略到单机策略的切换。
+- 基于完整权重进行多卡分布式训练，需要将完整权重转换为分布式权重。
 
-以上涉及到ckpt的单卡，多卡转换，详细教程请参考特性文档[模型权重切分与合并](../../docs/feature_cards/Transform_Ckpt.md)
+- 基于训完的分布式权重进行单卡推理，需要将分布式权重转换为完整权重。
+- 修改分布式策略训练，需要将权重转换为对应分布式权重。
+
+Mindformer支持权重自动转换，详细教程请参考[权重转换文档](../../docs/feature_cards/Transform_Ckpt.md)。
 
 - ## Baichuan2-7B
 
-### 微调
+### 全参微调
 
-#### 数据集准备-SFT微调数据集
+请参照[数据集准备](#数据集准备)章节获取mindrecord格式的belle数据集，参照[模型权重准备](#模型权重准备)章节获取Baichuan2-7B-Base权重。
 
-当前提供belle_chat_ramdon数据集的预处理和微调样例，用于对Baichuan2-7B-Base，Baichuan2-13B-Base模型进行微调。数据集下载链接如下：
+- **910A**
 
-- [belle_chat_ramdon_10k](https://github.com/baichuan-inc/Baichuan2/blob/main/fine-tune/data/belle_chat_ramdon_10k.json)
+Baichuan2-7B-Base用于微调，seq_length默认为512，分布式微调训练在910A上需要2节点16卡启动。以`belle_chat_ramdon_10k.json`数据集为例，给出了默认配置文件`run_baichuan2_7b.yaml`。
 
-执行`belle_preprocess.py`，进行数据预处理、Mindrecord数据生成，将带有prompt模板的数据转换为mindrecord格式。
+**步骤**：
 
-```shell
-# 脚本路径：research/baichuan2/belle_preprocess.py
-python belle_preprocess.py \
---input_glob /{path}/belle_chat_ramdon_10k.json \
---model_file /{path}/tokenizer.model \
---output_file /{path}/belle_512.mindrecord \
---seq_length 512
-```
+1. RANK_TABLE_FILE准备 ：请参照[RANK_TABLE_FILE准备](#RANK_TABLE_FILE准备)-2机16卡章节，获取两节点合并后的`RANK_TABLE_FILE`文件。
 
-#### 全参微调
+2. 权重准备：将完整权重转为16卡分布式权重。
+   ① 若所有节点之间无共享盘，请参考[权重转换文档-离线权重转换](https://gitee.com/mindspore/mindformers/blob/dev/docs/feature_cards/Transform_Ckpt.md#%E7%A6%BB%E7%BA%BF%E6%9D%83%E9%87%8D%E8%BD%AC%E6%8D%A2)章节，将完整权重转为16卡分布式权重；
+   ② 若所有节点之间有共享盘，Mindformer支持自动权重转换，请参考[权重转换文档-物理机多机多卡训练](https://gitee.com/mindspore/mindformers/blob/dev/docs/feature_cards/Transform_Ckpt.md#%E7%89%A9%E7%90%86%E6%9C%BA%E5%A4%9A%E6%9C%BA%E5%A4%9A%E5%8D%A1%E8%AE%AD%E7%BB%83%E6%A1%88%E4%BE%8B)案例，可跳过该步骤。
 
-- ##### 910A
-
-Baichuan2-7B-Base用于微调，seq_length默认为512，分布式微调训练在910A上需要2节点多卡启动。以`belle_chat_ramdon_10k.json`数据集为例，给出了默认配置文件`run_baichuan2_7b.yaml`。
-
-1. 权重准备
-
-当前云上多节点分布式训练可直接使用自动权重切分（`auto_trans_ckpt`)， 物理机的多机分布式训练不支持自动权重切分，需要进行离线切分后传入网络进行训练。在线切分则会在启动微调任务后自动按照分布式策略进行权重切分，离线切分需要在任务前手动进行切分。
-
-若使用在线切分，则需要将完整权重文件按如下路径放置，并将启动配置参数`auto_trans_ckpt`置为`True`。
-
-```text
-    └── path of ckpt
-        └── rank_0
-            └── baichuan2_7b.ckpt
-```
-
-若使用离线切分，配置参数`auto_trans_ckpt`置为`False`，`load_checkpoint`传入切分好的权重路径文件夹即可。步骤参考[权重切分与合并](../../docs/feature_cards/Transform_Ckpt.md)。
-
-2. 修改`run_baichuan2_7b.yaml`中相关配置
+3. 修改`run_baichuan2_7b.yaml`中相关配置，默认节点之间无共享盘，不开启自动权重切分，完整权重已经离线切分为16卡分布式权重。
 
 ```yaml
-output_dir: './output'
-load_checkpoint: '{path}/'                       # 添加预训练权重路径
-auto_trans_ckpt: True
-only_save_strategy: False
-resume_training: False
+output_dir: './output'          # 默认路径，若需要自动权重转换，请配置为共享盘输出路径
+load_checkpoint: 'model_dir'    # 使用分布式权重，权重按照`model_dir/rank_x/xxx.ckpt`格式存放
+auto_trans_ckpt: False          # 关闭自动权重转换，若需要自动权重转换，则改为True
 use_parallel: True
 run_mode: 'finetune'
 # dataset
 train_dataset: &train_dataset
   data_loader:
     type: MindDataset
-    dataset_dir: "{path}/belle512.mindrecord"    # 修改训练数据集路径
+    dataset_dir: "dataset_dir"  # 配置训练数据集文件夹路径
     shuffle: True
   input_columns: ["input_ids", "labels"]
 # 指令微调时（如belle数据集），input_columns: ["input_ids", "labels"]
 # 继续预训练时（如wikitext2数据集），input_columns: ["input_ids"]
-```
 
-3. 启动微调任务，以默认配置2机16卡为例，按照以下步骤启动：
-
-- step 1. 首先在每台机器上运行`mindformers/tools/hccl_tools.py`生成`RANK_TABLE_FILE`的json文件
-
-```shell
-# 在每个机器上运行如下命令，生成各自的RANK_TABLE_FILE的json文件。
-python ./mindformers/tools/hccl_tools.py --device_num [0,8]
-```
-
-- step 2. 合并每台机器上生成的`RANK_TABLE_FILE`
-
-多卡运行需要RANK_FILE_TABLE，请参考前期准备-[生成RANK_TABLE_FILE](#生成rank_table_file多卡运行必须环节)
-
-将不同机器上生成的`RANK_TABLE_FILE`文件拷贝到一起，执行`merge_hccl.py`脚本进行合并，包括server_list合并，`server_count`设为机器数，`rank_id`顺序增加。
-
-```shell
-# 运行如下命令，合并每个机器上的RANK_TABLE_FILE文件。
-python ./mindformers/tools/merge_hccl.py hccl*.json
-```
-
-- step 3. 将合并后的`RANK_TABLE_FILE`文件拷贝到所有机器中，**需要保证执行的节点和`RANK_TABLE_FILE`的节点顺序保持一致，即rank_id匹配**
-
-- step 4. 根据服务器节点数等信息，修改相应的配置
-
-```yaml
-# 以Baichuan2-7B模型两机训练为例，默认配置2机16卡，如果节点数有变，需要修改相应的配置。
-# 配置文件路径：./research/baichuan2/run_baichuan2_7b.yaml
+# 16卡分布式策略配置
 parallel_config:
   data_parallel: 2
   model_parallel: 4
@@ -330,9 +305,7 @@ parallel_config:
   gradient_aggregation_group: 4
 ```
 
-- step 5. 执行运行脚本
-
-在多机上同时拉起任务，每台机器拉起方式如下：
+4. 启动微调任务，在多机上同时拉起任务。
 
 ```shell
 # node 1
@@ -340,84 +313,59 @@ cd mindformers/research
 bash run_multinode.sh \
 "python baichuan2/run_baichuan2.py \
 --config baichuan2/run_baichuan2_7b.yaml \
---load_checkpoint path/to/baichuan2_7b_ckpt \
---auto_trans_ckpt True \
+--load_checkpoint model_dir \
+--auto_trans_ckpt False \
 --use_parallel True \
 --run_mode finetune \
---train_data path/to/mindrecord_dir" \
-path/to/rank_table_file [0,8] 16
+--train_data dataset_dir" \
+RANK_TABLE_FILE [0,8] 16
 
 # node 2
 cd mindformers/research
 bash run_multinode.sh \
 "python baichuan2/run_baichuan2.py \
 --config baichuan2/run_baichuan2_7b.yaml \
---load_checkpoint path/to/baichuan2_7b_ckpt \
---auto_trans_ckpt True \
+--load_checkpoint model_dir \
+--auto_trans_ckpt False \
 --use_parallel True \
 --run_mode finetune \
---train_data path/to/mindrecord_dir" \
-path/to/rank_table_file [8,16] 16
+--train_data dataset_dir" \
+RANK_TABLE_FILE [8,16] 16
 
 # 参数说明
 config: 配置文件路径
-load_checkpoint: 权重文件夹路径
-auto_trans_ckpt: 是否进行权重自动切分
+load_checkpoint: 权重文件夹路径，权重按照'model_dir/rank_x/xxx.ckpt'格式存放
+auto_trans_ckpt: 自动权重转换开关
 run_mode: 运行模式，微调时设置为finetune
-train_data: 训练数据集路径
+train_data: 训练数据集文件夹路径
 ```
 
-- ##### 910B
+- **910B**
 
 Baichuan2-7B-Base用于微调，seq_length默认为512，分布式微调训练在910B上单节点即可启动。以`belle_chat_ramdon_10k.json`数据集为例，给出了默认配置文件`run_baichuan2_7b_910b.yaml`。
 
-1. 权重准备
+**步骤**：
 
-权重支持在线/离线切分方式。在线切分则会在启动微调任务后自动按照分布式策略进行权重切分，离线切分需要在任务前手动进行切分。
+1. RANK_TABLE_FILE准备 ：请参照[RANK_TABLE_FILE准备](#RANK_TABLE_FILE准备)-单机8卡章节，获取单节点的`RANK_TABLE_FILE`文件。
 
-若使用在线切分，则需要将完整权重文件按如下路径放置，并将启动配置参数`auto_trans_ckpt`置为`True`。
-
-```text
-    └── path of ckpt
-        └── rank_0
-            └── baichuan2_7b.ckpt
-```
-
-若使用离线切分，配置参数`auto_trans_ckpt`置为`False`，`load_checkpoint`传入权重路径文件夹即可。
-
-2. 修改`run_baichuan2_7b_910b.yaml`中相关配置
+2. 修改`run_baichuan2_7b_910b.yaml`中相关配置，默认开启自动权重转换，使用完整权重。
 
 ```yaml
-output_dir: './output'
-load_checkpoint: '{path}/'                       # 完整模型存放格式为"model_dir/rank_0/xxx.ckpt"
-auto_trans_ckpt: True                            # 打开权重自动转换
+load_checkpoint: 'model_dir'    # 使用完整权重，权重按照`model_dir/rank_0/xxx.ckpt`格式存放
+auto_trans_ckpt: True           # 打开自动权重转换
 use_parallel: True
 run_mode: 'finetune'
 # dataset
 train_dataset: &train_dataset
   data_loader:
     type: MindDataset
-    dataset_dir: "{path}/belle512.mindrecord"    # 修改训练数据集路径
+    dataset_dir: "dataset_dir"  # 配置训练数据集文件夹路径
     shuffle: True
   input_columns: ["input_ids", "labels"]
 # 指令微调时（如belle数据集），input_columns: ["input_ids", "labels"]
 # 继续预训练时（如wikitext2数据集），input_columns: ["input_ids"]
-```
 
-3. 启动微调任务，以默认配置单机8卡为例，按照以下步骤启动：
-
-- step 1. 首先在机器上运行`mindformers/tools/hccl_tools.py`生成`RANK_TABLE_FILE`的json文件
-
-```shell
-# 在机器上运行如下命令，生成RANK_TABLE_FILE的json文件。
-python ./mindformers/tools/hccl_tools.py --device_num [0,8]
-```
-
-- step 2. 根据服务器节点数等信息，修改相应的配置
-
-```yaml
-# 以Baichuan2-7B模型单机训练为例，默认配置单机8卡，如果节点数有变，需要修改相应的配置。
-# 配置文件路径：./research/baichuan2/run_baichuan2_7b_910b.yaml
+# 8卡分布式策略配置
 parallel_config:
   data_parallel: 8
   model_parallel: 1
@@ -427,101 +375,124 @@ parallel_config:
   gradient_aggregation_group: 4
 ```
 
-- step 3. 执行运行脚本
-
-在单机上拉起任务：
+3. 启动微调任务，在单机上拉起任务。
 
 ```shell
 cd mindformers/research
 bash run_singlenode.sh \
 "python baichuan2/run_baichuan2.py \
 --config baichuan2/run_baichuan2_7b_910b.yaml \
---load_checkpoint path/to/baichuan2_7b_910b_ckpt \
+--load_checkpoint model_dir \
 --auto_trans_ckpt True \
 --use_parallel True \
 --run_mode finetune \
---train_data path/to/mindrecord_dir" \
-path/to/rank_table_file [0,8] 8
+--train_data dataset_dir" \
+RANK_TABLE_FILE [0,8] 8
 
 # 参数说明
 config: 配置文件路径
-load_checkpoint: 权重文件夹路径
-auto_trans_ckpt: 是否进行权重自动切分
+load_checkpoint: 权重文件夹路径，权重按照'model_dir/rank_x/xxx.ckpt'格式存放
+auto_trans_ckpt: 自动权重转换开关
 run_mode: 运行模式，微调时设置为finetune
-train_data: 训练数据集路径
+train_data: 训练数据集文件夹路径
 ```
 
-#### Lora微调
+### Lora微调
 
 Baichuan2-7B-Base用于Lora微调，seq_length默认为512。Lora微调支持910A/B，配置文件基本相同。以`belle_chat_ramdon_10k.json`数据集为例，给出910B的默认配置文件`run_baichuan2_7b_lora_910b.yaml`。
 
-若要在910A上运行，只需修改配置文件中的内存如下：
+**步骤**：
 
-```yaml
-# research/baichuan2/run_baichuan2_7b_lora_910b.yaml
-# context
-  max_device_memory: "31GB"    # 910A将最大内存改为31GB即可
-  save_graphs: False
-  save_graphs_path: "./graph"
-  device_id: 0
+1. RANK_TABLE_FILE准备 ：请参照[RANK_TABLE_FILE准备](#RANK_TABLE_FILE准备)-单机8卡章节，获取单节点的`RANK_TABLE_FILE`文件。
+
+2. 修改`run_baichuan2_7b_lora_910b.yaml`中相关配置，默认开启自动权重转换，使用完整权重。
+
+```shell
+load_checkpoint: 'model_dir'    # 使用完整权重，权重按照`model_dir/rank_0/xxx.ckpt`格式存放
+auto_trans_ckpt: True           # 打开自动权重转换
+use_parallel: True
+run_mode: 'finetune'
+# dataset
+train_dataset: &train_dataset
+  data_loader:
+    type: MindDataset
+    dataset_dir: "dataset_dir"  # 配置训练数据集文件夹路径
+    shuffle: True
+  input_columns: ["input_ids", "labels"]
+# 指令微调时（如belle数据集），input_columns: ["input_ids", "labels"]
+# 继续预训练时（如wikitext2数据集），input_columns: ["input_ids"]
+
+# 8卡分布式策略配置
+parallel_config:
+  data_parallel: 8
+  model_parallel: 1
+  pipeline_stage: 1
+  micro_batch_num: 1
+  vocab_emb_dp: True
+  gradient_aggregation_group: 4
+
+# 权重保存配置参考
+parallel:
+  strategy_ckpt_config:
+    save_file: "./ckpt_strategy.ckpt"
+    only_trainable_params: False # 配置为False，保存完整权重
+
+# model增加pet_config
+model:
+  model_config:
+    pet_config:
+      pet_type: lora
+      # configuration of lora
+      lora_rank: 1
+      lora_alpha: 32
+      lora_dropout: 0.1
+      target_modules: '.*wq|.*wk|.*wv'
 ```
 
-1. 权重准备
-
-单节点微调时权重支持在线/离线切分方式。在线切分则会在启动微调任务后自动按照分布式策略进行权重切分，离线切分需要在任务前手动进行切分。
-
-若使用在线切分，则需要将完整权重文件按如下路径放置，并将启动配置参数`auto_trans_ckpt`置为`True`。
-
-```text
-    └── path of ckpt
-        └── rank_0
-            └── baichuan2_13b.ckpt
-```
-
-若使用离线切分，配置参数`auto_trans_ckpt`置为`False`，`load_checkpoint`传入权重路径文件夹即可。
-
-2. 启动Lora微调任务
-
-以默认配置单机8卡为例，按照以下步骤启动：
-
-- step 1. 首先运行`mindformers/tools/hccl_tools.py`生成`RANK_TABLE_FILE`的json文件
-
-```bash
-# 运行如下命令，生成RANK_TABLE_FILE的json文件。
-python ./mindformers/tools/hccl_tools.py --device_num [0,8]
-```
-
-- step 2. 执行运行脚本
-
-在单机上拉起任务：
+3. 启动Lora微调任务，在单机上拉起任务。
 
 ```bash
 cd mindformers/research
 bash run_singlenode.sh \
 "python baichuan2/run_baichuan2.py \
 --config baichuan2/run_baichuan2_7b_lora_910b.yaml \
---load_checkpoint path/to/baichuan2_7b_base_ckpt \
+--load_checkpoint model_dir \
 --auto_trans_ckpt True \
 --use_parallel True \
 --run_mode finetune \
---train_data path/to/mindrecord_dir" \
-path/to/rank_table_file [0,8] 8
+--train_data dataset_dir" \
+RANK_TABLE_FILE [0,8] 8
 
 # 参数说明
 config: 配置文件路径
-load_checkpoint: 权重文件夹路径
-auto_trans_ckpt: 是否进行权重自动切分
+load_checkpoint: 权重文件夹路径，权重按照'model_dir/rank_x/xxx.ckpt'格式存放
+auto_trans_ckpt: 自动权重转换开关
 run_mode: 运行模式，微调时设置为finetune
-train_data: 训练数据集路径
+train_data: 训练数据集文件夹路径
+```
+
+- 若要在910A上运行，只需修改配置文件如下：
+
+```yaml
+# research/baichuan2/run_baichuan2_7b_lora_910b.yaml
+max_device_memory: "31GB"    # 910A将最大内存改为31GB即可
 ```
 
 ### MindSpore推理
 
-#### 基于高阶接口的推理
+Baichuan2-7B-Chat用于在线推理，910A/B均支持单卡推理。
 
-1. 配置文件设置，添加tokenizer路径`vocab_file`，并设置`batch_size`值为`1`
+以下给出了三种推理方式，仅供参考：
 
-在使用Trainer接口进行推理时，若用户自行下载Baichuan2-7B权重，请在启动前先在配置文件中将tokenizer.model的路径自行配置，配置项为vocab_file。
+- **基于高阶接口推理**：基于trainer推理，输入不使用prompt；
+- **基于Pipeline推理**：基于pipeline推理，输入不使用prompt；
+- **chat多轮对话推理(推荐)**：基于generate推理，输入使用prompt；
+
+请下载词表文件：[tokenizer.model](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/baichuan2/tokenizer.model)
+
+#### 基于高阶接口推理
+
+1. 配置文件设置，添加tokenizer路径`vocab_file`，并设置`batch_size`值为`1`。
 
 ```yaml
 # research/baichuan2/run_baichuan2_7b.yaml
@@ -559,10 +530,10 @@ python run_baichuan2.py \
 # output: [{'text_generation_text': ['将以下内容翻译成英文：你今天真好看。 \nYou look really nice today.']}]
 ```
 
-#### 基于Pipeline的推理
+#### 基于Pipeline推理
 
 ```python
-# predict_custom.py 文件
+# 新建run_baichuan2_pipeline.py 文件
 from mindspore import context
 from mindformers.pipeline import pipeline
 from mindformers.models import LlamaConfig
@@ -615,16 +586,30 @@ do
 done
 ```
 
-##### 单卡pipeline推理
+- 单卡pipeline推理
 
 ```shell
 python predict_custom.py
 ```
 
-##### 多卡pipeline推理
+- 多卡pipeline推理
 
 ```shell
 bash run_predict.sh RANK_TABLE_FILE path/to/baichuan2_7b_shard_checkpoint_dir
+```
+
+#### chat多轮对话推理
+
+Baichuan2-7B-Chat支持910A/B单卡多轮对话推理，使用`research/baichuan2/run_baichuan2_chat.py`。
+
+```shell
+cd research/baichuan2
+python run_baichuan2_chat.py \
+--config run_baichuan2_7b_910b.yaml \
+--use_parallel False \
+--load_checkpoint '/path/to/Baichuan2-7B-Chat.ckpt' \
+--auto_trans_ckpt False \
+--vocab_file '/path/to/tokenizer.model'
 ```
 
 ### MindSpore Lite推理
@@ -738,78 +723,41 @@ ge.exec.precision_mode=must_keep_origin_dtype    # 选择算子精度模式
 
 - ## Baichuan2-13B
 
-### 微调
+### 全参微调
 
-#### 数据集准备-SFT微调数据集
+请参照[数据集准备](#数据集准备)章节获取mindrecord格式的belle数据集，参照[模型权重准备](#模型权重准备)章节获取Baichuan2-13B-Base权重。
 
-参考[Baichuan2_7B-微调-数据集准备](#微调)
-
-#### 全参微调
-
-- ##### 910A
+- **910A**
 
 Baichuan2-13B-Base用于微调，seq_length默认为512，分布式微调训练在910A上需要2节点多卡启动。以`belle_chat_ramdon_10k.json`数据集为例，给出了默认配置文件`run_baichuan2_13b.yaml`。
 
-1. 权重准备
+**步骤**：
 
-当前云上多节点分布式训练可直接使用自动权重切分（`auto_trans_ckpt`)， 物理机的多机分布式训练不支持自动权重切分，需要进行离线切分后传入网络进行训练。在线切分则会在启动微调任务后自动按照分布式策略进行权重切分，离线切分需要在任务前手动进行切分。
+1. RANK_TABLE_FILE准备：请参照[RANK_TABLE_FILE准备](#RANK_TABLE_FILE准备)-2机16卡章节，获取两节点合并后的`RANK_TABLE_FILE`文件。
 
-若使用在线切分，则需要将完整权重文件按如下路径放置，并将启动配置参数`auto_trans_ckpt`置为`True`。
+2. 权重准备：将完整权重转为16卡分布式权重。
+   ① 若所有节点之间无共享盘，请参考[权重转换文档-离线权重转换](https://gitee.com/mindspore/mindformers/blob/dev/docs/feature_cards/Transform_Ckpt.md#%E7%A6%BB%E7%BA%BF%E6%9D%83%E9%87%8D%E8%BD%AC%E6%8D%A2)章节，将完整权重转为16卡分布式权重；
+   ② 若所有节点之间有共享盘，Mindformer支持自动权重转换，请参考[权重转换文档-物理机多机多卡训练](https://gitee.com/mindspore/mindformers/blob/dev/docs/feature_cards/Transform_Ckpt.md#%E7%89%A9%E7%90%86%E6%9C%BA%E5%A4%9A%E6%9C%BA%E5%A4%9A%E5%8D%A1%E8%AE%AD%E7%BB%83%E6%A1%88%E4%BE%8B)案例，可跳过该步骤。
 
-```text
-    └── path of ckpt
-        └── rank_0
-            └── baichuan2_13b.ckpt
-```
-
-若使用离线切分，配置参数`auto_trans_ckpt`置为`False`，`load_checkpoint`传入切分好的权重路径文件夹即可。步骤参考[权重切分与合并](../../docs/feature_cards/Transform_Ckpt.md)。
-
-2. 修改`run_baichuan2_13b.yaml`中相关配置
+3. 修改`run_baichuan2_13b.yaml`中相关配置，默认节点之间无共享盘，不开启自动权重切分，完整权重已经离线切分为16卡分布式权重。
 
 ```yaml
-output_dir: './output'
-load_checkpoint: '{path}/'                       # 完整模型存放格式为"model_dir/rank_0/xxx.ckpt"
-auto_trans_ckpt: True                            # 打开权重自动转换
+output_dir: './output'          # 默认路径，若需要自动权重转换，请配置为共享盘输出路径
+load_checkpoint: 'model_dir'    # 使用分布式权重，权重按照`model_dir/rank_x/xxx.ckpt`格式存放
+auto_trans_ckpt: False          # 关闭自动权重转换，若需要自动权重转换，则改为True
 use_parallel: True
 run_mode: 'finetune'
 # dataset
 train_dataset: &train_dataset
   data_loader:
     type: MindDataset
-    dataset_dir: "{path}/belle512.mindrecord"    # 修改训练数据集路径
+    dataset_dir: "dataset_dir"  # 配置训练数据集文件夹路径
     shuffle: True
   input_columns: ["input_ids", "labels"]
 # 指令微调时（如belle数据集），input_columns: ["input_ids", "labels"]
 # 继续预训练时（如wikitext2数据集），input_columns: ["input_ids"]
-```
 
-3. 启动微调任务，以默认配置2机16卡为例，按照以下步骤启动：
-
-- step 1. 首先参考在每台机器上运行`mindformers/tools/hccl_tools.py`生成`RANK_TABLE_FILE`的json文件
-
-```shell
-# 在每个机器上运行如下命令，生成各自的RANK_TABLE_FILE的json文件。
-python ./mindformers/tools/hccl_tools.py --device_num [0,8]
-```
-
-- step 2. 合并每台机器上生成的`RANK_TABLE_FILE`
-
-多卡运行需要RANK_FILE_TABLE，请参考前期准备-[生成RANK_TABLE_FILE](#生成rank_table_file多卡运行必须环节)
-
-将不同机器上生成的`RANK_TABLE_FILE`文件拷贝到一起，执行`merge_hccl.py`脚本进行合并，包括server_list合并，`server_count`设为机器数，`rank_id`顺序增加。
-
-```shell
-# 运行如下命令，合并每个机器上的RANK_TABLE_FILE文件。
-python ./mindformers/tools/merge_hccl.py hccl*.json
-```
-
-- step 3. 将合并后的`RANK_TABLE_FILE`文件拷贝到所有机器中，**需要保证执行的节点和`RANK_TABLE_FILE`的节点顺序保持一致，即rank_id匹配**
-
-- step 4. 根据服务器节点数等信息，修改相应的配置
-
-```yaml
-# 以Baichuan2-13B模型两机训练为例，默认配置2机16卡，如果节点数有变，需要修改相应的配置。
-# 配置文件路径：./research/baichuan2/run_baichuan2_13b.yaml
+# 16卡分布式策略配置
 parallel_config:
   data_parallel: 1
   model_parallel: 8
@@ -819,9 +767,7 @@ parallel_config:
   gradient_aggregation_group: 4
 ```
 
-- step 5. 执行运行脚本
-
-在多机上同时拉起任务，每台机器拉起方式如下：
+4. 启动微调任务，在多机上同时拉起任务。
 
 ```shell
 # node 1
@@ -829,42 +775,59 @@ cd mindformers/research
 bash run_multinode.sh \
 "python baichuan2/run_baichuan2.py \
 --config baichuan2/run_baichuan2_13b.yaml \
---load_checkpoint path/to/baichuan2_13b_ckpt \
---auto_trans_ckpt True \
+--load_checkpoint model_dir \
+--auto_trans_ckpt False \
 --use_parallel True \
 --run_mode finetune \
---train_data path/to/mindrecord_dir" \
-path/to/rank_table_file [0,8] 16
+--train_data dataset_dir" \
+RANK_TABLE_FILE [0,8] 16
 
 # node 2
 cd mindformers/research
 bash run_multinode.sh \
 "python baichuan2/run_baichuan2.py \
 --config baichuan2/run_baichuan2_13b.yaml \
---load_checkpoint path/to/baichuan2_13b_ckpt \
---auto_trans_ckpt True \
+--load_checkpoint model_dir \
+--auto_trans_ckpt False \
 --use_parallel True \
 --run_mode finetune \
---train_data path/to/mindrecord_dir" \
-path/to/rank_table_file [8,16] 16
+--train_data dataset_dir" \
+RANK_TABLE_FILE [8,16] 16
 
 # 参数说明
 config: 配置文件路径
-load_checkpoint: 权重文件夹路径
-auto_trans_ckpt: 是否进行权重自动切分
+load_checkpoint: 权重文件夹路径，权重按照'model_dir/rank_x/xxx.ckpt'格式存放
+auto_trans_ckpt: 自动权重转换开关
 run_mode: 运行模式，微调时设置为finetune
-train_data: 训练数据集路径
+train_data: 训练数据集文件夹路径
 ```
 
-- ##### 910B
+- **910B**
 
 Baichuan2-13B-Base用于微调，seq_length默认为512，分布式微调训练在910B上单节点即可启动。以`belle_chat_ramdon_10k.json`数据集为例，给出了默认配置文件`run_baichuan2_13b_910b.yaml`。
 
-启动流程参考[Baichuan2-7B全参微调](#全参微调)的910B部分，其中step 2中的并行策略相关配置需要进行以下修改：
+**步骤**：
+
+1. RANK_TABLE_FILE准备：请参照[RANK_TABLE_FILE准备](#RANK_TABLE_FILE准备)-单机8卡章节，获取单节点的`RANK_TABLE_FILE`文件。
+
+2. 修改`run_baichuan2_13b_910b.yaml`中相关配置，默认使用完整权重，开启自动权重转换。
 
 ```yaml
-# 以Baichuan2-13B模型单机训练为例，默认配置单机8卡，如果节点数有变，需要修改相应的配置。
-# 配置文件路径：./research/baichuan2/run_baichuan2_13b_910b.yaml
+load_checkpoint: 'model_dir'    # 使用完整权重，权重按照`model_dir/rank_0/xxx.ckpt`格式存放
+auto_trans_ckpt: True           # 打开自动权重转换
+use_parallel: True
+run_mode: 'finetune'
+# dataset
+train_dataset: &train_dataset
+  data_loader:
+    type: MindDataset
+    dataset_dir: "dataset_dir"  # 配置训练数据集文件夹路径
+    shuffle: True
+  input_columns: ["input_ids", "labels"]
+# 指令微调时（如belle数据集），input_columns: ["input_ids", "labels"]
+# 继续预训练时（如wikitext2数据集），input_columns: ["input_ids"]
+
+# 8卡分布式策略配置
 parallel_config:
   data_parallel: 1
   model_parallel: 2
@@ -874,48 +837,159 @@ parallel_config:
   gradient_aggregation_group: 4
 ```
 
-#### Lora微调
+3. 启动微调任务，在单机上拉起任务。
+
+```shell
+cd mindformers/research
+bash run_singlenode.sh \
+"python baichuan2/run_baichuan2.py \
+--config baichuan2/run_baichuan2_13b_910b.yaml \
+--load_checkpoint model_dir \
+--auto_trans_ckpt True \
+--use_parallel True \
+--run_mode finetune \
+--train_data dataset_dir" \
+RANK_TABLE_FILE [0,8] 8
+
+# 参数说明
+config: 配置文件路径
+load_checkpoint: 权重文件夹路径，权重按照'model_dir/rank_x/xxx.ckpt'格式存放
+auto_trans_ckpt: 自动权重转换开关
+run_mode: 运行模式，微调时设置为finetune
+train_data: 训练数据集文件夹路径
+```
+
+### Lora微调
 
 Baichuan2-13B-Base用于Lora微调，seq_length默认为512。Lora微调支持910A/B，配置文件基本相同。以`belle_chat_ramdon_10k.json`数据集为例，给出910B的默认配置文件`run_baichuan2_13b_lora_910b.yaml`。
 
-流程参考[Baichuan2-7B的Lora微调](#lora微调)流程。
+**步骤**：
 
-### MindSpore推理
+1. RANK_TABLE_FILE准备：请参照[RANK_TABLE_FILE准备](#RANK_TABLE_FILE准备)-单机8卡章节，获取单节点的`RANK_TABLE_FILE`文件。
 
-#### 基于高阶接口的推理
+2. 修改`run_baichuan2_13b_lora_910b.yaml`中相关配置，默认使用完整权重，开启自动权重转换。
 
-- ##### 910A
+```shell
+load_checkpoint: 'model_dir'    # 使用完整权重，权重按照`model_dir/rank_0/xxx.ckpt`格式存放
+auto_trans_ckpt: True           # 打开自动权重转换
+use_parallel: True
+run_mode: 'finetune'
+# dataset
+train_dataset: &train_dataset
+  data_loader:
+    type: MindDataset
+    dataset_dir: "dataset_dir"  # 配置训练数据集文件夹路径
+    shuffle: True
+  input_columns: ["input_ids", "labels"]
+# 指令微调时（如belle数据集），input_columns: ["input_ids", "labels"]
+# 继续预训练时（如wikitext2数据集），input_columns: ["input_ids"]
 
-**注1**：Baichuan2-13B-Chat用于推理，seq_length默认为512，推理需要2卡，不支持单卡推理。
-
-**注2**：由于Baichuan2-13B基于高阶接口的形式开发，存放于research文件夹下，使用时需要将mindformers安装为python的包，才能直接进入research目录下执行相关命令。
-
-**注3**：当前`run_baichuan2_13b.yaml`文件默认为train配置，用于eval和predict时需要修改并行策略。
-
-以单机2卡为例：
-
-1. 主要参数配置参考
-
-```yaml
-load_checkpoint: '{path}/'    # 完整模型存放格式为"model_dir/rank_0/xxx.ckpt"
-auto_trans_ckpt: True         # 打开权重自动转换
-use_past: True                # 打开增量推理
-vocab_file: 'path/to/tokenizer.model'
-
-# 分布式配置
+# 8卡分布式策略配置
 parallel_config:
-  data_parallel: 1
-  model_parallel: 2
+  data_parallel: 8
+  model_parallel: 1
   pipeline_stage: 1
   micro_batch_num: 1
   vocab_emb_dp: True
   gradient_aggregation_group: 4
+
+# 权重保存配置参考
+parallel:
+  strategy_ckpt_config:
+    save_file: "./ckpt_strategy.ckpt"
+    only_trainable_params: False # 配置为False，保存完整权重
+
+# model增加pet_config
+model:
+  model_config:
+    pet_config:
+      pet_type: lora
+      # configuration of lora
+      lora_rank: 1
+      lora_alpha: 32
+      lora_dropout: 0.1
+      target_modules: '.*wq|.*wk|.*wv'
 ```
 
-2. 生成2卡的rank_table_file
+3. 启动Lora微调任务，在单机上拉起任务。
+
+```bash
+cd mindformers/research
+bash run_singlenode.sh \
+"python baichuan2/run_baichuan2.py \
+--config baichuan2/run_baichuan2_13b_lora_910b.yaml \
+--load_checkpoint model_dir \
+--auto_trans_ckpt True \
+--use_parallel True \
+--run_mode finetune \
+--train_data dataset_dir" \
+RANK_TABLE_FILE [0,8] 8
+
+# 参数说明
+config: 配置文件路径
+load_checkpoint: 权重文件夹路径，权重按照'model_dir/rank_x/xxx.ckpt'格式存放
+auto_trans_ckpt: 自动权重转换开关
+run_mode: 运行模式，微调时设置为finetune
+train_data: 训练数据集文件夹路径
+```
+
+- 若要在910A上运行，只需修改配置文件如下：
+
+```yaml
+# research/baichuan2/run_baichuan2_13b_lora_910b.yaml
+max_device_memory: "31GB"    # 910A将最大内存改为31GB即可
+
+# 910A的8卡分布式策略配置
+parallel_config:
+  data_parallel: 2
+  model_parallel: 1
+  pipeline_stage: 4
+  micro_batch_num: 4
+  vocab_emb_dp: True
+  gradient_aggregation_group: 4
+```
+
+### MindSpore推理
+
+Baichuan2-13B-Chat用于在线推理，910B支持单卡推理，910A支持4卡分布式推理。
+
+以下给出了几种推理方式，仅供参考：
+
+- **基于高阶接口推理**：基于trainer推理，输入不使用prompt；
+- **基于Pipeline推理**：基于pipeline推理，输入不使用prompt；
+- **基于Generate推理**：基于generate推理，输入不使用prompt；
+- **chat多轮对话推理(推荐)**：基于generate推理，输入使用prompt；
+
+请下载词表文件：[tokenizer.model](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/baichuan2/tokenizer.model)
+
+#### 基于高阶接口推理
+
+- **910A**
+
+Baichuan2-13B在910A推理至少需要4卡，以单机4卡为例：
+
+1. 生成4卡的`RANK_TABLE_FILE`文件
 
 ```shell
-python mindformers/tools/hccl_tools.py --device_num [0,2]
+python mindformers/tools/hccl_tools.py --device_num [0,4]
+```
+
+2. 主要参数配置参考
+
+```yaml
+load_checkpoint: 'model_dir'             # 使用完整权重，权重存放格式为"model_dir/rank_0/xxx.ckpt"
+auto_trans_ckpt: True                    # 打开自动权重转换
+use_past: True                           # 打开增量推理
+vocab_file: 'path/to/tokenizer.model'    # 配置词表路径
+
+# 分布式配置
+parallel_config:
+  data_parallel: 1
+  model_parallel: 4
+  pipeline_stage: 1
+  micro_batch_num: 1
+  vocab_emb_dp: True
+  gradient_aggregation_group: 4
 ```
 
 3. 启动推理
@@ -928,44 +1002,32 @@ bash ./run_singlenode.sh \
 --config baichuan2/run_baichuan2_13b.yaml \
 --run_mode predict \
 --use_parallel True \
---load_checkpoint path/to/baichuan2-13b-chat.ckpt \
+--load_checkpoint model_dir \
 --auto_trans_ckpt True \
---predict_data 你是谁？" rank_table_file [0,2] 2
+--predict_data 你是谁？" RANK_TABLE_FILE [0,4] 4
 
 # output: [{'text_generation_text': ['你是谁？ \n我是百川大模型，是由百川智能的工程师们创造的大语言模型，我可以和人类进行自然交流、解答问题、协助创作，帮助大众轻松、普惠的获得世界知识和专业服务。如果你有任何问题，可以随时向我提问']}]
 ```
 
-- 注：推理结束后，保存`output/transformed_checkpoint`到自定义文件夹下，后续分布式推理可以直接加载`transformed_checkpoint`里面的4卡分布式权重，配置修改如下：
+- **注：推理结束后，保存`output/transformed_checkpoint`到自定义文件夹下，后续分布式推理可以直接加载`transformed_checkpoint`里面的4卡分布式权重**，只需修改如下配置：
 
 ```yaml
-load_checkpoint: 'transformed_checkpoint'    # 完整模型存放格式为"transformed_checkpoint/rank_x/xxx.ckpt"
-auto_trans_ckpt: False                       # 关闭权重自动转换
+load_checkpoint: 'transformed_checkpoint'    # 使用转换后的权重，权重存放格式为"transformed_checkpoint/rank_x/xxx.ckpt"
+auto_trans_ckpt: False                       # 关闭自动权重转换
 ```
 
-- ##### 910B
+- **910B**
 
-**注1**：Baichuan2-13B-Chat用于推理，seq_length默认为512，支持单卡推理。
-
-**注2**：由于Baichuan2-13B基于高阶接口的形式开发，存放于research文件夹下，使用时需要将mindformers安装为python的包，才能直接进入research目录下执行相关命令。
-
-**注3**：当前`run_baichuan2_13b.yaml`文件默认为train配置，用于eval和predict时需要修改并行策略。
+Baichuan2-13B在910B支持单卡推理。
 
 1. 主要参数配置参考
 
 ```yaml
-load_checkpoint: '{path}/'    # 完整模型存放格式为"model_dir/rank_0/xxx.ckpt"
-auto_trans_ckpt: False        # 关闭权重自动转换
-use_past: True                # 打开增量推理
-vocab_file: 'path/to/tokenizer.model'
-
-# 分布式配置
-parallel_config:
-  data_parallel: 1
-  model_parallel: 1
-  pipeline_stage: 1
-  micro_batch_num: 1
-  vocab_emb_dp: True
-  gradient_aggregation_group: 4
+load_checkpoint: 'model_dir'             # 使用完整权重，权重存放格式为"model_dir/rank_0/xxx.ckpt"
+auto_trans_ckpt: False                   # 关闭自动权重转换
+use_past: True                           # 打开增量推理
+vocab_file: 'path/to/tokenizer.model'    # 配置词表路径
+use_parallel: False                      # 关闭并行开关
 ```
 
 2. 启动推理
@@ -976,45 +1038,43 @@ cd research
 python baichuan2/run_baichuan2.py \
 --config baichuan2/run_baichuan2_13b_910b.yaml \
 --run_mode predict \
---use_parallel True \
---load_checkpoint path/to/baichuan2-13b-chat.ckpt \
---auto_trans_ckpt True \
+--use_parallel False \
+--load_checkpoint model_dir \
+--auto_trans_ckpt False \
 --predict_data 你是谁？
 
 # output: [{'text_generation_text': ['你是谁？ \n我是百川大模型，是由百川智能的工程师们创造的大语言模型，我可以和人类进行自然交流、解答问题、协助创作，帮助大众轻松、普惠的获得世界知识和专业服务。如果你有任何问题，可以随时向我提问']}]
 ```
 
-- 注：推理结束后，保存`output/transformed_checkpoint`到自定义文件夹下，后续分布式推理可以直接加载`transformed_checkpoint`里面的4卡分布式权重，配置修改如下：
+#### 基于Pipeline推理
 
-```yaml
-load_checkpoint: 'transformed_checkpoint'    # 完整模型存放格式为"transformed_checkpoint/rank_x/xxx.ckpt"
-auto_trans_ckpt: False                       # 关闭权重自动转换
+- **910A**
+
+1. 生成4卡的`RANK_TABLE_FILE`文件
+
+```shell
+python mindformers/tools/hccl_tools.py --device_num [0,4]
 ```
 
-#### 基于Pipeline的推理
-
-- ##### 910A
-
-1. 主要参数配置参考
+2. 主要参数配置参考
 
 ```yaml
-load_checkpoint: '{path}/'   # 完整模型存放格式为"model_dir/rank_0/xxx.ckpt"
-auto_trans_ckpt: True        # 打开权重自动转换
-use_past: True               # 打开增量推理
-vocab_file: 'path/to/tokenizer.model'
-use_parallel: True
+load_checkpoint: 'model_dir'             # 使用完整权重，权重存放格式为"model_dir/rank_0/xxx.ckpt"
+auto_trans_ckpt: True                    # 打开自动权重转换
+use_past: True                           # 打开增量推理
+vocab_file: 'path/to/tokenizer.model'    # 配置词表路径
 
 # 分布式配置
 parallel_config:
   data_parallel: 1
-  model_parallel: 2
+  model_parallel: 4
   pipeline_stage: 1
   micro_batch_num: 1
   vocab_emb_dp: True
   gradient_aggregation_group: 4
 ```
 
-2. 构建run_baichuan2_pipeline.py
+3. 构建run_baichuan2_pipeline.py
 
 ```python
 import mindspore as ms
@@ -1064,28 +1124,26 @@ pipeline_result = pipeline_task("你是谁？",
 print(pipeline_result)
 ```
 
-3. 启动2卡分布式pipeline推理
+4. 启动4卡分布式pipeline推理
 
 ```shell
 cd research
-bash run_singlenode.sh \
-"python baichuan2/run_baichuan2_pipeline.py" \
-path/to/rank_table_file [0,2] 2
+bash run_singlenode.sh "python baichuan2/run_baichuan2_pipeline.py" RANK_TABLE_FILE [0,4] 4
 
 # output: [{'text_generation_text': ['你是谁？ \n我是百川大模型，是由百川智能的工程师们创造的大语言模型，我可以和人类进行自然交流、解答问题、协助创作，帮助大众轻松、普惠的获得世界知识和专业服务。如果你有任何问题，可以随时向我提问']}]
 ```
 
-- ##### 910B
+- **910B**
 
 1. 主要参数配置参考
 
 ```yaml
 load_checkpoint: ''                                           # 单卡推理时，只需配置checkpoint_name_or_path
-auto_trans_ckpt: False                                        # 关闭权重自动转换
-checkpoint_name_or_path: 'path/to/baichuan2-13B-Chat.ckpt'    # 填写权重绝对路径
+auto_trans_ckpt: False                                        # 关闭自动权重转换
+checkpoint_name_or_path: 'path/to/Baichuan2-13B-Chat.ckpt'    # 填写权重绝对路径
 use_past: True                                                # 打开增量推理
-vocab_file: 'path/to/tokenizer.model'
-use_parallel: False
+vocab_file: 'path/to/tokenizer.model'                         # 配置词表路径
+use_parallel: False                                           # 关闭并行
 ```
 
 2. 运行run_baichuan2_pipeline.py
@@ -1127,32 +1185,35 @@ print(pipeline_result)
 # output: [{'text_generation_text': ['你是谁？ \n我是百川大模型，是由百川智能的工程师们创造的大语言模型，我可以和人类进行自然交流、解答问题、协助创作，帮助大众轻松、普惠的获得世界知识和专业服务。如果你有任何问题，可以随时向我提问']}]
 ```
 
-#### 基于Generate的推理
+#### 基于Generate推理
 
-- ##### 910A
+- **910A**
 
-1. 主要参数配置参考
+1. 生成4卡的`RANK_TABLE_FILE`文件
+
+```shell
+python mindformers/tools/hccl_tools.py --device_num [0,4]
+```
+
+2. 主要参数配置参考
 
 ```yaml
-load_checkpoint: '{path}/'   # 完整模型存放格式为"model_dir/rank_0/xxx.ckpt"
-auto_trans_ckpt: True        # 打开权重自动转换
-use_past: True               # 打开增量推理
-vocab_file: 'path/to/tokenizer.model'
-use_parallel: True
+load_checkpoint: 'model_dir'             # 使用完整权重，权重存放格式为"model_dir/rank_0/xxx.ckpt"
+auto_trans_ckpt: True                    # 打开自动权重转换
+use_past: True                           # 打开增量推理
+vocab_file: 'path/to/tokenizer.model'    # 配置词表路径
 
 # 分布式配置
 parallel_config:
   data_parallel: 1
-  model_parallel: 2
+  model_parallel: 4
   pipeline_stage: 1
   micro_batch_num: 1
   vocab_emb_dp: True
   gradient_aggregation_group: 4
-# when model parallel is greater than 1, we can set micro_batch_interleave_num=2, that may accelerate the train process.
-micro_batch_interleave_num: 1
 ```
 
-2. 构建run_baichuan2_generate.py
+3. 构建run_baichuan2_generate.py
 
 ```python
 import mindspore as ms
@@ -1203,28 +1264,26 @@ for output in outputs:
     print(tokenizer.decode(output))
 ```
 
-3. 启动2卡分布式generate推理
+4. 启动4卡分布式generate推理
 
 ```shell
 cd research
-bash run_singlenode.sh \
-"python baichuan2/run_baichuan2_generate.py" \
-path/to/rank_table_file [0,2] 2
+bash run_singlenode.sh "python baichuan2/run_baichuan2_generate.py" RANK_TABLE_FILE [0,4] 4
 
 # output: [{'text_generation_text': ['你是谁？ \n我是百川大模型，是由百川智能的工程师们创造的大语言模型，我可以和人类进行自然交流、解答问题、协助创作，帮助大众轻松、普惠的获得世界知识和专业服务。如果你有任何问题，可以随时向我提问']}]
 ```
 
-- ##### 910B
+- **910B**
 
 1. 主要参数配置参考
 
 ```yaml
 load_checkpoint: ''                                           # 单卡推理时，只需配置checkpoint_name_or_path
-auto_trans_ckpt: False                                        # 关闭权重自动转换
-checkpoint_name_or_path: 'path/to/baichuan2-13B-Chat.ckpt'    # 填写权重绝对路径
+auto_trans_ckpt: False                                        # 关闭自动权重转换
+checkpoint_name_or_path: 'path/to/Baichuan2-13B-Chat.ckpt'    # 填写权重绝对路径
 use_past: True                                                # 打开增量推理
-vocab_file: 'path/to/tokenizer.model'
-use_parallel: False
+vocab_file: 'path/to/tokenizer.model'                         # 配置词表路径
+use_parallel: False                                           # 关闭并行
 ```
 
 2. 运行run_baichuan2_generate.py
@@ -1265,6 +1324,22 @@ for output in outputs:
 
 # output: [{'text_generation_text': ['你是谁？ \n我是百川大模型，是由百川智能的工程师们创造的大语言模型，我可以和人类进行自然交流、解答问题、协助创作，帮助大众轻松、普惠的获得世界知识和专业服务。如果你有任何问题，可以随时向我提问']}]
 ```
+
+### chat多轮对话推理
+
+Baichuan2-13B-Chat仅支持910b单卡多轮对话推理，使用`research/baichuan2/run_baichuan2_chat.py`。
+
+```shell
+cd research/baichuan2
+python run_baichuan2_chat.py \
+--config run_baichuan2_13b_910b.yaml \
+--use_parallel False \
+--load_checkpoint '/path/to/Baichuan2-13B-Chat.ckpt' \
+--auto_trans_ckpt False \
+--vocab_file '/path/to/tokenizer.model'
+```
+
+- **注：910A需开启4卡分布式推理，不支持交互。**
 
 ### MindSpore Lite推理
 
