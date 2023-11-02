@@ -842,7 +842,98 @@ bash run_chat.sh
 
 ## mindspore-lite
 
-可参考[mindspore-lite特性文档](../feature_cards/Inference.md)，具体内容待补充。
+使用mindspore-lite推理共分两步，首先将ckpt文件导出为mindir文件，然后调用`run_infer_main.py`脚本进行推理。
+
+第一步将bloom 7.1B的ckpt权重文件转换成2个共享参数的mindir文件用于lite离线推理:
+
+- `./mindirs/bloom7b_prefill_seq1024_bs1_graph.mindir` 用于首token的全量推理
+
+- `./mindirs/bloom7b_decode_seq1024_bs1_graph.mindir`用于后续token的增量推理。
+
+导出mindir的命令如下：
+
+```bash
+python mindformers/tools/export.py --config_path ./configs/bloom/infer_bloom_7.1b.yaml
+```
+
+其中infer_bloom_7.1b.yaml以下配置：
+
+```yaml
+
+# trainer config
+
+trainer:
+  type: CausalLanguageModelingTrainer
+  model_name: 'bloom_7.1b'
+
+model:
+  model_config:
+    type: BloomConfig
+    batch_size: 1
+    seq_length: 1024
+    hidden_size: 4096
+    num_layers: 30
+    num_heads: 32
+    hidden_act: "gelu"
+    param_init_type: "float16"
+    embedding_init_type: "float16"
+    layernorm_compute_type: "float32"
+    softmax_compute_type: "float16"
+    compute_dtype: "float16"
+    checkpoint_name_or_path: "bloom_7.1b"
+    repetition_penalty: 1
+    top_k: 1
+    top_p: 1
+    use_past: True
+  arch:
+    type: BloomLMHeadModel
+
+# lite
+
+infer:
+  prefill_model_path: "./mindirs/bloom7b_prefill_seq1024_bs1"
+  increment_model_path: "./mindirs/bloom7b_decode_seq1024_bs1"
+  infer_seq_length: 1024
+  model_type: mindir
+```
+
+第二步，导出mindir后，用以下命令调用mindformers中的`run_infer_main.py`脚本进行推理。
+
+```bash
+python run_infer_main.py \
+--device_id 7 \
+--model_name bloom \
+--prefill_model_path ./mindirs/bloom7b_prefill_seq1024_bs1_graph.mindir \
+--increment_model_path ./mindirs/bloom7b_decode_seq1024_bs1_graph.mindir \
+--config_path ./mindirs/context.cfg \
+--is_sample_acceleration False \
+--seq_length 1024
+```
+
+其中`./mindirs/context.cfg`为lite推理的配置文件，具体内容如下：
+
+```[ascend_context]
+provider=ge
+
+[ge_session_options]
+ge.externalWeight=1
+ge.exec.formatMode=1
+
+[ascend_context]
+enable_custom_op=All
+
+```
+
+最后，lite推理的预期结果为
+
+```Please enter your predict data:
+介绍一下什么是人工智能。
+one token takes 0.09584355354309082 s
+one token takes 0.02199864387512207 s
+one token takes 0.02149224281311035 s
+...
+['介绍一下什么是人工智能。 人工智能（AI），或机器学习，是研究、开发、应用机器学习技术，让机器像人一样智能。']
+```
 
 ## 附录
 
