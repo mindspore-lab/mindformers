@@ -964,6 +964,66 @@ top_p: 1
 do_sample: True
 ```
 
-## [mindspore-lite](../feature_cards/Inference.md)
+## Mindspore-Lite 推理
 
-如需导出模型，使用mindspore-lite进行离线推理请参考[推理特性使用文档](../feature_cards/Inference.md)
+### 基本介绍
+
+　　MindFormers 定位打造训练->微调->部署的端到端大模型工具套件，为了更好性能地部署已经微调训练好的大模型，我们利用MindSpore打造的推理引擎 [MindSpore_lite](https://gitee.com/link?target=https%3A%2F%2Fwww.mindspore.cn%2Flite)，为用户提供了开箱即用的推理部署方案，为用户提供端到端的大模型解决方案，帮助用户使能大模型业务。
+
+　　Lite 推理大致分两步：权重转换导出 MindIR -> Lite 推理，接下来分别描述上述两个过程。
+
+### MindIR 导出
+
+　　1. 修改模型相关的配置文件 export_gpt2_13b.yaml，其中需要关注这几项：
+
+```yaml
+# export
+infer:
+    prefill_model_path: "gpt2_export/gpt2_13b_prefill_seq2048.mindir" # 保存mindir的位置
+    increment_model_path: "gpt2_export/gpt2_13b_inc_seq2048.mindir"   # 保存mindir的位置
+    infer_seq_length: 2048 # 需要保持跟 model-model_config-seq_length 一致
+
+# ==== model config ====
+model:
+  model_config:
+    seq_length: 2048
+    checkpoint_name_or_path: "/path/to/your/*.ckpt"
+```
+
+2. 执行export.py，完成模型转换
+
+```bash
+python mindformers/tools/export.py --config_path export_gpt2_13b.yaml
+```
+
+### 执行推理
+
+1. 新建推理配置文件, 配置参数请参考特性文档[如何配置GE图引擎配置](https://gitee.com/mindspore/mindformers/blob/dev/docs/feature_cards/Inference.md#%E5%A6%82%E4%BD%95%E9%85%8D%E7%BD%AEge%E5%9B%BE%E5%BC%95%E6%93%8E%E9%85%8D%E7%BD%AE)
+
+```bash
+lite.ini
+```
+
+2. 执行命令：
+
+```bash
+python run_infer_main.py --device_id 0 --model_name gpt2 --prefill_model_path gpt2_export/gpt2_13b_prefill_seq2048_graph.mindir --increment_model_path gpt2_export/gpt2_13b_inc_seq2048_graph.mindir --config_path lite.ini --is_sample_acceleration False --seq_length 2048 --add_special_tokens True
+```
+
+　　等待模型载入、编译后，出现：
+
+```bash
+Please enter your predict data:
+```
+
+　　输入：
+
+```bash
+An increasing sequence: one,
+```
+
+　　输出：
+
+```bash
+['An increasing sequence: one, two, three, four, five, six, seven, eight, nine, ten, eleven, twelve, thirteen, ...']
+```

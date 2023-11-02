@@ -160,6 +160,7 @@ class InputOfInfer:
         "bloom": CommonInputsOfInfer,
         "llama": CommonInputsOfInfer,
         "glm2": CommonInputsOfInfer,
+        "gpt2": CommonInputsOfInfer,
         "codegeex2": CommonInputsOfInfer,
         "glm": GLMInputsOfInfer,
         "common": CommonInputsOfInfer
