@@ -255,6 +255,8 @@ class BloomLMHeadModel(BaseModel):
         self.gt = P.Greater().shard(((parallel_config.data_parallel, 1), ()))
         self.mul = P.Mul().shard(((parallel_config.data_parallel, 1), (parallel_config.data_parallel, 1)))
         self.abs = P.Abs().shard(((parallel_config.data_parallel, 1),))
+        self.add = P.Add().shard(((parallel_config.data_parallel, 1), ()))
+        self.gather = P.Gather().shard(((parallel_config.data_parallel, 1), (parallel_config.data_parallel,)))
 
         self.transformer = BloomModel(self.config)
         self.head = BloomHead(hidden_size=config.hidden_size,
@@ -326,6 +328,11 @@ class BloomLMHeadModel(BaseModel):
         if not self.training:
             if self.is_sample_acceleration:
                 return self.get_top_token_id(logits, current_index=input_position)
+            input_mask = self.add(input_mask, 1)
+            if (not self.use_past or self.is_first_iteration) and input_position is not None:
+                logits = logits.reshape(-1, logits.shape[-1])
+                index = input_position.view(-1,)
+                logits = self.gather(logits, index, 0)
             return logits, tokens, input_mask
 
         labels = self.stridedslice(input_ids, (0, 1), (batch_size, seq_length), (1, 1))
@@ -333,7 +340,6 @@ class BloomLMHeadModel(BaseModel):
         loss_mask = loss_mask.reshape((-1,))
         loss = self.loss(logits, labels, loss_mask)
         return loss
-
 
     def get_top_token_id(self, logits, current_index=None):
         """get_top_token_id"""
