@@ -53,10 +53,46 @@ class Conversation:
     stop_token_ids: List[int] = None
 
     # Used for the state in the gradio servers.
-    # TODO(lmzheng): refactor this
     conv_id: Any = None
     skip_next: bool = False
     model_name: str = None
+
+    def get_prompt(self):
+        """Get the prompt for generation."""
+        if self.sep_style == SeparatorStyle.ADD_COLON_SINGLE:
+            ret = self.system + self.sep
+            for role, message in self.messages:
+                if message:
+                    ret += role + ": " + message + self.sep
+                else:
+                    ret += role + ":"
+            return ret
+        if self.sep_style == SeparatorStyle.ADD_COLON_TWO:
+            seps = [self.sep, self.sep2]
+            ret = self.system + seps[0]
+            for i, (role, message) in enumerate(self.messages):
+                if message:
+                    ret += role + ": " + message + seps[i % 2]
+                else:
+                    ret += role + ":"
+            return ret
+        raise ValueError(f"Invalid style: {self.sep_style}")
+
+    def append_message(self, role, message):
+        """Append a new message."""
+        self.messages.append([role, message])
+
+    def to_openai_api_messages(self):
+        """Convert the conversation to OpenAI chat completion format."""
+        ret = [{"role": "system", "content": self.system}]
+
+        for i, (_, msg) in enumerate(self.messages[self.offset:]):
+            if i % 2 == 0:
+                ret.append({"role": "user", "content": msg})
+            else:
+                if msg is not None:
+                    ret.append({"role": "assistant", "content": msg})
+        return ret
 
     def copy(self):
         return Conversation(
