@@ -913,25 +913,24 @@ def main(args):
     processor = AutoProcessor.from_pretrained(args.model_type)
     tokenizer = processor.tokenizer
 
-    input_images = processor.image_processor([load_image(filepath) for filepath in image_filepath])
-    input_ids = tokenizer(prompts,
-                          max_length=args.seq_length,
-                          padding="max_length",
-                          return_tensors="ms")["input_ids"]
-    expand_dims = ops.ExpandDims()
-    gather = ops.Gather()
-
     for _ in range(args.generate_repeat_time):
         if model_config.batch_size > 1:
+            input_images = processor.image_processor([load_image(filepath) for filepath in image_filepath])
+            input_ids = tokenizer(prompts,
+                                  max_length=args.seq_length,
+                                  padding="max_length",
+                                  return_tensors="ms")["input_ids"]
             output = model.generate_text_for_image(input_images, input_ids)
             print(tokenizer.decode(output, skip_special_tokens=True))
         else:
-            batch_size = input_images.shape[0]
-
+            batch_size = len(image_filepath)
             for index in range(batch_size):
-                index = ms.Tensor(index)
-                input_id = expand_dims(gather(input_ids, index, 0), 0)
-                input_image = expand_dims(gather(input_images, index, 0), 0)
+                input_image = processor.image_processor(load_image(image_filepath[index]))
+                input_id = tokenizer(prompts[index],
+                                     max_length=args.seq_length,
+                                     padding="max_length",
+                                     return_tensors="ms")["input_ids"]
+
                 output = model.generate_text_for_image(input_image, input_id)
                 print(tokenizer.decode(output, skip_special_tokens=True))
 

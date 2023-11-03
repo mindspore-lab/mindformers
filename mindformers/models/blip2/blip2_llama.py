@@ -21,7 +21,7 @@ from mindspore import ops, Tensor
 from mindspore.ops import operations as P
 
 from mindformers.mindformer_book import MindFormerBook
-from mindformers.models.blip2.blip2 import Blip2Base
+from mindformers.models.blip2.blip2 import Blip2Base, ImageTextEmbeddingConcat
 from mindformers.models.blip2.blip2_config import Blip2Config
 from mindformers.models.llama import LlamaConfig
 from mindformers.models.llama.llama import LlamaForCausalLM, LlamaModel
@@ -138,6 +138,11 @@ class LlamaForBlip2(LlamaForCausalLM):
         self.is_first_iteration = True
         self.use_past = self.config.use_past
 
+        if not self.training:
+            self.image_text_concat = ImageTextEmbeddingConcat(self.pad_token_id)
+        else:
+            self.image_text_concat = None
+
     # pylint: disable=W0221
     def construct(self, input_embeddings=None,
                   input_ids=None,
@@ -183,20 +188,18 @@ class LlamaForBlip2(LlamaForCausalLM):
 
         if self.is_first_iteration or not self.use_past:
             image_embeddings = kwargs.pop("image_embeds")
-            image_embeddings_atts = self.ones(image_embeddings.shape[:-1], mstype.float32)
 
             image_embeddings_length = image_embeddings.shape[1]
             text_input_ids = Tensor(input_ids[:, image_embeddings_length:], mstype.int32)
             text_embeddings = self.model.tok_embeddings(text_input_ids)
-            text_embeddings = self.cast(text_embeddings, mstype.float32)
-            text_embeddings_atts = self.cast(self.not_equal(text_input_ids, self.pad_token_id), mstype.float32)
 
-            llama_inputs_embeds = self.concat_3d([image_embeddings, text_embeddings])
-            llama_inputs_attention_mask = self.concat_2d([image_embeddings_atts, text_embeddings_atts])
+            concat_inputs_embeds, concat_inputs_attention_mask = self.image_text_concat(image_embeddings,
+                                                                                        text_embeddings,
+                                                                                        text_input_ids)
             return {
                 "input_ids": Tensor(input_ids, mstype.int32),
-                "input_embeddings": llama_inputs_embeds,
-                "attention_mask": llama_inputs_attention_mask,
+                "input_embeddings": concat_inputs_embeds,
+                "attention_mask": concat_inputs_attention_mask,
                 "input_position": input_position
             }
         return {
@@ -374,17 +377,23 @@ class Blip2ImageToTextGeneration(Blip2Llama):
         self.one_prefix = ops.Ones()
         self.expand_dims = P.ExpandDims()
 
-    def generate_text_for_image(self, image: ms.Tensor, prompt_input_ids: ms.Tensor):
-        """generate text for image by calling llama generate"""
-        if len(prompt_input_ids.shape) == 1:
-            prompt_input_ids = self.expand_dims(prompt_input_ids, 0)
+        self.query_length = self.config.qformer_config.query_length
+
+    def construct(self, image: ms.Tensor, text_input_ids: ms.Tensor):
+        if len(text_input_ids.shape) == 1:
+            text_input_ids = self.expand_dims(text_input_ids, 0)
 
         batch_size = image.shape[0]
-        prefix_ones = self.one_prefix((batch_size, self.config.qformer_config.query_length), mstype.int32)
+        prefix_ones = self.one_prefix((batch_size, self.query_length), mstype.int32)
 
-        text_input_ids = self.concat_2d([prefix_ones, prompt_input_ids])
+        extend_text_input_ids = self.concat_2d([prefix_ones, text_input_ids])
         projected_qformer_output = self.forward_qformer_and_proj(image)
+        return extend_text_input_ids, projected_qformer_output
 
+    def generate_text_for_image(self, image: ms.Tensor, prompt_input_ids: ms.Tensor, **kwargs):
+        """generate text for image by calling llama generate"""
+        text_input_ids, projected_qformer_output = self(image, prompt_input_ids)
         output_ids = self.llama_model.generate(input_ids=text_input_ids.asnumpy(),
-                                               image_embeds=projected_qformer_output)
+                                               image_embeds=projected_qformer_output,
+                                               **kwargs)
         return output_ids
