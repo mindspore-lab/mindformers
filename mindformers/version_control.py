@@ -22,6 +22,33 @@ from .tools.utils import is_version_ge
 from .tools.logger import logger
 
 
+def get_ascend_soc_version():
+    """Get ascend soc version."""
+    if is_version_ge(ms.__version__, "2.2.0"):
+        from mindspore._c_expression import MSContext
+        return MSContext.get_instance().get_ascend_soc_version()
+    ascend_chip_type = os.getenv("ASCEND_CHIP_TYPE", "UNSET")
+    if ascend_chip_type not in ["910a", "910b", "UNSET"]:
+        raise EnvironmentError(f"ASCEND_CHIP_TYPE should be in ['910a', '910b'],but get {ascend_chip_type}")
+    if ascend_chip_type == "UNSET":
+        logger.info("Environment variables need to be set manually to obtain the chip type,"
+                    "which can be set as follows: \n"
+                    "For 910A chip, run 'export ASCEND_CHIP_TYPE=910a' before the program runs.\n"
+                    "For 910B chip, run 'export ASCEND_CHIP_TYPE=910b' before the program runs.\n"
+                    "If you need to get chip information automatically, MindSpore 2.2 and above is recommended")
+    return ascend_chip_type
+
+
+def is_910a():
+    device = get_ascend_soc_version()
+    return device in ['910a', 'ascend910']
+
+
+def is_910b():
+    device = get_ascend_soc_version()
+    return device in ['910b', 'ascend910b']
+
+
 def get_cell_reuse(func):
     """Cell reuse decorator."""
     def decorator(*args, **kwargs):
