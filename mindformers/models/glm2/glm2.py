@@ -110,7 +110,7 @@ class ChatGLM2Model(nn.Cell):
         return attention_mask
 
     def construct(self, input_ids, input_position=None, position_ids=None, attention_mask=None,
-                  full_attention_mask=None, inputs_embeds=None, init_reset=True, batch_valid_length=None):
+                  inputs_embeds=None, init_reset=True, batch_valid_length=None, full_attention_mask=None):
         """ChatGLM2 model."""
         _ = position_ids
         batch_size, _ = input_ids.shape

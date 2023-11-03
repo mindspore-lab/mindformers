@@ -112,17 +112,37 @@ class ADGenDataset:
         summary_list = []
         self.prompt_column = origin_columns[0]
         self.response_column = origin_columns[1]
+        i = 0
         with open(self.dataset_dir) as fp:
             for i, line in enumerate(fp):
-                prompt = json.loads(line)[self.prompt_column]
-                response = json.loads(line)[self.response_column]
+                # avoid empty line
+                if line.strip() == "":
+                    logger.info("Drop %s:%d due to empty line.", self.dataset_dir, i)
+                    continue
+                # avoid json loading error
+                try:
+                    row = json.loads(line, strict=False)
+                except json.JSONDecodeError as e:
+                    logger.info("Drop %s:%d due to '%s', line is:\n%s", self.dataset_dir, i, e, line)
+                    continue
+
+                # avoid incompelete keys
+                if self.prompt_column not in row or self.response_column not in row:
+                    logger.info("Drop %s:%d due to invalid keys, line is:\n%s", self.dataset_dir, i, line)
+                    continue
+                prompt = row[self.prompt_column]
+                response = row[self.response_column]
+
+                # avoid null value
                 if prompt.strip() != "" and response.strip() != "":
                     content_list.append(prompt)
                     summary_list.append(response)
                 else:
-                    logger.warning("Drop %s:%d due to null value, line is:\n%s", self.dataset_dir, i, line)
+                    logger.info("Drop %s:%d due to null value, line is:\n%s", self.dataset_dir, i, line)
+
             examples[self.prompt_column] = content_list
             examples[self.response_column] = summary_list
+        logger.info("Loading %d data success.", i)
         self.examples = examples
 
     def __len__(self):
