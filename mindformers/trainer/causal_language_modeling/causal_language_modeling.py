@@ -29,6 +29,7 @@ from mindformers.dataset import BaseDataset
 from mindformers.models import BaseModel, BaseTokenizer, build_tokenizer
 from mindformers.tools.logger import logger
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType, MindFormerConfig
+from mindformers.tools.check_rules import check_rules
 from mindformers.core import build_metric
 from mindformers.auto_class import AutoModel
 from mindformers.mindformer_book import MindFormerBook
@@ -173,6 +174,9 @@ class CausalLanguageModelingTrainer(BaseTrainer):
         if dataset is None:
             dataset = self.create_eval_dataset()
         self.set_eval_dataset(dataset)
+
+        # check rules
+        check_rules(config, mode='eval')
 
         # build network
         if network is None:

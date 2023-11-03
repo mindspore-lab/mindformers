@@ -43,6 +43,7 @@ from mindformers.wrapper import build_wrapper
 from mindformers.tools.register import MindFormerConfig
 from mindformers.tools.logger import logger
 from mindformers.tools.utils import count_params, get_output_subpath
+from mindformers.tools.check_rules import check_rules
 from mindformers.auto_class import AutoModel
 from mindformers.pet import get_pet_model
 from .config_args import ConfigArguments
@@ -554,6 +555,9 @@ class BaseTrainer:
             dataset._dataset_helper = DatasetHelper(dataset, config.runner_config.sink_mode,
                                                     config.runner_config.sink_size, epoch_num)
 
+        # check rules
+        check_rules(config, mode='train')
+
         # build network
         logger.info(".........Build Net For Train..........")
         eval_network = None
@@ -678,6 +682,9 @@ class BaseTrainer:
         self.set_eval_dataset(dataset)
         logger.info("Create evaluate dataset finish, dataset size:%d", dataset.get_dataset_size())
 
+        # check rules
+        check_rules(config, mode='eval')
+
         # build network
         eval_network = None
         if network is None and self.network is None:
@@ -735,6 +742,9 @@ class BaseTrainer:
         if not self.pipeline_task:
             is_full_config = kwargs.get("is_full_config", False)
             config = self.set_config(config, is_full_config)
+
+            # check rules
+            check_rules(config, mode='predict')
 
             if ms.context.get_auto_parallel_context('parallel_mode') in \
                     ['semi_auto_parallel', 'auto_parallel', 'hybrid_parallel']:
