@@ -13,12 +13,6 @@
 }
 ```
 
-## 模型性能
-
-|                                   config                                   |      task       |  [predict performance](#推理)   |
-|:--------------------------------------------------------------------------:| :-------------: |:------------------------------:|
-|              [qwen_7b](../../research/qwen/run_qwen_7b.yaml)               | text_generation | 28.83 tokens/s (use past True) |
-
 ## 仓库介绍
 
 `Qwen` 基于 `MindFormers` 实现，主要涉及的文件有：
@@ -42,10 +36,11 @@
 - 硬件：Ascend 910A/B
 - MindSpore：2.2.0
 - MindFormers版本：dev
+- Python：3.8+
 
 注：
 
-910A使用MindSpore版本向下兼容，910B建议使用2.2.0配套版本，避免出现精度问题。
+环境搭建参考 [MindSpore官网](https://www.mindspore.cn/install/)，安装MindSpore2.2.0 + CANN社区版7.0.0.alpha001配套版本。
 
 Qwen-7B推理单卡即可完成，暂不支持多卡推理。
 
@@ -54,33 +49,41 @@ Qwen-7B推理单卡即可完成，暂不支持多卡推理。
 本仓库提供已经转换完成的预训练权重、词表文件用于训练/微调/推理，用户可自行从下方链接拉取后直接使用。
 
 - [Qwen-7B-Base](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/qwen/qwen_7b_base.ckpt)
-- [Qwen-7B-Chat](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/qwen/qwen-7b-chat.ckpt)
 
 也可选择从huggingface下载预训练权重后根据以下步骤进行权重转换，需要下载整个工程，huggingface权重的链接如下：
 
 - [Qwen-7B-Base](https://huggingface.co/Qwen/Qwen-7B/tree/main)
-- [Qwen-7B-Chat](https://huggingface.co/Qwen/Qwen-7B-Chat/tree/main)
 
 下载完成后，运行`/research/qwen/convert_weight.py`转换脚本，将huggingface的权重转换为完整的ckpt权重。
+
+安装`convert_weight.py`依赖包：`pip install torch transformers transformers_stream_generator einops accelerate tiktoken`
+
+执行权重转换脚本：
 
 ```shell
 python mindformers/research/qwen/convert_weight.py \
 --torch_ckpt_dir \
 --mindspore_ckpt_path
+# 参数说明：
+# torch_ckpt_dir: 预训练权重文件所在的目录，此参数必须。
+# mindspore_ckpt_path: 转换后的输出文件存放路径。可选，如果不给出，默认为`./run/qwen_7b_ms.ckpt`
 ```
-
-参数说明：
-
-`torch_ckpt_dir`: 预训练权重文件所在的目录，此参数必须。
-
-`mindspore_ckpt_path`: 转换后的输出文件存放路径。可选，如果不给出，默认为`./run/qwen_7b_ms.ckpt`
-
-tokenizer文件可以通过链接直接下载[qwen.tiktoken](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/qwen/qwen.tiktoken)
 
 ## Qwen-7B 快速使用
 
-> 因qwen模型代码未合并到mindformers主代码包，所以运行下面的代码需要在`research/qwen`目录下
-> （或者先将`research/qwen`目录所在路径加入到`PYTHONPATH`环境变量中。
+注意事项：
+
+1. 运行下面的代码需要在`research/qwen`目录下，或者先将`research/qwen`目录所在路径加入到`PYTHONPATH`环境变量中。
+
+2. 执行推理前配置`run_qwen_7b.yaml`文件，将model_config.checkpoint_name_or_path路径配置为下载权重文件路径，tokenizer.vocab_file路径修改为tokenizer文件路径（tokenizer文件可以通过链接直接下载[qwen.tiktoken](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/qwen/qwen.tiktoken)）
+
+3. 910B上运行时需要设置如下环境变量，否则推理结果会出现精度问题。
+
+   ```shell
+   export MS_GE_TRAIN=0
+   export MS_ENABLE_GE=1
+   export MS_ENABLE_REF_MODE=1
+   ```
 
 ### 基于`run_qwen_7b.sh`推理
 
@@ -99,7 +102,17 @@ python /path/mindformers/research/qwen/run_qwen_7b.py \
 ### 基于Trainer方式推理
 
 ```python
+import mindspore as ms
+from mindspore import context
+
 from mindformers.trainer import Trainer
+
+# pylint: disable=W0611
+import qwen_model
+# pylint: disable=W0611
+import qwen_tokenizer
+
+context.set_context(mode=ms.GRAPH_MODE, device_target="Ascend", device_id=6)
 
 config = "./run/run_qwen_7b.yaml"
 ckpt = "./run/qwen_7b_ms.ckpt"
@@ -124,7 +137,7 @@ from qwen_model import QwenForCausalLM
 from qwen_tokenizer import QwenTokenizer
 
 context.set_context(mode=ms.GRAPH_MODE, device_target="Ascend", device_id=0)
-data_path = './run'
+data_path = '/path'
 
 config = MindFormerConfig(os.path.join(data_path, "run_qwen_7b.yaml"))
 tokenizer = QwenTokenizer(**config.processor.tokenizer)
@@ -142,7 +155,7 @@ run_generate("比较适合深度学习入门的书籍有")
 # 比较适合深度学习入门的书籍有《Python深度学习》、《深度学习入门》、《动手学深度学习》等。这些书籍都比较容易理解，适合初学者。
 ```
 
-### Qwen-7B Batch推理
+### Batch推理
 
 ```python
 import sys
@@ -161,11 +174,11 @@ from mindformers.models.llama.llama_config import LlamaConfig
 from qwen_model import QwenForCausalLM
 from qwen_tokenizer import QwenTokenizer
 
-config = MindFormerConfig("./run/run_qwen_7b.yaml")
+config = MindFormerConfig("/path/run_qwen_7b.yaml")
 config.use_past = True
 
-model_config = LlamaConfig.from_pretrained("./run/run_qwen_7b.yaml")
-model_config.checkpoint_name_or_path = './run/qwen_7b_ms.ckpt'
+model_config = LlamaConfig.from_pretrained("/path/run_qwen_7b.yaml")
+model_config.checkpoint_name_or_path = '/path/qwen_7b_ms.ckpt'
 model_config.seq_length = 512
 
 tokenizer = QwenTokenizer(**config.processor.tokenizer)
@@ -201,65 +214,140 @@ run_generate()
 # '比较适合深度学习入门的书籍有《Python深度学习》、《深度学习入门》、《动手学深度学习》等。这些书籍都比较容易理解，适合初学者。'
 ```
 
-### Qwen-7B Chat
+## 评测
+
+评测脚本下载地址[评测脚本](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/qwen/eval.zip)，下载后，脚本解压到mindformers/research/qwen/下，权重文件`qwen_7b_ms.ckpt`放在脚本同级目录下。
+
+评测结果对比：
+
+| Model                   | C-Eval | HumanEval | CMMLU |
+|:------------------------|:------:|:---------:|:-----:|
+| Qwen-7B                 |  62.6  |   29.9    | 62.2  |
+| **Mindformers-Qwen-7B** |  63.3  |   31.7    | 62.4  |
+
+### C-Eval 评测
+
+C-Eval是全面的中文基础模型评估套件，涵盖了52个不同学科的13948个多项选择题。
+
+运行此评测集的方法：
+
+```shell
+wget https://huggingface.co/datasets/ceval/ceval-exam/resolve/main/ceval-exam.zip
+mkdir data/ceval && cd data/ceval; unzip ../../ceval-exam.zip && cd ../../
+python evaluate_ceval.py -d data/ceval/
+```
+
+### CMMLU 评测
+
+CMMLU是一个综合性的中文评估基准，专门用于评估语言模型在中文语境下的知识和推理能力。
+
+运行此评测集的方法：
+
+```shell
+wget https://huggingface.co/datasets/haonan-li/cmmlu/resolve/main/cmmlu_v1_0_1.zip
+mkdir data/cmmlu && cd data/cmmlu; unzip ../../cmmlu_v1_0_1.zip && cd ../../
+python evaluate_cmmlu.py -d data/cmmlu/
+```
+
+### HumanEval 评测
+
+HumanEval是由 OpenAI 编写发布的代码生成评测数据集，包含 164 道人工编写的Python编程问题。
+模型针对每个单元测试问题生成 k（k=1,10,100）个代码样本，如果有任何样本通过单元测试，则认为问题已解决，并报告问题解决的总比例，即 `Pass@k` 得分。
+
+运行此评测集的方法：
+
+```shell
+git clone https://github.com/openai/human-eval
+$ pip install -e human-eval
+
+cd human-eval/data && zcat HumanEval.jsonl.gz > HumanEval.jsonl cd ../..
+
+vi human-eval/human_eval/execution.py # uncomment line 58
+
+pip install jsonlines
+
+python evaluate_humaneval.py -c ../run -f human-eval/data/HumanEval.jsonl --max-seq-len 512
+
+evaluate_functional_correctness HumanEval_res.jsonl
+```
+
+## MindSpore Lite推理
+
+MindSpore Lite依赖包下载参考[MindSpore Lite文档](https://www.mindspore.cn/lite/docs/zh-CN/r2.2/use/downloads.html)，找到对应版本wheel安装包并安装。
+
+性能对比（sequence_length=2048）：
+
+| Model                   | Speed(tokens/s) |
+|:------------------------|:---------------:|
+| Qwen-7B                 |      37.55      |
+| **Mindformers-Qwen-7B** |      42.32      |
+
+### mindir导出
+
+首先修改模型配置文件`run_qwen_7b.yaml`：
+
+```yaml
+infer:
+    prefill_model_path: "/path/qwen_7b_prefill.mindir" # 保存mindir的位置
+    increment_model_path: "/path/qwen_7b_inc.mindir"   # 保存mindir的位置
+    infer_seq_length: 2048 # 需要保持 model-model_config-seq_length 一致
+
+model:
+  model_config:
+    seq_length: 2048
+    checkpoint_name_or_path: "/path/qwen_7b_base.ckpt"
+```
+
+执行`export.py`：
+
+```shell
+python /path/mindformers/tools/export.py \
+--config_path /path/run_qwen_7b.yaml
+```
+
+### 执行Lite推理
+
+新建推理配置文件`lite.ini`
+
+```text
+[ascend_context]
+provider=ge
+
+[ge_session_options]
+ge.exec.formatMode=1
+ge.exec.precision_mode=must_keep_origin_dtype
+```
+
+执行推理脚本：
 
 ```python
-import os
 import sys
 
-git_dir = os.path.abspath(os.path.join(os.getcwd(), "../../"))
-sys.path.insert(0, git_dir)
-
-try:
-    import tiktoken
-except ImportError:
-    print("Package 'tiktoken' required to run Qwen. please install it with pip.", file=sys.stderr)
-    sys.exit()
-
 import mindspore as ms
+
+from mindformers.pipeline import pipeline
 from mindformers.tools.register.config import MindFormerConfig
-
-from mindformers.models.llama.llama_config import LlamaConfig
-
-from qwen_model import QwenForCausalLM
-from qwen_tokenizer import QwenTokenizer
-from qwen_chat import chat
+from research.qwen.qwen_tokenizer import QwenTokenizer
 
 ms.set_context(mode=ms.GRAPH_MODE, device_target='Ascend', device_id=0)
-ms.set_context(ascend_config={"precision_mode": "must_keep_origin_dtype"})
 
-config = MindFormerConfig("./run_qwen_7b.yaml")
-config.processor.tokenizer.vocab_file = "./qwen.tiktoken"
+config = MindFormerConfig("/path/run_qwen_7b.yaml")
+config.processor.tokenizer.vocab_file = "/path/qwen.tiktoken"
 tokenizer = QwenTokenizer(**config.processor.tokenizer)
 
-model_config = LlamaConfig.from_pretrained("./run_qwen_7b.yaml")
-model_config.checkpoint_name_or_path = '/opt/Qwen-7B/qwen-7b-chat-ms.ckpt'
-model_config.seq_length = 2048
-
-model = QwenForCausalLM(model_config)
-
-history = None
-query = '你好'
-response, history = chat(model, tokenizer, query, history)
-print(response)
-# 你好！很高兴为你提供帮助。
-
-query = '给我讲一个年轻人奋斗创业最终取得成功的故事。'
-response, history = chat(model, tokenizer, query, history)
-print(response)
-# 这是一个关于一个年轻人奋斗创业最终取得成功的故事。
-# 故事的主人公叫李明，他来自一个普通的家庭，父母都是普通的工人。从小，李明就立下一个目标：要成为一名成功的企业家。
-# 毕业后，李明决定开始自己的创业之路。他开始寻找投资机会，但多次都被拒绝了。然而，他并没有放弃。他继续努力，不断改进自己的创业计划，并寻找新的投资机会。
-# 最终，李明成功得获取了一笔投资，开始了自己的创业之路。他成立了一家科技公司，专注于开发新型软件。在他的领导下，公司迅速发展起来，成为了一家成功的科技企业。
-# 李明的成功并不是偶然的。他勤奋、坚韧、用于冒险，不断学习和改进自己。他的成功也证明了，只要努力奋斗，任何人都有可能取得成功。
-
-query = '给这个故事起一个标题'
-response, history = chat(model, tokenizer, query, history)
-print(response)
-# 《奋斗创业：一个年轻人的成功之路》
+prefill_model_path = "/path/qwen_7b_prefill_graph.mindir"
+inc_model_path = "/path/qwen_7b_inc_graph.mindir"
+config_path = "/path/lite.ini"
+pipeline_task = pipeline(task="text_generation", model=(prefill_model_path, inc_model_path), backend="mslite",
+                         tokenizer=tokenizer, ge_config_path=config_path, model_type="mindir", infer_seq_length=2048)
 
 while True:
-    query = input('请输入: ')
-    response, history = chat(model, tokenizer, query, history)
-    print(response)
+    user_input = input("Please enter your predict data: \n")
+    if user_input == "exit":
+        print("Task is over.")
+        sys.exit()
+    output = pipeline_task.infer(user_input, max_length=2048, do_sample=False, top_k=0, top_p=0.8,
+                                 repetition_penalty=1.0, temperature=1.0, is_sample_acceleration=False,
+                                 add_special_tokens=False, eos_token_id=151643, pad_token_id=151643)
+    print(output)
 ```

@@ -45,13 +45,13 @@ model:
     param_init_type: "float16"
     use_past: True
     offset: 0
-    checkpoint_name_or_path: "./run/qwen_7b_fp32.ckpt"
+    checkpoint_name_or_path: "/path/qwen_7b_base.ckpt"
     repetition_penalty: 1
     max_decode_length: 512
     top_k: 0
     top_p: 0.8
-    do_sample: False    
-       
+    do_sample: False
+
     # configuration items copied from Qwen
     rotary_pct: 1.0
     rotary_emb_base: 10000
@@ -64,8 +64,8 @@ processor:
   return_tensors: ms
   tokenizer:
     model_max_length: 8192
-    vocab_file: "./qwen.tiktoken" 
-    pad_token: "<|endoftext|>"   
+    vocab_file: "/path/qwen.tiktoken"
+    pad_token: "<|endoftext|>"
     type: QwenTokenizer
   type: QwenProcessor
 
@@ -95,3 +95,8 @@ parallel:
   parallel_optimizer_config:
     gradient_accumulation_shard: False
     parallel_optimizer_threshold: 64
+
+infer:
+    prefill_model_path: "/path/qwen_7b_prefill.mindir"
+    increment_model_path: "path/qwen_7b_inc.mindir"
+    infer_seq_length: 1024

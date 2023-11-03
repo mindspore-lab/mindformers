@@ -89,6 +89,10 @@ class QwenForCausalLM(BaseModel):
             "input_ids": Tensor(input_ids, mstype.int32)
         }
 
+    def prepare_inputs_for_export(self, full_model=True):
+        from mindformers.models.llama.llama import LlamaForCausalLM
+        return LlamaForCausalLM.prepare_inputs_for_export(self, full_model)
+
     # pylint: disable=W0613
     def construct(self, input_ids, labels=None, input_position=None, position_ids=None, attention_mask=None,
                   input_embeds=None, init_reset=True, batch_valid_length=None):

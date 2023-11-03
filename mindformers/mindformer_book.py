@@ -263,6 +263,8 @@ class MindFormerBook:
                 _PROJECT_PATH, "research/internlm/run_internlm_7b.yaml")),
             ("internlm_7b_lora", os.path.join(
                 _PROJECT_PATH, "research/internlm/run_internlm_7b_lora.yaml")),
+            ("qwen_7b", os.path.join(
+                _PROJECT_PATH, "research/qwen/run_qwen_7b.yaml")),
             ("common", os.path.join(
                 _PROJECT_PATH, "configs/gpt2/run_gpt2.yaml"))])
          ),
@@ -830,6 +832,9 @@ class MindFormerBook:
             'baichuan2_7b',
             'baichuan2_13b',
         ]),
+        ('qwen', [
+            'qwen_7b',
+        ]),
     ])
 
     _MODEL_CONFIG_TO_NAME = OrderedDict([
@@ -1311,7 +1316,7 @@ class MindFormerBook:
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
           '/MindFormers/bloom/tokenizer.json'
           ]),
-        ('qwen',
+        ('qwen_7b',
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
           '/MindFormers/qwen/qwen.tiktoken'
           ]),

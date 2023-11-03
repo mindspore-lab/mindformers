@@ -14,18 +14,12 @@
 # ============================================================================
 """Helper functions to make 'chat' feature work on Mindformers' Qwen port."""
 
-import sys
 from typing import Tuple, List, Union, Optional
 
 from mindspore.common.tensor import Tensor
 
 HistoryType = List[Tuple[str, str]]
 TokensType = List[int]
-
-
-def _debug_print(content: str, prefix: str):
-    print('\n'.join([prefix + '>>> ' + line for line in content.splitlines()]),
-          file=sys.stderr)
 
 
 def get_stop_words_ids(chat_format, tokenizer):
@@ -233,9 +227,9 @@ def chat(
     if not stop_words_ids:
         stop_words_ids = []
 
-    max_window_size = kwargs.get('max_window_size', None)
-    if not max_window_size:
-        max_window_size = 2048
+    max_new_tokens = kwargs.get('max_new_tokens', model.transformer.seq_length // 4)
+    max_window_size = kwargs.get('max_window_size',
+                                 model.transformer.seq_length - max_new_tokens - 48)
     chat_format = kwargs.get('chat_format', 'chatml')
 
     prompt_text, prompt_tokens = make_context(
@@ -248,12 +242,10 @@ def chat(
     )
     stop_words_ids.extend(get_stop_words_ids(chat_format, tokenizer))
 
-    _debug_print(prompt_text, "MODEL INPUT")
     outputs = model.generate(
         [prompt_tokens],
-        max_new_tokens=512
+        max_new_tokens=max_new_tokens
     )
-    _debug_print(tokenizer.decode(outputs, skip_special_tokens=False)[0], "MODEL OUTPUT")
 
     response = decode_tokens(
         outputs[0],

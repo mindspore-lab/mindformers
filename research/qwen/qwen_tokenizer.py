@@ -19,6 +19,7 @@ from typing import Collection, Dict, List, Set, Union
 
 import unicodedata
 
+from mindformers.mindformer_book import MindFormerBook
 from mindformers.models.base_tokenizer import Tokenizer
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 
@@ -49,6 +50,7 @@ class QwenTokenizer(Tokenizer):
     """Qwen Tokenizer"""
     VOCAB_FILES = {'vocab_file': 'qwen.tiktoken'}
     FILE_LIST = []
+    _support_list = MindFormerBook.get_tokenizer_support_list()['qwen']
 
     def __init__(self,
                  vocab_file="qwen.tiktoken",
