@@ -119,8 +119,6 @@ def main(task='text_generation',
         config.src_strategy_path_or_dir = strategy
     if auto_trans_ckpt is not None:
         config.auto_trans_ckpt = auto_trans_ckpt
-        if config.auto_trans_ckpt:
-            clear_auto_trans_output(config)
     if vocab_file is not None:
         config.processor.tokenizer.vocab_file = vocab_file
     if data_parallel is not None:
@@ -146,6 +144,9 @@ def main(task='text_generation',
 
     if run_mode in ['train', 'finetune']:
         config.model.model_config.use_past = False
+
+    if config.auto_trans_ckpt:
+        clear_auto_trans_output(config)
 
     # start task
     if run_mode == 'train':
