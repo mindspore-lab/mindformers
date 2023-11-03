@@ -19,8 +19,10 @@ BLIP2 Base Model, contains Blip2Base, ViTModelForBlip2,
 as well as itm computing procedures.
 """
 import mindspore as ms
+import mindspore.common.dtype as mstype
 import mindspore.nn as nn
 from mindspore.common.initializer import initializer, Normal
+from mindspore.ops import operations as P
 
 from mindformers.mindformer_book import MindFormerBook
 from mindformers.models.base_model import BaseModel
@@ -35,6 +37,7 @@ class ViTModelForBlip2(ViTModel):
     forward will return the penultimate output.
     """
     _support_list = MindFormerBook.get_config_support_list()['vit']
+
     def __init__(self, config: ViTConfig):
         super(ViTModelForBlip2, self).__init__(config)
         self.load_checkpoint(config)
@@ -93,3 +96,28 @@ class Blip2Base(BaseModel):
 
         ln_vision = LayerNorm(visual_encoder.config.embed_dim)
         return visual_encoder, ln_vision
+
+
+class ImageTextEmbeddingConcat(nn.Cell):
+    """
+    Layer to concat image embedding and text embedding
+    """
+    def __init__(self, pad_token_id):
+        super().__init__()
+        self.concat_2d = P.Concat(axis=1)
+        self.concat_3d = P.Concat(axis=1)
+        self.not_equal = P.NotEqual()
+        self.ones = P.Ones()
+        self.cast = P.Cast()
+
+        self.pad_token_id = pad_token_id
+
+    def construct(self, image_embeddings: ms.Tensor, text_embeddings: ms.Tensor, text_input_ids: ms.Tensor):
+        text_embeddings = self.cast(text_embeddings, mstype.float32)
+        text_embeddings_atts = self.cast(self.not_equal(text_input_ids, self.pad_token_id), mstype.float32)
+
+        image_embeddings_atts = self.ones(image_embeddings.shape[:-1], mstype.float32)
+
+        concat_embeds = self.concat_3d([image_embeddings, text_embeddings])
+        concat_attention_mask = self.concat_2d([image_embeddings_atts, text_embeddings_atts])
+        return concat_embeds, concat_attention_mask
