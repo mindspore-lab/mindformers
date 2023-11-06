@@ -22,7 +22,7 @@ try:
 except ImportError:
     import mindspore._checkparam as Validator
 
-from mindspore import nn, ops
+from mindspore import nn, ops, __version__
 import mindspore.common.dtype as mstype
 from mindspore.common.tensor import Tensor
 from mindspore.common.parameter import Parameter
@@ -39,6 +39,8 @@ from mindformers.models.llama.llama_layer import LlamaFeedForward, LlamaRMSNorm,
 from mindformers.modules.layers import _check_input_dtype, Linear
 from mindformers.modules.transformer import TransformerOpParallelConfig
 
+from mindformers.tools.utils import is_version_ge
+from mindformers.tools.logger import logger
 
 class LLamaAttention(nn.Cell):
     r"""
@@ -207,13 +209,12 @@ class LLamaAttention(nn.Cell):
                 self.softmax.softmax.recompute()
                 self.batch_matmul.recompute()
 
+        if not is_version_ge(__version__, "2.2.0"):
+            self.use_flash_attention = False
+            logger.info("Current MindSpore do not support flash attention, please upgrade to 2.2.0 or higher")
         if self.use_flash_attention:
-            self.flash_attention = FlashAttention(self.head_dim, dp=dp, mp=mp, next_block_num=0,
+            self.flash_attention = FlashAttention(self.head_dim, n_heads, dp=dp, mp=mp, next_block_num=0,
                                                   high_precision=(softmax_compute_dtype == mstype.float32))
-            if not (_get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation()):
-                self.flash_attention.shard(((dp, mp, 1, 1), (dp, mp, 1, 1), (dp, mp, 1, 1), (dp, 1, 1), ()))
-            if parallel_config.recompute.select_recompute:
-                self.flash_attention.recompute()
 
         if self.use_past:
             # operators used for state reuse
