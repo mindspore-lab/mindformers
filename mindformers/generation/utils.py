@@ -14,6 +14,7 @@
 # ============================================================================
 """utils for text generation."""
 
+from threading import Thread
 import numpy as np
 
 
@@ -45,6 +46,26 @@ def softmax(x, axis=None):
     x_max = np.amax(x, axis=axis, keepdims=True)
     exp_x_shifted = np.exp(x - x_max)
     return exp_x_shifted / np.sum(exp_x_shifted, axis=axis, keepdims=True)
+
+
+def softmax_single(i, res, x):
+    res[i] = softmax(x)
+
+
+def softmax_with_threads(x, is_finished=None):
+    """calculate softmax with threads"""
+    res = np.ones_like(x)
+    all_threads = []
+    for i in range(0, res.shape[0]):
+        if is_finished and is_finished[i]:
+            continue
+        thread = Thread(target=softmax_single,
+                        args=(i, res, x[i]))
+        all_threads.append(thread)
+        thread.start()
+    for thread in all_threads:
+        thread.join()
+    return res
 
 
 def topk(x, top_k, axis=-1, largest=True, sort=True):

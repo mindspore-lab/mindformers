@@ -27,7 +27,7 @@ from mindformers.generation import GenerationConfig, LogitsProcessorList
 from mindformers.generation.logits_process import RepetitionPenaltyLogitsProcessor, LogitNormalization, \
     TemperatureLogitsWarper, TopKLogitsWarper, TopPLogitsWarper
 from mindformers.generation.streamers import BaseStreamer
-from mindformers.generation.utils import softmax
+from mindformers.generation.utils import softmax_with_threads
 
 from .base_infer import BaseInfer
 
@@ -330,6 +330,7 @@ class TextGeneratorInfer(BaseInfer):
     def generate(self, input_ids, do_sample, top_k, top_p, temperature, repetition_penalty, eos_token_id,
                  pad_token_id, max_length, is_sample_acceleration, streamer, **kwargs):
         """token generator."""
+        total_time = time.time()
         sampler_dict = {"do_sample": do_sample, "top_k": top_k, "top_p": top_p, "temperature": temperature,
                         "repetition_penalty": repetition_penalty, "max_length": max_length, **kwargs}
         generation_config = GenerationConfig(**sampler_dict)
@@ -368,6 +369,7 @@ class TextGeneratorInfer(BaseInfer):
         is_finished = [False] * batch_size
         use_past = self.full_model and self.cache_model
 
+        origin_len = np.sum(valid_length)
         while np.sum(is_finished) != batch_size:
             start_time = time.time()
             seq_length = input_ids.shape[1]
@@ -393,12 +395,15 @@ class TextGeneratorInfer(BaseInfer):
                     logits = np.array([logits[i][0, :] for i in range(batch_size)])
 
                 logits = logits.reshape(-1, vocab_size)
-                log_probs = logits_processor(input_ids, logits)
-                p = logits_warper(input_ids, log_probs)
+                log_probs = logits_processor(input_ids, logits, is_finished)
+                p = logits_warper(input_ids, log_probs, is_finished)
                 p_args = np.tile(np.arange(logits.shape[-1]), (batch_size, 1))
             else:
                 p = outputs[0].get_data_to_numpy().astype(np.int32)
                 p_args = outputs[1].get_data_to_numpy()
+
+            if generation_config.do_sample:
+                p_norms = softmax_with_threads(p, is_finished)
 
             # Random select a token as final output for this round
             for i in range(batch_size):
@@ -407,7 +412,7 @@ class TextGeneratorInfer(BaseInfer):
                 # target_index = np.random.choice(len(p[i]), p=p[i])
                 if generation_config.do_sample:
                     # multinomial sample
-                    p_norm = softmax(p[i])
+                    p_norm = p_norms[i]
                     target_index = np.random.choice(len(p[i]), p=p_norm)
                 else:
                     # greedy
@@ -439,6 +444,11 @@ class TextGeneratorInfer(BaseInfer):
         for i in range(batch_size):
             output_ids.append(input_ids[i, : int(valid_length[i])].astype(np.int32))
         logger.debug("The output is: %s", output_ids)
+
+        generate_len = np.sum(valid_length) - origin_len
+        total_time = time.time() - total_time
+        logger.info("total time: %s s; generated tokens: %s tokens; generate speed: %s tokens/s",
+                    total_time, generate_len, generate_len / total_time)
 
         if streamer:
             streamer.end()

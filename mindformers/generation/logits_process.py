@@ -14,6 +14,7 @@
 # ============================================================================
 """Logits Processor for generation."""
 import inspect
+from threading import Thread
 import numpy as np
 
 from .utils import log_softmax, softmax, topk
@@ -50,7 +51,23 @@ class LogitsProcessorList(list):
     to apply each [`LogitsProcessor`] or [`LogitsWarper`] to the inputs.
     """
 
-    def __call__(self, input_ids, scores, **kwargs):
+    def __call__(self, input_ids, scores, is_finished=None, **kwargs):
+        all_threads = []
+        for i in range(0, input_ids.shape[0]):
+            if is_finished and is_finished[i]:
+                continue
+            thread = Thread(target=self.process,
+                            args=(i, input_ids, scores), kwargs=kwargs)
+            all_threads.append(thread)
+            thread.start()
+        for thread in all_threads:
+            thread.join()
+        return scores
+
+    def process(self, i, input_ids, scores, **kwargs):
+        """apply process"""
+        input_ids = input_ids[i:i+1]
+        scores_i = scores[i:i+1]
         for processor in self:
             function_args = inspect.signature(processor.__call__).parameters
             if len(function_args) > 2:
@@ -59,10 +76,10 @@ class LogitsProcessorList(list):
                         f"Make sure that all the required parameters: {list(function_args.keys())} for "
                         f"{processor.__class__} are passed to the logits processor."
                     )
-                scores = processor(input_ids, scores, **kwargs)
+                scores_i = processor(input_ids, scores_i, **kwargs)
             else:
-                scores = processor(input_ids, scores)
-        return scores
+                scores_i = processor(input_ids, scores_i)
+        scores[i] = scores_i
 
 
 class TemperatureLogitsWarper(LogitsWarper):
