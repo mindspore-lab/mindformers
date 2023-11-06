@@ -109,7 +109,7 @@ print(gpt_processor("hello!"))
 
 ## pipeline
 
-MindFormers大模型套件面向任务设计pipeline推理接口，旨在让用户可以便捷的体验不同AI领域的大模型在线推理服务，当前已集成10+任务的推理流程；
+MindFormers大模型套件面向任务设计pipeline推理接口，旨在让用户可以便捷地体验不同AI领域的大模型在线推理服务，当前已集成10+任务的推理流程。
 
 ### pipeline使用样例
 
@@ -145,7 +145,7 @@ print(text_generation("I love Beijing, because", do_sample=False))
 
 ## Trainer
 
-MindFormers大模型套件面向任务设计Trainer接口，旨在让用户可以快速使用我们预置任务和模型的训练、微调、评估、推理能力，当前已集成10+任务和10+模型的全流程开发能力；
+MindFormers大模型套件面向任务设计Trainer接口，旨在让用户可以快速使用我们预置任务和模型的训练、微调、评估、推理能力，当前已集成10+任务和10+模型的全流程开发能力。
 
 ### init_context
 
@@ -197,9 +197,9 @@ def context_init():
 
 ### TrainingArguments&&Trainer
 
-MindFormers套件对用户提供了`TrainingArguments`类，用于自定义大模型训练过程中的各类参数，支持参数详见：[TrainingArguments](https://gitee.com/mindspore/mindformers/blob/dev/mindformers/trainer/training_args.py)
+MindFormers套件对用户提供了`TrainingArguments`类，用于自定义大模型训练过程中的各类参数，支持参数详见：[TrainingArguments](https://gitee.com/mindspore/mindformers/blob/dev/mindformers/trainer/training_args.py)。
 
-同时，MindFormers也提供了`Trainer`高阶接口，用于大模型任务的开发、训练、微调、评估、推理等流程；
+同时，MindFormers也提供了`Trainer`高阶接口，用于大模型任务的开发、训练、微调、评估、推理等流程。
 
 使用TrainingArguments自定义大模型训练过程参数：
 
@@ -213,7 +213,7 @@ training_args = TrainingArguments(num_train_epochs=3, batch_size=2, learning_rat
                                   sink_mode=True)
 ```
 
-使用Trainer接口创建内部预置任务：数据集按照官方教程准备[GPT预训练数据集准备](../model_cards/gpt2.md)，自定义训练参数
+使用Trainer接口创建内部预置任务：数据集按照官方教程准备[GPT预训练数据集](../model_cards/gpt2.md)，自定义训练参数：
 
 ```python
 from mindformers import Trainer, TrainingArguments
@@ -228,7 +228,7 @@ text_generation = Trainer(task='text_generation', model='gpt2', args=training_ar
                           eval_dataset='./eval')
 ```
 
-使用Trainer接口创建内部预置任务：自定义数据集，模型，训练参数
+使用Trainer接口创建内部预置任务：自定义数据集，模型，训练参数：
 
 ```python
 from mindspore.dataset import GeneratorDataset
@@ -263,7 +263,7 @@ text_generation = Trainer(task='text_generation', model=pangu_model, args=traini
 ### 并行&&重计算配置
 
 MindFormers的Trainer接口提供了并行的配置接口`set_parallel_config`和重计算配置接口`set_recompute_config`，其中`set_parallel_config`接口仅在**半自动并行**
-或**全自动并行模式**下生效，同时需要模型本身已支持或已配置[并行策略](https://www.mindspore.cn/tutorials/experts/zh-CN/r2.0/parallel/introduction.html);
+或**全自动并行模式**下生效，同时需要模型本身已支持或已配置[并行策略](https://www.mindspore.cn/tutorials/experts/zh-CN/r2.0/parallel/introduction.html)：
 
 [set_parallel_config](https://gitee.com/mindspore/mindformers/blob/dev/mindformers/trainer/trainer.py#L690)  [set_recompute_config](https://gitee.com/mindspore/mindformers/blob/dev/mindformers/trainer/trainer.py#L731)
 
