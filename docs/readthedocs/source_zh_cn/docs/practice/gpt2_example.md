@@ -1,12 +1,12 @@
 # GPT2从头开始实现
 
-**注：本章节基于MindFormers提供Base_Trainer，Task等基础功能已实现的情况下，从开开始实现一个模型。**
+**注：本章节基于MindFormers提供Base_Trainer，Task等基础功能已实现的情况下，从头开始实现一个模型。**
 
 ## 1 模型构建及注册（以预训练语言模型为例）
 
 ### 1.1 熟悉模型架构
 
-- 阅读GPT2论文[Language Models are Unsupervised Multitask Learners](https://d4mucfpksywv.cloudfront.net/better-language-models/language_models_are_unsupervised_multitask_learners.pdf)，明确GPT2是Transformers Decoder结构
+- 阅读GPT2论文[Language Models are Unsupervised Multitask Learners](https://d4mucfpksywv.cloudfront.net/better-language-models/language_models_are_unsupervised_multitask_learners.pdf)，明确GPT2是Transformers Decoder结构。
 
 ![GPT2模型示例图](assets/gpt2.png)
 
@@ -32,9 +32,9 @@
                 └── transformer.py
   ```
 
-- 基于`Mindformers`的`transformer`实现GPT2网络
+- 基于`Mindformers`的`transformer`实现GPT2网络。
 
-  最终GPT2网络的[整体目录](https://gitee.com/mindspore/mindformers/tree/dev/mindformers/models/gpt2)如下
+  最终GPT2网络的[整体目录](https://gitee.com/mindspore/mindformers/tree/dev/mindformers/models/gpt2)如下：
 
   ```txt
   Mindformers
@@ -66,7 +66,7 @@
 
   [gpt_modules.py](https://gitee.com/mindspore/mindformers/blob/dev/mindformers/models/gpt2/gpt_modules.py)
 
-- 实现GPT2 backbone网络`GPT2Model`（详细代码参考[gpt2.py](https://gitee.com/mindspore/mindformers/blob/dev/mindformers/models/gpt2/gpt2.py)
+- 实现GPT2 backbone网络`GPT2Model`（详细代码参考[gpt2.py](https://gitee.com/mindspore/mindformers/blob/dev/mindformers/models/gpt2/gpt2.py)）
 
   ```python
   # 具体实现参考Mindformers/mindformers/models/gpt2/gpt2.py
@@ -114,9 +114,9 @@
 
 - 基于`GPT2Model`实现GPT2预训练模块`GPT2LMHeadModel`（详细代码参考[gpt2.py](https://gitee.com/mindspore/mindformers/blob/dev/mindformers/models/gpt2/gpt2.py)）
 
-     `__all__ = ['GPT2LMHeadModel']`：公开模型预训练接口，方便用户从外部调用
-     `@MindFormerRegister.register(MindFormerModuleType.MODELS)`：`Mindformers`的注册机制，将类注册到对应模块，方便通过配置文件进行实例化
-     `_support_list = MindFormerBook.get_model_support_list()['gpt2']`：高阶接口使用时用于检索可用模型，可通过`from_pretrained`的方法实例化
+     `__all__ = ['GPT2LMHeadModel']`：公开模型预训练接口，方便用户从外部调用。
+     `@MindFormerRegister.register(MindFormerModuleType.MODELS)`：`Mindformers`的注册机制，将类注册到对应模块，方便通过配置文件进行实例化。
+     `_support_list = MindFormerBook.get_model_support_list()['gpt2']`：高阶接口使用时用于检索可用模型，可通过`from_pretrained`的方法实例化。
 
   ```python
   # 具体实现参考Mindformers
@@ -158,9 +158,9 @@
   ```
 
 - 编写模型参数配置文件`gpt2_config.py`（详细代码参考[gpt2_config.py](https://gitee.com/mindspore/mindformers/blob/dev/mindformers/models/gpt2/gpt2_config.py)）
-     `__all__ = ['GPT2Config']`：公开模型预训练接口，方便用户从外部调用
-     `@MindFormerRegister.register(MindFormerModuleType.CONFIG)`：`Mindformers`的注册机制，将类注册到对应模块，方便通过配置文件进行实例化
-     `_support_list = MindFormerBook.get_config_support_list()['gpt2']`：高阶接口使用时用于检索可用模型，可通过`from_pretrained`的方法实例化
+     `__all__ = ['GPT2Config']`：公开模型预训练接口，方便用户从外部调用。
+     `@MindFormerRegister.register(MindFormerModuleType.CONFIG)`：`Mindformers`的注册机制，将类注册到对应模块，方便通过配置文件进行实例化。
+     `_support_list = MindFormerBook.get_config_support_list()['gpt2']`：高阶接口使用时用于检索可用模型，可通过`from_pretrained`的方法实例化。
 
   ```python
   # 具体实现参考Mindformers/mindformers/models/gpt2/gpt2_config.py
@@ -207,7 +207,7 @@
 
 - 实现Trainer逻辑，支持`trainer.train/evaluate/predict`拉起`训练/评估/推理`流程。
 
-  最终目录结构为
+  最终目录结构为：
 
   ``````txt
   Mindformers
@@ -218,7 +218,7 @@
                 └── causal_language_modeling.py # train/evaluate/predict实现脚本
   ``````
 
-  上述目录下详细代码参考
+  上述目录下详细代码参考：
 
   [\_\_init\_\_.py](https://gitee.com/mindspore/mindformers/blob/dev/mindformers/trainer/causal_language_modeling/__init__.py)
 
@@ -306,7 +306,7 @@
 
   **需要区分不同参数规模的yaml文件**
 
-  最终目录结构为
+  最终目录结构为：
 
   ``````txt
   Mindformers
@@ -395,9 +395,9 @@
 
 - 代码测试
 
-  数据集构建和测试代码可参考[模型文档](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/gpt2.md)
+  数据集构建和测试代码可参考[模型文档](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/gpt2.md)。
 
-  **基于Mindformers完成模型实现后，建议撰写模型文档**
+  **基于Mindformers完成模型实现后，建议撰写模型文档。**
 
 ## 2 数据集构建及注册
 
@@ -405,8 +405,8 @@
 
 - `Processor`中初始化了`tokenizer`，对输入数据进行处理，`Mindformers`中已经实现了`BaseProcessor`类，若无特别需求可直接继承该基类增加处理逻辑，如有需要可自行实现逻辑。
 - `@MindFormerRegister.register(MindFormerModuleType.PROCESSOR)`该装饰器对`GPT2Processor`进行了注册，将该类注册到了对应模块当中，由此可以通过配置文件进行实例化。
-- `__all__ = ['GPT2Processor']`公开了模型预训练接口，方便用户从外部调用
-- `_support_list = MindFormerBook.get_config_support_list()['gpt2']`：高阶接口使用时用于检索可用模型，可通过`from_pretrained`的方法实例化`GPT2Processor`
+- `__all__ = ['GPT2Processor']`公开了模型预训练接口，方便用户从外部调用。
+- `_support_list = MindFormerBook.get_config_support_list()['gpt2']`：高阶接口使用时用于检索可用模型，可通过`from_pretrained`的方法实例化`GPT2Processor`。
 
   ```python
   # gpt2_processor.py
@@ -448,8 +448,8 @@
 
 - `Tokenizer`通常用于对原始的文本数据进行转换，它将数据转为`token`，进而送入模型中进行处理。在`Mindformers`中已经实现了`Tokenizer`基类，`GPT2Tokenizer`可直接继承`Tokenizer`类进行具体逻辑的实现。如有需要可从头编写相关逻辑。
 - `@MindFormerRegister.register(MindFormerModuleType.TOKENIZER)`该装饰器对`GPT2Tokenizer`进行了注册，将该类注册到了对应模块当中，由此可以通过配置文件进行实例化。
-- `__all__ = ['GPT2Tokenizer']`，公开模型预训练接口，方便用户从外部调用
-- `_support_list = MindFormerBook.get_config_support_list()['gpt2']`：高阶接口使用时用于检索可用模型，可通过`from_pretrained`的方法实例化`GPT2Tokenizer`
+- `__all__ = ['GPT2Tokenizer']`，公开模型预训练接口，方便用户从外部调用。
+- `_support_list = MindFormerBook.get_config_support_list()['gpt2']`：高阶接口使用时用于检索可用模型，可通过`from_pretrained`的方法实例化`GPT2Tokenizer`。
 
     ```python
     # gpt2_tokenizer.py
@@ -779,7 +779,7 @@ if __name__ == "__main__":
 
 ### 2.4 Dataset构建
 
-针对不同的下游任务，有诸多`dataset`的构建方法，接下来以`Causal Language Model Dataset`作为例子，为GPT2的训练构造数据集。
+针对不同的下游任务，有诸多`dataset`的构建方法，接下来以`Causal Language Model Dataset`为例，为GPT2的训练构造数据集。
 
 - `Mindformers`中实现了`BaseDataset`基类，用户可直接继承使用，如有特殊需求可自行实现。
 - `@MindFormerRegister.register(MindFormerModuleType.DATASET)`该装饰器对`CausalLanguageModelDataset`进行了注册，将该类注册到了对应模块当中，由此可以通过配置文件进行实例化。
@@ -863,7 +863,7 @@ if __name__ == "__main__":
 
 **使用MindFormers已支持的task，请参考[Trainer API](Using_Api.md#trainer)，[Pipeline API](Using_Api.md#pipeline)，[Task](../task_cards/index.html)。**
 
-GPT2作为大语言模型，其主要的task是文本生成和对话问答方面的内容，本小节将以文本生成任务作为例子，实现GPT2文本生成的具体逻辑以及任务注册的过程。在`Mindformers`中，各类下游任务，如`文本生成`、`图像分类`、`对话问答`等任务以`Pipeline`的形式构建，目前`Mindformers`仓中已实现了`BasePipeline`基类。需要完成的`TextGenerationPipeline`可直接继承`BasePipeline`实现具体的逻辑，如需实现的下游任务类型较为复杂，则用户可自行从头编写`Pipeline`类的逻辑。
+GPT2作为大语言模型，其主要的task是文本生成和对话问答方面的内容，本小节将以文本生成任务为例，介绍实现GPT2文本生成的具体逻辑以及任务注册的过程。在`Mindformers`中，各类下游任务，如`文本生成`、`图像分类`、`对话问答`等任务以`Pipeline`的形式构建，目前`Mindformers`仓中已实现了`BasePipeline`基类。需要完成的`TextGenerationPipeline`可直接继承`BasePipeline`实现具体的逻辑，如需实现的下游任务类型较为复杂，则用户可自行从头编写`Pipeline`类的逻辑。
 
 - `@MindFormerRegister.register(MindFormerModuleType.PIPELINE, alias="text_generation")`该装饰器完成了对`TextGenerationPipeline`的注册，由此可以通过配置文件使用高级接口进行实例化。
 - `TextGenerationPipeline`中包含了输入数据的前、中、后处理，主要涵盖以下的过程：
@@ -1291,5 +1291,5 @@ GPT2作为大语言模型，其主要的task是文本生成和对话问答方面
 
     ```bash
     cd scripts
-    bash run_distribute.sh {RANK_TABLE_FILE} ../configs/gpt2/run_gpt2_13b.yaml [0,8] {RUN_STATUS}
+    bash run_distribute.sh {RANK_TABLE_FILE} ../configs/gpt2/run_gpt2_13b.yaml [0,8) {RUN_STATUS}
     ```

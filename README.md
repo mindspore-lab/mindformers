@@ -26,14 +26,14 @@ MindSpore Transformers套件基于MindSpore内置的并行技术和组件化设�
 
 目前支持的模型列表如下：
 
-|                      模型                      |                                                                                                       任务（task name）                                                                                                       | 模型（model name）                                                                                                                                                                                        |
-|:--------------------------------------------:| :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------: | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|                      模型                      |                                                                                                       任务（task name）                                                                                                       | 模型（model name）                                                                                                                                                                                            |
+|:--------------------------------------------:| :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------: |:----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 |       [BERT](docs/model_cards/bert.md)       | masked_language_modeling<br>[text_classification](docs/task_cards/text_classification.md) <br>[token_classification](docs/task_cards/token_classification.md) <br>[question_answering](docs/task_cards/question_answering.md) | bert_base_uncased <br>txtcls_bert_base_uncased<br>txtcls_bert_base_uncased_mnli <br>tokcls_bert_base_chinese<br>tokcls_bert_base_chinese_cluener <br>qa_bert_base_uncased<br>qa_bert_base_chinese_uncased |
 |         [T5](docs/model_cards/t5.md)         |                                                                                                          translation                                                                                                          | t5_small                                                                                                                                                                                                  |
 |       [GPT2](docs/model_cards/gpt2.md)       |                                                                                     [text_generation](docs/task_cards/text_generation.md)                                                                                     | gpt2_small <br>gpt2_13b <br>gpt2_52b                                                                                                                                                                      |
 | [PanGuAlpha](docs/model_cards/pangualpha.md) |                                                                                     [text_generation](docs/task_cards/text_generation.md)                                                                                     | pangualpha_2_6_b<br>pangualpha_13b                                                                                                                                                                        |
 |        [GLM](docs/model_cards/glm.md)        |                                                                                     [text_generation](docs/task_cards/text_generation.md)                                                                                     | glm_6b<br>glm_6b_lora                                                                                                                                                                                     |
-|       [GLM2](docs/model_cards/glm2.md)       |                                                                                     [text_generation](docs/task_cards/text_generation.md)                                                                                     | glm2_6b<br>glm2_6b_lora                                                                                                                                                                                   |
+|       [GLM2](docs/model_cards/glm2.md)       |                                                                                     [text_generation](docs/task_cards/text_generation.md)                                                                                     | glm2_6b<br>glm2_6b_lora<br>glm2_6b_ptuning2                                                                                                                                                               |
 |      [LLama](docs/model_cards/llama.md)      |                                                                                     [text_generation](docs/task_cards/text_generation.md)                                                                                     | llama_7b <br>llama_13b <br>llama_65b <br>llama_7b_lora                                                                                                                                                    |
 |     [LLama2](docs/model_cards/llama2.md)     |                                                                                     [text_generation](docs/task_cards/text_generation.md)                                                                                     | llama2_7b <br>llama2_13b                                                                                                                                                                                  |
 |      [Bloom](docs/model_cards/bloom.md)      |                                                                                     [text_generation](docs/task_cards/text_generation.md)                                                                                     | bloom_560m<br>bloom_7.1b <br>bloom_65b<br>bloom_176b                                                                                                                                                      |
@@ -69,7 +69,7 @@ bash build.sh
 docker下载命令
 
 ```shell
-docker pull swr.cn-central-221.ovaijisuan.com/mindformers/mindformers_dev_mindspore_2_0:mindformers_0.6.0dev_20230616_py39_37
+docker pull swr.cn-central-221.ovaijisuan.com/mindformers/mindformers0.8.0_mindspore2.2.0:aarch_20231025
 ```
 
 创建容器
@@ -98,15 +98,15 @@ docker run -it -u root \
 -v /var/log/npu/:/usr/slog \
 -v /usr/local/bin/npu-smi:/usr/local/bin/npu-smi \
 --name {请手动输入容器名称} \
-swr.cn-central-221.ovaijisuan.com/mindformers/mindformers_dev_mindspore_2_0:mindformers_0.6.0dev_20230616_py39_37 \
+swr.cn-central-221.ovaijisuan.com/mindformers/mindformers0.8.0_mindspore2.2.0:aarch_20231025 \
 /bin/bash
 ```
 
 ## 三、版本匹配关系
 
-| 版本对应关系 | MindFormers | MindPet | MindSpore |  Python   |    芯片     |
-| :----------: | :---------: | :-----: | :-------: | :-------: | :---------: |
-|    版本号    |     dev     |  1.0.0  | 2.0/1.10  | 3.7.5/3.9 | Ascend 910A |
+| 版本对应关系 | MindFormers | MindPet | MindSpore |  Python   |      芯片       |
+| :----------: |:-----------:|:-------:|:---------:| :-------: |:-------------:|
+|    版本号    |    r0.8     |  1.0.2  |    2.2    | 3.7.5/3.9 | Ascend 910A/B |
 
 ## 四、快速使用
 
@@ -133,7 +133,7 @@ MindFormers套件对外提供两种使用和开发形式，为开发者提供灵
 
   ```shell
   # 不包含8本身，生成0~7卡的hccl json文件
-  python mindformers/tools/hccl_tools.py --device_num [0,8]
+  python mindformers/tools/hccl_tools.py --device_num [0,8)
   ```
 
 - 单卡启动：统一接口启动，根据模型 CONFIG 完成任意模型的单卡训练、微调、评估、推理流程
@@ -146,7 +146,7 @@ python run_mindformer.py --config {CONFIG_PATH} --run_mode {train/finetune/eval/
 - 多卡启动： scripts 脚本启动，根据模型 CONFIG 完成任意模型的单卡/多卡训练、微调、评估、推理流程
 
 ```shell
-# 8卡分布式运行， DEVICE_RANGE = [0, 8], 不包含8本身
+# 8卡分布式运行， DEVICE_RANGE = [0,8), 不包含8本身
 cd scripts
 bash run_distribute.sh RANK_TABLE_FILE CONFIG_PATH DEVICE_RANGE RUN_MODE
 ```
@@ -157,8 +157,8 @@ bash run_distribute.sh RANK_TABLE_FILE CONFIG_PATH DEVICE_RANGE RUN_MODE
 RANK_TABLE_FILE: 由mindformers/tools/hccl_tools.py生成的分布式json文件
 CONFIG_PATH: 为configs文件夹下面的{model_name}/run_*.yaml配置文件
 DEVICE_ID: 为设备卡，范围为0~7
-DEVICE_RANGE: 为单机分布式卡的范围, 如[0,8]为8卡分布式，不包含8本身
-RUN_MODE: 为任务运行状态，支持关键字 train\finetune\eval\predict
+DEVICE_RANGE: 为单机分布式卡的范围, 如[0,8)为8卡分布式，不包含8本身
+RUN_MODE: 为任务运行状态，支持关键字 train/finetune/eval/predict
 ```
 
 ### 方式二：调用API启动
@@ -169,7 +169,7 @@ RUN_MODE: 为任务运行状态，支持关键字 train\finetune\eval\predict
 
     - step 1：安装mindformers
 
-  具体安装请参考[第二章](https://gitee.com/mindspore/mindformers/blob/dev/README.md#%E4%BA%8Cmindformers%E5%AE%89%E8%A3%85)
+  具体安装请参考[第二章](https://gitee.com/mindspore/mindformers/blob/dev/README.md#%E4%BA%8Cmindformers%E5%AE%89%E8%A3%85)。
 
     - step2: 准备数据
 
@@ -179,9 +179,9 @@ RUN_MODE: 为任务运行状态，支持关键字 train\finetune\eval\predict
 
   用户可以通过以上方式安装mindformers库，然后利用Trainer高阶接口执行模型任务的训练、微调、评估、推理功能。
 
-    - Trainer 训练\微调启动
+    - Trainer 训练/微调启动
 
-  用户可使用`Trainer.train`或者`Trainer.finetunne`接口完成模型的训练\微调\断点续训。
+  用户可使用`Trainer.train`或者`Trainer.finetune`接口完成模型的训练/微调/断点续训。
 
   ```python
   from mindformers import Trainer
@@ -262,7 +262,7 @@ RUN_MODE: 为任务运行状态，支持关键字 train\finetune\eval\predict
 
   ```text
   结果打印示例(已集成的gpt2模型权重推理结果)：
-   # [{'text_generation_text': ['An increasing sequence: one, two, three, four, five, six, seven, eight,']}]
+  [{'text_generation_text': ['An increasing sequence: one, two, three, four, five, six, seven, eight,']}]
   ```
 
 - AutoClass 快速入门

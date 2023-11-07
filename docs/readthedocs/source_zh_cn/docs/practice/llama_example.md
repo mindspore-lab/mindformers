@@ -9,7 +9,7 @@
 1. 使用RMSNorm作为归一化层；
 2. 使用RotaryEmbedding进行相对位置编码；
 3. FeedForward中使用门控结构，激活函数为SiLU；
-4. 没有Dropout层，线性层中没有bias；
+4. 没有Dropout层，线性层中没有bias。
 
 - 查看[META官方代码](https://github.com/facebookresearch/llama/blob/main/llama/model.py)或[Huggingface代码](https://github.com/huggingface/transformers/blob/main/src/transformers/models/llama/modeling_llama.py)，明确论文实现细节，基于GPT2改造`Mindformers`中`RMSNorm`, `RotaryEmbedding`, `FeedForward`模块，以及修改`Attention`与`Decoder`模块。
 - 注意META官方代码与Huggingface代码两者`RotaryEmbedding`模块实现逻辑不同，权重文件也有两种，需要注意区分，这里我们使用Huggingface的实现方式。
@@ -451,7 +451,7 @@ class LLamaDecodeLayer(nn.Cell):
 ### 1.6 实现`LlamaModel`与`LlamaForCausalLM`
 
 - 参照GPT2的`GPT2Model`与`GPT2LMHeadModel`实现`LlamaModel`与`LlamaForCausalLM`。
- - 具体实现参考具体实现代码参考[https://gitee.com/mindspore/mindformers/blob/dev/mindformers/models/llama/llama.py](https://gitee.com/mindspore/mindformers/blob/dev/mindformers/models/llama/llama.py)。
+ - 具体实现代码参考[https://gitee.com/mindspore/mindformers/blob/dev/mindformers/models/llama/llama.py](https://gitee.com/mindspore/mindformers/blob/dev/mindformers/models/llama/llama.py)。
 - 核心计算逻辑如下：
 
 ```Python
@@ -634,16 +634,16 @@ def layer_compute_dtype(layer, layer_id, offset, parallel_config, n_layers):
 
 数据处理的方式通常伴随着数据集同时提供。这里以Alpaca数据集为例，分为以下两个步骤：
 
-- 将问答数据按照模板填入。参考[`mindformers/tools/dataset_preprocess/llama/alpaca_converter.py`](https://gitee.com/mindspore/mindformers/blob/dev/mindformers/tools/dataset_preprocess/llama/alpaca_converter.py)
-- 将模板化的问答转换成input_tokens和target_tokens并保存成mindrecord。参考[`mindformers/tools/dataset_preprocess/llama/llama_preprocess.py`](https://gitee.com/mindspore/mindformers/blob/dev/mindformers/tools/dataset_preprocess/llama/llama_preprocess.py)
+- 将问答数据按照模板填入。参考[`mindformers/tools/dataset_preprocess/llama/alpaca_converter.py`](https://gitee.com/mindspore/mindformers/blob/dev/mindformers/tools/dataset_preprocess/llama/alpaca_converter.py)。
+- 将模板化的问答转换成input_tokens和target_tokens并保存成mindrecord。参考[`mindformers/tools/dataset_preprocess/llama/llama_preprocess.py`](https://gitee.com/mindspore/mindformers/blob/dev/mindformers/tools/dataset_preprocess/llama/llama_preprocess.py)。
 
-其中第二步，使用了llama专属的tokenizer将模板化问答的转换成input_tokens，而target_tokens则是将input_tokens的非回答部分置成特殊字符ignore token，从而在训练时，loss只对回答部分计算。
+其中第二步，使用了llama专属的tokenizer将模板化的问答转换成input_tokens，而target_tokens则是将input_tokens的非回答部分置成特殊字符ignore token，从而在训练时，loss只对回答部分计算。
 
 ## 3 修改Tokenizer
 
-Tokenizer是一个将单词和整数之间映射和反映射的功能模块。一般具体模型都提供对应的映射脚本。以LLAMA为例，LLAMA的tokenizer基于`sentencepiece`库，加载相对于的词表文件。
+Tokenizer是一个将单词和整数之间映射和反映射的功能模块。一般具体模型都提供对应的映射脚本。以LLAMA为例，LLAMA的tokenizer是基于`sentencepiece`库加载的词表文件。
 具体LLAMA tokenizer参考`/mindformers/models/llama/llama_tokenizer.py`
-其中涉及到`sentencepiece`库和加载相对于的词表文件的脚本为
+其中涉及到`sentencepiece`库加载的词表文件脚本为：
 
 ```python
 import sentencepiece as spm
@@ -652,7 +652,7 @@ self.sp_model = spm.SentencePieceProcessor(**self.sp_model_kwargs)
 self.sp_model.Load(vocab_file)
 ```
 
-同时在初始化tokenizer时，需要将特殊token明确指明。相关脚本如下。
+同时在初始化tokenizer时，需要将特殊token明确指明。相关脚本如下：
 
 ```python
     bos_token = AddedToken(bos_token, lstrip=False, rstrip=False) if isinstance(bos_token, str) else bos_token
@@ -675,7 +675,7 @@ self.sp_model.Load(vocab_file)
 权重文件是一个key, value配对的字典，key为权重的名称，value为权重的值。
 将HuggingFace的权重文件转换到MindFormers权重文件，涉及到权重名称的改变，也就是将文件中的key按照mindformers的名称规范重命名。
 
-具体重命名参照一下规则，整体的权重转换脚本参照`/mindformers/models/llama/convert_weight.py`。
+具体重命名参照以下规则，整体的权重转换脚本参照`/mindformers/models/llama/convert_weight.py`。
 
 ```python
 def name_replace(name: str):
@@ -944,22 +944,22 @@ remote_save_url: "Please input obs url on AICC platform."
 
 ```bash
 # 以八卡运行为例，生成0~7卡的hccl json文件,不包含8本身.
-python ./mindformers/tools/hccl_tools.py --device_num [0,8]
+python ./mindformers/tools/hccl_tools.py --device_num [0,8)
 ```
 
-1. 修改模型对应的配置文件。
-2. 进入scripts文件夹，启动运行脚本，进行8卡分布式运行。
+2. 修改模型对应的配置文件。
+3. 进入scripts文件夹，启动运行脚本，进行8卡分布式运行。
 
 ```bash
 cd scripts
-bash run_distribute.sh hccl_xxxx.json ../configs/llama/run_llama_7b.yaml [0,8] train
+bash run_distribute.sh hccl_xxxx.json ../configs/llama/run_llama_7b.yaml [0,8) train
 # 脚本启动格式：
 bash run_distribute.sh [RANK_TABLE_FILE] [CONFIG_PATH] [DEVICE_RANGE] [RUN_MODE]
 
 # 参数说明
 RANK_TABLE_FILE: 由mindformers/tools/hccl_tools.py生成的分布式json文件
 CONFIG_PATH: 为configs文件夹下面的llama/run_llama_7b.yaml配置文件
-DEVICE_RANGE: 为单机分布式卡的范围，如[0,8]为8卡分布式，不包含8本身
+DEVICE_RANGE: 为单机分布式卡的范围，如[0,8)为8卡分布式，不包含8本身
 RUN_MODE: 为任务运行状态，支持关键字 train\finetune\eval\predict
 ```
 
@@ -973,7 +973,7 @@ RUN_MODE: 为任务运行状态，支持关键字 train\finetune\eval\predict
 
 ```bash
 # 第一台机器
-bash run_distribute.sh {RANK_TABLE_FILE path of the first device} ../configs/llama/run_llama_7b.yaml [0,8] train 16
+bash run_distribute.sh {RANK_TABLE_FILE path of the first device} ../configs/llama/run_llama_7b.yaml [0,8) train 16
 # 第二台机器
-bash run_distribute.sh {RANK_TABLE_FILE path of the second device} ../configs/llama/run_llama_7b.yaml [8,16] train 16
+bash run_distribute.sh {RANK_TABLE_FILE path of the second device} ../configs/llama/run_llama_7b.yaml [8,16) train 16
 ```
