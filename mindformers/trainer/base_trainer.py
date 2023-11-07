@@ -306,8 +306,12 @@ class BaseTrainer:
     def create_network(self, default_args: dict = None):
         """Create the network for task trainer."""
         logger.info(".........Build Network From Config..........")
+        ckpt_cfg = self.config.model.model_config.checkpoint_name_or_path
+        if self.config.model.model_config.pet_config:
+            self.config.model.model_config.checkpoint_name_or_path = None
         eval_network = build_model(self.config.model, default_args=default_args)
         if self.config.model.model_config.pet_config:
+            eval_network.config.checkpoint_name_or_path = ckpt_cfg
             eval_network = get_pet_model(eval_network, self.config.model.model_config.pet_config)
         network = eval_network
         micro_batch_interleave_num = self.config.micro_batch_interleave_num
@@ -319,8 +323,12 @@ class BaseTrainer:
     def create_pipeline_network(self, default_args: dict = None):
         """Create the network of pipeline parallel for task trainer."""
         logger.info(".........Build Pipeline Network From Config..........")
+        ckpt_cfg = self.config.model.model_config.checkpoint_name_or_path
+        if self.config.model.model_config.pet_config:
+            self.config.model.model_config.checkpoint_name_or_path = None
         eval_network = build_model(self.config.model, default_args=default_args)
         if self.config.model.model_config.pet_config:
+            eval_network.config.checkpoint_name_or_path = ckpt_cfg
             eval_network = get_pet_model(eval_network, self.config.model.model_config.pet_config)
         network = eval_network
         micro_batch_interleave_num = self.config.micro_batch_interleave_num

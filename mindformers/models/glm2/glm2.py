@@ -26,7 +26,6 @@ from mindformers.modules.layers import Linear
 from mindformers.tools.register import MindFormerModuleType, MindFormerRegister
 from mindformers.core.loss import CrossEntropyLoss
 from mindformers.pet.tuners.pet_adapter import PetAdapter
-from mindformers.pet.tuners.lora_adapter import LoraAdapter
 from mindformers.version_control import get_tril
 
 from ..base_model import BaseModel
@@ -34,7 +33,7 @@ from .glm2_config import ChatGLM2Config
 from .glm2_modules import precompute_rotary_emb_cache
 from .glm2_transformer import ChatGLM2Transformer
 
-__all__ = ['ChatGLM2ForConditionalGeneration', 'ChatGLM2WithLora', 'ChatGLM2Model', 'ChatGLM2WithPtuning2']
+__all__ = ['ChatGLM2ForConditionalGeneration', 'ChatGLM2Model', 'ChatGLM2WithPtuning2']
 
 
 class ChatGLM2Model(nn.Cell):
@@ -111,13 +110,13 @@ class ChatGLM2Model(nn.Cell):
         return attention_mask
 
     def construct(self, input_ids, input_position=None, position_ids=None, attention_mask=None,
-                  inputs_embeds=None, init_reset=True, batch_valid_length=None, full_attention_mask=None,
+                  input_embeds=None, init_reset=True, batch_valid_length=None, full_attention_mask=None,
                   prefix_key_values=None):
         """ChatGLM2 model."""
         _ = position_ids
         batch_size, _ = input_ids.shape
-        if inputs_embeds is None:
-            inputs_embeds, _ = self.embedding(input_ids)  # (bs, seq_len, hs)
+        if input_embeds is None:
+            input_embeds, _ = self.embedding(input_ids)  # (bs, seq_len, hs)
 
         if full_attention_mask is None:
             # (bs, 1, seq_len, seq_len)
@@ -132,7 +131,7 @@ class ChatGLM2Model(nn.Cell):
 
         # Run encoder.
         hidden_states = self.encoder(
-            inputs_embeds, full_attention_mask, rotary_pos_emb=rotary_pos_emb,
+            input_embeds, full_attention_mask, rotary_pos_emb=rotary_pos_emb,
             init_reset=init_reset, batch_valid_length=batch_valid_length,
             prefix_key_values=prefix_key_values)
 
@@ -179,7 +178,7 @@ class ChatGLM2ForConditionalGeneration(BaseModel):
         }
 
     def construct(self, input_ids=None, labels=None, input_position=None, position_ids=None, attention_mask=None,
-                  inputs_embeds=None, init_reset=True, batch_valid_length=None, prefix_key_values=None):
+                  input_embeds=None, init_reset=True, batch_valid_length=None, prefix_key_values=None):
         """ChatGLM2 for conditional generation model."""
         # input_ids: (bs, seq_len)
         # position_ids: (bs, seq_len)
@@ -189,7 +188,7 @@ class ChatGLM2ForConditionalGeneration(BaseModel):
             input_position=input_position,
             position_ids=position_ids,
             attention_mask=attention_mask,
-            inputs_embeds=inputs_embeds,
+            input_embeds=input_embeds,
             init_reset=init_reset,
             batch_valid_length=batch_valid_length,
             prefix_key_values=prefix_key_values
@@ -210,29 +209,6 @@ class ChatGLM2ForConditionalGeneration(BaseModel):
         if (not self.use_past or self.is_first_iteration) and input_position is not None:
             lm_logits = self.gather(lm_logits, input_position, 0)
         return (lm_logits,)
-
-
-@MindFormerRegister.register(MindFormerModuleType.MODELS)
-class ChatGLM2WithLora(ChatGLM2ForConditionalGeneration):
-    """ChatGLM2 Model for pretraining with LoRA
-
-    Args:
-        config (ChatGLM2Config): The config of network.
-    """
-
-    def __init__(self, config: ChatGLM2Config = None, **kwargs):
-        _ = kwargs
-        ckpt_cfg = config.checkpoint_name_or_path
-        config.checkpoint_name_or_path = None
-        super().__init__(config)
-        # get Pet tuning model.
-        config.pet_config.reg_rules = r'.*query_key_value*'
-        self.transformer = LoraAdapter.get_pet_model(self.transformer, config.pet_config)
-        if ckpt_cfg:
-            config.checkpoint_name_or_path = ckpt_cfg
-            self.load_checkpoint(config)
-        # freeze pretrained model
-        PetAdapter.freeze_pretrained_model(self, config.pet_config.pet_type)
 
 
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
@@ -278,7 +254,7 @@ class ChatGLM2WithPtuning2(ChatGLM2ForConditionalGeneration):
         PetAdapter.freeze_pretrained_model(self, config.pet_config.pet_type)
 
     def construct(self, input_ids=None, labels=None, input_position=None, position_ids=None, attention_mask=None,
-                  inputs_embeds=None, init_reset=True, batch_valid_length=None, prefix_key_values=None):
+                  input_embeds=None, init_reset=True, batch_valid_length=None, prefix_key_values=None):
 
         if not self.use_past or self.is_first_iteration:
             batch_size = input_ids.shape[0]
@@ -290,7 +266,7 @@ class ChatGLM2WithPtuning2(ChatGLM2ForConditionalGeneration):
             input_position=input_position,
             position_ids=position_ids,
             attention_mask=attention_mask,
-            inputs_embeds=inputs_embeds,
+            input_embeds=input_embeds,
             init_reset=init_reset,
             batch_valid_length=batch_valid_length,
             prefix_key_values=prefix_key_values
