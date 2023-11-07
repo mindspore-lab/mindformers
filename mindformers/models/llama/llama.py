@@ -13,6 +13,7 @@
 # limitations under the License.
 # ============================================================================
 """LLaMA models' APIs."""
+import copy
 import numpy as np
 import mindspore as ms
 import mindspore.common.dtype as mstype
@@ -179,7 +180,15 @@ class LlamaModel(BaseModel):
                 self.tok_embeddings.set_comm_fusion(config.parallel_config.gradient_aggregation_group)
                 self.norm_out.set_comm_fusion(config.parallel_config.gradient_aggregation_group)
 
-            self.tok_embeddings.shard(config.parallel_config)
+            mp = config.parallel_config.model_parallel
+            vocab_size = config.vocab_size
+            loss_parallel_config = copy.deepcopy(config.parallel_config)
+            if vocab_size % mp != 0:
+                logger.warning("The vocab size of Loss is: %s, it is not divide by model_parallel: %s",
+                               vocab_size, mp)
+                logger.warning("Now, the model_parallel num of Loss will be changed: mp = 1")
+                loss_parallel_config.model_parallel = 1
+            self.tok_embeddings.shard(loss_parallel_config)
 
             self.tile.shard(((1, 1, 1, 1), ()))
             self.sub.shard(((1,), (dp, 1, 1)))
@@ -295,7 +304,16 @@ class LlamaForCausalLM(BaseModel):
                               compute_dtype=config.compute_dtype,
                               param_init_type=config.param_init_type,
                               weight_init="normal") # meta default: xavier_normal
-        self.loss = CrossEntropyLoss(parallel_config=config.parallel_config)
+
+        mp = config.parallel_config.model_parallel
+        vocab_size = config.vocab_size
+        loss_parallel_config = copy.deepcopy(config.parallel_config)
+        if vocab_size % mp != 0:
+            logger.warning("The vocab size of Loss is: %s, it is not divide by model_parallel: %s",
+                           vocab_size, mp)
+            logger.warning("Now, the model_parallel num of Loss will be changed: mp = 1")
+            loss_parallel_config.model_parallel = 1
+        self.loss = CrossEntropyLoss(parallel_config=loss_parallel_config)
         self.seq_length = config.seq_length
 
         dp = config.parallel_config.data_parallel
@@ -306,7 +324,7 @@ class LlamaForCausalLM(BaseModel):
             self.mul.shard(((dp, 1), (dp, 1)))
             self.add.shard(((dp, 1), ()))
             self.gather.shard(((dp, 1), (dp,)))
-            if config.parallel_config.vocab_emb_dp:
+            if config.parallel_config.vocab_emb_dp or (vocab_size % mp != 0):
                 self.lm_head.shard(strategy_matmul=((dp, 1), (1, 1)))
             else:
                 self.lm_head.shard(strategy_matmul=((dp, 1), (mp, 1)))

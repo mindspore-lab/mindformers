@@ -9,6 +9,7 @@
    :glob:
    :maxdepth: 1
 
+   ../../research/skywork/skywork
    ../../research/baichuan/baichuan
    ../../research/baichuan2/baichuan2
    ../../research/qwen/qwen

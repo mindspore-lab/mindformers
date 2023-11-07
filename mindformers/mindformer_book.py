@@ -259,6 +259,8 @@ class MindFormerBook:
                 _PROJECT_PATH, "research/baichuan2/run_baichuan2_13b.yaml")),
             ("ziya_13b", os.path.join(
                 _PROJECT_PATH, "research/ziya/run_ziya_13b.yaml")),
+            ("skywork_13b", os.path.join(
+                _PROJECT_PATH, "research/skywork/run_skywork_13b.yaml")),
             ("internlm_7b", os.path.join(
                 _PROJECT_PATH, "research/internlm/run_internlm_7b.yaml")),
             ("internlm_7b_lora", os.path.join(
@@ -424,6 +426,8 @@ class MindFormerBook:
                 _PROJECT_PATH, "research/baichuan2/run_baichuan2_13b.yaml")),
             ("ziya_13b", os.path.join(
                 _PROJECT_PATH, "research/ziya/run_ziya_13b.yaml")),
+            ("skywork_13b", os.path.join(
+                _PROJECT_PATH, "research/skywork/run_skywork_13b.yaml")),
             ("internlm_7b", os.path.join(
                 _PROJECT_PATH, "research/internlm/run_internlm_7b.yaml")),
             ("internlm_7b_lora", os.path.join(
@@ -519,6 +523,7 @@ class MindFormerBook:
             'ziya_13b',
             'internlm_7b',
             'internlm_7b_lora',
+            'skywork_13b',
         ]),
         ('llama2', [
             'llama2_7b',
@@ -797,7 +802,8 @@ class MindFormerBook:
             'llama2_70b',
             'llama_7b_lora',
             'baichuan_7b',
-            'ziya_13b'
+            'ziya_13b',
+            'skywork_13b',
         ]),
         ('llama2', [
             'llama2_7b',
@@ -834,6 +840,9 @@ class MindFormerBook:
         ]),
         ('qwen', [
             'qwen_7b',
+        ]),
+        ('skywork', [
+            'skywork_13b',
         ]),
     ])
 
