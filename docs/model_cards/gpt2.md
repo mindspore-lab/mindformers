@@ -361,7 +361,7 @@ bash run_standalone.sh ../configs/gpt2/run_gpt2.yaml [DEVICE_ID] train
 
 - 单机多卡
 
-请提前在yaml文件中修改相应的分布式配置，配置参考[并行配置](https://gitee.com/mindspore/mindformers/blob/dev/docs/readthedocs/source_zh_cn/docs/design/Parallel_Design.md#config-%E5%B9%B6%E8%A1%8C%E9%85%8D%E7%BD%AE)
+请提前在yaml文件中修改并行模式`parallel_mode`为`1`，即`半自动并行模式`，并修改相应的分布式配置，配置参考[并行配置](https://gitee.com/mindspore/mindformers/blob/dev/docs/readthedocs/source_zh_cn/docs/design/Parallel_Design.md#config-%E5%B9%B6%E8%A1%8C%E9%85%8D%E7%BD%AE)
 
 **请提前将yaml文件中train_dataset配置中的dataset_dir设置为处理好的mindrecord数据路径**
 
@@ -374,7 +374,7 @@ bash run_distribute.sh RANK_TABLE_FILE ../configs/gpt2/run_gpt2.yaml [0,8] train
 
 在每台机器上启动`bash run_distribute.sh`。
 
-请提前在yaml文件中修改相应的分布式配置，配置参考[并行配置](https://gitee.com/mindspore/mindformers/blob/dev/docs/readthedocs/source_zh_cn/docs/design/Parallel_Design.md#config-%E5%B9%B6%E8%A1%8C%E9%85%8D%E7%BD%AE)
+请提前在yaml文件中修改并行模式`parallel_mode`为`1`，即`半自动并行模式`，并修改相应的分布式配置，配置参考[并行配置](https://gitee.com/mindspore/mindformers/blob/dev/docs/readthedocs/source_zh_cn/docs/design/Parallel_Design.md#config-%E5%B9%B6%E8%A1%8C%E9%85%8D%E7%BD%AE)
 
 **请提前将yaml文件中train_dataset配置中的dataset_dir设置为处理好的mindrecord数据路径**
 
@@ -494,6 +494,8 @@ bash run_standalone.sh ../configs/gpt2/run_gpt2_lora.yaml [DEVICE_ID] finetune
 
 #### 多卡微调
 
+请提前在yaml文件中修改并行模式`parallel_mode`为`1`，即`半自动并行模式`，并修改相应的分布式配置，配置参考[并行配置](https://gitee.com/mindspore/mindformers/blob/dev/docs/readthedocs/source_zh_cn/docs/design/Parallel_Design.md#config-%E5%B9%B6%E8%A1%8C%E9%85%8D%E7%BD%AE)
+
 多卡运行需要RANK_FILE_TABLE，请参考前期准备-[生成RANK_TABLE_FILE](#生成rank_table_file多卡运行必备环节)
 
 - 单机多卡
@@ -506,6 +508,8 @@ bash run_distribute.sh RANK_TABLE_FILE path/to/config_lora.yaml [0,8] finetune 8
 多机多卡运行需要合并不同机器的RANK_FILE_TABLE，参考前期准备-[多机RANK_TABLE_FILE合并](#多机生成rank_table_file合并多机多卡必备环节)
 
 - 多机多卡
+
+请提前在yaml文件中修改并行模式`parallel_mode`为`1`，即`半自动并行模式`，并修改相应的分布式配置，配置参考[并行配置](https://gitee.com/mindspore/mindformers/blob/dev/docs/readthedocs/source_zh_cn/docs/design/Parallel_Design.md#config-%E5%B9%B6%E8%A1%8C%E9%85%8D%E7%BD%AE)
 
 在每台机器上启动`bash run_distribute.sh`。
 
@@ -537,6 +541,8 @@ IP_LIST=("192.168.0.0", "192.168.0.1", ..., "192.168.0.11")
 ## 评测
 
 GPT2支持文本生成和文本分类两个任务的评测。
+
+**注：以下以`GPT2`12层模型举例，数据处理脚本的`max_length`入参默认是`configs/gpt2/run_gpt2.yaml`中的`seq_length`，即`1024`。如更换使用模型，需设置数据处理脚本的`max_length`为对应yaml文件中的`seq_length`。**
 
 ### 文本生成
 
