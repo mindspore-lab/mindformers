@@ -127,6 +127,7 @@ def main(task='text_generation',
         config.auto_trans_ckpt = auto_trans_ckpt
         if config.auto_trans_ckpt:
             clear_auto_trans_output(config)
+
     if vocab_file is not None:
         config.processor.tokenizer.vocab_file = vocab_file
     if data_parallel is not None:
@@ -143,24 +144,24 @@ def main(task='text_generation',
         trainer = Trainer(args=config,
                           task=task,
                           train_dataset=train_dataset)
-        trainer.train(train_checkpoint=ckpt, auto_trans_ckpt=auto_trans_ckpt, resume=resume)
+        trainer.train(train_checkpoint=ckpt, auto_trans_ckpt=config.auto_trans_ckpt, resume=resume)
     elif run_mode == 'finetune':
         trainer = Trainer(args=config,
                           task=task,
                           train_dataset=train_dataset)
-        trainer.finetune(finetune_checkpoint=ckpt, auto_trans_ckpt=auto_trans_ckpt, resume=resume)
+        trainer.finetune(finetune_checkpoint=ckpt, auto_trans_ckpt=config.auto_trans_ckpt, resume=resume)
     elif run_mode == 'eval':
         trainer = Trainer(args=config,
                           task=task,
                           eval_dataset=eval_dataset)
-        trainer.evaluate(eval_checkpoint=ckpt, auto_trans_ckpt=auto_trans_ckpt)
+        trainer.evaluate(eval_checkpoint=ckpt, auto_trans_ckpt=config.auto_trans_ckpt)
     elif run_mode == 'predict':
         trainer = Trainer(args=config,
                           task=task)
         prompt = "<s><|User|>:{}<eoh>\n<|Bot|>:".format(predict_data)
         result = trainer.predict(input_data=prompt,
                                  predict_checkpoint=ckpt,
-                                 auto_trans_ckpt=auto_trans_ckpt,
+                                 auto_trans_ckpt=config.auto_trans_ckpt,
                                  max_length=int(max_length))
         print(result[0]['text_generation_text'][0])
 
