@@ -40,8 +40,10 @@ InternLM ，即书生·浦语大模型，是由上海人工智能实验室和来
 
     ```bash
     internlm
-        ├── run_internlm_7b.yaml             # 全量微调启动配置
-        └── run_internlm_7b_lora.yaml        # lora低参微调启动配置
+        ├── run_internlm_7b.yaml                  # 全量微调910A启动配置
+        ├── run_internlm_7b_910b.yaml             # 全量微调910B启动配置
+        ├── run_internlm_7b_lora.yaml             # lora低参微调910A启动配置
+        └── run_internlm_7b_lora_910b.yaml        # lora低参微调910B启动配置
     ```
 
 3. 预处理脚本和任务启动脚本：`research/internlm`
@@ -56,11 +58,13 @@ InternLM ，即书生·浦语大模型，是由上海人工智能实验室和来
 
 ## <span id="jump">权重转换</span>
 
-本仓库提供已经转换完成的预训练权重用于训练/微调/推理，用户可自行从下方链接拉取后直接使用，Base用于微调，Chat用于推理。
+本仓库提供已经转换完成的预训练权重用于训练/微调/推理，用户可自行从下方链接拉取后直接使用，Base用于微调，Chat用于推理，tokenizer.model为词表文件。
 
 - [internlm-7b](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/internlm/internlm.ckpt)
 
 - [internlm-chat-7b](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/internlm/internlm-chat.ckpt)
+
+- [tokenizer.model](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/internlm/tokenizer.model)
 
 也可选择从huggingface下载预训练权重后根据以下步骤进行权重转换，包含对应的分词模型，需要下载整个工程，huggingface权重的链接如下：
 
@@ -70,7 +74,7 @@ InternLM ，即书生·浦语大模型，是由上海人工智能实验室和来
 
 注：internlm-7b权重用于训练/微调，internlm-chat-7b用于直接开启快速推理。
 
-下载完成后，运行如下转换脚本，将huggingface的权重转换为完整的ckpt权重。
+原始权重下载完成后，运行如下转换脚本，将huggingface的权重转换为完整的ckpt权重。
 
 ```shell
 # 请安装torch=2.0.0和transformers=4.30.2版本:
@@ -146,9 +150,9 @@ from mindformers.models import LlamaConfig
 from internlm import InternLMForCausalLM
 from internlm_tokenizer import InternLMTokenizer
 
-context.set_context(device_id=1)
+context.set_context(device_id=0, mode=0)
 # init model
-internlm_model_path = "/path/InternLM-7B/internlm.ckpt" # InternLM ckpt path
+internlm_model_path = "/path/InternLM-7B/internlm-chat.ckpt" # InternLM ckpt path
 internlm_config = LlamaConfig(
     vocab_size=103168,
     pad_token_id=0,
@@ -220,7 +224,7 @@ python alpaca_data_preprocess.py \
 
 ### 全参微调
 
-internlm-7b用于微调，seq_length默认为2048，分布式微调训练在单机八卡上即可启动。以alpaca_data数据集为例,给出了默认配置文件`run_internlm_7b.yaml`。
+internlm-7b用于微调，seq_length默认为2048，分布式微调训练在910A/B上均可在单机八卡上启动。以alpaca_data数据集为例,给出了910A上的默认配置文件`run_internlm_7b.yaml`。若使用910B机器，使用`run_internlm_7b_910b.yaml`配置文件即可，其他步骤与910A一致。
 
 1. 权重准备
 
@@ -231,7 +235,7 @@ internlm-7b用于微调，seq_length默认为2048，分布式微调训练在单�
 ```text
     └── path of ckpt
         └── rank_0
-            └── baichuan2_13b.ckpt
+            └── internlm_7b_base.ckpt
 ```
 
 若使用离线切分，配置参数`auto_trans_ckpt`置为`False`，`load_checkpoint`传入切分好的权重路径文件夹即可。
@@ -273,7 +277,7 @@ hccl_xp_xxx.json [0,8] 8
 
 ### Lora微调
 
-Lora微调支持单卡/多卡启动，以alpaca-gpt4-data-zh数据集为例,给出了默认配置文件`run_internlm_7b_lora.yaml`：
+Lora微调支持910A/B上的单卡/多卡启动，以alpaca-gpt4-data-zh数据集为例,给出了910A的默认配置文件`run_internlm_7b_lora.yaml`。若使用910B机器，使用`run_internlm_7b_lora_910b.yaml`配置文件即可，其他步骤与910A一致。
 
 1. 参考全参微调任务修改配置文件中的预训练权重路径、数据集路径。
 
