@@ -739,7 +739,58 @@ python run_mindformer.py \
 # F1 score: 60.5, Em score: 39.6, total_count: 2067
 ```
 
+### 分布式评测
+
+对于较大模型比如llama2_70b，模型无法完全导入到单卡中进行评测，则需要进行分布式评测。可参考[权重切分与合并](../feature_cards/Transform_Ckpt.md) 中的案例进行评测相应修改，本实例参考案例三完整权重切分自动评测。
+
+step 1. 修改权重文件夹目录结构如下，将模型权重放入rank_0的文件夹中。
+
+```shell
+path/to/checkpoint_dir
+    ├──rank_0
+        ├──model.ckpt
+```
+
+step 2. 修改config配置，`auto_trans_ckpt` 设为`True`，`model_parallel`设置为相应需要进行评测的卡数。`load_checkpoint` 路径设置为rank_0上一层的`path/to/checkpoint_dir`。
+
+```python
+load_checkpoint: path/to/checkpoint_dir
+use_parallel: True
+# model config
+parallel_config:
+  data_parallel: 1
+  model_parallel: 8  # 改为相应卡数。70b推荐8卡推理
+  pipeline_stage: 1
+```
+
+step 3. 按照之前的单卡评测的指导，将`eval_dataset` 中的配置相应修改，将评测数据集路径写入`dataset_dir`中。
+
+```python
+# eval dataset，以squad的mindrecord路径为例
+eval_dataset: &eval_dataset
+  data_loader:
+    type: MindDataset
+    dataset_dir: "{path}/squad2048.mindrecord"
+```
+
+step 4. 参考[生成RANK_TABLE_FILE](#生成RANK_TABLE_FILE(多卡运行必须环节)) 生成相应卡数的RANK_TABLE_FILE。
+step 5. 执行以下命令进行分布式评测
+
+```shell
+cd script
+bash run_distribute.sh RANK_TABLE_FILE configs/llama2/predict_llama2_70b_910b.yaml [0,8] eval
+```
+
 ## 推理
+
+推理时将配置文件中`param_init_type`修改为`float32`。
+
+```python
+# model config
+model:
+  model_config:
+    param_init_type: "float32"
+```
 
 ### 基于generate的推理
 
@@ -1053,7 +1104,7 @@ max_new_tokens: 128      #设置最大生成长度
 ```bash
 # 以llama2-7b 2卡推理为例,参考案例三，使用完整权重推理2卡
 cd script
-bash run_distribute.sh rank_table_2.json configs/llama/run_llama_13b.yaml [0,2] predict "I love beijing, because"
+bash run_distribute.sh rank_table_2.json configs/llama2/run_llama2_7b.yaml [0,2] predict "I love beijing, because"
 ```
 
 ## Mindspore-Lite 推理
@@ -1113,15 +1164,11 @@ python mindformers/tools/export.py --config_path configs/llama2/export_llama2_7b
    plugin_custom_ops=All
    provider=ge
    [ge_session_options]
-   ge.externalWeight=1
    ge.exec.formatMode=1
-   ge.exec.atomicCleanPolicy=1
-   ge.event=notify
-   ge.exec.staticMemoryPolicy=2
    ge.exec.precision_mode=must_keep_origin_dtype
    ```
 
-2. 执行命令：
+2. 执行命令
 
 ```bash
 python run_infer_main.py --device_id 0 --model_name llama2 --prefill_model_path llama2_export/llama2_7b_prefill_seq512_graph.mindir --increment_model_path llama2_export/llama2_7b_inc_seq512_graph.mindir --config_path lite.ini --is_sample_acceleration False --seq_length 512 --add_special_tokens True：
