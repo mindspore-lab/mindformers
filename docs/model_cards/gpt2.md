@@ -800,7 +800,8 @@ model_config = AutoConfig.from_pretrained("gpt2")
 model = AutoModel.from_config(model_config)
 tokenizer = AutoTokenizer.from_pretrained("gpt2")
 input_ids = tokenizer("I love Beijing, because")["input_ids"]
-generate_result = model.generate(input_ids, do_sample=False, max_length=30)
+generated_ids = model.generate(input_ids, do_sample=False, max_length=30)
+generate_result = tokenizer.decode(generated_ids)
 print(generate_result)
 # ["I love Beijing, because it's a beautiful city. It's a beautiful city. It's a beautiful city. It's a beautiful city. It"]
 ```
