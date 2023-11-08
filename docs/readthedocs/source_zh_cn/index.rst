@@ -42,6 +42,15 @@
 
 .. toctree::
    :glob:
+   :maxdepth: 2
+   :caption: 模型&任务
+
+   docs/model_cards/index
+   docs/task_cards/index
+
+
+.. toctree::
+   :glob:
    :maxdepth: 1
    :caption: 特性使用指南
 
@@ -91,15 +100,6 @@
    docs/api_python/mindformers.pipeline
    docs/api_python/mindformers.trainer
    docs/api_python/mindformers.wrapper
-
-
-.. toctree::
-   :glob:
-   :maxdepth: 2
-   :caption: 模型&任务
-
-   docs/model_cards/index
-   docs/task_cards/index
 
 
 .. toctree::

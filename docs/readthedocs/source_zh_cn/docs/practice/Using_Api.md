@@ -116,6 +116,7 @@ MindFormers大模型套件面向任务设计pipeline推理接口，旨在让用�
 使用MindFormers预置任务和模型开发一个推理流：
 
 ```python
+import mindspore; mindspore.set_context(mode=0, device_id=0)
 from mindformers import pipeline
 
 text_generation = pipeline(task='text_generation', model='gpt2', max_length=10)
@@ -129,6 +130,7 @@ print(text_generation("I love Beijing, because", do_sample=False))
 使用自定义的模型、tokenizer等进行任务推理：
 
 ```python
+import mindspore; mindspore.set_context(mode=0, device_id=0)
 from mindformers import pipeline
 from mindformers import GPT2LMHeadModel, GPT2Tokenizer
 

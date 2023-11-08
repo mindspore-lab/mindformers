@@ -56,6 +56,7 @@ python run_mindformer.py --config ./configs/qa/run_qa_bert_base_uncased.yaml --r
 - Trainer接口开启训练/评估/推理：
 
 ```python
+import mindspore; mindspore.set_context(mode=0, device_id=0)
 from mindformers.trainer import Trainer
 
 # 初始化trainer

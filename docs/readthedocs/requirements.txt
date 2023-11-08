@@ -1,3 +1,4 @@
+pillow
 sphinx
 docutils
 myst_parser

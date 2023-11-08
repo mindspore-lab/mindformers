@@ -59,6 +59,7 @@ python run_mindformer.py --config ./configs/txtcls/run_txtcls_bert_base_uncased.
 - Trainer接口开启训练/评估/推理：
 
 ```python
+import mindspore; mindspore.set_context(mode=0, device_id=0)
 from mindformers import MindFormerBook
 from mindformers.trainer import Trainer
 
@@ -94,6 +95,7 @@ trainer.predict(input_data=input_data, top_k=1)
 - pipeline接口开启快速推理
 
 ```python
+import mindspore; mindspore.set_context(mode=0, device_id=0)
 from mindformers.pipeline import TextClassificationPipeline
 from mindformers import AutoTokenizer, BertForMultipleChoice, AutoConfig
 

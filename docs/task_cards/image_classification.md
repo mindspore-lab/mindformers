@@ -33,6 +33,7 @@
 - Trainer接口开启训练/评估/推理：
 
 ```python
+import mindspore; mindspore.set_context(mode=0, device_id=0)
 from mindformers import MindFormerBook
 from mindformers.trainer import Trainer
 from mindformers.tools.image_tools import load_image

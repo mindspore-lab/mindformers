@@ -588,6 +588,7 @@ bash run_distribute.sh [RANK_TABLE_FILE] ../configs/llama/run_llama_7b_lora.yaml
 lora微调支持使用高阶接口启动单卡微调任务，示例代码如下：
 
 ```python
+import mindspore; mindspore.set_context(mode=0, device_id=0)
 from mindformers.trainer import Trainer
 # 初始化预训练任务
 trainer = Trainer(task='text_generation',
