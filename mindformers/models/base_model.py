@@ -25,9 +25,9 @@ import mindspore as ms
 from mindspore import nn
 from mindspore.train.serialization import load_checkpoint, load_param_into_net
 
+from .build_model import build_model
 from ..generation import GeneratorMixin
 from ..mindformer_book import MindFormerBook, print_path_or_list
-from .build_config import build_model_config
 from .base_config import BaseConfig
 from ..tools.register import MindFormerConfig
 from ..tools.download_tools import download_with_progress_bar
@@ -235,37 +235,8 @@ class BaseModel(nn.Cell, GeneratorMixin):
         return {"model": {"model_config": config.to_dict(), "arch": {"type": model_name}}}
 
     @classmethod
-    def from_pretrained(cls, pretrained_model_name_or_dir: str, **kwargs):
-        """
-        Instantiates a model by the pretrained_model_name_or_dir. It download the model weights if the user pass
-        a model name, or load the weight from the given directory if given the path.
-        (only support standalone mode, and distribute mode waits for developing!)
-
-        Args:
-            pretrained_model_name_or_dir (str): It supports the following two input types.
-                If `pretrained_model_name_or_dir` is a supported model name, for example, `vit_base_p16` and `t5_small`,
-                it will download the necessary files from the cloud. User can pass one from the support list by call
-                `MindFormerBook.get_model_support_list()`. If `pretrained_model_name_or_dir` is a path to the local
-                directory where there should have model weights ended with `.ckpt` and configuration file ended
-                with `yaml`.
-            pretrained_model_name_or_path (Optional[str]): Equal to "pretrained_model_name_or_dir",
-                if "pretrained_model_name_or_path" is set, "pretrained_model_name_or_dir" is useless.
-
-        Examples:
-            >>> from mindformers import T5ForConditionalGeneration
-            >>> net = T5ForConditionalGeneration.from_pretrained('t5_small')
-
-        Returns:
-            A model, which inherited from BaseModel.
-        """
-        pretrained_model_name_or_path = kwargs.pop("pretrained_model_name_or_path", None)
-        if pretrained_model_name_or_path is not None:
-            pretrained_model_name_or_dir = pretrained_model_name_or_path
-
-        if not isinstance(pretrained_model_name_or_dir, str):
-            raise TypeError(f"pretrained_model_name_or_dir should be a str,"
-                            f" but got {type(pretrained_model_name_or_dir)}")
-
+    def _get_config_args(cls, pretrained_model_name_or_dir, **kwargs):
+        """build config args."""
         is_exist = os.path.exists(pretrained_model_name_or_dir)
         is_dir = os.path.isdir(pretrained_model_name_or_dir)
 
@@ -287,14 +258,13 @@ class BaseModel(nn.Cell, GeneratorMixin):
                                         f"for model weights in {pretrained_model_name_or_dir}.")
             yaml_file = os.path.join(pretrained_model_name_or_dir, yaml_list[cls._model_type])
             ckpt_file = os.path.join(pretrained_model_name_or_dir, ckpt_list[cls._model_type])
-            logger.info("config in %s and weights in %s are used for "
-                        "model building.", yaml_file, ckpt_file)
 
             config_args = MindFormerConfig(yaml_file)
+            kwargs["checkpoint_name_or_path"] = kwargs.get("checkpoint_name_or_path") \
+                if "checkpoint_name_or_path" in kwargs.keys() else ckpt_file
             config_args.model.model_config.update(**kwargs)
-            config = build_model_config(config_args.model.model_config)
-            config.update({"checkpoint_name_or_path": ckpt_file})
-            model = cls(config)
+            logger.info("model config: %s and checkpoint_name_or_path: %s are used for "
+                        "model building.", yaml_file, config_args.model.model_config.checkpoint_name_or_path)
         else:
             pretrained_model_name = pretrained_model_name_or_dir
             if pretrained_model_name_or_dir.startswith('mindspore'):
@@ -333,10 +303,47 @@ class BaseModel(nn.Cell, GeneratorMixin):
                     raise FileNotFoundError(f'default yaml file path must be correct, but get {default_yaml_file}')
             try_sync_file(yaml_file)
             config_args = MindFormerConfig(yaml_file)
+            kwargs["checkpoint_name_or_path"] = kwargs.get("checkpoint_name_or_path") \
+                if "checkpoint_name_or_path" in kwargs.keys() else pretrained_model_name_or_dir
             config_args.model.model_config.update(**kwargs)
-            config = build_model_config(config_args.model.model_config)
-            config.update({"checkpoint_name_or_path": pretrained_model_name_or_dir})
-            model = cls(config)
+        return config_args
+
+    @classmethod
+    def from_pretrained(cls, pretrained_model_name_or_dir: str, **kwargs):
+        """
+        Instantiates a model by the pretrained_model_name_or_dir. It download the model weights if the user pass
+        a model name, or load the weight from the given directory if given the path.
+        (only support standalone mode, and distribute mode waits for developing!)
+
+        Args:
+            pretrained_model_name_or_dir (str): It supports the following two input types.
+                If `pretrained_model_name_or_dir` is a supported model name, for example, `vit_base_p16` and `t5_small`,
+                it will download the necessary files from the cloud. User can pass one from the support list by call
+                `MindFormerBook.get_model_support_list()`. If `pretrained_model_name_or_dir` is a path to the local
+                directory where there should have model weights ended with `.ckpt` and configuration file ended
+                with `yaml`.
+            pretrained_model_name_or_path (Optional[str]): Equal to "pretrained_model_name_or_dir",
+                if "pretrained_model_name_or_path" is set, "pretrained_model_name_or_dir" is useless.
+
+        Examples:
+            >>> from mindformers import T5ForConditionalGeneration
+            >>> net = T5ForConditionalGeneration.from_pretrained('t5_small')
+
+        Returns:
+            A model, which inherited from BaseModel.
+        """
+        pretrained_model_name_or_path = kwargs.pop("pretrained_model_name_or_path", None)
+        download_checkpoint = kwargs.pop("download_checkpoint", True)
+        if pretrained_model_name_or_path is not None:
+            pretrained_model_name_or_dir = pretrained_model_name_or_path
+
+        if not isinstance(pretrained_model_name_or_dir, str):
+            raise TypeError(f"pretrained_model_name_or_dir should be a str,"
+                            f" but got {type(pretrained_model_name_or_dir)}")
+        config_args = cls._get_config_args(pretrained_model_name_or_dir, **kwargs)
+        if not download_checkpoint:
+            config_args.model.model_config.checkpoint_name_or_path = None
+        model = build_model(config_args.model)
         logger.info("model built successfully!")
         return model
 
