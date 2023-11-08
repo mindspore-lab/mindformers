@@ -1,7 +1,7 @@
 # 高阶接口开发样例
 
 MindFormers套件的Trainer高阶接口提供了`train`、`finetune`、`evaluate`、`predict`
-4个关键属性函数，帮助用户快速拉起任务的训练、微调、评估、推理流程：[Trainer.train](https://gitee.com/mindspore/mindformers/blob/dev/mindformers/trainer/trainer.py#L334) [Trainer.finetune](https://gitee.com/mindspore/mindformers/blob/dev/mindformers/trainer/trainer.py#L419) [Trainer.evaluate](https://gitee.com/mindspore/mindformers/blob/dev/mindformers/trainer/trainer.py#L516) [Trainer.predict](https://gitee.com/mindspore/mindformers/blob/dev/mindformers/trainer/trainer.py#L583)
+4个关键属性函数，帮助用户快速拉起任务的训练、微调、评估、推理流程：[Trainer.train](https://gitee.com/mindspore/mindformers/blob/r0.8/mindformers/trainer/trainer.py#L334) [Trainer.finetune](https://gitee.com/mindspore/mindformers/blob/r0.8/mindformers/trainer/trainer.py#L419) [Trainer.evaluate](https://gitee.com/mindspore/mindformers/blob/r0.8/mindformers/trainer/trainer.py#L516) [Trainer.predict](https://gitee.com/mindspore/mindformers/blob/r0.8/mindformers/trainer/trainer.py#L583)
 
 使用`Trainer.train` `Trainer.finetune` `Trainer.evaluate` `Trainer.predict` 拉起任务的训练、微调、评估、推理流程，以下为使用`Trainer`
 高阶接口进行全流程开发的使用样例（多卡分布式并行），命名为`task.py`：

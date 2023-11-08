@@ -15,9 +15,9 @@ Ascend: 910A
 
 |               config                |        task         |              Datasets              | [metric](#评测) |                score                | [train performance](#预训练) |         [predict performance](#推理)         |
 | :---------------------------------: | :-----------------: | :--------------------------------: |:-----------:| :---------------------------------: |:----------------------:|:----------------------------------------:|
-|    [gpt2](https://gitee.com/mindspore/mindformers/blob/dev/configs/gpt2/run_gpt2.yaml)     |   text_generation   |             wikitext2              |     ppl     |                22.11                |     1265 tokens/s      | 4.66/11.37 tokens/s(use past True/False) |
-|  [gpt2_lora](https://gitee.com/mindspore/mindformers/blob/dev/configs/gpt2/run_gpt2_lora.yaml)  |   text_generation   |             wikitext2              |      -      |                  -                  |     1428 tokens/s      |                    -                     |
-| [gpt2_txtcls](https://gitee.com/mindspore/mindformers/blob/dev/configs/gpt2/run_gpt2_txtcls.yaml) | text_classification | SST-2<br/>IMDB<br/>AGNews<br/>COLA |  accuracy   | 0.908<br/>0.934<br/>0.941<br/>0.693 |           -            |                    -                     |
+|    [gpt2](https://gitee.com/mindspore/mindformers/blob/r0.8/configs/gpt2/run_gpt2.yaml)     |   text_generation   |             wikitext2              |     ppl     |                22.11                |     1265 tokens/s      | 4.66/11.37 tokens/s(use past True/False) |
+|  [gpt2_lora](https://gitee.com/mindspore/mindformers/blob/r0.8/configs/gpt2/run_gpt2_lora.yaml)  |   text_generation   |             wikitext2              |      -      |                  -                  |     1428 tokens/s      |                    -                     |
+| [gpt2_txtcls](https://gitee.com/mindspore/mindformers/blob/r0.8/configs/gpt2/run_gpt2_txtcls.yaml) | text_classification | SST-2<br/>IMDB<br/>AGNews<br/>COLA |  accuracy   | 0.908<br/>0.934<br/>0.941<br/>0.693 |           -            |                    -                     |
 
 ## 仓库介绍
 
@@ -59,7 +59,7 @@ gpt2
 
 ## 前期准备
 
-### [mindformers安装](https://gitee.com/mindspore/mindformers/tree/dev#%E4%BA%8Cmindformers%E5%AE%89%E8%A3%85)
+### [mindformers安装](https://gitee.com/mindspore/mindformers/tree/r0.8#%E4%BA%8Cmindformers%E5%AE%89%E8%A3%85)
 
 ### 生成RANK_TABLE_FILE(多卡运行必备环节)
 
@@ -229,13 +229,13 @@ python mindformers/models/gpt2/convert_weight.py --layers 40 --torch_path gpt_13
     [gpt2 xlarge lora](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/XFormer_for_mindspore/gpt2/gpt2_xl_lora.ckpt)
     [gpt2 13b](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/XFormer_for_mindspore/gpt2/gpt2_13b.ckpt)
 
-### [模型权重切分与合并](https://gitee.com/mindspore/mindformers/blob/dev/docs/feature_cards/Transform_Ckpt.md)
+### [模型权重切分与合并](https://gitee.com/mindspore/mindformers/blob/r0.8/docs/feature_cards/Transform_Ckpt.md)
 
 从hugging face或官方github仓库转换而来的权重通常是单卡权重，基于该权重进行多卡微调，评测，推理，涉及ckpt从单机策略到分布式策略的切换。
 
 通常训练采用分布式训练，基于该权重进行评测，推理多采用单卡，涉及ckpt从分布式策略到单机策略的切换。
 
-以上涉及到ckpt的单卡，多卡转换，详细教程请参考特性文档模型[权重切分与合并](https://gitee.com/mindspore/mindformers/blob/dev/docs/feature_cards/Transform_Ckpt.md)
+以上涉及到ckpt的单卡，多卡转换，详细教程请参考特性文档模型[权重切分与合并](https://gitee.com/mindspore/mindformers/blob/r0.8/docs/feature_cards/Transform_Ckpt.md)
 
 ## 基于API的快速使用
 
@@ -361,7 +361,7 @@ bash run_standalone.sh ../configs/gpt2/run_gpt2.yaml [DEVICE_ID] train
 
 - 单机多卡
 
-请提前在yaml文件中修改并行模式`parallel_mode`为`1`，即`半自动并行模式`，并修改相应的分布式配置，配置参考[并行配置](https://gitee.com/mindspore/mindformers/blob/dev/docs/readthedocs/source_zh_cn/docs/design/Parallel_Design.md#config-%E5%B9%B6%E8%A1%8C%E9%85%8D%E7%BD%AE)
+请提前在yaml文件中修改并行模式`parallel_mode`为`1`，即`半自动并行模式`，并修改相应的分布式配置，配置参考[并行配置](https://gitee.com/mindspore/mindformers/blob/r0.8/docs/readthedocs/source_zh_cn/docs/design/Parallel_Design.md#config-%E5%B9%B6%E8%A1%8C%E9%85%8D%E7%BD%AE)
 
 **请提前将yaml文件中train_dataset配置中的dataset_dir设置为处理好的mindrecord数据路径**
 
@@ -374,7 +374,7 @@ bash run_distribute.sh RANK_TABLE_FILE ../configs/gpt2/run_gpt2.yaml [0,8] train
 
 在每台机器上启动`bash run_distribute.sh`。
 
-请提前在yaml文件中修改并行模式`parallel_mode`为`1`，即`半自动并行模式`，并修改相应的分布式配置，配置参考[并行配置](https://gitee.com/mindspore/mindformers/blob/dev/docs/readthedocs/source_zh_cn/docs/design/Parallel_Design.md#config-%E5%B9%B6%E8%A1%8C%E9%85%8D%E7%BD%AE)
+请提前在yaml文件中修改并行模式`parallel_mode`为`1`，即`半自动并行模式`，并修改相应的分布式配置，配置参考[并行配置](https://gitee.com/mindspore/mindformers/blob/r0.8/docs/readthedocs/source_zh_cn/docs/design/Parallel_Design.md#config-%E5%B9%B6%E8%A1%8C%E9%85%8D%E7%BD%AE)
 
 **请提前将yaml文件中train_dataset配置中的dataset_dir设置为处理好的mindrecord数据路径**
 
@@ -494,7 +494,7 @@ bash run_standalone.sh ../configs/gpt2/run_gpt2_lora.yaml [DEVICE_ID] finetune
 
 #### 多卡微调
 
-请提前在yaml文件中修改并行模式`parallel_mode`为`1`，即`半自动并行模式`，并修改相应的分布式配置，配置参考[并行配置](https://gitee.com/mindspore/mindformers/blob/dev/docs/readthedocs/source_zh_cn/docs/design/Parallel_Design.md#config-%E5%B9%B6%E8%A1%8C%E9%85%8D%E7%BD%AE)
+请提前在yaml文件中修改并行模式`parallel_mode`为`1`，即`半自动并行模式`，并修改相应的分布式配置，配置参考[并行配置](https://gitee.com/mindspore/mindformers/blob/r0.8/docs/readthedocs/source_zh_cn/docs/design/Parallel_Design.md#config-%E5%B9%B6%E8%A1%8C%E9%85%8D%E7%BD%AE)
 
 多卡运行需要RANK_FILE_TABLE，请参考前期准备-[生成RANK_TABLE_FILE](#生成rank_table_file多卡运行必备环节)
 
@@ -509,7 +509,7 @@ bash run_distribute.sh RANK_TABLE_FILE path/to/config_lora.yaml [0,8] finetune 8
 
 - 多机多卡
 
-请提前在yaml文件中修改并行模式`parallel_mode`为`1`，即`半自动并行模式`，并修改相应的分布式配置，配置参考[并行配置](https://gitee.com/mindspore/mindformers/blob/dev/docs/readthedocs/source_zh_cn/docs/design/Parallel_Design.md#config-%E5%B9%B6%E8%A1%8C%E9%85%8D%E7%BD%AE)
+请提前在yaml文件中修改并行模式`parallel_mode`为`1`，即`半自动并行模式`，并修改相应的分布式配置，配置参考[并行配置](https://gitee.com/mindspore/mindformers/blob/r0.8/docs/readthedocs/source_zh_cn/docs/design/Parallel_Design.md#config-%E5%B9%B6%E8%A1%8C%E9%85%8D%E7%BD%AE)
 
 在每台机器上启动`bash run_distribute.sh`。
 
@@ -628,6 +628,7 @@ python run_mindformer.py --config configs/gpt2/run_gpt2_txtcls.yaml \
 Pipeline接口进行推理
 
 ```python
+import mindspore; mindspore.set_context(mode=0, device_id=0)
 from mindformers.pipeline import pipeline
 
 pipeline_task = pipeline("text_generation", model='gpt2', max_length=20)
@@ -780,6 +781,7 @@ Generate接口进行推理
 
 ```python
 # 使用AutoModel.from_pretrained实例化模型
+import mindspore; mindspore.set_context(mode=0, device_id=0)
 from mindformers import AutoModel, AutoTokenizer
 
 model = AutoModel.from_pretrained("gpt2")

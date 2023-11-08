@@ -56,7 +56,10 @@ model:
 3. 使用MindFormer的Trainer进行模型训练：
 
 ```python
+import mindspore as ms
 from mindformers.trainer.trainer import Trainer
+
+ms.set_context(mode=0) # 设定为图模式加速
 
 gpt2_trainer = Trainer(
     task='text_generation',

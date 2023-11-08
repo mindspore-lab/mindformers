@@ -1,4 +1,4 @@
-# 子牙
+# ZiYa
 
 “姜子牙”系列大模型是由IDEA研究院推出的开源通用大模型，具备翻译，编程，文本分类，信息抽取，摘要，文案生成，常识问答和数学计算等能力。目前姜子牙通用大模型v1(Ziya-LLaMA-13B-v1)已完成大规模预训练、多任务有监督微调和人类反馈学习三阶段的训练过程。
 
@@ -68,6 +68,6 @@ print(pipeline_result[0]['text_generation_text'])
 
 #### 训练与微调
 
-基于ziya-13b，目前提供了模型的基础配置文件`research/ziya/run_ziya_13b.yaml`。可参考llama的[预训练](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/llama.md#%E9%A2%84%E8%AE%AD%E7%BB%83)与[微调](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/llama.md#%E5%BE%AE%E8%B0%83)章节。
+基于ziya-13b，目前提供了模型的基础配置文件`research/ziya/run_ziya_13b.yaml`。可参考llama的[预训练](https://gitee.com/mindspore/mindformers/blob/r0.8/docs/model_cards/llama.md#%E9%A2%84%E8%AE%AD%E7%BB%83)与[微调](https://gitee.com/mindspore/mindformers/blob/r0.8/docs/model_cards/llama.md#%E5%BE%AE%E8%B0%83)章节。
 
 `注：使用ziya-13b进行训练或者微调时，需要使用ziya-13b配套的tokenizer.model处理数据集，以及选用ziya-13b的yaml配置文件进行任务启动。`

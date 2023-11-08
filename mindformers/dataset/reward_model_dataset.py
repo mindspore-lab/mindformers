@@ -68,7 +68,7 @@ class RewardModelDataset(BaseDataset):
         >>> config.train_dataset.data_loader.dataset_dir = "The required task dataset path"
         >>> # Note:
         >>> #     The detailed data setting could refer to
-        >>> #     https://gitee.com/mindspore/mindformers/blob/dev/research/rewardmodel/run_bloom_7.1b_reward.yaml
+        >>> #     https://gitee.com/mindspore/mindformers/blob/r0.8/research/rewardmodel/run_bloom_7.1b_reward.yaml
         >>> check_dataset_config(config)
         >>> # use class to build dataset
         >>> dataset_from_class = RewardModelDataset(config.train_dataset_task.dataset_config)

@@ -11,7 +11,7 @@
 | model  |                            type                            | datasets |  Top1-accuracy  |           stage            |                                                                                                                             example                                                                                                                              |
 |:------:|:----------------------------------------------------------:|:--------:|:---------------:|:--------------------------:|:----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:|
 |  bert  | txtcls_bert_base_uncased |   Mnli   | 30.9% |          pretrain          |                                                                                                                                --                                                                                                                                |
-| txtcls | txtcls_bert_case_uncased_mnli |   Mnli   | 84.8% | finetune<br>eval<br>predict | [link](https://gitee.com/mindspore/mindformers/blob/dev/scripts/examples/text_classification/txtcls_bert_base_uncased_finetune_on_mnli.sh) <br> [link](https://gitee.com/mindspore/mindformers/blob/dev/scripts/examples/text_classification/txtcls_bert_base_uncased_mnli_eval_on_mnli.sh) <br> [link](https://gitee.com/mindspore/mindformers/blob/dev/scripts/examples/text_classification/txtcls_bert_base_uncased_mnli_predict_on_mnli.sh) |
+| txtcls | txtcls_bert_case_uncased_mnli |   Mnli   | 84.8% | finetune<br>eval<br>predict | [link](https://gitee.com/mindspore/mindformers/blob/r0.8/scripts/examples/text_classification/txtcls_bert_base_uncased_finetune_on_mnli.sh) <br> [link](https://gitee.com/mindspore/mindformers/blob/r0.8/scripts/examples/text_classification/txtcls_bert_base_uncased_mnli_eval_on_mnli.sh) <br> [link](https://gitee.com/mindspore/mindformers/blob/r0.8/scripts/examples/text_classification/txtcls_bert_base_uncased_mnli_predict_on_mnli.sh) |
 
 ### [Mnli](https://dl.fbaipublicfiles.com/glue/data/MNLI.zip)
 
@@ -59,6 +59,7 @@ python run_mindformer.py --config ./configs/txtcls/run_txtcls_bert_base_uncased.
 - Trainer接口开启训练/评估/推理：
 
 ```python
+import mindspore; mindspore.set_context(mode=0, device_id=0)
 from mindformers import MindFormerBook
 from mindformers.trainer import Trainer
 
@@ -94,6 +95,7 @@ trainer.predict(input_data=input_data, top_k=1)
 - pipeline接口开启快速推理
 
 ```python
+import mindspore; mindspore.set_context(mode=0, device_id=0)
 from mindformers.pipeline import TextClassificationPipeline
 from mindformers import AutoTokenizer, BertForMultipleChoice, AutoConfig
 

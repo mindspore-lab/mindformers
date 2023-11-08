@@ -96,7 +96,6 @@ LITE_SUPPORT_MODELS = {
     'bloom': BloomTokenizer,
     'glm': ChatGLMTokenizer,
     'glm2': ChatGLM2Tokenizer,
-    'codegeex2': ChatGLM2Tokenizer,
     'llama': LlamaTokenizer,
     'llama2': LlamaTokenizer,
     'baichuan2': Baichuan2Tokenizer

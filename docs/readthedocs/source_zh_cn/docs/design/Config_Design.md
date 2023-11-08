@@ -135,7 +135,7 @@ Note:
     2. 如果不想使用配置文件来调用Dataset，用户可以自行定义完整的数据集模块并注册，只需保证返回的实例是mindspore的DATASET类型
 ```
 
-- Step 1: 开发配置文件 [配置文件链接](https://gitee.com/mindspore/mindformers/blob/dev/configs/mae/run_mae_vit_base_p16_224_800ep.yaml)
+- Step 1: 开发配置文件 [配置文件链接](https://gitee.com/mindspore/mindformers/blob/r0.8/configs/mae/run_mae_vit_base_p16_224_800ep.yaml)
 
 ```yaml
 # train dataset
@@ -177,7 +177,7 @@ train_dataset_task:
   dataset_config: *train_dataset
 ```
 
-- 开发MIMDataset类并注册 [MIMDataset类](https://gitee.com/mindspore/mindformers/blob/dev/mindformers/dataset/mim_dataset.py)
+- 开发MIMDataset类并注册 [MIMDataset类](https://gitee.com/mindspore/mindformers/blob/r0.8/mindformers/dataset/mim_dataset.py)
 
   Note: 如果用户不想依赖配置文件创建数据任务，这里可以由用户自行填写__new__中的创建过程，并保证最后返回的是mindspore dataset实例即可
 
@@ -262,7 +262,7 @@ class MIMDataset(BaseDataset):
         return dataset
 ```
 
-- [Build接口](https://gitee.com/mindspore/mindformers/blob/dev/mindformers/dataset/build_dataset.py)：该接口无需用户开发，以及集成在MindFormers套件中供调用
+- [Build接口](https://gitee.com/mindspore/mindformers/blob/r0.8/mindformers/dataset/build_dataset.py)：该接口无需用户开发，以及集成在MindFormers套件中供调用
 
 ```python
 """Build Dataset API."""

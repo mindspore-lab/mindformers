@@ -48,7 +48,7 @@ class MaskLanguageModelDataset(BaseDataset):
         >>> config.train_dataset.data_loader.dataset_dir = "The required task dataset path"
         >>> # Note:
         >>> #     The detailed data setting could refer to
-        >>> #     https://gitee.com/mindspore/mindformers/blob/dev/docs/task_cards/masked_image_modeling.md
+        >>> #     https://gitee.com/mindspore/mindformers/blob/r0.8/docs/task_cards/masked_image_modeling.md
         >>> check_dataset_config(config)
         >>> # use class to build dataset
         >>> dataset_from_class = MaskLanguageModelDataset(config.train_dataset_task.dataset_config)

@@ -598,7 +598,7 @@ MindFormers支持基于`Transformer API`开发的大模型通过配置化接口�
     - search_mode: 策略搜索模式，有三种，分别是recursive_programming，dynamic_programming和sharding_propagation。仅在全自动并行模式下生效，其他模式不生效，实验性接口，谨慎使用
     - enable_parallel_optimizer: 数据并行训练时对权重更新计算进行分片。优化器并行开关，在数据并行训练时默认会将模型权重参数切分成device_num份；半自动并行时默认将模型权重参数切份data_parallel份
     - strategy_ckpt_save_file: 保存并行切分策略的路径。
-- parallel_config: 并行策略配置，相关入参配置可参考[transformer.TransformerOpParallelConfig](https://gitee.com/mindspore/mindformers/blob/dev/mindformers/modules/transformer/transformer.py#L197)
+- parallel_config: 并行策略配置，相关入参配置可参考[transformer.TransformerOpParallelConfig](https://gitee.com/mindspore/mindformers/blob/r0.8/mindformers/modules/transformer/transformer.py#L197)
     - data_parallel: 数据并行
     - model_parallel: 模型并行
     - pipeline_stage: 流水线并行
@@ -609,7 +609,7 @@ MindFormers支持基于`Transformer API`开发的大模型通过配置化接口�
 
 MindFormers Trainer接口介绍请见：[MindFormers Trainer API]()
 
-利用 `Trainer.set_parallel_config(**kwargs)`来为模型设定切分策略：[set_parallel_config](https://gitee.com/mindspore/mindformers/blob/dev/mindformers/trainer/trainer.py#L690)
+利用 `Trainer.set_parallel_config(**kwargs)`来为模型设定切分策略：[set_parallel_config](https://gitee.com/mindspore/mindformers/blob/r0.8/mindformers/trainer/trainer.py#L690)
 
 使用样例：
 
@@ -704,7 +704,7 @@ def main(use_parallel=False,
 
             - do_sample: 使能top_k或top_p采样，为False时top_k和top_p均重置为1
 
-            - use_past: 使能增量推理，为True时为增量推理，否则为自回归推理，使用时请参考[模型支持列表](https://gitee.com/mindspore/mindformers/tree/dev/docs#text-generator)
+            - use_past: 使能增量推理，为True时为增量推理，否则为自回归推理，使用时请参考[模型支持列表](https://gitee.com/mindspore/mindformers/tree/r0.8/docs#text-generator)
 
             - max_decode_length: 文本生成最大长度（输入长度统计在内）
 

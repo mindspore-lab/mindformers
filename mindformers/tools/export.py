@@ -140,7 +140,6 @@ INCREMENT_MODEL_INPUT_MAP = {
     "llama2": get_llama_inc_model_input,
     "glm": get_glm_inc_model_input,
     "glm2": get_glm2_inc_model_input,
-    "codegeex2": get_glm2_inc_model_input,
     "baichuan2": get_baichuan2_inc_model_input
 }
 

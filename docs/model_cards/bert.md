@@ -78,6 +78,7 @@ model = BertForPreTraining(config)
 - Trainer接口开启训练/评估/推理：
 
 ```python
+import mindspore; mindspore.set_context(mode=0, device_id=0)
 from mindformers.trainer import Trainer
 
 # 初始化预训练任务
@@ -131,6 +132,7 @@ bash scripts/examples/masked_language_modeling/bert_pretrain_distributed_gpu.sh 
 #### 计算Loss
 
 ```python
+import mindspore; mindspore.set_context(mode=0, device_id=0)
 from mindformers import BertForPreTraining, BertTokenizer
 from mindspore import Tensor
 import mindspore.common.dtype as mstype

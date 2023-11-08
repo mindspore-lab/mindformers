@@ -75,6 +75,7 @@ python run_mindformer.py --config ./configs/clip/run_clip_vit_b_32_zero_shot_ima
 - Model调用接口
 
 ```python
+import mindspore; mindspore.set_context(mode=0, device_id=0)
 from mindformers import CLIPModel, CLIPConfig
 
 CLIPModel.show_support_list()
@@ -98,6 +99,7 @@ model = CLIPModel(config)
 - Trainer接口开启训练/评估/推理：
 
 ```python
+import mindspore; mindspore.set_context(mode=0, device_id=0)
 from mindformers.trainer import Trainer
 from mindformers.tools.image_tools import load_image
 # 初始化预训练任务
@@ -126,6 +128,7 @@ print(predict_result)
 - pipeline接口开启快速推理
 
 ```python
+import mindspore; mindspore.set_context(mode=0, device_id=0)
 from mindformers import pipeline
 from mindformers.tools.image_tools import load_image
 
@@ -145,8 +148,8 @@ classifier(img)
 
 | model |           task_type            |                                  model_Type                                   | datasets |              Top1-accuracy              | log |                                                                                                example                                                                                                |
 |:-----:|:------------------------------:|:-----------------------------------------------------------------------------:|:--------:|:---------------------------------------:|:---:|:-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:|
-| clip  |           pretrained           | clip_vit_b_32 <br> clip_vit_b_16 <br> clip_vit_l_14 <br> clip_vit_l_14@336 | flickr8k |                    \                    |  \  |                                               pretrain [link](https://gitee.com/mindspore/mindformers/blob/dev/scripts/examples/contrastive_language_image_pretrain/clip_vit_b_32_pretrain_on_flickr8k.sh)                                               | \|
-| clip  | zero_shot_image_classification | clip_vit_b_32 <br> clip_vit_b_16 <br> clip_vit_l_14 <br> clip_vit_l_14@336 | cifar100 | 57.24%<br>61.41%<br>69.67%<br>68.19% |  \  | eval [link](https://gitee.com/mindspore/mindformers/blob/dev/scripts/examples/zero_shot_image_classification/clip_vit_b_32_eval_on_cifar100.sh) <br> predict [link](https://gitee.com/mindspore/mindformers/blob/dev/scripts/examples/zero_shot_image_classification/clip_vit_b_32_predict_on_cifar100.sh) |
+| clip  |           pretrained           | clip_vit_b_32 <br> clip_vit_b_16 <br> clip_vit_l_14 <br> clip_vit_l_14@336 | flickr8k |                    \                    |  \  |                                               pretrain [link](https://gitee.com/mindspore/mindformers/blob/r0.8/scripts/examples/contrastive_language_image_pretrain/clip_vit_b_32_pretrain_on_flickr8k.sh)                                               | \|
+| clip  | zero_shot_image_classification | clip_vit_b_32 <br> clip_vit_b_16 <br> clip_vit_l_14 <br> clip_vit_l_14@336 | cifar100 | 57.24%<br>61.41%<br>69.67%<br>68.19% |  \  | eval [link](https://gitee.com/mindspore/mindformers/blob/r0.8/scripts/examples/zero_shot_image_classification/clip_vit_b_32_eval_on_cifar100.sh) <br> predict [link](https://gitee.com/mindspore/mindformers/blob/r0.8/scripts/examples/zero_shot_image_classification/clip_vit_b_32_predict_on_cifar100.sh) |
 
 ## 模型权重
 
