@@ -159,7 +159,7 @@ class BaseConfig(dict):
                 else:
                     raise FileNotFoundError(f'default yaml file path must be correct, but get {default_yaml_file}')
             config_args = MindFormerConfig(yaml_file)
-
+        config_args.model.model_config.update(**kwargs)
         config = build_model_config(config_args.model.model_config)
         MindFormerBook.set_model_config_to_name(id(config), config_args.model.arch.type)
         return config
