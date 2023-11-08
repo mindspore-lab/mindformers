@@ -249,6 +249,7 @@ RANK_TABLE_FILE 双机16卡参考样例:
 首次运行pipeline推理时需要进行模型编译，需等待一段时间
 
 ```python
+import mindspore; mindspore.set_context(mode=0, device_id=0)
 from mindformers import AutoTokenizer, AutoModel
 
 

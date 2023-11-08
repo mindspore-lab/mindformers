@@ -404,6 +404,7 @@ print(predict_result)
 - `BLIP-2`二阶段推理
 
 ```python
+import mindspore; mindspore.set_context(mode=0, device_id=0)
 from mindformers.tools.image_tools import load_image
 from mindformers import Trainer
 

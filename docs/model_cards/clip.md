@@ -75,6 +75,7 @@ python run_mindformer.py --config ./configs/clip/run_clip_vit_b_32_zero_shot_ima
 - Model调用接口
 
 ```python
+import mindspore; mindspore.set_context(mode=0, device_id=0)
 from mindformers import CLIPModel, CLIPConfig
 
 CLIPModel.show_support_list()
@@ -98,6 +99,7 @@ model = CLIPModel(config)
 - Trainer接口开启训练/评估/推理：
 
 ```python
+import mindspore; mindspore.set_context(mode=0, device_id=0)
 from mindformers.trainer import Trainer
 from mindformers.tools.image_tools import load_image
 # 初始化预训练任务
@@ -126,6 +128,7 @@ print(predict_result)
 - pipeline接口开启快速推理
 
 ```python
+import mindspore; mindspore.set_context(mode=0, device_id=0)
 from mindformers import pipeline
 from mindformers.tools.image_tools import load_image
 

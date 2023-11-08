@@ -628,6 +628,7 @@ python run_mindformer.py --config configs/gpt2/run_gpt2_txtcls.yaml \
 Pipeline接口进行推理
 
 ```python
+import mindspore; mindspore.set_context(mode=0, device_id=0)
 from mindformers.pipeline import pipeline
 
 pipeline_task = pipeline("text_generation", model='gpt2', max_length=20)
@@ -780,6 +781,7 @@ Generate接口进行推理
 
 ```python
 # 使用AutoModel.from_pretrained实例化模型
+import mindspore; mindspore.set_context(mode=0, device_id=0)
 from mindformers import AutoModel, AutoTokenizer
 
 model = AutoModel.from_pretrained("gpt2")

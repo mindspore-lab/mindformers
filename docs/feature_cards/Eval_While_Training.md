@@ -40,7 +40,10 @@ python run_mindformer.py \
 
 ```python
 def test_trainer_do_eval():
+    import mindspore as ms
     from mindformers.trainer import Trainer
+
+    ms.set_context(mode=0) # 设定为图模式加速
     # 初始化预训练任务
     trainer = Trainer(task='text_generation', model='gpt2',
                       train_dataset="/your_path/wikitext-2-train-mindrecord",
@@ -76,7 +79,10 @@ eval_epoch_interval: -1     # 默认值-1表示禁用epoch结束时的评估
 
 ```python
 def test_trainer_do_eval():
+    import mindspore as ms
     from mindformers.trainer import Trainer, TrainingArguments
+
+    ms.set_context(mode=0) # 设定为图模式加速
 
     args = TrainingArguments(
         batch_size=4,

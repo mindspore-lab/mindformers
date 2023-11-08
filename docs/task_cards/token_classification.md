@@ -24,7 +24,6 @@
     ├─dev.json
     ├─test.json
     ├─cluener_predict.json
-    └─README.md
  ```
 
 ## 快速任务接口
@@ -55,6 +54,7 @@ python run_mindformer.py --config ./configs/tokcls/run_tokcls_bert_base_chinese.
 - Trainer接口开启训练/评估/推理：
 
 ```python
+import mindspore; mindspore.set_context(mode=0, device_id=0)
 from mindformers.trainer import Trainer
 
 # 初始化trainer
@@ -66,8 +66,7 @@ trainer = Trainer(task='token_classification',
 input_data = ["结果上周六他们主场0：3惨败给了中游球队瓦拉多利德，近7个多月以来西甲首次输球。"]
 
 #方式1：使用现有的预训练权重进行finetune， 并使用finetune获得的权重进行eval和推理
-trainer.train(resume_or_finetune_from_checkpoint="tokcls_bert_base_chinese",
-              do_finetune=True)
+trainer.finetune(finetune_checkpoint="tokcls_bert_base_chinese")
 trainer.evaluate(eval_checkpoint=True)
 trainer.predict(predict_checkpoint=True, input_data=input_data)
 

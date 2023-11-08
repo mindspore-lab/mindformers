@@ -53,6 +53,7 @@ ChatGLM-6B 是一个开源的、支持中英双语的对话语言模型，基于
 首次运行pipeline推理时需要进行模型编译，需等待一段时间
 
 ```python
+>>> import mindspore; mindspore.set_context(mode=0, device_id=0)
 >>> from mindformers import AutoModel, AutoTokenizer, TextGenerationPipeline
 >>> model = AutoModel.from_pretrained("glm_6b_chat")
 >>> tokenizer = AutoTokenizer.from_pretrained("glm_6b")
@@ -70,6 +71,7 @@ ChatGLM-6B 是一个开源的、支持中英双语的对话语言模型，基于
 pipeline中，也可以使用 `glm_6b_chat` 模型加速推理
 
 ```python
+>>> import mindspore; mindspore.set_context(mode=0, device_id=0)
 >>> from mindformers import pipeline
 >>> task_pipeline = pipeline(task='text_generation', model='glm_6b_chat', max_length=2048)
 >>> task_pipeline('你好')
