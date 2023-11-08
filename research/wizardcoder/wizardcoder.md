@@ -1,4 +1,4 @@
-# WizardCoder-15B
+# WizardCoder
 
 ## 模型描述
 
