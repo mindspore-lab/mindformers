@@ -34,7 +34,7 @@
 
 - 基于`Mindformers`的`transformer`实现GPT2网络。
 
-  最终GPT2网络的[整体目录](https://gitee.com/mindspore/mindformers/tree/dev/mindformers/models/gpt2)如下：
+  最终GPT2网络的[整体目录](https://gitee.com/mindspore/mindformers/tree/r0.8/mindformers/models/gpt2)如下：
 
   ```txt
   Mindformers
@@ -52,21 +52,21 @@
 
   上述目录下详细代码参考
 
-  [\_\_init\_\_.py](https://gitee.com/mindspore/mindformers/blob/dev/mindformers/models/gpt2/__init__.py)
+  [\_\_init\_\_.py](https://gitee.com/mindspore/mindformers/blob/r0.8/mindformers/models/gpt2/__init__.py)
 
-  [convert_weight.py](https://gitee.com/mindspore/mindformers/blob/dev/mindformers/models/gpt2/convert_weight.py)
+  [convert_weight.py](https://gitee.com/mindspore/mindformers/blob/r0.8/mindformers/models/gpt2/convert_weight.py)
 
-  [gpt2.py](https://gitee.com/mindspore/mindformers/blob/dev/mindformers/models/gpt2/gpt2.py)
+  [gpt2.py](https://gitee.com/mindspore/mindformers/blob/r0.8/mindformers/models/gpt2/gpt2.py)
 
-  [gpt2_config.py](https://gitee.com/mindspore/mindformers/blob/dev/mindformers/models/gpt2/gpt2_config.py)
+  [gpt2_config.py](https://gitee.com/mindspore/mindformers/blob/r0.8/mindformers/models/gpt2/gpt2_config.py)
 
-  [gpt2_processor.py](https://gitee.com/mindspore/mindformers/blob/dev/mindformers/models/gpt2/gpt2_processor.py)
+  [gpt2_processor.py](https://gitee.com/mindspore/mindformers/blob/r0.8/mindformers/models/gpt2/gpt2_processor.py)
 
-  [gpt2_tokenizer.py](https://gitee.com/mindspore/mindformers/blob/dev/mindformers/models/gpt2/gpt2_tokenizer.py)
+  [gpt2_tokenizer.py](https://gitee.com/mindspore/mindformers/blob/r0.8/mindformers/models/gpt2/gpt2_tokenizer.py)
 
-  [gpt_modules.py](https://gitee.com/mindspore/mindformers/blob/dev/mindformers/models/gpt2/gpt_modules.py)
+  [gpt_modules.py](https://gitee.com/mindspore/mindformers/blob/r0.8/mindformers/models/gpt2/gpt_modules.py)
 
-- 实现GPT2 backbone网络`GPT2Model`（详细代码参考[gpt2.py](https://gitee.com/mindspore/mindformers/blob/dev/mindformers/models/gpt2/gpt2.py)）
+- 实现GPT2 backbone网络`GPT2Model`（详细代码参考[gpt2.py](https://gitee.com/mindspore/mindformers/blob/r0.8/mindformers/models/gpt2/gpt2.py)）
 
   ```python
   # 具体实现参考Mindformers/mindformers/models/gpt2/gpt2.py
@@ -112,7 +112,7 @@
           return output_state, embedding_table
   ```
 
-- 基于`GPT2Model`实现GPT2预训练模块`GPT2LMHeadModel`（详细代码参考[gpt2.py](https://gitee.com/mindspore/mindformers/blob/dev/mindformers/models/gpt2/gpt2.py)）
+- 基于`GPT2Model`实现GPT2预训练模块`GPT2LMHeadModel`（详细代码参考[gpt2.py](https://gitee.com/mindspore/mindformers/blob/r0.8/mindformers/models/gpt2/gpt2.py)）
 
      `__all__ = ['GPT2LMHeadModel']`：公开模型预训练接口，方便用户从外部调用。
      `@MindFormerRegister.register(MindFormerModuleType.MODELS)`：`Mindformers`的注册机制，将类注册到对应模块，方便通过配置文件进行实例化。
@@ -157,7 +157,7 @@
           return loss
   ```
 
-- 编写模型参数配置文件`gpt2_config.py`（详细代码参考[gpt2_config.py](https://gitee.com/mindspore/mindformers/blob/dev/mindformers/models/gpt2/gpt2_config.py)）
+- 编写模型参数配置文件`gpt2_config.py`（详细代码参考[gpt2_config.py](https://gitee.com/mindspore/mindformers/blob/r0.8/mindformers/models/gpt2/gpt2_config.py)）
      `__all__ = ['GPT2Config']`：公开模型预训练接口，方便用户从外部调用。
      `@MindFormerRegister.register(MindFormerModuleType.CONFIG)`：`Mindformers`的注册机制，将类注册到对应模块，方便通过配置文件进行实例化。
      `_support_list = MindFormerBook.get_config_support_list()['gpt2']`：高阶接口使用时用于检索可用模型，可通过`from_pretrained`的方法实例化。
@@ -220,9 +220,9 @@
 
   上述目录下详细代码参考：
 
-  [\_\_init\_\_.py](https://gitee.com/mindspore/mindformers/blob/dev/mindformers/trainer/causal_language_modeling/__init__.py)
+  [\_\_init\_\_.py](https://gitee.com/mindspore/mindformers/blob/r0.8/mindformers/trainer/causal_language_modeling/__init__.py)
 
-  [causal_language_modeling.py](https://gitee.com/mindspore/mindformers/blob/dev/mindformers/trainer/causal_language_modeling/causal_language_modeling.py)
+  [causal_language_modeling.py](https://gitee.com/mindspore/mindformers/blob/r0.8/mindformers/trainer/causal_language_modeling/causal_language_modeling.py)
 
      `@MindFormerRegister.register(MindFormerModuleType.TRAINER)`：`Mindformers`的注册机制，将类注册到对应模块，方便通过配置文件进行实例化
      `train/evaluate/predict`：`Mindformers`已实现`BaseTrainer`类，该类已实现基础训练功能，如训练流程有特殊需求可自行修改实现。
@@ -323,19 +323,19 @@
 
   上述目录下详细代码参考
 
-  [run_gpt2.yaml](https://gitee.com/mindspore/mindformers/blob/dev/configs/gpt2/run_gpt2.yaml)
+  [run_gpt2.yaml](https://gitee.com/mindspore/mindformers/blob/r0.8/configs/gpt2/run_gpt2.yaml)
 
-  [run_gpt2_13b.yaml](https://gitee.com/mindspore/mindformers/blob/dev/configs/gpt2/run_gpt2_13b.yaml)
+  [run_gpt2_13b.yaml](https://gitee.com/mindspore/mindformers/blob/r0.8/configs/gpt2/run_gpt2_13b.yaml)
 
-  [run_gpt2_52b.yaml](https://gitee.com/mindspore/mindformers/blob/dev/configs/gpt2/run_gpt2_52b.yaml)
+  [run_gpt2_52b.yaml](https://gitee.com/mindspore/mindformers/blob/r0.8/configs/gpt2/run_gpt2_52b.yaml)
 
-  [run_gpt2_lora.yaml](https://gitee.com/mindspore/mindformers/blob/dev/configs/gpt2/run_gpt2_lora.yaml)
+  [run_gpt2_lora.yaml](https://gitee.com/mindspore/mindformers/blob/r0.8/configs/gpt2/run_gpt2_lora.yaml)
 
-  [run_gpt2_txtcls.yaml](https://gitee.com/mindspore/mindformers/blob/dev/configs/gpt2/run_gpt2_txtcls.yaml)
+  [run_gpt2_txtcls.yaml](https://gitee.com/mindspore/mindformers/blob/r0.8/configs/gpt2/run_gpt2_txtcls.yaml)
 
-  [run_gpt2_xl.yaml](https://gitee.com/mindspore/mindformers/blob/dev/configs/gpt2/run_gpt2_xl.yaml)
+  [run_gpt2_xl.yaml](https://gitee.com/mindspore/mindformers/blob/r0.8/configs/gpt2/run_gpt2_xl.yaml)
 
-  [run_gpt2_xl_lora.yaml](https://gitee.com/mindspore/mindformers/blob/dev/mindformers/trainer/causal_language_modeling/causal_language_modeling.py)
+  [run_gpt2_xl_lora.yaml](https://gitee.com/mindspore/mindformers/blob/r0.8/mindformers/trainer/causal_language_modeling/causal_language_modeling.py)
 
   ```txt
   # 具体实现参考Mindformers
@@ -395,7 +395,7 @@
 
 - 代码测试
 
-  数据集构建和测试代码可参考[模型文档](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/gpt2.md)。
+  数据集构建和测试代码可参考[模型文档](https://gitee.com/mindspore/mindformers/blob/r0.8/docs/model_cards/gpt2.md)。
 
   **基于Mindformers完成模型实现后，建议撰写模型文档。**
 

@@ -24,14 +24,14 @@ BLIP-2: 全名`Bootstrapping Language-Image Pre-training - 2`模型是2023 年 S
 
 |                                                    config                                                             |             task             |              Datasets                   |  metric   |           score            | [train performance](#预训练)| [predict performance](#基于pipeline的推理) |
 | :-------------------------------------------------------------------------------------------------------------------: | :--------------------------: |:---------------------------------------:|:---------:|:--------------------------:|:--------------------------:|:-------------------------------------:|
-|   [blip2_stage1_vit_g](https://gitee.com/mindspore/mindformers/blob/dev/configs/blip2/run_blip2_stage1_vit_g_qformer_pretrain.yaml)                                                     |   BLIP-2 stage1 pretrain     | [train]: coco  [eval]: flickr30k (test) | itm_score | txt_r1: 89.8 img_r1: 77.08 |      49.97 samples/s       |                   -                   |
-|   [blip2_stage1_classification](https://gitee.com/mindspore/mindformers/blob/dev/configs/blip2/run_blip2_stage1_vit_g_zero_shot_image_classification_cifar100.yaml)    |   image_classification       |            [eval]: cifar100             | accuracy  |             -              |             -              |             5.61 iters/s              |
-|   [itt_blip2_stage2_vit_g_llama_7b](https://gitee.com/mindspore/mindformers/blob/dev/configs/blip2/run_blip2_stage2_vit_g_llama_7b_image_to_text_generation.yaml)      |   image_to_text_generation   |                    -                    |     -     |             -              |             -              |      22 tokens/s(use past True)       |
+|   [blip2_stage1_vit_g](https://gitee.com/mindspore/mindformers/blob/r0.8/configs/blip2/run_blip2_stage1_vit_g_qformer_pretrain.yaml)                                                     |   BLIP-2 stage1 pretrain     | [train]: coco  [eval]: flickr30k (test) | itm_score | txt_r1: 89.8 img_r1: 77.08 |      49.97 samples/s       |                   -                   |
+|   [blip2_stage1_classification](https://gitee.com/mindspore/mindformers/blob/r0.8/configs/blip2/run_blip2_stage1_vit_g_zero_shot_image_classification_cifar100.yaml)    |   image_classification       |            [eval]: cifar100             | accuracy  |             -              |             -              |             5.61 iters/s              |
+|   [itt_blip2_stage2_vit_g_llama_7b](https://gitee.com/mindspore/mindformers/blob/r0.8/configs/blip2/run_blip2_stage2_vit_g_llama_7b_image_to_text_generation.yaml)      |   image_to_text_generation   |                    -                    |     -     |             -              |             -              |      22 tokens/s(use past True)       |
 
 ## 仓库介绍
 
 `BLIP-2` 基于 `mindformers` 实现，目前支持一阶段的训练，评估，推理以及二阶段的推理（语言模型包含Llama7b及Baichuan7b）。 在二阶段使用`baichuan_7b`作为语言模型时进行推理时，需要自行在配置文件`configs/blip2/run_blip2_stage2_vit_g_baichuan_7b_image_to_text_generation.yaml`中
-配置对应的baichuan-7b权重文件及词表文件，如何配置可参考上文中关键配置项说明章节；权重文件和词表文件的获取及转换参考[baichuan_7b](https://gitee.com/mindspore/mindformers/blob/dev/research/baichuan/baichuan.md).
+配置对应的baichuan-7b权重文件及词表文件，如何配置可参考上文中关键配置项说明章节；权重文件和词表文件的获取及转换参考[baichuan_7b](https://gitee.com/mindspore/mindformers/blob/r0.8/research/baichuan/baichuan.md).
 
 本实现主要涉及的文件有：
 
@@ -404,6 +404,7 @@ print(predict_result)
 - `BLIP-2`二阶段推理
 
 ```python
+import mindspore; mindspore.set_context(mode=0, device_id=0)
 from mindformers.tools.image_tools import load_image
 from mindformers import Trainer
 
@@ -601,7 +602,7 @@ flickr30k
       └── ...
 ```
 
-其中flickr30k的父目录对应[run_blip2_stage1_vit_g_retrieval_flickr30k.yaml](https://gitee.com/mindspore/mindformers/blob/dev/configs/blip2/run_blip2_stage1_vit_g_retrieval_flickr30k.yaml)配置中的`eval_dataset.dataloader.dataset_dir`配置, 其余目录摆放可以根据 `eval_dataset.dataloader.annotation_files` 和 `eval_dataset.dataloader.image_dirs` 的修改自行配置，详细逻辑可以参考图文对数据集[MultiImgCapDataLoader](https://gitee.com/mindspore/mindformers/blob/dev/mindformers/dataset/dataloader/multi_image_cap_dataloader.py)的实现。
+其中flickr30k的父目录对应[run_blip2_stage1_vit_g_retrieval_flickr30k.yaml](https://gitee.com/mindspore/mindformers/blob/r0.8/configs/blip2/run_blip2_stage1_vit_g_retrieval_flickr30k.yaml)配置中的`eval_dataset.dataloader.dataset_dir`配置, 其余目录摆放可以根据 `eval_dataset.dataloader.annotation_files` 和 `eval_dataset.dataloader.image_dirs` 的修改自行配置，详细逻辑可以参考图文对数据集[MultiImgCapDataLoader](https://gitee.com/mindspore/mindformers/blob/r0.8/mindformers/dataset/dataloader/multi_image_cap_dataloader.py)的实现。
 
 #### 单卡评测
 

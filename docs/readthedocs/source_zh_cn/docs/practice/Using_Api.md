@@ -116,6 +116,7 @@ MindFormers大模型套件面向任务设计pipeline推理接口，旨在让用�
 使用MindFormers预置任务和模型开发一个推理流：
 
 ```python
+import mindspore; mindspore.set_context(mode=0, device_id=0)
 from mindformers import pipeline
 
 text_generation = pipeline(task='text_generation', model='gpt2', max_length=10)
@@ -129,6 +130,7 @@ print(text_generation("I love Beijing, because", do_sample=False))
 使用自定义的模型、tokenizer等进行任务推理：
 
 ```python
+import mindspore; mindspore.set_context(mode=0, device_id=0)
 from mindformers import pipeline
 from mindformers import GPT2LMHeadModel, GPT2Tokenizer
 
@@ -151,7 +153,7 @@ MindFormers大模型套件面向任务设计Trainer接口，旨在让用户可�
 
 mindspore相关环境的初始化，MindFormers中提供了init_context标准接口帮助用户完成单卡或多卡并行环境的初始化：
 
-[init_context](https://gitee.com/mindspore/mindformers/blob/dev/mindformers/core/context/build_context.py#L53)  [ContextConfig](https://gitee.com/mindspore/mindformers/blob/dev/mindformers/trainer/config_args.py#L26) [ParallelContextConfig](https://gitee.com/mindspore/mindformers/blob/dev/mindformers/trainer/config_args.py#L26)
+[init_context](https://gitee.com/mindspore/mindformers/blob/r0.8/mindformers/core/context/build_context.py#L53)  [ContextConfig](https://gitee.com/mindspore/mindformers/blob/r0.8/mindformers/trainer/config_args.py#L26) [ParallelContextConfig](https://gitee.com/mindspore/mindformers/blob/r0.8/mindformers/trainer/config_args.py#L26)
 
 单卡初始化：
 
@@ -197,7 +199,7 @@ def context_init():
 
 ### TrainingArguments&&Trainer
 
-MindFormers套件对用户提供了`TrainingArguments`类，用于自定义大模型训练过程中的各类参数，支持参数详见：[TrainingArguments](https://gitee.com/mindspore/mindformers/blob/dev/mindformers/trainer/training_args.py)。
+MindFormers套件对用户提供了`TrainingArguments`类，用于自定义大模型训练过程中的各类参数，支持参数详见：[TrainingArguments](https://gitee.com/mindspore/mindformers/blob/r0.8/mindformers/trainer/training_args.py)。
 
 同时，MindFormers也提供了`Trainer`高阶接口，用于大模型任务的开发、训练、微调、评估、推理等流程。
 
@@ -265,7 +267,7 @@ text_generation = Trainer(task='text_generation', model=pangu_model, args=traini
 MindFormers的Trainer接口提供了并行的配置接口`set_parallel_config`和重计算配置接口`set_recompute_config`，其中`set_parallel_config`接口仅在**半自动并行**
 或**全自动并行模式**下生效，同时需要模型本身已支持或已配置[并行策略](https://www.mindspore.cn/tutorials/experts/zh-CN/r2.0/parallel/introduction.html)：
 
-[set_parallel_config](https://gitee.com/mindspore/mindformers/blob/dev/mindformers/trainer/trainer.py#L690)  [set_recompute_config](https://gitee.com/mindspore/mindformers/blob/dev/mindformers/trainer/trainer.py#L731)
+[set_parallel_config](https://gitee.com/mindspore/mindformers/blob/r0.8/mindformers/trainer/trainer.py#L690)  [set_recompute_config](https://gitee.com/mindspore/mindformers/blob/r0.8/mindformers/trainer/trainer.py#L731)
 
 使用Trainer高阶接口，自定义并行和重计算配置：
 

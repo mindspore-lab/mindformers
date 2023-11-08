@@ -18,48 +18,49 @@ MindSpore Transformers套件基于MindSpore内置的并行技术和组件化设�
 
 如果您对MindSpore Transformers有任何建议，请通过issue与我们联系，我们将及时处理。
 
-- **[MindFromers教程文档](https://mindformers.readthedocs.io/zh_CN/latest)**
-- [模型README](https://gitee.com/mindspore/mindformers/tree/dev/docs/model_cards)
-- [任务README](https://gitee.com/mindspore/mindformers/tree/dev/docs/task_cards)
+- **[MindFromers教程文档](https://mindformers.readthedocs.io/zh_CN/r0.8)**
+- [模型README](https://gitee.com/mindspore/mindformers/tree/r0.8/docs/model_cards)
+- [任务README](https://gitee.com/mindspore/mindformers/tree/r0.8/docs/task_cards)
 - [MindPet指导教程](docs/feature_cards/Pet_Tuners.md)
 - [AICC指导教程](docs/readthedocs/source_zh_cn/docs/practice/AICC.md)
 
 目前支持的模型列表如下：
 
-|                      模型                      |                                                                                                       任务（task name）                                                                                                       | 模型（model name）                                                                                                                                                                                            |
-|:--------------------------------------------:| :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------: |:----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+|                     模型                     |                      任务（task name）                       | 模型（model name）                                           |
+| :------------------------------------------: | :----------------------------------------------------------: | :----------------------------------------------------------- |
+|     [LLama2](docs/model_cards/llama2.md)     |    [text_generation](docs/task_cards/text_generation.md)     | llama2_7b <br>llama2_13b <br>llama2_7b_lora <br>llama2_13b_lora <br>llama2_70b |
+|       [GLM2](docs/model_cards/glm2.md)       |    [text_generation](docs/task_cards/text_generation.md)     | glm2_6b<br>glm2_6b_lora                                      |
+|      [LLama](docs/model_cards/llama.md)      |    [text_generation](docs/task_cards/text_generation.md)     | llama_7b <br>llama_13b <br>llama_7b_lora                     |
+|        [GLM](docs/model_cards/glm.md)        |    [text_generation](docs/task_cards/text_generation.md)     | glm_6b<br>glm_6b_lora                                        |
+|      [Bloom](docs/model_cards/bloom.md)      |    [text_generation](docs/task_cards/text_generation.md)     | bloom_560m<br>bloom_7.1b <br>                                |
+|       [GPT2](docs/model_cards/gpt2.md)       |    [text_generation](docs/task_cards/text_generation.md)     | gpt2_small <br>gpt2_13b <br>                                 |
+| [PanGuAlpha](docs/model_cards/pangualpha.md) |    [text_generation](docs/task_cards/text_generation.md)     | pangualpha_2_6_b<br>pangualpha_13b                           |
+|      [BLIP2](docs/model_cards/blip2.md)      | [contrastive_language_image_pretrain](docs/task_cards/contrastive_language_image_pretrain.md)<br> [zero_shot_image_classification](docs/task_cards/zero_shot_image_classification.md) | blip2_stage1_vit_g                                           |
+|       [CLIP](docs/model_cards/clip.md)       | [contrastive_language_image_pretrain](docs/task_cards/contrastive_language_image_pretrain.md)<br> [zero_shot_image_classification](docs/task_cards/zero_shot_image_classification.md) | clip_vit_b_32<br>clip_vit_b_16 <br>clip_vit_l_14<br>clip_vit_l_14@336 |
 |       [BERT](docs/model_cards/bert.md)       | masked_language_modeling<br>[text_classification](docs/task_cards/text_classification.md) <br>[token_classification](docs/task_cards/token_classification.md) <br>[question_answering](docs/task_cards/question_answering.md) | bert_base_uncased <br>txtcls_bert_base_uncased<br>txtcls_bert_base_uncased_mnli <br>tokcls_bert_base_chinese<br>tokcls_bert_base_chinese_cluener <br>qa_bert_base_uncased<br>qa_bert_base_chinese_uncased |
-|         [T5](docs/model_cards/t5.md)         |                                                                                                          translation                                                                                                          | t5_small                                                                                                                                                                                                  |
-|       [GPT2](docs/model_cards/gpt2.md)       |                                                                                     [text_generation](docs/task_cards/text_generation.md)                                                                                     | gpt2_small <br>gpt2_13b <br>gpt2_52b                                                                                                                                                                      |
-| [PanGuAlpha](docs/model_cards/pangualpha.md) |                                                                                     [text_generation](docs/task_cards/text_generation.md)                                                                                     | pangualpha_2_6_b<br>pangualpha_13b                                                                                                                                                                        |
-|        [GLM](docs/model_cards/glm.md)        |                                                                                     [text_generation](docs/task_cards/text_generation.md)                                                                                     | glm_6b<br>glm_6b_lora                                                                                                                                                                                     |
-|       [GLM2](docs/model_cards/glm2.md)       |                                                                                     [text_generation](docs/task_cards/text_generation.md)                                                                                     | glm2_6b<br>glm2_6b_lora<br>glm2_6b_ptuning2                                                                                                                                                               |
-|      [LLama](docs/model_cards/llama.md)      |                                                                                     [text_generation](docs/task_cards/text_generation.md)                                                                                     | llama_7b <br>llama_13b <br>llama_65b <br>llama_7b_lora                                                                                                                                                    |
-|     [LLama2](docs/model_cards/llama2.md)     |                                                                                     [text_generation](docs/task_cards/text_generation.md)                                                                                     | llama2_7b <br>llama2_13b                                                                                                                                                                                  |
-|      [Bloom](docs/model_cards/bloom.md)      |                                                                                     [text_generation](docs/task_cards/text_generation.md)                                                                                     | bloom_560m<br>bloom_7.1b <br>bloom_65b<br>bloom_176b                                                                                                                                                      |
-|        [MAE](docs/model_cards/mae.md)        |                                                                                                     masked_image_modeling                                                                                                     | mae_vit_base_p16                                                                                                                                                                                          |
-|        [VIT](docs/model_cards/vit.md)        |                                                                                [image_classification](docs/task_cards/image_classification.md)                                                                                | vit_base_p16                                                                                                                                                                                              |
-|       [Swin](docs/model_cards/swin.md)       |                                                                                [image_classification](docs/task_cards/image_classification.md)                                                                                | swin_base_p4w7                                                                                                                                                                                            |
-|       [CLIP](docs/model_cards/clip.md)       |                     [contrastive_language_image_pretrain](docs/task_cards/contrastive_language_image_pretrain.md)<br> [zero_shot_image_classification](docs/task_cards/zero_shot_image_classification.md)                     | clip_vit_b_32<br>clip_vit_b_16 <br>clip_vit_l_14<br>clip_vit_l_14@336                                                                                                                                     |
-|      [BLIP2](docs/model_cards/blip2.md)      |                     [contrastive_language_image_pretrain](docs/task_cards/contrastive_language_image_pretrain.md)<br> [zero_shot_image_classification](docs/task_cards/zero_shot_image_classification.md)                     | blip2_stage1_vit_g                                                                                                                                                                                        |
+|         [T5](docs/model_cards/t5.md)         |                         translation                          | t5_small                                                     |
+|        [MAE](docs/model_cards/mae.md)        |                    masked_image_modeling                     | mae_vit_base_p16                                             |
+|        [VIT](docs/model_cards/vit.md)        | [image_classification](docs/task_cards/image_classification.md) | vit_base_p16                                                 |
+|       [Swin](docs/model_cards/swin.md)       | [image_classification](docs/task_cards/image_classification.md) | swin_base_p4w7                                               |
 
 目前在research中支持的模型列表如下：
 
-|                     模型                     |                   任务（task name）                   | 模型（model name）              |
-| :------------------------------------------: | :---------------------------------------------------: | :------------------------------ |
-|  [Baichuan](research/baichuan/baichuan.md)   | [text_generation](docs/task_cards/text_generation.md) | baichuan_7b <br> baichuan_13b   |
-| [Baichuan2](research/baichuan2/baichuan2.md) | [text_generation](docs/task_cards/text_generation.md) | baichuan2_7b <br> baichuan2_13b |
-|  [Internlm](research/internlm/internlm.md)   | [text_generation](docs/task_cards/text_generation.md) | InternLM-7B                     |
-|        [ziya](research/ziya/ziya.md)         | [text_generation](docs/task_cards/text_generation.md) | ziya-13B                        |
+|                        模型                        |                   任务（task name）                   | 模型（model name）                                           |
+| :------------------------------------------------: | :---------------------------------------------------: | :----------------------------------------------------------- |
+|    [Baichuan2](research/baichuan2/baichuan2.md)    | [text_generation](docs/task_cards/text_generation.md) | baichuan2_7b <br>baichuan2_13b  <br>baichuan2_7b_lora <br>baichuan2_13b_lora |
+|     [Baichuan](research/baichuan/baichuan.md)      | [text_generation](docs/task_cards/text_generation.md) | baichuan_7b <br>baichuan_13b                                 |
+|     [Internlm](research/internlm/internlm.md)      | [text_generation](docs/task_cards/text_generation.md) | Internlm_7b                                                  |
+|           [ziya](research/ziya/ziya.md)            | [text_generation](docs/task_cards/text_generation.md) | ziya_13b                                                     |
+|             [sam](research/sam/sam.md)             |        [segment_anything](research/sam/sam.md)        | sam_vit_b <br>sam_vit_l  <br>sam_vit_h                       |
 
 ## 二、mindformers安装
 
-- 方式1：源码编译安装
+- 方式1：Linux源码编译安装
 
 支持源码编译安装，用户可以执行下述的命令进行包的安装
 
 ```bash
-git clone -b dev https://gitee.com/mindspore/mindformers.git
+git clone -b r0.8 https://gitee.com/mindspore/mindformers.git
 cd mindformers
 bash build.sh
 ```
@@ -104,9 +105,9 @@ swr.cn-central-221.ovaijisuan.com/mindformers/mindformers0.8.0_mindspore2.2.0:aa
 
 ## 三、版本匹配关系
 
-| 版本对应关系 | MindFormers | MindPet | MindSpore |  Python   |      芯片       |
-| :----------: |:-----------:|:-------:|:---------:| :-------: |:-------------:|
-|    版本号    |    r0.8     |  1.0.2  |    2.2    | 3.7.5/3.9 | Ascend 910A/B |
+| 版本对应关系 | MindFormers | MindPet | MindSpore |  Python   |    芯片     |    备注    |
+| :----------: | :---------: | :-----: | :-------: | :-------: | :---------: | :---------: |
+|    版本号    |     0.8     |  1.0.2  | 2.2.1  | 3.9 | Ascend 910A/B | 发布版本分支 |
 
 ## 四、快速使用
 
@@ -121,7 +122,7 @@ MindFormers套件对外提供两种使用和开发形式，为开发者提供灵
     - step1：git clone mindformers
 
   ```shell
-  git clone -b dev https://gitee.com/mindspore/mindformers.git
+  git clone -b r0.8 https://gitee.com/mindspore/mindformers.git
   cd mindformers
   ```
 
@@ -157,19 +158,19 @@ bash run_distribute.sh RANK_TABLE_FILE CONFIG_PATH DEVICE_RANGE RUN_MODE
 RANK_TABLE_FILE: 由mindformers/tools/hccl_tools.py生成的分布式json文件
 CONFIG_PATH: 为configs文件夹下面的{model_name}/run_*.yaml配置文件
 DEVICE_ID: 为设备卡，范围为0~7
-DEVICE_RANGE: 为单机分布式卡的范围, 如[0,8)为8卡分布式，不包含8本身
-RUN_MODE: 为任务运行状态，支持关键字 train/finetune/eval/predict
+DEVICE_RANGE: 为单机分布式卡的范围, 如[0,8]为8卡分布式，不包含8本身
+RUN_MODE: 为任务运行状态，支持关键字 train\finetune\eval\predict
 ```
 
 ### 方式二：调用API启动
 
-**详细高阶API使用教程请参考：**[MindFormers大模型使用教程](docs/README.md)
+**详细高阶API使用教程请参考：**[MindFormers大模型使用教程](docs/readthedocs/source_zh_cn/docs/practice/Develop_With_Api.md)
 
 - 准备工作
 
     - step 1：安装mindformers
 
-  具体安装请参考[第二章](https://gitee.com/mindspore/mindformers/blob/dev/README.md#%E4%BA%8Cmindformers%E5%AE%89%E8%A3%85)。
+  具体安装请参考[第二章](https://gitee.com/mindspore/mindformers/blob/r0.8/README.md#%E4%BA%8Cmindformers%E5%AE%89%E8%A3%85)。
 
     - step2: 准备数据
 
@@ -184,6 +185,7 @@ RUN_MODE: 为任务运行状态，支持关键字 train/finetune/eval/predict
   用户可使用`Trainer.train`或者`Trainer.finetune`接口完成模型的训练/微调/断点续训。
 
   ```python
+  import mindspore; mindspore.set_context(mode=0, device_id=0)
   from mindformers import Trainer
 
   cls_trainer = Trainer(task='image_classification', # 已支持的任务名
@@ -203,6 +205,7 @@ RUN_MODE: 为任务运行状态，支持关键字 train/finetune/eval/predict
   用户可使用`Trainer.evaluate`接口完成模型的评估流程。
 
   ```python
+  import mindspore; mindspore.set_context(mode=0, device_id=0)
   from mindformers import Trainer
 
   cls_trainer = Trainer(task='image_classification', # 已支持的任务名
@@ -226,6 +229,7 @@ RUN_MODE: 为任务运行状态，支持关键字 train/finetune/eval/predict
   用户可使用`Trainer.predict`接口完成模型的推理流程。
 
   ```python
+  import mindspore; mindspore.set_context(mode=0, device_id=0)
   from mindformers import Trainer
 
   cls_trainer = Trainer(task='image_classification', # 已支持的任务名
@@ -253,6 +257,7 @@ RUN_MODE: 为任务运行状态，支持关键字 train/finetune/eval/predict
 
   ```python
   # 以gpt2 small为例
+  import mindspore; mindspore.set_context(mode=0, device_id=0)
   from mindformers.pipeline import pipeline
 
   pipeline_task = pipeline(task="text_generation", model="gpt2")
@@ -315,7 +320,7 @@ RUN_MODE: 为任务运行状态，支持关键字 train/finetune/eval/predict
 
 ## 五、贡献
 
-欢迎参与社区贡献，可参考MindSpore贡献要求[Contributor Wiki](https://gitee.com/mindspore/mindspore/blob/dev/CONTRIBUTING_CN.md)。
+欢迎参与社区贡献，可参考MindSpore贡献要求[Contributor Wiki](https://gitee.com/mindspore/mindspore/blob/r0.8/CONTRIBUTING_CN.md)。
 
 ## 六、许可证
 

@@ -30,7 +30,7 @@
 ### 1.2 RMSNorm 实现
 
 Llama使用RMSNorm代替传统LayerNorm，降低计算复杂度。
-具体实现代码参考[https://gitee.com/mindspore/mindformers/blob/dev/mindformers/models/llama/llama_layer.py](https://gitee.com/mindspore/mindformers/blob/dev/mindformers/models/llama/llama_layer.py)。
+具体实现代码参考[https://gitee.com/mindspore/mindformers/blob/r0.8/mindformers/models/llama/llama_layer.py](https://gitee.com/mindspore/mindformers/blob/r0.8/mindformers/models/llama/llama_layer.py)。
 实现RMSNorm的代码：
 
 ```Python
@@ -85,7 +85,7 @@ class LlamaRMSNorm(nn.Cell):
 ### 1.3 RotaryEmbedding 实现
 
 Llama的位置编码在Attention中进行，使用RotaryEmbedding实现相对位置编码。
-具体实现代码参考[https://gitee.com/mindspore/mindformers/blob/dev/mindformers/models/llama/llama_layer.py](https://gitee.com/mindspore/mindformers/blob/dev/mindformers/models/llama/llama_layer.py)。
+具体实现代码参考[https://gitee.com/mindspore/mindformers/blob/r0.8/mindformers/models/llama/llama_layer.py](https://gitee.com/mindspore/mindformers/blob/r0.8/mindformers/models/llama/llama_layer.py)。
 实现RotaryEmbedding的代码如下：
 
 ```Python
@@ -168,7 +168,7 @@ class LlamaRotaryEmbedding(Cell):
 ### 1.4 FeedForward
 
 Llama的FeedForward相比于GPT包含一个额外Gate的结构。
-具体实现代码参考[https://gitee.com/mindspore/mindformers/blob/dev/mindformers/models/llama/llama_layer.py](https://gitee.com/mindspore/mindformers/blob/dev/mindformers/models/llama/llama_layer.py)。
+具体实现代码参考[https://gitee.com/mindspore/mindformers/blob/r0.8/mindformers/models/llama/llama_layer.py](https://gitee.com/mindspore/mindformers/blob/r0.8/mindformers/models/llama/llama_layer.py)。
 改造FeedForward：
 
 ```Python
@@ -266,7 +266,7 @@ class LlamaFeedForward(Cell):
 ### 1.5 改造`Attention`与`Decoder`模块
 
 - 修改`Attention`与`Decoder`模块以适配LLaMA网络中使用的rotaryembedding, feedforward, RMSNorm，并去掉Dropout层与线性层中的bias。
-- 具体实现参考具体实现代码参考[https://gitee.com/mindspore/mindformers/blob/dev/mindformers/models/llama/llama_transformer.py](https://gitee.com/mindspore/mindformers/blob/dev/mindformers/models/llama/llama_transformer.py)。
+- 具体实现参考具体实现代码参考[https://gitee.com/mindspore/mindformers/blob/r0.8/mindformers/models/llama/llama_transformer.py](https://gitee.com/mindspore/mindformers/blob/r0.8/mindformers/models/llama/llama_transformer.py)。
 - 核心计算逻辑如下：
 
 ```Python
@@ -451,7 +451,7 @@ class LLamaDecodeLayer(nn.Cell):
 ### 1.6 实现`LlamaModel`与`LlamaForCausalLM`
 
 - 参照GPT2的`GPT2Model`与`GPT2LMHeadModel`实现`LlamaModel`与`LlamaForCausalLM`。
- - 具体实现代码参考[https://gitee.com/mindspore/mindformers/blob/dev/mindformers/models/llama/llama.py](https://gitee.com/mindspore/mindformers/blob/dev/mindformers/models/llama/llama.py)。
+ - 具体实现代码参考[https://gitee.com/mindspore/mindformers/blob/r0.8/mindformers/models/llama/llama.py](https://gitee.com/mindspore/mindformers/blob/r0.8/mindformers/models/llama/llama.py)。
 - 核心计算逻辑如下：
 
 ```Python
@@ -634,8 +634,8 @@ def layer_compute_dtype(layer, layer_id, offset, parallel_config, n_layers):
 
 数据处理的方式通常伴随着数据集同时提供。这里以Alpaca数据集为例，分为以下两个步骤：
 
-- 将问答数据按照模板填入。参考[`mindformers/tools/dataset_preprocess/llama/alpaca_converter.py`](https://gitee.com/mindspore/mindformers/blob/dev/mindformers/tools/dataset_preprocess/llama/alpaca_converter.py)。
-- 将模板化的问答转换成input_tokens和target_tokens并保存成mindrecord。参考[`mindformers/tools/dataset_preprocess/llama/llama_preprocess.py`](https://gitee.com/mindspore/mindformers/blob/dev/mindformers/tools/dataset_preprocess/llama/llama_preprocess.py)。
+- 将问答数据按照模板填入。参考[`mindformers/tools/dataset_preprocess/llama/alpaca_converter.py`](https://gitee.com/mindspore/mindformers/blob/r0.8/mindformers/tools/dataset_preprocess/llama/alpaca_converter.py)。
+- 将模板化的问答转换成input_tokens和target_tokens并保存成mindrecord。参考[`mindformers/tools/dataset_preprocess/llama/llama_preprocess.py`](https://gitee.com/mindspore/mindformers/blob/r0.8/mindformers/tools/dataset_preprocess/llama/llama_preprocess.py)。
 
 其中第二步，使用了llama专属的tokenizer将模板化的问答转换成input_tokens，而target_tokens则是将input_tokens的非回答部分置成特殊字符ignore token，从而在训练时，loss只对回答部分计算。
 

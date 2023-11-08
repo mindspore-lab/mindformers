@@ -10,7 +10,7 @@
 
 | model |                                   type                                   | datasets |                Top1-accuracy                 |      stage       |                                                                                          example                                                                                          |
 |:-----:|:------------------------------------------------------------------------:|:--------:|:--------------------------------------------:|:----------------:|:-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:|
-| clip  | clip_vit_b_32 <br>clip_vit_b_16<br>clip_vit_l_14<br>clip_vit_l_14@336 | Cifar100 | 57.24% <br> 61.41% <br> 69.67%<br> 68.19% | eval<br>predict | [link](https://gitee.com/mindspore/mindformers/blob/dev/scripts/examples/zero_shot_image_classification/clip_vit_b_32_eval_on_cifar100.sh) <br> [link](https://gitee.com/mindspore/mindformers/blob/dev/scripts/examples/zero_shot_image_classification/clip_vit_b_32_predict_on_cifar100.sh) |
+| clip  | clip_vit_b_32 <br>clip_vit_b_16<br>clip_vit_l_14<br>clip_vit_l_14@336 | Cifar100 | 57.24% <br> 61.41% <br> 69.67%<br> 68.19% | eval<br>predict | [link](https://gitee.com/mindspore/mindformers/blob/r0.8/scripts/examples/zero_shot_image_classification/clip_vit_b_32_eval_on_cifar100.sh) <br> [link](https://gitee.com/mindspore/mindformers/blob/r0.8/scripts/examples/zero_shot_image_classification/clip_vit_b_32_predict_on_cifar100.sh) |
 
 ### [Cifar100](http://www.cs.toronto.edu/~kriz/cifar-100-python.tar.gz)
 
@@ -32,6 +32,7 @@
 - Trainer接口开启评估/推理：
 
 ```python
+import mindspore; mindspore.set_context(mode=0, device_id=0)
 from mindformers import MindFormerBook
 from mindformers.trainer import Trainer
 from mindformers.tools.image_tools import load_image
@@ -58,6 +59,7 @@ trainer.predict(input_data=img)  #下载权重进行推理
 - pipeline接口开启快速推理
 
 ```python
+import mindspore; mindspore.set_context(mode=0, device_id=0)
 from mindformers import pipeline, MindFormerBook
 from mindformers.tools.image_tools import load_image
 

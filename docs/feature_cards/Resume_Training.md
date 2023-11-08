@@ -28,7 +28,10 @@ resume_training: True
 在Trainer.train()或Trainer.finetune()中，配置train_checkpoint或finetune_checkpoint参数为checkpoint文件或文件夹路径，并将resume_training参数设置为True。
 
 ```python
+import mindspore as ms
 from mindformers import Trainer
+
+ms.set_context(mode=0) # 设定为图模式加速
 
 cls_trainer = Trainer(task='image_classification', # 已支持的任务名
                       model='vit_base_p16', # 已支持的模型名
@@ -44,7 +47,10 @@ cls_trainer.finetune(finetune_checkpoint="", resume_training=True) # 启动微�
 在TrainingArguments中配置resume_from_checkpoint为checkpoint文件或文件夹路径，并将resume_training参数设置为True。
 
 ```python
+import mindspore as ms
 from mindformers import Trainer, TrainingArguments
+
+ms.set_context(mode=0) # 设定为图模式加速
 
 training_args = TrainingArguments(resume_from_checkpoint="", resume_training=True)
 

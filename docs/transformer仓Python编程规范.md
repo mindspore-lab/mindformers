@@ -1,6 +1,6 @@
 # 说明
 
-本规范以[PEP8](https://www.python.org/dev/peps/pep-0008/)为基础，参考华为Python通用编码规范、安全编程规范，并结合业界共识整理而成，参与MindSpore社区开发需要首先遵循本规范内容（与PEP8冲突部分），其余遵循PEP8规范。
+本规范以[PEP8](https://www.python.org/r0.8/peps/pep-0008/)为基础，参考华为Python通用编码规范、安全编程规范，并结合业界共识整理而成，参与MindSpore社区开发需要首先遵循本规范内容（与PEP8冲突部分），其余遵循PEP8规范。
 
 如果对规则异议，建议提交issue并说明理由，经MindSpore社区运营团队评审接纳后可修改生效。
 a
@@ -306,7 +306,7 @@ raise关键字单独使用只能出现在try-except语句中，重新抛出excep
 
 Python产生随机数的功能在random模块中实现，实现了各种分布的伪随机数生成器。产生的随机数可以是均匀分布，高斯分布，对数正态分布，负指数分布以及alpha，beta分布，但是这些随机数都是伪随机数，不能应用于安全加密目的的应用中。
 
-请使用/dev/random生成安全随机数，或者使用在python 3.6版本官方引入的secrets模块生成安全随机数。
+请使用/r0.8/random生成安全随机数，或者使用在python 3.6版本官方引入的secrets模块生成安全随机数。
 
 【错误代码示例】
 
@@ -327,7 +327,7 @@ Python产生随机数的功能在random模块中实现，实现了各种分布�
     # 长度请参见密码算法规范，不同场景要求长度不一样
     randLength = 16
     if platform.system() == 'Linux':
-        with open("/dev/random", 'rb') as file:
+        with open("/r0.8/random", 'rb') as file:
             sr = file.read(randLength)
             print(sr)
 ```

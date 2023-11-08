@@ -76,8 +76,8 @@ llama_13b / llama_65b 待补充
 
 ### 环境要求
 
-- 硬件：Ascend 910A
-- MindSpore：2.1.1
+- 硬件：Ascend 910A/B
+- MindSpore：2.2
 - MindFormers版本：0.8.0
 
 > 注：推理可在单机单卡上完成部署；全量微调至少需要单机8卡，Lora微调至少需要单卡。
@@ -588,6 +588,7 @@ bash run_distribute.sh [RANK_TABLE_FILE] ../configs/llama/run_llama_7b_lora.yaml
 lora微调支持使用高阶接口启动单卡微调任务，示例代码如下：
 
 ```python
+import mindspore; mindspore.set_context(mode=0, device_id=0)
 from mindformers.trainer import Trainer
 # 初始化预训练任务
 trainer = Trainer(task='text_generation',

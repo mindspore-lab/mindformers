@@ -13,7 +13,7 @@
 
 | model |            type            |  datasets  |  EM   | F1    |           stage            |                           example                            |
 | :---: | :------------------------: | :--------: | :---: | ----- | :------------------------: | :----------------------------------------------------------: |
-|  q'a  | qa_bert_case_uncased_squad | SQuAD v1.1 | 80.74 | 88.33 | finetune<br>eval<br>predict | [link](https://gitee.com/mindspore/mindformers/blob/dev/scripts/examples/question_answering/qa_bert_base_uncased_finetune_on_squad.sh) <br> [link](https://gitee.com/mindspore/mindformers/blob/dev/scripts/examples/question_answering/qa_bert_base_uncased_eval_on_squad.sh) <br> [link](https://gitee.com/mindspore/mindformers/blob/dev/scripts/examples/question_answering/qa_bert_base_uncased_predict_on_squad.sh) |
+|  q'a  | qa_bert_case_uncased_squad | SQuAD v1.1 | 80.74 | 88.33 | finetune<br>eval<br>predict | [link](https://gitee.com/mindspore/mindformers/blob/r0.8/scripts/examples/question_answering/qa_bert_base_uncased_finetune_on_squad.sh) <br> [link](https://gitee.com/mindspore/mindformers/blob/r0.8/scripts/examples/question_answering/qa_bert_base_uncased_eval_on_squad.sh) <br> [link](https://gitee.com/mindspore/mindformers/blob/r0.8/scripts/examples/question_answering/qa_bert_base_uncased_predict_on_squad.sh) |
 
 ### [SQuAD v1.1](https://rajpurkar.github.io/SQuAD-explorer/)
 
@@ -56,6 +56,7 @@ python run_mindformer.py --config ./configs/qa/run_qa_bert_base_uncased.yaml --r
 - Trainer接口开启训练/评估/推理：
 
 ```python
+import mindspore; mindspore.set_context(mode=0, device_id=0)
 from mindformers.trainer import Trainer
 
 # 初始化trainer

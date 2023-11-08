@@ -51,7 +51,7 @@ class ImageCLSDataset(BaseDataset):
         >>> config.train_dataset.data_loader.dataset_dir = "The required task dataset path"
         >>> # Note:
         >>> #     The detailed data setting could refer to
-        >>> #     https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/vit.md
+        >>> #     https://gitee.com/mindspore/mindformers/blob/r0.8/docs/model_cards/vit.md
         >>> check_dataset_config(config)
         >>> # use class to build dataset
         >>> dataset_from_class = ImageCLSDataset(config.train_dataset_task.dataset_config)
