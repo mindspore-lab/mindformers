@@ -24,6 +24,7 @@ from .models.build_processor import build_processor
 from .models.base_config import BaseConfig
 from .models.build_model import build_model
 from .models.build_config import build_model_config
+from .pet import get_pet_model
 from .tools import logger
 from .tools.register.config import MindFormerConfig
 
@@ -274,7 +275,13 @@ class AutoModel:
                              " or a path to .yaml file for model config.")
         if not download_checkpoint:
             config_args.model.model_config.checkpoint_name_or_path = None
+        ckpt_cfg = config_args.model.model_config.checkpoint_name_or_path
+        if config_args.model.model_config.pet_config:
+            config_args.model.model_config.checkpoint_name_or_path = None
         model = build_model(config_args.model)
+        if config_args.model.model_config.pet_config:
+            model.config.checkpoint_name_or_path = ckpt_cfg
+            get_pet_model(model, config_args.model.model_config.pet_config)
         logger.info("model built successfully!")
         return model
 
@@ -321,22 +328,8 @@ class AutoModel:
         return BaseConfig(model=model)
 
     @classmethod
-    def from_pretrained(cls, pretrained_model_name_or_dir, **kwargs):
-        """
-        From pretrain method, which instantiates a Model by pretrained model name or path.
-
-        Args:
-            pretrained_model_name_or_dir (str): A supported model name or a directory to model checkpoint
-                (including .yaml file for config and .ckpt file for weights), the supported model name could be
-                selected from AutoModel.show_support_list().
-                If pretrained_model_name_or_dir is model name, it supports model names beginning with mindspore or
-                the model name itself, such as "mindspore/vit_base_p16" or "vit_base_p16".
-            pretrained_model_name_or_path (Optional[str]): Equal to "pretrained_model_name_or_dir",
-                if "pretrained_model_name_or_path" is set, "pretrained_model_name_or_dir" is useless.
-
-        Returns:
-            A model, which inherited from BaseModel.
-        """
+    def _get_config_args(cls, pretrained_model_name_or_dir, **kwargs):
+        """build config args."""
         pretrained_model_name_or_path = kwargs.pop("pretrained_model_name_or_path", None)
         download_checkpoint = kwargs.pop("download_checkpoint", True)
         if pretrained_model_name_or_path is not None:
@@ -374,7 +367,6 @@ class AutoModel:
 
             config_args = MindFormerConfig(yaml_file)
             config_args.model.model_config.update({"checkpoint_name_or_path": ckpt_file})
-            model = build_model(config_args.model)
         else:
             pretrained_checkpoint_name = pretrained_model_name_or_dir
             if pretrained_model_name_or_dir.startswith('mindspore'):
@@ -419,8 +411,33 @@ class AutoModel:
                 {"checkpoint_name_or_path": pretrained_model_name_or_dir})
             if not download_checkpoint:
                 config_args.model.model_config.checkpoint_name_or_path = None
-            model = build_model(config_args.model)
+        return config_args
 
+    @classmethod
+    def from_pretrained(cls, pretrained_model_name_or_dir, **kwargs):
+        """
+        From pretrain method, which instantiates a Model by pretrained model name or path.
+
+        Args:
+            pretrained_model_name_or_dir (str): A supported model name or a directory to model checkpoint
+                (including .yaml file for config and .ckpt file for weights), the supported model name could be
+                selected from AutoModel.show_support_list().
+                If pretrained_model_name_or_dir is model name, it supports model names beginning with mindspore or
+                the model name itself, such as "mindspore/vit_base_p16" or "vit_base_p16".
+            pretrained_model_name_or_path (Optional[str]): Equal to "pretrained_model_name_or_dir",
+                if "pretrained_model_name_or_path" is set, "pretrained_model_name_or_dir" is useless.
+
+        Returns:
+            A model, which inherited from BaseModel.
+        """
+        config_args = cls._get_config_args(pretrained_model_name_or_dir, **kwargs)
+        ckpt_cfg = config_args.model.model_config.checkpoint_name_or_path
+        if config_args.model.model_config.pet_config:
+            config_args.model.model_config.checkpoint_name_or_path = None
+        model = build_model(config_args.model)
+        if config_args.model.model_config.pet_config:
+            model.config.checkpoint_name_or_path = ckpt_cfg
+            get_pet_model(model, config_args.model.model_config.pet_config)
         cls.default_checkpoint_download_path = model.default_checkpoint_download_path
 
         logger.info("model built successfully!")

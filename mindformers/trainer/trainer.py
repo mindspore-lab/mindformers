@@ -38,6 +38,7 @@ from mindformers.dataset import build_dataset, build_dataset_loader, \
 from mindformers.mindformer_book import MindFormerBook
 from mindformers.models import build_model, BaseModel, BaseImageProcessor, \
     BaseTokenizer, BaseAudioProcessor
+from mindformers.pet import get_pet_model
 from mindformers.tools.logger import logger
 from mindformers.tools.register import MindFormerConfig
 from mindformers.tools.register.config import ordered_yaml_dump
@@ -591,6 +592,8 @@ class Trainer:
         if self.model is None and self.task != 'general':
             logger.info("...........Start Init Network..........")
             self.model = build_model(self.config.model)
+            if self.config.model.model_config.pet_config:
+                self.model = get_pet_model(self.model, self.config.model.model_config.pet_config)
         # set running mode
         if self.model is not None:
             self.model.set_train(is_train)

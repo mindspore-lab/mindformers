@@ -675,10 +675,11 @@ import time
 import mindspore as ms
 import numpy as np
 import argparse
-from mindformers.models.glm import GLMConfig, GLMChatModel, GLMChatModelWithLora
+from mindformers.models.glm import GLMConfig, GLMChatModel
 from mindformers.models.glm.chatglm_6b_tokenizer import ChatGLMTokenizer
 from mindformers.models.glm.glm_processor import process_response
 from mindformers.pet.pet_config import LoraConfig
+from mindformres.pet import get_pet_model
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--seq_length', default=1024, type=int, help='Which device to run service.')
@@ -709,11 +710,10 @@ pet_config = LoraConfig(
 
 def chat_glm():
     ms.set_context(mode=ms.GRAPH_MODE, device_target="Ascend", device_id=args.device_id)
+    model = GLMChatModel(config)
     if is_lora:
        config.pet_config = pet_config
-       model = GLMChatModelWithLora(config)
-    else:
-        model = GLMChatModel(config)
+       model = get_pet_model(model, pet_config)
     ms.load_checkpoint(args.checkpoint_path, model)
     tokenizer = ChatGLMTokenizer(args.vocab_path)
 

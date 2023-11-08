@@ -29,8 +29,6 @@ from mindformers.modules.transformer import VocabEmbedding, EmbeddingOpParallelC
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.core.loss import CrossEntropyLoss
 from mindformers.modules.layers import LayerNorm
-from mindformers.pet.tuners.pet_adapter import PetAdapter
-from mindformers.pet.tuners.lora_adapter import LoraAdapter
 from mindformers.version_control import get_dropout
 
 from .glm_config import GLMConfig
@@ -47,7 +45,7 @@ else:
 default_dpmp_config = OpParallelConfig()
 default_embedding_parallel_config = EmbeddingOpParallelConfig()
 
-__all__ = ['GLMForPreTraining', 'GLMChatModel', 'GLMForPreTrainingWithLora', 'GLMChatModelWithLora']
+__all__ = ['GLMForPreTraining', 'GLMChatModel']
 
 def set_parallel_configure_for_layer(network, layer_id, offset, parallel_config, layers):
     r"""
@@ -508,41 +506,3 @@ class GLMChatModel(GLMForPreTraining):
         probs, p_args = self.sample(log_probs)
 
         return probs, p_args
-
-
-@MindFormerRegister.register(MindFormerModuleType.MODELS)
-class GLMForPreTrainingWithLora(GLMForPreTraining):
-    """GLM Model for pretraining with LoRA
-
-    Args:
-        config (GLMConfig): The config of network.
-    """
-
-    def __init__(self, config: GLMConfig = None, **kwargs):
-        _ = kwargs
-        super().__init__(config)
-        # get Pet tuning model.
-        config.pet_config.reg_rules = r'.*query_key_value*'
-        self.transformer = LoraAdapter.get_pet_model(self.transformer, config.pet_config)
-        # freeze pretrained model
-        PetAdapter.freeze_pretrained_model(self, config.pet_config.pet_type)
-
-
-@MindFormerRegister.register(MindFormerModuleType.MODELS)
-class GLMChatModelWithLora(GLMChatModel):
-    """GLM Model for pretraining with LoRA
-
-    Args:
-        config (GLMConfig): The config of network.
-    """
-
-    def __init__(self, config: GLMConfig = None, **kwargs):
-        _ = kwargs
-        ckpt_cfg = config.checkpoint_name_or_path
-        config.checkpoint_name_or_path = None
-        super().__init__(config)
-        # get Pet tuning model.
-        config.pet_config.reg_rules = r'.*query_key_value*'
-        self.transformer = LoraAdapter.get_pet_model(self.transformer, config.pet_config)
-        config.checkpoint_name_or_path = ckpt_cfg
-        self.load_checkpoint(config)

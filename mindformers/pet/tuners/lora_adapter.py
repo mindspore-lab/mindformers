@@ -91,18 +91,7 @@ class LoraAdapter(PetAdapter):
     Return:
         model (BaseModel): The model replace the linear layer with lora dense layer.
     Examples:
-        1.modify certain task of llama
-        >>> from mindformers.pet.tuners.lora_adapter import LoraAdapter
-        >>> class LlamaForCausalLMWithLora(LlamaForCausalLM):
-        >>>        def __init__(self, config: LlamaConfig = None, pet=None):
-        >>>            super().__init__(config)
-        >>>            # get Pet tuning model.
-        >>>            self.pet = pet
-        >>>            self.pet.pet_config.target_modules = r'.*wq|.*wv'
-        >>>            self.model = LoraAdapter.get_pet_model(self.model, self.pet.pet_config)
-        >>>            # freeze pretrained model
-        >>>            PetAdapter.freeze_pretrained_model(self, self.pet.pet_type)
-        2.modify certain model of llama
+        1.modify certain model of llama
         >>> from mindformers.pet.tuners.lora_adapter import LoraAdapter
         >>> from mindformers.model.llama import LlamaModel
         >>> from mindformers.pet.pet_config import LoraConfig

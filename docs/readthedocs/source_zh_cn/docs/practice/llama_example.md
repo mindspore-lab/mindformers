@@ -696,24 +696,23 @@ def name_replace(name: str):
 
 ## 5 LoRA改造
 
-- 根据需要加入lora的线性层，构造lora匹配规则。然后使用`LoraAdapter.get_pet_model`将普通线性层替换为含lora的线性层。
-- 训练前使用`PetAdapter.freeze_pretrained_model`冻结原网络参数。
+- 根据需要加入lora的线性层，构造lora匹配规则。然后在模型配置文件中`run_llama_7b_lora.yaml`将需要替换的普通线性层添加到配置项`target_modules`中。
+- 定义lora rank矩阵的超参
 
-```Python
-@MindFormerRegister.register(MindFormerModuleType.MODELS)
-class LlamaForCausalLMWithLora(LlamaForCausalLM):
-    def __init__(self, config: LlamaConfig = None):
-        ckpt_cfg = config.checkpoint_name_or_path
-        config.checkpoint_name_or_path = None
-        super().__init__(config)
-        # get Pet tuning model.
-        config.pet_config.reg_rules = r'.*wq|.*wk|.*wv|.*wo'
-        self.model = LoraAdapter.get_pet_model(self.model, config.pet_config)
-        # load lora ckpt
-        config.checkpoint_name_or_path = ckpt_cfg
-        self.load_checkpoint(config)
-        # freeze pretrained model
-        PetAdapter.freeze_pretrained_model(self, config.pet_config.pet_type)
+```yaml
+model:
+  model_config:
+    type: LlamaConfig
+    ...
+    pet_config:
+      pet_type: lora
+      # configuration of lora
+      lora_rank: 16
+      lora_alpha: 16
+      lora_dropout: 0.05
+      target_modules: '.*wq|.*wk|.*wv|.*wo'
+  arch:
+    type: LlamaForCausalLM
 ```
 
 ## 6 训练调试

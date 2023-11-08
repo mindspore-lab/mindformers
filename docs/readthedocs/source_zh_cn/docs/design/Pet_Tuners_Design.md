@@ -27,18 +27,6 @@ class PetAdapter:
         raise(NotImplementedError("should implemented by the certain tuning algorithm."))
 
     @classmethod
-    def load_ckpt(cls, model: nn.Cell, config: PetConfig):
-        """Load ckpt of ptm."""
-        pass
-
-    @classmethod
-    def get_pretrained_model(cls, config):
-        """
-        Get pretrained model from config.
-        """
-        pass
-
-    @classmethod
     def freeze_pretrained_model(cls, model, pet_type:PetType):
         pass
 ```
@@ -60,22 +48,6 @@ PetAdapter是所有微调算法适配器的基类，针对于具体的微调算�
 返回值：
 
 适配了微调算法的预训练模型(nn.Cell)
-```
-
-**PetAdapter.get_pretrained_model(cls, config: PetConfig)**
-
-``` text
-功能:
-
-实例化预训练模型，当用户不传入模型实例时
-
-参数:
-
-- config：微调算法的配置参数
-
-返回值:
-
-返回预训练模型
 ```
 
 **PetAdapter.freeze_pretrained_model(cls, model, pet_type:PetType)**

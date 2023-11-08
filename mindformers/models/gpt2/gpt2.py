@@ -32,11 +32,10 @@ from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.models.base_model import BaseModel
 from mindformers.mindformer_book import MindFormerBook
 from mindformers.tools.logger import logger
-from mindformers.pet import LoraAdapter, PetAdapter
 from .gpt2_config import GPT2Config
 from .gpt_modules import GPTTransformerDecoderLayer
 
-__all__ = ['GPT2LMHeadModel', 'GPT2WithLora', 'GPT2ForSequenceClassification', 'GPT2Model', 'GPTHead']
+__all__ = ['GPT2LMHeadModel', 'GPT2ForSequenceClassification', 'GPT2Model', 'GPTHead']
 
 
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
@@ -479,34 +478,6 @@ class GPTHead(nn.Cell):
     def construct(self, state, embedding_table):
         logits = self.matmul(self.cast(state, self.dtype), self.cast(embedding_table, self.dtype))
         return logits
-
-
-@MindFormerRegister.register(MindFormerModuleType.MODELS)
-class GPT2WithLora(GPT2LMHeadModel):
-    """
-    GPT2LMHeadModel with LoRA parameter-efficient tuning algorithm
-    Args:
-        config (GPT2Config): The config of Gpt2Model.
-
-    Returns:
-        Tensor, the loss or logits of the network.
-
-    Examples:
-        >>> from mindformers import GPT2WithLora
-        >>> model = GPT2WithLora.from_pretrained('gpt2')
-        >>> type(model)
-        <class 'mindformers.models.gpt2.gpt2.GPT2ForSequenceClassification'>
-    """
-
-    def __init__(self, config: GPT2Config = None):
-        checkpoint_name_or_path = config.pop("checkpoint_name_or_path")
-        super().__init__(config)
-        config.pet_config.reg_rules = r'.*dense1.*|.*dense3.*'
-        self.backbone = LoraAdapter.get_pet_model(self.backbone, config.pet_config)
-        config.checkpoint_name_or_path = checkpoint_name_or_path
-        self.load_checkpoint(config)
-        # freeze pretrained model
-        PetAdapter.freeze_pretrained_model(self, config.pet_config.pet_type)
 
 
 class CrossEntropyCalculationWithMask(nn.Cell):

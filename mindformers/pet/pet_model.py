@@ -48,15 +48,23 @@ class PetModel(BaseModel):
         pet_config = PET_TYPE_TO_CONFIG_MAPPING[pet_type](**config)
         self.config = base_model.config
         self.config.pet_config = pet_config
+        # pylint: disable=W0212
+        self._support_list = base_model._support_list
         self.pet_model = PET_TYPE_TO_MODEL_MAPPING[pet_type](pet_config, base_model)
         self.load_checkpoint(self.config)
         PetAdapter.freeze_pretrained_model(self.pet_model, pet_type)
+
+    def update_model_kwargs_before_generate(self, input_ids, model_kwargs: dict):
+        return self.pet_model.update_model_kwargs_before_generate(input_ids, model_kwargs)
 
     def prepare_inputs_for_generation(self, input_ids, **kwargs):
         return self.pet_model.prepare_inputs_for_generation(input_ids, **kwargs)
 
     def prepare_inputs_for_export(self, full_model=True):
         return self.pet_model.prepare_inputs_for_export(full_model)
+
+    def slice_incremental_inputs(self, model_inputs: dict, current_index):
+        return self.pet_model.slice_incremental_inputs(model_inputs, current_index)
 
     def construct(self, input_ids, labels=None, input_position=None, position_ids=None, attention_mask=None,
                   input_embeds=None, init_reset=True, batch_valid_length=None):
