@@ -41,7 +41,11 @@ def build_context(config):
         config.parallel.pipeline_stages = config.parallel_config.pipeline_stage
     local_rank, device_num = init_context(use_parallel=config.use_parallel,
                                           context_config=config.context, parallel_config=config.parallel)
-    set_algo_parameters(elementwise_op_strategy_follow=True, fully_use_devices=True)
+
+    if context.get_auto_parallel_context("parallel_mode") == "auto_parallel":
+        set_algo_parameters(elementwise_op_strategy_follow=False, fully_use_devices=False)
+    else:
+        set_algo_parameters(elementwise_op_strategy_follow=True, fully_use_devices=True)
     _set_multi_subgraphs()
 
     config.device_num = device_num
