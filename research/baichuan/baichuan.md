@@ -1,4 +1,4 @@
-# 百川
+# Baichuan
 
 百川大模型系列是由百川智能研究的大规模语言预训练模型，目前有Baichuan-7B、Baichuan-13B-base和Baichuan-13B-Chat三个系列。目前MindFormers已全部支持。
 
@@ -145,6 +145,7 @@ mindspore_ckpt_path: 权重保存文件名，默认保存为TORCH_CKPT_DIR/OUTPU
 ```
 
 #### [多卡权重切分](../../docs/feature_cards/Transform_Ckpt.md#方案1源码执行)
+
 非单卡运行，无论是train, finetune, eval, predict均需要把权重按照并行配置进行切分！
 
 #### 脚本启动Baichuan-13B-Base
@@ -153,7 +154,6 @@ mindspore_ckpt_path: 权重保存文件名，默认保存为TORCH_CKPT_DIR/OUTPU
 > `遵从Baichuan-13B-base的license，本模型需要用户自行下载权重进行处理`
 
 `Baichuan-13B-base`的高阶接口使用脚本已集成在`run_baichuan_13b_base.py`脚本中
-
 
 **注1**：由于模型较大，910A不支持单卡推理，不支持单机8卡训练。如果使用910A进行单卡推理，需要修改`run_baichuan_13b.yaml`中`seq_length`为1024。
 
