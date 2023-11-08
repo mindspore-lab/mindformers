@@ -230,24 +230,20 @@ mindspore_path: mindspore格式的权重保存文件名，如'saved_dir/wizardco
 
 #### 数据集准备-预训练数据集
 
-当前提供ADGEN广告数据集的预处理和预训练样例，用于对wizardcoder-15B模型进行预训练。数据集下载链接如下：
+当前提供Alpaca数据集的预处理和预训练样例，用于对wizardcoder-15B模型进行预训练。数据集的官方下载链接如下：
 
-- [Google Drive](https://drive.google.com/file/d/13_vf0xRTQsyneRKdD1bZIr93vBGOczrk/view?usp=sharing)
-- [Tsinghua Cloud](https://cloud.tsinghua.edu.cn/f/b3f119a008264b1cabd1/?dl=1)
-
-```text
-AdvertiseGen
-  ├── train.json
-  └── dev.json
-```
+- [alpaca_data.json文件](https://github.com/tatsu-lab/stanford_alpaca/blob/main/alpaca_data.json)
 
 每条数据样例如下：
 
 ```json
-{
-    "content": "类型#上衣*版型#宽松*版型#显瘦*图案#线条*衣样式#衬衫*衣袖型#泡泡袖*衣款式#抽绳",
-    "summary": "这件衬衫的款式非常的宽松，利落的线条可以很好的隐藏身材上的小缺点，穿在身上有着很好的显瘦效果。领口装饰了一个可爱的抽绳，漂亮的绳结展现出了十足的个性，配合时尚的泡泡袖型，尽显女性甜美可爱的气息。"
-}
+[
+   {
+    "instruction": "What are the three primary colors?",
+    "input": "",
+    "output": "The three primary colors are red, blue, and yellow."
+  }
+]
 ```
 
 执行`wizardcoder_preprocess.py`，进行数据预处理、Mindrecord数据生成，将带有prompt模板的数据转换为mindrecord格式。
@@ -262,7 +258,7 @@ python wizardcoder_preprocess.py \
 --seq_length 2048
 ```
 
-**注：** 根据ADGEN数据集的格式，需要修改`wizardcoder_preprocess.py`的`data_tokenize_function()`函数如下所示：
+**注：** 根据Alpaca数据集的格式，需要修改`wizardcoder_preprocess.py`的`data_tokenize_function()`函数如下所示：
 
 ```text
 def data_tokenize_function(raw_datas, tokenizer, max_length):
@@ -271,14 +267,14 @@ def data_tokenize_function(raw_datas, tokenizer, max_length):
     sources, targets = [], []
     for example in raw_datas:
         if 'input' in example:
-            instruction, input_query = example['content'], example['input']
+            instruction, input_query = example['instruction'], example['input']
             source = prompt_input.format_map(dict(instruction=instruction, input=input_query)) if input_query != "" \
                     else prompt_no_input.format_map(dict(instruction=instruction))
 
         else:
-            instruction = example['content']
+            instruction = example['instruction']
             source = prompt_no_input.format_map(dict(instruction=instruction))
-        target = f"{example['summary']}{tokenizer.eos_token}"
+        target = f"{example['output']}{tokenizer.eos_token}"
         sources.append(source)
         targets.append(target)
 
@@ -286,9 +282,11 @@ def data_tokenize_function(raw_datas, tokenizer, max_length):
     return data_dict
 ```
 
+**注：**`tokenize_qa()`的入参if_jsonl需要设置为False
+
 #### 预训练启动
 
-预训练需要多卡启动，以`ADGEN`数据集为例,给出了默认配置文件`run_wizardcoder.yaml`。
+预训练需要多卡启动，以`Alpaca`数据集为例,给出了默认配置文件`run_wizardcoder.yaml`。
 
 - step 1. 权重准备
 
@@ -335,7 +333,7 @@ python ./mindformers/tools/hccl_tools.py --device_num "[0,8)"
 -[x] 2: 根据服务器节点数等信息，修改相应的配置。
 
 ```shell
-# 以wizardcoder模型两机训练为例，默认配置单机8卡，如果节点数有变，需要修改相应的配置。
+# 以wizardcoder模型为例，默认配置单机8卡，如果节点数有变，需要修改相应的配置。
 # 配置文件路径：./research/wizardcoder/run_wizardcoder.yaml
 parallel_config:
   data_parallel: 1
@@ -474,7 +472,7 @@ python ./mindformers/tools/hccl_tools.py --device_num "[0,8)"
 -[x] 2: 根据服务器节点数等信息，修改相应的配置。
 
 ```shell
-# 以wizardcoder模型两机训练为例，默认配置单机8卡，如果节点数有变，需要修改相应的配置。
+# 以wizardcoder模型为例，默认配置单机8卡，如果节点数有变，需要修改相应的配置。
 # 配置文件路径：./research/wizardcoder/run_wizardcoder.yaml
 parallel_config:
   data_parallel: 1

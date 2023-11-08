@@ -16,7 +16,6 @@
 transform wizardcoder-format dataset to mindrecord.
 """
 import os
-import sys
 import argparse
 import json
 import copy
@@ -25,7 +24,6 @@ import numpy as np
 from mindspore.mindrecord import FileWriter
 from wizardcoder_tokenizer import WizardCoderTokenizer
 
-sys.path.insert(0, os.getcwd().split('research')[0])
 
 IGNORE_INDEX = -100
 

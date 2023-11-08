@@ -14,7 +14,6 @@
 # ============================================================================
 """InternLM Train/Finetune/Eval/Predict scripts."""
 import os
-import sys
 import argparse
 
 from mindformers import Trainer, MindFormerConfig
@@ -27,7 +26,6 @@ import wizardcoder
 import wizardcoder_modules
 from wizardcoder_tokenizer import WizardCoderTokenizer
 
-sys.path.insert(0, os.getcwd().split('research')[0])
 
 def context_init(use_parallel=False, optimizer_parallel=False, device_id=0):
     """init context for mindspore."""
