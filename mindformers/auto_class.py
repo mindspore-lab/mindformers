@@ -283,7 +283,7 @@ class AutoModel:
         model = build_model(config_args.model)
         if config_args.model.model_config.pet_config:
             model.config.checkpoint_name_or_path = ckpt_cfg
-            get_pet_model(model, config_args.model.model_config.pet_config)
+            model = get_pet_model(model, config_args.model.model_config.pet_config)
         logger.info("model built successfully!")
         return model
 
@@ -439,7 +439,7 @@ class AutoModel:
         model = build_model(config_args.model)
         if config_args.model.model_config.pet_config:
             model.config.checkpoint_name_or_path = ckpt_cfg
-            get_pet_model(model, config_args.model.model_config.pet_config)
+            model = get_pet_model(model, config_args.model.model_config.pet_config)
         cls.default_checkpoint_download_path = model.default_checkpoint_download_path
 
         logger.info("model built successfully!")
