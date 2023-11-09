@@ -275,6 +275,7 @@ class WizardCoderModel(nn.Cell):
         self.cast_rec = P.Cast()
         self.reshape_rec = P.Reshape()
         self.config = config
+        self.is_first_iteration = True
         self.use_past = config.use_past
 
         self.layernorm = LayerNorm((config.embedding_size,)).to_float(config.layernorm_dtype)
