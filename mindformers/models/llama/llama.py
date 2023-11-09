@@ -278,7 +278,7 @@ class LlamaForCausalLM(BaseModel):
         self.pad_token_id = config.pad_token_id
         self.use_past = config.use_past
         self.vocab_size = config.vocab_size
-
+        self.is_first_iteration = True
         self.reshape = P.Reshape()
         self.cast = P.Cast()
         self.slice = P.StridedSlice()
