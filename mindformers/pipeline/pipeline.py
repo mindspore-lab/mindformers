@@ -124,7 +124,7 @@ def get_ms_pipeline(task, model, tokenizer, image_processor, audio_processor, **
     if audio_processor is None and hasattr(pipeline_config.processor, 'audio_processor'):
         audio_processor = build_processor(pipeline_config.processor.audio_processor)
     if tokenizer is None:
-        tokenizer = build_tokenizer(pipeline_config.processor.tokenizer)
+        tokenizer = build_tokenizer(pipeline_config.processor.tokenizer, tokenizer_name=model_name)
     task_pipeline = build_pipeline(class_name=task,
                                    model=model,
                                    image_processor=image_processor,
