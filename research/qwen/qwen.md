@@ -33,7 +33,7 @@
 
 ### 环境要求
 
-- 硬件：Ascend 910A/B
+- 硬件：Ascend 910B
 - MindSpore：2.2.0
 - MindFormers版本：dev
 - Python：3.8+
@@ -85,7 +85,7 @@ python mindformers/research/qwen/convert_weight.py \
    export MS_ENABLE_REF_MODE=1
    ```
 
-### 基于`run_qwen_7b.sh`推理
+### 基于`run_qwen_7b.py`推理
 
 ```shell
 cd /path/mindformers/research/qwen/
