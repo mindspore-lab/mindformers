@@ -35,9 +35,9 @@ def check_and_add_vocab_file_path(config, **kwargs):
         config.update(read_vocab_file_dict)
         config.update(read_tokenizer_file_dict)
     else:
-        checkpoint_name_or_path = config.get("checkpoint_name_or_path")
-        if checkpoint_name_or_path in dynamic_class.get_support_list():
-            support_name = checkpoint_name_or_path
+        tokenizer_name = kwargs.pop("tokenizer_name", None)
+        if tokenizer_name in dynamic_class.get_support_list():
+            support_name = tokenizer_name
         else:
             support_name = dynamic_class.get_support_list()[0]
         vocab_file = dynamic_class.cache_vocab_files(name_or_path=support_name)
