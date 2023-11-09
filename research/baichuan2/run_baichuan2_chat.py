@@ -26,6 +26,7 @@ from mindformers.tools.utils import str2bool
 from mindformers.tools.logger import logger
 from mindformers.trainer.utils import transform_and_load_checkpoint
 from mindformers.core.context import build_context
+from mindformers.core.parallel_config import build_parallel_config
 
 from baichuan2_7b import Baichuan7BV2ForCausalLM
 from baichuan2_13b import Baichuan13BV2ForCausalLM
@@ -81,10 +82,25 @@ def main(config='./',
         config.model.model_config.use_past = use_past
     build_context(config)
 
+    build_parallel_config(config)
+    logger.info("context config is: %s", config.parallel_config)
+    logger.info("moe config is: %s", config.moe_config)
+
+    parallel_mode = ms.get_auto_parallel_context("parallel_mode")
+    if parallel_mode not in ["semi_auto_parallel", "auto_parallel"]:
+        config.parallel_config.data_parallel = 1
+        config.parallel_config.model_parallel = 1
+        config.parallel_config.pipeline_stage = 1
+        config.parallel_config.micro_batch_num = 1
+        logger.info("parallel_config will be change to default config: %s.",
+                    config.parallel_config)
+
     # init tokenizer
     tokenizer = Baichuan2Tokenizer(vocab_file=vocab_file)
 
     # init model
+    config.model.model_config.parallel_config = config.parallel_config
+    config.model.model_config.batch_size = 1
     model_config = LlamaConfig(**config.model.model_config)
     model_name = config.trainer.model_name
     network = model_dict[model_name](model_config)
