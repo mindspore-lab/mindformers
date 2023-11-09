@@ -39,6 +39,7 @@ from mindformers.models.llama.llama import layer_compute_dtype
 from mindformers.models.llama.llama_config import LlamaConfig
 from mindformers.models.llama.llama_layer import LlamaEmbedding, LlamaRMSNorm, precompute_freqs_cis
 from mindformers.models.llama.llama_transformer import LLamaDecodeLayer
+from mindformers.tools.logger import logger
 
 __all__ = ['Baichuan7BV2ForCausalLM', 'Baichuan7BV2Model']
 
@@ -297,6 +298,7 @@ class Baichuan7BV2ForCausalLM(BaseModel):
         _check_config(config.parallel_config)
         self.ignore_token_id = config.ignore_token_id
         self.pad_token_id = config.pad_token_id
+
         self.reshape = P.Reshape()
         self.cast = P.Cast()
         self.slice = P.StridedSlice()

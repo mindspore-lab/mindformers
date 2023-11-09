@@ -33,7 +33,6 @@ except ImportError:
     FLASHATTENTION_VALID = False
 
 from mindformers.core.loss.loss import CrossEntropyLoss
-from mindformers.mindformer_book import MindFormerBook
 from mindformers.models.base_model import BaseModel
 from mindformers.models.utils import cell_reuse
 from mindformers.modules.transformer.op_parallel_config import _check_config
@@ -168,7 +167,6 @@ class Baichuan13BV2Model(BaseModel):
     Returns:
         output: Tensor, the output of baichuan2_13b decoderlayer
     """
-    _support_list = MindFormerBook.get_model_support_list()['llama']
 
     def __init__(self,
                  config: LlamaConfig = None):
@@ -387,7 +385,6 @@ class Baichuan13BDecodeLayer(nn.Cell):
             Validator.check_positive_int(batch_size)
         self.batch_size = batch_size
 
-        self.compute_in_2d = compute_in_2d
         self.seq_length = seq_length
         self.layer_id = layer_id
         self.hidden_size = dim
