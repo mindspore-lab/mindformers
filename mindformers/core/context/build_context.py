@@ -76,7 +76,11 @@ def init_context(use_parallel=True, context_config=None, parallel_config=None):
     del context_config['mode']
     del context_config['max_device_memory']
     if use_parallel:
-        init()
+        try:
+            init()
+        except:
+            raise RuntimeError("Notice: if you are trying to run with a single device, please set "
+                               "use_parallel=False. If not, please check the error message above.")
         device_id = int(os.getenv('DEVICE_ID', '0'))  # 0 ~ 7
         rank_id = get_rank()  # local_rank
         device_num = get_group_size()  # world_size
