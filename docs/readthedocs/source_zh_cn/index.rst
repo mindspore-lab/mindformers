@@ -54,6 +54,7 @@
    :maxdepth: 1
    :caption: 特性使用指南
 
+   docs/feature_cards/LLM_DataLoader.md
    docs/feature_cards/Resume_Training.md
    docs/feature_cards/Eval_While_Training.md
    docs/feature_cards/Transform_Ckpt.md
