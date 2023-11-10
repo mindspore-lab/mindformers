@@ -46,12 +46,9 @@ class CoreAttention(nn.Cell):
         self.hidden_size_per_attention_head = projection_size // config.num_attention_heads
         self.num_attention_heads_per_partition = config.num_attention_heads
 
-        coeff = None
         self.norm_factor = math.sqrt(self.hidden_size_per_attention_head)
-        if self.apply_query_key_layer_scaling:
-            coeff = self.layer_number
-            self.norm_factor *= coeff
-        self.coeff = coeff
+        self.mul_mask = P.Mul()
+        self.add = P.Add()
 
         # Strided linear layer.
         self.attention_dropout = get_dropout(config.attention_dropout)
@@ -97,8 +94,6 @@ class CoreAttention(nn.Cell):
         # [b, heads, seq, seq]
         attention_scores = matmul_result
 
-        if self.coeff is not None:
-            attention_scores = attention_scores * self.coeff
         if attention_mask is None and attention_scores.shape[2] == attention_scores.shape[3]:
             attention_mask = ops.ones((attention_scores.shape[0],
                                        1,
@@ -107,7 +102,8 @@ class CoreAttention(nn.Cell):
             attention_mask.tril()
             attention_mask = ~attention_mask
         if attention_mask is not None:
-            attention_scores = attention_scores.masked_fill(attention_mask, -10000)
+            attention_mask = self.mul_mask(attention_mask, -10000)
+            attention_scores = self.add(attention_scores, attention_mask)
 
         if self.attention_softmax_in_fp32:
             attention_scores = F.cast(attention_scores, mstype.float32)
