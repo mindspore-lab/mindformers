@@ -36,6 +36,7 @@
 
 |                  模型 <br> model                   | 模型规格<br/>type                                            |              数据集 <br> dataset               |             评估指标 <br> metric             |                     评估得分 <br> score                      |                        配置<br>config                        |
 | :------------------------------------------------: | ------------------------------------------------------------ | :--------------------------------------------: | :------------------------------------------: | :----------------------------------------------------------: | :----------------------------------------------------------: |
+|   [skywork](../research/skywork/skywork.md)        | skywork_13b                                                |                     ADGEN                      |                      -                       |                             -                                |             [configs](https://gitee.com/mindspore/mindformers/blob/dev/research/skywork) |
 |  [baichuan2](../research/baichuan2/baichuan2.md)   | baichuan2_7b <br/>baichuan2_13b  <br/>baichuan2_7b_lora <br/>baichuan2_13b_lora |                   - belle -                    |                  - <br>  -                   |                           - <br> -                           | [configs](https://gitee.com/mindspore/mindformers/blob/dev/research/baichuan2) |
 |          [llama2](model_cards/llama2.md)           | llama2_7b <br/>llama2_13b <br/>llama2_7b_lora <br/>llama2_13b_lora <br/>llama2_70b |     alpaca <br> alpaca <br> alpaca <br> -      |         - <br>   - <br>   - <br>   -         |                 - <br>   - <br>   - <br>   -                 | [configs](https://gitee.com/mindspore/mindformers/blob/dev/configs/llama) |
 |            [glm2](model_cards/glm2.md)             | glm2_6b<br/>glm2_6b_lora                                     |                ADGEN <br> ADGEN                | BLEU-4 / Rouge-1 / Rouge-2 / Rouge-l <br>  - | 7.47 / 30.78 / 7.07 / 24.77 <br> 7.23 / 31.06 / 7.18 / 24.23 | [configs](https://gitee.com/mindspore/mindformers/blob/dev/configs/glm2) |
@@ -79,6 +80,7 @@
 
 |    模型  \  特性    |    低参微调     |  边训边评  | Flash Attention | 并行推理 | 流式推理 | Chat | 多轮对话 | Lite推理 |
 | :-----------------: | :-------------: | :--------: | :-------------: | :------: | :------: | :--: | :------: | :------: |
+|     Skywork-13B     |        ×        |     ×      |        ×        |  dp/mp   |    √     |  ×   |    ×     |    √     |
 |  BaiChuan2-7B/13B   |      Lora       |    PPL     |        ×        |  dp/mp   |    √     |  √   |    √     |    √     |
 |  Llama2-7B/13B/70B  |      Lora       |    PPL     |        √        |  dp/mp   |    √     |  √   |    √     |    √     |
 |       GLM2-6B       | Lora/P-TuningV2 | Bleu/Rouge |        ×        |  dp/mp   |    √     |  √   |    √     |    √     |

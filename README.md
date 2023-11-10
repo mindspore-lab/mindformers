@@ -48,6 +48,7 @@ MindSpore Transformers套件基于MindSpore内置的并行技术和组件化设�
 
 |                        模型                        |                   任务（task name）                   | 模型（model name）                                           |
 | :------------------------------------------------: | :---------------------------------------------------: | :----------------------------------------------------------- |
+|    [skywork](research/skywork/skywork.md)          | [text_generation](docs/task_cards/text_generation.md) | skywork_13b                                                  |
 |    [Baichuan2](research/baichuan2/baichuan2.md)    | [text_generation](docs/task_cards/text_generation.md) | baichuan2_7b <br>baichuan2_13b  <br>baichuan2_7b_lora <br>baichuan2_13b_lora |
 |     [Baichuan](research/baichuan/baichuan.md)      | [text_generation](docs/task_cards/text_generation.md) | baichuan_7b <br>baichuan_13b                                 |
 |           [Qwen](research/qwen/qwen.md)            | [text_generation](docs/task_cards/text_generation.md) | qwen_7b                                                      |
