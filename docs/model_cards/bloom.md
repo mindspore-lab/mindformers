@@ -526,7 +526,7 @@ def main(use_parallel=False,
     context_init(use_parallel, device_id)
 
     # 多batch输入
-    inputs = ["请问为什么说地球是独一无二的？",
+    inputs = ["what color is the sky?",
               "Translate to English: Je t’aime."]
 
     # set model config
@@ -613,6 +613,11 @@ python predict_custom.py
 bash run_predict.sh RANK_TABLE_FILE path/to/bloom_7.1b_shard_checkpoint_dir
 ```
 
+#### 单卡与多卡pipeline推理预期输出为
+
+- what color is the sky? _**blue**_
+- Translate to English: Je t’aime. _**I love you.**_
+
 ### 基于generate的推理
 
 #### 单卡generate推理
@@ -690,12 +695,12 @@ if __name__ == "__main__":
 
 - Bloom_560m的预期输出为:
 
-    - what color is the sky?_**blue**_
+    - what color is the sky? _**blue**_
     - Translate to English: Je t’aime. _**I love you.**_
 
 - Bloom_7.1B的预期输出为:
 
-    - what color is the sky?_**blue**_
+    - what color is the sky? _**blue**_
     - Translate to English: Je t’aime. _**I love you.**_
 
 #### 多卡generate推理
@@ -786,7 +791,7 @@ def chat():
         logger.info("Network parameters are not loaded: %s", str(not_load_network_params))
 
     question_list = [
-        "请问为什么说地球是独一无二的？",
+        "what color is the sky?",
         "Translate to English: Je t’aime.",
         ]
 
@@ -836,7 +841,7 @@ bash run_chat.sh
 
 日志可以通过`tail -f mindformers_0.log`查看。预期结果与单机单卡`bloom_7.1b`推理相同：
 
-- 请问为什么说地球是独一无二的？ _**地球是太阳系中唯一有生物的地方**_
+- what color is the sky? _**blue**_
 
 - Translate to English: Je t’aime. _**I love you.**_
 
