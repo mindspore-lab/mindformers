@@ -1,6 +1,6 @@
-# 天工（Skywork）
+# 天工
 
-Skywork-13B 系列是由昆仑万维研究的大规模语言预训练模型，目前有Skywork-13B-Base，Skywork-13B-Chat，Skywork-13B-Math，Skywork-13B-MM，MindFormers已支持Skywork-13B-Base。
+天工Skywork-13B 系列是由昆仑万维研究的大规模语言预训练模型，目前有Skywork-13B-Base，Skywork-13B-Chat，Skywork-13B-Math，Skywork-13B-MM，MindFormers已支持Skywork-13B-Base。
 
 ## Skywork-13B-Base
 
