@@ -1,5 +1,5 @@
 seed: 1234
-output_dir: './output'  # 当前不支持自定义修改，请勿修改该默认值
+output_dir: './output'
 load_checkpoint: '/{path}/skywork_13b.ckpt'
 src_strategy_path_or_dir: ''
 auto_trans_ckpt: False  # If true, auto transform load_checkpoint to load in distributed model
