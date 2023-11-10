@@ -40,6 +40,7 @@ MindSpore Transformers套件基于MindSpore内置的并行技术和组件化设�
 |       [CLIP](docs/model_cards/clip.md)       | [contrastive_language_image_pretrain](docs/task_cards/contrastive_language_image_pretrain.md)<br> [zero_shot_image_classification](docs/task_cards/zero_shot_image_classification.md) | clip_vit_b_32<br>clip_vit_b_16 <br>clip_vit_l_14<br>clip_vit_l_14@336 |
 |       [BERT](docs/model_cards/bert.md)       | masked_language_modeling<br>[text_classification](docs/task_cards/text_classification.md) <br>[token_classification](docs/task_cards/token_classification.md) <br>[question_answering](docs/task_cards/question_answering.md) | bert_base_uncased <br>txtcls_bert_base_uncased<br>txtcls_bert_base_uncased_mnli <br>tokcls_bert_base_chinese<br>tokcls_bert_base_chinese_cluener <br>qa_bert_base_uncased<br>qa_bert_base_chinese_uncased |
 |         [T5](docs/model_cards/t5.md)         |                         translation                          | t5_small                                                     |
+|   [sam](docs/model_cards/sam.md)             |        [segment_anything](docs/model_cards/sam.md)        | sam_vit_b <br>sam_vit_l  <br>sam_vit_h                       |
 |        [MAE](docs/model_cards/mae.md)        |                    masked_image_modeling                     | mae_vit_base_p16                                             |
 |        [VIT](docs/model_cards/vit.md)        | [image_classification](docs/task_cards/image_classification.md) | vit_base_p16                                                 |
 |       [Swin](docs/model_cards/swin.md)       | [image_classification](docs/task_cards/image_classification.md) | swin_base_p4w7                                               |
@@ -55,7 +56,6 @@ MindSpore Transformers套件基于MindSpore内置的并行技术和组件化设�
 | [Wizardcoder](research/wizardcoder/wizardcoder.md) | [text_generation](docs/task_cards/text_generation.md) | wizardcoder_15b                                              |
 |     [Internlm](research/internlm/internlm.md)      | [text_generation](docs/task_cards/text_generation.md) | Internlm_7b                                                  |
 |           [ziya](research/ziya/ziya.md)            | [text_generation](docs/task_cards/text_generation.md) | ziya_13b                                                     |
-|             [sam](research/sam/sam.md)             |        [segment_anything](research/sam/sam.md)        | sam_vit_b <br>sam_vit_l  <br>sam_vit_h                       |
 
 ## 二、mindformers安装
 
