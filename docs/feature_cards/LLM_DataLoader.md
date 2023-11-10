@@ -1,4 +1,4 @@
-# 读取非mindrecord格式的数据
+# LLM数据在线加载
 
 Mindformers大模型套件支持直接读取非mindrecord格式的数据，如json、parquet等，主要依赖TrainingDataLoader和SFTDataLoader实现，
 其中是TrainingDataLoader主要用于预训练数据集的读取，SFTDataLoader主要用于微调数据集的读取。
