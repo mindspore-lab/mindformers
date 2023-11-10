@@ -42,7 +42,7 @@ class TestSamPipelineMethod:
         for model_type in self.test_llm_list:
             task_pipeline = pipeline(task='segment_anything', model=model_type)
 
-            image = cv2.imread("research/sam/images/truck.jpg")
+            image = cv2.imread("scripts/examples/segment_anything/images/truck.jpg")
             image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
             # 0.使用task_pipeline.set_image提前抽取图像特征
@@ -114,7 +114,7 @@ class TestSamPipelineMethod:
             input_point = np.array([[500, 375]])
             input_label = np.array([1])
 
-            image = cv2.imread("research/sam/images/truck.jpg")
+            image = cv2.imread("scripts/examples/segment_anything/images/truck.jpg")
             image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
             task_pipeline({"image": image,
                            "points": input_point,
@@ -122,7 +122,7 @@ class TestSamPipelineMethod:
                           multimask_output=True)
 
             # 单点确定一个物体: 传入图像路径和prompt
-            task_pipeline({"image": "research/sam/images/truck.jpg",
+            task_pipeline({"image": "scripts/examples/segment_anything/images/truck.jpg",
                            "points": input_point,
                            "labels": input_label},
                           multimask_output=True)

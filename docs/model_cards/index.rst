@@ -22,7 +22,7 @@
    pangualpha
    bilip2
    clip
-   ../../research/sam/sam
+   sam
    t5
    bert
    mae
