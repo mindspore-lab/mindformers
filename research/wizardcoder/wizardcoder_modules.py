@@ -491,6 +491,7 @@ class WizardCoderTransformerDecoderLayer(TransformerEncoderLayer):
             moe_config=moe_config,
             parallel_config=parallel_config
         )
+        self.is_first_iteration = True
         if _get_parallel_mode() not in (ParallelMode.AUTO_PARALLEL,):
             if use_seq_parallel:
                 self.add.shard(((parallel_config.data_parallel * parallel_config.model_parallel, 1),

@@ -251,10 +251,10 @@ mindspore_path: mindspore格式的权重保存文件名，如'saved_dir/wizardco
 ```bash
 # 脚本路径：research/wizardcoder/wizardcoder_preprocess.py
 python wizardcoder_preprocess.py \
---input_glob /{path}/train.json \
+--input_glob /{path}/alpaca_data.json \
 --vocab_file /{path}/vocab.json \
 --merge_file /{path}/merges.txt \
---output_file /{path}/adgen.mindrecord \
+--output_file /{path}/alpaca_data.mindrecord \
 --seq_length 2048
 ```
 
@@ -353,7 +353,6 @@ bash run_singlenode.sh \
 "python wizardcoder/run_wizardcoder.py \
 --config wizardcoder/run_wizardcoder.yaml \
 --load_checkpoint path/to/wizardcoder_ckpt \
---auto_trans_ckpt True \
 --use_parallel True \
 --run_mode train \
 --train_data path/to/mindrecord_dir" \
@@ -364,7 +363,6 @@ path/to/rank_table_file [0,8] 8
 # 参数说明
 config: 配置文件路径
 load_checkpoint: 权重文件夹路径
-auto_trans_ckpt: 是否进行权重自动切分
 run_mode: 运行模式，训练时设置为train
 train_data: 训练数据集路径
 ```
@@ -492,7 +490,6 @@ bash run_singlenode.sh \
 "python wizardcoder/run_wizardcoder.py \
 --config wizardcoder/run_wizardcoder.yaml \
 --load_checkpoint path/to/wizardcoder_ckpt \
---auto_trans_ckpt True \
 --use_parallel True \
 --run_mode finetune \
 --train_data path/to/mindrecord_dir" \
@@ -503,7 +500,6 @@ path/to/rank_table_file [0,8] 8
 # 参数说明
 config: 配置文件路径
 load_checkpoint: 权重文件夹路径
-auto_trans_ckpt: 是否进行权重自动切分
 run_mode: 运行模式，微调时设置为finetune
 train_data: 训练数据集路径
 ```
