@@ -1960,7 +1960,7 @@ class BaseTokenizer(SpecialTokensMixin):
         if is_exist and not is_dir:
             raise ValueError(f"{name_or_path} is not a directory.")
 
-        kwargs = dict()
+        tokenizer_kwargs = dict()
         class_name = None
         loaded_kwargs = {}
         if name_or_path in MindFormerBook.get_tokenizer_url_support_list():
@@ -1987,12 +1987,13 @@ class BaseTokenizer(SpecialTokensMixin):
         else:
             logger.warning("Can't find the tokenizer_config.json in the file_dict. "
                            "The content of file_dict is : %s", file_dict)
-        kwargs.update(loaded_kwargs)
-        kwargs.update(vocab_dict)
+        tokenizer_kwargs.update(loaded_kwargs)
+        tokenizer_kwargs.update(vocab_dict)
+        tokenizer_kwargs.update(**kwargs)
         if not class_name:
             class_name = cls.__name__
-        logger.info("build tokenizer class name is: %s using args %s.", class_name, kwargs)
-        tokenizer = build_tokenizer(class_name=class_name, **kwargs)
+        logger.info("build tokenizer class name is: %s using args %s.", class_name, tokenizer_kwargs)
+        tokenizer = build_tokenizer(class_name=class_name, **tokenizer_kwargs)
         # Check all our special tokens are registered as "no split" token (we don't cut them) and are in the vocab
         added_tokens = tokenizer.sanitize_special_tokens()
         if added_tokens:

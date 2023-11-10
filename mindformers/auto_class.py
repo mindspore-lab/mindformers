@@ -19,6 +19,8 @@ AutoConfig、AutoModel
 import os
 import shutil
 
+from mindformers.tools.utils import try_sync_file
+
 from .mindformer_book import MindFormerBook, print_dict
 from .models.build_processor import build_processor
 from .models.base_config import BaseConfig
@@ -162,7 +164,7 @@ class AutoConfig:
                 else:
                     raise FileNotFoundError(f'default yaml file path must be correct, but get {default_yaml_file}')
             config_args = MindFormerConfig(yaml_file)
-
+        config_args.model.model_config.update(**kwargs)
         config = build_model_config(config_args.model.model_config)
         MindFormerBook.set_model_config_to_name(id(config), config_args.model.arch.type)
         return config
@@ -273,6 +275,8 @@ class AutoModel:
         else:
             raise ValueError("config should be inherited from BaseConfig,"
                              " or a path to .yaml file for model config.")
+
+        config_args.model.model_config.update(**kwargs)
         if not download_checkpoint:
             config_args.model.model_config.checkpoint_name_or_path = None
         ckpt_cfg = config_args.model.model_config.checkpoint_name_or_path
@@ -330,15 +334,6 @@ class AutoModel:
     @classmethod
     def _get_config_args(cls, pretrained_model_name_or_dir, **kwargs):
         """build config args."""
-        pretrained_model_name_or_path = kwargs.pop("pretrained_model_name_or_path", None)
-        download_checkpoint = kwargs.pop("download_checkpoint", True)
-        if pretrained_model_name_or_path is not None:
-            pretrained_model_name_or_dir = pretrained_model_name_or_path
-
-        if not isinstance(pretrained_model_name_or_dir, str):
-            raise TypeError(f"pretrained_model_name_or_dir should be a str,"
-                            f" but got {type(pretrained_model_name_or_dir)}")
-
         is_exist = os.path.exists(pretrained_model_name_or_dir)
         is_dir = os.path.isdir(pretrained_model_name_or_dir)
 
@@ -362,11 +357,13 @@ class AutoModel:
 
             yaml_file = os.path.join(pretrained_model_name_or_dir, yaml_list[cls._model_type])
             ckpt_file = os.path.join(pretrained_model_name_or_dir, ckpt_list[cls._model_type])
-            logger.info("config in %s and weights in %s are used for model"
-                        " building.", yaml_file, ckpt_file)
 
             config_args = MindFormerConfig(yaml_file)
-            config_args.model.model_config.update({"checkpoint_name_or_path": ckpt_file})
+            kwargs["checkpoint_name_or_path"] = kwargs.get("checkpoint_name_or_path") \
+                if "checkpoint_name_or_path" in kwargs.keys() else ckpt_file
+            config_args.model.model_config.update(**kwargs)
+            logger.info("model config: %s and checkpoint_name_or_path: %s are used for "
+                        "model building.", yaml_file, config_args.model.model_config.checkpoint_name_or_path)
         else:
             pretrained_checkpoint_name = pretrained_model_name_or_dir
             if pretrained_model_name_or_dir.startswith('mindspore'):
@@ -405,12 +402,11 @@ class AutoModel:
                     logger.info("default yaml config in %s is used.", yaml_file)
                 else:
                     raise FileNotFoundError(f'default yaml file path must be correct, but get {default_yaml_file}')
-
+            try_sync_file(yaml_file)
             config_args = MindFormerConfig(yaml_file)
-            config_args.model.model_config.update(
-                {"checkpoint_name_or_path": pretrained_model_name_or_dir})
-            if not download_checkpoint:
-                config_args.model.model_config.checkpoint_name_or_path = None
+            kwargs["checkpoint_name_or_path"] = kwargs.get("checkpoint_name_or_path") \
+                if "checkpoint_name_or_path" in kwargs.keys() else pretrained_model_name_or_dir
+            config_args.model.model_config.update(**kwargs)
         return config_args
 
     @classmethod
@@ -430,7 +426,17 @@ class AutoModel:
         Returns:
             A model, which inherited from BaseModel.
         """
+        pretrained_model_name_or_path = kwargs.pop("pretrained_model_name_or_path", None)
+        download_checkpoint = kwargs.pop("download_checkpoint", True)
+        if pretrained_model_name_or_path is not None:
+            pretrained_model_name_or_dir = pretrained_model_name_or_path
+
+        if not isinstance(pretrained_model_name_or_dir, str):
+            raise TypeError(f"pretrained_model_name_or_dir should be a str,"
+                            f" but got {type(pretrained_model_name_or_dir)}")
         config_args = cls._get_config_args(pretrained_model_name_or_dir, **kwargs)
+        if not download_checkpoint:
+            config_args.model.model_config.checkpoint_name_or_path = None
         ckpt_cfg = config_args.model.model_config.checkpoint_name_or_path
         if config_args.model.model_config.pet_config:
             config_args.model.model_config.checkpoint_name_or_path = None
@@ -775,7 +781,7 @@ class AutoTokenizer:
                                     f"Or make sure the `{yaml_name_or_path}` is a directory.")
 
         dynamic_class = MindFormerRegister.get_cls(module_type='tokenizer', class_name=class_name)
-        instanced_class = dynamic_class.from_pretrained(yaml_name_or_path)
+        instanced_class = dynamic_class.from_pretrained(yaml_name_or_path, **kwargs)
         logger.info("%s Tokenizer built successfully!", instanced_class.__class__.__name__)
         return instanced_class
 
