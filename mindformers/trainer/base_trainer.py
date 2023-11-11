@@ -597,15 +597,20 @@ class BaseTrainer:
 
         # build callback
         logger.info(".........Build Callbacks For Train..........")
-        if callbacks is None:
-            callbacks = self.create_callbacks(default_args={
-                "learning_rate": optimizer.learning_rate if optimizer else wrapper.optimizer.learning_rate,
-                "origin_epochs": config.runner_config.origin_epochs,
-                "dataset_size": config.data_size,
-                "micro_batch_interleave_num": config.micro_batch_interleave_num,
-                "micro_batch_num": config.parallel_config.micro_batch_num,
-                "initial_epoch": config.runner_config.initial_epoch,
-                "global_batch_size": self.global_batch_size})
+        default_callbacks = self.create_callbacks(default_args={
+            "learning_rate": optimizer.learning_rate if optimizer else wrapper.optimizer.learning_rate,
+            "origin_epochs": config.runner_config.origin_epochs,
+            "dataset_size": config.data_size,
+            "micro_batch_interleave_num": config.micro_batch_interleave_num,
+            "micro_batch_num": config.parallel_config.micro_batch_num,
+            "initial_epoch": config.runner_config.initial_epoch,
+            "global_batch_size": self.global_batch_size})
+        if callbacks is not None:
+            if isinstance(callbacks, list):
+                default_callbacks.extend(callbacks)
+            if isinstance(callbacks, Callback):
+                default_callbacks.append(callbacks)
+        callbacks = default_callbacks
 
         # define compute metrics for evaluate in training
         compute_metrics = None
@@ -701,8 +706,13 @@ class BaseTrainer:
 
         # build callback
         logger.info(".........Build Callbacks For Evaluate..........")
-        if callbacks is None:
-            callbacks = self.create_eval_callbacks()
+        default_callbacks = self.create_eval_callbacks()
+        if callbacks is not None:
+            if isinstance(callbacks, list):
+                default_callbacks.extend(callbacks)
+            if isinstance(callbacks, Callback):
+                default_callbacks.append(callbacks)
+        callbacks = default_callbacks
 
         logger.info(".........Starting Init Evaluate Model..........")
         model = Model(network, metrics=compute_metrics, eval_network=eval_network)
