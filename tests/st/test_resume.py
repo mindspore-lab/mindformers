@@ -17,7 +17,6 @@ Test module for testing the gpt interface used for mindformers.
 How to run this:
 pytest tests/st/test_resume.py
 """
-from dataclasses import dataclass
 import os
 import numpy as np
 import pytest
@@ -28,11 +27,9 @@ from mindspore.dataset import GeneratorDataset
 
 from mindformers.tools.utils import LOCAL_DEFAULT_PATH
 from mindformers.trainer import Trainer
-from mindformers.trainer.config_args import ConfigArguments, \
-    RunnerConfig
 from mindformers.models.gpt2 import GPT2LMHeadModel, GPT2Config
 from mindformers.core.lr import WarmUpDecayLR
-from mindformers import CheckpointMointor
+from mindformers import CheckpointMointor, TrainingArguments
 from mindformers.core.optim import FusedAdamWeightDecay
 
 ms.set_context(mode=0)
@@ -48,14 +45,6 @@ def generator():
         yield train_data
 
 
-@dataclass
-class Tempconfig:
-    seed: int = 0
-    runner_config: RunnerConfig = None
-    data_size: int = 0
-    train_checkpoint: str = ""
-
-
 @pytest.mark.level0
 @pytest.mark.platform_x86_ascend_training
 @pytest.mark.platform_arm_ascend_training
@@ -67,8 +56,7 @@ def test_gpt_trainer_train_from_instance():
     Expectation: TypeError
     """
     # Config definition
-    runner_config = RunnerConfig(epochs=2, batch_size=8, sink_mode=True, sink_size=2)
-    config = ConfigArguments(seed=2022, runner_config=runner_config)
+    config = TrainingArguments(num_train_epochs=2, batch_size=8, sink_mode=True, sink_size=2, seed=2022)
 
     # Model
     model_config = GPT2Config(num_layers=2)

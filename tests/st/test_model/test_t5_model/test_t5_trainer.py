@@ -26,9 +26,8 @@ import mindspore as ms
 from mindspore.dataset import MindDataset, GeneratorDataset
 from mindspore.mindrecord import FileWriter
 
-from mindformers.trainer import Trainer, TranslationTrainer
-from mindformers.trainer.config_args import ConfigArguments, \
-    OptimizerConfig, RunnerConfig
+from mindformers.trainer import Trainer, \
+    TranslationTrainer, TrainingArguments
 from mindformers import T5Config, T5ForConditionalGeneration
 
 ms.set_context(mode=0)
@@ -123,15 +122,14 @@ class TestTranslationTrainer:
         Expectation: TypeError
         """
         batch_size = 1
-        runner_config = RunnerConfig(epochs=1, batch_size=batch_size)  # 运行超参
-        optim_config = OptimizerConfig(optim_type='AdamWeightDecay', beta1=0.9, learning_rate=0.001)
+        config = TrainingArguments(num_train_epochs=1, batch_size=batch_size, seed=2022,
+                                   optim="adamw", adam_beta1=0.9, learning_rate=0.001)
 
         dataset = MindDataset(dataset_files=self.get_mindfiles_from_path(self.dir_path),
                               columns_list=["input_ids", "attention_mask", "labels"])
         dataset = dataset.batch(batch_size=batch_size)
         dataset = dataset.repeat(1)
 
-        config = ConfigArguments(seed=2022, runner_config=runner_config, optimizer=optim_config)
         model_config = T5Config(batch_size=batch_size, num_heads=8, num_layers=1, hidden_size=32,
                                 seq_length=16, max_decode_length=8)
         # Model

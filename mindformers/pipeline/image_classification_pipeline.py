@@ -87,7 +87,7 @@ class ImageClassificationPipeline(BasePipeline):
             raise ValueError("ImageClassificationFoPipeline"
                              " requires for a image_processor.")
 
-        super().__init__(model.set_train(mode=False), image_processor=image_processor, **kwargs)
+        super().__init__(model, image_processor=image_processor, **kwargs)
 
     def _sanitize_parameters(self, **pipeline_parameters):
         r"""Sanitize Parameters

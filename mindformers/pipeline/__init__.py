@@ -30,7 +30,9 @@ from .segment_anything_pipeline import SegmentAnythingPipeline
 
 
 __all__ = ['ZeroShotImageClassificationPipeline',
-           'ImageClassificationPipeline', 'ImageToTextGenerationPipeline', 'pipeline', 'BasePipeline']
+           'ImageClassificationPipeline',
+           'pipeline',
+           'BasePipeline']
 
 __all__.extend(translation_pipeline.__all__)
 __all__.extend(fill_mask_pipeline.__all__)
@@ -40,3 +42,4 @@ __all__.extend(question_answering_pipeline.__all__)
 __all__.extend(text_generation_pipeline.__all__)
 __all__.extend(masked_image_modeling_pipeline.__all__)
 __all__.extend(image_to_text_generation_pipeline.__all__)
+__all__.extend(segment_anything_pipeline.__all__)
