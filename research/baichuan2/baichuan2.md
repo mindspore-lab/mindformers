@@ -9,9 +9,9 @@ Baichuan2 是由百川智能开发的开源可商用的大规模预训练语言�
 |                            config                            |      task       | Datasets | [train performance](#全参微调) |  [predict performance](#推理)  |
 | :----------------------------------------------------------: | :-------------: | :------: | :----------------------------: | :----------------------------: |
 | [baichuan2_7b](../../research/baichuan2/run_baichuan2_7b.yaml) | text_generation |  belle   |         550 tokens/s         | 20.54 tokens/s (use_past=True) |
-| [baichuan2_13b](../../research/baichuan2/run_baichuan2_13b.yaml) | text_generation |  belle   |          393 tokens/s          | 17.75 tokens/s (use_past=True, 2卡) |
+| [baichuan2_13b](../../research/baichuan2/run_baichuan2_13b.yaml) | text_generation |  belle   |          379 tokens/s          | 17.75 tokens/s (use_past=True, 2卡) |
 | [baichuan2_7b_910b](../../research/baichuan2/run_baichuan2_7b_910b.yaml) | text_generation |  belle   |        1264 tokens/s         | 23.69 tokens/s (use_past=True) |
-| [baichuan2_13b_910b](../../research/baichuan2/run_baichuan2_13b_910b.yaml) | text_generation |  belle   |          525 tokens/s          | 16.65 tokens/s (use_past=True)  |
+| [baichuan2_13b_910b](../../research/baichuan2/run_baichuan2_13b_910b.yaml) | text_generation |  belle   |          867 tokens/s          | 16.65 tokens/s (use_past=True)  |
 
 ## 仓库介绍
 
@@ -755,16 +755,22 @@ Baichuan2-7B在910B上推荐的GE配置（910b_ge_default.cfg）如下：
 
 ```ini
 [ascend_context]
-enable_plugin_ops=All                            # 打开融合算子开关
-provider=ge                                      # 采用GE接口
+provider=ge
 
 [ge_session_options]
-ge.externalWeight=1                              # 将网络中Const/Constant节点的权重保存在单独的文件中
-ge.exec.atomicCleanPolicy=1                      # 不集中清理网络中atomic算子占用的内存
+ge.externalWeight=1
+ge.exec.atomicCleanPolicy=1
 ge.event=notify
-ge.exec.staticMemoryPolicy=2                     # 网络运行使用动态扩展内存方式
+ge.exec.staticMemoryPolicy=2
 ge.exec.formatMode=1
-ge.exec.precision_mode=must_keep_origin_dtype    # 选择算子精度模式
+ge.exec.precision_mode=must_keep_origin_dtype
+
+# 参数说明
+# provider=ge：采用GE接口
+# ge.externalWeight=1：将网络中Const/Constant节点的权重保存在单独的文件中
+# ge.exec.atomicCleanPolicy=1：不集中清理网络中atomic算子占用的内存
+# ge.exec.staticMemoryPolicy=2：网络运行使用动态扩展内存方式
+# ge.exec.precision_mode=must_keep_origin_dtype：选择算子精度模式
 ```
 
 - ## Baichuan2-13B
@@ -1532,14 +1538,20 @@ Baichuan2-13B在910B上推荐的GE配置（910b_ge_default.cfg）如下：
 
 ```ini
 [ascend_context]
-enable_plugin_ops=All                            # 打开融合算子开关
-provider=ge                                      # 采用GE接口
+provider=ge
 
 [ge_session_options]
-ge.externalWeight=1                              # 将网络中Const/Constant节点的权重保存在单独的文件中
-ge.exec.atomicCleanPolicy=1                      # 不集中清理网络中atomic算子占用的内存
+ge.externalWeight=1
+ge.exec.atomicCleanPolicy=1
 ge.event=notify
-ge.exec.staticMemoryPolicy=2                     # 网络运行使用动态扩展内存方式
+ge.exec.staticMemoryPolicy=2
 ge.exec.formatMode=1
-ge.exec.precision_mode=must_keep_origin_dtype    # 选择算子精度模式
+ge.exec.precision_mode=must_keep_origin_dtype
+
+# 参数说明
+# provider=ge：采用GE接口
+# ge.externalWeight=1：将网络中Const/Constant节点的权重保存在单独的文件中
+# ge.exec.atomicCleanPolicy=1：不集中清理网络中atomic算子占用的内存
+# ge.exec.staticMemoryPolicy=2：网络运行使用动态扩展内存方式
+# ge.exec.precision_mode=must_keep_origin_dtype：选择算子精度模式
 ```
