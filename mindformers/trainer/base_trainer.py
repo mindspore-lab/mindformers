@@ -349,13 +349,6 @@ class BaseTrainer:
             self.config.processor.image_processor, default_args=default_args)
         return self.image_processor
 
-    def create_tokenizer(self, default_args: dict = None):
-        """Create the tokenizer for task trainer."""
-        logger.info(".........Build Text Tokenizer From Config..........")
-        self.tokenizer = build_tokenizer(
-            self.config.processor.tokenizer, default_args=default_args)
-        return self.tokenizer
-
     def create_optimizer_scheduler(self, network, layer_scale=False):
         """Create the optimizer for training."""
         logger.info(".........Build Optimizer From Config..........")
@@ -773,7 +766,7 @@ class BaseTrainer:
             self.count_parameters()
 
             if tokenizer is None and config.processor.tokenizer:
-                tokenizer = build_tokenizer(config.processor.tokenizer)
+                tokenizer = build_tokenizer(config.processor.tokenizer, tokenizer_name=config.trainer.model_name)
 
             if image_processor is None and config.processor.image_processor:
                 image_processor = build_processor(config.processor.image_processor)
