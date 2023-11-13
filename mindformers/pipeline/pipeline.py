@@ -48,13 +48,20 @@ def pipeline(
     r"""Pipeline for downstream tasks
 
     Args:
-        task (str): The supported task could be selected from
-            MindFormerBook.show_pipeline_support_task_list().
-        model (Optional[Union[str, BaseModel]]): The model used for task.
-        tokenizer (Optional[BaseTokenizer]): The tokenizer of the model.
-        image_processor (Optional[BaseImageProcessor]): The image processor of the model.
-        audio_processor (Optional[BaseAudioProcessor]): The audio processor of the model.
-        backend(str): The inference backend. Default "ms", now support ["ms", "mslite"].
+        task (str):
+            The supported task could be selected from MindFormerBook.show_pipeline_support_task_list().
+        model (Optional[Union[str, BaseModel]]):
+            The model used for task.
+        tokenizer (Optional[BaseTokenizer]):
+            The tokenizer of the model.
+        image_processor (Optional[BaseImageProcessor]):
+            The image processor of the model.
+        audio_processor (Optional[BaseAudioProcessor]):
+            The audio processor of the model.
+        backend(str):
+            The inference backend. Default "ms", now support ["ms", "mslite"].
+        **kwargs:
+            Refers to the kwargs description of the corresponding task pipeline.
 
     Returns:
         A task pipeline.

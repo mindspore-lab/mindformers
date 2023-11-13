@@ -33,15 +33,19 @@ class TokenClassificationPipeline(BasePipeline):
     """Pipeline for token classification
 
     Args:
-        model (Union[str, BaseModel]): The model used to perform task,
-            the input could be a supported model name, or a model instance
+        model (Union[str, BaseModel]):
+            The model used to perform task, the input could be a supported model name, or a model instance
             inherited from BaseModel.
-        tokenizer : a tokenizer (None or Tokenizer) for text processing.
-        id2label : a dict which maps label id to label str.
+        tokenizer (Optional[BaseTokenizer]):
+            A tokenizer (None or Tokenizer) for text processing. Default: None.
+        id2label (dict):
+            A dict which maps label id to label str.
 
     Raises:
-        TypeError: If input model and image_processor's types are not corrected.
-        ValueError: If the input model is not in support list.
+        TypeError:
+            If input model and image_processor's types are not corrected.
+        ValueError:
+            If the input model is not in support list.
 
     Examples:
         >>> from mindformers.pipeline import TokenClassificationPipeline
@@ -113,10 +117,12 @@ class TokenClassificationPipeline(BasePipeline):
         Preprocess of token classification
 
         Args:
-            inputs (str): the str to be classified.
-            max_length (int): max length of tokenizer's output
-            padding (False / "max_length"): padding for max_length
-            return_tensors ("ms"): the type of returned tensors
+            inputs (str):
+                the str to be classified.
+            max_length (Optional[int]):
+                Max length of tokenizer's output. Default: 128.
+            padding (Optional[bool, str]):
+                Padding for max_length. Default: "max_length".
 
         Return:
             Processed text.
@@ -140,7 +146,8 @@ class TokenClassificationPipeline(BasePipeline):
         Forward process
 
         Args:
-            model_inputs (dict): outputs of preprocess.
+            model_inputs (dict):
+                outputs of preprocess.
 
         Return:
             Probs dict.
@@ -154,7 +161,8 @@ class TokenClassificationPipeline(BasePipeline):
         Postprocess
 
         Args:
-            model_outputs (dict): outputs of forward process.
+            model_outputs (dict):
+                outputs of forward process.
 
         Return:
             The generated results.
@@ -193,7 +201,8 @@ class TokenClassificationPipeline(BasePipeline):
         """Gets entities from sequence.
 
         Args:
-            seq (list): sequence of labels.
+            seq (list):
+                sequence of labels.
 
         Returns:
             List of (chunk_type, chunk_start, chunk_end).

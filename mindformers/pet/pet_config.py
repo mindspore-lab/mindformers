@@ -20,7 +20,7 @@ from mindformers.models.utils import convert_mstype
 from mindformers.pet.constants import PetType
 
 
-__all__ = ['LoraConfig']
+__all__ = ['LoraConfig', 'Ptuning2Config']
 
 
 class PetConfig(BaseConfig):
