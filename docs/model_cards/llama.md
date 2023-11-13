@@ -777,6 +777,9 @@ def main(model_type='llama_7b',
     # set model config
     model_config = AutoConfig.from_pretrained(model_type)
     model_config.use_past = use_past
+    # if use parallel, data_parallel * model_parallel = device_num
+    model_config.parallel_config.data_parallel = 1
+    model_config.parallel_config.model_parallel = 1
     if checkpoint_path and not use_parallel:
         model_config.checkpoint_name_or_path = checkpoint_path
     print(f"config is: {model_config}")
@@ -797,7 +800,7 @@ def main(model_type='llama_7b',
         model = Model(network)
         model.infer_predict_layout(ms.Tensor(np.ones(shape=(1, model_config.seq_length)), ms.int32))
         checkpoint_dict = load_checkpoint(ckpt_path)
-        not_load_network_params = load_param_into_net(model, checkpoint_dict)
+        not_load_network_params = load_param_into_net(network, checkpoint_dict)
         print("Network parameters are not loaded: %s", str(not_load_network_params))
 
     text_generation_pipeline = pipeline(task="text_generation", model=network, tokenizer=tokenizer)
@@ -842,10 +845,10 @@ export END_RANK=8 # this server end rank
 # run
 for((i=${START_RANK}; i<${END_RANK}; i++))
 do
-    export RANK_ID=$i
-    export DEVICE_ID=$((i-START_RANK))
+    export DEVICE_ID=$i
+    export RANK_ID=$((i-START_RANK))
     echo "Start distribute running for rank $RANK_ID, device $DEVICE_ID"
-    python3 ./predict_custom.py --use_parallel True --checkpoint_path CHECKPOINT_PATH &> minformers_$RANK_ID.log &
+    python3 ./predict_custom.py --use_parallel True --checkpoint_path $CHECKPOINT_PATH &> mindformers_$RANK_ID.log &
 done
 ```
 
@@ -856,6 +859,25 @@ python predict_custom.py
 ```
 
 #### 多卡pipeline推理
+
+- 修改yaml文件中分布式配置及并行模式，参考[模型权重切分与合并](../feature_cards/Transform_Ckpt.md)进行离线权重切分。**注**：推理暂不支持流水线并行
+
+- 将上述`predict_custom.py`中的分布式配置更改为预期的分布式配置
+
+```python
+model_config.parallel_config.data_parallel = 1
+model_config.parallel_config.model_parallel = 1
+```
+
+- 配置上述sh脚本中的卡数设置，默认是0-8卡
+
+```text
+export RANK_SIZE=8  # 总卡数
+export START_RANK=0 # 起始卡序号
+export END_RANK=8   # 结束卡序号
+```
+
+- 运行如下命令进行推理
 
 ```bash
 bash run_predict.sh RANK_TABLE_FILE path/to/shard_checkpoint_dir
@@ -910,6 +932,9 @@ def main(model_type='llama_7b',
 
     # set model config
     model_config = AutoConfig.from_pretrained(model_type)
+    # if use parallel, data_parallel * model_parallel = device_num
+    model_config.parallel_config.data_parallel = 1
+    model_config.parallel_config.model_parallel = 1
     model_config.batch_size = len(inputs)
     model_config.use_past = use_past
     if checkpoint_path and not use_parallel:
@@ -919,7 +944,7 @@ def main(model_type='llama_7b',
     # build tokenizer
     tokenizer = AutoTokenizer.from_pretrained(model_type)
     # build model from config
-    model = AutoModel.from_config(model_config)
+    network = AutoModel.from_config(model_config)
 
     # if use parallel, load distributed checkpoints
     if use_parallel:
@@ -929,14 +954,14 @@ def main(model_type='llama_7b',
         print("ckpt path: %s", str(ckpt_path))
 
         # shard model and load sharded ckpt
-        model = Model(model)
+        model = Model(network)
         model.infer_predict_layout(ms.Tensor(np.ones(shape=(1, model_config.seq_length)), ms.int32))
         checkpoint_dict = load_checkpoint(ckpt_path)
-        not_load_network_params = load_param_into_net(model, checkpoint_dict)
+        not_load_network_params = load_param_into_net(network, checkpoint_dict)
         print("Network parameters are not loaded: %s", str(not_load_network_params))
 
     inputs_ids = tokenizer(inputs, max_length=model_config.seq_length, padding="max_length")["input_ids"]
-    outputs = model.generate(inputs_ids, max_length=model_config.max_decode_length)
+    outputs = network.generate(inputs_ids, max_length=model_config.max_decode_length)
     for output in outputs:
         print(tokenizer.decode(output))
 
@@ -977,10 +1002,10 @@ export END_RANK=8 # this server end rank
 # run
 for((i=${START_RANK}; i<${END_RANK}; i++))
 do
-    export RANK_ID=$i
-    export DEVICE_ID=$((i-START_RANK))
+    export DEVICE_ID=$i
+    export RANK_ID=$((i-START_RANK))
     echo "Start distribute running for rank $RANK_ID, device $DEVICE_ID"
-    python3 ./predict_custom.py --use_parallel True --checkpoint_path CHECKPOINT_PATH &> minformers_$RANK_ID.log &
+    python3 ./predict_custom.py --use_parallel True --checkpoint_path $CHECKPOINT_PATH &> mindformers_$RANK_ID.log &
 done
 ```
 
@@ -991,6 +1016,25 @@ python predict_custom.py
 ```
 
 #### 多卡generate推理
+
+- 修改yaml文件中分布式配置及并行模式，参考[模型权重切分与合并](../feature_cards/Transform_Ckpt.md)进行离线权重切分。**注**：推理暂不支持流水线并行
+
+- 将上述`predict_custom.py`中的分布式配置更改为预期的分布式配置
+
+```text
+model_config.parallel_config.data_parallel = 1
+model_config.parallel_config.model_parallel = 1
+```
+
+- 配置上述sh脚本中的卡数设置，默认是0-8卡
+
+```text
+export RANK_SIZE=8  # 总卡数
+export START_RANK=0 # 起始卡序号
+export END_RANK=8   # 结束卡序号
+```
+
+- 运行如下命令进行推理
 
 ```bash
 bash run_predict.sh RANK_TABLE_FILE path/to/shard_checkpoint_dir
