@@ -1,0 +1,47 @@
+# export
+infer:
+    prefill_model_path: "llama2_export/llama2_13b_prefill_seq4096.mindir" # 保存mindir的位置
+    increment_model_path: "llama2_export/llama2_13b_inc_seq4096.mindir"   # 保存mindir的位置
+    infer_seq_length: 4096 # 需要保持跟 model-model_config-seq_length 一致
+    model_type: mindir
+
+# model config
+model:
+  model_config:
+    type: LlamaConfig
+    batch_size: 1 # add for increase predict，batch 推理时修改
+    seq_length: 4096
+    hidden_size: 5120
+    num_layers: 40
+    num_heads: 40
+    vocab_size: 32000
+    multiple_of: 256
+    rms_norm_eps: 1.0e-5
+    bos_token_id: 1
+    eos_token_id: 2
+    pad_token_id: 0
+    ignore_token_id: -100
+    compute_dtype: "float16"
+    layernorm_compute_type: "float32"
+    softmax_compute_type: "float16"
+    rotary_dtype: "float32"
+    param_init_type: "float32"
+    use_past: True
+    pretrain_seqlen: 4096 # seqlen of the pretrain checkpoint: 2048 for llama and 4096 for llama2
+    extend_method: "None" # support "None", "PI", "NTK"
+    compute_in_2d: True
+    use_flash_attention: False
+    offset: 0
+    use_past_shard: False
+    checkpoint_name_or_path: "{path}/ckpt"
+    repetition_penalty: 1
+    max_decode_length: 512
+    top_k: 3
+    top_p: 1
+    do_sample: False
+  arch:
+    type: LlamaForCausalLM
+
+trainer:
+  type: CausalLanguageModelingTrainer
+  model_name: 'llama2_13b'
