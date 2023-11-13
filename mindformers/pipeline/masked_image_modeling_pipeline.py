@@ -84,7 +84,7 @@ class MaskedImageModelingPipeline(BasePipeline):
             raise ValueError("MaskedImageModelingPipeline"
                              " requires for a image_processor.")
 
-        super().__init__(model.set_train(mode=False), image_processor=image_processor, **kwargs)
+        super().__init__(model, image_processor=image_processor, **kwargs)
 
     def _sanitize_parameters(self, **pipeline_parameters):
         r"""Sanitize Parameters

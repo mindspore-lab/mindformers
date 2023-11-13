@@ -106,7 +106,7 @@ class SegmentAnythingPipeline(BasePipeline):
             raise ValueError("ImageClassificationFoPipeline"
                              " requires for a image_processor.")
 
-        super().__init__(model.set_train(mode=False), image_processor=image_processor, **kwargs)
+        super().__init__(model, image_processor=image_processor, **kwargs)
 
         self.reset_config(**kwargs)
         self.stack = ops.Stack(axis=-1)

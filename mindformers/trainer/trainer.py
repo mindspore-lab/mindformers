@@ -24,21 +24,21 @@ from PIL.Image import Image
 import mindspore as ms
 from mindspore import Tensor
 from mindspore.common import set_seed
+from mindspore._checkparam import args_type_check
 from mindspore import load_checkpoint, load_param_into_net
 from mindspore.nn import TrainOneStepCell, Optimizer, Cell, \
     PipelineCell, MicroBatchInterleaved
 from mindspore.nn.wrap.cell_wrapper import _VirtualDatasetCell
 from mindspore.train import Callback
 from mindspore.dataset import GeneratorDataset
-from mindspore.dataset.engine.datasets import BatchDataset, RepeatDataset
+from mindspore.dataset.engine.datasets import BatchDataset, RepeatDataset, Dataset
 
 from mindformers.core.parallel_config import build_parallel_config
 from mindformers.dataset import build_dataset, build_dataset_loader, \
     check_dataset_config, BaseDataset
 from mindformers.mindformer_book import MindFormerBook
-from mindformers.models import build_model, BaseModel, BaseImageProcessor, \
+from mindformers.models import BaseModel, BaseImageProcessor, \
     BaseTokenizer, BaseAudioProcessor
-from mindformers.pet import get_pet_model
 from mindformers.tools.utils import set_output_path
 from mindformers.tools.logger import logger
 from mindformers.tools.register import MindFormerConfig
@@ -61,63 +61,85 @@ DEFAULT_CONFIG_DIR = 'configs'
 
 
 class Trainer:
-    """
+    r"""
     Executor of general task trainers. It can initialize a trainer instance of the specific task through the task name
     and configuration file. It provides users with the ability to implement different tasks by encapsulating
     the training, fine-tuning evaluation and prediction of trainer instance. It also allows users to customize
     the model, optimizer, dataset, tokenizer, processor, train_one_step, callback, and metric.
 
     Args:
-        args (Optional[Union[str, dict, ConfigArguments, TrainingArguments]]): The task config which is used to
-            configure the dataset, the hyper-parameter, optimizer, etc. It supports yaml path or
-            config dict or ConfigArguments class.
+        args (Optional[Union[str, TrainingArguments]]):
+            The task config which is used to configure the dataset, the hyper-parameter, optimizer, etc.
+            It supports yaml path or MindFormerConfig or TrainingArguments class.
             Default: None.
-        task (str): The task name supported.
-            Please refer to https://gitee.com/mindspore/transformer#%E4%BB%8B%E7%BB%8D.
+        task (str):
+            Supported task type can refer to
+            https://mindformers.readthedocs.io/zh-cn/latest/docs/model_support_list.html.
+
             Default: 'general'.
-        model (Optional[Union[str, Cell, BaseModel]]): The network for trainer.
-            It supports model name supported or BaseModel or MindSpore Cell class.
-            Supported model name can refer to https://gitee.com/mindspore/transformer#%E4%BB%8B%E7%BB%8D.
+        model (Optional[Union[str, BaseModel]]):
+            The network for trainer. It supports model name supported or BaseModel.
+            Supported model type can refer to
+            https://mindformers.readthedocs.io/zh-cn/latest/docs/model_support_list.html#.
             Default: None.
-        model_name (Optional[Union[str]]): The model name supported. Default: None.
-        train_dataset (Optional[Union[str, BaseDataset]]): The training dataset. It support real dataset path or
-            BaseDateset class or MindSpore Dataset class.
+        model_name (Optional[Union[str]]):
+            Supported model name can refer to
+            https://mindformers.readthedocs.io/zh-cn/latest/docs/model_support_list.html#.
+
+            When the incoming model or wrapper is a custom instance,
+            it is recommended to specify the supported model_name to get the base configuration of the model type.
             Default: None.
-        eval_dataset (Optional[Union[str, BaseDataset]]): The evaluate dataset. It support real dataset path or
-            BaseDateset class or MindSpore Dataset class.
+        pet_method (Optional[Union[str]]): Supported pet method name can refer to
+            https://mindformers.readthedocs.io/zh-cn/latest/docs/model_support_list.html#llm.
+
+            Default: ''.
+        train_dataset (Optional[Union[str, BaseDataset]]):
+            The training dataset. It support real dataset path or BaseDateset class or MindSpore Dataset class.
             Default: None.
-        tokenizer (Optional[BaseTokenizer]): The tokenizer for text preprocessing. It support BaseTokenizer class.
+        eval_dataset (Optional[Union[str, BaseDataset]]):
+            The evaluate dataset. It support real dataset path or BaseDateset class or MindSpore Dataset class.
             Default: None.
-        image_processor (Optional[BaseImageProcessor]): The processor for image preprocessing.
-            It supports BaseImageProcessor class.
+        tokenizer (Optional[BaseTokenizer]):
+            The tokenizer for text preprocessing. It support BaseTokenizer class.
             Default: None.
-        audio_processor (Optional[BaseAudioProcessor]): The processor for audio preprocessing.
-            It supports BaseAudioProcessor class.
+        image_processor (Optional[BaseImageProcessor]):
+            The processor for image preprocessing. It supports BaseImageProcessor class.
             Default: None.
-        optimizers (Optional[Optimizer]): The training network's optimizer. It support Optimizer class of MindSpore.
+        audio_processor (Optional[BaseAudioProcessor]):
+            The processor for audio preprocessing. It supports BaseAudioProcessor class.
             Default: None.
-        wrapper (Optional[TrainOneStepCell]): Wraps the `network` with the `optimizer`.
-            It supports TrainOneStepCell class of MindSpore.
+        optimizers (Optional[Optimizer]):
+            The training network's optimizer. It support Optimizer class of MindSpore.
             Default: None.
-        callbacks (Optional[Union[Callback, List[Callback]]]): The training callback function.
-            It supports CallBack or CallBack List of MindSpore.
+        wrapper (Optional[TrainOneStepCell]):
+            Wraps the `network` with the `optimizer`. It supports TrainOneStepCell class of MindSpore.
             Default: None.
-        eval_callbacks (Optional[Union[Callback, List[Callback]]]): The evaluate callback function.
-            It supports CallBack or CallBack List of MindSpore.
+        callbacks (Optional[Union[Callback, List[Callback]]]):
+            The training callback function. It supports CallBack or CallBack List of MindSpore.
             Default: None.
-        compute_metrics (Optional[Union[dict, set]]): The metric of evaluating.
-            It supports dict or set in MindSpore's Metric class.
+        eval_callbacks (Optional[Union[Callback, List[Callback]]]):
+            The evaluate callback function. It supports CallBack or CallBack List of MindSpore.
             Default: None.
-        save_config (bool): Save current the config of task. Default: False.
+        compute_metrics (Optional[Union[dict, set]]):
+            The metric of evaluating. It supports dict or set in MindSpore's Metric class.
+            Default: None.
+        save_config (bool):
+            Save current the config of task.
+            Default: False.
 
     Raises:
         KeyError: If 'task' or 'model' not in supported trainer.
     """
-
+    @args_type_check(
+        args=(str, MindFormerConfig, TrainingArguments), task=str, model=(str, BaseModel),
+        model_name=str, train_dataset=(str, BaseDataset, Dataset), eval_dataset=(str, BaseDataset, Dataset),
+        tokenizer=BaseTokenizer, image_processor=BaseImageProcessor, audio_processor=BaseAudioProcessor,
+        optimizers=Optimizer, wrapper=TrainOneStepCell, pet_method=str, callbacks=(Callback, list),
+        eval_callbacks=(Callback, list), compute_metrics=(dict, set), save_config=bool)
     def __init__(self,
-                 args: Optional[Union[str, dict, ConfigArguments, TrainingArguments]] = None,
+                 args: Optional[Union[str, MindFormerConfig, TrainingArguments]] = None,
                  task: Optional[str] = 'general',
-                 model: Optional[Union[str, Cell, BaseModel]] = None,
+                 model: Optional[Union[str, BaseModel]] = None,
                  model_name: Optional[Union[str]] = None,
                  train_dataset: Optional[Union[str, BaseDataset]] = None,
                  eval_dataset: Optional[Union[str, BaseDataset]] = None,
@@ -130,8 +152,7 @@ class Trainer:
                  callbacks: Optional[Union[Callback, List[Callback]]] = None,
                  eval_callbacks: Optional[Union[Callback, List[Callback]]] = None,
                  compute_metrics: Optional[Union[dict, set]] = None,
-                 save_config: bool = False,
-                 **kwargs):
+                 save_config: bool = False):
         self.task = task
         self.model = model
         self.model_name = model_name
@@ -148,7 +169,6 @@ class Trainer:
         self.compute_metrics = compute_metrics
         self.default_checkpoint_name_or_path = None
         self.configs_directory = os.path.join('.', DEFAULT_CONFIG_DIR)
-        self.kwargs = kwargs
 
         # set output path
         if isinstance(args, dict) and args.get('output_dir', None):
@@ -185,7 +205,6 @@ class Trainer:
                         shutil.copytree(mindformers_configs_directory, configs_directory)
                     except FileExistsError:
                         pass
-
         if wrapper is not None:
             if model is not None:
                 logger.warning(
@@ -193,9 +212,14 @@ class Trainer:
             if optimizers is not None:
                 logger.warning(
                     'wrapper has existed, input optimizers invalid, it should be include in wrapper.')
+            if self.model_name is None:
+                logger.warning("wrapper has existed, you are advised to pass the args of model_name."
+                               "Supported model name can refer to"
+                               "https://mindformers.readthedocs.io/zh-cn/latest/docs/model_support_list.html#.")
 
-        assert task in SUPPORT_TASKS.keys(), \
-            f"task name must be in {SUPPORT_TASKS.keys()}, but get {task}."
+        if task not in SUPPORT_TASKS.keys():
+            raise ValueError(
+                "The value of task must be in {}, but get {}".format(SUPPORT_TASKS.keys(), task))
         if isinstance(model, str):
             model = model + '_{}'.format(pet_method) if pet_method else model
             assert model in SUPPORT_MODEL_NAMES, \
@@ -213,6 +237,7 @@ class Trainer:
             self.is_model_instance = True
         else:
             self.is_model_instance = False
+            self.model_name = 'common'
 
         if self.is_model_instance and self.model_name is None:
             logger.warning(
@@ -262,10 +287,6 @@ class Trainer:
 
             self.config = task_config
 
-        if save_config:
-            self.save_config_to_yaml(self.config)
-            logger.info("save running config success of %s_new.", task_config.trainer.model_name.lower())
-
         # check dataset config
         if isinstance(train_dataset, str):
             assert os.path.exists(train_dataset), \
@@ -310,6 +331,12 @@ class Trainer:
         if self.trainer is None:
             raise ModuleNotFoundError("config must be contain 'trainer' key, but get None.")
 
+        if save_config:
+            self._save_config_to_yaml(self.config)
+            logger.info("save running config success of %s_new.", task_config.trainer.model_name.lower())
+
+    @args_type_check(train_checkpoint=(str, bool), resume_training=bool,
+                     auto_trans_ckpt=bool, do_eval=bool)
     def train(self,
               train_checkpoint: Optional[Union[str, bool]] = False,
               resume_training: Optional[bool] = None,
@@ -325,19 +352,22 @@ class Trainer:
                 Used to restore training or fine-tune the weight of the network.
                 It supports real checkpoint path or valid model name of mindformers or bool value.
                 if it's true, the last checkpoint file saved from the previous training round is automatically used.
-            resume_training (bool): Whether to perform resume training. Default: False.
-            auto_trans_ckpt: auto transform checkpoint to load in distributed model
-            do_eval (bool): Whether evaluations are performed during training. Default: False.
+            resume_training (bool):
+                Whether to perform resume training. Default: False.
+            auto_trans_ckpt:
+                auto transform checkpoint to load in distributed model
+            do_eval (bool):
+                Whether evaluations are performed during training. Default: False.
 
         Returns:
             None
 
         Raises:
-            TypeError: if resume_or_finetune_from_checkpoint is not bool or str type.
+            TypeError: if train_checkpoint is not bool or str type.
         """
         if train_checkpoint is not None and \
                 not isinstance(train_checkpoint, (bool, str)):
-            raise TypeError(f"resume_or_finetune_from_checkpoint must be one of [None, string, bool], "
+            raise TypeError(f"train_checkpoint must be one of [None, string, bool], "
                             f"but get {train_checkpoint}")
         if train_checkpoint is False:
             train_checkpoint = None
@@ -369,7 +399,7 @@ class Trainer:
             self.config.auto_trans_ckpt = auto_trans_ckpt
 
         if self.is_model_instance:
-            self.reset_model_instance(is_train=True)
+            self._reset_model_instance(is_train=True)
 
         self.trainer.train(
             config=self.config, network=self.model,
@@ -379,6 +409,8 @@ class Trainer:
             callbacks=self.callbacks,
             is_full_config=True, **kwargs)
 
+    @args_type_check(finetune_checkpoint=(str, bool), resume_training=bool,
+                     auto_trans_ckpt=bool, do_eval=bool)
     def finetune(self,
                  finetune_checkpoint: Optional[Union[str, bool]] = False,
                  resume_training: Optional[bool] = None,
@@ -396,9 +428,12 @@ class Trainer:
                 if it's true, the last checkpoint file saved from the previous training round is automatically used.
                 if resume_training is true, this checkpoint will be used to restore training of the network.
                 Default: False.
-            resume_training (bool): Whether to perform resume training. Default: False
-            auto_trans_ckpt: auto transform checkpoint to load in distributed model
-            do_eval (bool): Whether evaluations are performed during training. Default: False.
+            resume_training (bool):
+                Whether to perform resume training. Default: False
+            auto_trans_ckpt:
+                auto transform checkpoint to load in distributed model
+            do_eval (bool):
+                Whether evaluations are performed during training. Default: False.
 
         Returns:
             None
@@ -408,7 +443,7 @@ class Trainer:
         """
         if finetune_checkpoint is not None and \
                 not isinstance(finetune_checkpoint, (bool, str)):
-            raise TypeError(f"load_checkpoint must be one of [None, string, bool], "
+            raise TypeError(f"finetune_checkpoint must be one of [None, string, bool], "
                             f"but get {finetune_checkpoint}")
         if finetune_checkpoint is False:
             finetune_checkpoint = None
@@ -452,7 +487,7 @@ class Trainer:
             self.config.auto_trans_ckpt = auto_trans_ckpt
 
         if self.is_model_instance:
-            self.reset_model_instance(is_train=True)
+            self._reset_model_instance(is_train=True)
 
         self.trainer.train(
             config=self.config, network=self.model,
@@ -462,7 +497,10 @@ class Trainer:
             callbacks=self.callbacks,
             is_full_config=True, **kwargs)
 
-    def evaluate(self, eval_checkpoint: Optional[Union[str, bool]] = False, auto_trans_ckpt: Optional[bool] = None,
+    @args_type_check(eval_checkpoint=(str, bool), auto_trans_ckpt=bool)
+    def evaluate(self,
+                 eval_checkpoint: Optional[Union[str, bool]] = False,
+                 auto_trans_ckpt: Optional[bool] = None,
                  **kwargs):
         """
         The evaluation API of Trainer. After setting custom settings, implement evaluation by calling the
@@ -474,7 +512,8 @@ class Trainer:
                 It supports real checkpoint path or valid model name of mindformers or bool value.
                 if it's true, the last checkpoint file saved from the previous training round is automatically used.
                 Default: False.
-            auto_trans_ckpt: auto transform checkpoint to load in distributed model
+            auto_trans_ckpt:
+                auto transform checkpoint to load in distributed model
 
         Returns:
             None
@@ -514,13 +553,16 @@ class Trainer:
             self.config.auto_trans_ckpt = auto_trans_ckpt
 
         if self.is_model_instance:
-            self.reset_model_instance(is_train=False)
+            self._reset_model_instance(is_train=False)
 
         self.trainer.evaluate(
             config=self.config, network=self.model,
             dataset=self.eval_dataset, callbacks=self.eval_callbacks,
             is_full_config=True, **kwargs)
 
+    @args_type_check(predict_checkpoint=(str, bool), auto_trans_ckpt=bool,
+                     input_data=(GeneratorDataset, Tensor, np.ndarray, Image, str, list),
+                     batch_size=int)
     def predict(self,
                 predict_checkpoint: Optional[Union[str, bool]] = None,
                 auto_trans_ckpt: Optional[bool] = None,
@@ -538,9 +580,12 @@ class Trainer:
                 It supports real checkpoint path or valid model name of mindformers or bool value.
                 if it's true, the last checkpoint file saved from the previous training round is automatically used.
                 Default: False.
-            auto_trans_ckpt: auto transform checkpoint to load in distributed model
-            input_data (Optional[Union[Tensor, np.ndarray, Image, str, list]]): The predict data. Default: None.
-            batch_size (Optional[int]): Batch size of predict data. Default: None.
+            auto_trans_ckpt:
+                auto transform checkpoint to load in distributed model
+            input_data (Optional[Union[Tensor, np.ndarray, Image, str, list]]):
+                The predict data. Default: None.
+            batch_size (Optional[int]):
+                Batch size of predict data. Default: None.
 
         Return:
             predict result (dict).
@@ -597,7 +642,7 @@ class Trainer:
             " str, ms.Tensor, np.ndarray, PIL.Image.Image]"
 
         if self.is_model_instance:
-            self.reset_model_instance(is_train=False)
+            self._reset_model_instance(is_train=False)
 
         output_result = self.trainer.predict(
             config=self.config, input_data=input_data,
@@ -662,28 +707,11 @@ class Trainer:
             self.config.auto_trans_ckpt = auto_trans_ckpt
 
         if self.is_model_instance:
-            self.reset_model_instance(is_train=False)
+            self._reset_model_instance(is_train=False)
 
         self.trainer.export(config=self.config,
                             network=self.model,
                             is_full_config=True)
-
-
-    def build_network(self, input_checkpoint: Optional[Union[str, bool]] = None, is_train: bool = True):
-        """build network for trainer."""
-        if self.model is None and self.task != 'general':
-            logger.info("...........Start Init Network..........")
-            self.model = build_model(self.config.model)
-            if self.config.model.model_config.pet_config:
-                self.model = get_pet_model(self.model, self.config.model.model_config.pet_config)
-        # set running mode
-        if self.model is not None:
-            self.model.set_train(is_train)
-        else:
-            logger.warning("network will be create in %s task trainer class.", self.task)
-
-        if self.is_model_instance and input_checkpoint:
-            self._load_model_checkpoint()
 
     def set_parallel_config(
             self, data_parallel=1, model_parallel=1, expert_parallel=1, pipeline_stage=1, micro_batch_interleave_num=1,
@@ -794,7 +822,7 @@ class Trainer:
 
         self.is_set_moe_config = True
 
-    def reset_model_instance(self, is_train=True):
+    def _reset_model_instance(self, is_train=True):
         """Reset model instance for new model config."""
         if True not in [self.is_set_parallel_config, self.is_set_moe_config, self.is_set_recompute_config]:
             return
@@ -860,7 +888,7 @@ class Trainer:
                                         key=lambda x: os.path.getmtime(os.path.join(checkpoint_dir, x)))
         return os.path.join(checkpoint_dir, output_checkpoint_path[-1])
 
-    def save_config_to_yaml(self, config: dict = None):
+    def _save_config_to_yaml(self, config: dict = None):
         """save now config file to yaml file."""
         if config is None:
             config = self.config

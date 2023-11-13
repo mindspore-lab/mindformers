@@ -55,8 +55,18 @@ def build_context(config):
         context.set_auto_parallel_context(strategy_ckpt_load_file=config.parallel.strategy_ckpt_load_file)
 
 
-def init_context(use_parallel=True, context_config=None, parallel_config=None):
-    """Context initialization for MindSpore."""
+def init_context(use_parallel=False, context_config=None, parallel_config=None):
+    """Context initialization for MindSpore.
+    Args:
+        use_parallel (Optional[Union[bool]]):
+            Whether to use distributed training. Default: False.
+        context_config (Optional[Union[dict, ContextConfig]]):
+            Context Config For Running Environment. Default: None.
+        parallel_config (Optional[Union[dict, ParallelContextConfig]]):
+            Parallel Config For Running Environment. Default: None.
+
+    Returns: rank_id, device_num.
+    """
 
     if isinstance(context_config, ContextConfig):
         context_config = context_config.__dict__
