@@ -74,7 +74,7 @@ class Trainer:
             Default: None.
         task (str):
             Supported task type can refer to
-            https://mindformers.readthedocs.io/zh-cn/latest/docs/model_support_list.html.
+            https://mindformers.readthedocs.io/zh-cn/latest/docs/model_support_list.html#.
 
             Default: 'general'.
         model (Optional[Union[str, BaseModel]]):
@@ -89,7 +89,8 @@ class Trainer:
             When the incoming model or wrapper is a custom instance,
             it is recommended to specify the supported model_name to get the base configuration of the model type.
             Default: None.
-        pet_method (Optional[Union[str]]): Supported pet method name can refer to
+        pet_method (Optional[Union[str]]):
+            Supported pet method name can refer to
             https://mindformers.readthedocs.io/zh-cn/latest/docs/model_support_list.html#llm.
 
             Default: ''.
@@ -713,6 +714,9 @@ class Trainer:
                             network=self.model,
                             is_full_config=True)
 
+    @args_type_check(data_parallel=int, model_parallel=int, expert_parallel=int, pipeline_stage=int,
+                     micro_batch_interleave_num=int, micro_batch_num=int, use_seq_parallel=bool, optimizer_shard=bool,
+                     gradient_aggregation_group=int, vocab_emb_dp=bool)
     def set_parallel_config(
             self, data_parallel=1, model_parallel=1, expert_parallel=1, pipeline_stage=1, micro_batch_interleave_num=1,
             micro_batch_num=1, use_seq_parallel=False, optimizer_shard=False,
@@ -722,19 +726,29 @@ class Trainer:
         The parallel configure setting for Trainer.
 
         Args:
-            data_parallel (int): The data parallel way. The input data will be sliced into n parts for each layer
+            data_parallel (int):
+                The data parallel way. The input data will be sliced into n parts for each layer
                 according to the data parallel way. Default: 1.
-            model_parallel (int): The model parallel way. The parameters of dense layers in Multi-head Attention and
+            model_parallel (int):
+                The model parallel way. The parameters of dense layers in Multi-head Attention and
                 FeedForward layer will be sliced according to the model parallel way. Default: 1.
-            expert_parallel (int): The expert parallel way. This is effective only when MoE (Mixture of Experts)
+            expert_parallel (int):
+                The expert parallel way. This is effective only when MoE (Mixture of Experts)
                 is applied. This value specifies the number of partitions to split the experts into.
-            pipeline_stage (int): The number of the pipeline stage. Should be a positive value. Default: 1.
-            micro_batch_num (int): The micro size of the batches for the pipeline training. Default: 1.
-            use_seq_parallel (bool): Whether to enable sequence parallel. Default False.
-            optimizer_shard (bool): Whether to enable optimizer shard. Default False.
-            gradient_aggregation_group (int): The fusion group size of the optimizer state sharding. Default: 4.
-            vocab_emb_dp (bool): Shard embedding in model parallel or data parallel. Default: True.
-            micro_batch_interleave_num (int): split num of batch size. Default: 1.
+            pipeline_stage (int):
+                The number of the pipeline stage. Should be a positive value. Default: 1.
+            micro_batch_num (int):
+                The micro size of the batches for the pipeline training. Default: 1.
+            use_seq_parallel (bool):
+                Whether to enable sequence parallel. Default False.
+            optimizer_shard (bool):
+                Whether to enable optimizer shard. Default False.
+            gradient_aggregation_group (int):
+                The fusion group size of the optimizer state sharding. Default: 4.
+            vocab_emb_dp (bool):
+                Shard embedding in model parallel or data parallel. Default: True.
+            micro_batch_interleave_num (int):
+                split num of batch size. Default: 1.
 
         Returns:
             None
@@ -752,20 +766,28 @@ class Trainer:
 
         self.is_set_parallel_config = True
 
+    @args_type_check(recompute=bool, parallel_optimizer_comm_recompute=bool,
+                     select_recompute=bool, mp_comm_recompute=bool,
+                     recompute_slice_activation=bool)
     def set_recompute_config(self, recompute=False, parallel_optimizer_comm_recompute=False, select_recompute=False,
                              mp_comm_recompute=True, recompute_slice_activation=False):
         r"""
         Set recompute config.
 
         Args:
-            recompute (bool): Enable recomputation of the transformer block or not. Default: False.
-            select_recompute (bool): Only Enable recomputation of the attention layer or not. Default: False.
-            parallel_optimizer_comm_recompute (bool): Specifies whether the communication operator allgathers
+            recompute (bool):
+                Enable recomputation of the transformer block or not. Default: False.
+            select_recompute (bool):
+                Only Enable recomputation of the attention layer or not. Default: False.
+            parallel_optimizer_comm_recompute (bool):
+                Specifies whether the communication operator allgathers
                 introduced by optimizer shard are recomputed in auto parallel or semi auto parallel mode.
                 Default: False.
-            mp_comm_recompute (bool): Specifies whether the model parallel communication operators
+            mp_comm_recompute (bool):
+                Specifies whether the model parallel communication operators
                 in the cell are recomputed in auto parallel or semi auto parallel mode. Default: True.
-            recompute_slice_activation (bool): Slice the cell output which would remains in memory. Default: False.
+            recompute_slice_activation (bool):
+                Slice the cell output which would remains in memory. Default: False.
 
         Returns:
             None
@@ -778,6 +800,8 @@ class Trainer:
 
         self.is_set_recompute_config = True
 
+    @args_type_check(expert_num=int, capacity_factor=float, aux_loss_factor=float, num_experts_chosen=int,
+                     expert_group_size=int, group_wise_a2a=bool, comp_comm_parallel=bool, comp_comm_parallel_degree=int)
     def set_moe_config(self,
                        expert_num=1,
                        capacity_factor=1.1,
@@ -791,21 +815,29 @@ class Trainer:
         Sef the configuration of MoE (Mixture of Expert).
 
         Args:
-            expert_num (int): The number of experts employed. Default: 1
-            capacity_factor (float): The factor is used to indicate how much to expand expert capacity,
+            expert_num (int):
+                The number of experts employed. Default: 1
+            capacity_factor (float):
+                The factor is used to indicate how much to expand expert capacity,
                 which is >=1.0. Default: 1.1.
-            aux_loss_factor (float): The factor is used to indicate how much the load balance loss (produced by the
+            aux_loss_factor (float):
+                The factor is used to indicate how much the load balance loss (produced by the
                 router) to be added to the entire model loss, which is < 1.0. Default: 0.05.
-            num_experts_chosen (int): The number of experts is chosen by each token, it should not be larger
+            num_experts_chosen (int):
+                The number of experts is chosen by each token, it should not be larger
                 than expert_num. Default: 1.
-            expert_group_size (int): The number of tokens in each data parallel group. Default: None. This parameter is
+            expert_group_size (int):
+                The number of tokens in each data parallel group. Default: None. This parameter is
                 effective only when in AUTO_PARALLEL mode, and NOT SHARDING_PROPAGATION.
-            group_wise_a2a (bool): Whether to enable group-wise alltoall communication, which can reduce communication
+            group_wise_a2a (bool):
+                Whether to enable group-wise alltoall communication, which can reduce communication
                 time by converting part of intercommunication into intra communication. Default: False. This parameter
                 is effective only when model parallel > 1 and data_parallel equal to expert parallel.
-            comp_comm_parallel (bool): Whether to enable ffn compute and communication parallel, which can reduce pure
+            comp_comm_parallel (bool):
+                Whether to enable ffn compute and communication parallel, which can reduce pure
                 communication time by splitting and overlapping compute and communication. Default: False.
-            comp_comm_parallel_degree (int): The split number of compute and communication. The larger the numbers,
+            comp_comm_parallel_degree (int):
+                The split number of compute and communication. The larger the numbers,
                 the more overlap there will be but will consume more memory. Default: 2. This parameter is effective
                 only when comp_comm_parallel enable.
         Returns:
