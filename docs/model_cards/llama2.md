@@ -60,7 +60,7 @@ Llama 2，是Meta基于LLaMA 1的更新版本，基于新的公开可用数据�
 - CANN: 7.0
 - MindFormers版本：dev
 
-注：7b,13b推理可在单机单卡上完成部署，70b推理至少使用4卡；全量微调至少需要单机8卡。
+注：7b,13b推理可在单机单卡上完成部署；70b推理至少使用4卡，全量微调至少需要4机32卡。
 
 ### [mindformers安装](../../README.md#二mindformers安装)
 
@@ -229,7 +229,7 @@ mindspore_ckpt_path: 权重保存文件名，可以指定自定义保存路径
 
 分布式训练/微调后所得到的权重文件为根据策略切分后的权重，需要手动将切分权重合一，以用于评估和推理。
 
-涉及到ckpt的单卡，多卡转换，详细教程请参考特性文档模型[权重切分与合并](
+涉及到ckpt的单卡，多卡转换，详细教程请参考特性文档模型[权重切分与合并](../feature_cards/Transform_Ckpt.md)
 
 - step 1. 获取模型切分策略文件：
 
@@ -283,10 +283,10 @@ model = AutoModel.from_config(config)   # 从自定义配置项中实例化模�
 
 inputs = tokenizer("I love Beijing, because")["input_ids"]
 # 首次调用model.generate()进行推理将包含图编译时间，推理性能显示不准确，多次重复调用以获取准确的推理性能
-outputs = model.generate(inputs, max_new_tokens=20, do_sample=True, top_k=3)
+outputs = model.generate(inputs, max_new_tokens=30, do_sample=False)
 response = tokenizer.decode(outputs)
 print(response)
-# ['<s>I love Beijing, because it’s a city that has everything: the old and the new, the modern and the ancient']
+# ['<s>I love Beijing, because it’s a city that is constantly changing. I have been living here for 10 years and I have seen the city change so much.I']
 ```
 
 ### 基于Trainer的快速评测，推理
@@ -311,7 +311,7 @@ trainer.evaluate()
 
 # 开启推理
 predict_result = trainer.predict(input_data="I love Beijing, because")
-# [{'text_generation_text': ['<s>I love Beijing, because it’s a city that has everything: the old and the new, the modern and the ancient']}]
+# [{'text_generation_text': ['<s>I love Beijing, because it’s a a city that is constantly changing. I have been living here for 10 years and I have']}]
 ```
 
 ### 基于Pipeline的快速推理
@@ -323,10 +323,10 @@ from mindformers.pipeline import pipeline
 # 指定图模式，指定使用训练卡id
 mindspore.set_context(mode=0, device_id=0)
 
-pipeline_task = pipeline("text_generation", model='llama2_7b', max_length=20)
-pipeline_result = pipeline_task("I love Beijing, because", do_sample=True, top_k=3)
+pipeline_task = pipeline("text_generation", model='llama2_7b', max_length=30)
+pipeline_result = pipeline_task("I love Beijing, because", do_sample=False)
 print(pipeline_result)
-# [{'text_generation_text': ['<s>I love Beijing, because it’s a city that has everything: the old and the new, the modern and the ancient']}]
+# [{'text_generation_text': ['<s>I love Beijing, because it’s a a city that is constantly changing. I have been living here for 10 years and I have']}]
 ```
 
 ## 预训练
@@ -409,9 +409,9 @@ parallel_config:
 
 ```shell
 # 第一台机器
-bash run_distribute.sh {RANK_TABLE_FILE path of the first device} ../configs/llama/run_llama_7b.yaml [0,8] train 16
+bash run_distribute.sh {RANK_TABLE_FILE path of the first device} ../configs/llama2/run_llama2_13b.yaml [0,8] train 16
 # 第二台机器
-bash run_distribute.sh {RANK_TABLE_FILE path of the second device} ../configs/llama/run_llama_7b.yaml [8,16] train 16
+bash run_distribute.sh {RANK_TABLE_FILE path of the second device} ../configs/llama2/run_llama2_13b.yaml [8,16] train 16
 ```
 
 ## 微调
@@ -805,7 +805,7 @@ import os
 from mindspore import load_checkpoint, load_param_into_net
 from mindspore.train import Model
 
-from mindformers import MindformerConfig, LlamaConfig, TransformerOpParallelConfig, AutoTokenizer, LlamaForCausalLM
+from mindformers import MindFormerConfig, LlamaConfig, TransformerOpParallelConfig, AutoTokenizer, LlamaForCausalLM
 from mindformers import init_context, ContextConfig, ParallelContextConfig
 from mindformers.tools.utils import str2bool
 from mindformers.trainer.utils import get_last_checkpoint
@@ -830,8 +830,6 @@ def main(args):
     model_config.parallel_config = TransformerOpParallelConfig(**config.parallel_config)
     model_config.batch_size = len(inputs)
     model_config.use_past = args.use_past
-    model_config.do_sample = args.do_sample
-    model_config.top_k = args.top_k
     model_config.seq_length = args.seq_length
     if args.checkpoint_path and not config.use_parallel:
         model_config.checkpoint_name_or_path = args.checkpoint_path
@@ -840,7 +838,7 @@ def main(args):
     # build tokenizer
     tokenizer = AutoTokenizer.from_pretrained(args.model_type)
     # build model from config
-    model = LlamaForCalsualLM(model_config)
+    model = LlamaForCausalLM(model_config)
 
     # if use parallel, load distributed checkpoints
     if config.use_parallel:
@@ -882,6 +880,11 @@ if __name__ == "__main__":
                         help='predict max length')
     args = parser.parse_args()
     main(args)
+
+# 多batch输出
+# <s>I love Beijing,because it is a city that is constantly changing. I have been living here for 10 years ...
+# <s>LlaMa is a large-scale, open-source, multimodal, multilingual, multitask, and mulyimodal pretrained language model....
+# <s>Huawei is a company that has been around for a long time. ...
 ```
 
 以下为多卡运行自定义多batch推理的脚本
@@ -891,18 +894,19 @@ if __name__ == "__main__":
 export RANK_TABLE_FILE=$1
 CHECKPOINT_PATH=$2
 YAML_FILE=$3
+MODEL_TYPE=$4
 # define variable
-export RANK_SIZE=$4
-export START_RANK=$5 # this server start rank
+export RANK_SIZE=$5
+export START_RANK=$6 # this server start rank
 let END_RANK=START_RANK+RANK_SIZE # this server end rank
 
 # run
 for((i=${START_RANK}; i<${END_RANK}; i++))
 do
-    export RANK_ID=$i
-    export DEVICE_ID=$((i-START_RANK))
+    export RANK_ID=$((i-START_RANK))
+    export DEVICE_ID=$i
     echo "Start distribute running for rank $RANK_ID, device $DEVICE_ID"
-    python3 ./predict_custom.py --checkpoint_path $CHECKPOINT_PATH --yaml_file ${YAML_FILE} &> minformers_$RANK_ID.log &
+    python3 ./predict_custom.py --checkpoint_path $CHECKPOINT_PATH --yaml_file ${YAML_FILE} --model_type ${MODEL_TYPE} &> mindformers_$RANK_ID.log &
 done
 ```
 
@@ -925,7 +929,7 @@ python predict_custom.py --yaml_file path/to/config_yaml --checkpoint_path path/
 
 ```bash
 # 以llama2-7b 2卡推理为例,此时的checkpoint必须是已经切分好的ckpt,shard_checkpoint_dir文件夹下为rank_{}的文件夹。
-bash run_predict.sh RANK_TABLE_FILE path/to/shard_checkpoint_dir path/to/config_yaml 2 0
+bash run_predict.sh RANK_TABLE_FILE path/to/shard_checkpoint_dir path/to/config_yaml llama2_7b 2 0
 ```
 
 **注**：几卡推理就要在yaml配置中将相应的parallel_config 中的model_parallel置为2，其余置为1。
@@ -947,7 +951,7 @@ micro_batch_interleave_num: 1
 
 ### 基于pipeline的推理
 
-以下为基于pipeline接口的自定义推理脚本，支持多卡多batch推理。
+以下为基于pipeline接口的自定义推理脚本，支持多卡推理。
 
 ```python
 # predict_custom.py 文件
@@ -958,7 +962,7 @@ import os
 from mindspore import load_checkpoint, load_param_into_net
 from mindspore.train import Model
 
-from mindformers import AutoConfig, AutoTokenizer, AutoModel, pipeline
+from mindformers import MindFormerConfig, LlamaConfig, TransformerOpParallelConfig, AutoTokenizer, LlamaForCausalLM, pipeline
 from mindformers import init_context, ContextConfig, ParallelContextConfig
 from mindformers.tools.utils import str2bool
 from mindformers.trainer.utils import get_last_checkpoint
@@ -966,7 +970,7 @@ from mindformers.trainer.utils import get_last_checkpoint
 
 def main(args):
     """main function."""
-    # 多batch输入
+    # 多输入
     inputs = ["I love Beijing, because",
               "LLaMA is a",
               "Huawei is a company that"]
@@ -981,10 +985,7 @@ def main(args):
 
     model_config = LlamaConfig(**config.model.model_config)
     model_config.parallel_config = TransformerOpParallelConfig(**config.parallel_config)
-    model_config.batch_size = len(inputs)
     model_config.use_past = args.use_past
-    model_config.do_sample = args.do_sample
-    model_config.top_k = args.top_k
     model_config.seq_length = args.seq_length
     if args.checkpoint_path and not config.use_parallel:
         model_config.checkpoint_name_or_path = args.checkpoint_path
@@ -992,8 +993,9 @@ def main(args):
 
     # build tokenizer
     tokenizer = AutoTokenizer.from_pretrained(args.model_type)
-    # build model from config
-    model = AutoModel.from_config(model_config)
+
+    model = LlamaForCausalLM(model_config)
+    model.set_train(False)
 
     # if use parallel, load distributed checkpoints
     if config.use_parallel:
@@ -1035,6 +1037,11 @@ if __name__ == "__main__":
                         help='predict max length')
     args = parser.parse_args()
     main(args)
+
+# 单输出
+# 'text_generation_text':['I love Beijing,because it is a city that is constantly changing. I have been living here for 10 years ...
+# 'text_generation_text':['LlaMa is a large-scale, open-source, multimodal, multilingual, multitask, and multimodal pretrained language model....
+# 'text_generation_text':['Huawei is a company that has been around for a long time. ...
 ```
 
 以下为多卡运行自定义多batch推理的脚本
@@ -1044,40 +1051,54 @@ if __name__ == "__main__":
 export RANK_TABLE_FILE=$1
 CHECKPOINT_PATH=$2
 YAML_FILE=$3
+MODEL_TYPE=$4
 # define variable
-export RANK_SIZE=$4
-export START_RANK=$5 # this server start rank
+export RANK_SIZE=$5
+export START_RANK=$6 # this server start rank
 let END_RANK=START_RANK+RANK_SIZE # this server end rank
 
 # run
 for((i=${START_RANK}; i<${END_RANK}; i++))
 do
-    export RANK_ID=$i
-    export DEVICE_ID=$((i-START_RANK))
+    export RANK_ID=$((i-START_RANK))
+    export DEVICE_ID=$i
     echo "Start distribute running for rank $RANK_ID, device $DEVICE_ID"
-    python3 ./predict_custom.py --transformed_checkpoint_path $CHECKPOINT_PATH --yaml_file ${YAML_FILE} &> minformers_$RANK_ID.log &
+    python3 ./predict_custom.py --checkpoint_path $CHECKPOINT_PATH --yaml_file ${YAML_FILE} --model_type ${MODEL_TYPE} &> mindformers_$RANK_ID.log &
 done
 ```
 
 #### 单卡pipeline推理
 
+与基于generate推理的单卡推理命令一致。
+
+1. 修改yaml文件
+
+```python
+use_parallel: False
+```
+
+2. 执行以下命令
+
 ```bash
-python predict_custom.py --yaml_file path/to/config_yaml
+# 以llama2-7b 单卡推理为例,checkpoint_path为权重文件，后缀为.ckpt
+python predict_custom.py --yaml_file path/to/config_yaml --checkpoint_path path/to/checkpoint.ckpt --model_type llama2_7b
 ```
 
 #### 多卡pipeline推理
 
 ```bash
 # 以llama2-7b 2卡推理为例,此时的checkpoint必须是已经切分好的ckpt
-bash run_predict.sh RANK_TABLE_FILE path/to/shard_checkpoint_dir path/to/config_yaml 2 0
+bash run_predict.sh RANK_TABLE_FILE path/to/shard_checkpoint_dir path/to/config_yaml llama2_7b 2 0
 ```
+
+> 注：config_yaml的配置也要和基于generate的多卡推理一样将model_parallel 修改为相应卡数，而data_parallel 和 pipeline_stage设置为1。
 
 ### 基于run_mindformer分布式推理
 
 #### 单卡推理
 
 ```bash
-python run_mindformer.py --config configs/pangualpha/run_llama_7b.yaml --run_mode predict --predict_data 'I love Beijing, because' --use_parallel False
+python run_mindformer.py --config configs/llama2/run_llama2_7b.yaml --run_mode predict --predict_data 'I love Beijing, because' --use_parallel False
 ```
 
 **注**：要提高推理速度，可在对应模型配置文件中进行如下配置，设置增量推理`use_past`为True。
@@ -1088,7 +1109,7 @@ use_past: True          # 开启增量推理
 pretrain_seqlen: 2048
 extend_method: "None"
 offset: 0
-checkpoint_name_or_path: "llama_7b"
+checkpoint_name_or_path: "llama2_7b"
 repetition_penalty: 1
 max_decode_length: 512
 top_k: 3
@@ -1157,7 +1178,7 @@ python mindformers/tools/export.py --config_path configs/llama2/export_llama2_7b
    ge.exec.precision_mode=must_keep_origin_dtype
    ```
 
-   910B配置如下：
+   910B默认配置如下：
 
    ```ini
    [ascend_context]
@@ -1165,6 +1186,23 @@ python mindformers/tools/export.py --config_path configs/llama2/export_llama2_7b
    provider=ge
    [ge_session_options]
    ge.exec.formatMode=1
+   ge.exec.precision_mode=must_keep_origin_dtype
+   ```
+
+   910B 高性能配置如下：
+
+   > 注: 高性能暂不支持llama2_7b
+
+   ```ini
+   [ascend_context]
+   plugin_custom_ops=All
+   provider=ge
+   [ge_session_options]
+   ge.externalWeight=1
+   ge.exec.formatMode=1
+   ge.exec.atomicCleanPolicy=1
+   ge.event=notify
+   ge.exec.staticMemoryPolicy=2
    ge.exec.precision_mode=must_keep_origin_dtype
    ```
 
@@ -1189,5 +1227,5 @@ I love Beijing, because
 　　输出：
 
 ```bash
-I love Beijing, because it is a city that is constantly changing. I have been living here for years and I...
+I love Beijing, because it is a city that is constantly changing. I have been living here for 10 years and I...
 ```
