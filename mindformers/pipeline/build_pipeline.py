@@ -23,10 +23,14 @@ def build_pipeline(
     Instantiate the task pipeline from MindFormerRegister's registry.
 
     Args:
-        config (dict): The task pipeline's config.
-        default_args (dict): The default args of pipeline.
-        module_type (str): The module type of MindFormerModuleType. Default: 'pipline'.
-        class_name (str): The class name of task pipeline.
+        config (dict):
+            The task pipeline's config.
+        default_args (dict):
+            The default args of pipeline.
+        module_type (str):
+            The module type of MindFormerModuleType. Default: 'pipline'.
+        class_name (str):
+            The class name of task pipeline.
 
     Returns:
         The task pipeline instance by config.
