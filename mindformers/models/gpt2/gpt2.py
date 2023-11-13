@@ -414,10 +414,18 @@ class GPT2Model(nn.Cell):
         self.num_layers = config.num_layers
         self.position_ids = Tensor(np.arange(config.seq_length), mstype.int32)
         self.is_first_iteration = True
+        self.use_past = config.use_past
+        if self.use_past:
+            self.ones = P.Ones()
 
     def construct(self, input_ids, attention_mask, input_position=None, init_reset=True, batch_valid_length=None):
         """GPT model"""
         batch_size, seq_length = F.shape(input_ids)
+        if self.use_past:
+            if not isinstance(init_reset, Tensor):
+                init_reset = Tensor([init_reset], mstype.bool_)
+            if not isinstance(batch_valid_length, Tensor):
+                batch_valid_length = self.ones((batch_size, 1), mstype.int32)
 
         # When input_position is None, the phase is train mode. When the phase is train mode and is the first iteration
         # of incremental reasoning, it goes into the following logic.
