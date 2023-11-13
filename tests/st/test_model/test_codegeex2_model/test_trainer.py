@@ -69,7 +69,7 @@ class TestCodeGeeX2TrainerMethod:
         eval_dataset = eval_dataset.batch(batch_size=2)
 
         model_config = ChatGLM2Config(num_layers=2, seq_length=128, hidden_size=32, inner_hidden_size=None,
-                                      num_heads=2, position_encoding_2d=True)
+                                      num_heads=2, position_encoding_2d=True, padded_vocab_size=64793)
         model = ChatGLM2ForConditionalGeneration(model_config)
         self.tokenizer = AutoTokenizer.from_pretrained("codegeex2_6b")
         self.task_trainer = Trainer(task='text_generation',
