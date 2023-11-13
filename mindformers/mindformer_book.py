@@ -553,11 +553,9 @@ class MindFormerBook:
         ('blip2', OrderedDict([
             ('stage1', [
                 'blip2_stage1_vit_g',
-                'blip2_stage1_pretrained',
                 'blip2_stage1_evaluator',
                 'blip2_stage1_classification']),
             ('stage2', [
-                'blip2_stage1_pretrained',
                 'blip2_stage2_vit_g_baichuan_7b',
                 'blip2_stage2_vit_g_llama_7b'])
         ])),
@@ -740,10 +738,6 @@ class MindFormerBook:
             'clip_vit_l_14',
             'clip_vit_l_14@336',
             'mindspore/clip_vit_b_32'
-        ]),
-        ('blip2', [
-            'blip2_stage1_vit_g',
-            'blip2_stage1_classification'
         ]),
         ('bert', [
             'bert_base_uncased',
