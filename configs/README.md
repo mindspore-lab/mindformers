@@ -52,7 +52,7 @@ configs统一在run_xxx.yaml中，排序按照修改频率的顺序和一般的�
         - loss_scale_value: 缩放系数
 - use_parallel: 是否开启并行
 - parallel: 自动并行配置，可以参考：[mindspore.set_auto_parallel_context](https://www.mindspore.cn/docs/zh-CN/r2.0/api_python/mindspore/mindspore.set_auto_parallel_context.html)
-    - parallel_mode: 并行模式，0-dataset数据并行, 1-semi半自动并行, 2-auto自动并行, 3-hybrid手工实现并行
+    - parallel_mode: 并行模式，0-dataset数据并行, 1-semi半自动并行, 2-auto自动并行, 3-hybrid手工实现并行。auto自动并行相关说明参考[自动并行](../docs/feature_cards/Auto_Parallel.md)
     - gradients_mean: 是否在梯度AllReduce后执行平均算子。通常半自动并行模式下为False，数据并行模式下为True
     - enable_alltoall: 允许在通信期间生成AllToAll通信算子的开关。通常仅在MOE场景下打开，默认False
     - full_batch: 在auto_parallel模式下加载整个batch数据集时为True。半自动并行模式通常设置为True，数据并行模式必须设置为False，否则会报错
@@ -60,10 +60,11 @@ configs统一在run_xxx.yaml中，排序按照修改频率的顺序和一般的�
     - enable_parallel_optimizer: 数据并行训练时对权重更新计算进行分片。优化器并行开关，在数据并行训练时默认会将模型权重参数切分成device_num份；半自动并行时默认将模型权重参数切份data_parallel份
     - strategy_ckpt_save_file: 保存并行切分策略的路径。
 - parallel_config: 并行策略配置，可以参考mindformers.modules.transformer.TransformerOpParallelConfig
-    - data_parallel: 数据并行
-    - model_parallel: 模型并行
-    - pipeline_stage: 流水线并行
-  > 需要满足实际运行的卡数 device_num = data_parallel × model_parallel × pipeline_stage
+    - data_parallel: 数据并行，自动并行双递归策略搜索算法下无需配置
+    - model_parallel: 模型并行，自动并行双递归策略搜索算法下无需配置
+    - mem_coeff: 自动并行双递归策略搜索算法下需配置，控制策略生成更倾向于数据并行或者模型并行，数值越大，模型并行数越大。配置值范围为[0.125, 1024], 配置值为0.125时，生成纯数据并行策略；配置值为2014时，生成纯模型并行策略；
+  - pipeline_stage: 流水线并行
+  > 需要满足实际运行的卡数 device_num = data_parallel × model_parallel × pipeline_stage。自动并行下无此约束，但要保证stage内的卡数 stage_device_num是2的幂
     - use_seq_parallel: 是否开启序列并行
     - micro_batch_num: 流水线并行的微批次大小。pipeline_satge大于1时，开启流水并行时使用，此处需满足micro_batch_num >= pipeline_satge
     - gradient_aggregation_group: 梯度通信算子融合组的大小
