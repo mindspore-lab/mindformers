@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-'''download_tools'''
+"""download_tools"""
 import time
 import os
 import requests
@@ -23,6 +23,7 @@ from tqdm import tqdm
 from mindspore.parallel._utils import _get_device_num
 
 from mindformers.tools.logger import logger
+
 try:
     import fcntl
 except ImportError:
@@ -32,9 +33,11 @@ except ImportError:
 
 urllib3.disable_warnings()
 
+
 class StatusCode:
-    '''StatusCode'''
+    """StatusCode"""
     succeed = 200
+
 
 def download_with_progress_bar(url, filepath, chunk_size=1024, timeout=4):
     """download_with_progress_bar"""
@@ -45,7 +48,7 @@ def download_with_progress_bar(url, filepath, chunk_size=1024, timeout=4):
     if local_id % 8 != 0 and device_num > 1:
         logger.info("Wait for the first card to download file. ")
         while True:
-            if os.path.exists(filepath+".lock"):
+            if os.path.exists(filepath + ".lock"):
                 return True
             if os.path.exists(filepath + ".error"):
                 return False
@@ -100,9 +103,14 @@ def download_with_progress_bar(url, filepath, chunk_size=1024, timeout=4):
                     size += len(data)
                     pbar.update(1024)
         end = time.time()
-        logger.info('Download completed!,times: %.2fs', (end - start))
-        if not os.path.exists(filepath+".lock"):
-            os.mknod(filepath+".lock")
+        if size == content_size:
+            logger.info('Download completed!, times: %.2fs', (end - start))
+        else:
+            logger.error("The downloaded file is incomplete, please delete the local file and download it manually. "
+                         "Please download %s to %s.", url, filepath)
+            return False
+        if not os.path.exists(filepath + ".lock"):
+            os.mknod(filepath + ".lock")
         return True
 
     logger.error("%s is unconnected!", url)
