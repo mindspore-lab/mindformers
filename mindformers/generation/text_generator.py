@@ -32,7 +32,7 @@ from mindformers.generation.logits_process import (LogitNormalization, LogitsPro
                                                    TemperatureLogitsWarper, TopKLogitsWarper,
                                                    TopPLogitsWarper)
 from mindformers.generation.streamers import BaseStreamer
-from mindformers.generation.utils import softmax
+from mindformers.generation.utils import softmax_with_threads
 from mindformers.tools import logger
 
 __all__ = ["GeneratorMixin"]
@@ -372,8 +372,8 @@ class GeneratorMixin:
                 if need_gather_logits and logits.shape[0] > len(current_index):
                     logits = logits[current_index]
                 # post process logits, without changing logits shape and order
-                probs = logits_processor(input_ids, logits)
-                probs = logits_warper(input_ids, probs)
+                probs = logits_processor(input_ids, logits, is_finished)
+                probs = logits_warper(input_ids, probs, is_finished)
                 p_args = np.tile(np.arange(logits.shape[-1]), (batch_size, 1))
             else:
                 probs, p_args = res
@@ -384,6 +384,9 @@ class GeneratorMixin:
             sample_time = time.time() - sample_time
 
             update_time = time.time()
+            if generation_config.do_sample:
+                p_norms = softmax_with_threads(probs, is_finished)
+
             # Random select a token as final output for this round
             target_list = [[] for _ in range(batch_size)]
             for i in range(batch_size):
@@ -391,7 +394,7 @@ class GeneratorMixin:
                     continue
                 if generation_config.do_sample:
                     # multinomial sample
-                    p_norm = softmax(probs[i])
+                    p_norm = p_norms[i]
                     target_index = np.random.choice(len(probs[i]), p=p_norm)
                 else:
                     # greedy
