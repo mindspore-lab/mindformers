@@ -679,7 +679,7 @@ from mindformers.models.glm import GLMConfig, GLMChatModel
 from mindformers.models.glm.chatglm_6b_tokenizer import ChatGLMTokenizer
 from mindformers.models.glm.glm_processor import process_response
 from mindformers.pet.pet_config import LoraConfig
-from mindformres.pet import get_pet_model
+from mindformers.pet import get_pet_model
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--seq_length', default=1024, type=int, help='Which device to run service.')
@@ -704,7 +704,8 @@ config = GLMConfig(
 pet_config = LoraConfig(
     lora_rank=8,
     lora_alpha=32,
-    lora_dropout=0.1
+    lora_dropout=0.1,
+    target_modules = '.*query_key_value*'
 )
 
 
