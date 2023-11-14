@@ -33,16 +33,19 @@ class ZeroShotImageClassificationPipeline(BasePipeline):
     """Pipeline For Zero Shot Image Classification
 
     Args:
-        model (Union[str, BaseModel]): The model used to perform task,
-            the input could be a supported model name, or a model instance
+        model (Union[str, BaseModel]):
+            The model used to perform task, the input could be a supported model name, or a model instance
             inherited from BaseModel.
-        tokenizer (Optional[BaseTokenizer]): A tokenizer for text processing.
-        image_processor (Optional[BaseImageProcessor]): The image_processor of model,
-            it could be None if the model do not need image_processor.
+        tokenizer (Optional[BaseTokenizer]):
+            A tokenizer for text processing.
+        image_processor (Optional[BaseImageProcessor]):
+            The image_processor of model, it could be None if the model do not need image_processor.
 
     Raises:
-        TypeError: If input model, tokenizer, and image_processor's types are not corrected.
-        ValueError: if the input model is not in support list.
+        TypeError:
+            If input model, tokenizer, and image_processor's types are not corrected.
+        ValueError:
+            If the input model is not in support list.
 
     Examples:
         >>> from mindformers.tools.image_tools import load_image
@@ -100,7 +103,8 @@ class ZeroShotImageClassificationPipeline(BasePipeline):
         """Sanitize Parameters
 
         Args:
-            pipeline_parameters (Optional[dict]): The parameter dict to be parsed.
+            pipeline_parameters (Optional[dict]):
+                The parameter dict to be parsed.
         """
         preprocess_params = {}
         postprocess_params = {}
@@ -119,12 +123,18 @@ class ZeroShotImageClassificationPipeline(BasePipeline):
         """Preprocess of ZeroShotImageClassificationPipeline
 
         Args:
-            inputs (Union[url, PIL.Image, tensor, numpy]): The image to be classified.
-            candidate_labels (List[str]): The candidate labels for classification.
-            hypothesis_template (Optional[str]): Prompt for text input.
-            max_length (Optional[int]): Max length of tokenizer's output
-            padding (Optional[Union[False, "max_length"]]): Padding for max_length
-            return_tensors (Optional["ms"]): The type of returned tensors
+            inputs (Union[url, PIL.Image, tensor, numpy]):
+                The image to be classified.
+            candidate_labels (List[str]):
+                The candidate labels for classification.
+            hypothesis_template (Optional[str]):
+                Prompt for text input.
+            max_length (Optional[int]):
+                Max length of tokenizer's output
+            padding (Optional[Union[False, "max_length"]]):
+                Padding for max_length
+            return_tensors (Optional["ms"]):
+                The type of returned tensors
 
         Return:
             Processed data.

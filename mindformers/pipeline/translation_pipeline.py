@@ -34,15 +34,43 @@ class TranslationPipeline(BasePipeline):
     """Pipeline for Translation
 
     Args:
-        model (Union[str, BaseModel]): The model used to perform task,
-            the input could be a supported model name, or a model instance
+        model (Union[str, BaseModel]):
+            The model used to perform task, the input could be a supported model name, or a model instance
             inherited from BaseModel.
-        tokenizer (Optional[BaseTokenizer]): A tokenizer (None or Tokenizer)
-            for text processing.
+        tokenizer (Optional[BaseTokenizer]):
+            A tokenizer (None or Tokenizer) for text processing. Default: None.
+        **kwargs:
+            Specific parametrization of `generate_config` and/or additional model-specific kwargs that will be
+            forwarded to the `forward` function of the model. Supported `generate_config` keywords can be
+            checked in [`GenerationConfig`]'s documentation. Mainly used Keywords are shown below:
+
+            max_length(int): The maximum length the generated tokens can have. Corresponds to the length of
+                the input prompt + `max_new_tokens`. Its effect is overridden by `max_new_tokens`, if also set.
+            max_new_tokens (int): The maximum numbers of tokens to generate, ignoring the number of
+                tokens in the prompt.
+            do_sample(bool): Whether to do sampling on the candidate ids.
+                If set True it will be enabled, and set it to be False to disable the sampling,
+                equivalent to topk 1.
+                If set None, it follows the setting in the configureation in the model.
+            top_k(int): Determine the topK numbers token id as candidate. This should be a positive number.
+                If set None, it follows the setting in the configureation in the model.
+            top_p(float): The accumulation probability of the candidate token ids below the top_p
+                will be select as the condaite ids. The valid value of top_p is between (0, 1]. If the value
+                is larger than 1, top_K algorithm will be enabled. If set None, it follows the setting in the
+                configureation in the model.
+            eos_token_id(int): The end of sentence token id. If set None, it follows the setting in the
+                configureation in the model.
+            pad_token_id(int): The pad token id. If set None, it follows the setting in the configureation
+                in the model.
+            repetition_penalty(float): The penalty factor of the frequency that generated words. The If set 1,
+                the repetition_penalty will not be enabled. If set None, it follows the setting in the
+                configureation in the model. Default None.
 
     Raises:
-        TypeError: If input model and tokenizer's types are not corrected.
-        ValueError: if the input model is not in support list.
+        TypeError:
+            If input model and tokenizer's types are not corrected.
+        ValueError:
+            If the input model is not in support list.
 
     Examples:
         >>> from mindformers.pipeline import TranslationPipeline
@@ -82,7 +110,8 @@ class TranslationPipeline(BasePipeline):
         """Sanitize Parameters
 
         Args:
-            pipeline_parameters (Optional[dict]): The parameter dict to be parsed.
+            pipeline_parameters (Optional[dict]):
+                The parameter dict to be parsed.
         """
         preprocess_keys = ['keys']
         preprocess_params = {}
@@ -104,8 +133,10 @@ class TranslationPipeline(BasePipeline):
         """The Preprocess For Translation
 
         Args:
-            inputs (Union[str, dict, Tensor]): The text to be classified.
-            preprocess_params (dict): The parameter dict for preprocess.
+            inputs (Union[str, dict, Tensor]):
+                The text to be classified.
+            preprocess_params (dict):
+                The parameter dict for preprocess.
 
         Return:
             Processed text.
@@ -126,8 +157,10 @@ class TranslationPipeline(BasePipeline):
         """The Forward Process of Model
 
         Args:
-            inputs (dict): The output of preprocess.
-            forward_params (dict): The parameter dict for model forward.
+            model_inputs (dict):
+                The output of preprocess.
+            forward_params (dict):
+                The parameter dict for model forward.
 
         Return:
             Dict of output_ids.
@@ -142,7 +175,8 @@ class TranslationPipeline(BasePipeline):
         """Postprocess
 
         Args:
-            model_outputs (dict): Outputs of forward process.
+            model_outputs (dict):
+                Outputs of forward process.
 
         Return:
             Translation results.

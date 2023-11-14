@@ -39,13 +39,13 @@ class BasePipeline(ABC):
     Base Pipeline For All Task Pipelines
 
     Args:
-        model (Union[str, BaseModel]): The model used to perform task,
-            the input could be a supported model name, or a model instance
-            inherited from BaseModel.
-        tokenizer (Optional[BaseTokenizer]): The tokenizer of model, it could be
-            None if the model do not need tokenizer.
-        image_processor (Optional[BaseImageProcessor]): The image_processor of model,
-            it could be None if the model do not need image_processor.
+        model (Union[str, BaseModel]):
+            The model used to perform task, the input could be a supported model name, or a model instance inherited
+            from BaseModel.
+        tokenizer (Optional[BaseTokenizer]):
+            The tokenizer of model, it could be None if the model do not need tokenizer.
+        image_processor (Optional[BaseImageProcessor]):
+            The image_processor of model, it could be None if the model do not need image_processor.
     """
     _support_list = {}
 
@@ -77,10 +77,11 @@ class BasePipeline(ABC):
         r"""Call Method
 
         Args:
-            inputs (Union[GeneratorDataset, list, str, etc]): The inputs of pipeline,
-                the type of inputs depends on task.
-            batch_size (Optional[int]): The batch size for a GeneratorDataset input, for
-                other types of inputs, the batch size would be set to 1 by default.
+            inputs (Union[GeneratorDataset, list, str, etc]):
+            The inputs of pipeline, the type of inputs depends on task.
+            batch_size (Optional[int]):
+            The batch size for a GeneratorDataset input, for other types of inputs, the batch size would be set to 1 by
+            default.
 
         Returns:
             outputs: The outputs of pipeline, the type of outputs depends on task.
@@ -140,7 +141,8 @@ class BasePipeline(ABC):
         r"""Sanitize Parameters
 
         Args:
-            pipeline_parameters (Optional[dict]): The parameter dict to be parsed.
+            pipeline_parameters (Optional[dict]):
+                The parameter dict to be parsed.
 
         Raises:
             NotImplementedError: If the method is not implemented.
@@ -155,11 +157,14 @@ class BasePipeline(ABC):
         This function is used to run a single forward process for task.
 
         Args:
-            inputs (Union[dict, str, etc]): The inputs of pipeline,
-                the type of inputs depends on task.
-            preprocess_params (dict): The parameter dict for preprocess.
-            forward_params (dict): The parameter dict for model forward process.
-            postprocess_params (dict): The parameter dict for postprocess.
+            inputs (Union[dict, str, etc]):
+                The inputs of pipeline, the type of inputs depends on task.
+            preprocess_params (dict):
+                The parameter dict for preprocess.
+            forward_params (dict):
+                The parameter dict for model forward process.
+            postprocess_params (dict):
+                The parameter dict for postprocess.
         """
         model_inputs = self.preprocess(inputs, **preprocess_params)
         model_outputs = self.forward(model_inputs, **forward_params)
@@ -175,11 +180,16 @@ class BasePipeline(ABC):
         This function is used to run a list input for task.
 
         Args:
-            inputs (Union[list, tuple, iterator]): The iterable input for pipeline.
-            batch_size (int): Batch size of pipeline input.
-            preprocess_params (dict): The parameter dict for preprocess.
-            forward_params (dict): The parameter dict for model forward process.
-            postprocess_params (dict): The parameter dict for postprocess.
+            inputs (Union[list, tuple, iterator]):
+                The iterable input for pipeline.
+            batch_size (int):
+                Batch size of pipeline input.
+            preprocess_params (dict):
+                The parameter dict for preprocess.
+            forward_params (dict):
+                The parameter dict for model forward process.
+            postprocess_params (dict):
+                The parameter dict for postprocess.
         """
         if len(inputs) % batch_size != 0:
             raise ValueError(f"When running multi input pipeline, the length of inputs {len(inputs)}"
@@ -200,9 +210,10 @@ class BasePipeline(ABC):
         r"""The Preprocess For Task
 
         Args:
-            inputs (Union[dict, str, etc]): The inputs of pipeline,
-                the type of inputs depends on task.
-            preprocess_params (dict): The parameter dict for preprocess.
+            inputs (Union[dict, str, etc]):
+                The inputs of pipeline, the type of inputs depends on task.
+            preprocess_params (dict):
+                The parameter dict for preprocess.
 
         Raises:
             NotImplementedError: If the method is not implemented.
@@ -215,9 +226,10 @@ class BasePipeline(ABC):
         r"""The Forward Process of Model
 
         Args:
-            model_inputs (Union[dict, str, etc]): The output of preprocess,
-                the type of model_inputs depends on task.
-            forward_params (dict): The parameter dict for model forward.
+            model_inputs (Union[dict, str, etc]):
+                The output of preprocess, the type of model_inputs depends on task.
+            forward_params (dict):
+                The parameter dict for model forward.
 
         Raises:
             NotImplementedError: If the method is not implemented.
@@ -230,9 +242,10 @@ class BasePipeline(ABC):
         r"""The Postprocess of Task
 
         Args:
-            model_outputs (Union[dict, str, etc]): The output of model forward,
-                the type of model_outputs depends on task.
-            postprocess_params (dict): The parameter dict for post process.
+            model_outputs (Union[dict, str, etc]):
+                The output of model forward, the type of model_outputs depends on task.
+            postprocess_params (dict):
+                The parameter dict for post process.
 
         Raises:
             NotImplementedError: If the method is not implemented.
