@@ -38,15 +38,17 @@ class QuestionAnsweringPipeline(BasePipeline):
     r"""Pipeline for token classification
 
     Args:
-        model (Union[str, BaseModel]): The model used to perform task,
-            the input could be a supported model name, or a model instance
+        model (Union[str, BaseModel]):
+            The model used to perform task, the input could be a supported model name, or a model instance
             inherited from BaseModel.
-        tokenizer : a tokenizer (None or Tokenizer) for text processing.
-        id2label : a dict which maps label id to label str.
+        tokenizer (Optional[BaseTokenzier]):
+            A tokenizer (None or Tokenizer) for text processing.
 
     Raises:
-        TypeError: If input model and image_processor's types are not corrected.
-        ValueError: If the input model is not in support list.
+        TypeError:
+            If input model and image_processor's types are not corrected.
+        ValueError:
+            If the input model is not in support list.
 
     Examples:
         >>> from mindformers.pipeline import QuestionAnsweringPipeline
@@ -124,9 +126,12 @@ class QuestionAnsweringPipeline(BasePipeline):
         Preprocess of token classification
 
         Args:
-            inputs (str): the str to be classified.
-            max_length (int): max length of tokenizer's output
-            return_tensors ("ms"): the type of returned tensors
+            inputs (str):
+                The str to be classified.
+            max_length (int):
+                Max length of tokenizer's output
+            return_tensors ("ms"):
+                The type of returned tensors
 
         Return:
             processed text.
@@ -163,7 +168,8 @@ class QuestionAnsweringPipeline(BasePipeline):
         Forward process
 
         Args:
-            model_inputs (dict): outputs of preprocess.
+            model_inputs (dict):
+                Outputs of preprocess.
 
         Return:
             probs dict.
@@ -195,7 +201,8 @@ class QuestionAnsweringPipeline(BasePipeline):
         Postprocess
 
         Args:
-            model_outputs (dict): outputs of forward process.
+            model_outputs (dict):
+                Outputs of forward process.
 
         Return:
             The generated results

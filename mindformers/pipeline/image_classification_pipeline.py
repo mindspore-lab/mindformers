@@ -35,15 +35,17 @@ class ImageClassificationPipeline(BasePipeline):
     r"""Pipeline for image classification
 
     Args:
-        model (Union[str, BaseModel]): The model used to perform task,
-            the input could be a supported model name, or a model instance
+        model (Union[str, BaseModel]):
+            The model used to perform task, the input could be a supported model name, or a model instance
             inherited from BaseModel.
-        image_processor (Optional[BaseImageProcessor]): The image_processor of model,
-            it could be None if the model do not need image_processor.
+        image_processor (Optional[BaseImageProcessor]):
+            The image_processor of model, it could be None if the model do not need image_processor.
 
     Raises:
-        TypeError: If input model and image_processor's types are not corrected.
-        ValueError: If the input model is not in support list.
+        TypeError:
+            If input model and image_processor's types are not corrected.
+        ValueError:
+            If the input model is not in support list.
 
     Examples:
         >>> import numpy as np
@@ -93,7 +95,8 @@ class ImageClassificationPipeline(BasePipeline):
         r"""Sanitize Parameters
 
         Args:
-            pipeline_parameters (Optional[dict]): The parameter dict to be parsed.
+            pipeline_parameters (Optional[dict]):
+                The parameter dict to be parsed.
         """
         preprocess_params = {}
         postprocess_params = {}
@@ -110,8 +113,10 @@ class ImageClassificationPipeline(BasePipeline):
         r"""The Preprocess For Task
 
         Args:
-            inputs (Union[url, PIL.Image, tensor, numpy]): The image to be classified.
-            preprocess_params (dict): The parameter dict for preprocess.
+            inputs (Union[url, PIL.Image, tensor, numpy]):
+                The image to be classified.
+            preprocess_params (dict):
+                The parameter dict for preprocess.
 
         Returns:
             Processed image.
@@ -129,8 +134,10 @@ class ImageClassificationPipeline(BasePipeline):
         r"""The Forward Process of Model
 
         Args:
-            model_inputs (dict): The output of preprocess.
-            forward_params (dict): The parameter dict for model forward.
+            model_inputs (dict):
+                The output of preprocess.
+            forward_params (dict):
+                The parameter dict for model forward.
 
         Returns:
             Probs of classification
@@ -147,11 +154,14 @@ class ImageClassificationPipeline(BasePipeline):
         r"""Postprocess
 
         Args:
-            model_outputs (dict): Outputs of forward process.
-            top_k (int): Return top_k probs of result.
+            model_outputs (dict):
+                Outputs of forward process.
+            top_k (Optional[int]):
+                Return top_k probs of result. Default: 3.
 
         Returns:
-            outputs (list): Classification results.
+            outputs (list):
+                Classification results.
         """
         top_k = postprocess_params.pop("top_k", 3)
         candidate_labels = postprocess_params.pop("candidate_labels", 'imagenet')

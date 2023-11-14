@@ -38,11 +38,11 @@ class MaskedImageModelingPipeline(BasePipeline):
     r"""Pipeline for masked image modeling
 
     Args:
-        model (Union[str, BaseModel]): The model used to perform task,
-            the input could be a supported model name, or a model instance
+        model (Union[str, BaseModel]):
+            The model used to perform task, the input could be a supported model name, or a model instance
             inherited from BaseModel.
-        image_processor (Optional[BaseImageProcessor]): The image_processor of model,
-            it could be None if the model do not need image_processor.
+        image_processor (Optional[BaseImageProcessor]):
+            The image_processor of model, it could be None if the model do not need image_processor.
 
     Raises:
         TypeError: If input model and image_processor's types are not corrected.
@@ -90,7 +90,8 @@ class MaskedImageModelingPipeline(BasePipeline):
         r"""Sanitize Parameters
 
         Args:
-            pipeline_parameters (Optional[dict]): The parameter dict to be parsed.
+            pipeline_parameters (Optional[dict]):
+                The parameter dict to be parsed.
         """
         preprocess_params = {}
         postprocess_params = {}
@@ -107,8 +108,10 @@ class MaskedImageModelingPipeline(BasePipeline):
         r"""The Preprocess For Task
 
         Args:
-            inputs (Union[url, PIL.Image, tensor, numpy]): The image to be reconstructed.
-            preprocess_params (dict): The parameter dict for preprocess.
+            inputs (Union[url, PIL.Image, tensor, numpy]):
+                The image to be reconstructed.
+            preprocess_params (dict):
+                The parameter dict for preprocess.
 
         Return:
             Processed image.
@@ -126,8 +129,10 @@ class MaskedImageModelingPipeline(BasePipeline):
         r"""The Forward Process of Model
 
         Args:
-            model_inputs (dict): The output of preprocess.
-            forward_params (dict): The parameter dict for model forward.
+            model_inputs (dict):
+                The output of preprocess.
+            forward_params (dict):
+                The parameter dict for model forward.
         """
         forward_params.pop("None", None)
 
@@ -141,7 +146,8 @@ class MaskedImageModelingPipeline(BasePipeline):
         r"""Postprocess
 
         Args:
-            model_outputs (dict): Outputs of forward process.
+            model_outputs (dict):
+                Outputs of forward process.
 
         Return:
             classification results.

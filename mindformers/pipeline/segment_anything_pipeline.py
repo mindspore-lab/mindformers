@@ -54,15 +54,17 @@ class SegmentAnythingPipeline(BasePipeline):
     r"""Pipeline for image segment
 
     Args:
-        model (Union[str, BaseModel]): The model used to perform task,
-            the input could be a supported model name, or a model instance
+        model (Union[str, BaseModel]):
+            The model used to perform task, the input could be a supported model name, or a model instance
             inherited from BaseModel.
-        image_processor (Optional[BaseImageProcessor]): The image_processor of model,
-            it could be None if the model do not need image_processor.
+        image_processor (Optional[BaseImageProcessor]):
+            The image_processor of model, it could be None if the model do not need image_processor.
 
     Raises:
-        TypeError: If input model and image_processor's types are not corrected.
-        ValueError: If the input model is not in support list.
+        TypeError:
+            If input model and image_processor's types are not corrected.
+        ValueError:
+            If the input model is not in support list.
 
     Examples:
         >>> import numpy as np
@@ -117,7 +119,8 @@ class SegmentAnythingPipeline(BasePipeline):
         r"""Sanitize Parameters
 
         Args:
-            pipeline_parameters (Optional[dict]): The parameter dict to be parsed.
+            pipeline_parameters (Optional[dict]):
+                The parameter dict to be parsed.
         """
         preprocess_params = {"seg_image": False}
         forward_params = {"seg_image": False}
@@ -156,8 +159,10 @@ class SegmentAnythingPipeline(BasePipeline):
         r"""The Preprocess For Task
 
         Args:
-            inputs (dict): The image to be classified.
-            preprocess_params (dict): The parameter dict for preprocess.
+            inputs (dict):
+                The image to be classified.
+            preprocess_params (dict):
+                The parameter dict for preprocess.
 
         Return:
             Processed image.
@@ -252,8 +257,10 @@ class SegmentAnythingPipeline(BasePipeline):
         r"""The Forward Process of Model
 
         Args:
-            model_inputs (dict): The output of preprocess.
-            forward_params (dict): The parameter dict for model forward.
+            model_inputs (dict):
+                The output of preprocess.
+            forward_params (dict):
+                The parameter dict for model forward.
         """
         multimask_output = forward_params.get("multimask_output", True)
         return_logits = forward_params.get("return_logits", False)
@@ -372,8 +379,10 @@ class SegmentAnythingPipeline(BasePipeline):
         r"""Postprocess
 
         Args:
-            model_outputs (dict): Outputs of forward process.
-            top_k (int): Return top_k probs of result.
+            model_outputs (dict):
+                Outputs of forward process.
+            postprocess_params (dict):
+                The parameter dict for postprocess.
 
         Return:
             classification results.
@@ -430,10 +439,11 @@ class SegmentAnythingPipeline(BasePipeline):
         Calculates the image embeddings for the provided image, allowing
         masks to be predicted with the 'predict' method.
 
-        Arguments:
-          image (np.ndarray): The image for calculating masks. Expects an
-            image in HWC uint8 format, with pixel values in [0, 255].
-          image_format (str): The color format of the image, in ['RGB', 'BGR'].
+        Args:
+            image (np.ndarray):
+                The image for calculating masks. Expects an image in HWC uint8 format, with pixel values in [0, 255].
+            image_format (str):
+                The color format of the image, in ['RGB', 'BGR'].
         """
         if isinstance(image, str):
             image = cv2.imread(image)

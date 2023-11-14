@@ -34,14 +34,17 @@ class TextClassificationPipeline(BasePipeline):
     """Pipeline for text classification
 
     Args:
-        model (Union[str, BaseModel]): The model used to perform task,
-            the input could be a supported model name, or a model instance
+        model (Union[str, BaseModel]):
+            The model used to perform task, the input could be a supported model name, or a model instance
             inherited from BaseModel.
-        tokenizer : a tokenizer (None or Tokenizer) for text processing.
+        tokenizer (Optional[BaseTokenizer]):
+            a tokenizer (None or Tokenizer) for text processing. Default: None.
 
     Raises:
-        TypeError: If input model and image_processor's types are not corrected.
-        ValueError: If the input model is not in support list.
+        TypeError:
+            If input model and image_processor's types are not corrected.
+        ValueError:
+            If the input model is not in support list.
 
     Examples:
         >>> from mindformers.pipeline import TextClassificationPipeline

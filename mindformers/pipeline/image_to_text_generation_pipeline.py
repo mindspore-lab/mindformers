@@ -36,15 +36,17 @@ class ImageToTextGenerationPipeline(BasePipeline):
     r"""Pipeline for image to text generation
 
     Args:
-        model (Union[str, BaseModel]): The model used to perform task,
-            the input could be a supported model name, or a model instance
+        model (Union[str, BaseModel]):
+            The model used to perform task, the input could be a supported model name, or a model instance
             inherited from BaseModel.
-        image_processor (Optional[BaseImageProcessor]): The image_processor of model,
-            it could be None if the model do not need image_processor.
+        image_processor (Optional[BaseImageProcessor]):
+            The image_processor of model, it could be None if the model do not need image_processor.
 
     Raises:
-        TypeError: If input model and image_processor's types are not corrected.
-        ValueError: If the input model is not in support list.
+        TypeError:
+            If input model and image_processor's types are not corrected.
+        ValueError:
+            If the input model is not in support list.
     """
     _support_list = MindFormerBook.get_pipeline_support_task_list()['image_to_text_generation'].keys()
 
@@ -77,7 +79,8 @@ class ImageToTextGenerationPipeline(BasePipeline):
         r"""Sanitize Parameters
 
         Args:
-            pipeline_parameters (Optional[dict]): The parameter dict to be parsed.
+            pipeline_parameters (Optional[dict]):
+                The parameter dict to be parsed.
         """
         preprocess_params = {}
         postprocess_params = {}
@@ -105,9 +108,10 @@ class ImageToTextGenerationPipeline(BasePipeline):
         r"""The Preprocess For Task
 
         Args:
-            inputs (Union[url, dict, PIL.Image, tensor, numpy]): Inputs used to generate text, including image,
-                and prompt (if provided).
-            preprocess_params (dict): The parameter dict for preprocess.
+            inputs (Union[url, dict, PIL.Image, tensor, numpy]):
+                Inputs used to generate text, including image, and prompt (if provided).
+            preprocess_params (dict):
+                The parameter dict for preprocess.
 
         Return:
             Processed image and prompt.
@@ -148,8 +152,10 @@ class ImageToTextGenerationPipeline(BasePipeline):
         r"""The Forward Process of Model
 
         Args:
-            model_inputs (dict): The output of preprocess.
-            forward_params (dict): The parameter dict for model forward.
+            model_inputs (dict):
+                The output of preprocess.
+            forward_params (dict):
+                The parameter dict for model forward.
         """
         image_processed = model_inputs["image_processed"]
         prompt_input_ids = model_inputs["prompt_input_ids"]
