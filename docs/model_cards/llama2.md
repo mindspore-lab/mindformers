@@ -761,6 +761,7 @@ parallel_config:
   data_parallel: 1
   model_parallel: 8  # 改为相应卡数。70b推荐8卡推理
   pipeline_stage: 1
+  use_seq_parallel: False
 ```
 
 step 3. 按照之前的单卡评测的指导，将`eval_dataset` 中的配置相应修改，将评测数据集路径写入`dataset_dir`中。
