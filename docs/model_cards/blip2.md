@@ -31,7 +31,7 @@ BLIP-2: 全名`Bootstrapping Language-Image Pre-training - 2`模型是2023 年 S
 ## 仓库介绍
 
 `BLIP-2` 基于 `mindformers` 实现，目前支持一阶段的训练，评估，推理以及二阶段的推理（语言模型包含Llama7b及Baichuan7b）。 在二阶段使用`baichuan_7b`作为语言模型时进行推理时，需要自行在配置文件`configs/blip2/run_blip2_stage2_vit_g_baichuan_7b_image_to_text_generation.yaml`中
-配置对应的baichuan-7b权重文件及词表文件，如何配置可参考上文中关键配置项说明章节；权重文件和词表文件的获取及转换参考[baichuan_7b](https://gitee.com/mindspore/mindformers/blob/dev/research/baichuan/baichuan.md).
+配置对应的baichuan-7b权重文件及词表文件，如何配置可参考上文中关键配置项说明章节；权重文件和词表文件的获取及转换参考[baichuan_7b](https://gitee.com/mindspore/mindformers/blob/dev/research/baichuan/baichuan.md)，未配置词表文件会造成`AutoProcessor`功能报错。
 
 本实现主要涉及的文件有：
 
