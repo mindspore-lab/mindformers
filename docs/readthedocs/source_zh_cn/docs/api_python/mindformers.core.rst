@@ -11,7 +11,6 @@ mindformers.core
     :nosignatures:
     :template: classtemplate.rst
 
-    mindformers.core.ClipGradNorm
     mindformers.core.build_context
     mindformers.core.init_context
 
@@ -78,5 +77,4 @@ mindformers.core.optim
     :nosignatures:
     :template: classtemplate.rst
 
-    mindformers.core.optim.FusedAdamWeightDecay
     mindformers.core.optim.FP32StateAdamWeightDecay

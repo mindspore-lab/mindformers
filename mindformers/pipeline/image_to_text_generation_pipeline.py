@@ -73,7 +73,7 @@ class ImageToTextGenerationPipeline(BasePipeline):
             raise ValueError("ImageToTextGenerationPipeline"
                              " requires for a image_processor.")
         self.hypothesis_template = kwargs.pop("hypothesis_template", "{}")
-        super().__init__(model.set_train(mode=False), image_processor=image_processor, tokenizer=tokenizer, **kwargs)
+        super().__init__(model, image_processor=image_processor, tokenizer=tokenizer, **kwargs)
 
     def _sanitize_parameters(self, **pipeline_parameters):
         r"""Sanitize Parameters
