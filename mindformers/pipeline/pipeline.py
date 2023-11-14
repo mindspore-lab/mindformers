@@ -29,7 +29,6 @@ from .build_pipeline import build_pipeline
 
 
 SUPPORT_PIPELINES = MindFormerBook().get_pipeline_support_task_list()
-SUPPORT_MODEL_NAMES = MindFormerBook().get_model_name_support_list()
 
 
 class Backend(Enum):
@@ -100,9 +99,10 @@ def get_ms_pipeline(task, model, tokenizer, image_processor, audio_processor, **
         raise KeyError(f"{task} is not supported by pipeline. please select"
                        f" a task from {SUPPORT_PIPELINES.keys()}.")
     if isinstance(model, str):
-        if model not in SUPPORT_MODEL_NAMES:
+        support_model_name = SUPPORT_PIPELINES[task].keys()
+        if model not in support_model_name:
             raise KeyError(
-                f"model must be in {SUPPORT_MODEL_NAMES} when model's type is string, but get {model}.")
+                f"model must be in {support_model_name} when model's type is string, but get {model}.")
         model_name = model
         model = None
     else:
