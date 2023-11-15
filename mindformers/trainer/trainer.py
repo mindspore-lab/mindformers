@@ -125,6 +125,7 @@ class Trainer:
             Default: None.
         save_config (bool):
             Save current the config of task.
+            save_config is not currently supported and will be in the next release!
             Default: False.
 
     Raises:
@@ -313,8 +314,7 @@ class Trainer:
             raise ModuleNotFoundError("config must be contain 'trainer' key, but get None.")
 
         if save_config:
-            self._save_config_to_yaml(self.config)
-            logger.info("save running config success of %s_new.", task_config.trainer.model_name.lower())
+            raise NotImplementedError("save_config is not currently supported and will be in the next release!")
 
     @args_type_check(train_checkpoint=(str, bool), resume_training=bool,
                      auto_trans_ckpt=bool, do_eval=bool)
