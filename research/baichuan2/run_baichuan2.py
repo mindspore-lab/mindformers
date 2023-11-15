@@ -202,7 +202,7 @@ if __name__ == "__main__":
                         help='set train dataset.')
     parser.add_argument('--eval_dataset', default='', type=str,
                         help='set eval dataset.')
-    parser.add_argument('--predict_data', default='', type=str,
+    parser.add_argument('--predict_data', default='', type=str, nargs='+',
                         help='input predict data.')
     parser.add_argument('--max_length', default=512, type=int,
                         help='max length for predict output.')

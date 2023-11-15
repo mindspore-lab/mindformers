@@ -85,7 +85,7 @@ parallel:
   parallel_optimizer_config:
     gradient_accumulation_shard: False
     parallel_optimizer_threshold: 64
-# default parallel of device num = 16 910A
+# default parallel of device num = 8 910B
 parallel_config:
   data_parallel: 1
   model_parallel: 2
@@ -145,7 +145,7 @@ model:
     ignore_token_id: -100
     compute_dtype: "float16"
     layernorm_compute_type: "float32"
-    softmax_compute_type: "float16"
+    softmax_compute_type: "float32"
     param_init_type: "float16"
     use_past: False
     pretrain_seqlen: 2048 # seqlen of the pretrain checkpoint: 2048 for llama and 4096 for llama2
