@@ -73,24 +73,24 @@ class Trainer:
             Default: None.
         task (str):
             Supported task type can refer to
-            https://mindformers.readthedocs.io/zh-cn/latest/docs/model_support_list.html#.
+            https://mindformers.readthedocs.io/zh-cn/r0.8/docs/model_support_list.html#.
 
             Default: 'general'.
         model (Optional[Union[str, BaseModel]]):
             The network for trainer. It supports model name supported or BaseModel.
             Supported model type can refer to
-            https://mindformers.readthedocs.io/zh-cn/latest/docs/model_support_list.html#.
+            https://mindformers.readthedocs.io/zh-cn/r0.8/docs/model_support_list.html#.
             Default: None.
         model_name (Optional[Union[str]]):
             Supported model name can refer to
-            https://mindformers.readthedocs.io/zh-cn/latest/docs/model_support_list.html#.
+            https://mindformers.readthedocs.io/zh-cn/r0.8/docs/model_support_list.html#.
 
             When the incoming model or wrapper is a custom instance,
             it is recommended to specify the supported model_name to get the base configuration of the model type.
             Default: None.
         pet_method (Optional[Union[str]]):
             Supported pet method name can refer to
-            https://mindformers.readthedocs.io/zh-cn/latest/docs/model_support_list.html#llm.
+            https://mindformers.readthedocs.io/zh-cn/r0.8/docs/model_support_list.html#llm.
 
             Default: ''.
         train_dataset (Optional[Union[str, BaseDataset]]):
@@ -196,7 +196,7 @@ class Trainer:
             if self.model_name is None:
                 logger.warning("wrapper has existed, you are advised to pass the args of model_name."
                                "Supported model name can refer to"
-                               "https://mindformers.readthedocs.io/zh-cn/latest/docs/model_support_list.html#.")
+                               "https://mindformers.readthedocs.io/zh-cn/r0.8/docs/model_support_list.html#.")
 
         if task not in SUPPORT_TASKS.keys():
             raise ValueError(
