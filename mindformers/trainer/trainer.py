@@ -722,15 +722,15 @@ class Trainer:
 
     @args_type_check(expert_num=int, capacity_factor=float, aux_loss_factor=float, num_experts_chosen=int,
                      expert_group_size=int, group_wise_a2a=bool, comp_comm_parallel=bool, comp_comm_parallel_degree=int)
-    def set_moe_config(self,
-                       expert_num=1,
-                       capacity_factor=1.1,
-                       aux_loss_factor=0.05,
-                       num_experts_chosen=1,
-                       expert_group_size=None,
-                       group_wise_a2a=False,
-                       comp_comm_parallel=False,
-                       comp_comm_parallel_degree=2):
+    def _set_moe_config(self,
+                        expert_num=1,
+                        capacity_factor=1.1,
+                        aux_loss_factor=0.05,
+                        num_experts_chosen=1,
+                        expert_group_size=None,
+                        group_wise_a2a=False,
+                        comp_comm_parallel=False,
+                        comp_comm_parallel_degree=2):
         """
         Sef the configuration of MoE (Mixture of Expert).
 
