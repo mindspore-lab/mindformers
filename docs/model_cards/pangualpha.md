@@ -287,7 +287,7 @@ predict_result = trainer.predict(input_data="上联：欢天喜地度佳节 下�
 ```
 
 **注：快速使用仅限单卡，该示例在910A仅支持2.6B和13B的evaluate和predict，在910B支持2.6Btrain和finetune及2.6B和13B的evaluate和predict。**
-**注：多卡请参考[使用高阶接口开发教程](https://mindformers.readthedocs.io/zh_CN/latest/docs/practice/Develop_With_Api.html)。**
+**注：多卡请参考[使用高阶接口开发教程](https://mindformers.readthedocs.io/zh_CN/r0.8/docs/practice/Develop_With_Api.html)。**
 
 ### 基于Pipeline的快速推理
 
