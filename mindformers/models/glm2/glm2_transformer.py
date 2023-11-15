@@ -20,11 +20,16 @@ import mindspore.ops.functional as F
 import mindspore.ops.operations as P
 from mindspore import Parameter, Tensor, nn, ops
 from mindspore import dtype as mstype
+try:
+    from mindspore.nn.layer.flash_attention import FlashAttention
+    FLASHATTENTION_IMPORT_VALID = True
+except ImportError:
+    FLASHATTENTION_IMPORT_VALID = False
 
 from mindformers.modules import LayerNorm
 from mindformers.modules.layers import Linear
 from mindformers.pet.tuners.ptuning2_adapter import Ptuning2Adapter
-from mindformers.version_control import get_dropout
+from mindformers.version_control import get_dropout, check_valid_flash_attention, choose_flash_attention_dtype
 
 from .glm2_config import ChatGLM2Config
 from .glm2_modules import ChatGLM2MLP, ChatGLM2RMSNorm
@@ -211,6 +216,33 @@ class ChatGLM2SelfAttention(nn.Cell):
             self.expand_dims = P.ExpandDims().shard(((1, 1, 1),))
             self.equal = P.Equal().shard(((1, 1, 1), (1, 1, 1)))
             self.tile = P.Tile().shard(((1, 1, 1, 1),))
+        self.use_flash_attention = config.use_flash_attention
+        if self.use_flash_attention:
+            self.attention_mask_dtype = choose_flash_attention_dtype()
+            self.sub_attention = P.Sub().shard(((), (parallel_config.data_parallel, 1, 1)))
+            self.flash_attention = FlashAttention(head_dim=config.hidden_size // config.num_attention_heads,
+                                                  head_num=config.num_attention_heads,
+                                                  dropout_rate=config.attention_dropout, prev_block_num=65536,
+                                                  next_block_num=0, dp=parallel_config.data_parallel,
+                                                  mp=parallel_config.model_parallel,
+                                                  high_precision=True)
+            self.merger_head_transpose = P.Transpose().shard(((parallel_config.data_parallel,
+                                                               parallel_config.model_parallel, 1, 1),))
+    def _merge_heads(self, x):
+        """
+        convert a 4d input to a 2d output
+
+        Inputs:
+            x: input tensor
+
+        Output:
+            x_merge: the 2d output
+        """
+        x = self.merger_head_transpose(x, (0, 2, 1, 3))  # bs, seq_length, head, size_per_head
+        x_shape = x.shape
+        new_shape = (x_shape[0], x_shape[1], -1)
+        x_merge = self.reshape(x, new_shape)
+        return x_merge
 
     def apply_rotary_pos_emb(self, x: Tensor, rope_cache: Tensor) -> Tensor:
         """apply rotary position embedding to q,k."""
@@ -381,7 +413,12 @@ class ChatGLM2SelfAttention(nn.Cell):
             # [b, heads, seq, hidden_size_per_head]
             value_layer = value_layer.view((bs, self.num_attention_heads_per_partition, -1, hs_ph))
 
-        context_layer = self.core_attention(query_layer, key_layer, value_layer, attention_mask)
+        if self.use_flash_attention:
+            attention_mask = attention_mask.squeeze(1).to(self.attention_mask_dtype)
+            context_layer = self.flash_attention(query_layer, key_layer, value_layer, attention_mask)
+            context_layer = self._merge_heads(context_layer)
+        else:
+            context_layer = self.core_attention(query_layer, key_layer, value_layer, attention_mask)
         # # =================
         # # Output. [bs, seq_len, hidden_size]
         # # =================
@@ -578,6 +615,8 @@ class ChatGLM2Transformer(nn.Cell):
         self.num_layers = config.num_layers
 
         self.pre_seq_len = config.pre_seq_len
+        if config.use_flash_attention:
+            config.use_flash_attention = check_valid_flash_attention(FLASHATTENTION_IMPORT_VALID)
 
         # Transformer layers.
         def build_layer(layer_number):
