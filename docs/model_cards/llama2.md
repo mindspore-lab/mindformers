@@ -617,6 +617,21 @@ Llama 2当前支持的评测任务如下：
 | 文本生成 | Perplexity | WikiText2 |
 | 阅读理解 |   Em/F1    | SQuAD 1.1 |
 
+评测时加入`vocab_file`配置相应`tokenizer.model`路径；若使用910B进行评测，则还需在yaml中加入`ascend_config`配置：
+
+```python
+# context_config
+context:
+  ascend_config:
+    precision_mode: "must_keep_origin_dtype"
+
+# tokenizer 配置
+processor:
+  return_tensors: ms
+  tokenizer:
+    vocab_file: "path/to/tokenizer.model"
+```
+
 - 文本生成：
 
 step 1. 获取数据集
@@ -784,13 +799,18 @@ bash run_distribute.sh RANK_TABLE_FILE configs/llama2/predict_llama2_70b_910b.ya
 
 ## 推理
 
-推理时将配置文件中`param_init_type`修改为`float32`。
+推理时将配置文件中`param_init_type`修改为`float32`；若为910B推理，则加入`ascend_config`配置。
 
 ```python
 # model config
 model:
   model_config:
     param_init_type: "float32"
+
+# context_config 910B推理添加ascend_config
+context:
+  ascend_config:
+    precision_mode: "must_keep_origin_dtype"
 ```
 
 ### 基于generate的推理
@@ -1102,7 +1122,7 @@ bash run_predict.sh RANK_TABLE_FILE path/to/shard_checkpoint_dir path/to/config_
 python run_mindformer.py --config configs/llama2/run_llama2_7b.yaml --run_mode predict --predict_data 'I love Beijing, because' --use_parallel False
 ```
 
-**注**：要提高推理速度，可在对应模型配置文件中进行如下配置，设置增量推理`use_past`为True。
+**注**：推理时加入`vocab_file` 配置`tokenizer.model`路径；要提高推理速度，可在对应模型配置文件中进行如下配置，设置增量推理`use_past`为True。
 
 ```python
 # model config
@@ -1117,6 +1137,12 @@ top_k: 3
 top_p: 1
 do_sample: False
 max_new_tokens: 128      #设置最大生成长度
+
+# tokenizer 配置
+processor:
+  return_tensors: ms
+  tokenizer:
+    vocab_file: "path/to/tokenizer.model"
 ```
 
 #### 多卡推理
