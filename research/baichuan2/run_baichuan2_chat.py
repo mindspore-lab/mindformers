@@ -27,6 +27,7 @@ from mindformers.tools.logger import logger
 from mindformers.trainer.utils import transform_and_load_checkpoint
 from mindformers.core.context import build_context
 from mindformers.core.parallel_config import build_parallel_config
+from mindformers.pet import get_pet_model, LoraConfig
 
 from baichuan2_7b import Baichuan7BV2ForCausalLM
 from baichuan2_13b import Baichuan13BV2ForCausalLM
@@ -104,6 +105,16 @@ def main(config='./',
     model_config = LlamaConfig(**config.model.model_config)
     model_name = config.trainer.model_name
     network = model_dict[model_name](model_config)
+
+    if config.model.model_config.pet_config:
+        logger.info("----------------Init lora params----------------")
+        pet_config = LoraConfig(
+            lora_rank=config.model.model_config.pet_config.lora_rank,
+            lora_alpha=config.model.model_config.pet_config.lora_alpha,
+            lora_dropout=config.model.model_config.pet_config.lora_dropout,
+            target_modules=config.model.model_config.pet_config.target_modules
+        )
+        network = get_pet_model(network, pet_config)
     model = Model(network)
 
     # load checkpoint
