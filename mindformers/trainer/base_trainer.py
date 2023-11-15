@@ -13,7 +13,6 @@
 # limitations under the License.
 # ============================================================================
 """Base Trainer."""
-import math
 import os
 import shutil
 from pprint import pprint
@@ -22,7 +21,7 @@ from typing import Optional, Union, List
 import numpy as np
 from PIL.Image import Image
 import mindspore as ms
-from mindspore import Tensor, DatasetHelper
+from mindspore import Tensor
 from mindspore.train.model import Model
 from mindspore.train import Callback
 from mindspore.dataset import GeneratorDataset
@@ -542,19 +541,19 @@ class BaseTrainer:
         if config.resume_training and config.load_checkpoint:
             logger.info(".............Start load resume context from checkpoint..................")
             load_resume_context_from_checkpoint(config)
+            logger.info("initial epoch: %d", config.runner_config.initial_epoch)
+            logger.info("initial step: %d", config.runner_config.initial_step)
+        else:
+            config.runner_config.initial_epoch = 0
+            config.runner_config.initial_step = 0
 
         # build dataset
         logger.info(".........Build Dataset For Train..........")
         if dataset is None:
             dataset = self.create_train_dataset()
+
         self.set_train_dataset(dataset)
         check_runner_config(config, dataset)
-        if config.runner_config.sink_mode:
-            epoch_num = math.ceil((config.runner_config.epochs - config.runner_config.initial_epoch)
-                                  * config.runner_config.sink_size / dataset.get_dataset_size())
-            # pylint: disable=W0212
-            dataset._dataset_helper = DatasetHelper(dataset, config.runner_config.sink_mode,
-                                                    config.runner_config.sink_size, epoch_num)
 
         # check rules
         check_rules(config, mode='train')
@@ -608,6 +607,7 @@ class BaseTrainer:
             "micro_batch_interleave_num": config.micro_batch_interleave_num,
             "micro_batch_num": config.parallel_config.micro_batch_num,
             "initial_epoch": config.runner_config.initial_epoch,
+            "initial_step": config.runner_config.initial_step,
             "global_batch_size": self.global_batch_size})
         if callbacks is not None:
             if isinstance(callbacks, list):

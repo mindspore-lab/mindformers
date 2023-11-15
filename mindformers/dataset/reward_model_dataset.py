@@ -127,6 +127,7 @@ class RewardModelDataset(BaseDataset):
         dataset = get_dataset_map(dataset, input_columns="loss_mask", operations=type_cast_op_float)
         dataset = get_dataset_map(dataset, input_columns="end_ind", operations=type_cast_op)
         dataset = dataset.repeat(dataset_config.repeat)
+        dataset = cls._set_init_step(dataset, dataset_config)
         return dataset
 
     @classmethod

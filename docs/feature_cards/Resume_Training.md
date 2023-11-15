@@ -2,30 +2,36 @@
 
 ## 介绍
 
-在长时间的训练当中，如果遇到意外情况导致训练中断，可以使用断点续训的方式恢复之前的状态继续训练。
+Mindformer支持**step级断点续训**，在训练过程中如果遇到意外情况导致训练中断，可以使用断点续训的方式恢复之前的状态继续训练。
 
-恢复训练时，从之前训练的checkpoint文件或文件夹中，加载网络权重，并恢复训练时的epoch、step、loss_scale_value等信息。
+Mindformer在输出目录下会保存`checkpoint`和`checkpoint_network`两个权重输出文件夹：
 
-> 局限：由于数据集暂不支持跳过已训练的数据，当前仅支持epoch级的断点续训，即仅支持恢复到某个epoch开始的状态。
+- **checkpoint**：保存权重、优化器、step、epoch、loss_scale等参数信息，主要用于**断点恢复训练**，可完全恢复至中断处的训练状态；
+- **checkpoint_network**：仅保存权重参数，可用作**预训练权重**或**推理评估**，不支持**断点恢复训练**。
+
+> 注：分布式断点续训必须开启sink_mode。
 
 ## 使用
 
 ### 脚本启动场景
 
-在run_xxx.yaml中配置load_checkpoint为checkpoint文件或文件夹路径，并将resume_training改为True。
+在run_xxx.yaml中配置`load_checkpoint`，并将`resume_training`改为**True**：
+
+- 如果加载**分布式权重**，配置为checkpoint文件夹路径，权重按照`checkpoint_file_or_dir_path/rank_x/xxx.ckpt`格式存放。
+- 如果加载**完整权重**，配置为checkpoint文件绝对路径。
 
 ```yaml
 load_checkpoint: checkpoint_file_or_dir_path
 resume_training: True
 ```
 
-> 注意：如果load_checkpoint配置为文件路径，则认为是完整权重，如果配置为文件夹，则认为是分布式权重。下同。
+> 注：如果load_checkpoint配置为文件路径，则认为是完整权重，如果配置为文件夹，则认为是分布式权重。下同。
 
 ### Trainer高阶接口启动场景
 
-- 方式1：在Trainer.train()或Trainer.finetune()中配置
+- **方式1：在Trainer.train()或Trainer.finetune()中配置**
 
-在Trainer.train()或Trainer.finetune()中，配置train_checkpoint或finetune_checkpoint参数为checkpoint文件或文件夹路径，并将resume_training参数设置为True。
+在Trainer.train()或Trainer.finetune()中，配置`train_checkpoint`或`finetune_checkpoint`参数为checkpoint文件或文件夹路径，并将`resume_training`参数设置为**True**。
 
 ```python
 import mindspore as ms
@@ -42,9 +48,9 @@ cls_trainer.train(train_checkpoint="", resume_training=True) # 启动训练
 cls_trainer.finetune(finetune_checkpoint="", resume_training=True) # 启动微调
 ```
 
-- 方式2：在TrainingArguments中配置
+- **方式2：在TrainingArguments中配置**
 
-在TrainingArguments中配置resume_from_checkpoint为checkpoint文件或文件夹路径，并将resume_training参数设置为True。
+在TrainingArguments中配置`resume_from_checkpoint`为checkpoint文件或文件夹路径，并将`resume_training`参数设置为**True**。
 
 ```python
 import mindspore as ms
