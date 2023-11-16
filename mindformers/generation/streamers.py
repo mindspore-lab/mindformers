@@ -15,7 +15,7 @@
 # https://github.com/huggingface/transformers/blob/main/src/transformers/generation/streamers.py
 # ============================================================================
 """Streamers for text generation."""
-from queue import Queue
+from multiprocessing import Queue
 from typing import Optional
 import numpy as np
 try:
@@ -100,11 +100,11 @@ class TextStreamer(BaseStreamer):
             self.next_tokens_are_prompt = False
             return
 
-        if isinstance(value, int):
-            self.token_cache.append(value)
         if isinstance(value, np.ndarray):
             value = value.tolist()
-        if isinstance(value, list):
+        if isinstance(value, int):
+            self.token_cache.append(value)
+        elif isinstance(value, list):
             if len(value) > 1 and isinstance(value[0], list):
                 # switch from single mode to batch mode
                 if not self.batch_stream:
@@ -266,6 +266,10 @@ class TextIteratorStreamer(TextStreamer):
             self.text_queue.put(text, timeout=self.timeout)
         if stream_end:
             self.text_queue.put(self.stop_signal, timeout=self.timeout)
+
+    def clear(self):
+        while not self.text_queue.empty():
+            self.text_queue.get()
 
     def __iter__(self):
         return self
