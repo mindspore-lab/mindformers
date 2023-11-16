@@ -14,7 +14,9 @@
 # ============================================================================
 """MindFormers Optimizer."""
 from .build_optim import build_optim
+from .came import *
 from .optim import *
 
 __all__ = []
+__all__.extend(came.__all__)
 __all__.extend(optim.__all__)
