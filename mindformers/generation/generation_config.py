@@ -40,6 +40,8 @@ class GenerationConfig:
         use_past (`bool`, *optional*, defaults to `False`):
             Whether the model should use the past last key/values attentions
             (if applicable to the model) to speed up decoding.
+        num_beams(`int`, *optional*, defaults to 1):
+            Number of beams for beam search. 1 means no beam search. If larger than 1, use beam search strategy.
 
         > Parameters for manipulation of the model output logits
 
@@ -84,6 +86,8 @@ class GenerationConfig:
         self.max_length = kwargs.pop("max_length", self.max_length)
         self.max_new_tokens = kwargs.pop("max_new_tokens", None)
 
+        # number of beams
+        self.num_beams = kwargs.pop("num_beams", 1)
         # do sample or not
         self.do_sample = kwargs.pop("do_sample", False)
         # incremental infer
