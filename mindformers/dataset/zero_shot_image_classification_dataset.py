@@ -84,4 +84,5 @@ class ZeroShotImageClassificationDataset(BaseDataset):
                                 drop_remainder=dataset_config.drop_remainder,
                                 num_parallel_workers=dataset_config.num_parallel_workers)
         dataset = dataset.repeat(dataset_config.repeat)
+        dataset = cls._set_init_step(dataset, dataset_config)
         return dataset

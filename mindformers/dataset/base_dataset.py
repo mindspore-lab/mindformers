@@ -66,3 +66,9 @@ class BaseDataset:
     @classmethod
     def _is_data_parallel(cls):
         return ms.context.get_auto_parallel_context("parallel_mode") == ms.context.ParallelMode.DATA_PARALLEL
+
+    @classmethod
+    def _set_init_step(cls, dataset, dataset_config):
+        if dataset_config.initial_step:
+            dataset.set_init_step(dataset_config.initial_step)
+        return dataset

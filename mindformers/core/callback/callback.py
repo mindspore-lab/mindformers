@@ -128,6 +128,7 @@ class MFLossMonitor(Callback):
                  origin_epochs: int = None,
                  dataset_size: int = None,
                  initial_epoch: int = 0,
+                 initial_step: int = 0,
                  global_batch_size: int = 0):
         super(MFLossMonitor, self).__init__()
         self.per_print_times = per_print_times
@@ -143,6 +144,7 @@ class MFLossMonitor(Callback):
         self.micro_batch_interleave_num = micro_batch_interleave_num
         self.origin_epochs = origin_epochs
         self.initial_epoch = initial_epoch
+        self.initial_step = initial_step
         self.global_batch_size = global_batch_size
         self.device_num = int(os.getenv('RANK_SIZE', '1'))
 
@@ -205,15 +207,14 @@ class MFLossMonitor(Callback):
             origin_epochs = self.origin_epochs
             per_step_seconds = step_seconds / cb_params.batch_num
             steps_per_epoch = self.steps_per_epoch
-            cur_epoch_num = (cb_params.cur_step_num - 1) // steps_per_epoch \
-                            + self.initial_epoch * cb_params.batch_num // steps_per_epoch + 1
-            cur_step_num = (cb_params.cur_step_num - 1) % steps_per_epoch + 1
+            cur_epoch_num = (cb_params.cur_step_num + self.initial_step - 1) // steps_per_epoch + 1
+            cur_step_num = (cb_params.cur_step_num + self.initial_step - 1) % steps_per_epoch + 1
         else:
             origin_epochs = self.origin_epochs
             per_step_seconds = step_seconds
             steps_per_epoch = cb_params.batch_num
             cur_epoch_num = cb_params.cur_epoch_num
-            cur_step_num = (cb_params.cur_step_num - 1) % cb_params.batch_num + 1
+            cur_step_num = (cb_params.cur_step_num + self.initial_step - 1) % cb_params.batch_num + 1
 
         # compute time remaining
         step_remain = (origin_epochs - cur_epoch_num + 1) * steps_per_epoch - cur_step_num
@@ -579,7 +580,7 @@ class CheckpointMointor(ModelCheckpoint):
             if "epoch_num" in self._append_dict:
                 self._append_dict["epoch_num"] = self._append_epoch_num + cb_params.cur_epoch_num
             if "step_num" in self._append_dict:
-                self._append_dict["step_num"] = self._append_step_num + cb_params.cur_epoch_num * cb_params.batch_num
+                self._append_dict["step_num"] = self._append_step_num + cb_params.cur_step_num
             if cb_params.optimizer is not None:
                 self._append_dict["global_step"] = cb_params.optimizer.global_step
             else:

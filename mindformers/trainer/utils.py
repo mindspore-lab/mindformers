@@ -241,7 +241,7 @@ def load_distributed_checkpoint(config, specify_prefix=None):
         logger.info(
             "When distributed loads are sliced weights,"
             "load_checkpoint should be a checkpoint directory containing the directory of rank_{0-*},"
-            "The directory structure is as follows: **checkpoint_root_dir/checkpoint/rank_{0-*}/**.ckpt")
+            "The directory structure is as follows: **checkpoint_root_dir/rank_{0-*}/**.ckpt")
         distribute_checkpoint_dir = os.path.join(
             checkpoint_dir, "rank_{}".format(int(os.getenv("RANK_ID", "0"))))
         distribute_checkpoint_path = get_last_checkpoint(distribute_checkpoint_dir)
@@ -263,16 +263,22 @@ def load_resume_context_from_checkpoint(config):
                                 f"but get {config.load_checkpoint}")
 
     if os.path.isdir(config.load_checkpoint):
-        resume_dict = load_distributed_checkpoint(config, ["loss_scale", "epoch_num"])
-        if not config.runner_config.sink_mode:
-            raise ValueError("When distributed loads are sliced weights, sink_mode must be set True.")
+        resume_dict = load_distributed_checkpoint(config, ["loss_scale", "epoch_num", "step_num"])
     else:
-        resume_dict = load_checkpoint(config.load_checkpoint, specify_prefix=["loss_scale", "epoch_num"])
+        resume_dict = load_checkpoint(config.load_checkpoint, specify_prefix=["loss_scale", "epoch_num", "step_num"])
 
     if "epoch_num" in resume_dict:
-        config.runner_config.initial_epoch = int(resume_dict["epoch_num"])
+        if config.runner_config.sink_mode:
+            config.runner_config.initial_epoch = int(resume_dict["epoch_num"])
+        else:
+            config.runner_config.initial_epoch = int(resume_dict["epoch_num"]) - 1
     else:
         config.runner_config.initial_epoch = 0
+
+    if "step_num" in resume_dict:
+        config.runner_config.initial_step = int(resume_dict["step_num"])
+    else:
+        config.runner_config.initial_step = 0
 
     for callback in config.callbacks:
         if "type" in callback and callback["type"] == "CheckpointMointor":
@@ -606,7 +612,7 @@ def get_last_checkpoint(checkpoint_dir):
             f"{checkpoint_dir} is not a real directory,"
             "When distributed loads are sliced weights,"
             "load_checkpoint should be a checkpoint directory containing the directory of rank_{0-*},"
-            "The directory structure is as follows: **checkpoint_root_dir/rank_{0-*}/checkpoint/**.ckpt")
+            "The directory structure is as follows: **checkpoint_root_dir/rank_{0-*}/**.ckpt")
     output_checkpoint_path = [
         checkpoint for checkpoint in os.listdir(checkpoint_dir)
         if checkpoint.endswith('.ckpt')

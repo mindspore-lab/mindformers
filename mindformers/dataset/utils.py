@@ -25,6 +25,7 @@ def check_dataset_config(config):
         config.train_dataset.autotune_per_step = config.autotune_per_step
         config.train_dataset.profile = config.profile
         config.train_dataset.batch_size = config.runner_config.batch_size
+        config.train_dataset.initial_step = config.runner_config.initial_step
         if config.train_dataset.mixup_op:
             config.train_dataset.mixup_op.num_classes = config.runner_config.num_classes
         config.train_dataset_task.dataset_config = config.train_dataset
