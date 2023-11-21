@@ -723,7 +723,7 @@ import mindspore as ms
 
 ms.set_context(mode=ms.GRAPH_MODE, device_target="Ascend", device_id=0)
 
-config = AutoConfig.from_pretrained("glm2_6b")
+config = AutoConfig.from_pretrained("glm2_6b") # LoRA微调模型替换成 “glm2_6b_lora”
 # 可以在此使用下行代码指定自定义权重进行推理，默认使用自动从obs上下载的预训练权重
 # config.checkpoint_name_or_path = "/path/to/glm2_6b_finetune.ckpt"
 config.use_past = True
@@ -882,7 +882,7 @@ python mindformers/tools/export.py --config_path configs/glm2/export_glm2_6b.yam
 2. 执行命令：
 
 ```bash
-python run_infer_main.py --device_id 0 --model_name glm2 --prefill_model_path glm2_export/glm2_6b_prefill_seq512_graph.mindir --increment_model_path glm2_export/glm2_6b_inc_seq512_graph.mindir --config_path lite.ini --is_sample_acceleration False --seq_length 512 --add_special_tokens True
+python run_infer_main.py --device_id 0 --model_name glm2_6b --prefill_model_path glm2_export/glm2_6b_prefill_seq512_graph.mindir --increment_model_path glm2_export/glm2_6b_inc_seq512_graph.mindir --config_path lite.ini --is_sample_acceleration False --seq_length 512 --add_special_tokens True
 ```
 
 > 注：如果是int8量化后推理，将 `prefill_model_path`​ 和 `increment_model_path`​ 修改为 int8 量化后的 MindIR 即可。
