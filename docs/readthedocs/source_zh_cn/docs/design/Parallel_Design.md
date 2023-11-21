@@ -573,6 +573,23 @@ ms.set_auto_parallel_context(dataset_strategy="full_batch")
 
 [MindSpore流水线并行设计原理及使用实践](https://www.mindspore.cn/tutorials/experts/zh-CN/r2.0/parallel/pipeline_parallel.html#)
 
+### 序列并行
+
+MindFormers支持通过并行配置参数`seq_parallel=True`开启序列并行，当模型适配此特性时生效。序列并行通常与模型并行同时使用。
+
+序列并行的原理参考论文：
+
+[Reducing Activation Recomputation in Large Transformer Models](https://arxiv.org/pdf/2205.05198.pdf)
+
+主要是将`Transformer`层中的`LayerNorm`以及`Dropout`的输入按输入长度`Sequence Length`维度进行了切分，使得各个设备上面只需要做一部分的`Dropout`和`LayerNorm`即可。`LayerNorm`和`Dropout`的计算及其所产生的激活值被平摊到了各个设备上，减少了计算资源的浪费，降低了内存开销。
+
+在开启模型并行时，未开启序列并行的`Transformer`层结构如图所示，`LayerNorm`和`Dropout`模块需要依赖`AllReduce`得到的完整中间结果。
+
+![before_seq_parallel.png](./assets/before_seq_parallel.png)
+
+开启模型并行和序列并行后，将`LayerNorm`和`Dropout`层的`Tensor`在`seq_length`维度进行`mp`大小的切分，计算所需动态内存降低；`AllReduce`被拆解成`ReduceScatter`和`AllGather`，通信量不变。
+
+![after_seq_parallel.png](./assets/after_seq_parallel.png)
 ## MindFormers 并行手册
 
 ### MindFormers 并行设计
@@ -602,6 +619,7 @@ MindFormers支持基于`Transformer API`开发的大模型通过配置化接口�
     - data_parallel: 数据并行
     - model_parallel: 模型并行
     - pipeline_stage: 流水线并行
+    - use_seq_parallel: 序列并行
     - micro_batch_num: 流水线并行的微批次大小。pipeline_satge大于1时，开启流水并行时使用，此处需满足micro_batch_num >= pipeline_satge
     - gradient_aggregation_group: 梯度通信算子融合组的大小
 
@@ -660,6 +678,7 @@ def main(use_parallel=False,
     task.set_parallel_config(data_parallel=dp,
                              model_parallel=mp,
                              pipeline_stage=pp,
+                             use_seq_parallel=True,
                              micro_batch_num=micro_size)
     ############################################# 设定并行策略 ##################################################
     if run_mode == 'train':

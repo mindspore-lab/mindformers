@@ -262,14 +262,14 @@ text_generation = Trainer(task='text_generation', model=pangu_model, args=traini
                           eval_dataset=eval_dataset)
 ```
 
-### 并行&&重计算配置
+### 并行配置
 
-MindFormers的Trainer接口提供了并行的配置接口`set_parallel_config`和重计算配置接口`set_recompute_config`，其中`set_parallel_config`接口仅在**半自动并行**
+MindFormers的Trainer接口提供了并行的配置接口`set_parallel_config`，接口仅在**半自动并行**
 或**全自动并行模式**下生效，同时需要模型本身已支持或已配置[并行策略](https://www.mindspore.cn/tutorials/experts/zh-CN/r2.0/parallel/introduction.html)：
 
-[set_parallel_config](https://gitee.com/mindspore/mindformers/blob/dev/mindformers/trainer/trainer.py#L690)  [set_recompute_config](https://gitee.com/mindspore/mindformers/blob/dev/mindformers/trainer/trainer.py#L731)
+[set_parallel_config](https://gitee.com/mindspore/mindformers/blob/dev/mindformers/trainer/trainer.py#L690)
 
-使用Trainer高阶接口，自定义并行和重计算配置：
+使用Trainer高阶接口，自定义并行配置：
 
 ```python
 import numpy as np
@@ -306,7 +306,53 @@ text_generation = Trainer(task='text_generation', model=pangu_model, args=traini
 
 # 设定并行策略，比如2机16卡,设定数据并行4 模型并行2 流水并行2 微批次大小为2 打开优化器并行
 text_generation.set_parallel_config(data_parallel=4, model_parallel=2, pipeline_stage=2, micro_batch_num=2)
+```
 
-# 设置重计算配置，打开重计算
-text_generation.set_recompute_config(recompute=True)
+### 重计算配置
+
+MindFormers的Trainer接口提供了重计算配置接口`set_recompute_config`，接口入参如下：
+
+[set_recompute_config](https://gitee.com/mindspore/mindformers/blob/dev/mindformers/trainer/trainer.py#L731)
+
+```text
+recompute(bool):是否开启全局重计算，默认值False。默认值：False。
+select_recompute(bool):是否开启选择重计算，仅当模型本身已支持选择重计算时适用，开启后仅对模型的attention层进行重计算。默认值：False。
+parallel_optimizer_comm_recompute (bool): 表示在自动并行或半自动并行模式下，指定Cell内部由优化器并行引入的AllGather通信是否重计算。默认值：False。
+mp_comm_recompute (bool):表示在自动并行或半自动并行模式下，指定Cell内部由模型并行引入的通信操作是否重计算。默认值：True。
+recompute_slice_activation (bool):是否对将保留在内存中的Cell输出进行切片。默认值：False。
+```
+
+使用Trainer高阶接口，自定义并行配置：
+
+```python
+import numpy as np
+import mindspore
+from mindspore.dataset import GeneratorDataset
+
+from mindformers import Trainer
+from mindformers import LlamaForCausalLM, LlamaConfig
+
+def generator():
+    """text dataset generator."""
+    seq_len = 2049
+    input_ids = np.random.randint(low=0, high=15, size=(seq_len,)).astype(np.int32)
+    for _ in range(512):
+        yield input_ids
+
+# 指定图模式，指定使用训练卡id
+mindspore.set_context(mode=0, device_id=0)
+# 自定义模型
+llama_config = LlamaConfig(batch_size=1)
+llama_model = LlamaForCausalLM(llama_config)
+# 自定义数据集
+dataset = GeneratorDataset(generator, column_names=["input_ids"])
+train_dataset = dataset.batch(batch_size=1)
+# 定义文本生成任务，传入自定义模型、数据集
+text_generation = Trainer(task='text_generation',
+                          model=llama_model,
+                          train_dataset=train_dataset)
+# 全局重计算：设置重计算配置，打开重计算
+text_generation.set_recompute_config(recompute=True,select_recompute=False)
+# 选择重计算：设置重计算配置，关闭全局重计算，打开选择重计算
+text_generation.set_recompute_config(recompute=False,select_recompute=True)
 ```
