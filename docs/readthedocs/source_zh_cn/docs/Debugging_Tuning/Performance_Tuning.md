@@ -21,20 +21,21 @@ profile_memory: True
 - **profile_start_step** - 表示开始收集算子性能数据的step。默认值：1。
 - **profile_stop_step** - 表示结束收集算子性能数据的step。默认值：10。
 - **output_path** - 表示输出数据的路径。默认值："./output/profile/rank_{id}/profiler/"。
-- **init_start_profile** - 该参数控制是否在Profiler初始化的时候开启数据采集。默认值：True。
+- **init_start_profile** - 该参数控制是否在Profiler初始化的时候开启数据采集。开启后profile_start_step将不生效。如果需要收集多设备通信数据则必须开启。默认值：True。
 - **profile_communication** - (仅限Ascend) 表示是否在多设备训练中收集通信性能数据。当值为True时，收集这些数据。在单台设备训练中，该参数的设置无效。默认值：False。
 - **profile_memory** - (仅限Ascend) 表示是否收集Tensor内存数据。当值为True时，收集这些数据。默认值：False。
 
-修改配置文件后，[启动训练](../start/Quick_Tour.md#方式一使用已有脚本启动)，在根目录下会生成相应的profiler文件夹存放各rank的profiler文件。
+修改配置文件后，[启动训练](../start/Quick_Tour.md#方式一使用已有脚本启动)，在输出目录下会生成相应的profile文件夹存放各rank的profiler文件。
 
 ```index
-├─...
-├─output
-│  ├─checkpoint
-│  ├─profiler
-│  │  ├─rank0
-│  │  ├─...
-│  │  └─rank7
+output
+  ├─checkpoint
+  └─profile
+    ├─rank0
+    │   └─profiler
+    ├─...
+    └─rank7
+        └─profiler
 ......
 ```
 
