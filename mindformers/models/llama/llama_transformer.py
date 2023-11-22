@@ -214,7 +214,7 @@ class LLamaAttention(nn.Cell):
             logger.info("Current MindSpore do not support flash attention, please upgrade to 2.2.0 or higher")
         if self.use_flash_attention:
             self.flash_attention = FlashAttention(self.head_dim, n_heads, dp=dp, mp=mp, next_block_num=0,
-                                                  high_precision=(softmax_compute_dtype == mstype.float32))
+                                                  high_precision=True)
 
         if self.use_past:
             # operators used for state reuse
@@ -285,7 +285,7 @@ class LLamaAttention(nn.Cell):
         value = self._repeat_kv(value, self.n_rep)
         # q, k, v: [bs, n_head, seq/1, head_dim], [bs, n_head, seq, head_dim], [bs, n_head, seq, head_dim]
         if self.use_flash_attention:
-            attention = self.flash_attention(query, key, value, mask)
+            attention = self.flash_attention(query, key, value, mask.to(mstype.uint8))
             attention = self._merge_heads(attention)
         else:
             attention = self._attn(query, key, value, mask)
