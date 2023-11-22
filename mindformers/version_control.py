@@ -144,3 +144,34 @@ def get_identity():
 def fix_optim_global_step_sig():
     # when the version of mindspore bigger than 2.2.0, it should update global step explicitly.
     return is_version_ge(ms.__version__, "2.2.0")
+
+
+def check_valid_flash_attention(import_fa_valid=True):
+    """check mindspore version is valid for flash attention"""
+    version_valid = is_version_ge(ms.__version__, "2.2.0")
+    # below ms 2.2.0 is not support
+    if not version_valid:
+        logger.warning("Current MindSpore do not support FlashAttention, please upgrade to 2.2.0 or later version.")
+        logger.warning("Now running on self-attention mode.")
+        result = False
+    # ms 2.2.0 or latter version but import error is not support
+    elif not import_fa_valid:
+        logger.warning("Import FlashAttention ERROR, please upgrade your MindSpore to 2.2.0 or later version. ")
+        logger.warning("Now running on self-attention mode.")
+        result = False
+    # both pass should return True
+    else:
+        result = True
+    return result
+
+def choose_flash_attention_dtype():
+    """
+    attention_mask dtype should be float16 on ms 2.2.0, uint8 on 2.2.10
+    ms version below 2.2.0 won't be in this func
+    """
+    cur_ver = ms.__version__
+    if is_version_ge(cur_ver, "2.2.0") and not is_version_ge(cur_ver, "2.2.1"):
+        fa_dtype = ms.float16
+    elif is_version_ge(cur_ver, "2.2.1"):
+        fa_dtype = ms.uint8
+    return fa_dtype

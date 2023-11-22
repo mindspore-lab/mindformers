@@ -31,7 +31,7 @@ model:
     ffn_hidden_size: 13696
     kv_channels: 128
     num_attention_heads: 32
-    seq_length: 193
+    seq_length: 192
     hidden_dropout: 0.0
     attention_dropout: 0.0
     layernorm_epsilon: 1e-5
@@ -53,6 +53,7 @@ model:
     compute_dtype: "float16"
     layernorm_compute_type: "float32"
     use_past: False
+    use_flash_attention: True # when use FlashAttention, seq_length should be multiple of 16
     eos_token_id: 2
     pad_token_id: 0
     repetition_penalty: 1.0
@@ -103,7 +104,7 @@ train_dataset: &train_dataset
     vocab_file: "/path/to/tokenizer.model"
   input_columns: ["input_ids", "labels"]
   max_source_length: 64
-  max_target_length: 128
+  max_target_length: 127
   ignore_pad_token_for_loss: True
   num_parallel_workers: 8
   python_multiprocessing: False
