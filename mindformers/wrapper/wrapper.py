@@ -21,14 +21,16 @@ from mindspore.ops import functional as F
 from mindspore.ops import operations as P
 from mindspore import nn, Parameter, ParallelMode
 from mindspore.parallel._utils import _get_enable_parallel_optimizer
+import mindspore as ms
 import mindspore.common.dtype as mstype
 
+from mindspore.ops.operations.math_ops import NPUGetFloatStatusV2, NPUClearFloatStatusV2
 from mindformers.core.clip_grad import ClipGradNorm
+from mindformers.core.optim import FusedCastAdamWeightDecay
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.version_control import get_identity
 
 __all__ = ['MFTrainOneStepCell', 'MFPipelineWithLossScaleCell']
-
 
 _grad_scale = C.MultitypeFuncGraph("grad_scale")
 reciprocal = P.Reciprocal()
@@ -90,6 +92,10 @@ class MFTrainOneStepCell(nn.TrainOneStepWithLossScaleCell):
                  **kwargs):
         super(MFTrainOneStepCell, self).__init__(network, optimizer, scale_sense)
         self.use_clip_grad = use_clip_grad
+        if isinstance(optimizer, FusedCastAdamWeightDecay):
+            self.use_grad_norm = True
+        else:
+            self.use_grad_norm = False
         self.clip_grad_norm = ClipGradNorm(max_norm=max_grad_norm)
         self.parallel_config = kwargs.pop("parallel_config", None)
         self.learning_rate = deepcopy(self.optimizer.learning_rate)
@@ -108,6 +114,10 @@ class MFTrainOneStepCell(nn.TrainOneStepWithLossScaleCell):
         # apply grad reducer on grads
         grads = self.grad_reducer(grads)
 
+        # get the overflow buffer
+        cond = self.get_overflow_status(status, grads)
+        overflow = self.process_loss_scale(cond)
+
         learning_rate = self.learning_rate
         if self.optimizer.dynamic_lr:
             if self.optimizer.is_group_lr:
@@ -115,14 +125,16 @@ class MFTrainOneStepCell(nn.TrainOneStepWithLossScaleCell):
             else:
                 learning_rate = self.learning_rate(self.optimizer.global_step).reshape(())
 
-        # get the overflow buffer
-        cond = self.get_overflow_status(status, grads)
-        overflow = self.process_loss_scale(cond)
         # if there is no overflow, do optimize
         if not overflow:
             if self.use_clip_grad:
-                grads, _ = self.clip_grad_norm(grads)
-            loss = F.depend(loss, self.optimizer(grads))
+                grads, grad_norm = self.clip_grad_norm(grads)
+                if self.use_grad_norm:
+                    loss = F.depend(loss, self.optimizer(grads, grad_norm))
+                else:
+                    loss = F.depend(loss, self.optimizer(grads))
+            else:
+                loss = F.depend(loss, self.optimizer(grads))
         return loss, overflow, scaling_sens, learning_rate
 
 
@@ -177,7 +189,8 @@ class MFPipelineWithLossScaleCell(nn.TrainOneStepCell):
         ValueError: If shape of `scale_sense` is neither (1,) nor ().
     """
 
-    def __init__(self, network, optimizer, use_clip_grad=True, max_grad_norm=1.0,
+    def __init__(self, network, optimizer, use_clip_grad=True,
+                 max_grad_norm=1.0,
                  scale_sense=1.0, micro_batch_num=1, **kwargs):
         super(MFPipelineWithLossScaleCell, self).__init__(network, optimizer, sens=None)
         self.network = network
@@ -189,9 +202,8 @@ class MFPipelineWithLossScaleCell(nn.TrainOneStepCell):
         self.grad_reducer = get_identity()
         self.degree = 1
         self.cast = P.Cast()
-        self.alloc_status = P.NPUAllocFloatStatus()
-        self.get_status = P.NPUGetFloatStatus()
-        self.clear_before_grad = P.NPUClearFloatStatus()
+        self.get_status = NPUGetFloatStatusV2()
+        self.clear_before_grad = NPUClearFloatStatusV2()
         self.reduce_sum = P.ReduceSum(keep_dims=False)
         if self.parallel_mode not in [ParallelMode.SEMI_AUTO_PARALLEL, ParallelMode.AUTO_PARALLEL]:
             raise ValueError(f"ParallelMode must be one of "
@@ -217,6 +229,10 @@ class MFPipelineWithLossScaleCell(nn.TrainOneStepCell):
             raise TypeError("The 'scale_sense' must be Cell or Tensor, but got {}".format(type(scale_sense)))
         self.opt_shard = _get_enable_parallel_optimizer()
         self.use_clip_grad = use_clip_grad
+        if isinstance(optimizer, FusedCastAdamWeightDecay):
+            self.use_grad_norm = True
+        else:
+            self.use_grad_norm = False
         self.clip_grad_norm = ClipGradNorm(max_norm=max_grad_norm)
         self.micro_size = micro_batch_num
         self.parallel_config = kwargs.pop("parallel_config", None)
@@ -230,7 +246,7 @@ class MFPipelineWithLossScaleCell(nn.TrainOneStepCell):
 
         scaling_sens_filled = C.ones_like(loss) * F.cast(scaling_sens, F.dtype(loss))
 
-        init = self.alloc_status()
+        init = Tensor([0] * 8, dtype=ms.int32)
         status_clear = self.clear_before_grad(init)
         scaling_sens_filled = F.depend(scaling_sens_filled, status_clear)
         grads = self.grad(self.network, self.weights)(*inputs,
@@ -238,8 +254,7 @@ class MFPipelineWithLossScaleCell(nn.TrainOneStepCell):
                                                                 mstype.float32))
         init = F.depend(init, grads)
         get_status = self.get_status(init)
-        init = F.depend(init, get_status)
-        flag_sum = self.reduce_sum(init, (0,))
+        flag_sum = self.reduce_sum(get_status, (0,))
         loss = F.depend(loss, status_clear)
 
         if self.opt_shard:
@@ -250,14 +265,7 @@ class MFPipelineWithLossScaleCell(nn.TrainOneStepCell):
             grads = self.hyper_map(F.partial(grad_scale, scaling_sens * self.degree), grads, accu_grads)
 
         if self.use_clip_grad:
-            grads, _ = self.clip_grad_norm(grads)
-
-        learning_rate = self.learning_rate
-        if self.optimizer.dynamic_lr:
-            if self.optimizer.is_group_lr:
-                learning_rate = self.learning_rate[-1](self.optimizer.global_step).reshape(())
-            else:
-                learning_rate = self.learning_rate(self.optimizer.global_step).reshape(())
+            grads, grad_norm = self.clip_grad_norm(grads)
 
         # sum overflow flag over devices
         flag_reduce = self.allreduce(flag_sum)
@@ -268,6 +276,15 @@ class MFPipelineWithLossScaleCell(nn.TrainOneStepCell):
             overflow = self.loss_scaling_manager(self.scale_sense, cond)
 
         if not overflow:
-            loss = F.depend(loss, self.optimizer(grads))
+            if self.use_clip_grad and self.use_grad_norm:
+                loss = F.depend(loss, self.optimizer(grads, grad_norm))
+            else:
+                loss = F.depend(loss, self.optimizer(grads))
 
+        learning_rate = self.learning_rate
+        if self.optimizer.dynamic_lr:
+            if self.optimizer.is_group_lr:
+                learning_rate = self.learning_rate[-1](self.optimizer.global_step).reshape(())
+            else:
+                learning_rate = self.learning_rate(self.optimizer.global_step).reshape(())
         return loss, overflow, scaling_sens.value(), learning_rate
