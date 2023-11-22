@@ -16,6 +16,7 @@
 from mindformers.modules.transformer.moe import default_moe_config, MoEConfig
 from mindformers.modules.transformer import TransformerOpParallelConfig, TransformerRecomputeConfig
 from mindformers.tools.logger import logger
+from mindspore.parallel._cost_model_context import _set_rp_matmul_mem_coef
 
 default_recompute_config = TransformerRecomputeConfig()
 default_parallel_config = TransformerOpParallelConfig(recompute=default_recompute_config)
@@ -52,6 +53,7 @@ def build_parallel_config(config):
                 logger.info("pipeline_stage = %s > 1, vocab_emd_dp will be reset to False.",
                             config.parallel_config.pipeline_stage)
                 config.parallel_config.vocab_emb_dp = False
+            _set_rp_matmul_mem_coef(config.parallel_config.pop('mem_coeff', 0.25))
             config.parallel_config = TransformerOpParallelConfig(recompute=config.recompute_config,
                                                                  **config.parallel_config)
     else:

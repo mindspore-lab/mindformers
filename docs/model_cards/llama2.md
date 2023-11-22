@@ -361,15 +361,15 @@ python llama_preprocess.py \
 
 - step 1. 修改模型对应的配置文件。
 
-在模型对应的配置文件`configs/llama/run_llama2_{7/13/70}b.yaml`中，用户可自行修改模型、训练相关参数，并通过`train_dataset`的`dataset_dir`参数，指定训练数据集的路径。
+在模型对应的配置文件`configs/llama/run_llama2_{7/13/70}b_910b_auto_parallel.yaml`中，用户可自行修改模型、训练相关参数，并通过`train_dataset`的`dataset_dir`参数，指定训练数据集的路径。
 
-配置文件中各参数含义详见[Config配置说明文档](https://gitee.com/mindspore/mindformers/blob/master/configs/README.md)。
+配置文件中各参数含义详见[Config配置说明文档](https://gitee.com/mindspore/mindformers/blob/master/configs/README.md)。auto_parallel说明详见[自动并行](../docs/feature_cards/Auto_Parallel.md)。
 
 - step2：进入`scripts`文件夹，启动运行脚本，进行8卡分布式运行。
 
 ```shell
 cd scripts
-bash run_distribute.sh hccl_xxxx.json ../configs/llama2/run_llama2_7b.yaml [0,8] train
+bash run_distribute.sh hccl_xxxx.json ../configs/llama2/run_llama2_7b_910b_auto_parallel.yaml [0,8] train
 ```
 
 ```text
@@ -378,7 +378,7 @@ bash run_distribute.sh [RANK_TABLE_FILE] [CONFIG_PATH] [DEVICE_RANGE] [RUN_MODE]
 
 # 参数说明
 RANK_TABLE_FILE: 由mindformers/tools/hccl_tools.py生成的分布式json文件
-CONFIG_PATH: 为configs文件夹下面的llama/run_llama2_7b.yaml配置文件
+CONFIG_PATH: 为configs文件夹下面的llama/run_llama2_7b_910b_auto_parallel.yaml配置文件
 DEVICE_RANGE: 为单机分布式卡的范围，如[0,8]为8卡分布式，不包含8本身
 RUN_MODE: 为任务运行状态，支持关键字 train\finetune\eval\predict
 ```
@@ -393,7 +393,7 @@ RUN_MODE: 为任务运行状态，支持关键字 train\finetune\eval\predict
 
 ```yaml
 # 以llama2-13b模型两机训练为例，默认配置2机16卡，如果节点数有变，需要修改相应的配置。
-# 配置文件路径：../configs/llama2/run_llama2_13b.yaml
+# 配置文件路径：../configs/llama2/run_llama2_13b_910b_auto_parallel.yaml
 parallel_config:
   data_parallel: 2
   model_parallel: 4
@@ -409,9 +409,9 @@ parallel_config:
 
 ```shell
 # 第一台机器
-bash run_distribute.sh {RANK_TABLE_FILE path of the first device} ../configs/llama2/run_llama2_13b.yaml [0,8] train 16
+bash run_distribute.sh {RANK_TABLE_FILE path of the first device} ../configs/llama2/run_llama2_13b_910b_auto_parallel.yaml [0,8] train 16
 # 第二台机器
-bash run_distribute.sh {RANK_TABLE_FILE path of the second device} ../configs/llama2/run_llama2_13b.yaml [8,16] train 16
+bash run_distribute.sh {RANK_TABLE_FILE path of the second device} ../configs/llama2/run_llama2_13b_910b_auto_parallel.yaml [8,16] train 16
 ```
 
 ## 微调
