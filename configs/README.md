@@ -87,7 +87,7 @@ configs统一在run_xxx.yaml中，排序按照修改频率的顺序和一般的�
 - profile_stop_step: 性能分析结束的step
 - profile_communication: 是否在多设备训练中收集通信性能数据
 - profile_memory: 是否收集Tensor内存数据
-- init_start_profile: 是否在Profiler初始化的时候开启数据采集
+- init_start_profile: 是否在Profiler初始化的时候开启数据采集。开启后profile_start_step将不生效。如果需要收集多设备通信数据则必须开启。
 - trainer: 训练流程配置
     - type: 训练流程类
     - model_name: 训练模型名
