@@ -240,6 +240,10 @@ if __name__ == "__main__":
         help='batch_size of datasets.'
              'Default: None')
     parser.add_argument(
+        '--gradient_accumulation_steps', default=None, type=int,
+        help='Number of updates steps to accumulate before performing a backward/update pass.'
+             'Default: None')
+    parser.add_argument(
         '--sink_mode', default=None, type=str2bool,
         help='whether use sink mode. '
              'Default: None')
@@ -327,6 +331,8 @@ if __name__ == "__main__":
         config_.runner_config.epochs = args_.epochs
     if args_.batch_size is not None:
         config_.runner_config.batch_size = args_.batch_size
+    if args_.gradient_accumulation_steps is not None:
+        config_.runner_config.gradient_accumulation_steps = args_.gradient_accumulation_steps
     if args_.sink_mode is not None:
         config_.runner_config.sink_mode = args_.sink_mode
     if args_.num_samples is not None:

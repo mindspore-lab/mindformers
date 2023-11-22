@@ -44,6 +44,7 @@ configs统一在run_xxx.yaml中，排序按照修改频率的顺序和一般的�
     - batch_size: 数据批次大小，当前在使用yaml初始化训练时，会覆盖数据集配置中的batch_size，后面会删除改配置
     - sink_mode: 是否开启数据下沉模式
     - sink_size: 每次下沉数据大小，-1代表全量下沉
+    - gradient_accumulation_steps: 梯度累积步数，表示训练经过多少step后对模型权重进行一次优化更新；未设置时默认值为1，不开启梯度累积；可参考[特性文档](../docs/feature_cards/Training_Algorithms.md)
 - runner_wrapper: wrapper配置
     - type: wrapper类
     - scale_sense: 梯度缩放配置
