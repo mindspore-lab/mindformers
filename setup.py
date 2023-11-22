@@ -28,14 +28,6 @@ from setuptools.command.build_py import build_py
 from setuptools.command.install import install
 
 
-def get_configs_content():
-    pwd = os.path.dirname(os.path.realpath(__file__))
-    configs = [os.path.join(root, file)
-               for root, _, file_list in os.walk(os.path.join(pwd, "configs")) for file in file_list
-               if file.endswith('.yaml') or file.endswith(".yml") or file.endswith(".md")]
-    return configs
-
-
 def get_readme_content():
     pwd = os.path.dirname(os.path.realpath(__file__))
     with open(os.path.join(pwd, 'README.md'), encoding='UTF-8') as f:
@@ -92,6 +84,14 @@ def update_permissions(path):
             os.chmod(file_fullpath, stat.S_IREAD)
 
 
+def write_commit_id():
+    ret_code = os.system("git rev-parse --abbrev-ref HEAD > ./mindformers/.commit_id "
+                         "&& git log --abbrev-commit -1 >> ./mindformers/.commit_id")
+    if ret_code != 0:
+        sys.stdout.write("Warning: Can not get commit id information. Please make sure git is available.")
+        os.system("echo 'git is not available while building.' > ./mindformers/.commit_id")
+
+
 class EggInfo(egg_info):
     """Egg info."""
 
@@ -129,6 +129,8 @@ if __name__ == '__main__':
         sys.stderr.write('Python version should be at least 3.7\r\n')
         sys.exit(1)
 
+    write_commit_id()
+
     setup(
         name='mindformers',
         version='2023.09.dev',
@@ -147,7 +149,10 @@ if __name__ == '__main__':
         packages=find_packages(exclude=["*tests*"]),
         platforms=[get_platform()],
         include_package_data=True,
-        package_data={'mindformers': get_configs_content()},
+        package_data={'mindformers': ['../configs/**/*.yaml',
+                                      '../configs/**/*.yml',
+                                      '../configs/**/*.md',
+                                      '.commit_id']},
         cmdclass={
             'egg_info': EggInfo,
             'build_py': BuildPy,
