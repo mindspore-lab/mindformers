@@ -44,7 +44,8 @@ if [ ! -n "$output_dir" ]; then
   exit 1
 fi
 if [[ ! $output_dir =~ "'" ]]&&[[ ! $output_dir =~ "\"" ]]; then
-  echo "Error: Please use ' or \" to enclose output_dir"
+  echo "Error: Please use ' or \" to enclose output_dir, e.g., '/home/output'. But get $output_dir"
+  echo "The default value of output_dir should be './output'. Replace it with an absolute path if you want to customize it."
   exit 1
 elif [[ $output_dir =~ "'" ]]; then
   output_dir=${output_dir#*\'}
@@ -57,6 +58,10 @@ if [[ $output_dir == "./output" ]]
 then
   echo "output_dir is ./output"
   export LOCAL_DEFAULT_PATH="../../output"
+elif [[ ! $output_dir =~ ^/ ]]; then
+  echo "Error: output_dir should be absolute path, but get $output_dir."
+  echo "The default value of output_dir should be './output'. Replace it with an absolute path if you want to customize it."
+  exit 1
 else
   echo "output_dir is $output_dir"
   export LOCAL_DEFAULT_PATH=$output_dir
