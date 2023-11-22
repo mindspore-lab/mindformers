@@ -67,7 +67,7 @@ class PetModel(BaseModel):
     def slice_incremental_inputs(self, model_inputs: dict, current_index):
         return self.pet_model.slice_incremental_inputs(model_inputs, current_index)
 
-    def construct(self, input_ids, labels=None, input_position=None, position_ids=None, attention_mask=None,
+    def construct(self, input_ids, labels=None, position_ids=None, attention_mask=None, input_position=None,
                   input_embeds=None, init_reset=True, batch_valid_length=None):
         return self.pet_model(input_ids, labels, input_position, position_ids,
                               attention_mask, input_embeds, init_reset, batch_valid_length)
