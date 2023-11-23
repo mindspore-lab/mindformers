@@ -227,8 +227,8 @@ class GeneratorMixin:
             )
             # first iter done, go to other iters
             self.is_first_iteration = False
-        else:
             self.add_flags_recursive(is_first_iteration=False)
+        else:
             # slice model inputs for incremental infer
             self.slice_incremental_inputs(model_inputs, current_index)
             model_inputs["input_position"] = Tensor(current_index, mstype.int32)
