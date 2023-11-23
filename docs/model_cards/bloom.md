@@ -923,10 +923,6 @@ provider=ge
 [ge_session_options]
 ge.externalWeight=1
 ge.exec.formatMode=1
-
-[ascend_context]
-enable_custom_op=All
-
 ```
 
 最后，lite推理的预期结果为
