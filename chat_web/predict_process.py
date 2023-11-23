@@ -114,7 +114,6 @@ def generate_process(device_id: int,
         generation_kwargs.update(**infer_data)
         if streamer is not None:
             generation_kwargs.update(streamer=streamer)
-        logger.info(f"{device_id} card generation kwargs: {generation_kwargs}")
 
         output_ids = network.generate(**generation_kwargs)
         output_ids[-1] = output_ids[-1][len(input_ids):-1]
@@ -123,7 +122,7 @@ def generate_process(device_id: int,
         logger.info(f"{device_id} card generate output: {output}")
         history.append((prompted_inputs, output))
         output_q.put_nowait(output)
-        logger.info(f"{device_id} card put output into output queue.")
+        logger.debug(f"{device_id} card put output into output queue.")
 
 
 class MindFormersInfer:
