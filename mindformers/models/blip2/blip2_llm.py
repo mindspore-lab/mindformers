@@ -40,6 +40,9 @@ class Blip2Llm(Blip2Base):
     """
     _support_list = MindFormerBook.get_model_support_list()['blip2']['stage2']
 
+    # blip2_stage1_pretrained is not a specific model and appending it here is used to load the ckpt in stage2.
+    _support_list.append("blip2_stage1_pretrained")
+
     def __init__(self, config: Blip2Config, **kwargs):
         super(Blip2Llm, self).__init__(config, **kwargs)
         self.config = config if config is not None else Blip2Config()

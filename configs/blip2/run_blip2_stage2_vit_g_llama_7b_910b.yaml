@@ -14,7 +14,7 @@ context:
   enable_graph_kernel: False
   graph_kernel_flags: str = "--disable_expand_ops=Softmax,Dropout " \
                               "--enable_parallel_fusion=true --reduce_fuse_depth=8 --enable_auto_tensor_inplace=true"
-  max_device_memory: "30GB"
+  max_device_memory: "55GB"
   max_call_depth: 10000
   save_graphs: False
   save_graphs_path: "./graph"
@@ -26,7 +26,7 @@ remote_save_url: "Please input obs url on AICC platform."
 # runner
 runner_config:
   epochs: 1
-  batch_size: &batch_size 24
+  batch_size: &batch_size 64
   sink_size: 2
   image_size: 224
   sink_mode: True
