@@ -126,6 +126,15 @@ def generate_process(device_id: int,
         logger.info(f"{device_id} card put output into output queue.")
 
 
+def update_checkpoint_config(config):
+    """Update checkpoint config"""
+    if config.auto_trans_ckpt:
+        raise ValueError("auto_trans_ckpt does not support in chat web server. "
+                         "Please using transformed ckpt and set auto_trans_ckpt to False.")
+    if os.path.isdir(config.load_checkpoint) and config.use_parallel:
+        config.model.model_config.checkpoint_name_or_path = None
+
+
 class MindFormersInfer:
     """MindFormers Infer"""
 
@@ -144,6 +153,8 @@ class MindFormersInfer:
             os.environ['HCCL_CONNECT_TIME'] = hccl_connect_time
 
         self.config = MindFormerConfig(model_config)
+
+        update_checkpoint_config(self.config)
 
         # build streamer
         self.tokenizer = get_tokenizer(self.config)
