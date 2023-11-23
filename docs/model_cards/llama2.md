@@ -365,7 +365,13 @@ python llama_preprocess.py \
 
 配置文件中各参数含义详见[Config配置说明文档](https://gitee.com/mindspore/mindformers/blob/master/configs/README.md)。auto_parallel说明详见[自动并行](../docs/feature_cards/Auto_Parallel.md)。
 
-- step2：进入`scripts`文件夹，启动运行脚本，进行8卡分布式运行。
+- step2. 设置环境变量，变量配置如下：
+
+```bash
+export MS_ASCEND_CHECK_OVERFLOW_MODE="INFNAN_MODE"  # 推荐开启饱和模式，llama2_70b 不用设置该项
+```
+
+- step3：进入`scripts`文件夹，启动运行脚本，进行8卡分布式运行。
 
 ```shell
 cd scripts
