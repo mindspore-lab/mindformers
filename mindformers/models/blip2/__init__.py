@@ -15,11 +15,11 @@
 
 """blip2 init"""
 from .blip2_config import Blip2Config
-from .blip2_llama import Blip2Llama, Blip2ImageToTextGeneration
+from .blip2_llm import Blip2Llm, Blip2ImageToTextGeneration
 from .blip2_qformer import Blip2Qformer, Blip2Classifier
 from .blip2_itm_evaluator import Blip2ItmEvaluator
 from .blip2_processor import Blip2ImageProcessor, Blip2Processor
 from .qformer import BertLMHeadModel
 
-__all__ = ['BertLMHeadModel', 'Blip2Config', 'Blip2Classifier', 'Blip2Llama', 'Blip2ImageToTextGeneration',
+__all__ = ['BertLMHeadModel', 'Blip2Config', 'Blip2Classifier', 'Blip2Llm', 'Blip2ImageToTextGeneration',
            'Blip2Qformer', 'Blip2ItmEvaluator', 'Blip2ImageProcessor', 'Blip2Processor']

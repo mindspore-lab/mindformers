@@ -1,6 +1,6 @@
 seed: 42
-run_mode: 'finetune'
-output_dir: './output'
+run_mode: 'train'
+output_dir: './output'  # 当前不支持自定义修改，请勿修改该默认值
 load_checkpoint: ''
 src_strategy_path_or_dir: ''
 auto_trans_ckpt: False  # If true, auto transform load_checkpoint to load in distributed model
@@ -15,6 +15,7 @@ context:
   graph_kernel_flags: str = "--disable_expand_ops=Softmax,Dropout " \
                               "--enable_parallel_fusion=true --reduce_fuse_depth=8 --enable_auto_tensor_inplace=true"
   max_call_depth: 10000
+  max_device_memory: "30GB"
   save_graphs: False
   save_graphs_path: "./graph"
   device_id: 0
@@ -24,7 +25,7 @@ remote_save_url: "Please input obs url on AICC platform."
 
 # runner
 runner_config:
-  epochs: 10
+  epochs: 1
   batch_size: &batch_size 16
   sink_size: 2
   image_size: 224
@@ -51,7 +52,7 @@ parallel_config:
   micro_batch_num: 1
   vocab_emb_dp: True
   gradient_aggregation_group: 4
-micro_batch_interleave_num: 1
+micro_batch_interleave_num: &micro_batch_interleave_num 1
 
 # recompute
 recompute_config:
@@ -84,11 +85,9 @@ train_dataset: &train_dataset
     type: MultiImgCapDataLoader
     dataset_dir: "/data"
     annotation_files: [
-      "vg/annotations/vg_caption.json",
       "coco2014/coco/annotations/coco_karpathy_train.json"
     ]
     image_dirs: [
-      "vg/images",
       "coco2014/coco/images"
     ]
     stage: "train"
@@ -144,6 +143,7 @@ model:
   model_config:
     type: Blip2Config
     batch_size: *batch_size
+    micro_batch_interleave_num: *micro_batch_interleave_num
     freeze_vision: True
     freeze_text: True
     max_txt_len: 32
@@ -205,7 +205,7 @@ model:
       do_sample: False
       checkpoint_name_or_path: ""
   arch:
-    type: Blip2Llama
+    type: Blip2Llm
 
 # lr schedule
 lr_schedule:

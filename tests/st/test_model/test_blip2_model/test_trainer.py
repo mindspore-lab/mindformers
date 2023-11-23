@@ -24,11 +24,11 @@ from PIL import Image
 import mindspore as ms
 from mindspore.dataset import GeneratorDataset
 
-from mindformers import Trainer, TrainingArguments, Blip2Llama, LlamaTokenizer
+from mindformers import Trainer, TrainingArguments, Blip2Llm, LlamaTokenizer
 from mindformers.models.bert.bert_tokenizer import BertTokenizer
 from mindformers.models.blip2 import Blip2Qformer, Blip2Classifier, Blip2Config, Blip2ImageProcessor
 from mindformers.models.blip2.blip2_itm_evaluator import Blip2ItmEvaluator
-from mindformers.models.blip2.blip2_llama import Blip2ImageToTextGeneration
+from mindformers.models.blip2.blip2_llm import Blip2ImageToTextGeneration
 from mindformers.models.blip2.qformer import QFormerConfig
 from mindformers.models.llama.llama_config import LlamaConfig
 from mindformers.models.vit.vit import ViTConfig
@@ -126,8 +126,7 @@ class TestBlip2TrainerMethod:
                                  model=self.blip2_classifier,
                                  model_name='blip2_stage1_classification',
                                  tokenizer=self.tokenizer,
-                                 image_processor=self.image_processor,
-                                 candidate_labels=["sunflower", "tree", "dog", "cat", "toy"])
+                                 image_processor=self.image_processor)
         # 加载输入，一张图片
         input_data = Image.new('RGB', (32, 32))
 
@@ -186,7 +185,7 @@ class TestBlip2SecondStageTrainerMethod:
                                                  text_config=text_config_for_generator,
                                                  checkpoint_name_or_path="",
                                                  max_txt_len=8)
-        self.blip2_llm = Blip2Llama(model_config_for_trainer)
+        self.blip2_llm = Blip2Llm(model_config_for_trainer)
 
         # for prediction
         self.blip2_generator = Blip2ImageToTextGeneration(model_config_for_generator)
