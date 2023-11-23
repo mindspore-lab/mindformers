@@ -38,7 +38,9 @@ ASSISTANT_TOKEN_ID = 196
 
 model_dict = {
     "baichuan2_7b": Baichuan7BV2ForCausalLM,
-    "baichuan2_13b": Baichuan13BV2ForCausalLM
+    "baichuan2_7b_lora": Baichuan7BV2ForCausalLM,
+    "baichuan2_13b": Baichuan13BV2ForCausalLM,
+    "baichuan2_13b_lora": Baichuan13BV2ForCausalLM
 }
 
 def main(config='./',
