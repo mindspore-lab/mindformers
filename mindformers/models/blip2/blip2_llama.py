@@ -217,6 +217,9 @@ class Blip2Llama(Blip2Base):
     """
     _support_list = MindFormerBook.get_model_support_list()['blip2']['stage2']
 
+    # blip2_stage1_pretrained is not a specific model and appending it hear is used to load the ckpt in stage2.
+    _support_list.append("blip2_stage1_pretrained")
+
     def __init__(self, config: Blip2Config, **kwargs):
         super(Blip2Llama, self).__init__(config, **kwargs)
         self.config = config if config is not None else Blip2Config()
@@ -242,20 +245,20 @@ class Blip2Llama(Blip2Base):
                 "seq_length should be greater than sum of max_text_len and num_query_token %d, but got %d" %
                 (config.max_txt_len + config.qformer_config.query_length, config.text_config.seq_length))
 
-        self.llama_model = LlamaForBlip2(config.text_config)
+        self.llm_model = LlamaForBlip2(config.text_config)
 
         if config.freeze_text:
             logger.info("freeze llm model")
-            for param in self.llama_model.trainable_params():
+            for param in self.llm_model.trainable_params():
                 param.requires_grad = False
-            self.llama_model.set_train(False)
+            self.llm_model.set_train(False)
 
         dp = config.parallel_config.data_parallel
 
-        self.llama_proj = Linear(in_channels=self.config.qformer_config.hidden_size,
-                                 out_channels=self.config.text_config.hidden_size,
-                                 param_init_type=config.dtype,
-                                 compute_dtype=config.compute_dtype)
+        self.llm_proj = Linear(in_channels=self.config.qformer_config.hidden_size,
+                               out_channels=self.config.text_config.hidden_size,
+                               param_init_type=config.dtype,
+                               compute_dtype=config.compute_dtype)
 
         if config.checkpoint_name_or_path:
             logger.info(
@@ -310,18 +313,18 @@ class Blip2Llama(Blip2Base):
         batch_size, seq_length = text_input_ids.shape
         tokens = self.slice(text_input_ids, (0, 0), (batch_size, seq_length - 1), (1, 1))
 
-        text_label_ids = self.slice(text_input_ids, (0, 1), (batch_size, seq_length), (1, 1))
-        targets = ops.masked_fill(text_label_ids, text_label_ids == self.pad_token_id, self.ignore_token_id)
+        targets = ops.masked_fill(text_input_ids, text_input_ids == self.pad_token_id, self.ignore_token_id)
 
         if self.prompt:
             prompt_label = self.ignore_token_id * self.ones((batch_size, self.prompt_length), mstype.int32)
             targets = self.concat_2d([prompt_label, targets[:, self.prompt_length:]])
 
-        empty_targets = self.fill(mstype.int32, projected_qformer_output_atts.shape, self.ignore_token_id)
+        image_label_shape = (projected_qformer_output_atts.shape[0], projected_qformer_output_atts.shape[1] - 1)
+        empty_targets = self.fill(mstype.int32, image_label_shape, self.ignore_token_id)
         targets = self.concat_2d([empty_targets, targets])  # [batch_size, 1, query_size + max_txt_length]
 
         # [batch_size, max_txt_length, llama_hidden_size]
-        text_inputs_embeds = self.llama_model.model.tok_embeddings(tokens)
+        text_inputs_embeds = self.llm_model.model.tok_embeddings(tokens)
         text_inputs_embeds = self.cast(text_inputs_embeds, mstype.float32)
         text_inputs_atts = self.cast(self.not_equal(tokens, self.pad_token_id), mstype.float32)
 
@@ -330,7 +333,7 @@ class Blip2Llama(Blip2Base):
         # [batch_size, query_size + max_txt_length]
         llama_inputs_attention_mask = self.concat_2d([projected_qformer_output_atts, text_inputs_atts])
 
-        loss = self.llama_model(
+        loss = self.llm_model(
             input_embeddings=llama_inputs_embeds,
             labels=targets,
             attention_mask=llama_inputs_attention_mask
@@ -351,7 +354,7 @@ class Blip2Llama(Blip2Base):
                                          use_cache=True)
 
         # [batch_size, query_size, qformer_hidden_size] -> [batch_size, query_size, llama_hidden_size]
-        return self.llama_proj(query_output[0])
+        return self.llm_proj(query_output[0])
 
 
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
@@ -373,7 +376,7 @@ class Blip2ImageToTextGeneration(Blip2Llama):
     def __init__(self, config: Blip2Config, **kwargs):
         super(Blip2ImageToTextGeneration, self).__init__(config, **kwargs)
 
-        self.llama_model.set_train(False)
+        self.llm_model.set_train(False)
         self.one_prefix = ops.Ones()
         self.expand_dims = P.ExpandDims()
 
@@ -393,7 +396,7 @@ class Blip2ImageToTextGeneration(Blip2Llama):
     def generate_text_for_image(self, image: ms.Tensor, prompt_input_ids: ms.Tensor, **kwargs):
         """generate text for image by calling llama generate"""
         text_input_ids, projected_qformer_output = self(image, prompt_input_ids)
-        output_ids = self.llama_model.generate(input_ids=text_input_ids.asnumpy(),
-                                               image_embeds=projected_qformer_output,
-                                               **kwargs)
+        output_ids = self.llm_model.generate(input_ids=text_input_ids.asnumpy(),
+                                             image_embeds=projected_qformer_output,
+                                             **kwargs)
         return output_ids
