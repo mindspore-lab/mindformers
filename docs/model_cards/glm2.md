@@ -462,7 +462,15 @@ eval_dataset_task:
 
 #### 单卡微调
 
-由于glm2_6b模型较大，全量微调不支持单卡运行
+```shell
+cd scripts
+# Usage Help: bash run_stanalone.sh [CONFIG_PATH] [DEVICE_ID] [RUN_STATUS]
+bash run_standalone.sh ../configs/glm2/run_glm2_6b_finetune.yaml 0 finetune
+```
+
+训练的log日志路径：mindformers/scripts/mf_standalone/
+
+checkpoint存储路径：mindformers/scripts/mf_standalone/output/checkpoint
 
 #### 多卡微调
 
@@ -613,20 +621,24 @@ model:
 
 ### 单卡评测
 
+#### 1. 全参微调
+
 使用全参微调权重时，启动如下shell脚本，执行单卡评估
 
-配置文件选择 `configs/glm2/run_glm2_6b.yaml` glm2模型推理配置，修改其中`model`字段下`model_config`中`use_past: True`开启增量推理使评估速度更快
+配置文件选择 `configs/glm2/run_glm2_6b_finetune_eval.yaml` glm2模型推理配置，修改其中`model`字段下`model_config`中`use_past: True`开启增量推理使评估速度更快
 
 ```bash
-python run_mindformer.py --config configs/glm2/run_glm2_6b.yaml --run_mode eval --load_checkpoint /path/to/glm2_6b_finetune.ckpt --eval_dataset_dir /path/to/data/AdvertiseGen/ --device_id 0
+python run_mindformer.py --config configs/glm2/run_glm2_6b_finetune_eval.yaml --run_mode eval --load_checkpoint /path/to/glm2_6b_finetune.ckpt --device_id 0 --use_parallel False
 ```
+
+#### 2. LoRA 微调
 
 使用LoRA低参微调权重时，启动如下shell脚本，执行单卡评估
 
-配置文件选择 `configs/glm2/run_glm2_6b_lora.yaml` glm2_lora模型推理配置，此配置可用于lora模型，修改其中`model`字段下`model_config`中`use_past: True`开启增量推理使评估速度更快
+配置文件选择 `configs/glm2/run_glm2_6b_lora_eval.yaml` glm2_lora模型推理配置，此配置可用于lora模型，修改其中`model`字段下`model_config`中`use_past: True`开启增量推理使评估速度更快
 
 ```bash
-python run_mindformer.py --config configs/glm2/run_glm2_6b_lora.yaml --run_mode eval --load_checkpoint /path/to/glm2_6b_lora.ckpt --eval_dataset_dir /path/to/data/AdvertiseGen/ --device_id 0
+python run_mindformer.py --config configs/glm2/run_glm2_6b_lora_eval.yaml --run_mode eval --load_checkpoint /path/to/glm2_6b_lora.ckpt --device_id 0 --use_parallel False
 ```
 
 ### 多卡评测
@@ -677,13 +689,17 @@ IP_LIST=("192.168.0.0", "192.168.0.1", ..., "192.168.0.11")
 
 下面提供一个模型推理样例脚本 `infer.py`
 
+**注意**： LoRA微调模型替换成 `glm2_6b_lora`
+
 ```python
 from mindformers import AutoConfig, AutoModel, AutoTokenizer
 import mindspore as ms
 
 ms.set_context(mode=ms.GRAPH_MODE, device_target="Ascend", device_id=0)
 
-config = AutoConfig.from_pretrained("glm2_6b") # LoRA微调模型替换成 “glm2_6b_lora”
+# **注意** LoRA微调模型替换成 “glm2_6b_lora”
+config = AutoConfig.from_pretrained("glm2_6b")
+
 # 可以在此使用下行代码指定自定义权重进行推理，默认使用自动从obs上下载的预训练权重
 # config.checkpoint_name_or_path = "/path/to/glm2_6b_finetune.ckpt"
 config.use_past = True
@@ -779,27 +795,27 @@ IP_LIST=("192.168.0.0", "192.168.0.1", ..., "192.168.0.11")
 
 ### MindIR 导出
 
-　　1. 修改模型相关的配置文件 configs/glm2/export_glm2_6b.yaml，其中需要关注这几项：
+1. 修改模型相关的配置文件 configs/glm2/export_glm2_6b.yaml，其中需要关注这几项：
 
-```yaml
-# export
-infer:
-    prefill_model_path: "glm2_export/glm2_6b_prefill_seq512.mindir" # 保存mindir的位置
-    increment_model_path: "glm2_export/glm2_6b_inc_seq512.mindir"   # 保存mindir的位置
-    infer_seq_length: 512 # 需要保持跟 model-model_config-seq_length 一致
+   ```yaml
+   # export
+   infer:
+       prefill_model_path: "glm2_export/glm2_6b_prefill_seq512.mindir" # 保存mindir的位置
+       increment_model_path: "glm2_export/glm2_6b_inc_seq512.mindir"   # 保存mindir的位置
+       infer_seq_length: 512 # 需要保持跟 model-model_config-seq_length 一致
 
-# ==== model config ====
-model:
-  model_config:
-    seq_length: 512
-    checkpoint_name_or_path: "/path/to/your/*.ckpt"
-```
+   # ==== model config ====
+   model:
+     model_config:
+       seq_length: 512
+       checkpoint_name_or_path: "/path/to/your/*.ckpt"
+   ```
 
 2. 执行export.py，完成模型转换
 
-```bash
-python mindformers/tools/export.py --config_path configs/glm2/export_glm2_6b.yaml
-```
+   ```bash
+   python mindformers/tools/export.py --config_path configs/glm2/export_glm2_6b.yaml
+   ```
 
 ### 执行推理
 
@@ -816,30 +832,30 @@ python mindformers/tools/export.py --config_path configs/glm2/export_glm2_6b.yam
 
 2. 执行命令：
 
-```bash
-python run_infer_main.py --device_id 0 --model_name glm2_6b --prefill_model_path glm2_export/glm2_6b_prefill_seq512_graph.mindir --increment_model_path glm2_export/glm2_6b_inc_seq512_graph.mindir --config_path lite.ini --is_sample_acceleration False --seq_length 512 --add_special_tokens True
-```
+   ```bash
+   python run_infer_main.py --device_id 0 --model_name glm2_6b --prefill_model_path glm2_export/glm2_6b_prefill_seq512_graph.mindir --increment_model_path glm2_export/glm2_6b_inc_seq512_graph.mindir --config_path lite.ini --is_sample_acceleration False --seq_length 512 --add_special_tokens True
+   ```
 
-> 注：如果是int8量化后推理，将 `prefill_model_path`​ 和 `increment_model_path`​ 修改为 int8 量化后的 MindIR 即可。
+   注：如果是int8量化后推理，将 `prefill_model_path`​ 和 `increment_model_path`​ 修改为 int8 量化后的 MindIR 即可。
 
 　　等待模型载入、编译后，出现：
 
-```bash
-Please enter your predict data:
-```
+   ```bash
+   Please enter your predict data:
+   ```
 
 　　输入：
 
-```bash
-[Round 1]
+   ```bash
+   [Round 1]
 
-问：你好。
+   问：你好。
 
-答：
-```
+   答：
+   ```
 
 　　输出：
 
-```bash
-['[Round 1]\n\n问：你好。\n\n答： 你好👋！我是人工智能助手 ChatGLM2-6B，很高兴见到你，欢迎问我任何问题。']
-```
+   ```bash
+   ['[Round 1]\n\n问：你好。\n\n答： 你好👋！我是人工智能助手 ChatGLM2-6B，很高兴见到你，欢迎问我任何问题。']
+   ```
