@@ -438,7 +438,7 @@ class TextGeneratorInfer(BaseInfer):
                     continue
 
             is_first_iteration = not use_past
-            print(f"one token takes {time.time() - start_time} s")
+            logger.debug(f"one token takes {time.time() - start_time} s")
 
         # Return valid outputs out of padded outputs
         output_ids = []
