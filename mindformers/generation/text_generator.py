@@ -1094,7 +1094,7 @@ class GeneratorMixin:
         if not generation_config.do_sample:
             generation_config.top_p = 1.0
             generation_config.top_k = 0
-        logger.debug("Generation Config is: %s", generation_config)
+        logger.info("Generation Config is: %s", generation_config)
 
         logits_processor = self._get_logits_processor(
             generation_config=generation_config,
