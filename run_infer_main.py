@@ -44,6 +44,7 @@ def pipeline_from_model_paths(args_, tokenizer):
         ge_config_path=args_.config_path,
         device_id=args_.device_id,
         infer_seq_length=args_.seq_length,
+        rank_id=args_.rank_id,
     )
     return lite_pipeline
 
@@ -58,6 +59,7 @@ def pipeline_from_model_name(args_, tokenizer):
         ge_config_path=args_.config_path,
         device_id=args_.device_id,
         infer_seq_length=args_.seq_length,
+        rank_id=args_.rank_id,
     )
     return lite_pipeline
 
@@ -73,6 +75,7 @@ def pipeline_from_model_dir(args_, tokenizer):
         ge_config_path=args_.config_path,
         device_id=args_.device_id,
         infer_seq_length=args_.seq_length,
+        rank_id=args_.rank_id,
     )
     return lite_pipeline
 
@@ -87,6 +90,7 @@ def pipeline_from_infer_config(args_, tokenizer):
         ge_config_path=args_.config_path,
         device_id=args_.device_id,
         infer_seq_length=args_.seq_length,
+        rank_id=args_.rank_id,
     )
     lite_pipeline = InferTask.get_infer_task("text_generation", lite_config, tokenizer=tokenizer)
     return lite_pipeline
@@ -102,6 +106,7 @@ LITE_SUPPORT_MODELS = {
     'qwen': QwenTokenizer,
     'llama': LlamaTokenizer,
     'llama2': LlamaTokenizer,
+    'codellama': LlamaTokenizer,
     'baichuan2': Baichuan2Tokenizer
 }
 

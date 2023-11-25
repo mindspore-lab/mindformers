@@ -221,6 +221,8 @@ class MindFormerBook:
                 _PROJECT_PATH, "configs/llama2/run_llama2_13b.yaml")),
             ("llama2_70b", os.path.join(
                 _PROJECT_PATH, "configs/llama2/run_llama2_70b.yaml")),
+            ("codellama_34b", os.path.join(
+                _PROJECT_PATH, "configs/codellama/run_codellama_34b_910b.yaml")),
             ("llama_7b_lora", os.path.join(
                 _PROJECT_PATH, "configs/llama/run_llama_7b_lora.yaml")),
             ("pangualpha_2_6b", os.path.join(
@@ -388,6 +390,8 @@ class MindFormerBook:
                 _PROJECT_PATH, "configs/llama2/run_llama2_13b.yaml")),
             ("llama2_70b", os.path.join(
                 _PROJECT_PATH, "configs/llama2/run_llama2_70b.yaml")),
+            ("codellama_34b", os.path.join(
+                _PROJECT_PATH, "configs/codellama/run_codellama_34b_910b.yaml")),
             ("llama_7b_lora", os.path.join(
                 _PROJECT_PATH, "configs/llama/run_llama_7b_lora.yaml")),
             ("pangualpha_2_6b", os.path.join(
@@ -524,11 +528,15 @@ class MindFormerBook:
             'internlm_7b',
             'internlm_7b_lora',
             'skywork_13b',
+            'codellama_34b',
         ]),
         ('llama2', [
             'llama2_7b',
             'llama2_13b',
             'llama2_70b',
+        ]),
+        ('codellama', [
+            'codellama_34b',
         ]),
         ('pangualpha', [
             'pangualpha_2_6b',
@@ -632,12 +640,16 @@ class MindFormerBook:
             'llama2_7b',
             'llama2_13b',
             'llama2_70b',
-            'llama_7b_lora'
+            'llama_7b_lora',
+            'codellama_34b'
         ]),
         ('llama2', [
             'llama2_7b',
             'llama2_13b',
             'llama2_70b',
+        ]),
+        ('codellama', [
+            'codellama_34b',
         ]),
         ('pangualpha', [
             'pangualpha_2_6b',
@@ -798,11 +810,15 @@ class MindFormerBook:
             'baichuan_7b',
             'ziya_13b',
             'skywork_13b',
+            'codellama_34b',
         ]),
         ('llama2', [
             'llama2_7b',
             'llama2_13b',
             'llama2_70b',
+        ]),
+        ('codellama', [
+            'codellama_34b',
         ]),
         ('pangualpha', [
             'pangualpha_2_6b',
@@ -1300,6 +1316,10 @@ class MindFormerBook:
           '/MindFormers/llama2/tokenizer.model'
           ]),
         ('llama2_70b',
+         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
+          '/MindFormers/llama2/tokenizer.model'
+          ]),
+        ('codellama_34b',
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
           '/MindFormers/llama2/tokenizer.model'
           ]),
