@@ -356,3 +356,67 @@ text_generation.set_recompute_config(recompute=True,select_recompute=False)
 # 选择重计算：设置重计算配置，关闭全局重计算，打开选择重计算
 text_generation.set_recompute_config(recompute=False,select_recompute=True)
 ```
+
+### 多副本并行配置
+
+#### 概述
+
+多**副本**并行指把输入数据切分为多份，通过模型并行的方法，隐藏通信时延，提高训练速度、系统的吞吐量以及模型的性能。
+
+使用场景：当在半自动模式以及网络中存在模型并行时，第1份的切片数据的前向计算同时，第2份的数据将会进行模型并行的通信，以此来达到通信计算并发的性能加速。
+
+相关接口：
+
+1. `nn.WithLossCell(backbone, loss_fn)`：多**副本**并行需要首先通过此接口定义网络和损失函数的Cell，即LossCell，用于封装骨干网络和损失函数。
+2. `mindspore.nn.MicroBatchInterleaved(cell_network, interleave_num=2)`：这个函数的作用是将输入在第零维度拆成 `interleave_num`份，然后执行包裹的cell的计算。
+
+参考资料：[MindSpore多副本并行](https://www.mindspore.cn/tutorials/experts/zh-CN/r2.2/parallel/multiple_copy.html?highlight=副本)
+
+#### 基本原理
+
+将输入模型的数据按照batchsize维度进行切分，从而将现有的单**副本**形式修改成多副本的形式，使其底层在通信的时候，另一副本进行计算操作，无需等待，这样就能保证多副本的计算和通信的时间相互互补，提升模型性能，同时将数据拆成多副本的形式还能减少算子输入的参数量，从而减少单个算子的计算时间，对提升模型性能有很大帮助。
+
+![多副本并行](https://mindspore-website.obs.cn-north-4.myhuaweicloud.com/website-images/master/docs/mindspore/source_zh_cn/design/images/multi_copy.png)
+
+#### 使用方式
+
+MindFormers的Trainer接口提供了并行的配置接口`set_parallel_config`，接口仅在**半自动并行** 或**全自动并行模式**下生效，同时需要模型本身已支持或已配置[并行策略](https://www.mindspore.cn/tutorials/experts/zh-CN/r2.0/parallel/introduction.html)：
+
+[set_parallel_config](https://gitee.com/mindspore/mindformers/blob/dev/mindformers/trainer/trainer.py#L690)
+
+使用Trainer高阶接口，自定义多副本并行配置：
+
+```python
+import numpy as np
+from mindspore.dataset import GeneratorDataset
+
+from mindformers import Trainer, TrainingArguments
+from mindformers import PanguAlphaHeadModel, PanguAlphaConfig
+
+def generator():
+    """text dataset generator."""
+    seq_len = 1025
+    input_ids = np.random.randint(low=0, high=15, size=(seq_len,)).astype(np.int32)
+    for _ in range(512):
+        yield input_ids
+
+# 环境初始化，参考上述`init_context`章节实现
+context_init()
+# 自定义训练超参数
+training_args = TrainingArguments(num_train_epochs=3, batch_size=2, learning_rate=0.001, warmup_steps=1000, sink_mode=True)
+# 自定义模型
+pangu_config = PanguAlphaConfig(hidden_size=768, ffn_hidden_size=768 * 4, num_layers=12, num_heads=12,
+                                checkpoint_name_or_path='')
+pangu_model = PanguAlphaHeadModel(pangu_config)
+# 自定义数据集
+dataset = GeneratorDataset(generator, column_names=["input_ids"])
+train_dataset = dataset.batch(batch_size=4)
+eval_dataset = dataset.batch(batch_size=4)
+# 定义文本生成任务，传入自定义模型、数据集、超参数
+text_generation = Trainer(task='text_generation', model=pangu_model, args=training_args, train_dataset=train_dataset,
+                          eval_dataset=eval_dataset)
+
+# 设定并行策略，比如2机16卡,设定数据并行4 模型并行2 流水并行2 微批次大小为2 多副本并行为2 打开优化器并行
+text_generation.set_parallel_config(data_parallel=4, model_parallel=2, pipeline_stage=2, micro_batch_num=2, micro_batch_interleave_num=2)
+```
+
