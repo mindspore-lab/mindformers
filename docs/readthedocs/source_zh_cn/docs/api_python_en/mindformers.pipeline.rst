@@ -14,5 +14,4 @@ mindformers.pipeline
     mindformers.pipeline.TranslationPipeline
     mindformers.pipeline.ImageClassificationPipeline
     mindformers.pipeline.TextClassificationPipeline
-    mindformers.pipeline.TokenClassificationPipeline
     mindformers.pipeline.ZeroShotImageClassificationPipeline

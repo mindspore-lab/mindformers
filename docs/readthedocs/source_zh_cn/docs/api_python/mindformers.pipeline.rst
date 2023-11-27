@@ -17,7 +17,6 @@ mindformers.pipeline
     mindformers.pipeline.ImageClassificationPipeline
     mindformers.pipeline.QuestionAnsweringPipeline
     mindformers.pipeline.TextClassificationPipeline
-    mindformers.pipeline.TokenClassificationPipeline
     mindformers.pipeline.SegmentAnythingPipeline
     mindformers.pipeline.ImageToTextGenerationPipeline
     mindformers.pipeline.ZeroShotImageClassificationPipeline
