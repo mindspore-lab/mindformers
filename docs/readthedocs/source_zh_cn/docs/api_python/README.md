@@ -11,7 +11,6 @@
 | [mindformers.dataset.MaskLanguageModelDataset](mindformers.dataset.MaskLanguageModelDataset)                               | Bert类模型文本数据集，仅支持MindRecord，TFRecord              |
 | [mindformers.dataset.MIMDataset](mindformers.dataset.MIMDataset)                                                           | Mae等图片数据集，支持MindRecord，ImageNet2012等               |
 | [mindformers.dataset.TextClassificationDataset](mindformers.dataset.TextClassificationDataset)                             | 文本分类数据集，仅支持TFRecord                                |
-| [mindformers.dataset.TokenClassificationDataset](mindformers.dataset.TokenClassificationDataset)                           | Token分类文本数据集，支持自定义数据集，如CLUENER              |
 | [mindformers.dataset.ZeroShotImageClassificationDataset](mindformers.dataset.ZeroShotImageClassificationDataset)           | 零样本分类图片数据集，支持自定义数据集，如Cifar100            |
 
 ## Learning Rate
