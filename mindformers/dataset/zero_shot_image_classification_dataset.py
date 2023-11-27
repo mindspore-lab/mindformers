@@ -43,13 +43,13 @@ class ZeroShotImageClassificationDataset(BaseDataset):
         >>> config_path = config_dict_list['zero_shot_image_classification']['clip_vit_b_32']
         >>> # Initialize a MindFormerConfig instance with a specific config file of yaml.
         >>> config = MindFormerConfig(config_path)
-        >>> config.train_dataset.data_loader.dataset_dir = "The required task dataset path"
+        >>> config.eval_dataset.data_loader.dataset_dir = "The required task dataset path"
         >>> # Note:
         >>> #     The detailed data setting could refer to
         >>> #     https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/clip.md
         >>> check_dataset_config(config)
         >>> # use class to build dataset
-        >>> dataset_from_class = ZeroShotImageClassificationDataset(config.train_dataset_task.dataset_config)
+        >>> dataset_from_class = ZeroShotImageClassificationDataset(config.eval_dataset_task.dataset_config)
     """
     def __new__(cls, dataset_config: dict = None):
         """New method"""
