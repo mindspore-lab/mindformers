@@ -17,5 +17,4 @@ mindformers.dataset
     mindformers.dataset.KeyWordGenDataset
     mindformers.dataset.CausalLanguageModelDataset
     mindformers.dataset.TextClassificationDataset
-    mindformers.dataset.TokenClassificationDataset
     mindformers.dataset.ZeroShotImageClassificationDataset

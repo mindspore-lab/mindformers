@@ -18,5 +18,4 @@ mindformers.dataset
     mindformers.dataset.MaskLanguageModelDataset
     mindformers.dataset.MIMDataset
     mindformers.dataset.TextClassificationDataset
-    mindformers.dataset.TokenClassificationDataset
     mindformers.dataset.ZeroShotImageClassificationDataset
