@@ -18,7 +18,7 @@ MindSpore Transformers套件基于MindSpore内置的并行技术和组件化设�
 
 如果您对MindSpore Transformers有任何建议，请通过issue与我们联系，我们将及时处理。
 
-- **[MindFromers教程文档](https://mindformers.readthedocs.io/zh_CN/r0.8)**
+- **[MindFormers教程文档](https://mindformers.readthedocs.io/zh_CN/r0.8)**
 - [模型README](https://gitee.com/mindspore/mindformers/tree/r0.8/docs/model_cards)
 - [任务README](https://gitee.com/mindspore/mindformers/tree/r0.8/docs/task_cards)
 - [MindPet指导教程](docs/feature_cards/Pet_Tuners.md)

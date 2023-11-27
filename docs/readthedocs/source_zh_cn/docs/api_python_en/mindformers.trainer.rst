@@ -20,5 +20,4 @@ mindformers.trainer
     mindformers.trainer.MaskedLanguageModelingTrainer
     mindformers.trainer.QuestionAnsweringTrainer
     mindformers.trainer.TextClassificationTrainer
-    mindformers.trainer.TokenClassificationTrainer
     mindformers.trainer.ZeroShotImageClassificationTrainer
