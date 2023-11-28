@@ -98,11 +98,9 @@ class CausalLanguageModelDataset(BaseDataset):
     """
     def __new__(cls, dataset_config: dict = None):
         logger.info("Now Create Causal Language Model Dataset.")
-        rank_id = int(os.getenv("RANK_ID", "0"))
-        device_num = int(os.getenv("RANK_SIZE", "1"))
         dataset_config = copy.deepcopy(dataset_config)
         cls.init_dataset_config(dataset_config)
-        rank_id, device_num = cls._check_device_rank_for_parallel(rank_id, device_num)
+        rank_id, device_num = cls._generate_shard_info()
         dataset_config.rank_id = rank_id
         dataset_config.device_num = device_num
         if dataset_config.data_loader.type != "MindDataset" and \

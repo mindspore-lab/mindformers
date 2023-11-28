@@ -51,6 +51,13 @@ class BaseDataset:
             ds.config.set_autotune_interval(dataset_config.autotune_per_step)
 
     @classmethod
+    def _generate_shard_info(cls):
+        """Generate shard info for dataset"""
+        rank_id = int(os.getenv("RANK_ID", "0"))
+        device_num = int(os.getenv("RANK_SIZE", "1"))
+        return cls._check_device_rank_for_parallel(rank_id, device_num)
+
+    @classmethod
     def _check_device_rank_for_parallel(cls, rank_id, device_num):
         """Check device num and rank id in auto parallel mode."""
         if cls._is_semi_full_batch():

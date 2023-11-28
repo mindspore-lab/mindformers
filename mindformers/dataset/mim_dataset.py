@@ -13,8 +13,6 @@
 # limitations under the License.
 # ============================================================================
 """Masked Image Modeling Dataset."""
-import os
-
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.tools.logger import logger
 from mindformers.version_control import get_dataset_map
@@ -57,8 +55,7 @@ class MIMDataset(BaseDataset):
     def __new__(cls, dataset_config: dict = None):
         logger.info("Now Create Masked Image Modeling Dataset.")
         cls.init_dataset_config(dataset_config)
-        rank_id = int(os.getenv("RANK_ID", "0"))
-        device_num = int(os.getenv("RANK_SIZE", "1"))
+        rank_id, device_num = cls._generate_shard_info()
 
         dataset = build_dataset_loader(
             dataset_config.data_loader, default_args={'num_shards': device_num, 'shard_id': rank_id})
