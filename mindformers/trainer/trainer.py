@@ -221,12 +221,6 @@ class Trainer:
         if task not in SUPPORT_TASKS.keys():
             raise ValueError(
                 "The value of task must be in {}, but get {}".format(SUPPORT_TASKS.keys(), task))
-        if isinstance(model, str):
-            model = model + '_{}'.format(pet_method) if pet_method else model
-            assert model in SUPPORT_MODEL_NAMES, \
-                f"model must be in {SUPPORT_MODEL_NAMES} when model's type is string, but get {model}."
-            self.model_name = model
-            self.model = None
 
         if isinstance(self.model, (Cell, BaseModel)):
             logger.info("The model instance has been entered, "
@@ -239,6 +233,13 @@ class Trainer:
         else:
             self.is_model_instance = False
             self.model_name = 'common'
+
+        if isinstance(self.model, str):
+            model = model + '_{}'.format(pet_method) if pet_method else model
+            assert model in SUPPORT_MODEL_NAMES, \
+                f"model must be in {SUPPORT_MODEL_NAMES} when model's type is string, but get {model}."
+            self.model_name = model
+            self.model = None
 
         if self.is_model_instance and self.model_name is None:
             logger.warning(
