@@ -333,9 +333,9 @@ class Block(nn.Cell):
 
         self.mul_gamma = P.Mul().shard(((parallel_config.data_parallel, 1), (1,)))
         self.drop_path = DropPath(hidden_dropout_rate)
-        self.drop_path.shard(((parallel_config.data_parallel, 1),))
+        self.drop_path.shard(((parallel_config.data_parallel, 1), (parallel_config.data_parallel, 1)))
         self.drop_path3d = DropPath(hidden_dropout_rate)
-        self.drop_path3d.shard(((parallel_config.data_parallel, 1, 1),))
+        self.drop_path3d.shard(((parallel_config.data_parallel, 1, 1), (parallel_config.data_parallel, 1, 1)))
         self.mul = P.Mul().shard(((parallel_config.data_parallel, 1, 1), (parallel_config.data_parallel, 1, 1)))
         self.reshape = P.Reshape()
 
