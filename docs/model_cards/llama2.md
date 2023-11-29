@@ -15,6 +15,32 @@ Llama 2，是Meta基于LLaMA 1的更新版本，基于新的公开可用数据�
 }
 ```
 
+## 模型性能
+
+基于910B
+
+llama2_7b:
+
+| config                                                       | task                  | Datasets  | SeqLength | metric | phase             | score     | performance  |
+| ------------------------------------------------------------ | --------------------- | --------- | --------- | ------ | ----------------- | --------- | ------------ |
+| [llama2_7b](../../configs/llama2/run_llama2_7b_910b.yaml)    | text_generation       | wiki      | 4096      | -      | [train](#预训练)  | -         | 2433 tks/s/p |
+| [llama2_7b](../../configs/llama2/run_llama2_7b_910b_finetune.yaml) | text_generation       | alpaca    | 2048      | -      | [finetune](#微调) | -         | 3523 tks/s/p |
+| [llama2_7b_lora](../../configs/llama2/run_llama2_7b_lora_910b.yaml) | text_generation       | alpaca    | 2048      | -      | [finetune](#微调) | -         | 4269 tks/s/p |
+| [llama2_7b](../../configs/llama2/run_llama2_7b_910b.yaml)    | text_generation       | WikiText2 | -         | PPL    | [eval](#评测)     | 6.58      | -            |
+| [llama2_7b](../../configs/llama2/run_llama2_7b_910b.yaml)    | reading comprehension | SQuAD 1.1 | -         | EM/F1  | [eval](#评测)     | 39.6/60.5 | -            |
+
+llama2_13b:
+
+| config                                                       | task                  | Datasets  | SeqLength | metric | phase             | score       | performance   |
+| ------------------------------------------------------------ | --------------------- | --------- | --------- | ------ | ----------------- | ----------- | ------------- |
+| [llama2_13b](../../configs/llama2/run_llama2_13b_910b.yaml)  | text_generation       | wiki      | 4096      | -      | [train](#预训练)  | -           | 1285  tks/s/p |
+| [llama2_13b](../../configs/llama2/run_llama2_13b_910b_finetune.yaml) | text_generation       | alpaca    | 2048      | -      | [finetune](#微调) | -           | 1575 tks/s/p  |
+| [llama2_13b_lora](../../configs/llama2/run_llama2_13b_lora_910b.yaml) | text_generation       | alpaca    | 2048      | -      | [finetune](#微调) | -           | 2275 tks/s/p  |
+| [llama2_13b](../../configs/llama2/run_llama2_13b_910b.yaml)  | text_generation       | WikiText2 | -         | PPL    | [eval](#评测)     | 6.14        | -             |
+| [llama2_13b](../../configs/llama2/run_llama2_13b_910b.yaml)  | reading comprehension | SQuAD 1.1 | -         | EM/F1  | [eval](#评测)     | 27.91/44.23 | -             |
+
+llama2_70b 待补充。
+
 ## 仓库介绍
 
 `Llama 2` 基于 `mindformers` 实现，主要涉及的文件有：
@@ -60,7 +86,7 @@ Llama 2，是Meta基于LLaMA 1的更新版本，基于新的公开可用数据�
 - CANN: 7.0
 - MindFormers版本：r0.8
 
-注：7b,13b推理可在单机单卡上完成部署；70b推理至少使用4卡，全量微调至少需要4机32卡。
+注：910b芯片：7b,13b推理可在单机单卡上完成部署；70b推理至少使用8卡，全参微调至少需要4机32卡，推荐使用8机64卡。
 
 ### [mindformers安装](../../README.md#二mindformers安装)
 
@@ -610,7 +636,7 @@ bash run_distribute.sh [RANK_TABLE_FILE] ../configs/llama2/run_llama2_7b_910b_lo
 
 ## 评测
 
-Llama 2当前支持的评测任务如下：
+Llama 2当前支持使用based model(初始权重) 进行评测任务如下：
 
 | 任务类型 |  评测指标  |  数据集   |
 | :------: | :--------: | :-------: |
