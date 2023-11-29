@@ -256,7 +256,7 @@ from mindformers import AutoTokenizer, AutoModel
 tokenizer = AutoTokenizer.from_pretrained("codegeex2_6b")
 model = AutoModel.from_pretrained("codegeex2_6b")
 
-prompt = "# language: Python\n# write a bubble sort function\n"
+prompt = "#language: Python\n# write a bubble sort function\n"
 inputs = tokenizer.encode(prompt)
 outputs = model.generate(inputs, max_length=256, top_k=1)
 response = tokenizer.decode(outputs[0])
@@ -291,8 +291,8 @@ trainer.finetune()
 trainer.evaluate()
 
 # 开启推理
-predict_result = trainer.predict(input_data="# language: Python\n# write a bubble sort function\n")
-# output result is: [{'text_generation_text': ['def bubble_sort(list):\n for i in range(len(list) - 1):\n for j in range(len(list) - 1):\n if list[j] > list[j + 1]:\n list[j], list[j + 1] = list[j + 1], list[j]\n return list\n print(bubble_sort([5, 2, 1, 8, 4]))']}]
+predict_result = trainer.predict(input_data="#language: Python\n# write a bubble sort function\n")
+# output result is: [{'text_generation_text': ['#language: Python\n# write a bubble sort function\n\ndef bubble_sort(list):\n for i in range(len(list) - 1):\n for j in range(len(list) - 1):\n if list[j] > list[j + 1]:\n list[j], list[j + 1] = list[j + 1], list[j]\n return list\n\n\n print(bubble_sort([5, 2, 1, 8, 4]))']}]
 ```
 
 **注：多卡请参考[使用高阶接口开发教程](https://mindformers.readthedocs.io/zh_CN/latest/docs/practice/Develop_With_Api.html)。**
@@ -307,9 +307,9 @@ from mindformers.pipeline import pipeline
 mindspore.set_context(mode=0, device_id=0)
 
 pipeline_task = pipeline("text_generation", model='codegeex2_6b', max_length=500)
-pipeline_result = pipeline_task("# language: Python\n# write a bubble sort function\n", top_k=1)
+pipeline_result = pipeline_task("#language: Python\n# write a bubble sort function\n", top_k=1)
 print(pipeline_result)
-# [{'text_generation_text': ['def bubble_sort(list):\n for i in range(len(list) - 1):\n for j in range(len(list) - 1):\n if list[j] > list[j + 1]:\n list[j], list[j + 1] = list[j + 1], list[j]\n return list\n print(bubble_sort([5, 2, 1, 8, 4]))']}]
+# output result is: [{'text_generation_text': ['#language: Python\n# write a bubble sort function\n\ndef bubble_sort(list):\n for i in range(len(list) - 1):\n for j in range(len(list) - 1):\n if list[j] > list[j + 1]:\n list[j], list[j + 1] = list[j + 1], list[j]\n return list\n\n\n print(bubble_sort([5, 2, 1, 8, 4]))']}]
 ```
 
 **注：快速使用仅限单卡，该示例支持6B模型。**
@@ -523,9 +523,9 @@ def main(use_parallel=False,
     context_init(use_parallel, device_id)
 
     # 多batch输入
-    inputs = ["# language: Python\n# write a bubble sort function\n",
-              "# language: Python\n# write a quick sort function\n",
-              "# language: Python\n# write a heap sort function\n"]
+    inputs = ["#language: Python\n# write a bubble sort function\n",
+              "#language: Python\n# write a quick sort function\n",
+              "#language: Python\n# write a heap sort function\n"]
 
     # set model config
     model_config = AutoConfig.from_pretrained("codegeex2_6b")
@@ -653,9 +653,9 @@ def main(use_parallel=False,
     context_init(use_parallel, device_id)
 
     # 多batch输入
-    inputs = ["# language: Python\n# write a bubble sort function\n",
-              "# language: Python\n# write a quick sort function\n",
-              "# language: Python\n# write a heap sort function\n"]
+    inputs = ["#language: Python\n# write a bubble sort function\n",
+              "#language: Python\n# write a quick sort function\n",
+              "#language: Python\n# write a heap sort function\n"]
 
     # set model config
     model_config = AutoConfig.from_pretrained("codegeex2_6b")
@@ -747,8 +747,8 @@ bash run_predict.sh RANK_TABLE_FILE path/to/codegeex2_6b_shard_checkpoint_dir
 #### 单卡推理
 
 ```bash
-python run_mindformer.py --config configs/codegeex2/run_codegeex2_6b.yaml --run_mode predict --predict_data  # language: Python\n# write a bubble sort function\n --use_parallel False
-# output result is: [{'text_generation_text': ['def bubble_sort(list):\n for i in range(len(list) - 1):\n for j in range(len(list) - 1):\n if list[j] > list[j + 1]:\n list[j], list[j + 1] = list[j + 1], list[j]\n return list\n print(bubble_sort([5, 2, 1, 8, 4]))']}]
+python run_mindformer.py --config configs/codegeex2/run_codegeex2_6b.yaml --run_mode predict --predict_data  #language: Python\n# write a bubble sort function\n --use_parallel False
+# output result is: [{'text_generation_text': ['#language: Python\n# write a bubble sort function\n\ndef bubble_sort(list):\n for i in range(len(list) - 1):\n for j in range(len(list) - 1):\n if list[j] > list[j + 1]:\n list[j], list[j + 1] = list[j + 1], list[j]\n return list\n\n\n print(bubble_sort([5, 2, 1, 8, 4]))']}]
 ```
 
 **注**：要提高推理速度，可在对应模型配置文件中进行如下配置，设置增量推理`use_past`为True。
@@ -828,5 +828,5 @@ python run_infer_main.py --device_id 0 --model_name codegeex2 --prefill_model_pa
 　　输出：
 
 ```bash
- ['def bubble_sort(list):\n for i in range(len(list) - 1):\n for j in range(len(list) - 1):\n if list[j] > list[j + 1]:\n list[j], list[j + 1] = list[j + 1], list[j]\n return list\n print(bubble_sort([5, 2, 1, 8, 4]))']}]
+ ['#language: Python\n# write a bubble sort function\n\ndef bubble_sort(list):\n for i in range(len(list) - 1):\n for j in range(len(list) - 1):\n if list[j] > list[j + 1]:\n list[j], list[j + 1] = list[j + 1], list[j]\n return list\n\n\n print(bubble_sort([5, 2, 1, 8, 4]))']}]
 ```
