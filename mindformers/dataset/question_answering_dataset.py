@@ -13,8 +13,6 @@
 # limitations under the License.
 # ============================================================================
 """Question Answering Dataset."""
-import os
-
 import mindspore.common.dtype as mstype
 from mindspore.dataset.transforms import TypeCast
 
@@ -59,8 +57,7 @@ class QuestionAnsweringDataset(BaseDataset):
         """new method"""
         logger.info("Now Create Question Answering Dataset.")
         cls.init_dataset_config(dataset_config)
-        rank_id = int(os.getenv("RANK_ID", "0"))
-        device_num = int(os.getenv("RANK_SIZE", "1"))
+        rank_id, device_num = cls._generate_shard_info()
 
         tokenizer = build_tokenizer(dataset_config.tokenizer)
 

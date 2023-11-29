@@ -107,8 +107,8 @@ class TranslationDataset(BaseDataset):
     @classmethod
     def _process_raw_text_data(cls, dataset_config):
         """Process the text data"""
-        rank_id = int(os.getenv("RANK_ID", "0"))
-        device_num = int(os.getenv("RANK_SIZE", "1"))
+        rank_id, device_num = cls._generate_shard_info()
+
         dataset_dir = dataset_config.data_loader.pop("dataset_dir")
         dataset = build_dataset_loader(
             dataset_config.data_loader, default_args={'dataset_dir': dataset_dir,
@@ -120,8 +120,8 @@ class TranslationDataset(BaseDataset):
     @classmethod
     def _process_mindrecord_data(cls, dataset_config):
         """Process the mindrecord data"""
-        rank_id = int(os.getenv("RANK_ID", "0"))
-        device_num = int(os.getenv("RANK_SIZE", "1"))
+        rank_id, device_num = cls._generate_shard_info()
+
         dataset_config = copy.deepcopy(dataset_config)
 
         dataset_files = []

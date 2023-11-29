@@ -55,8 +55,8 @@ class TextClassificationDataset(BaseDataset):
     def __new__(cls, dataset_config: dict = None):
         logger.info("Now Create Text Classification Dataset.")
         cls.init_dataset_config(dataset_config)
-        rank_id = int(os.getenv("RANK_ID", "0"))
-        device_num = int(os.getenv("RANK_SIZE", "1"))
+        rank_id, device_num = cls._generate_shard_info()
+
         dataset_config = copy.deepcopy(dataset_config)
         if "data_files" not in dataset_config.data_loader \
             and dataset_config.data_loader.dataset_dir:

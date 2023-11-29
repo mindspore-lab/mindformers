@@ -55,10 +55,8 @@ class MaskLanguageModelDataset(BaseDataset):
     """
     def __new__(cls, dataset_config: dict = None):
         logger.info("Now Create Masked Image Modeling Dataset.")
-        rank_id = int(os.getenv("RANK_ID", "0"))
-        device_num = int(os.getenv("RANK_SIZE", "1"))
         cls.init_dataset_config(dataset_config)
-        rank_id, device_num = cls._check_device_rank_for_parallel(rank_id, device_num)
+        rank_id, device_num = cls._generate_shard_info()
         dataset_config = copy.deepcopy(dataset_config)
 
         if not (dataset_config.data_loader.type == 'MindDataset' or

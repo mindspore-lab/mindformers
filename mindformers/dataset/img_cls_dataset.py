@@ -13,8 +13,6 @@
 # limitations under the License.
 # ============================================================================
 """Image Classification Dataset."""
-import os
-
 from mindspore.dataset.transforms import TypeCast
 import mindspore.common.dtype as mstype
 
@@ -59,8 +57,7 @@ class ImageCLSDataset(BaseDataset):
     def __new__(cls, dataset_config: dict = None):
         logger.info("Now Create Image Classification Dataset.")
         cls.init_dataset_config(dataset_config)
-        rank_id = int(os.getenv("RANK_ID", "0"))
-        device_num = int(os.getenv("RANK_SIZE", "1"))
+        rank_id, device_num = cls._generate_shard_info()
 
         dataset = build_dataset_loader(
             dataset_config.data_loader, default_args={'num_shards': device_num, 'shard_id': rank_id})
