@@ -251,7 +251,13 @@ class Trainer:
                 "You are advised to pass instances such as optimizers, metric, tokenizer, and processor")
             self.model_name = 'common'
 
-        task_config = MindFormerConfig(SUPPORT_TASKS.get(self.task).get(self.model_name))
+        default_config_path = SUPPORT_TASKS.get(self.task).get(self.model_name)
+        relative_config_path = default_config_path[default_config_path.rfind("configs/"):]
+        current_config_path = os.path.join(os.getcwd(), relative_config_path)
+        if os.path.exists(current_config_path):
+            default_config_path = current_config_path
+        logger.info(f"Load configs in {default_config_path} to build trainer.")
+        task_config = MindFormerConfig(default_config_path)
 
         if self.model_name == "common":
             if self.model is not None:
