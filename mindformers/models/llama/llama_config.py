@@ -108,6 +108,7 @@ class LlamaConfig(BaseConfig):
                  eos_token_id: int = 2,
                  pad_token_id: int = 0,
                  ignore_token_id: int = -100,
+                 theta: float = 10000.0,
                  compute_dtype: str = "float16",
                  layernorm_compute_type: str = "float32",
                  softmax_compute_type: str = "float32",
@@ -162,3 +163,4 @@ class LlamaConfig(BaseConfig):
         self.top_k = top_k
         self.top_p = top_p
         self.do_sample = do_sample
+        self.theta = theta

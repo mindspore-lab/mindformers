@@ -125,7 +125,7 @@ class LlamaModel(BaseModel):
             logger.info("Current MindSpore do not support flash attention.")
 
         self.freqs_cos, self.freqs_sin, self.swap_mask = precompute_freqs_cis(
-            config.hidden_size // config.num_heads, config.seq_length, dtype=config.rotary_dtype,
+            config.hidden_size // config.num_heads, config.seq_length, theta=config.theta, dtype=config.rotary_dtype,
             pretrain_seqlen=config.pretrain_seqlen, extend_method=config.extend_method)
         self.get_attention_mask = AttentionMask(
             config.seq_length, parallel_config=config.parallel_config.dp_mp_config).to_float(config.compute_dtype)
