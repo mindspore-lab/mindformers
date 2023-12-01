@@ -245,6 +245,12 @@ class BaseTrainer:
         """check the gradient accumulation steps."""
         if self.config.runner_config.gradient_accumulation_steps is None:
             self.config.runner_config.gradient_accumulation_steps = 1
+        if not isinstance(self.config.runner_config.gradient_accumulation_steps, int):
+            raise ValueError("gradient_accumulation should be integer but got "
+                             f"{type(self.config.runner_config.gradient_accumulation_steps)}")
+        if not self.config.runner_config.gradient_accumulation_steps >= 1:
+            raise ValueError("gradient_accumulation should be greater or equal than 1, "
+                             f"but got {self.config.runner_config.gradient_accumulation_steps}")
         if not GRAD_ACCUMULATION_VALID and self.config.runner_config.gradient_accumulation_steps > 1:
             logger.warning("gradient_accumulation_steps only surpport mindspore version later than 2.1.1, "
                            "reset the gradient_accumulation_steps from %s to 1.",
@@ -260,8 +266,8 @@ class BaseTrainer:
             self.config.runner_config.gradient_accumulation_steps = 1
         # grad accumulation not supported in data parallel/standalone mode for now
         if self.config.runner_config.gradient_accumulation_steps > 1 and \
-            parallel_mode not in ["semi_auto_parallel", "auto_parallel"]:
-            logger.warning("gradient_accumulation_steps currently need to be used in semi/auto parallel mode, "
+            parallel_mode not in ["semi_auto_parallel"]:
+            logger.warning("gradient_accumulation_steps currently need to be used in semi_auto_parallel mode, "
                            "but got %s mode, please check your runner config and parallel config. "
                            "Reset the gradient_accumulation_steps from %s to 1. ",
                            parallel_mode, self.config.runner_config.gradient_accumulation_steps)
@@ -382,7 +388,7 @@ class BaseTrainer:
             network = MicroBatchInterleaved(network, micro_batch_interleave_num)
         if gradient_accumulation_steps > 1 and not pp > 1:
             logger.info("gradient_accumulation_steps > 1, GradAccumulationCell is wrapped on network. "
-                        "It is suggested to execute `export ENABLE_CELL_REUSE=1` to save compiling time.")
+                        "It is suggested to use `Lazy Inline` feature to save compiling time.")
             network = GradAccumulationCell(network, gradient_accumulation_steps)
         if pp > 1:
             micro_batch_num = self.config.parallel_config.micro_batch_num

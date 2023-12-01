@@ -57,6 +57,7 @@
    docs/feature_cards/LLM_DataLoader.md
    docs/feature_cards/Resume_Training.md
    docs/feature_cards/Eval_While_Training.md
+   docs/feature_cards/Training_Algorithms.md
    docs/feature_cards/Transform_Ckpt.md
    docs/feature_cards/Text_Generator.md
    docs/feature_cards/Pet_Tuners.md
