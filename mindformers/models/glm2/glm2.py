@@ -165,7 +165,9 @@ class ChatGLM2ForConditionalGeneration(BaseModel):
         self.use_past = config.use_past
         self.is_first_iteration = True
         self.not_equal = P.NotEqual()
+        self.add = P.Add()
         self.load_checkpoint(config)
+        self.vocab_size = config.padded_vocab_size
 
     def prepare_inputs_for_generation(self, input_ids, **kwargs):
         """prepare inputs for generation."""
@@ -183,6 +185,7 @@ class ChatGLM2ForConditionalGeneration(BaseModel):
         # input_ids: (bs, seq_len)
         # position_ids: (bs, seq_len)
         # attention_mask: (bs, seq_len)
+        bs, seq_len = input_ids.shape
         hidden_states = self.transformer(
             input_ids=input_ids,
             input_position=input_position,
@@ -194,21 +197,43 @@ class ChatGLM2ForConditionalGeneration(BaseModel):
             prefix_key_values=prefix_key_values
         )
         lm_logits = self.transformer.output_layer(hidden_states)
+        outputs = (lm_logits,)
 
+        # train
         if labels is not None:
-            logits = self.cast(lm_logits, mstype.float32)
-            logits_shape = logits.shape
+            logits = lm_logits.to(mstype.float32)
             labels = labels.reshape((-1,))
-            logits = logits.reshape((-1, logits_shape[-1]))
-            input_mask = self.not_equal(labels, -100).astype(logits.dtype)
+            logits = logits.reshape((-1, logits.shape[-1]))
+            input_mask = self.not_equal(labels, -100).to(mstype.float32)
             input_mask = input_mask.reshape((-1,))
-            loss = self.loss(logits, labels, input_mask)
-            return loss
 
-        lm_logits = lm_logits.reshape((-1, lm_logits.shape[-1]))
+            if self.training:
+                # if training, return loss directly
+                outputs = self.loss(logits, labels, input_mask)
+            else:
+                # eval in train ppl
+                # pre-shift to fit mindformers/core/metric/utils.py:PerplexityCell
+                zeros = ops.zeros((bs, 1, self.vocab_size), dtype=logits.dtype)
+                logits = logits.reshape((bs, seq_len, self.vocab_size))
+                logits = ops.cat((logits, zeros), axis=1)
+
+                zeros = ops.zeros((bs, 1), dtype=labels.dtype)
+                labels = labels.reshape((bs, seq_len))
+                labels = ops.cat((zeros, labels), axis=1)
+
+                zeros = zeros.to(input_mask.dtype)
+                input_mask = input_mask.reshape((bs, seq_len))
+                input_mask = ops.cat((zeros, input_mask), axis=1)
+
+                outputs = logits, labels, input_mask
+
+        # generation process
         if (not self.use_past or self.is_first_iteration) and input_position is not None:
+            lm_logits = lm_logits.reshape((-1, lm_logits.shape[-1]))
             lm_logits = self.gather(lm_logits, input_position, 0)
-        return (lm_logits,)
+            outputs = (lm_logits,)
+
+        return outputs
 
 
 @MindFormerRegister.register(MindFormerModuleType.MODELS)

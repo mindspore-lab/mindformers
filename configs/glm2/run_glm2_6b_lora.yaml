@@ -78,11 +78,11 @@ trainer:
 # if True do, evaluate during the training process. if false, do nothing.
 # note that the task trainer should support _evaluate_in_training function.
 do_eval: False
-eval_step_interval: 500
+eval_step_interval: 1788
 eval_epoch_interval: -1
 
 metric:
-  type: ADGENMetric
+  type: PerplexityMetric
 
 processor:
   return_tensors: ms
@@ -131,14 +131,14 @@ eval_dataset: &eval_dataset
     type: ADGenDataLoader
     dataset_dir: "/path/to/AdvertiseGen/dev.json"
     shuffle: False
-    phase: "eval"
+    phase: "train"
     version: 2
     origin_columns: ["content", "summary"]
   tokenizer:
     type: ChatGLM2Tokenizer
     vocab_file: "/path/to/tokenizer.model"
-  max_source_length: 256
-  max_target_length: 256
+  max_source_length: 64
+  max_target_length: 127
   ignore_pad_token_for_loss: True
   input_columns: ["input_ids", "labels"]
   num_parallel_workers: 8

@@ -65,18 +65,6 @@ class KeyWordGenDataset(BaseDataset):
         rank_id, device_num = cls._generate_shard_info()
         dataset_config.rank_id = rank_id
         dataset_config.device_num = device_num
-        if isinstance(dataset_config.tokenizer, BaseTokenizer):
-            cls.tokenizer = dataset_config.tokenizer
-        else:
-            cls.tokenizer = build_tokenizer(dataset_config.tokenizer)
-        cls.ignore_pad_token_for_loss = dataset_config.ignore_pad_token_for_loss
-        cls.max_source_length = dataset_config.max_source_length
-        cls.max_target_length = dataset_config.max_target_length
-        cls.max_seq_length = cls.max_source_length + cls.max_target_length
-
-        cls.phase = dataset_config.data_loader.phase
-        cls.version = dataset_config.data_loader.version
-
         if dataset_config.data_loader.type != 'MindDataset':
             dataset = cls._process_raw_text_data(dataset_config)
         else:
@@ -93,13 +81,16 @@ class KeyWordGenDataset(BaseDataset):
         return dataset
 
     @classmethod
-    def _tokenizer_map(cls, dataset, tokenizer_config):
+    def _tokenizer_map(cls, dataset, dataset_config):
         """Maps the tokenizer on the source and the output"""
 
-        phase = cls.phase
-        version = cls.version if cls.version else 1
+        phase = dataset_config.data_loader.phase
+        version = dataset_config.data_loader.version if dataset_config.data_loader.version else 1
 
-        logger.info("Start tokenize on the dataset using tokenizer: %s", tokenizer_config)
+        if isinstance(dataset_config.tokenizer, BaseTokenizer):
+            tokenizer = dataset_config.tokenizer
+        else:
+            tokenizer = build_tokenizer(dataset_config.tokenizer)
 
         if version == 2:
             train_dataset_function = cls._train_dataset_functionv2
@@ -114,10 +105,10 @@ class KeyWordGenDataset(BaseDataset):
 
         # Avoid to_json error when summary monitor is opened
         def train_dataset_func(prompt, answer):
-            return train_dataset_function(prompt, answer)
+            return train_dataset_function(prompt, answer, dataset_config, tokenizer)
 
         def eval_dataset_func(prompt, answer):
-            return eval_dataset_function(prompt, answer)
+            return eval_dataset_function(prompt, answer, dataset_config, tokenizer)
 
         if phase == "train":
             dataset = get_dataset_map(dataset,
@@ -142,7 +133,7 @@ class KeyWordGenDataset(BaseDataset):
                                                       'num_shards': dataset_config.device_num,
                                                       'shard_id': dataset_config.rank_id})
 
-        dataset = cls._tokenizer_map(dataset, dataset_config.tokenizer)
+        dataset = cls._tokenizer_map(dataset, dataset_config)
         return dataset
 
     @classmethod
@@ -179,28 +170,33 @@ class KeyWordGenDataset(BaseDataset):
         return dataset
 
     @classmethod
-    def _train_dataset_function(cls, prompt, answer):
+    def _train_dataset_function(cls, prompt, answer, dataset_config, tokenizer):
         """generates train dataset"""
+        max_source_length = dataset_config.max_source_length
+        max_target_length = dataset_config.max_target_length
+        max_seq_length = max_source_length + max_target_length + 1
+        ignore_pad_token_for_loss = dataset_config.ignore_pad_token_for_loss
+
         prompt, answer = prompt.tolist(), answer.tolist()
-        prompt_ids = cls.tokenizer.encode(text=prompt, add_special_tokens=False)
-        answer_ids = cls.tokenizer.encode(text=answer, add_special_tokens=False)
+        prompt_ids = tokenizer.encode(text=prompt, add_special_tokens=False)
+        answer_ids = tokenizer.encode(text=answer, add_special_tokens=False)
 
-        if len(prompt_ids) > cls.max_source_length - 1:
-            prompt_ids = prompt_ids[: cls.max_source_length - 1]
+        if len(prompt_ids) > max_source_length - 1:
+            prompt_ids = prompt_ids[: max_source_length - 1]
 
-        if len(answer_ids) > cls.max_target_length - 2:
-            answer_ids = answer_ids[: cls.max_target_length - 2]
+        if len(answer_ids) > max_target_length - 2:
+            answer_ids = answer_ids[: max_target_length - 2]
 
-        input_ids = cls.tokenizer.build_inputs_with_special_tokens(prompt_ids, answer_ids)
-        context_length = input_ids.index(cls.tokenizer.bos_token_id)
+        input_ids = tokenizer.build_inputs_with_special_tokens(prompt_ids, answer_ids)
+        context_length = input_ids.index(tokenizer.bos_token_id)
         mask_position = context_length - 1
         label = [-100] * context_length + input_ids[mask_position + 2:]  # +1 for logits shift
 
-        pad_len = cls.max_seq_length - len(input_ids)
-        input_ids = input_ids + [cls.tokenizer.pad_token_id] * pad_len
-        label = label + [cls.tokenizer.pad_token_id] * (pad_len + 1)  # +1 for logits shift
-        if cls.ignore_pad_token_for_loss:
-            label = [(l if l != cls.tokenizer.pad_token_id else -100) for l in label]
+        pad_len = max_seq_length - len(input_ids)
+        input_ids = input_ids + [tokenizer.pad_token_id] * pad_len
+        label = label + [tokenizer.pad_token_id] * (pad_len + 1)  # +1 for logits shift
+        if ignore_pad_token_for_loss:
+            label = [(l if l != tokenizer.pad_token_id else -100) for l in label]
 
         position_ids = cls._create_position_ids(np.array(input_ids))
         attention_mask = cls._get_masks(np.array(input_ids))
@@ -208,67 +204,77 @@ class KeyWordGenDataset(BaseDataset):
         return input_ids, label, position_ids, attention_mask
 
     @classmethod
-    def _train_dataset_functionv2(cls, prompt, answer):
+    def _train_dataset_functionv2(cls, prompt, answer, dataset_config, tokenizer):
         """generates train dataset"""
-        max_seq_length = cls.max_source_length + cls.max_target_length + 1
+        max_source_length = dataset_config.max_source_length
+        max_target_length = dataset_config.max_target_length
+        max_seq_length = max_source_length + max_target_length + 1
+        ignore_pad_token_for_loss = dataset_config.ignore_pad_token_for_loss
+
         prompt, answer = prompt.tolist(), answer.tolist()
         history = None
-        prompt = cls.tokenizer.build_prompt(prompt, history)
-        prompt_ids = cls.tokenizer.encode(text=prompt, add_special_tokens=True, max_length=cls.max_source_length)
-        answer_ids = cls.tokenizer.encode(text=answer, add_special_tokens=False, max_length=cls.max_target_length)
+        prompt = tokenizer.build_prompt(prompt, history)
+        prompt_ids = tokenizer.encode(text=prompt, add_special_tokens=True, max_length=max_source_length)
+        answer_ids = tokenizer.encode(text=answer, add_special_tokens=False, max_length=max_target_length)
 
         context_length = len(prompt_ids)
-        input_ids = prompt_ids + answer_ids + [cls.tokenizer.eos_token_id]
-        labels = [cls.tokenizer.pad_token_id] * context_length + answer_ids[1:] + [cls.tokenizer.eos_token_id]
+        input_ids = prompt_ids + answer_ids + [tokenizer.eos_token_id]
+        labels = [tokenizer.pad_token_id] * context_length + answer_ids[1:] + [tokenizer.eos_token_id]
 
         pad_len = max_seq_length - len(input_ids)
-        input_ids = input_ids + [cls.tokenizer.pad_token_id] * pad_len
-        labels = labels + [cls.tokenizer.pad_token_id] * (pad_len + 1)  # +1 for logits shift
+        input_ids = input_ids + [tokenizer.pad_token_id] * pad_len
+        labels = labels + [tokenizer.pad_token_id] * (pad_len + 1)  # +1 for logits shift
 
-        if cls.ignore_pad_token_for_loss:
-            labels = [(l if l != cls.tokenizer.pad_token_id else -100) for l in labels]
+        if ignore_pad_token_for_loss:
+            labels = [(l if l != tokenizer.pad_token_id else -100) for l in labels]
         return input_ids, labels
 
     @classmethod
-    def _eval_dataset_functionv2(cls, prompt, answer):
+    def _eval_dataset_functionv2(cls, prompt, answer, dataset_config, tokenizer):
         """generates eval dataset"""
+        max_source_length = dataset_config.max_source_length
+        max_target_length = dataset_config.max_target_length
+
         prompt, answer = prompt.tolist(), answer.tolist()
         history = None
-        prompt = cls.tokenizer.build_prompt(prompt, history)
+        prompt = tokenizer.build_prompt(prompt, history)
 
-        if len(prompt) > cls.max_source_length - 1:
-            prompt = prompt[: cls.max_source_length - 1]
+        if len(prompt) > max_source_length - 1:
+            prompt = prompt[: max_source_length - 1]
 
-        if len(answer) > cls.max_target_length - 1:
-            answer = answer[: cls.max_target_length - 1]
+        if len(answer) > max_target_length - 1:
+            answer = answer[: max_target_length - 1]
 
-        input_ids = cls.tokenizer.encode(text=prompt, add_special_tokens=True, max_length=cls.max_source_length)
-        label = cls.tokenizer.encode(text=answer, add_special_tokens=True, max_length=cls.max_target_length)
+        input_ids = tokenizer.encode(text=prompt, add_special_tokens=True, max_length=max_source_length)
+        label = tokenizer.encode(text=answer, add_special_tokens=True, max_length=max_target_length)
 
-        pad_len = cls.max_source_length - len(input_ids)
-        input_ids = input_ids + [cls.tokenizer.pad_token_id] * pad_len
-        pad_len = cls.max_target_length - len(label)
-        label = label + [cls.tokenizer.pad_token_id] * pad_len
+        pad_len = max_source_length - len(input_ids)
+        input_ids = input_ids + [tokenizer.pad_token_id] * pad_len
+        pad_len = max_target_length - len(label)
+        label = label + [tokenizer.pad_token_id] * pad_len
 
         return input_ids, label
 
     @classmethod
-    def _eval_dataset_function(cls, prompt, answer):
+    def _eval_dataset_function(cls, prompt, answer, dataset_config, tokenizer):
         """generates eval dataset"""
+        max_source_length = dataset_config.max_source_length
+        max_target_length = dataset_config.max_target_length
+
         prompt, answer = prompt.tolist(), answer.tolist()
-        if len(prompt) > cls.max_source_length - 2:
-            prompt = prompt[: cls.max_source_length - 2]
+        if len(prompt) > max_source_length - 2:
+            prompt = prompt[: max_source_length - 2]
 
-        if len(answer) > cls.max_target_length - 2:
-            answer = answer[: cls.max_target_length - 2]
+        if len(answer) > max_target_length - 2:
+            answer = answer[: max_target_length - 2]
 
-        input_ids = cls.tokenizer.encode(text=prompt, add_special_tokens=True)
-        label = cls.tokenizer.encode(text=answer, add_special_tokens=True)
+        input_ids = tokenizer.encode(text=prompt, add_special_tokens=True)
+        label = tokenizer.encode(text=answer, add_special_tokens=True)
 
-        pad_len = cls.max_source_length - len(input_ids)
-        input_ids = input_ids + [cls.tokenizer.pad_token_id] * pad_len
-        pad_len = cls.max_target_length - len(label)
-        label = label + [cls.tokenizer.pad_token_id] * pad_len
+        pad_len = max_source_length - len(input_ids)
+        input_ids = input_ids + [tokenizer.pad_token_id] * pad_len
+        pad_len = max_target_length - len(label)
+        label = label + [tokenizer.pad_token_id] * pad_len
 
         return input_ids, label
 
