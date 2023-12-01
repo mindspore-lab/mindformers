@@ -758,7 +758,7 @@ class BaseTrainer:
 
             # build network
             if network is None:
-                network, _ = self.create_network(
+                _, network = self.create_network(
                     default_args={"parallel_config": config.parallel_config,
                                   "moe_config": config.moe_config})
             self.set_network(network, is_train=False)
