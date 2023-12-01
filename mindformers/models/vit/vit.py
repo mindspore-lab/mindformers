@@ -102,7 +102,7 @@ class ViTModel(BaseModel):
         self.cast = P.Cast()
         self.tile = P.Tile().shard(((dp, 1, 1),))
         self.cat = P.Concat(axis=1)
-        self.fc_norm = LayerNorm((config.embed_dim,), eps=1e-6).shard(((dp, 1, 1),))
+        self.fc_norm = LayerNorm((config.embed_dim,), eps=1e-6).shard(((dp, 1),))
 
         self.reduce_mean = P.ReduceMean().shard(((dp, 1, 1),))
         self.dropout = Dropout(keep_prob=(1. - config.drop_rate))
