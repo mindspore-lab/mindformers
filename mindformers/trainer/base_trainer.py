@@ -365,45 +365,31 @@ class BaseTrainer:
         ckpt_cfg = self.config.model.model_config.checkpoint_name_or_path
         if self.config.model.model_config.pet_config:
             self.config.model.model_config.checkpoint_name_or_path = None
-        eval_network = build_model(self.config.model, default_args=default_args)
+        network = build_model(self.config.model, default_args=default_args)
         if self.config.model.model_config.pet_config:
-            eval_network.config.checkpoint_name_or_path = ckpt_cfg
-            eval_network = get_pet_model(eval_network, self.config.model.model_config.pet_config)
-        network = eval_network
+            network.config.checkpoint_name_or_path = ckpt_cfg
+            network = get_pet_model(network, self.config.model.model_config.pet_config)
+        return network
+
+    def wrap_network_with_tool_cells(self, network):
+        """For training process, warp the network with some tool cells."""
         micro_batch_interleave_num = self.config.micro_batch_interleave_num
+        gradient_accumulation_steps = self.config.runner_config.gradient_accumulation_steps
+        parallel_mode = ms.context.get_auto_parallel_context("parallel_mode")
+        pp = self.get_pipeline_stages()
         if micro_batch_interleave_num > 1:
             logger.info("micro_batch_interleave_num > 1, the double copy parallel feature is turned on.")
             network = MicroBatchInterleaved(network, micro_batch_interleave_num)
-        gradient_accumulation_steps = self.config.runner_config.gradient_accumulation_steps
-        if gradient_accumulation_steps > 1:
+        if gradient_accumulation_steps > 1 and not pp > 1:
             logger.info("gradient_accumulation_steps > 1, GradAccumulationCell is wrapped on network. "
                         "It is suggested to execute `export ENABLE_CELL_REUSE=1` to save compiling time.")
             network = GradAccumulationCell(network, gradient_accumulation_steps)
-        if ms.context.get_auto_parallel_context("parallel_mode") in ["semi_auto_parallel", "auto_parallel"]:
-            network = _VirtualDatasetCell(network)
-        return network, eval_network
-
-    def create_pipeline_network(self, default_args: dict = None):
-        """Create the network of pipeline parallel for task trainer."""
-        logger.info(".........Build Pipeline Network From Config..........")
-        ckpt_cfg = self.config.model.model_config.checkpoint_name_or_path
-        if self.config.model.model_config.pet_config:
-            self.config.model.model_config.checkpoint_name_or_path = None
-        eval_network = build_model(self.config.model, default_args=default_args)
-        if self.config.model.model_config.pet_config:
-            eval_network.config.checkpoint_name_or_path = ckpt_cfg
-            eval_network = get_pet_model(eval_network, self.config.model.model_config.pet_config)
-        network = eval_network
-        micro_batch_interleave_num = self.config.micro_batch_interleave_num
-        micro_batch_num = self.config.parallel_config.micro_batch_num
-        if micro_batch_interleave_num > 1:
-            logger.info("micro_batch_interleave_num > 1, the double copy parallel feature is turned on.")
-            network = PipelineCell(MicroBatchInterleaved(network, micro_batch_interleave_num),
-                                   micro_size=micro_batch_num)
-        else:
+        if pp > 1:
+            micro_batch_num = self.config.parallel_config.micro_batch_num
             network = PipelineCell(network, micro_size=micro_batch_num)
-        network = _VirtualDatasetCell(network)
-        return network, eval_network
+        if parallel_mode in ["semi_auto_parallel", "auto_parallel"]:
+            network = _VirtualDatasetCell(network)
+        return network
 
     def create_image_processor(self, default_args: dict = None):
         """Create the image processor for predict."""
@@ -624,26 +610,21 @@ class BaseTrainer:
 
         # build network
         logger.info(".........Build Net For Train..........")
-        eval_network = None
         if network is None and wrapper is None and \
                 self.model_wrapper is None and self.network is None:
-            # If neither network nor wrapper exists, create a network
-            if self.get_pipeline_stages() > 1:
-                network, eval_network = self.create_pipeline_network(
-                    default_args={"parallel_config": config.parallel_config,
-                                  "moe_config": config.moe_config})
-            else:
-                network, eval_network = self.create_network(
-                    default_args={"parallel_config": config.parallel_config,
-                                  "moe_config": config.moe_config})
+            network = self.create_network(
+                default_args={"parallel_config": config.parallel_config,
+                              "moe_config": config.moe_config})
         elif network is None and wrapper is None and self.network is not None:
             logger.info(".........Using The Existing Network For Train:: %s", self.network.__class__.__name__)
             network = self.network
 
+        eval_network = None
         if network is not None:
-            self.set_network(network, is_train=True)
-        if eval_network is None:
             eval_network = network
+            # warp network for training
+            network = self.wrap_network_with_tool_cells(eval_network)
+            self.set_network(network, is_train=True)
         if wrapper is not None:
             self.set_model_wrapper(wrapper)
 
@@ -757,9 +738,8 @@ class BaseTrainer:
         check_rules(config, mode='eval')
 
         # build network
-        eval_network = None
         if network is None and self.network is None:
-            network, eval_network = self.create_network(
+            network = self.create_network(
                 default_args={"parallel_config": config.parallel_config,
                               "moe_config": config.moe_config})
         elif network is None and self.network is not None:
@@ -767,8 +747,6 @@ class BaseTrainer:
             network = self.network
 
         self.set_network(network, is_train=False)
-        if eval_network is None:
-            eval_network = network
         self.count_parameters()
 
         # build metric
@@ -787,7 +765,7 @@ class BaseTrainer:
         callbacks = default_callbacks
 
         logger.info(".........Starting Init Evaluate Model..........")
-        model = Model(network, metrics=compute_metrics, eval_network=eval_network)
+        model = Model(network, metrics=compute_metrics, eval_network=network)
 
         if config.load_checkpoint or config.only_save_strategy:
             if config.load_checkpoint in SUPPORT_MODEL_NAMES:
@@ -833,7 +811,7 @@ class BaseTrainer:
 
             # build network
             if network is None:
-                network, _ = self.create_network(
+                network = self.create_network(
                     default_args={"parallel_config": config.parallel_config,
                                   "moe_config": config.moe_config})
             self.set_network(network, is_train=False)
@@ -916,7 +894,7 @@ class BaseTrainer:
 
             # build network
             if network is None:
-                _, network = self.create_network(
+                network = self.create_network(
                     default_args={"parallel_config": config.parallel_config,
                                   "moe_config": config.moe_config})
             self.set_network(network, is_train=False)

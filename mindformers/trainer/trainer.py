@@ -26,9 +26,7 @@ from mindspore import Tensor
 from mindspore.common import set_seed
 from mindspore._checkparam import args_type_check
 from mindspore import load_checkpoint, load_param_into_net
-from mindspore.nn import TrainOneStepCell, Optimizer, Cell, \
-    PipelineCell, MicroBatchInterleaved
-from mindspore.nn.wrap.cell_wrapper import _VirtualDatasetCell
+from mindspore.nn import TrainOneStepCell, Optimizer, Cell
 from mindspore.train import Callback
 from mindspore.dataset import GeneratorDataset
 from mindspore.dataset.engine.datasets import BatchDataset, RepeatDataset, Dataset
@@ -884,25 +882,6 @@ class Trainer:
         model_config.moe_config = self.config.moe_config
         self.model.__init__(model_config)
         self.model.set_train(is_train)
-        if not is_train:
-            return
-        network = self.model
-        micro_batch_interleave_num = self.config.micro_batch_interleave_num
-        if ms.get_auto_parallel_context("pipeline_stages") > 1:
-            micro_batch_num = self.config.parallel_config.micro_batch_num
-            if micro_batch_interleave_num > 1:
-                logger.info("micro_batch_interleave_num > 1, the double copy parallel feature is turned on.")
-                network = PipelineCell(MicroBatchInterleaved(self.model, micro_batch_interleave_num),
-                                       micro_size=micro_batch_num)
-            else:
-                network = PipelineCell(self.model, micro_size=micro_batch_num)
-            network = _VirtualDatasetCell(network)
-        else:
-            if micro_batch_interleave_num > 1:
-                logger.info("micro_batch_interleave_num > 1, the double copy parallel feature is turned on.")
-                network = MicroBatchInterleaved(self.model, micro_batch_interleave_num)
-        del self.model
-        self.model = network
 
     def get_train_dataloader(self):
         """get train dataloader of mindspore."""
