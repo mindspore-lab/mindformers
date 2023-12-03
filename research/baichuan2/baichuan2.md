@@ -484,12 +484,12 @@ max_device_memory: "31GB"    # 910A将最大内存改为31GB即可
 
 Baichuan2-7B-Chat用于在线推理，输入按照`<reserved_106>question<reserved_107>`的模板格式输入，910A/B均支持**单卡推理**。
 
-以下给出了四种推理方式，仅供参考：
+以下提供了四种推理方式，其中Pipeline/Generate推理提供了代码示例，仅供参考：
 
-- **基于高阶接口推理**：基于trainer推理，不支持batch推理；
-- **基于Pipeline推理**：基于pipeline推理，不支持batch推理；
-- **基于Generate推理**：基于generate推理，支持batch推理；
-- **chat多轮对话推理**：基于generate推理，支持单卡交互式多轮对话；
+- **基于高阶接口推理**：基于trainer推理，支持传入单句或多句列表，支持**加载lora权重、权重转换、单/多卡推理**；
+- **基于Pipeline推理**：基于pipeline推理，支持传入单句或多句列表，**仅支持加载完整权重做单卡推理**，如需**加载lora权重、权重转换、多卡推理**，请参考[Baichuan2-13B](#Baichuan2-13B)提供的pipeline推理脚本；
+- **基于Generate推理**：基于generate推理，支持传入单句或多句列表，**仅支持加载完整权重做单卡推理**，如需**加载lora权重、权重转换、多卡推理**，请参考[Baichuan2-13B](#Baichuan2-13B)提供的generate推理脚本；
+- **chat多轮对话推理**：基于generate推理，支持交互式多轮对话，支持**加载lora权重、权重转换、单卡推理**，不支持**多卡推理**；
 
 请下载词表文件：[tokenizer.model](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/baichuan2/tokenizer.model)
 
@@ -525,7 +525,7 @@ python baichuan2/run_baichuan2.py \
 
 #### 基于Pipeline推理
 
-- 构建run_baichuan2_pipeline.py，支持加载**完整权重**进行**单卡推理**。
+- 构建run_baichuan2_pipeline.py，该脚本提供了加载**完整权重**进行**单卡推理**的简单示例，如需加载**lora权重**、**权重转换**、**多卡推理**，请参考[Baichuan2-13B](#Baichuan2-13B)提供的pipeline推理脚本。
 
 ```shell
 # run_baichuan2_pipeline.py
@@ -535,7 +535,13 @@ from mindformers.models import LlamaConfig
 from mindformers import MindFormerConfig
 
 from baichuan2_7b import Baichuan7BV2ForCausalLM
+from baichuan2_13b import Baichuan13BV2ForCausalLM
 from baichuan2_tokenizer import Baichuan2Tokenizer
+
+model_dict = {
+    "baichuan2_7b": Baichuan7BV2ForCausalLM,
+    "baichuan2_13b": Baichuan13BV2ForCausalLM,
+}
 
 context.set_context(device_id=0, mode=0)
 
@@ -544,12 +550,13 @@ inputs = ["<reserved_106>你是谁？<reserved_107>",
           "<reserved_106>白日依山尽，下一句是？<reserved_107>"]
 
 # init model
-baichuan2_config_path = "research/baichuan2/run_baichuan2_7b.yaml"
+baichuan2_config_path = "path/to/run_baichuan2_7b.yaml"
 baichuan2_config = MindFormerConfig(baichuan2_config_path)
 
 baichuan2_config.model.model_config.batch_size = 1
 baichuan2_model_config = LlamaConfig(**baichuan2_config.model.model_config)
-baichuan2_model = Baichuan7BV2ForCausalLM(
+model_name = baichuan2_config.trainer.model_name
+baichuan2_network = model_dict[model_name](
     config=baichuan2_model_config
 )
 
@@ -559,19 +566,17 @@ tokenizer = Baichuan2Tokenizer(
 )
 
 # init and run pipeline
-pipeline_task = pipeline(task="text_generation", model=baichuan2_model, tokenizer=tokenizer)
+pipeline_task = pipeline(task="text_generation", model=baichuan2_network, tokenizer=tokenizer)
 outputs = pipeline_task(inputs,
                         do_sample=False,
                         top_k=1,
                         top_p=1.0,
-                        repetition_penalty=1.0,
+                        repetition_penalty=1.05,
                         temperature=1.0,
                         max_length=64)
 for output in outputs:
     print(output)
 ```
-
-> 注：如果需要加载**lora权重**、**权重转换**、**多卡推理**，请参考[Baichuan2-13B](#Baichuan2-13B)的"基于Pipeline推理"章节提供的脚本。
 
 - 主要参数配置参考
 
@@ -597,7 +602,7 @@ python baichuan2/run_baichuan2_pipeline.py
 
 #### 基于Generate推理
 
-- 构建run_baichuan2_generate.py，支持加载**原生完整权重**进行**单卡推理**。
+- 构建run_baichuan2_generate.py，该脚本提供了加载**完整权重**进行**单卡推理**的简单示例，如需加载**lora权重**、**权重转换**、**多卡推理**，请参考[Baichuan2-13B](#Baichuan2-13B)提供的generate推理脚本。
 
 ```shell
 # run_baichuan2_generate.py
@@ -607,9 +612,13 @@ from mindformers.models import LlamaConfig
 from mindformers import MindFormerConfig
 
 from baichuan2_7b import Baichuan7BV2ForCausalLM
+from baichuan2_13b import Baichuan13BV2ForCausalLM
 from baichuan2_tokenizer import Baichuan2Tokenizer
 
-context.set_context(device_id=0, mode=0)
+model_dict = {
+    "baichuan2_7b": Baichuan7BV2ForCausalLM,
+    "baichuan2_13b": Baichuan13BV2ForCausalLM,
+}
 
 inputs = ["<reserved_106>你是谁？<reserved_107>",
           "<reserved_106>《静夜思》作者是？<reserved_107>",
@@ -617,12 +626,13 @@ inputs = ["<reserved_106>你是谁？<reserved_107>",
 batch_size = len(inputs)
 
 # init model
-baichuan2_config_path = "research/baichuan2/run_baichuan2_7b.yaml"
+baichuan2_config_path = "path/to/run_baichuan2_7b.yaml"
 baichuan2_config = MindFormerConfig(baichuan2_config_path)
 
 baichuan2_config.model.model_config.batch_size = batch_size
 baichuan2_model_config = LlamaConfig(**baichuan2_config.model.model_config)
-baichuan2_network = Baichuan7BV2ForCausalLM(
+model_name = baichuan2_config.trainer.model_name
+baichuan2_network = model_dict[model_name](
     config=baichuan2_model_config
 )
 
@@ -637,14 +647,12 @@ outputs = baichuan2_network.generate(inputs_ids,
                                      do_sample=False,
                                      top_k=1,
                                      top_p=1.0,
-                                     repetition_penalty=1.0,
+                                     repetition_penalty=1.05,
                                      temperature=1.0,
                                      max_length=64)
 for output in outputs:
     print(tokenizer.decode(output))
 ```
-
-> 注：如果需要加载**lora权重**、**权重转换**、**多卡推理**，请参考[Baichuan2-13B](#Baichuan2-13B)的"基于Generate推理"章节提供的脚本。
 
 - 主要参数配置参考
 
@@ -1029,12 +1037,12 @@ parallel_config:
 
 ### MindSpore推理
 
-Baichuan2-13B-Chat用于在线推理，输入按照`<reserved_106>question<reserved_107>`的模板格式输入，**910A需要多卡推理，910B支持单卡推理**，以下给出了四种推理方式，仅供参考：
+Baichuan2-13B-Chat用于在线推理，输入按照`<reserved_106>question<reserved_107>`的模板格式输入，**910A需要多卡推理，910B支持单卡推理**，以下提供了四种推理方式，其中Pipeline/Generate推理提供了代码示例，仅供参考：
 
-- **基于高阶接口推理**：基于trainer推理，不支持batch推理；
-- **基于Pipeline推理**：基于pipeline推理，不支持batch推理；
-- **基于Generate推理**：基于generate推理，支持batch推理；
-- **chat多轮对话推理**：基于generate推理，支持单卡交互式多轮对话；
+- **基于高阶接口推理**：基于trainer推理，支持传入单句或多句列表，支持**加载lora权重、权重转换、单/多卡推理**；
+- **基于Pipeline推理**：基于pipeline推理，支持传入单句或多句列表，支持**加载lora权重、权重转换、单/多卡推理**，如只需加载完整权重做单卡推理，可以参考[Baichuan2-7B](#Baichuan2-7B)提供的pipeline推理脚本；
+- **基于Generate推理**：基于generate推理，支持传入单句或多句列表，支持**加载lora权重、权重转换、单/多卡推理**，如只需加载完整权重做单卡推理，可以参考[Baichuan2-7B](#Baichuan2-7B)提供的generate推理脚本；
+- **chat多轮对话推理**：基于generate推理，支持交互式多轮对话，支持**加载lora权重、权重转换、单卡推理**，不支持**多卡推理**；
 
 请下载词表文件：[tokenizer.model](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/baichuan2/tokenizer.model)
 
@@ -1114,7 +1122,7 @@ bash ./run_singlenode.sh \
 
 #### 基于Pipeline推理
 
-- 构建run_baichuan2_pipeline.py，支持**自动权重转换**，支持加载**Lora权重**，支持**单卡/多卡推理**。
+- 构建run_baichuan2_pipeline.py，支持**自动权重转换**，支持加载**Lora权重**，支持**单卡/多卡推理**。如果加载lora权重进行推理，请将`baichuan2_config_path`修改为lora的配置文件路径。
 
 ```shell
 # run_baichuan2_pipeline.py
@@ -1131,15 +1139,23 @@ from mindformers.trainer.utils import transform_and_load_checkpoint
 from mindformers.core.context import build_context
 from mindformers.core.parallel_config import build_parallel_config
 
+from baichuan2_7b import Baichuan7BV2ForCausalLM
 from baichuan2_13b import Baichuan13BV2ForCausalLM
 from baichuan2_tokenizer import Baichuan2Tokenizer
+
+model_dict = {
+    "baichuan2_7b": Baichuan7BV2ForCausalLM,
+    "baichuan2_7b_lora": Baichuan7BV2ForCausalLM,
+    "baichuan2_13b": Baichuan13BV2ForCausalLM,
+    "baichuan2_13b_lora": Baichuan13BV2ForCausalLM
+}
 
 inputs = ["<reserved_106>你是谁？<reserved_107>",
           "<reserved_106>《静夜思》作者是？<reserved_107>",
           "<reserved_106>白日依山尽，下一句是？<reserved_107>"]
 
 # init config，默认使用910A配置文件
-baichuan2_config_path = "research/baichuan2/run_baichuan2_13b.yaml"
+baichuan2_config_path = "path/to/run_baichuan2_13b.yaml"
 baichuan2_config = MindFormerConfig(baichuan2_config_path)
 
 # init context
@@ -1151,7 +1167,8 @@ baichuan2_config.model.model_config.parallel_config = baichuan2_config.parallel_
 baichuan2_config.model.model_config.batch_size = 1
 baichuan2_model_config = LlamaConfig(**baichuan2_config.model.model_config)
 baichuan2_model_config.checkpoint_name_or_path = None
-baichuan2_network = Baichuan13BV2ForCausalLM(
+model_name = baichuan2_config.trainer.model_name
+baichuan2_network = model_dict[model_name](
     config=baichuan2_model_config
 )
 
@@ -1191,8 +1208,6 @@ outputs = pipeline_task(inputs,
 for output in outputs:
     print(output)
 ```
-
-> 注：如果加载lora权重进行推理，请将baichuan2_config_path修改为lora的配置文件。
 
 - **单卡推理**
 
@@ -1283,7 +1298,7 @@ bash run_singlenode.sh "python baichuan2/run_baichuan2_pipeline.py" RANK_TABLE_F
 
 #### 基于Generate推理
 
-构建run_baichuan2_generate.py，支持**自动权重转换**，支持加载**Lora权重**，支持**单卡/多卡推理**。
+构建run_baichuan2_generate.py，支持**自动权重转换**，支持加载**Lora权重**，支持**单卡/多卡推理**。如果加载lora权重进行推理，请将`baichuan2_config_path`修改为lora的配置文件路径。
 
 ```shell
 # run_baichuan2_generate.py
@@ -1299,8 +1314,16 @@ from mindformers.trainer.utils import transform_and_load_checkpoint
 from mindformers.core.context import build_context
 from mindformers.core.parallel_config import build_parallel_config
 
+from baichuan2_7b import Baichuan7BV2ForCausalLM
 from baichuan2_13b import Baichuan13BV2ForCausalLM
 from baichuan2_tokenizer import Baichuan2Tokenizer
+
+model_dict = {
+    "baichuan2_7b": Baichuan7BV2ForCausalLM,
+    "baichuan2_7b_lora": Baichuan7BV2ForCausalLM,
+    "baichuan2_13b": Baichuan13BV2ForCausalLM,
+    "baichuan2_13b_lora": Baichuan13BV2ForCausalLM
+}
 
 inputs = ["<reserved_106>你是谁？<reserved_107>",
           "<reserved_106>《静夜思》作者是？<reserved_107>",
@@ -1308,7 +1331,7 @@ inputs = ["<reserved_106>你是谁？<reserved_107>",
 batch_size = len(inputs)
 
 # init config，默认使用910A配置文件
-baichuan2_config_path = "research/baichuan2/run_baichuan2_13b.yaml"
+baichuan2_config_path = "path/to/run_baichuan2_13b.yaml"
 baichuan2_config = MindFormerConfig(baichuan2_config_path)
 
 # init context
@@ -1319,7 +1342,8 @@ build_parallel_config(baichuan2_config)
 baichuan2_config.model.model_config.parallel_config = baichuan2_config.parallel_config
 baichuan2_config.model.model_config.batch_size = batch_size
 baichuan2_model_config = LlamaConfig(**baichuan2_config.model.model_config)
-baichuan2_network = Baichuan13BV2ForCausalLM(
+model_name = baichuan2_config.trainer.model_name
+baichuan2_network = model_dict[model_name](
     config=baichuan2_model_config
 )
 
@@ -1359,8 +1383,6 @@ outputs = baichuan2_network.generate(inputs_ids,
 for output in outputs:
     print(tokenizer.decode(output))
 ```
-
-> 注：如果加载lora权重进行推理，请将baichuan2_config_path修改为lora的配置文件。
 
 - **单卡推理**
 
