@@ -63,7 +63,7 @@
    docs/feature_cards/Pet_Tuners.md
    docs/feature_cards/Chat_Web.md
    docs/feature_cards/Inference.md
-
+   docs/feature_cards/Lazy_Inline.md
 
 .. toctree::
    :glob:
@@ -84,7 +84,7 @@
    docs/practice/AICC.md
    docs/practice/gpt2_example.md
    docs/practice/llama_example.md
-
+   docs/practice/Environment.md
 
 .. toctree::
    :glob:
