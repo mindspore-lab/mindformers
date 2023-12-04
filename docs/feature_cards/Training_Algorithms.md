@@ -23,7 +23,13 @@ runner_config:
   ...
 ```
 
-**限制**：由于 `GradAccumulationCell` 的实现依赖并行特性，梯度累积当前仅支持在**半自动/全自动并行模式**下使用；此外，pipeline并行场景下，梯度累积含义与micro_batch相同，将不会生效，请配置 `micro_batch_num` 项以增大训练batch_size
+除配置文件外，其余几种常用使用方式也提供了梯度累积的配置接口：
+
+1. run_mindformer.py脚本启动时，可指定 `--gradient_accumulation_steps` 入参；
+
+2. trainer接口启动时，可通过 `TrainingArguments` 类指定 `gradient_accumulation_steps` 入参；
+
+**限制**：由于 `GradAccumulationCell` 的实现依赖并行特性，梯度累积当前仅支持在**半自动并行模式**下使用；此外，pipeline并行场景下，梯度累积含义与micro_batch相同，将不会生效，请配置 `micro_batch_num` 项以增大训练batch_size
 
 ## 梯度裁剪
 
