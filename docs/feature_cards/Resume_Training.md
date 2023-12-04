@@ -280,7 +280,7 @@ use_parallel: True
 
 # 设置数据集
 train_dataset: &train_dataset
-  repeat: 2 # repeat设置为2
+  repeat: 2 # repeat设置为2，主要是演示案例为了控制训练数据量，和断点续训无关
 
 # 设置分布式并行策略
 parallel_config:
@@ -303,7 +303,7 @@ bash run_distribute.sh RANK_TABLE_FILE ../configs/llama/run_llama_7b.yaml [0,8] 
 
 2. **分布式断点续训，基于epoch3-step4保存的权重**
 
-**step1**：在**"一、分布式完整训练"**配置基础上，修改`configs/llama/run_llama_7b.yaml`配置文件
+**step1**：在"**一、分布式完整训练**"配置基础上，修改`configs/llama/run_llama_7b.yaml`配置文件
 
 ```yaml
 # 设置权重加载参数
@@ -316,12 +316,6 @@ resume_training: True # 打开断点续训开关
 ```shell
 cd scripts
 bash run_distribute.sh RANK_TABLE_FILE ../configs/llama/run_llama_7b.yaml [0,8] train
-```
-
-③ 启动分布式训练
-
-```shell
-bash run_singlenode.sh "python run_trainer.py" RANK_TABLE_FILE [0,8] 8
 ```
 
 **step3**：查看训练日志，loss和完整训练日志对齐

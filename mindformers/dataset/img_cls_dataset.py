@@ -88,5 +88,4 @@ class ImageCLSDataset(BaseDataset):
                                       num_parallel_workers=dataset_config.num_parallel_workers)
         dataset = dataset.project(columns=dataset_config.output_columns)
         dataset = dataset.repeat(dataset_config.repeat)
-        dataset = cls._set_init_step(dataset, dataset_config)
         return dataset

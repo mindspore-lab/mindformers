@@ -615,6 +615,8 @@ class BaseTrainer:
         logger.info(".........Build Dataset For Train..........")
         if dataset is None:
             dataset = self.create_train_dataset()
+        if config.runner_config.initial_step:
+            dataset.set_init_step(config.runner_config.initial_step)
 
         self.set_train_dataset(dataset)
         check_runner_config(config, dataset)
