@@ -94,20 +94,26 @@ class MultiSourceDataLoader:
             dataset_loaders.append(sub_dataset_loader)
 
         for index, sub_data_loader_item in enumerate(dataset_loaders):
+            actual_nums_over_this_dataset = sub_data_loader_item.get_dataset_size()
+
             if not need_sample:
-                nums_per_dataset.append(sub_data_loader_item.get_dataset_size())
+                nums_per_dataset.append(actual_nums_over_this_dataset)
             else:
-                if nums_per_dataset[index] > sub_data_loader_item.get_dataset_size():
-                    nums_over_this_dataset = sub_data_loader_item.get_dataset_size()
-                    logger.warning("The size of %s-th dataloader is less then specific size, "
-                                   "specific size is ratio*samples_count=%s*%s=%s or nums_per_dataset[%s]=%s. "
-                                   "The actual size will reset to dataset_size=%s.",
-                                   index, dataset_ratios[index], samples_count,
-                                   int(dataset_ratios[index] * samples_count),
-                                   index, nums_per_dataset[index], sub_data_loader_item.get_dataset_size())
-                else:
-                    nums_over_this_dataset = nums_per_dataset[index]
-                nums_per_dataset[index] = nums_over_this_dataset
+                if nums_per_dataset[index] > actual_nums_over_this_dataset:
+                    specific_size = nums_per_dataset[index]
+                    nums_per_dataset[index] = actual_nums_over_this_dataset
+
+                    if dataset_ratios:
+                        logger.warning("The size of %s-th dataloader is less then specific size, "
+                                       "specific size is ratio*samples_count=%s*%s=%s. "
+                                       "The actual size will reset to dataset_size=%s.",
+                                       index + 1, dataset_ratios[index], samples_count,
+                                       specific_size, actual_nums_over_this_dataset)
+                    else:
+                        logger.warning("The size of %s-th dataloader is less then specific size, "
+                                       "specific size is nums_per_dataset[%s]=%s. "
+                                       "The actual size will reset to dataset_size=%s.",
+                                       index + 1, index, specific_size, actual_nums_over_this_dataset)
 
         logger.info("MultiSourceDataloader will be created! Actual nums_per_dataset is %s according to the dataset "
                     "ratios or actual sub dataset size. The total dataset size is %s if drop_remainder=False.",
