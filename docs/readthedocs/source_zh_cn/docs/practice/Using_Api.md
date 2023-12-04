@@ -420,3 +420,79 @@ text_generation = Trainer(task='text_generation', model=pangu_model, args=traini
 text_generation.set_parallel_config(data_parallel=4, model_parallel=2, pipeline_stage=2, micro_batch_num=2, micro_batch_interleave_num=2)
 ```
 
+### 序列并行
+
+MindFormers支持通过并行配置参数`seq_parallel=True`开启序列并行，当模型适配此特性时生效。序列并行通常与模型并行同时使用。
+
+序列并行的原理参考论文：
+
+[Reducing Activation Recomputation in Large Transformer Models](https://arxiv.org/pdf/2205.05198.pdf)
+
+主要是将`Transformer`层中的`LayerNorm`以及`Dropout`的输入按输入长度`Sequence Length`维度进行了切分，使得各个设备上面只需要做一部分的`Dropout`和`LayerNorm`即可。`LayerNorm`和`Dropout`的计算及其所产生的激活值被平摊到了各个设备上，减少了计算资源的浪费，降低了内存开销。
+
+在开启模型并行时，未开启序列并行的`Transformer`层结构如图所示，`LayerNorm`和`Dropout`模块需要依赖`AllReduce`得到的完整中间结果。
+
+![before_seq_parallel.png](./assets/before_seq_parallel.png)
+
+开启模型并行和序列并行后，将`LayerNorm`和`Dropout`层的`Tensor`在`seq_length`维度进行`mp`大小的切分，计算所需动态内存降低；`AllReduce`被拆解成`ReduceScatter`和`AllGather`，通信量不变。
+
+![after_seq_parallel.png](./assets/after_seq_parallel.png)
+
+使用样例：
+
+```python
+import argparse
+import numpy as np
+import mindspore
+from mindspore.dataset import GeneratorDataset
+
+from mindformers import Trainer, TrainingArguments
+from mindformers import init_context, ContextConfig, ParallelContextConfig
+from mindformers import LlamaForCausalLM, LlamaConfig
+
+# 并行环境初始化
+def context_init(use_parallel=False, optimizer_parallel=False):
+    """init context for mindspore."""
+    context_config = ContextConfig(mode=0, device_target="Ascend", device_id=0)
+    parallel_config = None
+    if use_parallel:
+        parallel_config = ParallelContextConfig(parallel_mode='SEMI_AUTO_PARALLEL',
+                                                gradients_mean=False,
+                                                enable_parallel_optimizer=optimizer_parallel,
+                                                full_batch=True)
+    rank_id, device_num = init_context(use_parallel=use_parallel,
+                                       context_config=context_config,
+                                       parallel_config=parallel_config)
+# 样例数据集生成
+def generator():
+    """text dataset generator."""
+    seq_len = 2049
+    input_ids = np.random.randint(low=0, high=15, size=(seq_len,)).astype(np.int32)
+    for _ in range(512):
+        yield input_ids
+
+# 环境初始化
+context_init(use_parallel=False, optimizer_parallel=False)
+# 训练超参数定义
+training_args = TrainingArguments(num_train_epochs=1, batch_size=1, learning_rate=0.001, warmup_steps=100,
+                                  sink_mode=True, sink_size=2)
+# 生成数据集
+dataset = GeneratorDataset(generator, column_names=["input_ids"])
+train_dataset = dataset.batch(batch_size=1)
+# 自定义模型
+llama_config = LlamaConfig(batch_size=1, seq_length=2048, num_layers=2)
+llama_model = LlamaForCausalLM(llama_config)
+# 定义任务，预先准备好相应数据集
+task = Trainer(task='text_generation',
+               model=llama_model,
+               args=training_args,
+               train_dataset=train_dataset)
+# 设定并行策略
+task.set_parallel_config(data_parallel=1,
+                         model_parallel=1,
+                         pipeline_stage=1,
+                         use_seq_parallel=True,    # 开启序列并行
+                         micro_batch_num=1)
+# 开启训练
+task.train()
+```
