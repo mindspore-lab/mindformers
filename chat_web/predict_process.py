@@ -161,28 +161,18 @@ class MindFormersInfer:
         self.streamer = TextIteratorStreamer(tokenizer=self.tokenizer, skip_prompt=True)
 
         process_list = []
-        if self.device_num == 1:
-            input_q = Queue()
-            output_q = Queue()
-            self.input_q_list.append(input_q)
-            self.output_q_list.append(output_q)
-            process_list.append(
-                Process(target=generate_process,
-                        kwargs={'device_id': self.device_id,
-                                'device_num': self.device_num,
-                                'config': self.config,
-                                'input_q': input_q,
-                                'output_q': output_q,
-                                'streamer': self.streamer}))
         for i in range(self.device_num):
             input_q = Queue()
             output_q = Queue()
             self.input_q_list.append(input_q)
             self.output_q_list.append(output_q)
+            device_id = self.device_id
+            if self.device_num > 1:
+                device_id = i + self.device_range[0]
             if i == 0:
                 process_list.append(
                     Process(target=generate_process,
-                            kwargs={'device_id': i,
+                            kwargs={'device_id': device_id,
                                     'device_num': self.device_num,
                                     'device_range': self.device_range,
                                     'config': self.config,
@@ -192,7 +182,7 @@ class MindFormersInfer:
             else:
                 process_list.append(
                     Process(target=generate_process,
-                            kwargs={'device_id': i,
+                            kwargs={'device_id': device_id,
                                     'device_num': self.device_num,
                                     'device_range': self.device_range,
                                     'config': self.config,
