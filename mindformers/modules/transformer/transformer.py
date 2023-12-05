@@ -1356,16 +1356,8 @@ class MultiHeadAttention(Cell):
             _check_input_dtype(F.dtype(attention_mask), "attention_mask", [mstype.float32, mstype.float16],
                                self.cls_name)
 
-        key_is_tensor = isinstance(key_past, Tensor)
-        value_is_tensor = isinstance(value_past, Tensor)
         batch_valid_length_is_tensor = isinstance(batch_valid_length, Tensor)
-        key_is_default = key_past is None
-        value_is_default = value_past is None
         batch_is_default = batch_valid_length is None
-        _check_past_none_input_none(self.use_past, "key_past", self.cls_name, None, key_is_tensor,
-                                    key_is_default)
-        _check_past_none_input_none(self.use_past, "value_past", self.cls_name, None, value_is_tensor,
-                                    value_is_default)
         _check_past_none_input_none(self.use_past, "batch_valid_length", self.cls_name, None,
                                     batch_valid_length_is_tensor, batch_is_default)
         if self.use_past:
