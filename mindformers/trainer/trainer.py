@@ -293,6 +293,8 @@ class Trainer:
 
             self.config = task_config
 
+        self._config_type_check(self.config)
+
         # check dataset config
         if isinstance(train_dataset, str):
             assert os.path.exists(train_dataset), \
@@ -957,6 +959,14 @@ class Trainer:
         else:
             if self.default_checkpoint_name_or_path is not None:
                 self.config.model.model_config.checkpoint_name_or_path = self.default_checkpoint_name_or_path
+
+    def _config_type_check(self, config):
+        if config.resume_training is not None and not isinstance(config.resume_training, bool):
+            raise TypeError(f"resume_training must be bool, "
+                            f"but get {config.resume_training}")
+        if config.auto_trans_ckpt is not None and not isinstance(config.auto_trans_ckpt, bool):
+            raise TypeError(f"auto_trans_ckpt must be bool, "
+                            f"but get {config.auto_trans_ckpt}")
 
 
 def _save_config_to_yaml(save_file_path: str = None, save_config: dict = None):
