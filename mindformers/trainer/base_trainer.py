@@ -245,7 +245,8 @@ class BaseTrainer:
         """check the gradient accumulation steps."""
         if self.config.runner_config.gradient_accumulation_steps is None:
             self.config.runner_config.gradient_accumulation_steps = 1
-        if not isinstance(self.config.runner_config.gradient_accumulation_steps, int):
+        if not isinstance(self.config.runner_config.gradient_accumulation_steps, int) or \
+            isinstance(self.config.runner_config.gradient_accumulation_steps, bool):
             raise ValueError("gradient_accumulation should be integer but got "
                              f"{type(self.config.runner_config.gradient_accumulation_steps)}")
         if not self.config.runner_config.gradient_accumulation_steps >= 1:
