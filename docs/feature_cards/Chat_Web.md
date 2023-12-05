@@ -63,7 +63,7 @@ cd chat_web
     运行如下命令启动推理服务：
 
     ```bash
-    python run_char_server.py &> server.log &
+    python run_chat_server.py &> server.log &
     ```
 
     服务日志被重定向到server.log中。
@@ -111,7 +111,7 @@ cd chat_web
     运行如下命令启动推理服务：
 
     ```bash
-    python run_char_server.py &> server.log &
+    python run_chat_server.py &> server.log &
     ```
 
     服务日志被重定向到server.log中。
@@ -417,7 +417,7 @@ default_generation_args:
 运行如下命令启动推理服务：
 
 ```bash
-python run_char_server.py &> server.log &
+python run_chat_server.py &> server.log &
 ```
 
 运行如下命令查看服务日志：
@@ -690,7 +690,7 @@ default_generation_args:
 运行如下命令启动推理服务：
 
 ```bash
-python run_char_server.py &> server.log &
+python run_chat_server.py &> server.log &
 ```
 
 运行如下命令查看服务日志：
@@ -934,7 +934,7 @@ default_generation_args:
 运行如下命令启动推理服务：
 
 ```bash
-python run_char_server.py &> server.log &
+python run_chat_server.py &> server.log &
 ```
 
 运行如下命令查看服务日志：
