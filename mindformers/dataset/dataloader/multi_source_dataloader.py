@@ -37,11 +37,16 @@ class MultiSourceDataLoader:
                 shuffle_buffer_size: Optional[int] = 320,
                 **kwargs):
         if dataset_ratios is not None:
+            if any([ratios < 0 for ratios in dataset_ratios]):
+                raise ValueError(
+                    f"the dataset_ratios should be a list of positive value, but got {dataset_ratios}")
+
             if abs(sum(dataset_ratios) - 1) > 1e-5:
                 raise ValueError("the sum of ratios is not equals to 1")
 
-            if samples_count is None:
-                raise ValueError("the samples_count should be specified when dataset_ratios is not None")
+            if samples_count is None or samples_count <= 0:
+                raise ValueError(f"the samples_count should be a positive int when dataset_ratios is not None, "
+                                 f"but got {samples_count}")
 
             if not isinstance(dataset_ratios, list) or len(dataset_ratios) != len(sub_data_loader):
                 raise ValueError(
@@ -57,6 +62,11 @@ class MultiSourceDataLoader:
                 if not isinstance(nums_per_dataset, list) or len(nums_per_dataset) != len(sub_data_loader):
                     raise ValueError(
                         "the nums_per_dataset should be a list and the length should equal to sub_data_loader")
+
+                if any([num < 0 for num in nums_per_dataset]):
+                    raise ValueError(
+                        f"the nums_per_dataset should be a list of positive value, but got {nums_per_dataset}")
+
                 need_sample = True
 
         if sub_data_loader_args is None:
