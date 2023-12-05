@@ -455,12 +455,12 @@ eval_dataset_task:
 
 ### 全参微调
 
-全参微调使用 `configs/glm2/run_glm2_6b.yaml` 配置文件，配置文件中定义了微调所需的各配置项
+全参微调使用 `configs/glm2/run_glm2_6b_finetune*.yaml` 配置文件，配置文件中定义了微调所需的各配置项
 
 修改数据集/模型权重配置路径：
 
-- 数据集：修改 `configs/glm2/run_glm2_6b.yaml` 脚本中`train_dataset` 的 `dataset_dir` 为前文生成的数据集路径。
-- 加载预训练模型权重：修改 `configs/glm2/run_glm2_6b.yaml` 脚本中的 `load_checkpoint` 为预训练模型权重路径。
+- 数据集：修改 `configs/glm2/run_glm2_6b_finetune*.yaml` 脚本中`train_dataset` 的 `dataset_dir` 为前文生成的数据集路径。
+- 加载预训练模型权重：修改 `configs/glm2/run_glm2_6b_finetune*.yaml` 脚本中的 `load_checkpoint` 为预训练模型权重路径。
 
 #### 单卡微调
 
@@ -475,7 +475,7 @@ eval_dataset_task:
 ```shell
 cd scripts
 # Usage Help: bash run_distribute.sh [RANK_TABLE_FILE] [CONFIG_PATH] [DEVICE_RANGE] [RUN_STATUS]
-bash run_distribute.sh /path/to/hccl_8p_01234567_127.0.1.1.json ../configs/glm2/run_glm2_6b.yaml '[0,8]' finetune
+bash run_distribute.sh /path/to/hccl_8p_01234567_127.0.1.1.json ../configs/glm2/run_glm2_6b_finetune*.yaml '[0,8]' finetune
 # 将此处rank_table_file替换为实际路径
 ```
 
@@ -483,7 +483,7 @@ bash run_distribute.sh /path/to/hccl_8p_01234567_127.0.1.1.json ../configs/glm2/
 
 ```text
 RANK_TABLE_FILE: 由mindformers/tools/hccl_tools.py生成的分布式json文件
-CONFIG_PATH: 为configs文件夹下面的glm2/run_glm2_6b.yaml配置文件
+CONFIG_PATH: 为configs文件夹下面的glm2/run_glm2_6b_finetune*.yaml配置文件
 DEVICE_RANGE: 为单机分布式卡的范围，如 '[0,8]' 为8卡分布式，不包含8本身
 RUN_STATUS: 为任务运行状态，支持关键字 train\finetune\eval\predict
 ```
@@ -528,19 +528,19 @@ IP_LIST=("192.168.0.0", "192.168.0.1", ..., "192.168.0.11")
 全参微调能够在微调数据集上取得良好效果，但存在遗忘预训练知识的现象。
 因此推荐使用低参微调算法，冻结原模型权重，仅在小规模参数量上进行训练，在微调数据集上取得良好效果的同时，缓解模型遗忘现象
 
-使用LoRA算法进行低参微调时，使用 `configs/glm2/run_glm2_6b_lora.yaml` 配置文件，该配置文件包含了lora低参微调算法所需的配置项
+使用LoRA算法进行低参微调时，使用 `configs/glm2/run_glm2_6b_lora*.yaml` 配置文件，该配置文件包含了lora低参微调算法所需的配置项
 
 修改数据集/模型权重配置路径：
 
-- 数据集：修改 `mindformers/configs/glm2/run_glm2_6b_lora.yaml` 脚本中`train_dataset` 的 `dataset_dir` 为前文生成的数据集路径。
-- 加载预训练模型权重：修改 `mindformers/configs/glm2/run_glm2_6b_lora.yaml` 脚本中的 `load_checkpoint` 为预训练模型权重路径。
+- 数据集：修改 `mindformers/configs/glm2/run_glm2_6b_lora*.yaml` 脚本中`train_dataset` 的 `dataset_dir` 为前文生成的数据集路径。
+- 加载预训练模型权重：修改 `mindformers/configs/glm2/run_glm2_6b_lora*.yaml` 脚本中的 `load_checkpoint` 为预训练模型权重路径。
 
 #### 单卡微调
 
 ```shell
 cd scripts
 # Usage Help: bash run_stanalone.sh [CONFIG_PATH] [DEVICE_ID] [RUN_STATUS]
-bash run_standalone.sh ../configs/glm2/run_glm2_6b_lora.yaml 0 finetune
+bash run_standalone.sh ../configs/glm2/run_glm2_6b_lora*.yaml 0 finetune
 ```
 
 训练的log日志路径：mindformers/scripts/mf_standalone/
@@ -616,24 +616,66 @@ trainer.finetune(finetune_checkpoint="glm2_6b")
 
 ### 边训边推
 
+#### 1. 使用 `Rouge-1`、`Rouge-2` 等指标评测
+
+使用该指标评测时速度较慢，推荐使用 `PerplexityMetric` 评测。
+
 将训练配置文件的 `do_eval: False` 设置为 `do_eval: True`，并且需要将 `train_dataset` 和 `eval_dataset` 的 `max_source_length`、`max_target_length` 以及 `batch_size`项设置为相同值，并且保持 `max_source_length + max_target_length + 1 = seq_length`，如下所示：
 
 ```yaml
+do_eval: True
+eval_step_interval: 1788
+eval_epoch_interval: -1
+
+metric:
+  type: ADGENMetric
+
 model:
   model_config:
-    seq_length: 193
+    seq_length: 192
 train_dataset: &train_dataset
   max_source_length: 64
-  max_target_length: 128
+  max_target_length: 127
   batch_size: 8
 eval_dataset: &eval_dataset
   max_source_length: 64
-  max_target_length: 128
+  max_target_length: 127
   batch_size: 8
-
-eval_step_interval: 500 # 表示每 500 step 评估 1 次，-1 表示step不评估
-eval_epoch_interval: -1 # 表示间隔多少 epoch 评估 1 次，-1 表示epoch不评估
 ```
+
+#### 2. 使用 `PerplexityMetric` 指标评测
+
+将训练配置文件的 `do_eval: False` 设置为 `do_eval: True`，并且需要将 `train_dataset` 和 `eval_dataset` 的 `max_source_length`、`max_target_length` 、`phase` 以及 `batch_size`项设置为相同值，并且保持 `max_source_length + max_target_length + 1 = seq_length`，如下所示：
+
+```yaml
+do_eval: True
+eval_step_interval: 1788
+eval_epoch_interval: -1
+
+metric:
+  type: PerplexityMetric
+
+model:
+  model_config:
+    seq_length: 192
+train_dataset: &train_dataset
+  data_loader:
+    phase: "train"
+  max_source_length: 64
+  max_target_length: 127
+  batch_size: 8
+eval_dataset: &eval_dataset
+  data_loader:
+    phase: "train"
+  max_source_length: 64
+  max_target_length: 127
+  batch_size: 8
+```
+
+mindformers通过 `eval_step_interval` 和 `eval_epoch_interval` 两项配置参数来控制边训练边评估的执行间隔，参数含义如下：
+
+- **eval_step_interval**: 评估step间隔, 默认为100，表示每100个step间隔执行一次评估；配置为大于0的数表示每隔所配置的step数后执行一次评估，配置为小于0的数则表示禁用step评估；注意：在数据下沉模式下，step间隔值建议配置为sink size的倍数
+- **eval_epoch_interval**: 评估epoch间隔, 默认为-1，表示禁用epoch结束时的评估；配置为大于0的数表示每隔所配置的epoch数后执行一次评估，配置为小于0的数则表示禁用epoch评估；注意：数据下沉模式下，epoch所包含的step数将从数据集大小变为sink size的大小，将在 `sink_size * eval_epoch_interval` 个step后执行一次评估
 
 ## 评测
 
@@ -655,18 +697,18 @@ model:
 
 使用全参微调权重时，启动如下shell脚本，执行单卡评估
 
-配置文件选择 `configs/glm2/run_glm2_6b.yaml` glm2模型推理配置，修改其中`model`字段下`model_config`中`use_past: True`开启增量推理使评估速度更快
+配置文件选择 `configs/glm2/run_glm2_6b_finetune_eval.yaml` glm2模型推理配置，修改其中`model`字段下`model_config`中`use_past: True`开启增量推理使评估速度更快
 
 ```bash
-python run_mindformer.py --config configs/glm2/run_glm2_6b.yaml --run_mode eval --load_checkpoint /path/to/glm2_6b_finetune.ckpt --eval_dataset_dir /path/to/data/AdvertiseGen/ --device_id 0
+python run_mindformer.py --config configs/glm2/run_glm2_6b_finetune_eval.yaml--run_mode eval --load_checkpoint /path/to/glm2_6b_finetune.ckpt --eval_dataset_dir /path/to/data/AdvertiseGen/ --device_id 0
 ```
 
 使用LoRA低参微调权重时，启动如下shell脚本，执行单卡评估
 
-配置文件选择 `configs/glm2/run_glm2_6b_lora.yaml` glm2_lora模型推理配置，此配置可用于lora模型，修改其中`model`字段下`model_config`中`use_past: True`开启增量推理使评估速度更快
+配置文件选择 `configs/glm2/run_glm2_6b_lora_eval.yaml` glm2_lora模型推理配置，此配置可用于lora模型，修改其中`model`字段下`model_config`中`use_past: True`开启增量推理使评估速度更快
 
 ```bash
-python run_mindformer.py --config configs/glm2/run_glm2_6b_lora.yaml --run_mode eval --load_checkpoint /path/to/glm2_6b_lora.ckpt --eval_dataset_dir /path/to/data/AdvertiseGen/ --device_id 0
+python run_mindformer.py --config configs/glm2/run_glm2_6b_lora_eval.yaml --run_mode eval --load_checkpoint /path/to/glm2_6b_lora.ckpt --eval_dataset_dir /path/to/data/AdvertiseGen/ --device_id 0
 ```
 
 ### 多卡评测
