@@ -70,7 +70,6 @@ class TranslationDataset(BaseDataset):
         type_cast_op = TypeCast(mstype.int32)
         for input_arg in dataset_config.input_columns:
             dataset = get_dataset_map(dataset, operations=type_cast_op, input_columns=input_arg)
-        dataset = cls._set_init_step(dataset, dataset_config)
         return dataset
 
     @classmethod

@@ -147,7 +147,6 @@ class CausalLanguageModelDataset(BaseDataset):
                 dataset = get_dataset_map(dataset, type_cast_op,
                                           input_columns=input_arg)
         dataset = dataset.repeat(dataset_config.repeat)
-        dataset = cls._set_init_step(dataset, dataset_config)
         return dataset
 
     @classmethod
