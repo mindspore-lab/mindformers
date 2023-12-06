@@ -18,7 +18,7 @@ import random
 import subprocess
 import json
 from json import JSONDecodeError
-from typing import Callable
+from typing import Union, Callable
 from multiprocessing import Pool
 import numpy as np
 from pyarrow.json import read_json
@@ -38,13 +38,14 @@ class TrainingDataLoader:
     """Training DataLoader."""
     def __new__(cls,
                 dataset_dir: str,
+                column_names: list,
+                tokenizer: Union[str, dict, Callable],
                 dataset_name: str = "",
-                max_length: int = 1025,
                 is_align: bool = True,
-                tokenizer: dict = None,
+                max_length: int = 1025,
                 text_col: str = "",
                 file_format: str = None,
-                customized_reader: Callable = None,
+                read_function: Callable = None,
                 shuffle: bool = False,
                 samples_num: int = 10000,
                 skip_num: int = 0,
@@ -55,15 +56,17 @@ class TrainingDataLoader:
 
         Args:
             dataset_dir (str): The directory path to parquet text with hdfs.
+            column_names(list): Column names contained in the created dataset.
+            tokenizer (Union[str, dict, Callable]): Tokenizer configuration.
             dataset_name (str): Dataset name. Currently, ["wikitext"] is supported.
+            is_align (bool): Indicates whether to align input_ids to `max_length`.
             max_length (int): Maximum length of a token.
-            is_align (): Indicates whether to align input_ids to `max_length`.
-            file_format (str): Retrieves the end character of the desired file name.
-            tokenizer (dict): Tokenizer configuration.
             text_col (str): Column name of the dataset to be trained.
-            customized_reader (Callable): User-defined functions for reading data.
+            file_format (str): Retrieves the end character of the desired file name.
+            read_function (Callable): User-defined functions for reading data.
                 The input parameter is the path of the dataset file.
-                The return value is a list of many sentences.
+                The return value is a dictionary. Key indicates the column name,
+                    and value indicates the value of the column.
             shuffle (bool): Whether or not to perform shuffle on the dataset.
                 Random accessible input is required.
                 Default: True, expected order behavior shown in the table below.
@@ -81,9 +84,10 @@ class TrainingDataLoader:
         Examples:
             >>> from mindformers import TrainingDataLoader
             >>> data_loader = TrainingDataLoader(dataset_dir="The required task dataset path",
+            ...                                  column_names=["input_ids", "attention_mask"],
+            ...                                  tokenizer={"type": "GPT2Tokenizer", "max_length": 1025},
             ...                                  dataset_name="wikitext",
             ...                                  file_format="tokens",
-            ...                                  tokenizer={"type": "GPT2Tokenizer", "max_length": 1025},
             ...                                  shuffle=True)
             >>> data_loader = data_loader.batch(1)
             >>> for item in data_loader:
@@ -91,14 +95,14 @@ class TrainingDataLoader:
             >>>     break
         """
         logger.info("dataset_dir: %s, samples_num: %s", dataset_dir, samples_num)
-        training_dataset = TrainingDataset(dataset_dir, dataset_name=dataset_name, max_length=max_length,
-                                           is_align=is_align, tokenizer=tokenizer, text_col=text_col,
-                                           file_format=file_format, customized_reader=customized_reader,
+        training_dataset = TrainingDataset(dataset_dir, column_names=column_names, tokenizer=tokenizer,
+                                           dataset_name=dataset_name, is_align=is_align, max_length=max_length,
+                                           text_col=text_col, file_format=file_format, read_function=read_function,
                                            shuffle=shuffle, samples_num=samples_num, file_limit=file_limit)
 
         kwargs["num_shards"] = None
         kwargs["shard_id"] = None
-        gen_dataset = GeneratorDataset(training_dataset, column_names=["input"], shuffle=shuffle, **kwargs)
+        gen_dataset = GeneratorDataset(training_dataset, column_names=column_names, shuffle=shuffle, **kwargs)
         logger.info("NOTE: The sample of Dataset will skip %s", skip_num)
         gen_dataset = gen_dataset.skip(skip_num)
         return gen_dataset
@@ -124,16 +128,18 @@ class TrainingDataset:
 
     Args:
         dataset_dir (str): The directory path to parquet text with hdfs.
+        column_names(list): Column names contained in the created dataset.
+        tokenizer (Union[str, dict, Callable]): Tokenizer configuration.
         dataset_name (str): Dataset name. Currently, ["wikitext"] is supported.
+        is_align (bool): Indicates whether to align input_ids to `max_length`.
         max_length (int): Maximum length of a token.
-        is_align (): Indicates whether to align input_ids to `max_length`.
-        file_format (str): Retrieves the end character of the desired file name.
-        tokenizer (dict): Tokenizer configuration.
         text_col (str): Column name of the dataset to be trained.
-        customized_reader (Callable): User-defined functions for reading data.
+        file_format (str): Retrieves the end character of the desired file name.
+        read_function (Callable): User-defined functions for reading data.
             The input parameter is the path of the dataset file.
-            The return value is a list of many sentences.
-        shuffle (Optional[bool]): Whether or not to perform shuffle on the dataset.
+            The return value is a dictionary. Key indicates the column name,
+                and value indicates the value of the column.
+        shuffle (bool): Whether or not to perform shuffle on the dataset.
             Random accessible input is required.
             Default: True, expected order behavior shown in the table below.
         samples_num(int): Specifies the number of samples to be trained.
@@ -148,22 +154,24 @@ class TrainingDataset:
     """
     def __init__(self,
                  dataset_dir: str,
+                 column_names: list,
+                 tokenizer: Union[str, dict, Callable],
                  dataset_name: str = "",
                  is_align: bool = True,
-                 text_col: str = "",
                  max_length: int = 1025,
+                 text_col: str = "",
                  file_format: str = None,
-                 customized_reader: Callable = None,
-                 tokenizer: dict = None,
+                 read_function: Callable = None,
                  shuffle: bool = True,
                  samples_num: int = 10000,
                  file_limit: int = 1):
         self.dataset_dir = dataset_dir
         self.dataset_name = dataset_name.lower() if dataset_name else None
         self.format = file_format
-        self.tokenizer = build_tokenizer(tokenizer)
+        self.column_names = column_names
+        self.tokenizer = self._check_tokenizer(tokenizer)
         self.text_col = text_col
-        self.customized_reader = customized_reader
+        self.read_function = read_function
         self.shuffle = shuffle
         self.sample_number = samples_num
         self.file_limit = file_limit
@@ -177,7 +185,7 @@ class TrainingDataset:
         self.global_index = 0
         self.is_align = is_align
         self.max_length = max_length
-        self.download_path = "../output/hdfs_dataset"
+        self.download_path = "./output/hdfs_dataset"
         self._general_reader_map = {
             "json": self._read_json,
             "jsonl": read_json,
@@ -206,18 +214,22 @@ class TrainingDataset:
         if self.iter_index >= self.current_samples_number and self.iter_index != 0:
             self._reset_iter_index()
 
+        if self.global_index >= self.sample_number:
+            logger.info("global index: %s reach to steps: %s", self.global_index, self.sample_number)
+            raise StopIteration
+
         data_item = self.current_samples[self.iter_index]
         self.global_index += 1
         self.iter_index += 1
 
-        if self.global_index >= self.sample_number:
-            logger.info("global index: %s reach to steps: %s", self.global_index, self.sample_number)
-            raise StopIteration
-        return data_item
+        result = self.tokenizer.prepare_for_model(ids=data_item.tolist(), pair_ids=None, add_special_tokens=True,
+                                                  max_length=self.max_length, padding='max_length',
+                                                  truncation=True, truncate_direction="LEFT",
+                                                  return_attention_mask=True)
+        return tuple([result[col] for col in self.column_names])
 
     def __len__(self):
-        data_len = self.sample_number - 1
-        return data_len
+        return self.sample_number
 
     def _check_format(self, dataset_dir, file_format):
         """Check and correct the `format`."""
@@ -232,7 +244,7 @@ class TrainingDataset:
         file_format = file_format.strip(".").lower()
         if file_format in ("json", "jsonl"):
             try:
-                with open(dataset_dir, 'r') as f:
+                with open(dataset_dir, 'r', encoding='UTF-8') as f:
                     json.load(f)
                 file_format = "json"
             except JSONDecodeError:
@@ -241,6 +253,15 @@ class TrainingDataset:
         if file_format in self._general_reader_map:
             return file_format
         raise ValueError("The dataset file format can only be json, jsonl, csv, tsv, and parquet.")
+
+    @staticmethod
+    def _check_tokenizer(tokenizer):
+        """Check and create the `tokenizer`."""
+        if isinstance(tokenizer, str):
+            return build_tokenizer({"type": tokenizer})
+        if isinstance(tokenizer, dict):
+            return build_tokenizer(tokenizer)
+        return tokenizer
 
     @staticmethod
     def _read_parquet(path):
@@ -256,7 +277,7 @@ class TrainingDataset:
     @staticmethod
     def _read_json(path):
         """Reads data in JSON format."""
-        with open(path, 'r') as f:
+        with open(path, 'r', encoding='UTF-8') as f:
             data = json.load(f)
         if isinstance(data, dict):
             return Table.from_pydict(data)
@@ -339,11 +360,11 @@ class TrainingDataset:
 
     def _read_dataset(self, local_path):
         """Read data in various formats."""
-        if self.customized_reader:
-            table = self.customized_reader(local_path)
+        if self.read_function:
+            table = self.read_function(local_path)
             sentences = self._get_sentences_list(table, self.text_col)
         elif self.dataset_name in _DATA_READER_MAP:
-            table = _DATA_READER_MAP[self.dataset_name](local_path)
+            table = Table.from_pydict(_DATA_READER_MAP[self.dataset_name](local_path))
             sentences = self._get_sentences_list(table, self.text_col)
         elif self.format and self.format in self._general_reader_map:
             table = self._general_reader_map[self.format](local_path)

@@ -98,9 +98,6 @@ train_dataset: &train_dataset
     type: MindDataset
     dataset_dir: ""
     shuffle: True
-  tokenizer:
-    type: WizardCoderTokenizer
-    max_length: 2048
   input_columns: ["input_ids", "labels"]
   num_parallel_workers: 8
   python_multiprocessing: False
@@ -119,9 +116,6 @@ eval_dataset: &eval_dataset
     type: MindDataset
     dataset_dir: ""
     shuffle: False
-  tokenizer:
-    type: WizardCoderTokenizer
-    max_length: 2048
   input_columns: ["input_ids", "labels"]
   num_parallel_workers: 8
   python_multiprocessing: False

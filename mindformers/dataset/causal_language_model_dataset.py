@@ -16,12 +16,12 @@
 import os
 import copy
 import re
+from typing import Union, Optional, Callable
 import numpy as np
 import mindspore.common.dtype as mstype
 from mindspore.dataset.transforms import TypeCast
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.tools.logger import logger
-from mindformers.models.build_tokenizer import build_tokenizer
 from mindformers.version_control import get_dataset_map
 from .dataloader import build_dataset_loader
 from .base_dataset import BaseDataset
@@ -74,12 +74,35 @@ class CausalLanguageModelDataset(BaseDataset):
     output input_ids columns
 
     Args:
-        dataset_config (dict): Config for dataset.
+        dataset_config (Optional[dict]): Config for dataset.
+        data_loader (Union[dict, Callable]): Config for data loader or a data loader object.
+        input_columns (list): Column name before the map function.
+        output_columns (list): Column name after the map function.
+        batch_size (int): Size of each batch. Default: 8.
+        drop_remainder (bool): Whether to discard the last batch when the number of data items contained
+            in the last batch is smaller than batch_size. Default: True.
+        num_parallel_workers (int): Specifies the number of concurrent processes or threads for map operations
+            to accelerate processing. Default: 8.
+        python_multiprocessing (bool): Enabling the Python Multi-Process Mode to Accelerate Map Operations.
+            Default: False.
+        repeat (int): Number of times this dataset is repeated. Default: 1.
+        seed (int): Random seed number. Default: 0.
+        prefetch_size (int): Buffer queue size of each data processing operation in the pipeline. Default: 1.
+        numa_enable (bool): Indicates whether to use the NUMA binding function. Default: False.
+        eod_reset (bool): Specifies whether to reset the EOD. Default: False.
+        eod_token_id (int): Indicates the token id of the EOD.
+        auto_tune (bool): Indicates whether to enable automatic optimization of data processing parameters.
+            Default: False.
+        autotune_per_step (int): Specifies the interval for adjusting the configuration step of
+            automatic data acceleration. Default: 10.
+        filepath_prefix (str): Path for saving optimized parameter configurations. Default: './autotune'.
+        profile (bool): Whether to enable data collection. Default: False.
 
     Returns:
         A dataset for CausalLanguageModelDataset.
 
     Examples:
+        >>> # 1) Create an instance using a MindFormerConfig.
         >>> from mindformers.tools.register import MindFormerConfig
         >>> from mindformers import MindFormerBook
         >>> from mindformers.dataset import CausalLanguageModelDataset
@@ -95,19 +118,52 @@ class CausalLanguageModelDataset(BaseDataset):
         >>> check_dataset_config(config)
         >>> # use class to build dataset
         >>> dataset_from_class = CausalLanguageModelDataset(config.train_dataset_task.dataset_config)
+        >>>
+        >>> # 2) Creating an instance using other parameters.
+        >>> from mindspore.dataset import MindDataset
+        >>> from mindformers.dataset import CausalLanguageModelDataset
+        >>> data_loader = MindDataset(dataset_files="The required task dataset path", shuffle=True)
+        >>> dataset_from_param = CausalLanguageModelDataset(data_loader=data_loader,
+        ...                                                 input_columns=["input_ids", "attention_mask"])
     """
-    def __new__(cls, dataset_config: dict = None):
+
+    # pylint: disable=W0613
+    def __new__(cls,
+                dataset_config: Optional[dict] = None,
+                data_loader: Union[dict, Callable] = None,
+                input_columns: list = None,
+                output_columns: list = None,
+                batch_size: int = 8,
+                drop_remainder: bool = True,
+                num_parallel_workers: int = 8,
+                python_multiprocessing: bool = False,
+                repeat: int = 1,
+                seed: int = 0,
+                prefetch_size: int = 1,
+                numa_enable: bool = False,
+                eod_reset: bool = False,
+                eod_token_id: Optional[int] = None,
+                auto_tune: bool = False,
+                filepath_prefix: str = './autotune',
+                autotune_per_step: int = 10,
+                profile: bool = False,
+                **kwargs):
         logger.info("Now Create Causal Language Model Dataset.")
+        dataset_config = cls.check_dataset_config(dataset_config, locals())
         dataset_config = copy.deepcopy(dataset_config)
         cls.init_dataset_config(dataset_config)
         rank_id, device_num = cls._generate_shard_info()
         dataset_config.rank_id = rank_id
         dataset_config.device_num = device_num
-        if dataset_config.data_loader.type != "MindDataset" and \
-                dataset_config.data_loader.type != "TFRecordDataset":
-            dataset = cls._process_raw_text_data(dataset_config)
+
+        if isinstance(dataset_config.data_loader, dict):
+            if dataset_config.data_loader.type != "MindDataset" and \
+                    dataset_config.data_loader.type != "TFRecordDataset":
+                dataset = cls._process_raw_text_data(dataset_config)
+            else:
+                dataset = cls._process_mindrecord_data(dataset_config)
         else:
-            dataset = cls._process_mindrecord_data(dataset_config)
+            dataset = dataset_config.data_loader
 
         type_cast_op = TypeCast(mstype.int32)
         if dataset_config.eod_reset:
@@ -150,64 +206,6 @@ class CausalLanguageModelDataset(BaseDataset):
         return dataset
 
     @classmethod
-    def _prepare_for_model(cls, dataset, dataset_config):
-        """Preprocess data for gpt2 model"""
-        tokenizer_config = dataset_config.tokenizer
-        tokenizer = build_tokenizer(tokenizer_config)
-        max_length = tokenizer_config.max_length
-        input_columns = dataset_config.input_columns
-        return_token_type_ids = "token_type_ids" in input_columns
-        return_attention_mask = "attention_mask" in input_columns
-
-        def train_map_func(ids):
-            """Preparing input data for model training."""
-            ids = ids.tolist()
-            result = tokenizer.prepare_for_model(ids=ids,
-                                                 pair_ids=None,
-                                                 add_special_tokens=True,
-                                                 max_length=max_length,
-                                                 padding='max_length',
-                                                 truncation=True,
-                                                 truncate_direction="LEFT",
-                                                 return_token_type_ids=return_token_type_ids,
-                                                 return_attention_mask=return_attention_mask)
-            return_list = []
-            for col in input_columns:
-                return_list.append(result[col])
-            return tuple(return_list)
-
-        def sft_map_func(prompt, answer=None, label=None):
-            """Prepare input data for model fine-tuning or evaluation."""
-            ids = tokenizer.encode(prompt.tolist())
-            pair_ids = tokenizer.encode(answer.tolist()) if answer else None
-            result = tokenizer.prepare_for_model(ids=ids,
-                                                 pair_ids=pair_ids,
-                                                 add_special_tokens=True,
-                                                 max_length=max_length,
-                                                 padding='max_length',
-                                                 truncation=True,
-                                                 truncate_direction="LEFT",
-                                                 return_token_type_ids=return_token_type_ids,
-                                                 return_attention_mask=return_attention_mask)
-            return_list = []
-            for col in input_columns:
-                if col != "labels":
-                    return_list.append(result[col])
-                elif "labels" in result:
-                    return_list.append(result["labels"])
-                else:
-                    return_list.append(label)
-            return tuple(return_list)
-
-        if dataset_config.data_loader.get("tokenizer"):
-            dataset = dataset.map(train_map_func, input_columns=["input"], output_columns=input_columns)
-        else:
-            dataset = dataset.map(sft_map_func,
-                                  input_columns=["prompt", "answer", "label"],
-                                  output_columns=input_columns)
-        return dataset
-
-    @classmethod
     def _process_raw_text_data(cls, dataset_config):
         """Process the text data"""
         dataset_dir = dataset_config.data_loader.pop("dataset_dir")
@@ -215,8 +213,6 @@ class CausalLanguageModelDataset(BaseDataset):
             dataset_config.data_loader, default_args={'dataset_dir': dataset_dir,
                                                       'num_shards': dataset_config.device_num,
                                                       'shard_id': dataset_config.rank_id})
-
-        dataset = cls._prepare_for_model(dataset, dataset_config)
         return dataset
 
     @classmethod

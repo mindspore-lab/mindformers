@@ -17,6 +17,7 @@ import os
 
 import mindspore as ms
 import mindspore.dataset as ds
+from mindformers.tools.register import MindFormerConfig
 
 
 class BaseDataset:
@@ -31,11 +32,18 @@ class BaseDataset:
         self.dataset_config = dataset_config
 
     @classmethod
+    def check_dataset_config(cls, dataset_config, params):
+        """Check `dataset_config`, If it is empty, use the input parameter to create a new `dataset_config`."""
+        if not dataset_config:
+            params.pop("dataset_config")
+            kwargs = params.pop("kwargs") if params.get("kwargs") else {}
+            params.update(kwargs)
+            dataset_config = MindFormerConfig(**params)
+        return dataset_config
+
+    @classmethod
     def init_dataset_config(cls, dataset_config):
         """Init dataset config."""
-        if dataset_config is None:
-            raise ValueError("dataset_config cannot be None!")
-
         ds.config.set_seed(dataset_config.seed)
         ds.config.set_prefetch_size(dataset_config.prefetch_size)
         ds.config.set_numa_enable(dataset_config.numa_enable)
