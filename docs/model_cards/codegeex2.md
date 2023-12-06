@@ -816,7 +816,7 @@ python mindformers/tools/export.py --config_path configs/codegeex2/run_codegeex2
 2. 执行命令：
 
 ```bash
-python run_infer_main.py --device_id 0 --model_name codegeex2 --prefill_model_path codegeex2_export/codegeex2_6b_prefill_seq1024_graph.mindir --increment_model_path codegeex2_export/codegeex2_6b_inc_seq1024_graph.mindir --config_path lite.ini --seq_length 1024 --max_length 512 --add_special_tokens True
+python run_infer_main.py --device_id 0 --model_name codegeex2_6b --prefill_model_path codegeex2_export/codegeex2_6b_prefill_seq1024_graph.mindir --increment_model_path codegeex2_export/codegeex2_6b_inc_seq1024_graph.mindir --config_path lite.ini --seq_length 1024 --max_length 512 --add_special_tokens True
 ```
 
 　　输入：
