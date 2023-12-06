@@ -21,23 +21,25 @@ Llama 2，是Meta基于LLaMA 1的更新版本，基于新的公开可用数据�
 
 llama2_7b:
 
-| config                                                       | task                  | Datasets  | SeqLength | metric | phase             | score     | performance  |
-| ------------------------------------------------------------ | --------------------- | --------- | --------- | ------ | ----------------- | --------- | ------------ |
-| [llama2_7b](../../configs/llama2/run_llama2_7b_910b.yaml)    | text_generation       | wiki      | 4096      | -      | [train](#预训练)  | -         | 2433 tks/s/p |
-| [llama2_7b](../../configs/llama2/run_llama2_7b_910b_finetune.yaml) | text_generation       | alpaca    | 2048      | -      | [finetune](#微调) | -         | 3523 tks/s/p |
-| [llama2_7b_lora](../../configs/llama2/run_llama2_7b_lora_910b.yaml) | text_generation       | alpaca    | 2048      | -      | [finetune](#微调) | -         | 4269 tks/s/p |
-| [llama2_7b](../../configs/llama2/run_llama2_7b_910b.yaml)    | text_generation       | WikiText2 | -         | PPL    | [eval](#评测)     | 6.58      | -            |
-| [llama2_7b](../../configs/llama2/run_llama2_7b_910b.yaml)    | reading comprehension | SQuAD 1.1 | -         | EM/F1  | [eval](#评测)     | 39.6/60.5 | -            |
+| config                                                                | task                  | Datasets  | SeqLength | metric | phase             | score     | performance  |
+|-----------------------------------------------------------------------| --------------------- | --------- | --------- | ------ | ----------------- | --------- |--------------|
+| [llama2_7b](../../configs/llama2/run_llama2_7b_910b.yaml)             | text_generation       | wiki      | 4096      | -      | [train](#预训练)  | -         | 2433 tks/s/p |
+| [llama2_7b](../../configs/llama2/run_llama2_7b_910b_finetune.yaml)    | text_generation       | alpaca    | 2048      | -      | [finetune](#微调) | -         | 3523 tks/s/p |
+| [llama2_7b_FA](../../configs/llama2/run_llama2_7b_910b.yaml) | text_generation       | alpaca    | 2048      | -      | [train](#预训练)  | -         | 3250 tks/s/p |
+| [llama2_7b_lora](../../configs/llama2/run_llama2_7b_lora_910b.yaml)   | text_generation       | alpaca    | 2048      | -      | [finetune](#微调) | -         | 4269 tks/s/p |
+| [llama2_7b](../../configs/llama2/run_llama2_7b_910b.yaml)             | text_generation       | WikiText2 | -         | PPL    | [eval](#评测)     | 6.58      | -            |
+| [llama2_7b](../../configs/llama2/run_llama2_7b_910b.yaml)             | reading comprehension | SQuAD 1.1 | -         | EM/F1  | [eval](#评测)     | 39.6/60.5 | -            |
 
 llama2_13b:
 
-| config                                                       | task                  | Datasets  | SeqLength | metric | phase             | score       | performance   |
-| ------------------------------------------------------------ | --------------------- | --------- | --------- | ------ | ----------------- | ----------- | ------------- |
-| [llama2_13b](../../configs/llama2/run_llama2_13b_910b.yaml)  | text_generation       | wiki      | 4096      | -      | [train](#预训练)  | -           | 1285  tks/s/p |
-| [llama2_13b](../../configs/llama2/run_llama2_13b_910b_finetune.yaml) | text_generation       | alpaca    | 2048      | -      | [finetune](#微调) | -           | 1575 tks/s/p  |
-| [llama2_13b_lora](../../configs/llama2/run_llama2_13b_lora_910b.yaml) | text_generation       | alpaca    | 2048      | -      | [finetune](#微调) | -           | 2275 tks/s/p  |
-| [llama2_13b](../../configs/llama2/run_llama2_13b_910b.yaml)  | text_generation       | WikiText2 | -         | PPL    | [eval](#评测)     | 6.14        | -             |
-| [llama2_13b](../../configs/llama2/run_llama2_13b_910b.yaml)  | reading comprehension | SQuAD 1.1 | -         | EM/F1  | [eval](#评测)     | 27.91/44.23 | -             |
+| config                                                                  | task                  | Datasets  | SeqLength | metric | phase             | score       | performance   |
+|-------------------------------------------------------------------------| --------------------- | --------- | --------- | ------ | ----------------- | ----------- |---------------|
+| [llama2_13b](../../configs/llama2/run_llama2_13b_910b.yaml)             | text_generation       | wiki      | 4096      | -      | [train](#预训练)  | -           | 1412  tks/s/p |
+| [llama2_13b](../../configs/llama2/run_llama2_13b_910b_finetune.yaml)    | text_generation       | alpaca    | 2048      | -      | [finetune](#微调) | -           | 1575 tks/s/p  |
+| [llama2_13b_FA](../../configs/llama2/run_llama2_13b_910b.yaml) | text_generation       | alpaca    | 2048      | -      | [train](#预训练) | -           | 1812 tks/s/p  |
+| [llama2_13b_lora](../../configs/llama2/run_llama2_13b_lora_910b.yaml)   | text_generation       | alpaca    | 2048      | -      | [finetune](#微调) | -           | 2275 tks/s/p  |
+| [llama2_13b](../../configs/llama2/run_llama2_13b_910b.yaml)             | text_generation       | WikiText2 | -         | PPL    | [eval](#评测)     | 6.14        | -             |
+| [llama2_13b](../../configs/llama2/run_llama2_13b_910b.yaml)             | reading comprehension | SQuAD 1.1 | -         | EM/F1  | [eval](#评测)     | 27.91/44.23 | -             |
 
 llama2_70b 待补充。
 
@@ -1268,7 +1270,7 @@ python mindformers/tools/export.py --config_path configs/llama2/export_llama2_7b
 2. 执行命令
 
 ```bash
-python run_infer_main.py --device_id 0 --model_name llama2 --prefill_model_path llama2_export/llama2_7b_prefill_seq512_graph.mindir --increment_model_path llama2_export/llama2_7b_inc_seq512_graph.mindir --config_path lite.ini --is_sample_acceleration False --seq_length 512 --add_special_tokens True：
+python run_infer_main.py --device_id 0 --model_name llama2 --prefill_model_path llama2_export/llama2_7b_prefill_seq512_graph.mindir --increment_model_path llama2_export/llama2_7b_inc_seq512_graph.mindir --tokenizer_path /path/to/your/tokenizer.model --config_path lite.ini --is_sample_acceleration False --seq_length 512 --add_special_tokens True
 ```
 
 　　等待模型载入、编译后，出现：
