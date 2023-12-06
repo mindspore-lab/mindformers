@@ -264,7 +264,7 @@ python task.py --task text_generation --model_type gpt2 --predict_data 'hello!' 
           export DEVICE_ID=$((i-START_DEVICE))
           echo "start training for rank $RANK_ID, device $DEVICE_ID"
           mkdir -p ./output/log/rank_$RANK_ID
-          $EXECUTE_ORDER &> ./output/log/rank_$RANK_ID/mindformer.log &
+          $EXECUTE_ORDER --use_parallel True &> ./output/log/rank_$RANK_ID/mindformer.log &
       done
 
       shopt -u extglob
@@ -272,18 +272,18 @@ python task.py --task text_generation --model_type gpt2 --predict_data 'hello!' 
 
     - 分布式并行执行`task.py`样例：需提前生成`RANK_TABLE_FILE`，同时`task.py`中默认使用**半自动并行模式**。
 
-      **注意单机时使用{single}，多机时使用{multi}**
+      **注意单机时使用{single}，多机时使用{multi}，命令中`RANK_TABLE_FILE`文件名需改为实际文件名**
 
       ```shell
       # 分布式训练
-      bash run_distribute_{single/multi}_node.sh "python task.py --task text_generation --model_type gpt2 --train_dataset ./train --run_mode train --use_parallel True --data_parallel 1 --model_parallel 2 --pipeline_parallel 2 --micro_size 2" hccl_4p_0123_192.168.89.35.json [0,4] 4
+      bash run_distribute_{single/multi}_node.sh "python task.py --task text_generation --model_type gpt2 --train_dataset ./train --run_mode train --data_parallel 1 --model_parallel 2 --pipeline_parallel 2 --micro_size 2" hccl_4p_0123_127.0.0.1.json [0,4] 4
 
       # 分布式评估
-      bash run_distribute_{single/multi}_node.sh "python task.py --task text_generation --model_type gpt2 --eval_dataset ./eval --run_mode eval --use_parallel True --data_parallel 1 --model_parallel 2 --pipeline_parallel 2 --micro_size 2" hccl_4p_0123_192.168.89.35.json [0,4] 4
+      bash run_distribute_{single/multi}_node.sh "python task.py --task text_generation --model_type gpt2 --eval_dataset ./eval --run_mode eval --data_parallel 1 --model_parallel 2 --pipeline_parallel 2 --micro_size 2" hccl_4p_0123_127.0.0.1.json [0,4] 4
 
       # 分布式微调
-      bash run_distribute_{single/multi}_node.sh "python task.py --task text_generation --model_type gpt2 --train_dataset ./train --run_mode finetune --pet_method lora --use_parallel True --data_parallel 1 --model_parallel 2 --pipeline_parallel 2 --micro_size 2" hccl_4p_0123_192.168.89.35.json [0,4] 4
+      bash run_distribute_{single/multi}_node.sh "python task.py --task text_generation --model_type gpt2 --train_dataset ./train --run_mode finetune --pet_method lora --data_parallel 1 --model_parallel 2 --pipeline_parallel 2 --micro_size 2" hccl_4p_0123_127.0.0.1.json [0,4] 4
 
       # 分布式推理（不支持流水并行,试用特性）
-      bash run_distribute_{single/multi}_node.sh "python task.py --task text_generation --model_type gpt2 --predict_data 'hello!' ./train --run_mode predict --pet_method lora --use_parallel True --data_parallel 1 --model_parallel 2" hccl_4p_0123_192.168.89.35.json [0,4] 4
+      bash run_distribute_{single/multi}_node.sh "python task.py --task text_generation --model_type gpt2 --predict_data 'hello!' ./train --run_mode predict --pet_method lora --data_parallel 1 --model_parallel 2" hccl_4p_0123_127.0.0.1.json [0,4] 4
       ```
