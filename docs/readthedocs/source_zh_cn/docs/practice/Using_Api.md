@@ -413,8 +413,8 @@ dataset = GeneratorDataset(generator, column_names=["input_ids"])
 train_dataset = dataset.batch(batch_size=4)
 eval_dataset = dataset.batch(batch_size=4)
 # 定义文本生成任务，传入自定义模型、数据集、超参数
-text_generation = Trainer(task='text_generation', model=pangu_model, args=training_args, train_dataset=train_dataset,
-                          eval_dataset=eval_dataset)
+text_generation = Trainer(task='text_generation', model=pangu_model, model_name='pangualpha_2_6b',
+                          args=training_args, train_dataset=train_dataset, eval_dataset=eval_dataset)
 
 # 设定并行策略，比如2机16卡,设定数据并行4 模型并行2 流水并行2 微批次大小为2 多副本并行为2 打开优化器并行
 text_generation.set_parallel_config(data_parallel=4, model_parallel=2, pipeline_stage=2, micro_batch_num=2, micro_batch_interleave_num=2)
