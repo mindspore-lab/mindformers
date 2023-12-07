@@ -148,7 +148,7 @@ def _set_check_context_config(config):
 
     max_device_memory = config.get('max_device_memory')
     if max_device_memory is None:
-        config.setdefault('max_device_memory', '30GB')
+        config.setdefault('max_device_memory', '1024GB')
 
     save_graph = config.get('save_graphs')
     if save_graph:
