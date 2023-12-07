@@ -1027,7 +1027,8 @@ do_sample: True
 
 ### MindIR 导出
 
-执行run_mindformer.py导出MindIR模型，参考如下命令：
+1. 执行run_mindformer.py导出MindIR模型，参考如下命令
+
 ```shell
 python run_mindformer.py --config run_gpt2_13b_910b.ymal --run_mode export --load_checkpoint /path/to/gpt2_13b.ckpt --device_id 7 --batch_size 1 --use_parallel False --output_dir /path/to/export/
 ```
