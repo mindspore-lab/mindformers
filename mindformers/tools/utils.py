@@ -17,6 +17,7 @@ import json
 import os
 from typing import Dict, List, Tuple, Union
 from multiprocessing import Process
+import psutil
 
 try:
     import fcntl
@@ -377,3 +378,14 @@ def replace_tk_to_mindpet(ckpt_dict):
     for k, v in ckpt_dict.items():
         ckpt_new[k.replace('tk_delta', 'mindpet_delta')] = v
     return ckpt_new
+
+
+def check_shared_disk(disk_path):
+    """check whether the disk_path is a shared path."""
+    disk_path = os.path.abspath(disk_path)
+    partitions = psutil.disk_partitions(all=True)
+    for partition in partitions:
+        if partition.mountpoint != '/' and disk_path.startswith(partition.mountpoint):
+            # Check if the partition is a network file system (NFS) or other network storage
+            return partition.fstype.lower() in ['nfs', 'dpc'] or 'fuse.sshfs' in partition.opts.lower()
+    return False

@@ -15,13 +15,12 @@
 """Baichuan2 Train/Finetune/Eval/Predict scripts."""
 import os
 import sys
-import shutil
 import argparse
 
 # pylint: disable=W0611
 from mindformers import Trainer, MindFormerConfig
 from mindformers import init_context, ContextConfig, ParallelContextConfig
-from mindformers.tools.utils import check_in_modelarts, set_remote_save_url, str2bool
+from mindformers.tools.utils import check_in_modelarts, set_remote_save_url, str2bool, check_shared_disk
 from mindformers.tools.logger import logger
 from mindformers.tools.cloud_adapter import cloud_monitor
 from mindformers.core.context import build_context, build_profile_cb
@@ -31,35 +30,7 @@ import baichuan2_7b
 import baichuan2_13b
 from baichuan2_tokenizer import Baichuan2Tokenizer
 
-import mindspore as ms
-
-if check_in_modelarts():
-    import moxing as mox
-
 sys.path.insert(0, os.getcwd().split('research')[0])
-
-
-def clear_auto_trans_output(config):
-    """clear transformed_checkpoint and strategy"""
-    if check_in_modelarts():
-        obs_strategy_dir = os.path.join(config.remote_save_url, "strategy")
-        if mox.file.exists(obs_strategy_dir) and config.local_rank == 0:
-            mox.file.remove(obs_strategy_dir, recursive=True)
-        obs_transformed_ckpt_dir = os.path.join(config.remote_save_url, "transformed_checkpoint")
-        if mox.file.exists(obs_transformed_ckpt_dir) and config.local_rank == 0:
-            mox.file.remove(obs_transformed_ckpt_dir, recursive=True)
-        mox.file.make_dirs(obs_strategy_dir)
-        mox.file.make_dirs(obs_transformed_ckpt_dir)
-    else:
-        strategy_dir = os.path.join(get_output_root_path(), "strategy")
-        if os.path.exists(strategy_dir) and config.local_rank % 8 == 0:
-            shutil.rmtree(strategy_dir)
-        transformed_ckpt_dir = os.path.join(get_output_root_path(), "transformed_checkpoint")
-        if os.path.exists(transformed_ckpt_dir) and config.local_rank % 8 == 0:
-            shutil.rmtree(transformed_ckpt_dir)
-        os.makedirs(strategy_dir, exist_ok=True)
-        os.makedirs(transformed_ckpt_dir, exist_ok=True)
-
 
 def context_init(use_parallel=False, optimizer_parallel=False, device_id=0):
     """init context for mindspore."""
@@ -144,9 +115,6 @@ def main(task='text_generation',
 
     if run_mode in ['train', 'finetune']:
         config.model.model_config.use_past = False
-
-    if config.auto_trans_ckpt:
-        clear_auto_trans_output(config)
 
     # start task
     if run_mode == 'train':
