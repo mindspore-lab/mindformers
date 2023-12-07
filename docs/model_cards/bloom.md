@@ -8,12 +8,12 @@ Bloom (BigScience Large Open-science Open-access Multilingual) 是一个开源�
 
 ## 模型性能
 
-|                    config                     |         task         |  Datasets   |  metric  | score | [train performance](#预训练) |     [predict performance](#基于pipeline的推理)     |
-| :-------------------------------------------: | :------------------: | :---------: | :------: | :---: | :---------------: | :-------------------------: |
-|   run_bloom_560m.yaml    |   text_generation    |  -  |   -    |  -   |   -    | - |
-|   run_bloom_7.1b.yaml    |   text_generation    |  Alpaca  |   -    |  -   |   1063tokens/s/p    | 21.33tokens/s(use_past True) |
-| run_bloom_65b.yaml |   text_generation    |   -  |   -    |  -   |   -    | - |
-|   run_bloom_176b.yaml    | text_generation | -  |   -    |  -   |   -    | - |
+|       config        |      task       | Datasets | metric | score | [train performance](#预训练) | [predict performance](#基于pipeline的推理) |
+|:-------------------:|:---------------:|:--------:|:------:|:-----:|:-------------------------:|:-------------------------------------:|
+| run_bloom_560m.yaml | text_generation |    -     |   -    |   -   |             -             |                   -                   |
+| run_bloom_7.1b.yaml | text_generation |  Alpaca  |   -    |   -   |   1063tokens/s/p - 910A   |  21.33tokens/s(use_past True) - 910A  |
+| run_bloom_65b.yaml  | text_generation |    -     |   -    |   -   |             -             |                   -                   |
+| run_bloom_176b.yaml | text_generation |    -     |   -    |   -   |             -             |                   -                   |
 
 ## 仓库介绍
 
