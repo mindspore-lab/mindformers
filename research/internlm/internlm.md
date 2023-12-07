@@ -23,6 +23,13 @@ InternLM ，即书生·浦语大模型，是由上海人工智能实验室和来
 }
 ```
 
+## 模型性能
+
+|                                     config                                      |      task       | Datasets | [train performance](#全参微调) | [predict performance](#推理) |
+|:-------------------------------------------------------------------------------:|:---------------:|:--------:|:--------------------------:|:--------------------------:|
+|      [internlm_7b_910b](../../research/internlm/run_internlm_7b_910b.yaml)      | text_generation |  alpaca  |       1802 tokens/s        | 7 tokens/s (use_past=True) |
+| [internlm_7b_lora_910b](../../research/internlm/run_internlm_7b_lora_910b.yaml) | text_generation |  alpaca  |       2211 tokens/s        |             -              |
+
 ## 代码结构介绍
 
 `InternLM` 基于 `mindformers` 实现，主要涉及的文件有：
