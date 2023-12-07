@@ -137,6 +137,7 @@ eval_dataset_task:
 # model
 model:
   model_config:
+    batch_size: 1
     type: GPT2Config
     seq_length: 2048
     vocab_size: 50257

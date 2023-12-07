@@ -1027,26 +1027,9 @@ do_sample: True
 
 ### MindIR 导出
 
-　　1. 修改模型相关的配置文件 export_gpt2_13b.yaml，其中需要关注这几项：
-
-```yaml
-# export
-infer:
-    prefill_model_path: "gpt2_export/gpt2_13b_prefill_seq2048.mindir" # 保存mindir的位置
-    increment_model_path: "gpt2_export/gpt2_13b_inc_seq2048.mindir"   # 保存mindir的位置
-    infer_seq_length: 2048 # 需要保持跟 model-model_config-seq_length 一致
-
-# ==== model config ====
-model:
-  model_config:
-    seq_length: 2048
-    checkpoint_name_or_path: "/path/to/your/*.ckpt"
-```
-
-2. 执行export.py，完成模型转换
-
-```bash
-python mindformers/tools/export.py --config_path export_gpt2_13b.yaml
+执行run_mindformer.py导出MindIR模型，参考如下命令：
+```shell
+python run_mindformer.py --config run_gpt2_13b_910b.ymal --run_mode export --load_checkpoint /path/to/gpt2_13b.ckpt --device_id 7 --batch_size 1 --use_parallel False --output_dir /path/to/export/
 ```
 
 ### 执行推理
