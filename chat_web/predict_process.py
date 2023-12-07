@@ -102,7 +102,7 @@ def generate_process(device_id: int,
         infer_data: dict = input_q.get()
         inputs = infer_data['inputs']
         infer_data.pop('inputs')
-        infer_data.pop('stream', None)
+        is_stream = infer_data.pop('stream', None)
 
         prompted_inputs = build_prompt(inputs)
         inputs = build_multi_round(prompted_inputs, history)
@@ -121,8 +121,9 @@ def generate_process(device_id: int,
 
         logger.info(f"{device_id} card generate output: {output}")
         history.append((prompted_inputs, output))
-        output_q.put_nowait(output)
-        logger.debug(f"{device_id} card put output into output queue.")
+        if not is_stream:
+            output_q.put_nowait(output)
+            logger.debug(f"{device_id} card put output into output queue.")
 
 
 def update_checkpoint_config(config):
