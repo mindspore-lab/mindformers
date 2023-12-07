@@ -1,6 +1,6 @@
 seed: 1234
 output_dir: './output'
-load_checkpoint: '/{path}/skywork_13b.ckpt'
+load_checkpoint: ''
 src_strategy_path_or_dir: ''
 auto_trans_ckpt: False  # If true, auto transform load_checkpoint to load in distributed model
 only_save_strategy: False
@@ -17,7 +17,7 @@ do_eval: False
 
 # runner config
 runner_config:
-  epochs: 20
+  epochs: 5
   batch_size: 1
   sink_mode: True
   sink_size: 2

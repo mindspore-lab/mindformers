@@ -1,22 +1,17 @@
 # 天工
 
-天工Skywork-13B 系列是由昆仑万维研究的大规模语言预训练模型，目前有Skywork-13B-Base，Skywork-13B-Chat，Skywork-13B-Math，Skywork-13B-MM，MindFormers已支持Skywork-13B-Base。
-
-## Skywork-13B-Base
-
-Skywork-13B-Base 是在经过高质量清洗过滤的3.2万亿个多语言（主要是中文和英文）和代码数据上进行训练的，它在多种评测和各种基准测试上都展现了同等规模模型的最佳效果。
-
-Skywork-13B-Base 是采用llama的模型结构设计，模型实现我们复用llama的代码。
+天工Skywork-13B 系列是由昆仑万维研究的大规模语言预训练模型，目前开源的有Skywork-13B-Base，Skywork-13B-Chat，Skywork-13B-Math，Skywork-13B-MM，MindFormers已支持Skywork-13B-Base。
 
 ## 前期准备
 
 ### 安装mindformers
 
-参考[README](../../README.md) "mindformers安装" 安装mindformers。
+参考[README](../../README.md#二、mindformers安装)安装mindformers。
+本文操作的相对路径均为安装mindformers后的代码仓根路径。
 
 ### 环境要求
 
-- 硬件: Ascend 910B
+- 硬件: Ascend 910 64GB
 - MindSpore: 2.2.0
 - MindSpore Lite: 2.2.0
 - MindFormers: dev
@@ -29,7 +24,7 @@ Skywork-13B-Base 是采用llama的模型结构设计，模型实现我们复用l
 运行mindformers/tools/hccl_tools.py生成RANK_TABLE_FILE的json文件
 
 ```bash
-# 运行如下命令，生成当前机器的RANK_TABLE_FILE的json文件
+# 运行如下命令，在当前路径生成该机器的RANK_TABLE_FILE的json文件，生成的文件名形如hccl_8p_01234567_127.0.0.1.json
 python mindformers/tools/hccl_tools.py --device_num "[0,8)"
 ```
 
@@ -37,11 +32,38 @@ python mindformers/tools/hccl_tools.py --device_num "[0,8)"
 
 ### Skywork-13B-Base 预训练权重下载和转换
 
+- 下载已转换的ckpt文件
+
+本仓库提供已经转换完成的预训练权重用于训练/微调/推理，用户可自行从下方链接拉取后直接使用。
+
+下载链接：
+
+权重：https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/sky_work/skywork_13b.ckpt
+
+词表：https://huggingface.co/Skywork/Skywork-13B-base/blob/main/tokenizer.model
+
+linux可用如下命令下载。
+
+```shell
+mkdir -p ckpt/rank_0
+cd ./ckpt/rank_0
+wget https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/sky_work/skywork_13b.ckpt
+wget https://huggingface.co/Skywork/Skywork-13B-base/blob/main/tokenizer.model
+cd ../..
+```
+
 - 从huggingface下载原始权重后转换
 
 需要将整个工程下载下来。
 
 [Skywork-13B-Base](https://huggingface.co/Skywork/Skywork-13B-base)
+
+如果使用git命令下载，下载前请先确保已安装git-lfs。
+
+```shell
+git lfs install
+git clone https://huggingface.co/Skywork/Skywork-13B-base
+```
 
 执行权重转换脚本
 
@@ -56,7 +78,7 @@ TORCH_CKPT_DIR: huggingface Skywork-13B-Base权重保存目录路径
 MS_CKPT_NAME: 自定义mindspore权重文件保存路径和名称
 ```
 
-**注**: 请安装torch=2.0.1和transformers=4.33.2版本，cuda版本11.6及以上
+**注**: 请安装torch=1.13.1和transformers=4.30.2版本。如果执行报错，请检查并安装requests、decorator、pandas、sympy。
 
 ### 模型权重切分与合并
 
@@ -66,9 +88,24 @@ MS_CKPT_NAME: 自定义mindspore权重文件保存路径和名称
 
 以上涉及到ckpt的单卡，多卡转换，详细教程请参考特性文档[模型权重切分与合并](../../docs/feature_cards/Transform_Ckpt.md)
 
+# Skywork-13B-Base
+
+Skywork-13B-Base 是在经过高质量清洗过滤的3.2万亿个多语言（主要是中文和英文）和代码数据上进行训练的，它在多种评测和各种基准测试上都展现了同等规模模型的最佳效果。网络结构与llama相同。
+
 ## 训练与微调
 
+目前提供了模型的基础配置文件`research/skywork/run_skywork_13b.yaml`。使用前请将配置文件中路径相关参数修改为实际路径。
+
+## 模型性能
+
+| config                                                       | task                  | Datasets  | SeqLength | metric | phase             | score     | performance(tokens/s/p)  |
+| ------------------------------------------------------------ | --------------------- | --------- | --------- | ------ | ----------------- | --------- | ------------ |
+| [skywork_13b](./run_skywork_13b.yaml)    | text_generation       | ADGEN      | 4096      | -      | [train](#预训练)  | -         | 1105.92  |
+| [skywork_13b](./run_skywork_13b.yaml)    | text_generation       | ADGEN      | 4096      | -      | [finetune](#微调)  | -         | 1105.92  |
+
 ### 数据集准备
+
+使用Skywork-13B-Base进行训练或者微调时，需要使用Skywork-13B-Base配套的tokenizer.model处理数据集，以及选用Skywork-13B-Base的yaml配置文件进行任务启动。
 
 目前提供[ADGEN](https://cloud.tsinghua.edu.cn/f/b3f119a008264b1cabd1/?dl=1) （广告生成）数据集的预处理脚本用于全参微调任务。
 
@@ -102,13 +139,9 @@ model_file：tokenizer.model文件路径
 seq_length：数据长度
 ```
 
-### 微调
+### 预训练
 
-目前提供了模型的基础配置文件`research/skywork/run_skywork_13b.yaml`。
-
-`注：使用Skywork-13B-Base进行训练或者微调时，需要使用Skywork-13B-Base配套的tokenizer.model处理数据集，以及选用Skywork-13B-Base的yaml配置文件进行任务启动。`
-
-- 单机多卡微调示例
+- 单机多卡预训练示例
 
 ```shell
 cd research
@@ -139,28 +172,62 @@ DEVICE_NUM：使用的卡的个数
 
 **注**：由于模型较大，未切分的模型当seq_length为4096时，仅能进行batch_size为1的单机8卡训练。如果要使用其他并行策略训练，请参考 [多卡权重切分](../../docs/feature_cards/Transform_Ckpt.md)
 
+### 微调
+
+- 单机多卡微调示例
+
+```shell
+cd research
+# Usage Help: bash run_singlenode.sh [START_CMD] [RANK_TABLE_FILE] [DEVICE_RANGE] [DEVICE_NUM]
+bash run_singlenode.sh \
+"python skywork/run_skywork.py \
+--config skywork/run_skywork_13b.yaml \
+--run_mode finetune \
+--load_checkpoint  /{path}/ \
+--train_dataset /{path}/AdvertiseGenTrain_text.mindrecord \
+--auto_trans_ckpt True \
+--use_parallel True" \
+../hccl_8p_01234567_127.0.0.1.json [0,8] 8
+```
+
+**参数说明**
+
+```text
+START_CMD：Python启动命令，其中
+ config：为research/skywork文件夹下面的run_skywork_13b.yaml配置文件，配置文件参数请按需修改
+ run_mode：任务运行状态，支持关键字train/finetune/eval/predict/export
+ load_checkpoint：权重路径。例如路径形式为/path/ckpt/rank_0/skywork_13b.ckpt，则参数填写为/path/ckpt
+ train_dataset：训练数据集路径
+ auto_trans_ckpt：是否自动转换ckpt
+ use_parallel：是否使用并行模式
+RANK_TABLE_FILE：由 mindformers/tools/hccl_tools.py 生成的分布式json文件
+DEVICE_RANGE：为单机分布式卡的范围，如 '[0,8]' 为8卡分布式，不包含8本身
+DEVICE_NUM：使用的卡的个数
+```
+
+**注**：由于模型较大，未切分的模型当seq_length为4096时，仅能进行batch_size为1的单机8卡训练。如果要使用其他并行策略训练，请参考 [多卡权重切分](../../docs/feature_cards/Transform_Ckpt.md)
+
 ## MindSpore推理
 
 > 接口说明请参考[API接口](https://gitee.com/mindspore/transformer/wikis/API/)
 >
 > 遵从Skywork-13B的license，本模型需要用户自行下载权重进行处理，故使用时和llama存在一定区别，具体如下：
 
-由于天工模型的tokenizer需要用户自行下载，因此在启动前，请先行在配置文件中将tokenizer.model的路径配置完成，具体修改如下：
+在启动前，请先行在配置文件run_skywork_13b.yaml中将processor.tokenizer.vocab_file的路径配置为实际路径；如果使用增量推理，需要在配置文件中将model.model_config.use_past值设置为True。例如：
 
 ```yaml
-# 增加 vocab_file: '/path/Skywork-13B/tokenizer.model' 这样一个配置即可
 processor:
- return_tensors: ms
- tokenizer:
-   unk_token: '<unk>'
-   bos_token: '<s>'
-   eos_token: '</s>'
-   pad_token: '<pad>'
-   vocab_file: '/path/Skywork-13B/tokenizer.model'
-   type: LlamaTokenizer
+  return_tensors: ms
+  tokenizer:
+    ...
+    vocab_file: '/path/Skywork-13B/tokenizer.model'  # 修改为实际路径
+    ...
+model:
+  model_config:
+    ...
+    use_past: True
+    ...
 ```
-
-如果使用增量推理，需要在配置文件中use_past值设置为True。
 
 - generate接口推理：
 
@@ -173,7 +240,7 @@ from mindformers import LlamaForCausalLM, LlamaConfig, LlamaTokenizer
 context.set_context(device_id=0, mode=0)
 
 # init skywork-13b-Base model
-skywork_model_path = "/path/Skywork-13B/skywork_13b.ckpt"
+skywork_model_path = "/path/Skywork-13B/skywork_13b.ckpt"  # 填写实际路径
 config_path = 'skywork/run_skywork_13b.yaml'  # 填写实际路径
 
 config = MindFormerConfig(config_path)
@@ -183,7 +250,7 @@ skywork_config = LlamaConfig(**config.model.model_config)
 skywork_model = LlamaForCausalLM(config=skywork_config)
 
 # init skywork-13b-Base tokenizer
-tokenizer_path = "/path/Skywork-13B/tokenizer.model"  # Skywork-13B tokenizer.model path
+tokenizer_path = "/path/Skywork-13B/tokenizer.model"  # 填写实际路径
 tokenizer = LlamaTokenizer(vocab_file=tokenizer_path)
 generation_config = GenerationConfig(
     temperature=1,
@@ -224,16 +291,18 @@ from mindformers import LlamaForCausalLM, LlamaConfig, LlamaTokenizer
 
 context.set_context(device_id=0, mode=0)
 
-skywork_model_path = "/path/Skywork-13B/skywork_13b.ckpt"
+skywork_model_path = "/path/Skywork-13B/skywork_13b.ckpt"  # 填写实际路径
 config_path = 'skywork/run_skywork_13b.yaml'  # 填写实际路径
 config = MindFormerConfig(config_path)
 config.model.model_config.checkpoint_name_or_path = skywork_model_path
+use_past = True  # 按需设置
+config.model.model_config.use_past = use_past
 skywork_config = LlamaConfig(**config.model.model_config)
 
 skywork_model = LlamaForCausalLM(skywork_config)
 
 # init skywork-13b-Base tokenizer
-tokenizer_path = "/path/Skywork-13B/tokenizer.model"  # Skywork-13B tokenizer.model path
+tokenizer_path = "/path/Skywork-13B/tokenizer.model"  # 填写实际路径
 tokenizer = LlamaTokenizer(tokenizer_path, add_bos_token=True, add_eos_token=False)
 pipeline_task = pipeline("text_generation", model=skywork_model, tokenizer=tokenizer, max_length=32)
 peline_result = pipeline_task("陕西的省会是西安",
@@ -244,7 +313,7 @@ peline_result = pipeline_task("陕西的省会是西安",
                               max_length=128,
                               eos_token_id=tokenizer.eos_token_id,
                               pad_token_id=tokenizer.pad_token_id,
-                              use_past=True)
+                              use_past=use_past)
 
 print(peline_result)
 
@@ -257,13 +326,16 @@ print(peline_result)
 ### ckpt转换为mindir
 
 ```shell
-# 如果需要使用增量推理，配置文件中use_past设置为True
+# 如果需要使用增量推理，use_past设置为True；如果
 cd research
-python skywork/run_skywork.py --config skywork/run_skywork_13b.yaml --load_checkpoint /path/Skywork-13B/skywork_13b.ckpt --run_mode=export --train_dataset /path/Skywork-13B/eval4096.mindrecord --use_past True --device_id 0
+python skywork/run_skywork.py --config skywork/run_skywork_13b.yaml --load_checkpoint /path/Skywork-13B/skywork_13b.ckpt --run_mode=export --train_dataset /path/Skywork-13B/eval4096.mindrecord --use_parallel False --use_past True --batch_size 1 --device_id 0
 ```
 
-设置use_past=True后生成的mindir有两个，分别在output/mindir_full_checkpoint和output/mindir_inc_checkpoint目录中。
-如果不设置use_past或者use_past=False，则只生成mindir_full_checkpoint目录，后续无法使用增量推理。
+**注**
+
+1. 如果需要使用增量推理，use_past设置为True。设置use_past=True后生成的mindir有两个，分别在output/mindir_full_checkpoint和output/mindir_inc_checkpoint目录中。如果不设置use_past或者use_past=False，则只生成mindir_full_checkpoint目录，后续无法使用增量推理。
+
+2. 不同batch_size的推理需求需要对应生成不同的mindir，由参数--batch_size指定。
 
 ### lite推理
 
@@ -286,46 +358,40 @@ ge.exec.atomicCleanPolicy=1
 # run_skywork_infer_lite.py
 import argparse
 
-from mindformers import LlamaTokenizer
-from mindformers.inference import InferTask
-from mindformers.inference.infer_config import InferConfig
+from mindformers import LlamaTokenizer, pipeline
 
 
 def infer_main(args):
-    lite_config = InferConfig(
-        prefill_model_path=args.full_model_path,
-        increment_model_path=args.inc_model_path,
-        model_name='llama',
-        model_type="mindir",
-        infer_seq_length=args.seq_length,
-        ge_config_path=args.config_path,
-        device_id=args.device_id,
-        add_special_tokens=False,
-    )
 
-    tokenizer_path = '/path/Skywork-13B/tokenizer.model'
+    tokenizer_path = args.token_path
     tokenizer = LlamaTokenizer(tokenizer_path, add_bos_token=True, add_eos_token=False)
 
-    infer_model = InferTask.get_infer_task("text_generation", lite_config, tokenizer=tokenizer)
     if args.batch_size <= 1:
-        batch_input = [
-            "请帮我制定一下西安旅游计划",
-            "陕西的省会是西安",
-            "我喜欢看电影，因为",
-            "请帮我制定一下北京旅游计划",
-            "类型#裤*版型#宽松*风格#性感*图案#线条*裤型#阔腿裤"
-        ]
-    else:
-        batch_input = [
-            ["请帮我制定一下西安旅游计划" for i in range(args.batch_size)],
-            ["陕西的省会是西安" for i in range(args.batch_size)],
-            ["我喜欢看电影，因为" for i in range(args.batch_size)],
-            ["请帮我制定一下北京旅游计划" for i in range(args.batch_size)],
-            ["类型#裤*版型#宽松*风格#性感*图案#线条*裤型#阔腿裤" for i in range(args.batch_size)]
-        ]
+    batch_input = [
+        ["陕西的省会是西安，甘肃的省会是兰州，河南的省会是郑州" for i in range(args.batch_size)]
+    ]
 
-    for user_input in batch_input:
-        output = infer_model.infer(user_input, pad_token_id=0, input_seq_length=args.input_seq_length, eos_token_id=2)
+    input_list = batch_input * args.loop
+
+    use_past = False
+    if args.inc_model_path:
+        model_path = (args.full_model_path, args.inc_model_path)
+        use_past = True
+    else:
+        model_path = args.full_model_path
+    print("use_past: ", use_past)
+
+    pipeline_task = pipeline(task="text_generation", model=model_path, backend="mslite", tokenizer=tokenizer,
+                             ge_config_path=args.config_path, model_type="mindir", infer_seq_length=args.seq_length,
+                             add_special_tokens=False, device_id=args.device_id)
+
+    for user_input in input_list:
+        output = pipeline_task(user_input,
+                               repetition_penalty=1,
+                               max_length=args.max_length,
+                               eos_token_id=tokenizer.eos_token_id,
+                               pad_token_id=tokenizer.pad_token_id,
+                               use_past=use_past)
         for out in output:
             print(out)
 
@@ -335,11 +401,14 @@ if __name__ == "__main__":
     parser.add_argument('--device_id', default=0, type=int, help='ID of the target device')
     parser.add_argument('--full_model_path', default=None, type=str, help="load mindir full checkpoint")
     parser.add_argument('--inc_model_path', default=None, type=str, help="load mindir inc checkpoint")
-    parser.add_argument('--config_path', default=None, type=str, help="context config path")
+    parser.add_argument('--config_path', default=None, type=str, help="ge config path")
     parser.add_argument('--seq_length', default=4096, type=int)
     parser.add_argument('--batch_size', default=1, type=int)
-    parser.add_argument('--input_seq_length', default=128, type=int)
+    parser.add_argument('--max_length', default=128, type=int)
+    parser.add_argument('--loop', default=2, type=int)
+    parser.add_argument('--token_path', default="./tokenizer.model", type=str)
     args = parser.parse_args()
+    print(args)
     infer_main(args)
 ```
 
@@ -348,10 +417,164 @@ if __name__ == "__main__":
 ```shell
 # 如果需要增量推理，使用inc_model_path指定路径，否则不需要
 cd research
-python skywork/run_skywork_infer_lite.py --full_model_path output/mindir_full_checkpoint/rank_0_graph.mindir --inc_model_path output/mindir_inc_checkpoint/rank_0_graph.mindir --config_path skywork/context.cfg --seq_length 4096 --input_seq_length 4096
+python skywork/run_skywork_infer_lite.py --full_model_path output/mindir_full_checkpoint/rank_0_graph.mindir \
+--inc_model_path output/mindir_inc_checkpoint/rank_0_graph.mindir --config_path skywork/context.cfg \
+--seq_length 4096 --max_length 128 --batch_size 1 --loop 2 --device_id 0
 
 # 运行结果：
-# 请帮我制定一下西安旅游计划，谢谢！
-# 西安的旅游景点很多，你可以根据自己的喜好来选择。
-# 西安的旅游景点很多，你可以根据自己的喜好来选择。 1、兵马俑 秦始皇兵马俑博物馆位于西安临潼区秦始皇陵东1.5公里处，是秦始皇嬴政的陵墓。 2、大雁塔 大雁塔位于西安市的市中心，是西安的标志性建筑物之一。 3、华清池 华清池位于西安临潼区，是唐代皇家温泉园林和行宫。 4、秦始皇陵 秦始皇陵位于西安临潼区，是中国历史上第一位皇帝嬴政的陵墓。 5、大慈恩寺 大慈恩寺位于西安市的市中心，是西安的标志性建筑物之一。 6、西安城墙 西安城墙位于西安市中心区，是中国现存最完整的古城墙。 7、陕西省历史博物馆 陕西省历史博物馆位于西安市的市中心，是中国第一座大型现代化博物馆。 8、西安钟楼 西安钟楼位于西安市中心，是
+# 陕西的省会是西安，甘肃的省会是兰州，河南的省会是郑州，湖北的省会是武汉，湖南的省会是长沙，江西的省会是南昌，安徽的省会是合肥，四川的省会是成都，贵州的省会是贵阳，云南的省会是昆明，西藏的省会是拉萨，青海的省会是西宁，宁夏的省会是银川，新疆的省会是乌鲁木齐。
+```
+
+## 推理性能评测
+
+### 评测结果
+
+|batch_size|seq_length|910B1（400T）tokens/s|A100（首次） tokens/s|对比
+|----------|----------|----------|----------|----------|
+|2|1024|45.16967126|36.73233689|1.229697729
+|2|512|43.1641737|38.4874702|1.121512364
+|2|256|39.14945113|38.0915182|1.027773452
+|2|128|32.82671155|35.46970082|0.925486
+|2|64|23.67107342|29.16003315|0.811764284
+|2|32|10.86891748|16.52500627|0.657725468
+|平均|-|32.47499976|32.41101092|1.001974293
+
+### 评测流程
+
+推理性能评测基于[MindSpore Lite推理](#mindspore-lite)进行。
+
+- step1 生成增量推理的mindir文件
+
+```shell
+cd research
+python skywork/run_skywork.py --config skywork/run_skywork_13b.yaml --load_checkpoint /path/Skywork-13B/skywork_13b.ckpt --run_mode=export --use_parallel False --use_past True --batch_size 1 --device_id 0
+```
+
+## ms方式开源数据集评测
+
+### 评测结果
+
+|  |ceval|mmlu|cmmlu|
+|---|-----|----|-----|
+|官网|60.6|62.1|61.8 |
+|ms|60.63|62.14|61.83 |
+
+### 评测流程
+
+所用数据集为ceval、mmlu、cmmlu评测集。
+
+评测代码参考目录[evaluate](../../scripts/examples/evaluate)
+
+参数说明
+
+```text
+-d：数据集路径。
+-c：模型文件路径，pytorch需指定到目录，mindformers需指定到ckpt文件。
+-t：tokenizer.model文件路径。
+--config：配置文件路径。
+```
+
+1. CEVAL
+
+```shell
+cd research/skywork
+wget https://huggingface.co/datasets/ceval/ceval-exam/resolve/main/ceval-exam.zip
+mkdir -p data/ceval
+mv ceval-exam.zip data/ceval
+cd data/ceval; unzip ceval-exam.zip
+cd ../../
+
+python ../../scripts/examples/evaluate/ceval/evaluate_ceval.py -d data/ceval/ -c /{path}/skywork_13b.ckpt -t /{path}/tokenizer.model --config run_skywork_13b.yaml --device_id 0
+```
+
+2. MMLU
+
+```Shell
+cd research/skywork
+wget https://people.eecs.berkeley.edu/~hendrycks/data.tar
+mkdir -p data/mmlu
+mv data.tar data/mmlu
+cd data/mmlu; tar xf data.tar
+cd ../../
+
+python ../../scripts/examples/evaluate/mmlu/evaluate_mmlu.py -d data/mmlu/data -c /{path}/skywork_13b.ckpt -t /{path}/tokenizer.model --config run_skywork_13b.yaml --device_id 1
+```
+
+3. CMMLU
+
+```Shell
+cd research/skywork
+wget https://huggingface.co/datasets/haonan-li/cmmlu/resolve/main/cmmlu_v1_0_1.zip
+mkdir data/cmmlu
+mv cmmlu_v1_0_1.zip data/cmmlu
+cd data/cmmlu; unzip cmmlu_v1_0_1.zip
+cd ../../
+
+python ../../scripts/examples/evaluate/cmmlu/evaluate_cmmlu.py -d data/cmmlu/ -c /{path}/skywork_13b.ckpt -t /{path}/tokenizer.model --config run_skywork_13b.yaml --device_id 7
+```
+
+## mslite方式开源数据集评测
+
+### 评测结果
+
+|  |ceval|mmlu|cmmlu|
+|---|-----|----|-----|
+|官网|60.6|62.1|61.8 |
+|mslite|60.61|62.13|61.83 |
+
+### 评测流程
+
+所用数据集为ceval、mmlu、cmmlu评测集。
+
+评测代码参考目录[evaluate](../../scripts/examples/evaluate)
+
+参数说明
+
+```text
+-d：数据集路径。
+-c：模型文件路径，pytorch需指定到目录，mindformers需指定到ckpt文件。
+-t：tokenizer.model文件路径。
+--config_path：GE配置文件context.cfg路径。
+--full_model_path：导出的mindir路径。
+```
+
+**注** context.cfg文件生成和mindir的导出方式参考[MindSpore Lite推理](#MindSpore Lite推理)
+
+1. CEVAL
+
+```shell
+cd research/skywork
+wget https://huggingface.co/datasets/ceval/ceval-exam/resolve/main/ceval-exam.zip
+mkdir -p data/ceval
+mv ceval-exam.zip data/ceval
+cd data/ceval; unzip ceval-exam.zip
+cd ../../
+
+python ../../scripts/examples/evaluate/ceval/evaluate_ceval_lite.py -d data/ceval --config_path context.cfg --token_path /{path}/tokenizer.model --full_model_path output/mindir_full_checkpoint/rank_0_graph.mindir --device_id 6
+```
+
+2. MMLU
+
+```shell
+cd research/skywork
+wget https://people.eecs.berkeley.edu/~hendrycks/data.tar
+mkdir -p data/mmlu
+mv data.tar data/mmlu
+cd data/mmlu; tar xf data.tar
+cd ../../
+
+python ../../scripts/examples/evaluate/mmlu/evaluate_mmlu_lite.py -d data/mmlu/data  --config_path context.cfg --token_path /{path}/tokenizer.model --full_model_path output/mindir_full_checkpoint/rank_0_graph.mindir --device_id 6
+```
+
+3. CMMLU
+
+```shell
+cd research/skywork
+wget https://huggingface.co/datasets/haonan-li/cmmlu/resolve/main/cmmlu_v1_0_1.zip
+mkdir data/cmmlu
+mv cmmlu_v1_0_1.zip data/cmmlu
+cd data/cmmlu; unzip cmmlu_v1_0_1.zip
+cd ../../
+
+python ../../scripts/examples/evaluate/cmmlu/evaluate_cmmlu_lite.py -d data/cmmlu/  --config_path context.cfg --token_path /{path}/tokenizer.model --full_model_path output/mindir_full_checkpoint/rank_0_graph.mindir --device_id 6
 ```
