@@ -36,7 +36,8 @@ def main(task='text_generation',
          op=True,
          remote_save_url=None,
          device_id=None,
-         use_past=False):
+         use_past=False,
+         batch_size=None):
     """main function."""
     # 适配aicc
     if check_in_modelarts() and remote_save_url:
@@ -54,6 +55,8 @@ def main(task='text_generation',
     config_args.use_parallel = use_parallel
     config_args.model.model_config.checkpoint_name_or_path = config_args.load_checkpoint
     config_args.model.model_config.use_past = use_past
+    if batch_size:
+        config_args.model.model_config.batch_size = batch_size
 
     # 环境初始化
     build_context(config_args)
@@ -119,6 +122,8 @@ if __name__ == "__main__":
                         help='set device id.')
     parser.add_argument('--predict_length', default=512, type=int,
                         help='max length for predict output.')
+    parser.add_argument('--batch_size', default=None, type=int,
+                        help='batch_size for export mindir.')
     parser.add_argument('--optimizer_parallel', default=True, type=str2bool,
                         help='whether use optimizer parallel. Default: None')
     parser.add_argument('--remote_save_url', default="", type=str,
@@ -143,4 +148,5 @@ if __name__ == "__main__":
          op=args.optimizer_parallel,
          remote_save_url=args.remote_save_url,
          device_id=args.device_id,
-         use_past=args.use_past)
+         use_past=args.use_past,
+         batch_size=args.batch_size)
