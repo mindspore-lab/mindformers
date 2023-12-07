@@ -349,8 +349,7 @@ class Trainer:
               train_checkpoint: Optional[Union[str, bool]] = False,
               resume_training: Optional[bool] = None,
               auto_trans_ckpt: Optional[bool] = None,
-              do_eval: bool = False,
-              **kwargs):
+              do_eval: bool = False):
         """
         The training API of Trainer. After setting custom settings, implement training by calling the
         training method of task-trainer instance.
@@ -415,7 +414,7 @@ class Trainer:
             eval_dataset=self.eval_dataset if do_eval else None,
             wrapper=self.wrapper,
             callbacks=self.callbacks,
-            is_full_config=True, **kwargs)
+            is_full_config=True)
 
     @args_type_check(finetune_checkpoint=(str, bool), resume_training=bool,
                      auto_trans_ckpt=bool, do_eval=bool)
@@ -423,8 +422,7 @@ class Trainer:
                  finetune_checkpoint: Optional[Union[str, bool]] = False,
                  resume_training: Optional[bool] = None,
                  auto_trans_ckpt: Optional[bool] = None,
-                 do_eval: bool = False,
-                 **kwargs):
+                 do_eval: bool = False):
         """
         The fine-tuning API of Trainer. After setting custom settings, implement fine-tuning by calling the
         training method of task-trainer instance.
@@ -503,7 +501,7 @@ class Trainer:
             eval_dataset=self.eval_dataset if do_eval else None,
             wrapper=self.wrapper,
             callbacks=self.callbacks,
-            is_full_config=True, **kwargs)
+            is_full_config=True)
 
     @args_type_check(eval_checkpoint=(str, bool), auto_trans_ckpt=bool)
     def evaluate(self,
