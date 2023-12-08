@@ -13,7 +13,7 @@ context:
   enable_graph_kernel: False
   graph_kernel_flags: "--disable_expand_ops=Softmax,Dropout --enable_parallel_fusion=true --reduce_fuse_depth=8 --enable_auto_tensor_inplace=true"
   max_call_depth: 10000
-  max_device_memory: "58GB"
+  max_device_memory: "59GB"
   save_graphs: False
   device_id: 0
 
@@ -24,7 +24,7 @@ remote_save_url: "Please input obs url on AICC platform."
 model:
   model_config:
     type: ChatGLM2Config
-    batch_size: 8   # only for incremental infer
+    batch_size: 1   # only for incremental infer
     num_layers: 28
     padded_vocab_size: 65024
     hidden_size: 4096
@@ -197,13 +197,14 @@ parallel:
   full_batch: False
   search_mode: "sharding_propagation"
   enable_parallel_optimizer: True  # optimizer shard
-  strategy_ckpt_save_file: "./ckpt_strategy.ckpt"
+  strategy_ckpt_config:
+    save_file: "./ckpt_strategy.ckpt"
+    only_trainable_params: False # 设置成 False，才能在策略文件中保存所有参数
 parallel_config:
   data_parallel: 1
   model_parallel: 1
   pipeline_stage: 1
   expert_parallel: 1
-  optimizer_shard: False  # optimizer shard
   micro_batch_num: 1
   vocab_emb_dp: True
   gradient_aggregation_group: 4
@@ -239,8 +240,6 @@ profile_memory: True
 # callbacks
 callbacks:
   - type: MFLossMonitor
-  - type: SummaryMonitor
-    keep_default_action: True
   - type: CheckpointMointor
     prefix: "glm2-6b-ptuning2"
     save_checkpoint_steps: 3000

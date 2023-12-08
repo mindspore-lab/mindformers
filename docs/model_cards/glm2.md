@@ -479,6 +479,8 @@ bash run_distribute.sh /path/to/hccl_8p_01234567_127.0.1.1.json ../configs/glm2/
 # 将此处rank_table_file替换为实际路径
 ```
 
+> 多卡微调的模型需要合并权重后才能进行单卡评估。
+
 参数说明
 
 ```text
@@ -488,9 +490,13 @@ DEVICE_RANGE: 为单机分布式卡的范围，如 '[0,8]' 为8卡分布式，�
 RUN_STATUS: 为任务运行状态，支持关键字 train\finetune\eval\predict
 ```
 
-训练的log日志路径：mindformers/output/log
-
-checkpoint存储路径：mindformers/output/checkpoint
+> 训练的log日志路径：mindformers/output/log
+>
+> checkpoint(含优化器参数)存储路径：mindformers/output/checkpoint
+>
+> checkpoint(不含优化器参数)存储路径：mindformers/output/checkpoint_network
+>
+> 若想合并ckpt用于后续评估，选择不含优化器参数的权重即可。
 
 - 多机多卡
 
@@ -523,6 +529,8 @@ done
 IP_LIST=("192.168.0.0", "192.168.0.1", ..., "192.168.0.11")
 ```
 
+> 多卡微调的模型需要合并权重后才能进行单卡评估。
+
 ### LoRA微调
 
 全参微调能够在微调数据集上取得良好效果，但存在遗忘预训练知识的现象。
@@ -543,11 +551,38 @@ cd scripts
 bash run_standalone.sh ../configs/glm2/run_glm2_6b_lora*.yaml 0 finetune
 ```
 
-训练的log日志路径：mindformers/scripts/mf_standalone/
-
-checkpoint存储路径：mindformers/scripts/mf_standalone/output/checkpoint
+> 训练的log日志路径：mindformers/output/log
+>
+> checkpoint(含优化器参数)存储路径：mindformers/output/checkpoint
+>
+> checkpoint(不含优化器参数)存储路径：mindformers/output/checkpoint_network
+>
+> 若想合并ckpt用于后续评估，选择不含优化器参数的权重即可。
 
 #### 多卡微调
+
+- 单机多卡
+
+多卡运行需要RANK_FILE_TABLE，请参考前期准备-[生成RANK_TABLE_FILE](#生成ranktablefile)
+
+```shell
+cd scripts
+# Usage Help: bash run_distribute.sh [RANK_TABLE_FILE] [CONFIG_PATH] [DEVICE_RANGE] [RUN_STATUS]
+bash run_distribute.sh /path/to/hccl_8p_01234567_127.0.1.1.json ../configs/glm2/run_glm2_6b_lora*.yaml '[0,8]' finetune
+# 将此处rank_table_file替换为实际路径
+```
+
+> 多卡微调的模型需要合并权重后才能进行单卡评估。
+>
+> 训练的log日志路径：mindformers/output/log
+>
+> checkpoint(含优化器参数)存储路径：mindformers/output/checkpoint
+>
+> checkpoint(不含优化器参数)存储路径：mindformers/output/checkpoint_network
+>
+> 若想合并ckpt用于后续评估，选择不含优化器参数的权重即可。
+
+- 多机多卡
 
 在每台机器上启动`bash run_distribute.sh`。
 
@@ -576,20 +611,18 @@ done
 IP_LIST=("192.168.0.0", "192.168.0.1", ..., "192.168.0.11")
 ```
 
-### p-tuning v2低参微调
+### P-Tuning 微调
 
 对于每个下游任务，在网络的每一层添加一份连续提示向量，冻结预训练模型的其他参数，只训练这些向量。
 
-#### run_mindformers脚本启动p-tuning v2低参微调
+#### 单卡微调
 
-使用p-tuning v2算法进行低参微调时，使用 `configs/glm2/run_glm2_6b_ptuning2.yaml` 配置文件，该配置文件包含了p-tuning v2低参微调算法所需的配置项
+使用P-Tuning算法进行低参微调时，使用 `configs/glm2/run_glm2_6b_ptuning2.yaml` 配置文件，该配置文件包含了P-Tuning低参微调算法所需的配置项
 
 修改数据集/模型权重配置路径：
 
 - 数据集：修改 `mindformers/configs/glm2/run_glm2_6b_ptuning2.yaml` 脚本中`train_dataset` 的 `dataset_dir` 为前文生成的数据集路径。
 - 加载预训练模型权重：修改 `mindformers/configs/glm2/run_glm2_6b_ptuning2.yaml` 脚本中的 `load_checkpoint` 为预训练模型权重路径。
-
-#### 启动p-tuning v2低参微调脚本(1卡)：
 
 执行命令：
 
@@ -599,22 +632,15 @@ cd scripts
 bash run_standalone.sh ../configs/glm2/run_glm2_6b_ptuning2.yaml 0 finetune
 ```
 
-训练的log日志路径：mindformers/scripts/mf_standalone/
+> 训练的log日志路径：mindformers/output/log
+>
+> checkpoint(含优化器参数)存储路径：mindformers/output/checkpoint
+>
+> checkpoint(不含优化器参数)存储路径：mindformers/output/checkpoint_network
+>
+> 若想合并ckpt用于后续评估，选择不含优化器参数的权重即可。
 
-checkpoint存储路径：mindformers/scripts/mf_standalone/output/checkpoint
-
-#### Trainer高阶接口启动p-tuning v2低参微调
-
-示例脚本如下，需要指定训练数据集路径和微调权重。
-
-```python
-from mindformers import Trainer
-trainer = Trainer(task="text_generation", model="glm2_6b", pet_method="ptuning2",
-                  train_dataset="/path/to/AdvertiseGen/train.json")
-trainer.finetune(finetune_checkpoint="glm2_6b")
-```
-
-### 边训边推
+### 边训边评估
 
 #### 1. 使用 `Rouge-1`、`Rouge-2` 等指标评测
 
@@ -700,7 +726,7 @@ model:
 配置文件选择 `configs/glm2/run_glm2_6b_finetune_eval.yaml` glm2模型推理配置，修改其中`model`字段下`model_config`中`use_past: True`开启增量推理使评估速度更快
 
 ```bash
-python run_mindformer.py --config configs/glm2/run_glm2_6b_finetune_eval.yaml--run_mode eval --load_checkpoint /path/to/glm2_6b_finetune.ckpt --eval_dataset_dir /path/to/data/AdvertiseGen/ --device_id 0
+python run_mindformer.py --config configs/glm2/run_glm2_6b_finetune_eval.yaml--run_mode eval --load_checkpoint /path/to/glm2_6b_finetune.ckpt --device_id 0 --use_parallel False
 ```
 
 使用LoRA低参微调权重时，启动如下shell脚本，执行单卡评估
@@ -708,49 +734,7 @@ python run_mindformer.py --config configs/glm2/run_glm2_6b_finetune_eval.yaml--r
 配置文件选择 `configs/glm2/run_glm2_6b_lora_eval.yaml` glm2_lora模型推理配置，此配置可用于lora模型，修改其中`model`字段下`model_config`中`use_past: True`开启增量推理使评估速度更快
 
 ```bash
-python run_mindformer.py --config configs/glm2/run_glm2_6b_lora_eval.yaml --run_mode eval --load_checkpoint /path/to/glm2_6b_lora.ckpt --eval_dataset_dir /path/to/data/AdvertiseGen/ --device_id 0
-```
-
-### 多卡评测
-
-- 单机多卡
-
-多卡运行需要RANK_FILE_TABLE，请参考前期准备-[生成RANK_TABLE_FILE](#生成ranktablefile)
-
-```shell
-cd scripts
-bash run_distribute.sh RANK_TABLE_FILE path/to/config.yaml [0,8] eval 8
-```
-
-- 多机多卡
-
-多机多卡运行需要合并不同机器的RANK_FILE_TABLE，参考前期准备-[多机RANK_TABLE_FILE合并](#多机ranktablefile合并)
-
-在每台机器上启动`bash run_distribute.sh`。
-
-```bash
-server_count=12
-device_num=8*$server_count
-# launch ranks in the 0th server
-cd scripts
-bash run_distribute.sh $RANK_TABLE_FILE path/to/config.yaml [0,8] eval $device_num
-
-# launch ranks in the 1-11 server via ssh
-for idx in {1..11}
-do
-    let rank_start=8*$idx
-    let rank_end=$rank_start+8
-    ssh ${IP_LIST[$idx]} "cd scripts; bash run_distribute.sh $RANK_TABLE_FILE path/to/config.yaml [$rank_start,$rank_end] eval $device_num"
-done
-```
-
-其中
-
-- `RANK_TABLE_FILE`为上一步汇总并分发的总rank table文件；
-- `IP_LIST`为12台服务器的IP地址。如192.168.0.[0-11]
-
-```bash
-IP_LIST=("192.168.0.0", "192.168.0.1", ..., "192.168.0.11")
+python run_mindformer.py --config configs/glm2/run_glm2_6b_lora_eval.yaml --run_mode eval --load_checkpoint /path/to/glm2_6b_lora.ckpt --device_id 0 --use_parallel False
 ```
 
 ## 推理
@@ -765,7 +749,9 @@ import mindspore as ms
 
 ms.set_context(mode=ms.GRAPH_MODE, device_target="Ascend", device_id=0)
 
-config = AutoConfig.from_pretrained("glm2_6b") # LoRA微调模型替换成 “glm2_6b_lora”
+# **注意** LoRA微调模型替换成 “glm2_6b_lora”,
+# **注意** P-Tuning 微调模型替换成 “glm2_6b_ptuning2”
+config = AutoConfig.from_pretrained("glm2_6b")
 # 可以在此使用下行代码指定自定义权重进行推理，默认使用自动从obs上下载的预训练权重
 # config.checkpoint_name_or_path = "/path/to/glm2_6b_finetune.ckpt"
 config.use_past = True
@@ -795,6 +781,14 @@ print(tokenizer.decode(outputs))
 # ['[Round 1]\n\n问：类型#上衣*材质#牛仔布*颜色#白色*风格#简约*图案#刺绣*衣样式#外套*衣款式#破洞\n\n答： 上衣 材质:牛仔布 颜色:白色 风格:
 # 简约 图案:刺绣 衣样式:外套 衣款式:破洞\n\n这件上衣由牛仔布制成,采用了简约的风格,图案为刺绣设计,衣样式为外套,衣款式为破洞。']
 ```
+
+如果需要加载本地词表，请修改 `checkpoint_download/glm2/glm2_6b.yaml` 配置文件（没有的话可以从`configs/glm2/run_glm2_6b.yaml`复制一个）中以下项：
+
+  ```yaml
+  processor:
+    tokenizer:
+      vocab_file: "/path/to/tokenizer.model"
+  ```
 
 ### 脚本启动
 
