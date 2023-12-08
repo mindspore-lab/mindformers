@@ -15,6 +15,7 @@
 """Baichuan2 Train/Finetune/Eval/Predict scripts."""
 import os
 import sys
+import shutil
 import argparse
 
 # pylint: disable=W0611
@@ -30,7 +31,35 @@ import baichuan2_7b
 import baichuan2_13b
 from baichuan2_tokenizer import Baichuan2Tokenizer
 
+import mindspore as ms
+
+if check_in_modelarts():
+    import moxing as mox
+
 sys.path.insert(0, os.getcwd().split('research')[0])
+
+
+def clear_auto_trans_output(config):
+    """clear transformed_checkpoint and strategy"""
+    if check_in_modelarts():
+        obs_strategy_dir = os.path.join(config.remote_save_url, "strategy")
+        if mox.file.exists(obs_strategy_dir) and config.local_rank == 0:
+            mox.file.remove(obs_strategy_dir, recursive=True)
+            mox.file.make_dirs(obs_strategy_dir)
+        obs_transformed_ckpt_dir = os.path.join(config.remote_save_url, "transformed_checkpoint")
+        if mox.file.exists(obs_transformed_ckpt_dir) and config.local_rank == 0:
+            mox.file.remove(obs_transformed_ckpt_dir, recursive=True)
+            mox.file.make_dirs(obs_transformed_ckpt_dir)
+    else:
+        strategy_dir = os.path.join(get_output_root_path(), "strategy")
+        if os.path.exists(strategy_dir) and config.local_rank == 0:
+            shutil.rmtree(strategy_dir)
+            os.makedirs(strategy_dir, exist_ok=True)
+        transformed_ckpt_dir = os.path.join(get_output_root_path(), "transformed_checkpoint")
+        if os.path.exists(transformed_ckpt_dir) and config.local_rank == 0:
+            shutil.rmtree(transformed_ckpt_dir)
+            os.makedirs(transformed_ckpt_dir, exist_ok=True)
+
 
 def context_init(use_parallel=False, optimizer_parallel=False, device_id=0):
     """init context for mindspore."""
@@ -101,6 +130,9 @@ def main(task='text_generation',
     if micro_batch_num is not None:
         config.parallel_config.micro_batch_num = micro_batch_num
 
+    if config.output_dir != './output':
+        raise ValueError("output_dir must be set to './output' and cannot be customized.")
+
     # init context
     build_context(config)
 
@@ -115,6 +147,14 @@ def main(task='text_generation',
 
     if run_mode in ['train', 'finetune']:
         config.model.model_config.use_past = False
+
+    if config.auto_trans_ckpt:
+        if config.device_num < 8 or check_shared_disk(config.output_dir) or check_in_modelarts():
+            clear_auto_trans_output(config)
+        else:
+            raise ValueError("When device num > 8 and auto_trans_ckpt is set to True,"
+                             "the output_dir should be a shared directory that can be accessed by all nodes."
+                             f"but {os.path.abspath(config.output_dir)} is not a shared directory.")
 
     # start task
     if run_mode == 'train':
