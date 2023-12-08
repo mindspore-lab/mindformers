@@ -598,64 +598,6 @@ micro_batch_interleave_num: 1
 
 **前提**：请确保服务器之间已经组网。
 
-根据分布式训练是否使用流水线并行，分不同情况考虑：
-
-**一、不使用流水线并行**
-
-**步骤**
-
-① 准备rank_table_file
-
-```shell
-# step1：每台机器生成各自的rank_table_file
-python mindformers/tools/hccl_tools.py --device_num [0,8]
-
-# step2：将所有机器的rank_table_file保存到一台机器，进行合并
-python mindformers/tools/merge_hccl.py hccl*.json
-
-# step3：将合并后的rank_table_file复制到所有机器
-```
-
-② 配置参数
-
-```yaml
-# 配置预训练权重路径，预训练权重需要按照model_dir/rank_x/xxx.ckpt格式存放，填写model_dir
-load_checkpoint: "/worker/checkpoint/llama-7b/single/"
-
-# 设置auto_trans_ckpt为True
-auto_trans_ckpt: True
-
-# 配置数据集
-train_dataset: &train_dataset
-  data_loader:
-    type: MindDataset
-    dataset_dir: "/worker/dataset/wikitext_2048/"
-    shuffle: True
-
-# 配置16卡分布式策略，仅供参考
-parallel_config:
-  data_parallel: 4
-  model_parallel: 4
-  pipeline_stage: 1
-  micro_batch_num: 1
-  vocab_emb_dp: True
-  gradient_aggregation_group: 4
-# when model parallel is greater than 1, we can set micro_batch_interleave_num=2, that may accelerate the train process.
-micro_batch_interleave_num: 1
-```
-
-③ 启动训练
-
-```shell
-cd script
-# 第一台机器（0节点）
-bash run_distribute.sh RANK_TABLE_FILE ../configs/llama/run_llama_7b.yaml [0,8] train 16
-# 第二台机器（1节点）
-bash run_distribute.sh RANK_TABLE_FILE ../configs/llama/run_llama_7b.yaml [8,16] train 16
-```
-
-**二、使用流水线并行**
-
 根据是否有共享盘，分为以下两种情况：
 
 **1. 服务器之间有共享盘：支持自动权重转换**

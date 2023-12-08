@@ -17,6 +17,7 @@ import os
 import sys
 import time
 import random
+import shutil
 from glob import glob
 from enum import Enum
 
@@ -29,7 +30,8 @@ from mindspore import set_seed as ms_set_seed
 
 from mindformers.tools.logger import logger
 from mindformers.tools.register import MindFormerConfig
-from mindformers.tools.utils import check_in_modelarts, get_output_root_path, replace_tk_to_mindpet
+from mindformers.tools.utils import check_in_modelarts, get_output_root_path, \
+                                    replace_tk_to_mindpet, check_shared_disk
 from mindformers.tools.transform_ckpt import get_strategy
 from mindformers.tools.cloud_adapter import mox_adapter
 
@@ -315,6 +317,16 @@ def transform_and_load_checkpoint(config, model, network, dataset, optimizer=Non
         sys.exit(0)
 
     if config.auto_trans_ckpt:
+        is_share_disk = check_shared_disk(config.output_dir)
+        world_size = int(os.getenv('RANK_SIZE', '1'))
+        logger.info("%s is_share_disk: %r", os.path.abspath(config.output_dir), is_share_disk)
+        logger.info("world_size: %d", world_size)
+        if world_size < 8 or is_share_disk or check_in_modelarts():
+            clear_auto_trans_output(config)
+        else:
+            raise ValueError("When device num > 8 and auto_trans_ckpt is set to True,"
+                             "the output_dir should be a shared directory that can be accessed by all nodes."
+                             f"but {os.path.abspath(config.output_dir)} is not a shared directory.")
         # 2. get strategy
         src_ckpt_strategy = get_strategy(config.src_strategy_path_or_dir)
         dst_ckpt_strategy = get_dst_strategy(config)
@@ -408,10 +420,6 @@ def get_dst_strategy(config):
             logger.info("pipeline_stage = 1, strategy using %s", dst_strategy_path)
             return dst_strategy_path
 
-        if world_size >= 8:
-            logger.warning("device num > 8, ensure that the output directory \
-                           is a shared directory that can be accessed by all nodes")
-
         wait_collect_all_strategy(local_strategy_dir, world_size)
 
         logger.info(".........All strategy as follow.........")
@@ -422,7 +430,7 @@ def get_dst_strategy(config):
         logger.info(".........Collecting %d strategy.........", len(local_strategy_paths))
 
         # merge strategy if pipeline_stage > 1
-        if rank_id % 8 == 0:
+        if not rank_id:
             logger.info(".........Merging strategy.........")
             merged_strategy_path = get_strategy(local_strategy_dir)
             logger.info(".........Merging succeed.........")
@@ -445,10 +453,10 @@ def transform_ckpt(config, src_ckpt_strategy=None, dst_ckpt_strategy=None):
                          f"but get {config.load_checkpoint}.")
 
     rank_id = get_rank() if config.use_parallel else 0
-    world_size = get_group_size() if config.use_parallel else 1
+    world_size = get_group_size() if (config.use_parallel and check_in_modelarts()) else 1
     transformed_ckpt_dir = os.path.join(get_output_root_path(), "transformed_checkpoint")
     os.makedirs(transformed_ckpt_dir, exist_ok=True)
-    if rank_id % 8 == 0:
+    if (not rank_id) or (rank_id % 8 == 0 and check_in_modelarts()):
         logger.info(".........Transforming ckpt.........")
         logger.info("Src ckpt strategy: %s", src_ckpt_strategy)
         logger.info("Src ckpt: %s", config.load_checkpoint)
@@ -579,6 +587,28 @@ def wait_collect_all_strategy(strategy_dir, total_num, obs_strategy_dir=None):
             time.sleep(5)
         else:
             break
+
+
+def clear_auto_trans_output(config):
+    """clear transformed_checkpoint and strategy"""
+    if check_in_modelarts():
+        obs_strategy_dir = os.path.join(config.remote_save_url, "strategy")
+        if mox.file.exists(obs_strategy_dir) and config.local_rank == 0:
+            mox.file.remove(obs_strategy_dir, recursive=True)
+            mox.file.make_dirs(obs_strategy_dir)
+        obs_transformed_ckpt_dir = os.path.join(config.remote_save_url, "transformed_checkpoint")
+        if mox.file.exists(obs_transformed_ckpt_dir) and config.local_rank == 0:
+            mox.file.remove(obs_transformed_ckpt_dir, recursive=True)
+            mox.file.make_dirs(obs_transformed_ckpt_dir)
+    else:
+        strategy_dir = os.path.join(get_output_root_path(), "strategy")
+        if os.path.exists(strategy_dir) and config.local_rank == 0:
+            shutil.rmtree(strategy_dir)
+            os.makedirs(strategy_dir, exist_ok=True)
+        transformed_ckpt_dir = os.path.join(get_output_root_path(), "transformed_checkpoint")
+        if os.path.exists(transformed_ckpt_dir) and config.local_rank == 0:
+            shutil.rmtree(transformed_ckpt_dir)
+            os.makedirs(transformed_ckpt_dir, exist_ok=True)
 
 
 def show_progress(progress, prefix=''):
