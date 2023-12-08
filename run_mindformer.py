@@ -137,7 +137,7 @@ def main(config):
         config.profile_cb = build_profile_cb(config)
 
     if config.auto_trans_ckpt:
-        if config.device_num < 8 or check_shared_disk(config.output_dir) or check_in_modelarts():
+        if config.device_num <= 8 or check_shared_disk(config.output_dir) or check_in_modelarts():
             clear_auto_trans_output(config)
         else:
             raise ValueError("When device num > 8 and auto_trans_ckpt is set to True,"
