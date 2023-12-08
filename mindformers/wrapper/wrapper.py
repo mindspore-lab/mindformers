@@ -24,11 +24,11 @@ from mindspore.parallel._utils import _get_enable_parallel_optimizer
 import mindspore.common.dtype as mstype
 
 from mindformers.core.clip_grad import ClipGradNorm
+from mindformers.core.optim import FusedCastAdamWeightDecay
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.version_control import get_identity
 
 __all__ = ['MFTrainOneStepCell', 'MFPipelineWithLossScaleCell']
-
 
 _grad_scale = C.MultitypeFuncGraph("grad_scale")
 reciprocal = P.Reciprocal()
@@ -90,6 +90,10 @@ class MFTrainOneStepCell(nn.TrainOneStepWithLossScaleCell):
                  **kwargs):
         super(MFTrainOneStepCell, self).__init__(network, optimizer, scale_sense)
         self.use_clip_grad = use_clip_grad
+        if isinstance(optimizer, FusedCastAdamWeightDecay):
+            self.use_grad_norm = True
+        else:
+            self.use_grad_norm = False
         self.clip_grad_norm = ClipGradNorm(max_norm=max_grad_norm)
         self.parallel_config = kwargs.pop("parallel_config", None)
         self.learning_rate = deepcopy(self.optimizer.learning_rate)
@@ -108,6 +112,10 @@ class MFTrainOneStepCell(nn.TrainOneStepWithLossScaleCell):
         # apply grad reducer on grads
         grads = self.grad_reducer(grads)
 
+        # get the overflow buffer
+        cond = self.get_overflow_status(status, grads)
+        overflow = self.process_loss_scale(cond)
+
         learning_rate = self.learning_rate
         if self.optimizer.dynamic_lr:
             if self.optimizer.is_group_lr:
@@ -115,14 +123,16 @@ class MFTrainOneStepCell(nn.TrainOneStepWithLossScaleCell):
             else:
                 learning_rate = self.learning_rate(self.optimizer.global_step).reshape(())
 
-        # get the overflow buffer
-        cond = self.get_overflow_status(status, grads)
-        overflow = self.process_loss_scale(cond)
         # if there is no overflow, do optimize
         if not overflow:
             if self.use_clip_grad:
-                grads, _ = self.clip_grad_norm(grads)
-            loss = F.depend(loss, self.optimizer(grads))
+                grads, grad_norm = self.clip_grad_norm(grads)
+                if self.use_grad_norm:
+                    loss = F.depend(loss, self.optimizer(grads, grad_norm))
+                else:
+                    loss = F.depend(loss, self.optimizer(grads))
+            else:
+                loss = F.depend(loss, self.optimizer(grads))
         return loss, overflow, scaling_sens, learning_rate
 
 
