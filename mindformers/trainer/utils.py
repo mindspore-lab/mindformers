@@ -17,7 +17,6 @@ import os
 import sys
 import time
 import random
-import shutil
 from glob import glob
 from enum import Enum
 
@@ -321,12 +320,7 @@ def transform_and_load_checkpoint(config, model, network, dataset, optimizer=Non
         world_size = int(os.getenv('RANK_SIZE', '1'))
         logger.info("%s is_share_disk: %r", os.path.abspath(config.output_dir), is_share_disk)
         logger.info("world_size: %d", world_size)
-        if world_size < 8 or is_share_disk or check_in_modelarts():
-            clear_auto_trans_output(config)
-        else:
-            raise ValueError("When device num > 8 and auto_trans_ckpt is set to True,"
-                             "the output_dir should be a shared directory that can be accessed by all nodes."
-                             f"but {os.path.abspath(config.output_dir)} is not a shared directory.")
+
         # 2. get strategy
         src_ckpt_strategy = get_strategy(config.src_strategy_path_or_dir)
         dst_ckpt_strategy = get_dst_strategy(config)
@@ -587,28 +581,6 @@ def wait_collect_all_strategy(strategy_dir, total_num, obs_strategy_dir=None):
             time.sleep(5)
         else:
             break
-
-
-def clear_auto_trans_output(config):
-    """clear transformed_checkpoint and strategy"""
-    if check_in_modelarts():
-        obs_strategy_dir = os.path.join(config.remote_save_url, "strategy")
-        if mox.file.exists(obs_strategy_dir) and config.local_rank == 0:
-            mox.file.remove(obs_strategy_dir, recursive=True)
-            mox.file.make_dirs(obs_strategy_dir)
-        obs_transformed_ckpt_dir = os.path.join(config.remote_save_url, "transformed_checkpoint")
-        if mox.file.exists(obs_transformed_ckpt_dir) and config.local_rank == 0:
-            mox.file.remove(obs_transformed_ckpt_dir, recursive=True)
-            mox.file.make_dirs(obs_transformed_ckpt_dir)
-    else:
-        strategy_dir = os.path.join(get_output_root_path(), "strategy")
-        if os.path.exists(strategy_dir) and config.local_rank == 0:
-            shutil.rmtree(strategy_dir)
-            os.makedirs(strategy_dir, exist_ok=True)
-        transformed_ckpt_dir = os.path.join(get_output_root_path(), "transformed_checkpoint")
-        if os.path.exists(transformed_ckpt_dir) and config.local_rank == 0:
-            shutil.rmtree(transformed_ckpt_dir)
-            os.makedirs(transformed_ckpt_dir, exist_ok=True)
 
 
 def show_progress(progress, prefix=''):
