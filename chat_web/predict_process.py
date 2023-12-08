@@ -128,6 +128,8 @@ def generate_process(device_id: int,
 
 def update_checkpoint_config(config):
     """Update checkpoint config"""
+    if not config.load_checkpoint:
+        config.load_checkpoint = ""
     if config.auto_trans_ckpt:
         raise ValueError("auto_trans_ckpt does not support in chat web server. "
                          "Please using transformed ckpt and set auto_trans_ckpt to False.")
