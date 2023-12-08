@@ -55,14 +55,14 @@ model:
     layernorm_compute_type: "float32"
     rotary_percent: 0.5
     softmax_compute_type: "float32"
-    use_past: False
+    use_past: True
     eos_token_id: 2
     repetition_penalty: 1.0
-    max_decode_length: 256
+    max_decode_length: 2048
     checkpoint_name_or_path: "codegeex2_6b"
     top_k: 1
     top_p: 1
-    do_sample: True
+    do_sample: False
   arch:
     type: ChatGLM2ForConditionalGeneration
 
@@ -108,7 +108,7 @@ train_dataset: &train_dataset
   num_parallel_workers: 8
   python_multiprocessing: False
   drop_remainder: True
-  batch_size: 1
+  batch_size: 4
   repeat: 1
   numa_enable: False
   prefetch_size: 1
@@ -136,7 +136,7 @@ eval_dataset: &eval_dataset
   num_parallel_workers: 8
   python_multiprocessing: False
   drop_remainder: True
-  batch_size: 1
+  batch_size: 4
   repeat: 1
   numa_enable: False
   prefetch_size: 1
@@ -148,10 +148,10 @@ eval_dataset_task:
 
 # ==== runner config ====
 runner_config:
-  epochs: 2
+  epochs: 1
   batch_size: 4
   sink_mode: True
-  sink_size: 2
+  sink_size: 1
 
 runner_wrapper:
   type: MFTrainOneStepCell
