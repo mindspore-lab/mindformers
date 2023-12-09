@@ -13,9 +13,6 @@
 # limitations under the License.
 # ============================================================================
 """Operations for clipping grad by global norm."""
-
-import numpy as np
-
 from mindspore import ops
 from mindspore.nn.cell import Cell
 from mindspore.ops import composite as C
@@ -52,7 +49,7 @@ def _apply_global_norm(clip_norm, global_norm, x):
     x_dtype = F.dtype(x)
     clip_coef = clip_norm / (global_norm + 1e-6)
     clip_coef_clamped = ops.clip_by_value(clip_coef, clip_value_max=Tensor(1.0, mstype.float32),
-                                          clip_value_min=Tensor(np.log(0.0), mstype.float32))
+                                          clip_value_min=Tensor(float('-inf'), mstype.float32))
     x = x * clip_coef_clamped
     x = F.cast(x, x_dtype)
     return x
