@@ -15,6 +15,7 @@
 """MindFormers Wrapper API."""
 from .build_wrapper import build_wrapper
 from .wrapper import *
+from .adaptive_loss_scale import AdaptiveLossScaleUpdateCell
 
 __all__ = []
 __all__.extend(wrapper.__all__)
