@@ -607,6 +607,23 @@ python predict_custom.py
 
 #### 多卡pipeline推理
 
+- 修改yaml文件中分布式配置及并行模式，参考[模型权重切分与合并](../feature_cards/Transform_Ckpt.md)进行离线权重切分。**注**：推理暂不支持流水线并行
+
+- 将上述`predict_custom.py`中的分布式配置更改为预期的分布式配置
+
+```python
+model_config.parallel_config.data_parallel = 1
+model_config.parallel_config.model_parallel = 1
+```
+
+- 配置上述sh脚本中的卡数设置，默认是0-8卡
+
+```text
+export RANK_SIZE=8  # 总卡数
+export START_RANK=0 # 起始卡序号
+export END_RANK=8   # 结束卡序号
+```
+
 ```bash
 bash run_predict.sh RANK_TABLE_FILE path/to/codegeex2_6b_shard_checkpoint_dir
 ```
@@ -684,7 +701,7 @@ def main(use_parallel=False,
         not_load_network_params = load_param_into_net(model, checkpoint_dict)
         print("Network parameters are not loaded: %s", str(not_load_network_params))
 
-    inputs_ids = tokenizer(inputs, max_length=model_config.max_decode_length, padding="max_length")["input_ids"]
+    inputs_ids = tokenizer(inputs, max_length=model_config.seq_length, padding="max_length")["input_ids"]
     outputs = model.generate(inputs_ids, max_length=model_config.max_decode_length)
     for output in outputs:
         print(tokenizer.decode(output))
@@ -737,6 +754,23 @@ python predict_custom.py
 ```
 
 #### 多卡generate推理
+
+- 修改yaml文件中分布式配置及并行模式，参考[模型权重切分与合并](../feature_cards/Transform_Ckpt.md)进行离线权重切分。**注**：推理暂不支持流水线并行
+
+- 将上述`predict_custom.py`中的分布式配置更改为预期的分布式配置
+
+```python
+model_config.parallel_config.data_parallel = 1
+model_config.parallel_config.model_parallel = 1
+```
+
+- 配置上述sh脚本中的卡数设置，默认是0-8卡
+
+```text
+export RANK_SIZE=8  # 总卡数
+export START_RANK=0 # 起始卡序号
+export END_RANK=8   # 结束卡序号
+```
 
 ```bash
 bash run_predict.sh RANK_TABLE_FILE path/to/codegeex2_6b_shard_checkpoint_dir
