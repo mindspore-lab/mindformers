@@ -862,7 +862,7 @@ from mindspore.train import Model
 
 from mindformers import MindFormerConfig, LlamaConfig, TransformerOpParallelConfig, AutoTokenizer, LlamaForCausalLM
 from mindformers import init_context, ContextConfig, ParallelContextConfig
-from mindformers.tools.utils import str2bool
+from mindformers.tools.utils import str2bool, get_real_rank
 from mindformers.trainer.utils import get_last_checkpoint
 
 
@@ -898,7 +898,7 @@ def main(args):
     # if use parallel, load distributed checkpoints
     if config.use_parallel:
         # find the sharded ckpt path for this rank
-        ckpt_path = os.path.join(args.checkpoint_path, "rank_{}".format(os.getenv("RANK_ID", "0")))
+        ckpt_path = os.path.join(args.checkpoint_path, "rank_{}".format(get_real_rank()))
         ckpt_path = get_last_checkpoint(ckpt_path)
         print("ckpt path: %s", str(ckpt_path))
 
@@ -1019,7 +1019,7 @@ from mindspore.train import Model
 
 from mindformers import MindFormerConfig, LlamaConfig, TransformerOpParallelConfig, AutoTokenizer, LlamaForCausalLM, pipeline
 from mindformers import init_context, ContextConfig, ParallelContextConfig
-from mindformers.tools.utils import str2bool
+from mindformers.tools.utils import str2bool, get_real_rank
 from mindformers.trainer.utils import get_last_checkpoint
 
 
@@ -1055,7 +1055,7 @@ def main(args):
     # if use parallel, load distributed checkpoints
     if config.use_parallel:
         # find the sharded ckpt path for this rank
-        ckpt_path = os.path.join(args.checkpoint_path, "rank_{}".format(os.getenv("RANK_ID", "0")))
+        ckpt_path = os.path.join(args.checkpoint_path, "rank_{}".format(get_real_rank()))
         ckpt_path = get_last_checkpoint(ckpt_path)
         print("ckpt path: %s", str(ckpt_path))
 

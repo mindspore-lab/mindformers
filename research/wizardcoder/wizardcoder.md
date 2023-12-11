@@ -272,7 +272,7 @@ cd ..
 ```python
 # 原代码 research/wizardcoder/wizardcoder_preprocess.py, 138行
 # tokenize_qa()的入参if_jsonl需要设置为False
-def tokenize_qa(tokenizer, file_path, max_length, if_jsonl=False):  
+def tokenize_qa(tokenizer, file_path, max_length, if_jsonl=False):
     ...
 ```
 
@@ -628,7 +628,7 @@ from mindspore import load_checkpoint, load_param_into_net
 from mindformers import AutoConfig, AutoTokenizer, AutoModel, pipeline
 from mindformers import init_context, ContextConfig, ParallelContextConfig, TransformerOpParallelConfig
 from mindformers.trainer.utils import get_last_checkpoint
-from mindformers.tools.utils import str2bool
+from mindformers.tools.utils import str2bool, get_real_rank
 from mindformers import Trainer, MindFormerConfig, MindFormerRegister, MindFormerModuleType
 
 from wizardcoder_config import WizardCoderConfig
@@ -676,7 +676,7 @@ def main(model_type='wizardcoder',
     # if use parallel, load distributed checkpoints
     if use_parallel:
         # find the sharded ckpt path for this rank
-        ckpt_path = os.path.join(checkpoint_path, "rank_{}".format(os.getenv("RANK_ID", "0")), "checkpoint_{}.ckpt".format(os.getenv("RANK_ID", "0")))
+        ckpt_path = os.path.join(checkpoint_path, "rank_{}".format(get_real_rank()), "checkpoint_{}.ckpt".format(get_real_rank()))
         print("ckpt path: %s", str(ckpt_path))
 
         # shard model and load sharded ckpt

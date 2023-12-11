@@ -19,6 +19,8 @@ import mindspore as ms
 import mindspore.dataset as ds
 from mindformers.tools.register import MindFormerConfig
 
+from mindformers.tools.utils import get_real_rank, get_real_group_size
+
 
 class BaseDataset:
     """
@@ -61,8 +63,8 @@ class BaseDataset:
     @classmethod
     def _generate_shard_info(cls):
         """Generate shard info for dataset"""
-        rank_id = int(os.getenv("RANK_ID", "0"))
-        device_num = int(os.getenv("RANK_SIZE", "1"))
+        rank_id = get_real_rank()
+        device_num = get_real_group_size()
         return cls._check_device_rank_for_parallel(rank_id, device_num)
 
     @classmethod

@@ -189,6 +189,7 @@ import mindspore
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.tools.logger import logger
 from mindformers.version_control import get_dataset_map
+from mindformers.tools.utils import get_real_rank, get_real_group_size
 from mindformers.dataset.dataloader import build_dataset_loader
 from mindformers.dataset.mask import build_mask
 from mindformers.dataset.transforms import build_transforms
@@ -226,8 +227,8 @@ class MIMDataset(BaseDataset):
     def __new__(cls, dataset_config: dict = None):
         logger.info("Now Create Masked Image Modeling Dataset.")
         cls.init_dataset_config(dataset_config)
-        rank_id = int(os.getenv("RANK_ID", "0"))
-        device_num = int(os.getenv("RANK_SIZE", "1"))
+        rank_id = get_real_rank()
+        device_num = get_real_group_size()
 
         dataset = build_dataset_loader(
             dataset_config.data_loader, default_args={'num_shards': device_num, 'shard_id': rank_id})
@@ -326,4 +327,3 @@ dataset_from_class = MIMDataset(config.train_dataset_task)
 dataset_from_self_define1 = build_dataset(class_name='MIMDataset')
 dataset_from_self_define2 = MIMDataset()
 ```
-

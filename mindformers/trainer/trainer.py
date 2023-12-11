@@ -39,6 +39,7 @@ from mindformers.models import BaseModel, BaseImageProcessor, \
     BaseTokenizer, BaseAudioProcessor
 from mindformers.tools.utils import set_output_path
 from mindformers.tools.logger import logger
+from mindformers.tools.utils import get_real_rank, get_real_group_size
 from mindformers.tools.register import MindFormerConfig
 from mindformers.tools.register.config import ordered_yaml_dump
 from .build_trainer import build_trainer
@@ -320,8 +321,8 @@ class Trainer:
         check_dataset_config(self.config)
 
         # build parallel config
-        self.rank_id = int(os.getenv("RANK_ID", "0"))
-        self.device_num = int(os.getenv("RANK_SIZE", "1"))
+        self.rank_id = get_real_rank()
+        self.device_num = get_real_group_size()
         self.config.rank_id = self.rank_id
         self.config.device_num = self.device_num
 

@@ -22,6 +22,7 @@ from dataclasses import dataclass, field
 
 from mindformers.tools.register import MindFormerConfig
 from mindformers.tools import logger
+from mindformers.tools.utils import get_real_rank, get_real_group_size
 from .utils import LRType, OptimizerType, SaveIntervalStrategy
 
 
@@ -150,9 +151,9 @@ class TrainingArguments:
         default=None, metadata={"help": "Num of epoch intervals between each eval, 1 means eval on every epoch end. "}
     )
 
-    device_num = int(os.getenv("RANK_SIZE", "1"))
+    device_num = get_real_group_size()
     device_id = int(os.getenv("DEVICE_ID", "0"))
-    rank_id = int(os.getenv("RANK_ID", "0"))
+    rank_id = get_real_rank()
 
     def __post_init__(self):
         if self.output_dir is not None:

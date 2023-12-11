@@ -18,8 +18,6 @@
 Blip2 Qformer, link to ViT.
 the main model for image-text pretraining.
 """
-
-import os
 import mindspore as ms
 import mindspore.nn as nn
 import mindspore.ops as ops
@@ -35,6 +33,8 @@ from mindformers.models.blip2.blip2_config import Blip2Config
 from mindformers.models.blip2.qformer import CrossEntropyLoss
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.tools.logger import logger
+from mindformers.tools.utils import get_real_rank, get_real_group_size
+
 
 def choose_idx_with_prob(weight: Tensor):
     """
@@ -84,8 +84,8 @@ class Blip2Qformer(Blip2Base):
     def __init__(self, config: Blip2Config, **kwargs):
         super(Blip2Qformer, self).__init__(config, **kwargs)
         self.config = config if config is not None else Blip2Config()
-        self.group_size = int(os.getenv('RANK_SIZE', '1'))
-        self.rank = int(os.getenv('RANK_ID', '0'))
+        self.group_size = get_real_group_size()
+        self.rank = get_real_rank()
         self.visual_encoder, self.ln_vision = self.init_vision_encoder()
         if config.freeze_vision:
             for _, cell in self.visual_encoder.cells_and_names():

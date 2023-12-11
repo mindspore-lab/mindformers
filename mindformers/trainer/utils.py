@@ -28,6 +28,7 @@ from mindspore import context, load_checkpoint, load_param_into_net
 from mindspore import set_seed as ms_set_seed
 
 from mindformers.tools.logger import logger
+from mindformers.tools.utils import get_real_rank, get_real_group_size
 from mindformers.tools.register import MindFormerConfig
 from mindformers.tools.utils import check_in_modelarts, get_output_root_path, \
                                     replace_tk_to_mindpet, check_shared_disk
@@ -246,7 +247,7 @@ def load_distributed_checkpoint(config, specify_prefix=None):
             "load_checkpoint should be a checkpoint directory containing the directory of rank_{0-*},"
             "The directory structure is as follows: **checkpoint_root_dir/rank_{0-*}/**.ckpt")
         distribute_checkpoint_dir = os.path.join(
-            checkpoint_dir, "rank_{}".format(int(os.getenv("RANK_ID", "0"))))
+            checkpoint_dir, "rank_{}".format(get_real_rank()))
         distribute_checkpoint_path = get_last_checkpoint(distribute_checkpoint_dir)
     elif os.path.isfile(checkpoint_dir):
         logger.info("Your load_checkpoint is file, it will be load in network.")
@@ -354,8 +355,8 @@ def build_model(config, model, dataset, do_eval=False, do_predict=False):
 
 def get_dst_strategy(config):
     """get strategy"""
-    rank_id = int(os.getenv('RANK_ID', '0'))
-    world_size = int(os.getenv('RANK_SIZE', '1'))
+    rank_id = get_real_rank()
+    world_size = get_real_group_size()
     dst_strategy_path = None
     if world_size == 1:
         return dst_strategy_path

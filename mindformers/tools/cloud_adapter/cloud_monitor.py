@@ -18,9 +18,10 @@ import os
 import traceback
 
 from mindformers.tools.logger import logger
+
 from .cloud_adapter import mox_adapter
 from ..utils import DEBUG_INFO_PATH, PROFILE_INFO_PATH, PLOG_PATH, LAST_TRANSFORM_LOCK_PATH,\
-    get_output_root_path, get_remote_save_url
+    get_output_root_path, get_remote_save_url, get_real_rank
 
 
 def cloud_monitor(log=logger):
@@ -28,7 +29,7 @@ def cloud_monitor(log=logger):
     def decorator(run_func):
 
         def wrapper(*args, **kwargs):
-            local_id = int(os.getenv('RANK_ID', '0'))
+            local_id = get_real_rank()
             try:
                 result = run_func(*args, **kwargs)
             except SystemExit as exc:
@@ -82,5 +83,5 @@ def _last_transform(local_id, log=logger):
 
 def upload_log():
     """Upload log according to runtime for FM."""
-    local_id = int(os.getenv('RANK_ID', '0'))
+    local_id = get_real_rank()
     _last_transform(local_id)

@@ -267,7 +267,7 @@ if __name__ == "__main__":
     if len(rest_args_) % 2 != 0:
         raise ValueError(f"input arg key-values are not in pair, please check input args. ")
 
-    if args_.config is not None:
+    if args_.config is not None and not os.path.isabs(args_.config):
         args_.config = os.path.join(work_path, args_.config)
     config_ = MindFormerConfig(args_.config)
 

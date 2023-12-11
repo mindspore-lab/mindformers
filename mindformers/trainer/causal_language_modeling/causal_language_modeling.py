@@ -37,7 +37,7 @@ from mindformers.mindformer_book import MindFormerBook
 from ..config_args import ConfigArguments
 from ..training_args import TrainingArguments
 from ..base_trainer import BaseTrainer
-from ..utils import transform_and_load_checkpoint
+from ..utils import transform_and_load_checkpoint, get_real_rank
 
 GENERATE_METRIC_NAMES = ['ADGENMetric', 'EmF1Metric']
 SUPPORT_MODEL_NAMES = MindFormerBook().get_model_name_support_list()
@@ -208,7 +208,7 @@ class CausalLanguageModelingTrainer(BaseTrainer):
             transform_and_load_checkpoint(config, model, network, dataset, do_eval=True)
 
         logger.info('.........Starting Evaluate Model..........')
-        if int(os.getenv("RANK_ID", '0')) % 8 == 0:
+        if get_real_rank() % 8 == 0:
             pprint(config)
         # generate config
         do_sample = config.model.model_config.do_sample

@@ -499,7 +499,7 @@ from mindspore import load_checkpoint, load_param_into_net
 from mindformers import AutoConfig, AutoTokenizer, AutoModel, pipeline
 from mindformers import init_context, ContextConfig, ParallelContextConfig
 from mindformers.trainer.utils import get_last_checkpoint
-from mindformers.tools.utils import str2bool
+from mindformers.tools.utils import str2bool, get_real_rank
 
 
 def context_init(use_parallel=False, device_id=0):
@@ -543,7 +543,7 @@ def main(use_parallel=False,
     # if use parallel, load distributed checkpoints
     if use_parallel:
         # find the sharded ckpt path for this rank
-        ckpt_path = os.path.join(checkpoint_path, "rank_{}".format(os.getenv("RANK_ID", "0")))
+        ckpt_path = os.path.join(checkpoint_path, "rank_{}".format(get_real_rank()))
         ckpt_path = get_last_checkpoint(ckpt_path)
         print("ckpt path: %s", str(ckpt_path))
 
@@ -601,7 +601,7 @@ from mindspore import load_checkpoint, load_param_into_net
 from mindformers import AutoConfig, AutoTokenizer, AutoModel
 from mindformers import init_context, ContextConfig, ParallelContextConfig
 from mindformers.trainer.utils import get_last_checkpoint
-from mindformers.tools.utils import str2bool
+from mindformers.tools.utils import str2bool, get_real_rank
 
 
 def context_init(use_parallel=False, device_id=0):
@@ -646,7 +646,7 @@ def main(use_parallel=False,
     # if use parallel, load distributed checkpoints
     if use_parallel:
         # find the sharded ckpt path for this rank
-        ckpt_path = os.path.join(checkpoint_path, "rank_{}".format(os.getenv("RANK_ID", "0")))
+        ckpt_path = os.path.join(checkpoint_path, "rank_{}".format(get_real_rank()))
         ckpt_path = get_last_checkpoint(ckpt_path)
         print("ckpt path: %s", str(ckpt_path))
 

@@ -17,10 +17,10 @@ import os
 from typing import Optional, Union
 from dataclasses import dataclass
 import inspect
-
 from mindformers.core.callback import CheckpointMointor
 from mindformers.tools.register import MindFormerRegister, \
     MindFormerModuleType
+from mindformers.tools.utils import get_real_group_size
 
 
 __all__ = ['BaseArgsConfig', 'RunnerConfig', 'DatasetConfig', 'DataLoaderConfig',
@@ -655,7 +655,7 @@ class ParallelContextConfig(BaseArgsConfig):
 
     def __init__(self,
                  parallel_mode: str = 'STAND_ALONE',
-                 device_num: int = int(os.getenv('RANK_SIZE', '1')),
+                 device_num: int = get_real_group_size(),
                  gradients_mean: bool = False, **kwargs):
         super(ParallelContextConfig, self).__init__(parallel_mode=parallel_mode,
                                                     device_num=device_num,

@@ -23,6 +23,7 @@ from tqdm import tqdm
 from mindspore.parallel._utils import _get_device_num
 
 from mindformers.tools.logger import logger
+from .utils import get_real_rank
 
 try:
     import fcntl
@@ -41,7 +42,7 @@ class StatusCode:
 
 def download_with_progress_bar(url, filepath, chunk_size=1024, timeout=4):
     """download_with_progress_bar"""
-    local_id = int(os.getenv("RANK_ID", "0"))
+    local_id = get_real_rank()
     device_num = _get_device_num()
     if os.path.exists(filepath + ".error"):
         os.remove(filepath + ".error")
