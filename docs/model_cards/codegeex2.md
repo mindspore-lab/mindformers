@@ -268,34 +268,36 @@ print(response)
 
 ### 基于Trainer的快速训练，微调，评测，推理
 
+> 注：下面仅显示接口使用方式，模型启动训练需求多卡分布式训练，训练脚本需配合分布式脚本启动
+
 ```python
 import mindspore
 from mindformers.trainer import Trainer
+from mindformers import AutoTokenizer
 
 # 指定图模式，指定使用训练卡id
 mindspore.set_context(mode=0, device_id=0)
 
 # 初始化预训练任务
+tokenizer = AutoTokenizer.from_pretrained("codegeex2_6b")
 trainer = Trainer(task='text_generation',
                   model='codegeex2_6b',
                   train_dataset='path/to/train_dataset',
-                  eval_dataset='path/to/eval_dataset')
+                  eval_dataset='path/to/eval_dataset',
+                  tokenizer=tokenizer)
 
 # 开启预训练
-trainer.train()
+# trainer.train()
 
 # 开启全量微调
-trainer.finetune()
-
-# 开启评测
-trainer.evaluate()
+# trainer.finetune()
 
 # 开启推理
 predict_result = trainer.predict(input_data="#language: Python\n# write a bubble sort function\n")
 # output result is: [{'text_generation_text': ['#language: Python\n# write a bubble sort function\n\ndef bubble_sort(list):\n for i in range(len(list) - 1):\n for j in range(len(list) - 1):\n if list[j] > list[j + 1]:\n list[j], list[j + 1] = list[j + 1], list[j]\n return list\n\n\n print(bubble_sort([5, 2, 1, 8, 4]))']}]
 ```
 
-**注：多卡请参考[使用高阶接口开发教程](https://mindformers.readthedocs.io/zh_CN/latest/docs/practice/Develop_With_Api.html)。**
+**注：使用前请参照微调部分更改数据集设置，多卡请参考[使用高阶接口开发教程](https://mindformers.readthedocs.io/zh_CN/latest/docs/practice/Develop_With_Api.html)。**
 
 ### 基于Pipeline的快速推理
 
