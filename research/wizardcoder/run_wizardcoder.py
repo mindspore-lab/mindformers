@@ -57,7 +57,6 @@ def main(task='text_generation',
          pet_method='',
          use_parallel=False,
          ckpt=None,
-         resume=False,
          train_dataset='',
          eval_dataset='',
          predict_data='',
@@ -89,14 +88,14 @@ def main(task='text_generation',
                        task=task,
                        train_dataset=train_dataset,
                        pet_method=pet_method)
-        task.train(finetune_checkpoint=config.load_checkpoint, auto_trans_ckpt=config.auto_trans_ckpt, resume=resume)
+        task.train(finetune_checkpoint=config.load_checkpoint, auto_trans_ckpt=config.auto_trans_ckpt)
 
     elif run_mode == 'finetune':
         task = Trainer(args=config,
                        task=task,
                        train_dataset=train_dataset,
                        pet_method=pet_method)
-        task.finetune(finetune_checkpoint=config.load_checkpoint, auto_trans_ckpt=config.auto_trans_ckpt, resume=resume)
+        task.finetune(finetune_checkpoint=config.load_checkpoint, auto_trans_ckpt=config.auto_trans_ckpt)
 
     elif run_mode == 'eval':
         task = Trainer(args=config,
@@ -154,7 +153,6 @@ if __name__ == "__main__":
          pet_method=args.pet_method,
          use_parallel=args.use_parallel,
          ckpt=args.load_checkpoint,
-         resume=args.resume,
          train_dataset=args.train_dataset,
          eval_dataset=args.eval_dataset,
          predict_data=args.predict_data,

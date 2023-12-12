@@ -220,6 +220,13 @@ mindspore_path: mindspore格式的权重保存文件名，如'saved_dir/wizardco
 
 ## WizardCoder-15B
 
+### 训练和微调性能
+
+| config                                                       | task                  | Datasets  | SeqLength | metric | phase             | score     | performance(tokens/s/p)  |
+| ------------------------------------------------------------ | --------------------- | --------- | --------- | ------ | ----------------- | --------- | ------------ |
+| [wizardcoder_15b](./run_wizardcoder.yaml)    | text_generation   | alpaca      | 2048      | -      | [train](#预训练)  | -         | 798.7  |
+| [wizardcoder_15b](./run_wizardcoder.yaml)    | text_generation   | alpaca      | 2048      | -      | [finetune](#微调)  | -         | 798.7  |
+
 ```shell
 #!/bin/bash
 pip install mindspore==2.2.0
