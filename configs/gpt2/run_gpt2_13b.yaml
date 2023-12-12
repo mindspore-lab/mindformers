@@ -139,6 +139,7 @@ model:
   model_config:
     batch_size: 1
     type: GPT2Config
+    max_position_embeddings: 2048
     seq_length: 2048
     vocab_size: 50257
     hidden_size: 5120
