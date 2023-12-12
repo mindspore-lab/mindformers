@@ -391,7 +391,8 @@ def infer_main(args):
                                max_length=args.max_length,
                                eos_token_id=tokenizer.eos_token_id,
                                pad_token_id=tokenizer.pad_token_id,
-                               use_past=use_past)
+                               use_past=use_past,
+                               add_special_tokens=True)
         for out in output:
             print(out)
 
