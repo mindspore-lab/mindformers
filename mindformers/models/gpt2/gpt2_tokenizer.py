@@ -162,15 +162,7 @@ class GPT2Tokenizer(Tokenizer):
         eos_token = AddedToken(eos_token, lstrip=False, rstrip=False) if isinstance(eos_token, str) else eos_token
         unk_token = AddedToken(unk_token, lstrip=False, rstrip=False) if isinstance(unk_token, str) else unk_token
         pad_token = AddedToken(pad_token, lstrip=False, rstrip=False) if isinstance(pad_token, str) else pad_token
-        super().__init__(
-            errors=errors,
-            unk_token=unk_token,
-            bos_token=bos_token,
-            eos_token=eos_token,
-            pad_token=pad_token,
-            add_prefix_space=add_prefix_space,
-            **kwargs,
-        )
+
         self.add_bos_token = add_bos_token
         self.add_eos_token = add_eos_token
 
@@ -189,6 +181,16 @@ class GPT2Tokenizer(Tokenizer):
 
         # Should have added re.IGNORECASE so BPE merges can happen for capitalized versions of contractions
         self.pat = re.compile(r"""'s|'t|'re|'ve|'m|'ll|'d| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+""")
+
+        super().__init__(
+            errors=errors,
+            unk_token=unk_token,
+            bos_token=bos_token,
+            eos_token=eos_token,
+            pad_token=pad_token,
+            add_prefix_space=add_prefix_space,
+            **kwargs,
+        )
 
     @property
     def vocab_size(self):
@@ -344,41 +346,8 @@ class GPT2Tokenizer(Tokenizer):
         return vocab_file, merge_file
 
     def prepare_for_tokenization(self, text, **kwargs):
-        add_prefix_space = kwargs.pop("add_prefix_space", self.add_prefix_space)
         is_split_into_words = kwargs.pop("is_split_into_words", False)
+        add_prefix_space = kwargs.pop("add_prefix_space", self.add_prefix_space)
         if is_split_into_words or add_prefix_space:
             text = " " + text
         return (text, kwargs)
-
-    def create_token_type_ids_from_sequences(
-            self, token_ids_0: List[int], token_ids_1: Optional[List[int]] = None
-    ) -> List[int]:
-        """
-        Creates a mask from the two sequences passed to be used in a sequence-pair classification task. An ALBERT
-        sequence pair mask has the following format:
-
-        ```
-        0 0 0 0 0 0 0 0 0 0 0 1 1 1 1 1 1 1 1 1
-        | first sequence    | second sequence |
-        ```
-
-        if token_ids_1 is None, only returns the first portion of the mask (0s).
-
-        Args:
-            token_ids_0 (`List[int]`):
-                List of ids.
-            token_ids_1 (`List[int]`, *optional*):
-                Optional second list of IDs for sequence pairs.
-
-        Returns:
-            `List[int]`: List of [token type IDs](../glossary#token-type-ids) according to the given sequence(s).
-        """
-        bos_token_id = [self.bos_token_id] if self.add_bos_token else []
-        eos_token_id = [self.eos_token_id] if self.add_eos_token else []
-
-        output = [0] * len(bos_token_id + token_ids_0 + eos_token_id)
-
-        if token_ids_1 is not None:
-            output += [1] * len(bos_token_id + token_ids_1 + eos_token_id)
-
-        return output

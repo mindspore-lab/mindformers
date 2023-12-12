@@ -91,15 +91,12 @@ class WizardCoderTokenizer(Tokenizer):
             unk_token="<|endoftext|>",
             bos_token="<|endoftext|>",
             eos_token="<|endoftext|>",
+            pad_token="[PAD]",
             add_prefix_space=False,
             add_bos_token=False,
             add_eos_token=False,
             **kwargs
     ):
-        super(WizardCoderTokenizer, self).__init__(
-            unk_token=unk_token, bos_token=bos_token, eos_token=eos_token, **kwargs
-        )
-
         self.add_bos_token = add_bos_token
         self.add_eos_token = add_eos_token
 
@@ -119,7 +116,11 @@ class WizardCoderTokenizer(Tokenizer):
         self.pat = re.compile(r"""'s|'t|'re|'ve|'m|'ll|'d| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+""")
         self.add_prefix_space = add_prefix_space
         self.cache = {}
-        self.pad_token = "[PAD]"
+
+        super(WizardCoderTokenizer, self).__init__(
+            unk_token=unk_token, bos_token=bos_token, eos_token=eos_token, pad_token=pad_token, **kwargs
+        )
+
         self.add_tokens([self.pad_token, unk_token, bos_token, eos_token], special_tokens=True)
 
     def bpe(self, token):
@@ -252,3 +253,9 @@ class WizardCoderTokenizer(Tokenizer):
     def vocab_size(self):
         """Get the vocab size of the """
         return len(self.decoder)
+
+    def get_vocab(self):
+        """Returns vocab as a dict"""
+        vocab = {self.convert_ids_to_tokens(i): i for i in range(self.vocab_size)}
+        vocab.update(self.added_tokens_encoder)
+        return vocab

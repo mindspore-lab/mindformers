@@ -56,8 +56,6 @@ class QwenTokenizer(Tokenizer):
                  vocab_file="qwen.tiktoken",
                  errors="replace",
                  **kwargs):
-        super().__init__(**kwargs)
-
         self.errors = errors  # how to handle errors in decoding
         self.vocab_file = vocab_file
         self.mergeable_ranks = _load_tiktoken_bpe(vocab_file)  # type: dict[bytes, int]
@@ -90,9 +88,17 @@ class QwenTokenizer(Tokenizer):
         self.im_start_id = self.special_tokens[IMSTART]
         self.im_end_id = self.special_tokens[IMEND]
 
+        super().__init__(**kwargs)
+
     @property
     def vocab_size(self):
         return self.tokenizer.n_vocab
+
+    def get_vocab(self):
+        """Returns vocab as a dict"""
+        vocab = {self.convert_ids_to_tokens(i): i for i in range(self.vocab_size)}
+        vocab.update(self.added_tokens_encoder)
+        return vocab
 
     # override Tokenizer.convert_tokens_to_string()
     def convert_tokens_to_string(self, tokens: List[Union[bytes, str]]) -> str:

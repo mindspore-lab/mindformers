@@ -36,7 +36,7 @@ from ..base_tokenizer import Tokenizer
 __all__ = ['CLIPTokenizer']
 
 
-VOCAB_FILES_NAMES = {'vocab_file': ['vocab.txt', 'bpe_simple_vocab_16e6.txt.gz']}
+VOCAB_FILES_NAMES = {'vocab_file': 'bpe_simple_vocab_16e6.txt.gz'}
 
 @lru_cache()
 def default_bpe():
@@ -199,14 +199,9 @@ class CLIPTokenizer(Tokenizer):
                  pad_token="<|endoftext|>",
                  unk_token="<|endoftext|>",
                  add_bos_token=True,
-                 add_eos_token=True
+                 add_eos_token=True,
+                 **kwargs
                  ):
-        super(CLIPTokenizer, self).__init__(
-            eos_token=eos_token,
-            bos_token=bos_token,
-            pad_token=pad_token,
-            unk_token=unk_token
-        )
         self.path = vocab_file
         self.add_bos_token = add_bos_token
         self.add_eos_token = add_eos_token
@@ -222,6 +217,14 @@ class CLIPTokenizer(Tokenizer):
         self.tool = TempTokenizer(merges, vocab, flag_dict)
         self.pat = re.compile(r"""<\|startoftext\|>|<\|endoftext\|>|'s|'t|'re|
         've|'m|'ll|'d|[\p{L}]+|[\p{N}]|[^\s\p{L}\p{N}]+""", re.IGNORECASE)
+
+        super(CLIPTokenizer, self).__init__(
+            eos_token=eos_token,
+            bos_token=bos_token,
+            pad_token=pad_token,
+            unk_token=unk_token,
+            **kwargs
+        )
 
     @staticmethod
     def _read_merge_files(text_path, start_pos=1, end_pos=49152-256-2+1):
@@ -268,13 +271,7 @@ class CLIPTokenizer(Tokenizer):
             save_directory, (filename_prefix + "-" if filename_prefix else "") + VOCAB_FILES_NAMES["vocab_file"][0])
 
         shutil.copy(self.path, output_file_path)
-        return output_file_path
-
-    def tokenize(self, text, pair=None, add_special_tokens=True, **kwargs):
-        r"""Tokenizer the input_text"""
-        if not isinstance(text, str):
-            raise ValueError("Text should be type str, but found type", type(text))
-        return self._tokenize(text)
+        return (output_file_path,)
 
     def _convert_token_to_id(self, token):
         r"""Convert_token_to_id"""

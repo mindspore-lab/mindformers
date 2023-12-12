@@ -16,6 +16,7 @@
 """The bert tokenizer"""
 import collections
 import os
+import re
 import unicodedata
 from typing import List, Optional
 from mindformers.tools import logger
@@ -154,9 +155,27 @@ class BertTokenizer(Tokenizer):
             mask_token="[MASK]",
             tokenize_chinese_chars=True,
             strip_accents=None,
-            is_tokenize_char=False,
             **kwargs,
     ):
+
+        if not os.path.isfile(vocab_file):
+            raise ValueError(
+                f"Can't find a vocabulary file at path '{vocab_file}'. To load the vocabulary from a Google pretrained"
+                " model use `tokenizer = BertTokenizer.from_pretrained(PRETRAINED_MODEL_NAME)`"
+            )
+        self.vocab = load_vocab(vocab_file)
+        self.ids_to_tokens = collections.OrderedDict([(ids, tok) for tok, ids in self.vocab.items()])
+        self.do_basic_tokenize = do_basic_tokenize
+        if do_basic_tokenize:
+            self.basic_tokenizer = BasicTokenizer(
+                do_lower_case=do_lower_case,
+                never_split=never_split,
+                tokenize_chinese_chars=tokenize_chinese_chars,
+                strip_accents=strip_accents,
+            )
+        self.wordpiece_tokenizer = WordpieceTokenizer(vocab=self.vocab, unk_token=str(unk_token))
+        self.mask_index = []
+
         super().__init__(
             do_lower_case=do_lower_case,
             do_basic_tokenize=do_basic_tokenize,
@@ -171,61 +190,36 @@ class BertTokenizer(Tokenizer):
             **kwargs,
         )
 
-        if not os.path.isfile(vocab_file):
-            raise ValueError(
-                f"Can't find a vocabulary file at path '{vocab_file}'. To load the vocabulary from a Google pretrained"
-                " model use `tokenizer = BertTokenizer.from_pretrained(PRETRAINED_MODEL_NAME)`"
-            )
-        self.vocab_dict = load_vocab(vocab_file)
-        self.ids_to_tokens = collections.OrderedDict([(ids, tok) for tok, ids in self.vocab_dict.items()])
-        self.do_basic_tokenize = do_basic_tokenize
-        if do_basic_tokenize:
-            self.basic_tokenizer = BasicTokenizer(
-                do_lower_case=do_lower_case,
-                never_split=never_split,
-                tokenize_chinese_chars=tokenize_chinese_chars,
-                strip_accents=strip_accents,
-            )
-        self.wordpiece_tokenizer = WordpieceTokenizer(vocab=self.vocab_dict, unk_token=self.unk_token)
-        self.mask_index = []
-        self.is_tokenize_char = is_tokenize_char
-
     @property
     def do_lower_case(self):
         return self.basic_tokenizer.do_lower_case
 
     @property
     def vocab_size(self):
-        return len(self.vocab_dict)
+        return len(self.vocab)
 
     def get_vocab(self):
-        return dict(self.vocab_dict, **self.added_tokens_encoder)
+        return dict(self.vocab, **self.added_tokens_encoder)
 
     def _tokenize(self, text, **kwargs):
+        split_special_tokens = kwargs.pop("split_special_tokens", False)
         split_tokens = []
-        if self.is_tokenize_char:
-            for character in text:
-                if self.do_lower_case:
-                    character = character.lower()
-                if character in self.vocab_dict:
-                    split_tokens.append(character)
+        if self.do_basic_tokenize:
+            for token in self.basic_tokenizer.tokenize(
+                    text, never_split=self.all_special_tokens if not split_special_tokens else None
+            ):
+                # If the token is part of the never_split set
+                if token in self.basic_tokenizer.never_split:
+                    split_tokens.append(token)
                 else:
-                    split_tokens.append(self.unk_token)
+                    split_tokens += self.wordpiece_tokenizer.tokenize(token)
         else:
-            if self.do_basic_tokenize:
-                for token in self._process_mask_tokens(text):
-                    # If the token is part of the never_split set
-                    if token in self.basic_tokenizer.never_split:
-                        split_tokens.append(token)
-                    else:
-                        split_tokens += self.wordpiece_tokenizer.tokenize(token)
-            else:
-                split_tokens = self.wordpiece_tokenizer.tokenize(text)
+            split_tokens = self.wordpiece_tokenizer.tokenize(text)
         return split_tokens
 
     def _convert_token_to_id(self, token):
         """Converts a token (str) in an id using the vocab."""
-        return self.vocab_dict.get(token, self.vocab_dict.get(self.unk_token))
+        return self.vocab.get(token, self.vocab.get(self.unk_token))
 
     def _convert_id_to_token(self, index):
         """Converts an index (integer) in a token (str) using the vocab."""
@@ -330,7 +324,7 @@ class BertTokenizer(Tokenizer):
         else:
             vocab_file = (filename_prefix + "-" if filename_prefix else "") + save_directory
         with open(vocab_file, "w", encoding="utf-8") as writer:
-            for token, token_index in sorted(self.vocab_dict.items(), key=lambda kv: kv[1]):
+            for token, token_index in sorted(self.vocab.items(), key=lambda kv: kv[1]):
                 if index != token_index:
                     logger.warning(
                         "Saving vocabulary to %s: vocabulary indices are not consecutive."
@@ -339,22 +333,73 @@ class BertTokenizer(Tokenizer):
                     index = token_index
                 writer.write(token + "\n")
                 index += 1
-        return vocab_file
+        return (vocab_file,)
 
-    def _process_mask_tokens(self, text):
-        """process mask tokens in text"""
-        text_tokenize = []
-        if self._mask_token in text:
-            while self._mask_token in text:
-                ind = text.index(self._mask_token)
-                text_tokenize.extend(self.basic_tokenizer.tokenize(text[:ind]))
-                text_tokenize.append(self._mask_token)
-                text = text[ind + len(self._mask_token):]
-            text_tokenize.extend(self.basic_tokenizer.tokenize(text))
-            self.mask_index = [ind for ind, x in enumerate(text_tokenize) if x == self._mask_token]
+    # adapt for mask_index attribute, and for fill_mask_pipeline
+    def tokenize(
+            self, text: str, pair: Optional[str] = None, add_special_tokens: bool = False, **kwargs
+    ) -> List[str]:
+        """
+        Converts a string in a sequence of tokens, using the tokenizer.
+
+        Split in words for word-based vocabulary or sub-words for sub-word-based vocabularies
+        (BPE/SentencePieces/WordPieces). Takes care of added tokens.
+
+        Args:
+            text (`str`):
+                The sequence to be encoded.
+            pair (`str`, *optional*):
+                A second sequence to be encoded with the first.
+            add_special_tokens (`bool`, *optional*, defaults to `False`):
+                Whether or not to add the special tokens associated with the corresponding model.
+            kwargs (additional keyword arguments, *optional*):
+                Will be passed to the underlying model specific encode method. See details in
+                [`~PreTrainedTokenizerBase.__call__`]
+
+        Returns:
+            `List[str]`: The list of tokens.
+        """
+        split_special_tokens = kwargs.pop("split_special_tokens", self.split_special_tokens)
+
+        text, kwargs = self.prepare_for_tokenization(text, **kwargs)
+
+        if kwargs:
+            logger.warning(f"Keyword arguments {kwargs} not recognized.")
+
+        if hasattr(self, "do_lower_case") and self.do_lower_case:
+            # convert non-special tokens to lowercase. Might be super slow as well?
+            escaped_special_toks = [re.escape(s_tok) for s_tok in self.all_special_tokens]
+            escaped_special_toks += [
+                re.escape(s_tok.content)
+                for s_tok in (self._added_tokens_decoder.values())
+                if not s_tok.special and s_tok.normalized
+            ]
+            pattern = r"(" + r"|".join(escaped_special_toks) + r")|" + r"(.+?)"
+            text = re.sub(pattern, lambda m: m.groups()[0] or m.groups()[1].lower(), text)
+
+        if split_special_tokens:
+            no_split_token = []
+            tokens = [text]
         else:
-            text_tokenize = self.basic_tokenizer.tokenize(text, never_split=self.all_special_tokens)
-        return text_tokenize
+            no_split_token = self._added_tokens_encoder.keys()  # don't split on any of the added tokens
+            # "This is something<special_token_1>  else"
+            tokens = self.tokens_trie.split(text)
+
+        # ["This is something", "<special_token_1>", "  else"]
+        tokens = self.tokenize_atom(tokens, no_split_token)
+        # ["This is something", "<special_token_1>", "else"]
+        tokenized_text = []
+        for token in tokens:
+            # Need to skip eventual empty (fully stripped) tokens
+            if not token:
+                continue
+            if token in no_split_token:
+                tokenized_text.append(token)
+            else:
+                tokenized_text.extend(self._tokenize(token))
+        # ["This", " is", " something", "<special_token_1>", "else"]
+        self.mask_index = [ind for ind, x in enumerate(tokenized_text) if x == self._mask_token]
+        return tokenized_text
 
 
 class BasicTokenizer:
@@ -375,20 +420,30 @@ class BasicTokenizer:
         strip_accents (`bool`, *optional*):
             Whether or not to strip all accents. If this option is not specified, then it will be determined by the
             value for `lowercase` (as in the original BERT).
+        do_split_on_punc (`bool`, *optional*, defaults to `True`):
+            In some instances we want to skip the basic punctuation splitting so that later tokenization can capture
+            the full context of the words, such as contractions.
     """
 
-    def __init__(self, do_lower_case=True, never_split=None, tokenize_chinese_chars=True, strip_accents=None):
+    def __init__(
+            self,
+            do_lower_case=True,
+            never_split=None,
+            tokenize_chinese_chars=True,
+            strip_accents=None,
+            do_split_on_punc=True,
+    ):
         if never_split is None:
             never_split = []
         self.do_lower_case = do_lower_case
         self.never_split = set(never_split)
         self.tokenize_chinese_chars = tokenize_chinese_chars
         self.strip_accents = strip_accents
+        self.do_split_on_punc = do_split_on_punc
 
     def tokenize(self, text, never_split=None):
         """
-        Basic Tokenization of a piece of text. Split on "white spaces" only, for sub-word tokenization, see
-        WordPieceTokenizer.
+        Basic Tokenization of a piece of text. For sub-word tokenization, see WordPieceTokenizer.
 
         Args:
             never_split (`List[str]`, *optional*)
@@ -407,7 +462,9 @@ class BasicTokenizer:
         # words in the English Wikipedia.).
         if self.tokenize_chinese_chars:
             text = self._tokenize_chinese_chars(text)
-        orig_tokens = whitespace_tokenize(text)
+        # prevents treating the same character with different unicode codepoints as different characters
+        unicode_normalized_text = unicodedata.normalize("NFC", text)
+        orig_tokens = whitespace_tokenize(unicode_normalized_text)
         split_tokens = []
         for token in orig_tokens:
             if token not in never_split:
@@ -435,7 +492,7 @@ class BasicTokenizer:
 
     def _run_split_on_punc(self, text, never_split=None):
         """Splits punctuation on a piece of text."""
-        if never_split is not None and text in never_split:
+        if not self.do_split_on_punc or (never_split is not None and text in never_split):
             return [text]
         chars = list(text)
         i = 0
@@ -510,7 +567,7 @@ class WordpieceTokenizer:
     """Runs WordPiece tokenization."""
 
     def __init__(self, vocab, unk_token, max_input_chars_per_word=100):
-        self.vocab_dict = vocab
+        self.vocab = vocab
         self.unk_token = unk_token
         self.max_input_chars_per_word = max_input_chars_per_word
 
@@ -546,7 +603,7 @@ class WordpieceTokenizer:
                     substr = "".join(chars[start:end])
                     if start > 0:
                         substr = "##" + substr
-                    if substr in self.vocab_dict:
+                    if substr in self.vocab:
                         cur_substr = substr
                         break
                     end -= 1

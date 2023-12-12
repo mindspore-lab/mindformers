@@ -103,13 +103,7 @@ class BloomTokenizer(Tokenizer):
             add_bos_token=False,
             add_eos_token=False,
             **kwargs):
-        super(BloomTokenizer, self).__init__(
-            unk_token=unk_token,
-            bos_token=bos_token,
-            eos_token=eos_token,
-            pad_token=pad_token,
-            **kwargs
-        )
+
         self.add_bos_token = add_bos_token
         self.add_eos_token = add_eos_token
 
@@ -137,6 +131,14 @@ class BloomTokenizer(Tokenizer):
         self._bos_token_id = 1
         self._eos_token_id = 2
         self._pad_token_id = 3
+
+        super(BloomTokenizer, self).__init__(
+            unk_token=unk_token,
+            bos_token=bos_token,
+            eos_token=eos_token,
+            pad_token=pad_token,
+            **kwargs
+        )
 
     def bpe(self, token):
         """ bpe encode """
@@ -181,14 +183,9 @@ class BloomTokenizer(Tokenizer):
         self.cache[token] = word
         return word
 
-    def tokenize(self, text, pair=None, add_special_tokens=True, **kwargs):
-        if not isinstance(text, str):
-            raise ValueError("Text should be type str, but found type", type(text))
-        return self._tokenize(text)
-
     def _tokenize(self, text, **kwargs):
         """ Tokenize a string using bpe encode. """
-        text = self.prepare_for_tokenization(text, is_pretokenized=False)
+        text, _ = self.prepare_for_tokenization(text, is_pretokenized=False)
         bpe_tokens = []
         for token in re.findall(self.pat, text):
             token = "".join(
@@ -221,7 +218,7 @@ class BloomTokenizer(Tokenizer):
         is_pretokenized = kwargs.pop("is_pretokenized", False)
         if is_pretokenized or add_prefix_space:
             text = " " + text
-        return text
+        return text, kwargs
 
     def save_vocabulary(self, save_directory, filename_prefix=None):
         """write the word to the files"""
@@ -235,7 +232,7 @@ class BloomTokenizer(Tokenizer):
         with open(output_file_path, "w", encoding="utf-8") as f:
             f.write(json.dumps(self.encoder))
 
-        return output_file_path
+        return (output_file_path,)
 
     @property
     def vocab_size(self):
