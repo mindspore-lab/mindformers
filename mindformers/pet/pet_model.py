@@ -92,3 +92,10 @@ def get_pet_model(base_model: BaseModel, config: dict):
 
     # return pet model.
     return PetModel(config=BaseConfig(**config), base_model=base_model)
+
+def is_supported_pet_type(pet_type: str):
+    """
+    Return `pet_type` is supported or not.
+    """
+
+    return pet_type in PET_TYPE_TO_MODEL_MAPPING

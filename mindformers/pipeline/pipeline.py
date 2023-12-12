@@ -23,7 +23,7 @@ from mindspore import Model
 from mindformers.models import build_model, build_tokenizer, build_processor, \
     BaseModel, BaseTokenizer, BaseImageProcessor, BaseAudioProcessor
 from mindformers.mindformer_book import MindFormerBook
-from mindformers.pet import get_pet_model
+from mindformers.pet import get_pet_model, is_supported_pet_type
 from mindformers.tools.register import MindFormerConfig
 from .build_pipeline import build_pipeline
 
@@ -117,13 +117,13 @@ def get_ms_pipeline(task, model, tokenizer, image_processor, audio_processor, **
             if build_name in kwargs:
                 build_args[build_name] = kwargs.pop(build_name)
         ckpt_cfg = pipeline_config.model.model_config.checkpoint_name_or_path
-        if pipeline_config.model.model_config.pet_config:
+        pet_config = pipeline_config.config.model.model_config.pet_config
+        if pet_config and is_supported_pet_type(pet_config.pet_type):
             pipeline_config.model.model_config.checkpoint_name_or_path = None
-        model = build_model(pipeline_config.model,
-                            default_args=build_args)
-        if pipeline_config.model.model_config.pet_config:
+        model = build_model(pipeline_config.model, default_args=build_args)
+        if pet_config:
             model.config.checkpoint_name_or_path = ckpt_cfg
-            model = get_pet_model(model, pipeline_config.model.model_config.pet_config)
+            model = get_pet_model(model, pet_config)
         if batch_size is not None:
             kwargs["batch_size"] = batch_size
     if image_processor is None and hasattr(pipeline_config.processor, 'image_processor'):
