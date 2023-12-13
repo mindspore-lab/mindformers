@@ -26,7 +26,7 @@ from .models.build_processor import build_processor
 from .models.base_config import BaseConfig
 from .models.build_model import build_model
 from .models.build_config import build_model_config
-from .pet import get_pet_model
+from .pet import get_pet_model, is_supported_pet_type
 from .tools import logger
 from .tools.register.config import MindFormerConfig
 
@@ -282,12 +282,13 @@ class AutoModel:
         if not download_checkpoint:
             config_args.model.model_config.checkpoint_name_or_path = None
         ckpt_cfg = config_args.model.model_config.checkpoint_name_or_path
-        if config_args.model.model_config.pet_config:
+        pet_config = config_args.model.model_config.pet_config
+        if pet_config and is_supported_pet_type(pet_config.pet_type):
             config_args.model.model_config.checkpoint_name_or_path = None
         model = build_model(config_args.model)
-        if config_args.model.model_config.pet_config:
+        if pet_config:
             model.config.checkpoint_name_or_path = ckpt_cfg
-            model = get_pet_model(model, config_args.model.model_config.pet_config)
+            model = get_pet_model(model, pet_config)
         logger.info("model built successfully!")
         return model
 
@@ -440,12 +441,13 @@ class AutoModel:
         if not download_checkpoint:
             config_args.model.model_config.checkpoint_name_or_path = None
         ckpt_cfg = config_args.model.model_config.checkpoint_name_or_path
-        if config_args.model.model_config.pet_config:
+        pet_config = config_args.model.model_config.pet_config
+        if pet_config and is_supported_pet_type(pet_config.pet_type):
             config_args.model.model_config.checkpoint_name_or_path = None
         model = build_model(config_args.model)
-        if config_args.model.model_config.pet_config:
+        if pet_config:
             model.config.checkpoint_name_or_path = ckpt_cfg
-            model = get_pet_model(model, config_args.model.model_config.pet_config)
+            model = get_pet_model(model, pet_config)
         cls.default_checkpoint_download_path = model.default_checkpoint_download_path
 
         logger.info("model built successfully!")

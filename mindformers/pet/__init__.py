@@ -17,7 +17,7 @@
 from .models import *
 from .pet_config import *
 from .tuners import *
-from .pet_model import get_pet_model
+from .pet_model import get_pet_model, is_supported_pet_type
 
 __all__ = []
 __all__.extend(pet_config.__all__)

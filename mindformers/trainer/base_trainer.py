@@ -50,7 +50,7 @@ from mindformers.tools.logger import logger
 from mindformers.tools.utils import count_params, get_output_subpath
 from mindformers.tools.check_rules import check_rules
 from mindformers.auto_class import AutoModel
-from mindformers.pet import get_pet_model
+from mindformers.pet import get_pet_model, is_supported_pet_type
 from .config_args import ConfigArguments
 from .training_args import TrainingArguments
 from .utils import check_runner_config, transform_and_load_checkpoint, load_resume_context_from_checkpoint
@@ -370,12 +370,13 @@ class BaseTrainer:
         """Create the network for task trainer."""
         logger.info(".........Build Network From Config..........")
         ckpt_cfg = self.config.model.model_config.checkpoint_name_or_path
-        if self.config.model.model_config.pet_config:
+        pet_config = self.config.model.model_config.pet_config
+        if pet_config and is_supported_pet_type(pet_config.pet_type):
             self.config.model.model_config.checkpoint_name_or_path = None
         network = build_model(self.config.model, default_args=default_args)
-        if self.config.model.model_config.pet_config:
+        if pet_config:
             network.config.checkpoint_name_or_path = ckpt_cfg
-            network = get_pet_model(network, self.config.model.model_config.pet_config)
+            network = get_pet_model(network, pet_config)
         return network
 
     def wrap_network_with_tool_cells(self, network):
