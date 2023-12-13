@@ -319,10 +319,11 @@ class GPTEmbeddingLayer(nn.Cell):
         new_parallel_config = copy.deepcopy(parallel_config)
         new_parallel_config.vocab_emb_dp = True
 
-        self.position_embedding = VocabEmbedding(vocab_size=config.seq_length,
+        self.position_embedding = VocabEmbedding(vocab_size=config.max_position_embeddings,
                                                  embedding_size=config.hidden_size,
                                                  param_init=initializer('normal',
-                                                                        [config.seq_length, config.hidden_size],
+                                                                        [config.max_position_embeddings,
+                                                                         config.hidden_size],
                                                                         dtype=mstype.float32),
                                                  parallel_config=new_parallel_config.embedding_dp_mp_config)
         self.add = P.Add().shard(

@@ -105,6 +105,7 @@ class GPT2Config(BaseConfig):
                  bos_token_id: int = 50256,
                  unk_token_id: int = 50256,
                  seq_length: int = 1024,
+                 max_position_embeddings: int = None,
                  vocab_size: int = 50257,
                  hidden_size: int = 768,
                  num_layers: int = 12,
@@ -138,6 +139,9 @@ class GPT2Config(BaseConfig):
         self.bos_token_id = bos_token_id
         self.unk_token_id = unk_token_id
         self.seq_length = seq_length
+        self.max_position_embeddings = max_position_embeddings
+        if max_position_embeddings is None:
+            self.max_position_embeddings = seq_length
         self.vocab_size = vocab_size
         self.hidden_size = hidden_size
         self.num_layers = num_layers
