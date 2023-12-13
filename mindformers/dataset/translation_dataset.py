@@ -15,10 +15,12 @@
 """T5 Dataset."""
 import os
 import copy
+from typing import Optional, Union, Callable
 import numpy as np
 
 import mindspore.common.dtype as mstype
 from mindspore.dataset.transforms import TypeCast
+from mindspore.dataset import MindDataset
 
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.tools.logger import logger
@@ -33,12 +35,35 @@ class TranslationDataset(BaseDataset):
     """Translation dataset.
 
     Args:
-        dataset_config (dict): Config for dataset.
+        dataset_config (Optional[dict]): Config for dataset.
+        data_loader (Union[dict, Callable]): Config for data loader or a data loader object.
+        tokenizer (Union[dict, list]): Tokenizer configuration or object.
+        input_columns (list): Column name before the map function.
+        output_columns (list): Column name after the map function.
+        batch_size (int): Size of each batch. Default: 8.
+        drop_remainder (bool): Whether to discard the last batch when the number of data items contained
+            in the last batch is smaller than batch_size. Default: True.
+        num_parallel_workers (int): Specifies the number of concurrent processes or threads for map operations
+            to accelerate processing. Default: 8.
+        repeat (int): Number of times this dataset is repeated. Default: 1.
+        src_max_length (int): Maximum length of the source sequence.
+        tgt_max_length (int): Maximum length of the target sequence.
+        prefix (str): Prefix of prompt.
+        seed (int): Random seed number. Default: 0.
+        prefetch_size (int): Buffer queue size of each data processing operation in the pipeline. Default: 1.
+        numa_enable (bool): Indicates whether to use the NUMA binding function. Default: False.
+        auto_tune (bool): Indicates whether to enable automatic optimization of data processing parameters.
+            Default: False.
+        autotune_per_step (int): Specifies the interval for adjusting the configuration step of
+            automatic data acceleration. Default: 10.
+        filepath_prefix (str): Path for saving optimized parameter configurations. Default: './autotune'.
+        profile (bool): Whether to enable data collection. Default: False.
 
     Returns:
         A dataset for TranslationDataset.
 
     Examples:
+        >>> # 1) Create an instance using a MindFormerConfig.
         >>> from mindformers.tools.register import MindFormerConfig
         >>> from mindformers import MindFormerBook
         >>> from mindformers.dataset import TranslationDataset
@@ -54,14 +79,57 @@ class TranslationDataset(BaseDataset):
         >>> check_dataset_config(config)
         >>> # use class to build dataset
         >>> dataset_from_class = TranslationDataset(config.train_dataset_task.dataset_config)
+        >>>
+        >>> # 2) Creating an instance using other parameters.
+        >>> from mindformers.dataset import TranslationDataset, WMT16DataLoader
+        >>> from mindformers import AutoTokenizer
+        >>> data_loader = WMT16DataLoader(dataset_dir="The required task dataset path")
+        >>> tokenizer = AutoTokenizer.from_pretrained("t5_small")
+        >>> dataset_from_param = TranslationDataset(data_loader=data_loader, tokenizer=tokenizer,
+        ...                                         input_columns=['input_ids', 'attention_mask', 'labels'],
+        ...                                         output_columns=['input_ids', 'attention_mask', 'labels'],
+        ...                                         src_max_length=1024, tgt_max_length=128,
+        ...                                         prefix='translate the English to Romanian:')
     """
-    def __new__(cls, dataset_config: dict = None):
+
+    # pylint: disable=W0613
+    def __new__(cls,
+                dataset_config: Optional[dict] = None,
+                data_loader: Union[dict, Callable] = None,
+                tokenizer: Union[dict, Callable] = None,
+                input_columns: list = None,
+                output_columns: list = None,
+                batch_size: int = 8,
+                drop_remainder: bool = True,
+                num_parallel_workers: int = 8,
+                repeat: int = 1,
+                src_max_length: int = None,
+                tgt_max_length: int = None,
+                prefix: str = "",
+                seed: int = 0,
+                prefetch_size: int = 1,
+                numa_enable: bool = False,
+                auto_tune: bool = False,
+                filepath_prefix: str = './autotune',
+                autotune_per_step: int = 10,
+                profile: bool = False,
+                **kwargs):
         logger.info("Now Create Translation Dataset.")
+        dataset_config = cls.check_dataset_config(dataset_config, locals())
         cls.init_dataset_config(dataset_config)
-        if dataset_config.data_loader.type != 'MindDataset':
-            dataset = cls._process_raw_text_data(dataset_config)
+        cls.src_max_length = src_max_length
+        cls.tgt_max_length = tgt_max_length
+        cls.prefix = prefix
+
+        if isinstance(dataset_config.data_loader, dict):
+            if dataset_config.data_loader.type != 'MindDataset':
+                dataset = cls._process_raw_text_data(dataset_config)
+            else:
+                dataset = cls._process_mindrecord_data(dataset_config)
+        elif isinstance(dataset_config.data_loader, MindDataset):
+            dataset = dataset_config.data_loader
         else:
-            dataset = cls._process_mindrecord_data(dataset_config)
+            dataset = cls._tokenizer_map(dataset_config.data_loader, dataset_config.tokenizer)
 
         dataset = dataset.batch(dataset_config.batch_size,
                                 drop_remainder=dataset_config.drop_remainder,
@@ -75,10 +143,16 @@ class TranslationDataset(BaseDataset):
     @classmethod
     def _tokenizer_map(cls, dataset, tokenizer_config):
         """Maps the tokenizer on the source and the output"""
-        tokenizer = AutoTokenizer.from_pretrained(tokenizer_config.type)
-        prefix = tokenizer_config.prefix
-        src_max_length = tokenizer_config.src_max_length
-        tgt_max_length = tokenizer_config.tgt_max_length
+        if isinstance(tokenizer_config, dict):
+            tokenizer = AutoTokenizer.from_pretrained(tokenizer_config.type)
+            prefix = tokenizer_config.prefix if tokenizer_config.prefix else cls.prefix
+            src_max_length = tokenizer_config.src_max_length if tokenizer_config.src_max_length else cls.src_max_length
+            tgt_max_length = tokenizer_config.tgt_max_length if tokenizer_config.tgt_max_length else cls.tgt_max_length
+        else:
+            tokenizer = tokenizer_config
+            prefix = cls.prefix
+            src_max_length = cls.src_max_length
+            tgt_max_length = cls.tgt_max_length
 
         logger.info("Start tokenize on the dataset using tokenizer: %s", tokenizer_config)
         def pad_max_function(src, tgt):

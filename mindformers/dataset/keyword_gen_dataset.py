@@ -15,10 +15,12 @@
 """Keyword Generation Dataset."""
 import copy
 import os
+from typing import Optional, Union, Callable
 
+import numpy as np
 import mindspore.common.dtype as mstype
 from mindspore.dataset.transforms import TypeCast
-import numpy as np
+from mindspore.dataset import MindDataset
 
 from mindformers.models.base_tokenizer import BaseTokenizer
 from mindformers.dataset.base_dataset import BaseDataset
@@ -35,12 +37,37 @@ class KeyWordGenDataset(BaseDataset):
     Keyword generation dataset.
 
     Args:
-        dataset_config (dict): Config for dataset.
+        dataset_config (Optional[dict]): Config for dataset.
+        data_loader (Union[dict, Callable]): Config for data loader or a data loader object.
+        tokenizer (Union[dict, list]): Tokenizer configuration or object.
+        input_columns (list): Column name before the map function.
+        batch_size (int): Size of each batch. Default: 8.
+        drop_remainder (bool): Whether to discard the last batch when the number of data items contained
+            in the last batch is smaller than batch_size. Default: True.
+        num_parallel_workers (int): Specifies the number of concurrent processes or threads for map operations
+            to accelerate processing. Default: 8.
+        repeat (int): Number of times this dataset is repeated. Default: 1.
+        ignore_pad_token_for_loss (bool): Whether ignore pad token for loss. Default: True.
+        max_source_length (int): Maximum length of the source sequence.
+        max_target_length (int): Maximum length of the target sequence.
+        phase (int): Phase of a task, which can be 'train' or 'eval'. Default: 'train'.
+        version (int): Version of the map function. Version of the map function. The value can be 1 or 2. Default: 1.
+        seed (int): Random seed number. Default: 0.
+        prefetch_size (int): Buffer queue size of each data processing operation in the pipeline. Default: 1.
+        numa_enable (bool): Indicates whether to use the NUMA binding function. Default: False.
+        auto_tune (bool): Indicates whether to enable automatic optimization of data processing parameters.
+            Default: False.
+        autotune_per_step (int): Specifies the interval for adjusting the configuration step of
+            automatic data acceleration. Default: 10.
+        filepath_prefix (str): Path for saving optimized parameter configurations. Default: './autotune'.
+        profile (bool): Whether to enable data collection. Default: False.
+
 
     Returns:
         A dataset for KeyWordGenDataset.
 
     Examples:
+        >>> # 1) Create an instance using a MindFormerConfig.
         >>> from mindformers.dataset.dataloader.adgen_dataloader import ADGenDataLoader
         >>> from mindformers.tools.register import MindFormerConfig
         >>> from mindformers import MindFormerBook
@@ -57,18 +84,59 @@ class KeyWordGenDataset(BaseDataset):
         >>> check_dataset_config(config)
         >>> # use class to build dataset
         >>> dataset_from_class = KeyWordGenDataset(config.train_dataset_task.dataset_config)
+        >>>
+        >>> # 2) Creating an instance using other parameters.
+        >>> from mindformers.dataset import KeyWordGenDataset, ADGenDataLoader
+        >>> from mindformers import AutoTokenizer
+        >>> data_loader = ADGenDataLoader(dataset_dir="The required task dataset path", shuffle=True, phase='train',
+        ...                               origin_columns=['content', 'summary'])
+        >>> tokenizer = AutoTokenizer.from_pretrained('glm_6b')
+        >>> dataset_from_param = KeyWordGenDataset(data_loader=data_loader, tokenizer=tokenizer,
+        ...                                        input_columns=['input_ids', 'labels',
+        ...                                                       'position_ids', 'attention_mask'],
+        ...                                        max_source_length=64, max_target_length=64,
+        ...                                        ignore_pad_token_for_loss=True, phase='train', batch_size=1)
     """
 
-    def __new__(cls, dataset_config: dict = None):
+    # pylint: disable=W0613
+    def __new__(cls,
+                dataset_config: Optional[dict] = None,
+                data_loader: Union[dict, Callable] = None,
+                tokenizer: Union[dict, Callable] = None,
+                input_columns: list = None,
+                batch_size: int = 8,
+                drop_remainder: bool = True,
+                num_parallel_workers: int = 8,
+                repeat: int = 1,
+                ignore_pad_token_for_loss: bool = True,
+                max_source_length: int = None,
+                max_target_length: int = None,
+                phase: str = 'train',
+                version: int = 1,
+                seed: int = 0,
+                prefetch_size: int = 1,
+                numa_enable: bool = False,
+                auto_tune: bool = False,
+                filepath_prefix: str = './autotune',
+                autotune_per_step: int = 10,
+                profile: bool = False,
+                **kwargs):
         logger.info("Now Create Keyword Generation Dataset.")
+        dataset_config = cls.check_dataset_config(dataset_config, locals())
         cls.init_dataset_config(dataset_config)
         rank_id, device_num = cls._generate_shard_info()
         dataset_config.rank_id = rank_id
         dataset_config.device_num = device_num
-        if dataset_config.data_loader.type != 'MindDataset':
-            dataset = cls._process_raw_text_data(dataset_config)
+
+        if isinstance(dataset_config.data_loader, dict):
+            if dataset_config.data_loader.type != 'MindDataset':
+                dataset = cls._process_raw_text_data(dataset_config)
+            else:
+                dataset = cls._process_mindrecord_data(dataset_config)
+        elif isinstance(dataset_config.data_loader, MindDataset):
+            dataset = dataset_config.data_loader
         else:
-            dataset = cls._process_mindrecord_data(dataset_config)
+            dataset = cls._tokenizer_map(dataset_config.data_loader, dataset_config)
 
         dataset = dataset.batch(dataset_config.batch_size,
                                 drop_remainder=dataset_config.drop_remainder,
@@ -82,9 +150,12 @@ class KeyWordGenDataset(BaseDataset):
     @classmethod
     def _tokenizer_map(cls, dataset, dataset_config):
         """Maps the tokenizer on the source and the output"""
-
-        phase = dataset_config.data_loader.phase
-        version = dataset_config.data_loader.version if dataset_config.data_loader.version else 1
+        if isinstance(dataset_config.data_loader, dict):
+            phase = dataset_config.data_loader.phase
+            version = dataset_config.data_loader.version if dataset_config.data_loader.version else 1
+        else:
+            phase = dataset_config.phase
+            version = dataset_config.version
 
         if isinstance(dataset_config.tokenizer, BaseTokenizer):
             tokenizer = dataset_config.tokenizer

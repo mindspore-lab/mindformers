@@ -15,7 +15,6 @@
 """DataReaders."""
 import re
 import json
-from pyarrow.lib import Table
 
 
 def squad_reader(path):
@@ -33,7 +32,7 @@ def squad_reader(path):
                         f"### Instruction:\n{passage}\n\n### Input:\n{query}\n\n### Response:"
             sources.append(input_str)
             targets.append(answer)
-    return Table.from_pydict({"sources": sources, "targets": targets})
+    return dict(sources=sources, targets=targets)
 
 
 def cmrc2018_reader(path):
@@ -51,7 +50,7 @@ def cmrc2018_reader(path):
             input_str = f"阅读文章：{context_}\n问：{query}\n答："
             prompts.append(input_str)
             answers.append(answer)
-    return Table.from_pydict({"prompts": prompts, "answers": answers})
+    return dict(prompts=prompts, answers=answers)
 
 
 def agnews_reader(path):
@@ -68,7 +67,7 @@ def agnews_reader(path):
             label = label.strip("\"")
             sentences.append(sentence.strip("\""))
             labels.append(int(label) - 1)
-    return Table.from_pydict({"sentence": sentences, "label": labels})
+    return dict(sentence=sentences, label=labels)
 
 
 def wikitext_reader(path):
@@ -137,7 +136,7 @@ def wikitext_reader(path):
     dataset_valid = preprocess_data(path)
     text_total = "\n".join(dataset_valid)
     sentence = text_total.strip().split("\t")
-    return Table.from_pydict({"sentence": sentence})
+    return dict(sentence=sentence)
 
 
 _DATA_READER_MAP = {

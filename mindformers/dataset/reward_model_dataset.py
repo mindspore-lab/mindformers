@@ -16,9 +16,11 @@
 import os
 import copy
 import re
+from typing import Optional, Union, Callable
 import numpy as np
 import mindspore.common.dtype as mstype
 from mindspore.dataset.transforms import TypeCast
+from mindspore.dataset import MindDataset, TFRecordDataset
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.tools.logger import logger
 from mindformers.version_control import get_dataset_map
@@ -53,12 +55,32 @@ class RewardModelDataset(BaseDataset):
     """Reward Model dataset.
 
     Args:
-        dataset_config (dict): Config for dataset.
+        dataset_config (Optional[dict]): Config for dataset.
+        data_loader (Union[dict, Callable]): Config for data loader or a data loader object.
+        tokenizer (Union[dict, list]): Tokenizer configuration or object.
+        max_length (int): Maximum length of a token.
+        input_columns (list): Column name before the map function.
+        output_columns (list): Column name after the map function.
+        batch_size (int): Size of each batch. Default: 8.
+        drop_remainder (bool): Whether to discard the last batch when the number of data items contained
+            in the last batch is smaller than batch_size. Default: True.
+        repeat (int): Number of times this dataset is repeated. Default: 1.
+        pad_token_id (int): Indicates the token id of the pad.
+        seed (int): Random seed number. Default: 0.
+        prefetch_size (int): Buffer queue size of each data processing operation in the pipeline. Default: 1.
+        numa_enable (bool): Indicates whether to use the NUMA binding function. Default: False.
+        auto_tune (bool): Indicates whether to enable automatic optimization of data processing parameters.
+            Default: False.
+        autotune_per_step (int): Specifies the interval for adjusting the configuration step of
+            automatic data acceleration. Default: 10.
+        filepath_prefix (str): Path for saving optimized parameter configurations. Default: './autotune'.
+        profile (bool): Whether to enable data collection. Default: False.
 
     Returns:
         A dataset for RewardModelDataset.
 
     Examples:
+        >>> # 1) Create an instance using a MindFormerConfig.
         >>> from mindformers.tools.register import MindFormerConfig
         >>> from mindformers.dataset import RewardModelDataset
         >>> from mindformers.dataset import build_dataset, check_dataset_config
@@ -72,21 +94,59 @@ class RewardModelDataset(BaseDataset):
         >>> check_dataset_config(config)
         >>> # use class to build dataset
         >>> dataset_from_class = RewardModelDataset(config.train_dataset_task.dataset_config)
+        >>>
+        >>> # 2) Creating an instance using other parameters.
+        >>> from mindspore.dataset import MindDataset
+        >>> from mindformers.dataset import RewardModelDataset
+        >>> data_loader = MindDataset(dataset_files="The required task dataset path", shuffle=True)
+        >>> dataset_from_param = RewardModelDataset(data_loader=data_loader,
+        ...                                         input_columns=['chosen_input_ids', 'chosen_attention_mask',
+        ...                                                        'rejected_input_ids', 'rejected_attention_mask',
+        ...                                                        'position_id', 'loss_mask', 'end_ind'],
+        ...                                         output_columns=['input_ids', 'position_id', 'attention_mask',
+        ...                                                         'loss_mask', 'end_ind'],
+        ...                                         pad_token_id=2)
     """
-    def __new__(cls, dataset_config: dict = None):
+
+    # pylint: disable=W0613
+    def __new__(cls,
+                dataset_config: Optional[dict] = None,
+                data_loader: Union[dict, Callable] = None,
+                tokenizer: Union[dict, Callable] = None,
+                max_length: int = None,
+                input_columns: list = None,
+                output_columns: list = None,
+                batch_size: int = 8,
+                drop_remainder: bool = True,
+                repeat: int = 1,
+                pad_token_id: int = None,
+                seed: int = 0,
+                prefetch_size: int = 1,
+                numa_enable: bool = False,
+                auto_tune: bool = False,
+                filepath_prefix: str = './autotune',
+                autotune_per_step: int = 10,
+                profile: bool = False,
+                **kwargs):
         logger.info("Now Create Reward Model Dataset.")
-        print("dataset_config", dataset_config)
+        dataset_config = cls.check_dataset_config(dataset_config, locals())
         dataset_config = copy.deepcopy(dataset_config)
         cls.init_dataset_config(dataset_config)
         logger.info("Now Create Reward Model Dataset1.")
         rank_id, device_num = cls._generate_shard_info()
         dataset_config.rank_id = rank_id
         dataset_config.device_num = device_num
-        if dataset_config.data_loader.type != "MindDataset" and \
-                dataset_config.data_loader.type != "TFRecordDataset":
-            dataset = cls._process_raw_text_data(dataset_config)
+        cls.max_length = max_length
+        if isinstance(dataset_config.data_loader, dict):
+            if dataset_config.data_loader.type != "MindDataset" and \
+                    dataset_config.data_loader.type != "TFRecordDataset":
+                dataset = cls._process_raw_text_data(dataset_config)
+            else:
+                dataset = cls._process_mindrecord_data(dataset_config)
+        elif isinstance(dataset_config.data_loader, (MindDataset, TFRecordDataset)):
+            dataset = dataset_config.data_loader
         else:
-            dataset = cls._process_mindrecord_data(dataset_config)
+            dataset = cls._prepare_for_model(dataset_config.data_loader, dataset_config)
         logger.info("Now Create Reward Model Dataset1.5")
         if cls._is_semi_full_batch() or cls._is_data_parallel():
             rank_id = 0
@@ -131,8 +191,12 @@ class RewardModelDataset(BaseDataset):
     def _prepare_for_model(cls, dataset, dataset_config):
         """Preprocess data for gpt2 model"""
         tokenizer_config = dataset_config.tokenizer
-        tokenizer = build_tokenizer(tokenizer_config)
-        max_length = tokenizer_config.max_length
+        if isinstance(dataset_config.tokenizer, dict):
+            tokenizer = build_tokenizer(tokenizer_config)
+            max_length = tokenizer_config.max_length if tokenizer_config.max_length else cls.max_length
+        else:
+            tokenizer = tokenizer_config
+            max_length = cls.max_length
 
         def map_func(input_data):
             input_data = input_data.tolist()
