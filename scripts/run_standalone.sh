@@ -39,15 +39,12 @@ exit 1
 fi
 
 output_dir=$(cat $CONFIG_FILE | grep output_dir)
+output_dir=$(echo "$output_dir" | awk '{print $2}')
 if [ ! -n "$output_dir" ]; then
   echo "Error: No output_dir in $CONFIG_FILE"
   exit 1
 fi
-if [[ ! $output_dir =~ "'" ]]&&[[ ! $output_dir =~ "\"" ]]; then
-  echo "Error: Please use ' or \" to enclose output_dir, e.g., '/home/output'. But get $output_dir"
-  echo "The default value of output_dir should be './output'. Replace it with an absolute path if you want to customize it."
-  exit 1
-elif [[ $output_dir =~ "'" ]]; then
+if [[ $output_dir =~ "'" ]]; then
   output_dir=${output_dir#*\'}
   output_dir=${output_dir%\'*}
 else
