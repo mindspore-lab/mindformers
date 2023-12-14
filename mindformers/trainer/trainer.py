@@ -255,8 +255,8 @@ class Trainer:
         current_config_path = os.path.join(os.getcwd(), relative_config_path)
         if os.path.exists(current_config_path):
             default_config_path = current_config_path
-        logger.info(f"Load configs in {default_config_path} to build trainer.")
-        task_config = MindFormerConfig(default_config_path)
+        config_path = default_config_path
+        task_config = MindFormerConfig(config_path)
 
         if self.model_name == "common":
             if self.model is not None:
@@ -267,14 +267,16 @@ class Trainer:
         if args is None:
             self.config = task_config
         else:
-            if isinstance(args, dict):
-                task_config.merge_from_dict(args)
+            if isinstance(args, MindFormerConfig):
+                config_path = None
+                task_config = args
             elif isinstance(args, str):
                 assert os.path.realpath(args) and os.path.exists(args), \
                     f"config path must be exist, but get {args}."
                 assert args.endswith(('.yaml', '.yml')), \
                     f"config file must be end with .yaml or .yml, but get {args}"
-                task_config = MindFormerConfig(args)
+                config_path = args
+                task_config = MindFormerConfig(config_path)
             elif isinstance(args, ConfigArguments):
                 if hasattr(args, 'train_dataset'):
                     check_train_data_loader_type(args, task_config)
@@ -292,6 +294,9 @@ class Trainer:
                 args.convert_args_to_mindformers_config(task_config)
 
             self.config = task_config
+
+        if config_path:
+            logger.info(f"Load configs in {config_path} to build trainer.")
 
         self._config_type_check(self.config)
 
