@@ -264,7 +264,6 @@ print(response)
 ```
 
 **注：快速使用仅限单卡，该示例支持6B模型。**
-**注：多卡请参考[基于generate的推理](#基于generate的推理)。**
 
 ### 基于Trainer的快速训练，微调，评测，推理
 
@@ -485,7 +484,7 @@ bash run_distribute.sh {RANK_TABLE_FILE path of the second device} ../configs/co
 
 ### 基于pipeline的推理
 
-以下为基于pipeline接口的自定义推理脚本，支持多卡多batch推理。
+以下为基于pipeline接口的自定义推理脚本，支持多batch推理。
 
 ```python
 # predict_custom.py 文件
@@ -550,7 +549,7 @@ def main(use_parallel=False,
 
         # shard codegeex2 and load sharded ckpt
         model = Model(network)
-        model.infer_predict_layout(ms.Tensor(np.ones(shape=(1, model_config.seq_length)), ms.int32))
+        model.infer_predict_layout(ms.Tensor(np.ones(shape=(model_config.batch_size, model_config.seq_length)), ms.int32))
         checkpoint_dict = load_checkpoint(ckpt_path)
         not_load_network_params = load_param_into_net(model, checkpoint_dict)
         print("Network parameters are not loaded: %s", str(not_load_network_params))
@@ -579,60 +578,15 @@ if __name__ == "__main__":
          args.use_past)
 ```
 
-以下为多卡运行自定义多batch推理的脚本
-
-```bash
-# >>> `run_predict.sh`文件
-CHECKPOINT_PATH=$2
-export RANK_TABLE_FILE=$1
-
-# define variable
-export RANK_SIZE=8
-export START_RANK=0 # this server start rank
-export END_RANK=8 # this server end rank
-
-# run
-for((i=${START_RANK}; i<${END_RANK}; i++))
-do
-    export RANK_ID=$i
-    export DEVICE_ID=$((i-START_RANK))
-    echo "Start distribute running for rank $RANK_ID, device $DEVICE_ID"
-    python3 ./predict_custom.py --use_parallel True --checkpoint_path CHECKPOINT_PATH &> minformers_$RANK_ID.log &
-done
-```
-
 #### 单卡pipeline推理
 
 ```bash
 python predict_custom.py
 ```
 
-#### 多卡pipeline推理
-
-- 修改yaml文件中分布式配置及并行模式，参考[模型权重切分与合并](../feature_cards/Transform_Ckpt.md)进行离线权重切分。**注**：推理暂不支持流水线并行
-
-- 将上述`predict_custom.py`中的分布式配置更改为预期的分布式配置
-
-```python
-model_config.parallel_config.data_parallel = 1
-model_config.parallel_config.model_parallel = 1
-```
-
-- 配置上述sh脚本中的卡数设置，默认是0-8卡
-
-```text
-export RANK_SIZE=8  # 总卡数
-export START_RANK=0 # 起始卡序号
-export END_RANK=8   # 结束卡序号
-```
-
-```bash
-bash run_predict.sh RANK_TABLE_FILE path/to/codegeex2_6b_shard_checkpoint_dir
-```
-
 ### 基于generate的推理
 
-以下为基于model.generate接口的自定义推理脚本，支持多卡多batch推理。
+以下为基于model.generate接口的自定义推理脚本，支持多batch推理。
 
 ```python
 # predict_custom.py 文件
@@ -698,7 +652,7 @@ def main(use_parallel=False,
 
         # shard codegeex2 and load sharded ckpt
         model = Model(model)
-        model.infer_predict_layout(ms.Tensor(np.ones(shape=(1, model_config.seq_length)), ms.int32))
+        model.infer_predict_layout(ms.Tensor(np.ones(shape=(model_config.batch_size, model_config.seq_length)), ms.int32))
         checkpoint_dict = load_checkpoint(ckpt_path)
         not_load_network_params = load_param_into_net(model, checkpoint_dict)
         print("Network parameters are not loaded: %s", str(not_load_network_params))
@@ -727,55 +681,10 @@ if __name__ == "__main__":
          args.use_past)
 ```
 
-以下为多卡运行自定义多batch推理的脚本
-
-```bash
-# >>> `run_predict.sh`文件
-CHECKPOINT_PATH=$2
-export RANK_TABLE_FILE=$1
-
-# define variable
-export RANK_SIZE=8
-export START_RANK=0 # this server start rank
-export END_RANK=8 # this server end rank
-
-# run
-for((i=${START_RANK}; i<${END_RANK}; i++))
-do
-    export RANK_ID=$i
-    export DEVICE_ID=$((i-START_RANK))
-    echo "Start distribute running for rank $RANK_ID, device $DEVICE_ID"
-    python3 ./predict_custom.py --use_parallel True --checkpoint_path CHECKPOINT_PATH &> minformers_$RANK_ID.log &
-done
-```
-
 #### 单卡generate推理
 
 ```bash
 python predict_custom.py
-```
-
-#### 多卡generate推理
-
-- 修改yaml文件中分布式配置及并行模式，参考[模型权重切分与合并](../feature_cards/Transform_Ckpt.md)进行离线权重切分。**注**：推理暂不支持流水线并行
-
-- 将上述`predict_custom.py`中的分布式配置更改为预期的分布式配置
-
-```python
-model_config.parallel_config.data_parallel = 1
-model_config.parallel_config.model_parallel = 1
-```
-
-- 配置上述sh脚本中的卡数设置，默认是0-8卡
-
-```text
-export RANK_SIZE=8  # 总卡数
-export START_RANK=0 # 起始卡序号
-export END_RANK=8   # 结束卡序号
-```
-
-```bash
-bash run_predict.sh RANK_TABLE_FILE path/to/codegeex2_6b_shard_checkpoint_dir
 ```
 
 ### 脚本启动
