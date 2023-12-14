@@ -128,7 +128,66 @@ class InferConfig(BaseConfig):
 
 ### 模型导出（增量推理为例）
 
-#### 方式1：针对Configs下已支持模型的导出方式（以bloom_560m为例）
+#### 方式1：调用run_mindformers
+
+step1. 修改配置文件中参数，设置run_mindformers使用“export”模式
+
+```yaml
+run_mode: "export"
+load_checkpoint: "/path/of/ckpt"
+src_strategy_path_or_dir: "/path/of/strategy"
+model:
+  model_config:
+    use_past: True
+```
+
+step2. 启动run_mindformers.py（与训练和推理相同）
+
+```shell
+python run_mindformers.py
+```
+
+step3. 运行结束后，在output/mindir_full_ckeckpoint以及output/mindir_inc_checkpoint路径下找到导出的全量和增量mindir文件
+
+#### 方式2：实例化Trainer.export方法做导出
+
+```shell
+from mindformers import Trainer, TrainingArguments
+from mindspore.dataset import GeneratorDataset
+from mindformers.models.llama.llama import LlamaForCausalLM
+from mindformers.models.llama.llama_config import LlamaConfig
+from numpy as np
+import mindspore as ms
+
+def generator_train():
+  seq_len = 513
+  input_ids = np.random.randint(low=0, high=15, size=(seq_len,)).astype(np.int32)
+  train_data = (input_ids)
+  for _ in range(16):
+    yield train_data
+
+def generator_eval():
+  seq_len = 512
+  input_ids = np.random.randint(low=0, high=15, size=(seq_len,)).astype(np.int32)
+  eval_data = (input_ids)
+  for _ in range(16):
+    yield eval_data
+
+training_args = TrainingArguments(num_train_epochs=1, batch_size=2)
+train_dataset = GeneratorDataset(generator_train, column_name=["input_ids"])
+eval_dataset = GeneratorDataset(generator_eval, column_name=["input_ids"])
+train_dataset = train_dataset.batch(batch_size=4)
+eval_dataset = eval_dataset.batch(batch_size=4)
+model_config = LlamaConfig(num_layers=2, hidden_size=32, num_heads=2, seq_length=512)
+model = LlamaForCausalLM(model_config)
+
+task = Trainer(task='text_generation',
+               model=model,
+               args=training_args)
+task.export()
+```
+
+#### 方式3：针对Configs下已支持模型的导出方式（以bloom_560m为例）
 
 step1. 修改配置文件，在配置文件中新增infer配置项，在run_bloom_560m.yaml中添加如下配置
 
@@ -154,7 +213,7 @@ step2.执行export.py，完成模型转换
 python mindformers/tools/export.py --config_path ../../configs/bloom/run_bloom_560m.yaml
 ```
 
-#### 方式2：针对research或者用户自定义模型的导出方式
+#### 方式4：针对research或者用户自定义模型的导出方式
 
 step1. 准备好模型相关的配置文件、权重文件放置在一个文件夹
 
