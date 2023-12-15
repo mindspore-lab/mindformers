@@ -44,6 +44,7 @@ def pipeline_from_model_paths(args_, tokenizer):
         ge_config_path=args_.config_path,
         device_id=args_.device_id,
         infer_seq_length=args_.seq_length,
+        dynamic=args_.dynamic,
         rank_id=args_.rank_id,
     )
     return lite_pipeline
@@ -59,6 +60,7 @@ def pipeline_from_model_name(args_, tokenizer):
         ge_config_path=args_.config_path,
         device_id=args_.device_id,
         infer_seq_length=args_.seq_length,
+        dynamic=args_.dynamic,
         rank_id=args_.rank_id,
     )
     return lite_pipeline
@@ -75,6 +77,7 @@ def pipeline_from_model_dir(args_, tokenizer):
         ge_config_path=args_.config_path,
         device_id=args_.device_id,
         infer_seq_length=args_.seq_length,
+        dynamic=args_.dynamic,
         rank_id=args_.rank_id,
     )
     return lite_pipeline
@@ -90,6 +93,7 @@ def pipeline_from_infer_config(args_, tokenizer):
         ge_config_path=args_.config_path,
         device_id=args_.device_id,
         infer_seq_length=args_.seq_length,
+        dynamic=args_.dynamic,
         rank_id=args_.rank_id,
     )
     lite_pipeline = InferTask.get_infer_task("text_generation", lite_config, tokenizer=tokenizer)
@@ -272,6 +276,10 @@ if __name__ == "__main__":
         '--prompt', default=None, type=str,
         help="The content of prompt."
              "Default: None")
+    parser.add_argument(
+        '--dynamic', default=False, type=str2bool,
+        help="Whether use dynamic inference."
+             "Default: False")
 
     args = parser.parse_args()
     if args.stream:

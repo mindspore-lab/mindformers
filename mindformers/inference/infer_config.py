@@ -48,6 +48,7 @@ class InferConfig(BaseConfig):
                  device_id: int = 0,
                  rank_id: int = 0,
                  ge_config_path: str = "",
+                 dynamic: bool = False,
                  **kwargs):
         super(InferConfig, self).__init__(**kwargs)
         self.prefill_model_path = prefill_model_path
@@ -59,3 +60,4 @@ class InferConfig(BaseConfig):
         self.device_id = device_id
         self.rank_id = rank_id
         self.config_path = ge_config_path
+        self.dynamic = dynamic

@@ -21,6 +21,7 @@ from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from ..utils import convert_mstype
 from ..base_config import BaseConfig
 from ...mindformer_book import MindFormerBook
+from ...tools.logger import logger
 
 __all__ = ['LlamaConfig']
 
@@ -116,12 +117,17 @@ class LlamaConfig(BaseConfig):
                  param_init_type: str = "float16",
                  parallel_config: TransformerOpParallelConfig = default_transformer_config,
                  use_past: bool = False,
-                 pretrain_seqlen: int = 2048,
+                 pretrain_seqlen=None,
+                 compute_in_2d=None,
+                 use_past_shard=None,
                  extend_method: str = "None",
-                 compute_in_2d: bool = False,
+                 scaling_factor: float = 1.0,
+                 is_dynamic: bool = False,
+                 use_kvcache_op: bool = False,
+                 is_flexible_shape: bool = False,
+                 use_rope_slice: bool = False,
                  use_flash_attention: bool = False,
                  offset: int = 0,
-                 use_past_shard: bool = False,
                  checkpoint_name_or_path: str = "",
                  repetition_penalty: float = 1.0,
                  max_decode_length: int = 1024,
@@ -152,12 +158,23 @@ class LlamaConfig(BaseConfig):
         self.pad_token_id = pad_token_id
         self.ignore_token_id = ignore_token_id
         self.use_past = use_past
-        self.pretrain_seqlen = pretrain_seqlen
+        if pretrain_seqlen is not None:
+            self.pretrain_seqlen = pretrain_seqlen
+            logger.warning(f"Argument `pretrain_seqlen` is deprecated. Use `scaling_factor` instead.")
+        if compute_in_2d is not None:
+            self.compute_in_2d = compute_in_2d
+            logger.warning(f"Argument `compute_in_2d` is deprecated.")
+        if use_past_shard is not None:
+            self.use_past_shard = use_past_shard
+            logger.warning(f"Argument `use_past_shard` is deprecated.")
         self.extend_method = extend_method
-        self.compute_in_2d = compute_in_2d
+        self.scaling_factor = scaling_factor
+        self.is_dynamic = is_dynamic
+        self.use_kvcache_op = use_kvcache_op
+        self.is_flexible_shape = is_flexible_shape
+        self.use_rope_slice = use_rope_slice
         self.use_flash_attention = use_flash_attention
         self.offset = offset
-        self.use_past_shard = use_past_shard
         self.repetition_penalty = repetition_penalty
         self.max_decode_length = max_decode_length
         self.top_k = top_k

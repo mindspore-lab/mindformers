@@ -45,44 +45,36 @@ class LlamaModelForBlip2(LlamaModel):
         super().__init__(config)
 
     # pylint: disable=W0221
-    def construct(self, input_embeddings: Tensor,
-                  input_attention_masks: Tensor,
-                  input_position=None,
-                  init_reset=True,
-                  batch_valid_length=None):
+    def construct(self, input_embeddings: Tensor, batch_valid_length=None):
 
         bs, seq_len, _ = input_embeddings.shape
-        if self.use_past:
-            if not isinstance(init_reset, Tensor):
-                init_reset = Tensor([init_reset], mstype.bool_)
-            if not isinstance(batch_valid_length, Tensor):
-                batch_valid_length = self.ones((bs, 1), mstype.int32)
-
-        if self.is_first_iteration:
-            freqs_cis = (self.tile(self.reshape(self.freqs_cos, (1, 1, seq_len, -1)), (bs, 1, 1, 1)),
-                         self.tile(self.reshape(self.freqs_sin, (1, 1, seq_len, -1)), (bs, 1, 1, 1)),
-                         self.swap_mask)
-            mask = self.get_attention_mask(input_attention_masks)
-            # mask: [bs, seq, seq]
+        if not self.use_past:
+            freqs_cis = self.freqs_mgr()
+            mask = self.casual_mask(input_embeddings) # mask: [bs, seq, seq]
+            mask = self.casual_mask.post_process(mask)
+            kvcache_inputs = None
         else:
-            cur_pos = batch_valid_length - 1
-            valid_length = self.reshape(cur_pos, (-1, 1, 1))
-            freqs_cis = (self.reshape(self.gather_past(self.freqs_cos, cur_pos, 0), (bs, 1, seq_len, -1)),
-                         self.reshape(self.gather_past(self.freqs_sin, cur_pos, 0), (bs, 1, seq_len, -1)),
-                         self.swap_mask)
-            mask = self.cast(self.le_past(self.range, valid_length), self.dtype)
-            # mask: [bs, 1, 1]
+            if self.is_first_iteration:
+                freqs_cis = self.freqs_mgr(bs, seq_len)
+                mask = self.casual_mask(input_embeddings) # mask: [bs, seq, seq]
+            else:
+                freqs_cis = self.freqs_mgr.increment(batch_valid_length, bs)
+                if self.is_dynamic and self.is_flexible_shape and not self.use_kvcache_op:
+                    mask = self.casual_mask.increment_slice(self.kvcache_preprocess.range,
+                                                            self.kvcache_preprocess.max_cache_length // bs,
+                                                            batch_valid_length)
+                else:
+                    mask = self.casual_mask.increment(self.kvcache_preprocess.range, batch_valid_length)
+            mask = self.casual_mask.post_process(mask)
 
-        mask = self.sub(self.one, self.cast(mask, self.dtype))
-        if not self.use_flash_attention:
-            mask = self.expand_dims(mask, 1)
-            mask = self.mul_mask(mask, self.multiply_data)
+            kvcache_inputs = self.kvcache_preprocess(bs, batch_valid_length)
 
+        # tokens: [bs, seq/1]
         h = input_embeddings
+        h = self.reshape(h, (bs, seq_len, self.hidden_size))
         # h: [bs, seq/1, hidden_dim]
         for i in range(self.num_layers):
-            h, _ = self.layers[i](h, freqs_cis, mask,
-                                  init_reset=init_reset, batch_valid_length=batch_valid_length)
+            h = self.layers[i](h, freqs_cis, mask, kvcache_inputs=kvcache_inputs)
         output = self.norm_out(h)
         return output
 

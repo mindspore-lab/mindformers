@@ -42,9 +42,9 @@ from mindformers.tools.logger import _LogActionOnce
 from mindformers.tools.register.register import MindFormerModuleType, MindFormerRegister
 from mindformers.models.utils import cell_reuse
 from mindformers.modules.transformer import TransformerOpParallelConfig
-from mindformers.models.llama.llama_layer import LlamaEmbedding
+from mindformers.models.llama.llama_layer import LlamaEmbedding, CausalMask, FreqsMgr
 from mindformers.models.llama.llama_transformer import LLamaDecodeLayer
-
+from mindformers.modules import KVCachePreprocess
 
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
 class QwenForCausalLM(BaseModel):
@@ -125,10 +125,14 @@ class QwenModel(BaseModel):
         self.vocab_size = config.vocab_size
         self.num_hidden_layers = config.num_hidden_layers
         self.embed_dim = config.hidden_size
+        self.head_dim = config.hidden_size // config.num_heads
         self.seq_length = config.seq_length
         self.pad_token_id = config.pad_token_id
         self.num_attention_heads = config.num_attention_heads
         self.use_past = config.use_past
+        self.is_dynamic = config.is_dynamic
+        self.use_kvcache_op = config.use_kvcache_op
+        self.is_flexible_shape = config.is_flexible_shape
 
         self.is_first_iteration = True
         self.use_flash_attention = config.use_flash_attention and FLASHATTENTION_VALID
@@ -168,14 +172,25 @@ class QwenModel(BaseModel):
 
             self.layers.append(layer)
 
-        from mindformers.modules.transformer.transformer import AttentionMask
-        self.get_attention_mask = AttentionMask(
-            config.seq_length, parallel_config=config.parallel_config.dp_mp_config).to_float(config.compute_dtype)
-
-        from mindformers.models.llama.llama_layer import precompute_freqs_cis
-        self.freqs_cos, self.freqs_sin, self.swap_mask = precompute_freqs_cis(
-            config.hidden_size // config.num_attention_heads, config.seq_length)
-
+        self.freqs_mgr = FreqsMgr(batch_size=config.batch_size,
+                                  seq_length=config.seq_length,
+                                  head_dim=self.head_dim,
+                                  max_position_embedding=config.seq_length,
+                                  rotary_dtype=config.rotary_dtype,
+                                  theta=config.theta,
+                                  scaling_factor=config.scaling_factor,
+                                  extend_method=config.extend_method,
+                                  is_dynamic=config.is_dynamic)
+        self.casual_mask = CausalMask(seq_length=config.seq_length,
+                                      compute_type=config.compute_dtype,
+                                      is_dynamic=config.is_dynamic,
+                                      pad_token_id=config.pad_token_id,
+                                      use_flash_attention=config.use_flash_attention)
+        self.kvcache_preprocess = KVCachePreprocess(max_batch_size=config.batch_size,
+                                                    max_seq_length=config.seq_length,
+                                                    is_dynamic=config.is_dynamic,
+                                                    use_kvcache_op=config.use_kvcache_op,
+                                                    is_flexible_shape=config.is_flexible_shape)
         # 5. ln_f
         from mindformers.models.llama.llama_layer import LlamaRMSNorm
         self.ln_f = LlamaRMSNorm(
@@ -204,6 +219,7 @@ class QwenModel(BaseModel):
             self.expand_dims = P.ExpandDims()
             self.le_past = P.LessEqual()
 
+    # pylint: disable=W0613
     def construct(self, input_ids: Tensor, init_reset=True, batch_valid_length=None):
         """construct"""
         if input_ids is not None:
@@ -217,29 +233,31 @@ class QwenModel(BaseModel):
         hidden_states = self.drop(hidden_states)
 
         # 2. rotary_emb
-        bs, seq_len = input_ids.shape
-        if self.is_first_iteration:
-            freqs_cis = (self.tile(self.reshape(self.freqs_cos, (1, 1, seq_len, -1)), (bs, 1, 1, 1)),
-                         self.tile(self.reshape(self.freqs_sin, (1, 1, seq_len, -1)), (bs, 1, 1, 1)),
-                         self.swap_mask)
-            input_mask = self.cast(self.not_equal(input_ids, self.pad_token_id), self.dtype)
-            mask = self.get_attention_mask(input_mask)
+        bs, seq_len = self.shape(input_ids)
+        if not self.use_past:
+            freqs_cis = self.freqs_mgr()
+            mask = self.casual_mask(input_ids) # mask: [bs, seq, seq]
+            mask = self.casual_mask.post_process(mask)
+            kvcache_inputs = None
         else:
-            cur_pos = batch_valid_length - 1
-            valid_length = self.reshape(cur_pos, (-1, 1, 1))
-            freqs_cis = (self.reshape(self.gather_past(self.freqs_cos, cur_pos, 0), (bs, 1, seq_len, -1)),
-                         self.reshape(self.gather_past(self.freqs_sin, cur_pos, 0), (bs, 1, seq_len, -1)),
-                         self.swap_mask)
-            mask = self.cast(self.le_past(self.range, valid_length), self.dtype)
-        mask = self.sub(self.one, self.cast(mask, self.dtype))
-        if not self.use_flash_attention:
-            mask = self.expand_dims(mask, 1)
-            mask = self.mul_mask(mask, self.multiply_data)
+            if self.is_first_iteration:
+                freqs_cis = self.freqs_mgr(bs, seq_len)
+                mask = self.casual_mask(input_ids) # mask: [bs, seq, seq]
+            else:
+                freqs_cis = self.freqs_mgr.increment(batch_valid_length, bs)
+                if self.is_dynamic and self.is_flexible_shape and not self.use_kvcache_op:
+                    mask = self.casual_mask.increment_slice(self.kvcache_preprocess.range,
+                                                            self.kvcache_preprocess.max_cache_length // bs,
+                                                            batch_valid_length)
+                else:
+                    mask = self.casual_mask.increment(self.kvcache_preprocess.range, batch_valid_length)
+            mask = self.casual_mask.post_process(mask)
+
+            kvcache_inputs = self.kvcache_preprocess(bs, batch_valid_length)
 
         # 4. hidden_states
         for i in range(self.num_hidden_layers):
-            hidden_states, _ = self.layers[i](hidden_states, freqs_cis, mask, init_reset=init_reset,
-                                              batch_valid_length=batch_valid_length)
+            hidden_states = self.layers[i](hidden_states, freqs_cis, mask, kvcache_inputs=kvcache_inputs)
 
         # 5. ln_f
         hidden_states = self.ln_f(hidden_states)
@@ -277,8 +295,7 @@ class QwenDecodeLayer(LLamaDecodeLayer):
         mp = parallel_config.model_parallel
         if not (_get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation()):
             self.feed_forward.shard(parallel_config)
-            if not self.compute_in_2d:
-                self.feed_forward.mul.shard(((dp, 1, mp), (dp, 1, mp)))
+            self.feed_forward.mul.shard(((dp, 1, mp), (dp, 1, mp)))
         if parallel_config.use_seq_parallel and self.is_first_iteration:
             self.feed_forward.w2.shard(((dp, mp), (1, mp)), out_strategy_matmul=((dp * mp, 1),))
 

@@ -19,6 +19,7 @@ import time
 from typing import Union, List, Optional
 
 import numpy as np
+import mindspore_lite as mslite
 from mindspore_lite import Model
 
 from mindformers.tools.logger import logger
@@ -69,6 +70,32 @@ class CommonInputsOfInfer(BaseInputsOfInfer):
         inputs = [input_ids, current_index, init_reset, valid_length]
         lite_inputs = self.get_lite_tensor_list(inputs, model)
         return lite_inputs
+
+
+class LlamaInputsOfInfer(BaseInputsOfInfer):
+    """
+    common infer inputs of llm models.
+    """
+    # pylint: disable=W0613, W0221
+    def get_inputs(self, model: Model, input_ids=None, current_index=None, valid_length=None,
+                   init_reset=None, is_first_iteration=True, **kwargs):
+        if not is_first_iteration:
+            inputs_tmp = []
+            for i in range(len(valid_length)):
+                current_index_tmp = valid_length[i] - 1  # multibatch
+                # use numpy to slice array to avoid complie ascend slice op
+                inputs_tmp.append(input_ids[i][current_index_tmp:current_index_tmp + 1])
+            input_ids = np.array(inputs_tmp, dtype=np.int32)
+        inputs = [input_ids, valid_length, kwargs['batch_index'], kwargs['zactivate_len']]
+        lite_inputs = self.get_lite_tensor_list(inputs)
+        return lite_inputs
+
+    # pylint: disable=W0221
+    def get_lite_tensor_list(self, inputs):
+        input_tensors = []
+        for item in inputs:
+            input_tensors.append(mslite.Tensor(item))
+        return input_tensors
 
 
 class GLMInputsOfInfer(BaseInputsOfInfer):
@@ -158,7 +185,8 @@ class InputOfInfer:
     """
     MAPPING = {
         "bloom": CommonInputsOfInfer,
-        "llama": CommonInputsOfInfer,
+        "llama": LlamaInputsOfInfer,
+        "codellama": LlamaInputsOfInfer,
         "glm2": CommonInputsOfInfer,
         "gpt2": CommonInputsOfInfer,
         "codegeex2": CommonInputsOfInfer,
@@ -356,19 +384,38 @@ class TextGeneratorInfer(BaseInfer):
             valid_length.append(np.max(np.argwhere(np.array(input_ids[i]) != pad_token_id)) + 1)
         valid_length = np.array(valid_length, np.int32)
 
-        target_length = self.seq_length if max_length > self.seq_length else max_length
-        # pad original input ids to seq_length
-        pad_length = self.seq_length - valid_length
+        if self.dynamic:
+            pad_length = max_length - valid_length
+            real_pad_length = max(valid_length) - valid_length
+            target_length = kwargs["max_new_tokens"] + max(valid_length) if kwargs.get(
+                "max_new_tokens") else max_length
+        else:
+            target_length = self.seq_length if max_length > self.seq_length else max_length
+            # pad original input ids to seq_length
+            pad_length = self.seq_length - valid_length
         pad_input_ids = np.array([
             np.pad(input_ids[i], (0, pad_length[i]),
-                   'constant', constant_values=(pad_token_id)) for i in range(len(input_ids))
+                   'constant', constant_values=pad_token_id) for i in range(len(input_ids))
         ], np.int32)
-        input_ids = pad_input_ids
 
         # setup is_first_iteration flag for incremental infer
         is_first_iteration = True
         is_finished = [False] * batch_size
         use_past = self.full_model and self.cache_model
+
+        if self.dynamic:
+            batch_size_gear = self.dynshape_gears.match_bs(batch_size)
+            act_len_gear = self.dynshape_gears.match_seq(max_length)
+            bs_pad = batch_size_gear - batch_size
+            pad_input_ids = np.pad(pad_input_ids, ((0, bs_pad), (0, 0)), 'constant', constant_values=pad_token_id)
+            valid_length = np.pad(valid_length, (0, bs_pad), 'constant', constant_values=1)
+            is_finished += [True] * bs_pad
+            real_input_ids = np.array([np.pad(input_ids[i], (0, real_pad_length[i]), 'constant',
+                                              constant_values=pad_token_id) for i in range(len(input_ids))], np.int32)
+            real_input_ids = np.pad(real_input_ids, ((0, bs_pad), (0, 0)), 'constant', constant_values=pad_token_id)
+        input_ids = real_input_ids if self.dynamic else pad_input_ids
+        activate_len = np.zeros((act_len_gear if self.dynamic else self.seq_length), dtype=np.int64)
+        batch_index = np.arange(len(input_ids), dtype=np.int64)
 
         origin_len = np.sum(valid_length)
         while np.sum(is_finished) != batch_size:
@@ -379,9 +426,14 @@ class TextGeneratorInfer(BaseInfer):
             logger.debug("validate length: %s", valid_length)
 
             if use_past:
-                outputs = self._inc_infer(input_ids, current_index, valid_length, is_first_iteration, **kwargs)
+                outputs = self._inc_infer(input_ids, current_index, valid_length, is_first_iteration,
+                                          batch_index=batch_index, zactivate_len=activate_len, **kwargs)
             else:
-                outputs = self._full_infer(input_ids, current_index, is_sample_acceleration, **kwargs)
+                outputs = self._full_infer(input_ids, current_index, is_sample_acceleration,
+                                           batch_index=batch_index, zactivate_len=activate_len, **kwargs)
+
+            if self.dynamic:
+                input_ids = pad_input_ids
 
             if not is_sample_acceleration:
                 logits = outputs[0].get_data_to_numpy()
