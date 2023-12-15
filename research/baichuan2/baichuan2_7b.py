@@ -32,14 +32,14 @@ from mindformers.core.loss.loss import CrossEntropyLoss
 from mindformers.models.base_model import BaseModel
 from mindformers.models.utils import cell_reuse
 from mindformers.modules.transformer.op_parallel_config import _check_config
-from mindformers.modules.transformer import AttentionMask
 from mindformers.tools.register.register import MindFormerModuleType, MindFormerRegister
 
 from mindformers.models.llama.llama import layer_compute_dtype
 from mindformers.models.llama.llama_config import LlamaConfig
-from mindformers.models.llama.llama_layer import LlamaEmbedding, LlamaRMSNorm, precompute_freqs_cis
+from mindformers.models.llama.llama_layer import LlamaEmbedding, LlamaRMSNorm, CausalMask, FreqsMgr
 from mindformers.models.llama.llama_transformer import LLamaDecodeLayer
 from mindformers.tools.logger import logger
+from mindformers.modules import KVCachePreprocess
 
 __all__ = ['Baichuan7BV2ForCausalLM', 'Baichuan7BV2Model']
 
@@ -63,34 +63,48 @@ class Baichuan7BV2Model(BaseModel):
         _check_config(config.parallel_config)
         if config.batch_size or config.use_past:
             Validator.check_positive_int(config.batch_size)
+        self.dtype = config.compute_dtype
+        self.hidden_size = config.hidden_size
         self.num_layers = config.num_layers
+        self.n_head = config.num_heads
+        self.head_dim = self.hidden_size // self.n_head
         self.pad_token_id = config.pad_token_id
         self.is_first_iteration = True
         self.use_past = config.use_past
+        self.is_dynamic = config.is_dynamic
+        self.use_kvcache_op = config.use_kvcache_op
+        self.is_flexible_shape = config.is_flexible_shape
         self.use_flash_attention = config.use_flash_attention and FLASHATTENTION_VALID
         if self.use_flash_attention:
             logger.info("Enable flash attention.")
         elif config.use_flash_attention:
             logger.info("Current MindSpore do not support flash attention.")
 
-        self.freqs_cos, self.freqs_sin, self.swap_mask = precompute_freqs_cis(
-            config.hidden_size // config.num_heads, config.seq_length, dtype=config.rotary_dtype,
-            pretrain_seqlen=config.pretrain_seqlen, extend_method=config.extend_method)
-        self.get_attention_mask = AttentionMask(
-            config.seq_length, parallel_config=config.parallel_config.dp_mp_config).to_float(config.compute_dtype)
-        self.multiply_data = Tensor([-10000.0], dtype=config.compute_dtype)
-        self.one = Tensor([1.0], dtype=config.compute_dtype)
-        self.reshape = P.Reshape()
+        self.shape = P.Shape()
+        self.reshape = P.Reshape().add_prim_attr("skip_redistribution", True)
         self.cast = P.Cast()
         self.tile = P.Tile()
-        self.mul_mask = P.Mul()
-        self.sub = P.Sub()
         self.expand_dims = P.ExpandDims()
-        self.not_equal = P.NotEqual()
         self.gather = P.Gather()
+        self.slice = P.StridedSlice()
 
-        self.tok_embeddings = LlamaEmbedding(
-            config.vocab_size, config.hidden_size, param_init_type=config.param_init_type)
+        self.freqs_mgr = FreqsMgr(batch_size=config.batch_size,
+                                  seq_length=config.seq_length,
+                                  head_dim=self.head_dim,
+                                  max_position_embedding=config.seq_length,
+                                  rotary_dtype=config.rotary_dtype,
+                                  theta=config.theta,
+                                  scaling_factor=config.scaling_factor,
+                                  extend_method=config.extend_method,
+                                  is_dynamic=config.is_dynamic)
+        self.casual_mask = CausalMask(seq_length=config.seq_length,
+                                      compute_type=config.compute_dtype,
+                                      is_dynamic=config.is_dynamic,
+                                      pad_token_id=config.pad_token_id,
+                                      use_flash_attention=config.use_flash_attention)
+        self.tok_embeddings = LlamaEmbedding(vocab_table_size=config.vocab_size,
+                                             embedding_size=config.hidden_size,
+                                             param_init_type=config.param_init_type)
         self.layers = nn.CellList()
         for layer_id in range(config.num_layers):
             layer = LLamaDecodeLayer(config.batch_size,
@@ -109,14 +123,21 @@ class Baichuan7BV2Model(BaseModel):
                                      param_init_type=config.param_init_type,
                                      use_past=config.use_past,
                                      use_flash_attention=config.use_flash_attention,
-                                     compute_in_2d=config.compute_in_2d,
-                                     use_past_shard=config.use_past_shard,
+                                     is_dynaimic=config.is_dynamic,
+                                     use_kvcache_op=config.use_kvcache_op,
+                                     is_flexible_shape=config.is_flexible_shape,
+                                     use_rope_slice=config.use_rope_slice,
                                      parallel_config=config.parallel_config)
             layer_compute_dtype(layer, layer_id, config.offset, config.parallel_config,
                                 config.num_layers, select_recompute=config.parallel_config.recompute.select_recompute)
             self.layers.append(layer)
         self.norm_out = LlamaRMSNorm(config.hidden_size, config.rms_norm_eps,
                                      compute_type=config.layernorm_compute_type)
+        self.kvcache_preprocess = KVCachePreprocess(max_batch_size=config.batch_size,
+                                                    max_seq_length=config.seq_length,
+                                                    is_dynamic=config.is_dynamic,
+                                                    use_kvcache_op=config.use_kvcache_op,
+                                                    is_flexible_shape=config.is_flexible_shape)
 
         dp = config.parallel_config.data_parallel
         if not (_get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation()):
@@ -130,62 +151,54 @@ class Baichuan7BV2Model(BaseModel):
                 self.norm_out.set_comm_fusion(config.parallel_config.gradient_aggregation_group)
 
             self.tok_embeddings.shard(config.parallel_config)
-
-            self.tile.shard(((1, 1, 1, 1), ()))
-            self.sub.shard(((1,), (dp, 1, 1)))
-            self.mul_mask.shard(((dp, 1, 1, 1), (1,)))
-            self.expand_dims.shard(((dp, 1, 1),))
-            self.not_equal.shard(((dp, 1), ()))
-            self.gather.shard(((dp, 1), (1,)))
-            if config.compute_in_2d:
-                self.norm_out.shard((dp, 1))
-            else:
-                self.norm_out.shard((dp, 1, 1))
-
-        if self.use_past:
-            seq_range = np.arange(config.seq_length).reshape(1, 1, -1)
-            self.ones = P.Ones()
-            self.range = Tensor(np.tile(seq_range, (config.batch_size, 1, 1)), mstype.int32)
-            self.gather_past = P.Gather()
-            self.expand_dims = P.ExpandDims()
-            self.le_past = P.LessEqual()
+            self.casual_mask.shard(config.parallel_config)
+            self.norm_out.shard((dp, 1, 1))
 
     # pylint: disable=W0613
-    def construct(self, tokens: Tensor, input_position=None, init_reset=True, batch_valid_length=None):
-        """Forward of llama model."""
+    def construct(self, tokens: Tensor, batch_valid_length=None, batch_index=None, zactivate_len=None):
+        """
+        Forward of llama model.
+
+        Args:
+            tokens: the tokenized inputs with datatype int32
+            input_position(Tensor): current position, used by model.predict.
+            init_reset(bool, optional): A bool tensor with shape [1], used to clear the past key parameter and
+                past value parameter used in the incremental prediction. Default True.
+            batch_valid_length(Tensor): the past calculated the index with datatype int32, used for incremental
+                prediction. Tensor of shape :math:`(batch_size,)`. Default None.
+
+        Returns:
+            output: Tensor, the output of llama decoderlayer
+        """
         # preprocess
-        bs, seq_len = tokens.shape
-        if self.use_past:
-            if not isinstance(init_reset, Tensor):
-                init_reset = Tensor([init_reset], mstype.bool_)
-            if not isinstance(batch_valid_length, Tensor):
-                batch_valid_length = self.ones((bs, 1), mstype.int32)
-        if self.is_first_iteration:
-            freqs_cis = (self.tile(self.reshape(self.freqs_cos, (1, 1, seq_len, -1)), (bs, 1, 1, 1)),
-                         self.tile(self.reshape(self.freqs_sin, (1, 1, seq_len, -1)), (bs, 1, 1, 1)),
-                         self.swap_mask)
-            input_mask = self.cast(self.not_equal(tokens, self.pad_token_id), mstype.float32)
-            mask = self.get_attention_mask(input_mask)
-            # mask: [bs, seq, seq]
+        bs, seq_len = self.shape(tokens)
+        if not self.use_past:
+            freqs_cis = self.freqs_mgr()
+            mask = self.casual_mask(tokens) # mask: [bs, seq, seq]
+            mask = self.casual_mask.post_process(mask)
+            kvcache_inputs = None
         else:
-            cur_pos = batch_valid_length - 1
-            valid_length = self.reshape(cur_pos, (-1, 1, 1))
-            freqs_cis = (self.reshape(self.gather_past(self.freqs_cos, cur_pos, 0), (bs, 1, seq_len, -1)),
-                         self.reshape(self.gather_past(self.freqs_sin, cur_pos, 0), (bs, 1, seq_len, -1)),
-                         self.swap_mask)
-            mask = self.cast(self.le_past(self.range, valid_length), mstype.float32)
-            # mask: [bs, 1, 1]
-        mask = self.sub(self.one, self.cast(mask, mstype.float32))
-        if not self.use_flash_attention:
-            mask = self.expand_dims(mask, 1)
-            mask = self.mul_mask(mask, self.multiply_data)
+            if self.is_first_iteration:
+                freqs_cis = self.freqs_mgr(bs, seq_len)
+                mask = self.casual_mask(tokens) # mask: [bs, seq, seq]
+            else:
+                freqs_cis = self.freqs_mgr.increment(batch_valid_length, bs)
+                if self.is_dynamic and self.is_flexible_shape and not self.use_kvcache_op:
+                    mask = self.casual_mask.increment_slice(self.kvcache_preprocess.range,
+                                                            self.kvcache_preprocess.max_cache_length // bs,
+                                                            batch_valid_length, zactivate_len)
+                else:
+                    mask = self.casual_mask.increment(self.kvcache_preprocess.range, batch_valid_length, zactivate_len)
+            mask = self.casual_mask.post_process(mask)
+
+            kvcache_inputs = self.kvcache_preprocess(bs, batch_valid_length, batch_index, zactivate_len)
 
         # tokens: [bs, seq/1]
         h = self.tok_embeddings(tokens)
+        h = self.reshape(h, (bs, seq_len, self.hidden_size))
         # h: [bs, seq/1, hidden_dim]
         for i in range(self.num_layers):
-            h, _ = self.layers[i](h, freqs_cis, mask,
-                                  init_reset=init_reset, batch_valid_length=batch_valid_length)
+            h = self.layers[i](h, freqs_cis, mask, kvcache_inputs=kvcache_inputs)
         output = self.norm_out(h)
         return output
 

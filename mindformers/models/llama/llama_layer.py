@@ -109,6 +109,72 @@ def precompute_freqs_cis(
     return freqs_cos, freqs_sin, swap_mask
 
 
+class FreqsMgr(Cell):
+    r"""freqs_cis manager."""
+    def __init__(self,
+                 batch_size,
+                 seq_length,
+                 head_dim,
+                 max_position_embedding=4096,
+                 rotary_dtype=mstype.float16,
+                 theta=10000,
+                 scaling_factor=1.0,
+                 extend_method=SeqExtendMethod.NONE.value,
+                 is_dynamic=False):
+        super().__init__()
+        if extend_method == SeqExtendMethod.NTK.value:
+            theta *= scaling_factor
+        freqs_base = np.arange(0, head_dim, 2)[: (head_dim // 2)].astype(np.float32) # (head_dim // 2, )
+        freqs = 1.0 / (theta ** (freqs_base / head_dim)) # (head_dim // 2, )
+        if extend_method == SeqExtendMethod.PI.value:
+            t = np.arange(0, max_position_embedding / scaling_factor, 1 / scaling_factor).astype(np.float32)
+        else:
+            t = np.arange(0, max_position_embedding, 1).astype(np.float32)
+        freqs = np.outer(t, freqs)  # (max_position_embedding, head_dim // 2)
+        emb = np.concatenate((freqs, freqs), axis=-1)
+        freqs_cos = np.cos(emb) # (seq_len, head_dim)
+        freqs_sin = np.sin(emb) # (seq_len, head_dim)
+        batch_freqs_cos = np.tile(freqs_cos.reshape(1, 1, seq_length, head_dim), (batch_size, 1, 1, 1))
+        batch_freqs_sin = np.tile(freqs_sin.reshape(1, 1, seq_length, head_dim), (batch_size, 1, 1, 1))
+        swap_mask = FreqsMgr.get_swap_mask(head_dim)
+
+        self.head_dim = head_dim
+        self.is_dynamic = is_dynamic
+        self.freqs_cos = Tensor(freqs_cos, dtype=rotary_dtype)
+        self.freqs_sin = Tensor(freqs_sin, dtype=rotary_dtype)
+        self.swap_mask = Tensor(swap_mask, dtype=rotary_dtype)
+        self.batch_freqs_cos = Tensor(batch_freqs_cos, dtype=rotary_dtype)
+        self.batch_freqs_sin = Tensor(batch_freqs_sin, dtype=rotary_dtype)
+
+        self.reshape = P.Reshape().add_prim_attr("skip_redistribution", True)
+        self.slice = P.StridedSlice()
+        self.sub = P.Sub()
+        self.gather = P.Gather().shard(((1, 1), (1,)))
+
+    def construct(self, batch_size=None, seq_length=None):
+        if self.is_dynamic:
+            freqs_cos = self.slice(self.batch_freqs_cos,
+                                   (0, 0, 0, 0), (batch_size, 1, seq_length, self.head_dim), (1, 1, 1, 1))
+            freqs_sin = self.slice(self.batch_freqs_sin,
+                                   (0, 0, 0, 0), (batch_size, 1, seq_length, self.head_dim), (1, 1, 1, 1))
+        else:
+            freqs_cos = self.batch_freqs_cos
+            freqs_sin = self.batch_freqs_sin
+        return freqs_cos, freqs_sin, self.swap_mask
+
+    def increment(self, batch_valid_length, batch_size):
+        freqs_cos = self.reshape(self.gather(self.freqs_cos, batch_valid_length, 0), (batch_size, 1, 1, self.head_dim))
+        freqs_sin = self.reshape(self.gather(self.freqs_sin, batch_valid_length, 0), (batch_size, 1, 1, self.head_dim))
+        return freqs_cos, freqs_sin, self.swap_mask
+
+    @staticmethod
+    def get_swap_mask(head_dim):
+        """Swap matrix"""
+        zero_block = np.zeros((head_dim // 2, head_dim // 2), dtype=np.float32)
+        id_block = np.identity(head_dim // 2, dtype=np.float32)
+        return np.block([[zero_block, id_block], [-id_block, zero_block]])
+
+
 class LlamaRotaryEmbedding(Cell):
     r"""
     Rotary Position Embedding.
@@ -124,20 +190,31 @@ class LlamaRotaryEmbedding(Cell):
             Tensor of shape :math:`(batch, seq_length, hidden_size)`.
     """
 
-    def __init__(self, head_dim=128, compute_dtype=mstype.float32):
+    def __init__(self, head_dim=128, compute_dtype=mstype.float32, use_rope_slice=False):
         super().__init__(auto_prefix=False)
+        self.half_head_dim = head_dim // 2
         self.head_dim = head_dim
         self.dtype = compute_dtype
+        self.use_rope_slice = use_rope_slice
 
         self.add = P.Add()
         self.bmm_swap = P.BatchMatMul()
         self.mul = P.Mul()
-
-        self.cast = P.Cast()
+        self.neg = P.Neg()
+        self.slice = P.StridedSlice()
+        self.concat = P.Concat(axis=-1)
+        self.shape = P.Shape()
 
     def rotate_half(self, x, swap_mask):
         # [bs, n_head/n_kv_head, seq/1, head_dim], [head_dim, head_dim]
         x = self.bmm_swap(x, swap_mask)
+        return x
+
+    def slice_half(self, x):
+        bs, n_head, seq, _ = self.shape(x)
+        x1 = self.slice(x, (0, 0, 0, 0), (bs, n_head, seq, self.half_head_dim), (1, 1, 1, 1))
+        x2 = self.slice(x, (0, 0, 0, self.half_head_dim), (bs, n_head, seq, self.head_dim), (1, 1, 1, 1))
+        x = self.concat((self.neg(x2), x1))
         return x
 
     def construct(self, xq: Tensor, xk: Tensor, freqs_cis):
@@ -147,10 +224,16 @@ class LlamaRotaryEmbedding(Cell):
         xk = self.cast(xk, self.dtype)
         # xq, xk: [bs, n_head/n_kv_head, seq/1, head_dim]
         freqs_cos, freqs_sin, swap_mask = freqs_cis
-        xq_out = self.add(self.mul(xq, freqs_cos),
-                          self.mul(self.rotate_half(xq, swap_mask), freqs_sin))
-        xk_out = self.add(self.mul(xk, freqs_cos),
-                          self.mul(self.rotate_half(xk, swap_mask), freqs_sin))
+        if self.use_rope_slice:
+            xq_out = self.add(self.mul(xq, freqs_cos),
+                              self.mul(self.slice_half(xq), freqs_sin))
+            xk_out = self.add(self.mul(xk, freqs_cos),
+                              self.mul(self.slice_half(xk), freqs_sin))
+        else:
+            xq_out = self.add(self.mul(xq, freqs_cos),
+                              self.mul(self.rotate_half(xq, swap_mask), freqs_sin))
+            xk_out = self.add(self.mul(xk, freqs_cos),
+                              self.mul(self.rotate_half(xk, swap_mask), freqs_sin))
 
         xq_out = self.cast(xq_out, original_type)
         xk_out = self.cast(xk_out, original_type)
@@ -160,6 +243,9 @@ class LlamaRotaryEmbedding(Cell):
         self.add.shard((strategy_in, strategy_in))
         self.bmm_swap.shard((strategy_in, (1, 1)))
         self.mul.shard((strategy_in, (strategy_in[0], 1, 1, 1)))
+        self.neg.shard((strategy_in,))
+        self.slice.shard((strategy_in,))
+        self.concat.shard((strategy_in, strategy_in))
 
 
 class LlamaEmbedding(Cell):
@@ -211,11 +297,14 @@ class LlamaEmbedding(Cell):
             logger.info(f"Using {dp} data parallel for the embedding lookup.")
         else:
             if self.vocab_table_size % mp != 0:
-                raise ValueError(f"The vocab size of the embedding {self.vocab_table_size} must be a "
-                                 f"multiple of parallel_config.model_parallel {mp}.")
-            self.gather.shard(((mp, 1), (dp, 1)))
-            logger.info(f"Using {dp} data parallel and {mp} "
-                        f"model parallel for the embedding lookup.")
+                logger.warning("The vocab size of Loss is: %s, it is not divide by model_parallel: %s",
+                               self.vocab_table_size, mp)
+                logger.warning("Now, the model_parallel num of Loss will be changed: mp = 1")
+                self.gather.shard(((1, 1), (dp, 1)))
+            else:
+                self.gather.shard(((mp, 1), (dp, 1)))
+                logger.info(f"Using {dp} data parallel and {mp} "
+                            f"model parallel for the embedding lookup.")
 
 
 class LlamaRMSNorm(nn.Cell):
@@ -377,3 +466,86 @@ class LlamaFeedForward(Cell):
         self.w2.shard(((dp, mp), (1, mp)))
         self.w3.shard(((dp, 1), (mp, 1)))
         self.mul.shard(((dp, mp), (dp, mp)))
+
+
+class CausalMask(nn.Cell):
+    r""" Get the Lower triangular matrix from the input_ids. """
+    @_LogActionOnce(m_logger=logger, key='AttentionMask',
+                    no_warning=_get_parallel_mode() in (ParallelMode.STAND_ALONE,))
+    def __init__(self, seq_length, compute_type=mstype.float16,
+                 is_dynamic=False, pad_token_id=0, use_flash_attention=False):
+        super().__init__()
+        self.dtype = compute_type
+        self.is_dynamic = is_dynamic
+        self.pad_token_id = pad_token_id
+        self.use_flash_attention = use_flash_attention
+        self.multiply_data = Tensor([-10000.0], dtype=compute_type)
+        self.one = Tensor([1.0], dtype=compute_type)
+        self.lower_triangle_mask = Tensor(np.tril(np.ones(shape=(seq_length, seq_length))), mstype.float32)
+
+        self.shape = P.Shape()
+        self.cast = P.Cast()
+        self.reshape = P.Reshape()
+        self.not_equal = P.NotEqual()
+        self.less_equal = P.LessEqual()
+        self.bmm = P.BatchMatMul()
+        self.expand_dim = P.ExpandDims()
+        self.slice = P.StridedSlice()
+        self.mul = P.Mul()
+        self.sub = P.Sub()
+        self.mul_post = P.Mul()
+        self.expand_dim_post = P.ExpandDims()
+
+    def construct(self, tokens):
+        """Forward process of the CausalMask"""
+        bs = self.shape(tokens)[0]
+        seq_len = self.shape(tokens)[1]
+        input_mask = self.cast(self.not_equal(tokens, self.pad_token_id), self.dtype)
+        shape_right = (bs, 1, seq_len)
+        shape_left = (bs, seq_len, 1)
+        # Mask the padded inputs
+        mask_left = self.reshape(input_mask, shape_left)
+        mask_right = self.reshape(input_mask, shape_right)
+        attention_mask = self.bmm(mask_left, mask_right)
+        if not self.is_dynamic:
+            lower_traiangle = self.expand_dim(self.lower_triangle_mask, 0)
+        else:
+            lower_triangle_mask = self.slice(self.lower_triangle_mask, (0, 0), (seq_len, seq_len), (1, 1))
+            lower_traiangle = self.expand_dim(lower_triangle_mask, 0)
+        # the returned shape is [bs, seq_length, seq_length]
+        attention_mask = self.mul(attention_mask, lower_traiangle)
+        return attention_mask
+
+    def increment(self, seq_range, batch_valid_length, zactivate_len=None):
+        if zactivate_len is not None:
+            seq_range = self.slice(seq_range, (0, 0, 0), (1, 1, self.shape(zactivate_len)[0]), (1, 1, 1))
+        mask = self.less_equal(self.reshape(seq_range, (1, 1, -1)), self.reshape(batch_valid_length, (-1, 1, 1)))
+        return mask
+
+    def increment_slice(self, seq_range, seq_length, batch_valid_length, zactivate_len=None):
+        if zactivate_len is not None:
+            seq_range_mask = self.slice(seq_range, (0, 0, 0), (1, 1, self.shape(zactivate_len)[0]), (1, 1, 1))
+        else:
+            seq_range_mask = self.slice(seq_range, (0, 0, 0), (1, 1, seq_length), (1, 1, 1))
+        mask = self.less_equal(self.reshape(seq_range_mask, (1, 1, -1)), self.reshape(batch_valid_length, (-1, 1, 1)))
+        return mask
+
+    def post_process(self, mask):
+        mask = self.sub(self.one, self.cast(mask, self.dtype))
+        if not self.use_flash_attention:
+            mask = self.expand_dim_post(mask, 1)
+            mask = self.mul_post(mask, self.multiply_data)
+        else:
+            mask = self.cast(mask, mstype.uint8)
+        return mask
+
+    def shard(self, parallel_config):
+        dp = parallel_config.data_parallel
+        self.not_equal.shard(((dp, 1), ()))
+        self.bmm.shard(((dp, 1, 1), (dp, 1, 1)))
+        self.expand_dim.shard(((1, 1),))
+        self.mul.shard(((dp, 1, 1), (1, 1, 1)))
+        self.less_equal.shard(((1, 1, 1), (1, 1, 1)))
+        self.sub.shard(((1,), (dp, 1, 1)))
+        self.mul_post.shard(((dp, 1, 1, 1), (1,)))
+        self.expand_dim_post.shard(((dp, 1, 1),))

@@ -474,16 +474,18 @@ class Linear(Cell):
         self.activation_flag = self.activation is not None
         self.dtype = compute_dtype
         self.cast = P.Cast()
+        self.reshape = P.Reshape().add_prim_attr("skip_redistribution", True)
+        self.shape = P.Shape()
 
     def construct(self, x):
         """Forward process, x should be a tensor"""
-        out_shape = P.Shape()(x)[:-1] + (self.out_channels,)
-        x = P.Reshape()(x, (-1, self.in_channels))
+        out_shape = self.shape(x)[:-1] + (self.out_channels,)
+        x = self.reshape(x, (-1, self.in_channels))
         if self.expert_flag:
             if self.use_expert_group_size is True:
-                x = P.Reshape()(x, (-1, self.expert_num, self.expert_group_size, self.in_channels))
+                x = self.reshape(x, (-1, self.expert_num, self.expert_group_size, self.in_channels))
             else:
-                x = P.Reshape()(x, (self.outer_batch, self.expert_num, -1, self.in_channels))
+                x = self.reshape(x, (self.outer_batch, self.expert_num, -1, self.in_channels))
         ori_dtype = F.dtype(x)
         weight = self.cast(self.weight, self.dtype)
         x = self.cast(x, self.dtype)
@@ -493,7 +495,7 @@ class Linear(Cell):
         if self.activation_flag:
             x = self.activation(x)
         x = F.cast(x, ori_dtype)
-        output = P.Reshape()(x, out_shape)
+        output = self.reshape(x, out_shape)
         return output
 
     def shard(self, strategy_matmul, strategy_bias=None, strategy_activation=None, out_strategy_matmul=None):
