@@ -141,6 +141,7 @@ model:
     num_heads: 40
     expand_ratio: 4
     hidden_act: "fast_gelu"
+    use_flash_attention: False
     hidden_dropout_rate: 0.1
     attention_dropout_rate: 0.1
     param_init_type: "float16"
