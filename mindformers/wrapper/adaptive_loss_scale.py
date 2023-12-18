@@ -23,6 +23,7 @@ from mindspore.common.parameter import Parameter
 from mindspore.ops import functional as F
 from mindspore.ops import operations as P
 from mindspore.common import dtype as mstype
+from mindformers.tools.logger import logger
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 
 
@@ -50,6 +51,8 @@ def _get_list_index(window_list, scale_window):
     if scale_window in window_list:
         list_index = window_list.index(scale_window)
     else:
+        logger.warning("scale_window is not in the generated window list, "
+                       "will use min_scale_window to start the training.")
         list_index = 0
     return list_index
 
