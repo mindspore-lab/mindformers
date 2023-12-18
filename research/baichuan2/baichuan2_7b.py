@@ -27,6 +27,12 @@ from mindspore.common.parameter import Parameter
 from mindspore.ops import operations as P
 from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
 from mindspore.common.initializer import initializer, HeUniform
+try:
+    # pylint: disable=W0611
+    from mindspore.nn.layer.flash_attention import FlashAttention
+    FLASHATTENTION_VALID = True
+except ImportError:
+    FLASHATTENTION_VALID = False
 
 from mindformers.core.loss.loss import CrossEntropyLoss
 from mindformers.models.base_model import BaseModel
@@ -88,9 +94,7 @@ class Baichuan7BV2Model(BaseModel):
         self.gather = P.Gather()
         self.slice = P.StridedSlice()
 
-        self.freqs_mgr = FreqsMgr(batch_size=config.batch_size,
-                                  seq_length=config.seq_length,
-                                  head_dim=self.head_dim,
+        self.freqs_mgr = FreqsMgr(head_dim=self.head_dim,
                                   max_position_embedding=config.seq_length,
                                   rotary_dtype=config.rotary_dtype,
                                   theta=config.theta,
@@ -123,7 +127,7 @@ class Baichuan7BV2Model(BaseModel):
                                      param_init_type=config.param_init_type,
                                      use_past=config.use_past,
                                      use_flash_attention=config.use_flash_attention,
-                                     is_dynaimic=config.is_dynamic,
+                                     is_dynamic=config.is_dynamic,
                                      use_kvcache_op=config.use_kvcache_op,
                                      is_flexible_shape=config.is_flexible_shape,
                                      use_rope_slice=config.use_rope_slice,
@@ -179,7 +183,7 @@ class Baichuan7BV2Model(BaseModel):
             kvcache_inputs = None
         else:
             if self.is_first_iteration:
-                freqs_cis = self.freqs_mgr(bs, seq_len)
+                freqs_cis = self.freqs_mgr(seq_len)
                 mask = self.casual_mask(tokens) # mask: [bs, seq, seq]
             else:
                 freqs_cis = self.freqs_mgr.increment(batch_valid_length, bs)
@@ -312,6 +316,7 @@ class Baichuan7BV2ForCausalLM(BaseModel):
         self.ignore_token_id = config.ignore_token_id
         self.pad_token_id = config.pad_token_id
         self.seq_length = config.seq_length
+        self.is_first_iteration = True
 
         self.reshape = P.Reshape()
         self.cast = P.Cast()
@@ -327,7 +332,7 @@ class Baichuan7BV2ForCausalLM(BaseModel):
 
         dp = config.parallel_config.data_parallel
         self.slice.shard(((dp, 1),))
-        self.not_equal.shard(((dp, 1), ()))
+        self.not_equal.shard(((1, 1), ()))
         self.mul.shard(((dp, 1), (dp, 1)))
         self.add.shard(((dp, 1), ()))
         self.lm_head.shard(config.parallel_config)
@@ -374,7 +379,11 @@ class Baichuan7BV2ForCausalLM(BaseModel):
         else:
             tokens = input_ids
 
-        output = self.model(tokens, input_position, init_reset, batch_valid_length)
+        if batch_valid_length is not None:
+            batch_valid_length = self.reshape(batch_valid_length, (-1,))
+        if not self.is_first_iteration:
+            batch_valid_length = self.sub_batch_valid_len(batch_valid_length, 1)
+        output = self.model(tokens, input_position, batch_valid_length)
         logits = self.lm_head(output)
 
         input_mask = self.cast(self.not_equal(tokens, self.pad_token_id), mstype.float32)

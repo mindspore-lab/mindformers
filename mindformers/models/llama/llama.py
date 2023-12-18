@@ -138,9 +138,7 @@ class LlamaModel(BaseModel):
         self.gather = P.Gather()
         self.slice = P.StridedSlice()
 
-        self.freqs_mgr = FreqsMgr(batch_size=config.batch_size,
-                                  seq_length=config.seq_length,
-                                  head_dim=self.head_dim,
+        self.freqs_mgr = FreqsMgr(head_dim=self.head_dim,
                                   max_position_embedding=config.seq_length,
                                   rotary_dtype=config.rotary_dtype,
                                   theta=config.theta,
@@ -173,7 +171,7 @@ class LlamaModel(BaseModel):
                                      param_init_type=config.param_init_type,
                                      use_past=config.use_past,
                                      use_flash_attention=config.use_flash_attention,
-                                     is_dynaimic=config.is_dynamic,
+                                     is_dynamic=config.is_dynamic,
                                      use_kvcache_op=config.use_kvcache_op,
                                      is_flexible_shape=config.is_flexible_shape,
                                      use_rope_slice=config.use_rope_slice,
@@ -229,7 +227,7 @@ class LlamaModel(BaseModel):
             kvcache_inputs = None
         else:
             if self.is_first_iteration:
-                freqs_cis = self.freqs_mgr(bs, seq_len)
+                freqs_cis = self.freqs_mgr(seq_len)
                 mask = self.casual_mask(tokens) # mask: [bs, seq, seq]
             else:
                 freqs_cis = self.freqs_mgr.increment(batch_valid_length, bs)
@@ -305,6 +303,7 @@ class LlamaForCausalLM(BaseModel):
                               has_bias=False,
                               compute_dtype=config.compute_dtype,
                               param_init_type=config.param_init_type,
+                              skip_redistribution=config.is_dynamic,
                               weight_init="normal") # meta default: xavier_normal
 
         mp = config.parallel_config.model_parallel
@@ -322,7 +321,7 @@ class LlamaForCausalLM(BaseModel):
         mp = config.parallel_config.model_parallel
         if not (_get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation()):
             self.slice.shard(((dp, 1),))
-            self.not_equal.shard(((dp, 1), ()))
+            self.not_equal.shard(((1, 1), ()))
             self.mul.shard(((dp, 1), (dp, 1)))
             self.add.shard(((dp, 1), ()))
             self.gather.shard(((dp, 1, 1), (dp,)))

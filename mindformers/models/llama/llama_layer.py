@@ -112,8 +112,6 @@ def precompute_freqs_cis(
 class FreqsMgr(Cell):
     r"""freqs_cis manager."""
     def __init__(self,
-                 batch_size,
-                 seq_length,
                  head_dim,
                  max_position_embedding=4096,
                  rotary_dtype=mstype.float16,
@@ -134,8 +132,6 @@ class FreqsMgr(Cell):
         emb = np.concatenate((freqs, freqs), axis=-1)
         freqs_cos = np.cos(emb) # (seq_len, head_dim)
         freqs_sin = np.sin(emb) # (seq_len, head_dim)
-        batch_freqs_cos = np.tile(freqs_cos.reshape(1, 1, seq_length, head_dim), (batch_size, 1, 1, 1))
-        batch_freqs_sin = np.tile(freqs_sin.reshape(1, 1, seq_length, head_dim), (batch_size, 1, 1, 1))
         swap_mask = FreqsMgr.get_swap_mask(head_dim)
 
         self.head_dim = head_dim
@@ -143,23 +139,17 @@ class FreqsMgr(Cell):
         self.freqs_cos = Tensor(freqs_cos, dtype=rotary_dtype)
         self.freqs_sin = Tensor(freqs_sin, dtype=rotary_dtype)
         self.swap_mask = Tensor(swap_mask, dtype=rotary_dtype)
-        self.batch_freqs_cos = Tensor(batch_freqs_cos, dtype=rotary_dtype)
-        self.batch_freqs_sin = Tensor(batch_freqs_sin, dtype=rotary_dtype)
 
         self.reshape = P.Reshape().add_prim_attr("skip_redistribution", True)
         self.slice = P.StridedSlice()
         self.sub = P.Sub()
         self.gather = P.Gather().shard(((1, 1), (1,)))
 
-    def construct(self, batch_size=None, seq_length=None):
+    def construct(self, seq_length=None):
+        freqs_cos, freqs_sin = self.freqs_cos, self.freqs_sin
         if self.is_dynamic:
-            freqs_cos = self.slice(self.batch_freqs_cos,
-                                   (0, 0, 0, 0), (batch_size, 1, seq_length, self.head_dim), (1, 1, 1, 1))
-            freqs_sin = self.slice(self.batch_freqs_sin,
-                                   (0, 0, 0, 0), (batch_size, 1, seq_length, self.head_dim), (1, 1, 1, 1))
-        else:
-            freqs_cos = self.batch_freqs_cos
-            freqs_sin = self.batch_freqs_sin
+            freqs_cos = self.slice(freqs_cos, (0, 0), (seq_length, self.head_dim), (1, 1))
+            freqs_sin = self.slice(freqs_sin, (0, 0), (seq_length, self.head_dim), (1, 1))
         return freqs_cos, freqs_sin, self.swap_mask
 
     def increment(self, batch_valid_length, batch_size):
@@ -196,10 +186,12 @@ class LlamaRotaryEmbedding(Cell):
         self.head_dim = head_dim
         self.dtype = compute_dtype
         self.use_rope_slice = use_rope_slice
+        self.is_first_iteration = True
 
         self.add = P.Add()
         self.bmm_swap = P.BatchMatMul()
         self.mul = P.Mul()
+        self.mul_inc = P.Mul()
         self.neg = P.Neg()
         self.slice = P.StridedSlice()
         self.concat = P.Concat(axis=-1)
@@ -224,16 +216,17 @@ class LlamaRotaryEmbedding(Cell):
         xk = self.cast(xk, self.dtype)
         # xq, xk: [bs, n_head/n_kv_head, seq/1, head_dim]
         freqs_cos, freqs_sin, swap_mask = freqs_cis
+        mul = self.mul if self.is_first_iteration else self.mul_inc
         if self.use_rope_slice:
-            xq_out = self.add(self.mul(xq, freqs_cos),
-                              self.mul(self.slice_half(xq), freqs_sin))
-            xk_out = self.add(self.mul(xk, freqs_cos),
-                              self.mul(self.slice_half(xk), freqs_sin))
+            xq_out = self.add(mul(xq, freqs_cos),
+                              mul(self.slice_half(xq), freqs_sin))
+            xk_out = self.add(mul(xk, freqs_cos),
+                              mul(self.slice_half(xk), freqs_sin))
         else:
-            xq_out = self.add(self.mul(xq, freqs_cos),
-                              self.mul(self.rotate_half(xq, swap_mask), freqs_sin))
-            xk_out = self.add(self.mul(xk, freqs_cos),
-                              self.mul(self.rotate_half(xk, swap_mask), freqs_sin))
+            xq_out = self.add(mul(xq, freqs_cos),
+                              mul(self.rotate_half(xq, swap_mask), freqs_sin))
+            xk_out = self.add(mul(xk, freqs_cos),
+                              mul(self.rotate_half(xk, swap_mask), freqs_sin))
 
         xq_out = self.cast(xq_out, original_type)
         xk_out = self.cast(xk_out, original_type)
@@ -242,7 +235,8 @@ class LlamaRotaryEmbedding(Cell):
     def shard(self, strategy_in):
         self.add.shard((strategy_in, strategy_in))
         self.bmm_swap.shard((strategy_in, (1, 1)))
-        self.mul.shard((strategy_in, (strategy_in[0], 1, 1, 1)))
+        self.mul.shard((strategy_in, (1, 1)))
+        self.mul_inc.shard((strategy_in, (strategy_in[0], 1, 1, 1)))
         self.neg.shard((strategy_in,))
         self.slice.shard((strategy_in,))
         self.concat.shard((strategy_in, strategy_in))
@@ -399,7 +393,8 @@ class LlamaFeedForward(Cell):
                  hidden_act=LlamaSiLU,
                  ffn_dim_multiplier=None,
                  compute_dtype=mstype.float16,
-                 param_init_type=mstype.float32):
+                 param_init_type=mstype.float32,
+                 is_dynamic=False):
         super().__init__()
 
         if hidden_act is None or not (isinstance(hidden_act, str) or issubclass(hidden_act, nn.Cell)):
@@ -424,19 +419,22 @@ class LlamaFeedForward(Cell):
                          activation=hidden_act,
                          has_bias=False,
                          compute_dtype=compute_dtype,
-                         param_init_type=param_init_type)
+                         param_init_type=param_init_type,
+                         skip_redistribution=is_dynamic)
 
         self.w2 = Linear(in_channels=hidden_dim,
                          out_channels=dim,
                          has_bias=False,
                          compute_dtype=compute_dtype,
-                         param_init_type=param_init_type)
+                         param_init_type=param_init_type,
+                         skip_redistribution=is_dynamic)
 
         self.w3 = Linear(in_channels=dim,
                          out_channels=hidden_dim,
                          has_bias=False,
                          compute_dtype=compute_dtype,
-                         param_init_type=param_init_type)
+                         param_init_type=param_init_type,
+                         skip_redistribution=is_dynamic)
 
     def construct(self, x):
         """Forward process of the FeedForward"""

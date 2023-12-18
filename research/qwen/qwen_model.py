@@ -172,9 +172,7 @@ class QwenModel(BaseModel):
 
             self.layers.append(layer)
 
-        self.freqs_mgr = FreqsMgr(batch_size=config.batch_size,
-                                  seq_length=config.seq_length,
-                                  head_dim=self.head_dim,
+        self.freqs_mgr = FreqsMgr(head_dim=self.head_dim,
                                   max_position_embedding=config.seq_length,
                                   rotary_dtype=config.rotary_dtype,
                                   theta=config.theta,
@@ -241,7 +239,7 @@ class QwenModel(BaseModel):
             kvcache_inputs = None
         else:
             if self.is_first_iteration:
-                freqs_cis = self.freqs_mgr(bs, seq_len)
+                freqs_cis = self.freqs_mgr(seq_len)
                 mask = self.casual_mask(input_ids) # mask: [bs, seq, seq]
             else:
                 freqs_cis = self.freqs_mgr.increment(batch_valid_length, bs)
