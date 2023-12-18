@@ -117,6 +117,7 @@ class KVCacheMgr(nn.Cell):
         """use kvcache op to cache key, value"""
         # key_update shape: [real_bs, n_head, max_seqlen, head_dim]
         if self.is_first_iteration:
+            batch_valid_length = batch_valid_length * 0
             self.prompt_kvcache(self.key_past, key_update, batch_valid_length, batch_index_pad,
                                 self.seqlen_axis_tensor_pad, seq_length_tensor_pad, seq_length_tensor_pad)
             self.prompt_kvcache(self.value_past, value_update, batch_valid_length, batch_index_pad,

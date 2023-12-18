@@ -55,7 +55,7 @@ class LlamaModelForBlip2(LlamaModel):
             kvcache_inputs = None
         else:
             if self.is_first_iteration:
-                freqs_cis = self.freqs_mgr(bs, seq_len)
+                freqs_cis = self.freqs_mgr(seq_len)
                 mask = self.casual_mask(input_embeddings) # mask: [bs, seq, seq]
             else:
                 freqs_cis = self.freqs_mgr.increment(batch_valid_length, bs)

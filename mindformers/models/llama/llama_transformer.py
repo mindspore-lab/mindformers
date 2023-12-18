@@ -114,7 +114,7 @@ class LLamaAttention(nn.Cell):
                  param_init_type=mstype.float32,
                  qkv_has_bias=False,
                  use_past=False,
-                 is_dynaimic=False,
+                 is_dynamic=False,
                  use_kvcache_op=False,
                  is_flexible_shape=False,
                  use_rope_slice=False,
@@ -164,22 +164,26 @@ class LLamaAttention(nn.Cell):
                          out_channels=self.hidden_size,
                          has_bias=False,
                          compute_dtype=compute_dtype,
-                         param_init_type=param_init_type)
+                         param_init_type=param_init_type,
+                         skip_redistribution=is_dynamic)
         self.wq = Linear(self.hidden_size,
                          self.hidden_size,
                          has_bias=qkv_has_bias,
                          compute_dtype=compute_dtype,
-                         param_init_type=param_init_type)
+                         param_init_type=param_init_type,
+                         skip_redistribution=is_dynamic)
         self.wk = Linear(self.hidden_size,
                          self.n_kv_head * self.head_dim,
                          has_bias=qkv_has_bias,
                          compute_dtype=compute_dtype,
-                         param_init_type=param_init_type)
+                         param_init_type=param_init_type,
+                         skip_redistribution=is_dynamic)
         self.wv = Linear(self.hidden_size,
                          self.n_kv_head * self.head_dim,
                          has_bias=qkv_has_bias,
                          compute_dtype=compute_dtype,
-                         param_init_type=param_init_type)
+                         param_init_type=param_init_type,
+                         skip_redistribution=is_dynamic)
 
         dp = parallel_config.data_parallel
         mp = parallel_config.model_parallel
@@ -222,7 +226,7 @@ class LLamaAttention(nn.Cell):
                                           max_batch_size=batch_size,
                                           max_seq_length=seq_length,
                                           compute_dtype=compute_dtype,
-                                          is_dynamic=is_dynaimic,
+                                          is_dynamic=is_dynamic,
                                           use_kvcache_op=use_kvcache_op,
                                           is_flexible_shape=is_flexible_shape)
             self.kvcache_mgr.shard(parallel_config)
@@ -401,7 +405,7 @@ class LLamaDecodeLayer(nn.Cell):
                  param_init_type=mstype.float32,
                  qkv_has_bias=False,
                  use_past=False,
-                 is_dynaimic=False,
+                 is_dynamic=False,
                  use_kvcache_op=False,
                  is_flexible_shape=False,
                  use_rope_slice=False,
@@ -438,7 +442,7 @@ class LLamaDecodeLayer(nn.Cell):
                                         param_init_type=param_init_type,
                                         qkv_has_bias=qkv_has_bias,
                                         use_past=use_past,
-                                        is_dynaimic=is_dynaimic,
+                                        is_dynamic=is_dynamic,
                                         use_kvcache_op=use_kvcache_op,
                                         is_flexible_shape=is_flexible_shape,
                                         use_rope_slice=use_rope_slice,
@@ -449,7 +453,8 @@ class LLamaDecodeLayer(nn.Cell):
                                              multiple_of=multiple_of,
                                              ffn_dim_multiplier=ffn_dim_multiplier,
                                              compute_dtype=compute_dtype,
-                                             param_init_type=param_init_type)
+                                             param_init_type=param_init_type,
+                                             is_dynamic=is_dynamic)
 
         dp = parallel_config.data_parallel
         mp = parallel_config.model_parallel
@@ -488,8 +493,6 @@ class LLamaDecodeLayer(nn.Cell):
         freqs_cos, freqs_sin, swap_mask = freqs_cis
         _check_input_dtype(freqs_cos.dtype, "freqs_cos", [mstype.float32, mstype.float16], self.cls_name)
         _check_input_dtype(freqs_sin.dtype, "freqs_sin", [mstype.float32, mstype.float16], self.cls_name)
-        if swap_mask is not None:
-            _check_input_dtype(swap_mask.dtype, "swap_mask", [mstype.float32, mstype.float16], self.cls_name)
-        if mask is not None:
-            _check_input_dtype(mask.dtype, "input_mask", [mstype.float32, mstype.float16], self.cls_name)
+        _check_input_dtype(swap_mask.dtype, "swap_mask", [mstype.float32, mstype.float16], self.cls_name)
+        _check_input_dtype(mask.dtype, "input_mask", [mstype.float32, mstype.float16, mstype.uint8], self.cls_name)
         return True
