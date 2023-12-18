@@ -37,15 +37,22 @@ except ImportError:
 from mindspore import log as logger
 from mindspore.parallel._utils import _get_parallel_mode
 from mindspore.context import ParallelMode
+try:
+    from mindspore.nn.layer.flash_attention import FlashAttention
+    FLASHATTENTION_VALID = True
+except ImportError:
+    FLASHATTENTION_VALID = False
+
 from mindformers.modules.layers import LayerNorm, Linear, \
     _args_type_validator_check, _valid_type_checks, _valid_value_checks, \
     _check_past_none_input_none, _check_input_dtype
 from mindformers.modules.transformer.op_parallel_config import default_dpmp_config, _PipeLineConfig, OpParallelConfig, \
     _Config, _check_config, MoEParallelConfig
 from mindformers.modules.transformer.moe import default_moe_config, MoE, _check_moe_config
-from mindformers.version_control import get_dropout
+from mindformers.version_control import get_dropout, choose_flash_attention_dtype, check_valid_flash_attention
 
 from mindformers.tools.logger import _LogActionOnce
+from mindformers.tools.logger import logger as log
 
 __all__ = [
     "AttentionMask",
@@ -994,7 +1001,8 @@ class MultiHeadAttention(Cell):
                                                                     "MultiHeadAttention"),
                                 parallel_config=_valid_type_checks([OpParallelConfig],
                                                                    "MultiHeadAttention"),
-                                use_past=Validator.check_bool)
+                                use_past=Validator.check_bool,
+                                use_flash_attention=Validator.check_bool)
     def __init__(self, batch_size,
                  src_seq_length,
                  tgt_seq_length,
@@ -1006,7 +1014,8 @@ class MultiHeadAttention(Cell):
                  softmax_compute_type=mstype.float32,
                  param_init_type=mstype.float32,
                  use_past=False,
-                 parallel_config=default_dpmp_config):
+                 parallel_config=default_dpmp_config,
+                 use_flash_attention=False):
         super(MultiHeadAttention, self).__init__()
         self._is_ascend = context.get_context('device_target') in ["Ascend"]
         self.dp = parallel_config.data_parallel
@@ -1234,6 +1243,27 @@ class MultiHeadAttention(Cell):
                                      (parallel_config.model_parallel, 1)),
                     out_strategy_matmul=((parallel_config.data_parallel * parallel_config.model_parallel, 1),))
 
+        self.use_flash_attention = use_flash_attention
+        if self.use_flash_attention and not check_valid_flash_attention(FLASHATTENTION_VALID):
+            self.use_flash_attention = False
+            log.info("Current MindSpore do not support flash attention, please upgrade to 2.2.0 or higher")
+
+        if self.use_flash_attention:
+            self.flash_attention = FlashAttention(
+                self.size_per_head,
+                num_heads,
+                dropout_rate=attention_dropout_rate,
+                dp=parallel_config.data_parallel,
+                mp=parallel_config.model_parallel,
+                next_block_num=0,
+                prev_block_num=65536,
+                high_precision=True
+            )
+            self.sub = P.Sub().shard(
+                ((1,), (parallel_config.data_parallel, 1, 1)))
+
+            self.one = Tensor([1.0], dtype=compute_dtype)
+
         if parallel_config.select_recompute:
             # _attn中涉及的关键算子使用重计算逻辑，通常配合序列并行使用，会有较好的性能提升效果
             self.batch_matmul.recompute()
@@ -1271,12 +1301,13 @@ class MultiHeadAttention(Cell):
                 (batch_size, self._get_seq_length_under_incremental(self.src_seq_length),
                  self.n_head, self.size_per_head)),
             (0, 2, 1, 3))
-        # the returned shape is [bs, size_per_head, seq_length, num_heads]
+        # FA: [bs, num_heads, seq_length, size_per_head] or [bs, num_heads, size_per_head, seq_length]
+        key_transpose_shape = (0, 2, 1, 3) if self.use_flash_attention else (0, 2, 3, 1)
         key = self.transpose(
             F.reshape(
                 key, (batch_size, self._get_seq_length_under_incremental(self.tgt_seq_length),
                       self.n_head, self.size_per_head)),
-            (0, 2, 3, 1))
+            key_transpose_shape)
         # the returned shape is [bs, num_heads, seq_length, size_per_head]
         value = self.transpose(
             F.reshape(
@@ -1285,7 +1316,7 @@ class MultiHeadAttention(Cell):
                  self.n_head, self.size_per_head)),
             (0, 2, 1, 3))
         # support input shape is [bs, seq, seq] or [bs, heads, seq, seq]
-        if attention_mask is not None and len(F.shape(attention_mask)) == 3:
+        if attention_mask is not None and len(F.shape(attention_mask)) == 3 and not self.use_flash_attention:
             # expand attention mask from [bs, seq, seq] -> [bs, 1, seq, seq]
             attention_mask = self.expand_dims(attention_mask, 1)
         # key and value for current token(s)
@@ -1323,7 +1354,10 @@ class MultiHeadAttention(Cell):
         layer_present = (key_present, value_present)
         # multi head attention considering attention mask
         # the return shape is [bs * seq_length, hidden_size]
-        attention = self._attn(query, key, value, attention_mask)
+        if self.use_flash_attention:
+            attention = self._flash_attn(query, key, value, attention_mask)
+        else:
+            attention = self._attn(query, key, value, attention_mask)
         # Output
         output = self.projection(attention)
         output = self.dropout(output)
@@ -1410,6 +1444,20 @@ class MultiHeadAttention(Cell):
                 self.softmax_reshape(attention_scores, (shape[0], -1, shape[-1])))
             attention_probs = self.softmax_reshape(attention_probs, shape)
         return attention_probs
+
+    def _flash_attn(self, query, key, value, attention_mask):
+        """
+        flash attention
+        """
+        if attention_mask is not None:
+            attention_mask_dtype = choose_flash_attention_dtype()
+            attention_mask = self.sub(
+                P.Cast()(self.one, attention_mask_dtype),
+                P.Cast()(attention_mask, attention_mask_dtype))
+
+        weighted_values = self.flash_attention(query, key, value, attention_mask)
+        attention_merge = self._merge_heads(weighted_values)
+        return attention_merge
 
     def _attn(self, query, key, value, attention_mask):
         """
@@ -1599,7 +1647,8 @@ class TransformerEncoderLayer(Cell):
                                                                     "TransformerEncoderLayer"),
                                 parallel_config=_valid_type_checks([OpParallelConfig, MoEParallelConfig],
                                                                    "TransformerEncoderLayer"),
-                                use_past=Validator.check_bool)
+                                use_past=Validator.check_bool,
+                                use_flash_attention=Validator.check_bool)
     def __init__(self,
                  batch_size,
                  hidden_size,
@@ -1615,7 +1664,8 @@ class TransformerEncoderLayer(Cell):
                  hidden_act='gelu',
                  use_past=False,
                  moe_config=default_moe_config,
-                 parallel_config=default_dpmp_config):
+                 parallel_config=default_dpmp_config,
+                 use_flash_attention=False):
         super(TransformerEncoderLayer, self).__init__()
         if batch_size or use_past:
             Validator.check_positive_int(batch_size)
@@ -1657,7 +1707,8 @@ class TransformerEncoderLayer(Cell):
                                                 softmax_compute_type=softmax_compute_type,
                                                 param_init_type=param_init_type,
                                                 use_past=use_past,
-                                                parallel_config=attention_parallel_config)
+                                                parallel_config=attention_parallel_config,
+                                                use_flash_attention=use_flash_attention)
             if self.use_moe:
                 self.output = MoE(hidden_size=hidden_size,
                                   dropout_rate=hidden_dropout_rate,
@@ -1734,7 +1785,8 @@ class TransformerEncoderLayer(Cell):
                                                 softmax_compute_type=softmax_compute_type,
                                                 param_init_type=param_init_type,
                                                 use_past=use_past,
-                                                parallel_config=attention_parallel_config)
+                                                parallel_config=attention_parallel_config,
+                                                use_flash_attention=use_flash_attention)
             if self.use_moe:
                 self.output = MoE(hidden_size=hidden_size,
                                   dropout_rate=hidden_dropout_rate,

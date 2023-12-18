@@ -104,7 +104,8 @@ class GPTTransformerDecoderLayer(TransformerEncoderLayer):
                  hidden_act='gelu',
                  use_past=False,
                  moe_config=default_moe_config,
-                 parallel_config=default_dpmp_config):
+                 parallel_config=default_dpmp_config,
+                 use_flash_attention=False):
         super(GPTTransformerDecoderLayer, self).__init__(
             batch_size=batch_size,
             hidden_size=hidden_size,
@@ -120,7 +121,8 @@ class GPTTransformerDecoderLayer(TransformerEncoderLayer):
             hidden_act=hidden_act,
             use_past=use_past,
             moe_config=moe_config,
-            parallel_config=parallel_config
+            parallel_config=parallel_config,
+            use_flash_attention=use_flash_attention
         )
 
     def construct(self, x, input_mask=None, init_reset=True, batch_valid_length=None):

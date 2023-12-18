@@ -420,7 +420,8 @@ class GPT2Model(nn.Cell):
                 softmax_compute_type=config.softmax_compute_type,
                 parallel_config=config.parallel_config.dp_mp_config,
                 moe_config=moe_config,
-                use_past=config.use_past
+                use_past=config.use_past,
+                use_flash_attention=config.use_flash_attention,
             )
             set_parallel_configure_for_layer(
                 block, layer_id=i, layers=config.num_layers,

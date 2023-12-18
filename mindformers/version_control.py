@@ -169,6 +169,7 @@ def choose_flash_attention_dtype():
     attention_mask dtype should be float16 on ms 2.2.0, uint8 on 2.2.10
     ms version below 2.2.0 won't be in this func
     """
+    fa_dtype = ms.uint8
     cur_ver = ms.__version__
     if is_version_ge(cur_ver, "2.2.0") and not is_version_ge(cur_ver, "2.2.1"):
         fa_dtype = ms.float16
