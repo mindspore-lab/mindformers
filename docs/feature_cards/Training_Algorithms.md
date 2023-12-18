@@ -45,3 +45,19 @@ runner_wrapper:
   max_grad_norm: 1.0
   ...
 ```
+
+## 优化器异构
+
+在大模型训练过程中，优化器状态占用了大量的内存，进而限制了可训练的模型规模，使用优化器异构，将优化器指定到CPU上执行，可以极大扩展可训练模型规模
+
+MindFormers中，FusedCastAdamWeightDecay优化器支持了异构的能力，通过配置`optimizer`的`type`项，选择FusedCastAdamWeightDecay，即可开启优化器异构训练，如下：
+
+```yaml
+optimizer:
+  type: FusedCastAdamWeightDecay
+  ...
+  beta2: 0.95
+  eps: 0.00000001
+```
+
+**限制**：目前仅支持在网络参数为fp16且并行配置为非pipeline场景使用
