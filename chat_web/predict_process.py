@@ -147,8 +147,9 @@ class MindFormersInfer:
         model_config = default_config['model']['config']
         self.device_num = default_config['model']['device_num']
         self.device_id = default_config['model']['device_id']
-        self.device_range = default_config['model']['device_range']
+        self.device_range = None
         if self.device_num > 1:
+            self.device_range = default_config['model']['device_range']
             rank_table_file = default_config['model']['rank_table_file']
             hccl_connect_time = default_config['model']['hccl_connect_time']
             os.environ['RANK_TABLE_FILE'] = rank_table_file
