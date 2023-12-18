@@ -185,6 +185,21 @@ class MultiSourceIterDataSet:
         self.shuffle_buffer_base_size = sum(self.shuffle_num_list_base)
         self.shuffle_diff = self.shuffle_buffer_size - self.shuffle_buffer_base_size
 
+    def _reset_parameters(self):
+        """reset parameters when return a new iter object"""
+        # global setting
+        self.created = 0
+        self.size = sum(self.sample_nums)
+        self.dataset_iter_list = [dataset.create_tuple_iterator() for dataset in self.dataset_list]
+
+        # seq setting
+        self.cur_dataset_index = 0
+        self.acc_sample_nums = list(accumulate(self.sample_nums))
+
+        # shuffle setting
+        self.shuffle_buffer = []
+        self.lasted_samples = self.sample_nums
+
     def _get_dataset_shuffle_index(self):
         buffer_index = self.created % self.shuffle_buffer_size
         if buffer_index == 0:
@@ -247,8 +262,5 @@ class MultiSourceIterDataSet:
         return item
 
     def __iter__(self):
-        self.created = 0
-        self.size = sum(self.sample_nums)
-        self.lasted_samples = self.sample_nums
-        self.dataset_iter_list = [dataset.create_tuple_iterator() for dataset in self.dataset_list]
+        self._reset_parameters()
         return self
