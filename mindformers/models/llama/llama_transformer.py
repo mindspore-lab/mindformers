@@ -394,8 +394,9 @@ class LLamaDecodeLayer(nn.Cell):
                  layer_id,
                  dim: int = 512,
                  n_heads: int = 8,
-                 multiple_of: int = 256,
                  n_kv_heads: Optional[int] = None,
+                 intermediate_size: Optional[int] = None,
+                 multiple_of: int = 256,
                  ffn_dim_multiplier: Optional[int] = None,
                  norm_eps: float = 1e-5,
                  compute_dtype=mstype.float16,
@@ -449,6 +450,7 @@ class LLamaDecodeLayer(nn.Cell):
                                         use_flash_attention=use_flash_attention,
                                         parallel_config=parallel_config)
         self.feed_forward = LlamaFeedForward(dim=self.hidden_size,
+                                             intermediate_size=intermediate_size,
                                              hidden_dim=4 * self.hidden_size,
                                              multiple_of=multiple_of,
                                              ffn_dim_multiplier=ffn_dim_multiplier,

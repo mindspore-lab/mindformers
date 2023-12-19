@@ -421,6 +421,7 @@ class InternLMDecodeLayer(nn.Cell):
                  layer_id,
                  dim: int = 512,
                  n_heads: int = 8,
+                 intermediate_size: Optional[int] = None,
                  multiple_of: int = 256,
                  n_kv_heads: Optional[int] = None,
                  ffn_dim_multiplier: Optional[int] = None,
@@ -476,6 +477,7 @@ class InternLMDecodeLayer(nn.Cell):
         self.feed_forward = LlamaFeedForward(dim=self.hidden_size,
                                              hidden_dim=4 * self.hidden_size,
                                              multiple_of=multiple_of,
+                                             intermediate_size=intermediate_size,
                                              ffn_dim_multiplier=ffn_dim_multiplier,
                                              compute_dtype=compute_dtype,
                                              param_init_type=param_init_type)

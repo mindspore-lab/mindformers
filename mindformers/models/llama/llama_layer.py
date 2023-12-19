@@ -388,8 +388,9 @@ class LlamaFeedForward(Cell):
                                 param_init_type=_valid_value_checks([mstype.float32, mstype.float16],
                                                                     "FeedForward"))
     def __init__(self, dim,
-                 hidden_dim,
-                 multiple_of,
+                 intermediate_size=None,
+                 hidden_dim=None,
+                 multiple_of=256,
                  hidden_act=LlamaSiLU,
                  ffn_dim_multiplier=None,
                  compute_dtype=mstype.float16,
@@ -401,11 +402,14 @@ class LlamaFeedForward(Cell):
             raise TypeError(f"For FeedForward cell, the hidden_act should str type or nn.Cell type, "
                             f"but got {hidden_act}.")
 
-        if ffn_dim_multiplier is not None:
-            hidden_dim = int((ffn_dim_multiplier + 0.01) * hidden_dim)
-        hidden_dim = int(2 * hidden_dim / 3)
-        hidden_dim = multiple_of * \
-            ((hidden_dim + multiple_of - 1) // multiple_of)
+        if intermediate_size is not None:
+            hidden_dim = intermediate_size
+        else:
+            if ffn_dim_multiplier is not None:
+                hidden_dim = int((ffn_dim_multiplier + 0.01) * hidden_dim)
+            hidden_dim = int(2 * hidden_dim / 3)
+            hidden_dim = multiple_of * \
+                ((hidden_dim + multiple_of - 1) // multiple_of)
 
         self.dtype = compute_dtype
         self.hidden_act = hidden_act

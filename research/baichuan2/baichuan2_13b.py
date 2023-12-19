@@ -227,6 +227,7 @@ class Baichuan13BV2Model(BaseModel):
                                            layer_id,
                                            dim=config.hidden_size,
                                            n_heads=config.num_heads,
+                                           intermediate_size=config.intermediate_size,
                                            multiple_of=config.multiple_of,
                                            n_kv_heads=config.n_kv_heads,
                                            ffn_dim_multiplier=config.ffn_dim_multiplier,
@@ -387,6 +388,7 @@ class Baichuan13BDecodeLayer(nn.Cell):
                  dim: int = 512,
                  n_heads: int = 8,
                  multiple_of: int = 256,
+                 intermediate_size: Optional[int] = None,
                  n_kv_heads: Optional[int] = None,
                  ffn_dim_multiplier: Optional[int] = None,
                  norm_eps: float = 1e-5,
@@ -437,6 +439,7 @@ class Baichuan13BDecodeLayer(nn.Cell):
                                               parallel_config=parallel_config)
         self.feed_forward = LlamaFeedForward(dim=self.hidden_size,
                                              hidden_dim=4 * self.hidden_size,
+                                             intermediate_size=intermediate_size,
                                              multiple_of=multiple_of,
                                              ffn_dim_multiplier=ffn_dim_multiplier,
                                              compute_dtype=compute_dtype,

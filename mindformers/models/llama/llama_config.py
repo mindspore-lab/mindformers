@@ -100,9 +100,11 @@ class LlamaConfig(BaseConfig):
                  hidden_size: int = 4096,
                  num_layers: int = 32,
                  num_heads: int = 32,
+                 n_kv_heads: Optional[int] = None,
+                 max_position_embedding: Optional[int] = None,
+                 intermediate_size: Optional[int] = None,
                  vocab_size: int = 32000,   # defined later by tokenizer
                  multiple_of: int = 256,    # make SwiGLU hidden layer size multiple of large power of 2
-                 n_kv_heads: Optional[int] = None,
                  ffn_dim_multiplier: Optional[int] = None,
                  rms_norm_eps: float = 1e-5,
                  bos_token_id: int = 1,
@@ -142,6 +144,8 @@ class LlamaConfig(BaseConfig):
         self.hidden_size = hidden_size
         self.num_layers = num_layers
         self.num_heads = num_heads
+        self.max_position_embedding = max_position_embedding if max_position_embedding else seq_length
+        self.intermediate_size = intermediate_size
         self.multiple_of = multiple_of
         self.n_kv_heads = n_kv_heads
         self.ffn_dim_multiplier = ffn_dim_multiplier
