@@ -16,13 +16,12 @@
 
 import abc
 from typing import Optional
-from collections import Iterable
 
 from mindspore_lite import Model, ModelGroup, ModelGroupFlag
 
-from mindformers.models import BaseTokenizer, BaseImageProcessor
-from mindformers.inference.infer_config import InferConfig
 from mindformers.inference.context import build_context
+from mindformers.inference.infer_config import InferConfig
+from mindformers.models import BaseTokenizer, BaseImageProcessor
 from mindformers.tools.logger import logger
 
 
@@ -30,6 +29,7 @@ class DynShapeGear:
     """
     Dynamical shape gear setting
     """
+
     def __init__(self, gear_config_path):
         self.seq_gears, self.bs_gears = DynShapeGear.parse_dynamic_gears(gear_config_path)
 
@@ -108,10 +108,12 @@ class DynShapeGear:
             return None
         return res
 
+
 class BaseInfer(metaclass=abc.ABCMeta):
     """
     BaseInfer.
     """
+
     def __init__(self,
                  config: InferConfig = None,
                  tokenizer: Optional[BaseTokenizer] = None,
@@ -131,7 +133,7 @@ class BaseInfer(metaclass=abc.ABCMeta):
         self.full_model = None
         self.cache_model = None
         if config.prefill_model_path and config.increment_model_path:
-            if isinstance(self.config_path, Iterable) and len(self.config_path) > 1:
+            if isinstance(self.config_path, (list, tuple)) and len(self.config_path) > 1:
                 self.prefill_config = self.config_path[0]
                 self.increment_config = self.config_path[1]
             else:
