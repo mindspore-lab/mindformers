@@ -404,8 +404,7 @@ class TextGeneratorInfer(BaseInfer):
         use_past = self.full_model and self.cache_model
 
         if self.dynamic:
-            batch_size_gear = self.dynshape_gears.match_bs(batch_size)
-            act_len_gear = self.dynshape_gears.match_seq(max_length)
+            batch_size_gear, act_len_gear = self.dynshape_gears.match(batch_size, max_length)
             bs_pad = batch_size_gear - batch_size
             pad_input_ids = np.pad(pad_input_ids, ((0, bs_pad), (0, 0)), 'constant', constant_values=pad_token_id)
             valid_length = np.pad(valid_length, (0, bs_pad), 'constant', constant_values=1)
