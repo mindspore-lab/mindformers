@@ -176,3 +176,15 @@ def choose_flash_attention_dtype():
     elif is_version_ge(cur_ver, "2.2.1"):
         fa_dtype = ms.uint8
     return fa_dtype
+
+def check_valid_big_kernel():
+    """check mindspore version is valid for big kernel SiLU and LlamaRMSNorm Ops"""
+    version_valid = is_version_ge(ms.__version__, "2.2.10")
+    # below ms 2.2.10 is not support
+    if not version_valid:
+        logger.warning("Current MindSpore do not support big kernel SiLU and RMSNorm, "
+                       "please upgrade to 2.2.10 or later version.")
+        result = False
+    else:
+        result = True
+    return result
