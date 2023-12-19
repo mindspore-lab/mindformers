@@ -34,7 +34,7 @@ from mindspore.common.initializer import initializer
 from mindspore.parallel._utils import _get_parallel_mode
 from mindspore.context import ParallelMode
 from mindformers.modules.layers import Linear, _check_input_dtype, _args_type_validator_check, _valid_value_checks
-
+from mindformers.version_control import check_valid_big_kernel
 from mindformers.tools.logger import _LogActionOnce
 
 
@@ -53,19 +53,34 @@ class LlamaSiLU(Cell):
             - **x** (Tensor) - Tensor.
 
         Outputs:
-            Tensor. x = x * sigmod(x).
+            Tensor. x = silu(x).
     """
+
+
+    # pylint: disable=W0212
     def __init__(self):
         super().__init__()
-        self.sigmoid = nn.Sigmoid()
-        self.mul = P.Mul()
+        if check_valid_big_kernel():
+            self.silu = P._inner_ops.SiLU()
+            self.self_define = False
+        else:
+            self.sigmoid = P.Sigmoid()
+            self.mul = P.Mul()
+            self.silu = self._self_silu
+            self.self_define = True
 
-    def shard(self, strategy):
-        self.sigmoid.sigmoid.shard(strategy)
-        self.mul.shard((strategy[0], strategy[0]))
+    def _self_silu(self, x):
+        return self.mul(x, self.sigmoid(x))
 
     def construct(self, x):
-        return self.mul(x, self.sigmoid(x))
+        return self.silu(x)
+
+    def shard(self, strategy):
+        if self.self_define:
+            self.sigmoid.shard(strategy)
+            self.mul.shard((strategy[0], strategy[0]))
+        else:
+            self.silu.shard(strategy)
 
 
 def get_swap_mask(head_dim):
@@ -315,47 +330,57 @@ class LlamaRMSNorm(nn.Cell):
         Outputs:
             Tensor of shape :math:`(batch, seq_length, hidden_size)`.
     """
+
     def __init__(self, dim, eps=1e-6, compute_type=mstype.float32):
         super(LlamaRMSNorm, self).__init__()
         self.eps = eps
-        self.weight = Parameter(initializer('ones', (dim,), dtype=mstype.float32), parallel_optimizer=False)
-        self.square = P.Square()
-        self.mean = P.ReduceMean(keep_dims=True)
-        self.add = P.Add()
-        self.rsqrt = P.Rsqrt()
-        self.mul = P.Mul()
-        self.mul2 = P.Mul()
-        self.cast = P.Cast()
         self.compute_type = compute_type
+        self.weight = Parameter(initializer('ones', (dim,), dtype=mstype.float32), parallel_optimizer=False)
 
-    def _norm(self, x):
-        norm_factor = self.square(x)
+        if check_valid_big_kernel():
+            self.norm = P.RmsNorm(eps)
+            self.rms_norm = self._rms_norm
+            self.self_define = False
+        else:
+            self.cast = P.Cast()
+            self.mul = P.Mul()
+            self.mul2 = P.Mul()
+            self.square = P.Square()
+            self.mean = P.ReduceMean(keep_dims=True)
+            self.add = P.Add()
+            self.rsqrt = P.Rsqrt()
+            self.rms_norm = self._self_norm
+            self.self_define = True
+
+    def _self_norm(self, x):
+        original_type = x.dtype
+        norm_factor = self.square(self.cast(x, self.compute_type))
         norm_factor = self.mean(norm_factor, -1)
         norm_factor = self.add(norm_factor, self.eps)
         norm_factor = self.rsqrt(norm_factor)
-        x = self.cast(x, mstype.float16)
-        norm_factor = self.cast(norm_factor, mstype.float16)
-        return self.mul(x, norm_factor)
+        output = self.mul(x, self.cast(norm_factor, original_type))
+        output = self.mul2(output, self.cast(self.weight, original_type))
+        return output
+
+    def _rms_norm(self, x):
+        original_type = x.dtype
+        return self.norm(x, self.cast(self.weight, original_type))[0]
 
     def construct(self, x):
         """Forward of RMSNorm."""
-        original_type = x.dtype
-        x = self.cast(x, self.compute_type)
-        output = self._norm(x)
-        output = self.cast(output, mstype.float16)
-        weight = self.cast(self.weight, mstype.float16)
-        output = self.mul2(output, weight)
-        output = self.cast(output, original_type)
-        return output
+        return self.rms_norm(x)
 
     def shard(self, strategy_in):
         """Parallel strategy configuratiuon interface."""
-        self.square.shard((strategy_in,))
-        self.mean.shard((strategy_in,))
-        self.rsqrt.shard((strategy_in,))
-        self.add.shard((strategy_in, ()))
-        self.mul.shard((strategy_in, strategy_in))
-        self.mul2.shard((strategy_in, (1,)))
+        if self.self_define:
+            self.square.shard((strategy_in,))
+            self.mean.shard((strategy_in,))
+            self.rsqrt.shard((strategy_in,))
+            self.add.shard((strategy_in, ()))
+            self.mul.shard((strategy_in, strategy_in))
+            self.mul2.shard((strategy_in, (1,)))
+        else:
+            self.norm.shard((strategy_in,))
 
 
 class LlamaFeedForward(Cell):
