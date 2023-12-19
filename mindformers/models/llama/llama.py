@@ -288,7 +288,9 @@ class LlamaForCausalLM(BaseModel):
         self.is_first_iteration = True
 
         self.shape = P.Shape()
-        self.reshape = P.Reshape().add_prim_attr("skip_redistribution", True)
+        self.reshape = P.Reshape()
+        if config.is_dynamic:
+            self.reshape.add_prim_attr("skip_redistribution", True)
         self.cast = P.Cast()
         self.slice = P.StridedSlice()
         self.not_equal = P.NotEqual()
@@ -321,7 +323,7 @@ class LlamaForCausalLM(BaseModel):
         mp = config.parallel_config.model_parallel
         if not (_get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation()):
             self.slice.shard(((dp, 1),))
-            self.not_equal.shard(((1, 1), ()))
+            self.not_equal.shard(((dp, 1), ()))
             self.mul.shard(((dp, 1), (dp, 1)))
             self.add.shard(((dp, 1), ()))
             self.gather.shard(((dp, 1, 1), (dp,)))
