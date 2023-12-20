@@ -130,14 +130,6 @@ class ChatGLM2Tokenizer(Tokenizer):
                  pad_token='<pad>',
                  unk_token='<unk>',
                  **kwargs):
-        super().__init__(bos_token=bos_token,
-                         eos_token=eos_token,
-                         end_token=end_token,
-                         mask_token=mask_token,
-                         gmask_token=gmask_token,
-                         pad_token=pad_token,
-                         unk_token=unk_token,
-                         **kwargs)
         self.name = "ChatGLM2Tokenizer"
 
         self.vocab_file = vocab_file
@@ -153,6 +145,15 @@ class ChatGLM2Tokenizer(Tokenizer):
         self._end_token = end_token
         self._mask_token = mask_token
         self._gmask_token = gmask_token
+
+        super().__init__(bos_token=bos_token,
+                         eos_token=eos_token,
+                         end_token=end_token,
+                         mask_token=mask_token,
+                         gmask_token=gmask_token,
+                         pad_token=pad_token,
+                         unk_token=unk_token,
+                         **kwargs)
 
     def get_command(self, token):
         if token in self.special_tokens:
@@ -188,7 +189,7 @@ class ChatGLM2Tokenizer(Tokenizer):
         prompt += "[Round {}]\n\n问：{}\n\n答：".format(len(history) + 1, query)
         return prompt
 
-    def tokenize(self, text, pair=None, add_special_tokens=True, **kwargs):
+    def tokenize(self, text, pair: Optional[str] = None, add_special_tokens: bool = False, **kwargs):
         """ Returns a tokenized string. """
         return self._tokenize(text)
 

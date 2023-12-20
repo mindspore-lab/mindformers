@@ -208,6 +208,18 @@ class ChatGLMTokenizer(Tokenizer):
             num_image_tokens=0,
             **kwargs
     ) -> None:
+        self.do_lower_case = do_lower_case
+        self.remove_space = remove_space
+        self.vocab_file = vocab_file
+
+        self._bos_token = bos_token
+        self._eos_token = eos_token
+        self._end_token = end_token
+        self._mask_token = mask_token
+        self._gmask_token = gmask_token
+
+        self.sp_tokenizer = SPTokenizer(vocab_file, num_image_tokens=num_image_tokens)
+
         super().__init__(
             do_lower_case=do_lower_case,
             remove_space=remove_space,
@@ -221,21 +233,6 @@ class ChatGLMTokenizer(Tokenizer):
             num_image_tokens=num_image_tokens,
             **kwargs
         )
-
-        self.do_lower_case = do_lower_case
-        self.remove_space = remove_space
-        self.vocab_file = vocab_file
-
-        self._bos_token = bos_token
-        self._eos_token = eos_token
-        self._end_token = end_token
-        self._mask_token = mask_token
-        self._gmask_token = gmask_token
-
-        self.sp_tokenizer = SPTokenizer(vocab_file, num_image_tokens=num_image_tokens)
-
-        self.added_tokens_encoder = {}
-        self.added_tokens_decoder = {}
 
     @property
     def gmask_token_id(self) -> Optional[int]:
@@ -275,10 +272,6 @@ class ChatGLMTokenizer(Tokenizer):
             outputs = outputs.lower()
 
         return outputs
-
-    def tokenize(self, text, pair=None, add_special_tokens=True, **kwargs):
-        """ Returns a tokenized string. """
-        return self._tokenize(text)
 
     def _tokenize(self, text, **kwargs):
         """ Returns a tokenized string. """
@@ -408,7 +401,7 @@ class ChatGLMTokenizer(Tokenizer):
         with open(vocab_file, "wb") as writer:
             writer.write(proto_str)
 
-        return vocab_file
+        return (vocab_file,)
 
     def create_token_type_ids_from_sequences(
             self, token_ids_0: List[int], token_ids_1: Optional[List[int]] = None

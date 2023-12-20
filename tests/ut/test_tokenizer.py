@@ -33,7 +33,7 @@ def test_all_tokenizers():
     #     os.mkdir(path_name)
 
     tokenizer_list = ["gpt2", "bert_base_uncased", "llama_7b", "bloom_560m",
-                      "pangualpha_2_6b", "clip_vit_b_32", "glm_6b", "t5_small"]
+                      "pangualpha_2_6b", "clip_vit_b_32", "glm_6b", "t5_small", "glm2_6b", "llama2_7b"]
     string_list = ["I love Beijing.", "我爱北京。"]
     return_tensors_sig = ["", "ms", "np"]
 
@@ -53,7 +53,12 @@ def test_all_tokenizers():
         [115, 703, 8994, 7],    # glm english
         [5, 76202, 64241, 63823],   # glm chinese
         [27, 333, 14465, 5],    # t5 english
-        [3, 2]   # t5 chinese
+        [3, 2],    # t5 english
+        [3, 2],    # t5 chinese
+        [307, 1379, 13924, 30930],  # glm2 english
+        [34211, 54799, 31719, 31155],    # glm2 chinese
+        [306, 5360, 1522, 823, 292, 29889],     # llama2 english
+        [29871, 30672, 234, 139, 180, 30662, 30675, 30267]  # llama2 chinese
     ]
 
     for i, tokenizer_item in enumerate(tokenizer_list):

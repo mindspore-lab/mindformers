@@ -73,13 +73,6 @@ class PanguAlphaTokenizer(Tokenizer):
                  add_bos_token=False,
                  add_eos_token=False,
                  **kwargs):
-        super(PanguAlphaTokenizer, self).__init__(
-            eos_token=eos_token,
-            bos_token=bos_token,
-            unk_token=unk_token,
-            pad_token=pad_token,
-            **kwargs
-        )
         self.add_bos_token = add_bos_token
         self.add_eos_token = add_eos_token
 
@@ -90,10 +83,13 @@ class PanguAlphaTokenizer(Tokenizer):
             self.encoder[self.sp.id_to_piece(i)] = i
         self.translator = str.maketrans(" \n", "\u2582\u2583")
 
-    def tokenize(self, text, pair=None, add_special_tokens=True, **kwargs):
-        if not isinstance(text, str):
-            raise ValueError("Text should be type str, but found type", type(text))
-        return self._tokenize(text)
+        super(PanguAlphaTokenizer, self).__init__(
+            eos_token=eos_token,
+            bos_token=bos_token,
+            unk_token=unk_token,
+            pad_token=pad_token,
+            **kwargs
+        )
 
     def _tokenize(self, text, **kwargs):
         """ Tokenize a string using bpe encode. """
@@ -105,8 +101,18 @@ class PanguAlphaTokenizer(Tokenizer):
         if isinstance(tokens, str):
             return self._convert_token_to_id(tokens)
         if isinstance(tokens, list):
-            tokens = " ".join(tokens)
-            return self.sp.encode(tokens)
+            tmp = []
+            res = []
+            for token in tokens:
+                if token not in self.added_tokens_encoder:
+                    tmp.append(token)
+                else:
+                    res.extend(self.sp.encode(" ".join(tmp)))
+                    res.append(self.added_tokens_encoder[token])
+                    tmp = []
+            if tmp:
+                res.extend(self.sp.encode(" ".join(tmp)))
+            return res
         return None
 
     def _convert_token_to_id(self, token):
@@ -151,7 +157,7 @@ class PanguAlphaTokenizer(Tokenizer):
         with open(output_file_path, 'w', encoding="utf8") as fp:
             for k in self.encoder:
                 fp.write(k + '\n')
-        return output_file_path
+        return (output_file_path,)
 
     @property
     def vocab_size(self):

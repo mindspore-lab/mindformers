@@ -28,11 +28,14 @@ from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.models.base_tokenizer import Tokenizer
 from mindformers.models.bert import BertTokenizer
 from ...mindformer_book import MindFormerBook
+from ..base_tokenizer import AddedToken
+from ..convert_slow_tokenizer import import_protobuf
 
 __all__ = ["T5Tokenizer", "T5PegasusTokenizer"]
 
-
 VOCAB_FILES_NAMES = {"vocab_file": "spiece.model"}
+
+SPIECE_UNDERLINE = "▁"
 
 
 @MindFormerRegister.register(MindFormerModuleType.TOKENIZER)
@@ -84,6 +87,10 @@ class T5Tokenizer(Tokenizer):
 
             - `alpha`: Smoothing parameter for unigram sampling, and dropout probability of merge operations for
               BPE-dropout.
+        legacy (`bool`, *optional*):
+            Whether or not the `legacy` behaviour of the tokenizer should be used. Legacy is before the merge of #24622
+            and #25224 which includes fixes to properly handle tokens that appear after special tokens.
+            Checkout the [pull request](https://github.com/huggingface/transformers/pull/24565) for more details.
 
     Attributes:
         sp_model (`SentencePieceProcessor`):
@@ -104,22 +111,49 @@ class T5Tokenizer(Tokenizer):
             extra_ids=100,
             additional_special_tokens=None,
             sp_model_kwargs: Optional[Dict[str, Any]] = None,
+            legacy=True,
             **kwargs,
     ) -> None:
-        # Add extra_ids to the special token list
-        if extra_ids > 0 and additional_special_tokens is None:
-            additional_special_tokens = [f"<extra_id_{i}>" for i in range(extra_ids)]
-        elif extra_ids > 0 and additional_special_tokens is not None:
-            # Check that we have the right number of extra_id special tokens
-            extra_tokens = len(set(filter(lambda x: bool("extra_id" in str(x)), additional_special_tokens)))
-            if extra_tokens != extra_ids:
+        pad_token = AddedToken(pad_token, special=True) if isinstance(pad_token, str) else pad_token
+        unk_token = AddedToken(unk_token, special=True) if isinstance(unk_token, str) else unk_token
+        eos_token = AddedToken(eos_token, special=True) if isinstance(eos_token, str) else eos_token
+
+        self.sp_model_kwargs = {} if sp_model_kwargs is None else sp_model_kwargs
+
+        self.vocab_file = vocab_file
+        self._extra_ids = extra_ids
+
+        self.sp_model = spm.SentencePieceProcessor(**self.sp_model_kwargs)
+        self.sp_model.Load(vocab_file)
+
+        if additional_special_tokens is not None:
+            extra_tokens = [x for x in additional_special_tokens if "<extra_id_" in str(x)]
+            if not extra_tokens:
+                additional_special_tokens += [f"<extra_id_{i}>" for i in range(extra_ids)]
+            elif extra_ids > 0 and extra_ids != len(extra_tokens):
                 raise ValueError(
                     f"Both extra_ids ({extra_ids}) and additional_special_tokens ({additional_special_tokens}) are"
                     " provided to T5Tokenizer. In this case the additional_special_tokens must include the extra_ids"
                     " tokens"
                 )
+        else:
+            extra_tokens = [f"<extra_id_{i}>" for i in range(extra_ids)]
+            additional_special_tokens = extra_tokens
 
-        self.sp_model_kwargs = {} if sp_model_kwargs is None else sp_model_kwargs
+        # for legacy purpose, we keep this. Will be removed and tests updated. (when `added_tokens_decoder` is not passed as kwargs)
+        self._added_tokens_decoder = {}
+        for i in range(len(extra_tokens)):
+            self._added_tokens_decoder[len(self.sp_model) - 1 + extra_ids - i] = AddedToken(
+                f"<extra_id_{i}>", single_word=True, lstrip=True, rstrip=True, special=True
+            )
+
+        self.legacy = legacy
+        self.sp_model = self.get_spm_processor(kwargs.pop("from_slow", False))
+        self.vocab_file = vocab_file
+        self._extra_ids = extra_ids
+
+        self.sp_model = spm.SentencePieceProcessor(**self.sp_model_kwargs)
+        self.sp_model.Load(vocab_file)
 
         super().__init__(
             eos_token=eos_token,
@@ -128,14 +162,29 @@ class T5Tokenizer(Tokenizer):
             extra_ids=extra_ids,
             additional_special_tokens=additional_special_tokens,
             sp_model_kwargs=self.sp_model_kwargs,
+            legacy=legacy,
             **kwargs,
         )
 
-        self.vocab_file = vocab_file
-        self._extra_ids = extra_ids
+    # Copied from transformers.models.t5.tokenization_t5.T5Tokenizer.get_spm_processor
+    def get_spm_processor(self, from_slow=False):
+        """get_spm_processor"""
+        tokenizer = spm.SentencePieceProcessor(**self.sp_model_kwargs)
+        if self.legacy or from_slow:  # no dependency on protobuf
+            tokenizer.Load(self.vocab_file)
+            return tokenizer
 
-        self.sp_model = spm.SentencePieceProcessor(**self.sp_model_kwargs)
-        self.sp_model.Load(vocab_file)
+        with open(self.vocab_file, "rb") as f:
+            sp_model = f.read()
+            model_pb2 = import_protobuf(
+                f"The new behaviour of {self.__class__.__name__} (with `self.legacy = False`)")
+            model = model_pb2.ModelProto.FromString(sp_model)
+            normalizer_spec = model_pb2.NormalizerSpec()
+            normalizer_spec.add_dummy_prefix = False
+            model.normalizer_spec.MergeFrom(normalizer_spec)
+            sp_model = model.SerializeToString()
+            tokenizer.LoadFromSerializedProto(sp_model)
+        return tokenizer
 
     @staticmethod
     def _eventually_correct_t5_max_length(pretrained_model_name_or_path, max_model_length, init_max_model_length):
@@ -162,7 +211,7 @@ class T5Tokenizer(Tokenizer):
 
     @property
     def vocab_size(self):
-        return self.sp_model.get_piece_size() + self._extra_ids
+        return self.sp_model.get_piece_size()
 
     def get_vocab(self):
         vocab = {self.convert_ids_to_tokens(i): i for i in range(self.vocab_size)}
@@ -280,29 +329,60 @@ class T5Tokenizer(Tokenizer):
         self.sp_model = spm.SentencePieceProcessor(**self.sp_model_kwargs)
         self.sp_model.Load(self.vocab_file)
 
-    def _tokenize(self, text: str, **kwargs) -> List[str]:
-        """Take as input a string and return a list of strings (tokens) for words/sub-words"""
-        return self.sp_model.encode(text, out_type=str)
+    # Copied from transformers.models.t5.tokenization_t5.T5Tokenizer.tokenize
+    def tokenize(
+            self, text: "TextInput", pair: Optional[str] = None, add_special_tokens: bool = False, **kwargs
+    ) -> List[str]:
+        """
+        Converts a string to a list of tokens. If `self.legacy` is set to `False`, a prefix token is added unless the
+        first token is special.
+        """
+        if self.legacy or not text:
+            return super().tokenize(text, **kwargs)
+
+        tokens = super().tokenize(SPIECE_UNDERLINE + text.replace(SPIECE_UNDERLINE, " "), **kwargs)
+
+        if len(tokens) > 1 and tokens[0] == SPIECE_UNDERLINE and tokens[1] in self.all_special_tokens:
+            tokens = tokens[1:]
+        return tokens
+
+    @property
+    def unk_token_length(self):
+        return len(self.sp_model.encode(str(self.unk_token)))
+
+    def _tokenize(self, text, **kwargs):
+        """
+        Returns a tokenized string.
+
+        We de-activated the `add_dummy_prefix` option, thus the sentencepiece internals will always strip any
+        SPIECE_UNDERLINE. For example: `self.sp_model.encode(f"{SPIECE_UNDERLINE}Hey", out_type = str)` will give
+        `['H', 'e', 'y']` instead of `['▁He', 'y']`. Thus we always encode `f"{unk_token}text"` and strip the
+        `unk_token`. Here is an example with `unk_token = "<unk>"` and `unk_token_length = 4`.
+        `self.tokenizer.sp_model.encode("<unk> Hey", out_type = str)[4:]`.
+        """
+        tokens = self.sp_model.encode(text, out_type=str)
+        if self.legacy or not text.startswith((SPIECE_UNDERLINE, " ")):
+            return tokens
+
+        # 1. Encode string + prefix ex: "<unk> Hey"
+        tokens = self.sp_model.encode(self.unk_token + text, out_type=str)
+        # 2. Remove self.unk_token from ['<','unk','>', '▁Hey']
+        return tokens[self.unk_token_length:] if len(tokens) >= self.unk_token_length else tokens
 
     def _convert_token_to_id(self, token):
         """Converts a token (str) in an id using the vocab."""
-        if token.startswith("<extra_id_"):
-            match = re.match(r"<extra_id_(\d+)>", token)
-            num = int(match.group(1))
-            return self.vocab_size - num - 1
         return self.sp_model.piece_to_id(token)
 
     def _convert_id_to_token(self, index):
         """Converts an index (integer) in a token (str) using the vocab."""
-        if index < self.sp_model.get_piece_size():
-            token = self.sp_model.IdToPiece(index)
-        else:
-            token = f"<extra_id_{self.vocab_size - 1 - index}>"
+        token = self.sp_model.IdToPiece(index)
         return token
 
     def convert_tokens_to_string(self, tokens):
         """Converts a sequence of tokens (string) in a single string."""
         current_sub_tokens = []
+        # since we manually add the prefix space, we have to remove it
+        tokens[0] = tokens[0].lstrip(SPIECE_UNDERLINE)
         out_string = ""
         prev_is_special = False
         for token in tokens:
@@ -334,7 +414,7 @@ class T5Tokenizer(Tokenizer):
                 content_spiece_model = self.sp_model.serialized_model_proto()
                 fi.write(content_spiece_model)
 
-        return out_vocab_file
+        return (out_vocab_file,)
 
 
 @MindFormerRegister.register(MindFormerModuleType.TOKENIZER)
