@@ -106,7 +106,10 @@ if __name__ == '__main__':
                         help="The output checkpoint path.")
 
     args = parser.parse_args()
-    output_dir = os.path.dirname(args.mindspore_ckpt_path)
-    if not os.path.exists(output_dir):
+
+    output_path = os.path.expanduser(args.mindspore_ckpt_path)
+    output_dir = os.path.dirname(output_path)
+    if output_dir and not os.path.exists(output_dir):
         os.mkdir(output_dir)
-    convert_hf_ckpt(args.torch_ckpt_dir, args.mindspore_ckpt_path, torch_dtype=torch.float32, dtype=ms.float32)
+
+    convert_hf_ckpt(args.torch_ckpt_dir, output_path, torch_dtype=torch.float32, dtype=ms.float32)

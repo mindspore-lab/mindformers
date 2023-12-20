@@ -20,7 +20,7 @@ from typing import Collection, Dict, List, Set, Union
 import unicodedata
 
 from mindformers.mindformer_book import MindFormerBook
-from mindformers.models.base_tokenizer import Tokenizer
+from mindformers.models.base_tokenizer import AddedToken, Tokenizer
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 
 try:
@@ -55,7 +55,10 @@ class QwenTokenizer(Tokenizer):
     def __init__(self,
                  vocab_file="qwen.tiktoken",
                  errors="replace",
+                 pad_token="<|endoftext|>",
                  **kwargs):
+        pad_token = AddedToken(pad_token, lstrip=False, rstrip=False) if isinstance(pad_token, str) else pad_token
+
         self.errors = errors  # how to handle errors in decoding
         self.vocab_file = vocab_file
         self.mergeable_ranks = _load_tiktoken_bpe(vocab_file)  # type: dict[bytes, int]
@@ -88,7 +91,7 @@ class QwenTokenizer(Tokenizer):
         self.im_start_id = self.special_tokens[IMSTART]
         self.im_end_id = self.special_tokens[IMEND]
 
-        super().__init__(**kwargs)
+        super().__init__(pad_token=pad_token, **kwargs)
 
     @property
     def vocab_size(self):

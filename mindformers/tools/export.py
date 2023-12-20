@@ -33,6 +33,7 @@ from research.baichuan2.baichuan2_13b import Baichuan13BV2ForCausalLM
 
 # pylint: disable=W0611
 import research.qwen.qwen_model
+import research.qwen.qwen_config
 
 def get_glm_prefill_model_input(batch_size, seq_length):
     """get glm model input tuple."""

@@ -2,16 +2,16 @@ seed: 0
 output_dir: './output'
 load_checkpoint: ''
 src_strategy_path_or_dir: ''
-auto_trans_ckpt: False  # If true, auto transform load_checkpoint to load in distributed model
+auto_trans_ckpt: True  # If true, auto transform load_checkpoint to load in distributed model
 only_save_strategy: False
 resume_training: False
-use_parallel: False
-run_mode: 'predict'
+use_parallel: True
+run_mode: 'finetune'
 
 # trainer config
 trainer:
   type: CausalLanguageModelingTrainer
-  model_name: 'qwen_7b'
+  model_name: 'qwen_7b_lora'
 
 # dataset
 train_dataset: &train_dataset
@@ -52,13 +52,14 @@ optimizer:
   beta1: 0.9
   beta2: 0.95
   eps: 1.e-6
-  learning_rate: 1.e-5
+  learning_rate: 3.e-4
   weight_decay: 0.1
 
 # lr sechdule
 lr_schedule:
   type: CosineWithWarmUpLR
-  learning_rate: 1.e-5
+  learning_rate: 3.e-4
+  lr_end: 3.e-5
   warmup_ratio: 0.01
   total_steps: -1 # -1 means it will load the total steps of the dataset
 
@@ -88,7 +89,7 @@ model:
   model_config:
     type: QwenConfig
     batch_size: 1
-    seq_length: 1024
+    seq_length: 2048
     hidden_size: 4096
     num_hidden_layers: 32
     num_attention_heads: 32
@@ -103,8 +104,7 @@ model:
     softmax_compute_type: "float16"
     rotary_dtype: "float16"
     param_init_type: "float16"
-    use_past: True
-    use_past_shard: False
+    use_past: False
     offset: 0
     checkpoint_name_or_path: "/path/qwen_7b_base.ckpt"
     repetition_penalty: 1
@@ -112,6 +112,14 @@ model:
     top_k: 0
     top_p: 0.8
     do_sample: False
+    pet_config:
+      pet_type: lora
+      # configuration of lora
+      lora_rank: 64
+      lora_alpha: 16
+      lora_dropout: 0.05
+      target_modules: '.*wq|.*wk|.*wv|.*wo|.*w1|.*w2|.*w3'
+      freeze_exclude: ["*wte*", "*lm_head*"]
 
     # configuration items copied from Qwen
     rotary_pct: 1.0
