@@ -118,7 +118,7 @@ model:
     freeze_text: True
     max_txt_len: 32
     # visualglm qformer weight
-    checkpoint_name_or_path: "/home/imace/models/visual_glm/itt/visualglm_qformer.ckpt"
+    checkpoint_name_or_path: "/path/to/visualglm_qformer.ckpt"
     dtype: "float32"
     compute_dtype: "float16"
     layernorm_dtype: "float32"
@@ -159,7 +159,7 @@ model:
 #      softmax_compute_type: float32
 #      param_init_type: float32
       # visualglm vit weight
-      checkpoint_name_or_path: "/home/imace/models/visual_glm/vit/visualglm_vit.ckpt"
+      checkpoint_name_or_path: "/path/to/visualglm_vit.ckpt"
 
     text_config:
       type: GLMConfig
@@ -194,7 +194,7 @@ model:
       max_decode_length: 2048
       is_enhanced_encoder: True
       is_sample_acceleration: False
-      checkpoint_name_or_path: "/home/imace/models/visual_glm/glm/glm_6b.ckpt"
+      checkpoint_name_or_path: "/path/to/glm_6b.ckpt"
       top_k: 1
       top_p: 1
       repetition_penalty: 1
@@ -210,18 +210,8 @@ processor:
     image_size: 224  # input image size
   tokenizer:
     type: ChatGLMTokenizer
-    bos_token: '<sop>'
-    eos_token: '<eop>'
-    end_token: '</s>'
-    mask_token: '[MASK]'
-    gmask_token: '[gMASK]'
-    pad_token: '<pad>'
-    unk_token: '<unk>'
-    add_special_tokens: False
-    padding: 'max_length'
-    truncation: True
     max_length: 32
-    checkpoint_name_or_path: "/home/imace/models/visual_glm/glm/ice_text.model"
+    vocab_file: "/path/to/ice_text.model"
 
 
 # callbacks

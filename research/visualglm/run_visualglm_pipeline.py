@@ -20,6 +20,9 @@ from mindspore.dataset import vision
 from mindspore.dataset.vision.utils import Inter
 
 from mindformers.pipeline import pipeline
+from mindformers.tools.utils import str2bool
+from mindformers.tools.logger import logger
+
 from visualglm import VisualGLMImageToTextGeneration
 from visualglm_config import VisualGLMConfig
 from visualglm_processor import VisualGLMProcessor
@@ -27,19 +30,7 @@ from visualglm_processor import VisualGLMProcessor
 
 def init_context(device_id):
     """ init context """
-    ms.set_context(mode=0, device_target="Ascend", device_id=device_id, max_device_memory="30GB")  # Ascend, CPU
-
-
-def str2bool(v):
-    """ convert bool str to bool """
-    v_lower = v.lower()
-    if v_lower in ["false", "0"]:
-        output = False
-    elif v_lower in ["true", "1"]:
-        output = True
-    else:
-        raise ValueError("Invalid boolean value")
-    return output
+    ms.set_context(mode=0, device_target="Ascend", device_id=device_id, max_device_memory="59GB")  # Ascend, CPU
 
 
 def main(args):
@@ -48,7 +39,7 @@ def main(args):
     model_config.max_txt_len = args.seq_length
 
     if args.checkpoint is not None:
-        print(f"checkpoint: {args.checkpoint}")
+        logger.info(f"checkpoint: {args.checkpoint}")
         model_config.checkpoint_name_or_path = args.checkpoint
 
     if args.batch_size > 1:
@@ -68,7 +59,7 @@ def main(args):
     processor.image_processor.resize.resize = vision.transforms.Resize((224, 224), Inter.BICUBIC)
     tokenizer = processor.tokenizer
 
-    print(f"batch_size is {model_config.batch_size}")
+    logger.info(f"batch_size is {model_config.batch_size}")
 
     pipeline_task = pipeline(task='visualglm_image_to_text_generation', model=model,
                              image_processor=processor.image_processor,
@@ -77,103 +68,25 @@ def main(args):
     predict_result = pipeline_task({
         "image": args.image_path,
         "prompt": args.prompt})
-    print(predict_result)
+    logger.info(predict_result)
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        '--model_type',
-        default="visualglm_6b",
-        type=str,
-        required=False,
-        help='model type')
-
-    parser.add_argument(
-        '--config_path',
-        default="run_visualglm_6b_image_to_text_generation.yaml",
-        type=str,
-        required=False,
-        help='config path')
-
-    parser.add_argument(
-        '--device_id',
-        type=int,
-        default=1,
-        required=False,
-        help='device id')
-
-    parser.add_argument(
-        '--batch_size',
-        type=int,
-        default=1,
-        required=False,
-        help='batch_size')
-
-    parser.add_argument(
-        '--checkpoint',
-        type=str,
-        default=None,
-        required=False,
-        help='checkpoint path')
-
-    parser.add_argument(
-        '--generate_repeat_time',
-        type=int,
-        default=1,
-        required=False,
-        help='generate repeat time')
-
-    parser.add_argument(
-        '--use_past',
-        type=str2bool,
-        default=True,
-        required=False,
-        help='whether use past')
-
-    parser.add_argument(
-        '--do_sample',
-        type=str2bool,
-        default=False,
-        required=False,
-        help='whether do sample')
-
-    parser.add_argument(
-        '--top_p',
-        type=float,
-        default=1,
-        required=False,
-        help='top p')
-
-    parser.add_argument(
-        '--top_k',
-        type=int,
-        default=0,
-        required=False,
-        help='top k')
-
-    parser.add_argument(
-        '--seq_length',
-        type=int,
-        default=32,
-        required=False,
-        help='seq length')
-
-    parser.add_argument(
-        '--image_path',
-        type=str,
-        default=None,
-        required=False,
-        help='image path')
-
-    parser.add_argument(
-        '--prompt',
-        type=str,
-        default=None,
-        required=False,
-        help='')
-
+    parser.add_argument('--model_type', default="visualglm_6b", type=str, required=False, help='model type')
+    parser.add_argument('--config_path', default="run_visualglm_6b_image_to_text_generation.yaml",
+                        type=str, required=False, help='config path')
+    parser.add_argument('--device_id', type=int, default=1, required=False, help='device id')
+    parser.add_argument('--batch_size', type=int, default=1, required=False, help='batch_size')
+    parser.add_argument('--checkpoint', type=str, default=None, required=False, help='checkpoint path')
+    parser.add_argument('--generate_repeat_time', type=int, default=1, required=False, help='generate repeat time')
+    parser.add_argument('--use_past', type=str2bool, default=True, required=False, help='whether use past')
+    parser.add_argument('--do_sample', type=str2bool, default=False, required=False, help='whether do sample')
+    parser.add_argument('--top_p', type=float, default=1, required=False, help='top p')
+    parser.add_argument('--top_k', type=int, default=0, required=False, help='top k')
+    parser.add_argument('--seq_length', type=int, default=32, required=False, help='seq length')
+    parser.add_argument('--image_path', type=str, default=None, required=False, help='image path')
+    parser.add_argument('--prompt', type=str, default=None, required=False, help='')
     args_ = parser.parse_args()
     print(args_)
-
     main(args_)

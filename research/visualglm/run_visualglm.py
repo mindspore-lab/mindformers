@@ -28,7 +28,7 @@ from visualglm_processor import VisualGLMProcessor
 
 def init_context(device_id):
     """init context"""
-    ms.set_context(mode=0, device_target="Ascend", device_id=device_id, max_device_memory="30GB")  # Ascend, CPU
+    ms.set_context(mode=0, device_target="Ascend", device_id=device_id, max_device_memory="59GB")  # Ascend, CPU
 
 
 def build_text_input(prompts, templates):
@@ -73,7 +73,7 @@ def process_response(response_list):
 
 
 DEFAULT_IMAGE_TEXT_PAIR = [
-    ("./images/titanic.jpg", "这部电影的导演是谁？")
+    ("./examples/titanic.jpg", "这部电影的导演是谁？")
 ]
 
 

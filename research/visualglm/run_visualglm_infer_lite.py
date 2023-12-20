@@ -23,7 +23,9 @@ import mindspore as ms
 from mindspore.dataset import vision
 from mindspore.dataset.vision.utils import Inter
 from mindformers.inference import InferConfig, InferTask
+from mindformers.tools.utils import str2bool
 from mindformers.tools.image_tools import load_image
+
 from visualglm import VisualGLMImageToTextGeneration
 from visualglm_config import VisualGLMConfig
 from visualglm_processor import VisualGLMProcessor
@@ -31,7 +33,7 @@ from visualglm_text_generator_infer import register_task
 
 
 def init_context(device_id):
-    ms.set_context(mode=0, device_target="Ascend", device_id=device_id, max_device_memory="40GB")  # Ascend, CPU
+    ms.set_context(mode=0, device_target="Ascend", device_id=device_id, max_device_memory="59GB")  # Ascend, CPU
 
 
 def build_text_input(prompts, templates):
@@ -39,18 +41,6 @@ def build_text_input(prompts, templates):
     for i in range(len(prompts)):
         text_input.append(templates[i].format(prompts[i]))
     return text_input
-
-
-def str2bool(v):
-    """convert bool str to bool"""
-    v_lower = v.lower()
-    if v_lower in ["false", "0"]:
-        output = False
-    elif v_lower in ["true", "1"]:
-        output = True
-    else:
-        raise ValueError("Invalid boolean value")
-    return output
 
 
 def process_response(response_list):
@@ -75,7 +65,7 @@ def process_response(response_list):
 
 
 DEFAULT_IMAGE_TEXT_PAIR = [
-    ("./images/titanic.jpg", "这部电影的导演是谁？")
+    ("./examples/titanic.jpg", "这部电影的导演是谁？")
 ]
 
 
@@ -254,116 +244,23 @@ def main(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        '--model_type',
-        default="visualglm_6b",
-        type=str,
-        required=False,
-        help='model type')
-
-    parser.add_argument(
-        '--config_path',
-        default="run_visualglm_6b_image_to_text_generation.yaml",
-        type=str,
-        required=False,
-        help='config path')
-
-    parser.add_argument(
-        '--device_id',
-        type=int,
-        default=1,
-        required=False,
-        help='device id')
-
-    parser.add_argument(
-        '--batch_size',
-        type=int,
-        default=1,
-        required=False,
-        help='batch_size')
-
-    parser.add_argument(
-        '--checkpoint',
-        type=str,
-        default=None,
-        required=False,
-        help='checkpoint path')
-
-    parser.add_argument(
-        '--generate_repeat_time',
-        type=int,
-        default=2,
-        required=False,
-        help='generate repeat time')
-
-    parser.add_argument(
-        '--use_past',
-        type=str2bool,
-        default=True,
-        required=False,
-        help='whether use past')
-
-    parser.add_argument(
-        '--do_sample',
-        type=str2bool,
-        default=False,
-        required=False,
-        help='whether do sample')
-
-    parser.add_argument(
-        '--top_p',
-        type=float,
-        default=1,
-        required=False,
-        help='top p')
-
-    parser.add_argument(
-        '--top_k',
-        type=int,
-        default=0,
-        required=False,
-        help='top k')
-
-    parser.add_argument(
-        '--seq_length',
-        type=int,
-        default=32,
-        required=False,
-        help='seq length')
-
-    parser.add_argument(
-        '--image_path',
-        type=str,
-        default="images/2p.png",
-        required=False,
-        help='image path')
-
-    parser.add_argument(
-        '--prompt',
-        type=str,
-        default="描述这张图片。",
-        required=False,
-        help='')
-
-    parser.add_argument(
-        '--full_model_path',
-        default=None,
-        type=str,
-        help="load mindir full checkpoint")
-
-    parser.add_argument(
-        '--inc_model_path',
-        default=None,
-        type=str,
-        help="load mindir inc checkpoint")
-
-    parser.add_argument(
-        "--ge_config",
-        type=str,
-        required=False,
-        help="Path to GE config")
-
+    parser.add_argument('--model_type', default="visualglm_6b", type=str, required=False, help='model type')
+    parser.add_argument('--config_path', default="run_visualglm_6b_image_to_text_generation.yaml",
+                        type=str, required=False, help='config path')
+    parser.add_argument('--device_id', type=int, default=1, required=False, help='device id')
+    parser.add_argument('--batch_size', type=int, default=1, required=False, help='batch_size')
+    parser.add_argument('--checkpoint', type=str, default=None, required=False, help='checkpoint path')
+    parser.add_argument('--generate_repeat_time', type=int, default=2, required=False, help='generate repeat time')
+    parser.add_argument('--use_past', type=str2bool, default=True, required=False, help='whether use past')
+    parser.add_argument('--do_sample', type=str2bool, default=False, required=False, help='whether do sample')
+    parser.add_argument('--top_p', type=float, default=1, required=False, help='top p')
+    parser.add_argument('--top_k', type=int, default=0, required=False, help='top k')
+    parser.add_argument('--seq_length', type=int, default=32, required=False, help='seq length')
+    parser.add_argument('--image_path', type=str, default=None, required=True, help='image path')
+    parser.add_argument('--prompt', type=str, default='', required=False, help='prompt content')
+    parser.add_argument('--full_model_path', default=None, type=str, help="load mindir full checkpoint")
+    parser.add_argument('--inc_model_path', default=None, type=str, help="load mindir inc checkpoint")
+    parser.add_argument('--ge_config', type=str, required=False, help="Path to GE config")
     args_ = parser.parse_args()
     print(args_)
-
     main(args_)
