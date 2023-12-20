@@ -76,7 +76,8 @@ class MoEConfig:
     """
 
     def __init__(self, expert_num=1, capacity_factor=1.1, aux_loss_factor=0.05, num_experts_chosen=1,
-                 expert_group_size=None, group_wise_a2a=False, comp_comm_parallel=False, comp_comm_parallel_degree=2):
+                 expert_group_size=None, group_wise_a2a=False, comp_comm_parallel=False, comp_comm_parallel_degree=2,
+                 save_token_distribution=False, cur_layer=0):
         Validator.check_positive_int(expert_num, "expert_num")
         Validator.check_positive_float(capacity_factor, "capacity_factor")
         Validator.check_positive_float(aux_loss_factor, "aux_loss_factor")
@@ -84,6 +85,8 @@ class MoEConfig:
         Validator.check_bool(group_wise_a2a, "group_wise_a2a")
         Validator.check_bool(comp_comm_parallel, "comp_comm_parallel")
         Validator.check_positive_int(comp_comm_parallel_degree, "comp_comm_parallel_degree")
+        Validator.check_bool(save_token_distribution, "save_token_distribution")
+        Validator.check_non_negative_int(cur_layer, "cur_layer")
         if expert_group_size is not None:
             Validator.check_positive_int(expert_group_size, "expert_group_size")
         if capacity_factor < 1.0:
@@ -103,6 +106,8 @@ class MoEConfig:
         self.group_wise_a2a = group_wise_a2a
         self.comp_comm_parallel = comp_comm_parallel
         self.comp_comm_parallel_degree = comp_comm_parallel_degree
+        self.save_token_distribution = save_token_distribution
+        self.cur_layer = cur_layer
 
 
 default_moe_config = MoEConfig()
@@ -556,6 +561,7 @@ class TopkRouter(Cell):
             self.d_model = d_model
             self.expert_dim = moe_config.expert_num
             self.capacity_factor = moe_config.capacity_factor
+            self.save_token_distribution = moe_config.save_token_distribution
             self.training = training
             self.dp_group = dp
             self.noisy_policy = None
@@ -602,6 +608,9 @@ class TopkRouter(Cell):
             self.expand2 = P.ExpandDims().shard(((dp, 1, 1),))
             self.add_scala = P.Add().shard(((), ()))
             self.init_loss = Tensor(0.0, mstype.float32)
+            if self.save_token_distribution:
+                self.cur_layer = moe_config.cur_layer
+                self.tensor_summary = P.TensorSummary()
 
     def construct(self, router_logits):
         """forward process"""
@@ -680,6 +689,9 @@ class TopkRouter(Cell):
         cumsum = self.cumsum(expert_mask, 1)
         if expert_chosen_index > 0:
             cumsum = self.add(cumsum, last_num)
+        if self.save_token_distribution:
+            record_name = 'layer-' + str(self.cur_layer)
+            self.tensor_summary(record_name, cumsum[0][-1])
         # position_in_expert's shape: (dp_group, tokens_per_group, self.expert_dim)
         position_in_expert = self.mul4(cumsum, expert_mask)
         less_result = self.less(position_in_expert, expert_capacity)

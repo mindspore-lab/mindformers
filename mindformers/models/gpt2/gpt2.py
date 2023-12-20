@@ -32,6 +32,7 @@ from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.models.base_model import BaseModel
 from mindformers.mindformer_book import MindFormerBook
 from mindformers.tools.logger import logger
+from mindformers.modules.transformer.op_parallel_config import MoEParallelConfig
 from .gpt2_config import GPT2Config
 from .gpt_modules import GPTTransformerDecoderLayer
 
@@ -400,9 +401,20 @@ class GPT2Model(nn.Cell):
         self.layernorm.shard(((config.parallel_config.data_parallel, 1),))
         self.layernorm.pipeline_stage = config.parallel_config.pipeline_stage - 1
 
-        if not hasattr(config.parallel_config, "moe_config"):
-            config.parallel_config.moe_config = default_moe_config
-        moe_config = config.parallel_config.moe_config
+        if not hasattr(config, "moe_config"):
+            config.moe_config = default_moe_config
+
+        self.use_moe = (config.moe_config.expert_num > 1)
+        if self.use_moe:
+            moe_parallel_config = MoEParallelConfig(data_parallel=config.parallel_config.data_parallel,
+                                                    model_parallel=config.parallel_config.model_parallel,
+                                                    expert_parallel=config.parallel_config.expert_parallel)
+        if config.moe_config.save_token_distribution:
+            moe_config = [copy.deepcopy(config.moe_config) for i in range(config.num_layers)]
+            for i in range(config.num_layers):
+                moe_config[i].cur_layer = i
+        else:
+            moe_config = config.moe_config
 
         self.blocks = nn.CellList()
         for i in range(config.num_layers):
@@ -418,8 +430,8 @@ class GPT2Model(nn.Cell):
                 param_init_type=config.param_init_type,
                 layernorm_compute_type=config.layernorm_compute_type,
                 softmax_compute_type=config.softmax_compute_type,
-                parallel_config=config.parallel_config.dp_mp_config,
-                moe_config=moe_config,
+                parallel_config=config.parallel_config.dp_mp_config if not self.use_moe else moe_parallel_config,
+                moe_config=moe_config if not config.moe_config.save_token_distribution else moe_config[i],
                 use_past=config.use_past,
                 use_flash_attention=config.use_flash_attention,
             )
@@ -467,8 +479,12 @@ class GPT2Model(nn.Cell):
         hidden_shape = F.shape(hidden_states)
         hidden_states = F.reshape(hidden_states, (-1, hidden_shape[-1]))
 
-        for i in range(self.num_layers):
-            hidden_states = self.blocks[i](hidden_states, attention_mask, init_reset, batch_valid_length)
+        if self.use_moe:
+            for i in range(self.num_layers):
+                hidden_states, _ = self.blocks[i](hidden_states, attention_mask, init_reset, batch_valid_length)
+        else:
+            for i in range(self.num_layers):
+                hidden_states = self.blocks[i](hidden_states, attention_mask, init_reset, batch_valid_length)
 
         output_state = self.layernorm(hidden_states)
 

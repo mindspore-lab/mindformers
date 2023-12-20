@@ -7,6 +7,7 @@ MindFormers套件集成了许多模型训练中通用的优化算法，并提供
 - [训练优化算法](#训练优化算法)
     - [梯度累积](#梯度累积)
     - [梯度裁剪](#梯度裁剪)
+    - [Token分布](#Token分布)
 
 ## 梯度累积
 
@@ -61,3 +62,24 @@ optimizer:
 ```
 
 **限制**：目前仅支持在网络参数为fp16且并行配置为非pipeline场景使用
+
+## Token分布
+
+在MoE大模型训练过程中，常见的TopK Router算法会导致Token分发不均匀，存在Router给少数热门专家分配大量Token，多数冷门专家分配少量Token的情况。专家受限于专家容量，会将超过专家容量的Token丢弃，不足专家容量的Padding。所以获取Token分布情况能帮助用户合理确定专家容量。
+MindFormers配置文件中的`MoE_config`新增了`save_token_distribution`配置项，默认False，需要搭配`callbacks`中的`SummaryMonitor`一同开启，如下：
+
+```yaml
+moe_config:
+  expert_num: 8
+  save_token_distribution: true
+
+callbacks:
+- type: SummaryMonitor
+  summary_dir: "../summary_dir/token_distribution_dir"
+  keep_default_action: False
+  collect_freq: 1
+  collect_tensor_freq: 1
+  export_options: {'tensor_format':'npy'}
+```
+
+在开启该配置之后，会在`summary_dir`路径下生成`export_xxx/tensor`文件夹，其中包含每层MoE中Token分布数据，再使用`mindformers/tools/moe_token_distribution_tools.py`脚本，输入参数：`num_layers`、`hot_expert_num`、`npy_files_load_path`、`save_path_prefix`。会在保存路径中生成Token分布图。
