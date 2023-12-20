@@ -34,7 +34,7 @@ from mindspore.common.initializer import initializer
 from mindspore.parallel._utils import _get_parallel_mode
 from mindspore.context import ParallelMode
 from mindformers.modules.layers import Linear, _check_input_dtype, _args_type_validator_check, _valid_value_checks
-from mindformers.version_control import check_valid_big_kernel
+from mindformers.version_control import check_valid_big_kernel, is_910a
 from mindformers.tools.logger import _LogActionOnce
 
 
@@ -337,7 +337,7 @@ class LlamaRMSNorm(nn.Cell):
         self.compute_type = compute_type
         self.weight = Parameter(initializer('ones', (dim,), dtype=mstype.float32), parallel_optimizer=False)
 
-        if check_valid_big_kernel():
+        if check_valid_big_kernel() and not is_910a():
             self.norm = P.RmsNorm(eps)
             self.rms_norm = self._rms_norm
             self.self_define = False
