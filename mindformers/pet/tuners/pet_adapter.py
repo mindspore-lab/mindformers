@@ -33,11 +33,11 @@ class PetAdapter:
         raise NotImplementedError("should implemented by the certain tuning algorithm.")
 
     @classmethod
-    def freeze_pretrained_model(cls, model, pet_type: PetType):
+    def freeze_pretrained_model(cls, model, pet_type: PetType, freeze_include=None, freeze_exclude=None):
         """
         Freeze the parameters of ptm which no update in the tuning process.
 
         Notes:
             Refer to mindpet api.
         """
-        freeze_delta(model, pet_type)
+        freeze_delta(model, pet_type, freeze_include, freeze_exclude)

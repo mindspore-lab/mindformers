@@ -15,6 +15,7 @@
 """
 Note: The config module of Parameter Efficient Tuning module.
 """
+from typing import List
 from mindformers.models.base_config import BaseConfig
 from mindformers.models.utils import convert_mstype
 from mindformers.pet.constants import PetType
@@ -62,6 +63,11 @@ class LoraConfig(PetConfig):
             The Layers that require replacement with LoRa algorithm.
         exclude_layers (`str`, *optional*, defaults None):
             The layers that do not require replacement with the LoRa algorithm.
+        freeze_include (`List[str]`, *optional*, defaults None):
+            List of modules to be frozen.
+        freeze_exclude (`List[str]`, *optional*, defaults None):
+            List of modules that do not need to be frozen. When an item in the freeze_include and freeze_exclude list
+            conflicts, the module that matches this item is not processed.
 
     Returns:
         Class, LoraConfig.
@@ -76,6 +82,8 @@ class LoraConfig(PetConfig):
                  compute_dtype: str = 'float16',
                  target_modules: str = None,
                  exclude_layers: str = None,
+                 freeze_include: List[str] = None,
+                 freeze_exclude: List[str] = None,
                  **kwargs):
         super().__init__(pet_type=PetType.LORA.value, **kwargs)
         self.lora_rank = lora_rank
@@ -87,6 +95,8 @@ class LoraConfig(PetConfig):
         self.compute_dtype = convert_mstype(compute_dtype)
         self.target_modules = target_modules
         self.exclude_layers = exclude_layers
+        self.freeze_include = freeze_include
+        self.freeze_exclude = freeze_exclude
 
 
 class Ptuning2Config(PetConfig):

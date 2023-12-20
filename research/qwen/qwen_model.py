@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-"""Qwen_7B models' APIs."""
+"""Qwen models' APIs."""
 
 import numpy as np
 import mindspore.common.dtype as mstype
@@ -36,11 +36,12 @@ try:
 except ImportError:
     FLASHATTENTION_VALID = False
 
+from mindformers.core.loss.loss import CrossEntropyLoss
 from mindformers.models.base_model import BaseModel
-from mindformers.modules.layers import Linear, _check_input_dtype, _args_type_validator_check, _valid_value_checks
+from mindformers.models.utils import cell_reuse
 from mindformers.tools.logger import _LogActionOnce
 from mindformers.tools.register.register import MindFormerModuleType, MindFormerRegister
-from mindformers.models.utils import cell_reuse
+from mindformers.modules.layers import Linear, _check_input_dtype, _args_type_validator_check, _valid_value_checks
 from mindformers.modules.transformer import TransformerOpParallelConfig
 from mindformers.models.llama.llama_layer import LlamaEmbedding, CausalMask, FreqsMgr
 from mindformers.models.llama.llama_transformer import LLamaDecodeLayer
@@ -55,11 +56,6 @@ class QwenForCausalLM(BaseModel):
 
         Returns:
             Tensor, the loss or logits of the network.
-
-        Examples:
-            >>> from mindformers.models.llama import LlamaConfig
-            >>> config = LlamaConfig(batch_size=2)
-            >>> network = QwenForCausalLM(config=config)
         """
 
     @cell_reuse
@@ -73,13 +69,26 @@ class QwenForCausalLM(BaseModel):
                               compute_dtype=config.compute_dtype,
                               param_init_type=config.param_init_type,
                               weight_init="normal")
+        self.loss = CrossEntropyLoss(parallel_config=config.parallel_config)
         self.pad_token_id = config.pad_token_id
         self.use_past = config.use_past
+        self.ignore_token_id = config.ignore_token_id
+        self.seq_length = config.seq_length
+        self.vocab_size = config.vocab_size
+        self.is_first_iteration = True
         self.not_equal = P.NotEqual()
         self.cast = P.Cast()
         self.add = P.Add()
         self.reshape = P.Reshape()
         self.ones = P.Ones()
+        self.slice = P.StridedSlice()
+        self.mul = P.Mul()
+        self.gather = P.Gather()
+
+        if not (_get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation()):
+            self.shard(config.parallel_config)
+            if config.parallel_config.pipeline_stage > 1:
+                self.lm_head.pipeline_stage = config.parallel_config.pipeline_stage - 1
 
         self.load_checkpoint(config)
 
@@ -103,17 +112,51 @@ class QwenForCausalLM(BaseModel):
                 init_reset = Tensor([init_reset], mstype.bool_)
             if not isinstance(batch_valid_length, Tensor):
                 batch_valid_length = self.ones((bsz, 1), mstype.int32)
+        if self.training:
+            tokens = self.slice(input_ids, (0, 0), (bsz, seqlen - 1), (1, 1))
+        else:
+            tokens = input_ids
 
-        out = self.transformer(input_ids, init_reset=init_reset, batch_valid_length=batch_valid_length)
-        logits = self.lm_head(out)
+        output = self.transformer(tokens, init_reset=init_reset, batch_valid_length=batch_valid_length)
+        logits = self.lm_head(output)
 
-        input_mask = self.cast(self.not_equal(input_ids, self.pad_token_id), mstype.float32)
+        input_mask = self.cast(self.not_equal(tokens, self.pad_token_id), mstype.float32)
+        if labels is None:
+            labels = self.slice(input_ids, (0, 1), (bsz, seqlen), (1, 1))
+        else:
+            if labels.ndim > 1:
+                if self.training:
+                    labels = self.slice(labels, (0, 1), (bsz, seqlen), (1, 1))
+                label_mask = self.cast(self.not_equal(labels, self.ignore_token_id), mstype.float32)
+                input_mask = self.mul(input_mask, label_mask)
+
         logits = self.cast(logits, mstype.float32)
-        logits = self.reshape(logits, (bsz, seqlen, -1))
+        if not self.training:
+            logits = self.reshape(logits, (bsz, seqlen, -1))
+            # makes cast effective to avoid allgather issue in Mindspore1.10
+            input_mask = self.add(input_mask, 1)
+            return logits, tokens, input_mask
 
-        # makes cast effective to avoid allgather issue in Mindspore1.10
-        input_mask = self.add(input_mask, 1)
-        return logits, input_ids, input_mask
+        if logits.ndim > 2:
+            logits = self.reshape(logits, (-1, logits.shape[-1]))
+        labels = self.reshape(labels, (-1,))
+        input_mask = self.reshape(input_mask, (-1,))
+        loss = self.loss(logits, labels, input_mask)
+        return loss
+
+    def shard(self, parallel_config):
+        """sharding for feedforward"""
+
+        dp = parallel_config.data_parallel
+        mp = parallel_config.model_parallel
+        self.not_equal.shard(((dp, 1), ()))
+        self.add.shard(((dp, 1), ()))
+        self.gather.shard(((dp, 1), (dp,)))
+
+        if parallel_config.vocab_emb_dp:
+            self.lm_head.shard(strategy_matmul=((dp, 1), (1, 1)))
+        else:
+            self.lm_head.shard(strategy_matmul=((dp, 1), (mp, 1)))
 
 
 class QwenModel(BaseModel):
@@ -129,6 +172,7 @@ class QwenModel(BaseModel):
         self.seq_length = config.seq_length
         self.pad_token_id = config.pad_token_id
         self.num_attention_heads = config.num_attention_heads
+        self.compute_in_2d = config.compute_in_2d
         self.use_past = config.use_past
         self.is_dynamic = config.is_dynamic
         self.use_kvcache_op = config.use_kvcache_op
@@ -155,7 +199,7 @@ class QwenModel(BaseModel):
                                     layer_id,
                                     dim=config.hidden_size,
                                     n_heads=config.num_attention_heads,
-                                    multiple_of=config.multiple_of,
+                                    intermediate_size=config.intermediate_size,
                                     norm_eps=config.rms_norm_eps,
                                     compute_dtype=config.compute_dtype,
                                     layernorm_compute_dtype=config.layernorm_compute_type,
@@ -164,6 +208,9 @@ class QwenModel(BaseModel):
                                     param_init_type=config.param_init_type,
                                     qkv_has_bias=True,
                                     use_past=config.use_past,
+                                    use_past_shard=config.use_past_shard,
+                                    use_flash_attention=config.use_flash_attention,
+                                    compute_in_2d=config.compute_in_2d,
                                     parallel_config=config.parallel_config)
 
             from mindformers.models.llama.llama import layer_compute_dtype
@@ -210,6 +257,19 @@ class QwenModel(BaseModel):
 
         self.multiply_data = Tensor([-10000.0], dtype=config.compute_dtype)
         self.one = Tensor([1.0], dtype=config.compute_dtype)
+
+        if not (_get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation()):
+            self.shard(config.parallel_config)
+
+            self.wte.pipeline_stage = 0
+            if config.parallel_config.pipeline_stage > 1:
+                self.ln_f.pipeline_stage = config.parallel_config.pipeline_stage - 1
+                self.wte.set_comm_fusion(2)
+                self.ln_f.set_comm_fusion(2)
+            else:
+                self.wte.set_comm_fusion(config.parallel_config.gradient_aggregation_group)
+                self.ln_f.set_comm_fusion(config.parallel_config.gradient_aggregation_group)
+
         if self.use_past:
             seq_range = np.arange(config.seq_length).reshape(1, 1, -1)
             self.range = Tensor(np.tile(seq_range, (config.batch_size, 1, 1)), mstype.int32)
@@ -227,7 +287,7 @@ class QwenModel(BaseModel):
         # 1. wte
         hidden_states = self.wte(input_ids)
 
-        # 3. drop
+        # 2. drop
         hidden_states = self.drop(hidden_states)
 
         # 2. rotary_emb
@@ -262,6 +322,24 @@ class QwenModel(BaseModel):
 
         return hidden_states
 
+    def shard(self, parallel_config):
+        """sharding for feedforward"""
+        self.wte.shard(parallel_config)
+
+        dp = parallel_config.data_parallel
+        self.slice.shard(((dp, 1),))
+        self.tile.shard(((1, 1, 1, 1), ()))
+        self.sub.shard(((1,), (dp, 1, 1)))
+        self.mul_mask.shard(((dp, 1, 1, 1), (1,)))
+        self.expand_dims.shard(((dp, 1, 1),))
+        self.not_equal.shard(((dp, 1), ()))
+        self.gather.shard(((dp, 1), (1,)))
+
+        if self.compute_in_2d:
+            self.ln_f.shard((dp, 1))
+        else:
+            self.ln_f.shard((dp, 1, 1))
+
 
 class QwenDecodeLayer(LLamaDecodeLayer):
     """Qwen decode layer"""
@@ -272,23 +350,20 @@ class QwenDecodeLayer(LLamaDecodeLayer):
                  layer_id,
                  **kwargs):
         kwargs['qkv_has_bias'] = True
+        intermediate_size = kwargs.pop('intermediate_size', 0)
         super().__init__(batch_size, seq_length, layer_id, **kwargs)
 
         rotary_dtype = kwargs.get('rotary_dtype', mstype.float32)
         self.attention.apply_rotary_emb = QwenRotaryEmbedding(self.head_dim, rotary_dtype)
 
-        multiple_of = kwargs.get('multiple_of', 256)
-        ffn_dim_multiplier = kwargs.get('ffn_dim_multiplier', None)
         compute_dtype = kwargs.get('compute_dtype', mstype.float16)
         param_init_type = kwargs.get('param_init_type', mstype.float32)
+        parallel_config = kwargs.get('parallel_config', TransformerOpParallelConfig())
         self.feed_forward = QwenFeedForward(dim=self.hidden_size,
-                                            hidden_dim=4 * self.hidden_size,
-                                            multiple_of=multiple_of,
-                                            ffn_dim_multiplier=ffn_dim_multiplier,
+                                            intermediate_size=intermediate_size,
                                             compute_dtype=compute_dtype,
                                             param_init_type=param_init_type)
 
-        parallel_config = kwargs.get('parallel_config', TransformerOpParallelConfig())
         dp = parallel_config.data_parallel
         mp = parallel_config.model_parallel
         if not (_get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation()):
@@ -296,6 +371,12 @@ class QwenDecodeLayer(LLamaDecodeLayer):
             self.feed_forward.mul.shard(((dp, 1, mp), (dp, 1, mp)))
         if parallel_config.use_seq_parallel and self.is_first_iteration:
             self.feed_forward.w2.shard(((dp, mp), (1, mp)), out_strategy_matmul=((dp * mp, 1),))
+
+        if not (_get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation()):
+            self.attention.wq.bias_add.shard(((dp, mp), (mp,)))
+            self.attention.wk.bias_add.shard(((dp, mp), (mp,)))
+            self.attention.wv.bias_add.shard(((dp, mp), (mp,)))
+            self.attention.apply_rotary_emb.shard((dp, mp, 1, 1))
 
 
 class QwenRotaryEmbedding(nn.Cell):
@@ -344,6 +425,15 @@ class QwenRotaryEmbedding(nn.Cell):
         xk_out = self.cast(xk_out, original_type)
         return xq_out, xk_out
 
+    def shard(self, strategy_in):
+        self.add.shard((strategy_in, strategy_in))
+        self.mul.shard((strategy_in, (strategy_in[0], 1, 1, 1)))
+        self.split.shard((strategy_in,))
+
+        dp = strategy_in[0]
+        mp = strategy_in[1]
+        self.concat.shard(((dp, mp, 1, 1), (dp, mp, 1, 1)))
+
 
 class QwenFeedForward(nn.Cell):
     r"""
@@ -368,26 +458,18 @@ class QwenFeedForward(nn.Cell):
     @_LogActionOnce(m_logger=logger, key='FeedForward',
                     no_warning=_get_parallel_mode() in (ParallelMode.STAND_ALONE,))
     @_args_type_validator_check(dim=Validator.check_positive_int,
-                                hidden_dim=Validator.check_positive_int,
-                                multiple_of=Validator.check_positive_int,
+                                intermediate_size=Validator.check_positive_int,
                                 compute_dtype=_valid_value_checks([mstype.float32, mstype.float16],
                                                                   "FeedForward"),
                                 param_init_type=_valid_value_checks([mstype.float32, mstype.float16],
                                                                     "FeedForward"))
     def __init__(self, dim,
-                 hidden_dim,
-                 multiple_of,
-                 ffn_dim_multiplier=None,
+                 intermediate_size=0,
                  compute_dtype=mstype.float16,
                  param_init_type=mstype.float32):
         super().__init__()
 
-        if ffn_dim_multiplier is not None:
-            hidden_dim = int((ffn_dim_multiplier + 0.01) * hidden_dim)
-        hidden_dim = int(2 * hidden_dim / 3)
-        hidden_dim = multiple_of * \
-                     ((hidden_dim + multiple_of - 1) // multiple_of)
-
+        hidden_dim = intermediate_size
         self.dtype = compute_dtype
         self.dim = dim
         self.hidden_dim = hidden_dim

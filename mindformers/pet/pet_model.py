@@ -53,7 +53,8 @@ class PetModel(BaseModel):
         self._support_list = base_model._support_list
         self.pet_model = PET_TYPE_TO_MODEL_MAPPING[pet_type](pet_config, base_model)
         self.load_checkpoint(self.config)
-        PetAdapter.freeze_pretrained_model(self.pet_model, pet_type)
+        PetAdapter.freeze_pretrained_model(self.pet_model, pet_type, pet_config.freeze_include,
+                                           pet_config.freeze_exclude)
 
     def update_model_kwargs_before_generate(self, input_ids, model_kwargs: dict):
         return self.pet_model.update_model_kwargs_before_generate(input_ids, model_kwargs)

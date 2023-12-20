@@ -271,6 +271,8 @@ class MindFormerBook:
                 _PROJECT_PATH, "research/internlm/run_internlm_7b_lora.yaml")),
             ("qwen_7b", os.path.join(
                 _PROJECT_PATH, "research/qwen/run_qwen_7b.yaml")),
+            ("qwen_7b_lora", os.path.join(
+                _PROJECT_PATH, "research/qwen/run_qwen_7b_lora.yaml")),
             ("common", os.path.join(
                 _PROJECT_PATH, "configs/gpt2/run_gpt2.yaml"))])
          ),
@@ -573,7 +575,10 @@ class MindFormerBook:
             'sam_vit_b',
             'sam_vit_l',
             'sam_vit_h'
-        ])
+        ]),
+        ('qwen', [
+            'qwen_7b',
+        ]),
     ])
 
     _MODEL_SUPPORT_LIST = OrderedDict([
