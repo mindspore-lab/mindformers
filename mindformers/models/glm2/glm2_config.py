@@ -28,6 +28,7 @@ class ChatGLM2Config(BaseConfig):
     ChatGLM2 model config class.
     """
     _support_list = MindFormerBook.get_config_support_list()['glm2']
+    _support_list.extend(MindFormerBook.get_config_support_list()['glm3'])
     _support_list.extend(MindFormerBook.get_config_support_list()['codegeex2'])
 
     def __init__(self,

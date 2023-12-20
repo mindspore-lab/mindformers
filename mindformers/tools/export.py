@@ -151,6 +151,7 @@ PREFILL_MODEL_INPUT_MAP = {
     "glm": get_glm_prefill_model_input,
     "gpt2": get_gpt2_model_input,
     "glm2": get_glm2_prefill_model_input,
+    "glm3": get_glm2_prefill_model_input,
     "baichuan2": get_llm_common_prefill_model_input,
     "qwen": get_llm_common_prefill_model_input
 }
@@ -162,6 +163,7 @@ INCREMENT_MODEL_INPUT_MAP = {
     "glm": get_glm_inc_model_input,
     "gpt2": get_gpt2_model_input,
     "glm2": get_glm2_inc_model_input,
+    "glm3": get_glm2_inc_model_input,
     "codegeex2": get_glm2_inc_model_input,
     "baichuan2": get_baichuan2_inc_model_input,
     "qwen": get_llama_inc_model_input

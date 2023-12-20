@@ -188,6 +188,7 @@ class InputOfInfer:
         "llama": LlamaInputsOfInfer,
         "codellama": LlamaInputsOfInfer,
         "glm2": CommonInputsOfInfer,
+        "glm3": CommonInputsOfInfer,
         "gpt2": CommonInputsOfInfer,
         "codegeex2": CommonInputsOfInfer,
         "glm": GLMInputsOfInfer,
@@ -280,6 +281,9 @@ class TextGeneratorInfer(BaseInfer):
     # pylint: disable=W0613
     def preprocess(self, input_data, add_special_tokens=False, **kwargs):
         """preprocess."""
+        if self.model_name.startswith('glm3'):
+           return self.tokenizer.build_chat_input(input_data)["input_ids"]
+        
         tokens = self.tokenizer(input_data, add_special_tokens=add_special_tokens)
         input_ids = tokens["input_ids"]
         input_list = []

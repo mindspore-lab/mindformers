@@ -166,6 +166,9 @@ class KeyWordGenDataset(BaseDataset):
             train_dataset_function = cls._train_dataset_functionv2
             train_output_columns = ["input_ids", "labels"]
             eval_dataset_function = cls._eval_dataset_functionv2
+        elif version == 3:
+            train_dataset_function = cls._train_dataset_functionv3
+            train_output_columns = ["input_ids", "labels"]
         else:
             train_dataset_function = cls._train_dataset_function
             train_output_columns = ["input_ids", "labels", "position_ids", "attention_mask"]
@@ -296,6 +299,32 @@ class KeyWordGenDataset(BaseDataset):
         labels = labels + [tokenizer.pad_token_id] * (pad_len + 1)  # +1 for logits shift
 
         if ignore_pad_token_for_loss:
+            labels = [(l if l != tokenizer.pad_token_id else -100) for l in labels]
+        return input_ids, labels
+
+    @classmethod
+    def _train_dataset_functionv3(cls, prompt, answer, dataset_config, tokenizer):
+        """generates train dataset"""
+        max_seq_length = dataset_config.max_source_length + dataset_config.max_target_length + 1
+        prompt, answer = prompt.tolist(), answer.tolist()
+        prompt_ids = tokenizer.encode(text=prompt,
+                                      add_special_tokens=True,
+                                      truncation=True,
+                                      max_length=dataset_config.max_source_length)
+        answer_ids = tokenizer.encode(text=answer,
+                                      add_special_tokens=False,
+                                      truncation=True,
+                                      max_length=dataset_config.max_target_length)
+
+        context_length = len(prompt_ids)
+        input_ids = prompt_ids + answer_ids + [tokenizer.eos_token_id]
+        labels = [tokenizer.pad_token_id] * context_length + answer_ids[1:] + [tokenizer.eos_token_id]
+
+        pad_len = max_seq_length - len(input_ids)
+        input_ids = input_ids + [tokenizer.pad_token_id] * pad_len
+        labels = labels + [tokenizer.pad_token_id] * (pad_len + 1)  # +1 for logits shift
+
+        if dataset_config.ignore_pad_token_for_loss:
             labels = [(l if l != tokenizer.pad_token_id else -100) for l in labels]
         return input_ids, labels
 

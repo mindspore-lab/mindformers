@@ -1,0 +1,2 @@
+"mindformers/mindformers/inference/infers/text_generator_infer.py"                                                            "bad-indentation"
+"mindformers/mindformers/inference/infers/text_generator_infer.py"                                                            "trailing-whitespace"
