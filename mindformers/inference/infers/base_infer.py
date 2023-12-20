@@ -31,44 +31,64 @@ class DynShapeGear:
     """
 
     def __init__(self, gear_config_path):
-        self.seq_gears, self.bs_gears = DynShapeGear.parse_dynamic_gears(gear_config_path)
+        self.config_gears = DynShapeGear.parse_dynamic_gears(gear_config_path)
 
-    def match_seq(self, input_seq_length):
-        """match seq length gear"""
-        if input_seq_length < 0:
-            err_msg = f"Match seq length gear failed, input length({input_seq_length}) must be not less than 0."
+    def match(self, input_batch_size, input_seq_length):
+        """match seq length and batch size gear"""
+        if input_seq_length < 0 or input_batch_size < 0:
+            err_msg = (f"Match seq length gear failed, input length({input_seq_length}) and batch({input_batch_size})" \
+                       f"must be both not less than 0.")
             logger.error(err_msg)
             raise RuntimeError(err_msg)
 
-        if input_seq_length > self.seq_gears[-1]:
-            return self.seq_gears[-1]
-        gear = list(filter(lambda k: k >= input_seq_length, self.seq_gears))[0]
-        logger.info(f"Match seq length gear: {gear}")
-        return gear
-
-    def match_bs(self, input_batch_size):
-        """match batch size gear"""
-        if input_batch_size < 0:
-            err_msg = f"Match batch size gear failed, input length({input_batch_size}) must be not less than 0."
+        bs_gears = sorted(list(self.config_gears.keys()))
+        if input_batch_size < bs_gears[-1]:
+            err_msg = (f"Match gear failed, input batch size({input_batch_size}) out of range, " \
+                       f"please check batch size or lite_inc.ini.")
             logger.error(err_msg)
             raise RuntimeError(err_msg)
 
-        if input_batch_size > self.bs_gears[-1]:
-            return self.bs_gears[-1]
-        gear = list(filter(lambda k: k >= input_batch_size, self.bs_gears))[0]
-        logger.info(f"Match batch size gear: {gear}")
-        return gear
+        bs_list = list(filter(lambda k: k >= input_batch_size, bs_gears))
+        while bs_list:
+            key_bs = bs_list.pop(0)
+            if input_seq_length > self.config_gears[key_bs][-1]:
+                continue
+            val_seq = list(filter(lambda k: k >= input_seq_length, self.config_gears[key_bs]))
+            if val_seq:
+                return key_bs, val_seq[0]
+        err_msg = (f"Match gear failed, input seq length({input_batch_size}) out of range, " \
+                   f"please check seq length or lite_inc.ini.")
+        logger.error(err_msg)
+        raise RuntimeError(err_msg)
+
+    @classmethod
+    def build_batch_shape_map(cls, bs_gears, seq_gears):
+        """
+        build map for DynShapeGear.match() to find a padding gear
+        :return: gear dict {batch_size:[seqlen1,seqlen2],...}
+        """
+        res = {}
+        key_set = set(bs_gears)
+        for bs in key_set:
+            for i in range(len(bs_gears)):
+                if bs_gears[i] == bs:
+                    if bs not in res:
+                        res[bs] = [seq_gears[i]]
+                        continue
+                    if seq_gears[i] not in res[bs]:
+                        res[bs].append(seq_gears[i])
+        return res
 
     @classmethod
     def parse_dynamic_gears(cls, ge_config_path):
         """
         Parse full model ge config to get input shape gear list.
         Input config format likes this:
-            'ge.inputShape=batch_index:-1;batch_valid_length:-1;input_position:-1;tokens:-1,1;zactivate_len:-1
-            'ge.dynamicDims=1,1,1,1,1024;8,8,8,8,1024;8,8,8,8,4096;'
+            'ge.inputShape=batch_index:-1;input_position:-1;tokens:-1,1;zactivate_len:-1
+            'ge.dynamicDims=1,1,1,1024;8,8,8,1024;8,8,8,4096;'
 
         :param ge_graph_options: The path of lite dynamical dims config file.
-        :return: gear list
+        :return: gear dict {batch_size:[seqlen1,seqlen2],...}
         """
         dims = cls.get_dynamic_shape_str(ge_config_path)
         if len(dims) < 2:
@@ -87,9 +107,9 @@ class DynShapeGear:
                 bs_gears.extend([int(n[i]) for n in val])
             if key[i][0] == 'zactivate_len' and '-1' in key[i][1]:
                 seq_gears.extend([int(n[i]) for n in val])
-        seq_gears.sort()
-        bs_gears.sort()
-        return seq_gears, bs_gears
+
+        return cls.build_batch_shape_map(bs_gears, seq_gears)
+
 
     @classmethod
     def get_dynamic_shape_str(cls, ge_config_path):
