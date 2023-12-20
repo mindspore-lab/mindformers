@@ -137,6 +137,7 @@ model:
     hidden_size: 4096
     num_layers: 32
     num_heads: 32
+    max_position_embedding: 4096
     vocab_size: 32000
     multiple_of: 256
     rms_norm_eps: 1.0e-5

@@ -95,7 +95,7 @@ class Baichuan7BV2Model(BaseModel):
         self.slice = P.StridedSlice()
 
         self.freqs_mgr = FreqsMgr(head_dim=self.head_dim,
-                                  max_position_embedding=config.seq_length,
+                                  max_position_embedding=config.max_position_embedding,
                                   rotary_dtype=config.rotary_dtype,
                                   theta=config.theta,
                                   scaling_factor=config.scaling_factor,

@@ -139,7 +139,7 @@ class LlamaModel(BaseModel):
         self.slice = P.StridedSlice()
 
         self.freqs_mgr = FreqsMgr(head_dim=self.head_dim,
-                                  max_position_embedding=config.seq_length,
+                                  max_position_embedding=config.max_position_embedding,
                                   rotary_dtype=config.rotary_dtype,
                                   theta=config.theta,
                                   scaling_factor=config.scaling_factor,
@@ -160,8 +160,9 @@ class LlamaModel(BaseModel):
                                      layer_id,
                                      dim=config.hidden_size,
                                      n_heads=config.num_heads,
-                                     multiple_of=config.multiple_of,
                                      n_kv_heads=config.n_kv_heads,
+                                     intermediate_size=config.intermediate_size,
+                                     multiple_of=config.multiple_of,
                                      ffn_dim_multiplier=config.ffn_dim_multiplier,
                                      norm_eps=config.rms_norm_eps,
                                      compute_dtype=config.compute_dtype,

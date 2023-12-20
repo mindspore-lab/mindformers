@@ -72,7 +72,7 @@ class InternLMModel(BaseModel):
             logger.info("Current MindSpore do not support flash attention.")
 
         self.freqs_cos, self.freqs_sin, self.swap_mask = precompute_freqs_cis(
-            config.hidden_size // config.num_heads, config.seq_length, dtype=config.rotary_dtype,
+            config.hidden_size // config.num_heads, config.max_position_embedding, dtype=config.rotary_dtype,
             pretrain_seqlen=config.pretrain_seqlen, extend_method=config.extend_method)
         self.get_attention_mask = AttentionMask(
             config.seq_length, parallel_config=config.parallel_config.dp_mp_config).to_float(config.compute_dtype)
@@ -96,6 +96,7 @@ class InternLMModel(BaseModel):
                                         layer_id,
                                         dim=config.hidden_size,
                                         n_heads=config.num_heads,
+                                        intermediate_size=config.intermediate_size,
                                         multiple_of=config.multiple_of,
                                         n_kv_heads=config.n_kv_heads,
                                         ffn_dim_multiplier=config.ffn_dim_multiplier,

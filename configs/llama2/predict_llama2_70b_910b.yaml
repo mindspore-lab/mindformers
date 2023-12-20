@@ -81,6 +81,7 @@ model:
     hidden_size: 8192
     num_layers: 80
     num_heads: 64
+    max_position_embedding: 4096
     vocab_size: 32000
     multiple_of: 256
     n_kv_heads: 8
