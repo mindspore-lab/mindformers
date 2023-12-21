@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-"""ChatGLM2 Tokenizer."""
+"""ChatGLM3 Tokenizer."""
 import os
 from typing import List, Optional, Union, Dict
 
@@ -100,7 +100,7 @@ class SPTokenizer:
 @MindFormerRegister.register(MindFormerModuleType.TOKENIZER)
 class ChatGLM3Tokenizer(Tokenizer):
     """
-    Construct a ChatGLM2 tokenizer. Based on byte-level Byte-Pair-Encoding.
+    Construct a ChatGLM3 tokenizer. Based on byte-level Byte-Pair-Encoding.
 
     Args:
         vocab_file(str): The vocabulary file path.
@@ -112,8 +112,8 @@ class ChatGLM3Tokenizer(Tokenizer):
         >>> tokenize = AutoTokenizer.from_pretrained('glm2_6b')
         >>> tokenize("你好")
         {'input_ids': [64790, 64792, 36474, 54591], 'attention_mask': [1, 1, 1, 1]}
-        >>> from mindformers import ChatGLM2Tokenizer
-        >>> tokenizer = ChatGLM2Tokenizer('tokenizer.model')
+        >>> from mindformers import ChatGLM3Tokenizer
+        >>> tokenizer = ChatGLM3Tokenizer('tokenizer.model')
         >>> prompts = ["晚上睡不着应该怎么办"]
         >>> token_id = tokenizer(prompts)
         >>> input_ids = token_id['input_ids']
@@ -143,15 +143,8 @@ class ChatGLM3Tokenizer(Tokenizer):
                  pad_token='<pad>',
                  unk_token='<unk>',
                  **kwargs):
-        super().__init__(bos_token=bos_token,
-                         eos_token=eos_token,
-                         end_token=end_token,
-                         mask_token=mask_token,
-                         gmask_token=gmask_token,
-                         pad_token=pad_token,
-                         unk_token=unk_token,
-                         **kwargs)
-        self.name = "ChatGLM2Tokenizer"
+
+        self.name = "ChatGLM3Tokenizer"
 
         self.vocab_file = vocab_file
         self.tokenizer = SPTokenizer(vocab_file)
@@ -166,6 +159,15 @@ class ChatGLM3Tokenizer(Tokenizer):
         self._end_token = end_token
         self._mask_token = mask_token
         self._gmask_token = gmask_token
+
+        super().__init__(bos_token=bos_token,
+                         eos_token=eos_token,
+                         end_token=end_token,
+                         mask_token=mask_token,
+                         gmask_token=gmask_token,
+                         pad_token=pad_token,
+                         unk_token=unk_token,
+                         **kwargs)
 
     def get_command(self, token):
         if token in self.special_tokens:
