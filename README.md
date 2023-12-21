@@ -152,7 +152,7 @@ MindFormers套件对外提供两种使用和开发形式，为开发者提供灵
 - 单卡启动：统一接口启动，根据模型 CONFIG 完成任意模型的单卡训练、微调、评估、推理流程
 
 ```shell
-# 训练启动，run_status支持train、finetuen、eval、predict四个关键字，以分别完成模型训练、评估、推理功能，默认使用配置文件中的run_mode
+# 训练启动，run_mode支持train、finetuen、eval、predict四个关键字，以分别完成模型训练、评估、推理功能，默认使用配置文件中的run_mode
 python run_mindformer.py --config {CONFIG_PATH} --run_mode {train/finetune/eval/predict}
 ```
 
@@ -332,7 +332,7 @@ RUN_MODE: 为任务运行状态，支持关键字 train\finetune\eval\predict\ex
 
 ## 五、贡献
 
-欢迎参与社区贡献，可参考MindSpore贡献要求[Contributor Wiki](https://gitee.com/mindspore/mindspore/blob/dev/CONTRIBUTING_CN.md)。
+欢迎参与社区贡献，可参考MindSpore贡献要求[Contributor Wiki](https://gitee.com/mindspore/mindspore/blob/master/CONTRIBUTING_CN.md)。
 
 ## 六、许可证
 
