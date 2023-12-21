@@ -402,7 +402,7 @@ class LlamaForCausalLM(BaseModel):
             batch_valid_length = self.sub_batch_valid_len(batch_valid_length, 1)
         output = self.model(tokens, batch_valid_length, batch_index, zactivate_len)
         if (not self.use_past or self.is_first_iteration) and batch_valid_length is not None:
-            output = self.gather(output, batch_valid_length, 1)
+            logits = self.gather(output, batch_valid_length, 1)
         logits = self.lm_head(output)
 
         input_mask = self.cast(self.not_equal(tokens, self.pad_token_id), mstype.float32)
