@@ -42,7 +42,7 @@ class DynShapeGear:
             raise RuntimeError(err_msg)
 
         bs_gears = sorted(list(self.config_gears.keys()))
-        if input_batch_size < bs_gears[-1]:
+        if input_batch_size > bs_gears[-1]:
             err_msg = (f"Match gear failed, input batch size({input_batch_size}) out of range, " \
                        f"please check batch size or lite_inc.ini.")
             logger.error(err_msg)
