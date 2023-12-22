@@ -53,6 +53,7 @@ model:
     compute_dtype: "float16"
     layernorm_compute_type: "float32"
     use_past: False
+    use_flash_attention: False # when use FlashAttention, seq_length should be multiple of 16
     eos_token_id: 2
     pad_token_id: 0
     repetition_penalty: 1.0
@@ -66,7 +67,7 @@ model:
 
 trainer:
   type: CausalLanguageModelingTrainer
-  model_name: 'glm2_6b'
+  model_name: 'glm3_6b'
 # if True do, evaluate during the training process. if false, do nothing.
 # note that the task trainer should support _evaluate_in_training function.
 do_eval: False
@@ -79,7 +80,7 @@ metric:
 processor:
   return_tensors: ms
   tokenizer:
-    type: ChatGLM2Tokenizer
+    type: ChatGLM3Tokenizer
     bos_token: '<sop>'
     eos_token: '<eop>'
     end_token: '</s>'
@@ -235,7 +236,7 @@ profile_memory: True
 callbacks:
   - type: MFLossMonitor
   - type: CheckpointMointor
-    prefix: "glm2-6b"
+    prefix: "glm3-6b"
     save_checkpoint_steps: 1000
     keep_checkpoint_max: 1
     integrated_save: False
