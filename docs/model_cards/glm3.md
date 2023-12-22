@@ -472,7 +472,7 @@ tokenizer = AutoTokenizer.from_pretrained('glm3_6b')
 
 # model的实例化有以下两种方式，选择其中一种进行实例化即可
 # 1. 直接根据默认配置实例化
-model = AutoModel.from_pretrained('glm3_6b')
+# model = AutoModel.from_pretrained('glm3_6b')
 # 2. 自定义修改配置后实例化
 config = AutoConfig.from_pretrained('glm3_6b')
 config.use_past = True                  # 此处修改默认配置，开启增量推理能够加速推理性能

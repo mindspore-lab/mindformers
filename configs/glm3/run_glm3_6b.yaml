@@ -23,7 +23,7 @@ remote_save_url: "Please input obs url on AICC platform."
 # ==== model config ====
 model:
   model_config:
-    type: ChatGLM3Config
+    type: ChatGLM2Config
     batch_size: 1   # only for incremental infer
     num_layers: 28
     padded_vocab_size: 65024
@@ -53,11 +53,12 @@ model:
     compute_dtype: "float16"
     layernorm_compute_type: "float32"
     use_past: False
+    use_flash_attention: False # when use FlashAttention, seq_length should be multiple of 16
     eos_token_id: 2
     pad_token_id: 0
     repetition_penalty: 1.0
     max_decode_length: 256
-    checkpoint_name_or_path: "glm2_6b"
+    checkpoint_name_or_path: "glm3_6b"
     top_k: 1
     top_p: 1
     do_sample: True
@@ -235,7 +236,7 @@ profile_memory: True
 callbacks:
   - type: MFLossMonitor
   - type: CheckpointMointor
-    prefix: "glm2-6b"
+    prefix: "glm3-6b"
     save_checkpoint_steps: 1000
     keep_checkpoint_max: 2
     integrated_save: False
