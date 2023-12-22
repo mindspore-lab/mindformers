@@ -438,7 +438,9 @@ export MS_MEMORY_POOL_RECYCLE=1  # 内存优化
 export GE_NOT_CUT=1   # 内存优化
 ```
 
-- step 4. 在需要进行训练的机器中**都导入权重**，添加预训练权重路径，修改配置文件中的`load_checkpoint`，配置预训练权重路径。参考[权重切分与合并](../feature_cards/Transform_Ckpt.md)的训练案例一的配置方法，修改权重配置如下：
+- step 4. 在需要进行训练的机器中**都导入权重**，添加预训练权重路径，修改配置文件中的`load_checkpoint`，配置预训练权重路径。参考[权重切分与合并](../feature_cards/Transform_Ckpt.md)的物理机训练案例，修改权重配置如下：
+
+  1). 有共享盘
 
 ```python
 auto_trans_ckpt: True
@@ -446,6 +448,15 @@ load_checkpoint: path/to/checkpoint_dir
 ```
 
 > 注：权重需要按照path/to/checkpoint_dir/rank_0/xxx.ckpt存放，load_checkpoint只需要填写到checkpoint_dir即可
+
+​       2). 无共享盘
+
+```python
+auto_trans_ckpt: False
+load_checkpoint: path/to/transformed_checkpoint
+```
+
+> 注：权重按照[权重切分与合并](../feature_cards/Transform_Ckpt.md)的教程先切成对应的份数，load_checkpoint填写到transformed_checkpoint，该文件夹下存放有rank_X的权重文件夹。
 
 - step 5. 启动微调任务，codellama-34b模型以四机32卡进行微调，命令如下：
 
@@ -473,9 +484,50 @@ bash run_distribute.sh [RANK_TABLE_FILE] ../configs/codellama/run_codellama_34b_
 
 step 1. 获取数据集
 
-[HumanEval数据集](https://github.com/openai/human-eval)是一组164个手写的编程问题数据集，被称为HumanEval数据集。每个问题包括函数签名、文档字符串、主体和几个单元测试，平均每个问题有7.7个测试。
+[HumanEval数据集](https://github.com/openai/human-eval)是一组164个手写的编程问题数据集，被称为HumanEval数据集。每个问题包括函数签名、文档字符串、主体和几个单元测试，平均每个问题有7.7个测试。运行下面的命令，数据集在`data`文件夹中，名为`HumanEval.jsonl.gz`。
 
-step 2. 提取出`data/HumanEval.jsonl.gz`中的`prompt`字符串，按照[推理章节](#推理)进行推理。
+```shell
+git clone https://github.com/openai/human-eval.git
+```
+
+step 2. 将下面的preprocess.py放入代码仓中的`human-eval`文件夹中，提取出`data/HumanEval.jsonl.gz`中的`prompt`字符串列表，为prompt_input，按照[推理章节](#推理)进行推理。
+
+```python
+# preprocess.py 文件
+import argparse
+
+from data import stream_jsonl
+
+
+def process_data(tasks):
+    prompt_input = [task["prompt"] for task in tasks]
+    user_ids = [task["task_id"] for task in tasks]
+    entry_inputs = [task["entry_point"] for task in tasks]
+    return prompt_input, user_ids, entry_inputs
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser("copy prompt")
+    parser.add_argument("--data_path", default="", type=str)
+    args = parser.parse_args()
+
+    data_list = []
+    for data in stream_jsonl(args.data_path):
+        data_list.append(data)
+    prompt_input, task_ids, entry_inputs = process_data(data_list)
+
+    print(prompt_input)
+    print(task_ids)
+    print(entry_inputs)
+# ['from typing import List\n\n\ndef has_close_e...
+# ['HumanEval/0', 'HumanEval/1', 'HumanEval/2',...
+# ['has_close_elements', 'separate_paren_groups',...
+```
+
+```shell
+# 运行以下命令可以获得数据集中的输入(prompt_input)，任务id(task_ids)和执行函数(entry_points)。比如"HumanEval/0"的输入时from typing import List..., 而该代码的执行函数入口名称为has_close_elements.
+python preprocess.py --data_path path/to/HumanEval.jsonl.gz
+```
 
 step 3. 提出代码生成函数主干函数，由于生成代码会生成多余函数，评测时只需要评测函数即可，函数名为`data/HumanEval.jsonl.gz`中的`entry_point`，组成如下结构保存为`samples.jsonl`：
 
@@ -486,7 +538,6 @@ step 3. 提出代码生成函数主干函数，由于生成代码会生成多余
 step 4. 安装HumanEval
 
 ```python
-git clone https://github.com/openai/human-eval.git
 pip install -e human-eval
 ```
 
