@@ -383,7 +383,7 @@ def infer_main(args):
 
     pipeline_task = pipeline(task="text_generation", model=model_path, backend="mslite", tokenizer=tokenizer,
                              ge_config_path=args.config_path, model_type="mindir", infer_seq_length=args.seq_length,
-                             add_special_tokens=False, device_id=args.device_id)
+                             device_id=args.device_id)
 
     for user_input in input_list:
         output = pipeline_task(user_input,

@@ -68,7 +68,7 @@ def main(task='text_generation',
                           train_dataset=train_dataset,
                           pet_method=pet_method)
         trainer.train(train_checkpoint=config_args.load_checkpoint, auto_trans_ckpt=config_args.auto_trans_ckpt,
-                      resume=resume)
+                      resume_training=resume)
     elif run_mode == 'finetune':
         trainer = Trainer(args=config_args,
                           task=task,
@@ -76,7 +76,7 @@ def main(task='text_generation',
                           pet_method=pet_method)
         print(trainer)
         trainer.finetune(finetune_checkpoint=config_args.load_checkpoint, auto_trans_ckpt=config_args.auto_trans_ckpt,
-                         resume=resume)
+                         resume_training=resume)
     elif run_mode == 'eval':
         trainer = Trainer(args=config_args,
                           task=task,
