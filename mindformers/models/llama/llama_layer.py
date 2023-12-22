@@ -331,13 +331,13 @@ class LlamaRMSNorm(nn.Cell):
             Tensor of shape :math:`(batch, seq_length, hidden_size)`.
     """
 
-    def __init__(self, dim, eps=1e-6, compute_type=mstype.float32):
+    def __init__(self, dim, eps=1e-6, compute_type=mstype.float32, is_dynamic=False):
         super(LlamaRMSNorm, self).__init__()
         self.eps = eps
         self.compute_type = compute_type
         self.weight = Parameter(initializer('ones', (dim,), dtype=mstype.float32), parallel_optimizer=False)
 
-        if check_valid_big_kernel() and not is_910a():
+        if check_valid_big_kernel() and not is_910a() and not is_dynamic:
             self.norm = P.RmsNorm(eps)
             self.rms_norm = self._rms_norm
             self.self_define = False

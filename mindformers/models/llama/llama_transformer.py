@@ -430,8 +430,10 @@ class LLamaDecodeLayer(nn.Cell):
         self.shape = P.Shape()
         self.reshape = P.Reshape().add_prim_attr("skip_redistribution", True)
         self.add = P.Add()
-        self.attention_norm = LlamaRMSNorm(self.hidden_size, norm_eps, compute_type=layernorm_compute_dtype)
-        self.ffn_norm = LlamaRMSNorm(self.hidden_size, norm_eps, compute_type=layernorm_compute_dtype)
+        self.attention_norm = LlamaRMSNorm(self.hidden_size, norm_eps, compute_type=layernorm_compute_dtype,
+                                           is_dynamic=is_dynamic)
+        self.ffn_norm = LlamaRMSNorm(self.hidden_size, norm_eps, compute_type=layernorm_compute_dtype,
+                                     is_dynamic=is_dynamic)
         self.attention = LLamaAttention(batch_size=batch_size,
                                         seq_length=seq_length,
                                         dim=dim,
