@@ -47,7 +47,6 @@ train_dataset: &train_dataset
   num_parallel_workers: 8
   python_multiprocessing: False
   drop_remainder: True
-  batch_size: 1
   repeat: 1
   numa_enable: False
   prefetch_size: 1
@@ -156,6 +155,7 @@ model:
     use_past_shard: False
     checkpoint_name_or_path: "path/to/baichuan2-13B-Chat.ckpt"
     repetition_penalty: 1
+    temperature: 1.0
     max_decode_length: 512
     top_k: 3
     top_p: 1
