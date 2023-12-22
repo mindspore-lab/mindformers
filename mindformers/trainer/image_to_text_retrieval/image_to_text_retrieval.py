@@ -13,7 +13,6 @@
 # limitations under the License.
 # ============================================================================
 """Image-to-text Retrieval Trainer."""
-import os
 from typing import List, Optional, Union
 from pprint import pprint
 
@@ -25,7 +24,7 @@ from mindformers.dataset import build_dataset, check_dataset_config, BaseDataset
 from mindformers.models import build_model, BaseModel
 from mindformers.core.callback import build_callback
 from mindformers.tools.logger import logger
-from mindformers.tools.utils import count_params
+from mindformers.tools.utils import count_params, get_real_rank
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.tools.check_rules import check_rules
 from .eval_utils import compute_itm_scores, extract_image_text_mapping, \
@@ -116,7 +115,7 @@ class ImageToTextRetrievalTrainer(BaseTrainer):
             callbacks.extend(build_callback(config.eval_callbacks))
 
         logger.info(".........Starting Evaling Model..........")
-        if int(os.getenv("RANK_ID", '0')) % 8 == 0:
+        if get_real_rank() % 8 == 0:
             pprint(config)
 
         # k_test value, for topk

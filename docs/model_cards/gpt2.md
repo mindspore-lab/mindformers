@@ -197,9 +197,9 @@ RANK_TABLE_FILE 双机16卡参考样例:
 
 作为参考，这里描述CheckPoint在HuggingFace或者官方开源github仓库和MindSpore间的转换，在不同分布式策略间的转换。
 
-Huggingface权重：  
-    [gpt2 small](https://huggingface.co/gpt2/resolve/main/pytorch_model.bin)  
-    [gpt2 xlarge](https://huggingface.co/gpt2-xl/resolve/main/pytorch_model.bin)  
+Huggingface权重：
+    [gpt2 small](https://huggingface.co/gpt2/resolve/main/pytorch_model.bin)
+    [gpt2 xlarge](https://huggingface.co/gpt2-xl/resolve/main/pytorch_model.bin)
     [gpt2 13b](https://huggingface.co/cerebras/Cerebras-GPT-13B/tree/main)
 
 其中，13b的权重需要将上述链接下的`pytorch_model-00001-of-00002.bin`、`pytorch_model-00002-of-00002.bin`、`pytorch_model.bin.index.json
@@ -222,10 +222,10 @@ python mindformers/models/gpt2/convert_weight.py --layers 48 --torch_path gpt2_s
 python mindformers/models/gpt2/convert_weight.py --layers 40 --torch_path gpt_13b.bin --mindspore_path ./gpt_13b.ckpt
 ```
 
-另，`mindformers`已经提供转换好的权重（其中lora权重为mindformers训练得到，非Huggingface官方权重转化得到）：  
-    [gpt2 small](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/XFormer_for_mindspore/gpt2/gpt2.ckpt)  
-    [gpt2 small lora](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/XFormer_for_mindspore/gpt2/gpt2_lora.ckpt)  
-    [gpt2 xlarge](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/XFormer_for_mindspore/gpt2/gpt2_xl.ckpt)  
+另，`mindformers`已经提供转换好的权重（其中lora权重为mindformers训练得到，非Huggingface官方权重转化得到）：
+    [gpt2 small](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/XFormer_for_mindspore/gpt2/gpt2.ckpt)
+    [gpt2 small lora](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/XFormer_for_mindspore/gpt2/gpt2_lora.ckpt)
+    [gpt2 xlarge](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/XFormer_for_mindspore/gpt2/gpt2_xl.ckpt)
     [gpt2 xlarge lora](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/XFormer_for_mindspore/gpt2/gpt2_xl_lora.ckpt)
     [gpt2 13b](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/XFormer_for_mindspore/gpt2/gpt2_13b.ckpt)
 
@@ -387,7 +387,7 @@ bash run_distribute.sh $RANK_TABLE_FILE path/to/config.yaml [0,8] train $device_
 
 # launch ranks in the 1-11 server via ssh
 for idx in {1..11}
-do  
+do
     let rank_start=8*$idx
     let rank_end=$rank_start+8
     ssh ${IP_LIST[$idx]} "cd scripts; bash run_distribute.sh $RANK_TABLE_FILE path/to/config.yaml [$rank_start,$rank_end] train $device_num"
@@ -463,7 +463,7 @@ bash run_distribute.sh $RANK_TABLE_FILE path/to/config.yaml [0,8] finetune $devi
 
 # launch ranks in the 1-11 server via ssh
 for idx in {1..11}
-do  
+do
     let rank_start=8*$idx
     let rank_end=$rank_start+8
     ssh ${IP_LIST[$idx]} "cd scripts; bash run_distribute.sh $RANK_TABLE_FILE path/to/config.yaml [$rank_start,$rank_end] finetune $device_num"
@@ -522,7 +522,7 @@ bash run_distribute.sh $RANK_TABLE_FILE path/to/config_lora.yaml [0,8] finetune 
 
 # launch ranks in the 1-11 server via ssh
 for idx in {1..11}
-do  
+do
     let rank_start=8*$idx
     let rank_end=$rank_start+8
     ssh ${IP_LIST[$idx]} "cd scripts; bash run_distribute.sh $RANK_TABLE_FILE path/to/config_lora.yaml [$rank_start,$rank_end] finetune $device_num"
@@ -651,7 +651,7 @@ from mindspore import load_checkpoint, load_param_into_net
 from mindformers import AutoConfig, AutoTokenizer, AutoModel, pipeline
 from mindformers import init_context, ContextConfig, ParallelContextConfig
 from mindformers.trainer.utils import get_last_checkpoint
-from mindformers.tools.utils import str2bool
+from mindformers.tools.utils import str2bool, get_real_rank
 
 
 def context_init(use_parallel=False, device_id=0):
@@ -702,7 +702,7 @@ def main(use_parallel=False,
     # if use parallel, load distributed checkpoints
     if use_parallel:
         # find the sharded ckpt path for this rank
-        ckpt_path = os.path.join(checkpoint_path, "rank_{}".format(os.getenv("RANK_ID", "0")))
+        ckpt_path = os.path.join(checkpoint_path, "rank_{}".format(get_real_rank()))
         ckpt_path = get_last_checkpoint(ckpt_path)
         print("ckpt path: %s", str(ckpt_path))
 
@@ -844,7 +844,7 @@ from mindspore import load_checkpoint, load_param_into_net
 from mindformers import AutoConfig, AutoTokenizer, AutoModel
 from mindformers import init_context, ContextConfig, ParallelContextConfig
 from mindformers.trainer.utils import get_last_checkpoint
-from mindformers.tools.utils import str2bool
+from mindformers.tools.utils import str2bool, get_real_rank
 
 
 def context_init(use_parallel=False, device_id=0):
@@ -896,7 +896,7 @@ def main(use_parallel=False,
     # if use parallel, load distributed checkpoints
     if use_parallel:
         # find the sharded ckpt path for this rank
-        ckpt_path = os.path.join(checkpoint_path, "rank_{}".format(os.getenv("RANK_ID", "0")))
+        ckpt_path = os.path.join(checkpoint_path, "rank_{}".format(get_real_rank()))
         ckpt_path = get_last_checkpoint(ckpt_path)
         print("ckpt path: %s", str(ckpt_path))
 

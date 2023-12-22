@@ -16,7 +16,9 @@
 import os
 import json
 import mindspore as ms
+from .utils import get_real_group_size
 from .logger import logger
+
 
 def get_parallel_strategy(config):
     dp = config.parallel_config.data_parallel
@@ -24,8 +26,10 @@ def get_parallel_strategy(config):
     pp = config.parallel_config.pipeline_stage
     return dp, mp, pp
 
+
 def get_device_num():
-    return int(os.getenv('RANK_SIZE', '1'))
+    return get_real_group_size()
+
 
 def get_server_num():
     path = os.getenv('RANK_TABLE_FILE', None)
@@ -34,6 +38,7 @@ def get_server_num():
     with open(path, 'r') as json_file:
         data = json.load(json_file)
     return int(data['server_count'])
+
 
 def _check_mode(config, mode):
     """rules with different mode"""
@@ -49,6 +54,7 @@ def _check_mode(config, mode):
     else:
         raise ValueError(f"mode should be in ['train', 'predict', 'eval'], but get {mode}")
 
+
 def _check_full_batch():
     """check full_batch"""
     parallel_mode = ms.get_auto_parallel_context("parallel_mode")
@@ -57,6 +63,7 @@ def _check_full_batch():
         ms.set_auto_parallel_context(full_batch=False)
         logger.warning(f"full_batch could only be used under semi_auto_parallel or auto_parallel, "
                        f"but get {parallel_mode}, full_batch has been forced to False")
+
 
 def _check_parallel(config):
     """check parallel config"""
@@ -67,7 +74,7 @@ def _check_parallel(config):
     if parallel_mode in ["semi_auto_parallel"]:
         if dp * mp * pp != device_num:
             raise ValueError(f"The parallel config data_parallel * model_parallel * pipeline_stage should "
-                             f"be equal to device_num, but get dp*mp*pp = {dp}*{mp}*{pp} = {dp*mp*pp} "
+                             f"be equal to device_num, but get dp*mp*pp = {dp}*{mp}*{pp} = {dp * mp * pp} "
                              f"!= device_num({device_num})")
 
         if config.model.model_config.num_layers and config.model.model_config.num_layers < pp:
@@ -88,6 +95,7 @@ def _check_parallel(config):
                 logger.warning(f"hidden_size({config.model.model_config.hidden_size}) % device_num({device_num})"
                                f" = {config.model.model_config.hidden_size % device_num} != 0, which "
                                f"may cause the optimizer parallel of the relevant parameters to fail")
+
 
 def check_rules(config, mode='train'):
     """check rules"""

@@ -20,7 +20,7 @@ from mindspore.train.callback import Callback
 
 from ..logger import logger
 from ..utils import check_obs_url, check_in_modelarts, \
-    Validator, sync_trans
+    Validator, sync_trans, get_real_rank
 
 if check_in_modelarts():
     import moxing as mox
@@ -63,7 +63,7 @@ class Local2ObsMonitor(Callback):
         self.step_upload_frequence = step_upload_frequence
         self.epoch_upload_frequence = epoch_upload_frequence
         self.keep_last = keep_last
-        self.rank_id = int(os.getenv('RANK_ID', '0'))
+        self.rank_id = get_real_rank()
         self.retry_time = retry_time
         self.retry = retry
         self.log = log

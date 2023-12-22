@@ -64,6 +64,7 @@
    docs/feature_cards/Chat_Web.md
    docs/feature_cards/Inference.md
    docs/feature_cards/Lazy_Inline.md
+   docs/feature_cards/Dynamic_Cluster.md
 
 .. toctree::
    :glob:

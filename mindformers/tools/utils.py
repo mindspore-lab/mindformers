@@ -15,8 +15,10 @@
 """Utils For Tools."""
 import json
 import os
-from typing import Dict, List, Tuple, Union
 from multiprocessing import Process
+from typing import Dict, List, Tuple, Union
+
+import numpy as np
 import psutil
 
 try:
@@ -24,10 +26,8 @@ try:
 except ImportError:
     fcntl = None
 
-import numpy as np
-
-from mindspore import Tensor
-from mindspore import context
+from mindspore import Tensor, context
+from mindspore.communication import get_group_size, get_rank
 
 PARALLEL_MODE = {'DATA_PARALLEL': context.ParallelMode.DATA_PARALLEL,
                  'SEMI_AUTO_PARALLEL': context.ParallelMode.SEMI_AUTO_PARALLEL,
@@ -139,6 +139,7 @@ def get_output_root_path():
         return MA_OUTPUT_ROOT
     return os.getenv("LOCAL_DEFAULT_PATH", './output')
 
+
 def set_output_path(path):
     """set output path"""
     from .logger import logger
@@ -150,6 +151,7 @@ def set_output_path(path):
     if warning:
         logger.warning(f"path is None, it will be set to './output'")
     logger.info(f"set output path to '{path}'")
+
 
 def get_output_subpath(sub_class, rank_id=0, append_rank=True):
     """get output store path for sub output class."""
@@ -187,8 +189,8 @@ def get_rank_info() -> Tuple[int, int]:
         rank_id (int): Rank id.
         rand_size (int): The number of rank.
     """
-    rank_id = int(os.getenv('RANK_ID', '0'))
-    rank_size = int(os.getenv('RANK_SIZE', '1'))
+    rank_id = get_real_rank()
+    rank_size = get_real_group_size()
 
     return rank_id, rank_size
 
@@ -389,3 +391,24 @@ def check_shared_disk(disk_path):
             # Check if the partition is a network file system (NFS) or other network storage
             return partition.fstype.lower() in ['nfs', 'dpc'] or 'fuse.sshfs' in partition.opts.lower()
     return False
+
+
+def check_in_dynamic_cluster():
+    """check if in dynamic cluster."""
+    return "MS_ROLE" in os.environ
+
+
+def get_real_rank():
+    try:
+        return get_rank()
+    except RuntimeError as e:
+        print(f"[WARNING] {e}. Use default RANK_ID: 0", flush=True)
+        return int(os.getenv("RANK_ID", "0"))
+
+
+def get_real_group_size():
+    try:
+        return get_group_size()
+    except RuntimeError as e:
+        print(f"[WARNING] {e}. Use default RANK_SIZE: 1", flush=True)
+        return int(os.getenv("RANK_SIZE", "1"))

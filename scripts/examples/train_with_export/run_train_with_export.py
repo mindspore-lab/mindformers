@@ -30,6 +30,7 @@ from mindformers.trainer import build_trainer
 from mindformers.tools.cloud_adapter import cloud_monitor
 from mindformers.tools.logger import logger
 from mindformers.tools import get_output_root_path
+from mindformers.tools.utils import get_real_rank
 from mindformers.mindformer_book import MindFormerBook
 
 
@@ -334,7 +335,7 @@ if __name__ == "__main__":
 
     main(config_)
 
-    rank_id = int(os.getenv("RANK_ID", "0"))
+    rank_id = get_real_rank()
     config_.run_mode = "export"
     config_.parallel_config.model_parallel = args_.export_device
     os.system("export RANK_SIZE=" + str(args_.export_device))

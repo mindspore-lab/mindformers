@@ -33,7 +33,8 @@ from mindspore.train.serialization import _get_merged_param_data
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.tools.cloud_adapter.cloud_adapter import Local2ObsMonitor
 from mindformers.tools.logger import logger
-from mindformers.tools.utils import get_output_root_path, get_output_subpath, get_remote_save_url, check_in_modelarts
+from mindformers.tools.utils import get_output_root_path, get_output_subpath, get_remote_save_url, check_in_modelarts,\
+    get_real_rank, get_real_group_size
 
 __all__ = ['ObsMonitor', 'MFLossMonitor', 'CheckpointMointor', 'SummaryMonitor', 'ProfileMonitor', 'EvalCallBack']
 
@@ -148,7 +149,7 @@ class MFLossMonitor(Callback):
         self.initial_step = initial_step
         self.global_batch_size = global_batch_size
         self.gradient_accumulation_steps = gradient_accumulation_steps
-        self.device_num = int(os.getenv('RANK_SIZE', '1'))
+        self.device_num = get_real_group_size()
 
     def epoch_begin(self, run_context):
         """
@@ -235,7 +236,7 @@ class MFLossMonitor(Callback):
                                    overflow, scaling_sens, time_remain, percent)
 
 
-        if check_in_modelarts() and int(os.getenv("RANK_ID", "0")) == int(os.getenv("RANK_SIZE", "1")) - 1:
+        if check_in_modelarts() and get_real_rank() == get_real_group_size() - 1:
             self.dump_info_to_modelarts(ma_step_num=cur_step_num, ma_loss=loss)
 
         if auto_parallel:
@@ -435,7 +436,7 @@ class SummaryMonitor:
                 max_file_size=None,
                 export_options=None):
         if summary_dir is None:
-            rank_id = int(os.getenv("RANK_ID", '0'))
+            rank_id = get_real_rank()
             summary_dir = get_output_subpath('summary', rank_id)
         kwargs = {
             "summary_dir": summary_dir,
@@ -508,7 +509,7 @@ class CheckpointMointor(ModelCheckpoint):
         self.config = config
         self.save_network_params = save_network_params
         self.save_trainable_params = save_trainable_params
-        self.rank_id = int(os.getenv("RANK_ID", '0'))
+        self.rank_id = get_real_rank()
         prefix = prefix + "_rank_{}".format(self.rank_id)
 
         if append_info is None:
@@ -669,7 +670,7 @@ class ProfileMonitor(Callback):
             raise ValueError("When profile_communication is True, start_profile must also be True")
 
         if output_path is None:
-            rank_id = int(os.getenv("RANK_ID", '0'))
+            rank_id = get_real_rank()
             output_path = get_output_subpath('profile', rank_id)
 
         if ms.get_context("device_target") == "GPU" and profile_memory:

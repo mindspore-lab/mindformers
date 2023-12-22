@@ -51,6 +51,7 @@ from mindformers.tools.utils import count_params, get_output_subpath
 from mindformers.tools.check_rules import check_rules
 from mindformers.auto_class import AutoModel
 from mindformers.pet import get_pet_model, is_supported_pet_type
+from mindformers.tools.utils import get_real_rank, get_real_group_size
 from .config_args import ConfigArguments
 from .training_args import TrainingArguments
 from .utils import check_runner_config, transform_and_load_checkpoint, load_resume_context_from_checkpoint
@@ -197,7 +198,7 @@ class BaseTrainer:
             else:
                 if pp > 1:
                     per_batch_size = batch_size * micro_batch_num * micro_batch_interleave_num
-                    self.global_batch_size = per_batch_size * int(os.getenv('RANK_SIZE', '1'))
+                    self.global_batch_size = per_batch_size * get_real_group_size()
                     logger.info("Pipeline parallel was opened: pipeline_stages = %s, full batch is False, "
                                 "gradient_accumulation_steps will not take effect in pipeline parallel, "
                                 "batch size per card will be changed: "
@@ -206,12 +207,12 @@ class BaseTrainer:
                                 pp, per_batch_size, batch_size, micro_batch_num,
                                 micro_batch_interleave_num)
                     logger.info("global_batch_size = per_batch_size * device_num = %s * %s = %s",
-                                per_batch_size, int(os.getenv('RANK_SIZE', '1')), self.global_batch_size)
+                                per_batch_size, get_real_group_size(), self.global_batch_size)
                     self.config.runner_config.batch_size = per_batch_size
                     self._reset_wrapper_for_pipeline_parallel()
                 else:
                     per_batch_size = batch_size * micro_batch_interleave_num * gradient_accumulation_steps
-                    self.global_batch_size = per_batch_size * int(os.getenv('RANK_SIZE', '1'))
+                    self.global_batch_size = per_batch_size * get_real_group_size()
                     logger.info("The current parallel mode is %s, full batch is False, "
                                 "batch size per card will be changed: "
                                 "per_batch_size = batch_size * micro_batch_interleave_num * "
@@ -219,7 +220,7 @@ class BaseTrainer:
                                 parallel_mode, per_batch_size, batch_size, micro_batch_interleave_num,
                                 gradient_accumulation_steps)
                     logger.info("global_batch_size = per_batch_size * device_num = %s * %s = %s",
-                                per_batch_size, int(os.getenv('RANK_SIZE', '1')), self.global_batch_size)
+                                per_batch_size, get_real_group_size(), self.global_batch_size)
                     self.config.runner_config.batch_size = per_batch_size
             if gradient_accumulation_steps > 1:
                 self._reset_wrapper_for_grad_accu()
@@ -227,12 +228,11 @@ class BaseTrainer:
             logger.info("The current parallel mode is %s, batch size per card will not be changed: "
                         "batch_size_per_card = %s",
                         parallel_mode, batch_size)
-            self.global_batch_size = batch_size * int(os.getenv('RANK_SIZE', '1')) * gradient_accumulation_steps
+            self.global_batch_size = batch_size * get_real_group_size() * gradient_accumulation_steps
             logger.info(
                 "global_batch_size = batch_size_per_card * device_num * gradient_accumulation_steps "
                 "= %s = %s * %s * %s",
-                self.global_batch_size, batch_size, int(os.getenv('RANK_SIZE', '1')),
-                gradient_accumulation_steps)
+                self.global_batch_size, batch_size, get_real_group_size(), gradient_accumulation_steps)
             self.config.runner_config.batch_size = batch_size * gradient_accumulation_steps
             self.config.parallel_config.data_parallel = 1
             self.config.parallel_config.model_parallel = 1
@@ -577,7 +577,7 @@ class BaseTrainer:
         if not isinstance(scale_factor, (float, int)):
             raise ValueError(f"scale_factor must be float or int type, but get {type(scale_factor)}")
 
-        device_num = int(os.getenv("RANK_SIZE", "1"))
+        device_num = get_real_group_size()
         per_device_batch_size = self.config.train_dataset.batch_size
         learning_rate = (base_learning_rate * device_num * per_device_batch_size) / scale_factor
         return learning_rate
@@ -714,7 +714,7 @@ class BaseTrainer:
             callbacks.append(eval_callback)
 
         logger.info(".........Starting Training Model..........")
-        if int(os.getenv("RANK_ID", '0')) % 8 == 0:
+        if get_real_rank() % 8 == 0:
             pprint(config)
         logger.info(".........Model Compiling, Please Wait a Moment...........")
         model.train(config.runner_config.epochs, dataset,
@@ -785,7 +785,7 @@ class BaseTrainer:
             transform_and_load_checkpoint(config, model, network, dataset, do_eval=True)
 
         logger.info(".........Starting Evaluate Model..........")
-        if int(os.getenv("RANK_ID", '0')) % 8 == 0:
+        if get_real_rank() % 8 == 0:
             pprint(config)
         output = model.eval(dataset,
                             callbacks=callbacks,
@@ -873,7 +873,7 @@ class BaseTrainer:
             else:
                 save_file = f"{task}_result.txt"
 
-        if int(os.getenv("RANK_ID", '0')) % 8 == 0:
+        if get_real_rank() % 8 == 0:
             pprint(config)
         output_results = self.pipeline_task(input_data, top_k=top_k)
 
@@ -922,7 +922,7 @@ class BaseTrainer:
                 else:
                     transform_and_load_checkpoint(config, model, network, None, do_predict=True)
 
-        rank_id = int(os.getenv("RANK_ID", "0"))
+        rank_id = get_real_rank()
 
         # 导出全量模型
         logger.info("Start export full model...")

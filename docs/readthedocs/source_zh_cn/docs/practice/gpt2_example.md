@@ -794,8 +794,8 @@ if __name__ == "__main__":
         def __new__(cls, dataset_config: dict = None):
             logger.info("Now Create Causal Language Model Dataset.")
             # 考虑分布式训练/微调情况
-            rank_id = int(os.getenv("RANK_ID", "0"))
-            device_num = int(os.getenv("RANK_SIZE", "1"))
+            rank_id = get_real_rank()
+            device_num = get_real_group_size()
             dataset_config = copy.deepcopy(dataset_config)
             cls.init_dataset_config(dataset_config)
             rank_id, device_num = cls._check_device_rank_for_parallel(rank_id, device_num)

@@ -158,11 +158,25 @@ python run_mindformer.py --config {CONFIG_PATH} --run_mode {train/finetune/eval/
 
 - 多卡启动： scripts 脚本启动，根据模型 CONFIG 完成任意模型的单卡/多卡训练、微调、评估、推理流程
 
-```shell
-# 8卡分布式运行， DEVICE_RANGE = [0,8), 不包含8本身
-cd scripts
-bash run_distribute.sh RANK_TABLE_FILE CONFIG_PATH DEVICE_RANGE RUN_MODE
-```
+    - 使用 [rank table方式启动](https://www.mindspore.cn/tutorials/experts/zh-CN/r2.2/parallel/rank_table.html)
+
+      ```shell
+      # 8卡分布式运行， DEVICE_RANGE = [0,8), 不包含8本身
+      cd scripts
+      bash run_distribute.sh RANK_TABLE_FILE CONFIG_PATH DEVICE_RANGE RUN_MODE
+      ```
+
+    - 使用[动态组网方式启动](https://www.mindspore.cn/tutorials/experts/zh-CN/r2.2/parallel/dynamic_cluster.html)
+
+      ```shell
+      # 8卡分布式运行
+      启动前的准备:
+      1. 使用hostname命令将每台服务器hostname设置为各自的ip:  hostname [host ip], 如果在docker内需求设置为docker内部ip,同时保证各个服务器之间docker网络互通
+      2. 设置环境变量: export SERVER_ID=0; export SERVER_NUM=1; export PER_DEVICE_NUMS=8; export MS_SCHED_HOST=[HOST IP]; export MS_SCHED_PORT=[PORT]
+      cd scripts
+      # SERVER_ID为当前服务器序号，SERVER_NUM为服务器的总数，PER_DEVICE_NUMS为每台服务器使用的卡数默认值为8，MS_SCHED_HOST为调度节点的ip，MS_SCHED_PORT为通信端口
+      bash run_distribute_ps_auto.sh CONFIG_PATH RUN_MODE
+      ```
 
 - 常用参数说明
 

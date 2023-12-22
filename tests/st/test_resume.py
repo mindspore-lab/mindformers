@@ -25,7 +25,7 @@ import mindspore as ms
 from mindspore.train.callback import LossMonitor, TimeMonitor
 from mindspore.dataset import GeneratorDataset
 
-from mindformers.tools.utils import LOCAL_DEFAULT_PATH
+from mindformers.tools.utils import LOCAL_DEFAULT_PATH, get_real_rank
 from mindformers.trainer import Trainer
 from mindformers.models.gpt2 import GPT2LMHeadModel, GPT2Config
 from mindformers.core.lr import WarmUpDecayLR
@@ -87,7 +87,7 @@ def test_gpt_trainer_train_from_instance():
     lm_trainer.train(train_checkpoint=False)
 
     checkpoint_dir = os.path.join(LOCAL_DEFAULT_PATH, "test_resume", "checkpoint",
-                                  "rank_{}".format(int(os.getenv("RANK_ID", "0"))))
+                                  "rank_{}".format(get_real_rank()))
     output_checkpoint_path = [
         checkpoint for checkpoint in os.listdir(checkpoint_dir)
         if checkpoint.endswith('.ckpt')

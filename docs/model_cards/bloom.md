@@ -304,7 +304,7 @@ bash run_distribute.sh $RANK_TABLE_FILE ../configs/bloom/run_bloom_65b.yaml [0,8
 
 # launch ranks in the 1-11 server via ssh
 for idx in {1..11}
-do  
+do
     let rank_start=8*$idx
     let rank_end=$rank_start+8
     ssh ${IP_LIST[$idx]} "cd scripts; bash run_distribute.sh $RANK_TABLE_FILE ../configs/bloom/run_bloom_65b.yaml [$rank_start,$rank_end] train $device_num"
@@ -356,7 +356,7 @@ bash run_distribute.sh $RANK_TABLE_FILE ../configs/bloom/run_bloom_65b.yaml [0,8
 
 # launch ranks in the 1-11 server via ssh
 for idx in {1..11}
-do  
+do
     let rank_start=8*$idx
     let rank_end=$rank_start+8
     ssh ${IP_LIST[$idx]} "cd scripts; bash run_distribute.sh $RANK_TABLE_FILE ../configs/bloom/run_bloom_65b.yaml [$rank_start,$rank_end] finetune $device_num"
@@ -497,11 +497,10 @@ import numpy as np
 import mindspore as ms
 from mindspore.train import Model
 from mindspore import load_checkpoint, load_param_into_net
-
 from mindformers import AutoConfig, AutoTokenizer, AutoModel, pipeline
 from mindformers import init_context, ContextConfig, ParallelContextConfig
 from mindformers.trainer.utils import get_last_checkpoint
-from mindformers.tools.utils import str2bool
+from mindformers.tools.utils import str2bool, get_real_rank
 
 
 def context_init(use_parallel=False, device_id=0):
@@ -544,7 +543,7 @@ def main(use_parallel=False,
     # if use parallel, load distributed checkpoints
     if use_parallel:
         # find the sharded ckpt path for this rank
-        ckpt_path = os.path.join(checkpoint_path, "rank_{}".format(os.getenv("RANK_ID", "0")))
+        ckpt_path = os.path.join(checkpoint_path, "rank_{}".format(get_real_rank()))
         ckpt_path = get_last_checkpoint(ckpt_path)
         print("ckpt path: %s", str(ckpt_path))
 
