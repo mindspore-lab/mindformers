@@ -81,6 +81,10 @@ class Baichuan7BV2Model(BaseModel):
         self.use_kvcache_op = config.use_kvcache_op
         self.is_flexible_shape = config.is_flexible_shape
         self.use_flash_attention = config.use_flash_attention and FLASHATTENTION_VALID
+        # only support flash attention in train and prefill predict process.
+        if self.use_past:
+            self.use_flash_attention = False
+
         if self.use_flash_attention:
             logger.info("Enable flash attention.")
         elif config.use_flash_attention:
@@ -105,7 +109,7 @@ class Baichuan7BV2Model(BaseModel):
                                                      compute_type=config.compute_dtype,
                                                      is_dynamic=config.is_dynamic,
                                                      pad_token_id=config.pad_token_id,
-                                                     use_flash_attention=config.use_flash_attention)
+                                                     use_flash_attention=self.use_flash_attention)
         self.tok_embeddings = LlamaEmbedding(vocab_table_size=config.vocab_size,
                                              embedding_size=config.hidden_size,
                                              param_init_type=config.param_init_type)
@@ -119,6 +123,7 @@ class Baichuan7BV2Model(BaseModel):
                                      multiple_of=config.multiple_of,
                                      n_kv_heads=config.n_kv_heads,
                                      ffn_dim_multiplier=config.ffn_dim_multiplier,
+                                     intermediate_size=config.intermediate_size,
                                      norm_eps=config.rms_norm_eps,
                                      compute_dtype=config.compute_dtype,
                                      layernorm_compute_dtype=config.layernorm_compute_type,
@@ -126,7 +131,7 @@ class Baichuan7BV2Model(BaseModel):
                                      rotary_dtype=config.rotary_dtype,
                                      param_init_type=config.param_init_type,
                                      use_past=config.use_past,
-                                     use_flash_attention=config.use_flash_attention,
+                                     use_flash_attention=self.use_flash_attention,
                                      is_dynamic=config.is_dynamic,
                                      use_kvcache_op=config.use_kvcache_op,
                                      is_flexible_shape=config.is_flexible_shape,
@@ -136,8 +141,7 @@ class Baichuan7BV2Model(BaseModel):
                                 config.num_layers, select_recompute=config.parallel_config.recompute.select_recompute)
             self.layers.append(layer)
         self.norm_out = LlamaRMSNorm(config.hidden_size, config.rms_norm_eps,
-                                     compute_type=config.layernorm_compute_type,
-                                     is_dynamic=config.is_dynamic)
+                                     compute_type=config.layernorm_compute_type)
         self.kvcache_preprocess = KVCachePreprocess(max_batch_size=config.batch_size,
                                                     max_seq_length=config.seq_length,
                                                     is_dynamic=config.is_dynamic,
@@ -406,6 +410,7 @@ class Baichuan7BV2ForCausalLM(BaseModel):
         self.not_equal = P.NotEqual()
         self.mul = P.Mul()
         self.add = P.Add()
+        self.sub_batch_valid_len = P.Sub()
         self.model = Baichuan7BV2Model(config=config)
         self.lm_head = NormHead(hidden_size=config.hidden_size,
                                 vocab_size=config.vocab_size,
@@ -417,6 +422,7 @@ class Baichuan7BV2ForCausalLM(BaseModel):
         self.not_equal.shard(((1, 1), ()))
         self.mul.shard(((dp, 1), (dp, 1)))
         self.add.shard(((dp, 1), ()))
+        self.sub_batch_valid_len.shard(((1,), ()))
         self.lm_head.shard(config.parallel_config)
 
         if config.parallel_config.pipeline_stage > 1:
@@ -454,7 +460,7 @@ class Baichuan7BV2ForCausalLM(BaseModel):
     # pylint: disable=W0613
     def construct(self, input_ids, labels=None, input_position=None, position_ids=None, attention_mask=None,
                   input_embeds=None, init_reset=True, batch_valid_length=None):
-        """LlamaForCausalLM forward."""
+        """Baichuan7BV2 ForCausalLM forward."""
         bsz, seqlen = input_ids.shape
         if self.training:
             tokens = self.slice(input_ids, (0, 0), (bsz, seqlen - 1), (1, 1))

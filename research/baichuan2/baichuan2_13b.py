@@ -85,6 +85,7 @@ class Baichuan13BV2ForCausalLM(BaseModel):
         self.pad_token_id = config.pad_token_id
         self.seq_length = config.seq_length
 
+        self.shape = P.Shape()
         self.reshape = P.Reshape()
         self.cast = P.Cast()
         self.slice = P.StridedSlice()
@@ -140,7 +141,7 @@ class Baichuan13BV2ForCausalLM(BaseModel):
     def construct(self, input_ids, labels=None, input_position=None, position_ids=None, attention_mask=None,
                   input_embeds=None, init_reset=True, batch_valid_length=None):
         """Baichuan13BV2ForCausalLM forward."""
-        bsz, seqlen = input_ids.shape
+        bsz, seqlen = self.shape(input_ids)
         if self.training:
             tokens = self.slice(input_ids, (0, 0), (bsz, seqlen - 1), (1, 1))
         else:
@@ -198,6 +199,10 @@ class Baichuan13BV2Model(BaseModel):
         self.is_first_iteration = True
         self.use_past = config.use_past
         self.use_flash_attention = config.use_flash_attention and FLASHATTENTION_VALID
+        # only support flash attention in train and prefill predict process.
+        if self.use_past:
+            self.use_flash_attention = False
+
         if self.use_flash_attention:
             logger.info("Enable flash attention.")
         elif config.use_flash_attention:
@@ -208,6 +213,7 @@ class Baichuan13BV2Model(BaseModel):
         self.multiply_data = Tensor([-10000.0], dtype=config.compute_dtype)
         self.one = Tensor([1.0], dtype=config.compute_dtype)
         self.all_ones_attention_mask_alibi = P.Ones()((1, config.seq_length), mstype.float32)
+        self.shape = P.Shape()
         self.reshape = P.Reshape()
         self.cast = P.Cast()
         self.mul_mask = P.Mul()
@@ -217,6 +223,7 @@ class Baichuan13BV2Model(BaseModel):
         self.not_equal = P.NotEqual()
         self.gather = P.Gather()
         self.transpose = P.Transpose()
+        self.sub_batch_valid_len = P.Sub()
 
         self.tok_embeddings = LlamaEmbedding(
             config.vocab_size, config.hidden_size, param_init_type=config.param_init_type)
@@ -237,7 +244,7 @@ class Baichuan13BV2Model(BaseModel):
                                            softmax_compute_dtype=config.softmax_compute_type,
                                            param_init_type=config.param_init_type,
                                            use_past=config.use_past,
-                                           use_flash_attention=config.use_flash_attention,
+                                           use_flash_attention=self.use_flash_attention,
                                            compute_in_2d=config.compute_in_2d,
                                            use_past_shard=config.use_past_shard,
                                            parallel_config=config.parallel_config)
@@ -271,6 +278,7 @@ class Baichuan13BV2Model(BaseModel):
         self.not_equal.shard(((dp, 1), ()))
         self.gather.shard(((dp, mp, 1, 1), (1,)))
         self.transpose.shard(((1, mp, dp, 1),))
+        self.sub_batch_valid_len.shard(((1,), ()))
         if config.compute_in_2d:
             self.norm_out.shard((dp, 1))
         else:
@@ -280,19 +288,18 @@ class Baichuan13BV2Model(BaseModel):
             seq_range = np.arange(config.seq_length).reshape(1, 1, -1)
             self.ones = P.Ones()
             self.range = Tensor(np.tile(seq_range, (config.batch_size, 1, 1)), mstype.int32)
-            self.gather_past = P.Gather()
-            self.expand_dims = P.ExpandDims()
-            self.le_past = P.LessEqual()
+            self.expand_dims = P.ExpandDims().shard(((dp, 1, 1),))
+            self.le_past = P.LessEqual().shard(((1, 1, 1), (1, 1, 1)))
     # pylint: disable=W0613
     def construct(self, tokens: Tensor, input_position=None, init_reset=True, batch_valid_length=None):
         """Forward of baichuan2_13b model."""
         # preprocess
-        bs, _ = tokens.shape
+        bsz, _ = self.shape(tokens)
         if self.use_past:
-            if not isinstance(init_reset, Tensor):
-                init_reset = Tensor([init_reset], mstype.bool_)
             if not isinstance(batch_valid_length, Tensor):
-                batch_valid_length = self.ones((bs, 1), mstype.int32)
+                batch_valid_length = self.ones((bsz,), mstype.int32)
+        if batch_valid_length is not None:
+            batch_valid_length = self.reshape(batch_valid_length, (-1,))
 
         if self.is_first_iteration:
             input_mask = self.cast(self.not_equal(tokens, self.pad_token_id), mstype.float32)
@@ -300,14 +307,15 @@ class Baichuan13BV2Model(BaseModel):
             alibi_tensor = self.build_alibi_tensor(input_mask, mstype.float32)
             # mask: [bs, seq, seq]
         else:
-            cur_pos = batch_valid_length - 1
+            cur_pos = self.sub_batch_valid_len(batch_valid_length, 1)
             valid_length = self.reshape(cur_pos, (-1, 1, 1))
             mask = self.cast(self.le_past(self.range, valid_length), mstype.float32)
             alibi_tensor = self.build_alibi_tensor(self.all_ones_attention_mask_alibi, mstype.float32)
-            alibi_tensor = self.gather(alibi_tensor, cur_pos[0], 2)
+            alibi_tensor = self.gather(alibi_tensor, cur_pos, 2)
             alibi_tensor = self.transpose(alibi_tensor, (2, 1, 0, 3))
             # mask: [bs, 1, 1]
         mask = self.sub(self.one, self.cast(mask, mstype.float32))
+
         if not self.use_flash_attention:
             mask = self.expand_dims(mask, 1)
             mask = self.mul_mask(mask, self.multiply_data)
@@ -486,7 +494,7 @@ class Baichuan13BDecodeLayer(nn.Cell):
             if not isinstance(init_reset, Tensor):
                 init_reset = Tensor([init_reset], mstype.bool_)
             if not isinstance(batch_valid_length, Tensor):
-                batch_valid_length = self.ones((bs, 1), mstype.int32)
+                batch_valid_length = self.ones((bs,), mstype.int32)
         self._check_input(x, alibi_tensor, mask, init_reset, batch_valid_length)
         # [bs, seq/1, hidden_dim] (first) [bs * seq/1, hidden_dim] (others)
         if self.compute_in_2d and x.ndim != 2:
@@ -712,19 +720,17 @@ class Baichuan13BAttention(nn.Cell):
         if parallel_config.use_seq_parallel and self.is_first_iteration:
             self.wo.shard(((dp, mp), (1, mp)), out_strategy_matmul=((dp * mp, 1),))
         if parallel_config.recompute.select_recompute:
-            self.tile_kv.recompute()
             self.batch_matmul_q_k.recompute()
             self.mul.recompute()
+            self.add_alibi.recompute()
             self.add.recompute()
             self.cast_attn.recompute()
             self.softmax.softmax.recompute()
             self.batch_matmul.recompute()
 
         if self.use_flash_attention:
-            self.flash_attention = FlashAttention(self.head_dim, dp=dp, mp=mp, next_block_num=0)
-            self.flash_attention.shard(((dp, mp, 1, 1), (dp, mp, 1, 1), (dp, mp, 1, 1), (dp, 1, 1), ()))
-            if parallel_config.recompute.select_recompute:
-                self.flash_attention.recompute()
+            self.flash_attention = FlashAttention(self.head_dim, n_heads, dp=dp, mp=mp, next_block_num=0,
+                                                  high_precision=True)
 
         if self.use_past:
             # operators used for state reuse
@@ -793,8 +799,9 @@ class Baichuan13BAttention(nn.Cell):
         key = self._repeat_kv(key, self.n_rep)
         value = self._repeat_kv(value, self.n_rep)
         # q, k, v: [bs, n_head, seq/1, head_dim], [bs, n_head, seq, head_dim], [bs, n_head, seq, head_dim]
+
         if self.use_flash_attention:
-            attention = self.flash_attention(query, key, value, mask)
+            attention = self.flash_attention(query, key, value, mask, alibi_tensor)
             attention = self._merge_heads(attention)
         else:
             attention = self._attn(query, key, value, alibi_tensor, mask)
