@@ -43,7 +43,7 @@ from mindformers.tools.logger import _LogActionOnce
 from mindformers.tools.register.register import MindFormerModuleType, MindFormerRegister
 from mindformers.modules.layers import Linear, _check_input_dtype, _args_type_validator_check, _valid_value_checks
 from mindformers.modules.transformer import TransformerOpParallelConfig
-from mindformers.models.llama.llama_layer import LlamaEmbedding, CausalMask, FreqsMgr
+from mindformers.models.llama.llama_layer import LlamaEmbedding, CausalMask, FreqsMgr, LlamaSiLU
 from mindformers.models.llama.llama_transformer import LLamaDecodeLayer
 from mindformers.modules import KVCachePreprocess
 
@@ -168,7 +168,7 @@ class QwenModel(BaseModel):
         self.vocab_size = config.vocab_size
         self.num_hidden_layers = config.num_hidden_layers
         self.embed_dim = config.hidden_size
-        self.head_dim = config.hidden_size // config.num_heads
+        self.head_dim = config.hidden_size // config.num_attention_heads
         self.seq_length = config.seq_length
         self.pad_token_id = config.pad_token_id
         self.num_attention_heads = config.num_attention_heads
@@ -208,9 +208,7 @@ class QwenModel(BaseModel):
                                     param_init_type=config.param_init_type,
                                     qkv_has_bias=True,
                                     use_past=config.use_past,
-                                    use_past_shard=config.use_past_shard,
                                     use_flash_attention=config.use_flash_attention,
-                                    compute_in_2d=config.compute_in_2d,
                                     parallel_config=config.parallel_config)
 
             from mindformers.models.llama.llama import layer_compute_dtype
@@ -254,6 +252,7 @@ class QwenModel(BaseModel):
         self.expand_dims = P.ExpandDims()
         self.not_equal = P.NotEqual()
         self.gather = P.Gather()
+        self.shape = P.Shape()
 
         self.multiply_data = Tensor([-10000.0], dtype=config.compute_dtype)
         self.one = Tensor([1.0], dtype=config.compute_dtype)
@@ -353,9 +352,6 @@ class QwenDecodeLayer(LLamaDecodeLayer):
         intermediate_size = kwargs.pop('intermediate_size', 0)
         super().__init__(batch_size, seq_length, layer_id, **kwargs)
 
-        rotary_dtype = kwargs.get('rotary_dtype', mstype.float32)
-        self.attention.apply_rotary_emb = QwenRotaryEmbedding(self.head_dim, rotary_dtype)
-
         compute_dtype = kwargs.get('compute_dtype', mstype.float16)
         param_init_type = kwargs.get('param_init_type', mstype.float32)
         parallel_config = kwargs.get('parallel_config', TransformerOpParallelConfig())
@@ -376,63 +372,6 @@ class QwenDecodeLayer(LLamaDecodeLayer):
             self.attention.wq.bias_add.shard(((dp, mp), (mp,)))
             self.attention.wk.bias_add.shard(((dp, mp), (mp,)))
             self.attention.wv.bias_add.shard(((dp, mp), (mp,)))
-            self.attention.apply_rotary_emb.shard((dp, mp, 1, 1))
-
-
-class QwenRotaryEmbedding(nn.Cell):
-    r"""
-    Rotary Position Embedding.
-
-    Args:
-            - **head_dim** (int): The dim of multi head attention.
-            - **compute_dtype** (mstype): The compute type, default mstype.float16.
-    Inputs:
-            - **x** (Tensor) - Tensor of shape :math:`(batch, seq\_length, hidden\_size)`.
-
-    Outputs:
-            Tensor of shape :math:`(batch, seq_length, hidden_size)`.
-    """
-
-    def __init__(self, head_dim=128, compute_dtype=mstype.float32):
-        super().__init__(auto_prefix=False)
-        self.head_dim = head_dim
-        self.dtype = compute_dtype
-
-        self.add = P.Add()
-        self.mul = P.Mul()
-        self.split = P.Split(3, 2)
-        self.concat = P.Concat(3)
-
-        self.cast = P.Cast()
-
-    def rotate_half(self, x):
-        x1, x2 = self.split(x)
-        return self.concat((-x2, x1))
-
-    def construct(self, xq: Tensor, xk: Tensor, freqs_cis):
-        """Forward of rotary position embedding."""
-        original_type = xq.dtype
-        xq = self.cast(xq, self.dtype)
-        xk = self.cast(xk, self.dtype)
-        # xq, xk: [bs, n_head/n_kv_head, seq/1, head_dim]
-        freqs_cos, freqs_sin, _ = freqs_cis
-        xq_out = self.add(self.mul(xq, freqs_cos),
-                          self.mul(self.rotate_half(xq), freqs_sin))
-        xk_out = self.add(self.mul(xk, freqs_cos),
-                          self.mul(self.rotate_half(xk), freqs_sin))
-
-        xq_out = self.cast(xq_out, original_type)
-        xk_out = self.cast(xk_out, original_type)
-        return xq_out, xk_out
-
-    def shard(self, strategy_in):
-        self.add.shard((strategy_in, strategy_in))
-        self.mul.shard((strategy_in, (strategy_in[0], 1, 1, 1)))
-        self.split.shard((strategy_in,))
-
-        dp = strategy_in[0]
-        mp = strategy_in[1]
-        self.concat.shard(((dp, mp, 1, 1), (dp, mp, 1, 1)))
 
 
 class QwenFeedForward(nn.Cell):
@@ -476,6 +415,8 @@ class QwenFeedForward(nn.Cell):
 
         self.mul = P.Mul()
         self.cast = P.Cast()
+        self.silu = LlamaSiLU()
+
         self.w1 = Linear(in_channels=dim,
                          out_channels=hidden_dim,
                          has_bias=False,
@@ -501,7 +442,7 @@ class QwenFeedForward(nn.Cell):
         # [bs, seq, hidden_dim] or [bs * seq, hidden_dim]
         gate = self.w1(x)  # dp,1 -> dp, mp
         hidden = self.w3(x)  # dp,1 -> dp, mp
-        hidden = self.mul(gate, F.silu(hidden).astype(self.dtype))  # dp,mp -> dp, mp
+        hidden = self.mul(gate, self.silu(hidden).astype(self.dtype))  # dp,mp -> dp, mp
         output = self.w2(hidden)  # dp,mp -> dp, 1
         return output
 
@@ -521,3 +462,4 @@ class QwenFeedForward(nn.Cell):
         self.w2.shard(((dp, mp), (1, mp)))
         self.w3.shard(((dp, 1), (mp, 1)))
         self.mul.shard(((dp, mp), (dp, mp)))
+        self.silu.shard(((dp, 1, mp),))

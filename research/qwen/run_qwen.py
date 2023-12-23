@@ -115,7 +115,7 @@ def main(task='text_generation',
         print(result)
     elif run_mode == 'finetune':
         trainer = Trainer(args=config, task=task, train_dataset=train_dataset)
-        trainer.finetune(finetune_checkpoint=ckpt, auto_trans_ckpt=auto_trans_ckpt, resume=False)
+        trainer.finetune(finetune_checkpoint=ckpt, auto_trans_ckpt=auto_trans_ckpt)
     else:
         raise NotImplementedError(f"run_mode '${run_mode}' not supported yet.")
 
