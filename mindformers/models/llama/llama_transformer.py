@@ -198,9 +198,14 @@ class LLamaAttention(nn.Cell):
             self.tile_kv.shard(((dp, mp, 1, 1),))
 
             self.apply_rotary_emb.shard((dp, mp, 1, 1))
-            self.wq.shard(((dp, 1), (mp, 1)))
-            self.wk.shard(((dp, 1), (mp, 1)))
-            self.wv.shard(((dp, 1), (mp, 1)))
+            if qkv_has_bias:
+                self.wq.shard(((dp, 1), (mp, 1)), ((dp, mp), (mp,)))
+                self.wk.shard(((dp, 1), (mp, 1)), ((dp, mp), (mp,)))
+                self.wv.shard(((dp, 1), (mp, 1)), ((dp, mp), (mp,)))
+            else:
+                self.wq.shard(((dp, 1), (mp, 1)))
+                self.wk.shard(((dp, 1), (mp, 1)))
+                self.wv.shard(((dp, 1), (mp, 1)))
             self.wo.shard(((dp, mp), (1, mp)))
             if parallel_config.use_seq_parallel and self.is_first_iteration:
                 self.wo.shard(((dp, mp), (1, mp)), out_strategy_matmul=((dp * mp, 1),))

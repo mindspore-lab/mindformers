@@ -21,9 +21,11 @@ from mindspore import Tensor
 from mindspore.common import dtype
 from mindspore.ops import operations as ops
 from mindspore.common.api import _cell_graph_executor
+
 from mindformers.core import CrossEntropyLoss
 from mindformers.modules import MultiHeadAttention, FeedForward, TransformerEncoderLayer, TransformerEncoder, \
-    TransformerDecoder, TransformerDecoderLayer, Transformer, AttentionMask, FixedSparseAttention
+    TransformerDecoder, TransformerDecoderLayer, Transformer, AttentionMask, FixedSparseAttention, \
+    LowerTriangularMaskWithDynamic
 
 
 class MyActivation(mindspore.nn.Cell):
@@ -521,6 +523,17 @@ def test_attention_mask():
     Expectation: No exception
     """
     model = AttentionMask(seq_length=19)
+    inputs = Tensor(np.ones((2, 19)), dtype.float32)
+    _cell_graph_executor.compile(model, inputs)
+
+
+def test_lower_triangular_mask_with_dynamic():
+    """
+    Feature: Test the attention mask.
+    Description: Test the forward
+    Expectation: No exception
+    """
+    model = LowerTriangularMaskWithDynamic(seq_length=19)
     inputs = Tensor(np.ones((2, 19)), dtype.float32)
     _cell_graph_executor.compile(model, inputs)
 

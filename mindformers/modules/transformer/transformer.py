@@ -57,6 +57,7 @@ from mindformers.tools.logger import logger as log
 __all__ = [
     "AttentionMask",
     "AttentionMaskHF",
+    "LowerTriangularMaskWithDynamic",
     "VocabEmbedding",
     "MultiHeadAttention",
     "FeedForward",
@@ -770,6 +771,88 @@ class AttentionMaskHF(Cell):
         attention_mask = self.multiply(
             attention_mask, lower_traiangle)
         return attention_mask
+
+
+class LowerTriangularMaskWithDynamic(Cell):
+    """Get the Strictly Lower triangular matrix from the input_ids. """
+
+    @_LogActionOnce(m_logger=logger, key='AttentionMask',
+                    no_warning=_get_parallel_mode() in (ParallelMode.STAND_ALONE,))
+    def __init__(self, seq_length, compute_type=mstype.float16,
+                 is_dynamic=False, pad_token_id=2, use_flash_attention=False):
+        super().__init__()
+        self.dtype = compute_type
+        self.is_dynamic = is_dynamic
+        self.pad_token_id = pad_token_id
+        self.use_flash_attention = use_flash_attention
+        self.multiply_data = Tensor([-10000.0], dtype=compute_type)
+        self.one = Tensor([1.0], dtype=compute_type)
+        self.lower_triangle_mask = Tensor(np.tril(np.ones(shape=(seq_length, seq_length))), mstype.float32)
+
+        self.shape = P.Shape()
+        self.cast = P.Cast()
+        self.reshape = P.Reshape()
+        self.not_equal = P.NotEqual()
+        self.less_equal = P.LessEqual()
+        self.expand_dim = P.ExpandDims()
+        self.slice = P.StridedSlice()
+        self.mul = P.Mul()
+        self.sub = P.Sub()
+        self.mul_post = P.Mul()
+        self.expand_dim_post = P.ExpandDims()
+
+    def construct(self, tokens):
+        """Forward process of the CausalMask"""
+        bs = self.shape(tokens)[0]
+        seq_len = self.shape(tokens)[1]
+        input_mask = self.cast(self.not_equal(tokens, self.pad_token_id), self.dtype)
+        shape_right = (bs, 1, seq_len)
+        # Mask the padded inputs
+        mask_right = self.reshape(input_mask, shape_right)
+        attention_mask = mask_right
+        if not self.is_dynamic:
+            lower_triangle = self.expand_dim(self.lower_triangle_mask, 0)
+        else:
+            lower_triangle_mask = self.slice(self.lower_triangle_mask, (0, 0), (seq_len, seq_len), (1, 1))
+            lower_triangle = self.expand_dim(lower_triangle_mask, 0)
+        # the returned shape is [bs, seq_length, seq_length]
+        attention_mask = self.mul(attention_mask, lower_triangle)
+        return attention_mask
+
+    def increment(self, seq_range, batch_valid_length, zactivate_len=None):
+        if zactivate_len is not None:
+            seq_range = self.slice(seq_range, (0, 0, 0), (1, 1, self.shape(zactivate_len)[0]), (1, 1, 1))
+        mask = self.less_equal(self.reshape(seq_range, (1, 1, -1)), self.reshape(batch_valid_length, (-1, 1, 1)))
+        return mask
+
+    def increment_slice(self, seq_range, seq_length, batch_valid_length, zactivate_len=None):
+        if zactivate_len is not None:
+            seq_range_mask = self.slice(seq_range, (0, 0, 0), (1, 1, self.shape(zactivate_len)[0]), (1, 1, 1))
+        else:
+            seq_range_mask = self.slice(seq_range, (0, 0, 0), (1, 1, seq_length), (1, 1, 1))
+        mask = self.less_equal(self.reshape(seq_range_mask, (1, 1, -1)), self.reshape(batch_valid_length, (-1, 1, 1)))
+        return mask
+
+    def post_process(self, mask):
+        mask = self.sub(self.one, self.cast(mask, self.dtype))
+        if not self.use_flash_attention:
+            mask = self.expand_dim_post(mask, 1)
+            mask = self.mul_post(mask, self.multiply_data)
+        else:
+            mask = self.cast(mask, mstype.uint8)
+        return mask
+
+    def shard(self, parallel_config):
+        dp = parallel_config.data_parallel
+        self.not_equal.shard(((dp, 1), ()))
+        self.bmm.shard(((dp, 1, 1), (dp, 1, 1)))
+        self.expand_dim.shard(((1, 1),))
+        self.mul.shard(((dp, 1, 1), (1, 1, 1)))
+        self.less_equal.shard(((1, 1, 1), (1, 1, 1)))
+        self.sub.shard(((1,), (dp, 1, 1)))
+        self.mul_post.shard(((dp, 1, 1, 1), (1,)))
+        self.expand_dim_post.shard(((dp, 1, 1),))
+
 
 
 class VocabEmbedding(Cell):
