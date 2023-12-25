@@ -39,7 +39,7 @@ def tokenize_wiki(tokenizer, file_path, seq_length, min_length):
     for ids in content:
         sample = {}
         if len(ids) < seq_length:
-            ids = np.pad(ids, (0, seq_length - len(ids)), 'constant', constant_values=(0, 0))
+            ids = np.pad(ids, (0, seq_length - len(ids)), 'constant', constant_values=(2, 2))
         else:
             ids = ids[:seq_length]
         sample['input_ids'] = np.array(ids, dtype=np.int32)

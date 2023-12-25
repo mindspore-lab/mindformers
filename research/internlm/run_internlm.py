@@ -144,12 +144,12 @@ def main(task='text_generation',
         trainer = Trainer(args=config,
                           task=task,
                           train_dataset=train_dataset)
-        trainer.train(train_checkpoint=ckpt, auto_trans_ckpt=config.auto_trans_ckpt, resume=resume)
+        trainer.train(train_checkpoint=ckpt, auto_trans_ckpt=config.auto_trans_ckpt, resume_training=resume)
     elif run_mode == 'finetune':
         trainer = Trainer(args=config,
                           task=task,
                           train_dataset=train_dataset)
-        trainer.finetune(finetune_checkpoint=ckpt, auto_trans_ckpt=config.auto_trans_ckpt, resume=resume)
+        trainer.finetune(finetune_checkpoint=ckpt, auto_trans_ckpt=config.auto_trans_ckpt, resume_training=resume)
     elif run_mode == 'eval':
         trainer = Trainer(args=config,
                           task=task,
@@ -158,12 +158,22 @@ def main(task='text_generation',
     elif run_mode == 'predict':
         trainer = Trainer(args=config,
                           task=task)
-        prompt = "<s><|User|>:{}<eoh>\n<|Bot|>:".format(predict_data)
+        if isinstance(predict_data, str) and os.path.isfile(predict_data):
+            with open(predict_data, 'r') as fp:
+                input_data_list = []
+                for line in fp:
+                    line = line.strip('\n')
+                    line = line.replace(r'\n', '\n')
+                    input_data_list.append(line)
+            predict_data_list = input_data_list
+        else:
+            predict_data_list = [predict_data]
+        prompt = ["<s><|User|>:{}<eoh>\n<|Bot|>:".format(input_data) for input_data in predict_data_list]
         result = trainer.predict(input_data=prompt,
                                  predict_checkpoint=ckpt,
                                  auto_trans_ckpt=config.auto_trans_ckpt,
                                  max_length=int(max_length))
-        print(result[0]['text_generation_text'][0])
+        print(result)
 
 
 if __name__ == "__main__":
