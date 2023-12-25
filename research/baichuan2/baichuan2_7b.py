@@ -419,7 +419,7 @@ class Baichuan7BV2ForCausalLM(BaseModel):
 
         dp = config.parallel_config.data_parallel
         self.slice.shard(((dp, 1),))
-        self.not_equal.shard(((1, 1), ()))
+        self.not_equal.shard(((dp, 1), ()))
         self.mul.shard(((dp, 1), (dp, 1)))
         self.add.shard(((dp, 1), ()))
         self.sub_batch_valid_len.shard(((1,), ()))
@@ -484,15 +484,16 @@ class Baichuan7BV2ForCausalLM(BaseModel):
                 label_mask = self.cast(self.not_equal(labels, self.ignore_token_id), mstype.float32)
                 input_mask = self.mul(input_mask, label_mask)
 
-        logits = self.cast(logits, mstype.float32)
         if not self.training:
             logits = self.reshape(logits, (bsz, seqlen, -1))
+            logits = self.cast(logits, mstype.float32)
             # makes cast effective to avoid allgather issue in Mindspore1.10
             input_mask = self.add(input_mask, 1)
             return logits, tokens, input_mask
 
         if logits.ndim > 2:
             logits = self.reshape(logits, (-1, logits.shape[-1]))
+        logits = self.cast(logits, mstype.float32)
         labels = self.reshape(labels, (-1,))
         input_mask = self.reshape(input_mask, (-1,))
         loss = self.loss(logits, labels, input_mask)
