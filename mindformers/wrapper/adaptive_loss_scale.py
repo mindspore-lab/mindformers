@@ -129,7 +129,7 @@ class AdaptiveLossScaleUpdateCell(Cell):
         super(AdaptiveLossScaleUpdateCell, self).__init__()
 
         if max_scale_window <= 0 or min_scale_window <= 0 or max_scale_window <= min_scale_window:
-            raise ValueError(f"`max_scale_window` and `max_scale_window` have to be floats > 0 and `max_scale_window` "
+            raise ValueError(f"`max_scale_window` and `min_scale_window` have to be floats > 0 and `max_scale_window` "
                              f"has to be larger than `min_scale_window`")
         self.max_scale_window = max_scale_window
         self.min_scale_window = min_scale_window
