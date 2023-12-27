@@ -76,7 +76,7 @@ cd ./mf_standalone || exit
 echo "start training for device $DEVICE_ID"
 env > env.log
 mkdir -p $LOCAL_DEFAULT_PATH/log/rank_0
-python run_mindformer.py --config=$CONFIG_FILE --use_parallel=False --run_mode=$RUN_STATUS \
+python run_mindformer.py --config=$CONFIG_FILE --use_parallel=False --run_mode=$RUN_STATUS --device_id=$DEVICE_ID \
 --output_dir=$LOCAL_DEFAULT_PATH &> $LOCAL_DEFAULT_PATH/log/rank_0/mindformer.log &
 cd ..
 
