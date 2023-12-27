@@ -54,11 +54,11 @@ Code Llama是基于Llama 2的一系列大型代码语言模型，它在开源模
 ### 环境要求
 
 - 硬件：Ascend 910A/910B
-- MindSpore：2.2.0
-- CANN: 7.0
+- MindSpore：2.2.0 以上
+- CANN: 7.0 以上
 - MindFormers版本：dev
 
-> 注：34b推理使用910b 至少使用2卡，全量微调至少需要4机32卡。
+> 注：34b推理使用910b 至少使用2卡，全量微调至少需要2机16卡，建议4机32卡。
 
 ### [mindformers安装](../../README.md#二mindformers安装)
 
@@ -217,6 +217,7 @@ RANK_TABLE_FILE 双机16卡参考样例:
 下载完成后，运行如下转换脚本，将huggingface的权重转换为完整的ckpt权重。
 
 ```shell
+# 使用transformers = 4.34.0，torch>=2.0进行转换
 python mindformers/models/llama/convert_weight.py \
 --torch_ckpt_dir TORCH_CKPT_DIR \
 --mindspore_ckpt_path {path}/MS_CKPT_NAME
@@ -570,7 +571,7 @@ from mindspore.train import Model
 
 from mindformers import MindFormerConfig, LlamaConfig, TransformerOpParallelConfig, AutoTokenizer, LlamaForCausalLM
 from mindformers import init_context, ContextConfig, ParallelContextConfig
-from mindformers.tools.utils import str2bool, get_real_rank
+from mindformers.tools.utils import str2bool
 from mindformers.trainer.utils import get_last_checkpoint
 
 
@@ -593,8 +594,7 @@ def main(args):
     model_config.batch_size = len(inputs)
     model_config.use_past = args.use_past
     model_config.seq_length = args.seq_length
-    if args.checkpoint_path and not config.use_parallel:
-        model_config.checkpoint_name_or_path = args.checkpoint_path
+    model_config.checkpoint_name_or_path = args.checkpoint_path
     print(f"config is: {model_config}")
 
     # build tokenizer
@@ -602,19 +602,6 @@ def main(args):
     # build model from config
     model = LlamaForCausalLM(model_config)
     model.set_train(False)
-    # if use parallel, load distributed checkpoints
-    if config.use_parallel:
-        # find the sharded ckpt path for this rank
-        ckpt_path = os.path.join(args.checkpoint_path, "rank_{}".format(get_real_rank()))
-        ckpt_path = get_last_checkpoint(ckpt_path)
-        print("ckpt path: %s", str(ckpt_path))
-
-        # shard model and load sharded ckpt
-        warm_up_model = Model(model)
-        warm_up_model.infer_predict_layout(ms.Tensor(np.ones(shape=(1, model_config.seq_length)), ms.int32))
-        checkpoint_dict = load_checkpoint(ckpt_path)
-        not_load_network_params = load_param_into_net(model, checkpoint_dict)
-        print("Network parameters are not loaded: %s", str(not_load_network_params))
 
     inputs_ids = tokenizer(inputs, max_length=model_config.seq_length, padding="max_length")["input_ids"]
     outputs = model.generate(inputs_ids,
@@ -687,8 +674,7 @@ done
 #### 多卡generate推理
 
 ```bash
-# 此时的checkpoint必须是已经切分好的ckpt,shard_checkpoint_dir文件夹下为rank_{}的文件夹。
-bash run_predict.sh RANK_TABLE_FILE path/to/shard_checkpoint_dir path/to/config_yaml codellama_34b 8 0
+bash run_predict.sh RANK_TABLE_FILE path/to/checkpoint.ckpt path/to/config_yaml codellama_34b 8 0
 ```
 
 > 注：几卡推理就要在yaml配置中将相应的parallel_config 中的model_parallel置为8，其余置为1。
@@ -717,7 +703,7 @@ from mindspore.train import Model
 
 from mindformers import MindFormerConfig, LlamaConfig, TransformerOpParallelConfig, AutoTokenizer, LlamaForCausalLM, pipeline
 from mindformers import init_context, ContextConfig, ParallelContextConfig
-from mindformers.tools.utils import str2bool, get_real_rank
+from mindformers.tools.utils import str2bool
 from mindformers.trainer.utils import get_last_checkpoint
 
 
@@ -739,8 +725,7 @@ def main(args):
     model_config.parallel_config = TransformerOpParallelConfig(**config.parallel_config)
     model_config.use_past = args.use_past
     model_config.seq_length = args.seq_length
-    if args.checkpoint_path and not config.use_parallel:
-        model_config.checkpoint_name_or_path = args.checkpoint_path
+    model_config.checkpoint_name_or_path = args.checkpoint_path
     print(f"config is: {model_config}")
 
     # build tokenizer
@@ -748,20 +733,6 @@ def main(args):
 
     model = LlamaForCausalLM(model_config)
     model.set_train(False)
-
-    # if use parallel, load distributed checkpoints
-    if config.use_parallel:
-        # find the sharded ckpt path for this rank
-        ckpt_path = os.path.join(args.checkpoint_path, "rank_{}".format(get_real_rank()))
-        ckpt_path = get_last_checkpoint(ckpt_path)
-        print("ckpt path: %s", str(ckpt_path))
-
-        # shard model and load sharded ckpt
-        warm_up_model = Model(model)
-        warm_up_model.infer_predict_layout(ms.Tensor(np.ones(shape=(1, model_config.seq_length)), ms.int32))
-        checkpoint_dict = load_checkpoint(ckpt_path)
-        not_load_network_params = load_param_into_net(model, checkpoint_dict)
-        print("Network parameters are not loaded: %s", str(not_load_network_params))
 
     text_generation_pipeline = pipeline(task="text_generation", model=model, tokenizer=tokenizer)
     outputs = text_generation_pipeline(inputs,
@@ -836,8 +807,7 @@ done
 #### 多卡pipeline推理
 
 ```bash
-# 此时的checkpoint必须是已经切分好的ckpt
-bash run_predict.sh RANK_TABLE_FILE path/to/shard_checkpoint_dir path/to/config_yaml codellama_34b 8 0
+bash run_predict.sh RANK_TABLE_FILE path/to/checkpoint.ckpt path/to/config_yaml codellama_34b 8 0
 ```
 
 > 注：config_yaml的配置也要和基于generate的多卡推理一样将model_parallel 修改为相应卡数，而data_parallel 和 pipeline_stage设置为1。
@@ -943,6 +913,7 @@ ge.exec.precision_mode=must_keep_origin_dtype
 
 ```bash
 # >>> `run_lite.sh`文件
+# 注意run_infer_main.py中数据的导入是通过input来从命令行输入的，多卡推理不支持命令行输入形式，需要将run_infer_main.py中的input改为自己想要测试的数据。
 readonly START_DEVICE_ID=0
 for i in {0..3}; do
 export RANK_ID=${i}
