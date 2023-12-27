@@ -1,6 +1,6 @@
 seed: 0
 output_dir: './output'
-load_checkpoint: ''
+load_checkpoint: '{path}/llama2_13b.ckpt'  # 必填
 src_strategy_path_or_dir: ''
 auto_trans_ckpt: False  # If true, auto transform load_checkpoint to load in distributed model
 only_save_strategy: False
@@ -45,7 +45,7 @@ train_dataset: &train_dataset
   num_parallel_workers: 8
   python_multiprocessing: False
   drop_remainder: True
-  batch_size: 4
+  batch_size: 2
   repeat: 1
   numa_enable: False
   prefetch_size: 1
@@ -101,7 +101,7 @@ micro_batch_interleave_num: 1
 # recompute config
 recompute_config:
   recompute: True
-  select_recompute: True
+  select_recompute: False
   parallel_optimizer_comm_recompute: False
   mp_comm_recompute: True
   recompute_slice_activation: True
@@ -132,12 +132,11 @@ context:
 model:
   model_config:
     type: LlamaConfig
-    batch_size: 1 # add for increase predict
+    batch_size: 2 # add for increase predict
     seq_length: 2048
     hidden_size: 4096
     num_layers: 32
     num_heads: 32
-    max_position_embedding: 4096
     vocab_size: 32000
     multiple_of: 256
     rms_norm_eps: 1.0e-5

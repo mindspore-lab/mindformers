@@ -1,15 +1,49 @@
-# export
-infer:
-    prefill_model_path: "llama2_export/llama2_13b_prefill_seq4096.mindir" # 保存mindir的位置
-    increment_model_path: "llama2_export/llama2_13b_inc_seq4096.mindir"   # 保存mindir的位置
-    infer_seq_length: 4096 # 需要保持跟 model-model_config-seq_length 一致
-    model_type: mindir
+# trainer config
+trainer:
+  type: CausalLanguageModelingTrainer
+  model_name: 'llama2_13b'
+# if True, do evaluate during the training process. if false, do nothing.
+# note that the task trainer should support _evaluate_in_training function.
+do_eval: False
+
+# runner config
+runner_config:
+  epochs: 2
+  batch_size: 1
+  sink_mode: True
+  sink_size: 2
+
+use_parallel: True
+# parallel context config
+parallel:
+  parallel_mode: 1 # 0-data parallel, 1-semi-auto parallel, 2-auto parallel, 3-hybrid parallel
+  gradients_mean: False
+  enable_alltoall: False
+  full_batch: True
+  search_mode: "sharding_propagation"
+  enable_parallel_optimizer: True
+  strategy_ckpt_save_file: "./ckpt_strategy.ckpt"
+  parallel_optimizer_config:
+    gradient_accumulation_shard: False
+    parallel_optimizer_threshold: 64
+
+# mindspore context init config
+context:
+  mode: 0 #0--Graph Mode; 1--Pynative Mode
+  device_target: "Ascend"
+  enable_graph_kernel: False
+  graph_kernel_flags: "--disable_expand_ops=Softmax,Dropout --enable_parallel_fusion=true --reduce_fuse_depth=8 --enable_auto_tensor_inplace=true"
+  max_call_depth: 10000
+  max_device_memory: "58GB"
+  save_graphs: False
+  save_graphs_path: "./graph"
+  device_id: 0
 
 # model config
 model:
   model_config:
     type: LlamaConfig
-    batch_size: 1 # add for increase predict，batch 推理时修改
+    batch_size: 1 # add for increase predict
     seq_length: 4096
     hidden_size: 5120
     num_layers: 40
@@ -25,18 +59,16 @@ model:
     compute_dtype: "float16"
     layernorm_compute_type: "float32"
     softmax_compute_type: "float16"
-    rotary_dtype: "float32"
-    param_init_type: "float32"
+    rotary_dtype: "float16"
+    param_init_type: "float16"
     use_past: True
-    is_dynamic: False
-    use_kvcache_op: False
-    is_flexible_shape: False
-    scaling_factor: 1.0
+    pretrain_seqlen: 4096 # seqlen of the pretrain checkpoint: 2048 for llama and 4096 for llama2
     extend_method: "None" # support "None", "PI", "NTK"
+    compute_in_2d: True
     use_flash_attention: False
     offset: 0
-    use_rope_slice: False
-    checkpoint_name_or_path: "{path}/ckpt"
+    use_past_shard: False
+    checkpoint_name_or_path: "{path}/llama2_13b.ckpt" # 导出任务这里必填
     repetition_penalty: 1
     max_decode_length: 512
     top_k: 3
@@ -44,7 +76,3 @@ model:
     do_sample: False
   arch:
     type: LlamaForCausalLM
-
-trainer:
-  type: CausalLanguageModelingTrainer
-  model_name: 'llama2_13b'
