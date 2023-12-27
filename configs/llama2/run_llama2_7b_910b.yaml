@@ -45,7 +45,7 @@ train_dataset: &train_dataset
   num_parallel_workers: 8
   python_multiprocessing: False
   drop_remainder: True
-  batch_size: 4
+  batch_size: 6
   repeat: 1
   numa_enable: False
   prefetch_size: 1
@@ -132,12 +132,11 @@ context:
 model:
   model_config:
     type: LlamaConfig
-    batch_size: 1 # add for increase predict
+    batch_size: 6 # add for increase predict
     seq_length: 4096
     hidden_size: 4096
     num_layers: 32
     num_heads: 32
-    max_position_embedding: 4096
     vocab_size: 32000
     multiple_of: 256
     rms_norm_eps: 1.0e-5

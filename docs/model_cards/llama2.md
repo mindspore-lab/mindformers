@@ -1217,10 +1217,10 @@ model:
     checkpoint_name_or_path: "/path/to/your/*.ckpt"
 ```
 
-2. 执行export.py，完成模型转换
+2. 执行run_mindformer.py，完成模型转换
 
 ```bash
-python mindformers/tools/export.py --config_path configs/llama2/export_llama2_7b.yaml
+python run_mindformer.py --config_path configs/llama2/export_llama2_7b.yaml --run_mode export --use_parallel False --device_id 0
 ```
 
 #### 执行推理
@@ -1272,7 +1272,7 @@ python mindformers/tools/export.py --config_path configs/llama2/export_llama2_7b
 2. 执行命令
 
 ```bash
-python run_infer_main.py --device_id 0 --model_name llama2 --prefill_model_path llama2_export/llama2_7b_prefill_seq512_graph.mindir --increment_model_path llama2_export/llama2_7b_inc_seq512_graph.mindir --tokenizer_path /path/to/your/tokenizer.model --config_path lite.ini --is_sample_acceleration False --seq_length 512 --add_special_tokens True
+python run_infer_main.py --device_id 0 --model_name llama2 --prefill_model_path llama2_export/llama2_7b_prefill_seq512_graph.mindir --increment_model_path llama2_export/llama2_7b_inc_seq512_graph.mindir --tokenizer_path /path/to/your/tokenizer.model --config_path lite.ini --is_sample_acceleration False --seq_length 4096 --add_special_tokens True
 ```
 
 　　等待模型载入、编译后，出现：
