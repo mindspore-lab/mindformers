@@ -282,13 +282,14 @@ class LlamaEmbedding(Cell):
                     no_warning=_get_parallel_mode() in (ParallelMode.STAND_ALONE,))
     @_args_type_validator_check(vocab_table_size=Validator.check_positive_int,
                                 embedding_size=Validator.check_positive_int)
-    def __init__(self, vocab_table_size, embedding_size, param_init_type=mstype.float32, param_init='normal'):
+    def __init__(self, vocab_table_size, embedding_size, param_init_type=mstype.float32, param_init='normal',
+                 parallel_optimizer=False):
         super().__init__()
         self.vocab_table_size = vocab_table_size
         self.embedding_size = embedding_size
         self.embedding_weight = Parameter(
             initializer(param_init, [self.vocab_table_size, self.embedding_size], dtype=param_init_type),
-            name='embedding_weight', parallel_optimizer=False)
+            name='embedding_weight', parallel_optimizer=parallel_optimizer)
         self.gather = P.Gather()
 
     def construct(self, input_ids):

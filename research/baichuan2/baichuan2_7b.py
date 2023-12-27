@@ -14,6 +14,7 @@
 # ============================================================================
 """Baichuan2_7b models' APIs."""
 import math
+import copy
 import numpy as np
 import mindspore.common.dtype as mstype
 
@@ -112,7 +113,8 @@ class Baichuan7BV2Model(BaseModel):
                                                      use_flash_attention=self.use_flash_attention)
         self.tok_embeddings = LlamaEmbedding(vocab_table_size=config.vocab_size,
                                              embedding_size=config.hidden_size,
-                                             param_init_type=config.param_init_type)
+                                             param_init_type=config.param_init_type,
+                                             parallel_optimizer=True)
         self.layers = nn.CellList()
         for layer_id in range(config.num_layers):
             layer = LLamaDecodeLayer(config.batch_size,
@@ -312,22 +314,22 @@ class NormHead(nn.Cell):
     def __init__(self,
                  hidden_size,
                  vocab_size,
-                 compute_dtype=mstype.float32,
+                 compute_dtype=mstype.float16,
                  eps=1e-5):
         super().__init__()
         self.weight = Parameter(
             initializer(HeUniform(negative_slope=math.sqrt(5)),
                         [vocab_size, hidden_size],
-                        mstype.float32),
+                        mstype.float16),
             name='weight',
-            parallel_optimizer=False)
+            parallel_optimizer=True)
         self.square = P.Square()
         self.sqrt = P.Sqrt()
         self.add = P.Add()
         self.real_div = P.RealDiv()
         self.reshape = P.Reshape()
         self.sum = P.ReduceSum()
-        self.eps = Tensor([eps], mstype.float32)
+        self.eps = Tensor([eps], mstype.float16)
 
         self.matmul = P.MatMul(transpose_b=True)
         self.cast = P.Cast()
@@ -354,22 +356,14 @@ class NormHead(nn.Cell):
 
     def shard(self, parallel_config):
         """sharding for norm head"""
-        if parallel_config.vocab_emb_dp:
-            self.square.shard(((1, 1),))
-            self.sqrt.shard(((1, 1),))
-            self.add.shard(((1, 1), (1,)))
-            self.real_div.shard(((1, 1), (1, 1)))
-            self.sum.shard(((1, 1),))
-            self.matmul.shard(((parallel_config.data_parallel, 1), (1, 1)))
-        else:
-            self.square.shard(((parallel_config.model_parallel, 1),))
-            self.sqrt.shard(((parallel_config.model_parallel, 1),))
-            self.add.shard(((parallel_config.model_parallel, 1), (1,)))
-            self.real_div.shard(((parallel_config.model_parallel, 1),
-                                 (parallel_config.model_parallel, 1)))
-            self.sum.shard(((parallel_config.model_parallel, 1),))
-            self.matmul.shard(((parallel_config.data_parallel, 1),
-                               (parallel_config.model_parallel, 1)))
+        self.square.shard(((parallel_config.model_parallel * parallel_config.data_parallel, 1),))
+        self.sqrt.shard(((parallel_config.model_parallel * parallel_config.data_parallel, 1),))
+        self.add.shard(((parallel_config.model_parallel * parallel_config.data_parallel, 1), (1,)))
+        self.real_div.shard(((parallel_config.model_parallel * parallel_config.data_parallel, 1),
+                             (parallel_config.model_parallel * parallel_config.data_parallel, 1)))
+        self.sum.shard(((parallel_config.model_parallel * parallel_config.data_parallel, 1),))
+        self.matmul.shard(((1, 1),
+                           (parallel_config.model_parallel * parallel_config.data_parallel, 1)))
 
 
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
@@ -415,7 +409,10 @@ class Baichuan7BV2ForCausalLM(BaseModel):
         self.lm_head = NormHead(hidden_size=config.hidden_size,
                                 vocab_size=config.vocab_size,
                                 compute_dtype=config.compute_dtype)
-        self.loss = CrossEntropyLoss(parallel_config=config.parallel_config)
+        loss_parallel_config = copy.deepcopy(config.parallel_config)
+        loss_parallel_config.model_parallel = loss_parallel_config.model_parallel * loss_parallel_config.data_parallel
+        loss_parallel_config.data_parallel = 1
+        self.loss = CrossEntropyLoss(parallel_config=loss_parallel_config)
 
         dp = config.parallel_config.data_parallel
         self.slice.shard(((dp, 1),))
