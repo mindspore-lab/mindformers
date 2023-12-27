@@ -171,12 +171,8 @@ class Trainer:
         self.configs_directory = os.path.join('.', DEFAULT_CONFIG_DIR)
 
         # set output path
-        if isinstance(args, dict) and args.get('output_dir', None):
-            set_output_path(args['output_dir'])
-            logger.info('set output_dir from args:dict')
-        elif isinstance(args, TrainingArguments):
+        if isinstance(args, TrainingArguments):
             set_output_path(args.output_dir)
-            logger.info('set output_dir from args:TrainingArguments')
         elif isinstance(args, str):
             assert os.path.realpath(args) and os.path.exists(args), \
                 f"config path must be exist, but get {args}."
@@ -185,10 +181,8 @@ class Trainer:
             tmp_config = MindFormerConfig(args)
             set_output_path(tmp_config.output_dir)
             logger.info(f'set output_dir from {args}')
-        elif isinstance(args, ConfigArguments):
-            if hasattr(args, 'output_dir'):
-                set_output_path(args.output_dir)
-                logger.info('set output_dir from args:ConfigArguments')
+        elif isinstance(args, MindFormerConfig):
+            set_output_path(args.output_dir)
 
         if not os.path.exists(os.path.join('.', DEFAULT_CONFIG_DIR)):
             configs_directory = os.path.join('.', DEFAULT_CONFIG_DIR)

@@ -27,6 +27,7 @@ except ImportError:
     fcntl = None
 
 from mindspore import Tensor, context
+from mindspore._checkparam import args_type_check
 from mindspore.communication import get_group_size, get_rank
 
 PARALLEL_MODE = {'DATA_PARALLEL': context.ParallelMode.DATA_PARALLEL,
@@ -51,6 +52,7 @@ DEBUG_INFO_PATH = '/cache/debug'
 PROFILE_INFO_PATH = '/cache/profile'
 PLOG_PATH = '/root/ascend/log'
 LOCAL_DEFAULT_PATH = os.getenv("LOCAL_DEFAULT_PATH", './output')
+LOG_DEFAULT_PATH = "./output/log"
 LAST_TRANSFORM_LOCK_PATH = "/tmp/last_transform_done.lock"
 
 _PROTOCOL = 'obs'
@@ -137,20 +139,25 @@ def get_output_root_path():
     """get default output path in local/AICC."""
     if check_in_modelarts():
         return MA_OUTPUT_ROOT
-    return os.getenv("LOCAL_DEFAULT_PATH", './output')
+    path = os.getenv("LOCAL_DEFAULT_PATH", './output')
+    return os.path.expanduser(path)
 
 
+@args_type_check(path=str)
 def set_output_path(path):
     """set output path"""
     from .logger import logger
-    warning = False
     if path is None:
         path = './output'
-        warning = True
-    os.environ['LOCAL_DEFAULT_PATH'] = path
-    if warning:
-        logger.warning(f"path is None, it will be set to './output'")
-    logger.info(f"set output path to '{path}'")
+    os.environ['LOCAL_DEFAULT_PATH'] = os.path.expanduser(path)
+    logger.info(f"set output path to '{os.path.abspath(os.path.expanduser(path))}'")
+
+
+def get_log_path():
+    if check_in_modelarts():
+        return os.path.join(MA_OUTPUT_ROOT, 'log')
+    path = os.getenv("LOG_MF_PATH", LOG_DEFAULT_PATH)
+    return os.path.expanduser(path)
 
 
 def get_output_subpath(sub_class, rank_id=0, append_rank=True):

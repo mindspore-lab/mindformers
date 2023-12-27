@@ -86,12 +86,9 @@ fi
 
 export RANK_TABLE_FILE=$PATH1
 
+# get output path
 output_dir=$(cat $CONFIG_FILE | grep output_dir)
 output_dir=$(echo "$output_dir" | awk '{print $2}')
-if [ ! -n "$output_dir" ]; then
-  echo "Error: No output_dir in $CONFIG_FILE"
-  exit 1
-fi
 if [[ $output_dir =~ "'" ]]; then
   output_dir=${output_dir#*\'}
   output_dir=${output_dir%\'*}
@@ -99,18 +96,37 @@ else
   output_dir=${output_dir#*\"}
   output_dir=${output_dir%\"*}
 fi
-if [[ $output_dir == "./output" ]]
-then
-  echo "output_dir is ./output"
+if [ ! -n "$output_dir" ]; then
   export LOCAL_DEFAULT_PATH="../../output"
-elif [[ ! $output_dir =~ ^/ ]]; then
-  echo "Error: output_dir should be absolute path, but get $output_dir."
-  echo "The default value of output_dir should be './output'. Replace it with an absolute path if you want to customize it."
-  exit 1
-else
-  echo "output_dir is $output_dir"
+  mkdir -p "../output"
+  echo "output_dir is $(realpath "../output")"
+elif [[ "$output_dir" =~ ^/ ]]; then
   export LOCAL_DEFAULT_PATH=$output_dir
+  mkdir -p $LOCAL_DEFAULT_PATH
+  echo "output_dir is $LOCAL_DEFAULT_PATH"
+elif [[ "$output_dir" =~ ^\~ ]]; then
+  home_path=`realpath ~`
+  export LOCAL_DEFAULT_PATH="${home_path}${output_dir:1}"
+  mkdir -p $LOCAL_DEFAULT_PATH
+  echo "output_dir is $LOCAL_DEFAULT_PATH"
+else
+  export LOCAL_DEFAULT_PATH="../../$output_dir"
+  mkdir -p "../$output_dir"
+  echo "output_dir is $(realpath "../$output_dir")"
 fi
+
+# get log path
+if [[ -z "$LOG_MF_PATH" ]]; then
+  LOG_SAVE_PATH="../../output/log"
+elif [[ "$LOG_MF_PATH" =~ ^\~ ]]; then
+  home_path=`realpath ~`
+  LOG_SAVE_PATH="${home_path}${LOG_MF_PATH:1}"
+elif [[ ! "$LOG_MF_PATH" =~ ^/ ]]; then
+  LOG_SAVE_PATH="../../$LOG_MF_PATH"
+else
+  LOG_SAVE_PATH=$LOG_MF_PATH
+fi
+export LOG_MF_PATH=$LOG_SAVE_PATH
 
 export CHECKPOINT_DOWNLOAD_FOLDER="../../checkpoint_download"
 export CHECKPOINT_SAVE_FOLDER="../../checkpoint_save"
@@ -132,10 +148,11 @@ then
         cd ./mf_parallel$i || exit
         echo "start training for rank $RANK_ID, device $DEVICE_ID"
         env > env.log
-        mkdir -p $LOCAL_DEFAULT_PATH/log/rank_$RANK_ID
+        mkdir -p $LOG_MF_PATH/rank_$RANK_ID
         python run_mindformer.py --config=$CONFIG_FILE --use_parallel=True --run_mode=$RUN_STATUS \
                --output_dir=$LOCAL_DEFAULT_PATH \
-               &> $LOCAL_DEFAULT_PATH/log/rank_$RANK_ID/mindformer.log &
+               &> $LOG_MF_PATH/rank_$RANK_ID/mindformer.log &
+        echo "log saved in $(realpath $LOG_MF_PATH)/rank_$RANK_ID"
         cd ..
     done
   else
@@ -151,10 +168,11 @@ then
         cd ./mf_parallel$i || exit
         echo "start training for rank $RANK_ID, device $DEVICE_ID"
         env > env.log
-        mkdir -p $LOCAL_DEFAULT_PATH/log/rank_$RANK_ID
+        mkdir -p $LOG_MF_PATH/rank_$RANK_ID
         python run_mindformer.py --config=$CONFIG_FILE --use_parallel=True --run_mode=$RUN_STATUS \
                --output_dir=$LOCAL_DEFAULT_PATH \
-               &> $LOCAL_DEFAULT_PATH/log/rank_$RANK_ID/mindformer.log &
+               &> $LOG_MF_PATH/rank_$RANK_ID/mindformer.log &
+        echo "log saved in $(realpath $LOG_MF_PATH)/rank_$RANK_ID"
         cd ..
     done
   fi
@@ -177,10 +195,12 @@ else
         cd ./mf_parallel$i || exit
         echo "start training for rank $RANK_ID, device $DEVICE_ID"
         env > env.log
-        mkdir -p $LOCAL_DEFAULT_PATH/log/rank_$RANK_ID
+        mkdir -p $LOG_MF_PATH/rank_$RANK_ID
         python run_mindformer.py --config=$CONFIG_FILE --use_parallel=True --run_mode=$RUN_STATUS \
-               --output_dir=$LOCAL_DEFAULT_PATH --predict_data "$PREDICT_DATA" \
-               &> $LOCAL_DEFAULT_PATH/log/rank_$RANK_ID/mindformer.log &
+               --output_dir=$LOCAL_DEFAULT_PATH \
+               --predict_data "$PREDICT_DATA" \
+               &> $LOG_MF_PATH/rank_$RANK_ID/mindformer.log &
+        echo "log saved in $(realpath $LOG_MF_PATH)/rank_$RANK_ID"
         cd ..
     done
   else
@@ -200,10 +220,12 @@ else
         cd ./mf_parallel$i || exit
         echo "start training for rank $RANK_ID, device $DEVICE_ID"
         env > env.log
-        mkdir -p $LOCAL_DEFAULT_PATH/log/rank_$RANK_ID
+        mkdir -p $LOG_MF_PATH/rank_$RANK_ID
         python run_mindformer.py --config=$CONFIG_FILE --use_parallel=True --run_mode=$RUN_STATUS \
-               --output_dir=$LOCAL_DEFAULT_PATH --predict_data "$PREDICT_DATA" \
-               &> $LOCAL_DEFAULT_PATH/log/rank_$RANK_ID/mindformer.log &
+               --output_dir=$LOCAL_DEFAULT_PATH \
+               --predict_data "$PREDICT_DATA" \
+               &> $LOG_MF_PATH/rank_$RANK_ID/mindformer.log &
+        echo "log saved in $(realpath $LOG_MF_PATH)/rank_$RANK_ID"
         cd ..
     done
   fi
