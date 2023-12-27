@@ -328,7 +328,7 @@ print(peline_result)
 ```shell
 # 如果需要使用增量推理，use_past设置为True；如果
 cd research
-python skywork/run_skywork.py --config skywork/run_skywork_13b.yaml --load_checkpoint /path/Skywork-13B/skywork_13b.ckpt --run_mode=export --train_dataset /path/Skywork-13B/eval4096.mindrecord --use_parallel False --use_past True --batch_size 1 --device_id 0
+python skywork/run_skywork.py --config skywork/run_skywork_13b.yaml --load_checkpoint /path/Skywork-13B/skywork_13b.ckpt --run_mode=export --use_parallel False --use_past True --batch_size 1 --device_id 0
 ```
 
 **注**
@@ -358,41 +358,38 @@ ge.exec.atomicCleanPolicy=1
 # run_skywork_infer_lite.py
 import argparse
 
-from mindformers import LlamaTokenizer, pipeline
+from mindformers import LlamaTokenizer
+from mindformers.inference import InferTask
+from mindformers.inference.infer_config import InferConfig
 
 
 def infer_main(args):
-
+    lite_config = InferConfig(
+        prefill_model_path=args.full_model_path,
+        increment_model_path=args.inc_model_path,
+        model_name='llama',
+        model_type="mindir",
+        infer_seq_length=args.seq_length,
+        ge_config_path=args.config_path,
+        device_id=args.device_id,
+        add_special_tokens=False,
+    )
     tokenizer_path = args.token_path
     tokenizer = LlamaTokenizer(tokenizer_path, add_bos_token=True, add_eos_token=False)
 
-    if args.batch_size <= 1:
     batch_input = [
         ["陕西的省会是西安，甘肃的省会是兰州，河南的省会是郑州" for i in range(args.batch_size)]
     ]
-
     input_list = batch_input * args.loop
 
-    use_past = False
-    if args.inc_model_path:
-        model_path = (args.full_model_path, args.inc_model_path)
-        use_past = True
-    else:
-        model_path = args.full_model_path
-    print("use_past: ", use_past)
-
-    pipeline_task = pipeline(task="text_generation", model=model_path, backend="mslite", tokenizer=tokenizer,
-                             ge_config_path=args.config_path, model_type="mindir", infer_seq_length=args.seq_length,
-                             device_id=args.device_id)
+    infer_model = InferTask.get_infer_task("text_generation", lite_config, tokenizer=tokenizer)
 
     for user_input in input_list:
-        output = pipeline_task(user_input,
-                               repetition_penalty=1,
-                               max_length=args.max_length,
-                               eos_token_id=tokenizer.eos_token_id,
-                               pad_token_id=tokenizer.pad_token_id,
-                               use_past=use_past,
-                               add_special_tokens=True)
+        output = infer_model.infer(user_input,
+                                   pad_token_id=tokenizer.pad_token_id,
+                                   eos_token_id=tokenizer.eos_token_id,
+                                   max_length=args.max_length,
+                                   add_special_tokens=True)
         for out in output:
             print(out)
 
@@ -407,7 +404,7 @@ if __name__ == "__main__":
     parser.add_argument('--batch_size', default=1, type=int)
     parser.add_argument('--max_length', default=128, type=int)
     parser.add_argument('--loop', default=2, type=int)
-    parser.add_argument('--token_path', default="./tokenizer.model", type=str)
+    parser.add_argument('--token_path', default=None, type=str)
     args = parser.parse_args()
     print(args)
     infer_main(args)
@@ -416,10 +413,11 @@ if __name__ == "__main__":
 - step3. 使用shell命令启动推理
 
 ```shell
-# 如果需要增量推理，使用inc_model_path指定路径，否则不需要
+# 如果需要增量推理，使用inc_model_path指定路径，否则不需要。token_path参数需指定为tokenizer.model实际路径。
 cd research
 python skywork/run_skywork_infer_lite.py --full_model_path output/mindir_full_checkpoint/rank_0_graph.mindir \
 --inc_model_path output/mindir_inc_checkpoint/rank_0_graph.mindir --config_path skywork/context.cfg \
+--token_path {path}/tokenizer.model \
 --seq_length 4096 --max_length 128 --batch_size 1 --loop 2 --device_id 0
 
 # 运行结果：
