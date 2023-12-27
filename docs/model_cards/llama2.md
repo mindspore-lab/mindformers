@@ -1197,7 +1197,9 @@ bash run_distribute.sh rank_table_2.json configs/llama2/run_llama2_7b.yaml [0,2]
 
 　　Lite 推理大致分两步：权重转换导出 MindIR -> Lite 推理，接下来分别描述上述两个过程。
 
-### MindIR 导出
+### 单卡导出与推理
+
+#### MindIR 导出
 
   　　1. 以llama2_7b为例，修改模型相关的配置文件 configs/llama2/export_llama2_7b.yaml，其中需要关注这几项：
 
@@ -1221,7 +1223,7 @@ model:
 python mindformers/tools/export.py --config_path configs/llama2/export_llama2_7b.yaml
 ```
 
-### 执行推理
+#### 执行推理
 
 1. 新建推理配置文件：lite.ini
 
@@ -1289,4 +1291,52 @@ I love Beijing, because
 
 ```bash
 I love Beijing, because it is a city that is constantly changing. I have been living here for 10 years and I...
+```
+
+### 多卡导出与推理
+
+多卡lite推理查看[codellama.md](../model_cards/codellama.md)的多卡导出与推理
+
+### 开启动态shape的多卡导出与推理
+
+#### MindIR 导出
+
+  以llama2_7b为例，只需要在模型相关的配置文件configs/llama2/export_llama2_7b.yaml中增加这几项，其它流程与多卡导出一致：
+
+```yaml
+# ==== model config ====
+model:
+  model_config:
+    is_dynamic: True
+    use_kvcache_op: True
+    is_flexible_shape: False
+    use_rope_slice: True
+```
+
+#### 执行推理
+
+执行推理有两个地方要改
+
+1、动态shape需要新建一个推理配置文件：`lite_inc.ini`，将多卡生成的`RANK_TABLE_FILE`文件也写入其中
+
+```bash
+[ascend_context]
+plugin_custom_ops=All
+provider=ge
+rank_table_file=RANK_TABLE_FILE
+[ge_session_options]
+ge.exec.formatMode=1
+ge.exec.precision_mode=must_keep_origin_dtype
+ge.exec.atomicCleanPolicy=1
+ge.exec.staticMemoryPolicy=2
+[ge_graph_options]
+ge.inputShape=batch_index:-1;batch_valid_length:-1;tokens:-1,1;zactivate_len:-1
+ge.dynamicDims=1,1,1,256;4,4,4,256;16,16,16,256;1,1,1,1024;
+ge.dynamicNodeType=1
+```
+
+2、用来推理的run_lite.sh中，只需要修改两个参数，其它流程都与多卡推理一样
+
+```bash
+--dynamic True  --config_path ["lite.ini","lite_inc.ini"]
 ```

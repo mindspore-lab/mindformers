@@ -166,6 +166,7 @@ def infer_main(args_):
                                      repetition_penalty=args_.repetition_penalty,
                                      temperature=args_.temperature,
                                      max_length=args_.max_length,
+                                     max_new_tokens=args_.max_output_length,
                                      is_sample_acceleration=args_.is_sample_acceleration,
                                      add_special_tokens=args_.add_special_tokens)
         print(output)
@@ -260,6 +261,10 @@ if __name__ == "__main__":
         '--max_length', default=512, type=int,
         help="The maximum word length that can be generated."
              "Default: 512")
+    parser.add_argument(
+        '--max_output_length', default=128, type=int,
+        help="The maximum output length that can be generated."
+             "Default: 128")
     parser.add_argument(
         '--is_sample_acceleration', default=False, type=str2bool,
         help="Whether postprocess in graph or not."
