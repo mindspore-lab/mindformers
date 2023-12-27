@@ -18,7 +18,7 @@ How to run this:
 pytest tests/st/test_model/test_blip2_model/test_trainer.py
 """
 import numpy as np
-# import pytest
+import pytest
 from PIL import Image
 
 import mindspore as ms
@@ -53,6 +53,10 @@ def generator_eval():
         yield images, input_ids
 
 
+@pytest.mark.level0
+@pytest.mark.platform_x86_ascend_training
+@pytest.mark.platform_arm_ascend_training
+@pytest.mark.env_onecard
 class TestBlip2TrainerMethod:
     """A test class for testing pipeline."""
 
@@ -134,6 +138,10 @@ class TestBlip2TrainerMethod:
         task_predictor.predict(input_data=input_data)
 
 
+@pytest.mark.level0
+@pytest.mark.platform_x86_ascend_training
+@pytest.mark.platform_arm_ascend_training
+@pytest.mark.env_onecard
 class TestBlip2SecondStageTrainerMethod:
     """A test class for testing blip2 second stage trainers."""
 

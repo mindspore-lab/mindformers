@@ -45,29 +45,34 @@ class LlamaModelForBlip2(LlamaModel):
         super().__init__(config)
 
     # pylint: disable=W0221
-    def construct(self, input_embeddings: Tensor, batch_valid_length=None):
-
-        bs, seq_len, _ = input_embeddings.shape
+    def construct(self, input_embeddings: Tensor, input_attention_masks: Tensor, batch_valid_length=None,
+                  batch_index=None, zactivate_len=None):
+        """
+        Forward of llama model with concat image and text embeddings
+        """
+        bs, seq_len, _ = self.shape(input_embeddings)
         if not self.use_past:
             freqs_cis = self.freqs_mgr()
-            mask = self.casual_mask(input_embeddings) # mask: [bs, seq, seq]
+            mask = self.casual_mask(masks=input_attention_masks)  # mask: [bs, seq, seq]
             mask = self.casual_mask.post_process(mask)
             kvcache_inputs = None
         else:
             if self.is_first_iteration:
                 freqs_cis = self.freqs_mgr(seq_len)
-                mask = self.casual_mask(input_embeddings) # mask: [bs, seq, seq]
+                mask = self.casual_mask(masks=input_attention_masks)  # mask: [bs, seq, seq]
             else:
                 freqs_cis = self.freqs_mgr.increment(batch_valid_length, bs)
                 if self.is_dynamic and self.is_flexible_shape and not self.use_kvcache_op:
-                    mask = self.casual_mask.increment_slice(self.kvcache_preprocess.range,
-                                                            self.kvcache_preprocess.max_cache_length // bs,
-                                                            batch_valid_length)
+                    mask = self.casual_mask.increment_slice(
+                        self.kvcache_preprocess.range,
+                        self.kvcache_preprocess.max_cache_length // bs,
+                        batch_valid_length,
+                        zactivate_len)
                 else:
-                    mask = self.casual_mask.increment(self.kvcache_preprocess.range, batch_valid_length)
+                    mask = self.casual_mask.increment(self.kvcache_preprocess.range, batch_valid_length, zactivate_len)
             mask = self.casual_mask.post_process(mask)
 
-            kvcache_inputs = self.kvcache_preprocess(bs, batch_valid_length)
+            kvcache_inputs = self.kvcache_preprocess(bs, batch_valid_length, batch_index, zactivate_len)
 
         # tokens: [bs, seq/1]
         h = input_embeddings
@@ -143,24 +148,38 @@ class LlamaForBlip2(LlamaForCausalLM, ImageTextEmbeddingPreparationMixIn):
                   input_position=None,
                   attention_mask=None,
                   init_reset=True,
-                  batch_valid_length=None):
+                  batch_valid_length=None,
+                  batch_index=None,
+                  zactivate_len=None):
         """LlamaForBlip2 forward."""
         if input_embeddings is None and input_ids is not None:  # for incremental infer
             input_embeddings = self.model.tok_embeddings(input_ids)
 
+        bsz, seqlen, _ = self.shape(input_embeddings)
+        if self.use_past:
+            if not isinstance(batch_valid_length, Tensor):
+                batch_valid_length = self.ones((bsz,), mstype.int32)
+
+        if batch_valid_length is not None:
+            batch_valid_length = self.reshape(batch_valid_length, (-1,))
+        if not self.is_first_iteration:
+            batch_valid_length = self.sub_batch_valid_len(batch_valid_length, 1)
+
         output = self.model(input_embeddings=input_embeddings,
                             input_attention_masks=attention_mask,
-                            input_position=input_position,
-                            init_reset=init_reset,
                             batch_valid_length=batch_valid_length)
+
+        pre_gather = (not self.use_past or self.is_first_iteration) and batch_valid_length is not None
+        if pre_gather:
+            output = self.gather(output, self.sub_batch_valid_len(batch_valid_length, 1), 1)
+
         logits = self.lm_head(output)
         logits = self.cast(logits, mstype.float32)
 
         if labels is None:
             # inference
-            logits = self.reshape(logits, (-1, logits.shape[-1]))
-            if (self.is_first_iteration or not self.use_past) and input_position is not None:
-                logits = self.gather(logits, input_position, 0)
+            if not pre_gather:
+                logits = self.reshape(logits, (bsz, seqlen, -1))
             return logits
 
         if logits.ndim > 2:
