@@ -52,7 +52,6 @@ optimizer:
   beta1: 0.9
   beta2: 0.95
   eps: 1.e-6
-  learning_rate: 3.e-4
   weight_decay: 0.1
 
 # lr sechdule
@@ -89,7 +88,7 @@ model:
   model_config:
     type: QwenConfig
     batch_size: 1
-    seq_length: 2048
+    seq_length: 1024
     hidden_size: 4096
     num_hidden_layers: 32
     num_attention_heads: 32
@@ -105,6 +104,7 @@ model:
     rotary_dtype: "float16"
     param_init_type: "float16"
     use_past: False
+    use_flash_attention: False
     offset: 0
     checkpoint_name_or_path: "/path/qwen_7b_base.ckpt"
     repetition_penalty: 1
