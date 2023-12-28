@@ -24,7 +24,7 @@ import mindspore_lite as mslite
 
 from mindformers.models.base_tokenizer import Tokenizer
 from mindformers.models import BloomTokenizer, LlamaTokenizer
-from mindformers.models import ChatGLMTokenizer, ChatGLM2Tokenizer, GPT2Tokenizer
+from mindformers.models import ChatGLMTokenizer, ChatGLM2Tokenizer, GPT2Tokenizer, ChatGLM3Tokenizer
 from mindformers.pipeline import pipeline
 from mindformers.generation import TextIteratorStreamer
 from mindformers.tools.utils import str2bool
@@ -105,6 +105,7 @@ LITE_SUPPORT_MODELS = {
     'bloom': BloomTokenizer,
     'glm': ChatGLMTokenizer,
     'glm2': ChatGLM2Tokenizer,
+    'glm3': ChatGLM3Tokenizer,
     'gpt2': GPT2Tokenizer,
     'codegeex2': ChatGLM2Tokenizer,
     'qwen': QwenTokenizer,
