@@ -48,7 +48,7 @@ train_dataset: &train_dataset
   num_parallel_workers: 8
   python_multiprocessing: False
   drop_remainder: True
-  batch_size: 4
+  batch_size: 1
   repeat: 1
   numa_enable: False
   prefetch_size: 1
@@ -137,7 +137,6 @@ model:
     hidden_size: 8192
     num_layers: 80
     num_heads: 64
-    max_position_embedding: 4096
     vocab_size: 32000
     multiple_of: 256
     n_kv_heads: 8
@@ -156,7 +155,7 @@ model:
     pretrain_seqlen: 4096 # seqlen of the pretrain checkpoint: 2048 for llama and 4096 for llama2
     extend_method: "None" # support "None", "PI", "NTK"
     compute_in_2d: True
-    use_flash_attention: True
+    use_flash_attention: False  # FA can accelerate training or finetune
     offset: 0
     use_past_shard: False
     checkpoint_name_or_path: "llama2_70b"
