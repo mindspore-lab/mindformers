@@ -130,7 +130,7 @@ parallel:
 # model config
 model:
   model_config:
-    type: LlamaConfig
+    type: InternLMConfig
     batch_size: 1 # add for increase predict
     seq_length: 2048
     hidden_size: 4096
@@ -148,6 +148,7 @@ model:
     softmax_compute_type: "float32"
     rotary_dtype: "float16"
     param_init_type: "float16"
+    has_bias: True
     use_past: False
     pretrain_seqlen: 2048
     extend_method: "None"

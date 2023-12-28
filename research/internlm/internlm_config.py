@@ -12,24 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-"""Llama Config API."""
-
-
+"""InternLM Config API."""
 from typing import Optional
-from mindformers.modules.transformer.transformer import default_transformer_config, TransformerOpParallelConfig
-from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
-from ..utils import convert_mstype
-from ..base_config import BaseConfig
-from ...mindformer_book import MindFormerBook
-from ...tools.logger import logger
 
-__all__ = ['LlamaConfig']
+from mindformers import LlamaConfig, TransformerOpParallelConfig, logger
+from mindformers.models.utils import convert_mstype
+from mindformers.modules.transformer.transformer import default_transformer_config
+from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 
 
 @MindFormerRegister.register(MindFormerModuleType.CONFIG)
-class LlamaConfig(BaseConfig):
-    """
-    LLaMA config class which defines the model size.
+class InternLMConfig(LlamaConfig):
+    """InternLM config class.
 
     Args:
         batch_size (Optional[int]): batch size for input data, use in predict.
@@ -60,8 +54,8 @@ class LlamaConfig(BaseConfig):
             rope compute dtype, default is "float32".
         param_init_type (Optional[str]):
             parameter initial dtype, default is "float16".
-        qkv_has_bias (Optional[bool]):
-            Whether the Query, Key, and Value projection has bias.
+        has_bias (Optional[bool]):
+            Whether the Query, Key, Value, Out projection has bias.
         use_past (`bool`, *optional*, defaults to `False`):
             Whether the model should use the past last key/values attentions
             (if applicable to the model) to speed up decoding.
@@ -88,13 +82,11 @@ class LlamaConfig(BaseConfig):
             If set to float < 1, only the smallest set of most probable tokens with probabilities
             that add up to `top_p` or higher are kept for generation.
         do_sample (`bool`, *optional*, defaults to `False`):
-            Whether or not to use sampling ; use greedy decoding otherwise.
+            Whether to use sampling; use greedy decoding otherwise.
 
         Returns:
             Class, LlamaConfig.
     """
-
-    _support_list = MindFormerBook.get_config_support_list()['llama']
 
     def __init__(self,
                  batch_size: int = 1,
@@ -119,7 +111,7 @@ class LlamaConfig(BaseConfig):
                  softmax_compute_type: str = "float32",
                  rotary_dtype: str = "float32",
                  param_init_type: str = "float16",
-                 qkv_has_bias: bool = False,
+                 has_bias: bool = True,
                  parallel_config: TransformerOpParallelConfig = default_transformer_config,
                  use_past: bool = False,
                  pretrain_seqlen=None,
@@ -140,7 +132,7 @@ class LlamaConfig(BaseConfig):
                  top_p: float = 1.0,
                  do_sample: bool = True,
                  **kwargs):
-        super(LlamaConfig, self).__init__(**kwargs)
+        super().__init__(**kwargs)
         self.batch_size = batch_size
         self.seq_length = seq_length
         self.vocab_size = vocab_size
@@ -154,7 +146,7 @@ class LlamaConfig(BaseConfig):
         self.ffn_dim_multiplier = ffn_dim_multiplier
         self.rms_norm_eps = rms_norm_eps
         self.param_init_type = convert_mstype(param_init_type)
-        self.qkv_has_bias = qkv_has_bias
+        self.has_bias = has_bias
         self.layernorm_compute_type = convert_mstype(layernorm_compute_type)
         self.softmax_compute_type = convert_mstype(softmax_compute_type)
         self.rotary_dtype = convert_mstype(rotary_dtype)
