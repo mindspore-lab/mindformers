@@ -120,6 +120,7 @@ class LlamaConfig(BaseConfig):
                  rotary_dtype: str = "float32",
                  param_init_type: str = "float16",
                  qkv_has_bias: bool = False,
+                 qkv_concat: bool = False,
                  parallel_config: TransformerOpParallelConfig = default_transformer_config,
                  use_past: bool = False,
                  pretrain_seqlen=None,
@@ -132,6 +133,7 @@ class LlamaConfig(BaseConfig):
                  is_flexible_shape: bool = False,
                  use_rope_slice: bool = False,
                  use_flash_attention: bool = False,
+                 fine_grain_interleave: int = 1,
                  offset: int = 0,
                  checkpoint_name_or_path: str = "",
                  repetition_penalty: float = 1.0,
@@ -153,6 +155,7 @@ class LlamaConfig(BaseConfig):
         self.n_kv_heads = n_kv_heads
         self.ffn_dim_multiplier = ffn_dim_multiplier
         self.rms_norm_eps = rms_norm_eps
+        self.qkv_concat = qkv_concat
         self.param_init_type = convert_mstype(param_init_type)
         self.qkv_has_bias = qkv_has_bias
         self.layernorm_compute_type = convert_mstype(layernorm_compute_type)
@@ -182,6 +185,7 @@ class LlamaConfig(BaseConfig):
         self.is_flexible_shape = is_flexible_shape
         self.use_rope_slice = use_rope_slice
         self.use_flash_attention = use_flash_attention
+        self.fine_grain_interleave = fine_grain_interleave
         self.offset = offset
         self.repetition_penalty = repetition_penalty
         self.max_decode_length = max_decode_length

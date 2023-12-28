@@ -477,7 +477,7 @@ class FeedForward(Cell):
     @_args_type_validator_check(hidden_size=Validator.check_positive_int,
                                 ffn_hidden_size=Validator.check_positive_int,
                                 dropout_rate=Validator.check_non_negative_float,
-                                param_init_type=_valid_value_checks([mstype.float32, mstype.float16],
+                                param_init_type=_valid_value_checks([mstype.float32, mstype.bfloat16, mstype.float16],
                                                                     "FeedForward"),
                                 parallel_config=_valid_type_checks([OpParallelConfig, MoEParallelConfig],
                                                                    "FeedForward"))
@@ -609,7 +609,7 @@ class FeedForward(Cell):
 
     def construct(self, x):
         """Forward process of the FeedForward"""
-        _check_input_dtype(F.dtype(x), "x", [mstype.float32, mstype.float16], self.cls_name)
+        _check_input_dtype(F.dtype(x), "x", [mstype.float32, mstype.float16, mstype.bfloat16], self.cls_name)
         x = self.cast(x, mstype.float16)
         # returned shape is [bs, seq_length, ffn_hidden_size] or [bs * seq_length, ffn_hidden_size]
         hidden = self.mapping(x)
@@ -668,9 +668,10 @@ class AttentionMask(Cell):
                     no_warning=_get_parallel_mode() in (ParallelMode.STAND_ALONE,))
     @_args_type_validator_check(seq_length=Validator.check_positive_int,
                                 parallel_config=_valid_type_checks([OpParallelConfig], "AttentionMask"))
-    def __init__(self, seq_length, parallel_config=default_dpmp_config):
+    def __init__(self, seq_length, parallel_config=default_dpmp_config, compute_dtype=mstype.float16):
         super(AttentionMask, self).__init__()
         self.seq_length = seq_length
+        self.compute_dtype = compute_dtype
         self.not_equal = P.NotEqual().shard(((parallel_config.data_parallel, 1), ()))
         self.reshape = P.Reshape()
         self.mul = P.BatchMatMul().shard(
@@ -683,8 +684,9 @@ class AttentionMask(Cell):
 
     def construct(self, input_mask):
         """Forward process of the AttentionMask"""
-        _check_input_dtype(F.dtype(input_mask), "input_mask", [mstype.float32, mstype.float16], self.cls_name)
-        input_mask = P.Cast()(self.not_equal(input_mask, 0), mstype.float16)
+        _check_input_dtype(F.dtype(input_mask), "input_mask",
+                           [mstype.float32, mstype.float16, mstype.bfloat16], self.cls_name)
+        input_mask = P.Cast()(self.not_equal(input_mask, 0), self.compute_dtype)
         input_shape = P.Shape()(input_mask)
         shape_right = (input_shape[0], 1, input_shape[1])
         shape_left = input_shape + (1,)
@@ -742,9 +744,10 @@ class AttentionMaskHF(Cell):
                     no_warning=_get_parallel_mode() in (ParallelMode.STAND_ALONE,))
     @_args_type_validator_check(seq_length=Validator.check_positive_int,
                                 parallel_config=_valid_type_checks([OpParallelConfig], "AttentionMaskHF"))
-    def __init__(self, seq_length, parallel_config=default_dpmp_config):
+    def __init__(self, seq_length, parallel_config=default_dpmp_config, compute_dtype=mstype.float16):
         super(AttentionMaskHF, self).__init__()
         self.seq_length = seq_length
+        self.compute_dtype = compute_dtype
         self.not_equal = P.NotEqual().shard(((parallel_config.data_parallel, 1), ()))
         self.reshape = P.Reshape()
         self.mul = P.BatchMatMul().shard(
@@ -757,8 +760,9 @@ class AttentionMaskHF(Cell):
 
     def construct(self, input_mask):
         """Forward process of the AttentionMaskHF"""
-        _check_input_dtype(F.dtype(input_mask), "input_mask", [mstype.float32, mstype.float16], self.cls_name)
-        input_mask = P.Cast()(P.OnesLike()(input_mask), mstype.float16)
+        _check_input_dtype(F.dtype(input_mask), "input_mask",
+                           [mstype.float32, mstype.float16, mstype.bfloat16], self.cls_name)
+        input_mask = P.Cast()(P.OnesLike()(input_mask), self.compute_dtype)
         input_shape = P.Shape()(input_mask)
         shape_right = (input_shape[0], 1, input_shape[1])
         shape_left = input_shape + (1,)
@@ -1076,11 +1080,12 @@ class MultiHeadAttention(Cell):
                                 tgt_seq_length=Validator.check_positive_int,
                                 attention_dropout_rate=Validator.check_non_negative_float,
                                 hidden_dropout_rate=Validator.check_non_negative_float,
-                                compute_dtype=_valid_value_checks([mstype.float32, mstype.float16],
+                                compute_dtype=_valid_value_checks([mstype.float32, mstype.float16, mstype.bfloat16],
                                                                   "MultiHeadAttention"),
-                                softmax_compute_type=_valid_value_checks([mstype.float32, mstype.float16],
+                                softmax_compute_type=_valid_value_checks([mstype.float32,
+                                                                          mstype.float16, mstype.bfloat16],
                                                                          "MultiHeadAttention"),
-                                param_init_type=_valid_value_checks([mstype.float32, mstype.float16],
+                                param_init_type=_valid_value_checks([mstype.float32, mstype.float16, mstype.bfloat16],
                                                                     "MultiHeadAttention"),
                                 parallel_config=_valid_type_checks([OpParallelConfig],
                                                                    "MultiHeadAttention"),
@@ -1278,7 +1283,8 @@ class MultiHeadAttention(Cell):
                                  hidden_size,
                                  compute_dtype=compute_dtype,
                                  param_init_type=param_init_type)
-            self.dense1.shard(strategy_matmul=((parallel_config.data_parallel, 1), (parallel_config.model_parallel, 1)),
+            self.dense1.shard(strategy_matmul=((parallel_config.data_parallel, 1),
+                                               (parallel_config.model_parallel, 1)),
                               strategy_bias=((parallel_config.data_parallel, parallel_config.model_parallel),
                                              (parallel_config.model_parallel,)))
             # Key
@@ -1286,7 +1292,8 @@ class MultiHeadAttention(Cell):
                                  hidden_size,
                                  compute_dtype=compute_dtype,
                                  param_init_type=param_init_type)
-            self.dense2.shard(strategy_matmul=((parallel_config.data_parallel, 1), (parallel_config.model_parallel, 1)),
+            self.dense2.shard(strategy_matmul=((parallel_config.data_parallel, 1),
+                                               (parallel_config.model_parallel, 1)),
                               strategy_bias=((parallel_config.data_parallel, parallel_config.model_parallel),
                                              (parallel_config.model_parallel,)))
 
@@ -1295,7 +1302,8 @@ class MultiHeadAttention(Cell):
                                  hidden_size,
                                  compute_dtype=compute_dtype,
                                  param_init_type=param_init_type)
-            self.dense3.shard(strategy_matmul=((parallel_config.data_parallel, 1), (parallel_config.model_parallel, 1)),
+            self.dense3.shard(strategy_matmul=((parallel_config.data_parallel, 1),
+                                               (parallel_config.model_parallel, 1)),
                               strategy_bias=((parallel_config.data_parallel, parallel_config.model_parallel),
                                              (parallel_config.model_parallel,)))
             self.dtype = compute_dtype
@@ -1409,7 +1417,8 @@ class MultiHeadAttention(Cell):
             # The first graph with the input size of (bs, seq_length)
             if self.is_first_iteration:
                 # Get the valid input length without padding
-                valid_length_vector = F.cast(self.less(self.range, batch_valid_length.view(-1, 1, 1)), self.dtype)                # Cover the key and value numbers corresponding to the padding position
+                valid_length_vector = F.cast(self.less(self.range, batch_valid_length.view(-1, 1, 1)), self.dtype)
+                # Cover the key and value numbers corresponding to the padding position
                 key_present = self.mul1(key, self.expand_dims(valid_length_vector, 2))
                 value_present = self.mul1(value, self.expand_dims(valid_length_vector, 3))
             # The second graph with the inpus size of (bs, 1)
@@ -1466,11 +1475,15 @@ class MultiHeadAttention(Cell):
     def _check_inputs(self, query_tensor, key_tensor, value_tensor, attention_mask, key_past=None,
                       value_past=None, batch_valid_length=None):
         r"""Check inputs"""
-        _check_input_dtype(F.dtype(query_tensor), "query_tensor", [mstype.float32, mstype.float16], self.cls_name)
-        _check_input_dtype(F.dtype(key_tensor), "key_tensor", [mstype.float32, mstype.float16], self.cls_name)
-        _check_input_dtype(F.dtype(value_tensor), "value_tensor", [mstype.float32, mstype.float16], self.cls_name)
+        _check_input_dtype(F.dtype(query_tensor), "query_tensor",
+                           [mstype.float32, mstype.float16, mstype.bfloat16], self.cls_name)
+        _check_input_dtype(F.dtype(key_tensor), "key_tensor",
+                           [mstype.float32, mstype.float16, mstype.bfloat16], self.cls_name)
+        _check_input_dtype(F.dtype(value_tensor), "value_tensor",
+                           [mstype.float32, mstype.float16, mstype.bfloat16], self.cls_name)
         if attention_mask is not None:
-            _check_input_dtype(F.dtype(attention_mask), "attention_mask", [mstype.float32, mstype.float16],
+            _check_input_dtype(F.dtype(attention_mask), "attention_mask",
+                               [mstype.float32, mstype.float16, mstype.bfloat16],
                                self.cls_name)
 
         batch_valid_length_is_tensor = isinstance(batch_valid_length, Tensor)
@@ -1478,8 +1491,8 @@ class MultiHeadAttention(Cell):
         _check_past_none_input_none(self.use_past, "batch_valid_length", self.cls_name, None,
                                     batch_valid_length_is_tensor, batch_is_default)
         if self.use_past:
-            _check_input_dtype(F.dtype(key_past), "key_past", [mstype.float16], self.cls_name)
-            _check_input_dtype(F.dtype(value_past), "value_past", [mstype.float16], self.cls_name)
+            _check_input_dtype(F.dtype(key_past), "key_past", [mstype.float16, mstype.bfloat16], self.cls_name)
+            _check_input_dtype(F.dtype(value_past), "value_past", [mstype.float16, mstype.bfloat16], self.cls_name)
             _check_input_dtype(F.dtype(batch_valid_length), "batch_valid_length", [mstype.int32], self.cls_name)
         return True
 
@@ -1722,11 +1735,13 @@ class TransformerEncoderLayer(Cell):
                                 attention_dropout_rate=Validator.check_non_negative_float,
                                 hidden_dropout_rate=Validator.check_non_negative_float,
                                 post_layernorm_residual=Validator.check_bool,
-                                layernorm_compute_type=_valid_value_checks([mstype.float32, mstype.float16],
+                                layernorm_compute_type=_valid_value_checks([mstype.float32,
+                                                                            mstype.float16, mstype.bfloat16],
                                                                            "TransformerEncoderLayer"),
-                                softmax_compute_type=_valid_value_checks([mstype.float32, mstype.float16],
+                                softmax_compute_type=_valid_value_checks([mstype.float32,
+                                                                          mstype.float16, mstype.bfloat16],
                                                                          "TransformerEncoderLayer"),
-                                param_init_type=_valid_value_checks([mstype.float32, mstype.float16],
+                                param_init_type=_valid_value_checks([mstype.float32, mstype.float16, mstype.bfloat16],
                                                                     "TransformerEncoderLayer"),
                                 parallel_config=_valid_type_checks([OpParallelConfig, MoEParallelConfig],
                                                                    "TransformerEncoderLayer"),
@@ -2015,9 +2030,10 @@ class TransformerEncoderLayer(Cell):
 
     def _check_input(self, x, input_mask, init_reset, batch_valid_length):
         r"""Check inputs"""
-        _check_input_dtype(F.dtype(x), "x", [mstype.float32, mstype.float16], self.cls_name)
+        _check_input_dtype(F.dtype(x), "x", [mstype.float32, mstype.float16, mstype.bfloat16], self.cls_name)
         if input_mask is not None:
-            _check_input_dtype(F.dtype(input_mask), "input_mask", [mstype.float32, mstype.float16], self.cls_name)
+            _check_input_dtype(F.dtype(input_mask), "input_mask",
+                               [mstype.float32, mstype.float16, mstype.bfloat16], self.cls_name)
 
         init_reset_is_tensor = isinstance(init_reset, Tensor)
         init_reset_is_default = init_reset is True
@@ -2134,11 +2150,13 @@ class TransformerDecoderLayer(Cell):
                                 attention_dropout_rate=Validator.check_non_negative_float,
                                 hidden_dropout_rate=Validator.check_non_negative_float,
                                 post_layernorm_residual=Validator.check_bool,
-                                layernorm_compute_type=_valid_value_checks([mstype.float32, mstype.float16],
+                                layernorm_compute_type=_valid_value_checks([mstype.float32,
+                                                                            mstype.float16, mstype.bfloat16],
                                                                            "TransformerDecoderLayer"),
-                                softmax_compute_type=_valid_value_checks([mstype.float32, mstype.float16],
+                                softmax_compute_type=_valid_value_checks([mstype.float32,
+                                                                          mstype.float16, mstype.bfloat16],
                                                                          "TransformerDecoderLayer"),
-                                param_init_type=_valid_value_checks([mstype.float32, mstype.float16],
+                                param_init_type=_valid_value_checks([mstype.float32, mstype.float16, mstype.bfloat16],
                                                                     "TransformerDecoderLayer"),
                                 parallel_config=_valid_type_checks([OpParallelConfig, MoEParallelConfig],
                                                                    "TransformerDecoderLayer"),
@@ -2476,16 +2494,18 @@ class TransformerDecoderLayer(Cell):
 
     def _check_input(self, hidden_states, attention_mask, encoder_output, memory_mask, init_reset, batch_valid_length):
         r"""Check inputs"""
-        _check_input_dtype(F.dtype(hidden_states), "hidden_states", [mstype.float32, mstype.float16], self.cls_name)
+        _check_input_dtype(F.dtype(hidden_states), "hidden_states",
+                           [mstype.float32, mstype.float16, mstype.bfloat16], self.cls_name)
         if attention_mask is not None:
-            _check_input_dtype(F.dtype(attention_mask), "attention_mask", [mstype.float32, mstype.float16],
+            _check_input_dtype(F.dtype(attention_mask), "attention_mask",
+                               [mstype.float32, mstype.float16, mstype.bfloat16],
                                self.cls_name)
         if encoder_output is not None:
             _check_input_dtype(F.dtype(encoder_output), "encoder_output",
-                               [mstype.float32, mstype.float16], self.cls_name)
+                               [mstype.float32, mstype.float16, mstype.bfloat16], self.cls_name)
         if memory_mask is not None:
             _check_input_dtype(F.dtype(memory_mask), "memory_mask",
-                               [mstype.float32, mstype.float16], self.cls_name)
+                               [mstype.float32, mstype.float16, mstype.bfloat16], self.cls_name)
 
         init_reset_is_tensor = isinstance(init_reset, Tensor)
         init_reset_is_default = init_reset is True
@@ -2685,11 +2705,13 @@ class TransformerEncoder(Cell):
                                 attention_dropout_rate=Validator.check_non_negative_float,
                                 hidden_dropout_rate=Validator.check_non_negative_float,
                                 post_layernorm_residual=Validator.check_bool,
-                                layernorm_compute_type=_valid_value_checks([mstype.float32, mstype.float16],
+                                layernorm_compute_type=_valid_value_checks([mstype.float32,
+                                                                            mstype.float16, mstype.bfloat16],
                                                                            "TransformerEncoder"),
-                                softmax_compute_type=_valid_value_checks([mstype.float32, mstype.float16],
+                                softmax_compute_type=_valid_value_checks([mstype.float32,
+                                                                          mstype.float16, mstype.bfloat16],
                                                                          "TransformerEncoder"),
-                                param_init_type=_valid_value_checks([mstype.float32, mstype.float16],
+                                param_init_type=_valid_value_checks([mstype.float32, mstype.float16, mstype.bfloat16],
                                                                     "TransformerEncoder"),
                                 parallel_config=_valid_type_checks([TransformerOpParallelConfig],
                                                                    "TransformerEncoder"),
@@ -2923,11 +2945,13 @@ class TransformerDecoder(Cell):
                                 attention_dropout_rate=Validator.check_non_negative_float,
                                 hidden_dropout_rate=Validator.check_non_negative_float,
                                 post_layernorm_residual=Validator.check_bool,
-                                layernorm_compute_type=_valid_value_checks([mstype.float32, mstype.float16],
+                                layernorm_compute_type=_valid_value_checks([mstype.float32,
+                                                                            mstype.float16, mstype.bfloat16],
                                                                            "TransformerDecoder"),
-                                softmax_compute_type=_valid_value_checks([mstype.float32, mstype.float16],
+                                softmax_compute_type=_valid_value_checks([mstype.float32,
+                                                                          mstype.float16, mstype.bfloat16],
                                                                          "TransformerDecoder"),
-                                param_init_type=_valid_value_checks([mstype.float32, mstype.float16],
+                                param_init_type=_valid_value_checks([mstype.float32, mstype.float16, mstype.bfloat16],
                                                                     "TransformerDecoder"),
                                 parallel_config=_valid_type_checks([TransformerOpParallelConfig],
                                                                    "TransformerDecoder"),
@@ -3195,11 +3219,14 @@ class Transformer(Cell):
                                 attention_dropout_rate=Validator.check_non_negative_float,
                                 hidden_dropout_rate=Validator.check_non_negative_float,
                                 post_layernorm_residual=Validator.check_bool,
-                                layernorm_compute_type=_valid_value_checks([mstype.float32, mstype.float16],
+                                layernorm_compute_type=_valid_value_checks([mstype.float32,
+                                                                            mstype.float16, mstype.bfloat16],
                                                                            "Transformer"),
-                                softmax_compute_type=_valid_value_checks([mstype.float32, mstype.float16],
+                                softmax_compute_type=_valid_value_checks([mstype.float32,
+                                                                          mstype.float16, mstype.bfloat16],
                                                                          "Transformer"),
-                                param_init_type=_valid_value_checks([mstype.float32, mstype.float16], "Transformer"),
+                                param_init_type=_valid_value_checks([mstype.float32,
+                                                                     mstype.float16, mstype.bfloat16], "Transformer"),
                                 parallel_config=_valid_type_checks([TransformerOpParallelConfig], "Transformer"),
                                 use_past=Validator.check_bool)
     def __init__(self,

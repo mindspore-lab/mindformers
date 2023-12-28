@@ -160,7 +160,7 @@ def tensor_shard_grad_scale_pipeline(scale, grad, accu_grad):
 
 # pylint: disable=W1401
 @MindFormerRegister.register(MindFormerModuleType.WRAPPER)
-class MFPipelineWithLossScaleCell(nn.TrainOneStepCell):
+class MFPipelineWithLossScaleCell(nn.TrainOneStepWithLossScaleCell):
     """
     Append a train-one-step cell with loss scale of pipeline parallel for MindFormers.
 
@@ -189,7 +189,7 @@ class MFPipelineWithLossScaleCell(nn.TrainOneStepCell):
 
     def __init__(self, network, optimizer, use_clip_grad=True, max_grad_norm=1.0,
                  scale_sense=1.0, micro_batch_num=1, **kwargs):
-        super(MFPipelineWithLossScaleCell, self).__init__(network, optimizer, sens=None)
+        super(MFPipelineWithLossScaleCell, self).__init__(network, optimizer, scale_sense)
         self.network = network
         self.network.add_flags(defer_inline=True)
         self.weights = optimizer.parameters
@@ -199,9 +199,7 @@ class MFPipelineWithLossScaleCell(nn.TrainOneStepCell):
         self.grad_reducer = get_identity()
         self.degree = 1
         self.cast = P.Cast()
-        self.alloc_status = P.NPUAllocFloatStatus()
-        self.get_status = P.NPUGetFloatStatus()
-        self.clear_before_grad = P.NPUClearFloatStatus()
+        self.status = Tensor([0] * 8, mstype.int32)
         self.reduce_sum = P.ReduceSum(keep_dims=False)
         if self.parallel_mode not in [ParallelMode.SEMI_AUTO_PARALLEL, ParallelMode.AUTO_PARALLEL]:
             raise ValueError(f"ParallelMode must be one of "
@@ -240,17 +238,9 @@ class MFPipelineWithLossScaleCell(nn.TrainOneStepCell):
 
         scaling_sens_filled = C.ones_like(loss) * F.cast(scaling_sens, F.dtype(loss))
 
-        init = self.alloc_status()
-        status_clear = self.clear_before_grad(init)
-        scaling_sens_filled = F.depend(scaling_sens_filled, status_clear)
         grads = self.grad(self.network, self.weights)(*inputs,
                                                       self.cast(scaling_sens_filled / self.micro_size,
                                                                 mstype.float32))
-        init = F.depend(init, grads)
-        get_status = self.get_status(init)
-        init = F.depend(init, get_status)
-        flag_sum = self.reduce_sum(init, (0,))
-        loss = F.depend(loss, status_clear)
 
         if self.opt_shard:
             grads = self.grad_reducer(grads)
@@ -270,12 +260,9 @@ class MFPipelineWithLossScaleCell(nn.TrainOneStepCell):
                 learning_rate = self.learning_rate(self.optimizer.global_step).reshape(())
 
         # sum overflow flag over devices
-        flag_reduce = self.allreduce(flag_sum)
-        cond = self.less_equal(self.base, flag_reduce)
-
-        overflow = cond
-        if self.loss_scaling_manager is not None:
-            overflow = self.loss_scaling_manager(self.scale_sense, cond)
+        cond = self.get_overflow_status(self.status, grads)
+        cond = F.depend(cond, grads)
+        overflow = self.process_loss_scale(cond)
 
         if not overflow:
             loss = F.depend(loss, self.optimizer(grads))
