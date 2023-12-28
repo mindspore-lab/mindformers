@@ -1,22 +1,22 @@
 # export
 infer:
-    prefill_model_path: "glm3_export/glm3_6b_prefill_seq512.mindir" # 保存mindir的位置
-    increment_model_path: "glm3_export/glm3_6b_inc_seq512.mindir"   # 保存mindir的位置
-    infer_seq_length: 512 # 需要保持跟 model-model_config-seq_length 一致
+    prefill_model_path: "glm3_export/glm3_6b_bs4_seq2048_20231227/prefill.mindir" # 保存mindir的位置
+    increment_model_path: "glm3_export/glm3_6b_bs4_seq2048_20231227/inc.mindir"   # 保存mindir的位置
+    infer_seq_length: 2048 # 需要保持跟 model-model_config-seq_length 一致
     model_type: mindir
 
 # ==== model config ====
 model:
   model_config:
     type: ChatGLM2Config
-    batch_size: 1   # only for incremental infer
+    batch_size: 4   # only for incremental infer
     num_layers: 28
     padded_vocab_size: 65024
     hidden_size: 4096
     ffn_hidden_size: 13696
     kv_channels: 128
     num_attention_heads: 32
-    seq_length: 512
+    seq_length: 2048
     hidden_dropout: 0.0
     attention_dropout: 0.0
     layernorm_epsilon: 1e-5
@@ -37,7 +37,7 @@ model:
     param_init_type: "float16"
     compute_dtype: "float16"
     layernorm_compute_type: "float32"
-    use_past: False
+    use_past: True
     use_flash_attention: False # when use FlashAttention, seq_length should be multiple of 16
     eos_token_id: 2
     pad_token_id: 0
