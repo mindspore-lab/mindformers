@@ -302,7 +302,7 @@ C-Eval是全面的中文基础模型评估套件，涵盖了52个不同学科的
 
 ```shell
 wget https://huggingface.co/datasets/ceval/ceval-exam/resolve/main/ceval-exam.zip
-mkdir data/ceval && cd data/ceval; unzip ../../ceval-exam.zip && cd ../../
+mkdir -p data/ceval && cd data/ceval; unzip ../../ceval-exam.zip && cd ../../
 python evaluate_ceval.py -d data/ceval/
 ```
 
@@ -314,7 +314,7 @@ CMMLU是一个综合性的中文评估基准，专门用于评估语言模型在
 
 ```shell
 wget https://huggingface.co/datasets/haonan-li/cmmlu/resolve/main/cmmlu_v1_0_1.zip
-mkdir data/cmmlu && cd data/cmmlu; unzip ../../cmmlu_v1_0_1.zip && cd ../../
+mkdir -p data/cmmlu && cd data/cmmlu; unzip ../../cmmlu_v1_0_1.zip && cd ../../
 python evaluate_cmmlu.py -d data/cmmlu/
 ```
 
