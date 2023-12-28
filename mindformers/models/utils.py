@@ -25,6 +25,8 @@ def convert_mstype(ms_type: str = "float16"):
         return mstype.float16
     if ms_type == "float32":
         return mstype.float32
+    if ms_type == "bfloat16":
+        return mstype.bfloat16
     raise KeyError(f"Supported data type keywords include: "
                    f"[float16, float32], but get {ms_type}")
 
