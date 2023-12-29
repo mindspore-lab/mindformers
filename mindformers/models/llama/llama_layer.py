@@ -128,6 +128,7 @@ class FreqsMgr(Cell):
     r"""freqs_cis manager."""
     def __init__(self,
                  head_dim,
+                 seq_length=None,
                  max_position_embedding=4096,
                  rotary_dtype=mstype.float16,
                  theta=10000,
@@ -135,6 +136,8 @@ class FreqsMgr(Cell):
                  extend_method=SeqExtendMethod.NONE.value,
                  is_dynamic=False):
         super().__init__()
+        if seq_length is not None and seq_length > max_position_embedding:
+            max_position_embedding = seq_length
         if extend_method == SeqExtendMethod.NTK.value:
             theta *= scaling_factor
         freqs_base = np.arange(0, head_dim, 2)[: (head_dim // 2)].astype(np.float32) # (head_dim // 2, )
@@ -150,6 +153,7 @@ class FreqsMgr(Cell):
         swap_mask = FreqsMgr.get_swap_mask(head_dim)
 
         self.head_dim = head_dim
+        self.seq_length = max_position_embedding if seq_length is None else seq_length
         self.is_dynamic = is_dynamic
         self.freqs_cos = Tensor(freqs_cos, dtype=rotary_dtype)
         self.freqs_sin = Tensor(freqs_sin, dtype=rotary_dtype)
@@ -162,9 +166,9 @@ class FreqsMgr(Cell):
 
     def construct(self, seq_length=None):
         freqs_cos, freqs_sin = self.freqs_cos, self.freqs_sin
-        if self.is_dynamic:
-            freqs_cos = self.slice(freqs_cos, (0, 0), (seq_length, self.head_dim), (1, 1))
-            freqs_sin = self.slice(freqs_sin, (0, 0), (seq_length, self.head_dim), (1, 1))
+        seqlen = seq_length if self.is_dynamic else self.seq_length
+        freqs_cos = self.slice(freqs_cos, (0, 0), (seqlen, self.head_dim), (1, 1))
+        freqs_sin = self.slice(freqs_sin, (0, 0), (seqlen, self.head_dim), (1, 1))
         return freqs_cos, freqs_sin, self.swap_mask
 
     def increment(self, batch_valid_length, batch_size):
