@@ -409,9 +409,9 @@ class LlamaFeedForward(Cell):
     @_args_type_validator_check(dim=Validator.check_positive_int,
                                 hidden_dim=Validator.check_positive_int,
                                 multiple_of=Validator.check_positive_int,
-                                compute_dtype=_valid_value_checks([mstype.float32, mstype.float16],
+                                compute_dtype=_valid_value_checks([mstype.float32, mstype.float16, mstype.bfloat16],
                                                                   "FeedForward"),
-                                param_init_type=_valid_value_checks([mstype.float32, mstype.float16],
+                                param_init_type=_valid_value_checks([mstype.float32, mstype.float16, mstype.bfloat16],
                                                                     "FeedForward"))
     def __init__(self, dim,
                  intermediate_size=None,
@@ -468,7 +468,7 @@ class LlamaFeedForward(Cell):
 
     def construct(self, x):
         """Forward process of the FeedForward"""
-        _check_input_dtype(F.dtype(x), "x", [mstype.float32, mstype.float16], self.cls_name)
+        _check_input_dtype(F.dtype(x), "x", [mstype.float32, mstype.float16, mstype.bfloat16], self.cls_name)
         x = self.cast(x, self.dtype)
         # [bs, seq, hidden_dim] or [bs * seq, hidden_dim]
         gate = self.w1(x) # dp,1 -> dp, mp

@@ -283,7 +283,7 @@ class LayerNorm(Cell):
 
     def __init__(self, normalized_shape, eps=1e-5, param_init_type=mstype.float32, is_self_defined=False):
         super(LayerNorm, self).__init__()
-        if param_init_type not in [mstype.float32, mstype.float16]:
+        if param_init_type not in [mstype.float32, mstype.float16, mstype.bfloat16]:
             raise TypeError("The type of parameter 'param_init_type' should in [float32, float16], "
                             "but got the type : {}.".format(type(param_init_type)))
         # Since the mindspore 1.10 version, the layernorm has been changed to P.LayerNorm
@@ -411,9 +411,9 @@ class Linear(Cell):
                                 transpose_b=Validator.check_bool,
                                 expert_num=Validator.check_positive_int,
                                 outer_batch=Validator.check_positive_int,
-                                param_init_type=_valid_value_checks([mstype.float32, mstype.float16],
+                                param_init_type=_valid_value_checks([mstype.float32, mstype.float16, mstype.bfloat16],
                                                                     "Linear"),
-                                compute_dtype=_valid_value_checks([mstype.float32, mstype.float16],
+                                compute_dtype=_valid_value_checks([mstype.float32, mstype.float16, mstype.bfloat16],
                                                                   "Linear"))
     def __init__(self,
                  in_channels,
@@ -713,7 +713,8 @@ class FixedSparseAttention(nn.Cell):
         _check_input_dtype(F.dtype(v), "v", [mstype.float16], self.cls_name)
         _check_shape_equal(F.shape(attention_mask), "attention_mask", self.cls_name,
                            [self.batch_size, self.seq_length, self.seq_length])
-        _check_input_dtype(F.dtype(attention_mask), "attention_mask", [mstype.float32, mstype.float16], self.cls_name)
+        _check_input_dtype(F.dtype(attention_mask), "attention_mask",
+                           [mstype.float32, mstype.float16, mstype.bfloat16], self.cls_name)
 
         q, k, v = self._transpose_inputs(q, k, v)
         local_mask, global_mask = self._generate_attention_mask(attention_mask)

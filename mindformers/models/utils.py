@@ -23,10 +23,12 @@ def convert_mstype(ms_type: str = "float16"):
         return ms_type
     if ms_type == "float16":
         return mstype.float16
+    if ms_type == "bfloat16":
+        return mstype.bfloat16
     if ms_type == "float32":
         return mstype.float32
     raise KeyError(f"Supported data type keywords include: "
-                   f"[float16, float32], but get {ms_type}")
+                   f"[float16, float32, bfloat16], but get {ms_type}")
 
 
 cell_reuse = get_cell_reuse

@@ -44,6 +44,7 @@ from .llama_config import LlamaConfig
 from .llama_layer import LlamaEmbedding, LlamaRMSNorm, CausalMask, FreqsMgr
 from .llama_transformer import LLamaDecodeLayer
 from ...modules import KVCachePreprocess
+from .llama_interleave import LLamaDecodeLayerInterleave
 from ..utils import cell_reuse
 from ...tools.logger import logger
 
@@ -155,29 +156,53 @@ class LlamaModel(BaseModel):
                                              param_init_type=config.param_init_type)
         self.layers = nn.CellList()
         for layer_id in range(config.num_layers):
-            layer = LLamaDecodeLayer(config.batch_size,
-                                     config.seq_length,
-                                     layer_id,
-                                     dim=config.hidden_size,
-                                     n_heads=config.num_heads,
-                                     n_kv_heads=config.n_kv_heads,
-                                     intermediate_size=config.intermediate_size,
-                                     multiple_of=config.multiple_of,
-                                     ffn_dim_multiplier=config.ffn_dim_multiplier,
-                                     norm_eps=config.rms_norm_eps,
-                                     compute_dtype=config.compute_dtype,
-                                     layernorm_compute_dtype=config.layernorm_compute_type,
-                                     softmax_compute_dtype=config.softmax_compute_type,
-                                     rotary_dtype=config.rotary_dtype,
-                                     param_init_type=config.param_init_type,
-                                     qkv_has_bias=config.qkv_has_bias,
-                                     use_past=config.use_past,
-                                     use_flash_attention=config.use_flash_attention,
-                                     is_dynamic=config.is_dynamic,
-                                     use_kvcache_op=config.use_kvcache_op,
-                                     is_flexible_shape=config.is_flexible_shape,
-                                     use_rope_slice=config.use_rope_slice,
-                                     parallel_config=config.parallel_config)
+            if config.fine_grain_interleave > 1:
+                layer = LLamaDecodeLayerInterleave(config.batch_size,
+                                                   config.seq_length,
+                                                   layer_id,
+                                                   dim=config.hidden_size,
+                                                   n_heads=config.num_heads,
+                                                   num_layers=config.num_layers,
+                                                   multiple_of=config.multiple_of,
+                                                   n_kv_heads=config.n_kv_heads,
+                                                   intermediate_size=config.intermediate_size,
+                                                   ffn_dim_multiplier=config.ffn_dim_multiplier,
+                                                   norm_eps=config.rms_norm_eps,
+                                                   qkv_has_bias=config.qkv_has_bias,
+                                                   qkv_concat=config.qkv_concat,
+                                                   compute_dtype=config.compute_dtype,
+                                                   layernorm_compute_dtype=config.layernorm_compute_type,
+                                                   softmax_compute_dtype=config.softmax_compute_type,
+                                                   rotary_dtype=config.rotary_dtype,
+                                                   param_init_type=config.param_init_type,
+                                                   use_flash_attention=config.use_flash_attention,
+                                                   fine_grain_interleave=config.fine_grain_interleave,
+                                                   parallel_config=config.parallel_config)
+            else:
+                layer = LLamaDecodeLayer(config.batch_size,
+                                         config.seq_length,
+                                         layer_id,
+                                         dim=config.hidden_size,
+                                         n_heads=config.num_heads,
+                                         n_kv_heads=config.n_kv_heads,
+                                         intermediate_size=config.intermediate_size,
+                                         multiple_of=config.multiple_of,
+                                         ffn_dim_multiplier=config.ffn_dim_multiplier,
+                                         norm_eps=config.rms_norm_eps,
+                                         qkv_has_bias=config.qkv_has_bias,
+                                         qkv_concat=config.qkv_concat,
+                                         compute_dtype=config.compute_dtype,
+                                         layernorm_compute_dtype=config.layernorm_compute_type,
+                                         softmax_compute_dtype=config.softmax_compute_type,
+                                         rotary_dtype=config.rotary_dtype,
+                                         param_init_type=config.param_init_type,
+                                         use_past=config.use_past,
+                                         use_flash_attention=config.use_flash_attention,
+                                         is_dynamic=config.is_dynamic,
+                                         use_kvcache_op=config.use_kvcache_op,
+                                         is_flexible_shape=config.is_flexible_shape,
+                                         use_rope_slice=config.use_rope_slice,
+                                         parallel_config=config.parallel_config)
             layer_compute_dtype(layer, layer_id, config.offset, config.parallel_config,
                                 config.num_layers, select_recompute=config.parallel_config.recompute.select_recompute)
             self.layers.append(layer)
