@@ -6,12 +6,14 @@ Baichuan2 是由百川智能开发的开源可商用的大规模预训练语言�
 
 ## 模型性能
 
-|                            config                            |      task       | Datasets | [train performance](#全参微调) |  [predict performance](#推理)  |
-| :----------------------------------------------------------: | :-------------: | :------: | :----------------------------: | :----------------------------: |
-| [baichuan2_7b](../../research/baichuan2/run_baichuan2_7b.yaml) | text_generation |  belle   |         550 tokens/s         | 20.54 tokens/s (use_past=True) |
-| [baichuan2_13b](../../research/baichuan2/run_baichuan2_13b.yaml) | text_generation |  belle   |          379 tokens/s          | 17.75 tokens/s (use_past=True, 2卡) |
-| [baichuan2_7b_910b](../../research/baichuan2/run_baichuan2_7b_910b.yaml) | text_generation |  belle   |        1264 tokens/s         | 23.69 tokens/s (use_past=True) |
-| [baichuan2_13b_910b](../../research/baichuan2/run_baichuan2_13b_910b.yaml) | text_generation |  belle   |          867 tokens/s          | 16.65 tokens/s (use_past=True)  |
+|                                       config                                        |      task       | Datasets | [train performance](#全参微调) |     [predict performance](#推理)     |
+|:-----------------------------------------------------------------------------------:| :-------------: | :------: |:--------------------------:|:----------------------------------:|
+|         [baichuan2_7b_512](../../research/baichuan2/run_baichuan2_7b.yaml)          | text_generation |  belle   |        550 tokens/s        |   20.54 tokens/s (use_past=True)   |
+|        [baichuan2_13b_512](../../research/baichuan2/run_baichuan2_13b.yaml)         | text_generation |  belle   |        379 tokens/s        | 17.75 tokens/s (use_past=True, 2卡) |
+|    [baichuan2_7b_910b_512](../../research/baichuan2/run_baichuan2_7b_910b.yaml)     | text_generation |  belle   |       1264 tokens/s        |   23.69 tokens/s (use_past=True)   |
+|   [baichuan2_13b_910b_512](../../research/baichuan2/run_baichuan2_13b_910b.yaml)    | text_generation |  belle   |        867 tokens/s        |   16.65 tokens/s (use_past=True)   |
+| [baichuan2_13b_910b_4096](../../research/baichuan2/run_baichuan2_7b_4096_910b.yaml) | text_generation |  belle   |     2968 tokens/s (FA)     |                 -                  |
+|   [baichuan2_13b_910b_4096](../../research/baichuan2/run_baichuan2_13b_4096_910b.yaml)   | text_generation |  belle   |       1375 tokens/s (FA)         |                 -                  |
 
 ## 仓库介绍
 
@@ -35,7 +37,9 @@ Baichuan2 是由百川智能开发的开源可商用的大规模预训练语言�
        ├── run_baichuan2_7b_910b.yaml          # 7B全量微调910b启动配置
        ├── run_baichuan2_13b_910b.yaml         # 13B全量微调910b启动配置
        ├── run_baichuan2_7b_lora_910b.yaml     # 7BLora微调910b启动配置
-       └── run_baichuan2_13b_lora_910b.yaml    # 13BLora微调910b启动配置
+       ├── run_baichuan2_13b_lora_910b.yaml    # 13BLora微调910b启动配置
+       ├── run_baichuan2_7b_4096_910b.yaml     # 7B全量微调seq_len为4096的最优性能910b启动配置
+       └── run_baichuan2_13b_4096_910b.yaml    # 13B全量微调seq_len为4096的最优性能910b启动配置
    ```
 
 3. 数据处理脚本和任务启动脚本：`research/baichuan2`
@@ -64,6 +68,8 @@ Baichuan2 是由百川智能开发的开源可商用的大规模预训练语言�
 | Baichuan2-7b  | 910B |  单节点  |  单节点  | 单卡 |
 | Baichuan2-13b | 910A |  ≥2节点  |  单节点  | ≥2卡 |
 | Baichuan2-13b | 910B |  单节点  |  单节点  | 单卡 |
+
+**注：仓上微调默认配置`seq_length`为512，支持最高`seq_length`为`4096`的训练微调，可以在数据集转换时设置`seq_length`，并在训练时配置yaml文件中的`model_config.seq_length`，使数据集与训练配置的`seq_length`保持一致。
 
 ### RANK_TABLE_FILE准备
 
@@ -212,6 +218,12 @@ python research/baichuan2/belle_preprocess.py \
 --model_file /{path}/tokenizer.model \
 --output_file /{path}/belle_512.mindrecord \
 --seq_length 512
+
+# 参数说明
+input_glob: 输入数据集路径
+model_file: 词表文件路径
+output_file: 输出数据集的路径和名称
+seq_length: 生成数据集的序列长度
 ```
 
 ### 模型权重准备
@@ -518,7 +530,7 @@ python baichuan2/run_baichuan2.py \
 --use_parallel False \
 --load_checkpoint path/to/Baichuan2_7B_Chat.ckpt \
 --auto_trans_ckpt False \
---predict_data <reserved_106>你是谁？<reserved_107>
+--predict_data "<reserved_106>你是谁？<reserved_107>"
 
 # output: [{'text_generation_text': ['<reserved_106>你是谁？<reserved_107>我是百川大模型，是由百川智能的工程师们创造的大语言模型，我可以和人类进行自然交流、解答问题、协助创作，帮助大众轻松、普惠的获得世界知识和专业服务。如果你有任何问题，可以随时向我提问']}]
 ```
