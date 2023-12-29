@@ -116,7 +116,7 @@ RANK_TABLE_FILE 单机8卡参考样例:
 
 权重：https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/glm32k/glm32k.ckpt
 
-词表：https://huggingface.co/THUDM/chatglm3-6b-32k/tree/main/tokenizer.model
+词表：https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/glm32k/tokenizer.model
 
 linux可用如下命令下载。
 
