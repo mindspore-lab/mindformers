@@ -31,7 +31,8 @@
    qwen
      ├── run_qwen_7b.yaml           # 7B 全参微调启动配置
      ├── run_qwen_7b_lora.yaml      # 7B lora微调启动配置
-     └── run_qwen_14b.yaml          # 14B 全参微调启动配置
+     ├── run_qwen_14b.yaml          # 14B 全参微调启动配置
+     └── run_qwen_14b_lora.yaml     # 14B lora微调启动配置
    ```
 
 3. 环境准备和任务启动脚本：
@@ -184,23 +185,35 @@ python mindformers/research/qwen/convert_weight.py \
 
 ## 全参微调
 
+全参微调性能（seq_length=2048，global_batch_size=8）：
+
+| Model                | tokens/s |
+|:---------------------|:--------:|
+| Mindformers-Qwen-7B  |  2245.6  |
+| Mindformers-Qwen-14B |   1192   |
+
 请参照[数据集准备](#数据集准备)章节获取mindrecord格式的alpaca数据集，参照[模型权重准备](#模型权重准备)章节获取权重。
 
-1. RANK_TABLE_FILE准备：请参照[RANK_TABLE_FILE准备](#RANK_TABLE_FILE准备)获取单机8卡的`RANK_TABLE_FILE`文件。
+1. 当前支持模型已提供yaml文件，下文以Qwen-7B为例，即使用`run_qwen_7b.yaml`配置文件进行介绍，请根据实际使用模型更改配置文件。
 
-2. 设置如下环境变量：
+2. RANK_TABLE_FILE准备：请参照[RANK_TABLE_FILE准备](#RANK_TABLE_FILE准备)获取单机8卡的`RANK_TABLE_FILE`文件。
+
+3. 设置如下环境变量：
 
    ```bash
    export MS_ASCEND_CHECK_OVERFLOW_MODE=INFNAN_MODE
    ```
 
-3. 修改`run_qwen_7b.yaml`中相关配置，默认开启自动权重转换，使用完整权重。
+4. 修改`run_qwen_7b.yaml`中相关配置，默认开启自动权重转换，使用完整权重。
 
    ```yaml
    load_checkpoint: '/path/model_dir' # 使用完整权重，权重按照`model_dir/rank_0/xxx.ckpt`格式存放
    auto_trans_ckpt: True              # 打开自动权重转换
    use_parallel: True
    run_mode: 'finetune'
+
+   model_config:
+      seq_length: 1024 # 与数据集长度保持相同
 
    train_dataset: &train_dataset
      data_loader:
@@ -217,7 +230,7 @@ python mindformers/research/qwen/convert_weight.py \
      gradient_aggregation_group: 4
    ```
 
-4. 启动微调任务。
+5. 启动微调任务。
 
    ```shell
    cd mindformers/research
@@ -240,12 +253,24 @@ python mindformers/research/qwen/convert_weight.py \
 
 ## lora微调
 
-1. RANK_TABLE_FILE准备：请参照[RANK_TABLE_FILE准备](#RANK_TABLE_FILE准备)获取单机8卡的`RANK_TABLE_FILE`文件。
+lora微调性能（seq_length=2048，global_batch_size=8）：
 
-2. 修改`run_qwen_7b_lora.yaml`中相关配置，配置权重和数据集路径。
+| Model                | tokens/s |
+|:---------------------|:--------:|
+| Mindformers-Qwen-7B  |  2694.7  |
+| Mindformers-Qwen-14B |  1429.2  |
+
+1. 当前支持模型已提供yaml文件，下文以Qwen-7B为例，即使用`run_qwen_7b_lora.yaml`配置文件进行介绍，请根据实际使用模型更改配置文件。
+
+2. RANK_TABLE_FILE准备：请参照[RANK_TABLE_FILE准备](#RANK_TABLE_FILE准备)获取单机8卡的`RANK_TABLE_FILE`文件。
+
+3. 修改`run_qwen_7b_lora.yaml`中相关配置，配置权重和数据集路径。
 
    ```yaml
    load_checkpoint: 'model_dir'    # 使用完整权重，权重按照`model_dir/rank_0/xxx.ckpt`格式存放
+
+   model_config:
+      seq_length: 1024 # 与数据集长度保持相同
 
    train_dataset: &train_dataset
      data_loader:
@@ -262,7 +287,7 @@ python mindformers/research/qwen/convert_weight.py \
       freeze_exclude: ["*wte*", "*lm_head*"] # 使用chat权重进行微调时删除该配置
     ```
 
-3. 启动Lora微调任务。
+4. 启动Lora微调任务。
 
    ```shell
    cd mindformers/research
@@ -287,16 +312,18 @@ python mindformers/research/qwen/convert_weight.py \
 
 评测脚本下载地址[评测脚本](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/qwen/eval.zip)，下载后，脚本解压到mindformers/research/qwen/下，权重文件`qwen_7b_base.ckpt`放在脚本同级目录下。
 
-评测结果对比：
-
-| Model                   | C-Eval | HumanEval | CMMLU |
-|:------------------------|:------:|:---------:|:-----:|
-| Qwen-7B                 |  62.6  |   29.9    | 62.2  |
-| **Mindformers-Qwen-7B** |  63.3  |   31.7    | 62.4  |
-
 ### C-Eval 评测
 
 C-Eval是全面的中文基础模型评估套件，涵盖了52个不同学科的13948个多项选择题。
+
+评测结果对比：
+
+| Model                    | C-Eval |
+|:-------------------------|:------:|
+| Qwen-7B                  |  62.6  |
+| **Mindformers-Qwen-7B**  |  63.3  |
+| Qwen-14B                 |  72.1  |
+| **Mindformers-Qwen-14B** | 72.13  |
 
 运行此评测集的方法：
 
@@ -304,40 +331,6 @@ C-Eval是全面的中文基础模型评估套件，涵盖了52个不同学科的
 wget https://huggingface.co/datasets/ceval/ceval-exam/resolve/main/ceval-exam.zip
 mkdir -p data/ceval && cd data/ceval; unzip ../../ceval-exam.zip && cd ../../
 python evaluate_ceval.py -d data/ceval/
-```
-
-### CMMLU 评测
-
-CMMLU是一个综合性的中文评估基准，专门用于评估语言模型在中文语境下的知识和推理能力。
-
-运行此评测集的方法：
-
-```shell
-wget https://huggingface.co/datasets/haonan-li/cmmlu/resolve/main/cmmlu_v1_0_1.zip
-mkdir -p data/cmmlu && cd data/cmmlu; unzip ../../cmmlu_v1_0_1.zip && cd ../../
-python evaluate_cmmlu.py -d data/cmmlu/
-```
-
-### HumanEval 评测
-
-HumanEval是由 OpenAI 编写发布的代码生成评测数据集，包含 164 道人工编写的Python编程问题。
-模型针对每个单元测试问题生成 k（k=1,10,100）个代码样本，如果有任何样本通过单元测试，则认为问题已解决，并报告问题解决的总比例，即 `Pass@k` 得分。
-
-运行此评测集的方法：
-
-```shell
-git clone https://github.com/openai/human-eval
-$ pip install -e human-eval
-
-cd human-eval/data && zcat HumanEval.jsonl.gz > HumanEval.jsonl cd ../..
-
-vi human-eval/human_eval/execution.py # uncomment line 58
-
-pip install jsonlines
-
-python evaluate_humaneval.py -c ../run -f human-eval/data/HumanEval.jsonl --max-seq-len 512
-
-evaluate_functional_correctness HumanEval_res.jsonl
 ```
 
 ## MindSpore推理
@@ -428,31 +421,54 @@ evaluate_functional_correctness HumanEval_res.jsonl
 ### 基于Generate推理
 
 ```python
-import mindspore as ms
-from mindspore import context
+import sys
 
-from mindformers.tools.register.config import MindFormerConfig
+from mindformers import MindFormerConfig
+from mindformers.core.context import build_context
+from mindformers.core.parallel_config import build_parallel_config
+from mindformers.pet import get_pet_model, LoraConfig
 from qwen_config import QwenConfig
 from qwen_model import QwenForCausalLM
 from qwen_tokenizer import QwenTokenizer
 
-context.set_context(mode=ms.GRAPH_MODE, device_target="Ascend", device_id=0)
+# init config
+config_file_path = "/path/run_qwen_7b.yaml"
+config = MindFormerConfig(config_file_path)
 
-config_path="/path/run_qwen_7b.yaml"
-config = MindFormerConfig(config_path)
+# init context
+build_context(config)
+build_parallel_config(config)
+
 tokenizer = QwenTokenizer(**config.processor.tokenizer)
-
-model_config = QwenConfig.from_pretrained(config_path)
+model_config = QwenConfig.from_pretrained(config_file_path)
 model_config.checkpoint_name_or_path = "/path/qwen_7b_base.ckpt"
 model = QwenForCausalLM(model_config)
+
+if config.model.model_config.pet_config:
+    print("----------------Init lora params----------------")
+    pet_config = LoraConfig(
+        lora_rank=config.model.model_config.pet_config.lora_rank,
+        lora_alpha=config.model.model_config.pet_config.lora_alpha,
+        lora_dropout=config.model.model_config.pet_config.lora_dropout,
+        target_modules=config.model.model_config.pet_config.target_modules
+    )
+    model = get_pet_model(model, pet_config)
 
 def run_generate(prompt):
     inputs = tokenizer([prompt, ], return_tensors=None, padding='max_length', max_length=model_config.seq_length)
     output = model.generate(input_ids=inputs["input_ids"])
     print(tokenizer.decode(output, skip_special_tokens=True))
 
-run_generate("比较适合深度学习入门的书籍有")
-# 比较适合深度学习入门的书籍有《Python深度学习》、《深度学习入门》、《动手学深度学习》等。这些书籍都比较容易理解，适合初学者。
+while True:
+    user_input = input("Please enter your predict data: \n")
+    if not user_input:
+        continue
+    if user_input == "exit":
+        print("Task is over.")
+        sys.exit()
+
+    output = run_generate(user_input)
+    print(output)
 ```
 
 ### Batch推理
@@ -469,15 +485,14 @@ except ImportError:
 import mindspore as ms
 from mindformers.tools.register.config import MindFormerConfig
 
-from mindformers.models.llama.llama_config import LlamaConfig
-
 from qwen_model import QwenForCausalLM
 from qwen_tokenizer import QwenTokenizer
+from qwen_config import QwenConfig
 
 config = MindFormerConfig("/path/run_qwen_7b.yaml")
 config.use_past = True
 
-model_config = LlamaConfig.from_pretrained("/path/run_qwen_7b.yaml")
+model_config = QwenConfig.from_pretrained("/path/run_qwen_7b.yaml")
 model_config.checkpoint_name_or_path = '/path/qwen_7b_base.ckpt'
 model_config.seq_length = 512
 
@@ -518,10 +533,12 @@ MindSpore Lite依赖包下载参考[MindSpore Lite文档](https://www.mindspore.
 
 性能对比（seq_length=2048）：
 
-| Model                   | Speed(tokens/s) |
-|:------------------------|:---------------:|
-| Qwen-7B                 |      37.55      |
-| **Mindformers-Qwen-7B** |      42.32      |
+| Model                    | Speed(tokens/s) |
+|:-------------------------|:---------------:|
+| Qwen-7B                  |      37.55      |
+| **Mindformers-Qwen-7B**  |      42.32      |
+| Qwen-14B                 |      24.45      |
+| **Mindformers-Qwen-14B** |      27.53      |
 
 ### mindir导出
 

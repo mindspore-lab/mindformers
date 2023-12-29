@@ -14,6 +14,7 @@
 # ============================================================================
 """Qwen models' APIs."""
 
+import copy
 import numpy as np
 import mindspore.common.dtype as mstype
 from mindspore import log as logger
@@ -43,9 +44,10 @@ from mindformers.tools.logger import _LogActionOnce
 from mindformers.tools.register.register import MindFormerModuleType, MindFormerRegister
 from mindformers.modules.layers import Linear, _check_input_dtype, _args_type_validator_check, _valid_value_checks
 from mindformers.modules.transformer import TransformerOpParallelConfig
-from mindformers.models.llama.llama_layer import LlamaEmbedding, CausalMask, FreqsMgr, LlamaSiLU
+from mindformers.models.llama.llama_layer import LlamaEmbedding, FreqsMgr, LlamaSiLU
 from mindformers.models.llama.llama_transformer import LLamaDecodeLayer
 from mindformers.modules import KVCachePreprocess
+
 
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
 class QwenForCausalLM(BaseModel):
@@ -67,9 +69,13 @@ class QwenForCausalLM(BaseModel):
                               out_channels=config.vocab_size,
                               has_bias=False,
                               compute_dtype=config.compute_dtype,
-                              param_init_type=config.param_init_type,
+                              param_init_type=mstype.float16,
                               weight_init="normal")
-        self.loss = CrossEntropyLoss(parallel_config=config.parallel_config)
+        loss_parallel_config = copy.deepcopy(config.parallel_config)
+        loss_parallel_config.model_parallel = loss_parallel_config.model_parallel * loss_parallel_config.data_parallel
+        loss_parallel_config.data_parallel = 1
+        self.loss = CrossEntropyLoss(parallel_config=loss_parallel_config)
+
         self.pad_token_id = config.pad_token_id
         self.use_past = config.use_past
         self.ignore_token_id = config.ignore_token_id
@@ -83,7 +89,6 @@ class QwenForCausalLM(BaseModel):
         self.ones = P.Ones()
         self.slice = P.StridedSlice()
         self.mul = P.Mul()
-        self.gather = P.Gather()
 
         if not (_get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation()):
             self.shard(config.parallel_config)
@@ -130,15 +135,16 @@ class QwenForCausalLM(BaseModel):
                 label_mask = self.cast(self.not_equal(labels, self.ignore_token_id), mstype.float32)
                 input_mask = self.mul(input_mask, label_mask)
 
-        logits = self.cast(logits, mstype.float32)
         if not self.training:
             logits = self.reshape(logits, (bsz, seqlen, -1))
+            logits = self.cast(logits, mstype.float32)
             # makes cast effective to avoid allgather issue in Mindspore1.10
             input_mask = self.add(input_mask, 1)
             return logits, tokens, input_mask
 
         if logits.ndim > 2:
             logits = self.reshape(logits, (-1, logits.shape[-1]))
+        logits = self.cast(logits, mstype.float32)
         labels = self.reshape(labels, (-1,))
         input_mask = self.reshape(input_mask, (-1,))
         loss = self.loss(logits, labels, input_mask)
@@ -149,14 +155,15 @@ class QwenForCausalLM(BaseModel):
 
         dp = parallel_config.data_parallel
         mp = parallel_config.model_parallel
+        self.slice.shard(((dp, 1),))
         self.not_equal.shard(((dp, 1), ()))
+        self.mul.shard(((dp, 1), (dp, 1)))
         self.add.shard(((dp, 1), ()))
-        self.gather.shard(((dp, 1), (dp,)))
 
         if parallel_config.vocab_emb_dp:
             self.lm_head.shard(strategy_matmul=((dp, 1), (1, 1)))
         else:
-            self.lm_head.shard(strategy_matmul=((dp, 1), (mp, 1)))
+            self.lm_head.shard(strategy_matmul=((1, 1), (dp * mp, 1)))
 
 
 class QwenModel(BaseModel):
@@ -186,7 +193,8 @@ class QwenModel(BaseModel):
             logger.info("Current MindSpore do not support flash attention.")
 
         # 1. wte
-        self.wte = LlamaEmbedding(self.vocab_size, self.embed_dim, param_init_type=config.param_init_type)
+        self.wte = LlamaEmbedding(self.vocab_size, self.embed_dim, param_init_type=config.param_init_type,
+                                  parallel_optimizer=True)
 
         # 2. drop
         self.drop = nn.Dropout(p=config.emb_dropout_prob)
@@ -224,11 +232,11 @@ class QwenModel(BaseModel):
                                   scaling_factor=config.scaling_factor,
                                   extend_method=config.extend_method,
                                   is_dynamic=config.is_dynamic)
-        self.casual_mask = CausalMask(seq_length=config.seq_length,
-                                      compute_type=config.compute_dtype,
-                                      is_dynamic=config.is_dynamic,
-                                      pad_token_id=config.pad_token_id,
-                                      use_flash_attention=config.use_flash_attention)
+        self.casual_mask = CausalMaskForQwen(seq_length=config.seq_length,
+                                             compute_type=config.compute_dtype,
+                                             is_dynamic=config.is_dynamic,
+                                             pad_token_id=config.pad_token_id,
+                                             use_flash_attention=config.use_flash_attention)
         self.kvcache_preprocess = KVCachePreprocess(max_batch_size=config.batch_size,
                                                     max_seq_length=config.seq_length,
                                                     is_dynamic=config.is_dynamic,
@@ -242,18 +250,7 @@ class QwenModel(BaseModel):
             compute_type=config.layernorm_compute_type
         )
 
-        self.assign = P.Assign()
-        self.slice = P.StridedSlice()
-        self.reshape = P.Reshape()
-        self.cast = P.Cast()
-        self.tile = P.Tile()
-        self.mul_mask = P.Mul()
-        self.sub = P.Sub()
-        self.expand_dims = P.ExpandDims()
-        self.not_equal = P.NotEqual()
-        self.gather = P.Gather()
         self.shape = P.Shape()
-
         self.multiply_data = Tensor([-10000.0], dtype=config.compute_dtype)
         self.one = Tensor([1.0], dtype=config.compute_dtype)
 
@@ -268,13 +265,6 @@ class QwenModel(BaseModel):
             else:
                 self.wte.set_comm_fusion(config.parallel_config.gradient_aggregation_group)
                 self.ln_f.set_comm_fusion(config.parallel_config.gradient_aggregation_group)
-
-        if self.use_past:
-            seq_range = np.arange(config.seq_length).reshape(1, 1, -1)
-            self.range = Tensor(np.tile(seq_range, (config.batch_size, 1, 1)), mstype.int32)
-            self.gather_past = P.Gather()
-            self.expand_dims = P.ExpandDims()
-            self.le_past = P.LessEqual()
 
     # pylint: disable=W0613
     def construct(self, input_ids: Tensor, init_reset=True, batch_valid_length=None):
@@ -293,13 +283,13 @@ class QwenModel(BaseModel):
         bs, seq_len = self.shape(input_ids)
         if not self.use_past:
             freqs_cis = self.freqs_mgr()
-            mask = self.casual_mask(input_ids) # mask: [bs, seq, seq]
+            mask = self.casual_mask(input_ids)  # mask: [bs, seq, seq]
             mask = self.casual_mask.post_process(mask)
             kvcache_inputs = None
         else:
             if self.is_first_iteration:
                 freqs_cis = self.freqs_mgr(seq_len)
-                mask = self.casual_mask(input_ids) # mask: [bs, seq, seq]
+                mask = self.casual_mask(input_ids)  # mask: [bs, seq, seq]
             else:
                 freqs_cis = self.freqs_mgr.increment(batch_valid_length, bs)
                 if self.is_dynamic and self.is_flexible_shape and not self.use_kvcache_op:
@@ -324,20 +314,8 @@ class QwenModel(BaseModel):
     def shard(self, parallel_config):
         """sharding for feedforward"""
         self.wte.shard(parallel_config)
-
-        dp = parallel_config.data_parallel
-        self.slice.shard(((dp, 1),))
-        self.tile.shard(((1, 1, 1, 1), ()))
-        self.sub.shard(((1,), (dp, 1, 1)))
-        self.mul_mask.shard(((dp, 1, 1, 1), (1,)))
-        self.expand_dims.shard(((dp, 1, 1),))
-        self.not_equal.shard(((dp, 1), ()))
-        self.gather.shard(((dp, 1), (1,)))
-
-        if self.compute_in_2d:
-            self.ln_f.shard((dp, 1))
-        else:
-            self.ln_f.shard((dp, 1, 1))
+        self.casual_mask.shard(parallel_config)
+        self.ln_f.shard((parallel_config.data_parallel, 1, 1))
 
 
 class QwenDecodeLayer(LLamaDecodeLayer):
@@ -463,3 +441,85 @@ class QwenFeedForward(nn.Cell):
         self.w3.shard(((dp, 1), (mp, 1)))
         self.mul.shard(((dp, mp), (dp, mp)))
         self.silu.shard(((dp, 1, mp),))
+
+
+class CausalMaskForQwen(nn.Cell):
+    r""" Get the Lower triangular matrix from the input_ids.
+            [[[1. 0. 0. 0. 0]
+              [1. 1. 0. 0. 0]
+              [1. 1. 1. 0. 0]
+              [1. 1. 1. 1. 0]
+              [1. 1. 1. 1. 0]]]"""
+
+    def __init__(self, seq_length, compute_type=mstype.float16,
+                 is_dynamic=False, pad_token_id=0, use_flash_attention=False):
+        super().__init__()
+        self.dtype = compute_type
+        self.is_dynamic = is_dynamic
+        self.pad_token_id = pad_token_id
+        self.use_flash_attention = use_flash_attention
+        self.multiply_data = Tensor([-10000.0], dtype=compute_type)
+        self.one = Tensor([1.0], dtype=compute_type)
+        self.lower_triangle_mask = Tensor(np.tril(np.ones(shape=(seq_length, seq_length))), mstype.float32)
+
+        self.shape = P.Shape()
+        self.cast = P.Cast()
+        self.reshape = P.Reshape()
+        self.not_equal = P.NotEqual()
+        self.less_equal = P.LessEqual()
+        self.expand_dim = P.ExpandDims()
+        self.slice = P.StridedSlice()
+        self.mul = P.Mul()
+        self.sub = P.Sub()
+        self.mul_post = P.Mul()
+        self.expand_dim_post = P.ExpandDims()
+
+    def construct(self, tokens):
+        """Forward process of the CausalMask"""
+        bs = self.shape(tokens)[0]
+        seq_len = self.shape(tokens)[1]
+        input_mask = self.cast(self.not_equal(tokens, self.pad_token_id), self.dtype)
+        shape_right = (bs, 1, seq_len)
+        # Mask the padded inputs
+        mask_right = self.reshape(input_mask, shape_right)
+        if not self.is_dynamic:
+            lower_traiangle = self.expand_dim(self.lower_triangle_mask, 0)
+        else:
+            lower_triangle_mask = self.slice(self.lower_triangle_mask, (0, 0), (seq_len, seq_len), (1, 1))
+            lower_traiangle = self.expand_dim(lower_triangle_mask, 0)
+        # the returned shape is [bs, seq_length, seq_length]
+        attention_mask = self.mul(mask_right, lower_traiangle)
+        return attention_mask
+
+    def increment(self, seq_range, batch_valid_length, zactivate_len=None):
+        if zactivate_len is not None:
+            seq_range = self.slice(seq_range, (0, 0, 0), (1, 1, self.shape(zactivate_len)[0]), (1, 1, 1))
+        mask = self.less_equal(self.reshape(seq_range, (1, 1, -1)), self.reshape(batch_valid_length, (-1, 1, 1)))
+        return mask
+
+    def increment_slice(self, seq_range, seq_length, batch_valid_length, zactivate_len=None):
+        if zactivate_len is not None:
+            seq_range_mask = self.slice(seq_range, (0, 0, 0), (1, 1, self.shape(zactivate_len)[0]), (1, 1, 1))
+        else:
+            seq_range_mask = self.slice(seq_range, (0, 0, 0), (1, 1, seq_length), (1, 1, 1))
+        mask = self.less_equal(self.reshape(seq_range_mask, (1, 1, -1)), self.reshape(batch_valid_length, (-1, 1, 1)))
+        return mask
+
+    def post_process(self, mask):
+        mask = self.sub(self.one, self.cast(mask, self.dtype))
+        if not self.use_flash_attention:
+            mask = self.expand_dim_post(mask, 1)
+            mask = self.mul_post(mask, self.multiply_data)
+        else:
+            mask = self.cast(mask, mstype.uint8)
+        return mask
+
+    def shard(self, parallel_config):
+        dp = parallel_config.data_parallel
+        self.not_equal.shard(((dp, 1), ()))
+        self.expand_dim.shard(((1, 1),))
+        self.mul.shard(((dp, 1, 1), (1, 1, 1)))
+        self.less_equal.shard(((1, 1, 1), (1, 1, 1)))
+        self.sub.shard(((1,), (dp, 1, 1)))
+        self.mul_post.shard(((dp, 1, 1, 1), (1,)))
+        self.expand_dim_post.shard(((dp, 1, 1),))
