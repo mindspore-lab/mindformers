@@ -200,20 +200,38 @@ class ChatGLM3Tokenizer(Tokenizer):
         tokens = role_tokens + message_tokens
         return tokens
 
-    def build_chat_input(self, queries, histories=None, role="user"):
+    def build_chat_input(self, query, history=None, role="user"):
+        """build chat input with role."""
+        if history is None:
+            history = []
+        input_ids = []
+        for item in history:
+            content = item["content"]
+            if item["role"] == "system" and "tools" in item:
+                content = content + "\n" + json.dumps(item["tools"], indent=4, ensure_ascii=False)
+            input_ids.extend(self.build_single_message(item["role"], item.get("metadata", ""), content))
+        input_ids.extend(self.build_single_message(role, "", query))
+        input_ids.extend([self.get_command("<|assistant|>")])
+        return self.batch_encode_plus([input_ids], return_tensors="np", is_split_into_words=True)
+
+    def build_batch_input(self, queries, histories=None, roles="user"):
         """build batch input with role."""
         if isinstance(queries, str):
             queries = [queries]
-
         batch_size = len(queries)
-
+        if isinstance(roles, str):
+            roles = [roles] * batch_size
+        if isinstance(histories, list) and len(histories) != batch_size:
+            histories = [histories]
         if histories is None:
             histories = [[] for _ in range(batch_size)]
 
         assert batch_size == len(histories), f"len(queries) should equals to len(histories), "+\
                                              f"but got {len(queries) } and {len(histories)}"
+        assert batch_size == len(roles), f"len(queries) should equals to len(roles), "+\
+                                             f"but got {len(queries) } and {len(roles)}"
         batch_inputs = []
-        for query, history in zip(queries, histories):
+        for query, history, role in zip(queries, histories, roles):
             if history is None:
                 history = []
             input_ids = []
