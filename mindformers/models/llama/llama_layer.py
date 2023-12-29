@@ -524,11 +524,17 @@ class CausalMask(nn.Cell):
         self.mul_post = P.Mul()
         self.expand_dim_post = P.ExpandDims()
 
-    def construct(self, tokens):
+    def construct(self, tokens=None, masks=None):
         """Forward process of the CausalMask"""
-        bs = self.shape(tokens)[0]
-        seq_len = self.shape(tokens)[1]
-        input_mask = self.cast(self.not_equal(tokens, self.pad_token_id), self.dtype)
+        if tokens is not None:
+            bs = self.shape(tokens)[0]
+            seq_len = self.shape(tokens)[1]
+            input_mask = self.cast(self.not_equal(tokens, self.pad_token_id), self.dtype)
+        else:
+            bs = self.shape(masks)[0]
+            seq_len = self.shape(masks)[1]
+            input_mask = self.cast(masks, self.dtype)
+
         shape_right = (bs, 1, seq_len)
         shape_left = (bs, seq_len, 1)
         # Mask the padded inputs

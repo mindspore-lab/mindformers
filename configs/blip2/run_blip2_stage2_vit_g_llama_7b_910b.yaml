@@ -118,7 +118,7 @@ train_dataset: &train_dataset
     unk_token: '<unk>'
     bos_token: '<s>'
     eos_token: '</s>'
-    pad_token: '<pad>'
+    pad_token: '<unk>'
     add_special_tokens: False
     padding: 'max_length'
     truncation: True
@@ -250,7 +250,7 @@ processor:
     image_size: 224  # input image size
   tokenizer:
     type: LlamaTokenizer
-    pad_token: '<pad>'
+    pad_token: '<unk>'
     bos_token: '<s>'
     unk_token: '</s>'
     eos_token: '</s>'
