@@ -166,7 +166,7 @@ class Baichuan7BV2Model(BaseModel):
             self.norm_out.shard((dp, 1, 1))
 
     # pylint: disable=W0613
-    def construct(self, tokens: Tensor, batch_valid_length=None, batch_index=None, zactivate_len=None):
+    def construct(self, tokens: Tensor, batch_valid_length=None, zactivate_len=None):
         """
         Forward of llama model.
 
@@ -202,7 +202,7 @@ class Baichuan7BV2Model(BaseModel):
                     mask = self.casual_mask.increment(self.kvcache_preprocess.range, batch_valid_length, zactivate_len)
             mask = self.casual_mask.post_process(mask)
 
-            kvcache_inputs = self.kvcache_preprocess(bs, batch_valid_length, batch_index, zactivate_len)
+            kvcache_inputs = self.kvcache_preprocess(bs, batch_valid_length, zactivate_len)
 
         # tokens: [bs, seq/1]
         h = self.tok_embeddings(tokens)
@@ -393,17 +393,24 @@ class Baichuan7BV2ForCausalLM(BaseModel):
     def __init__(self, config: LlamaConfig = None):
         super(Baichuan7BV2ForCausalLM, self).__init__(config, auto_prefix=True)
         _check_config(config.parallel_config)
+        self.config = config
         self.ignore_token_id = config.ignore_token_id
         self.pad_token_id = config.pad_token_id
-        self.seq_length = config.seq_length
+        self.use_past = config.use_past
+        self.vocab_size = config.vocab_size
         self.is_first_iteration = True
 
+        self.shape = P.Shape()
         self.reshape = P.Reshape()
+        if config.is_dynamic:
+            self.reshape.add_prim_attr("skip_redistribution", True)
         self.cast = P.Cast()
         self.slice = P.StridedSlice()
         self.not_equal = P.NotEqual()
         self.mul = P.Mul()
         self.add = P.Add()
+        self.ones = P.Ones()
+        self.gather = P.Gather(1)
         self.sub_batch_valid_len = P.Sub()
         self.model = Baichuan7BV2Model(config=config)
         self.lm_head = NormHead(hidden_size=config.hidden_size,
@@ -413,12 +420,14 @@ class Baichuan7BV2ForCausalLM(BaseModel):
         loss_parallel_config.model_parallel = loss_parallel_config.model_parallel * loss_parallel_config.data_parallel
         loss_parallel_config.data_parallel = 1
         self.loss = CrossEntropyLoss(parallel_config=loss_parallel_config)
+        self.seq_length = config.seq_length
 
         dp = config.parallel_config.data_parallel
         self.slice.shard(((dp, 1),))
         self.not_equal.shard(((dp, 1), ()))
         self.mul.shard(((dp, 1), (dp, 1)))
         self.add.shard(((dp, 1), ()))
+        self.gather.shard(((dp, 1, 1), (dp,)))
         self.sub_batch_valid_len.shard(((1,), ()))
         self.lm_head.shard(config.parallel_config)
 
@@ -436,39 +445,50 @@ class Baichuan7BV2ForCausalLM(BaseModel):
             "input_ids": Tensor(input_ids, mstype.int32)
         }
 
-    # pylint: disable=W0613
     def prepare_inputs_for_export(self, full_model=True):
-        """Get Baichuan7BV2 model input tuple for export."""
+        """prepare_inputs_for_export"""
+        dyn = self.config.is_dynamic
+        if dyn:
+            logger.info(f"Exporting dynamic MindIR...")
         seq_length = self.seq_length
+        bs = None if dyn else self.config.batch_size
+        seq_len = None if dyn else self.seq_length
+
+        def dummy_tensor(shape, dtype):
+            if None in shape:
+                return Tensor(shape=shape, dtype=dtype)
+            return Tensor(np.ones(shape=tuple(shape)), dtype=dtype)
+
+        batch_valid_length = dummy_tensor(shape=[bs], dtype=ms.int32)
+        zactivate_len = dummy_tensor(shape=[seq_len], dtype=ms.int64)
         if full_model:
             logger.info('\nexporting with batch_size = %s, seq = %s ...', self.config.batch_size, seq_length)
-            input_ids = Tensor(np.ones([self.config.batch_size, seq_length]), dtype=mstype.int32)
-            input_position = Tensor([1] * self.config.batch_size, dtype=mstype.int32)
-            init_reset = Tensor([False], mstype.bool_)
-            batch_valid_length = Tensor([[1] * self.config.batch_size], dtype=mstype.int32)
+            input_ids = dummy_tensor(shape=[bs, seq_len], dtype=ms.int32)
         else:
             logger.info('\nexporting with batch_size = %s, seq = 1 ...', self.config.batch_size)
-            input_ids = Tensor(np.ones([self.config.batch_size, 1]), dtype=mstype.int32)
-            input_position = Tensor([1] * self.config.batch_size, dtype=mstype.int32)
-            init_reset = Tensor([True], mstype.bool_)
-            batch_valid_length = Tensor([[1] * self.config.batch_size], dtype=mstype.int32)
-        return input_ids, None, input_position, None, None, None, init_reset, batch_valid_length
+            input_ids = dummy_tensor(shape=[bs, 1], dtype=ms.int32)
+        return input_ids, None, None, None, None, None, None, batch_valid_length, zactivate_len
 
     # pylint: disable=W0613
     def construct(self, input_ids, labels=None, input_position=None, position_ids=None, attention_mask=None,
-                  input_embeds=None, init_reset=True, batch_valid_length=None):
+                  input_embeds=None, init_reset=True, batch_valid_length=None, zactivate_len=None):
         """Baichuan7BV2 ForCausalLM forward."""
-        bsz, seqlen = input_ids.shape
+        bsz, seqlen = self.shape(input_ids)
+        if self.use_past:
+            if not isinstance(batch_valid_length, Tensor):
+                batch_valid_length = self.ones((bsz,), mstype.int32)
         if self.training:
             tokens = self.slice(input_ids, (0, 0), (bsz, seqlen - 1), (1, 1))
         else:
             tokens = input_ids
-
         if batch_valid_length is not None:
             batch_valid_length = self.reshape(batch_valid_length, (-1,))
         if not self.is_first_iteration:
             batch_valid_length = self.sub_batch_valid_len(batch_valid_length, 1)
-        output = self.model(tokens, input_position, batch_valid_length)
+        output = self.model(tokens, batch_valid_length, zactivate_len)
+        pre_gather = (not self.use_past or self.is_first_iteration) and batch_valid_length is not None
+        if pre_gather:
+            output = self.gather(output, self.sub_batch_valid_len(batch_valid_length, 1), 1)
         logits = self.lm_head(output)
 
         input_mask = self.cast(self.not_equal(tokens, self.pad_token_id), mstype.float32)
@@ -482,7 +502,8 @@ class Baichuan7BV2ForCausalLM(BaseModel):
                 input_mask = self.mul(input_mask, label_mask)
 
         if not self.training:
-            logits = self.reshape(logits, (bsz, seqlen, -1))
+            if not pre_gather:
+                logits = self.reshape(logits, (bsz, seqlen, -1))
             logits = self.cast(logits, mstype.float32)
             # makes cast effective to avoid allgather issue in Mindspore1.10
             input_mask = self.add(input_mask, 1)
