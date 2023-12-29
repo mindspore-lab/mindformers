@@ -1338,5 +1338,5 @@ ge.dynamicNodeType=1
 2、用来推理的run_lite.sh中，只需要修改两个参数，其它流程都与多卡推理一样
 
 ```bash
---dynamic True  --config_path ["lite.ini","lite_inc.ini"]
+--dynamic True  --config_path "lite.ini,lite_inc.ini"
 ```

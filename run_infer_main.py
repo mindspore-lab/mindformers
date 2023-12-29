@@ -288,6 +288,8 @@ if __name__ == "__main__":
              "Default: False")
 
     args = parser.parse_args()
+    if len(args.config_path.split(',')) > 1:
+        args.config_path = args.config_path.split(',')
     if args.stream:
         infer_stream_main(args)
     else:
