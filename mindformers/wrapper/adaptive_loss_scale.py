@@ -27,6 +27,9 @@ from mindformers.tools.logger import logger
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 
 
+__all__ = ['AdaptiveLossScaleUpdateCell']
+
+
 def _get_window_list(max_scale_window, min_scale_window, window_interval, window_factor):
     """ automatic generate the scale window list with max_scale_window and min_scale_window. """
     window_list = []

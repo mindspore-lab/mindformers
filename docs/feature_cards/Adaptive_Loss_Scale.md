@@ -52,6 +52,8 @@ scale window下调检测机制：新增一个下调计数down_num，初始为0�
 
 使用方法与dynamic loss scaling和fixed loss scale基本一致，新增用户指定的超参max_scale_window和min_scale_window, 同时需要将更新后的scale window信息写入至断点中以支持断点续训
 
+Mindspore用法:
+
 ```python
 >>> import numpy as np
 >>> import mindspore
@@ -79,6 +81,52 @@ scale window下调检测机制：新增一个下调计数down_num，初始为0�
 >>> input = Tensor(np.ones([out_features, in_features]), mindspore.float32)
 >>> labels = Tensor(np.ones([out_features,]), mindspore.float32)
 >>> output = train_network(input, labels)
+```
+
+Mindformers用法:
+
+```python
+import numpy as np
+from mindspore.dataset import GeneratorDataset
+from mindspore.nn import Momentum
+from mindformers import Trainer, TrainingArguments, AutoModel
+from mindformers import init_context, ContextConfig
+from mindformers.wrapper import MFTrainOneStepCell, AdaptiveLossScaleUpdateCell
+
+
+def context_init():
+    """init context for mindspore."""
+    context_config = ContextConfig(mode=0, device_target="Ascend", device_id=0)
+    rank_id, device_num = init_context(use_parallel=False, context_config=context_config)
+
+
+def generator():
+    """text dataset generator."""
+    seq_len = 1025
+    input_ids = np.random.randint(low=0, high=15, size=(seq_len,)).astype(np.int32)
+    for _ in range(512):
+        yield input_ids
+
+# 环境初始化
+context_init()
+# 自定义训练超参数
+training_args = TrainingArguments(num_train_epochs=3, batch_size=2, learning_rate=0.001,
+                                  warmup_steps=1000, sink_mode=True)
+# 自定义模型
+pangu_model = AutoModel.from_pretrained("pangualpha_2_6b")
+opt = Momentum(learning_rate=0.1, momentum=0.9,
+               params=pangu_model.trainable_params(),)
+manager = AdaptiveLossScaleUpdateCell(1, 2, 20, 1000, 20)
+train_network = MFTrainOneStepCell(pangu_model, opt, scale_sense=manager)
+train_network.set_train()
+# 自定义数据集
+dataset = GeneratorDataset(generator, column_names=["input_ids"])
+train_dataset = dataset.batch(batch_size=4)
+eval_dataset = dataset.batch(batch_size=4)
+# 定义文本生成任务，传入自定义模型、数据集、超参数
+text_generation = Trainer(task='text_generation', model_name=='pangualpha_2_6b',
+                          wrapper=train_network, args=training_args,
+                          train_dataset=train_dataset, eval_dataset=eval_dataset)
 ```
 
 模型训练yaml中设置方式runner_config中声明使用adaptive loss scaling
