@@ -44,7 +44,7 @@ model:
   model_config:
     type: LlamaConfig
     batch_size: 1 # add for increase predict
-    seq_length: 4096
+    seq_length: 1024
     hidden_size: 5120
     num_layers: 40
     num_heads: 40
