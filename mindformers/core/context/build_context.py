@@ -15,7 +15,9 @@
 """Build context."""
 
 import os
+import psutil
 
+import mindspore.dataset as ds
 from mindspore import context
 from mindspore.communication.management import init, get_group_size, get_rank
 from mindspore.parallel import set_algo_parameters
@@ -51,9 +53,21 @@ def build_context(config):
 
     config.device_num = device_num
     config.local_rank = local_rank
+    ds.config.set_numa_enable(True)
+    cpu_affinity(local_rank, device_num)
+    logger.info(f"cpu_affinity, rank_id: {local_rank}, device_num: {device_num}")
 
     if config.parallel.get("strategy_ckpt_load_file"):
         context.set_auto_parallel_context(strategy_ckpt_load_file=config.parallel.strategy_ckpt_load_file)
+
+
+def cpu_affinity(rank_id, rank_size):
+    """cpu affinity"""
+    count = psutil.cpu_count()
+    p = psutil.Process()
+    used_cpus_num = count // rank_size
+    used_cpus = [i for i in range(rank_id * used_cpus_num, (rank_id + 1) * used_cpus_num)]
+    p.cpu_affinity(used_cpus)
 
 
 def init_context(use_parallel=False, context_config=None, parallel_config=None):
