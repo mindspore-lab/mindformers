@@ -115,6 +115,7 @@ class TextGenerationPipeline(BasePipeline):
 
         super().__init__(model, tokenizer, **kwargs)
         self._batch_size = batch_size
+        self.model_name = kwargs.get("model_name", None)
 
     def _sanitize_parameters(self, **pipeline_parameters):
         r"""Sanitize Parameters
@@ -149,6 +150,9 @@ class TextGenerationPipeline(BasePipeline):
         Return:
             Processed text.
         """
+        if self.model_name is not None and self.model_name.startswith("glm32k"):
+            return self.tokenizer.build_chat_input(inputs)
+
         add_special_tokens = preprocess_params.get('add_special_tokens', True)
         if isinstance(inputs, dict):
             keys = preprocess_params.get('keys', None)
