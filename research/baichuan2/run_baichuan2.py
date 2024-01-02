@@ -180,6 +180,10 @@ def main(task='text_generation',
                                  auto_trans_ckpt=config.auto_trans_ckpt,
                                  max_length=int(max_length))
         logger.info(result)
+    elif run_mode == 'export':
+        trainer = Trainer(args=config,
+                          task=task)
+        trainer.export(predict_checkpoint=config.model.model_config.checkpoint_name_or_path)
 
 
 if __name__ == "__main__":
