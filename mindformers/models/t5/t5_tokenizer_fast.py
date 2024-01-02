@@ -43,6 +43,9 @@ class T5TokenizerFast(PreTrainedTokenizerFast):
         vocab_file (`str`):
             [SentencePiece](https://github.com/google/sentencepiece) file (generally has a *.spm* extension) that
             contains the vocabulary necessary to instantiate a tokenizer.
+        tokenizer_file (`str`, *optional*):
+            Path to [tokenizers](https://github.com/huggingface/tokenizers) file (generally has a .json extension) that
+            contains everything needed to load the tokenizer.
         eos_token (`str`, *optional*, defaults to `"</s>"`):
             The end of sequence token.
 
