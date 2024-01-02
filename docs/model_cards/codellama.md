@@ -833,7 +833,7 @@ max_new_tokens: 512      #设置最大生成长度
 
 #### 多卡推理
 
-可参考[权重切分与合并](../feature_cards/Transform_Ckpt.md)中的分布式推理方法， 支持分布式推理，不支持batch推理
+可参考[权重切分与合并](../feature_cards/Transform_Ckpt.md)中的分布式推理方法， 支持分布式推理
 
 ```bash
 # 参考推理案例三，使用完整权重推理8卡
