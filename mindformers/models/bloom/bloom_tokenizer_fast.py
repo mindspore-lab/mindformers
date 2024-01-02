@@ -63,9 +63,9 @@ class BloomTokenizerFast(PreTrainedTokenizerFast):
             Path to the vocabulary file.
         merges_file (`str`):
             Path to the merges file.
-        errors (`str`, *optional*, defaults to `"replace"`):
-            Paradigm to follow when decoding bytes to UTF-8. See
-            [bytes.decode](https://docs.python.org/3/library/stdtypes.html#bytes.decode) for more information.
+        tokenizer_file (`str`, *optional*):
+            Path to [tokenizers](https://github.com/huggingface/tokenizers) file (generally has a .json extension) that
+            contains everything needed to load the tokenizer.
         unk_token (`str`, *optional*, defaults to `<|endoftext|>`):
             The unknown token. A token that is not in the vocabulary cannot be converted to an ID and is set to be this
             token instead.
@@ -73,11 +73,14 @@ class BloomTokenizerFast(PreTrainedTokenizerFast):
             The beginning of sequence token.
         eos_token (`str`, *optional*, defaults to `<|endoftext|>`):
             The end of sequence token.
+        pad_token (`str`, *optional*, defaults to `"[PAD]"`):
+            The token used for padding, for example when batching sequences of different lengths.
         add_prefix_space (`bool`, *optional*, defaults to `False`):
             Whether or not to add an initial space to the input. This allows to treat the leading word just as any
             other word. (Bloom tokenizer detect beginning of words by the preceding space).
-        trim_offsets (`bool`, *optional*, defaults to `True`):
-            Whether or not the post-processing step should trim offsets to avoid including whitespaces.
+        clean_up_tokenization_spaces (`bool`, *optional*, defaults to `False`):
+            Whether or not to cleanup spaces after decoding, cleanup consists in removing potential artifacts like
+            extra spaces.
     """
 
     vocab_files_names = VOCAB_FILES_NAMES

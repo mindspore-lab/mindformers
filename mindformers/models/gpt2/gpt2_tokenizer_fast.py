@@ -21,6 +21,7 @@ from typing import Optional, Tuple
 from tokenizers import pre_tokenizers
 
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
+from mindformers.tools import logger
 from ..base_tokenizer import BatchEncoding, PaddingStrategy, TruncationStrategy
 from ..base_fast_tokenizer import PreTrainedTokenizerFast
 from .gpt2_tokenizer import GPT2Tokenizer
@@ -126,6 +127,10 @@ class GPT2TokenizerFast(PreTrainedTokenizerFast):
             self.backend_tokenizer.pre_tokenizer = pre_tok_class(**pre_tok_state)
 
         self.add_prefix_space = add_prefix_space
+
+        self.add_eos_token = kwargs.pop("add_eos_token", False)
+        if self.add_eos_token:
+            logger.warning("For GPT2TokenizerFast, add_eos_token is not invalid now.")
 
     def _batch_encode_plus(
             self,
