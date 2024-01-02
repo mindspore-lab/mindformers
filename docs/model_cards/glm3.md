@@ -30,7 +30,7 @@ ChatGLM3 是智谱AI和清华大学 KEG 实验室联合发布的新一代对话�
 2. 模型配置：`configs/glm3`
 
     ```bash
-    glm2
+    glm3
         ├── export_glm3_6b.yaml                # 导出mindir配置
         ├── run_glm3_6b_finetune_2k_910b.yaml  # 910b最佳性能全量微调启动配置
         └── run_glm3_6b.yaml                   # 推理用配置
@@ -246,7 +246,7 @@ python transform_ckpt.py \
 --src_ckpt_strategy {path}/output/strategy/ \
 --src_ckpt_dir {path}/output/checkpoint/ \
 --dst_ckpt_dir {path}/target_checkpoint/ \
---prefix glm2_6b
+--prefix glm3_6b
 ```
 
 ```text
@@ -268,21 +268,22 @@ prefix: ckpt文件前缀名
 `from_pretrained()` 接口会自动从云上下载预训练的模型，存储路径：`./checkpoint_download/glm3`
 
 ```python
-import mindspore
+import mindspore as ms
 from mindformers import AutoConfig, AutoModel, AutoTokenizer
 
 # 指定图模式，指定使用训练卡id
-mindspore.set_context(mode=0)
+ms.set_context(mode=ms.GRAPH_MODE, device_target="Ascend", device_id=0)
 
 tokenizer = AutoTokenizer.from_pretrained('glm3_6b')
 
 # model的实例化有以下两种方式，选择其中一种进行实例化即可
 # 1. 直接根据默认配置实例化
-model = AutoModel.from_pretrained('glm3_6b')
+# model = AutoModel.from_pretrained('glm3_6b')
 # 2. 自定义修改配置后实例化
 config = AutoConfig.from_pretrained('glm3_6b')
 config.use_past = True                  # 此处修改默认配置，开启增量推理能够加速推理性能
-config.seq_length = 2048                      # 根据需求自定义修改其余模型配置
+config.seq_length = 2048                 # 根据需求自定义修改其余模型配置
+config.checkpoint_name_or_path = "/path/to/your.ckpt"
 model = AutoModel.from_config(config)   # 从自定义配置项中实例化模型
 
 role="user"
@@ -295,8 +296,57 @@ for input_item in inputs_list:
     inputs = inputs['input_ids']
     # 首次调用model.generate()进行推理将包含图编译时间，推理性能显示不准确，多次重复调用以获取准确的推理性能
     outputs = model.generate(inputs, do_sample=False, top_k=1, max_length=config.seq_length)
-    response = tokenizer.decode(outputs)
-    print(response)
+    for i, output in enumerate(outputs):
+        output = output[len(inputs[i]):]
+        response = tokenizer.decode(output)
+        print(response)
+# answer 1:
+# 你好👋！我是人工智能助手 ChatGLM3-6B，很高兴见到你，欢迎问我任何问题。
+
+# answer 2:
+# 华为是一家总部位于中国深圳的多元化科技公司,成立于1987年,是全球最大的电信设备制造商之一。该公司也在智能手机、电脑、平板电脑、云计算等领域开展业务,其产品和服务覆盖全球170多个国家和地区。
+
+# 华为的主要业务包括电信网络设备、智能手机、电脑和消费电子产品。公司在全球范围内有超过190,000名员工,其中约一半以上从事研发工作。华为以其高品质的产品和服务赢得了全球客户的信任和好评,也曾因其领先技术和创新精神而获得多项国际奖项和认可。
+
+# 然而,华为也面临着来自一些国家政府的安全问题和政治压力,其中包括美国政府对其产品的禁令和限制。华为一直坚称自己的产品是安全的,并采取了一系列措施来确保其产品的安全性和透明度。
+
+# answer 3:
+#  晚上睡不着可以尝试以下方法:
+
+# 1. 尝试放松身心,比如深呼吸、冥想、瑜伽等。
+
+# 2. 避免饮用咖啡、茶、可乐等刺激性饮料。
+
+# 3. 避免过度兴奋,比如看惊悚电影、玩刺激游戏等。
+
+# 4. 保持规律的作息时间,尽量每天按时上床睡觉、按时起床。
+
+# 5. 睡前适当运动,比如散步、慢跑等。
+
+# 6. 睡前可以喝一杯温牛奶或者一些助眠的食品。
+
+# 7. 如果长时间睡不着可以考虑咨询医生或心理咨询师。
+
+# answer 4:
+# 快速排序（Quick Sort）是一种常用的排序算法，其基本思想是通过一趟排序将待排序的数据分割成独立的两部分，其中一部分的所有数据都比另一部分的所有数据要小，然后再按此方法对这两部分数据分别进行快速排序，整个排序过程可以递归进行，以此达到整个数据变成有序序列。
+
+# 下面是一个用Python实现的快速排序算法：
+
+# ```python
+# def quick_sort(arr):
+#     if len(arr) <= 1:
+#         return arr
+#     pivot = arr[len(arr) // 2]
+#     left = [x for x in arr if x < pivot]
+#     middle = [x for x in arr if x == pivot]
+#     right = [x for x in arr if x > pivot]
+#     return quick_sort(left) + middle + quick_sort(right)
+
+# arr = [3,6,8,10,1,2,1]
+# print(quick_sort(arr))
+# ```
+
+# 在这个实现中，我们首先判断输入数组的长度是否小于等于1，如果是，则直接返回数组，因为长度为1的数组本身就是有序的。否则，我们选择数组中间的元素作为基准值（pivot）。然后，我们将数组中的元素分成三部分：小于基准值的元素（left）、等于基准值的元素（middle）和大于基准值的元素（right）。接着，我们分别对left和right子数组进行递归调用quick_sort函数进行排序，并将排序后的结果与middle子数组连接起来，得到最终的排序结果。
 ```
 
 ## 微调
@@ -322,7 +372,7 @@ AdvertiseGen
   └── dev.json
 ```
 
-将任务配置文件 `configs/glm2/run_glm3_6b_*.yaml` 中的 `==== dataset config ====` 部分替换成：
+将任务配置文件 `configs/glm3/run_glm3_6b_*.yaml` 中的 `==== dataset config ====` 部分替换成：
 
 ```yaml
 train_dataset: &train_dataset
@@ -462,11 +512,11 @@ IP_LIST=("192.168.0.0", "192.168.0.1", ..., "192.168.0.11")
 下面提供一个模型推理样例脚本 `infer.py`
 
 ```python
-import mindspore
+import mindspore as ms
 from mindformers import AutoConfig, AutoModel, AutoTokenizer
 
 # 指定图模式，指定使用训练卡id
-mindspore.set_context(mode=0)
+ms.set_context(mode=ms.GRAPH_MODE, device_target="Ascend", device_id=0)
 
 tokenizer = AutoTokenizer.from_pretrained('glm3_6b')
 
@@ -477,6 +527,7 @@ tokenizer = AutoTokenizer.from_pretrained('glm3_6b')
 config = AutoConfig.from_pretrained('glm3_6b')
 config.use_past = True                  # 此处修改默认配置，开启增量推理能够加速推理性能
 config.seq_length = 2048                      # 根据需求自定义修改其余模型配置
+config.checkpoint_name_or_path = "/path/to/your.ckpt"
 model = AutoModel.from_config(config)   # 从自定义配置项中实例化模型
 
 role="user"
@@ -490,13 +541,20 @@ for input_item in inputs_list:
     # 首次调用model.generate()进行推理将包含图编译时间，推理性能显示不准确，多次重复调用以获取准确的推理性能
     outputs = model.generate(inputs, do_sample=False, top_k=1, max_length=config.seq_length)
     response = tokenizer.decode(outputs)
-    print(response)
+    for i, output in enumerate(outputs):
+        output = output[len(inputs[i]):]
+        response = tokenizer.decode(output)
+        print(response)
+    # answer 1:
     # 你好👋！我是人工智能助手 ChatGLM3-6B，很高兴见到你，欢迎问我任何问题。
-    # 华为是一家总部位于中国深圳的多元化科技公司,成立于1987年,是全球最大的电信设备制造商之一。该公司也在智能手机、电脑、平板电脑、云计算等领域开展业务,其产品和服务覆盖全球170多个国家和# 地区。
-    #
-    # 华为的主要业务包括电信网络设备、智能手机、电脑和消费电子产品。公司在全球范围内有超过190,000名员工,其中约一半以上从事研发工作。华为以其高品质的产品和服务赢得了全球客户的信任和好评,# 也曾因其领先技术和创新精神而获得多项国际奖项和认可。
-    #
+
+    # answer 2:
+    # 华为是一家总部位于中国深圳的多元化科技公司,成立于1987年,是全球最大的电信设备制造商之一。该公司也在智能手机、电脑、平板电脑、云计算等领域开展业务,其产品和服务覆盖全球170多个国家和地区。
+
+    # 华为的主要业务包括电信网络设备、智能手机、电脑和消费电子产品。公司在全球范围内有超过190,000名员工,其中约一半以上从事研发工作。华为以其高品质的产品和服务赢得了全球客户的信任和好评,也曾因其领先技术和创新精神而获得多项国际奖项和认可。
+
     # 然而,华为也面临着来自一些国家政府的安全问题和政治压力,其中包括美国政府对其产品的禁令和限制。华为一直坚称自己的产品是安全的,并采取了一系列措施来确保其产品的安全性和透明度。
+
 ```
 
 ### 基于generate的多角色推理
@@ -504,7 +562,9 @@ for input_item in inputs_list:
 下面提供一个模型推理样例。
 
 ```python
-import mindspore
+from copy import deepcopy
+
+import mindspore as ms
 from mindformers import AutoConfig, AutoModel, AutoTokenizer
 
 
@@ -531,17 +591,18 @@ def process_response(output, history):
 
 
 # 指定图模式，指定使用训练卡id
-mindspore.set_context(mode=0)
+ms.set_context(mode=ms.GRAPH_MODE, device_target="Ascend", device_id=0)
 
 tokenizer = AutoTokenizer.from_pretrained('glm3_6b')
 
 # model的实例化有以下两种方式，选择其中一种进行实例化即可
 # 1. 直接根据默认配置实例化
-model = AutoModel.from_pretrained('glm3_6b')
+# model = AutoModel.from_pretrained('glm3_6b')
 # 2. 自定义修改配置后实例化
 config = AutoConfig.from_pretrained('glm3_6b')
 config.use_past = True                  # 此处修改默认配置，开启增量推理能够加速推理性能
 config.seq_length = 8192                      # 根据需求自定义修改其余模型配置
+config.checkpoint_name_or_path = "/path/to/your.ckpt"
 model = AutoModel.from_config(config)   # 从自定义配置项中实例化模型
 
 kwargs={}
@@ -702,7 +763,7 @@ python mindformers/tools/export.py --config_path configs/glm3/export_glm3_6b.yam
 2. 执行命令：
 
 ```bash
-python run_infer_main.py --device_id 0 --model_name glm2_6b --prefill_model_path glm3_export/glm3_6b_prefill_seq512_graph.mindir --increment_model_path glm3_export/glm3_6b_inc_seq512_graph.mindir --config_path lite.ini --is_sample_acceleration False --seq_length 512 --add_special_tokens True
+python run_infer_main.py --device_id 0 --model_name glm3_6b --prefill_model_path glm3_export/glm3_6b_prefill_seq512_graph.mindir --increment_model_path glm3_export/glm3_6b_inc_seq512_graph.mindir --config_path lite.ini --is_sample_acceleration False --seq_length 512 --add_special_tokens True
 ```
 
 　　等待模型载入、编译后，出现：
