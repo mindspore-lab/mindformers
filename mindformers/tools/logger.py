@@ -28,7 +28,7 @@ from typing import Dict, List, Tuple, Union
 from mindformers.tools.utils import get_num_nodes_devices, get_rank_info, \
     convert_nodes_devices_input, generate_rank_list,\
     check_in_modelarts, check_list, LOCAL_DEFAULT_PATH,\
-    get_output_root_path
+    get_log_path
 
 
 logger_list = []
@@ -263,7 +263,7 @@ class AiLogFastStreamRedirect2File(StreamRedirector):
         file_name = kwargs.get('file_name', '')
 
         if not file_save_dir:
-            file_save_dir = os.path.join(get_output_root_path(), 'log')
+            file_save_dir = get_log_path()
         if append_rank_dir:
             rank_str = RANK_DIR_FORMATTER.format(rank_id)
             file_save_dir = os.path.join(file_save_dir, rank_str)
@@ -511,7 +511,7 @@ def get_logger(logger_name: str = 'mindformers', **kwargs) -> logging.Logger:
         logging_level.append(_convert_level(level))
 
     if not file_save_dir:
-        file_save_dir = os.path.join(get_output_root_path(), 'log')
+        file_save_dir = get_log_path()
     rank_dir = RANK_DIR_FORMATTER
     if append_rank_dir:
         rank_str = rank_dir.format(rank_id)
@@ -579,30 +579,31 @@ class _LogActionOnce:
 
         return wrapper
 
+
 # pylint: disable=C0103
 class logger:
     """A class to call logger"""
-    # pylint: disable=E0213
-    def info(msg, *args, **kwargs):
+    @classmethod
+    def info(cls, msg, *args, **kwargs):
         """Log a message with severity 'INFO' on the Mindformers logger."""
         get_logger().info(msg, *args, **kwargs)
 
-    # pylint: disable=E0213
-    def debug(msg, *args, **kwargs):
+    @classmethod
+    def debug(cls, msg, *args, **kwargs):
         """Log a message with severity 'DEBUG' on the Mindformers logger."""
         get_logger().debug(msg, *args, **kwargs)
 
-    # pylint: disable=E0213
-    def error(msg, *args, **kwargs):
+    @classmethod
+    def error(cls, msg, *args, **kwargs):
         """Log a message with severity 'ERROR' on the Mindformers logger."""
         get_logger().error(msg, *args, **kwargs)
 
-    # pylint: disable=E0213
-    def warning(msg, *args, **kwargs):
+    @classmethod
+    def warning(cls, msg, *args, **kwargs):
         """Log a message with severity 'WARNING' on the Mindformers logger."""
         get_logger().warning(msg, *args, **kwargs)
 
-    # pylint: disable=E0213
-    def critical(msg, *args, **kwargs):
+    @classmethod
+    def critical(cls, msg, *args, **kwargs):
         """Log a message with severity 'CRITICAL' on the Mindformers logger."""
         get_logger().critical(msg, *args, **kwargs)
