@@ -65,10 +65,7 @@ def process_response(response_list):
 
 
 DEFAULT_IMAGE_TEXT_PAIR = [
-    ("./finetune/man.png", "这张图片的背景里有什么内容？"),
-    ("./finetune/ghost.jpg", "这张图片的背景里有什么内容？"),
-    ("./finetune/justice.png", "这张图片的背景里有什么内容？"),
-    ("./finetune/rabbit.png", "这张图片的背景里有什么内容？")
+    ("./finetune/sea.jpg", "这张图片的背景里有什么内容？")
 ]
 
 
@@ -182,7 +179,8 @@ def main(args):
         else:
             batch_size = len(image_filepath)
             for index in range(batch_size):
-                input_image = processor.image_processor(load_image(image_filepath[index]))
+                pil_image = load_image(image_filepath[index])
+                input_image = processor.image_processor(pil_image)
                 pre_input_ids = tokenizer(pre_prompts[index], add_special_tokens=False, return_tensors="ms")[
                     "input_ids"]
                 post_input_ids = tokenizer(post_prompts[index],
