@@ -229,6 +229,8 @@ PROMPT_PATH：longbench中不同数据对应的prompt
 
 全参微调需要多卡启动，以`LongBench`数据集为例，给出了默认配置文件`research/glm32k/run_glm32k.yaml`。
 
+当前模型已支持使用**Flash Attention算法**进行全参微调，请参考 [Flash Attention使用文档](../../docs/feature_cards/Training_Algorithms.md#flash-attention)
+
 - step 1. 修改`research/glm32k/run_glm32k.yaml`中相关配置
 
 ```text
@@ -395,19 +397,3 @@ python eval_longbench_metrics.py --predict_file PREDICT_PATH
 参数说明:
 predict_file：step 2输出的汇总结果地址
 ```
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

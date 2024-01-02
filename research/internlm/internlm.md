@@ -233,6 +233,8 @@ python alpaca_data_preprocess.py \
 
 internlm-7b用于微调，seq_length默认为2048，分布式微调训练在910A/B上均可在单机八卡上启动。以alpaca_data数据集为例,给出了910A上的默认配置文件`run_internlm_7b.yaml`。若使用910B机器，使用`run_internlm_7b_910b.yaml`配置文件即可，其他步骤与910A一致。
 
+当前模型已支持使用**Flash Attention算法**进行全参微调，请参考 [Flash Attention使用文档](../../docs/feature_cards/Training_Algorithms.md#flash-attention)
+
 1. 权重准备
 
 权重支持在线/离线切分方式。在线切分则会在启动微调任务后自动按照分布式策略进行权重切分，离线切分需要在任务前手动进行切分。

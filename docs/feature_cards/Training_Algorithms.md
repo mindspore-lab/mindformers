@@ -83,3 +83,27 @@ callbacks:
 ```
 
 在开启该配置之后，会在`summary_dir`路径下生成`export_xxx/tensor`文件夹，其中包含每层MoE中Token分布数据，再使用`mindformers/tools/moe_token_distribution_tools.py`脚本，输入参数：`num_layers`、`hot_expert_num`、`npy_files_load_path`、`save_path_prefix`。会在保存路径中生成Token分布图。
+
+## Flash Attention
+
+Flash Attention（简称FA），是深度学习业界主流的注意力计算加速算法；MindSpore+Ascend架构也提供了FA实现，当前MindFormers对部分模型进行了FA的适配，可使用 `model_config` 中的 `use_flash_attention` 配置项控制模型是否使用FA
+
+注意，FA特性依赖于MindSpore 2.2.10+版本，且目前仅针对Atlas A2训练系列硬件进行了适配，请使用正确的版本配套
+
+由于FA特性并非全版本全硬件支持，当前默认关闭FA，需手动打开配置项以使用FA
+
+举例如下，llama可通过修改配置项以使能FA，而后可使用该配置项进行训练
+
+```yaml
+# model config
+model:
+  model_config:
+    type: LlamaConfig
+    ...
+    use_flash_attention: True   # True to enable FA, False to disable FA
+    ...
+  arch:
+    type: LlamaForCausalLM
+```
+
+FA的模型支持度可参见 [模型能力表格](../model_support_list.md#llm大模型能力支持一览)
