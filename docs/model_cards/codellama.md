@@ -287,6 +287,8 @@ python llama_preprocess.py \
 
 Code Llama 34b至少使用4机32卡进行训练。
 
+当前模型已支持使用**Flash Attention算法**进行预训练，请参考 [Flash Attention使用文档](../feature_cards/Training_Algorithms.md#flash-attention)
+
 #### 多卡训练
 
 ##### 多机多卡
@@ -395,6 +397,8 @@ python llama_preprocess.py \
 ### 全参微调
 
 以codellama 34b为例
+
+当前模型已支持使用**Flash Attention算法**进行全参微调，请参考 [Flash Attention使用文档](../feature_cards/Training_Algorithms.md#flash-attention)
 
 - step 1. 将`config/codellama/run_codellama_34b_910b.yaml`中训练数据集路径为微调数据集路径，并在`input_columns`中添加`labels`。
 

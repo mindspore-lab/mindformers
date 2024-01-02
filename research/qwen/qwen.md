@@ -196,6 +196,8 @@ python mindformers/research/qwen/convert_weight.py \
 
 1. 当前支持模型已提供yaml文件，下文以Qwen-7B为例，即使用`run_qwen_7b.yaml`配置文件进行介绍，请根据实际使用模型更改配置文件。
 
+   当前模型已支持使用**Flash Attention算法**进行全参微调，请参考 [Flash Attention使用文档](../../docs/feature_cards/Training_Algorithms.md#flash-attention)
+
 2. RANK_TABLE_FILE准备：请参照[RANK_TABLE_FILE准备](#RANK_TABLE_FILE准备)获取单机8卡的`RANK_TABLE_FILE`文件。
 
 3. 设置如下环境变量：

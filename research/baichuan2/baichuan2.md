@@ -279,6 +279,8 @@ Mindformer支持权重自动转换，详细教程请参考[权重转换文档](.
 
 Baichuan2-7B在910A上训练，至少需要2节点，请参考**多机训练**；在910B上训练，支持**单机/多机训练**。
 
+当前模型已支持使用**Flash Attention算法**进行全参微调，请参考 [Flash Attention使用文档](../../docs/feature_cards/Training_Algorithms.md#flash-attention)
+
 - **单机训练**
 
 Baichuan2-7B-Base用于微调，seq_length默认为512，分布式微调训练在910B上单节点即可启动。以`belle_chat_ramdon_10k.json`数据集为例，给出了默认配置文件`run_baichuan2_7b_910b.yaml`。
@@ -824,6 +826,8 @@ ge.exec.precision_mode=must_keep_origin_dtype
 请参照[数据集准备](#数据集准备)章节获取mindrecord格式的belle数据集，参照[模型权重准备](#模型权重准备)章节获取Baichuan2-13B-Base权重。
 
 Baichuan2-13B在910A上训练，至少需要2节点，请参考**多机训练**；在910B上训练，支持**单机/多机训练**。
+
+当前模型已支持使用**Flash Attention算法**进行全参微调，请参考 [Flash Attention使用文档](../../docs/feature_cards/Training_Algorithms.md#flash-attention)
 
 - **单机训练**
 

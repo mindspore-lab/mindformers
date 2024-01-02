@@ -525,6 +525,8 @@ python llama_preprocess.py \
 
 以llama2 7b为例
 
+当前模型已支持使用**Flash Attention算法**进行全参微调，请参考 [Flash Attention使用文档](../feature_cards/Training_Algorithms.md#flash-attention)
+
 - step 1. 参考`config/llama2/run_llama2_7b_910b_finetune.yaml`中训练数据集路径为微调数据集路径，并在`input_columns`中添加`labels`。
 
 ```python

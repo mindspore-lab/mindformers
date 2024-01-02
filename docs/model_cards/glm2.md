@@ -462,6 +462,8 @@ eval_dataset_task:
 - 数据集：修改 `configs/glm2/run_glm2_6b_finetune*.yaml` 脚本中`train_dataset` 的 `dataset_dir` 为前文生成的数据集路径。
 - 加载预训练模型权重：修改 `configs/glm2/run_glm2_6b_finetune*.yaml` 脚本中的 `load_checkpoint` 为预训练模型权重路径。
 
+当前模型已支持使用**Flash Attention算法**进行全参微调，请参考 [Flash Attention使用文档](../feature_cards/Training_Algorithms.md#flash-attention)
+
 #### 单卡微调
 
 由于glm2_6b模型较大，全量微调不支持单卡运行
