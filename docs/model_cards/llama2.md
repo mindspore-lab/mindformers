@@ -1181,7 +1181,7 @@ processor:
 
 #### 多卡推理
 
-可参考[权重切分与合并](../feature_cards/Transform_Ckpt.md)中的分布式推理方法， 支持分布式推理，不支持batch推理
+可参考[权重切分与合并](../feature_cards/Transform_Ckpt.md)中的分布式推理方法， 支持分布式推理
 
 ```bash
 # 以llama2-7b 2卡推理为例,参考案例三，使用完整权重推理2卡
