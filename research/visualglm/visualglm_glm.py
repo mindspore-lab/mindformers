@@ -14,16 +14,18 @@
 # ============================================================================
 """visualglm language model."""
 import numpy as np
+
 import mindspore as ms
 from mindspore import dtype as mstype, Tensor
 from mindspore import ops
+from mindspore.ops import operations as P
 
-from mindformers import logger
+from mindformers import logger, CrossEntropyLoss
 from mindformers.models.glm.attention import default_dpmp_config
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
-
 from mindformers.models.glm.glm import GLMModel, GLMForPreTraining
 from mindformers.models.glm.glm_config import GLMConfig
+
 from layers import ImageTextEmbeddingPreparationMixIn
 from attention import SelfAttentionAdapter
 
@@ -132,6 +134,14 @@ class GLMForPreTrainingForBlip2(GLMForPreTraining, ImageTextEmbeddingPreparation
         self.transformer = GLMModelForBlip2(config)
 
         self.config.checkpoint_name_or_path = checkpoint_name_or_path
+
+        self.loss = CrossEntropyLoss(parallel_config=config.parallel_config)
+        self.cast_1d = P.Cast()
+        self.mul_1d = P.Mul().shard(((1,), (1,)))
+        self.reshape = P.Reshape()
+        self.not_equal_1d = P.NotEqual().shard(((1,), ()))
+        self.batch_size = config.batch_size
+        self.vocab_size = config.vocab_size
         self.load_checkpoint(config) # todo lite推理注释，ms放开
 
     def to_text_embeddings(self, text_input_ids):
@@ -140,7 +150,8 @@ class GLMForPreTrainingForBlip2(GLMForPreTraining, ImageTextEmbeddingPreparation
         :param text_input_ids: text input id
         :return: text embedding
         """
-        input_embeds, _ = self.transformer.word_embeddings(text_input_ids)
+        input_embeds_raw = self.transformer.word_embeddings(text_input_ids)
+        input_embeds = input_embeds_raw[0]
         input_embeds = self.transformer.embedding_dropout(input_embeds)
         return input_embeds
 
@@ -177,6 +188,7 @@ class GLMForPreTrainingForBlip2(GLMForPreTraining, ImageTextEmbeddingPreparation
         output_states = self.transformer(input_embeddings, position_ids, attention_mask, init_reset, batch_valid_length)
         logits = self.lm_head(output_states)
 
+        seq_length = output_states.shape[1]
         logits_shape = logits.shape
         if not self.training:
             logits = logits.reshape((-1, logits_shape[-1]))
@@ -185,11 +197,19 @@ class GLMForPreTrainingForBlip2(GLMForPreTraining, ImageTextEmbeddingPreparation
                 logits = self.gather(logits, input_position, 0)
             return (logits,)
 
-        labels = labels.reshape((-1,))
-        logits = logits.reshape((-1, logits_shape[-1]))
-        input_mask = self.not_equal(labels, self.ignore_index).astype(logits.dtype)
-        input_mask = input_mask.reshape((-1,))
-        loss = self.loss(logits, labels, input_mask)
+        logits_reshape = logits.reshape((self.batch_size, seq_length, self.vocab_size))
+
+        shift_logits = logits_reshape[..., :-1, :]
+        shift_labels = labels[..., 1:]
+
+        logits_view = shift_logits.view((-1, shift_logits.shape[-1]))
+        labels_view = shift_labels.view(-1)
+
+        input_mask = self.cast_1d(self.not_equal_1d(shift_labels, -100), mstype.float32)
+        input_mask = self.reshape(input_mask, (-1,))
+
+        loss = self.loss(logits_view, labels_view, input_mask)
+        # loss = self.loss(logits_view, labels_view)
         return loss
 
     def prepare_inputs_for_export(self, full_model):

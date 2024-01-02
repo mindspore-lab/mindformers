@@ -50,36 +50,7 @@ def str2bool(v):
     return output
 
 
-DEFAULT_IMAGE_TEXT_PAIR = [
-    ("./images/titanic.jpg",
-     "Question: What happened of this movie? Answer:"),
-    ("./images/elephant.jpg",
-     "it is a photo of"),
-    ("./images/000000009400.jpg", ""),
-    ("./images/000000009483.jpg", ""),
-    ("./images/000000009448.jpg", ""),
-    ("./images/000000010363.jpg", ""),
-    ("./images/000000009769.jpg", "")
-]
-
-
 def main(args):
-    if args.image_path is None:
-        image_filepath = [pair[0] for pair in DEFAULT_IMAGE_TEXT_PAIR]
-    else:
-        image_filepath = args.image_path.split(',')
-
-    if args.prompt is None:
-        if args.image_path is not None:
-            prompts = [""] * len(image_filepath)
-        else:
-            prompts = [pair[1] for pair in DEFAULT_IMAGE_TEXT_PAIR]
-    else:
-        prompts = args.prompt.split(',')
-
-    if len(prompts) != len(image_filepath):
-        raise ValueError("prompts length do not equal to image_path length, please check the args.")
-
     init_context(device_id=args.device_id)
 
     model_config = VisualGLMConfig.from_pretrained(args.config_path)
@@ -92,13 +63,6 @@ def main(args):
 
     if args.batch_size > 1:
         model_config.batch_size = args.batch_size
-
-        diff = model_config.batch_size - len(image_filepath)
-        if diff > 0:
-            extend_filepath = [image_filepath[-1]] * diff
-            extend_prompt = [prompts[-1]] * diff
-            image_filepath.extend(extend_filepath)
-            prompts.extend(extend_prompt)
     else:
         model_config.batch_size = 1
 
@@ -161,9 +125,6 @@ if __name__ == '__main__':
 
     parser.add_argument('--seq_length', type=int, default=32, required=False, help='seq length')
 
-    parser.add_argument('--image_path', type=str, default=None, required=False, help='image path')
-
-    parser.add_argument('--prompt', type=str, default=None, required=False, help='')
     parser.add_argument('--mode', type=str, default="export", required=False, help='')
 
     args_ = parser.parse_args()
