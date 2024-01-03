@@ -573,8 +573,6 @@ class CausalMask(nn.Cell):
         if not self.use_flash_attention:
             mask = self.expand_dim_post(mask, 1)
             mask = self.mul_post(mask, self.multiply_data)
-        else:
-            mask = self.cast(mask, mstype.uint8)
         return mask
 
     def shard(self, parallel_config):

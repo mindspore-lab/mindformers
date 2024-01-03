@@ -339,7 +339,7 @@ class Baichuan13BV2Model(BaseModel):
                 self.norm_out.set_comm_fusion(config.parallel_config.gradient_aggregation_group)
 
             self.tok_embeddings.shard(config.parallel_config)
-
+            self.casual_mask.shard(config.parallel_config)
             self.sub.shard(((1,), (dp, 1, 1)))
             self.mul_mask.shard(((dp, 1, 1, 1), (1,)))
             self.mul_alibi.shard(((1, mp, 1, 1), (dp, 1, 1, 1)))
