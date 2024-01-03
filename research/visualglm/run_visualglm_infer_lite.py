@@ -256,7 +256,7 @@ if __name__ == '__main__':
     parser.add_argument('--top_p', type=float, default=1, required=False, help='top p')
     parser.add_argument('--top_k', type=int, default=0, required=False, help='top k')
     parser.add_argument('--seq_length', type=int, default=32, required=False, help='seq length')
-    parser.add_argument('--image_path', type=str, default=None, required=True, help='image path')
+    parser.add_argument('--image_path', type=str, default=None, required=False, help='image path')
     parser.add_argument('--prompt', type=str, default='', required=False, help='prompt content')
     parser.add_argument('--full_model_path', default=None, type=str, help="load mindir full checkpoint")
     parser.add_argument('--inc_model_path', default=None, type=str, help="load mindir inc checkpoint")

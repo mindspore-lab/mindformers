@@ -19,7 +19,8 @@ import re
 import mindspore as ms
 from mindspore.dataset import vision
 from mindspore.dataset.vision.utils import Inter
-
+from mindformers.tools.logger import logger
+from mindformers.tools.utils import str2bool
 from mindformers.tools.image_tools import load_image
 from visualglm import VisualGLMImageToTextGeneration
 from visualglm_config import VisualGLMConfig
@@ -37,18 +38,6 @@ def build_text_input(prompts, templates):
     for i in range(len(prompts)):
         text_input.append(templates[i].format(prompts[i]))
     return text_input
-
-
-def str2bool(v):
-    """convert bool str to bool"""
-    v_lower = v.lower()
-    if v_lower in ["false", "0"]:
-        output = False
-    elif v_lower in ["true", "1"]:
-        output = True
-    else:
-        raise ValueError("Invalid boolean value")
-    return output
 
 
 def process_response(response_list):
@@ -128,7 +117,7 @@ def main(args):
     model_config.max_txt_len = args.seq_length
 
     if args.checkpoint is not None:
-        print(f"checkpoint: {args.checkpoint}")
+        logger.info(f"checkpoint: {args.checkpoint}")
         model_config.checkpoint_name_or_path = args.checkpoint
 
     image_filepath, pre_prompts, post_prompts, image_positions = handle_prompt(args)
@@ -177,13 +166,12 @@ def main(args):
             output = model.generate_text_for_image(input_images, pre_input_ids, post_input_ids)
             response = tokenizer.decode(output, skip_special_tokens=True)
             response = process_response(response)
-            print("Response:")
-            print(response)
-            print("\n")
+            logger.info(f"Response:{response}")
         else:
             batch_size = len(image_filepath)
             for index in range(batch_size):
-                input_image = processor.image_processor(load_image(image_filepath[index]))
+                pil_image = load_image(image_filepath[index])
+                input_image = processor.image_processor(pil_image)
                 pre_input_ids = tokenizer(pre_prompts[index], add_special_tokens=False, return_tensors="ms")[
                     "input_ids"]
                 post_input_ids = tokenizer(post_prompts[index],
@@ -195,104 +183,25 @@ def main(args):
 
                 response = tokenizer.decode(output, skip_special_tokens=True)
                 response = process_response(response)
-                print("Response:")
-                print(response)
-                print("\n")
+                logger.info(f"Response:{response}")
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        '--model_type',
-        default="visualglm_6b",
-        type=str,
-        required=False,
-        help='model type')
-
-    parser.add_argument(
-        '--config_path',
-        default="run_visualglm_6b_image_to_text_generation.yaml",
-        type=str,
-        required=False,
-        help='config path')
-
-    parser.add_argument(
-        '--device_id',
-        type=int,
-        default=1,
-        required=False,
-        help='device id')
-
-    parser.add_argument(
-        '--batch_size',
-        type=int,
-        default=1,
-        required=False,
-        help='batch_size')
-
-    parser.add_argument(
-        '--checkpoint',
-        type=str,
-        default=None,
-        required=False,
-        help='checkpoint path')
-
-    parser.add_argument(
-        '--generate_repeat_time',
-        type=int,
-        default=1,
-        required=False,
-        help='generate repeat time')
-
-    parser.add_argument(
-        '--use_past',
-        type=str2bool,
-        default=True,
-        required=False,
-        help='whether use past')
-
-    parser.add_argument(
-        '--do_sample',
-        type=str2bool,
-        default=False,
-        required=False,
-        help='whether do sample')
-
-    parser.add_argument(
-        '--top_p',
-        type=float,
-        default=1,
-        required=False,
-        help='top p')
-
-    parser.add_argument(
-        '--top_k',
-        type=int,
-        default=0,
-        required=False,
-        help='top k')
-
-    parser.add_argument(
-        '--seq_length',
-        type=int,
-        default=32,
-        required=False,
-        help='seq length')
-
-    parser.add_argument(
-        '--image_path',
-        type=str,
-        default=None,
-        required=False,
-        help='image path')
-
-    parser.add_argument(
-        '--prompt',
-        type=str,
-        default=None,
-        required=False,
-        help='')
-
+    parser.add_argument('--model_type', default="visualglm_6b", type=str, required=False, help='model type')
+    parser.add_argument('--config_path', default="run_visualglm_6b_image_to_text_generation.yaml",
+                        type=str, required=False, help='config path')
+    parser.add_argument('--device_id', type=int, default=1, required=False, help='device id')
+    parser.add_argument('--batch_size', type=int, default=1, required=False, help='batch_size')
+    parser.add_argument('--checkpoint', type=str, default=None, required=False, help='checkpoint path')
+    parser.add_argument('--generate_repeat_time', type=int, default=1, required=False, help='generate repeat time')
+    parser.add_argument('--use_past', type=str2bool, default=True, required=False, help='whether use past')
+    parser.add_argument('--do_sample', type=str2bool, default=False, required=False, help='whether do sample')
+    parser.add_argument('--top_p', type=float, default=1, required=False, help='top p')
+    parser.add_argument('--top_k', type=int, default=0, required=False, help='top k')
+    parser.add_argument('--seq_length', type=int, default=32, required=False, help='seq length')
+    parser.add_argument('--image_path', type=str, default=None, required=False, help='image path')
+    parser.add_argument('--prompt', type=str, default=None, required=False, help='prompt content')
     args_ = parser.parse_args()
     print(args_)
 

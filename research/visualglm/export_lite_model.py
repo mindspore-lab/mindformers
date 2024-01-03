@@ -21,6 +21,7 @@ import os
 import mindspore as ms
 
 from mindformers.tools import logger
+from mindformers.tools.utils import str2bool
 from mindformers.tools.utils import get_output_subpath
 from visualglm import VisualGLMImageToTextGeneration
 from visualglm_config import VisualGLMConfig
@@ -32,22 +33,6 @@ def init_context(device_id):
     :param device_id: npu device id
     """
     ms.set_context(mode=0, device_target="Ascend", device_id=device_id, max_device_memory="30GB", save_graphs=False)
-
-
-def str2bool(v):
-    """
-    str to bool
-    :param v:  str
-    :return: bool
-    """
-    v_lower = v.lower()
-    if v_lower in ["false", "0"]:
-        output = False
-    elif v_lower in ["true", "1"]:
-        output = True
-    else:
-        raise ValueError("Invalid boolean value")
-    return output
 
 
 def main(args):
