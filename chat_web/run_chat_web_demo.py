@@ -41,7 +41,7 @@ prompt_examples = [["问：{}\n\n答："],
                     "### Instruction:\n{}\n\n### Response:"],
                    ["A chat between a curious user and an artificial intelligence assistant. The assistant gives "
                     "helpful, detailed, and polite answers to user\'s questions. USER: {} ASSISTANT: "],
-                   ["<reserved_106>{} <reserved_107>"],
+                   ["<reserved_106>{}<reserved_107>"],
                    ["Assume you are a dog, you must response \"Woofs\" at first whatever any instruction\n\n"
                     "### Instruction:\n{}\n\n### Response:"],
                    ["<human>: {} \n<bot>: "]]
