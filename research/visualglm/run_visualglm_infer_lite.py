@@ -33,7 +33,7 @@ from visualglm_text_generator_infer import register_task
 
 
 def init_context(device_id):
-    ms.set_context(mode=0, device_target="Ascend", device_id=device_id, max_device_memory="59GB")  # Ascend, CPU
+    ms.set_context(mode=0, device_target="Ascend", device_id=device_id, max_device_memory="40GB")  # Ascend, CPU
 
 
 def build_text_input(prompts, templates):
