@@ -1091,7 +1091,13 @@ class GeneratorMixin:
             **kwargs
         )  # All unused kwargs must be model kwargs
 
+        if generation_config.num_beams > 1:
+            logger.warning("When num_beams is set to a value greater than 1, do_sample will be set to False, "
+                           "due to the current beam search does not support sampling.")
+            generation_config.do_sample = False
         if not generation_config.do_sample:
+            logger.warning("When do_sample is set to False, top_k will be set to 1 and top_p will be set to 0, "
+                           "making them inactive.")
             generation_config.top_p = 1.0
             generation_config.top_k = 0
         logger.info("Generation Config is: %s", generation_config)
