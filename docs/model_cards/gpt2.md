@@ -322,7 +322,7 @@ print(pipeline_result)
 
 2、词表下载：[vocab.json](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/XFormer_for_mindspore/gpt2/vocab.json)，[merges.txt](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/XFormer_for_mindspore/gpt2/merges.txt)
 
-3、参考[wikitext-2处理脚本](https://gitee.com/mindspore/mindformers/blob/931cf93045473d5827ee26638d83fabe94058d28/mindformers/tools/dataset_preprocess/gpt2/wikitext2_data_process.py#)，将数据处理成Mindrecord格式。
+3、参考[wikitext-2处理脚本](https://gitee.com/mindspore/mindformers/blob/dev/mindformers/tools/dataset_preprocess/gpt2/wikitext2_data_process.py#)，将数据处理成Mindrecord格式。
 
 **注：除使用`configs/gpt2/run_gpt2_txtcls.yaml`配置文件外，预训练或者微调时，数据需处理为`configs/gpt2/run_gpt2_*.yaml`中`model.model_config.seq_length`的值加1，如下，当使用`run_gpt2.yaml`配置文件执行训练时，`max_length`需设为1025。**
 
