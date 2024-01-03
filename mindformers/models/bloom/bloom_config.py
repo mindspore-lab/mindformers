@@ -135,6 +135,7 @@ class BloomConfig(BaseConfig):
                  top_p: int = 1,
                  do_sample: bool = True,
                  is_sample_acceleration: bool = False,
+                 use_flash_attention: bool = False,
                  **kwargs):
         super().__init__(**kwargs)
         self.embedding_dropout_prob = embedding_dropout_prob
@@ -169,6 +170,7 @@ class BloomConfig(BaseConfig):
         self.top_p = top_p
         self.do_sample = do_sample
         self.is_sample_acceleration = is_sample_acceleration
+        self.use_flash_attention = use_flash_attention
         if self.batch_size is None:
             self.use_past = False # currently require batch_size = 1
             self.is_sample_acceleration = False # currently require batch_size = 1

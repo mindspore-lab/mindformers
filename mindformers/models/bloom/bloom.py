@@ -151,6 +151,7 @@ class BloomModel(nn.Cell):
                                   use_past=config.use_past,
                                   use_seq_parallel=config.use_seq_parallel,
                                   use_select_recompute=config.use_select_recompute,
+                                  use_flash_attention=config.use_flash_attention,
                                   parallel_config=config.parallel_config).blocks
         self.num_layers = config.num_layers
         self.ln_f = LayerNorm((config.hidden_size,)).to_float(config.layernorm_compute_type)

@@ -21,6 +21,11 @@ from mindspore import nn, ops, Parameter
 import mindspore.common.dtype as mstype
 from mindspore.ops import operations as P
 from mindspore.context import ParallelMode
+try:
+    from mindspore.nn.layer.flash_attention import FlashAttention
+    FLASHATTENTION_IMPORT_VALID = True
+except ImportError:
+    FLASHATTENTION_IMPORT_VALID = False
 from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
 from mindformers.tools.logger import logger as mindformer_logger
 from mindformers.modules import AttentionMask
@@ -29,6 +34,7 @@ from mindformers.modules.transformer.moe import default_moe_config
 from mindformers.modules.transformer import MultiHeadAttention,\
                                             TransformerEncoderLayer, TransformerEncoder
 from mindformers.modules.transformer.transformer import default_transformer_config, _get_lambda_func
+from mindformers.version_control import check_valid_flash_attention, choose_flash_attention_dtype
 
 
 class BloomAttention(MultiHeadAttention):
@@ -46,6 +52,7 @@ class BloomAttention(MultiHeadAttention):
                  use_past=False,
                  use_seq_parallel=False,
                  use_select_recompute=False,
+                 use_flash_attention=False,
                  parallel_config=default_dpmp_config):
 
         super(BloomAttention, self).__init__(batch_size,
@@ -98,6 +105,19 @@ class BloomAttention(MultiHeadAttention):
             self.batch_matmul_trans_b = P.BatchMatMul(transpose_b=True).shard(
                 ((parallel_config.data_parallel, parallel_config.model_parallel, 1, 1),
                  (parallel_config.data_parallel, parallel_config.model_parallel, 1, 1)))
+            self.use_flash_attention = use_flash_attention
+            if self.use_flash_attention:
+                self.attention_mask_dtype = choose_flash_attention_dtype()
+                self.flash_attention = FlashAttention(self.size_per_head,
+                                                      self.n_head,
+                                                      dropout_rate=attention_dropout_rate,
+                                                      prev_block_num=65536,
+                                                      next_block_num=0,
+                                                      dp=parallel_config.data_parallel,
+                                                      mp=parallel_config.model_parallel,
+                                                      high_precision=True, #<<<<<<<<<<<<<<<<<<<< check if softmax is fp32
+                                                      alibi=True,
+                                                      have_attention_mask_batch=True)
             if use_select_recompute:
                 mindformer_logger.info("Using select recompute mode!")
                 self.cast.recompute()
@@ -118,7 +138,7 @@ class BloomAttention(MultiHeadAttention):
                     strategy_matmul=((parallel_config.data_parallel, parallel_config.model_parallel),
                                      (parallel_config.model_parallel, 1)),
                     out_strategy_matmul=((parallel_config.data_parallel * parallel_config.model_parallel, 1),))
-
+        self.sub_attention = ops.Sub().shard(((1,), (1, 1, 1, 1)))
     # pylint: disable=arguments-differ
     def construct(self, query_tensor, key_tensor, value_tensor, alibi_tensor, attention_mask,
                   key_past=None, value_past=None, batch_valid_length=None):
@@ -188,7 +208,13 @@ class BloomAttention(MultiHeadAttention):
         layer_present = (key_present, value_present)
         # multi head attention considering attention mask
         # the return shape is [bs * seq_length, hidden_size]
-        attention = self._attn(query, key, value, alibi_tensor, attention_mask, batch_valid_length)
+        if self.use_flash_attention:
+            attention_mask = self.sub_attention(Tensor((1.0,), mstype.float16), attention_mask)
+            attention_mask = attention_mask.to(self.attention_mask_dtype)
+            attention = self.flash_attention(query, key, value, attention_mask, alibi_tensor)
+            attention = self._merge_heads(attention)
+        else:
+            attention = self._attn(query, key, value, alibi_tensor, attention_mask, batch_valid_length)
 
         # Output
         output = self.projection(attention)
@@ -281,6 +307,7 @@ class BloomBlock(TransformerEncoderLayer):
                  use_past=False,
                  use_seq_parallel=False,
                  use_select_recompute=False,
+                 use_flash_attention=False,
                  moe_config=default_moe_config,
                  parallel_config=default_dpmp_config):
 
@@ -315,6 +342,7 @@ class BloomBlock(TransformerEncoderLayer):
                                             use_past=use_past,
                                             use_seq_parallel=use_seq_parallel,
                                             use_select_recompute=use_select_recompute,
+                                            use_flash_attention=use_flash_attention,
                                             parallel_config=attention_parallel_config)
         elif _get_parallel_mode() not in (ParallelMode.AUTO_PARALLEL,):
             self.use_past = use_past
@@ -331,6 +359,7 @@ class BloomBlock(TransformerEncoderLayer):
                                             use_past=use_past,
                                             use_seq_parallel=use_seq_parallel,
                                             use_select_recompute=use_select_recompute,
+                                            use_flash_attention=use_flash_attention,
                                             parallel_config=attention_parallel_config)
         if self.use_past:
             size_per_head = hidden_size // num_heads
@@ -444,6 +473,7 @@ class BloomBlocks(TransformerEncoder):
                  use_past=False,
                  use_seq_parallel=False,
                  use_select_recompute=False,
+                 use_flash_attention=False,
                  moe_config=default_moe_config,
                  parallel_config=default_transformer_config):
 
@@ -467,6 +497,8 @@ class BloomBlocks(TransformerEncoder):
                                           parallel_config)
 
         config_to_layer = parallel_config.moe_parallel_config if self.use_moe else parallel_config.dp_mp_config
+        if use_flash_attention:
+            use_flash_attention = check_valid_flash_attention(FLASHATTENTION_IMPORT_VALID)
         if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation():
             self.num_layers = num_layers
             self.blocks = nn.CellList()
@@ -486,6 +518,7 @@ class BloomBlocks(TransformerEncoder):
                                    use_past=use_past,
                                    use_seq_parallel=use_seq_parallel,
                                    use_select_recompute=use_select_recompute,
+                                   use_flash_attention=use_flash_attention,
                                    moe_config=moe_config,
                                    parallel_config=config_to_layer)
 
@@ -515,6 +548,7 @@ class BloomBlocks(TransformerEncoder):
                                    use_past=use_past,
                                    use_seq_parallel=use_seq_parallel,
                                    use_select_recompute=use_select_recompute,
+                                   use_flash_attention=use_flash_attention,
                                    moe_config=moe_config,
                                    parallel_config=config_to_layer)
 
