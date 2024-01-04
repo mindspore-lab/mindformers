@@ -33,7 +33,7 @@ __all__ = ['AdaptiveLossScaleUpdateCell']
 def _get_window_list(max_scale_window, min_scale_window, window_interval, window_factor):
     """ automatic generate the scale window list with max_scale_window and min_scale_window. """
     window_list = []
-    window_list.append(max_scale_window)
+    window_list.append(int(max_scale_window))
     while max_scale_window > min_scale_window:
         if max_scale_window > window_interval:
             max_scale_window = int(max_scale_window / window_factor / window_interval) * window_interval
@@ -74,15 +74,12 @@ class AdaptiveLossScaleUpdateCell(Cell):
     level if loss_scale increases three times during current scale window. The scale
     window will be decreased to '1' if loss_scale decreases three times consecutively.
 
-    `get_update_cell` method of :class:`mindspore.amp.AdaptiveLossScaleManager` will return this class.
-    It will be called by :class:`mindspore.nn.TrainOneStepWithLossScaleCell` during training to update loss scale.
-
     Args:
         loss_scale_value (float): Initializes loss scale.
         scale_factor (int): Coefficient of increase and decrease.
         scale_window (int): current Maximum continuous training steps that do not have overflow to increase loss scale.
-        max_scale_window (int): Maximum scale_window of the automatic scale window list.
-        min_scale_window (int): Minimum scale_window of the automatic scale window list.
+        max_scale_window (int): Maximum scale_window of the automatic scale window list. The default value is 20.
+        min_scale_window (int): Minimum scale_window of the automatic scale window list. The default value is 1000.
 
     Inputs:
         - **loss_scale** (Tensor) - The loss scale value during training with shape :math:`()`.
@@ -92,34 +89,47 @@ class AdaptiveLossScaleUpdateCell(Cell):
         bool, the input `overflow`.
 
     Supported Platforms:
-        ``Ascend`` ``GPU``
+        ``Ascend``
     Examples:
         >>> import numpy as np
-        >>> import mindspore
-        >>> from mindspore import Tensor, Parameter, nn, ops
+        >>> from mindspore.dataset import GeneratorDataset
+        >>> from mindspore.nn import Momentum
+        >>> from mindformers import Trainer, TrainingArguments, AutoModel
+        >>> from mindformers import init_context, ContextConfig
+        >>> from mindformers.wrapper import MFTrainOneStepCell, AdaptiveLossScaleUpdateCell
         >>>
-        >>> class Net(nn.Cell):
-        ...     def __init__(self, in_features, out_features):
-        ...         super(Net, self).__init__()
-        ...         self.weight = Parameter(Tensor(np.ones([in_features, out_features]).astype(np.float32)),
-        ...                                 name='weight')
-        ...         self.matmul = ops.MatMul()
-        ...
-        ...     def construct(self, x):
-        ...         output = self.matmul(x, self.weight)
-        ...         return output
-        ...
-        >>> in_features, out_features = 16, 10
-        >>> net = Net(in_features, out_features)
-        >>> loss = nn.MSELoss()
-        >>> optimizer = nn.Momentum(net.trainable_params(), learning_rate=0.1, momentum=0.9)
-        >>> net_with_loss = nn.WithLossCell(net, loss)
-        >>> manager = nn.AdaptiveLossScaleUpdateCell(loss_scale_value=2**12, scale_factor=2, scale_window=20,
-        >>>                                          max_scale_window=1000, min_scale_window=20)
-        >>> train_network = nn.TrainOneStepWithLossScaleCell(net_with_loss, optimizer, scale_sense=manager)
-        >>> input = Tensor(np.ones([out_features, in_features]), mindspore.float32)
-        >>> labels = Tensor(np.ones([out_features,]), mindspore.float32)
-        >>> output = train_network(input, labels)
+        >>>
+        >>> def context_init():
+        >>>     context_config = ContextConfig(mode=0, device_target="Ascend", device_id=0)
+        >>>     rank_id, device_num = init_context(use_parallel=False, context_config=context_config)
+        >>>
+        >>>
+        >>> def generator():
+        >>>     seq_len = 1025
+        >>>     input_ids = np.random.randint(low=0, high=15, size=(seq_len,)).astype(np.int32)
+        >>>     for _ in range(512):
+        >>>         yield input_ids
+        >>>
+        >>> # 环境初始化
+        >>> context_init()
+        >>> # 自定义训练超参数
+        >>> training_args = TrainingArguments(num_train_epochs=3, batch_size=2, learning_rate=0.001,
+        >>>                                 warmup_steps=1000, sink_mode=True)
+        >>> # 自定义模型
+        >>> pangu_model = AutoModel.from_pretrained("pangualpha_2_6b")
+        >>> opt = Momentum(learning_rate=0.1, momentum=0.9,
+        >>>             params=pangu_model.trainable_params(),)
+        >>> manager = AdaptiveLossScaleUpdateCell(1, 2, 20, 1000, 20)
+        >>> train_network = MFTrainOneStepCell(pangu_model, opt, scale_sense=manager)
+        >>> train_network.set_train()
+        >>> # 自定义数据集
+        >>> dataset = GeneratorDataset(generator, column_names=["input_ids"])
+        >>> train_dataset = dataset.batch(batch_size=4)
+        >>> eval_dataset = dataset.batch(batch_size=4)
+        >>> # 定义文本生成任务，传入自定义模型、数据集、超参数
+        >>> text_generation = Trainer(task='text_generation', model_name=='pangualpha_2_6b',
+        >>>                         wrapper=train_network, args=training_args,
+        >>>                         train_dataset=train_dataset, eval_dataset=eval_dataset)
     """
 
     def __init__(self,
@@ -134,6 +144,12 @@ class AdaptiveLossScaleUpdateCell(Cell):
         if max_scale_window <= 0 or min_scale_window <= 0 or max_scale_window <= min_scale_window:
             raise ValueError(f"`max_scale_window` and `min_scale_window` have to be floats > 0 and `max_scale_window` "
                              f"has to be larger than `min_scale_window`")
+
+        if not isinstance(max_scale_window, int):
+            raise TypeError(f"max_scale_window should be a int, but got {type(max_scale_window)}")
+
+        if not isinstance(min_scale_window, int):
+            raise TypeError(f"min_scale_window should be a int, but got {type(min_scale_window)}")
         self.max_scale_window = max_scale_window
         self.min_scale_window = min_scale_window
         self.window_interval = 100
@@ -179,9 +195,9 @@ class AdaptiveLossScaleUpdateCell(Cell):
             float, the loss scale value.
 
         Examples:
-            >>> from mindspore import nn
-            >>> manager = nn.AdaptiveLossScaleUpdateCell(loss_scale_value=212, scale_factor=2, scale_window=1000,
-            >>>                                          max_scale_window=1000, min_scale_window=1000)
+            >>> from mindformers.wrapper import AdaptiveLossScaleUpdateCell
+            >>> manager = AdaptiveLossScaleUpdateCell(loss_scale_value=212, scale_factor=2, scale_window=1000,
+            >>>                                       max_scale_window=1000, min_scale_window=1000)
             >>> output = manager.get_loss_scale()
             >>> print(output)
             212
