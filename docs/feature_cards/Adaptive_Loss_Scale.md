@@ -36,52 +36,20 @@ loss scale不稳定，异常波动，需频繁手动调整scale window进行断�
 ## 设计概述
 
 根据用户输入的max scale window，和默认的min scale window 20。根据最大和最小scale window， 自动生成一个scale window list，包含多个档位的scale window。
-(若max scale window 非法，如小于min scale window， 则使用1000作为max scale window)
 
-scale window 1为隐藏窗口，下调scale window时，自动触发，其下一档scale window为 min scale window 20。
+scale window 1为隐藏窗口，其下一档scale window为 min scale window 20。
 
 针对模型训练过程loss scale变化趋势，设计两种检测机制：
 
 scale window上调检测机制：训练开始初始使用第一档scale window 20进行训练，新增一个上调计数growth_num，初始为0，每次上调loss scale时，计数+1；每上调三次loss scale (上调计数为3时)，窗口随之上调，同时重置上调计数，直到达到最大窗口；
 
-scale window下调检测机制：新增一个下调计数down_num，初始为0，每次下调loss scale时，计数+1，出现连续三次loss scale下降 (若中间出现loss scale上调，则重置下调计数)，则将窗口调到1，同时重置下调计数。
+scale window下调检测机制：新增一个下调计数down_num，初始为0，每次下调loss scale时，计数+1，出现连续三次loss scale下降 (若中间出现loss scale上调，则重置下调计数)，且当前窗口不为min scale window，则将窗口调到1，同时重置下调计数。
 
 ![Adaptive_loss_scale_process](assets/Adaptive_loss_scale/Adaptive_loss_scale_process.png)
 
 ## 使用示例
 
-使用方法与dynamic loss scaling和fixed loss scale基本一致，新增用户指定的超参max_scale_window和min_scale_window, 同时需要将更新后的scale window信息写入至断点中以支持断点续训
-
-Mindspore用法:
-
-```python
->>> import numpy as np
->>> import mindspore
->>> from mindspore import Tensor, Parameter, nn, ops
->>>
->>> class Net(nn.Cell):
-    ...     def __init__(self, in_features, out_features):
-    ...         super(Net, self).__init__()
-...         self.weight = Parameter(Tensor(np.ones([in_features, out_features]).astype(np.float32)),
-                                    ...                                 name='weight')
-...         self.matmul = ops.MatMul()
-...
-...     def construct(self, x):
-    ...         output = self.matmul(x, self.weight)
-...         return output
-...
->>> in_features, out_features = 16, 10
->>> net = Net(in_features, out_features)
->>> loss = nn.MSELoss()
->>> optimizer = nn.Momentum(net.trainable_params(), learning_rate=0.1, momentum=0.9)
->>> net_with_loss = nn.WithLossCell(net, loss)
->>> manager = nn.AdaptiveLossScaleUpdateCell(loss_scale_value=2**12, scale_factor=2, scale_window=20,
->>>                                          max_scale_window=1000, min_scale_window=20)
->>> train_network = nn.TrainOneStepWithLossScaleCell(net_with_loss, optimizer, scale_sense=manager)
->>> input = Tensor(np.ones([out_features, in_features]), mindspore.float32)
->>> labels = Tensor(np.ones([out_features,]), mindspore.float32)
->>> output = train_network(input, labels)
-```
+使用方法与Mindspore中支持的dynamic loss scaling和fixed loss scale类似，新增用户指定的超参max_scale_window和min_scale_window
 
 Mindformers用法:
 
