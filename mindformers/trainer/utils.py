@@ -347,32 +347,37 @@ def transform_and_load_checkpoint(config, model, network, dataset, optimizer=Non
 def check_ckpt_for_transform(ckpt_dir):
     """check input ckpt_dir and transform it by using softlink"""
     soft_link_dir = "softlink_ckpt/"
-    if os.path.exists(soft_link_dir):
-        shutil.rmtree(soft_link_dir)
-        logger.info("Find exist softlink dir %s and delete it.", os.path.join(os.getcwd(), soft_link_dir))
-    if os.path.isdir(ckpt_dir):
-        if check_ckpt_file_exist(ckpt_dir):
-            for ckpt_file in os.listdir(ckpt_dir):
-                soft_link = os.path.join(soft_link_dir, os.path.splitext(ckpt_file)[0])
-                ckpt_file = os.path.join(ckpt_dir, ckpt_file)
-                make_softlink(soft_link, ckpt_file)
-        elif glob(os.path.join(ckpt_dir, "rank*")):
-            os.makedirs(os.path.dirname(soft_link_dir), exist_ok=True)
-            soft_link = os.path.join(soft_link_dir, os.path.basename(ckpt_dir[:-1]))
-            logger.info("Make soft link of checkpoint file from %s to %s", ckpt_dir, soft_link)
-            if not os.path.exists(soft_link):
-                os.symlink(ckpt_dir, soft_link)
-            else:
-                os.remove(soft_link)
-                os.symlink(ckpt_dir, soft_link)
-    else:
-        if ckpt_dir.endswith('.ckpt'):
-            ckpt_file = ckpt_dir
-            soft_link = soft_link_dir + os.path.splitext(os.path.basename(ckpt_file))[0]
-            make_softlink(soft_link, ckpt_file)
+    rank_id = get_real_rank()
+    if (not rank_id) or (rank_id % 8 == 0 and check_in_modelarts()):
+        if os.path.exists(soft_link_dir):
+            shutil.rmtree(soft_link_dir)
+            logger.info("Find exist softlink dir %s and delete it.", os.path.join(os.getcwd(), soft_link_dir))
+        if os.path.isdir(ckpt_dir):
+            if check_ckpt_file_exist(ckpt_dir):
+                for ckpt_file in os.listdir(ckpt_dir):
+                    soft_link = os.path.join(soft_link_dir, os.path.splitext(ckpt_file)[0])
+                    ckpt_file = os.path.join(ckpt_dir, ckpt_file)
+                    make_softlink(soft_link, ckpt_file)
+            elif glob(os.path.join(ckpt_dir, "rank*")):
+                os.makedirs(os.path.dirname(soft_link_dir), exist_ok=True)
+                soft_link = os.path.join(soft_link_dir, os.path.basename(ckpt_dir[:-1]))
+                logger.info("Make soft link of checkpoint file from %s to %s", ckpt_dir, soft_link)
+                if not os.path.exists(soft_link):
+                    os.symlink(ckpt_dir, soft_link)
+                else:
+                    os.remove(soft_link)
+                    os.symlink(ckpt_dir, soft_link)
         else:
-            raise ValueError(f"The value of load_checkpoint must be a folder or a file with suffix '.ckpt', "
-                             f"but got {ckpt_dir}")
+            if ckpt_dir.endswith('.ckpt'):
+                ckpt_file = ckpt_dir
+                soft_link = soft_link_dir + os.path.splitext(os.path.basename(ckpt_file))[0]
+                make_softlink(soft_link, ckpt_file)
+            else:
+                raise ValueError(f"The value of load_checkpoint must be a folder or a file with suffix '.ckpt', "
+                                 f"but got {ckpt_dir}")
+
+    wait_create_softlink(soft_link_dir)
+
     return soft_link_dir
 
 
@@ -588,6 +593,15 @@ def transform_ckpt(config, ckpt_dir, src_ckpt_strategy=None, dst_ckpt_strategy=N
         print(f"Rank {rank_id}: Save {rank_transformed_ckpt_dir} to {rank_transformed_ckpt_dir_obs}")
 
     config.load_checkpoint = os.path.dirname(transformed_ckpt_dir)
+
+
+def wait_create_softlink(soft_link_dir):
+    """wait softlink create over"""
+    while True:
+        if os.path.exists(soft_link_dir):
+            break
+        else:
+            time.sleep(5)
 
 
 def wait_transform(config, ckpt_dir, world_size):
