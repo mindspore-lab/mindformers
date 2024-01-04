@@ -99,8 +99,6 @@ class Baichuan13BV2ForCausalLM(BaseModel):
 
         self.shape = P.Shape()
         self.reshape = P.Reshape()
-        if config.is_dynamic:
-            self.reshape.add_prim_attr("skip_redistribution", True)
         self.cast = P.Cast()
         self.slice = P.StridedSlice()
         self.not_equal = P.NotEqual()
@@ -113,6 +111,7 @@ class Baichuan13BV2ForCausalLM(BaseModel):
         self.lm_head = NormHead(hidden_size=config.hidden_size,
                                 vocab_size=config.vocab_size,
                                 use_past=config.use_past,
+                                is_dynamic=config.is_dynamic,
                                 compute_dtype=config.compute_dtype)
 
         vocab_size = config.vocab_size
@@ -141,6 +140,9 @@ class Baichuan13BV2ForCausalLM(BaseModel):
                 self.lm_head.set_comm_fusion(2)
             else:
                 self.lm_head.set_comm_fusion(config.parallel_config.gradient_aggregation_group)
+
+        if config.is_dynamic:
+            self.reshape.add_prim_attr("skip_redistribution", True)
 
         self.load_checkpoint(config)
 
@@ -266,7 +268,7 @@ class Baichuan13BV2Model(BaseModel):
             logger.info("Current MindSpore do not support flash attention.")
 
         self.shape = P.Shape()
-        self.reshape = P.Reshape().add_prim_attr("skip_redistribution", True)
+        self.reshape = P.Reshape()
         self.cast = P.Cast()
         self.mul_mask = P.Mul()
         self.mul_alibi = P.Mul()
@@ -348,10 +350,15 @@ class Baichuan13BV2Model(BaseModel):
             self.expand_dims.shard(((dp, 1, 1),))
             self.not_equal.shard(((dp, 1), ()))
             self.gather.shard(((1, mp, 1, 1), (1,)))
+            self.norm_out.shard((dp, 1, 1))
+
+        if self.is_dynamic:
+            self.reshape.add_prim_attr("skip_redistribution", True)
 
     # pylint: disable=W0613
     def construct(self, tokens: Tensor, batch_valid_length=None, batch_index=None, zactivate_len=None):
         """Forward of baichuan2_13b model."""
+        # preprocess
         bs, seq_len = self.shape(tokens)
         if self.use_past:
             if not isinstance(batch_valid_length, Tensor):
@@ -383,7 +390,7 @@ class Baichuan13BV2Model(BaseModel):
                 # mask: [bs, 1, 1]
                 if self.is_dynamic:
                     alibi_tensor = self.slice(self.alibi_tensor, (0, 0, 0, 0),
-                                              (1, alibi_tensor.shape[1], ops.shape(zactivate_len)[0],
+                                              (1, self.alibi_tensor.shape[1], ops.shape(zactivate_len)[0],
                                                ops.shape(zactivate_len)[0]),
                                               (1, 1, 1, 1))
                 else:
@@ -508,7 +515,7 @@ class Baichuan13BAttention(nn.Cell):
         self.inv_norm_factor = Tensor(1.0 / math.sqrt(self.head_dim), dtype=compute_dtype)
 
         self.shape = P.Shape()
-        self.reshape = P.Reshape().add_prim_attr("skip_redistribution", True)
+        self.reshape = P.Reshape()
         self.transpose = P.Transpose()
         self.merger_head_transpose = P.Transpose()
         self.batch_matmul = P.BatchMatMul()
@@ -589,6 +596,9 @@ class Baichuan13BAttention(nn.Cell):
                                           use_kvcache_op=use_kvcache_op,
                                           is_flexible_shape=is_flexible_shape)
             self.kvcache_mgr.shard(parallel_config)
+
+        if is_dynamic:
+            self.reshape.add_prim_attr("skip_redistribution", True)
 
     # pylint: disable=W0613
     def construct(self, x: Tensor, alibi_tensor: Tensor, mask=None, kvcache_inputs=None):
@@ -792,7 +802,7 @@ class Baichuan13BDecodeLayer(nn.Cell):
         self.use_seq_parallel = parallel_config.use_seq_parallel
 
         self.shape = P.Shape()
-        self.reshape = P.Reshape().add_prim_attr("skip_redistribution", True)
+        self.reshape = P.Reshape()
         self.add = P.Add()
         self.attention_norm = LlamaRMSNorm(self.hidden_size, norm_eps, compute_type=layernorm_compute_dtype,
                                            is_dynamic=is_dynamic)
@@ -835,6 +845,9 @@ class Baichuan13BDecodeLayer(nn.Cell):
                 self.attention_norm.shard((dp, mp, 1))
                 self.ffn_norm.shard((dp, mp, 1))
                 self.feed_forward.w2.shard(((dp, mp), (1, mp)), out_strategy_matmul=((dp * mp, 1),))
+
+        if is_dynamic:
+            self.reshape.add_prim_attr("skip_redistribution", True)
 
     def construct(self, x, alibi_tensor, mask=None, kvcache_inputs=None):
         """ Forward of transformer block. """
@@ -882,6 +895,7 @@ class NormHead(nn.Cell):
                  hidden_size,
                  vocab_size,
                  use_past,
+                 is_dynamic=False,
                  compute_dtype=mstype.float32,
                  eps=1e-5):
         super().__init__()
@@ -896,8 +910,6 @@ class NormHead(nn.Cell):
         self.add = P.Add()
         self.real_div = P.RealDiv()
         self.reshape = P.Reshape()
-        if use_past:
-            self.reshape.add_prim_attr("skip_redistribution", True)
         self.sum = P.ReduceSum()
         self.eps = Tensor([eps], mstype.float16)
         self.is_first_iteration = True
@@ -910,24 +922,24 @@ class NormHead(nn.Cell):
         self.vocab_size = vocab_size
         self.assign = P.Assign()
 
+        if is_dynamic:
+            self.reshape.add_prim_attr("skip_redistribution", True)
+
     def construct(self, hidden_states):
         """Forward process of the NormHead"""
         out_shape = P.Shape()(hidden_states)[:-1] + (self.vocab_size,)
         hidden_states = self.reshape(hidden_states, (-1, self.hidden_size))
 
         if self.is_first_iteration:
-            # 全量推理
             variance = self.square(self.weight)
             variance = self.sum(variance, 1)
             variance = self.reshape(variance, (-1, 1))
             variance_eps = self.sqrt(self.add(variance, self.eps))
-            # 更新self.weight
             norm_weight = self.real_div(self.weight, variance_eps)
             if self.use_past:
                 norm_weight = ops.depend(norm_weight, norm_weight)
                 self.assign(self.weight, norm_weight)
         else:
-            # 增量推理，直接用已归一化的权重
             norm_weight = self.weight
 
         ori_type = hidden_states.dtype

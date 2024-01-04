@@ -558,7 +558,7 @@ class CausalMask(nn.Cell):
         if zactivate_len is not None:
             seq_range = self.slice(seq_range, (0, 0, 0), (1, 1, self.shape(zactivate_len)[0]), (1, 1, 1))
         mask = self.less_equal(self.reshape(seq_range, (1, 1, -1)), self.reshape(batch_valid_length, (-1, 1, 1)))
-        return mask
+        return self.cast(mask, self.dtype)
 
     def increment_slice(self, seq_range, seq_length, batch_valid_length, zactivate_len=None):
         if zactivate_len is not None:
@@ -566,10 +566,10 @@ class CausalMask(nn.Cell):
         else:
             seq_range_mask = self.slice(seq_range, (0, 0, 0), (1, 1, seq_length), (1, 1, 1))
         mask = self.less_equal(self.reshape(seq_range_mask, (1, 1, -1)), self.reshape(batch_valid_length, (-1, 1, 1)))
-        return mask
+        return self.cast(mask, self.dtype)
 
     def post_process(self, mask):
-        mask = self.sub(self.one, self.cast(mask, self.dtype))
+        mask = self.sub(self.one, mask)
         if not self.use_flash_attention:
             mask = self.expand_dim_post(mask, 1)
             mask = self.mul_post(mask, self.multiply_data)
