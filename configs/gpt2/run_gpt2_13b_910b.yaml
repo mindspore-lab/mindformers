@@ -27,7 +27,7 @@ runner_config:
   epochs: 2
   batch_size: 2
   sink_mode: True
-  sink_size: 2
+  sink_size: 1
 runner_wrapper:
   type: MFTrainOneStepCell
   scale_sense:
@@ -99,7 +99,10 @@ train_dataset: &train_dataset
   data_loader:
     type: MindDataset
     dataset_dir: ""
-    shuffle: True
+    shuffle: False
+  tokenizer:
+    type: GPT2Tokenizer
+    max_length: 2049
   input_columns: ["input_ids", "attention_mask"]
   num_parallel_workers: 8
   python_multiprocessing: False
@@ -118,6 +121,9 @@ eval_dataset: &eval_dataset
     type: MindDataset
     dataset_dir: ""
     shuffle: False
+  tokenizer:
+    type: GPT2Tokenizer
+    max_length: 2048
   input_columns: ["input_ids", "attention_mask"]
   num_parallel_workers: 8
   python_multiprocessing: False
@@ -162,9 +168,9 @@ model:
 
 # lr sechdule
 lr_schedule:
-  type: polynomial
-  learning_rate: 0.00005
-  lr_end: 0.000001
+  type: CosineWithWarmUpLR
+  learning_rate: 6.e-5
+  lr_end: 6.e-6
   warmup_steps: 0
   total_steps: -1 # -1 means it will load the total steps of the dataset
 layer_scale: False
@@ -172,7 +178,7 @@ layer_decay: 0.65
 
 # optimizer
 optimizer:
-  type: FusedAdamWeightDecay
+  type: FP32StateAdamWeightDecay
   beta1: 0.9
   beta2: 0.95
   eps: 0.00000001 # 1e-8
