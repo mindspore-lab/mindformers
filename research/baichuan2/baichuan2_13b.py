@@ -374,11 +374,13 @@ class Baichuan13BV2Model(BaseModel):
             if self.is_first_iteration:
                 mask = self.casual_mask(tokens)  # mask: [bs, seq, seq]
                 input_mask = self.cast(self.not_equal(tokens, self.pad_token_id), mstype.float16)
-                alibi_tensor = self.mul_alibi(self.alibi_tensor, self.reshape(input_mask, (bs, 1, -1, 1)))
                 # alibi_tensor: [bs, num_heads, seq, seq]
                 if self.is_dynamic:
-                    alibi_tensor = self.slice(alibi_tensor, (0, 0, 0, 0),
-                                              (bs, alibi_tensor.shape[1], seq_len, seq_len), (1, 1, 1, 1))
+                    alibi_tensor = self.slice(self.alibi_tensor, (0, 0, 0, 0),
+                                              (1, self.alibi_tensor.shape[1], seq_len, seq_len), (1, 1, 1, 1))
+                else:
+                    alibi_tensor = self.alibi_tensor
+                alibi_tensor = self.mul_alibi(alibi_tensor, self.reshape(input_mask, (bs, 1, -1, 1)))
             else:
                 if self.is_dynamic and self.is_flexible_shape and not self.use_kvcache_op:
                     mask = self.casual_mask.increment_slice(

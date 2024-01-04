@@ -1507,71 +1507,105 @@ python run_baichuan2_chat.py \
 
 本章节提供Baichuan2-13B在MindSpore Lite上进行推理的基本使用流程，更多详细的特性介绍可以参考[Mindspore Lite特性文档](../../docs/feature_cards/Inference.md)
 
-#### 模型导出
+#### 单卡导出与推理
 
-step 1. 准备好Baichuan2-13B模型相关的配置文件、权重文件放置在同一个文件夹下
+##### Step1. 模型导出MindIR
 
-```text
-infer_baichuan2_13b_dir
-    ├── run_baichuan2_13b_910b.yaml    # 推理模型的配置文件
-    └── Baichuan2-13B-Chat.ckpt        # 推理模型的权重文件
-```
-
-step 2. 修改配置文件，在配置文件中新增infer配置项，在run_baichuan2_13b_910b.yaml中添加如下配置
+修改模型导出相关的配置文件 export_baichuan2_13b.yaml，其中需要关注以下几项：
 
 ```yaml
-infer:
-  prefill_model_path: "/path/to/baichuan2_13b_export/baichuan2_13b_prefill.mindir"
-  increment_model_path: "/path/to/baichuan2_13b_export/baichuan2_13b_inc.mindir"
-  infer_seq_length: 512
-  model_type: mindir
-
-# 参数说明：
-prefill_model_path: 全量图路径
-increment_model_path: 增量图路径
-infer_seq_length: 推理序列长度
-model_type: 推理模型类型
-
-# 注意与export.py中的batch_size设置保持一致，如下所示，否则用导出的MindIR图进行单卡推理可能会出现out of memory的问题
-# 由于配置了prefill_model_path和increment_model_path两个路径，需要导出增量图，因此在模型配置中打开增量开关，如下所示
-# 使用后处理加速需要配置is_sample_acceleration开关，注意与推理脚本中的设置保持一致，如下所示
+# model config
 model:
   model_config:
-    batch_size: 1                    # 单batch推理设置为1，多batch推理设置为相应的batch数
-    use_past: True
-    is_sample_acceleration: False    # 后处理加速开关，当前baichuan2模型暂不支持，设置为False
+    seq_length: 512
+    checkpoint_name_or_path: "/path/to/Baichuan2-13B-Chat.ckpt"
+    use_past: True              # 开启增量推理
+    is_dynamic: False           # 使用双动态推理时设置为True
+    use_kvcache_op: True        # 是否使用kvcache融合算子，推荐设置为True
+    is_flexible_shape: False    # 是否固定kvcache大小为bs*seq
+    use_rope_slice: False       # 是否使用RoPE位置编码slice
 ```
 
-step 3. 执行export.py，完成模型转换
+执行run_baichuan2.py，完成MindIR导出，得到全量minder_full_checkpoint/rank_0_graph.mindir和增量minder_inc_checkpoint/rank_0_graph.mindir两个MindIR图
 
-```shell
-python mindformers/tools/export.py --model_dir /path/to/infer_baichuan2_13b_dir
+```bash
+python run_baichuan2.py \
+--config_path export_baichuan2_13b.yaml \
+--run_mode export \
+--use_parallel False \
+--device_id 0
 ```
 
-#### 模型推理
+##### Step2. 执行MS Lite推理
 
-step 1. 利用`模型导出`章节得到的MindIR图，如果是增量模型则会得到两个MindIR图（baichuan2_13b_prefill.mindir和baichuan2_13b_inc.mindir）
+新建推理配置文件，Baichuan2-13B在910B上推荐的GE配置如下：
 
-step 2. 执行run_infer_main.py脚本，修改相关配置启动推理
+- 静态推理（910b_ge_default_ctx.ini）
 
-```shell
+```ini
+[ascend_context]
+plugin_custom_ops=All
+provider=ge
+
+[ge_session_options]
+ge.exec.formatMode=1
+ge.exec.atomicCleanPolicy=1
+ge.exec.staticMemoryPolicy=2
+ge.exec.precision_mode=must_keep_origin_dtype
+
+# 参数说明
+# provider=ge：采用GE接口
+# ge.externalWeight=1：将网络中Const/Constant节点的权重保存在单独的文件中
+# ge.exec.atomicCleanPolicy=1：不集中清理网络中atomic算子占用的内存
+# ge.exec.staticMemoryPolicy=2：网络运行使用动态扩展内存方式
+# ge.exec.precision_mode=must_keep_origin_dtype：选择算子精度模式
+```
+
+- 双动态推理（910b_ge_default_inc.ini），以增量为例
+
+```ini
+[ascend_context]
+plugin_custom_ops=All
+provider=ge
+
+[ge_session_options]
+ge.exec.formatMode=1
+ge.exec.atomicCleanPolicy=1
+ge.exec.staticMemoryPolicy=2
+ge.exec.precision_mode=must_keep_origin_dtype
+
+[ge_graph_options]
+ge.inputShape=batch_index:-1;batch_valid_length:-1;tokens:-1,1;zactivate_len:-1
+ge.dynamicDims=1,1,1,256;2,2,2,256;4,4,4,256;1,1,1,512
+ge.dynamicNodeType=1
+
+# 参数说明
+# ge.inputShape：设置参数动态输入，-1表示动态入参
+# ge.dynamicDims：设置实际推理的batch size和activate length，与ge.inputShape中-1的位置依次对应
+```
+
+执行run_infer_main.py脚本，修改相关配置启动推理：
+
+- 静态推理执行命令如下：
+
+```bash
 python run_infer_main.py \
 --device_id 0 \
 --model_name baichuan2_13b \
---seq_length 512 \                            # 注意与export导出时的推理序列长度保持一致
+--seq_length 2048 \                           # 注意静态推理时需要与export导出的推理序列长度保持一致
 --tokenizer_path path/to/tokenizer.model \    # 不设置时，以from_pretrained的方式自动加载tokenizer（research模型不支持）
---prefill_model_path /path/to/baichuan2_13b_export/baichuan2_13b_prefill.mindir \
---increment_model_path /path/to/baichuan2_13b_export/baichuan2_13b_inc.mindir \
---config_path /path/to/910b_ge_default.cfg \
+--prefill_model_path /path/to/minder_full_checkpoint/rank_0_graph.mindir \
+--increment_model_path /path/to/minder_inc_checkpoint/rank_0_graph.mindir \
+--config_path /path/to/910b_ge_default_ctx.ini \
 --do_sample False \
 --top_k 1 \
 --top_p 1.0 \
 --repetition_penalty 1.0 \
 --temperature 1.0 \
---max_length 512 \
+--max_length 2048 \
 --is_sample_acceleration False \              # 后处理加速开关，当前baichuan2模型暂不支持，设置为False
 --add_special_tokens False \
---stream False
+--dynamic False
 
 # 参数说明
 device_id: 设备物理ID
@@ -1589,31 +1623,13 @@ temperature: 温度系数，用来调整下个token的概率
 max_length: 能够生成的最大语句长度
 is_sample_acceleration: 后处理加速开关
 add_special_tokens: 对输入token化时是否添加特殊字符
-stream: 是否采用流式结果返回
+dynamic: 是否采用双动态推理
 prompt: 输入中加入prompt的内容，Baichuan2可以选择不设置，按默认的prompt进行推理
-
-# output
-# ['<reserved_106>解释一下“温故而知新”<reserved_107>“温故而知新”是一句源自中国古代的成语，出自《论语·为政》篇。这句话的意思是：通过回顾过去，我们可以发现新的知识和理解。具体来说，它鼓励我们在学习或工作中，不仅要关注新的知识和技能，还要回顾和巩固已经学过的内容。这样，我们既能保持对旧知识的熟练度，又能不断发现新的启示和进步。\n\n这句话强调了学习和成长的一个重要原则：不断回顾和反思。通过回顾过去的经验，我们可以发现新的视角、灵感和方法，从而更好地理解和掌握知识。同时，这也提醒我们要保持谦逊和好奇心，不断地在学习中寻求进步。']
 ```
 
-Baichuan2-13B在910B上推荐的GE配置（910b_ge_default.cfg）如下：
+- 双动态推理修改以下两个参数即可：
 
-```ini
-[ascend_context]
-provider=ge
-
-[ge_session_options]
-ge.externalWeight=1
-ge.exec.atomicCleanPolicy=1
-ge.event=notify
-ge.exec.staticMemoryPolicy=2
-ge.exec.formatMode=1
-ge.exec.precision_mode=must_keep_origin_dtype
-
-# 参数说明
-# provider=ge：采用GE接口
-# ge.externalWeight=1：将网络中Const/Constant节点的权重保存在单独的文件中
-# ge.exec.atomicCleanPolicy=1：不集中清理网络中atomic算子占用的内存
-# ge.exec.staticMemoryPolicy=2：网络运行使用动态扩展内存方式
-# ge.exec.precision_mode=must_keep_origin_dtype：选择算子精度模式
+```bash
+--config_path /path/to/910b_ge_default_ctx.ini，/path/to/910b_ge_default_inc.ini
+--dynamic True
 ```
