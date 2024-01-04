@@ -69,7 +69,7 @@ class TestGLMTrainerMethod:
         eval_dataset = eval_dataset.batch(batch_size=2)
 
         model_config = GLMConfig(num_layers=2, hidden_size=32, inner_hidden_size=None,
-                                 num_heads=2, position_encoding_2d=True)
+                                 num_heads=2, position_encoding_2d=True, vocab_size=120528)
         model = GLMForPreTraining(model_config)
         self.tokenizer = AutoTokenizer.from_pretrained("glm_6b")
         self.task_trainer = Trainer(task='text_generation',
@@ -106,7 +106,7 @@ class TestGLMTrainerMethod:
         Expectation: TypeError, ValueError, RuntimeError
         """
         model_config = GLMConfig(num_layers=1, hidden_size=32, inner_hidden_size=None,
-                                 num_heads=2, position_encoding_2d=True)
+                                 num_heads=2, position_encoding_2d=True, vocab_size=120528)
         model = GLMChatModel(model_config)
         task_trainer = Trainer(task='text_generation',
                                model=model,

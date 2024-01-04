@@ -337,6 +337,8 @@ CodeAlpaca
   └── dev.json
 ```
 
+处理脚本可以参考：`mindformers/tools/dataset_preprocess/codegeex2/codealpaca_preprocess.py`
+
 将任务配置文件 `configs/codegeex2/run_codegeex2_6b_finetune_2048.yaml` 中的 `==== dataset config ====` 部分替换成：
 
 ```yaml
@@ -721,7 +723,7 @@ do_sample: True
 
 ### MindIR 导出
 
-　　1. 修改模型相关的配置文件 configs/codegeex2/run_codegeex2_6b.yaml，其中需要关注这几项：
+1. 修改模型相关的配置文件 configs/codegeex2/run_codegeex2_6b.yaml，其中需要关注这几项：
 
 ```yaml
 # export

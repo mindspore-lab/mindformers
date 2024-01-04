@@ -14,7 +14,7 @@ context:
   graph_kernel_flags: "--disable_expand_ops=Softmax,Dropout --enable_parallel_fusion=true --reduce_fuse_depth=8 --enable_auto_tensor_inplace=true"
   max_call_depth: 10000
   max_device_memory: "59GB"
-  save_graphs: True
+  save_graphs: False
   device_id: 0
 
 # aicc
@@ -94,11 +94,11 @@ processor:
 train_dataset: &train_dataset
   data_loader:
     type: ADGenDataLoader
-    dataset_dir: "/path/to/AdvertiseGen/train.json"
+    dataset_dir: "/path/to/CodeAlpaca/train.json"
     shuffle: True
     phase: "train"
     version: 2
-    origin_columns: ["content", "summary"]
+    origin_columns: ["PROMPT", "ANSWER"]
   tokenizer:
     type: ChatGLM2Tokenizer
     vocab_file: "/path/to/tokenizer.model"
@@ -122,11 +122,11 @@ train_dataset_task:
 eval_dataset: &eval_dataset
   data_loader:
     type: ADGenDataLoader
-    dataset_dir: "/path/to/AdvertiseGen/dev.json"
+    dataset_dir: "/path/to/CodeAlpaca/dev.json"
     shuffle: False
     phase: "eval"
     version: 2
-    origin_columns: ["content", "summary"]
+    origin_columns: ["PROMPT", "ANSWER"]
   tokenizer:
     type: ChatGLM2Tokenizer
     vocab_file: "/path/to/tokenizer.model"
@@ -165,9 +165,8 @@ runner_wrapper:
 
 # lr sechdule
 lr_schedule:
-  type: polynomial
-  learning_rate: 1.e-4
-  lr_end: 1.e-5
+  type: linear
+  learning_rate: 1.e-6
   warmup_steps: 0
   total_steps: -1 # -1 means it will load the total steps of the dataset
 layer_scale: False
@@ -175,16 +174,16 @@ layer_decay: 0.65
 
 # optimizer
 optimizer:
-  type: FusedAdamWeightDecay
+  type: FP32StateAdamWeightDecay
   beta1: 0.9
-  beta2: 0.95
+  beta2: 0.999
   eps: 1.e-8
   weight_decay: 0.1
 lr_scale: False
 lr_scale_factor: 256
 
 # parallel config
-use_parallel: False
+use_parallel: True
 parallel:
   parallel_mode: 1 # 0-dataset, 1-semi, 2-auto, 3-hybrid
   gradients_mean: False
@@ -193,13 +192,13 @@ parallel:
   full_batch: True
   search_mode: "sharding_propagation"
   enable_parallel_optimizer: True  # optimizer shard
-  strategy_ckpt_save_file: "./ckpt_strategy.ckpt"
+  strategy_ckpt_config:
+    save_file: "./ckpt_strategy.ckpt"
 parallel_config:
   data_parallel: 8
   model_parallel: 1
   pipeline_stage: 1
   expert_parallel: 1
-  optimizer_shard: True  # optimizer shard
   micro_batch_num: 1
   vocab_emb_dp: True
   gradient_aggregation_group: 4
@@ -217,7 +216,7 @@ recompute_config:
   recompute: True
   parallel_optimizer_comm_recompute: False
   mp_comm_recompute: True
-  recompute_slice_activation: False
+  recompute_slice_activation: True
 
 # autotune
 auto_tune: False
@@ -237,7 +236,7 @@ callbacks:
   - type: MFLossMonitor
   - type: CheckpointMointor
     prefix: "codegeex2-6b"
-    save_checkpoint_steps: 500
+    save_checkpoint_steps: 1000
     keep_checkpoint_max: 2
     integrated_save: False
     async_save: False
