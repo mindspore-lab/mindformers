@@ -808,45 +808,7 @@ python run_mindformer.py --config path/to/config.yaml --run_mode predict --predi
 
 #### 多卡推理
 
-多卡运行需要RANK_FILE_TABLE，请参考前期准备-[生成RANK_TABLE_FILE](#生成ranktablefile)
-
-- 单机多卡
-
-```shell
-cd scripts
-bash run_distribute.sh RANK_TABLE_FILE path/to/config.yaml [0,8] predict 8 "[Round 1]\n\n问：你好\n\n答："
-```
-
-多机多卡运行需要合并不同机器的RANK_FILE_TABLE，参考前期准备-[多机RANK_TABLE_FILE合并](#多机ranktablefile合并)
-
-- 多机多卡
-
-在每台机器上启动`bash run_distribute.sh`。
-
-```bash
-server_count=12
-device_num=8*$server_count
-# launch ranks in the 0th server
-cd scripts
-bash run_distribute.sh $RANK_TABLE_FILE path/to/config.yaml [0,8] predict $device_num 你好
-
-# launch ranks in the 1-11 server via ssh
-for idx in {1..11}
-do
-    let rank_start=8*$idx
-    let rank_end=$rank_start+8
-    ssh ${IP_LIST[$idx]} "cd scripts; bash run_distribute.sh $RANK_TABLE_FILE path/to/config.yaml [$rank_start,$rank_end] predict $device_num \"[Round 1]\n\n问：你好\n\n答：\""
-done
-```
-
-其中
-
-- `RANK_TABLE_FILE`为上一步汇总并分发的总rank table文件；
-- `IP_LIST`为12台服务器的IP地址。如192.168.0.[0-11]
-
-```bash
-IP_LIST=("192.168.0.0", "192.168.0.1", ..., "192.168.0.11")
-```
+暂未支持
 
 ## Mindspore-Lite 推理及量化
 
