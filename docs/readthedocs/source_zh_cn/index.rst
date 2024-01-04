@@ -66,6 +66,7 @@
    docs/feature_cards/Distribute_Generate.md
    docs/feature_cards/Lazy_Inline.md
    docs/feature_cards/Dynamic_Cluster.md
+   docs/feature_cards/Adaptive_Loss_Scale.md
 
 .. toctree::
    :glob:

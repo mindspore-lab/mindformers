@@ -7,7 +7,9 @@ MindFormers套件集成了许多模型训练中通用的优化算法，并提供
 - [训练优化算法](#训练优化算法)
     - [梯度累积](#梯度累积)
     - [梯度裁剪](#梯度裁剪)
-    - [Token分布](#Token分布)
+    - [Token分布](#token分布)
+    - [Flash Attention](#flash-attention)
+    - [Adaptive loss sacling](#adaptive-loss-scaling)
 
 ## 梯度累积
 
@@ -107,3 +109,12 @@ model:
 ```
 
 FA的模型支持度可参见 [模型能力表格](../model_support_list.md#llm大模型能力支持一览)
+
+## Adaptive loss scaling
+
+现有dynamic loss scaling方案使用固定scale window，在FP16或更低精度(8bit浮点格式)混合精度训练训练时，如果选用较大的scale window，存在loss scaling 调整不及时的风险，影响模型收敛性和收敛速度；如果选用较小的scale window，loss scale调整至合适的值时，仍会频繁上调，损失大量训练数据。
+
+Adaptive loss scaling方案，通过动态调节scale window，实现自适应调整loss scale，
+实时将loss scale调整至FP16和8bit浮点格式正常训练所需的合适的值，同时避免损失大量训练数据。
+
+详细特性介绍可以参考[Adaptive loss scaling文档](./Adaptive_Loss_Scale.md)
