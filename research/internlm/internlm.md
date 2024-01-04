@@ -68,13 +68,7 @@ InternLM ，即书生·浦语大模型，是由上海人工智能实验室和来
 本仓库提供已经转换完成的预训练权重用于训练/微调/推理，用户可自行从下方链接拉取后直接使用，Base用于微调，Chat用于推理，tokenizer.model为词表文件。
 
 - [InternLM-7B-Base](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/internlm/internlm.ckpt)
-
 - [InternLM-7B-Chat](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/internlm/internlm-chat.ckpt)
-
-- [InternLM-20B-Base]()
-
-- [InternLM-20B-Chat]()
-
 - [tokenizer.model](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/internlm/tokenizer.model)
 
 也可选择从huggingface下载预训练权重后根据以下步骤进行权重转换，包含对应的分词模型，需要下载整个工程，huggingface权重的链接如下：
@@ -83,11 +77,11 @@ InternLM ，即书生·浦语大模型，是由上海人工智能实验室和来
 
 - [InternLM-7B-Chat](https://huggingface.co/internlm/internlm-chat-7b)
 
-- [InternLM-20B-Base]()
+- [InternLM-20B-Base](https://huggingface.co/internlm/internlm-20b)
 
-- [InternLM-20B-Chat]()
+- [InternLM-20B-Chat](https://huggingface.co/internlm/internlm-chat-20b)
 
-注：InternLM-7B-Base权重用于训练/微调，InternLM-7B-Chat用于直接开启快速推理。
+注：InternLM-7B-Base权重用于训练/微调，InternLM-7B-Chat用于直接开启快速推理，InternLM-20B同上。
 
 原始权重下载完成后，运行如下转换脚本，将huggingface的权重转换为完整的ckpt权重。
 
@@ -334,143 +328,147 @@ hccl_xp_xxx.json [0,8] 8
 
 - 修改yaml配置文件设置
 
-  ```bash
-  auto_trans_ckpt: False                              # 关闭自动权重转换
-  use_past: True                                      # 使用增量推理
-  vocab_file: '/path/to/tokenizer.model'              # 配置词表路径
-  ```
+```bash
+auto_trans_ckpt: False                              # 关闭自动权重转换
+use_past: True                                      # 使用增量推理
+vocab_file: '/path/to/tokenizer.model'              # 配置词表路径
+```
 
 - Trainer接口启动推理
 
-  InternLM-20B的高阶接口使用脚本已集成在run_internlm.py脚本中，运行此脚本命令示例：
+InternLM-20B的高阶接口使用脚本已集成在run_internlm.py脚本中，运行此脚本命令示例：
 
-  ```bash
-  python run_internlm.py \
-  --config 'run_internlm_20b_910b.yaml' \
-  --run_mode predict \
-  --use_parallel False \
-  --load_checkpoint '/path/to/InternLM-20B-Chat.ckpt' \
-  --predict_data '你是谁？' \
-  --device_id 0
-  ```
+```bash
+python run_internlm.py \
+--config 'run_internlm_20b_910b.yaml' \
+--run_mode predict \
+--use_parallel False \
+--load_checkpoint '/path/to/InternLM-20B-Chat.ckpt' \
+--predict_data '你是谁？' \
+--device_id 0
+```
 
 #### 基于Pipeline推理
 
 - 构建run_internlm_pipeline.py，该脚本提供了加载**完整权重**进行**单卡pipeline推理**的简单示例。
 
-  ```python
-  # run_internlm_pipeline.py
-  import mindspore as ms
-  from mindspore import context
-  from mindformers.pipeline import pipeline
-  
-  from internlm import InternLMForCausalLM
-  from mindformers.models import LlamaConfig
-  from internlm_tokenizer import InternLMTokenizer
-  
-  
-  # init context
-  context.set_context(device_id=0, mode=0)
-  
-  # init config
-  internlm_config_path = "/path/to/run_internlm_20b.yaml"
-  internlm_config = InternLMConfig(internlm_config_path)
-  internlm_model = InternLMForCausalLM(
-      config=internlm_config
-  )
-  
-  # init tokenizer
-  tokenizer_path = "/path/to/InternLM-20B/tokenizer.model" # InternLM-20B tokenizer path
-  tokenizer = InternLMTokenizer(
-      vocab_file=tokenizer_path
-  )
-  
-  # init and run pipeline
-  pipeline_task = pipeline(task="text_generation", model=internlm_model, tokenizer=tokenizer)
-  pipeline_result = pipeline_task("<s><s><|User|>:你是谁？<eoh>\n<|Bot|>:",
-                                  do_sample=False,
-                                  repetition_penalty=1.0,
-                                  max_length=256)
-  print(pipeline_result)
-  ```
+```python
+# run_internlm_pipeline.py
+import mindspore as ms
+from mindspore import context
+from mindformers.pipeline import pipeline
+
+from mindformers import MindFormerConfig
+from internlm import InternLMForCausalLM
+from internlm_config import InternLMConfig
+from internlm_tokenizer import InternLMTokenizer
+
+
+# init context
+context.set_context(device_id=0, mode=0)
+
+# init config
+internlm_config_path = "/path/to/run_internlm_20b.yaml"
+config = MindFormerConfig(internlm_config_path)
+internlm_config = InternLMConfig(**config.model.model_config)
+internlm_model = InternLMForCausalLM(
+    config=internlm_config
+)
+
+# init tokenizer
+tokenizer_path = "/path/to/InternLM-20B/tokenizer.model" # InternLM-20B tokenizer path
+tokenizer = InternLMTokenizer(
+    vocab_file=tokenizer_path
+)
+
+# init and run pipeline
+pipeline_task = pipeline(task="text_generation", model=internlm_model, tokenizer=tokenizer)
+pipeline_result = pipeline_task("<s><s><|User|>:你是谁？<eoh>\n<|Bot|>:",
+                                do_sample=False,
+                                repetition_penalty=1.0,
+                                max_length=256)
+print(pipeline_result)
+```
 
 - 修改yaml配置文件，以下为主要参数设置参考：
 
-  ```yaml
-  load_checkpoint: ''                                           # 单卡推理时，只需配置checkpoint_name_or_path
-  auto_trans_ckpt: False                                        # 关闭自动权重转换
-  checkpoint_name_or_path: '/path/to/InternLM-20B-Chat.ckpt'    # 填写权重绝对路径
-  use_past: True                                                # 使用增量推理
-  vocab_file: '/path/to/tokenizer.model'                        # 配置词表路径
-  use_parallel: False                                           # 关闭并行模式
-  ```
+```yaml
+load_checkpoint: ''                                           # 单卡推理时，只需配置checkpoint_name_or_path
+auto_trans_ckpt: False                                        # 关闭自动权重转换
+checkpoint_name_or_path: '/path/to/InternLM-20B-Chat.ckpt'    # 填写权重绝对路径
+use_past: True                                                # 使用增量推理
+vocab_file: '/path/to/tokenizer.model'                        # 配置词表路径
+use_parallel: False                                           # 关闭并行模式
+```
 
 - 运行run_internlm_pipeline.py
 
-  ```bash
-  python internlm/run_internlm_pipeline.py
-  ```
+```bash
+python internlm/run_internlm_pipeline.py
+```
 
 #### 基于Generate推理
 
 - 构建run_internlm_generate.py，该脚本提供了加载**完整权重**进行**单卡generate推理**的简单示例。
 
-  ```python
-  # run_internlm_generate.py
-  import mindspore as ms
-  from mindspore import context
-  
-  from internlm import InternLMForCausalLM
-  from internlm_config import InternLMConfig
-  from internlm_tokenizer import InternLMTokenizer
-  
-  
-  # init context
-  context.set_context(device_id=0, mode=0)
-  
-  # init config
-  internlm_config_path = "/path/to/run_internlm_20b.yaml"
-  internlm_config = InternLMConfig(internlm_config_path)
-  internlm_model = InternLMForCausalLM(
-      config=internlm_config
-  )
-  
-  # init tokenizer
-  tokenizer_path = "/path/to/InternLM-20B/tokenizer.model" # InternLM-20B tokenizer path
-  tokenizer = InternLMTokenizer(
-      vocab_file=tokenizer_path
-  )
-  
-  # predict using generate
-  input_ids = tokenizer("<s><s><|User|>:你是谁？<eoh>\n<|Bot|>:", 
-                        max_length=64, padding="max_length")["input_ids"]
-  generate_ids = internlm_model.generate(inputs_ids,
-                                       	 do_sample=False,
-                                       	 top_k=1,
-                                       	 top_p=1.0,
-                                       	 repetition_penalty=1.0,
-                                       	 temperature=1.0,
-                                       	 max_length=64)
-  generate_result = tokenizer.decode(generate_ids)
-  print(generate_result)
-  ```
+```python
+# run_internlm_generate.py
+import mindspore as ms
+from mindspore import context
+
+from mindformers import MindFormerConfig
+from internlm import InternLMForCausalLM
+from internlm_config import InternLMConfig
+from internlm_tokenizer import InternLMTokenizer
+
+
+# init context
+context.set_context(device_id=0, mode=0)
+
+# init config
+internlm_config_path = "/path/to/run_internlm_20b.yaml"
+config = MindFormerConfig(internlm_config_path)
+internlm_config = InternLMConfig(**config.model.model_config)
+internlm_model = InternLMForCausalLM(
+    config=internlm_config
+)
+
+# init tokenizer
+tokenizer_path = "/path/to/InternLM-20B/tokenizer.model" # InternLM-20B tokenizer path
+tokenizer = InternLMTokenizer(
+    vocab_file=tokenizer_path
+)
+
+# predict using generate
+input_ids = tokenizer("<s><s><|User|>:你是谁？<eoh>\n<|Bot|>:",
+                      max_length=64, padding="max_length")["input_ids"]
+generate_ids = internlm_model.generate(inputs_ids,
+                                        do_sample=False,
+                                        top_k=1,
+                                        top_p=1.0,
+                                        repetition_penalty=1.0,
+                                        temperature=1.0,
+                                        max_length=64)
+generate_result = tokenizer.decode(generate_ids)
+print(generate_result)
+```
 
 - 修改yaml配置文件，以下为主要参数设置参考：
 
-  ```yaml
-  load_checkpoint: ''                                           # 单卡推理时，只需配置checkpoint_name_or_path
-  auto_trans_ckpt: False                                        # 关闭自动权重转换
-  checkpoint_name_or_path: '/path/to/InternLM-20B-Chat.ckpt'    # 填写权重绝对路径
-  use_past: True                                                # 使用增量推理
-  vocab_file: '/path/to/tokenizer.model'                        # 配置词表路径
-  use_parallel: False                                           # 关闭并行模式
-  ```
+```yaml
+load_checkpoint: ''                                           # 单卡推理时，只需配置checkpoint_name_or_path
+auto_trans_ckpt: False                                        # 关闭自动权重转换
+checkpoint_name_or_path: '/path/to/InternLM-20B-Chat.ckpt'    # 填写权重绝对路径
+use_past: True                                                # 使用增量推理
+vocab_file: '/path/to/tokenizer.model'                        # 配置词表路径
+use_parallel: False                                           # 关闭并行模式
+```
 
 - 运行run_internlm_generate.py
 
-  ```bash
-  python internlm/run_internlm_generate.py
-  ```
+```bash
+python internlm/run_internlm_generate.py
+```
 
 ### Mindspore-Lite 推理
 
@@ -478,129 +476,127 @@ hccl_xp_xxx.json [0,8] 8
 
 #### 单卡导出与推理
 
-1. ##### 模型导出MindIR
+##### Step1. 模型导出MindIR
 
-   修改模型导出相关的配置文件 export_internlm_20b.yaml，其中需要关注以下几项：
+修改模型导出相关的配置文件 export_internlm_20b.yaml，其中需要关注以下几项：
 
-   ```yaml
-   # model config
-   model:
-     model_config:
-       seq_length: 512
-       checkpoint_name_or_path: "/path/to/InternLM-20B-Chat.ckpt"
-       use_past: True              # 开启增量推理
-       is_dynamic: False           # 使用双动态推理时设置为True       
-       use_kvcache_op: True        # 是否使用kvcache融合算子，推荐设置为True
-       is_flexible_shape: False    # 是否固定kvcache大小为bs*seq
-       use_rope_slice: False       # 是否使用RoPE位置编码slice
-   ```
+```yaml
+# model config
+model:
+  model_config:
+    seq_length: 512
+    checkpoint_name_or_path: "/path/to/InternLM-20B-Chat.ckpt"
+    use_past: True              # 开启增量推理
+    is_dynamic: False           # 使用双动态推理时设置为True
+    use_kvcache_op: True        # 是否使用kvcache融合算子，推荐设置为True
+    is_flexible_shape: False    # 是否固定kvcache大小为bs*seq
+    use_rope_slice: False       # 是否使用RoPE位置编码slice
+```
 
-   执行run_internlm.py，完成MindIR导出，得到全量minder_full_checkpoint/rank_0_graph.mindir和增量minder_inc_checkpoint/rank_0_graph.mindir两个MindIR图
+执行run_internlm.py，完成MindIR导出，得到全量minder_full_checkpoint/rank_0_graph.mindir和增量minder_inc_checkpoint/rank_0_graph.mindir两个MindIR图
 
-   ```bash
-   python run_internlm.py \
-   --config_path export_internlm_20b.yaml \
-   --run_mode export \
-   --use_parallel False \
-   --device_id 0
-   ```
+```bash
+python run_internlm.py \
+--config_path export_internlm_20b.yaml \
+--run_mode export \
+--use_parallel False \
+--device_id 0
+```
 
-2. ##### 执行MS Lite推理
+##### Step2. 执行MS Lite推理
 
-   - 新建推理配置文件：
+新建推理配置文件，InternLM-20B在910B上推荐的GE配置如下：
 
-     InternLM-20B在910B上推荐的GE配置如下：
+- 静态推理（910b_ge_default_ctx.ini）
 
-     静态推理（910b_ge_default_ctx.ini）
+```ini
+[ascend_context]
+plugin_custom_ops=All
+provider=ge
 
-     ```ini
-     [ascend_context]
-     plugin_custom_ops=All
-     provider=ge
-     
-     [ge_session_options]
-     ge.exec.formatMode=1
-     ge.exec.atomicCleanPolicy=1
-     ge.exec.staticMemoryPolicy=2
-     ge.exec.precision_mode=must_keep_origin_dtype
-     
-     # 参数说明
-     # provider=ge：采用GE接口
-     # ge.externalWeight=1：将网络中Const/Constant节点的权重保存在单独的文件中
-     # ge.exec.atomicCleanPolicy=1：不集中清理网络中atomic算子占用的内存
-     # ge.exec.staticMemoryPolicy=2：网络运行使用动态扩展内存方式
-     # ge.exec.precision_mode=must_keep_origin_dtype：选择算子精度模式
-     ```
+[ge_session_options]
+ge.exec.formatMode=1
+ge.exec.atomicCleanPolicy=1
+ge.exec.staticMemoryPolicy=2
+ge.exec.precision_mode=must_keep_origin_dtype
 
-     双动态推理（910b_ge_default_inc.ini），以增量为例
+# 参数说明
+# provider=ge：采用GE接口
+# ge.externalWeight=1：将网络中Const/Constant节点的权重保存在单独的文件中
+# ge.exec.atomicCleanPolicy=1：不集中清理网络中atomic算子占用的内存
+# ge.exec.staticMemoryPolicy=2：网络运行使用动态扩展内存方式
+# ge.exec.precision_mode=must_keep_origin_dtype：选择算子精度模式
+```
 
-     ```ini
-     [ascend_context]
-     plugin_custom_ops=All
-     provider=ge
-     
-     [ge_session_options]
-     ge.exec.formatMode=1
-     ge.exec.atomicCleanPolicy=1
-     ge.exec.staticMemoryPolicy=2
-     ge.exec.precision_mode=must_keep_origin_dtype
-     
-     [ge_graph_options]
-     ge.inputShape=batch_index:-1;batch_valid_length:-1;tokens:-1,1;zactivate_len:-1
-     ge.dynamicDims=1,1,1,256;2,2,2,256;4,4,4,256;1,1,1,512
-     ge.dynamicNodeType=1
-     
-     # 参数说明
-     # ge.inputShape：设置参数动态输入，-1表示动态入参
-     # ge.dynamicDims：设置实际推理的batch size和activate length，与ge.inputShape中-1的位置依次对应
-     ```
+- 双动态推理（910b_ge_default_inc.ini），以增量为例
 
-   - 执行run_infer_main.py脚本，修改相关配置启动推理
+```ini
+[ascend_context]
+plugin_custom_ops=All
+provider=ge
 
-     静态推理执行命令如下：
+[ge_session_options]
+ge.exec.formatMode=1
+ge.exec.atomicCleanPolicy=1
+ge.exec.staticMemoryPolicy=2
+ge.exec.precision_mode=must_keep_origin_dtype
 
-     ```bash
-     python run_infer_main.py \
-     --device_id 0 \
-     --model_name internlm_20b \
-     --seq_length 2048 \                           # 注意静态推理时需要与export导出的推理序列长度保持一致
-     --tokenizer_path path/to/tokenizer.model \    # 不设置时，以from_pretrained的方式自动加载tokenizer（research模型不支持）
-     --prefill_model_path /path/to/minder_full_checkpoint/rank_0_graph.mindir \
-     --increment_model_path /path/to/minder_inc_checkpoint/rank_0_graph.mindir \
-     --config_path /path/to/910b_ge_default_ctx.ini \
-     --do_sample False \
-     --top_k 1 \
-     --top_p 1.0 \
-     --repetition_penalty 1.0 \
-     --temperature 1.0 \
-     --max_length 2048 \
-     --is_sample_acceleration False \              # 后处理加速开关，当前internlm模型暂不支持，设置为False
-     --add_special_tokens True \
-     --dynamic False
-     
-     # 参数说明
-     device_id: 设备物理ID
-     model_name: 模型名称
-     seq_length: 推理序列长度
-     tokenizer_path: 模型tokenizer路径
-     prefill_model_path: 全量图路径
-     increment_model_path: 增量图路径
-     config_path: GE配置文件路径
-     do_sample: 是否对候选id进行采样
-     top_k: 选择top_k个token id作为候选
-     top_p: 将累积概率小于top_k的token id作为候选
-     repetition_penalty: 生成单词的惩罚因子，设置为1时不打开
-     temperature: 温度系数，用来调整下个token的概率
-     max_length: 能够生成的最大语句长度
-     is_sample_acceleration: 后处理加速开关
-     add_special_tokens: 对输入token化时是否添加特殊字符
-     dynamic: 是否采用双动态推理
-     prompt: 输入中加入prompt的内容，Baichuan2可以选择不设置，按默认的prompt进行推理
-     ```
+[ge_graph_options]
+ge.inputShape=batch_index:-1;batch_valid_length:-1;tokens:-1,1;zactivate_len:-1
+ge.dynamicDims=1,1,1,256;2,2,2,256;4,4,4,256;1,1,1,512
+ge.dynamicNodeType=1
 
-     双动态推理修改以下两个参数即可：
+# 参数说明
+# ge.inputShape：设置参数动态输入，-1表示动态入参
+# ge.dynamicDims：设置实际推理的batch size和activate length，与ge.inputShape中-1的位置依次对应
+```
 
-     ```ini
-     --config_path /path/to/910b_ge_default_ctx.ini，/path/to/910b_ge_default_inc.ini
-     --dynamic True
-     ```
+执行run_infer_main.py脚本，修改相关配置启动推理
+
+- 静态推理执行命令如下：
+
+```bash
+python run_infer_main.py \
+--device_id 0 \
+--model_name internlm_20b \
+--seq_length 2048 \                           # 注意静态推理时需要与export导出的推理序列长度保持一致
+--tokenizer_path path/to/tokenizer.model \    # 不设置时，以from_pretrained的方式自动加载tokenizer（research模型不支持）
+--prefill_model_path /path/to/minder_full_checkpoint/rank_0_graph.mindir \
+--increment_model_path /path/to/minder_inc_checkpoint/rank_0_graph.mindir \
+--config_path /path/to/910b_ge_default_ctx.ini \
+--do_sample False \
+--top_k 1 \
+--top_p 1.0 \
+--repetition_penalty 1.0 \
+--temperature 1.0 \
+--max_length 2048 \
+--is_sample_acceleration False \              # 后处理加速开关，当前internlm模型暂不支持，设置为False
+--add_special_tokens True \
+--dynamic False
+
+# 参数说明
+device_id: 设备物理ID
+model_name: 模型名称
+seq_length: 推理序列长度
+tokenizer_path: 模型tokenizer路径
+prefill_model_path: 全量图路径
+increment_model_path: 增量图路径
+config_path: GE配置文件路径
+do_sample: 是否对候选id进行采样
+top_k: 选择top_k个token id作为候选
+top_p: 将累积概率小于top_k的token id作为候选
+repetition_penalty: 生成单词的惩罚因子，设置为1时不打开
+temperature: 温度系数，用来调整下个token的概率
+max_length: 能够生成的最大语句长度
+is_sample_acceleration: 后处理加速开关
+add_special_tokens: 对输入token化时是否添加特殊字符
+dynamic: 是否采用双动态推理
+prompt: 输入中加入prompt的内容，Baichuan2可以选择不设置，按默认的prompt进行推理
+```
+
+- 双动态推理修改以下两个参数即可：
+
+```ini
+--config_path /path/to/910b_ge_default_ctx.ini，/path/to/910b_ge_default_inc.ini
+--dynamic True
+```
