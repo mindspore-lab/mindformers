@@ -274,6 +274,11 @@ class BaseTrainer:
                            parallel_mode, self.config.runner_config.gradient_accumulation_steps)
             self.config.runner_config.gradient_accumulation_steps = 1
 
+    def _check_training_network_no_use_past(self, network):
+        if network is not None and hasattr(network.config, "use_past") and network.config.use_past:
+            raise ValueError("In training process, network should be configured to use_past=False, "
+                             f"but got use_past={network.config.use_past}")
+
     def _reset_wrapper_for_pipeline_parallel(self):
         """Reset wrapper when pipeline parallel."""
         if self.config.runner_wrapper is not None:
@@ -628,6 +633,8 @@ class BaseTrainer:
         elif network is None and wrapper is None and self.network is not None:
             logger.info(".........Using The Existing Network For Train:: %s", self.network.__class__.__name__)
             network = self.network
+
+        self._check_training_network_no_use_past(network)
 
         eval_network = None
         if network is not None:
