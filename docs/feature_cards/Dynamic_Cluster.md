@@ -19,9 +19,9 @@ shell脚本启动入参：
 - `CONFIG_PATH`: 任务所需的模型配置文件路径
 - `RUN_MODE`: 指定run_mindformer脚本的运行模式
 
-step 1. 设置动态组网所需环境变量
-
 以单机4卡运行gpt2模型训练为例：
+
+step 1. 设置动态组网所需环境变量
 
 ```bash
 # 单机，编号从0开始
@@ -35,6 +35,10 @@ export MS_SCHED_HOST=xx.xx.xx.xx
 ```
 
 step 2. 运行动态组网脚本，启动分布式训练
+
+参考gpt2模型中的[预训练部分](../model_cards/gpt2.md#预训练)，进行数据集的准备与配置修改
+
+使用以下命令以启动多卡训练：
 
 ```bash
 cd scripts
