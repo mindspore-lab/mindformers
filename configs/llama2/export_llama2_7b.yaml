@@ -1,3 +1,5 @@
+output_dir: './output'
+
 # trainer config
 trainer:
   type: CausalLanguageModelingTrainer
@@ -23,6 +25,17 @@ parallel:
   parallel_optimizer_config:
     gradient_accumulation_shard: False
     parallel_optimizer_threshold: 64
+# default parallel of device num = 8 910B
+parallel_config:
+  data_parallel: 8
+  model_parallel: 1 # write npu num as much as you need to export
+  pipeline_stage: 1
+  use_seq_parallel: False
+  micro_batch_num: 4
+  vocab_emb_dp: True
+  gradient_aggregation_group: 4
+# when model parallel is greater than 1, we can set micro_batch_interleave_num=2, that may accelerate the train process.
+micro_batch_interleave_num: 1
 
 # mindspore context init config
 context:
