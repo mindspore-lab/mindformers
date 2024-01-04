@@ -139,8 +139,8 @@ python research/qwen/alpaca_converter.py \
 ```bash
 python research/qwen/qwen_preprocess.py \
 --input_glob /path/alpaca-data-conversation.json \
---model_file /path/qwen_tiktoken \
---seq_length 1024 \
+--model_file /path/qwen.tiktoken \
+--seq_length 2048 \
 --output_file /path/alpaca.mindrecord
 ```
 
@@ -213,7 +213,7 @@ python mindformers/research/qwen/convert_weight.py \
    run_mode: 'finetune'
 
    model_config:
-      seq_length: 1024 # 与数据集长度保持相同
+      seq_length: 2048 # 与数据集长度保持相同
 
    train_dataset: &train_dataset
      data_loader:
@@ -270,7 +270,7 @@ lora微调性能（seq_length=2048，global_batch_size=8）：
    load_checkpoint: 'model_dir'    # 使用完整权重，权重按照`model_dir/rank_0/xxx.ckpt`格式存放
 
    model_config:
-      seq_length: 1024 # 与数据集长度保持相同
+      seq_length: 2048 # 与数据集长度保持相同
 
    train_dataset: &train_dataset
      data_loader:

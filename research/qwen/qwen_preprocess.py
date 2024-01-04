@@ -37,7 +37,7 @@ def preprocess(sources, tokenizer, seq_length):
     im_start = tokenizer.im_start_id
     im_end = tokenizer.im_end_id
     nl_tokens = tokenizer('\n')['input_ids']
-    system = tokenizer('system')['input_ids'] + nl_tokens
+    system_base = tokenizer('system')['input_ids'] + nl_tokens
 
     # Apply prompt templates
     input_ids, targets = [], []
@@ -46,7 +46,7 @@ def preprocess(sources, tokenizer, seq_length):
             source = source[1:]
 
         input_id, target = [], []
-        system = [im_start] + system + tokenizer(system_message)['input_ids'] + [im_end] + nl_tokens
+        system = [im_start] + system_base + tokenizer(system_message)['input_ids'] + [im_end] + nl_tokens
         input_id += system
         target += [im_start] + [IGNORE_TOKEN_ID] * (len(system) - 3) + [im_end] + nl_tokens
         assert len(input_id) == len(target)
