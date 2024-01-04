@@ -210,11 +210,13 @@ class ChatGLM32kTokenizer(Tokenizer):
         input_ids.extend([self.get_command("<|assistant|>")])
         return self.batch_encode_plus([input_ids], return_tensors="np", is_split_into_words=True)
 
-    def tokenize(self, text):
+    # pylint: disable=W0613
+    def tokenize(self, text, pair=None, add_special_tokens=True, **kwargs):
         """ Returns a tokenized string. """
         return self._tokenize(text)
 
-    def _tokenize(self, text):
+    # pylint: disable=W0613
+    def _tokenize(self, text, **kwargs):
         return self.tokenizer.tokenize(text)
 
     def _convert_token_to_id(self, token):
@@ -225,12 +227,15 @@ class ChatGLM32kTokenizer(Tokenizer):
         ids = []
         for token in tokens:
             ids.append(self.tokenizer.convert_token_to_id(token))
+
         return ids
 
+    # pylint: disable=W0613
     def _decode(self,
                 token_ids: Union[int, List[int]],
                 skip_special_tokens: bool = False,
-                clean_up_tokenization_spaces: bool = None) -> str:
+                clean_up_tokenization_spaces: bool = None,
+                **kwargs) -> str:
         _, _ = skip_special_tokens, clean_up_tokenization_spaces
         tokens = []
         for token_id in token_ids:
@@ -248,7 +253,8 @@ class ChatGLM32kTokenizer(Tokenizer):
     def convert_tokens_to_string(self, tokens: List[str]) -> str:
         return self.tokenizer.decode_tokens(tokens)
 
-    def save_vocabulary(self, save_directory):
+    # pylint: disable=W0613
+    def save_vocabulary(self, save_directory, filename_prefix=None):
         """
         Save the vocabulary and special tokens file to a directory.
 
@@ -305,12 +311,14 @@ class ChatGLM32kTokenizer(Tokenizer):
             token_ids_0 = token_ids_0 + token_ids_1 + [self.get_command("<eos>")]
         return token_ids_0
 
+    # pylint: disable=W0613
     def _pad(
             self,
             encoded_inputs: Union[Dict[str, EncodedInput], BatchEncoding],
             max_length: Optional[int] = None,
             padding_strategy: PaddingStrategy = PaddingStrategy.DO_NOT_PAD,
             pad_to_multiple_of: Optional[int] = None,
+            return_attention_mask: Optional[bool] = None,
     ) -> dict:
         """
         Pad encoded inputs (on left/right and up to predefined length or max length in the batch)
