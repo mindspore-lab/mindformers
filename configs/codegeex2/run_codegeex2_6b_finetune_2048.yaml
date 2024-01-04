@@ -14,7 +14,7 @@ context:
   graph_kernel_flags: "--disable_expand_ops=Softmax,Dropout --enable_parallel_fusion=true --reduce_fuse_depth=8 --enable_auto_tensor_inplace=true"
   max_call_depth: 10000
   max_device_memory: "59GB"
-  save_graphs: True
+  save_graphs: False
   device_id: 0
 
 # aicc
@@ -24,7 +24,7 @@ remote_save_url: "Please input obs url on AICC platform."
 model:
   model_config:
     type: ChatGLM2Config
-    batch_size: 4   # only for incremental infer
+    batch_size: 1   # only for incremental infer
     num_layers: 28
     padded_vocab_size: 65024
     hidden_size: 4096
@@ -94,8 +94,8 @@ processor:
 train_dataset: &train_dataset
   data_loader:
     type: ADGenDataLoader
-    dataset_dir: "/path/to/AdvertiseGen/train.json"
-    shuffle: False
+    dataset_dir: "/path/to/CodeAlpaca/train.json"
+    shuffle: True
     phase: "train"
     version: 2
     origin_columns: ["PROMPT", "ANSWER"]
@@ -122,7 +122,7 @@ train_dataset_task:
 eval_dataset: &eval_dataset
   data_loader:
     type: ADGenDataLoader
-    dataset_dir: "/path/to/AdvertiseGen/dev.json"
+    dataset_dir: "/path/to/CodeAlpaca/dev.json"
     shuffle: False
     phase: "eval"
     version: 2
@@ -130,8 +130,8 @@ eval_dataset: &eval_dataset
   tokenizer:
     type: ChatGLM2Tokenizer
     vocab_file: "/path/to/tokenizer.model"
-  max_source_length: 2048
-  max_target_length: 2048
+  max_source_length: 256
+  max_target_length: 256
   ignore_pad_token_for_loss: True
   input_columns: ["input_ids", "labels"]
   num_parallel_workers: 8
@@ -183,7 +183,7 @@ lr_scale: False
 lr_scale_factor: 256
 
 # parallel config
-use_parallel: False
+use_parallel: True
 parallel:
   parallel_mode: 1 # 0-dataset, 1-semi, 2-auto, 3-hybrid
   gradients_mean: False
@@ -192,13 +192,13 @@ parallel:
   full_batch: True
   search_mode: "sharding_propagation"
   enable_parallel_optimizer: True  # optimizer shard
-  strategy_ckpt_save_file: "./ckpt_strategy.ckpt"
+  strategy_ckpt_config:
+    save_file: "./ckpt_strategy.ckpt"
 parallel_config:
   data_parallel: 8
   model_parallel: 1
   pipeline_stage: 1
   expert_parallel: 1
-  optimizer_shard: True  # optimizer shard
   micro_batch_num: 1
   vocab_emb_dp: True
   gradient_aggregation_group: 4
@@ -216,7 +216,7 @@ recompute_config:
   recompute: True
   parallel_optimizer_comm_recompute: False
   mp_comm_recompute: True
-  recompute_slice_activation: False
+  recompute_slice_activation: True
 
 # autotune
 auto_tune: False
@@ -236,7 +236,7 @@ callbacks:
   - type: MFLossMonitor
   - type: CheckpointMointor
     prefix: "codegeex2-6b"
-    save_checkpoint_steps: 500
+    save_checkpoint_steps: 1000
     keep_checkpoint_max: 2
     integrated_save: False
     async_save: False
