@@ -379,14 +379,34 @@ python run_visualglm_finetune.py --config CONFIG_PATH --graph_mode GRAPH_MODE --
 
 ```bash
 # 运行如下命令，生成当前机器的RANK_TABLE_FILE的json文件
-python mindformers/tools/hccl_tools.py --device_num "[0,8)"
+python mindformers/tools/hccl_tools.py --device_num "[START_ID, END_ID)"
+```
+
+参数说明：
+
+- \[START_ID, END_ID\]:  表示卡的范围，START_ID是第一块卡的编号，END_ID是最后一块卡的编号，比如8卡为[0,8)
+
+修改run_visualglm_lora.yaml中的并行参数
+
+- use_parallel: 改为True
+- parallel_mode：目前只支持数据并行，值为0
+- data_parallel：改为上面卡的数量，比如8卡改成8
+
+```yaml
+use_parallel: True
+parallel:
+  parallel_mode: 0
+parallel_config:
+  data_parallel: 8
+  model_parallel: 1
+
 ```
 
 运行run_singlenode.sh脚本来执行多卡训练
 
 1. 把HCCL_JSON_PATH替换为上面生成的hccl json文件的路径
-2. \[START_ID, END_ID\]:  表示卡的范围，START_ID是第一块卡的编号，END_ID是最后一块卡的编号
-3. CARD_COUNT: 表示使用NPU卡的数量
+2. \[START_ID, END_ID\]:  表示卡的范围，START_ID是第一块卡的编号，END_ID是最后一块卡的编号，要跟上面RANK_TABLE_FILE的配置保持一致；
+3. CARD_COUNT: 表示使用NPU卡的数量，要跟上面RANK_TABLE_FILE的配置保持一致
 
 ```shell
 cd research/visualglm
@@ -413,8 +433,8 @@ HCCL_JSON_PATH [START_ID, END_ID] CARD_COUNT
 
 **注意**
 
-1. 图片路径：微调推理用的参考图片在代码仓库的finetune路径下
-2. 提示词：每张图片都有一个对应的参考提示词，可以在finetune_inputs.jsonl文件找到
+- 图片路径：微调推理用的参考图片在代码仓库的finetune路径下
+- 提示词：每张图片都有一个对应的参考提示词，可以在finetune_inputs.jsonl文件找到
 
 调用预先开发好的脚本run_visualglm_with_lora.py，传入相关的图片和提示词，会得到相关的文本。
 
