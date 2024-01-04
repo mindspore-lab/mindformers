@@ -432,11 +432,6 @@ def build_model(config, model, dataset, do_eval=False, do_predict=False):
         elif do_predict:
             model.infer_predict_layout(dataset)
         else:
-            if config.runner_config.epochs > 1 and config.runner_config.sink_size == 1:
-                raise ValueError(f"When distributed loads are sliced weights, it does not support"
-                                 f"epochs = {config.runner_config.epochs} > 1 and "
-                                 f"sink_size = {config.runner_config.sink_size} = 1,"
-                                 f"sink_size must be more than 1")
             logger.info(".........Building model.........")
             model.build(train_dataset=dataset, epoch=config.runner_config.epochs,
                         sink_size=config.runner_config.sink_size)
