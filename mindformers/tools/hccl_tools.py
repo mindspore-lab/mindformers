@@ -52,6 +52,8 @@ def parse_args():
                              "while `--device_num` could only be set to \"[0, 4)\" instead of \"[4, 8)\"")
     parser.add_argument("--server_ip", type=str, default="",
                         help="Set the server_ip manually, to avoid errors in auto detection.")
+    parser.add_argument("--device_num_per_node", type=int, default=8,
+                        help="Set the device number per node.")
     args = parser.parse_args()
     return args
 
@@ -91,14 +93,14 @@ def main():
 
     # device_num
     first_num = int(args.device_num[1])
-    last_num = int(args.device_num[3])
-    if first_num < 0 or last_num > 8:
-        raise ValueError("device num {} must be in range [0,8] !".format(args.device_num))
+    last_num = int(args.device_num.split(')')[0].split(',')[-1])
+    if first_num < 0 or last_num > args.device_num_per_node:
+        raise ValueError(f"device num {args.device_num} must be in range [0,{args.device_num_per_node}] !")
     if first_num > last_num:
         raise ValueError("First num {} of device num {} must less than last num {} !".format(first_num, args.device_num,
                                                                                              last_num))
     if first_num < 4 < last_num:
-        if first_num == 0 and last_num == 8:
+        if first_num == 0 and last_num in (8, 16):
             pass
         else:
             raise ValueError("device num {} must be in the same group of [0,4] or [4,8] !".format(args.device_num))
