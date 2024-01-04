@@ -147,11 +147,11 @@ model:
     eos_token_id: 2
     pad_token_id: 0
     ignore_token_id: -100
-    compute_dtype: "float16"
+    compute_dtype: "bfloat16"
     layernorm_compute_type: "float32"
     softmax_compute_type: "float16"
     rotary_dtype: "float16"
-    param_init_type: "float16"
+    param_init_type: "float32"
     use_past: False
     pretrain_seqlen: 4096 # seqlen of the pretrain checkpoint: 2048 for llama and 4096 for llama2
     extend_method: "None" # support "None", "PI", "NTK"
@@ -192,11 +192,7 @@ metric:
 # wrapper cell config
 runner_wrapper:
   type: MFTrainOneStepCell
-  scale_sense:
-    type: DynamicLossScaleUpdateCell
-    loss_scale_value: 65536
-    scale_factor: 2
-    scale_window: 1000
+  scale_sense: 1
   use_clip_grad: True
 
 eval_callbacks:

@@ -48,7 +48,12 @@ def _check_mode(config, mode):
             logger.warning("use_past could not be used in train mode, "
                            "it has been forced to False")
     elif mode == 'predict':
-        pass
+        if config.model.model_config.compute_type == 'bfloat16':
+            config.model.model_config.compute_type = 'float16'
+            logger.warning("cast compute_type because predict param need float16 but get bfloat16")
+        if config.model.model_config.param_init_type == 'bfloat16':
+            config.model.model_config.param_init_type = 'float16'
+            logger.warning("cast param_init_type because predict param need float16 but get bfloat16")
     elif mode == 'eval':
         pass
     else:
