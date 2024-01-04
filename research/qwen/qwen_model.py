@@ -251,8 +251,6 @@ class QwenModel(BaseModel):
         )
 
         self.shape = P.Shape()
-        self.multiply_data = Tensor([-10000.0], dtype=config.compute_dtype)
-        self.one = Tensor([1.0], dtype=config.compute_dtype)
 
         if not (_get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation()):
             self.shard(config.parallel_config)
@@ -510,8 +508,6 @@ class CausalMaskForQwen(nn.Cell):
         if not self.use_flash_attention:
             mask = self.expand_dim_post(mask, 1)
             mask = self.mul_post(mask, self.multiply_data)
-        else:
-            mask = self.cast(mask, mstype.uint8)
         return mask
 
     def shard(self, parallel_config):
