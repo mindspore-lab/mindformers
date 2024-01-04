@@ -46,6 +46,8 @@ def recursive_replace_dense_cell(net, config):
                                       lora_rank=config.lora_rank,
                                       lora_alpha=config.lora_alpha,
                                       lora_dropout=config.lora_dropout,
+                                      param_init_type=config.param_init_type,
+                                      compute_dtype=config.compute_dtype,
                                       has_bias=cell.has_bias,
                                       activation=cell.activation)
 
