@@ -51,7 +51,7 @@ def update_checkpoint_config(config, is_train=True):
     else:
         if config.run_mode in ('train', 'finetune'):
             config.model.model_config.checkpoint_name_or_path = config.load_checkpoint
-        elif config.run_mode in ['eval', 'predict'] and config.load_checkpoint:
+        elif config.run_mode in ['eval', 'predict', 'export'] and config.load_checkpoint:
             config.model.model_config.checkpoint_name_or_path = config.load_checkpoint
         config.load_checkpoint = None
 
@@ -119,7 +119,7 @@ def main(config):
                              "load_checkpoint must be input")
         update_checkpoint_config(config)
 
-    if config.run_mode in ['eval', 'predict']:
+    if config.run_mode in ['eval', 'predict', 'export']:
         update_checkpoint_config(config, is_train=False)
 
     # remote save url
@@ -329,6 +329,9 @@ if __name__ == "__main__":
         config_.input_data = args_.predict_data
         if args_.predict_batch_size is not None:
             config_.predict_batch_size = args_.predict_batch_size
+    if config_.run_mode == 'export':
+        if args_.batch_size is not None:
+            config_.model.model_config.batch_size = args_.batch_size
     if args_.epochs is not None:
         config_.runner_config.epochs = args_.epochs
     if args_.batch_size is not None:

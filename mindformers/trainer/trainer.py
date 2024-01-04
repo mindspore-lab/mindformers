@@ -659,7 +659,7 @@ class Trainer:
             **kwargs)
         return output_result
 
-
+    @args_type_check(predict_checkpoint=(str, bool), auto_trans_ckpt=bool)
     def export(self,
                predict_checkpoint: Optional[Union[str, bool]] = None,
                auto_trans_ckpt: Optional[bool] = None):
@@ -668,7 +668,13 @@ class Trainer:
         export method of task-trainer instance.
 
         Args:
-            None
+            predict_checkpoint (Optional[Union[str, bool]]):
+                Used to predict the weight of the network.
+                It supports real checkpoint path or valid model name of mindformers or bool value.
+                if it's true, the last checkpoint file saved from the previous training round is automatically used.
+                Default: False.
+            auto_trans_ckpt:
+                auto transform checkpoint to load in distributed model
 
         Return:
             None
