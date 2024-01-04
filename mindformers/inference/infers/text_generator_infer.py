@@ -192,6 +192,7 @@ class InputOfInfer:
         "gpt2": CommonInputsOfInfer,
         "codegeex2": CommonInputsOfInfer,
         "glm": GLMInputsOfInfer,
+        "internlm": LlamaInputsOfInfer,
         "common": CommonInputsOfInfer
     }
 

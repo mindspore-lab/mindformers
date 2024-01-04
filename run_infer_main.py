@@ -30,6 +30,7 @@ from mindformers.generation import TextIteratorStreamer
 from mindformers.tools.utils import str2bool
 from mindformers.inference import InferConfig, InferTask
 from research.baichuan2.baichuan2_tokenizer import Baichuan2Tokenizer
+from research.internlm.internlm_tokenizer import InternLMTokenizer
 from research.qwen.qwen_tokenizer import QwenTokenizer
 
 
@@ -112,7 +113,8 @@ LITE_SUPPORT_MODELS = {
     'llama': LlamaTokenizer,
     'llama2': LlamaTokenizer,
     'codellama': LlamaTokenizer,
-    'baichuan2': Baichuan2Tokenizer
+    'baichuan2': Baichuan2Tokenizer,
+    'internlm': InternLMTokenizer
 }
 
 
@@ -139,6 +141,11 @@ def build_prompt(inputs, model_name, prompt):
             prompt = "<reserved_106>{}<reserved_107>"
         else:
             prompt = "<reserved_106>" + prompt + "<reserved_107>"
+    elif model_name.startswith('internlm'):
+        if not prompt:
+            prompt = "<s><s><|User|>:{}<eoh>\n<|Bot|>:"
+        else:
+            prompt = "<s><s><|User|>:" + prompt + "<eoh>\n<|Bot|>:"
     if not prompt:
         return inputs
     if prompt.find("{}") != -1:
