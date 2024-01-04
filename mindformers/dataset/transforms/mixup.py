@@ -239,8 +239,8 @@ class Mixup(PyTensorOperation):
                                'The last data in batch has been dropped to use mixip.'
                                'you can set "drop_remainder" true in dataset config manually.')
             else:
-                logger.error('Batch size is 1.'
-                             'If error occurs, please set "drop_remainder" true in dataset config.')
+                logger.warning('Batch size is 1.'
+                               'If error occurs, please set "drop_remainder" true in dataset config.')
         if self.mode == 'elem':
             lam = self._mix_elem(x)
         elif self.mode == 'pair':
