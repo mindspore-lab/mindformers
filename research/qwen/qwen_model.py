@@ -89,6 +89,8 @@ class QwenForCausalLM(BaseModel):
         self.ones = P.Ones()
         self.slice = P.StridedSlice()
         self.mul = P.Mul()
+        self.sub_batch_valid_len = P.Sub()
+        self.gather = P.Gather(1)
 
         if not (_get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation()):
             self.shard(config.parallel_config)
@@ -109,20 +111,27 @@ class QwenForCausalLM(BaseModel):
 
     # pylint: disable=W0613
     def construct(self, input_ids, labels=None, input_position=None, position_ids=None, attention_mask=None,
-                  input_embeds=None, init_reset=True, batch_valid_length=None):
+                  input_embeds=None, init_reset=True, batch_valid_length=None, batch_index=None, zactivate_len=None):
         """construct"""
         bsz, seqlen = input_ids.shape
         if self.use_past:
-            if not isinstance(init_reset, Tensor):
-                init_reset = Tensor([init_reset], mstype.bool_)
             if not isinstance(batch_valid_length, Tensor):
-                batch_valid_length = self.ones((bsz, 1), mstype.int32)
+                batch_valid_length = self.ones((bsz,), mstype.int32)
         if self.training:
             tokens = self.slice(input_ids, (0, 0), (bsz, seqlen - 1), (1, 1))
         else:
             tokens = input_ids
 
-        output = self.transformer(tokens, init_reset=init_reset, batch_valid_length=batch_valid_length)
+        if batch_valid_length is not None:
+            batch_valid_length = self.reshape(batch_valid_length, (-1,))
+        if not self.is_first_iteration:
+            batch_valid_length = self.sub_batch_valid_len(batch_valid_length, 1)
+
+        output = self.transformer(tokens, init_reset=init_reset, batch_valid_length=batch_valid_length,
+                                  batch_index=batch_index, zactivate_len=zactivate_len)
+        pre_gather = (not self.use_past or self.is_first_iteration) and batch_valid_length is not None
+        if pre_gather:
+            output = self.gather(output, self.sub_batch_valid_len(batch_valid_length, 1), 1)
         logits = self.lm_head(output)
 
         input_mask = self.cast(self.not_equal(tokens, self.pad_token_id), mstype.float32)
@@ -136,7 +145,8 @@ class QwenForCausalLM(BaseModel):
                 input_mask = self.mul(input_mask, label_mask)
 
         if not self.training:
-            logits = self.reshape(logits, (bsz, seqlen, -1))
+            if not pre_gather:
+                logits = self.reshape(logits, (bsz, seqlen, -1))
             logits = self.cast(logits, mstype.float32)
             # makes cast effective to avoid allgather issue in Mindspore1.10
             input_mask = self.add(input_mask, 1)
@@ -159,6 +169,8 @@ class QwenForCausalLM(BaseModel):
         self.not_equal.shard(((dp, 1), ()))
         self.mul.shard(((dp, 1), (dp, 1)))
         self.add.shard(((dp, 1), ()))
+        self.sub_batch_valid_len.shard(((1,), ()))
+        self.gather.shard(((dp, 1, 1), (dp,)))
 
         if parallel_config.vocab_emb_dp:
             self.lm_head.shard(strategy_matmul=((dp, 1), (1, 1)))
@@ -265,7 +277,8 @@ class QwenModel(BaseModel):
                 self.ln_f.set_comm_fusion(config.parallel_config.gradient_aggregation_group)
 
     # pylint: disable=W0613
-    def construct(self, input_ids: Tensor, init_reset=True, batch_valid_length=None):
+    def construct(self, input_ids: Tensor, init_reset=True, batch_valid_length=None, batch_index=None,
+                  zactivate_len=None):
         """construct"""
         if input_ids is not None:
             input_shape = input_ids.shape
@@ -293,12 +306,13 @@ class QwenModel(BaseModel):
                 if self.is_dynamic and self.is_flexible_shape and not self.use_kvcache_op:
                     mask = self.casual_mask.increment_slice(self.kvcache_preprocess.range,
                                                             self.kvcache_preprocess.max_cache_length // bs,
-                                                            batch_valid_length)
+                                                            batch_valid_length,
+                                                            zactivate_len)
                 else:
-                    mask = self.casual_mask.increment(self.kvcache_preprocess.range, batch_valid_length)
+                    mask = self.casual_mask.increment(self.kvcache_preprocess.range, batch_valid_length, zactivate_len)
             mask = self.casual_mask.post_process(mask)
 
-            kvcache_inputs = self.kvcache_preprocess(bs, batch_valid_length)
+            kvcache_inputs = self.kvcache_preprocess(bs, batch_valid_length, batch_index, zactivate_len)
 
         # 4. hidden_states
         for i in range(self.num_hidden_layers):
@@ -381,7 +395,8 @@ class QwenFeedForward(nn.Cell):
     def __init__(self, dim,
                  intermediate_size=0,
                  compute_dtype=mstype.float16,
-                 param_init_type=mstype.float32):
+                 param_init_type=mstype.float32,
+                 is_dynamic=False):
         super().__init__()
 
         hidden_dim = intermediate_size
@@ -397,19 +412,22 @@ class QwenFeedForward(nn.Cell):
                          out_channels=hidden_dim,
                          has_bias=False,
                          compute_dtype=compute_dtype,
-                         param_init_type=param_init_type)
+                         param_init_type=param_init_type,
+                         skip_redistribution=is_dynamic)
 
         self.w2 = Linear(in_channels=hidden_dim,
                          out_channels=dim,
                          has_bias=False,
                          compute_dtype=compute_dtype,
-                         param_init_type=param_init_type)
+                         param_init_type=param_init_type,
+                         skip_redistribution=is_dynamic)
 
         self.w3 = Linear(in_channels=dim,
                          out_channels=hidden_dim,
                          has_bias=False,
                          compute_dtype=compute_dtype,
-                         param_init_type=param_init_type)
+                         param_init_type=param_init_type,
+                         skip_redistribution=is_dynamic)
 
     def construct(self, x):
         """Forward process of the FeedForward"""

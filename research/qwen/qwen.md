@@ -365,6 +365,8 @@ python evaluate_ceval.py -d data/ceval/
    use_parallel: False                               # 关闭并行模式
    ```
 
+   *注*：可配置`model_config:param_init_type`为`float32`提高推理精度，但同时会影响在线推理性能。
+
 2. 启动推理
 
    ```shell
@@ -401,6 +403,8 @@ python evaluate_ceval.py -d data/ceval/
      vocab_emb_dp: True
      gradient_aggregation_group: 4
    ```
+
+   *注*：可配置`model_config:param_init_type`为`float32`提高推理精度，但同时会影响在线推理性能。
 
 2. 启动推理：
 
@@ -556,6 +560,8 @@ model:
   model_config:
     seq_length: 2048
     checkpoint_name_or_path: "/path/qwen_7b_base.ckpt"
+
+    param_init_type: "float32" # 提高推理精度
 ```
 
 执行`export.py`：
