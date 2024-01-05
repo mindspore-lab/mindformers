@@ -49,22 +49,6 @@ runner_wrapper:
   ...
 ```
 
-## 优化器异构
-
-在大模型训练过程中，优化器状态占用了大量的内存，进而限制了可训练的模型规模，使用优化器异构，将优化器指定到CPU上执行，可以极大扩展可训练模型规模
-
-MindFormers中，FusedCastAdamWeightDecay优化器支持了异构的能力，通过配置`optimizer`的`type`项，选择FusedCastAdamWeightDecay，即可开启优化器异构训练，如下：
-
-```yaml
-optimizer:
-  type: FusedCastAdamWeightDecay
-  ...
-  beta2: 0.95
-  eps: 0.00000001
-```
-
-**限制**：目前仅支持在网络参数为fp16且并行配置为非pipeline场景使用
-
 ## Token分布
 
 在MoE大模型训练过程中，常见的TopK Router算法会导致Token分发不均匀，存在Router给少数热门专家分配大量Token，多数冷门专家分配少量Token的情况。专家受限于专家容量，会将超过专家容量的Token丢弃，不足专家容量的Padding。所以获取Token分布情况能帮助用户合理确定专家容量。
