@@ -92,7 +92,7 @@ dataset = GeneratorDataset(generator, column_names=["input_ids"])
 train_dataset = dataset.batch(batch_size=4)
 eval_dataset = dataset.batch(batch_size=4)
 # 定义文本生成任务，传入自定义模型、数据集、超参数
-text_generation = Trainer(task='text_generation', model_name=='pangualpha_2_6b',
+text_generation = Trainer(task='text_generation', model_name='pangualpha_2_6b',
                           wrapper=train_network, args=training_args,
                           train_dataset=train_dataset, eval_dataset=eval_dataset)
 ```
