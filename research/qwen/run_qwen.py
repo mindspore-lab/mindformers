@@ -128,7 +128,7 @@ if __name__ == "__main__":
                         help='config file path.')
     parser.add_argument('--run_mode', default='predict', type=str,
                         help='set run mode for model.')
-    parser.add_argument('--load_checkpoint', default='', type=str,
+    parser.add_argument('--load_checkpoint', default=None, type=str,
                         help='checkpoint name or dir to load.')
     parser.add_argument('--auto_trans_ckpt', default=None, type=str2bool,
                         help='whether to transform checkpoint to the checkpoint matching current distribute strategy.')
