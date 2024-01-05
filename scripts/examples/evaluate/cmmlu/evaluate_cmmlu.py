@@ -128,11 +128,12 @@ def generate_few_shot_prompt(k, subject, dev_df):
 
 
 def get_logits(tokenizer, model, inputs: List[str]):
+    input_len = len(tokenizer.encode(inputs[0]))
     input_ids = tokenizer(inputs, padding="max_length", max_length=4096, truncation=True, truncate_direction="LEFT")["input_ids"]
     input_ids = np.asarray(input_ids)
     input_ids = Tensor(input_ids)
     tokens = {"input_ids": input_ids}
-    outputs = model(input_ids=input_ids)
+    outputs = model(input_ids=input_ids, batch_valid_length=Tensor([[input_len]]))
     outputs = outputs[0]
     log_probs = ms.ops.softmax(outputs, axis=-1)
     return log_probs, {"tokens": tokens}
