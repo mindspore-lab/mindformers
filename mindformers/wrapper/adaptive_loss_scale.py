@@ -119,7 +119,8 @@ class AdaptiveLossScaleUpdateCell(Cell):
         >>> pangu_model = AutoModel.from_pretrained("pangualpha_2_6b")
         >>> opt = Momentum(learning_rate=0.1, momentum=0.9,
         >>>             params=pangu_model.trainable_params(),)
-        >>> manager = AdaptiveLossScaleUpdateCell(1, 2, 20, 1000, 20)
+        >>> manager = AdaptiveLossScaleUpdateCell(loss_scale_value=212, scale_factor=2, scale_window=20,
+        >>>                                       max_scale_window=1000, min_scale_window=20)
         >>> train_network = MFTrainOneStepCell(pangu_model, opt, scale_sense=manager)
         >>> train_network.set_train()
         >>> # 自定义数据集
@@ -127,7 +128,7 @@ class AdaptiveLossScaleUpdateCell(Cell):
         >>> train_dataset = dataset.batch(batch_size=4)
         >>> eval_dataset = dataset.batch(batch_size=4)
         >>> # 定义文本生成任务，传入自定义模型、数据集、超参数
-        >>> text_generation = Trainer(task='text_generation', model_name=='pangualpha_2_6b',
+        >>> text_generation = Trainer(task='text_generation', model_name='pangualpha_2_6b',
         >>>                         wrapper=train_network, args=training_args,
         >>>                         train_dataset=train_dataset, eval_dataset=eval_dataset)
     """
@@ -197,7 +198,7 @@ class AdaptiveLossScaleUpdateCell(Cell):
         Examples:
             >>> from mindformers.wrapper import AdaptiveLossScaleUpdateCell
             >>> manager = AdaptiveLossScaleUpdateCell(loss_scale_value=212, scale_factor=2, scale_window=1000,
-            >>>                                       max_scale_window=1000, min_scale_window=1000)
+            >>>                                       max_scale_window=1000, min_scale_window=20)
             >>> output = manager.get_loss_scale()
             >>> print(output)
             212
