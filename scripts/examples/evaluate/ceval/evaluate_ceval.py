@@ -114,7 +114,6 @@ def generate_few_shot_prompt(k, subject, dev_df):
 
 
 def get_logits(tokenizer, model, inputs: List[str]):
-    input_len = len(tokenizer.encode(inputs[0]))
     input_ids = tokenizer(inputs, padding="max_length", max_length=4096, truncation=True, truncate_direction="LEFT")["input_ids"]
     input_ids = np.asarray(input_ids)
     input_ids = Tensor(input_ids)
@@ -122,9 +121,7 @@ def get_logits(tokenizer, model, inputs: List[str]):
 
     outputs = model(input_ids=input_ids)
     outputs = outputs[0]
-    logits = outputs[:, input_len - 1, :]
-    logits = logits.flatten()
-    log_probs = ms.ops.softmax(logits, axis=-1)
+    log_probs = ms.ops.softmax(outputs, axis=-1)
     return log_probs, {"tokens": tokens}
 
 
