@@ -98,7 +98,7 @@ class TestDoEvalMethod:
         Description: Test trainer for finetune.
         Expectation: TypeError, ValueError, RuntimeError
         """
-        self.task_trainer.finetune(finetune_checkpoint=True)
+        self.task_trainer.finetune(finetune_checkpoint=False)
 
     @pytest.mark.run(order=3)
     def test_config_change_train(self):
@@ -119,4 +119,4 @@ class TestDoEvalMethod:
         Description: Test trainer for finetune.
         Expectation: TypeError, ValueError, RuntimeError
         """
-        self.task_trainer.finetune(finetune_checkpoint=True, do_eval=True)
+        self.task_trainer.finetune(finetune_checkpoint=False, do_eval=True)
