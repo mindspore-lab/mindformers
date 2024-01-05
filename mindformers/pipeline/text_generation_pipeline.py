@@ -91,7 +91,6 @@ class TextGenerationPipeline(BasePipeline):
     def __init__(self, model: Union[str, BaseModel, Model],
                  tokenizer: Optional[BaseTokenizer] = None,
                  **kwargs):
-        batch_size = kwargs.get("batch_size", None)
         if isinstance(model, str):
             if model in self._support_list or os.path.isdir(model):
                 if tokenizer is None:
@@ -114,8 +113,12 @@ class TextGenerationPipeline(BasePipeline):
                              " requires for a tokenizer.")
 
         super().__init__(model, tokenizer, **kwargs)
-        self._batch_size = batch_size
         self.model_name = kwargs.get("model_name", None)
+        self.use_past = False
+        if hasattr(self.network.config, "use_past"):
+            self.use_past = self.network.config.use_past
+        if hasattr(self.network.config, "use_past") and self.network.config.batch_size is not None:
+            self._batch_size = self.network.config.batch_size
 
     def _sanitize_parameters(self, **pipeline_parameters):
         r"""Sanitize Parameters
@@ -168,6 +171,43 @@ class TextGenerationPipeline(BasePipeline):
                                    add_special_tokens=add_special_tokens,
                                    padding=True)["input_ids"]
         return {"input_ids": input_ids}
+
+    def run_multi(self, inputs: Union[list, tuple],
+                  batch_size: int,
+                  preprocess_params: dict,
+                  forward_params: dict,
+                  postprocess_params: dict):
+        r"""Run Multiple Method
+        This function is used to run a list input for task.
+
+        Args:
+            inputs (Union[list, tuple, iterator]):
+                The iterable input for pipeline.
+            batch_size (int):
+                Batch size of pipeline input.
+            preprocess_params (dict):
+                The parameter dict for preprocess.
+            forward_params (dict):
+                The parameter dict for model forward process.
+            postprocess_params (dict):
+                The parameter dict for postprocess.
+        """
+        if self.use_past and self._batch_size != batch_size:
+            raise ValueError("When using text generation pipeline with use_past model, "
+                             f"the batch size of input list {batch_size} should be consistent with "
+                             f"model batch size {self._batch_size}. Please check your inputs.")
+        if len(inputs) % batch_size != 0:
+            raise ValueError(f"When running multi input pipeline, the length of inputs {len(inputs)}"
+                             f" should be multiple of batch size {batch_size}. Please check yout inputs.")
+        outputs = []
+        if batch_size > 1:
+            batch_inputs = [inputs[i:i+batch_size] for i in range(0, len(inputs), batch_size)]
+        else:
+            batch_inputs = inputs
+        for item in batch_inputs:
+            outputs.extend(self.run_single(item, preprocess_params,
+                                           forward_params, postprocess_params))
+        return outputs
 
     def forward(self, model_inputs: dict,
                 **forward_params):
