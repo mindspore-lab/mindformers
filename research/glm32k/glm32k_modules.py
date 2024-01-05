@@ -159,6 +159,7 @@ class ChatGLM32kMLP(nn.Cell):
         )
 
         self.activation_func = ChatGLM32kSwiGLU()
+        self.cast = P.Cast()
 
         # Project back to h.
         self.dense_4h_to_h = Linear(
@@ -172,7 +173,10 @@ class ChatGLM32kMLP(nn.Cell):
     def construct(self, hidden_states):
         # [bs, seq_len, 4 * hidden_size]
         intermediate_parallel = self.dense_h_to_4h(hidden_states)
+        origin_dtype = intermediate_parallel.dtype
+        intermediate_parallel = self.cast(intermediate_parallel, mstype.float32)
         intermediate_parallel = self.activation_func(intermediate_parallel)
+        intermediate_parallel = self.cast(intermediate_parallel, origin_dtype)
         # [bs, seq_len, hidden_size]
         output = self.dense_4h_to_h(intermediate_parallel)
         return output
