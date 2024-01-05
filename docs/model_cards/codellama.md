@@ -917,12 +917,19 @@ ge.exec.precision_mode=must_keep_origin_dtype
 
 ```bash
 # >>> `run_lite.sh`文件
-# 注意run_infer_main.py中数据的导入是通过input来从命令行输入的，多卡推理不支持命令行输入形式，需要将run_infer_main.py中的input改为自己想要测试的数据。
+# 修改predict_data 的入参来进行不同输入文本的推理。
 readonly START_DEVICE_ID=0
 for i in {0..3}; do
 export RANK_ID=${i}
 export DEVICE_ID=$((i + START_DEVICE_ID))
 printf "run model %s on rank:%s,device %s...\n" ${i} ${RANK_ID} ${DEVICE_ID}
-python run_infer_main.py --do_sample False --deivce_id ${DEVICE_ID} --rank_id ${RANK_ID} --tokenizer_path path/to/tokenizer.model --model_name codellama_34b --config_path lite.ini --prefill_model_path outputs/mindir_full_checkpoint/rank_${RANK_ID}_graph.mindir --increment_model_path outputs/mindir_inc_checkpoint/rank_${RANK_ID}_graph.mindir --is_sample_acceleration False --seq_length 4096 --add_special_tokens True > rank_${RANK_ID}.log 2>&1 &
+python run_infer_main.py --do_sample False --deivce_id ${DEVICE_ID} --rank_id ${RANK_ID} --tokenizer_path path/to/tokenizer.model --model_name codellama_34b --config_path lite.ini --prefill_model_path outputs/mindir_full_checkpoint/rank_${RANK_ID}_graph.mindir --increment_model_path outputs/mindir_inc_checkpoint/rank_${RANK_ID}_graph.mindir --is_sample_acceleration False --seq_length 4096 --add_special_tokens True --distributed True --predict_data "def bubble_sort(arr):\n" --generated_time 3 > rank_${RANK_ID}.log 2>&1 &
 done
+# 结果输出：
+#def bubble_sort(arr):
+#    n = len(arr)
+#    for i in range(n):
+#        for j in range(0, n-i-1):
+#            if arr[j] > arr[j+1]:
+#                arr[j], arr[j+1] = arr[j+1], arr[j] ...
 ```

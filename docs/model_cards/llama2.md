@@ -1233,7 +1233,6 @@ python run_mindformer.py --config_path configs/llama2/export_llama2_7b.yaml --ru
 
    ```ini
    [ascend_context]
-   plugin_custom_ops=All
    provider=ge
    [ge_session_options]
    ge.externalWeight=1
@@ -1333,12 +1332,16 @@ ge.exec.atomicCleanPolicy=1
 ge.exec.staticMemoryPolicy=2
 [ge_graph_options]
 ge.inputShape=batch_index:-1;batch_valid_length:-1;tokens:-1,1;zactivate_len:-1
-ge.dynamicDims=1,1,1,256;4,4,4,256;16,16,16,256;1,1,1,1024;
+ge.dynamicDims=1,1,1,256;4,4,4,256;16,16,16,256;1,1,1,1024;  # 这里的前三个表示batch_size，最后一位表示seq_length, 注意不能大于导出时给定的batch_size 和 seq_length;
 ge.dynamicNodeType=1
 ```
 
 2、用来推理的run_lite.sh中，只需要修改两个参数，其它流程都与多卡推理一样
 
+**注**：执行推理时，需要给出与`ge.dynamicDims`中包含的batch_size，否则需要在`ge.dynamicDims`新增。
+
 ```bash
---dynamic True  --config_path "lite.ini,lite_inc.ini"
+--dynamic True  --config_path "lite.ini,lite_inc.ini" --batch_size 1  
+# batch_size 需要在ge.dynamicDims里包含，否则会报错。如上配置则batch_size，可以为1，4，16.
+# seq_length 会自动padding到celling,如上配置，输入长度小于256 则padding到256，否则padding到1024.
 ```
