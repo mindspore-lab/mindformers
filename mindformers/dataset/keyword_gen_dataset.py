@@ -292,7 +292,7 @@ class KeyWordGenDataset(BaseDataset):
 
         context_length = len(prompt_ids)
         input_ids = prompt_ids + answer_ids + [tokenizer.eos_token_id]
-        labels = [tokenizer.pad_token_id] * context_length + answer_ids[1:] + [tokenizer.eos_token_id]
+        labels = [tokenizer.pad_token_id] * (context_length - 1) + answer_ids + [tokenizer.eos_token_id]
 
         pad_len = max_seq_length - len(input_ids)
         input_ids = input_ids + [tokenizer.pad_token_id] * pad_len
@@ -318,7 +318,7 @@ class KeyWordGenDataset(BaseDataset):
 
         context_length = len(prompt_ids)
         input_ids = prompt_ids + answer_ids + [tokenizer.eos_token_id]
-        labels = [tokenizer.pad_token_id] * context_length + answer_ids[1:] + [tokenizer.eos_token_id]
+        labels = [tokenizer.pad_token_id] * (context_length - 1) + answer_ids + [tokenizer.eos_token_id]
 
         pad_len = max_seq_length - len(input_ids)
         input_ids = input_ids + [tokenizer.pad_token_id] * pad_len
@@ -327,6 +327,29 @@ class KeyWordGenDataset(BaseDataset):
         if dataset_config.ignore_pad_token_for_loss:
             labels = [(l if l != tokenizer.pad_token_id else -100) for l in labels]
         return input_ids, labels
+
+    @classmethod
+    def _eval_dataset_function(cls, prompt, answer, dataset_config, tokenizer):
+        """generates eval dataset"""
+        max_source_length = dataset_config.max_source_length
+        max_target_length = dataset_config.max_target_length
+
+        prompt, answer = prompt.tolist(), answer.tolist()
+        if len(prompt) > max_source_length - 2:
+            prompt = prompt[: max_source_length - 2]
+
+        if len(answer) > max_target_length - 2:
+            answer = answer[: max_target_length - 2]
+
+        input_ids = tokenizer.encode(text=prompt, add_special_tokens=True)
+        label = tokenizer.encode(text=answer, add_special_tokens=True)
+
+        pad_len = max_source_length - len(input_ids)
+        input_ids = input_ids + [tokenizer.pad_token_id] * pad_len
+        pad_len = max_target_length - len(label)
+        label = label + [tokenizer.pad_token_id] * pad_len
+
+        return input_ids, label
 
     @classmethod
     def _eval_dataset_functionv2(cls, prompt, answer, dataset_config, tokenizer):
@@ -346,29 +369,6 @@ class KeyWordGenDataset(BaseDataset):
 
         input_ids = tokenizer.encode(text=prompt, add_special_tokens=True, max_length=max_source_length)
         label = tokenizer.encode(text=answer, add_special_tokens=True, max_length=max_target_length)
-
-        pad_len = max_source_length - len(input_ids)
-        input_ids = input_ids + [tokenizer.pad_token_id] * pad_len
-        pad_len = max_target_length - len(label)
-        label = label + [tokenizer.pad_token_id] * pad_len
-
-        return input_ids, label
-
-    @classmethod
-    def _eval_dataset_function(cls, prompt, answer, dataset_config, tokenizer):
-        """generates eval dataset"""
-        max_source_length = dataset_config.max_source_length
-        max_target_length = dataset_config.max_target_length
-
-        prompt, answer = prompt.tolist(), answer.tolist()
-        if len(prompt) > max_source_length - 2:
-            prompt = prompt[: max_source_length - 2]
-
-        if len(answer) > max_target_length - 2:
-            answer = answer[: max_target_length - 2]
-
-        input_ids = tokenizer.encode(text=prompt, add_special_tokens=True)
-        label = tokenizer.encode(text=answer, add_special_tokens=True)
 
         pad_len = max_source_length - len(input_ids)
         input_ids = input_ids + [tokenizer.pad_token_id] * pad_len
