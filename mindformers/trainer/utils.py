@@ -336,8 +336,7 @@ def transform_and_load_checkpoint(config, model, network, dataset, optimizer=Non
                 transform_ckpt(config, ckpt_dir,
                                src_ckpt_strategy=src_ckpt_strategy,
                                dst_ckpt_strategy=dst_ckpt_strategy)
-            if os.path.exists(softlink_dir):
-                shutil.rmtree(softlink_dir)
+
     else:
         config.auto_trans_ckpt = False
     # 5. load ckpt
