@@ -21,7 +21,7 @@ Bloom (BigScience Large Open-science Open-access Multilingual) 是一个开源�
 
 1. 模型具体实现：`mindformers/models/bloom`
 
-    ```bash
+    ```
     bloom
         ├── __init__.py
         ├── convert_weight.py         # 权重转换脚本
@@ -33,15 +33,15 @@ Bloom (BigScience Large Open-science Open-access Multilingual) 是一个开源�
 
 2. 模型配置：`configs/bloom`
 
-    ```bash
+    ```
     bloom
         ├── run_bloom_560m.yaml     # 560m 用于推理
-        ├── run_bloom_7.1b.yaml     # 7.1b 用于8卡训练
-        ├── run_bloom_65b.yaml      # 65b  用于96卡训练
-        └── run_bloom_176b.yaml     # 176b 用于128卡训练
+        ├── run_bloom_7.1b.yaml     # 7.1b 用于8卡(910A)训练
+        ├── run_bloom_7.1b_910b.yaml      # 7.1b 用于8卡(910B)训练
+        └── run_bloom_7.1b_910b_fa.yaml     # 7.1b 用于8卡(910B)训练，并使用Flash Attention
     ```
 
-    其中Bloom_7.1b可在单机单卡上推理，在单机8卡上训练；Bloom-65B训练至少96卡；Bloom_176B训练至少128卡。
+    其中Bloom_7.1b可在单机单卡上推理，在单机8卡上训练。
 
 ## 前期准备
 
@@ -328,7 +328,9 @@ IP_LIST=("192.168.0.0", "192.168.0.1", ..., "192.168.0.11")
 
 ### 全参微调
 
-通过`/configs/bloom/run_bloom_7.1b.yaml`中的`load_checkpoint:`字段来控制是否加载CKPT
+当前模型已支持使用**Flash Attention算法**进行全参微调，请使用`configs/bloom/run_bloom_7.1b_910b_fa.yaml`替换下述说明中的配置文件以使能Flash Attention。关于Flash Attention，请参考 [Flash Attention使用文档](../feature_cards/Training_Algorithms.md#flash-attention)
+
+通过yaml配置文件中的`load_checkpoint:`字段来控制是否加载CKPT
 
 #### 多卡微调
 
