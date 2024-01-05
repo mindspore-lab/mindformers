@@ -465,7 +465,6 @@ def _update_run_kernel(opt, clip_value, beta1, beta2, eps, lr, weight_decay,
     return success
 
 
-@MindFormerRegister.register(MindFormerModuleType.OPTIMIZER)
 class FusedCastAdamWeightDecay(Optimizer):
     """
     Implements the Adam algorithm to fix the weight decay. It is a complete operator, not a combination of other ops.
