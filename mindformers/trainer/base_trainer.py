@@ -849,7 +849,10 @@ class BaseTrainer:
             if config.load_checkpoint or config.only_save_strategy:
                 if ms.context.get_auto_parallel_context('parallel_mode') in \
                         ['semi_auto_parallel', 'auto_parallel', 'hybrid_parallel']:
-                    seq_length = config.model.model_config.seq_length
+                    if network.config:
+                        seq_length = network.config.seq_length
+                    else:
+                        seq_length = config.model.model_config.seq_length
                     infer_data = Tensor(shape=(1, seq_length), dtype=ms.int32, init=init.One())
                     transform_and_load_checkpoint(config, model, network, infer_data, do_predict=True)
                 else:
@@ -926,7 +929,10 @@ class BaseTrainer:
             if config.load_checkpoint or config.only_save_strategy:
                 if ms.context.get_auto_parallel_context('parallel_mode') in \
                         ['semi_auto_parallel', 'auto_parallel', 'hybrid_parallel']:
-                    seq_length = config.model.model_config.seq_length
+                    if network.config:
+                        seq_length = network.config.seq_length
+                    else:
+                        seq_length = config.model.model_config.seq_length
                     infer_data = Tensor(shape=(1, seq_length), dtype=ms.int32, init=init.One())
                     transform_and_load_checkpoint(config, model, network, infer_data, do_predict=True)
                 else:
