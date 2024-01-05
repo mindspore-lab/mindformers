@@ -389,7 +389,7 @@ python llama_preprocess.py \
 
 - step 1. 修改模型对应的配置文件。
 
-在模型对应的配置文件`configs/llama/run_llama2_{7/13/70}b_910b_auto_parallel.yaml`中，用户可自行修改模型、训练相关参数，并通过`train_dataset`的`dataset_dir`参数，指定训练数据集的路径。
+在模型对应的配置文件`configs/llama/run_llama2_{7/13/70}b_910b_auto_parallel.yaml`中，用户可自行修改模型、训练相关参数(推荐开启flash_attention，可加速训练)，并通过`train_dataset`的`dataset_dir`参数，指定训练数据集的路径。
 
 配置文件中各参数含义详见[Config配置说明文档](https://gitee.com/mindspore/mindformers/blob/master/configs/README.md)。auto_parallel说明详见[自动并行](../docs/feature_cards/Auto_Parallel.md)。
 
@@ -525,7 +525,7 @@ python llama_preprocess.py \
 
 以llama2 7b为例
 
-当前模型已支持使用**Flash Attention算法**进行全参微调，请参考 [Flash Attention使用文档](../feature_cards/Training_Algorithms.md#flash-attention)
+当前模型已支持使用**Flash Attention算法**进行全参微调，推荐开启flash_attention，可加速训练。详请参考 [Flash Attention使用文档](../feature_cards/Training_Algorithms.md#flash-attention)
 
 - step 1. 参考`config/llama2/run_llama2_7b_910b_finetune.yaml`中训练数据集路径为微调数据集路径，并在`input_columns`中添加`labels`。
 
