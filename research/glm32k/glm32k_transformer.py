@@ -240,7 +240,7 @@ class ChatGLM32kSelfAttention(nn.Cell):
 
     def get_flash_attention(self, config, parallel_config):
         """choose to use FA or PFA"""
-        if not self.training:
+        if config.use_prompt_flash_attention:
             print("use PromptFlashAttention")
             projection_size = config.kv_channels * config.num_attention_heads
             hidden_size_per_attention_head = projection_size // config.num_attention_heads

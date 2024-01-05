@@ -276,7 +276,8 @@ parallel_config:
 -[x] 2: 执行运行脚本。
 
 ```shell
-bash research/run_singlenode.sh \
+cd research
+bash run_singlenode.sh \
 "python glm32k/run_glm32k.py \
 --config glm32k/run_glm32k.yaml \
 --run_mode finetune \

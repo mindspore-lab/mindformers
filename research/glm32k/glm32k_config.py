@@ -59,6 +59,7 @@ class ChatGLM32kConfig(BaseConfig):
                  layernorm_compute_type: str = "float32",
                  use_past=False,
                  use_flash_attention=False,
+                 use_prompt_flash_attention=False,
                  no_recompute_layers=None,
                  eos_token_id=2,
                  pad_token_id=0,
@@ -98,6 +99,7 @@ class ChatGLM32kConfig(BaseConfig):
         self.layernorm_compute_type = convert_mstype(layernorm_compute_type)
         self.use_past = use_past
         self.use_flash_attention = use_flash_attention
+        self.use_prompt_flash_attention = use_prompt_flash_attention
         self.no_recompute_layers = no_recompute_layers
         self.eos_token_id = eos_token_id
         self.pad_token_id = pad_token_id
