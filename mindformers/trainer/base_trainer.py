@@ -909,6 +909,9 @@ class BaseTrainer:
             is_full_config = kwargs.get("is_full_config", False)
             config = self.set_config(config, is_full_config)
 
+            # check rules
+            check_rules(config, mode='export')
+
             # build network
             if network is None:
                 network = self.create_network(

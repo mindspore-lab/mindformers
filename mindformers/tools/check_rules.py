@@ -54,11 +54,20 @@ def _check_mode(config, mode):
         if config.model.model_config.param_init_type == 'bfloat16':
             config.model.model_config.param_init_type = 'float16'
             logger.warning("cast param_init_type because predict param need float16 but get bfloat16")
+        _rule_fa_only_for_train(config, mode)
     elif mode == 'eval':
-        pass
+        _rule_fa_only_for_train(config, mode)
+    elif mode == 'export':
+        _rule_fa_only_for_train(config, mode)
     else:
         raise ValueError(f"mode should be in ['train', 'predict', 'eval'], but get {mode}")
 
+def _rule_fa_only_for_train(config, mode):
+    """flash attention only support training for now."""
+    if config.model.model_config.use_flash_attention:
+        config.model.model_config.use_flash_attention = False
+        logger.warning("Flash attention only support training process for now, "
+                       f"disable use_flash_attention in {mode} mode.")
 
 def _check_full_batch():
     """check full_batch"""
