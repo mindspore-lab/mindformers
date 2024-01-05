@@ -142,7 +142,7 @@ def multi_round_chat_map_fn(example, **kwargs):
         input_id = raw_input_id + [tokenizer.pad_token_id]*(max_length - len(raw_input_id))
         attention_mask = [1]*len(raw_input_id) + [0]*(max_length - len(raw_input_id))
         label = raw_label + [ignore_token_id]*(max_length - len(raw_label))
-    return dict(input_ids=input_id, attention_mask=attention_mask, label=label)
+    return dict(input_ids=input_id, attention_mask=attention_mask, labels=label)
 
 
 _SFT_MAP_FUNCTIONS = {
