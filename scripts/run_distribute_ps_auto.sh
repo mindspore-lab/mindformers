@@ -63,7 +63,7 @@ RUN_STATUS=$2
 # train command
 ulimit -u unlimited
 export MS_SERVER_NUM=0
-export MS_HCCL_CM_INIT=1
+export HCCL_BUFFSIZE=2048
 host_ip=$(hostname -I | awk '{print $1}')
 export HCCL_IF_IP=${host_ip}
 export MS_SCHED_HOST=${MS_SCHED_HOST}  # Scheduler IP address
