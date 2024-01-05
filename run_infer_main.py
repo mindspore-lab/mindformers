@@ -160,24 +160,38 @@ def infer_main(args_):
     lite_pipeline = pipeline_from_infer_config(
         args_, tokenizer
     )
-
-    while True:
-        user_input = input("Please enter your predict data: \n")
-        if user_input == "exit":
-            print("Task is over.")
-            sys.exit()
-        user_input = build_prompt(user_input, args_.model_name.lower(), args_.prompt)
-        output = lite_pipeline.infer(user_input,
-                                     do_sample=args_.do_sample,
-                                     top_k=args_.top_k,
-                                     top_p=args_.top_p,
-                                     repetition_penalty=args_.repetition_penalty,
-                                     temperature=args_.temperature,
-                                     max_length=args_.max_length,
-                                     max_new_tokens=args_.max_output_length,
-                                     is_sample_acceleration=args_.is_sample_acceleration,
-                                     add_special_tokens=args_.add_special_tokens)
-        print(output)
+    if args_.distributed:
+        user_input = [args_.predict_data] * args_.batch_size
+        for _ in range(args_.generated_time):
+            output = lite_pipeline.infer(user_input,
+                                         do_sample=args_.do_sample,
+                                         top_k=args_.top_k,
+                                         top_p=args_.top_p,
+                                         repetition_penalty=args_.repetition_penalty,
+                                         temperature=args_.temperature,
+                                         max_length=args_.max_length,
+                                         max_new_tokens=args_.max_output_length,
+                                         is_sample_acceleration=args_.is_sample_acceleration,
+                                         add_special_tokens=args_.add_special_tokens)
+            print(output)
+    else:
+        while True:
+            user_input = input("Please enter your predict data: \n")
+            if user_input == "exit":
+                print("Task is over.")
+                sys.exit()
+            user_input = build_prompt(user_input, args_.model_name.lower(), args_.prompt)
+            output = lite_pipeline.infer(user_input,
+                                         do_sample=args_.do_sample,
+                                         top_k=args_.top_k,
+                                         top_p=args_.top_p,
+                                         repetition_penalty=args_.repetition_penalty,
+                                         temperature=args_.temperature,
+                                         max_length=args_.max_length,
+                                         max_new_tokens=args_.max_output_length,
+                                         is_sample_acceleration=args_.is_sample_acceleration,
+                                         add_special_tokens=args_.add_special_tokens)
+            print(output)
 
 
 def infer_stream_main(args_):
@@ -293,6 +307,19 @@ if __name__ == "__main__":
         '--dynamic', default=False, type=str2bool,
         help="Whether use dynamic inference."
              "Default: False")
+    parser.add_argument(
+        '--distributed', default=False, type=str2bool,
+        help="Whether use distributed inference."
+             "Default: False")
+    parser.add_argument(
+        '--predict_data', default="", type=str,
+        help="predict data for distributed inference")
+    parser.add_argument(
+        '--batch_size', default=1, type=int,
+        help="batch size for inference data")
+    parser.add_argument(
+        '--generated_time', default=1, type=int,
+        help="repeat time for inference data")
 
     args = parser.parse_args()
     if len(args.config_path.split(',')) > 1:
