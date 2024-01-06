@@ -23,6 +23,7 @@ from pyarrow.parquet import ParquetDataset
 from pyarrow.lib import Table
 
 from mindspore.dataset import GeneratorDataset
+from mindspore._checkparam import args_type_check
 from mindformers.models.build_tokenizer import build_tokenizer
 from mindformers.tools.register import MindFormerModuleType, MindFormerRegister
 from mindformers.dataset.dataloader.datareaders import _DATA_READER_MAP
@@ -32,6 +33,9 @@ from mindformers.dataset.dataloader.sft_map_functions import _SFT_MAP_FUNCTIONS
 @MindFormerRegister.register(MindFormerModuleType.DATASET_LOADER)
 class SFTDataLoader:
     """SFT DataLoader"""
+    @args_type_check(dataset_dir=str, column_names=list, tokenizer=(str, dict, Callable), dataset_name=str,
+                     file_format=str, max_length=int, read_function=Callable, map_function=Callable,
+                     map_function_kwargs=dict, shuffle=bool)
     def __new__(cls,
                 dataset_dir: str,
                 column_names: list,
@@ -101,6 +105,9 @@ class SFTDataLoader:
             >>>     print(item)
             >>>     break
         """
+        if max_length <= 0:
+            raise TypeError(f"max_length should be an integer greater than 0.")
+
         dataset = SFTDataSet(dataset_dir, column_names=column_names, tokenizer=tokenizer, dataset_name=dataset_name,
                              file_format=file_format, max_length=max_length, read_function=read_function,
                              map_function=map_function, map_function_kwargs=map_function_kwargs)
@@ -160,7 +167,7 @@ class SFTDataSet:
         file_format = self._check_format(dataset_dir, file_format)
         dataset_name = dataset_name.lower() if dataset_name else "default"
         if read_function:
-            self.table = read_function(dataset_dir)
+            self.table = Table.from_pydict(read_function(dataset_dir))
         elif dataset_name in _DATA_READER_MAP:
             self.table = Table.from_pydict(_DATA_READER_MAP[dataset_name](dataset_dir))
         else:

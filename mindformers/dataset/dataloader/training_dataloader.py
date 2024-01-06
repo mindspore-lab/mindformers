@@ -27,6 +27,7 @@ from pyarrow.parquet import ParquetDataset
 from pyarrow.lib import Table
 
 from mindspore.dataset import GeneratorDataset
+from mindspore._checkparam import args_type_check
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.models.build_tokenizer import build_tokenizer
 from mindformers.dataset.dataloader.datareaders import _DATA_READER_MAP
@@ -36,6 +37,9 @@ from mindformers.tools.logger import logger
 @MindFormerRegister.register(MindFormerModuleType.DATASET_LOADER)
 class TrainingDataLoader:
     """Training DataLoader."""
+    @args_type_check(dataset_dir=str, column_names=list, tokenizer=(str, dict, Callable), dataset_name=str,
+                     is_align=bool, max_length=int, text_col=str, file_format=str, read_function=Callable,
+                     shuffle=bool, samples_num=int, skip_num=int, file_limit=int)
     def __new__(cls,
                 dataset_dir: str,
                 column_names: list,
@@ -94,6 +98,9 @@ class TrainingDataLoader:
             >>>     print(item)
             >>>     break
         """
+        if max_length <= 0:
+            raise TypeError(f"max_length should be an integer greater than 0.")
+
         logger.info("dataset_dir: %s, samples_num: %s", dataset_dir, samples_num)
         training_dataset = TrainingDataset(dataset_dir, column_names=column_names, tokenizer=tokenizer,
                                            dataset_name=dataset_name, is_align=is_align, max_length=max_length,
@@ -361,7 +368,7 @@ class TrainingDataset:
     def _read_dataset(self, local_path):
         """Read data in various formats."""
         if self.read_function:
-            table = self.read_function(local_path)
+            table = Table.from_pydict(self.read_function(local_path))
             sentences = self._get_sentences_list(table, self.text_col)
         elif self.dataset_name in _DATA_READER_MAP:
             table = Table.from_pydict(_DATA_READER_MAP[self.dataset_name](local_path))
