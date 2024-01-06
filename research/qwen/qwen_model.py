@@ -238,6 +238,7 @@ class QwenModel(BaseModel):
             self.layers.append(layer)
 
         self.freqs_mgr = FreqsMgr(head_dim=self.head_dim,
+                                  seq_length=self.seq_length,
                                   max_position_embedding=config.max_position_embedding,
                                   rotary_dtype=config.rotary_dtype,
                                   theta=config.theta,
