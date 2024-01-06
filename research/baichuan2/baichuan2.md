@@ -1530,11 +1530,13 @@ model:
 
 ```bash
 python run_baichuan2.py \
---config_path export_baichuan2_13b.yaml \
+--config export_baichuan2_13b.yaml \
 --run_mode export \
 --use_parallel False \
 --device_id 0
 ```
+
+**注：当前Baichuan2-13B单卡最大支持batch_size*seq_length=16384的双动态lite推理**
 
 ##### Step2. 执行MS Lite推理
 

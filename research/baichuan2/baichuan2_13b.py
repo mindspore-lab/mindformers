@@ -392,8 +392,8 @@ class Baichuan13BV2Model(BaseModel):
                 # mask: [bs, 1, 1]
                 if self.is_dynamic:
                     alibi_tensor = self.slice(self.alibi_tensor, (0, 0, 0, 0),
-                                              (1, self.alibi_tensor.shape[1], ops.shape(zactivate_len)[0],
-                                               ops.shape(zactivate_len)[0]),
+                                              (1, self.alibi_tensor.shape[1], self.shape(mask)[-1],
+                                               self.shape(mask)[-1]),
                                               (1, 1, 1, 1))
                 else:
                     alibi_tensor = self.alibi_tensor
