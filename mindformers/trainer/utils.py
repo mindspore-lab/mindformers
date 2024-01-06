@@ -380,15 +380,11 @@ def check_ckpt_for_transform(ckpt_dir):
     return soft_link_dir
 
 
-def check_rank_folders(path):
+def check_rank_folders(path, rank_id):
     """check if the folders in path are correct"""
-    world_size = int(os.getenv('RANK_SIZE', '1'))
-    for i in range(world_size):
-        folder_name = "rank_{}".format(i)
-        if not os.path.exists(os.path.join(path, folder_name)):
-            raise FileNotFoundError(f"if load distribute checkpoint, load_checkpoint should be a checkpoint directory "
-                                    f"containing the directory from rank_0 to rank_{world_size}, "
-                                    f"but rank_{i} is not found.")
+    folder_name = "rank_{}".format(rank_id)
+    if not os.path.exists(os.path.join(path, folder_name)):
+        return False
     return True
 
 
@@ -686,7 +682,7 @@ def load_ckpt(config, network, optimizer=None):
     # load checkpoint params into dict
     logger.info(".............Start load checkpoint from checkpoint..................")
     checkpoint_dict = {}
-
+    rank_id = get_real_rank() if get_real_rank() else 0
     if config.auto_trans_ckpt:
         for file in os.listdir(config.load_checkpoint):
             load_total_checkpoint(config, file, checkpoint_dict)
@@ -696,14 +692,17 @@ def load_ckpt(config, network, optimizer=None):
             for file in os.listdir(config.load_checkpoint):
                 if file.endswith('.ckpt'):
                     load_total_checkpoint(config, file, checkpoint_dict)
-        elif os.path.isdir(config.load_checkpoint) and check_rank_folders(config.load_checkpoint):
-            checkpoint_dict = load_distributed_checkpoint(config.load_checkpoint)
         elif os.path.isfile(config.load_checkpoint) and config.load_checkpoint.endswith('.ckpt'):
             checkpoint_dict = load_checkpoint(config.load_checkpoint)
+        elif os.path.isdir(config.load_checkpoint) and check_rank_folders(config.load_checkpoint, rank_id):
+            if config.use_parallel:
+                checkpoint_dict = load_distributed_checkpoint(config.load_checkpoint)
+            else:
+                checkpoint_dict = load_checkpoint(get_last_checkpoint(os.path.join(config.load_checkpoint,
+                                                                                   "rank_{}".format(rank_id))))
         else:
             raise ValueError(f"{config.load_checkpoint} is not a valid path to load checkpoint "
                              f"when auto_trans_ckpt is False.")
-
 
     # replace tk in checkpoint_dict.keys()
     checkpoint_dict = replace_tk_to_mindpet(checkpoint_dict)
