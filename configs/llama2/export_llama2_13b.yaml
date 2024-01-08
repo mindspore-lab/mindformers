@@ -1,4 +1,4 @@
-output_dir: './output'
+output_dir: './output' # path to save checkpoint/strategy
 
 # trainer config
 trainer:

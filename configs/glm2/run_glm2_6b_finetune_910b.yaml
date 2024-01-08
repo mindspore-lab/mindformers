@@ -1,6 +1,6 @@
 seed: 0
 run_mode: 'train'
-output_dir: './output'
+output_dir: './output' # path to save checkpoint/strategy
 load_checkpoint: 'glm2_6b'
 auto_trans_ckpt: False  # If true, auto transform load_checkpoint to load in distributed model
 only_save_strategy: False

@@ -234,7 +234,7 @@ PROMPT_PATH：longbench中不同数据对应的prompt
 - step 1. 修改`research/glm32k/run_glm32k.yaml`中相关配置
 
 ```text
-output_dir: './output'
+output_dir: './output' # path to save checkpoint/strategy
 load_checkpoint: './output/transformed_checkpoint/'          # 添加预训练权重路径
 auto_trans_ckpt: False
 only_save_strategy: False

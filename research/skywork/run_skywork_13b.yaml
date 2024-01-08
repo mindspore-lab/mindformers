@@ -1,5 +1,5 @@
 seed: 1234
-output_dir: './output'
+output_dir: './output' # path to save checkpoint/strategy
 load_checkpoint: ''
 src_strategy_path_or_dir: ''
 auto_trans_ckpt: False  # If true, auto transform load_checkpoint to load in distributed model

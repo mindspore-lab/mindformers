@@ -291,7 +291,7 @@ python research/wizardcoder/wizardcoder_preprocess.py \
 - step 1. 修改`research/wizardcoder/run_wizardcoder.yaml`中相关配置
 
 ```text
-output_dir: './output'
+output_dir: './output' # path to save checkpoint/strategy
 load_checkpoint: './ckpt'          # 添加预训练权重路径
 auto_trans_ckpt: True
 only_save_strategy: False
@@ -388,7 +388,7 @@ python research/wizardcoder/wizardcoder_preprocess.py \
 - step 1. 修改`research/wizardcoder/run_wizardcoder.yaml`中相关配置
 
 ```text
-output_dir: './output'
+output_dir: './output' # path to save checkpoint/strategy
 load_checkpoint: './output/transformed_checkpoint/'          # 添加预训练权重路径
 auto_trans_ckpt: False
 only_save_strategy: False
