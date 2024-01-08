@@ -41,7 +41,8 @@ SUPPORT_MODEL_NAMES = MindFormerBook().get_model_name_support_list()
 
 def update_checkpoint_config(config, is_train=True):
     """update checkpoint config depending on is_train"""
-    if (is_train and config.resume_training) or config.auto_trans_ckpt or os.path.isdir(config.load_checkpoint):
+    if (is_train and config.resume_training) or config.auto_trans_ckpt or \
+        (isinstance(config.load_checkpoint, str) and os.path.isdir(config.load_checkpoint)):
         logger.info("Leave load_checkpoint may because: ")
         logger.info("1. resume training need resume training info. ")
         logger.info("2. need load distributed shard checkpoint. ")
