@@ -69,9 +69,15 @@ bash build.sh
 
 docker下载命令
 
+Ascend aarch:
+
 ```shell
-docker pull swr.cn-central-221.ovaijisuan.com/mindformers/mindformers0.8.0_mindspore2.2.0:aarch_20231025
+docker pull swr.cn-central-221.ovaijisuan.com/mindformers/mindformers0.8.0_mindspore2.2.1:aarch_20240108
 ```
+
+此处提供的镜像基于Atlas 800 9000训练服务器构建，架构为aarch64，如需其他架构镜像，可参考标准dockerfile进行构建
+
+各镜像对应的dockerfile见[docker文件夹](./docker/README.md)
 
 创建容器
 
@@ -102,6 +108,8 @@ docker run -it -u root \
 swr.cn-central-221.ovaijisuan.com/mindformers/mindformers0.8.0_mindspore2.2.0:aarch_20231025 \
 /bin/bash
 ```
+
+modelarts镜像使用请参考[AICC上使用MindFormers教程](./docs/readthedocs/source_zh_cn/docs/practice/AICC.md)
 
 ## 三、版本匹配关系
 

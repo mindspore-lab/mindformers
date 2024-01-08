@@ -49,23 +49,23 @@ git clone https://gitee.com/mindspore/mindformers.git
 
 ModelArts上的所提供的预置训练镜像，通常MindSpore的版本较为老旧，不满足MindFormers套件的运行需求，所以通常需要自定义镜像，安装合适版本的MindSpore包以运行套件。
 
-我们在[镜像仓库网 (hqcases.com)](http://mirrors.cn-central-221.ovaijisuan.com/)上发布了一些经过验证的**标准镜像版本**，可以通过几行简单的docker命令的形式，直接使用验证过的标准镜像拉起MindFormers套件的训练任务，而无需进行较为繁琐的自定义镜像并上传的步骤。
+我们在[镜像仓库网 (hqcases.com)](http://mirrors.cn-central-221.ovaijisuan.com/)上发布了一些经过验证的**标准镜像**，可以通过几行简单的docker命令的形式，直接使用验证过的标准镜像拉起MindFormers套件的训练任务，而无需进行较为繁琐的制作自定义镜像并上传的步骤。
+
+> 注：MindFormers的aicc镜像都是基于武汉aicc提供的[mindspore基础镜像](http://mirrors.cn-central-221.ovaijisuan.com/detail/111.html)构建而来，仅额外安装了mindformers包；dockerfile可参考mindformers源码中的docker文件夹；建议可直接使用aicc基础镜像，再自行安装mindformers包
 
 - 在镜像仓库网上找到当前版本的[MindFormers镜像](http://mirrors.cn-central-221.ovaijisuan.com/detail/110.html)，打开显示如下（截图部分仅供参考，具体镜像版本以链接为主）：
 
 ![aihub](assets/aihub.png)
 
 > 可以复制其docker pull命令拉取该镜像，在镜像仓库网上的镜像权限均为公开，无需登录可以直接拉取。
->
-> 注：当前版本镜像为每日开发版，稳定版将在后续推送至镜像仓库网。
 
 - 镜像列表：
 
 ```text
-1. swr.cn-central-221.ovaijisuan.com/mindformers/mindformers0.8.0_mindspore2.2.0:aicc_20231025
+1. swr.cn-central-221.ovaijisuan.com/mindformers/mindformers0.8.0_mindspore2.2.1:aicc_20231025
 ```
 
-- 在一台准备好docker引擎的计算机上，root用户执行docker pull命令拉取该镜像：
+- 在一台可用docker服务，并且网络连接通畅的机器上，执行docker pull命令拉取该镜像：
 
 ```bash
 docker pull swr.cn-central-221.ovaijisuan.com/mindformers/mindformers0.8.0_mindspore2.2.0:aicc_20231025
