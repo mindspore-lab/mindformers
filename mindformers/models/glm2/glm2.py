@@ -29,6 +29,7 @@ from mindformers.pet.tuners.pet_adapter import PetAdapter
 from mindformers.version_control import get_tril
 
 from ..base_model import BaseModel
+from ..utils import cell_reuse
 from .glm2_config import ChatGLM2Config
 from .glm2_modules import precompute_rotary_emb_cache
 from .glm2_transformer import ChatGLM2Transformer
@@ -80,7 +81,10 @@ class ChatGLM2Model(nn.Cell):
                                    compute_dtype=config.compute_dtype)
         self.output_layer.shard(strategy_matmul=((config.parallel_config.data_parallel, 1),
                                                  (config.parallel_config.model_parallel, 1)))
+        if config.parallel_config.pipeline_stage > 1:
+            self.output_layer.pipeline_stage = config.parallel_config.pipeline_stage - 1
         self.output_layer.set_comm_fusion(config.parallel_config.gradient_aggregation_group)
+
 
         self.tril = get_tril()
         self.ones = P.Ones()
@@ -153,6 +157,7 @@ class ChatGLM2ForConditionalGeneration(BaseModel):
     _support_list.extend(MindFormerBook.get_model_support_list()['glm3'])
     _support_list.extend(MindFormerBook.get_model_support_list()['codegeex2'])
 
+    @cell_reuse
     def __init__(self, config: ChatGLM2Config, **kwargs):
         super(ChatGLM2ForConditionalGeneration, self).__init__(config, **kwargs)
         self.max_seq_len = config.max_length
