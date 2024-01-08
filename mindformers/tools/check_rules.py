@@ -55,12 +55,16 @@ def _check_mode(config, mode):
             config.model.model_config.param_init_type = 'float16'
             logger.warning("cast param_init_type because predict param need float16 but get bfloat16")
         _rule_fa_only_for_train(config, mode)
+        _rule_pp_only_for_train(config, mode)
     elif mode == 'eval':
         _rule_fa_only_for_train(config, mode)
+        _rule_pp_only_for_train(config, mode)
     elif mode == 'export':
         _rule_fa_only_for_train(config, mode)
+        _rule_pp_only_for_train(config, mode)
     else:
-        raise ValueError(f"mode should be in ['train', 'predict', 'eval'], but get {mode}")
+        raise ValueError(f"mode should be in ['train', 'predict', 'eval', 'export'], but get {mode}")
+
 
 def _rule_fa_only_for_train(config, mode):
     """flash attention only support training for now."""
@@ -68,6 +72,14 @@ def _rule_fa_only_for_train(config, mode):
         config.model.model_config.use_flash_attention = False
         logger.warning("Flash attention only support training process for now, "
                        f"disable use_flash_attention in {mode} mode.")
+
+
+def _rule_pp_only_for_train(config, mode):
+    """pp only support training for now"""
+    _, _, pp = get_parallel_strategy(config)
+    if pp > 1:
+        raise ValueError(f"pp only support training process for now, set pp=1 to {mode} ")
+
 
 def _check_full_batch():
     """check full_batch"""
