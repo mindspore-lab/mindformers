@@ -408,14 +408,12 @@ def check_in_dynamic_cluster():
 def get_real_rank():
     try:
         return get_rank()
-    except RuntimeError as e:
-        print(f"[WARNING] {e}. Use default RANK_ID: 0", flush=True)
+    except RuntimeError:
         return int(os.getenv("RANK_ID", "0"))
 
 
 def get_real_group_size():
     try:
         return get_group_size()
-    except RuntimeError as e:
-        print(f"[WARNING] {e}. Use default RANK_SIZE: 1", flush=True)
+    except RuntimeError:
         return int(os.getenv("RANK_SIZE", "1"))
