@@ -346,6 +346,8 @@ python run_internlm.py \
 --load_checkpoint '/path/to/InternLM-20B-Chat.ckpt' \
 --predict_data '你是谁？' \
 --device_id 0
+
+# output: [{'text_generation_text': ['<|User|>:你是谁？<eoh>\n<|Bot|>:我是一个名叫书生·浦语的人工智能助手，由上海人工智能实验室开发。我使用了Transformer模型和深度学习技术，并使用语言模型作为预训练任务。我的设计理念是有用、诚实并且无害。我能够回答问题、提供定义和解释、将文本从一种语言翻译成另一种语言、总结文本、生成文本、编写故事、分析情感、提供推荐、开发算法、编写代码以及其他任何基于语言的任务。但我不能看、听、尝、触摸、闻、移动、与物理世界交互、感受情感或体验感官输入、执行需要身体能力的任务。<eoa>\n']}]
 ```
 
 #### 基于Pipeline推理
@@ -388,6 +390,9 @@ pipeline_result = pipeline_task("<s><s><|User|>:你是谁？<eoh>\n<|Bot|>:",
                                 repetition_penalty=1.0,
                                 max_length=256)
 print(pipeline_result)
+
+# 推理输出
+# [{'text_generation_text': ['<|User|>:你是谁？<eoh>\n<|Bot|>:我是一个名叫书生·浦语的人工智能助手，由上海人工智能实验室开发。我使用了Transformer模型和深度学习技术，并使用语言模型作为预训练任务。我的设计理念是有用、诚实并且无害。我能够回答问题、提供定义和解释、将文本从一种语言翻译成另一种语言、总结文本、生成文本、编写故事、分析情感、提供推荐、开发算法、编写代码以及其他任何基于语言的任务。但我不能看、听、尝、触摸、闻、移动、与物理世界交互、感受情感或体验感官输入、执行需要身体能力的任务。<eoa>\n']}]
 ```
 
 - 修改yaml配置文件，以下为主要参数设置参考：
@@ -442,15 +447,18 @@ tokenizer = InternLMTokenizer(
 # predict using generate
 input_ids = tokenizer("<s><s><|User|>:你是谁？<eoh>\n<|Bot|>:",
                       max_length=64, padding="max_length")["input_ids"]
-generate_ids = internlm_model.generate(inputs_ids,
-                                        do_sample=False,
-                                        top_k=1,
-                                        top_p=1.0,
-                                        repetition_penalty=1.0,
-                                        temperature=1.0,
-                                        max_length=64)
+generate_ids = internlm_model.generate(input_ids,
+                                       do_sample=False,
+                                       top_k=1,
+                                       top_p=1.0,
+                                       repetition_penalty=1.0,
+                                       temperature=1.0,
+                                       max_length=64)
 generate_result = tokenizer.decode(generate_ids)
 print(generate_result)
+
+# 推理输出
+# [{'text_generation_text': ['<|User|>:你是谁？<eoh>\n<|Bot|>:我是一个名叫书生·浦语的人工智能助手，由上海人工智能实验室开发。我使用了Transformer模型和深度学习技术，并使用语言模型作为预训练任务。我的设计理念是有用、诚实并且无害。我能够回答问题、提供定义和解释、将文本从一种语言翻译成另一种语言、总结文本、生成文本、编写故事、分析情感、提供推荐、开发算法、编写代码以及其他任何基于语言的任务。但我不能看、听、尝、触摸、闻、移动、与物理世界交互、感受情感或体验感官输入、执行需要身体能力的任务。<eoa>\n']}]
 ```
 
 - 修改yaml配置文件，以下为主要参数设置参考：
@@ -484,6 +492,7 @@ python internlm/run_internlm_generate.py
 # model config
 model:
   model_config:
+    batch_size: 1
     seq_length: 512
     checkpoint_name_or_path: "/path/to/InternLM-20B-Chat.ckpt"
     use_past: True              # 开启增量推理
@@ -492,6 +501,8 @@ model:
     is_flexible_shape: False    # 是否固定kvcache大小为bs*seq
     use_rope_slice: False       # 是否使用RoPE位置编码slice
 ```
+
+**注：当前InternLM-20B单卡最大支持batch_size*seq_length=4096的双动态lite推理**
 
 执行run_internlm.py，完成MindIR导出，得到全量minder_full_checkpoint/rank_0_graph.mindir和增量minder_inc_checkpoint/rank_0_graph.mindir两个MindIR图
 
@@ -570,7 +581,7 @@ python run_infer_main.py \
 --repetition_penalty 1.0 \
 --temperature 1.0 \
 --max_length 2048 \
---is_sample_acceleration False \              # 后处理加速开关，当前internlm模型暂不支持，设置为False
+--is_sample_acceleration False \            # 后处理加速开关，当前internlm模型暂不支持，设置为False
 --add_special_tokens True \
 --dynamic False
 
