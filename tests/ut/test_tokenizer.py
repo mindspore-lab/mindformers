@@ -53,7 +53,6 @@ def test_all_tokenizers():
         [115, 703, 8994, 7],    # glm english
         [5, 76202, 64241, 63823],   # glm chinese
         [27, 333, 14465, 5],    # t5 english
-        [3, 2],    # t5 english
         [3, 2],    # t5 chinese
         [307, 1379, 13924, 30930],  # glm2 english
         [34211, 54799, 31719, 31155],    # glm2 chinese
