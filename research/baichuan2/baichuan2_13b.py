@@ -943,6 +943,8 @@ class NormHead(nn.Cell):
                 self.assign(self.weight, norm_weight)
         else:
             norm_weight = self.weight
+            self.assign(self.weight, norm_weight)
+            norm_weight = ops.depend(norm_weight, norm_weight)
 
         ori_type = hidden_states.dtype
         out = self.matmul(hidden_states.astype(self.compute_dtype),
