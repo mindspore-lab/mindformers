@@ -356,15 +356,22 @@ class BaseTrainer:
         self._reset_dataset_batch_size()
         # reduce batch size on eval mode, for that micro_batch will not take effect on eval.
         parallel_mode = ms.get_auto_parallel_context("parallel_mode")
-        if parallel_mode in ["semi_auto_parallel", "auto_parallel"]:
+        pp = self.get_pipeline_stages()
+        if parallel_mode in ["semi_auto_parallel", "auto_parallel"] and pp > 1:
             self.config.eval_dataset.batch_size = \
                 self.config.eval_dataset.batch_size // self.config.parallel_config.micro_batch_num
+        if parallel_mode in ["semi_auto_parallel", "auto_parallel"]:
             self.config.eval_dataset.batch_size = \
                 self.config.eval_dataset.batch_size // self.config.micro_batch_interleave_num
         # reduce batch size for that gradient_accumulation_steps will not take effect on eval
         if self.config.runner_config.gradient_accumulation_steps > 1:
             self.config.eval_dataset.batch_size = \
                 self.config.eval_dataset.batch_size // self.config.runner_config.gradient_accumulation_steps
+        if self.config.eval_dataset.batch_size < 1:
+            logger.warning("eval_dataset batch_size is less than 1 after bs calculate, reset batch_size to 1, "
+                           "please check your configs about batch_size, micro_batch_num micro_batch_interleave_num "
+                           "and gradient_accumulation_steps.")
+            self.config.eval_dataset.batch_size = 1
         logger.info("For evaluate phase, batch size for eval dataset is %s, different from training, "
                     "not multiplied by micro_batch_num, micro_batch_interleave_num and gradient_accumulation_steps",
                     self.config.eval_dataset.batch_size)
