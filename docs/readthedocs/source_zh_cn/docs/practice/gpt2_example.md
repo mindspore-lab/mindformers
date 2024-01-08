@@ -1259,7 +1259,7 @@ GPT2作为大语言模型，其主要的task是文本生成和对话问答方面
     # 以下展示了部分配置，具体配置内容请参考Mindformers
     seed: 0
     run_mode: 'train'
-    output_dir: './output'
+    output_dir: './output' # path to save checkpoint/strategy
     load_checkpoint: ""
     src_strategy_path_or_dir: ''
     auto_trans_ckpt: False  # If true, auto transform load_checkpoint to load in distributed model

@@ -253,7 +253,7 @@ internlm-7b用于微调，seq_length默认为2048，分布式微调训练在910A
 2. 修改`run_internlm_7b.yaml`中相关配置
 
 ```python
-output_dir: './output'
+output_dir: './output' # path to save checkpoint/strategy
 load_checkpoint: 'path/of/ckpt'          # 添加预训练权重路径
 auto_trans_ckpt: True                       # 开启权重自动切分
 only_save_strategy: False

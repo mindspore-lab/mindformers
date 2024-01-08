@@ -483,7 +483,7 @@ llama2_13b_ckpt
 
 ```yaml
 seed: 0
-output_dir: './output'
+output_dir: './output' # path to save checkpoint/strategy
 load_checkpoint: 'llama2_13b_ckpt'
 src_strategy_path_or_dir: ''
 auto_trans_ckpt: False  # If true, auto transform load_checkpoint to load in distributed model
@@ -781,7 +781,7 @@ baichuan2_13b_ckpt
 
 ```yaml
 seed: 0
-output_dir: './output'
+output_dir: './output' # path to save checkpoint/strategy
 load_checkpoint: 'baichuan2_13b_ckpt'
 src_strategy_path_or_dir: ''
 auto_trans_ckpt: False  # If true, auto transform load_checkpoint to load in distributed model

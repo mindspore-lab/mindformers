@@ -26,7 +26,7 @@ configs统一在run_xxx.yaml中，排序按照修改频率的顺序和一般的�
 
 - seed: 随机种子，可以参考[mindspore.set_seed](https://www.mindspore.cn/docs/zh-CN/r2.0/api_python/mindspore/mindspore.set_seed.html)
 - run_mode: 运行模式，可选"train"、"finetune"、"eval"或"predict"
-- output_dir: './output'  输出路径，当前不支持修改该参数
+- output_dir: './output'  保存checkpoint、strategy的路径
 - load_checkpoint: 加载权重的模型名或权重路径
 - auto_trans_ckpt: 是否开启自动在线权重切分或转换
 - resume_training: 加载方式，为True时会加载训练过程信息，如优化器、epochs数等
