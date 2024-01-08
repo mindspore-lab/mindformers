@@ -43,13 +43,13 @@ from mindformers.models.base_model import BaseModel
 from mindformers.models.utils import cell_reuse
 from mindformers.modules.transformer.op_parallel_config import _check_config
 from mindformers.modules.layers import Linear, _check_input_dtype, build_alibi_tensor_v2
-from mindformers.modules.transformer import TransformerOpParallelConfig
+from mindformers.modules.transformer import TransformerOpParallelConfig, LowerTriangularMaskWithDynamic
 from mindformers.modules.kvcache_mgr import KVCacheMgr, KVCachePreprocess
 from mindformers.tools.utils import is_version_ge
 from mindformers.tools.register.register import MindFormerModuleType, MindFormerRegister
 from mindformers.models.llama.llama import layer_compute_dtype
 from mindformers.models.llama.llama_config import LlamaConfig
-from mindformers.models.llama.llama_layer import LlamaEmbedding, LlamaFeedForward, LlamaRMSNorm, CausalMask
+from mindformers.models.llama.llama_layer import LlamaEmbedding, LlamaFeedForward, LlamaRMSNorm
 from mindformers.tools.logger import logger
 
 __all__ = ['Baichuan13BV2ForCausalLM', 'Baichuan13BV2Model']
@@ -282,11 +282,11 @@ class Baichuan13BV2Model(BaseModel):
         self.slice = P.StridedSlice()
         self.ones = P.Ones()
 
-        self.casual_mask = CausalMask(seq_length=config.seq_length,
-                                      compute_type=config.compute_dtype,
-                                      is_dynamic=config.is_dynamic,
-                                      pad_token_id=config.pad_token_id,
-                                      use_flash_attention=config.use_flash_attention)
+        self.casual_mask = LowerTriangularMaskWithDynamic(seq_length=config.seq_length,
+                                                          compute_type=config.compute_dtype,
+                                                          is_dynamic=config.is_dynamic,
+                                                          pad_token_id=config.pad_token_id,
+                                                          use_flash_attention=config.use_flash_attention)
         self.tok_embeddings = LlamaEmbedding(vocab_table_size=config.vocab_size,
                                              embedding_size=config.hidden_size,
                                              param_init_type=config.param_init_type,
