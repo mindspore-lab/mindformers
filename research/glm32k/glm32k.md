@@ -330,7 +330,7 @@ model:
 - 启动命令：
 
 ```shell
-python infer_generate.py --checkpoint_path CKPT_PATH --device_id DEVICE_ID --user_query "使用python编写快速排序代码"
+python infer_generate.py --checkpoint_path CKPT_PATH --device_id DEVICE_ID --user_query "晚上睡不着应该怎么办"
 ```
 
 ```text
@@ -338,6 +338,21 @@ python infer_generate.py --checkpoint_path CKPT_PATH --device_id DEVICE_ID --use
 checkpoint_path: 权重文件夹路径
 device_id: NPU卡号
 user_query: 用户输入问题
+```
+
+```text
+# 输出结果
+output:
+[gMASK]sop<|user|>
+ 晚上睡不着应该怎么办<|assistant|>
+ 晚上睡不着,可以参考下述建议:
+1. 建立规律的睡眠时间表:每天在相同的时间上床和起床,有助于身体建立规律的睡眠时间表,更容易入睡。
+2. 创造舒适的睡眠环境:确保睡眠环境舒适,安静,黑暗,凉爽,有助于入睡。
+3. 避免刺激性物质:避免饮用咖啡因和酒精等刺激性物质,这些物质会影响睡眠。
+4. 放松身心:在睡前放松身心,例如泡个热水澡,听些轻柔的音乐,读本书等,有助于入睡。
+5. 避免使用电子设备:在睡前避免使用电子设备,例如手机,平板电脑等,这些设备发出的蓝光会抑制睡眠激素的分泌,影响睡眠。
+6. 锻炼身体:适度的锻炼身体有助于睡眠,但避免在睡前进行剧烈运动。
+如果以上方法都无法解决问题,建议咨询医生或专业睡眠专家,获得更具体的建议和治疗方案。
 ```
 
 ### 开源数据集评测
