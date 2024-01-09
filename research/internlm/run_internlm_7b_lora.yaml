@@ -97,6 +97,7 @@ callbacks:
   - type: CheckpointMointor
     prefix: "internlm_7b_lora"
     save_checkpoint_steps: 500
+    save_trainable_params: False    # Whether to save fine-tuned weights additionally.
     integrated_save: False
     async_save: False
     keep_checkpoint_max: 3

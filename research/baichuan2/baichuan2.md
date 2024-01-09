@@ -69,14 +69,6 @@ Baichuan2 是由百川智能开发的开源可商用的大规模预训练语言�
 | Baichuan2-13b | 910A |  ≥2节点  |  单节点  | ≥2卡 |
 | Baichuan2-13b | 910B |  单节点  |  单节点  | 单卡 |
 
-**注：仓上微调默认配置`seq_length`为512，支持最高`seq_length`为`4096`的训练微调，可以在数据集转换时设置`seq_length=4096`，并在训练时使用seq_len为4096的最优性能910b启动配置文件（此配置开启Flash Attention）：
-
-`run_baichuan2_7b_4096_910b.yaml`
-
-`run_baichuan2_7b_4096_910b.yaml`
-
-进行训练，或修改默认配置文件中的`model_config.seq_length`，使数据集与训练配置的`seq_length`保持一致。
-
 ### RANK_TABLE_FILE准备
 
 - **单机8卡**
@@ -287,6 +279,12 @@ Baichuan2-7B在910A上训练，至少需要2节点，请参考**多机训练**�
 
 当前模型已支持使用**Flash Attention算法**进行全参微调，请参考 [Flash Attention使用文档](../../docs/feature_cards/Training_Algorithms.md#flash-attention)
 
+**注：** 仓上微调默认配置`seq_length`为512，支持最高`seq_length`为`4096`的训练微调，可以在数据集转换时设置`seq_length=4096`，并在训练时使用seq_len为4096的最优性能910b启动配置文件（此配置开启Flash Attention）：
+
+`run_baichuan2_7b_4096_910b.yaml`
+
+进行训练，或修改默认配置文件中的`model_config.seq_length`，使数据集与训练配置的`seq_length`保持一致。
+
 - **单机训练**
 
 Baichuan2-7B-Base用于微调，seq_length默认为512，分布式微调训练在910B上单节点即可启动。以`belle_chat_ramdon_10k.json`数据集为例，给出了默认配置文件`run_baichuan2_7b_910b.yaml`。
@@ -298,7 +296,7 @@ Baichuan2-7B-Base用于微调，seq_length默认为512，分布式微调训练�
 2. 修改`run_baichuan2_7b_910b.yaml`中相关配置，默认开启自动权重转换，使用完整权重。
 
 ```yaml
-load_checkpoint: 'model_dir'    # 使用完整权重，权重按照`model_dir/rank_0/xxx.ckpt`格式存放
+load_checkpoint: 'model_dir/xxx.ckpt'  # 使用完整权重路径
 auto_trans_ckpt: True           # 打开自动权重转换
 use_parallel: True
 run_mode: 'finetune'
@@ -329,7 +327,7 @@ cd mindformers/research
 bash run_singlenode.sh \
 "python baichuan2/run_baichuan2.py \
 --config baichuan2/run_baichuan2_7b_910b.yaml \
---load_checkpoint model_dir \
+--load_checkpoint model_dir/xxx.ckpt \
 --auto_trans_ckpt True \
 --use_parallel True \
 --run_mode finetune \
@@ -338,7 +336,7 @@ RANK_TABLE_FILE [0,8] 8
 
 # 参数说明
 config: 配置文件路径
-load_checkpoint: 权重文件夹路径，权重按照'model_dir/rank_x/xxx.ckpt'格式存放
+load_checkpoint: 权重文件路径
 auto_trans_ckpt: 自动权重转换开关
 run_mode: 运行模式，微调时设置为finetune
 train_data: 训练数据集文件夹路径
@@ -360,7 +358,7 @@ Baichuan2-7B-Base用于微调，seq_length默认为512，分布式微调训练�
 
 ```yaml
 output_dir: './output'          # 默认路径，若需要自动权重转换，请配置为共享盘输出路径
-load_checkpoint: 'model_dir'    # 使用分布式权重，权重按照`model_dir/rank_x/xxx.ckpt`格式存放
+load_checkpoint: 'model_dir'    # 使用分布式权重，传入路径为离线切分完成的文件夹路径，包含rank_0-rank*
 auto_trans_ckpt: False          # 关闭自动权重转换，若需要自动权重转换，则改为True
 use_parallel: True
 run_mode: 'finetune'
@@ -429,8 +427,27 @@ Baichuan2-7B-Base用于Lora微调，seq_length默认为512。Lora微调支持910
 
 2. 修改`run_baichuan2_7b_lora_910b.yaml`中相关配置，默认开启自动权重转换，使用完整权重。
 
+> 注：当前lora微调、推理支持直接使用完整权重，或分别加载预训练、lora权重后自动切分。`load_checkpoint`传入格式支持下列方式：
+>
+> 1）`load_checkpoint: path/to/Baichuan2-7B-Base.ckpt`
+>
+> 2）`load_checkpoint: path/to/model_dir/`
+>
+> ```text
+> model_dir
+>        ├── Baichuan2-7B-Base.ckpt           # 预训练权重文件
+>        └── lora.ckpt                        # lora权重文件
+> ```
+>
+> 3）`load_checkpoint: path/to/model_dir/`
+>
+> ```text
+> model_dir
+>        └── Baichuan2-7B-Base.ckpt           # 预训练权重文件
+> ```
+
 ```shell
-load_checkpoint: 'model_dir'    # 使用完整权重，权重按照`model_dir/rank_0/xxx.ckpt`格式存放
+load_checkpoint: 'model_dir'    # 使用完整权重路径或分别加载预训练、lora权重
 auto_trans_ckpt: True           # 打开自动权重转换
 use_parallel: True
 run_mode: 'finetune'
@@ -458,6 +475,12 @@ parallel:
   strategy_ckpt_config:
     save_file: "./ckpt_strategy.ckpt"
     only_trainable_params: False # 配置为False，保存完整权重
+
+# callbacks
+callbacks:
+  - type: CheckpointMointor
+    save_checkpoint_steps: 500
+    save_trainable_params: True  #若需要单独保存lora参数的训练权重，可将此参数置为True
 
 # model增加pet_config
 model:
@@ -487,7 +510,7 @@ RANK_TABLE_FILE [0,8] 8
 
 # 参数说明
 config: 配置文件路径
-load_checkpoint: 权重文件夹路径，权重按照'model_dir/rank_x/xxx.ckpt'格式存放
+load_checkpoint: 权重文件路径
 auto_trans_ckpt: 自动权重转换开关
 run_mode: 运行模式，微调时设置为finetune
 train_data: 训练数据集文件夹路径
@@ -601,9 +624,8 @@ for output in outputs:
 - 主要参数配置参考
 
 ```yaml
-load_checkpoint: ''                                           # 单卡推理时，只需配置checkpoint_name_or_path
+load_checkpoint: 'path/to/Baichuan2-7B-Chat.ckpt'             # 填写权重绝对路径
 auto_trans_ckpt: False                                        # 关闭自动权重转换
-checkpoint_name_or_path: 'path/to/Baichuan2-7B-Chat.ckpt'     # 填写权重绝对路径
 use_past: True                                                # 使用增量推理
 vocab_file: 'path/to/tokenizer.model'                         # 配置词表路径
 use_parallel: False                                           # 关闭并行模式
@@ -677,9 +699,8 @@ for output in outputs:
 - 主要参数配置参考
 
 ```yaml
-load_checkpoint: ''                                           # 单卡推理时，只需配置checkpoint_name_or_path
+load_checkpoint: 'path/to/Baichuan2-7B-Chat.ckpt'             # 填写权重绝对路径
 auto_trans_ckpt: False                                        # 关闭自动权重转换
-checkpoint_name_or_path: 'path/to/Baichuan2-7B-Chat.ckpt'     # 填写权重绝对路径
 use_past: True                                                # 使用增量推理
 vocab_file: 'path/to/tokenizer.model'                         # 配置词表路径
 use_parallel: False                                           # 关闭并行模式
@@ -835,6 +856,12 @@ Baichuan2-13B在910A上训练，至少需要2节点，请参考**多机训练**�
 
 当前模型已支持使用**Flash Attention算法**进行全参微调，请参考 [Flash Attention使用文档](../../docs/feature_cards/Training_Algorithms.md#flash-attention)
 
+**注：** 仓上微调默认配置`seq_length`为512，支持最高`seq_length`为`4096`的训练微调，可以在数据集转换时设置`seq_length=4096`，并在训练时使用seq_len为4096的最优性能910b启动配置文件（此配置开启Flash Attention）：
+
+`run_baichuan2_13b_4096_910b.yaml`
+
+进行训练，或修改默认配置文件中的`model_config.seq_length`，使数据集与训练配置的`seq_length`保持一致。
+
 - **单机训练**
 
 Baichuan2-13B-Base用于微调，seq_length默认为512，分布式微调训练在910B上单节点即可启动。以`belle_chat_ramdon_10k.json`数据集为例，给出了默认配置文件`run_baichuan2_13b_910b.yaml`。
@@ -846,7 +873,7 @@ Baichuan2-13B-Base用于微调，seq_length默认为512，分布式微调训练�
 2. 修改`run_baichuan2_13b_910b.yaml`中相关配置，默认使用完整权重，开启自动权重转换。
 
 ```yaml
-load_checkpoint: 'model_dir'    # 使用完整权重，权重按照`model_dir/rank_0/xxx.ckpt`格式存放
+load_checkpoint: 'model_dir/xxx.ckpt'  # 使用完整权重路径
 auto_trans_ckpt: True           # 打开自动权重转换
 use_parallel: True
 run_mode: 'finetune'
@@ -877,7 +904,7 @@ cd mindformers/research
 bash run_singlenode.sh \
 "python baichuan2/run_baichuan2.py \
 --config baichuan2/run_baichuan2_13b_910b.yaml \
---load_checkpoint model_dir \
+--load_checkpoint model_dir/xxx.ckpt \
 --auto_trans_ckpt True \
 --use_parallel True \
 --run_mode finetune \
@@ -886,7 +913,7 @@ RANK_TABLE_FILE [0,8] 8
 
 # 参数说明
 config: 配置文件路径
-load_checkpoint: 权重文件夹路径，权重按照'model_dir/rank_x/xxx.ckpt'格式存放
+load_checkpoint: 权重文件路径
 auto_trans_ckpt: 自动权重转换开关
 run_mode: 运行模式，微调时设置为finetune
 train_data: 训练数据集文件夹路径
@@ -908,7 +935,7 @@ Baichuan2-13B-Base用于微调，seq_length默认为512，分布式微调训练�
 
 ```yaml
 output_dir: './output'          # 默认路径，若需要自动权重转换，请配置为共享盘输出路径
-load_checkpoint: 'model_dir'    # 使用分布式权重，权重按照`model_dir/rank_x/xxx.ckpt`格式存放
+load_checkpoint: 'model_dir'    # 使用分布式权重，传入路径为离线切分完成的文件夹路径，包含rank_0-rank*
 auto_trans_ckpt: False          # 关闭自动权重转换，若需要自动权重转换，则改为True
 use_parallel: True
 run_mode: 'finetune'
@@ -977,8 +1004,27 @@ Baichuan2-13B-Base用于Lora微调，seq_length默认为512。Lora微调支持91
 
 2. 修改`run_baichuan2_13b_lora_910b.yaml`中相关配置，默认使用完整权重，开启自动权重转换。
 
+> 注：当前lora微调、推理支持直接使用完整权重，或分别加载预训练、lora权重后自动切分。`load_checkpoint`传入格式支持下列方式：
+>
+> 1）`load_checkpoint: path/to/Baichuan2-13B-Base.ckpt`
+>
+> 2）`load_checkpoint: path/to/model_dir/`
+>
+> ```text
+> model_dir
+>        ├── Baichuan2-13B-Base.ckpt           # 预训练权重文件
+>        └── lora.ckpt                        # lora权重文件
+> ```
+>
+> 3）`load_checkpoint: path/to/model_dir/`
+>
+> ```text
+> model_dir
+>        └── Baichuan2-13B-Base.ckpt           # 预训练权重文件
+> ```
+
 ```shell
-load_checkpoint: 'model_dir'    # 使用完整权重，权重按照`model_dir/rank_0/xxx.ckpt`格式存放
+load_checkpoint: 'model_dir'    # 使用完整权重路径或分别加载预训练、lora权重
 auto_trans_ckpt: True           # 打开自动权重转换
 use_parallel: True
 run_mode: 'finetune'
@@ -1006,6 +1052,12 @@ parallel:
   strategy_ckpt_config:
     save_file: "./ckpt_strategy.ckpt"
     only_trainable_params: False # 配置为False，保存完整权重
+
+# callbacks
+callbacks:
+  - type: CheckpointMointor
+    save_checkpoint_steps: 500
+    save_trainable_params: True  #若需要单独保存lora参数的训练权重，可将此参数置为True
 
 # model增加pet_config
 model:
@@ -1035,7 +1087,7 @@ RANK_TABLE_FILE [0,8] 8
 
 # 参数说明
 config: 配置文件路径
-load_checkpoint: 权重文件夹路径，权重按照'model_dir/rank_x/xxx.ckpt'格式存放
+load_checkpoint: 权重文件路径
 auto_trans_ckpt: 自动权重转换开关
 run_mode: 运行模式，微调时设置为finetune
 train_data: 训练数据集文件夹路径
@@ -1109,7 +1161,7 @@ python baichuan2/run_baichuan2.py \
 1. 主要参数配置参考
 
 ```yaml
-load_checkpoint: 'model_dir'             # 完整权重文件夹路径，权重存放格式为"model_dir/rank_0/xxx.ckpt"
+load_checkpoint: 'model_dir/xxx.ckpt'    # 使用完整权重路径
 auto_trans_ckpt: True                    # 打开自动权重转换
 use_past: True                           # 使用增量推理
 use_parallel: True                       # 使用并行模式
@@ -1135,7 +1187,7 @@ bash ./run_singlenode.sh \
 --config baichuan2/run_baichuan2_13b.yaml \
 --run_mode predict \
 --use_parallel True \
---load_checkpoint model_dir \
+--load_checkpoint model_dir/xxx.ckpt \
 --auto_trans_ckpt True \
 --predict_data <reserved_106>你是谁？<reserved_107>" RANK_TABLE_FILE [0,2] 2
 
@@ -1237,9 +1289,8 @@ for output in outputs:
 
 ```yaml
 # 使用完整权重
-load_checkpoint: ''                                           # 单卡推理时，只需配置checkpoint_name_or_path
+load_checkpoint: 'path/to/Baichuan2-13B-Chat.ckpt'            # 填写权重绝对路径
 auto_trans_ckpt: False                                        # 关闭自动权重转换
-checkpoint_name_or_path: 'path/to/Baichuan2-13B-Chat.ckpt'    # 填写权重绝对路径
 use_past: True                                                # 使用增量推理
 vocab_file: 'path/to/tokenizer.model'                         # 配置词表路径
 use_parallel: False                                           # 关闭并行模式
@@ -1273,12 +1324,12 @@ python baichuan2/run_baichuan2_pipeline.py
 
 ```yaml
 # 如果使用完整权重进行多卡推理，需要将权重转换为分布式权重
-load_checkpoint: 'model_dir'             # 完整权重文件夹路径，权重存放格式为"model_dir/rank_0/xxx.ckpt"
-src_strategy_path_or_dir: ''             # 使用完整权重，不需要填写策略文件路径
-auto_trans_ckpt: True                    # 打开自动权重转换
-use_parallel: True                       # 使用并行模式
-use_past: True                           # 使用增量推理
-vocab_file: 'path/to/tokenizer.model'    # 配置词表路径
+load_checkpoint: 'path/to/Baichuan2-13B-Chat.ckpt'   # 填写权重绝对路径
+src_strategy_path_or_dir: ''                         # 使用完整权重，不需要填写策略文件路径
+auto_trans_ckpt: True                                # 打开自动权重转换
+use_parallel: True                                   # 使用并行模式
+use_past: True                                       # 使用增量推理
+vocab_file: 'path/to/tokenizer.model'                # 配置词表路径
 
 # 分布式配置
 parallel_config:
@@ -1412,9 +1463,8 @@ for output in outputs:
 
 ```yaml
 # 使用完整权重
-load_checkpoint: ''                                           # 单卡推理时，只需配置checkpoint_name_or_path
+load_checkpoint: 'path/to/Baichuan2-13B-Chat.ckpt'            # 填写权重绝对路径
 auto_trans_ckpt: False                                        # 关闭自动权重转换
-checkpoint_name_or_path: 'path/to/Baichuan2-13B-Chat.ckpt'    # 填写权重绝对路径
 use_past: True                                                # 使用增量推理
 vocab_file: 'path/to/tokenizer.model'                         # 配置词表路径
 use_parallel: False                                           # 关闭并行模式
@@ -1448,12 +1498,12 @@ python baichuan2/run_baichuan2_generate.py
 
 ```yaml
 # 如果使用完整权重进行多卡推理，需要将权重转换为分布式权重
-load_checkpoint: 'model_dir'             # 完整权重文件夹路径，权重存放格式为"model_dir/rank_0/xxx.ckpt"
-src_strategy_path_or_dir: ''             # 使用完整权重，不需要填写策略文件路径
-auto_trans_ckpt: True                    # 打开自动权重转换
-use_parallel: True                       # 使用并行模式
-use_past: True                           # 使用增量推理
-vocab_file: 'path/to/tokenizer.model'    # 配置词表路径
+load_checkpoint: 'path/to/Baichuan2-13B-Chat.ckpt'    # 填写权重绝对路径
+src_strategy_path_or_dir: ''                          # 使用完整权重，不需要填写策略文件路径
+auto_trans_ckpt: True                                 # 打开自动权重转换
+use_parallel: True                                    # 使用并行模式
+use_past: True                                        # 使用增量推理
+vocab_file: 'path/to/tokenizer.model'                 # 配置词表路径
 
 # 分布式配置
 parallel_config:

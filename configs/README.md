@@ -27,7 +27,7 @@ configs统一在run_xxx.yaml中，排序按照修改频率的顺序和一般的�
 - seed: 随机种子，可以参考[mindspore.set_seed](https://www.mindspore.cn/docs/zh-CN/r2.0/api_python/mindspore/mindspore.set_seed.html)
 - run_mode: 运行模式，可选"train"、"finetune"、"eval"或"predict"
 - output_dir: './output'  保存checkpoint、strategy的路径
-- load_checkpoint: 加载权重的模型名或权重路径
+- load_checkpoint: 加载权重的模型名或权重路径，若进行全参微调/推理，支持传入完整权重路径或离线切分完成的权重文件夹；对于Lora微调/推理，在支持上述传入方式以外，还支持同时传入Base、Lora权重，传入格式为`load_checkpoint=path/to/dir/`，其中dir路径下包含`{BASE_MODEL}.ckpt`、`{LORA_MODEL}.ckpt`。
 - auto_trans_ckpt: 是否开启自动在线权重切分或转换
 - resume_training: 加载方式，为True时会加载训练过程信息，如优化器、epochs数等
 - context: 环境配置，可以参考: [mindspore.set_context](https://www.mindspore.cn/docs/zh-CN/r2.0/api_python/mindspore/mindspore.set_context.html)
