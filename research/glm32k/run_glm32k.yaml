@@ -154,7 +154,7 @@ eval_dataset_task:
 
 # ==== runner config ====
 runner_config:
-  epochs: 1
+  epochs: 15
   batch_size: 1
   gradient_accumulation_steps: 1
   sink_mode: True

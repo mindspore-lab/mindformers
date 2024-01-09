@@ -373,8 +373,9 @@ output:
 - step 1: 生成推理结果，多卡启动命令如下：
 
 ```shell
-input_dataset_file=/path/dureader.jsonl          # 数据集文件夹路径
-output_file=pred                                 # 生成结果保存路径
+input_dataset_file=/path/eval_dataset/dureader.jsonl  # 数据集文件夹路径
+output_file=pred                                      # 生成结果保存路径
+checkpoint_path=/path/mindspore_models/glm32k.ckpt    # 权重文件路径
 
 mkdir -p ${output_file}
 echo 'Output path: 'output_file
@@ -387,7 +388,7 @@ for ((i = 0; i < $npu_num; i++)); do
   end_index=$(((i + 1) * step))
   npu=$((i))
   echo 'Running process #' ${i} 'from' $start_index 'to' $end_index 'on NPU' ${npu}
-  python eval_longbench_generate.py --start_index ${start_index} --end_index ${end_index} --output_file ${output_file} --input_dataset_file ${input_dataset_file} --device_id ${npu} &> longbench_$npu.log &
+  python eval_longbench_generate.py --start_index ${start_index} --end_index ${end_index} --output_file ${output_file} --input_dataset_file ${input_dataset_file} --device_id ${npu} --checkpoint_path ${checkpoint_path} &> longbench_$npu.log &
  done
 ```
 
