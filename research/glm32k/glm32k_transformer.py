@@ -221,6 +221,7 @@ class ChatGLM32kSelfAttention(nn.Cell):
             self.tile = P.Tile().shard(((1, 1, 1, 1),))
 
         self.use_flash_attention = config.use_flash_attention
+        self.use_prompt_flash_attention = config.use_prompt_flash_attention
         if self.use_flash_attention:
             self.attention_mask_dtype = choose_flash_attention_dtype()
             self.run_mode = config.run_mode
@@ -445,7 +446,7 @@ class ChatGLM32kSelfAttention(nn.Cell):
 
         if self.use_flash_attention:
             attention_mask = attention_mask.squeeze(1).to(self.attention_mask_dtype)
-            if self.run_mode and self.run_mode == "predict":
+            if self.use_prompt_flash_attention:
                 context_layer = \
                     self.flash_attention(query_layer, key_layer, value_layer, attention_mask.astype(self.compute_dtype),
                                          None, None)[0]
