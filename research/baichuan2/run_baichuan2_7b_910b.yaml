@@ -99,7 +99,8 @@ callbacks:
   - type: MFLossMonitor
   - type: CheckpointMointor
     prefix: "baichuan2"
-    save_checkpoint_steps: 200
+    save_checkpoint_steps: 1000
+    keep_checkpoint_max: 5
     integrated_save: False
     async_save: False
   - type: ObsMonitor
