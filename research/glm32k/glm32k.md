@@ -366,7 +366,14 @@ output:
 
 #### 评测流程
 
-所用数据集为长序列DuReader评测集，需要先安装`fuzzywuzzy`, `jieba`, `rouge`等评估三方包
+所用数据集为长序列DuReader评测集，评测时需要安装`rouge`三方包来替换原环境中的`rouge-chinese`包
+
+安装命令如下：
+
+```shell
+pip uninstall rouge-chinese
+pip install rouge==1.0.1
+```
 
 - step 1: 生成推理结果，多卡启动命令如下：
 
