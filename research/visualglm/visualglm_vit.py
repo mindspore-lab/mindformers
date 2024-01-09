@@ -61,7 +61,7 @@ class ViTModelForBlip2(ViTModel):
                 raise ValueError(f"{checkpoint_name_or_path} is not a supported default model"
                                  f" or a valid path to checkpoint,"
                                  f" please select from {self._support_list}.")
-            # on 910B, load the 'resized' checkpoint.
+            # on Atlas 800T A2, load the 'resized' checkpoint.
             if not config.resize_token_embeddings and not checkpoint_name_or_path.endswith("_resized"):
                 checkpoint_name_or_path = checkpoint_name_or_path + "_resized"
             checkpoint_name = checkpoint_name_or_path

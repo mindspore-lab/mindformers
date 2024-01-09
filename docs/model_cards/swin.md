@@ -8,7 +8,7 @@ Swin：全名Swin Transformer，是一个基于Transformer在视觉领域有着S
 
 ## 模型性能
 
-- 基于910A
+- 基于Atlas 800
 
 |                            config                            |         task         |  Datasets   |    metric     | score  | [train performance](#预训练) | [prediction performance](#推理) |
 | :----------------------------------------------------------: | :------------------: | :---------: | :-----------: | :----: | :--------------------------: | :-----------------------------: |
@@ -348,7 +348,7 @@ bash run_distribute.sh $RANK_TABLE_FILE ../configs/swin/run_swin_base_p4w7_224_1
 
 # launch ranks in the 1-11 server via ssh
 for idx in {1..11}
-do  
+do
     let rank_start=8*$idx
     let rank_end=$rank_start+8
     ssh ${IP_LIST[$idx]} "cd scripts; bash run_distribute.sh $RANK_TABLE_FILE ../configs/swin/run_swin_base_p4w7_224_100ep.yaml [$rank_start,$rank_end] train $device_num"

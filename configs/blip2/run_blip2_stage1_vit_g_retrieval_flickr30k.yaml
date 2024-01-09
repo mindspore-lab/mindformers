@@ -171,7 +171,7 @@ model:
       num_hidden_layers: 12
       num_attention_heads: 12
       query_length: 32
-      resize_token_embeddings: True # if run on 910B, turn it to False
+      resize_token_embeddings: True # if run on Atlas 800T A2, turn it to False
       special_token_nums: 1
       vocab_size: 30522
       hidden_size: 768

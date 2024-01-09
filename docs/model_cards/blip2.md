@@ -20,7 +20,7 @@ BLIP-2: 全名`Bootstrapping Language-Image Pre-training - 2`模型是2023 年 S
 
 ## 模型性能（包括设备性能+评测指标）
 
-- 基于910A
+- 基于Atlas 800
 
 |                                                                              config                                                                               |                 task                 |                Datasets                 |  metric   |           score            | [train performance](#预训练) | [predict performance](#基于pipeline的推理) |
 |:-----------------------------------------------------------------------------------------------------------------------------------------------------------------:|:------------------------------------:|:---------------------------------------:|:---------:|:--------------------------:|:-------------------------:|:-------------------------------------:|
@@ -611,7 +611,7 @@ bash run_distribute.sh $RANK_TABLE_FILE --config configs/blip2/run_blip2_stage1_
 
 # launch ranks in the 1-11 server via ssh
 for idx in {1..11}
-do  
+do
     let rank_start=8*$idx
     let rank_end=$rank_start+8
     ssh ${IP_LIST[$idx]} "cd scripts; bash run_distribute.sh $RANK_TABLE_FILE --config configs/blip2/run_blip2_stage1_vit_g_qformer_pretrain.yaml [$rank_start,$rank_end] train $device_num"

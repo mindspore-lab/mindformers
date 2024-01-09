@@ -97,7 +97,7 @@ class Blip2Qformer(Blip2Base):
 
         qformer_config = self.config.qformer_config
 
-        # note on 910b, function resize_token_embeddings() is not supported,
+        # note on Atlas 800T A2, function resize_token_embeddings() is not supported,
         # thus in this case, a resized weight will be loaded, i.e:
         # 1) vocab_size = vocab_size + special_token_nums,
         # 2) special_token_nums = 0

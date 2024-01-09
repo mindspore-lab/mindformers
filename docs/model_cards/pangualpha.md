@@ -8,7 +8,7 @@
 
 ## 模型性能
 
-- 基于910A
+- 基于Atlas 800
 
 |                                              config                                              |      task       | Datasets  | metric |   score    | [train performance](#预训练) | [predict performance](#基于pipeline的推理) |
 | :----------------------------------------------------------------------------------------------: | :-------------: | :-------: | :----: | :--------: | :--------------------------: | :----------------------------------------: |
@@ -286,7 +286,7 @@ predict_result = trainer.predict(input_data="上联：欢天喜地度佳节 下�
 # output result is: [{'text_generation_text': ['上联:欢天喜地度佳节 下联:笑逐颜开迎佳期 横批:幸福快乐<eot>']}]
 ```
 
-**注：快速使用仅限单卡，该示例在910A仅支持2.6B和13B的evaluate和predict，在910B支持2.6Btrain和finetune及2.6B和13B的evaluate和predict。**
+**注：快速使用仅限单卡，该示例在Atlas 800仅支持2.6B和13B的evaluate和predict，在Atlas 800T A2支持2.6Btrain和finetune及2.6B和13B的evaluate和predict。**
 **注：多卡请参考[使用高阶接口开发教程](https://mindformers.readthedocs.io/zh_CN/latest/docs/practice/Develop_With_Api.html)。**
 
 ### 基于Pipeline的快速推理
@@ -332,8 +332,8 @@ python pretrain_data_process.py --input_glob  'data/*.txt' --tokenizer jieba --e
 
 #### 单卡训练
 
-**注：在910A上无法单卡训练pangualpha模型。**
-**注：在910B上单卡训练需要修改`pangualpha_2_6b.yaml`配置文件中`max_device_memory`为`57GB`，`batch_size`减小为`2`。**
+**注：在Atlas 800上无法单卡训练pangualpha模型。**
+**注：在Atlas 800T A2上单卡训练需要修改`pangualpha_2_6b.yaml`配置文件中`max_device_memory`为`57GB`，`batch_size`减小为`2`。**
 
 ```yaml
 # context
@@ -418,8 +418,8 @@ IP_LIST=("192.168.0.0", "192.168.0.1", ..., "192.168.0.11")
 
 #### 单卡微调
 
-**注：在910A上无法单卡全参微调pangualpha模型。**
-**注：在910B上单卡全参微调需要修改`pangualpha_2_6b.yaml`配置文件中`max_device_memory`为`57GB`，`batch_size`减小为`2`。**
+**注：在Atlas 800上无法单卡全参微调pangualpha模型。**
+**注：在Atlas 800T A2上单卡全参微调需要修改`pangualpha_2_6b.yaml`配置文件中`max_device_memory`为`57GB`，`batch_size`减小为`2`。**
 
 ```yaml
 # context

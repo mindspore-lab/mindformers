@@ -6,14 +6,14 @@ Baichuan2 是由百川智能开发的开源可商用的大规模预训练语言�
 
 ## 模型性能
 
-|                                        config                                        |      task       | Datasets | [train performance](#全参微调) |     [predict performance](#推理)     |
-|:------------------------------------------------------------------------------------:| :-------------: | :------: |:--------------------------:|:----------------------------------:|
-|          [baichuan2_7b_512](../../research/baichuan2/run_baichuan2_7b.yaml)          | text_generation |  belle   |        550 tokens/s        |   20.54 tokens/s (use_past=True)   |
-|         [baichuan2_13b_512](../../research/baichuan2/run_baichuan2_13b.yaml)         | text_generation |  belle   |        379 tokens/s        | 17.75 tokens/s (use_past=True, 2卡) |
-|     [baichuan2_7b_910b_512](../../research/baichuan2/run_baichuan2_7b_910b.yaml)     | text_generation |  belle   |       1264 tokens/s        |   23.69 tokens/s (use_past=True)   |
-|    [baichuan2_13b_910b_512](../../research/baichuan2/run_baichuan2_13b_910b.yaml)    | text_generation |  belle   |        867 tokens/s        |   16.65 tokens/s (use_past=True)   |
-|  [baichuan2_7b_910b_4096](../../research/baichuan2/run_baichuan2_7b_4096_910b.yaml)  | text_generation |  belle   |     2576 tokens/s (FA)     |                 -                  |
-| [baichuan2_13b_910b_4096](../../research/baichuan2/run_baichuan2_13b_4096_910b.yaml) | text_generation |  belle   |     1252 tokens/s (FA)     |                 -                  |
+|                                             config                                             |      task       | Datasets | [train performance](#全参微调) |    [predict performance](#推理)     |
+| :--------------------------------------------------------------------------------------------: | :-------------: | :------: | :----------------------------: | :---------------------------------: |
+|               [baichuan2_7b_512](../../research/baichuan2/run_baichuan2_7b.yaml)               | text_generation |  belle   |          550 tokens/s          |   20.54 tokens/s (use_past=True)    |
+|              [baichuan2_13b_512](../../research/baichuan2/run_baichuan2_13b.yaml)              | text_generation |  belle   |          379 tokens/s          | 17.75 tokens/s (use_past=True, 2卡) |
+|    [baichuan2_7b_512((Atlas 800T A2))](../../research/baichuan2/run_baichuan2_7b_910b.yaml)    | text_generation |  belle   |         1264 tokens/s          |   23.69 tokens/s (use_past=True)    |
+|    [baichuan2_13b_512(Atlas 800T A2)](../../research/baichuan2/run_baichuan2_13b_910b.yaml)    | text_generation |  belle   |          867 tokens/s          |   16.65 tokens/s (use_past=True)    |
+|  [baichuan2_7b_4096(Atlas 800T A2)](../../research/baichuan2/run_baichuan2_7b_4096_910b.yaml)  | text_generation |  belle   |       2576 tokens/s (FA)       |                  -                  |
+| [baichuan2_13b_4096(Atlas 800T A2)](../../research/baichuan2/run_baichuan2_13b_4096_910b.yaml) | text_generation |  belle   |       1252 tokens/s (FA)       |                  -                  |
 
 ## 仓库介绍
 
@@ -32,14 +32,14 @@ Baichuan2 是由百川智能开发的开源可商用的大规模预训练语言�
 
    ```text
    baichuan2
-       ├── run_baichuan2_7b.yaml               # 7B全量微调910a启动配置
-       ├── run_baichuan2_13b.yaml              # 13B全量微调910a启动配置
-       ├── run_baichuan2_7b_910b.yaml          # 7B全量微调910b启动配置
-       ├── run_baichuan2_13b_910b.yaml         # 13B全量微调910b启动配置
-       ├── run_baichuan2_7b_lora_910b.yaml     # 7BLora微调910b启动配置
-       ├── run_baichuan2_13b_lora_910b.yaml    # 13BLora微调910b启动配置
-       ├── run_baichuan2_7b_4096_910b.yaml     # 7B全量微调seq_len为4096的最优性能910b启动配置
-       └── run_baichuan2_13b_4096_910b.yaml    # 13B全量微调seq_len为4096的最优性能910b启动配置
+       ├── run_baichuan2_7b.yaml               # 7B全量微调Atlas 800启动配置
+       ├── run_baichuan2_13b.yaml              # 13B全量微调Atlas 800启动配置
+       ├── run_baichuan2_7b_910b.yaml          # 7B全量微调Atlas 800T A2启动配置
+       ├── run_baichuan2_13b_910b.yaml         # 13B全量微调Atlas 800T A2启动配置
+       ├── run_baichuan2_7b_lora_910b.yaml     # 7BLora微调Atlas 800T A2启动配置
+       ├── run_baichuan2_13b_lora_910b.yaml    # 13BLora微调Atlas 800T A2启动配置
+       ├── run_baichuan2_7b_4096_910b.yaml     # 7B全量微调seq_len为4096的最优性能Atlas 800T A2启动配置
+       └── run_baichuan2_13b_4096_910b.yaml    # 13B全量微调seq_len为4096的最优性能Atlas 800T A2启动配置
    ```
 
 3. 数据处理脚本和任务启动脚本：`research/baichuan2`
@@ -57,17 +57,17 @@ Baichuan2 是由百川智能开发的开源可商用的大规模预训练语言�
 
 ### 环境要求
 
-- 硬件：Ascend 910A/B
+- 硬件：Atlas 800/Atlas 800T A2
 - MindSpore：2.2
 - MindFormers版本：dev
 - 硬件支持矩阵
 
 |     模型      | 硬件 | 全量微调 | lora微调 | 推理 |
 | :-----------: | :--: | :------: | :------: | :--: |
-| Baichuan2-7b  | 910A |  ≥2节点  |  单节点  | 单卡 |
-| Baichuan2-7b  | 910B |  单节点  |  单节点  | 单卡 |
-| Baichuan2-13b | 910A |  ≥2节点  |  单节点  | ≥2卡 |
-| Baichuan2-13b | 910B |  单节点  |  单节点  | 单卡 |
+| Baichuan2-7b  | Atlas 800 |  ≥2节点  |  单节点  | 单卡 |
+| Baichuan2-7b  | Atlas 800T A2 |  单节点  |  单节点  | 单卡 |
+| Baichuan2-13b | Atlas 800 |  ≥2节点  |  单节点  | ≥2卡 |
+| Baichuan2-13b | Atlas 800T A2 |  单节点  |  单节点  | 单卡 |
 
 ### RANK_TABLE_FILE准备
 
@@ -275,7 +275,7 @@ Mindformer支持权重自动转换，详细教程请参考[权重转换文档](.
 
 请参照[数据集准备](#数据集准备)章节获取mindrecord格式的belle数据集，参照[模型权重准备](#模型权重准备)章节获取Baichuan2-7B-Base权重。
 
-Baichuan2-7B在910A上训练，至少需要2节点，请参考**多机训练**；在910B上训练，支持**单机/多机训练**。
+Baichuan2-7B在Atlas 800上训练，至少需要2节点，请参考**多机训练**；在Atlas 800T A2上训练，支持**单机/多机训练**。
 
 当前模型已支持使用**Flash Attention算法**进行全参微调，请参考 [Flash Attention使用文档](../../docs/feature_cards/Training_Algorithms.md#flash-attention)
 
@@ -287,7 +287,7 @@ Baichuan2-7B在910A上训练，至少需要2节点，请参考**多机训练**�
 
 - **单机训练**
 
-Baichuan2-7B-Base用于微调，seq_length默认为512，分布式微调训练在910B上单节点即可启动。以`belle_chat_ramdon_10k.json`数据集为例，给出了默认配置文件`run_baichuan2_7b_910b.yaml`。
+Baichuan2-7B-Base用于微调，seq_length默认为512，分布式微调训练在Atlas 800T A2上单节点即可启动。以`belle_chat_ramdon_10k.json`数据集为例，给出了默认配置文件`run_baichuan2_7b_910b.yaml`。
 
 **步骤**：
 
@@ -344,7 +344,7 @@ train_data: 训练数据集文件夹路径
 
 - **多机训练**
 
-Baichuan2-7B-Base用于微调，seq_length默认为512，分布式微调训练在910A上需要2节点16卡启动。以`belle_chat_ramdon_10k.json`数据集为例，给出了默认配置文件`run_baichuan2_7b.yaml`。
+Baichuan2-7B-Base用于微调，seq_length默认为512，分布式微调训练在Atlas 800上需要2节点16卡启动。以`belle_chat_ramdon_10k.json`数据集为例，给出了默认配置文件`run_baichuan2_7b.yaml`。
 
 **步骤**：
 
@@ -419,7 +419,7 @@ train_data: 训练数据集文件夹路径
 
 ### Lora微调
 
-Baichuan2-7B-Base用于Lora微调，seq_length默认为512。Lora微调支持910A/B，配置文件基本相同。以`belle_chat_ramdon_10k.json`数据集为例，给出910B的默认配置文件`run_baichuan2_7b_lora_910b.yaml`。
+Baichuan2-7B-Base用于Lora微调，seq_length默认为512。Lora微调支持Atlas 800/Atlas 800T A2，配置文件基本相同。以`belle_chat_ramdon_10k.json`数据集为例，给出Atlas 800T A2的默认配置文件`run_baichuan2_7b_lora_910b.yaml`。
 
 **步骤**：
 
@@ -516,16 +516,16 @@ run_mode: 运行模式，微调时设置为finetune
 train_data: 训练数据集文件夹路径
 ```
 
-- 若要在910A上运行，只需修改配置文件如下：
+- 若要在Atlas 800上运行，只需修改配置文件如下：
 
 ```yaml
 # research/baichuan2/run_baichuan2_7b_lora_910b.yaml
-max_device_memory: "31GB"    # 910A将最大内存改为31GB即可
+max_device_memory: "31GB"    # Atlas 800将最大内存改为31GB即可
 ```
 
 ### MindSpore推理
 
-Baichuan2-7B-Chat用于在线推理，输入按照`<reserved_106>question<reserved_107>`的模板格式输入，910A/B均支持**单卡推理**。
+Baichuan2-7B-Chat用于在线推理，输入按照`<reserved_106>question<reserved_107>`的模板格式输入，Atlas 800/Atlas 800T A2均支持**单卡推理**。
 
 以下提供了四种推理方式，其中Pipeline/Generate推理提供了代码示例，仅供参考：
 
@@ -719,7 +719,7 @@ python baichuan2/run_baichuan2_generate.py
 
 #### chat多轮对话推理
 
-Baichuan2-7B-Chat支持910A/B单卡多轮对话推理，使用`research/baichuan2/run_baichuan2_chat.py`。
+Baichuan2-7B-Chat支持Atlas 800/Atlas 800T A2单卡多轮对话推理，使用`research/baichuan2/run_baichuan2_chat.py`。
 
 ```shell
 cd research/baichuan2
@@ -824,7 +824,7 @@ prompt: 输入中加入prompt的内容，Baichuan2可以选择不设置，按默
 # ['<reserved_106>解释一下“温故而知新”<reserved_107>“温故而知新”是一个中国古代成语，出自《论语·为政》。它的意思是通过回顾和了解过去的事情，可以从中获得新的知识和启示。这个成语强调了学习和思考的重要性，鼓励人们在不断积累知识的过程中，不断地回顾和总结，从而实现自我提升和成长。']
 ```
 
-Baichuan2-7B在910B上推荐的GE配置（910b_ge_default.cfg）如下：
+Baichuan2-7B在Atlas 800T A2上推荐的GE配置（910b_ge_default.cfg）如下：
 
 ```ini
 [ascend_context]
@@ -852,7 +852,7 @@ ge.exec.precision_mode=must_keep_origin_dtype
 
 请参照[数据集准备](#数据集准备)章节获取mindrecord格式的belle数据集，参照[模型权重准备](#模型权重准备)章节获取Baichuan2-13B-Base权重。
 
-Baichuan2-13B在910A上训练，至少需要2节点，请参考**多机训练**；在910B上训练，支持**单机/多机训练**。
+Baichuan2-13B在Atlas 800上训练，至少需要2节点，请参考**多机训练**；在Atlas 800T A2上训练，支持**单机/多机训练**。
 
 当前模型已支持使用**Flash Attention算法**进行全参微调，请参考 [Flash Attention使用文档](../../docs/feature_cards/Training_Algorithms.md#flash-attention)
 
@@ -864,7 +864,7 @@ Baichuan2-13B在910A上训练，至少需要2节点，请参考**多机训练**�
 
 - **单机训练**
 
-Baichuan2-13B-Base用于微调，seq_length默认为512，分布式微调训练在910B上单节点即可启动。以`belle_chat_ramdon_10k.json`数据集为例，给出了默认配置文件`run_baichuan2_13b_910b.yaml`。
+Baichuan2-13B-Base用于微调，seq_length默认为512，分布式微调训练在Atlas 800T A2上单节点即可启动。以`belle_chat_ramdon_10k.json`数据集为例，给出了默认配置文件`run_baichuan2_13b_910b.yaml`。
 
 **步骤**：
 
@@ -921,7 +921,7 @@ train_data: 训练数据集文件夹路径
 
 - **多机训练**
 
-Baichuan2-13B-Base用于微调，seq_length默认为512，分布式微调训练在910A上需要2节点多卡启动。以`belle_chat_ramdon_10k.json`数据集为例，给出了默认配置文件`run_baichuan2_13b.yaml`。
+Baichuan2-13B-Base用于微调，seq_length默认为512，分布式微调训练在Atlas 800上需要2节点多卡启动。以`belle_chat_ramdon_10k.json`数据集为例，给出了默认配置文件`run_baichuan2_13b.yaml`。
 
 **步骤**：
 
@@ -996,7 +996,7 @@ train_data: 训练数据集文件夹路径
 
 ### Lora微调
 
-Baichuan2-13B-Base用于Lora微调，seq_length默认为512。Lora微调支持910A/B，配置文件基本相同。以`belle_chat_ramdon_10k.json`数据集为例，给出910B的默认配置文件`run_baichuan2_13b_lora_910b.yaml`。
+Baichuan2-13B-Base用于Lora微调，seq_length默认为512。Lora微调支持Atlas 800/Atlas 800T A2，配置文件基本相同。以`belle_chat_ramdon_10k.json`数据集为例，给出Atlas 800T A2的默认配置文件`run_baichuan2_13b_lora_910b.yaml`。
 
 **步骤**：
 
@@ -1093,13 +1093,13 @@ run_mode: 运行模式，微调时设置为finetune
 train_data: 训练数据集文件夹路径
 ```
 
-- 若要在910A上运行，只需修改配置文件如下：
+- 若要在Atlas 800上运行，只需修改配置文件如下：
 
 ```yaml
 # research/baichuan2/run_baichuan2_13b_lora_910b.yaml
-max_device_memory: "31GB"    # 910A将最大内存改为31GB即可
+max_device_memory: "31GB"    # Atlas 800将最大内存改为31GB即可
 
-# 910A的8卡分布式策略配置
+# Atlas 800的8卡分布式策略配置
 parallel_config:
   data_parallel: 2
   model_parallel: 1
@@ -1111,7 +1111,7 @@ parallel_config:
 
 ### MindSpore推理
 
-Baichuan2-13B-Chat用于在线推理，输入按照`<reserved_106>question<reserved_107>`的模板格式输入，**910A需要多卡推理，910B支持单卡推理**，以下提供了四种推理方式，其中Pipeline/Generate推理提供了代码示例，仅供参考：
+Baichuan2-13B-Chat用于在线推理，输入按照`<reserved_106>question<reserved_107>`的模板格式输入，**Atlas 800需要多卡推理，Atlas 800T A2支持单卡推理**，以下提供了四种推理方式，其中Pipeline/Generate推理提供了代码示例，仅供参考：
 
 - **基于高阶接口推理**：基于trainer推理，支持传入单句或多句列表，支持**加载lora权重、权重转换、单/多卡推理**；
 - **基于Pipeline推理**：基于pipeline推理，支持传入单句或多句列表，支持**加载lora权重、权重转换、单/多卡推理**，如只需加载完整权重做单卡推理，可以参考[Baichuan2-7B](#Baichuan2-7B)提供的pipeline推理脚本；
@@ -1228,7 +1228,7 @@ inputs = ["<reserved_106>你是谁？<reserved_107>",
           "<reserved_106>《静夜思》作者是？<reserved_107>",
           "<reserved_106>白日依山尽，下一句是？<reserved_107>"]
 
-# init config，默认使用910A配置文件
+# init config，默认使用Atlas 800配置文件
 baichuan2_config_path = "path/to/run_baichuan2_13b.yaml"
 baichuan2_config = MindFormerConfig(baichuan2_config_path)
 
@@ -1403,7 +1403,7 @@ inputs = ["<reserved_106>你是谁？<reserved_107>",
           "<reserved_106>白日依山尽，下一句是？<reserved_107>"]
 batch_size = len(inputs)
 
-# init config，默认使用910A配置文件
+# init config，默认使用Atlas 800配置文件
 baichuan2_config_path = "path/to/run_baichuan2_13b.yaml"
 baichuan2_config = MindFormerConfig(baichuan2_config_path)
 
@@ -1557,7 +1557,7 @@ python run_baichuan2_chat.py \
 --vocab_file '/path/to/tokenizer.model'
 ```
 
-- **注：910A需开启2卡分布式推理，不支持交互。**
+- **注：Atlas 800需开启2卡分布式推理，不支持交互。**
 
 ### MindSpore Lite推理
 
@@ -1596,7 +1596,7 @@ python run_baichuan2.py \
 
 ##### Step2. 执行MS Lite推理
 
-新建推理配置文件，Baichuan2-13B在910B上推荐的GE配置如下：
+新建推理配置文件，Baichuan2-13B在Atlas 800T A2上推荐的GE配置如下：
 
 - 静态推理（910b_ge_default_ctx.ini）
 

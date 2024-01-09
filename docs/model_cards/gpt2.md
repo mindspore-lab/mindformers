@@ -10,7 +10,7 @@ GPT-2由OpenAI于2019年发布。GPT-2模型是继承于GPT模型，GPT-2是一�
 
 ```txt
 Mindspore: 2.0.0rc1
-Ascend: 910A
+Ascend: Atlas 800
 ```
 
 |               config                |        task         |              Datasets              | [metric](#评测) |                score                | [train performance](#预训练) |         [predict performance](#推理)         |

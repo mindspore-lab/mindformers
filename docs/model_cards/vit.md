@@ -8,7 +8,7 @@ ViT：全名Vision Transformer，不同于传统的基于CNN的网络结果，�
 
 ## 模型性能
 
-- 基于910A
+- 基于Atlas 800
 
 |                            config                            |         task         |  Datasets   |    metric     | score  | [train performance](#预训练) | [prediction performance](#推理) |
 | :----------------------------------------------------------: | :------------------: | :---------: | :-----------: | :----: | :--------------------------: | :-----------------------------: |
@@ -344,7 +344,7 @@ bash run_distribute.sh $RANK_TABLE_FILE ../configs/vit/run_vit_base_p16_224_100e
 
 # launch ranks in the 1-11 server via ssh
 for idx in {1..11}
-do  
+do
     let rank_start=8*$idx
     let rank_end=$rank_start+8
     ssh ${IP_LIST[$idx]} "cd scripts; bash run_distribute.sh $RANK_TABLE_FILE ../configs/vit/run_vit_base_p16_224_100ep.yaml [$rank_start,$rank_end] train $device_num"
@@ -389,5 +389,3 @@ python run_mindformer.py --config ./configs/vit/run_vit_base_p16_224_100ep.yaml 
 # predict
 python run_mindformer.py --config ./configs/vit/run_vit_base_p16_224_100ep.yaml --run_mode predict --predict_data [PATH_TO_IMAGE]
 ```
-
-

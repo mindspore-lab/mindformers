@@ -17,7 +17,7 @@ Llama 2，是Meta基于LLaMA 1的更新版本，基于新的公开可用数据�
 
 ## 模型性能
 
-基于910B
+基于Atlas 800T A2
 
 llama2_7b:
 
@@ -83,12 +83,12 @@ llama2_70b 待补充。
 
 ### 环境要求
 
-- 硬件：Ascend 910A/910B
+- 硬件：Atlas 800/Atlas 800T A2
 - MindSpore：2.2.0
 - CANN: 7.0
 - MindFormers版本：dev
 
-注：910b芯片：7b,13b推理可在单机单卡上完成部署；70b推理至少使用8卡，全参微调至少需要4机32卡，推荐使用8机64卡。
+注：Atlas 800T A2芯片：7b,13b推理可在单机单卡上完成部署；70b推理至少使用8卡，全参微调至少需要4机32卡，推荐使用8机64卡。
 
 ### [mindformers安装](../../README.md#二mindformers安装)
 
@@ -653,7 +653,7 @@ Llama 2当前支持使用based model(初始权重) 进行评测任务如下：
 | 文本生成 | Perplexity | WikiText2 |
 | 阅读理解 |   Em/F1    | SQuAD 1.1 |
 
-评测时加入`vocab_file`配置相应`tokenizer.model`路径；若使用910B进行评测，则还需在yaml中加入`ascend_config`配置：
+评测时加入`vocab_file`配置相应`tokenizer.model`路径；若使用Atlas 800T A2进行评测，则还需在yaml中加入`ascend_config`配置：
 
 ```python
 # context_config
@@ -835,7 +835,7 @@ bash run_distribute.sh RANK_TABLE_FILE configs/llama2/predict_llama2_70b_910b.ya
 
 ## 推理
 
-推理时将配置文件中`param_init_type`修改为`float32`；若为910B推理，则加入`ascend_config`配置。
+推理时将配置文件中`param_init_type`修改为`float32`；若为Atlas 800T A2推理，则加入`ascend_config`配置。
 
 ```python
 # model config
@@ -843,7 +843,7 @@ model:
   model_config:
     param_init_type: "float32"
 
-# context_config 910B推理添加ascend_config
+# context_config Atlas 800T A2推理添加ascend_config
 context:
   ascend_config:
     precision_mode: "must_keep_origin_dtype"
@@ -1229,7 +1229,7 @@ python run_mindformer.py --config_path configs/llama2/export_llama2_7b.yaml --ru
 
 1. 新建推理配置文件：lite.ini
 
-   910A配置如下：
+   Atlas 800配置如下：
 
    ```ini
    [ascend_context]
@@ -1242,7 +1242,7 @@ python run_mindformer.py --config_path configs/llama2/export_llama2_7b.yaml --ru
    ge.exec.precision_mode=must_keep_origin_dtype
    ```
 
-   910B默认配置如下：
+   Atlas 800T A2默认配置如下：
 
    ```ini
    [ascend_context]
@@ -1253,7 +1253,7 @@ python run_mindformer.py --config_path configs/llama2/export_llama2_7b.yaml --ru
    ge.exec.precision_mode=must_keep_origin_dtype
    ```
 
-   910B 高性能配置如下：
+   Atlas 800T A2 高性能配置如下：
 
    > 注: 高性能暂不支持llama2_7b
 

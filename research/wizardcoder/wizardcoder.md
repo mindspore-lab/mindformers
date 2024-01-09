@@ -22,7 +22,7 @@ WizardCoder完全开源可商用，基于 Transformer 结构，上下文窗口�
 
     ```bash
     wizardcoder
-        └── run_wizardcoder.yaml           # 15B全量微调910b启动配置
+        └── run_wizardcoder.yaml           # 15B全量微调Atlas 800T A2启动配置
     ```
 
 3. 数据处理脚本和任务启动脚本：`research/wizardcoder`
@@ -88,7 +88,7 @@ class TextGeneratorInfer(BaseInfer):
 
 ### 环境要求
 
-- 硬件: Ascend 910B
+- 硬件: Atlas 800T A2
 
 ### 支持源码编译安装，用户可以执行下述的命令进行包的安装：
 
@@ -905,7 +905,7 @@ print(pipeline_result[0])
 
 #### 评测结果
 
-| batch size | seq_length | 910B1(400T) tokens/s | A800tokens/s | 对比          |
+| batch size | seq_length | Atlas 800T A2(400T) tokens/s | A800tokens/s | 对比          |
 |------------|------------|----------------------|--------------|-------------|
 | 32         | 32         | 407.4103739          | 108.1633254  | 3.76662212  |
 | 32         | 64         | 404.1433301          | 156.4472315  | 2.583256516 |
@@ -918,7 +918,7 @@ print(pipeline_result[0])
 
 #### 评测流程
 
-- **step 1: 910B + mindspore lite推理**
+- **step 1: Atlas 800T A2 + mindspore lite推理**
 
 -[x] 基于配置文件run_wizardcoder.yaml生成增量推理的mindir文件`wizardcoder-15b_mslite_inc/prefill_2k_bs1_graph.mindir`和`wizardcoder-15b_mslite_inc/decode_2k_bs1_graph.mindir`
 
@@ -969,8 +969,8 @@ base_model文件夹中存放huggingface wizardcoder-15B的模型文件，具体�
 
 |                                | MBPP Pass@1 |
 |--------------------------------|-------------|
-| 910B + Mindspore (在线推理)        | 50.8        |
-| 910B + Mindspore (离线推理)        | 50.8        |
+| Atlas 800T A2 + Mindspore (在线推理)        | 50.8        |
+| Atlas 800T A2 + Mindspore (离线推理)        | 50.8        |
 | A100 + Pytorch                 | 50.6        |
 
 #### MBPP评测流程

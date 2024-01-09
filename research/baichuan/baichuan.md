@@ -155,20 +155,20 @@ mindspore_ckpt_path: 权重保存文件名，默认保存为TORCH_CKPT_DIR/OUTPU
 
 `Baichuan-13B-base`的高阶接口使用脚本已集成在`run_baichuan_13b_base.py`脚本中
 
-**注1**：由于模型较大，910A不支持单卡推理，不支持单机8卡训练。如果使用910A进行单卡推理，需要修改`run_baichuan_13b.yaml`中`seq_length`为1024。
+**注1**：由于模型较大，Atlas 800不支持单卡推理，不支持单机8卡训练。如果使用Atlas 800进行单卡推理，需要修改`run_baichuan_13b.yaml`中`seq_length`为1024。
 
 **注2**：增量推理需要修改`run_baichuan_13b.yaml`中`use_past`为True。
 
 **注3**：使用predict前需要下载baichuan13b的tokenizer文件，并且在`baichuan/run_baichuan_13b.yaml`该文件中修改tokenzier路径到hugging face`Baichuan-13B-Base/tokenizer.model`文件
 
-- 910B单卡eval示例
+- Atlas 800T A2单卡eval示例
 
 ```shell
 cd mindformers/research
 python baichuan/run_baichuan_13b_base.py --config baichuan/run_baichuan_13b_910b.yaml --load_checkpoint path/to/baichuan_13b.ckpt --run_mode=eval --eval_data path/to/mindrecord_dir --use_parallel False
 ```
 
-- 910B单卡predict示例
+- Atlas 800T A2单卡predict示例
 
 ```shell
 cd mindformers/research

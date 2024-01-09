@@ -428,7 +428,7 @@ python skywork/run_skywork_infer_lite.py --full_model_path output/mindir_full_ch
 
 ### 评测结果
 
-|batch_size|seq_length|910B1（400T）tokens/s|A100（首次） tokens/s|对比
+|batch_size|seq_length|Atlas 800T A2（400T）tokens/s|A100（首次） tokens/s|对比
 |----------|----------|----------|----------|----------|
 |2|1024|45.16967126|36.73233689|1.229697729
 |2|512|43.1641737|38.4874702|1.121512364

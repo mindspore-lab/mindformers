@@ -291,7 +291,7 @@ train_dataset: &train_dataset
     shuffle: True
 
 # 4卡分布式配置参考
-# default parallel of device num = 8 910A
+# default parallel of device num = 8 for Atlas 800
 parallel_config:
   data_parallel: 1
   model_parallel: 2
@@ -425,7 +425,7 @@ run_mode: 'predict'
 use_past: True
 
 # 2卡分布式配置参考
-# default parallel of device num = 8 910A
+# default parallel of device num = 8 for Atlas 800
 # 由于通过run_distribute.sh拉起推理，内部走的是pipeline推理流程，暂时不支持多batch推理，因此data_parallel设置为1
 parallel_config:
   data_parallel: 1
@@ -499,7 +499,7 @@ run_mode: 'predict'
 use_past: True
 
 # 2卡分布式配置参考
-# default parallel of device num = 8 910A
+# default parallel of device num = 8 for Atlas 800
 # 由于通过run_distribute.sh拉起推理，内部走的是pipeline推理流程，暂时不支持多batch推理，因此data_parallel设置为1
 parallel_config:
   data_parallel: 1
@@ -554,7 +554,7 @@ bash run_distribute.sh rank_table_2_id02.json configs/llama/run_llama_7b.yaml [0
 
 ```yaml
 # 16卡分布式配置参考
-# default parallel of device num = 8 910A
+# default parallel of device num = 8 for Atlas 800
 parallel_config:
   data_parallel: 2
   model_parallel: 4
@@ -590,7 +590,7 @@ micro_batch_interleave_num: 1
 
 ### 物理机多机多卡训练案例
 
-**案例描述**：基于一份完整的llama-7B预训练权重，在2台910服务器上使用16卡进行分布式训练。
+**案例描述**：基于一份完整的llama-7B预训练权重，在2台Atlas服务器上使用16卡进行分布式训练。
 
 **前提**：请确保服务器之间已经组网。
 

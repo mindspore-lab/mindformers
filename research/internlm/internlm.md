@@ -27,8 +27,8 @@ InternLM ，即书生·浦语大模型，是由上海人工智能实验室和来
 
 |                                     config                                      |      task       | Datasets | [train performance](#全参微调) | [predict performance](#推理) |
 |:-------------------------------------------------------------------------------:|:---------------:|:--------:|:--------------------------:|:--------------------------:|
-|      [internlm_7b_910b](../../research/internlm/run_internlm_7b_910b.yaml)      | text_generation |  alpaca  |       1802 tokens/s        | 7 tokens/s (use_past=True) |
-| [internlm_7b_lora_910b](../../research/internlm/run_internlm_7b_lora_910b.yaml) | text_generation |  alpaca  |       2211 tokens/s        |             -              |
+|      [internlm_7b(Atlas 800T A2)](../../research/internlm/run_internlm_7b_910b.yaml)      | text_generation |  alpaca  |       1802 tokens/s        | 7 tokens/s (use_past=True) |
+| [internlm_7b_lora(Atlas 800T A2)](../../research/internlm/run_internlm_7b_lora_910b.yaml) | text_generation |  alpaca  |       2211 tokens/s        |             -              |
 
 ## 代码结构介绍
 
@@ -47,10 +47,10 @@ InternLM ，即书生·浦语大模型，是由上海人工智能实验室和来
 
     ```bash
     internlm
-        ├── run_internlm_7b.yaml                  # 全量微调910A启动配置
-        ├── run_internlm_7b_910b.yaml             # 全量微调910B启动配置
-        ├── run_internlm_7b_lora.yaml             # lora低参微调910A启动配置
-        └── run_internlm_7b_lora_910b.yaml        # lora低参微调910B启动配置
+        ├── run_internlm_7b.yaml                  # 全量微调Atlas 800启动配置
+        ├── run_internlm_7b_910b.yaml             # 全量微调Atlas 800T A2启动配置
+        ├── run_internlm_7b_lora.yaml             # lora低参微调Atlas 800启动配置
+        └── run_internlm_7b_lora_910b.yaml        # lora低参微调Atlas 800T A2启动配置
     ```
 
 3. 预处理脚本和任务启动脚本：`research/internlm`
@@ -232,7 +232,7 @@ python alpaca_data_preprocess.py \
 
 ### 全参微调
 
-internlm-7b用于微调，seq_length默认为2048，分布式微调训练在910A/B上均可在单机八卡上启动。以alpaca_data数据集为例,给出了910A上的默认配置文件`run_internlm_7b.yaml`。若使用910B机器，使用`run_internlm_7b_910b.yaml`配置文件即可，其他步骤与910A一致。
+internlm-7b用于微调，seq_length默认为2048，分布式微调训练在Atlas 800 / Atlas 800T A2上均可在单机八卡上启动。以alpaca_data数据集为例,给出了Atlas 800上的默认配置文件`run_internlm_7b.yaml`。若使用Atlas 800T A2机器，使用`run_internlm_7b_910b.yaml`配置文件即可，其他步骤与Atlas 800一致。
 
 当前模型已支持使用**Flash Attention算法**进行全参微调，请参考 [Flash Attention使用文档](../../docs/feature_cards/Training_Algorithms.md#flash-attention)
 
@@ -287,7 +287,7 @@ hccl_xp_xxx.json [0,8] 8
 
 ### Lora微调
 
-Lora微调支持910A/B上的单卡/多卡启动，以alpaca-gpt4-data-zh数据集为例,给出了910A的默认配置文件`run_internlm_7b_lora.yaml`。若使用910B机器，使用`run_internlm_7b_lora_910b.yaml`配置文件即可，其他步骤与910A一致。
+Lora微调支持Atlas 800 / Atlas 800T A2上的单卡/多卡启动，以alpaca-gpt4-data-zh数据集为例,给出了Atlas 800的默认配置文件`run_internlm_7b_lora.yaml`。若使用Atlas 800T A2机器，使用`run_internlm_7b_lora_910b.yaml`配置文件即可，其他步骤与Atlas 800一致。
 
 1. 参考全参微调任务修改配置文件中的预训练权重路径、数据集路径。
 
@@ -516,7 +516,7 @@ python run_internlm.py \
 
 ##### Step2. 执行MS Lite推理
 
-新建推理配置文件，InternLM-20B在910B上推荐的GE配置如下：
+新建推理配置文件，InternLM-20B在Atlas 800T A2上推荐的GE配置如下：
 
 - 静态推理（910b_ge_default_ctx.ini）
 

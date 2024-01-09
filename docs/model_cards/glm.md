@@ -32,7 +32,7 @@ ChatGLM-6B 是一个开源的、支持中英双语的对话语言模型，基于
 
 ## 环境要求
 
-- 硬件：Ascend 910A
+- 硬件：Atlas 800
 - MindSpore：2.0.0rc1 / 1.10.1
 - MindFormers版本：dev
 

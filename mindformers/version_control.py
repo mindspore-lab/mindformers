@@ -33,8 +33,8 @@ def get_ascend_soc_version():
     if ascend_chip_type == "UNSET":
         logger.info("Environment variables need to be set manually to obtain the chip type,"
                     "which can be set as follows: \n"
-                    "For 910A chip, run 'export ASCEND_CHIP_TYPE=910a' before the program runs.\n"
-                    "For 910B chip, run 'export ASCEND_CHIP_TYPE=910b' before the program runs.\n"
+                    "For Atlas 800, run 'export ASCEND_CHIP_TYPE=910a' before the program runs.\n"
+                    "For Atlas 800T A2, run 'export ASCEND_CHIP_TYPE=910b' before the program runs.\n"
                     "If you need to get chip information automatically, MindSpore 2.2 and above is recommended")
     return ascend_chip_type
 
@@ -80,9 +80,9 @@ def get_cell_reuse(func):
             logger.info("The current MindSpore version is %s,"
                         "and the following conditions are required to use the Cell Reuse capability:",
                         ms.__version__)
-            logger.info("\nWhen the chip used is Ascend 910A and the Back-End is VM,"
+            logger.info("\nWhen the chip used is Atlas 800 and the Back-End is VM,"
                         "'export MS_DEV_CELL_REUSE=2' is required.\n"
-                        "When the chip used is Ascend 910B and the Back-End is GE,"
+                        "When the chip used is Atlas 800T A2 and the Back-End is GE,"
                         "set environment variables as follows:\n"
                         "export MS_DEV_CELL_REUSE=1\n"
                         "export MS_ENABLE_REF_MODE=1\n"

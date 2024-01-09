@@ -11,7 +11,7 @@ Bloom (BigScience Large Open-science Open-access Multilingual) 是一个开源�
 |       config        |      task       | Datasets | metric | score | [train performance](#预训练) | [predict performance](#基于pipeline的推理) |
 |:-------------------:|:---------------:|:--------:|:------:|:-----:|:-------------------------:|:-------------------------------------:|
 | run_bloom_560m.yaml | text_generation |    -     |   -    |   -   |             -             |                   -                   |
-| run_bloom_7.1b.yaml | text_generation |  Alpaca  |   -    |   -   |   1063tokens/s/p - 910A   |  21.33tokens/s(use_past True) - 910A  |
+| run_bloom_7.1b.yaml | text_generation |  Alpaca  |   -    |   -   |   1063tokens/s/p - Atlas 800   |  21.33tokens/s(use_past True) - Atlas 800  |
 | run_bloom_65b.yaml  | text_generation |    -     |   -    |   -   |             -             |                   -                   |
 | run_bloom_176b.yaml | text_generation |    -     |   -    |   -   |             -             |                   -                   |
 
@@ -36,9 +36,9 @@ Bloom (BigScience Large Open-science Open-access Multilingual) 是一个开源�
     ```
     bloom
         ├── run_bloom_560m.yaml     # 560m 用于推理
-        ├── run_bloom_7.1b.yaml     # 7.1b 用于8卡(910A)训练
-        ├── run_bloom_7.1b_910b.yaml      # 7.1b 用于8卡(910B)训练
-        └── run_bloom_7.1b_910b_fa.yaml     # 7.1b 用于8卡(910B)训练，并使用Flash Attention
+        ├── run_bloom_7.1b.yaml     # 7.1b 用于8卡(Atlas 800)训练
+        ├── run_bloom_7.1b_910b.yaml      # 7.1b 用于8卡(Atlas 800T A2)训练
+        └── run_bloom_7.1b_910b_fa.yaml     # 7.1b 用于8卡(Atlas 800T A2)训练，并使用Flash Attention
     ```
 
     其中Bloom_7.1b可在单机单卡上推理，在单机8卡上训练。
