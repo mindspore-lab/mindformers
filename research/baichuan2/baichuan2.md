@@ -6,14 +6,14 @@ Baichuan2 是由百川智能开发的开源可商用的大规模预训练语言�
 
 ## 模型性能
 
-|                                       config                                        |      task       | Datasets | [train performance](#全参微调) |     [predict performance](#推理)     |
-|:-----------------------------------------------------------------------------------:| :-------------: | :------: |:--------------------------:|:----------------------------------:|
-|         [baichuan2_7b_512](../../research/baichuan2/run_baichuan2_7b.yaml)          | text_generation |  belle   |        550 tokens/s        |   20.54 tokens/s (use_past=True)   |
-|        [baichuan2_13b_512](../../research/baichuan2/run_baichuan2_13b.yaml)         | text_generation |  belle   |        379 tokens/s        | 17.75 tokens/s (use_past=True, 2卡) |
-|    [baichuan2_7b_910b_512](../../research/baichuan2/run_baichuan2_7b_910b.yaml)     | text_generation |  belle   |       1264 tokens/s        |   23.69 tokens/s (use_past=True)   |
-|   [baichuan2_13b_910b_512](../../research/baichuan2/run_baichuan2_13b_910b.yaml)    | text_generation |  belle   |        867 tokens/s        |   16.65 tokens/s (use_past=True)   |
-| [baichuan2_13b_910b_4096](../../research/baichuan2/run_baichuan2_7b_4096_910b.yaml) | text_generation |  belle   |     2968 tokens/s (FA)     |                 -                  |
-|   [baichuan2_13b_910b_4096](../../research/baichuan2/run_baichuan2_13b_4096_910b.yaml)   | text_generation |  belle   |       1375 tokens/s (FA)         |                 -                  |
+|                                        config                                        |      task       | Datasets | [train performance](#全参微调) |     [predict performance](#推理)     |
+|:------------------------------------------------------------------------------------:| :-------------: | :------: |:--------------------------:|:----------------------------------:|
+|          [baichuan2_7b_512](../../research/baichuan2/run_baichuan2_7b.yaml)          | text_generation |  belle   |        550 tokens/s        |   20.54 tokens/s (use_past=True)   |
+|         [baichuan2_13b_512](../../research/baichuan2/run_baichuan2_13b.yaml)         | text_generation |  belle   |        379 tokens/s        | 17.75 tokens/s (use_past=True, 2卡) |
+|     [baichuan2_7b_910b_512](../../research/baichuan2/run_baichuan2_7b_910b.yaml)     | text_generation |  belle   |       1264 tokens/s        |   23.69 tokens/s (use_past=True)   |
+|    [baichuan2_13b_910b_512](../../research/baichuan2/run_baichuan2_13b_910b.yaml)    | text_generation |  belle   |        867 tokens/s        |   16.65 tokens/s (use_past=True)   |
+|  [baichuan2_7b_910b_4096](../../research/baichuan2/run_baichuan2_7b_4096_910b.yaml)  | text_generation |  belle   |     2576 tokens/s (FA)     |                 -                  |
+| [baichuan2_13b_910b_4096](../../research/baichuan2/run_baichuan2_13b_4096_910b.yaml) | text_generation |  belle   |     1252 tokens/s (FA)     |                 -                  |
 
 ## 仓库介绍
 
@@ -69,7 +69,13 @@ Baichuan2 是由百川智能开发的开源可商用的大规模预训练语言�
 | Baichuan2-13b | 910A |  ≥2节点  |  单节点  | ≥2卡 |
 | Baichuan2-13b | 910B |  单节点  |  单节点  | 单卡 |
 
-**注：仓上微调默认配置`seq_length`为512，支持最高`seq_length`为`4096`的训练微调，可以在数据集转换时设置`seq_length`，并在训练时配置yaml文件中的`model_config.seq_length`，使数据集与训练配置的`seq_length`保持一致。
+**注：仓上微调默认配置`seq_length`为512，支持最高`seq_length`为`4096`的训练微调，可以在数据集转换时设置`seq_length=4096`，并在训练时使用seq_len为4096的最优性能910b启动配置文件（此配置开启Flash Attention）：
+
+`run_baichuan2_7b_4096_910b.yaml`
+
+`run_baichuan2_7b_4096_910b.yaml`
+
+进行训练，或修改默认配置文件中的`model_config.seq_length`，使数据集与训练配置的`seq_length`保持一致。
 
 ### RANK_TABLE_FILE准备
 
