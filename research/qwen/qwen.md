@@ -424,8 +424,13 @@ python evaluate_ceval.py -d data/ceval/
 
 ### 基于Generate推理
 
+将脚本放置在`research/qwen`目录下，支持预训练权重推理和微调后权重推理（lora微调后推理使用对应的`run_qwen_lora.yaml`）
+
 ```python
 import sys
+
+import mindspore as ms
+from mindspore import context
 
 from mindformers import MindFormerConfig
 from mindformers.core.context import build_context
@@ -434,20 +439,21 @@ from mindformers.pet import get_pet_model, LoraConfig
 from qwen_config import QwenConfig
 from qwen_model import QwenForCausalLM
 from qwen_tokenizer import QwenTokenizer
+from research.qwen.qwen_chat import make_context, decode_tokens
 
-# init config
 config_file_path = "/path/run_qwen_7b.yaml"
 config = MindFormerConfig(config_file_path)
 
-# init context
 build_context(config)
 build_parallel_config(config)
+context.set_context(mode=ms.GRAPH_MODE, device_target="Ascend", device_id=0)
 
 tokenizer = QwenTokenizer(**config.processor.tokenizer)
 model_config = QwenConfig.from_pretrained(config_file_path)
 model_config.checkpoint_name_or_path = "/path/qwen_7b_base.ckpt"
 model = QwenForCausalLM(model_config)
 
+lora_generate = False
 if config.model.model_config.pet_config:
     print("----------------Init lora params----------------")
     pet_config = LoraConfig(
@@ -457,11 +463,25 @@ if config.model.model_config.pet_config:
         target_modules=config.model.model_config.pet_config.target_modules
     )
     model = get_pet_model(model, pet_config)
+    lora_generate = True
 
-def run_generate(prompt):
-    inputs = tokenizer([prompt, ], return_tensors=None, padding='max_length', max_length=model_config.seq_length)
-    output = model.generate(input_ids=inputs["input_ids"])
-    print(tokenizer.decode(output, skip_special_tokens=True))
+def run_generate(user_input):
+    if lora_generate:
+        prompt_text, prompt_tokens = make_context(tokenizer, user_input, history=[],
+                                                  system="You are a helpful assistant.",
+                                                  max_window_size=2048, chat_format='chatml')
+
+        inputs = tokenizer([prompt_text, ], return_tensors=None, padding='max_length',
+                           max_length=model_config.seq_length)
+        output = model.generate(input_ids=inputs["input_ids"])
+
+        response = decode_tokens(output[0], tokenizer, raw_text_len=len(prompt_text), context_length=len(prompt_tokens),
+                                 chat_format='chatml', verbose=False, errors='replace')
+        print(response)
+    else:
+        inputs = tokenizer([user_input, ], return_tensors=None, padding='max_length', max_length=model_config.seq_length)
+        output = model.generate(input_ids=inputs["input_ids"])
+        print(tokenizer.decode(output, skip_special_tokens=True))
 
 while True:
     user_input = input("Please enter your predict data: \n")
@@ -471,8 +491,7 @@ while True:
         print("Task is over.")
         sys.exit()
 
-    output = run_generate(user_input)
-    print(output)
+    run_generate(user_input)
 ```
 
 ### Batch推理
