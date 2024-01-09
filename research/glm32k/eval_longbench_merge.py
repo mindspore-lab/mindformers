@@ -55,7 +55,7 @@ if __name__ == "__main__":
     parser.add_argument('--need_merge_path',
                         default='/path/pred/',
                         type=str, help="Original files")
-    parser.add_argument('--merged path',
+    parser.add_argument('--merged_path',
                         default='/path/merged/',
                         type=str, help="The final merged path")
 
