@@ -110,6 +110,7 @@ callbacks:
   - type: CheckpointMointor
     prefix: "baichuan2_13b"
     save_checkpoint_steps: 1000
+    keep_checkpoint_max: 5
     integrated_save: False
     async_save: False
   - type: ObsMonitor
@@ -168,7 +169,7 @@ processor:
     unk_token: '<unk>'
     bos_token: '<s>'
     eos_token: '</s>'
-    pad_token: '<pad>'
+    pad_token: '<unk>'
     type: Baichuan2Tokenizer
   type: LlamaProcessor
 

@@ -99,7 +99,8 @@ callbacks:
   - type: MFLossMonitor
   - type: CheckpointMointor
     prefix: "baichuan2"
-    save_checkpoint_steps: 500
+    save_checkpoint_steps: 1000
+    keep_checkpoint_max: 5
     save_trainable_params: False    # Whether to save fine-tuned weights additionally.
     integrated_save: False
     async_save: False
