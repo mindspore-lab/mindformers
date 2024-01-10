@@ -25,11 +25,11 @@
 
 telechat_7b:
 
-| config                                                                          | task                  | Datasets   | SeqLength | phase           | performance  |
-|---------------------------------------------------------------------------------| --------------------- |------------|-----------|-----------------|--------------|
-| [telechat_7b](mindformers/research/telechat/run_telechat_7b_910b.yaml)          | text_generation       | example_dataset | 2048      | [train](#预训练)   | 1940 tks/s/p |
-| [telechat_7b](mindformers/research/telechat/run_telechat_7b_910b_finetune.yaml) | text_generation       | example_dataset     | 2048      | [finetune](#微调) | 1925 tks/s/p |
-| [telechat_7b](mindformers/research/telechat/run_telechat_7b_910b_finetune.yaml) | text_generation       | example_dataset     | 2048      | [predict](#微调)  | 27 tks/s/p   |
+| config                                              | task                  | Datasets   | SeqLength | phase           | performance  |
+|-----------------------------------------------------| --------------------- |------------|-----------|-----------------|--------------|
+| [telechat_7b](./run_telechat_7b_910b.yaml)          | text_generation       | example_dataset | 2048      | [train](#预训练)   | 1940 tks/s/p |
+| [telechat_7b](./run_telechat_7b_910b_finetune.yaml) | text_generation       | example_dataset     | 2048      | [finetune](#微调) | 1925 tks/s/p |
+| [telechat_7b](./run_telechat_7b_910b_finetune.yaml) | text_generation       | example_dataset     | 2048      | [predict](#推理)  | 27 tks/s/p   |
 
 ## 仓库介绍
 
@@ -214,7 +214,7 @@ output_path: 生成数据集的路径
 
 在模型对应的配置文件`research/telechat/run_telechat_7b_910b.yaml`中，用户可自行修改模型、训练相关参数(推荐开启flash_attention，可加速训练)，并通过`train_dataset`的`dataset_dir`参数，指定训练数据集的路径。
 
-配置文件中各参数含义详见[Config配置说明文档](https://gitee.com/mindspore/mindformers/blob/master/configs/README.md)。auto_parallel说明详见[自动并行](../docs/feature_cards/Auto_Parallel.md)。
+配置文件中各参数含义详见[Config配置说明文档](https://gitee.com/mindspore/mindformers/blob/master/configs/README.md)。auto_parallel说明详见[自动并行](../../docs/feature_cards/Auto_Parallel.md)。
 
 - step2. 设置环境变量，变量配置如下：
 
@@ -253,7 +253,7 @@ RANK_TABLE_FILE: 生成的rank_table文件
 
 以telechat 7b为例
 
-当前模型已支持使用**Flash Attention算法**进行全参微调，推荐开启flash_attention，可加速训练。详请参考 [Flash Attention使用文档](../feature_cards/Training_Algorithms.md#flash-attention)
+当前模型已支持使用**Flash Attention算法**进行全参微调，推荐开启flash_attention，可加速训练。详请参考 [Flash Attention使用文档](../../docs/feature_cards/Training_Algorithms.md#flash-attention)
 
 - step 1. 参考`research/telechat/run_telechat_7b_910b_finetune.yaml`中训练数据集路径为微调数据集路径。
 
