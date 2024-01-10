@@ -324,8 +324,7 @@ def transform_and_load_checkpoint(config, model, network, dataset, optimizer=Non
             logger.info("world_size: %d", world_size)
 
             # 2. get strategy
-            src_ckpt_strategy = get_strategy(config.src_strategy_path_or_dir)
-            dst_ckpt_strategy = get_dst_strategy(config)
+            src_ckpt_strategy, dst_ckpt_strategy = get_src_and_dst_strategy(config)
 
             # 3. check format of input path and make softlink
             softlink_dir = check_ckpt_for_transform(config.load_checkpoint)
@@ -432,13 +431,26 @@ def build_model(config, model, dataset, do_eval=False, do_predict=False):
                         sink_size=config.runner_config.sink_size)
 
 
-def get_dst_strategy(config):
+def get_src_and_dst_strategy(config):
     """get strategy"""
     rank_id = get_real_rank()
     world_size = get_real_group_size()
     dst_strategy_path = None
     if world_size == 1:
         return dst_strategy_path
+
+    if (not rank_id) or (rank_id % 8 == 0 and check_in_modelarts()):
+        if os.path.isdir(config.src_strategy_path_or_dir):
+            if config.parallel_config.pipeline_stage > 1:
+                src_strategy_path = get_strategy(config.src_strategy_path_or_dir)
+            elif config.parallel_config.pipeline_stage == 1:
+                src_strategy_paths = glob(os.path.join(config.src_strategy_path_or_dir, "*_rank_*.ckpt"))
+                src_strategy_paths.sort()
+                src_strategy_path = src_strategy_paths[0]
+        else:
+            src_strategy_path = get_strategy(config.src_strategy_path_or_dir)
+    else:
+        src_strategy_path = None
 
     if check_in_modelarts():
         # local send all strategy file to obs
@@ -457,7 +469,7 @@ def get_dst_strategy(config):
             local_strategy_paths.sort()
             dst_strategy_path = local_strategy_paths[0]
             logger.info("pipeline_stage = 1, strategy using %s", dst_strategy_path)
-            return dst_strategy_path
+            return src_strategy_path, dst_strategy_path
 
         if rank_id % 8 == 0:
             wait_collect_all_strategy(local_strategy_dir, world_size, obs_save_dir)
@@ -492,7 +504,7 @@ def get_dst_strategy(config):
             local_strategy_paths.sort()
             dst_strategy_path = local_strategy_paths[0]
             logger.info("pipeline_stage = 1, strategy using %s", dst_strategy_path)
-            return dst_strategy_path
+            return src_strategy_path, dst_strategy_path
 
         wait_collect_all_strategy(local_strategy_dir, world_size)
 
@@ -512,7 +524,7 @@ def get_dst_strategy(config):
         else:
             dst_strategy_path = None
 
-    return dst_strategy_path
+    return src_strategy_path, dst_strategy_path
 
 
 def transform_ckpt(config, ckpt_dir, src_ckpt_strategy=None, dst_ckpt_strategy=None):
