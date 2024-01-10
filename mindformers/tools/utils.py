@@ -153,6 +153,15 @@ def set_output_path(path):
     logger.info(f"set output path to '{os.path.abspath(os.path.expanduser(path))}'")
 
 
+def set_strategy_save_path(config):
+    strategy_ckpt_save_file = config.get('strategy_ckpt_save_file', "ckpt_strategy.ckpt")
+    rank_id = get_real_rank()
+    os.makedirs(os.path.join(get_output_root_path(), "strategy"), exist_ok=True)
+    config['strategy_ckpt_save_file'] = os.path.join(get_output_root_path(), "strategy",
+                                                     strategy_ckpt_save_file.replace(".ckpt", f"_rank_{rank_id}.ckpt"))
+    context.set_auto_parallel_context(strategy_ckpt_save_file=config['strategy_ckpt_save_file'])
+
+
 def get_log_path():
     if check_in_modelarts():
         return os.path.join(MA_OUTPUT_ROOT, 'log')

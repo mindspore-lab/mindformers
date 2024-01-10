@@ -37,7 +37,7 @@ from mindformers.dataset import build_dataset, build_dataset_loader, \
 from mindformers.mindformer_book import MindFormerBook
 from mindformers.models import BaseModel, BaseImageProcessor, \
     BaseTokenizer, BaseAudioProcessor
-from mindformers.tools.utils import set_output_path
+from mindformers.tools.utils import set_output_path, set_strategy_save_path
 from mindformers.tools.logger import logger
 from mindformers.tools.utils import get_real_rank, get_real_group_size
 from mindformers.tools.register import MindFormerConfig
@@ -169,20 +169,6 @@ class Trainer:
         self.compute_metrics = compute_metrics
         self.default_checkpoint_name_or_path = None
         self.configs_directory = os.path.join('.', DEFAULT_CONFIG_DIR)
-
-        # set output path
-        if isinstance(args, TrainingArguments):
-            set_output_path(args.output_dir)
-        elif isinstance(args, str):
-            assert os.path.realpath(args) and os.path.exists(args), \
-                f"config path must be exist, but get {args}."
-            assert args.endswith(('.yaml', '.yml')), \
-                f"config file must be end with .yaml or .yml, but get {args}"
-            tmp_config = MindFormerConfig(args)
-            set_output_path(tmp_config.output_dir)
-            logger.info(f'set output_dir from {args}')
-        elif isinstance(args, MindFormerConfig):
-            set_output_path(args.output_dir)
 
         if not os.path.exists(os.path.join('.', DEFAULT_CONFIG_DIR)):
             configs_directory = os.path.join('.', DEFAULT_CONFIG_DIR)
@@ -332,7 +318,8 @@ class Trainer:
             np.random.seed(self.config.seed)
 
         # set output directory
-        os.environ.setdefault("LOCAL_DEFAULT_PATH", self.config.output_dir)
+        set_output_path(self.config.output_dir)
+        set_strategy_save_path(self.config.parallel)
 
         # build task trainer
         self.trainer = build_trainer(self.config.trainer)
