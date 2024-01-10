@@ -247,7 +247,7 @@ if __name__ == '__main__':
     parser.add_argument('--model_type', default="visualglm_6b", type=str, required=False, help='model type')
     parser.add_argument('--config_path', default="run_visualglm_6b_image_to_text_generation.yaml",
                         type=str, required=False, help='config path')
-    parser.add_argument('--device_id', type=int, default=1, required=False, help='device id')
+    parser.add_argument('--device_id', type=int, default=0, required=False, help='device id')
     parser.add_argument('--batch_size', type=int, default=1, required=False, help='batch_size')
     parser.add_argument('--checkpoint', type=str, default=None, required=False, help='checkpoint path')
     parser.add_argument('--generate_repeat_time', type=int, default=2, required=False, help='generate repeat time')
