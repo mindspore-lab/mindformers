@@ -746,7 +746,7 @@ python run_mindformer.py --config configs/glm2/run_glm2_6b_lora_eval.yaml --run_
 下面提供一个模型推理样例脚本 `infer.py`
 
 ```python
-from mindformers import AutoConfig, AutoModel, AutoTokenizer
+from mindformers import AutoConfig, AutoModel, AutoTokenizer, AutoProcessor
 import mindspore as ms
 
 ms.set_context(mode=ms.GRAPH_MODE, device_target="Ascend", device_id=0)
@@ -758,7 +758,13 @@ config = AutoConfig.from_pretrained("glm2_6b")
 # config.checkpoint_name_or_path = "/path/to/glm2_6b_finetune.ckpt"
 config.use_past = True
 model = AutoModel.from_config(config)
+
+# 以下两种tokenizer实例化方式选其一即可
+# 1. 在线加载方式
 tokenizer = AutoTokenizer.from_pretrained("glm2_6b")
+# 2. 本地加载方式
+# tokenizer = AutoProcessor.from_pretrained("/path/to/your.yaml").tokenizer
+
 batch_size = config.batch_size
 
 inputs = tokenizer(tokenizer.build_prompt("你好"))["input_ids"]
@@ -785,7 +791,7 @@ print(tokenizer.decode(outputs))
 # 简约 图案:刺绣 衣样式:外套 衣款式:破洞\n\n这件上衣由牛仔布制成,采用了简约的风格,图案为刺绣设计,衣样式为外套,衣款式为破洞。']
 ```
 
-如果需要加载本地词表，请修改 `checkpoint_download/glm2/glm2_6b.yaml` 配置文件（没有的话可以从`configs/glm2/run_glm2_6b.yaml`复制一个）中以下项：
+如果需要加载本地词表，请修改配置文件中以下项：
 
   ```yaml
   processor:
