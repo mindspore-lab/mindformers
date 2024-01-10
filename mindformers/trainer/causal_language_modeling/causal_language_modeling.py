@@ -176,7 +176,7 @@ class CausalLanguageModelingTrainer(BaseTrainer):
         self.set_eval_dataset(dataset)
 
         # check rules
-        check_rules(config, mode='eval')
+        check_rules(config, mode='eval', network=network, dataset=dataset)
 
         # build network
         if network is None:

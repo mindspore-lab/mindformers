@@ -111,8 +111,65 @@ def _check_parallel(config):
                                f"may cause the optimizer parallel of the relevant parameters to fail")
 
 
-def check_rules(config, mode='train'):
+def _check_keyword_gen_dataset(config, mode, **kwargs):
+    """
+    check seq_len keyword_gen_dataset satisfy
+    `seq_length = max_source_length + max_target_length + 1` in train_dataset or
+    `seq_length = max_source_length` in eval_dataset
+    """
+    dataset = kwargs.get('dataset', None)
+    model = kwargs.get('network', None)
+    # if model or dataset was not generate from config,
+    # skip this verification
+    if model or dataset:
+        return
+
+    train_dataset = config.train_dataset
+    eval_dataset = config.eval_dataset
+    seq_length = config.model.model_config.seq_length
+
+    def raise_error_msg(phase, max_source_length, max_target_length, dataset_phase):
+        """generate error message"""
+        if phase == "train" and max_source_length + max_target_length + 1 != seq_length:
+            raise ValueError(f"make sure `seq_length = max_source_length + max_target_length + 1`, "
+                             f"but got seq_length={seq_length}, "
+                             f"max_source_length={max_source_length}, "
+                             f"max_target_length={max_target_length} in {dataset_phase}.")
+        if phase == "eval" and max_source_length != seq_length:
+            raise ValueError(f"make sure `seq_length = max_source_length`, "
+                             f"but got seq_length={seq_length}, "
+                             f"max_source_length={max_source_length} in {dataset_phase}.")
+
+    if train_dataset and train_dataset.data_loader.type == "ADGenDataLoader" and mode == 'train':
+        # verify train_dataset
+        raise_error_msg("train", train_dataset.max_source_length, train_dataset.max_target_length, "train_dataset")
+
+        # when do_eval == True, using ADGENMetric, verify eval_dataset
+        if config.do_eval and config.metric.type == "ADGENMetric":
+            raise_error_msg("eval", eval_dataset.max_source_length, eval_dataset.max_target_length, "eval_dataset")
+
+        # when do_eval == True, using PerplexityMetric, verify eval_dataset
+        if config.do_eval and config.metric.type == "PerplexityMetric":
+            raise_error_msg("train", eval_dataset.max_source_length, eval_dataset.max_target_length, "eval_dataset")
+
+    if eval_dataset and eval_dataset.data_loader.type == "ADGenDataLoader" and mode == 'eval':
+        # verify eval_dataset
+        if config.metric.type == "ADGENMetric":
+            raise_error_msg("eval", eval_dataset.max_source_length, eval_dataset.max_target_length, "eval_dataset")
+
+        if config.metric.type == "PerplexityMetric":
+            raise_error_msg("train", eval_dataset.max_source_length, eval_dataset.max_target_length, "eval_dataset")
+
+    # when do_eval == True, eval_dataset should be in train mode
+    if config.metric.type == "PerplexityMetric" and eval_dataset and eval_dataset.data_loader.phase != 'train':
+        logger.warning("when using 'PerplexityMetric', eval_dataset.data_loader.phase would be set to 'train'.")
+        eval_dataset.data_loader.phase = 'train'
+        config.eval_dataset_task.dataset_config.data_loader.phase = eval_dataset.data_loader.phase
+
+
+def check_rules(config, mode='train', **kwargs):
     """check rules"""
     _check_mode(config, mode)
     _check_full_batch()
     _check_parallel(config)
+    _check_keyword_gen_dataset(config, mode, **kwargs)
