@@ -94,6 +94,7 @@ processor:
     gmask_token: '[gMASK]'
     pad_token: '<pad>'
     unk_token: '<unk>'
+    # vocab_file: "/path/to/tokenizer.model"
   type: GLMProcessor
 
 # ==== dataset config ====
