@@ -84,7 +84,7 @@ class ImageToTextRetrievalTrainer(BaseTrainer):
         check_dataset_config(config)
 
         # check rules
-        check_rules(config, mode='eval')
+        check_rules(config, mode='eval', network=network, dataset=dataset)
 
         if dataset is None:
             dataset = build_dataset(config.eval_dataset_task)
