@@ -35,8 +35,9 @@ class WizardCoderConfig(BaseConfig):
                  dropout_prob: float = 0.1,
                  batch_size: int = None,
                  seq_length: int = 1024,
+                 n_position: int = 8192,
                  vocab_size: int = 50257,
-                 embedding_size: int = 768,
+                 hidden_size: int = 768,
                  num_layers: int = 12,
                  num_heads: int = 12,
                  expand_ratio: int = 4,
@@ -70,8 +71,9 @@ class WizardCoderConfig(BaseConfig):
         self.dropout_prob = dropout_prob
         self.batch_size = batch_size
         self.seq_length = seq_length
+        self.n_position = n_position
         self.vocab_size = vocab_size
-        self.embedding_size = embedding_size
+        self.embedding_size = hidden_size
         self.num_layers = num_layers
         self.num_heads = num_heads
         self.expand_ratio = expand_ratio
