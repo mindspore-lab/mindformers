@@ -70,7 +70,7 @@ for item in data_loader:
 
 - dataset_dir: 数据集的文件路径，支持具体的文件路径，也支持包含parquet文件的目录。
 - dataset_name: 数据集名称。SFTDataLoader内置了一些经典数据集是读取或解析方式，目前支持`alpaca`、`advertisegen`、`cola`、
-  `imdb`、`sst-2`、`ag-news`、`tnews`、`squad`、`cmrc2018`、`ag-news`、`multi-round-chat`数据集，其中，`multi-round-chat`代表
+  `imdb`、`sst-2`、`ag-news`、`tnews`、`squad`、`cmrc2018`、`multi-round-chat`数据集，其中，`multi-round-chat`代表
   处理多轮对话的数据集，后文中有详细说明。
 - file_format: 数据文件的格式，支持`json`、`jsonl`、`csv`、`tsv`和`parquet`五种格式的数据``。其中由于json格式的数据结构多样，
   仅支持类似[{k1:a1,k2:b1},...,{k1:an,k2:bn}]与{k1:[a1,...,an],k2:[b1,...,bn]}格式的两层嵌套的数据。
