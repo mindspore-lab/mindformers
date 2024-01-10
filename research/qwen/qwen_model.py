@@ -185,12 +185,12 @@ class QwenModel(BaseModel):
         super().__init__(config)
         self.dtype = config.compute_dtype
         self.vocab_size = config.vocab_size
-        self.num_hidden_layers = config.num_hidden_layers
+        self.num_hidden_layers = config.num_layers
         self.embed_dim = config.hidden_size
-        self.head_dim = config.hidden_size // config.num_attention_heads
+        self.head_dim = config.hidden_size // config.num_heads
         self.seq_length = config.seq_length
         self.pad_token_id = config.pad_token_id
-        self.num_attention_heads = config.num_attention_heads
+        self.num_attention_heads = config.num_heads
         self.compute_in_2d = config.compute_in_2d
         self.use_past = config.use_past
         self.is_dynamic = config.is_dynamic
@@ -213,12 +213,12 @@ class QwenModel(BaseModel):
 
         # 4. h hidden layers for transformer
         self.layers = nn.CellList()
-        for layer_id in range(config.num_hidden_layers):
+        for layer_id in range(config.num_layers):
             layer = QwenDecodeLayer(config.batch_size,
                                     config.seq_length,
                                     layer_id,
                                     dim=config.hidden_size,
-                                    n_heads=config.num_attention_heads,
+                                    n_heads=config.num_heads,
                                     intermediate_size=config.intermediate_size,
                                     norm_eps=config.rms_norm_eps,
                                     compute_dtype=config.compute_dtype,
@@ -233,7 +233,7 @@ class QwenModel(BaseModel):
 
             from mindformers.models.llama.llama import layer_compute_dtype
             layer_compute_dtype(layer, layer_id, config.offset,
-                                config.parallel_config, config.num_hidden_layers)
+                                config.parallel_config, config.num_layers)
 
             self.layers.append(layer)
 

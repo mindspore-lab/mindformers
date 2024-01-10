@@ -83,14 +83,22 @@ parallel_config:
 # when model parallel is greater than 1, we can set micro_batch_interleave_num=2, that may accelerate the train process.
 micro_batch_interleave_num: 1
 
+# recompute config
+recompute_config:
+  recompute: False
+  select_recompute: False
+  parallel_optimizer_comm_recompute: False
+  mp_comm_recompute: False
+  recompute_slice_activation: False
+
 model:
   model_config:
     type: QwenConfig
     batch_size: 1
     seq_length: 1024
     hidden_size: 4096
-    num_hidden_layers: 32
-    num_attention_heads: 32
+    num_layers: 32
+    num_heads: 32
     vocab_size: 151936
     intermediate_size: 11008
     rms_norm_eps: 1.0e-6
