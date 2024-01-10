@@ -435,10 +435,8 @@ def get_src_and_dst_strategy(config):
     """get strategy"""
     rank_id = get_real_rank()
     world_size = get_real_group_size()
-    dst_strategy_path = None
-    if world_size == 1:
-        return dst_strategy_path
 
+    dst_strategy_path = None
     if (not rank_id) or (rank_id % 8 == 0 and check_in_modelarts()):
         if os.path.isdir(config.src_strategy_path_or_dir):
             if config.parallel_config.pipeline_stage > 1:
@@ -451,6 +449,9 @@ def get_src_and_dst_strategy(config):
             src_strategy_path = get_strategy(config.src_strategy_path_or_dir)
     else:
         src_strategy_path = None
+
+    if world_size == 1:
+        return src_strategy_path, dst_strategy_path
 
     if check_in_modelarts():
         # local send all strategy file to obs
