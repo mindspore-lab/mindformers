@@ -15,7 +15,7 @@ ChatGLM**2**-6B 是开源中英双语对话模型 [ChatGLM2-6B](https://github.c
 
 ## 模型性能
 
-- 基于910A
+- 基于Atlas 800
 
 **GLM2_6b**:
 
@@ -50,15 +50,15 @@ ChatGLM**2**-6B 是开源中英双语对话模型 [ChatGLM2-6B](https://github.c
     ```bash
     glm2
         ├── export_glm2_6b.yaml                # 导出mindir配置
-        ├── run_glm2_6b_finetune_2k_910b.yaml  # 910b最佳性能全量微调启动配置
-        ├── run_glm2_6b_finetune_2k.yaml       # 910a最佳性能全量微调启动配置
-        ├── run_glm2_6b_finetune_910b.yaml     # 910b ADGEN全量微调启动配置
-        ├── run_glm2_6b_finetune.yaml          # 910a ADGEN全量微调启动配置
+        ├── run_glm2_6b_finetune_2k_910b.yaml  # Atlas 800T A2最佳性能全量微调启动配置
+        ├── run_glm2_6b_finetune_2k.yaml       # Atlas 800最佳性能全量微调启动配置
+        ├── run_glm2_6b_finetune_910b.yaml     # Atlas 800T A2 ADGEN全量微调启动配置
+        ├── run_glm2_6b_finetune.yaml          # Atlas 800 ADGEN全量微调启动配置
         ├── run_glm2_6b_finetune_eval.yaml     # 全量微调评估配置
-        ├── run_glm2_6b_lora_2k_910b.yaml      # 910b最佳性能lora微调启动配置
-        ├── run_glm2_6b_lora_2k.yaml           # 910a最佳性能lora微调启动配置
-        ├── run_glm2_6b_lora_910b.yaml         # 910a ADGEN lora微调启动配置
-        ├── run_glm2_6b_lora.yaml              # 910a ADGEN lora微调启动配置
+        ├── run_glm2_6b_lora_2k_910b.yaml      # Atlas 800T A2最佳性能lora微调启动配置
+        ├── run_glm2_6b_lora_2k.yaml           # Atlas 800最佳性能lora微调启动配置
+        ├── run_glm2_6b_lora_910b.yaml         # Atlas 800 ADGEN lora微调启动配置
+        ├── run_glm2_6b_lora.yaml              # Atlas 800 ADGEN lora微调启动配置
         └── run_glm2_6b_lora_eval.yaml         # lora微调评估配置
     ```
 
@@ -844,7 +844,7 @@ python mindformers/tools/export.py --config_path configs/glm2/export_glm2_6b.yam
 
 ### int8 量化（可选）
 
-　　int8 量化具有推理提速作用，是一个非必选项，可以带来 7~10% 的性能增益。仅支持 Ascend 后端，目前仅在 Mindspore2.2/910b 测试通过。详见 [Ascend ON_THE_FLY量化](https://www.mindspore.cn/lite/docs/zh-CN/master/use/post_training_quantization.html#ascend-on-the-fly%E9%87%8F%E5%8C%96)。
+　　int8 量化具有推理提速作用，是一个非必选项，可以带来 7~10% 的性能增益。仅支持 Ascend 后端，目前仅在 Mindspore2.2/Atlas 800T A2 测试通过。详见 [Ascend ON_THE_FLY量化](https://www.mindspore.cn/lite/docs/zh-CN/master/use/post_training_quantization.html#ascend-on-the-fly%E9%87%8F%E5%8C%96)。
 
 1. 下载转换工具，[取包地址](https://repo.mindspore.cn/mindspore/mindspore/)，路径 lite/linux\_aarch64/cloud\_fusion/python**/*.tar.gz
 2. 解压到任意路径 tar -xvzf *.tar.gz
@@ -862,7 +862,7 @@ python mindformers/tools/export.py --config_path configs/glm2/export_glm2_6b.yam
     in_model="/path/to/your/mindir"
     out_model="${in_model}.int8"
 
-    ${PACKAGE_ROOT_PATH}/tools/converter/converter/converter_lite --fmk=MINDIR --modelFile=${in_model}  --outputFile=${out_model} --optimize=ascend_oriented:910b --configFile=ascend_on_the_fly_quant.cfg # for 910b
+    ${PACKAGE_ROOT_PATH}/tools/converter/converter/converter_lite --fmk=MINDIR --modelFile=${in_model}  --outputFile=${out_model} --optimize=ascend_oriented:910b --configFile=ascend_on_the_fly_quant.cfg # for Atlas 800T A2
     ```
 
 4. 分别对 `prefill_model`​ 和 `increment_model`​ 执行转换

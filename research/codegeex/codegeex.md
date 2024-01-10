@@ -35,7 +35,7 @@ mindspore_path: 权重保存文件名，保存为TORCH_CKPT_DIR/OUTPUT_NAME, 也
 
 使用MindSpore API进行推理.
 
-910B需要配置环境变量
+Atlas 800T A2需要配置环境变量
 
 ```shell
 # node 1

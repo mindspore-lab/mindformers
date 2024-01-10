@@ -345,7 +345,7 @@ print(output)
 
 ### 如何配置GE图引擎配置
 
-#### 针对910A，推荐的GE配置参数如下(config.ini)：
+#### 针对Atlas 800，推荐的GE配置参数如下(config.ini)：
 
 ```ini
 [ascend_context]
@@ -360,7 +360,7 @@ ge.exec.staticMemoryPolicy=2
 ge.exec.precision_mode=must_keep_origin_dtype
 ```
 
-#### 针对910B，推荐的GE配置参数如下(config.ini)：
+#### 针对Atlas 800T A2，推荐的GE配置参数如下(config.ini)：
 
 ```ini
 [ascend_context]

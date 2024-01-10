@@ -10,7 +10,7 @@ MAE由何恺明团队提出，将NLP领域大获成功的自监督预训练模�
 
 ## 模型性能
 
-- 基于910A
+- 基于Atlas 800
 
 |                            config                            |         task         |  Datasets   |    metric     | score  | [train performance](#预训练) | [prediction performance](#推理) |
 | :----------------------------------------------------------: | :------------------: | :---------: | :-----------: | :----: | :--------------------------: | :-----------------------------: |
@@ -321,7 +321,7 @@ bash run_distribute.sh $RANK_TABLE_FILE ../configs/mae/run_mae_vit_base_p16_224_
 
 # launch ranks in the 1-11 server via ssh
 for idx in {1..11}
-do  
+do
     let rank_start=8*$idx
     let rank_end=$rank_start+8
     ssh ${IP_LIST[$idx]} "cd scripts; bash run_distribute.sh $RANK_TABLE_FILE ../configs/mae/run_mae_vit_base_p16_224_800ep.yaml [$rank_start,$rank_end] train $device_num"

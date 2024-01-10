@@ -1,4 +1,4 @@
-# llama2-70b model training configuration on 910b with auto parallel mode. 
+# llama2-70b model training configuration on Atlas 800T A2 with auto parallel mode.
 # It is suggested to use this configuration file for MindSpore r2.2 and versions later than r2.2.
 # For MindSpore r2.1 and versions earlier than r2.1, please use the configuration file without "auto_parallel" suffix.
 
@@ -92,7 +92,7 @@ parallel:
   parallel_optimizer_config:
     gradient_accumulation_shard: False
     parallel_optimizer_threshold: 64
-# default parallel of device num = 32 910B
+# default parallel of device num = 32 for Atlas 800T A2
 parallel_config:
   mem_coeff: 1024
   pipeline_stage: 4

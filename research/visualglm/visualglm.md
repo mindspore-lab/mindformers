@@ -14,7 +14,7 @@ VisualGLM-6B 依靠来自于 CogView 数据集的30M高质量中文图文对，�
 
 ### 环境要求
 
-- 硬件: Ascend 910B
+- 硬件: Atlas 800T A2
 - MindSpore: 2.2.10
 - MindSpore Lite: 2.2.10
 - MindFormers: dev
@@ -451,7 +451,3 @@ python run_visualglm_with_lora.py --lora_checkpoint CHECKPOINT_PATH  --config CO
 3. IMAGE_PATH：表示图片的路径，比如finetune/ghost.jpg
 4. PROMPT：表示提示词，比如"这张图片的背景里有什么内容？"，注意外面要加引号
 5. DEVICE_ID: 表示NPU卡的编号，默认是0
-
-
-
-

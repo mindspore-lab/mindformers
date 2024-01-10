@@ -52,7 +52,7 @@
 
 ### 环境要求
 
-- 硬件：Ascend 910B
+- 硬件：Atlas 800T A2
 - MindSpore：2.2.0
 - MindFormers版本：dev
 - Python：3.8+
@@ -343,7 +343,7 @@ python evaluate_ceval.py -d data/ceval/
 
 2. 运行下面的代码需要在`research/qwen`目录下，或者先将`research/qwen`目录所在路径加入到`PYTHONPATH`环境变量中。
 
-3. 910B上运行时需要设置如下环境变量，否则推理结果会出现精度问题。
+3. Atlas 800T A2上运行时需要设置如下环境变量，否则推理结果会出现精度问题。
 
    ```shell
    export MS_GE_TRAIN=0

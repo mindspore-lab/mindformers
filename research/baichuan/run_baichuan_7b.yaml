@@ -75,7 +75,7 @@ eval_dataset_task:
   type: CausalLanguageModelDataset
   dataset_config: *eval_dataset
 
-# default parallel of device num = 8 910A
+# default parallel of device num = 8 for Atlas 800
 parallel_config:
   data_parallel: 2
   model_parallel: 1

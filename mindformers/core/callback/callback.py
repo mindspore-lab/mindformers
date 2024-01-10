@@ -282,7 +282,7 @@ class MFLossMonitor(Callback):
                     else:
                         global_step = cb_params.network.optimizer.global_step
 
-                    # temporary set_train to avoid error on 910B
+                    # temporary set_train to avoid error on Atlas 800T A2
                     origin_phase = cb_params.train_network.phase
                     cb_params.train_network.set_train(False)
                     current_lr = self.learning_rate(global_step)

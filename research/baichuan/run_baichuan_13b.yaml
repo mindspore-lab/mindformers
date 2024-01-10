@@ -86,7 +86,7 @@ parallel:
   parallel_optimizer_config:
     gradient_accumulation_shard: False
     parallel_optimizer_threshold: 64
-# default parallel of device num = 32 910A
+# default parallel of device num = 32 for Atlas 800
 parallel_config:
   data_parallel: 2
   model_parallel: 4

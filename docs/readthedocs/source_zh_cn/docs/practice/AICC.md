@@ -1,6 +1,6 @@
 # AICC上使用Mindformers教程
 
-AICC，人工智能计算中心，提供[ModelArts](https://support.huaweicloud.com/bestpractice-modelarts/modelarts_10_0080.html)服务和Ascend 910算力。
+AICC，人工智能计算中心，提供[ModelArts](https://support.huaweicloud.com/bestpractice-modelarts/modelarts_10_0080.html)服务和Ascend算力。
 
 MindFormers套件当前具备AICC适配的特性，用户在ModelArts平台启动集群训练时，无需额外增加上云训练适配代码，套件将自动进行：
 

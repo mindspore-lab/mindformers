@@ -72,7 +72,7 @@ callbacks:
     async_save: False
   - type: ObsMonitor
 
-# default parallel of device num = 8 910B
+# default parallel of device num = 8 for Atlas 800T A2
 parallel_config:
   data_parallel: 8
   model_parallel: 1

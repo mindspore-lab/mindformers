@@ -288,7 +288,7 @@ context:
   enable_graph_kernel: False
   graph_kernel_flags: "--disable_expand_ops=Softmax,Dropout --enable_parallel_fusion=true --reduce_fuse_depth=8 --enable_auto_tensor_inplace=true"
   max_call_depth: 10000
-  max_device_memory: "30GB" # 59GB for 910B
+  max_device_memory: "30GB" # 59GB for Atlas 800T A2
   save_graphs: False
   device_id: 0
 
@@ -529,7 +529,7 @@ parallel:
   parallel_optimizer_config:
     gradient_accumulation_shard: False
     parallel_optimizer_threshold: 64
-# default parallel of device num = 16 910A
+# default parallel of device num = 16 for Atlas 800
 parallel_config:
   data_parallel: 1
   model_parallel: 2
@@ -809,7 +809,7 @@ parallel:
   parallel_optimizer_config:
     gradient_accumulation_shard: False
     parallel_optimizer_threshold: 64
-# default parallel of device num = 16 910A
+# default parallel of device num = 16 for Atlas 800
 parallel_config:
   data_parallel: 1
   model_parallel: 2

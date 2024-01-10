@@ -17,7 +17,7 @@ LLaMA是由Meta于2023年发布。LLaMA模型是类GPT模型，是一个生成�
 
 ## 模型性能
 
-- 基于910A
+- 基于Atlas 800
 
 **llama_7b**:
 
@@ -55,12 +55,12 @@ llama_13b / llama_65b 待补充
     ```bash
     llama
         ├── run_llama_7b.yaml         # 7b模型全量微调启动配置
-        ├── run_llama_7b_910b.yaml    # 7b模型全量微调启动配置(910b)
+        ├── run_llama_7b_910b.yaml    # 7b模型全量微调启动配置(Atlas 800T A2)
         ├── run_llama_7b_lora.yaml    # 7b lora低参微调启动配置
         ├── run_llama_13b.yaml        # 13b全量微调启动配置
-        ├── run_llama_13b_910b.yaml   # 13b全量微调启动配置(910b)
+        ├── run_llama_13b_910b.yaml   # 13b全量微调启动配置(Atlas 800T A2)
         ├── run_llama_65b.yaml        # 65b全量微调启动配置
-        └── run_llama_65b_910b.yaml   # 65b全量微调启动配置(910b)
+        └── run_llama_65b_910b.yaml   # 65b全量微调启动配置(Atlas 800T A2)
     ```
 
 3. 数据预处理脚本：
@@ -76,7 +76,7 @@ llama_13b / llama_65b 待补充
 
 ### 环境要求
 
-- 硬件：Ascend 910A
+- 硬件：Atlas 800
 - MindSpore：2.1.1
 - MindFormers版本：0.8.0
 

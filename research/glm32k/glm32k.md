@@ -35,7 +35,7 @@ ChatGLM3-6B-32K在ChatGLM3-6B的基础上进一步强化了对于长文本的理
 
     ```bash
     glm32k
-        └── run_glm32k.yaml           # 910b最佳性能全量微调启动配置
+        └── run_glm32k.yaml           # Atlas 800T A2最佳性能全量微调启动配置
     ```
 
 3. 数据处理脚本和任务启动脚本：`research/glm32k`
@@ -64,7 +64,7 @@ ChatGLM3-6B-32K在ChatGLM3-6B的基础上进一步强化了对于长文本的理
 
 ### 环境要求
 
-- 硬件: Ascend 910B
+- 硬件: Atlas 800T A2
 - MindSpore: 2.2.10
 - MindSpore Lite: 2.2.10
 - MindFormers: dev
@@ -363,7 +363,7 @@ output:
 
 |                                    | DuReader rouge |
 |------------------------------------|----------------|
-| 910B + Mindspore (在线推理)            | 44.83          |
+| Atlas 800T A2 + Mindspore (在线推理)            | 44.83          |
 | A100 + Pytorch                     | 44.59          |
 
 #### 评测流程
