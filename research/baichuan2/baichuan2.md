@@ -1691,3 +1691,34 @@ prompt: 输入中加入prompt的内容，Baichuan2可以选择不设置，按默
 --config_path /path/to/910b_ge_default_ctx.ini，/path/to/910b_ge_default_inc.ini
 --dynamic True
 ```
+
+## FAQ
+
+### 一、baichuan2-13b多机训练
+
+baichuan2-13b在Atlas 800T A2上多机训练时，推荐使用流水线并行，以2机训练为例。
+
+① 修改`run_baichuan2_13b_4096_910b.yaml`中提供的分布式训练配置
+
+```yaml
+context:
+  runtime_num_threads=1 # 新增配置
+
+parallel_config:
+  data_parallel: 8
+  model_parallel: 1
+  pipeline_stage: 2 # pipeline_stage设置为机器节点数量，比如有2台机器，则为2
+  micro_batch_num: 8 # micro_batch_num必须是大于等于pipeline_stage
+```
+
+② 在`run_multinode.sh`中设置以下环境变量
+
+```bash
+export MS_MEMORY_POOL_RECYCLE=1
+export GE_NOT_CUT=1
+```
+
+③ 正常拉起多机训练。
+
+
+
