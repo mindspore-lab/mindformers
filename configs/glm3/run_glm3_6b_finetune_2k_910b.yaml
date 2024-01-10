@@ -88,13 +88,14 @@ processor:
     gmask_token: '[gMASK]'
     pad_token: '<pad>'
     unk_token: '<unk>'
+    # vocab_file: "/path/to/tokenizer.model"
   type: GLMProcessor
 
 # ==== dataset config ====
 train_dataset: &train_dataset
   data_loader:
     type: ADGenDataLoader
-    dataset_dir: "/path/to/AdvertiseGen/dev.json"
+    dataset_dir: "/path/to/AdvertiseGen/train.json"
     shuffle: True
     phase: "train"
     version: 3

@@ -269,14 +269,18 @@ prefix: ckpt文件前缀名
 
 ```python
 import mindspore as ms
-from mindformers import AutoConfig, AutoModel, AutoTokenizer
+from mindformers import AutoConfig, AutoModel, AutoTokenizer, AutoProcessor
 
 # 指定图模式，指定使用训练卡id
 ms.set_context(mode=ms.GRAPH_MODE, device_target="Ascend", device_id=0)
 
-tokenizer = AutoTokenizer.from_pretrained('glm3_6b')
+# 以下两种tokenizer实例化方式选其一即可
+# 1. 在线加载方式
+tokenizer = AutoTokenizer.from_pretrained("glm3_6b")
+# 2. 本地加载方式
+# tokenizer = AutoProcessor.from_pretrained("/path/to/your.yaml").tokenizer
 
-# model的实例化有以下两种方式，选择其中一种进行实例化即可
+# 以下两种model的实例化方式选其一即可
 # 1. 直接根据默认配置实例化
 # model = AutoModel.from_pretrained('glm3_6b')
 # 2. 自定义修改配置后实例化
@@ -348,6 +352,14 @@ for input_item in inputs_list:
 
 # 在这个实现中，我们首先判断输入数组的长度是否小于等于1，如果是，则直接返回数组，因为长度为1的数组本身就是有序的。否则，我们选择数组中间的元素作为基准值（pivot）。然后，我们将数组中的元素分成三部分：小于基准值的元素（left）、等于基准值的元素（middle）和大于基准值的元素（right）。接着，我们分别对left和right子数组进行递归调用quick_sort函数进行排序，并将排序后的结果与middle子数组连接起来，得到最终的排序结果。
 ```
+
+如果需要加载本地词表，请修改配置文件中以下项：
+
+  ```yaml
+  processor:
+    tokenizer:
+      vocab_file: "/path/to/tokenizer.model"
+  ```
 
 ## 微调
 
@@ -515,14 +527,18 @@ IP_LIST=("192.168.0.0", "192.168.0.1", ..., "192.168.0.11")
 
 ```python
 import mindspore as ms
-from mindformers import AutoConfig, AutoModel, AutoTokenizer
+from mindformers import AutoConfig, AutoModel, AutoTokenizer, AutoProcessor
 
 # 指定图模式，指定使用训练卡id
 ms.set_context(mode=ms.GRAPH_MODE, device_target="Ascend", device_id=0)
 
-tokenizer = AutoTokenizer.from_pretrained('glm3_6b')
+# 以下两种tokenizer实例化方式选其一即可
+# 1. 在线加载方式
+tokenizer = AutoTokenizer.from_pretrained("glm3_6b")
+# 2. 本地加载方式
+# tokenizer = AutoProcessor.from_pretrained("/path/to/your.yaml").tokenizer
 
-# model的实例化有以下两种方式，选择其中一种进行实例化即可
+# 以下两种model的实例化方式选其一即可
 # 1. 直接根据默认配置实例化
 # model = AutoModel.from_pretrained('glm3_6b')
 # 2. 自定义修改配置后实例化
@@ -559,6 +575,14 @@ for input_item in inputs_list:
 
 ```
 
+如果需要加载本地词表，请修改配置文件中以下项：
+
+  ```yaml
+  processor:
+    tokenizer:
+      vocab_file: "/path/to/tokenizer.model"
+  ```
+
 ### 基于generate的多角色推理
 
 下面提供一个模型推理样例。
@@ -567,7 +591,7 @@ for input_item in inputs_list:
 from copy import deepcopy
 
 import mindspore as ms
-from mindformers import AutoConfig, AutoModel, AutoTokenizer
+from mindformers import AutoConfig, AutoModel, AutoTokenizer, AutoProcessor
 
 
 def process_response(output, history):
@@ -595,9 +619,13 @@ def process_response(output, history):
 # 指定图模式，指定使用训练卡id
 ms.set_context(mode=ms.GRAPH_MODE, device_target="Ascend", device_id=0)
 
-tokenizer = AutoTokenizer.from_pretrained('glm3_6b')
+# 以下两种tokenizer实例化方式选其一即可
+# 1. 在线加载方式
+tokenizer = AutoTokenizer.from_pretrained("glm3_6b")
+# 2. 本地加载方式
+# tokenizer = AutoProcessor.from_pretrained("/path/to/your.yaml").tokenizer
 
-# model的实例化有以下两种方式，选择其中一种进行实例化即可
+# 以下两种model的实例化方式选其一即可
 # 1. 直接根据默认配置实例化
 # model = AutoModel.from_pretrained('glm3_6b')
 # 2. 自定义修改配置后实例化
@@ -716,6 +744,14 @@ print(response, flush=True)
 response, history = process_response(response, history)
 
 ```
+
+如果需要加载本地词表，请修改配置文件中以下项：
+
+  ```yaml
+  processor:
+    tokenizer:
+      vocab_file: "/path/to/tokenizer.model"
+  ```
 
 ## Mindspore-Lite 推理
 
