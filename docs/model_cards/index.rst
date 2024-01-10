@@ -15,6 +15,7 @@
    ../../research/qwen/qwen
    llama2
    llama
+   glm3
    glm2
    glm
    codegeex2
@@ -26,6 +27,7 @@
    pangualpha
    bilip2
    clip
+   ../../research/visualglm/visualglm
    sam
    t5
    bert
