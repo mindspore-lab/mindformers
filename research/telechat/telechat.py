@@ -33,14 +33,12 @@ except ImportError:
     FLASHATTENTION_VALID = False
 
 from mindformers.core.loss.loss import CrossEntropyLoss
-from mindformers.mindformer_book import MindFormerBook
 from mindformers.models.utils import cell_reuse
 from mindformers.models.base_model import BaseModel
 from mindformers.modules import KVCachePreprocess
 from mindformers.modules.transformer.transformer import LowerTriangularMaskWithDynamic
 from mindformers.modules.transformer.op_parallel_config import _check_config
 from mindformers.tools.logger import logger
-from mindformers.tools.register.register import MindFormerModuleType, MindFormerRegister
 from mindformers.models.llama.llama_layer import LlamaRMSNorm, FreqsMgr
 from research.telechat.telechat_config import TelechatConfig
 from research.telechat.telechat_layer import TelechatEmbedding
@@ -98,7 +96,6 @@ class TelechatModel(BaseModel):
     Returns:
             output: Tensor, the output of Telechat decoderlayer
     """
-    _support_list = MindFormerBook.get_model_support_list()['telechat']
 
     def __init__(self,
                  config: TelechatConfig = None):
@@ -280,7 +277,6 @@ class TelechatHead(nn.Cell):
         output = self.reshape(x, out_shape)
         return output
 
-@MindFormerRegister.register(MindFormerModuleType.MODELS)
 class TelechatForCausalLM(BaseModel):
     r"""
         Provide telechat training loss or logits through network.
@@ -291,7 +287,6 @@ class TelechatForCausalLM(BaseModel):
         Returns:
             output: Tensor, the output of telechat decoderlayer
         """
-    _support_list = MindFormerBook.get_model_support_list()['telechat']
 
     @cell_reuse
     def __init__(self, config: TelechatConfig = None):
@@ -347,6 +342,12 @@ class TelechatForCausalLM(BaseModel):
                 self.lm_head.pipeline_stage = config.parallel_config.pipeline_stage - 1
 
         self.load_checkpoint(config)
+
+    # pylint: disable=W0613
+    def prepare_inputs_for_generation(self, input_ids, **kwargs):
+        return {
+            "input_ids": Tensor(input_ids, mstype.int32)
+        }
 
     # pylint: disable=W0613
     def construct(self, input_ids, labels=None, input_position=None, position_ids=None, attention_mask=None,

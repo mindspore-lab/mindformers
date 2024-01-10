@@ -33,14 +33,13 @@ try:
 except ImportError:
     FLASHATTENTION_VALID = False
 
-from mindformers.models.llama.llama_layer import LlamaRMSNorm, LlamaRotaryEmbedding
-from mindformers.models.telechat.telechat_layer import TelechatLinear, TelechatFeedForward
+from mindformers.tools.utils import is_version_ge
+from mindformers.tools.logger import logger
 from mindformers.modules.layers import _check_input_dtype, Dropout
 from mindformers.modules.transformer import TransformerOpParallelConfig
 from mindformers.modules import KVCacheMgr
-
-from mindformers.tools.utils import is_version_ge
-from mindformers.tools.logger import logger
+from mindformers.models.llama.llama_layer import LlamaRMSNorm, LlamaRotaryEmbedding
+from telechat_layer import TelechatLinear, TelechatFeedForward
 
 class TelechatAttention(nn.Cell):
     r"""
