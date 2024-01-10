@@ -24,7 +24,7 @@ from mindpet.delta.lora import LoRADense
 from mindformers.modules.layers import Linear
 from mindformers.tools.logger import logger
 from .pet_adapter import PetAdapter
-from ..pet_config import PetConfig
+from ..pet_config import PetConfig, LoraConfig
 from ..utils import re_match_list
 
 
@@ -103,6 +103,10 @@ class LoraAdapter(PetAdapter):
     """
     @classmethod
     def get_pet_model(cls, model: nn.Cell = None, config: PetConfig = None):
+        if not isinstance(config, LoraConfig):
+            config = config.copy()
+            config.pop("pet_type")
+            config = LoraConfig(**config)
         model = model if model else PetAdapter.get_pretrained_model(config)
         if config.target_modules is None:
             logger.warning("Lora Adapter use default replace rules: \'.*dense*|*linear*\'")
