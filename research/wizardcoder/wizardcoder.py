@@ -217,7 +217,6 @@ def set_parallel_configure_for_layer(network, layer_id, offset, parallel_config,
             offset(int) - Means the layer_index needs a offset, if there are other modules in the net.
             layers(int) - The total layers used for the model.
     """
-    print("layer_id + offset = ", layer_id + offset)
     pp_dis = max(int(np.ceil((layers - 1) / parallel_config.pipeline_stage)), 1)
     pp_remainder = layers % parallel_config.pipeline_stage
     if pp_remainder > 0 and pp_dis != 1:
@@ -227,7 +226,6 @@ def set_parallel_configure_for_layer(network, layer_id, offset, parallel_config,
             layer_id = layer_id + parallel_config.pipeline_stage - pp_remainder
 
     pp_id = min((layer_id + offset) // pp_dis, parallel_config.pipeline_stage - 1)
-    print("pp_id = ", pp_id)
     network.pipeline_stage = pp_id
 
     # Used for optimizer's fusion tag
@@ -237,7 +235,6 @@ def set_parallel_configure_for_layer(network, layer_id, offset, parallel_config,
     else:
         network.set_comm_fusion(int((layer_id + offset) / dis) + 1)
     if not use_select_recompute:
-        print("use full recompute")
         if isinstance(parallel_config.recompute, bool):
             if parallel_config.recompute:
                 network.recompute()
@@ -246,7 +243,6 @@ def set_parallel_configure_for_layer(network, layer_id, offset, parallel_config,
                 network.recompute(recompute_slice_activation=parallel_config.recompute.recompute_slice_activation)
 
     else:
-        print("Use select recompute......")
         network.attention.set_select_recompute()
 
 
@@ -287,7 +283,6 @@ class WizardCoderModel(nn.Cell):
         self.layernorm.pipeline_stage = config.parallel_config.pipeline_stage - 1
 
         if config.use_select_recompute:
-            print("open select_recompute...")
             self.layernorm.layer_norm.add_prim_attr("recompute_comm_op", True)
 
         if not hasattr(config.parallel_config, "moe_config"):

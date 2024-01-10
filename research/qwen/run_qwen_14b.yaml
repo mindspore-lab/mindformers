@@ -98,8 +98,8 @@ model:
     batch_size: 1
     seq_length: 1024
     hidden_size: 5120
-    num_hidden_layers: 40
-    num_attention_heads: 40
+    num_layers: 40
+    num_heads: 40
     vocab_size: 152064
     intermediate_size: 13696
     rms_norm_eps: 1.0e-6
