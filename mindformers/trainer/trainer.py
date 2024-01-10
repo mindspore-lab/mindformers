@@ -681,7 +681,6 @@ class Trainer:
 
         Raises:
             TypeError: if predict_checkpoint is not bool or str type.
-            TypeError: if input_data is not Tensor or np.ndarray or Image or str or list.
         """
         if predict_checkpoint is not None and not isinstance(predict_checkpoint, (bool, str)):
             raise TypeError(f"predict_checkpoint must be one of [None, string, bool], "
