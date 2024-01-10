@@ -734,7 +734,7 @@ Which Carolina Panthers player was named Most Valuable Player?
 Cam Newton
 ```
 
-step 3. 修改配置文件，eval_dataset的input_columns中增加`labels`，修改metric类型为`EmF1Metric`，修改seq_length为`2048`
+step 3. 修改配置文件，eval_dataset的input_columns中增加`labels`，修改metric类型为`EmF1Metric`，修改seq_length为`2048`,修改max_decode_length为`700`
 
 ```python
 # eval dataset
