@@ -254,7 +254,7 @@ lr_schedule:
   type: AnnealingLR
   learning_rate: 0.00001
   warmup_steps: 100
-  num_iters: 5000
+  num_iters: 1500
   total_steps: -1 # -1 means it will load the total steps of the dataset
 layer_scale: False
 layer_decay: 0.65
@@ -274,7 +274,7 @@ callbacks:
   - type: MFLossMonitor
   - type: CheckpointMointor
     prefix: "visualglm"
-    save_checkpoint_steps: 5000
+    save_checkpoint_steps: 1500
     integrated_save: True
     save_network_params: False
     save_trainable_params: True
