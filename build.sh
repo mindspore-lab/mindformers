@@ -19,7 +19,7 @@ BASEPATH=$(cd "$(dirname $0)"; pwd)
 
 export BUILD_PATH="${BASEPATH}/build/"
 
-python3 setup.py bdist_wheel -d ${BASEPATH}/output
+python setup.py bdist_wheel -d ${BASEPATH}/output
 
 if [ ! -d "${BASEPATH}/output" ]; then
     echo "The directory ${BASEPATH}/output dose not exist."
