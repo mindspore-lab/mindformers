@@ -30,7 +30,7 @@ from mindformers.core.context import build_context, build_profile_cb
 from mindformers.trainer import build_trainer
 from mindformers.tools.cloud_adapter import cloud_monitor
 from mindformers.tools.logger import logger
-from mindformers.tools import set_output_path, get_output_root_path
+from mindformers.tools import set_output_path, set_strategy_save_path, get_output_root_path
 from mindformers.mindformer_book import MindFormerBook
 
 if check_in_modelarts():
@@ -95,6 +95,7 @@ def main(config):
     """main."""
     # set output path
     set_output_path(config.output_dir)
+    set_strategy_save_path(config.parallel)
 
     # init context
     build_context(config)
