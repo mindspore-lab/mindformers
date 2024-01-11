@@ -55,18 +55,16 @@
    :caption: 特性使用指南
 
    docs/feature_cards/LLM_DataLoader.md
-   docs/feature_cards/Resume_Training.md
-   docs/feature_cards/Eval_While_Training.md
    docs/feature_cards/Training_Algorithms.md
+   docs/feature_cards/Resume_Training.md
+   docs/feature_cards/Pet_Tuners.md
+   docs/feature_cards/Auto_Parallel.md
+   docs/feature_cards/Eval_While_Training.md
    docs/feature_cards/Transform_Ckpt.md
    docs/feature_cards/Text_Generator.md
-   docs/feature_cards/Pet_Tuners.md
-   docs/feature_cards/Chat_Web.md
    docs/feature_cards/Inference.md
-   docs/feature_cards/Distribute_Generate.md
-   docs/feature_cards/Lazy_Inline.md
+   docs/feature_cards/Chat_Web.md
    docs/feature_cards/Dynamic_Cluster.md
-   docs/feature_cards/Adaptive_Loss_Scale.md
 
 .. toctree::
    :glob:
