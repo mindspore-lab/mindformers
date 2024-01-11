@@ -344,7 +344,7 @@ def transform_and_load_checkpoint(config, model, network, dataset, optimizer=Non
 
 def check_ckpt_for_transform(ckpt_dir):
     """check input ckpt_dir and transform it by using softlink"""
-    soft_link_dir = "softlink_ckpt/"
+    soft_link_dir = os.path.join(get_output_root_path(), "softlink_ckpt")
     rank_id = get_real_rank()
     if (not rank_id) or (rank_id % 8 == 0 and check_in_modelarts()):
         if os.path.exists(soft_link_dir):
@@ -357,8 +357,10 @@ def check_ckpt_for_transform(ckpt_dir):
                     ckpt_file = os.path.join(ckpt_dir, ckpt_file)
                     make_softlink(soft_link, ckpt_file)
             elif glob(os.path.join(ckpt_dir, "rank*")):
-                os.makedirs(os.path.dirname(soft_link_dir), exist_ok=True)
-                soft_link = os.path.join(soft_link_dir, os.path.basename(ckpt_dir[:-1]))
+                os.makedirs(soft_link_dir, exist_ok=True)
+                if ckpt_dir.endswith('/'):
+                    ckpt_dir = ckpt_dir[:-1]
+                soft_link = os.path.join(soft_link_dir, os.path.basename(ckpt_dir))
                 logger.info("Make soft link of checkpoint file from %s to %s", ckpt_dir, soft_link)
                 if not os.path.exists(soft_link):
                     os.symlink(ckpt_dir, soft_link)
