@@ -25,11 +25,10 @@ from mindspore.parallel._cost_model_context import _set_multi_subgraphs
 
 from mindformers.core.callback import ProfileMonitor
 from mindformers.trainer.config_args import ContextConfig, ParallelContextConfig
-from mindformers.tools import PARALLEL_MODE, MODE, get_output_subpath,\
-    get_output_root_path, check_in_modelarts
+from mindformers.tools import PARALLEL_MODE, MODE, get_output_subpath, check_in_modelarts
 from mindformers.tools.logger import logger
 from mindformers.tools.register import MindFormerConfig
-from mindformers.tools.utils import check_in_dynamic_cluster, get_real_rank
+from mindformers.tools.utils import check_in_dynamic_cluster
 
 CONTEXT_CONFIG = {
     'mode': 'GRAPH_MODE', 'device_target': 'Ascend', 'device_id': 0, 'save_graphs': False}
@@ -196,9 +195,3 @@ def _set_check_parallel_config(config):
     if parallel_mode not in PARALLEL_MODE.keys():
         raise IndexError(
             'Running parallel mode should be in {}, but get {}'.format(PARALLEL_MODE.keys(), parallel_mode))
-
-    strategy_ckpt_save_file = config.get('strategy_ckpt_save_file', "ckpt_strategy.ckpt")
-    rank_id = get_real_rank()
-    os.makedirs(os.path.join(get_output_root_path(), "strategy"), exist_ok=True)
-    config["strategy_ckpt_save_file"] = os.path.join(get_output_root_path(), "strategy",
-                                                     strategy_ckpt_save_file.replace(".ckpt", f"_rank_{rank_id}.ckpt"))
