@@ -508,7 +508,7 @@ model:
 
 ```bash
 python run_internlm.py \
---config_path export_internlm_20b.yaml \
+--config export_internlm_20b.yaml \
 --run_mode export \
 --use_parallel False \
 --device_id 0
