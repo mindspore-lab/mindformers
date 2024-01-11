@@ -114,3 +114,11 @@
 
    docs/FAQ.md
    docs/transformer仓Python编程规范.md
+
+
+.. toctree::
+   :glob:
+   :maxdepth: 1
+   :caption: RELEASE NOTE
+
+   docs/RELEASE_NOTE.md

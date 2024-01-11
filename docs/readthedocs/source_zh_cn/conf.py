@@ -86,7 +86,8 @@ copy_path = ['../../../README.md',
              '../../../research',
              '../../FAQ.md',
              '../../model_support_list.md',
-             '../../transformer仓Python编程规范.md'
+             '../../transformer仓Python编程规范.md',
+             '../../RELEASE_NOTE.md',
              '../../feature_cards',
              '../../model_cards',
              '../../task_cards']
