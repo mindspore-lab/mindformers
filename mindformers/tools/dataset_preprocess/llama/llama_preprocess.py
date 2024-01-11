@@ -150,8 +150,8 @@ def preprocess(sources, tokenizer, seq_length):
                 target[:] = IGNORE_TOKEN_ID
         targets.append(target.tolist())
 
-    input_ids = np.array(input_ids)
-    targets = np.array(targets)
+    input_ids = np.array(input_ids, dtype=np.int32)
+    targets = np.array(targets, dtype=np.int32)
 
     return dict(
         input_ids=input_ids,
