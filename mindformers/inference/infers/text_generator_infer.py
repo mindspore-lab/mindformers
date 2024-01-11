@@ -192,7 +192,7 @@ class InputOfInfer:
         "gpt2": CommonInputsOfInfer,
         "codegeex2": CommonInputsOfInfer,
         "glm": GLMInputsOfInfer,
-        "baichaun2": LlamaInputsOfInfer,
+        "baichuan2": LlamaInputsOfInfer,
         "internlm": LlamaInputsOfInfer,
         "common": CommonInputsOfInfer
     }
