@@ -312,32 +312,30 @@ def transform_and_load_checkpoint(config, model, network, dataset, optimizer=Non
         if config.only_save_strategy:
             logger.info("Only_save_strategy is True, model.compile() finished, system exit! ")
             sys.exit(0)
-        elif config.only_save_strategy:
-            logger.info("only_save_strategy is True, "
-                        "but stand_alone and data_parallel mode do not have strategy file, system exit! ")
-            sys.exit(0)
+    elif config.only_save_strategy:
+        logger.info("only_save_strategy is True, "
+                    "but stand_alone and data_parallel mode do not have strategy file, system exit! ")
+        sys.exit(0)
 
-        if config.auto_trans_ckpt:
-            is_share_disk = check_shared_disk(config.output_dir)
-            world_size = int(os.getenv('RANK_SIZE', '1'))
-            logger.info("%s is_share_disk: %r", os.path.abspath(config.output_dir), is_share_disk)
-            logger.info("world_size: %d", world_size)
+    if config.auto_trans_ckpt:
+        is_share_disk = check_shared_disk(config.output_dir)
+        world_size = int(os.getenv('RANK_SIZE', '1'))
+        logger.info("%s is_share_disk: %r", os.path.abspath(config.output_dir), is_share_disk)
+        logger.info("world_size: %d", world_size)
 
-            # 2. get strategy
-            src_ckpt_strategy, dst_ckpt_strategy = get_src_and_dst_strategy(config)
+        # 2. get strategy
+        src_ckpt_strategy, dst_ckpt_strategy = get_src_and_dst_strategy(config)
 
-            # 3. check format of input path and make softlink
-            softlink_dir = check_ckpt_for_transform(config.load_checkpoint)
+        # 3. check format of input path and make softlink
+        softlink_dir = check_ckpt_for_transform(config.load_checkpoint)
 
-            # 4. transform checkpoint if needed
-            for ckpt_dir in os.listdir(softlink_dir):
-                config.load_checkpoint = os.path.join(softlink_dir, ckpt_dir)
-                transform_ckpt(config, ckpt_dir,
-                               src_ckpt_strategy=src_ckpt_strategy,
-                               dst_ckpt_strategy=dst_ckpt_strategy)
+        # 4. transform checkpoint if needed
+        for ckpt_dir in os.listdir(softlink_dir):
+            config.load_checkpoint = os.path.join(softlink_dir, ckpt_dir)
+            transform_ckpt(config, ckpt_dir,
+                           src_ckpt_strategy=src_ckpt_strategy,
+                           dst_ckpt_strategy=dst_ckpt_strategy)
 
-    else:
-        config.auto_trans_ckpt = False
     # 5. load ckpt
     load_ckpt(config, network, optimizer=optimizer)
 
@@ -370,7 +368,7 @@ def check_ckpt_for_transform(ckpt_dir):
         else:
             if ckpt_dir.endswith('.ckpt'):
                 ckpt_file = ckpt_dir
-                soft_link = soft_link_dir + os.path.splitext(os.path.basename(ckpt_file))[0]
+                soft_link = os.path.join(soft_link_dir, os.path.splitext(os.path.basename(ckpt_file))[0])
                 make_softlink(soft_link, ckpt_file)
             else:
                 raise ValueError(f"The value of load_checkpoint must be a folder or a file with suffix '.ckpt', "
@@ -699,14 +697,16 @@ def load_ckpt(config, network, optimizer=None):
     checkpoint_dict = {}
     rank_id = get_real_rank() if get_real_rank() else 0
     if config.auto_trans_ckpt:
-        for file in os.listdir(config.load_checkpoint):
-            load_total_checkpoint(config, file, checkpoint_dict)
-            logger.info("loaded checkpoint: %s", str(file))
+        for checkpoint_name in os.listdir(config.load_checkpoint):
+            checkpoint_path = os.path.join(config.load_checkpoint, checkpoint_name)
+            checkpoint_dict.update(load_distributed_checkpoint(checkpoint_path))
+            logger.info("loaded checkpoint: %s", str(checkpoint_path))
     else:
         if os.path.isdir(config.load_checkpoint) and check_ckpt_file_exist(config.load_checkpoint):
-            for file in os.listdir(config.load_checkpoint):
-                if file.endswith('.ckpt'):
-                    load_total_checkpoint(config, file, checkpoint_dict)
+            for ckpt_file in os.listdir(config.load_checkpoint):
+                if ckpt_file.endswith('.ckpt'):
+                    checkpoint_path = os.path.join(config.load_checkpoint, ckpt_file)
+                    checkpoint_dict.update(load_checkpoint(checkpoint_path))
         elif os.path.isfile(config.load_checkpoint) and config.load_checkpoint.endswith('.ckpt'):
             checkpoint_dict = load_checkpoint(config.load_checkpoint)
         elif os.path.isdir(config.load_checkpoint) and check_rank_folders(config.load_checkpoint, rank_id):
@@ -729,15 +729,6 @@ def load_ckpt(config, network, optimizer=None):
         not_load_optim_params = load_param_into_net(optimizer, checkpoint_dict)
         logger.info("Optimizer parameters are not loaded: %s", str(not_load_optim_params))
 
-
-def load_total_checkpoint(config, checkpoint_dir, checkpoint_dict):
-    """load total checkpoint"""
-    file = os.path.join(config.load_checkpoint, checkpoint_dir)
-    if config.use_parallel:
-        checkpoint_dict.update(load_distributed_checkpoint(file))
-    else:
-        checkpoint_dict.update(load_checkpoint(file))
-    return checkpoint_dict
 
 def get_last_checkpoint(checkpoint_dir):
     """get last checkpoint for resuming or finetune."""
