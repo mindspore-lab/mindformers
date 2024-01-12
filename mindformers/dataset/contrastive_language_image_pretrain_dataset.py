@@ -31,29 +31,44 @@ class ContrastiveLanguageImagePretrainDataset(BaseDataset):
         output image and text columns
 
     Args:
-        dataset_config (Optional[dict]): Config for dataset.
-        data_loader (Union[dict, Callable]): Config for data loader or a data loader object.
-        transforms (Union[dict, list]): Configurations or objects of one or more transformers.
-        text_transforms (Union[dict, list]): Configurations or objects of one or more transformers of text.
-        tokenizer (Union[dict, list]): Tokenizer configuration or object.
-        sampler (Union[dict, list]): Sampler configuration or object.
-        batch_size (int): Size of each batch. Default: 8.
-        drop_remainder (bool): Whether to discard the last batch when the number of data items contained
+        dataset_config (Optional[dict]):
+            Config for dataset.
+        data_loader (Union[dict, Callable]):
+            Config for data loader or a data loader object.
+        transforms (Union[dict, list]):
+            Configurations or objects of one or more transformers.
+        text_transforms (Union[dict, list]):
+            Configurations or objects of one or more transformers of text.
+        tokenizer (Union[dict, list]):
+            Tokenizer configuration or object.
+        sampler (Union[dict, list]):
+            Sampler configuration or object.
+        batch_size (int):
+            Size of each batch. Default: 8.
+        drop_remainder (bool):
+            Whether to discard the last batch when the number of data items contained
             in the last batch is smaller than batch_size. Default: True.
-        num_parallel_workers (int): Specifies the number of concurrent processes or threads for map operations
+        num_parallel_workers (int):
+            Specifies the number of concurrent processes or threads for map operations
             to accelerate processing. Default: 8.
-        python_multiprocessing (bool): Enabling the Python Multi-Process Mode to Accelerate Map Operations.
-            Default: False.
-        repeat (int): Number of times this dataset is repeated. Default: 1.
-        seed (int): Random seed number. Default: 0.
-        prefetch_size (int): Buffer queue size of each data processing operation in the pipeline. Default: 1.
-        numa_enable (bool): Indicates whether to use the NUMA binding function. Default: False.
-        auto_tune (bool): Indicates whether to enable automatic optimization of data processing parameters.
-            Default: False.
-        autotune_per_step (int): Specifies the interval for adjusting the configuration step of
-            automatic data acceleration. Default: 10.
-        filepath_prefix (str): Path for saving optimized parameter configurations. Default: './autotune'.
-        profile (bool): Whether to enable data collection. Default: False.
+        python_multiprocessing (bool):
+            Enabling the Python Multi-Process Mode to Accelerate Map Operations. Default: False.
+        repeat (int):
+            Number of times this dataset is repeated. Default: 1.
+        seed (int):
+            Random seed number. Default: 0.
+        prefetch_size (int):
+            Buffer queue size of each data processing operation in the pipeline. Default: 1.
+        numa_enable (bool):
+            Indicates whether to use the NUMA binding function. Default: False.
+        auto_tune (bool):
+            Indicates whether to enable automatic optimization of data processing parameters. Default: False.
+        autotune_per_step (int):
+            Specifies the interval for adjusting the configuration step of automatic data acceleration. Default: 10.
+        filepath_prefix (str):
+            Path for saving optimized parameter configurations. Default: './autotune'.
+        profile (bool):
+            Whether to enable data collection. Default: False.
 
     Returns:
         A dataset for ContrastiveLanguageImagePretrainTrainer.
@@ -63,7 +78,7 @@ class ContrastiveLanguageImagePretrainDataset(BaseDataset):
         >>> from mindformers.tools.register import MindFormerConfig
         >>> from mindformers import MindFormerBook
         >>> from mindformers.dataset import ContrastiveLanguageImagePretrainDataset
-        >>> from mindformers.dataset import build_dataset, check_dataset_config
+        >>> from mindformers.dataset import check_dataset_config
         >>> config_dict_list = MindFormerBook.get_trainer_support_task_list()
         >>> config_path = config_dict_list['contrastive_language_image_pretrain']['clip_vit_b_32']
         >>> # Initialize a MindFormerConfig instance with a specific config file of yaml.
@@ -92,8 +107,8 @@ class ContrastiveLanguageImagePretrainDataset(BaseDataset):
         ...                         is_hwc=False)]
         >>> dataset_from_param = ContrastiveLanguageImagePretrainDataset(data_loader=data_loader,
         ...                                                              text_transforms=text_transforms,
-        ...                                                              transforms=transforms, tokenizer=tokenizer),
-        ...                                                              input_columns=["input_ids", "attention_mask"])
+        ...                                                              transforms=transforms,
+        ...                                                              tokenizer=tokenizer)
     """
 
     # pylint: disable=W0613

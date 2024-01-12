@@ -55,26 +55,41 @@ class RewardModelDataset(BaseDataset):
     """Reward Model dataset.
 
     Args:
-        dataset_config (Optional[dict]): Config for dataset.
-        data_loader (Union[dict, Callable]): Config for data loader or a data loader object.
-        tokenizer (Union[dict, list]): Tokenizer configuration or object.
-        max_length (int): Maximum length of a token.
-        input_columns (list): Column name before the map function.
-        output_columns (list): Column name after the map function.
-        batch_size (int): Size of each batch. Default: 8.
-        drop_remainder (bool): Whether to discard the last batch when the number of data items contained
+        dataset_config (Optional[dict]):
+            Config for dataset.
+        data_loader (Union[dict, Callable]):
+            Config for data loader or a data loader object.
+        tokenizer (Union[dict, list]):
+            Tokenizer configuration or object.
+        max_length (int):
+            Maximum length of a token.
+        input_columns (list):
+            Column name before the map function.
+        output_columns (list):
+            Column name after the map function.
+        batch_size (int):
+            Size of each batch. Default: 8.
+        drop_remainder (bool):
+            Whether to discard the last batch when the number of data items contained
             in the last batch is smaller than batch_size. Default: True.
-        repeat (int): Number of times this dataset is repeated. Default: 1.
-        pad_token_id (int): Indicates the token id of the pad.
-        seed (int): Random seed number. Default: 0.
-        prefetch_size (int): Buffer queue size of each data processing operation in the pipeline. Default: 1.
-        numa_enable (bool): Indicates whether to use the NUMA binding function. Default: False.
-        auto_tune (bool): Indicates whether to enable automatic optimization of data processing parameters.
-            Default: False.
-        autotune_per_step (int): Specifies the interval for adjusting the configuration step of
-            automatic data acceleration. Default: 10.
-        filepath_prefix (str): Path for saving optimized parameter configurations. Default: './autotune'.
-        profile (bool): Whether to enable data collection. Default: False.
+        repeat (int):
+            Number of times this dataset is repeated. Default: 1.
+        pad_token_id (int):
+            Indicates the token id of the pad.
+        seed (int):
+            Random seed number. Default: 0.
+        prefetch_size (int):
+            Buffer queue size of each data processing operation in the pipeline. Default: 1.
+        numa_enable (bool):
+            Indicates whether to use the NUMA binding function. Default: False.
+        auto_tune (bool):
+            Indicates whether to enable automatic optimization of data processing parameters. Default: False.
+        autotune_per_step (int):
+            Specifies the interval for adjusting the configuration step of automatic data acceleration. Default: 10.
+        filepath_prefix (str):
+            Path for saving optimized parameter configurations. Default: './autotune'.
+        profile (bool):
+            Whether to enable data collection. Default: False.
 
     Returns:
         A dataset for RewardModelDataset.
@@ -83,7 +98,7 @@ class RewardModelDataset(BaseDataset):
         >>> # 1) Create an instance using a MindFormerConfig.
         >>> from mindformers.tools.register import MindFormerConfig
         >>> from mindformers.dataset import RewardModelDataset
-        >>> from mindformers.dataset import build_dataset, check_dataset_config
+        >>> from mindformers.dataset import check_dataset_config
         >>> config_path = 'mindformers/research/rewardmodel/run_bloom_7.1b_reward.yaml'
         >>> # Initialize a MindFormerConfig instance with a specific config file of yaml.
         >>> config = MindFormerConfig(config_path)
