@@ -37,30 +37,48 @@ class KeyWordGenDataset(BaseDataset):
     Keyword generation dataset.
 
     Args:
-        dataset_config (Optional[dict]): Config for dataset.
-        data_loader (Union[dict, Callable]): Config for data loader or a data loader object.
-        tokenizer (Union[dict, list]): Tokenizer configuration or object.
-        input_columns (list): Column name before the map function.
-        batch_size (int): Size of each batch. Default: 8.
-        drop_remainder (bool): Whether to discard the last batch when the number of data items contained
+        dataset_config (Optional[dict]):
+            Config for dataset.
+        data_loader (Union[dict, Callable]):
+            Config for data loader or a data loader object.
+        tokenizer (Union[dict, list]):
+            Tokenizer configuration or object.
+        input_columns (list):
+            Column name before the map function.
+        batch_size (int):
+            Size of each batch. Default: 8.
+        drop_remainder (bool):
+            Whether to discard the last batch when the number of data items contained
             in the last batch is smaller than batch_size. Default: True.
-        num_parallel_workers (int): Specifies the number of concurrent processes or threads for map operations
+        num_parallel_workers (int):
+            Specifies the number of concurrent processes or threads for map operations
             to accelerate processing. Default: 8.
-        repeat (int): Number of times this dataset is repeated. Default: 1.
-        ignore_pad_token_for_loss (bool): Whether ignore pad token for loss. Default: True.
-        max_source_length (int): Maximum length of the source sequence.
-        max_target_length (int): Maximum length of the target sequence.
-        phase (int): Phase of a task, which can be 'train' or 'eval'. Default: 'train'.
-        version (int): Version of the map function. Version of the map function. The value can be 1 or 2. Default: 1.
-        seed (int): Random seed number. Default: 0.
-        prefetch_size (int): Buffer queue size of each data processing operation in the pipeline. Default: 1.
-        numa_enable (bool): Indicates whether to use the NUMA binding function. Default: False.
-        auto_tune (bool): Indicates whether to enable automatic optimization of data processing parameters.
-            Default: False.
-        autotune_per_step (int): Specifies the interval for adjusting the configuration step of
-            automatic data acceleration. Default: 10.
-        filepath_prefix (str): Path for saving optimized parameter configurations. Default: './autotune'.
-        profile (bool): Whether to enable data collection. Default: False.
+        repeat (int):
+            Number of times this dataset is repeated. Default: 1.
+        ignore_pad_token_for_loss (bool):
+            Whether ignore pad token for loss. Default: True.
+        max_source_length (int):
+            Maximum length of the source sequence.
+        max_target_length (int):
+            Maximum length of the target sequence.
+        phase (int):
+            Phase of a task, which can be 'train' or 'eval'. Default: 'train'.
+        version (int):
+            Version of the map function. Version of the map function. The value can be 1 or 2. Default: 1.
+        seed (int):
+            Random seed number. Default: 0.
+        prefetch_size (int):
+            Buffer queue size of each data processing operation in the pipeline. Default: 1.
+        numa_enable (bool):
+            Indicates whether to use the NUMA binding function. Default: False.
+        auto_tune (bool):
+            Indicates whether to enable automatic optimization of data processing parameters. Default: False.
+        autotune_per_step (int):
+            Specifies the interval for adjusting the configuration step of automatic data acceleration. Default: 10.
+        filepath_prefix (str):
+            Path for saving optimized parameter configurations. Default: './autotune'.
+        profile (bool):
+            Whether to enable data collection. Default: False.
 
 
     Returns:
@@ -72,7 +90,7 @@ class KeyWordGenDataset(BaseDataset):
         >>> from mindformers.tools.register import MindFormerConfig
         >>> from mindformers import MindFormerBook
         >>> from mindformers.dataset import KeyWordGenDataset
-        >>> from mindformers.dataset import build_dataset, check_dataset_config
+        >>> from mindformers.dataset import check_dataset_config
         >>> config_dict_list = MindFormerBook.get_trainer_support_task_list()
         >>> config_path = config_dict_list['text_generation']['glm_6b']
         >>> # Initialize a MindFormerConfig instance with a specific config file of yaml.
