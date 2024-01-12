@@ -15,6 +15,7 @@
 """generate hccl config file script"""
 import json
 import os
+import re
 import socket
 import sys
 from argparse import ArgumentParser
@@ -73,6 +74,16 @@ def get_host_ip():
     return ip
 
 
+def get_device_num(device_num_str):
+    """Get device number"""
+    pattern = r"^\[(\d+),(\d+)[\]\)]$"
+    match = re.match(pattern, device_num_str)
+    if not match:
+        raise ValueError("Invalid format of device_num! It should be like \"[a,b)\", where a and b are two numbers.")
+    start_device, end_device = match.groups()
+    return int(start_device), int(end_device)
+
+
 def main():
     print("start", __file__)
     args = parse_args()
@@ -92,8 +103,7 @@ def main():
     print('server_id:{}'.format(server_id))
 
     # device_num
-    first_num = int(args.device_num[1])
-    last_num = int(args.device_num.split(')')[0].split(',')[-1])
+    first_num, last_num = get_device_num(args.device_num)
     if first_num < 0 or last_num > args.device_num_per_node:
         raise ValueError(f"device num {args.device_num} must be in range [0,{args.device_num_per_node}] !")
     if first_num > last_num:
