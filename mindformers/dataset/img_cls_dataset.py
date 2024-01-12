@@ -34,31 +34,48 @@ class ImageCLSDataset(BaseDataset):
     Image Classification Dataset API.
 
     Args:
-        dataset_config (Optional[dict]): Config for dataset.
-        data_loader (Union[dict, Callable]): Config for data loader or a data loader object.
-        input_columns (list): Column name before the map function.
-        output_columns (list): Column name after the map function.
-        batch_size (int): Size of each batch. Default: 8.
-        drop_remainder (bool): Whether to discard the last batch when the number of data items contained
+        dataset_config (Optional[dict]):
+            Config for dataset.
+        data_loader (Union[dict, Callable]):
+            Config for data loader or a data loader object.
+        input_columns (list):
+            Column name before the map function.
+        output_columns (list):
+            Column name after the map function.
+        batch_size (int):
+            Size of each batch. Default: 8.
+        drop_remainder (bool):
+            Whether to discard the last batch when the number of data items contained
             in the last batch is smaller than batch_size. Default: True.
-        num_parallel_workers (int): Specifies the number of concurrent processes or threads for map operations
+        num_parallel_workers (int):
+            Specifies the number of concurrent processes or threads for map operations
             to accelerate processing. Default: 8.
-        python_multiprocessing (bool): Enabling the Python Multi-Process Mode to Accelerate Map Operations.
-            Default: False.
-        repeat (int): Number of times this dataset is repeated. Default: 1.
-        transforms (Union[dict, list]): Configurations or objects of one or more transformers.
-        sampler (Union[dict, list]): Sampler configuration or object.
-        do_eval (bool): Indicates whether to enable evaluation during training.
-        mixup_op (dict): Configuration of the mixup
-        seed (int): Random seed number. Default: 0.
-        prefetch_size (int): Buffer queue size of each data processing operation in the pipeline. Default: 1.
-        numa_enable (bool): Indicates whether to use the NUMA binding function. Default: False.
-        auto_tune (bool): Indicates whether to enable automatic optimization of data processing parameters.
-            Default: False.
-        autotune_per_step (int): Specifies the interval for adjusting the configuration step of
-            automatic data acceleration. Default: 10.
-        filepath_prefix (str): Path for saving optimized parameter configurations. Default: './autotune'.
-        profile (bool): Whether to enable data collection. Default: False.
+        python_multiprocessing (bool):
+            Enabling the Python Multi-Process Mode to Accelerate Map Operations. Default: False.
+        repeat (int):
+            Number of times this dataset is repeated. Default: 1.
+        transforms (Union[dict, list]):
+            Configurations or objects of one or more transformers.
+        sampler (Union[dict, list]):
+            Sampler configuration or object.
+        do_eval (bool):
+            Indicates whether to enable evaluation during training.
+        mixup_op (dict):
+            Configuration of the mixup
+        seed (int):
+            Random seed number. Default: 0.
+        prefetch_size (int):
+            Buffer queue size of each data processing operation in the pipeline. Default: 1.
+        numa_enable (bool):
+            Indicates whether to use the NUMA binding function. Default: False.
+        auto_tune (bool):
+            Indicates whether to enable automatic optimization of data processing parameters. Default: False.
+        autotune_per_step (int):
+            Specifies the interval for adjusting the configuration step of automatic data acceleration. Default: 10.
+        filepath_prefix (str):
+            Path for saving optimized parameter configurations. Default: './autotune'.
+        profile (bool):
+            Whether to enable data collection. Default: False.
 
     Returns:
         A dataset for ImageCLSDataset.
@@ -68,7 +85,7 @@ class ImageCLSDataset(BaseDataset):
         >>> from mindformers.tools.register import MindFormerConfig
         >>> from mindformers import MindFormerBook
         >>> from mindformers.dataset import ImageCLSDataset
-        >>> from mindformers.dataset import build_dataset, check_dataset_config
+        >>> from mindformers.dataset import check_dataset_config
         >>> config_dict_list = MindFormerBook.get_trainer_support_task_list()
         >>> config_path = config_dict_list['image_classification']['vit_base_p16']
         >>> # Initialize a MindFormerConfig instance with a specific config file of yaml.
@@ -84,8 +101,8 @@ class ImageCLSDataset(BaseDataset):
         >>> # 2) Creating an instance using other parameters.
         >>> from mindspore.dataset import ImageFolderDataset
         >>> from mindspore.dataset.vision import Decode, ToPIL, ToTensor, Normalize
-        >>> from mindformers.dataset import ImageCLSDataset, RandomResizedCrop, RandomHorizontalFlip, \
-        ...     rand_augment_transform, RandomErasing
+        >>> from mindformers.dataset import ImageCLSDataset, RandomResizedCrop, RandomHorizontalFlip
+        >>> from mindformers.dataset import rand_augment_transform, RandomErasing
         >>> data_loader = ImageFolderDataset(dataset_dir="The required task dataset path",
         ...                                 num_parallel_workers=8, shuffle=True)
         >>> transforms = [Decode(),

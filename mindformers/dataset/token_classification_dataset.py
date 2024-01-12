@@ -32,31 +32,48 @@ class TokenClassificationDataset(BaseDataset):
     Token classification Dataset.
 
     Args:
-        dataset_config (Optional[dict]): Config for dataset.
-        data_loader (Union[dict, Callable]): Config for data loader or a data loader object.
-        tokenizer (Union[dict, list]): Tokenizer configuration or object.
-        text_transforms (Union[dict, list]): Configurations or objects of one or more transformers of text.
-        label_transforms (Union[dict, list]): Configurations or objects of one or more transformers of label.
-        sampler (Union[dict, list]): Sampler configuration or object.
-        input_columns (list): Column name before the map function.
-        output_columns (list): Column name after the map function.
-        batch_size (int): Size of each batch. Default: 8.
-        drop_remainder (bool): Whether to discard the last batch when the number of data items contained
+        dataset_config (Optional[dict]):
+            Config for dataset.
+        data_loader (Union[dict, Callable]):
+            Config for data loader or a data loader object.
+        tokenizer (Union[dict, list]):
+            Tokenizer configuration or object.
+        text_transforms (Union[dict, list]):
+            Configurations or objects of one or more transformers of text.
+        label_transforms (Union[dict, list]):
+            Configurations or objects of one or more transformers of label.
+        sampler (Union[dict, list]):
+            Sampler configuration or object.
+        input_columns (list):
+            Column name before the map function.
+        output_columns (list):
+            Column name after the map function.
+        batch_size (int):
+            Size of each batch. Default: 8.
+        drop_remainder (bool):
+            Whether to discard the last batch when the number of data items contained
             in the last batch is smaller than batch_size. Default: True.
-        num_parallel_workers (int): Specifies the number of concurrent processes or threads for map operations
+        num_parallel_workers (int):
+            Specifies the number of concurrent processes or threads for map operations
             to accelerate processing. Default: 8.
-        python_multiprocessing (bool): Enabling the Python Multi-Process Mode to Accelerate Map Operations.
-            Default: False.
-        repeat (int): Number of times this dataset is repeated. Default: 1.
-        seed (int): Random seed number. Default: 0.
-        prefetch_size (int): Buffer queue size of each data processing operation in the pipeline. Default: 1.
-        numa_enable (bool): Indicates whether to use the NUMA binding function. Default: False.
-        auto_tune (bool): Indicates whether to enable automatic optimization of data processing parameters.
-            Default: False.
-        autotune_per_step (int): Specifies the interval for adjusting the configuration step of
-            automatic data acceleration. Default: 10.
-        filepath_prefix (str): Path for saving optimized parameter configurations. Default: './autotune'.
-        profile (bool): Whether to enable data collection. Default: False.
+        python_multiprocessing (bool):
+            Enabling the Python Multi-Process Mode to Accelerate Map Operations. Default: False.
+        repeat (int):
+            Number of times this dataset is repeated. Default: 1.
+        seed (int):
+            Random seed number. Default: 0.
+        prefetch_size (int):
+            Buffer queue size of each data processing operation in the pipeline. Default: 1.
+        numa_enable (bool):
+            Indicates whether to use the NUMA binding function. Default: False.
+        auto_tune (bool):
+            Indicates whether to enable automatic optimization of data processing parameters. Default: False.
+        autotune_per_step (int):
+            Specifies the interval for adjusting the configuration step of automatic data acceleration. Default: 10.
+        filepath_prefix (str):
+            Path for saving optimized parameter configurations. Default: './autotune'.
+        profile (bool):
+            Whether to enable data collection. Default: False.
 
     Returns:
         A dataset for TokenClassificationDataset.
@@ -66,7 +83,7 @@ class TokenClassificationDataset(BaseDataset):
         >>> from mindformers.tools.register import MindFormerConfig
         >>> from mindformers import MindFormerBook
         >>> from mindformers.dataset import TokenClassificationDataset
-        >>> from mindformers.dataset import build_dataset, check_dataset_config
+        >>> from mindformers.dataset import check_dataset_config
         >>> config_dict_list = MindFormerBook.get_trainer_support_task_list()
         >>> config_path = config_dict_list['token_classification']['tokcls_bert_base_chinese']
         >>> # Initialize a MindFormerConfig instance with a specific config file of yaml.
@@ -81,8 +98,8 @@ class TokenClassificationDataset(BaseDataset):
         >>>
         >>> # 2) Creating an instance using other parameters.
         >>> from mindformers import AutoTokenizer
-        >>> from mindformers.dataset import TokenClassificationDataset, CLUENERDataLoader, \
-        ...     TokenizeWithLabel, LabelPadding
+        >>> from mindformers.dataset import TokenClassificationDataset, CLUENERDataLoader
+        >>> from mindformers.dataset import TokenizeWithLabel, LabelPadding
         >>> tokenizer = AutoTokenizer.from_pretrained('tokcls_bert_base_chinese_cluener')
         >>> data_loader = CLUENERDataLoader(dataset_dir="The required task dataset path",
         ...                                 stage='train', column_names=['text', 'label_id'])
