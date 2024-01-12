@@ -32,24 +32,36 @@ class MaskLanguageModelDataset(BaseDataset):
     Bert pretrain dataset.
 
     Args:
-        dataset_config (Optional[dict]): Config for dataset.
-        data_loader (Union[dict, Callable]): Config for data loader or a data loader object.
-        input_columns (list): Column name before the map function.
-        batch_size (int): Size of each batch. Default: 8.
-        drop_remainder (bool): Whether to discard the last batch when the number of data items contained
+        dataset_config (Optional[dict]):
+            Config for dataset.
+        data_loader (Union[dict, Callable]):
+            Config for data loader or a data loader object.
+        input_columns (list):
+            Column name before the map function.
+        batch_size (int):
+            Size of each batch. Default: 8.
+        drop_remainder (bool):
+            Whether to discard the last batch when the number of data items contained
             in the last batch is smaller than batch_size. Default: True.
-        num_parallel_workers (int): Specifies the number of concurrent processes or threads for map operations
+        num_parallel_workers (int):
+            Specifies the number of concurrent processes or threads for map operations
             to accelerate processing. Default: 8.
-        repeat (int): Number of times this dataset is repeated. Default: 1.
-        seed (int): Random seed number. Default: 0.
-        prefetch_size (int): Buffer queue size of each data processing operation in the pipeline. Default: 1.
-        numa_enable (bool): Indicates whether to use the NUMA binding function. Default: False.
-        auto_tune (bool): Indicates whether to enable automatic optimization of data processing parameters.
-            Default: False.
-        autotune_per_step (int): Specifies the interval for adjusting the configuration step of
-            automatic data acceleration. Default: 10.
-        filepath_prefix (str): Path for saving optimized parameter configurations. Default: './autotune'.
-        profile (bool): Whether to enable data collection. Default: False.
+        repeat (int):
+            Number of times this dataset is repeated. Default: 1.
+        seed (int):
+            Random seed number. Default: 0.
+        prefetch_size (int):
+            Buffer queue size of each data processing operation in the pipeline. Default: 1.
+        numa_enable (bool):
+            Indicates whether to use the NUMA binding function. Default: False.
+        auto_tune (bool):
+            Indicates whether to enable automatic optimization of data processing parameters. Default: False.
+        autotune_per_step (int):
+            Specifies the interval for adjusting the configuration step of automatic data acceleration. Default: 10.
+        filepath_prefix (str):
+            Path for saving optimized parameter configurations. Default: './autotune'.
+        profile (bool):
+            Whether to enable data collection. Default: False.
 
     Returns:
         A dataset for MaskLanguageModelDataset.
@@ -59,7 +71,7 @@ class MaskLanguageModelDataset(BaseDataset):
         >>> from mindformers.tools.register import MindFormerConfig
         >>> from mindformers import MindFormerBook
         >>> from mindformers.dataset import MaskLanguageModelDataset
-        >>> from mindformers.dataset import build_dataset, check_dataset_config
+        >>> from mindformers.dataset import check_dataset_config
         >>> config_dict_list = MindFormerBook.get_trainer_support_task_list()
         >>> config_path = config_dict_list['fill_mask']['bert_tiny_uncased']
         >>> # Initialize a MindFormerConfig instance with a specific config file of yaml.
@@ -77,7 +89,7 @@ class MaskLanguageModelDataset(BaseDataset):
         >>> from mindformers.dataset import MaskLanguageModelDataset
         >>> data_loader = TFRecordDataset(dataset_files="The required task dataset path",
         ...                               shuffle=True, shard_equal_rows=True)
-        >>> dataset_from_param = MaskLanguageModelDataset(data_loader=data_loader, batch_size=1
+        >>> dataset_from_param = MaskLanguageModelDataset(data_loader=data_loader, batch_size=1,
         ...                                               input_columns=['input_ids', 'input_mask', 'segment_ids',
         ...                                                              'next_sentence_labels', 'masked_lm_positions',
         ...                                                              'masked_lm_ids', 'masked_lm_weights'])
