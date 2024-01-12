@@ -173,7 +173,8 @@ def _check_keyword_gen_dataset(config, mode, **kwargs):
             raise_error_msg("train", eval_dataset.max_source_length, eval_dataset.max_target_length, "eval_dataset")
 
     # when do_eval == True, eval_dataset should be in train mode
-    if config.metric.type == "PerplexityMetric" and eval_dataset and eval_dataset.data_loader.phase != 'train':
+    if config.metric and config.metric.type == "PerplexityMetric" and \
+       eval_dataset and eval_dataset.data_loader.phase != 'train':
         logger.warning("when using 'PerplexityMetric', eval_dataset.data_loader.phase would be set to 'train'.")
         eval_dataset.data_loader.phase = 'train'
         config.eval_dataset_task.dataset_config.data_loader.phase = eval_dataset.data_loader.phase
