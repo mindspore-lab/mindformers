@@ -28,7 +28,7 @@ from mindformers.trainer.config_args import ContextConfig, ParallelContextConfig
 from mindformers.tools import PARALLEL_MODE, MODE, get_output_subpath, check_in_modelarts
 from mindformers.tools.logger import logger
 from mindformers.tools.register import MindFormerConfig
-from mindformers.tools.utils import check_in_dynamic_cluster
+from mindformers.tools.utils import check_in_dynamic_cluster, set_strategy_save_path
 
 CONTEXT_CONFIG = {
     'mode': 'GRAPH_MODE', 'device_target': 'Ascend', 'device_id': 0, 'save_graphs': False}
@@ -120,6 +120,7 @@ def init_context(use_parallel=False, context_config=None, parallel_config=None):
         parallel_config.setdefault('device_num', device_num)
         context.set_context(**context_config)
         context.reset_auto_parallel_context()
+        set_strategy_save_path(parallel_config)
         context.set_auto_parallel_context(**parallel_config)
     else:
         context.set_context(**context_config)
