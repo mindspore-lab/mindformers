@@ -305,8 +305,13 @@ def transform_and_load_checkpoint(config, model, network, dataset, optimizer=Non
         raise FileNotFoundError(f"The load_checkpoint must be correct, "
                                 f"but get {config.load_checkpoint}")
 
-    if context.get_auto_parallel_context('parallel_mode') in ['semi_auto_parallel', 'auto_parallel', 'hybrid_parallel']\
-            and not (check_path_include_total_ckpt(config.load_checkpoint) and not config.auto_trans_ckpt):
+    if check_path_include_total_ckpt(config.load_checkpoint) and not config.auto_trans_ckpt and \
+                                                                 not config.only_save_strategy:
+        load_ckpt(config, network, optimizer=optimizer)
+        return
+
+    if context.get_auto_parallel_context('parallel_mode') in ['semi_auto_parallel', 'auto_parallel',
+                                                              'hybrid_parallel']:
         # 1. build net if parallel mode is auto_parallel
         logger.info(".........Building model.........")
         build_model(config, model, dataset, do_eval=do_eval, do_predict=do_predict)
