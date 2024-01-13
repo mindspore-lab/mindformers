@@ -396,7 +396,7 @@ python llama_preprocess.py \
 - step2. 设置环境变量，变量配置如下：
 
 ```bash
-export MS_ASCEND_CHECK_OVERFLOW_MODE="INFNAN_MODE"  # 推荐开启饱和模式，llama2_70b 不用设置该项
+export MS_ASCEND_CHECK_OVERFLOW_MODE="INFNAN_MODE"  # 推荐开启INFNAN模式，llama2_7b和70b 不用设置该项
 ```
 
 - step3：进入`scripts`文件夹，启动运行脚本，进行8卡分布式运行。
@@ -632,7 +632,7 @@ bash run_distribute.sh [RANK_TABLE_FILE] ../configs/llama2/run_llama2_7b_910b_fi
 
 - step 1. 修改配置文件，参考全参微调修改训练数据集路径与预训练权重路径。
 
-- step 2. 启动lora微调任务。
+- step 2. 启动lora微调任务(不建议开启INFNAN模式)。
 
 > 注：llama2_7b_lora模型支持单卡启动，需将配置文件中的`use_parallel`参数置为`False`。
 

@@ -15,7 +15,7 @@ trainer:
 # runner config
 runner_config:
   epochs: 2
-  batch_size: 2
+  batch_size: 8
   sink_mode: True
   sink_size: 2
 
