@@ -88,7 +88,7 @@ if __name__ == "__main__":
         seq_length=args.seq_length,
         n_position=8192,
         vocab_size=49153,
-        embedding_size=6144,
+        hidden_size=6144,
         num_layers=40,
         num_heads=48,
         eos_token_id=0,
