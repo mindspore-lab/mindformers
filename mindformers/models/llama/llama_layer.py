@@ -159,7 +159,9 @@ class FreqsMgr(Cell):
         self.freqs_sin = Tensor(freqs_sin, dtype=rotary_dtype)
         self.swap_mask = Tensor(swap_mask, dtype=rotary_dtype)
 
-        self.reshape = P.Reshape().add_prim_attr("skip_redistribution", True)
+        self.reshape = P.Reshape()
+        if is_dynamic:
+            self.reshape.add_prim_attr("skip_redistribution", True)
         self.slice = P.StridedSlice().shard(((1, 1),))
         self.sub = P.Sub()
         self.gather = P.Gather().shard(((1, 1), (1,)))
