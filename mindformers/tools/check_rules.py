@@ -40,13 +40,14 @@ def get_server_num():
     return int(data['server_count'])
 
 
-def _check_mode(config, mode):
+def _check_mode(config, mode, **kwargs):
     """rules with different mode"""
     if mode == 'train':
         if config.model.model_config.use_past:
             config.model.model_config.use_past = False
             logger.warning("use_past could not be used in train mode, "
                            "it has been forced to False")
+        _check_keyword_gen_dataset(config, mode, **kwargs)
     elif mode == 'predict':
         if config.model.model_config.compute_type == 'bfloat16':
             config.model.model_config.compute_type = 'float16'
@@ -59,6 +60,7 @@ def _check_mode(config, mode):
     elif mode == 'eval':
         _rule_fa_only_for_train(config, mode)
         _rule_pp_only_for_train(config, mode)
+        _check_keyword_gen_dataset(config, mode, **kwargs)
     elif mode == 'export':
         _rule_fa_only_for_train(config, mode)
         _rule_pp_only_for_train(config, mode)
@@ -152,7 +154,7 @@ def _check_keyword_gen_dataset(config, mode, **kwargs):
                              f"but got seq_length={seq_length}, "
                              f"max_source_length={max_source_length} in {dataset_phase}.")
 
-    if train_dataset and train_dataset.data_loader.type == "ADGenDataLoader" and mode == 'train':
+    if mode == 'train' and train_dataset and train_dataset.data_loader.type == "ADGenDataLoader":
         # verify train_dataset
         raise_error_msg("train", train_dataset.max_source_length, train_dataset.max_target_length, "train_dataset")
 
@@ -164,7 +166,7 @@ def _check_keyword_gen_dataset(config, mode, **kwargs):
         if config.do_eval and config.metric.type == "PerplexityMetric":
             raise_error_msg("train", eval_dataset.max_source_length, eval_dataset.max_target_length, "eval_dataset")
 
-    if eval_dataset and eval_dataset.data_loader.type == "ADGenDataLoader" and mode == 'eval':
+    if mode == 'eval' and eval_dataset and eval_dataset.data_loader.type == "ADGenDataLoader":
         # verify eval_dataset
         if config.metric.type == "ADGENMetric":
             raise_error_msg("eval", eval_dataset.max_source_length, eval_dataset.max_target_length, "eval_dataset")
@@ -182,7 +184,6 @@ def _check_keyword_gen_dataset(config, mode, **kwargs):
 
 def check_rules(config, mode='train', **kwargs):
     """check rules"""
-    _check_mode(config, mode)
+    _check_mode(config, mode, **kwargs)
     _check_full_batch()
     _check_parallel(config)
-    _check_keyword_gen_dataset(config, mode, **kwargs)
