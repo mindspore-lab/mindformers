@@ -130,7 +130,6 @@ class LlamaForBlip2(LlamaForCausalLM, ImageTextEmbeddingPreparationMixIn):
         self.ones = P.Ones().shard(((dp, 1),))
         self.cast_1d = P.Cast().shard(((1,), (1,)))
         self.cast = P.Cast()
-        self.gather = P.Gather().shard(((1, 1), (1,)))
 
         self.is_first_iteration = True
         self.use_past = self.config.use_past
