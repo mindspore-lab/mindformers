@@ -395,7 +395,13 @@ python llama_preprocess.py \
 
 配置文件中各参数含义详见[Config配置说明文档](https://gitee.com/mindspore/mindformers/blob/master/configs/README.md)。
 
-- step2：进入`scripts`文件夹，启动运行脚本，进行8卡分布式运行。
+- step2. 设置环境变量，变量配置如下：
+
+```bash
+export MS_ASCEND_CHECK_OVERFLOW_MODE="INFNAN_MODE"  # 推荐开启INFNAN模式
+```
+
+- step3：进入`scripts`文件夹，启动运行脚本，进行8卡分布式运行。
 
 ```shell
 cd scripts
@@ -554,9 +560,18 @@ lr_schedule:
   total_steps: -1 # -1 means it will load the total steps of the dataset
 ```
 
-- step 3. 添加预训练权重路径，修改配置文件中的`load_checkpoint`，配置预训练权重路径。
+- step 3. 设置环境变量，变量配置如下：
 
-- step 4. 启动微调任务，llama-7b模型以单机八卡为例进行微调，命令如下：
+```bash
+export MS_DEV_SIDE_EFFECT_LOAD_ELIM=3  # 去除TensorMove
+export MS_MEMORY_POOL_RECYCLE=1  # 内存优化
+export GE_NOT_CUT=1   # 内存优化
+export MS_ASCEND_CHECK_OVERFLOW_MODE="INFNAN_MODE"
+```
+
+- step 4. 添加预训练权重路径，修改配置文件中的`load_checkpoint`，配置预训练权重路径。
+
+- step 5. 启动微调任务，llama-7b模型以单机八卡为例进行微调，命令如下：
 
 ```shell
 cd scripts
@@ -573,7 +588,7 @@ bash run_distribute.sh [RANK_TABLE_FILE] ../configs/llama/run_llama_7b.yaml [0,8
 
 - step 1. 修改配置文件，参考全参微调修改训练数据集路径与预训练权重路径。
 
-- step 2. 启动lora微调任务。
+- step 2. 启动lora微调任务。(不建议开启INFNAN模式)。
 
 > 注：llama_7b_lora模型支持单卡启动，需将配置文件中的`use_parallel`参数置为`False`。
 
