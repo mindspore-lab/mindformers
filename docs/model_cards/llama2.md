@@ -1206,12 +1206,6 @@ bash run_distribute.sh rank_table_2.json configs/llama2/run_llama2_7b.yaml [0,2]
   　　1. 以llama2_7b为例，修改模型相关的配置文件 configs/llama2/export_llama2_7b.yaml，其中需要关注这几项：
 
 ```yaml
-# export
-infer:
-    prefill_model_path: "llama2_export/llama2_7b_prefill_seq512.mindir" # 保存mindir的位置
-    increment_model_path: "llama2_export/llama2_7b_inc_seq512.mindir"   # 保存mindir的位置
-    infer_seq_length: 512 # 需要保持跟 model-model_config-seq_length 一致
-
 # ==== model config ====
 model:
   model_config:
@@ -1222,7 +1216,7 @@ model:
 2. 执行run_mindformer.py，完成模型转换
 
 ```bash
-python run_mindformer.py --config_path configs/llama2/export_llama2_7b.yaml --run_mode export --use_parallel False --device_id 0
+python run_mindformer.py --config configs/llama2/export_llama2_7b.yaml --run_mode export --use_parallel False --device_id 0
 ```
 
 #### 执行推理
