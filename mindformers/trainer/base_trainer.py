@@ -759,7 +759,7 @@ class BaseTrainer:
         logger.info("Create evaluate dataset finish, dataset size:%d", dataset.get_dataset_size())
 
         # check rules
-        check_rules(config, mode='eval', network=network, dataset=dataset)
+        check_rules(config, mode='eval', network=network, dataset=dataset, task=self.task)
 
         # build network
         if network is None and self.network is None:
@@ -822,7 +822,7 @@ class BaseTrainer:
             config = self.set_config(config, is_full_config)
 
             # check rules
-            check_rules(config, mode='predict', network=network)
+            check_rules(config, mode='predict', network=network, task=self.task)
 
             if ms.context.get_auto_parallel_context('parallel_mode') in \
                     ['semi_auto_parallel', 'auto_parallel', 'hybrid_parallel']:
@@ -920,7 +920,7 @@ class BaseTrainer:
             config = self.set_config(config, is_full_config)
 
             # check rules
-            check_rules(config, mode='export', network=network)
+            check_rules(config, mode='export', network=network, task=self.task)
 
             # build network
             if network is None:
