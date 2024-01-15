@@ -1702,7 +1702,7 @@ baichuan2-13b在Atlas 800T A2上多机训练时，推荐使用流水线并行，
 
 ```yaml
 context:
-  runtime_num_threads=1 # 新增配置
+  runtime_num_threads: 1 # 新增配置
 
 parallel_config:
   data_parallel: 8
