@@ -57,15 +57,38 @@ def _check_mode(config, mode, **kwargs):
             logger.warning("cast param_init_type because predict param need float16 but get bfloat16")
         _rule_fa_only_for_train(config, mode)
         _rule_pp_only_for_train(config, mode)
+        _rule_bs_divisible_by_dp(config, **kwargs)
     elif mode == 'eval':
         _rule_fa_only_for_train(config, mode)
         _rule_pp_only_for_train(config, mode)
         _check_keyword_gen_dataset(config, mode, **kwargs)
+        _rule_bs_divisible_by_dp(config, **kwargs)
     elif mode == 'export':
         _rule_fa_only_for_train(config, mode)
         _rule_pp_only_for_train(config, mode)
+        _rule_bs_divisible_by_dp(config, **kwargs)
     else:
         raise ValueError(f"mode should be in ['train', 'predict', 'eval', 'export'], but get {mode}")
+
+
+def _rule_bs_divisible_by_dp(config, **kwargs):
+    """check bs % dp == 0 when task is text_generation"""
+    network = kwargs.get("network", None)
+    task = kwargs.get("task", None)
+    dataset = kwargs.get("dataset", None)
+    if task != "text_generation":
+        return
+    if network is not None:
+        bs = network.config.batch_size
+        dp = network.config.parallel_config.data_parallel
+    else:
+        bs = config.model.model_config.batch_size
+        dp = config.parallel_config.data_parallel
+    if dataset is not None:
+        bs = dataset.get_batch_size()
+    if bs % dp != 0:
+        raise ValueError(f"batch_size should be divisible by dp. "
+                         f"But batch_size % dp = {bs} % {dp} = {bs % dp}")
 
 
 def _rule_fa_only_for_train(config, mode):
