@@ -123,7 +123,7 @@ def preprocess(sources, tokenizer, seq_length):
         d = {'input_ids': ids, 'attention_mask': mask}
         # pylint: disable=W0212
         d = tokenizer._pad(d, max_length=seq_length, padding_strategy='max_length')
-        input_ids.append(d['input_ids'])
+        input_ids.append(d['input_ids'][:seq_length])
         # attention_mask.append(d['attention_mask'])
 
         target = np.array(d['input_ids'])
@@ -148,6 +148,8 @@ def preprocess(sources, tokenizer, seq_length):
         if cur_len < seq_length:
             if cur_len != total_len:
                 target[:] = IGNORE_TOKEN_ID
+        else:
+            target = target[:seq_length]
         targets.append(target.tolist())
 
     input_ids = np.array(input_ids, dtype=np.int32)
