@@ -66,7 +66,7 @@ def main(args_param):
 
         cnt += 1
 
-    json.dump(new_data, open(args_param.output_path, "w"), indent=2)
+    json.dump(new_data, open(args_param.output_path, "w"), ensure_ascii=False, indent=2)
 
 if __name__ == "__main__":
 
