@@ -26,6 +26,11 @@ from mindformers.tools.logger import logger
 from mindformers.tools.cloud_adapter import cloud_monitor
 from mindformers.core.context import build_context, build_profile_cb
 from mindformers.tools import get_output_root_path
+from mindformers.tools.register.register import MindFormerModuleType, MindFormerRegister
+from telechat_config import TelechatConfig
+from telechat import TelechatForCausalLM
+MindFormerRegister.register_cls(TelechatConfig, MindFormerModuleType.CONFIG)
+MindFormerRegister.register_cls(TelechatForCausalLM, MindFormerModuleType.MODELS)
 
 
 if check_in_modelarts():

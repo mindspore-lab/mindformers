@@ -16,7 +16,8 @@
 import argparse
 import json
 from transformers import AutoTokenizer
-from mindformers.models.telechat import TelechatConfig, TelechatForCausalLM
+from telechat_config import TelechatConfig
+from telechat import TelechatForCausalLM
 from mindformers import MindFormerConfig, TransformerOpParallelConfig
 from mindformers import init_context
 from mindformers.tools.utils import str2bool
