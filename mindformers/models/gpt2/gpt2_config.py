@@ -132,6 +132,8 @@ class GPT2Config(BaseConfig):
                  top_p: float = 1.0,
                  do_sample: bool = True,
                  use_flash_attention: bool = False,
+                 use_prompt_flash_attention: bool = False,
+                 use_incre_flash_attention: bool = False,
                  **kwargs):
         super(GPT2Config, self).__init__(**kwargs)
         self.batch_size = batch_size
@@ -169,3 +171,5 @@ class GPT2Config(BaseConfig):
         self.top_p = top_p
         self.do_sample = do_sample
         self.use_flash_attention = use_flash_attention
+        self.use_prompt_flash_attention = use_prompt_flash_attention
+        self.use_incre_flash_attention = use_incre_flash_attention

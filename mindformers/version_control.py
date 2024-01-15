@@ -173,17 +173,26 @@ def fix_optim_global_step_sig():
     return is_version_ge(ms.__version__, "2.2.0")
 
 
-def check_valid_flash_attention(import_fa_valid=True):
-    """check mindspore version is valid for flash attention"""
-    version_valid = is_version_ge(ms.__version__, "2.2.0")
-    # below ms 2.2.0 is not support
+def check_valid_flash_attention(import_ifa_valid=True, fa_type=None):
+    """check mindspore version is valid for input flash attention"""
+    version_map = {"IncreFlashAttention": "2.3.0",
+                   "PromptFlashAttention": "2.2.0",
+                   "FlashAttention": "2.2.0"}
+    valid_version = version_map.get(fa_type)
+    if not is_910b() and fa_type in ["PromptFlashAttention", "IncreFlashAttention"]:
+        logger.warning(f"Current device {get_ascend_soc_version()} do not support {fa_type}, "
+                       f"please use 910b device.")
+        return False
+    if valid_version is None:
+        raise ValueError(f"fa_type should be in {list(version_map.keys())}, but get {fa_type}")
+    version_valid = is_version_ge(ms.__version__, valid_version)
     if not version_valid:
-        logger.warning("Current MindSpore do not support FlashAttention, please upgrade to 2.2.0 or later version.")
+        logger.warning(f"Current MindSpore do not support {fa_type}, "
+                       f"please upgrade to {valid_version} or later version.")
         logger.warning("Now running on self-attention mode.")
         result = False
-    # ms 2.2.0 or latter version but import error is not support
-    elif not import_fa_valid:
-        logger.warning("Import FlashAttention ERROR, please upgrade your MindSpore to 2.2.0 or later version. ")
+    elif not import_ifa_valid:
+        logger.warning(f"Import {fa_type} ERROR, please upgrade your MindSpore to {valid_version} or later version. ")
         logger.warning("Now running on self-attention mode.")
         result = False
     # both pass should return True

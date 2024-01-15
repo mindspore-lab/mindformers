@@ -434,6 +434,8 @@ class GPT2Model(nn.Cell):
                 moe_config=moe_config if not config.moe_config.save_token_distribution else moe_config[i],
                 use_past=config.use_past,
                 use_flash_attention=config.use_flash_attention,
+                use_prompt_flash_attention=config.use_prompt_flash_attention,
+                use_incre_flash_attention=config.use_incre_flash_attention
             )
             set_parallel_configure_for_layer(
                 block, layer_id=i, layers=config.num_layers,
