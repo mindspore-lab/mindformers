@@ -1150,7 +1150,7 @@ bash run_predict.sh RANK_TABLE_FILE path/to/shard_checkpoint_dir path/to/config_
 
 > 注：config_yaml的配置也要和基于generate的多卡推理一样将model_parallel 修改为相应卡数，而data_parallel 和 pipeline_stage设置为1。
 
-### 基于run_mindformer分布式推理
+### 基于run_mindformer推理
 
 #### 单卡推理
 
