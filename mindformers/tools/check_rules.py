@@ -70,9 +70,9 @@ def _check_mode(config, mode, **kwargs):
 
 def _restore_net_type(config):
     """net data type with different mode for llama2 7b"""
-    if config.model.model_config.compute_type == 'bfloat16' and \
+    if config.model.model_config.compute_dtype == 'bfloat16' and \
         config.model.model_config.param_init_type == 'float32':
-        config.model.model_config.compute_type = 'float16'
+        config.model.model_config.compute_dtype = 'float16'
         config.model.model_config.param_init_type = 'float16'
         logger.warning("cast compute_dtype and param_init_type to float16 for predict/eval/export performance")
 
