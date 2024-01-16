@@ -52,26 +52,32 @@ def _check_mode(config, mode, **kwargs):
         _check_keyword_gen_dataset(config, mode, **kwargs)
         _rule_910b_enable_infnan_mode()
     elif mode == 'predict':
-        if config.model.model_config.compute_type == 'bfloat16':
-            config.model.model_config.compute_type = 'float16'
-            logger.warning("cast compute_type because predict param need float16 but get bfloat16")
-        if config.model.model_config.param_init_type == 'bfloat16':
-            config.model.model_config.param_init_type = 'float16'
-            logger.warning("cast param_init_type because predict param need float16 but get bfloat16")
+        _restore_net_type(config)
         _rule_fa_only_for_train(config, mode)
         _rule_pp_only_for_train(config, mode)
         _rule_bs_divisible_by_dp(config, **kwargs)
     elif mode == 'eval':
+        _restore_net_type(config)
         _rule_fa_only_for_train(config, mode)
         _rule_pp_only_for_train(config, mode)
         _check_keyword_gen_dataset(config, mode, **kwargs)
         _rule_bs_divisible_by_dp(config, **kwargs)
     elif mode == 'export':
+        _restore_net_type(config)
         _rule_fa_only_for_train(config, mode)
         _rule_pp_only_for_train(config, mode)
         _rule_bs_divisible_by_dp(config, **kwargs)
     else:
         raise ValueError(f"mode should be in ['train', 'predict', 'eval', 'export'], but get {mode}")
+
+
+def _restore_net_type(config):
+    """net data type with different mode for llama2 7b"""
+    if config.model.model_config.compute_type == 'bfloat16' and \
+        config.model.model_config.param_init_type == 'float32':
+        config.model.model_config.compute_type = 'float16'
+        config.model.model_config.param_init_type = 'float16'
+        logger.warning("cast compute_dtype and param_init_type to float16 for predict/eval/export performance")
 
 
 def _rule_bs_divisible_by_dp(config, **kwargs):
