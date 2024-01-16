@@ -13,22 +13,24 @@
 # limitations under the License.
 # ============================================================================
 """LLaMA transformer Layer's APIs."""
-from typing import Tuple, Optional
 import math
+from typing import Tuple, Optional
 
 try:
     from mindspore._checkparam import Validator
 except ImportError:
     import mindspore._checkparam as Validator
 
-from mindspore import nn, __version__
+from mindspore import nn, __version__, ops
 import mindspore.common.dtype as mstype
 from mindspore.common.tensor import Tensor
 from mindspore.context import ParallelMode
 from mindspore.ops import operations as P
 from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
+
 try:
     from mindspore.nn.layer.flash_attention import FlashAttention
+
     FLASHATTENTION_VALID = True
 except ImportError:
     FLASHATTENTION_VALID = False
@@ -36,10 +38,10 @@ except ImportError:
 from mindformers.models.llama.llama_layer import LlamaFeedForward, LlamaRMSNorm, LlamaRotaryEmbedding
 from mindformers.modules.layers import _check_input_dtype, Linear
 from mindformers.modules.transformer import TransformerOpParallelConfig
-from mindformers.modules import KVCacheMgr
-
+from mindformers.modules import KVCacheMgr, PagedAttentionMgr
 from mindformers.tools.utils import is_version_ge
 from mindformers.tools.logger import logger
+
 
 class LLamaAttention(nn.Cell):
     r"""
@@ -102,6 +104,7 @@ class LLamaAttention(nn.Cell):
                 ((batch_size, num_heads, head_dim, tgt_seq_length),
                 (batch_size, num_heads, tgt_seq_length, head_dim)).
     """
+
     def __init__(self,
                  batch_size,
                  seq_length,
@@ -120,6 +123,9 @@ class LLamaAttention(nn.Cell):
                  is_flexible_shape=False,
                  use_rope_slice=False,
                  use_flash_attention=False,
+                 use_paged_attention=False,
+                 block_size: Optional[int] = None,
+                 num_blocks: Optional[int] = None,
                  parallel_config=TransformerOpParallelConfig()):
         super().__init__()
         self.seq_length = seq_length
@@ -129,12 +135,15 @@ class LLamaAttention(nn.Cell):
         self.n_kv_head = n_heads if n_kv_heads is None else n_kv_heads
         self.n_rep = self.n_head // self.n_kv_head
         self.kv_dim = self.n_kv_head * self.head_dim
+        self.block_size = block_size
+        self.num_blocks = num_blocks
 
         self.dtype = compute_dtype
         self.softmax_dtype = softmax_compute_dtype
         self.is_first_iteration = True
         self.use_past = use_past
         self.use_flash_attention = use_flash_attention and FLASHATTENTION_VALID
+        self.use_paged_attention = use_paged_attention
         self.qkv_concat = qkv_concat
 
         if self.hidden_size % self.n_head != 0:
@@ -243,13 +252,22 @@ class LLamaAttention(nn.Cell):
                                                   high_precision=True)
 
         if self.use_past:
-            self.kvcache_mgr = KVCacheMgr(self.n_kv_head, self.head_dim,
-                                          max_batch_size=batch_size,
-                                          max_seq_length=seq_length,
-                                          compute_dtype=compute_dtype,
-                                          is_dynamic=is_dynamic,
-                                          use_kvcache_op=use_kvcache_op,
-                                          is_flexible_shape=is_flexible_shape)
+            if self.use_paged_attention:
+                self.kvcache_mgr = PagedAttentionMgr(self.n_head,
+                                                     self.head_dim,
+                                                     self.hidden_size,
+                                                     n_kv_heads=self.n_kv_head,
+                                                     block_size=self.block_size,
+                                                     num_blocks=self.num_blocks,
+                                                     compute_dtype=compute_dtype)
+            else:
+                self.kvcache_mgr = KVCacheMgr(self.n_kv_head, self.head_dim,
+                                              max_batch_size=batch_size,
+                                              max_seq_length=seq_length,
+                                              compute_dtype=compute_dtype,
+                                              is_dynamic=is_dynamic,
+                                              use_kvcache_op=use_kvcache_op,
+                                              is_flexible_shape=is_flexible_shape)
             self.kvcache_mgr.shard(parallel_config)
 
     def construct(self, x: Tensor, freqs_cis: Tuple[Tensor, Tensor], mask=None, kvcache_inputs=None):
@@ -269,7 +287,7 @@ class LLamaAttention(nn.Cell):
                                    (bs_seq, self.hidden_size + self.kv_dim * 2), (1, 1))
         else:
             query = self.cast(self.wq(x), self.dtype)  # dp, 1 -> dp, mp
-            key = self.cast(self.wk(x), self.dtype)    # dp, 1 -> dp, mp
+            key = self.cast(self.wk(x), self.dtype)  # dp, 1 -> dp, mp
             value = self.cast(self.wv(x), self.dtype)  # dp, 1 -> dp, mp
 
         if self.use_past and not self.is_first_iteration:
@@ -285,10 +303,15 @@ class LLamaAttention(nn.Cell):
             key = self.transpose(key, (0, 2, 1, 3))
             value = self.transpose(value, (0, 2, 1, 3))
         # [bs, n_head/n_kv_head, seq/1, head_dim]
-        query, key = self.apply_rotary_emb(query, key, freqs_cis) # dp, mp, 1, 1
+        query, key = self.apply_rotary_emb(query, key, freqs_cis)  # dp, mp, 1, 1
         # kv cache: [bs, n_kv_head, 1, head_dim] -> [bs, n_kv_head, seq, head_dim]
         if self.use_past:
-            key, value = self.kvcache_mgr(key, value, kvcache_inputs)
+            if self.use_paged_attention:
+                _, _, slot_mapping = kvcache_inputs
+                key_out = self.kvcache_mgr(key, value, slot_mapping)
+                query = ops.depend(query, key_out)
+            else:
+                key, value = self.kvcache_mgr(key, value, kvcache_inputs)
         # kv share: [bs, n_kv_head, seq, head_dim] -> [bs, n_head, seq, head_dim]
         key = self._repeat_kv(key, self.n_rep)
         value = self._repeat_kv(value, self.n_rep)
@@ -297,9 +320,13 @@ class LLamaAttention(nn.Cell):
             attention = self.flash_attention(query, key, value, mask)
             attention = self._merge_heads(attention)
         else:
-            attention = self._attn(query, key, value, mask)
+            if not self.is_first_iteration and self.use_paged_attention:
+                batch_valid_length, block_tables, _ = kvcache_inputs
+                attention = self.kvcache_mgr.paged_attn(query, block_tables, batch_valid_length)
+            else:
+                attention = self._attn(query, key, value, mask)
         # [bs, seq/1, hidden_dim] or [bs * seq/1, hidden_dim]
-        output = self.wo(attention) # dp, mp -> dp, 1 / dp * mp, 1
+        output = self.wo(attention)  # dp, mp -> dp, 1 / dp * mp, 1
         output = self.cast(output, ori_dtype)
 
         return output
@@ -324,7 +351,7 @@ class LLamaAttention(nn.Cell):
             x_merge: the 2d output
         """
         # [bs, n_head, seq/1, head_dim]
-        x = self.merger_head_transpose(x, (0, 2, 1, 3)) # dp,mp,1,1 -> dp,1,mp,1
+        x = self.merger_head_transpose(x, (0, 2, 1, 3))  # dp,mp,1,1 -> dp,1,mp,1
         # [bs, seq/1, n_head, head_dim]
         bs, seq_len, n_head, head_dim = self.shape(x)
         # [bs, seq/1, hidden_dim]
@@ -420,6 +447,7 @@ class LLamaDecodeLayer(nn.Cell):
               (batch_size, num_heads, seq_length, head_dim)).
 
     """
+
     def __init__(self,
                  batch_size,
                  seq_length,
@@ -444,6 +472,9 @@ class LLamaDecodeLayer(nn.Cell):
                  is_flexible_shape=False,
                  use_rope_slice=False,
                  use_flash_attention=False,
+                 use_paged_attention=False,
+                 block_size: Optional[int] = None,
+                 num_blocks: Optional[int] = None,
                  parallel_config=TransformerOpParallelConfig()):
         super().__init__()
         if batch_size or use_past:
@@ -484,6 +515,9 @@ class LLamaDecodeLayer(nn.Cell):
                                         is_flexible_shape=is_flexible_shape,
                                         use_rope_slice=use_rope_slice,
                                         use_flash_attention=use_flash_attention,
+                                        use_paged_attention=use_paged_attention,
+                                        block_size=block_size,
+                                        num_blocks=num_blocks,
                                         parallel_config=parallel_config)
         self.feed_forward = LlamaFeedForward(dim=self.hidden_size,
                                              intermediate_size=intermediate_size,

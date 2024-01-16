@@ -79,6 +79,12 @@ model:
     extend_method: "None" # support "None", "PI", "NTK"
     compute_in_2d: True
     use_flash_attention: False
+    use_paged_attention: False  # PA only supported in inference
+    block_size: 16
+    num_blocks: 512
+    is_dynamic: False
+    use_kvcache_op: False
+    is_flexible_shape: False
     offset: 0
     use_past_shard: False
     checkpoint_name_or_path: "{path}/llama2_13b.ckpt" # 导出任务这里必填

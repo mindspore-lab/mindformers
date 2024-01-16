@@ -906,7 +906,7 @@ def main(args):
 
         # shard model and load sharded ckpt
         warm_up_model = Model(model)
-        warm_up_model.infer_predict_layout(ms.Tensor(np.ones(shape=(1, model_config.seq_length)), ms.int32))
+        warm_up_model.infer_predict_layout(ms.Tensor(np.ones(shape=(model_config.batch_size, model_config.seq_length)), ms.int32))
         checkpoint_dict = load_checkpoint(ckpt_path)
         not_load_network_params = load_param_into_net(model, checkpoint_dict)
         print("Network parameters are not loaded: %s", str(not_load_network_params))
