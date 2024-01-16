@@ -857,10 +857,12 @@ class BaseTrainer:
                 if ms.context.get_auto_parallel_context('parallel_mode') in \
                         ['semi_auto_parallel', 'auto_parallel', 'hybrid_parallel']:
                     if network.config:
+                        batch_size = network.config.batch_size
                         seq_length = network.config.seq_length
                     else:
+                        batch_size = config.model.model_config.batch_size
                         seq_length = config.model.model_config.seq_length
-                    infer_data = Tensor(shape=(1, seq_length), dtype=ms.int32, init=init.One())
+                    infer_data = Tensor(shape=(batch_size, seq_length), dtype=ms.int32, init=init.One())
                     transform_and_load_checkpoint(config, model, network, infer_data, do_predict=True)
                 else:
                     transform_and_load_checkpoint(config, model, network, None, do_predict=True)
@@ -937,10 +939,12 @@ class BaseTrainer:
                 if ms.context.get_auto_parallel_context('parallel_mode') in \
                         ['semi_auto_parallel', 'auto_parallel', 'hybrid_parallel']:
                     if network.config:
+                        batch_size = network.config.batch_size
                         seq_length = network.config.seq_length
                     else:
+                        batch_size = config.model.model_config.batch_size
                         seq_length = config.model.model_config.seq_length
-                    infer_data = Tensor(shape=(1, seq_length), dtype=ms.int32, init=init.One())
+                    infer_data = Tensor(shape=(batch_size, seq_length), dtype=ms.int32, init=init.One())
                     transform_and_load_checkpoint(config, model, network, infer_data, do_predict=True)
                 else:
                     transform_and_load_checkpoint(config, model, network, None, do_predict=True)
