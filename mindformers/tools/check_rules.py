@@ -95,6 +95,7 @@ def _rule_bs_divisible_by_dp(config, **kwargs):
         dp = config.parallel_config.data_parallel
     if dataset is not None:
         bs = dataset.get_batch_size()
+    bs = 1 if bs is None else bs
     if bs % dp != 0:
         raise ValueError(f"batch_size should be divisible by dp. "
                          f"But batch_size % dp = {bs} % {dp} = {bs % dp}")
