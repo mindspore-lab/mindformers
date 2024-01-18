@@ -22,6 +22,8 @@ import math
 import numpy as np
 
 from mindspore.common.tensor import Tensor
+from mindspore.common.parameter import Parameter
+from mindspore.common.initializer import initializer
 import mindspore.common.dtype as mstype
 import mindspore.communication.management as D
 # MindSpore 2.0 has changed the APIs of _checkparam, the following try except is for compatibility
@@ -36,7 +38,7 @@ from mindspore.nn.cell import Cell
 from mindspore.nn.layer import Dense
 from mindspore.context import ParallelMode
 from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
-from mindformers.modules.transformer.op_parallel_config import default_moeparallel_config
+from mindformers.modules.transformer.op_parallel_config import default_moeparallel_config, MoEParallelConfig
 
 __all__ = [
     "MoEConfig"]
@@ -77,7 +79,8 @@ class MoEConfig:
 
     def __init__(self, expert_num=1, capacity_factor=1.1, aux_loss_factor=0.05, num_experts_chosen=1,
                  expert_group_size=None, group_wise_a2a=False, comp_comm_parallel=False, comp_comm_parallel_degree=2,
-                 save_token_distribution=False, cur_layer=0):
+                 save_token_distribution=False, cur_layer=0, enable_cold_hot_expert=False, update_step=10000,
+                 hot_expert_num=0, cold_token_percent=1.0, moe_module_name=""):
         Validator.check_positive_int(expert_num, "expert_num")
         Validator.check_positive_float(capacity_factor, "capacity_factor")
         Validator.check_positive_float(aux_loss_factor, "aux_loss_factor")
@@ -87,6 +90,10 @@ class MoEConfig:
         Validator.check_positive_int(comp_comm_parallel_degree, "comp_comm_parallel_degree")
         Validator.check_bool(save_token_distribution, "save_token_distribution")
         Validator.check_non_negative_int(cur_layer, "cur_layer")
+        Validator.check_bool(enable_cold_hot_expert, "enable_cold_hot_expert")
+        Validator.check_positive_int(update_step, "update_step")
+        Validator.check_non_negative_int(hot_expert_num, "hot_expert_num")
+        Validator.check_non_negative_float(cold_token_percent, "cold_token_percent")
         if expert_group_size is not None:
             Validator.check_positive_int(expert_group_size, "expert_group_size")
         if capacity_factor < 1.0:
@@ -98,6 +105,12 @@ class MoEConfig:
         if num_experts_chosen > expert_num:
             raise ValueError(f"'num_experts_chosen' must not be larger than 'expert_num', "
                              f"but got {num_experts_chosen}.")
+        if hot_expert_num > expert_num:
+            raise ValueError(f"'hot_expert_num' must not be larger than 'expert_num', "
+                             f"but got {hot_expert_num}.")
+        if cold_token_percent > 1.0 or cold_token_percent <= 0.0:
+            raise ValueError(f"'cold_token_percent' must be in the range (0.0, 1.0], "
+                             f"but got {cold_token_percent}.")
         self.expert_num = expert_num
         self.capacity_factor = capacity_factor
         self.aux_loss_factor = aux_loss_factor
@@ -108,6 +121,11 @@ class MoEConfig:
         self.comp_comm_parallel_degree = comp_comm_parallel_degree
         self.save_token_distribution = save_token_distribution
         self.cur_layer = cur_layer
+        self.enable_cold_hot_expert = enable_cold_hot_expert
+        self.update_step = update_step
+        self.hot_expert_num = hot_expert_num
+        self.cold_token_percent = cold_token_percent
+        self.moe_module_name = moe_module_name
 
 
 default_moe_config = MoEConfig()
@@ -270,6 +288,43 @@ class MoE(Cell):
             self.stride_slice_ep = P.StridedSlice().shard(((self.ep, 1, 1, 1),))
             self.stride_slice_dp_mp = P.StridedSlice().shard(((1, self.dp, self.mp, 1),))
             self.stride_slice_ep_mp = P.StridedSlice().shard(((self.ep, 1, self.mp, 1),))
+            self.enable_cold_hot_expert = moe_config.enable_cold_hot_expert
+            if self.enable_cold_hot_expert:
+                self.cur_layer = moe_config.cur_layer
+                self.hot_expert_num = moe_config.hot_expert_num
+                self.update_step = moe_config.update_step
+                self.cold_token_percent = moe_config.cold_token_percent
+                self.hot_expert_index = Parameter(
+                    initializer(Tensor([[i for i in range(self.hot_expert_num)]], mstype.int32),
+                                (1, self.hot_expert_num,), mstype.int32),
+                    name="hot_expert_index"+str(self.cur_layer),
+                    requires_grad=False, parallel_optimizer=False)
+                self.cold_expert_index = Parameter(
+                    initializer(Tensor([[i for i in range(self.hot_expert_num, self.expert_dim)]], mstype.int32),
+                                (1, self.expert_dim - self.hot_expert_num,), mstype.int32),
+                    name="cold_expert_index"+str(self.cur_layer),
+                    requires_grad=False, parallel_optimizer=False)
+                mlp_parallel_config = MoEParallelConfig(data_parallel=self.dp,
+                                                        model_parallel=self.mp,
+                                                        expert_parallel=1)
+                self.mlp = FeedForward(hidden_size=hidden_size,
+                                       ffn_hidden_size=ffn_hidden_size,
+                                       dropout_rate=dropout_rate,
+                                       hidden_act=hidden_act,
+                                       expert_num=self.hot_expert_num,
+                                       param_init_type=param_init_type,
+                                       parallel_config=mlp_parallel_config)
+                self.gather = P.Gather(0).shard(((1, 1, self.dp, 1), (1,)))
+                self.gather2 = P.Gather(0).shard(((self.dp, 1, 1, 1), (1,)))
+                self.concat0 = P.Concat(0).shard(((1,), (1,)))
+                self.concat1 = P.Concat(1).shard(((self.dp, 1, 1, 1), (self.dp, 1, 1, 1)))
+                self.concat2 = P.Concat(2).shard(((self.dp, 1, 1, 1), (self.dp, 1, 1, 1)))
+                self.zeros = P.Zeros()
+                self.transpose_1dim_dp = P.Transpose().shard(((self.dp, 1, 1, 1),))
+                self.equal = P.Equal().shard(((1, 1), (1, 1)))
+                self.equal2 = P.Equal().shard(((1,), ()))
+                self.reduce_any = P.ReduceAny().shard(((1, 1),))
+                self.topk = P.TopK().shard(((1,),))
 
     def ffn_infer(self, expert_input, capacity):
         """
@@ -325,8 +380,12 @@ class MoE(Cell):
                 expert_output = self.stride_slice_dp(expert_output, (0, 0, 0, 0),
                                                      (self.expert_dim, self.dp_group, capacity, self.hidden_size),
                                                      (1, 1, 1, 1))
-        # expert_output's shape: (self.dp_group, self.hidden_size, self.expert_dim, expert_capacity)
-        expert_output = self.transpose_4dim(expert_output, (1, 3, 0, 2))
+        if self.enable_cold_hot_expert:
+            # expert_output's shape: (self.dp_group, self.expert_dim, expert_capacity, self.hidden_size)
+            expert_output = self.transpose_4dim(expert_output, (1, 0, 2, 3))
+        else:
+            # expert_output's shape: (self.dp_group, self.hidden_size, self.expert_dim, expert_capacity)
+            expert_output = self.transpose_4dim(expert_output, (1, 3, 0, 2))
         return expert_output
 
     def ffn_parallel_infer(self, expert_input, capacity):
@@ -388,20 +447,59 @@ class MoE(Cell):
         expert_input = self.transpose_2dim(expert_input, (1, 0))
         expert_input = self.reshape(expert_input, (self.expert_dim, expert_capacity, self.dp_group,
                                                    self.hidden_size))
-        # expert_input's shape: (self.expert_dim, self.dp_group, expert_capacity, self.hidden_size)
-        expert_input = self.transpose_4dim_dp(expert_input, (0, 2, 1, 3))
+        if self.enable_cold_hot_expert:
+            hot_expert_index = self.hot_expert_index.value().copy()[0]
+            cold_expert_index = self.cold_expert_index.value().copy()[0]
 
-        # expert_output's shape: (self.dp_group, self.hidden_size, self.expert_dim, expert_capacity)
-        if self.comp_comm_parallel:
-            expert_output = self.ffn_parallel_infer(expert_input, expert_capacity)
+            hot_expert_input = self.gather(expert_input, hot_expert_index, 0)
+            cold_expert_input = expert_input
+            cold_expert_capacity = int(expert_capacity * self.cold_token_percent)
+            hot_expert_input = self.transpose_4dim_dp(hot_expert_input, (2, 0, 1, 3))
+            cold_expert_input = self.transpose_4dim_dp(cold_expert_input, (0, 2, 1, 3))
+            cold_expert_input = self.stride_slice_dp(
+                cold_expert_input, (0, 0, 0, 0),
+                (self.expert_dim, self.dp_group, cold_expert_capacity, self.hidden_size),
+                (1, 1, 1, 1))
+            # expert_output's shape: (self.dp_group, self.hidden_size, self.expert_dim, expert_capacity)
+            if self.comp_comm_parallel:
+                cold_expert_output = self.ffn_parallel_infer(cold_expert_input, cold_expert_capacity)
+            else:
+                cold_expert_output = self.ffn_infer(cold_expert_input, cold_expert_capacity)
+
+            hot_expert_input = self.reshape(hot_expert_input,
+                                            (self.hot_expert_num * self.dp_group * expert_capacity, self.hidden_size))
+            hot_expert_output = self.mlp(hot_expert_input)
+
+            hot_expert_output = self.reshape(hot_expert_output,
+                                             (self.dp_group, self.hot_expert_num, expert_capacity, self.hidden_size))
+
+            cold_expert_output = self.gather2(cold_expert_output, cold_expert_index, 1)
+            if self.cold_token_percent < 1.0:
+                zeros = self.zeros((self.dp_group, self.expert_dim - self.hot_expert_num,
+                                    expert_capacity - cold_expert_capacity, self.hidden_size), mstype.float16)
+                cold_expert_output = self.concat2((cold_expert_output, zeros))
+
+            expert_output = self.concat1((hot_expert_output, cold_expert_output))
+            expert_index = self.concat0((hot_expert_index, cold_expert_index))
+            _, expert_gather_index = self.reshape(expert_index, (1, -1)).topk(self.expert_dim, largest=False)
+            expert_gather_index = self.reshape(expert_gather_index, (-1,))
+            expert_output = self.gather2(expert_output, expert_gather_index, 1)
+            # expert_output's shape: (self.dp_group, self.hidden_size, self.expert_dim, expert_capacity)
+            expert_output = self.transpose_1dim_dp(expert_output, (0, 3, 1, 2))
         else:
-            expert_output = self.ffn_infer(expert_input, expert_capacity)
+            # expert_input's shape: (self.expert_dim, self.dp_group, expert_capacity, self.hidden_size)
+            expert_input = self.transpose_4dim_dp(expert_input, (0, 2, 1, 3))
+            # expert_output's shape: (self.dp_group, self.hidden_size, self.expert_dim, expert_capacity)
+            if self.comp_comm_parallel:
+                expert_output = self.ffn_parallel_infer(expert_input, expert_capacity)
+            else:
+                expert_output = self.ffn_infer(expert_input, expert_capacity)
 
         expert_output = self.reshape(expert_output, (self.dp_group, self.hidden_size,
                                                      self.expert_dim * expert_capacity))
         combine_tensor = self.reshape(combine_tensor, (self.dp_group, tokens_per_group,
                                                        self.expert_dim * expert_capacity))
-        # combine_tensor's shape: (self.dp_group, self.expert_dim*expert_capacity, tokens_per_group)
+        # combine_tensor's shape: (self.dp_group, self.expert_dim * expert_capacity, tokens_per_group)
         combine_tensor = self.transpose_3dim(combine_tensor, (0, 2, 1))
         combine_tensor = self.cast(combine_tensor, F.dtype(expert_output))
 
@@ -562,6 +660,7 @@ class TopkRouter(Cell):
             self.expert_dim = moe_config.expert_num
             self.capacity_factor = moe_config.capacity_factor
             self.save_token_distribution = moe_config.save_token_distribution
+            self.enable_cold_hot_expert = moe_config.enable_cold_hot_expert
             self.training = training
             self.dp_group = dp
             self.noisy_policy = None
@@ -611,6 +710,12 @@ class TopkRouter(Cell):
             if self.save_token_distribution:
                 self.cur_layer = moe_config.cur_layer
                 self.tensor_summary = P.TensorSummary()
+            if self.enable_cold_hot_expert:
+                self.cur_layer = moe_config.cur_layer
+                self.cumsum_value = Parameter(initializer('zeros', (self.expert_dim,), mstype.int32),
+                                              name="cumsum_value"+str(self.cur_layer), requires_grad=False,
+                                              parallel_optimizer=False)
+                self.assign = P.Assign().shard(((1,), (1,)))
 
     def construct(self, router_logits):
         """forward process"""
@@ -692,6 +797,9 @@ class TopkRouter(Cell):
         if self.save_token_distribution:
             record_name = 'layer-' + str(self.cur_layer)
             self.tensor_summary(record_name, cumsum[0][-1])
+        if self.enable_cold_hot_expert:
+            cumsum_int_value = self.cast(cumsum[0][-1], mstype.int32)
+            self.assign(self.cumsum_value, cumsum_int_value)
         # position_in_expert's shape: (dp_group, tokens_per_group, self.expert_dim)
         position_in_expert = self.mul4(cumsum, expert_mask)
         less_result = self.less(position_in_expert, expert_capacity)

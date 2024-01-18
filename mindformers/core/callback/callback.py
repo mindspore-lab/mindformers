@@ -29,6 +29,9 @@ from mindspore.train.callback import SummaryCollector
 from mindspore.nn.learning_rate_schedule import LearningRateSchedule
 from mindspore.train.callback._callback import set_cur_net
 from mindspore.train.serialization import _get_merged_param_data
+from mindspore.nn.cell import Cell
+from mindspore.ops.operations.comm_ops import Broadcast
+from mindspore.common import jit
 
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.tools.cloud_adapter.cloud_adapter import Local2ObsMonitor
@@ -762,3 +765,177 @@ class EvalCallBack(Callback):
         output = self.eval_func()
         eval_time = time.time() - start_time
         logger.info("Eval result: %s, eval time is %f s.", output, eval_time)
+
+
+@MindFormerRegister.register(MindFormerModuleType.CALLBACK)
+class ColdHotExpertMointor(Callback):
+    """
+        ColdHotExpertMointor Callback used in MoE model training progress.
+
+        Args:
+            config : Read config from configuration file.
+
+        Examples:
+            >>> from mindformers.core.callback import ColdHotExpertMointor
+            >>> callback = ColdHotExpertMointor(config)
+            >>> type(callback)
+            <class 'mindformers.core.callback.callback.ColdHotExpertMointor'>
+    """
+    def __init__(self, moe_config=None, hidden_size=None, ffn_hidden_size=None, expert_parallel=None,
+                 model_parallel=None, save_checkpoint_steps=None):
+        self.update_step = moe_config.update_step if hasattr(moe_config, "update_step") else 10000
+        self.expert_num = moe_config.expert_num
+        self.hot_expert_num = moe_config.hot_expert_num
+        self.moe_module_name = moe_config.moe_module_name
+        self.hidden_size = hidden_size
+        self.ffn_hidden_size = ffn_hidden_size
+        self.ep = expert_parallel
+        self.mp = model_parallel
+        self.save_checkpoint_steps = save_checkpoint_steps
+        self.rank_id = int(os.getenv("RANK_ID"))
+        self.local_expert_num = self.expert_num // self.ep
+        self.local_expert_index = [i for i in range(
+            (self.rank_id // self.mp) * self.local_expert_num,
+            (self.rank_id // self.mp) * self.local_expert_num + self.local_expert_num)]
+        self.rank_size = int(os.getenv("RANK_SIZE"))
+
+    def on_train_step_end(self, run_context):
+        """
+        Switch popular expert copies when there is a change in popular experts at the step.
+
+        Args:
+            run_context (RunContext): Context of the train running.
+        """
+        if self.update_step <= 0:
+            return
+        callback_params = run_context.original_args()
+        cur_step_num = callback_params.cur_step_num
+        if ((cur_step_num < self.update_step and cur_step_num & (cur_step_num - 1) == 0) or
+                (cur_step_num == self.save_checkpoint_steps) or (cur_step_num % self.update_step == 0)):
+            total_start = time.time()
+            train_network = callback_params.train_network
+            if train_network is None:
+                return
+            blocks = self.get_attribute_by_path(train_network, self.moe_module_name)
+            for block in blocks:
+                if cur_step_num > 1:
+                    self.return_back_hot_expert(block)
+                self.switch_hot_expert(block, cur_step_num)
+            total_end = time.time()
+            logger.info("switch hot experts spent time is %f s.", total_end - total_start)
+
+    def on_train_end(self, run_context):
+        """
+        Switch popular expert copies when there is a change in popular experts at the step.
+
+        Args:
+            run_context (RunContext): Context of the train running.
+        """
+        callback_params = run_context.original_args()
+        cur_step_num = callback_params.cur_step_num
+        train_network = callback_params.train_network
+        if train_network is None:
+            return
+        blocks = self.get_attribute_by_path(train_network, self.moe_module_name)
+        for block in blocks:
+            if cur_step_num > 1:
+                self.return_back_hot_expert(block)
+
+    def get_attribute_by_path(self, obj, path):
+        """
+        Obtains MoE blocks modules in obj by path..
+
+        Args:
+            obj : Model.
+            path(str) : Path of the MoE layer in the model
+        """
+        for attr in path.split('.'):
+            obj = getattr(obj, attr)
+        return obj
+
+    def return_back_hot_expert(self, block):
+        """
+        When the popular experts change, return the replica parameters to the old popular experts.
+
+        Args:
+            block : MoE layer.
+        """
+        old_hot_expert_index = block.output.hot_expert_index.value()[0]
+        if self.hot_expert_num == 1:
+            if old_hot_expert_index[0] in self.local_expert_index:
+                ffn_index = old_hot_expert_index[0] - (self.rank_id // self.mp) * self.local_expert_num
+                block.output.ffn.mapping.weight[ffn_index] = block.output.mlp.mapping.weight
+                block.output.ffn.mapping.bias[0][ffn_index][0] = block.output.mlp.mapping.bias
+                block.output.ffn.projection.weight[ffn_index] = block.output.mlp.projection.weight
+                block.output.ffn.projection.bias[0][ffn_index][0] = block.output.mlp.projection.bias
+        elif self.hot_expert_num > 1:
+            for i in range(self.hot_expert_num):
+                if old_hot_expert_index[i] in self.local_expert_index:
+                    ffn_index = old_hot_expert_index[i] - (self.rank_id // self.mp) * self.local_expert_num
+                    block.output.ffn.mapping.weight[ffn_index] = block.output.mlp.mapping.weight[i]
+                    block.output.ffn.mapping.bias[0][ffn_index][0] = block.output.mlp.mapping.bias[0][i][0]
+                    block.output.ffn.projection.weight[ffn_index] = block.output.mlp.projection.weight[i]
+                    block.output.ffn.projection.bias[0][ffn_index][0] = block.output.mlp.projection.bias[0][i][0]
+
+    def switch_hot_expert(self, block, cur_step_num):
+        """
+        Switch popular expert copies when there is a change in popular experts at the step.
+
+        Args:
+            block : MoE layer.
+            cur_step_num : Current training step
+        """
+        old_hot_expert_index = block.output.hot_expert_index.value()[0]
+        cumsum_tensor = block.output.router.router.cumsum_value.value()
+        _, new_expert_index = cumsum_tensor.topk(self.expert_num, largest=True)
+        new_hot_expert_index = new_expert_index[0:self.hot_expert_num]
+        new_cold_expert_index = new_expert_index[self.hot_expert_num:self.expert_num]
+        broadcasts = [self.BroadcastCell(i) for i in range(self.rank_size)]
+        if self.hot_expert_num == 1:
+            if cur_step_num > 1 and old_hot_expert_index[0] == new_hot_expert_index[0]:
+                return
+            # Broadcast new hot expert and copy the weights of new hot experts to mlp
+            for i in range(self.mp):
+                ffn_index = new_hot_expert_index[0] % self.local_expert_num
+                rank_id = new_hot_expert_index[0] // self.local_expert_num * self.mp + i
+                expert_part = broadcasts[rank_id]((block.output.ffn.mapping.weight[ffn_index],
+                                                   block.output.ffn.mapping.bias[0][ffn_index][0],
+                                                   block.output.ffn.projection.weight[ffn_index],
+                                                   block.output.ffn.projection.bias[0][ffn_index][0]))
+                if self.rank_id % self.mp == i:
+                    block.output.mlp.mapping.weight = expert_part[0]
+                    block.output.mlp.mapping.bias = expert_part[1]
+                    block.output.mlp.projection.weight = expert_part[2]
+                    block.output.mlp.projection.bias = expert_part[3]
+        elif self.hot_expert_num > 1:
+            new_hot_expert_index, _ = new_hot_expert_index.topk(self.hot_expert_num, largest=False)
+            if cur_step_num > 1 and old_hot_expert_index.equal(new_hot_expert_index).all():
+                return
+            # Broadcast new hot expert and copy the weights of new hot experts to mlp
+            for index in range(self.hot_expert_num):
+                for i in range(self.mp):
+                    ffn_index = new_hot_expert_index[index] % self.local_expert_num
+                    rank_id = new_hot_expert_index[index] // self.local_expert_num * self.mp + i
+                    expert_part = broadcasts[rank_id]((block.output.ffn.mapping.weight[ffn_index],
+                                                       block.output.ffn.mapping.bias[0][ffn_index][0],
+                                                       block.output.ffn.projection.weight[ffn_index],
+                                                       block.output.ffn.projection.bias[0][ffn_index][0]))
+                    if self.rank_id % self.mp == i:
+                        block.output.mlp.mapping.weight[index] = expert_part[0]
+                        block.output.mlp.mapping.bias[0][index][0] = expert_part[1]
+                        block.output.mlp.projection.weight[index] = expert_part[2]
+                        block.output.mlp.projection.bias[0][index][0] = expert_part[3]
+        block.output.hot_expert_index = new_hot_expert_index.reshape((1, -1))
+        block.output.cold_expert_index = new_cold_expert_index.reshape((1, -1))
+        del broadcasts
+
+    class BroadcastCell(Cell):
+        def __init__(self, rank_id):
+            super().__init__(auto_prefix=False)
+            self.broadcast = Broadcast(rank_id)
+            self.add_flags(skip_auto_parallel_compile=True)
+
+        @jit()
+        def construct(self, x):
+            x = self.broadcast(x)
+            return x

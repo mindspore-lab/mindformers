@@ -409,7 +409,7 @@ class GPT2Model(nn.Cell):
             moe_parallel_config = MoEParallelConfig(data_parallel=config.parallel_config.data_parallel,
                                                     model_parallel=config.parallel_config.model_parallel,
                                                     expert_parallel=config.parallel_config.expert_parallel)
-        if config.moe_config.save_token_distribution:
+        if config.moe_config.save_token_distribution or config.moe_config.enable_cold_hot_expert:
             moe_config = [copy.deepcopy(config.moe_config) for i in range(config.num_layers)]
             for i in range(config.num_layers):
                 moe_config[i].cur_layer = i
@@ -431,7 +431,8 @@ class GPT2Model(nn.Cell):
                 layernorm_compute_type=config.layernorm_compute_type,
                 softmax_compute_type=config.softmax_compute_type,
                 parallel_config=config.parallel_config.dp_mp_config if not self.use_moe else moe_parallel_config,
-                moe_config=moe_config if not config.moe_config.save_token_distribution else moe_config[i],
+                moe_config=moe_config if not (config.moe_config.save_token_distribution or
+                                              config.moe_config.enable_cold_hot_expert) else moe_config[i],
                 use_past=config.use_past,
                 use_flash_attention=config.use_flash_attention,
             )
