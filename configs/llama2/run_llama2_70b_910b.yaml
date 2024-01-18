@@ -89,7 +89,7 @@ parallel:
     parallel_optimizer_threshold: 64
 # default parallel of device num = 32 for Atlas 800T A2
 parallel_config:
-  data_parallel: 1
+  data_parallel: 2
   model_parallel: 4
   pipeline_stage: 8
   use_seq_parallel: True
@@ -154,7 +154,7 @@ model:
     rotary_dtype: "float16"
     param_init_type: "float16"
     use_past: False
-    scaling_factor: 1
+    scaling_factor: 1.0
     extend_method: "None" # support "None", "PI", "NTK"
     use_flash_attention: True
     fine_grain_interleave: 2
