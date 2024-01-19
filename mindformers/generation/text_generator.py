@@ -1080,6 +1080,12 @@ class GeneratorMixin:
 
         logits_processor = logits_processor if logits_processor is not None else LogitsProcessorList()
 
+        # use_past should be defined in model config
+        use_past_tmp = kwargs.pop("use_past", None)
+        if use_past_tmp is not None:
+            logger.warning("use_past should be defined in model config, it will not take effect when passed to "
+                           ".generate() method.")
+
         # Handle `generation_config` and kwargs that might update it
         # priority: `generation_config` argument > `model.generation_config` (default config)
         if generation_config is None:
