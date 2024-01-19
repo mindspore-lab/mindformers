@@ -52,7 +52,8 @@ def build_context(config):
 
     config.device_num = device_num
     config.local_rank = local_rank
-    if os.environ.get("CPU_AFFINITY") == '1' or os.environ.get("CPU_AFFINITY").lower() == 'true':
+    use_cpu_affinity = os.environ.get("CPU_AFFINITY")
+    if use_cpu_affinity and (use_cpu_affinity == '1' or use_cpu_affinity.lower() == 'true'):
         ds.config.set_numa_enable(True)
         cpu_affinity(local_rank, device_num)
         logger.info(f"cpu_affinity, rank_id: {local_rank}, device_num: {device_num}")
