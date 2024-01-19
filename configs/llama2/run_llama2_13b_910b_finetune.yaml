@@ -18,7 +18,7 @@ do_eval: False
 # runner config
 runner_config:
   epochs: 2
-  batch_size: 2
+  batch_size: 4
   sink_mode: True
   sink_size: 2
 
