@@ -85,8 +85,8 @@
 |    Llama-7B/13B     |      Lora       |      PPL       |        √        |  dp/mp   |    √     |  ×   |    ×     |    √     |
 |  Llama2-7B/13B/70B  |      Lora       |      PPL       |        √        |  dp/mp   |    √     |  √   |    √     |    √     |
 |       GLM-6B        |      Lora       |   Bleu/Rouge   |        √        |  dp/mp   |    √     |  √   |    √     |    √     |
-|       GLM2-6B       | Lora/P-TuningV2 | PPL/Bleu/Rouge |        √        |  dp/mp   |    √     |  √   |    √     |    √     |
-|       GLM3-6B       |        ×        |       ×        |        √        |  dp/mp   |    √     |  √   |    √     |    √     |
+|       GLM2-6B       | Lora/P-TuningV2 | PPL/Bleu/Rouge |        √        |    ×     |    √     |  √   |    √     |    √     |
+|       GLM3-6B       |        ×        |       ×        |        √        |    ×     |    √     |  √   |    √     |    √     |
 |    CodeGeex2-6B     |        ×        | PPL/Bleu/Rouge |        √        |  dp/mp   |    √     |  √   |    √     |    √     |
 |   Bloom-560m/7.1B   |        ×        |      PPL       |        √        |  dp/mp   |    √     |  √   |    √     |    √     |
 |    GPT2-128m/13B    |      Lora       |      PPL       |        √        |  dp/mp   |    √     |  ×   |    ×     |    √     |

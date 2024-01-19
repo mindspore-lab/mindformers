@@ -739,6 +739,18 @@ python run_mindformer.py --config configs/glm2/run_glm2_6b_finetune_eval.yaml--r
 python run_mindformer.py --config configs/glm2/run_glm2_6b_lora_eval.yaml --run_mode eval --load_checkpoint /path/to/glm2_6b_lora.ckpt --device_id 0 --use_parallel False
 ```
 
+### 多卡评测
+
+执行脚本：
+
+```bash
+cd scripts
+bash run_distribute.sh /path/to/hccl_8p_01234567_127.0.1.1.json ../configs/glm2/run_glm2_6b_*_eval.yaml '[0,8]' eval
+```
+
+> 全参微调请选择 `configs/glm2/run_glm2_6b_finetune_eval.yaml`
+> lora微调请选择 `configs/glm2/run_glm2_6b_lora_eval.yaml`
+
 ## 推理
 
 ### 基于generate的推理
@@ -746,7 +758,7 @@ python run_mindformer.py --config configs/glm2/run_glm2_6b_lora_eval.yaml --run_
 下面提供一个模型推理样例脚本 `infer.py`
 
 ```python
-from mindformers import AutoConfig, AutoModel, AutoTokenizer, AutoProcessor
+from mindformers import AutoConfig, AutoModel, AutoTokenizer, ChatGLM2Tokenizer
 import mindspore as ms
 
 ms.set_context(mode=ms.GRAPH_MODE, device_target="Ascend", device_id=0)
@@ -755,49 +767,67 @@ ms.set_context(mode=ms.GRAPH_MODE, device_target="Ascend", device_id=0)
 # **注意** P-Tuning 微调模型替换成 “glm2_6b_ptuning2”
 config = AutoConfig.from_pretrained("glm2_6b")
 # 可以在此使用下行代码指定自定义权重进行推理，默认使用自动从obs上下载的预训练权重
-# config.checkpoint_name_or_path = "/path/to/glm2_6b_finetune.ckpt"
+# config.checkpoint_name_or_path = "/path/to/your/chatglm2_6b.ckpt"
 config.use_past = True
+config.seq_length = 1024
 model = AutoModel.from_config(config)
 
 # 以下两种tokenizer实例化方式选其一即可
 # 1. 在线加载方式
 tokenizer = AutoTokenizer.from_pretrained("glm2_6b")
 # 2. 本地加载方式
-# tokenizer = AutoProcessor.from_pretrained("/path/to/your.yaml").tokenizer
+# tokenizer = ChatGLM2Tokenizer("/path/to/your/tokenizer.model")
 
-batch_size = config.batch_size
+kwargs={}
+gen_kwargs = {"max_length": config.seq_length, "num_beams": 1, "do_sample": False, "top_p": 3,"top_k": 0.7,
+              "temperature": 1, **kwargs}
 
-inputs = tokenizer(tokenizer.build_prompt("你好"))["input_ids"]
-outputs = model.generate([inputs]*batch_size, max_length=128)
-print(tokenizer.decode(outputs))
-# ['[Round 1]\n\n问：你好\n\n答： 你好👋！我是人工智能助手 ChatGLM2-6B，很高兴见到你，欢迎问我任何问题。']
-inputs = tokenizer(tokenizer.build_prompt("请介绍一下华为"))["input_ids"]
-outputs = model.generate([inputs]*batch_size, max_length=128)
-print(tokenizer.decode(outputs))
-# ['[Round 1]\n\n问：请介绍一下华为\n\n答： 华为是一家总部位于中国的全球知名科技公司,成立于1987年,是全球领先的信息与通信技术(ICT)解决方案供
-# 应商之一。\n\n华为的业务范围涵盖了网络、终端、云计算、软件、芯片等多个领域,旗下的智能手机、电脑、平板电脑等消费电子产品在国内外市场上都享有较高
-# 的声誉。此外,华为还在5G、人工智能、云计算等领域取得了重要的进展,为全球用户提供了更高效、更智能的科技体验。\n\n华为一直致力于技术创新,研发投入
-# 占公司总收入的比例超过']
-inputs = tokenizer(tokenizer.build_prompt("晚上睡不着应该怎么办"))["input_ids"]
-outputs = model.generate([inputs]*batch_size, max_length=128)
-print(tokenizer.decode(outputs))
-# ['[Round 1]\n\n问：晚上睡不着应该怎么办\n\n答： 以下是一些有助于晚上睡觉的技巧:\n\n1. 创建一个规律的睡眠时间表:每天在相同的时间上床并尽量
-# 在同一时间起床,有助于身体建立规律的生物钟。\n\n2. 创建一个舒适的睡眠环境:确保房间安静、黑暗、凉爽和舒适。如果需要,可以使用睡眠面罩、耳塞或空气
-# 净化器来帮助创造一个更舒适的睡眠环境。\n\n3. 避免使用电子设备:在睡觉前一两个小时内避免使用电子设备,如']
-inputs = tokenizer(tokenizer.build_prompt("类型#上衣*材质#牛仔布*颜色#白色*风格#简约*图案#刺绣*衣样式#外套*衣款式#破洞"))["input_ids"]
-outputs = model.generate([inputs]*batch_size, max_length=128)
-print(tokenizer.decode(outputs))
-# ['[Round 1]\n\n问：类型#上衣*材质#牛仔布*颜色#白色*风格#简约*图案#刺绣*衣样式#外套*衣款式#破洞\n\n答： 上衣 材质:牛仔布 颜色:白色 风格:
-# 简约 图案:刺绣 衣样式:外套 衣款式:破洞\n\n这件上衣由牛仔布制成,采用了简约的风格,图案为刺绣设计,衣样式为外套,衣款式为破洞。']
+queries = ["你好", "请介绍一下杭州", "那里有什么好吃的吗"]
+history = []
+for query in queries:
+    # 如果想关闭history，此处传入 `history=[]` 即可
+    prompt = tokenizer.build_prompt(query, history=history)
+    input_id = tokenizer(prompt)["input_ids"]
+
+    output = model.generate([input_id], **gen_kwargs)
+
+    # output 包括了[input_id, output]两个部分
+    output = output[0][len(input_id):]
+    response = tokenizer.decode(output)
+    print(response)
+    history += [(query, response)]
+
+    '''
+    response1:
+    你好👋！我是人工智能助手 ChatGLM2-6B，很高兴见到你，欢迎问我任何问题。
+
+    response2:
+    杭州是中国浙江省省会，位于浙江省东南部，地处浙江省北部，东临东海，南接福建省，北与江苏省毗邻，是中国著名的旅游城市之一。
+
+    杭州有着悠久的历史和文化，被誉为“人间天堂”，被誉为“南宋都城”，是中国南方著名的历史文化名城之一。杭州还被誉为“全国最具幸福感城市”，具有丰富的历史遗存、优美的自然风光和浓郁的文化氛围。
+
+    杭州的经济以服务业为主导产业，特别是交通运输、仓储和邮政业。同时，杭州也是中国重要的电子商务和互联网产业基地之一，被誉为“中国电子商务之都”。
+
+    杭州的著名景点包括西湖、灵隐寺、千岛湖、钱塘江等。西湖是中国著名的风景名胜区之一，被誉为“人间天堂”，灵隐寺是中国著名的佛教寺庙之一，千岛湖和钱塘江是中国著名的自然风景区之一。
+
+    杭州还拥有丰富的人文资源，被誉为“人间天堂”的杭州西湖、灵隐寺、千岛湖、钱塘江等景点，以及宋城、南宋御街等历史文化景点，都是游客前来杭州旅游的热门景点。
+
+    response3:
+    杭州是中国著名的美食城市之一，有许多特色美食和传统菜肴。以下是一些杭州的著名美食:
+
+    1. 西湖醋鱼：这是杭州最著名的菜肴之一，鱼肉鲜美，入口即化，佐以香醋、糖、姜丝等调料，口感酸甜适中。
+
+    2. 龙井虾仁：以当地特产的龙井茶为佐料，将鲜嫩的虾仁炒制而成，香气扑鼻，鲜嫩可口。
+
+    3. 灌汤包：又称小笼包，是杭州的传统点心之一。包子的皮薄馅多，汤汁鲜美，非常受欢迎。
+
+    4. 姜母鸭：这是一道杭帮菜，以鸭肉、姜母、葱等调料烹制而成，口感鲜美。
+
+    5. 老字号小吃：杭州还有很多老字号小吃店，如胡同口烤肉串、孔府家宴、宋嫂鱼羹等，是当地居民和游客的美食选择。
+
+    此外，杭州还有许多特色小吃，如粽子、臭豆腐、糯米鸡、肉夹馍、鸭血粉丝汤等，让人垂涎欲滴。
+    '''
 ```
-
-如果需要加载本地词表，请修改配置文件中以下项：
-
-  ```yaml
-  processor:
-    tokenizer:
-      vocab_file: "/path/to/tokenizer.model"
-  ```
 
 ### 脚本启动
 

@@ -1,5 +1,5 @@
 seed: 0
-run_mode: 'train'
+run_mode: 'eval'
 output_dir: './output' # path to save checkpoint/strategy
 load_checkpoint: 'glm2_6b'
 src_strategy_path_or_dir: ''
@@ -185,19 +185,20 @@ lr_scale: False
 lr_scale_factor: 256
 
 # parallel config
-use_parallel: False
+use_parallel: True
 parallel:
-  parallel_mode: 1 # 0-dataset, 1-semi, 2-auto, 3-hybrid
+  parallel_mode: 0 # 0-dataset, 1-semi, 2-auto, 3-hybrid
   gradients_mean: False
   loss_repeated_mean: True
   enable_alltoall: False
-  full_batch: True
+  full_batch: False
   search_mode: "sharding_propagation"
   enable_parallel_optimizer: True  # optimizer shard
   strategy_ckpt_config:
     save_file: "./ckpt_strategy.ckpt"
+    only_trainable_params: False # 设置成 False，才能在策略文件中保存所有参数
 parallel_config:
-  data_parallel: 4
+  data_parallel: 8
   model_parallel: 1
   pipeline_stage: 1
   expert_parallel: 1
