@@ -154,7 +154,7 @@ model:
     param_init_type: "float16"
     has_bias: True
     use_past: False
-    pretrain_seqlen: 2048
+    scaling_factor: 1.0
     extend_method: "None"
     use_flash_attention: False
     offset: 0
