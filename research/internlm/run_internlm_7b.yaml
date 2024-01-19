@@ -151,7 +151,7 @@ model:
     param_init_type: "float16"
     has_bias: True
     use_past: False
-    pretrain_seqlen: 2048
+    scaling_factor: 1.0
     extend_method: "None"
     offset: 0
     checkpoint_name_or_path: "internlm_7b"
