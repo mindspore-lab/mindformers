@@ -17,23 +17,25 @@ ChatGLM3 是智谱AI和清华大学 KEG 实验室联合发布的新一代对话�
 
 `chatGLM3-6B` 基于 `mindformers` 实现，主要涉及的文件有：
 
-1. 模型具体实现：`mindformers/models/glm3`
+1. 模型具体实现：
 
     ```text
-    glm3
-        ├── __init__.py
-        └── glm3_tokenizer.py        # tokenizer
+    mindformers/models/glm3
+    ├── __init__.py
+    └── glm3_tokenizer.py        # tokenizer
     ```
 
   glm3的模型结构和config同glm2
 
-2. 模型配置：`configs/glm3`
+2. 模型配置：
 
     ```bash
-    glm3
-        ├── export_glm3_6b.yaml                # 导出mindir配置
-        ├── run_glm3_6b_finetune_2k_910b.yaml  # Atlas 800T A2最佳性能全量微调启动配置
-        └── run_glm3_6b.yaml                   # 推理用配置
+    configs/glm3
+    ├── export_glm3_6b.yaml                        # 导出 mindir 配置
+    ├── run_glm3_6b_finetune_2k_910b.yaml          # Atlas 800T A2 最佳性能全量微调启动配置
+    ├── run_glm3_6b_finetune_910b.yaml             # Atlas 800T A2 ADGEN 全量微调启动配置
+    ├── run_glm3_6b_multiturn_finetune_910b.yaml   # Atlas 800T A2 多轮对话全量微调启动配置
+    └── run_glm3_6b.yaml                           # ChatGLM3配置模板
     ```
 
 ## 前期准备
@@ -367,13 +369,12 @@ for input_item in inputs_list:
 
 ### 数据集准备
 
+#### 输入输出格式数据集
+
 ADGEN 数据集任务为根据输入（content）生成一段广告词（summary）。
 
 ```json
-{
-    "content": "类型#上衣*版型#宽松*版型#显瘦*图案#线条*衣样式#衬衫*衣袖型#泡泡袖*衣款式#抽绳",
-    "summary": "这件衬衫的款式非常的宽松，利落的线条可以很好的隐藏身材上的小缺点，穿在身上有着很好的显瘦效果。领口装饰了一个可爱的抽绳，漂亮的绳结展现出了十足的个性，配合时尚的泡泡袖型，尽显女性甜美可爱的气息。"
-}
+{"content": "类型#上衣*版型#宽松*版型#显瘦*图案#线条*衣样式#衬衫*衣袖型#泡泡袖*衣款式#抽绳", "summary": "这件衬衫的款式非常的宽松，利落的线条可以很好的隐藏身材上的小缺点，穿在身上有着很好的显瘦效果。领口装饰了一个可爱的抽绳，漂亮的绳结展现出了十足的个性，配合时尚的泡泡袖型，尽显女性甜美可爱的气息。"}
 ```
 
 从 [Google Drive](https://drive.google.com/file/d/13_vf0xRTQsyneRKdD1bZIr93vBGOczrk/view?usp=sharing) 或者 [Tsinghua Cloud](https://cloud.tsinghua.edu.cn/f/b3f119a008264b1cabd1/?dl=1) 下载处理好的 ADGEN 数据集，目录结构为
@@ -384,68 +385,48 @@ AdvertiseGen
   └── dev.json
 ```
 
-将任务配置文件 `configs/glm3/run_glm3_6b_*.yaml` 中的 `==== dataset config ====` 部分替换成：
+修改配置文件 `configs/glm3/run_glm3_6b_finetune*.yaml` 中的以下项：
 
 ```yaml
 train_dataset: &train_dataset
-  data_loader:
-    type: ADGenDataLoader
     dataset_dir: "/path/to/AdvertiseGen/train.json"
-    shuffle: True
-    phase: "train"
-    version: 3
     origin_columns: ["content", "summary"]
   tokenizer:
-    type: ChatGLM3Tokenizer
     vocab_file: "/path/to/tokenizer.model"
   input_columns: ["input_ids", "labels"]
   max_source_length: 64
   max_target_length: 128
-  ignore_pad_token_for_loss: True
-  num_parallel_workers: 8
-  python_multiprocessing: False
-  drop_remainder: True
-  batch_size: 1
-  repeat: 1
-  numa_enable: False
-  prefetch_size: 1
-  seed: 0
-
-train_dataset_task:
-  type: KeyWordGenDataset
-  dataset_config: *train_dataset
 
 eval_dataset: &eval_dataset
   data_loader:
-    type: ADGenDataLoader
     dataset_dir: "/path/to/AdvertiseGen/dev.json"
-    shuffle: False
-    phase: "eval"
-    version: 3
     origin_columns: ["content", "summary"]
   tokenizer:
-    type: ChatGLM3Tokenizer
     vocab_file: "/path/to/tokenizer.model"
   max_source_length: 256
   max_target_length: 256
-  ignore_pad_token_for_loss: True
-  input_columns: ["input_ids", "labels"]
-  num_parallel_workers: 8
-  python_multiprocessing: False
-  drop_remainder: True
-  batch_size: 1
-  repeat: 1
-  numa_enable: False
-  prefetch_size: 1
-  seed: 0
-
-eval_dataset_task:
-  type: KeyWordGenDataset
-  dataset_config: *eval_dataset
 ```
 
-> 注意：微调时的模型`seq_length`需要等于微调数据集的`max_source_length + max_target_length + 1`。
-> yaml文件中默认的`seq_length: 193`以及`max_source_length: 64`和`max_target_length: 128`适用于ADGEN数据集
+**注意**：微调时的模型`seq_length`需要等于微调数据集的`max_source_length + max_target_length + 1`。
+yaml文件中默认的`seq_length: 193`以及`max_source_length: 64`和`max_target_length: 128`适用于ADGEN数据集，
+其他数据集的`seq_length`设置，可以遍历并将数据集转换为token_id，取token_id最大长度，`seq_length`太大影响训练性能，
+太小影响训练精度，需要做出权衡。
+
+#### 多轮对话格式数据集
+
+首先，克隆 [ToolAlpaca 数据集](https://github.com/tangqiaoyu/ToolAlpaca)，并下载处理脚本 [format_tool_alpaca.py](https://github.com/THUDM/ChatGLM3/blob/main/finetune_chatmodel_demo/scripts/format_tool_alpaca.py)，然后执行脚本执行脚本：
+
+```python
+python mindformers/tools/format_tool_alpaca.py --path ToolAlpaca/data/train_data.json
+```
+
+脚本会在执行目录下生成 formatted_data/tool_alpaca.jsonl
+
+也可以在这里下载处理好的数据集：
+
+[tool_alpaca.jsonl](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/XFormer_for_mindspore/glm3/tool_alpaca.jsonl)
+
+微调时选择配置文件：`configs/glm3/run_glm3_6b_multiturn_finetune*.yaml`
 
 ### 全参微调
 
@@ -822,3 +803,64 @@ Please enter your predict data:
 ```bash
 ['[gMASK]sop<|user|> \n 你好<|assistant|> \n 你好👋！我是人工智能助手 ChatGLM3-6B，很高兴见到你，欢迎问我任何问题。']
 ```
+
+## Q & A
+
+### Q1: 网络训练 loss 不下降、网络训练溢出、`overflow_cond=True` 怎么办？
+
+A1: 执行训练前设置环境变量：
+
+```bash
+export MS_ASCEND_CHECK_OVERFLOW_MODE="INFNAN_MODE"
+```
+
+重新启动训练。
+
+### Q2: 推理速度非常慢、Mindspore只能跑在CPU上、报错中含有 `te`、`tbe`、`tvm`等字样？
+
+A2: 一般是 Mindspore + Ascend 环境安装问题，确认环境安装过程参照
+[安装指南](https://www.mindspore.cn/install/#%E6%89%8B%E5%8A%A8%E5%AE%89%E8%A3%85)并且成功设置了环境变量。执行：
+
+```python
+python -c "import mindspore;mindspore.set_context(device_target='Ascend');mindspore.run_check()"
+```
+
+假如执行输出：
+
+```bash
+MindSpore version: 版本号
+The result of multiplication calculation is correct, MindSpore has been installed on platform [Ascend] successfully!
+```
+
+并且没有报错，则说明成功安装了环境。
+
+或许你想问，有没有更方便的环境安装方式？恭喜你，有的，我们还提供现成的
+[docker镜像](http://mirrors.cn-central-221.ovaijisuan.com/mirrors.html)，可以依据需求自行取用。
+
+### Q3: Sync stream Failed、exec graph xxx failed？
+
+A3:这类报错较为宽泛，可以打开昇腾host日志进一步定位。
+
+```bash
+export ASCEND_GLOBAL_EVENT_ENABLE=0
+export ASCEND_GLOBAL_LOG_LEVEL=2
+export ASCEND_SLOG_PRINT_TO_STDOUT=1
+```
+
+打开昇腾host日志后模型性能将明显下降，定位问题结束后需要取消昇腾日志：
+
+```bash
+unset ASCEND_GLOBAL_EVENT_ENABLE ASCEND_GLOBAL_LOG_LEVEL ASCEND_SLOG_PRINT_TO_STDOUT
+```
+
+### Q4: the strategy is xxxxxx, shape xxxx cannot be divisible by value x
+
+A4: 检查模型句长是否满足 `max_source_length + max_target_length + 1 = seq_length` 的要求。
+
+### 仍然有疑问？欢迎向我们提出issue，我们将尽快为您解决
+
+提问时麻烦提供以下信息：
+
+1. 执行命令
+2. 运行环境，包括硬件版本、CANN版本、Mindspore版本、Mindformers版本
+3. 报错完整日志

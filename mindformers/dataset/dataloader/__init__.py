@@ -24,6 +24,8 @@ from .squad_dataloader import SQuADDataLoader
 from .adgen_dataloader import ADGenDataLoader
 from .sft_dataloader import SFTDataLoader
 from .training_dataloader import TrainingDataLoader
+from .toolaplaca_dataloader import ToolAlpacaDataLoader
 
 __all__ = ['Flickr8kDataLoader', 'Cifar100DataLoader', 'WMT16DataLoader', 'CLUENERDataLoader', 'SQuADDataLoader',
-           'ADGenDataLoader', 'MultiImgCapDataLoader', 'MultiSourceDataLoader', 'SFTDataLoader', 'TrainingDataLoader']
+           'ADGenDataLoader', 'MultiImgCapDataLoader', 'MultiSourceDataLoader', 'SFTDataLoader', 'TrainingDataLoader',
+           'ToolAlpacaDataLoader']

@@ -1,7 +1,7 @@
 seed: 0
 run_mode: 'train'
 output_dir: './output' # path to save checkpoint/strategy
-load_checkpoint: 'glm2_6b'
+load_checkpoint: ''
 src_strategy_path_or_dir: ''
 auto_trans_ckpt: False  # If true, auto transform load_checkpoint to load in distributed model
 only_save_strategy: False
@@ -14,7 +14,7 @@ context:
   enable_graph_kernel: False
   graph_kernel_flags: "--disable_expand_ops=Softmax,Dropout --enable_parallel_fusion=true --reduce_fuse_depth=8 --enable_auto_tensor_inplace=true"
   max_call_depth: 10000
-  max_device_memory: "59GB"  # 59GB for Atlas 800T A2
+  max_device_memory: "59GB" # 59GB for Atlas 800T A2
   save_graphs: False
   device_id: 0
 
@@ -32,7 +32,7 @@ model:
     ffn_hidden_size: 13696
     kv_channels: 128
     num_attention_heads: 32
-    seq_length: 2048
+    seq_length: 192
     hidden_dropout: 0.0
     attention_dropout: 0.0
     layernorm_epsilon: 1e-5
@@ -54,41 +54,34 @@ model:
     compute_dtype: "float16"
     layernorm_compute_type: "float32"
     use_past: False
-    use_flash_attention: True # when use FlashAttention, seq_length should be multiple of 16
+    use_flash_attention: False # when use FlashAttention, seq_length should be multiple of 16
     eos_token_id: 2
     pad_token_id: 0
     repetition_penalty: 1.0
     max_decode_length: 256
-    checkpoint_name_or_path: "glm2_6b"
+    checkpoint_name_or_path: "glm3_6b"
     top_k: 1
     top_p: 1
     do_sample: True
-    pet_config:
-      pet_type: lora
-      # configuration of lora
-      lora_rank: 8
-      lora_alpha: 32
-      lora_dropout: 0.1
-      target_modules: '.*query_key_value*'
   arch:
     type: ChatGLM2ForConditionalGeneration
 
 trainer:
   type: CausalLanguageModelingTrainer
-  model_name: 'glm2_6b_lora'
+  model_name: 'glm3_6b'
 # if True do, evaluate during the training process. if false, do nothing.
 # note that the task trainer should support _evaluate_in_training function.
 do_eval: False
-eval_step_interval: 1788
+eval_step_interval: 500
 eval_epoch_interval: -1
 
 metric:
-  type: PerplexityMetric
+  type: ADGENMetric
 
 processor:
   return_tensors: ms
   tokenizer:
-    type: ChatGLM2Tokenizer
+    type: ChatGLM3Tokenizer
     bos_token: '<sop>'
     eos_token: '<eop>'
     end_token: '</s>'
@@ -106,19 +99,19 @@ train_dataset: &train_dataset
     dataset_dir: "/path/to/AdvertiseGen/train.json"
     shuffle: True
     phase: "train"
-    version: 2
+    version: 3
     origin_columns: ["content", "summary"]
   tokenizer:
-    type: ChatGLM2Tokenizer
+    type: ChatGLM3Tokenizer
     vocab_file: "/path/to/tokenizer.model"
   input_columns: ["input_ids", "labels"]
-  max_source_length: 1023
-  max_target_length: 1024
+  max_source_length: 64
+  max_target_length: 127
   ignore_pad_token_for_loss: True
   num_parallel_workers: 8
   python_multiprocessing: False
   drop_remainder: True
-  batch_size: 4
+  batch_size: 8
   repeat: 1
   numa_enable: False
   prefetch_size: 1
@@ -133,20 +126,20 @@ eval_dataset: &eval_dataset
     type: ADGenDataLoader
     dataset_dir: "/path/to/AdvertiseGen/dev.json"
     shuffle: False
-    phase: "train"
+    phase: "eval"
     version: 2
     origin_columns: ["content", "summary"]
   tokenizer:
-    type: ChatGLM2Tokenizer
+    type: ChatGLM3Tokenizer
     vocab_file: "/path/to/tokenizer.model"
-  max_source_length: 1023
-  max_target_length: 1024
+  max_source_length: 256
+  max_target_length: 256
   ignore_pad_token_for_loss: True
   input_columns: ["input_ids", "labels"]
   num_parallel_workers: 8
   python_multiprocessing: False
   drop_remainder: True
-  batch_size: 4
+  batch_size: 8
   repeat: 1
   numa_enable: False
   prefetch_size: 1
@@ -161,7 +154,7 @@ runner_config:
   epochs: 1
   batch_size: 4
   sink_mode: True
-  sink_size: 4
+  sink_size: 1
 
 runner_wrapper:
   type: MFTrainOneStepCell
@@ -175,7 +168,7 @@ runner_wrapper:
 # lr sechdule
 lr_schedule:
   type: polynomial
-  learning_rate: 5.e-5
+  learning_rate: 1.e-4
   lr_end: 1.e-6
   warmup_steps: 0
   total_steps: -1 # -1 means it will load the total steps of the dataset
@@ -204,7 +197,6 @@ parallel:
   enable_parallel_optimizer: True  # optimizer shard
   strategy_ckpt_config:
     save_file: "./ckpt_strategy.ckpt"
-    only_trainable_params: False # 设置成 False，才能在策略文件中保存所有参数
 parallel_config:
   data_parallel: 8
   model_parallel: 1
@@ -246,7 +238,7 @@ profile_memory: True
 callbacks:
   - type: MFLossMonitor
   - type: CheckpointMointor
-    prefix: "glm2-6b-lora"
+    prefix: "glm3-6b"
     save_checkpoint_steps: 1000
     keep_checkpoint_max: 1
     integrated_save: False

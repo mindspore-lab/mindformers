@@ -35,6 +35,7 @@ from .text_classification_dataset import TextClassificationDataset
 from .token_classification_dataset import TokenClassificationDataset
 from .translation_dataset import TranslationDataset
 from .zero_shot_image_classification_dataset import ZeroShotImageClassificationDataset
+from .multi_turn_dataset import MultiTurnDataset
 from .utils import check_dataset_config
 
 
@@ -42,7 +43,7 @@ __all__ = ['BaseDataset', 'CausalLanguageModelDataset', 'ContrastiveLanguageImag
            'ImageCLSDataset', 'KeyWordGenDataset', 'MaskLanguageModelDataset',
            'MIMDataset', 'QuestionAnsweringDataset', 'RewardModelDataset', 'TextClassificationDataset',
            'TokenClassificationDataset', 'TranslationDataset', 'ZeroShotImageClassificationDataset',
-           'check_dataset_config']
+           'MultiTurnDataset', 'check_dataset_config']
 
 __all__.extend(dataloader.__all__)
 __all__.extend(mask.__all__)
