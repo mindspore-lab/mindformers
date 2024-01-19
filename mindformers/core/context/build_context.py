@@ -52,9 +52,10 @@ def build_context(config):
 
     config.device_num = device_num
     config.local_rank = local_rank
-    ds.config.set_numa_enable(True)
-    cpu_affinity(local_rank, device_num)
-    logger.info(f"cpu_affinity, rank_id: {local_rank}, device_num: {device_num}")
+    if os.environ.get("CPU_AFFINITY") == '1' or os.environ.get("CPU_AFFINITY").lower() == 'true':
+        ds.config.set_numa_enable(True)
+        cpu_affinity(local_rank, device_num)
+        logger.info(f"cpu_affinity, rank_id: {local_rank}, device_num: {device_num}")
 
     if config.parallel.get("strategy_ckpt_load_file"):
         context.set_auto_parallel_context(strategy_ckpt_load_file=config.parallel.strategy_ckpt_load_file)
