@@ -10,6 +10,6 @@ rouge_chinese>=1.0.3
 nltk>=2.0
 mindpet==1.0.3
 mdtex2html
-opencv-python-headless
+opencv-python-headless==4.8.1.78
 pyarrow==12.0.1
 tokenizers==0.15.0
