@@ -160,7 +160,7 @@ model:
     fine_grain_interleave: 2
     qkv_concat: False
     offset: 0
-    checkpoint_name_or_path: "llama2_70b"
+    checkpoint_name_or_path: ""
     repetition_penalty: 1
     max_decode_length: 512
     top_k: 3
@@ -176,7 +176,7 @@ processor:
     bos_token: '<s>'
     eos_token: '</s>'
     pad_token: '<unk>'
-    type: LLaMATokenizer
+    type: LlamaTokenizer
   type: LlamaProcessor
 
 # metric
