@@ -86,11 +86,11 @@ parallel:
     parallel_optimizer_threshold: 64
 # default parallel of device num = 32 for Atlas 800T A2
 parallel_config:
-  data_parallel: 4
-  model_parallel: 4
+  data_parallel: 1
+  model_parallel: 8
   pipeline_stage: 2
   use_seq_parallel: True
-  micro_batch_num: 96
+  micro_batch_num: 128
   vocab_emb_dp: True
   gradient_aggregation_group: 4
 # when model parallel is greater than 1, we can set micro_batch_interleave_num=2, that may accelerate the train process.
@@ -98,7 +98,7 @@ micro_batch_interleave_num: 1
 
 # recompute config
 recompute_config:
-  recompute: True
+  recompute: False
   select_recompute: False
   parallel_optimizer_comm_recompute: False
   mp_comm_recompute: True
@@ -121,7 +121,7 @@ context:
   enable_graph_kernel: False
   graph_kernel_flags: "--disable_expand_ops=Softmax,Dropout --enable_parallel_fusion=true --reduce_fuse_depth=8 --enable_auto_tensor_inplace=true"
   max_call_depth: 10000
-  max_device_memory: "48GB"
+  max_device_memory: "57GB"
   save_graphs: False
   save_graphs_path: "./graph"
   device_id: 0
@@ -154,7 +154,8 @@ model:
     pretrain_seqlen: 4096 # seqlen of the pretrain checkpoint
     extend_method: "None" # support "None", "PI", "NTK"
     compute_in_2d: True
-    use_flash_attention: False
+    use_flash_attention: True
+    fine_grain_interleave: 2
     offset: 0
     use_past_shard: False
     checkpoint_name_or_path: ""
