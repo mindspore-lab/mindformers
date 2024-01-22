@@ -16,8 +16,6 @@
 import os
 import json
 import mindspore as ms
-
-from mindformers.version_control import is_910b
 from .utils import get_real_group_size
 from .logger import logger
 
@@ -50,7 +48,6 @@ def _check_mode(config, mode, **kwargs):
             logger.warning("use_past could not be used in train mode, "
                            "it has been forced to False")
         _check_keyword_gen_dataset(config, mode, **kwargs)
-        _rule_910b_enable_infnan_mode()
     elif mode == 'predict':
         _restore_net_type(config)
         _rule_fa_only_for_train(config, mode)
@@ -213,15 +210,6 @@ def _check_keyword_gen_dataset(config, mode, **kwargs):
         logger.warning("when using 'PerplexityMetric', eval_dataset.data_loader.phase would be set to 'train'.")
         eval_dataset.data_loader.phase = 'train'
         config.eval_dataset_task.dataset_config.data_loader.phase = eval_dataset.data_loader.phase
-
-
-def _rule_910b_enable_infnan_mode():
-    if is_910b():
-        env_infnan_mode = os.getenv("MS_ASCEND_CHECK_OVERFLOW_MODE", None)
-        if env_infnan_mode is None:
-            logger.warning("When training on 910b device, `MS_ASCEND_CHECK_OVERFLOW_MODE` "
-                           "is advised to set to `INFNAN_MODE`.")
-            os.environ["MS_ASCEND_CHECK_OVERFLOW_MODE"] = "INFNAN_MODE"
 
 
 def check_rules(config, mode='train', **kwargs):
