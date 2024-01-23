@@ -142,9 +142,9 @@ class ADGenDataset:
 
             examples[self.prompt_column] = content_list
             examples[self.response_column] = summary_list
-        assert self.__len__() > 0, f"valid data less then 1, loading data failed, please check your data file."
-        logger.info("Loading %d data success.", i)
         self.examples = examples
+        assert self.__len__() > 0, f"valid data less then 1, loading data failed, please check your data file."
+        logger.info("Loading %d data success.", self.__len__())
 
     def __len__(self):
         """Get the size of dataset"""
