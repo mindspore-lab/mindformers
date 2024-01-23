@@ -23,7 +23,7 @@ import mindspore_lite as mslite
 from mindspore_lite import Model
 
 from mindformers.tools.logger import logger
-from mindformers.models import BaseTokenizer
+from mindformers.models import BaseTokenizer, BaseImageProcessor
 from mindformers.generation import GenerationConfig, LogitsProcessorList
 from mindformers.generation.logits_process import RepetitionPenaltyLogitsProcessor, LogitNormalization, \
     TemperatureLogitsWarper, TopKLogitsWarper, TopPLogitsWarper
