@@ -871,6 +871,8 @@ bash run_distribute.sh rank_table_2.json ../configs/codellama/predict_codellama_
 
 1. 以codellama_34b为例，修改模型相关的配置文件 configs/llama2/predict_codellama_34b_910b.yaml，其中需要关注这几项：
 
+   1.1 使用`load_checkpoint` 和`src_strategy_path_or_dir`配置导出：
+
 ```yaml
 load_checkpoint: path/to/checkpoint_dir/transformed_checkpoint
 src_strategy_path_or_dir: path/to/checkpoint_dir/strategy
@@ -890,7 +892,20 @@ model:
     use_past: True
 ```
 
-> 注：load_checkpoint 和 src_strategy_path_or_dir 的路径是使用基于run_mindformer分布式推理后生成的权重切分文件夹`transformed_checkpoint` 和`strategy`，位置一般在/output/里面，将其从output里面拷贝出来，否则执行命令会覆盖。
+> 注：load_checkpoint 和 src_strategy_path_or_dir 的路径是使用基于run_mindformer分布式推理后生成的权重切分文件夹`transformed_checkpoint` 和`strategy`，位置一般在/output/里面，将其从output里面拷贝出来，否则执行命令会覆盖。如何得到切分权重可以参考[权重切分指导文档](../feature_cards/Transform_Ckpt.md)
+
+​     1.2. 使用完整权重导出，使`load_checkpoint` 和`src_strategy_path_or_dir` 置为`""`；仅修改`model config`里面的`checkpoint_name_or_path`，其他配置与1.1一致:
+
+```yaml
+# model config
+model:
+  model_config:
+    seq_length: 4096  # mindir需要输出的seq_length，可自定义，默认4096
+    use_past: True
+    checkpoint_name_or_path: "/path/to/your/*.ckpt"
+```
+
+> 注：1. `checkpoint_name_or_path`的路径写到完整权重.ckpt这个权重文件为止。2.完整权重导入可能将host内存撑爆，因此推荐小尺寸模型使用。codellama 34b推荐4卡导入完整权重，8卡推理则推荐分布式导入权重。
 
 2. 执行`run_distribute.sh`，完成模型导出。
 
@@ -901,7 +916,7 @@ bash run_distribute.sh [RANK_TABLE_FILE] ../configs/codellama/predict_codellama_
 
 #### 执行推理
 
-1. 新建推理配置文件：`lite.ini`，将多卡生成的`RANK_TABLE_FILE`文件写入lite.ini中
+1. 新建推理配置文件：`lite.ini`，将多卡生成的`RANK_TABLE_FILE`文件写入`lite.ini`中
 
 ```bash
 [ascend_context]
@@ -919,11 +934,11 @@ ge.exec.precision_mode=must_keep_origin_dtype
 # >>> `run_lite.sh`文件
 # 修改predict_data 的入参来进行不同输入文本的推理。
 readonly START_DEVICE_ID=0
-for i in {0..3}; do
+for i in {0..7}; do
 export RANK_ID=${i}
 export DEVICE_ID=$((i + START_DEVICE_ID))
 printf "run model %s on rank:%s,device %s...\n" ${i} ${RANK_ID} ${DEVICE_ID}
-python run_infer_main.py --do_sample False --deivce_id ${DEVICE_ID} --rank_id ${RANK_ID} --tokenizer_path path/to/tokenizer.model --model_name codellama_34b --config_path lite.ini --prefill_model_path outputs/mindir_full_checkpoint/rank_${RANK_ID}_graph.mindir --increment_model_path outputs/mindir_inc_checkpoint/rank_${RANK_ID}_graph.mindir --is_sample_acceleration False --seq_length 4096 --add_special_tokens True --distributed True --predict_data "def bubble_sort(arr):\n" --generated_time 3 > rank_${RANK_ID}.log 2>&1 &
+python run_infer_main.py --do_sample False --device_id ${DEVICE_ID} --rank_id ${RANK_ID} --tokenizer_path path/to/tokenizer.model --model_name codellama_34b --config_path lite.ini --prefill_model_path output/mindir_full_checkpoint/rank_${RANK_ID}_graph.mindir --increment_model_path output/mindir_inc_checkpoint/rank_${RANK_ID}_graph.mindir --is_sample_acceleration False --seq_length 4096 --add_special_tokens True --distributed True --predict_data "def bubble_sort(arr):\n" --generated_time 3 > rank_${RANK_ID}.log 2>&1 &
 done
 # 结果输出：
 #def bubble_sort(arr):
