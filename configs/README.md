@@ -134,6 +134,9 @@ configs统一在run_xxx.yaml中，排序按照修改频率的顺序和一般的�
         - use_past: 使能增量推理，为True时为增量推理，否则为自回归推理，使用时请参考[模型支持列表](https://gitee.com/mindspore/mindformers/tree/dev/docs#text-generator)
         - max_decode_length: 文本生成最大长度（输入长度统计在内）
         - repetition_penalty: 重复文本惩罚系数，该值不小于1，等于1时不惩罚
+        - use_paged_attention: 是否开启Paged Attention推理，当前仅支持MS Lite推理时使用
+        - pa_block_size: 使用Paged Attention推理时需设置，每块block的大小
+        - pa_num_blocks: 使用Paged Attention推理时需设置，blocks的总数
 - lr_schedule: 学习率配置
     - type: 学习率类
 - layer_scale: 是否开启层衰减
