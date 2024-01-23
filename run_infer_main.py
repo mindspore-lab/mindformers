@@ -46,6 +46,9 @@ def pipeline_from_model_paths(args_, tokenizer):
         device_id=args_.device_id,
         infer_seq_length=args_.seq_length,
         dynamic=args_.dynamic,
+        paged_attention=args_.paged_attention,
+        pa_block_size=args_.pa_block_size,
+        pa_num_blocks=args_.pa_num_blocks,
         rank_id=args_.rank_id,
     )
     return lite_pipeline
@@ -62,6 +65,9 @@ def pipeline_from_model_name(args_, tokenizer):
         device_id=args_.device_id,
         infer_seq_length=args_.seq_length,
         dynamic=args_.dynamic,
+        paged_attention=args_.paged_attention,
+        pa_block_size=args_.pa_block_size,
+        pa_num_blocks=args_.pa_num_blocks,
         rank_id=args_.rank_id,
     )
     return lite_pipeline
@@ -79,6 +85,9 @@ def pipeline_from_model_dir(args_, tokenizer):
         device_id=args_.device_id,
         infer_seq_length=args_.seq_length,
         dynamic=args_.dynamic,
+        paged_attention=args_.paged_attention,
+        pa_block_size=args_.pa_block_size,
+        pa_num_blocks=args_.pa_num_blocks,
         rank_id=args_.rank_id,
     )
     return lite_pipeline
@@ -95,6 +104,9 @@ def pipeline_from_infer_config(args_, tokenizer):
         device_id=args_.device_id,
         infer_seq_length=args_.seq_length,
         dynamic=args_.dynamic,
+        paged_attention=args_.paged_attention,
+        pa_block_size=args_.pa_block_size,
+        pa_num_blocks=args_.pa_num_blocks,
         rank_id=args_.rank_id,
     )
     lite_pipeline = InferTask.get_infer_task("text_generation", lite_config, tokenizer=tokenizer)
@@ -307,6 +319,18 @@ if __name__ == "__main__":
         '--dynamic', default=False, type=str2bool,
         help="Whether use dynamic inference."
              "Default: False")
+    parser.add_argument(
+        '--paged_attention', default=False, type=str2bool,
+        help="Whether use paged attention."
+             "Default: False")
+    parser.add_argument(
+        '--pa_block_size', default=16, type=int,
+        help="Block size of paged attention."
+             "Default: 512")
+    parser.add_argument(
+        '--pa_num_blocks', default=512, type=int,
+        help="The number of blocks of paged attention."
+             "Default: 512")
     parser.add_argument(
         '--distributed', default=False, type=str2bool,
         help="Whether use distributed inference."

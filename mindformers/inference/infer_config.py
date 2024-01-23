@@ -49,6 +49,9 @@ class InferConfig(BaseConfig):
                  rank_id: int = 0,
                  ge_config_path: str = "",
                  dynamic: bool = False,
+                 paged_attention: bool = False,
+                 pa_block_size: int = 16,
+                 pa_num_blocks: int = 512,
                  **kwargs):
         super(InferConfig, self).__init__(**kwargs)
         self.prefill_model_path = prefill_model_path
@@ -61,3 +64,6 @@ class InferConfig(BaseConfig):
         self.rank_id = rank_id
         self.config_path = ge_config_path
         self.dynamic = dynamic
+        self.paged_attention = paged_attention
+        self.block_size = pa_block_size
+        self.num_blocks = pa_num_blocks

@@ -29,8 +29,10 @@ from mindformers.generation.logits_process import RepetitionPenaltyLogitsProcess
     TemperatureLogitsWarper, TopKLogitsWarper, TopPLogitsWarper
 from mindformers.generation.streamers import BaseStreamer
 from mindformers.generation.utils import softmax_with_threads
+from mindformers.inference.infer_config import InferConfig
 
 from .base_infer import BaseInfer
+from .cache_engine import BlockMemPool, CacheEngine
 
 
 class BaseInputsOfInfer:
@@ -79,14 +81,20 @@ class LlamaInputsOfInfer(BaseInputsOfInfer):
     # pylint: disable=W0613, W0221
     def get_inputs(self, model: Model, input_ids=None, current_index=None, valid_length=None,
                    init_reset=None, is_first_iteration=True, **kwargs):
-        if not is_first_iteration:
+        if is_first_iteration:
+            inputs = [input_ids, valid_length, kwargs['batch_index'], kwargs['zactivate_len']]
+            if kwargs.get("slot_mapping") is not None:
+                inputs = inputs[:-2] + [kwargs["slot_mapping"]]
+        else:
             inputs_tmp = []
             for i in range(len(valid_length)):
                 current_index_tmp = valid_length[i] - 1  # multibatch
                 # use numpy to slice array to avoid complie ascend slice op
                 inputs_tmp.append(input_ids[i][current_index_tmp:current_index_tmp + 1])
             input_ids = np.array(inputs_tmp, dtype=np.int32)
-        inputs = [input_ids, valid_length, kwargs['batch_index'], kwargs['zactivate_len']]
+            inputs = [input_ids, valid_length, kwargs['batch_index'], kwargs['zactivate_len']]
+            if kwargs.get("slot_mapping") is not None:
+                inputs = inputs[:-2] + [kwargs["block_tables"], kwargs["slot_mapping"]]
         lite_inputs = self.get_lite_tensor_list(inputs)
         return lite_inputs
 
@@ -227,6 +235,16 @@ class TextGeneratorInfer(BaseInfer):
     """
     Text generator infer implement class.
     """
+    def __init__(self,
+                 config: InferConfig = None,
+                 tokenizer: Optional[BaseTokenizer] = None,
+                 image_processor: Optional[BaseImageProcessor] = None):
+        super(TextGeneratorInfer, self).__init__(config, tokenizer, image_processor)
+        if self.paged_attention:
+            self.max_num_blocks_per_seq = self.seq_length // self.block_size
+            self.block_mem_pool = BlockMemPool(self.num_blocks, self.block_size)
+            self.cache_engines = []
+
     # pylint: disable=W0221
     def infer(self,
               inputs: Union[str, List[str]],
@@ -273,11 +291,22 @@ class TextGeneratorInfer(BaseInfer):
         Returns:
             outputs of model infer
         """
+        if self.paged_attention:
+            for _ in range(len(inputs)):
+                self.cache_engines.append(CacheEngine(self.block_size, self.block_mem_pool))
+            logger.info("Initialize cache engines.")
+
         input_ids = self.preprocess(inputs, add_special_tokens)
         output_ids = self.generate(input_ids, do_sample, top_k, top_p, temperature,
                                    repetition_penalty, eos_token_id, pad_token_id,
                                    max_length, is_sample_acceleration, streamer, **kwargs)
         outputs = self.postprocess(output_ids)
+
+        if self.paged_attention:
+            for cache_engine in self.cache_engines:
+                cache_engine.release_cache()
+            self.cache_engines = []
+            logger.info("Clear cache engines.")
         return outputs
 
     # pylint: disable=W0613
@@ -362,6 +391,60 @@ class TextGeneratorInfer(BaseInfer):
             warpers.append(LogitNormalization())
         return warpers
 
+    def _assemble_pa_inputs(self, is_first_iteration, batch_valid_length: np.array, is_finished: List[bool]):
+        if is_first_iteration:
+            return self._assemble_pa_full_inputs(batch_valid_length, is_finished)
+        return self._assemble_pa_inc_inputs(batch_valid_length, is_finished)
+
+    def _assemble_pa_full_inputs(self, batch_valid_length: np.array, is_finished: List[bool]):
+        """Prepare prefill inputs for Paged Attention."""
+        bs = batch_valid_length.shape[0]
+
+        block_tables = []
+        slot_mapping = []
+        for i in range(bs):
+            if not is_finished[i]:
+                logger.info("prepare cache for full: %s", batch_valid_length[i])
+                self.cache_engines[i].prepare_cache(batch_valid_length[i] + self.block_size)
+
+            null_block_id = self.cache_engines[i].block_table[0]
+            block_table = self.cache_engines[i].block_table[1:]
+            padded_table = block_table + [-1 for _ in range(
+                self.max_num_blocks_per_seq - len(self.cache_engines[i].block_table) + 1)]
+            block_tables.append(padded_table)
+
+            slots = [block_table[k // self.block_size] * self.block_size + k % self.block_size 
+                     for k in range(batch_valid_length[i])]
+            null_slot_idx = null_block_id * self.block_size + null_block_id % self.block_size
+            slots = slots + [null_slot_idx for _ in range(self.seq_length - batch_valid_length[i])]
+            slot_mapping = slot_mapping + slots
+        block_tables = np.array(block_tables, dtype=np.int32)
+        slot_mapping = np.array(slot_mapping, dtype=np.int32)
+        return block_tables, slot_mapping
+
+    def _assemble_pa_inc_inputs(self, batch_valid_length: np.array, is_finished: List[bool]):
+        """Prepare incremental inputs for Paged Attention."""
+        bs = batch_valid_length.shape[0]
+
+        block_tables = []
+        slot_mapping = []
+        for i in range(bs):
+            if not is_finished[i]:
+                logger.info("prepare cache for inc: %s", batch_valid_length[i])
+                self.cache_engines[i].prepare_cache(1)
+
+            block_table = self.cache_engines[i].block_table[1:]
+            padded_table = block_table + [-1 for _ in range(
+                self.max_num_blocks_per_seq - len(self.cache_engines[i].block_table) + 1)]
+            block_tables.append(padded_table)
+
+            curent_idx = batch_valid_length[i] - 1
+            slots = [block_table[curent_idx // self.block_size] * self.block_size + curent_idx % self.block_size]
+            slot_mapping = slot_mapping + slots
+        block_tables = np.array(block_tables, dtype=np.int32)
+        slot_mapping = np.array(slot_mapping, dtype=np.int32)
+        return block_tables, slot_mapping
+
     def generate(self, input_ids, do_sample, top_k, top_p, temperature, repetition_penalty, eos_token_id,
                  pad_token_id, max_length, is_sample_acceleration, streamer, **kwargs):
         """token generator."""
@@ -430,12 +513,19 @@ class TextGeneratorInfer(BaseInfer):
             current_index = np.array(current_index, np.int32)
             logger.debug("validate length: %s", valid_length)
 
+            if self.paged_attention:
+                block_tables, slot_mapping = self._assemble_pa_inputs(is_first_iteration, valid_length, is_finished)
+            else:
+                block_tables, slot_mapping = None, None
+            
             if use_past:
                 outputs = self._inc_infer(input_ids, current_index, valid_length, is_first_iteration,
-                                          batch_index=batch_index, zactivate_len=activate_len, **kwargs)
+                                          batch_index=batch_index, zactivate_len=activate_len,
+                                          block_tables=block_tables, slot_mapping=slot_mapping, **kwargs)
             else:
                 outputs = self._full_infer(input_ids, current_index, is_sample_acceleration,
-                                           batch_index=batch_index, zactivate_len=activate_len, **kwargs)
+                                           batch_index=batch_index, zactivate_len=activate_len,
+                                           block_tables=block_tables, slot_mapping=slot_mapping, **kwargs)
 
             if self.dynamic:
                 input_ids = pad_input_ids
@@ -513,34 +603,41 @@ class TextGeneratorInfer(BaseInfer):
 
         return output_ids
 
-    def _inc_infer(self, input_ids, current_index, valid_length, is_first_iteration, **kwargs):
+    def _inc_infer(self, input_ids, current_index, valid_length, is_first_iteration,
+                   block_tables, slot_mapping, **kwargs):
         """kvcache infer"""
         if is_first_iteration:
             init_reset = np.array([False])
             lite_inputs = self.get_predict_inputs(self.full_model, input_ids, current_index,
-                                                  valid_length, init_reset, is_first_iteration, **kwargs)
+                                                  valid_length, init_reset, is_first_iteration,
+                                                  block_tables, slot_mapping, **kwargs)
             outputs = self.full_model.predict(lite_inputs)
         else:
             init_reset = np.array([True])
             lite_inputs = self.get_predict_inputs(self.cache_model, input_ids, current_index,
-                                                  valid_length, init_reset, is_first_iteration, **kwargs)
+                                                  valid_length, init_reset, is_first_iteration,
+                                                  block_tables, slot_mapping, **kwargs)
             outputs = self.cache_model.predict(lite_inputs)
         return outputs
 
-    def _full_infer(self, input_ids, current_index, is_npu_acceleration, **kwargs):
+    def _full_infer(self, input_ids, current_index, is_npu_acceleration, block_tables, slot_mapping, **kwargs):
         """infer"""
         # get inputs
         if is_npu_acceleration:
-            lite_inputs = self.get_predict_inputs(self.full_model, input_ids, current_index, **kwargs)
+            lite_inputs = self.get_predict_inputs(self.full_model, input_ids, current_index,
+                                                  block_tables, slot_mapping, **kwargs)
         else:
-            lite_inputs = self.get_predict_inputs(self.full_model, input_ids, **kwargs)
+            lite_inputs = self.get_predict_inputs(self.full_model, input_ids,
+                                                  block_tables, slot_mapping, **kwargs)
         # do infer
         outputs = self.full_model.predict(lite_inputs)
         return outputs
 
     def get_predict_inputs(self, mode: Model, input_ids, current_index=None,
-                           valid_length=None, init_reset=None, is_first_iteration=True, **kwargs):
+                           valid_length=None, init_reset=None, is_first_iteration=True,
+                           block_tables=None, slot_mapping=None, **kwargs):
         """Get inputs of llm model for mslite."""
         return InputOfInfer.get_inputs(self.model_name, mode, input_ids=input_ids, current_index=current_index,
                                        valid_length=valid_length, init_reset=init_reset, tokenizer=self.tokenizer,
-                                       is_first_iteration=is_first_iteration, **kwargs)
+                                       is_first_iteration=is_first_iteration, block_tables=block_tables,
+                                       slot_mapping=slot_mapping, **kwargs)
