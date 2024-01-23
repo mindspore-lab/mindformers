@@ -82,6 +82,9 @@ def main(task='text_generation',
     else:
         context_init(use_parallel, op, device_id)
 
+    if ckpt is not None and ckpt != '':
+        config.load_checkpoint = ckpt
+
     # 定义任务，预先准备好相应数据集
     if run_mode == 'train':
         task = Trainer(args=config,
