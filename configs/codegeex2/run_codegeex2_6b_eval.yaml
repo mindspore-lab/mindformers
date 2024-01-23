@@ -14,7 +14,7 @@ context:
   graph_kernel_flags: "--disable_expand_ops=Softmax,Dropout --enable_parallel_fusion=true --reduce_fuse_depth=8 --enable_auto_tensor_inplace=true"
   max_call_depth: 10000
   max_device_memory: "59GB"
-  save_graphs: True
+  save_graphs: False
   device_id: 0
 
 # aicc
@@ -93,7 +93,7 @@ processor:
 train_dataset: &train_dataset
   data_loader:
     type: ADGenDataLoader
-    dataset_dir: "/path/to/AdvertiseGen/train.json"
+    dataset_dir: "/path/to/CodeAlpaca/train.json"
     shuffle: False
     phase: "train"
     version: 2
@@ -121,7 +121,7 @@ train_dataset_task:
 eval_dataset: &eval_dataset
   data_loader:
     type: ADGenDataLoader
-    dataset_dir: "/path/to/AdvertiseGen/dev.json"
+    dataset_dir: "/path/to/CodeAlpaca/dev.json"
     shuffle: False
     phase: "eval"
     version: 2
