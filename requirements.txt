@@ -13,3 +13,4 @@ mdtex2html
 opencv-python-headless
 pyarrow==12.0.1
 tokenizers==0.15.0
+astunparse>=1.6.3
