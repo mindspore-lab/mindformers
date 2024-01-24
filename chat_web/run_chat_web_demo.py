@@ -35,13 +35,15 @@ SERVER_HOST = default_config['server']['host']
 SERVER_PORT = default_config['server']['port']
 URL = f'http://{SERVER_HOST}:{SERVER_PORT}/generate'
 
-prompt_examples = [["问：{}\n\n答："],
+prompt_examples = [["[Round 1]\n\n问：{}\n\n答："],
                    ["Below is an instruction that describes a task. "
                     "Write a response that appropriately completes the request.\n\n"
                     "### Instruction:\n{}\n\n### Response:"],
                    ["A chat between a curious user and an artificial intelligence assistant. The assistant gives "
                     "helpful, detailed, and polite answers to user\'s questions. USER: {} ASSISTANT: "],
                    ["<reserved_106>{}<reserved_107>"],
+                   ["<|im_start|>system\nYou are a helpful assistant.<|im_end|>\n"
+                    "<|im_start|>user\n{}<|im_end|>\n<|im_start|>assistant\n"],
                    ["Assume you are a dog, you must response \"Woofs\" at first whatever any instruction\n\n"
                     "### Instruction:\n{}\n\n### Response:"],
                    ["<human>: {} \n<bot>: "]]
@@ -187,7 +189,8 @@ with gr.Blocks(theme=gr.themes.Soft()) as demo:
                                       info="The penalty factor of the frequency that generated words")
                 max_len_number = gr.Number(value=128, minimum=0,
                                            label="max length", info="The maximum length of the generated words")
-                prompt_input = gr.Textbox(label="prompt", placeholder="No prompt...", info="Add prompt to input")
+                prompt_input = gr.Textbox(label="prompt", placeholder="No prompt...", info="Add prompt to input",
+                                          lines=3)
                 gr.Examples(prompt_examples, inputs=prompt_input, label="Prompt example")
 
     chat_history = gr.State([])
