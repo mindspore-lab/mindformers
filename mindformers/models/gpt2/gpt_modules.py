@@ -105,7 +105,9 @@ class GPTTransformerDecoderLayer(TransformerEncoderLayer):
                  use_past=False,
                  moe_config=default_moe_config,
                  parallel_config=default_dpmp_config,
-                 use_flash_attention=False):
+                 use_flash_attention=False,
+                 use_prompt_flash_attention=False,
+                 use_incre_flash_attention=False):
         super(GPTTransformerDecoderLayer, self).__init__(
             batch_size=batch_size,
             hidden_size=hidden_size,
@@ -122,7 +124,9 @@ class GPTTransformerDecoderLayer(TransformerEncoderLayer):
             use_past=use_past,
             moe_config=moe_config,
             parallel_config=parallel_config,
-            use_flash_attention=use_flash_attention
+            use_flash_attention=use_flash_attention,
+            use_prompt_flash_attention=use_prompt_flash_attention,
+            use_incre_flash_attention=use_incre_flash_attention
         )
 
     def construct(self, x, input_mask=None, init_reset=True, batch_valid_length=None):
