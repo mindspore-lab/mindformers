@@ -322,7 +322,7 @@ class LLamaAttention(nn.Cell):
         else:
             if not self.is_first_iteration and self.use_paged_attention:
                 batch_valid_length, block_tables, _ = kvcache_inputs
-                attention = self.kvcache_mgr.paged_attn(query, block_tables, batch_valid_length)
+                attention = self.kvcache_mgr.paged_attn(query, batch_valid_length, block_tables)
             else:
                 attention = self._attn(query, key, value, mask)
         # [bs, seq/1, hidden_dim] or [bs * seq/1, hidden_dim]
