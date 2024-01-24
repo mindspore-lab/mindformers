@@ -119,9 +119,9 @@ def check_keywords_in_name(name, keywords=()):
     return isin
 
 
-def check_runner_config(config, dataset):
+def check_runner_config(config):
     """ Check runner config. """
-    data_size = dataset.get_dataset_size()
+    data_size = config.data_size
     new_epochs = config.runner_config.epochs
     config.runner_config.origin_epochs = new_epochs
     if config.runner_config.gradient_accumulation_steps is None:
@@ -145,7 +145,6 @@ def check_runner_config(config, dataset):
         logger.warning("Sink mode is False, per epoch size is invalid, it will reset -1.")
         config.runner_config.sink_size = -1
 
-    config.data_size = data_size
     logger.info("Will be Training epochs:%d, sink_size:%d",
                 config.runner_config.origin_epochs, config.runner_config.sink_size)
     logger.info("Create training dataset finish, dataset size:%d", data_size)
@@ -266,28 +265,40 @@ def load_resume_context_from_checkpoint(config):
         raise FileNotFoundError(f"The load_checkpoint must be correct, "
                                 f"but get {config.load_checkpoint}")
 
+    append_info_list = ["loss_scale", "epoch_num", "step_num"]
     if os.path.isdir(config.load_checkpoint):
-        resume_dict = load_distributed_checkpoint(config.load_checkpoint, ["loss_scale", "epoch_num", "step_num"])
+        resume_dict = load_distributed_checkpoint(config.load_checkpoint, append_info_list)
     else:
-        resume_dict = load_checkpoint(config.load_checkpoint, specify_prefix=["loss_scale", "epoch_num", "step_num"])
+        resume_dict = load_checkpoint(config.load_checkpoint, specify_prefix=append_info_list)
+
+    append_dict = {}
+    if "step_num" in resume_dict:
+        config.runner_config.initial_step = int(resume_dict["step_num"])
+    else:
+        config.runner_config.initial_step = 0
+    append_dict["step_num"] = config.runner_config.initial_step
+    not_last_step_in_epoch = int(config.runner_config.initial_step % config.data_size != 0)
 
     if "epoch_num" in resume_dict:
         if config.runner_config.sink_mode:
             config.runner_config.initial_epoch = int(resume_dict["epoch_num"])
         else:
-            config.runner_config.initial_epoch = int(resume_dict["epoch_num"]) - 1
+            config.runner_config.initial_epoch = int(resume_dict["epoch_num"]) \
+                                                 - not_last_step_in_epoch
     else:
         config.runner_config.initial_epoch = 0
+    append_dict["epoch_num"] = config.runner_config.initial_epoch
 
-    if "step_num" in resume_dict:
-        config.runner_config.initial_step = int(resume_dict["step_num"])
-    else:
-        config.runner_config.initial_step = 0
-
-    for callback in config.callbacks:
+    for i, callback in enumerate(config.callbacks):
         if "type" in callback and callback["type"] == "CheckpointMointor":
             if config.runner_wrapper.scale_sense is not None and "loss_scale" in resume_dict:
-                config.runner_wrapper.scale_sense.loss_scale_value = resume_dict["loss_scale"]
+                config.runner_wrapper.scale_sense.loss_scale_value = int(resume_dict["loss_scale"])
+                append_dict["loss_scale"] = int(config.runner_wrapper.scale_sense.loss_scale_value)
+
+            config.callbacks[i]["append_info"] = [append_dict]
+            config.callbacks[i]["initial_step"] = config.runner_config.initial_step
+            config.callbacks[i]["initial_epoch"] = config.runner_config.initial_epoch
+            config.callbacks[i]["dataset_size"] = config.data_size
             break
 
 
