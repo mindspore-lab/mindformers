@@ -259,7 +259,7 @@ def load_distributed_checkpoint(checkpoint_dir, specify_prefix=None):
     return checkpoint_dict
 
 
-def load_resume_context_from_checkpoint(config):
+def load_resume_context_from_checkpoint(config, dataset):
     """resume training, load training info from checkpoint to config"""
     if not os.path.realpath(config.load_checkpoint) or \
             not os.path.exists(config.load_checkpoint):
@@ -271,18 +271,20 @@ def load_resume_context_from_checkpoint(config):
     else:
         resume_dict = load_checkpoint(config.load_checkpoint, specify_prefix=["loss_scale", "epoch_num", "step_num"])
 
-    if "epoch_num" in resume_dict:
-        if config.runner_config.sink_mode:
-            config.runner_config.initial_epoch = int(resume_dict["epoch_num"])
-        else:
-            config.runner_config.initial_epoch = int(resume_dict["epoch_num"]) - 1
-    else:
-        config.runner_config.initial_epoch = 0
-
     if "step_num" in resume_dict:
         config.runner_config.initial_step = int(resume_dict["step_num"])
     else:
         config.runner_config.initial_step = 0
+
+    if "epoch_num" in resume_dict:
+        if config.runner_config.sink_mode:
+            config.runner_config.initial_epoch = int(resume_dict["epoch_num"])
+        else:
+            data_size = dataset.get_dataset_size()
+            not_last_step_in_epoch = int(config.runner_config.initial_step % data_size != 0)
+            config.runner_config.initial_epoch = int(resume_dict["epoch_num"]) - not_last_step_in_epoch
+    else:
+        config.runner_config.initial_epoch = 0
 
     for callback in config.callbacks:
         if "type" in callback and callback["type"] == "CheckpointMointor":

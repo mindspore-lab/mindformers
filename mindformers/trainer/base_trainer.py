@@ -608,21 +608,28 @@ class BaseTrainer:
         is_full_config = kwargs.get("is_full_config", False)
         config = self.set_config(config, is_full_config)
 
-        if config.resume_training and config.load_checkpoint:
-            logger.info(".............Start load resume context from checkpoint..................")
-            load_resume_context_from_checkpoint(config)
-            logger.info("initial epoch: %d", config.runner_config.initial_epoch)
-            logger.info("initial step: %d", config.runner_config.initial_step)
-        else:
-            config.runner_config.initial_epoch = 0
-            config.runner_config.initial_step = 0
-
         # build dataset
         logger.info(".........Build Dataset For Train..........")
         if dataset is None:
             dataset = self.create_train_dataset()
-        if config.runner_config.initial_step:
+
+        append_info = None
+        if config.resume_training and config.load_checkpoint:
+            logger.info(".............Start load resume context from checkpoint..................")
+            load_resume_context_from_checkpoint(config, dataset)
+            resume_dict = {
+                "step_num": config.runner_config.initial_step,
+                "epoch_num": config.runner_config.initial_epoch,
+            }
+            if config.runner_wrapper.scale_sense is not None:
+                resume_dict["loss_scale"] = config.runner_wrapper.scale_sense.loss_scale_value
+            logger.info("initial epoch: %d", config.runner_config.initial_epoch)
+            logger.info("initial step: %d", config.runner_config.initial_step)
+            append_info = [resume_dict]
             dataset.set_init_step(config.runner_config.initial_step)
+        else:
+            config.runner_config.initial_epoch = 0
+            config.runner_config.initial_step = 0
 
         self.set_train_dataset(dataset)
         check_runner_config(config, dataset)
@@ -669,16 +676,27 @@ class BaseTrainer:
 
         # build callback
         logger.info(".........Build Callbacks For Train..........")
-        default_callbacks = self.create_callbacks(default_args={
-            "learning_rate": optimizer.learning_rate if optimizer else wrapper.optimizer.learning_rate,
-            "origin_epochs": config.runner_config.origin_epochs,
-            "dataset_size": config.data_size,
-            "micro_batch_interleave_num": config.micro_batch_interleave_num,
-            "micro_batch_num": config.parallel_config.micro_batch_num,
-            "initial_epoch": config.runner_config.initial_epoch,
-            "initial_step": config.runner_config.initial_step,
-            "global_batch_size": self.global_batch_size,
-            "gradient_accumulation_steps": self.config.runner_config.gradient_accumulation_steps})
+        default_callbacks = []
+        if self.config.profile:
+            default_callbacks.append(self.config.profile_cb)
+        for callback in self.config.callbacks:
+            default_args = None
+            if "type" in callback and callback["type"] == "MFLossMonitor":
+                default_args = {
+                    "learning_rate": optimizer.learning_rate if optimizer else wrapper.optimizer.learning_rate,
+                    "origin_epochs": config.runner_config.origin_epochs,
+                    "dataset_size": config.data_size,
+                    "micro_batch_interleave_num": config.micro_batch_interleave_num,
+                    "micro_batch_num": config.parallel_config.micro_batch_num,
+                    "initial_epoch": config.runner_config.initial_epoch,
+                    "initial_step": config.runner_config.initial_step,
+                    "global_batch_size": self.global_batch_size,
+                    "gradient_accumulation_steps": self.config.runner_config.gradient_accumulation_steps
+                }
+            elif "type" in callback and callback["type"] == "CheckpointMointor":
+                default_args = {"append_info": append_info}
+
+            default_callbacks.append(build_callback(callback, default_args=default_args))
         if callbacks is not None:
             if isinstance(callbacks, list):
                 default_callbacks.extend(callbacks)
