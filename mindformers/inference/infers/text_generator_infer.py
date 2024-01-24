@@ -404,7 +404,6 @@ class TextGeneratorInfer(BaseInfer):
         slot_mapping = []
         for i in range(bs):
             if not is_finished[i]:
-                logger.info("prepare cache for full: %s", batch_valid_length[i])
                 self.cache_engines[i].prepare_cache(batch_valid_length[i] + self.block_size)
 
             null_block_id = self.cache_engines[i].block_table[0]
@@ -430,7 +429,6 @@ class TextGeneratorInfer(BaseInfer):
         slot_mapping = []
         for i in range(bs):
             if not is_finished[i]:
-                logger.info("prepare cache for inc: %s", batch_valid_length[i])
                 self.cache_engines[i].prepare_cache(1)
 
             block_table = self.cache_engines[i].block_table[1:]
