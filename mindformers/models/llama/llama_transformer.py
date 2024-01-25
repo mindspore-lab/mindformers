@@ -36,6 +36,7 @@ except ImportError:
     FLASHATTENTION_VALID = False
 
 from mindformers.models.llama.llama_layer import LlamaFeedForward, LlamaRMSNorm, LlamaRotaryEmbedding
+from mindformers.models.llama.llama_moe import LlamaMoE
 from mindformers.modules.layers import _check_input_dtype, Linear
 from mindformers.modules.transformer import TransformerOpParallelConfig
 from mindformers.modules import KVCacheMgr, PagedAttentionMgr
@@ -471,6 +472,7 @@ class LLamaDecodeLayer(nn.Cell):
                  use_kvcache_op=False,
                  is_flexible_shape=False,
                  use_rope_slice=False,
+                 moe_config=None,
                  use_flash_attention=False,
                  use_paged_attention=False,
                  block_size: Optional[int] = None,
@@ -519,14 +521,22 @@ class LLamaDecodeLayer(nn.Cell):
                                         block_size=block_size,
                                         num_blocks=num_blocks,
                                         parallel_config=parallel_config)
-        self.feed_forward = LlamaFeedForward(dim=self.hidden_size,
-                                             intermediate_size=intermediate_size,
-                                             hidden_dim=4 * self.hidden_size,
-                                             multiple_of=multiple_of,
-                                             ffn_dim_multiplier=ffn_dim_multiplier,
-                                             compute_dtype=compute_dtype,
-                                             param_init_type=param_init_type,
-                                             is_dynamic=is_dynamic)
+        if moe_config is None:
+            self.feed_forward = LlamaFeedForward(dim=self.hidden_size,
+                                                 intermediate_size=intermediate_size,
+                                                 hidden_dim=4 * self.hidden_size,
+                                                 multiple_of=multiple_of,
+                                                 ffn_dim_multiplier=ffn_dim_multiplier,
+                                                 compute_dtype=compute_dtype,
+                                                 param_init_type=param_init_type,
+                                                 is_dynamic=is_dynamic)
+        else:
+            self.feed_forward = LlamaMoE(dim=self.hidden_size,
+                                         hidden_dim=intermediate_size,
+                                         compute_dtype=compute_dtype,
+                                         param_init_type=param_init_type,
+                                         moe_config=moe_config,
+                                         parallel_config=parallel_config)
 
         dp = parallel_config.data_parallel
         mp = parallel_config.model_parallel
@@ -535,13 +545,15 @@ class LLamaDecodeLayer(nn.Cell):
             self.add.shard(((dp, 1, 1), (dp, 1, 1)))
             self.attention_norm.shard((dp, 1, 1))
             self.ffn_norm.shard((dp, 1, 1))
-            self.feed_forward.mul.shard(((dp, 1, mp), (dp, 1, mp)))
+            if moe_config is None:
+                self.feed_forward.mul.shard(((dp, 1, mp), (dp, 1, mp)))
 
         if parallel_config.use_seq_parallel and self.is_first_iteration:
             self.add.shard(((dp, mp, 1), (dp, mp, 1)))
             self.attention_norm.shard((dp, mp, 1))
             self.ffn_norm.shard((dp, mp, 1))
-            self.feed_forward.w2.shard(((dp, mp), (1, mp)), out_strategy_matmul=((dp * mp, 1),))
+            if moe_config is None:
+                self.feed_forward.w2.shard(((dp, mp), (1, mp)), out_strategy_matmul=((dp * mp, 1),))
 
     def construct(self, x, freqs_cis, mask=None, kvcache_inputs=None):
         """ Forward of transformer block. """

@@ -215,6 +215,7 @@ class LlamaModel(BaseModel):
                                          use_kvcache_op=config.use_kvcache_op,
                                          is_flexible_shape=config.is_flexible_shape,
                                          use_rope_slice=config.use_rope_slice,
+                                         moe_config=config.moe_config,
                                          parallel_config=config.parallel_config)
             layer_compute_dtype(layer, layer_id, config.offset, config.parallel_config,
                                 config.num_layers, select_recompute=config.parallel_config.recompute.select_recompute)

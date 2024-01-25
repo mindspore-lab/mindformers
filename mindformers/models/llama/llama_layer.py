@@ -82,6 +82,11 @@ class LlamaSiLU(Cell):
         else:
             self.silu.shard(strategy)
 
+    def activation_shard(self, strategy):
+        # activation_shard is the api called by moe [dp_group, expert_dim, capacity, ffn_hidden]
+        if hasattr(strategy, "expert_parallel"):
+            moe_strategy = ((strategy.data_parallel, strategy.expert_parallel, 1, strategy.model_parallel),)
+            self.shard(moe_strategy)
 
 def get_swap_mask(head_dim):
     """Swap matrix"""
