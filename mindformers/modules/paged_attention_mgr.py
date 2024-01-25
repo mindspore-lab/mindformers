@@ -48,7 +48,7 @@ class PagedAttentionMgr(nn.Cell):
 
         self.scale_value = 1 / math.sqrt(self.head_dim)
 
-        self.reshape = P.Reshape()
+        self.reshape = P.Reshape().add_prim_attr("skip_redistribution", True)
         self.transpose = P.Transpose()
 
         kv_shape = (num_blocks, self.block_size, self.n_kv_heads, self.head_dim)
@@ -92,5 +92,6 @@ class PagedAttentionMgr(nn.Cell):
         dp = parallel_config.data_parallel
         mp = parallel_config.model_parallel
         self.transpose.shard(((dp, mp, 1, 1),))
+        self.reshape_and_cache.shard(((dp, mp, 1), (dp, mp, 1), (1, 1, mp, 1), (1, 1, mp, 1), (1,)))
         self.paged_attention.shard(((dp, mp, 1), (1, 1, mp, 1), (1, 1, mp, 1), (dp, 1), (dp,)))
         self.paged_attention_with_alibi.shard(((dp, mp, 1), (1, 1, mp, 1), (1, 1, mp, 1), (dp, 1), (dp,)))
