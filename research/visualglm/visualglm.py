@@ -15,7 +15,6 @@
 """visualglm model implementation."""
 
 import os
-import time
 from collections import OrderedDict
 
 import mindspore as ms
@@ -227,21 +226,13 @@ class VisualGLMImageToTextGeneration(VisualGLMModel):
 
     def generate_text_for_image(self, image: ms.Tensor, pre_input_ids: ms.Tensor, post_input_ids: ms.Tensor, **kwargs):
         """generate text for image by calling llm generate"""
-        start = time.time()
         text_input_ids, projected_qformer_output, pre_input_ids, post_input_ids = self(image, pre_input_ids,
                                                                                        post_input_ids)
-        gene_start = time.time()
         output_ids = self.llm_model.generate(input_ids=text_input_ids.asnumpy(),
                                              image_embeds=projected_qformer_output,
                                              pre_input_ids=pre_input_ids.asnumpy(),
                                              post_input_ids=post_input_ids.asnumpy(),
                                              **kwargs)
-        end = time.time()
-        generate_len = sum(len(output_ids[i]) - text_input_ids[i].asnumpy().tolist().index(130004)
-                           for i in range(len(output_ids)))
-        logger.info(f"visualglm generate time: {end - gene_start}, \n "
-                    f"total time: {end - start}, generate_len: {generate_len}, \n "
-                    f"speed_no_tokenizer: {generate_len / (end - start)} tokens/s")
         return output_ids
 
 
@@ -306,19 +297,11 @@ class VisualglmWithLora(VisualGLMModel):
 
     def generate_text_for_image(self, image: ms.Tensor, pre_input_ids: ms.Tensor, post_input_ids: ms.Tensor, **kwargs):
         """generate text for image by calling llm generate"""
-        start = time.time()
         text_input_ids, projected_qformer_output, pre_input_ids, post_input_ids = self.forward(image, pre_input_ids,
                                                                                                post_input_ids)
-        gene_start = time.time()
         output_ids = self.llm_model.generate(input_ids=text_input_ids.asnumpy(),
                                              image_embeds=projected_qformer_output,
                                              pre_input_ids=pre_input_ids.asnumpy(),
                                              post_input_ids=post_input_ids.asnumpy(),
                                              **kwargs)
-        end = time.time()
-        generate_len = sum(len(output_ids[i]) - text_input_ids[i].asnumpy().tolist().index(130004)
-                           for i in range(len(output_ids)))
-        logger.info(f"visualglm generate time: {end - gene_start},"
-                    f" total time: {end - start}, generate_len: {generate_len},"
-                    f" speed_no_tokenizer: {generate_len / (end - start)} tokens/s")
         return output_ids
