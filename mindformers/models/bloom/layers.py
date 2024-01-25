@@ -498,7 +498,7 @@ class BloomBlocks(TransformerEncoder):
 
         config_to_layer = parallel_config.moe_parallel_config if self.use_moe else parallel_config.dp_mp_config
         if use_flash_attention:
-            use_flash_attention = check_valid_flash_attention(FLASHATTENTION_IMPORT_VALID)
+            use_flash_attention = check_valid_flash_attention(FLASHATTENTION_IMPORT_VALID, "FlashAttention")
         if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation():
             self.num_layers = num_layers
             self.blocks = nn.CellList()

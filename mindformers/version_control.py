@@ -173,7 +173,7 @@ def fix_optim_global_step_sig():
     return is_version_ge(ms.__version__, "2.2.0")
 
 
-def check_valid_flash_attention(import_ifa_valid=True, fa_type=None):
+def check_valid_flash_attention(import_fa_valid=True, fa_type=None):
     """check mindspore version is valid for input flash attention"""
     version_map = {"IncreFlashAttention": "2.3.0",
                    "PromptFlashAttention": "2.2.0",
@@ -191,7 +191,7 @@ def check_valid_flash_attention(import_ifa_valid=True, fa_type=None):
                        f"please upgrade to {valid_version} or later version.")
         logger.warning("Now running on self-attention mode.")
         result = False
-    elif not import_ifa_valid:
+    elif not import_fa_valid:
         logger.warning(f"Import {fa_type} ERROR, please upgrade your MindSpore to {valid_version} or later version. ")
         logger.warning("Now running on self-attention mode.")
         result = False
