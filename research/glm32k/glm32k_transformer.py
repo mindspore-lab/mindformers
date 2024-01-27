@@ -693,7 +693,7 @@ class ChatGLM32kTransformer(nn.Cell):
 
         self.pre_seq_len = config.pre_seq_len
         if config.use_flash_attention:
-            config.use_flash_attention = check_valid_flash_attention(FLASHATTENTION_IMPORT_VALID)
+            config.use_flash_attention = check_valid_flash_attention(FLASHATTENTION_IMPORT_VALID, "FlashAttention")
 
         # Transformer layers.
         def build_layer(layer_number):
