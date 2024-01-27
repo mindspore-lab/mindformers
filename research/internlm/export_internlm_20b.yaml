@@ -69,6 +69,9 @@ model:
     scaling_factor: 1.0
     extend_method: "None" # support "None", "PI", "NTK"
     use_flash_attention: False
+    use_paged_attention: False
+    block_size: 16
+    num_blocks: 512
     offset: 0
     use_past_shard: False
     checkpoint_name_or_path: "/path/to/internlm_20b.ckpt" # 导出任务这里必填
