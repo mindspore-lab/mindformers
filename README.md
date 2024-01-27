@@ -19,44 +19,37 @@ MindSpore Transformers套件基于MindSpore内置的并行技术和组件化设�
 如果您对MindSpore Transformers有任何建议，请通过issue与我们联系，我们将及时处理。
 
 - **[MindFormers教程文档](https://mindformers.readthedocs.io/zh_CN/latest)**
-- [模型README](https://gitee.com/mindspore/mindformers/tree/dev/docs/model_cards)
-- [任务README](https://gitee.com/mindspore/mindformers/tree/dev/docs/task_cards)
+- [大模型支持列表](https://mindformers.readthedocs.io/zh-cn/latest/docs/model_support_list.html#llm)
 - [MindPet指导教程](docs/feature_cards/Pet_Tuners.md)
 - [AICC指导教程](docs/readthedocs/source_zh_cn/docs/practice/AICC.md)
 
 目前支持的模型列表如下：
 
-|                     模型                     |                      任务（task name）                       | 模型（model name）                                           |
-| :------------------------------------------: | :----------------------------------------------------------: | :----------------------------------------------------------- |
-|     [LLama2](docs/model_cards/llama2.md)     |    [text_generation](docs/task_cards/text_generation.md)     | llama2_7b <br>llama2_13b <br>llama2_7b_lora <br>llama2_13b_lora <br>llama2_70b |
-|       [GLM2](docs/model_cards/glm2.md)       |    [text_generation](docs/task_cards/text_generation.md)     | glm2_6b<br>glm2_6b_lora                                      |
-|  [CodeGeex2](docs/model_cards/codegeex2.md)  |    [text_generation](docs/task_cards/text_generation.md)     | codegeex2_6b                                                 |
-|      [LLama](docs/model_cards/llama.md)      |    [text_generation](docs/task_cards/text_generation.md)     | llama_7b <br>llama_13b <br>llama_7b_lora                     |
-|        [GLM](docs/model_cards/glm.md)        |    [text_generation](docs/task_cards/text_generation.md)     | glm_6b<br>glm_6b_lora                                        |
-|      [Bloom](docs/model_cards/bloom.md)      |    [text_generation](docs/task_cards/text_generation.md)     | bloom_560m<br>bloom_7.1b <br>                                |
-|       [GPT2](docs/model_cards/gpt2.md)       |    [text_generation](docs/task_cards/text_generation.md)     | gpt2_small <br>gpt2_13b <br>                                 |
-| [PanGuAlpha](docs/model_cards/pangualpha.md) |    [text_generation](docs/task_cards/text_generation.md)     | pangualpha_2_6_b<br>pangualpha_13b                           |
-|      [BLIP2](docs/model_cards/blip2.md)      | [contrastive_language_image_pretrain](docs/task_cards/contrastive_language_image_pretrain.md)<br> [zero_shot_image_classification](docs/task_cards/zero_shot_image_classification.md) | blip2_stage1_vit_g                                           |
-|       [CLIP](docs/model_cards/clip.md)       | [contrastive_language_image_pretrain](docs/task_cards/contrastive_language_image_pretrain.md)<br> [zero_shot_image_classification](docs/task_cards/zero_shot_image_classification.md) | clip_vit_b_32<br>clip_vit_b_16 <br>clip_vit_l_14<br>clip_vit_l_14@336 |
-|       [BERT](docs/model_cards/bert.md)       | masked_language_modeling<br>[text_classification](docs/task_cards/text_classification.md) <br>[token_classification](docs/task_cards/token_classification.md) <br>[question_answering](docs/task_cards/question_answering.md) | bert_base_uncased <br>txtcls_bert_base_uncased<br>txtcls_bert_base_uncased_mnli <br>tokcls_bert_base_chinese<br>tokcls_bert_base_chinese_cluener <br>qa_bert_base_uncased<br>qa_bert_base_chinese_uncased |
-|         [T5](docs/model_cards/t5.md)         |                         translation                          | t5_small                                                     |
-|   [sam](docs/model_cards/sam.md)             |        [segment_anything](docs/model_cards/sam.md)        | sam_vit_b <br>sam_vit_l  <br>sam_vit_h                       |
-|        [MAE](docs/model_cards/mae.md)        |                    masked_image_modeling                     | mae_vit_base_p16                                             |
-|        [VIT](docs/model_cards/vit.md)        | [image_classification](docs/task_cards/image_classification.md) | vit_base_p16                                                 |
-|       [Swin](docs/model_cards/swin.md)       | [image_classification](docs/task_cards/image_classification.md) | swin_base_p4w7                                               |
-
-目前在research中支持的模型列表如下：
-
-|                        模型                        |                   任务（task name）                   | 模型（model name）                                                           |
-| :------------------------------------------------: | :---------------------------------------------------: | :--------------------------------------------------------------------------- |
-|       [skywork](research/skywork/skywork.md)       | [text_generation](docs/task_cards/text_generation.md) | skywork_13b                                                                  |
-|    [Baichuan2](research/baichuan2/baichuan2.md)    | [text_generation](docs/task_cards/text_generation.md) | baichuan2_7b <br>baichuan2_13b  <br>baichuan2_7b_lora <br>baichuan2_13b_lora |
-|     [Baichuan](research/baichuan/baichuan.md)      | [text_generation](docs/task_cards/text_generation.md) | baichuan_7b <br>baichuan_13b                                                 |
-|           [Qwen](research/qwen/qwen.md)            | [text_generation](docs/task_cards/text_generation.md) | qwen_7b <br>qwen_14b                                                         |
-| [Wizardcoder](research/wizardcoder/wizardcoder.md) | [text_generation](docs/task_cards/text_generation.md) | wizardcoder_15b                                                              |
-|     [Internlm](research/internlm/internlm.md)      | [text_generation](docs/task_cards/text_generation.md) | Internlm_7b                                                                  |
-|           [ziya](research/ziya/ziya.md)            | [text_generation](docs/task_cards/text_generation.md) | ziya_13b                                                                     |
-|    [VisualGLM](research/visualglm/visualglm.md)    |                     image_to_text                     | visualglm                                                                    |
+|                         模型                         | model name                                                         |
+|:--------------------------------------------------:|:-------------------------------------------------------------------|
+|        [LLama2](docs/model_cards/llama2.md)        | llama2_7b, llama2_13b, llama2_7b_lora, llama2_13b_lora, llama2_70b |
+|          [GLM2](docs/model_cards/glm2.md)          | glm2_6b, glm2_6b_lora                                              |
+|     [CodeGeex2](docs/model_cards/codegeex2.md)     | codegeex2_6b                                                       |
+|         [LLama](docs/model_cards/llama.md)         | llama_7b, llama_13b, llama_7b_lora                                 |
+|           [GLM](docs/model_cards/glm.md)           | glm_6b, glm_6b_lora                                                |
+|         [Bloom](docs/model_cards/bloom.md)         | bloom_560m, bloom_7.1b                                             |
+|          [GPT2](docs/model_cards/gpt2.md)          | gpt2, gpt2_13b                                                     |
+|    [PanGuAlpha](docs/model_cards/pangualpha.md)    | pangualpha_2_6_b, pangualpha_13b                                   |
+|         [BLIP2](docs/model_cards/blip2.md)         | blip2_stage1_vit_g                                                 |
+|          [CLIP](docs/model_cards/clip.md)          | clip_vit_b_32, clip_vit_b_16, clip_vit_l_14, clip_vit_l_14@336     |
+|            [T5](docs/model_cards/t5.md)            | t5_small                                                           |
+|           [sam](docs/model_cards/sam.md)           | sam_vit_b, sam_vit_l, sam_vit_h                                    |
+|           [MAE](docs/model_cards/mae.md)           | mae_vit_base_p16                                                   |
+|           [VIT](docs/model_cards/vit.md)           | vit_base_p16                                                       |
+|          [Swin](docs/model_cards/swin.md)          | swin_base_p4w7                                                     |
+|       [skywork](research/skywork/skywork.md)       | skywork_13b                                                        |
+|    [Baichuan2](research/baichuan2/baichuan2.md)    | baichuan2_7b, baichuan2_13b, baichuan2_7b_lora, baichuan2_13b_lora |
+|     [Baichuan](research/baichuan/baichuan.md)      | baichuan_7b, baichuan_13b                                          |
+|           [Qwen](research/qwen/qwen.md)            | qwen_7b, qwen_14b, qwen_7b_lora, qwen_14b_lora                     |
+| [Wizardcoder](research/wizardcoder/wizardcoder.md) | wizardcoder_15b                                                    |
+|     [Internlm](research/internlm/internlm.md)      | internlm_7b, internlm_20b, internlm_7b_lora                        |
+|           [ziya](research/ziya/ziya.md)            | ziya_13b                                                           |
+|    [VisualGLM](research/visualglm/visualglm.md)    | visualglm                                                          |
 
 ## 二、mindformers安装
 
@@ -110,15 +103,15 @@ swr.cn-central-221.ovaijisuan.com/mindformers/mindformers0.8.0_mindspore2.2.0:aa
 
 ## 三、版本匹配关系
 
-当前支持的硬件为Atlas 800训练服务器 与 [Atlas 800T A2](https://www.hiascend.com/hardware/ai-server?tag=900A2)训练服务器
+当前支持的硬件为Atlas 800训练服务器 与 [Atlas 800T A2](https://www.hiascend.com/hardware/ai-server?tag=900A2)训练服务器。
 
-| MindFormers | MindPet |                           MindSpore                           | Python |                                                                                                                                       CANN                                                                                                                                        |                                                                  驱动固件                                                                   |                                                                  镜像链接                                                                   | 备注                 |
-| :---------: | :-----: | :-----------------------------------------------------------: | :----: | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------: | :-----------------------------------------------------------------------------------------------------------------------------------------: | :-----------------------------------------------------------------------------------------------------------------------------------------: | -------------------- |
-|     dev     |  1.0.2  |                            master                             |  3.9   |                                                                                                                                         /                                                                                                                                         |                                                                      /                                                                      |                                                                      /                                                                      | 开发分支(非稳定版本) |
-|     dev     |  1.0.2  | [2.2.0](https://repo.mindspore.cn/mindspore/mindspore/daily/) |  3.9   |       7.0.0.beta1: [aarch64](https://ascend-repo.obs.cn-east-2.myhuaweicloud.com/CANN/CANN%207.0.0/Ascend-cann-toolkit_7.0.0_linux-aarch64.run) [x86_64](https://ascend-repo.obs.cn-east-2.myhuaweicloud.com/CANN/CANN%207.0.0/Ascend-cann-toolkit_7.0.0_linux-x86_64.run)        | [固件驱动获取链接](https://www.hiascend.com/hardware/firmware-drivers/community?product=4&model=26&cann=7.0.RC1.beta1&driver=1.0.RC3.alpha) |                                                                      /                                                                      | 开发分支(非稳定版本) |
-|     0.8     |  1.0.2  |                             2.2.1                             |  3.9   |                                                                                                                                         /                                                                                                                                         |                                                                      /                                                                      |                                                                      /                                                                      | 发布版本分支         |
-|     0.8     |  1.0.2  |          [2.2.0](https://www.mindspore.cn/install/)           |  3.9   |   7.0.RC.beta1: [aarch64](https://ascend-repo.obs.cn-east-2.myhuaweicloud.com/CANN/CANN%207.0.RC1/Ascend-cann-toolkit_7.0.RC1_linux-aarch64.run) [x86_64](https://ascend-repo.obs.cn-east-2.myhuaweicloud.com/CANN/CANN%207.0.RC1/Ascend-cann-toolkit_7.0.RC1_linux-x86_64.run)   | [固件驱动获取链接](https://www.hiascend.com/hardware/firmware-drivers/community?product=4&model=26&cann=7.0.RC1.beta1&driver=1.0.RC3.alpha) | [物理机](http://mirrors.cn-central-221.ovaijisuan.com/detail/109.html) [AICC](http://mirrors.cn-central-221.ovaijisuan.com/detail/109.html) | 发布版本分支         |
-|     0.7     |  1.0.1  |          [2.1.1](https://www.mindspore.cn/install/)           |  3.9   | 6.3.RC2.alpha005: [aarch64](https://ascend-repo.obs.cn-east-2.myhuaweicloud.com/CANN/CANN%206.3.RC2/Ascend-cann-toolkit_6.3.RC2_linux-aarch64.run) [x86_64](https://ascend-repo.obs.cn-east-2.myhuaweicloud.com/CANN/CANN%206.3.RC2/Ascend-cann-toolkit_6.3.RC2_linux-x86_64.run) |      [固件驱动获取链接](https://www.hiascend.com/hardware/firmware-drivers/community?product=4&model=10&cann=All&driver=1.0.19.alpha)       |                                                                      /                                                                      | 旧版本分支           |
+当前套件建议使用的Python版本为3.9。
+
+| MindFormers | MindPet |                 MindSpore                  |                                                                                                                                             CANN                                                                                                                                             |                                驱动固件                                | 镜像链接 | 备注          |
+|:-----------:|:-------:|:------------------------------------------:|:--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:|:------------------------------------------------------------------:|:----:|-------------|
+|     dev     |  1.0.3  | [2.2.11](https://www.mindspore.cn/install) |         7.0.0.beta1:<br> [aarch64](https://ascend-repo.obs.cn-east-2.myhuaweicloud.com/CANN/CANN%207.0.0/Ascend-cann-toolkit_7.0.0_linux-aarch64.run)<br> [x86_64](https://ascend-repo.obs.cn-east-2.myhuaweicloud.com/CANN/CANN%207.0.0/Ascend-cann-toolkit_7.0.0_linux-x86_64.run)         | [链接](https://www.hiascend.com/hardware/firmware-drivers/community) |  /   | 开发分支(非稳定版本) |
+|    r1.0     |  1.0.3  | [2.2.11](https://www.mindspore.cn/install) |         7.0.0.beta1:<br> [aarch64](https://ascend-repo.obs.cn-east-2.myhuaweicloud.com/CANN/CANN%207.0.0/Ascend-cann-toolkit_7.0.0_linux-aarch64.run)<br> [x86_64](https://ascend-repo.obs.cn-east-2.myhuaweicloud.com/CANN/CANN%207.0.0/Ascend-cann-toolkit_7.0.0_linux-x86_64.run)         | [链接](https://www.hiascend.com/hardware/firmware-drivers/community) |      | 版本分支        |
+|    r0.8     |  1.0.2  | [2.2.1](https://www.mindspore.cn/install)  | 7.0.RC1.3.beta1: [aarch64](https://ascend-repo.obs.cn-east-2.myhuaweicloud.com/CANN/CANN%207.0.RC1.3/Ascend-cann-toolkit_7.0.RC1.3_linux-aarch64.run)<br> [x86_64](https://ascend-repo.obs.cn-east-2.myhuaweicloud.com/CANN/CANN%207.0.RC1.3/Ascend-cann-toolkit_7.0.RC1.3_linux-x86_64.run) | [链接](https://www.hiascend.com/hardware/firmware-drivers/community) |  /   | 版本分支        |
 
 其中CANN，固件驱动的安装需与使用的机器匹配，请注意识别机器型号，选择对应架构的版本
 
