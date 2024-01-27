@@ -103,7 +103,7 @@ model:
     use_flash_attention: False
     use_paged_attention: False  # PA only supported in inference
     block_size: 16
-    num_blocks: 512`
+    num_blocks: 512
     is_dynamic: False
     use_kvcache_op: False
     is_flexible_shape: False
