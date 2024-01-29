@@ -57,6 +57,7 @@ class InternLMModel(LlamaModel):
                                         softmax_compute_dtype=config.softmax_compute_type,
                                         rotary_dtype=config.rotary_dtype,
                                         param_init_type=config.param_init_type,
+                                        has_bias=config.has_bias,
                                         use_past=config.use_past,
                                         use_flash_attention=config.use_flash_attention,
                                         is_dynamic=config.is_dynamic,
