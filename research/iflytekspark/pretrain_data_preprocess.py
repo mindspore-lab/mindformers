@@ -88,4 +88,4 @@ if __name__ == '__main__':
     iflytekspark_tokenizer = IFlytekSparkTokenizer(args.tokenizer)
     raw_data_path = args.raw_data_path
     output_filename = args.output_filename
-    write_mindrecord(iflytekspark_tokenizer, raw_data_path, output_filename, args.seq_length)
+    write_mindrecord(iflytekspark_tokenizer, raw_data_path, output_filename, args.seq_length+1)

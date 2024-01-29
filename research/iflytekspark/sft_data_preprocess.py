@@ -42,7 +42,7 @@ def get_text(tokenizer, file_path):
         data = json.load(file)
         for item in data:
             sample = {}
-            prompt = process_text(item['instruction'])
+            prompt = process_text(item['instruction']+item['input'])
             prompt_ids = tokenizer.encode(prompt_format.format_map({'instruction': prompt}))
             prompt_len = len(prompt_ids)
 
@@ -110,4 +110,4 @@ if __name__ == '__main__':
     iflytekspark_tokenizer = IFlytekSparkTokenizer(args.tokenizer)
     raw_data_path = args.raw_data_path
     output_filename = args.output_filename
-    write_mindrecord(iflytekspark_tokenizer, raw_data_path, output_filename, args.seq_length, args.pad_id)
+    write_mindrecord(iflytekspark_tokenizer, raw_data_path, output_filename, args.seq_length+1, args.pad_id)

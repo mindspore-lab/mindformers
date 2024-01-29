@@ -79,7 +79,7 @@ class IFlytekSparkInfer:
                 lora_rank=self.config.pet_config.lora_rank,
                 lora_alpha=self.config.pet_config.lora_alpha,
                 lora_dropout=self.config.pet_config.lora_dropout,
-                traget_modules=self.config.pet_config.traget_modules
+                target_modules=self.config.pet_config.target_modules
             )
             self.model = get_pet_model(self.model, pet_config)
 

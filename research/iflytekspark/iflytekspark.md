@@ -289,7 +289,7 @@ pad_id: SFT数据集用于padding到指定句长的padding token id，默认值�
 
 预训练权重：
 
-- [iFlytekSpark_13b_base_fp32）](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/iflytekspark/iflytekspark_13b_base_fp32.ckpt)
+- [iFlytekSpark_13b_base_fp32](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/iflytekspark/iflytekspark_13b_base_fp32.ckpt)
 - [iFlytekSpark_13b_base_bf16](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/iflytekspark/iflytekspark_13b_base_bf16.ckpt)
 - [iFlytekSpark_13b_base_fp16](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/iflytekspark/iflytekspark_13b_base_fp16.ckpt)
 
@@ -301,8 +301,8 @@ pad_id: SFT数据集用于padding到指定句长的padding token id，默认值�
 
 Tokenizer：
 
-[tokenizer.model](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/iflytekspark/tokenizer.model)
-[tokenizer.vocab](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/iflytekspark/tokenizer.vocab)
+- [tokenizer.model](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/iflytekspark/tokenizer.model)
+- [tokenizer.vocab](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/iflytekspark/tokenizer.vocab)
 
 本仓开源的权重包含Float32，BFloat16和Float16三种格式。也可使用`/research/iflytekspark/weight_convert.py`脚本将已有MindSpore权重进行数据类型的转换。
 
@@ -526,7 +526,7 @@ parallel_config:
 cd mindformers/research
 bash run_singlenode.sh \
 "python iflytekspark/run_iflytekspark.py \
---config iflytekspark/run_iflytekspark_13b_sft_800T_A2_64G.sh \
+--config iflytekspark/run_iflytekspark_13b_sft_800T_A2_64G.yaml \
 --load_checkpoint model_dir \
 --auto_trans_ckpt True \
 --use_parallel True \
@@ -656,7 +656,7 @@ parallel_config:
 cd mindformers/research
 bash run_singlenode.sh \
 "python iflytekspark/run_iflytekspark.py \
---config iflytekspark/run_iflytekspark_13b_lora_800_32G.sh \
+--config iflytekspark/run_iflytekspark_13b_lora_800_32G.yaml \
 --load_checkpoint model_dir \
 --auto_trans_ckpt True \
 --use_parallel True \
@@ -667,7 +667,7 @@ RANK_TABLE_FILE [0,8] 8
 cd mindformers/research
 bash run_singlenode.sh \
 "python iflytekspark/run_iflytekspark.py \
---config iflytekspark/run_iflytekspark_13b_lora_800T_A2_32G.sh \
+--config iflytekspark/run_iflytekspark_13b_lora_800T_A2_64G.yaml \
 --load_checkpoint model_dir \
 --auto_trans_ckpt True \
 --use_parallel True \
