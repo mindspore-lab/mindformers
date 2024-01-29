@@ -149,10 +149,10 @@ class MultiTurnDataset(BaseDataset):
         # Note: `loss_mask` here means whether *the prediction* of the token should take loss
         tokens, loss_masks = [tokenizer.get_command("[gMASK]"), tokenizer.get_command("sop")], [0, 0]
 
-        def _update(tokens: List[int], value: int = 1):
+        def _update(conv_tokens: List[int], value: int = 1):
             value = int(value)
-            tokens.extend(tokens)
-            loss_masks.extend([value] * len(tokens))
+            tokens.extend(conv_tokens)
+            loss_masks.extend([value] * len(conv_tokens))
 
         # insert system prompt for tools
         if tool_key in item:
