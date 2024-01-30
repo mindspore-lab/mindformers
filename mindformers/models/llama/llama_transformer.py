@@ -521,7 +521,7 @@ class LLamaDecodeLayer(nn.Cell):
                                         block_size=block_size,
                                         num_blocks=num_blocks,
                                         parallel_config=parallel_config)
-        if moe_config is None:
+        if moe_config is None or not moe_config.expert_num > 1:
             self.feed_forward = LlamaFeedForward(dim=self.hidden_size,
                                                  intermediate_size=intermediate_size,
                                                  hidden_dim=4 * self.hidden_size,
@@ -545,14 +545,14 @@ class LLamaDecodeLayer(nn.Cell):
             self.add.shard(((dp, 1, 1), (dp, 1, 1)))
             self.attention_norm.shard((dp, 1, 1))
             self.ffn_norm.shard((dp, 1, 1))
-            if moe_config is None:
+            if moe_config is None or not moe_config.expert_num > 1:
                 self.feed_forward.mul.shard(((dp, 1, mp), (dp, 1, mp)))
 
         if parallel_config.use_seq_parallel and self.is_first_iteration:
             self.add.shard(((dp, mp, 1), (dp, mp, 1)))
             self.attention_norm.shard((dp, mp, 1))
             self.ffn_norm.shard((dp, mp, 1))
-            if moe_config is None:
+            if moe_config is None or not moe_config.expert_num > 1:
                 self.feed_forward.w2.shard(((dp, mp), (1, mp)), out_strategy_matmul=((dp * mp, 1),))
 
     def construct(self, x, freqs_cis, mask=None, kvcache_inputs=None):
