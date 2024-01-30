@@ -52,6 +52,7 @@
 |           [Qwen](../research/qwen/qwen.md)            |                               qwen_7b <br/>qwen_14b                                |       alpaca        |                    C-Eval                    |                            63.3 <br/>72.13                            |      [configs](https://gitee.com/mindspore/mindformers/blob/dev/research/qwen/run_qwen_7b.yaml)       |
 |     [internlm](../research/internlm/internlm.md)      |                           internlm_7b <br/>internlm_20b                            |       alpaca        |                      -                       |                                   -                                   |  [configs](https://gitee.com/mindspore/mindformers/blob/dev/research/internlm/run_internlm_7b.yaml)   |
 |           [ziya](../research/ziya/ziya.md)            |                                      ziya_13b                                      |       alpaca        |                      -                       |                                   -                                   |    [configs](https://gitee.com/mindspore/mindformers/blob/dev/research/baichuan/run_ziya_13b.yaml)    |
+|           [iFlytekSpark](../research/iflytekspark/iflytekspark.md)            |                                      iflytekspark_13b                                      |       alpaca        |                      -                       |                                   -                                   |    [configs](https://gitee.com/mindspore/mindformers/tree/r1.0/research/iflytekspark)    |
 
 ## CV
 
@@ -100,3 +101,4 @@
 |      ZiYa-13B       |        ×        |      PPL       |        √        |  dp/mp   |    √     |  ×   |    ×     |    ×     |
 |   Wizardcoder-15B   |        ×        |      PPL       |        ×        |  dp/mp   |    √     |  √   |    √     |    √     |
 |      VisualGLM      |      Lora       |       ×        |        ×        |    dp    |    √     |  ×   |    ×     |    √     |
+|      iFlytekSpark-13B      |      Lora       |       ×        |        √        |    dp/mp    |    √     |  √   |    ×     |    ×     |
