@@ -190,7 +190,7 @@ def main(task='text_generation',
 
         # write json
         with jsonlines.open(
-                f"./log/infer_result_num{len(input['input_ids'])}_rank{config.local_rank}.json",
+                f"./log/infer_result_num{len(inputs['input_ids'])}_rank{config.local_rank}.json",
                 mode="w") as f:
             for idx in range(len(outs)):
                 f.write({f"predict": outs[idx]})
