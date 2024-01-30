@@ -20,11 +20,9 @@ iFlytekSpark-13B不仅具备通用任务处理能力如聊天、问答、文本�
        ├── iflytekspark_layers.py             # 模型基本模块实现
        ├── iflytekspark_model.py              # 模型实现
        ├── iflytekspark_infer.py              # 在线推理脚本
-       ├── iflytekspark_generator_infer.py    # Lite推理API
        ├── iflytekspark_streamer.py           # 流式推理实现
        ├── iflytekspark_sampler.py            # 在线推理后处理采样实现
        ├── iflytekspark_text_generator.py     # 在线推理API
-       ├── lite_infer_main.py                 # Lite推理脚本
        ├── repetition_processor.py            # Repetition算法实现
        └── optim.py                           # 优化器实现
    ```
@@ -739,7 +737,7 @@ parallel_config:
   ...
 ```
 
-如在Atlas 800上，单卡的显存不足以执行推理任务时，可修改`model_parallel`的并行策略以启动分布式推理。如上例中`model_parallel`的值修改为了2，则代表预计使用2卡进行分布式推理。
+如在Atlas 800上，单卡的显存不足以执行推理任务时，可修改`model_parallel`的并行策略以启动分布式推理。如上例中`model_parallel`的值修改为了2，则代表预计使用2卡进行分布式推理。当前Atlas 800的yaml文件中均默认使用2卡的模型并行。
 
 **注：在线推理目前不支持`bfloat16`类型**
 
@@ -785,7 +783,7 @@ export PY_CMD="python run_iflytekspark.py \
 - `use_parallel`: 是否开启并行推理，当前脚本会根据执行脚本的入参个数自行设置
 - `load_checkpoint`: ckpt的加载路径，路径格式需满足`{your_path}/rank_{0...7}/{ckpt_name}.ckpt`，只需指定到`{your_path}`该层目录即可
 - `predict_data`：
-  1. 格式为`[{question1}##{question2}...]`的问题列表，每个问题之间使用'##'分隔
+  1. 格式为`[{question1}##{question2}...]`的问题列表，每个问题之间使用`##`进行分隔
   2. `.json`或.`jsonl`格式的文件路径，要求文件中每一行应为一个问题，每行问题为字典格式：`{input: your_question}`
 - `predict_length`: 实际推理的最大长度
 - `predict_batch`: 每次推理的batch数
@@ -805,11 +803,11 @@ export PY_CMD="python run_iflytekspark.py \
 bash run_infer.sh
 ```
 
-推理的输出结果会打印在`./log/infer.log`日志中。
+推理的输出结果会打印在`./log/infer.log`日志中，此外每个问题的输出结果还会存储在`./log/infer_result_num{question_num}_rank0.json`中便于批量处理。
 
 - **多卡推理**
 
-当使用多卡进行推理时，首先需要准备`RANK_TABLE_FILE`，具体过程请参照[RANK_TABLE_FILE准备](#rank_table_file准备)中的单节点章节，生成对应的文件，下面以两卡推理作为例子，相应的`RANK_TABLE_FILE`内容应如下：
+当使用多卡进行推理时，推荐使用单卡权重直接加载，此外需要准备`RANK_TABLE_FILE`，具体过程请参照[RANK_TABLE_FILE准备](#rank_table_file准备)中的单节点章节，生成对应的文件，下面以两卡推理作为例子，相应的`RANK_TABLE_FILE`内容应如下：
 
 ```json
 {
@@ -838,12 +836,18 @@ bash run_infer.sh
 bash run_infer.sh ./hccl_2p.json [0,2] 2
 ```
 
-执行命令后，推理任务会转至后台执行，每张卡的推理结果会打印在`./log/infer_{device_id}.log`日志中。
+执行命令后，推理任务会转至后台执行，每张卡的推理结果会打印在`./log/infer_{device_id}.log`日志中，每张卡的输出结果也会存储在`./log/infer_result_num{question_num}_rank{device_id}.json`中。
 
  **注：在 Atlas 800 32G设备上默认使用分布式推理**
 - **Lora微调后推理**
 
-进行lora微调后，将微调后权重转换为`float16`的格式后可以进行推理，与普通推理流程不同的是，lora微调后推理需要在yaml中增加与lora相关的推理内容，相关yaml文件为`run_iflytekspark_13b_infer_lora_800_32G.yaml`和`run_iflytekspark_13b_infer_lora_800T_A2_64G.yaml`，配置文件的新增内容如下：
+进行lora微调后，需要将微调后权重进行调整：
+
+1. 如为`Bfloat16`格式，需转换为`float16`或`float32`类型。
+
+2. lora微调后得到的权重为分布式权重，需参考[模型权重转换](#模型权重转换)章节将分布式权重转换为单卡权重进行推理。
+
+与普通推理流程不同的是，lora微调后推理需要在yaml中增加与lora相关的推理内容，相关yaml文件为`run_iflytekspark_13b_infer_lora_800_32G.yaml`和`run_iflytekspark_13b_infer_lora_800T_A2_64G.yaml`，配置文件的新增内容如下：
 
 ```yaml
 model:
@@ -892,7 +896,7 @@ model:
     type: IFlytekSparkModelForCasualLM
 ```
 
-然后执行如下命令：
+将`run_infer.sh`中的`--config`项修改为`run_iflytekspark_13b_infer_lora_800_32G.yaml`或`run_iflytekspark_13b_infer_lora_800T_A2_64G.yaml`，然后执行如下命令：
 
 ```shell
 # 入参格式：
@@ -907,4 +911,4 @@ bash run_infer.sh
 bash run_infer.sh ./hccl_2p.json [0,2] 2
 ```
 
-执行结束后存储路径同上章节的路径。
+执行结束后存储路径与内容同上章节。

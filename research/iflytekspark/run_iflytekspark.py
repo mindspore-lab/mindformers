@@ -142,11 +142,11 @@ def main(task='text_generation',
 
     elif run_mode == 'predict':
         # prepare data
+        import jsonlines
         if predict_data.startswith('[') and predict_data.endswith(']'):
             predict_data = predict_data.lstrip('[').rstrip(']')
             predict_data = list(predict_data.split('##'))
         elif predict_data.endswith(('.json', 'jsonl')):
-            import jsonlines
             predict_path = predict_data
             predict_data = []
             with jsonlines.open(predict_path, mode="r") as f:
@@ -187,6 +187,14 @@ def main(task='text_generation',
                 out = model.predict(cur_input)
                 outs.extend(out)
                 print(f"batch {i * model.max_batch} - {(i + 1) * model.max_batch - 1} infer output: ", out)
+
+        # write json
+        with jsonlines.open(
+                f"./log/infer_result_num{len(input['input_ids'])}_rank{config.local_rank}.json",
+                mode="w") as f:
+            for idx in range(len(outs)):
+                f.write({f"predict": outs[idx]})
+
         print("\nall of output: ", outs)
 
     elif run_mode == 'export':

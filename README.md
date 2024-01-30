@@ -50,6 +50,7 @@ MindSpore Transformers套件基于MindSpore内置的并行技术和组件化设�
 |     [Internlm](research/internlm/internlm.md)      | internlm_7b, internlm_20b, internlm_7b_lora                        |
 |           [ziya](research/ziya/ziya.md)            | ziya_13b                                                           |
 |    [VisualGLM](research/visualglm/visualglm.md)    | visualglm                                                          |
+|[iFlytekSpark](research/iflytekspark/iflytekspark.md)    | iflytekspark_13b, iflytekspark_13b_lora                                               |
 
 ## 二、mindformers安装
 
