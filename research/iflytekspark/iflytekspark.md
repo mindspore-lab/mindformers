@@ -19,36 +19,40 @@ iFlytekSpark-13B不仅具备通用任务处理能力如聊天、问答、文本�
 1. 模型具体实现：`research/iflytekspark`
 
    ```text
-       ├── iflytekspark_tokenizer.py          # tokenizer
        ├── iflytekspark_config.py             # 模型配置基类
+       ├── iflytekspark_infer.py              # 在线推理脚本
        ├── iflytekspark_layers.py             # 模型基本模块实现
        ├── iflytekspark_model.py              # 模型实现
-       ├── iflytekspark_infer.py              # 在线推理脚本
-       ├── iflytekspark_streamer.py           # 流式推理实现
        ├── iflytekspark_sampler.py            # 在线推理后处理采样实现
+       ├── iflytekspark_streamer.py           # 流式推理实现
        ├── iflytekspark_text_generator.py     # 在线推理API
-       ├── repetition_processor.py            # Repetition算法实现
-       └── optim.py                           # 优化器实现
+       ├── iflytekspark_tokenizer.py          # tokenizer
+       ├── optim.py                           # 优化器实现
+       └── repetition_processor.py            # Repetition算法实现
    ```
 
 2. 模型配置文件：`research/iflytekspark`
 
    ```text
-       ├── run_iflytekspark_13b_pretrain_800T_A2_64G.yaml         # 13B预训练配置（适用Atlas 800T A2）
-       ├── run_iflytekspark_13b_sft_800T_A2_64G.yaml              # 13B全量微调配置（适用Atlas 800T A2）
+       ├── run_iflytekspark_13b_infer_800T_A2_64G.yaml            # 13B在线推理配置（适用Atlas 800T A2）
+       ├── run_iflytekspark_13b_infer_800_32G.yaml                # 13B在线推理配置（适用Atlas 800）
+       ├── run_iflytekspark_13b_infer_lora_800T_A2_64G.yaml       # 13BLora模型在线推理配置（适用Atlas 800T A2）
+       ├── run_iflytekspark_13b_infer_lora_800_32G.yaml           # 13BLora模型在线推理配置（适用Atlas 800）
        ├── run_iflytekspark_13b_lora_800T_A2_64G.yaml             # 13BLora微调配置（适用Atlas 800T A2）
+       ├── run_iflytekspark_13b_lora_800_32G.yaml                 # 13BLora微调配置（适用Atlas 800）
+       ├── run_iflytekspark_13b_pretrain_800T_A2_64G.yaml         # 13B预训练配置（适用Atlas 800T A2）
        ├── run_iflytekspark_13b_pretrain_800_32G.yaml             # 13B预训练配置（适用Atlas 800）
-       ├── run_iflytekspark_13b_sft_800_32G.yaml                  # 13B全量微调配置（适用Atlas 800）
-       └── run_iflytekspark_13b_lora_800_32G.yaml                 # 13BLora微调配置（适用Atlas 800）
+       ├── run_iflytekspark_13b_sft_800T_A2_64G.yaml              # 13B全量微调配置（适用Atlas 800T A2）
+       └── run_iflytekspark_13b_sft_800_32G.yaml                  # 13B全量微调配置（适用Atlas 800）
    ```
 
 3. 数据处理脚本、权重处理脚本及任务启动脚本：`research/iflytekspark`
 
    ```text
        ├── pretrain_data_preprocess.py      # 预训练数据处理脚本
+       ├── run_iflytekspark.py              # 高阶接口使用脚本
        ├── sft_data_preprocess.py           # 微调数据处理脚本
-       ├── weight_convert.py                # mindspore BF16格式权重转换脚本
-       └── run_iflytekspark.py              # 高阶接口使用脚本
+       └── weight_convert.py                # mindspore BF16格式权重转换脚本
    ```
 
     `run_iflytekspark.py`接受以下参数，通过Shell脚本传入参数时，**传入参数优先级高于配置文件中对应的配置项**。
@@ -270,7 +274,7 @@ python ./research/iflytekspark/pretrain_data_preprocess.py \
 --seq_length SEQ_LENGTH
 
 # SFT&Lora
-python ./research/iflytekspark/pretrain_data_preprocess.py \
+python ./research/iflytekspark/sft_data_preprocess.py \
 --tokenizer /{TOKENIZER_PATH} \
 --raw_data_path /{RAW_DATA_PATH} \
 --output_filename /{OUTPUT_FILE_PATH} \
@@ -347,6 +351,36 @@ python ./research/iflytekspark/weight_convert.py \
 
 Mindformer支持权重自动转换，详细教程请参考[权重转换文档](../../docs/feature_cards/Transform_Ckpt.md)。
 
+**示例**：
+
+- 单卡权重转换为多卡权重
+
+本仓提供的默认配置脚本和教程中的启动方式已默认开启自动权重转换，使用时只需从[模型权重准备](#模型权重准备)章节给出的链接下载完整权重并以`model_dir/rank_0/xxx.ckpt`的路径形式存储。`yaml`配置文件中`load_checkpoint`字段指定至`model_dir`目录层级。
+
+- 多卡权重转换为单卡权重
+
+在进行分布式训练后，需要将训练保存的分布式权重合并为完整权重进行在线推理。使用本仓提供的默认配置及启动命令，训练结束后会在`research`路径下生成`output`文件夹：
+
+```text
+    ├── checkpoint                # 训练过程中保存的checkpoint（包含优化器状态等信息）
+    ├── checkpoint_network        # 训练结束保存的checkpoint（仅包含模型权重）
+    ├── log                       # 训练日志
+    ├── strategy                  # 模型切分策略文件
+    └── transformed_checkpoint    # 开启auto_trans_ckpt保存的切分后初始权重
+```
+
+以单机8卡，模型并行`model_parallel=8`为例，执行以下脚本将多卡权重合并为单卡权重：
+
+```bash
+cd mindformers
+python mindformers/tools/transform_ckpt.py \
+--src_ckpt_strategy {path_to_mindformers}/research/output/strategy/ckpt_strategy_rank_0_rank_0.ckpt \
+--dst_ckpt_strategy None \
+--src_ckpt_dir {path_to_mindformers}/research/output/checkpoint_network \
+--dst_ckpt_dir {checkpoint_save_path} \
+--prefix "checkpoint_"
+```
+
 ## 预训练
 
 请参照[数据集准备](#数据集准备)章节获取mindrecord格式的数据集，参照[模型权重准备](#模型权重准备)章节获取iFlytekSpark-13B权重。
@@ -402,13 +436,18 @@ cd mindformers/research
 bash run_singlenode.sh \
 "python iflytekspark/run_iflytekspark.py \
 --config iflytekspark/run_iflytekfpark_13b_pretrain_800T_A2_64G.yaml \
+--load_checkpoint model_dir \
 --use_parallel True \
 --run_mode train \
 --train_data dataset_dir" \
 RANK_TABLE_FILE [0,8] 8
 ```
 
-**注**：`run_iflytekspark.py`启动脚本支持的参数列表参考[仓库介绍](#仓库介绍)-数据处理脚本、权重处理脚本及任务启动脚本章节。
+**注**：
+
+- `run_iflytekspark.py`启动脚本支持的参数列表参考[仓库介绍](#仓库介绍)-数据处理脚本、权重处理脚本及任务启动脚本章节。
+
+- `load_checkpoint`指定ckpt的加载路径，也可通过`yaml`配置文件中`load_checkpoint`字段确定。路径径格式需满足`{model_dir}/rank_{0...7}/{ckpt_name}.ckpt`，只需指定到`{model_dir}`该层目录即可
 
 - **多机训练**
 
@@ -455,6 +494,7 @@ cd mindformers/research
 bash run_multinode.sh \
 "python iflytekspark/run_iflytekspark.py \
 --config iflytekspark/run_iflytekspark_13b_pretrain_800_32G.yaml \
+--load_checkpoint model_dir \
 --use_parallel True \
 --run_mode train \
 --train_data dataset_dir" \
@@ -465,13 +505,18 @@ cd mindformers/research
 bash run_multinode.sh \
 "python iflytekspark/run_iflytekspark.py \
 --config iflytekspark/run_iflytekspark_13b_pretrain_800_32G.yaml \
+--load_checkpoint model_dir \
 --use_parallel True \
 --run_mode train \
 --train_data dataset_dir" \
 RANK_TABLE_FILE [8,16] 16
 ```
 
-**注**：`run_iflytekspark.py`启动脚本支持的参数列表参考[仓库介绍](#仓库介绍)-数据处理脚本、权重处理脚本及任务启动脚本章节。
+**注**：
+
+- `run_iflytekspark.py`启动脚本支持的参数列表参考[仓库介绍](#仓库介绍)-数据处理脚本、权重处理脚本及任务启动脚本章节。
+
+- `load_checkpoint`指定ckpt的加载路径，也可通过`yaml`配置文件中`load_checkpoint`字段确定。路径径格式需满足`{model_dir}/rank_{0...7}/{ckpt_name}.ckpt`，只需指定到`{model_dir}`该层目录即可
 
 ## 全参微调
 
@@ -479,7 +524,7 @@ RANK_TABLE_FILE [8,16] 16
 执行`sft_data_preprocess.py`脚本制作预训练mindrecord格式数据集需要。
 
 ```shell
-python ./research/iflytekspark/pretrain_data_preprocess.py \
+python ./research/iflytekspark/sft_data_preprocess.py \
 --tokenizer /{TOKENIZER_PATH} \
 --raw_data_path /{RAW_DATA_PATH} \
 --output_filename /{OUTPUT_FILE_PATH} \
@@ -536,7 +581,11 @@ bash run_singlenode.sh \
 RANK_TABLE_FILE [0,8] 8
 ```
 
-**注**：`run_iflytekspark.py`启动脚本支持的参数列表参考[仓库介绍](#仓库介绍)-数据处理脚本、权重处理脚本及任务启动脚本章节。
+**注**：
+
+- `run_iflytekspark.py`启动脚本支持的参数列表参考[仓库介绍](#仓库介绍)-数据处理脚本、权重处理脚本及任务启动脚本章节。
+
+- `load_checkpoint`指定ckpt的加载路径，也可通过`yaml`配置文件中`load_checkpoint`字段确定。路径径格式需满足`{model_dir}/rank_{0...7}/{ckpt_name}.ckpt`，只需指定到`{model_dir}`该层目录即可
 
 - **多机训练**
 
@@ -584,6 +633,7 @@ cd mindformers/research
 bash run_multinode.sh \
 "python iflytekspark/run_iflytekspark.py \
 --config iflytekspark/run_iflytekspark_13b_sft_800_32G.yaml \
+--load_checkpoint model_dir \
 --use_parallel True \
 --run_mode train \
 --train_data dataset_dir" \
@@ -594,13 +644,18 @@ cd mindformers/research
 bash run_multinode.sh \
 "python iflytekspark/run_iflytekspark.py \
 --config iflytekspark/run_iflytekspark_13b_sft_800_32G.yaml \
+--load_checkpoint model_dir \
 --use_parallel True \
 --run_mode train \
 --train_data dataset_dir" \
 RANK_TABLE_FILE [8,16] 16
 ```
 
-**注**：`run_iflytekspark.py`启动脚本支持的参数列表参考[仓库介绍](#仓库介绍)-数据处理脚本、权重处理脚本及任务启动脚本章节。
+**注**：
+
+- `run_iflytekspark.py`启动脚本支持的参数列表参考[仓库介绍](#仓库介绍)-数据处理脚本、权重处理脚本及任务启动脚本章节。
+
+- `load_checkpoint`指定ckpt的加载路径，也可通过`yaml`配置文件中`load_checkpoint`字段确定。路径径格式需满足`{model_dir}/rank_{0...7}/{ckpt_name}.ckpt`，只需指定到`{model_dir}`该层目录即可
 
 ## Lora微调
 
@@ -608,7 +663,7 @@ RANK_TABLE_FILE [8,16] 16
 执行`sft_data_preprocess.py`脚本制作预训练mindrecord格式数据集需要。
 
 ```shell
-python ./research/iflytekspark/pretrain_data_preprocess.py \
+python ./research/iflytekspark/sft_data_preprocess.py \
 --tokenizer /{TOKENIZER_PATH} \
 --raw_data_path /{RAW_DATA_PATH} \
 --output_filename /{OUTPUT_FILE_PATH} \
@@ -677,7 +732,11 @@ bash run_singlenode.sh \
 RANK_TABLE_FILE [0,8] 8
 ```
 
-**注**：`run_iflytekspark.py`启动脚本支持的参数列表参考[仓库介绍](#仓库介绍)-数据处理脚本、权重处理脚本及任务启动脚本章节。
+**注**：
+
+- `run_iflytekspark.py`启动脚本支持的参数列表参考[仓库介绍](#仓库介绍)-数据处理脚本、权重处理脚本及任务启动脚本章节。
+
+- `load_checkpoint`指定ckpt的加载路径，也可通过`yaml`配置文件中`load_checkpoint`字段确定。路径径格式需满足`{model_dir}/rank_{0...7}/{ckpt_name}.ckpt`，只需指定到`{model_dir}`该层目录即可
 
 ## 在线推理
 
