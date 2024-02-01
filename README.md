@@ -1,9 +1,13 @@
 # 欢迎来到MindSpore Transformers（MindFormers）
 
+[![LICENSE](https://img.shields.io/github/license/mindspore-lab/mindformers.svg?style=flat-square)](https://github.com/mindspore-lab/mindformers/blob/master/LICENSE)
+[![Downloads](https://static.pepy.tech/badge/mindformers)](https://pepy.tech/project/mindformers)
+[![PyPI](https://badge.fury.io/py/mindformers.svg)](https://badge.fury.io/py/mindformers)
+[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/mindformers.svg)](https://pypi.org/project/mindformers)
+
 ## 一、介绍
 
-MindSpore Transformers套件的目标是构建一个大模型训练、微调、评估、推理、部署的全流程开发套件：
-提供业内主流的Transformer类预训练模型和SOTA下游任务应用，涵盖丰富的并行特性。期望帮助用户轻松的实现大模型训练和创新研发。
+MindSpore Transformers套件的目标是构建一个大模型训练、微调、评估、推理、部署的全流程开发套件，提供业内主流的Transformer类预训练模型和SOTA下游任务应用，涵盖丰富的并行特性。期望帮助用户轻松的实现大模型训练和创新研发。
 
 MindSpore Transformers套件基于MindSpore内置的并行技术和组件化设计，具备如下特点：
 
@@ -18,10 +22,10 @@ MindSpore Transformers套件基于MindSpore内置的并行技术和组件化设�
 
 如果您对MindSpore Transformers有任何建议，请通过issue与我们联系，我们将及时处理。
 
-- **[MindFormers教程文档](https://mindformers.readthedocs.io/zh_CN/latest)**
-- [大模型能力表一览](https://mindformers.readthedocs.io/zh-cn/latest/docs/model_support_list.html#llm)
-- [MindPet指导教程](docs/feature_cards/Pet_Tuners.md)
-- [AICC指导教程](docs/readthedocs/source_zh_cn/docs/practice/AICC.md)
+- 📝 **[MindFormers教程文档](https://mindformers.readthedocs.io/zh_CN/latest)**
+- 📝 [大模型能力表一览](https://mindformers.readthedocs.io/zh-cn/latest/docs/model_support_list.html#llm)
+- 📝 [MindPet指导教程](docs/feature_cards/Pet_Tuners.md)
+- 📝 [AICC指导教程](docs/readthedocs/source_zh_cn/docs/practice/AICC.md)
 
 目前支持的模型列表如下：
 
@@ -53,9 +57,9 @@ MindSpore Transformers套件基于MindSpore内置的并行技术和组件化设�
 
 ## 二、mindformers安装
 
-- 方式1：Linux源码编译安装
+### 方式一：Linux源码编译方式安装
 
-支持源码编译安装，用户可以执行下述的命令进行包的安装
+支持源码编译安装，用户可以执行下述的命令进行包的安装。
 
 ```bash
 git clone -b dev https://gitee.com/mindspore/mindformers.git
@@ -63,15 +67,15 @@ cd mindformers
 bash build.sh
 ```
 
-- 方式2：镜像
+### 方式二：镜像方式安装
 
-docker下载命令
+docker下载命令：
 
 ```shell
 docker pull swr.cn-central-221.ovaijisuan.com/mindformers/mindformers0.8.0_mindspore2.2.0:aarch_20231025
 ```
 
-创建容器
+创建容器：
 
 ```shell
 # --device用于控制指定容器的运行NPU卡号和范围
@@ -103,7 +107,7 @@ swr.cn-central-221.ovaijisuan.com/mindformers/mindformers0.8.0_mindspore2.2.0:aa
 
 ## 三、版本匹配关系
 
-当前支持的硬件为Atlas 800训练服务器 与 [Atlas 800T A2](https://www.hiascend.com/hardware/ai-server?tag=900A2)训练服务器。
+当前支持的硬件为Atlas 800训练服务器与[Atlas 800T A2](https://www.hiascend.com/hardware/ai-server?tag=900A2)训练服务器。
 
 当前套件建议使用的Python版本为3.9。
 
@@ -125,32 +129,32 @@ MindFormers套件对外提供两种使用和开发形式，为开发者提供灵
 
 - 准备工作
 
-    - step1：git clone mindformers
+    - step1：克隆mindformers仓库。
+
+      ```shell
+      git clone -b dev https://gitee.com/mindspore/mindformers.git
+      cd mindformers
+      ```
+
+    - step2: 准备相应任务的数据集，请参考`docs`目录下各模型的README.md文档准备相应数据集。
+
+    - step3：修改配置文件`configs/{model_name}/run_{model_name}_***.yaml`中数据集路径。
+
+    - step4：如果要使用分布式训练，则需提前生成RANK_TABLE_FILE。
+
+      ```shell
+      # 不包含8本身，生成0~7卡的hccl json文件
+      python mindformers/tools/hccl_tools.py --device_num [0,8)
+      ```
+
+- 单卡启动：统一接口启动，根据模型的config配置，完成任意模型的单卡训练、微调、评估、推理流程。
 
   ```shell
-  git clone -b dev https://gitee.com/mindspore/mindformers.git
-  cd mindformers
+  # 训练启动，run_mode支持train、finetune、eval、predict四个关键字，以分别完成模型训练、评估、推理功能，默认使用配置文件中的run_mode
+  python run_mindformer.py --config {CONFIG_PATH} --run_mode {train/finetune/eval/predict}
   ```
 
-    - step2:  准备相应任务的数据集，请参考`docs`目录下各模型的README.md文档准备相应数据集
-
-    - step3：修改配置文件`configs/{model_name}/run_{model_name}_***.yaml`中数据集路径
-
-    - step4：如果要使用分布式训练，则需提前生成RANK_TABLE_FILE
-
-  ```shell
-  # 不包含8本身，生成0~7卡的hccl json文件
-  python mindformers/tools/hccl_tools.py --device_num [0,8)
-  ```
-
-- 单卡启动：统一接口启动，根据模型 CONFIG 完成任意模型的单卡训练、微调、评估、推理流程
-
-```shell
-# 训练启动，run_mode支持train、finetune、eval、predict四个关键字，以分别完成模型训练、评估、推理功能，默认使用配置文件中的run_mode
-python run_mindformer.py --config {CONFIG_PATH} --run_mode {train/finetune/eval/predict}
-```
-
-- 多卡启动： scripts 脚本启动，根据模型 CONFIG 完成任意模型的单卡/多卡训练、微调、评估、推理流程
+- 多卡启动：scripts脚本启动，根据模型的config配置，完成任意模型的单卡/多卡训练、微调、评估、推理流程。
 
     - 使用 [rank table方式启动](https://www.mindspore.cn/tutorials/experts/zh-CN/r2.2/parallel/rank_table.html)
 
@@ -174,13 +178,13 @@ python run_mindformer.py --config {CONFIG_PATH} --run_mode {train/finetune/eval/
 
 - 常用参数说明
 
-```text
-RANK_TABLE_FILE: 由mindformers/tools/hccl_tools.py生成的分布式json文件
-CONFIG_PATH: 为configs文件夹下面的{model_name}/run_*.yaml配置文件
-DEVICE_ID: 为设备卡，范围为0~7
-DEVICE_RANGE: 为单机分布式卡的范围, 如[0,8]为8卡分布式，不包含8本身
-RUN_MODE: 为任务运行状态，支持关键字 train\finetune\eval\predict\export
-```
+  ```text
+  RANK_TABLE_FILE: 由mindformers/tools/hccl_tools.py生成的分布式json文件
+  CONFIG_PATH: 为configs文件夹下面的{model_name}/run_*.yaml配置文件
+  DEVICE_ID: 为设备卡，范围为0~7
+  DEVICE_RANGE: 为单机分布式卡的范围, 如[0,8]为8卡分布式，不包含8本身
+  RUN_MODE: 为任务运行状态，支持关键字 train\finetune\eval\predict\export
+  ```
 
 ### 方式二：调用API启动
 
@@ -190,11 +194,11 @@ RUN_MODE: 为任务运行状态，支持关键字 train\finetune\eval\predict\ex
 
     - step 1：安装mindformers
 
-  具体安装请参考[第二章](https://gitee.com/mindspore/mindformers/blob/dev/README.md#%E4%BA%8Cmindformers%E5%AE%89%E8%A3%85)。
+      具体安装请参考[第二章](https://gitee.com/mindspore/mindformers/blob/dev/README.md#%E4%BA%8Cmindformers%E5%AE%89%E8%A3%85)。
 
     - step2: 准备数据
 
-  准备相应任务的数据集，请参考`docs`目录下各模型的README.md文档准备相应数据集。
+      准备相应任务的数据集，请参考`docs`目录下各模型的README.md文档准备相应数据集。
 
 - Trainer 快速入门
 
@@ -202,78 +206,80 @@ RUN_MODE: 为任务运行状态，支持关键字 train\finetune\eval\predict\ex
 
     - Trainer 训练/微调启动
 
-  用户可使用`Trainer.train`或者`Trainer.finetune`接口完成模型的训练/微调/断点续训。
+      用户可使用`Trainer.train`或者`Trainer.finetune`接口完成模型的训练/微调/断点续训。
 
-  ```python
-  import mindspore; mindspore.set_context(mode=0, device_id=0)
-  from mindformers import Trainer
+      ```python
+      import mindspore; mindspore.set_context(mode=0, device_id=0)
+      from mindformers import Trainer
 
-  cls_trainer = Trainer(task='image_classification', # 已支持的任务名
-                        model='vit_base_p16', # 已支持的模型名
-                        train_dataset="/data/imageNet-1k/train", # 传入标准的训练数据集路径，默认支持ImageNet数据集格式
-                        eval_dataset="/data/imageNet-1k/val") # 传入标准的评估数据集路径，默认支持ImageNet数据集格式
-  # Example 1： 开启训练复现流程
-  cls_trainer.train()
-  # Example 2： 加载集成的mae权重，开启微调流程
-  cls_trainer.finetune(finetune_checkpoint='mae_vit_base_p16')
-  # Example 3： 开启断点续训功能
-  cls_trainer.train(train_checkpoint=True, resume_training=True)
-  ```
+      cls_trainer = Trainer(task='image_classification', # 已支持的任务名
+                            model='vit_base_p16', # 已支持的模型名
+                            train_dataset="/data/imageNet-1k/train", # 传入标准的训练数据集路径，默认支持ImageNet数据集格式
+                            eval_dataset="/data/imageNet-1k/val") # 传入标准的评估数据集路径，默认支持ImageNet数据集格式
+      # Example 1： 开启训练复现流程
+      cls_trainer.train()
+      # Example 2： 加载集成的mae权重，开启微调流程
+      cls_trainer.finetune(finetune_checkpoint='mae_vit_base_p16')
+      # Example 3： 开启断点续训功能
+      cls_trainer.train(train_checkpoint=True, resume_training=True)
+      ```
 
     - Trainer 评估启动
 
-  用户可使用`Trainer.evaluate`接口完成模型的评估流程。
+      用户可使用`Trainer.evaluate`接口完成模型的评估流程。
 
-  ```python
-  import mindspore; mindspore.set_context(mode=0, device_id=0)
-  from mindformers import Trainer
+      ```python
+      import mindspore; mindspore.set_context(mode=0, device_id=0)
+      from mindformers import Trainer
 
-  cls_trainer = Trainer(task='image_classification', # 已支持的任务名
-                        model='vit_base_p16', # 已支持的模型名
-                        eval_dataset="/data/imageNet-1k/val") # 传入标准的评估数据集路径，默认支持ImageNet数据集格式
-  # Example 1： 开启评估已集成模型权重的复现流程
-  cls_trainer.evaluate()
-  # Example 2： 开启评估训练得到的最后一个权重
-  cls_trainer.evaluate(eval_checkpoint=True)
-  # Example 3： 开启评估指定的模型权重
-  cls_trainer.evaluate(eval_checkpoint='./output/checkpoint/rank_0/mindformers.ckpt')
-  ```
+      cls_trainer = Trainer(task='image_classification', # 已支持的任务名
+                            model='vit_base_p16', # 已支持的模型名
+                            eval_dataset="/data/imageNet-1k/val") # 传入标准的评估数据集路径，默认支持ImageNet数据集格式
+      # Example 1： 开启评估已集成模型权重的复现流程
+      cls_trainer.evaluate()
+      # Example 2： 开启评估训练得到的最后一个权重
+      cls_trainer.evaluate(eval_checkpoint=True)
+      # Example 3： 开启评估指定的模型权重
+      cls_trainer.evaluate(eval_checkpoint='./output/checkpoint/rank_0/mindformers.ckpt')
+      ```
 
-  ```text
-  结果打印示例(已集成的vit_base_p16模型权重评估分数)：
-  Top1 Accuracy=0.8317
-  ```
+      结果打印示例(已集成的vit_base_p16模型权重评估分数)：
 
-    - Trainer 推理启动
+      ```text
+      Top1 Accuracy=0.8317
+      ```
 
-  用户可使用`Trainer.predict`接口完成模型的推理流程。
+    - Trainer推理启动
 
-  ```python
-  import mindspore; mindspore.set_context(mode=0, device_id=0)
-  from mindformers import Trainer
+      用户可使用`Trainer.predict`接口完成模型的推理流程。
 
-  cls_trainer = Trainer(task='image_classification', # 已支持的任务名
-                        model='vit_base_p16') # 已支持的模型名
-  input_data = './cat.png' # 一张猫的图片
-  # Example 1： 指定输入的数据完成模型推理
-  predict_result_d = cls_trainer.predict(input_data=input_data)
-  # Example 2： 开启推理（自动加载训练得到的最后一个权重）
-  predict_result_b = cls_trainer.predict(input_data=input_data, predict_checkpoint=True)
-  # Example 3： 加载指定的权重以完成推理
-  predict_result_c = cls_trainer.predict(input_data=input_data, predict_checkpoint='./output/checkpoint/rank_0/mindformers.ckpt')
-  print(predict_result_d)
-  ```
+      ```python
+      import mindspore; mindspore.set_context(mode=0, device_id=0)
+      from mindformers import Trainer
 
-  ```text
-  结果打印示例(已集成的vit_base_p16模型权重推理结果)：
-  {‘label’: 'cat', score: 0.99}
-  ```
+      cls_trainer = Trainer(task='image_classification', # 已支持的任务名
+                            model='vit_base_p16') # 已支持的模型名
+      input_data = './cat.png' # 一张猫的图片
+      # Example 1： 指定输入的数据完成模型推理
+      predict_result_d = cls_trainer.predict(input_data=input_data)
+      # Example 2： 开启推理（自动加载训练得到的最后一个权重）
+      predict_result_b = cls_trainer.predict(input_data=input_data, predict_checkpoint=True)
+      # Example 3： 加载指定的权重以完成推理
+      predict_result_c = cls_trainer.predict(input_data=input_data, predict_checkpoint='./output/checkpoint/rank_0/mindformers.ckpt')
+      print(predict_result_d)
+      ```
+
+      结果打印示例(已集成的vit_base_p16模型权重推理结果)：
+
+      ```text
+      {‘label’: 'cat', score: 0.99}
+      ```
 
 - pipeline 快速入门
 
   MindFormers套件为用户提供了已集成模型的pipeline推理接口，方便用户体验大模型推理服务。
 
-    - pipeline 使用
+  pipeline使用样例如下：
 
   ```python
   # 以gpt2 small为例
@@ -285,8 +291,9 @@ RUN_MODE: 为任务运行状态，支持关键字 train\finetune\eval\predict\ex
   print(pipeline_result)
   ```
 
-  ```text
   结果打印示例(已集成的gpt2模型权重推理结果)：
+
+  ```text
   [{'text_generation_text': ['An increasing sequence: one, two, three, four, five, six, seven, eight,']}]
   ```
 
@@ -294,49 +301,49 @@ RUN_MODE: 为任务运行状态，支持关键字 train\finetune\eval\predict\ex
 
   MindFormers套件为用户提供了高阶AutoClass类，包含AutoConfig、AutoModel、AutoProcessor、AutoTokenizer四类，方便开发者进行调用。
 
-    - AutoConfig 获取已支持的任意模型配置
+    - AutoConfig获取已支持的任意模型配置
 
-  ```python
-  from mindformers import AutoConfig
+      ```python
+      from mindformers import AutoConfig
 
-  # 获取gpt2的模型配置
-  gpt2_config = AutoConfig.from_pretrained('gpt2')
-  # 获取vit_base_p16的模型配置
-  vit_base_p16_config = AutoConfig.from_pretrained('vit_base_p16')
-  ```
+      # 获取gpt2的模型配置
+      gpt2_config = AutoConfig.from_pretrained('gpt2')
+      # 获取vit_base_p16的模型配置
+      vit_base_p16_config = AutoConfig.from_pretrained('vit_base_p16')
+      ```
 
-    - AutoModel 获取已支持的网络模型
+    - AutoModel获取已支持的网络模型
 
-  ```python
-  from mindformers import AutoModel
+      ```python
+      from mindformers import AutoModel
 
-  # 利用from_pretrained功能实现模型的实例化（默认加载对应权重）
-  gpt2 = AutoModel.from_pretrained('gpt2')
-  # 利用from_config功能实现模型的实例化（默认加载对应权重）
-  gpt2_config = AutoConfig.from_pretrained('gpt2')
-  gpt2 = AutoModel.from_config(gpt2_config)
-  # 利用save_pretrained功能保存模型对应配置
-  gpt2.save_pretrained('./gpt2', save_name='gpt2')
-  ```
+      # 利用from_pretrained功能实现模型的实例化（默认加载对应权重）
+      gpt2 = AutoModel.from_pretrained('gpt2')
+      # 利用from_config功能实现模型的实例化（默认加载对应权重）
+      gpt2_config = AutoConfig.from_pretrained('gpt2')
+      gpt2 = AutoModel.from_config(gpt2_config)
+      # 利用save_pretrained功能保存模型对应配置
+      gpt2.save_pretrained('./gpt2', save_name='gpt2')
+      ```
 
-    - AutoProcessor 获取已支持的预处理方法
+    - AutoProcessor获取已支持的预处理方法
 
-  ```python
-  from mindformers import AutoProcessor
+      ```python
+      from mindformers import AutoProcessor
 
-  # 通过模型名关键字获取对应模型预处理过程（实例化gpt2的预处理过程，通常用于Trainer/pipeline推理入参）
-  gpt2_processor_a = AutoProcessor.from_pretrained('gpt2')
-  # 通过yaml文件获取相应的预处理过程
-  gpt2_processor_b = AutoProcessor.from_pretrained('configs/gpt2/run_gpt2.yaml')
-  ```
+      # 通过模型名关键字获取对应模型预处理过程（实例化gpt2的预处理过程，通常用于Trainer/pipeline推理入参）
+      gpt2_processor_a = AutoProcessor.from_pretrained('gpt2')
+      # 通过yaml文件获取相应的预处理过程
+      gpt2_processor_b = AutoProcessor.from_pretrained('configs/gpt2/run_gpt2.yaml')
+      ```
 
-    - AutoTokenizer 获取已支持的tokenizer方法
+    - AutoTokenizer获取已支持的tokenizer方法
 
-  ```python
-  from mindformers import AutoTokenizer
-  # 通过模型名关键字获取对应模型预处理过程（实例化gpt2的tokenizer，通常用于Trainer/pipeline推理入参）
-  gpt2_tokenizer = AutoTokenizer.from_pretrained('gpt2')
-  ```
+      ```python
+      from mindformers import AutoTokenizer
+      # 通过模型名关键字获取对应模型预处理过程（实例化gpt2的tokenizer，通常用于Trainer/pipeline推理入参）
+      gpt2_tokenizer = AutoTokenizer.from_pretrained('gpt2')
+      ```
 
 ## 五、贡献
 
