@@ -126,10 +126,10 @@ class KVCacheMgr(nn.Cell):
 
         key_cache = self.key_past
         value_cache = self.value_past
-        self.decoder_kvcache(self.key_past, key_update, batch_valid_length, batch_index_pad,
-                             self.seqlen_axis_tensor_pad, seq_length_tensor_pad, seq_length_tensor_pad)
-        self.decoder_kvcache(self.value_past, value_update, batch_valid_length, batch_index_pad,
-                             self.seqlen_axis_tensor_pad, seq_length_tensor_pad, seq_length_tensor_pad)
+        key_update = self.decoder_kvcache(self.key_past, key_update, batch_valid_length, batch_index_pad,
+                                          self.seqlen_axis_tensor_pad, seq_length_tensor_pad, seq_length_tensor_pad)
+        value_update = self.decoder_kvcache(self.value_past, value_update, batch_valid_length, batch_index_pad,
+                                            self.seqlen_axis_tensor_pad, seq_length_tensor_pad, seq_length_tensor_pad)
         key_cache = ops.depend(key_cache, key_update)
         value_cache = ops.depend(value_cache, value_update)
         return key_cache, value_cache
