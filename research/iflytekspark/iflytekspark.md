@@ -976,6 +976,174 @@ bash run_infer.sh ./hccl_2p.json [0,2] 2
 
 执行结束后存储路径与内容同上章节。
 
+## 离线推理
+
+**配置文件**
+
+离线推理任务中使用的yaml文件为`run_iflytekspark_13b_lite_infer_800_32G.yaml`与`run_iflytekspark_13b_lite_infer_800T_A2_64G.yaml`，在`model_config`中包含了一些关键参数：
+
+- `seq_length`: 最大推理长度。
+- `batch_size`: 推理batch数。
+- `sparse_local_size`: sparse attention的局部长度。
+- `use_past`: 是否使能增量推理。
+- `do_sample`: 推理时是否进行随机采样。
+- `is_dynamic`: 是否开启动态shape推理（单卡使能）。
+- 各类采样参数: `top_k`, `top_p`, `temperature`, `repetition_penalty`等，采样参数仅当`do_sample=True`时生效。
+
+```yaml
+model:
+  model_config:
+    type: IFlytekSparkConfig
+    seq_length: 32768
+    batch_size: 1
+    hidden_size: 5120
+    ffn_hidden_size: 28672
+    num_layers: 40
+    num_heads: 40
+    vocab_size: 60000
+    layernorm_epsilon: 1.0e-5
+    bos_token_id: 1
+    eos_token_id: 5
+    pad_token_id: 0
+    ignore_token_id: -100
+    compute_type: "float16"
+    softmax_compute_type: "float16"
+    layernorm_compute_type: "float32"
+    embedding_init_type: "float16"
+    dropout_rate: 0.0
+    hidden_act: "fast_gelu"
+    sparse_local_size: 8192
+    seq_parallel: False
+    is_reward_model: False
+    offset: 0
+    checkpoint_name_or_path: ""
+    use_past: True
+    do_sample: False
+    is_dynamic: True
+    top_k: 1
+    top_p: 1.0
+    temperature: 1.0
+    repetition_penalty: 1.0
+    repetition_penalty_increase: 0.1
+  arch:
+    type: IFlytekSparkModelForCasualLM
+```
+
+此外，在使用分布式推理时，需要关注`parallel_config`中的并行策略:
+
+```yaml
+parallel_config:
+  data_parallel: 1
+  model_parallel: 2
+  ...
+```
+
+同时分布式推理时使用需run_iflytekspark_13b_lite_infer_800T_A2_64G_dis.yaml,要将配置yaml文件中is_dynamic设置为False,当前动态shape仅支持单卡推理
+
+**注：离线推理目前不支持`bfloat16`类型**
+
+**导出脚本**
+
+离线推理的步骤为先导出mindir模型，然后执行；第一步为导出模型
+
+导出模型的入口脚本为`run_export.sh`，核心内容如下：
+
+```shell
+if [ $# != 0 ]  && [ $# != 3 ]
+then
+  echo "Usage Help: bash run_export.sh For Single Devices"
+  echo "Usage Help: bash run_export.sh [RANK_TABLE_FILE] [DEVICE_RANGE] [RANK_SIZE] For Multiple Devices"
+  exit 1
+fi
+
+...
+
+# According to the different machines, the yaml file that should be used is:
+# Atlas 800 32G -> run_iflytekspark_13b_infer_800_32G.yaml
+# Atlas 800T A2 64G -> run_iflytekspark_13b_infer_800T_A2_64G.yaml
+# Atlas 800T A2 64G with distribution -> run_iflytekspark_13b_infer_800T_A2_64G_dis.yaml
+export CONFIG_PATH=run_iflytekspark_13b_lite_infer_800T_A2_64G.yaml
+
+# You can modify the following parameters
+export PY_CMD="python run_iflytekspark.py \
+               --config $CONFIG_PATH \
+               --run_mode export \
+               --mindir_save_dir $mindir_save_dir \
+               --use_parallel $PARALLEL \
+               --load_checkpoint '{your_ckpt_path}' \
+               --predict_length $max_seq_len \
+               --predict_batch $batch_size"
+
+...
+```
+
+参数说明：
+
+- `config`: 配置文件路径
+- `run_mode`: 运行模式，推理使用`export`字段
+- `use_parallel`: 是否开启并行推理，当前脚本会根据执行脚本的入参个数自行设置
+- `load_checkpoint`: ckpt的加载路径，路径格式需满足`{your_path}/rank_{0...7}/{ckpt_name}.ckpt`，只需指定到`{your_path}`该层目录即可
+- `predict_length`: 实际推理的最大长度
+- `predict_batch`: 每次推理的batch数
+
+多卡导出时需要设置CONFIG_PATH为run_iflytekspark_13b_lite_infer_800T_A2_64G_dis.yaml。
+
+**推理启动方式**
+
+导出模型以后，目前支持两种命令格式执行`run_lite.sh`启动单卡推理,`run_lite_dis.sh`启动多卡推理 。
+
+- **单卡推理**
+
+当仅使用单卡进行推理时，可直接执行如下命令：
+
+```shell
+bash run_lite.sh
+```
+
+推理的输出结果会打印在`./log/lite.log`日志中。
+
+- **多卡推理**
+
+```shell
+bash run_lite_dis.sh
+```
+
+当使用多卡进行推理时，推荐使用单卡权重直接加载，此外需要准备`RANK_TABLE_FILE`，具体过程请参照[RANK_TABLE_FILE准备](#rank_table_file准备)中的单节点章节，生成对应的文件，下面以两卡推理作为例子，相应的`RANK_TABLE_FILE`内容应如下：
+
+```json
+{
+    "version": "1.0",
+    "server_count": "1",
+    "server_list": [
+        {
+            "server_id": "xx.xx.xx.xx",
+            "device": [
+                {"device_id": "0","device_ip": "192.1.27.6","rank_id": "0"},
+                {"device_id": "1","device_ip": "192.2.27.6","rank_id": "1"}],
+             "host_nic_ip": "reserve"
+        }
+    ],
+    "status": "completed"
+}
+```
+
+然后执行如下命令导出模型：
+
+```shell
+# 入参格式：
+# bash run_export.sh [RANK_TABLE_FILE_PATH] [DEVICE_RANGE] [RANK_SIZE]
+# 此例中[RANK_TABLE_FILE_PATH]假设为./hccl_2p.json
+
+bash run_export.sh ./hccl_2p.json [0,2] 2
+```
+
+准备好RANK_TABLE_FILE以后将路径填入lite分布式推理的配置文件中，修改lite_config/full_dyn_infer_cfg_dis.ini文件和lite_config/inc_dyn_infer_cfg_akg_dis.ini文件中的rank_table_file字段,两个文件分别代表全量推理和增量推理的ge(计算底座)配置。
+然后在run_lite_dis.sh 配置start_device_id表示多节点对应的起始device id, --device 已经废弃，填0即可。
+
+输入文件支持json和文本文件两种，json文件需要以json为后缀，其他默认为文本文件，json输入需要含有'input'字段。
+
+执行命令后，执行分布式推理脚本`run_lite_dis.sh`推理任务会转至后台执行，所有卡的推理结果会打印在`./log/lite.log`日志中。
+
 ## 协议
 
 请您知悉，无论您是否已实际阅读[星火开源-13B大模型许可协议](https://gitee.com/iflytekopensource/iFlytekSpark-13B/blob/master/LICENSE_MODEL.md)，当您通过部署及使用该模型服务即表示确认同意本协议或实际使用、复制、分发、修改本协议中的讯飞星火认知大模型-13B模型时，均表示您与科大讯飞股份有限公司（以下称“许可方”）已就本协议达成一致，本协议具有合同效力。如果您不同意本协议的任一内容，或者无法准确理解许可方对[本协议条款](https://gitee.com/iflytekopensource/iFlytekSpark-13B/blob/master/LICENSE_MODEL.md)的解释，请停止使用本服务。否则，即表示您已接受本协议所述的所有条款及其适用条件，同意受本协议约束。
