@@ -72,7 +72,7 @@ bash build.sh
 docker下载命令：
 
 ```shell
-docker pull swr.cn-central-221.ovaijisuan.com/mindformers/mindformers0.8.0_mindspore2.2.0:aarch_20231025
+docker pull swr.cn-central-221.ovaijisuan.com/mindformers/mindformers1.0_mindspore2.2.11:aarch_20240125
 ```
 
 创建容器：
@@ -101,9 +101,11 @@ docker run -it -u root \
 -v /var/log/npu/:/usr/slog \
 -v /usr/local/bin/npu-smi:/usr/local/bin/npu-smi \
 --name {请手动输入容器名称} \
-swr.cn-central-221.ovaijisuan.com/mindformers/mindformers0.8.0_mindspore2.2.0:aarch_20231025 \
+swr.cn-central-221.ovaijisuan.com/mindformers/mindformers1.0_mindspore2.2.11:aarch_20240125 \
 /bin/bash
 ```
+
+更多镜像版本请在[镜像仓库网](http://mirrors.cn-central-221.ovaijisuan.com/mirrors.html)中检索获取
 
 ## 三、版本匹配关系
 
@@ -111,11 +113,11 @@ swr.cn-central-221.ovaijisuan.com/mindformers/mindformers0.8.0_mindspore2.2.0:aa
 
 当前套件建议使用的Python版本为3.9。
 
-| MindFormers | MindPet |                 MindSpore                  |                                                                                                                                             CANN                                                                                                                                             |                                驱动固件                                | 镜像链接 | 备注          |
-|:-----------:|:-------:|:------------------------------------------:|:--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:|:------------------------------------------------------------------:|:----:|-------------|
-|     dev     |  1.0.3  | [2.2.11](https://www.mindspore.cn/install) |         7.0.0.beta1:<br> [aarch64](https://ascend-repo.obs.cn-east-2.myhuaweicloud.com/CANN/CANN%207.0.0/Ascend-cann-toolkit_7.0.0_linux-aarch64.run)<br> [x86_64](https://ascend-repo.obs.cn-east-2.myhuaweicloud.com/CANN/CANN%207.0.0/Ascend-cann-toolkit_7.0.0_linux-x86_64.run)         | [链接](https://www.hiascend.com/hardware/firmware-drivers/community) |  /   | 开发分支(非稳定版本) |
-|    r1.0     |  1.0.3  | [2.2.11](https://www.mindspore.cn/install) |         7.0.0.beta1:<br> [aarch64](https://ascend-repo.obs.cn-east-2.myhuaweicloud.com/CANN/CANN%207.0.0/Ascend-cann-toolkit_7.0.0_linux-aarch64.run)<br> [x86_64](https://ascend-repo.obs.cn-east-2.myhuaweicloud.com/CANN/CANN%207.0.0/Ascend-cann-toolkit_7.0.0_linux-x86_64.run)         | [链接](https://www.hiascend.com/hardware/firmware-drivers/community) | [链接](http://mirrors.cn-central-221.ovaijisuan.com/detail/118.html)     | /        |
-|    r0.8     |  1.0.2  | [2.2.1](https://www.mindspore.cn/install)  | 7.0.RC1.3.beta1:<br> [aarch64](https://ascend-repo.obs.cn-east-2.myhuaweicloud.com/CANN/CANN%207.0.RC1.3/Ascend-cann-toolkit_7.0.RC1.3_linux-aarch64.run)<br> [x86_64](https://ascend-repo.obs.cn-east-2.myhuaweicloud.com/CANN/CANN%207.0.RC1.3/Ascend-cann-toolkit_7.0.RC1.3_linux-x86_64.run) | [链接](https://www.hiascend.com/hardware/firmware-drivers/community) |  /   | /        |
+| MindFormers | MindPet |                 MindSpore                  |                                                                                                                                               CANN                                                                                                                                               |                               驱动固件                               |                               镜像链接                               | 备注                 |
+| :---------: | :-----: | :----------------------------------------: | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------: | :------------------------------------------------------------------: | :------------------------------------------------------------------: | -------------------- |
+|     dev     |  1.0.3  | [2.2.11](https://www.mindspore.cn/install) |           7.0.0.beta1:<br> [aarch64](https://ascend-repo.obs.cn-east-2.myhuaweicloud.com/CANN/CANN%207.0.0/Ascend-cann-toolkit_7.0.0_linux-aarch64.run)<br> [x86_64](https://ascend-repo.obs.cn-east-2.myhuaweicloud.com/CANN/CANN%207.0.0/Ascend-cann-toolkit_7.0.0_linux-x86_64.run)           | [链接](https://www.hiascend.com/hardware/firmware-drivers/community) |                                  /                                   | 开发分支(非稳定版本) |
+|    r1.0     |  1.0.3  | [2.2.11](https://www.mindspore.cn/install) |           7.0.0.beta1:<br> [aarch64](https://ascend-repo.obs.cn-east-2.myhuaweicloud.com/CANN/CANN%207.0.0/Ascend-cann-toolkit_7.0.0_linux-aarch64.run)<br> [x86_64](https://ascend-repo.obs.cn-east-2.myhuaweicloud.com/CANN/CANN%207.0.0/Ascend-cann-toolkit_7.0.0_linux-x86_64.run)           | [链接](https://www.hiascend.com/hardware/firmware-drivers/community) | [链接](http://mirrors.cn-central-221.ovaijisuan.com/detail/118.html) | 发布版本             |
+|    r0.8     |  1.0.2  | [2.2.1](https://www.mindspore.cn/install)  | 7.0.RC1.3.beta1:<br> [aarch64](https://ascend-repo.obs.cn-east-2.myhuaweicloud.com/CANN/CANN%207.0.RC1.3/Ascend-cann-toolkit_7.0.RC1.3_linux-aarch64.run)<br> [x86_64](https://ascend-repo.obs.cn-east-2.myhuaweicloud.com/CANN/CANN%207.0.RC1.3/Ascend-cann-toolkit_7.0.RC1.3_linux-x86_64.run) | [链接](https://www.hiascend.com/hardware/firmware-drivers/community) |                                  /                                   | 历史发布版本                    |
 
 其中CANN，固件驱动的安装需与使用的机器匹配，请注意识别机器型号，选择对应架构的版本
 
