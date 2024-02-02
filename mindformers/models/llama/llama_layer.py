@@ -387,7 +387,7 @@ class LlamaRMSNorm(nn.Cell):
             self.mul.shard((strategy_in, strategy_in))
             self.mul2.shard((strategy_in, (1,)))
         else:
-            self.norm.shard((strategy_in,))
+            self.norm.shard((strategy_in, (1,)))
 
 
 class LlamaFeedForward(Cell):

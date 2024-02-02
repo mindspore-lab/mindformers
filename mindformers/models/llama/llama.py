@@ -229,7 +229,10 @@ class LlamaModel(BaseModel):
 
             self.tok_embeddings.shard(config.parallel_config)
             self.casual_mask.shard(config.parallel_config)
-            self.norm_out.shard((dp, 1, 1))
+            if config.fine_grain_interleave > 1:
+                self.norm_out.shard((dp, 1))
+            else:
+                self.norm_out.shard((dp, 1, 1))
 
     # pylint: disable=W0613
     def construct(self, tokens: Tensor, batch_valid_length=None, batch_index=None, zactivate_len=None):
