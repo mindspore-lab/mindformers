@@ -34,3 +34,4 @@
    mae
    swin
    vit
+   ../../research/iflytekspark/iflytekspark
