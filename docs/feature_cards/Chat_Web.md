@@ -166,16 +166,23 @@ postman是一款API在线调试的工具，可以用来向推理服务发送请�
 
 向推理服务的API接口`http://xx.xx.xx.xx:11111/generate` 发送POST请求，其中`xx.xx.xx.xx`为运行推理服务的服务器IP地址，端口号以实际设置为准。
 
-请求体如下，其中`"content"`中为输入的问题：
+请求体如下，其中`"content"`中为输入的问题，`"stream"`控制是否为流式响应，其余参数含义参考上一节：
 
 ```json
 {
-  "messages": [
-    {
-      "role": "user",
-      "content": ""
-    }
-  ]
+    "messages": [
+        {
+            "role": "user",
+            "content": ""
+        }
+    ],
+    "max_length": 128,
+    "do_sample": true,
+    "top_k": 3,
+    "top_p": 0.8,
+    "temperature": 1.0,
+    "repetition_penalty": 1.05,
+    "stream": false
 }
 ```
 
@@ -599,7 +606,7 @@ model:
     use_flash_attention: False
     offset: 0
     use_past_shard: False
-    checkpoint_name_or_path: "llama2_13b"
+    checkpoint_name_or_path: ""
     repetition_penalty: 1
     max_decode_length: 512
     top_k: 3
