@@ -24,7 +24,6 @@ remote_save_url: "Please input obs url on AICC platform."
 model:
   model_config:
     type: ChatGLM2Config
-    batch_size: 1   # only for incremental infer
     num_layers: 28
     padded_vocab_size: 65024
     hidden_size: 4096

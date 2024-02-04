@@ -25,7 +25,6 @@ remote_save_url: "Please input obs url on AICC platform."
 model:
   model_config:
     type: ChatGLM2Config
-    batch_size: 1   # only for incremental infer
     num_layers: 28
     padded_vocab_size: 65024
     hidden_size: 4096
@@ -130,7 +129,7 @@ train_dataset_task:
 eval_dataset: &eval_dataset
   data_loader:
     type: ADGenDataLoader
-    dataset_dir: "/path/to/AdvertiseGen/train.json"
+    dataset_dir: "/path/to/AdvertiseGen/eval.json"
     shuffle: False
     phase: "eval"
     version: 2

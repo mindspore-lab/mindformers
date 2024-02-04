@@ -31,11 +31,11 @@ ChatGLM3 是智谱AI和清华大学 KEG 实验室联合发布的新一代对话�
 
     ```bash
     configs/glm3
-    ├── export_glm3_6b.yaml                        # 导出 mindir 配置
-    ├── run_glm3_6b_finetune_2k_910b.yaml          # Atlas 800T A2 最佳性能全量微调启动配置
-    ├── run_glm3_6b_finetune_910b.yaml             # Atlas 800T A2 ADGEN 全量微调启动配置
-    ├── run_glm3_6b_multiturn_finetune_910b.yaml   # Atlas 800T A2 多轮对话全量微调启动配置
-    └── run_glm3_6b.yaml                           # ChatGLM3配置模板
+    ├── export_glm3_6b.yaml                               # 导出 mindir 配置
+    ├── run_glm3_6b_finetune_2k_800T_A2_64G.yaml          # Atlas 800T A2 最佳性能全量微调启动配置
+    ├── run_glm3_6b_finetune_800T_A2_64G.yaml             # Atlas 800T A2 ADGEN 全量微调启动配置
+    ├── run_glm3_6b_multiturn_finetune_800T_A2_64G.yaml   # Atlas 800T A2 多轮对话全量微调启动配置
+    └── run_glm3_6b.yaml                                  # ChatGLM3配置模板
     ```
 
 ## 前期准备
@@ -395,7 +395,7 @@ train_dataset: &train_dataset
     vocab_file: "/path/to/tokenizer.model"
   input_columns: ["input_ids", "labels"]
   max_source_length: 64
-  max_target_length: 128
+  max_target_length: 127
 
 eval_dataset: &eval_dataset
   data_loader:
@@ -408,13 +408,13 @@ eval_dataset: &eval_dataset
 ```
 
 **注意**：微调时的模型`seq_length`需要等于微调数据集的`max_source_length + max_target_length + 1`。
-yaml文件中默认的`seq_length: 193`以及`max_source_length: 64`和`max_target_length: 128`适用于ADGEN数据集，
+yaml文件中默认的`seq_length: 192`以及`max_source_length: 64`和`max_target_length: 127`适用于ADGEN数据集，
 其他数据集的`seq_length`设置，可以遍历并将数据集转换为token_id，取token_id最大长度，`seq_length`太大影响训练性能，
 太小影响训练精度，需要做出权衡。
 
 #### 多轮对话格式数据集
 
-首先，克隆 [ToolAlpaca 数据集](https://github.com/tangqiaoyu/ToolAlpaca)，并下载处理脚本 [format_tool_alpaca.py](https://github.com/THUDM/ChatGLM3/blob/main/finetune_chatmodel_demo/scripts/format_tool_alpaca.py)，然后执行脚本执行脚本：
+首先，克隆 [ToolAlpaca 数据集](https://github.com/tangqiaoyu/ToolAlpaca)，并下载处理脚本 [format_tool_alpaca.py](https://github.com/THUDM/ChatGLM3/blob/7cd5bc78bd6232d02764b60b33874bb2d63a0df0/finetune_chatmodel_demo/scripts/format_tool_alpaca.py)，然后执行脚本执行脚本：
 
 ```python
 python mindformers/tools/format_tool_alpaca.py --path ToolAlpaca/data/train_data.json

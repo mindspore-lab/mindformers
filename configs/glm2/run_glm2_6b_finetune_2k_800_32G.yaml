@@ -1,7 +1,7 @@
 seed: 0
-run_mode: 'finetune'
+run_mode: 'train'
 output_dir: './output' # path to save checkpoint/strategy
-load_checkpoint: 'glm3_6b'
+load_checkpoint: 'glm2_6b'
 src_strategy_path_or_dir: ''
 auto_trans_ckpt: False  # If true, auto transform load_checkpoint to load in distributed model
 only_save_strategy: False
@@ -14,9 +14,8 @@ context:
   enable_graph_kernel: False
   graph_kernel_flags: "--disable_expand_ops=Softmax,Dropout --enable_parallel_fusion=true --reduce_fuse_depth=8 --enable_auto_tensor_inplace=true"
   max_call_depth: 10000
-  max_device_memory: "59GB" # 59GB for Atlas 800T A2
+  max_device_memory: "30GB" # 59GB for Atlas 800T A2
   save_graphs: False
-  save_graphs_path: 'your-path'
   device_id: 0
 
 # aicc
@@ -26,7 +25,6 @@ remote_save_url: "Please input obs url on AICC platform."
 model:
   model_config:
     type: ChatGLM2Config
-    batch_size: 1   # only for incremental infer
     num_layers: 28
     padded_vocab_size: 65024
     hidden_size: 4096
@@ -60,7 +58,7 @@ model:
     pad_token_id: 0
     repetition_penalty: 1.0
     max_decode_length: 256
-    checkpoint_name_or_path: "glm3_6b"
+    checkpoint_name_or_path: "glm2_6b"
     top_k: 1
     top_p: 1
     do_sample: True
@@ -69,20 +67,20 @@ model:
 
 trainer:
   type: CausalLanguageModelingTrainer
-  model_name: 'glm3_6b'
+  model_name: 'glm2_6b'
 # if True do, evaluate during the training process. if false, do nothing.
 # note that the task trainer should support _evaluate_in_training function.
 do_eval: False
-eval_step_interval: 500
+eval_step_interval: 1788
 eval_epoch_interval: -1
 
 metric:
-  type: ADGENMetric
+  type: PerplexityMetric
 
 processor:
   return_tensors: ms
   tokenizer:
-    type: ChatGLM3Tokenizer
+    type: ChatGLM2Tokenizer
     bos_token: '<sop>'
     eos_token: '<eop>'
     end_token: '</s>'
@@ -96,30 +94,64 @@ processor:
 # ==== dataset config ====
 train_dataset: &train_dataset
   data_loader:
-    type: ToolAlpacaDataLoader
-    dataset_dir:  "/path/to/tool_alpaca.jsonl"
+    type: ADGenDataLoader
+    dataset_dir: "/path/to/AdvertiseGen/train.json"
     shuffle: True
+    phase: "train"
+    version: 2
+    origin_columns: ["content", "summary"]
   tokenizer:
-    type: ChatGLM3Tokenizer
+    type: ChatGLM2Tokenizer
     vocab_file: "/path/to/tokenizer.model"
-  max_seq_length: 2048
+  input_columns: ["input_ids", "labels"]
+  max_source_length: 1023
+  max_target_length: 1024
+  ignore_pad_token_for_loss: True
   num_parallel_workers: 8
-  python_multiprocessing: False # True: muti-process; False: muti-tread
+  python_multiprocessing: False
   drop_remainder: True
-  batch_size: 1
+  batch_size: 2
   repeat: 1
   numa_enable: False
   prefetch_size: 1
   seed: 0
 
 train_dataset_task:
-  type: MultiTurnDataset
+  type: KeyWordGenDataset
   dataset_config: *train_dataset
+
+eval_dataset: &eval_dataset
+  data_loader:
+    type: ADGenDataLoader
+    dataset_dir: "/path/to/AdvertiseGen/dev.json"
+    shuffle: False
+    phase: "train"
+    version: 2
+    origin_columns: ["content", "summary"]
+  tokenizer:
+    type: ChatGLM2Tokenizer
+    vocab_file: "/path/to/tokenizer.model"
+  max_source_length: 1023
+  max_target_length: 1024
+  ignore_pad_token_for_loss: True
+  input_columns: ["input_ids", "labels"]
+  num_parallel_workers: 8
+  python_multiprocessing: False
+  drop_remainder: True
+  batch_size: 2
+  repeat: 1
+  numa_enable: False
+  prefetch_size: 1
+  seed: 0
+
+eval_dataset_task:
+  type: KeyWordGenDataset
+  dataset_config: *eval_dataset
 
 # ==== runner config ====
 runner_config:
-  epochs: 2
-  batch_size: 8
+  epochs: 1
+  batch_size: 2
   sink_mode: True
   sink_size: 4
 
@@ -130,12 +162,12 @@ runner_wrapper:
     loss_scale_value: 65536
     scale_factor: 2
     scale_window: 1000
-  use_clip_grad: False
+  use_clip_grad: True
 
 # lr sechdule
 lr_schedule:
   type: polynomial
-  learning_rate: 1.e-4
+  learning_rate: 5.e-5
   lr_end: 1.e-6
   warmup_steps: 0
   total_steps: -1 # -1 means it will load the total steps of the dataset
@@ -144,12 +176,11 @@ layer_decay: 0.65
 
 # optimizer
 optimizer:
-  type: FusedAdamWeightDecay # FusedAdamWeightDecay # FP32StateAdamWeightDecay # AdamWeightDecayX
+  type: FP32StateAdamWeightDecay
   beta1: 0.9
-  beta2: 0.999
+  beta2: 0.95
   eps: 1.e-8
-  weight_decay: 0.0
-  learning_rate: 1.e-4
+  weight_decay: 0.1
 lr_scale: False
 lr_scale_factor: 256
 
@@ -166,8 +197,8 @@ parallel:
   strategy_ckpt_config:
     save_file: "./ckpt_strategy.ckpt"
 parallel_config:
-  data_parallel: 8
-  model_parallel: 1
+  data_parallel: 1
+  model_parallel: 8
   pipeline_stage: 1
   expert_parallel: 1
   micro_batch_num: 1
@@ -206,8 +237,8 @@ profile_memory: True
 callbacks:
   - type: MFLossMonitor
   - type: CheckpointMointor
-    prefix: "glm3-6b"
-    save_checkpoint_steps: 100
+    prefix: "glm2-6b"
+    save_checkpoint_steps: 1000
     keep_checkpoint_max: 1
     integrated_save: False
     async_save: False

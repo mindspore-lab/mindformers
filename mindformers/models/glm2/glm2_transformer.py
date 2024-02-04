@@ -212,6 +212,7 @@ class ChatGLM2SelfAttention(nn.Cell):
             self.range = Tensor(
                 np.tile(seq_range, (self.batch_size, 1, 1)), mstype.int32)
             self.less = P.Less()
+            self.add_past = P.Add().shard(((1, 1, 1, 1), (1, 1, 1, 1)))
             self.mul1 = P.Mul().shard(((1, 1, 1, 1), (1, 1, 1, 1)))
             self.expand_dims = P.ExpandDims().shard(((1, 1, 1),))
             self.equal = P.Equal().shard(((1, 1, 1), (1, 1, 1)))
@@ -385,8 +386,8 @@ class ChatGLM2SelfAttention(nn.Cell):
                 current_value = self.mul1(value_present, self.expand_dims(valid_length_vector, 3))
                 # Concat the previous saved state and current state
                 # [batch_size, multi_query_groups, seq_length, size_per_head]
-                key_present = self.add(key_past, current_key)
-                value_present = self.add(value_past, current_value)
+                key_present = self.add_past(key_past, current_key)
+                value_present = self.add_past(value_past, current_value)
             # update k v for attention
             # [batch_size, multi_query_groups, seq_length, size_per_head]
             key_layer = key_present
