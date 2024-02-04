@@ -22,6 +22,11 @@ WEIGHTS_INDEX_NAME = "mindspore_model.ckpt.index.json"
 FEATURE_EXTRACTOR_NAME = "preprocessor_config.json"
 IMAGE_PROCESSOR_NAME = FEATURE_EXTRACTOR_NAME
 
+str_to_ms_type = {
+    "float16": mstype.float16,
+    "float32": mstype.float32
+}
+
 
 def convert_mstype(ms_type: str = "float16"):
     """Convert the string type to MindSpore type."""
@@ -38,5 +43,16 @@ def convert_mstype(ms_type: str = "float16"):
     raise KeyError(f"Supported data type keywords include: "
                    f"[float16, float32, bfloat16], but get {ms_type}")
 
+
+def reverse_dict(d: dict):
+    new_d = {}
+    for k, v in d.items():
+        if v in new_d:
+            raise ValueError(f"Different keys in dict have same values.")
+        new_d[v] = k
+    return new_d
+
+
+ms_type_to_str = reverse_dict(str_to_ms_type)
 
 cell_reuse = get_cell_reuse

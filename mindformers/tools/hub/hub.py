@@ -30,8 +30,7 @@ import requests
 
 from .. import logger
 from ..generic import working_or_temp_dir
-
-__version__ = "0.0.1dev"
+from ... import __version__
 
 ENV_VARS_TRUE_VALUES = {"1", "ON", "YES", "TRUE"}
 
@@ -45,7 +44,13 @@ MINDSEED_CO_RESOLVE_ENDPOINT = os.environ.get("MDS_ENDPOINT", _default_endpoint)
 
 
 class HubConstants:
-    from modelfoundry_hub import MDS_HOME, MDS_HUB_CACHE
+    try:
+        from modelfoundry_hub import MDS_HOME, MDS_HUB_CACHE
+    except ImportError:
+        logger.warning(f"Using HubConstants in experimental mode, but modelfoundry_hub is not found, "
+                       f"maybe not installed, set MDS_HOME and MDS_HUB_CACHE to empty string.")
+        MDS_HOME = ""
+        MDS_HUB_CACHE = ""
     MS_MODULES_CACHE = os.getenv("MS_MODULES_CACHE", os.path.join(MDS_HOME, "modules"))
     MINDSEED_CACHE = os.getenv("MINDSEED_CACHE", MDS_HUB_CACHE)
 
