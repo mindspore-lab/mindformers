@@ -43,23 +43,29 @@ def add_model_info_to_auto_map(auto_map, repo_id):
     return auto_map
 
 
-def experimental_mode_func_checker(func):
+def experimental_mode_func_checker(custom_err_msg=None):
     """Raise RuntimeError when detecting exception in decorated function.
 
     :param: func: decorated function
     :return: decorator
     """
 
-    def wrapper(*args, **kwargs):
-        try:
-            func(*args, **kwargs)
-        except Exception as ex:
-            error_msg = f"Error occurred when executing function {func.__name__}."
+    def wrapper(func):
+        def inner_wrapper(*args, **kwargs):
+            try:
+                return func(*args, **kwargs)
+            except Exception as ex:
+                error_msg = f"Error occurred when executing function {func.__name__}."
 
-            if str(ex):
-                error_msg += f" Detail error message: {ex}"
+                if custom_err_msg:
+                    error_msg += f"\nCustom error message: {custom_err_msg}"
 
-            raise RuntimeError(error_msg)
+                if str(ex):
+                    error_msg += f"\nOriginal error message: {ex}"
+
+                raise RuntimeError(error_msg)
+
+        return inner_wrapper
 
     return wrapper
 
@@ -79,7 +85,7 @@ def is_experimental_mode(path):
     if not isinstance(path, str):
         raise ValueError(f"param 'path' in AutoConfig.from_pretrained() must be str, but got {type(path)}")
 
-    if "/" in path and path.split("/")[0] != "mindspore":
+    if not os.path.exists(path) and "/" in path and path.split("/")[0] != "mindspore":
         experimental_mode = True
     elif os.path.isdir(path) or is_json_file(path):
         experimental_mode = True
