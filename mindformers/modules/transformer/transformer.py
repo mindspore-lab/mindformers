@@ -19,6 +19,7 @@ Note:
 from __future__ import absolute_import
 
 import math
+from typing import Union
 import numpy as np
 
 from mindspore.common.tensor import Tensor
@@ -30,6 +31,7 @@ import mindspore.common.dtype as mstype
 from mindspore.ops import operations as P
 from mindspore.ops import functional as F
 from mindspore.nn.cell import Cell
+from mindspore._checkparam import args_type_check
 
 try:
     from mindspore._checkparam import Validator
@@ -234,6 +236,28 @@ class TransformerRecomputeConfig(_Config):
         Validator.check_bool(value, "recompute_slice_activation")
         self._recompute_slice_activation = value
 
+    def __eq__(self, other) -> bool:
+        return isinstance(other, TransformerRecomputeConfig) and (self.to_dict() == other.to_dict())
+
+    def to_diff_dict(self):
+        config_dict = self.to_dict()
+        default_dict = TransformerRecomputeConfig().to_dict()
+        res_dict = {}
+        for k, v in config_dict.items():
+            if v != default_dict[k]:
+                res_dict[k] = v
+        return res_dict
+
+    def to_dict(self):
+        config_dict = {
+            "recompute": self._recompute,
+            "select_recompute": self._select_recompute,
+            "parallel_optimizer_comm_recompute": self._parallel_optimizer_comm_recompute,
+            "mp_comm_recompute": self._mp_comm_recompute,
+            "recompute_slice_activation": self._recompute_slice_activation,
+        }
+        return config_dict
+
 
 default_transformer_recompute_config = TransformerRecomputeConfig()
 
@@ -277,9 +301,12 @@ class TransformerOpParallelConfig(_Config):
             >>> config=TransformerOpParallelConfig(data_parallel=1, model_parallel=1, recompute=recompute_config)
     """
 
+    @args_type_check(recompute=(TransformerRecomputeConfig, dict))
     def __init__(self, data_parallel=1, model_parallel=1, expert_parallel=1, pipeline_stage=1, micro_batch_num=1,
-                 recompute=default_transformer_recompute_config, use_seq_parallel=False,
-                 optimizer_shard=None, gradient_aggregation_group=4, vocab_emb_dp=True):
+                 recompute: Union[TransformerRecomputeConfig, dict] = default_transformer_recompute_config,
+                 use_seq_parallel=False, optimizer_shard=None, gradient_aggregation_group=4, vocab_emb_dp=True):
+        if isinstance(recompute, dict):
+            recompute = TransformerRecomputeConfig(**recompute)
         self.recompute = recompute
         self.select_recompute = recompute.select_recompute
         self.use_seq_parallel = use_seq_parallel
@@ -294,6 +321,36 @@ class TransformerOpParallelConfig(_Config):
             data_parallel=data_parallel, model_parallel=model_parallel,
             select_recompute=recompute.select_recompute,
             expert_parallel=expert_parallel, use_seq_parallel=use_seq_parallel)
+
+    def __eq__(self, other) -> bool:
+        return isinstance(other, TransformerOpParallelConfig) and (self.to_dict() == other.to_dict())
+
+    def to_diff_dict(self):
+        config_dict = self.to_dict()
+        default_dict = TransformerOpParallelConfig().to_dict()
+        res_dict = {}
+        for k, v in config_dict.items():
+            if v != default_dict[k]:
+                res_dict[k] = v
+        if "recompute" in res_dict:
+            res_dict["recompute"] = self.recompute.to_diff_dict()
+        return res_dict
+
+    def to_dict(self):
+        """to dict"""
+        config_dict = {
+            'data_parallel': self.data_parallel,
+            'model_parallel': self.model_parallel,
+            'expert_parallel': self.expert_parallel,
+            'pipeline_stage': self.pipeline_stage,
+            'micro_batch_num': self.micro_batch_num,
+            'use_seq_parallel': self.use_seq_parallel,
+            'optimizer_shard': self.optimizer_shard,
+            'gradient_aggregation_group': self.gradient_aggregation_group,
+            'vocab_emb_dp': self.vocab_emb_dp,
+            'recompute': self.recompute.to_dict()
+        }
+        return config_dict
 
     @property
     def recompute(self):

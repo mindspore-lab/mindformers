@@ -19,11 +19,13 @@ from __future__ import absolute_import
 from __future__ import division
 
 import math
+import copy
 import numpy as np
 
 from mindspore.common.tensor import Tensor
 import mindspore.common.dtype as mstype
 import mindspore.communication.management as D
+
 # MindSpore 2.0 has changed the APIs of _checkparam, the following try except is for compatibility
 try:
     from mindspore._checkparam import Validator
@@ -108,6 +110,21 @@ class MoEConfig:
         self.comp_comm_parallel_degree = comp_comm_parallel_degree
         self.save_token_distribution = save_token_distribution
         self.cur_layer = cur_layer
+
+    def __eq__(self, other) -> bool:
+        return isinstance(other, MoEConfig) and (self.to_dict() == other.to_dict())
+
+    def to_diff_dict(self):
+        config_dict = self.to_dict()
+        default_dict = MoEConfig().to_dict()
+        res_dict = {}
+        for k, v in config_dict.items():
+            if v != default_dict[k]:
+                res_dict[k] = v
+        return res_dict
+
+    def to_dict(self):
+        return copy.deepcopy(self.__dict__)
 
 
 default_moe_config = MoEConfig()
@@ -278,8 +295,8 @@ class MoE(Cell):
         pad_size = 0
         if self.group_wise_a2a:
             # If capacity can't div by mp, pad for mp shard.
-            if capacity%self.mp != 0:
-                pad_size = self.mp-(capacity%self.mp)
+            if capacity % self.mp != 0:
+                pad_size = self.mp - (capacity % self.mp)
             if pad_size != 0:
                 capacity += pad_size
                 pad_tensor = self.stride_slice_dp(expert_input, (0, 0, 0, 0),
@@ -335,8 +352,8 @@ class MoE(Cell):
         """
         # Pad capacity for comp_comm_parallel_degree split.
         pad_size = 0
-        if capacity%self.comp_comm_parallel_degree != 0:
-            pad_size = self.comp_comm_parallel_degree-(capacity%self.comp_comm_parallel_degree)
+        if capacity % self.comp_comm_parallel_degree != 0:
+            pad_size = self.comp_comm_parallel_degree - (capacity % self.comp_comm_parallel_degree)
             capacity += pad_size
             pad_tensor = self.stride_slice_dp(expert_input, (0, 0, 0, 0),
                                               (self.expert_dim, self.dp_group, pad_size, self.hidden_size),
