@@ -50,7 +50,7 @@ _re_configuration_file = re.compile(r"config\.(.*)\.json")
 
 def get_configuration_file(configuration_files: List[str]) -> str:
     """
-    Get the configuration file to use for this version of transformers(xxxxxx).
+    Get the configuration file to use for this version of mindformers.
 
     Args:
         configuration_files (`List[str]`): The list of available configuration files.
