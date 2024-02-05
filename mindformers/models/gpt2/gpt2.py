@@ -392,6 +392,7 @@ class GPT2Model(nn.Cell):
         self.config = config
         self.embedding = GPTEmbeddingLayer(config)
         self.embedding.pipeline_stage = 0
+        self.seq_length = config.seq_length
 
         self.layernorm = LayerNorm((config.hidden_size,)).to_float(config.layernorm_compute_type)
         if config.parallel_config.pipeline_stage > 1:
@@ -471,7 +472,7 @@ class GPT2Model(nn.Cell):
         # when the phase is not train and incremental reasoning is not the first iteration, it goes into the
         # following logic.
         else:
-            bias = Tensor(np.arange(batch_size) * self.config.seq_length, mstype.int32)
+            bias = Tensor(np.arange(batch_size) * self.seq_length, mstype.int32)
             input_position = F.sub(input_position, bias)
             input_position = F.reshape(input_position, (batch_size, 1))
 
