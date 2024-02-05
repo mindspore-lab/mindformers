@@ -289,9 +289,6 @@ class IFlytekSparkGeneratorMixin:
         if generation_config.pad_token_id is None:
             generation_config.pad_token_id = 0
 
-        if streamer is not None:
-            streamer.put(origin_inputs)
-
         batch_size = origin_inputs.shape[0]
         is_encoder_decoder = self.config.is_encoder_decoder
         logger.debug("The input shape is: %s", origin_inputs.shape)
@@ -546,9 +543,6 @@ class IFlytekSparkGeneratorMixin:
 
         if generation_config.pad_token_id is None:
             generation_config.pad_token_id = 0
-
-        if streamer is not None:
-            streamer.put(origin_inputs)
 
         batch_size = origin_inputs.shape[0]
         is_encoder_decoder = self.config.is_encoder_decoder
@@ -1092,8 +1086,6 @@ class IFlytekSparkGeneratorMixin:
                                       " and make sure the inputs are padded to same length.")
         batch_size = input_ids.shape[0]
         input_ids = np.reshape(input_ids, (-1, np.shape(input_ids)[-1])) if batch_size == 1 else input_ids
-        seed = 0 if seed is None else seed
-        np.random.seed(seed)
 
         logits_processor = logits_processor if logits_processor is not None else X1LogitsProcessorList()
 
@@ -1131,6 +1123,8 @@ class IFlytekSparkGeneratorMixin:
         self.sample_model = sampler
         if generation_mode == GenerationMode.GREEDY_SEARCH:
             # run greedy search
+            seed = 0 if seed is None else seed
+            np.random.seed(seed)
             output_ids = self._greedy_search(
                 origin_inputs=input_ids,
                 generation_config=generation_config,
@@ -1142,7 +1136,8 @@ class IFlytekSparkGeneratorMixin:
         elif generation_mode == GenerationMode.SAMPLE:
             # prepare logits warper
             logits_warper = self._get_logits_warper(generation_config)
-
+            seed = np.random.randint(0, 100) if seed is None else seed
+            np.random.seed(seed)
             # run sample
             output_ids = self._sample(
                 origin_inputs=input_ids,
