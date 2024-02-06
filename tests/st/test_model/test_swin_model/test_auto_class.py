@@ -18,7 +18,7 @@ How to run this:
 pytest tests/st/test_model/test_swin_model/test_auto_class.py
 """
 import os
-
+import shutil
 from mindformers import MindFormerBook, AutoModel, AutoConfig, AutoProcessor
 from mindformers.models import BaseModel, BaseConfig, BaseProcessor
 
@@ -29,6 +29,10 @@ class TestSwinAutoClassMethod:
         """setup method."""
         self.save_directory = MindFormerBook.get_default_checkpoint_save_folder()
         self.test_list = ['swin_base_p4w7']
+
+    def teardown_method(self):
+        for model_or_config_type in self.test_list:
+            shutil.rmtree(os.path.join(self.save_directory, model_or_config_type), ignore_errors=True)
 
     def test_auto_model(self):
         """

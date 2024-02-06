@@ -19,13 +19,14 @@ How to run this:
 pytest tests/st/test_model/test_blip2_model/test_autoclass.py
 """
 import os
-
+import shutil
 import mindspore as ms
 
 from mindformers import MindFormerBook, AutoModel, AutoConfig, AutoProcessor
 from mindformers.models import BaseModel, BaseConfig, BaseProcessor
 
 ms.set_context(mode=0, device_id=7)
+
 
 class TestBlip2AutoClassMethod:
     """A test class for testing Model classes"""
@@ -34,6 +35,10 @@ class TestBlip2AutoClassMethod:
         """setup method."""
         self.save_directory = MindFormerBook.get_default_checkpoint_save_folder()
         self.test_llm_list = ['blip2_stage1_vit_g']
+
+    def teardown_method(self):
+        for model_or_config_type in self.test_llm_list:
+            shutil.rmtree(os.path.join(self.save_directory, model_or_config_type), ignore_errors=True)
 
     def test_llm_model(self):
         """
@@ -84,6 +89,10 @@ class TestBlip2SecondStageAutoClassMethod:
         """setup method."""
         self.save_directory = MindFormerBook.get_default_checkpoint_save_folder()
         self.test_llm_list = ['blip2_stage2_vit_g_llama_7b', 'itt_blip2_stage2_vit_g_llama_7b']
+
+    def teardown_method(self):
+        for model_or_config_type in self.test_llm_list:
+            shutil.rmtree(os.path.join(self.save_directory, model_or_config_type), ignore_errors=True)
 
     def test_llm_model(self):
         """

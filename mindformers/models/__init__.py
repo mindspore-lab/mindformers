@@ -29,7 +29,7 @@ from .llama import *
 from .pangualpha import *
 from .bloom import *
 from .sam import *
-from .base_tokenizer import *
+from .tokenization_utils import *
 from .base_config import BaseConfig
 from .base_model import BaseModel
 from .base_processor import BaseProcessor, BaseImageProcessor, BaseAudioProcessor
@@ -55,4 +55,4 @@ __all__.extend(glm3.__all__)
 __all__.extend(llama.__all__)
 __all__.extend(pangualpha.__all__)
 __all__.extend(bloom.__all__)
-__all__.extend(base_tokenizer.__all__)
+__all__.extend(tokenization_utils.__all__)

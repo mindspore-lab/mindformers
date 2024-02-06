@@ -29,7 +29,7 @@ pipeline是Inference模块对外提供的推理API入口
 pipeline(
         task: str = None,
         model: Optional[Union[str, BaseModel, Model, Tuple[str, str]]] = None,
-        tokenizer: Optional[BaseTokenizer] = None,
+        tokenizer: Optional[PreTrainedTokenizerBase] = None,
         image_processor: Optional[BaseImageProcessor] = None,
         audio_processor: Optional[BaseAudioProcessor] = None,
         backend: str = "ms",
@@ -42,7 +42,7 @@ pipeline(
     - task(str):任务类型
     - model(Optional[Union[str, BaseModel, Model, Tuple[str, str]]]):模型参数,在backend="mslite"时，是启动inference的推理能力
     - config(PetConfig):微调算法的配置,包含微调算法的超参或者需要实例化的预训练模型
-    - tokenizer(BaseTokenizer):文本输入序预处理器
+    - tokenizer(PreTrainedTokenizerBase):文本输入序预处理器
     - image_processor(BaseImageProcessor):图像预处理
     - audio_processor(BaseAudioProcessor):音频预处理
     - backend(str):推理后端,支持"ms"和"mslite"两个后端

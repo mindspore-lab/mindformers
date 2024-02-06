@@ -19,7 +19,7 @@ import sentencepiece as spm
 
 from mindformers.tools import logger
 from mindformers.mindformer_book import MindFormerBook
-from mindformers.models.base_tokenizer import Tokenizer
+from mindformers.models.tokenization_utils import PreTrainedTokenizer
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 
 EncodedInput = List[int]
@@ -157,7 +157,7 @@ class SPTokenizer:
 
 
 @MindFormerRegister.register(MindFormerModuleType.TOKENIZER)
-class ChatGLMTokenizer(Tokenizer):
+class ChatGLMTokenizer(PreTrainedTokenizer):
     """
     Construct a ChatGLM tokenizer. Based on byte-level Byte-Pair-Encoding.
 
@@ -173,7 +173,7 @@ class ChatGLMTokenizer(Tokenizer):
         pad_token(str): The token that represents the pad. Default "<pad>".
         unk_token(str): The token that represents the unknown. Default '<unk>'.
         add_prefix_space(bool): whether to add a whitespace in the front of text. Default "False"
-        **kwargs: Other kwargs that will be passed into the base class of the `Tokenizer`.
+        **kwargs: Other kwargs that will be passed into the base class of the `PreTrainedTokenizer`.
 
     Examples:
         >>> from mindformers import AutoTokenizer

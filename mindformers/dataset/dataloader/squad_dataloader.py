@@ -129,7 +129,7 @@ class SQuADDataset:
 
         Args:
             dataset_dir (str): The directory to SQuAd dataset.
-            tokenizer (Tokenizer): A tokenizer for text processing.
+            tokenizer (PreTrainedTokenizer): A tokenizer for text processing.
             stage (str): The supported key words are in ["train", "dev"]
             max_question_len (int): The maximum number of tokens for the question,
                                     Questions longer than this will be truncated to this length.

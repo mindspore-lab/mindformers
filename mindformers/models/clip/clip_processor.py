@@ -100,11 +100,11 @@ class CLIPImageProcessor(BaseImageProcessor):
 class CLIPProcessor(BaseProcessor):
     r"""CLIP Processor,
     consists of a feature extractor (BaseFeatureEXtractor) for image input,
-    and a tokenizer (BaseTokenizer) for text input.
+    and a tokenizer (PreTrainedTokenizerBase) for text input.
 
     Args:
         image_processor (BaseImageProcessor): Used for process image data.
-        tokenizer (BaseTokenizer): Used for process text data.
+        tokenizer (PreTrainedTokenizerBase): Used for process text data.
         max_length (Optional[int]): The length of text tokens.
         padding (Optional[str]): The padding strategy of tokenizer, [None, "max_length"].
         return_tensors (Optional[str]): The type of returned tensors for tokenizer, [None, "ms"].

@@ -517,7 +517,8 @@ class MindFormerBook:
             'gpt2_lora',
             'gpt2_xl',
             'gpt2_xl_lora',
-            'gpt2_13b'
+            'gpt2_13b',
+            'gpt2_txtcls'
         ]),
         ('llama', [
             'llama_7b',
@@ -643,7 +644,8 @@ class MindFormerBook:
             'gpt2_lora',
             'gpt2_xl',
             'gpt2_xl_lora',
-            'gpt2_13b'
+            'gpt2_13b',
+            'gpt2_txtcls'
         ]),
         ('llama', [
             'llama_7b',
@@ -756,7 +758,7 @@ class MindFormerBook:
             'gpt2_13b'
         ]),
         ('llama', [
-            'llama',
+            'llama_7b',
         ]),
         ('pangualpha', [
             'pangualpha_2_6b',

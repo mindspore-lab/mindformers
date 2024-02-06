@@ -18,8 +18,8 @@ import pickle
 from typing import Optional, Tuple
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.mindformer_book import MindFormerBook
-from ..base_tokenizer import BatchEncoding
-from ..base_fast_tokenizer import PreTrainedTokenizerFast
+from ..tokenization_utils import BatchEncoding
+from ..tokenization_utils_fast import PreTrainedTokenizerFast
 
 __all__ = ["BloomTokenizerFast"]
 

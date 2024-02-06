@@ -21,6 +21,7 @@ windows:  pytest .\\tests\\st\\test_model\\test_tokcls_model\\test_tokcls_model.
 linux:  pytest ./tests/st/test_model/test_tokcls_model/test_tokcls_model.py
 """
 import os
+import shutil
 from mindformers import MindFormerBook, AutoModel, AutoConfig
 from mindformers.models import BertForTokenClassification
 from mindformers.tools import logger
@@ -46,6 +47,9 @@ class TestModelMethod:
 
         # save path
         self.save_directory = os.path.join(MindFormerBook.get_default_checkpoint_save_folder(), 'tokcls')
+
+    def teardown_class(self):
+        shutil.rmtree(self.save_directory, ignore_errors=True)
 
     # the first method to load model, AutoModel
     def test_auto_model(self):

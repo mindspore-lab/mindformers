@@ -31,7 +31,7 @@ from mindspore.dataset.engine.datasets import BatchDataset, RepeatDataset
 from mindformers.tools import logger
 from mindformers.mindformer_book import print_dict
 from ..auto_class import AutoModel
-from ..models import BaseModel, BaseTokenizer, BaseImageProcessor
+from ..models import BaseModel, PreTrainedTokenizerBase, BaseImageProcessor
 
 
 class BasePipeline(ABC):
@@ -42,7 +42,7 @@ class BasePipeline(ABC):
         model (Union[str, BaseModel]):
             The model used to perform task, the input could be a supported model name, or a model instance inherited
             from BaseModel.
-        tokenizer (Optional[BaseTokenizer]):
+        tokenizer (Optional[PreTrainedTokenizerBase]):
             The tokenizer of model, it could be None if the model do not need tokenizer.
         image_processor (Optional[BaseImageProcessor]):
             The image_processor of model, it could be None if the model do not need image_processor.
@@ -50,7 +50,7 @@ class BasePipeline(ABC):
     _support_list = {}
 
     def __init__(self, model: Union[str, BaseModel, Model],
-                 tokenizer: Optional[BaseTokenizer] = None,
+                 tokenizer: Optional[PreTrainedTokenizerBase] = None,
                  image_processor: Optional[BaseImageProcessor] = None,
                  **kwargs):
         super(BasePipeline, self).__init__()

@@ -18,10 +18,11 @@ How to run this:
 pytest tests/st/test_model/test_codegeex2_model/test_auto_class.py
 """
 import os
-
+import shutil
 from mindspore import context
 
-from mindformers import MindFormerBook, AutoModel, BaseModel, AutoConfig, BaseConfig, AutoTokenizer, BaseTokenizer
+from mindformers import MindFormerBook, AutoModel, BaseModel, AutoConfig, BaseConfig, AutoTokenizer, \
+    PreTrainedTokenizerBase
 
 
 class TestGLMAutoClassMethod:
@@ -32,6 +33,10 @@ class TestGLMAutoClassMethod:
         context.set_context(mode=0)
         self.save_directory = MindFormerBook.get_default_checkpoint_save_folder()
         self.test_llm_list = ["codegeex2_6b"]
+
+    def teardown_method(self):
+        for model_or_config_type in self.test_llm_list:
+            shutil.rmtree(os.path.join(self.save_directory, model_or_config_type), ignore_errors=True)
 
     def test_codegeex2_model(self):
         """
@@ -74,7 +79,7 @@ class TestGLMAutoClassMethod:
         # input processor name
         tokenizer_type = "codegeex2_6b"
         tokenizer = AutoTokenizer.from_pretrained(tokenizer_type)
-        assert isinstance(tokenizer, BaseTokenizer)
+        assert isinstance(tokenizer, PreTrainedTokenizerBase)
         tokenizer.save_pretrained(
             save_directory=os.path.join(self.save_directory, tokenizer_type),
             save_name=tokenizer_type + "_tokenizer",

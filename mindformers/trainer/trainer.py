@@ -36,7 +36,7 @@ from mindformers.dataset import build_dataset, build_dataset_loader, \
     check_dataset_config, BaseDataset
 from mindformers.mindformer_book import MindFormerBook
 from mindformers.models import BaseModel, BaseImageProcessor, \
-    BaseTokenizer, BaseAudioProcessor
+    PreTrainedTokenizerBase, BaseAudioProcessor
 from mindformers.tools.utils import set_output_path, set_strategy_save_path
 from mindformers.tools.logger import logger
 from mindformers.tools.utils import get_real_rank, get_real_group_size
@@ -99,8 +99,8 @@ class Trainer:
         eval_dataset (Optional[Union[str, BaseDataset]]):
             The evaluate dataset. It support real dataset path or BaseDateset class or MindSpore Dataset class.
             Default: None.
-        tokenizer (Optional[BaseTokenizer]):
-            The tokenizer for text preprocessing. It support BaseTokenizer class.
+        tokenizer (Optional[PreTrainedTokenizerBase]):
+            The tokenizer for text preprocessing. It support PreTrainedTokenizerBase class.
             Default: None.
         image_processor (Optional[BaseImageProcessor]):
             The processor for image preprocessing. It supports BaseImageProcessor class.
@@ -133,7 +133,7 @@ class Trainer:
     @args_type_check(
         args=(str, MindFormerConfig, TrainingArguments), task=str, model=(str, BaseModel),
         model_name=str, train_dataset=(str, BaseDataset, Dataset), eval_dataset=(str, BaseDataset, Dataset),
-        tokenizer=BaseTokenizer, image_processor=BaseImageProcessor, audio_processor=BaseAudioProcessor,
+        tokenizer=PreTrainedTokenizerBase, image_processor=BaseImageProcessor, audio_processor=BaseAudioProcessor,
         optimizers=Optimizer, wrapper=TrainOneStepCell, pet_method=str, callbacks=(Callback, list),
         eval_callbacks=(Callback, list), compute_metrics=(dict, set), save_config=bool)
     def __init__(self,
@@ -143,7 +143,7 @@ class Trainer:
                  model_name: Optional[Union[str]] = None,
                  train_dataset: Optional[Union[str, BaseDataset]] = None,
                  eval_dataset: Optional[Union[str, BaseDataset]] = None,
-                 tokenizer: Optional[BaseTokenizer] = None,
+                 tokenizer: Optional[PreTrainedTokenizerBase] = None,
                  image_processor: Optional[BaseImageProcessor] = None,
                  audio_processor: Optional[BaseAudioProcessor] = None,
                  optimizers: Optional[Optimizer] = None,

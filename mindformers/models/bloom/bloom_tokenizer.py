@@ -19,7 +19,7 @@ from functools import lru_cache
 from typing import List, Optional
 import regex as re
 
-from mindformers.models.base_tokenizer import Tokenizer
+from mindformers.models.tokenization_utils import PreTrainedTokenizer
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.tools.logger import logger
 from mindformers.mindformer_book import MindFormerBook
@@ -61,7 +61,7 @@ def get_pairs(word):
 
 
 @MindFormerRegister.register(MindFormerModuleType.TOKENIZER)
-class BloomTokenizer(Tokenizer):
+class BloomTokenizer(PreTrainedTokenizer):
     r"""
     Tokenize the input string and convert them into the ids. The tokenizer use the sentence piece internally.
 

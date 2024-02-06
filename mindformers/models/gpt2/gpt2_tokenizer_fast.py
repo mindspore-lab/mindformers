@@ -22,8 +22,8 @@ from tokenizers import pre_tokenizers
 
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.tools import logger
-from ..base_tokenizer import BatchEncoding, PaddingStrategy, TruncationStrategy
-from ..base_fast_tokenizer import PreTrainedTokenizerFast
+from ..tokenization_utils import BatchEncoding, PaddingStrategy, TruncationStrategy
+from ..tokenization_utils_fast import PreTrainedTokenizerFast
 from .gpt2_tokenizer import GPT2Tokenizer
 from ...mindformer_book import MindFormerBook
 

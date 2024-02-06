@@ -22,7 +22,7 @@ try:
     from mindspore._checkparam import Validator
 except ImportError:
     import mindspore._checkparam as Validator
-from mindformers.models.base_tokenizer import BaseTokenizer
+from mindformers.models.tokenization_utils_base import PreTrainedTokenizerBase
 
 __all__ = ['BaseStreamer', 'TextStreamer', 'TextIteratorStreamer']
 
@@ -52,7 +52,7 @@ class TextStreamer(BaseStreamer):
     </Tip>
 
     Args:
-        tokenizer (`BaseTokenizer`):
+        tokenizer (`PreTrainedTokenizerBase`):
             The tokenized used to decode the tokens.
         skip_prompt (`bool`, *optional*, defaults to `False`):
             Whether to skip the prompt to `.generate()` or not. Useful e.g. for chatbots.
@@ -74,7 +74,7 @@ class TextStreamer(BaseStreamer):
     """
 
     def __init__(self,
-                 tokenizer: Optional[BaseTokenizer] = None,
+                 tokenizer: Optional[PreTrainedTokenizerBase] = None,
                  skip_prompt: bool = False,
                  skip_special_tokens: bool = True,
                  **decode_kwargs):
@@ -219,7 +219,7 @@ class TextIteratorStreamer(TextStreamer):
     </Tip>
 
     Args:
-        tokenizer (`BaseTokenizer`):
+        tokenizer (`PreTrainedTokenizerBase`):
             The tokenized used to decode the tokens.
         skip_prompt (`bool`, *optional*, defaults to `False`):
             Whether to skip the prompt to `.generate()` or not. Useful e.g. for chatbots.
@@ -251,7 +251,7 @@ class TextIteratorStreamer(TextStreamer):
     """
 
     def __init__(self,
-                 tokenizer: Optional[BaseTokenizer] = None,
+                 tokenizer: Optional[PreTrainedTokenizerBase] = None,
                  skip_prompt: bool = False,
                  timeout: Optional[float] = None,
                  **decode_kwargs):

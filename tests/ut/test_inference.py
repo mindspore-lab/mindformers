@@ -13,10 +13,13 @@
 # limitations under the License.
 # ============================================================================
 """ test modules in inference"""
+import pytest
 import numpy as np
 import mindspore as ms
+import mindspore.common.dtype as mstype
 from mindspore.common.api import _cell_graph_executor
 from mindformers.inference.postprocess_sampler import Sampler
+
 
 @pytest.mark.level0
 @pytest.mark.platform_x86_cpu
@@ -27,7 +30,7 @@ def test_postprocess_sampler():
     Description: Test the forward
     Expectation: No exception
     """
-    logits = ms.Tensor(np.ones(8, 512), dtype=mstype.float16)
+    logits = ms.Tensor(np.ones((8, 512)), dtype=mstype.float16)
     temperature = ms.Tensor([0.8], dtype=mstype.float16)
     sample_model = Sampler()
     sample_model.set_train(False)

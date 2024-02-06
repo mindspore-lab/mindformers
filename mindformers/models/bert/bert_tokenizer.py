@@ -21,7 +21,7 @@ import unicodedata
 from typing import List, Optional
 from mindformers.tools import logger
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
-from mindformers.models.base_tokenizer import Tokenizer
+from mindformers.models.tokenization_utils import PreTrainedTokenizer
 from ...mindformer_book import MindFormerBook
 
 __all__ = ['BertTokenizer', 'BasicTokenizer']
@@ -90,7 +90,7 @@ def whitespace_tokenize(text):
 
 
 @MindFormerRegister.register(MindFormerModuleType.TOKENIZER)
-class BertTokenizer(Tokenizer):
+class BertTokenizer(PreTrainedTokenizer):
     r"""
     Construct a BERT tokenizer. Based on WordPiece.
 

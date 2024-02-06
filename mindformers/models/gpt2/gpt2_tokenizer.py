@@ -21,7 +21,7 @@ import os
 import regex as re
 
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
-from mindformers.models.base_tokenizer import Tokenizer, AddedToken
+from mindformers.models.tokenization_utils import PreTrainedTokenizer, AddedToken
 from mindformers.tools import logger
 from ...mindformer_book import MindFormerBook
 
@@ -73,7 +73,7 @@ VOCAB_FILES_NAMES = {
 
 
 @MindFormerRegister.register(MindFormerModuleType.TOKENIZER)
-class GPT2Tokenizer(Tokenizer):
+class GPT2Tokenizer(PreTrainedTokenizer):
     """
     Construct a GPT-2 tokenizer. Based on byte-level Byte-Pair-Encoding.
 

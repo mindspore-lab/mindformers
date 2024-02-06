@@ -21,11 +21,11 @@ from mindspore.ops import operations as P
 
 from mindformers.mindformer_book import MindFormerBook
 from mindformers.tools.image_tools import load_image
-from mindformers.models import BaseModel, BaseImageProcessor, Tokenizer
+from mindformers.models import BaseModel, BaseImageProcessor, PreTrainedTokenizer
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.auto_class import AutoProcessor, AutoModel
 from .base_pipeline import BasePipeline
-from ..models import BaseTokenizer
+from ..models import PreTrainedTokenizerBase
 
 
 @MindFormerRegister.register(MindFormerModuleType.PIPELINE, alias="zero_shot_image_classification")
@@ -36,7 +36,7 @@ class ZeroShotImageClassificationPipeline(BasePipeline):
         model (Union[str, BaseModel]):
             The model used to perform task, the input could be a supported model name, or a model instance
             inherited from BaseModel.
-        tokenizer (Optional[BaseTokenizer]):
+        tokenizer (Optional[PreTrainedTokenizerBase]):
             A tokenizer for text processing.
         image_processor (Optional[BaseImageProcessor]):
             The image_processor of model, it could be None if the model do not need image_processor.
@@ -67,7 +67,7 @@ class ZeroShotImageClassificationPipeline(BasePipeline):
     _support_list = MindFormerBook.get_pipeline_support_task_list()['zero_shot_image_classification'].keys()
 
     def __init__(self, model: Union[str, BaseModel, Model],
-                 tokenizer: Optional[BaseTokenizer] = None,
+                 tokenizer: Optional[PreTrainedTokenizerBase] = None,
                  image_processor: Optional[BaseImageProcessor] = None,
                  **kwargs):
         if isinstance(model, str):
@@ -79,7 +79,7 @@ class ZeroShotImageClassificationPipeline(BasePipeline):
                                     f" BaseImageProcessor, but got {type(image_processor)}.")
                 if tokenizer is None:
                     tokenizer = AutoProcessor.from_pretrained(model).tokenizer
-                if not isinstance(tokenizer, Tokenizer):
+                if not isinstance(tokenizer, PreTrainedTokenizer):
                     raise TypeError(f"tokenizer should be inherited from"
                                     f" PretrainedTokenizer, but got {type(tokenizer)}.")
                 model = AutoModel.from_pretrained(model)

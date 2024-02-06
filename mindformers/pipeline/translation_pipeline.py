@@ -24,7 +24,7 @@ from ..auto_class import AutoProcessor, AutoModel
 from ..mindformer_book import MindFormerBook
 from .base_pipeline import BasePipeline
 from ..tools.register import MindFormerRegister, MindFormerModuleType
-from ..models import BaseModel, BaseTokenizer
+from ..models import BaseModel, PreTrainedTokenizerBase
 
 __all__ = ['TranslationPipeline']
 
@@ -37,8 +37,8 @@ class TranslationPipeline(BasePipeline):
         model (Union[str, BaseModel]):
             The model used to perform task, the input could be a supported model name, or a model instance
             inherited from BaseModel.
-        tokenizer (Optional[BaseTokenizer]):
-            A tokenizer (None or Tokenizer) for text processing. Default: None.
+        tokenizer (Optional[PreTrainedTokenizerBase]):
+            A tokenizer (None or PreTrainedTokenizer) for text processing. Default: None.
         **kwargs:
             Specific parametrization of `generate_config` and/or additional model-specific kwargs that will be
             forwarded to the `forward` function of the model. Supported `generate_config` keywords can be
@@ -83,16 +83,16 @@ class TranslationPipeline(BasePipeline):
     return_name = 'translation'
 
     def __init__(self, model: Union[str, BaseModel, Model],
-                 tokenizer: Optional[BaseTokenizer] = None,
+                 tokenizer: Optional[PreTrainedTokenizerBase] = None,
                  **kwargs):
         if isinstance(model, str):
             if model in self._support_list or os.path.isdir(model):
                 if tokenizer is None:
                     tokenizer = AutoProcessor.from_pretrained(model).tokenizer
                 model = AutoModel.from_pretrained(model)
-                if not isinstance(tokenizer, BaseTokenizer):
+                if not isinstance(tokenizer, PreTrainedTokenizerBase):
                     raise TypeError(f"tokenizer should be inherited from"
-                                    f" BaseTokenizer, but got {type(tokenizer)}.")
+                                    f" PreTrainedTokenizerBase, but got {type(tokenizer)}.")
             else:
                 raise ValueError(f"{model} is not supported by {self.__class__.__name__},"
                                  f"please selected from {self._support_list}.")

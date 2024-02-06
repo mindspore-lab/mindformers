@@ -21,7 +21,7 @@ from mindspore_lite import Model, ModelGroup, ModelGroupFlag
 
 from mindformers.inference.context import build_context
 from mindformers.inference.infer_config import InferConfig
-from mindformers.models import BaseTokenizer, BaseImageProcessor
+from mindformers.models import PreTrainedTokenizerBase, BaseImageProcessor
 from mindformers.tools.logger import logger
 
 
@@ -133,7 +133,7 @@ class BaseInfer(metaclass=abc.ABCMeta):
     """BaseInfer."""
     def __init__(self,
                  config: InferConfig = None,
-                 tokenizer: Optional[BaseTokenizer] = None,
+                 tokenizer: Optional[PreTrainedTokenizerBase] = None,
                  image_processor: Optional[BaseImageProcessor] = None):
         if config is None:
             config = InferConfig()

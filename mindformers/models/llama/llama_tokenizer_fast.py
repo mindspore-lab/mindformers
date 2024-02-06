@@ -22,7 +22,7 @@ from tokenizers import processors
 from mindformers.tools import logger
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.mindformer_book import MindFormerBook
-from ..base_fast_tokenizer import PreTrainedTokenizerFast
+from ..tokenization_utils_fast import PreTrainedTokenizerFast
 from .llama_tokenizer import LlamaTokenizer
 
 __all__ = ["LlamaTokenizerFast"]

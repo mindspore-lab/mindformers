@@ -17,7 +17,7 @@
 BertProcessor
 """
 from mindformers.mindformer_book import MindFormerBook
-from ..base_tokenizer import BaseTokenizer
+from ..tokenization_utils_base import PreTrainedTokenizerBase
 from ..base_processor import BaseProcessor
 from ...tools.register import MindFormerRegister, MindFormerModuleType
 
@@ -27,9 +27,9 @@ __all__ = ['BertProcessor']
 class BertProcessor(BaseProcessor):
     """
     Bert processor,
-    consists of a tokenizer (BaseTokenizer) for text input.
+    consists of a tokenizer (PreTrainedTokenizerBase) for text input.
     Args:
-        tokenizer (BaseTokenizer): The tokenizer of BertModel.
+        tokenizer (PreTrainedTokenizerBase): The tokenizer of BertModel.
         max_length (`int`, *optional*, defaults to 128):
             The maximum length (in number of tokens) for the inputs to BertModel.
         padding (`str`, *optional*, defaults to `max_length`):
@@ -64,8 +64,8 @@ class BertProcessor(BaseProcessor):
         """call function"""
         output = {}
         if text_input is not None and self.tokenizer:
-            if not isinstance(self.tokenizer, BaseTokenizer):
-                raise TypeError(f"tokenizer should inherited from the BaseTokenizer,"
+            if not isinstance(self.tokenizer, PreTrainedTokenizerBase):
+                raise TypeError(f"tokenizer should inherited from the PreTrainedTokenizerBase,"
                                 f" but got {type(self.tokenizer)}.")
             # Format the input into a batch
             if isinstance(text_input, str):
