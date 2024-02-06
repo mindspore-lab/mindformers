@@ -109,11 +109,9 @@ class GeneralTaskTrainer(BaseTrainer):
         Raises:
             NotImplementedError: If network or dataset not implemented.
         """
-        if dataset is None:
-            raise NotImplementedError("train dataset must be define, but get None.")
-
-        if network is None and wrapper is None:
+        if network is None:
             raise NotImplementedError("train network must be define, but get None.")
+
         self.training_process(
             config=config,
             network=network,
@@ -157,14 +155,9 @@ class GeneralTaskTrainer(BaseTrainer):
         Raises:
             NotImplementedError: If network or dataset or compute_metrics not implemented.
         """
-        if dataset is None:
-            raise NotImplementedError("eval dataset must be define, but get None.")
-
         if network is None:
             raise NotImplementedError("eval network must be define, but get None.")
 
-        if compute_metrics is None:
-            raise NotImplementedError("eval metrics must be define, but get None.")
         metric_name = "General Task Metrics"
         kwargs.setdefault("metric_name", metric_name)
         self.evaluate_process(

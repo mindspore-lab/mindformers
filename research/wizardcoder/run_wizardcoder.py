@@ -19,7 +19,7 @@ import argparse
 from mindformers import Trainer, MindFormerConfig
 from mindformers import init_context, ContextConfig, ParallelContextConfig
 from mindformers.tools.utils import str2bool
-from mindformers.core.context import build_context, build_profile_cb
+from mindformers.core.context import build_context
 
 # pylint: disable=W0611
 import wizardcoder
@@ -76,9 +76,6 @@ def main(task='text_generation',
             config.processor.tokenizer.merge_file = merge_file
         config.context.device_id = device_id
         build_context(config)
-        # define callback and add profile callback
-        if config.profile:
-            config.profile_cb = build_profile_cb(config)
     else:
         context_init(use_parallel, op, device_id)
 

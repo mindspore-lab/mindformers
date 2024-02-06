@@ -30,7 +30,6 @@ from mindformers.models import PreTrainedModel, PreTrainedTokenizerBase, build_t
 from mindformers.tools.logger import logger
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType, MindFormerConfig
 from mindformers.tools.check_rules import check_rules
-from mindformers.core import build_metric
 from mindformers.models.auto import AutoModel
 from mindformers.mindformer_book import MindFormerBook
 
@@ -60,6 +59,23 @@ class CausalLanguageModelingTrainer(BaseTrainer):
 
     def __init__(self, model_name: str = None):
         super(CausalLanguageModelingTrainer, self).__init__("text_generation", model_name)
+
+    @staticmethod
+    def check_generate_evaluate(metric_name_list):
+        """whether use generate evaluate"""
+        use_generate_evaluate = False
+        if len(metric_name_list) == 1:
+            metric_name = metric_name_list[0]
+            if metric_name in GENERATE_METRIC_NAMES:
+                use_generate_evaluate = True
+        else:
+            for metric_name in metric_name_list:
+                if metric_name in GENERATE_METRIC_NAMES:
+                    use_generate_evaluate = True
+                elif use_generate_evaluate:
+                    raise ValueError(f"The metric type can't include both {GENERATE_METRIC_NAMES} \
+                        and other metric type at the same time.")
+        return use_generate_evaluate
 
     def train(self,
               config: Optional[Union[dict, MindFormerConfig, ConfigArguments, TrainingArguments]] = None,
@@ -131,10 +147,12 @@ class CausalLanguageModelingTrainer(BaseTrainer):
             compute_metrics (Optional[Union[dict, set]]):
                 The metric of evaluating. It supports dict or set in MindSpore's Metric class. Default: None.
         """
-        metric_name = config.metric.type
-        kwargs.setdefault("metric_name", metric_name)
+        metric_name_list = [metric['type'] for metric in config.metric]
+        if len(metric_name_list) == 1:
+            kwargs.setdefault("metric_name", metric_name_list[0])
+        use_generate_evaluate = self.check_generate_evaluate(metric_name_list)
 
-        if metric_name in GENERATE_METRIC_NAMES:
+        if use_generate_evaluate:
             self.generate_evaluate(
                 config,
                 network=network,
@@ -158,6 +176,7 @@ class CausalLanguageModelingTrainer(BaseTrainer):
                           tokenizer=None,
                           **kwargs):
         r"""Evaluate the text generate task. Return metrics with Rouge-1, Rouge-2, Rouge-l and BLEU. """
+        self.eval_dataset = dataset if dataset else self.eval_dataset
         metric_name = kwargs.get("metric_name")
         is_full_config = kwargs.get("is_full_config", False)
         config = self.set_config(config, is_full_config)
@@ -172,9 +191,9 @@ class CausalLanguageModelingTrainer(BaseTrainer):
 
         # build dataset
         logger.info(".........Build Dataset For Evaluate..........")
-        if dataset is None:
-            dataset = self.create_eval_dataset()
+        dataset = self.create_eval_dataset()
         self.set_eval_dataset(dataset)
+        logger.info("Create evaluate dataset finish, dataset size:%d", dataset.get_dataset_size())
 
         # check rules
         check_rules(config, mode='eval', network=network, dataset=dataset, task=self.task)
@@ -190,8 +209,7 @@ class CausalLanguageModelingTrainer(BaseTrainer):
         # build metric
         logger.info(".........Build Compute Metrics For Evaluate..........")
         if compute_metrics is None:
-            compute_metrics = build_metric(config.metric)
-            compute_metrics.clear()
+            compute_metrics = self.create_metrics(metric_name=metric_name)
 
         # build tokenizer
         logger.info(".........Build tokenizer For Evaluate..........")
@@ -265,9 +283,11 @@ class CausalLanguageModelingTrainer(BaseTrainer):
             pres_str = tokenizer.decode(output_ids, skip_special_tokens=True)
             labels_str = tokenizer.decode(labels, skip_special_tokens=True)
 
-            compute_metrics.update(pres_str, labels_str)
+            for k in compute_metrics:
+                compute_metrics[k].update(pres_str, labels_str)
 
-        compute_metrics.eval()
+        for k in compute_metrics:
+            compute_metrics[k].eval()
 
         logger.info('...........Evaluate Over!...............')
 
@@ -331,17 +351,19 @@ class CausalLanguageModelingTrainer(BaseTrainer):
 
     def _evaluate_in_training(self, model, eval_dataset):
         logger.info('Starting Evaluate Model')
-        if self.config.metric.type in GENERATE_METRIC_NAMES:
+        metric_name_list = list(self.compute_metrics.keys())
+        use_generate_evaluate = self.check_generate_evaluate(metric_name_list)
+
+        if use_generate_evaluate:
             config = self.config
             dataset = eval_dataset
             model = model.eval_network
             enable_max_new_tokens = bool(config.model.model_config.max_new_tokens)
 
             # build metric
-
-            compute_metrics = self.compute_metrics.get(list(self.compute_metrics.keys())[0],
-                                                       build_metric(config.metric))
-            compute_metrics.clear()
+            compute_metrics = self.compute_metrics
+            for k in compute_metrics:
+                compute_metrics[k].clear()
 
             # build tokenizer
             if not hasattr(self, 'tokenizer') or self.tokenizer is None:
@@ -403,9 +425,13 @@ class CausalLanguageModelingTrainer(BaseTrainer):
                 # decode input_id and label to string
                 pres_str = self.tokenizer.decode(output_ids, skip_special_tokens=True)
                 labels_str = self.tokenizer.decode(labels, skip_special_tokens=True)
-                compute_metrics.update(pres_str, labels_str)
 
-            score_dict = compute_metrics.eval()
+                for k in compute_metrics:
+                    compute_metrics[k].update(pres_str, labels_str)
+
+            score_dict = {}
+            for k in compute_metrics:
+                score_dict[k] = compute_metrics[k].eval()
 
             self.set_network(model, is_train=True)
 

@@ -15,79 +15,15 @@
 """Run MindFormer."""
 import argparse
 import os
-import shutil
-
-import numpy as np
-
-import mindspore as ms
-from mindspore.common import set_seed
 
 from mindformers.tools.register import MindFormerConfig, ActionDict
-from mindformers.core.parallel_config import build_parallel_config
-from mindformers.tools.utils import str2bool, set_remote_save_url, check_in_modelarts, parse_value
-from mindformers.core.context import build_context, build_profile_cb
-from mindformers.trainer import build_trainer
+from mindformers.tools.utils import str2bool, parse_value
+from mindformers.core.context import build_context
+from mindformers.trainer import Trainer
 from mindformers.tools.cloud_adapter import cloud_monitor
-from mindformers.tools.logger import logger
-from mindformers.tools import get_output_root_path
 from mindformers.tools.utils import get_real_rank
-from mindformers.mindformer_book import MindFormerBook
+from mindformers.tools.logger import logger
 
-
-if check_in_modelarts():
-    import moxing as mox
-
-SUPPORT_MODEL_NAMES = MindFormerBook().get_model_name_support_list()
-
-
-def update_checkpoint_config(config, is_train=True):
-    """update checkpoint config depending on is_train"""
-    if (is_train and config.resume_training) or config.auto_trans_ckpt or os.path.isdir(config.load_checkpoint):
-        logger.info("Leave load_checkpoint may because: ")
-        logger.info("1. resume training need resume training info. ")
-        logger.info("2. need load distributed shard checkpoint. ")
-        if not config.load_checkpoint:
-            config.load_checkpoint = config.model.model_config.checkpoint_name_or_path
-        config.model.model_config.checkpoint_name_or_path = None
-    else:
-        if config.run_mode in ('train', 'finetune'):
-            config.model.model_config.checkpoint_name_or_path = config.load_checkpoint
-        elif config.run_mode in ['eval', 'predict'] and config.load_checkpoint:
-            config.model.model_config.checkpoint_name_or_path = config.load_checkpoint
-        config.load_checkpoint = None
-
-
-def clear_auto_trans_output(config):
-    """clear transformed_checkpoint and strategy"""
-    if check_in_modelarts():
-        obs_strategy_dir = os.path.join(config.remote_save_url, "strategy")
-        if mox.file.exists(obs_strategy_dir) and config.local_rank == 0:
-            mox.file.remove(obs_strategy_dir, recursive=True)
-        obs_transformed_ckpt_dir = os.path.join(config.remote_save_url, "transformed_checkpoint")
-        if mox.file.exists(obs_transformed_ckpt_dir) and config.local_rank == 0:
-            mox.file.remove(obs_transformed_ckpt_dir, recursive=True)
-        mox.file.make_dirs(obs_strategy_dir)
-        mox.file.make_dirs(obs_transformed_ckpt_dir)
-    else:
-        strategy_dir = os.path.join(get_output_root_path(), "strategy")
-        if os.path.exists(strategy_dir) and config.local_rank % 8 == 0:
-            shutil.rmtree(strategy_dir)
-        transformed_ckpt_dir = os.path.join(get_output_root_path(), "transformed_checkpoint")
-        if os.path.exists(transformed_ckpt_dir) and config.local_rank % 8 == 0:
-            shutil.rmtree(transformed_ckpt_dir)
-        os.makedirs(strategy_dir, exist_ok=True)
-        os.makedirs(transformed_ckpt_dir, exist_ok=True)
-
-def create_task_trainer(config):
-    trainer = build_trainer(config.trainer)
-    if config.run_mode == 'train' or config.run_mode == 'finetune':
-        trainer.train(config, is_full_config=True)
-    elif config.run_mode == 'eval':
-        trainer.evaluate(config, is_full_config=True)
-    elif config.run_mode == 'predict':
-        trainer.predict(config, is_full_config=True)
-    elif config.run_mode == 'export':
-        trainer.export(config, is_full_config=True)
 
 @cloud_monitor()
 def main(config):
@@ -95,49 +31,15 @@ def main(config):
     # init context
     build_context(config)
 
-    if config.seed and \
-            ms.context.get_auto_parallel_context("parallel_mode") \
-            not in ["semi_auto_parallel", "auto_parallel"]:
-        set_seed(config.seed)
-        np.random.seed(config.seed)
-
-    # build context config
-    logger.info(".........Build context config..........")
-    if config.run_mode == 'predict':
-        if config.use_parallel and \
-                config.parallel.parallel_mode in ['semi_auto_parallel', 1] and \
-                config.parallel_config.data_parallel != 1:
-            raise ValueError("The value of data parallel can only be set to 1, since the batch size of input is 1. ")
-    build_parallel_config(config)
-    logger.info("context config is: %s", config.parallel_config)
-    logger.info("moe config is: %s", config.moe_config)
-
-    if config.run_mode == 'train':
-        update_checkpoint_config(config)
-
-    if config.run_mode == 'finetune':
-        if not config.load_checkpoint:
-            raise ValueError("if run status is finetune, "
-                             "load_checkpoint must be input")
-        update_checkpoint_config(config)
-
-    if config.run_mode in ['eval', 'predict']:
-        update_checkpoint_config(config, is_train=False)
-
-    # remote save url
-    if check_in_modelarts() and config.remote_save_url:
-        logger.info("remote_save_url is %s, the output file will be uploaded to here.", config.remote_save_url)
-        set_remote_save_url(config.remote_save_url)
-
-    # define callback and add profile callback
-    if config.profile:
-        config.profile_cb = build_profile_cb(config)
-
-    if config.auto_trans_ckpt:
-        clear_auto_trans_output(config)
-
-    create_task_trainer(config)
-
+    trainer = Trainer(config)
+    if config.run_mode == 'train' or config.run_mode == 'finetune':
+        trainer.train()
+    elif config.run_mode == 'eval':
+        trainer.evaluate()
+    elif config.run_mode == 'predict':
+        trainer.predict(input_data=config.predict_data)
+    elif config.run_mode == 'export':
+        trainer.export()
 
 
 if __name__ == "__main__":

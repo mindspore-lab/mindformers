@@ -52,6 +52,24 @@ class BaseEnum(str, Enum):
         )
 
 
+class IntervalStrategy(BaseEnum):
+    NO = "no"
+    STEPS = "steps"
+    EPOCH = "epoch"
+
+
+class HubStrategy(BaseEnum):
+    END = "end"
+    EVERY_SAVE = "every_save"
+    CHECKPOINT = "checkpoint"
+    ALL_CHECKPOINTS = "all_checkpoints"
+
+
+class LoggingIntervalStrategy(BaseEnum):
+    STEPS = "steps"
+    EPOCH = "epoch"
+
+
 class SaveIntervalStrategy(BaseEnum):
     """
     Stores the acceptable string identifiers for save checkpoint monitor.
@@ -61,7 +79,7 @@ class SaveIntervalStrategy(BaseEnum):
     SECONDS = "seconds"
 
 
-class LRType(BaseEnum):
+class LrSchedulerType(BaseEnum):
     """
     Stores the acceptable string identifiers for learning rate schedule.
     """
@@ -86,6 +104,8 @@ class OptimizerType(BaseEnum):
     SGD = "sgd"
     ADAGRAD = "adagrad"
     ADAFACTOR = "adafactor"
+    FUSED_ADAMW = "fused_adamw"
+    FP32_ADAMW = "fp32_adamw"
 
 
 class WrapperType(BaseEnum):
@@ -128,6 +148,8 @@ def check_runner_config(config, dataset):
         config.runner_config.gradient_accumulation_steps = 1
     if config.runner_config.initial_epoch is None:
         config.runner_config.initial_epoch = 0
+    if config.runner_config.initial_step is None:
+        config.runner_config.initial_step = 0
     if config.runner_config.sink_mode:
         if config.runner_config.sink_size != -1:
             if config.runner_config.sink_size <= 0:
@@ -706,7 +728,7 @@ def show_progress(progress, prefix=''):
 def load_ckpt(config, network, optimizer=None):
     """load checkpoint"""
     # load checkpoint params into dict
-    logger.info(".............Start load checkpoint from checkpoint..................")
+    logger.info("............Start load checkpoint from checkpoint............")
     checkpoint_dict = {}
     rank_id = get_real_rank() if get_real_rank() else 0
     if config.auto_trans_ckpt:

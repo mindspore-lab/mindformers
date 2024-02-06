@@ -21,10 +21,10 @@ import argparse
 # pylint: disable=W0611
 from mindformers import Trainer, MindFormerConfig
 from mindformers import init_context, ContextConfig, ParallelContextConfig
-from mindformers.tools.utils import check_in_modelarts, set_remote_save_url, str2bool, check_shared_disk
+from mindformers.tools.utils import check_in_modelarts, str2bool
 from mindformers.tools.logger import logger
 from mindformers.tools.cloud_adapter import cloud_monitor
-from mindformers.core.context import build_context, build_profile_cb
+from mindformers.core.context import build_context
 from mindformers.tools import get_output_root_path
 
 import baichuan2_7b
@@ -119,6 +119,8 @@ def main(task='text_generation',
         config.src_strategy_path_or_dir = strategy
     if auto_trans_ckpt is not None:
         config.auto_trans_ckpt = auto_trans_ckpt
+    if remote_save_url is not None:
+        config.remote_save_url = remote_save_url
     if vocab_file is not None:
         config.processor.tokenizer.vocab_file = vocab_file
     if data_parallel is not None:
@@ -136,25 +138,8 @@ def main(task='text_generation',
     # init context
     build_context(config)
 
-    # define callback and add profile callback
-    if config.profile:
-        config.profile_cb = build_profile_cb(config)
-
-    if check_in_modelarts() and remote_save_url:
-        logger.info("remote_save_url is %s, the output file will be uploaded to here.", remote_save_url)
-        set_remote_save_url(remote_save_url)
-        config.remote_save_url = remote_save_url
-
     if run_mode in ['train', 'finetune']:
         config.model.model_config.use_past = False
-
-    if config.auto_trans_ckpt:
-        if config.device_num <= 8 or check_shared_disk(config.output_dir) or check_in_modelarts():
-            clear_auto_trans_output(config)
-        else:
-            raise ValueError("When device num > 8 and auto_trans_ckpt is set to True,"
-                             "the output_dir should be a shared directory that can be accessed by all nodes."
-                             f"but {os.path.abspath(config.output_dir)} is not a shared directory.")
 
     # start task
     if run_mode == 'train':

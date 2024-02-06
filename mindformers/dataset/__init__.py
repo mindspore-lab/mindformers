@@ -36,14 +36,15 @@ from .token_classification_dataset import TokenClassificationDataset
 from .translation_dataset import TranslationDataset
 from .zero_shot_image_classification_dataset import ZeroShotImageClassificationDataset
 from .multi_turn_dataset import MultiTurnDataset
-from .utils import check_dataset_config
+from .general_dataset import GeneralDataset
+from .utils import check_dataset_config, check_dataset_iterable
 
 
 __all__ = ['BaseDataset', 'CausalLanguageModelDataset', 'ContrastiveLanguageImagePretrainDataset',
            'ImageCLSDataset', 'KeyWordGenDataset', 'MaskLanguageModelDataset',
            'MIMDataset', 'QuestionAnsweringDataset', 'RewardModelDataset', 'TextClassificationDataset',
            'TokenClassificationDataset', 'TranslationDataset', 'ZeroShotImageClassificationDataset',
-           'MultiTurnDataset', 'check_dataset_config']
+           'MultiTurnDataset', 'GeneralDataset', 'check_dataset_config', 'check_dataset_iterable']
 
 __all__.extend(dataloader.__all__)
 __all__.extend(mask.__all__)

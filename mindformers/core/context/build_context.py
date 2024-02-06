@@ -23,7 +23,6 @@ from mindspore.communication.management import init, get_group_size, get_rank
 from mindspore.parallel import set_algo_parameters
 from mindspore.parallel._cost_model_context import _set_multi_subgraphs
 
-from mindformers.core.callback import ProfileMonitor
 from mindformers.trainer.config_args import ContextConfig, ParallelContextConfig
 from mindformers.tools import PARALLEL_MODE, MODE, get_output_subpath, check_in_modelarts
 from mindformers.tools.logger import logger
@@ -127,31 +126,6 @@ def init_context(use_parallel=False, context_config=None, parallel_config=None):
     else:
         context.set_context(**context_config)
     return rank_id, device_num
-
-
-def build_profile_cb(config):
-    """build profile callback from config."""
-    start_profile = config.init_start_profile
-    profile_communication = config.profile_communication
-    if config.device_num > 1:
-        logger.info("Device number is %s > 1, so profile_communication and start_profile will be set True ")
-        start_profile = True
-        profile_communication = True
-    profile_cb = ProfileMonitor(
-        start_step=config.profile_start_step,
-        stop_step=config.profile_stop_step,
-        start_profile=start_profile,
-        profile_communication=profile_communication,
-        profile_memory=config.profile_memory)
-    logger.warning(
-        "In profiler mode, data sink mode will be turned off. "
-        "Please reduce the data sample size with 'num_samples' in MindSpore data format according to "
-        "https://www.mindspore.cn/mindinsight/docs/zh-CN/master/performance_profiling_ascend.html.")
-    logger.warning("In profiler mode, auto-tune will be turned off.")
-    config.runner_config.sink_mode = False
-    config.auto_tune = False
-
-    return profile_cb
 
 
 def _set_check_context_config(config):

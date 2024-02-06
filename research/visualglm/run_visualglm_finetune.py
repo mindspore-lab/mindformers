@@ -16,7 +16,7 @@
 import argparse
 import json
 
-from mindformers import MindFormerConfig, MindFormerRegister, MindFormerModuleType, build_context, build_profile_cb
+from mindformers import MindFormerConfig, MindFormerRegister, MindFormerModuleType, build_context
 from mindformers.tools.utils import str2bool
 from mindformers import Trainer
 from mindformers.tools.logger import logger
@@ -46,10 +46,6 @@ def main(args):
     # init_context(mindformer_config, device_id=args.device_id, device_target=args.device_target, mode=mode)
 
     build_context(mindformer_config)
-
-    # define callback and add profile callback
-    if mindformer_config.profile:
-        mindformer_config.profile_cb = build_profile_cb(mindformer_config)
 
     logger.info(f"--------------- mindformer_config: {mindformer_config}")
 
