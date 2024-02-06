@@ -48,18 +48,20 @@ ChatGLM**2**-6B 是开源中英双语对话模型 [ChatGLM2-6B](https://github.c
 2. 模型配置：`configs/glm2`
 
     ```bash
-    glm2
-        ├── export_glm2_6b.yaml                # 导出mindir配置
-        ├── run_glm2_6b_finetune_2k_910b.yaml  # Atlas 800T A2最佳性能全量微调启动配置
-        ├── run_glm2_6b_finetune_2k.yaml       # Atlas 800最佳性能全量微调启动配置
-        ├── run_glm2_6b_finetune_910b.yaml     # Atlas 800T A2 ADGEN全量微调启动配置
-        ├── run_glm2_6b_finetune.yaml          # Atlas 800 ADGEN全量微调启动配置
-        ├── run_glm2_6b_finetune_eval.yaml     # 全量微调评估配置
-        ├── run_glm2_6b_lora_2k_910b.yaml      # Atlas 800T A2最佳性能lora微调启动配置
-        ├── run_glm2_6b_lora_2k.yaml           # Atlas 800最佳性能lora微调启动配置
-        ├── run_glm2_6b_lora_910b.yaml         # Atlas 800 ADGEN lora微调启动配置
-        ├── run_glm2_6b_lora.yaml              # Atlas 800 ADGEN lora微调启动配置
-        └── run_glm2_6b_lora_eval.yaml         # lora微调评估配置
+    configs/glm2
+      ├── export_glm2_6b.yaml
+      ├── run_glm2_6b.yaml
+      ├── run_glm2_6b_finetune_2k_800T_A2_64G.yaml  # Atlas 800T A2 最佳性能全量微调启动配置
+      ├── run_glm2_6b_finetune_2k_800_32G.yaml      # Atlas 800 最佳性能全量微调启动配置
+      ├── run_glm2_6b_finetune_800T_A2_64G.yaml     # Atlas 800T A2 ADGEN全量微调启动配置
+      ├── run_glm2_6b_finetune_800_32G.yaml         # Atlas 800 ADGEN全量微调启动配置
+      ├── run_glm2_6b_finetune_eval.yaml            # 全量微调后评估配置
+      ├── run_glm2_6b_lora_2k_800T_A2_64G.yaml      # Atlas 800T A2最佳性能 lora微调启动配置
+      ├── run_glm2_6b_lora_2k_800_32G.yaml          # Atlas 800 最佳性能 lora微调启动配置
+      ├── run_glm2_6b_lora_800T_A2_64G.yaml         # Atlas 800T A2 ADGEN lora微调启动配置
+      ├── run_glm2_6b_lora_800_32G.yaml             # Atlas 800 ADGEN lora微调启动配置
+      ├── run_glm2_6b_lora_eval.yaml                # lora微调评估配置
+      └── run_glm2_6b_ptuning2.yaml                 # Atlas 800 ADGEN ptuning微调启动配置
     ```
 
 ## 前期准备
@@ -397,7 +399,7 @@ train_dataset: &train_dataset
     vocab_file: "/path/to/tokenizer.model"
   input_columns: ["input_ids", "labels"]
   max_source_length: 64
-  max_target_length: 128
+  max_target_length: 127
 
 eval_dataset: &eval_dataset
   data_loader:
@@ -410,7 +412,7 @@ eval_dataset: &eval_dataset
 ```
 
 **注意**：微调时的模型`seq_length`需要等于微调数据集的`max_source_length + max_target_length + 1`。
-yaml文件中默认的`seq_length: 193`以及`max_source_length: 64`和`max_target_length: 128`适用于ADGEN数据集，
+yaml文件中默认的`seq_length: 192`以及`max_source_length: 64`和`max_target_length: 127`适用于ADGEN数据集，
 其他数据集的`seq_length`设置，可以遍历并将数据集转换为token_id，取token_id最大长度，`seq_length`太大影响训练性能，
 太小影响训练精度，需要做出权衡。
 
@@ -700,6 +702,8 @@ python run_mindformer.py --config configs/glm2/run_glm2_6b_finetune_eval.yaml--r
 python run_mindformer.py --config configs/glm2/run_glm2_6b_lora_eval.yaml --run_mode eval --load_checkpoint /path/to/glm2_6b_lora.ckpt --device_id 0 --use_parallel False
 ```
 
+> 单卡评测时，应将yaml中 model:model_config:batch_size 修改为等于 runner_config:batch_size
+
 ### 多卡评测
 
 执行脚本：
@@ -711,6 +715,7 @@ bash run_distribute.sh /path/to/hccl_8p_01234567_127.0.1.1.json ../configs/glm2/
 
 > 全参微调请选择 `configs/glm2/run_glm2_6b_finetune_eval.yaml`
 > lora微调请选择 `configs/glm2/run_glm2_6b_lora_eval.yaml`
+> 多卡评测时，应将yaml中 model:model_config:batch_size 修改为等于 global_batch_size。例如 bs8/dp4/mp2的配置, batch_size = 8 * 4 = 32
 
 ## 推理
 

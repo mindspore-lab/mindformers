@@ -14,6 +14,7 @@
 # ============================================================================
 """ChatGLM3 Tokenizer."""
 import os
+import json
 from typing import List, Optional, Union, Dict
 
 from mindformers.mindformer_book import MindFormerBook

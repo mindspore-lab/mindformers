@@ -240,7 +240,7 @@ class MindFormerBook:
             ("glm2_6b", os.path.join(
                 _PROJECT_PATH, "configs/glm2/run_glm2_6b.yaml")),
             ("glm2_6b_lora", os.path.join(
-                _PROJECT_PATH, "configs/glm2/run_glm2_6b_lora.yaml")),
+                _PROJECT_PATH, "configs/glm2/run_glm2_6b_lora_800_32G.yaml")),
             ("glm2_6b_ptuning2", os.path.join(
                 _PROJECT_PATH, "configs/glm2/run_glm2_6b_ptuning2.yaml")),
             ("glm3_6b", os.path.join(
@@ -413,7 +413,7 @@ class MindFormerBook:
             ("glm2_6b", os.path.join(
                 _PROJECT_PATH, "configs/glm2/run_glm2_6b.yaml")),
             ("glm2_6b_lora", os.path.join(
-                _PROJECT_PATH, "configs/glm2/run_glm2_6b_lora.yaml")),
+                _PROJECT_PATH, "configs/glm2/run_glm2_6b_lora_800_32G.yaml")),
             ("glm2_6b_ptuning2", os.path.join(
                 _PROJECT_PATH, "configs/glm2/run_glm2_6b_ptuning2.yaml")),
             ("glm3_6b", os.path.join(

@@ -16,6 +16,7 @@ context:
   max_call_depth: 10000
   max_device_memory: "30GB"  # 59GB for Atlas 800T A2
   save_graphs: False
+  save_graphs_path: "/path/to/ir-graphs"
   device_id: 0
 
 # aicc
@@ -25,7 +26,11 @@ remote_save_url: "Please input obs url on AICC platform."
 model:
   model_config:
     type: ChatGLM2Config
-    batch_size: 8   # only for incremental infer
+    # only for incremental infer,
+    # when parallel_mode=1 and full_batch=True,
+    # batch_size should be set to runner_config.batch_size * data_parallel;
+    # when single card, batch_size should be set to runner_config.batch_size
+    batch_size: 8
     num_layers: 28
     padded_vocab_size: 65024
     hidden_size: 4096
@@ -99,33 +104,6 @@ processor:
   type: GLMProcessor
 
 # ==== dataset config ====
-train_dataset: &train_dataset
-  data_loader:
-    type: ADGenDataLoader
-    dataset_dir: "/path/to/AdvertiseGen/train.json"
-    shuffle: True
-    phase: "train"
-    version: 2
-    origin_columns: ["content", "summary"]
-  tokenizer:
-    type: ChatGLM2Tokenizer
-    vocab_file: "/path/to/tokenizer.model"
-  input_columns: ["input_ids", "labels"]
-  max_source_length: 64
-  max_target_length: 128
-  ignore_pad_token_for_loss: True
-  num_parallel_workers: 8
-  python_multiprocessing: False
-  drop_remainder: True
-  batch_size: 8
-  repeat: 1
-  numa_enable: False
-  prefetch_size: 1
-  seed: 0
-
-train_dataset_task:
-  type: KeyWordGenDataset
-  dataset_config: *train_dataset
 
 eval_dataset: &eval_dataset
   data_loader:
@@ -194,13 +172,13 @@ lr_scale_factor: 256
 # parallel config
 use_parallel: True
 parallel:
-  parallel_mode: 0 # 0-dataset, 1-semi, 2-auto, 3-hybrid
+  parallel_mode: 1 # 0-dataset, 1-semi, 2-auto, 3-hybrid
   gradients_mean: False
   loss_repeated_mean: True
   enable_alltoall: False
-  full_batch: False
+  full_batch: True
   search_mode: "sharding_propagation"
-  enable_parallel_optimizer: True  # optimizer shard
+  enable_parallel_optimizer: False  # optimizer shard
   strategy_ckpt_config:
     save_file: "./ckpt_strategy.ckpt"
     only_trainable_params: False # 设置成 False，才能在策略文件中保存所有参数
