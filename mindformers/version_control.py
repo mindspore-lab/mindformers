@@ -18,6 +18,8 @@ import mindspore as ms
 from mindspore import nn
 import mindspore.ops.operations as P
 import mindspore.ops.functional as F
+from mindspore.context import ParallelMode
+from mindspore.parallel._utils import _get_parallel_mode
 from .tools.utils import is_version_ge
 from .tools.logger import logger
 
@@ -194,6 +196,10 @@ def check_valid_flash_attention(import_fa_valid=True, fa_type=None):
     elif not import_fa_valid:
         logger.warning(f"Import {fa_type} ERROR, please upgrade your MindSpore to {valid_version} or later version. ")
         logger.warning("Now running on self-attention mode.")
+        result = False
+    elif fa_type == "IncreFlashAttention" and _get_parallel_mode() not in ParallelMode.STAND_ALONE:
+        logger.warning("Current IncreFlashAttention does not support parallel mode, "
+                       "incremental inference will run in self attention")
         result = False
     # both pass should return True
     else:

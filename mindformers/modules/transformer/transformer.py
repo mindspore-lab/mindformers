@@ -2039,12 +2039,6 @@ class TransformerEncoderLayer(Cell):
                 use_incre_flash_attention = False
                 log.info("Current MindSpore or device do not support prompt flash attention, "
                          "please upgrade to 2.2.0 or higher or use 910B to run ifa")
-            # incre flash attention does not support parallel yet
-            if use_incre_flash_attention and _get_parallel_mode() not in ParallelMode.STAND_ALONE:
-                use_incre_flash_attention = False
-                log.warning(
-                    "Current IncreFlashAttention does not support parallel mode, incremental inference will run in"
-                    "self attention")
 
             _check_moe_config(moe_config, parallel_config)
             self.use_moe = (moe_config.expert_num > 1)

@@ -38,6 +38,8 @@ model:
     compute_dtype: "float16"
     layernorm_compute_type: "float32"
     use_past: True
+    use_prompt_flash_attention: False
+    use_incre_flash_attention: False
     eos_token_id: 2
     pad_token_id: 0
     repetition_penalty: 1.0
