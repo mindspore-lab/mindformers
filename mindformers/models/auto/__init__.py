@@ -15,5 +15,7 @@
 """Auto class initialization."""
 
 from .configuration_auto import CONFIG_MAPPING, AutoConfig
+from .image_processing_auto import IMAGE_PROCESSOR_MAPPING, AutoImageProcessor
 
-__all__ = ["CONFIG_MAPPING", "AutoConfig"]
+__all__ = ["CONFIG_MAPPING", "AutoConfig",
+           "IMAGE_PROCESSOR_MAPPING", "AutoImageProcessor"]
