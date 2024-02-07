@@ -25,6 +25,17 @@ try:
     FLASHATTENTION_IMPORT_VALID = True
 except ImportError:
     FLASHATTENTION_IMPORT_VALID = False
+try:
+    from mindspore.ops.operations.nn_ops import PromptFlashAttention
+    PROMPTFLASHATTENTION_VALID = True
+except ImportError:
+    PROMPTFLASHATTENTION_VALID = False
+
+try:
+    from mindspore.ops.operations.nn_ops import IncreFlashAttention
+    INCREFLASHATTENTION_VALID = True
+except ImportError:
+    INCREFLASHATTENTION_VALID = False
 
 from mindformers.modules import LayerNorm
 from mindformers.modules.layers import Linear
@@ -152,6 +163,8 @@ class ChatGLM2SelfAttention(nn.Cell):
         self.projection_size = config.kv_channels * config.num_attention_heads
         # Per attention head and per partition values.
         self.hidden_size_per_attention_head = self.projection_size // config.num_attention_heads
+        self.apply_query_key_layer_scaling = config.apply_query_key_layer_scaling
+        self.norm_factor = math.sqrt(self.hidden_size_per_attention_head)
         self.num_attention_heads_per_partition = config.num_attention_heads
         self.params_dtype = config.param_init_type
         self.compute_dtype = config.compute_dtype
@@ -167,17 +180,13 @@ class ChatGLM2SelfAttention(nn.Cell):
             self.qkv_hidden_size = (
                 self.projection_size + 2 * self.hidden_size_per_attention_head * config.multi_query_group_num)
 
-        parallel_config = config.parallel_config
+        dp, mp = config.parallel_config.data_parallel, config.parallel_config.model_parallel
         self.query_key_value = Linear(config.hidden_size,
                                       self.qkv_hidden_size,
                                       has_bias=config.add_bias_linear or config.add_qkv_bias,
                                       param_init_type=self.params_dtype,
                                       compute_dtype=self.compute_dtype)
-        self.query_key_value.shard(strategy_matmul=((parallel_config.data_parallel, 1),
-                                                    (parallel_config.model_parallel, 1)),
-                                   strategy_bias=((parallel_config.data_parallel, parallel_config.model_parallel),
-                                                  (parallel_config.model_parallel,))
-                                   )
+        self.query_key_value.shard(strategy_matmul=((dp, 1), (mp, 1)), strategy_bias=((dp, mp), (mp,)))
 
         self.core_attention = CoreAttention(config, self.layer_number)
 
@@ -186,9 +195,7 @@ class ChatGLM2SelfAttention(nn.Cell):
                             has_bias=config.add_bias_linear,
                             param_init_type=self.params_dtype,
                             compute_dtype=self.compute_dtype)
-        self.dense.shard(strategy_matmul=((parallel_config.data_parallel, 1),
-                                          (parallel_config.model_parallel, 1)),
-                         strategy_bias=((parallel_config.data_parallel, 1), (1,)))
+        self.dense.shard(strategy_matmul=((dp, 1), (mp, 1)), strategy_bias=((dp, 1), (1,)))
 
         self.reshape = P.Reshape()
         self.stack = P.Stack(axis=-1)
@@ -218,17 +225,35 @@ class ChatGLM2SelfAttention(nn.Cell):
             self.equal = P.Equal().shard(((1, 1, 1), (1, 1, 1)))
             self.tile = P.Tile().shard(((1, 1, 1, 1),))
         self.use_flash_attention = config.use_flash_attention
+        self.use_prompt_flash_attention = config.use_prompt_flash_attention
+        self.use_incre_flash_attention = config.use_incre_flash_attention
+
         if self.use_flash_attention:
             self.attention_mask_dtype = choose_flash_attention_dtype()
-            self.sub_attention = P.Sub().shard(((), (parallel_config.data_parallel, 1, 1)))
+            self.sub_attention = P.Sub().shard(((), (dp, 1, 1)))
             self.flash_attention = FlashAttention(head_dim=config.hidden_size // config.num_attention_heads,
                                                   head_num=config.num_attention_heads,
                                                   dropout_rate=config.attention_dropout, prev_block_num=65536,
-                                                  next_block_num=0, dp=parallel_config.data_parallel,
-                                                  mp=parallel_config.model_parallel,
+                                                  next_block_num=0,
+                                                  dp=dp, mp=mp,
                                                   high_precision=True)
-            self.merger_head_transpose = P.Transpose().shard(((parallel_config.data_parallel,
-                                                               parallel_config.model_parallel, 1, 1),))
+
+        if self.use_prompt_flash_attention:
+            self.attention_mask_dtype = choose_flash_attention_dtype()
+            self.prompt_flash_attention = PromptFlashAttention(num_heads=config.num_attention_heads,
+                                                               scale_value=1 / self.norm_factor,
+                                                               num_key_value_heads=0,
+                                                               input_layout='BNSD',
+                                                               pre_tokens=65536,
+                                                               next_tokens=0)
+
+        if self.use_incre_flash_attention and self.use_past:
+            self.attention_mask_dtype = choose_flash_attention_dtype()
+            self.incre_flash_attention = IncreFlashAttention(num_heads=config.num_attention_heads,
+                                                             scale_value=1 / self.norm_factor,
+                                                             input_layout='BNSD',
+                                                             num_key_value_heads=0)
+        self.merger_head_transpose = P.Transpose().shard(((dp, mp, 1, 1),))
     def _merge_heads(self, x):
         """
         convert a 4d input to a 2d output
@@ -414,12 +439,28 @@ class ChatGLM2SelfAttention(nn.Cell):
             # [b, heads, seq, hidden_size_per_head]
             value_layer = value_layer.view((bs, self.num_attention_heads_per_partition, -1, hs_ph))
 
-        if self.use_flash_attention:
-            attention_mask = attention_mask.squeeze(1).to(self.attention_mask_dtype)
-            context_layer = self.flash_attention(query_layer, key_layer, value_layer, attention_mask)
-            context_layer = self._merge_heads(context_layer)
-        else:
-            context_layer = self.core_attention(query_layer, key_layer, value_layer, attention_mask)
+        if not self.training:
+            if self.use_prompt_flash_attention and \
+               ((self.use_past and self.is_first_iteration) or (not self.use_past)):
+                attention_mask = attention_mask.squeeze(1).to(self.attention_mask_dtype)
+                context_layer = self.prompt_flash_attention(query_layer, key_layer, value_layer, attention_mask,
+                                                            None, None, None, None, None, None, None, None)
+                context_layer = self._merge_heads(context_layer)
+            elif self.use_incre_flash_attention and (self.use_past and not self.is_first_iteration):
+                attention_mask = attention_mask.squeeze(1).to(self.attention_mask_dtype)
+                context_layer = self.incre_flash_attention(query_layer, key_layer, value_layer, attention_mask,
+                                                           None, None, None, None, None, None, None, None)
+                context_layer = self._merge_heads(context_layer)
+            else:
+                context_layer = self.core_attention(query_layer, key_layer, value_layer, attention_mask)
+
+        if self.training:
+            if self.use_flash_attention:
+                attention_mask = attention_mask.squeeze(1).to(self.attention_mask_dtype)
+                context_layer = self.flash_attention(query_layer, key_layer, value_layer, attention_mask)
+                context_layer = self._merge_heads(context_layer)
+            else:
+                context_layer = self.core_attention(query_layer, key_layer, value_layer, attention_mask)
         # # =================
         # # Output. [bs, seq_len, hidden_size]
         # # =================
@@ -632,8 +673,9 @@ class ChatGLM2Transformer(nn.Cell):
         self.num_layers = config.num_layers
 
         self.pre_seq_len = config.pre_seq_len
-        if config.use_flash_attention:
-            config.use_flash_attention = check_valid_flash_attention(FLASHATTENTION_IMPORT_VALID, "FlashAttention")
+
+        # transformer multiple layer, so check fa here to avoid multiple checking
+        config = self.check_flash_attention(config)
 
         # Transformer layers.
         def build_layer(layer_number):
@@ -654,6 +696,20 @@ class ChatGLM2Transformer(nn.Cell):
                                                    param_init_type=config.layernorm_compute_type)
             # self.final_layernorm.shard()
             self.final_layernorm.set_comm_fusion(config.parallel_config.gradient_aggregation_group)
+
+    def check_flash_attention(self, config):
+        '''check FA/PFA/IFA valid'''
+        if config.use_flash_attention:
+            config.use_flash_attention = check_valid_flash_attention(FLASHATTENTION_IMPORT_VALID, "FlashAttention")
+
+        if config.use_prompt_flash_attention:
+            config.use_prompt_flash_attention = check_valid_flash_attention(PROMPTFLASHATTENTION_VALID,
+                                                                            "PromptFlashAttention")
+
+        if config.use_incre_flash_attention:
+            config.use_incre_flash_attention = check_valid_flash_attention(INCREFLASHATTENTION_VALID,
+                                                                           "IncreFlashAttention")
+        return config
 
     def construct(self,
                   hidden_states,
