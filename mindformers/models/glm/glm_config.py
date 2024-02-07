@@ -13,13 +13,18 @@
 # limitations under the License.
 # ============================================================================
 """GLM config"""
+
+from typing import Union
+
+from mindspore._checkparam import args_type_check
+
 from mindformers.modules.transformer.moe import MoEConfig
 from mindformers.modules.transformer.transformer import default_transformer_config, default_moe_config, \
     TransformerOpParallelConfig, OpParallelConfig, EmbeddingOpParallelConfig, default_embedding_parallel_config
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
-from ..utils import convert_mstype
-from ..base_config import BaseConfig
-from ...mindformer_book import MindFormerBook
+from mindformers.models.utils import convert_mstype
+from mindformers.models.configuration_utils import PretrainedConfig
+from mindformers.mindformer_book import MindFormerBook
 
 default_dpmp_config = OpParallelConfig()
 
@@ -27,7 +32,7 @@ __all__ = ['GLMConfig']
 
 
 @MindFormerRegister.register(MindFormerModuleType.CONFIG)
-class GLMConfig(BaseConfig):
+class GLMConfig(PretrainedConfig):
     """
     GLM config class which defines the model size
     Args:
@@ -117,8 +122,12 @@ class GLMConfig(BaseConfig):
         ignore_index (`int`, *optional*, defaults to -100):
             index that will be ignored in input_ids and labels for training.
     """
+
+    model_type = "glm"
     _support_list = MindFormerBook.get_config_support_list()['glm']
 
+    @args_type_check(parallel_config=(dict, TransformerOpParallelConfig),
+                     moe_config=(dict, MoEConfig))
     def __init__(self,
                  batch_size: int = 1,
                  vocab_size: int = 130528,
@@ -136,8 +145,8 @@ class GLMConfig(BaseConfig):
                  use_final_layernorm: bool = True,
                  op_parallel_config: OpParallelConfig = default_dpmp_config,
                  embed_parallel_config: EmbeddingOpParallelConfig = default_embedding_parallel_config,
-                 parallel_config: TransformerOpParallelConfig = default_transformer_config,
-                 moe_config: MoEConfig = default_moe_config,
+                 parallel_config: Union[dict, TransformerOpParallelConfig] = default_transformer_config,
+                 moe_config: Union[dict, MoEConfig] = default_moe_config,
                  use_past: bool = False,
                  activation_func: str = 'GELU',
                  position_encoding_2d: bool = True,
@@ -159,8 +168,13 @@ class GLMConfig(BaseConfig):
                  repetition_penalty: float = 1.0,
                  do_sample: bool = True,
                  ignore_index: int = -100,
+                 ignore_token_id=None,
                  **kwargs):
         super().__init__(**kwargs)
+        if isinstance(parallel_config, dict):
+            parallel_config = TransformerOpParallelConfig(**parallel_config)
+        if isinstance(moe_config, dict):
+            moe_config = MoEConfig(**moe_config)
         self.batch_size = batch_size
         self.vocab_size = vocab_size
         self.hidden_size = hidden_size
@@ -200,3 +214,4 @@ class GLMConfig(BaseConfig):
         self.repetition_penalty = repetition_penalty
         self.do_sample = do_sample
         self.ignore_index = ignore_index
+        self.ignore_token_id = ignore_token_id

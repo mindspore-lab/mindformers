@@ -888,7 +888,7 @@ class BertPreTrainedModel(BaseModel, nn.Cell):
         if not isinstance(config, BertConfig):
             raise ValueError(
                 f"Parameter config in `{self.__class__.__name__}(config)` should be an instance of class "
-                "`BaseConfig`. To create a model from a pretrained model use "
+                "`PretrainedConfig`. To create a model from a pretrained model use "
                 f"`model = {self.__class__.__name__}.from_pretrained(PRETRAINED_MODEL_NAME)`"
             )
         # Save config and origin of the pretrained weights if given in model

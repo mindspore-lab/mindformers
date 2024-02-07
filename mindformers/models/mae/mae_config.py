@@ -13,21 +13,24 @@
 # limitations under the License.
 # ============================================================================
 """Mae Config API."""
-import mindspore.common.dtype as mstype
-from mindformers.modules.transformer import TransformerOpParallelConfig, TransformerRecomputeConfig
-from mindformers.modules.transformer.moe import MoEConfig, default_moe_config
-from mindformers.mindformer_book import MindFormerBook
-from mindformers.models.base_config import BaseConfig
-from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
-default_recompute_config = TransformerRecomputeConfig()
-default_parallel_config = TransformerOpParallelConfig(recompute=default_recompute_config)
 
+from typing import Union
+
+from mindspore._checkparam import args_type_check
+import mindspore.common.dtype as mstype
+
+from mindformers.modules.transformer.transformer import default_transformer_config, default_moe_config, \
+    TransformerOpParallelConfig
+from mindformers.modules.transformer.moe import MoEConfig
+from mindformers.mindformer_book import MindFormerBook
+from mindformers.models.configuration_utils import PretrainedConfig
+from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 
 __all__ = ['ViTMAEConfig']
 
 
 @MindFormerRegister.register(MindFormerModuleType.CONFIG)
-class ViTMAEConfig(BaseConfig):
+class ViTMAEConfig(PretrainedConfig):
     """
     Config for Mae model
 
@@ -80,8 +83,12 @@ class ViTMAEConfig(BaseConfig):
     Returns:
         Class, ViTMAEConfig.
     """
+
+    model_type = "mae"
     _support_list = MindFormerBook.get_config_support_list()['mae']
 
+    @args_type_check(parallel_config=(dict, TransformerOpParallelConfig),
+                     moe_config=(dict, MoEConfig))
     def __init__(self,
                  mask_ratio: float = 0.75,
                  image_size: int = 224,
@@ -108,10 +115,16 @@ class ViTMAEConfig(BaseConfig):
                  layernorm_compute_type: mstype = mstype.float32,
                  softmax_compute_type: mstype = mstype.float32,
                  param_init_type: mstype = mstype.float32,
-                 parallel_config: TransformerOpParallelConfig = default_parallel_config,
-                 moe_config: MoEConfig = default_moe_config,
+                 parallel_config: Union[dict, TransformerOpParallelConfig] = default_transformer_config,
+                 moe_config: Union[dict, MoEConfig] = default_moe_config,
+                 init_values=None,
+                 window_size=None,
                  **kwargs):
         super().__init__(**kwargs)
+        if isinstance(parallel_config, dict):
+            parallel_config = TransformerOpParallelConfig(**parallel_config)
+        if isinstance(moe_config, dict):
+            moe_config = MoEConfig(**moe_config)
         self.mask_ratio = mask_ratio
         self.image_size = image_size
         self.patch_size = patch_size
@@ -139,3 +152,5 @@ class ViTMAEConfig(BaseConfig):
         self.param_init_type = param_init_type
         self.parallel_config = parallel_config
         self.moe_config = moe_config
+        self.init_values = init_values
+        self.window_size = window_size

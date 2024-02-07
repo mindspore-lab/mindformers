@@ -16,7 +16,7 @@
 import copy
 from typing import Any, Dict
 
-from mindformers.models.base_config import BaseConfig
+from mindformers.models.configuration_utils import PretrainedConfig
 from mindformers.tools import logger
 
 __all__ = ["GenerationConfig"]
@@ -146,10 +146,10 @@ class GenerationConfig:
         return config
 
     @classmethod
-    def from_model_config(cls, model_config: BaseConfig) -> "GenerationConfig":
+    def from_model_config(cls, model_config: PretrainedConfig) -> "GenerationConfig":
         """
         Instantiates a [`GenerationConfig`] from a [`PretrainedConfig`].
-        This function is useful to convert legacy [`BaseConfig`] objects,
+        This function is useful to convert legacy [`PretrainedConfig`] objects,
         which may contain generation parameters, into a stand-alone [`GenerationConfig`].
 
         Args:

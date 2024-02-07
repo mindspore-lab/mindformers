@@ -34,7 +34,7 @@ from mindformers.tools.download_tools import download_with_progress_bar
 from mindformers.core.loss import build_loss
 from mindformers.mindformer_book import MindFormerBook
 from mindformers.models.base_model import BaseModel
-from mindformers.models.base_config import BaseConfig
+from mindformers.models.configuration_utils import PretrainedConfig
 from mindformers.models.swin.swin_config import SwinConfig
 from mindformers.models.swin.swin_modules import Linear
 from mindformers.models.swin.swin_modules import LayerNorm
@@ -94,7 +94,7 @@ class SwinModel(SwinBaseModel):
         config (SwinConfig): the config of Swin model.
     """
 
-    def __init__(self, config: BaseConfig = None):
+    def __init__(self, config: PretrainedConfig = None):
         if config is None:
             config = SwinConfig()
         super(SwinModel, self).__init__(config)
@@ -193,7 +193,7 @@ class SwinForImageClassification(SwinBaseModel):
     """
     _support_list = MindFormerBook.get_model_support_list()['swin']
 
-    def __init__(self, config: BaseConfig = None):
+    def __init__(self, config: PretrainedConfig = None):
         if config is None:
             config = SwinConfig()
         super(SwinForImageClassification, self).__init__(config)

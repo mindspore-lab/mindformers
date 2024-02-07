@@ -16,15 +16,15 @@
 Note: The config module of Parameter Efficient Tuning module.
 """
 from typing import List
-from mindformers.models.base_config import BaseConfig
 from mindformers.models.utils import convert_mstype
+from mindformers.tools import DictConfig
 from mindformers.pet.constants import PetType
 
 
 __all__ = ['LoraConfig', 'Ptuning2Config']
 
 
-class PetConfig(BaseConfig):
+class PetConfig(DictConfig):
     """
     Pet model config class which defines the tuning algorithm and pretrained for tuning.
 

@@ -28,12 +28,13 @@ from mindspore.train.serialization import load_checkpoint, load_param_into_net
 from .build_model import build_model
 from ..generation import GeneratorMixin
 from ..mindformer_book import MindFormerBook, print_path_or_list
-from .base_config import BaseConfig
-from ..tools.register import MindFormerConfig
+from .configuration_utils import PretrainedConfig
+from ..tools.register import MindFormerConfig, DictConfig
 from ..tools.download_tools import download_with_progress_bar
 from ..tools.logger import logger
 from ..tools.utils import try_sync_file, replace_tk_to_mindpet
 
+IGNORE_KEYS = ["_name_or_path"]
 
 class BaseModel(nn.Cell, GeneratorMixin):
     """
@@ -44,13 +45,13 @@ class BaseModel(nn.Cell, GeneratorMixin):
         GeneratorMixin provides the method `generate` that enable the generation for nlp models.
 
     Args:
-        config(BaseConfig): The model configuration that inherits the `BaseConfig`.
+        config(PretrainedConfig): The model configuration that inherits the `PretrainedConfig`.
     """
     _support_list = []
     _model_type = 0
     _model_name = 1
 
-    def __init__(self, config: BaseConfig, **kwargs):
+    def __init__(self, config: PretrainedConfig, **kwargs):
         super(BaseModel, self).__init__(**kwargs)
         self.config = config
         self.default_checkpoint_download_path = None
@@ -163,7 +164,7 @@ class BaseModel(nn.Cell, GeneratorMixin):
         parsed_config, remove_list = self._inverse_parse_config(self.config)
         wraped_config = self._wrap_config(parsed_config)
         for key, val in remove_list:
-            self.config[key] = val
+            self.config.__dict__[key] = val
         self.remove_type(self.config)
 
         meraged_dict = {}
@@ -179,14 +180,14 @@ class BaseModel(nn.Cell, GeneratorMixin):
         logger.info("model saved successfully!")
 
     def remove_type(self, config):
-        """remove type caused by save’"""
-        if isinstance(config, BaseConfig):
-            config.pop("type")
+        """remove type caused by save"""
+        if isinstance(config, PretrainedConfig):
+            config.__dict__.pop("type")
 
-        for key, val in config.items():
-            if isinstance(val, BaseConfig):
-                val.pop("type")
-                config.update({key: val})
+        for key, val in config.__dict__.items():
+            if isinstance(val, PretrainedConfig):
+                val.__dict__.pop("type")
+                config.__dict__.update({key: val})
 
     def prepare_inputs_for_export(self, full_model=True):
         """
@@ -205,28 +206,24 @@ class BaseModel(nn.Cell, GeneratorMixin):
         Inverse parse config method, which builds yaml file content for model config.
 
         Args:
-            config (BaseConfig): a model config inherited from BaseConfig.
+            config (PretrainedConfig): a model config inherited from PretrainedConfig.
 
         Returns:
             A model config, which follows the yaml content.
         """
+        config.__dict__.update({"type": config.__class__.__name__})
         removed_list = []
 
-        if not isinstance(config, BaseConfig):
-            return config, removed_list
-
-        class_name = config.__class__.__name__
-        config.update({"type": class_name})
-
-        for key, val in config.items():
-            new_val, _ = self._inverse_parse_config(val)
-            if not isinstance(new_val, (str, int, float, bool, BaseConfig)):
-                removed_list.append((key, new_val))
+        for key, val in config.__dict__.items():
+            if isinstance(val, PretrainedConfig):
+                val = val.inverse_parse_config()
+            elif not isinstance(val, (str, int, float, bool, DictConfig)) or key in IGNORE_KEYS:
+                removed_list.append((key, val))
                 continue
-            config.update({key: new_val})
+            config.__dict__.update({key: val})
 
         for key, _ in removed_list:
-            config.pop(key)
+            config.__dict__.pop(key)
         return config, removed_list
 
     def _wrap_config(self, config):
@@ -234,7 +231,7 @@ class BaseModel(nn.Cell, GeneratorMixin):
         Wrap config function, which wraps a config to rebuild content of yaml file.
 
         Args:
-            config (BaseConfig): a config processed by _inverse_parse_config function.
+            config (PretrainedConfig): a config processed by _inverse_parse_config function.
 
         Returns:
             A (config) dict for yaml.dump.
