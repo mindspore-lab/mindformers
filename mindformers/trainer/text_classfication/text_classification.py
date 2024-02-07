@@ -20,7 +20,7 @@ from mindspore.dataset import GeneratorDataset
 from mindspore.nn import TrainOneStepCell, Optimizer, Cell
 
 from mindformers.dataset import BaseDataset
-from mindformers.models import BaseModel, BaseTokenizer
+from mindformers.models import BaseModel, PreTrainedTokenizerBase
 from mindformers.tools.logger import logger
 from mindformers.tools.register import MindFormerRegister, \
     MindFormerModuleType, MindFormerConfig
@@ -139,7 +139,7 @@ class TextClassificationTrainer(BaseTrainer):
                 config: Optional[Union[dict, MindFormerConfig, ConfigArguments, TrainingArguments]] = None,
                 input_data: Optional[Union[str, list]] = None,
                 network: Optional[Union[BaseModel]] = None,
-                tokenizer: Optional[BaseTokenizer] = None,
+                tokenizer: Optional[PreTrainedTokenizerBase] = None,
                 **kwargs):
         """
         The prediction API of question answering task. It allows to quickly start prediction based on
@@ -155,7 +155,7 @@ class TextClassificationTrainer(BaseTrainer):
             network (Optional[Union[Cell, BaseModel]]): The network for trainer.
                 It supports model name or BaseModel or MindSpore Cell class.
                 Default: None.
-            tokenizer (Optional[BaseTokenizer]): The tokenizer for tokenizing the input text.
+            tokenizer (Optional[PreTrainedTokenizerBase]): The tokenizer for tokenizing the input text.
                 Default: None.
 
         Returns:

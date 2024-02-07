@@ -24,7 +24,7 @@ from mindspore.nn import Cell
 from mindspore.dataset import GeneratorDataset
 
 from mindformers.dataset import BaseDataset
-from mindformers.models import BaseModel, BaseTokenizer, BaseImageProcessor
+from mindformers.models import BaseModel, PreTrainedTokenizerBase, BaseImageProcessor
 from mindformers.tools.logger import logger
 from mindformers.tools.register import MindFormerRegister, \
     MindFormerModuleType, MindFormerConfig
@@ -106,7 +106,7 @@ class ZeroShotImageClassificationTrainer(BaseTrainer):
                 input_data: Optional[Union[GeneratorDataset,
                                            Tensor, np.ndarray, Image, str, list]] = None,
                 network: Optional[Union[Cell, BaseModel]] = None,
-                tokenizer: Optional[BaseTokenizer] = None,
+                tokenizer: Optional[PreTrainedTokenizerBase] = None,
                 image_processor: Optional[BaseImageProcessor] = None, **kwargs):
         """
         The prediction API of zero-shot image classification task. It allows to quickly start prediction based on
@@ -125,7 +125,7 @@ class ZeroShotImageClassificationTrainer(BaseTrainer):
                 The dataset. It supports real dataset path or
                 BaseDateset class or MindSpore Dataset class.
                 Default: None.
-            tokenizer (Optional[BaseTokenizer]): Used for text process.
+            tokenizer (Optional[PreTrainedTokenizerBase]): Used for text process.
             image_processor (Optional[BaseImageProcessor]): Used for image process.
 
         Returns:

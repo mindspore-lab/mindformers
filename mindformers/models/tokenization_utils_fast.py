@@ -29,14 +29,14 @@ from tokenizers.decoders import Decoder as DecoderFast
 from tokenizers.trainers import BpeTrainer, UnigramTrainer, WordLevelTrainer, WordPieceTrainer
 
 from .convert_slow_tokenizer import convert_slow_tokenizer
-from .base_tokenizer import (
-    Tokenizer,
+from .tokenization_utils import PreTrainedTokenizer
+from .tokenization_utils_base import (
     INIT_TOKENIZER_DOCSTRING,
     AddedToken,
     BatchEncoding,
     PreTokenizedInput,
     PreTokenizedInputPair,
-    BaseTokenizer,
+    PreTrainedTokenizerBase,
     SpecialTokensMixin,
     TextInput,
     TextInputPair,
@@ -75,7 +75,7 @@ VOCAB_FILES_NAMES = {"tokenizer_file": TOKENIZER_FILE}
 
 @add_end_docstrings(INIT_TOKENIZER_DOCSTRING)
 # pylint: disable=W0223
-class PreTrainedTokenizerFast(BaseTokenizer):
+class PreTrainedTokenizerFast(PreTrainedTokenizerBase):
     """
     Base class for all fast tokenizers (wrapping HuggingFace tokenizers library).
 
@@ -89,7 +89,7 @@ class PreTrainedTokenizerFast(BaseTokenizer):
     """
 
     vocab_files_names = VOCAB_FILES_NAMES
-    slow_tokenizer_class: Tokenizer = None
+    slow_tokenizer_class: PreTrainedTokenizer = None
 
     def __init__(self, *args, **kwargs):
         fast_tokenizer, slow_tokenizer, added_tokens_decoder, kwargs = self.init_atom_1(*args, **kwargs)
@@ -496,7 +496,7 @@ class PreTrainedTokenizerFast(BaseTokenizer):
             return_offsets_mapping: bool = False,
             return_length: bool = False,
             verbose: bool = True,
-            **kwargs,
+            **kwargs
     ) -> BatchEncoding:
         if not isinstance(batch_text_or_text_pairs, (tuple, list)):
             raise TypeError(
@@ -853,3 +853,21 @@ class PreTrainedTokenizerFast(BaseTokenizer):
             kwargs["additional_special_tokens"] = additional_special_tokens
 
         return self.__class__(tokenizer_object=tokenizer, **kwargs)
+
+    def save_vocabulary(self, save_directory: str, filename_prefix: Optional[str] = None) -> Tuple[str]:
+        """
+        Save only the vocabulary of the tokenizer (vocabulary + added tokens).
+
+        This method won't save the configuration and special token mappings of the tokenizer. Use
+        [`~PreTrainedTokenizerFast._save_pretrained`] to save the whole state of the tokenizer.
+
+        Args:
+            save_directory (`str`):
+                The directory in which to save the vocabulary.
+            filename_prefix (`str`, *optional*):
+                An optional prefix to add to the named of the saved files.
+
+        Returns:
+            `Tuple(str)`: Paths to the files saved.
+        """
+        raise NotImplementedError

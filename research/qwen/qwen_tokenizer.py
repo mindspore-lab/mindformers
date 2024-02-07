@@ -20,7 +20,7 @@ from typing import Collection, Dict, List, Set, Union
 import unicodedata
 
 from mindformers.mindformer_book import MindFormerBook
-from mindformers.models.base_tokenizer import AddedToken, Tokenizer
+from mindformers.models.tokenization_utils import AddedToken, PreTrainedTokenizer
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 
 try:
@@ -46,7 +46,7 @@ def _load_tiktoken_bpe(tiktoken_bpe_file: str) -> Dict[bytes, int]:
 
 
 @MindFormerRegister.register(MindFormerModuleType.TOKENIZER)
-class QwenTokenizer(Tokenizer):
+class QwenTokenizer(PreTrainedTokenizer):
     """Qwen Tokenizer"""
     VOCAB_FILES = {'vocab_file': 'qwen.tiktoken'}
     FILE_LIST = []
@@ -201,7 +201,7 @@ class QwenTokenizer(Tokenizer):
             errors: str = None,
             **kwargs,
     ) -> str:
-        """override Tokenizer._decode(), called by BaseTokenizer.decode()"""
+        """override Tokenizer._decode(), called by PreTrainedTokenizerBase.decode()"""
         if isinstance(token_ids, int):
             token_ids = [token_ids]
         if skip_special_tokens:

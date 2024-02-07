@@ -17,7 +17,7 @@
 PanguAlphaProcessor
 """
 from mindformers.mindformer_book import MindFormerBook
-from mindformers.models.base_tokenizer import BaseTokenizer
+from mindformers.models.tokenization_utils_base import PreTrainedTokenizerBase
 from mindformers.models.base_processor import BaseProcessor
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 
@@ -28,7 +28,7 @@ __all__ = ['PanguAlphaProcessor']
 class PanguAlphaProcessor(BaseProcessor):
     """
     PanguAlpha processor,
-    consists of a tokenizer (BaseTokenizer) for text input.
+    consists of a tokenizer (PreTrainedTokenizerBase) for text input.
     """
     _support_list = MindFormerBook.get_processor_support_list()['pangualpha']
 
@@ -45,8 +45,8 @@ class PanguAlphaProcessor(BaseProcessor):
         """call function"""
         output = {}
         if text_input is not None and self.tokenizer:
-            if not isinstance(self.tokenizer, BaseTokenizer):
-                raise TypeError(f"tokenizer should inherited from the BaseTokenizer,"
+            if not isinstance(self.tokenizer, PreTrainedTokenizerBase):
+                raise TypeError(f"tokenizer should inherited from the PreTrainedTokenizerBase,"
                                 f" but got {type(self.tokenizer)}.")
             # Format the input into a batch
             if isinstance(text_input, str):

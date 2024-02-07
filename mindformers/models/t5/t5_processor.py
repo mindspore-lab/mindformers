@@ -16,7 +16,7 @@
 """
 T5Processor
 """
-from mindformers.models.base_tokenizer import Tokenizer
+from mindformers.models.tokenization_utils import PreTrainedTokenizer
 from mindformers.mindformer_book import MindFormerBook
 from ..base_processor import BaseProcessor
 from ...tools.register import MindFormerRegister, MindFormerModuleType
@@ -27,10 +27,10 @@ __all__ = ['T5Processor']
 class T5Processor(BaseProcessor):
     """
     T5 processor,
-    consists of a tokenizer (BaseTokenizer) for text input.
+    consists of a tokenizer (PreTrainedTokenizerBase) for text input.
 
     Args:
-        tokenizer (BaseTokenizer): The tokenizer of T5.
+        tokenizer (PreTrainedTokenizerBase): The tokenizer of T5.
         max_length (`int`, *optional*, defaults to 77):
             The maximum length (in number of tokens) for the inputs to T5Model.
         tgt_max_length (`int`, *optional*, defaults to 128):
@@ -69,8 +69,8 @@ class T5Processor(BaseProcessor):
         output = {}
         if not self.tokenizer:
             raise ValueError(f"For {self.__name__}, the `tokenizer` should not be None.")
-        if not isinstance(self.tokenizer, Tokenizer):
-            raise TypeError(f"tokenizer should inherited from the BaseTokenizer,"
+        if not isinstance(self.tokenizer, PreTrainedTokenizer):
+            raise TypeError(f"tokenizer should inherited from the PreTrainedTokenizerBase,"
                             f" but got {type(self.tokenizer)}.")
         if text_input:
             # Format the input into a batch

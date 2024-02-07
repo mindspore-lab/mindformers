@@ -18,11 +18,11 @@ How to run this:
 pytest tests/st/test_model/test_llama_model/test_auto_class.py
 """
 import os
-
+import shutil
 import mindspore as ms
 
 from mindformers import MindFormerBook, AutoModel, AutoConfig, AutoTokenizer, AutoProcessor
-from mindformers.models import BaseModel, BaseConfig, BaseTokenizer, BaseProcessor
+from mindformers.models import BaseModel, BaseConfig, PreTrainedTokenizerBase, BaseProcessor
 
 ms.set_context(mode=0)
 
@@ -33,6 +33,10 @@ class TestLlamaAutoClassMethod:
         """setup method."""
         self.save_directory = MindFormerBook.get_default_checkpoint_save_folder()
         self.test_llm_list = ['llama_7b']
+
+    def teardown_method(self):
+        for model_or_config_type in self.test_llm_list:
+            shutil.rmtree(os.path.join(self.save_directory, model_or_config_type), ignore_errors=True)
 
     def test_llm_model(self):
         """
@@ -85,7 +89,7 @@ class TestLlamaAutoClassMethod:
         # input processor name
         for tokenizer_type in self.test_llm_list:
             tokenizer = AutoTokenizer.from_pretrained(tokenizer_type)
-            assert isinstance(tokenizer, BaseTokenizer)
+            assert isinstance(tokenizer, PreTrainedTokenizerBase)
             tokenizer.save_pretrained(
                 save_directory=os.path.join(self.save_directory, tokenizer_type),
                 save_name=tokenizer_type + '_tokenizer')

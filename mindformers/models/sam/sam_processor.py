@@ -219,7 +219,7 @@ class SAMProcessor(BaseProcessor):
     """
     Vit processor,
     consists of a feature extractor (BaseFeatureEXtractor) for image input,
-    and a tokenizer (BaseTokenizer) for text input.
+    and a tokenizer (PreTrainedTokenizerBase) for text input.
     """
     _support_list = MindFormerBook.get_processor_support_list()['sam']
 

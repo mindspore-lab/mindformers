@@ -22,7 +22,7 @@ from threading import Thread
 # pylint: disable=W0611
 import mindspore_lite as mslite
 
-from mindformers.models.base_tokenizer import Tokenizer
+from mindformers.models.tokenization_utils import PreTrainedTokenizer
 from mindformers.models import BloomTokenizer, LlamaTokenizer
 from mindformers.models import ChatGLMTokenizer, ChatGLM2Tokenizer, GPT2Tokenizer, ChatGLM3Tokenizer
 from mindformers.pipeline import pipeline
@@ -130,7 +130,7 @@ LITE_SUPPORT_MODELS = {
 }
 
 
-def get_tokenizer(model_name: str, tokenizer_path: str) -> Tokenizer:
+def get_tokenizer(model_name: str, tokenizer_path: str) -> PreTrainedTokenizer:
     """get tokenizer with model name."""
     tokenizer = None
     lite_support_model = model_name.split('_')[0]

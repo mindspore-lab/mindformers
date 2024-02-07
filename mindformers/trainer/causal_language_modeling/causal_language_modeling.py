@@ -26,7 +26,7 @@ from mindspore.nn import TrainOneStepCell, Optimizer, Cell
 from mindspore.dataset import GeneratorDataset
 
 from mindformers.dataset import BaseDataset
-from mindformers.models import BaseModel, BaseTokenizer, build_tokenizer
+from mindformers.models import BaseModel, PreTrainedTokenizerBase, build_tokenizer
 from mindformers.tools.logger import logger
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType, MindFormerConfig
 from mindformers.tools.check_rules import check_rules
@@ -274,7 +274,7 @@ class CausalLanguageModelingTrainer(BaseTrainer):
                 config: Optional[Union[dict, MindFormerConfig, ConfigArguments, TrainingArguments]] = None,
                 input_data: Optional[Union[str, list, GeneratorDataset]] = None,
                 network: Optional[Union[Cell, BaseModel]] = None,
-                tokenizer: Optional[BaseTokenizer] = None,
+                tokenizer: Optional[PreTrainedTokenizerBase] = None,
                 **kwargs):
         """
         Executes the predict of the trainer.
@@ -290,7 +290,7 @@ class CausalLanguageModelingTrainer(BaseTrainer):
             network (Optional[Union[Cell, BaseModel]]):
                 The network for trainer. It supports model name or BaseModel or MindSpore Cell class.
                 Default: None.
-            tokenizer (Optional[BaseTokenizer]):
+            tokenizer (Optional[PreTrainedTokenizerBase]):
                 The tokenizer for tokenizing the input text. Default: None.
 
         Returns:

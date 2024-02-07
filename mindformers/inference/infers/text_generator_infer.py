@@ -23,7 +23,7 @@ import mindspore_lite as mslite
 from mindspore_lite import Model
 
 from mindformers.tools.logger import logger
-from mindformers.models import BaseTokenizer, BaseImageProcessor
+from mindformers.models import PreTrainedTokenizerBase, BaseImageProcessor
 from mindformers.generation import GenerationConfig, LogitsProcessorList
 from mindformers.generation.logits_process import RepetitionPenaltyLogitsProcessor, LogitNormalization, \
     TemperatureLogitsWarper, TopKLogitsWarper, TopPLogitsWarper
@@ -110,7 +110,7 @@ class GLMInputsOfInfer(BaseInputsOfInfer):
     """
     glm infer inputs.
     """
-    def get_masks_np(self, input_ids, tokenizer: BaseTokenizer):
+    def get_masks_np(self, input_ids, tokenizer: PreTrainedTokenizerBase):
         batch_size, seq_length = input_ids.shape
         context_lengths = [list(seq).index(tokenizer.bos_token_id) for seq in input_ids]
         attention_mask = np.tril(np.ones((batch_size, seq_length, seq_length)))
@@ -120,7 +120,7 @@ class GLMInputsOfInfer(BaseInputsOfInfer):
         attention_mask = np.array(attention_mask < 0.5, np.bool_)
         return attention_mask
 
-    def get_position_ids_np(self, input_ids, mask_positions, tokenizer: BaseTokenizer,
+    def get_position_ids_np(self, input_ids, mask_positions, tokenizer: PreTrainedTokenizerBase,
                             use_gmasks=None, position_encoding_2d=True):
         """Get position ids from input_ids and mask_positions with numpy"""
         batch_size, seq_length = input_ids.shape
@@ -237,7 +237,7 @@ class TextGeneratorInfer(BaseInfer):
     """
     def __init__(self,
                  config: InferConfig = None,
-                 tokenizer: Optional[BaseTokenizer] = None,
+                 tokenizer: Optional[PreTrainedTokenizerBase] = None,
                  image_processor: Optional[BaseImageProcessor] = None):
         super(TextGeneratorInfer, self).__init__(config, tokenizer, image_processor)
         if self.paged_attention:

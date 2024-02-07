@@ -19,7 +19,7 @@ from typing import List, Optional, Tuple
 
 from tokenizers import normalizers
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
-from ..base_fast_tokenizer import PreTrainedTokenizerFast
+from ..tokenization_utils_fast import PreTrainedTokenizerFast
 from .bert_tokenizer import BertTokenizer
 from ...mindformer_book import MindFormerBook
 

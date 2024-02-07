@@ -19,7 +19,7 @@ GLMProcessor
 import re
 
 from mindformers.mindformer_book import MindFormerBook
-from mindformers.models.base_tokenizer import BaseTokenizer
+from mindformers.models.tokenization_utils_base import PreTrainedTokenizerBase
 from mindformers.models.base_processor import BaseProcessor
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 
@@ -30,10 +30,10 @@ __all__ = ['GLMProcessor']
 class GLMProcessor(BaseProcessor):
     """
     GLM processor,
-    consists of a tokenizer (BaseTokenizer) for text input.
+    consists of a tokenizer (PreTrainedTokenizerBase) for text input.
 
     Args:
-        tokenizer (Optional[BaseTokenizer]): text tokenizer for glm.
+        tokenizer (Optional[PreTrainedTokenizerBase]): text tokenizer for glm.
         max_length (`int`, *optional*):
             Controls the maximum length to use by one of the truncation/padding parameters.
 
@@ -70,8 +70,8 @@ class GLMProcessor(BaseProcessor):
         """call function"""
         output = {}
         if text_input is not None and self.tokenizer:
-            if not isinstance(self.tokenizer, BaseTokenizer):
-                raise TypeError(f"tokenizer should inherited from the BaseTokenizer,"
+            if not isinstance(self.tokenizer, PreTrainedTokenizerBase):
+                raise TypeError(f"tokenizer should inherited from the PreTrainedTokenizerBase,"
                                 f" but got {type(self.tokenizer)}.")
             # Format the input into a batch
             if isinstance(text_input, str):

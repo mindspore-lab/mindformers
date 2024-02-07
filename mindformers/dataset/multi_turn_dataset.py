@@ -23,7 +23,7 @@ from typing import Dict, List
 import astunparse
 import numpy as np
 
-from mindformers.models.base_tokenizer import BaseTokenizer
+from mindformers.models.tokenization_utils_base import PreTrainedTokenizerBase
 from mindformers.dataset.base_dataset import BaseDataset
 from mindformers.dataset.dataloader import build_dataset_loader
 from mindformers.models.build_tokenizer import build_tokenizer
@@ -81,7 +81,7 @@ class MultiTurnDataset(BaseDataset):
         dataset_config.rank_id = rank_id
         dataset_config.device_num = device_num
 
-        if isinstance(dataset_config.tokenizer, BaseTokenizer):
+        if isinstance(dataset_config.tokenizer, PreTrainedTokenizerBase):
             cls.tokenizer = dataset_config.tokenizer
         else:
             cls.tokenizer = build_tokenizer(dataset_config.tokenizer)
@@ -108,7 +108,7 @@ class MultiTurnDataset(BaseDataset):
     def _tokenizer_map(cls, dataset, dataset_config):
         """Maps the tokenizer on the source and the output"""
 
-        if isinstance(dataset_config.tokenizer, BaseTokenizer):
+        if isinstance(dataset_config.tokenizer, PreTrainedTokenizerBase):
             tokenizer = dataset_config.tokenizer
         else:
             tokenizer = build_tokenizer(dataset_config.tokenizer)

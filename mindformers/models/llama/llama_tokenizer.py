@@ -28,7 +28,7 @@ import sentencepiece as spm
 
 from mindformers.tools import logger
 from mindformers.mindformer_book import MindFormerBook
-from mindformers.models.base_tokenizer import Tokenizer, AddedToken
+from mindformers.models.tokenization_utils import AddedToken, PreTrainedTokenizer
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from ..convert_slow_tokenizer import import_protobuf
 
@@ -47,7 +47,7 @@ correct. If you don't know the answer to a question, please don't share false in
 
 
 @MindFormerRegister.register(MindFormerModuleType.TOKENIZER)
-class LlamaTokenizer(Tokenizer):
+class LlamaTokenizer(PreTrainedTokenizer):
     r"""
     Construct a Llama tokenizer. Based on byte-level Byte-Pair-Encoding. The default padding token is unset as there is
     no padding token in the original model.

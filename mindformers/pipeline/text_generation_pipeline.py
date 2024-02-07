@@ -22,7 +22,7 @@ from mindspore import Model, Tensor
 
 from ..auto_class import AutoConfig, AutoModel, AutoProcessor
 from ..mindformer_book import MindFormerBook
-from ..models import BaseModel, BaseTokenizer
+from ..models import BaseModel, PreTrainedTokenizerBase
 from ..tools.register import MindFormerModuleType, MindFormerRegister
 from .base_pipeline import BasePipeline
 
@@ -44,8 +44,8 @@ class TextGenerationPipeline(BasePipeline):
         model (Union[str, BaseModel]):
             The model used to perform task, the input could be a supported model name, or a model instance
             inherited from BaseModel.
-        tokenizer (Optional[BaseTokenizer]):
-            A tokenizer (None or Tokenizer) for text processing.
+        tokenizer (Optional[PreTrainedTokenizerBase]):
+            A tokenizer (None or PreTrainedTokenizer) for text processing.
         **kwargs:
             Specific parametrization of `generate_config` and/or additional model-specific kwargs that will be
             forwarded to the `forward` function of the model. Supported `generate_config` keywords can be
@@ -89,7 +89,7 @@ class TextGenerationPipeline(BasePipeline):
     return_name = 'text_generation'
 
     def __init__(self, model: Union[str, BaseModel, Model],
-                 tokenizer: Optional[BaseTokenizer] = None,
+                 tokenizer: Optional[PreTrainedTokenizerBase] = None,
                  **kwargs):
         if isinstance(model, str):
             if model in self._support_list or os.path.isdir(model):

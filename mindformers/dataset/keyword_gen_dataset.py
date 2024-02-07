@@ -22,7 +22,7 @@ import mindspore.common.dtype as mstype
 from mindspore.dataset.transforms import TypeCast
 from mindspore.dataset import MindDataset
 
-from mindformers.models.base_tokenizer import BaseTokenizer
+from mindformers.models.tokenization_utils_base import PreTrainedTokenizerBase
 from mindformers.dataset.base_dataset import BaseDataset
 from mindformers.dataset.dataloader import build_dataset_loader
 from mindformers.models.build_tokenizer import build_tokenizer
@@ -175,7 +175,7 @@ class KeyWordGenDataset(BaseDataset):
             phase = dataset_config.phase
             version = dataset_config.version
 
-        if isinstance(dataset_config.tokenizer, BaseTokenizer):
+        if isinstance(dataset_config.tokenizer, PreTrainedTokenizerBase):
             tokenizer = dataset_config.tokenizer
         else:
             tokenizer = build_tokenizer(dataset_config.tokenizer)

@@ -20,7 +20,7 @@ from mindspore.nn import TrainOneStepCell, Optimizer, Cell
 from mindspore.dataset import GeneratorDataset
 
 from mindformers.dataset import BaseDataset
-from mindformers.models import BaseModel, BaseTokenizer
+from mindformers.models import BaseModel, PreTrainedTokenizerBase
 
 from mindformers.tools.register import MindFormerRegister, \
     MindFormerModuleType, MindFormerConfig
@@ -105,7 +105,7 @@ class MaskedLanguageModelingTrainer(BaseTrainer):
                 config: Optional[Union[dict, MindFormerConfig, ConfigArguments, TrainingArguments]] = None,
                 input_data: Optional[Union[str, list]] = None,
                 network: Optional[Union[str, BaseModel]] = None,
-                tokenizer: Optional[BaseTokenizer] = None,
+                tokenizer: Optional[PreTrainedTokenizerBase] = None,
                 **kwargs):
         """
         Executes the predict of the trainer.
@@ -121,7 +121,7 @@ class MaskedLanguageModelingTrainer(BaseTrainer):
                 The network for trainer. It support model name supported or BaseModel class.
                 Supported model name can refer to model support list.
                 Default: None.
-            tokenizer (Optional[BaseTokenizer]):
+            tokenizer (Optional[PreTrainedTokenizerBase]):
                 The tokenizer for tokenizing the input text. Default: None.
 
         Returns:

@@ -15,7 +15,7 @@ mindformers.models
     mindformers.models.BaseImageProcessor
     mindformers.models.BaseModel
     mindformers.models.BaseProcessor
-    mindformers.models.Tokenizer
+    mindformers.models.PreTrainedTokenizer
 
 mindformers.models.bert
 ------------------------

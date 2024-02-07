@@ -276,7 +276,7 @@
                   config: Optional[Union[dict, MindFormerConfig, ConfigArguments, TrainingArguments]] = None,
                   input_data: Optional[Union[str, list, GeneratorDataset]] = None,
                   network: Optional[Union[Cell, BaseModel]] = None,
-                  tokenizer: Optional[BaseTokenizer] = None,
+                  tokenizer: Optional[PreTrainedTokenizerBase] = None,
                   **kwargs):
           """ function description """
           # 支持字符串和数据集传入
@@ -430,8 +430,8 @@
         """call function description"""
         output = {}
         if text_input is not None and self.tokenizer:
-            if not isinstance(self.tokenizer, BaseTokenizer):
-                raise TypeError(f"tokenizer should inherited from the BaseTokenizer,"
+            if not isinstance(self.tokenizer, PreTrainedTokenizerBase):
+                raise TypeError(f"tokenizer should inherited from the PreTrainedTokenizerBase,"
                                 f" but got {type(self.tokenizer)}.")
             # 将输入数据增加batch维度
             if isinstance(text_input, str):
@@ -455,7 +455,7 @@
     # gpt2_tokenizer.py
     # 以下展示了部分核心代码，具体实现请参考Mindformers
     @MindFormerRegister.register(MindFormerModuleType.TOKENIZER)
-    class GPT2Tokenizer(Tokenizer):
+    class GPT2Tokenizer(PreTrainedTokenizer):
         """class description"""
         vocab_files_names = VOCAB_FILES_NAMES
         model_input_names = ["input_ids", "token_type_ids", "attention_mask"]
@@ -883,7 +883,7 @@ GPT2作为大语言模型，其主要的task是文本生成和对话问答方面
         return_name = 'text_generation'
 
         def __init__(self, model: Union[str, BaseModel, Model],
-                    tokenizer: Optional[BaseTokenizer] = None,
+                    tokenizer: Optional[PreTrainedTokenizerBase] = None,
                     **kwargs):
             # model/tokenizer输入类型判断
             if isinstance(model, str):
@@ -891,9 +891,9 @@ GPT2作为大语言模型，其主要的task是文本生成和对话问答方面
                     if tokenizer is None:
                         tokenizer = AutoProcessor.from_pretrained(model).tokenizer
                     model = AutoModel.from_pretrained(model)
-                    if not isinstance(tokenizer, BaseTokenizer):
+                    if not isinstance(tokenizer, PreTrainedTokenizerBase):
                         raise TypeError(f"tokenizer should be inherited from"
-                                        f" BaseTokenizer, but got {type(tokenizer)}.")
+                                        f" PreTrainedTokenizerBase, but got {type(tokenizer)}.")
                 else:
                     raise ValueError(f"{model} is not supported by {self.__class__.__name__},"
                                     f"please selected from {self._support_list}.")

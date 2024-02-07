@@ -22,7 +22,7 @@ from mindspore import Tensor
 from mindspore.nn import Cell
 from mindspore.dataset import GeneratorDataset
 
-from mindformers.models import BaseModel, BaseTokenizer, BaseImageProcessor
+from mindformers.models import BaseModel, PreTrainedTokenizerBase, BaseImageProcessor
 from mindformers.tools.logger import logger
 from mindformers.tools.register import MindFormerRegister, \
     MindFormerModuleType, MindFormerConfig
@@ -68,7 +68,7 @@ class ImageToTextGenerationTrainer(BaseTrainer):
                 input_data: Optional[Union[GeneratorDataset,
                                            Tensor, np.ndarray, Image, str, list]] = None,
                 network: Optional[Union[Cell, BaseModel]] = None,
-                tokenizer: Optional[BaseTokenizer] = None,
+                tokenizer: Optional[PreTrainedTokenizerBase] = None,
                 image_processor: Optional[BaseImageProcessor] = None, **kwargs):
         """
         Predict task for ZeroShotImageToTextGenerationTrainer Trainer.
@@ -85,7 +85,7 @@ class ImageToTextGenerationTrainer(BaseTrainer):
             network (Optional[Union[Cell, BaseModel]]):
                 The network for trainer. It supports model name or BaseModel or MindSpore Cell class.
                 Default: None.
-            tokenizer (Optional[BaseTokenizer]):
+            tokenizer (Optional[PreTrainedTokenizerBase]):
                 Used for text process. Default: None.
             image_processor (Optional[BaseImageProcessor]):
                 Used for image process. Default: None.

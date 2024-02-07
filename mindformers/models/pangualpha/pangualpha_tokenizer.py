@@ -21,7 +21,7 @@ import sentencepiece as spm
 
 from mindformers.tools import logger
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
-from mindformers.models.base_tokenizer import Tokenizer
+from mindformers.models.tokenization_utils import PreTrainedTokenizer
 from ...mindformer_book import MindFormerBook
 
 
@@ -31,7 +31,7 @@ VOCAB_FILES_NAMES = {"vocab_file": "vocab.model"}
 
 
 @MindFormerRegister.register(MindFormerModuleType.TOKENIZER)
-class PanguAlphaTokenizer(Tokenizer):
+class PanguAlphaTokenizer(PreTrainedTokenizer):
     r"""
     Tokenize the input string and convert them into the ids. The tokenizer use the sentence piece internally.
 

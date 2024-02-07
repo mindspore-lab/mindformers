@@ -24,7 +24,7 @@ from ..auto_class import AutoProcessor, AutoModel
 from ..mindformer_book import MindFormerBook
 from .base_pipeline import BasePipeline
 from ..tools.register import MindFormerRegister, MindFormerModuleType
-from ..models import BaseModel, Tokenizer
+from ..models import BaseModel, PreTrainedTokenizer
 
 __all__ = ['FillMaskPipeline']
 
@@ -36,8 +36,8 @@ class FillMaskPipeline(BasePipeline):
     Args:
         model (Union[str, BaseModel]):
             A pretrained model (str or BaseModel) in _supproted_list.
-        tokenizer (Optional[BaseTokenizer]):
-            A tokenizer (None or Tokenizer) for text processing. Default: None.
+        tokenizer (Optional[PreTrainedTokenizerBase]):
+            A tokenizer (None or PreTrainedTokenizer) for text processing. Default: None.
     """
     _support_list = MindFormerBook.get_model_support_list()['bert']
     return_name = 'fillmask'
@@ -48,7 +48,7 @@ class FillMaskPipeline(BasePipeline):
                 if tokenizer is None:
                     tokenizer = AutoProcessor.from_pretrained(model).tokenizer
                 model = AutoModel.from_pretrained(model)
-                if not isinstance(tokenizer, Tokenizer):
+                if not isinstance(tokenizer, PreTrainedTokenizer):
                     raise TypeError(f"tokenizer should be inherited from"
                                     f" PretrainedTokenizer, but got {type(tokenizer)}.")
             else:

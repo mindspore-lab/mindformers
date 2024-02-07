@@ -17,7 +17,7 @@ import os
 from typing import List, Optional, Union
 
 from mindformers.mindformer_book import MindFormerBook
-from mindformers.models.base_tokenizer import Tokenizer
+from mindformers.models.tokenization_utils import PreTrainedTokenizer
 from mindformers.tools.register import MindFormerModuleType, MindFormerRegister
 from sentencepiece import SentencePieceProcessor
 
@@ -84,7 +84,7 @@ class SPTokenizer:
 
 
 @MindFormerRegister.register(MindFormerModuleType.TOKENIZER)
-class ChatGLM2Tokenizer(Tokenizer):
+class ChatGLM2Tokenizer(PreTrainedTokenizer):
     """
     Construct a ChatGLM2 tokenizer. Based on byte-level Byte-Pair-Encoding.
 

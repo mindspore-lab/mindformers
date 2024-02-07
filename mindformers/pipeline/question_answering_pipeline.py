@@ -29,7 +29,7 @@ from ..auto_class import AutoProcessor, AutoModel
 from ..mindformer_book import MindFormerBook
 from .base_pipeline import BasePipeline
 from ..tools.register import MindFormerRegister, MindFormerModuleType
-from ..models import BaseModel, Tokenizer
+from ..models import BaseModel, PreTrainedTokenizer
 
 __all__ = ['QuestionAnsweringPipeline']
 
@@ -42,7 +42,7 @@ class QuestionAnsweringPipeline(BasePipeline):
             The model used to perform task, the input could be a supported model name, or a model instance
             inherited from BaseModel.
         tokenizer (Optional[BaseTokenzier]):
-            A tokenizer (None or Tokenizer) for text processing.
+            A tokenizer (None or PreTrainedTokenizer) for text processing.
 
     Raises:
         TypeError:
@@ -73,9 +73,9 @@ class QuestionAnsweringPipeline(BasePipeline):
                 if tokenizer is None:
                     tokenizer = AutoProcessor.from_pretrained(model).tokenizer
                 model = AutoModel.from_pretrained(model)
-                if not isinstance(tokenizer, Tokenizer):
+                if not isinstance(tokenizer, PreTrainedTokenizer):
                     raise TypeError(f"tokenizer should be inherited from"
-                                    f" BaseTokenizer, but got {type(tokenizer)}.")
+                                    f" PreTrainedTokenizerBase, but got {type(tokenizer)}.")
             else:
                 raise ValueError(f"{model} is not supported by {self.__class__.__name__},"
                                  f"please selected from {self._support_list}.")

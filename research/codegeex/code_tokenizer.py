@@ -21,7 +21,7 @@
 """Tokenizer classes for CodeGeex."""
 import numpy as np
 from mindformers import AutoTokenizer
-from mindformers.models.base_tokenizer import AddedToken
+from mindformers.models.tokenization_utils import AddedToken
 
 
 def encode_whitespaces(text: str, start_extra_id: int, max_len: int):

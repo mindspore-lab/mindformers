@@ -22,7 +22,7 @@ from typing import List, Optional, Tuple
 from mindformers.tools import logger
 from mindformers.mindformer_book import MindFormerBook
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
-from ..base_fast_tokenizer import PreTrainedTokenizerFast
+from ..tokenization_utils_fast import PreTrainedTokenizerFast
 from .t5_tokenizer import T5Tokenizer
 
 __all__ = ["T5TokenizerFast"]

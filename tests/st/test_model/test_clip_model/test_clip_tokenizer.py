@@ -20,13 +20,11 @@ linux:  pytest ./tests/st/test_model/test_clip_model/test_clip_tokenizer.py
 """
 import os
 import shutil
-import time
 
 import pytest
 from mindspore import Tensor
 
-from mindformers import Tokenizer, AutoTokenizer
-from mindformers import CLIPTokenizer
+from mindformers import CLIPTokenizer, AutoTokenizer
 
 
 def generate_fake_vocab(output_path):
@@ -69,34 +67,6 @@ class TestAutoTokenizerMethod:
         res = tokenizer.tokenize("hello world?")
         assert isinstance(tokenizer, CLIPTokenizer)
         assert res == ['hello</w>', 'world</w>', '?</w>']
-
-
-class TestPretrainedTokenizerMethod:
-    """A test class for testing the PretrainedTokenizer"""
-    def generate_fake_vocab(self):
-        vocabs = ["[PAD]", "[unused1]", "[UNK]", "[CLS]", "[SEP]", "[MASK]", "hello", "world", "!"]
-        with open(os.path.join(self.output_path, 'vocab.txt'), 'w') as fp:
-            for item in vocabs:
-                fp.write(item + '\n')
-
-    def setup_method(self):
-        self.output_path = os.path.join(os.path.dirname(__file__), 'test_tokenizer_output' + str(self))
-        os.makedirs(self.output_path, exist_ok=True)
-        self.generate_fake_vocab()
-
-    def teardown_method(self):
-        shutil.rmtree(self.output_path, ignore_errors=True)
-
-    def test_from_pretrained_tokenizer(self):
-        """
-        Feature: The Tokenizer test using from python class
-        Description: Using call forward process of the tokenizer without error
-        Expectation: The returned ret is not equal to [[6, 7]].
-        """
-        time.sleep(10)
-        tokenizer = Tokenizer.from_pretrained(self.output_path)
-        with pytest.raises(NotImplementedError):
-            tokenizer("hello world")
 
 
 class TestClipTokenizerMethod:

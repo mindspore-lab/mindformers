@@ -42,7 +42,7 @@ from mindformers.core.callback.callback import EvalCallBack
 from mindformers.core.parallel_config import build_parallel_config
 from mindformers.dataset import build_dataset, check_dataset_config, BaseDataset
 from mindformers.models import build_model, build_processor, build_tokenizer, \
-    BaseModel, BaseTokenizer, BaseImageProcessor
+    BaseModel, PreTrainedTokenizerBase, BaseImageProcessor
 from mindformers.pipeline import pipeline
 from mindformers.wrapper import build_wrapper
 from mindformers.tools.register import MindFormerConfig
@@ -813,7 +813,7 @@ class BaseTrainer:
                                                    Tensor, np.ndarray, Image, str, list]] = None,
                         task: str = None,
                         network: Optional[Union[Cell, BaseModel]] = None,
-                        tokenizer: Optional[BaseTokenizer] = None,
+                        tokenizer: Optional[PreTrainedTokenizerBase] = None,
                         image_processor: Optional[BaseImageProcessor] = None,
                         audio_processor: Optional[BaseImageProcessor] = None, **kwargs):
         """Predict for BaseTrainer in MindFormers."""

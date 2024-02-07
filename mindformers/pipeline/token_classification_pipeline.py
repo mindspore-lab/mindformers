@@ -24,7 +24,7 @@ from ..auto_class import AutoProcessor, AutoModel
 from ..mindformer_book import MindFormerBook
 from .base_pipeline import BasePipeline
 from ..tools.register import MindFormerRegister, MindFormerModuleType
-from ..models import BaseModel, Tokenizer
+from ..models import BaseModel, PreTrainedTokenizer
 
 __all__ = ['TokenClassificationPipeline']
 
@@ -36,8 +36,8 @@ class TokenClassificationPipeline(BasePipeline):
         model (Union[str, BaseModel]):
             The model used to perform task, the input could be a supported model name, or a model instance
             inherited from BaseModel.
-        tokenizer (Optional[BaseTokenizer]):
-            A tokenizer (None or Tokenizer) for text processing. Default: None.
+        tokenizer (Optional[PreTrainedTokenizerBase]):
+            A tokenizer (None or PreTrainedTokenizer) for text processing. Default: None.
         id2label (dict):
             A dict which maps label id to label str.
 
@@ -75,9 +75,9 @@ class TokenClassificationPipeline(BasePipeline):
                 if tokenizer is None:
                     tokenizer = AutoProcessor.from_pretrained(model).tokenizer
                 model = AutoModel.from_pretrained(model)
-                if not isinstance(tokenizer, Tokenizer):
+                if not isinstance(tokenizer, PreTrainedTokenizer):
                     raise TypeError(f"tokenizer should be inherited from"
-                                    f" BaseTokenizer, but got {type(tokenizer)}.")
+                                    f" PreTrainedTokenizerBase, but got {type(tokenizer)}.")
             else:
                 raise ValueError(f"{model} is not supported by {self.__class__.__name__},"
                                  f"please selected from {self._support_list}.")

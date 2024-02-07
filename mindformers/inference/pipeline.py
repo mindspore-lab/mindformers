@@ -18,7 +18,7 @@ import glob
 import os.path
 from typing import Optional, Union, Tuple
 
-from mindformers.models import BaseTokenizer, BaseImageProcessor, BaseAudioProcessor, \
+from mindformers.models import PreTrainedTokenizerBase, BaseImageProcessor, BaseAudioProcessor, \
     build_tokenizer, build_processor
 from mindformers.mindformer_book import MindFormerBook
 from mindformers.tools.register import MindFormerConfig
@@ -63,7 +63,7 @@ def get_infer_pipeline_from_dir(task, model, tokenizer, image_processor,
         task (str): The supported task could be selected from
             MindFormerBook.show_pipeline_support_task_list().
         model (str): The model dir.
-        tokenizer (Optional[BaseTokenizer]): The tokenizer of the model.
+        tokenizer (Optional[PreTrainedTokenizerBase]): The tokenizer of the model.
         image_processor (Optional[BaseImageProcessor]): The image processor of the model.
         audio_processor (Optional[BaseAudioProcessor]): The audio processor of the model.
         ge_config_path: ge config file path
@@ -136,7 +136,7 @@ def get_infer_pipeline_from_model_name(task, model, tokenizer, image_processor,
         task (str): The supported task could be selected from
             MindFormerBook.show_pipeline_support_task_list().
         model (str): The model name.
-        tokenizer (Optional[BaseTokenizer]): The tokenizer of the model.
+        tokenizer (Optional[PreTrainedTokenizerBase]): The tokenizer of the model.
         image_processor (Optional[BaseImageProcessor]): The image processor of the model.
         audio_processor (Optional[BaseAudioProcessor]): The audio processor of the model.
         ge_config_path: ge config file path
@@ -192,7 +192,7 @@ def get_infer_pipeline_from_model_files(task, model, tokenizer, image_processor,
         task (str): The supported task could be selected from
             MindFormerBook.show_pipeline_support_task_list().
         model (Union[str, Tuple[str, str]]): The model paths of tuple(model_path, model_path).
-        tokenizer (Optional[BaseTokenizer]): The tokenizer of the model.
+        tokenizer (Optional[PreTrainedTokenizerBase]): The tokenizer of the model.
         image_processor (Optional[BaseImageProcessor]): The image processor of the model.
         audio_processor (Optional[BaseAudioProcessor]): The audio processor of the model.
         ge_config_path: ge config file path
@@ -232,7 +232,7 @@ STRATEGY_MAP = {
 
 def get_mslite_pipeline(task: str = None,
                         model: Optional[Union[str, BaseInfer, Tuple[str, str]]] = None,
-                        tokenizer: Optional[BaseTokenizer] = None,
+                        tokenizer: Optional[PreTrainedTokenizerBase] = None,
                         image_processor: Optional[BaseImageProcessor] = None,
                         audio_processor: Optional[BaseAudioProcessor] = None,
                         ge_config_path: str = None,
@@ -244,7 +244,7 @@ def get_mslite_pipeline(task: str = None,
         task (str): The supported task could be selected from
             MindFormerBook.show_pipeline_support_task_list().
         model (Union[str, Tuple[str, str]]): The model name.
-        tokenizer (Optional[BaseTokenizer]): The tokenizer of the model.
+        tokenizer (Optional[PreTrainedTokenizerBase]): The tokenizer of the model.
         image_processor (Optional[BaseImageProcessor]): The image processor of the model.
         audio_processor (Optional[BaseAudioProcessor]): The audio processor of the model.
         ge_config_path: ge config file path
