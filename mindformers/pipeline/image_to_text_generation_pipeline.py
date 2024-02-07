@@ -12,18 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-"""Image Classification Pipeline API."""
-from typing import Optional, Union
+"""Image to Text Generation Pipeline API."""
+from typing import Optional, Union, Dict, List
 
-import numpy as np
-from PIL import Image
-from mindspore import Tensor, Model
-from mindspore.ops import operations as P
-
+from mindspore import Model
 from mindformers.mindformer_book import MindFormerBook
-from mindformers.models import PreTrainedModel, BaseImageProcessor
-from mindformers.tools.image_tools import load_image
+from mindformers.models import PreTrainedModel, BaseProcessor
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
+
 from .base_pipeline import Pipeline
 
 __all__ = ['ImageToTextPipeline']
@@ -36,7 +32,7 @@ class ImageToTextPipeline(Pipeline):
     Args:
         model (Union[PretrainedModel, Model]):
             The model used to perform task, the input should be a model instance inherited from PretrainedModel.
-        image_processor (Optional[BaseImageProcessor]):
+        processor (Optional[BaseProcessor]):
             The image_processor of model, it could be None if the model do not need image_processor.
 
     Raises:
@@ -48,15 +44,12 @@ class ImageToTextPipeline(Pipeline):
     _support_list = MindFormerBook.get_pipeline_support_task_list()['image_to_text_generation'].keys()
 
     def __init__(self, model: Union[PreTrainedModel, Model],
-                 image_processor: Optional[BaseImageProcessor] = None,
-                 tokenizer=None,
+                 processor: Optional[BaseProcessor] = None,
                  **kwargs):
-
-        if image_processor is None:
-            raise ValueError("ImageToTextPipeline"
-                             " requires for a image_processor.")
-        self.hypothesis_template = kwargs.pop("hypothesis_template", "{}")
-        super().__init__(model, image_processor=image_processor, tokenizer=tokenizer, **kwargs)
+        if processor is None:
+            raise ValueError("ImageToTextPipeline requires a processor.")
+        self.processor = processor
+        super().__init__(model, processor=processor, **kwargs)
 
     def _sanitize_parameters(self, **pipeline_parameters):
         r"""Sanitize Parameters
@@ -68,71 +61,29 @@ class ImageToTextPipeline(Pipeline):
         preprocess_params = {}
         postprocess_params = {}
         forward_params = {}
-
-        post_list = ["top_k"]
-        pre_list = ["hypothesis_template", "max_length", "padding"]
-        forward_list = ['top_k', 'top_p', 'do_sample', 'eos_token_id', 'repetition_penalty', 'max_length', 'seed']
-        for item in post_list:
-            if item in pipeline_parameters:
-                postprocess_params[item] = pipeline_parameters.get(item)
-
-        for item in pre_list:
-            if item in pipeline_parameters:
-                preprocess_params[item] = pipeline_parameters.get(item)
-
-        for item in forward_list:
-            if item in pipeline_parameters:
-                forward_params[item] = pipeline_parameters.get(item)
-
         return preprocess_params, forward_params, postprocess_params
 
-    def preprocess(self, inputs: (Union[str, dict, Image.Image, Tensor, np.ndarray]),
+    def preprocess(self, inputs: Union[List[Dict[str, str]], List[List[Dict[str, str]]]],
                    **preprocess_params):
         r"""The Preprocess For Task
 
         Args:
-            inputs (Union[url, dict, PIL.Image, tensor, numpy]):
-                Inputs used to generate text, including image, and prompt (if provided).
+            inputs (Union[List[Dict[str, str]], List[List[Dict[str, str]]]]):
+                Inputs used to generate text.
             preprocess_params (dict):
                 The parameter dict for preprocess.
 
         Return:
-            Processed image and prompt.
+            Processed image, input_ids, img_pos.
         """
-        if isinstance(inputs, dict):
-            image = inputs['image']
-            prompt = inputs.get('prompt', None)
-        else:
-            image = inputs
-            prompt = ""
+        processed_res = self.processor(text_input=inputs)
 
-        if isinstance(image, str):
-            image = load_image(image)
-        image_processed = self.image_processor(image)
-
-        max_length = preprocess_params.pop("max_length", 32)
-        padding = preprocess_params.pop("padding", "max_length")
-        hypothesis_template = preprocess_params.pop("hypothesis_template", None)
-        if hypothesis_template is not None:
-            prompt = hypothesis_template.format(prompt).strip()
-        else:
-            prompt = self.hypothesis_template.format(prompt).strip()
-
-        if not prompt:
-            prompt = self.tokenizer.pad_token
-
-        prompt_processed = self.tokenizer(prompt,
-                                          max_length=max_length,
-                                          padding=padding,
-                                          return_tensors="ms",
-                                          add_special_tokens=False,
-                                          **preprocess_params)
-        prompt_input_ids = prompt_processed["input_ids"]
-
-        if len(prompt_input_ids.shape) == 1:
-            prompt_input_ids = P.ExpandDims()(prompt_input_ids, 0)
-
-        return {"image_processed": image_processed, "prompt_input_ids": prompt_input_ids}
+        return {
+            "query": inputs,
+            "image": processed_res.get("image"),
+            "input_ids": processed_res.get("input_ids"),
+            "img_pos": processed_res.get("img_pos")
+        }
 
     def _forward(self, model_inputs: dict,
                  **forward_params):
@@ -144,14 +95,16 @@ class ImageToTextPipeline(Pipeline):
             forward_params (dict):
                 The parameter dict for model forward.
         """
-        image_processed = model_inputs["image_processed"]
-        prompt_input_ids = model_inputs["prompt_input_ids"]
+        query = model_inputs["query"]
+        image = model_inputs["image"]
+        input_ids = model_inputs["input_ids"]
+        img_pos = model_inputs["img_pos"]
 
-        output_ids_per_image = self.network.generate_text_for_image(image_processed, prompt_input_ids)
-        return {"output_ids": output_ids_per_image}
+        output_ids_per_image = self.network.generate(input_ids=input_ids, images=image, img_pos=img_pos)
+        return {"output_ids": output_ids_per_image, "query": query}
 
     def postprocess(self, model_outputs, **postprocess_params):
         output_ids = model_outputs["output_ids"]
-
-        outputs = self.tokenizer.decode(output_ids, skip_special_tokens=True)
-        return outputs
+        query = model_outputs["query"]
+        outputs = self.tokenizer.decode(output_ids, skip_special_tokens=False)
+        return self.processor.post_process(outputs, [query])
