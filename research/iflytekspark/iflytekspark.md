@@ -318,7 +318,7 @@ Tokenizer：
 python ./research/iflytekspark/weight_convert.py \
 --src_ckpt /{ORIGIN_CKPT} \
 --dst_ckpt /{TARGET_CKPT} \
---dtype \
+--dtype {TARGET_DTYPE} \
 --embed_bf16         # (optional)
 --layernorm_bf16     # (optional)
 
@@ -420,8 +420,8 @@ train_dataset: &train_dataset
 ...
 # 并行训练策略配置
 parallel_config:
-  data_parallel: 1
-  model_parallel: 8
+  data_parallel: 2
+  model_parallel: 4
   pipeline_stage: 1
   optimizer_shard: True
   micro_batch_num: 1
@@ -558,8 +558,8 @@ train_dataset: &train_dataset
 ...
 # 并行训练策略配置
 parallel_config:
-  data_parallel: 1
-  model_parallel: 8
+  data_parallel: 2
+  model_parallel: 4
   pipeline_stage: 1
   optimizer_shard: True
   micro_batch_num: 1
@@ -635,7 +635,7 @@ bash run_multinode.sh \
 --config iflytekspark/run_iflytekspark_13b_sft_800_32G.yaml \
 --load_checkpoint model_dir \
 --use_parallel True \
---run_mode train \
+--run_mode finetune \
 --train_data dataset_dir" \
 RANK_TABLE_FILE [0,8] 16
 
@@ -646,7 +646,7 @@ bash run_multinode.sh \
 --config iflytekspark/run_iflytekspark_13b_sft_800_32G.yaml \
 --load_checkpoint model_dir \
 --use_parallel True \
---run_mode train \
+--run_mode finetune \
 --train_data dataset_dir" \
 RANK_TABLE_FILE [8,16] 16
 ```
@@ -697,8 +697,8 @@ train_dataset: &train_dataset
 ...
 # 并行训练策略配置
 parallel_config:
-  data_parallel: 1
-  model_parallel: 8
+  data_parallel: 4
+  model_parallel: 2
   pipeline_stage: 1
   optimizer_shard: True
   micro_batch_num: 1
