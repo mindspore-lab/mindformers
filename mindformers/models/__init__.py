@@ -30,6 +30,7 @@ from .pangualpha import *
 from .bloom import *
 from .sam import *
 from .tokenization_utils import *
+from .tokenization_utils_fast import PreTrainedTokenizerFast
 from .base_config import BaseConfig
 from .base_model import BaseModel
 from .base_processor import BaseProcessor, BaseImageProcessor, BaseAudioProcessor
@@ -39,7 +40,7 @@ from .build_model import build_model_config, build_head, \
     build_model, build_encoder
 
 __all__ = ['BaseConfig', 'BaseModel', 'BaseProcessor', 'BaseImageProcessor',
-           'BaseAudioProcessor']
+           'BaseAudioProcessor', 'PreTrainedTokenizerFast']
 
 __all__.extend(blip2.__all__)
 __all__.extend(bert.__all__)

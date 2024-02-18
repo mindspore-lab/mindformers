@@ -28,7 +28,6 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, NamedTuple, Optional, Sequence, Tuple, Union
 from collections import UserDict
 from collections.abc import Mapping, Sized
-from contextlib import contextmanager
 from functools import lru_cache
 from packaging import version
 import yaml
@@ -860,7 +859,6 @@ class SpecialTokensMixin:
         The `sanitize_special_tokens` is now deprecated kept for backward compatibility and will be removed in
         transformers v5.
         """
-        logger.warning("The `sanitize_special_tokens` will be removed in transformers v5.")
         return self.add_tokens(self.all_special_tokens_extended, special_tokens=True)
 
     def add_special_tokens(
@@ -1590,7 +1588,6 @@ class PreTrainedTokenizerBase(SpecialTokensMixin):
 
         # Use to store when we have already noticed a deprecation warning (avoid overlogging).
         self.deprecation_warnings = {}
-        self._in_target_context_manager = False
 
         # Stores a Jinja template that formats chat histories into tokenizable strings
         self.chat_template = kwargs.pop("chat_template", None)
@@ -1784,7 +1781,6 @@ class PreTrainedTokenizerBase(SpecialTokensMixin):
             "\nNo chat template is defined for this tokenizer - using a default chat template "
             "that implements the ChatML format (without BOS/EOS tokens!). If the default is not appropriate for "
             "your model, please set `tokenizer.chat_template` to an appropriate template. "
-            "See https://huggingface.co/docs/transformers/main/chat_templating for more information.\n"
         )
         return (
             "{% for message in messages %}"
@@ -2356,14 +2352,10 @@ class PreTrainedTokenizerBase(SpecialTokensMixin):
         if text is not None:
             # The context manager will send the inputs as normal texts and not text_target, but we shouldn't change the
             # input mode in this case.
-            if not self._in_target_context_manager:
-                self._switch_to_input_mode()
             encodings = self._call_one(text=text, text_pair=text_pair, **all_kwargs)
         if text_target is not None:
-            self._switch_to_target_mode()
             target_encodings = self._call_one(text=text_target, text_pair=text_pair_target, **all_kwargs)
         # Leave back tokenizer in input mode
-        self._switch_to_input_mode()
 
         if text_target is None:
             return encodings
@@ -3409,155 +3401,6 @@ class PreTrainedTokenizerBase(SpecialTokensMixin):
                     "will result in indexing errors", len(ids), self.model_max_length
                 )
             self.deprecation_warnings["sequence-length-is-longer-than-the-specified-maximum"] = True
-
-    def _switch_to_input_mode(self):
-        """
-        Private method to put the tokenizer in input mode (when it has different modes for input/outputs)
-        """
-
-    def _switch_to_target_mode(self):
-        """
-        Private method to put the tokenizer in target mode (when it has different modes for input/outputs)
-        """
-
-    @contextmanager
-    def as_target_tokenizer(self):
-        """
-        Temporarily sets the tokenizer for encoding the targets. Useful for tokenizer associated to
-        sequence-to-sequence models that need a slightly different processing for the labels.
-        """
-        warnings.warn(
-            "`as_target_tokenizer` is deprecated and will be removed in v5 of Transformers. You can tokenize your "
-            "labels by using the argument `text_target` of the regular `__call__` method (either in the same call as "
-            "your input texts if you use the same keyword arguments, or in a separate call."
-        )
-        self._switch_to_target_mode()
-        self._in_target_context_manager = True
-        yield
-        self._in_target_context_manager = False
-        self._switch_to_input_mode()
-
-    def prepare_seq2seq_batch(
-            self,
-            src_texts: List[str],
-            tgt_texts: Optional[List[str]] = None,
-            max_length: Optional[int] = None,
-            max_target_length: Optional[int] = None,
-            padding: str = "longest",
-            return_tensors: str = None,
-            truncation: bool = True,
-            **kwargs,
-    ) -> BatchEncoding:
-        """
-        Prepare model inputs for translation. For best performance, translate one sentence at a time.
-
-        Arguments:
-            src_texts (`List[str]`):
-                List of documents to summarize or source language texts.
-            tgt_texts (`list`, *optional*):
-                List of summaries or target language texts.
-            max_length (`int`, *optional*):
-                Controls the maximum length for encoder inputs (documents to summarize or source language texts) If
-                left unset or set to `None`, this will use the predefined model maximum length if a maximum length is
-                required by one of the truncation/padding parameters. If the model has no specific maximum input length
-                (like XLNet) truncation/padding to a maximum length will be deactivated.
-            max_target_length (`int`, *optional*):
-                Controls the maximum length of decoder inputs (target language texts or summaries) If left unset or set
-                to `None`, this will use the max_length value.
-            padding (`bool`, `str` or [`~utils.PaddingStrategy`], *optional*, defaults to `False`):
-                Activates and controls padding. Accepts the following values:
-
-                - `True` or `'longest'`: Pad to the longest sequence in the batch (or no padding if only a single
-                  sequence if provided).
-                - `'max_length'`: Pad to a maximum length specified with the argument `max_length` or to the maximum
-                  acceptable input length for the model if that argument is not provided.
-                - `False` or `'do_not_pad'` (default): No padding (i.e., can output a batch with sequences of different
-                  lengths).
-            return_tensors (`str` or [`~utils.TensorType`], *optional*):
-                If set, will return tensors instead of list of python integers. Acceptable values are:
-
-                - `'np'`: Return Numpy `np.ndarray` objects.
-                - `'ms'`: Return PyTorch `ms.Tensor` objects.
-            truncation (`bool`, `str` or [`~tokenization_utils_base.TruncationStrategy`],
-            *optional*, defaults to `True`):
-                Activates and controls truncation. Accepts the following values:
-
-                - `True` or `'longest_first'`: Truncate to a maximum length specified with the argument `max_length` or
-                  to the maximum acceptable input length for the model if that argument is not provided. This will
-                  truncate token by token, removing a token from the longest sequence in the pair if a pair of
-                  sequences (or a batch of pairs) is provided.
-                - `'only_first'`: Truncate to a maximum length specified with the argument `max_length` or to the
-                  maximum acceptable input length for the model if that argument is not provided. This will only
-                  truncate the first sequence of a pair if a pair of sequences (or a batch of pairs) is provided.
-                - `'only_second'`: Truncate to a maximum length specified with the argument `max_length` or to the
-                  maximum acceptable input length for the model if that argument is not provided. This will only
-                  truncate the second sequence of a pair if a pair of sequences (or a batch of pairs) is provided.
-                - `False` or `'do_not_truncate'` (default): No truncation (i.e., can output batch with sequence lengths
-                  greater than the model maximum admissible input size).
-            **kwargs:
-                Additional keyword arguments passed along to `self.__call__`.
-
-        Return:
-            [`BatchEncoding`]: A [`BatchEncoding`] with the following fields:
-
-            - **input_ids** -- List of token ids to be fed to the encoder.
-            - **attention_mask** -- List of indices specifying which tokens should be attended to by the model.
-            - **labels** -- List of token ids for tgt_texts.
-
-            The full set of keys `[input_ids, attention_mask, labels]`, will only be returned if tgt_texts is passed.
-            Otherwise, input_ids, attention_mask will be the only keys.
-        """
-        # docstyle-ignore
-        formatted_warning = """
-`prepare_seq2seq_batch` is deprecated and will be removed in version 5 of HuggingFace Transformers. Use the regular
-`__call__` method to prepare your inputs and targets.
-
-Here is a short example:
-
-model_inputs = tokenizer(src_texts, text_target=tgt_texts, ...)
-
-If you either need to use different keyword arguments for the source and target texts, you should do two calls like
-this:
-
-model_inputs = tokenizer(src_texts, ...)
-labels = tokenizer(text_target=tgt_texts, ...)
-model_inputs["labels"] = labels["input_ids"]
-
-See the documentation of your specific tokenizer for more details on the specific arguments to the tokenizer of choice.
-For a more complete example, see the implementation of `prepare_seq2seq_batch`.
-"""
-        warnings.warn(formatted_warning, FutureWarning)
-        # mBART-specific kwargs that should be ignored by other models.
-        kwargs.pop("src_lang", None)
-        kwargs.pop("tgt_lang", None)
-        if max_length is None:
-            max_length = self.model_max_length
-        model_inputs = self(
-            src_texts,
-            add_special_tokens=True,
-            return_tensors=return_tensors,
-            max_length=max_length,
-            padding=padding,
-            truncation=truncation,
-            **kwargs,
-        )
-        if tgt_texts is None:
-            return model_inputs
-        # Process tgt_texts
-        if max_target_length is None:
-            max_target_length = max_length
-        with self.as_target_tokenizer():
-            labels = self(
-                tgt_texts,
-                add_special_tokens=True,
-                return_tensors=return_tensors,
-                padding=padding,
-                max_length=max_target_length,
-                truncation=truncation,
-                **kwargs,
-            )
-        model_inputs["labels"] = labels["input_ids"]
-        return model_inputs
 
 
 def get_fast_tokenizer_file(tokenization_files: List[str]) -> str:
