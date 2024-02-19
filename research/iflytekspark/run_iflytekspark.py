@@ -77,7 +77,7 @@ def main(task='text_generation',
          run_mode='train',
          use_parallel=False,
          ckpt=None,
-         auto_trans_ckpt=None,
+         auto_trans_ckpt=True,
          resume=False,
          train_dataset=None,
          eval_dataset=None,
@@ -114,7 +114,7 @@ def main(task='text_generation',
         config.remote_save_url = remote_save_url
     if not ckpt and config.load_checkpoint:
         ckpt = config.load_checkpoint
-    if auto_trans_ckpt and not config.auto_trans_ckpt:
+    if auto_trans_ckpt != config.auto_trans_ckpt:
         config.auto_trans_ckpt = auto_trans_ckpt
     if hasattr(config, 'auto_trans_ckpt') and config.auto_trans_ckpt:
         clear_auto_trans_output(config)
@@ -232,7 +232,7 @@ if __name__ == "__main__":
                         help='checkpoint name or dir to load.')
     parser.add_argument('--remote_save_url', default=None, type=str,
                         help='remote save url, the output files will tansferred and stroed here. Default: None')
-    parser.add_argument('--auto_trans_ckpt', default=False, type=str2bool,
+    parser.add_argument('--auto_trans_ckpt', default=True, type=str2bool,
                         help='whether to transform checkpoint to the checkpoint matching current distribute strategy.')
     parser.add_argument('--resume', default=False, type=str2bool,
                         help='whether resume training. Default: False.')

@@ -20,9 +20,9 @@ then
   exit 1
 fi
 
-if (lspci | grep -q d801);then
+if (lspci | grep d801);then
     export DEVICE_PLATFORM="Ascend910_32G"
-elif (lspci | grep -q d802);then
+elif (lspci | grep d802);then
     export DEVICE_PLATFORM="Ascend910_64G"
 else
     echo "DEVICE_PLATFORM not supported"
