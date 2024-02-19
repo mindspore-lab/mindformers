@@ -389,19 +389,6 @@ def _insert_one_token_to_ordered_list(token_list: List[str], new_token: str):
         # new_token is in token_list, don't add
         token_list.insert(insertion_idx, new_token)
 
-def print_path_or_list(input_path_or_list):
-    """
-    Print path or list function for show support method of MindFormerBook or other BaseClasses.
-
-    Args:
-        input_path_or_list (str, list): the path or list to be printed.
-    """
-    if isinstance(input_path_or_list, (str, list)):
-        logger.info("   %s", input_path_or_list)
-        logger.info("-------------------------------------")
-    else:
-        raise TypeError(f"{type(input_path_or_list)} is unsupported by print_path_or_list")
-
 
 @add_end_docstrings(INIT_TOKENIZER_DOCSTRING)
 class PreTrainedTokenizer(PreTrainedTokenizerBase):
@@ -1111,14 +1098,3 @@ class PreTrainedTokenizer(PreTrainedTokenizerBase):
             clean_text = self.clean_up_tokenization(text)
             return clean_text
         return text
-
-    @classmethod
-    def show_support_list(cls):
-        """show_support_list method"""
-        logger.info("support list of %s is:", cls.__name__)
-        print_path_or_list(cls._support_list)
-
-    @classmethod
-    def get_support_list(cls):
-        """get_support_list method"""
-        return cls._support_list

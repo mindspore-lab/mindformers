@@ -14,8 +14,9 @@
 
 """Auto class initialization."""
 
-from .configuration_auto import CONFIG_MAPPING, AutoConfig
+from .configuration_auto import CONFIG_MAPPING, AutoConfig, CONFIG_MAPPING_NAMES
 from .image_processing_auto import IMAGE_PROCESSOR_MAPPING, AutoImageProcessor
+from .tokenization_auto import AutoTokenizer
 
 __all__ = ["CONFIG_MAPPING", "AutoConfig",
-           "IMAGE_PROCESSOR_MAPPING", "AutoImageProcessor"]
+           "IMAGE_PROCESSOR_MAPPING", "AutoImageProcessor", "CONFIG_MAPPING_NAMES", "AutoTokenizer"]
