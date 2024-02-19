@@ -22,7 +22,7 @@ from mindspore.ops import operations as P
 from mindspore import Tensor, Model
 
 from mindformers.mindformer_book import MindFormerBook
-from mindformers.models import BaseModel, BaseImageProcessor
+from mindformers.models import PreTrainedModel, BaseImageProcessor
 from mindformers.tools.image_tools import load_image
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.dataset.labels import labels
@@ -66,7 +66,7 @@ class ImageClassificationPipeline(Pipeline):
     """
     _support_list = MindFormerBook.get_pipeline_support_task_list()['image_classification'].keys()
 
-    def __init__(self, model: Union[BaseModel, Model],
+    def __init__(self, model: Union[PreTrainedModel, Model],
                  image_processor: Optional[BaseImageProcessor] = None,
                  **kwargs):
 

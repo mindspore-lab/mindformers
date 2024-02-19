@@ -48,7 +48,7 @@ PROCESSOR_MAPPING_NAMES = OrderedDict(
         ("llama", "LlamaProcessor"),
         ("mae", "ViTMAEProcessor"),
         ("pangualpha", "PanguAlphaProcessor"),
-        ("sam", "SAMProcessor"),
+        ("sam", "SamProcessor"),
         ("swin", "SwinProcessor"),
         ("t5", "T5Processor"),
         ("vit", "ViTProcessor")

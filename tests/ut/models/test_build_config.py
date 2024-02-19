@@ -17,7 +17,7 @@ import unittest
 from mindformers import MindFormerConfig, LlamaConfig, Blip2Config, ViTConfig
 from mindformers.models.build_config import build_model_config
 from mindformers.models.blip2.qformer_config import QFormerConfig
-from mindformers.models.sam import SAMConfig
+from mindformers.models.sam import SamConfig
 
 
 class TestBuildModelConfig(unittest.TestCase):
@@ -38,7 +38,7 @@ class TestBuildModelConfig(unittest.TestCase):
     def test_sam_config(self):
         config = MindFormerConfig("configs/sam/run_sam_vit-b.yaml")
         model_config = build_model_config(config.model.model_config)
-        self.assertTrue(isinstance(model_config, SAMConfig))
+        self.assertTrue(isinstance(model_config, SamConfig))
         self.assertTrue(isinstance(model_config.image_encoder, MindFormerConfig))
         self.assertTrue(isinstance(model_config.prompt_config, MindFormerConfig))
         self.assertTrue(isinstance(model_config.decoder_config, MindFormerConfig))

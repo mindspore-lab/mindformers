@@ -28,15 +28,25 @@ from mindspore import Parameter, Tensor
 import mindspore.ops as ops
 
 from mindformers.version_control import get_norm
+from mindformers.models.modeling_utils import PreTrainedModel
 from ...mindformer_book import MindFormerBook
-from ..base_model import BaseModel
 from .clip_modules import VisionTransformer, Transformer, LayerNorm
 from .clip_config import CLIPConfig
 from ...tools.register import MindFormerRegister, MindFormerModuleType
 
 
+class ClipPreTrainedModel(PreTrainedModel):
+    """
+    An abstract class to handle weights initialization and a simple interface for downloading and loading pretrained
+    models.
+    """
+
+    config_class = CLIPConfig
+    base_model_prefix = "clip"
+
+
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
-class CLIPModel(BaseModel):
+class CLIPModel(ClipPreTrainedModel):
     r"""CLIPModel.
     The supported model name could be selected from CLIPModel.show_support_list().
 

@@ -30,7 +30,7 @@ from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 
 
 @MindFormerRegister.register(MindFormerModuleType.PROCESSOR)
-class SAMImageProcessor(BaseImageProcessor):
+class SamImageProcessor(BaseImageProcessor):
     """
     Subclass of BaseImageProcessor implementing image preprocessing for SAM model.
 
@@ -224,7 +224,7 @@ class ResizeLongestSide:
 
 
 @MindFormerRegister.register(MindFormerModuleType.PROCESSOR)
-class SAMProcessor(BaseProcessor):
+class SamProcessor(BaseProcessor):
     """
     Vit processor,
     consists of a feature extractor (BaseFeatureEXtractor) for image input,

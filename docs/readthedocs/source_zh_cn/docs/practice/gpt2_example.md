@@ -123,7 +123,7 @@
   __all__ = ['GPT2LMHeadModel'] # 公开接口
 
   @MindFormerRegister.register(MindFormerModuleType.MODELS) # 注册到MODELS
-  class GPT2LMHeadModel(BaseModel):
+  class GPT2LMHeadModel(PreTrainedModel):
       """ function description """
       _support_list = MindFormerBook.get_model_support_list()['gpt2']
 
@@ -237,7 +237,7 @@
 
       def train(self,
                 config: Optional[Union[dict, MindFormerConfig, ConfigArguments, TrainingArguments]] = None,
-                network: Optional[Union[Cell, BaseModel]] = None,
+                network: Optional[Union[Cell, PreTrainedModel]] = None,
                 dataset: Optional[Union[BaseDataset, GeneratorDataset]] = None,
                 wrapper: Optional[TrainOneStepCell] = None,
                 optimizer: Optional[Optimizer] = None,
@@ -255,7 +255,7 @@
 
       def evaluate(self,
                    config: Optional[Union[dict, MindFormerConfig, ConfigArguments, TrainingArguments]] = None,
-                   network: Optional[Union[Cell, BaseModel]] = None,
+                   network: Optional[Union[Cell, PreTrainedModel]] = None,
                    dataset: Optional[Union[BaseDataset, GeneratorDataset]] = None,
                    callbacks: Optional[Union[Callback, List[Callback]]] = None,
                    compute_metrics: Optional[Union[dict, set]] = None,
@@ -275,7 +275,7 @@
       def predict(self,
                   config: Optional[Union[dict, MindFormerConfig, ConfigArguments, TrainingArguments]] = None,
                   input_data: Optional[Union[str, list, GeneratorDataset]] = None,
-                  network: Optional[Union[Cell, BaseModel]] = None,
+                  network: Optional[Union[Cell, PreTrainedModel]] = None,
                   tokenizer: Optional[PreTrainedTokenizerBase] = None,
                   **kwargs):
           """ function description """
@@ -882,7 +882,7 @@ GPT2作为大语言模型，其主要的task是文本生成和对话问答方面
         _support_list = _setup_support_list(["gpt2", "glm"])
         return_name = 'text_generation'
 
-        def __init__(self, model: Union[str, BaseModel, Model],
+        def __init__(self, model: Union[str, PreTrainedModel, Model],
                     tokenizer: Optional[PreTrainedTokenizerBase] = None,
                     **kwargs):
             # model/tokenizer输入类型判断
@@ -897,8 +897,8 @@ GPT2作为大语言模型，其主要的task是文本生成和对话问答方面
                 else:
                     raise ValueError(f"{model} is not supported by {self.__class__.__name__},"
                                     f"please selected from {self._support_list}.")
-            if not isinstance(model, (BaseModel, Model)):
-                raise TypeError(f"model should be inherited from BaseModel or Model, but got type {type(model)}.")
+            if not isinstance(model, (PreTrainedModel, Model)):
+                raise TypeError(f"model should be inherited from PreTrainedModel or Model, but got type {type(model)}.")
             if tokenizer is None:
                 raise ValueError(f"{self.__class__.__name__}"
                                 " requires for a tokenizer.")
@@ -969,7 +969,7 @@ GPT2作为大语言模型，其主要的task是文本生成和对话问答方面
     ```python
     # text_generator.py
     # 以下展示了部分核心代码，具体实现请参考Mindformers
-    class GeneratorMixin:
+    class GenerationMixin:
         """class description"""
         def __init__(self):
             pass  
@@ -1118,7 +1118,7 @@ GPT2作为大语言模型，其主要的task是文本生成和对话问答方面
     def training_process(
             self,
             config: Optional[Union[dict, MindFormerConfig, ConfigArguments, TrainingArguments]] = None,
-            network: Optional[Union[Cell, BaseModel]] = None,
+            network: Optional[Union[Cell, PreTrainedModel]] = None,
             dataset: Optional[Union[BaseDataset, GeneratorDataset]] = None,
             optimizer: Optional[Optimizer] = None,
             wrapper: Optional[TrainOneStepCell] = None,

@@ -24,7 +24,7 @@ from mindformers.models import (
     CLIPImageProcessor,
     ViTMAEImageProcessor,
     SwinImageProcessor,
-    SAMImageProcessor,
+    SamImageProcessor,
     ViTImageProcessor
 )
 from mindformers.tools.image_tools import load_image
@@ -181,16 +181,16 @@ class ImageProcessorTest(unittest.TestCase):
             # test load from_repo
             cache_dir = Path(tmp_dir) / 'sam'
             save_dir = Path(tmp_dir) / 'save_dir'
-            sam_image_processor = SAMImageProcessor.from_pretrained(SAM_REMOTE_PATH, cache_dir=cache_dir)
-            self.assertIsInstance(sam_image_processor, SAMImageProcessor)
+            sam_image_processor = SamImageProcessor.from_pretrained(SAM_REMOTE_PATH, cache_dir=cache_dir)
+            self.assertIsInstance(sam_image_processor, SamImageProcessor)
 
             # test save to dir
             sam_image_processor.save_pretrained(save_directory=save_dir)
             self.assertTrue(os.path.exists(save_dir / 'preprocessor_config.json'))
 
             # test load from local
-            processor_from_local = SAMImageProcessor.from_pretrained(save_dir)
-            self.assertIsInstance(processor_from_local, SAMImageProcessor)
+            processor_from_local = SamImageProcessor.from_pretrained(save_dir)
+            self.assertIsInstance(processor_from_local, SamImageProcessor)
 
             # test preprocess image
             output = sam_image_processor(TEST_IMAGE)

@@ -23,7 +23,7 @@ from mindspore.common.initializer import initializer
 from mindspore.ops import operations as P
 from mindspore.ops import functional as F
 
-from mindformers.models.base_model import BaseModel
+from mindformers.models.modeling_utils import PreTrainedModel
 from mindformers.core.loss import CrossEntropyLoss
 from mindformers.modules.layers import LayerNorm
 from mindformers.modules.transformer import VocabEmbedding, TransformerEncoder, TransformerEncoderLayer, \
@@ -36,6 +36,16 @@ from .pangualpha_config import PanguAlphaConfig
 
 
 __all__ = ['PanguAlphaHeadModel', 'PanguAlphaModel', 'PanguAlphaPromptTextClassificationModel']
+
+
+class PanguAlphaPreTrainedModel(PreTrainedModel):
+    """
+    An abstract class to handle weights initialization and a simple interface for downloading and loading pretrained
+    models.
+    """
+
+    config_class = PanguAlphaConfig
+    base_model_prefix = "pangualpha"
 
 
 class EmbeddingLayer(nn.Cell):
@@ -237,10 +247,10 @@ def set_parallel_configure_for_layer(network, layer_id, offset, parallel_config,
             network.recompute(recompute_slice_activation=parallel_config.recompute.recompute_slice_activation)
 
 
-class PanguAlphaModel(nn.Cell):
+class PanguAlphaModel(PanguAlphaPreTrainedModel):
     r"""The base backbone of the PanGuAlpha model"""
     def __init__(self, config):
-        super(PanguAlphaModel, self).__init__()
+        super(PanguAlphaModel, self).__init__(config)
         self.is_pipeline = config.parallel_config.pipeline_stage > 1
         self.embedding = EmbeddingLayer(config)
         self.config = config
@@ -360,7 +370,7 @@ class PanguAlphaModel(nn.Cell):
 
 
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
-class PanguAlphaHeadModel(BaseModel):
+class PanguAlphaHeadModel(PanguAlphaPreTrainedModel):
     """
     The PanguAlpha network consisting of two parts the backbone and the head
     Args:

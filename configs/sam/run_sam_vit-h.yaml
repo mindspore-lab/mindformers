@@ -182,12 +182,12 @@ eval_dataset_task:
 # model
 model:
   arch:
-    type: Sam
+    type: SamModel
   model_config:
-    type: SAMConfig
+    type: SamConfig
     image_encoder:
       arch:
-        type: SAMImageEncoder
+        type: SamImageEncoder
       model_config:
         type: ImageEncoderConfig
         img_size: 1024
@@ -210,7 +210,7 @@ model:
         softmax_compute_type: "float32"
     prompt_config:
       arch:
-        type: SAMPromptEncoder
+        type: SamPromptEncoder
       model_config:
         type: PromptEncoderConfig
         prompt_embed_dim: 256
@@ -220,7 +220,7 @@ model:
         compute_dtype: "float16"
     decoder_config:
       arch:
-        type: SAMMaskDecoder
+        type: SamMaskDecoder
       model_config:
         type: MaskDecoderConfig
         num_multimask_outputs: 3
@@ -280,9 +280,9 @@ metric:
 
 # processor
 processor:
-  type: SAMProcessor
+  type: SamProcessor
   image_processor:
-    type: SAMImageProcessor
+    type: SamImageProcessor
     img_size: 1024  # input image size: int or [h, w] or (h, w)
     mean: [123.675, 116.28, 103.53]
     std: [58.395, 57.12, 57.375]

@@ -38,7 +38,7 @@ except ImportError:
     FLASHATTENTION_VALID = False
 
 from mindformers.core.loss.loss import CrossEntropyLoss
-from mindformers.models.base_model import BaseModel
+from mindformers.models.modeling_utils import PreTrainedModel
 from mindformers.models.utils import cell_reuse
 from mindformers.tools.logger import _LogActionOnce
 from mindformers.tools.register.register import MindFormerModuleType, MindFormerRegister
@@ -47,10 +47,21 @@ from mindformers.modules.transformer import TransformerOpParallelConfig
 from mindformers.models.llama.llama_layer import LlamaEmbedding, FreqsMgr, LlamaSiLU
 from mindformers.models.llama.llama_transformer import LLamaDecodeLayer
 from mindformers.modules import KVCachePreprocess
+from qwen_config import QwenConfig
+
+
+class QwenPreTrainedModel(PreTrainedModel):
+    """
+    An abstract class to handle weights initialization and a simple interface for downloading and loading pretrained
+    models.
+    """
+
+    config_class = QwenConfig
+    base_model_prefix = "qwen"
 
 
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
-class QwenForCausalLM(BaseModel):
+class QwenForCausalLM(QwenPreTrainedModel):
     r"""
         Provide qwen training loss or logits through network.
         Args:
@@ -178,7 +189,7 @@ class QwenForCausalLM(BaseModel):
             self.lm_head.shard(strategy_matmul=((1, 1), (dp * mp, 1)))
 
 
-class QwenModel(BaseModel):
+class QwenModel(QwenPreTrainedModel):
     """transformer"""
 
     def __init__(self, config):

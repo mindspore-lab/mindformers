@@ -24,17 +24,21 @@ from mindspore import Parameter
 from mindspore.ops import operations as P
 
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
-from mindformers.models.base_model import BaseModel
+from mindformers.models.modeling_utils import PreTrainedModel
 from mindformers.modules.layers import Linear, LayerNorm
 
 from .sam_layers import LayerNorm2d, MLPBlock
+from .sam_config import ImageEncoderConfig
 
 # This class and its supporting functions below lightly adapted from the ViTDet backbone available at: https://github.com/facebookresearch/detectron2/blob/main/detectron2/modeling/backbone/vit.py # noqa
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
-class SAMImageEncoder(BaseModel):
+class SamImageEncoder(PreTrainedModel):
     """
     Image encoder
     """
+    config_class = ImageEncoderConfig
+    base_model_prefix = "sam_image_encoder"
+
     def __init__(self, config) -> None:
         super().__init__(config)
         self.img_size = config.img_size

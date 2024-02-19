@@ -20,7 +20,7 @@ from mindspore.nn import TrainOneStepCell, Optimizer, Cell
 from mindspore.dataset import GeneratorDataset
 
 from mindformers.dataset import BaseDataset
-from mindformers.models import BaseModel, PreTrainedTokenizerBase
+from mindformers.models import PreTrainedModel, PreTrainedTokenizerBase
 
 from mindformers.tools.register import MindFormerRegister, \
     MindFormerModuleType, MindFormerConfig
@@ -53,7 +53,7 @@ class MaskedLanguageModelingTrainer(BaseTrainer):
 
     def train(self,
               config: Optional[Union[dict, MindFormerConfig, ConfigArguments, TrainingArguments]] = None,
-              network: Optional[Union[Cell, BaseModel]] = None,
+              network: Optional[Union[Cell, PreTrainedModel]] = None,
               dataset: Optional[Union[BaseDataset, GeneratorDataset]] = None,
               wrapper: Optional[TrainOneStepCell] = None,
               optimizer: Optional[Optimizer] = None,
@@ -70,8 +70,8 @@ class MaskedLanguageModelingTrainer(BaseTrainer):
                 The task config which is used to configure the dataset, the hyper-parameter, optimizer, etc.
                 It supports config dict or MindFormerConfig or TrainingArguments or ConfigArguments class.
                 Default: None.
-            network (Optional[Union[Cell, BaseModel]]):
-                The network for trainer. It supports model name or BaseModel or MindSpore Cell class.
+            network (Optional[Union[Cell, PreTrainedModel]]):
+                The network for trainer. It supports model name or PreTrainedModel or MindSpore Cell class.
                 Default: None.
             dataset (Optional[Union[BaseDataset, GeneratorDataset]]):
                 The training dataset. It support real dataset path or BaseDateset class or MindSpore Dataset class.
@@ -104,7 +104,7 @@ class MaskedLanguageModelingTrainer(BaseTrainer):
     def predict(self,
                 config: Optional[Union[dict, MindFormerConfig, ConfigArguments, TrainingArguments]] = None,
                 input_data: Optional[Union[str, list]] = None,
-                network: Optional[Union[str, BaseModel]] = None,
+                network: Optional[Union[str, PreTrainedModel]] = None,
                 tokenizer: Optional[PreTrainedTokenizerBase] = None,
                 **kwargs):
         """
@@ -117,8 +117,8 @@ class MaskedLanguageModelingTrainer(BaseTrainer):
                 Default: None.
             input_data (Optional[Union[Tensor, str, list]]):
                 The predict data. Default: None.
-            network (Optional[Union[str, BaseModel]]):
-                The network for trainer. It support model name supported or BaseModel class.
+            network (Optional[Union[str, PreTrainedModel]]):
+                The network for trainer. It support model name supported or PreTrainedModel class.
                 Supported model name can refer to model support list.
                 Default: None.
             tokenizer (Optional[PreTrainedTokenizerBase]):

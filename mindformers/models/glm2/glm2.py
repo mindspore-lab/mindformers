@@ -16,7 +16,7 @@
 import mindspore.ops as ops
 import mindspore.common.dtype as mstype
 import mindspore.ops.operations as P
-from mindspore import Tensor, nn
+from mindspore import Tensor
 from mindpet.delta.ptuning2 import PrefixEncoder
 
 import numpy as np
@@ -27,8 +27,8 @@ from mindformers.tools.register import MindFormerModuleType, MindFormerRegister
 from mindformers.core.loss import CrossEntropyLoss
 from mindformers.pet.tuners.pet_adapter import PetAdapter
 from mindformers.version_control import get_tril
+from mindformers.models.modeling_utils import PreTrainedModel
 
-from ..base_model import BaseModel
 from ..utils import cell_reuse
 from .glm2_config import ChatGLM2Config
 from .glm2_modules import precompute_rotary_emb_cache
@@ -37,7 +37,17 @@ from .glm2_transformer import ChatGLM2Transformer
 __all__ = ['ChatGLM2ForConditionalGeneration', 'ChatGLM2Model', 'ChatGLM2WithPtuning2']
 
 
-class ChatGLM2Model(nn.Cell):
+class GLM2PreTrainedModel(PreTrainedModel):
+    """
+    An abstract class to handle weights initialization and a simple interface for downloading and loading pretrained
+    models.
+    """
+
+    config_class = ChatGLM2Config
+    base_model_prefix = "glm2"
+
+
+class ChatGLM2Model(GLM2PreTrainedModel):
     r"""
     The backbone of ChatGLM2 network
 
@@ -143,7 +153,7 @@ class ChatGLM2Model(nn.Cell):
 
 
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
-class ChatGLM2ForConditionalGeneration(BaseModel):
+class ChatGLM2ForConditionalGeneration(GLM2PreTrainedModel):
     r"""
     Provide gpt training loss or logits through network.
 

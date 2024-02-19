@@ -23,7 +23,7 @@ linux:  pytest ./tests/st/test_model/test_qa_model/test_qa_model.py
 import os
 
 from mindformers import MindFormerBook, AutoModel, AutoConfig
-from mindformers.models import BertForQuestionAnswering, BaseModel
+from mindformers.models import BertForQuestionAnswering, PreTrainedModel
 from mindformers.tools import logger
 
 
@@ -69,8 +69,8 @@ class TestModelMethod:
 
         assert isinstance(qa_model_a, BertForQuestionAnswering)
         assert isinstance(qa_model_c, BertForQuestionAnswering)
-        assert isinstance(qa_model_a, BaseModel)
-        assert isinstance(qa_model_c, BaseModel)
+        assert isinstance(qa_model_a, PreTrainedModel)
+        assert isinstance(qa_model_c, PreTrainedModel)
 
         # evaluation and prediction test part
         # input model name
@@ -82,5 +82,5 @@ class TestModelMethod:
 
         assert isinstance(qa_squad_model_a, BertForQuestionAnswering)
         assert isinstance(qa_squad_model_c, BertForQuestionAnswering)
-        assert isinstance(qa_squad_model_a, BaseModel)
-        assert isinstance(qa_squad_model_c, BaseModel)
+        assert isinstance(qa_squad_model_a, PreTrainedModel)
+        assert isinstance(qa_squad_model_c, PreTrainedModel)

@@ -22,7 +22,7 @@ from mindspore import ops
 from mindspore import Tensor, Model
 
 from mindformers.mindformer_book import MindFormerBook
-from mindformers.models import BaseModel, BaseImageProcessor
+from mindformers.models import PreTrainedModel, BaseImageProcessor
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.models.sam import (
     MaskData,
@@ -67,7 +67,7 @@ class SegmentAnythingPipeline(Pipeline):
     """
     _support_list = MindFormerBook.get_pipeline_support_task_list()['segment_anything'].keys()
 
-    def __init__(self, model: Union[BaseModel, Model],
+    def __init__(self, model: Union[PreTrainedModel, Model],
                  image_processor: Optional[BaseImageProcessor] = None,
                  **kwargs):
 

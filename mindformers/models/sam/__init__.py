@@ -14,15 +14,15 @@
 # ============================================================================
 
 """models init"""
-from .sam import Sam
-from .sam_image_encoder import SAMImageEncoder
-from .sam_prompt_encoder import SAMPromptEncoder
-from .sam_mask_decoder import SAMMaskDecoder
-from .sam_config import SAMConfig, ImageEncoderConfig
-from .sam_processor import SAMProcessor, SAMImageProcessor
+from .sam import SamModel
+from .sam_image_encoder import SamImageEncoder
+from .sam_prompt_encoder import SamPromptEncoder
+from .sam_mask_decoder import SamMaskDecoder
+from .sam_config import SamConfig, ImageEncoderConfig
+from .sam_processor import SamProcessor, SamImageProcessor
 from .sam_utils import *
 
-__all__ = ["Sam", "SAMImageEncoder", "SAMPromptEncoder", "SAMMaskDecoder",
-           "SAMConfig", "ImageEncoderConfig", 'SAMProcessor', "SAMImageProcessor"]
+__all__ = ["SamModel", "SamImageEncoder", "SamPromptEncoder", "SamMaskDecoder",
+           "SamConfig", "ImageEncoderConfig", 'SamProcessor', "SamImageProcessor"]
 
 __all__.extend(sam_utils.__all__)

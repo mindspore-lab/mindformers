@@ -28,16 +28,27 @@ from mindformers.modules.layers import LayerNorm
 from mindformers.modules.transformer import Transformer, VocabEmbedding
 from mindformers.modules.transformer.moe import default_moe_config
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
-from mindformers.models.base_model import BaseModel
+from mindformers.models.modeling_utils import PreTrainedModel
 from mindformers.mindformer_book import MindFormerBook
 from mindformers.models.bert.bert_config import BertConfig
+from .bert_config import BertConfig
 
 __all__ = ['BertConfig', 'BertModel', 'BertForPreTraining', 'BertForTokenClassification', 'BertForMultipleChoice',
            'BertForQuestionAnswering']
 
 
+class BertPreTrainedModel(PreTrainedModel):
+    """
+    An abstract class to handle weights initialization and a simple interface for downloading and loading pretrained
+    models.
+    """
+
+    config_class = BertConfig
+    base_model_prefix = "bert"
+
+
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
-class BertForTokenClassification(BaseModel):
+class BertForTokenClassification(BertPreTrainedModel):
     """
     Bert with dense layer for name entity recoginition task.
 
@@ -87,7 +98,7 @@ class BertForTokenClassification(BaseModel):
 
 
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
-class BertForPreTraining(BaseModel):
+class BertForPreTraining(BertPreTrainedModel):
     """
     Provide bert pre-training loss through network.
 
@@ -156,7 +167,7 @@ class BertForPreTraining(BaseModel):
         return self.cast(total_loss, mstype.float32)
 
 
-class BertModel(nn.Cell):
+class BertModel(BertPreTrainedModel):
     """
     Bidirectional Encoder Representations from Transformers.
 
@@ -167,7 +178,7 @@ class BertModel(nn.Cell):
     def __init__(self,
                  config=None,
                  use_one_hot_embeddings=False):
-        super(BertModel, self).__init__()
+        super(BertModel, self).__init__(config)
         if not self.training:
             config.hidden_dropout_prob = 0.0
             config.attention_probs_dropout_prob = 0.0
@@ -260,7 +271,7 @@ class BertModel(nn.Cell):
 
 
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
-class BertForMultipleChoice(BaseModel):
+class BertForMultipleChoice(BertPreTrainedModel):
     """
     Bert with dense layer for txt classification task.
 
@@ -314,7 +325,7 @@ class BertForMultipleChoice(BaseModel):
 
 
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
-class BertForQuestionAnswering(BaseModel):
+class BertForQuestionAnswering(BertPreTrainedModel):
     """
         Bert with dense layer for question answering task.
 

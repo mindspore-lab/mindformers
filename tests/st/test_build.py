@@ -30,7 +30,8 @@ from mindformers.tools import logger
 from mindformers.tools import MindFormerConfig, MindFormerRegister, MindFormerModuleType
 from mindformers.core import build_lr, build_optim, build_loss, build_metric
 from mindformers.trainer import build_trainer, BaseTrainer
-from mindformers.models import build_model, BaseModel, build_processor
+from mindformers.models import build_model, build_processor
+from mindformers.models import PretrainedConfig, PreTrainedModel
 from mindformers.dataset import build_dataset, build_sampler, check_dataset_config, \
     build_dataset_loader, build_mask, build_transforms, BaseDataset
 from mindformers.pipeline import build_pipeline
@@ -112,10 +113,34 @@ class TestDataset(BaseDataset):
             logger.info("Test Build Mask Policy Success")
 
 
+@MindFormerRegister.register(MindFormerModuleType.CONFIG)
+@dataclass
+class TestTextConfig(PretrainedConfig):
+    """Test TextConfig API For Register."""
+    seq_length: int = 12
+
+
+@MindFormerRegister.register(MindFormerModuleType.CONFIG)
+@dataclass
+class TestVisionConfig(PretrainedConfig):
+    """Test VisionConfig API For Register."""
+    seq_length: int = 12
+
+
+@MindFormerRegister.register(MindFormerModuleType.CONFIG)
+@dataclass
+class TestModelConfig(PretrainedConfig):
+    """Test ModelConfig API For Register."""
+    batch_size: int = 2
+    embed_dim: int = 768
+    text_config: Callable = TestTextConfig
+    vision_config: Callable = TestVisionConfig
+
+
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
-class TestModel(BaseModel):
+class TestModel(PreTrainedModel):
     """Test Model API For Register."""
-    def __init__(self, config: dict = None):
+    def __init__(self, config: PretrainedConfig = None):
         super(TestModel, self).__init__(config)
         self.model_config = config
         self.params = Parameter(Tensor([0.1]))
@@ -125,30 +150,6 @@ class TestTokenizer:
     """Test Tokenizer API For Register."""
     def __init__(self):
         pass
-
-
-@MindFormerRegister.register(MindFormerModuleType.CONFIG)
-@dataclass
-class TestTextConfig:
-    """Test TextConfig API For Register."""
-    seq_length: int = 12
-
-
-@MindFormerRegister.register(MindFormerModuleType.CONFIG)
-@dataclass
-class TestVisionConfig:
-    """Test VisionConfig API For Register."""
-    seq_length: int = 12
-
-
-@MindFormerRegister.register(MindFormerModuleType.CONFIG)
-@dataclass
-class TestModelConfig:
-    """Test ModelConfig API For Register."""
-    batch_size: int = 2
-    embed_dim: int = 768
-    text_config: Callable = TestTextConfig
-    vision_config: Callable = TestVisionConfig
 
 
 @MindFormerRegister.register(MindFormerModuleType.OPTIMIZER)
@@ -300,7 +301,7 @@ def test_build_from_class_name():
     build_dataset(class_name='TestDataset')
     logger.info("Test Build Dataset Success")
     # build model
-    model = build_model(class_name='TestModel')
+    model = build_model(class_name='TestModel', config=TestModelConfig())
     logger.info("Test Build Network Success")
     # build lr
     lr = build_lr(class_name='TestCosineDecayLR', min_lr=0., max_lr=0.001, decay_steps=1000)

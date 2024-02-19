@@ -28,7 +28,7 @@ from mindformers.models.llama import LlamaForCausalLM
 from mindformers.models.mae import ViTMAEForPreTraining
 from mindformers.models.pangualpha import PanguAlphaPromptTextClassificationModel, \
     PanguAlphaHeadModel
-from mindformers.models.sam import Sam
+from mindformers.models.sam import SamModel
 from mindformers.models.swin import SwinForImageClassification
 from mindformers.models.t5 import T5ForConditionalGeneration
 from mindformers.models.vit import ViTForImageClassification
@@ -228,13 +228,13 @@ class TestPanguAlphaConfig(unittest.TestCase):
         model = PanguAlphaHeadModel(config)
 
 
-class TestSAMConfig(unittest.TestCase):
+class TestSamConfig(unittest.TestCase):
     """test sam config"""
     def test_init_model_from_yaml(self):
         """test init model with config"""
         config = AutoConfig.from_pretrained("configs/sam/run_sam_vit-b.yaml")
         config.checkpoint_name_or_path = ''
-        model = Sam(config)
+        model = SamModel(config)
 
 
 class TestSwinConfig(unittest.TestCase):

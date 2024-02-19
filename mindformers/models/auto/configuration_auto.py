@@ -44,7 +44,7 @@ CONFIG_MAPPING_NAMES = OrderedDict(
         ("llama", "LlamaConfig"),
         ("mae", "ViTMAEConfig"),
         ("pangualpha", "PanguAlphaConfig"),
-        ("sam", "SAMConfig"),
+        ("sam", "SamConfig"),
         ("swin", "SwinConfig"),
         ("t5", "T5Config"),
         ("vit", "ViTConfig")
@@ -63,7 +63,7 @@ MODEL_NAMES_MAPPING = OrderedDict(
         ("llama", "LlamaModel"),
         ("mae", "ViTMAEModel"),
         ("pangualpha", "PanguAlphaModel"),
-        ("sam", "Sam"),
+        ("sam", "SamModel"),
         ("swin", "SwinModel"),
         ("t5", "T5ForConditionalGeneration"),
         ("vit", "ViTModel")

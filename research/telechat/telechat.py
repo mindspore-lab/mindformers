@@ -34,7 +34,7 @@ except ImportError:
 
 from mindformers.core.loss.loss import CrossEntropyLoss
 from mindformers.models.utils import cell_reuse
-from mindformers.models.base_model import BaseModel
+from mindformers.models.modeling_utils import PreTrainedModel
 from mindformers.modules import KVCachePreprocess
 from mindformers.modules.transformer.transformer import LowerTriangularMaskWithDynamic
 from mindformers.modules.transformer.op_parallel_config import _check_config
@@ -45,6 +45,17 @@ from research.telechat.telechat_layer import TelechatEmbedding
 from research.telechat.telechat_transformer import TelechatDecodeLayer
 
 __all__ = ['TelechatModel', 'TelechatForCausalLM']
+
+
+class TelechatPreTrainedModel(PreTrainedModel):
+    """
+    An abstract class to handle weights initialization and a simple interface for downloading and loading pretrained
+    models.
+    """
+
+    config_class = TelechatConfig
+    base_model_prefix = "telechat"
+
 
 def layer_compute_dtype(layer, layer_id, offset, parallel_config, n_layers, select_recompute=False):
     r"""
@@ -87,7 +98,7 @@ def layer_compute_dtype(layer, layer_id, offset, parallel_config, n_layers, sele
                 recompute_slice_activation=parallel_config.recompute.recompute_slice_activation)
 
 
-class TelechatModel(BaseModel):
+class TelechatModel(TelechatPreTrainedModel):
     r"""
     Transformer decoder consisting of *config.num_hidden_layers* layers. Each layer is a [`TelechatDecoderLayer`]
     Args:
@@ -277,7 +288,7 @@ class TelechatHead(nn.Cell):
         output = self.reshape(x, out_shape)
         return output
 
-class TelechatForCausalLM(BaseModel):
+class TelechatForCausalLM(TelechatPreTrainedModel):
     r"""
         Provide telechat training loss or logits through network.
 

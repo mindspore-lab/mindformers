@@ -24,7 +24,7 @@ from mindspore import context
 from mindformers import MindFormerBook
 from mindformers import AutoModel
 from mindformers import AutoConfig, AutoTokenizer, AutoProcessor
-from mindformers.models import BaseModel
+from mindformers.models import PreTrainedModel
 from mindformers.models import BaseConfig, PreTrainedTokenizerBase, BaseProcessor
 
 
@@ -51,7 +51,7 @@ class TestGLMAutoClassMethod:
         # Too time-cost, not used for now.
         for model_type in self.test_llm_list:
             model = AutoModel.from_pretrained(model_type, download_checkpoint=False)
-            assert isinstance(model, BaseModel)
+            assert isinstance(model, PreTrainedModel)
             model.save_pretrained(
                 save_directory=os.path.join(self.save_directory, model_type),
                 save_name=model_type + "_model",

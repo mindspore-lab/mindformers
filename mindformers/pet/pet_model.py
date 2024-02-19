@@ -17,7 +17,7 @@ from typing import Union
 
 from mindspore._checkparam import args_type_check
 
-from mindformers.models.base_model import BaseModel
+from mindformers.models.modeling_utils import PreTrainedModel
 from mindformers.pet.constants import PetType
 from mindformers.pet.models.lora import LoraModel
 from mindformers.pet.pet_config import LoraConfig, PetConfig
@@ -37,24 +37,23 @@ PET_TYPE_TO_CONFIG_MAPPING = {
 }
 
 
-class PetModel(BaseModel):
+class PetModel(PreTrainedModel):
     """
     PetModel define parameter efficient tuning model for LLM model.
 
     Args:
         config(PetConfig): pet config,define parameters efficient tuning algorithm.
-        base_model(BaseModel): pretrained model for tuning.
+        base_model(PreTrainedModel): pretrained model for tuning.
     """
     @args_type_check(config=(dict, PetConfig))
-    def __init__(self, config: Union[dict, PetConfig], base_model: BaseModel):
-        super().__init__(config, auto_prefix=False)
+    def __init__(self, config: Union[dict, PetConfig], base_model: PreTrainedModel):
+        super().__init__(base_model.config, auto_prefix=False)
         if not isinstance(config, PetConfig):
             pet_type = config.pop("pet_type")
             pet_config = PET_TYPE_TO_CONFIG_MAPPING[pet_type](**config)
         else:
             pet_type = config.pet_type
             pet_config = config
-        self.config = base_model.config
         self.config.pet_config = pet_config
         # pylint: disable=W0212
         self._support_list = base_model._support_list
@@ -81,16 +80,16 @@ class PetModel(BaseModel):
                               attention_mask, input_embeds, init_reset, batch_valid_length)
 
 @args_type_check(config=(dict, PetConfig))
-def get_pet_model(base_model: BaseModel, config: Union[dict, PetConfig]):
+def get_pet_model(base_model: PreTrainedModel, config: Union[dict, PetConfig]):
     """
     Get model with pet model.
 
     Args:
-        base_model (BaseModel): The pretrained model for tuning.
+        base_model (PreTrainedModel): The pretrained model for tuning.
         config (PetConfig): The config of parameter efficient tuning algrithm.
 
     Return:
-        model(BaseModel)
+        model(PreTrainedModel)
     """
     pet_type = config.get("pet_type")
     if not PET_TYPE_TO_MODEL_MAPPING.get(pet_type):

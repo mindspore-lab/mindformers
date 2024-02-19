@@ -26,7 +26,7 @@ import time
 import mindspore as ms
 
 from mindformers import MindFormerBook, AutoConfig, AutoModel
-from mindformers.models import CLIPModel, BaseModel
+from mindformers.models import CLIPModel, PreTrainedModel
 from mindformers.tools import logger
 
 ms.set_context(mode=0)
@@ -87,24 +87,24 @@ class TestCLIPModelMethod:
 
         model_i.save_pretrained(self.save_directory, save_name=self.model_type)
 
-        # all models are ClipModel class， and inherited from BaseModel
+        # all models are ClipModel class， and inherited from PreTrainedModel
         assert isinstance(model_i, CLIPModel)
         assert isinstance(model_j, CLIPModel)
         assert isinstance(model_k, CLIPModel)
         assert isinstance(model_l, CLIPModel)
 
-        assert isinstance(model_i, BaseModel)
-        assert isinstance(model_j, BaseModel)
-        assert isinstance(model_k, BaseModel)
-        assert isinstance(model_l, BaseModel)
+        assert isinstance(model_i, PreTrainedModel)
+        assert isinstance(model_j, PreTrainedModel)
+        assert isinstance(model_k, PreTrainedModel)
+        assert isinstance(model_l, PreTrainedModel)
 
-        # all models are CLIPModel class， and inherited from BaseModel
+        # all models are CLIPModel class， and inherited from PreTrainedModel
         assert isinstance(model_a, CLIPModel)
         assert isinstance(model_b, CLIPModel)
         assert isinstance(model_c, CLIPModel)
         assert isinstance(model_d, CLIPModel)
 
-        assert isinstance(model_a, BaseModel)
-        assert isinstance(model_b, BaseModel)
-        assert isinstance(model_c, BaseModel)
-        assert isinstance(model_d, BaseModel)
+        assert isinstance(model_a, PreTrainedModel)
+        assert isinstance(model_b, PreTrainedModel)
+        assert isinstance(model_c, PreTrainedModel)
+        assert isinstance(model_d, PreTrainedModel)

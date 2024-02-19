@@ -24,14 +24,14 @@ import mindspore.common.dtype as mstype
 from mindspore.ops import operations as P
 
 from mindformers.mindformer_book import MindFormerBook
-from mindformers.models.base_model import BaseModel
+from mindformers.models.blip2.blip2 import Blip2PreTrainedModel
 from mindformers.models.blip2.blip2_config import Blip2Config
 from mindformers.models.blip2.blip2_qformer import Blip2Qformer
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.tools.logger import logger
 
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
-class Blip2ItmEvaluator(BaseModel):
+class Blip2ItmEvaluator(Blip2PreTrainedModel):
     """
     The evaluator class for BLIP2 first-stage trained model.
     Args:
