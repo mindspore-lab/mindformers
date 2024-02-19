@@ -167,7 +167,7 @@
   __all__ = ['GPT2Config']
 
   @MindFormerRegister.register(MindFormerModuleType.CONFIG) # 注册到CONFIG
-  class GPT2Config(BaseConfig):
+  class GPT2Config(PretrainedConfig):
       """ class description """
 
       _support_list = MindFormerBook.get_config_support_list()['gpt2']

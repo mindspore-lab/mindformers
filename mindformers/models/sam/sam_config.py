@@ -13,25 +13,27 @@
 # limitations under the License.
 # ============================================================================
 """SAM Config API."""
+
 from typing import Union, Tuple
 
+from mindspore._checkparam import args_type_check
 import mindspore.common.dtype as mstype
 
-from mindformers.modules.transformer import TransformerOpParallelConfig, TransformerRecomputeConfig
-from mindformers.modules.transformer.moe import MoEConfig, default_moe_config
+from mindformers.modules.transformer.transformer import TransformerOpParallelConfig, default_transformer_config, \
+    default_moe_config
+from mindformers.modules.transformer.moe import MoEConfig
 from mindformers.mindformer_book import MindFormerBook
-from mindformers.models.base_config import BaseConfig
+from mindformers.models.configuration_utils import PretrainedConfig
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
-
-default_recompute_config = TransformerRecomputeConfig()
-default_parallel_config = TransformerOpParallelConfig(recompute=default_recompute_config)
 
 
 @MindFormerRegister.register(MindFormerModuleType.CONFIG)
-class SAMConfig(BaseConfig):
+class SAMConfig(PretrainedConfig):
     """
     Configuration class for the SAM model.
     """
+
+    model_type = "sam"
     _support_list = MindFormerBook.get_config_support_list()['sam']
 
     def __init__(self,
@@ -48,12 +50,13 @@ class SAMConfig(BaseConfig):
 
 
 @MindFormerRegister.register(MindFormerModuleType.CONFIG)
-class ImageEncoderConfig(BaseConfig):
+class ImageEncoderConfig(PretrainedConfig):
     """
     Configuration class for the image encoder of the SAM model.
     """
-    _support_list = MindFormerBook.get_config_support_list()['sam']
 
+    @args_type_check(parallel_config=(dict, TransformerOpParallelConfig),
+                     moe_config=(dict, MoEConfig))
     def __init__(self,
                  img_size: int = 1024,
                  patch_size: int = 16,
@@ -65,7 +68,7 @@ class ImageEncoderConfig(BaseConfig):
                  out_chans: int = 256,
                  qkv_bias: bool = True,
                  use_abs_pos: bool = True,
-                 use_rel_pos: bool = True, # 仅支持默认False
+                 use_rel_pos: bool = True,  # 仅支持默认False
                  rel_pos_zero_init: bool = True,
                  window_size: int = 14,
                  global_attn_indexes: tuple = (2, 5, 8, 11),
@@ -74,10 +77,14 @@ class ImageEncoderConfig(BaseConfig):
                  layernorm_compute_type: str = "float32",
                  softmax_compute_type: str = "float32",
                  param_init_type: str = "float32",
-                 parallel_config: TransformerOpParallelConfig = default_parallel_config,
-                 moe_config: MoEConfig = default_moe_config,
+                 parallel_config: Union[dict, TransformerOpParallelConfig] = default_transformer_config,
+                 moe_config: Union[dict, MoEConfig] = default_moe_config,
                  **kwargs) -> None:
         super().__init__(**kwargs)
+        if isinstance(parallel_config, dict):
+            parallel_config = TransformerOpParallelConfig(**parallel_config)
+        if isinstance(moe_config, dict):
+            moe_config = MoEConfig(**moe_config)
         self.img_size = img_size
         self.patch_size = patch_size
         self.in_chans = in_chans
@@ -88,7 +95,7 @@ class ImageEncoderConfig(BaseConfig):
         self.out_chans = out_chans
         self.qkv_bias = qkv_bias
         self.use_abs_pos = use_abs_pos
-        self.use_rel_pos = use_rel_pos # 仅支持默认False
+        self.use_rel_pos = use_rel_pos  # 仅支持默认False
         self.rel_pos_zero_init = rel_pos_zero_init
         self.window_size = window_size
         self.global_attn_indexes = global_attn_indexes
@@ -104,12 +111,13 @@ class ImageEncoderConfig(BaseConfig):
 
 
 @MindFormerRegister.register(MindFormerModuleType.CONFIG)
-class PromptEncoderConfig(BaseConfig):
+class PromptEncoderConfig(PretrainedConfig):
     """
     Configuration for the prompt encoder of the SAM model.
     """
-    _support_list = MindFormerBook.get_config_support_list()['sam']
 
+    @args_type_check(parallel_config=(dict, TransformerOpParallelConfig),
+                     moe_config=(dict, MoEConfig))
     def __init__(self,
                  prompt_embed_dim: int = 256,
                  image_embedding_size: Union[int, Tuple[int]] = (64, 64),
@@ -117,10 +125,14 @@ class PromptEncoderConfig(BaseConfig):
                  mask_in_chans: int = 16,
                  checkpoint_name_or_path: str = '',
                  compute_dtype: str = "float16",
-                 parallel_config: TransformerOpParallelConfig = default_parallel_config,
-                 moe_config: MoEConfig = default_moe_config,
+                 parallel_config: Union[dict, TransformerOpParallelConfig] = default_transformer_config,
+                 moe_config: Union[dict, MoEConfig] = default_moe_config,
                  **kwargs) -> None:
         super().__init__(**kwargs)
+        if isinstance(parallel_config, dict):
+            parallel_config = TransformerOpParallelConfig(**parallel_config)
+        if isinstance(moe_config, dict):
+            moe_config = MoEConfig(**moe_config)
         self.prompt_embed_dim = prompt_embed_dim
         self.image_embedding_size = image_embedding_size
         self.input_image_size = input_image_size
@@ -134,12 +146,13 @@ class PromptEncoderConfig(BaseConfig):
 
 
 @MindFormerRegister.register(MindFormerModuleType.CONFIG)
-class MaskDecoderConfig(BaseConfig):
+class MaskDecoderConfig(PretrainedConfig):
     """
     Configuration for the mask decoder of the SAM model.
     """
-    _support_list = MindFormerBook.get_config_support_list()['sam']
 
+    @args_type_check(parallel_config=(dict, TransformerOpParallelConfig),
+                     moe_config=(dict, MoEConfig))
     def __init__(self,
                  num_multimask_outputs: int = 3,
                  decoder_depth: int = 2,
@@ -154,10 +167,14 @@ class MaskDecoderConfig(BaseConfig):
                  layernorm_compute_type: str = "float32",
                  softmax_compute_type: str = "float32",
                  param_init_type: str = "float32",
-                 parallel_config: TransformerOpParallelConfig = default_parallel_config,
-                 moe_config: MoEConfig = default_moe_config,
+                 parallel_config: Union[dict, TransformerOpParallelConfig] = default_transformer_config,
+                 moe_config: Union[dict, MoEConfig] = default_moe_config,
                  **kwargs) -> None:
         super().__init__(**kwargs)
+        if isinstance(parallel_config, dict):
+            parallel_config = TransformerOpParallelConfig(**parallel_config)
+        if isinstance(moe_config, dict):
+            moe_config = MoEConfig(**moe_config)
         self.num_multimask_outputs = num_multimask_outputs
         # transformer:
         self.decoder_depth = decoder_depth

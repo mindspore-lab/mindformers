@@ -24,7 +24,51 @@ import yaml
 BASE_CONFIG = 'base_config'
 
 
-class MindFormerConfig(dict):
+class DictConfig(dict):
+    """config"""
+    def __init__(self, **kwargs):
+        super(DictConfig, self).__init__()
+        self.update(kwargs)
+
+    def __getattr__(self, key):
+        if key not in self:
+            return None
+        return self[key]
+
+    def __setattr__(self, key, value):
+        self[key] = value
+
+    def __delattr__(self, key):
+        del self[key]
+
+    def __deepcopy__(self, memo=None):
+        """Deep copy operation on arbitrary MindFormerConfig objects.
+
+        Args:
+            memo (dict) : Objects that already copied.
+        Returns:
+            MindFormerConfig : The deep copy of the given MindFormerConfig object.
+        """
+        config = self.__class__()
+        for key in self.keys():
+            config.__setattr__(copy.deepcopy(key, memo),
+                               copy.deepcopy(self.__getattr__(key), memo))
+        return config
+
+    def to_dict(self):
+        """
+        for yaml dump,
+        transform from Config to a strict dict class
+        """
+        return_dict = {}
+        for key, val in self.items():
+            if isinstance(val, self.__class__):
+                val = val.to_dict()
+            return_dict[key] = val
+        return return_dict
+
+
+class MindFormerConfig(DictConfig):
     """
     A Config class is inherit from dict.
 
@@ -62,51 +106,6 @@ class MindFormerConfig(dict):
             cfg_dict.update(kwargs)
 
         MindFormerConfig._dict2config(self, cfg_dict)
-
-    def __getattr__(self, key):
-        """Get a object attr by its `key`
-
-        Args:
-            key (str) : the name of object attr.
-
-        Returns:
-            attr of object that name is `key`
-        """
-        if key not in self:
-            return None
-
-        return self[key]
-
-    def __setattr__(self, key, value):
-        """Set a object value `key` with `value`
-
-        Args:
-            key (str) : The name of object attr.
-            value : the `value` need to set to the target object attr.
-        """
-        self[key] = value
-
-    def __delattr__(self, key):
-        """Delete a object attr by its `key`.
-
-        Args:
-            key (str) : The name of object attr.
-        """
-        del self[key]
-
-    def __deepcopy__(self, memo=None):
-        """Deep copy operation on arbitrary MindFormerConfig objects.
-
-        Args:
-            memo (dict) : Objects that already copied.
-        Returns:
-            MindFormerConfig : The deep copy of the given MindFormerConfig object.
-        """
-        config = MindFormerConfig()
-        for key in self.keys():
-            config.__setattr__(copy.deepcopy(key, memo),
-                               copy.deepcopy(self.__getattr__(key), memo))
-        return config
 
     def merge_from_dict(self, options):
         """Merge options into config file.

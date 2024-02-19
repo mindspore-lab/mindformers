@@ -14,16 +14,23 @@
 # ============================================================================
 """Bert Config API."""
 
+from typing import Union
+
+from mindspore._checkparam import args_type_check
 import mindspore.common.dtype as mstype
-from mindformers.modules.transformer.transformer import default_transformer_config, default_moe_config
+
+from mindformers.modules.transformer.moe import MoEConfig
+from mindformers.modules.transformer.transformer import default_transformer_config, default_moe_config, \
+    TransformerOpParallelConfig
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
-from ..base_config import BaseConfig
-from ...mindformer_book import MindFormerBook
+from mindformers.models.configuration_utils import PretrainedConfig
+from mindformers.mindformer_book import MindFormerBook
 
 __all__ = ['BertConfig']
 
+
 @MindFormerRegister.register(MindFormerModuleType.CONFIG)
-class BertConfig(BaseConfig):
+class BertConfig(PretrainedConfig):
     """
     BERT config class which defines the model size.
 
@@ -81,11 +88,15 @@ class BertConfig(BaseConfig):
     Returns:
         Class, BertConfig.
     """
+
+    model_type = "bert"
     _support_list = MindFormerBook.get_config_support_list()['bert']
     _support_list.extend(MindFormerBook.get_config_support_list()['tokcls']['bert'])
     _support_list.extend(MindFormerBook.get_config_support_list()['txtcls']['bert'])
     _support_list.extend(MindFormerBook.get_config_support_list()['qa']['bert'])
 
+    @args_type_check(parallel_config=(dict, TransformerOpParallelConfig),
+                     moe_config=(dict, MoEConfig))
     def __init__(self,
                  model_type: str = "bert",
                  use_one_hot_embeddings: bool = False,
@@ -112,11 +123,15 @@ class BertConfig(BaseConfig):
                  softmax_dtype: str = "float32",
                  compute_dtype: str = "float16",
                  use_past: bool = False,
-                 parallel_config: str = "default",
+                 parallel_config: Union[dict, TransformerOpParallelConfig] = default_transformer_config,
                  checkpoint_name_or_path: str = "",
-                 moe_config: str = "default",
+                 moe_config: Union[dict, MoEConfig] = default_moe_config,
                  **kwargs):
         super(BertConfig, self).__init__(**kwargs)
+        if isinstance(parallel_config, dict):
+            parallel_config = TransformerOpParallelConfig(**parallel_config)
+        if isinstance(moe_config, dict):
+            moe_config = MoEConfig(**moe_config)
         self.model_type = model_type
         self.use_one_hot_embeddings = use_one_hot_embeddings
         self.num_labels = num_labels
@@ -143,5 +158,5 @@ class BertConfig(BaseConfig):
         self.compute_dtype = mstype.float32 if compute_dtype == "float32" else mstype.float16
         self.use_past = use_past
         self.checkpoint_name_or_path = checkpoint_name_or_path
-        self.parallel_config = default_transformer_config if parallel_config == "default" else parallel_config
-        self.moe_config = default_moe_config if moe_config == "default" else moe_config
+        self.parallel_config = parallel_config
+        self.moe_config = moe_config

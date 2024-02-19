@@ -14,27 +14,33 @@
 # ============================================================================
 """PanGuAlpha Config API."""
 
+from typing import Union
+
+from mindspore._checkparam import args_type_check
+
 from mindformers.modules.transformer.moe import MoEConfig
 from mindformers.modules.transformer.transformer import default_transformer_config
 from mindformers.modules.transformer.transformer import default_moe_config
 from mindformers.modules.transformer.transformer import TransformerOpParallelConfig
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
-from ..utils import convert_mstype
-from ..base_config import BaseConfig
-from ...mindformer_book import MindFormerBook
-
+from mindformers.models.utils import convert_mstype
+from mindformers.models.configuration_utils import PretrainedConfig
+from mindformers.mindformer_book import MindFormerBook
 
 __all__ = ['PanguAlphaConfig']
 
 
 @MindFormerRegister.register(MindFormerModuleType.CONFIG)
-class PanguAlphaConfig(BaseConfig):
+class PanguAlphaConfig(PretrainedConfig):
     """
     PanGuAlpha config class which defines the model size
     """
 
+    model_type = "pangualpha"
     _support_list = MindFormerBook.get_config_support_list()['pangualpha']
 
+    @args_type_check(parallel_config=(dict, TransformerOpParallelConfig),
+                     moe_config=(dict, MoEConfig))
     def __init__(self,
                  batch_size: int = 1,
                  seq_length: int = 1024,
@@ -54,8 +60,8 @@ class PanguAlphaConfig(BaseConfig):
                  attention_dropout_rate: float = 0.1,
                  hidden_act: str = 'fast_gelu',
                  use_past: bool = False,
-                 parallel_config: TransformerOpParallelConfig = default_transformer_config,
-                 moe_config: MoEConfig = default_moe_config,
+                 parallel_config: Union[dict, TransformerOpParallelConfig] = default_transformer_config,
+                 moe_config: Union[dict, MoEConfig] = default_moe_config,
                  use_moe: bool = False,
                  expert_num: int = 1,
                  per_token_num_experts_chosen: int = 1,
@@ -67,6 +73,10 @@ class PanguAlphaConfig(BaseConfig):
                  do_sample: bool = True,
                  **kwargs):
         super(PanguAlphaConfig, self).__init__(**kwargs)
+        if isinstance(parallel_config, dict):
+            parallel_config = TransformerOpParallelConfig(**parallel_config)
+        if isinstance(moe_config, dict):
+            moe_config = MoEConfig(**moe_config)
         self.batch_size = batch_size
         self.seq_length = seq_length
         self.vocab_size = vocab_size

@@ -15,13 +15,13 @@
 """Telechat Config API."""
 from typing import Optional
 from mindformers.models.utils import convert_mstype
-from mindformers.models.base_config import BaseConfig
+from mindformers.models.configuration_utils import PretrainedConfig
 from mindformers.modules.transformer.transformer import default_transformer_config, TransformerOpParallelConfig
 
 __all__ = ['TelechatConfig']
 
 
-class TelechatConfig(BaseConfig):
+class TelechatConfig(PretrainedConfig):
     """
     Telechat config class which defines the model size.
 
@@ -84,6 +84,8 @@ class TelechatConfig(BaseConfig):
         Returns:
             Class, TelechatConfig.
     """
+
+    model_type = "telechat"
 
     def __init__(self,
                  batch_size: int = 1,

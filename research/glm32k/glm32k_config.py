@@ -15,17 +15,19 @@
 """ChatGLM32k config"""
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.modules.transformer.transformer import default_transformer_config
-from mindformers.models.base_config import BaseConfig
+from mindformers.models.configuration_utils import PretrainedConfig
 from mindformers.models.utils import convert_mstype
 
 __all__ = ['ChatGLM32kConfig']
 
 
 @MindFormerRegister.register(MindFormerModuleType.CONFIG)
-class ChatGLM32kConfig(BaseConfig):
+class ChatGLM32kConfig(PretrainedConfig):
     """
     ChatGLM32k model config class.
     """
+
+    model_type = "chatglm32k"
 
     def __init__(self,
                  batch_size=1,   # only for incremental infer
@@ -65,6 +67,9 @@ class ChatGLM32kConfig(BaseConfig):
                  pad_token_id=0,
                  repetition_penalty=1.0,
                  parallel_config=default_transformer_config,
+                 max_length=None,
+                 gmask_token_id=None,
+                 bos_token_id=None,
                  **kwargs):
         super().__init__(**kwargs)
         self.batch_size = batch_size
@@ -105,3 +110,7 @@ class ChatGLM32kConfig(BaseConfig):
         self.pad_token_id = pad_token_id
         self.repetition_penalty = repetition_penalty
         self.parallel_config = parallel_config
+        self.max_length = max_length
+        self.gmask_token_id = gmask_token_id
+        self.bos_token_id = bos_token_id
+ 

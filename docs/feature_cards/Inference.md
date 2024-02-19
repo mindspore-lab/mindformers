@@ -97,7 +97,7 @@ InferTask.support_list(cls)
 InferConfig是用户调用MindSpore Lite进行推理时，需要配置的参数项来初始化推理任务，具体如下：
 
 ```python
-class InferConfig(BaseConfig):
+class InferConfig(DictConfig):
     """
     Inference config class.
     """

@@ -208,7 +208,6 @@ class GPT2ForSequenceClassification(BaseModel):
         self.config = config if config is not None else GPT2Config()
         super(GPT2ForSequenceClassification, self).__init__(self.config, auto_prefix=True)
 
-        self.eos_token = self.config.eos_token
         self.seq_length = self.config.seq_length
         self.num_labels = self.config.num_labels
         self.hidden_size = self.config.hidden_size

@@ -15,14 +15,14 @@
 
 
 """VisualGLM Config API"""
-from typing import Optional
+from typing import Optional, Union
 
 import mindspore.common.dtype as mstype
 
 from mindformers.models.glm import GLMConfig
 from mindformers.models.vit import ViTConfig
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
-from mindformers.models.base_config import BaseConfig
+from mindformers.models.configuration_utils import PretrainedConfig
 from mindformers.mindformer_book import MindFormerBook
 from mindformers.modules.transformer import TransformerOpParallelConfig, TransformerRecomputeConfig
 
@@ -35,7 +35,7 @@ default_parallel_config = TransformerOpParallelConfig(recompute=default_recomput
 
 
 @MindFormerRegister.register(MindFormerModuleType.CONFIG)
-class VisualGLMConfig(BaseConfig):
+class VisualGLMConfig(PretrainedConfig):
     r"""
     Config For BLIP2 Module
 
@@ -77,6 +77,8 @@ class VisualGLMConfig(BaseConfig):
     Returns:
         Class, Blip2Config.
     """
+    model_type = "visualglm"
+
     _support_list = MindFormerBook.get_config_support_list()['blip2']
 
     def __init__(self,
@@ -92,14 +94,18 @@ class VisualGLMConfig(BaseConfig):
                  compute_dtype: str = "float16",
                  layernorm_compute_type: str = "float32",
                  softmax_compute_type: str = "float32",
-                 vision_config: Optional[ViTConfig] = None,
-                 qformer_config: Optional[QFormerConfig] = None,
-                 text_config: Optional[GLMConfig] = None,
+                 vision_config: Optional[ViTConfig] = ViTConfig(),
+                 qformer_config: Union[dict, QFormerConfig] = QFormerConfig(),
+                 text_config: Union[dict, GLMConfig] = GLMConfig(),
                  parallel_config: TransformerOpParallelConfig = default_parallel_config,
                  is_training: bool = True,
                  micro_batch_interleave_num=1,
                  **kwargs):
         super(VisualGLMConfig, self).__init__(**kwargs)
+        if isinstance(qformer_config, dict):
+            qformer_config = QFormerConfig(**qformer_config)
+        if isinstance(text_config, dict):
+            text_config = GLMConfig(**text_config)
         self.model_type = model_type
         self.batch_size = batch_size
         self.freeze_vision = freeze_vision
@@ -117,11 +123,11 @@ class VisualGLMConfig(BaseConfig):
         self.is_training = is_training
         self.micro_batch_interleave_num = micro_batch_interleave_num
 
-        self.vision_config = vision_config if vision_config is not None else ViTConfig()
-        self.qformer_config = QFormerConfig(**qformer_config) if qformer_config is not None else QFormerConfig()
+        self.vision_config = vision_config
+        self.qformer_config = qformer_config
 
         # self.text_config = text_config
-        self.text_config = GLMConfig(**text_config) if text_config is not None else GLMConfig()
+        self.text_config = text_config
 
         # first stage is without text config
         if self.text_config is not None:

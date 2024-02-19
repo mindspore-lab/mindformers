@@ -112,7 +112,7 @@ class AutoConfig:
     If using a model name, the config yaml will be downloaded from obs to ./checkpoint_download dir
 
     Examples:
-        >>> from mindformers.auto_class import AutoConfig
+        >>> from mindformers import AutoConfig
         >>>
         >>> # 1)  instantiates a config by yaml model name
         >>> config_a = AutoConfig.from_pretrained('clip_vit_b_32')
@@ -177,7 +177,7 @@ class AutoConfig:
                 if "pretrained_model_name_or_path" is set, "yaml_name_or_path" is useless.
 
         Returns:
-            A model config, which inherited from BaseConfig.
+            A model config, which inherited from PretrainedConfig.
         """
         pretrained_model_name_or_path = kwargs.pop("pretrained_model_name_or_path", None)
         if pretrained_model_name_or_path is not None:

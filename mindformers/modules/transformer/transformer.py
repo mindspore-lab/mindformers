@@ -429,8 +429,8 @@ class TransformerOpParallelConfig(_Config):
 
     @optimizer_shard.setter
     def optimizer_shard(self, value):
+        self._optimizer_shard = value
         if value:
-            self._optimizer_shard = value
             logger.warning("\"parallel_config.optimizer_shard\" is deprecated from MindFormers r0.7. It will not have "
                            "any effect. Please use \"parallel.enable_parallel_optimizer\" to turn on or off the "
                            "optimizer parallel.")

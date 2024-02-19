@@ -13,26 +13,34 @@
 # limitations under the License.
 # ============================================================================
 """ChatGLM2 config"""
+
+from typing import Union
+
+from mindspore._checkparam import args_type_check
+
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
-from mindformers.modules.transformer.transformer import default_transformer_config
-from ..base_config import BaseConfig
-from ..utils import convert_mstype
-from ...mindformer_book import MindFormerBook
+from mindformers.modules.transformer.transformer import default_transformer_config, TransformerOpParallelConfig
+from mindformers.models.configuration_utils import PretrainedConfig
+from mindformers.models.utils import convert_mstype
+from mindformers.mindformer_book import MindFormerBook
 
 __all__ = ['ChatGLM2Config']
 
 
 @MindFormerRegister.register(MindFormerModuleType.CONFIG)
-class ChatGLM2Config(BaseConfig):
+class ChatGLM2Config(PretrainedConfig):
     """
     ChatGLM2 model config class.
     """
+
+    model_type = "glm2"
     _support_list = MindFormerBook.get_config_support_list()['glm2']
     _support_list.extend(MindFormerBook.get_config_support_list()['glm3'])
     _support_list.extend(MindFormerBook.get_config_support_list()['codegeex2'])
 
+    @args_type_check(parallel_config=(dict, TransformerOpParallelConfig))
     def __init__(self,
-                 batch_size=1,   # only for incremental infer
+                 batch_size=1,  # only for incremental infer
                  num_layers=28,
                  padded_vocab_size=65024,
                  hidden_size=4096,
@@ -66,10 +74,16 @@ class ChatGLM2Config(BaseConfig):
                  use_incre_flash_attention=False,
                  eos_token_id=2,
                  pad_token_id=0,
+                 gmask_token_id=None,
+                 bos_token_id=None,
                  repetition_penalty=1.0,
-                 parallel_config=default_transformer_config,
+                 checkpoint_name_or_path=None,
+                 max_length=None,
+                 parallel_config: Union[dict, TransformerOpParallelConfig] = default_transformer_config,
                  **kwargs):
         super().__init__(**kwargs)
+        if isinstance(parallel_config, dict):
+            parallel_config = TransformerOpParallelConfig(**parallel_config)
         self.batch_size = batch_size
         self.num_layers = num_layers
         self.vocab_size = padded_vocab_size
@@ -107,3 +121,7 @@ class ChatGLM2Config(BaseConfig):
         self.pad_token_id = pad_token_id
         self.repetition_penalty = repetition_penalty
         self.parallel_config = parallel_config
+        self.checkpoint_name_or_path = checkpoint_name_or_path
+        self.max_length = max_length
+        self.gmask_token_id = gmask_token_id
+        self.bos_token_id = bos_token_id

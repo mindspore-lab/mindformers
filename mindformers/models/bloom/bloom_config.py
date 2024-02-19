@@ -14,18 +14,24 @@
 # ============================================================================
 
 """Bloom Config API"""
+
+from typing import Union
+
+from mindspore._checkparam import args_type_check
+
 from mindformers.modules.transformer.moe import MoEConfig
 from mindformers.modules.transformer.transformer import default_transformer_config, default_moe_config, \
     TransformerOpParallelConfig
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.models.utils import convert_mstype
-from mindformers.models.base_config import BaseConfig
+from mindformers.models.configuration_utils import PretrainedConfig
 from mindformers.mindformer_book import MindFormerBook
 
 __all__ = ['BloomConfig']
 
+
 @MindFormerRegister.register(MindFormerModuleType.CONFIG)
-class BloomConfig(BaseConfig):
+class BloomConfig(PretrainedConfig):
     """
     Bloom config class which defines the model size.
 
@@ -100,8 +106,11 @@ class BloomConfig(BaseConfig):
         Class, BloomConfig.
     """
 
+    model_type = "bloom"
     _support_list = MindFormerBook.get_config_support_list()['bloom']
 
+    @args_type_check(parallel_config=(dict, TransformerOpParallelConfig),
+                     moe_config=(dict, MoEConfig))
     def __init__(self,
                  embedding_dropout_prob: float = 0.0,
                  batch_size: int = 1,
@@ -119,9 +128,9 @@ class BloomConfig(BaseConfig):
                  softmax_compute_type: str = "float32",
                  compute_dtype: str = "float16",
                  hidden_act: str = 'gelu',
-                 parallel_config: TransformerOpParallelConfig = default_transformer_config,
+                 parallel_config: Union[dict, TransformerOpParallelConfig] = default_transformer_config,
                  checkpoint_name_or_path: str = "",
-                 moe_config: MoEConfig = default_moe_config,
+                 moe_config: Union[dict, MoEConfig] = default_moe_config,
                  use_seq_parallel: bool = False,
                  use_select_recompute: bool = False,
                  use_past: bool = False,
@@ -138,6 +147,10 @@ class BloomConfig(BaseConfig):
                  use_flash_attention: bool = False,
                  **kwargs):
         super().__init__(**kwargs)
+        if isinstance(parallel_config, dict):
+            parallel_config = TransformerOpParallelConfig(**parallel_config)
+        if isinstance(moe_config, dict):
+            moe_config = MoEConfig(**moe_config)
         self.embedding_dropout_prob = embedding_dropout_prob
         self.batch_size = batch_size
         self.seq_length = seq_length
@@ -172,5 +185,5 @@ class BloomConfig(BaseConfig):
         self.is_sample_acceleration = is_sample_acceleration
         self.use_flash_attention = use_flash_attention
         if self.batch_size is None:
-            self.use_past = False # currently require batch_size = 1
-            self.is_sample_acceleration = False # currently require batch_size = 1
+            self.use_past = False  # currently require batch_size = 1
+            self.is_sample_acceleration = False  # currently require batch_size = 1

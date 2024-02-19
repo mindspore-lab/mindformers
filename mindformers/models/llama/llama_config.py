@@ -14,21 +14,24 @@
 # ============================================================================
 """Llama Config API."""
 
-from typing import Optional
+from typing import Optional, Union
 
-from mindformers.modules.transformer.transformer import default_transformer_config, TransformerOpParallelConfig
+from mindspore._checkparam import args_type_check
+
+from mindformers.modules.transformer.moe import MoEConfig
+from mindformers.modules.transformer.transformer import default_transformer_config, \
+    TransformerOpParallelConfig, default_moe_config
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
-
-from ..base_config import BaseConfig
-from ..utils import convert_mstype
-from ...mindformer_book import MindFormerBook
-from ...tools.logger import logger
+from mindformers.models.configuration_utils import PretrainedConfig
+from mindformers.models.utils import convert_mstype
+from mindformers.mindformer_book import MindFormerBook
+from mindformers.tools.logger import logger
 
 __all__ = ['LlamaConfig']
 
 
 @MindFormerRegister.register(MindFormerModuleType.CONFIG)
-class LlamaConfig(BaseConfig):
+class LlamaConfig(PretrainedConfig):
     """
     LLaMA config class which defines the model size.
 
@@ -100,8 +103,10 @@ class LlamaConfig(BaseConfig):
             Class, LlamaConfig.
     """
 
+    model_type = "llama"
     _support_list = MindFormerBook.get_config_support_list()['llama']
 
+    @args_type_check(parallel_config=(dict, TransformerOpParallelConfig))
     def __init__(self,
                  batch_size: int = 1,
                  seq_length: int = 2048,
@@ -127,7 +132,8 @@ class LlamaConfig(BaseConfig):
                  param_init_type: str = "float16",
                  qkv_has_bias: bool = False,
                  qkv_concat: bool = False,
-                 parallel_config: TransformerOpParallelConfig = default_transformer_config,
+                 parallel_config: Union[dict, TransformerOpParallelConfig] = default_transformer_config,
+                 moe_config: Union[dict, MoEConfig] = default_moe_config,
                  use_past: bool = False,
                  pretrain_seqlen=None,
                  compute_in_2d=None,
@@ -152,6 +158,10 @@ class LlamaConfig(BaseConfig):
                  do_sample: bool = True,
                  **kwargs):
         super(LlamaConfig, self).__init__(**kwargs)
+        if isinstance(parallel_config, dict):
+            parallel_config = TransformerOpParallelConfig(**parallel_config)
+        if isinstance(moe_config, dict):
+            moe_config = MoEConfig(**moe_config)
         self.batch_size = batch_size
         self.seq_length = seq_length
         self.vocab_size = vocab_size
@@ -172,6 +182,7 @@ class LlamaConfig(BaseConfig):
         self.rotary_dtype = convert_mstype(rotary_dtype)
         self.compute_dtype = convert_mstype(compute_dtype)
         self.parallel_config = parallel_config
+        self.moe_config = moe_config
         self.checkpoint_name_or_path = checkpoint_name_or_path
         self.bos_token_id = bos_token_id
         self.eos_token_id = eos_token_id

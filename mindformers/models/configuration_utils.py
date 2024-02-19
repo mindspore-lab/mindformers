@@ -37,6 +37,7 @@ from mindformers.mindformer_book import MindFormerBook, print_path_or_list
 from mindformers.tools import (
     logger,
     PushToHubMixin,
+    DictConfig,
     custom_object_save,
     add_model_info_to_auto_map,
     cached_file,
@@ -46,6 +47,8 @@ from mindformers.tools import (
 )
 
 _re_configuration_file = re.compile(r"config\.(.*)\.json")
+
+IGNORE_KEYS = ["_name_or_path"]
 
 
 def get_configuration_file(configuration_files: List[str]) -> str:
@@ -114,7 +117,7 @@ class PretrainedConfig(PushToHubMixin):
     - **model_type** (`str`) -- An identifier for the model type, serialized into the JSON file, and used to recreate
       the correct object in [`~xxxxxxx.AutoConfig`].
     - **is_composition** (`bool`) -- Whether the config class is composed of multiple sub-configs. In this case the
-      config has to be initialized from two or more configs of type [`~xxxxxxx.BaseConfig`] like:
+      config has to be initialized from two or more configs of type [`~xxxxxxx.PretrainedConfig`] like:
       [`~xxxxxxx.EncoderDecoderConfig`] or [`~RagConfig`].
     - **attribute_map** (`Dict[str, str]`) -- A dict that maps model specific attribute names to the standardized
       naming of attributes.
@@ -143,46 +146,21 @@ class PretrainedConfig(PushToHubMixin):
             key = super().__getattribute__("attribute_map")[key]
         return super().__getattribute__(key)
 
-    def __getattr__(self, key):
-        if key not in self.__dict__:
-            return None
-        return self.__dict__[key]
-
     def __init__(self, **kwargs):
-        # to do
         self._name_or_path = str(kwargs.pop("name_or_path", ""))
         self._commit_hash = kwargs.pop("_commit_hash", None)
+
+        self.checkpoint_name_or_path = kwargs.pop("checkpoint_name_or_path", None)
 
         # version info
         self.mindformers_version = kwargs.pop("mindformers_version", None)
         self.tokenizer_class = kwargs.pop("tokenizer_class", None)
 
         # general config
-        self.batch_size = kwargs.pop("batch_size", 1)
         self.is_encoder_decoder = kwargs.pop("is_encoder_decoder", None)
 
         # generation config
-        # max generate length
-        self.max_length = kwargs.pop("max_length", 20)
-        self.max_new_tokens = kwargs.pop("max_new_tokens", None)
-        # number of beams
-        self.num_beams = kwargs.pop("num_beams", 1)
-        # do sample or not
-        self.do_sample = kwargs.pop("do_sample", False)
-        # incremental infer
-        self.use_past = kwargs.pop("use_past", False)
-        self.is_sample_acceleration = kwargs.pop("is_sample_acceleration", False)
-        # logits processors
-        self.temperature = kwargs.pop("temperature", 1.0)
-        self.top_k = kwargs.pop("top_k", 50)
-        self.top_p = kwargs.pop("top_p", 1.0)
-        self.repetition_penalty = kwargs.pop("repetition_penalty", 1.0)
-        self.encoder_repetition_penalty = kwargs.pop("encoder_repetition_penalty", 1.0)
-        self.renormalize_logits = kwargs.pop("renormalize_logits", False)
-        # Special tokens that can be used at generation time
-        self.pad_token_id = kwargs.pop("pad_token_id", None)
-        self.bos_token_id = kwargs.pop("bos_token_id", None)
-        self.eos_token_id = kwargs.pop("eos_token_id", None)
+        self.is_sample_acceleration = kwargs.pop("is_sample_acceleration", None)
 
         for key, value in kwargs.items():
             try:
@@ -227,6 +205,8 @@ class PretrainedConfig(PushToHubMixin):
             if isinstance(value, PretrainedConfig):
                 value = value.to_dict()
                 del value["mindformers_version"]
+            if isinstance(value, DictConfig):
+                value = value.to_dict()
 
             output[key] = value
 
@@ -248,7 +228,7 @@ class PretrainedConfig(PushToHubMixin):
                 if "pretrained_model_name_or_path" is set, "yaml_name_or_path" is useless.
 
         Returns:
-            A model config, which inherited from BaseConfig.
+            A model config, which inherited from PretrainedConfig.
         """
         pretrained_model_name_or_path = kwargs.pop("pretrained_model_name_or_path", None)
         cache_dir = kwargs.pop("cache_dir", None)
@@ -503,7 +483,7 @@ class PretrainedConfig(PushToHubMixin):
         for key, val in self.__dict__.items():
             if isinstance(val, PretrainedConfig):
                 val = val.inverse_parse_config()
-            elif not isinstance(val, (str, int, float, bool)):
+            elif not isinstance(val, (str, int, float, bool, DictConfig)) or key in IGNORE_KEYS:
                 removed_list.append((key, val))
                 continue
             self.__dict__.update({key: val})
@@ -517,7 +497,7 @@ class PretrainedConfig(PushToHubMixin):
         Wrap config function, which wraps a config to rebuild content of yaml file.
 
         Args:
-            config (BaseConfig): a config processed by _inverse_parse_config function.
+            config (PretrainedConfig): a config processed by _inverse_parse_config function.
 
         Returns:
             A (config) dict for yaml.dump.
@@ -545,7 +525,7 @@ class PretrainedConfig(PushToHubMixin):
     ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         """
         From a `pretrained_model_name_or_path`, resolve to a dictionary of parameters, to be used for instantiating a
-        [`BaseConfig`] using `from_dict`.
+        [`PretrainedConfig`] using `from_dict`.
 
         Parameters:
             pretrained_model_name_or_path (`str` or `os.PathLike`):
@@ -662,19 +642,19 @@ class PretrainedConfig(PushToHubMixin):
         return config_dict, kwargs
 
     @classmethod
-    def from_dict(cls, config_dict: Dict[str, Any], **kwargs) -> "BaseConfig":
+    def from_dict(cls, config_dict: Dict[str, Any], **kwargs) -> "PretrainedConfig":
         """
-        Instantiates a [`BaseConfig`] from a Python dictionary of parameters.
+        Instantiates a [`PretrainedConfig`] from a Python dictionary of parameters.
 
         Args:
             config_dict (`Dict[str, Any]`):
                 Dictionary that will be used to instantiate the configuration object. Such a dictionary can be
-                retrieved from a pretrained checkpoint by leveraging the [`~BaseConfig.get_config_dict`] method.
+                retrieved from a pretrained checkpoint by leveraging the [`~PretrainedConfig.get_config_dict`] method.
             kwargs (`Dict[str, Any]`):
                 Additional parameters from which to initialize the configuration object.
 
         Returns:
-            [`BaseConfig`]: The configuration object instantiated from those parameters.
+            [`PretrainedConfig`]: The configuration object instantiated from those parameters.
         """
         return_unused_kwargs = kwargs.pop("return_unused_kwargs", False)
         # Those arguments may be passed along for our internal telemetry.
@@ -706,16 +686,16 @@ class PretrainedConfig(PushToHubMixin):
         return config
 
     @classmethod
-    def from_json_file(cls, json_file: Union[str, os.PathLike]) -> "BaseConfig":
+    def from_json_file(cls, json_file: Union[str, os.PathLike]) -> "PretrainedConfig":
         """
-        Instantiates a [`BaseConfig`] from the path to a JSON file of parameters.
+        Instantiates a [`PretrainedConfig`] from the path to a JSON file of parameters.
 
         Args:
             json_file (`str` or `os.PathLike`):
                 Path to the JSON file containing the parameters.
 
         Returns:
-            [`BaseConfig`]: The configuration object instantiated from that JSON file.
+            [`PretrainedConfig`]: The configuration object instantiated from that JSON file.
 
         """
         config_dict = cls._dict_from_json_file(json_file)
@@ -741,7 +721,7 @@ class PretrainedConfig(PushToHubMixin):
             json_file_path (`str` or `os.PathLike`):
                 Path to the JSON file in which this configuration instance's parameters will be saved.
             use_diff (`bool`, *optional*, defaults to `True`):
-                If set to `True`, only the difference between the config instance and the default `BaseConfig()`
+                If set to `True`, only the difference between the config instance and the default `PretrainedConfig()`
                 is serialized to JSON file.
         """
         with open(json_file_path, "w", encoding="utf-8") as writer:
@@ -753,7 +733,7 @@ class PretrainedConfig(PushToHubMixin):
 
         Args:
             use_diff (`bool`, *optional*, defaults to `True`):
-                If set to `True`, only the difference between the config instance and the default `BaseConfig()`
+                If set to `True`, only the difference between the config instance and the default `PretrainedConfig()`
                 is serialized to JSON string.
 
         Returns:
