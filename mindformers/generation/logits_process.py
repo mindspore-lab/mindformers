@@ -15,12 +15,15 @@
 """Logits Processor for generation."""
 import inspect
 from threading import Thread
+from typing import Union, List
 import numpy as np
 
 from .utils import log_softmax, softmax, topk
+from ..tools import logger
 
 __all__ = ["LogitsProcessor", "LogitsWarper", "LogitsProcessorList", "RepetitionPenaltyLogitsProcessor",
-           "LogitNormalization", "TemperatureLogitsWarper", "TopKLogitsWarper", "TopPLogitsWarper"]
+           "LogitNormalization", "TemperatureLogitsWarper", "TopKLogitsWarper", "TopPLogitsWarper",
+           "MinLengthLogitsProcessor", "MinNewTokensLengthLogitsProcessor"]
 
 
 class LogitsProcessor:
@@ -233,4 +236,102 @@ class LogitNormalization(LogitsProcessor, LogitsWarper):
 
     def __call__(self, input_ids, scores):
         scores = log_softmax(scores, axis=-1)
+        return scores
+
+
+class MinLengthLogitsProcessor(LogitsProcessor):
+    r"""
+    [`LogitsProcessor`] enforcing a min-length by setting EOS probability to 0.
+
+    Args:
+        min_length (`int`):
+            The minimum length below which the score of `eos_token_id` is set to `-float("Inf")`.
+        eos_token_id (`Union[int, List[int]]`):
+            The id of the *end-of-sequence* token. Optionally, use a list to set multiple *end-of-sequence* tokens.
+    """
+
+    def __init__(self, min_length: int, eos_token_id: Union[int, List[int]], pad_token_id: int):
+        min_length = int(min_length)
+        if min_length < 0:
+            raise ValueError(f"`min_length` has to be a non-negative integer, but is {min_length}")
+
+        if isinstance(eos_token_id, int):
+            eos_token_id = [eos_token_id]
+        if not all(isinstance(i, int) for i in eos_token_id) or any(i < 0 for i in eos_token_id):
+            logger.warning(f"`eos_token_id` has to be a list of positive integers, but is {eos_token_id}")
+
+        self.min_length = min_length
+        self.eos_token_id = eos_token_id
+        self.pad_token_id = pad_token_id
+
+    def __call__(self, input_ids, scores):
+        batch_size = input_ids.shape[0]
+
+        valid_length_each_example = []
+        for i in range(batch_size):
+            valid_length_each_example.append(
+                np.max(np.argwhere(input_ids[i] != self.pad_token_id))
+                + 1
+            )
+        valid_length_each_example = np.array(valid_length_each_example)
+
+        cur_len = np.max(valid_length_each_example)
+        if cur_len < self.min_length:
+            for i in self.eos_token_id:
+                scores[:, i] = -float("inf")
+        return scores
+
+
+class MinNewTokensLengthLogitsProcessor(LogitsProcessor):
+    r"""
+    [`LogitsProcessor`] enforcing a min-length of new tokens by setting EOS (End-Of-Sequence) token probability to 0.
+    Note that for decoder-only models, such as Llama2, `min_length` will compute the length of `prompt + newly
+    generated tokens` whereas for other models it will behave as `min_new_tokens`, that is, taking only into account
+    the newly generated ones.
+
+    Args:
+        prompt_length_to_skip (`int`):
+            The input tokens length. Not a valid argument when used with `generate` as it will automatically assign the
+            input length.
+        min_new_tokens (`int`):
+            The minimum *new* tokens length below which the score of `eos_token_id` is set to `-float("Inf")`.
+        eos_token_id (`Union[int, List[int]]`):
+            The id of the *end-of-sequence* token. Optionally, use a list to set multiple *end-of-sequence* tokens.
+    """
+
+    def __init__(self, prompt_length_to_skip: int, min_new_tokens: int, eos_token_id: Union[int, List[int]],
+                 pad_token_id: int):
+        for arg_name, arg_value in \
+                [("prompt_length_to_skip", prompt_length_to_skip), ("min_new_tokens", min_new_tokens)]:
+            arg_value = int(arg_value)
+            if arg_value < 0:
+                raise ValueError(f"`{arg_name}` has to be a positive integer, but is {arg_value}")
+
+            if isinstance(eos_token_id, int):
+                eos_token_id = [eos_token_id]
+            if not all(isinstance(i, int) for i in eos_token_id) or any(i < 0 for i in eos_token_id):
+                logger.warning(f"`eos_token_id` has to be a list of positive integers, but is {eos_token_id}")
+
+            self.prompt_length_to_skip = prompt_length_to_skip
+            self.min_new_tokens = min_new_tokens
+            self.eos_token_id = eos_token_id
+            self.pad_token_id = pad_token_id
+
+    def __call__(self, input_ids, scores):
+        batch_size = input_ids.shape[0]
+
+        valid_length_each_example = []
+        for i in range(batch_size):
+            valid_length_each_example.append(
+                np.max(np.argwhere(input_ids[i] != self.pad_token_id))
+                + 1
+            )
+        valid_length_each_example = np.array(valid_length_each_example)
+
+        cur_len = np.max(valid_length_each_example)
+        new_tokens_length = cur_len - self.prompt_length_to_skip
+        if new_tokens_length < self.min_new_tokens:
+            for i in self.eos_token_id:
+                scores[:, i] = -float("inf")
+
         return scores
