@@ -17,10 +17,12 @@
 """Auto Config class"""
 
 import os
+import re
 import shutil
 import warnings
 import importlib
 from collections import OrderedDict
+from typing import List, Union
 
 from mindformers.models.utils import CONFIG_NAME
 from mindformers.mindformer_book import print_dict, MindFormerBook
@@ -29,6 +31,56 @@ from mindformers.models.configuration_utils import PretrainedConfig
 from mindformers.tools import logger, resolve_trust_remote_code, get_class_from_dynamic_module
 from mindformers.tools.generic import experimental_mode_func_checker, is_experimental_mode
 from mindformers.tools.register import MindFormerConfig
+
+CONFIG_MAPPING_NAMES = OrderedDict(
+    [
+        ("bert", "BertConfig"),
+        ("blip2", "Blip2Config"),
+        ("bloom", "BloomConfig"),
+        ("clip", "CLIPConfig"),
+        ("glm", "GLMConfig"),
+        ("glm2", "ChatGLM2Config"),
+        ("gpt2", "GPT2Config"),
+        ("llama", "LlamaConfig"),
+        ("mae", "ViTMAEConfig"),
+        ("pangualpha", "PanguAlphaConfig"),
+        ("sam", "SAMConfig"),
+        ("swin", "SwinConfig"),
+        ("t5", "T5Config"),
+        ("vit", "ViTConfig")
+    ]
+)
+
+MODEL_NAMES_MAPPING = OrderedDict(
+    [
+        ("bert", "BertModel"),
+        ("blip2", "Blip2Llm"),
+        ("bloom", "BloomModel"),
+        ("clip", "CLIPModel"),
+        ("glm", "GLMChatModel"),
+        ("glm2", "ChatGLM2Model"),
+        ("gpt2", "GPT2Model"),
+        ("llama", "LlamaModel"),
+        ("mae", "ViTMAEModel"),
+        ("pangualpha", "PanguAlphaModel"),
+        ("sam", "Sam"),
+        ("swin", "SwinModel"),
+        ("t5", "T5ForConditionalGeneration"),
+        ("vit", "ViTModel")
+    ]
+)
+
+
+def config_class_to_model_type(config):
+    """Converts a config class name to the corresponding model type"""
+    for key, cls in CONFIG_MAPPING_NAMES.items():
+        if cls == config:
+            return key
+    # if key not found check in extra content
+    for key, cls in CONFIG_MAPPING._extra_content.items():  # pylint: disable=W0212
+        if cls.__name__ == config:
+            return key
+    return None
 
 
 class _LazyConfigMapping(OrderedDict):
@@ -83,38 +135,72 @@ class _LazyConfigMapping(OrderedDict):
         self._extra_content[key] = value
 
 
-CONFIG_MAPPING_NAMES = OrderedDict(
-    [
-        ("bert", "BertConfig"),
-        ("blip2", "Blip2Config"),
-        ("bloom", "BloomConfig"),
-        ("clip", "CLIPConfig"),
-        ("glm", "GLMConfig"),
-        ("glm2", "ChatGLM2Config"),
-        ("gpt2", "GPT2Config"),
-        ("llama", "LlamaConfig"),
-        ("mae", "ViTMAEConfig"),
-        ("pangualpha", "PanguAlphaConfig"),
-        ("sam", "SAMConfig"),
-        ("swin", "SwinConfig"),
-        ("t5", "T5Config"),
-        ("vit", "ViTConfig")
-    ]
-)
-
 CONFIG_MAPPING = _LazyConfigMapping(CONFIG_MAPPING_NAMES)
 
 
-def config_class_to_model_type(config):
-    """Converts a config class name to the corresponding model type"""
-    for key, cls in CONFIG_MAPPING_NAMES.items():
-        if cls == config:
-            return key
-    # if key not found check in extra content
-    for key, cls in CONFIG_MAPPING._extra_content.items():  # pylint: disable=W0212
-        if cls.__name__ == config:
-            return key
-    return None
+def _get_class_name(model_class: Union[str, List[str]]):
+    if isinstance(model_class, (list, tuple)):
+        return " or ".join([f"[`{c}`]" for c in model_class if c is not None])
+    return f"[`{model_class}`]"
+
+
+def _list_model_options(indent, config_to_class=None, use_model_types=True):
+    """doc"""
+    if config_to_class is None and not use_model_types:
+        raise ValueError("Using `use_model_types=False` requires a `config_to_class` dictionary.")
+    if use_model_types:
+        if config_to_class is None:
+            model_type_to_name = {model_type: f"[`{config}`]" for model_type, config in CONFIG_MAPPING_NAMES.items()}
+        else:
+            model_type_to_name = {
+                model_type: _get_class_name(model_class)
+                for model_type, model_class in config_to_class.items()
+                if model_type in MODEL_NAMES_MAPPING
+            }
+        lines = [
+            f"{indent}- **{model_type}** -- {model_type_to_name[model_type]} ({MODEL_NAMES_MAPPING[model_type]} model)"
+            for model_type in sorted(model_type_to_name.keys())
+        ]
+    else:
+        config_to_name = {
+            CONFIG_MAPPING_NAMES[config]: _get_class_name(clas)
+            for config, clas in config_to_class.items()
+            if config in CONFIG_MAPPING_NAMES
+        }
+        config_to_model_name = {
+            config: MODEL_NAMES_MAPPING[model_type] for model_type, config in CONFIG_MAPPING_NAMES.items()
+        }
+        lines = [
+            f"{indent}- [`{config_name}`] configuration class:"
+            f" {config_to_name[config_name]} ({config_to_model_name[config_name]} model)"
+            for config_name in sorted(config_to_name.keys())
+        ]
+    return "\n".join(lines)
+
+
+def replace_list_option_in_docstrings(config_to_class=None, use_model_types=True):
+    """doc"""
+    def docstring_decorator(fn):
+        docstrings = fn.__doc__
+        lines = docstrings.split("\n")
+        i = 0
+        while i < len(lines) and re.search(r"^(\s*)List options\s*$", lines[i]) is None:
+            i += 1
+        if i < len(lines):
+            indent = re.search(r"^(\s*)List options\s*$", lines[i]).groups()[0]
+            if use_model_types:
+                indent = f"{indent}    "
+            lines[i] = _list_model_options(indent, config_to_class=config_to_class, use_model_types=use_model_types)
+            docstrings = "\n".join(lines)
+        else:
+            raise ValueError(
+                f"The function {fn} should have an empty 'List options' in its docstring as placeholder, current"
+                f" docstring is:\n{docstrings}"
+            )
+        fn.__doc__ = docstrings
+        return fn
+
+    return docstring_decorator
 
 
 class AutoConfig:
