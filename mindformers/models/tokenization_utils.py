@@ -1040,6 +1040,9 @@ class PreTrainedTokenizer(PreTrainedTokenizerBase):
         if isinstance(ids, int):
             if ids in self._added_tokens_decoder:
                 return self._added_tokens_decoder[ids].content
+            if ids >= self.vocab_size:
+                raise IndexError(f"The token id {ids} is out of the size of vocabulary, please check your tokenizer "
+                                 f"and corresponding vocabulary files.")
             return self._convert_id_to_token(ids)
         tokens = []
         for index in ids:
@@ -1049,6 +1052,10 @@ class PreTrainedTokenizer(PreTrainedTokenizerBase):
             if index in self._added_tokens_decoder:
                 tokens.append(self._added_tokens_decoder[index].content)
             else:
+                if index >= self.vocab_size:
+                    raise IndexError(
+                        f"The token id {index} is out of the size of vocabulary, please check your tokenizer "
+                        f"and corresponding vocabulary files.")
                 tokens.append(self._convert_id_to_token(index))
         return tokens
 

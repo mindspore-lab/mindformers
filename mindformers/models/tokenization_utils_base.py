@@ -3265,6 +3265,9 @@ class PreTrainedTokenizerBase(SpecialTokensMixin):
         Returns:
             `List[str]`: The list of decoded sentences.
         """
+        # Convert inputs to python lists
+        sequences = to_py_obj(sequences)
+
         return [
             self.decode(
                 seq,
@@ -3272,7 +3275,7 @@ class PreTrainedTokenizerBase(SpecialTokensMixin):
                 clean_up_tokenization_spaces=clean_up_tokenization_spaces,
                 **kwargs,
             )
-            for seq in sequences
+            if seq else "" for seq in sequences
         ]
 
     def decode(
