@@ -28,42 +28,6 @@ from ..tools import logger
 from ..tools.register import MindFormerConfig
 
 
-class BaseImageProcessor:
-    """
-    BaseImageProcessor for all image preprocess.
-
-    Examples:
-        >>> from mindspore.dataset.vision.transforms import CenterCrop
-        >>> from mindformers.models.base_processor import BaseImageProcessor
-        >>> image_resolution = 224
-        >>> class MyImageProcessor(BaseImageProcessor):
-        ...     def __init__(self, image_resolution):
-        ...         super(MyImageProcessor, self).__init__(image_resolution=image_resolution)
-        ...         self.center_crop = CenterCrop(image_resolution)
-        ...
-        ...     def preprocess(self, images, **kwargs):
-        ...         res = []
-        ...         for image in images:
-        ...             image = self.center_crop(image)
-        ...             res.append(image)
-        ...         return res
-        ...
-        >>> my_image_processor = MyImageProcessor(image_resolution)
-        >>> output = my_image_processor(image)
-    """
-    def __init__(self, **kwargs):
-        self.config = {}
-        self.config.update(kwargs)
-
-    def __call__(self, image_data, **kwargs):
-        """forward process"""
-        return self.preprocess(image_data, **kwargs)
-
-    def preprocess(self, images, **kwargs):
-        """preprocess method"""
-        raise NotImplementedError("Each image processor must implement its own preprocess method")
-
-
 class BaseAudioProcessor:
     """
     BaseAudioProcessor for all audio preprocess.

@@ -27,7 +27,7 @@ from mindformers.dataset import (
     BatchNormalize, BatchCenterCrop, BatchPILize
 )
 from mindformers.mindformer_book import MindFormerBook
-from ..base_processor import BaseImageProcessor
+from mindformers.models.image_processing_utils import BaseImageProcessor
 from ..base_processor import BaseProcessor
 from ...tools.register import MindFormerRegister, MindFormerModuleType
 
@@ -46,15 +46,9 @@ class CLIPImageProcessor(BaseImageProcessor):
         >>> type(processor)
         <class 'mindformers.models.clip.clip_processor.CLIPImageProcessor'>
     """
-    def __init__(self, image_resolution: Optional[int] = 224):
-        super(CLIPImageProcessor, self).__init__(
-            image_resolution=image_resolution)
-        self.bchw2bhwc = BCHW2BHWC()
-        self.batch_pilizer = BatchPILize()
-        self.batch_resizer = BatchResize(image_resolution)
-        self.batch_crop = BatchCenterCrop(image_resolution)
-        self.batch_totensor = BatchToTensor()
-        self.batch_normalizer = BatchNormalize()
+    def __init__(self, image_resolution: Optional[int] = 224, **kwargs):
+        super().__init__(**kwargs)
+        self.image_resolution = image_resolution
 
     def preprocess(self, images: Union[ms.Tensor, PIL.Image.Image,
                                        np.ndarray, List[PIL.Image.Image]], **kwargs):
@@ -67,13 +61,20 @@ class CLIPImageProcessor(BaseImageProcessor):
         Return:
             A 4-rank tensor for a batch of images.
         """
+        bchw2bhwc = BCHW2BHWC()
+        batch_pilizer = BatchPILize()
+        batch_resizer = BatchResize(self.image_resolution)
+        batch_crop = BatchCenterCrop(self.image_resolution)
+        batch_totensor = BatchToTensor()
+        batch_normalizer = BatchNormalize()
+
         if not self._bhwc_check(images):
-            images = self.bchw2bhwc(images)
-        images = self.batch_pilizer(images)
-        images = self.batch_resizer(images)
-        images = self.batch_crop(images)
-        images = self.batch_totensor(images)
-        images = self.batch_normalizer(images)
+            images = bchw2bhwc(images)
+        images = batch_pilizer(images)
+        images = batch_resizer(images)
+        images = batch_crop(images)
+        images = batch_totensor(images)
+        images = batch_normalizer(images)
 
         kwargs.pop("other", None)
         if isinstance(images, list):

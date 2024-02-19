@@ -1,2 +1,4 @@
 "mindformers/mindformers/inference/infers/text_generator_infer.py"                                                            "bad-indentation"
 "mindformers/mindformers/inference/infers/text_generator_infer.py"                                                            "trailing-whitespace"
+"mindformers/tests/ut/models/auto/test_auto_image_processor.py"                                                               "wrong-import-position"
+"mindformers/tests/ut/models/test_image_processor.py"                                                                         "wrong-import-position"

@@ -23,12 +23,12 @@ import importlib
 from collections import OrderedDict
 
 from mindformers.models.utils import CONFIG_NAME
-from mindformers.mindformer_book import print_dict
-from mindformers import MindFormerBook, MindFormerConfig
+from mindformers.mindformer_book import print_dict, MindFormerBook
 from mindformers.models.build_config import build_model_config
 from mindformers.models.configuration_utils import PretrainedConfig
 from mindformers.tools import logger, resolve_trust_remote_code, get_class_from_dynamic_module
 from mindformers.tools.generic import experimental_mode_func_checker, is_experimental_mode
+from mindformers.tools.register import MindFormerConfig
 
 
 class _LazyConfigMapping(OrderedDict):

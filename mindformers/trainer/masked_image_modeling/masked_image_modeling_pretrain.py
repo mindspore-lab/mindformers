@@ -29,7 +29,7 @@ from mindformers.tools.register import MindFormerRegister, \
 from mindformers.trainer.config_args import ConfigArguments
 from mindformers.trainer.training_args import TrainingArguments
 from mindformers.trainer.base_trainer import BaseTrainer
-from mindformers.models.base_processor import BaseImageProcessor
+from mindformers.models.image_processing_utils import BaseImageProcessor
 from mindformers.tools.logger import logger
 from mindformers.tools.image_tools import load_image
 
