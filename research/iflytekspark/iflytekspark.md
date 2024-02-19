@@ -293,19 +293,19 @@ pad_id: SFT数据集用于padding到指定句长的padding token id，默认值�
 
 本仓提供支持MindSpore框架的预训练权重、微调权重和词表文件用于训练/微调/推理。
 
-预训练权重：
+**预训练权重**
 
 - [iFlytekSpark_13b_base_fp32](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/iflytekspark/iflytekspark_13b_base_fp32.ckpt)
 - [iFlytekSpark_13b_base_bf16](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/iflytekspark/iflytekspark_13b_base_bf16.ckpt)
 - [iFlytekSpark_13b_base_fp16](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/iflytekspark/iflytekspark_13b_base_fp16.ckpt)
 
-微调权重：
+**微调权重**
 
 - [iFlytekSpark_13b_chat_fp32](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/iflytekspark/iflytekspark_13b_chat_fp32.ckpt)
 - [iFlytekSpark_13b_chat_bf16](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/iflytekspark/iflytekspark_13b_chat_bf16.ckpt)
 - [iFlytekSpark_13b_chat_fp16](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/iflytekspark/iflytekspark_13b_chat_fp16.ckpt)
 
-Tokenizer：
+**Tokenizer：**
 
 - [tokenizer.model](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/iflytekspark/tokenizer.model)
 - [tokenizer.vocab](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/iflytekspark/tokenizer.vocab)
@@ -802,7 +802,7 @@ parallel_config:
 
 如在Atlas 800上，单卡的显存不足以执行推理任务时，可修改`model_parallel`的并行策略以启动分布式推理。如上例中`model_parallel`的值修改为了2，则代表预计使用2卡进行分布式推理。当前Atlas 800的yaml文件中均默认使用2卡的模型并行。
 
-**注：在线推理目前不支持`bfloat16`类型**
+**注：在线推理目前不支持`bfloat16`类型，权重请使用SFT权重，即微调权重。**
 
 **启动脚本**
 
