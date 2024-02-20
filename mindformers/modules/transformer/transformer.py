@@ -154,6 +154,29 @@ class EmbeddingOpParallelConfig(_Config):
     def dp_mp_config(self):
         return self._dp_mp_config
 
+    def __eq__(self, other) -> bool:
+        return isinstance(other, EmbeddingOpParallelConfig) and (self.to_dict() == other.to_dict())
+
+    def to_diff_dict(self):
+        config_dict = self.to_dict()
+        default_dict = EmbeddingOpParallelConfig().to_dict()
+        res_dict = {}
+        for k, v in config_dict.items():
+            if v != default_dict[k]:
+                res_dict[k] = v
+        return res_dict
+
+    def to_dict(self):
+        """to dict"""
+        config_dict = {
+            'data_parallel': self.data_parallel,
+            'model_parallel': self.model_parallel,
+            'select_recompute': self.select_recompute,
+            'use_seq_parallel': self.use_seq_parallel,
+            'vocab_emb_dp': self.vocab_emb_dp
+        }
+        return config_dict
+
 
 class TransformerRecomputeConfig(_Config):
     r"""
