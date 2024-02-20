@@ -56,8 +56,8 @@ class DynShapeGear:
             val_seq = list(filter(lambda k: k >= input_seq_length, self.config_gears[key_bs]))
             if val_seq:
                 return key_bs, val_seq[0]
-        err_msg = (f"Match gear failed, input seq length({input_batch_size}) out of range, " \
-                   f"please check seq length or lite_inc.ini.")
+        err_msg = (f"Match gear failed, input seq length({input_seq_length}) out of range, " \
+                   f"please check seq length or lite config.")
         logger.error(err_msg)
         raise RuntimeError(err_msg)
 
