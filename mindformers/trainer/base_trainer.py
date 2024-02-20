@@ -38,7 +38,7 @@ from mindspore.common import initializer as init
 
 from mindformers.mindformer_book import MindFormerBook
 from mindformers.core import build_lr, build_optim, build_callback, build_metric
-from mindformers.core.callback.callback import EvalCallBack
+from mindformers.core.callback.callback import EvalCallBack, CheckpointMointor
 from mindformers.core.parallel_config import build_parallel_config
 from mindformers.dataset import build_dataset, check_dataset_config, BaseDataset
 from mindformers.models import build_model, build_processor, build_tokenizer, \
@@ -506,6 +506,14 @@ class BaseTrainer:
         self.callbacks.extend(build_callback(self.config.callbacks, default_args=default_args))
         return self.callbacks
 
+    def check_callback(self, callbacks):
+        """ Check callback. """
+        for callback in callbacks:
+            if isinstance(callback, CheckpointMointor):
+                callback.initial_step = self.config.runner_config.initial_step
+                callback.initial_epoch = self.config.runner_config.initial_epoch
+                callback.steps_per_epoch = self.config.data_size
+
     def create_eval_callbacks(self, default_args: dict = None):
         """Create the eval callback list for training."""
         logger.info(".........Build Callbacks for Evaluate From Config..........")
@@ -608,24 +616,24 @@ class BaseTrainer:
         is_full_config = kwargs.get("is_full_config", False)
         config = self.set_config(config, is_full_config)
 
+        # build dataset
+        logger.info(".........Build Dataset For Train..........")
+        if dataset is None:
+            dataset = self.create_train_dataset()
+        config.data_size = dataset.get_dataset_size()
+
         if config.resume_training and config.load_checkpoint:
             logger.info(".............Start load resume context from checkpoint..................")
             load_resume_context_from_checkpoint(config)
             logger.info("initial epoch: %d", config.runner_config.initial_epoch)
             logger.info("initial step: %d", config.runner_config.initial_step)
+            dataset.set_init_step(config.runner_config.initial_step)
         else:
             config.runner_config.initial_epoch = 0
             config.runner_config.initial_step = 0
 
-        # build dataset
-        logger.info(".........Build Dataset For Train..........")
-        if dataset is None:
-            dataset = self.create_train_dataset()
-        if config.runner_config.initial_step:
-            dataset.set_init_step(config.runner_config.initial_step)
-
         self.set_train_dataset(dataset)
-        check_runner_config(config, dataset)
+        check_runner_config(config)
 
         # check rules
         check_rules(config, mode='train', network=network, dataset=dataset)
@@ -726,6 +734,7 @@ class BaseTrainer:
                 epoch_interval=config.eval_epoch_interval if config.eval_epoch_interval else -1,
             )
             callbacks.append(eval_callback)
+        self.check_callback(callbacks)
 
         logger.info(".........Starting Training Model..........")
         if get_real_rank() % 8 == 0:
