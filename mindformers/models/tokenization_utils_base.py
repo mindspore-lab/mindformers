@@ -22,7 +22,6 @@ import re
 import json
 import warnings
 import shutil
-import sys
 from enum import Enum
 from dataclasses import dataclass
 from typing import Any, Dict, List, NamedTuple, Optional, Sequence, Tuple, Union
@@ -35,6 +34,7 @@ import yaml
 import numpy as np
 import mindspore as ms
 from ..tools import logger, add_model_info_to_auto_map
+from ..utils.import_utils import is_tokenizers_available
 from ..tools.register import MindFormerConfig
 from .build_tokenizer import build_tokenizer
 from ..tools.download_tools import download_with_progress_bar
@@ -100,20 +100,6 @@ def to_py_obj(obj):
     if isinstance(obj, (np.ndarray, np.number)):  # tolist also works on 0d np arrays
         return obj.tolist()
     return obj
-
-
-def _is_package_available(pkg_name: str) -> bool:
-    """_is_package_available"""
-    # Check we're not importing a "pkg_name" directory somewhere but the actual library by trying to grab the version
-    return pkg_name in sys.modules
-
-
-def is_tokenizers_available():
-    return _is_package_available("tokenizers")
-
-
-def is_sentencepiece_available():
-    return _is_package_available("sentencepiece")
 
 
 def is_experimental_mode(path):
