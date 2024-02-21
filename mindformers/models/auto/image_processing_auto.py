@@ -28,7 +28,7 @@ from mindformers.tools import logger
 from mindformers.models.configuration_utils import PretrainedConfig
 from mindformers.models.image_processing_utils import ImageProcessingMixin
 from mindformers.models.auto.auto_factory import _LazyAutoMapping
-from mindformers.models.auto import CONFIG_MAPPING_NAMES, AutoConfig
+from .configuration_auto import CONFIG_MAPPING_NAMES, AutoConfig
 
 
 IMAGE_PROCESSOR_MAPPING_NAMES = OrderedDict(

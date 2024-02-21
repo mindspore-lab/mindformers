@@ -24,7 +24,8 @@ from mindspore.dataset.vision.transforms import ToTensor, Normalize
 from mindformers.mindformer_book import MindFormerBook
 from mindformers.dataset import Resize
 from mindformers.dataset.base_dataset import BaseDataset
-from mindformers.models.base_processor import BaseProcessor, BaseImageProcessor
+from mindformers.models.image_processing_utils import BaseImageProcessor
+from mindformers.models.base_processor import BaseProcessor
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 
 
@@ -41,11 +42,24 @@ class ViTMAEImageProcessor(BaseImageProcessor):
         patch_size(int): patch size.
         mask_ratio(float): mask ratio of image.
     """
-    def __init__(self, size=224, patch_size=16, mask_ratio=0.75):
-        super(ViTMAEImageProcessor, self).__init__(image_resolution=size)
-        self.resize = Resize((size, size), interpolation='cubic')
-        self.to_tensor = ToTensor()
-        self.normalize = Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225], is_hwc=False)
+    def __init__(self,
+                 size=224,
+                 patch_size=16,
+                 mask_ratio=0.75,
+                 mean=(0.485, 0.456, 0.406),
+                 std=(0.229, 0.224, 0.225),
+                 is_hwc=False,
+                 interpolation='cubic',
+                 **kwargs):
+        super().__init__(**kwargs)
+        self.size = size
+        self.patch_size = patch_size
+        self.mask_ratio = mask_ratio
+        self.mean = mean
+        self.std = std
+        self.is_hwc = is_hwc
+        self.interpolation = interpolation
+
         if not 0 < mask_ratio < 1:
             raise ValueError('masking ratio must be kept between 0 and 1, but get mask_ratio {mask_ratio}.')
         # seq_length
@@ -64,6 +78,10 @@ class ViTMAEImageProcessor(BaseImageProcessor):
         Return:
             A 4-rank tensor for a batch of images.
         """
+        resize = Resize((self.size, self.size), interpolation=self.interpolation)
+        to_tensor = ToTensor()
+        normalize = Normalize(mean=self.mean, std=self.std, is_hwc=self.is_hwc)
+
         images = self._format_inputs(images)
 
         res = []
@@ -71,9 +89,9 @@ class ViTMAEImageProcessor(BaseImageProcessor):
         masks = []
         unmask_indexes = []
         for image in images:
-            image = self.resize(image)
-            image = self.to_tensor(image)
-            image = self.normalize(image)
+            image = resize(image)
+            image = to_tensor(image)
+            image = normalize(image)
             res.append(image)
             rand_indices = np.argsort(
                 np.random.uniform(size=(self.num_patches,)), axis=0).astype(np.int32)

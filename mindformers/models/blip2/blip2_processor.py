@@ -25,7 +25,8 @@ import PIL.Image
 import mindspore as ms
 
 from mindformers.mindformer_book import MindFormerBook
-from mindformers.models.base_processor import BaseProcessor, BaseImageProcessor
+from mindformers.models.image_processing_utils import BaseImageProcessor
+from mindformers.models.base_processor import BaseProcessor
 from mindformers.dataset.transforms.vision_transforms import (
     BatchPILize,
     BatchResize,
@@ -63,20 +64,18 @@ class Blip2ImageProcessor(BaseImageProcessor):
     def __init__(self,
                  image_size: Optional[int] = 224,
                  interpolation: Optional[str] = 'bicubic',
-                 mean=None,
-                 std=None,
-                 is_hwc=False):
-        self.pilize = BatchPILize()
-        super(Blip2ImageProcessor, self).__init__()
+                 mean=(0.48145466, 0.4578275, 0.40821073),
+                 std=(0.26862954, 0.26130258, 0.27577711),
+                 is_hwc=False,
+                 **kwargs):
+        super().__init__(**kwargs)
+        self.image_size = image_size
         if isinstance(image_size, int):
-            image_size = (image_size,) * 2
-        self.resize = BatchResize(image_size, interpolation=interpolation)
-        self.to_tensor = BatchToTensor()
-        if mean is None:
-            mean = (0.48145466, 0.4578275, 0.40821073)
-        if std is None:
-            std = (0.26862954, 0.26130258, 0.27577711)
-        self.normalize = BatchNormalize(mean, std, is_hwc)
+            self.image_size = (image_size,) * 2
+        self.interpolation = interpolation
+        self.mean = mean
+        self.std = std
+        self.is_hwc = is_hwc
 
     def preprocess(self, images: Union[ms.Tensor, PIL.Image.Image,
                                        np.ndarray, List[PIL.Image.Image]], **kwargs):
@@ -89,10 +88,15 @@ class Blip2ImageProcessor(BaseImageProcessor):
         Return:
             A 4-rank tensor for a batch of images.
         """
-        images = self.pilize(images)
-        images = self.resize(images)
-        images = self.to_tensor(images)
-        images = self.normalize(images)
+        pilize = BatchPILize()
+        resize = BatchResize(self.image_size, interpolation=self.interpolation)
+        to_tensor = BatchToTensor()
+        normalize = BatchNormalize(self.mean, self.std, self.is_hwc)
+
+        images = pilize(images)
+        images = resize(images)
+        images = to_tensor(images)
+        images = normalize(images)
 
         kwargs.pop("other", None)
         if isinstance(images, list):

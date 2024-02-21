@@ -24,7 +24,8 @@ from mindspore.dataset.vision import Inter
 from mindspore.ops import operations as P
 
 from mindformers.mindformer_book import MindFormerBook
-from mindformers.models.base_processor import BaseProcessor, BaseImageProcessor
+from mindformers.models.image_processing_utils import BaseImageProcessor
+from mindformers.models.base_processor import BaseProcessor
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 
 
@@ -39,12 +40,15 @@ class SAMImageProcessor(BaseImageProcessor):
         std (list): Standard deviation values for image normalization.
     """
 
-    def __init__(self, img_size=1024, mean=(123.675, 116.28, 103.53), std=(58.395, 57.12, 57.375)):
-        super().__init__()
+    def __init__(self,
+                 img_size=1024,
+                 mean=(123.675, 116.28, 103.53),
+                 std=(58.395, 57.12, 57.375),
+                 **kwargs):
+        super().__init__(**kwargs)
         self.img_size = img_size
-        self.pixel_mean = ms.Tensor(mean).view(-1, 1, 1)
-        self.pixel_std = ms.Tensor(std).view(-1, 1, 1)
-        self.transform = ResizeLongestSide(img_size)
+        self.mean = mean
+        self.std = std
 
     def preprocess(self, images, **kwargs):
         """
@@ -57,13 +61,18 @@ class SAMImageProcessor(BaseImageProcessor):
             image (tensor): Preprocessed image as a tensor.
             input_size (tuple): Size of the input image after preprocessing.
         """
-        images = self.transform.apply_image(images)
+        pixel_mean = ms.Tensor(self.mean).view(-1, 1, 1)
+        pixel_std = ms.Tensor(self.std).view(-1, 1, 1)
+        transform = ResizeLongestSide(self.img_size)
+
+        images = np.asarray(images)
+        images = transform.apply_image(images)
         images = images.transpose(2, 0, 1)[None, :, :, :]
         images = ms.Tensor(images)
         input_size = images.shape[-2:]
 
         # Normalize colors
-        images = (images - self.pixel_mean) / self.pixel_std
+        images = (images - pixel_mean) / pixel_std
 
         # Pad
         h, w = images.shape[-2:]
