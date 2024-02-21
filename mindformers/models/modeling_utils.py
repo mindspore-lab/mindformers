@@ -40,7 +40,7 @@ from mindformers.tools.hub import (
     has_file
 )
 from mindformers.tools.hub.dynamic_module_utils import custom_object_save
-from mindformers.generation import GenerationConfig, GenerationMixin
+from mindformers.generation import GenerationConfig, GeneratorMixin
 from mindformers.tools.logger import logger
 from mindformers.tools.register import MindFormerConfig
 from .base_config import BaseConfig
@@ -191,7 +191,7 @@ class ModuleUtilsMixin:
     """
 
 
-class PreTrainedModel(nn.Cell, ModuleUtilsMixin, GenerationMixin, PushToHubMixin):
+class PreTrainedModel(nn.Cell, ModuleUtilsMixin, GeneratorMixin, PushToHubMixin):
     r"""
     Base class for all models.
 
@@ -297,7 +297,7 @@ class PreTrainedModel(nn.Cell, ModuleUtilsMixin, GenerationMixin, PushToHubMixin
         """
         # Detects whether `prepare_inputs_for_generation` has been overwritten, which is a requirement for generation.
         # Alternativelly, the model can also have a custom `generate` function.
-        if "GenerationMixin" in str(cls.prepare_inputs_for_generation) and "GenerationMixin" in str(cls.generate):
+        if "GeneratorMixin" in str(cls.prepare_inputs_for_generation) and "GeneratorMixin" in str(cls.generate):
             return False
         return True
 
@@ -305,57 +305,37 @@ class PreTrainedModel(nn.Cell, ModuleUtilsMixin, GenerationMixin, PushToHubMixin
             self,
             save_directory: Union[str, os.PathLike],
             save_name: str = "mindspore_model",
-            is_main_process: bool = True,
-            state_dict: Optional[dict] = None, # state_dict
-            push_to_hub: bool = False,
-            max_shard_size: Union[int, str] = "5GB",
-            variant: Optional[str] = None,
-            token: Optional[Union[str, bool]] = None,
             **kwargs
     ):
         """
-        Save a model and its configuration file to a directory, so that it can be re-loaded using the
-        [`~PreTrainedModel.from_pretrained`] class method.
+        Save the model weight and configuration file.
+        (only supports standalone mode, and distribute mode waits for developing)
 
-        Arguments:
-            save_directory (`str` or `os.PathLike`):
-                Directory to which to save. Will be created if it doesn't exist.
+        Args:
+            save_directory(str): a directory to save the model weight and configuration.
+                If None, the directory will be  `./checkpoint_save`, which can be obtained by the
+                `MindFormerBook.get_default_checkpoint_save_folder()`. If set, the directory will be what is set.
             save_name(str): the name of saved files, including model weight and configuration file.
                 Default mindspore_model.
-            is_main_process (`bool`, *optional*, defaults to `True`):
-                Whether the process calling this is the main process or not. Useful when in distributed training like
-                TPUs and need to call this function on all processes. In this case, set `is_main_process=True` only on
-                the main process to avoid race conditions.
-            state_dict (nested dictionary of mindspore.Parameter):
-                The state dictionary of the model to save. Will default to `mindspore.load_checkpoint()`, but can be
-                used to only save parts of the model or if special precautions need to be taken when recovering the
-                state dictionary of a model (like when using model parallelism).
-            push_to_hub (`bool`, *optional*, defaults to `False`):
-                Whether or not to push your model to the Hugging Face model hub after saving it. You can specify the
-                repository you want to push to with `repo_id` (will default to the name of `save_directory` in your
-                namespace).
-            max_shard_size (`int` or `str`, *optional*, defaults to `"5GB"`):
-                The maximum size for a checkpoint before being sharded. Checkpoints shard will then be each of size
-                lower than this size. If expressed as a string, needs to be digits followed by a unit (like `"5MB"`).
-                We default it to 5GB in order for models to be able to run easily on free-tier google colab instances
-                without CPU OOM issues.
 
-                <Tip warning={true}>
+        Examples:
+            >>> import os
+            >>> from mindformers import T5ForConditionalGeneration, MindFormerBook
+            >>> net = T5ForConditionalGeneration.from_pretrained('t5_small')
+            >>> net.save_pretrained()
+            >>> output_path = MindFormerBook.get_default_checkpoint_save_folder()
+            >>> print(os.listdir(output_path))
+            ['mindspore_model.yaml', 'mindspore_model.ckpt']
 
-                If a single weight of the model is bigger than `max_shard_size`, it will be in its own checkpoint shard
-                which will be bigger than `max_shard_size`.
-
-                </Tip>
-
-            variant (`str`, *optional*):
-                If specified, weights are saved in the format pytorch_model.<variant>.bin.
-            token (`str` or `bool`, *optional*):
-                The token to use as HTTP bearer authorization for remote files. If `True`, or not specified, will use
-                the token generated when running `huggingface-cli login` (stored in `~/.huggingface`).
-            kwargs (`Dict[str, Any]`, *optional*):
-                Additional key word arguments passed along to the [`~utils.PushToHubMixin.push_to_hub`] method.
         """
-        save_json = kwargs.get("save_json", False)
+        is_main_process = kwargs.pop("is_main_process", True)
+        state_dict = kwargs.pop("state_dict", None)
+        push_to_hub = kwargs.pop("push_to_hub", False)
+        max_shard_size = kwargs.pop("max_shard_size", "5GB")
+        variant = kwargs.pop("variant", None)
+        token = kwargs.pop("variant", None)
+
+        save_json = kwargs.pop("save_json", False)
         if not save_json:
             self.save_pretrained_origin_mode(save_directory=save_directory, save_name=save_name)
         else:
@@ -448,7 +428,7 @@ class PreTrainedModel(nn.Cell, ModuleUtilsMixin, GenerationMixin, PushToHubMixin
 
         # Save the config
         if is_main_process:
-            model_to_save.config.save_pretrained(save_directory, **kwargs)
+            model_to_save.config.save_pretrained(save_directory, save_json=True)
             # if self.can_generate():
             #     model_to_save.generation_config.save_pretrained(save_directory)
 
@@ -726,15 +706,14 @@ class PreTrainedModel(nn.Cell, ModuleUtilsMixin, GenerationMixin, PushToHubMixin
                 return False
             yaml_list = [file for file in os.listdir(pretrained_model_name_or_dir)
                          if file.endswith(".yaml")]
-            ckpt_list = [file for file in os.listdir(pretrained_model_name_or_dir)
-                         if file.endswith(".ckpt")]
             config_list = [file for file in os.listdir(pretrained_model_name_or_dir)
-                           if file.endswith(CONFIG_NAME)]
-            if (not yaml_list or not ckpt_list) and config_list:
+                           if file == CONFIG_NAME]
+            if not yaml_list and config_list:
                 return True
             return False
 
-        if pretrained_model_name_or_dir not in cls._support_list:
+        if "/" in pretrained_model_name_or_dir and \
+            pretrained_model_name_or_dir.split("/")[0] != "mindspore":
             return True
         return False
 
@@ -743,29 +722,14 @@ class PreTrainedModel(nn.Cell, ModuleUtilsMixin, GenerationMixin, PushToHubMixin
             cls,
             pretrained_model_name_or_dir: str,
             *model_args,
-            config: Optional[Union[PretrainedConfig, str, os.PathLike]] = None,
-            cache_dir: Optional[Union[str, os.PathLike]] = None,
-            ignore_mismatched_sizes: bool = False,
-            force_download: bool = False,
-            local_files_only: bool = False,
-            token: Optional[Union[str, bool]] = None,
-            revision: str = "main",
             **kwargs
     ):
-        r"""
-        Instantiate a pretrained mindspore model from a pre-trained model configuration.
+        """
+        Instantiates a model by the pretrained_model_name_or_dir. It download the model weights if the user pass
+        a model name, or load the weight from the given directory if given the path.
+        (only support standalone mode, and distribute mode waits for developing!)
 
-        The model is set in evaluation mode by default using `model.set_train(False)` (Dropout modules are deactivated).
-        To train the model, you should first set it back in training mode with `model.set_train(True)`.
-
-        The warning *Weights from XXX not initialized from pretrained model* means that the weights of XXX do not come
-        pretrained with the rest of the model. It is up to you to train those weights with a downstream fine-tuning
-        task.
-
-        The warning *Weights from XXX not used in YYY* means that the layer XXX is not used by YYY, therefore those
-        weights are discarded.
-
-        Parameters:
+        Args:
             pretrained_model_name_or_dir (str): It supports the following two input types.
                 If `pretrained_model_name_or_dir` is a supported model name, for example, `vit_base_p16` and `t5_small`,
                 it will download the necessary files from the cloud. User can pass one from the support list by call
@@ -774,101 +738,22 @@ class PreTrainedModel(nn.Cell, ModuleUtilsMixin, GenerationMixin, PushToHubMixin
                 with `yaml`.
             pretrained_model_name_or_path (Optional[str]): Equal to "pretrained_model_name_or_dir",
                 if "pretrained_model_name_or_path" is set, "pretrained_model_name_or_dir" is useless.
-            model_args (sequence of positional arguments, *optional*):
-                All remaining positional arguments will be passed to the underlying model's `__init__` method.
-            config (`Union[PretrainedConfig, str, os.PathLike]`, *optional*):
-                Can be either:
-
-                    - an instance of a class derived from [`PretrainedConfig`],
-                    - a string or path valid as input to [`~PretrainedConfig.from_pretrained`].
-
-                Configuration for the model to use instead of an automatically loaded configuration. Configuration can
-                be automatically loaded when:
-
-                    - The model is a model provided by the library (loaded with the *model id* string of a pretrained
-                      model).
-                    - The model was saved using [`~PreTrainedModel.save_pretrained`] and is reloaded by supplying the
-                      save directory.
-                    - The model is loaded by supplying a local directory as `pretrained_model_name_or_path` and a
-                      configuration JSON file named *config.json* is found in the directory.
-            state_dict (`Dict[str, mindspore.Parameter]`, *optional*):
-                A state dictionary to use instead of a state dictionary loaded from saved weights file.
-
-                This option can be used if you want to create a model from a pretrained configuration but load your own
-                weights. In this case though, you should check if using [`~PreTrainedModel.save_pretrained`] and
-                [`~PreTrainedModel.from_pretrained`] is not a simpler option.
-            cache_dir (`Union[str, os.PathLike]`, *optional*):
-                Path to a directory in which a downloaded pretrained model configuration should be cached if the
-                standard cache should not be used.
-            ignore_mismatched_sizes (`bool`, *optional*, defaults to `False`):
-                Whether or not to raise an error if some of the weights from the checkpoint do not have the same size
-                as the weights of the model (if for instance, you are instantiating a model with 10 labels from a
-                checkpoint with 3 labels).
-            force_download (`bool`, *optional*, defaults to `False`):
-                Whether or not to force the (re-)download of the model weights and configuration files, overriding the
-                cached versions if they exist.
-            resume_download (`bool`, *optional*, defaults to `False`):
-                Whether or not to delete incompletely received files. Will attempt to resume the download if such a
-                file exists.
-            proxies (`Dict[str, str]`, *optional*):
-                A dictionary of proxy servers to use by protocol or endpoint, e.g., `{'http': 'foo.bar:3128',
-                'http://hostname': 'foo.bar:4012'}`. The proxies are used on each request.
-            output_loading_info(`bool`, *optional*, defaults to `False`):
-                Whether ot not to also return a dictionary containing missing keys, unexpected keys and error messages.
-            local_files_only(`bool`, *optional*, defaults to `False`):
-                Whether or not to only look at local files (i.e., do not try to download the model).
-            token (`str` or `bool`, *optional*):
-                The token to use as HTTP bearer authorization for remote files. If `True`, or not specified, will use
-                the token generated when running `huggingface-cli login` (stored in `~/.huggingface`).
-            revision (`str`, *optional*, defaults to `"main"`):
-                The specific model version to use. It can be a branch name, a tag name, or a commit id, since we use a
-                git-based system for storing models and other artifacts on huggingface.co, so `revision` can be any
-                identifier allowed by git.
-
-                <Tip>
-
-                To test a pull request you made on the Hub, you can pass `revision="refs/pr/<pr_number>".
-
-                </Tip>
-
-            subfolder (`str`, *optional*, defaults to `""`):
-                In case the relevant files are located inside a subfolder of the model repo on huggingface.co, you can
-                specify the folder name here.
-            variant (`str`, *optional*):
-                If specified load weights from `variant` filename, *e.g.* pytorch_model.<variant>.bin. `variant` is
-                ignored when using `from_tf` or `from_flax`.
-
-            kwargs (remaining dictionary of keyword arguments, *optional*):
-                Can be used to update the configuration object (after it being loaded) and initiate the model.
-                Behaves differently depending on whether a `config` is provided or automatically loaded:
-
-                    - If a configuration is provided with `config`, `**kwargs` will be directly passed to the
-                      underlying model's `__init__` method (we assume all relevant updates to the configuration have
-                      already been done)
-                    - If a configuration is not provided, `kwargs` will be first passed to the configuration class
-                      initialization function ([`~PretrainedConfig.from_pretrained`]). Each key of `kwargs` that
-                      corresponds to a configuration attribute will be used to override said attribute with the
-                      supplied `kwargs` value. Remaining keys that do not correspond to any configuration attribute
-                      will be passed to the underlying model's `__init__` function.
-
-        <Tip>
-
-        Activate the special ["offline-mode"](XXX) to
-        use this method in a firewalled environment.
-
-        </Tip>
 
         Examples:
+            >>> from mindformers import LlamaForCausalLM
+            >>> net = LlamaForCausalLM.from_pretrained('llama_7b')
 
-        ```python
-        >>> from mindformers import GPT2Model
-
-        >>> # Download model and configuration from modelfoundry and cache.
-        >>> model = GPT2Model.from_pretrained("XXX")
-        >>> # Model was saved using *save_pretrained('./test/saved_model/')* (for example purposes, not runnable).
-        >>> model = GPT2Model.from_pretrained("./test/saved_model/")
-        ```
+        Returns:
+            A model, which inherited from PreTrainedModel.
         """
+        config = kwargs.pop("config", None)
+        cache_dir = kwargs.pop("cache_dir", None)
+        ignore_mismatched_sizes = kwargs.pop("ignore_mismatched_sizes", False)
+        force_download = kwargs.pop("force_download", False)
+        local_files_only = kwargs.pop("local_files_only", False)
+        token = kwargs.pop("token", None)
+        revision = kwargs.pop("revision", "main")
+
         pretrained_model_name_or_path = kwargs.pop("pretrained_model_name_or_path", None)
         if pretrained_model_name_or_path is not None:
             pretrained_model_name_or_dir = pretrained_model_name_or_path
