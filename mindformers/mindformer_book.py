@@ -1388,6 +1388,7 @@ class MindFormerBook:
         ('PanguAlphaTokenizer', 'PanguAlphaProcessor'),
         ('BloomTokenizer', 'BloomProcessor'),
         ('InternLMTokenizer', 'LlamaProcessor'),
+        ('BaichuanTokenizer', 'LlamaProcessor'),
         ('Baichuan2Tokenizer', 'LlamaProcessor')
     ])
 

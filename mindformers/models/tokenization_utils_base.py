@@ -28,17 +28,23 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, NamedTuple, Optional, Sequence, Tuple, Union
 from collections import UserDict
 from collections.abc import Mapping, Sized
+from contextlib import contextmanager
 from functools import lru_cache
 from packaging import version
 import yaml
 import numpy as np
 import mindspore as ms
-from ..tools import logger
+from ..tools import logger, add_model_info_to_auto_map
 from ..tools.register import MindFormerConfig
 from .build_tokenizer import build_tokenizer
 from ..tools.download_tools import download_with_progress_bar
 from ..tools.utils import try_sync_file
-from ..mindformer_book import MindFormerBook
+from ..mindformer_book import MindFormerBook, print_path_or_list
+from ..tools.hub import is_offline_mode, is_remote_url, cached_file, extract_commit_hash, download_url, \
+    custom_object_save
+
+
+TOKENIZER_URL_SUPPORT_LIST = MindFormerBook.get_tokenizer_url_support_list()
 
 
 def add_end_docstrings(*docstr):
@@ -104,6 +110,33 @@ def _is_package_available(pkg_name: str) -> bool:
 
 def is_tokenizers_available():
     return _is_package_available("tokenizers")
+
+
+def is_sentencepiece_available():
+    return _is_package_available("sentencepiece")
+
+
+def is_experimental_mode(path):
+    """Check whether PreTrainedTokenizerBase.from_pretrained() should go into original or experimental mode
+
+    :param path: (str) path to PreTrainedTokenizerBase.from_pretrained()
+    :return: (bool) whether PreTrainedTokenizerBase.from_pretrained() should go into original or experimental mode
+    """
+    experimental_mode = False
+
+    is_exist = os.path.exists(path)
+    is_dir = os.path.isdir(path)
+    if is_dir:
+        yaml_list = [file for file in os.listdir(path) if file.endswith(".yaml")]
+        json_list = [file for file in os.listdir(path) if file in ["config.json", "tokenizer_config.json"]]
+        if not yaml_list and json_list:
+            experimental_mode = True
+    else:
+        if path not in TOKENIZER_URL_SUPPORT_LIST or is_exist:
+            experimental_mode = True
+
+    return experimental_mode
+
 
 TOKENIZER_CONFIG_NAME = 'tokenizer_config.json'
 
@@ -859,6 +892,7 @@ class SpecialTokensMixin:
         The `sanitize_special_tokens` is now deprecated kept for backward compatibility and will be removed in
         transformers v5.
         """
+        logger.warning("The `sanitize_special_tokens` will be removed in transformers v5.")
         return self.add_tokens(self.all_special_tokens_extended, special_tokens=True)
 
     def add_special_tokens(
@@ -1552,6 +1586,8 @@ class PreTrainedTokenizerBase(SpecialTokensMixin):
 
     _model_name = 1
 
+    _support_list = TOKENIZER_URL_SUPPORT_LIST
+
     def __init__(self, **kwargs):
         super().__init__(self)
         # inputs and kwargs for saving and re-loading (see ``from_pretrained`` and ``save_pretrained``)
@@ -1588,6 +1624,7 @@ class PreTrainedTokenizerBase(SpecialTokensMixin):
 
         # Use to store when we have already noticed a deprecation warning (avoid overlogging).
         self.deprecation_warnings = {}
+        self._in_target_context_manager = False
 
         # Stores a Jinja template that formats chat histories into tokenizable strings
         self.chat_template = kwargs.pop("chat_template", None)
@@ -1781,6 +1818,7 @@ class PreTrainedTokenizerBase(SpecialTokensMixin):
             "\nNo chat template is defined for this tokenizer - using a default chat template "
             "that implements the ChatML format (without BOS/EOS tokens!). If the default is not appropriate for "
             "your model, please set `tokenizer.chat_template` to an appropriate template. "
+            "See https://huggingface.co/docs/transformers/main/chat_templating for more information.\n"
         )
         return (
             "{% for message in messages %}"
@@ -1792,7 +1830,20 @@ class PreTrainedTokenizerBase(SpecialTokensMixin):
         )
 
     @classmethod
-    def from_pretrained(cls, name_or_path: str, **kwargs):
+    def from_pretrained(cls, name_or_path, *args, **kwargs):
+        """compatible to yaml and json modes."""
+        pretrained_model_name_or_path = kwargs.pop("pretrained_model_name_or_path", None)
+        if pretrained_model_name_or_path is not None:
+            name_or_path = pretrained_model_name_or_path
+
+        if not is_experimental_mode(name_or_path):
+            tokenizer = cls.from_origin_pretrained(name_or_path, **kwargs)
+        else:
+            tokenizer = cls.from_experimental_pretrained(name_or_path, *args, **kwargs)
+        return tokenizer
+
+    @classmethod
+    def from_origin_pretrained(cls, name_or_path: str, **kwargs):
         """
         Instantiates a tokenizer by the name_or_path. User can get the name using `get_support_list` of any tokenizer,
         it will download the necessary files from the cloud. or pass a directory where contains the vocabulary file
@@ -1818,39 +1869,26 @@ class PreTrainedTokenizerBase(SpecialTokensMixin):
         Returns:
             A instanced tokenizer.
         """
-        pretrained_model_name_or_path = kwargs.pop("pretrained_model_name_or_path", None)
-        if pretrained_model_name_or_path is not None:
-            name_or_path = pretrained_model_name_or_path
-
-        is_exist = os.path.exists(name_or_path)
-        is_dir = os.path.isdir(name_or_path)
-        if not is_exist and (name_or_path not in cls._support_list):
-            raise ValueError(f'{name_or_path} does not exist,'
-                             f' or it is not supported by {cls.__name__}. '
-                             f'please select from {cls._support_list}.')
-
-        if is_exist and not is_dir:
-            raise ValueError(f"{name_or_path} is not a directory.")
-
         tokenizer_kwargs = dict()
         class_name = None
         loaded_kwargs = {}
-        if name_or_path in MindFormerBook.get_tokenizer_url_support_list():
+        if name_or_path in TOKENIZER_URL_SUPPORT_LIST:
             config, cache_path = cls._download_using_name(name_or_path)
             class_name, loaded_kwargs = cls._get_class_name_and_args_form_config(config)
             name_or_path = cache_path
 
-        yaml_list = None
-        if os.path.isdir(name_or_path):
-            yaml_list = [file for file in os.listdir(name_or_path) if file.endswith(".yaml")]
-            if len(yaml_list) > 1:
-                logger.warning("There should be only one yaml file under the directory %s, "
-                               "but followings are found: %s", name_or_path, yaml_list)
-        if yaml_list:
-            yaml_file = os.path.join(name_or_path, yaml_list[0])
-            logger.info("config in the yaml file %s are used for tokenizer building.", yaml_file)
-            config = MindFormerConfig(yaml_file)
-            class_name, loaded_kwargs = cls._get_class_name_and_args_form_config(config)
+        if class_name is None:
+            yaml_list = None
+            if os.path.isdir(name_or_path):
+                yaml_list = [file for file in os.listdir(name_or_path) if file.endswith(".yaml")]
+                if len(yaml_list) > 1:
+                    logger.warning("There should be only one yaml file under the directory %s, "
+                                   "but followings are found: %s", name_or_path, yaml_list)
+            if yaml_list:
+                yaml_file = os.path.join(name_or_path, yaml_list[0])
+                logger.info("config in the yaml file %s are used for tokenizer building.", yaml_file)
+                config = MindFormerConfig(yaml_file)
+                class_name, loaded_kwargs = cls._get_class_name_and_args_form_config(config)
 
         vocab_dict, file_dict = cls.read_files_according_specific_by_tokenizer(name_or_path)
         if 'tokenizer_config.json' in file_dict:
@@ -1984,10 +2022,525 @@ class PreTrainedTokenizerBase(SpecialTokensMixin):
                 read_tokenizer_file_dict[item] = json.load(open(path, 'r'))
         return read_vocab_file_dict, read_tokenizer_file_dict
 
+    @classmethod
+    def from_experimental_pretrained(cls, pretrained_model_name_or_path, *args, **kwargs):
+        r"""
+                Instantiate a [`~tokenization_utils_base.PreTrainedTokenizerBase`] (or a derived class) from a
+                predefined tokenizer.
+
+                Args:
+                    pretrained_model_name_or_path (`str` or `os.PathLike`):
+                        Can be either:
+
+                        - A string, the *model id* of a predefined tokenizer hosted inside a model repo on
+                          huggingface.co. Valid model ids can be located at the root-level, like `bert-base-uncased`,
+                          or namespaced under a user or organization name, like `dbmdz/bert-base-german-cased`.
+                        - A path to a *directory* containing vocabulary files required by the tokenizer, for instance
+                          saved using the [`~tokenization_utils_base.PreTrainedTokenizerBase.save_pretrained`] method,
+                          e.g., `./my_model_directory/`.
+                        - (**Deprecated**, not applicable to all derived classes) A path or url to a single saved
+                          vocabulary file (if and only if the tokenizer only requires a single vocabulary file like
+                          Bert or XLNet), e.g., `./my_model_directory/vocab.txt`.
+                    cache_dir (`str` or `os.PathLike`, *optional*):
+                        Path to a directory in which a downloaded predefined tokenizer vocabulary files
+                        should be cached if the standard cache should not be used.
+                    force_download (`bool`, *optional*, defaults to `False`):
+                        Whether or not to force the (re-)download the vocabulary files and override the cached versions
+                        if they exist.
+                    resume_download (`bool`, *optional*, defaults to `False`):
+                        Whether or not to delete incompletely received files. Attempt to resume the download
+                        if such a file exists.
+                    proxies (`Dict[str, str]`, *optional*):
+                        A dictionary of proxy servers to use by protocol or endpoint, e.g., `{'http': 'foo.bar:3128',
+                        'http://hostname': 'foo.bar:4012'}`. The proxies are used on each request.
+                    token (`str` or *bool*, *optional*):
+                        The token to use as HTTP bearer authorization for remote files. If `True`, will use the token
+                        generated when running `huggingface-cli login` (stored in `~/.huggingface`).
+                    local_files_only (`bool`, *optional*, defaults to `False`):
+                        Whether or not to only rely on local files and not to attempt to download any files.
+                    revision (`str`, *optional*, defaults to `"main"`):
+                        The specific model version to use. It can be a branch name, a tag name, or a commit id, since
+                        we use a git-based system for storing models and other artifacts on huggingface.co,
+                        so `revision` can be any identifier allowed by git.
+                    subfolder (`str`, *optional*):
+                        In case the relevant files are located inside a subfolder of the model repo on huggingface.co
+                        (e.g. for facebook/rag-token-base), specify it here.
+                    inputs (additional positional arguments, *optional*):
+                        Will be passed along to the Tokenizer `__init__` method.
+                    kwargs (additional keyword arguments, *optional*):
+                        Will be passed to the Tokenizer `__init__` method. Can be used to set special tokens like
+                        `bos_token`, `eos_token`, `unk_token`, `sep_token`, `pad_token`, `cls_token`, `mask_token`,
+                        `additional_special_tokens`. See parameters in the `__init__` for more details.
+
+                <Tip>
+
+                Passing `token=True` is required when you want to use a private model.
+
+                </Tip>
+
+                Examples:
+
+                ```python
+                # We can't instantiate directly the base class *PreTrainedTokenizerBase* so let's show our examples on
+                derived classes: BertTokenizer and Gpt2Tokenizer
+
+                # Download vocabulary from user-uploaded repo id and cache.
+                tokenizer = Gpt2Tokenizer.from_pretrained("mindformersinfra/test_auto_tokenizer_gpt2_ms")
+
+                # If the tokenizer uses a single vocabulary file, you can point directly to this file
+                tokenizer = BertTokenizer.from_pretrained("./test/saved_model/my_vocab.txt")
+
+                # You can link tokens to special vocabulary when instantiating
+                tokenizer = BertTokenizer.from_pretrained("bert-base-uncased", unk_token="<unk>")
+                # You should be sure '<unk>' is in the vocabulary when doing that.
+                # Otherwise use tokenizer.add_special_tokens({'unk_token': '<unk>'}) instead)
+                assert tokenizer.unk_token == "<unk>"
+                ```"""
+        # kwargs pop these params to align from_pretrained's interface
+        cache_dir = kwargs.pop("cache_dir", None)
+        force_download = kwargs.pop("force_download", False)
+        local_files_only = kwargs.pop("local_files_only", False)
+        token = kwargs.pop("token", None)
+        revision = kwargs.pop("revision", "main")
+
+        resume_download = kwargs.pop("resume_download", False)
+        proxies = kwargs.pop("proxies", None)
+        use_auth_token = kwargs.pop("use_auth_token", None)
+        subfolder = kwargs.pop("subfolder", None)
+        from_pipeline = kwargs.pop("_from_pipeline", None)
+        from_auto_class = kwargs.pop("_from_auto", False)
+        commit_hash = kwargs.pop("_commit_hash", None)
+
+        if use_auth_token is not None:
+            warnings.warn(
+                "The `use_auth_token` argument is deprecated and will be removed in v5 of Transformers. "
+                "Please use `token` instead.",
+                FutureWarning,
+            )
+            if token is not None:
+                raise ValueError(
+                    "`token` and `use_auth_token` are both specified. Please set only the argument `token`."
+                )
+            token = use_auth_token
+
+        user_agent = {"file_type": "tokenizer", "from_auto_class": from_auto_class, "is_fast": "Fast" in cls.__name__}
+        if from_pipeline is not None:
+            user_agent["using_pipeline"] = from_pipeline
+
+        if is_offline_mode() and not local_files_only:
+            logger.info("Offline mode: forcing local_files_only=True")
+            local_files_only = True
+
+        pretrained_model_name_or_path = str(pretrained_model_name_or_path)
+        vocab_files = {}
+        init_configuration = {}
+
+        is_local = os.path.isdir(pretrained_model_name_or_path)
+        single_file_id = None
+        if os.path.isfile(pretrained_model_name_or_path) or is_remote_url(pretrained_model_name_or_path):
+            if len(cls.vocab_files_names) > 1:
+                raise ValueError(
+                    f"Calling {cls.__name__}.from_pretrained() with the path to a single file or url is not "
+                    "supported for this tokenizer. Use a model identifier or the path to a directory instead."
+                )
+            warnings.warn(
+                f"Calling {cls.__name__}.from_pretrained() with the path to a single file or url is deprecated and "
+                "won't be possible anymore in v5. Use a model identifier or the path to a directory instead.",
+                FutureWarning,
+            )
+            file_id = list(cls.vocab_files_names.keys())[0]
+
+            vocab_files[file_id] = pretrained_model_name_or_path
+            single_file_id = file_id
+        else:
+            # At this point pretrained_model_name_or_path is either a directory or a model identifier name
+            additional_files_names = {
+                "added_tokens_file": ADDED_TOKENS_FILE,  # kept only for legacy
+                "special_tokens_map_file": SPECIAL_TOKENS_MAP_FILE,  # kept only for legacy
+                "tokenizer_config_file": TOKENIZER_CONFIG_FILE,
+                # tokenizer_file used to initialize a slow from a fast. Properly copy the `addedTokens` instead of adding in random orders
+                "tokenizer_file": FULL_TOKENIZER_FILE,
+            }
+            vocab_files = {**cls.vocab_files_names, **additional_files_names}
+            if "tokenizer_file" in vocab_files:
+                # Try to get the tokenizer config to see if there are versioned tokenizer files.
+                fast_tokenizer_file = FULL_TOKENIZER_FILE
+                resolved_config_file = cached_file(
+                    pretrained_model_name_or_path,
+                    TOKENIZER_CONFIG_FILE,
+                    cache_dir=cache_dir,
+                    force_download=force_download,
+                    resume_download=resume_download,
+                    proxies=proxies,
+                    token=token,
+                    revision=revision,
+                    local_files_only=local_files_only,
+                    subfolder=subfolder,
+                    user_agent=user_agent,
+                    _raise_exceptions_for_missing_entries=False,
+                    _raise_exceptions_for_connection_errors=False,
+                    _commit_hash=commit_hash,
+                )
+                commit_hash = extract_commit_hash(resolved_config_file, commit_hash)
+                if resolved_config_file is not None:
+                    with open(resolved_config_file, encoding="utf-8") as reader:
+                        tokenizer_config = json.load(reader)
+                        if "fast_tokenizer_files" in tokenizer_config:
+                            fast_tokenizer_file = get_fast_tokenizer_file(tokenizer_config["fast_tokenizer_files"])
+                vocab_files["tokenizer_file"] = fast_tokenizer_file
+
+        # Get files from url, cache, or disk depending on the case
+        resolved_vocab_files = {}
+        unresolved_files = []
+        for file_id, file_path in vocab_files.items():
+            if file_path is None:
+                resolved_vocab_files[file_id] = None
+            elif single_file_id == file_id:
+                if os.path.isfile(file_path):
+                    resolved_vocab_files[file_id] = file_path
+                elif is_remote_url(file_path):
+                    resolved_vocab_files[file_id] = download_url(file_path, proxies=proxies)
+            else:
+                resolved_vocab_files[file_id] = cached_file(
+                    pretrained_model_name_or_path,
+                    file_path,
+                    cache_dir=cache_dir,
+                    force_download=force_download,
+                    proxies=proxies,
+                    resume_download=resume_download,
+                    local_files_only=local_files_only,
+                    token=token,
+                    user_agent=user_agent,
+                    revision=revision,
+                    subfolder=subfolder,
+                    _raise_exceptions_for_missing_entries=False,
+                    _raise_exceptions_for_connection_errors=False,
+                    _commit_hash=commit_hash,
+                )
+                commit_hash = extract_commit_hash(resolved_vocab_files[file_id], commit_hash)
+
+        if unresolved_files:
+            logger.info(
+                f"Can't load following files from cache: {unresolved_files} and cannot check if these "
+                "files are necessary for the tokenizer to operate."
+            )
+
+        if all(full_file_name is None for full_file_name in resolved_vocab_files.values()):
+            raise EnvironmentError(
+                f"Can't load tokenizer for '{pretrained_model_name_or_path}'. If you were trying to load it from "
+                "'https://huggingface.co/models', make sure you don't have a local directory with the same name. "
+                f"Otherwise, make sure '{pretrained_model_name_or_path}' is the correct path to a directory "
+                f"containing all relevant files for a {cls.__name__} tokenizer."
+            )
+
+        for file_id, file_path in vocab_files.items():
+            if file_id not in resolved_vocab_files:
+                continue
+
+            if is_local:
+                logger.info(f"loading file {file_path}")
+            else:
+                logger.info(f"loading file {file_path} from cache at {resolved_vocab_files[file_id]}")
+
+        return cls._from_experimental_pretrained(
+            resolved_vocab_files,
+            pretrained_model_name_or_path,
+            init_configuration,
+            *args,
+            token=token,
+            cache_dir=cache_dir,
+            local_files_only=local_files_only,
+            commit_hash=commit_hash,
+            is_local=is_local,
+            **kwargs,
+        )
+
+    @classmethod
+    def _from_experimental_pretrained(
+            cls,
+            resolved_vocab_files,
+            pretrained_model_name_or_path,
+            init_configuration,
+            *init_inputs,
+            token=None,
+            cache_dir=None,
+            local_files_only=False,
+            commit_hash=None,
+            is_local=False,
+            **kwargs,
+    ):
+        """_from_experimental_pretrained"""
+        # We instantiate fast tokenizers based on a slow tokenizer if we don't have access to the tokenizer.json
+        # file or if `from_slow` is set to True.
+        from_slow = kwargs.get("from_slow", False)
+        has_tokenizer_file = resolved_vocab_files.get("tokenizer_file", None) is not None
+        if (from_slow or not has_tokenizer_file) and cls.slow_tokenizer_class is not None:
+            # pylint: disable=W0212
+            slow_tokenizer = (cls.slow_tokenizer_class)._from_experimental_pretrained(
+                copy.deepcopy(resolved_vocab_files),
+                pretrained_model_name_or_path,
+                copy.deepcopy(init_configuration),
+                *init_inputs,
+                token=token,
+                cache_dir=cache_dir,
+                local_files_only=local_files_only,
+                _commit_hash=commit_hash,
+                **(copy.deepcopy(kwargs)),
+            )
+        else:
+            slow_tokenizer = None
+
+        # Prepare tokenizer initialization kwargs
+        # Did we saved some inputs and kwargs to reload ?
+        tokenizer_config_file = resolved_vocab_files.pop("tokenizer_config_file", None)
+        if tokenizer_config_file is not None:
+            with open(tokenizer_config_file, encoding="utf-8") as tokenizer_config_handle:
+                init_kwargs = json.load(tokenizer_config_handle)
+            # First attempt. We get tokenizer_class from tokenizer_config to check mismatch between tokenizers.
+            config_tokenizer_class = init_kwargs.get("tokenizer_class")
+            init_kwargs.pop("tokenizer_class", None)
+            if not has_tokenizer_file:
+                init_kwargs.pop("tokenizer_file", None)
+            saved_init_inputs = init_kwargs.pop("init_inputs", ())
+            if not init_inputs:
+                init_inputs = saved_init_inputs
+        else:
+            config_tokenizer_class = None
+            init_kwargs = init_configuration
+
+        if "auto_map" in init_kwargs and not is_local:
+            # For backward compatibility with odl format.
+            if isinstance(init_kwargs["auto_map"], (tuple, list)):
+                init_kwargs["auto_map"] = {"AutoTokenizer": init_kwargs["auto_map"]}
+            init_kwargs["auto_map"] = add_model_info_to_auto_map(
+                init_kwargs["auto_map"], pretrained_model_name_or_path
+            )
+
+        if config_tokenizer_class is None:
+            from .auto.configuration_auto import AutoConfig  # tests_ignore
+
+            # Second attempt. If we have not yet found tokenizer_class, let's try to use the config.
+            try:
+                config = AutoConfig.from_pretrained(
+                    pretrained_model_name_or_path,
+                    token=token,
+                    cache_dir=cache_dir,
+                    local_files_only=local_files_only,
+                    _commit_hash=commit_hash,
+                )
+                config_tokenizer_class = config.tokenizer_class
+            except (OSError, ValueError, KeyError):
+                # skip if an error occurred.
+                config = None
+            if config_tokenizer_class is None:
+                # Third attempt. If we have not yet found the original type of the tokenizer,
+                # we are loading we see if we can infer it from the type of the configuration file
+                from .auto.tokenization_auto import TOKENIZER_MAPPING_NAMES  # tests_ignore
+
+                if hasattr(config, "model_type"):
+                    model_type = config.model_type
+                else:
+                    # Fallback: use pattern matching on the string.
+                    model_type = None
+                    for pattern in TOKENIZER_MAPPING_NAMES.keys():
+                        if pattern in str(pretrained_model_name_or_path):
+                            model_type = pattern
+                            break
+
+                if model_type is not None:
+                    config_tokenizer_class, config_tokenizer_class_fast = TOKENIZER_MAPPING_NAMES.get(
+                        model_type, (None, None)
+                    )
+                    if config_tokenizer_class is None:
+                        config_tokenizer_class = config_tokenizer_class_fast
+
+        if config_tokenizer_class is not None:
+            if cls.__name__.replace("Fast", "") != config_tokenizer_class.replace("Fast", ""):
+                logger.warning(
+                    "The tokenizer class you load from this checkpoint is not the same type as the class this"
+                    " function is called from. It may result in unexpected tokenization. \nThe tokenizer class you"
+                    f" load from this checkpoint is '{config_tokenizer_class}'. \nThe class this function is called"
+                    f" from is '{cls.__name__}'."
+                )
+
+        # Update with newly provided kwargs
+        init_kwargs.update(kwargs)
+
+        # Set max length if needed
+        if pretrained_model_name_or_path in cls.max_model_input_sizes:
+            # if we're using a pretrained model, ensure the tokenizer
+            # wont index sequences longer than the number of positional embeddings
+
+            model_max_length = cls.max_model_input_sizes[pretrained_model_name_or_path]
+            if model_max_length is not None and isinstance(model_max_length, (int, float)):
+                model_max_length = min(init_kwargs.get("model_max_length", int(1e30)), model_max_length)
+                # TODO(PVP) - uncomment following line in Transformers v5
+                # init_kwargs["model_max_length"] = model_max_length
+                # TODO(PVP) - remove in Transformers v5
+                # ---
+                init_kwargs["model_max_length"] = cls._eventually_correct_t5_max_length(
+                    pretrained_model_name_or_path, model_max_length, init_kwargs.get("model_max_length")
+                )
+                # ---
+
+        # Merge resolved_vocab_files arguments in init_kwargs.
+        added_tokens_file = resolved_vocab_files.pop("added_tokens_file", None)
+        special_tokens_map_file = resolved_vocab_files.pop("special_tokens_map_file", None)
+        for args_name, file_path in resolved_vocab_files.items():
+            if args_name not in init_kwargs:
+                init_kwargs[args_name] = file_path
+        tokenizer_file = resolved_vocab_files.pop("tokenizer_file", None)
+
+        if slow_tokenizer is not None:
+            init_kwargs["__slow_tokenizer"] = slow_tokenizer
+        init_kwargs["name_or_path"] = pretrained_model_name_or_path
+
+        #### Handle tokenizer serialization of added and special tokens
+        added_tokens_decoder: Dict[int, AddedToken] = {}
+        added_tokens_map: Dict[str, AddedToken] = {}
+        # if we have info on the slow added tokens
+        if "added_tokens_decoder" in init_kwargs:
+            for idx, token_in in init_kwargs["added_tokens_decoder"].items():
+                if isinstance(token_in, dict):
+                    token_in = AddedToken(**token_in)
+                if isinstance(token_in, AddedToken):
+                    added_tokens_decoder[int(idx)] = token_in
+                    added_tokens_map[str(token_in)] = token_in
+                else:
+                    raise ValueError(
+                        f"Found a {token_in.__class__} in the saved `added_tokens_decoder`, should be a dictionary or "
+                        f"an AddedToken instance"
+                    )
+        else:
+            # begin legacy: read the added_tokens_file and update kwargs with special_tokens_map if modified
+            if special_tokens_map_file is not None:
+                with open(special_tokens_map_file, encoding="utf-8") as special_tokens_map_handle:
+                    special_tokens_map = json.load(special_tokens_map_handle)
+                    for key, value in special_tokens_map.items():
+                        if key in kwargs and kwargs[key]:
+                            # This value has already been redefined by the kwargs
+                            # We keep this new value and ignore the one stored in the special_tokens_map_file
+                            continue
+                        if isinstance(value, dict):
+                            value = AddedToken(**value, special=True)
+                        elif key == "additional_special_tokens" and isinstance(value, list):
+                            additional_special_tokens = init_kwargs.pop("additional_special_tokens", []) or []
+                            for token_in in value:
+                                token_in = AddedToken(**token, special=True) if isinstance(token_in, dict) else token_in
+                                if token_in not in additional_special_tokens:
+                                    additional_special_tokens.append(token_in)
+                            value = additional_special_tokens
+                        init_kwargs[key] = value
+
+            # slow -> slow|fast, legacy: convert the `"added_tokens.json"` file to `added_tokens_decoder`.
+            # this is for legacy purpose. We don't add the tokens after init for efficiency.
+            if added_tokens_file is not None:
+                special_tokens = []
+                for key in cls.SPECIAL_TOKENS_ATTRIBUTES & init_kwargs.keys():
+                    if init_kwargs[key] is not None:
+                        if key == "additional_special_tokens":
+                            special_tokens += [str(token) for token in init_kwargs[key]]
+                        else:
+                            special_tokens.append(str(init_kwargs[key]))
+
+                with open(added_tokens_file, encoding="utf-8") as added_tokens_handle:
+                    added_tok_encoder = json.load(added_tokens_handle)
+                for str_token, index in added_tok_encoder.items():
+                    # if index not in added_tokens_decoder and str_token not in added_tokens_map:
+                    special = str_token in special_tokens
+                    added_tokens_decoder[index] = AddedToken(
+                        str_token, rstrip=False, lstrip=False, normalized=not special, special=special
+                    )
+                    added_tokens_map[str(token)] = added_tokens_decoder[index]
+
+            # allows converting a fast -> slow: add the `tokenizer.json`'s `"added_tokens"` to the slow tokenizer
+            # if `tokenizer_config.json` is `None`
+            if "Fast" not in cls.__name__ and tokenizer_file is not None:
+                # This is for slow so can be done before
+                with open(tokenizer_file, encoding="utf-8") as tokenizer_file_handle:
+                    tokenizer_file_handle = json.load(tokenizer_file_handle)
+                    added_tokens = tokenizer_file_handle.pop("added_tokens")
+                for serialized_tokens in added_tokens:
+                    idx = serialized_tokens.pop("id")
+                    added_tokens_decoder[idx] = AddedToken(**serialized_tokens)
+                    added_tokens_map[str(added_tokens_decoder[idx])] = added_tokens_decoder[idx]
+            # end legacy
+
+        # Passing AddedTokens and not strings to the class to prevent it from casting the string to a different AddedToken
+        for key in cls.SPECIAL_TOKENS_ATTRIBUTES & init_kwargs.keys():
+            if added_tokens_map != {} and init_kwargs[key] is not None:
+                if key != "additional_special_tokens":
+                    init_kwargs[key] = added_tokens_map.get(init_kwargs[key], init_kwargs[key])
+
+        init_kwargs["added_tokens_decoder"] = added_tokens_decoder
+        # convert {'__type': 'AddedToken', 'content': '<ent>', 'lstrip': False, 'normalized': True, ...} to AddedTokens
+        init_kwargs = cls.convert_added_tokens(init_kwargs, save=False)
+        # Instantiate the tokenizer.
+        try:
+            tokenizer = cls(*init_inputs, **init_kwargs)
+        except OSError:
+            raise OSError(
+                "Unable to load vocabulary from file. "
+                "Please check that the provided vocabulary is accessible and not corrupted."
+            )
+
+        if added_tokens_decoder != {} and max(list(added_tokens_decoder.keys())[-1], 0) > tokenizer.vocab_size:
+            logger.warning(
+                "Special tokens have been added in the vocabulary, make sure the associated word embeddings are"
+                " fine-tuned or trained."
+            )
+        return tokenizer
+
+    @staticmethod
+    # pylint: disable=W0613
+    def _eventually_correct_t5_max_length(pretrained_model_name_or_path, max_model_length, init_max_model_length):
+        # This method should be deleted in Transformers v5
+        # Its only purpose is to potentially throw a warning
+        # that incorrectly defined max lengths of T5's tokenizer are used
+        # which we will correct in Transformers v5.
+        return max_model_length
+
+    @classmethod
+    def convert_added_tokens(cls, obj: Union[AddedToken, Any], save=False, add_type_field=True):
+        """convert_added_tokens"""
+        if isinstance(obj, dict) and "__type" in obj and obj["__type"] == "AddedToken":
+            obj.pop("__type")
+            return AddedToken(**obj)
+        if isinstance(obj, AddedToken) and save:
+            obj = obj.__getstate__()
+            if add_type_field:
+                obj["__type"] = "AddedToken"
+            else:
+                # Don't save "special" for previous tokenizers
+                obj.pop("special")
+            return obj
+        if isinstance(obj, (list, tuple)):
+            return [cls.convert_added_tokens(o, save=save, add_type_field=add_type_field) for o in obj]
+        if isinstance(obj, dict):
+            return {k: cls.convert_added_tokens(v, save=save, add_type_field=add_type_field) for k, v in obj.items()}
+        return obj
+
     def save_pretrained(self,
                         save_directory: Optional[str] = None,
                         save_name: str = "mindspore_model",
-                        file_format: str = 'yaml'):
+                        file_format: str = 'yaml',
+                        save_json: bool = False,
+                        **kwargs
+                        ):
+        """compatible to yaml and json modes."""
+        if not save_json:
+            filename_prefix = None
+            self.save_origin_pretrained(save_directory, save_name, file_format)
+        else:
+            filename_prefix = kwargs.pop("filename_prefix", None)
+            self.save_experimental_pretrained(save_directory, filename_prefix, **kwargs)
+
+        self.save_vocabulary(save_directory, filename_prefix=filename_prefix)
+
+    def save_origin_pretrained(self,
+                               save_directory: Optional[str] = None,
+                               save_name: str = "mindspore_model",
+                               file_format: str = 'yaml'):
         """
         Save the tokenizer by writing the `save_name`.yaml and vocaburary files those are determinied by
         `.vocab_files_names` to the disk. The kwargs passed to initialize the tokenizer will be saved.
@@ -2048,7 +2601,204 @@ class PreTrainedTokenizerBase(SpecialTokensMixin):
         else:
             raise ValueError(f"file_format should be one of [json, yaml], but got {file_format}.")
 
-        self.save_vocabulary(save_directory)
+    def save_experimental_pretrained(
+            self,
+            save_directory: Union[str, os.PathLike],
+            filename_prefix: Optional[str] = None,
+            **kwargs,
+    ) -> Tuple[str]:
+        """
+        Save the full tokenizer state.
+
+
+        This method make sure the full tokenizer can then be re-loaded using the
+        [`~tokenization_utils_base.PreTrainedTokenizer.from_pretrained`] class method..
+
+        Warning,None This won't save modifications you may have applied to the tokenizer after the instantiation (for
+        instance, modifying `tokenizer.do_lower_case` after creation).
+
+        Args:
+            save_directory (`str` or `os.PathLike`): The path to a directory where the tokenizer will be saved.
+            legacy_format (`bool`, *optional*):
+                Only applicable for a fast tokenizer. If unset (default), will save the tokenizer in the unified JSON
+                format as well as in legacy format if it exists, i.e. with tokenizer specific vocabulary and a separate
+                added_tokens files.
+
+                If `False`, will only save the tokenizer in the unified JSON format. This format is incompatible with
+                "slow" tokenizers (not powered by the *tokenizers* library), so the tokenizer will not be able to be
+                loaded in the corresponding "slow" tokenizer.
+
+                If `True`, will save the tokenizer in legacy format. If the "slow" tokenizer doesn't exits, a value
+                error is raised.
+            filename_prefix (`str`, *optional*):
+                A prefix to add to the names of the files saved by the tokenizer.
+            push_to_hub (`bool`, *optional*, defaults to `False`):
+                Whether or not to push your model to the Hugging Face model hub after saving it. You can specify the
+                repository you want to push to with `repo_id` (will default to the name of `save_directory` in your
+                namespace).
+            kwargs (`Dict[str, Any]`, *optional*):
+                Additional key word arguments passed along to the [`~utils.PushToHubMixin.push_to_hub`] method.
+
+        Returns:
+            A tuple of `str`: The files saved.
+        """
+        legacy_format = kwargs.pop("legacy_format", None)
+        push_to_hub = kwargs.pop("push_to_hub", False)
+
+        use_auth_token = kwargs.pop("use_auth_token", None)
+
+        if use_auth_token is not None:
+            warnings.warn(
+                "The `use_auth_token` argument is deprecated and will be removed in v5 of Transformers. "
+                "Please use `token` instead.",
+                FutureWarning,
+            )
+            if kwargs.get("token", None) is not None:
+                raise ValueError(
+                    "`token` and `use_auth_token` are both specified. Please set only the argument `token`."
+                )
+            kwargs["token"] = use_auth_token
+
+        if os.path.isfile(save_directory):
+            logger.error(f"Provided path ({save_directory}) should be a directory, not a file")
+            return None
+
+        os.makedirs(save_directory, exist_ok=True)
+
+        if push_to_hub:
+            commit_message = kwargs.pop("commit_message", None)
+            repo_id = kwargs.pop("repo_id", save_directory.split(os.path.sep)[-1])
+            repo_id = self._create_repo(repo_id, **kwargs)
+            files_timestamps = self._get_files_timestamps(save_directory)
+
+        special_tokens_map_file = os.path.join(
+            save_directory, (filename_prefix + "-" if filename_prefix else "") + SPECIAL_TOKENS_MAP_FILE
+        )
+        tokenizer_config_file = os.path.join(
+            save_directory, (filename_prefix + "-" if filename_prefix else "") + TOKENIZER_CONFIG_FILE
+        )
+
+        tokenizer_config = copy.deepcopy(self.init_kwargs)
+
+        # Let's save the init kwargs
+        target_keys = set(self.init_kwargs.keys())
+        # Let's save the special tokens map (only the strings)
+        target_keys.update(["model_max_length", "clean_up_tokenization_spaces"])
+
+        for k in target_keys:
+            if hasattr(self, k):
+                tokenizer_config[k] = getattr(self, k)
+
+        # Let's make sure we properly save the special tokens.
+        tokenizer_config.update(self.special_tokens_map)
+
+        if self.chat_template is not None:
+            tokenizer_config["chat_template"] = self.chat_template
+
+        if self.init_inputs:
+            tokenizer_config["init_inputs"] = copy.deepcopy(self.init_inputs)
+        for file_id in self.vocab_files_names:
+            tokenizer_config.pop(file_id, None)
+
+        # no typefields, this way old fast and slow can load it
+        tokenizer_config = self.convert_added_tokens(tokenizer_config, add_type_field=True, save=True)
+
+        # Process added tokens separately: allows previous versions to ignore it!
+        added_tokens = {}
+        for key, value in self.added_tokens_decoder.items():
+            added_tokens[key] = value.__getstate__()
+        tokenizer_config["added_tokens_decoder"] = added_tokens
+
+        # Add tokenizer class to the tokenizer config to be able to reload it with from_pretrained
+        tokenizer_class = self.__class__.__name__
+        # Remove the Fast at the end unless we have a special `PreTrainedTokenizerFast`
+        if tokenizer_class.endswith("Fast") and tokenizer_class != "PreTrainedTokenizerFast":
+            tokenizer_class = tokenizer_class[:-4]
+        tokenizer_config["tokenizer_class"] = tokenizer_class
+        if getattr(self, "_auto_map", None) is not None:
+            tokenizer_config["auto_map"] = self._auto_map
+        if getattr(self, "_processor_class", None) is not None:
+            tokenizer_config["processor_class"] = self._processor_class
+
+        # If we have a custom model, we copy the file defining it in the folder and set the attributes so it can be
+        # loaded from the Hub.
+        if self._auto_class is not None:
+            custom_object_save(self, save_directory, config=tokenizer_config)
+
+        # remove private information
+        if "name_or_path" in tokenizer_config:
+            tokenizer_config.pop("name_or_path")
+            tokenizer_config.pop("special_tokens_map_file", None)
+            tokenizer_config.pop("tokenizer_file", None)
+
+        with open(tokenizer_config_file, "w", encoding="utf-8") as f:
+            out_str = json.dumps(tokenizer_config, indent=2, sort_keys=True, ensure_ascii=False) + "\n"
+            f.write(out_str)
+        logger.info(f"tokenizer config file saved in {tokenizer_config_file}")
+
+        # Sanitize AddedTokens in special_tokens_map
+
+        # kept for forward compatibility, will be removed in transoformers 5. Typefields are not saved for FC, special should not be save either
+        write_dict = self.convert_added_tokens(self.special_tokens_map_extended, save=True, add_type_field=False)
+        with open(special_tokens_map_file, "w", encoding="utf-8") as f:
+            out_str = json.dumps(write_dict, indent=2, sort_keys=True, ensure_ascii=False) + "\n"
+            f.write(out_str)
+        logger.info(f"Special tokens file saved in {special_tokens_map_file}")
+
+        file_names = (tokenizer_config_file, special_tokens_map_file)
+
+        save_files = self._save_pretrained(
+            save_directory=save_directory,
+            file_names=file_names,
+            legacy_format=legacy_format,
+            filename_prefix=filename_prefix,
+        )
+
+        if push_to_hub:
+            self._upload_modified_files(
+                save_directory,
+                repo_id,
+                files_timestamps,
+                commit_message=commit_message,
+                token=kwargs.get("token"),
+            )
+
+        return save_files
+
+    def _save_pretrained(
+            self,
+            save_directory: Union[str, os.PathLike],
+            file_names: Tuple[str],
+            legacy_format: Optional[bool] = None,
+            filename_prefix: Optional[str] = None,
+    ) -> Tuple[str]:
+        """
+        Save a tokenizer using the slow-tokenizer/legacy format: vocabulary + added tokens.
+
+        Fast tokenizers can also be saved in a unique JSON file containing {config + vocab + added-tokens} using the
+        specific [`~tokenization_utils_fast.PreTrainedTokenizerFast._save_pretrained`]
+        """
+        if legacy_format is False:
+            raise ValueError(
+                "Only fast tokenizers (instances of PreTrainedTokenizerFast) can be saved in non legacy format."
+            )
+
+        save_directory = str(save_directory)
+
+        added_tokens_file = os.path.join(
+            save_directory, (filename_prefix + "-" if filename_prefix else "") + ADDED_TOKENS_FILE
+        )
+        # the new get_added_vocab() also returns special tokens and tokens that have an index < vocab_size
+        added_vocab = {tok: index for tok, index in self.added_tokens_encoder.items() if index >= self.vocab_size}
+        if added_vocab:
+            with open(added_tokens_file, "w", encoding="utf-8") as f:
+                out_str = json.dumps(added_vocab, indent=2, sort_keys=True, ensure_ascii=False) + "\n"
+                f.write(out_str)
+                logger.info(f"added tokens file saved in {added_tokens_file}")
+
+        vocab_files = self.save_vocabulary(save_directory, filename_prefix=filename_prefix)
+
+        return file_names + vocab_files + (added_tokens_file,)
 
     def save_vocabulary(self, save_directory: str, filename_prefix: Optional[str] = None) -> Tuple[str]:
         """
@@ -2352,10 +3102,14 @@ class PreTrainedTokenizerBase(SpecialTokensMixin):
         if text is not None:
             # The context manager will send the inputs as normal texts and not text_target, but we shouldn't change the
             # input mode in this case.
+            if not self._in_target_context_manager:
+                self._switch_to_input_mode()
             encodings = self._call_one(text=text, text_pair=text_pair, **all_kwargs)
         if text_target is not None:
+            self._switch_to_target_mode()
             target_encodings = self._call_one(text=text_target, text_pair=text_pair_target, **all_kwargs)
         # Leave back tokenizer in input mode
+        self._switch_to_input_mode()
 
         if text_target is None:
             return encodings
@@ -3257,9 +4011,6 @@ class PreTrainedTokenizerBase(SpecialTokensMixin):
         Returns:
             `List[str]`: The list of decoded sentences.
         """
-        # Convert inputs to python lists
-        sequences = to_py_obj(sequences)
-
         return [
             self.decode(
                 seq,
@@ -3267,7 +4018,7 @@ class PreTrainedTokenizerBase(SpecialTokensMixin):
                 clean_up_tokenization_spaces=clean_up_tokenization_spaces,
                 **kwargs,
             )
-            if seq else "" for seq in sequences
+            for seq in sequences
         ]
 
     def decode(
@@ -3393,7 +4144,7 @@ class PreTrainedTokenizerBase(SpecialTokensMixin):
         Args:
             ids (`List[str]`): The ids produced by the tokenization
             max_length (`int`, *optional*): The max_length desired (does not trigger a warning if it is set)
-            verbose (`bool`): Whether or not to print more information and warnings.
+            verbose (`bool`): Whether to print more information and warnings.
 
         """
         if max_length is None and len(ids) > self.model_max_length and verbose:
@@ -3404,6 +4155,192 @@ class PreTrainedTokenizerBase(SpecialTokensMixin):
                     "will result in indexing errors", len(ids), self.model_max_length
                 )
             self.deprecation_warnings["sequence-length-is-longer-than-the-specified-maximum"] = True
+
+    def _switch_to_input_mode(self):
+        """
+        Private method to put the tokenizer in input mode (when it has different modes for input/outputs)
+        """
+
+    def _switch_to_target_mode(self):
+        """
+        Private method to put the tokenizer in target mode (when it has different modes for input/outputs)
+        """
+
+    @contextmanager
+    def as_target_tokenizer(self):
+        """
+        Temporarily sets the tokenizer for encoding the targets. Useful for tokenizer associated to
+        sequence-to-sequence models that need a slightly different processing for the labels.
+        """
+        warnings.warn(
+            "`as_target_tokenizer` is deprecated and will be removed in v5 of Transformers. You can tokenize your "
+            "labels by using the argument `text_target` of the regular `__call__` method (either in the same call as "
+            "your input texts if you use the same keyword arguments, or in a separate call."
+        )
+        self._switch_to_target_mode()
+        self._in_target_context_manager = True
+        yield
+        self._in_target_context_manager = False
+        self._switch_to_input_mode()
+
+    @classmethod
+    def register_for_auto_class(cls, auto_class="AutoTokenizer"):
+        """
+        Register this class with a given auto class. This should only be used for custom tokenizers as the ones in the
+        library are already mapped with `AutoTokenizer`.
+
+        <Tip warning={true}>
+
+        This API is experimental and may have some slight breaking changes in the next releases.
+
+        </Tip>
+
+        Args:
+            auto_class (`str` or `type`, *optional*, defaults to `"AutoTokenizer"`):
+                The auto class to register this new tokenizer with.
+        """
+        if not isinstance(auto_class, str):
+            auto_class = auto_class.__name__
+
+        import mindformers.models.auto as auto_module
+
+        if not hasattr(auto_module, auto_class):
+            raise ValueError(f"{auto_class} is not a valid auto class.")
+
+        cls._auto_class = auto_class
+
+    def prepare_seq2seq_batch(
+            self,
+            src_texts: List[str],
+            tgt_texts: Optional[List[str]] = None,
+            max_length: Optional[int] = None,
+            max_target_length: Optional[int] = None,
+            padding: str = "longest",
+            return_tensors: str = None,
+            truncation: bool = True,
+            **kwargs,
+    ) -> BatchEncoding:
+        """
+        Prepare model inputs for translation. For best performance, translate one sentence at a time.
+
+        Arguments:
+            src_texts (`List[str]`):
+                List of documents to summarize or source language texts.
+            tgt_texts (`list`, *optional*):
+                List of summaries or target language texts.
+            max_length (`int`, *optional*):
+                Controls the maximum length for encoder inputs (documents to summarize or source language texts) If
+                left unset or set to `None`, this will use the predefined model maximum length if a maximum length is
+                required by one of the truncation/padding parameters. If the model has no specific maximum input length
+                (like XLNet) truncation/padding to a maximum length will be deactivated.
+            max_target_length (`int`, *optional*):
+                Controls the maximum length of decoder inputs (target language texts or summaries) If left unset or set
+                to `None`, this will use the max_length value.
+            padding (`bool`, `str` or [`~utils.PaddingStrategy`], *optional*, defaults to `False`):
+                Activates and controls padding. Accepts the following values:
+
+                - `True` or `'longest'`: Pad to the longest sequence in the batch (or no padding if only a single
+                  sequence if provided).
+                - `'max_length'`: Pad to a maximum length specified with the argument `max_length` or to the maximum
+                  acceptable input length for the model if that argument is not provided.
+                - `False` or `'do_not_pad'` (default): No padding (i.e., can output a batch with sequences of different
+                  lengths).
+            return_tensors (`str` or [`~utils.TensorType`], *optional*):
+                If set, will return tensors instead of list of python integers. Acceptable values are:
+
+                - `'np'`: Return Numpy `np.ndarray` objects.
+                - `'ms'`: Return PyTorch `ms.Tensor` objects.
+            truncation (`bool`, `str` or [`~tokenization_utils_base.TruncationStrategy`],
+            *optional*, defaults to `True`):
+                Activates and controls truncation. Accepts the following values:
+
+                - `True` or `'longest_first'`: Truncate to a maximum length specified with the argument `max_length` or
+                  to the maximum acceptable input length for the model if that argument is not provided. This will
+                  truncate token by token, removing a token from the longest sequence in the pair if a pair of
+                  sequences (or a batch of pairs) is provided.
+                - `'only_first'`: Truncate to a maximum length specified with the argument `max_length` or to the
+                  maximum acceptable input length for the model if that argument is not provided. This will only
+                  truncate the first sequence of a pair if a pair of sequences (or a batch of pairs) is provided.
+                - `'only_second'`: Truncate to a maximum length specified with the argument `max_length` or to the
+                  maximum acceptable input length for the model if that argument is not provided. This will only
+                  truncate the second sequence of a pair if a pair of sequences (or a batch of pairs) is provided.
+                - `False` or `'do_not_truncate'` (default): No truncation (i.e., can output batch with sequence lengths
+                  greater than the model maximum admissible input size).
+            **kwargs:
+                Additional keyword arguments passed along to `self.__call__`.
+
+        Return:
+            [`BatchEncoding`]: A [`BatchEncoding`] with the following fields:
+
+            - **input_ids** -- List of token ids to be fed to the encoder.
+            - **attention_mask** -- List of indices specifying which tokens should be attended to by the model.
+            - **labels** -- List of token ids for tgt_texts.
+
+            The full set of keys `[input_ids, attention_mask, labels]`, will only be returned if tgt_texts is passed.
+            Otherwise, input_ids, attention_mask will be the only keys.
+        """
+        # docstyle-ignore
+        formatted_warning = """
+`prepare_seq2seq_batch` is deprecated and will be removed in version 5 of HuggingFace Transformers. Use the regular
+`__call__` method to prepare your inputs and targets.
+
+Here is a short example:
+
+model_inputs = tokenizer(src_texts, text_target=tgt_texts, ...)
+
+If you either need to use different keyword arguments for the source and target texts, you should do two calls like
+this:
+
+model_inputs = tokenizer(src_texts, ...)
+labels = tokenizer(text_target=tgt_texts, ...)
+model_inputs["labels"] = labels["input_ids"]
+
+See the documentation of your specific tokenizer for more details on the specific arguments to the tokenizer of choice.
+For a more complete example, see the implementation of `prepare_seq2seq_batch`.
+"""
+        warnings.warn(formatted_warning, FutureWarning)
+        # mBART-specific kwargs that should be ignored by other models.
+        kwargs.pop("src_lang", None)
+        kwargs.pop("tgt_lang", None)
+        if max_length is None:
+            max_length = self.model_max_length
+        model_inputs = self(
+            src_texts,
+            add_special_tokens=True,
+            return_tensors=return_tensors,
+            max_length=max_length,
+            padding=padding,
+            truncation=truncation,
+            **kwargs,
+        )
+        if tgt_texts is None:
+            return model_inputs
+        # Process tgt_texts
+        if max_target_length is None:
+            max_target_length = max_length
+        with self.as_target_tokenizer():
+            labels = self(
+                tgt_texts,
+                add_special_tokens=True,
+                return_tensors=return_tensors,
+                padding=padding,
+                max_length=max_target_length,
+                truncation=truncation,
+                **kwargs,
+            )
+        model_inputs["labels"] = labels["input_ids"]
+        return model_inputs
+
+    @classmethod
+    def show_support_list(cls):
+        """show_support_list method"""
+        logger.info("support list of %s is:", cls.__name__)
+        print_path_or_list(cls._support_list)
+
+    @classmethod
+    def get_support_list(cls):
+        """get_support_list method"""
+        return cls._support_list
 
 
 def get_fast_tokenizer_file(tokenization_files: List[str]) -> str:

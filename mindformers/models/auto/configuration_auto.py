@@ -105,6 +105,18 @@ CONFIG_MAPPING_NAMES = OrderedDict(
 CONFIG_MAPPING = _LazyConfigMapping(CONFIG_MAPPING_NAMES)
 
 
+def config_class_to_model_type(config):
+    """Converts a config class name to the corresponding model type"""
+    for key, cls in CONFIG_MAPPING_NAMES.items():
+        if cls == config:
+            return key
+    # if key not found check in extra content
+    for key, cls in CONFIG_MAPPING._extra_content.items():  # pylint: disable=W0212
+        if cls.__name__ == config:
+            return key
+    return None
+
+
 class AutoConfig:
     """
     AutoConfig class,
