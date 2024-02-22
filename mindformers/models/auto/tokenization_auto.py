@@ -30,7 +30,7 @@ from ...tools import (
     extract_commit_hash,
 )
 from ...tools.hub import get_class_from_dynamic_module, resolve_trust_remote_code
-from ..tokenization_utils_base import is_sentencepiece_available, is_tokenizers_available
+from ...utils.import_utils import is_sentencepiece_available, is_tokenizers_available
 from ...tools import logger
 from .configuration_auto import (
     CONFIG_MAPPING_NAMES,
