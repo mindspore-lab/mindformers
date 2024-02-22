@@ -2,3 +2,7 @@
 "mindformers/mindformers/inference/infers/text_generator_infer.py"                                                            "trailing-whitespace"
 "mindformers/tests/ut/models/auto/test_auto_image_processor.py"                                                               "wrong-import-position"
 "mindformers/tests/ut/models/test_image_processor.py"                                                                         "wrong-import-position"
+"mindformers/tests/st/test_model/test_model_configs.py"                                                                       "unused-variable"
+"mindformers/tests/ut/models/auto/test_configuration_auto.py"                                                                 "wrong-import-position"
+"mindformers/tests/ut/models/test_configuration_utils.py"                                                                     "wrong-import-position"
+"mindformers/tests/ut/models/test_configuration_utils.py"                                                                     "unused-variable"
