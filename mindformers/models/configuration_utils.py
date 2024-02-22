@@ -177,6 +177,16 @@ class PretrainedConfig(PushToHubMixin):
     def name_or_path(self, value):
         self._name_or_path = str(value)
 
+    def _to_dict_helper(self, output):
+        if "parallel_config" in output:
+            output["parallel_config"] = output["parallel_config"].to_dict()
+        if "moe_config" in output:
+            output["moe_config"] = output["moe_config"].to_dict()
+        if "op_parallel_config" in output:
+            output["op_parallel_config"] = output["op_parallel_config"].to_dict()
+        if "embed_parallel_config" in output:
+            output["embed_parallel_config"] = output["embed_parallel_config"].to_dict()
+
     def to_dict(self) -> Dict[str, Any]:
         """
         Serializes this instance to a Python dictionary.
@@ -191,11 +201,7 @@ class PretrainedConfig(PushToHubMixin):
             del output["_auto_class"]
         if "_commit_hash" in output:
             del output["_commit_hash"]
-        # 兼容moe config 和 parallel config
-        if "parallel_config" in output:
-            output["parallel_config"] = output["parallel_config"].to_dict()
-        if "moe_config" in output:
-            output["moe_config"] = output["moe_config"].to_dict()
+        self._to_dict_helper(output)
 
         # Mindformers version when serializing the model
         output["mindformers_version"] = __version__
@@ -745,6 +751,16 @@ class PretrainedConfig(PushToHubMixin):
             config_dict = self.to_dict()
         return json.dumps(config_dict, indent=2, sort_keys=True) + "\n"
 
+    def _to_diff_dict_helper(self, serializable_config_dict):
+        attributes = ["parallel_config", "moe_config", "op_parallel_config", "embed_parallel_config"]
+        for attr in attributes:
+            if attr in serializable_config_dict:
+                diff_parallel_config = getattr(self, attr).to_diff_dict()
+                if not diff_parallel_config:
+                    del serializable_config_dict[attr]
+                else:
+                    serializable_config_dict[attr] = diff_parallel_config
+
     def to_diff_dict(self) -> Dict[str, Any]:
         """
         Removes all attributes from config which correspond to the default config attributes for better readability and
@@ -786,19 +802,7 @@ class PretrainedConfig(PushToHubMixin):
                 serializable_config_dict[key] = value
 
         self.dict_ms_dtype_to_str(serializable_config_dict)
-        # 兼容moe config 和 parallel config
-        if "parallel_config" in serializable_config_dict:
-            diff_parallel_config = self.parallel_config.to_diff_dict()
-            if not diff_parallel_config:
-                del serializable_config_dict["parallel_config"]
-            else:
-                serializable_config_dict["parallel_config"] = diff_parallel_config
-        if "moe_config" in serializable_config_dict:
-            diff_moe_config = self.moe_config.to_diff_dict()
-            if not diff_moe_config:
-                del serializable_config_dict["moe_config"]
-            else:
-                serializable_config_dict["moe_config"] = diff_moe_config
+        self._to_diff_dict_helper(serializable_config_dict)
         return serializable_config_dict
 
     def dict_ms_dtype_to_str(self, d: Dict[str, Any]) -> None:

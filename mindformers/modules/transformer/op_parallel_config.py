@@ -147,6 +147,28 @@ class OpParallelConfig(_Config):
         Validator.check_positive_int(value, "model_parallel")
         self._model_parallel = value
 
+    def __eq__(self, other) -> bool:
+        return isinstance(other, OpParallelConfig) and (self.to_dict() == other.to_dict())
+
+    def to_dict(self):
+        """to dict"""
+        config_dict = {
+            'data_parallel': self.data_parallel,
+            'model_parallel': self.model_parallel,
+            'use_seq_parallel': self.use_seq_parallel,
+            'select_recompute': self.select_recompute
+        }
+        return config_dict
+
+    def to_diff_dict(self):
+        config_dict = self.to_dict()
+        default_dict = OpParallelConfig().to_dict()
+        res_dict = {}
+        for k, v in config_dict.items():
+            if v != default_dict[k]:
+                res_dict[k] = v
+        return res_dict
+
 
 class _PipeLineConfig(_Config):
     r"""

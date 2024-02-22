@@ -143,8 +143,8 @@ class GLMConfig(PretrainedConfig):
                  layernorm_order: str = "post",
                  layernorm_epsilon: float = 1.0e-5,
                  use_final_layernorm: bool = True,
-                 op_parallel_config: OpParallelConfig = default_dpmp_config,
-                 embed_parallel_config: EmbeddingOpParallelConfig = default_embedding_parallel_config,
+                 op_parallel_config: Union[dict, OpParallelConfig] = default_dpmp_config,
+                 embed_parallel_config: Union[dict, EmbeddingOpParallelConfig] = default_embedding_parallel_config,
                  parallel_config: Union[dict, TransformerOpParallelConfig] = default_transformer_config,
                  moe_config: Union[dict, MoEConfig] = default_moe_config,
                  use_past: bool = False,
@@ -171,6 +171,10 @@ class GLMConfig(PretrainedConfig):
                  ignore_token_id=None,
                  **kwargs):
         super().__init__(**kwargs)
+        if isinstance(op_parallel_config, dict):
+            op_parallel_config = OpParallelConfig(**op_parallel_config)
+        if isinstance(embed_parallel_config, dict):
+            embed_parallel_config = EmbeddingOpParallelConfig(**embed_parallel_config)
         if isinstance(parallel_config, dict):
             parallel_config = TransformerOpParallelConfig(**parallel_config)
         if isinstance(moe_config, dict):
