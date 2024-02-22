@@ -14,37 +14,27 @@
 # ============================================================================
 
 """TextGenerationPipeline"""
-import os.path
-from typing import Optional, Union
+from typing import Union, Optional
 
 import mindspore
 from mindspore import Model, Tensor
 
-from ..auto_class import AutoConfig, AutoModel, AutoProcessor
 from ..mindformer_book import MindFormerBook
-from ..models import BaseModel, PreTrainedTokenizerBase
+from ..models import BaseModel, PreTrainedTokenizer
 from ..tools.register import MindFormerModuleType, MindFormerRegister
-from .base_pipeline import BasePipeline
+from .base_pipeline import Pipeline
 
 __all__ = ['TextGenerationPipeline']
 
 
-def _setup_support_list(support_model_list):
-    support_list = []
-    for support_model in support_model_list:
-        support_list.extend(MindFormerBook.get_model_support_list().get(support_model))
-    return support_list
-
-
 @MindFormerRegister.register(MindFormerModuleType.PIPELINE, alias="text_generation")
-class TextGenerationPipeline(BasePipeline):
+class TextGenerationPipeline(Pipeline):
     r"""Pipeline for Text Generation
 
     Args:
-        model (Union[str, BaseModel]):
-            The model used to perform task, the input could be a supported model name, or a model instance
-            inherited from BaseModel.
-        tokenizer (Optional[PreTrainedTokenizerBase]):
+        model (Union[PretrainedModel, Model]):
+            The model used to perform task, the input should be a model instance inherited from PretrainedModel.
+        tokenizer (Optional[PreTrainedTokenizer]):
             A tokenizer (None or PreTrainedTokenizer) for text processing.
         **kwargs:
             Specific parametrization of `generate_config` and/or additional model-specific kwargs that will be
@@ -81,43 +71,28 @@ class TextGenerationPipeline(BasePipeline):
 
     Examples:
         >>> from mindformers.pipeline import TextGenerationPipeline
-        >>> text_generate = TextGenerationPipeline("gpt2")
+        >>> from mindformers import AutoModel, AutoTokenizer
+        >>> model = AutoModel.from_pretrained("gpt2")
+        >>> tokenizer = AutoTokenizer.from_pretrained("gpt2")
+        >>> text_generate = TextGenerationPipeline(model=model, tokenizer=tokenizer)
         >>> output = text_generate("I love Beijing, because ")
     """
     _support_list = MindFormerBook.get_pipeline_support_task_list()['text_generation'].keys()
-    _model_build_kwargs = ["batch_size", "use_past", "seq_length"]
     return_name = 'text_generation'
 
-    def __init__(self, model: Union[str, BaseModel, Model],
-                 tokenizer: Optional[PreTrainedTokenizerBase] = None,
+    def __init__(self, model: Union[BaseModel, Model],
+                 tokenizer: Optional[PreTrainedTokenizer] = None,
                  **kwargs):
-        if isinstance(model, str):
-            if model in self._support_list or os.path.isdir(model):
-                if tokenizer is None:
-                    tokenizer = AutoProcessor.from_pretrained(model).tokenizer
-                # build model using parameters
-                model_config = AutoConfig.from_pretrained(model)
-                for build_arg in self._model_build_kwargs:
-                    model_config[build_arg] = kwargs.pop(build_arg, \
-                        model_config.get(build_arg, None))
-                model = AutoModel.from_config(model_config)
-            else:
-                raise ValueError(f"{model} is not supported by {self.__class__.__name__},"
-                                 f"please selected from {self._support_list}.")
-
-        if not isinstance(model, (BaseModel, Model)):
-            raise TypeError(f"model should be inherited from BaseModel or Model, but got type {type(model)}.")
-
         if tokenizer is None:
             raise ValueError(f"{self.__class__.__name__}"
                              " requires for a tokenizer.")
 
-        super().__init__(model, tokenizer, **kwargs)
+        super().__init__(model, tokenizer=tokenizer, **kwargs)
         self.model_name = kwargs.get("model_name", None)
         self.use_past = False
         if hasattr(self.network.config, "use_past"):
             self.use_past = self.network.config.use_past
-        if hasattr(self.network.config, "use_past") and self.network.config.batch_size is not None:
+        if hasattr(self.network.config, "batch_size") and self.network.config.batch_size is not None:
             self._batch_size = self.network.config.batch_size
 
     def _sanitize_parameters(self, **pipeline_parameters):
@@ -209,8 +184,8 @@ class TextGenerationPipeline(BasePipeline):
                                            forward_params, postprocess_params))
         return outputs
 
-    def forward(self, model_inputs: dict,
-                **forward_params):
+    def _forward(self, model_inputs: dict,
+                 **forward_params):
         r"""The Forward Process of Model
 
         Args:

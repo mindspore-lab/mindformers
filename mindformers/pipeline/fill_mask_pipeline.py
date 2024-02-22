@@ -14,28 +14,26 @@
 # ============================================================================
 
 """TranslationPipeline"""
-import os.path
 # from tkinter import _Padding
 
 import numpy as np
 import mindspore
-from mindspore import ops, Tensor, Model
-from ..auto_class import AutoProcessor, AutoModel
+from mindspore import ops, Tensor
+from .base_pipeline import Pipeline
 from ..mindformer_book import MindFormerBook
-from .base_pipeline import BasePipeline
 from ..tools.register import MindFormerRegister, MindFormerModuleType
-from ..models import BaseModel, PreTrainedTokenizer
 
 __all__ = ['FillMaskPipeline']
 
+
 @MindFormerRegister.register(MindFormerModuleType.PIPELINE, alias="fill_mask")
-class FillMaskPipeline(BasePipeline):
+class FillMaskPipeline(Pipeline):
     """
     Pipeline for mask fill
 
     Args:
-        model (Union[str, BaseModel]):
-            A pretrained model (str or BaseModel) in _supproted_list.
+        model (Union[PretrainedModel, Model]):
+            The model used to perform task, the input should be a model instance inherited from PretrainedModel.
         tokenizer (Optional[PreTrainedTokenizerBase]):
             A tokenizer (None or PreTrainedTokenizer) for text processing. Default: None.
     """
@@ -43,27 +41,13 @@ class FillMaskPipeline(BasePipeline):
     return_name = 'fillmask'
 
     def __init__(self, model, tokenizer=None, **kwargs):
-        if isinstance(model, str):
-            if model in self._support_list or os.path.isdir(model):
-                if tokenizer is None:
-                    tokenizer = AutoProcessor.from_pretrained(model).tokenizer
-                model = AutoModel.from_pretrained(model)
-                if not isinstance(tokenizer, PreTrainedTokenizer):
-                    raise TypeError(f"tokenizer should be inherited from"
-                                    f" PretrainedTokenizer, but got {type(tokenizer)}.")
-            else:
-                raise ValueError(f"{model} is not supported by {self.__class__.__name__},"
-                                 f"please selected from {self._support_list}.")
-
-        if not isinstance(model, (BaseModel, Model)):
-            raise TypeError(f"model should be inherited from BaseModel or Model, but got type {type(model)}.")
 
         if tokenizer is None:
             raise ValueError(f"{self.__class__.__name__}"
                              " requires for a tokenizer.")
         self.input_text = ""
 
-        super().__init__(model, tokenizer, **kwargs)
+        super().__init__(model, tokenizer=tokenizer, **kwargs)
 
     def _sanitize_parameters(self, **pipeline_parameters):
         """sanitize parameters for preprocess, forward, and postprocess."""
@@ -114,7 +98,7 @@ class FillMaskPipeline(BasePipeline):
                 "token_type_id": expand_dims(inputs["token_type_ids"], 0),
                 "masked_lm_positions": expand_dims(Tensor(self.tokenizer.mask_index), 0)}
 
-    def forward(self, model_inputs, **forward_params):
+    def _forward(self, model_inputs, **forward_params):
         """
         Forward process
 

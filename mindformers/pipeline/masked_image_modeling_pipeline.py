@@ -21,12 +21,11 @@ from PIL import Image
 
 from mindspore import Tensor, Model
 
-from mindformers.auto_class import AutoProcessor, AutoModel
 from mindformers.mindformer_book import MindFormerBook
 from mindformers.models import BaseModel, BaseImageProcessor
 from mindformers.tools.image_tools import load_image
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
-from .base_pipeline import BasePipeline
+from .base_pipeline import Pipeline
 
 __all__ = ['MaskedImageModelingPipeline']
 
@@ -34,13 +33,12 @@ from ..tools.utils import LOCAL_DEFAULT_PATH
 
 
 @MindFormerRegister.register(MindFormerModuleType.PIPELINE, alias="masked_image_modeling")
-class MaskedImageModelingPipeline(BasePipeline):
+class MaskedImageModelingPipeline(Pipeline):
     r"""Pipeline for masked image modeling
 
     Args:
-        model (Union[str, BaseModel]):
-            The model used to perform task, the input could be a supported model name, or a model instance
-            inherited from BaseModel.
+        model (Union[PretrainedModel, Model]):
+            The model used to perform task, the input should be a model instance inherited from PretrainedModel.
         image_processor (Optional[BaseImageProcessor]):
             The image_processor of model, it could be None if the model do not need image_processor.
 
@@ -51,10 +49,11 @@ class MaskedImageModelingPipeline(BasePipeline):
     Examples:
         >>> import numpy as np
         >>> from mindformers.pipeline import MaskedImageModelingPipeline
-        >>> from mindformers import ViTMAEImageProcessor
+        >>> from mindformers import AutoModel, ViTMAEImageProcessor
+        >>> model = AutoModel.from_pretrained('mae_vit_base_p16')
         >>> processor = ViTMAEImageProcessor(size=224)
         >>> reconstructor = MaskedImageModelingPipeline(
-        ...     model='mae_vit_base_p16',
+        ...     model=model,
         ...     image_processor=processor,
         ...     top_k=5
         ...     )
@@ -62,23 +61,9 @@ class MaskedImageModelingPipeline(BasePipeline):
     """
     _support_list = MindFormerBook.get_pipeline_support_task_list()['masked_image_modeling'].keys()
 
-    def __init__(self, model: Union[str, BaseModel, Model],
+    def __init__(self, model: Union[BaseModel, Model],
                  image_processor: Optional[BaseImageProcessor] = None,
                  **kwargs):
-        if isinstance(model, str):
-            if model in self._support_list:
-                if image_processor is None:
-                    image_processor = AutoProcessor.from_pretrained(model).image_processor
-                if not isinstance(image_processor, BaseImageProcessor):
-                    raise TypeError(f"image_processor should be inherited from"
-                                    f" BaseImageProcessor, but got {type(image_processor)}.")
-                model = AutoModel.from_pretrained(model)
-            else:
-                raise ValueError(f"{model} is not supported by ImageClassificationForPipeline,"
-                                 f"please selected from {self._support_list}.")
-
-        if not isinstance(model, (BaseModel, Model)):
-            raise TypeError(f"model should be inherited from BaseModel or Model, but got type {type(model)}.")
 
         if image_processor is None:
             raise ValueError("MaskedImageModelingPipeline"
@@ -124,8 +109,8 @@ class MaskedImageModelingPipeline(BasePipeline):
         image_processed = self.image_processor(inputs)
         return {"image_processed": image_processed}
 
-    def forward(self, model_inputs: dict,
-                **forward_params):
+    def _forward(self, model_inputs: dict,
+                 **forward_params):
         r"""The Forward Process of Model
 
         Args:

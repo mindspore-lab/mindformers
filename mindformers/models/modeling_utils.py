@@ -40,7 +40,7 @@ from mindformers.tools.hub import (
     has_file
 )
 from mindformers.tools.hub.dynamic_module_utils import custom_object_save
-from mindformers.generation import GenerationConfig, GenerationMixin
+from mindformers.generation import GenerationConfig, GeneratorMixin
 from mindformers.tools.logger import logger
 from mindformers.tools.register import MindFormerConfig
 from .base_config import BaseConfig
@@ -191,7 +191,7 @@ class ModuleUtilsMixin:
     """
 
 
-class PreTrainedModel(nn.Cell, ModuleUtilsMixin, GenerationMixin, PushToHubMixin):
+class PreTrainedModel(nn.Cell, ModuleUtilsMixin, GeneratorMixin, PushToHubMixin):
     r"""
     Base class for all models.
 

@@ -16,26 +16,22 @@
 # ============================================================================
 
 """TokenClassificationPipeline"""
-import os.path
 
 import numpy as np
-from mindspore import ops, Model
-from ..auto_class import AutoProcessor, AutoModel
+from mindspore import ops
 from ..mindformer_book import MindFormerBook
-from .base_pipeline import BasePipeline
+from .base_pipeline import Pipeline
 from ..tools.register import MindFormerRegister, MindFormerModuleType
-from ..models import BaseModel, PreTrainedTokenizer
 
 __all__ = ['TokenClassificationPipeline']
 
 @MindFormerRegister.register(MindFormerModuleType.PIPELINE, alias="token_classification")
-class TokenClassificationPipeline(BasePipeline):
+class TokenClassificationPipeline(Pipeline):
     """Pipeline for token classification
 
     Args:
-        model (Union[str, BaseModel]):
-            The model used to perform task, the input could be a supported model name, or a model instance
-            inherited from BaseModel.
+        model (Union[PretrainedModel, Model]):
+            The model used to perform task, the input should be a model instance inherited from PretrainedModel.
         tokenizer (Optional[PreTrainedTokenizerBase]):
             A tokenizer (None or PreTrainedTokenizer) for text processing. Default: None.
         id2label (dict):
@@ -70,20 +66,6 @@ class TokenClassificationPipeline(BasePipeline):
     _support_list = MindFormerBook.get_pipeline_support_task_list()['token_classification'].keys()
 
     def __init__(self, model, id2label, tokenizer=None, **kwargs):
-        if isinstance(model, str):
-            if model in self._support_list or os.path.isdir(model):
-                if tokenizer is None:
-                    tokenizer = AutoProcessor.from_pretrained(model).tokenizer
-                model = AutoModel.from_pretrained(model)
-                if not isinstance(tokenizer, PreTrainedTokenizer):
-                    raise TypeError(f"tokenizer should be inherited from"
-                                    f" PreTrainedTokenizerBase, but got {type(tokenizer)}.")
-            else:
-                raise ValueError(f"{model} is not supported by {self.__class__.__name__},"
-                                 f"please selected from {self._support_list}.")
-
-        if not isinstance(model, (BaseModel, Model)):
-            raise TypeError(f"model should be inherited from BaseModel or Model, but got type {type(model)}.")
 
         if tokenizer is None:
             raise ValueError(f"{self.__class__.__name__}"
@@ -96,7 +78,7 @@ class TokenClassificationPipeline(BasePipeline):
         self.id2label = id2label
         self.input_text = ""
 
-        super().__init__(model, tokenizer, **kwargs)
+        super().__init__(model, tokenizer=tokenizer, **kwargs)
 
     def _sanitize_parameters(self, **pipeline_parameters):
         """sanitize parameters for preprocess, forward, and postprocess."""
@@ -141,7 +123,7 @@ class TokenClassificationPipeline(BasePipeline):
                 "input_mask": expand_dims(inputs["attention_mask"], 0),
                 "token_type_ids": expand_dims(inputs["token_type_ids"], 0)}
 
-    def forward(self, model_inputs, **forward_params):
+    def _forward(self, model_inputs, **forward_params):
         """
         Forward process
 

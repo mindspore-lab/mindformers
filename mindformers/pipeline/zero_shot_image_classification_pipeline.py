@@ -23,19 +23,16 @@ from mindformers.mindformer_book import MindFormerBook
 from mindformers.tools.image_tools import load_image
 from mindformers.models import BaseModel, BaseImageProcessor, PreTrainedTokenizer
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
-from mindformers.auto_class import AutoProcessor, AutoModel
-from .base_pipeline import BasePipeline
-from ..models import PreTrainedTokenizerBase
+from .base_pipeline import Pipeline
 
 
 @MindFormerRegister.register(MindFormerModuleType.PIPELINE, alias="zero_shot_image_classification")
-class ZeroShotImageClassificationPipeline(BasePipeline):
+class ZeroShotImageClassificationPipeline(Pipeline):
     """Pipeline For Zero Shot Image Classification
 
     Args:
-        model (Union[str, BaseModel]):
-            The model used to perform task, the input could be a supported model name, or a model instance
-            inherited from BaseModel.
+        model (Union[PretrainedModel, Model]):
+            The model used to perform task, the input should be a model instance inherited from PretrainedModel.
         tokenizer (Optional[PreTrainedTokenizerBase]):
             A tokenizer for text processing.
         image_processor (Optional[BaseImageProcessor]):
@@ -50,8 +47,13 @@ class ZeroShotImageClassificationPipeline(BasePipeline):
     Examples:
         >>> from mindformers.tools.image_tools import load_image
         >>> from mindformers.pipeline import ZeroShotImageClassificationPipeline
+        >>> from mindformers import AutoModel, AutoProcessor
+        >>> model = AutoModel.from_pretrained("clip_vit_b_32")
+        >>> processor = AutoProcessor.from_pretrained("clip_vit_b_32")
         >>> classifier = ZeroShotImageClassificationPipeline(
-        ...     model='clip_vit_b_32',
+        ...     model=model,
+        ...     tokenizer=processor.tokenizer,
+        ...     image_processor=processor.image_processor,
         ...     candidate_labels=["sunflower", "tree", "dog", "cat", "toy"],
         ...     hypothesis_template="This is a photo of {}."
         ...     )
@@ -66,29 +68,10 @@ class ZeroShotImageClassificationPipeline(BasePipeline):
     """
     _support_list = MindFormerBook.get_pipeline_support_task_list()['zero_shot_image_classification'].keys()
 
-    def __init__(self, model: Union[str, BaseModel, Model],
-                 tokenizer: Optional[PreTrainedTokenizerBase] = None,
+    def __init__(self, model: Union[BaseModel, Model],
+                 tokenizer: Optional[PreTrainedTokenizer] = None,
                  image_processor: Optional[BaseImageProcessor] = None,
                  **kwargs):
-        if isinstance(model, str):
-            if model in self._support_list:
-                if image_processor is None:
-                    image_processor = AutoProcessor.from_pretrained(model).image_processor
-                if not isinstance(image_processor, BaseImageProcessor):
-                    raise TypeError(f"image_processor should be inherited from"
-                                    f" BaseImageProcessor, but got {type(image_processor)}.")
-                if tokenizer is None:
-                    tokenizer = AutoProcessor.from_pretrained(model).tokenizer
-                if not isinstance(tokenizer, PreTrainedTokenizer):
-                    raise TypeError(f"tokenizer should be inherited from"
-                                    f" PretrainedTokenizer, but got {type(tokenizer)}.")
-                model = AutoModel.from_pretrained(model)
-            else:
-                raise ValueError(f"{model} is not supported by ZeroShotImageClassificationPipeline,"
-                                 f"please selected from {self._support_list}.")
-
-        if not isinstance(model, (BaseModel, Model)):
-            raise TypeError(f"model should be inherited from BaseModel or Model, but got type {type(model)}.")
 
         if tokenizer is None:
             raise ValueError("ZeroShotImageClassificationPipeline"
@@ -97,7 +80,7 @@ class ZeroShotImageClassificationPipeline(BasePipeline):
             raise ValueError("ZeroShotImageClassificationPipeline"
                              " requires for a image_processor.")
 
-        super().__init__(model, tokenizer, image_processor, **kwargs)
+        super().__init__(model, tokenizer=tokenizer, image_processor=image_processor, **kwargs)
 
     def _sanitize_parameters(self, **pipeline_parameters):
         """Sanitize Parameters
@@ -168,7 +151,7 @@ class ZeroShotImageClassificationPipeline(BasePipeline):
         return {"image_processed": image_processed,
                 "input_ids": input_ids, "candidate_labels": candidate_labels}
 
-    def forward(self, model_inputs: dict, **forward_params):
+    def _forward(self, model_inputs: dict, **forward_params):
         """Forward process
 
         Args:
