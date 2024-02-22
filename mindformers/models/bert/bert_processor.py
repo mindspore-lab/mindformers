@@ -18,13 +18,13 @@ BertProcessor
 """
 from mindformers.mindformer_book import MindFormerBook
 from ..tokenization_utils_base import PreTrainedTokenizerBase
-from ..base_processor import BaseProcessor
+from ..processing_utils import ProcessorMixin
 from ...tools.register import MindFormerRegister, MindFormerModuleType
 
 __all__ = ['BertProcessor']
 
 @MindFormerRegister.register(MindFormerModuleType.PROCESSOR)
-class BertProcessor(BaseProcessor):
+class BertProcessor(ProcessorMixin):
     """
     Bert processor,
     consists of a tokenizer (PreTrainedTokenizerBase) for text input.
@@ -50,6 +50,9 @@ class BertProcessor(BaseProcessor):
     _support_list = MindFormerBook.get_processor_support_list()['bert']
     _support_list.extend(MindFormerBook.get_processor_support_list()['tokcls']['bert'])
     _support_list.extend(MindFormerBook.get_processor_support_list()['txtcls']['bert'])
+
+    attributes = ["tokenizer"]
+    tokenizer_class = ("BertTokenizer", "BertTokenizerFast")
 
     def __init__(self, tokenizer=None,
                  max_length=128, padding='max_length', return_tensors='ms'):

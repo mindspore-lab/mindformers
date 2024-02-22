@@ -20,7 +20,7 @@ import numpy as np
 import mindspore as ms
 import PIL
 
-from mindformers.dataset.image_utils import ChannelDimension, infer_channel_dimension_format, get_image_size
+from mindformers.utils.image_utils import ChannelDimension, infer_channel_dimension_format, get_image_size
 
 
 def _rescale_for_pil_conversion(image):

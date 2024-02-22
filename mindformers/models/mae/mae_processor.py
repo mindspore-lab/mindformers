@@ -24,8 +24,9 @@ from mindspore.dataset.vision.transforms import ToTensor, Normalize
 from mindformers.mindformer_book import MindFormerBook
 from mindformers.dataset import Resize
 from mindformers.dataset.base_dataset import BaseDataset
+from mindformers.models.tokenization_utils_base import PreTrainedTokenizerBase
 from mindformers.models.image_processing_utils import BaseImageProcessor
-from mindformers.models.base_processor import BaseProcessor
+from mindformers.models.processing_utils import ProcessorMixin
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 
 
@@ -151,7 +152,7 @@ class ViTMAEImageProcessor(BaseImageProcessor):
 
 
 @MindFormerRegister.register(MindFormerModuleType.PROCESSOR)
-class ViTMAEProcessor(BaseProcessor):
+class ViTMAEProcessor(ProcessorMixin):
     """
     ViTMAEProcessor,
     consists of a feature extractor (BaseFeatureEXtractor) for image input.
@@ -169,8 +170,37 @@ class ViTMAEProcessor(BaseProcessor):
     """
     _support_list = MindFormerBook.get_processor_support_list()['mae']
 
+    attributes = ["image_processor"]
+    image_processor_class = "ViTMAEImageProcessor"
+
     def __init__(self, image_processor=None, return_tensors='ms'):
         super(ViTMAEProcessor, self).__init__(
             image_processor=image_processor,
             return_tensors=return_tensors
         )
+
+    def __call__(self, image_input=None, text_input=None):
+        """call function"""
+        output = {}
+
+        if image_input is not None and self.image_processor:
+            if not isinstance(self.image_processor, BaseImageProcessor):
+                raise TypeError(f"feature_extractor should inherit from the BaseImageProcessor,"
+                                f" but got {type(self.image_processor)}.")
+
+            image_output = self.image_processor(image_input)
+            output['image'] = image_output
+
+        if text_input is not None and self.tokenizer:
+            if not isinstance(self.tokenizer, PreTrainedTokenizerBase):
+                raise TypeError(f"tokenizer should inherited from the from PreTrainedTokenizerBase,"
+                                f" but got {type(self.tokenizer)}.")
+            # Format the input into a batch
+            if isinstance(text_input, str):
+                text_input = [text_input]
+            text_output = self.tokenizer(text_input, return_tensors=self.return_tensors,
+                                         max_length=self.max_length,
+                                         padding=self.padding)["input_ids"]
+            output['text'] = text_output
+
+        return output

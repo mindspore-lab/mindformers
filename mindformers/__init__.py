@@ -28,6 +28,7 @@ from mindformers.modules import *
 from mindformers.wrapper import *
 from mindformers.tools import *
 from mindformers.auto_class import *
+from mindformers import generation
 from mindformers.generation import *
 from mindformers.pet import *
 from .mindformer_book import MindFormerBook

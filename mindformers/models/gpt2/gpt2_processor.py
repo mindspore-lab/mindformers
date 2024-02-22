@@ -17,14 +17,14 @@
 GPT2Processor
 """
 from mindformers.mindformer_book import MindFormerBook
-from ..tokenization_utils_base import PreTrainedTokenizerBase
-from ..base_processor import BaseProcessor
-from ...tools.register import MindFormerRegister, MindFormerModuleType
+from mindformers.models.tokenization_utils_base import PreTrainedTokenizerBase
+from mindformers.models.processing_utils import ProcessorMixin
+from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 
 __all__ = ['GPT2Processor']
 
 @MindFormerRegister.register(MindFormerModuleType.PROCESSOR)
-class GPT2Processor(BaseProcessor):
+class GPT2Processor(ProcessorMixin):
     """
     GPT2 processor,
     consists of a tokenizer (PreTrainedTokenizerBase) for text input.
@@ -48,6 +48,9 @@ class GPT2Processor(BaseProcessor):
             - `'ms'`: Return Numpy `ms.Tensor` objects.
     """
     _support_list = MindFormerBook.get_processor_support_list()['gpt2']
+
+    attributes = ["tokenizer"]
+    tokenizer_class = ("GPT2Tokenizer", "GPT2TokenizerFast")
 
     def __init__(self, tokenizer=None,
                  max_length=128, padding='max_length', return_tensors='ms'):

@@ -24,8 +24,9 @@ from mindspore.dataset.vision import CenterCrop, ToTensor, Normalize
 from mindformers.mindformer_book import MindFormerBook
 from mindformers.dataset import Resize
 from mindformers.dataset.base_dataset import BaseDataset
+from mindformers.models.tokenization_utils_base import PreTrainedTokenizerBase
 from mindformers.models.image_processing_utils import BaseImageProcessor
-from mindformers.models.base_processor import BaseProcessor
+from mindformers.models.processing_utils import ProcessorMixin
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 
 
@@ -133,7 +134,7 @@ class ViTImageProcessor(BaseImageProcessor):
 
 
 @MindFormerRegister.register(MindFormerModuleType.PROCESSOR)
-class ViTProcessor(BaseProcessor):
+class ViTProcessor(ProcessorMixin):
     """
     Vit processor,
     consists of a feature extractor (BaseFeatureEXtractor) for image input,
@@ -141,8 +142,39 @@ class ViTProcessor(BaseProcessor):
     """
     _support_list = MindFormerBook.get_processor_support_list()['vit']
 
+    attributes = ["image_processor"]
+    image_processor_class = "ViTImageProcessor"
+
     def __init__(self, image_processor=None, return_tensors='ms'):
         super().__init__(
             image_processor=image_processor,
             return_tensors=return_tensors
         )
+
+    def __call__(self, text_input=None, text_pair=None):
+        """call function"""
+        output = {}
+        if not self.tokenizer:
+            raise ValueError(f"For {self.__name__}, the `tokenizer` should not be None.")
+        if not isinstance(self.tokenizer, PreTrainedTokenizerBase):
+            raise TypeError(f"tokenizer should inherited from the PreTrainedTokenizerBase,"
+                            f" but got {type(self.tokenizer)}.")
+        if text_input:
+            # Format the input into a batch
+            if isinstance(text_input, str):
+                text_input = [text_input]
+            text_output = self.tokenizer(text_input, return_tensors=self.return_tensors,
+                                         max_length=self.max_length,
+                                         padding=self.padding)["input_ids"]
+            output['text'] = text_output
+
+        if text_pair:
+            # Format the input into a batch
+            if isinstance(text_pair, str):
+                text_input = [text_pair]
+            text_output = self.tokenizer(text_pair, return_tensors=self.return_tensors,
+                                         max_length=self.tgt_max_length,
+                                         padding=self.padding)["input_ids"]
+            output['tgt_output'] = text_output
+
+        return output

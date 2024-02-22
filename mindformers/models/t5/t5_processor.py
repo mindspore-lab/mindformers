@@ -16,15 +16,15 @@
 """
 T5Processor
 """
-from mindformers.models.tokenization_utils import PreTrainedTokenizer
+from mindformers.models.tokenization_utils_base import PreTrainedTokenizerBase
 from mindformers.mindformer_book import MindFormerBook
-from ..base_processor import BaseProcessor
-from ...tools.register import MindFormerRegister, MindFormerModuleType
+from mindformers.models.processing_utils import ProcessorMixin
+from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 
 __all__ = ['T5Processor']
 
 @MindFormerRegister.register(MindFormerModuleType.PROCESSOR)
-class T5Processor(BaseProcessor):
+class T5Processor(ProcessorMixin):
     """
     T5 processor,
     consists of a tokenizer (PreTrainedTokenizerBase) for text input.
@@ -52,6 +52,9 @@ class T5Processor(BaseProcessor):
     """
     _support_list = MindFormerBook.get_processor_support_list()['t5']
 
+    attributes = ["tokenizer"]
+    tokenizer_class = ("T5Tokenizer", "T5TokenizerFast")
+
     def __init__(self, tokenizer=None,
                  max_length=77,
                  tgt_max_length=128,
@@ -69,7 +72,7 @@ class T5Processor(BaseProcessor):
         output = {}
         if not self.tokenizer:
             raise ValueError(f"For {self.__name__}, the `tokenizer` should not be None.")
-        if not isinstance(self.tokenizer, PreTrainedTokenizer):
+        if not isinstance(self.tokenizer, PreTrainedTokenizerBase):
             raise TypeError(f"tokenizer should inherited from the PreTrainedTokenizerBase,"
                             f" but got {type(self.tokenizer)}.")
         if text_input:
