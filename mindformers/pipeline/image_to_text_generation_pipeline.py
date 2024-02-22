@@ -20,25 +20,22 @@ from PIL import Image
 from mindspore import Tensor, Model
 from mindspore.ops import operations as P
 
-
-from mindformers.auto_class import AutoProcessor, AutoModel
 from mindformers.mindformer_book import MindFormerBook
 from mindformers.models import BaseModel, BaseImageProcessor
 from mindformers.tools.image_tools import load_image
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
-from .base_pipeline import BasePipeline
+from .base_pipeline import Pipeline
 
-__all__ = ['ImageToTextGenerationPipeline']
+__all__ = ['ImageToTextPipeline']
 
 
 @MindFormerRegister.register(MindFormerModuleType.PIPELINE, alias="image_to_text_generation")
-class ImageToTextGenerationPipeline(BasePipeline):
+class ImageToTextPipeline(Pipeline):
     r"""Pipeline for image to text generation
 
     Args:
-        model (Union[str, BaseModel]):
-            The model used to perform task, the input could be a supported model name, or a model instance
-            inherited from BaseModel.
+        model (Union[PretrainedModel, Model]):
+            The model used to perform task, the input should be a model instance inherited from PretrainedModel.
         image_processor (Optional[BaseImageProcessor]):
             The image_processor of model, it could be None if the model do not need image_processor.
 
@@ -50,27 +47,13 @@ class ImageToTextGenerationPipeline(BasePipeline):
     """
     _support_list = MindFormerBook.get_pipeline_support_task_list()['image_to_text_generation'].keys()
 
-    def __init__(self, model: Union[str, BaseModel, Model],
+    def __init__(self, model: Union[BaseModel, Model],
                  image_processor: Optional[BaseImageProcessor] = None,
                  tokenizer=None,
                  **kwargs):
-        if isinstance(model, str):
-            if model in self._support_list:
-                if image_processor is None:
-                    image_processor = AutoProcessor.from_pretrained(model).image_processor
-                if not isinstance(image_processor, BaseImageProcessor):
-                    raise TypeError(f"image_processor should be inherited from"
-                                    f" BaseImageProcessor, but got {type(image_processor)}.")
-                model = AutoModel.from_pretrained(model)
-            else:
-                raise ValueError(f"{model} is not supported by ImageToTextGenerationPipeline,"
-                                 f"please selected from {self._support_list}.")
-
-        if not isinstance(model, (BaseModel, Model)):
-            raise TypeError(f"model should be inherited from BaseModel or Model, but got type {type(model)}.")
 
         if image_processor is None:
-            raise ValueError("ImageToTextGenerationPipeline"
+            raise ValueError("ImageToTextPipeline"
                              " requires for a image_processor.")
         self.hypothesis_template = kwargs.pop("hypothesis_template", "{}")
         super().__init__(model, image_processor=image_processor, tokenizer=tokenizer, **kwargs)
@@ -147,8 +130,8 @@ class ImageToTextGenerationPipeline(BasePipeline):
 
         return {"image_processed": image_processed, "prompt_input_ids": prompt_input_ids}
 
-    def forward(self, model_inputs: dict,
-                **forward_params):
+    def _forward(self, model_inputs: dict,
+                 **forward_params):
         r"""The Forward Process of Model
 
         Args:

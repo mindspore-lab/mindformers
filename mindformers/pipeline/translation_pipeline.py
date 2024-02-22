@@ -14,30 +14,27 @@
 # ============================================================================
 
 """TranslationPipeline"""
-import os.path
-from typing import Union, Optional
+from typing import Optional, Union
 
 import mindspore
 from mindspore import Tensor, Model
 
-from ..auto_class import AutoProcessor, AutoModel
-from ..mindformer_book import MindFormerBook
-from .base_pipeline import BasePipeline
+from mindformers.mindformer_book import MindFormerBook
+from .base_pipeline import Pipeline
 from ..tools.register import MindFormerRegister, MindFormerModuleType
-from ..models import BaseModel, PreTrainedTokenizerBase
+from ..models import BaseModel, PreTrainedTokenizer
 
 __all__ = ['TranslationPipeline']
 
 
 @MindFormerRegister.register(MindFormerModuleType.PIPELINE, alias="translation")
-class TranslationPipeline(BasePipeline):
+class TranslationPipeline(Pipeline):
     """Pipeline for Translation
 
     Args:
-        model (Union[str, BaseModel]):
-            The model used to perform task, the input could be a supported model name, or a model instance
-            inherited from BaseModel.
-        tokenizer (Optional[PreTrainedTokenizerBase]):
+        model (Union[PretrainedModel, Model]):
+            The model used to perform task, the input should be a model instance inherited from PretrainedModel.
+        tokenizer (Optional[PreTrainedTokenizer]):
             A tokenizer (None or PreTrainedTokenizer) for text processing. Default: None.
         **kwargs:
             Specific parametrization of `generate_config` and/or additional model-specific kwargs that will be
@@ -74,7 +71,10 @@ class TranslationPipeline(BasePipeline):
 
     Examples:
         >>> from mindformers.pipeline import TranslationPipeline
-        >>> translator = TranslationPipeline("t5_small")
+        >>> from mindformers import AutoModel, AutoTokenizer
+        >>> model = AutoModel.from_pretrained("t5_small")
+        >>> tokenizer = AutoTokenizer.from_pretrained("t5_small")
+        >>> translator = TranslationPipeline(model=model, tokenizer=tokenizer)
         >>> output = translator("translate the English to Romanian: a good boy!")
         >>> print(output)
         [{'translation_text': ['un băiat bun!']}]
@@ -82,29 +82,15 @@ class TranslationPipeline(BasePipeline):
     _support_list = MindFormerBook.get_model_support_list()['t5']
     return_name = 'translation'
 
-    def __init__(self, model: Union[str, BaseModel, Model],
-                 tokenizer: Optional[PreTrainedTokenizerBase] = None,
+    def __init__(self, model: Union[BaseModel, Model],
+                 tokenizer: Optional[PreTrainedTokenizer] = None,
                  **kwargs):
-        if isinstance(model, str):
-            if model in self._support_list or os.path.isdir(model):
-                if tokenizer is None:
-                    tokenizer = AutoProcessor.from_pretrained(model).tokenizer
-                model = AutoModel.from_pretrained(model)
-                if not isinstance(tokenizer, PreTrainedTokenizerBase):
-                    raise TypeError(f"tokenizer should be inherited from"
-                                    f" PreTrainedTokenizerBase, but got {type(tokenizer)}.")
-            else:
-                raise ValueError(f"{model} is not supported by {self.__class__.__name__},"
-                                 f"please selected from {self._support_list}.")
-
-        if not isinstance(model, (BaseModel, Model)):
-            raise TypeError(f"model should be inherited from BaseModel or Model, but got type {type(model)}.")
 
         if tokenizer is None:
             raise ValueError(f"{self.__class__.__name__}"
                              " requires for a tokenizer.")
 
-        super().__init__(model, tokenizer, **kwargs)
+        super().__init__(model, tokenizer=tokenizer, **kwargs)
 
     def _sanitize_parameters(self, **pipeline_parameters):
         """Sanitize Parameters
@@ -152,8 +138,8 @@ class TranslationPipeline(BasePipeline):
         input_ids = self.tokenizer(inputs, return_tensors=None)["input_ids"]
         return {"input_ids": input_ids}
 
-    def forward(self, model_inputs: dict,
-                **forward_params):
+    def _forward(self, model_inputs: dict,
+                 **forward_params):
         """The Forward Process of Model
 
         Args:

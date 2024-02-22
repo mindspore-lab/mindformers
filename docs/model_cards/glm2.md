@@ -359,11 +359,18 @@ print(predict_result)
 ### 基于Pipeline的快速推理
 
 ```python
-from mindformers import pipeline, TextGenerationPipeline
+import mindspore
+mindspore.set_context(mode=0, device_id=0)
+
+from mindformers import pipeline
 task_pipeline = pipeline(task='text_generation', model='glm2_6b', max_length=2048)
 task_pipeline('你好')
 # [{'text_generation_text': ['你好，我是 ChatGLM2-6B， 一个人工智能助手。我背后使用的模型是 GLM2-6B， 是一种大型语言模型， 具有超过 2000 亿参数，支持多种任务。']}]
-pipeline = TextGenerationPipeline(model='glm2_6b', max_length=2048)
+
+from mindformers import AutoModel, AutoTokenizer, TextGenerationPipeline
+model = AutoModel.from_pretrained('glm2_6b')
+tokenizer = AutoTokenizer.from_pretrained('glm2_6b')
+pipeline = TextGenerationPipeline(model=model, tokenizer=tokenizer)
 predict_result = pipeline("你好")
 print(predict_result)
 # [{'text_generation_text': ['你好，我是 ChatGLM2-6B， 一个人工智能助手。我背后使用的模型是 GLM2-6B， 是一种大型语言模型， 具有超过 2000 亿参数，支持多种任务。']}]
