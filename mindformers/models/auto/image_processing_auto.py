@@ -33,7 +33,7 @@ from .configuration_auto import CONFIG_MAPPING_NAMES, AutoConfig
 
 IMAGE_PROCESSOR_MAPPING_NAMES = OrderedDict(
     [
-        ("blip2", "BlipImageProcessor"),
+        ("blip2", "Blip2ImageProcessor"),
         ("clip", "CLIPImageProcessor"),
         ("mae", "ViTMAEImageProcessor"),
         ("sam", "SAMImageProcessor"),

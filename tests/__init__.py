@@ -13,3 +13,5 @@
 # limitations under the License.
 # ============================================================================
 """tests"""
+import os
+os.environ["MODELFOUNDRY_HUB_ENDPOINT_M"] = "https://modelfoundrysh.test.osinfra.cn"
