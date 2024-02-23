@@ -13,6 +13,8 @@
 # limitations under the License.
 # ============================================================================
 """ test AutoImageProcessor """
+import os
+os.environ["MODELFOUNDRY_HUB_ENDPOINT_M"] = "https://modelfoundrysh.test.osinfra.cn"
 
 import unittest
 from pathlib import Path
@@ -24,8 +26,8 @@ from mindformers import Blip2ImageProcessor
 
 TEST_REPO1 = 'mindformersinfra/test_blip2'
 TEST_REPO2 = 'mindformersinfra/test_no_preprocessor_json'
-TEST_REPO3 = 'mindformersinfra/test_load_config_json'
-TEST_REPO4 = 'mindformersinfra/test_load_plugin_mode'
+TEST_REPO3 = 'mindformersinfra/test_image_processor'
+TEST_REPO4 = 'mindformersinfra/test_image_processor_dynamic'
 LOCAL_DIR = 'test_dir'
 
 
@@ -41,7 +43,7 @@ class AutoImageProcessorTest(unittest.TestCase):
             self.assertIsInstance(image_processor, Blip2ImageProcessor)
 
             # test load from local dir
-            save_dir = tmp_dir / LOCAL_DIR
+            save_dir = Path(tmp_dir) / LOCAL_DIR
             image_processor.save_pretrained(save_directory=save_dir)
             image_processor_local = AutoImageProcessor.from_pretrained(save_dir)
             self.assertIsInstance(image_processor_local, Blip2ImageProcessor)
@@ -51,7 +53,7 @@ class AutoImageProcessorTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp_dir:
             cache_dir = Path(tmp_dir) / 'cache'
             with self.assertRaises(Exception):
-                _ = AutoImageProcessor.from_pretrained(TEST_REPO2, cache_dir) # pylint: disable=E1121
+                _ = AutoImageProcessor.from_pretrained(TEST_REPO2, cache_dir=cache_dir)
 
     def test_instantiate_from_config_json(self):
         """
@@ -60,12 +62,16 @@ class AutoImageProcessorTest(unittest.TestCase):
         """
         with tempfile.TemporaryDirectory() as tmp_dir:
             cache_dir = Path(tmp_dir) / 'cache'
-            image_processor = AutoImageProcessor.from_pretrained(TEST_REPO3, cache_dir) # pylint: disable=E1121
+            image_processor = AutoImageProcessor.from_pretrained(TEST_REPO3, cache_dir=cache_dir)
             self.assertIsInstance(image_processor, Blip2ImageProcessor)
 
     def test_load_by_plugin_mode(self):
         """test load a image processor from repo in plugin mode"""
         with tempfile.TemporaryDirectory() as tmp_dir:
             cache_dir = Path(tmp_dir) / 'cache'
-            image_processor = AutoImageProcessor.from_pretrained(TEST_REPO4, cache_dir) # pylint: disable=E1121
-            self.assertIsInstance(image_processor, Blip2ImageProcessor)
+            image_processor = AutoImageProcessor.from_pretrained(
+                TEST_REPO4,
+                trust_remote_code=True,
+                cache_dir=cache_dir
+            )
+            self.assertEqual(image_processor.__class__.__name__, 'TestImageProcessor')
