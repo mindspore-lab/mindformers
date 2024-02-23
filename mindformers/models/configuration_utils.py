@@ -379,7 +379,7 @@ class PretrainedConfig(PushToHubMixin):
 
             save_name (str): the name of save files.
         """
-        save_json = kwargs.get("save_json", False)
+        save_json = kwargs.pop("save_json", False)
 
         if save_json:
             push_to_hub = kwargs.get("push_to_hub", False)

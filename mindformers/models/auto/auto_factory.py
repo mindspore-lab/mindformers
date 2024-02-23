@@ -501,15 +501,14 @@ class _BaseAutoModelClass:
                 return False
             yaml_list = [file for file in os.listdir(pretrained_model_name_or_dir)
                          if file.endswith(".yaml")]
-            ckpt_list = [file for file in os.listdir(pretrained_model_name_or_dir)
-                         if file.endswith(".ckpt")]
             config_list = [file for file in os.listdir(pretrained_model_name_or_dir)
-                           if file.endswith(CONFIG_NAME)]
-            if (not yaml_list or not ckpt_list) and config_list:
+                           if file == CONFIG_NAME]
+            if not yaml_list and config_list:
                 return True
             return False
 
-        if cls.invalid_model_name(pretrained_model_name_or_dir):
+        if "/" in pretrained_model_name_or_dir and \
+            pretrained_model_name_or_dir.split("/")[0] != "mindspore":
             return True
         return False
 
@@ -530,7 +529,7 @@ class _BaseAutoModelClass:
         Returns:
             A model, which inherited from PreTrainedModel.
         """
-        pretrained_model_name_or_path = kwargs.get("pretrained_model_name_or_path", None)
+        pretrained_model_name_or_path = kwargs.pop("pretrained_model_name_or_path", None)
         if pretrained_model_name_or_path is not None:
             pretrained_model_name_or_dir = pretrained_model_name_or_path
 
