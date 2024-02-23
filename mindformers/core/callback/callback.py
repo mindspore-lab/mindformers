@@ -583,7 +583,7 @@ class CheckpointMointor(ModelCheckpoint):
                 set_cur_net(cb_params.train_network)
                 cb_params.train_network.exec_checkpoint_graph()
             if "epoch_num" in self._append_dict:
-                self._append_dict["epoch_num"] = self._append_epoch_num + cb_params.cur_epoch_num
+                self._append_dict["epoch_num"] = cb_params.cur_epoch_num
             if "step_num" in self._append_dict:
                 self._append_dict["step_num"] = self._append_step_num + cb_params.cur_step_num
             if cb_params.optimizer is not None:
