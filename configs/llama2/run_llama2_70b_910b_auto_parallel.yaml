@@ -181,7 +181,7 @@ processor:
     bos_token: '<s>'
     eos_token: '</s>'
     pad_token: '<unk>'
-    type: LLaMATokenizer
+    type: LlamaTokenizer
   type: LlamaProcessor
 
 # metric
