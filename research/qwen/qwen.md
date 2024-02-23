@@ -565,37 +565,39 @@ MindSpore Lite依赖包下载参考[MindSpore Lite文档](https://www.mindspore.
 | Qwen-14B                 |      24.45      |
 | **Mindformers-Qwen-14B** |      27.53      |
 
-### mindir导出
+### 单卡导出与推理
+
+#### step 1: mindir导出
 
 首先修改模型配置文件`run_qwen_7b.yaml`：
 
 ```yaml
-infer:
-    prefill_model_path: "/path/qwen_7b_prefill.mindir" # 保存mindir的位置
-    increment_model_path: "/path/qwen_7b_inc.mindir"   # 保存mindir的位置
-    infer_seq_length: 2048 # 需要保持 model-model_config-seq_length 一致
-
 model:
   model_config:
     seq_length: 2048
+    batch_size: 1
     checkpoint_name_or_path: "/path/qwen_7b_base.ckpt"
 
     param_init_type: "float32" # 提高推理精度
 ```
 
-执行`export.py`：
+执行`run_qwen.py`导出MINDIR:
 
 ```shell
-python /path/mindformers/tools/export.py \
---config_path /path/run_qwen_7b.yaml
+cd mindformers/research/qwen
+python run_qwen.py --run_mode export --config_path /path/run_qwen_7b.yaml
 ```
 
-### 执行Lite推理
+导出的模型存放于`/output/mindir_full_checkpoint`和`/output/mindir_inc_checkpoint`两个目录中。
+建议将它们移动到其它位置，以避免被无意中其它操作删除或者覆盖。
 
-新建推理配置文件`lite.ini`
+#### step 2: 执行Lite推理
+
+1. 新建推理配置文件`lite.ini`
 
 ```ini
 [ascend_context]
+# plugin_custom_ops=All
 provider=ge
 
 [ge_session_options]
@@ -607,6 +609,7 @@ ge.exec.formatMode=1
 ge.exec.precision_mode=must_keep_origin_dtype
 
 # 参数说明
+# plugin_custom_ops=All: 开启PFA和IFA加速，目前仅支持910B，而在910A上不能开启此配置
 # provider=ge：采用GE接口
 # ge.externalWeight=1：将网络中Const/Constant节点的权重保存在单独的文件中
 # ge.exec.atomicCleanPolicy=1：不集中清理网络中atomic算子占用的内存
@@ -614,39 +617,184 @@ ge.exec.precision_mode=must_keep_origin_dtype
 # ge.exec.precision_mode=must_keep_origin_dtype：选择算子精度模式
 ```
 
-执行推理脚本：
+2. 执行推理脚本：
 
-```python
-import sys
-
-import mindspore as ms
-
-from mindformers.pipeline import pipeline
-from mindformers.tools.register.config import MindFormerConfig
-from research.qwen.qwen_tokenizer import QwenTokenizer
-
-ms.set_context(mode=ms.GRAPH_MODE, device_target='Ascend')
-
-config = MindFormerConfig("/path/run_qwen_7b.yaml")
-config.processor.tokenizer.vocab_file = "/path/qwen.tiktoken"
-tokenizer = QwenTokenizer(**config.processor.tokenizer)
-
-prefill_model_path = "/path/qwen_7b_prefill_graph.mindir"
-inc_model_path = "/path/qwen_7b_inc_graph.mindir"
-config_path = "/path/lite.ini"
-pipeline_task = pipeline(task="text_generation", model=(prefill_model_path, inc_model_path), backend="mslite",
-                         tokenizer=tokenizer, ge_config_path=config_path, model_type="mindir", infer_seq_length=2048,
-                         device_id=0)
-
-while True:
-    user_input = input("Please enter your predict data: \n")
-    if not user_input:
-       continue
-    if user_input == "exit":
-        print("Task is over.")
-        sys.exit()
-    output = pipeline_task.infer(user_input, max_length=2048, do_sample=False, top_k=0, top_p=0.8,
-                                 repetition_penalty=1.0, temperature=1.0, is_sample_acceleration=False,
-                                 add_special_tokens=False, eos_token_id=151643, pad_token_id=151643)
-    print(output)
+```shell
+cd mindformers/research/qwen
+python run_qwen_mslite_infer.py --mindir_root_dir output --seq_length 2048 --batch_size 1 --predict_data 你好
 ```
+
+注意: `seq_length`与`batch_size`必须与导出时YAML中设置的值相同，否则无法运行成功。
+
+## 多卡导出与推理
+
+### 从完整权重导出mindir
+
+1. 修改`run_qwen_14b.yaml`, 设置并行方式（下面以两卡下的模型并行为例）：
+
+``` yaml
+load_checkpoint: ''
+src_strategy_path_or_dir: ''
+
+model:
+  model_config:
+    seq_length: 2048
+    batch_size: 1
+    checkpoint_name_or_path: "/path/to/qwen_14b_base.ckpt"
+
+parallel_config:
+  data_parallel: 1
+  model_parallel: 2
+  pipeline_stage: 1
+```
+
+2. RANK_TABLE_FILE准备：请参照[RANK_TABLE_FILE准备](#RANK_TABLE_FILE准备)获取单机2卡的`RANK_TABLE_FILE`文件。
+
+3. 执行多卡导出
+
+```shell
+export MF_DIR=/path/to/mindformers-v1.0/
+cd $MF_DIR/research/qwen
+rm -rf output/*
+
+PYTHONPATH=$MF_DIR:$PYTHONPATH bash ../run_singlenode.sh "\
+  python run_qwen.py --run_mode export --config run_qwen_14b.yaml \
+    --use_parallel True --auto_trans_ckpt True  \
+    --load_checkpoint /path/to/qwen_14b_base.ckpt" <RANK_TABLE_FILE> [0,2] 2
+
+sleep 3
+tail -f output/log/rank_*/mindformer.log
+# 看到 '...Export Over!...' 字样时用ctrl-c退出tail
+```
+
+两卡导出时，导出过程生成的文件列表如下：
+
+```text
+output
+├── strategy/
+│   ├── ckpt_strategy_rank_0_rank_0.ckpt
+│   └── ckpt_strategy_rank_1_rank_1.ckpt
+├── mindir_full_checkpoint/
+│   ├── rank_0_graph.mindir
+│   ├── rank_0_graph.mindir.proto
+│   ├── rank_0_variables/
+│   │   └── data_0
+│   ├── rank_1_graph.mindir
+│   └── rank_1_variables/
+│       └── data_0
+├── mindir_inc_checkpoint/
+│   ├── rank_0_graph.mindir
+│   ├── rank_0_graph.mindir.proto
+│   ├── rank_0_variables/
+│   │   └── data_0
+│   ├── rank_1_graph.mindir
+│   └── rank_1_variables/
+│       └── data_0
+└── transformed_checkpoint/
+    └── qwen_14b_base/
+        ├── rank_0/
+        │   └── checkpoint_0.ckpt
+        ├── rank_1/
+        │   └── checkpoint_1.ckpt
+        └── transform_succeed_rank_0.txt
+```
+
+后面运行mslite推理时需要`mindir_full_checkpoint`和`mindir_inc_checkpoint`这两个目录，建议将它们移动到其它位置，以避免被无意中其它操作删除或者覆盖；而`output/`目录下的其它目录可以删除。
+
+### 从分布式权重导出 mindir
+
+上一节介绍的是将完整权重按分布式策略后再执行导出，所以会先在`output/strategy`下生成对应的分布式切分策略文件， 在`output/transformed_checkpoint` 目录下存放了切分后的权重文件。
+
+但如果我们已经提前切分了权重（比如之前运行过在线[多卡推理](#多卡推理), 或者[手工切分过权重](../../docs/feature_cards/Transform_Ckpt.md ），或者采用了多卡训练），那么可以复用之前`output/strategy`和`output/transformed_checkpoint`目录下的内容。
+
+#### A. 如果已有的分布式权重文件的切分方式与当前并行设置(YAML配置文件中的`data_parallel`和`model_parallel`)**一致**
+
+这种情况下，我们需要之前`output/transformed_checkpoint`目录下的内容：
+
+  1. 按上一节相同方式配置`run_qwen_14b.yaml`；
+
+  2. 执行导出： 注意`--auto_trans_ckpt`选项为`False`, `--load_checkpoint`指向之前切分好的权重目录
+
+```shell
+
+bash ../run_singlenode.sh "python run_qwen.py --run_mode export --config run_qwen_14b.yaml \
+  --use_parallel True --auto_trans_ckpt False  \
+  --load_checkpoint /path/to/previous/transformed_checkpoint/qwen_14b_base/" <RANK_TABLE_FILE> [0,2] 2
+
+sleep 3
+tail -f output/log/rank_*/mindformer.log
+# 看到 '...Export Over!...' 字样时用ctrl-c退出tail
+```
+
+#### B. 如果已有的分布式权重文件的切分方式与当前并行设置(YAML配置文件中的`data_parallel`和`model_parallel`)**不同**
+
+这意味着需要重新切分权重文件。这种情况下，我们需要之前`output/strategy`和`output/transformed_checkpoint`目录下的内容：
+
+  1. 修改`run_qwen_14b.yaml`, 设置`src_strategy_path_or_dir`为之前保存的策略文件所在目录，`load_checkpoint`为之前分布式权重文件所在目录：
+
+``` yaml
+load_checkpoint: '/path/to/previous/transformed_checkpoint/'
+src_strategy_path_or_dir: '/path/to/previous/strategy/'
+
+model:
+  model_config:
+    seq_length: 2048
+    batch_size: 1
+    checkpoint_name_or_path: "/path/to/qwen_14b_base.ckpt"
+
+parallel_config:
+  data_parallel: 1
+  model_parallel: 2
+  pipeline_stage: 1
+```
+
+  2. 执行导出： 注意`--auto_trans_ckpt`选项为`True`
+
+```shell
+
+bash ../run_singlenode.sh "python run_qwen.py --run_mode export --config run_qwen_14b.yaml \
+  --use_parallel True --auto_trans_ckpt True  \
+  --load_checkpoint /path/to/previous/transformed_checkpoint/qwen_14b_base" <RANK_TABLE_FILE> [0,2] 2
+
+sleep 3
+tail -f output/log/rank_*/mindformer.log
+# 看到 '...Export Over!...' 字样时用ctrl-c退出tail
+```
+
+### 执行Lite推理
+
+1. 准备mslite推理的配置文件`lite.ini`
+
+```ini
+[ascend_context]
+# plugin_custom_ops=All
+provider=ge
+rank_table_file=<RANK_TABLE_FILE>
+
+[ge_session_options]
+ge.externalWeight=1
+ge.exec.atomicCleanPolicy=1
+ge.event=notify
+ge.exec.staticMemoryPolicy=2
+ge.exec.formatMode=1
+ge.exec.precision_mode=must_keep_origin_dtype
+
+```
+
+说明：与mslite单卡推理不同的是，我们需要添加`rank_table_file=<RANK_TABLE_FILE>`这行（注意将`<RANK_TABLE_FILE>`替换为实际的`json`文件名）。
+
+2. 执行推理脚本：
+
+```shell
+export MF_DIR=/path/to/mindformers-v1.0/
+cd $MF_DIR/research/qwen
+rm -rf output/log/rank_*
+
+PYTHONPATH=$MF_DIR:PYTHONPATH bash ../run_singlenode.sh "python run_qwen_mslite_infer.py \
+    --mindir_root_dir output --seq_length 2048 --batch_size 1 --predict_data 你好 "  <RANK_TABLE_FILE> [0,2] 2
+
+sleep 3
+tail -f output/log/rank_*/mindformer.log
+```
+
+注意: `seq_length`与`batch_size`必须与导出时YAML中设置的值相同，否则无法运行成功。
