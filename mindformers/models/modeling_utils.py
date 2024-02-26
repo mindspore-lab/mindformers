@@ -41,8 +41,7 @@ from mindformers.tools.hub import (
 from mindformers.tools.hub.dynamic_module_utils import custom_object_save
 from mindformers.generation import GenerationConfig, GenerationMixin
 from mindformers.tools.logger import logger
-from mindformers.tools.register import MindFormerConfig
-from .base_config import BaseConfig
+from mindformers.tools.register import MindFormerConfig, DictConfig
 from ..mindformer_book import MindFormerBook, print_path_or_list
 from ..tools.download_tools import download_with_progress_bar
 from ..tools.utils import try_sync_file, replace_tk_to_mindpet
@@ -51,6 +50,8 @@ from .utils import CONFIG_NAME, WEIGHTS_NAME, WEIGHTS_INDEX_NAME
 from .build_model import build_model
 
 __all__ = ["PreTrainedModel"]
+
+IGNORE_KEYS = ["_name_or_path"]
 
 
 def dtype_byte_size(dtype):
@@ -603,7 +604,7 @@ class PreTrainedModel(nn.Cell, ModuleUtilsMixin, GenerationMixin, PushToHubMixin
         for key, val in config.__dict__.items():
             if isinstance(val, PretrainedConfig):
                 val = val.inverse_parse_config()
-            elif not isinstance(val, (str, int, float, bool, BaseConfig)):
+            elif not isinstance(val, (str, int, float, bool, DictConfig)) or key in IGNORE_KEYS:
                 removed_list.append((key, val))
                 continue
             config.__dict__.update({key: val})
