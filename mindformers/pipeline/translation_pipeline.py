@@ -22,7 +22,7 @@ from mindspore import Tensor, Model
 from mindformers.mindformer_book import MindFormerBook
 from .base_pipeline import Pipeline
 from ..tools.register import MindFormerRegister, MindFormerModuleType
-from ..models import BaseModel, PreTrainedTokenizer
+from ..models import PreTrainedModel, PreTrainedTokenizer
 
 __all__ = ['TranslationPipeline']
 
@@ -82,7 +82,7 @@ class TranslationPipeline(Pipeline):
     _support_list = MindFormerBook.get_model_support_list()['t5']
     return_name = 'translation'
 
-    def __init__(self, model: Union[BaseModel, Model],
+    def __init__(self, model: Union[PreTrainedModel, Model],
                  tokenizer: Optional[PreTrainedTokenizer] = None,
                  **kwargs):
 

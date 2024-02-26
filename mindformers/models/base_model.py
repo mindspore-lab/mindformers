@@ -26,7 +26,7 @@ from mindspore import nn
 from mindspore.train.serialization import load_checkpoint, load_param_into_net
 
 from .build_model import build_model
-from ..generation import GeneratorMixin
+from ..generation import GenerationMixin
 from ..mindformer_book import MindFormerBook, print_path_or_list
 from .configuration_utils import PretrainedConfig
 from ..tools.register import MindFormerConfig, DictConfig
@@ -36,13 +36,13 @@ from ..tools.utils import try_sync_file, replace_tk_to_mindpet
 
 IGNORE_KEYS = ["_name_or_path"]
 
-class BaseModel(nn.Cell, GeneratorMixin):
+class BaseModel(nn.Cell, GenerationMixin):
     """
     The base model that contains the class method `from_pretained` and `save_pretrained`, any new model that should
     inherit the class.
 
     Note:
-        GeneratorMixin provides the method `generate` that enable the generation for nlp models.
+        GenerationMixin provides the method `generate` that enable the generation for nlp models.
 
     Args:
         config(PretrainedConfig): The model configuration that inherits the `PretrainedConfig`.

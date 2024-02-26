@@ -46,6 +46,8 @@ from mindformers.tools import (
     is_remote_url,
 )
 
+__all__ = ["PretrainedConfig"]
+
 _re_configuration_file = re.compile(r"config\.(.*)\.json")
 
 IGNORE_KEYS = ["_name_or_path"]

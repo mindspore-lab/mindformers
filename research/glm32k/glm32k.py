@@ -16,7 +16,7 @@
 import mindspore.ops as ops
 import mindspore.common.dtype as mstype
 import mindspore.ops.operations as P
-from mindspore import Tensor, nn
+from mindspore import Tensor
 from mindspore.common.initializer import initializer
 from mindspore.context import ParallelMode
 from mindspore.parallel._utils import _get_parallel_mode
@@ -28,7 +28,7 @@ from mindformers.tools.register import MindFormerModuleType, MindFormerRegister
 from mindformers.core.loss import CrossEntropyLoss
 from mindformers.version_control import get_tril
 from mindformers.models.utils import cell_reuse
-from mindformers.models.base_model import BaseModel
+from mindformers.models.modeling_utils import PreTrainedModel
 from glm32k_config import ChatGLM32kConfig
 from glm32k_modules import precompute_rotary_emb_cache
 from glm32k_transformer import ChatGLM32kTransformer
@@ -36,7 +36,17 @@ from glm32k_transformer import ChatGLM32kTransformer
 __all__ = ['ChatGLM32kForConditionalGeneration', 'ChatGLM32kModel']
 
 
-class ChatGLM32kModel(nn.Cell):
+class GLM32kPreTrainedModel(PreTrainedModel):
+    """
+    An abstract class to handle weights initialization and a simple interface for downloading and loading pretrained
+    models.
+    """
+
+    config_class = ChatGLM32kConfig
+    base_model_prefix = "glm32k"
+
+
+class ChatGLM32kModel(GLM32kPreTrainedModel):
     r"""
     The backbone of ChatGLM32k network
 
@@ -154,7 +164,7 @@ class ChatGLM32kModel(nn.Cell):
 
 
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
-class ChatGLM32kForConditionalGeneration(BaseModel):
+class ChatGLM32kForConditionalGeneration(GLM32kPreTrainedModel):
     r"""
     Provide gpt training loss or logits through network.
 

@@ -28,7 +28,7 @@ from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 
 
 @MindFormerRegister.register(MindFormerModuleType.CONFIG)
-class SAMConfig(PretrainedConfig):
+class SamConfig(PretrainedConfig):
     """
     Configuration class for the SAM model.
     """

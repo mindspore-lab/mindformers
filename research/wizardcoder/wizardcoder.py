@@ -31,7 +31,7 @@ from mindformers.version_control import get_dropout
 from mindformers.core.loss import CrossEntropyLoss
 from mindformers.modules.transformer import AttentionMask
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
-from mindformers.models.base_model import BaseModel
+from mindformers.models.modeling_utils import PreTrainedModel
 from mindformers.tools.logger import logger
 from wizardcoder_config import WizardCoderConfig
 from wizardcoder_modules import WizardCoderTransformerDecoderLayer, WizardCoderVocabEmbedding
@@ -39,8 +39,18 @@ from wizardcoder_modules import WizardCoderTransformerDecoderLayer, WizardCoderV
 __all__ = ['WizardCoderLMHeadModel']
 
 
+class WizardCoderPreTrainedModel(PreTrainedModel):
+    """
+    An abstract class to handle weights initialization and a simple interface for downloading and loading pretrained
+    models.
+    """
+
+    config_class = WizardCoderConfig
+    base_model_prefix = "wizardcoder"
+
+
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
-class WizardCoderLMHeadModel(BaseModel):
+class WizardCoderLMHeadModel(WizardCoderPreTrainedModel):
     r"""
         Provide wizardcoder training loss or logits through network.
         Args:
@@ -246,7 +256,7 @@ def set_parallel_configure_for_layer(network, layer_id, offset, parallel_config,
         network.attention.set_select_recompute()
 
 
-class WizardCoderModel(nn.Cell):
+class WizardCoderModel(WizardCoderPreTrainedModel):
     """
     The backbone of WizardCoder network
 
@@ -264,7 +274,7 @@ class WizardCoderModel(nn.Cell):
     """
 
     def __init__(self, config):
-        super(WizardCoderModel, self).__init__()
+        super(WizardCoderModel, self).__init__(config)
 
         self.embedding = WizardCoderEmbeddingLayer(config)
         self.embedding.pipeline_stage = 0

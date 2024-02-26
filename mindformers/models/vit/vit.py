@@ -24,14 +24,24 @@ import mindspore.common.initializer as weight_init
 from mindformers.mindformer_book import MindFormerBook
 from mindformers.core.loss import build_loss
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
-from mindformers.models.base_model import BaseModel
+from mindformers.models.modeling_utils import PreTrainedModel
 from mindformers.models.vit.vit_modules import Block, LayerNorm, Linear, Dropout, PixelShuffle
 from mindformers.models.vit.vit_modules import PatchEmbed
 from mindformers.models.vit.vit_config import ViTConfig
 
 
+class VitPreTrainedModel(PreTrainedModel):
+    """
+    An abstract class to handle weights initialization and a simple interface for downloading and loading pretrained
+    models.
+    """
+
+    config_class = ViTConfig
+    base_model_prefix = "vit"
+
+
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
-class ViTModel(BaseModel):
+class ViTModel(VitPreTrainedModel):
     """
     Vision Transformer with support for patch or hybrid CNN input stage.
     The supported model name could be selected from ViTConfig.show_support_list().
@@ -194,7 +204,7 @@ class ViTModel(BaseModel):
 
 
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
-class ViTForImageClassification(BaseModel):
+class ViTForImageClassification(VitPreTrainedModel):
     """
     Vision Transformer with support for patch or hybrid CNN input stage.
     The supported model name could be selected from ViTConfig.show_support_list().
@@ -235,7 +245,7 @@ class ViTForImageClassification(BaseModel):
 
 
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
-class ViTForMaskedImageModeling(BaseModel):
+class ViTForMaskedImageModeling(VitPreTrainedModel):
     """
     Vision Transformer with support for patch or hybrid CNN input stage.
     The supported model name could be selected from ViTConfig.show_support_list().

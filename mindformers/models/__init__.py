@@ -31,6 +31,8 @@ from .bloom import *
 from .sam import *
 from .tokenization_utils import *
 from .tokenization_utils_fast import PreTrainedTokenizerFast
+from .modeling_utils import *
+from .configuration_utils import *
 from .base_config import BaseConfig
 from .base_model import BaseModel
 from .image_processing_utils import BaseImageProcessor
@@ -59,3 +61,5 @@ __all__.extend(llama.__all__)
 __all__.extend(pangualpha.__all__)
 __all__.extend(bloom.__all__)
 __all__.extend(tokenization_utils.__all__)
+__all__.extend(modeling_utils.__all__)
+__all__.extend(configuration_utils.__all__)

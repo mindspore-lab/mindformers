@@ -36,7 +36,7 @@ IMAGE_PROCESSOR_MAPPING_NAMES = OrderedDict(
         ("blip2", "Blip2ImageProcessor"),
         ("clip", "CLIPImageProcessor"),
         ("mae", "ViTMAEImageProcessor"),
-        ("sam", "SAMImageProcessor"),
+        ("sam", "SamImageProcessor"),
         ("swin", "SwinImageProcessor"),
         ("vit", "ViTImageProcessor"),
     ]

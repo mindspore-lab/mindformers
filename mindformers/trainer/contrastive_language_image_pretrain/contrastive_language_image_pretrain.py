@@ -20,7 +20,7 @@ from mindspore.dataset import GeneratorDataset
 from mindspore.nn import TrainOneStepCell, Optimizer, Cell
 
 from mindformers.dataset import BaseDataset
-from mindformers.models import BaseModel
+from mindformers.models import PreTrainedModel
 
 from mindformers.tools.register import MindFormerRegister, \
     MindFormerModuleType, MindFormerConfig
@@ -54,7 +54,7 @@ class ContrastiveLanguageImagePretrainTrainer(BaseTrainer):
 
     def train(self,
               config: Optional[Union[dict, MindFormerConfig, ConfigArguments, TrainingArguments]] = None,
-              network: Optional[Union[Cell, BaseModel]] = None,
+              network: Optional[Union[Cell, PreTrainedModel]] = None,
               dataset: Optional[Union[BaseDataset, GeneratorDataset]] = None,
               optimizer: Optional[Optimizer] = None,
               wrapper: Optional[TrainOneStepCell] = None,
@@ -68,8 +68,8 @@ class ContrastiveLanguageImagePretrainTrainer(BaseTrainer):
                 The task config which is used to configure the dataset, the hyper-parameter, optimizer, etc.
                 It supports config dict or MindFormerConfig or TrainingArguments or ConfigArguments class.
                 Default: None.
-            network (Optional[Union[Cell, BaseModel]]):
-                The network for trainer.It supports model name or BaseModel or MindSpore Cell class.
+            network (Optional[Union[Cell, PreTrainedModel]]):
+                The network for trainer.It supports model name or PreTrainedModel or MindSpore Cell class.
                 Default: None.
             dataset (Optional[Union[BaseDataset, GeneratorDataset]]):
                 The training dataset. It supports real dataset path or BaseDateset class or MindSpore Dataset class.

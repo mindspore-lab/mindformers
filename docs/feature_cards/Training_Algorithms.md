@@ -241,10 +241,10 @@ mindspore实现参考：
 ```python
 from mindformers.models.utils import cell_reuse
 from mindformers.modules.transformer.op_parallel_config import _check_config
-from mindformers.models.base_model import BaseModel
+from mindformers.models import PreTrainedModel
 from mindformers.models.llama.llama_config import LlamaConfig
 
-class Baichuan7BV2ForCausalLM(BaseModel):
+class Baichuan7BV2ForCausalLM(PreTrainedModel):
     #注册装饰器
     @cell_reuse
     def __init__(self, config: LlamaConfig = None):

@@ -21,7 +21,7 @@ from mindspore import Tensor, Model
 from mindspore.ops import operations as P
 
 from mindformers.mindformer_book import MindFormerBook
-from mindformers.models import BaseModel, BaseImageProcessor
+from mindformers.models import PreTrainedModel, BaseImageProcessor
 from mindformers.tools.image_tools import load_image
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from .base_pipeline import Pipeline
@@ -47,7 +47,7 @@ class ImageToTextPipeline(Pipeline):
     """
     _support_list = MindFormerBook.get_pipeline_support_task_list()['image_to_text_generation'].keys()
 
-    def __init__(self, model: Union[BaseModel, Model],
+    def __init__(self, model: Union[PreTrainedModel, Model],
                  image_processor: Optional[BaseImageProcessor] = None,
                  tokenizer=None,
                  **kwargs):

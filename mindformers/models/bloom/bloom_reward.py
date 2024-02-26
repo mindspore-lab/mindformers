@@ -23,10 +23,9 @@ from mindspore.ops import functional as F
 from mindformers.modules.layers import Linear
 from mindformers.core.loss import CompareLoss
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
-from mindformers.models.base_model import BaseModel
 from mindformers.tools.logger import logger
 from .bloom_config import BloomConfig
-from .bloom import BloomModel
+from .bloom import BloomModel, BloomPreTrainedModel
 
 __all__ = ['BloomRewardModel', 'VHead']
 
@@ -48,7 +47,7 @@ class VHead(nn.Cell):
         return self.vhead(output_states)
 
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
-class BloomRewardModel(BaseModel):
+class BloomRewardModel(BloomPreTrainedModel):
     r"""
         Provide bloom reward model training loss or logits through network.
         Args:

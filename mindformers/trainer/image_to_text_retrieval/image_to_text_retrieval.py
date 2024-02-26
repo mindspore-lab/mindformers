@@ -21,7 +21,7 @@ from mindspore import dtype as mstype
 from mindspore.train import Callback
 
 from mindformers.dataset import build_dataset, check_dataset_config, BaseDataset
-from mindformers.models import build_model, BaseModel
+from mindformers.models import build_model, PreTrainedModel
 from mindformers.core.callback import build_callback
 from mindformers.tools.logger import logger
 from mindformers.tools.utils import count_params, get_real_rank
@@ -58,7 +58,7 @@ class ImageToTextRetrievalTrainer(BaseTrainer):
 
     def evaluate(self,
                  config: Optional[Union[dict, ConfigArguments]] = None,
-                 network: Optional[Union[str, BaseModel]] = None,
+                 network: Optional[Union[str, PreTrainedModel]] = None,
                  dataset: Optional[Union[str, BaseDataset]] = None,
                  callbacks: Optional[Union[Callback, List[Callback]]] = None,
                  **kwargs):
@@ -69,7 +69,7 @@ class ImageToTextRetrievalTrainer(BaseTrainer):
             config (Optional[Union[dict, ConfigArguments]]):
                 The task config which is used to configure the dataset, the hyper-parameter, optimizer, etc.
                 It supports config dict or ConfigArguments class. Default: None.
-            network (Optional[Union[str, BaseModel]]):
+            network (Optional[Union[str, PreTrainedModel]]):
                 The network for trainer. It supports model name or MindSpore Cell class. Default: None.
             dataset (Optional[Union[str, GeneratorDataset]]):
                 The training dataset. It support real dataset path or MindSpore Dataset class. Default: None.

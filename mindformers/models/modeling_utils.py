@@ -26,7 +26,6 @@ import yaml
 import mindspore as ms
 from mindspore import nn
 from mindspore import load_checkpoint, load_param_into_net
-from mindspore._checkparam import args_type_check
 
 from mindformers.tools.hub import (
     PushToHubMixin,
@@ -40,7 +39,7 @@ from mindformers.tools.hub import (
     has_file
 )
 from mindformers.tools.hub.dynamic_module_utils import custom_object_save
-from mindformers.generation import GenerationConfig, GeneratorMixin
+from mindformers.generation import GenerationConfig, GenerationMixin
 from mindformers.tools.logger import logger
 from mindformers.tools.register import MindFormerConfig
 from .base_config import BaseConfig
@@ -191,7 +190,7 @@ class ModuleUtilsMixin:
     """
 
 
-class PreTrainedModel(nn.Cell, ModuleUtilsMixin, GeneratorMixin, PushToHubMixin):
+class PreTrainedModel(nn.Cell, ModuleUtilsMixin, GenerationMixin, PushToHubMixin):
     r"""
     Base class for all models.
 
@@ -250,9 +249,14 @@ class PreTrainedModel(nn.Cell, ModuleUtilsMixin, GeneratorMixin, PushToHubMixin)
         return "ms"
 
     # pylint: disable=W0613
-    @args_type_check(config=(MindFormerConfig, PretrainedConfig, dict))
-    def __init__(self, config: Union[MindFormerConfig, PretrainedConfig, dict], *inputs, **kwargs):
+    def __init__(self, config: PretrainedConfig, *inputs, **kwargs):
         super().__init__()
+        if not isinstance(config, PretrainedConfig):
+            raise ValueError(
+                f"Parameter config in `{self.__class__.__name__}(config)` should be an instance of class "
+                "`PretrainedConfig`. To create a model from a pretrained model use "
+                f"`model = {self.__class__.__name__}.from_pretrained(PRETRAINED_MODEL_NAME)`"
+            )
         # Save config and origin of the pretrained weights if given in model
         self.config = config
         self.default_checkpoint_download_path = None

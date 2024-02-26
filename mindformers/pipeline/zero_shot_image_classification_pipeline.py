@@ -21,7 +21,7 @@ from mindspore.ops import operations as P
 
 from mindformers.mindformer_book import MindFormerBook
 from mindformers.tools.image_tools import load_image
-from mindformers.models import BaseModel, BaseImageProcessor, PreTrainedTokenizer
+from mindformers.models import PreTrainedModel, BaseImageProcessor, PreTrainedTokenizer
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from .base_pipeline import Pipeline
 
@@ -68,7 +68,7 @@ class ZeroShotImageClassificationPipeline(Pipeline):
     """
     _support_list = MindFormerBook.get_pipeline_support_task_list()['zero_shot_image_classification'].keys()
 
-    def __init__(self, model: Union[BaseModel, Model],
+    def __init__(self, model: Union[PreTrainedModel, Model],
                  tokenizer: Optional[PreTrainedTokenizer] = None,
                  image_processor: Optional[BaseImageProcessor] = None,
                  **kwargs):

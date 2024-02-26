@@ -13,7 +13,7 @@ mindformers.models
 
     mindformers.models.BaseConfig
     mindformers.models.BaseImageProcessor
-    mindformers.models.BaseModel
+    mindformers.models.PreTrainedModel
     mindformers.models.BaseProcessor
     mindformers.models.PreTrainedTokenizer
 

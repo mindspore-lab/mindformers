@@ -32,7 +32,7 @@ except ImportError:
     FLASHATTENTION_VALID = False
 
 from mindformers.core.loss.loss import CrossEntropyLoss
-from mindformers.models.base_model import BaseModel
+from mindformers.models.modeling_utils import PreTrainedModel
 from mindformers.models.utils import cell_reuse
 from mindformers.modules.transformer.op_parallel_config import _check_config
 from mindformers.modules.transformer import AttentionMask, TransformerOpParallelConfig
@@ -48,8 +48,18 @@ from mindformers.tools.logger import logger
 __all__ = ['Baichuan13BForCausalLM', 'Baichuan13BModel']
 
 
+class BaichuanPreTrainedModel(PreTrainedModel):
+    """
+    An abstract class to handle weights initialization and a simple interface for downloading and loading pretrained
+    models.
+    """
+
+    config_class = LlamaConfig
+    base_model_prefix = "baichuan"
+
+
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
-class Baichuan13BForCausalLM(BaseModel):
+class Baichuan13BForCausalLM(BaichuanPreTrainedModel):
     r"""
         Provide baichuan_13B training loss or logits through network.
         Args:
@@ -162,7 +172,7 @@ class Baichuan13BForCausalLM(BaseModel):
         return loss
 
 
-class Baichuan13BModel(BaseModel):
+class Baichuan13BModel(BaichuanPreTrainedModel):
     r"""
     Transformer decoder consisting of *config.num_hidden_layers* layers. Each layer is a [`Baichuan13BDecoderLayer`]
     Args:

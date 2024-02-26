@@ -21,7 +21,7 @@ from typing import Optional, Union, Tuple
 from mindspore import Model
 
 from mindformers.models import build_model, build_tokenizer, build_processor, \
-    BaseModel, PreTrainedTokenizerBase, BaseImageProcessor, BaseAudioProcessor
+    PreTrainedModel, PreTrainedTokenizerBase, BaseImageProcessor, BaseAudioProcessor
 from mindformers.mindformer_book import MindFormerBook
 from mindformers.pet import get_pet_model, is_supported_pet_type
 from mindformers.tools.register import MindFormerConfig
@@ -38,7 +38,7 @@ class Backend(Enum):
 
 def pipeline(
         task: str = None,
-        model: Optional[Union[str, BaseModel, Model, Tuple[str, str]]] = None,
+        model: Optional[Union[str, PreTrainedModel, Model, Tuple[str, str]]] = None,
         tokenizer: Optional[PreTrainedTokenizerBase] = None,
         image_processor: Optional[BaseImageProcessor] = None,
         audio_processor: Optional[BaseAudioProcessor] = None,
@@ -49,7 +49,7 @@ def pipeline(
     Args:
         task (str):
             The supported task could be selected from MindFormerBook.show_pipeline_support_task_list().
-        model (Optional[Union[str, BaseModel]]):
+        model (Optional[Union[str, PreTrainedModel]]):
             The model used for task.
         tokenizer (Optional[PreTrainedTokenizerBase]):
             The tokenizer of the model.

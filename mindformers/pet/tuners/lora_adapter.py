@@ -90,10 +90,10 @@ class LoraAdapter(PetAdapter):
     LoraAdapter is the adapter to modify the pretrained model, which uses lora tuning algorithm.
 
     Args:
-        model (BaseModel): The base pretrained model of mindformers.
+        model (PreTrainedModel): The base pretrained model of mindformers.
         pet_config (PetConfig): The configurition of the Pet model.
     Return:
-        model (BaseModel): The model replace the linear layer with lora dense layer.
+        model (PreTrainedModel): The model replace the linear layer with lora dense layer.
     Examples:
         1.modify certain model of llama
         >>> from mindformers.pet.tuners.lora_adapter import LoraAdapter

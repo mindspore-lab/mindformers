@@ -169,7 +169,7 @@ def compute_itm_scores(network,
     compute image-text matching scores, in matrix format.
 
     Args:
-        network (BaseModel): network for evaluate ITM
+        network (PreTrainedModel): network for evaluate ITM
         eval_inputs (tuple): inputs for evaluate itm scores.
         k_test (int, optional): k_test num, Defaults to 128.
         add_extra_itm_score (bool, optional): whether to add extra scores (model decides), Defaults to False.

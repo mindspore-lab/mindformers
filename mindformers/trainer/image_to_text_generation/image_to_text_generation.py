@@ -22,7 +22,7 @@ from mindspore import Tensor
 from mindspore.nn import Cell
 from mindspore.dataset import GeneratorDataset
 
-from mindformers.models import BaseModel, PreTrainedTokenizerBase, BaseImageProcessor
+from mindformers.models import PreTrainedModel, PreTrainedTokenizerBase, BaseImageProcessor
 from mindformers.tools.logger import logger
 from mindformers.tools.register import MindFormerRegister, \
     MindFormerModuleType, MindFormerConfig
@@ -67,7 +67,7 @@ class ImageToTextGenerationTrainer(BaseTrainer):
                 config: Optional[Union[dict, MindFormerConfig, ConfigArguments, TrainingArguments]] = None,
                 input_data: Optional[Union[GeneratorDataset,
                                            Tensor, np.ndarray, Image, str, list]] = None,
-                network: Optional[Union[Cell, BaseModel]] = None,
+                network: Optional[Union[Cell, PreTrainedModel]] = None,
                 tokenizer: Optional[PreTrainedTokenizerBase] = None,
                 image_processor: Optional[BaseImageProcessor] = None, **kwargs):
         """
@@ -82,8 +82,8 @@ class ImageToTextGenerationTrainer(BaseTrainer):
             input_data (Optional[Union[GeneratorDataset, Tensor, np.ndarray, Image, str, list]]):
                 The dataset. It supports real dataset path or BaseDateset class or MindSpore Dataset class.
                 Default: None.
-            network (Optional[Union[Cell, BaseModel]]):
-                The network for trainer. It supports model name or BaseModel or MindSpore Cell class.
+            network (Optional[Union[Cell, PreTrainedModel]]):
+                The network for trainer. It supports model name or PreTrainedModel or MindSpore Cell class.
                 Default: None.
             tokenizer (Optional[PreTrainedTokenizerBase]):
                 Used for text process. Default: None.

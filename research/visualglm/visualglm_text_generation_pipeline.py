@@ -24,7 +24,7 @@ from mindspore import Tensor, Model
 
 from mindformers.auto_class import AutoProcessor, AutoModel
 from mindformers.mindformer_book import MindFormerBook
-from mindformers.models import BaseModel, BaseImageProcessor
+from mindformers.models import PreTrainedModel, BaseImageProcessor
 from mindformers.pipeline.base_pipeline import BasePipeline
 from mindformers.tools.image_tools import load_image
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
@@ -47,9 +47,9 @@ class VisualGLMImageToTextGenerationPipeline(BasePipeline):
     r"""Visualglm pipeline for image to text generation
 
     Args:
-        model (Union[str, BaseModel]): The model used to perform task,
+        model (Union[str, PreTrainedModel]): The model used to perform task,
             the input could be a supported model name, or a model instance
-            inherited from BaseModel.
+            inherited from PreTrainedModel.
         image_processor (Optional[BaseImageProcessor]): The image_processor of model,
             it could be None if the model do not need image_processor.
 
@@ -59,7 +59,7 @@ class VisualGLMImageToTextGenerationPipeline(BasePipeline):
     """
     _support_list = MindFormerBook.get_pipeline_support_task_list()['image_to_text_generation'].keys()
 
-    def __init__(self, model: Union[str, BaseModel, Model],
+    def __init__(self, model: Union[str, PreTrainedModel, Model],
                  image_processor: Optional[BaseImageProcessor] = None,
                  tokenizer=None,
                  **kwargs):
@@ -76,8 +76,8 @@ class VisualGLMImageToTextGenerationPipeline(BasePipeline):
                 raise ValueError(f"{model} is not supported by ImageToTextGenerationPipeline,"
                                  f"please selected from {self._support_list}.")
 
-        if not isinstance(model, (BaseModel, Model)):
-            raise TypeError(f"model should be inherited from BaseModel or Model, but got type {type(model)}.")
+        if not isinstance(model, (PreTrainedModel, Model)):
+            raise TypeError(f"model should be inherited from PreTrainedModel or Model, but got type {type(model)}.")
 
         if image_processor is None:
             raise ValueError("ImageToTextGenerationPipeline"

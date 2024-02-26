@@ -24,17 +24,18 @@ from mindspore import Parameter
 from mindspore.ops import operations as P
 
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
-from mindformers.mindformer_book import MindFormerBook
-from mindformers.models.base_model import BaseModel
+from mindformers.models.modeling_utils import PreTrainedModel
 
 from .sam_layers import LayerNorm2d
+from .sam_config import PromptEncoderConfig
 
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
-class SAMPromptEncoder(BaseModel):
+class SamPromptEncoder(PreTrainedModel):
     """
     Encodes prompts for input to SAM's mask decoder.
     """
-    _support_list = MindFormerBook.get_model_support_list()['sam']
+    config_class = PromptEncoderConfig
+    base_model_prefix = "sam_prompt_encoder"
 
     def __init__(self, config) -> None:
         super().__init__(config)

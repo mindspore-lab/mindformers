@@ -33,12 +33,12 @@ MODEL_MAPPING_NAMES = OrderedDict(
         ("bloom", "BloomModel"),
         ("clip", "CLIPModel"),
         ("glm", "GLMModel"),
-        ("glm2", "GLM2Model"),
+        ("glm2", "ChatGLM2Model"),
         ("gpt2", "GPT2Model"),
         ("llama", "LlamaModel"),
-        ("mae", "MAEModel"),
-        ("pangu-alpha", "PanGuModel"),
-        ("sam", "SAMModel"),
+        ("mae", "ViTMAEModel"),
+        ("pangualpha", "PanguAlphaModel"),
+        ("sam", "SamModel"),
         ("swin", "SwinModel"),
         ("t5", "T5Model"),
         ("vit", "ViTModel"),
@@ -49,6 +49,10 @@ MODEL_FOR_PRETRAINING_MAPPING_NAMES = OrderedDict(
     [
         # Model for pre-training mapping
         ("bert", "BertForPreTraining"),
+        ("glm", "GLMForPreTraining"),
+        ("mae", "ViTMAEForPreTraining"),
+        ("blip2-stage1", "Blip2Qformer"),
+        ("blip2-stage2", "Blip2Llm")
     ]
 )
 
@@ -56,13 +60,25 @@ MODEL_WITH_LM_HEAD_MAPPING_NAMES = OrderedDict(
     [
         # Model with LM heads mapping
         ("bert", "BertForMaskedLM"),
+        ("bloom", "BloomLMHeadModel"),
+        ("gpt2", "GPT2LMHeadModel"),
+        ("glm", "GLMChatModel"),
+        ("glm2", "ChatGLM2ForConditionalGeneration"),
+        ("llama", "LlamaForCausalLM"),
+        ("pangualpha", "PanguAlphaHeadModel"),
     ]
 )
 
 MODEL_FOR_CAUSAL_LM_MAPPING_NAMES = OrderedDict(
     [
         # Model with LM heads mapping
+        ("bert", "BertForMaskedLM"),
+        ("bloom", "BloomLMHeadModel"),
         ("gpt2", "GPT2LMHeadModel"),
+        ("glm", "GLMChatModel"),
+        ("glm2", "ChatGLM2ForConditionalGeneration"),
+        ("llama", "LlamaForCausalLM"),
+        ("pangualpha", "PanguAlphaHeadModel"),
     ]
 )
 
@@ -77,6 +93,7 @@ MODEL_FOR_IMAGE_CLASSIFICATION_MAPPING_NAMES = OrderedDict(
         # Model for Image Classification mapping
         ("swin", "SwinForImageClassification"),
         ("vit", "ViTForImageClassification"),
+        ("blip2", "Blip2Classifier")
     ]
 )
 
@@ -90,6 +107,14 @@ MODEL_FOR_SEQ_TO_SEQ_CAUSAL_LM_MAPPING_NAMES = OrderedDict(
     [
         # Model for Seq2Seq Causal LM mapping
         ("t5", "T5ForConditionalGeneration"),
+    ]
+)
+
+MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING_NAMES = OrderedDict(
+    [
+        # Model for Sequence Classification mapping
+        ("gpt2", "GPT2ForSequenceClassification"),
+        ("pangualpha", "PanguAlphaPromptTextClassificationModel")
     ]
 )
 
@@ -136,7 +161,7 @@ MODEL_FOR_BACKBONE_MAPPING_NAMES = OrderedDict(
 
 MODEL_FOR_MASK_GENERATION_MAPPING_NAMES = OrderedDict(
     [
-        ("sam", "SAMModel"),
+        ("sam", "SamModel"),
     ]
 )
 
@@ -166,6 +191,9 @@ MODEL_FOR_MASKED_IMAGE_MODELING_MAPPING = _LazyAutoMapping(
 )
 MODEL_FOR_SEQ_TO_SEQ_CAUSAL_LM_MAPPING = _LazyAutoMapping(
     CONFIG_MAPPING_NAMES, MODEL_FOR_SEQ_TO_SEQ_CAUSAL_LM_MAPPING_NAMES
+)
+MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING = _LazyAutoMapping(
+    CONFIG_MAPPING_NAMES, MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING_NAMES
 )
 MODEL_FOR_QUESTION_ANSWERING_MAPPING = _LazyAutoMapping(
     CONFIG_MAPPING_NAMES, MODEL_FOR_QUESTION_ANSWERING_MAPPING_NAMES
@@ -223,6 +251,9 @@ class AutoModelForSeq2SeqLM(_BaseAutoModelClass):
 AutoModelForSeq2SeqLM = auto_class_update(
     AutoModelForSeq2SeqLM, head_doc="sequence-to-sequence language modeling", checkpoint_for_example="t5-base"
 )
+
+class AutoModelForSequenceClassification(_BaseAutoModelClass):
+    _model_mapping = MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING
 
 
 class AutoModelForQuestionAnswering(_BaseAutoModelClass):

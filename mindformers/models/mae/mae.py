@@ -22,7 +22,7 @@ from mindspore import ops as P
 import mindspore.common.initializer as weight_init
 from mindformers.mindformer_book import MindFormerBook
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
-from mindformers.models.base_model import BaseModel
+from mindformers.models.modeling_utils import PreTrainedModel
 from mindformers.models.mae.mae_modules import Block, LayerNorm, Linear
 from mindformers.models.mae.mae_modules import PatchEmbed, Patchify, UnPatchify
 from mindformers.models.mae.mae_modules import get_2d_sincos_pos_embed
@@ -33,8 +33,18 @@ from mindformers.models.mae.mae_config import ViTMAEConfig
 __all__ = ['ViTMAEModel', 'ViTMAEForPreTraining']
 
 
+class MAEPreTrainedModel(PreTrainedModel):
+    """
+    An abstract class to handle weights initialization and a simple interface for downloading and loading pretrained
+    models.
+    """
+
+    config_class = ViTMAEConfig
+    base_model_prefix = "mae"
+
+
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
-class ViTMAEModel(BaseModel):
+class ViTMAEModel(MAEPreTrainedModel):
     """
     Pretrain MAE Module.
     The supported model name could be selected from ViTMAEConfig.show_support_list().
@@ -187,7 +197,7 @@ class ViTMAEModel(BaseModel):
 
 
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
-class ViTMAEForPreTraining(BaseModel):
+class ViTMAEForPreTraining(MAEPreTrainedModel):
     """
     Pretrain MAE Module.
     The supported model name could be selected from ViTMAEConfig.show_support_list().

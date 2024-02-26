@@ -32,7 +32,7 @@ from mindformers.mindformer_book import MindFormerBook
 from mindformers.tools.download_tools import download_with_progress_bar
 from mindformers.tools.logger import logger
 from mindformers.tools.utils import try_sync_file
-from mindformers.models.base_model import BaseModel
+from mindformers.models.modeling_utils import PreTrainedModel
 from mindformers.models.bert.bert_config import BertConfig
 from mindformers.models.blip2.qformer_config import QFormerConfig
 from mindformers.modules.layers import Dropout, LayerNorm, Linear
@@ -877,11 +877,13 @@ class BertOnlyMLMHead(nn.Cell):
         return prediction_scores
 
 
-class BertPreTrainedModel(BaseModel, nn.Cell):
+class BertPreTrainedModel(PreTrainedModel, nn.Cell):
     """
     An abstract class to handle weights initialization and a simple interface
     for downloading and loading pretrained models.
     """
+    config_class = QFormerConfig
+    base_model_prefix = "bert"
 
     def __init__(self, config: BertConfig, **kwargs):
         super(BertPreTrainedModel, self).__init__(config)

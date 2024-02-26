@@ -38,7 +38,7 @@ except ImportError:
 
 from mindformers.core.loss.loss import CrossEntropyLoss
 from mindformers.mindformer_book import MindFormerBook
-from mindformers.models.base_model import BaseModel
+from mindformers.models.modeling_utils import PreTrainedModel
 from mindformers.modules.layers import Linear
 from mindformers.modules.transformer.op_parallel_config import _check_config
 from mindformers.modules.transformer.transformer import LowerTriangularMaskWithDynamic
@@ -54,6 +54,16 @@ from ..utils import cell_reuse
 from ...tools.logger import logger
 
 __all__ = ['LlamaModel', 'LlamaForCausalLM']
+
+
+class LlamaPreTrainedModel(PreTrainedModel):
+    """
+    An abstract class to handle weights initialization and a simple interface for downloading and loading pretrained
+    models.
+    """
+
+    config_class = LlamaConfig
+    base_model_prefix = "llama"
 
 
 def layer_compute_dtype(layer, layer_id, offset, parallel_config, n_layers, select_recompute=False):
@@ -97,7 +107,7 @@ def layer_compute_dtype(layer, layer_id, offset, parallel_config, n_layers, sele
                 recompute_slice_activation=parallel_config.recompute.recompute_slice_activation)
 
 
-class LlamaModel(BaseModel):
+class LlamaModel(LlamaPreTrainedModel):
     r"""
     Transformer decoder consisting of *config.num_hidden_layers* layers. Each layer is a [`LlamaDecoderLayer`]
     Args:
@@ -300,7 +310,7 @@ class LlamaModel(BaseModel):
 
 
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
-class LlamaForCausalLM(BaseModel):
+class LlamaForCausalLM(LlamaPreTrainedModel):
     r"""
         Provide llama training loss or logits through network.
 
