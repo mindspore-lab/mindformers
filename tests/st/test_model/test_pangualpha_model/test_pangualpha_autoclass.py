@@ -22,7 +22,7 @@ import shutil
 # pylint: disable=W0611
 from mindformers import MindFormerBook, AutoModel, AutoConfig, AutoTokenizer, AutoProcessor
 # pylint: disable=W0611
-from mindformers.models import PreTrainedModel, BaseConfig, PreTrainedTokenizerBase, BaseProcessor
+from mindformers.models import PreTrainedModel, PretrainedConfig, PreTrainedTokenizerBase, BaseProcessor
 
 
 class TestAutoClassMethod:
@@ -59,7 +59,7 @@ class TestAutoClassMethod:
         # input model config name, load model and weights
         for config_type in self.test_llm_list:
             model_config = AutoConfig.from_pretrained(config_type)
-            assert isinstance(model_config, BaseConfig)
+            assert isinstance(model_config, PretrainedConfig)
             model_config.save_pretrained(
                 save_directory=os.path.join(self.save_directory, config_type),
                 save_name=config_type + '_config')
