@@ -57,8 +57,8 @@ def preprocess(sources, tokenizer, seq_length, user_tokens=195, assistant_tokens
             input_id += [tokenizer.pad_token_id] * (seq_length - len(input_id))
             label += [IGNORE_TOKEN_ID] * (seq_length - len(label))
 
-        input_ids.append(np.array(input_id))
-        labels.append(np.array(label))
+        input_ids.append(np.array(input_id).astype(np.int32))
+        labels.append(np.array(label).astype(np.int32))
 
     return dict(
         input_ids=input_ids,

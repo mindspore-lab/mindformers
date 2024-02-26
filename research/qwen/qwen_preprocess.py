@@ -69,12 +69,13 @@ def preprocess(sources, tokenizer, seq_length):
         input_ids.append(input_id[:seq_length])
         targets.append(target[:seq_length])
 
-    input_ids = np.array(input_ids)
-    targets = np.array(targets)
+    input_ids = np.array(input_ids, dtype=np.int32)
+    targets = np.array(targets, dtype=np.int32)
+    attention_mask = np.where(input_ids == tokenizer.pad_token_id, 0, 1).astype(np.int32)
     return dict(
         input_ids=input_ids,
         labels=targets,
-        attention_mask=np.where(input_ids == tokenizer.pad_token_id, 0, 1)
+        attention_mask=attention_mask
     )
 
 

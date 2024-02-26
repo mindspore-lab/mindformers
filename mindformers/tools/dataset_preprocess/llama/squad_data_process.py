@@ -33,8 +33,8 @@ def write_instance_to_file(writer, instance):
     label = instance["labels"]
 
     features = collections.OrderedDict()
-    features["input_ids"] = np.asarray(input_ids)
-    features["labels"] = np.asarray(label)
+    features["input_ids"] = np.asarray(input_ids).astype(np.int32)
+    features["labels"] = np.asarray(label).astype(np.int32)
 
     writer.write_raw_data([features])
     return features

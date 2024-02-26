@@ -680,9 +680,9 @@ def write_instance_to_file(writer, instance):
   labels = instance["input_ids"]
 
   features = collections.OrderedDict()
-  features["input_ids"] = np.asarray(input_ids)
-  features["attention_mask"] = np.asarray(attention_mask)
-  features["labels"] = np.asarray(labels)
+  features["input_ids"] = np.asarray(input_ids).astype(np.int32)
+  features["attention_mask"] = np.asarray(attention_mask).astype(np.int32)
+  features["labels"] = np.asarray(labels).astype(np.int32)
 
   # 转换为mindrecord
   writer.write_raw_data([features])

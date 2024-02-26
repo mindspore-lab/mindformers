@@ -103,7 +103,7 @@ def get_code_data_train(code_data_path, args, process_fn=None):
 
 def generate_mindrecord(args, file_name="codegeex.mindrecord"):
     """Generate mindrecord format data."""
-    data_schema = {"input_ids": {"type": "int64", "shape": [-1]}}
+    data_schema = {"input_ids": {"type": "int32", "shape": [-1]}}
     writer = FileWriter(file_name, shard_num=1, overwrite=True)
     writer.add_schema(data_schema, "it is a code dataset")
 
@@ -111,7 +111,7 @@ def generate_mindrecord(args, file_name="codegeex.mindrecord"):
     train_data = get_code_data_train(args.code_data, args)
     for i, input_id in enumerate(train_data):
         print(i)
-        sample = {"input_ids": np.array(input_id).squeeze().astype(np.int64)}
+        sample = {"input_ids": np.array(input_id).squeeze().astype(np.int32)}
         data.append(sample)
         if i > 100:
             writer.write_raw_data(data)
