@@ -23,7 +23,7 @@ import shutil
 import mindspore as ms
 
 from mindformers import MindFormerBook, AutoModel, AutoConfig, AutoProcessor
-from mindformers.models import PreTrainedModel, BaseConfig, BaseProcessor
+from mindformers.models import PreTrainedModel, PretrainedConfig, BaseProcessor
 
 ms.set_context(mode=0, device_id=7)
 
@@ -63,7 +63,7 @@ class TestBlip2AutoClassMethod:
         # input model config name, load model and weights
         for config_type in self.test_llm_list:
             model_config = AutoConfig.from_pretrained(config_type)
-            assert isinstance(model_config, BaseConfig)
+            assert isinstance(model_config, PretrainedConfig)
             model_config.save_pretrained(
                 save_directory=os.path.join(self.save_directory, config_type),
                 save_name=config_type + '_config')
@@ -117,7 +117,7 @@ class TestBlip2SecondStageAutoClassMethod:
         # input model config name, load model and weights
         for config_type in self.test_llm_list:
             model_config = AutoConfig.from_pretrained(config_type)
-            assert isinstance(model_config, BaseConfig)
+            assert isinstance(model_config, PretrainedConfig)
             model_config.save_pretrained(
                 save_directory=os.path.join(self.save_directory, config_type),
                 save_name=config_type + '_config')
