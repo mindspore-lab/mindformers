@@ -13,6 +13,9 @@
 # limitations under the License.
 # ============================================================================
 """test configuration_utils"""
+import os
+os.environ["MODELFOUNDRY_HUB_ENDPOINT_M"] = "https://modelfoundrysh.test.osinfra.cn"
+
 import tempfile
 import re
 import unittest
