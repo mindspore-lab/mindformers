@@ -366,12 +366,10 @@ def check_ckpt_for_transform(ckpt_dir):
             shutil.rmtree(soft_link_dir)
             logger.info("Find exist softlink dir %s and delete it.", os.path.join(os.getcwd(), soft_link_dir))
         if os.path.isdir(ckpt_dir):
-            if check_ckpt_file_exist(ckpt_dir):
-                for ckpt_file in os.listdir(ckpt_dir):
-                    soft_link = os.path.join(soft_link_dir, os.path.splitext(ckpt_file)[0])
-                    ckpt_file = os.path.join(ckpt_dir, ckpt_file)
-                    make_softlink(soft_link, ckpt_file)
-            elif glob(os.path.join(ckpt_dir, "rank*")):
+            if check_rank_folders(ckpt_dir, 0):
+                if check_ckpt_file_exist(ckpt_dir):
+                    logger.warning(f"Find both ckpt files and rank folder under {ckpt_dir}, "
+                                   "the rank folder will be used for checkpoint transform.")
                 os.makedirs(soft_link_dir, exist_ok=True)
                 if ckpt_dir.endswith('/'):
                     ckpt_dir = ckpt_dir[:-1]
@@ -382,6 +380,14 @@ def check_ckpt_for_transform(ckpt_dir):
                 else:
                     os.remove(soft_link)
                     os.symlink(ckpt_dir, soft_link)
+            elif check_ckpt_file_exist(ckpt_dir):
+                for ckpt_file in os.listdir(ckpt_dir):
+                    if ckpt_file.endswith('.ckpt'):
+                        soft_link = os.path.join(soft_link_dir, os.path.splitext(ckpt_file)[0])
+                        ckpt_file = os.path.join(ckpt_dir, ckpt_file)
+                        make_softlink(soft_link, ckpt_file)
+            else:
+                raise ValueError(f"No rank_0 folder or ckpt files are found under {ckpt_dir}.")
         else:
             if ckpt_dir.endswith('.ckpt'):
                 ckpt_file = ckpt_dir
