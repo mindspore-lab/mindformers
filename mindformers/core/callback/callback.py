@@ -496,9 +496,6 @@ class CheckpointMointor(ModelCheckpoint):
                  save_checkpoint_seconds=0,
                  keep_checkpoint_max=5,
                  keep_checkpoint_per_n_minutes=0,
-                 dataset_size=None,
-                 initial_epoch=0,
-                 initial_step=0,
                  integrated_save=True,
                  save_network_params=True,
                  save_trainable_params=False,
@@ -510,10 +507,7 @@ class CheckpointMointor(ModelCheckpoint):
                  exception_save=False):
 
         self.config = config
-        self.steps_per_epoch = dataset_size
-        self.initial_epoch = initial_epoch
         self.save_network_params = save_network_params
-        self.initial_step = initial_step
         self.save_trainable_params = save_trainable_params
         self.rank_id = get_real_rank()
         prefix = prefix + "_rank_{}".format(self.rank_id)
@@ -559,18 +553,12 @@ class CheckpointMointor(ModelCheckpoint):
             self._flush_from_cache(cb_params)
 
         save_ckpt = self._check_save_ckpt(cb_params, force_to_save)
-        if cb_params.dataset_sink_mode:
-            steps_per_epoch = self.steps_per_epoch
-            cur_epoch_num = (cb_params.cur_step_num + self.initial_step - 1) // steps_per_epoch + 1
-            cur_step_num = (cb_params.cur_step_num + self.initial_step - 1) % steps_per_epoch + 1
-        else:
-            steps_per_epoch = cb_params.batch_num
-            cur_epoch_num = cb_params.cur_epoch_num
-            cur_step_num = (cb_params.cur_step_num + self.initial_step - 1) % cb_params.batch_num + 1
+        step_num_in_epoch = int((cb_params.cur_step_num - 1) % cb_params.batch_num + 1)
 
         if save_ckpt:
             logger.info('......Saving ckpt......')
-            cur_ckpoint_file = self._prefix + "-" + str(cur_epoch_num) + "_" + str(cur_step_num) + ".ckpt"
+            cur_ckpoint_file = self._prefix + "-" + str(cb_params.cur_epoch_num) + "_" \
+                               + str(step_num_in_epoch) + ".ckpt"
             # update checkpoint file list.
             self._manager.update_ckpoint_filelist(self._directory, self._prefix)
             # keep checkpoint files number equal max number.
