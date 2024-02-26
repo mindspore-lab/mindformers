@@ -36,6 +36,7 @@ from .modeling_auto import (
 )
 from .image_processing_auto import IMAGE_PROCESSOR_MAPPING, AutoImageProcessor
 from .tokenization_auto import AutoTokenizer
+from .processing_auto import AutoProcessor
 
 __all__ = ["CONFIG_MAPPING", "AutoConfig",
            "IMAGE_PROCESSOR_MAPPING", "AutoImageProcessor", "CONFIG_MAPPING_NAMES", "AutoTokenizer",
@@ -46,4 +47,4 @@ __all__ = ["CONFIG_MAPPING", "AutoConfig",
            "AutoModelForSeq2SeqLM", "AutoModelForSequenceClassification",
            "AutoModelForTextEncoding", "AutoModelForTokenClassification",
            "AutoModelForVision2Seq", "AutoModelForVisualQuestionAnswering",
-           "AutoModelForZeroShotImageClassification", "AutoModelWithLMHead"]
+           "AutoModelForZeroShotImageClassification", "AutoModelWithLMHead", "AutoProcessor"]

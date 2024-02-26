@@ -27,8 +27,8 @@ from PIL import Image
 
 from mindformers.tools import logger
 from mindformers.tools import PushToHubMixin, cached_file, download_url, is_offline_mode, is_remote_url, custom_object_save
-from mindformers.dataset.image_transforms import center_crop, normalize, rescale
-from mindformers.dataset.image_utils import ChannelDimension
+from mindformers.utils.image_transforms import center_crop, normalize, rescale
+from mindformers.utils.image_utils import ChannelDimension
 from mindformers.models.utils import IMAGE_PROCESSOR_NAME
 
 def add_model_info_to_auto_map(auto_map, repo_id):

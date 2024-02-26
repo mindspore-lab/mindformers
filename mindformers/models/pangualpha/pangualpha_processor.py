@@ -18,19 +18,22 @@ PanguAlphaProcessor
 """
 from mindformers.mindformer_book import MindFormerBook
 from mindformers.models.tokenization_utils_base import PreTrainedTokenizerBase
-from mindformers.models.base_processor import BaseProcessor
+from mindformers.models.processing_utils import ProcessorMixin
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 
 __all__ = ['PanguAlphaProcessor']
 
 
 @MindFormerRegister.register(MindFormerModuleType.PROCESSOR)
-class PanguAlphaProcessor(BaseProcessor):
+class PanguAlphaProcessor(ProcessorMixin):
     """
     PanguAlpha processor,
     consists of a tokenizer (PreTrainedTokenizerBase) for text input.
     """
     _support_list = MindFormerBook.get_processor_support_list()['pangualpha']
+
+    attributes = ["tokenizer"]
+    tokenizer_class = "PanguAlphaTokenizer"
 
     def __init__(self, tokenizer=None,
                  max_length=128, padding='max_length', return_tensors='ms'):

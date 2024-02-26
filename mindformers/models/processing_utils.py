@@ -80,9 +80,6 @@ class ProcessorMixin(PushToHubMixin):
     def __init__(self, *args, **kwargs):
         self.config = {}
         self.config.update(kwargs)
-        self.image_processor = kwargs.pop("image_processor", None)
-        self.audio_processor = kwargs.pop("audio_processor", None)
-        self.tokenizer = kwargs.pop("tokenizer", None)
         self.max_length = kwargs.pop("max_length", None)
         self.padding = kwargs.pop("padding", False)
         self.return_tensors = kwargs.pop("return_tensors", None)
@@ -373,7 +370,7 @@ class ProcessorMixin(PushToHubMixin):
             # `AutoProcessor` API.
             if hasattr(attribute, "_set_processor_class"):
                 attribute._set_processor_class(self.__class__.__name__)  # pylint: disable=W0212
-            attribute.save_pretrained(save_directory)
+            attribute.save_pretrained(save_directory, save_json=True)
 
         if self._auto_class is not None:
             # We added an attribute to the init_kwargs of the tokenizers, which needs to be cleaned up.

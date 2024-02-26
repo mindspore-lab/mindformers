@@ -14,6 +14,7 @@
 # ============================================================================
 
 """models init"""
+from .auto import *
 from .bert import *
 from .mae import *
 from .vit import *
@@ -46,6 +47,7 @@ from .utils import CONFIG_NAME, FEATURE_EXTRACTOR_NAME, IMAGE_PROCESSOR_NAME
 __all__ = ['BaseConfig', 'BaseModel', 'BaseProcessor', 'BaseImageProcessor',
            'BaseAudioProcessor', 'PreTrainedTokenizerFast']
 
+__all__.extend(auto.__all__)
 __all__.extend(blip2.__all__)
 __all__.extend(bert.__all__)
 __all__.extend(mae.__all__)
@@ -60,6 +62,7 @@ __all__.extend(glm3.__all__)
 __all__.extend(llama.__all__)
 __all__.extend(pangualpha.__all__)
 __all__.extend(bloom.__all__)
+__all__.extend(sam.__all__)
 __all__.extend(tokenization_utils.__all__)
 __all__.extend(modeling_utils.__all__)
 __all__.extend(configuration_utils.__all__)

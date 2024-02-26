@@ -27,7 +27,7 @@ from mindformers.tools.logger import logger
 from mindformers.version_control import get_dataset_map
 from .dataloader import build_dataset_loader
 from .base_dataset import BaseDataset
-from ..auto_class import AutoTokenizer
+from ..models.auto.tokenization_auto import AutoTokenizer
 
 
 @MindFormerRegister.register(MindFormerModuleType.DATASET)

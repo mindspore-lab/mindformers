@@ -6,3 +6,5 @@
 "mindformers/tests/ut/models/auto/test_configuration_auto.py"                                                                 "wrong-import-position"
 "mindformers/tests/ut/models/test_configuration_utils.py"                                                                     "wrong-import-position"
 "mindformers/tests/ut/models/test_configuration_utils.py"                                                                     "unused-variable"
+"mindformers/tests/ut/models/auto/test_auto_processor.py"                                                                     "wrong-import-position"
+"mindformers/tests/ut/models/test_processor.py"                                                                               "wrong-import-position"
