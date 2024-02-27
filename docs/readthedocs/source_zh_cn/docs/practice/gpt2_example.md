@@ -403,7 +403,7 @@
 
 ### 2.1 Processor
 
-- `Processor`中初始化了`tokenizer`，对输入数据进行处理，`Mindformers`中已经实现了`BaseProcessor`类，若无特别需求可直接继承该基类增加处理逻辑，如有需要可自行实现逻辑。
+- `Processor`中初始化了`tokenizer`，对输入数据进行处理，`Mindformers`中已经实现了`ProcessorMixin`类，若无特别需求可直接继承该基类增加处理逻辑，如有需要可自行实现逻辑。
 - `@MindFormerRegister.register(MindFormerModuleType.PROCESSOR)`该装饰器对`GPT2Processor`进行了注册，将该类注册到了对应模块当中，由此可以通过配置文件进行实例化。
 - `__all__ = ['GPT2Processor']`公开了模型预训练接口，方便用户从外部调用。
 - `_support_list = MindFormerBook.get_config_support_list()['gpt2']`：高阶接口使用时用于检索可用模型，可通过`from_pretrained`的方法实例化`GPT2Processor`。
@@ -413,7 +413,7 @@
   __all__ = ['GPT2Processor']
 
   @MindFormerRegister.register(MindFormerModuleType.PROCESSOR)
-  class GPT2Processor(BaseProcessor):
+  class GPT2Processor(ProcessorMixin):
     """class description"""
     _support_list = MindFormerBook.get_processor_support_list()['gpt2']
 

@@ -140,7 +140,7 @@ class ProcessorMixin(PushToHubMixin):
                 if "pretrained_model_name_or_path" is set, "yaml_name_or_path" is useless.
 
         Returns:
-            A processor which inherited from BaseProcessor.
+            A processor which inherited from ProcessorMixin.
         """
         pretrained_model_name_or_path = kwargs.pop("pretrained_model_name_or_path", None)
         cache_dir = kwargs.pop("cache_dir", None)
@@ -181,7 +181,7 @@ class ProcessorMixin(PushToHubMixin):
                 if "pretrained_model_name_or_path" is set, "yaml_name_or_path" is useless.
 
         Returns:
-            A processor which inherited from BaseProcessor.
+            A processor which inherited from ProcessorMixin.
         """
         pretrained_model_name_or_path = kwargs.pop("pretrained_model_name_or_path", None)
         if pretrained_model_name_or_path is not None:
