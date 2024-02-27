@@ -28,8 +28,7 @@ from mindspore.dataset import GeneratorDataset
 from mindformers.tools.utils import LOCAL_DEFAULT_PATH, get_real_rank
 from mindformers.trainer import Trainer
 from mindformers.models.gpt2 import GPT2LMHeadModel, GPT2Config
-from mindformers.core.lr import WarmUpDecayLR
-from mindformers import CheckpointMointor, TrainingArguments
+from mindformers import CheckpointMointor, TrainingArguments, PolynomialWithWarmUpLR
 from mindformers.core.optim import FusedAdamWeightDecay
 
 ms.set_context(mode=0)
@@ -67,7 +66,7 @@ def test_gpt_trainer_train_from_instance():
     dataset = dataset.batch(batch_size=8)
 
     # optimizer
-    lr_schedule = WarmUpDecayLR(learning_rate=0.0001, end_learning_rate=0.00001, warmup_steps=0, decay_steps=512)
+    lr_schedule = PolynomialWithWarmUpLR(learning_rate=0.0001, lr_end=0.00001, warmup_steps=0, total_steps=512)
     optimizer = FusedAdamWeightDecay(beta1=0.009, beta2=0.999,
                                      learning_rate=lr_schedule,
                                      params=gpt_model.trainable_params())
