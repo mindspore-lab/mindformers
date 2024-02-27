@@ -22,7 +22,7 @@ import shutil
 import mindspore as ms
 
 from mindformers import MindFormerBook, AutoModel, AutoConfig, AutoTokenizer, AutoProcessor
-from mindformers.models import PreTrainedModel, PretrainedConfig, PreTrainedTokenizerBase, BaseProcessor
+from mindformers.models import PreTrainedModel, PretrainedConfig, PreTrainedTokenizerBase, ProcessorMixin
 
 ms.set_context(mode=0)
 
@@ -75,7 +75,7 @@ class TestLlamaAutoClassMethod:
         # input processor name
         for processor_type in self.test_llm_list:
             processor = AutoProcessor.from_pretrained(processor_type)
-            assert isinstance(processor, BaseProcessor)
+            assert isinstance(processor, ProcessorMixin)
             processor.save_pretrained(
                 save_directory=os.path.join(self.save_directory, processor_type),
                 save_name=processor_type + '_processor')

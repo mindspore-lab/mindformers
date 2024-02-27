@@ -25,7 +25,7 @@ from mindformers import MindFormerBook
 from mindformers import AutoModel
 from mindformers import AutoConfig, AutoTokenizer, AutoProcessor
 from mindformers.models import PreTrainedModel
-from mindformers.models import PretrainedConfig, PreTrainedTokenizerBase, BaseProcessor
+from mindformers.models import PretrainedConfig, PreTrainedTokenizerBase, ProcessorMixin
 
 
 class TestGLMAutoClassMethod:
@@ -81,7 +81,7 @@ class TestGLMAutoClassMethod:
         # input processor name
         processor_type = "glm_6b"
         processor = AutoProcessor.from_pretrained(processor_type)
-        assert isinstance(processor, BaseProcessor)
+        assert isinstance(processor, ProcessorMixin)
         processor.save_pretrained(
             save_directory=os.path.join(self.save_directory, processor_type),
             save_name=processor_type + "_processor",

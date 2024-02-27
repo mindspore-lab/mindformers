@@ -37,6 +37,7 @@ from .configuration_utils import *
 from .base_config import BaseConfig
 from .base_model import BaseModel
 from .image_processing_utils import BaseImageProcessor
+from .processing_utils import ProcessorMixin
 from .base_processor import BaseProcessor, BaseAudioProcessor
 from .build_tokenizer import build_tokenizer
 from .build_processor import build_processor

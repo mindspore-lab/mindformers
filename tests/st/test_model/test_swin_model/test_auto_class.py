@@ -20,7 +20,7 @@ pytest tests/st/test_model/test_swin_model/test_auto_class.py
 import os
 import shutil
 from mindformers import MindFormerBook, AutoModel, AutoConfig, AutoProcessor
-from mindformers.models import PreTrainedModel, PretrainedConfig, BaseProcessor
+from mindformers.models import PreTrainedModel, PretrainedConfig, ProcessorMixin
 
 
 class TestSwinAutoClassMethod:
@@ -71,7 +71,7 @@ class TestSwinAutoClassMethod:
         # input processor name
         for processor_type in self.test_list:
             processor = AutoProcessor.from_pretrained(processor_type)
-            assert isinstance(processor, BaseProcessor)
+            assert isinstance(processor, ProcessorMixin)
             processor.save_pretrained(
                 save_directory=os.path.join(self.save_directory, processor_type),
                 save_name=processor_type + '_processor')
