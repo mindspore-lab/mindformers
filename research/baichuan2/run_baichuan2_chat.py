@@ -147,6 +147,11 @@ def main(config='./',
         response = tokenizer.decode(outputs[0][len(input_ids):], skip_speical_tokens=True)
         logger.info(response)
         messages.append({"role": "assistant", "content": response})
+        with open("question_answer.txt", 'a') as file:
+            question = messages[-2]["content"]
+            answer = messages[-1]["content"]
+            file.write(f"Q: {question}\n")
+            file.write(f"A: {answer}\n")
 
 
 def build_chat_input(config, tokenizer, messages, max_new_tokens=None):
