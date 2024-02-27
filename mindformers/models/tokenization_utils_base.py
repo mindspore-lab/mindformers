@@ -13,8 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """
- Tokenization classes for python tokenizers. For fast tokenizers (provided by HuggingFace's tokenizers library) see
- tokenization_utils_fast.py
+ Tokenization classes for python tokenizers. For fast tokenizers see tokenization_utils_fast.py
 """
 import copy
 import os
@@ -878,7 +877,6 @@ class SpecialTokensMixin:
         The `sanitize_special_tokens` is now deprecated kept for backward compatibility and will be removed in
         transformers v5.
         """
-        logger.warning("The `sanitize_special_tokens` will be removed in transformers v5.")
         return self.add_tokens(self.all_special_tokens_extended, special_tokens=True)
 
     def add_special_tokens(
@@ -1804,7 +1802,6 @@ class PreTrainedTokenizerBase(SpecialTokensMixin):
             "\nNo chat template is defined for this tokenizer - using a default chat template "
             "that implements the ChatML format (without BOS/EOS tokens!). If the default is not appropriate for "
             "your model, please set `tokenizer.chat_template` to an appropriate template. "
-            "See https://huggingface.co/docs/transformers/main/chat_templating for more information.\n"
         )
         return (
             "{% for message in messages %}"
@@ -2098,11 +2095,6 @@ class PreTrainedTokenizerBase(SpecialTokensMixin):
         commit_hash = kwargs.pop("_commit_hash", None)
 
         if use_auth_token is not None:
-            warnings.warn(
-                "The `use_auth_token` argument is deprecated and will be removed in v5 of Transformers. "
-                "Please use `token` instead.",
-                FutureWarning,
-            )
             if token is not None:
                 raise ValueError(
                     "`token` and `use_auth_token` are both specified. Please set only the argument `token`."
@@ -2214,9 +2206,9 @@ class PreTrainedTokenizerBase(SpecialTokensMixin):
         if all(full_file_name is None for full_file_name in resolved_vocab_files.values()):
             raise EnvironmentError(
                 f"Can't load tokenizer for '{pretrained_model_name_or_path}'. If you were trying to load it from "
-                "'https://huggingface.co/models', make sure you don't have a local directory with the same name. "
-                f"Otherwise, make sure '{pretrained_model_name_or_path}' is the correct path to a directory "
-                f"containing all relevant files for a {cls.__name__} tokenizer."
+                "'https://modelfoundrysh.test.osinfra.cn/models', make sure you don't have a local directory with "
+                f"the same name. Otherwise, make sure '{pretrained_model_name_or_path}' is the correct path "
+                f"to a directory containing all relevant files for a {cls.__name__} tokenizer."
             )
 
         for file_id, file_path in vocab_files.items():
@@ -2360,14 +2352,9 @@ class PreTrainedTokenizerBase(SpecialTokensMixin):
             model_max_length = cls.max_model_input_sizes[pretrained_model_name_or_path]
             if model_max_length is not None and isinstance(model_max_length, (int, float)):
                 model_max_length = min(init_kwargs.get("model_max_length", int(1e30)), model_max_length)
-                # TODO(PVP) - uncomment following line in Transformers v5
-                # init_kwargs["model_max_length"] = model_max_length
-                # TODO(PVP) - remove in Transformers v5
-                # ---
                 init_kwargs["model_max_length"] = cls._eventually_correct_t5_max_length(
                     pretrained_model_name_or_path, model_max_length, init_kwargs.get("model_max_length")
                 )
-                # ---
 
         # Merge resolved_vocab_files arguments in init_kwargs.
         added_tokens_file = resolved_vocab_files.pop("added_tokens_file", None)
@@ -2634,11 +2621,6 @@ class PreTrainedTokenizerBase(SpecialTokensMixin):
         use_auth_token = kwargs.pop("use_auth_token", None)
 
         if use_auth_token is not None:
-            warnings.warn(
-                "The `use_auth_token` argument is deprecated and will be removed in v5 of Transformers. "
-                "Please use `token` instead.",
-                FutureWarning,
-            )
             if kwargs.get("token", None) is not None:
                 raise ValueError(
                     "`token` and `use_auth_token` are both specified. Please set only the argument `token`."
@@ -4158,11 +4140,6 @@ class PreTrainedTokenizerBase(SpecialTokensMixin):
         Temporarily sets the tokenizer for encoding the targets. Useful for tokenizer associated to
         sequence-to-sequence models that need a slightly different processing for the labels.
         """
-        warnings.warn(
-            "`as_target_tokenizer` is deprecated and will be removed in v5 of Transformers. You can tokenize your "
-            "labels by using the argument `text_target` of the regular `__call__` method (either in the same call as "
-            "your input texts if you use the same keyword arguments, or in a separate call."
-        )
         self._switch_to_target_mode()
         self._in_target_context_manager = True
         yield
@@ -4265,26 +4242,6 @@ class PreTrainedTokenizerBase(SpecialTokensMixin):
             The full set of keys `[input_ids, attention_mask, labels]`, will only be returned if tgt_texts is passed.
             Otherwise, input_ids, attention_mask will be the only keys.
         """
-        # docstyle-ignore
-        formatted_warning = """
-`prepare_seq2seq_batch` is deprecated and will be removed in version 5 of HuggingFace Transformers. Use the regular
-`__call__` method to prepare your inputs and targets.
-
-Here is a short example:
-
-model_inputs = tokenizer(src_texts, text_target=tgt_texts, ...)
-
-If you either need to use different keyword arguments for the source and target texts, you should do two calls like
-this:
-
-model_inputs = tokenizer(src_texts, ...)
-labels = tokenizer(text_target=tgt_texts, ...)
-model_inputs["labels"] = labels["input_ids"]
-
-See the documentation of your specific tokenizer for more details on the specific arguments to the tokenizer of choice.
-For a more complete example, see the implementation of `prepare_seq2seq_batch`.
-"""
-        warnings.warn(formatted_warning, FutureWarning)
         # mBART-specific kwargs that should be ignored by other models.
         kwargs.pop("src_lang", None)
         kwargs.pop("tgt_lang", None)
