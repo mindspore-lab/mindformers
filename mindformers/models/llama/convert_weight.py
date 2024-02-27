@@ -1,4 +1,4 @@
-# Copyright 2023 Huawei Technologies Co., Ltd
+# Copyright 2024 Huawei Technologies Co., Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -25,6 +25,8 @@ from pathlib import Path
 import numpy as np
 import mindspore as ms
 from mindspore import ops
+
+from mindformers.utils.convert_utils import pt2ms
 
 
 def convert_meta_torch_ckpt(ckpt_dir, output_name, dtype=ms.float16):
@@ -114,34 +116,35 @@ def name_replace(name: str):
     return name
 
 
-def convert_hf_ckpt(ckpt_dir, output_name, dtype=ms.float16):
+def convert_pt_to_ms(input_path, output_path, dtype=None, **kwargs):
     """convert hf weight to ms."""
-    print(f"Trying to convert huggingface checkpoint in '{ckpt_dir}'.", flush=True)
+    print(kwargs)
+    print(f"Trying to convert huggingface checkpoint in '{input_path}'.", flush=True)
     try:
         from transformers import LlamaForCausalLM
     except:
         raise ImportError(f"Failed to load huggingface checkpoint. Please make sure transformers is available.")
 
     try:
-        model_hf = LlamaForCausalLM.from_pretrained(ckpt_dir)
+        model_hf = LlamaForCausalLM.from_pretrained(os.path.dirname(input_path))
     # pylint: disable=W0703
     except Exception as e:
-        print(f"Do not find huggingface checkpoint in '{ckpt_dir}', Error {e.message}.", flush=True)
+        print(f"Do not find huggingface checkpoint in '{os.path.dirname(input_path)}', Error {e.message}.", flush=True)
         return False
     ckpt_list = []
-    for name, value in model_hf.named_parameters():
+    for name, value in model_hf.state_dict().items():
         name = name_replace(name)
         if name == 'norm.weight':
             name = 'norm_out.weight'
         if name[:7] == 'layers.':
             name = name[7:]
-        value = value.detach().numpy()
-        print(f'\rprocessing parameter: {name} {value.shape}     ', end='', flush=True)
-        ckpt_list.append({'name': name, 'data': ms.Tensor(value, dtype=dtype)})
 
-    ckpt_file = os.path.join(ckpt_dir, output_name)
-    ms.save_checkpoint(ckpt_list, os.path.join(ckpt_file))
-    print(f"\rConvert huggingface checkpoint finished, the mindspore checkpoint is saved in '{ckpt_file}'.", flush=True)
+        print(f'\rprocessing parameter: {name} {value.shape}     ', end='', flush=True)
+        ckpt_list.append({'name': name, 'data': pt2ms(value, dtype)})
+
+    ms.save_checkpoint(ckpt_list, output_path)
+    print(f"\rConvert huggingface checkpoint finished, the mindspore checkpoint is saved in '{output_path}'.",
+          flush=True)
     return True
 
 
@@ -154,6 +157,7 @@ def convert_to_new_ckpt(ckpt_path, config_path):
         model_args = json.loads(f.read())
     n_heads = model_args["n_heads"]
     dim = model_args["dim"]
+
     def permute(w):
         return ops.transpose(w.reshape(n_heads, dim // n_heads // 2, 2, dim), (0, 2, 1, 3)).reshape(dim, dim)
 
@@ -167,9 +171,10 @@ def convert_to_new_ckpt(ckpt_path, config_path):
 
     ms.save_checkpoint(ckpt_list, save_path)
 
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--torch_ckpt_dir', default='./llama_model/llama-13b-hf/')
+    parser.add_argument('--torch_ckpt_path', default='./llama_model/llama-13b-hf/hf.bin')
     parser.add_argument('--mindspore_ckpt_path', default='transform.ckpt')
     parser.add_argument('--pre_ckpt_path', default=None)
     parser.add_argument('--config_path', default=None)
@@ -177,4 +182,4 @@ if __name__ == "__main__":
     if args.pre_ckpt_path is not None and args.config_path is not None:
         convert_to_new_ckpt(args.pre_ckpt_path, args.config_path)
     else:
-        convert_hf_ckpt(ckpt_dir=args.torch_ckpt_dir, output_name=args.mindspore_ckpt_path)
+        convert_pt_to_ms(input_path=args.torch_ckpt_path, output_path=args.mindspore_ckpt_path)

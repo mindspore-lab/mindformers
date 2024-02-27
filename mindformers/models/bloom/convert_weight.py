@@ -1,4 +1,4 @@
-# Copyright 2023 Huawei Technologies Co., Ltd
+# Copyright 2024 Huawei Technologies Co., Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,12 +14,13 @@
 # ============================================================================
 
 """Convert checkpoint from huggingface"""
-import os
 import re
 import argparse
 import torch
 import mindspore
-from mindspore import Tensor, Parameter
+from mindspore import Parameter
+
+from mindformers.utils.convert_utils import pt2ms
 
 
 def layer_name_mapping(key):
@@ -66,65 +67,42 @@ def layer_name_mapping(key):
         split = True
     return split, f"{prefix}blocks.{layer_number}." + layer_rename_map[text]
 
-def hf_to_ms(hf_weights, args, ms_dtype=mindspore.float32, for_save=False):
+
+def convert_pt_to_ms(input_path, output_path, dtype=None, **kwargs):
     """Convert hf layers to ms."""
+    n_head = kwargs.pop('n_head', 32)
+    hidden_size = kwargs.pop('hidden_size', 4096)
+    hf_weights = torch.load(input_path, map_location='cpu')
     ms_params = {}
     for k, v in hf_weights.items():
         print(k, v.shape, v.dtype)
         split, new_name = layer_name_mapping(k)
         if split:
             if 'weight' in new_name:
-                v = v.reshape(args.n_head, 3, args.hidden_size // args.n_head, v.shape[-1])
+                v = v.reshape(n_head, 3, hidden_size // n_head, v.shape[-1])
                 v_list = v.tensor_split(3, dim=1)
                 for i in range(1, 4):
                     tmp_name = new_name.format(i)
-                    print(v_list[i-1].shape)
-                    tmp_tensor = Tensor(v_list[i-1].reshape(-1, v_list[i-1].shape[-1]).float().detach().numpy(),
-                                        ms_dtype)
+                    print(v_list[i - 1].shape)
+                    tmp_tensor = pt2ms(v_list[i - 1].reshape(-1, v_list[i - 1].shape[-1]), dtype)
                     ms_params[tmp_name] = Parameter(tmp_tensor, name=tmp_name)
             else:
-                v = v.reshape(args.n_head, 3, args.hidden_size // args.n_head)
+                v = v.reshape(n_head, 3, hidden_size // n_head)
                 v_list = v.tensor_split(3, dim=1)
                 for i in range(1, 4):
                     tmp_name = new_name.format(i)
-                    print(v_list[i-1].shape)
-                    tmp_tensor = Tensor(v_list[i-1].reshape(-1).float().detach().numpy(), ms_dtype)
+                    print(v_list[i - 1].shape)
+                    tmp_tensor = pt2ms(v_list[i - 1].reshape(-1), dtype)
                     ms_params[tmp_name] = Parameter(tmp_tensor, name=tmp_name)
         else:
             if ('projection' in new_name or 'mapping' in new_name) and 'weight' in new_name:
-                new_tensor = Tensor(v.transpose(0, 1).float().detach().numpy(), ms_dtype)
+                new_tensor = pt2ms(v.transpose(0, 1), dtype)
             else:
-                new_tensor = Tensor(v.float().detach().numpy(), ms_dtype)
+                new_tensor = pt2ms(v, dtype)
             ms_params[new_name] = Parameter(new_tensor, name=new_name)
 
-    if for_save:
-        return [{'name': k, 'data': v} for k, v in ms_params.items()]
-
-    return ms_params
-
-def process_hf_shard_files(file_list, args, save_dir=None, combine=False, ms_dtype=mindspore.float32):
-    ''' torch ckpt files loop'''
-    if save_dir and not os.path.exists(save_dir):
-        os.makedirs(save_dir, exist_ok=True)
-
-    combine_params = []
-    file = None
-    for file in file_list:
-        pt_states = torch.load(file, map_location='cpu')
-        ms_params = hf_to_ms(pt_states, args, ms_dtype, True)
-        if combine:
-            combine_params.extend(ms_params)
-        else:
-            save_file = save_dir + '/' + file.split('/')[-1] if save_dir else file + '.ckpt'
-            mindspore.save_checkpoint(ms_params, save_file)
-
-        del pt_states
-        del ms_params
-
-    if combine:
-        path = save_dir + '/' + 'combine.ckpt' if save_dir else \
-            '/'.join(file.split('/')[:-1]) + 'combine.ckpt'
-        mindspore.save_checkpoint(combine_params, path)
+    params_list = [{'name': k, 'data': v} for k, v in ms_params.items()]
+    mindspore.save_checkpoint(params_list, output_path)
 
 
 if __name__ == '__main__':
@@ -152,5 +130,5 @@ if __name__ == '__main__':
     config = parser.parse_args()
 
     # convert hf ckpt to ms
-    process_hf_shard_files(file_list=[config.torch_path], args=config,
-                           combine=True, save_dir=config.mindspore_path)
+    convert_pt_to_ms(input_path=config.torch_path, output_path=config.mindspore_path, n_head=config.n_head,
+                     hidden_size=config.hidden_size)

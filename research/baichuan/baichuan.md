@@ -27,13 +27,13 @@ License: Baichuan-7B License
 执行权重转换脚本
 
 ```shell
-python research/baichuan/convert_weight.py --torch_ckpt_dir TORCH_CKPT_DIR --mindspore_ckpt_path MS_CKPT_NAME
+python research/baichuan/convert_weight.py --torch_ckpt_path TORCH_CKPT_PATH --mindspore_ckpt_path MS_CKPT_NAME
 ```
 
 ```text
 # 参数说明
-TORCH_CKPT_DIR: huggingface权重保存目录路径
-mindspore_ckpt_path: 权重保存文件名，保存为TORCH_CKPT_DIR/OUTPUT_NAME, 也可以指定为自定义保存路径
+torch_ckpt_path: huggingface权重保存目录下任意权重bin文件，根据该文件路径读取目录下所有权重
+mindspore_ckpt_path: mindspore权重文件保存路径
 ```
 
 #### [多卡权重切分](../../docs/feature_cards/Transform_Ckpt.md#方案1源码执行)
@@ -135,13 +135,13 @@ License: Baichuan-13B-base License
 执行权重转换脚本
 
 ```shell
-python research/baichuan/convert_weight.py --torch_ckpt_dir TORCH_CKPT_DIR --mindspore_ckpt_path MS_CKPT_NAME
+python research/baichuan/convert_weight.py --torch_ckpt_path TORCH_CKPT_PATH --mindspore_ckpt_path MS_CKPT_NAME
 ```
 
 ```text
 # 参数说明
-TORCH_CKPT_DIR: huggingface权重保存目录路径(即刚刚从hugging face下载的工程目录)
-mindspore_ckpt_path: 权重保存文件名，默认保存为TORCH_CKPT_DIR/OUTPUT_NAME, 也可以指定为自定义保存路径
+torch_ckpt_path: huggingface权重保存目录下任意权重bin文件,根据该文件路径读取目录下全部权重
+mindspore_ckpt_path: mindspore权重文件保存路径
 ```
 
 #### [多卡权重切分](../../docs/feature_cards/Transform_Ckpt.md#方案1源码执行)

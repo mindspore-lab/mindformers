@@ -1,4 +1,4 @@
-# Copyright 2023 Huawei Technologies Co., Ltd
+# Copyright 2024 Huawei Technologies Co., Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,9 +14,69 @@
 # ============================================================================
 """Convert checkpoint from torch/huggingface"""
 import argparse
-import numpy as np
 import torch
-from mindspore import save_checkpoint, Tensor
+import mindspore as ms
+
+from mindspore import save_checkpoint
+
+from mindformers.utils.convert_utils import pt2ms
+
+ms_name = [
+    "backbone.blocks.{}.layernorm1.gamma",
+    "backbone.blocks.{}.layernorm1.beta",
+    "backbone.blocks.{}.layernorm2.gamma",
+    "backbone.blocks.{}.layernorm2.beta",
+    "backbone.blocks.{}.attention.beta",
+    "backbone.blocks.{}.attention.masked_beta",
+    "backbone.blocks.{}.attention.projection.weight",
+    "backbone.blocks.{}.attention.projection.bias",
+    "backbone.blocks.{}.attention.dense1.weight",
+    "backbone.blocks.{}.attention.dense1.bias",
+    "backbone.blocks.{}.attention.dense2.weight",
+    "backbone.blocks.{}.attention.dense2.bias",
+    "backbone.blocks.{}.attention.dense3.weight",
+    "backbone.blocks.{}.attention.dense3.bias",
+    "backbone.blocks.{}.output.mapping.weight",
+    "backbone.blocks.{}.output.mapping.bias",
+    "backbone.blocks.{}.output.projection.weight",
+    "backbone.blocks.{}.output.projection.bias",
+]
+
+torch_name = [
+    "h.{}.ln_1.weight",
+    "h.{}.ln_1.bias",
+    "h.{}.ln_2.weight",
+    "h.{}.ln_2.bias",
+    "h.{}.attn.bias",
+    "h.{}.attn.masked_bias",
+    "h.{}.attn.c_proj.weight",
+    "h.{}.attn.c_proj.bias",
+    "h.{}.attn.c_attn.weight.q",
+    "h.{}.attn.c_attn.bias.q",
+    "h.{}.attn.c_attn.weight.k",
+    "h.{}.attn.c_attn.bias.k",
+    "h.{}.attn.c_attn.weight.v",
+    "h.{}.attn.c_attn.bias.v",
+    "h.{}.mlp.c_fc.weight",
+    "h.{}.mlp.c_fc.bias",
+    "h.{}.mlp.c_proj.weight",
+    "h.{}.mlp.c_proj.bias"
+]
+
+addition_mindspore = [
+    "backbone.layernorm.gamma",
+    "backbone.layernorm.beta",
+    "backbone.embedding.word_embedding.embedding_table",
+    "backbone.embedding.position_embedding.embedding_table",
+]
+
+addition_torch = [
+    "ln_f.weight",
+    "ln_f.bias",
+    "wte.weight",
+    "wpe.weight",
+]
+
 
 def generate_params_dict(total_layers,
                          mindspore_params_per_layer,
@@ -67,45 +127,56 @@ def print_dict(input_dict):
         None
     """
     for k, v in input_dict.items():
-        print(f"Param: {k} with shape {v}")
+        print(f"Param: {k} with shape {v.shape}")
 
 
-def get_converted_ckpt(mapped_params, weight_dict):
+def convert_pt_to_ms(input_path, output_path, dtype=None, **kwargs):
     """
-    Print the keys of the loaded checkpoint
-
-    Args:
-        mapped_params(dict): The loaded checkpoint. The key is parameter name and value is the numpy array.
-        weight_dict(dict): The loaded pytorch checkpoint.
-
-    Returns:
-        None
+    convert pt to ms
     """
+    layers = kwargs.pop('layers', 12)
+    weight_dict = torch.load(input_path, map_location='cpu')
+    print_dict(weight_dict)
+    mapped_params = generate_params_dict(total_layers=layers,
+                                         mindspore_params_per_layer=ms_name,
+                                         torch_params_per_layer=torch_name,
+                                         mindspore_additional_params=addition_mindspore,
+                                         torch_additional_params=addition_torch)
+    split_torch_attention(weight_dict, dtype=dtype)
+
     new_ckpt_list = []
     # Currently, the ms_extend_param the torch_extend_param is the full parameters.
     for src, tgt in mapped_params:
-        value = weight_dict[tgt].numpy()
-        # split the attention layer for q, k, v
+        if tgt in weight_dict:
+            value = weight_dict[tgt]
+            # split the attention layer for q, k, v
 
-        if 'c_attn.weight' in tgt:
-            print("tgt:", tgt)
-            value = np.transpose(value, [1, 0])
+            if 'c_attn.weight' in tgt:
+                print("tgt:", tgt)
+                value = ms.Tensor(value.transpose([1, 0]))
 
-        print(f"Mapping table Mindspore:{src:<30} \t Torch:{tgt:<30} with shape {value.shape}")
+            print(f"Mapping table Mindspore:{src:<30} \t Torch:{tgt:<30} with shape {value.shape}")
 
-        new_ckpt_list.append({"data": Tensor(value), "name": src})
-    return new_ckpt_list
+            new_ckpt_list.append({"data": value, "name": src})
+
+    save_checkpoint(new_ckpt_list, output_path)
+    print(f"Convert finished, the output is saved to {output_path}")
 
 
-def split_torch_attention(state):
+def split_torch_attention(state, dtype):
+    """
+    split torch attention
+    """
     s = list(state.keys())
     for name in s:
         if name.endswith('attn.c_attn.weight') or name.endswith('attn.c_attn.bias'):
-            value = state.pop(name)
-            q, k, v = np.split(value.numpy(), 3, -1)
-            state[name + '.q'] = torch.tensor(q, dtype=value.dtype)
-            state[name + '.k'] = torch.tensor(k)
-            state[name + '.v'] = torch.tensor(v)
+            value = pt2ms(state.pop(name), dtype)
+            q, k, v = ms.numpy.split(value, 3, -1)
+            state[name + '.q'] = ms.Tensor(q)
+            state[name + '.k'] = ms.Tensor(k)
+            state[name + '.v'] = ms.Tensor(v)
+        else:
+            state[name] = pt2ms(state[name], dtype)
 
 
 if __name__ == '__main__':
@@ -126,67 +197,4 @@ if __name__ == '__main__':
                         help="Use device nums, default is 128.")
 
     opt = parser.parse_args()
-    state_dict = torch.load(opt.torch_path, map_location='cpu')
-    print_dict(state_dict)
-
-    ms_name = [
-        "backbone.blocks.{}.layernorm1.gamma",
-        "backbone.blocks.{}.layernorm1.beta",
-        "backbone.blocks.{}.layernorm2.gamma",
-        "backbone.blocks.{}.layernorm2.beta",
-        "backbone.blocks.{}.attention.projection.weight",
-        "backbone.blocks.{}.attention.projection.bias",
-        "backbone.blocks.{}.attention.dense1.weight",
-        "backbone.blocks.{}.attention.dense1.bias",
-        "backbone.blocks.{}.attention.dense2.weight",
-        "backbone.blocks.{}.attention.dense2.bias",
-        "backbone.blocks.{}.attention.dense3.weight",
-        "backbone.blocks.{}.attention.dense3.bias",
-        "backbone.blocks.{}.output.mapping.weight",
-        "backbone.blocks.{}.output.mapping.bias",
-        "backbone.blocks.{}.output.projection.weight",
-        "backbone.blocks.{}.output.projection.bias",
-    ]
-
-    torch_name = [
-        "h.{}.ln_1.weight",
-        "h.{}.ln_1.bias",
-        "h.{}.ln_2.weight",
-        "h.{}.ln_2.bias",
-        "h.{}.attn.c_proj.weight",
-        "h.{}.attn.c_proj.bias",
-        "h.{}.attn.c_attn.weight.q",
-        "h.{}.attn.c_attn.bias.q",
-        "h.{}.attn.c_attn.weight.k",
-        "h.{}.attn.c_attn.bias.k",
-        "h.{}.attn.c_attn.weight.v",
-        "h.{}.attn.c_attn.bias.v",
-        "h.{}.mlp.c_fc.weight",
-        "h.{}.mlp.c_fc.bias",
-        "h.{}.mlp.c_proj.weight",
-        "h.{}.mlp.c_proj.bias"
-    ]
-
-    addition_mindspore = [
-        "backbone.layernorm.gamma",
-        "backbone.layernorm.beta",
-        "backbone.embedding.word_embedding.embedding_table",
-        "backbone.embedding.position_embedding.embedding_table",
-    ]
-
-    addition_torch = [
-        "ln_f.weight",
-        "ln_f.bias",
-        "wte.weight",
-        "wpe.weight",
-    ]
-
-    mapped_param = generate_params_dict(total_layers=opt.layers,
-                                        mindspore_params_per_layer=ms_name,
-                                        torch_params_per_layer=torch_name,
-                                        mindspore_additional_params=addition_mindspore,
-                                        torch_additional_params=addition_torch)
-    split_torch_attention(state_dict)
-    new_ckpt = get_converted_ckpt(mapped_param, state_dict)
-    save_checkpoint(new_ckpt, opt.mindspore_path)
-    print(f"Convert finished, the output is saved to {opt.mindspore_path}")
+    convert_pt_to_ms(input_path=opt.torch_path, output_path=opt.mindspore_path, layers=opt.layers)

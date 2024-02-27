@@ -1,4 +1,4 @@
-# Copyright 2023 Huawei Technologies Co., Ltd
+# Copyright 2024 Huawei Technologies Co., Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,8 +18,12 @@ transform huggingface model to mindspore ckpt.
 """
 
 import argparse
+import os
+
 import mindspore as ms
 from transformers import LlamaForCausalLM
+
+from mindformers.utils.convert_utils import pt2ms
 
 
 def name_replace(weight_name: str):
@@ -38,14 +42,14 @@ def name_replace(weight_name: str):
     return weight_name
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--torch_ckpt_dir', default='./')
-    parser.add_argument('--mindspore_ckpt_path', default='transform.ckpt')
-    args = parser.parse_args()
-    model_hf = LlamaForCausalLM.from_pretrained(args.torch_ckpt_dir)
+def convert_pt_to_ms(input_path, output_path, dtype=None, **kwargs):
+    """
+    convert pt tp ms
+    """
+    print(kwargs)
+    model_hf = LlamaForCausalLM.from_pretrained(os.path.dirname(input_path))
     ckpt_list = []
-    for name, value in model_hf.named_parameters():
+    for name, value in model_hf.state_dict().items():
         name = name_replace(name)
         if name == 'model.norm.weight':
             name = 'model.norm_out.weight'
@@ -53,8 +57,16 @@ if __name__ == "__main__":
             name = 'lm_head.weight'
         if name == 'model.tok_embeddings.weight':
             name = 'model.tok_embeddings.embedding_weight'
-        value = value.detach().numpy()
+        value = pt2ms(value, dtype)
         print(name, value.shape)
-        ckpt_list.append({'name': name, 'data': ms.Tensor(value, dtype=ms.float16)})
+        ckpt_list.append({'name': name, 'data': value})
 
-    ms.save_checkpoint(ckpt_list, args.mindspore_ckpt_path)
+    ms.save_checkpoint(ckpt_list, output_path)
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--torch_ckpt_path', default='./hf.bin')
+    parser.add_argument('--mindspore_ckpt_path', default='transform.ckpt')
+    args = parser.parse_args()
+    convert_pt_to_ms(args.torch_ckpt_path, args.mindspore_ckpt_path)
