@@ -264,6 +264,6 @@ def check_valid_paged_attention():
 
 def check_rmsnorm_big_kernel_valid(is_dynamic=False):
     """check whether rmsnorm big kernel is valid"""
-    if check_valid_big_kernel() and not is_910a() and not is_dynamic and not is_version_ge(ms.__version__, "2.3.0"):
+    if check_valid_big_kernel() and not is_910a() and not is_dynamic:
         return True
     return False

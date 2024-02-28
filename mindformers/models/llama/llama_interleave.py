@@ -17,7 +17,7 @@
 from typing import Optional
 import math
 
-from mindspore import nn
+from mindspore import nn, __version__
 import mindspore.common.dtype as mstype
 from mindspore.common.tensor import Tensor
 from mindspore.context import ParallelMode
@@ -32,7 +32,6 @@ except ImportError:
 from mindformers.models.llama.llama_layer import LlamaFeedForward, LlamaRMSNorm, LlamaRotaryEmbedding
 from mindformers.modules.layers import _check_input_dtype, Linear
 from mindformers.modules.transformer import TransformerOpParallelConfig
-
 
 class _MicroBatch(nn.Cell):
     """
@@ -264,6 +263,7 @@ class LLamaAttentionInterleave(nn.Cell):
         if self.use_flash_attention:
             self.flash_attention = FlashAttention(self.head_dim, n_heads, dp=dp, mp=mp,\
                 prev_block_num=65536, next_block_num=0, high_precision=True)
+
 
     def compute_qkv(self, x, freqs_cis, interleave_num):
         """compute the qkv with interleave number"""
@@ -517,6 +517,13 @@ class LLamaDecodeLayerInterleave(nn.Cell):
             ) or not parallel_config.recompute.recompute and self.layer_id < (num_layers // 2):
             self.feed_forward.mul.recompute()
             self.feed_forward.w1.activation.silu.recompute()
+
+        if parallel_config.recompute.select_recompute:
+            if self.layer_id >= (num_layers // 2):
+                self.feed_forward.mul.recompute()
+                self.feed_forward.w1.activation.silu.recompute()
+            self.attention_norm.cast.recompute()
+            self.ffn_norm.cast.recompute()
 
         concat_stra1 = []
         concat_stra2 = []

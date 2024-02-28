@@ -31,7 +31,6 @@ from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagati
 try:
     # pylint: disable=W0611
     from mindspore.nn.layer.flash_attention import FlashAttention
-
     FLASHATTENTION_VALID = True
 except ImportError:
     FLASHATTENTION_VALID = False

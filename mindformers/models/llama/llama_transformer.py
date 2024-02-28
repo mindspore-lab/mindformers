@@ -343,7 +343,7 @@ class LLamaAttention(nn.Cell):
 
     def _merge_heads(self, x):
         """
-        convert a 4d input to a 2d or 3d output
+        convert a 4d input to a 3d output
 
         Inputs:
             x: input tensor
@@ -554,6 +554,12 @@ class LLamaDecodeLayer(nn.Cell):
             self.ffn_norm.shard((dp, mp, 1))
             if moe_config is None or not moe_config.expert_num > 1:
                 self.feed_forward.w2.shard(((dp, mp), (1, mp)), out_strategy_matmul=((dp * mp, 1),))
+
+        if parallel_config.recompute.select_recompute:
+            self.feed_forward.mul.recompute()
+            self.feed_forward.w1.activation.silu.recompute()
+            self.attention_norm.cast.recompute()
+            self.ffn_norm.cast.recompute()
 
     def construct(self, x, freqs_cis, mask=None, kvcache_inputs=None):
         """ Forward of transformer block. """

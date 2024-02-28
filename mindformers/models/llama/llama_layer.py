@@ -521,7 +521,7 @@ class CausalMask(nn.Cell):
         self.use_flash_attention = use_flash_attention
         self.multiply_data = Tensor([-10000.0], dtype=compute_type)
         self.one = Tensor([1.0], dtype=compute_type)
-        self.lower_triangle_mask = Tensor(np.tril(np.ones(shape=(seq_length, seq_length))), mstype.float32)
+        self.lower_triangle_mask = Tensor(np.tril(np.ones(shape=(seq_length, seq_length))), dtype=compute_type)
 
         self.shape = P.Shape()
         self.cast = P.Cast()
