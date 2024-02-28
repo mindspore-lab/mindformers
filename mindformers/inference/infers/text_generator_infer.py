@@ -202,6 +202,7 @@ class InputOfInfer:
         "glm": GLMInputsOfInfer,
         "baichuan2": LlamaInputsOfInfer,
         "internlm": LlamaInputsOfInfer,
+        "qwen": LlamaInputsOfInfer,
         "common": CommonInputsOfInfer
     }
 
