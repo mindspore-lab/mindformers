@@ -20,7 +20,7 @@ pytest tests/st/test_model/test_blip2_model/test_pipeline.py
 from PIL import Image
 import mindspore as ms
 
-from mindformers import pipeline, BasePipeline
+from mindformers import pipeline, Pipeline
 
 ms.set_context(mode=0, device_id=7)
 
@@ -62,6 +62,6 @@ class TestBlip2SecondStagePipelineMethod:
         for model_type in self.test_llm_list:
             generator = pipeline("image_to_text_generation",
                                  model=model_type, max_length=32)
-            assert isinstance(generator, BasePipeline)
+            assert isinstance(generator, Pipeline)
             image = Image.new('RGB', (448, 448))
             generator(image, hypothesis_template='a picture of ')
