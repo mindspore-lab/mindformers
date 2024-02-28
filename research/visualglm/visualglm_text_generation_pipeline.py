@@ -25,7 +25,7 @@ from mindspore import Tensor, Model
 from mindformers.auto_class import AutoProcessor, AutoModel
 from mindformers.mindformer_book import MindFormerBook
 from mindformers.models import PreTrainedModel, BaseImageProcessor
-from mindformers.pipeline.base_pipeline import BasePipeline
+from mindformers.pipeline.base_pipeline import Pipeline
 from mindformers.tools.image_tools import load_image
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 
@@ -43,7 +43,7 @@ def register_pipeline_task():
 
 
 @MindFormerRegister.register(MindFormerModuleType.PIPELINE, alias="visualglm_image_to_text_generation")
-class VisualGLMImageToTextGenerationPipeline(BasePipeline):
+class VisualGLMImageToTextGenerationPipeline(Pipeline):
     r"""Visualglm pipeline for image to text generation
 
     Args:

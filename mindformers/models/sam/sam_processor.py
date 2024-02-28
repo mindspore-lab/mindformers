@@ -51,6 +51,10 @@ class SamImageProcessor(BaseImageProcessor):
         self.mean = mean
         self.std = std
 
+    @property
+    def transform(self):
+        return ResizeLongestSide(self.img_size)
+
     def preprocess(self, images, **kwargs):
         """
         Preprocess the input image for SAM model.
