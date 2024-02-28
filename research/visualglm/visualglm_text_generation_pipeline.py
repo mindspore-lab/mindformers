@@ -22,7 +22,7 @@ import numpy as np
 from PIL import Image
 from mindspore import Tensor, Model
 
-from mindformers.auto_class import AutoProcessor, AutoModel
+from mindformers import AutoProcessor, AutoModel
 from mindformers.mindformer_book import MindFormerBook
 from mindformers.models import PreTrainedModel, BaseImageProcessor
 from mindformers.pipeline.base_pipeline import Pipeline

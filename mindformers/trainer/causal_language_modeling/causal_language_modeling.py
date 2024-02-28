@@ -31,7 +31,7 @@ from mindformers.tools.logger import logger
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType, MindFormerConfig
 from mindformers.tools.check_rules import check_rules
 from mindformers.core import build_metric
-from mindformers.auto_class import AutoModel
+from mindformers.models.auto import AutoModel
 from mindformers.mindformer_book import MindFormerBook
 
 from ..config_args import ConfigArguments

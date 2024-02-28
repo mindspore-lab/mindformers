@@ -49,7 +49,7 @@ from mindformers.tools.register import MindFormerConfig
 from mindformers.tools.logger import logger
 from mindformers.tools.utils import count_params, get_output_subpath
 from mindformers.tools.check_rules import check_rules
-from mindformers.auto_class import AutoModel
+from mindformers.models.auto import AutoModel
 from mindformers.pet import get_pet_model, is_supported_pet_type
 from mindformers.tools.utils import get_real_rank, get_real_group_size
 from .config_args import ConfigArguments

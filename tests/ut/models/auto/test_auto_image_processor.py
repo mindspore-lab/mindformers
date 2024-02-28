@@ -14,7 +14,7 @@
 # ============================================================================
 """ test AutoImageProcessor """
 import os
-os.environ["MODELFOUNDRY_HUB_ENDPOINT_M"] = "https://modelfoundrysh.test.osinfra.cn"
+os.environ["MODELFOUNDRY_HUB_ENDPOINT"] = "https://modelfoundrysh.test.osinfra.cn"
 
 import unittest
 from pathlib import Path

@@ -14,7 +14,7 @@
 # limitations under the License.
 
 """Constant Declaration of Pipeline Registry"""
-from mindformers.auto_class import AutoModel
+from mindformers.models.auto import AutoModel
 from mindformers.models.auto.modeling_auto import (
     AutoModelForCausalLM,
     AutoModelForImageClassification,
