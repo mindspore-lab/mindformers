@@ -1,4 +1,4 @@
-# Copyright 2023 Huawei Technologies Co., Ltd
+# Copyright 2024 Huawei Technologies Co., Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,9 +13,9 @@
 # limitations under the License.
 # ============================================================================
 """
-Test module for testing the batch infer for pipeline.
+Test module for testing pipeline function.
 How to run this:
-pytest tests/st/test_pipeline/test_batch_pipeline.py
+pytest tests/st/test_pipeline/test_pipeline.py
 """
 import mindspore as ms
 
@@ -25,46 +25,43 @@ from mindformers import TextGenerationPipeline, pipeline
 ms.set_context(mode=0)
 
 
-class TestBatchPipeline:
+class TestPipeline:
     """A test class for testing pipeline features."""
     def setup_method(self):
         """setup method."""
         self.task_name = "text_generation"
         self.model_name = "gpt2"
-        self.batch_size = 2
+        self.batch_size = 1
         self.use_past = True
 
     def test_text_generation(self):
         """
         Feature: text_generation pipeline.
-        Description: Test batch generate for text_generation pipeline.
+        Description: Test basic function of text_generation pipeline.
         Expectation: TypeError, ValueError, RuntimeError
         """
-        question_list = ["An increasing sequence: one,", "Hello,"]
+        question = "An increasing sequence: one,"
         model = AutoModel.from_pretrained(self.model_name, use_past=self.use_past)
         tokenizer = AutoTokenizer.from_pretrained(self.model_name)
         task_pipeline = TextGenerationPipeline(model=model, tokenizer=tokenizer)
-        output = task_pipeline(question_list,
+        output = task_pipeline(question,
                                max_new_tokens=32,
                                do_sample=False)
         print(output)
         assert "An increasing sequence: one, two," in output[0]['text_generation_text'][0]
-        assert "Hello, I'm sorry, but" in output[0]['text_generation_text'][1]
 
     def test_pipeline(self):
         """
         Feature: pipeline interface.
-        Description: Test batch generate for pipeline interface.
+        Description: Test basic function of pipeline api.
         Expectation: TypeError, ValueError, RuntimeError
         """
-        question_list = ["An increasing sequence: one,", "Hello,"]
+        question = "An increasing sequence: one,"
         task_pipeline = pipeline(self.task_name,
                                  self.model_name,
-                                 batch_size=self.batch_size,
                                  use_past=self.use_past)
-        output = task_pipeline(question_list,
+        output = task_pipeline(question,
                                max_new_tokens=32,
                                do_sample=False)
         print(output)
         assert "An increasing sequence: one, two," in output[0]['text_generation_text'][0]
-        assert "Hello, I'm sorry, but" in output[0]['text_generation_text'][1]

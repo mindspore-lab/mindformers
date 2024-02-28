@@ -35,11 +35,12 @@ from .modeling_auto import (
     MODEL_FOR_CAUSAL_LM_MAPPING
 )
 from .image_processing_auto import IMAGE_PROCESSOR_MAPPING, AutoImageProcessor
-from .tokenization_auto import AutoTokenizer
+from .tokenization_auto import AutoTokenizer, TOKENIZER_MAPPING
 from .processing_auto import AutoProcessor
 
 __all__ = ["CONFIG_MAPPING", "AutoConfig",
            "IMAGE_PROCESSOR_MAPPING", "AutoImageProcessor", "CONFIG_MAPPING_NAMES", "AutoTokenizer",
+           "TOKENIZER_MAPPING",
            "AutoModel", "AutoModelForCausalLM", "AutoModelForImageClassification",
            "AutoModelForMaskedImageModeling", "AutoModelForMaskGeneration",
            "AutoModelForMultipleChoice", "AutoModelForPreTraining",
