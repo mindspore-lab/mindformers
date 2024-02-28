@@ -412,7 +412,7 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
 
     def prepare_inputs_for_export(self, full_model=True):
         dyn = self.config.is_dynamic
-        use_paged_attention = self.config.use_paged_attention
+        use_paged_attention = self.config.use_paged_attention and check_valid_paged_attention()
         if dyn:
             logger.info(f"Exporting dynamic MindIR...")
         if use_paged_attention:

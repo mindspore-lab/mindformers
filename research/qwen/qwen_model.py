@@ -47,6 +47,8 @@ from mindformers.modules.transformer import TransformerOpParallelConfig
 from mindformers.models.llama.llama_layer import LlamaEmbedding, FreqsMgr, LlamaSiLU
 from mindformers.models.llama.llama_transformer import LLamaDecodeLayer
 from mindformers.modules import KVCachePreprocess
+from mindformers.version_control import check_valid_paged_attention
+
 from qwen_config import QwenConfig
 
 
@@ -108,6 +110,8 @@ class QwenForCausalLM(QwenPreTrainedModel):
             if config.parallel_config.pipeline_stage > 1:
                 self.lm_head.pipeline_stage = config.parallel_config.pipeline_stage - 1
 
+        self.use_paged_attention = self.config.use_paged_attention and check_valid_paged_attention()
+
         self.load_checkpoint(config)
 
     # pylint: disable=W0613
@@ -117,12 +121,14 @@ class QwenForCausalLM(QwenPreTrainedModel):
         }
 
     def prepare_inputs_for_export(self, full_model=True):
+        """Prepare inputs for exported mslite model."""
         from mindformers.models.llama.llama import LlamaForCausalLM
         return LlamaForCausalLM.prepare_inputs_for_export(self, full_model)
 
     # pylint: disable=W0613
     def construct(self, input_ids, labels=None, input_position=None, position_ids=None, attention_mask=None,
-                  input_embeds=None, init_reset=True, batch_valid_length=None, batch_index=None, zactivate_len=None):
+                  input_embeds=None, init_reset=True, batch_valid_length=None, batch_index=None, zactivate_len=None,
+                  block_tables=None, slot_mapping=None):
         """construct"""
         bsz, seqlen = input_ids.shape
         if self.use_past:
@@ -138,8 +144,12 @@ class QwenForCausalLM(QwenPreTrainedModel):
         if not self.is_first_iteration:
             batch_valid_length = self.sub_batch_valid_len(batch_valid_length, 1)
 
+        if self.use_paged_attention and (slot_mapping is None):
+            slot_mapping = self.ones((bsz * seqlen,), mstype.int32)
+
         output = self.transformer(tokens, init_reset=init_reset, batch_valid_length=batch_valid_length,
-                                  batch_index=batch_index, zactivate_len=zactivate_len)
+                                  batch_index=batch_index, zactivate_len=zactivate_len,
+                                  block_tables=block_tables, slot_mapping=slot_mapping)
         pre_gather = (not self.use_past or self.is_first_iteration) and batch_valid_length is not None
         if pre_gather:
             output = self.gather(output, self.sub_batch_valid_len(batch_valid_length, 1), 1)
@@ -214,6 +224,10 @@ class QwenModel(QwenPreTrainedModel):
         elif config.use_flash_attention:
             logger.info("Current MindSpore do not support flash attention.")
 
+        self.use_paged_attention = config.use_paged_attention and check_valid_paged_attention()
+        if self.use_paged_attention:
+            logger.info("Enable paged attention.")
+
         # 1. wte
         self.wte = LlamaEmbedding(self.vocab_size, self.embed_dim, param_init_type=config.param_init_type,
                                   parallel_optimizer=True)
@@ -239,6 +253,9 @@ class QwenModel(QwenPreTrainedModel):
                                     qkv_has_bias=True,
                                     use_past=config.use_past,
                                     use_flash_attention=config.use_flash_attention,
+                                    use_paged_attention=self.use_paged_attention,
+                                    block_size=config.block_size,
+                                    num_blocks=config.num_blocks,
                                     parallel_config=config.parallel_config)
 
             from mindformers.models.llama.llama import layer_compute_dtype
@@ -264,7 +281,8 @@ class QwenModel(QwenPreTrainedModel):
                                                     max_seq_length=config.seq_length,
                                                     is_dynamic=config.is_dynamic,
                                                     use_kvcache_op=config.use_kvcache_op,
-                                                    is_flexible_shape=config.is_flexible_shape)
+                                                    is_flexible_shape=config.is_flexible_shape,
+                                                    use_paged_attention=self.use_paged_attention,)
         # 5. ln_f
         from mindformers.models.llama.llama_layer import LlamaRMSNorm
         self.ln_f = LlamaRMSNorm(
@@ -289,7 +307,7 @@ class QwenModel(QwenPreTrainedModel):
 
     # pylint: disable=W0613
     def construct(self, input_ids: Tensor, init_reset=True, batch_valid_length=None, batch_index=None,
-                  zactivate_len=None):
+                  zactivate_len=None, block_tables=None, slot_mapping=None):
         """construct"""
         if input_ids is not None:
             input_shape = input_ids.shape
@@ -323,7 +341,8 @@ class QwenModel(QwenPreTrainedModel):
                     mask = self.casual_mask.increment(self.kvcache_preprocess.range, batch_valid_length, zactivate_len)
             mask = self.casual_mask.post_process(mask)
 
-            kvcache_inputs = self.kvcache_preprocess(bs, batch_valid_length, batch_index, zactivate_len)
+            kvcache_inputs = self.kvcache_preprocess(bs, batch_valid_length, batch_index, zactivate_len,
+                                                     block_tables, slot_mapping)
 
         # 4. hidden_states
         for i in range(self.num_hidden_layers):

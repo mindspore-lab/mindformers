@@ -218,9 +218,11 @@ class LlamaConfig(PretrainedConfig):
         self.top_p = top_p
         self.do_sample = do_sample
         self.theta = theta
+
+        self.use_paged_attention = use_paged_attention
         self.block_size = block_size
         self.num_blocks = num_blocks
-        if batch_size * seq_length // self.block_size > self.num_blocks:
+        if use_paged_attention and (batch_size * seq_length // self.block_size > self.num_blocks):
             logger.warning(
                 f"Argument `num blocks` is less than the maximum possible block numbers. "
                 f"May cause `block pool is out of memory` error")

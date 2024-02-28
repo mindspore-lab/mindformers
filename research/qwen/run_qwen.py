@@ -70,7 +70,8 @@ def main(task='text_generation',
          device_id=0,
          do_sample=None,
          top_k=None,
-         top_p=None):
+         top_p=None,
+         paged_attention=False):
     """main function."""
 
     yaml_path = os.path.expanduser(config)
@@ -78,8 +79,11 @@ def main(task='text_generation',
 
     config = MindFormerConfig(os.path.realpath(yaml_path))
     if vocab_file:
-        assert os.path.exists(vocab_file)
         config.processor.tokenizer.vocab_file = vocab_file
+    vocab_file = config.processor.tokenizer.vocab_file
+    if not os.path.exists(vocab_file):
+        raise FileNotFoundError(vocab_file)
+
     if use_parallel is not None:
         config.use_parallel = use_parallel
     if device_id is not None:
@@ -117,6 +121,9 @@ def main(task='text_generation',
         trainer = Trainer(args=config, task=task, train_dataset=train_dataset)
         trainer.finetune(finetune_checkpoint=ckpt, auto_trans_ckpt=auto_trans_ckpt)
     elif run_mode == 'export':
+        if paged_attention is not None:
+            config.model.model_config.use_paged_attention = paged_attention
+
         trainer = Trainer(args=config,
                           task=task)
         trainer.export(predict_checkpoint=ckpt)
@@ -130,7 +137,7 @@ if __name__ == "__main__":
                         help='set task type.')
     parser.add_argument('--config', default='run_qwen_7b.yaml', type=str,
                         help='config file path.')
-    parser.add_argument('--run_mode', default='predict', type=str,
+    parser.add_argument('--run_mode', default='predict', choices=['predict', 'finetune', 'export'],
                         help='set run mode for model.')
     parser.add_argument('--load_checkpoint', default=None, type=str,
                         help='checkpoint name or dir to load.')
@@ -138,28 +145,36 @@ if __name__ == "__main__":
                         help='whether to transform checkpoint to the checkpoint matching current distribute strategy.')
     parser.add_argument('--vocab_file', default="", type=str,
                         help='tokenizer model')
-    parser.add_argument('--predict_data', default='', type=str,
-                        help='input predict data.')
     parser.add_argument('--seq_length', default=None, type=int,
                         help='seq_length')
-    parser.add_argument('--predict_length', default=512, type=int,
-                        help='max length for predict output.')
     parser.add_argument('--use_parallel', default=False, type=str2bool,
                         help='open parallel for model.')
-    parser.add_argument('--optimizer_parallel', default=False, type=str2bool,
-                        help='whether use optimizer parallel. Default: False')
     parser.add_argument('--device_id', default=-1, type=int,
                         help='ID of the target device, the value must be in [0, device_num_per_host-1]')
-    parser.add_argument('--use_past', default=None, type=str2bool,
-                        help='use_past')
-    parser.add_argument('--do_sample', default=None, type=str2bool,
-                        help='do_sample')
-    parser.add_argument('--top_k', default=None, type=int,
-                        help='top_k')
-    parser.add_argument('--top_p', default=None, type=float,
-                        help='top_p')
-    parser.add_argument('--train_dataset', default='', type=str,
-                        help='set train dataset.')
+
+    predict_group = parser.add_argument_group(title="Predict options")
+    predict_group.add_argument('--predict_data', default='', type=str,
+                               help='input predict data.')
+    predict_group.add_argument('--predict_length', default=512, type=int,
+                               help='max length for predict output.')
+    predict_group.add_argument('--use_past', default=None, type=str2bool,
+                               help='use_past')
+    predict_group.add_argument('--do_sample', default=None, type=str2bool,
+                               help='do_sample')
+    predict_group.add_argument('--top_k', default=None, type=int,
+                               help='top_k')
+    predict_group.add_argument('--top_p', default=None, type=float,
+                               help='top_p')
+
+    train_group = parser.add_argument_group(title="Train/finetune options")
+    train_group.add_argument('--train_dataset', default='', type=str,
+                             help='set train dataset.')
+    train_group.add_argument('--optimizer_parallel', default=False, type=str2bool,
+                             help='whether use optimizer parallel. Default: False')
+
+    export_group = parser.add_argument_group(title="Export options")
+    export_group.add_argument('--paged_attention', default=None, type=str2bool,
+                              help='Enable paged attention for mslite exporting.')
 
     args = parser.parse_args()
 
@@ -181,4 +196,5 @@ if __name__ == "__main__":
          train_dataset=args.train_dataset,
          do_sample=args.do_sample,
          top_k=args.top_k,
-         top_p=args.top_p)
+         top_p=args.top_p,
+         paged_attention=args.paged_attention)
