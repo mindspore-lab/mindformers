@@ -44,9 +44,11 @@ from mindformers.tools.logger import _LogActionOnce
 from mindformers.tools.register.register import MindFormerModuleType, MindFormerRegister
 from mindformers.modules.layers import Linear, _check_input_dtype, _args_type_validator_check, _valid_value_checks
 from mindformers.modules.transformer import TransformerOpParallelConfig
-from mindformers.models.llama.llama_layer import LlamaEmbedding, FreqsMgr, LlamaSiLU
+from mindformers.models.llama.llama import LlamaForCausalLM, layer_compute_dtype
+from mindformers.models.llama.llama_layer import LlamaEmbedding, FreqsMgr, LlamaSiLU, LlamaRMSNorm
 from mindformers.models.llama.llama_transformer import LLamaDecodeLayer
 from mindformers.modules import KVCachePreprocess
+from mindformers.version_control import check_valid_paged_attention
 
 
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
@@ -97,6 +99,8 @@ class QwenForCausalLM(BaseModel):
             if config.parallel_config.pipeline_stage > 1:
                 self.lm_head.pipeline_stage = config.parallel_config.pipeline_stage - 1
 
+        self.use_paged_attention = self.config.use_paged_attention and check_valid_paged_attention()
+
         self.load_checkpoint(config)
 
     # pylint: disable=W0613
@@ -106,12 +110,24 @@ class QwenForCausalLM(BaseModel):
         }
 
     def prepare_inputs_for_export(self, full_model=True):
-        from mindformers.models.llama.llama import LlamaForCausalLM
+        """Prepare inputs for exported mslite model."""
+        use_paged_attention = self.config.use_paged_attention and check_valid_paged_attention()
+
+        if full_model:
+            logger.info("Export with settings:")
+            logger.info("  seq_length = %d", self.seq_length)
+            logger.info("  batch_size = %d", self.config.batch_size)
+            logger.info("  paged_attention = %s", use_paged_attention)
+            if use_paged_attention:
+                logger.info("  pa_block_size = %d", self.config.block_size)
+                logger.info("  pa_num_blocks = %d", self.config.num_blocks)
+
         return LlamaForCausalLM.prepare_inputs_for_export(self, full_model)
 
     # pylint: disable=W0613
     def construct(self, input_ids, labels=None, input_position=None, position_ids=None, attention_mask=None,
-                  input_embeds=None, init_reset=True, batch_valid_length=None, batch_index=None, zactivate_len=None):
+                  input_embeds=None, init_reset=True, batch_valid_length=None, batch_index=None, zactivate_len=None,
+                  block_tables=None, slot_mapping=None):
         """construct"""
         bsz, seqlen = input_ids.shape
         if self.use_past:
@@ -127,8 +143,12 @@ class QwenForCausalLM(BaseModel):
         if not self.is_first_iteration:
             batch_valid_length = self.sub_batch_valid_len(batch_valid_length, 1)
 
+        if self.use_paged_attention and (slot_mapping is None):
+            slot_mapping = self.ones((bsz * seqlen,), mstype.int32)
+
         output = self.transformer(tokens, init_reset=init_reset, batch_valid_length=batch_valid_length,
-                                  batch_index=batch_index, zactivate_len=zactivate_len)
+                                  batch_index=batch_index, zactivate_len=zactivate_len,
+                                  block_tables=block_tables, slot_mapping=slot_mapping)
         pre_gather = (not self.use_past or self.is_first_iteration) and batch_valid_length is not None
         if pre_gather:
             output = self.gather(output, self.sub_batch_valid_len(batch_valid_length, 1), 1)
@@ -204,6 +224,10 @@ class QwenModel(BaseModel):
         elif config.use_flash_attention:
             logger.info("Current MindSpore do not support flash attention.")
 
+        self.use_paged_attention = config.use_paged_attention and check_valid_paged_attention()
+        if self.use_paged_attention:
+            logger.info("Enable paged attention.")
+
         # 1. wte
         self.wte = LlamaEmbedding(self.vocab_size, self.embed_dim, param_init_type=config.param_init_type,
                                   parallel_optimizer=True)
@@ -229,9 +253,11 @@ class QwenModel(BaseModel):
                                     qkv_has_bias=True,
                                     use_past=config.use_past,
                                     use_flash_attention=config.use_flash_attention,
+                                    use_paged_attention=self.use_paged_attention,
+                                    block_size=config.block_size,
+                                    num_blocks=config.num_blocks,
                                     parallel_config=config.parallel_config)
 
-            from mindformers.models.llama.llama import layer_compute_dtype
             layer_compute_dtype(layer, layer_id, config.offset,
                                 config.parallel_config, config.num_layers)
 
@@ -254,9 +280,9 @@ class QwenModel(BaseModel):
                                                     max_seq_length=config.seq_length,
                                                     is_dynamic=config.is_dynamic,
                                                     use_kvcache_op=config.use_kvcache_op,
-                                                    is_flexible_shape=config.is_flexible_shape)
+                                                    is_flexible_shape=config.is_flexible_shape,
+                                                    use_paged_attention=self.use_paged_attention,)
         # 5. ln_f
-        from mindformers.models.llama.llama_layer import LlamaRMSNorm
         self.ln_f = LlamaRMSNorm(
             self.embed_dim,
             eps=config.rms_norm_eps,
@@ -279,7 +305,7 @@ class QwenModel(BaseModel):
 
     # pylint: disable=W0613
     def construct(self, input_ids: Tensor, init_reset=True, batch_valid_length=None, batch_index=None,
-                  zactivate_len=None):
+                  zactivate_len=None, block_tables=None, slot_mapping=None):
         """construct"""
         if input_ids is not None:
             input_shape = input_ids.shape
@@ -313,7 +339,8 @@ class QwenModel(BaseModel):
                     mask = self.casual_mask.increment(self.kvcache_preprocess.range, batch_valid_length, zactivate_len)
             mask = self.casual_mask.post_process(mask)
 
-            kvcache_inputs = self.kvcache_preprocess(bs, batch_valid_length, batch_index, zactivate_len)
+            kvcache_inputs = self.kvcache_preprocess(bs, batch_valid_length, batch_index, zactivate_len,
+                                                     block_tables, slot_mapping)
 
         # 4. hidden_states
         for i in range(self.num_hidden_layers):
