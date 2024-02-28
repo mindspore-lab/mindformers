@@ -22,7 +22,7 @@ import numpy as np
 
 from mindspore.mindrecord import FileWriter
 
-from mindformers.auto_class import AutoTokenizer
+from mindformers import AutoTokenizer
 
 
 np.random.seed(666)

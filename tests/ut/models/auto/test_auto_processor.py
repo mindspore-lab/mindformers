@@ -18,7 +18,7 @@ from pathlib import Path
 import unittest
 import tempfile
 
-os.environ["MODELFOUNDRY_HUB_ENDPOINT_M"] = "https://modelfoundrysh.test.osinfra.cn"
+os.environ["MODELFOUNDRY_HUB_ENDPOINT"] = "https://modelfoundrysh.test.osinfra.cn"
 
 from mindformers.models.auto import AutoProcessor
 from mindformers import GPT2Processor

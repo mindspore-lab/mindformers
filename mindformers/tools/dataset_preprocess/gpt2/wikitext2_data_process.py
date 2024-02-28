@@ -53,7 +53,7 @@ import re
 import numpy as np
 
 from mindspore.mindrecord import FileWriter
-from mindformers.auto_class import AutoTokenizer
+from mindformers import AutoTokenizer
 
 
 def wikitext_clean(string):

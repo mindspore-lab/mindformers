@@ -22,7 +22,7 @@ import pathlib
 
 import numpy as np
 from mindspore.mindrecord import FileWriter
-from mindformers.auto_class import AutoTokenizer
+from mindformers import AutoTokenizer
 
 IGNORE_TOKEN_ID = -100
 

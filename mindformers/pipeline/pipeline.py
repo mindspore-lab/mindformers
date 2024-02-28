@@ -26,7 +26,7 @@ from typing import Any, Dict, Optional, Tuple, Union
 
 from mindspore import Model, set_context
 
-from mindformers.auto_class import AutoConfig, AutoModel, AutoTokenizer
+from mindformers.models.auto import AutoConfig, AutoModel, AutoTokenizer
 from mindformers.mindformer_book import MindFormerBook
 from mindformers.models import (BaseAudioProcessor, BaseImageProcessor,
                                 PreTrainedModel, PreTrainedTokenizerBase,
