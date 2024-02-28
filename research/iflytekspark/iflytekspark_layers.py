@@ -458,7 +458,7 @@ class IFlytekSparkAttention(nn.Cell):
         self.softmax = P.Softmax().shard(
             ((cfg.parallel_config.data_parallel, cfg.parallel_config.model_parallel, 1, 1),))
 
-        self.attention_dropout = nn.Dropout(keep_prob=1 - cfg.dropout_rate)
+        self.attention_dropout = nn.Dropout(p=cfg.dropout_rate)
         self.attention_dropout.dropout.shard(
             ((cfg.parallel_config.data_parallel, cfg.parallel_config.model_parallel, 1, 1),))
         self.shape = P.Shape()
@@ -799,7 +799,7 @@ class IFlytekSparkEmbedding(nn.Cell):
 
             self.add = P.Add().shard(((parallel_config.data_parallel, 1, 1), (parallel_config.data_parallel, 1, 1)))
         # Embeddings dropout
-        self.embedding_dropout = nn.Dropout(keep_prob=1 - embedding_dropout_prob)
+        self.embedding_dropout = nn.Dropout(p=embedding_dropout_prob)
         self.embedding_dropout.dropout.shard(((parallel_config.data_parallel, 1, 1),))
         self.cast = P.Cast().shard(((parallel_config.data_parallel, 1, 1),))
 
@@ -1236,7 +1236,7 @@ class IFlytekSparkTransformerEncoderLayer(nn.Cell):
         )
         self.final_layer_norm.shard(((config.parallel_config.data_parallel, 1, 1),))
         self.mlp = self.build_mlp(config, skip_last_bias_add)
-        self.dropout = nn.Dropout(keep_prob=1 - self.hidden_dropout_p)
+        self.dropout = nn.Dropout(p=self.hidden_dropout_p)
         self.dropout.dropout.shard(((config.parallel_config.data_parallel, 1, 1),))
 
         self.add = P.Add().shard(((config.parallel_config.data_parallel, 1, 1),
