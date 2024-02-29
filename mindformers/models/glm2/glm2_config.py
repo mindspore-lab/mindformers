@@ -78,7 +78,6 @@ class ChatGLM2Config(PretrainedConfig):
                  bos_token_id=None,
                  repetition_penalty=1.0,
                  checkpoint_name_or_path=None,
-                 max_length=None,
                  parallel_config: Union[dict, TransformerOpParallelConfig] = default_transformer_config,
                  **kwargs):
         super().__init__(**kwargs)
@@ -122,6 +121,5 @@ class ChatGLM2Config(PretrainedConfig):
         self.repetition_penalty = repetition_penalty
         self.parallel_config = parallel_config
         self.checkpoint_name_or_path = checkpoint_name_or_path
-        self.max_length = max_length
         self.gmask_token_id = gmask_token_id
         self.bos_token_id = bos_token_id
