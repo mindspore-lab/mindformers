@@ -88,6 +88,8 @@ class MFTrainOneStepCell(nn.TrainOneStepWithLossScaleCell):
                  max_grad_norm=1.0,
                  scale_sense=1.0,
                  **kwargs):
+        if isinstance(scale_sense, (int, float)):
+            scale_sense = Tensor(scale_sense)
         super(MFTrainOneStepCell, self).__init__(network, optimizer, scale_sense)
         self.use_clip_grad = use_clip_grad
         if isinstance(optimizer, FusedCastAdamWeightDecay):
@@ -152,7 +154,7 @@ def tensor_grad_scale_pipeline(scale, grad, accu_grad):
 
 @shard_grad_scale.register("Tensor", "Tensor", "Tensor")
 def tensor_shard_grad_scale_pipeline(scale, grad, accu_grad):
-    new_grad = grad * reciprocal(scale)
+    new_grad = grad * F.cast(reciprocal(scale), F.dtype(grad))
     accu_grad = F.depend(accu_grad, new_grad)
     new_grad = F.depend(new_grad, F.assign(accu_grad, F.zeros_like(accu_grad)))
     return new_grad
@@ -189,6 +191,8 @@ class MFPipelineWithLossScaleCell(nn.TrainOneStepWithLossScaleCell):
 
     def __init__(self, network, optimizer, use_clip_grad=True, max_grad_norm=1.0,
                  scale_sense=1.0, micro_batch_num=1, **kwargs):
+        if isinstance(scale_sense, (int, float)):
+            scale_sense = Tensor(scale_sense)
         super(MFPipelineWithLossScaleCell, self).__init__(network, optimizer, scale_sense)
         self.network = network
         self.network.add_flags(defer_inline=True)
