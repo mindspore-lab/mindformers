@@ -56,6 +56,8 @@ mindformers.core.lr
     mindformers.core.lr.CosineWithWarmUpLR
     mindformers.core.lr.LinearWithWarmUpLR
     mindformers.core.lr.PolynomialWithWarmUpLR
+    mindformers.core.lr.CosineAnnealingLR
+    mindformers.core.lr.CosineAnnealingWarmRestarts
 
 mindformers.core.metric
 --------------------------
