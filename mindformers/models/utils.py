@@ -34,8 +34,6 @@ def convert_mstype(ms_type: str = "float16"):
         return ms_type
     if ms_type == "float16":
         return mstype.float16
-    if ms_type == "bfloat16":
-        return mstype.bfloat16
     if ms_type == "float32":
         return mstype.float32
     if ms_type == "bfloat16":
