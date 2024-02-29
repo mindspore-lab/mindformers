@@ -202,7 +202,6 @@ class QwenModel(QwenPreTrainedModel):
         self.seq_length = config.seq_length
         self.pad_token_id = config.pad_token_id
         self.num_attention_heads = config.num_heads
-        self.compute_in_2d = config.compute_in_2d
         self.use_past = config.use_past
         self.is_dynamic = config.is_dynamic
         self.use_kvcache_op = config.use_kvcache_op
