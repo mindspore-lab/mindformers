@@ -179,7 +179,7 @@ def check_valid_flash_attention(import_fa_valid=True, fa_type=None):
     """check mindspore version is valid for input flash attention"""
     version_map = {"IncreFlashAttention": "2.3.0",
                    "PromptFlashAttention": "2.2.0",
-                   "FlashAttention": "2.2.0"}
+                   "FlashAttention": "2.3.0"}
     valid_version = version_map.get(fa_type)
     if not is_910b() and fa_type in ["PromptFlashAttention", "IncreFlashAttention"]:
         logger.warning(f"Current device {get_ascend_soc_version()} do not support {fa_type}, "

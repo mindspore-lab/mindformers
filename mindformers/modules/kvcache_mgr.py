@@ -169,6 +169,7 @@ class KVCacheMgr(nn.Cell):
         """The forward compute of KVCacheMgr."""
         # TODO: add inputs check
         batch_valid_length, zactivate_len, batch_index_pad, seq_length_tensor_pad = kvcache_inputs
+        batch_valid_length = self.cast(batch_valid_length, self.dtype)
         batch_size, _, seq_length, _ = self.shape(key)
         if self.is_first_iteration:
             if self.is_dynamic:

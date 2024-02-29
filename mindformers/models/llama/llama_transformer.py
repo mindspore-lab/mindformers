@@ -21,27 +21,19 @@ try:
 except ImportError:
     import mindspore._checkparam as Validator
 
-from mindspore import nn, __version__, ops
+from mindspore import nn, ops
 import mindspore.common.dtype as mstype
 from mindspore.common.tensor import Tensor
 from mindspore.context import ParallelMode
 from mindspore.ops import operations as P
 from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
 
-try:
-    from mindspore.nn.layer.flash_attention import FlashAttention
-
-    FLASHATTENTION_VALID = True
-except ImportError:
-    FLASHATTENTION_VALID = False
-
 from mindformers.models.llama.llama_layer import LlamaFeedForward, LlamaRMSNorm, LlamaRotaryEmbedding
 from mindformers.models.llama.llama_moe import LlamaMoE
 from mindformers.modules.layers import _check_input_dtype, Linear
 from mindformers.modules.transformer import TransformerOpParallelConfig
 from mindformers.modules import KVCacheMgr, PagedAttentionMgr
-from mindformers.tools.utils import is_version_ge
-from mindformers.tools.logger import logger
+from mindformers.modules.flash_attention import FlashAttention
 
 
 class LLamaAttention(nn.Cell):
@@ -125,6 +117,8 @@ class LLamaAttention(nn.Cell):
                  use_rope_slice=False,
                  use_flash_attention=False,
                  use_paged_attention=False,
+                 use_prompt_flash_attention=False,
+                 use_incre_flash_attention=False,
                  block_size: Optional[int] = None,
                  num_blocks: Optional[int] = None,
                  parallel_config=TransformerOpParallelConfig()):
@@ -143,8 +137,10 @@ class LLamaAttention(nn.Cell):
         self.softmax_dtype = softmax_compute_dtype
         self.is_first_iteration = True
         self.use_past = use_past
-        self.use_flash_attention = use_flash_attention and FLASHATTENTION_VALID
+        self.use_flash_attention = use_flash_attention
         self.use_paged_attention = use_paged_attention
+        self.use_prompt_flash_attention = use_prompt_flash_attention
+        self.use_incre_flash_attention = use_incre_flash_attention
         self.qkv_concat = qkv_concat
 
         if self.hidden_size % self.n_head != 0:
@@ -206,7 +202,29 @@ class LLamaAttention(nn.Cell):
                          compute_dtype=compute_dtype,
                          param_init_type=param_init_type,
                          skip_redistribution=is_dynamic)
-
+        if self.use_flash_attention:
+            self.flash_attention = FlashAttention(head_num=self.n_head,
+                                                  pre_tokens=65536,
+                                                  next_tokens=0,
+                                                  keep_prob=1.,
+                                                  scale_value=1. / math.sqrt(self.head_dim),
+                                                  input_layout="BNSD",
+                                                  sparse_mode=0,
+                                                  use_attention_mask=True,
+                                                  dp=parallel_config.data_parallel,
+                                                  mp=parallel_config.model_parallel)
+        if self.use_prompt_flash_attention:
+            self.prompt_flash_attention = P.nn_ops.PromptFlashAttention(num_heads=self.n_head,
+                                                                        num_key_value_heads=self.n_kv_head,
+                                                                        pre_tokens=65536,
+                                                                        next_tokens=0,
+                                                                        scale_value=1. / math.sqrt(self.head_dim),
+                                                                        input_layout='BNSD')
+        if self.use_incre_flash_attention and self.use_past:
+            self.incre_flash_attention = P.nn_ops.IncreFlashAttention(num_heads=self.n_head,
+                                                                      num_key_value_heads=self.n_kv_head,
+                                                                      scale_value=1. / math.sqrt(self.head_dim),
+                                                                      input_layout='BNSD')
         dp = parallel_config.data_parallel
         mp = parallel_config.model_parallel
         if not (_get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation()):
@@ -235,7 +253,11 @@ class LLamaAttention(nn.Cell):
             self.wo.shard(((dp, mp), (1, mp)))
             if parallel_config.use_seq_parallel and self.is_first_iteration:
                 self.wo.shard(((dp, mp), (1, mp)), out_strategy_matmul=((dp * mp, 1),))
-            if parallel_config.recompute.select_recompute:
+            if self.use_prompt_flash_attention:
+                self.prompt_flash_attention.shard(((dp, mp, 1, 1), (dp, mp, 1, 1), (dp, mp, 1, 1), (dp, 1, 1, 1)))
+            if self.use_incre_flash_attention and self.use_past:
+                self.incre_flash_attention.shard(((dp, mp, 1, 1), (dp, mp, 1, 1), (dp, mp, 1, 1), (dp, 1, 1, 1), (1,)))
+            if parallel_config.recompute.select_recompute and not self.use_flash_attention:
                 self.apply_rotary_emb.recompute()
                 self.tile_kv.recompute()
                 self.batch_matmul_q_k.recompute()
@@ -244,13 +266,6 @@ class LLamaAttention(nn.Cell):
                 self.cast_attn.recompute()
                 self.softmax.recompute()
                 self.batch_matmul.recompute()
-
-        if not is_version_ge(__version__, "2.2.0"):
-            self.use_flash_attention = False
-            logger.info("Current MindSpore do not support flash attention, please upgrade to 2.2.0 or higher")
-        if self.use_flash_attention:
-            self.flash_attention = FlashAttention(self.head_dim, n_heads, dp=dp, mp=mp, next_block_num=0,
-                                                  high_precision=True)
 
         if self.use_past:
             if self.use_paged_attention:
@@ -313,20 +328,28 @@ class LLamaAttention(nn.Cell):
                 query = ops.depend(query, key_out)
             else:
                 key, value = self.kvcache_mgr(key, value, kvcache_inputs)
-        # kv share: [bs, n_kv_head, seq, head_dim] -> [bs, n_head, seq, head_dim]
-        key = self._repeat_kv(key, self.n_rep)
-        value = self._repeat_kv(value, self.n_rep)
         # q, k, v: [bs, n_head, seq/1, head_dim], [bs, n_head, seq, head_dim], [bs, n_head, seq, head_dim]
-        if self.use_flash_attention:
+        if self.is_first_iteration and self.use_prompt_flash_attention:  # PFA
+            attention = self.prompt_flash_attention(query, key, value, mask,
+                                                    None, None, None, None, None, None, None, None)
+            attention = self._merge_heads(attention)
+        elif self.is_first_iteration and self.use_flash_attention:  # FA
+            mask = self.cast(mask, mstype.uint8)
             attention = self.flash_attention(query, key, value, mask)
             attention = self._merge_heads(attention)
-        else:
-            if not self.is_first_iteration and self.use_paged_attention:
-                batch_valid_length, block_tables, _ = kvcache_inputs
-                attention = self.kvcache_mgr.paged_attn(query, batch_valid_length, block_tables)
-            else:
-                attention = self._attn(query, key, value, mask)
-        # [bs, seq/1, hidden_dim] or [bs * seq/1, hidden_dim]
+        elif not self.is_first_iteration and self.use_paged_attention:  # PA
+            batch_valid_length, block_tables, _ = kvcache_inputs
+            attention = self.kvcache_mgr.paged_attn(query, batch_valid_length, block_tables)
+        elif not self.is_first_iteration and self.use_incre_flash_attention:  # IFA
+            attention = self.incre_flash_attention(query, key, value, mask,
+                                                   None, None, None, None, None, None, None, None)
+            attention = self._merge_heads(attention)
+        else:  # SA
+            # kv share: [bs, n_kv_head, seq, head_dim] -> [bs, n_head, seq, head_dim]
+            key = self._repeat_kv(key, self.n_rep)
+            value = self._repeat_kv(value, self.n_rep)
+            attention = self._attn(query, key, value, mask)
+        # [bs, seq/1, hidden_dim]
         output = self.wo(attention)  # dp, mp -> dp, 1 / dp * mp, 1
         output = self.cast(output, ori_dtype)
 
@@ -475,6 +498,8 @@ class LLamaDecodeLayer(nn.Cell):
                  moe_config=None,
                  use_flash_attention=False,
                  use_paged_attention=False,
+                 use_prompt_flash_attention=False,
+                 use_incre_flash_attention=False,
                  block_size: Optional[int] = None,
                  num_blocks: Optional[int] = None,
                  parallel_config=TransformerOpParallelConfig()):
@@ -518,6 +543,8 @@ class LLamaDecodeLayer(nn.Cell):
                                         use_rope_slice=use_rope_slice,
                                         use_flash_attention=use_flash_attention,
                                         use_paged_attention=use_paged_attention,
+                                        use_prompt_flash_attention=use_prompt_flash_attention,
+                                        use_incre_flash_attention=use_incre_flash_attention,
                                         block_size=block_size,
                                         num_blocks=num_blocks,
                                         parallel_config=parallel_config)
