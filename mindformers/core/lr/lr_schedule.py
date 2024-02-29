@@ -28,7 +28,8 @@ from mindformers.tools.logger import logger
 __all__ = [
     'LearningRateWiseLayer', 'ConstantWarmUpLR',
     'LinearWithWarmUpLR', 'CosineWithWarmUpLR',
-    'CosineWithRestartsAndWarmUpLR', 'PolynomialWithWarmUpLR']
+    'CosineWithRestartsAndWarmUpLR', 'PolynomialWithWarmUpLR',
+    'CosineAnnealingLR', 'CosineAnnealingWarmRestarts']
 
 
 def _get_warmup_steps(warmup_steps: int, warmup_ratio: float, total_steps: int):
@@ -393,3 +394,142 @@ class LearningRateWiseLayer(LearningRateSchedule):
     def construct(self, global_step):
         lr = self.base_lr(global_step)
         return self.lr_scale * lr
+
+
+@MindFormerRegister.register(MindFormerModuleType.LR)
+class CosineAnnealingLR(LearningRateSchedule):
+    r"""Set the learning rate of each parameter group using a cosine annealing
+    schedule, where :math:`\eta_{max}` is set to the initial lr and
+    :math:`T_{cur}` is the number of epochs since the last restart in SGDR:
+
+    .. math::
+        \begin{aligned}
+            \eta_t & = \eta_{min} + \frac{1}{2}(\eta_{max} - \eta_{min})\left(1
+            + \cos\left(\frac{T_{cur}}{T_{max}}\pi\right)\right),
+            & T_{cur} \neq (2k+1)T_{max}; \\
+            \eta_{t+1} & = \eta_{t} + \frac{1}{2}(\eta_{max} - \eta_{min})
+            \left(1 - \cos\left(\frac{1}{T_{max}}\pi\right)\right),
+            & T_{cur} = (2k+1)T_{max}.
+        \end{aligned}
+
+    When last_epoch=-1, sets initial lr as lr. Notice that because the schedule
+    is defined recursively, the learning rate can be simultaneously modified
+    outside this scheduler by other operators. If the learning rate is set
+    solely by this scheduler, the learning rate at each step becomes:
+
+    .. math::
+        \eta_t = \eta_{min} + \frac{1}{2}(\eta_{max} - \eta_{min})\left(1 +
+        \cos\left(\frac{T_{cur}}{T_{max}}\pi\right)\right)
+
+    It has been proposed in
+    `SGDR: Stochastic Gradient Descent with Warm Restarts`_. Note that this only
+    implements the cosine annealing part of SGDR, and not the restarts.
+
+    Args:
+        base_lr (`float`):
+            Initial value of learning rate.
+        t_max (`int`):
+            Maximum number of iterations.
+        eta_min (`float`, optional):
+            Minimum learning rate. Default: 0.
+
+    .. _SGDR\: Stochastic Gradient Descent with Warm Restarts:
+        https://arxiv.org/abs/1608.03983
+    """
+
+    def __init__(self, base_lr: float, t_max: int, eta_min: float = 0., **kwargs):
+        super(CosineAnnealingLR, self).__init__()
+        if t_max < 1 or not isinstance(t_max, int):
+            raise ValueError("Expected positive integer T_max, but got {}".format(t_max))
+        self.kwargs = kwargs
+        self.base_lr = base_lr
+        self.t_max = t_max
+        self.eta_min = eta_min
+        self.math_pi = math.pi
+        self.cos = P.Cos()
+        self.max = P.Maximum()
+        self.zero_constant = Tensor(0.0, mstype.float32)
+        self.cast = P.Cast()
+
+    def construct(self, global_step):
+        """compute current step lr."""
+        global_step = self.cast(global_step, mstype.float32)
+        percent = self.max(
+            self.zero_constant, 0.5 * (1.0 + self.cos(self.math_pi * global_step / self.t_max)))
+        learning_rate = self.eta_min + (self.base_lr - self.eta_min) * percent
+        return learning_rate
+
+
+@MindFormerRegister.register(MindFormerModuleType.LR)
+class CosineAnnealingWarmRestarts(LearningRateSchedule):
+    r"""Set the learning rate of each parameter group using a cosine annealing
+    schedule, where :math:`\eta_{max}` is set to the initial lr, :math:`T_{cur}`
+    is the number of epochs since the last restart and :math:`T_{i}` is the number
+    of epochs between two warm restarts in SGDR:
+
+    .. math::
+        \eta_t = \eta_{min} + \frac{1}{2}(\eta_{max} - \eta_{min})\left(1 +
+        \cos\left(\frac{T_{cur}}{T_{i}}\pi\right)\right)
+
+    When :math:`T_{cur}=T_{i}`, set :math:`\eta_t = \eta_{min}`.
+    When :math:`T_{cur}=0` after restart, set :math:`\eta_t=\eta_{max}`.
+
+    It has been proposed in
+    `SGDR: Stochastic Gradient Descent with Warm Restarts`_.
+
+    Args:
+        base_lr (`float`):
+            Initial value of learning rate.
+        t_0 (`int`):
+            Number of iterations for the first restart.
+        t_mult (`int`, optional):
+            A factor increases :math:`T_{i}` after a restart. Default: 1.
+        eta_min (`float`, optional):
+            Minimum learning rate. Default: 0.
+
+    .. _SGDR\: Stochastic Gradient Descent with Warm Restarts:
+        https://arxiv.org/abs/1608.03983
+    """
+
+    def __init__(self, base_lr: float, t_0: int, t_mult: int = 1, eta_min: float = 0., **kwargs):
+        super(CosineAnnealingWarmRestarts, self).__init__()
+        if t_0 < 1 or not isinstance(t_0, int):
+            raise ValueError("Expected positive integer t_0, but got {}".format(t_0))
+        if t_mult < 1 or not isinstance(t_mult, int):
+            raise ValueError("Expected positive integer t_mult, but got {}".format(t_mult))
+        self.kwargs = kwargs
+        self.base_lr = base_lr
+        self.t_0 = t_0
+        self.t_mult = t_mult
+        self.eta_min = eta_min
+        self.math_pi = math.pi
+        self.cos = P.Cos()
+        self.max = P.Maximum()
+        self.zero_constant = Tensor(0.0, mstype.float32)
+        self.cast = P.Cast()
+        self.floor = P.Floor()
+        self.log = P.Log()
+        self.log_t_mult = math.log(t_mult)
+
+    def construct(self, global_step):
+        """compute current step lr."""
+        global_step = self.cast(global_step, mstype.float32)
+        if global_step < self.t_0:
+            t_cur = global_step
+            percent = self.max(
+                self.zero_constant, 0.5 * (1.0 + self.cos(self.math_pi * t_cur / self.t_0)))
+        elif self.t_mult == 1:
+            t_index = global_step // self.t_0
+            t_cur = global_step - t_index * self.t_0
+            percent = self.max(
+                self.zero_constant, 0.5 * (1.0 + self.cos(self.math_pi * t_cur / self.t_0)))
+        else:
+            t_index = self.floor(self.log(global_step / self.t_0 * (self.t_mult - 1.0) + 1.0) / self.log_t_mult)
+            q_n = self.t_mult ** t_index
+            t_start = self.t_0 * (1.0 - q_n) / (1.0 - self.t_mult)
+            t_i = self.t_0 * q_n
+            t_cur = global_step - t_start
+            percent = self.max(
+                self.zero_constant, 0.5 * (1.0 + self.cos(self.math_pi * t_cur / t_i)))
+        learning_rate = self.eta_min + (self.base_lr - self.eta_min) * percent
+        return learning_rate
