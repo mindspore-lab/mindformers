@@ -84,7 +84,8 @@ class InternLMForCausalLM(LlamaForCausalLM):
 
     @cell_reuse
     def __init__(self, config: InternLMConfig):
-        checkpoint_name_or_path = config.pop("checkpoint_name_or_path")
+        checkpoint_name_or_path = config.checkpoint_name_or_path
+        config.checkpoint_name_or_path = ""
         super().__init__(config)
         self.model = InternLMModel(config=config)
         config.checkpoint_name_or_path = checkpoint_name_or_path
