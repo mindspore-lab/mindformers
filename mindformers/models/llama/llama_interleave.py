@@ -23,15 +23,11 @@ from mindspore.common.tensor import Tensor
 from mindspore.context import ParallelMode
 from mindspore.ops import operations as P
 from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
-try:
-    from mindspore.nn.layer.flash_attention import FlashAttention
-    FLASHATTENTION_VALID = True
-except ImportError:
-    FLASHATTENTION_VALID = False
 
 from mindformers.models.llama.llama_layer import LlamaFeedForward, LlamaRMSNorm, LlamaRotaryEmbedding
 from mindformers.modules.layers import _check_input_dtype, Linear
 from mindformers.modules.transformer import TransformerOpParallelConfig
+from mindformers.modules.flash_attention import FlashAttention
 
 class _MicroBatch(nn.Cell):
     """
@@ -165,7 +161,7 @@ class LLamaAttentionInterleave(nn.Cell):
         self.softmax_dtype = softmax_compute_dtype
         self.is_first_iteration = True
         self.qkv_concat = qkv_concat
-        self.use_flash_attention = use_flash_attention and FLASHATTENTION_VALID
+        self.use_flash_attention = use_flash_attention
 
         if self.hidden_size % self.n_head != 0:
             raise ValueError("For 'MultiHeadAttention', the class variable 'hidden_size' must be a multiple "
@@ -176,7 +172,6 @@ class LLamaAttentionInterleave(nn.Cell):
                              "'parallel_config.model_parallel', but got the n_kv_head is {} "
                              "and the parallel_config.model_parallel  is {}."
                              .format(self.n_kv_head, parallel_config.model_parallel))
-
         self.inv_norm_factor = Tensor(1.0 / math.sqrt(self.head_dim), dtype=compute_dtype)
 
         self.reshape = P.Reshape()
@@ -222,7 +217,17 @@ class LLamaAttentionInterleave(nn.Cell):
                          has_bias=False,
                          compute_dtype=compute_dtype,
                          param_init_type=param_init_type)
-
+        if self.use_flash_attention:
+            self.flash_attention = FlashAttention(head_num=self.n_head,
+                                                  pre_tokens=65536,
+                                                  next_tokens=0,
+                                                  keep_prob=1.,
+                                                  scale_value=1. / math.sqrt(self.head_dim),
+                                                  input_layout="BNSD",
+                                                  sparse_mode=0,
+                                                  use_attention_mask=True,
+                                                  dp=parallel_config.data_parallel,
+                                                  mp=parallel_config.model_parallel)
         dp = parallel_config.data_parallel
         mp = parallel_config.model_parallel
         if not (_get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation()):
@@ -250,7 +255,7 @@ class LLamaAttentionInterleave(nn.Cell):
             self.wo.shard(((dp, mp), (1, mp)))
             if parallel_config.use_seq_parallel and self.is_first_iteration:
                 self.wo.shard(((dp, mp), (1, mp)), out_strategy_matmul=((dp * mp, 1),))
-            if parallel_config.recompute.select_recompute:
+            if parallel_config.recompute.select_recompute and not self.use_flash_attention:
                 self.apply_rotary_emb.recompute()
                 self.tile_kv.recompute()
                 self.batch_matmul_q_k.recompute()
@@ -259,11 +264,6 @@ class LLamaAttentionInterleave(nn.Cell):
                 self.cast_attn.recompute()
                 self.softmax.softmax.recompute()
                 self.batch_matmul.recompute()
-
-        if self.use_flash_attention:
-            self.flash_attention = FlashAttention(self.head_dim, n_heads, dp=dp, mp=mp,\
-                prev_block_num=65536, next_block_num=0, high_precision=True)
-
 
     def compute_qkv(self, x, freqs_cis, interleave_num):
         """compute the qkv with interleave number"""

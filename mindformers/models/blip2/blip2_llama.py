@@ -54,7 +54,6 @@ class LlamaModelForBlip2(LlamaModel):
         if not self.use_past:
             freqs_cis = self.freqs_mgr()
             mask = self.casual_mask(masks=input_attention_masks)  # mask: [bs, seq, seq]
-            mask = self.casual_mask.post_process(mask)
             kvcache_inputs = None
         else:
             if self.is_first_iteration:
@@ -70,7 +69,6 @@ class LlamaModelForBlip2(LlamaModel):
                         zactivate_len)
                 else:
                     mask = self.casual_mask.increment(self.kvcache_preprocess.range, batch_valid_length, zactivate_len)
-            mask = self.casual_mask.post_process(mask)
 
             kvcache_inputs = self.kvcache_preprocess(bs, batch_valid_length, batch_index, zactivate_len)
 

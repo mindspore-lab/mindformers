@@ -30,7 +30,19 @@ from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagati
 
 try:
     # pylint: disable=W0611
-    from mindspore.nn.layer.flash_attention import FlashAttention
+    from mindspore.ops.operations.nn_ops import PromptFlashAttention
+    PFA_VALID = True
+except ImportError:
+    PFA_VALID = False
+try:
+    # pylint: disable=W0611
+    from mindspore.ops.operations.nn_ops import IncreFlashAttention
+    IFA_VALID = True
+except ImportError:
+    IFA_VALID = False
+try:
+    # pylint: disable=W0611
+    from mindformers.modules.flash_attention import FlashAttention
     FLASHATTENTION_VALID = True
 except ImportError:
     FLASHATTENTION_VALID = False
@@ -40,12 +52,11 @@ from mindformers.mindformer_book import MindFormerBook
 from mindformers.models.modeling_utils import PreTrainedModel
 from mindformers.modules.layers import Linear
 from mindformers.modules.transformer.op_parallel_config import _check_config
-from mindformers.modules.transformer.transformer import LowerTriangularMaskWithDynamic
 from mindformers.tools.register.register import MindFormerModuleType, MindFormerRegister
-from mindformers.version_control import check_valid_paged_attention
+from mindformers.version_control import check_valid_paged_attention, check_valid_flash_attention
 
 from .llama_config import LlamaConfig
-from .llama_layer import LlamaEmbedding, LlamaRMSNorm, FreqsMgr
+from .llama_layer import LlamaEmbedding, LlamaRMSNorm, FreqsMgr, CausalMask
 from .llama_transformer import LLamaDecodeLayer
 from ...modules import KVCachePreprocess
 from .llama_interleave import LLamaDecodeLayerInterleave
@@ -140,14 +151,13 @@ class LlamaModel(LlamaPreTrainedModel):
         self.is_dynamic = config.is_dynamic
         self.use_kvcache_op = config.use_kvcache_op
         self.is_flexible_shape = config.is_flexible_shape
-        self.use_flash_attention = config.use_flash_attention and FLASHATTENTION_VALID
-        if self.use_flash_attention:
-            logger.info("Enable flash attention.")
-        elif config.use_flash_attention:
-            logger.info("Current MindSpore do not support flash attention.")
-        self.use_paged_attention = config.use_paged_attention and check_valid_paged_attention()
-        if self.use_paged_attention:
-            logger.info("Enable paged attention.")
+        config.use_flash_attention = config.use_flash_attention and check_valid_flash_attention(
+            FLASHATTENTION_VALID, 'FlashAttention')
+        config.use_paged_attention = config.use_paged_attention and check_valid_paged_attention()
+        config.use_prompt_flash_attention = config.use_prompt_flash_attention and check_valid_flash_attention(
+            PFA_VALID, 'PromptFlashAttention')
+        config.use_incre_flash_attention = config.use_incre_flash_attention and check_valid_flash_attention(
+            IFA_VALID, 'IncreFlashAttention')
 
         self.shape = P.Shape()
         self.reshape = P.Reshape().add_prim_attr("skip_redistribution", True)
@@ -165,11 +175,13 @@ class LlamaModel(LlamaPreTrainedModel):
                                   scaling_factor=config.scaling_factor,
                                   extend_method=config.extend_method,
                                   is_dynamic=config.is_dynamic)
-        self.casual_mask = LowerTriangularMaskWithDynamic(seq_length=config.seq_length,
-                                                          compute_type=config.compute_dtype,
-                                                          is_dynamic=config.is_dynamic,
-                                                          pad_token_id=config.pad_token_id,
-                                                          use_flash_attention=config.use_flash_attention)
+        self.casual_mask = CausalMask(seq_length=config.seq_length,
+                                      compute_type=config.compute_dtype,
+                                      is_dynamic=config.is_dynamic,
+                                      pad_token_id=config.pad_token_id,
+                                      use_flash_attention=config.use_flash_attention,
+                                      use_prompt_flash_attention=config.use_prompt_flash_attention,
+                                      use_incre_flash_attention=config.use_incre_flash_attention)
         self.tok_embeddings = LlamaEmbedding(vocab_table_size=config.vocab_size,
                                              embedding_size=config.hidden_size,
                                              param_init_type=config.param_init_type)
@@ -217,7 +229,9 @@ class LlamaModel(LlamaPreTrainedModel):
                                          param_init_type=config.param_init_type,
                                          use_past=config.use_past,
                                          use_flash_attention=config.use_flash_attention,
-                                         use_paged_attention=self.use_paged_attention,
+                                         use_paged_attention=config.use_paged_attention,
+                                         use_prompt_flash_attention=config.use_prompt_flash_attention,
+                                         use_incre_flash_attention=config.use_incre_flash_attention,
                                          block_size=config.block_size,
                                          num_blocks=config.num_blocks,
                                          is_dynamic=config.is_dynamic,
@@ -236,7 +250,7 @@ class LlamaModel(LlamaPreTrainedModel):
                                                     is_dynamic=config.is_dynamic,
                                                     use_kvcache_op=config.use_kvcache_op,
                                                     is_flexible_shape=config.is_flexible_shape,
-                                                    use_paged_attention=self.use_paged_attention)
+                                                    use_paged_attention=config.use_paged_attention)
 
         dp = config.parallel_config.data_parallel
         if not (_get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation()):
@@ -278,7 +292,6 @@ class LlamaModel(LlamaPreTrainedModel):
         if not self.use_past:
             freqs_cis = self.freqs_mgr()
             mask = self.casual_mask(tokens)  # mask: [bs, seq, seq]
-            mask = self.casual_mask.post_process(mask)
             kvcache_inputs = None
         else:
             if self.is_first_iteration:
@@ -293,7 +306,6 @@ class LlamaModel(LlamaPreTrainedModel):
                         zactivate_len)
                 else:
                     mask = self.casual_mask.increment(self.kvcache_preprocess.range, batch_valid_length, zactivate_len)
-            mask = self.casual_mask.post_process(mask)
 
             kvcache_inputs = self.kvcache_preprocess(bs, batch_valid_length, batch_index, zactivate_len,
                                                      block_tables, slot_mapping)
