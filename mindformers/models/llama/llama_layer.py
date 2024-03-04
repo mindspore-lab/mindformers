@@ -428,6 +428,7 @@ class LlamaFeedForward(Cell):
     def __init__(self, dim,
                  intermediate_size=None,
                  hidden_dim=None,
+                 expert_num=1,
                  multiple_of=256,
                  hidden_act=LlamaSiLU,
                  ffn_dim_multiplier=None,
@@ -453,11 +454,13 @@ class LlamaFeedForward(Cell):
         self.hidden_act = hidden_act
         self.dim = dim
         self.hidden_dim = hidden_dim
+        self.expert_num = expert_num
 
         self.mul = P.Mul()
         self.cast = P.Cast()
         self.w1 = Linear(in_channels=dim,
                          out_channels=hidden_dim,
+                         expert_num=expert_num,
                          activation=hidden_act,
                          has_bias=False,
                          compute_dtype=compute_dtype,
@@ -466,6 +469,7 @@ class LlamaFeedForward(Cell):
 
         self.w2 = Linear(in_channels=hidden_dim,
                          out_channels=dim,
+                         expert_num=expert_num,
                          has_bias=False,
                          compute_dtype=compute_dtype,
                          param_init_type=param_init_type,
@@ -473,6 +477,7 @@ class LlamaFeedForward(Cell):
 
         self.w3 = Linear(in_channels=dim,
                          out_channels=hidden_dim,
+                         expert_num=expert_num,
                          has_bias=False,
                          compute_dtype=compute_dtype,
                          param_init_type=param_init_type,
@@ -501,11 +506,21 @@ class LlamaFeedForward(Cell):
             raise ValueError("For 'FeedForward', the class variable 'dim' must be a multiple of the num of "
                              "model parallel, but got the dim is {} and the num of model parallel is {}."
                              .format(self.dim, mp))
-        self.w1.shard(((dp, 1), (mp, 1)), strategy_activation=((dp, mp),))
-        self.w1.activation.shard(((dp, mp),))
-        self.w2.shard(((dp, mp), (1, mp)))
-        self.w3.shard(((dp, 1), (mp, 1)))
-        self.mul.shard(((dp, mp), (dp, mp)))
+        if self.expert_num == 1:
+            self.w1.shard(((dp, 1), (mp, 1)), strategy_activation=((dp, mp),))
+            self.w1.activation.shard(((dp, mp),))
+            self.w2.shard(((dp, mp), (1, mp)))
+            self.w3.shard(((dp, 1), (mp, 1)))
+            self.mul.shard(((dp, mp), (dp, mp)))
+        else:
+            logger.info("shard ffn with MoE")
+            ep = parallel_config.expert_parallel
+            dp = parallel_config.data_parallel // ep
+            self.w1.shard(strategy_matmul=((dp, ep, 1, 1), (ep, mp, 1)),
+                          strategy_activation=((dp, ep, mp, 1),))
+            self.w2.shard(strategy_matmul=((dp, ep, 1, mp), (ep, 1, mp)))
+            self.w3.shard(strategy_matmul=((dp, ep, 1, 1), (ep, mp, 1)))
+            self.mul.shard(((dp * ep, mp), (dp * ep, mp)))
 
 
 class CausalMask(nn.Cell):

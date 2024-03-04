@@ -29,11 +29,12 @@ from mindspore.ops import operations as P
 from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
 
 from mindformers.models.llama.llama_layer import LlamaFeedForward, LlamaRMSNorm, LlamaRotaryEmbedding
-from mindformers.models.llama.llama_moe import LlamaMoE
 from mindformers.modules.layers import _check_input_dtype, Linear
 from mindformers.modules.transformer import TransformerOpParallelConfig
 from mindformers.modules import KVCacheMgr, PagedAttentionMgr
 from mindformers.modules.flash_attention import FlashAttention
+from mindformers.modules.transformer.moe import MoEV2
+from mindformers.tools.logger import logger
 
 
 class LLamaAttention(nn.Cell):
@@ -548,27 +549,34 @@ class LLamaDecodeLayer(nn.Cell):
                                         block_size=block_size,
                                         num_blocks=num_blocks,
                                         parallel_config=parallel_config)
-        if moe_config is None or not moe_config.expert_num > 1:
-            self.feed_forward = LlamaFeedForward(dim=self.hidden_size,
-                                                 intermediate_size=intermediate_size,
-                                                 hidden_dim=4 * self.hidden_size,
-                                                 multiple_of=multiple_of,
-                                                 ffn_dim_multiplier=ffn_dim_multiplier,
-                                                 compute_dtype=compute_dtype,
-                                                 param_init_type=param_init_type,
-                                                 is_dynamic=is_dynamic)
+        self.expert_num = 1 if moe_config is None else moe_config.expert_num
+        ffn = LlamaFeedForward(dim=self.hidden_size,
+                               intermediate_size=intermediate_size,
+                               hidden_dim=4 * self.hidden_size,
+                               multiple_of=multiple_of,
+                               expert_num=self.expert_num,
+                               ffn_dim_multiplier=ffn_dim_multiplier,
+                               compute_dtype=compute_dtype,
+                               param_init_type=param_init_type,
+                               is_dynamic=is_dynamic)
+        if self.expert_num == 1:
+            logger.warning("MoE config is None, use normal FFN")
+            self.feed_forward = ffn
         else:
-            self.feed_forward = LlamaMoE(dim=self.hidden_size,
-                                         hidden_dim=intermediate_size,
-                                         compute_dtype=compute_dtype,
-                                         param_init_type=param_init_type,
-                                         moe_config=moe_config,
-                                         parallel_config=parallel_config)
+            logger.warning("MoE config is provided, use MoE FFN")
+            self.feed_forward = MoEV2(
+                ffn=ffn,
+                dim=self.hidden_size,
+                moe_config=moe_config,
+                parallel_config=parallel_config)
 
         dp = parallel_config.data_parallel
         mp = parallel_config.model_parallel
         if not (_get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation()):
-            self.feed_forward.shard(parallel_config)
+            if self.expert_num == 1:
+                self.feed_forward.shard(parallel_config)
+            else:
+                self.feed_forward.ffn.shard(parallel_config)
             self.add.shard(((dp, 1, 1), (dp, 1, 1)))
             self.attention_norm.shard((dp, 1, 1))
             self.ffn_norm.shard((dp, 1, 1))
