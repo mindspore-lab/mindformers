@@ -176,7 +176,7 @@ class LlamaModel(LlamaPreTrainedModel):
                                              param_init_type=config.param_init_type)
         self.layers = nn.CellList()
         for layer_id in range(config.num_layers):
-            if config.fine_grain_interleave > 1:
+            if config.fine_grain_interleave > 1 and config.parallel_config.model_parallel > 1:
                 layer = LLamaDecodeLayerInterleave(config.batch_size,
                                                    config.seq_length,
                                                    layer_id,
