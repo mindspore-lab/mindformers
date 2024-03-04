@@ -224,7 +224,6 @@ class ChatGLM32kSelfAttention(nn.Cell):
         self.use_prompt_flash_attention = config.use_prompt_flash_attention
         if self.use_flash_attention:
             self.attention_mask_dtype = choose_flash_attention_dtype()
-            self.run_mode = config.run_mode
             self.flash_attention = self.get_flash_attention(config, parallel_config)
 
         dp, mp = config.parallel_config.data_parallel, config.parallel_config.model_parallel

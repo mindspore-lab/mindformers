@@ -170,7 +170,6 @@ class ChatGLM2ForConditionalGeneration(GLM2PreTrainedModel):
     @cell_reuse
     def __init__(self, config: ChatGLM2Config, **kwargs):
         super(ChatGLM2ForConditionalGeneration, self).__init__(config, **kwargs)
-        self.max_seq_len = config.max_length
         self.transformer = ChatGLM2Model(config=config)
         self.cast = P.Cast()
         self.gather = P.Gather()

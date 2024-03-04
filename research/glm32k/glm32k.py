@@ -178,7 +178,6 @@ class ChatGLM32kForConditionalGeneration(GLM32kPreTrainedModel):
     @cell_reuse
     def __init__(self, config: ChatGLM32kConfig, **kwargs):
         super(ChatGLM32kForConditionalGeneration, self).__init__(config, **kwargs)
-        self.max_seq_len = config.max_length
         self.transformer = ChatGLM32kModel(config=config)
         self.cast = P.Cast()
         self.gather = P.Gather()
