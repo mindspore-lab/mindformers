@@ -52,6 +52,7 @@ from mindformers.tools.check_rules import check_rules
 from mindformers.models.auto import AutoModel
 from mindformers.pet import get_pet_model, is_supported_pet_type
 from mindformers.tools.utils import get_real_rank, get_real_group_size
+from mindformers.core.callback.callback import ColdHotExpertMointor
 from .config_args import ConfigArguments
 from .training_args import TrainingArguments
 from .utils import check_runner_config, transform_and_load_checkpoint, load_resume_context_from_checkpoint
@@ -753,6 +754,21 @@ class BaseTrainer:
             )
             callbacks.append(eval_callback)
         self.check_callback(callbacks)
+
+        if config.moe_config.enable_cold_hot_expert:
+            save_checkpoint_steps = -1
+            for callback in config.callbacks:
+                if callback['type'] == 'CheckpointMointor':
+                    save_checkpoint_steps = callback['save_checkpoint_steps']
+            cold_hot_mointor = ColdHotExpertMointor(
+                moe_config=config.moe_config,
+                hidden_size=config.model.model_config.hidden_size,
+                ffn_hidden_size=config.model.model_config.ffn_hidden_size,
+                expert_parallel=config.parallel_config.expert_parallel,
+                model_parallel=config.parallel_config.model_parallel,
+                save_checkpoint_steps=save_checkpoint_steps)
+            # ColdHotExpertMointor needs to be placed before CheckpointMointor
+            callbacks.insert(1, cold_hot_mointor)
 
         logger.info(".........Starting Training Model..........")
         if get_real_rank() % 8 == 0:

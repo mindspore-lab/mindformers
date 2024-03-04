@@ -11,6 +11,7 @@ MindFormers套件集成了许多模型训练中通用的优化算法，并提供
     - [Flash Attention](#flash-attention)
     - [Adaptive loss scaling](#adaptive-loss-scaling)
     - [Lazy Inline](#lazy-inline)
+    - [MoE冷热门专家优化](#moe冷热门专家优化)
 
 ## 梯度累积
 
@@ -254,3 +255,80 @@ class Baichuan7BV2ForCausalLM(PreTrainedModel):
 ```
 
 在模型启动前，通过设置环境变量`ENABLE_CELL_REUSE=1`，开启lazy inline。
+
+## MoE冷热门专家优化
+
+在MoE大模型训练过程中，常见的TopK Router算法会导致Token分发不均匀，存在Router给少数热门专家分配大量Token，多数冷门专家分配少量Token的情况。专家受限于专家容量，会将超过专家容量的Token丢弃，不足专家容量的Padding。所以提出热门专家容量和冷门专家容量，减少热门专家Token丢弃和冷门专家Padding。同时将热门专家迁移到所有训练设备上，减少其Token的AllToAll传输，所有设备上的热门专家副本采用数据并行，并通过AllReduce同步参数。
+
+MindFormers配置文件中的`MoE_config`新增以下配置项：
+
+`enable_cold_hot_expert`：默认为False，设置为True可开启MoE冷热门专家优化；
+
+`hot_expert_num`：默认为0，当开启enable_cold_hot_expert时需要配置迁移的热门专家数量；
+
+`cold_token_percent`：默认为1.0，取值范围(0.0, 1.0]，冷门专家容量因子为capacity_factor * cold_token_percent，热门专家容量因子仍为capacity_factor；
+
+`moe_module_name`：本优化提供自动调整热门专家副本功能，需要指明MoE模型路径。
+
+```yaml
+moe_config:
+  expert_num: 8
+  capacity_factor: 2.0
+  enable_cold_hot_expert: True
+  hot_expert_num: 1
+  cold_token_percent: 0.7
+  moe_module_name: "network._backbone.backbone.blocks"
+```
+
+在模型方面，需要在传入moe_config前配置每层MoE的cur_layer:
+
+```python
+if config.moe_config.save_token_distribution or config.moe_config.enable_cold_hot_expert:
+    moe_config = [copy.deepcopy(config.moe_config) for i in range(config.num_layers)]
+    for i in range(config.num_layers):
+        moe_config[i].cur_layer = i
+
+self.blocks = nn.CellList()
+    for i in range(config.num_layers):
+        block = GPTTransformerDecoderLayer(
+            ......
+            moe_config=moe_config if not (config.moe_config.save_token_distribution or
+                                          config.moe_config.enable_cold_hot_expert) else moe_config[i],
+            ......
+        )
+```
+
+在训练的前期，热门Expert会发生变化，需要在训练过程中动态调整Expert副本所代表的Expert。使用本优化需要在callbacks中传入ColdHotExpertMointor，ColdHotExpertMointor中需要传入以下参数:
+
+`moe_config`：config.moe_config
+
+`hidden_size`：config.model.model_config.hidden_size
+
+`ffn_hidden_size`：config.model.model_config.ffn_hidden_size ，对于model_config中没有配置ffn_hidden_size的模型，可以添加该配置或修改此处传入代码
+
+`expert_parallel`：config.parallel_config.expert_parallel
+
+`model_parallel`：config.parallel_config.model_parallel
+
+`save_checkpoint_steps`：CheckpointMointor中配置的'save_checkpoint_steps'
+
+```python
+from mindformers.core.callback.callback import ColdHotExpertMointor
+
+if config.moe_config.enable_cold_hot_expert:
+    save_checkpoint_steps = -1
+    for callback in config.callbacks:
+        if callback['type'] == 'CheckpointMointor':
+            save_checkpoint_steps = callback['save_checkpoint_steps']
+    cold_hot_mointor = ColdHotExpertMointor(
+        moe_config=config.moe_config,
+        hidden_size=config.model.model_config.hidden_size,
+        ffn_hidden_size=config.model.model_config.ffn_hidden_size,
+        expert_parallel=config.parallel_config.expert_parallel,
+        model_parallel=config.parallel_config.model_parallel,
+        save_checkpoint_steps=save_checkpoint_steps)
+    # ColdHotExpertMointor needs to be placed before CheckpointMointor
+    callbacks.insert(1, cold_hot_mointor)
+```
+
+需要注意：在callbacks中ColdHotExpertMointor需要放置在CheckpointMointor前面，先执行ColdHotExpertMointor，不然副本的权重还没复制回其代表的Expert就保存ckpt，导致ckpt保存的Expert权重并非最新训练结果。
