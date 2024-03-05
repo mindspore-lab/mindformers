@@ -229,7 +229,7 @@ class LlamaModel(BaseModel):
 
             self.tok_embeddings.shard(config.parallel_config)
             self.casual_mask.shard(config.parallel_config)
-            if config.fine_grain_interleave > 1:
+            if config.fine_grain_interleave > 1 and config.parallel_config.model_parallel > 1:
                 self.norm_out.shard((dp, 1))
             else:
                 self.norm_out.shard((dp, 1, 1))
