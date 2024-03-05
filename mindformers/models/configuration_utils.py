@@ -26,7 +26,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 import yaml
 from packaging import version
-from mindspore._c_expression.typing import Float
+from mindspore._c_expression.typing import Float, BFloat
 
 from mindformers import __version__
 from mindformers.tools import MindFormerConfig
@@ -814,7 +814,7 @@ class PretrainedConfig(PushToHubMixin):
         string, which can then be stored in the json format.
         """
         for k, v in d.items():
-            if isinstance(v, Float):
+            if isinstance(v, (Float, BFloat)):
                 d[k] = ms_type_to_str[v]
         for value in d.values():
             if isinstance(value, dict):
