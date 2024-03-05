@@ -178,7 +178,7 @@ class Baichuan13BV2ForCausalLM(Baichuan2PreTrainedModel):
         seq_len = None if dyn else self.seq_length
         prefill_mapping_len = None if dyn else bs * seq_len
         inc_mapping_len = None if dyn else bs * 1
-        block_size = self.config.pa_block_size
+        block_size = self.config.block_size
         max_num_blocks_per_batch = None if dyn else self.seq_length // block_size
 
         def dummy_tensor(shape, dtype):
@@ -297,8 +297,8 @@ class Baichuan13BV2Model(Baichuan2PreTrainedModel):
         self.use_paged_attention = config.use_paged_attention and check_valid_paged_attention()
         if self.use_paged_attention:
             logger.info("Enable paged attention.")
-        self.pa_block_size = config.pa_block_size
-        self.pa_num_blocks = config.pa_num_blocks
+        self.block_size = config.block_size
+        self.num_blocks = config.num_blocks
 
         self.shape = P.Shape()
         self.reshape = P.Reshape()
@@ -346,8 +346,8 @@ class Baichuan13BV2Model(Baichuan2PreTrainedModel):
                                            is_flexible_shape=config.is_flexible_shape,
                                            use_flash_attention=self.use_flash_attention,
                                            use_paged_attention=config.use_paged_attention,
-                                           pa_block_size=self.pa_block_size,
-                                           pa_num_blocks=self.pa_num_blocks,
+                                           block_size=self.block_size,
+                                           num_blocks=self.num_blocks,
                                            parallel_config=config.parallel_config)
             layer_compute_dtype(layer, layer_id, config.offset, config.parallel_config,
                                 config.num_layers, select_recompute=config.parallel_config.recompute.select_recompute)
@@ -527,8 +527,8 @@ class Baichuan13BAttention(nn.Cell):
                  is_flexible_shape=False,
                  use_flash_attention=False,
                  use_paged_attention=False,
-                 pa_block_size: int = 128,
-                 pa_num_blocks: int = 224,
+                 block_size: int = 128,
+                 num_blocks: int = 224,
                  parallel_config=TransformerOpParallelConfig()):
         super().__init__()
         self.batch_size = batch_size
@@ -545,8 +545,8 @@ class Baichuan13BAttention(nn.Cell):
         self.use_past = use_past
         self.use_flash_attention = use_flash_attention and FLASHATTENTION_VALID
         self.use_paged_attention = use_paged_attention
-        self.block_size = pa_block_size
-        self.num_blocks = pa_num_blocks
+        self.block_size = block_size
+        self.num_blocks = num_blocks
 
         if self.hidden_size % self.n_head != 0:
             raise ValueError("For 'MultiHeadAttention', the class variable 'hidden_size' must be a multiple "
@@ -854,8 +854,8 @@ class Baichuan13BDecodeLayer(nn.Cell):
                  is_flexible_shape=False,
                  use_flash_attention=False,
                  use_paged_attention=False,
-                 pa_block_size: int = 128,
-                 pa_num_blocks: int = 224,
+                 block_size: int = 128,
+                 num_blocks: int = 224,
                  parallel_config=TransformerOpParallelConfig()):
         super().__init__()
         if batch_size or use_past:
@@ -899,8 +899,8 @@ class Baichuan13BDecodeLayer(nn.Cell):
                                               is_flexible_shape=is_flexible_shape,
                                               use_flash_attention=use_flash_attention,
                                               use_paged_attention=use_paged_attention,
-                                              pa_block_size=pa_block_size,
-                                              pa_num_blocks=pa_num_blocks,
+                                              block_size=block_size,
+                                              num_blocks=num_blocks,
                                               parallel_config=parallel_config)
         self.feed_forward = LlamaFeedForward(dim=self.hidden_size,
                                              intermediate_size=intermediate_size,
