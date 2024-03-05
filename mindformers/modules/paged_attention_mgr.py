@@ -21,11 +21,12 @@ import numpy as np
 from mindspore import nn, Parameter
 from mindspore.common.tensor import Tensor
 import mindspore.common.dtype as mstype
-from mindspore.ops import operations as P
-
+from mindspore import ops as P
+from mindformers.version_control import is_paged_attention_v2
 
 class PagedAttentionMgr(nn.Cell):
     """Paged Attention Manager."""
+
     def __init__(self,
                  n_heads,
                  head_dim,
@@ -54,10 +55,18 @@ class PagedAttentionMgr(nn.Cell):
         kv_shape = (num_blocks, self.block_size, self.n_kv_heads, self.head_dim)
         self.key_cache = Parameter(Tensor(np.zeros(kv_shape), compute_dtype), name="key_cache", requires_grad=False)
         self.value_cache = Parameter(Tensor(np.zeros(kv_shape), compute_dtype), name="value_cache", requires_grad=False)
-
-        self.reshape_and_cache = P.nn_ops.ReshapeAndCache()
-        self.paged_attention = P.PagedAttention(self.n_head, self.scale_value, self.n_kv_heads)
-        self.paged_attention_with_alibi = P.PagedAttentionMask(self.n_head, self.scale_value, self.n_kv_heads)
+        if is_paged_attention_v2():
+            self.reshape_and_cache = P.auto_generate.gen_inner_ops_def.ReshapeAndCache()
+            self.paged_attention = P.auto_generate.gen_inner_ops_def.PagedAttention(self.n_head, self.scale_value,
+                                                                                    self.n_kv_heads)
+            self.paged_attention_with_alibi = P.auto_generate.gen_inner_ops_def.PagedAttentionMask(self.n_head,
+                                                                                                   self.scale_value,
+                                                                                                   self.n_kv_heads)
+        else:
+            self.reshape_and_cache = P.operations.nn_ops.ReshapeAndCache()
+            self.paged_attention = P.operations.PagedAttention(self.n_head, self.scale_value, self.n_kv_heads)
+            self.paged_attention_with_alibi = P.operations.PagedAttentionMask(self.n_head, self.scale_value,
+                                                                              self.n_kv_heads)
 
     def construct(self, key, value, slot_mapping):
         """The forward compute of KVCache for Paged Attention."""
