@@ -91,7 +91,7 @@ def main(task='text_generation',
                        task=task,
                        train_dataset=train_dataset,
                        pet_method=pet_method)
-        task.train(finetune_checkpoint=config.load_checkpoint, auto_trans_ckpt=config.auto_trans_ckpt)
+        task.train(train_checkpoint=config.load_checkpoint, auto_trans_ckpt=config.auto_trans_ckpt)
 
     elif run_mode == 'finetune':
         task = Trainer(args=config,
