@@ -54,7 +54,7 @@ def merge_npy_files(str_layer, path_npy_list):
             sub_path_list.append(npy_list)
     if not sub_path_list:
         raise Exception(f"error: {str_layer} is not exist")
-    sub_path_list.sort(key=lambda x: int(x.split(str_layer+'_')[1].split('.')[0]))
+    sub_path_list.sort(key=lambda x: int(x.split(str_layer)[1].split('.')[0]))
     temp = []
     for path in sub_path_list:
         real_data = np.load(path, allow_pickle=True)
@@ -132,9 +132,10 @@ if __name__ == '__main__':
     path_list = append_all_npy_path(opt.npy_files_load_path)
     list_all = []
     for layer_num in range(opt.num_layers):
+        str_layer_split = 'layer-' + str(layer_num) + '_'
         str_layer_name = 'layer-' + str(layer_num)
         str_layer_capital = 'Layer-' + str(layer_num)
-        data = merge_npy_files(str_layer_name, path_list)
+        data = merge_npy_files(str_layer_split, path_list)
         last_step_data = ms.Tensor(data[-1], dtype=ms.float16)
         _, hot_expert_index = ms.ops.TopK(sorted=True)(last_step_data, opt.hot_expert_num)
         pyplot_show(str_layer_name, str_layer_capital, data, opt.save_path_prefix)
