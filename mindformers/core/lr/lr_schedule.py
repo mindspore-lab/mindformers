@@ -58,15 +58,6 @@ def _get_warmup_steps(warmup_steps: int, warmup_ratio: float, total_steps: int):
     return warmup_steps
 
 
-def _check_decay_method(decay_steps: int, total_steps: int):
-    """check decay method."""
-    if decay_steps is not None:
-        return
-
-    if decay_steps is None and total_steps is None:
-        raise ValueError(f"When decay_steps is None, total_steps must be set, but got {total_steps} ")
-
-
 @MindFormerRegister.register(MindFormerModuleType.LR)
 class ConstantWarmUpLR(LearningRateSchedule):
     """
@@ -181,8 +172,6 @@ class CosineWithWarmUpLR(LearningRateSchedule):
             Initial learning rate in warm up steps.
         warmup_ratio (`float`, *optional*, defaults to None):
             Ratio of total training steps used for warmup.
-        decay_steps (`int`, *optional*, defaults to None):
-            The number of decay steps.
 
     Returns:
         Class, CosineWithWarmUpLR
@@ -190,20 +179,16 @@ class CosineWithWarmUpLR(LearningRateSchedule):
 
     def __init__(self, learning_rate: float, warmup_steps: int = 0, total_steps: int = None,
                  num_cycles: float = 0.5, lr_end: float = 0., warmup_lr_init: float = 0.,
-                 warmup_ratio: float = None, decay_steps: int = None, **kwargs):
+                 warmup_ratio: float = None, **kwargs):
         super(CosineWithWarmUpLR, self).__init__()
-        _check_decay_method(decay_steps, total_steps)
         warmup_steps = _get_warmup_steps(warmup_steps, warmup_ratio, total_steps)
         cosine_steps = max(1, total_steps - warmup_steps)
-        decay_steps = max(1, decay_steps) \
-            if decay_steps is not None else max(1, total_steps)
         self.kwargs = kwargs
         self.learning_rate = learning_rate
         self.lr_end = Tensor(lr_end, mstype.float32)
         self.warmup_lr_init = warmup_lr_init
         self.warmup_steps = Tensor(warmup_steps, mstype.float32)
         self.cosine_steps = Tensor(cosine_steps, mstype.float32)
-        self.decay_steps = Tensor(decay_steps, mstype.float32)
         self.num_cycles = num_cycles
         self.greater = P.Greater()
         self.greater_equal = P.GreaterEqual()
@@ -216,8 +201,6 @@ class CosineWithWarmUpLR(LearningRateSchedule):
     def construct(self, global_step):
         """compute current step lr."""
         global_step = self.cast(global_step, mstype.float32)
-        if self.greater_equal(global_step, self.decay_steps):
-            return self.lr_end
 
         if self.greater(self.warmup_steps, global_step):
             percent = global_step / self.warmup_steps
@@ -251,8 +234,6 @@ class CosineWithRestartsAndWarmUpLR(LearningRateSchedule):
             Initial learning rate in warm up steps.
         warmup_ratio (`float`, *optional*, defaults to None):
             Ratio of total training steps used for warmup.
-        decay_steps (`int`, *optional*, defaults to None):
-            The number of decay steps.
 
     Returns:
         Class, CosineWithRestartsAndWarmUpLR
@@ -260,20 +241,16 @@ class CosineWithRestartsAndWarmUpLR(LearningRateSchedule):
 
     def __init__(self, learning_rate: float, warmup_steps: int = None, total_steps: int = None,
                  num_cycles: float = 1., lr_end: float = 0., warmup_lr_init: float = 0.,
-                 warmup_ratio: float = None, decay_steps: int = None, **kwargs):
+                 warmup_ratio: float = None, **kwargs):
         super(CosineWithRestartsAndWarmUpLR, self).__init__()
-        _check_decay_method(decay_steps, total_steps)
         warmup_steps = _get_warmup_steps(warmup_steps, warmup_ratio, total_steps)
         cosine_steps = max(1, total_steps - warmup_steps)
-        decay_steps = max(1, decay_steps) \
-            if decay_steps is not None else max(1, total_steps)
         self.kwargs = kwargs
         self.learning_rate = learning_rate
         self.lr_end = Tensor(lr_end, mstype.float32)
         self.warmup_lr_init = warmup_lr_init
         self.warmup_steps = Tensor(warmup_steps, mstype.float32)
         self.cosine_steps = Tensor(cosine_steps, mstype.float32)
-        self.decay_steps = Tensor(decay_steps, mstype.float32)
         self.num_cycles = num_cycles
         self.greater = P.Greater()
         self.greater_equal = P.GreaterEqual()
@@ -287,8 +264,6 @@ class CosineWithRestartsAndWarmUpLR(LearningRateSchedule):
     def construct(self, global_step):
         """compute current step lr."""
         global_step = self.cast(global_step, mstype.float32)
-        if self.greater_equal(global_step, self.decay_steps):
-            return self.lr_end
 
         if self.greater(self.warmup_steps, global_step):
             percent = global_step / self.warmup_steps
@@ -334,12 +309,10 @@ class PolynomialWithWarmUpLR(LearningRateSchedule):
 
     def __init__(self, learning_rate: float, total_steps: int, warmup_steps: int = None,
                  lr_end: float = 1e-7, power: float = 1.0, warmup_lr_init: float = 0.,
-                 warmup_ratio: float = None, decay_steps: int = None, **kwargs):
+                 warmup_ratio: float = None, **kwargs):
         super(PolynomialWithWarmUpLR, self).__init__()
-        _check_decay_method(decay_steps, total_steps)
         warmup_steps = _get_warmup_steps(warmup_steps, warmup_ratio, total_steps)
-        decay_steps = max(1, decay_steps) \
-            if decay_steps is not None else max(1, total_steps - warmup_steps)
+        decay_steps = max(1, total_steps - warmup_steps)
         if not learning_rate > lr_end:
             raise ValueError(f"lr_end ({lr_end}) must be be smaller than initial lr ({learning_rate})")
         self.kwargs = kwargs
@@ -356,8 +329,6 @@ class PolynomialWithWarmUpLR(LearningRateSchedule):
     def construct(self, global_step):
         """compute current step lr."""
         global_step = self.cast(global_step, mstype.float32)
-        if self.greater_equal(global_step, self.decay_steps):
-            return self.lr_end
 
         if self.greater(self.warmup_steps, global_step):
             percent = global_step / self.warmup_steps
