@@ -68,6 +68,7 @@ class MoEConfig:
             comp_comm_parallel_degree (int): The split number of compute and communication. The larger the numbers,
                 the more overlap there will be but will consume more memory. Default: 2. This parameter is effective
                 only when comp_comm_parallel enable.
+            routing_policy (str): The routing policy to use in MoE layer. Default: TopkRouterV1.
 
         Supported Platforms:
             ``Ascend`` ``GPU``
@@ -76,13 +77,13 @@ class MoEConfig:
             >>> from mindformers.modules.transformer import MoEConfig
             >>> moe_config = MoEConfig(expert_num=4, capacity_factor=5.0, aux_loss_factor=0.05, num_experts_chosen=1,
             ...                        expert_group_size=64, group_wise_a2a=True, comp_comm_parallel=False,
-            ...                        comp_comm_parallel_degree=2)
+            ...                        comp_comm_parallel_degree=2, routing_policy="TopkRouterV2")
     """
 
     def __init__(self, expert_num=1, capacity_factor=1.1, aux_loss_factor=0.05, num_experts_chosen=1,
                  expert_group_size=None, group_wise_a2a=False, comp_comm_parallel=False, comp_comm_parallel_degree=2,
                  save_token_distribution=False, cur_layer=0, enable_cold_hot_expert=False, update_step=10000,
-                 hot_expert_num=0, cold_token_percent=1.0, moe_module_name=""):
+                 hot_expert_num=0, cold_token_percent=1.0, moe_module_name="", routing_policy="TopkRouterV1"):
         Validator.check_positive_int(expert_num, "expert_num")
         Validator.check_positive_float(capacity_factor, "capacity_factor")
         Validator.check_positive_float(aux_loss_factor, "aux_loss_factor")
@@ -113,6 +114,7 @@ class MoEConfig:
         if cold_token_percent > 1.0 or cold_token_percent <= 0.0:
             raise ValueError(f"'cold_token_percent' must be in the range (0.0, 1.0], "
                              f"but got {cold_token_percent}.")
+
         self.expert_num = expert_num
         self.capacity_factor = capacity_factor
         self.aux_loss_factor = aux_loss_factor
@@ -128,6 +130,7 @@ class MoEConfig:
         self.hot_expert_num = hot_expert_num
         self.cold_token_percent = cold_token_percent
         self.moe_module_name = moe_module_name
+        self.routing_policy = routing_policy
 
     def __eq__(self, other) -> bool:
         return isinstance(other, MoEConfig) and (self.to_dict() == other.to_dict())
@@ -294,7 +297,7 @@ class MoE(Cell):
             self.batch_mm = P.BatchMatMul().shard(((self.dp, 1, 1), (self.dp, 1, 1)))
             self.batch_mm2 = P.BatchMatMul().shard(((self.dp, 1, 1), (self.dp, 1, 1)))
             self.mul = P.Mul().shard(((), ()))
-            self.router = Router(d_model=hidden_size, moe_config=moe_config, routing_policy=None,
+            self.router = Router(d_model=hidden_size, moe_config=moe_config, routing_policy="TopkRouterV1",
                                  training=True, parallel_config=parallel_config)
             self.cast = P.Cast()
             self.concat = P.Concat(3).shard(tuple((self.dp, 1, 1, 1) for _ in range(self.comp_comm_parallel_degree)))
@@ -531,6 +534,94 @@ class MoE(Cell):
         return combined_output, aux_loss
 
 
+class MoEV2(Cell):
+    """
+    The mixture of experts (MoE) implementation. The implementation includes a router and a FeedForward layer.
+    The router dispatches tokens to experts in FeedForward, then FeedForward does computation, and the final output is
+    obtained by multiplying FeedForward's output and router's combine weight.
+    This is a common interface, which allows any ffn class and any Router algorithm(implemented in V2 form).
+
+    Args:
+        hidden_size (int): The dimension of the inputs.
+        ffn_hidden_size (int): The intermediate hidden size.
+        dropout_rate (float): The dropout rate for the second linear's output.
+        hidden_act (str): The activation of the internal feedforward layer. Supports 'relu',
+                         'relu6', 'tanh', 'gelu', 'fast_gelu', 'elu', 'sigmoid', 'prelu', 'leakyrelu', 'hswish',
+                         'hsigmoid', 'logsigmoid' and so on. Default: gelu.
+        param_init_type (dtype.Number): The parameter initialization type. Can be dtype.float32 or dtype.float16.
+        moe_config(MoEConfig): The configuration of MoE (Mixture of Expert). Default is an instance of MoEConfig with
+            default values. Please see `MoEConfig`.
+        parallel_config(MoEParallelConfig): The parallel config for MoE, see `MoEParallelConfig`.
+            Default `default_moeparallel_config`, an instance of `MoEParallelConfig` with default args.
+
+    Inputs:
+        - **x** (Tensor) - should be `[batch, seq_length, hidden_size]`. Float tensor.
+
+    Outputs:
+        Tensor, the output of this layer after mapping. The shape is `[batch, seq_length, hidden_size]`.
+    """
+    def __init__(self,
+                 ffn,
+                 dim,
+                 moe_config=default_moe_config,
+                 parallel_config=default_moeparallel_config):
+        super(MoEV2, self).__init__()
+        self.hidden_size = dim
+        self.expert_dim = moe_config.expert_num
+        self.capacity_factor = moe_config.capacity_factor
+        self.num_experts_chosen = moe_config.num_experts_chosen
+        self.dp_group = parallel_config.data_parallel
+        self.dp = parallel_config.data_parallel
+        self.ep = parallel_config.expert_parallel
+        self.mp = parallel_config.model_parallel
+        self.dp_range = Tensor(np.arange(self.dp_group).reshape(-1, 1), mstype.int32) # (dp, 1) = [[0],[1],[2]...[dp]]
+
+        self.ffn = ffn
+        Validator.check_string(moe_config.routing_policy, ["TopkRouterV2"], "routing_policy")
+        self.router = Router(d_model=self.hidden_size,
+                             moe_config=moe_config,
+                             routing_policy=moe_config.routing_policy,
+                             training=True,
+                             parallel_config=parallel_config)
+
+        self.reshape = P.Reshape()
+        self.shape = P.Shape()
+        self.cast = P.Cast()
+        self.transpose_4dim_dp1 = P.Transpose().shard(((1, self.dp, 1, 1),))
+
+    def ffn_infer(self, expert_input):
+        """
+        Computing the FFN.
+        """
+        expert_input = self.reshape(expert_input, (-1, self.hidden_size)) # (E*dp*n, h) <-- (E, dp, n, h) #<<<<<<<<<
+        expert_output = self.ffn(expert_input) # (E, dp*n, h) <-- (E*dp*n, h)
+        expert_output = self.reshape(expert_output, (self.expert_dim, self.dp_group, -1, self.hidden_size)) # (E, dp, n, h) <-- (E, dp*n, h)
+        return expert_output
+
+
+    def construct(self, input_tensor):
+        """forward process"""
+        input_tensor_shape = self.shape(input_tensor)
+        input_tensor = self.cast(input_tensor, mstype.float16)
+        input_tensor = self.reshape(input_tensor, (self.dp_group, -1, self.hidden_size)) # (dp, N, h) <-- (B*S, h)
+
+        # calculate router
+        dispatch_policy, combine_policy, router_coeff = self.router(input_tensor) # (dp, E, n)int32, (dp, N, k)int32, (dp, N, k)fp16 <-- (dp, N, h), where 0<= dispatch_index < 1+N, 0<= combine_index <E*(1+n)
+
+        # dispatch
+        expert_input = self.router.router.dispatch(input_tensor, dispatch_policy) # (dp, E, n, h) <-- (dp, N, h), (dp, E, n)
+
+        # ffn
+        expert_input = self.transpose_4dim_dp1(expert_input, (1, 0, 2, 3)) # (E, dp, n, h) <-- (dp, E, n, h)
+        expert_output = self.ffn_infer(expert_input) # (E, dp, n, h) <-- (E, dp, n, h)
+        expert_output = self.transpose_4dim_dp1(expert_output, (1, 0, 2, 3)) # (dp, E, n, h) <-- (E, dp, n, h)
+
+        # combine
+        output_tensor = self.router.router.combine(expert_output, combine_policy, router_coeff) # (dp, N, k, h) <-- (dp, E*(1+n), h), (dp, N, k)
+        output_tensor = self.reshape(output_tensor, input_tensor_shape) # (B*S, h) <-- (dp, N, h)
+        return output_tensor # (dp, N, h)
+
+
 class Router(Cell):
     r"""
         A router backbone used to calculate logits of each token, which should be cascaded by router implementations
@@ -575,9 +666,12 @@ class Router(Cell):
         self.mul = P.Mul()
         self.cast = P.Cast()
 
-        if self.routing_policy is None:
+        if self.routing_policy == "TopkRouterV1":
             self.router = TopkRouter(d_model=d_model, moe_config=moe_config, training=training,
                                      parallel_config=parallel_config)
+        elif self.routing_policy == "TopkRouterV2":
+            self.router = TopkRouterV2(d_model=d_model, moe_config=moe_config, training=training,
+                                       parallel_config=parallel_config)
         else:
             self.router = routing_policy
 
@@ -830,3 +924,178 @@ class TopkRouter(Cell):
         expert_gate = self.mul6(expert_gate, expert_mask_flat)
         output = (expert_mask, expert_gate, expert_mask_flat, position_in_expert)
         return output
+
+
+class TopkRouterV2(Cell):
+    r"""
+        A router implementation which maps each tokens to the topk expert.
+
+        Args:
+            d_model (int): The hidden size of each token.
+            moe_config(MoEConfig): The configuration of MoE (Mixture of Expert).
+            training (bool): The value indicating whether is in training phase.
+            config: The parallel-related configuration.
+        Inputs:
+            - **router_logits** (Tensor) - Tensor of shape :math:`(data\_parallel, tokens\_per\_group,
+            expert\_dim)`.(dp, N, expert_dim)
+
+        Outputs:
+            - **dispatch_index** (Tensor) - Tensor of shape :math:`(data\_parallel, expert\_dim, expert\_capacity)`,
+            - **combine_index** (Tensor) - Tensor of shape :math:`(data\_parallel, tokens\_per\_group, k)`,
+            - **router_coeff** (Tensor) - Tensor of shape :math:`(data\_parallel, tokens\_per\_group, k)`.
+    """
+
+    def __init__(self,
+                 d_model,
+                 moe_config,
+                 training=True,
+                 parallel_config=None):
+        super(TopkRouterV2, self).__init__()
+
+        dp = parallel_config.data_parallel
+        self.d_model = d_model
+        self.expert_dim = moe_config.expert_num
+        self.capacity_factor = moe_config.capacity_factor
+        self.save_token_distribution = moe_config.save_token_distribution
+        self.training = training
+        self.dp_group = dp
+        self.num_experts_chosen = moe_config.num_experts_chosen
+        self.on_value = Tensor(1.0, mstype.float32)
+        self.off_value = Tensor(0.0, mstype.float32)
+        self.range = Tensor(np.tile(np.arange(131072)+1, (self.num_experts_chosen, 1)), mstype.float32)
+
+        self.cast = P.Cast()
+        self.reshape = P.Reshape()
+        self.shape = P.Shape()
+        self.softmax = P.Softmax(axis=-1).shard(((dp, 1, 1,),))
+        self.topk = P.TopK().shard(((dp, 1, 1),))
+        self.argmax = P.ArgMaxWithValue(axis=-1, keep_dims=False).shard(((dp, 1, 1),))
+        self.onehot_2d = P.OneHot().shard(((dp, 1, 1), (), ()))
+        self.onehot_3d = P.OneHot().shard(((dp, 1, 1, 1), (), ()))
+        self.cumsum = P.CumSum(exclusive=False).shard(((dp, 1, 1),))
+        self.mul_2d_1d = P.Mul().shard(((dp, 1), ()))
+        self.mul_2d = P.Mul().shard(((dp, 1), (dp, 1)))
+        self.mul_3d = P.Mul().shard(((dp, 1, 1), (dp, 1, 1)))
+        self.mul_4d = P.Mul().shard(((dp, 1, 1, 1), (dp, 1, 1, 1)))
+        self.add_2d = P.Add().shard(((dp, 1), (dp, 1)))
+        self.add_3d = P.Add().shard(((dp, 1, 1), (dp, 1, 1)))
+        self.less = P.Less().shard(((dp, 1, 1), ()))
+        self.gt = P.Greater().shard(((dp, 1), ()))
+        self.reduce_sum = P.ReduceSum(keep_dims=False).shard(((dp, 1, 1),))
+        self.transpose_3d = P.Transpose().shard(((dp, 1, 1),))
+        self.transpose = P.Transpose().shard(((dp, 1, 1, 1),))
+        self.slice = P.StridedSlice().shard(((dp, 1, 1),))
+        self.slice_range = P.StridedSlice().shard(((1, 1),))
+        self.bmm_range = P.BatchMatMul().shard(((1, 1), (dp, 1, 1, 1)))
+        self.add_eps = P.Add().shard(((dp, 1, 1), ()))
+        self.reduce_sum_keep = P.ReduceSum(keep_dims=True).shard(((dp, 1, 1),))
+        self.div_3d = P.RealDiv().shard(((dp, 1, 1), (dp, 1, 1)))
+        self.concat_3d = P.Concat(1).shard(((dp, 1, 1), (dp, 1, 1)))
+        self.zeros = Tensor(np.zeros((dp, self.expert_dim, 1, d_model)), mstype.float16)
+        self.zeros_3d = Tensor(np.zeros((dp, 1, d_model)), mstype.float16)
+        self.dispatch_gather = P.Gather(batch_dims=1).shard(((dp, 1, 1), (dp, 1, 1),))
+        self.concat = P.Concat(2).shard(((dp, 1, 1, 1), (dp, 1, 1, 1)))
+        self.combine_gather = P.Gather(batch_dims=1).shard(((dp, 1, 1), (dp, 1, 1),))
+        self.mul_router_coeff = P.Mul().shard(((dp, 1, 1, 1), (dp, 1, 1, 1)))
+        self.sum_router_coeff = P.ReduceSum(keep_dims=False).shard(((dp, 1, 1, 1),))
+
+        # sort indexing
+        self.range2 = Tensor(np.tile(np.arange(131072), (self.expert_dim, 1)), mstype.float32)
+        self.add_one = P.Add().shard(((dp, 1, 1), ()))
+        self.add_range = P.Add().shard(((1, 1, 1), ()))
+        self.sub_range = P.Sub().shard(((), (dp, 1, 1)))
+        self.mul_range = P.Mul().shard(((dp, 1, 1), (1, 1, 1)))
+        self.sort_range = P.Sort().shard(((dp, 1, 1),))
+        self.mod = P.Mod().shard(((dp, 1, 1), ()))
+        self.print = P.Print()
+
+    def dispatch(self, input_tensor, dispatch_index):
+        r"""
+            Implementing dispatch operation.
+            Inputs:
+                - **input_tensor** (Tensor) - Tensor of shape :math:`(data\_parallel, tokens\_per\_group,
+                hidden\_size)`.(dp, N, h),
+                - **dispatch_index** (Tensor) - Tensor of shape :math:`(data\_parallel, expert\_num,
+                expert\_capacity)`.(dp, E, n).
+
+            Outputs:
+                - **expert_input** (Tensor) - Tensor of shape :math:`(data\_parallel, expert\_num,
+                expert\_capacity, hidden\_size)`.(dp, E, n, h).
+        """
+        input_tensor_padded = self.concat_3d((self.zeros_3d, input_tensor)) # # (dp, 1+N, h) <-- (dp, N, h)
+        expert_input = self.dispatch_gather(input_tensor_padded, dispatch_index, 1) # (dp, E, n, h) <-- (dp, N, h), (dp, E, n)
+        return expert_input
+
+    def combine(self, expert_output, combine_index, router_coeff):
+        r"""
+            Implementing combine operation.
+            Inputs:
+                - **expert_output** (Tensor) - Tensor of shape :math:`(data\_parallel, expert\_num,
+                expert\_capacity, hidden\_size)`.(dp, E, n, h),
+                - **combine_index** (Tensor) - Tensor of shape :math:`(data\_parallel, tokens\_per\_group,
+                num\_experts\_chosen)`.(dp, N, k),
+                - **router_coeff** (Tensor) - Tensor of shape :math:`(data\_parallel, tokens\_per\_group,
+                num\_experts\_chosen)`.(dp, N, k).
+
+            Outputs:
+                - **output_tensor** (Tensor) - Tensor of shape :math:`(data\_parallel, tokens\_per\_group,
+                hidden\_size)`.(dp, N, h).
+        """
+        expert_output = self.concat((self.zeros, expert_output)) # (dp, E, 1+n, h) <-- (dp, E, n, h)
+        expert_output = self.reshape(expert_output, (expert_output.shape[0], expert_output.shape[1]*expert_output.shape[2], expert_output.shape[3])) # (dp, E*(1+n), h) <-- (dp, E, 1+n, h)
+        output_tensor = self.combine_gather(expert_output, combine_index, 1) # (dp, N, k, h) <-- (dp, E*(1+n), h), (dp, N, k)
+        output_tensor = self.mul_router_coeff(output_tensor, self.reshape(router_coeff, (router_coeff.shape[0], router_coeff.shape[1], router_coeff.shape[2], 1))) # (dp, N, k, h) <-- (dp, N, k, h) (dp, N, k, 1)
+        output_tensor = self.sum_router_coeff(output_tensor, 2) #reduce sum # (dp, N, h) <-- (dp, N, k, h)
+        return output_tensor
+
+    def construct(self, router_logits):
+        router_prob = self.softmax(router_logits) # (dp, N, expert_dim)fp32 <-- (dp, N, expert_dim)fp32
+        expert_gate, expert_index = self.topk(router_prob, self.num_experts_chosen) # (dp, N, k)int32, (dp, N, k)fp32 <-- (dp, N, expert_dim)fp32
+        dispatch_index, combine_index, router_coeff = self._maskout_overflowed_tokens_sort(expert_index, expert_gate) # (dp, E, n)int32, (dp, N, k), (dp, N, k) <-- (dp, N, k), (dp, N, k)
+        return dispatch_index, combine_index, router_coeff # (dp, E, n)int32, (dp, N, k), (dp, N, k)
+
+    def _maskout_overflowed_tokens_sort(self, expert_index, expert_gate):
+        """
+        Keeping only the tokens that fit within expert_capacity.
+        # if tokens_per_group>10: self.print("range_kn", range_kn)
+        """
+        k = self.num_experts_chosen
+        tokens_per_group = self.shape(expert_index)[1]
+        kn = k * tokens_per_group # this n refers to N
+        expert_capacity = calculate_expert_capacity(self.num_experts_chosen, tokens_per_group,
+                                                    self.capacity_factor, self.expert_dim)
+
+        # calculate combine_index from cumsum
+        expert_index = self.reshape(self.transpose_3d(expert_index, (0, 2, 1)), (expert_index.shape[0], -1)) # (dp, kN) <-- (dp, N, k) account for topk priority
+        expert_mask = self.onehot_2d(expert_index, self.expert_dim, self.on_value, self.off_value) # (dp, kN, E)fp32 <-- (dp, kN)int32
+        position_in_expert = self.mul_3d(self.cumsum(expert_mask, 1), expert_mask) # (dp, kN, E)fp16 <-- (dp, kN, E)fp32, (dp, kN, E)fp32
+        position_in_expert = self.mul_3d(position_in_expert, self.less(position_in_expert, expert_capacity+1)) # (dp, kN, E)fp32 <-- (dp, kN, E)fp32, (dp, kN, E)bool, where 0<=position_in_expert<(1+n)
+        position_in_expert_2d = self.reduce_sum(position_in_expert, -1) # (dp, kN)fp32 <-- (dp, kN, E)fp32
+        combine_index = self.add_2d(self.mul_2d_1d(expert_index, expert_capacity + 1), position_in_expert_2d) # (dp, kN)fp32 <-- (dp, kN)fp32, (dp, kN)fp32 where 0<= combine_index <E*(1+n), combine_index = expert_id *(1+n) + position_in_expert_2d
+        combine_index = self.transpose_3d(self.reshape(combine_index, (combine_index.shape[0], k, tokens_per_group)), (0, 2, 1)) # (dp, N, k) <-- (dp, kN) account for topk priority
+        within_capacity = self.cast(self.gt(position_in_expert_2d, 0), mstype.float32) # (dp, kN)bool
+
+        # calculate dispatch_index from position_in_expert_onehot
+        safe_kn = 2 * kn # factor=2 for safety
+        range_kn = self.slice_range(self.range2, (0, 0), (self.expert_dim, kn), (1, 1)).reshape(1, self.expert_dim, kn) #(1, E, kN) fp32 <-- (E, 131072)
+        select = self.transpose_3d(expert_mask, (0, 2, 1)) # (dp, E, kN) fp32 <-- (dp, kN, E) fp32
+        dispatch_index_raw = self.add_3d(self.mul_range(select, range_kn), self.mul_range(self.sub_range(1, select), self.add_range(range_kn, safe_kn))) # (dp, E, kN) <-- (dp, E, kN) fp32
+        dispatch_index, _ = self.sort_range(dispatch_index_raw) # (dp, E, k) <-- (dp, E, kN）
+        dispatch_index = self.slice(dispatch_index, (0, 0, 0), (dispatch_index.shape[0], dispatch_index.shape[1], expert_capacity), (1, 1, 1)) # (dp, E, n) <-- (dp, E, kN) fp32
+        is_safe = self.less(dispatch_index, safe_kn) # (dp, E, n) bool
+        dispatch_index = self.add_one(self.mod(dispatch_index, tokens_per_group), 1) # (dp, E, n) fp32
+        dispatch_index = self.mul_3d(dispatch_index, is_safe) # (dp, E, n) fp32
+
+        # return
+        dispatch_index = self.cast(dispatch_index, mstype.int32)
+        combine_index = self.cast(combine_index, mstype.int32)
+        router_coeff_raw = self.mul_3d(expert_gate, self.transpose_3d(self.reshape(within_capacity, (within_capacity.shape[0], k, tokens_per_group)), (0, 2, 1))) # apply within_capacity (dp, N, k) <-- (dp, N, k), (dp, N, k) <--  (dp, kN)
+        router_coeff = self._normalize(router_coeff_raw) # (dp, N, k) <-- (dp, N, k)
+        router_coeff = self.cast(router_coeff, mstype.float16) # (dp, N, k) <-- (dp, N, k)
+        return dispatch_index, combine_index, router_coeff # (dp, E, n), (dp, N, k), (dp, N, k)
+
+
+    def _normalize(self, router_coeff_raw):
+        router_coeff_sum = self.reduce_sum_keep(router_coeff_raw, 2) # (dp, N, 1) <-- (dp, N, k)
+        router_coeff = self.div_3d(router_coeff_raw, self.add_eps(router_coeff_sum, 1e-9)) # (dp, N, k) <-- (dp, N, k) (dp, N, 1)
+        return router_coeff # (dp, N, k)
