@@ -34,7 +34,7 @@ from .modeling_auto import (
     AutoModelWithLMHead,
     MODEL_FOR_CAUSAL_LM_MAPPING
 )
-from .image_processing_auto import IMAGE_PROCESSOR_MAPPING, AutoImageProcessor
+from .image_processing_auto import IMAGE_PROCESSOR_MAPPING, AutoImageProcessor, ImageProcessingMixin
 from .tokenization_auto import AutoTokenizer, TOKENIZER_MAPPING
 from .processing_auto import AutoProcessor
 
@@ -48,4 +48,5 @@ __all__ = ["CONFIG_MAPPING", "AutoConfig",
            "AutoModelForSeq2SeqLM", "AutoModelForSequenceClassification",
            "AutoModelForTextEncoding", "AutoModelForTokenClassification",
            "AutoModelForVision2Seq", "AutoModelForVisualQuestionAnswering",
-           "AutoModelForZeroShotImageClassification", "AutoModelWithLMHead", "AutoProcessor"]
+           "AutoModelForZeroShotImageClassification", "AutoModelWithLMHead", "AutoProcessor",
+           "ImageProcessingMixin"]
