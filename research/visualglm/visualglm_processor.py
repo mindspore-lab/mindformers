@@ -74,6 +74,7 @@ class VisualGLMImageProcessor(BaseImageProcessor):
         self.mean = mean
         self.std = std
         self.is_hwc = is_hwc
+        self.resize = BatchResize(self.image_size, interpolation=self.interpolation)
 
     def preprocess(self, images: Union[ms.Tensor, PIL.Image.Image,
                                        np.ndarray, List[PIL.Image.Image]], **kwargs):
@@ -87,12 +88,11 @@ class VisualGLMImageProcessor(BaseImageProcessor):
             A 4-rank tensor for a batch of images.
         """
         pilize = BatchPILize()
-        resize = BatchResize(self.image_size, interpolation=self.interpolation)
         to_tensor = BatchToTensor()
         normalize = BatchNormalize(self.mean, self.std, self.is_hwc)
 
         images = pilize(images)
-        images = resize(images)
+        images = self.resize(images)
         images = to_tensor(images)
         images = normalize(images)
 

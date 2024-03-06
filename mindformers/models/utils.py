@@ -13,6 +13,7 @@
 # limitations under the License.
 # ============================================================================
 """Check Model Input Config."""
+import json
 import mindspore.common.dtype as mstype
 from ..version_control import get_cell_reuse
 
@@ -49,6 +50,14 @@ def reverse_dict(d: dict):
             raise ValueError(f"Different keys in dict have same values.")
         new_d[v] = k
     return new_d
+
+
+def is_json_serializable(obj):
+    try:
+        json.dumps(obj)
+        return True
+    except TypeError:
+        return False
 
 
 ms_type_to_str = reverse_dict(str_to_ms_type)

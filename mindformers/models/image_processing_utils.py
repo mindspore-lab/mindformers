@@ -29,7 +29,7 @@ from mindformers.tools import logger
 from mindformers.tools import PushToHubMixin, cached_file, download_url, is_offline_mode, is_remote_url, custom_object_save
 from mindformers.utils.image_transforms import center_crop, normalize, rescale
 from mindformers.utils.image_utils import ChannelDimension
-from mindformers.models.utils import IMAGE_PROCESSOR_NAME
+from mindformers.models.utils import IMAGE_PROCESSOR_NAME, is_json_serializable
 
 def add_model_info_to_auto_map(auto_map, repo_id):
     """
@@ -406,18 +406,21 @@ class ImageProcessingMixin(PushToHubMixin):
             `str`: String containing all the attributes that make up this feature_extractor instance in JSON format.
         """
         dictionary = self.to_dict()
+        dict_output = {}
 
         for key, value in dictionary.items():
             if isinstance(value, np.ndarray):
-                dictionary[key] = value.tolist()
+                dict_output[key] = value.tolist()
+            elif is_json_serializable(value):
+                dict_output[key] = value
 
         # make sure private name "_processor_class" is correctly
         # saved as "processor_class"
-        processor_class = dictionary.pop("_processor_class", None)
+        processor_class = dict_output.pop("_processor_class", None)
         if processor_class is not None:
-            dictionary["processor_class"] = processor_class
+            dict_output["processor_class"] = processor_class
 
-        return json.dumps(dictionary, indent=2, sort_keys=True) + "\n"
+        return json.dumps(dict_output, indent=2, sort_keys=True) + "\n"
 
     def to_json_file(self, json_file_path: Union[str, os.PathLike]):
         """
@@ -489,8 +492,6 @@ class BaseImageProcessor(ImageProcessingMixin):
     """
     # pylint: disable=W0235
     def __init__(self, **kwargs):
-        self.config = {}
-        self.config.update(kwargs)
         super().__init__(**kwargs)
 
     def __call__(self, images, **kwargs) -> ms.Tensor:
