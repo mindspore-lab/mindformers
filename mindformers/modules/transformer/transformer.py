@@ -350,7 +350,7 @@ class TransformerOpParallelConfig(_Config):
 
     def to_diff_dict(self):
         config_dict = self.to_dict()
-        default_dict = TransformerOpParallelConfig().to_dict()
+        default_dict = default_transformer_config.to_dict()
         res_dict = {}
         for k, v in config_dict.items():
             if v != default_dict[k]:

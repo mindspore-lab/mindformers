@@ -24,7 +24,8 @@ IMAGE_PROCESSOR_NAME = FEATURE_EXTRACTOR_NAME
 
 str_to_ms_type = {
     "float16": mstype.float16,
-    "float32": mstype.float32
+    "float32": mstype.float32,
+    "bfloat16": mstype.bfloat16
 }
 
 
