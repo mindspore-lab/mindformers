@@ -28,6 +28,8 @@ NUM_LAYERS = 4
 DYNAMIC_REPO_ID = "mindformersinfra/test_dynamic_config"
 DYNAMIC_CLASS_NAME = "Baichuan2Config"
 
+MODEL_TYPE = "gpt2"
+
 
 class TestAutoConfig(unittest.TestCase):
     """test AutoConfig"""
@@ -78,3 +80,8 @@ class TestAutoConfig(unittest.TestCase):
         """Test load config by from_pretrained() with local yaml file path"""
         config = AutoConfig.from_pretrained("configs/llama/run_llama_7b.yaml")
         self.assertTrue(isinstance(config, LlamaConfig))
+
+    def test_for_model(self):
+        """Test for_model"""
+        config = AutoConfig.for_model(MODEL_TYPE)
+        self.assertTrue(isinstance(config, GPT2Config))
