@@ -262,6 +262,15 @@ class AutoConfig:
         return False
 
     @classmethod
+    def for_model(cls, model_type: str, *args, **kwargs):
+        if model_type in CONFIG_MAPPING:
+            config_class = CONFIG_MAPPING[model_type]
+            return config_class(*args, **kwargs)
+        raise ValueError(
+            f"Unrecognized model identifier: {model_type}. Should contain one of {', '.join(CONFIG_MAPPING.keys())}"
+        )
+
+    @classmethod
     def from_pretrained(cls, yaml_name_or_path, **kwargs):
         """
         From pretrain method, which instantiates a config by yaml model name or path.
