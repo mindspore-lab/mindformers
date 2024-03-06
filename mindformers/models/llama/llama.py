@@ -40,6 +40,7 @@ from mindformers.modules.layers import Linear
 from mindformers.modules.transformer.op_parallel_config import _check_config
 from mindformers.modules.transformer.transformer import LowerTriangularMaskWithDynamic
 from mindformers.tools.register.register import MindFormerModuleType, MindFormerRegister
+from mindformers.version_control import check_valid_paged_attention
 
 from .llama_config import LlamaConfig
 from .llama_layer import LlamaEmbedding, LlamaRMSNorm, FreqsMgr
@@ -131,6 +132,9 @@ class LlamaModel(BaseModel):
             logger.info("Enable flash attention.")
         elif config.use_flash_attention:
             logger.info("Current MindSpore do not support flash attention.")
+        self.use_paged_attention = config.use_paged_attention and check_valid_paged_attention()
+        if self.use_paged_attention:
+            logger.info("Enable paged attention.")
 
         self.shape = P.Shape()
         self.reshape = P.Reshape().add_prim_attr("skip_redistribution", True)
@@ -200,6 +204,9 @@ class LlamaModel(BaseModel):
                                          param_init_type=config.param_init_type,
                                          use_past=config.use_past,
                                          use_flash_attention=config.use_flash_attention,
+                                         use_paged_attention=self.use_paged_attention,
+                                         block_size=config.block_size,
+                                         num_blocks=config.num_blocks,
                                          is_dynamic=config.is_dynamic,
                                          use_kvcache_op=config.use_kvcache_op,
                                          is_flexible_shape=config.is_flexible_shape,
@@ -214,7 +221,8 @@ class LlamaModel(BaseModel):
                                                     max_seq_length=config.seq_length,
                                                     is_dynamic=config.is_dynamic,
                                                     use_kvcache_op=config.use_kvcache_op,
-                                                    is_flexible_shape=config.is_flexible_shape)
+                                                    is_flexible_shape=config.is_flexible_shape,
+                                                    use_paged_attention=self.use_paged_attention)
 
         dp = config.parallel_config.data_parallel
         if not (_get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation()):
@@ -235,7 +243,8 @@ class LlamaModel(BaseModel):
                 self.norm_out.shard((dp, 1, 1))
 
     # pylint: disable=W0613
-    def construct(self, tokens: Tensor, batch_valid_length=None, batch_index=None, zactivate_len=None):
+    def construct(self, tokens: Tensor, batch_valid_length=None, batch_index=None, zactivate_len=None,
+                  block_tables=None, slot_mapping=None):
         """
         Forward of llama model.
 
@@ -272,7 +281,8 @@ class LlamaModel(BaseModel):
                     mask = self.casual_mask.increment(self.kvcache_preprocess.range, batch_valid_length, zactivate_len)
             mask = self.casual_mask.post_process(mask)
 
-            kvcache_inputs = self.kvcache_preprocess(bs, batch_valid_length, batch_index, zactivate_len)
+            kvcache_inputs = self.kvcache_preprocess(bs, batch_valid_length, batch_index, zactivate_len,
+                                                     block_tables, slot_mapping)
 
         # tokens: [bs, seq/1]
         h = self.tok_embeddings(tokens)
@@ -376,11 +386,16 @@ class LlamaForCausalLM(BaseModel):
 
     def prepare_inputs_for_export(self, full_model=True):
         dyn = self.config.is_dynamic
+        use_paged_attention = self.config.use_paged_attention and check_valid_paged_attention()
         if dyn:
             logger.info(f"Exporting dynamic MindIR...")
+        if use_paged_attention:
+            logger.info(f"Exporting model with paged attention...")
         seq_length = self.seq_length
         bs = None if dyn else self.config.batch_size
         seq_len = None if dyn else self.seq_length
+        max_num_blocks_pre_batch = None if dyn else seq_len // self.config.block_size
+        logger.info(f"max num blocks pre batch: {max_num_blocks_pre_batch}")
 
         def dummy_tensor(shape, dtype):
             if None in shape:
@@ -388,19 +403,28 @@ class LlamaForCausalLM(BaseModel):
             return Tensor(np.ones(shape=tuple(shape)), dtype=dtype)
 
         batch_valid_length = dummy_tensor(shape=[bs], dtype=ms.int32)
-        batch_index = dummy_tensor(shape=[bs], dtype=ms.int64)
-        zactivate_len = dummy_tensor(shape=[seq_len], dtype=ms.int64)
+        batch_index = None if use_paged_attention else dummy_tensor(shape=[bs], dtype=ms.int64)
+        zactivate_len = None if use_paged_attention else dummy_tensor(shape=[seq_len], dtype=ms.int64)
+        pa_input = None if dyn else bs * seq_len
         if full_model:
             logger.info('\nexporting with batch_size = %s, seq = %s ...', self.config.batch_size, seq_length)
+            slot_mapping = dummy_tensor(shape=[pa_input], dtype=ms.int32) if use_paged_attention else None
             input_ids = dummy_tensor(shape=[bs, seq_len], dtype=ms.int32)
+            block_tables = None
         else:
             logger.info('\nexporting with batch_size = %s, seq = 1 ...', self.config.batch_size)
             input_ids = dummy_tensor(shape=[bs, 1], dtype=ms.int32)
-        return input_ids, None, None, None, None, None, None, batch_valid_length, batch_index, zactivate_len
+            slot_mapping = dummy_tensor(shape=[bs], dtype=ms.int32) if use_paged_attention else None
+            block_tables = dummy_tensor(shape=[bs, max_num_blocks_pre_batch],
+                                        dtype=ms.int32) if use_paged_attention else None
+
+        return input_ids, None, None, None, None, None, None, batch_valid_length, batch_index, zactivate_len, \
+               block_tables, slot_mapping
 
     # pylint: disable=W0613
     def construct(self, input_ids, labels=None, input_position=None, position_ids=None, attention_mask=None,
-                  input_embeds=None, init_reset=True, batch_valid_length=None, batch_index=None, zactivate_len=None):
+                  input_embeds=None, init_reset=True, batch_valid_length=None, batch_index=None, zactivate_len=None,
+                  block_tables=None, slot_mapping=None):
         r"""
         LlamaForCausalLM forward.
 
@@ -431,7 +455,7 @@ class LlamaForCausalLM(BaseModel):
             batch_valid_length = self.reshape(batch_valid_length, (-1,))
         if not self.is_first_iteration:
             batch_valid_length = self.sub_batch_valid_len(batch_valid_length, 1)
-        output = self.model(tokens, batch_valid_length, batch_index, zactivate_len)
+        output = self.model(tokens, batch_valid_length, batch_index, zactivate_len, block_tables, slot_mapping)
         pre_gather = (not self.use_past or self.is_first_iteration) and batch_valid_length is not None
         if pre_gather:
             output = self.gather(output, self.sub_batch_valid_len(batch_valid_length, 1), 1)
