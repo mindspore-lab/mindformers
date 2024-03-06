@@ -130,10 +130,7 @@ class DynShapeGear:
 
 
 class BaseInfer(metaclass=abc.ABCMeta):
-    """
-    BaseInfer.
-    """
-
+    """BaseInfer."""
     def __init__(self,
                  config: InferConfig = None,
                  tokenizer: Optional[BaseTokenizer] = None,
@@ -146,6 +143,9 @@ class BaseInfer(metaclass=abc.ABCMeta):
         self.seq_length = config.seq_length
         self.config_path = config.config_path
         self.dynamic = config.dynamic
+        self.paged_attention = config.paged_attention
+        self.block_size = config.block_size
+        self.num_blocks = config.num_blocks
 
         self.context = build_context(config=self.config)
         self.tokenizer = tokenizer
@@ -168,17 +168,14 @@ class BaseInfer(metaclass=abc.ABCMeta):
             self.dynshape_gears = DynShapeGear(self.increment_config)
 
     def _load_model(self, model_path):
-        """ load single model from model path.
-        """
+        """ load single model from model path."""
         model = Model()
         model.build_from_file(model_path, model_type=self.model_type,
                               context=self.context, config_path=self.config_path)
         return model
 
     def _load_increment_models(self, full_model_path, cache_model_path, prefill_config, increment_config):
-        """
-        load kv cache models.
-        """
+        """load kv cache models."""
         full_model = Model()
         cache_model = Model()
 

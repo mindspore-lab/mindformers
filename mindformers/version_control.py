@@ -215,3 +215,34 @@ def check_valid_big_kernel():
     else:
         result = True
     return result
+
+def is_version_python(cur_ver, tar_ver):
+    """
+        return cur_ver >= tar_ver.
+        Check whether the current version is higher than or equal to the base version.
+        for cur_ver: 3.7.10, tar_ver: 3.9.0, it return False.
+        you can get python cur_ver through:
+            cur_py_ver = sys.version.split(' ')[0]
+    """
+    version_split_char = '.'
+    if version_split_char not in tar_ver or version_split_char not in cur_ver:
+        raise ValueError("The version string will contain the `.`."
+                         "For example, cur_ver: 3.7.10， tar_ver: 3.9.0")
+    for x, y in zip(cur_ver.split(version_split_char), tar_ver.split(version_split_char)):
+        if not x.isdigit() or not y.isdigit():
+            continue
+        if int(x) != int(y):
+            return int(x) >= int(y)
+    return True
+
+def check_valid_paged_attention():
+    """check mindspore version is valid for paged attention"""
+    version_valid = is_version_ge(ms.__version__, "2.2.12")
+    # below ms 2.2.12 is not support
+    if not version_valid:
+        logger.warning("Current MindSpore do not support PagedAttention, please upgrade to 2.2.12 or later version.")
+        logger.warning("Now running on self-attention mode.")
+        result = False
+    else:
+        result = True
+    return result
