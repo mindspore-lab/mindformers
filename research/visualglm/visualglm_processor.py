@@ -158,7 +158,7 @@ class VisualGLMProcessor(ProcessorMixin):
     """
 
     attributes = ["tokenizer", "image_processor"]
-    image_processor_class = "VisualGLMImageProcessor"
+    image_processor_class = "AutoImageProcessor"
     tokenizer_class = "AutoTokenizer"
 
     def __init__(self, image_processor, tokenizer,
