@@ -111,11 +111,15 @@ def main(task='text_generation',
         task = Trainer(args=config, task=task)
         prompt = predict_data
         result = task.predict(input_data=prompt,
-                              predict_checkpoint=ckpt, max_length=int(max_length), seq_length=max_length)
+                              predict_checkpoint=ckpt, max_length=int(max_length))
         print(result)
     elif run_mode == 'finetune':
         trainer = Trainer(args=config, task=task, train_dataset=train_dataset)
         trainer.finetune(finetune_checkpoint=ckpt, auto_trans_ckpt=auto_trans_ckpt)
+    elif run_mode == 'export':
+        trainer = Trainer(args=config,
+                          task=task)
+        trainer.export(predict_checkpoint=ckpt)
     else:
         raise NotImplementedError(f"run_mode '${run_mode}' not supported yet.")
 
@@ -160,7 +164,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     if args.device_id == -1:
-        args.device_id = int(os.getenv("RANK_ID", "0"))
+        args.device_id = int(os.getenv("DEVICE_ID", "0"))
 
     main(task=args.task,
          config=args.config,

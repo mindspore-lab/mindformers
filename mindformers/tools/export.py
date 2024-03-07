@@ -31,9 +31,6 @@ from mindformers.tools.register import MindFormerConfig
 from research.baichuan2.baichuan2_7b import Baichuan7BV2ForCausalLM
 from research.baichuan2.baichuan2_13b import Baichuan13BV2ForCausalLM
 
-# pylint: disable=W0611
-import research.qwen.qwen_model
-import research.qwen.qwen_config
 
 def get_glm_prefill_model_input(batch_size, seq_length):
     """get glm model input tuple."""
@@ -154,7 +151,6 @@ PREFILL_MODEL_INPUT_MAP = {
     "glm2": get_glm2_prefill_model_input,
     "glm3": get_glm2_prefill_model_input,
     "baichuan2": get_llm_common_prefill_model_input,
-    "qwen": get_llm_common_prefill_model_input
 }
 
 INCREMENT_MODEL_INPUT_MAP = {
@@ -167,7 +163,6 @@ INCREMENT_MODEL_INPUT_MAP = {
     "glm3": get_glm2_inc_model_input,
     "codegeex2": get_glm2_inc_model_input,
     "baichuan2": get_baichuan2_inc_model_input,
-    "qwen": get_llama_inc_model_input
 }
 
 
