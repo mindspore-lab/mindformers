@@ -20,7 +20,7 @@ parallel:
   enable_alltoall: False
   full_batch: True
   search_mode: "sharding_propagation"
-  enable_parallel_optimizer: True
+  enable_parallel_optimizer: False
   strategy_ckpt_save_file: "./ckpt_strategy.ckpt"
   parallel_optimizer_config:
     gradient_accumulation_shard: False
@@ -76,6 +76,12 @@ model:
     extend_method: "None" # support "None", "PI", "NTK"
     compute_in_2d: True
     use_flash_attention: False
+    use_paged_attention: False  # PA only supported in inference
+    block_size: 16
+    num_blocks: 512
+    is_dynamic: False
+    use_kvcache_op: False
+    is_flexible_shape: False
     offset: 0
     use_past_shard: False
     checkpoint_name_or_path: "{path}/llama2_7b.ckpt" # 导出任务这里必填

@@ -72,6 +72,7 @@ class LlamaConfig(BaseConfig):
         extend_method(str): The extend method of seq length of inferencem,default None.
         compute_in_2d(bool): Whether compute in 2-dims tensor, default False.
         use_flash_attention(bool): Whether enable flash attention ops, default False.
+        use_paged_attention(bool): Whether enable paged attention ops, default False.
         offset(int): Offset of transformer layer when set pipeline stage number.
         use_past_shard(bool): The configuration of kvcache parallel shard, default False.
         checkpoint_name_or_path (Optional[str]):
@@ -89,7 +90,10 @@ class LlamaConfig(BaseConfig):
             that add up to `top_p` or higher are kept for generation.
         do_sample (`bool`, *optional*, defaults to `False`):
             Whether or not to use sampling ; use greedy decoding otherwise.
-
+        block_size (`int`, *optional*, defaults to 16):
+            The maximum number of tokens in one block can have when using paged attention.
+        num_blocks (`int`, *optional*, defaults to 512):
+            The maximum number of blocks when using paged attention.
         Returns:
             Class, LlamaConfig.
     """
@@ -133,11 +137,14 @@ class LlamaConfig(BaseConfig):
                  is_flexible_shape: bool = False,
                  use_rope_slice: bool = False,
                  use_flash_attention: bool = False,
+                 use_paged_attention: bool = False,
                  fine_grain_interleave: int = 1,
                  offset: int = 0,
                  checkpoint_name_or_path: str = "",
                  repetition_penalty: float = 1.0,
                  max_decode_length: int = 1024,
+                 block_size: int = 16,
+                 num_blocks: int = 512,
                  top_k: int = 5,
                  top_p: float = 1.0,
                  do_sample: bool = True,
@@ -193,3 +200,10 @@ class LlamaConfig(BaseConfig):
         self.top_p = top_p
         self.do_sample = do_sample
         self.theta = theta
+        self.use_paged_attention = use_paged_attention
+        self.block_size = block_size
+        self.num_blocks = num_blocks
+        if batch_size * seq_length // self.block_size > self.num_blocks:
+            logger.warning(
+                f"Argument `num blocks` is less than the maximum possible block numbers. "
+                f"May cause `block pool is out of memory` error")

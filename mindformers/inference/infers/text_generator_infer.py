@@ -475,7 +475,7 @@ class TextGeneratorInfer(BaseInfer):
         if self.dynamic:
             pad_length = max_length - valid_length
             real_pad_length = max(valid_length) - valid_length
-            target_length = kwargs["max_new_tokens"] + max(valid_length) if kwargs.get(
+            target_length = min(kwargs["max_new_tokens"] + max(valid_length), max_length) if kwargs.get(
                 "max_new_tokens") else max_length
         else:
             target_length = self.seq_length if max_length > self.seq_length else max_length

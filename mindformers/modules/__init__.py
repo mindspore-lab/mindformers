@@ -17,6 +17,7 @@ from .transformer import *
 from .layers import *
 from .local_block_sparse_attention import *
 from .kvcache_mgr import *
+from .paged_attention_mgr import *
 
 __all__ = []
 __all__.extend(transformer.__all__)
