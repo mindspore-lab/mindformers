@@ -726,6 +726,7 @@ class PushToHubMixin:
             safe_serialization: bool = True,
             revision: str = None,
             commit_description: str = None,
+            save_json: bool = False,
             **deprecated_kwargs,
     ) -> str:
         """
@@ -789,7 +790,8 @@ class PushToHubMixin:
             files_timestamps = self._get_files_timestamps(work_dir)
 
             # Save all files.
-            self.save_pretrained(work_dir, max_shard_size=max_shard_size, safe_serialization=safe_serialization)
+            self.save_pretrained(work_dir, max_shard_size=max_shard_size,
+                                 safe_serialization=safe_serialization, save_json=save_json)
 
             return self._upload_modified_files(
                 work_dir,
