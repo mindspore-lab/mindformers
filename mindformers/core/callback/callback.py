@@ -320,7 +320,7 @@ class MFLossMonitor(Callback):
                             cur_epoch_num, origin_epochs, cur_step_num, steps_per_epoch, loss, np.mean(self.loss_list),
                             int(per_step_seconds), current_lr, overflow, scaling_sens)
             show_str = ('|%%-%ds|' % 50) % (int(50 * percent / 100) * "█")
-            logger.info("  %4.1f%% %s %.2f samples/s/p  %s }", percent, show_str, throughput,
+            logger.info("  %4.1f%% %s %.5f samples/s/p  %s }", percent, show_str, throughput,
                         datetime.timedelta(seconds=int(time_remain)))
         else:
             if cb_params.dataset_sink_mode:
@@ -334,7 +334,7 @@ class MFLossMonitor(Callback):
                             cur_epoch_num, origin_epochs, cur_step_num, steps_per_epoch, loss, np.mean(self.loss_list),
                             int(per_step_seconds), overflow, scaling_sens)
             show_str = ('|%%-%ds|' % 50) % (int(50 * percent / 100) * "█")
-            logger.info("  %4.1f%% %s %.2f samples/s/p  %s }", percent, show_str, throughput,
+            logger.info("  %4.1f%% %s %.5f samples/s/p  %s }", percent, show_str, throughput,
                         datetime.timedelta(seconds=int(time_remain)))
 
     def dump_info_to_modelarts(self, ma_step_num, ma_loss):
