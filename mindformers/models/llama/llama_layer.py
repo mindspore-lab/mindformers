@@ -507,15 +507,18 @@ class CausalMask(nn.Cell):
     @_LogActionOnce(m_logger=logger, key='AttentionMask',
                     no_warning=_get_parallel_mode() in (ParallelMode.STAND_ALONE,))
     def __init__(self, seq_length, compute_type=mstype.float16,
-                 is_dynamic=False, pad_token_id=0, use_flash_attention=False):
+                 is_dynamic=False, pad_token_id=0, use_flash_attention=False,
+                 use_prompt_flash_attention=False):
         super().__init__()
         self.dtype = compute_type
         self.is_dynamic = is_dynamic
         self.pad_token_id = pad_token_id
         self.use_flash_attention = use_flash_attention
+        self.use_prompt_flash_attention = use_prompt_flash_attention
+        self.is_first_iteration = True
         self.multiply_data = Tensor([-10000.0], dtype=compute_type)
         self.one = Tensor([1.0], dtype=compute_type)
-        self.lower_triangle_mask = Tensor(np.tril(np.ones(shape=(seq_length, seq_length))), mstype.float32)
+        self.lower_triangle_mask = Tensor(np.tril(np.ones(shape=(seq_length, seq_length))), dtype=compute_type)
 
         self.shape = P.Shape()
         self.cast = P.Cast()
@@ -542,11 +545,8 @@ class CausalMask(nn.Cell):
             input_mask = self.cast(masks, self.dtype)
 
         shape_right = (bs, 1, seq_len)
-        shape_left = (bs, seq_len, 1)
         # Mask the padded inputs
-        mask_left = self.reshape(input_mask, shape_left)
-        mask_right = self.reshape(input_mask, shape_right)
-        attention_mask = self.bmm(mask_left, mask_right)
+        attention_mask = self.reshape(input_mask, shape_right)
         if not self.is_dynamic:
             lower_traiangle = self.expand_dim(self.lower_triangle_mask, 0)
         else:
@@ -554,27 +554,36 @@ class CausalMask(nn.Cell):
             lower_traiangle = self.expand_dim(lower_triangle_mask, 0)
         # the returned shape is [bs, seq_length, seq_length]
         attention_mask = self.mul(attention_mask, lower_traiangle)
+        attention_mask = self.sub(self.one, attention_mask)
+        attention_mask = self.expand_dim_post(attention_mask, 1)
+        if not self.use_flash_attention and not self.use_prompt_flash_attention:
+            attention_mask = self.mul_post(attention_mask, self.multiply_data)
+        elif self.use_flash_attention:
+            attention_mask = self.cast(attention_mask, mstype.uint8)
         return attention_mask
 
     def increment(self, seq_range, batch_valid_length, zactivate_len=None):
+        "Get mask for incremental inference."
         if zactivate_len is not None:
             seq_range = self.slice(seq_range, (0, 0, 0), (1, 1, self.shape(zactivate_len)[0]), (1, 1, 1))
         mask = self.less_equal(self.reshape(seq_range, (1, 1, -1)), self.reshape(batch_valid_length, (-1, 1, 1)))
-        return self.cast(mask, self.dtype)
+        mask = self.cast(mask, self.dtype)
+        mask = self.sub(self.one, mask)
+        mask = self.expand_dim_post(mask, 1)
+        mask = self.mul_post(mask, self.multiply_data)
+        return mask
 
     def increment_slice(self, seq_range, seq_length, batch_valid_length, zactivate_len=None):
+        "Get mask for incremental inference and apply slice."
         if zactivate_len is not None:
             seq_range_mask = self.slice(seq_range, (0, 0, 0), (1, 1, self.shape(zactivate_len)[0]), (1, 1, 1))
         else:
             seq_range_mask = self.slice(seq_range, (0, 0, 0), (1, 1, seq_length), (1, 1, 1))
         mask = self.less_equal(self.reshape(seq_range_mask, (1, 1, -1)), self.reshape(batch_valid_length, (-1, 1, 1)))
-        return self.cast(mask, self.dtype)
-
-    def post_process(self, mask):
+        mask = self.cast(mask, self.dtype)
         mask = self.sub(self.one, mask)
-        if not self.use_flash_attention:
-            mask = self.expand_dim_post(mask, 1)
-            mask = self.mul_post(mask, self.multiply_data)
+        mask = self.expand_dim_post(mask, 1)
+        mask = self.mul_post(mask, self.multiply_data)
         return mask
 
     def shard(self, parallel_config):
