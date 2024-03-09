@@ -138,6 +138,7 @@ def main(config='./',
         messages.append({"role": "user", "content": input("请输入：")}) # "帮助我制定一份去上海的旅游攻略"
         input_ids = build_chat_input(model_config, tokenizer, messages, max_new_tokens)
         outputs = network.generate(input_ids,
+                                   max_new_tokens=max_new_tokens,
                                    streamer=streamer,
                                    temperature=temperature,
                                    top_k=top_k,
