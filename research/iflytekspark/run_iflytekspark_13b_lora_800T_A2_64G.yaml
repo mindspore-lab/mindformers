@@ -93,7 +93,7 @@ recompute_config:
   recompute: True
   parallel_optimizer_comm_recompute: False
   mp_comm_recompute: True
-  recompute_slice_activation: True
+  recompute_slice_activation: False
 
 # callbacks
 callbacks:
