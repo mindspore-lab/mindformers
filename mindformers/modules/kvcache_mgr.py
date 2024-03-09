@@ -23,7 +23,6 @@ from mindspore.ops import operations as P
 
 class KVCacheMgr(nn.Cell):
     """KVCache Manager."""
-
     def __init__(self,
                  n_head,
                  head_dim,
@@ -194,7 +193,6 @@ class KVCacheMgr(nn.Cell):
 
 class KVCachePreprocess(nn.Cell):
     """KVCache Manager."""
-
     def __init__(self,
                  max_batch_size=8,
                  max_seq_length=4096,
