@@ -19,7 +19,7 @@ import numpy as np
 
 from mindspore.common.tensor import Tensor
 from mindspore.common.parameter import Parameter
-from mindspore import nn
+from mindspore import nn, ops
 import mindspore.common.dtype as mstype
 from mindspore.ops import operations as P
 from mindspore.ops import functional as F
@@ -540,7 +540,8 @@ class CausalMask(nn.Cell):
         self.is_first_iteration = True
         self.multiply_data = Tensor([-10000.0], dtype=compute_type)
         self.one = Tensor([1.0], dtype=compute_type)
-        self.lower_triangle_mask = Tensor(np.tril(np.ones(shape=(seq_length, seq_length))), dtype=compute_type)
+        self.lower_triangle_mask = ops.cast(Tensor(np.tril(np.ones(shape=(seq_length, seq_length))), mstype.float32),
+                                            compute_type)
 
         self.shape = P.Shape()
         self.cast = P.Cast()
