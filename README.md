@@ -29,6 +29,7 @@ MindSpore Transformers套件基于MindSpore内置的并行技术和组件化设�
 |:--------------------------------------------------:|:-------------------------------------------------------------------|
 |        [LLama2](docs/model_cards/llama2.md)        | llama2_7b, llama2_13b, llama2_7b_lora, llama2_13b_lora, llama2_70b |
 |          [GLM2](docs/model_cards/glm2.md)          | glm2_6b, glm2_6b_lora                                              |
+|     [CodeLlama](docs/model_cards/codellama.md)     | codellama_34b                                                      |
 |     [CodeGeex2](docs/model_cards/codegeex2.md)     | codegeex2_6b                                                       |
 |         [LLama](docs/model_cards/llama.md)         | llama_7b, llama_13b, llama_7b_lora                                 |
 |           [GLM](docs/model_cards/glm.md)           | glm_6b, glm_6b_lora                                                |
@@ -127,7 +128,7 @@ MindFormers套件对外提供两种使用和开发形式，为开发者提供灵
     - step1：git clone mindformers
 
   ```shell
-  git clone -b dev https://gitee.com/mindspore/mindformers.git
+  git clone -b r1.0 https://gitee.com/mindspore/mindformers.git
   cd mindformers
   ```
 
@@ -138,7 +139,7 @@ MindFormers套件对外提供两种使用和开发形式，为开发者提供灵
     - step4：如果要使用分布式训练，则需提前生成RANK_TABLE_FILE
 
   ```shell
-  # 不包含8本身，生成0~7卡的hccl json文件
+  # 不包含8本身，生成0~7卡的hccl json文件。注意：不支持在镜像容器中执行该命令，请在容器外执行。
   python mindformers/tools/hccl_tools.py --device_num [0,8)
   ```
 
