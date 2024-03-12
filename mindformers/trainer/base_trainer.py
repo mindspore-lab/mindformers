@@ -411,6 +411,13 @@ class BaseTrainer:
             network = _VirtualDatasetCell(network)
         return network
 
+    def wrap_eval_network_with_tool_cells(self, network):
+        """For evaluate in training process, warp the network with some tool cells."""
+        parallel_mode = ms.context.get_auto_parallel_context("parallel_mode")
+        if parallel_mode in ["semi_auto_parallel", "auto_parallel"]:
+            network = _VirtualDatasetCell(network)
+        return network
+
     def create_image_processor(self, default_args: dict = None):
         """Create the image processor for predict."""
         logger.info(".........Build Image Processor From Config..........")
@@ -648,6 +655,7 @@ class BaseTrainer:
             eval_network = network
             # warp network for training
             network = self.wrap_network_with_tool_cells(eval_network)
+            eval_network = self.wrap_eval_network_with_tool_cells(eval_network)
             self.set_network(network, is_train=True)
         if wrapper is not None:
             self.set_model_wrapper(wrapper)
