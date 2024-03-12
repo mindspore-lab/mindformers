@@ -69,8 +69,8 @@ telechat_7b:
 ### 环境要求
 
 - 硬件：Ascend 910B
-- MindSpore：2.2.11(待发布)
-- CANN: 7.1(待发布)
+- MindSpore：2.2.11
+- CANN: 7.1
 - MindFormers版本：dev
 
 注：910b芯片：7b推理可在单机单卡上完成部署。
@@ -137,13 +137,13 @@ mindspore_path: 权重保存文件名，可以指定自定义保存路径
 
 2.获取MindFormers提供的已转换权重，可直接从下面的链接获取。
 
-- [telechat-7b](待添加)
+- [telechat-7b](https://telechat-docker.obs.cn-north-4.myhuaweicloud.com/model_weight/mindspore.ckpt)
 
-### [分布式训练/微调权重合并](../../feature_cards/Transform_Ckpt.md)
+### [分布式训练/微调权重合并](../../docs/feature_cards/Transform_Ckpt.md)
 
 分布式训练/微调后所得到的权重文件为根据策略切分后的权重，需要手动将切分权重合一，以用于评估和推理。
 
-涉及到ckpt的单卡，多卡转换，详细教程请参考特性文档模型[权重切分与合并](../../feature_cards/Transform_Ckpt.md)
+涉及到ckpt的单卡，多卡转换，详细教程请参考特性文档模型[权重切分与合并](../../docs/feature_cards/Transform_Ckpt.md)
 
 - step 1. 获取模型切分策略文件：
 
