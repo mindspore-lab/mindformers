@@ -67,7 +67,7 @@ class AdaptiveLossScaleUpdateCell(Cell):
 
     For loss scaling training, the initial loss scaling value will be set to be `loss_scale_value`.
     A scale window list which will be used to control loss scale adaptively will be initialized
-    according tp 'max_scale_window'.
+    according to 'max_scale_window'.
     In each training step, the loss scaling value will be decreased by `loss_scale`/`scale_factor`
     when there is an overflow. And it will be increased by `loss_scale` * `scale_factor` if there is no
     overflow for a continuous `scale_window` steps. Moreover, the scale window will be increased to next
