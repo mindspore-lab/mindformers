@@ -66,7 +66,6 @@ if __name__ == '__main__':
                         shard_num=args.file_partition)
     writer.set_page_size(256*1024*1024)
     writer.add_schema(schema, args.mindrecord_schema)
-    writer.open_and_set_header()
 
     # Start to load tokenizer
     if not os.path.exists(args.model_file):

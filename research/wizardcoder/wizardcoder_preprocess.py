@@ -169,7 +169,6 @@ if __name__ == '__main__':
 
     writer = FileWriter(file_name=args.output_file, shard_num=args.file_partition)
     writer.add_schema(schema, args.mindrecord_schema)
-    writer.open_and_set_header()
 
     # Start to load tokenizer
     if not os.path.exists(args.vocab_file):
