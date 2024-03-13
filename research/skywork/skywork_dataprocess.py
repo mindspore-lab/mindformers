@@ -122,7 +122,6 @@ if __name__ == '__main__':
     writer = FileWriter(file_name=args.output_file,
                         shard_num=args.file_partition)
     writer.add_schema(schema, args.dataset_type)
-    writer.open_and_set_header()
     # Start to load tokenizer
     if not os.path.exists(args.model_file):
         raise FileNotFoundError(f"file {args.model_file} do not exists.")
