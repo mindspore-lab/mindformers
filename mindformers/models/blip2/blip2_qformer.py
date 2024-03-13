@@ -294,7 +294,7 @@ class Blip2Qformer(Blip2Base):
         decoder_input_ids[:, 0] = self.bos_token_id
         decoder_input_ids = decoder_input_ids.astype(mstype.int32)
         labels = decoder_input_ids.masked_fill(
-            decoder_input_ids == self.pad_token_id, -100
+            decoder_input_ids == self.pad_token_id, Tensor(-100, decoder_input_ids.dtype)
         )
 
         query_tokens = self.broadcast_to(self.query_tokens, (image_embeds.shape[0], -1, -1))
@@ -413,7 +413,7 @@ class Blip2Qformer(Blip2Base):
         diag_fill_mask_t2i = self.eye(weights_t2i.shape[0], batch_size, mstype.bool_)
         filled_weights_t2i = self.masked_fill(
             weights_t2i[:, self.rank * batch_size: self.rank * batch_size + batch_size],
-            diag_fill_mask_t2i, 0)
+            diag_fill_mask_t2i, Tensor(0, weights_t2i.dtype))
         weights_t2i[:, self.rank * batch_size: self.rank *
                     batch_size + batch_size] = filled_weights_t2i
 
@@ -421,7 +421,7 @@ class Blip2Qformer(Blip2Base):
         diag_fill_mask_i2t = self.eye(weights_i2t.shape[0], batch_size, mstype.bool_)
         filled_weights_i2t = self.masked_fill(
             weights_i2t[:, self.rank * batch_size: self.rank * batch_size + batch_size],
-            diag_fill_mask_i2t, 0)
+            diag_fill_mask_i2t, Tensor(0, weights_i2t.dtype))
         weights_i2t[:, self.rank * batch_size: self.rank *
                     batch_size + batch_size] = filled_weights_i2t
 

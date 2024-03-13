@@ -99,7 +99,7 @@ class CrossEntropyLoss(LossBase):
             target = target.expand_dims(target_dim)
         if ignore_index is not None:
             non_pad_mask = self.equal(target, ignore_index)
-            target = target.masked_fill(non_pad_mask, 0)
+            target = target.masked_fill(non_pad_mask, Tensor(0, target.dtype))
         else:
             non_pad_mask = target
         target = target.squeeze(target_dim)
@@ -112,8 +112,8 @@ class CrossEntropyLoss(LossBase):
         else:
             loss_weights = self.ones_like(loss)
         if ignore_index is not None:
-            loss = loss.masked_fill(non_pad_mask, 0.)
-            loss_weights = loss_weights.masked_fill(non_pad_mask, 0.)
+            loss = loss.masked_fill(non_pad_mask, Tensor(0, loss.dtype))
+            loss_weights = loss_weights.masked_fill(non_pad_mask, Tensor(0, loss_weights.dtype))
 
         loss = loss.squeeze(target_dim)
         if reduction == 'sum':

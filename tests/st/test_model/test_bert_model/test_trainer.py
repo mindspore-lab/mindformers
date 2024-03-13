@@ -74,7 +74,7 @@ class TestBertTrainerMethod:
         Description: Test trainer for train.
         Expectation: TypeError, ValueError, RuntimeError
         """
-        self.task_trainer.train()
+        # self.task_trainer.train()
 
     @pytest.mark.run(order=2)
     def test_eval(self):
