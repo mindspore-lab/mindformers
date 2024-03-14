@@ -17,7 +17,6 @@ from mindspore import nn
 
 from mindformers.models import LlamaModel, LlamaForCausalLM
 from mindformers.models.llama.llama import layer_compute_dtype
-from mindformers.modules.transformer.transformer import LowerTriangularMaskWithDynamic
 from mindformers.tools.register.register import MindFormerModuleType, MindFormerRegister
 from mindformers.models.utils import cell_reuse
 
@@ -35,11 +34,6 @@ class InternLMModel(LlamaModel):
 
     def __init__(self, config: InternLMConfig):
         super().__init__(config)
-        self.casual_mask = LowerTriangularMaskWithDynamic(seq_length=config.seq_length,
-                                                          compute_type=config.compute_dtype,
-                                                          is_dynamic=config.is_dynamic,
-                                                          pad_token_id=config.pad_token_id,
-                                                          use_flash_attention=config.use_flash_attention)
         self.layers = nn.CellList()
         for layer_id in range(config.num_layers):
             layer = InternLMDecodeLayer(batch_size=config.batch_size,
@@ -60,7 +54,7 @@ class InternLMModel(LlamaModel):
                                         has_bias=config.has_bias,
                                         use_past=config.use_past,
                                         use_flash_attention=config.use_flash_attention,
-                                        use_paged_attention=self.use_paged_attention,
+                                        use_paged_attention=config.use_paged_attention,
                                         block_size=config.block_size,
                                         num_blocks=config.num_blocks,
                                         is_dynamic=config.is_dynamic,
