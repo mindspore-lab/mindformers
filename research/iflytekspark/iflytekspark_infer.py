@@ -135,11 +135,11 @@ class IFlytekSparkInfer:
                                                                                        self.rank_id))
         sampler_mindir_file = os.path.join(mindir_save_dir, "sample_bs{}_rank{}".format(self.max_batch,
                                                                                         self.rank_id))
-        logger.info("Prefill mindir save dir:", full_mindir_file)
-        logger.info("Decode mindir save dir:", inc_mindir_file)
-        logger.info("Sampler mindir save dir:", sampler_mindir_file)
+        logger.info(f"Prefill mindir save dir: {full_mindir_file}")
+        logger.info(f"Decode mindir save dir: {inc_mindir_file}")
+        logger.info(f"Sampler mindir save dir: {sampler_mindir_file}")
 
-        logger.info("Export batch size :", self.max_batch)
+        logger.info(f"Export batch size : {self.max_batch}")
         logger.info("Start export full mindir")
         input_ids = Tensor(np.ones(shape=(self.max_batch, self.config.seq_length)), dtype=mstype.int32)
         current_index = Tensor(np.ones(shape=(self.max_batch,)), mstype.int32)

@@ -854,6 +854,8 @@ export PY_CMD="python run_iflytekspark.py \
 - `tokenizer_file`: tokenizer文件路径，该路径应包含`.vocab`与`.model`文件
 - `streamer`: 是否使用流式返回
 
+请根据实际的ckpt路径与真实使用的推理内容修改上述参数。
+
 **推理启动方式**
 
 目前支持两种命令格式执行`run_infer.sh`启动推理。
@@ -1093,7 +1095,7 @@ export PY_CMD="python run_iflytekspark.py \
 - `predict_length`: 实际推理的最大长度
 - `predict_batch`: 每次推理的batch数
 
-多卡导出时需要设置CONFIG_PATH为run_iflytekspark_13b_lite_infer_800T_A2_64G_dis.yaml。
+请根据实际的ckpt路径与真实使用的推理参数修改上述内容。多卡导出时需要设置CONFIG_PATH为run_iflytekspark_13b_lite_infer_800T_A2_64G_dis.yaml。
 
 **推理启动方式**
 
