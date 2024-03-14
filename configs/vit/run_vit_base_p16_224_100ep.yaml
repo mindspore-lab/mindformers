@@ -199,7 +199,7 @@ model:
     hidden_dropout_prob: 0.  # drop rate of MLP
     drop_path_rate: 0.1  # drop path rate of Block
     use_mean_pooling: True  # if using global mean pooling
-    num_labels: 1000  # num classes
+    num_classes: 1000  # num classes
     loss_type: SoftTargetCrossEntropy  # loss type
     checkpoint_name_or_path: 'vit_base_p16'
 

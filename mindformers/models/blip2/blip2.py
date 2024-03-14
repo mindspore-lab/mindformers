@@ -89,7 +89,7 @@ class Blip2Base(Blip2PreTrainedModel):
             if mapping.activation_flag and isinstance(mapping.activation, nn.GELU):
                 mapping.activation = nn.GELU(approximate=False)
 
-        ln_vision = LayerNorm(visual_encoder.config.embed_dim)
+        ln_vision = LayerNorm(visual_encoder.config.hidden_size)
         return visual_encoder, ln_vision
 
     def init_llm(self):

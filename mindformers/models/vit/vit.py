@@ -71,11 +71,11 @@ class ViTModel(VitPreTrainedModel):
         dp = parallel_config.data_parallel
         self.global_pool = config.use_mean_pooling
         self.patch_embed = PatchEmbed(img_size=config.image_size, patch_size=config.patch_size,
-                                      in_features=config.in_chans, out_features=config.embed_dim,
+                                      in_features=config.num_channels, out_features=config.hidden_size,
                                       parallel_config=parallel_config)
         self.cls_tokens = Parameter(
             weight_init.initializer(weight_init.TruncatedNormal(sigma=config.initializer_range),
-                                    (1, 1, config.embed_dim)), requires_grad=True)
+                                    (1, 1, config.hidden_size)), requires_grad=True)
         num_patches = self.patch_embed.num_patches
         seq_length = num_patches + 1
         self.seq_length = seq_length
@@ -83,16 +83,16 @@ class ViTModel(VitPreTrainedModel):
         self.num_masked = num_patches - seq_length + 1
         self.pos_embed = Parameter(
             weight_init.initializer(weight_init.TruncatedNormal(sigma=config.initializer_range),
-                                    (1, seq_length, config.embed_dim)), requires_grad=True)
+                                    (1, seq_length, config.hidden_size)), requires_grad=True)
         # stochastic depth decay rule
-        hdr = [x.item() for x in np.linspace(0, config.drop_path_rate, config.depth)]
+        hdr = [x.item() for x in np.linspace(0, config.drop_path_rate, config.num_hidden_layers)]
         parallel_config_args = parallel_config.moe_parallel_config if self.use_moe else parallel_config.dp_mp_config
         self.blocks = nn.CellList([
-            Block(hidden_size=config.embed_dim,
+            Block(hidden_size=config.hidden_size,
                   ffn_hidden_size=config.intermediate_size,
                   seq_length=seq_length,
-                  drop_rate=config.drop_rate,
-                  attention_dropout_rate=config.attention_dropout_rate,
+                  drop_rate=config.hidden_dropout_prob,
+                  attention_dropout_rate=config.attention_probs_dropout_prob,
                   hidden_dropout_rate=hdr[i],
                   layer_norm_eps=config.layer_norm_eps,
                   qkv_bias=config.qkv_bias,
@@ -101,21 +101,21 @@ class ViTModel(VitPreTrainedModel):
                   layernorm_compute_type=config.layernorm_compute_type,
                   softmax_compute_type=config.softmax_compute_type,
                   window_size=None,
-                  num_heads=config.num_heads,
+                  num_heads=config.num_attention_heads,
                   hidden_act=config.hidden_act,
                   post_layernorm_residual=config.post_layernorm_residual,
                   param_init_type=config.param_init_type,
                   parallel_config=parallel_config_args)
-            for i in range(config.depth)])
+            for i in range(config.num_hidden_layers)])
 
         self.add = P.Add().shard(((dp, 1, 1), (1, 1, 1)))
         self.cast = P.Cast()
         self.tile = P.Tile().shard(((dp, 1, 1),))
         self.cat = P.Concat(axis=1)
-        self.fc_norm = LayerNorm((config.embed_dim,), eps=1e-6).shard(((dp, 1),))
+        self.fc_norm = LayerNorm((config.hidden_size,), eps=1e-6).shard(((dp, 1),))
 
         self.reduce_mean = P.ReduceMean().shard(((dp, 1, 1),))
-        self.dropout = Dropout(keep_prob=(1. - config.drop_rate))
+        self.dropout = Dropout(keep_prob=(1. - config.hidden_dropout_prob))
         self.dropout.shard(((dp, 1, 1),))
 
         self.stride_slice = P.StridedSlice().shard(((dp, 1, 1),))
@@ -228,7 +228,7 @@ class ViTForImageClassification(VitPreTrainedModel):
         super().__init__(config)
         self.vit = ViTModel(config)
         self.head = Linear(
-            config.embed_dim, config.num_classes,
+            config.hidden_size, config.num_classes,
             weight_init=weight_init.TruncatedNormal(sigma=2e-5),
             compute_dtype=mstype.float32).to_float(mstype.float32)
         self.loss = build_loss(class_name=config.loss_type)
@@ -268,12 +268,12 @@ class ViTForMaskedImageModeling(VitPreTrainedModel):
         super().__init__(config)
         self.vit = ViTModel(config)
         self.vit.patch_embed = PatchEmbed(img_size=config.image_size, patch_size=config.patch_size,
-                                          in_features=config.in_chans, out_features=config.embed_dim,
+                                          in_features=config.num_channels, out_features=config.hidden_size,
                                           use_mask=True, parallel_config=config.parallel_config)
         self.decoder = nn.CellList(
             nn.Conv2d(
-                in_channels=config.embed_dim,
-                out_channels=config.encoder_stride ** 2 * config.in_chans,
+                in_channels=config.hidden_size,
+                out_channels=config.encoder_stride ** 2 * config.num_channels,
                 kernel_size=1,
             ),
             PixelShuffle(config.encoder_stride),
