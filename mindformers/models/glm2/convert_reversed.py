@@ -18,10 +18,9 @@ import torch as pt
 import mindspore as ms
 from tqdm import tqdm
 
-
+# pylint: disable=W0613
 def convert_pt_to_ms(input_path, output_path, dtype=pt.float32, **kwargs):
     """ Convert MindSpore model file to pytorch model file. """
-    print(kwargs)
     ckpt_dict = ms.load_checkpoint(input_path)
     print('parameter convert....')
     pt_param = {}

@@ -45,10 +45,9 @@ def name_replace(name: str):
     name = name.replace('.ffn_norm.', '.post_attention_layernorm.')
     return name
 
-
+# pylint: disable=W0613
 def convert_ms_to_pt(input_path, output_path, dtype=None, **kwargs):
     """convert baichuan ms weight to hf."""
-    print(kwargs)
     print(f"Trying to convert mindspore checkpoint in '{input_path}'.", flush=True)
     model_ms = ms.load_checkpoint(input_path)
 

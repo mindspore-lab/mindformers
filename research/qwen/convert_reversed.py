@@ -44,10 +44,9 @@ def _name_replace(name: str):
     name = name.replace('feed_forward.w2.', 'mlp.c_proj.')
     return name
 
-
+# pylint: disable=W0613
 def convert_ms_to_pt(input_path, output_path, dtype=None, **kwargs):
     """convert mindspore weights files to huggingface."""
-    print(kwargs)
     model_hf = ms.load_checkpoint(input_path)
 
     state_dict = {}

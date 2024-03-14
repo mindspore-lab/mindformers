@@ -36,12 +36,11 @@ def name_replace(weight_name: str):
 
     return weight_name
 
-
+# pylint: disable=W0613
 def convert_ms_to_pt(input_path, output_path, dtype=None, **kwargs):
     """
     convert ms to pt
     """
-    print(kwargs)
     print(f"Trying to convert mindspore checkpoint in {input_path}.")
     model_ms = ms.load_checkpoint(input_path)
 
@@ -56,6 +55,7 @@ def convert_ms_to_pt(input_path, output_path, dtype=None, **kwargs):
             name = 'model.tok_embeddings.weight'
         name = name_replace(name)
         state_dict[name] = value
+        print(name, value.shape)
 
     torch.save(state_dict, output_path)
     print(f"Convert finished, the output is saved to {output_path}.")
