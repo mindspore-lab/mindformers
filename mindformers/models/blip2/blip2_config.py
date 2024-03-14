@@ -81,7 +81,6 @@ class Blip2Config(PretrainedConfig):
     @args_type_check(parallel_config=(dict, TransformerOpParallelConfig),
                      qformer_config=(dict, QFormerConfig))
     def __init__(self,
-                 model_type: str = "blip2",
                  batch_size: int = 8,
                  freeze_vision: bool = True,
                  freeze_text: bool = True,
@@ -93,7 +92,7 @@ class Blip2Config(PretrainedConfig):
                  compute_dtype: str = "float16",
                  layernorm_compute_type: str = "float32",
                  softmax_compute_type: str = "float32",
-                 vision_config: Optional[ViTConfig] = ViTConfig(),
+                 vision_config: Union[dict, ViTConfig] = ViTConfig(),
                  qformer_config: Union[dict, QFormerConfig] = QFormerConfig(),
                  text_config: Optional[LlamaConfig] = None,
                  parallel_config: Union[dict, TransformerOpParallelConfig] = default_transformer_config,
@@ -105,7 +104,8 @@ class Blip2Config(PretrainedConfig):
             parallel_config = TransformerOpParallelConfig(**parallel_config)
         if isinstance(qformer_config, dict):
             qformer_config = QFormerConfig(**qformer_config)
-        self.model_type = model_type
+        if isinstance(vision_config, dict):
+            vision_config = ViTConfig(**vision_config)
         self.batch_size = batch_size
         self.freeze_vision = freeze_vision
         self.freeze_text = freeze_text

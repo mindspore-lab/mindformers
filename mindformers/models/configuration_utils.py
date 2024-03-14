@@ -793,7 +793,7 @@ class PretrainedConfig(PushToHubMixin):
                 if "model_type" in value:
                     # Needs to be set even if it's not in the diff
                     diff["model_type"] = value["model_type"]
-                if not diff:
+                if diff:
                     serializable_config_dict[key] = diff
             elif (
                     key not in default_config_dict

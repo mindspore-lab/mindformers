@@ -47,8 +47,6 @@ class HubConstants:
     try:
         from modelfoundry_hub import MDS_HOME, MDS_HUB_CACHE
     except ImportError:
-        logger.warning(f"Using HubConstants in experimental mode, but modelfoundry_hub is not found, "
-                       f"maybe not installed, set MDS_HOME and MDS_HUB_CACHE to empty string.")
         MDS_HOME = ""
         MDS_HUB_CACHE = ""
     MS_MODULES_CACHE = os.getenv("MS_MODULES_CACHE", os.path.join(MDS_HOME, "modules"))

@@ -31,8 +31,9 @@ class QFormerConfig(BertConfig):
     Qformer config class which defines the model size
     """
 
+    model_type = "blip_2_qformer"
+
     def __init__(self,
-                 model_type: str = "Qformer",
                  num_hidden_layers: int = 12,
                  num_attention_heads: int = 12,
                  query_length: int = 32,
@@ -69,7 +70,6 @@ class QFormerConfig(BertConfig):
                  **kwargs):
         super(QFormerConfig, self).__init__(**kwargs)
 
-        self.model_type = model_type
         self.num_hidden_layers = num_hidden_layers
         self.num_attention_heads = num_attention_heads
         self.query_length = query_length
