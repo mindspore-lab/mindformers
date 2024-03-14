@@ -180,8 +180,8 @@ def preprocess_function(input_file, vocab_file, output_file, num_splits, max_sou
                 position_ids = create_position_ids(np.array(input_ids))
                 attention_mask = get_masks(np.array(input_ids))
 
-                model_inputs["position_ids"] = np.array(position_ids)
-                model_inputs["attention_mask"] = np.array(attention_mask)
+                model_inputs["position_ids"] = np.array(position_ids).astype(np.int32)
+                model_inputs["attention_mask"] = np.array(attention_mask).astype(np.int32)
             else:
                 if len(prompt) > max_source_length - 2:
                     prompt = prompt[: max_source_length - 2]
@@ -195,8 +195,8 @@ def preprocess_function(input_file, vocab_file, output_file, num_splits, max_sou
                 pad_len = max_source_length - len(input_ids)
                 input_ids = input_ids + [tokenizer.pad_token_id] * pad_len
 
-            model_inputs["input_ids"] = np.array(input_ids)
-            model_inputs["labels"] = np.array(label)
+            model_inputs["input_ids"] = np.array(input_ids).astype(np.int32)
+            model_inputs["labels"] = np.array(label).astype(np.int32)
 
             writer.write_raw_data([model_inputs])
             total_written += 1

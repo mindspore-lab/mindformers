@@ -52,7 +52,7 @@ class AlpacaDatasetMaker:
         """make mindrecord"""
         writer = FileWriter(self.output_dataset_file, 1)
         writer.add_schema(
-            {"input_ids": {"type": "int64", "shape": [-1]}}, 'lm-schema')
+            {"input_ids": {"type": "int32", "shape": [-1]}}, 'lm-schema')
 
         with open(self.input_dataset_file) as ds:
             dataset = json.load(ds)
@@ -63,7 +63,7 @@ class AlpacaDatasetMaker:
             prompt_ids = self.make_prompt_ids(prompt)
 
             features = collections.OrderedDict()
-            features["input_ids"] = np.asarray(prompt_ids)
+            features["input_ids"] = np.asarray(prompt_ids).astype(np.int32)
             writer.write_raw_data([features])
 
         writer.commit()

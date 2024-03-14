@@ -58,9 +58,9 @@ def write_instance_to_file(writer, instance):
     label = instance["labels"]
 
     features = collections.OrderedDict()
-    features["input_ids"] = np.asarray(input_ids)
-    features["attention_mask"] = np.asarray(attention_mask)
-    features["labels"] = np.asarray(label)
+    features["input_ids"] = np.asarray(input_ids).astype(np.int32)
+    features["attention_mask"] = np.asarray(attention_mask).astype(np.int32)
+    features["labels"] = np.asarray(label).astype(np.int32)
 
     writer.write_raw_data([features])
     return features
@@ -101,9 +101,9 @@ def main():
     logger.info("Output File: %s", output_file)
 
     writer = FileWriter(output_file)
-    data_schema = {"input_ids": {"type": "int64", "shape": [-1]},
-                   "attention_mask": {"type": "int64", "shape": [-1]},
-                   "labels": {"type": "int64", "shape": [-1]}
+    data_schema = {"input_ids": {"type": "int32", "shape": [-1]},
+                   "attention_mask": {"type": "int32", "shape": [-1]},
+                   "labels": {"type": "int32", "shape": [-1]}
                    }
     data_columns = args.data_columns
     need_del_keys = set(data_columns) - set(data_schema.keys())

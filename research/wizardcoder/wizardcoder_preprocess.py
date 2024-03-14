@@ -87,8 +87,8 @@ def preprocess(sources, targets, tokenizer, max_length):
         else:
             input_id += [tokenizer.pad_token_id] * (max_length - len(input_id))
             label += [IGNORE_INDEX] * (max_length - len(label))
-        final_input_ids.append(np.array(input_id))
-        final_labels.append(np.array(label))
+        final_input_ids.append(np.array(input_id).astype(np.int32))
+        final_labels.append(np.array(label).astype(np.int32))
 
     return dict(input_ids=final_input_ids, labels=final_labels)
 

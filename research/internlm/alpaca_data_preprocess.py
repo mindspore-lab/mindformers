@@ -86,8 +86,8 @@ def preprocess(sources, tokenizer, seq_length, bos_token="<s>", eos_token="</s>"
             targets[:ignore_len + 1] = IGNORE_TOKEN_ID
             targets[-ignore_len_end:] = IGNORE_TOKEN_ID
 
-        input_ids.append(np.array(token_ids))
-        labels.append(np.array(targets))
+        input_ids.append(np.array(token_ids).astype(np.int32))
+        labels.append(np.array(targets).astype(np.int32))
 
     return dict(
         input_ids=input_ids,

@@ -178,9 +178,9 @@ def write_instance_to_file(writer, instance, need_del_keys):
     attention_mask = instance["attention_mask"]
 
     features = collections.OrderedDict()
-    features["input_ids"] = np.asarray(input_ids)
-    features["labels"] = np.asarray(labels)
-    features["attention_mask"] = np.asarray(attention_mask)
+    features["input_ids"] = np.asarray(input_ids).astype(np.int32)
+    features["labels"] = np.asarray(labels).astype(np.int32)
+    features["attention_mask"] = np.asarray(attention_mask).astype(np.int32)
 
     for need_del_key in need_del_keys:
         del features[need_del_key]
