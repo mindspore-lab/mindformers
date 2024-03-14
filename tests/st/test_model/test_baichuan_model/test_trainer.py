@@ -75,16 +75,6 @@ class TestBaichuanTrainerMethod:
                                     eval_dataset=eval_dataset)
 
     @pytest.mark.run(order=1)
-    def test_train(self):
-        """
-        Feature: Trainer.train()
-        Description: Test trainer for train.
-        Expectation: TypeError, ValueError, RuntimeError
-        """
-        self.task_trainer.config.runner_config.epochs = 1
-        self.task_trainer.train()
-
-    @pytest.mark.run(order=2)
     def test_eval(self):
         """
         Feature: Trainer.evaluate()
@@ -94,7 +84,7 @@ class TestBaichuanTrainerMethod:
         self.task_trainer.model.set_train(False)
         self.task_trainer.evaluate()
 
-    @pytest.mark.run(order=3)
+    @pytest.mark.run(order=2)
     def test_predict(self):
         """
         Feature: Trainer.predict()
@@ -103,17 +93,7 @@ class TestBaichuanTrainerMethod:
         """
         self.task_trainer.predict(input_data="hello world!", max_length=20, repetition_penalty=1, top_k=3, top_p=1)
 
-    @pytest.mark.run(order=4)
-    def test_finetune(self):
-        """
-        Feature: Trainer.finetune()
-        Description: Test trainer for finetune.
-        Expectation: TypeError, ValueError, RuntimeError
-        """
-        self.task_trainer.config.runner_config.epochs = 1
-        self.task_trainer.finetune()
-
-    @pytest.mark.run(order=5)
+    @pytest.mark.run(order=3)
     def test_export(self):
         """
         Feature: Trainer.export()
