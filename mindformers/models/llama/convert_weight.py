@@ -115,10 +115,9 @@ def name_replace(name: str):
     name = name.replace('.norm.', '.norm_out.')
     return name
 
-
+# pylint: disable=W0613
 def convert_pt_to_ms(input_path, output_path, dtype=None, **kwargs):
     """convert hf weight to ms."""
-    print(kwargs)
     print(f"Trying to convert huggingface checkpoint in '{input_path}'.", flush=True)
     try:
         from transformers import LlamaForCausalLM

@@ -17,7 +17,7 @@ import argparse
 import os
 
 import numpy as np
-from mindspore import save_checkpoint
+import mindspore as ms
 from transformers import GPTBigCodeForCausalLM
 
 from mindformers.utils.convert_utils import pt2ms
@@ -155,13 +155,13 @@ def convert_pt_to_ms(input_path, output_path, dtype=None, **kwargs):
         # Disable transpose
         if tgt.endswith('weight') and ('c_proj' in tgt or 'c_fc' in tgt):
             print("----Transpose tgt:", tgt)
-            value = value.transpose([1, 0])
+            value = ms.Tensor(value.transpose([1, 0]))
 
         print(f"Mapping table Mindspore:{src:<30} \t Torch:{tgt:<30} with shape {value.shape}")
         new_ckpt_list.append({"data": value, "name": src})
 
-    save_checkpoint(new_ckpt_list, output_path)
-    print(f"Convert finished, the output is saved to {opt.mindspore_path}")
+    ms.save_checkpoint(new_ckpt_list, output_path)
+    print(f"Convert finished, the output is saved to {output_path}")
 
 
 def split_torch_attention(state):

@@ -20,10 +20,9 @@ import mindspore as ms
 
 from mindformers.utils.convert_utils import ms2pt
 
-
+# pylint: disable=W0613
 def convert_ms_to_pt(input_path, output_path, dtype=None, **kwargs):
     """ Convert MindSpore model file to pytorch mpdel file. """
-    print(kwargs)
     ckpt_dict = ms.load_checkpoint(input_path)
 
     print('parameter convert....')

@@ -41,12 +41,12 @@ def name_replace(weight_name: str):
     weight_name = weight_name.replace('.post_attention_layernorm.', '.ffn_norm.')
     return weight_name
 
-
+# pylint: disable=W0613
 def convert_pt_to_ms(input_path, output_path, dtype=None, **kwargs):
     """
     convert pt tp ms
     """
-    print(kwargs)
+    print(f"Trying to convert mindspore checkpoint in {input_path}.")
     model_hf = LlamaForCausalLM.from_pretrained(os.path.dirname(input_path))
     ckpt_list = []
     for name, value in model_hf.state_dict().items():
@@ -62,6 +62,7 @@ def convert_pt_to_ms(input_path, output_path, dtype=None, **kwargs):
         ckpt_list.append({'name': name, 'data': value})
 
     ms.save_checkpoint(ckpt_list, output_path)
+    print(f"Convert finished, the output is saved to {output_path}.")
 
 
 if __name__ == "__main__":

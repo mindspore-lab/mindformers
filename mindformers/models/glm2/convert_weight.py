@@ -19,10 +19,9 @@ import mindspore as ms
 from tqdm import tqdm
 from transformers import AutoModel
 
-
+# pylint: disable=W0613
 def convert_pt_to_ms(input_path, output_path, dtype=ms.float32, **kwargs):
     """ Convert pytorch model file to MindSpore model file. """
-    print(kwargs)
     input_dir = os.path.dirname(input_path)
     model = AutoModel.from_pretrained(input_dir, trust_remote_code=True)
 

@@ -24,6 +24,7 @@ import torch
 from mindformers.utils.convert_utils import pt2ms
 
 
+# pylint: disable=W0613
 def convert_pt_to_ms(input_path, output_path, dtype=None, **kwargs):
     r"""Convert Weight
     Convert blip2_qformer weights from pytorch to mindspore,
@@ -41,7 +42,6 @@ def convert_pt_to_ms(input_path, output_path, dtype=None, **kwargs):
              'visual_encoder.fc_norm.beta' ara not loaded. " is normal,
              because bilp2 utilizes the penultimate layer output of the eva_vit.
     """
-    print(kwargs)
     pt_params = torch.load(input_path, map_location='cpu')
     if not isinstance(pt_params, OrderedDict):
         if isinstance(pt_params, dict) and 'model' in pt_params.keys():
