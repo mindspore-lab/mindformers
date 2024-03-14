@@ -92,7 +92,8 @@ class TextGenerationPipeline(Pipeline):
         self.use_past = False
         if hasattr(self.network.config, "use_past"):
             self.use_past = self.network.config.use_past
-        if hasattr(self.network.config, "batch_size") and self.network.config.batch_size is not None:
+        # only when incremental generate, set batch size as model config bs
+        if self.use_past and hasattr(self.network.config, "batch_size") and self.network.config.batch_size is not None:
             self._batch_size = self.network.config.batch_size
 
     def _sanitize_parameters(self, **pipeline_parameters):
