@@ -294,7 +294,8 @@ class RotaryEmbeddingFP32SoftmaxSelfAttention(nn.Cell):
         # change view to [b, np, sq, sk]
         attention_scores = matmul_result
         attention_mask = F.cast(attention_mask, mstype.bool_)
-        attention_scores = attention_scores.masked_fill(attention_mask, -10000.0)
+        masked_fill_constant = Tensor(-10000.0, attention_scores_dtype)
+        attention_scores = attention_scores.masked_fill(attention_mask, masked_fill_constant)
         attention_scores = F.cast(attention_scores, self.softmax_dtype)
         attention_scores = attention_scores * query_key_layer_scaling_coeff
         # softmax under `softmax_dtype` mode
