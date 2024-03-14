@@ -40,7 +40,7 @@ from ..tools.download_tools import download_with_progress_bar
 from ..tools.utils import try_sync_file
 from ..mindformer_book import MindFormerBook, print_path_or_list
 from ..tools.hub import is_offline_mode, is_remote_url, cached_file, extract_commit_hash, download_url, \
-    custom_object_save
+    custom_object_save, PushToHubMixin
 
 
 TOKENIZER_URL_SUPPORT_LIST = MindFormerBook.get_tokenizer_url_support_list()
@@ -1546,7 +1546,7 @@ INIT_TOKENIZER_DOCSTRING = r"""
 
 
 @add_end_docstrings(INIT_TOKENIZER_DOCSTRING)
-class PreTrainedTokenizerBase(SpecialTokensMixin):
+class PreTrainedTokenizerBase(SpecialTokensMixin, PushToHubMixin):
     """
     Base class for [`PreTrainedTokenizer`] and [`PreTrainedTokenizerFast`].
 
