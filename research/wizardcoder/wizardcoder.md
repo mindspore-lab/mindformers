@@ -84,7 +84,7 @@ class TextGeneratorInfer(BaseInfer):
         elapsed_time_no_tokenizer = end_time_no_tokenizer - start_time_no_tokenizer
         generate_length = sum([len(item) for item in output_ids]) - sum([len(item) for item in input_ids])
         return outputs, generate_length, elapsed_time_with_tokenizer, elapsed_time_no_tokenizer
- ```
+```
 
 ### 环境要求
 
@@ -214,7 +214,7 @@ python ./research/wizardcoder/convert_weight.py --torch_path ./ckpt --mindspore_
 
 ```text
 # 参数说明
-torch_path: huggingface权重保存目录路径
+torch_path: huggingface权重保存目录路径下任意权重bin文件，根据文件路径读取目录下全部权重
 mindspore_path: mindspore格式的权重保存文件名，如'saved_dir/wizardcoder.ckpt'
 ```
 

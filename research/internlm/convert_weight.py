@@ -1,4 +1,4 @@
-# Copyright 2023 Huawei Technologies Co., Ltd
+# Copyright 2024 Huawei Technologies Co., Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
 # ============================================================================
 """
 Convert internlm weight.
-Support huggingface format format.
+Support huggingface format.
 """
 
 import os
@@ -22,6 +22,8 @@ import json
 import argparse
 
 import mindspore as ms
+
+from mindformers.utils.convert_utils import pt2ms
 
 
 def read_json(path):
@@ -45,37 +47,38 @@ def name_replace(name: str):
     return name
 
 
-def convert_hf_ckpt(ckpt_dir, output_name, dtype=ms.float16):
+def convert_pt_to_ms(input_path, output_path, dtype=None, **kwargs):
     """convert hf weight to ms."""
+    print(kwargs)
+    ckpt_dir = os.path.dirname(input_path)
     print(f"Trying to convert huggingface checkpoint in '{ckpt_dir}'.", flush=True)
     try:
         from transformers import AutoModelForCausalLM
         model_hf = AutoModelForCausalLM.from_pretrained(ckpt_dir, trust_remote_code=True)
     # pylint: disable=W0703
     except Exception as e:
-        print(f"Do not find huggingface checkpoint in '{ckpt_dir}', Error {e}.", flush=True)
+        print(f"Can not find huggingface checkpoint in '{ckpt_dir}', Error {e}.", flush=True)
         return False
 
     ckpt_list = []
-    for name, value in model_hf.named_parameters():
+    for name, value in model_hf.state_dict().items():
         name = name_replace(name)
         if name == 'norm.weight':
             name = 'norm_out.weight'
         if name[:7] == 'layers.':
             name = name[7:]
-        value = value.detach().numpy()
         print(f'\rprocessing parameter: {name} {value.shape}     ', end='', flush=True)
-        ckpt_list.append({'name': name, 'data': ms.Tensor(value, dtype=dtype)})
+        ckpt_list.append({'name': name, 'data': pt2ms(value, dtype)})
 
-    ckpt_file = os.path.join(ckpt_dir, output_name)
-    ms.save_checkpoint(ckpt_list, os.path.join(ckpt_file))
-    print(f"\rConvert huggingface checkpoint finished, the mindspore checkpoint is saved in '{ckpt_file}'.", flush=True)
+    ms.save_checkpoint(ckpt_list, output_path)
+    print(f"\rConvert huggingface checkpoint finished, the mindspore checkpoint is saved in '{output_path}'.",
+          flush=True)
     return True
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--torch_ckpt_dir', default='./internlm-chat/')
+    parser.add_argument('--torch_ckpt_path', default='./internlm-chat/hf.bin')
     parser.add_argument('--mindspore_ckpt_path', default='./internlm-chat.ckpt')
     args = parser.parse_args()
-    convert_hf_ckpt(ckpt_dir=args.torch_ckpt_dir, output_name=args.mindspore_ckpt_path)
+    convert_pt_to_ms(input_path=args.torch_ckpt_path, output_path=args.mindspore_ckpt_path)

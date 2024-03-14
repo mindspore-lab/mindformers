@@ -69,13 +69,13 @@ git clone https://huggingface.co/Skywork/Skywork-13B-base
 
 ```shell
 cd research
-python skywork/convert_ckpt.py --torch_ckpt_dir TORCH_CKPT_DIR --mindspore_ckpt_path MS_CKPT_NAME
+python skywork/convert_weight.py --torch_ckpt_path TORCH_CKPT_PATH --mindspore_ckpt_path MS_CKPT_NAME
 ```
 
 ```text
 # 参数说明
-TORCH_CKPT_DIR: huggingface Skywork-13B-Base权重保存目录路径
-MS_CKPT_NAME: 自定义mindspore权重文件保存路径和名称
+torch_ckpt_path: huggingface Skywork-13B-Base权重保存目录路径下任意权重bin文件，根据该文件路径读取目录下全部权重
+mindspore_ckpt_path: mindspore权重文件保存路径
 ```
 
 **注**: 请安装torch=1.13.1和transformers=4.30.2版本。如果执行报错，请检查并安装requests、decorator、pandas、sympy。

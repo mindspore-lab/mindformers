@@ -89,10 +89,10 @@ InternLM ，即书生·浦语大模型，是由上海人工智能实验室和来
 # 请安装torch=2.0.0和transformers=4.30.2版本:
 # pip install torch==2.0.0 -i https://pypi.tuna.tsinghua.edu.cn/simple
 # pip install transformers==4.30.2 -i https://pypi.tuna.tsinghua.edu.cn/simple
-python ./research/internlm/convert_weight.py --torch_ckpt_dir TORCH_CKPT_DIR --mindspore_ckpt_path MS_CKPT_NAME
+python ./research/internlm/convert_weight.py --torch_ckpt_path TORCH_CKPT_PATH --mindspore_ckpt_path MS_CKPT_NAME
 # 参数说明
-TORCH_CKPT_DIR: huggingface权重保存目录路径
-mindspore_ckpt_path: 权重保存文件名，保存为TORCH_CKPT_DIR/OUTPUT_NAME, 也可以指定为自定义保存路径
+torch_ckpt_path: huggingface权重保存目录路径下任意权重bin文件，将根据该文件路径读取目录下全部权重
+mindspore_ckpt_path: 转换后mindspore权重的保存路径
 ```
 
 ## InternLM-7B

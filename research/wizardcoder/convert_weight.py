@@ -1,4 +1,4 @@
-# Copyright 2023 Huawei Technologies Co., Ltd
+# Copyright 2024 Huawei Technologies Co., Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,11 +14,67 @@
 # ============================================================================
 """Convert checkpoint from torch/huggingface"""
 import argparse
+import os
+
 import numpy as np
-import torch
-import mindspore as ms
-from mindspore import save_checkpoint, Tensor
-from transformers.models.gpt_bigcode import GPTBigCodeForCausalLM
+from mindspore import save_checkpoint
+from transformers import GPTBigCodeForCausalLM
+
+from mindformers.utils.convert_utils import pt2ms
+
+ms_name = [
+    "backbone.blocks.{}.layernorm1.gamma",
+    "backbone.blocks.{}.layernorm1.beta",
+    "backbone.blocks.{}.layernorm2.gamma",
+    "backbone.blocks.{}.layernorm2.beta",
+    "backbone.blocks.{}.attention.projection.weight",
+    "backbone.blocks.{}.attention.projection.bias",
+    "backbone.blocks.{}.attention.dense1.weight",
+    "backbone.blocks.{}.attention.dense1.bias",
+    "backbone.blocks.{}.attention.dense2.weight",
+    "backbone.blocks.{}.attention.dense2.bias",
+    "backbone.blocks.{}.attention.dense3.weight",
+    "backbone.blocks.{}.attention.dense3.bias",
+    "backbone.blocks.{}.output.mapping.weight",
+    "backbone.blocks.{}.output.mapping.bias",
+    "backbone.blocks.{}.output.projection.weight",
+    "backbone.blocks.{}.output.projection.bias",
+]
+
+torch_name = [
+    "transformer.h.{}.ln_1.weight",
+    "transformer.h.{}.ln_1.bias",
+    "transformer.h.{}.ln_2.weight",
+    "transformer.h.{}.ln_2.bias",
+    "transformer.h.{}.attn.c_proj.weight",
+    "transformer.h.{}.attn.c_proj.bias",
+    "transformer.h.{}.attn.c_attn.weight.q",
+    "transformer.h.{}.attn.c_attn.bias.q",
+    "transformer.h.{}.attn.c_attn.weight.k",
+    "transformer.h.{}.attn.c_attn.bias.k",
+    "transformer.h.{}.attn.c_attn.weight.v",
+    "transformer.h.{}.attn.c_attn.bias.v",
+    "transformer.h.{}.mlp.c_fc.weight",
+    "transformer.h.{}.mlp.c_fc.bias",
+    "transformer.h.{}.mlp.c_proj.weight",
+    "transformer.h.{}.mlp.c_proj.bias"
+]
+
+addition_mindspore = [
+    "backbone.layernorm.gamma",
+    "backbone.layernorm.beta",
+    "backbone.embedding.word_embedding.embedding_table",
+    "backbone.embedding.position_embedding.embedding_table",
+    "head.head_weight",
+]
+
+addition_torch = [
+    "transformer.ln_f.weight",
+    "transformer.ln_f.bias",
+    "transformer.wte.weight",
+    "transformer.wpe.weight",
+    "lm_head.weight",
+]
 
 
 def generate_params_dict(total_layers,
@@ -73,32 +129,39 @@ def print_dict(input_dict):
         print(f"Param: {k} with shape {v.shape}")
 
 
-def get_converted_ckpt(mapped_params, weight_dict):
+def convert_pt_to_ms(input_path, output_path, dtype=None, **kwargs):
     """
-    Print the keys of the loaded checkpoint
-
-    Args:
-        mapped_params(dict): The loaded checkpoint. The key is parameter name and value is the numpy array.
-        weight_dict(dict): The loaded pytorch checkpoint.
-
-    Returns:
-        None
+    convert pt to ms
     """
+    layers = kwargs.pop('layers', 40)
+    input_dir = os.path.dirname(input_path)
+    model = GPTBigCodeForCausalLM.from_pretrained(input_dir).to('cpu')
+    weight_dict = model.state_dict()
+    print_dict(weight_dict)
+
+    mapped_params = generate_params_dict(total_layers=layers,
+                                         mindspore_params_per_layer=ms_name,
+                                         torch_params_per_layer=torch_name,
+                                         mindspore_additional_params=addition_mindspore,
+                                         torch_additional_params=addition_torch)
+    split_torch_attention(weight_dict)
+
     new_ckpt_list = []
     # Currently, the ms_extend_param the torch_extend_param is the full parameters.
     for src, tgt in mapped_params:
-        value = weight_dict[tgt].numpy()
+        value = pt2ms(weight_dict[tgt], dtype)
         # split the attention layer for q, k, v
 
         # Disable transpose
         if tgt.endswith('weight') and ('c_proj' in tgt or 'c_fc' in tgt):
             print("----Transpose tgt:", tgt)
-            value = np.transpose(value, [1, 0])
+            value = value.transpose([1, 0])
 
         print(f"Mapping table Mindspore:{src:<30} \t Torch:{tgt:<30} with shape {value.shape}")
-        new_ckpt_list.append({"data": Tensor(value, dtype=ms.float16), "name": src})
+        new_ckpt_list.append({"data": value, "name": src})
 
-    return new_ckpt_list
+    save_checkpoint(new_ckpt_list, output_path)
+    print(f"Convert finished, the output is saved to {opt.mindspore_path}")
 
 
 def split_torch_attention(state):
@@ -116,13 +179,13 @@ def split_torch_attention(state):
         if name.endswith('attn.c_attn.weight') or name.endswith('attn.c_attn.bias'):
             value = state.pop(name)
             print("The real value shape is:", value.shape)
-            q, k, v = np.split(value.numpy(), [6144, 6272], 0)
+            q, k, v = np.split(value, [6144, 6272], 0)
             print("---q shape:", q.shape)
             print("---k shape:", k.shape)
             print("---v shape:", v.shape)
-            state[name + '.q'] = torch.tensor(q, dtype=value.dtype)
-            state[name + '.k'] = torch.tensor(k)
-            state[name + '.v'] = torch.tensor(v)
+            state[name + '.q'] = q
+            state[name + '.k'] = k
+            state[name + '.v'] = v
 
 
 if __name__ == '__main__':
@@ -136,7 +199,7 @@ if __name__ == '__main__':
                         help="The number of layers of the model to be converted.")
     parser.add_argument("--torch_path",
                         type=str,
-                        default='/home/wizardcoder/pytorch_models_60step/',
+                        default='/home/wizardcoder/pytorch_models_60step/hf.bin',
                         help="The torch checkpoint path.")
     parser.add_argument("--mindspore_path",
                         type=str,
@@ -144,73 +207,4 @@ if __name__ == '__main__':
                         help="Use device nums, default is 128.")
 
     opt = parser.parse_args()
-    # note: as the ckpt will be splited into several cktps, we call from_pretraiend to merge the ckpts
-    device = 'cpu'
-    small_model_path = opt.torch_path
-    model = GPTBigCodeForCausalLM.from_pretrained(small_model_path).to(device)
-    state_dict = model.state_dict()
-    print_dict(state_dict)
-
-    ms_name = [
-        "backbone.blocks.{}.layernorm1.gamma",
-        "backbone.blocks.{}.layernorm1.beta",
-        "backbone.blocks.{}.layernorm2.gamma",
-        "backbone.blocks.{}.layernorm2.beta",
-        "backbone.blocks.{}.attention.projection.weight",
-        "backbone.blocks.{}.attention.projection.bias",
-        "backbone.blocks.{}.attention.dense1.weight",
-        "backbone.blocks.{}.attention.dense1.bias",
-        "backbone.blocks.{}.attention.dense2.weight",
-        "backbone.blocks.{}.attention.dense2.bias",
-        "backbone.blocks.{}.attention.dense3.weight",
-        "backbone.blocks.{}.attention.dense3.bias",
-        "backbone.blocks.{}.output.mapping.weight",
-        "backbone.blocks.{}.output.mapping.bias",
-        "backbone.blocks.{}.output.projection.weight",
-        "backbone.blocks.{}.output.projection.bias",
-    ]
-
-    torch_name = [
-        "transformer.h.{}.ln_1.weight",
-        "transformer.h.{}.ln_1.bias",
-        "transformer.h.{}.ln_2.weight",
-        "transformer.h.{}.ln_2.bias",
-        "transformer.h.{}.attn.c_proj.weight",
-        "transformer.h.{}.attn.c_proj.bias",
-        "transformer.h.{}.attn.c_attn.weight.q",
-        "transformer.h.{}.attn.c_attn.bias.q",
-        "transformer.h.{}.attn.c_attn.weight.k",
-        "transformer.h.{}.attn.c_attn.bias.k",
-        "transformer.h.{}.attn.c_attn.weight.v",
-        "transformer.h.{}.attn.c_attn.bias.v",
-        "transformer.h.{}.mlp.c_fc.weight",
-        "transformer.h.{}.mlp.c_fc.bias",
-        "transformer.h.{}.mlp.c_proj.weight",
-        "transformer.h.{}.mlp.c_proj.bias"
-    ]
-
-    addition_mindspore = [
-        "backbone.layernorm.gamma",
-        "backbone.layernorm.beta",
-        "backbone.embedding.word_embedding.embedding_table",
-        "backbone.embedding.position_embedding.embedding_table",
-        "head.head_weight",
-    ]
-
-    addition_torch = [
-        "transformer.ln_f.weight",
-        "transformer.ln_f.bias",
-        "transformer.wte.weight",
-        "transformer.wpe.weight",
-        "lm_head.weight",
-    ]
-
-    mapped_param = generate_params_dict(total_layers=opt.layers,
-                                        mindspore_params_per_layer=ms_name,
-                                        torch_params_per_layer=torch_name,
-                                        mindspore_additional_params=addition_mindspore,
-                                        torch_additional_params=addition_torch)
-    split_torch_attention(state_dict)
-    new_ckpt = get_converted_ckpt(mapped_param, state_dict)
-    save_checkpoint(new_ckpt, opt.mindspore_path)
-    print(f"Convert finished, the output is saved to {opt.mindspore_path}")
+    convert_pt_to_ms(opt.torch_path, opt.mindspore_path, layers=opt.layers)

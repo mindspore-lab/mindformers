@@ -1,4 +1,4 @@
-# Copyright 2023 Huawei Technologies Co., Ltd
+# Copyright 2024 Huawei Technologies Co., Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,6 +23,8 @@ import argparse
 
 import mindspore as ms
 
+from mindformers.utils.convert_utils import pt2ms
+
 
 def read_json(path):
     with open(path, "r") as f:
@@ -45,8 +47,10 @@ def name_replace(name: str):
     return name
 
 
-def convert_baichuan_7b_hf_ckpt(ckpt_dir, output_name, dtype=ms.float16):
+def convert_pt_to_ms(input_path, output_path, dtype=None, **kwargs):
     """convert baichuan hf weight to ms."""
+    print(kwargs)
+    ckpt_dir = os.path.dirname(input_path)
     print(f"Trying to convert huggingface checkpoint in '{ckpt_dir}'.", flush=True)
     import torch
     from transformers import AutoModelForCausalLM
@@ -56,46 +60,45 @@ def convert_baichuan_7b_hf_ckpt(ckpt_dir, output_name, dtype=ms.float16):
         args_hf = read_json(os.path.join(ckpt_dir, "config.json"))
     # pylint: disable=W0703
     except Exception as e:
-        print(f"Error {e.message}.", flush=True)
+        print(f"Error {e}.", flush=True)
         return False
 
     dim = args_hf["hidden_size"]
 
     ckpt_list = []
-    for name, value in model_hf.named_parameters():
+    for name, value in model_hf.state_dict().items():
         name = name_replace(name)
         if 'W_pack' in name:
             values = torch.split(value, dim)
-            wq = name.replace('.self_attn.W_pack', '.attention.wq') #'.self_attn.q_proj.', '.attention.wq.'
+            wq = name.replace('.self_attn.W_pack', '.attention.wq')  # '.self_attn.q_proj.', '.attention.wq.'
             q_value = values[0]
             wk = name.replace('.self_attn.W_pack', '.attention.wk')
             k_value = values[1]
             wv = name.replace('.self_attn.W_pack', '.attention.wv')
             v_value = values[2]
             print(f'\rprocessing parameter: {wq} {q_value.shape}     ', end='', flush=True)
-            ckpt_list.append({'name': wq, 'data': ms.Tensor(q_value.detach().numpy(), dtype=dtype)})
+            ckpt_list.append({'name': wq, 'data': pt2ms(q_value, dtype)})
             print(f'\rprocessing parameter: {wk} {k_value.shape}     ', end='', flush=True)
-            ckpt_list.append({'name': wk, 'data': ms.Tensor(k_value.detach().numpy(), dtype=dtype)})
+            ckpt_list.append({'name': wk, 'data': pt2ms(k_value, dtype)})
             print(f'\rprocessing parameter: {wv} {v_value.shape}     ', end='', flush=True)
-            ckpt_list.append({'name': wv, 'data': ms.Tensor(v_value.detach().numpy(), dtype=dtype)})
+            ckpt_list.append({'name': wv, 'data': pt2ms(v_value, dtype)})
             continue
         if name == 'norm.weight':
             name = 'norm_out.weight'
         if name[:7] == 'layers.':
             name = name[7:]
-        value = value.detach().numpy()
         print(f'\rprocessing parameter: {name} {value.shape}     ', end='', flush=True)
-        ckpt_list.append({'name': name, 'data': ms.Tensor(value, dtype=dtype)})
+        ckpt_list.append({'name': name, 'data': pt2ms(value, dtype)})
 
-    ckpt_file = os.path.join(ckpt_dir, output_name)
-    ms.save_checkpoint(ckpt_list, os.path.join(ckpt_file))
-    print(f"\rConvert baichuan 7b checkpoint finished, the mindspore checkpoint is saved in '{ckpt_file}'.", flush=True)
+    ms.save_checkpoint(ckpt_list, output_path)
+    print(f"\rConvert baichuan checkpoint finished, the mindspore checkpoint is saved in '{output_path}'.",
+          flush=True)
     return True
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--torch_ckpt_dir', default='./')
+    parser.add_argument('--torch_ckpt_path', default='./hf.bin')
     parser.add_argument('--mindspore_ckpt_path', default='transform.ckpt')
     args = parser.parse_args()
-    convert_baichuan_7b_hf_ckpt(ckpt_dir=args.torch_ckpt_dir, output_name=args.mindspore_ckpt_path)
+    convert_pt_to_ms(input_path=args.torch_ckpt_path, output_path=args.mindspore_ckpt_path)

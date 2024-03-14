@@ -251,11 +251,11 @@ pip install transformers==4.30.2 -i https://pypi.tuna.tsinghua.edu.cn/simple
 下载完成后，运行`/research/baichuan/convert_weight.py`转换脚本，将huggingface的权重转换为完整的ckpt权重。
 
 ```shell
-python ./research/baichuan/convert_weight.py --torch_ckpt_dir TORCH_CKPT_DIR --mindspore_ckpt_path MS_CKPT_NAME
+python ./research/baichuan/convert_weight.py --torch_ckpt_path TORCH_CKPT_PATH --mindspore_ckpt_path MS_CKPT_NAME
 
 # 参数说明
-TORCH_CKPT_DIR: huggingface权重保存目录路径
-mindspore_ckpt_path: 权重保存文件名，保存为TORCH_CKPT_DIR/OUTPUT_NAME, 也可以指定为自定义保存路径
+torch_ckpt_path: huggingface权重保存目录路径下任意权重bin文件，根据该文件路径读取目录下全部权重
+mindspore_ckpt_path: mindspore权重文件保存路径
 ```
 
 ### [模型权重转换](../../docs/feature_cards/Transform_Ckpt.md)

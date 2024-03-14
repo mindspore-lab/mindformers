@@ -15,49 +15,40 @@
 """Convert checkpoint from torch/huggingface"""
 import argparse
 import os
-
 import mindspore as ms
-
-from mindformers.utils.convert_utils import pt2ms
+from tqdm import tqdm
 from transformers import AutoModel
 
 
-def convert_pt_to_ms(input_path, output_path, dtype=None, **kwargs):
+def convert_pt_to_ms(input_path, output_path, dtype=ms.float32, **kwargs):
     """ Convert pytorch model file to MindSpore model file. """
     print(kwargs)
-    model_hf = AutoModel.from_pretrained(os.path.dirname(input_path), trust_remote_code=True).half()
+    input_dir = os.path.dirname(input_path)
+    model = AutoModel.from_pretrained(input_dir, trust_remote_code=True)
 
     print('parameter convert....')
     ms_param = []
-    for k, v in model_hf.state_dict().items():
-        v = pt2ms(v, dtype)
+    for k, v in tqdm(model.state_dict().items()):
         if "word_embeddings.weight" in k:
-            k = k.replace("weight", "embedding_table")
-        if "post_attention_layernorm" in k or "input_layernorm" in k or "final_layernorm" in k:
-            k = k.replace("weight", "gamma")
-            k = k.replace("bias", "beta")
-        if "input_layernorm" in k:
-            v = v.half()
-        print(f"{k} {v.dtype}")
-        ms_param.append({"name": k, "data": v})
+            k = k.replace("word_embeddings.weight", "embedding_table")
+        ms_param.append({"name": k, "data": ms.Tensor(v.numpy(), dtype=dtype)})
 
-    print('saving ms ckpt....')
     ms.save_checkpoint(ms_param, output_path)
     print(f"Convert finished, the output is saved to {output_path}")
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description="ChatGLM6B weight convert script")
-    parser.add_argument("--pt_ckpt_path",
+    parser = argparse.ArgumentParser(description="GLM2/3 weight convert script")
+    parser.add_argument("--torch_ckpt_path",
                         type=str,
                         required=True,
                         default="None",
                         help="The torch checkpoint path.")
-    parser.add_argument("--ms_ckpt_path",
+    parser.add_argument("--mindspore_ckpt_path",
                         type=str,
-                        required=False,
-                        default="ms_glm_6b.ckpt",
+                        required=True,
+                        default="None",
                         help='The output mindspore checkpoint path.')
 
     opt = parser.parse_args()
-    convert_pt_to_ms(opt.pt_ckpt_path, opt.ms_ckpt_path)
+    convert_pt_to_ms(opt.torch_ckpt_path, opt.mindspore_ckpt_path)

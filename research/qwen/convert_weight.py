@@ -1,4 +1,4 @@
-# Copyright 2023 Huawei Technologies Co., Ltd
+# Copyright 2024 Huawei Technologies Co., Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,9 +21,8 @@ import argparse
 import os
 
 import mindspore as ms
-import numpy as np
-import torch
 from transformers import AutoModelForCausalLM
+from mindformers.utils.convert_utils import pt2ms
 
 ATTENTION_WEIGHT_NAME = 'attn.c_attn.weight'
 ATTENTION_BIAS_NAME = 'attn.c_attn.bias'
@@ -46,59 +45,57 @@ def _name_replace(name: str):
     return name
 
 
-def convert_attention_weight(name, value, ckpt_weights, dtype=ms.float16):
-    split_arr = np.array_split(value, 3)
+def convert_attention_weight(name, value, ckpt_weights):
+    split_value = ms.numpy.array_split(value, 3)
     attention_weight_names = ['attention.wq.weight', 'attention.wk.weight', 'attention.wv.weight']
 
-    for index in range(len(split_arr)):
+    for index in range(len(split_value)):
         cur_name = name.replace(ATTENTION_WEIGHT_NAME, attention_weight_names[index])
-        ckpt_weights.append({'name': cur_name, 'data': ms.Tensor(split_arr[index], dtype=dtype)})
+        ckpt_weights.append({'name': cur_name, 'data': ms.Tensor(split_value[index])})
 
 
-def convert_attention_bias(name, value, ckpt_weights, dtype=ms.float16):
-    split_arr = np.array_split(value, 3)
+def convert_attention_bias(name, value, ckpt_weights):
+    split_value = ms.numpy.array_split(value, 3)
     attention_bias_names = ['attention.wq.bias', 'attention.wk.bias', 'attention.wv.bias']
 
-    for index in range(len(split_arr)):
+    for index in range(len(split_value)):
         cur_name = name.replace(ATTENTION_BIAS_NAME, attention_bias_names[index])
-        ckpt_weights.append({'name': cur_name, 'data': ms.Tensor(split_arr[index], dtype=dtype)})
+        ckpt_weights.append({'name': cur_name, 'data': ms.Tensor(split_value[index])})
 
 
-def convert_hf_ckpt(ckpt_dir, output_file_path, torch_dtype=torch.float16, dtype=ms.float16):
+def convert_pt_to_ms(input_path, output_path, dtype=None, **kwargs):
     """convert huggingface weights files to mindspore."""
+    print(kwargs)
+    ckpt_dir = os.path.dirname(input_path)
     model = AutoModelForCausalLM.from_pretrained(ckpt_dir, device_map="cpu", trust_remote_code=True)
 
     ckpt_weights = []
-    for k, v in model.named_parameters():
+    for k, v in model.state_dict().items():
         print('Parameter (name=%s, shape=%s, dtype=%s, requires_grad=%s)' % (k, v.shape, v.dtype, v.requires_grad))
-        try:
-            value = v.detach().numpy()
-        except TypeError:
-            value = v.detach().to(torch_dtype).cpu().numpy()
-            print('dtype:  %s->%s' % (v.dtype, value.dtype))
+        value = pt2ms(v, dtype)
 
         msname = _name_replace(k)
         if msname != k:
             print('name:  %s->%s' % (k, msname))
 
         if ATTENTION_WEIGHT_NAME in msname:
-            convert_attention_weight(msname, value, ckpt_weights, dtype)
+            convert_attention_weight(msname, value, ckpt_weights)
             continue
 
         if ATTENTION_BIAS_NAME in msname:
-            convert_attention_bias(msname, value, ckpt_weights, dtype)
+            convert_attention_bias(msname, value, ckpt_weights)
             continue
 
-        ckpt_weights.append({'name': msname, 'data': ms.Tensor(value, dtype=dtype)})
+        ckpt_weights.append({'name': msname, 'data': value})
 
-    print('Saving converted weights to %s...' % output_file_path)
-    ms.save_checkpoint(ckpt_weights, output_file_path)
+    print('Saving converted weights to %s...' % output_path)
+    ms.save_checkpoint(ckpt_weights, output_path)
     print('Done')
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Qwen convert script")
-    parser.add_argument("--torch_ckpt_dir",
+    parser.add_argument("--torch_ckpt_path",
                         required=True,
                         help="The torch checkpoint path.")
     parser.add_argument("--mindspore_ckpt_path",
@@ -107,9 +104,4 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    output_path = os.path.expanduser(args.mindspore_ckpt_path)
-    output_dir = os.path.dirname(output_path)
-    if output_dir and not os.path.exists(output_dir):
-        os.mkdir(output_dir)
-
-    convert_hf_ckpt(args.torch_ckpt_dir, output_path, torch_dtype=torch.float32, dtype=ms.float32)
+    convert_pt_to_ms(args.torch_ckpt_path, args.mindspore_ckpt_path)

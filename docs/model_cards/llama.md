@@ -229,13 +229,13 @@ RANK_TABLE_FILE 双机16卡参考样例:
 
     ```shell
     python mindformers/models/llama/convert_weight.py \
-    --torch_ckpt_dir TORCH_CKPT_DIR \
+    --torch_ckpt_path TORCH_CKPT_PATH \
     --mindspore_ckpt_path {path}/MS_CKPT_NAME
     ```
 
     ```text
     # 参数说明
-    torch_ckpt_dir: huggingface权重保存目录路径
+    torch_ckpt_path: huggingface权重保存目录下的任意权重bin文件,根据该文件路径读取目录下全部权重
     mindspore_ckpt_path: 权重保存文件名，可以指定自定义保存路径
     ```
 

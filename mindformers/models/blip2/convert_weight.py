@@ -1,4 +1,4 @@
-# Copyright 2023 Huawei Technologies Co., Ltd
+# Copyright 2024 Huawei Technologies Co., Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,18 +19,20 @@ import argparse
 
 import mindspore as ms
 import mindspore.ops as P
-from mindspore import Tensor
 import torch
 
-def convert_weight(torch_path="blip2_pretrain.pth",
-                   mindspore_path="blip2_pretrain.ckpt"):
+from mindformers.utils.convert_utils import pt2ms
+
+
+def convert_pt_to_ms(input_path, output_path, dtype=None, **kwargs):
     r"""Convert Weight
     Convert blip2_qformer weights from pytorch to mindspore,
     pytorch (CPU) required.
 
     Args:
-        torch_path: The torch path to blip2_qformer.
-        mindspore_path: The save path for  blip2_qformer.
+        input_path: The torch path to blip2_qformer.
+        output_path: The save path for  blip2_qformer.
+        dtype: dtype.
 
     Returns:
         the converted mindspore_model_weight for Blip2Qformer class.
@@ -39,13 +41,14 @@ def convert_weight(torch_path="blip2_pretrain.pth",
              'visual_encoder.fc_norm.beta' ara not loaded. " is normal,
              because bilp2 utilizes the penultimate layer output of the eva_vit.
     """
-    pt_params = torch.load(torch_path, map_location='cpu')
+    print(kwargs)
+    pt_params = torch.load(input_path, map_location='cpu')
     if not isinstance(pt_params, OrderedDict):
         if isinstance(pt_params, dict) and 'model' in pt_params.keys():
             pt_params = pt_params['model']
         else:
             raise ValueError("wrong torch state_dict format when loading {},\
-                please check.".format(torch_path))
+                please check.".format(input_path))
 
     name_pt2ms = {
         "cls_token": "cls_tokens",
@@ -75,8 +78,7 @@ def convert_weight(torch_path="blip2_pretrain.pth",
         # initial name assign
         ms_name = pt_name
         # extract data
-        numpy_value = pt_params[pt_name].detach().numpy()
-        data = Tensor.from_numpy(numpy_value)
+        data = pt2ms(pt_tensor, dtype)
         # split qkv weights
         if "qkv.weight" in pt_name:
             length = pt_tensor.shape[0] // 3
@@ -84,8 +86,8 @@ def convert_weight(torch_path="blip2_pretrain.pth",
             ms_name2 = pt_name.replace("attn.qkv", "attention.dense2")
             ms_name3 = pt_name.replace("attn.qkv", "attention.dense3")
             ms_param_dict.append({"name": ms_name1, "data": data[:length]})
-            ms_param_dict.append({"name": ms_name2, "data": data[length:length*2]})
-            ms_param_dict.append({"name": ms_name3, "data": data[length*2:length*3]})
+            ms_param_dict.append({"name": ms_name2, "data": data[length:length * 2]})
+            ms_param_dict.append({"name": ms_name3, "data": data[length * 2:length * 3]})
             print("rename {} to {}, {} and {}".format(pt_name, ms_name1, ms_name2, ms_name3))
         else:
             #  Rename
@@ -106,8 +108,9 @@ def convert_weight(torch_path="blip2_pretrain.pth",
             if ms_name != pt_name:
                 print(f"rename {pt_name} to {ms_name}")
 
-    print(f"\n----------------- convert {torch_path} to {mindspore_path} Finished! -----------------\n")
-    ms.save_checkpoint(ms_param_dict, mindspore_path)
+    print(f"\n----------------- convert {input_path} to {output_path} Finished! -----------------\n")
+    ms.save_checkpoint(ms_param_dict, output_path)
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="blip2 weight convert script")
@@ -123,4 +126,4 @@ if __name__ == '__main__':
                         help="The output mindspore checkpoint path.")
     opt = parser.parse_args()
 
-    convert_weight(opt.torch_path, opt.mindspore_path)
+    convert_pt_to_ms(opt.torch_path, opt.mindspore_path)

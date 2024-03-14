@@ -168,10 +168,10 @@ pip install torch transformers transformers_stream_generator einops accelerate t
 
 ```shell
 python mindformers/research/qwen/convert_weight.py \
---torch_ckpt_dir <torch_ckpt_dir> \
+--torch_ckpt_path <torch_ckpt_path> \
 --mindspore_ckpt_path <mindspore_ckpt_path>
 # 参数说明：
-# torch_ckpt_dir: 预训练权重文件所在的目录，此参数必须。
+# torch_ckpt_path: 预训练权重文件所在的目录下任意权重文件，根据该文件路径读取目录下全部权重，此参数必须。
 # mindspore_ckpt_path: 转换后的输出文件存放路径。可选，如果不给出，默认为`./run/qwen_7b_ms.ckpt`
 ```
 
@@ -287,7 +287,7 @@ lora微调性能（seq_length=2048，global_batch_size=8）：
       lora_dropout: 0.05
       target_modules: '.*wq|.*wk|.*wv|.*wo|.*w1|.*w2|.*w3'
       freeze_exclude: ["*wte*", "*lm_head*"] # 使用chat权重进行微调时删除该配置
-    ```
+   ```
 
 4. 启动Lora微调任务。
 

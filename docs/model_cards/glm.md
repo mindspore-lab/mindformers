@@ -855,20 +855,15 @@ python task.py --task text_generation --model_type glm_6b_lora_chat --checkpoint
    git clone https://huggingface.co/THUDM/chatglm-6b
    ```
 
-2. 执行 python 脚本，合并模型权重。
-
-   ```python
-   from transformers import AutoModel
-   import torch as pt
-
-   pt_ckpt_path="Your chatglm-6b path"
-   model = AutoModel.from_pretrained(pt_ckpt_path, trust_remote_code=True).half()
-   pt_pth_path = "pt_glm_6b.pth"
-   pt.save(model.state_dict(), pt_pth_path)
-   ```
-
-3. 执行转换脚本，得到转换后的输出文件`ms_glm_6b.ckpt`。
+2. 执行转换脚本，得到转换后的输出文件`ms_glm_6b.ckpt`。
 
    ```shell
    python mindformers/models/glm/convert_weight.py --pt_ckpt_path "replace your ptroch pth path" --ms_ckpt_path ./ms_glm_6b.ckpt
    ```
+
+   ```shell
+   # 参数说明
+   pt_ckpt_path: huggingface权重保存目录下的任意权重bin文件,根据该文件路径读取目录下全部权重
+   ms_ckpt_path: 权重保存文件名，可以指定自定义保存路径
+   ```
+
