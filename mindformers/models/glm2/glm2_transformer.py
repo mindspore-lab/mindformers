@@ -21,11 +21,6 @@ import mindspore.ops.operations as P
 from mindspore import Parameter, Tensor, nn, ops
 from mindspore import dtype as mstype
 try:
-    from mindspore.nn.layer.flash_attention import FlashAttention
-    FLASHATTENTION_IMPORT_VALID = True
-except ImportError:
-    FLASHATTENTION_IMPORT_VALID = False
-try:
     from mindspore.ops.operations.nn_ops import PromptFlashAttention
     PROMPTFLASHATTENTION_VALID = True
 except ImportError:
@@ -39,6 +34,7 @@ except ImportError:
 
 from mindformers.modules import LayerNorm
 from mindformers.modules.layers import Linear
+from mindformers.modules.flash_attention import FlashAttention
 from mindformers.pet.tuners.ptuning2_adapter import Ptuning2Adapter
 from mindformers.version_control import get_dropout, check_valid_flash_attention, choose_flash_attention_dtype
 
@@ -231,12 +227,15 @@ class ChatGLM2SelfAttention(nn.Cell):
         if self.use_flash_attention:
             self.attention_mask_dtype = choose_flash_attention_dtype()
             self.sub_attention = P.Sub().shard(((), (dp, 1, 1)))
-            self.flash_attention = FlashAttention(head_dim=config.hidden_size // config.num_attention_heads,
-                                                  head_num=config.num_attention_heads,
-                                                  dropout_rate=config.attention_dropout, prev_block_num=65536,
-                                                  next_block_num=0,
-                                                  dp=dp, mp=mp,
-                                                  high_precision=True)
+            head_dim = config.hidden_size // config.num_attention_heads
+            self.flash_attention = FlashAttention(head_num=config.num_attention_heads,
+                                                  scale_value=1. / math.sqrt(head_dim),
+                                                  input_layout='BNSD',
+                                                  keep_prob=1. - config.attention_dropout,
+                                                  pre_tokens=65536,
+                                                  next_tokens=0,
+                                                  dp=dp,
+                                                  mp=mp)
 
         if self.use_prompt_flash_attention:
             self.attention_mask_dtype = choose_flash_attention_dtype()
@@ -456,7 +455,7 @@ class ChatGLM2SelfAttention(nn.Cell):
 
         if self.training:
             if self.use_flash_attention:
-                attention_mask = attention_mask.squeeze(1).to(self.attention_mask_dtype)
+                attention_mask = self.cast(attention_mask, mstype.uint8)
                 context_layer = self.flash_attention(query_layer, key_layer, value_layer, attention_mask)
                 context_layer = self._merge_heads(context_layer)
             else:
@@ -698,9 +697,9 @@ class ChatGLM2Transformer(nn.Cell):
             self.final_layernorm.set_comm_fusion(config.parallel_config.gradient_aggregation_group)
 
     def check_flash_attention(self, config):
-        '''check FA/PFA/IFA valid'''
+        """check FA/PFA/IFA valid"""
         if config.use_flash_attention:
-            config.use_flash_attention = check_valid_flash_attention(FLASHATTENTION_IMPORT_VALID, "FlashAttention")
+            config.use_flash_attention = check_valid_flash_attention(fa_type="FlashAttention")
 
         if config.use_prompt_flash_attention:
             config.use_prompt_flash_attention = check_valid_flash_attention(PROMPTFLASHATTENTION_VALID,

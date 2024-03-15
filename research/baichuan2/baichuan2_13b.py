@@ -31,14 +31,8 @@ from mindspore.ops import operations as P
 from mindspore.common.initializer import initializer, HeUniform
 from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
 
-try:
-    # pylint: disable=W0611
-    from mindspore.nn.layer.flash_attention import FlashAttention
-    FLASHATTENTION_VALID = True
-except ImportError:
-    FLASHATTENTION_VALID = False
-
 from mindformers.core.loss.loss import CrossEntropyLoss
+from mindformers.modules.flash_attention import FlashAttention
 from mindformers.models.modeling_utils import PreTrainedModel
 from mindformers.models.utils import cell_reuse
 from mindformers.modules.transformer.op_parallel_config import _check_config
@@ -285,7 +279,7 @@ class Baichuan13BV2Model(Baichuan2PreTrainedModel):
         self.is_dynamic = config.is_dynamic
         self.use_kvcache_op = config.use_kvcache_op
         self.is_flexible_shape = config.is_flexible_shape
-        self.use_flash_attention = config.use_flash_attention and FLASHATTENTION_VALID
+        self.use_flash_attention = config.use_flash_attention
         # only support flash attention in train and prefill predict process.
         if self.use_past:
             self.use_flash_attention = False
@@ -403,14 +397,13 @@ class Baichuan13BV2Model(Baichuan2PreTrainedModel):
                 batch_valid_length = self.ones((bs,), mstype.int32)
 
         if not self.use_past:
-            mask = self.casual_mask(tokens)  # mask: [bs, seq, seq]
-            mask = self.casual_mask.post_process(mask)
+            mask = self.casual_mask(tokens)  # mask: mask: [bs , 1, seq, seq]
             input_mask = self.cast(self.not_equal(tokens, self.pad_token_id), mstype.float16)
             alibi_tensor = self.mul_alibi(self.alibi_tensor, self.reshape(input_mask, (bs, 1, -1, 1)))
             kvcache_inputs = None
         else:
             if self.is_first_iteration:
-                mask = self.casual_mask(tokens)  # mask: [bs, seq, seq]
+                mask = self.casual_mask(tokens)  # mask: [bs , 1, seq, seq]
                 input_mask = self.cast(self.not_equal(tokens, self.pad_token_id), mstype.float16)
                 # alibi_tensor: [bs, num_heads, seq, seq]
                 if self.is_dynamic:
@@ -438,7 +431,6 @@ class Baichuan13BV2Model(Baichuan2PreTrainedModel):
                 alibi_tensor = self.gather(alibi_tensor, batch_valid_length, 2)
                 alibi_tensor = self.transpose(alibi_tensor, (2, 1, 0, 3))
                 alibi_tensor = self.mul_alibi1(alibi_tensor, self.expand_dims(mask, 1))
-            mask = self.casual_mask.post_process(mask)
             kvcache_inputs = self.kvcache_preprocess(bs, batch_valid_length, batch_index, zactivate_len,
                                                      block_tables, slot_mapping)
         # tokens: [bs, seq/1]
@@ -543,7 +535,7 @@ class Baichuan13BAttention(nn.Cell):
         self.softmax_dtype = softmax_compute_dtype
         self.is_first_iteration = True
         self.use_past = use_past
-        self.use_flash_attention = use_flash_attention and FLASHATTENTION_VALID
+        self.use_flash_attention = use_flash_attention
         self.use_paged_attention = use_paged_attention
         self.block_size = block_size
         self.num_blocks = num_blocks
@@ -632,8 +624,14 @@ class Baichuan13BAttention(nn.Cell):
             self.use_flash_attention = False
             logger.info("Current MindSpore do not support flash attention, please upgrade to 2.2.0 or higher")
         if self.use_flash_attention:
-            self.flash_attention = FlashAttention(self.head_dim, n_heads, dp=dp, mp=mp, prev_block_num=65536,
-                                                  next_block_num=0, high_precision=True, alibi=True)
+            self.flash_attention = FlashAttention(head_num=n_heads,
+                                                  scale_value=1. / math.sqrt(self.head_dim),
+                                                  input_layout='BNSD',
+                                                  dp=dp,
+                                                  mp=mp,
+                                                  pre_tokens=65536,
+                                                  next_tokens=0,
+                                                  use_alibi_mask=True)
 
         if self.use_past:
             if self.use_paged_attention:
@@ -693,6 +691,7 @@ class Baichuan13BAttention(nn.Cell):
         value = self._repeat_kv(value, self.n_rep)
         # q, k, v: [bs, n_head, seq/1, head_dim], [bs, n_head, seq, head_dim], [bs, n_head, seq, head_dim]
         if self.use_flash_attention:
+            mask = self.cast(mask, mstype.uint8)
             attention = self.flash_attention(query, key, value, mask, alibi_tensor)
             attention = self._merge_heads(attention)
         else:

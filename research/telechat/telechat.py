@@ -25,12 +25,6 @@ from mindspore.context import ParallelMode
 from mindspore.ops import operations as P
 from mindspore.ops import functional as F
 from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
-try:
-    # pylint: disable=W0611
-    from mindspore.nn.layer.flash_attention import FlashAttention
-    FLASHATTENTION_VALID = True
-except ImportError:
-    FLASHATTENTION_VALID = False
 
 from mindformers.core.loss.loss import CrossEntropyLoss
 from mindformers.models.utils import cell_reuse
@@ -125,7 +119,7 @@ class TelechatModel(TelechatPreTrainedModel):
         self.is_dynamic = config.is_dynamic
         self.use_kvcache_op = config.use_kvcache_op
         self.is_flexible_shape = config.is_flexible_shape
-        self.use_flash_attention = config.use_flash_attention and FLASHATTENTION_VALID
+        self.use_flash_attention = config.use_flash_attention
         if self.use_flash_attention:
             logger.info("Enable flash attention.")
         elif config.use_flash_attention:
@@ -228,7 +222,6 @@ class TelechatModel(TelechatPreTrainedModel):
         if not self.use_past:
             freqs_cis = self.freqs_mgr()
             mask = self.casual_mask(tokens) # mask: [bs, seq, seq]
-            mask = self.casual_mask.post_process(mask)
             kvcache_inputs = None
         else:
             if self.is_first_iteration:
@@ -243,8 +236,6 @@ class TelechatModel(TelechatPreTrainedModel):
                         zactivate_len)
                 else:
                     mask = self.casual_mask.increment(self.kvcache_preprocess.range, batch_valid_length, zactivate_len)
-            mask = self.casual_mask.post_process(mask)
-
             kvcache_inputs = self.kvcache_preprocess(bs, batch_valid_length, batch_index, zactivate_len)
 
         # tokens: [bs, seq/1]

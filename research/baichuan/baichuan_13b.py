@@ -25,13 +25,9 @@ from mindspore import Tensor, nn, ops
 import mindspore.common.dtype as mstype
 from mindspore.common.parameter import Parameter
 from mindspore.ops import operations as P
-try:
-    from mindspore.nn.layer.flash_attention import FlashAttention
-    FLASHATTENTION_VALID = True
-except ImportError:
-    FLASHATTENTION_VALID = False
 
 from mindformers.core.loss.loss import CrossEntropyLoss
+from mindformers.modules.flash_attention import FlashAttention
 from mindformers.models.modeling_utils import PreTrainedModel
 from mindformers.models.utils import cell_reuse
 from mindformers.modules.transformer.op_parallel_config import _check_config
@@ -196,7 +192,7 @@ class Baichuan13BModel(BaichuanPreTrainedModel):
         self.pad_token_id = config.pad_token_id
         self.is_first_iteration = True
         self.use_past = config.use_past
-        self.use_flash_attention = config.use_flash_attention and FLASHATTENTION_VALID
+        self.use_flash_attention = config.use_flash_attention
         if self.use_flash_attention:
             logger.info("Enable flash attention.")
         elif config.use_flash_attention:
@@ -633,7 +629,7 @@ class Baichuan13BAttention(nn.Cell):
         self.is_first_iteration = True
         self.use_past = use_past
         self.compute_in_2d = compute_in_2d
-        self.use_flash_attention = use_flash_attention and FLASHATTENTION_VALID
+        self.use_flash_attention = use_flash_attention
 
         if self.hidden_size % self.n_head != 0:
             raise ValueError("For 'MultiHeadAttention', the class variable 'hidden_size' must be a multiple "
@@ -711,16 +707,14 @@ class Baichuan13BAttention(nn.Cell):
             self.batch_matmul.recompute()
 
         if self.use_flash_attention:
-            if softmax_compute_dtype == mstype.float32:
-                high_precision = True
-            elif softmax_compute_dtype == mstype.float16:
-                high_precision = False
-            self.flash_attention = FlashAttention(self.head_dim,
+            self.flash_attention = FlashAttention(head_num=n_heads,
+                                                  scale_value=1. / math.sqrt(self.head_dim),
+                                                  input_layout='BNSD',
                                                   dp=dp,
                                                   mp=mp,
-                                                  high_precision=high_precision,
-                                                  next_block_num=0,
-                                                  alibi=True)
+                                                  pre_tokens=65536,
+                                                  next_tokens=0,
+                                                  use_alibi_mask=True)
             self.flash_attention.shard(
                 ((dp, mp, 1, 1), (dp, mp, 1, 1), (dp, mp, 1, 1), (dp, 1, 1), ()))
             if parallel_config.recompute.select_recompute:
@@ -800,6 +794,8 @@ class Baichuan13BAttention(nn.Cell):
         value = self._repeat_kv(value, self.n_rep)
         # q, k, v: [bs, n_head, seq/1, head_dim], [bs, n_head, seq, head_dim], [bs, n_head, seq, head_dim]
         if self.use_flash_attention:
+            mask = self.expand_dim_post(mask, 1)
+            mask = self.cast(mask, mstype.uint8)
             attention = self.flash_attention(query, key, value, mask)
             attention = self._merge_heads(attention)
         else:

@@ -51,12 +51,13 @@ from mindformers.core.loss.loss import CrossEntropyLoss
 from mindformers.mindformer_book import MindFormerBook
 from mindformers.models.modeling_utils import PreTrainedModel
 from mindformers.modules.layers import Linear
+from mindformers.modules.transformer import LowerTriangularMaskWithDynamic
 from mindformers.modules.transformer.op_parallel_config import _check_config
 from mindformers.tools.register.register import MindFormerModuleType, MindFormerRegister
 from mindformers.version_control import check_valid_paged_attention, check_valid_flash_attention
 
 from .llama_config import LlamaConfig
-from .llama_layer import LlamaEmbedding, LlamaRMSNorm, FreqsMgr, CausalMask
+from .llama_layer import LlamaEmbedding, LlamaRMSNorm, FreqsMgr
 from .llama_transformer import LLamaDecodeLayer
 from ...modules import KVCachePreprocess
 from .llama_interleave import LLamaDecodeLayerInterleave
@@ -175,13 +176,13 @@ class LlamaModel(LlamaPreTrainedModel):
                                   scaling_factor=config.scaling_factor,
                                   extend_method=config.extend_method,
                                   is_dynamic=config.is_dynamic)
-        self.casual_mask = CausalMask(seq_length=config.seq_length,
-                                      compute_type=config.compute_dtype,
-                                      is_dynamic=config.is_dynamic,
-                                      pad_token_id=config.pad_token_id,
-                                      use_flash_attention=config.use_flash_attention,
-                                      use_prompt_flash_attention=config.use_prompt_flash_attention,
-                                      use_incre_flash_attention=config.use_incre_flash_attention)
+        self.casual_mask = LowerTriangularMaskWithDynamic(seq_length=config.seq_length,
+                                                          compute_type=config.compute_dtype,
+                                                          is_dynamic=config.is_dynamic,
+                                                          pad_token_id=config.pad_token_id,
+                                                          use_flash_attention=config.use_flash_attention,
+                                                          use_prompt_flash_attention=config.use_prompt_flash_attention,
+                                                          use_incre_flash_attention=config.use_incre_flash_attention)
         self.tok_embeddings = LlamaEmbedding(vocab_table_size=config.vocab_size,
                                              embedding_size=config.hidden_size,
                                              param_init_type=config.param_init_type)
@@ -446,7 +447,7 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
                                         dtype=ms.int32) if use_paged_attention else None
 
         return input_ids, None, None, None, None, None, None, batch_valid_length, batch_index, zactivate_len, \
-               block_tables, slot_mapping
+            block_tables, slot_mapping
 
     # pylint: disable=W0613
     def construct(self, input_ids, labels=None, input_position=None, position_ids=None, attention_mask=None,

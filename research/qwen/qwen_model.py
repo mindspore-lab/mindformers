@@ -29,13 +29,6 @@ try:
     from mindspore._checkparam import Validator
 except ImportError:
     import mindspore._checkparam as Validator
-try:
-    # pylint: disable=W0611
-    from mindspore.nn.layer.flash_attention import FlashAttention
-
-    FLASHATTENTION_VALID = True
-except ImportError:
-    FLASHATTENTION_VALID = False
 
 from mindformers.core.loss.loss import CrossEntropyLoss
 from mindformers.models.modeling_utils import PreTrainedModel
@@ -208,7 +201,7 @@ class QwenModel(QwenPreTrainedModel):
         self.is_flexible_shape = config.is_flexible_shape
 
         self.is_first_iteration = True
-        self.use_flash_attention = config.use_flash_attention and FLASHATTENTION_VALID
+        self.use_flash_attention = config.use_flash_attention
         if self.use_flash_attention:
             logger.info("Enable flash attention.")
         elif config.use_flash_attention:
@@ -305,8 +298,8 @@ class QwenModel(QwenPreTrainedModel):
         bs, seq_len = self.shape(input_ids)
         if not self.use_past:
             freqs_cis = self.freqs_mgr()
-            mask = self.casual_mask(input_ids)  # mask: [bs, seq, seq]
-            mask = self.casual_mask.post_process(mask)
+            mask = self.casual_mask(input_ids)
+            mask = self.casual_mask.post_process(mask)  # mask: [bs, 1, seq, seq]
             kvcache_inputs = None
         else:
             if self.is_first_iteration:
@@ -321,7 +314,7 @@ class QwenModel(QwenPreTrainedModel):
                                                             zactivate_len)
                 else:
                     mask = self.casual_mask.increment(self.kvcache_preprocess.range, batch_valid_length, zactivate_len)
-            mask = self.casual_mask.post_process(mask)
+            mask = self.casual_mask.post_process(mask)  # mask: [bs, 1, seq, seq]
 
             kvcache_inputs = self.kvcache_preprocess(bs, batch_valid_length, batch_index, zactivate_len)
 
@@ -510,12 +503,12 @@ class CausalMaskForQwen(nn.Cell):
         # Mask the padded inputs
         mask_right = self.reshape(input_mask, shape_right)
         if not self.is_dynamic:
-            lower_traiangle = self.expand_dim(self.lower_triangle_mask, 0)
+            lower_triangle = self.expand_dim(self.lower_triangle_mask, 0)
         else:
             lower_triangle_mask = self.slice(self.lower_triangle_mask, (0, 0), (seq_len, seq_len), (1, 1))
-            lower_traiangle = self.expand_dim(lower_triangle_mask, 0)
+            lower_triangle = self.expand_dim(lower_triangle_mask, 0)
         # the returned shape is [bs, seq_length, seq_length]
-        attention_mask = self.mul(mask_right, lower_traiangle)
+        attention_mask = self.mul(mask_right, lower_triangle)
         return attention_mask
 
     def increment(self, seq_range, batch_valid_length, zactivate_len=None):
@@ -534,8 +527,8 @@ class CausalMaskForQwen(nn.Cell):
 
     def post_process(self, mask):
         mask = self.sub(self.one, self.cast(mask, self.dtype))
+        mask = self.expand_dim_post(mask, 1)
         if not self.use_flash_attention:
-            mask = self.expand_dim_post(mask, 1)
             mask = self.mul_post(mask, self.multiply_data)
         return mask
 

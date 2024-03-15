@@ -23,7 +23,7 @@ from mindspore import Tensor
 from mindspore.common.initializer import initializer
 from mindspore.ops import operations as P
 from mindformers.modules.transformer import VocabEmbedding
-from mindformers.modules.layers import LayerNorm, AlibiTensor
+from mindformers.modules.layers import LayerNorm, AlibiTensorV2
 from mindformers.core.loss import CrossEntropyLoss
 from mindformers.models.modeling_utils import PreTrainedModel
 from mindformers.tools.logger import logger
@@ -141,9 +141,8 @@ class BloomModel(BloomPreTrainedModel):
         self.make_causal_attention = CausalMask(seq_length=config.seq_length,
                                                 parallel_config=config.parallel_config.dp_mp_config)
 
-        self.build_alibi_tensor = AlibiTensor(seq_length=config.seq_length,
-                                              num_heads=config.num_heads,
-                                              parallel_config=config.parallel_config)
+        self.build_alibi_tensor = AlibiTensorV2(seq_length=config.seq_length,
+                                                num_heads=config.num_heads)
 
         self.blocks = BloomBlocks(hidden_size=config.hidden_size,
                                   batch_size=config.batch_size,

@@ -48,7 +48,8 @@ __all__ = [
     "FixedSparseAttention",
     "Dropout",
     "LayerNorm",
-    "Linear"
+    "Linear",
+    "AlibiTensorV2"
 ]
 
 
