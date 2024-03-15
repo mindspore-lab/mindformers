@@ -626,6 +626,44 @@ python run_qwen_mslite_infer.py --mindir_root_dir output --seq_length 2048 --bat
 
 注意: `seq_length`与`batch_size`必须与导出时YAML中设置的值相同，否则无法运行成功。
 
+> 也可以通过`run_infer_main.py`统一脚本来运行Lite推理：
+>
+>
+> ```bash
+> python run_infer_main.py \
+> --device_id 0 \
+> --model_name qwen_7b \
+> --seq_length 2048 \
+> --tokenizer_path path/to/qwen.tiktoken.model \
+> --prefill_model_path /path/to/minder_full_checkpoint/rank_0_graph.mindir \
+> --increment_model_path /path/to/minder_inc_checkpoint/rank_0_graph.mindir \
+> --config_path /path/to/lite.ini \
+> --do_sample False \
+> --top_k 1 \
+> --top_p 1.0 \
+> --repetition_penalty 1.0 \
+> --temperature 1.0 \
+> --max_length 2048 \
+> --add_special_tokens False
+>
+> # 参数说明
+> device_id: 设备物理ID
+> model_name: 模型名称
+> seq_length: 推理序列长度, 注意静态推理时需要与export导出的推理序列长度保持一致
+> tokenizer_path: 模型tokenizer路径
+> prefill_model_path: 全量图路径
+> increment_model_path: 增量图路径
+> config_path: GE配置文件路径
+> do_sample: 是否对候选id进行采样
+> top_k: 选择top_k个token id作为候选
+> top_p: 将累积概率小于top_k的token id作为候选
+> repetition_penalty: 生成单词的惩罚因子，设置为1时不打开
+> temperature: 温度系数，用来调整下个token的概率
+> max_length: 能够生成的最大语句长度
+> is_sample_acceleration: 后处理加速开关
+> add_special_tokens: 对输入token化时是否添加特殊字符
+> ```
+
 ### 多卡导出与推理
 
 #### 从完整权重导出mindir
@@ -798,6 +836,30 @@ tail -f output/log/rank_*/mindformer.log
 ```
 
 注意: `seq_length`与`batch_size`必须与导出时YAML中设置的值相同，否则无法运行成功。
+
+> 同样地，多卡推理也可以用统一的`run_infer_main.py`来启动：
+>
+> 新建文件`run_lite.sh`, 内容如下：
+>
+> ```bash
+> # >>> `run_lite.sh`文件
+> # 修改predict_data 的入参来进行不同输入文本的推理。
+> readonly START_DEVICE_ID=0
+> for i in {0..3}; do
+>   export RANK_ID=${i}
+>   export DEVICE_ID=$((i + START_DEVICE_ID))
+>   printf "run model %s on rank:%s,device %s...\n" ${i} ${RANK_ID} ${DEVICE_ID}
+>   python run_infer_main.py --deivce_id ${DEVICE_ID} --rank_id ${RANK_ID} --config_path lite.ini \
+>       --model_name qwen_7b --tokenizer_path path/to/qwen.tiktoken \
+>       --prefill_model_path output/mindir_full_checkpoint/rank_${RANK_ID}_graph.mindir --increment_model_path output/mindir_inc_checkpoint/rank_${RANK_ID}_graph.mindir \
+>       --seq_length 4096  --batch_size 2 --distributed True \
+>       --do_sample False --is_sample_acceleration False  --add_special_tokens True --predict_data "你是谁" --generated_time 3 > output/rank_${RANK_ID}.log 2>&1 &
+> done
+> #
+> tail -f output/rank*.log
+> ```
+>
+> 然后执行命令`bash run_lite.sh`即可
 
 ### 开启Paged Attention (PA) 加速
 

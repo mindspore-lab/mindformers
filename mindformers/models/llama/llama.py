@@ -395,7 +395,8 @@ class LlamaForCausalLM(BaseModel):
         bs = None if dyn else self.config.batch_size
         seq_len = None if dyn else self.seq_length
         max_num_blocks_pre_batch = None if dyn else seq_len // self.config.block_size
-        logger.info(f"max num blocks pre batch: {max_num_blocks_pre_batch}")
+        if use_paged_attention:
+            logger.info(f"max num blocks pre batch: {max_num_blocks_pre_batch}")
 
         def dummy_tensor(shape, dtype):
             if None in shape:
