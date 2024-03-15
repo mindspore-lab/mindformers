@@ -42,25 +42,18 @@ from mindspore.parallel._utils import _get_parallel_mode
 from mindspore.context import ParallelMode
 
 try:
-    from mindspore.nn.layer.flash_attention import FlashAttention
-
-    FLASHATTENTION_VALID = True
-except ImportError:
-    FLASHATTENTION_VALID = False
-try:
     from mindspore.ops.operations.nn_ops import PromptFlashAttention
-
     PROMPTFLASHATTENTION_VALID = True
 except ImportError:
     PROMPTFLASHATTENTION_VALID = False
 
 try:
     from mindspore.ops.operations.nn_ops import IncreFlashAttention
-
     INCREFLASHATTENTION_VALID = True
 except ImportError:
     INCREFLASHATTENTION_VALID = False
 
+from mindformers.modules.flash_attention import FlashAttention
 from mindformers.modules.layers import LayerNorm, Linear, \
     _args_type_validator_check, _valid_type_checks, _valid_value_checks, \
     _check_past_none_input_none, _check_input_dtype
@@ -793,8 +786,7 @@ class AttentionMask(Cell):
         attention_mask = self.mul(mask_left, mask_right)
         lower_traiangle = self.expand_dim(self.lower_triangle_mask, 0)
         # the returned shape is [bs, seq_length, seq_length]
-        attention_mask = self.multiply(
-            attention_mask, lower_traiangle)
+        attention_mask = self.multiply(attention_mask, lower_traiangle)
         return attention_mask
 
 
@@ -875,17 +867,22 @@ class AttentionMaskHF(Cell):
 
 
 class LowerTriangularMaskWithDynamic(Cell):
-    """Get the Strictly Lower triangular matrix from the input_ids. """
-
+    r"""
+            Get the Strictly Lower triangular matrix from the input_ids.
+    """
     @_LogActionOnce(m_logger=logger, key='AttentionMask',
                     no_warning=_get_parallel_mode() in (ParallelMode.STAND_ALONE,))
     def __init__(self, seq_length, compute_type=mstype.float16,
-                 is_dynamic=False, pad_token_id=2, use_flash_attention=False):
+                 is_dynamic=False, pad_token_id=0, use_flash_attention=False,
+                 use_prompt_flash_attention=False, use_incre_flash_attention=False):
         super().__init__()
         self.dtype = compute_type
         self.is_dynamic = is_dynamic
         self.pad_token_id = pad_token_id
         self.use_flash_attention = use_flash_attention
+        self.use_prompt_flash_attention = use_prompt_flash_attention
+        self.use_incre_flash_attention = use_incre_flash_attention
+        self.is_first_iteration = True
         self.multiply_data = Tensor([-10000.0], dtype=compute_type)
         self.one = Tensor([1.0], dtype=compute_type)
         self.lower_triangle_mask = ops.cast(Tensor(np.tril(np.ones(shape=(seq_length, seq_length))), mstype.float32),
@@ -896,6 +893,7 @@ class LowerTriangularMaskWithDynamic(Cell):
         self.reshape = P.Reshape()
         self.not_equal = P.NotEqual()
         self.less_equal = P.LessEqual()
+        self.bmm = P.BatchMatMul()
         self.expand_dim = P.ExpandDims()
         self.slice = P.StridedSlice()
         self.mul = P.Mul()
@@ -914,6 +912,7 @@ class LowerTriangularMaskWithDynamic(Cell):
             seq_len = self.shape(masks)[1]
             input_mask = self.cast(masks, self.dtype)
         shape_right = (bs, 1, seq_len)
+
         # Mask the padded inputs
         mask_right = self.reshape(input_mask, shape_right)
         attention_mask = mask_right
@@ -922,36 +921,47 @@ class LowerTriangularMaskWithDynamic(Cell):
         else:
             lower_triangle_mask = self.slice(self.lower_triangle_mask, (0, 0), (seq_len, seq_len), (1, 1))
             lower_triangle = self.expand_dim(lower_triangle_mask, 0)
-        # the returned shape is [bs, seq_length, seq_length]
+
+        # the returned shape is [bs, 1, seq_length, seq_length]
         attention_mask = self.mul(attention_mask, lower_triangle)
+        attention_mask = self.sub(self.one, attention_mask)
+        attention_mask = self.expand_dim_post(attention_mask, 1)
+        if not self.use_flash_attention and not self.use_prompt_flash_attention:
+            attention_mask = self.mul_post(attention_mask, self.multiply_data)
+        elif self.use_flash_attention or self.use_prompt_flash_attention:
+            attention_mask = self.cast(attention_mask, mstype.uint8)
         return attention_mask
 
     def increment(self, seq_range, batch_valid_length, zactivate_len=None):
+        """Get mask for incremental inference."""
         if zactivate_len is not None:
             seq_range = self.slice(seq_range, (0, 0, 0), (1, 1, self.shape(zactivate_len)[0]), (1, 1, 1))
         mask = self.less_equal(self.reshape(seq_range, (1, 1, -1)), self.reshape(batch_valid_length, (-1, 1, 1)))
+        mask = self.cast(mask, self.dtype)
+        mask = self.sub(self.one, mask)
+        mask = self.expand_dim_post(mask, 1)
+        if not self.use_incre_flash_attention:
+            mask = self.mul_post(mask, self.multiply_data)
         return mask
 
     def increment_slice(self, seq_range, seq_length, batch_valid_length, zactivate_len=None):
+        """Get mask for incremental inference and apply slice."""
         if zactivate_len is not None:
             seq_range_mask = self.slice(seq_range, (0, 0, 0), (1, 1, self.shape(zactivate_len)[0]), (1, 1, 1))
         else:
             seq_range_mask = self.slice(seq_range, (0, 0, 0), (1, 1, seq_length), (1, 1, 1))
         mask = self.less_equal(self.reshape(seq_range_mask, (1, 1, -1)), self.reshape(batch_valid_length, (-1, 1, 1)))
-        return mask
-
-    def post_process(self, mask):
-        mask = self.sub(self.one, self.cast(mask, self.dtype))
-        if not self.use_flash_attention:
-            mask = self.expand_dim_post(mask, 1)
+        mask = self.cast(mask, self.dtype)
+        mask = self.sub(self.one, mask)
+        mask = self.expand_dim_post(mask, 1)
+        if not self.use_incre_flash_attention:
             mask = self.mul_post(mask, self.multiply_data)
-        else:
-            mask = self.cast(mask, mstype.uint8)
         return mask
 
     def shard(self, parallel_config):
         dp = parallel_config.data_parallel
         self.not_equal.shard(((dp, 1), ()))
+        self.bmm.shard(((dp, 1, 1), (dp, 1, 1)))
         self.expand_dim.shard(((1, 1),))
         self.mul.shard(((dp, 1, 1), (1, 1, 1)))
         self.less_equal.shard(((1, 1, 1), (1, 1, 1)))
@@ -1447,15 +1457,19 @@ class MultiHeadAttention(Cell):
 
         if self.use_flash_attention:
             self.flash_attention = FlashAttention(
-                self.size_per_head,
-                num_heads,
-                dropout_rate=attention_dropout_rate,
+                head_num=num_heads,
+                pre_tokens=65536,
+                next_tokens=0,
+                keep_prob=1. - attention_dropout_rate,
+                scale_value=1. / math.sqrt(self.size_per_head),
+                input_layout="BNSD",
+                sparse_mode=0,
+                use_attention_mask=True,
                 dp=parallel_config.data_parallel,
-                mp=parallel_config.model_parallel,
-                next_block_num=0,
-                prev_block_num=65536,
-                high_precision=True
+                mp=parallel_config.model_parallel
             )
+
+
             self.sub = P.Sub().shard(
                 ((1,), (parallel_config.data_parallel, 1, 1)))
 
@@ -1545,9 +1559,10 @@ class MultiHeadAttention(Cell):
                  self.n_head, self.size_per_head)),
             (0, 2, 1, 3))
         # support input shape is [bs, seq, seq] or [bs, heads, seq, seq]
-        # pfa use 4d, but fas use 3d
+        # pfa and fas use 4d mask
         if attention_mask is not None and len(F.shape(attention_mask)) == 3 and \
-                ((not self.use_flash_attention) or ((not self.training) and self.use_prompt_flash_attention)):
+                (self.use_flash_attention or not self.use_flash_attention or
+                 ((not self.training) and self.use_prompt_flash_attention)):
             # expand attention mask from [bs, seq, seq] -> [bs, 1, seq, seq]
             attention_mask = self.expand_dims(attention_mask, 1)
         # key and value for current token(s)
@@ -1608,9 +1623,10 @@ class MultiHeadAttention(Cell):
                 query, key, attention_mask = self._pfa_ifa_data_preprocess(query, key, attention_mask,
                                                                            batch_valid_length)
                 attention = self.prompt_flash_attention(query, key, value, attention_mask,
-                                                        None, None, None, None, None, None, None, None)[0]
+                                                        None, None, None, None, None, None, None, None)
                 attention = self._merge_heads(attention)
         elif self.use_flash_attention:
+            attention_mask = self.cast(attention_mask, mstype.uint8)
             attention = self._flash_attn(query, key, value, attention_mask)
         else:
             attention = self._attn(query, key, value, attention_mask)
@@ -2050,7 +2066,7 @@ class TransformerEncoderLayer(Cell):
                     "and parallel_config. model_parallel is {}."
                     .format(ffn_hidden_size, parallel_config.model_parallel))
             # flash attention / prompt flash attention / incre flash attention version validation
-            if use_flash_attention and not check_valid_flash_attention(FLASHATTENTION_VALID, "FlashAttention"):
+            if use_flash_attention and not check_valid_flash_attention(fa_type="FlashAttention"):
                 use_flash_attention = False
                 log.info("Current MindSpore do not support flash attention, please upgrade to 2.2.0 or higher")
             if use_prompt_flash_attention and \

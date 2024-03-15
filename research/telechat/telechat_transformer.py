@@ -27,14 +27,10 @@ from mindspore.common.tensor import Tensor
 from mindspore.context import ParallelMode
 from mindspore.ops import operations as P
 from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
-try:
-    from mindspore.nn.layer.flash_attention import FlashAttention
-    FLASHATTENTION_VALID = True
-except ImportError:
-    FLASHATTENTION_VALID = False
 
 from mindformers.tools.utils import is_version_ge
 from mindformers.tools.logger import logger
+from mindformers.modules.flash_attention import FlashAttention
 from mindformers.modules.layers import _check_input_dtype, Dropout
 from mindformers.modules.transformer import TransformerOpParallelConfig
 from mindformers.modules import KVCacheMgr
@@ -137,7 +133,7 @@ class TelechatAttention(nn.Cell):
         self.softmax_dtype = softmax_compute_dtype
         self.is_first_iteration = True
         self.use_past = use_past
-        self.use_flash_attention = use_flash_attention and FLASHATTENTION_VALID
+        self.use_flash_attention = use_flash_attention
 
         if self.hidden_size % self.n_head != 0:
             raise ValueError("For 'MultiHeadAttention', the class variable 'hidden_size' must be a multiple "
@@ -222,8 +218,13 @@ class TelechatAttention(nn.Cell):
             self.use_flash_attention = False
             logger.info("Current MindSpore do not support flash attention, please upgrade to 2.2.0 or higher")
         if self.use_flash_attention:
-            self.flash_attention = FlashAttention(self.head_dim, n_heads, dp=dp, mp=mp, next_block_num=0,
-                                                  high_precision=True)
+            self.flash_attention = FlashAttention(head_num=n_heads,
+                                                  scale_value=1. / math.sqrt(self.head_dim),
+                                                  input_layout='BNSD',
+                                                  dp=dp,
+                                                  mp=mp,
+                                                  pre_tokens=65536,
+                                                  next_tokens=0)
 
         if self.use_past:
             self.kvcache_mgr = KVCacheMgr(self.n_kv_head, self.head_dim,
@@ -269,6 +270,7 @@ class TelechatAttention(nn.Cell):
         value = self._repeat_kv(value, self.n_rep)
         # q, k, v: [bs, n_head, seq/1, head_dim], [bs, n_head, seq, head_dim], [bs, n_head, seq, head_dim]
         if self.use_flash_attention:
+            mask = self.cast(mask, mstype.uint8)
             attention = self.flash_attention(query, key, value, mask)
             attention = self._merge_heads(attention)
         else:
