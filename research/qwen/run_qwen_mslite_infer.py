@@ -49,11 +49,22 @@ def create_mslite_pipeline(args):
     """Create MS lite inference pipeline."""
     ms.set_context(mode=ms.GRAPH_MODE, device_target='Ascend')
 
+    if not os.path.isfile(args.vocab_file):
+        raise FileNotFound(args.vocab_file)
     tokenizer = QwenTokenizer(pad_token='<|endoftext|>',
-                              vocab_file='./run/qwen.tiktoken')
+                              vocab_file=args.vocab_file)
 
     prefill_model_path = get_mindir_path(args.mindir_root_dir, full=True)
     inc_model_path = get_mindir_path(args.mindir_root_dir, full=False)
+
+    if len(args.ge_config_path.split(',')) > 1:
+        args.ge_config_path = args.ge_config_path.split(',')
+        for ini in args.ge_config_path:
+            if not os.path.isfile(ini):
+                raise FileNotFoundError(ini)
+    else:
+        if not os.path.isfile(args.ge_config_path):
+            raise FileNotFoundError(args.ge_config_path)
 
     if args.device_id == -1:
         args.device_id = int(os.getenv('DEVICE_ID', '0'))
@@ -127,6 +138,8 @@ if __name__ == '__main__':
                         help='ID of the target device, the value must be in [0, device_num_per_host-1]')
     parser.add_argument('--ge_config_path', default='./lite.ini', type=str,
                         help='ge config file path.')
+    parser.add_argument('--vocab_file', default='./run/qwen.tiktoken', type=str,
+                        help='Path to vocab file qwen.tiktoken')
     parser.add_argument('--mindir_root_dir', default='output', type=str,
                         help='root path of exported MINDIR models. Default: "output".')
     parser.add_argument('--seq_length', default=None, type=int, required=True,
