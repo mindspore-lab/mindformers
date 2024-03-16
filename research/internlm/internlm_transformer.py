@@ -80,7 +80,7 @@ class InternLMAttention(LLamaAttention):
                 self.wq.shard(((dp, 1), (mp, 1)), ((dp, mp), (mp,)))
                 self.wk.shard(((dp, 1), (mp, 1)), ((dp, mp), (mp,)))
                 self.wv.shard(((dp, 1), (mp, 1)), ((dp, mp), (mp,)))
-                self.wo.shard(((dp, 1), (mp, 1)), ((dp, 1), (1,)))
+                self.wo.shard(((dp, mp), (1, mp)), ((dp, 1), (1,)))
                 if parallel_config.use_seq_parallel and self.is_first_iteration:
                     self.wo.shard(((dp, mp), (1, mp)),
                                   out_strategy_matmul=((dp * mp, 1),),
@@ -105,7 +105,7 @@ class InternLMDecodeLayer(LLamaDecodeLayer):
                  batch_size,
                  seq_length,
                  layer_id,
-                 has_bias=True,
+                 has_bias,
                  **kwargs):
         super().__init__(batch_size=batch_size,
                          seq_length=seq_length,
