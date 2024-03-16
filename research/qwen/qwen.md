@@ -927,3 +927,58 @@ python run_qwen_mslite_infer.py --mindir_root_dir output --seq_length 2048 --bat
 ```
 
 注意: `seq_length, batch_size, paged_attention, pa_block_size, pa_num_blocks`的值必须与导出时YAML中设置的值相同，否则无法运行成功。
+
+### 开启双动态
+
+开启双动态功能之前，MINDIR导出时`seq_length`和`batch_size`为固定大小，会导致`seq_length`较大时并发batch较低、并发batch加大时`seq_length`长度不足以支撑较长的输入和输出。想要避免这样的问题，可以开启**双动态**能力，开启后`seq_length`和`batch_size`可以在模型运行过程中根据请求动态调整。
+
+#### step 1: 导出模型时开启双动态
+
+导出时添加`--is_dynamic True`即可：
+
+```shell
+python run_qwen.py --run_mode export --config_path /path/run_qwen_7b.yaml --is_dynamic True  --seq_length 512 --batch_size 2
+```
+
+上述示例中指定了导出时的`seq_length`和`batch_size`，以提供足够空间。 在Atlas 800T A2服务器上，单卡可支持Qwen-7B最大以`batch_size * seq_length = 32768`的双动态lite推理，支持Qwen-14B最大以`batch_size * seq_length = 16384`的双动态lite推理。
+
+#### step 2: 准备GE配置文件
+
+双动态推理需要额外增加一个配置文件`lite-dyn-inc.ini`，示例如下：
+
+```ini
+[ascend_context]
+provider=ge
+
+[ge_session_options]
+ge.exec.formatMode=1
+ge.exec.atomicCleanPolicy=1
+ge.exec.staticMemoryPolicy=2
+ge.exec.precision_mode=must_keep_origin_dtype
+
+[ge_graph_options]
+ge.inputShape=batch_index:-1;batch_valid_length:-1;tokens:-1,1;zactivate_len:-1
+ge.dynamicDims=1,1,1,256;1,1,1,512;1,1,1,1024;2,2,2,256;2,2,2,512
+ge.dynamicNodeType=1
+
+# 参数说明
+# ge.inputShape：设置参数动态输入，-1表示动态入参
+# ge.dynamicDims：设置实际推理的batch size和activate length，与ge.inputShape中-1的位置依次对应
+#         前三个表示batch_size，最后一位表示seq_length, 注意不能大于导出时给定的 batch_size 和 seq_length;
+```
+
+#### step 3: 启动Lite模型，运行推理
+
+运行双动态模型时，必须给出`--dynamic true`选项，并在`--ge_config_path`中为全量图和增量图指定两个配置文件。
+但可以不给出`--seq_length`, Mindformers会结合`--batch_size`和`--predict_length`推断合适的`seq_length`:
+
+```shell
+cd mindformers/research/qwen
+python run_qwen_mslite_infer.py --mindir_root_dir output --batch_size 2 --seq_length 512 \
+    --dynamic true --ge_config_path lite.ini,lite-dyn-inc.ini \
+    --predict_data 帮助我制定一份去上海的旅游攻略
+
+python run_qwen_mslite_infer.py --mindir_root_dir output --batch_size 1 --predict_length 1024  \
+    --dynamic true --ge_config_path lite.ini,lite-dyn-inc.ini \
+    --predict_data 帮助我制定一份去上海的旅游攻略
+```
