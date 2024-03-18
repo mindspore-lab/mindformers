@@ -51,8 +51,7 @@ def generator_eval():
 
 
 @pytest.mark.level0
-@pytest.mark.platform_x86_ascend_training
-@pytest.mark.platform_arm_ascend_training
+@pytest.mark.platform_arm_ascend910b_training
 @pytest.mark.env_onecard
 class TestDoEvalMethod:
     """A test class for testing pipeline."""
