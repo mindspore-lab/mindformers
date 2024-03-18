@@ -63,8 +63,8 @@ class TestDoEvalMethod:
             batch_size=4,
             num_train_epochs=1,
             do_eval=True,
-            eval_step_interval=-1,
-            eval_epoch_interval=2,
+            eval_steps=-1,
+            eval_epochs=2,
             )
         train_dataset = GeneratorDataset(generator_train, column_names=["input_ids", "input_mask"])
         eval_dataset = GeneratorDataset(generator_eval, column_names=["input_ids", "input_mask"])

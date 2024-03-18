@@ -13,7 +13,8 @@
 # limitations under the License.
 # ============================================================================
 """Dataset Utils."""
-
+import inspect
+from collections.abc import Iterable
 
 def check_dataset_config(config):
     """Check dataset config."""
@@ -27,6 +28,8 @@ def check_dataset_config(config):
         config.train_dataset.batch_size = config.runner_config.batch_size
         if config.train_dataset.mixup_op:
             config.train_dataset.mixup_op.num_classes = config.runner_config.num_classes
+        if config.train_dataset.output_columns is None:
+            config.train_dataset.output_columns = config.train_dataset.input_columns
         config.train_dataset_task.dataset_config = config.train_dataset
 
     if config.eval_dataset is not None:
@@ -37,4 +40,17 @@ def check_dataset_config(config):
         config.eval_dataset.autotune_per_step = config.autotune_per_step
         config.eval_dataset.profile = config.profile
         config.eval_dataset.batch_size = config.runner_config.batch_size
+        if config.eval_dataset.output_columns is None:
+            config.eval_dataset.output_columns = config.eval_dataset.input_columns
         config.eval_dataset_task.dataset_config = config.eval_dataset
+
+def check_dataset_iterable(dataset):
+    """check dataset iterable"""
+    if isinstance(dataset, Iterable) or hasattr(dataset, '__getitem__') \
+       or is_generator_function(dataset):
+        return True
+    return False
+
+def is_generator_function(func):
+    """check function is a generator or not."""
+    return inspect.isfunction(func) and (func.__code__.co_flags & 0x20) != 0

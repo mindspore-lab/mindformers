@@ -19,7 +19,7 @@ import argparse
 from mindformers import Trainer, MindFormerConfig
 from mindformers import init_context, ContextConfig, ParallelContextConfig
 from mindformers.tools.utils import str2bool
-from mindformers.core.context import build_context, build_profile_cb
+from mindformers.core.context import build_context
 
 # pylint: disable=W0611
 import glm32k
@@ -75,11 +75,6 @@ def main(task='text_generation',
     config.parallel.enable_parallel_optimizer = op
     # init context
     build_context(config)
-    # define callback and add profile callback
-    if config.profile:
-        config.profile_cb = build_profile_cb(config)
-    # else:
-    #     context_init(use_parallel, op, device_id)
 
     # 定义任务，预先准备好相应数据集
     if run_mode == 'train':

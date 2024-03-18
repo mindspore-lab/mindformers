@@ -142,7 +142,7 @@ class MindFormerConfig(DictConfig):
         Returns:
             dict: The modified dict of ``b`` using ``a``.
         """
-        b = b.copy()
+        b = b.copy() if b is not None else a.copy()
         for k, v in a.items():
             if isinstance(v, dict) and k in b:
                 b[k] = MindFormerConfig._merge_a_into_b(v, b[k])

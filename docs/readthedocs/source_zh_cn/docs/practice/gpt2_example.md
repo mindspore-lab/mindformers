@@ -261,8 +261,10 @@
                    compute_metrics: Optional[Union[dict, set]] = None,
                    **kwargs):
           """ function description """
-          metric_name = config.metric.type
-          kwargs.setdefault("metric_name", metric_name)
+          metric_name_list = [metric['type'] for metric in config.metric]
+          if len(metric_name_list) == 1:
+              metric_name = metric_name_list[0]
+              kwargs.setdefault("metric_name", metric_name)
 
           self.evaluate_process(
                   config=config,

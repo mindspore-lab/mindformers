@@ -23,7 +23,7 @@ from mindformers import Trainer, MindFormerConfig
 from mindformers import init_context, ContextConfig, ParallelContextConfig
 from mindformers.tools.utils import check_in_modelarts, set_remote_save_url, str2bool
 from mindformers.tools.cloud_adapter import cloud_monitor
-from mindformers.core.context import build_context, build_profile_cb
+from mindformers.core.context import build_context
 from mindformers.tools import get_output_root_path
 
 # pylint: disable=W0611
@@ -109,9 +109,6 @@ def main(task='text_generation',
     if device_id is not None:
         config.context.device_id = device_id
     build_context(config)
-    # define callback and add profile callback
-    if config.profile:
-        config.profile_cb = build_profile_cb(config)
 
     if check_in_modelarts() and remote_save_url:
         print("remote_save_url is %s, the output file will be uploaded to here.", remote_save_url)

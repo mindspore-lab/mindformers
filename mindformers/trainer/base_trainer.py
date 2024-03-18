@@ -14,7 +14,6 @@
 # ============================================================================
 """Base Trainer."""
 import os
-import shutil
 from pprint import pprint
 from functools import partial
 from typing import Optional, Union, List
@@ -25,9 +24,10 @@ from mindspore import Tensor
 from mindspore.train.model import Model
 from mindspore.train import Callback
 from mindspore.dataset import GeneratorDataset
+from mindspore.dataset.engine.datasets import Dataset
+from mindspore.train.metrics import get_metrics
 from mindspore.nn.wrap.cell_wrapper import _VirtualDatasetCell
-from mindspore.nn import TrainOneStepCell, Optimizer, Cell, \
-    PipelineCell, MicroBatchInterleaved
+from mindspore.nn import Optimizer, Cell, PipelineCell, MicroBatchInterleaved
 try:
     # new interface in ms2.1.1
     from mindspore.nn.wrap.cell_wrapper import GradAccumulationCell
@@ -38,9 +38,10 @@ from mindspore.common import initializer as init
 
 from mindformers.mindformer_book import MindFormerBook
 from mindformers.core import build_lr, build_optim, build_callback, build_metric
-from mindformers.core.callback.callback import EvalCallBack, CheckpointMointor
+from mindformers.core.callback.callback import EvalCallBack
 from mindformers.core.parallel_config import build_parallel_config
-from mindformers.dataset import build_dataset, check_dataset_config, BaseDataset
+from mindformers.dataset import build_dataset, check_dataset_config, \
+    check_dataset_iterable, BaseDataset
 from mindformers.models import build_model, build_processor, build_tokenizer, \
     PreTrainedModel, PreTrainedTokenizerBase, BaseImageProcessor
 from mindformers.pipeline import pipeline
@@ -99,33 +100,18 @@ class BaseTrainer:
         self.tokenizer = None
         self.callbacks = None
         self.eval_callbacks = None
-        self.model_wrapper = None
         self.compute_metrics = None
         self.kwargs = None
         self.pipeline_task = None
-
-        if not os.path.exists(os.path.join('.', DEFAULT_CONFIG_DIR)):
-            configs_directory = os.path.join('.', DEFAULT_CONFIG_DIR)
-            if os.path.exists(os.path.join(CURRENT_PROJECT_PATH, DEFAULT_CONFIG_DIR)):
-                mindformers_configs_directory = os.path.join(CURRENT_PROJECT_PATH, DEFAULT_CONFIG_DIR)
-                # python 3.7 版本不支持dirs_exist_ok入参, python 3.8及以上版本支持
-                try:
-                    # adapt to python 3.8+
-                    # pylint: disable=E1123
-                    shutil.copytree(mindformers_configs_directory, configs_directory, dirs_exist_ok=True)
-                except TypeError:
-                    try:
-                        # adapt to python 3.7 to avoid dirs_exist_ok=False
-                        shutil.copytree(mindformers_configs_directory, configs_directory)
-                    except FileExistsError:
-                        pass
 
         if task not in SUPPORT_TASKS.keys():
             logger.warning("Input task name is not in the supported list or unspecified.")
 
         if task in SUPPORT_TASKS.keys() and model_name not in SUPPORT_TASKS.get(task).keys():
+            model_name_support_list = list(MindFormerBook().get_model_name_support_list_for_task(task))
+            model_name_support_list.sort()
             logger.warning("Input model name is not in the supported list or unspecified.")
-            logger.warning("See the list of supported task and model name: %s", SUPPORT_TASKS)
+            logger.warning("See the list of supported task and model name: %s", model_name_support_list)
             logger.warning("The default model config: %s will now be used for the %s task ",
                            SUPPORT_TASKS.get(self.task).get("common"), task)
             self.model_name = "common"
@@ -159,7 +145,7 @@ class BaseTrainer:
             self.default_task_config = task_config
         else:
             logger.warning("If the default config arguments is not specified,"
-                           "you must define the required model or wrapper, optimizer, and so on"
+                           "you must define the required model, optimizer, and so on"
                            "in the train or evaluate or predict attribute function.")
 
     def _check_global_batch_size_for_auto_parallel(self):
@@ -344,21 +330,40 @@ class BaseTrainer:
                 "but get %s", type(args))
         return self.default_task_config
 
+    def create_dataset(self, is_train: bool = True, default_args: dict = None):
+        """Create the dataset for training or evaluate."""
+        dataset = self.train_dataset if is_train else self.eval_dataset
+        dataset_task = self.config.train_dataset_task if is_train else self.config.eval_dataset_task
+
+        if isinstance(dataset, (BaseDataset, Dataset)):
+            return dataset
+
+        if dataset is None:
+            dataset = build_dataset(dataset_task, default_args=default_args)
+        elif check_dataset_iterable(dataset):
+            dataset_task.type = 'GeneralDataset'
+            default_args = {} if default_args is None else default_args
+            default_args["dataset"] = dataset
+            dataset = build_dataset(dataset_task, default_args=default_args)
+        else:
+            raise ValueError("Dataset should be Dataset, iterator, iterable class which has `__iter__`, "
+                             f"iterable class which has  `__get_item__` and `__len__`, but get {dataset}.")
+        return dataset
+
     def create_train_dataset(self, default_args: dict = None):
         """Create the train dataset for training."""
         logger.info(".........Build Dataset From Config..........")
         self._reset_dataset_batch_size()
-        train_dataset = build_dataset(self.config.train_dataset_task, default_args=default_args)
+        train_dataset = self.create_dataset(is_train=True, default_args=default_args)
         return train_dataset
 
     def create_eval_dataset(self, default_args: dict = None):
         """Create the eval dataset for evaluate."""
         logger.info(".........Build Dataset From Config..........")
         self._reset_dataset_batch_size()
-        # reduce batch size on eval mode, for that micro_batch will not take effect on eval.
         parallel_mode = ms.get_auto_parallel_context("parallel_mode")
-        pp = self.get_pipeline_stages()
-        if parallel_mode in ["semi_auto_parallel", "auto_parallel"] and pp > 1:
+        pipeline_stages = ms.get_auto_parallel_context("pipeline_stages")
+        if parallel_mode in ["semi_auto_parallel", "auto_parallel"] and pipeline_stages > 1:
             self.config.eval_dataset.batch_size = \
                 self.config.eval_dataset.batch_size // self.config.parallel_config.micro_batch_num
         if parallel_mode in ["semi_auto_parallel", "auto_parallel"]:
@@ -376,7 +381,7 @@ class BaseTrainer:
         logger.info("For evaluate phase, batch size for eval dataset is %s, different from training, "
                     "not multiplied by micro_batch_num, micro_batch_interleave_num and gradient_accumulation_steps",
                     self.config.eval_dataset.batch_size)
-        eval_dataset = build_dataset(self.config.eval_dataset_task, default_args=default_args)
+        eval_dataset = self.create_dataset(is_train=False, default_args=default_args)
         return eval_dataset
 
     def create_network(self, default_args: dict = None):
@@ -514,14 +519,6 @@ class BaseTrainer:
         self.callbacks.extend(build_callback(self.config.callbacks, default_args=default_args))
         return self.callbacks
 
-    def check_callback(self, callbacks):
-        """ Check callback. """
-        for callback in callbacks:
-            if isinstance(callback, CheckpointMointor):
-                callback.initial_step = self.config.runner_config.initial_step
-                callback.initial_epoch = self.config.runner_config.initial_epoch
-                callback.steps_per_epoch = self.config.data_size
-
     def create_eval_callbacks(self, default_args: dict = None):
         """Create the eval callback list for training."""
         logger.info(".........Build Callbacks for Evaluate From Config..........")
@@ -531,18 +528,29 @@ class BaseTrainer:
 
     def create_metrics(self, metric_name: str = None):
         """Create Metrics For Evaluate or Fit."""
-        if metric_name is None:
-            metric_name = self.model_name + "_metric"
+        if self.compute_metrics is not None:
+            self.compute_metrics = get_metrics(self.compute_metrics)
+            return self.compute_metrics
+        if self.config.metric is None:
+            raise ValueError("When `do_eval` is True and `compute_metrics` is None, \
+                              the config of metric must not be None.")
+        if isinstance(self.config.metric, dict):
+            self.config.metric = [self.config.metric]
 
-        self.compute_metrics = {metric_name: build_metric(self.config.metric)}
+        self.compute_metrics = {}
+        for metric_config in self.config.metric:
+            assert "type" in metric_config, "The type of metric is not found!"
+            metric = build_metric(metric_config)
+            if metric_name is None:
+                metric_name = metric.__class__.__name__
+            self.compute_metrics[metric_name] = metric
+
         return self.compute_metrics
 
     def count_parameters(self):
         """Count network parameters number."""
         if self.network is not None:
             logger.info("Network Parameters: %s M.", str(count_params(self.network)))
-        elif self.model_wrapper is not None:
-            logger.info("Network Parameters: %s M.", str(count_params(self.model_wrapper.network)))
         else:
             logger.warning("Network is None, parameters incalculable.")
 
@@ -574,12 +582,6 @@ class BaseTrainer:
         if isinstance(network, (Cell, PreTrainedModel)):
             network.set_train(is_train)
         self.network = network
-
-    def set_model_wrapper(self, model_wrapper):
-        """Set the attribute of model_wrapper."""
-        if model_wrapper is None:
-            raise ValueError("model wrapper is None")
-        self.model_wrapper = model_wrapper
 
     def get_train_data_size(self):
         """Get train dataset size."""
@@ -616,18 +618,22 @@ class BaseTrainer:
             network: Optional[Union[Cell, PreTrainedModel]] = None,
             dataset: Optional[Union[BaseDataset, GeneratorDataset]] = None,
             optimizer: Optional[Optimizer] = None,
-            wrapper: Optional[TrainOneStepCell] = None,
             callbacks: Optional[Union[Callback, List[Callback]]] = None,
+            compute_metrics: Optional[Union[dict, set]] = None,
             **kwargs):
         """Train or Fine-tune for BaseTrainer in MindFormers."""
         self.kwargs = kwargs
+        self.train_dataset = dataset if dataset else self.train_dataset
+        self.eval_dataset = kwargs.get('eval_dataset', None)
+        self.compute_metrics = compute_metrics if compute_metrics else self.compute_metrics
+
         is_full_config = kwargs.get("is_full_config", False)
         config = self.set_config(config, is_full_config)
 
         # build dataset
         logger.info(".........Build Dataset For Train..........")
-        if dataset is None:
-            dataset = self.create_train_dataset()
+        dataset = self.create_train_dataset()
+        logger.info("Create train dataset finish, dataset size:%d", dataset.get_dataset_size())
 
         append_info = None
         if config.resume_training and config.load_checkpoint:
@@ -655,12 +661,11 @@ class BaseTrainer:
 
         # build network
         logger.info(".........Build Net For Train..........")
-        if network is None and wrapper is None and \
-                self.model_wrapper is None and self.network is None:
+        if network is None and self.network is None:
             network = self.create_network(
                 default_args={"parallel_config": config.parallel_config,
                               "moe_config": config.moe_config})
-        elif network is None and wrapper is None and self.network is not None:
+        elif network is None and self.network is not None:
             logger.info(".........Using The Existing Network For Train:: %s", self.network.__class__.__name__)
             network = self.network
 
@@ -673,23 +678,17 @@ class BaseTrainer:
             network = self.wrap_network_with_tool_cells(eval_network)
             eval_network = self.wrap_eval_network_with_tool_cells(eval_network)
             self.set_network(network, is_train=True)
-        if wrapper is not None:
-            self.set_model_wrapper(wrapper)
 
         self.count_parameters()
 
         # build optimizer
         logger.info(".........Build Optimizer For Train..........")
-        if optimizer is None and wrapper is None and self.model_wrapper is None:
+        if optimizer is None:
             optimizer = self.create_optimizer_scheduler(network, layer_scale=config.layer_scale)
 
         # build model wrapper
-        if wrapper is None and self.model_wrapper is None:
-            logger.info(".........Build Running Wrapper From Config For Train..........")
-            wrapper = self.create_model_wrapper(network, optimizer)
-        elif wrapper is None and self.model_wrapper is not None:
-            logger.info(".........Using The Existing Model Wrapper: %s", self.model_wrapper.__class__.__name__)
-            wrapper = self.model_wrapper
+        logger.info(".........Build Running Wrapper From Config For Train..........")
+        wrapper = self.create_model_wrapper(network, optimizer)
 
         # build callback
         logger.info(".........Build Callbacks For Train..........")
@@ -722,7 +721,6 @@ class BaseTrainer:
         callbacks = default_callbacks
 
         # define compute metrics for evaluate in training
-        compute_metrics = None
         if config.do_eval:
             compute_metrics = self.create_metrics()
 
@@ -747,9 +745,8 @@ class BaseTrainer:
         # build evaluate in training
         if config.do_eval:
             logger.info(".........Build Evaluate in Training Callback..........")
-            eval_dataset = kwargs.get('eval_dataset', None)
-            if eval_dataset is None:
-                eval_dataset = self.create_eval_dataset()
+            eval_dataset = self.create_eval_dataset()
+            logger.info("Create evaluate dataset finish, dataset size:%d", eval_dataset.get_dataset_size())
 
             eval_callback = EvalCallBack(
                 partial(
@@ -761,7 +758,6 @@ class BaseTrainer:
                 epoch_interval=config.eval_epoch_interval if config.eval_epoch_interval else -1,
             )
             callbacks.append(eval_callback)
-        self.check_callback(callbacks)
 
         if config.moe_config.enable_cold_hot_expert:
             save_checkpoint_steps = -1
@@ -798,14 +794,14 @@ class BaseTrainer:
             compute_metrics: Optional[Union[dict, set]] = None,
             **kwargs):
         """Evaluate for BaseTrainer in MindFormers."""
+        self.eval_dataset = dataset if dataset else self.eval_dataset
         metric_name = kwargs.get("metric_name")
         is_full_config = kwargs.get("is_full_config", False)
         config = self.set_config(config, is_full_config)
 
         # build dataset
         logger.info(".........Build Dataset For Evaluate..........")
-        if dataset is None:
-            dataset = self.create_eval_dataset()
+        dataset = self.create_eval_dataset()
         self.set_eval_dataset(dataset)
         logger.info("Create evaluate dataset finish, dataset size:%d", dataset.get_dataset_size())
 
@@ -968,37 +964,36 @@ class BaseTrainer:
                        network: Optional[Union[Cell, PreTrainedModel]] = None,
                        **kwargs):
         '''Export for BaseTrainer in MindFormers'''
-        if not self.pipeline_task:
-            is_full_config = kwargs.get("is_full_config", False)
-            config = self.set_config(config, is_full_config)
+        is_full_config = kwargs.get("is_full_config", False)
+        config = self.set_config(config, is_full_config)
 
-            # check rules
-            check_rules(config, mode='export', network=network, task=self.task)
+        # check rules
+        check_rules(config, mode='export', network=network, task=self.task)
 
-            # build network
-            if network is None:
-                network = self.create_network(
-                    default_args={"parallel_config": config.parallel_config,
-                                  "moe_config": config.moe_config})
-            self.set_network(network, is_train=False)
+        # build network
+        if network is None:
+            network = self.create_network(
+                default_args={"parallel_config": config.parallel_config,
+                              "moe_config": config.moe_config})
+        self.set_network(network, is_train=False)
 
-            network.model_name = kwargs.get("model_name", None)
-            self.count_parameters()
-            model = Model(network)
+        network.model_name = kwargs.get("model_name", None)
+        self.count_parameters()
+        model = Model(network)
 
-            if config.load_checkpoint or config.only_save_strategy:
-                if ms.context.get_auto_parallel_context('parallel_mode') in \
-                        ['semi_auto_parallel', 'auto_parallel', 'hybrid_parallel']:
-                    if network.config:
-                        batch_size = network.config.batch_size
-                        seq_length = network.config.seq_length
-                    else:
-                        batch_size = config.model.model_config.batch_size
-                        seq_length = config.model.model_config.seq_length
-                    infer_data = Tensor(shape=(batch_size, seq_length), dtype=ms.int32, init=init.One())
-                    transform_and_load_checkpoint(config, model, network, infer_data, do_predict=True)
+        if config.load_checkpoint or config.only_save_strategy:
+            if ms.context.get_auto_parallel_context('parallel_mode') in \
+                    ['semi_auto_parallel', 'auto_parallel', 'hybrid_parallel']:
+                if network.config:
+                    batch_size = network.config.batch_size
+                    seq_length = network.config.seq_length
                 else:
-                    transform_and_load_checkpoint(config, model, network, None, do_predict=True)
+                    batch_size = config.model.model_config.batch_size
+                    seq_length = config.model.model_config.seq_length
+                infer_data = Tensor(shape=(batch_size, seq_length), dtype=ms.int32, init=init.One())
+                transform_and_load_checkpoint(config, model, network, infer_data, do_predict=True)
+            else:
+                transform_and_load_checkpoint(config, model, network, None, do_predict=True)
 
         rank_id = get_real_rank()
 

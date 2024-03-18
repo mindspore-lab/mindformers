@@ -1636,6 +1636,12 @@ class MindFormerBook:
         return set(support_model_name)
 
     @classmethod
+    def get_model_name_support_list_for_task(cls, task_name):
+        """get_model_name_support_list"""
+        support_model_name = cls._TRAINER_SUPPORT_TASKS_LIST.get(task_name).keys()
+        return set(support_model_name)
+
+    @classmethod
     def show_model_ckpt_url_list(cls):
         """show_model_ckpt_url_list function"""
         logger.info("MODEL_CKPT_URL_LIST of MindFormer is: ")
