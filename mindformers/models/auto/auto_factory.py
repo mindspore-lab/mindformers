@@ -273,7 +273,7 @@ class _BaseAutoModelClass:
     def is_experimental_mode_from_config(cls, config):
         """Check whether AutoModel.from_config() should go into original or experimental mode."""
         if isinstance(config, PretrainedConfig):
-            model_name = config.__dict__.pop("model_name", None)
+            model_name = config.__dict__.get("model_name", None)
             if model_name is None:
                 model_name = MindFormerBook.get_model_config_to_name().get(id(config), None)
             return model_name is None
