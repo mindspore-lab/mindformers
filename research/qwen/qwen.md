@@ -798,3 +798,69 @@ tail -f output/log/rank_*/mindformer.log
 ```
 
 注意: `seq_length`与`batch_size`必须与导出时YAML中设置的值相同，否则无法运行成功。
+
+### 开启Paged Attention (PA) 加速
+
+MF Qwen 已经支持Paged Attention 加速（目前仅在MS lite推理中可用），打开后推理吞吐率可提高 10%-30% 左右。
+
+1. 导出 mindir 时打开 PA 加速
+
+导出时添加`--paged_attention True`即可：
+
+```shell
+python run_qwen.py --run_mode export --config_path /path/run_qwen_7b.yaml --paged_attention True
+```
+
+如需定制 Paged Attention 细节参数，可修改YAML文件中的`block_size`和`num_blocks`:
+
+- `block_size`为存放attention K/V的块大小，可选值有`16/32/128`，默认为`16`
+- `num_blocks`为存放attention K/V的块数。 注意块数需要足够（即需要满足`pa_block_size * pa_num_blocks >= seq_length * batch_size`）
+
+```yaml
+model:
+  model_config:
+    seq_length: 2048
+    batch_size: 1
+    block_size: 16
+    num_blocks: 512
+
+    checkpoint_name_or_path: "/path/qwen_7b_base.ckpt"
+
+    param_init_type: "float32" # 提高推理精度
+```
+
+另外需要注意，导出的MINDIR模型其`seq_length`, `batch_size`, `block_size`, `num_blocks`值均已固定，推理时需要传入跟导出时相同的值。
+如果需要改变这几个参数(以及`--paged_attention`选项值)，需要重新导出。
+
+2. 修改lite推理配置文件
+
+`lite.ini`中需要增加`[graph_kernel_param]`一节，其内容参考下面示例：
+
+```ini
+[ascend_context]
+provider=ge
+
+[ge_session_options]
+ge.externalWeight=1
+ge.exec.atomicCleanPolicy=1
+ge.event=notify
+ge.exec.staticMemoryPolicy=2
+ge.exec.formatMode=1
+ge.exec.precision_mode=must_keep_origin_dtype
+
+[graph_kernel_param]
+opt_level=2
+enable_cce_lib=true
+disable_cce_lib_ops=MatMul
+disable_cluster_ops=MatMul,Reshape
+```
+
+3. 执行推理脚本：
+
+```shell
+cd mindformers/research/qwen
+python run_qwen_mslite_infer.py --mindir_root_dir output --seq_length 2048 --batch_size 1 --predict_data 你好  \
+    --paged_attention True --pa_block_size 16 --pa_num_blocks 512
+```
+
+注意: `seq_length, batch_size, paged_attention, pa_block_size, pa_num_blocks`的值必须与导出时YAML中设置的值相同，否则无法运行成功。

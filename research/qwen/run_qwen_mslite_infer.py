@@ -54,7 +54,7 @@ def create_mslite_pipeline(args):
 
     rank_id = int(os.getenv('RANK_ID', '0'))
 
-    print("Create pipeline from (%s, %s)..." % (prefill_model_path, inc_model_path))
+    print("Creating pipeline from (%s, %s)..." % (prefill_model_path, inc_model_path))
     lite_config = InferConfig(
         prefill_model_path=prefill_model_path,
         increment_model_path=inc_model_path,
@@ -62,8 +62,11 @@ def create_mslite_pipeline(args):
         model_name="qwen",
         ge_config_path=args.ge_config_path,
         device_id=args.device_id,
-        infer_seq_length=args.seq_length,
         rank_id=rank_id,
+        infer_seq_length=args.seq_length,
+        paged_attention=args.paged_attention,
+        pa_block_size=args.pa_block_size,
+        pa_num_blocks=args.pa_num_blocks,
     )
     pipeline_task = InferTask.get_infer_task("text_generation", lite_config, tokenizer=tokenizer)
     return pipeline_task
@@ -130,6 +133,15 @@ if __name__ == '__main__':
                         help='input predict data.')
     parser.add_argument('--predict_length', default=512, type=int,
                         help='max length for predict output.')
+    parser.add_argument('--paged_attention', default=False, type=str2bool,
+                        help="Whether use paged attention."
+                        "Default: False")
+    parser.add_argument('--pa_block_size', default=16, type=int,
+                        help="Block size of paged attention."
+                        "Default: 16")
+    parser.add_argument('--pa_num_blocks', default=512, type=int,
+                        help="The number of blocks of paged attention."
+                        "Default: 512")
     args_ = parser.parse_args()
 
     main(args_)

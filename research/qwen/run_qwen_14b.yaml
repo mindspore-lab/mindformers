@@ -113,7 +113,9 @@ model:
     param_init_type: "float16"
     use_past: True
     use_flash_attention: False
-    use_past_shard: False
+    use_paged_attention: False  # only supported in mslite inference
+    block_size: 32
+    num_blocks: 128
     offset: 0
     checkpoint_name_or_path: "/path/qwen_14b_base.ckpt"
     repetition_penalty: 1
@@ -168,7 +170,3 @@ parallel:
     gradient_accumulation_shard: False
     parallel_optimizer_threshold: 64
 
-infer:
-    prefill_model_path: "/path/qwen_7b_prefill.mindir"
-    increment_model_path: "/path/qwen_7b_inc.mindir"
-    infer_seq_length: 1024
