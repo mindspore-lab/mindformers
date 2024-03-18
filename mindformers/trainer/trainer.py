@@ -1052,10 +1052,10 @@ class Trainer:
                         f"The callback must be an instance of the Callback class, but get {callback}"
                     callbacks.append(callback)
             elif isinstance(self.callbacks, Callback):
-                callbacks.append(callback)
+                callbacks.append(self.callbacks)
             else:
                 raise ValueError("The callback must be an instance of the Callback class, "
-                                 f"but get {callback}")
+                                 f"but get {self.callbacks}")
 
         self.callbacks = callbacks
 
