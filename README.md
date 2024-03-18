@@ -47,6 +47,7 @@ MindSpore Transformers套件基于MindSpore内置的并行技术和组件化设�
 |    [Baichuan2](research/baichuan2/baichuan2.md)    | baichuan2_7b, baichuan2_13b, baichuan2_7b_lora, baichuan2_13b_lora |
 |     [Baichuan](research/baichuan/baichuan.md)      | baichuan_7b, baichuan_13b                                          |
 |           [Qwen](research/qwen/qwen.md)            | qwen_7b, qwen_14b, qwen_7b_lora, qwen_14b_lora                     |
+|        [Qwen1_5](research/qwen1_5/qwen1_5.md)         | qwen1_5_72b                                                        |
 | [Wizardcoder](research/wizardcoder/wizardcoder.md) | wizardcoder_15b                                                    |
 |     [Internlm](research/internlm/internlm.md)      | internlm_7b, internlm_20b, internlm_7b_lora                        |
 |           [ziya](research/ziya/ziya.md)            | ziya_13b                                                           |
