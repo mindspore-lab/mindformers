@@ -644,7 +644,10 @@ class BaseTrainer:
                 "epoch_num": config.runner_config.initial_epoch,
             }
             if config.runner_wrapper.scale_sense is not None:
-                resume_dict["loss_scale"] = config.runner_wrapper.scale_sense.loss_scale_value
+                if hasattr(config.runner_wrapper.scale_sense, 'loss_scale_value'):
+                    resume_dict["loss_scale"] = config.runner_wrapper.scale_sense.loss_scale_value
+                else:
+                    resume_dict["loss_scale"] = config.runner_wrapper.scale_sense
             logger.info("initial epoch: %d", config.runner_config.initial_epoch)
             logger.info("initial step: %d", config.runner_config.initial_step)
             append_info = [resume_dict]
