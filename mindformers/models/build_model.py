@@ -68,6 +68,20 @@ def build_model(
         return None
     return None
 
+def build_network(
+        config: dict = None, default_args: dict = None):
+    """Create the pet network For MindFormer"""
+    ckpt_cfg = config.model_config.checkpoint_name_or_path
+    pet_config = config.model_config.pet_config
+    network = build_model(config, default_args=default_args)
+    if pet_config:
+        from mindformers.pet import get_pet_model, is_supported_pet_type
+        if is_supported_pet_type(pet_config.pet_type):
+            config.model_config.checkpoint_name_or_path = None
+        network.checkpoint_name_or_path = ckpt_cfg
+        network = get_pet_model(network, pet_config)
+    return network
+
 def build_encoder(
         config: dict = None, default_args: dict = None,
         module_type: str = 'encoder', class_name: str = None, **kwargs):

@@ -24,12 +24,9 @@ import mindspore as ms
 import mindspore.common.dtype as mstype
 
 from mindformers import AutoModel
-from mindformers.models import build_model
-from mindformers.pet import get_pet_model
+from mindformers.models import build_network
 from mindformers.tools.register import MindFormerConfig
 # pylint: disable=W0611
-from research.baichuan2.baichuan2_7b import Baichuan7BV2ForCausalLM
-from research.baichuan2.baichuan2_13b import Baichuan13BV2ForCausalLM
 
 
 def get_glm_prefill_model_input(batch_size, seq_length):
@@ -178,9 +175,7 @@ def export_single_model(config, batch_size, model_type: str = 'MINDIR', model_di
     if model_dir:
         model = AutoModel.from_pretrained(model_dir)
     else:
-        model = build_model(config.model)
-        if config.model.model_config.pet_config:
-            model = get_pet_model(model, config.model.model_config.pet_config)
+        model = build_network(config.model)
     model.set_train(False)
     model_prefix = model_name.split('_')[0]
     if model_prefix in PREFILL_MODEL_INPUT_MAP.keys():
@@ -208,9 +203,7 @@ def export_inc_model(config, batch_size, model_type: str = 'MINDIR', model_dir=N
     if model_dir:
         model = AutoModel.from_pretrained(model_dir)
     else:
-        model = build_model(config.model)
-        if config.model.model_config.pet_config:
-            model = get_pet_model(model, config.model.model_config.pet_config)
+        model = build_network(config.model)
     model.set_train(False)
     model_prefix = model_name.split('_')[0]
     if model_prefix in INCREMENT_MODEL_INPUT_MAP.keys():

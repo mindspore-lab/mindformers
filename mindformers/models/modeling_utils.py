@@ -47,7 +47,7 @@ from ..tools.download_tools import download_with_progress_bar
 from ..tools.utils import try_sync_file, replace_tk_to_mindpet
 from .configuration_utils import PretrainedConfig
 from .utils import CONFIG_NAME, WEIGHTS_NAME, WEIGHTS_INDEX_NAME
-from .build_model import build_model
+from .build_model import build_network
 
 __all__ = ["PreTrainedModel"]
 
@@ -815,7 +815,7 @@ class PreTrainedModel(nn.Cell, ModuleUtilsMixin, GenerationMixin, PushToHubMixin
         config_args = cls._get_config_args(pretrained_model_name_or_dir, **kwargs)
         if not download_checkpoint:
             config_args.model.model_config.checkpoint_name_or_path = None
-        model = build_model(config_args.model)
+        model = build_network(config_args.model)
         logger.info("model built successfully!")
         return model
 

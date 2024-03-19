@@ -41,7 +41,7 @@ from .processing_utils import ProcessorMixin
 from .base_processor import BaseProcessor, BaseAudioProcessor
 from .build_tokenizer import build_tokenizer
 from .build_processor import build_processor
-from .build_model import build_model_config, build_head, \
+from .build_model import build_model_config, build_head, build_network, \
     build_model, build_encoder
 from .utils import CONFIG_NAME, FEATURE_EXTRACTOR_NAME, IMAGE_PROCESSOR_NAME
 

@@ -1,4 +1,4 @@
-# Copyright 2022 Huawei Technologies Co., Ltd
+# Copyright 2024 Huawei Technologies Co., Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,9 +24,8 @@ from mindformers.tools.utils import try_sync_file
 from .mindformer_book import MindFormerBook, print_dict
 from .models.build_processor import build_processor
 from .models.base_config import BaseConfig
-from .models.build_model import build_model
+from .models.build_model import build_network
 from .models.build_config import build_model_config
-from .pet import get_pet_model, is_supported_pet_type
 from .tools import logger
 from .tools.register.config import MindFormerConfig
 
@@ -281,14 +280,7 @@ class AutoModel:
         config_args.model.model_config.update(**kwargs)
         if not download_checkpoint:
             config_args.model.model_config.checkpoint_name_or_path = None
-        ckpt_cfg = config_args.model.model_config.checkpoint_name_or_path
-        pet_config = config_args.model.model_config.pet_config
-        if pet_config and is_supported_pet_type(pet_config.pet_type):
-            config_args.model.model_config.checkpoint_name_or_path = None
-        model = build_model(config_args.model)
-        if pet_config:
-            model.config.checkpoint_name_or_path = ckpt_cfg
-            model = get_pet_model(model, pet_config)
+        model = build_network(config_args.model)
         logger.info("model built successfully!")
         return model
 
@@ -440,14 +432,7 @@ class AutoModel:
         config_args = cls._get_config_args(pretrained_model_name_or_dir, **kwargs)
         if not download_checkpoint:
             config_args.model.model_config.checkpoint_name_or_path = None
-        ckpt_cfg = config_args.model.model_config.checkpoint_name_or_path
-        pet_config = config_args.model.model_config.pet_config
-        if pet_config and is_supported_pet_type(pet_config.pet_type):
-            config_args.model.model_config.checkpoint_name_or_path = None
-        model = build_model(config_args.model)
-        if pet_config:
-            model.config.checkpoint_name_or_path = ckpt_cfg
-            model = get_pet_model(model, pet_config)
+        model = build_network(config_args.model)
         cls.default_checkpoint_download_path = model.default_checkpoint_download_path
 
         logger.info("model built successfully!")

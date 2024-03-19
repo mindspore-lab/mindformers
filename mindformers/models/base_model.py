@@ -1,4 +1,4 @@
-# Copyright 2023 Huawei Technologies Co., Ltd
+# Copyright 2024 Huawei Technologies Co., Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -25,7 +25,7 @@ import mindspore as ms
 from mindspore import nn
 from mindspore.train.serialization import load_checkpoint, load_param_into_net
 
-from .build_model import build_model
+from .build_model import build_network
 from ..generation import GenerationMixin
 from ..mindformer_book import MindFormerBook, print_path_or_list
 from .configuration_utils import PretrainedConfig
@@ -348,7 +348,7 @@ class BaseModel(nn.Cell, GenerationMixin):
         config_args = cls._get_config_args(pretrained_model_name_or_dir, **kwargs)
         if not download_checkpoint:
             config_args.model.model_config.checkpoint_name_or_path = None
-        model = build_model(config_args.model)
+        model = build_network(config_args.model)
         logger.info("model built successfully!")
         return model
 

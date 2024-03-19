@@ -22,7 +22,6 @@ from collections import OrderedDict
 import functools
 import types
 
-from mindformers.pet import get_pet_model, is_supported_pet_type
 from mindformers.tools.register.config import MindFormerConfig
 from mindformers.tools.logger import logger
 from mindformers.tools.utils import try_sync_file
@@ -39,7 +38,7 @@ from mindformers.models.auto.configuration_auto import (
 from mindformers.models.utils import CONFIG_NAME
 from mindformers.models.configuration_utils import PretrainedConfig
 from ...mindformer_book import MindFormerBook, print_dict
-from ..build_model import build_model
+from ..build_model import build_network
 
 
 CLASS_DOCSTRING = """
@@ -273,7 +272,7 @@ class _BaseAutoModelClass:
     def is_experimental_mode_from_config(cls, config):
         """Check whether AutoModel.from_config() should go into original or experimental mode."""
         if isinstance(config, PretrainedConfig):
-            model_name = config.__dict__.get("model_name", None)
+            model_name = config.__dict__.pop("model_name", None)
             if model_name is None:
                 model_name = MindFormerBook.get_model_config_to_name().get(id(config), None)
             return model_name is None
@@ -359,14 +358,7 @@ class _BaseAutoModelClass:
         config_args.model.model_config.update(**kwargs)
         if not download_checkpoint:
             config_args.model.model_config.checkpoint_name_or_path = None
-        ckpt_cfg = config_args.model.model_config.checkpoint_name_or_path
-        pet_config = config_args.model.model_config.pet_config
-        if pet_config and is_supported_pet_type(pet_config.pet_type):
-            config_args.model.model_config.checkpoint_name_or_path = None
-        model = build_model(config_args.model)
-        if pet_config:
-            model.config.checkpoint_name_or_path = ckpt_cfg
-            model = get_pet_model(model, pet_config)
+        model = build_network(config_args.model)
         logger.info("model built successfully!")
         return model
 
@@ -660,14 +652,7 @@ class _BaseAutoModelClass:
         config_args = cls._get_config_args(pretrained_model_name_or_dir, **kwargs)
         if not download_checkpoint:
             config_args.model.model_config.checkpoint_name_or_path = None
-        ckpt_cfg = config_args.model.model_config.checkpoint_name_or_path
-        pet_config = config_args.model.model_config.pet_config
-        if pet_config and is_supported_pet_type(pet_config.pet_type):
-            config_args.model.model_config.checkpoint_name_or_path = None
-        model = build_model(config_args.model)
-        if pet_config:
-            model.config.checkpoint_name_or_path = ckpt_cfg
-            model = get_pet_model(model, pet_config)
+        model = build_network(config_args.model)
         cls.default_checkpoint_download_path = model.default_checkpoint_download_path
 
         logger.info("model built successfully!")
