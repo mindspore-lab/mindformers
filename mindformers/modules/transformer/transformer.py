@@ -1272,6 +1272,7 @@ class MultiHeadAttention(Cell):
             self.batch_matmul = P.BatchMatMul()
             self.real_div = P.RealDiv()
             self.sub = P.Sub()
+            self.sub_sa = P.Sub()
             self.mul = P.Mul()
             self.add = P.Add()
             # Normalize factor for attention, sqrt(dk) as widely used
