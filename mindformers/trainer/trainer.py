@@ -62,7 +62,6 @@ __all__ = ['Trainer']
 
 SUPPORT_TASKS = MindFormerBook().get_trainer_support_task_list()
 SUPPORT_MODEL_NAMES = MindFormerBook().get_model_name_support_list()
-SUPPORT_PIPELINES = MindFormerBook().get_pipeline_support_task_list()
 SUPPORT_PIPELINE_INPUT_DATA = MindFormerBook().get_pipeline_support_input_data_list()
 CURRENT_PROJECT_PATH = MindFormerBook().get_project_path()
 DEFAULT_CHECKPOINT_DIR = 'checkpoint'
@@ -630,10 +629,6 @@ class Trainer:
             raise TypeError(f"predict_checkpoint must be one of [None, string, bool], "
                             f"but get {predict_checkpoint}")
 
-        if self.task not in SUPPORT_PIPELINES.keys():
-            raise NotImplementedError(f"The {self.task} not support predict, "
-                                      f"now this tasks {SUPPORT_PIPELINES.keys()} is support predict.")
-
         if batch_size is not None:
             kwargs["batch_size"] = batch_size
 
@@ -718,10 +713,6 @@ class Trainer:
         if predict_checkpoint is not None and not isinstance(predict_checkpoint, (bool, str)):
             raise TypeError(f"predict_checkpoint must be one of [None, string, bool], "
                             f"but get {predict_checkpoint}")
-
-        if self.task not in SUPPORT_PIPELINES.keys():
-            raise NotImplementedError(f"The {self.task} not support predict, "
-                                      f"now this tasks {SUPPORT_PIPELINES.keys()} is support predict.")
 
         if predict_checkpoint:
             self.config.load_checkpoint = predict_checkpoint
