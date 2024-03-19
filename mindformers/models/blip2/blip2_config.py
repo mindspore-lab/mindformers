@@ -138,7 +138,7 @@ class Blip2Config(PretrainedConfig):
         parallel_config.pipeline_stage = 1
 
         # pass configs to submodule config
-        self.qformer_config.encoder_width = self.vision_config.embed_dim
+        self.qformer_config.encoder_width = self.vision_config.hidden_size
         self.qformer_config.parallel_config = parallel_config
         self.qformer_config.compute_dtype = self.compute_dtype
         self.qformer_config.layernorm_dtype = self.layernorm_compute_type
