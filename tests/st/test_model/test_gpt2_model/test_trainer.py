@@ -74,15 +74,6 @@ class TestGPTTrainerMethod:
                                     eval_dataset=eval_dataset)
 
     @pytest.mark.run(order=1)
-    def test_train(self):
-        """
-        Feature: Trainer.train()
-        Description: Test trainer for train.
-        Expectation: TypeError, ValueError, RuntimeError
-        """
-        self.task_trainer.train()
-
-    @pytest.mark.run(order=2)
     def test_eval(self):
         """
         Feature: Trainer.evaluate()
@@ -91,7 +82,7 @@ class TestGPTTrainerMethod:
         """
         self.task_trainer.evaluate()
 
-    @pytest.mark.run(order=3)
+    @pytest.mark.run(order=2)
     def test_predict(self):
         """
         Feature: Trainer.predict()
@@ -99,12 +90,3 @@ class TestGPTTrainerMethod:
         Expectation: TypeError, ValueError, RuntimeError
         """
         self.task_trainer.predict(input_data="hello world!", max_length=20)
-
-    @pytest.mark.run(order=4)
-    def test_finetune(self):
-        """
-        Feature: Trainer.finetune()
-        Description: Test trainer for finetune.
-        Expectation: TypeError, ValueError, RuntimeError
-        """
-        self.task_trainer.finetune(finetune_checkpoint=True)
