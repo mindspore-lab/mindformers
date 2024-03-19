@@ -463,7 +463,7 @@ def build_model(config, model, dataset, do_eval=False, do_predict=False):
         if do_eval:
             model.infer_predict_layout(*next(dataset.create_tuple_iterator()))
         elif do_predict:
-            model.infer_predict_layout(dataset)
+            model.infer_predict_layout(*dataset)
         else:
             model.build(train_dataset=dataset, epoch=config.runner_config.epochs,
                         sink_size=config.runner_config.sink_size)

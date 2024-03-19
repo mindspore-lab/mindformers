@@ -26,9 +26,6 @@ class InternLMAttention(LLamaAttention):
     """Multi-head attention of InternLM inherited from LLamaAttention.
 
     Args:
-        batch_size (int): The batch size of the input tensor when do incremental prediction. Should be a positive
-            value. When do training or prediction, the argument will not work and the user can just pass None to
-            the argument.
         seq_length (int): The sequence length of input_ids.
         o_has_bias (bool, optional): Whether O projection in attention has bias. Defaults to True.
         **kwargs: keyword arguments of [`LLamaAttention`].
@@ -36,12 +33,10 @@ class InternLMAttention(LLamaAttention):
     """
 
     def __init__(self,
-                 batch_size,
                  seq_length,
                  has_bias,
                  **kwargs):
-        super().__init__(batch_size=batch_size,
-                         seq_length=seq_length,
+        super().__init__(seq_length=seq_length,
                          **kwargs)
         if has_bias:
             compute_dtype = kwargs.pop("compute_dtype", mstype.float16)
@@ -91,9 +86,6 @@ class InternLMDecodeLayer(LLamaDecodeLayer):
     """InternLM Transformer Layer inherits from LLamaDecodeLayer.
 
     Args:
-        batch_size (int): The batch size of the input tensor when do incremental prediction. Should be a positive
-            value. When do training or prediction, the argument will not work and the user can just pass None to
-            the argument.
         seq_length (int): The input sequence length.
         layer_id (int): The layer id of current transformer block layer.
         o_has_bias (bool, optional): Whether O projection in attention has bias. Defaults to True.
@@ -102,13 +94,11 @@ class InternLMDecodeLayer(LLamaDecodeLayer):
     """
 
     def __init__(self,
-                 batch_size,
                  seq_length,
                  layer_id,
                  has_bias,
                  **kwargs):
-        super().__init__(batch_size=batch_size,
-                         seq_length=seq_length,
+        super().__init__(seq_length=seq_length,
                          layer_id=layer_id,
                          **kwargs)
         kwargs.pop("multiple_of")
@@ -116,7 +106,6 @@ class InternLMDecodeLayer(LLamaDecodeLayer):
         kwargs.pop("ffn_dim_multiplier")
         kwargs.pop("norm_eps")
         kwargs.pop("layernorm_compute_dtype")
-        self.attention = InternLMAttention(batch_size=batch_size,
-                                           seq_length=seq_length,
+        self.attention = InternLMAttention(seq_length=seq_length,
                                            has_bias=has_bias,
                                            **kwargs)

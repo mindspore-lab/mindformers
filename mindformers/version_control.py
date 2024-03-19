@@ -53,6 +53,7 @@ def is_910b():
 
 def get_cell_reuse(func):
     """Cell reuse decorator."""
+
     def decorator(*args, **kwargs):
         stand_alone = ms.get_auto_parallel_context("parallel_mode") == 'stand_alone'
         pipline_parallel = ms.get_auto_parallel_context("pipeline_stages") > 1
@@ -105,6 +106,7 @@ def get_cell_reuse(func):
                         os.getenv("MS_ENABLE_TRAIN", "UNSET"))
         from mindspore.common import lazy_inline
         lazy_inline(func)(*args, **kwargs)
+
     return decorator
 
 
@@ -126,6 +128,7 @@ def get_tril():
 
 def get_norm():
     """return ops.norm"""
+
     # pylint: disable=C0103
     # pylint: disable=W0622
     def tensor_norm1(A, ord=None, dim=None, keepdim=False, dtype=None):
@@ -206,6 +209,7 @@ def check_valid_flash_attention(import_fa_valid=True, fa_type=None):
         result = True
     return result
 
+
 def choose_flash_attention_dtype():
     """
     attention_mask dtype should be float16 on ms 2.2.0, uint8 on 2.2.10
@@ -219,6 +223,7 @@ def choose_flash_attention_dtype():
         fa_dtype = ms.uint8
     return fa_dtype
 
+
 def check_valid_big_kernel():
     """check mindspore version is valid for big kernel SiLU and LlamaRMSNorm Ops"""
     version_valid = is_version_ge(ms.__version__, "2.2.10")
@@ -230,6 +235,7 @@ def check_valid_big_kernel():
     else:
         result = True
     return result
+
 
 def is_version_python(cur_ver, tar_ver):
     """
@@ -250,21 +256,11 @@ def is_version_python(cur_ver, tar_ver):
             return int(x) >= int(y)
     return True
 
-def check_valid_paged_attention():
-    """check mindspore version is valid for paged attention"""
-    version_valid = is_version_ge(ms.__version__, "2.2.11")
-    # below ms 2.2.11 is not support
-    if not version_valid:
-        logger.warning("Current MindSpore do not support PagedAttention, please upgrade to 2.2.11 or later version.")
-        logger.warning("Now running on self-attention mode.")
-        result = False
-    else:
-        result = True
-    return result
 
 def is_paged_attention_v2():
     """check whether the interface of paged attention is changed"""
     return is_version_ge(ms.__version__, "2.3.0")
+
 
 def check_rmsnorm_big_kernel_valid(is_dynamic=False):
     """check whether rmsnorm big kernel is valid"""

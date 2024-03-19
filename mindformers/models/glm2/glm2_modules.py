@@ -21,23 +21,30 @@ from mindspore import nn, Parameter, Tensor
 from mindspore.common.initializer import initializer
 
 from mindformers.modules.layers import Linear
+from mindformers.version_control import check_rmsnorm_big_kernel_valid, check_valid_big_kernel
 
 from .glm2_config import ChatGLM2Config
 
 
-def precompute_rotary_emb_cache(seq_len: int, dim: int, dtype=np.float32, base: int = 10000):
+def precompute_rotary_emb_cache(seq_len: int, dim: int, dtype=mstype.float32, base: int = 10000):
     """pre compute rotary emb cache."""
     # $\Theta = {\theta_i = 10000^{\frac{2(i-1)}{d}}, i \in [1, 2, ..., \frac{d}{2}]}$
-    theta = 1.0 / (base ** (np.arange(0, dim, 2, dtype=dtype) / dim))
+    theta = 1.0 / (base ** (np.arange(0, dim, 2, dtype=np.float32) / dim))
 
     # Create position indexes `[0, 1, ..., seq_len - 1]`
-    seq_idx = np.arange(seq_len, dtype=dtype)
+    seq_idx = np.arange(seq_len, dtype=np.float32)
 
     # Calculate the product of position index and $\theta_i$
     idx_theta = np.outer(seq_idx, theta).astype(np.float32)
 
-    cache = np.stack((np.cos(idx_theta), np.sin(idx_theta)), axis=-1).astype(dtype)
-    return cache
+    cache = Tensor(np.stack((np.cos(idx_theta), np.sin(idx_theta)), axis=-1), dtype=dtype)
+
+    freqs = np.expand_dims(idx_theta, 2)
+    emb = np.concatenate((freqs, freqs), axis=-1)
+    emb = emb.reshape(seq_len, dim)
+    freqs_cos = Tensor(np.concatenate((np.cos(emb), np.ones_like(emb)), axis=-1), dtype=dtype)
+    freqs_sin = Tensor(np.concatenate((np.sin(emb), np.zeros_like(emb)), axis=-1), dtype=dtype)
+    return freqs_cos, freqs_sin, cache
 
 
 class ChatGLM2RMSNorm(nn.Cell):
@@ -54,39 +61,53 @@ class ChatGLM2RMSNorm(nn.Cell):
         Outputs:
             Tensor of shape :math:`(batch, seq_length, hidden_size)`.
     """
-    def __init__(self, dim, eps=1e-6, param_init_type=mstype.float32):
+
+    def __init__(self, dim, eps=1e-6, param_init_type=mstype.float32, is_dynamic=False):
         super(ChatGLM2RMSNorm, self).__init__()
         self.eps = Tensor(float(eps), dtype=param_init_type)
         self.weight = Parameter(initializer('ones', (dim,), dtype=param_init_type))
-        self.square = P.Square()
-        self.mean = P.ReduceMean(keep_dims=True)
-        self.add = P.Add()
-        self.rsqrt = P.Rsqrt()
-        self.mul = P.Mul()
-        self.mul2 = P.Mul()
+        if not check_rmsnorm_big_kernel_valid(is_dynamic):
+            self.square = P.Square()
+            self.mean = P.ReduceMean(keep_dims=True)
+            self.add = P.Add()
+            self.rsqrt = P.Rsqrt()
+            self.mul = P.Mul()
+            self.mul2 = P.Mul()
+            self.rms_norm = self._self_norm
+            self.self_define = True
+        else:
+            self.norm = P.RmsNorm(float(eps))
+            self.rms_norm = self._rms_norm
+            self.self_define = False
 
-    def _norm(self, x):
+    def _self_norm(self, x):
         # shard:(dp, 1, 1)
         norm_factor = self.square(x)
         norm_factor = self.mean(norm_factor, -1)
         norm_factor = self.add(norm_factor, self.eps)
         norm_factor = self.rsqrt(norm_factor)
-        return self.mul(x, norm_factor)
-
-    def construct(self, x):
-        """Forward of RMSNorm."""
-        output = self._norm(x)
+        output = self.mul(x, norm_factor)
         output = self.mul2(output, self.weight)
         return output
 
+    def _rms_norm(self, x):
+        return self.norm(x, self.weight)[0]
+
+    def construct(self, x):
+        """Forward of RMSNorm."""
+        return self.rms_norm(x)
+
     def shard(self, strategy):
         """Parallel strategy configuratiuon interface."""
-        self.square.shard(strategy)
-        self.mean.shard(strategy)
-        self.rsqrt.shard(strategy)
-        self.add.shard((strategy[0], ()))
-        self.mul.shard((strategy[0], strategy[0]))
-        self.mul2.shard((strategy[0], (1,)))
+        if self.self_define:
+            self.square.shard(strategy)
+            self.mean.shard(strategy)
+            self.rsqrt.shard(strategy)
+            self.add.shard((strategy[0], ()))
+            self.mul.shard((strategy[0], strategy[0]))
+            self.mul2.shard((strategy[0], (1,)))
+        else:
+            self.norm.shard((strategy[0], (1,)))
 
 
 class ChatGLM2SiLU(nn.Cell):
@@ -99,21 +120,36 @@ class ChatGLM2SiLU(nn.Cell):
         Outputs:
             Tensor. x = x * sigmod(x).
     """
+
     def __init__(self):
         super(ChatGLM2SiLU, self).__init__()
-        self.sigmoid = P.Sigmoid()
-        self.mul = P.Mul()
+        if check_valid_big_kernel():
+            # pylint: disable=W0212
+            self.silu = P._inner_ops.SiLU()
+            self.self_define = False
+        else:
+            self.sigmoid = P.Sigmoid()
+            self.mul = P.Mul()
+            self.silu = self._self_silu
+            self.self_define = True
 
     def shard(self, strategy):
-        self.sigmoid.shard(strategy)
-        self.mul.shard((strategy[0], strategy[0]))
+        if self.self_define:
+            self.sigmoid.shard(strategy)
+            self.mul.shard((strategy[0], strategy[0]))
+        else:
+            self.silu.shard(strategy)
+
+    def _self_silu(self, x):
+        return self.mul(x, self.sigmoid(x))
 
     def construct(self, x):
-        return self.mul(x, self.sigmoid(x))
+        return self.silu(x)
 
 
 class ChatGLM2SwiGLU(nn.Cell):
     """SwiGLU activation function."""
+
     def __init__(self):
         super(ChatGLM2SwiGLU, self).__init__()
         self.split = P.Split(axis=-1, output_num=2)
@@ -137,6 +173,7 @@ class ChatGLM2MLP(nn.Cell):
     hidden dimension, perform nonlinear transformation, and project the
     state back into h hidden dimension.
     """
+
     def __init__(self, config: ChatGLM2Config):
         super(ChatGLM2MLP, self).__init__()
         self.add_bias = config.add_bias_linear

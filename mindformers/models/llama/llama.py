@@ -14,9 +14,7 @@
 # ============================================================================
 """LLaMA models' APIs."""
 import copy
-import numpy as np
 
-import mindspore as ms
 import mindspore.common.dtype as mstype
 
 try:
@@ -28,25 +26,6 @@ from mindspore.context import ParallelMode
 from mindspore.ops import operations as P
 from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
 
-try:
-    # pylint: disable=W0611
-    from mindspore.ops.operations.nn_ops import PromptFlashAttention
-    PFA_VALID = True
-except ImportError:
-    PFA_VALID = False
-try:
-    # pylint: disable=W0611
-    from mindspore.ops.operations.nn_ops import IncreFlashAttention
-    IFA_VALID = True
-except ImportError:
-    IFA_VALID = False
-try:
-    # pylint: disable=W0611
-    from mindformers.modules.flash_attention import FlashAttention
-    FLASHATTENTION_VALID = True
-except ImportError:
-    FLASHATTENTION_VALID = False
-
 from mindformers.core.loss.loss import CrossEntropyLoss
 from mindformers.mindformer_book import MindFormerBook
 from mindformers.models.modeling_utils import PreTrainedModel
@@ -54,12 +33,10 @@ from mindformers.modules.layers import Linear
 from mindformers.modules.transformer import LowerTriangularMaskWithDynamic
 from mindformers.modules.transformer.op_parallel_config import _check_config
 from mindformers.tools.register.register import MindFormerModuleType, MindFormerRegister
-from mindformers.version_control import check_valid_paged_attention, check_valid_flash_attention
 
 from .llama_config import LlamaConfig
 from .llama_layer import LlamaEmbedding, LlamaRMSNorm, FreqsMgr
 from .llama_transformer import LLamaDecodeLayer
-from ...modules import KVCachePreprocess
 from .llama_interleave import LLamaDecodeLayerInterleave
 from ..utils import cell_reuse
 from ...tools.logger import logger
@@ -148,18 +125,10 @@ class LlamaModel(LlamaPreTrainedModel):
         self.head_dim = self.hidden_size // self.n_head
         self.pad_token_id = config.pad_token_id
         self.is_first_iteration = True
+        self.seq_length = config.seq_length
         self.use_past = config.use_past
         self.is_dynamic = config.is_dynamic
-        self.use_kvcache_op = config.use_kvcache_op
-        self.is_flexible_shape = config.is_flexible_shape
-        config.use_flash_attention = config.use_flash_attention and check_valid_flash_attention(
-            FLASHATTENTION_VALID, 'FlashAttention')
-        config.use_paged_attention = config.use_paged_attention and check_valid_paged_attention()
-        config.use_prompt_flash_attention = config.use_prompt_flash_attention and check_valid_flash_attention(
-            PFA_VALID, 'PromptFlashAttention')
-        config.use_incre_flash_attention = config.use_incre_flash_attention and check_valid_flash_attention(
-            IFA_VALID, 'IncreFlashAttention')
-
+        self.use_flash_attention = config.use_flash_attention
         self.shape = P.Shape()
         self.reshape = P.Reshape().add_prim_attr("skip_redistribution", True)
         self.cast = P.Cast()
@@ -180,9 +149,7 @@ class LlamaModel(LlamaPreTrainedModel):
                                                           compute_type=config.compute_dtype,
                                                           is_dynamic=config.is_dynamic,
                                                           pad_token_id=config.pad_token_id,
-                                                          use_flash_attention=config.use_flash_attention,
-                                                          use_prompt_flash_attention=config.use_prompt_flash_attention,
-                                                          use_incre_flash_attention=config.use_incre_flash_attention)
+                                                          use_flash_attention=config.use_flash_attention)
         self.tok_embeddings = LlamaEmbedding(vocab_table_size=config.vocab_size,
                                              embedding_size=config.hidden_size,
                                              param_init_type=config.param_init_type)
@@ -211,8 +178,7 @@ class LlamaModel(LlamaPreTrainedModel):
                                                    fine_grain_interleave=config.fine_grain_interleave,
                                                    parallel_config=config.parallel_config)
             else:
-                layer = LLamaDecodeLayer(config.batch_size,
-                                         config.seq_length,
+                layer = LLamaDecodeLayer(config.seq_length,
                                          layer_id,
                                          dim=config.hidden_size,
                                          n_heads=config.num_heads,
@@ -230,14 +196,9 @@ class LlamaModel(LlamaPreTrainedModel):
                                          param_init_type=config.param_init_type,
                                          use_past=config.use_past,
                                          use_flash_attention=config.use_flash_attention,
-                                         use_paged_attention=config.use_paged_attention,
-                                         use_prompt_flash_attention=config.use_prompt_flash_attention,
-                                         use_incre_flash_attention=config.use_incre_flash_attention,
                                          block_size=config.block_size,
                                          num_blocks=config.num_blocks,
                                          is_dynamic=config.is_dynamic,
-                                         use_kvcache_op=config.use_kvcache_op,
-                                         is_flexible_shape=config.is_flexible_shape,
                                          use_rope_slice=config.use_rope_slice,
                                          moe_config=config.moe_config,
                                          parallel_config=config.parallel_config)
@@ -246,13 +207,6 @@ class LlamaModel(LlamaPreTrainedModel):
             self.layers.append(layer)
         self.norm_out = LlamaRMSNorm(config.hidden_size, config.rms_norm_eps,
                                      compute_type=config.layernorm_compute_type, is_dynamic=config.is_dynamic)
-        self.kvcache_preprocess = KVCachePreprocess(max_batch_size=config.batch_size,
-                                                    max_seq_length=config.seq_length,
-                                                    is_dynamic=config.is_dynamic,
-                                                    use_kvcache_op=config.use_kvcache_op,
-                                                    is_flexible_shape=config.is_flexible_shape,
-                                                    use_paged_attention=config.use_paged_attention)
-
         dp = config.parallel_config.data_parallel
         if not (_get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation()):
             self.tok_embeddings.pipeline_stage = 0
@@ -290,33 +244,20 @@ class LlamaModel(LlamaPreTrainedModel):
         """
         # preprocess
         bs, seq_len = self.shape(tokens)
-        if not self.use_past:
+        mask = None
+        if self.use_past:
+            freqs_cis = (self.freqs_mgr.freqs_cos, self.freqs_mgr.freqs_sin, self.freqs_mgr.swap_mask)
+        else:
             freqs_cis = self.freqs_mgr()
             mask = self.casual_mask(tokens)  # mask: [bs, seq, seq]
-            kvcache_inputs = None
-        else:
-            if self.is_first_iteration:
-                freqs_cis = self.freqs_mgr(seq_len)
-                mask = self.casual_mask(tokens)  # mask: [bs, seq, seq]
-            else:
-                freqs_cis = self.freqs_mgr.increment(batch_valid_length, bs)
-                if self.is_dynamic and self.is_flexible_shape and not self.use_kvcache_op:
-                    mask = self.casual_mask.increment_slice(
-                        self.kvcache_preprocess.range,
-                        self.kvcache_preprocess.max_cache_length // bs, batch_valid_length,
-                        zactivate_len)
-                else:
-                    mask = self.casual_mask.increment(self.kvcache_preprocess.range, batch_valid_length, zactivate_len)
-
-            kvcache_inputs = self.kvcache_preprocess(bs, batch_valid_length, batch_index, zactivate_len,
-                                                     block_tables, slot_mapping)
 
         # tokens: [bs, seq/1]
         h = self.tok_embeddings(tokens)
         h = self.reshape(h, (bs, seq_len, self.hidden_size))
         # h: [bs, seq/1, hidden_dim]
         for i in range(self.num_layers):
-            h = self.layers[i](h, freqs_cis, mask, kvcache_inputs=kvcache_inputs)
+            h = self.layers[i](h, freqs_cis, mask, batch_valid_length=batch_valid_length, block_tables=block_tables,
+                               slot_mapping=slot_mapping)
         output = self.norm_out(h)
         return output
 
@@ -410,44 +351,6 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
         return {
             "input_ids": Tensor(input_ids, mstype.int32)
         }
-
-    def prepare_inputs_for_export(self, full_model=True):
-        dyn = self.config.is_dynamic
-        use_paged_attention = self.config.use_paged_attention and check_valid_paged_attention()
-        if dyn:
-            logger.info(f"Exporting dynamic MindIR...")
-        if use_paged_attention:
-            logger.info(f"Exporting model with paged attention...")
-        seq_length = self.seq_length
-        bs = None if dyn else self.config.batch_size
-        seq_len = None if dyn else self.seq_length
-
-        max_num_blocks_pre_batch = None if dyn else seq_len // self.config.block_size
-        logger.info(f"max num blocks pre batch: {max_num_blocks_pre_batch}")
-
-        def dummy_tensor(shape, dtype):
-            if None in shape:
-                return Tensor(shape=shape, dtype=dtype)
-            return Tensor(np.ones(shape=tuple(shape)), dtype=dtype)
-
-        batch_valid_length = dummy_tensor(shape=[bs], dtype=ms.int32)
-        batch_index = None if use_paged_attention else dummy_tensor(shape=[bs], dtype=ms.int64)
-        zactivate_len = None if use_paged_attention else dummy_tensor(shape=[seq_len], dtype=ms.int64)
-        pa_input = None if dyn else bs * seq_len
-        if full_model:
-            logger.info('\nexporting with batch_size = %s, seq = %s ...', self.config.batch_size, seq_length)
-            slot_mapping = dummy_tensor(shape=[pa_input], dtype=ms.int32) if use_paged_attention else None
-            input_ids = dummy_tensor(shape=[bs, seq_len], dtype=ms.int32)
-            block_tables = None
-        else:
-            logger.info('\nexporting with batch_size = %s, seq = 1 ...', self.config.batch_size)
-            input_ids = dummy_tensor(shape=[bs, 1], dtype=ms.int32)
-            slot_mapping = dummy_tensor(shape=[bs], dtype=ms.int32) if use_paged_attention else None
-            block_tables = dummy_tensor(shape=[bs, max_num_blocks_pre_batch],
-                                        dtype=ms.int32) if use_paged_attention else None
-
-        return input_ids, None, None, None, None, None, None, batch_valid_length, batch_index, zactivate_len, \
-            block_tables, slot_mapping
 
     # pylint: disable=W0613
     def construct(self, input_ids, labels=None, input_position=None, position_ids=None, attention_mask=None,

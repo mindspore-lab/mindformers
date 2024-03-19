@@ -54,6 +54,7 @@ class ChatGLM2Model(GLM2PreTrainedModel):
     Args:
         config (GLMConfig): The config of network.
     """
+
     def __init__(self, config: ChatGLM2Config, **kwargs):
         super(ChatGLM2Model, self).__init__(config, **kwargs)
         self.num_layers = config.num_layers
@@ -63,13 +64,14 @@ class ChatGLM2Model(GLM2PreTrainedModel):
         self.compute_dtype = config.compute_dtype
         self.use_past = config.use_past
         self.is_first_iteration = True
+
         # vocab embedding
         embed_parallel_config = EmbeddingOpParallelConfig()
         embed_parallel_config.data_parallel = config.parallel_config.data_parallel
         embed_parallel_config.model_parallel = config.parallel_config.model_parallel
         embed_parallel_config.vocab_emb_dp = False
         self.embedding = VocabEmbedding(vocab_size=config.vocab_size, embedding_size=config.hidden_size,
-                                        parallel_config=embed_parallel_config)
+                                        parallel_config=embed_parallel_config, param_init_type=config.param_init_type)
         self.embedding.set_comm_fusion(config.parallel_config.gradient_aggregation_group)
 
         # rotary embedding
@@ -78,9 +80,9 @@ class ChatGLM2Model(GLM2PreTrainedModel):
         )
         self.rotary_pos_emb = precompute_rotary_emb_cache(
             seq_len=self.seq_length,
-            dim=rotary_dim // 2
+            dim=rotary_dim // 2,
+            dtype=config.compute_dtype
         )
-        self.rotary_pos_emb = Tensor(self.rotary_pos_emb, config.compute_dtype)
 
         self.encoder = ChatGLM2Transformer(config)
 
@@ -94,7 +96,6 @@ class ChatGLM2Model(GLM2PreTrainedModel):
         if config.parallel_config.pipeline_stage > 1:
             self.output_layer.pipeline_stage = config.parallel_config.pipeline_stage - 1
         self.output_layer.set_comm_fusion(config.parallel_config.gradient_aggregation_group)
-
 
         self.tril = get_tril()
         self.ones = P.Ones()
@@ -124,8 +125,8 @@ class ChatGLM2Model(GLM2PreTrainedModel):
         return attention_mask
 
     def construct(self, input_ids, input_position=None, position_ids=None, attention_mask=None,
-                  input_embeds=None, init_reset=True, batch_valid_length=None, full_attention_mask=None,
-                  prefix_key_values=None):
+                  input_embeds=None, batch_valid_length=None, full_attention_mask=None, prefix_key_values=None,
+                  block_tables=None, slot_mapping=None):
         """ChatGLM2 model."""
         _ = position_ids
         batch_size, _ = input_ids.shape
@@ -135,20 +136,13 @@ class ChatGLM2Model(GLM2PreTrainedModel):
         if full_attention_mask is None:
             # (bs, 1, seq_len, seq_len)
             full_attention_mask = self.get_masks(batch_size, attention_mask, input_position)
-
-        # (sen length, kv_channels // 4, 2)
-        rotary_pos_emb = self.rotary_pos_emb
-        if self.use_past and not self.is_first_iteration and batch_valid_length is not None:
-            # only take [bs, 1, kv_channels // 4, 2]
-            batch_gather_position = batch_valid_length.view(-1, 1) - 1  # [bs, seq_len=1]
-            rotary_pos_emb = self.gather(rotary_pos_emb, batch_gather_position, 0)
+            full_attention_mask = full_attention_mask.type(mstype.uint8)
 
         # Run encoder.
         hidden_states = self.encoder(
-            input_embeds, full_attention_mask, rotary_pos_emb=rotary_pos_emb,
-            init_reset=init_reset, batch_valid_length=batch_valid_length,
-            prefix_key_values=prefix_key_values)
-
+            input_embeds, full_attention_mask, self.rotary_pos_emb,
+            batch_valid_length=batch_valid_length, prefix_key_values=prefix_key_values, block_tables=block_tables,
+            slot_mapping=slot_mapping)
         return hidden_states
 
 
@@ -173,7 +167,6 @@ class ChatGLM2ForConditionalGeneration(GLM2PreTrainedModel):
         self.transformer = ChatGLM2Model(config=config)
         self.cast = P.Cast()
         self.gather = P.Gather()
-        self.is_first_iteration = True
         self.loss = CrossEntropyLoss(parallel_config=config.parallel_config)
         self.gmask = config.gmask_token_id
         self.bos_token_id = config.bos_token_id
@@ -194,8 +187,10 @@ class ChatGLM2ForConditionalGeneration(GLM2PreTrainedModel):
             "input_position": input_position
         }
 
+    # pylint: disable=W0613
     def construct(self, input_ids=None, labels=None, input_position=None, position_ids=None, attention_mask=None,
-                  input_embeds=None, init_reset=True, batch_valid_length=None, prefix_key_values=None):
+                  input_embeds=None, init_reset=True, batch_valid_length=None, prefix_key_values=None,
+                  block_tables=None, slot_mapping=None):
         """ChatGLM2 for conditional generation model."""
         # input_ids: (bs, seq_len)
         # position_ids: (bs, seq_len)
@@ -207,9 +202,10 @@ class ChatGLM2ForConditionalGeneration(GLM2PreTrainedModel):
             position_ids=position_ids,
             attention_mask=attention_mask,
             input_embeds=input_embeds,
-            init_reset=init_reset,
             batch_valid_length=batch_valid_length,
-            prefix_key_values=prefix_key_values
+            prefix_key_values=prefix_key_values,
+            block_tables=block_tables,
+            slot_mapping=slot_mapping
         )
         lm_logits = self.transformer.output_layer(hidden_states)
         outputs = (lm_logits,)
@@ -294,7 +290,8 @@ class ChatGLM2WithPtuning2(ChatGLM2ForConditionalGeneration):
         PetAdapter.freeze_pretrained_model(self, config.pet_config.pet_type)
 
     def construct(self, input_ids=None, labels=None, input_position=None, position_ids=None, attention_mask=None,
-                  input_embeds=None, init_reset=True, batch_valid_length=None, prefix_key_values=None):
+                  input_embeds=None, init_reset=True, batch_valid_length=None, prefix_key_values=None,
+                  block_tables=None, slot_mapping=None):
 
         if not self.use_past or self.is_first_iteration:
             batch_size = input_ids.shape[0]
@@ -307,7 +304,6 @@ class ChatGLM2WithPtuning2(ChatGLM2ForConditionalGeneration):
             position_ids=position_ids,
             attention_mask=attention_mask,
             input_embeds=input_embeds,
-            init_reset=init_reset,
             batch_valid_length=batch_valid_length,
             prefix_key_values=prefix_key_values
         )

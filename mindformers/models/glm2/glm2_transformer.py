@@ -14,29 +14,17 @@
 # ============================================================================
 """ChatGLM2 Transformer."""
 import math
-import numpy as np
 
 import mindspore.ops.functional as F
 import mindspore.ops.operations as P
-from mindspore import Parameter, Tensor, nn, ops
+from mindspore import Tensor, nn, ops
 from mindspore import dtype as mstype
-try:
-    from mindspore.ops.operations.nn_ops import PromptFlashAttention
-    PROMPTFLASHATTENTION_VALID = True
-except ImportError:
-    PROMPTFLASHATTENTION_VALID = False
-
-try:
-    from mindspore.ops.operations.nn_ops import IncreFlashAttention
-    INCREFLASHATTENTION_VALID = True
-except ImportError:
-    INCREFLASHATTENTION_VALID = False
-
+from mindformers.modules.infer_attention import InferAttention
 from mindformers.modules import LayerNorm
 from mindformers.modules.layers import Linear
 from mindformers.modules.flash_attention import FlashAttention
 from mindformers.pet.tuners.ptuning2_adapter import Ptuning2Adapter
-from mindformers.version_control import get_dropout, check_valid_flash_attention, choose_flash_attention_dtype
+from mindformers.version_control import get_dropout
 
 from .glm2_config import ChatGLM2Config
 from .glm2_modules import ChatGLM2MLP, ChatGLM2RMSNorm
@@ -44,6 +32,7 @@ from .glm2_modules import ChatGLM2MLP, ChatGLM2RMSNorm
 
 class CoreAttention(nn.Cell):
     """ChatGLM2 core attention."""
+
     def __init__(self, config: ChatGLM2Config, layer_number):
         super(CoreAttention, self).__init__()
         self.apply_query_key_layer_scaling = config.apply_query_key_layer_scaling
@@ -51,14 +40,11 @@ class CoreAttention(nn.Cell):
         if self.apply_query_key_layer_scaling:
             self.attention_softmax_in_fp32 = True
         self.layer_number = max(1, layer_number)
-
+        self.head_dim = config.kv_channels
         projection_size = config.kv_channels * config.num_attention_heads
 
-        self.hidden_size_per_partition = projection_size
-        self.hidden_size_per_attention_head = projection_size // config.num_attention_heads
-        self.num_attention_heads_per_partition = config.num_attention_heads
-
-        self.norm_factor = math.sqrt(self.hidden_size_per_attention_head)
+        self.n_head = config.num_attention_heads
+        self.norm_factor = math.sqrt(self.head_dim)
         self.mul_mask = P.Mul()
         self.add = P.Add()
 
@@ -81,6 +67,12 @@ class CoreAttention(nn.Cell):
         self.reshape = P.Reshape()
 
         self.compute_dtype = config.compute_dtype
+        self.multi_query_attention = config.multi_query_attention
+        if self.multi_query_attention:
+            self.n_kv_head = config.multi_query_group_num
+            self.qkv_hidden_size = (
+                projection_size + 2 * self.head_dim * config.multi_query_group_num)
+        self.transpose = P.Transpose()
 
     def construct(self, query_layer, key_layer, value_layer, attention_mask):
         """
@@ -128,7 +120,6 @@ class CoreAttention(nn.Cell):
         # [bs, heads, seq_q, seq_k] x [bs, heads, seq_v, hidden_size_per_head] -> [b, heads, seq_q, hidden_size_per_head]
         context_layer = self.batch_matmul(attention_probs, value_layer)
         context_layer = F.cast(context_layer, self.compute_dtype)
-
         context_layer = self._merge_heads(context_layer)
 
         return context_layer
@@ -152,29 +143,30 @@ class CoreAttention(nn.Cell):
 
 class ChatGLM2SelfAttention(nn.Cell):
     """ChatGLM2 self-attention."""
+
     def __init__(self, config: ChatGLM2Config, layer_number):
         super(ChatGLM2SelfAttention, self).__init__()
         self.layer_number = max(1, layer_number)
-
+        self.head_dim = config.kv_channels
         self.projection_size = config.kv_channels * config.num_attention_heads
         # Per attention head and per partition values.
-        self.hidden_size_per_attention_head = self.projection_size // config.num_attention_heads
         self.apply_query_key_layer_scaling = config.apply_query_key_layer_scaling
-        self.norm_factor = math.sqrt(self.hidden_size_per_attention_head)
-        self.num_attention_heads_per_partition = config.num_attention_heads
+        self.norm_factor = math.sqrt(self.head_dim)
+        self.n_head = config.num_attention_heads
         self.params_dtype = config.param_init_type
         self.compute_dtype = config.compute_dtype
         self.batch_size = config.batch_size
         self.seq_length = config.seq_length
         self.pre_seq_len = config.pre_seq_len
+        self.n_rep = self.n_head // config.multi_query_group_num
 
         self.multi_query_attention = config.multi_query_attention
         self.qkv_hidden_size = 3 * self.projection_size
 
         if self.multi_query_attention:
-            self.num_multi_query_groups_per_partition = config.multi_query_group_num
+            self.n_kv_head = config.multi_query_group_num
             self.qkv_hidden_size = (
-                self.projection_size + 2 * self.hidden_size_per_attention_head * config.multi_query_group_num)
+                self.projection_size + 2 * self.head_dim * config.multi_query_group_num)
 
         dp, mp = config.parallel_config.data_parallel, config.parallel_config.model_parallel
         self.query_key_value = Linear(config.hidden_size,
@@ -195,41 +187,19 @@ class ChatGLM2SelfAttention(nn.Cell):
 
         self.reshape = P.Reshape()
         self.stack = P.Stack(axis=-1)
-        self.gather = P.Gather()
-        self.index_0 = Tensor(0)
-        self.index_1 = Tensor(1)
         self.mul = P.Mul()
         self.sub = P.Sub()
         self.add = P.Add()
         self.concat = P.Concat(axis=-1)
         self.split_3 = P.Split(axis=-1, output_num=3)
         self.transpose = P.Transpose()
-
-        self.use_past = config.use_past
-        if self.use_past:
-            self.is_first_iteration = True
-            total_seq_length = self.seq_length
-            if isinstance(config.pre_seq_len, int):
-                total_seq_length = total_seq_length + config.pre_seq_len
-            seq_range = np.arange(total_seq_length).reshape(1, 1, -1)
-            self.range = Tensor(
-                np.tile(seq_range, (self.batch_size, 1, 1)), mstype.int32)
-            self.less = P.Less()
-            self.add_past = P.Add().shard(((1, 1, 1, 1), (1, 1, 1, 1)))
-            self.mul1 = P.Mul().shard(((1, 1, 1, 1), (1, 1, 1, 1)))
-            self.expand_dims = P.ExpandDims().shard(((1, 1, 1),))
-            self.equal = P.Equal().shard(((1, 1, 1), (1, 1, 1)))
-            self.tile = P.Tile().shard(((1, 1, 1, 1),))
+        self.tile_kv = P.Tile()
+        self.shape = P.Shape()
         self.use_flash_attention = config.use_flash_attention
-        self.use_prompt_flash_attention = config.use_prompt_flash_attention
-        self.use_incre_flash_attention = config.use_incre_flash_attention
 
         if self.use_flash_attention:
-            self.attention_mask_dtype = choose_flash_attention_dtype()
-            self.sub_attention = P.Sub().shard(((), (dp, 1, 1)))
-            head_dim = config.hidden_size // config.num_attention_heads
             self.flash_attention = FlashAttention(head_num=config.num_attention_heads,
-                                                  scale_value=1. / math.sqrt(head_dim),
+                                                  scale_value=1. / math.sqrt(self.head_dim),
                                                   input_layout='BNSD',
                                                   keep_prob=1. - config.attention_dropout,
                                                   pre_tokens=65536,
@@ -237,22 +207,35 @@ class ChatGLM2SelfAttention(nn.Cell):
                                                   dp=dp,
                                                   mp=mp)
 
-        if self.use_prompt_flash_attention:
-            self.attention_mask_dtype = choose_flash_attention_dtype()
-            self.prompt_flash_attention = PromptFlashAttention(num_heads=config.num_attention_heads,
-                                                               scale_value=1 / self.norm_factor,
-                                                               num_key_value_heads=0,
-                                                               input_layout='BNSD',
-                                                               pre_tokens=65536,
-                                                               next_tokens=0)
+        self.block_size = config.block_size
+        self.num_blocks = config.num_blocks
+        self.parallel_config = config.parallel_config
 
-        if self.use_incre_flash_attention and self.use_past:
-            self.attention_mask_dtype = choose_flash_attention_dtype()
-            self.incre_flash_attention = IncreFlashAttention(num_heads=config.num_attention_heads,
-                                                             scale_value=1 / self.norm_factor,
-                                                             input_layout='BNSD',
-                                                             num_key_value_heads=0)
+        self.use_past = config.use_past
         self.merger_head_transpose = P.Transpose().shard(((dp, mp, 1, 1),))
+        if self.use_past:
+            self.infer_attention = InferAttention(self.n_head,
+                                                  self.head_dim,
+                                                  self.seq_length,
+                                                  config.hidden_size,
+                                                  self.n_kv_head,
+                                                  scale_value=1. / math.sqrt(self.head_dim),
+                                                  pre_tokens=65536,
+                                                  next_tokens=0,
+                                                  block_size=self.block_size,
+                                                  num_blocks=self.num_blocks,
+                                                  rotary_cos_format=1,
+                                                  parallel_config=self.parallel_config)
+
+    def _repeat_kv(self, x, rep):
+        if rep == 1:
+            return x
+        bs, n_kv_head, seqlen, head_dim = self.shape(x)
+        x = self.reshape(x, (bs, n_kv_head, 1, seqlen * head_dim))
+        x = self.tile_kv(x, (1, 1, rep, 1))
+        x = self.reshape(x, (bs, n_kv_head * rep, seqlen, head_dim))
+        return x
+
     def _merge_heads(self, x):
         """
         convert a 4d input to a 2d output
@@ -269,11 +252,12 @@ class ChatGLM2SelfAttention(nn.Cell):
         x_merge = self.reshape(x, new_shape)
         return x_merge
 
-    def apply_rotary_pos_emb(self, x: Tensor, rope_cache: Tensor) -> Tensor:
+    def apply_rotary_pos_emb(self, x: Tensor, rotary_pos_emb: Tensor) -> Tensor:
         """apply rotary position embedding to q,k."""
         # x: [b, heads, seq, hidden_size_per_head]
         bs, num_heads, seq_len, _ = x.shape  # 1, 32，4, 128
         # rope_cache: first (seq_len, kv_channels//4, 2), other (1, kv_channels//4, 2)
+        _, _, rope_cache = rotary_pos_emb
         rot_dim = rope_cache.shape[-2] * 2  # kv_channels // 2
         x, x_pass = x[..., :rot_dim], x[..., rot_dim:]
         # ms not support variable sizes
@@ -317,156 +301,60 @@ class ChatGLM2SelfAttention(nn.Cell):
 
         return key_layer, value_layer, attention_mask
 
-    def construct(self, hidden_states, attention_mask, rotary_pos_emb, key_past=None, value_past=None,
-                  batch_valid_length=None, prefix_key_value=None):
+    def construct(self, hidden_states, attention_mask, rotary_pos_emb, batch_valid_length=None, prefix_key_value=None,
+                  block_tables=None, slot_mapping=None):
         """Forward process of self-attention."""
         # hidden_states: [bs, seq_len, hidden_size]
         # attention_mask (bs, 1, seq_len, seq_len)
         # rotary_pos_emb: first: (sen length, kv_channels//4, 2)， after:(1, kv_channels//4, 2]
-
+        bs, seq_len, _ = self.shape(hidden_states)
         # [bs, seq_len, qkv_hidden_size]
         mixed_raw_layer = self.query_key_value(hidden_states)
 
         # not compatible with ms below 2.0
-        if self.multi_query_attention:
-            (query_layer, key_layer, value_layer) = mixed_raw_layer.split(
-                [self.num_attention_heads_per_partition * self.hidden_size_per_attention_head,
-                 self.num_multi_query_groups_per_partition * self.hidden_size_per_attention_head,
-                 self.num_multi_query_groups_per_partition * self.hidden_size_per_attention_head,
-                 ],
-                axis=-1,
-            )
-            # [bs, seq_len, nh, hidden_size_per_attention_head] -> [bs, nh, seq_len, hidden_size_per_attention_head]
-            query_layer = query_layer.view(
-                query_layer.shape[:-1] + (self.num_attention_heads_per_partition, self.hidden_size_per_attention_head)
-            )
-            query_layer = self.transpose(query_layer, (0, 2, 1, 3))
-            # [bs, seq_len, multi_query_groups, hidden_size_per_attention_head]
-            # -> [bs, multi_query_groups, seq_len, hidden_size_per_attention_head]
-            key_layer = key_layer.view(
-                key_layer.shape[:-1] + (self.num_multi_query_groups_per_partition, self.hidden_size_per_attention_head)
-            )
-            key_layer = self.transpose(key_layer, (0, 2, 1, 3))
-            # [bs, seq_len, multi_query_groups, hidden_size_per_attention_head]
-            # -> [bs, multi_query_groups, seq_len, hidden_size_per_attention_head]
-            value_layer = value_layer.view(
-                value_layer.shape[:-1]
-                + (self.num_multi_query_groups_per_partition, self.hidden_size_per_attention_head)
-            )
-            value_layer = self.transpose(value_layer, (0, 2, 1, 3))
-        else:
-            # [b, seq, (heads * 3 * hidden_size_per_head)] --> [b, seq, heads, 3 * hidden_size_per_head]
-            new_tensor_shape = mixed_raw_layer.shape[:-1] + (
-                self.num_attention_heads_per_partition, 3 * self.hidden_size_per_attention_head,
-            )
-            mixed_raw_layer = mixed_raw_layer.view(*new_tensor_shape)
-            # [b, seq, heads, hidden_size_per_head]
-            (query_layer, key_layer, value_layer) = self.split_3(mixed_raw_layer)
-            # [b, seq, heads, hidden_size_per_head] -> [bs, num_heads, seq_len, hidden_size_per_head]
-            query_layer = self.transpose(query_layer, (0, 2, 1, 3))
-            key_layer = self.transpose(key_layer, (0, 2, 1, 3))
-            value_layer = self.transpose(value_layer, (0, 2, 1, 3))
-
-        # rotary_pos_emb: first: (seq_length, kv_channels//4, 2)， after:(1, kv_channels//4, 2)
-        if rotary_pos_emb is not None:
-            # [b, heads, seq, hidden_size_per_head]
-            query_layer = self.apply_rotary_pos_emb(query_layer, rotary_pos_emb)
-            # [bs, multi_query_groups, seq_len, hidden_size_per_attention_head]
-            key_layer = self.apply_rotary_pos_emb(key_layer, rotary_pos_emb)
-
-        key_layer, value_layer, attention_mask = self.add_prefix_if_need(
-            prefix_key_value,
-            key_layer,
-            value_layer,
-            attention_mask
+        (query, key, value) = mixed_raw_layer.split(
+            [self.n_head * self.head_dim,
+             self.n_kv_head * self.head_dim,
+             self.n_kv_head * self.head_dim,
+             ],
+            axis=-1,
         )
 
         # key and value for current token(s)
-        # [bs, heads, seq_len, hidden_size_per_head]
-        key_present = key_layer
-        value_present = value_layer
         if self.use_past:
-            # The first graph with the input size of (bs, seq_length)
-            if self.is_first_iteration:
-                # Get the valid input length without padding
-                valid_length_vector = F.cast(self.less(self.range, batch_valid_length.view(-1, 1, 1)),
-                                             self.params_dtype)  # [bs, 1, seq_len]
-                # Cover the key and value numbers corresponding to the padding position
-                key_present = self.mul1(key_present, self.expand_dims(valid_length_vector, 3))
-                value_present = self.mul1(value_present, self.expand_dims(valid_length_vector, 3))
-            # The second graph with the inpus size of (bs, 1)
-            # the shape of query is (bs, num_heads, 1, size_per_head)
-            # the shape of key is   (bs, multi_query_groups, 1, size_per_head)
-            # the shape of value is (bs, multi_query_groups, 1, size_per_head)
-            else:
-                # Get the current token position index
-                # key_past: [batch_size, multi_query_groups, seq_length, size_per_head]
-                valid_length = batch_valid_length - 1
-                valid_length = self.reshape(valid_length, (-1, 1, 1))  # [bs, 1, 1]
-                # self.range: [bs, 1, config.seq_len]
-                valid_length_vector = F.cast(self.equal(valid_length, self.range), self.params_dtype)
-                # Pad the key and value to seq_length with only the position index not zero
-                current_key = self.mul1(key_present, self.expand_dims(valid_length_vector, 3))
-                current_value = self.mul1(value_present, self.expand_dims(valid_length_vector, 3))
-                # Concat the previous saved state and current state
-                # [batch_size, multi_query_groups, seq_length, size_per_head]
-                key_present = self.add_past(key_past, current_key)
-                value_present = self.add_past(value_past, current_value)
-            # update k v for attention
-            # [batch_size, multi_query_groups, seq_length, size_per_head]
-            key_layer = key_present
-            # [batch_size, multi_query_groups, seq_length, size_per_head]
-            value_layer = value_present
+            freqs_cos, freqs_sin, _ = rotary_pos_emb
+            context_layer = self.infer_attention(query, key, value, batch_valid_length, block_tables, slot_mapping,
+                                                 freqs_cos, freqs_sin)
+        else:
+            query = self.transpose(self.reshape(query, (bs, seq_len, self.n_head, self.head_dim)), (0, 2, 1, 3))
+            key = self.transpose(self.reshape(key, (bs, seq_len, self.n_kv_head, self.head_dim)), (0, 2, 1, 3))
+            value = self.transpose(self.reshape(value, (bs, seq_len, self.n_kv_head, self.head_dim)), (0, 2, 1, 3))
 
-        layer_present = (key_present, value_present)
+            query = self.apply_rotary_pos_emb(query, rotary_pos_emb)
+            key = self.apply_rotary_pos_emb(key, rotary_pos_emb)
 
-        # tile k,v to num_heads
-        if self.multi_query_attention:
-            bs, heads, _, hs_ph = key_layer.shape
-            key_layer = key_layer.view((bs, heads, -1))
+            key, value, attention_mask = self.add_prefix_if_need(
+                prefix_key_value,
+                key,
+                value,
+                attention_mask
+            )
 
-            key_layer = key_layer.unsqueeze(2)
-            key_layer = key_layer.tile(
-                (1, 1, self.num_attention_heads_per_partition // self.num_multi_query_groups_per_partition, 1))
-            # [b, heads, seq, hidden_size_per_head]
-            key_layer = key_layer.view((bs, self.num_attention_heads_per_partition, -1, hs_ph))
-
-            value_layer = value_layer.view((bs, heads, -1))
-            value_layer = value_layer.unsqueeze(2)
-            value_layer = value_layer.tile(
-                (1, 1, self.num_attention_heads_per_partition // self.num_multi_query_groups_per_partition, 1))
-            # [b, heads, seq, hidden_size_per_head]
-            value_layer = value_layer.view((bs, self.num_attention_heads_per_partition, -1, hs_ph))
-
-        if not self.training:
-            if self.use_prompt_flash_attention and \
-               ((self.use_past and self.is_first_iteration) or (not self.use_past)):
-                attention_mask = attention_mask.squeeze(1).to(self.attention_mask_dtype)
-                context_layer = self.prompt_flash_attention(query_layer, key_layer, value_layer, attention_mask,
-                                                            None, None, None, None, None, None, None, None)
-                context_layer = self._merge_heads(context_layer)
-            elif self.use_incre_flash_attention and (self.use_past and not self.is_first_iteration):
-                attention_mask = attention_mask.squeeze(1).to(self.attention_mask_dtype)
-                context_layer = self.incre_flash_attention(query_layer, key_layer, value_layer, attention_mask,
-                                                           None, None, None, None, None, None, None, None)
-                context_layer = self._merge_heads(context_layer)
-            else:
-                context_layer = self.core_attention(query_layer, key_layer, value_layer, attention_mask)
-
-        if self.training:
             if self.use_flash_attention:
-                attention_mask = self.cast(attention_mask, mstype.uint8)
-                context_layer = self.flash_attention(query_layer, key_layer, value_layer, attention_mask)
+                context_layer = self.flash_attention(query, key, value, attention_mask)
                 context_layer = self._merge_heads(context_layer)
             else:
-                context_layer = self.core_attention(query_layer, key_layer, value_layer, attention_mask)
+                key = self._repeat_kv(key, self.n_rep)
+                value = self._repeat_kv(value, self.n_rep)
+                context_layer = self.core_attention(query, key, value, attention_mask)
+
         # # =================
         # # Output. [bs, seq_len, hidden_size]
         # # =================
 
         output = self.dense(context_layer)
 
-        return output, layer_present
+        return output
 
 
 class ChatGLM2Block(nn.Cell):
@@ -491,7 +379,6 @@ class ChatGLM2Block(nn.Cell):
         # Layernorm on the input data.
         self.input_layernorm = layer_norm_func(config.hidden_size, eps=config.layernorm_epsilon,
                                                param_init_type=self.layernorm_dtype)
-
         self.input_layernorm.set_comm_fusion(config.parallel_config.gradient_aggregation_group)
 
         # Self attention.
@@ -511,61 +398,29 @@ class ChatGLM2Block(nn.Cell):
 
         self.cast = P.Cast()
 
-        self.key_past = None
-        self.value_past = None
-        if self.use_past:
-            size_per_head = config.hidden_size // config.num_attention_heads
-            kv_num_partition = config.num_attention_heads
-            if config.multi_query_attention:
-                kv_num_partition = config.multi_query_group_num
-
-            total_seq_length = self.seq_length
-            if isinstance(config.pre_seq_len, int):
-                total_seq_length = total_seq_length + config.pre_seq_len
-
-            kv_shape = (config.batch_size, kv_num_partition, total_seq_length, size_per_head)
-            # parameters saving key and value states
-            self.key_past = Parameter(
-                Tensor(np.zeros(shape=kv_shape), self.params_dtype), name="key_past")
-            self.value_past = Parameter(
-                Tensor(np.zeros(shape=kv_shape), self.params_dtype), name="value_past")
-            self.mul = P.Mul().shard(((1, 1, 1, 1), (1,)))
-            self.assign = P.Assign().shard(((1, 1, 1, 1), (1, 1, 1, 1)))
-
-    def construct(self, hidden_states, attention_mask, rotary_pos_emb,
-                  init_reset=True, batch_valid_length=None, prefix_key_value=None):
+    def construct(self, hidden_states, attention_mask, rotary_pos_emb, batch_valid_length=None, prefix_key_value=None,
+                  block_tables=None, slot_mapping=None):
         """Forward process of the transformer layer."""
         # hidden_states: [bs, seq_len, hidden_size]
         # attention_mask first: (bs, 1, seq_len, seq_len), after: (bs, 1, 1, seq_len)
         # rotary_pos_emb: first: (seq_len, kv_channels//4, 2)， after: (1, kv_channels//4, 2)
-
+        if batch_valid_length is not None:
+            batch_valid_length = batch_valid_length + 1
         # Layer norm at the beginning of the transformer layer.
         hidden_states = self.cast(hidden_states, self.layernorm_dtype)
         layernorm_output = self.input_layernorm(hidden_states)
         # fp32 -> fp16
         layernorm_output = self.cast(layernorm_output, self.compute_dtype)
 
-        key_reset = None
-        value_reset = None
-        if self.use_past:
-            # reset states, init_reset True for reuse and False for reset
-            key_reset = self.assign(self.key_past, self.mul(
-                self.key_past, F.cast(init_reset, self.params_dtype)))
-            value_reset = self.assign(self.value_past, self.mul(
-                self.value_past, F.cast(init_reset, self.params_dtype)))
-            # add dependency for desired execution order
-            layernorm_output = F.depend(layernorm_output, key_reset)
-            layernorm_output = F.depend(layernorm_output, value_reset)
-
         # Self attention.
-        attention_output, layer_present = self.self_attention(
+        attention_output = self.self_attention(
             layernorm_output,
             attention_mask,
             rotary_pos_emb,
-            self.key_past,
-            self.value_past,
             batch_valid_length,
-            prefix_key_value
+            prefix_key_value,
+            block_tables=block_tables,
+            slot_mapping=slot_mapping
         )
 
         # Residual connection.
@@ -584,24 +439,6 @@ class ChatGLM2Block(nn.Cell):
 
         # MLP.
         mlp_output = self.mlp(layernorm_output)
-
-        value_update = None
-        key_update = None
-        if self.use_past:
-            # current key and value
-            key_present, value_present = layer_present
-            # update key and value calculated this step
-            self.assign(self.key_past, key_present)
-            key_update = self.key_past
-            self.assign(self.value_past, value_present)
-            value_update = self.value_past
-            # add dependency for desired execution order
-            key_update = F.depend(key_update, key_reset)
-            value_update = F.depend(value_update, value_reset)
-
-        # add dependency for desired execution order
-        mlp_output = F.depend(mlp_output, value_update)
-        mlp_output = F.depend(mlp_output, key_update)
 
         # Second residual connection.
         # False on default.
@@ -673,9 +510,6 @@ class ChatGLM2Transformer(nn.Cell):
 
         self.pre_seq_len = config.pre_seq_len
 
-        # transformer multiple layer, so check fa here to avoid multiple checking
-        config = self.check_flash_attention(config)
-
         # Transformer layers.
         def build_layer(layer_number):
             return ChatGLM2Block(config, layer_number)
@@ -696,27 +530,14 @@ class ChatGLM2Transformer(nn.Cell):
             # self.final_layernorm.shard()
             self.final_layernorm.set_comm_fusion(config.parallel_config.gradient_aggregation_group)
 
-    def check_flash_attention(self, config):
-        """check FA/PFA/IFA valid"""
-        if config.use_flash_attention:
-            config.use_flash_attention = check_valid_flash_attention(fa_type="FlashAttention")
-
-        if config.use_prompt_flash_attention:
-            config.use_prompt_flash_attention = check_valid_flash_attention(PROMPTFLASHATTENTION_VALID,
-                                                                            "PromptFlashAttention")
-
-        if config.use_incre_flash_attention:
-            config.use_incre_flash_attention = check_valid_flash_attention(INCREFLASHATTENTION_VALID,
-                                                                           "IncreFlashAttention")
-        return config
-
     def construct(self,
                   hidden_states,
                   attention_mask,
                   rotary_pos_emb,
-                  init_reset=True,
                   batch_valid_length=None,
-                  prefix_key_values=None):
+                  prefix_key_values=None,
+                  block_tables=None,
+                  slot_mapping=None):
         """Forward process of the transformer."""
         # hidden_states (bs, seq_len, hs)
         # attention_mask (bs, 1, seq_len, seq_len)
@@ -735,9 +556,10 @@ class ChatGLM2Transformer(nn.Cell):
                 hidden_states,
                 attention_mask,
                 rotary_pos_emb,
-                init_reset=init_reset,
                 batch_valid_length=batch_valid_length,
-                prefix_key_value=prefix_key_value
+                prefix_key_value=prefix_key_value,
+                block_tables=block_tables,
+                slot_mapping=slot_mapping
             )
 
         # Final layer norm.

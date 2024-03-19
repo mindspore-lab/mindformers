@@ -1031,13 +1031,14 @@ class VocabEmbedding(Cell):
                                 embedding_size=Validator.check_positive_int,
                                 parallel_config=_valid_type_checks([EmbeddingOpParallelConfig], "VocabEmbedding"))
     def __init__(self, vocab_size, embedding_size, parallel_config=default_embedding_parallel_config,
-                 param_init='normal'):
+                 param_init='normal', param_init_type=mstype.float32):
         super(VocabEmbedding, self).__init__()
         _check_config(parallel_config)
         self.vocab_size = vocab_size
         self.embedding_size = embedding_size
-        self.embedding_table = Parameter(initializer(param_init, [self.vocab_size, self.embedding_size]),
-                                         name='embedding_table', parallel_optimizer=False)
+        self.embedding_table = Parameter(
+            initializer(param_init, [self.vocab_size, self.embedding_size], param_init_type),
+            name='embedding_table', parallel_optimizer=False)
 
         if parallel_config.vocab_emb_dp:
             self.gather = P.Gather().shard(((1, 1), (parallel_config.data_parallel, 1)))

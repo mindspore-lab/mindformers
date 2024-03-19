@@ -57,11 +57,10 @@ class LlamaSiLU(Cell):
             Tensor. x = silu(x).
     """
 
-
-    # pylint: disable=W0212
     def __init__(self):
         super().__init__()
         if check_valid_big_kernel():
+            # pylint: disable=W0212
             self.silu = P._inner_ops.SiLU()
             self.self_define = False
         else:
@@ -348,7 +347,7 @@ class LlamaRMSNorm(nn.Cell):
         super(LlamaRMSNorm, self).__init__()
         self.eps = eps
         self.compute_type = compute_type
-        self.weight = Parameter(initializer('ones', (dim,), dtype=mstype.float32), parallel_optimizer=False)
+        self.weight = Parameter(initializer('ones', (dim,), dtype=self.compute_type), parallel_optimizer=False)
 
         if check_rmsnorm_big_kernel_valid(is_dynamic):
             self.norm = P.RmsNorm(eps)
@@ -528,16 +527,12 @@ class CausalMask(nn.Cell):
     @_LogActionOnce(m_logger=logger, key='AttentionMask',
                     no_warning=_get_parallel_mode() in (ParallelMode.STAND_ALONE,))
     def __init__(self, seq_length, compute_type=mstype.float16,
-                 is_dynamic=False, pad_token_id=0, use_flash_attention=False,
-                 use_prompt_flash_attention=False, use_incre_flash_attention=False):
+                 is_dynamic=False, pad_token_id=0, use_flash_attention=False):
         super().__init__()
         self.dtype = compute_type
         self.is_dynamic = is_dynamic
         self.pad_token_id = pad_token_id
         self.use_flash_attention = use_flash_attention
-        self.use_prompt_flash_attention = use_prompt_flash_attention
-        self.use_incre_flash_attention = use_incre_flash_attention
-        self.is_first_iteration = True
         self.multiply_data = Tensor([-10000.0], dtype=compute_type)
         self.one = Tensor([1.0], dtype=compute_type)
         self.lower_triangle_mask = ops.cast(Tensor(np.tril(np.ones(shape=(seq_length, seq_length))), mstype.float32),
@@ -579,9 +574,9 @@ class CausalMask(nn.Cell):
         attention_mask = self.mul(attention_mask, lower_traiangle)
         attention_mask = self.sub(self.one, attention_mask)
         attention_mask = self.expand_dim_post(attention_mask, 1)
-        if not self.use_flash_attention and not self.use_prompt_flash_attention:
+        if not self.use_flash_attention:
             attention_mask = self.mul_post(attention_mask, self.multiply_data)
-        elif self.use_flash_attention or self.use_prompt_flash_attention:
+        else:
             attention_mask = self.cast(attention_mask, mstype.uint8)
         return attention_mask
 
@@ -593,8 +588,7 @@ class CausalMask(nn.Cell):
         mask = self.cast(mask, self.dtype)
         mask = self.sub(self.one, mask)
         mask = self.expand_dim_post(mask, 1)
-        if not self.use_incre_flash_attention:
-            mask = self.mul_post(mask, self.multiply_data)
+        mask = self.mul_post(mask, self.multiply_data)
         return mask
 
     def increment_slice(self, seq_range, seq_length, batch_valid_length, zactivate_len=None):
@@ -607,8 +601,7 @@ class CausalMask(nn.Cell):
         mask = self.cast(mask, self.dtype)
         mask = self.sub(self.one, mask)
         mask = self.expand_dim_post(mask, 1)
-        if not self.use_incre_flash_attention:
-            mask = self.mul_post(mask, self.multiply_data)
+        mask = self.mul_post(mask, self.multiply_data)
         return mask
 
     def shard(self, parallel_config):
