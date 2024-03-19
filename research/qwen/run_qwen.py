@@ -66,13 +66,15 @@ def main(task='text_generation',
          vocab_file=None,
          predict_data='',
          seq_length=None,
+         batch_size=None,
          max_length=512,
          train_dataset='',
          device_id=0,
          do_sample=None,
          top_k=None,
          top_p=None,
-         paged_attention=False):
+         paged_attention=False,
+         dynamic=False):
     """main function."""
 
     yaml_path = os.path.expanduser(config)
@@ -103,6 +105,9 @@ def main(task='text_generation',
         config.model.model_config.use_past = use_past
     if seq_length is not None:
         config.model.model_config.seq_length = seq_length
+    if batch_size is not None:
+        config.model.model_config.batch_size = batch_size
+
     if do_sample is not None:
         config.model.model_config.do_sample = do_sample
     if top_k is not None:
@@ -125,6 +130,9 @@ def main(task='text_generation',
     elif run_mode == 'export':
         if paged_attention is not None:
             config.model.model_config.use_paged_attention = paged_attention
+        if dynamic is not None:
+            config.model.model_config.is_dynamic = dynamic
+            config.model.model_config.use_kvcache_op = dynamic
 
         trainer = Trainer(args=config,
                           task=task)
@@ -149,6 +157,8 @@ if __name__ == "__main__":
                         help='tokenizer model')
     parser.add_argument('--seq_length', default=None, type=int,
                         help='seq_length')
+    parser.add_argument('--batch_size', default=None, type=int,
+                        help='batch_size')
     parser.add_argument('--use_parallel', default=False, type=str2bool,
                         help='open parallel for model.')
     parser.add_argument('--device_id', default=-1, type=int,
@@ -177,6 +187,8 @@ if __name__ == "__main__":
     export_group = parser.add_argument_group(title="Export options")
     export_group.add_argument('--paged_attention', default=None, type=str2bool,
                               help='Enable paged attention for mslite exporting.')
+    export_group.add_argument('--dynamic', default=None, type=str2bool,
+                              help='Enable dynamic seq_length & batch_size.')
 
     args = parser.parse_args()
 
@@ -193,10 +205,12 @@ if __name__ == "__main__":
          vocab_file=args.vocab_file,
          predict_data=args.predict_data,
          seq_length=args.seq_length,
+         batch_size=args.batch_size,
          max_length=args.predict_length,
          device_id=args.device_id,
          train_dataset=args.train_dataset,
          do_sample=args.do_sample,
          top_k=args.top_k,
          top_p=args.top_p,
-         paged_attention=args.paged_attention)
+         paged_attention=args.paged_attention,
+         dynamic=args.dynamic)

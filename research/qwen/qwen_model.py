@@ -71,7 +71,8 @@ class QwenForCausalLM(BaseModel):
                               out_channels=config.vocab_size,
                               has_bias=False,
                               compute_dtype=config.compute_dtype,
-                              param_init_type=mstype.float16,
+                              param_init_type=config.param_init_type,
+                              skip_redistribution=config.is_dynamic,
                               weight_init="normal")
         loss_parallel_config = copy.deepcopy(config.parallel_config)
         loss_parallel_config.model_parallel = loss_parallel_config.model_parallel * loss_parallel_config.data_parallel
@@ -88,6 +89,8 @@ class QwenForCausalLM(BaseModel):
         self.cast = P.Cast()
         self.add = P.Add()
         self.reshape = P.Reshape()
+        if config.is_dynamic:
+            self.reshape.add_prim_attr("skip_redistribution", True)
         self.ones = P.Ones()
         self.slice = P.StridedSlice()
         self.mul = P.Mul()
@@ -114,13 +117,13 @@ class QwenForCausalLM(BaseModel):
         use_paged_attention = self.config.use_paged_attention and check_valid_paged_attention()
 
         if full_model:
-            logger.info("Export with settings:")
-            logger.info("  seq_length = %d", self.seq_length)
-            logger.info("  batch_size = %d", self.config.batch_size)
-            logger.info("  paged_attention = %s", use_paged_attention)
-            if use_paged_attention:
-                logger.info("  pa_block_size = %d", self.config.block_size)
-                logger.info("  pa_num_blocks = %d", self.config.num_blocks)
+            logger.warning("\nExport with settings:" +
+                           f"\n  seq_length = {self.seq_length}" +
+                           f"\n  batch_size = {self.config.batch_size}" +
+                           f"\n  paged_attention = {use_paged_attention}" +
+                           (f"\n    pa_block_size = {self.config.block_size}" if use_paged_attention else "") +
+                           (f"\n    pa_num_blocks = {self.config.num_blocks}" if use_paged_attention else "") +
+                           ("\n  is_dynamic = True" if self.config.is_dynamic else ""))
 
         return LlamaForCausalLM.prepare_inputs_for_export(self, full_model)
 
@@ -252,7 +255,9 @@ class QwenModel(BaseModel):
                                     param_init_type=config.param_init_type,
                                     qkv_has_bias=True,
                                     use_past=config.use_past,
-                                    use_flash_attention=config.use_flash_attention,
+                                    is_dynamic=self.is_dynamic,
+                                    use_kvcache_op=config.use_kvcache_op,
+                                    use_flash_attention=self.use_flash_attention,
                                     use_paged_attention=self.use_paged_attention,
                                     block_size=config.block_size,
                                     num_blocks=config.num_blocks,
@@ -290,6 +295,8 @@ class QwenModel(BaseModel):
         )
 
         self.shape = P.Shape()
+        self.reshape = P.Reshape().add_prim_attr("skip_redistribution", True)
+        self.ones = P.Ones()
 
         if not (_get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation()):
             self.shard(config.parallel_config)
@@ -311,14 +318,16 @@ class QwenModel(BaseModel):
             input_shape = input_ids.shape
             input_ids = input_ids.view(-1, input_shape[-1])
 
+        bs, seq_len = self.shape(input_ids)
+
         # 1. wte
-        hidden_states = self.wte(input_ids)
+        h = self.wte(input_ids)
+        h = self.reshape(h, (bs, seq_len, self.embed_dim))
 
         # 2. drop
-        hidden_states = self.drop(hidden_states)
+        hidden_states = self.drop(h)
 
-        # 2. rotary_emb
-        bs, seq_len = self.shape(input_ids)
+        # 3. causal mask for attentions
         if not self.use_past:
             freqs_cis = self.freqs_mgr()
             mask = self.casual_mask(input_ids)  # mask: [bs, seq, seq]
@@ -373,10 +382,13 @@ class QwenDecodeLayer(LLamaDecodeLayer):
         compute_dtype = kwargs.get('compute_dtype', mstype.float16)
         param_init_type = kwargs.get('param_init_type', mstype.float32)
         parallel_config = kwargs.get('parallel_config', TransformerOpParallelConfig())
+
+        is_dynamic = kwargs.get('is_dynamic', False)
         self.feed_forward = QwenFeedForward(dim=self.hidden_size,
                                             intermediate_size=intermediate_size,
                                             compute_dtype=compute_dtype,
-                                            param_init_type=param_init_type)
+                                            param_init_type=param_init_type,
+                                            is_dynamic=is_dynamic)
 
         dp = parallel_config.data_parallel
         mp = parallel_config.model_parallel

@@ -80,6 +80,7 @@ def create_mslite_pipeline(args):
         ge_config_path=args.ge_config_path,
         device_id=args.device_id,
         rank_id=rank_id,
+        dynamic=args.dynamic,
         infer_seq_length=args.seq_length,
         paged_attention=args.paged_attention,
         pa_block_size=args.pa_block_size,
@@ -105,9 +106,16 @@ def run_mslite_infer(pipeline_task, prompt, args):
         input_list = [prompt,]
     input_list = expand_input_list(input_list, args.batch_size)
 
+    max_length = args.predict_length
+    if not args.dynamic:
+        if args.seq_length is None:
+            raise ValueError('Argument "--seq_length" is missing.')
+        if max_length > args.seq_length:
+            max_length = args.seq_length
+
     return pipeline_task.infer(
         input_list,
-        max_length=args.predict_length,
+        max_length=max_length,
         do_sample=args.do_sample,
         top_k=3,
         top_p=0.85,
@@ -142,7 +150,7 @@ if __name__ == '__main__':
                         help='Path to vocab file qwen.tiktoken')
     parser.add_argument('--mindir_root_dir', default='output', type=str,
                         help='root path of exported MINDIR models. Default: "output".')
-    parser.add_argument('--seq_length', default=None, type=int, required=True,
+    parser.add_argument('--seq_length', default=None, type=int,
                         help='seq_length')
     parser.add_argument('--batch_size', default=1, type=int,
                         help='batch_size')
@@ -161,6 +169,8 @@ if __name__ == '__main__':
     parser.add_argument('--pa_num_blocks', default=512, type=int,
                         help="The number of blocks of paged attention."
                         "Default: 512")
+    parser.add_argument('--dynamic', default=None, type=str2bool,
+                        help='Enable dynamic seq_length & batch_size')
     args_ = parser.parse_args()
 
     main(args_)
