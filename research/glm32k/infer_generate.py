@@ -14,6 +14,7 @@
 # ============================================================================
 """model predict script"""
 import os
+import sys
 import argparse
 import numpy as np
 
@@ -23,6 +24,8 @@ from mindspore.train import Model
 from mindspore import load_checkpoint, load_param_into_net
 
 from mindformers.trainer.utils import get_last_checkpoint
+from mindformers.tools.utils import str2bool
+from mindformers.tools.logger import logger
 from mindformers import TransformerOpParallelConfig, MindFormerConfig, init_context
 
 from glm32k_config import ChatGLM32kConfig
@@ -32,7 +35,7 @@ from glm32k_tokenizer import ChatGLM32kTokenizer
 context.set_context(mode=0, device_target="Ascend", device_id=0)
 
 
-def main(args, repetition_times=1):
+def main(args, repetition_times=2):
     """main function."""
     # 环境初始化
     config = MindFormerConfig(os.path.realpath(args.config_path))
@@ -55,7 +58,7 @@ def main(args, repetition_times=1):
     if args.checkpoint_path and not config.use_parallel:
         glm32k_config.checkpoint_name_or_path = args.checkpoint_path
 
-    print("starting ......")
+    logger.info("starting ......")
     tokenizer = ChatGLM32kTokenizer(config.processor.tokenizer.vocab_file)
     glm32k_model = ChatGLM32kForConditionalGeneration(glm32k_config)
     glm32k_model.set_train(False)
@@ -65,48 +68,49 @@ def main(args, repetition_times=1):
         # find the sharded ckpt path for this rank
         ckpt_path = os.path.join(args.checkpoint_path, "rank_{}".format(os.getenv("RANK_ID", "0")))
         ckpt_path = get_last_checkpoint(ckpt_path)
-        print("ckpt path: %s", str(ckpt_path))
+        logger.info("ckpt path: %s", str(ckpt_path))
 
         # shard model and load sharded ckpt
         warm_up_model = Model(glm32k_model)
         warm_up_model.infer_predict_layout(ms.Tensor(np.ones(shape=(1, glm32k_config.seq_length)), ms.int32))
         checkpoint_dict = load_checkpoint(ckpt_path)
         not_load_network_params = load_param_into_net(glm32k_model, checkpoint_dict)
-        print("Network parameters are not loaded: %s", str(not_load_network_params))
+        logger.info("Network parameters are not loaded: %s", str(not_load_network_params))
 
-    inputs = tokenizer.build_chat_input(args.user_query, history=[])
-
-    for _ in range(repetition_times):
-        outputs = glm32k_model.generate(input_ids=inputs["input_ids"],
-                                        use_past=args.use_past,
-                                        max_length=args.max_length)
-        print('---------------------------------------------------------')
-        print("output: ")
-        print(tokenizer.decode(outputs[0]))
+    while True:
+        user_input = input("Please enter your predict data: \n")
+        if user_input == "exit":
+            logger.info("Task is over!")
+            sys.exit()
+        user_input = [user_input] * args.batch_size
+        inputs = tokenizer.build_batch_input(user_input)
+        for _ in range(repetition_times):
+            outputs = glm32k_model.generate(input_ids=inputs["input_ids"],
+                                            use_past=args.use_past,
+                                            max_length=args.max_length)
+            print('---------------------------------------------------------')
+            print("output: ")
+            print(tokenizer.decode(outputs))
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--config_path', default='run_glm32k.yaml', type=str,
                         help='config')
-    parser.add_argument('--max_length', default=32768, type=int,
+    parser.add_argument('--max_length', default=32640, type=int,
                         help='max length')
     parser.add_argument('--batch_size', default=1, type=int,
                         help='batch_size')
     parser.add_argument('--device_id', default=5, type=int,
                         help='device_id')
-    parser.add_argument('--use_past', action="store_true",
+    parser.add_argument('--use_past', default=True, type=str2bool,
                         help="use past")
-    parser.add_argument('--use_parallel', default=False, type=bool,
+    parser.add_argument('--use_parallel', default=False, type=str2bool,
                         help="use parallel")
     parser.add_argument('--checkpoint_path', default='/path/mindspore_models/glm32k.ckpt', type=str,
                         help="checkpoint_path")
-    parser.add_argument('--user_query',
-                        default='使用python编写快速排序代码',
-                        type=str,
-                        help='user query input.')
     opt = parser.parse_args()
 
     main(opt)
 
-    # 启动命令： python infer_generate.py --user_query "使用python编写快速排序代码" --device_id 3
+    # 启动命令： python infer_generate.py --use_past True --batch_size 1 --device_id 7

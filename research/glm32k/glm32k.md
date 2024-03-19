@@ -299,12 +299,7 @@ path/to/rank_table_file: 生成RANK_TABLE_FILE步骤中生成的hccl_***_json文
 
 ### 快速推理
 
-**注意**：
-
-- 目前可以根据实际业务调整yaml文件中的`seq_length`参数以降低推理时延(如设置`seq_length=4096`，最高到4096)
-- 长序列推理研发正在适配中
-
-在启动前，请先行在配置文件run_glm32k.yaml中将processor.tokenizer.vocab_file的路径配置为实际路径；如果使用增量推理，需要在配置文件中将model.model_config.use_past值设置为True。例如：
+在启动前，请先行在配置文件run_glm32k.yaml中将processor.tokenizer.vocab_file的路径配置为实际路径；增量推理开关在配置文件中model.model_config.use_past位置。例如：
 
 ```yaml
 processor:
@@ -322,21 +317,24 @@ model:
 
 相关文件的下载链接如下：[tokenizer.model](https://huggingface.co/THUDM/chatglm3-6b-32k/blob/main/tokenizer.model)
 
-**注意**：目前长序列的增量推理所需的IFA算子还未适配，等待海思算子版本上新后再适配使用，所以`use_past`目前需设置为`False`
-
 #### 基于generate接口的推理
 
 - 代码见`research/glm32k/infer_generate.py`
 - 启动命令：
 
 ```shell
-python infer_generate.py --checkpoint_path CKPT_PATH --device_id DEVICE_ID --user_query "晚上睡不着应该怎么办"
+python infer_generate.py \
+--checkpoint_path CKPT_PATH \
+--device_id DEVICE_ID \
+--use_past True \
+--user_query "晚上睡不着应该怎么办"
 ```
 
 ```text
 # 参数说明
 checkpoint_path: 权重文件夹路径
 device_id: NPU卡号
+use_past: 是否开启增量推理
 user_query: 用户输入问题
 ```
 

@@ -23,6 +23,7 @@ from mindspore.train import Model
 from mindspore import load_checkpoint, load_param_into_net
 
 from mindformers.pipeline import pipeline
+from mindformers.tools.utils import str2bool
 from mindformers import TransformerOpParallelConfig, MindFormerConfig, init_context
 from mindformers.trainer.utils import get_last_checkpoint
 
@@ -93,8 +94,8 @@ if __name__ == "__main__":
     parser.add_argument('--max_length', default=1024, type=int, help='max length')
     parser.add_argument('--batch_size', default=1, type=int, help='batch_size')
     parser.add_argument('--device_id', default=5, type=int, help='device_id')
-    parser.add_argument('--use_past', action="store_true", help="use past")
-    parser.add_argument('--use_parallel', default=False, type=bool, help="use parallel")
+    parser.add_argument('--use_past', default=True, type=str2bool, help="use past")
+    parser.add_argument('--use_parallel', default=False, type=str2bool, help="use parallel")
     parser.add_argument('--checkpoint_path', default='/path/mindspore_models/glm32k.ckpt', type=str,
                         help="checkpoint_path")
     parser.add_argument('--user_query', default='使用python编写快速排序代码', type=str, help='user query input.')
