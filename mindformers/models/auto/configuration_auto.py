@@ -428,3 +428,20 @@ class AutoConfig:
     def get_support_list(cls):
         """get support list method"""
         return cls._support_list
+
+    @staticmethod
+    def register(model_type, config, exist_ok=False):
+        """
+        Register a new configuration for this class.
+
+        Args:
+            model_type (`str`): The model type like "bert" or "gpt".
+            config ([`PretrainedConfig`]): The config to register.
+        """
+        if issubclass(config, PretrainedConfig) and config.model_type != model_type:
+            raise ValueError(
+                "The config you are passing has a `model_type` attribute that is not consistent with the model type "
+                f"you passed (config has {config.model_type} and you passed {model_type}. Fix one of those so they "
+                "match!"
+            )
+        CONFIG_MAPPING.register(model_type, config, exist_ok=exist_ok)
