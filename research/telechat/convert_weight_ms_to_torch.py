@@ -21,7 +21,7 @@ import torch
 from mindspore import load_checkpoint
 
 
-def layer_name_mapping(key):
+def layer_name_mapping(model_name, key):
     """Convert huggingface PP weights mapping in MindSpore.
 
     return: new_name
@@ -42,6 +42,10 @@ def layer_name_mapping(key):
         "ffn_norm.weight": "post_attention_layernorm.weight",
         "model.norm_out.weight": "ln_f.weight"
     }
+    if model_name == "telechat_12b":
+        layer_rename_map["lm_head.weight"] = "lm_head.weight"
+        layer_rename_map["model.tok_embeddings.embedding_weight"] = "transformer.word_embeddings.weight"
+        layer_rename_map["model.norm_out.weight"] = "transformer.ln_f.weight"
     if key in layer_rename_map:
         return prefix + layer_rename_map[key]
 
@@ -51,22 +55,22 @@ def layer_name_mapping(key):
     # Handle transformer blocks
     return f"{prefix}h.{layer_number}." + layer_rename_map[text]
 
-def ms_to_torch(ms_weights):
+def ms_to_torch(model_name, ms_weights):
     """Convert ms layers to torch."""
     torch_params = {}
     for k, v in ms_weights.items():
-        new_name = layer_name_mapping(k)
+        new_name = layer_name_mapping(model_name, k)
         torch_params[new_name] = torch.from_numpy(v.asnumpy())
     return torch_params
 
-def process_hf_shard_files(args):
-    if args.torch_path and not os.path.exists(args.torch_path):
-        os.makedirs(args.torch_path, exist_ok=True)
+def process_shard_files(config):
+    if config.torch_path and not os.path.exists(config.torch_path):
+        os.makedirs(config.torch_path, exist_ok=True)
 
     file_name = "torch"
-    ms_params = load_checkpoint(args.mindspore_path)
-    torch_params = ms_to_torch(ms_params)
-    save_file = args.torch_path + '/' + file_name + '.pth'
+    ms_params = load_checkpoint(config.mindspore_path)
+    torch_params = ms_to_torch(config.model_name, ms_params)
+    save_file = config.torch_path + '/' + file_name + '.pth'
     torch.save(torch_params, save_file)
 
 
@@ -80,10 +84,14 @@ if __name__ == '__main__':
                         type=str,
                         default="",
                         help="The input torch checkpoint path.")
-    config = parser.parse_args()
+    parser.add_argument("--model_name",
+                        type=str,
+                        default="telechat_12b",
+                        help="The name of model, supports name in {'telechat_7b', 'telechat_12b'}")
+    args = parser.parse_args()
 
     # convert hf ckpt to ms
-    process_hf_shard_files(args=config)
+    process_shard_files(config=args)
     current_path = os.getcwd()
-    torch_ckpt_path = os.path.join(current_path, config.torch_path)
+    torch_ckpt_path = os.path.join(current_path, args.torch_path)
     print("*** finish ms convert torch model, torch_ckpt save in {} ***".format(torch_ckpt_path))

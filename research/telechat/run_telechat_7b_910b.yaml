@@ -14,7 +14,7 @@ trainer:
 
 # runner config
 runner_config:
-  epochs: 2
+  epochs: 5
   batch_size: 4
   sink_mode: True
   sink_size: 2
@@ -133,6 +133,7 @@ context:
 model:
   model_config:
     type: TelechatConfig
+    model_name: 'telechat_7b'
     batch_size: 1 # add for increase predict
     seq_length: 2048
     hidden_size: 4096
@@ -155,7 +156,7 @@ model:
     use_past: False
     pretrain_seqlen: 4096 # seqlen of the pretrain checkpoint
     extend_method: "None" # support "None", "PI", "NTK"
-    use_flash_attention: False # FA can accelerate training or finetune
+    use_flash_attention: True # FA can accelerate training or finetune
     offset: 0
     use_past_shard: False
     checkpoint_name_or_path: "telechat_7b"
@@ -186,9 +187,9 @@ runner_wrapper:
   type: MFTrainOneStepCell
   scale_sense:
     type: DynamicLossScaleUpdateCell
-    loss_scale_value: 65536
+    loss_scale_value: 4096
     scale_factor: 2
-    scale_window: 1000
+    scale_window: 500
   use_clip_grad: True
 
 eval_callbacks:
