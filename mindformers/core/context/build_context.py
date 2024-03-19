@@ -15,6 +15,7 @@
 """Build context."""
 
 import os
+from typing import Union
 import psutil
 
 import mindspore.dataset as ds
@@ -24,6 +25,7 @@ from mindspore.parallel import set_algo_parameters
 from mindspore.parallel._cost_model_context import _set_multi_subgraphs
 
 from mindformers.trainer.config_args import ContextConfig, ParallelContextConfig
+from mindformers.trainer.training_args import TrainingArguments
 from mindformers.tools import PARALLEL_MODE, MODE, get_output_subpath, check_in_modelarts
 from mindformers.tools.logger import logger
 from mindformers.tools.register import MindFormerConfig
@@ -34,8 +36,10 @@ CONTEXT_CONFIG = {
 PARALLEL_CONFIG = {'parallel_mode': 'DATA_PARALLEL', 'gradients_mean': True}
 
 
-def build_context(config):
+def build_context(config: Union[dict, MindFormerConfig, TrainingArguments]):
     """Build context."""
+    if isinstance(config, TrainingArguments):
+        config = config.convert_args_to_mindformers_config()
     if isinstance(config, dict) and not isinstance(config, MindFormerConfig):
         config = MindFormerConfig(**config)
     if config.use_parallel and config.parallel_config.pipeline_stage > 1:
