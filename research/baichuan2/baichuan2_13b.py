@@ -299,7 +299,6 @@ class Baichuan13BV2Model(Baichuan2PreTrainedModel):
         self.cast = P.Cast()
         self.mul_mask = P.Mul()
         self.mul_alibi = P.Mul()
-        self.mul_alibi1 = P.Mul()
         self.sub = P.Sub()
         self.tile = P.Tile()
         self.expand_dims = P.ExpandDims()
@@ -376,7 +375,6 @@ class Baichuan13BV2Model(Baichuan2PreTrainedModel):
             self.sub.shard(((1,), (dp, 1, 1)))
             self.mul_mask.shard(((dp, 1, 1, 1), (1,)))
             self.mul_alibi.shard(((1, mp, 1, 1), (dp, 1, 1, 1)))
-            self.mul_alibi1.shard(((dp, mp, 1, 1), (dp, 1, 1, 1)))
 
             self.expand_dims.shard(((dp, 1, 1),))
             self.not_equal.shard(((dp, 1), ()))
@@ -430,7 +428,6 @@ class Baichuan13BV2Model(Baichuan2PreTrainedModel):
                     alibi_tensor = self.alibi_tensor
                 alibi_tensor = self.gather(alibi_tensor, batch_valid_length, 2)
                 alibi_tensor = self.transpose(alibi_tensor, (2, 1, 0, 3))
-                alibi_tensor = self.mul_alibi1(alibi_tensor, self.expand_dims(mask, 1))
             kvcache_inputs = self.kvcache_preprocess(bs, batch_valid_length, batch_index, zactivate_len,
                                                      block_tables, slot_mapping)
         # tokens: [bs, seq/1]
