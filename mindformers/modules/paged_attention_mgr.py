@@ -56,12 +56,12 @@ class PagedAttentionMgr(nn.Cell):
         self.key_cache = Parameter(Tensor(np.zeros(kv_shape), compute_dtype), name="key_cache", requires_grad=False)
         self.value_cache = Parameter(Tensor(np.zeros(kv_shape), compute_dtype), name="value_cache", requires_grad=False)
         if is_paged_attention_v2():
-            self.reshape_and_cache = P.auto_generate.gen_inner_ops_def.ReshapeAndCache()
-            self.paged_attention = P.auto_generate.gen_inner_ops_def.PagedAttention(self.n_head, self.scale_value,
-                                                                                    self.n_kv_heads)
-            self.paged_attention_with_alibi = P.auto_generate.gen_inner_ops_def.PagedAttentionMask(self.n_head,
-                                                                                                   self.scale_value,
-                                                                                                   self.n_kv_heads)
+            self.reshape_and_cache = P.auto_generate.ReshapeAndCache()
+            self.paged_attention = P.auto_generate.PagedAttention(self.n_head, self.scale_value,
+                                                                  self.n_kv_heads)
+            self.paged_attention_with_alibi = P.auto_generate.PagedAttentionMask(self.n_head,
+                                                                                 self.scale_value,
+                                                                                 self.n_kv_heads)
         else:
             self.reshape_and_cache = P.operations.nn_ops.ReshapeAndCache()
             self.paged_attention = P.operations.PagedAttention(self.n_head, self.scale_value, self.n_kv_heads)
