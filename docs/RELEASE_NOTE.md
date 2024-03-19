@@ -1,6 +1,16 @@
+# MindSpore Transformers 1.0.1 RELEASE NOTE
+
+以下为MindSpore Transformers (以下称为MindFormers) 套件 1.0.1 版本的变更日志，相较于1.0.0版本有以下关键bug fix修复。
+
+## Bugfix
+
+在当前版本发布周期内，我们进行了模型/功能/文档等Bugfix，修复内容如下：
+
+- [#I91T78](https://gitee.com/mindspore/mindformers/issues/I91T78)：修复了大模型断点续训时日志显示的epoch与所加载ckpt的epoch不一致问题。
+
 # MindSpore Transformers 1.0.0 RELEASE NOTE
 
-本文为MindSpore Transformers (以下称为MindFormers) 套件 1.0.0 版本的变更日志
+以下为MindSpore Transformers (以下称为MindFormers) 套件 1.0.0 版本的变更日志
 
 ## 新特性
 
