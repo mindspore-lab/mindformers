@@ -39,7 +39,7 @@ def generator_train():
     seq_len = 512
     step_num = 20
     batch_size = 4
-    vocab_size = 15
+    vocab_size = 65000
     input_ids = np.random.randint(low=0, high=vocab_size, size=(step_num * batch_size, seq_len,)).astype(np.int32)
     labels = np.random.randint(low=0, high=vocab_size, size=(step_num * batch_size, seq_len,)).astype(np.int32)
     for idx in range(len(input_ids)):
@@ -51,7 +51,7 @@ def generator_eval():
     seq_len = 511
     step_num = 20
     batch_size = 4
-    vocab_size = 15
+    vocab_size = 65000
     input_ids = np.random.randint(low=0, high=vocab_size, size=(step_num * batch_size, seq_len,)).astype(np.int32)
     labels = np.random.randint(low=0, high=vocab_size, size=(step_num * batch_size, seq_len,)).astype(np.int32)
     for idx in range(len(input_ids)):
@@ -77,11 +77,9 @@ class TestGLM2TrainingPrecision:
 
         model_config = ChatGLM2Config(num_layers=2,
                                       seq_length=512,
-                                      hidden_size=32,
                                       inner_hidden_size=None,
-                                      num_heads=2,
                                       position_encoding_2d=True,
-                                      padded_vocab_size=64793,
+                                      padded_vocab_size=65024,
                                       use_flash_attention=True)
         model = ChatGLM2ForConditionalGeneration(model_config)
 
@@ -93,11 +91,11 @@ class TestGLM2TrainingPrecision:
                                              eps=1.e-8,
                                              learning_rate=lr_schedule)
 
-        loss_list_std = [11.072349, 11.064081, 11.051419, 11.041323, 11.037813,
-                         11.026949, 11.021254, 11.015034, 11.010381, 11.010348,
-                         11.007869, 11.006759, 11.004646, 11.003539, 11.00182,
-                         11.001922, 11.00154, 11.001387, 11.00127, 11.000875]
-        avg_step_time_std = 20
+        loss_list_std = [11.28316211, 11.26703357, 11.31917381, 11.27406215, 11.26584815,
+                         11.27925872, 11.28161334, 11.28795528, 11.26731872, 11.26702499,
+                         11.26383018, 11.31049442, 11.27194690, 11.27497196, 11.28303623,
+                         11.26208114, 11.27406501, 11.26027965, 11.28536415, 11.26210498]
+        avg_step_time_std = 140
         callback = TrainingChecker(loss_list_std=loss_list_std, avg_step_time_std=avg_step_time_std)
 
         self.tokenizer = AutoTokenizer.from_pretrained("glm2_6b")
