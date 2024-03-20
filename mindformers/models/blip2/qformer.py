@@ -422,6 +422,7 @@ class BertSelfAttention(nn.Cell):
                     + relative_position_scores_key
                 )
 
+        attention_scores *= 1
         attention_scores /= self.divider
         if attention_mask is not None:
             # Apply the attention mask is (precomputed for all layers in BertModel forward() function)

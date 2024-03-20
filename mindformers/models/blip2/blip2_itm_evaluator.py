@@ -115,7 +115,7 @@ class Blip2TextForwarder(nn.Cell):
         self.pad_token_id = blip2_qformer.pad_token_id
         self.not_equal = P.NotEqual()
         self.cast = P.Cast()
-        self.normalize = ops.L2Normalize(axis=-1, epsilon=1e-12)
+        self.normalize = ops.L2Normalize(axis=-1, epsilon=1e-7)
 
     def construct(self, text_input_ids):
         """ forawrd text_ids through the bert model.
@@ -150,7 +150,7 @@ class Blip2ImageForwarder(nn.Cell):
         self.query_tokens = blip2_qformer.query_tokens
         self.ones = ops.ones
         self.broadcast_to = ops.broadcast_to
-        self.normalize = ops.L2Normalize(axis=-1, epsilon=1e-12)
+        self.normalize = ops.L2Normalize(axis=-1, epsilon=1e-7)
 
     def construct(self, image):
         """ forawrd image through vit and the bert model.
