@@ -125,7 +125,6 @@ context:
   save_graphs: False
   save_graphs_path: "./graph"
   device_id: 0
-  runtime_num_threads: 1
 
 # model config
 model:
