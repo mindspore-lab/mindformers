@@ -35,6 +35,7 @@ from mindformers.models.vit.vit import ViTConfig
 
 ms.set_context(mode=0)
 
+
 def generator_train():
     """train dataset generator"""
     seq_len = 8
@@ -72,8 +73,9 @@ class TestBlip2TrainerMethod:
                                        head_embed_dim=2,
                                        encoder_width=2,
                                        intermediate_size=2,
-                                       vocab_size=32,
-                                       max_position_embeddings=80)
+                                       max_position_embeddings=80,
+                                       resize_token_embeddings=False)
+
         vision_config = ViTConfig(image_size=32,
                                   hidden_size=2,
                                   num_hidden_layers=1,
@@ -97,14 +99,14 @@ class TestBlip2TrainerMethod:
         Description: Test trainer for train.
         Expectation: TypeError, ValueError, RuntimeError
         """
-        # task_trainer = Trainer(task='contrastive_language_image_pretrain',
-        #                        model=self.blip2_qformer,
-        #                        model_name='blip2_stage1_vit_g',
-        #                        args=self.training_args,
-        #                        tokenizer=self.tokenizer,
-        #                        train_dataset=self.train_dataset,
-        #                        eval_dataset=self.eval_dataset)
-        # task_trainer.train()
+        task_trainer = Trainer(task='contrastive_language_image_pretrain',
+                               model=self.blip2_qformer,
+                               model_name='blip2_stage1_vit_g',
+                               args=self.training_args,
+                               tokenizer=self.tokenizer,
+                               train_dataset=self.train_dataset,
+                               eval_dataset=self.eval_dataset)
+        task_trainer.train()
 
     def test_eval(self):
         """
@@ -112,12 +114,12 @@ class TestBlip2TrainerMethod:
         Description: Test trainer for evaluate.
         Expectation: TypeError, ValueError, RuntimeError
         """
-        # task_evaluater = Trainer(task='image_to_text_retrieval',
-        #                          model=self.blip2_evaluator,
-        #                          model_name='blip2_stage1_evaluator',
-        #                          tokenizer=self.tokenizer,
-        #                          eval_dataset=self.eval_dataset)
-        # task_evaluater.evaluate(k_test=1, add_extra_itm_score=False)
+        task_evaluater = Trainer(task='image_to_text_retrieval',
+                                 model=self.blip2_evaluator,
+                                 model_name='blip2_stage1_evaluator',
+                                 tokenizer=self.tokenizer,
+                                 eval_dataset=self.eval_dataset)
+        task_evaluater.evaluate(k_test=1, add_extra_itm_score=False)
 
     def test_predict(self):
         """
@@ -138,7 +140,6 @@ class TestBlip2TrainerMethod:
 
 
 @pytest.mark.level0
-
 @pytest.mark.platform_arm_ascend910b_training
 @pytest.mark.env_onecard
 class TestBlip2SecondStageTrainerMethod:
@@ -156,8 +157,8 @@ class TestBlip2SecondStageTrainerMethod:
                                        head_embed_dim=2,
                                        encoder_width=2,
                                        intermediate_size=2,
-                                       vocab_size=50,
-                                       max_position_embeddings=512)
+                                       max_position_embeddings=512,
+                                       resize_token_embeddings=False)
 
         vision_config = ViTConfig(image_size=32,
                                   hidden_size=2,
@@ -206,13 +207,13 @@ class TestBlip2SecondStageTrainerMethod:
         Description: Test trainer for train.
         Expectation: TypeError, ValueError, RuntimeError
         """
-        # task_trainer = Trainer(task='contrastive_language_image_pretrain',
-        #                        model=self.blip2_llm,
-        #                        model_name='blip2_stage2_vit_g_llama_7b',
-        #                        args=self.training_args,
-        #                        tokenizer=self.tokenizer,
-        #                        train_dataset=self.train_dataset)
-        # task_trainer.train(train_checkpoint='')
+        task_trainer = Trainer(task='contrastive_language_image_pretrain',
+                               model=self.blip2_llm,
+                               model_name='blip2_stage2_vit_g_llama_7b',
+                               args=self.training_args,
+                               tokenizer=self.tokenizer,
+                               train_dataset=self.train_dataset)
+        task_trainer.train(train_checkpoint='')
 
     def test_predict(self):
         """
@@ -220,13 +221,13 @@ class TestBlip2SecondStageTrainerMethod:
         Description: Test trainer for predict.
         Expectation: TypeError, ValueError, RuntimeError
         """
-        # task_predictor = Trainer(task='image_to_text_generation',
-        #                          model=self.blip2_generator,
-        #                          model_name='itt_blip2_stage2_vit_g_llama_7b',
-        #                          tokenizer=self.tokenizer,
-        #                          image_processor=self.image_processor)
-        # # 加载输入，一张图片
-        # input_data = Image.new('RGB', (32, 32))
-        #
-        # # 加载指定的权重以完成推理
-        # task_predictor.predict(input_data=input_data, max_length=8)
+        task_predictor = Trainer(task='image_to_text_generation',
+                                 model=self.blip2_generator,
+                                 model_name='itt_blip2_stage2_vit_g_llama_7b',
+                                 tokenizer=self.tokenizer,
+                                 image_processor=self.image_processor)
+        # 加载输入，一张图片
+        input_data = Image.new('RGB', (32, 32))
+
+        # 加载指定的权重以完成推理
+        task_predictor.predict(input_data=input_data, max_length=8)
