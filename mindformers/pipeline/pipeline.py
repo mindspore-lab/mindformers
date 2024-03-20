@@ -107,6 +107,7 @@ def pipeline(
         task_pipeline = get_mslite_pipeline(task, model, tokenizer, image_processor, audio_processor, **kwargs)
     elif backend == Backend.MS.value:
         if is_experimental_mode(model, **kwargs):
+            audio_processor = kwargs.pop("feature_extractor", audio_processor)
             task_pipeline = get_ms_experimental_pipeline(task, model,
                                                          tokenizer=tokenizer,
                                                          feature_extractor=audio_processor,
