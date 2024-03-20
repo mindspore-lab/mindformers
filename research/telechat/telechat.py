@@ -30,6 +30,7 @@ from mindformers.core.loss.loss import CrossEntropyLoss
 from mindformers.models.utils import cell_reuse
 from mindformers.models.modeling_utils import PreTrainedModel
 from mindformers.modules import KVCachePreprocess
+from mindformers.modules.layers import Linear
 from mindformers.modules.transformer.transformer import LowerTriangularMaskWithDynamic
 from mindformers.modules.transformer.op_parallel_config import _check_config
 from mindformers.tools.logger import logger
@@ -295,6 +296,7 @@ class TelechatForCausalLM(TelechatPreTrainedModel):
         super(TelechatForCausalLM, self).__init__(config, auto_prefix=True)
         _check_config(config.parallel_config)
         self.config = config
+        self.model_name = config.model_name
         self.ignore_token_id = config.ignore_token_id
         self.pad_token_id = config.pad_token_id
         self.use_past = config.use_past
@@ -315,10 +317,19 @@ class TelechatForCausalLM(TelechatPreTrainedModel):
         self.gather = P.Gather(1)
         self.sub_batch_valid_len = P.Sub()
         self.model = TelechatModel(config=config)
-        self.lm_head = TelechatHead(in_channels=config.hidden_size,
-                                    out_channels=config.vocab_size,
-                                    compute_dtype=config.compute_dtype,
-                                    parallel_config=config.parallel_config)
+        if self.model_name == 'telechat_12b':
+            self.lm_head = Linear(in_channels=config.hidden_size,
+                                  out_channels=config.vocab_size,
+                                  has_bias=False,
+                                  compute_dtype=config.compute_dtype,
+                                  param_init_type=config.param_init_type,
+                                  skip_redistribution=config.is_dynamic,
+                                  weight_init="normal") # meta default: xavier_normal
+        else:
+            self.lm_head = TelechatHead(in_channels=config.hidden_size,
+                                        out_channels=config.vocab_size,
+                                        compute_dtype=config.compute_dtype,
+                                        parallel_config=config.parallel_config)
 
         mp = config.parallel_config.model_parallel
         vocab_size = config.vocab_size
@@ -340,6 +351,11 @@ class TelechatForCausalLM(TelechatPreTrainedModel):
             self.add.shard(((dp, 1), ()))
             self.gather.shard(((dp, 1, 1), (dp,)))
             self.sub_batch_valid_len.shard(((1,), ()))
+            if self.model_name == 'telechat_12b':
+                if config.parallel_config.vocab_emb_dp or (vocab_size % mp != 0):
+                    self.lm_head.shard(strategy_matmul=((dp, 1), (1, 1)))
+                else:
+                    self.lm_head.shard(strategy_matmul=((dp, 1), (mp, 1)))
             if config.parallel_config.pipeline_stage > 1:
                 self.lm_head.pipeline_stage = config.parallel_config.pipeline_stage - 1
 
@@ -386,7 +402,10 @@ class TelechatForCausalLM(TelechatPreTrainedModel):
         pre_gather = (not self.use_past or self.is_first_iteration) and batch_valid_length is not None
         if pre_gather:
             output = self.gather(output, self.sub_batch_valid_len(batch_valid_length, 1), 1)
-        logits = self.lm_head(output, embedding_weight)
+        if self.model_name == 'telechat_12b':
+            logits = self.lm_head(output)
+        else:
+            logits = self.lm_head(output, embedding_weight)
         input_mask = self.cast(self.not_equal(tokens, self.pad_token_id), mstype.float32)
         if labels is not None:
             input_mask = labels

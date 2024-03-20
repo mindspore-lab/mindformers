@@ -22,7 +22,7 @@ from mindformers import MindFormerConfig, TransformerOpParallelConfig
 from mindformers import init_context
 from mindformers.tools.utils import str2bool
 
-def main():
+def chat():
     """main function."""
     inputs = []
     input_file = open(args.input_file, 'r', encoding='utf-8')
@@ -48,7 +48,8 @@ def main():
     print(f"config is: {model_config}")
 
     # build tokenizer
-    tokenizer = AutoTokenizer.from_pretrained(args.vocab_file_path, fast_tokenizer=True, padding_side="right")
+    tokenizer = AutoTokenizer.from_pretrained(args.vocab_file_path, fast_tokenizer=True,
+                                              trust_remote_code=True, padding_side="right")
     # build model from config
     model = TelechatForCausalLM(model_config)
     for input_data in inputs:
@@ -76,4 +77,4 @@ if __name__ == "__main__":
     parser.add_argument('--yaml_file', default="", type=str,
                         help='predict yaml path')
     args = parser.parse_args()
-    main()
+    chat()

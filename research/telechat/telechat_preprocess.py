@@ -105,7 +105,7 @@ def process_dataset(current_dataset, tokenizer, max_seq_len):
             previous_corpus_token_cnt += len(corpus_ids["input_ids"])
         else:
             shard_output = "".join(shard)
-            shard_output = (args.max_length - previous_corpus_token_cnt) * "<pad>" + shard_output
+            shard_output = (args.max_length - previous_corpus_token_cnt) * tokenizer.pad_token + shard_output
             assert len(tokenizer(shard_output)["input_ids"]) == max_seq_len
             if shard_output.count("<_user>") >= 1:
                 padding_out.append(shard_output)
@@ -127,7 +127,8 @@ def make_dataset():
     """make dataset."""
     raw_dataset = TelechatDataset(args.output_path, args.seed, args.input_dataset_file)
     train_dataset = raw_dataset.get_train_data()
-    tokenizer = AutoTokenizer.from_pretrained(args.vocab_file_path, fast_tokenizer=True, padding_side="left")
+    tokenizer = AutoTokenizer.from_pretrained(args.vocab_file_path, fast_tokenizer=True,
+                                              trust_remote_code=True, padding_side="left")
     train_dataset = process_dataset(train_dataset, tokenizer, args.max_length)
     print("***** Writing to output files *****")
     print("Output File: %s", args.output_dataset_file)
