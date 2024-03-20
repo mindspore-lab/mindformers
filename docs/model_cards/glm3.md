@@ -31,7 +31,7 @@ ChatGLM3 是智谱AI和清华大学 KEG 实验室联合发布的新一代对话�
 
     ```bash
     configs/glm3
-    ├── export_glm3_6b.yaml                               # 导出 mindir 配置
+    ├── predict_glm3_6b.yaml                              # 在线推理配置文件
     ├── run_glm3_6b_finetune_2k_800T_A2_64G.yaml          # Atlas 800T A2 最佳性能全量微调启动配置
     ├── run_glm3_6b_finetune_800T_A2_64G.yaml             # Atlas 800T A2 ADGEN 全量微调启动配置
     ├── run_glm3_6b_multiturn_finetune_800T_A2_64G.yaml   # Atlas 800T A2 多轮对话全量微调启动配置
@@ -502,6 +502,19 @@ IP_LIST=("192.168.0.0", "192.168.0.1", ..., "192.168.0.11")
 
 ## 推理
 
+### 基本介绍
+
+　　MindFormers 定位打造训练->微调->部署的端到端大模型工具套件，为了更好性能地部署已经微调训练好的大模型，我们利用MindSpore打造了全新的训推一体高性能推理引擎，保证训练与推理使用同一套脚本，为用户提供了开箱即用的推理部署方案，为用户提供端到端的大模型解决方案，帮助用户使能大模型业务。
+
+　　MindSpore 大模型推理大致分两步：设置环境变量 -> 执行推理，接下来分别描述上述两个过程。
+
+### 设置环境变量
+
+```bash
+export GRAPH_OP_RUN=1
+export MS_ENABLE_INTERNAL_KERNELS=on
+```
+
 ### 基于generate的推理
 
 下面提供一个模型推理样例脚本 `infer.py`
@@ -734,68 +747,14 @@ response, history = process_response(response, history)
       vocab_file: "/path/to/tokenizer.model"
   ```
 
-## Mindspore-Lite 推理
+### 基于run_mindformer推理
 
-### 基本介绍
+#### 单卡推理
 
-　　MindFormers 定位打造训练->微调->部署的端到端大模型工具套件，为了更好性能地部署已经微调训练好的大模型，我们利用MindSpore打造的推理引擎 [MindSpore_lite](https://gitee.com/link?target=https%3A%2F%2Fwww.mindspore.cn%2Flite)，为用户提供了开箱即用的推理部署方案，为用户提供端到端的大模型解决方案，帮助用户使能大模型业务。
-
-　　Lite 推理大致分两步：权重转换导出 MindIR -> Lite 推理，接下来分别描述上述两个过程。
-
-### MindIR 导出
-
-1. 修改模型相关的配置文件 configs/glm3/export_glm3_6b.yaml，其中需要关注这几项：
-
-```yaml
-# export
-infer:
-   prefill_model_path: "glm3_export/glm3_6b_prefill_seq512.mindir" # 保存mindir的位置
-   increment_model_path: "glm3_export/glm3_6b_inc_seq512.mindir"   # 保存mindir的位置
-   infer_seq_length: 512 # 需要保持跟 model-model_config-seq_length 一致
-
-# ==== model config ====
-model:
-model_config:
-  seq_length: 512
-  checkpoint_name_or_path: "/path/to/your/*.ckpt"
-```
-
-2. 执行export.py，完成模型转换
+执行命令
 
 ```bash
-python mindformers/tools/export.py --config_path configs/glm3/export_glm3_6b.yaml
-```
-
-### 执行推理
-
-1. 新建推理配置文件：lite.ini
-
-    ```ini
-    [ascend_context]
-    provider=ge
-
-    [ge_session_options]
-    ge.exec.formatMode=1
-    ge.exec.precision_mode=must_keep_origin_dtype
-    ```
-
-2. 执行命令：
-
-```bash
-python run_infer_main.py --device_id 0 --model_name glm3_6b --prefill_model_path glm3_export/glm3_6b_prefill_seq512_graph.mindir --increment_model_path glm3_export/glm3_6b_inc_seq512_graph.mindir --config_path lite.ini --is_sample_acceleration False --seq_length 512 --add_special_tokens True
-```
-
-　　等待模型载入、编译后，出现：
-
-```bash
-Please enter your predict data:
-```
-
-　　输入：
-
-```bash
-你好。
-
+python run_mindformer.py --use_parallel=False --config configs/glm3/predict_glm3_6b.yaml --run_mode predict --predict_data "[gMASK]sop<|user|> \n 你好<|assistant|> \n"
 ```
 
 　　输出：

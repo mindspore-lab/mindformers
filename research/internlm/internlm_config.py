@@ -66,7 +66,6 @@ class InternLMConfig(LlamaConfig):
         extend_method(str): The extend method of seq length of inferencem,default None.
         compute_in_2d(bool): Whether compute in 2-dims tensor, default False.
         use_flash_attention(bool): Whether enable flash attention ops, default False.
-        use_paged_attention(bool): Whether enable paged attention during inference, default False.
         block_size(int): The shape of blocks in paged attention, default 16.
         num_blocks(int): The total number of blocks in paged attention, default 512.
         offset(int): Offset of transformer layer when set pipeline stage number.
@@ -127,7 +126,6 @@ class InternLMConfig(LlamaConfig):
                  is_flexible_shape: bool = False,
                  use_rope_slice: bool = False,
                  use_flash_attention: bool = False,
-                 use_paged_attention: bool = False,
                  block_size: int = 16,
                  num_blocks: int = 512,
                  offset: int = 0,
@@ -187,7 +185,6 @@ class InternLMConfig(LlamaConfig):
         self.top_p = top_p
         self.do_sample = do_sample
         self.theta = theta
-        self.use_paged_attention = use_paged_attention
         self.block_size = block_size
         self.num_blocks = num_blocks
         if batch_size * seq_length // self.block_size > self.num_blocks:

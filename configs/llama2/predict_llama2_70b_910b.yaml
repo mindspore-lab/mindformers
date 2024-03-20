@@ -101,12 +101,9 @@ model:
     scaling_factor: 1.0
     extend_method: "None" # support "None", "PI", "NTK"
     use_flash_attention: False
-    use_paged_attention: False  # PA only supported in inference
     block_size: 16
     num_blocks: 512
     is_dynamic: False
-    use_kvcache_op: False
-    is_flexible_shape: False
     offset: 0
     use_rope_slice: False
     checkpoint_name_or_path: "llama2_70b"

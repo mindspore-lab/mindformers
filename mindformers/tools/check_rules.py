@@ -50,8 +50,6 @@ def _check_mode(config, mode, **kwargs):
         _check_keyword_gen_dataset(config, mode, **kwargs)
     elif mode == 'predict':
         _restore_net_type(config)
-        _rule_fa_only_for_train(config, mode)
-        _rule_pp_only_for_train(config, mode)
         _rule_bs_divisible_by_dp(config, **kwargs)
     elif mode == 'eval':
         _restore_net_type(config)

@@ -54,7 +54,6 @@ class InternLMModel(LlamaModel):
                                         has_bias=config.has_bias,
                                         use_past=config.use_past,
                                         use_flash_attention=config.use_flash_attention,
-                                        use_paged_attention=config.use_paged_attention,
                                         block_size=config.block_size,
                                         num_blocks=config.num_blocks,
                                         is_dynamic=config.is_dynamic,

@@ -3,7 +3,10 @@ output_dir: './output' # path to save checkpoint/strategy
 # trainer config
 trainer:
   type: CausalLanguageModelingTrainer
-  model_name: 'llama2_7b'
+  model_name: 'llama2_13b'
+# if True, do evaluate during the training process. if false, do nothing.
+# note that the task trainer should support _evaluate_in_training function.
+do_eval: False
 
 # runner config
 runner_config:
@@ -25,13 +28,13 @@ parallel:
   parallel_optimizer_config:
     gradient_accumulation_shard: False
     parallel_optimizer_threshold: 64
-# default parallel of device num = 8 for Atlas 800T A2
+# default parallel of device num = 16 for Atlas 800T A2
 parallel_config:
   data_parallel: 8
   model_parallel: 1 # write npu num as much as you need to export
   pipeline_stage: 1
   use_seq_parallel: False
-  micro_batch_num: 4
+  micro_batch_num: 16
   vocab_emb_dp: True
   gradient_aggregation_group: 4
 # when model parallel is greater than 1, we can set micro_batch_interleave_num=2, that may accelerate the train process.
@@ -55,9 +58,9 @@ model:
     type: LlamaConfig
     batch_size: 1 # add for increase predict
     seq_length: 1024
-    hidden_size: 4096
-    num_layers: 32
-    num_heads: 32
+    hidden_size: 5120
+    num_layers: 40
+    num_heads: 40
     max_position_embedding: 4096
     vocab_size: 32000
     multiple_of: 256
@@ -76,15 +79,12 @@ model:
     extend_method: "None" # support "None", "PI", "NTK"
     compute_in_2d: True
     use_flash_attention: False
-    use_paged_attention: False  # PA only supported in inference
     block_size: 16
     num_blocks: 512
     is_dynamic: False
-    use_kvcache_op: False
-    is_flexible_shape: False
     offset: 0
     use_past_shard: False
-    checkpoint_name_or_path: "{path}/llama2_7b.ckpt" # 导出任务这里必填
+    checkpoint_name_or_path: "{path}/llama2_13b.ckpt" # 导出任务这里必填
     repetition_penalty: 1
     max_decode_length: 512
     top_k: 3

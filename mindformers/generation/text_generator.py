@@ -35,6 +35,7 @@ from mindformers.generation.logits_process import (LogitNormalization, LogitsPro
                                                    MinNewTokensLengthLogitsProcessor)
 from mindformers.generation.streamers import BaseStreamer
 from mindformers.generation.utils import softmax_with_threads, topk
+from mindformers.modules.block_tables import BlockTables
 from mindformers.tools import logger
 
 __all__ = ["GenerationMixin"]
@@ -256,7 +257,8 @@ class GenerationMixin:
         )
         return input_ids
 
-    def _incremental_infer(self, model_inputs: dict, current_index, valid_length_each_example):
+    def _incremental_infer(self, model_inputs: dict, current_index, valid_length_each_example, block_tables,
+                           slot_mapping):
         """model forward for incremental infer."""
         # Claim the first graph
         if self.is_first_iteration:
@@ -264,6 +266,9 @@ class GenerationMixin:
             model_inputs["input_position"] = Tensor(current_index, mstype.int32)
             model_inputs["init_reset"] = Tensor([False], mstype.bool_)  # init_reset (1,) bool False
             model_inputs["batch_valid_length"] = Tensor([valid_length_each_example], mstype.int32)
+            if block_tables is not None:
+                model_inputs["block_tables"] = Tensor(block_tables, mstype.int64)
+                model_inputs["slot_mapping"] = Tensor(slot_mapping, mstype.int32)
             # pylint: disable=E1102
             res = self(
                 **model_inputs,
@@ -277,12 +282,19 @@ class GenerationMixin:
             model_inputs["input_position"] = Tensor(current_index, mstype.int32)
             model_inputs["init_reset"] = Tensor([True], mstype.bool_)  # init_reset (1,) bool True
             model_inputs["batch_valid_length"] = Tensor([valid_length_each_example], mstype.int32)
+            if block_tables is not None:
+                model_inputs["block_tables"] = Tensor(block_tables, mstype.int64)
+                model_inputs["slot_mapping"] = Tensor(slot_mapping, mstype.int32)
             # pylint: disable=E1102
             res = self(
                 **model_inputs,
             )
 
         return res
+
+    def _use_past(self):
+        return hasattr(self.config, "use_past") and self.config.use_past and hasattr(self.config, "block_size") and \
+               hasattr(self.config, "num_blocks")
 
     def _greedy_search(self,
                        origin_inputs,
@@ -397,6 +409,10 @@ class GenerationMixin:
         prepare_time = time.time() - prepare_time
         logger.debug("forward prepare time: %s s", prepare_time)
 
+        if self._use_past():
+            block_mgr = BlockTables(self.config.num_blocks, self.config.block_size, self.config.seq_length)
+            block_mgr.init_cache_engine(batch_size)
+
         while np.sum(is_finished) != batch_size:
             forward_time = time.time()
             seq_length = input_ids.shape[1]
@@ -405,6 +421,12 @@ class GenerationMixin:
                 for i in range(batch_size)
             ]
             logger.debug("validate length: %s", valid_length_each_example)
+            block_tables = None
+            slot_mapping = None
+            if self._use_past():
+                block_tables, slot_mapping = block_mgr.assemble_pa_inputs(self.is_first_iteration,
+                                                                          valid_length_each_example, is_finished)
+
             if is_encoder_decoder:
                 inputs = Tensor(input_ids, mstype.int32)
                 # pylint: disable=E1102
@@ -430,6 +452,8 @@ class GenerationMixin:
                         model_inputs=model_inputs,
                         current_index=current_index,
                         valid_length_each_example=valid_length_each_example,
+                        block_tables=block_tables,
+                        slot_mapping=slot_mapping
                     )
                 # auto-aggressive generate
                 else:
@@ -631,6 +655,10 @@ class GenerationMixin:
         prepare_time = time.time() - prepare_time
         logger.debug("forward prepare time: %s s", prepare_time)
 
+        if self._use_past():
+            block_mgr = BlockTables(self.config.num_blocks, self.config.block_size, self.config.seq_length)
+            block_mgr.init_cache_engine(batch_size)
+
         while np.sum(is_finished) != batch_size:
             forward_time = time.time()
             seq_length = input_ids.shape[1]
@@ -639,6 +667,12 @@ class GenerationMixin:
                 for i in range(batch_size)
             ]
             logger.debug("validate length: %s", valid_length_each_example)
+
+            block_tables = None
+            slot_mapping = None
+            if self._use_past():
+                block_tables, slot_mapping = block_mgr.assemble_pa_inputs(self.is_first_iteration,
+                                                                          valid_length_each_example, is_finished)
             if is_encoder_decoder:
                 inputs = Tensor(input_ids, mstype.int32)
                 # pylint: disable=E1102
@@ -664,6 +698,8 @@ class GenerationMixin:
                         model_inputs=model_inputs,
                         current_index=current_index,
                         valid_length_each_example=valid_length_each_example,
+                        block_tables=block_tables,
+                        slot_mapping=slot_mapping
                     )
                 # auto-aggressive generate
                 else:

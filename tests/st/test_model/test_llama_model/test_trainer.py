@@ -111,12 +111,3 @@ class TestLlamaTrainerMethod:
         """
         self.task_trainer.config.runner_config.epochs = 1
         self.task_trainer.finetune()
-
-    @pytest.mark.run(order=5)
-    def test_export(self):
-        """
-        Feature: Trainer.export()
-        Description: Test trainer for export.
-        Expectation: TypeError, ValueError, RuntimeError
-        """
-        self.task_trainer.export()

@@ -129,7 +129,8 @@ class TextGenerationPipeline(Pipeline):
         Return:
             Processed text.
         """
-        if self.model_name is not None and self.model_name.startswith("glm32k"):
+        if (self.model_name is not None and self.model_name.startswith("glm32k")) or (
+                hasattr(self.tokenizer, "name") and self.tokenizer.name == "ChatGLM3Tokenizer"):
             return self.tokenizer.build_chat_input(inputs)
 
         add_special_tokens = preprocess_params.get('add_special_tokens', True)
@@ -177,7 +178,7 @@ class TextGenerationPipeline(Pipeline):
                              f" should be multiple of batch size {batch_size}. Please check yout inputs.")
         outputs = []
         if batch_size > 1:
-            batch_inputs = [inputs[i:i+batch_size] for i in range(0, len(inputs), batch_size)]
+            batch_inputs = [inputs[i:i + batch_size] for i in range(0, len(inputs), batch_size)]
         else:
             batch_inputs = inputs
         for item in batch_inputs:

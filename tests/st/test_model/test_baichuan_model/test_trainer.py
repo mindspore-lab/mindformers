@@ -92,12 +92,3 @@ class TestBaichuanTrainerMethod:
         Expectation: TypeError, ValueError, RuntimeError
         """
         self.task_trainer.predict(input_data="hello world!", max_length=20, repetition_penalty=1, top_k=3, top_p=1)
-
-    @pytest.mark.run(order=3)
-    def test_export(self):
-        """
-        Feature: Trainer.export()
-        Description: Test trainer for export.
-        Expectation: TypeError, ValueError, RuntimeError
-        """
-        self.task_trainer.export()

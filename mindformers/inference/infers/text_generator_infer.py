@@ -30,9 +30,9 @@ from mindformers.generation.logits_process import RepetitionPenaltyLogitsProcess
 from mindformers.generation.streamers import BaseStreamer
 from mindformers.generation.utils import softmax_with_threads
 from mindformers.inference.infer_config import InferConfig
+from mindformers.modules.cache_engine import BlockMemPool, CacheEngine
 
 from .base_infer import BaseInfer
-from .cache_engine import BlockMemPool, CacheEngine
 
 
 class BaseInputsOfInfer:

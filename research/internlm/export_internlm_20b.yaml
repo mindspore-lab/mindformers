@@ -81,7 +81,6 @@ model:
     scaling_factor: 1.0
     extend_method: "None" # support "None", "PI", "NTK"
     use_flash_attention: False
-    use_paged_attention: False
     block_size: 16
     num_blocks: 512
     offset: 0

@@ -200,14 +200,11 @@ class KVCachePreprocess(nn.Cell):
                  max_seq_length=4096,
                  is_dynamic=False,
                  use_kvcache_op=False,
-                 is_flexible_shape=False,
-                 use_paged_attention=False
-                 ):
+                 is_flexible_shape=False):
         super().__init__()
         self.is_dynamic = is_dynamic
         self.use_kvcache_op = use_kvcache_op
         self.is_flexible_shape = is_flexible_shape
-        self.use_paged_attention = use_paged_attention
 
         self.max_cache_length = max_batch_size * max_seq_length
         range_len = self.max_cache_length if self.is_flexible_shape else max_seq_length
@@ -226,14 +223,8 @@ class KVCachePreprocess(nn.Cell):
         self.div = P.Div()
         self.concat = P.Concat(axis=0)
 
-    def construct(self, batch_size, batch_valid_length=None, batch_index=None, zactivate_len=None,
-                  block_tables=None, slot_mapping=None):
+    def construct(self, batch_size, batch_valid_length=None, batch_index=None, zactivate_len=None):
         """precompute kvcache inputs"""
-        if self.use_paged_attention:
-            cur_pos = batch_valid_length + 1
-            kvcache_inputs = (cur_pos, block_tables, slot_mapping)
-            return kvcache_inputs
-
         seq_range = self.range
         if self.is_dynamic and self.is_flexible_shape and not self.use_kvcache_op:
             seq_range = self.slice(seq_range, (0, 0, 0), (1, 1, self.max_cache_length // batch_size), (1, 1, 1))
