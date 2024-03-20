@@ -944,10 +944,27 @@ python run_qwen.py --run_mode export --config_path /path/run_qwen_7b.yaml --is_d
 
 #### step 2: 准备GE配置文件
 
-双动态推理需要额外增加一个配置文件`lite-dyn-inc.ini`，示例如下：
+双动态推理需要提供两个配置文件:
+
+- 全量模型推理配置 `lite-dyn-prefill.ini`
 
 ```ini
 [ascend_context]
+;plugin_custom_ops=All
+provider=ge
+
+[ge_session_options]
+ge.exec.formatMode=1
+ge.exec.atomicCleanPolicy=1
+ge.exec.staticMemoryPolicy=2
+ge.exec.precision_mode=must_keep_origin_dtype
+```
+
+- 增量模型推理配置`lite-dyn-inc.ini`：
+
+```ini
+[ascend_context]
+;plugin_custom_ops=All
 provider=ge
 
 [ge_session_options]
@@ -963,7 +980,7 @@ ge.dynamicNodeType=1
 
 # 参数说明
 # ge.inputShape：设置参数动态输入，-1表示动态入参
-# ge.dynamicDims：设置实际推理的batch size和activate length，与ge.inputShape中-1的位置依次对应
+# ge.dynamicDims：设置实际推理的batch size和activate length。每组数字与ge.inputShape中-1的位置依次对应，
 #         前三个表示batch_size，最后一位表示seq_length, 注意不能大于导出时给定的 batch_size 和 seq_length;
 ```
 
@@ -975,10 +992,10 @@ ge.dynamicNodeType=1
 ```shell
 cd mindformers/research/qwen
 python run_qwen_mslite_infer.py --mindir_root_dir output --batch_size 2 --seq_length 512 \
-    --dynamic true --ge_config_path lite.ini,lite-dyn-inc.ini \
+    --dynamic true --ge_config_path lite-dyn-prefill.ini,lite-dyn-inc.ini \
     --predict_data 帮助我制定一份去上海的旅游攻略
 
 python run_qwen_mslite_infer.py --mindir_root_dir output --batch_size 1 --predict_length 1024  \
-    --dynamic true --ge_config_path lite.ini,lite-dyn-inc.ini \
+    --dynamic true --ge_config_path lite-dyn-prefill.ini,lite-dyn-inc.ini \
     --predict_data 帮助我制定一份去上海的旅游攻略
 ```

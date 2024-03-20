@@ -288,11 +288,10 @@ class QwenModel(BaseModel):
                                                     is_flexible_shape=config.is_flexible_shape,
                                                     use_paged_attention=self.use_paged_attention,)
         # 5. ln_f
-        self.ln_f = LlamaRMSNorm(
-            self.embed_dim,
-            eps=config.rms_norm_eps,
-            compute_type=config.layernorm_compute_type
-        )
+        self.ln_f = LlamaRMSNorm(self.embed_dim,
+                                 eps=config.rms_norm_eps,
+                                 compute_type=config.layernorm_compute_type,
+                                 is_dynamic=config.is_dynamic,)
 
         self.shape = P.Shape()
         self.reshape = P.Reshape().add_prim_attr("skip_redistribution", True)
