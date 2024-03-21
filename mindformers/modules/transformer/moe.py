@@ -183,6 +183,11 @@ def _check_moe_config(moe_config=None, parallel_config=None):
 def calculate_expert_capacity(k, tokens_per_group, capacity_factor, expert_dim):
     return math.ceil(k * tokens_per_group * capacity_factor / expert_dim)
 
+@constexpr
+def calculate_expert_capacity_v2(k, tokens_per_group, capacity_factor, expert_dim, mp):
+    raw_capacity = math.ceil(k * tokens_per_group * capacity_factor / expert_dim)
+    return raw_capacity + mp - (raw_capacity % mp)
+
 
 class MoE(Cell):
     """
@@ -574,6 +579,7 @@ class MoEV2(Cell):
         self.dp = parallel_config.data_parallel
         self.ep = parallel_config.expert_parallel
         self.mp = parallel_config.model_parallel
+        self.group_wise_a2a = moe_config.group_wise_a2a
         self.dp_range = Tensor(np.arange(self.dp_group).reshape(-1, 1), mstype.int32) # (dp, 1) = [[0],[1],[2]...[dp]]
 
         self.ffn = ffn
@@ -588,20 +594,63 @@ class MoEV2(Cell):
         self.shape = P.Shape()
         self.cast = P.Cast()
         self.transpose_4dim_dp1 = P.Transpose().shard(((1, self.dp, 1, 1),))
+        self.transpose_4dim_dp0 = P.Transpose().shard(((self.dp, 1, 1, 1),))
+        self.concat_dp = P.Concat(2).shard(((1, self.dp, 1, 1), (1, self.dp, 1, 1)))
+        self.stride_slice = P.StridedSlice().shard(((self.dp, 1, 1, 1),))
+        self.stride_slice_dp = P.StridedSlice().shard(((1, self.dp, 1, 1),))
+        self.stride_slice_ep = P.StridedSlice().shard(((self.ep, 1, 1, 1),))
+        self.stride_slice_dp_mp = P.StridedSlice().shard(((1, self.dp, self.mp, 1),))
+        self.stride_slice_ep_mp = P.StridedSlice().shard(((self.ep, 1, self.mp, 1),))
 
-    def ffn_infer(self, expert_input):
+    def ffn_infer(self, expert_input, capacity):
         """
         Computing the FFN.
         """
+        if self.group_wise_a2a:
+            # capacity shard by mp
+            expert_input = self.stride_slice_dp_mp(expert_input, (0, 0, 0, 0),
+                                                   (self.expert_dim, self.dp_group, capacity, self.hidden_size),
+                                                   (1, 1, 1, 1))
+            # group-wise alltoall
+            expert_input = self.stride_slice_ep_mp(expert_input, (0, 0, 0, 0),
+                                                   (self.expert_dim, self.dp_group, capacity, self.hidden_size),
+                                                   (1, 1, 1, 1))
+            # allgather
+            expert_input = self.stride_slice_ep(expert_input, (0, 0, 0, 0),
+                                                (self.expert_dim, self.dp_group, capacity, self.hidden_size),
+                                                (1, 1, 1, 1))
+
         expert_input = self.reshape(expert_input, (-1, self.hidden_size)) # (E*dp*n, h) <-- (E, dp, n, h) #<<<<<<<<<
         expert_output = self.ffn(expert_input) # (E, dp*n, h) <-- (E*dp*n, h)
         expert_output = self.reshape(expert_output, (self.expert_dim, self.dp_group, -1, self.hidden_size)) # (E, dp, n, h) <-- (E, dp*n, h)
+
+        if self.group_wise_a2a:
+            # capacity shard by mp
+            expert_output = self.stride_slice_ep_mp(expert_output, (0, 0, 0, 0),
+                                                    (self.expert_dim, self.dp_group, capacity, self.hidden_size),
+                                                    (1, 1, 1, 1))
+            # group-wise alltoall
+            expert_output = self.stride_slice_dp_mp(expert_output, (0, 0, 0, 0),
+                                                    (self.expert_dim, self.dp_group, capacity, self.hidden_size),
+                                                    (1, 1, 1, 1))
+            # allgather
+            expert_output = self.stride_slice_dp(expert_output, (0, 0, 0, 0),
+                                                 (self.expert_dim, self.dp_group, capacity, self.hidden_size),
+                                                 (1, 1, 1, 1))
+
         return expert_output
 
 
     def construct(self, input_tensor):
         """forward process"""
         input_tensor_shape = self.shape(input_tensor)
+
+        input_tensor = self.reshape(input_tensor, (-1, self.hidden_size))
+        bs_and_dmodel = self.shape(input_tensor)
+        tokens_per_group = bs_and_dmodel[0] // self.dp_group
+        expert_capacity = calculate_expert_capacity_v2(self.num_experts_chosen, tokens_per_group,
+                                                       self.capacity_factor, self.expert_dim, self.mp)
+
         input_tensor = self.cast(input_tensor, mstype.float16)
         input_tensor = self.reshape(input_tensor, (self.dp_group, -1, self.hidden_size)) # (dp, N, h) <-- (B*S, h)
 
@@ -612,8 +661,11 @@ class MoEV2(Cell):
         expert_input = self.router.router.dispatch(input_tensor, dispatch_policy) # (dp, E, n, h) <-- (dp, N, h), (dp, E, n)
 
         # ffn
-        expert_input = self.transpose_4dim_dp1(expert_input, (1, 0, 2, 3)) # (E, dp, n, h) <-- (dp, E, n, h)
-        expert_output = self.ffn_infer(expert_input) # (E, dp, n, h) <-- (E, dp, n, h)
+        if self.group_wise_a2a:
+            expert_input = self.transpose_4dim_dp0(expert_input, (1, 0, 2, 3)) # (E, dp, n, h) <-- (dp, E, n, h)
+        else:
+            expert_input = self.transpose_4dim_dp1(expert_input, (1, 0, 2, 3)) # (E, dp, n, h) <-- (dp, E, n, h)
+        expert_output = self.ffn_infer(expert_input, expert_capacity) # (E, dp, n, h) <-- (E, dp, n, h)
         expert_output = self.transpose_4dim_dp1(expert_output, (1, 0, 2, 3)) # (dp, E, n, h) <-- (E, dp, n, h)
 
         # combine
@@ -953,6 +1005,7 @@ class TopkRouterV2(Cell):
         super(TopkRouterV2, self).__init__()
 
         dp = parallel_config.data_parallel
+        self.mp = parallel_config.model_parallel
         self.d_model = d_model
         self.expert_dim = moe_config.expert_num
         self.capacity_factor = moe_config.capacity_factor
@@ -1062,8 +1115,8 @@ class TopkRouterV2(Cell):
         k = self.num_experts_chosen
         tokens_per_group = self.shape(expert_index)[1]
         kn = k * tokens_per_group # this n refers to N
-        expert_capacity = calculate_expert_capacity(self.num_experts_chosen, tokens_per_group,
-                                                    self.capacity_factor, self.expert_dim)
+        expert_capacity = calculate_expert_capacity_v2(self.num_experts_chosen, tokens_per_group,
+                                                       self.capacity_factor, self.expert_dim, self.mp)
 
         # calculate combine_index from cumsum
         expert_index = self.reshape(self.transpose_3d(expert_index, (0, 2, 1)), (expert_index.shape[0], -1)) # (dp, kN) <-- (dp, N, k) account for topk priority
