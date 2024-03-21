@@ -178,6 +178,30 @@ class LimitedRepeatHandler(logging.StreamHandler):
         super().emit(record)
 
 
+class LimitedRepeatFileHandler(logging.handlers.RotatingFileHandler):
+    """Limited Repeat File Handler"""
+    def __init__(self, max_repeats=10, **kwargs):
+        super().__init__(**kwargs)
+        self.max_repeats = max_repeats
+        self.latest_log = ''
+        self.count = 1
+
+    def emit(self, record):
+        """emit"""
+        log_message = record.getMessage()
+        if log_message == self.latest_log:
+            self.count += 1
+            if self.count <= self.max_repeats:
+                self._emit(record)
+        else:
+            self.count = 1
+            self.latest_log = log_message
+            self._emit(record)
+
+    def _emit(self, record):
+        super().emit(record)
+
+
 class StreamRedirector:
     """Stream Re-director for Log."""
 
@@ -530,9 +554,9 @@ def get_logger(logger_name: str = 'mindformers', **kwargs) -> logging.Logger:
 
     file_formatter = _DataFormatter(DEFAULT_FILEHANDLER_FORMAT)
     for i, level in enumerate(file_level):
-        file_handler = logging.handlers.RotatingFileHandler(filename=file_path[i],
-                                                            maxBytes=max_file_size,
-                                                            backupCount=max_num_of_files)
+        file_handler = LimitedRepeatFileHandler(filename=file_path[i],
+                                                maxBytes=max_file_size,
+                                                backupCount=max_num_of_files)
         file_handler.setLevel(level)
         file_handler.setFormatter(file_formatter)
         mf_logger.addHandler(file_handler)
