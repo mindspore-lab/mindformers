@@ -110,7 +110,7 @@ def _rule_pp_only_for_train(config, mode):
     """pp only support training for now"""
     _, _, pp = get_parallel_strategy(config)
     if pp > 1:
-        raise ValueError(f"pp only support training process for now, set pp=1 to {mode} ")
+        raise ValueError(f"pipeline stage only support training process for now, set pipeline stage=1 to {mode} ")
 
 
 def _check_full_batch():
