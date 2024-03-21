@@ -1069,6 +1069,10 @@ class GenerationMixin:
                     the input prompt + `max_new_tokens`. Its effect is overridden by `max_new_tokens`, if also set.
                 max_new_tokens (int): The maximum numbers of tokens to generate, ignoring the number of
                     tokens in the prompt.
+                min_length (int): The minimum length of the sequence to be generated. Corresponds to the length of the
+                    input prompt + `min_new_tokens`. Its effect is overridden by `min_new_tokens`, if also set.
+                min_new_tokens (int): The minimum numbers of tokens to generate, ignoring the number of tokens
+                    in the prompt.
                 do_sample(bool): Whether to do sampling on the candidate ids.
                     If set True it will be enabled, and set it to be False to disable the sampling,
                     equivalent to topk 1.

@@ -30,12 +30,12 @@ class GenerationConfig:
         max_length (`int`, *optional*, defaults to 20):
             The maximum length the generated tokens can have. Corresponds to the length of the input prompt +
             `max_new_tokens`. Its effect is overridden by `max_new_tokens`, if also set.
-        max_new_tokens (`int`, *optional*):
+        max_new_tokens (`int`, *optional*, defaults to None):
             The maximum numbers of tokens to generate, ignoring the number of tokens in the prompt.
         min_length (`int`, *optional*, defaults to 0):
             The minimum length of the sequence to be generated. Corresponds to the length of the input prompt +
             `min_new_tokens`. Its effect is overridden by `min_new_tokens`, if also set.
-        min_new_tokens (`int`, *optional*):
+        min_new_tokens (`int`, *optional*, defaults to None):
             The minimum numbers of tokens to generate, ignoring the number of tokens in the prompt.
 
         > Parameters that control the generation strategy used
