@@ -21,6 +21,7 @@ from __future__ import division
 import math
 import copy
 import numpy as np
+import mindspore.ops as ops
 
 from mindspore.common.tensor import Tensor
 from mindspore.common.parameter import Parameter
@@ -83,7 +84,8 @@ class MoEConfig:
     def __init__(self, expert_num=1, capacity_factor=1.1, aux_loss_factor=0.05, num_experts_chosen=1,
                  expert_group_size=None, group_wise_a2a=False, comp_comm_parallel=False, comp_comm_parallel_degree=2,
                  save_token_distribution=False, cur_layer=0, enable_cold_hot_expert=False, update_step=10000,
-                 hot_expert_num=0, cold_token_percent=1.0, moe_module_name="", routing_policy="TopkRouterV1"):
+                 hot_expert_num=0, cold_token_percent=1.0, moe_module_name="", routing_policy="TopkRouterV1",
+                 enable_sdrop=False):
         Validator.check_positive_int(expert_num, "expert_num")
         Validator.check_positive_float(capacity_factor, "capacity_factor")
         Validator.check_positive_float(aux_loss_factor, "aux_loss_factor")
@@ -131,6 +133,7 @@ class MoEConfig:
         self.cold_token_percent = cold_token_percent
         self.moe_module_name = moe_module_name
         self.routing_policy = routing_policy
+        self.enable_sdrop = enable_sdrop
 
     def __eq__(self, other) -> bool:
         return isinstance(other, MoEConfig) and (self.to_dict() == other.to_dict())
@@ -954,6 +957,7 @@ class TopkRouterV2(Cell):
 
         dp = parallel_config.data_parallel
         self.d_model = d_model
+        self.moe_config = moe_config
         self.expert_dim = moe_config.expert_num
         self.capacity_factor = moe_config.capacity_factor
         self.save_token_distribution = moe_config.save_token_distribution
@@ -1051,10 +1055,13 @@ class TopkRouterV2(Cell):
     def construct(self, router_logits):
         router_prob = self.softmax(router_logits) # (dp, N, expert_dim)fp32 <-- (dp, N, expert_dim)fp32
         expert_gate, expert_index = self.topk(router_prob, self.num_experts_chosen) # (dp, N, k)int32, (dp, N, k)fp32 <-- (dp, N, expert_dim)fp32
-        dispatch_index, combine_index, router_coeff = self._maskout_overflowed_tokens_sort(expert_index, expert_gate) # (dp, E, n)int32, (dp, N, k), (dp, N, k) <-- (dp, N, k), (dp, N, k)
+        if self.moe_config.enable_sdrop:
+            dispatch_index, combine_index, router_coeff = self._maskout_overflowed_tokens_sort_sdrop(expert_index, expert_gate) # (dp, E, n)int32, (dp, N, k), (dp, N, k) <-- (dp, N, k), (dp, N, k)
+        else:
+            dispatch_index, combine_index, router_coeff = self._maskout_overflowed_tokens_sort_kdrop(expert_index, expert_gate) # (dp, E, n)int32, (dp, N, k), (dp, N, k) <-- (dp, N, k), (dp, N, k)
         return dispatch_index, combine_index, router_coeff # (dp, E, n)int32, (dp, N, k), (dp, N, k)
 
-    def _maskout_overflowed_tokens_sort(self, expert_index, expert_gate):
+    def _maskout_overflowed_tokens_sort_kdrop(self, expert_index, expert_gate):
         """
         Keeping only the tokens that fit within expert_capacity.
         # if tokens_per_group>10: self.print("range_kn", range_kn)
@@ -1066,6 +1073,7 @@ class TopkRouterV2(Cell):
                                                     self.capacity_factor, self.expert_dim)
 
         # calculate combine_index from cumsum
+        #K-drop(k,N)
         expert_index = self.reshape(self.transpose_3d(expert_index, (0, 2, 1)), (expert_index.shape[0], -1)) # (dp, kN) <-- (dp, N, k) account for topk priority
         expert_mask = self.onehot_2d(expert_index, self.expert_dim, self.on_value, self.off_value) # (dp, kN, E)fp32 <-- (dp, kN)int32
         position_in_expert = self.mul_3d(self.cumsum(expert_mask, 1), expert_mask) # (dp, kN, E)fp16 <-- (dp, kN, E)fp32, (dp, kN, E)fp32
@@ -1094,6 +1102,47 @@ class TopkRouterV2(Cell):
         router_coeff = self.cast(router_coeff, mstype.float16) # (dp, N, k) <-- (dp, N, k)
         return dispatch_index, combine_index, router_coeff # (dp, E, n), (dp, N, k), (dp, N, k)
 
+    def _maskout_overflowed_tokens_sort_sdrop(self, expert_index, expert_gate):
+        """
+        Keeping only the tokens that fit within expert_capacity.
+        # if tokens_per_group>10: self.print("range_kn", range_kn)
+        """
+        k = self.num_experts_chosen
+        tokens_per_group = self.shape(expert_index)[1]
+        kn = k * tokens_per_group # this n refers to N
+        expert_capacity = calculate_expert_capacity(self.num_experts_chosen, tokens_per_group,
+                                                    self.capacity_factor, self.expert_dim)
+
+        # calculate combine_index from cumsum
+        #S-drop(N,k)
+        expert_index = self.reshape(expert_index, (expert_index.shape[0], -1)) # (dp, Nk) <-- (dp, N, k) account for topk priority
+        expert_mask = self.onehot_2d(expert_index, self.expert_dim, self.on_value, self.off_value) # (dp, Nk, E)fp32 <-- (dp, Nk)int32
+        position_in_expert = self.mul_3d(self.cumsum(expert_mask, 1), expert_mask) # (dp, Nk, E)fp16 <-- (dp, Nk, E)fp32, (dp, Nk, E)fp32
+        position_in_expert = self.mul_3d(position_in_expert, self.less(position_in_expert, expert_capacity+1)) # (dp, Nk, E)fp32 <-- (dp, Nk, E)fp32, (dp, Nk, E)bool, where 0<=position_in_expert<(1+n)
+        position_in_expert_2d = self.reduce_sum(position_in_expert, -1) # (dp, Nk)fp32 <-- (dp, Nk, E)fp32
+        combine_index = self.add_2d(self.mul_2d_1d(expert_index, expert_capacity + 1), position_in_expert_2d) # (dp, Nk)fp32 <-- (dp, Nk)fp32, (dp, Nk)fp32 where 0<= combine_index <E*(1+n), combine_index = expert_id *(1+n) + position_in_expert_2d
+        combine_index = self.reshape(combine_index, (combine_index.shape[0], tokens_per_group, k)) # (dp, N, k) <-- (dp, Nk) account for topk priority
+        within_capacity = self.cast(self.gt(position_in_expert_2d, 0), mstype.float32) # (dp, Nk)bool
+
+        # calculate dispatch_index from position_in_expert_onehot
+        safe_kn = 2 * kn # factor=2 for safety
+        range_kn = self.slice_range(self.range2, (0, 0), (self.expert_dim, kn), (1, 1)).reshape(1, self.expert_dim, kn) #(1, E, kN) fp32 <-- (E, 131072)
+        select = self.transpose_3d(expert_mask, (0, 2, 1)) # (dp, E, Nk) fp32 <-- (dp, Nk, E) fp32
+        dispatch_index_raw = self.add_3d(self.mul_range(select, range_kn), self.mul_range(self.sub_range(1, select), self.add_range(range_kn, safe_kn))) # (dp, E, kN) <-- (dp, E, kN) fp32
+        dispatch_index, _ = self.sort_range(dispatch_index_raw) # (dp, E, k) <-- (dp, E, kN）
+        dispatch_index = self.slice(dispatch_index, (0, 0, 0), (dispatch_index.shape[0], dispatch_index.shape[1], expert_capacity), (1, 1, 1)) # (dp, E, n) <-- (dp, E, kN) fp32
+        is_safe = self.less(dispatch_index, safe_kn) # (dp, E, n) bool
+        dispatch_index = self.add_one(ops.floor_divide(dispatch_index, k), 1) # (dp, E, n) fp32
+        dispatch_index = self.mul_3d(dispatch_index, is_safe) # (dp, E, n) fp32
+
+        # return
+        dispatch_index = self.cast(dispatch_index, mstype.int32)
+        combine_index = self.cast(combine_index, mstype.int32)
+        within_capacity = self.reshape(within_capacity, (within_capacity.shape[0], tokens_per_group, k))
+        router_coeff_raw = self.mul_3d(expert_gate, within_capacity)
+        router_coeff = self._normalize(router_coeff_raw) # (dp, N, k) <-- (dp, N, k)
+        router_coeff = self.cast(router_coeff, mstype.float16) # (dp, N, k) <-- (dp, N, k)
+        return dispatch_index, combine_index, router_coeff # (dp, E, n), (dp, N, k), (dp, N, k)
 
     def _normalize(self, router_coeff_raw):
         router_coeff_sum = self.reduce_sum_keep(router_coeff_raw, 2) # (dp, N, 1) <-- (dp, N, k)
