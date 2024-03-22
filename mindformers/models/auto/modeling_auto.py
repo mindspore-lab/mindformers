@@ -114,7 +114,8 @@ MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING_NAMES = OrderedDict(
     [
         # Model for Sequence Classification mapping
         ("gpt2", "GPT2ForSequenceClassification"),
-        ("pangualpha", "PanguAlphaPromptTextClassificationModel")
+        ("pangualpha", "PanguAlphaPromptTextClassificationModel"),
+        ("bert", "BertForMultipleChoice")
     ]
 )
 

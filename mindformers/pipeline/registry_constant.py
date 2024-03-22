@@ -20,6 +20,7 @@ from mindformers.models.auto.modeling_auto import (
     AutoModelForImageClassification,
     AutoModelForMaskedImageModeling,
     AutoModelForMaskGeneration,
+    AutoModelForSequenceClassification,
     AutoModelForQuestionAnswering,
     AutoModelForSeq2SeqLM,
     AutoModelForTokenClassification,
@@ -94,10 +95,9 @@ SUPPORTED_TASKS = {
         "default": {"model": {"ms": ()}},
         "type": "image",
     },
-    # TODO: AutoModelForSequenceClassification
     "text-classification": {
         "impl": TextClassificationPipeline,
-        "ms": (AutoModel,),
+        "ms": (AutoModelForSequenceClassification,),
         "default": {"model": {"ms": ()}},
         "type": "text",
     },
