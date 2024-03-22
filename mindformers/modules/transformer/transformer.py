@@ -1469,10 +1469,8 @@ class MultiHeadAttention(Cell):
                 dp=parallel_config.data_parallel,
                 mp=parallel_config.model_parallel
             )
-
-
             self.sub = P.Sub().shard(
-                ((1,), (parallel_config.data_parallel, 1, 1)))
+                ((1,), (parallel_config.data_parallel, 1, 1, 1)))
 
             self.one = Tensor([1.0], dtype=compute_dtype)
 
