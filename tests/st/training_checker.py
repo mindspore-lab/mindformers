@@ -15,7 +15,9 @@
 """Training checker"""
 import time
 
+import mindspore as ms
 from mindspore import Callback
+from mindspore.communication import get_rank, get_group_size
 
 from mindformers.core.callback.callback import _get_loss_output
 
@@ -39,14 +41,41 @@ class TrainingChecker(Callback):
     Raises:
         AssertionError
     """
+
     def __init__(self, loss_list_std: list, avg_step_time_std: float,
-                 loss_error: float = 1e-3, time_error_ratio: float = 0.1):
+                 loss_error: float = 1e-3, time_error_ratio: float = 0.1,
+                 micro_batch_num: int = 1, micro_batch_interleave_num: int = 1,
+                 gradient_accumulation_steps: int = 1):
         super(TrainingChecker, self).__init__()
         self.loss_list_std = loss_list_std
         self.avg_step_time_std = avg_step_time_std
         self.loss_error = loss_error
         self.time_error_ratio = time_error_ratio
         self.step_time = time.time()
+
+        # init pipeline parallel status
+        self.pipeline_parallel = False
+        self.is_last_stage = True
+        self.micro_size = micro_batch_num
+
+        self.gradient_accumulation_steps = gradient_accumulation_steps
+        self.micro_batch_interleave_num = micro_batch_interleave_num
+
+    def on_train_begin(self, run_context):
+        """Called once before the network training."""
+        self.begin(run_context)
+
+        # Check pipeline parallel training status.
+        pipeline_stages = ms.get_auto_parallel_context('pipeline_stages')
+        self.pipeline_parallel = pipeline_stages > 1
+
+        if self.pipeline_parallel:
+            rank_id = get_rank()
+            device_num = get_group_size()
+
+            per_stage_device_num = device_num // pipeline_stages
+            stage_id = rank_id // per_stage_device_num
+            self.is_last_stage = (stage_id == pipeline_stages - 1)
 
     def on_train_step_begin(self, run_context):
         """Called on each training step begin."""
@@ -61,8 +90,15 @@ class TrainingChecker(Callback):
         cur_step_num = cb_params.cur_step_num
         cur_step_time = (time.time() - self.step_time) * 1000
 
+        if self.pipeline_parallel:
+            loss = loss / self.micro_size
+        if self.micro_batch_interleave_num > 1:
+            loss = loss / self.micro_batch_interleave_num
+        if self.gradient_accumulation_steps > 1:
+            loss = loss / self.gradient_accumulation_steps
+
         # when enable pp, loss will be only available on the last card
-        if cb_params.parallel_mode != "stand_alone" and loss != 0.0:
+        if not self.pipeline_parallel or self.is_last_stage:
             assert abs(loss - self.loss_list_std[cur_step_num - 1]) < self.loss_error
 
         if cur_step_num > 2:
