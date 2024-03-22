@@ -257,6 +257,19 @@ def is_version_python(cur_ver, tar_ver):
     return True
 
 
+def check_valid_paged_attention():
+    """check mindspore version is valid for paged attention"""
+    version_valid = is_version_ge(ms.__version__, "2.2.11")
+    # below ms 2.2.11 is not support
+    if not version_valid:
+        logger.warning("Current MindSpore do not support PagedAttention, please upgrade to 2.2.11 or later version.")
+        logger.warning("Now running on self-attention mode.")
+        result = False
+    else:
+        result = True
+    return result
+
+
 def is_paged_attention_v2():
     """check whether the interface of paged attention is changed"""
     return is_version_ge(ms.__version__, "2.3.0")

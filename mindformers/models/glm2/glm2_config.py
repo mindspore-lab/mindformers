@@ -70,6 +70,8 @@ class ChatGLM2Config(PretrainedConfig):
                  layernorm_compute_type: str = "float32",
                  use_past=False,
                  use_flash_attention=False,
+                 use_prompt_flash_attention=False,
+                 use_incre_flash_attention=False,
                  block_size=16,
                  num_blocks=128,
                  is_dynamic=False,
@@ -115,6 +117,8 @@ class ChatGLM2Config(PretrainedConfig):
         self.layernorm_compute_type = convert_mstype(layernorm_compute_type)
         self.use_past = use_past
         self.use_flash_attention = use_flash_attention
+        self.use_prompt_flash_attention = use_prompt_flash_attention
+        self.use_incre_flash_attention = use_incre_flash_attention
         self.eos_token_id = eos_token_id
         self.pad_token_id = pad_token_id
         self.repetition_penalty = repetition_penalty
