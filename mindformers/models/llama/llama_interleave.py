@@ -14,17 +14,19 @@
 # ============================================================================
 """LLaMA fine grain interleave transformer Layer's APIs."""
 
-from typing import Optional
 import math
+from typing import Optional
 
-from mindspore import nn
 import mindspore.common.dtype as mstype
+from mindspore import nn
 from mindspore.common.tensor import Tensor
 from mindspore.context import ParallelMode
 from mindspore.ops import operations as P
 from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
+
 try:
     from mindspore.nn.layer.flash_attention import FlashAttention
+
     FLASHATTENTION_VALID = True
 except ImportError:
     FLASHATTENTION_VALID = False
@@ -70,8 +72,8 @@ class _MicroBatch(nn.Cell):
                     strided_slice_begin += (0,)
                     strided_slice_end += (input_shape[j],)
 
-            micro_input = self.strided_slice_list[k](each_input, strided_slice_begin,\
-                strided_slice_end, strided_slice_strides)
+            micro_input = self.strided_slice_list[k](each_input, strided_slice_begin, \
+                                                     strided_slice_end, strided_slice_strides)
             micro_inputs += (micro_input,)
             k += 1
         return micro_inputs
@@ -138,6 +140,7 @@ class LLamaAttentionInterleave(nn.Cell):
                 ((batch_size, num_heads, head_dim, tgt_seq_length),
                 (batch_size, num_heads, tgt_seq_length, head_dim)).
     """
+
     def __init__(self,
                  batch_size,
                  seq_length,
@@ -262,10 +265,10 @@ class LLamaAttentionInterleave(nn.Cell):
                 self.batch_matmul.recompute()
 
         if self.use_flash_attention:
-            self.flash_attention = FlashAttention(self.head_dim, n_heads, dp=dp, mp=mp,\
-                prev_block_num=65536, next_block_num=0, high_precision=True)
+            self.flash_attention = FlashAttention(self.head_dim, n_heads, dp=dp, mp=mp, \
+                                                  prev_block_num=65536, next_block_num=0, high_precision=True)
 
-    def compute_qkv(self, x, freqs_cis, interleave_num):
+    def compute_qkv(self, x):
         """compute the qkv with interleave number"""
         x = self.reshape(x, (-1, x.shape[-1]))
         if self.qkv_concat:
@@ -278,12 +281,15 @@ class LLamaAttentionInterleave(nn.Cell):
                                    (bs_seq, self.hidden_size + self.kv_dim * 2), (1, 1))
         else:
             query = self.cast(self.wq(x), self.dtype)  # dp, 1 -> dp, mp
-            key = self.cast(self.wk(x), self.dtype)    # dp, 1 -> dp, mp
+            key = self.cast(self.wk(x), self.dtype)  # dp, 1 -> dp, mp
             value = self.cast(self.wv(x), self.dtype)  # dp, 1 -> dp, mp
+        return query, key, value
 
-        query = self.reshape(query, (-1, self.seq_length // interleave_num, self.n_head, self.head_dim))
-        key = self.reshape(key, (-1, self.seq_length // interleave_num, self.n_kv_head, self.head_dim))
-        value = self.reshape(value, (-1, self.seq_length // interleave_num, self.n_kv_head, self.head_dim))
+    def cal_attn(self, query, key, value, mask, freqs_cis):
+        """cal_attn"""
+        query = self.reshape(query, (-1, self.seq_length, self.n_head, self.head_dim))
+        key = self.reshape(key, (-1, self.seq_length, self.n_kv_head, self.head_dim))
+        value = self.reshape(value, (-1, self.seq_length, self.n_kv_head, self.head_dim))
 
         # [bs, seq/1, n_head/n_kv_head, head_dim]
         query = self.transpose(query, (0, 2, 1, 3))
@@ -291,11 +297,8 @@ class LLamaAttentionInterleave(nn.Cell):
         value = self.transpose(value, (0, 2, 1, 3))
 
         # [bs, n_head/n_kv_head, seq/1, head_dim]
-        query, key = self.apply_rotary_emb(query, key, freqs_cis) # dp, mp, 1, 1
-        return query, key, value
+        query, key = self.apply_rotary_emb(query, key, freqs_cis)  # dp, mp, 1, 1
 
-    def cal_attn(self, query, key, value, mask):
-        """cal_attn"""
         # kv share: [bs, n_kv_head, seq, head_dim] -> [bs, n_head, seq, head_dim]
         bs, n_head, seq, head_dim = query.shape
         n_kv_head = key.shape[1]
@@ -315,7 +318,7 @@ class LLamaAttentionInterleave(nn.Cell):
 
     def cal_output_proj(self, attention):
         """cal_output_proj"""
-        output = self.wo(attention) # dp, mp -> dp, 1 / dp * mp, 1
+        output = self.wo(attention)  # dp, mp -> dp, 1 / dp * mp, 1
         return output
 
     def _repeat_kv(self, x, rep):
@@ -339,7 +342,7 @@ class LLamaAttentionInterleave(nn.Cell):
             x_merge: the 2d output
         """
         # [bs, n_head, seq/1, head_dim]
-        x = self.merger_head_transpose(x, (0, 2, 1, 3)) # dp,mp,1,1 -> dp,1,mp,1
+        x = self.merger_head_transpose(x, (0, 2, 1, 3))  # dp,mp,1,1 -> dp,1,mp,1
         # [bs, seq/1, n_head, head_dim]
         x_shape = x.shape
         # [bs * seq/1, hidden_dim]
@@ -435,6 +438,7 @@ class LLamaDecodeLayerInterleave(nn.Cell):
               (batch_size, num_heads, seq_length, head_dim)).
 
     """
+
     def __init__(self,
                  batch_size,
                  seq_length,
@@ -514,7 +518,7 @@ class LLamaDecodeLayerInterleave(nn.Cell):
 
         if parallel_config.recompute.select_recompute or (
                 isinstance(parallel_config.recompute, bool) and not parallel_config.recompute
-            ) or not parallel_config.recompute.recompute and self.layer_id < (num_layers // 2):
+        ) or not parallel_config.recompute.recompute and self.layer_id < (num_layers // 2):
             self.feed_forward.mul.recompute()
             self.feed_forward.w1.activation.silu.recompute()
 
@@ -523,38 +527,38 @@ class LLamaDecodeLayerInterleave(nn.Cell):
         self.interleave1_inputs = nn.CellList()
         self.interleave1_inputs_ = nn.CellList()
         self.interleave2_inputs = nn.CellList()
-        self.interleaved_concat1 = P.Concat(axis=2)
+        self.interleaved_concat1 = P.Concat(axis=0)
         self.interleaved_concat1.add_prim_attr("fine_grained_interleaved_index", self.layer_id)
-        self.interleaved_concat_1 = P.Concat(axis=2)
-        self.interleaved_concat2 = P.Concat(axis=1)
+        self.interleaved_concat_1 = P.Concat(axis=0)
+        self.interleaved_concat2 = P.Concat(axis=0)
         if self.layer_id != self.num_layers - 2:
             self.interleaved_concat2.add_prim_attr("fine_grained_interleaved_index", 1000)
 
         for _ in range(self.interleave_num):
-            concat_stra1.append((dp, mp, 1, 1))
-            interleave_data1 = _MicroBatch(self.interleave_num, 1, [1])
+            concat_stra1.append((dp, mp))
+            interleave_data1 = _MicroBatch(self.interleave_num, 1, [0])
             interleave_data1.strided_slice_list[0].add_prim_attr("skip_redistribution", True)
             interleave_data1_ = _MicroBatch(self.interleave_num, 1, [0])
             interleave_data1_.strided_slice_list[0].add_prim_attr("skip_redistribution", True)
-            interleave_data2 = _MicroBatch(self.interleave_num, 2, [1, 0])
+            interleave_data2 = _MicroBatch(self.interleave_num, 2, [0, 0])
             if parallel_config.use_seq_parallel:
                 if self.layer_id == self.num_layers - 2:
-                    concat_stra2.append((dp, 1, 1))
+                    concat_stra2.append((dp, 1))
                 else:
-                    concat_stra2.append((dp, mp, 1))
+                    concat_stra2.append((dp * mp, 1))
                 if self.layer_id == self.num_layers - 1:
                     interleave_data1.strided_slice_list[0].shard(((dp, 1, 1),))
                 else:
-                    interleave_data1.strided_slice_list[0].shard(((dp, mp, 1),))
+                    interleave_data1.strided_slice_list[0].shard(((dp * mp, 1),))
                 interleave_data1_.strided_slice_list[0].shard(((1, 1),))
-                interleave_data2.strided_slice_list[0].shard(((dp, mp, 1),))
+                interleave_data2.strided_slice_list[0].shard(((dp * mp, 1),))
             else:
-                concat_stra2.append((dp, 1, 1))
-                interleave_data1.strided_slice_list[0].shard(((dp, 1, 1),))
+                concat_stra2.append((dp, 1))
+                interleave_data1.strided_slice_list[0].shard(((dp, 1),))
                 interleave_data1_.strided_slice_list[0].shard(((1, 1),))
-                interleave_data2.strided_slice_list[0].shard(((dp, 1, 1),))
+                interleave_data2.strided_slice_list[0].shard(((dp, 1),))
             if self.layer_id == 0 and parallel_config.use_seq_parallel:
-                interleave_data2.strided_slice_list[0].shard(((dp, 1, 1),))
+                interleave_data2.strided_slice_list[0].shard(((dp, 1),))
             else:
                 interleave_data2.strided_slice_list[0].add_prim_attr("skip_redistribution", True)
 
@@ -574,10 +578,10 @@ class LLamaDecodeLayerInterleave(nn.Cell):
         self.interleaved_concat2.shard(concat_stra2)
         self.interleaved_concat2.add_prim_attr("skip_redistribution", True)
 
-    def linear_layer1(self, x, freqs_cis, interleave_num):
+    def linear_layer1(self, x):
         """layer part 1"""
         input_x = self.attention_norm(x)
-        query, key, value = self.attention.compute_qkv(input_x, freqs_cis, interleave_num)
+        query, key, value = self.attention.compute_qkv(input_x)
         return query, key, value
 
     def linear_layer2(self, x, attention):
@@ -597,19 +601,14 @@ class LLamaDecodeLayerInterleave(nn.Cell):
         x = self.reshape(x, (-1, x.shape[-1]))
         # ============linear-layer1================
         if self.layer_id == 0:
-            query, key, value = self.linear_layer1(x, freqs_cis, 1)
+            query, key, value = self.linear_layer1(x)
         else:
             query_tuple = ()
             key_tuple = ()
             value_tuple = ()
             for i in range(self.interleave_num):
-                x_part, = self.interleave1_inputs[i](i, self.reshape(x, (-1, self.seq_length, self.hidden_size)))
-                x_part = self.reshape(x_part, (-1, self.hidden_size))
-                freqs_cos, freqs_sin, swap_mask = freqs_cis
-                freqs_cos_, = self.interleave1_inputs_[i](i, freqs_cos)
-                freqs_sin_, = self.interleave1_inputs_[i](i, freqs_sin)
-                freqs_part = (freqs_cos_, freqs_sin_, swap_mask)
-                query_part, key_part, value_part = self.linear_layer1(x_part, freqs_part, self.interleave_num)
+                x_part, = self.interleave1_inputs[i](i, x)
+                query_part, key_part, value_part = self.linear_layer1(x_part)
                 query_tuple += (query_part,)
                 key_tuple += (key_part,)
                 value_tuple += (value_part,)
@@ -617,21 +616,18 @@ class LLamaDecodeLayerInterleave(nn.Cell):
             key = self.interleaved_concat_1(key_tuple)
             value = self.interleaved_concat_1(value_tuple)
         # ===========linear-layer1 end=============
-        attention = self.attention.cal_attn(query, key, value, mask)
+        attention = self.attention.cal_attn(query, key, value, mask, freqs_cis)
         # ============linear-layer2================
         if self.layer_id == self.num_layers - 1:
             output = self.linear_layer2(x, attention)
         else:
             output_tuple = ()
             for i in range(self.interleave_num):
-                x_part, attention_part = self.interleave2_inputs[i](i, self.reshape(
-                    x, (-1, self.seq_length, self.hidden_size)), attention)
-                x_part = self.reshape(x_part, (-1, self.hidden_size))
+                x_part, attention_part = self.interleave2_inputs[i](i, x, attention)
                 output_part = self.linear_layer2(x_part, attention_part)
-                output_part = self.reshape(output_part, (-1, self.inter_seq_length, self.hidden_size))
                 output_tuple += (output_part,)
             output = self.interleaved_concat2(output_tuple)
-         # ============linear-layer2 end===========
+        # ============linear-layer2 end===========
         return output
 
     def _check_input(self, x, freqs_cis, mask):
