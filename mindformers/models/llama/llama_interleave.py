@@ -597,7 +597,7 @@ class LLamaDecodeLayerInterleave(nn.Cell):
         return output
 
     # pylint: disable=W0613
-    def construct(self, x, freqs_cis, mask=None, kvcache_inputs=None):
+    def construct(self, x, freqs_cis, mask=None, batch_valid_length=None, block_tables=None, slot_mapping=None):
         """ Forward of transformer block. """
         self._check_input(x, freqs_cis, mask)
         x = self.reshape(x, (-1, x.shape[-1]))
