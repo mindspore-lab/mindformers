@@ -547,7 +547,7 @@ class LLamaDecodeLayerInterleave(nn.Cell):
                 else:
                     concat_stra2.append((dp * mp, 1))
                 if self.layer_id == self.num_layers - 1:
-                    interleave_data1.strided_slice_list[0].shard(((dp, 1, 1),))
+                    interleave_data1.strided_slice_list[0].shard(((dp, 1),))
                 else:
                     interleave_data1.strided_slice_list[0].shard(((dp * mp, 1),))
                 interleave_data1_.strided_slice_list[0].shard(((1, 1),))
@@ -559,6 +559,7 @@ class LLamaDecodeLayerInterleave(nn.Cell):
                 interleave_data2.strided_slice_list[0].shard(((dp, 1),))
             if self.layer_id == 0 and parallel_config.use_seq_parallel:
                 interleave_data2.strided_slice_list[0].shard(((dp, 1),))
+                interleave_data2.strided_slice_list[0].add_prim_attr("skip_redistribution", True)
             else:
                 interleave_data2.strided_slice_list[0].add_prim_attr("skip_redistribution", True)
 
