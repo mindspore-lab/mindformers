@@ -36,8 +36,7 @@ class InternLMModel(LlamaModel):
         super().__init__(config)
         self.layers = nn.CellList()
         for layer_id in range(config.num_layers):
-            layer = InternLMDecodeLayer(batch_size=config.batch_size,
-                                        seq_length=config.seq_length,
+            layer = InternLMDecodeLayer(seq_length=config.seq_length,
                                         layer_id=layer_id,
                                         dim=config.hidden_size,
                                         n_heads=config.num_heads,
@@ -57,8 +56,6 @@ class InternLMModel(LlamaModel):
                                         block_size=config.block_size,
                                         num_blocks=config.num_blocks,
                                         is_dynamic=config.is_dynamic,
-                                        use_kvcache_op=config.use_kvcache_op,
-                                        is_flexible_shape=config.is_flexible_shape,
                                         use_rope_slice=config.use_rope_slice,
                                         parallel_config=config.parallel_config)
             layer_compute_dtype(layer, layer_id, config.offset, config.parallel_config,
