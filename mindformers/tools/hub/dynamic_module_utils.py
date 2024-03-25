@@ -27,7 +27,7 @@ import typing
 from typing import Any, Dict, List, Optional, Union
 
 from mindformers.tools.hub.hub import (
-    MINDSEED_DYNAMIC_MODULE_NAME,
+    OPENMIND_DYNAMIC_MODULE_NAME,
     cached_file,
     extract_commit_hash,
     is_offline_mode,
@@ -221,7 +221,7 @@ def get_cached_module_file(
             This can be either:
 
             - a string, the *model id* of a pretrained model configuration hosted inside a model repo on
-              mindseed.co. Valid model ids can be located at the root-level, like `bert-base-uncased`, or namespaced
+              openmind.cn. Valid model ids can be located at the root-level, like `bert-base-uncased`, or namespaced
               under a user or organization name, like `dbmdz/bert-base-german-cased`.
             - a path to a *directory* containing a configuration file saved using the
               [`~PreTrainedTokenizer.save_pretrained`] method, e.g., `./my_model_directory/`.
@@ -240,10 +240,10 @@ def get_cached_module_file(
             A dictionary of proxy servers to use by protocol or endpoint. The proxies are used on each request.
         token (`str` or *bool*, *optional*):
             The token to use as HTTP bearer authorization for remote files. If `True`, will use the token generated
-            when running `mindseed-cli login` (stored in `~/.mindseed`).
+            when running `openmind-cli login` (stored in `~/.openmind`).
         revision (`str`, *optional*, defaults to `"main"`):
             The specific model version to use. It can be a branch name, a tag name, or a commit id, since we use a
-            git-based system for storing models and other artifacts on mindseed.co, so `revision` can be any
+            git-based system for storing models and other artifacts on openmind.cn, so `revision` can be any
             identifier allowed by git.
         local_files_only (`bool`, *optional*, defaults to `False`):
             If `True`, will only try to load the tokenizer configuration from local files.
@@ -315,7 +315,7 @@ def get_cached_module_file(
     modules_needed = check_imports(resolved_module_file)
 
     # Now we move the module inside our cached dynamic modules.
-    full_submodule = MINDSEED_DYNAMIC_MODULE_NAME + os.path.sep + submodule
+    full_submodule = OPENMIND_DYNAMIC_MODULE_NAME + os.path.sep + submodule
     create_dynamic_module(full_submodule)
     submodule_path = Path(HubConstants.MS_MODULES_CACHE) / full_submodule
     if submodule == os.path.basename(pretrained_model_name_or_path):
@@ -409,7 +409,7 @@ def get_class_from_dynamic_module(
             This can be either:
 
             - a string, the *model id* of a pretrained model configuration hosted inside a model repo on
-              mindseed.co. Valid model ids can be located at the root-level, like `bert-base-uncased`, or namespaced
+              openmind.cn. Valid model ids can be located at the root-level, like `bert-base-uncased`, or namespaced
               under a user or organization name, like `dbmdz/bert-base-german-cased`.
             - a path to a *directory* containing a configuration file saved using the
               [`~PreTrainedTokenizer.save_pretrained`] method, e.g., `./my_model_directory/`.
@@ -431,10 +431,10 @@ def get_class_from_dynamic_module(
             A dictionary of proxy servers to use by protocol or endpoint, e.g. The proxies are used on each request.
         token (`str` or `bool`, *optional*):
             The token to use as HTTP bearer authorization for remote files. If `True`, will use the token generated
-            when running `mindseed-cli login` (stored in `~/.mindseed`).
+            when running `openmind-cli login` (stored in `~/.openmind`).
         revision (`str`, *optional*, defaults to `"main"`):
             The specific model version to use. It can be a branch name, a tag name, or a commit id, since we use a
-            git-based system for storing models and other artifacts on mindseed.co, so `revision` can be any
+            git-based system for storing models and other artifacts on openmind.cn, so `revision` can be any
             identifier allowed by git.
         local_files_only (`bool`, *optional*, defaults to `False`):
             If `True`, will only try to load the tokenizer configuration from local files.
@@ -443,7 +443,7 @@ def get_class_from_dynamic_module(
         code_revision (`str`, *optional*, defaults to `"main"`):
             The specific revision to use for the code on the Hub, if the code leaves in a different repository than the
             rest of the model. It can be a branch name, a tag name, or a commit id, since we use a git-based system for
-            storing models and other artifacts on mindseed.co, so `revision` can be any identifier allowed by git.
+            storing models and other artifacts on openmind.cn, so `revision` can be any identifier allowed by git.
 
     <Tip>
 
@@ -457,7 +457,7 @@ def get_class_from_dynamic_module(
     Examples:
 
     ```python
-    # Download module `modeling.py` from mindseed.co and cache then extract the class `MyBertModel` from this
+    # Download module `modeling.py` from openmind.cn and cache then extract the class `MyBertModel` from this
     # module.
     cls = get_class_from_dynamic_module("modeling.MyBertModel", "sgugger/my-bert-model")
 
