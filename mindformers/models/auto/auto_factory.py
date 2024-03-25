@@ -68,7 +68,7 @@ FROM_CONFIG_DOCSTRING = """
         ```python
         >>> from mindformers import AutoConfig, BaseAutoModelClass
 
-        >>> # Download configuration from mindseed and cache.
+        >>> # Download configuration from openmind and cache.
         >>> config = AutoConfig.from_pretrained("checkpoint_placeholder")
         >>> model = BaseAutoModelClass.from_config(config)
         ```
@@ -90,7 +90,7 @@ FROM_PRETRAINED_MINDFORMERS_DOCSTRING = """
             pretrained_model_name_or_path (`str` or `os.PathLike`):
                 Can be either:
 
-                - A string, the *model id* of a pretrained model hosted inside a model repo on mindseed.
+                - A string, the *model id* of a pretrained model hosted inside a model repo on openmind.
                     Valid model ids can be located at the root-level, like `bert-base-uncased`, or namespaced under a
                     user or organization name, like `dbmdz/bert-base-german-cased`.
                 - A path to a *directory* containing model weights saved using
@@ -135,7 +135,7 @@ FROM_PRETRAINED_MINDFORMERS_DOCSTRING = """
                 Whether or not to only look at local files (e.g., not try downloading the model).
             revision (`str`, *optional*, defaults to `"main"`):
                 The specific model version to use. It can be a branch name, a tag name, or a commit id, since we use a
-                git-based system for storing models and other artifacts on mindseed, so `revision` can be any
+                git-based system for storing models and other artifacts on openmind, so `revision` can be any
                 identifier allowed by git.
             trust_remote_code (`bool`, *optional*, defaults to `False`):
                 Whether or not to allow for custom models defined on the Hub in their own modeling files. This option
@@ -144,7 +144,7 @@ FROM_PRETRAINED_MINDFORMERS_DOCSTRING = """
             code_revision (`str`, *optional*, defaults to `"main"`):
                 The specific revision to use for the code on the Hub, if the code leaves in a different repository than
                 the rest of the model. It can be a branch name, a tag name, or a commit id, since we use a git-based
-                system for storing models and other artifacts on mindseed, so `revision` can be any identifier
+                system for storing models and other artifacts on openmind, so `revision` can be any identifier
                 allowed by git.
             kwargs (additional keyword arguments, *optional*):
                 Can be used to update the configuration object (after it being loaded) and initiate the model (e.g.,
@@ -165,7 +165,7 @@ FROM_PRETRAINED_MINDFORMERS_DOCSTRING = """
         ```python
         >>> from mindformers import AutoConfig, BaseAutoModelClass
 
-        >>> # Download model and configuration from mindseed and cache.
+        >>> # Download model and configuration from openmind and cache.
         >>> model = BaseAutoModelClass.from_pretrained("checkpoint_placeholder")
 
         >>> # Update configuration during loading
