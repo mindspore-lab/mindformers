@@ -130,6 +130,94 @@ MindFormers套件对外提供两种使用和开发形式，为开发者提供灵
 
 用户可以直接clone整个仓库，按照以下步骤即可运行套件中已支持的任意`configs`模型任务配置文件，方便用户快速进行使用和开发：
 
+**一、使用[msrun方式启动](https://www.mindspore.cn/tutorials/experts/zh-CN/r2.3/parallel/msrun_launcher.html)（推荐，仅适用于配套MindSpore2.3以上版本）**
+
+目前msrun方式启动不支持指定device_id启动，msrun命令会按当前节点所有显卡顺序设置rank_id。
+
+- 单机多卡
+
+  ```shell
+  # 单机多卡快速启动方式，默认8卡启动
+  bash scripts/msrun_launcher.sh "run_mindformer.py \
+   --config {CONFIG_PATH} \
+   --run_mode {train/finetune/eval/predict}"
+
+  # 单机多卡快速启动方式，仅设置使用卡数即可
+  bash scripts/msrun_launcher.sh "run_mindformer.py \
+   --config {CONFIG_PATH} \
+   --run_mode {train/finetune/eval/predict}" WORKER_NUM
+
+  # 单机多卡自定义启动方式
+  bash scripts/msrun_launcher.sh "run_mindformer.py \
+   --config {CONFIG_PATH} \
+   --run_mode {train/finetune/eval/predict}" \
+   WORKER_NUM MASTER_PORT LOG_DIR JOIN CLUSTER_TIME_OUT
+  ```
+
+    - 使用示例
+
+      ```shell
+      # 单机多卡快速启动方式，默认8卡启动
+      bash scripts/msrun_launcher.sh "run_mindformer.py \
+       --config path/to/xxx.yaml \
+       --run_mode finetune"
+
+      # 单机多卡快速启动方式
+      bash scripts/msrun_launcher.sh "run_mindformer.py \
+       --config path/to/xxx.yaml \
+       --run_mode finetune" 8
+
+      # 单机多卡自定义启动方式
+      bash scripts/msrun_launcher.sh "run_mindformer.py \
+       --config path/to/xxx.yaml \
+       --run_mode finetune" \
+       8 8118 output/msrun_log False 300
+      ```
+
+- 多机多卡
+
+  多机多卡执行脚本进行分布式训练需要分别在不同节点运行脚本，并将参数MASTER_ADDR设置为主节点的ip地址，
+  所有节点设置的ip地址相同，不同节点之间仅参数NODE_RANK不同。
+
+  ```shell
+  # 多机多卡自定义启动方式
+  bash scripts/msrun_launcher.sh "run_mindformer.py \
+   --config {CONFIG_PATH} \
+   --run_mode {train/finetune/eval/predict}" \
+   WORKER_NUM LOCAL_WORKER MASTER_ADDR MASTER_PORT NODE_RANK LOG_DIR JOIN CLUSTER_TIME_OUT
+  ```
+
+    - 使用示例
+
+      ```shell
+      # 节点0，节点ip为192.168.1.1，作为主节点，总共8卡且每个节点4卡
+      bash scripts/msrun_launcher.sh "run_mindformer.py \
+       --config {CONFIG_PATH} \
+       --run_mode {train/finetune/eval/predict}" \
+       8 4 192.168.1.1 8118 0 output/msrun_log False 300
+
+      # 节点1，节点ip为192.168.1.2，节点0与节点1启动命令仅参数NODE_RANK不同
+      bash scripts/msrun_launcher.sh "run_mindformer.py \
+       --config {CONFIG_PATH} \
+       --run_mode {train/finetune/eval/predict}" \
+       8 4 192.168.1.1 8118 1 output/msrun_log False 300
+      ```
+
+- 参数说明
+
+  | **参数**           | **单机是否必选**  | **多机是否必选** |     **默认值**      | **说明**           |
+  |------------------|:-----------:|:----------:|:----------------:|------------------|
+  | WORKER_NUM       |      √      |     √      |        8         | 所有节点中使用计算卡的总数    |
+  | LOCAL_WORKER     |      ×      |     √      |        8         | 当前节点中使用计算卡的数量    |
+  | MASTER_ADDR      |      ×      |     √      |    127.0.0.1     | 指定分布式启动主节点的ip    |
+  | MASTER_PORT      |      ×      |     √      |       8118       | 指定分布式启动绑定的端口号    |
+  | NODE_RANK        |      ×      |     √      |        0         | 指定当前节点的rank id   |
+  | LOG_DIR          |      ×      |     √      | output/msrun_log | 日志输出路径，若不存在则递归创建 |
+  | JOIN             |      ×      |     √      |      False       | 是否等待所有分布式进程退出    |
+  | CLUSTER_TIME_OUT |      ×      |     √      |       600        | 分布式启动的等待时间，单位为秒  |
+
+**二、使用rank table或动态组网方式启动**
+
 - 准备工作
 
     - step1：克隆mindformers仓库。
