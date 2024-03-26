@@ -41,7 +41,14 @@ llama2_13b:
 | [llama2_13b](../../configs/llama2/run_llama2_13b_910b.yaml)             | text_generation       | WikiText2 | -         | PPL    | [eval](#评测)     | 6.14        | -             |
 | [llama2_13b](../../configs/llama2/run_llama2_13b_910b.yaml)             | reading comprehension | SQuAD 1.1 | -         | EM/F1  | [eval](#评测)     | 27.91/44.23 | -             |
 
-llama2_70b 待补充。
+llama2_70b：
+
+| config                                                                  | task                  | Datasets  | SeqLength | metric | phase            | score       | performance  |
+|-------------------------------------------------------------------------| --------------------- | --------- |-----------| ------ |------------------|-------------|--------------|
+| [llama2_70b_FA](../../configs/llama2/run_llama2_70b_910b.yaml)          | text_generation       | wiki      | 4096      | -      | [train](#预训练)    | -           | 407  tks/s/p |
+| [llama2_70b_FA](../../configs/llama2/run_llama2_70b_910b_finetune.yaml) | text_generation       | alpaca    | 4096      | -      | [finetune](#微调)  | -           | 414 tks/s/p  |
+| [llama2_70b](../../configs/llama2/run_llama2_70b_910b.yaml)             | text_generation       | WikiText2 | -         | PPL    | [eval](#评测)      | 4.92        | -            |
+| [llama2_70b](../../configs/llama2/run_llama2_70b_910b.yaml)             | reading comprehension | SQuAD 1.1 | -         | EM/F1  | [eval](#评测)      | 41.94/63.86 | -            |
 
 基于Atlas 900 A2 PoDc
 
@@ -398,9 +405,33 @@ python llama_preprocess.py \
 
 - step 1. 修改模型对应的配置文件。
 
-在模型对应的配置文件`configs/llama/run_llama2_{7/13/70}b_910b_auto_parallel.yaml`中，用户可自行修改模型、训练相关参数(推荐开启flash_attention，可加速训练)，并通过`train_dataset`的`dataset_dir`参数，指定训练数据集的路径。
+在模型对应的配置文件`configs/llama/run_llama2_{7/13/70}b_910b_auto_parallel.yaml`中，用户可自行修改模型、训练相关参数(推荐开启flash_attention，可加速训练)
+通过配置中的`train_dataset`的`dataset_dir`参数，指定训练数据集的路径。
 
-配置文件中各参数含义详见[Config配置说明文档](https://gitee.com/mindspore/mindformers/blob/master/configs/README.md)。auto_parallel说明详见[自动并行](../docs/feature_cards/Auto_Parallel.md)。
+如果是llama2 70b，还可以在train和finetune的yaml里开启并行加速：
+
+```bash
+context:
+  ascend_config:
+    parallel_speed_up_json_path: "/path/to/your/parallel_speed_up.json"
+```
+
+parallel_speed_up.json文件示例：
+
+```bash
+{
+  "recompute_comm_overlap": false,
+  "matmul_grad_comm_overlap": true,
+  "enable_task_opt": false,
+  "enable_grad_comm_opt": false,
+  "enable_opt_shard_comm_opt": false,
+  "enable_concat_eliminate_opt": false,
+  "enable_begin_end_inline_opt": false,
+  "compute_communicate_fusion_level":0
+}
+```
+
+配置文件中各参数含义详见[Config配置说明文档](https://gitee.com/mindspore/mindformers/blob/master/configs/README.md)。auto_parallel说明详见[自动并行](../docs/feature_cards/Auto_Parallel.md)。parallel_speed_up中各参数含义详见[parallel_speed_up说明](https://www.mindspore.cn/docs/zh-CN/r2.3/api_python/mindspore/mindspore.set_context.html#mindspore.set_context)。
 
 - step2. 设置环境变量，变量配置如下：
 
