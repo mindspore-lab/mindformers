@@ -531,8 +531,7 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
             #    logits = self.reshape(logits, (bsz, seqlen, -1))
             logits = self.cast(logits, mstype.float32)
             # makes cast effective to avoid allgather issue in Mindspore1.10
-            input_mask = self.add(input_mask, 1)
-            return logits, tokens, input_mask
+            return logits
 
         if logits.ndim > 2:
             logits = self.reshape(logits, (-1, logits.shape[-1]))
