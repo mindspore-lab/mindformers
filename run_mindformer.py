@@ -38,9 +38,10 @@ def main(config):
     if config.run_mode == 'train' or config.run_mode == 'finetune':
         trainer.train()
     elif config.run_mode == 'eval':
-        trainer.evaluate()
+        trainer.evaluate(eval_checkpoint=config.load_checkpoint)
     elif config.run_mode == 'predict':
-        trainer.predict(input_data=config.input_data, batch_size=config.predict_batch_size)
+        trainer.predict(predict_checkpoint=config.load_checkpoint, input_data=config.input_data,
+                        batch_size=config.predict_batch_size)
     elif config.run_mode == 'export':
         trainer.export()
 
