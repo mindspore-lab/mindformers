@@ -157,14 +157,12 @@ from mindformers.models import LlamaConfig
 
 from internlm import InternLMForCausalLM
 from internlm_tokenizer import InternLMTokenizer
+from internlm_config import InternLMConfig
 
 context.set_context(device_id=0, mode=0)
 # init model
 internlm_model_path = "/path/InternLM-7B/internlm-chat.ckpt" # InternLM ckpt path
-internlm_config = LlamaConfig(
-    vocab_size=103168,
-    pad_token_id=0,
-    rms_norm_eps=1.0e-6,
+internlm_config = InternLMConfig(
     checkpoint_name_or_path=internlm_model_path,
     use_past=True
 )
