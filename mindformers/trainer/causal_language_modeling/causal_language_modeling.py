@@ -214,7 +214,7 @@ class CausalLanguageModelingTrainer(BaseTrainer):
         # build tokenizer
         logger.info(".........Build tokenizer For Evaluate..........")
         if tokenizer is None and config.processor.tokenizer:
-            tokenizer = build_tokenizer(config.processor.tokenizer)
+            tokenizer = build_tokenizer(config.processor.tokenizer, tokenizer_name=config.trainer.model_name)
 
         logger.info(".........Starting Init Evaluate Model..........")
         model = Model(network, eval_network=network)
