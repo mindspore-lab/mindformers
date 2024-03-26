@@ -36,21 +36,21 @@ ENV_VARS_TRUE_VALUES = {"1", "ON", "YES", "TRUE"}
 
 SESSION_ID = uuid4().hex
 
-MINDSEED_DYNAMIC_MODULE_NAME = "mindseed_modules"
+OPENMIND_DYNAMIC_MODULE_NAME = "openmind_modules"
 _is_offline_mode = os.environ.get("TRANSFORMERS_OFFLINE", "0").upper() in ENV_VARS_TRUE_VALUES
-_staging_mode = os.environ.get("MINDSEED_CO_STAGING", "NO").upper() in ENV_VARS_TRUE_VALUES
-_default_endpoint = "https://xxx" if _staging_mode else "https://xxx"  # TODO confirm real default endpoint address
-MINDSEED_CO_RESOLVE_ENDPOINT = os.environ.get("MDS_ENDPOINT", _default_endpoint)
+_staging_mode = os.environ.get("OPENMIND_CO_STAGING", "NO").upper() in ENV_VARS_TRUE_VALUES
+_default_endpoint = "https://hub-ci.openmind.cn" if _staging_mode else "https://openmind.cn"  # TODO confirm real default endpoint address
+OPENMIND_CO_RESOLVE_ENDPOINT = os.environ.get("MDS_ENDPOINT", _default_endpoint)
 
 
 class HubConstants:
     try:
-        from modelfoundry_hub import MDS_HOME, MDS_HUB_CACHE
+        from openmind_hub import MDS_HOME, MDS_HUB_CACHE
     except ImportError:
         MDS_HOME = ""
         MDS_HUB_CACHE = ""
     MS_MODULES_CACHE = os.getenv("MS_MODULES_CACHE", os.path.join(MDS_HOME, "modules"))
-    MINDSEED_CACHE = os.getenv("MINDSEED_CACHE", MDS_HUB_CACHE)
+    OPENMIND_CACHE = os.getenv("OPENMIND_CACHE", MDS_HUB_CACHE)
 
 
 def is_remote_url(url_or_filename):
@@ -67,11 +67,11 @@ def http_user_agent(user_agent: Union[Dict, str, None] = None) -> str:
     """
     Formats a user-agent string with basic info about a request.
     """
-    ua = f"mindseed/{__version__}; python/{sys.version.split()[0]}; session_id/{SESSION_ID}"
+    ua = f"openmind/{__version__}; python/{sys.version.split()[0]}; session_id/{SESSION_ID}"
     import mindspore
     ua += f"; mindspore/{mindspore.__version__}"
     # CI will set this value to True
-    if os.environ.get("mindseed_IS_CI", "").upper() in ENV_VARS_TRUE_VALUES:
+    if os.environ.get("openmind_IS_CI", "").upper() in ENV_VARS_TRUE_VALUES:
         ua += "; is_ci/true"
     if isinstance(user_agent, dict):
         ua += "; " + "; ".join(f"{k}/{v}" for k, v in user_agent.items())
@@ -141,8 +141,8 @@ def get_checkpoint_shard_files(
     path to the
     index (downloaded and cached if `pretrained_model_name_or_path` is a model ID on the Hub).
     """
-    from modelfoundry_hub.utils import EntryNotFoundError, MdsHubHTTPError
-    from modelfoundry_hub import try_to_load_from_cache
+    from openmind_hub.utils import EntryNotFoundError, MdsHubHTTPError
+    from openmind_hub import try_to_load_from_cache
 
     import json
     from tqdm import tqdm
@@ -193,7 +193,7 @@ def get_checkpoint_shard_files(
             )
         except MdsHubHTTPError:
             raise EnvironmentError(
-                f"We couldn't connect to '{MINDSEED_CO_RESOLVE_ENDPOINT}' to load {shard_filename}. You should try"
+                f"We couldn't connect to '{OPENMIND_CO_RESOLVE_ENDPOINT}' to load {shard_filename}. You should try"
                 " again after checking your internet connection."
             )
 
@@ -228,8 +228,7 @@ def cached_file(
     Args:
         path_or_repo_id (`str` or `os.PathLike`):
             This can be either:
-            # TODO add community url to replace {xxx}
-            - a string, the *model id* of a model repo on {xxx}.
+            - a string, the *model id* of a model repo on openmind.
             - a path to a *directory* potentially containing the file.
         filename (`str`):
             The name of the file to locate in `path_or_repo`.
@@ -246,20 +245,15 @@ def cached_file(
             A dictionary of proxy servers to use by protocol or endpoint, e.g., `{'http': 'foo.bar:3128',
             'http://hostname': 'foo.bar:4012'}.` The proxies are used on each request.
         token (`str` or *bool*, *optional*):
-            # TODO add cli login command for generating token to replace first {xxx}, add local path where
-            # TODO token is saved to replace second {xxx}
-            The token to use as HTTP bearer authorization for remote files. If `True`, will use the token
-            generated when running `{xxx}` (stored in `{xxx}`).
+            The token to use as HTTP bearer authorization for remote files.
         revision (`str`, *optional*, defaults to `"main"`):
-            # TODO add community url to replace {xxx}
             The specific model version to use. It can be a branch name, a tag name, or a commit id,
-            since we use a git-based system for storing models and other artifacts on {xxx},
+            since we use a git-based system for storing models and other artifacts on openmind.cn,
             so `revision` can be any identifier allowed by git.
         local_files_only (`bool`, *optional*, defaults to `False`):
             If `True`, will only try to load the tokenizer configuration from local files.
         subfolder (`str`, *optional*, defaults to `""`):
-            # TODO add community url to replace {xxx}
-            In case the relevant files are located inside a subfolder of the model repo on {xxx},
+            In case the relevant files are located inside a subfolder of the model repo on openmind.cn,
             you can specify the folder name here.
         repo_type (`str`, *optional*):
             Specify the repo type (useful when downloading from a space for instance).
@@ -280,7 +274,7 @@ def cached_file(
     model_weights_file = cached_file("bert-base-uncased", "pytorch_model.bin")
     ```
     """
-    from modelfoundry_hub.utils import (
+    from openmind_hub.utils import (
         GatedRepoError,
         RepositoryNotFoundError,
         RevisionNotFoundError,
@@ -290,7 +284,7 @@ def cached_file(
         MDSValidationError
     )
 
-    from modelfoundry_hub import _CACHED_NO_EXIST, mds_hub_download, try_to_load_from_cache
+    from openmind_hub import _CACHED_NO_EXIST, mds_hub_download, try_to_load_from_cache
 
     if is_offline_mode() and not local_files_only:
         logger.info("Offline mode: forcing local_files_only=True")
@@ -304,15 +298,15 @@ def cached_file(
         resolved_file = os.path.join(os.path.join(path_or_repo_id, subfolder), filename)
         if not os.path.isfile(resolved_file):
             if _raise_exceptions_for_missing_entries:
-                raise EnvironmentError(  # TODO add community url to replace xxx
+                raise EnvironmentError(
                     f"{path_or_repo_id} does not appear to have a file named {full_filename}. Checkout "
-                    f"'https://xxx/{path_or_repo_id}/{revision}' for available files."
+                    f"'https://openmind.cn/{path_or_repo_id}/{revision}' for available files."
                 )
             return None
         return resolved_file
 
     if cache_dir is None:
-        cache_dir = HubConstants.MINDSEED_CACHE
+        cache_dir = HubConstants.OPENMIND_CACHE
     if isinstance(cache_dir, Path):
         cache_dir = str(cache_dir)
 
@@ -352,24 +346,22 @@ def cached_file(
         )
     except GatedRepoError as e:
         raise EnvironmentError(
-            # TODO add community url to replace xxx, add cli login command for generating token to replace {xxx}
             "You are trying to access a gated repo.\nMake sure to request access at "
-            f"https://xxx/{path_or_repo_id} and pass a token having permission to this repo either "
-            "by logging in with `{xxx}` or by passing `token=<your_token>`."
+            f"https://openmind.cn/{path_or_repo_id} and pass a token having permission to this repo "
+            "by passing `token=<your_token>`."
         ) from e
     except RepositoryNotFoundError as e:
-        raise EnvironmentError(
-            # TODO add community url to replace xxx, add cli login command for generating token to replace {xxx}
+        raise EnvironmentError(  #TODO: replace xxx to openmind.cn
             f"{path_or_repo_id} is not a local folder and is not a valid model identifier "
-            "listed on 'https://xxx/models'\nIf this is a private repository, make sure to pass a token "
-            "having permission to this repo either by logging in with `{xxx}` or by passing "
+            "listed on 'xxxxxxxxxxxxx'\nIf this is a private repository, make sure to pass a token "
+            "having permission to this repo by passing "
             "`token=<your_token>`"
         ) from e
     except RevisionNotFoundError as e:
-        raise EnvironmentError(  # TODO add community url to replace xxx
+        raise EnvironmentError(
             f"{revision} is not a valid git identifier (branch name, tag name or commit id) that exists "
             "for this model name. Check the model page at "
-            f"'https://xxx/{path_or_repo_id}' for available revisions."
+            f"'https://openmind.cn/{path_or_repo_id}' for available revisions."
         ) from e
     except LocalEntryNotFoundError as e:
         # We try to see if we have a cached version (not up to date):
@@ -381,20 +373,18 @@ def cached_file(
         if not _raise_exceptions_for_missing_entries or not _raise_exceptions_for_connection_errors:
             return None
         raise EnvironmentError(
-            # TODO add mindseed offline-mode document address to replace xxx
-            f"We couldn't connect to '{MINDSEED_CO_RESOLVE_ENDPOINT}' to load this file, couldn't find it in the"
+            f"We couldn't connect to '{OPENMIND_CO_RESOLVE_ENDPOINT}' to load this file, couldn't find it in the"
             f" cached files and it looks like {path_or_repo_id} is not the path to a directory containing a file "
-            f"named {full_filename}.\nCheckout your internet connection or see how to run the library in offline "
-            f"mode at 'https://xxx'."
+            f"named {full_filename}.\nCheckout your internet connection."
         ) from e
     except EntryNotFoundError as e:
         if not _raise_exceptions_for_missing_entries:
             return None
         if revision is None:
             revision = "main"
-        raise EnvironmentError(  # TODO add community url to replace xxx
+        raise EnvironmentError(
             f"{path_or_repo_id} does not appear to have a file named {full_filename}. Checkout "
-            f"'https://xxx/{path_or_repo_id}/{revision}' for available files."
+            f"'https://openmind.cn/{path_or_repo_id}/{revision}' for available files."
         ) from e
     except MdsHubHTTPError as err:
         # First we try to see if we have a cached version (not up to date):
@@ -432,7 +422,7 @@ def download_url(url, proxies=None):
     Returns:
         `str`: The location of the temporary file where the url was downloaded.
     """
-    from modelfoundry_hub import http_get
+    from openmind_hub import http_get
 
     warnings.warn(
         f"Using `from_pretrained` with the url of a file (here {url}) is deprecated. You should host your file "
@@ -451,7 +441,7 @@ def extract_commit_hash(resolved_file: Optional[str], commit_hash: Optional[str]
     """
     Extracts the commit hash from a resolved filename toward a cache file.
     """
-    from modelfoundry_hub import REGEX_COMMIT_HASH
+    from openmind_hub import REGEX_COMMIT_HASH
 
     if resolved_file is None or commit_hash is not None:
         return commit_hash
@@ -483,7 +473,7 @@ def get_file_from_repo(
         path_or_repo (`str` or `os.PathLike`):
             This can be either:
 
-            - a string, the *model id* of a model repo on xxx. # TODO add community url to replace xxx
+            - a string, the *model id* of a model repo on openmind.cn.
             - a path to a *directory* potentially containing the file.
         filename (`str`):
             The name of the file to locate in `path_or_repo`.
@@ -500,20 +490,15 @@ def get_file_from_repo(
             A dictionary of proxy servers to use by protocol or endpoint, e.g., `{'http': 'foo.bar:3128',
             'http://hostname': 'foo.bar:4012'}.` The proxies are used on each request.
         token (`str` or *bool*, *optional*):
-            # TODO add cli login command for generating token to replace {xxx}
-            # TODO add token local cache dir name to replace xxx
-            The token to use as HTTP bearer authorization for remote files. If `True`, will use the token generated
-            when running `{xxx}` (stored in `~/.xxx`).
+            The token to use as HTTP bearer authorization for remote files.
         revision (`str`, *optional*, defaults to `"main"`):
-            # TODO add community url to replace xxx
             The specific model version to use. It can be a branch name, a tag name, or a commit id, since we use a
-            git-based system for storing models and other artifacts on xxx, so `revision` can be any
+            git-based system for storing models and other artifacts on openmind, so `revision` can be any
             identifier allowed by git.
         local_files_only (`bool`, *optional*, defaults to `False`):
             If `True`, will only try to load the tokenizer configuration from local files.
         subfolder (`str`, *optional*, defaults to `""`):
-            # TODO add community url to replace xxx
-            In case the relevant files are located inside a subfolder of the model repo on xxx, you can
+            In case the relevant files are located inside a subfolder of the model repo on openmind, you can
             specify the folder name here.
 
     <Tip>
@@ -529,8 +514,7 @@ def get_file_from_repo(
     Examples:
 
     ```python
-    # TODO add community url to replace xxx
-    # Download a tokenizer configuration from xxx and cache.
+    # Download a tokenizer configuration from openmind.cn and cache.
     tokenizer_config = get_file_from_repo("bert-base-uncased", "tokenizer_config.json")
     # This model does not have a tokenizer config so the result will be None.
     tokenizer_config = get_file_from_repo("xlm-roberta-base", "tokenizer_config.json")
@@ -570,13 +554,13 @@ def has_file(
 
     </Tip>
     """
-    from modelfoundry_hub.utils import (
+    from openmind_hub.utils import (
         RepositoryNotFoundError,
         RevisionNotFoundError,
         mds_raise_for_status,
         GatedRepoError
     )
-    from modelfoundry_hub import mds_hub_url, build_mds_headers
+    from openmind_hub import mds_hub_url, build_mds_headers
 
     if os.path.isdir(path_or_repo):
         return os.path.isfile(os.path.join(path_or_repo, filename))
@@ -591,23 +575,20 @@ def has_file(
     except GatedRepoError as e:
         logger.error(e)
         raise EnvironmentError(
-            # TODO add community url to replace xxx, add cli login command for generating token to replace {xxx}
             f"{path_or_repo} is a gated repository. Make sure to request access at "
-            f"https://xxx/{path_or_repo} and pass a token having permission to this repo either by "
-            "logging in with `{xxx}` or by passing `token=<your_token>`."
+            f"https://openmind.cn/{path_or_repo} and pass a token having permission to this repo "
+            "by passing `token=<your_token>`."
         ) from e
     except RepositoryNotFoundError as e:
         logger.error(e)
         raise EnvironmentError(
-            # TODO add community url to replace xxx
-            f"{path_or_repo} is not a local folder or a valid repository name on 'https://xxx'."
+            f"{path_or_repo} is not a local folder or a valid repository name on 'https://openmind.cn'."
         )
     except RevisionNotFoundError as e:
         logger.error(e)
         raise EnvironmentError(
-            # TODO add community url to replace xxx
             f"{revision} is not a valid git identifier (branch name, tag name or commit id) that exists for this "
-            f"model name. Check the model page at 'https://xxx/{path_or_repo}' for available revisions."
+            f"model name. Check the model page at 'https://openmind.cn/{path_or_repo}' for available revisions."
         )
     except requests.HTTPError:
         # We return false for EntryNotFoundError (logical) as well as any connection error.
@@ -629,7 +610,7 @@ class PushToHubMixin:
         Create the repo if needed, cleans up repo_id with deprecated kwargs `repo_url` and `organization`, retrieves
         the token.
         """
-        from modelfoundry_hub import create_repo
+        from openmind_hub import create_repo
         url = create_repo(repo_id=repo_id, token=token, private=private, exist_ok=True)
         return url.repo_id
 
@@ -653,7 +634,7 @@ class PushToHubMixin:
         """
         Uploads all modified files in `working_dir` to `repo_id`, based on `files_timestamps`.
         """
-        from modelfoundry_hub import CommitOperationAdd, create_commit, create_branch
+        from openmind_hub import CommitOperationAdd, create_commit, create_branch
 
         if commit_message is None:
             if "Model" in self.__class__.__name__:
@@ -728,7 +709,7 @@ class PushToHubMixin:
             **deprecated_kwargs,
     ) -> str:
         """
-        Upload the {object_files} to the MindSeed Model Hub.
+        Upload the {object_files} to the OpenMind Model Hub.
 
         Parameters:
             repo_id (`str`):
@@ -742,16 +723,12 @@ class PushToHubMixin:
             private (`bool`, *optional*):
                 Whether the repository created should be private.
             token (`bool` or `str`, *optional*):
-                # TODO replace {xxx} with cli login command for generating token, replace xxx with local path
-                # TODO where token is saved
-                The token to use as HTTP bearer authorization for remote files. If `True`, will use the token generated
-                when running `{xxx}` (stored in `~/xxx`). Will default to `True` if `repo_url` is not specified.
+                The token to use as HTTP bearer authorization for remote files.
+                Will default to `True` if `repo_url` is not specified.
             max_shard_size (`int` or `str`, *optional*, defaults to `"5GB"`):
                 Only applicable for models. The maximum size for a checkpoint before being sharded. Checkpoints shard
                 will then be each of size lower than this size. If expressed as a string, needs to be digits followed
                 by a unit (like `"5MB"`). We default it to `"5GB"`.
-            create_pr (`bool`, *optional*, defaults to `False`):
-                Whether or not to create a PR with the uploaded files or directly commit.
             safe_serialization (`bool`, *optional*, defaults to `True`):
                 Whether or not to convert the model weights in safetensors format for safer serialization.
             revision (`str`, *optional*):
@@ -762,7 +739,7 @@ class PushToHubMixin:
         Examples:
 
         ```python
-        from mindseed import {object_class}
+        from openmind import {object_class}
 
         {object} = {object_class}.from_pretrained("bert-base-cased")
 
@@ -770,7 +747,7 @@ class PushToHubMixin:
         {object}.push_to_hub("my-finetuned-bert")
 
         # Push the {object} to an organization with the name "my-finetuned-bert".
-        {object}.push_to_hub("mindseed/my-finetuned-bert")
+        {object}.push_to_hub("openmind/my-finetuned-bert")
         ```
         """
         working_dir = repo_id.split("/")[-1]

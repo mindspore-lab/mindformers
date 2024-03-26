@@ -14,7 +14,7 @@
 # ============================================================================
 """test configuration_utils"""
 import os
-os.environ["MODELFOUNDRY_HUB_ENDPOINT"] = "https://modelfoundrysh.test.osinfra.cn"
+os.environ["OPENMIND_HUB_ENDPOINT"] = "https://modelfoundrysh.test.osinfra.cn"
 
 import tempfile
 import re

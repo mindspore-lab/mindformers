@@ -16,7 +16,7 @@
 import json
 import shutil
 import os
-os.environ["MODELFOUNDRY_HUB_ENDPOINT"] = "https://modelfoundrysh.test.osinfra.cn"
+os.environ["OPENMIND_HUB_ENDPOINT"] = "https://modelfoundrysh.test.osinfra.cn"
 # pylint: disable=C0413
 import pytest
 from mindformers import GPT2Tokenizer, BertTokenizer
