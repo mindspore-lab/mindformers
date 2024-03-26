@@ -210,6 +210,8 @@ class CausalLanguageModelingTrainer(BaseTrainer):
         logger.info(".........Build Compute Metrics For Evaluate..........")
         if compute_metrics is None:
             compute_metrics = self.create_metrics(metric_name=metric_name)
+            for metric_name in compute_metrics:
+                compute_metrics[metric_name].clear()
 
         # build tokenizer
         logger.info(".........Build tokenizer For Evaluate..........")
