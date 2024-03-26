@@ -314,9 +314,14 @@ class GenerationMixin:
             model_inputs["block_tables"] = Tensor(block_tables, mstype.int32)
             model_inputs["slot_mapping"] = Tensor(slot_mapping, mstype.int32)
             # pylint: disable=E1102
+            infer_start = time.time()
             res = self(
                 **model_inputs,
             )
+            infer_end = time.time()
+            self.prepare_time_list.append(infer_start - self.time_record)
+            self.predict_time_list.append(infer_end - infer_start)
+            self.time_record = infer_end
 
             # first iter done, go to other iters
             self.phase = "inc"
@@ -331,9 +336,14 @@ class GenerationMixin:
             model_inputs["block_tables"] = Tensor(block_tables, mstype.int32)
             model_inputs["slot_mapping"] = Tensor(slot_mapping, mstype.int32)
             # pylint: disable=E1102
+            infer_start = time.time()
             res = self(
                 **model_inputs,
             )
+            infer_end = time.time()
+            self.prepare_time_list.append(infer_start - self.time_record)
+            self.predict_time_list.append(infer_end - infer_start)
+            self.time_record = infer_end
 
         return res
 
@@ -458,6 +468,7 @@ class GenerationMixin:
                 self.set_dynamic_inputs()
 
         while np.sum(is_finished) != batch_size:
+            self.time_record = time.time()
             block_tables = None
             slot_mapping = None
             if self.is_kbk_infer():
@@ -494,6 +505,7 @@ class GenerationMixin:
                     streamer.put(target_list[0])
                 else:
                     streamer.put(target_list)
+            self.post_time_list.append(time.time() - self.time_record)
 
         # Return valid outputs out of padded outputs
         output_ids = []
@@ -509,6 +521,11 @@ class GenerationMixin:
         total_time = time.time() - total_time
         logger.info("total time: %s s; generated tokens: %s tokens; generate speed: %s tokens/s",
                     total_time, generate_len, generate_len / total_time)
+        logger.info("prefill prepare time: %s s; prefill predict time: %s s; prefill post time: %s s; decode prepare time: %s s; decode predict time: %s s; decode post time: %s s",
+                     self.prepare_time_list[0], self.predict_time_list[0], self.post_time_list[0],
+                     np.sum(self.prepare_time_list[1:]) / len(self.prepare_time_list[1:]),
+                     np.sum(self.predict_time_list[1:]) / len(self.predict_time_list[1:]),
+                     np.sum(self.post_time_list[1:]) / len(self.post_time_list[1:]))
 
         return output_ids
 
@@ -1024,6 +1041,10 @@ class GenerationMixin:
         Returns:
             A list of the generated token ids
         """
+        self.time_record = 0
+        self.prepare_time_list = []
+        self.predict_time_list = []
+        self.post_time_list = []
         origin_phase = self.phase
         self.set_train(False)
         try:
