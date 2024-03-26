@@ -137,6 +137,7 @@ class LlamaConfig(BaseConfig):
                  is_flexible_shape: bool = False,
                  use_rope_slice: bool = False,
                  use_flash_attention: bool = False,
+                 use_prompt_flash_attention: bool = False,
                  use_paged_attention: bool = False,
                  fine_grain_interleave: int = 1,
                  offset: int = 0,
@@ -192,6 +193,7 @@ class LlamaConfig(BaseConfig):
         self.is_flexible_shape = is_flexible_shape
         self.use_rope_slice = use_rope_slice
         self.use_flash_attention = use_flash_attention
+        self.use_prompt_flash_attention = use_prompt_flash_attention
         self.fine_grain_interleave = fine_grain_interleave
         self.offset = offset
         self.repetition_penalty = repetition_penalty

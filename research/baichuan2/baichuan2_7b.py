@@ -34,20 +34,26 @@ try:
     FLASHATTENTION_VALID = True
 except ImportError:
     FLASHATTENTION_VALID = False
+try:
+    # pylint: disable=W0611
+    from mindspore.ops.operations.nn_ops import PromptFlashAttention
+    PROMPTFLASHATTENTION_VALID = True
+except ImportError:
+    PROMPTFLASHATTENTION_VALID = False
 
 from mindformers.core.loss.loss import CrossEntropyLoss
 from mindformers.models.base_model import BaseModel
 from mindformers.models.utils import cell_reuse
 from mindformers.modules.transformer.op_parallel_config import _check_config
-from mindformers.modules.transformer.transformer import LowerTriangularMaskWithDynamic
 from mindformers.tools.register.register import MindFormerModuleType, MindFormerRegister
 
 from mindformers.models.llama.llama import layer_compute_dtype
 from mindformers.models.llama.llama_config import LlamaConfig
-from mindformers.models.llama.llama_layer import LlamaEmbedding, LlamaRMSNorm, FreqsMgr
+from mindformers.models.llama.llama_layer import LlamaEmbedding, LlamaRMSNorm, FreqsMgr, CausalMask
 from mindformers.models.llama.llama_transformer import LLamaDecodeLayer
 from mindformers.tools.logger import logger
 from mindformers.modules import KVCachePreprocess
+from mindformers.version_control import check_valid_flash_attention
 
 __all__ = ['Baichuan7BV2ForCausalLM', 'Baichuan7BV2Model']
 
@@ -82,14 +88,12 @@ class Baichuan7BV2Model(BaseModel):
         self.is_dynamic = config.is_dynamic
         self.use_kvcache_op = config.use_kvcache_op
         self.is_flexible_shape = config.is_flexible_shape
-        self.use_flash_attention = config.use_flash_attention and FLASHATTENTION_VALID
         # only support flash attention in train and prefill predict process.
-        if self.use_past:
-            self.use_flash_attention = False
-        if self.use_flash_attention:
-            logger.info("Enable flash attention.")
-        elif config.use_flash_attention:
-            logger.info("Current MindSpore do not support flash attention.")
+        self.use_flash_attention = config.use_flash_attention and (not self.use_past) and \
+            check_valid_flash_attention(FLASHATTENTION_VALID, 'FlashAttention')
+        # only support prompt flash attention in prefill phase of inference.
+        self.use_prompt_flash_attention = config.use_prompt_flash_attention and self.use_past and \
+            check_valid_flash_attention(PROMPTFLASHATTENTION_VALID, 'PromptFlashAttention')
 
         self.shape = P.Shape()
         self.reshape = P.Reshape().add_prim_attr("skip_redistribution", True)
@@ -107,11 +111,12 @@ class Baichuan7BV2Model(BaseModel):
                                   scaling_factor=config.scaling_factor,
                                   extend_method=config.extend_method,
                                   is_dynamic=config.is_dynamic)
-        self.casual_mask = LowerTriangularMaskWithDynamic(seq_length=config.seq_length,
-                                                          compute_type=config.compute_dtype,
-                                                          is_dynamic=config.is_dynamic,
-                                                          pad_token_id=config.pad_token_id,
-                                                          use_flash_attention=config.use_flash_attention)
+        self.casual_mask = CausalMask(seq_length=config.seq_length,
+                                      compute_type=config.compute_dtype,
+                                      is_dynamic=config.is_dynamic,
+                                      pad_token_id=config.pad_token_id,
+                                      use_flash_attention=self.use_flash_attention,
+                                      use_prompt_flash_attention=self.use_prompt_flash_attention)
         self.tok_embeddings = LlamaEmbedding(vocab_table_size=config.vocab_size,
                                              embedding_size=config.hidden_size,
                                              param_init_type=config.param_init_type,
@@ -137,6 +142,7 @@ class Baichuan7BV2Model(BaseModel):
                                      param_init_type=config.param_init_type,
                                      use_past=config.use_past,
                                      use_flash_attention=self.use_flash_attention,
+                                     use_prompt_flash_attention=self.use_prompt_flash_attention,
                                      is_dynamic=config.is_dynamic,
                                      use_kvcache_op=config.use_kvcache_op,
                                      is_flexible_shape=config.is_flexible_shape,
@@ -193,7 +199,6 @@ class Baichuan7BV2Model(BaseModel):
         if not self.use_past:
             freqs_cis = self.freqs_mgr()
             mask = self.casual_mask(tokens) # mask: [bs, seq, seq]
-            mask = self.casual_mask.post_process(mask)
             kvcache_inputs = None
         else:
             if self.is_first_iteration:
@@ -207,7 +212,6 @@ class Baichuan7BV2Model(BaseModel):
                                                             batch_valid_length, zactivate_len)
                 else:
                     mask = self.casual_mask.increment(self.kvcache_preprocess.range, batch_valid_length, zactivate_len)
-            mask = self.casual_mask.post_process(mask)
 
             kvcache_inputs = self.kvcache_preprocess(bs, batch_valid_length, batch_index, zactivate_len)
 

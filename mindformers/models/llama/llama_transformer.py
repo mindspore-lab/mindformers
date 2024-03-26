@@ -120,6 +120,7 @@ class LLamaAttention(nn.Cell):
                  is_flexible_shape=False,
                  use_rope_slice=False,
                  use_flash_attention=False,
+                 use_prompt_flash_attention=False,
                  use_paged_attention=False,
                  block_size: Optional[int] = None,
                  num_blocks: Optional[int] = None,
@@ -132,15 +133,16 @@ class LLamaAttention(nn.Cell):
         self.n_kv_head = n_heads if n_kv_heads is None else n_kv_heads
         self.n_rep = self.n_head // self.n_kv_head
         self.kv_dim = self.n_kv_head * self.head_dim
-        self.block_size = block_size
-        self.num_blocks = num_blocks
 
         self.dtype = compute_dtype
         self.softmax_dtype = softmax_compute_dtype
         self.is_first_iteration = True
         self.use_past = use_past
-        self.use_flash_attention = use_flash_attention and FLASHATTENTION_VALID
+        self.use_flash_attention = use_flash_attention
+        self.use_prompt_flash_attention = use_prompt_flash_attention
         self.use_paged_attention = use_paged_attention
+        self.block_size = block_size
+        self.num_blocks = num_blocks
         self.qkv_concat = qkv_concat
 
         if self.hidden_size % self.n_head != 0:
@@ -203,6 +205,14 @@ class LLamaAttention(nn.Cell):
                          param_init_type=param_init_type,
                          skip_redistribution=is_dynamic)
 
+        if self.use_prompt_flash_attention:
+            self.prompt_flash_attention = P.nn_ops.PromptFlashAttention(num_heads=self.n_head,
+                                                                        num_key_value_heads=self.n_kv_head,
+                                                                        pre_tokens=65536,
+                                                                        next_tokens=0,
+                                                                        scale_value=1. / math.sqrt(self.head_dim),
+                                                                        input_layout='BNSD')
+
         dp = parallel_config.data_parallel
         mp = parallel_config.model_parallel
         if not (_get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation()):
@@ -231,6 +241,8 @@ class LLamaAttention(nn.Cell):
             self.wo.shard(((dp, mp), (1, mp)))
             if parallel_config.use_seq_parallel and self.is_first_iteration:
                 self.wo.shard(((dp, mp), (1, mp)), out_strategy_matmul=((dp * mp, 1),))
+            if self.use_prompt_flash_attention:
+                self.prompt_flash_attention.shard(((dp, mp, 1, 1), (dp, mp, 1, 1), (dp, mp, 1, 1), (dp, 1, 1, 1)))
             if parallel_config.recompute.select_recompute:
                 self.apply_rotary_emb.recompute()
                 self.tile_kv.recompute()
@@ -320,6 +332,10 @@ class LLamaAttention(nn.Cell):
             if not self.is_first_iteration and self.use_paged_attention:
                 batch_valid_length, block_tables, _ = kvcache_inputs
                 attention = self.kvcache_mgr.paged_attn(query, batch_valid_length, block_tables)
+            elif self.is_first_iteration and self.use_prompt_flash_attention:
+                attention = self.prompt_flash_attention(query, key, value, mask,
+                                                        None, None, None, None, None, None, None, None)[0]
+                attention = self._merge_heads(attention)
             else:
                 attention = self._attn(query, key, value, mask)
         # [bs, seq/1, hidden_dim] or [bs * seq/1, hidden_dim]
@@ -468,6 +484,7 @@ class LLamaDecodeLayer(nn.Cell):
                  is_flexible_shape=False,
                  use_rope_slice=False,
                  use_flash_attention=False,
+                 use_prompt_flash_attention=False,
                  use_paged_attention=False,
                  block_size: Optional[int] = None,
                  num_blocks: Optional[int] = None,
@@ -511,6 +528,7 @@ class LLamaDecodeLayer(nn.Cell):
                                         is_flexible_shape=is_flexible_shape,
                                         use_rope_slice=use_rope_slice,
                                         use_flash_attention=use_flash_attention,
+                                        use_prompt_flash_attention=use_prompt_flash_attention,
                                         use_paged_attention=use_paged_attention,
                                         block_size=block_size,
                                         num_blocks=num_blocks,

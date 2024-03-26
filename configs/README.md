@@ -137,6 +137,7 @@ configs统一在run_xxx.yaml中，排序按照修改频率的顺序和一般的�
         - use_paged_attention: 是否开启Paged Attention推理，当前仅支持MS Lite推理时使用
         - pa_block_size: 使用Paged Attention推理时需设置，每块block的大小
         - pa_num_blocks: 使用Paged Attention推理时需设置，blocks的总数
+        - use_prompt_flash_attention: 是否开启Prompt Flash Attention推理，当前仅支持MS Lite推理全量阶段时使用
 - lr_schedule: 学习率配置
     - type: 学习率类
 - layer_scale: 是否开启层衰减
