@@ -240,7 +240,17 @@ class TrainingArguments:
         }
     )
     gradients_mean: bool = field(
-        default=True,
+        default=False,
+        metadata={
+            "help": (
+                "Whether to perform the averaging operator after gradient AllReduce. "
+                "Usually, it's set to False in semi-automatic parallel mode and True "
+                "in data parallel mode. Default: False."
+            )
+        }
+    )
+    loss_repeated_mean: bool = field(
+        default=False,
         metadata={
             "help": (
                 "Whether to perform the averaging operator after gradient AllReduce. "
@@ -458,6 +468,10 @@ class TrainingArguments:
     warmup_lr_init: float = field(
         default=0.0,
         metadata={"help": "The initial learning rate of warm up. Default: 0.0."}
+    )
+    warmup_epochs: Optional[int] = field(
+        default=None,
+        metadata={"help": "Linear warmup over warmup_epochs fraction of total steps."}
     )
     warmup_ratio: Optional[float] = field(
         default=None,
@@ -1296,7 +1310,8 @@ class TrainingArguments:
             name: Union[str, LrSchedulerType] = "linear",
             num_epochs: float = 3.0,
             warmup_lr_init: float = 0.0,
-            warmup_ratio: float = 0,
+            warmup_epochs: Optional[int] = None,
+            warmup_ratio: Optional[float] = None,
             warmup_steps: int = 0,
     ):
         """
@@ -1330,6 +1345,7 @@ class TrainingArguments:
         self.lr_scheduler_type = LrSchedulerType(name).value
         self.num_train_epochs = num_epochs
         self.warmup_lr_init = warmup_lr_init
+        self.warmup_epochs = warmup_epochs
         self.warmup_ratio = warmup_ratio
         self.warmup_steps = warmup_steps
         return self
@@ -1486,6 +1502,10 @@ class TrainingArguments:
 
         task_config.parallel.parallel_mode = _check_training_args(
             task_config.parallel.parallel_mode, self.parallel_mode)
+        task_config.parallel.gradients_mean = _check_training_args(
+            task_config.parallel.gradients_mean, self.gradients_mean)
+        task_config.parallel.loss_repeated_mean = _check_training_args(
+            task_config.parallel.loss_repeated_mean, self.loss_repeated_mean)
         task_config.parallel.enable_alltoall = _check_training_args(
             task_config.parallel.enable_alltoall, self.enable_alltoall)
         task_config.parallel.full_batch = _check_training_args(
@@ -1584,6 +1604,8 @@ class TrainingArguments:
             task_config.lr_schedule.lr_end, self.lr_end)
         task_config.lr_schedule.warmup_lr_init = _check_training_args(
             task_config.lr_schedule.warmup_lr_init, self.warmup_lr_init)
+        task_config.lr_schedule.warmup_epochs = _check_training_args(
+            task_config.lr_schedule.warmup_epochs, self.warmup_epochs)
         task_config.lr_schedule.warmup_ratio = _check_training_args(
             task_config.lr_schedule.warmup_ratio, self.warmup_ratio)
         task_config.lr_schedule.warmup_steps = _check_training_args(
