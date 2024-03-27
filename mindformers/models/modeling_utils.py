@@ -953,7 +953,7 @@ class PreTrainedModel(nn.Cell, ModuleUtilsMixin, GenerationMixin, PushToHubMixin
         ```python
         >>> from mindformers import GPT2Model
 
-        >>> # Download model and configuration from modelfoundry and cache.
+        >>> # Download model and configuration from openmind and cache.
         >>> model = GPT2Model.from_pretrained("XXX")
         >>> # Model was saved using *save_pretrained('./test/saved_model/')* (for example purposes, not runnable).
         >>> model = GPT2Model.from_pretrained("./test/saved_model/")
