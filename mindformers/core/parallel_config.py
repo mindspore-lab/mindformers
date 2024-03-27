@@ -58,3 +58,31 @@ def build_parallel_config(config):
                                                                  **config.parallel_config)
     else:
         config.parallel_config = default_parallel_config
+
+
+def reset_parallel_config(config, reset_diff_config=True):
+    """
+    Reset parallel config.
+
+    Args:
+        config (Union[MindFormerConfig, Dict]) - Input config.
+        reset_diff_config (bool, optional): Only reset diff config. Defaults to True.
+    """
+    if config.moe_config and isinstance(config.moe_config, MoEConfig):
+        logger.info("reset moe_config to dict: %s", config.moe_config)
+        if reset_diff_config:
+            config.moe_config = config.moe_config.to_diff_dict()
+        else:
+            config.moe_config = config.moe_config.to_dict()
+    if config.recompute_config and isinstance(config.recompute_config, TransformerRecomputeConfig):
+        logger.info("reset recompute_config to dict: %s", config.recompute_config)
+        if reset_diff_config:
+            config.recompute_config = config.recompute_config.to_diff_dict()
+        else:
+            config.recompute_config = config.recompute_config.to_dict()
+    if config.parallel_config and isinstance(config.parallel_config, TransformerOpParallelConfig):
+        logger.info("reset parallel_config to dict: %s", config.parallel_config)
+        if reset_diff_config:
+            config.parallel_config = config.parallel_config.to_diff_dict()
+        else:
+            config.parallel_config = config.parallel_config.to_dict()

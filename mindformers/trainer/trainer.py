@@ -14,7 +14,9 @@
 # ============================================================================
 """Trainer API For Import."""
 import os
+import copy
 import shutil
+from pathlib import Path
 from collections import OrderedDict
 from collections.abc import Iterable
 from typing import List, Optional, Union, Callable
@@ -32,13 +34,15 @@ from mindspore.train import Callback
 from mindspore.dataset import GeneratorDataset
 from mindspore.dataset.engine.datasets import BatchDataset, RepeatDataset, Dataset
 
-from mindformers.core.parallel_config import build_parallel_config
+from mindformers.core.parallel_config import build_parallel_config, \
+    reset_parallel_config
 from mindformers.core.callback.callback import ProfileMonitor
 from mindformers.dataset import build_dataset, build_dataset_loader, \
     check_dataset_config, BaseDataset
 from mindformers.mindformer_book import MindFormerBook
 from mindformers.models import PreTrainedModel, BaseImageProcessor, \
     PreTrainedTokenizerBase, BaseAudioProcessor
+from mindformers.models.utils import WEIGHTS_NAME
 from mindformers.tools.utils import (
     set_output_path,
     set_strategy_save_path,
@@ -60,6 +64,7 @@ if check_in_modelarts():
 
 __all__ = ['Trainer']
 
+PREFIX_CHECKPOINT_DIR = "checkpoint"
 SUPPORT_TASKS = MindFormerBook().get_trainer_support_task_list()
 SUPPORT_MODEL_NAMES = MindFormerBook().get_model_name_support_list()
 SUPPORT_PIPELINE_INPUT_DATA = MindFormerBook().get_pipeline_support_input_data_list()
@@ -304,14 +309,16 @@ class Trainer:
         # model init
         self._init_model()
 
-        # tokenizer init
-        self._init_tokenizer()
-
         # dataset init
         self._init_dataset()
 
         # callbacks init
         self._init_callbacks()
+
+        # Create distant repo and output directory if needed
+        self.hub_model_id = None
+        if self.config.push_to_hub:
+            self.init_openmind_repo()
 
         if save_config:
             self._save_config_to_yaml(self.config)
@@ -889,6 +896,7 @@ class Trainer:
         model_config = self.model.config
         if True in [self.is_set_parallel_config, self.is_set_moe_config, self.is_set_recompute_config] or \
             (is_train and hasattr(model_config, 'use_past') and model_config.use_past):
+            logger.info("..........Reinit Model..........")
             if is_train and hasattr(model_config, 'use_past') and model_config.use_past:
                 model_config.use_past = False
                 logger.warning("The `use_past` is set to False.")
@@ -1003,7 +1011,6 @@ class Trainer:
                 "When `model` is not instance, `self.config.model` must not be None."
 
         if self.is_model_instance:
-            logger.info("..........Reinit Model..........")
             self._reset_model_instance(is_train)
 
     def _init_tokenizer(self):
@@ -1063,14 +1070,77 @@ class Trainer:
                 raise ValueError("The callback must be an instance of the Callback class, "
                                  f"but get {self.eval_callbacks}")
 
-    def _save_config_to_yaml(self, config: dict = None):
-        """save now config file to yaml file."""
+    def init_openmind_repo(self):
+        """
+        Initializes a git repo in `self.config.hub_model_id`.
+        """
+        from modelfoundry_hub import create_repo
+        if self.config.rank_id:
+            return
+
+        if self.config.hub_model_id is None:
+            repo_name = Path(self.config.output_dir).absolute().name
+        else:
+            repo_name = self.config.hub_model_id
+
+        repo_url = create_repo(repo_name, token=self.config.hub_token,
+                               private=self.config.hub_private_repo, exist_ok=True)
+
+        self.hub_model_id = repo_url.repo_id
+
+    def save_model(self, output_dir: Optional[str] = None, internal_call: bool = False):
+        """
+        Will save the model, so you can reload it using `from_pretrained()`.
+
+        Will only save from the main process.
+        """
+        if output_dir is None:
+            output_dir = get_output_root_path()
+
+        self._save(output_dir)
+
+        # Push to the Hub when `save_model` is called by the user.
+        if self.args.push_to_hub and not internal_call:
+            self.push_to_hub(commit_message="Model save")
+
+    def _save(self, output_dir: Optional[str] = None, state_dict=None):
+        """Save checkpoint, tokenizer and config."""
+        output_dir = output_dir if output_dir is not None else get_output_root_path()
+        os.makedirs(output_dir, exist_ok=True)
+        logger.info(f"Saving model checkpoint to {output_dir}")
+
+        if self.trainer.network is not None:
+            network = self.trainer.network
+        else:
+            network = self.model
+
+        supported_classes = (PreTrainedModel,)
+        # Save a trained model and configuration using `save_pretrained()`.
+        # They can then be reloaded using `from_pretrained()`
+        if not isinstance(network, supported_classes):
+            if state_dict is None:
+                state_dict = {}
+                for item in network.get_parameters():
+                    state_dict[item.name] = item.data
+            logger.info("Trainer.model is not a `PreTrainedModel`, only saving its state dict.")
+            ms.save_checkpoint(state_dict, os.path.join(output_dir, WEIGHTS_NAME))
+        else:
+            network.save_pretrained(output_dir, state_dict=state_dict, save_json=True)
+
+        if self.tokenizer is not None:
+            self.tokenizer.save_pretrained(output_dir, save_json=True)
+
+        self._save_config_to_yaml(self.config, config_dir=output_dir)
+
+    def _save_config_to_yaml(self, config: dict = None, config_dir: Optional[str] = None):
+        """Save now config file to yaml file."""
         if config is None:
             config = self.config
         model_name = self.config.trainer.model_name
         config_dict = _reset_config_for_save(config)
-        config_dir = os.path.join(
-            self.configs_directory, model_name.lower() + '_new')
+        if config_dir is None:
+            config_dir = os.path.join(
+                self.configs_directory, model_name.lower() + '_new')
         if not os.path.exists(config_dir):
             os.makedirs(config_dir, exist_ok=True)
         run_yaml_path = os.path.join(config_dir, 'run_{}.yaml'.format(model_name.lower()))
@@ -1190,6 +1260,40 @@ class Trainer:
                 return
         return
 
+    def push_to_hub(self, commit_message: Optional[str] = "End of training", blocking: bool = True) -> str:
+        """
+        Upload `self.model` and `self.tokenizer` to the model hub on the repo `self.args.hub_model_id`.
+
+        commit_message (Optional[str]):
+            Message to commit while pushing, defaults to "End of training".
+        blocking (Optional[bool]):
+            Whether the function should return only when the `git push` has finished, default is True
+        kwargs (Optional[Dict[str, Any]]:
+            model_name(Optional[str]): model name in the hub.
+
+        Returns:
+            The URL of the repository where the model was pushed if `blocking=False`, or a `Future` object tracking the
+            progress of the commit if `blocking=True`.
+        """
+        from modelfoundry_hub import upload_folder
+        if self.hub_model_id is None:
+            self.init_openmind_repo()
+
+        self.save_model(internal_call=True)
+
+        if self.config.rank_id:
+            return None
+
+        # Wait for the current upload to be finished.
+        return upload_folder(
+            repo_id=self.hub_model_id,
+            folder_path=get_output_root_path(),
+            commit_message=commit_message,
+            token=self.config.hub_token,
+            run_as_future=not blocking,
+            ignore_patterns=["_*", f"{PREFIX_CHECKPOINT_DIR}-*", "transformed_checkpoint"],
+        )
+
 def _save_config_to_yaml(save_file_path: str = None, save_config: dict = None):
     """
     Save config to yaml file.
@@ -1224,7 +1328,8 @@ def _reset_config_for_save(config: dict = None):
     """
     if config is None:
         config = {}
-    config = config.copy()
+    config = copy.deepcopy(config)
+    reset_parallel_config(config)
 
     config_dict = OrderedDict()
 
