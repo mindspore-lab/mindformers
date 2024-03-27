@@ -202,7 +202,7 @@ class FreqsMgrWithKBKInfer(nn.Cell):
         inv_freq = 1.0 / (base ** (np.arange(0, dim, 2).astype(np.float32) * (1 / dim)))
         t = np.arange(max_seq_len, dtype=inv_freq.dtype)
         freqs = np.outer(t, inv_freq)
-        if cos_format == 0:
+        if cos_format == 0 or cos_format == 2:
             emb = np.concatenate((freqs, freqs), axis=-1)
         else:
             freqs = np.expand_dims(freqs, 2)
@@ -210,9 +210,12 @@ class FreqsMgrWithKBKInfer(nn.Cell):
             emb = emb.reshape(max_seq_len, dim)
         self.cos = Tensor(np.cos(emb), dtype=mstype.float16)
         self.sin = Tensor(np.sin(emb), dtype=mstype.float16)
+        self.dim = dim
 
-    def construct(self):
-        return self.cos, self.sin
+    def construct(self, seq_length, batch):
+        freqs_cos = ops.tile(ops.slice(self.cos, (0,0), (seq_length, self.dim)), (batch, 1))
+        freqs_sin = ops.tile(ops.slice(self.sin, (0,0), (seq_length, self.dim)), (batch, 1))
+        return freqs_cos, freqs_sin
 
     def increment(self, batch_valid_length):
         freqs_cos = ops.gather(self.cos, batch_valid_length, 0)

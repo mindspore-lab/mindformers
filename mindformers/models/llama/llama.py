@@ -171,7 +171,7 @@ class LlamaModel(LlamaPreTrainedModel):
         self.slice = P.StridedSlice()
         if self.use_kbk_infer:
             self.freqs_mgr = FreqsMgrWithKBKInfer(dim=self.head_dim, base=config.theta,
-                                                  max_seq_len=config.max_position_embedding)
+                                                  max_seq_len=config.max_position_embedding, cos_format=2)
         else:
             self.freqs_mgr = FreqsMgr(head_dim=self.head_dim,
                                       seq_length=config.seq_length,
@@ -304,7 +304,7 @@ class LlamaModel(LlamaPreTrainedModel):
         else:
             if self.is_first_iteration:
                 if self.use_kbk_infer:
-                    freqs_cis = self.freqs_mgr()
+                    freqs_cis = self.freqs_mgr(seq_len, bs)
                     mask = None
                 else:
                     freqs_cis = self.freqs_mgr(seq_len)
