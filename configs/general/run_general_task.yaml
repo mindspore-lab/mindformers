@@ -99,7 +99,6 @@ lr_schedule:
   learning_rate: 0.00015
   lr_end: 0.
   warmup_lr_init: 0.
-  warmup_epochs: 40
   total_steps: -1 # -1 means it will load the total steps of the dataset
 layer_scale: False
 layer_decay: 0.65
