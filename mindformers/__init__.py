@@ -30,6 +30,7 @@ from mindformers.tools import *
 from mindformers import generation
 from mindformers.generation import *
 from mindformers.pet import *
+from mindformers.model_runner import *
 from .mindformer_book import MindFormerBook
 
 __all__ = []
@@ -38,3 +39,4 @@ __all__.extend(models.__all__)
 __all__.extend(core.__all__)
 __all__.extend(tools.__all__)
 __all__.extend(generation.__all__)
+__all__.extend(model_runner.__all__)

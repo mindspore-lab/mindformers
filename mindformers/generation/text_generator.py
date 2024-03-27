@@ -103,6 +103,9 @@ class GenerationMixin:
         """used for non-first iterations, slice the inputs to length 1."""
         input_ids = model_inputs.pop("input_ids")
         if isinstance(input_ids, Tensor):
+            if input_ids.shape[-1] == 1:
+                model_inputs["input_ids"] = input_ids
+                return
             input_ids = input_ids.asnumpy()
         inputs_tmp = []
         for i, index_value in enumerate(current_index):
@@ -257,11 +260,11 @@ class GenerationMixin:
         )
         return input_ids
 
-    def _incremental_infer(self, model_inputs: dict, current_index, valid_length_each_example, block_tables,
+    def _incremental_infer(self, model_inputs: dict, prefill, current_index, valid_length_each_example, block_tables,
                            slot_mapping):
         """model forward for incremental infer."""
         # Claim the first graph
-        if self.is_first_iteration:
+        if prefill:
             self.add_flags_recursive(is_first_iteration=True)
             model_inputs["input_position"] = Tensor(current_index, mstype.int32)
             model_inputs["init_reset"] = Tensor([False], mstype.bool_)  # init_reset (1,) bool False
@@ -295,499 +298,6 @@ class GenerationMixin:
     def _use_past(self):
         return hasattr(self.config, "use_past") and self.config.use_past and hasattr(self.config, "block_size") and \
                hasattr(self.config, "num_blocks")
-
-    def _greedy_search(self,
-                       origin_inputs,
-                       generation_config: GenerationConfig,
-                       logits_processor: Optional[LogitsProcessorList] = None,
-                       streamer: BaseStreamer = None,
-                       **model_kwargs):
-        r"""
-        Generates sequences of token ids for models with a language modeling head using **greedy decoding** and can be
-        used for text-decoder, text-to-text, speech-to-text, and vision-to-text models.
-
-        In most cases, you do not need to call [`~generation.GenerationMixin.greedy_search`] directly. Use generate()
-        instead.
-
-        Parameters:
-            origin_inputs (`List(str), List(List(str))`):
-                The sequence used as a prompt for the generation.
-            generation_config (`GenerationConfig`, *optional*):
-                The generation configuration to be used as base parametrization for the generation
-                call. `**kwargs` passed to generate matching the attributes of `generation_config`
-                will override them. If `generation_config` is not provided, the default config
-                from the model configuration will be used. Please note that unspecified parameters
-                will inherit [`GenerationConfig`]'s default values, whose documentation should be
-                checked to parameterize generation.
-            logits_processor (`LogitsProcessorList`, *optional*):
-                An instance of [`LogitsProcessorList`]. List of instances of class derived from [`LogitsProcessor`]
-                used to modify the prediction scores of the language modeling head applied at each generation step.
-            streamer (`TextStreamer, *optional*`):
-                The streamer that generator uses.
-            model_kwargs:
-                Additional model specific kwargs will be forwarded to the `forward` function of the model. If model is
-                an encoder-decoder model the kwargs should include `encoder_outputs`.
-
-        Return:
-            A list of the generated token ids
-        """
-        total_time = time.time()
-        prepare_time = time.time()
-
-        logits_processor = logits_processor if logits_processor is not None else LogitsProcessorList()
-
-        if generation_config.pad_token_id is None:
-            generation_config.pad_token_id = 0
-
-        if streamer is not None:
-            streamer.put(origin_inputs)
-
-        batch_size = origin_inputs.shape[0]
-        is_encoder_decoder = self.config.is_encoder_decoder
-        logger.debug("The input shape is: %s", origin_inputs.shape)
-
-        valid_length_each_example, input_ids_length = \
-            get_valid_length_each_example(origin_inputs, generation_config.pad_token_id)
-
-        if generation_config.max_new_tokens is not None:
-            generation_config.max_length = generation_config.max_new_tokens + input_ids_length
-
-        if generation_config.max_length > self.config.seq_length:
-            logger.warning("max_length %s can not exceeds model seq_length %s, set max_length = seq_length.",
-                           generation_config.max_length, self.config.seq_length)
-            generation_config.max_length = self.config.seq_length
-
-        logger.debug("max length is: %s", generation_config.max_length)
-        if not is_encoder_decoder and input_ids_length >= generation_config.max_length:
-            raise ValueError(
-                f"the input_ids length {input_ids_length} exceeds the max length config {generation_config.max_length}."
-                f"check your inputs and set max_length larger than your inputs length."
-            )
-
-        input_ids = self._pad_inputs_using_max_length(
-            origin_inputs=origin_inputs, pad_token_id=generation_config.pad_token_id
-        )
-
-        logger.debug(
-            "pad the origin inputs from %s into shape: %s",
-            origin_inputs.shape,
-            input_ids.shape,
-        )
-
-        input_mask = np.zeros_like(input_ids)
-        for i in range(valid_length_each_example.shape[0]):
-            input_mask[i, :valid_length_each_example[i]] = 1
-        encoder_output = None
-        encoder_mask = None
-        if is_encoder_decoder:
-            if generation_config.max_length > self.config.max_decode_length:
-                generation_config.max_length = self.config.max_decode_length
-            logger.debug("max decode length is: %s", generation_config.max_length)
-
-            # When do encoder and decoder prediction, the encoder can be cached
-            # to speed up the inference
-            (
-                encoder_output,
-                encoder_mask,
-                input_ids,
-                target_mask,
-            ) = self._prepare_model_inputs_for_decoder(input_ids, input_mask)
-            valid_length_each_example = [1 for _ in range(batch_size)]
-        # A single loop generates one token, loop until reaching target
-        # model_origin_max_length or generating eod token
-        is_finished = [False] * batch_size
-
-        # update model kwargs once, before go into generate loop.
-        self.update_model_kwargs_before_generate(input_ids, model_kwargs)
-
-        # setup is_first_iteration flag for incremental infer
-        if generation_config.use_past:
-            self.is_first_iteration = True
-        need_gather_logits = True
-
-        origin_len = np.sum(valid_length_each_example)
-        prepare_time = time.time() - prepare_time
-        logger.debug("forward prepare time: %s s", prepare_time)
-
-        if self._use_past():
-            block_mgr = BlockTables(self.config.num_blocks, self.config.block_size, self.config.seq_length)
-            block_mgr.init_cache_engine(batch_size)
-
-        while np.sum(is_finished) != batch_size:
-            forward_time = time.time()
-            seq_length = input_ids.shape[1]
-            current_index = [
-                valid_length_each_example[i] - 1 + i * seq_length
-                for i in range(batch_size)
-            ]
-            logger.debug("validate length: %s", valid_length_each_example)
-            block_tables = None
-            slot_mapping = None
-            if self._use_past():
-                block_tables, slot_mapping = block_mgr.assemble_pa_inputs(self.is_first_iteration,
-                                                                          valid_length_each_example, is_finished)
-
-            if is_encoder_decoder:
-                inputs = Tensor(input_ids, mstype.int32)
-                # pylint: disable=E1102
-                res = self(
-                    input_ids=None,
-                    attention_mask=encoder_mask,
-                    encoder_outputs=encoder_output,
-                    decoder_input_ids=inputs,
-                    decoder_attention_mask=Tensor(target_mask, mstype.float32),
-                )
-            else:
-                model_kwargs["current_index"] = current_index
-                # model prepare input dict
-                model_inputs = self.prepare_inputs_for_generation(  # pylint: disable=E1111
-                    input_ids, **model_kwargs
-                )
-                # incremental generate
-                if generation_config.use_past:
-                    # when first iteration, gather last logits; others keep all logits.
-                    need_gather_logits = self.is_first_iteration
-                    # incremental generate
-                    res = self._incremental_infer(
-                        model_inputs=model_inputs,
-                        current_index=current_index,
-                        valid_length_each_example=valid_length_each_example,
-                        block_tables=block_tables,
-                        slot_mapping=slot_mapping
-                    )
-                # auto-aggressive generate
-                else:
-                    res = self(**model_inputs)  # pylint: disable=E1102
-            forward_time = time.time() - forward_time
-
-            search_time = time.time()
-            # post process logits; skip this phase if post process is done in graph
-            if not self.config.is_sample_acceleration:
-                # convert to numpy for post process
-                logits = res[0] if isinstance(res, tuple) else res
-                if isinstance(logits, Tensor):
-                    logits = logits.asnumpy()
-                logits = np.reshape(logits, (-1, logits.shape[-1]))
-                # need gather last seq logits using current_index
-                # compare length to determine if need gather; if not, gather should be done in model construct
-                if need_gather_logits and logits.shape[0] > len(current_index):
-                    logits = logits[current_index]
-
-                # post process logits, without changing logits shape and order
-                probs = logits_processor(input_ids, logits, is_finished)
-                p_args = np.tile(np.arange(logits.shape[-1]), (batch_size, 1))
-            else:
-                probs, p_args = res
-                if isinstance(probs, Tensor):
-                    probs = probs.asnumpy()
-                if isinstance(p_args, Tensor):
-                    p_args = p_args.asnumpy()
-            search_time = time.time() - search_time
-
-            update_time = time.time()
-
-            # Random select a token as final output for this round
-            target_list = [[] for _ in range(batch_size)]
-            for i in range(batch_size):
-                if is_finished[i]:
-                    continue
-
-                target_index = np.argmax(probs[i])
-
-                # get target token id
-                target = p_args[i][target_index]
-                input_ids[i, valid_length_each_example[i]] = target
-
-                if streamer is not None:
-                    # assign target element
-                    target_list[i] = [target]
-
-                if is_encoder_decoder:
-                    target_mask[i][valid_length_each_example[i]] = int(1)
-
-                valid_length_each_example[i] += int(1)
-                input_mask[i][valid_length_each_example[i] - 1] = 1
-
-                # Stop judgment
-                if p_args[i][target_index] == generation_config.eos_token_id \
-                        or valid_length_each_example[i] == generation_config.max_length:
-                    is_finished[i] = True
-                    continue
-            if streamer is not None:
-                if batch_size == 1:
-                    streamer.put(target_list[0])
-                else:
-                    streamer.put(target_list)
-            update_time = time.time() - update_time
-            logger.debug("forward time: %s s; greedy search time: %s s; update time: %s s; total count: %s s",
-                         forward_time, search_time, update_time, forward_time + search_time + update_time)
-
-        # Return valid outputs out of padded outputs
-        output_ids = []
-        for i in range(batch_size):
-            output_ids.append(
-                input_ids[i, : int(valid_length_each_example[i])].astype(np.int32)
-            )
-        logger.debug("The output is: %s", output_ids)
-        if streamer is not None:
-            streamer.end()
-
-        generate_len = np.sum(valid_length_each_example) - origin_len
-        total_time = time.time() - total_time
-        logger.info("total time: %s s; generated tokens: %s tokens; generate speed: %s tokens/s",
-                    total_time, generate_len, generate_len / total_time)
-
-        return output_ids
-
-    def _sample(self,
-                origin_inputs,
-                generation_config: GenerationConfig,
-                logits_processor: Optional[LogitsProcessorList] = None,
-                logits_warper: Optional[LogitsProcessorList] = None,
-                streamer: BaseStreamer = None,
-                **model_kwargs):
-        r"""
-        Generates sequences of token ids for models with a language modeling head using **multinomial sampling** and
-        can be used for text-decoder, text-to-text, speech-to-text, and vision-to-text models.
-
-        Parameters:
-            origin_inputs (`List(str), List(List(str))`):
-                The sequence used as a prompt for the generation.
-            generation_config (`GenerationConfig`, *optional*):
-                The generation configuration to be used as base parametrization for the generation
-                call. `**kwargs` passed to generate matching the attributes of `generation_config`
-                will override them. If `generation_config` is not provided, the default config
-                from the model configuration will be used. Please note that unspecified parameters
-                will inherit [`GenerationConfig`]'s default values, whose documentation should be
-                checked to parameterize generation.
-            logits_processor (`LogitsProcessorList`, *optional*):
-                An instance of [`LogitsProcessorList`]. List of instances of class derived from [`LogitsProcessor`]
-                used to modify the prediction scores of the language modeling head applied at each generation step.
-            logits_warper (`LogitsProcessorList`, *optional*):
-                An instance of [`LogitsProcessorList`]. List of instances of class derived from [`LogitsWarper`] used
-                to warp the prediction score distribution of the language modeling head applied before multinomial
-                sampling at each generation step.
-            streamer (`TextStreamer, *optional*`):
-                The streamer that generator uses.
-            model_kwargs:
-                Additional model specific kwargs will be forwarded to the `forward` function of the model. If model is
-                an encoder-decoder model the kwargs should include `encoder_outputs`.
-
-        Return:
-            A list of the generated token ids
-        """
-        total_time = time.time()
-        prepare_time = time.time()
-
-        logits_processor = logits_processor if logits_processor is not None else LogitsProcessorList()
-        logits_warper = logits_warper if logits_warper is not None else LogitsProcessorList()
-
-        if generation_config.pad_token_id is None:
-            generation_config.pad_token_id = 0
-
-        if streamer is not None:
-            streamer.put(origin_inputs)
-
-        batch_size = origin_inputs.shape[0]
-        is_encoder_decoder = self.config.is_encoder_decoder
-        logger.debug("The input shape is: %s", origin_inputs.shape)
-
-        valid_length_each_example, input_ids_length = \
-            get_valid_length_each_example(origin_inputs, generation_config.pad_token_id)
-
-        if generation_config.max_new_tokens is not None:
-            generation_config.max_length = generation_config.max_new_tokens + input_ids_length
-
-        if generation_config.max_length > self.config.seq_length:
-            logger.warning("max_length %s can not exceeds model seq_length %s, set max_length = seq_length.",
-                           generation_config.max_length, self.config.seq_length)
-            generation_config.max_length = self.config.seq_length
-
-        logger.debug("max length is: %s", generation_config.max_length)
-        if not is_encoder_decoder and input_ids_length >= generation_config.max_length:
-            raise ValueError(
-                f"the input_ids length {input_ids_length} exceeds the max length config {generation_config.max_length}."
-                f"check your inputs and set max_length larger than your inputs length."
-            )
-
-        input_ids = self._pad_inputs_using_max_length(
-            origin_inputs=origin_inputs, pad_token_id=generation_config.pad_token_id
-        )
-
-        logger.debug(
-            "pad the origin inputs from %s into shape: %s",
-            origin_inputs.shape,
-            input_ids.shape,
-        )
-
-        input_mask = np.zeros_like(input_ids)
-        for i in range(valid_length_each_example.shape[0]):
-            input_mask[i, :valid_length_each_example[i]] = 1
-        encoder_output = None
-        encoder_mask = None
-        if is_encoder_decoder:
-            if generation_config.max_length > self.config.max_decode_length:
-                generation_config.max_length = self.config.max_decode_length
-            logger.debug("max decode length is: %s", generation_config.max_length)
-
-            # When do encoder and decoder prediction, the encoder can be cached
-            # to speed up the inference
-            (
-                encoder_output,
-                encoder_mask,
-                input_ids,
-                target_mask,
-            ) = self._prepare_model_inputs_for_decoder(input_ids, input_mask)
-            valid_length_each_example = [1 for _ in range(batch_size)]
-        # A single loop generates one token, loop until reaching target
-        # model_origin_max_length or generating eod token
-        is_finished = [False] * batch_size
-
-        # update model kwargs once, before go into generate loop.
-        self.update_model_kwargs_before_generate(input_ids, model_kwargs)
-
-        # setup is_first_iteration flag for incremental infer
-        if generation_config.use_past:
-            self.is_first_iteration = True
-        need_gather_logits = True
-
-        origin_len = np.sum(valid_length_each_example)
-        prepare_time = time.time() - prepare_time
-        logger.debug("forward prepare time: %s s", prepare_time)
-
-        if self._use_past():
-            block_mgr = BlockTables(self.config.num_blocks, self.config.block_size, self.config.seq_length)
-            block_mgr.init_cache_engine(batch_size)
-
-        while np.sum(is_finished) != batch_size:
-            forward_time = time.time()
-            seq_length = input_ids.shape[1]
-            current_index = [
-                valid_length_each_example[i] - 1 + i * seq_length
-                for i in range(batch_size)
-            ]
-            logger.debug("validate length: %s", valid_length_each_example)
-
-            block_tables = None
-            slot_mapping = None
-            if self._use_past():
-                block_tables, slot_mapping = block_mgr.assemble_pa_inputs(self.is_first_iteration,
-                                                                          valid_length_each_example, is_finished)
-            if is_encoder_decoder:
-                inputs = Tensor(input_ids, mstype.int32)
-                # pylint: disable=E1102
-                res = self(
-                    input_ids=None,
-                    attention_mask=encoder_mask,
-                    encoder_outputs=encoder_output,
-                    decoder_input_ids=inputs,
-                    decoder_attention_mask=Tensor(target_mask, mstype.float32),
-                )
-            else:
-                model_kwargs["current_index"] = current_index
-                # model prepare input dict
-                model_inputs = self.prepare_inputs_for_generation(  # pylint: disable=E1111
-                    input_ids, **model_kwargs
-                )
-                # incremental generate
-                if generation_config.use_past:
-                    # when first iteration, gather last logits; others keep all logits.
-                    need_gather_logits = self.is_first_iteration
-                    # incremental generate
-                    res = self._incremental_infer(
-                        model_inputs=model_inputs,
-                        current_index=current_index,
-                        valid_length_each_example=valid_length_each_example,
-                        block_tables=block_tables,
-                        slot_mapping=slot_mapping
-                    )
-                # auto-aggressive generate
-                else:
-                    res = self(**model_inputs)  # pylint: disable=E1102
-            forward_time = time.time() - forward_time
-
-            sample_time = time.time()
-            # post process logits; skip this phase if post process is done in graph
-            if not self.config.is_sample_acceleration:
-                # convert to numpy for post process
-                logits = res[0] if isinstance(res, tuple) else res
-                if isinstance(logits, Tensor):
-                    logits = logits.asnumpy()
-                logits = np.reshape(logits, (-1, logits.shape[-1]))
-                # need gather last seq logits using current_index
-                # compare length to determine if need gather; if not, gather should be done in model construct
-                if need_gather_logits and logits.shape[0] > len(current_index):
-                    logits = logits[current_index]
-
-                # post process logits, without changing logits shape and order
-                probs = logits_processor(input_ids, logits, is_finished)
-                probs = logits_warper(input_ids, probs, is_finished)
-                p_args = np.tile(np.arange(logits.shape[-1]), (batch_size, 1))
-            else:
-                probs, p_args = res
-                if isinstance(probs, Tensor):
-                    probs = probs.asnumpy()
-                if isinstance(p_args, Tensor):
-                    p_args = p_args.asnumpy()
-            sample_time = time.time() - sample_time
-
-            update_time = time.time()
-            p_norms = softmax_with_threads(probs, is_finished)
-
-            # Random select a token as final output for this round
-            target_list = [[] for _ in range(batch_size)]
-            for i in range(batch_size):
-                if is_finished[i]:
-                    continue
-
-                p_norm = p_norms[i]
-                target_index = np.random.choice(len(probs[i]), p=p_norm)
-
-                # get target token id
-                target = p_args[i][target_index]
-                input_ids[i, valid_length_each_example[i]] = target
-
-                if streamer is not None:
-                    # assign target element
-                    target_list[i] = [target]
-
-                if is_encoder_decoder:
-                    target_mask[i][valid_length_each_example[i]] = int(1)
-
-                valid_length_each_example[i] += int(1)
-                input_mask[i][valid_length_each_example[i] - 1] = 1
-
-                # Stop judgment
-                if p_args[i][target_index] == generation_config.eos_token_id \
-                        or valid_length_each_example[i] == generation_config.max_length:
-                    is_finished[i] = True
-                    continue
-            if streamer is not None:
-                if batch_size == 1:
-                    streamer.put(target_list[0])
-                else:
-                    streamer.put(target_list)
-            update_time = time.time() - update_time
-            logger.debug("forward time: %s s; sample time: %s s; update time: %s s; total count: %s s",
-                         forward_time, sample_time, update_time, forward_time + sample_time + update_time)
-
-        # Return valid outputs out of padded outputs
-        output_ids = []
-        for i in range(batch_size):
-            output_ids.append(
-                input_ids[i, : int(valid_length_each_example[i])].astype(np.int32)
-            )
-        logger.debug("The output is: %s", output_ids)
-
-        if streamer is not None:
-            streamer.end()
-
-        generate_len = np.sum(valid_length_each_example) - origin_len
-        total_time = time.time() - total_time
-        logger.info("total time: %s s; generated tokens: %s tokens; generate speed: %s tokens/s",
-                    total_time, generate_len, generate_len / total_time)
-
-        return output_ids
 
     def _beam_search(self,
                      origin_inputs,
@@ -837,9 +347,6 @@ class GenerationMixin:
         prepare_time = time.time()
         logits_processor = logits_processor if logits_processor is not None else LogitsProcessorList()
 
-        if generation_config.pad_token_id is None:
-            generation_config.pad_token_id = 0
-
         batch_size = len(beam_scorer._beam_hyps)  # pylint: disable=W0212
         num_beams = beam_scorer.num_beams
         batch_beam_size = origin_inputs.shape[0]
@@ -849,16 +356,8 @@ class GenerationMixin:
                 f"Batch dimension of `input_ids` should be {num_beams * batch_size}, but is {batch_beam_size}."
             )
 
-        is_encoder_decoder = self.config.is_encoder_decoder
-
-        valid_length_each_example, input_ids_length = \
+        valid_length_each_example, _ = \
             get_valid_length_each_example(origin_inputs, generation_config.pad_token_id)
-
-        if not is_encoder_decoder and input_ids_length > generation_config.max_length:
-            raise ValueError(
-                "The max_length set is smaller than the length in the input_ids."
-                f"You shout set max_length to {input_ids_length}"
-            )
 
         target_length = (
             self.config.seq_length
@@ -885,7 +384,7 @@ class GenerationMixin:
             input_mask[i, :valid_length_each_example[i]] = 1
         encoder_output = None
         encoder_mask = None
-        if is_encoder_decoder:
+        if self.config.is_encoder_decoder:
             if target_length > self.config.max_decode_length:
                 target_length = self.config.max_decode_length
             logger.debug("target_length is: %s", target_length)
@@ -922,7 +421,7 @@ class GenerationMixin:
                 for i in range(batch_beam_size)
             ]
             logger.debug("validate length: %s", valid_length_each_example)
-            if is_encoder_decoder:
+            if self.config.is_encoder_decoder:
                 inputs = Tensor(input_ids, mstype.int32)
                 # pylint: disable=E1102
                 res = self(
@@ -1000,7 +499,7 @@ class GenerationMixin:
             # add new tokens to input_ids
             for i in range(batch_beam_size):
                 input_ids[i, valid_length_each_example[i]] = beam_next_tokens[i]
-                if is_encoder_decoder:
+                if self.config.is_encoder_decoder:
                     target_mask[i][valid_length_each_example[i]] = int(1)
 
                 input_mask[i][valid_length_each_example[i]] = 1
@@ -1168,7 +667,26 @@ class GenerationMixin:
             generation_config.top_k = 0
         logger.info("Generation Config is: %s", generation_config)
 
+        if generation_config.pad_token_id is None:
+            generation_config.pad_token_id = 0
+
+        if generation_config.max_length > self.config.seq_length:
+            logger.warning("max_length %s can not exceeds model seq_length %s, set max_length = seq_length.",
+                           generation_config.max_length, self.config.seq_length)
+            generation_config.max_length = self.config.seq_length
+
+        logger.debug("max length is: %s", generation_config.max_length)
+
         _, input_ids_length = get_valid_length_each_example(input_ids, generation_config.pad_token_id)
+
+        if generation_config.max_new_tokens is not None:
+            generation_config.max_length = generation_config.max_new_tokens + input_ids_length
+
+        if not self.config.is_encoder_decoder and input_ids_length > generation_config.max_length:
+            raise ValueError(
+                "The max_length set is smaller than the length in the input_ids."
+                f"You shout set max_length to {input_ids_length}"
+            )
 
         logits_processor = self._get_logits_processor(
             generation_config=generation_config,
@@ -1177,38 +695,15 @@ class GenerationMixin:
         )
 
         # determine generation mode
-        generation_mode = self._get_generation_mode(generation_config)
+        generation_config.generation_mode = self._get_generation_mode(generation_config)
 
         if streamer is not None and (generation_config.num_beams > 1):
             raise ValueError(
                 "`streamer` cannot be used with beam search yet. Make sure that `num_beams` is set to 1."
             )
 
-        if generation_mode == GenerationMode.GREEDY_SEARCH:
-            # run greedy search
-            output_ids = self._greedy_search(
-                origin_inputs=input_ids,
-                generation_config=generation_config,
-                logits_processor=logits_processor,
-                streamer=streamer,
-                **model_kwargs,
-            )
-
-        elif generation_mode == GenerationMode.SAMPLE:
-            # prepare logits warper
-            logits_warper = self._get_logits_warper(generation_config)
-
-            # run sample
-            output_ids = self._sample(
-                origin_inputs=input_ids,
-                generation_config=generation_config,
-                logits_processor=logits_processor,
-                logits_warper=logits_warper,
-                streamer=streamer,
-                **model_kwargs,
-            )
-
-        elif generation_mode == GenerationMode.BEAM_SEARCH:
+        # beam search
+        if generation_config.generation_mode == GenerationMode.BEAM_SEARCH:
             # prepare beam search scorer
             beam_scorer = BeamSearchScorer(
                 batch_size=batch_size,
@@ -1227,7 +722,389 @@ class GenerationMixin:
                 streamer=streamer,
                 **model_kwargs
             )
+        # greedy search or sample
+        else:
+            total_time = time.time()
+            prepare_time = time.time()
+
+            origin_inputs = input_ids
+            logits_warper = self._get_logits_warper(generation_config) \
+                if generation_config.generation_mode == GenerationMode.SAMPLE else None
+
+            if streamer is not None:
+                streamer.put(origin_inputs)
+
+            batch_size = origin_inputs.shape[0]
+            logger.debug("The input shape is: %s", origin_inputs.shape)
+
+            valid_length_each_example, _ = \
+                get_valid_length_each_example(origin_inputs, generation_config.pad_token_id)
+
+            input_ids = self._pad_inputs_using_max_length(
+                origin_inputs=origin_inputs, pad_token_id=generation_config.pad_token_id
+            )
+
+            logger.debug(
+                "pad the origin inputs from %s into shape: %s",
+                origin_inputs.shape,
+                input_ids.shape,
+            )
+
+            input_mask = np.zeros_like(input_ids)
+            for i in range(valid_length_each_example.shape[0]):
+                input_mask[i, :valid_length_each_example[i]] = 1
+            encoder_output = None
+            encoder_mask = None
+            target_mask = None
+            if self.config.is_encoder_decoder:
+                if generation_config.max_length > self.config.max_decode_length:
+                    generation_config.max_length = self.config.max_decode_length
+                logger.debug("max decode length is: %s", generation_config.max_length)
+
+                # When do encoder and decoder prediction, the encoder can be cached
+                # to speed up the inference
+                (
+                    encoder_output,
+                    encoder_mask,
+                    input_ids,
+                    target_mask,
+                ) = self._prepare_model_inputs_for_decoder(input_ids, input_mask)
+                valid_length_each_example = [1 for _ in range(batch_size)]
+            # A single loop generates one token, loop until reaching target
+            # model_origin_max_length or generating eod token
+            is_finished = [False] * batch_size
+
+            # update model kwargs once, before go into generate loop.
+            self.update_model_kwargs_before_generate(input_ids, model_kwargs)
+
+            # setup is_first_iteration flag for incremental infer
+            if generation_config.use_past:
+                self.is_first_iteration = True
+
+            origin_len = np.sum(valid_length_each_example)
+            prepare_time = time.time() - prepare_time
+            logger.debug("forward prepare time: %s s", prepare_time)
+
+            if self._use_past():
+                block_mgr = BlockTables(self.config.num_blocks, self.config.block_size, self.config.seq_length)
+                block_mgr.init_cache_engine(batch_size)
+
+            while np.sum(is_finished) != batch_size:
+                block_tables = None
+                slot_mapping = None
+                if self._use_past():
+                    block_tables, slot_mapping = block_mgr.assemble_pa_inputs(self.is_first_iteration,
+                                                                              valid_length_each_example, is_finished)
+
+                prefill = True
+                if generation_config.use_past and not self.is_first_iteration:
+                    prefill = False
+
+                target_list, is_finished = self.infer(input_ids=input_ids,
+                                                      valid_length_each_example=valid_length_each_example,
+                                                      generation_config=generation_config,
+                                                      logits_processor=logits_processor,
+                                                      logits_warper=logits_warper,
+                                                      block_tables=block_tables,
+                                                      slot_mapping=slot_mapping,
+                                                      prefill=prefill,
+                                                      is_finished=is_finished,
+                                                      encoder_mask=encoder_mask,
+                                                      encoder_output=encoder_output,
+                                                      target_mask=target_mask,
+                                                      **model_kwargs)
+
+                for i in range(batch_size):
+                    if is_finished[i]:
+                        continue
+                    input_ids[i, valid_length_each_example[i]] = target_list[i]
+
+                    if self.config.is_encoder_decoder:
+                        target_mask[i][valid_length_each_example[i]] = int(1)
+
+                    valid_length_each_example[i] += int(1)
+                    input_mask[i][valid_length_each_example[i] - 1] = 1
+
+                if streamer is not None:
+                    if batch_size == 1:
+                        streamer.put(target_list[0])
+                    else:
+                        streamer.put(target_list)
+
+            # Return valid outputs out of padded outputs
+            output_ids = []
+            for i in range(batch_size):
+                output_ids.append(
+                    input_ids[i, : int(valid_length_each_example[i])].astype(np.int32)
+                )
+            logger.debug("The output is: %s", output_ids)
+            if streamer is not None:
+                streamer.end()
+
+            generate_len = np.sum(valid_length_each_example) - origin_len
+            total_time = time.time() - total_time
+            logger.info("total time: %s s; generated tokens: %s tokens; generate speed: %s tokens/s",
+                        total_time, generate_len, generate_len / total_time)
 
         # set to original phase
         self.set_train(origin_phase == "train")
         return output_ids
+
+    def infer(self,
+              input_ids: [Union[List[int], List[List[int]]]],
+              valid_length_each_example: [List[int]],
+              generation_config: [GenerationConfig] = None,
+              logits_processor: Optional[LogitsProcessorList] = None,
+              logits_warper: Optional[LogitsProcessorList] = None,
+              block_tables: Optional[Tensor] = None,
+              slot_mapping: Optional[Tensor] = None,
+              prefill: bool = True,
+              is_finished: List[bool] = None,
+              encoder_mask: Optional[Tensor] = None,
+              encoder_output: Optional[Tensor] = None,
+              target_mask: Optional[Tensor] = None,
+              **model_kwargs):
+        """
+        do infer and return logits on next position, can choose do prefill or decode predict.
+
+        Args:
+            input_ids (List(List(int))):
+                Input ids after padding.
+            valid_length_each_example (List(int)):
+                Valid input length except padding.
+            generation_config (`GenerationConfig`):
+                The generation configuration to be used as base parametrization for the generation call.
+            logits_processor (`LogitsProcessorList`, *optional*):
+                An instance of [`LogitsProcessorList`]. List of instances of class derived from [`LogitsProcessor`]
+                used to modify the prediction scores of the language modeling head applied at each generation step.
+            logits_warper (`LogitsProcessorList`, *optional*):
+                An instance of [`LogitsProcessorList`]. List of instances of class derived from [`LogitsWarper`] used
+                to warp the prediction score distribution of the language modeling head applied before multinomial
+                sampling at each generation step.
+            block_tables (Tensor):
+                Params for page attention
+            slot_mapping (Tensor):
+                Params for page attention
+            prefill (bool):
+                Whether to do prefill predict or decode predict
+            is_finished (List(bool)):
+                Whether each sequence is finished its generation.
+            encoder_mask (Tensor):
+                Use for encoder-decoder construct, do not need for decoder only construct
+            encoder_output (Tensor):
+                Use for encoder-decoder construct, do not need for decoder only construct
+            target_mask (Tensor):
+                Use for encoder-decoder construct, do not need for decoder only construct
+
+        Returns:
+            next_token, is_finished
+        """
+
+        start_time = time.time()
+
+        input_ids = np.array(input_ids)
+        res, current_index = self.forward(input_ids=input_ids,
+                                          valid_length_each_example=valid_length_each_example,
+                                          generation_config=generation_config,
+                                          block_tables=block_tables,
+                                          slot_mapping=slot_mapping,
+                                          prefill=prefill,
+                                          encoder_mask=encoder_mask,
+                                          encoder_output=encoder_output,
+                                          target_mask=target_mask,
+                                          **model_kwargs)
+
+        forward_time = time.time() - start_time
+        sample_time = time.time()
+
+        need_gather_logits = True
+        if not self.config.is_encoder_decoder and generation_config.use_past:
+            need_gather_logits = prefill
+
+        next_id, is_finished = self.postprocess(input_ids=input_ids,
+                                                is_finished=is_finished,
+                                                res=res,
+                                                generation_config=generation_config,
+                                                valid_length_each_example=valid_length_each_example,
+                                                current_index=current_index,
+                                                logits_processor=logits_processor,
+                                                logits_warper=logits_warper,
+                                                need_gather_logits=need_gather_logits)
+
+        sample_time = time.time() - sample_time
+        infer_time = time.time() - start_time
+        logger.debug("forward time: %s s; sample time: %s s; total count: %s s",
+                     forward_time, sample_time, infer_time)
+
+        return next_id, is_finished
+
+    def forward(self,
+                input_ids: [Union[List[int], List[List[int]]]],
+                valid_length_each_example: [List[int]],
+                generation_config: [GenerationConfig] = None,
+                block_tables: Optional[Tensor] = None,
+                slot_mapping: Optional[Tensor] = None,
+                prefill: bool = None,
+                encoder_mask: Optional[Tensor] = None,
+                encoder_output: Optional[Tensor] = None,
+                target_mask: Optional[Tensor] = None,
+                **model_kwargs):
+        """
+        Model forward process.
+
+        Args:
+            input_ids (List(List(int))):
+                Input ids after padding.
+            valid_length_each_example (List(int)):
+                Valid input length except padding.
+            generation_config (`GenerationConfig`):
+                The generation configuration to be used as base parametrization for the generation call.
+            block_tables (Tensor):
+                Params for page attention
+            slot_mapping (Tensor):
+                Params for page attention
+            prefill (bool):
+                Whether to do prefill predict or decode predict
+            encoder_mask (Tensor):
+                Use for encoder-decoder construct, do not need for decoder only construct
+            encoder_output (Tensor):
+                Use for encoder-decoder construct, do not need for decoder only construct
+            target_mask (Tensor):
+                Use for encoder-decoder construct, do not need for decoder only construct
+
+        Returns:
+            res, current_index
+        """
+        input_ids = np.reshape(input_ids, (-1, np.shape(input_ids)[-1]))
+        batch_size = input_ids.shape[0]
+        seq_length = input_ids.shape[1]
+        current_index = [
+            valid_length_each_example[i] - 1 + i * seq_length
+            for i in range(batch_size)
+        ]
+
+        if self.config.is_encoder_decoder:
+            inputs = Tensor(input_ids, mstype.int32)
+            # pylint: disable=E1102
+            res = self(
+                input_ids=None,
+                attention_mask=encoder_mask,
+                encoder_outputs=encoder_output,
+                decoder_input_ids=inputs,
+                decoder_attention_mask=Tensor(target_mask, mstype.float32),
+            )
+        else:
+            model_kwargs["current_index"] = current_index
+            # pylint: disable=E1111
+            model_inputs = self.prepare_inputs_for_generation(input_ids, **model_kwargs)
+            if generation_config.use_past:
+                res = self._incremental_infer(
+                    model_inputs=model_inputs,
+                    prefill=prefill,
+                    current_index=current_index,
+                    valid_length_each_example=valid_length_each_example,
+                    block_tables=block_tables,
+                    slot_mapping=slot_mapping
+                )
+            else:
+                res = self(**model_inputs)  # pylint: disable=E1102
+
+        return res, current_index
+
+    def postprocess(self,
+                    input_ids,
+                    is_finished,
+                    res,
+                    generation_config,
+                    valid_length_each_example,
+                    current_index: Optional[Union[List[int], List[List[int]]]],
+                    logits_processor: Optional[LogitsProcessorList] = None,
+                    logits_warper: Optional[LogitsProcessorList] = None,
+                    need_gather_logits: bool = True):
+        """
+        postprocess of the output from model generation.
+
+        Args:
+            input_ids (List(List(int))):
+                Input ids after padding.
+            res (List(List(int))):
+                Logits after infer.
+            is_finished (List(bool)):
+                Whether each sequence is finished its generation.
+            generation_config (`GenerationConfig`):
+                The generation configuration to be used as base parametrization for the generation call.
+            valid_length_each_example (List(int)):
+                Valid input length except padding.
+            current_index (List(int)):
+                Current index of sequence.
+            logits_processor (`LogitsProcessorList`, *optional*):
+                An instance of [`LogitsProcessorList`]. List of instances of class derived from [`LogitsProcessor`]
+                used to modify the prediction scores of the language modeling head applied at each generation step.
+            logits_warper (`LogitsProcessorList`, *optional*):
+                An instance of [`LogitsProcessorList`]. List of instances of class derived from [`LogitsWarper`] used
+                to warp the prediction score distribution of the language modeling head applied before multinomial
+                sampling at each generation step.
+            need_gather_logits (bool):
+                whether gather result, when decode predict and is first iteration, set True.
+        """
+        batch_size = input_ids.shape[0]
+        target_list = [[] for _ in range(batch_size)]
+
+        if not self.config.is_sample_acceleration:
+            # convert to numpy for post process
+            logits = res[0] if isinstance(res, tuple) else res
+            if isinstance(logits, Tensor):
+                logits = logits.asnumpy()
+            logits = np.reshape(logits, (-1, logits.shape[-1]))
+            # need gather last seq logits using current_index
+            # compare length to determine if need gather; if not, gather should be done in model construct
+            if need_gather_logits and logits.shape[0] > len(current_index):
+                logits = logits[current_index]
+
+            probs = logits_processor(input_ids, logits, is_finished)
+            p_args = np.tile(np.arange(logits.shape[-1]), (batch_size, 1))
+        else:
+            probs, p_args = res
+            if isinstance(probs, Tensor):
+                probs = probs.asnumpy()
+            if isinstance(p_args, Tensor):
+                p_args = p_args.asnumpy()
+
+        if not hasattr(generation_config, "generation_mode"):
+            generation_config.generation_mode = self._get_generation_mode(generation_config)
+        if generation_config.generation_mode == GenerationMode.GREEDY_SEARCH:
+            # run greedy search
+            for i in range(batch_size):
+                if is_finished[i]:
+                    continue
+                target_index = np.argmax(probs[i])
+                # get target token id
+                target = p_args[i][target_index]
+                target_list[i] = target
+                # Stop judgment
+                if p_args[i][target_index] == generation_config.eos_token_id \
+                        or valid_length_each_example[i] == generation_config.max_length - 1:
+                    is_finished[i] = True
+
+        elif generation_config.generation_mode == GenerationMode.SAMPLE:
+            if not self.config.is_sample_acceleration:
+                probs = logits_warper(input_ids, probs, is_finished)
+            p_norms = softmax_with_threads(probs, is_finished)
+
+            for i in range(batch_size):
+                if is_finished[i]:
+                    continue
+                p_norm = p_norms[i]
+                target_index = np.random.choice(len(probs[i]), p=p_norm)
+                # get target token id
+                target = p_args[i][target_index]
+                target_list[i] = target
+                # Stop judgment
+                if p_args[i][target_index] == generation_config.eos_token_id \
+                        or valid_length_each_example[i] == generation_config.max_length - 1:
+                    is_finished[i] = True
+
+        elif generation_config.generation_mode == GenerationMode.BEAM_SEARCH:
+            raise ValueError("sampler method doesn't support BEAM_SEARCH. ")
+
+        return target_list, is_finished
