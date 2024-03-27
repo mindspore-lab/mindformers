@@ -482,7 +482,7 @@ class LLamaAttentionWithKBKInfer(LLamaAttention):
                          parallel_config)
         self.context_position_ids = Tensor(ops.arange(seq_length, dtype=mstype.int64))
         self.flash_attention_score = FlashAttentionScore(head_num=self.n_head)
-        self.apply_rotary_pos_emb = RotaryEmbedding(dim=self.head_dim, max_seq_len=seq_length)
+        self.apply_rotary_pos_emb = RotaryEmbedding(dim=self.head_dim, max_seq_len=seq_length,cos_format=2)
         self.paged_attention_mgr = PagedAttentionMgr(self.n_head,
                                                      self.head_dim,
                                                      self.hidden_size,
