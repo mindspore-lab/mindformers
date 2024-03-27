@@ -45,7 +45,7 @@ class AbsPos(nn.Cell):
         self.tgt_size = int(math.sqrt(tgt_size))
 
         self.cast = P.Cast()
-        self.reshape = P.Reshape()
+        self.reshape = P.Reshape().shard(((1, 1),))
         self.flatten = nn.Flatten(start_dim=0, end_dim=2)
         self.resize_shape = ms.Tensor([self.tgt_size, self.tgt_size], ms.int32)
         # Resize does not support shard
@@ -86,7 +86,9 @@ class Resampler(nn.Cell):
 
         if self.kv_dim is not None and self.kv_dim != self.embed_dim:
             self.kv_proj = Linear(in_channels=self.kv_dim, out_channels=self.embed_dim,
-                                  has_bias=False)  # TODO: weight init
+                                  has_bias=False,
+                                  compute_dtype=config.compute_dtype,
+                                  param_init_type=config.param_init_type)  # TODO: weight init
             self.kv_proj.shard(strategy_matmul=((dp, 1),
                                                  (mp, 1)),
                                 strategy_bias=((dp, mp), (mp,))
@@ -180,24 +182,27 @@ class VisionTransformer(nn.Cell):
         scale = width ** -0.5
         self.positional_embedding = \
             Parameter(scale * Tensor(
-                np.random.normal(0, 1, size=(256, width))).astype(ms.float32),
+                np.random.normal(0, 1, size=(256, width))).astype(dtype),
                       parallel_optimizer=False)
-        self.ln_pre = LayerNorm([width], eps=1e-6)
+        self.ln_pre = LayerNorm((width,), eps=1e-6)
         self.ln_pre.shard(((config.parallel_config.data_parallel, 1, 1),))
         self.transformer = Transformer(width, layers, heads, config, dtype)
 
         self.attn_pool = Resampler(config)
         self.transpose = P.Transpose().shard(((parallel_config.data_parallel, 1, 1),))
-        self.ln_post = LayerNorm([output_dim], eps=1e-6)
+        self.ln_post = LayerNorm((output_dim,), eps=1e-6)
         self.ln_post.shard(((config.parallel_config.data_parallel, 1, 1),))
         self.proj = \
             Parameter(scale * Tensor(np.random.normal(0, 1,
-                                                      size=(output_dim, output_dim))).astype(ms.float32))
+                                                      size=(output_dim, output_dim))).astype(dtype))
         self.dtype = dtype
+        self.cast = P.Cast()
         self.add = P.Add().shard(((parallel_config.data_parallel, 1, 1), (1, 1)))
         img_grid_size = input_resolution // patch_size
         self.abs_pos = AbsPos(self.positional_embedding.shape[0], img_grid_size ** 2)
-        self.matmul = P.MatMul().shard(((parallel_config.data_parallel, 1), (parallel_config.model_parallel, 1)))
+        dp = parallel_config.data_parallel
+        mp = parallel_config.model_parallel
+        self.matmul = P.BatchMatMul().shard(((dp, mp, 1), (mp, 1)))
 
     def construct(self, input_x: ms.Tensor):
         r"""Construct
@@ -215,107 +220,12 @@ class VisionTransformer(nn.Cell):
         abs_pos = self.abs_pos(self.positional_embedding)
         input_x = self.add(input_x, abs_pos)
         input_x = self.ln_pre(input_x)
-        # ln_pre out (1, 1024, 1664)
-        # input_x = input_x.transpose(1, 0, 2)
-        # after transpose (1024, 1, 1664)
         input_x = self.transformer(input_x)
-        # input_x = input_x.transpose(1, 0, 2)
         input_x = self.attn_pool(input_x)
         input_x = self.ln_post(input_x)
-        input_x = ops.matmul(input_x, self.proj)
+        input_x = self.cast(input_x, self.dtype)
+        input_x = self.matmul(input_x, self.proj)
         return input_x
-
-
-class MultiheadAttention(nn.Cell):
-    r"""MultiheadAttention, With Layers As Input For Initialization
-
-    Args:
-        d_model (int): The feature dimension
-        n_head (int): The number of attention heads
-        layers (int): The number of transformers, used for weight initialization
-        dtype (mstype): The type of calculation, [mstype.float32, mstype.float16].
-    """
-
-    def __init__(self, d_model: int, n_head: int, layers: int, config: dict, dtype: mstype):
-        super(MultiheadAttention, self).__init__()
-
-        dp = config.parallel_config.data_parallel
-        mp = config.parallel_config.model_parallel
-        self.num_heads = n_head
-        self.head_dim = d_model // n_head
-        self.embed_dim = d_model
-
-        self.scaling = self.head_dim ** -0.5
-
-        proj_std = (d_model ** -0.5) * ((2 * layers) ** -0.5)
-        attn_std = d_model ** -0.5
-
-        self.out_proj = Linear(d_model, d_model,
-                               weight_init=Normal(mean=0.0, sigma=proj_std)).to_float(dtype)
-        self.out_proj.shard(strategy_matmul=((dp, 1),
-                                             (mp, 1)),
-                            strategy_bias=((dp, mp), (mp,))
-                            )
-        self.in_proj = Linear(d_model, 3 * d_model,
-                              weight_init=Normal(mean=0.0, sigma=attn_std)).to_float(dtype)
-        self.in_proj.shard(strategy_matmul=((dp, 1),
-                                            (mp, 1)),
-                           strategy_bias=((dp, mp),
-                                          (mp,)))
-        self.batch_matmul = P.BatchMatMul().shard(((dp, mp, 1, 1), (dp, mp, 1, 1)))
-        self.merger_head_transpose = P.Transpose().shard(((dp, mp, 1, 1),))
-        self.split = ops.Split(axis=-1, output_num=3).shard(((dp, 1, mp, 1),))
-        self.split.add_prim_attr("skip_redistribution", True)
-        self.transpose = ops.Transpose().shard(((dp, 1, mp, 1),))
-        self.softmax = nn.Softmax(-1)
-        self.softmax.softmax.shard(((dp, mp, 1, 1),))
-        self.reshape = P.Reshape()
-        self.mul = P.Mul().shard(((dp, 1, mp, 1), ()))
-
-    def construct(self, query: ms.Tensor, attn_mask: Optional[ms.Tensor] = None):
-        r"""Construct
-
-        Args:
-            query (ms.Tensor): query of attention.
-            attn_mask (Optional[ms.Tensor]): attention mask.
-
-        Returns:
-            attn_output (ms.Tensor): attention output.
-        """
-        # origin (1024, 1, 1664) --> current (1, 1024, 1664)
-        batch_size, len_tgt, width = query.shape
-        qkv = self.in_proj(query)
-        qkv = qkv.view(batch_size, len_tgt, self.num_heads, 3 * self.head_dim)
-
-        # current (1, 1024, 4992)
-        att_q, att_k, att_v = self.split(qkv)
-        # after split (1, 1024, 1664)
-
-        att_q = self.mul(att_q, self.scaling)
-        # q (bsz, num_head, len_tgt, head_dim)
-        att_q = self.transpose(att_q, (0, 2, 1, 3))
-        # k (bsz, num_head, head_dim, len_tgt)
-        att_k = self.transpose(att_k, (0, 2, 3, 1))
-        # v (bsz, num_head, len_tgt, head_dim)
-        att_v = self.transpose(att_v, (0, 2, 1, 3))
-
-        if attn_mask is not None:
-            attn_output_weights = attn_mask + self.batch_matmul(att_q, att_k)
-        else:
-            attn_output_weights = self.batch_matmul(att_q, att_k)
-        attn_output_weights = self.softmax(attn_output_weights)
-        attn_output = self.batch_matmul(attn_output_weights, att_v)
-        attn_output = self._merge_heads(attn_output)
-        attn_output = self.out_proj(attn_output)
-        return attn_output
-
-    def _merge_heads(self, x):
-        x = self.merger_head_transpose(
-            x, (0, 2, 1, 3))  # bs, seq_length, head, size_per_head
-        x_shape = P.Shape()(x)
-        new_shape = (x_shape[0], x_shape[1], x_shape[-2] * x_shape[-1])
-        x_merge = self.reshape(x, new_shape)
-        return x_merge
 
 
 class GELU(nn.Cell):
@@ -348,17 +258,21 @@ class GELU(nn.Cell):
 
 
 class MLP(nn.Cell):
-    def __init__(self, d_model, layers, dtype, config):
+    def __init__(self, d_model, layers, config: QwenVLConfig):
         super(MLP, self).__init__()
         dp = config.parallel_config.data_parallel
         mp = config.parallel_config.model_parallel
         proj_std = (d_model ** -0.5) * ((2 * layers) ** -0.5)
         fc_std = (2 * d_model) ** -0.5
         mlp_width = int(d_model * config.vision_config.mlp_ratio)
-        c_fc = Linear(d_model, mlp_width, weight_init=Normal(mean=0.0, sigma=fc_std)).to_float(dtype)
+        c_fc = Linear(d_model, mlp_width, weight_init=Normal(mean=0.0, sigma=fc_std),
+                      compute_dtype=config.compute_dtype,
+                      param_init_type=config.param_init_type)
         c_fc.shard(strategy_matmul=((dp, 1), (mp, 1)), strategy_bias=((dp, mp), (mp,)))
         self.c_fc = c_fc
-        c_proj = Linear(mlp_width, d_model, weight_init=Normal(mean=0.0, sigma=proj_std)).to_float(dtype)
+        c_proj = Linear(mlp_width, d_model, weight_init=Normal(mean=0.0, sigma=proj_std),
+                        compute_dtype=config.compute_dtype,
+                        param_init_type=config.param_init_type)
         c_proj.shard(strategy_matmul=((dp, 1), (mp, 1)), strategy_bias=((dp, mp), (mp,)))
         self.c_proj = c_proj
         self.gelu = GELU(config.parallel_config)
@@ -374,6 +288,52 @@ class MLP(nn.Cell):
         x = self.cast(x, ori_dtype)
         x = self.c_proj(x)
         return x
+
+
+class FlashAttention(nn.Cell):
+    def __init__(self, fas, parallel_config, size_per_head, enable_fas_pad=False):
+        super(FlashAttention, self).__init__()
+        self.fas = fas
+        self.enable_fas_pad = enable_fas_pad
+        if self.enable_fas_pad:
+            dp = parallel_config.data_parallel
+            mp = parallel_config.model_parallel
+            self.strided_slice = P.StridedSlice().shard(((dp, 1, 1, 1),))
+            self.concat = P.Concat(axis=-1).shard(((dp, mp, 1, 1), (dp, mp, 1, 1)))
+            self.zeros = P.Zeros().shard(((dp, 1, 1, 1),))
+            mul_value, remainder = divmod(size_per_head, 128)
+            if remainder > 0:
+                new_size_per_head = (mul_value + 1) * 128
+            else:
+                new_size_per_head = size_per_head
+            self.pad_length = new_size_per_head - size_per_head
+            if self.pad_length == 0:
+                raise ValueError("size_per_head is divisble by 128, please disable enable_fas_pad")
+
+    def construct(self, query, key, value, attention_mask):
+        bsz, num_head, seq, size_per_head = query.shape
+        if self.enable_fas_pad:
+            pad = self.zeros((bsz, num_head, seq, self.pad_length), P.DType()(query))
+            query = self.concat([query, pad])
+            key = self.concat([key, pad])
+            value = self.concat([value, pad])
+        weighted_values = self.fas(query, key, value, attention_mask)
+        if self.enable_fas_pad:
+            weighted_values = self.strided_slice(weighted_values, (0, 0, 0, 0), (bsz, num_head, seq, size_per_head), (1, 1, 1, 1))
+        return weighted_values
+
+
+class VisualAttention(MultiHeadAttention):
+    def __init__(self, use_attention_mask=False, enable_fas_pad=False, *args, **kwargs):
+        super(VisualAttention, self).__init__(*args, **kwargs)
+        parallel_config = kwargs.get('parallel_config')
+        if self.use_flash_attention and not use_attention_mask:
+            self.flash_attention.have_attention_mask_batch = False
+            dp = parallel_config.data_parallel
+            mp = parallel_config.model_parallel
+            self.flash_attention.shard(((dp, mp, 1, 1), (dp, mp, 1, 1), (dp, mp, 1, 1)))
+            fas = self.flash_attention
+            self.flash_attention = FlashAttention(fas, parallel_config, self.size_per_head, enable_fas_pad=enable_fas_pad)
 
 
 class ResidualAttentionBlock(nn.Cell):
@@ -394,10 +354,25 @@ class ResidualAttentionBlock(nn.Cell):
         dp = config.parallel_config.data_parallel
         mp = config.parallel_config.model_parallel
         self.dtype = dtype
-        self.attn = MultiheadAttention(d_model, n_head, layers, config, dtype)
+        img_grid_size = config.vision_config.image_size // config.vision_config.patch_size
+        self.attn = VisualAttention(hidden_size=d_model,
+                                    num_heads=n_head,
+                                    batch_size=None,
+                                    src_seq_length=img_grid_size ** 2,
+                                    tgt_seq_length=img_grid_size ** 2,
+                                    hidden_dropout_rate=0.0,
+                                    attention_dropout_rate=0.0,
+                                    softmax_compute_type=config.softmax_compute_type,
+                                    use_past=False,
+                                    compute_dtype=config.compute_dtype,
+                                    param_init_type=config.param_init_type,
+                                    parallel_config=config.parallel_config.dp_mp_config,
+                                    use_flash_attention=config.vision_config.use_flash_attention,
+                                    use_attention_mask=False,
+                                    enable_fas_pad=config.vision_config.enable_fas_pad)
         self.ln_1 = LayerNorm((d_model,), eps=1e-6)
         self.ln_1.layer_norm.shard(((dp, 1, 1), (1,), (1,)))
-        self.mlp = MLP(d_model, layers, dtype, config)
+        self.mlp = MLP(d_model, layers, config)
         self.ln_2 = LayerNorm((d_model,), eps=1e-6)
         self.ln_2.layer_norm.shard(((dp, 1, 1), (1,), (1,)))
         self.attn_mask = attn_mask
@@ -412,7 +387,7 @@ class ResidualAttentionBlock(nn.Cell):
 
     def attention(self, input_x: ms.Tensor):
         r"""Attention"""
-        return self.attn(input_x, self.attn_mask)
+        return self.attn(input_x, input_x, input_x, self.attn_mask)[0]
 
 
 class Transformer(nn.Cell):
