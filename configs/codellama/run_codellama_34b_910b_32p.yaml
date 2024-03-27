@@ -1,16 +1,15 @@
 seed: 0
 output_dir: './output' # path to save checkpoint/strategy
 load_checkpoint: ''
-src_strategy_path_or_dir: ''
 auto_trans_ckpt: False  # If true, auto transform load_checkpoint to load in distributed model
 only_save_strategy: False
 resume_training: False
-run_mode: 'finetune'
+run_mode: 'train'
 
 # trainer config
 trainer:
   type: CausalLanguageModelingTrainer
-  model_name: 'llama2_70b'
+  model_name: 'codellama_34b'
 # if True, do evaluate during the training process. if false, do nothing.
 # note that the task trainer should support _evaluate_in_training function.
 do_eval: False
@@ -22,14 +21,13 @@ runner_config:
   epochs: 2
   batch_size: 1
   sink_mode: True
-  sink_size: 2
+  sink_size: 4
 # optimizer
 optimizer:
   type: FP32StateAdamWeightDecay
   beta1: 0.9
-  beta2: 0.99
+  beta2: 0.95
   eps: 1.e-8 # 1e-8
-  learning_rate: 1.e-5
 
 # lr sechdule
 lr_schedule:
@@ -49,7 +47,6 @@ train_dataset: &train_dataset
   num_parallel_workers: 8
   python_multiprocessing: False
   drop_remainder: True
-  batch_size: 1
   repeat: 1
   numa_enable: False
   prefetch_size: 1
@@ -91,7 +88,7 @@ parallel:
 parallel_config:
   data_parallel: 2
   model_parallel: 4
-  pipeline_stage: 8
+  pipeline_stage: 4
   use_seq_parallel: True
   micro_batch_num: 128
   vocab_emb_dp: True
@@ -111,7 +108,7 @@ recompute_config:
 callbacks:
   - type: MFLossMonitor
   - type: CheckpointMointor
-    prefix: "llama_70b"
+    prefix: "codellama_34b"
     save_checkpoint_steps: 1000
     integrated_save: False
     async_save: False
@@ -124,40 +121,41 @@ context:
   enable_graph_kernel: False
   graph_kernel_flags: "--disable_expand_ops=Softmax,Dropout --enable_parallel_fusion=true --reduce_fuse_depth=8 --enable_auto_tensor_inplace=true"
   max_call_depth: 10000
-  max_device_memory: "55GB"
+  max_device_memory: "56GB"
   save_graphs: False
   save_graphs_path: "./graph"
   device_id: 0
+  runtime_num_threads: 1
 
 # model config
 model:
   model_config:
     type: LlamaConfig
-    batch_size: 1 # add for increase predict
+    batch_size: 1
     seq_length: 4096
     hidden_size: 8192
-    num_layers: 80
+    num_layers: 48
     num_heads: 64
     vocab_size: 32000
     multiple_of: 256
     n_kv_heads: 8
-    ffn_dim_multiplier: 1.3
     rms_norm_eps: 1.0e-5
     bos_token_id: 1
     eos_token_id: 2
     pad_token_id: 0
     ignore_token_id: -100
+    theta: 1000000.0
     compute_dtype: "float16"
     layernorm_compute_type: "float32"
     softmax_compute_type: "float16"
     rotary_dtype: "float16"
     param_init_type: "float16"
     use_past: False
-    scaling_factor: 1.0
+    pretrain_seqlen: 4096 # seqlen of the pretrain checkpoint
     extend_method: "None" # support "None", "PI", "NTK"
-    use_flash_attention: True  # FA can accelerate training or finetune
+    compute_in_2d: True
+    use_flash_attention: True
     fine_grain_interleave: 2
-    qkv_concat: false
     offset: 0
     use_past_shard: False
     checkpoint_name_or_path: ""
