@@ -20,7 +20,8 @@ import shutil
 from mindformers import Trainer, MindFormerConfig
 from mindformers.core.context import build_context
 from mindformers.tools import get_output_root_path
-from mindformers.tools.utils import check_in_modelarts, str2bool
+from mindformers.tools.utils import check_in_modelarts, str2bool, set_remote_save_url
+from mindformers.tools.cloud_adapter import cloud_monitor
 
 # pylint: disable=W0611
 import qwen_model
@@ -56,6 +57,7 @@ def clear_auto_trans_output(config):
         os.makedirs(transformed_ckpt_dir, exist_ok=True)
 
 
+@cloud_monitor()
 def main(task='text_generation',
          config='run_qwen_7b.yaml',
          run_mode='predict',
@@ -63,6 +65,7 @@ def main(task='text_generation',
          use_past=None,
          ckpt=None,
          auto_trans_ckpt=None,
+         remote_save_url=None,
          vocab_file=None,
          predict_data='',
          seq_length=None,
@@ -95,6 +98,11 @@ def main(task='text_generation',
 
     # init context
     build_context(config)
+
+    if check_in_modelarts() and remote_save_url:
+        print("remote_save_url is '%s', the output file will be uploaded to here.", remote_save_url)
+        set_remote_save_url(remote_save_url)
+        config.remote_save_url = remote_save_url
 
     if auto_trans_ckpt is not None:
         config.auto_trans_ckpt = auto_trans_ckpt
@@ -153,6 +161,8 @@ if __name__ == "__main__":
                         help='checkpoint name or dir to load.')
     parser.add_argument('--auto_trans_ckpt', default=None, type=str2bool,
                         help='whether to transform checkpoint to the checkpoint matching current distribute strategy.')
+    parser.add_argument('--remote_save_url', default="", type=str,
+                        help='OBS url to store/exchange transformed checkpoint files')
     parser.add_argument('--vocab_file', default="", type=str,
                         help='tokenizer model')
     parser.add_argument('--seq_length', default=None, type=int,
@@ -202,6 +212,7 @@ if __name__ == "__main__":
          use_past=args.use_past,
          ckpt=args.load_checkpoint,
          auto_trans_ckpt=args.auto_trans_ckpt,
+         remote_save_url=args.remote_save_url,
          vocab_file=args.vocab_file,
          predict_data=args.predict_data,
          seq_length=args.seq_length,

@@ -172,3 +172,5 @@ parallel:
     gradient_accumulation_shard: False
     parallel_optimizer_threshold: 64
 
+# aicc
+remote_save_url: "Please input obs url on AICC platform."
