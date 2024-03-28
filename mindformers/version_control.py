@@ -253,5 +253,6 @@ def check_valid_paged_attention():
         logger.warning("Now running on self-attention mode.")
         result = False
     else:
+        logger.info("Enable paged attention in inference.")
         result = True
     return result
