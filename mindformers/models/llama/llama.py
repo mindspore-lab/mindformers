@@ -65,24 +65,25 @@ def layer_compute_dtype(layer, layer_id, offset, parallel_config, n_layers, sele
             offset(Union[int, List[int]]) - Means the layer_index needs a offset, if there are other modules in the net.
             n_layers(int) - The total layers used for the model.
     """
-    pp_dis = max(int((n_layers + 1) / parallel_config.pipeline_stage), 1)
-    if isinstance(offset, list):
-        if len(offset) != parallel_config.pipeline_stage:
-            raise ValueError(f"The length of `offset` {len(offset)} do not match "
-                             "`pipeline stage` {parallel_config.pipeline_stage}.")
-        i = min(layer_id // pp_dis, parallel_config.pipeline_stage - 1)
-        offset_layer = offset[i]
+    pp = parallel_config.pipeline_stage
+    if isinstance(offset, (list, tuple)):
+        if len(offset) != pp:
+            raise ValueError(f"The length of `offset` {len(offset)} do not match `pipeline stage` {pp}.")
+        stage_layers_list = np.array([n_layers // pp] * pp) + np.array(offset)
+        layer_list = np.array([np.sum(stage_layers_list[:i + 1]) for i in range(len(stage_layers_list))])
+        pp_id = int(np.sum(layer_list < layer_id + 1))
     elif isinstance(offset, int):
         offset_layer = offset
+        pp_dis = max(int((n_layers + 1) / pp), 1)
+        pp_id = min((layer_id + offset_layer) // pp_dis, pp - 1)
     else:
-        raise TypeError(f"`offset` must be `int` of list of `int`, but got {type(offset)}.")
+        raise TypeError(f"`offset` must be `int` or list/tuple of `int`, but got {type(offset)}.")
 
-    pp_id = min((layer_id + offset_layer) // pp_dis, parallel_config.pipeline_stage - 1)
     layer.pipeline_stage = pp_id
 
     # Used for optimizer's fusion tag
     dis = max(int((n_layers + 1) / parallel_config.gradient_aggregation_group), 1)
-    if parallel_config.pipeline_stage > 1:
+    if pp > 1:
         layer.set_comm_fusion(2)
     else:
         layer.set_comm_fusion(int((layer_id + offset_layer) / dis) + 1)
