@@ -518,9 +518,6 @@ class LLamaDecodeLayerInterleave(nn.Cell):
             self.feed_forward.w1.activation.silu.recompute()
 
         if parallel_config.recompute.select_recompute:
-            if self.layer_id >= (num_layers // 2):
-                self.feed_forward.mul.recompute()
-                self.feed_forward.w1.activation.silu.recompute()
             self.attention_norm.cast.recompute()
             self.ffn_norm.cast.recompute()
 
