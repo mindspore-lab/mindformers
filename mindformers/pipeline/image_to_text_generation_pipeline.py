@@ -117,6 +117,10 @@ class ImageToTextPipeline(Pipeline):
             prompt = hypothesis_template.format(prompt).strip()
         else:
             prompt = self.hypothesis_template.format(prompt).strip()
+
+        if not prompt:
+            prompt = self.tokenizer.pad_token
+
         prompt_processed = self.tokenizer(prompt,
                                           max_length=max_length,
                                           padding=padding,
