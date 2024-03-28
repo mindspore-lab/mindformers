@@ -19,6 +19,7 @@ from typing import Union
 from mindspore._checkparam import args_type_check
 import mindspore.common.dtype as mstype
 
+from mindformers.models.utils import convert_mstype
 from mindformers.modules.transformer.transformer import default_transformer_config, default_moe_config, \
     TransformerOpParallelConfig
 from mindformers.modules.transformer.moe import MoEConfig
@@ -164,9 +165,9 @@ class ViTConfig(PretrainedConfig):
         self.loss_type = loss_type
         self.encoder_stride = encoder_stride
         self.checkpoint_name_or_path = checkpoint_name_or_path
-        self.layernorm_compute_type = layernorm_compute_type
-        self.softmax_compute_type = softmax_compute_type
-        self.param_init_type = param_init_type
+        self.layernorm_compute_type = convert_mstype(layernorm_compute_type)
+        self.softmax_compute_type = convert_mstype(softmax_compute_type)
+        self.param_init_type = convert_mstype(param_init_type)
         self.parallel_config = parallel_config
         self.moe_config = moe_config
         self.init_values = init_values
