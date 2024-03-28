@@ -47,7 +47,8 @@ def _check_mode(config, mode, **kwargs):
             config.model.model_config.use_past = False
             logger.warning("use_past could not be used in train mode, "
                            "it has been forced to False")
-        _check_keyword_gen_dataset(config, mode, **kwargs)
+        if config.metric:
+            _check_keyword_gen_dataset(config, mode, **kwargs)
     elif mode == 'predict':
         _restore_net_type(config)
         _rule_fa_only_for_train(config, mode)
@@ -57,7 +58,10 @@ def _check_mode(config, mode, **kwargs):
         _restore_net_type(config)
         _rule_fa_only_for_train(config, mode)
         _rule_pp_only_for_train(config, mode)
-        _check_keyword_gen_dataset(config, mode, **kwargs)
+
+        if config.metric:
+            _check_keyword_gen_dataset(config, mode, **kwargs)
+
         _rule_bs_divisible_by_dp(config, **kwargs)
     elif mode == 'export':
         _restore_net_type(config)
