@@ -259,7 +259,7 @@ def get_cached_module_file(
     Returns:
         `str`: The path to the module inside the cache.
     """
-    from modelfoundry_hub import try_to_load_from_cache
+    from openmind_hub import try_to_load_from_cache
 
     use_auth_token = deprecated_kwargs.pop("use_auth_token", None)
     if use_auth_token is not None:
