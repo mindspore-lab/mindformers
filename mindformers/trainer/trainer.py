@@ -205,7 +205,8 @@ class Trainer:
                  pet_method: Optional[str] = '',
                  image_processor: Optional[BaseImageProcessor] = None,
                  audio_processor: Optional[BaseAudioProcessor] = None,
-                 save_config: bool = False):
+                 save_config: bool = False,
+                 reset_model: bool = False):
         self.args = args
         self.task = task
         self.model = model
@@ -221,8 +222,10 @@ class Trainer:
         self.pet_method = pet_method
         self.image_processor = image_processor
         self.audio_processor = audio_processor
+        self.reset_model = reset_model
         self.default_checkpoint_name_or_path = None
         self.configs_directory = os.path.join('.', DEFAULT_CONFIG_DIR)
+        self.reset_use_past_to_false = False
 
         # check_task_and_model
         if self.task not in SUPPORT_TASKS.keys():
@@ -878,7 +881,7 @@ class Trainer:
 
         self.is_set_moe_config = True
 
-    def _reset_model_instance(self, is_train=False):
+    def _reset_model_instance(self):
         """Reset model instance for new model config."""
         if self.is_set_parallel_config:
             logger.info("The incoming model will be configured in parallel.")
@@ -894,18 +897,26 @@ class Trainer:
 
         build_parallel_config(self.config)
         model_config = self.model.config
-        if True in [self.is_set_parallel_config, self.is_set_moe_config, self.is_set_recompute_config] or \
-            (is_train and hasattr(model_config, 'use_past') and model_config.use_past):
+        if True in [self.is_set_parallel_config, self.is_set_moe_config, self.is_set_recompute_config]:
             logger.info("..........Reinit Model..........")
-            if is_train and hasattr(model_config, 'use_past') and model_config.use_past:
-                model_config.use_past = False
-                logger.warning("The `use_past` is set to False.")
             model_config.parallel_config = self.config.parallel_config
             model_config.moe_config = self.config.moe_config
             self.model.__init__(model_config)
             self.is_set_parallel_config = False
             self.is_set_recompute_config = False
             self.is_set_moe_config = False
+
+    def _reset_use_past(self, is_train=False):
+        """Reset use_past to false when training."""
+        model_config = self.model.config
+        if hasattr(model_config, 'use_past'):
+            if is_train and model_config.use_past:
+                self.reset_use_past_to_false = True
+                self.model.add_flags_recursive(use_past=False)
+                logger.info("The `use_past` is set to `false` before training.")
+            elif not is_train and self.reset_use_past_to_false:
+                self.model.add_flags_recursive(use_past=True)
+                logger.info("The `use_past` is restored to `true`.")
 
     @staticmethod
     def get_task_config(task, model_name):
@@ -1011,7 +1022,9 @@ class Trainer:
                 "When `model` is not instance, `self.config.model` must not be None."
 
         if self.is_model_instance:
-            self._reset_model_instance(is_train)
+            self._reset_use_past(is_train)
+            if self.reset_model:
+                self._reset_model_instance()
 
     def _init_tokenizer(self):
         """init tokenizer"""
