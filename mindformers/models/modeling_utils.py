@@ -252,6 +252,7 @@ class PreTrainedModel(nn.Cell, ModuleUtilsMixin, GenerationMixin, PushToHubMixin
     # pylint: disable=W0613
     def __init__(self, config: PretrainedConfig, *inputs, **kwargs):
         super().__init__(**kwargs)
+        GenerationMixin.__init__(self)
         if not isinstance(config, PretrainedConfig):
             raise ValueError(
                 f"Parameter config in `{self.__class__.__name__}(config)` should be an instance of class "

@@ -73,7 +73,10 @@ class GenerationMixin:
     """Generator For the nlp models"""
 
     def __init__(self):
-        pass
+        self.time_record = 0
+        self.prepare_time_list = []
+        self.predict_time_list = []
+        self.post_time_list = []
 
     # pylint: disable=W0613
     def prepare_inputs_for_generation(self, input_ids, **kwargs):
@@ -1043,9 +1046,9 @@ class GenerationMixin:
             A list of the generated token ids
         """
         self.time_record = 0
-        self.prepare_time_list = []
-        self.predict_time_list = []
-        self.post_time_list = []
+        self.prepare_time_list.clear()
+        self.predict_time_list.clear()
+        self.post_time_list.clear()
         origin_phase = self.phase
         self.set_train(False)
         try:
