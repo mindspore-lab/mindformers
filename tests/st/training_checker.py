@@ -32,11 +32,19 @@ class TrainingChecker(Callback):
         loss_list_std (list[float]):
             A list of expected loss values.
         avg_step_time_std (float):
-            expected average step time value (in millisecond).
+            Expected average step time value (in millisecond).
         loss_error (float, optional):
             Allowable loss error between true and expected values. Defaults to 1e-3.
         time_error_ratio (float, optional):
             Allowable time error ratio between true and expected values. Defaults to 0.1.
+        skip_step_num (int, optional):
+            Skip a certain number of steps before counting the time. Defaults to 10.
+        micro_batch_num (int, optional):
+            The number of micro-batch in a pipeline stage. Defaults to 1.
+        micro_batch_interleave_num (int, optional):
+            Multi-copy parallel configuration. Defaults to 1.
+        gradient_accumulation_steps (int, optional):
+            The number of gradient accumulation steps. Defaults to 1.
 
     Raises:
         AssertionError
@@ -44,14 +52,17 @@ class TrainingChecker(Callback):
 
     def __init__(self, loss_list_std: list, avg_step_time_std: float,
                  loss_error: float = 1e-3, time_error_ratio: float = 0.1,
-                 micro_batch_num: int = 1, micro_batch_interleave_num: int = 1,
-                 gradient_accumulation_steps: int = 1):
+                 skip_step_num: int = 10, micro_batch_num: int = 1,
+                 micro_batch_interleave_num: int = 1, gradient_accumulation_steps: int = 1):
         super(TrainingChecker, self).__init__()
         self.loss_list_std = loss_list_std
         self.avg_step_time_std = avg_step_time_std
         self.loss_error = loss_error
         self.time_error_ratio = time_error_ratio
         self.step_time = time.time()
+        self.total_time = 0
+        self.skip_step_num = skip_step_num
+        self.counted_steps_num = 0
 
         # init pipeline parallel status
         self.pipeline_parallel = False
@@ -90,6 +101,10 @@ class TrainingChecker(Callback):
         cur_step_num = cb_params.cur_step_num
         cur_step_time = (time.time() - self.step_time) * 1000
 
+        if cur_step_num > self.skip_step_num:
+            self.total_time += cur_step_time
+            self.counted_steps_num += 1
+
         if self.pipeline_parallel:
             loss = loss / self.micro_size
         if self.micro_batch_interleave_num > 1:
@@ -99,7 +114,13 @@ class TrainingChecker(Callback):
 
         # when enable pp, loss will be only available on the last card
         if not self.pipeline_parallel or self.is_last_stage:
-            assert abs(loss - self.loss_list_std[cur_step_num - 1]) < self.loss_error
+            assert abs(loss - self.loss_list_std[cur_step_num - 1]) < self.loss_error, \
+                f"The error between loss: {loss} and " \
+                f"loss_list_std: {self.loss_list_std} is larger than {self.loss_error}"
 
-        if cur_step_num > 2:
-            assert abs(cur_step_time - self.avg_step_time_std) / self.avg_step_time_std < self.time_error_ratio
+    def on_train_end(self, run_context):
+        _ = run_context
+        avg_step_time = self.total_time / self.counted_steps_num
+        assert abs(avg_step_time - self.avg_step_time_std) / self.avg_step_time_std < self.time_error_ratio, \
+            f"The error ratio between avg_step_time: {avg_step_time} and " \
+            f"avg_step_time_std: {self.avg_step_time_std} is larger than {self.time_error_ratio}"
