@@ -32,7 +32,7 @@ model:
     ffn_hidden_size: 13696
     kv_channels: 128
     num_attention_heads: 32
-    seq_length: 32768
+    seq_length: 32640
     hidden_dropout: 0.0
     attention_dropout: 0.0
     layernorm_epsilon: 1e-5
@@ -54,15 +54,22 @@ model:
     param_init_type: "float16"
     compute_dtype: "float16"
     layernorm_compute_type: "float32"
-    use_past: False
-    use_flash_attention: True # when use FlashAttention, seq_length should be multiple of 16
-    use_prompt_flash_attention: False
-    no_recompute_layers: [20]
+    use_past: True
+    use_flash_attention: False # when use FlashAttention, seq_length should be multiple of 16
+    use_prompt_flash_attention: True
+    use_incre_flash_attention: False
+    is_dynamic: True
+    use_kvcache_op: False     # 动态情况下设为True
+    is_flexible_shape: False
+    use_paged_attention: True
+    block_size: 128
+    num_blocks: 512
+    no_recompute_layers: [20] # 用于pp并行时选择不开重计算的层数
     eos_token_id: 2
     pad_token_id: 0
     repetition_penalty: 1.0
     max_decode_length: 512
-    checkpoint_name_or_path: ""
+    checkpoint_name_or_path: "/path/to/glm3_32k.ckpt"
     top_k: 1
     top_p: 1
     do_sample: False
@@ -92,7 +99,7 @@ processor:
     gmask_token: '[gMASK]'
     pad_token: '<pad>'
     unk_token: '<unk>'
-    vocab_file: '/path/tokenizer.model'
+    vocab_file: '/path/to/tokenizer.model'
   type: GLMProcessor
 
 # ==== dataset config ====
@@ -106,7 +113,7 @@ train_dataset: &train_dataset
     origin_columns: ["content", "summary"]
   tokenizer:
     type: ChatGLM3Tokenizer
-    vocab_file: "/path/tokenizer.model"
+    vocab_file: "/path/to/tokenizer.model"
   input_columns: ["input_ids", "labels"]
   max_source_length: 30720
   max_target_length: 2047
@@ -134,7 +141,7 @@ eval_dataset: &eval_dataset
     origin_columns: ["content", "summary"]
   tokenizer:
     type: ChatGLM3Tokenizer
-    vocab_file: "/path/tokenizer.model"
+    vocab_file: "/path/to/tokenizer.model"
   max_source_length: 256
   max_target_length: 256
   ignore_pad_token_for_loss: True
@@ -154,7 +161,7 @@ eval_dataset_task:
 
 # ==== runner config ====
 runner_config:
-  epochs: 15
+  epochs: 1
   batch_size: 1
   gradient_accumulation_steps: 1
   sink_mode: True
@@ -190,13 +197,13 @@ lr_scale: False
 lr_scale_factor: 256
 
 # parallel config
-use_parallel: True
+use_parallel: False
 parallel:
   parallel_mode: 1 # 0-dataset, 1-semi, 2-auto, 3-hybrid
-  gradients_mean: False  # 默认为False, 数据并行模式下为True
+  gradients_mean: False
   loss_repeated_mean: True
   enable_alltoall: False
-  full_batch: True   # 默认为True, 数据并行模式必须设置为False
+  full_batch: True
   search_mode: "sharding_propagation"
   enable_parallel_optimizer: True  # optimizer shard, 等价于zero2
   strategy_ckpt_config:
@@ -221,8 +228,8 @@ moe_config:
 
 # recompute
 recompute_config:
-  recompute: True
-  select_recompute: True
+  recompute: False
+  select_recompute: False
   parallel_optimizer_comm_recompute: False
   mp_comm_recompute: True
   recompute_slice_activation: True

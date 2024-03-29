@@ -761,48 +761,129 @@ response, history = process_response(response, history)
 
 　　Lite 推理大致分两步：权重转换导出 MindIR -> Lite 推理，接下来分别描述上述两个过程。
 
+   本章节提供ChatGLM3-6B在MindSpore Lite上进行推理的基本使用流程，更多详细的特性介绍可以参考[Mindspore Lite特性文档](../../docs/feature_cards/Inference.md)
+
 ### MindIR 导出
 
-1. 修改模型相关的配置文件 configs/glm3/export_glm3_6b.yaml，其中需要关注这几项：
+1. 修改模型相关的配置文件 configs/glm3/export_glm3_6b_pa.yaml，其中需要关注这几项：
 
 ```yaml
-# export
-infer:
-   prefill_model_path: "glm3_export/glm3_6b_prefill_seq512.mindir" # 保存mindir的位置
-   increment_model_path: "glm3_export/glm3_6b_inc_seq512.mindir"   # 保存mindir的位置
-   infer_seq_length: 512 # 需要保持跟 model-model_config-seq_length 一致
-
-# ==== model config ====
+# model config
 model:
-model_config:
-  seq_length: 512
-  checkpoint_name_or_path: "/path/to/your/*.ckpt"
+  model_config:
+    seq_length: 2048
+    checkpoint_name_or_path: "/path/to/your.ckpt"
+    use_past: True              # 开启增量推理
+    is_dynamic: True            # 使用PA推理时设置为True，静态shape推理设为False
+    use_paged_attention: True   # 使用PA推理时设置为True
+    block_size: 16             # PA推理的参数设置
+    num_blocks: 224             # PA推理的参数设置
 ```
 
-2. 执行export.py，完成模型转换
+2. 执行run_mindformer.py，完成模型转换
+
+执行run_mindformer.py，完成MindIR导出，得到全量minder_full_checkpoint/rank_0_graph.mindir和增量minder_inc_checkpoint/rank_0_graph.mindir两个MindIR图
 
 ```bash
-python mindformers/tools/export.py --config_path configs/glm3/export_glm3_6b.yaml
+python run_mindformer.py
+--config configs/glm3/export_glm3_6b_pa.yaml
+--run_mode export
+--use_parallel False
+--batch_size 1
+--device_id 0
 ```
 
 ### 执行推理
 
-1. 新建推理配置文件：lite.ini
+新建推理配置文件，ChatGLM3-6B在Atlas 800T A2上推荐的GE配置如下：
 
-    ```ini
-    [ascend_context]
-    provider=ge
+1. 全量和增量的GE配置不同，如下所示
 
-    [ge_session_options]
-    ge.exec.formatMode=1
-    ge.exec.precision_mode=must_keep_origin_dtype
-    ```
+- 全量mindir模型PA推理配置（910b_ge_prefill_pa.cfg）
 
-2. 执行命令：
+```ini
+[ascend_context]
+plugin_custom_ops=All
+provider=ge
+[ge_session_options]
+ge.exec.formatMode=1
+ge.exec.precision_mode=must_keep_origin_dtype
+ge.externalWeight=1
+ge.exec.atomicCleanPolicy=1
+ge.deterministic=1
+[ge_graph_options]
+ge.inputShape=batch_valid_length:1;tokens:1,2048;slot_mapping:2048
+[graph_kernel_param]
+opt_level=2
+disable_cluster_ops=MatMul,Reshape
+enable_cce_lib=true
+enable_cluster_ops_only="paged_attention"
+enable_expand_ops_only="paged_attention"
+disable_cce_lib_ops=MatMul
+```
+
+- 增量mindir模型PA推理配置（910b_ge_inc_pa.cfg）
+
+```ini
+[ascend_context]
+plugin_custom_ops=All
+provider=ge
+[ge_session_options]
+ge.exec.formatMode=1
+ge.exec.precision_mode=must_keep_origin_dtype
+ge.externalWeight=1
+ge.exec.atomicCleanPolicy=1
+ge.deterministic=1
+[ge_graph_options]
+ge.inputShape=batch_valid_length:-1;block_tables:-1,128;slot_mapping:-1;tokens:-1,1
+ge.dynamicDims=1,1,1,1;2,2,2,2;4,4,4,4
+ge.dynamicNodeType=1
+[graph_kernel_param]
+opt_level=2
+disable_cluster_ops=MatMul,Reshape
+enable_cce_lib=true
+enable_cluster_ops_only="paged_attention"
+enable_expand_ops_only="paged_attention"
+disable_cce_lib_ops=MatMul
+```
+
+2. 执行run_infer_main.py脚本，修改相关配置启动推理：
+
+- PA推理执行命令如下：
 
 ```bash
-python run_infer_main.py --device_id 0 --model_name glm3_6b --prefill_model_path glm3_export/glm3_6b_prefill_seq512_graph.mindir --increment_model_path glm3_export/glm3_6b_inc_seq512_graph.mindir --config_path lite.ini --is_sample_acceleration False --seq_length 512 --add_special_tokens True
+python run_infer_main.py
+--batch_size 1
+--device_id 0
+--model_name glm3
+--prefill_model_path /path/to/mindir_full_checkpoint/rank_0_graph.mindir
+--increment_model_path /path/to/mindir_inc_checkpoint/rank_0_graph.mindir
+--tokenizer_path /path/to/glm3_6b/tokenizer.model
+--config_path "configs/glm3/910b_ge_prefill_pa.cfg,configs/glm3/910b_ge_inc_pa.cfg"
+--seq_length 2048
+--max_length 2048
+--dynamic False
+--paged_attention True
+--pa_block_size 16
+--pa_num_blocks 224
+
+# 参数说明
+batch_size: 推理多batch设置
+device_id: 设备物理ID
+model_name: 模型名称
+prefill_model_path: 全量图路径
+increment_model_path: 增量图路径
+tokenizer_path: 模型tokenizer路径
+config_path: GE配置文件路径
+seq_length: 推理序列长度
+max_length: 能够生成的最大语句长度
+dynamic: 是否采用双动态推理,执行PA推理时设置为False
+paged_attention: 是否执行PA推理
+pa_block_size: PA推理的参数
+pa_num_blocks: PA推理的参数
 ```
+
+#### 模型推理结果
 
 　　等待模型载入、编译后，出现：
 

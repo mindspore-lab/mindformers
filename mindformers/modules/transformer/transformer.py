@@ -782,7 +782,7 @@ class LowerTriangularMaskWithDynamic(Cell):
 
     @_LogActionOnce(m_logger=logger, key='AttentionMask',
                     no_warning=_get_parallel_mode() in (ParallelMode.STAND_ALONE,))
-    def __init__(self, seq_length, compute_type=mstype.float16,
+    def __init__(self, seq_length, compute_type=mstype.float16, mask_type=mstype.float32,
                  is_dynamic=False, pad_token_id=2, use_flash_attention=False):
         super().__init__()
         self.dtype = compute_type
@@ -791,7 +791,7 @@ class LowerTriangularMaskWithDynamic(Cell):
         self.use_flash_attention = use_flash_attention
         self.multiply_data = Tensor([-10000.0], dtype=compute_type)
         self.one = Tensor([1.0], dtype=compute_type)
-        self.lower_triangle_mask = Tensor(np.tril(np.ones(shape=(seq_length, seq_length))), mstype.float32)
+        self.lower_triangle_mask = Tensor(np.tril(np.ones(shape=(seq_length, seq_length))), mask_type)
 
         self.shape = P.Shape()
         self.cast = P.Cast()

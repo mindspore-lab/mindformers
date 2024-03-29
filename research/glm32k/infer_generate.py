@@ -22,17 +22,17 @@ from mindspore import context
 from mindspore.train import Model
 from mindspore import load_checkpoint, load_param_into_net
 
+from mindformers.tools.utils import str2bool
 from mindformers.trainer.utils import get_last_checkpoint
 from mindformers import TransformerOpParallelConfig, MindFormerConfig, init_context
+from mindformers.models import ChatGLM2Config
+from mindformers.models import ChatGLM2ForConditionalGeneration
+from mindformers.models import ChatGLM3Tokenizer
 
-from glm32k_config import ChatGLM32kConfig
-from glm32k import ChatGLM32kForConditionalGeneration
-from glm32k_tokenizer import ChatGLM32kTokenizer
-
-context.set_context(mode=0, device_target="Ascend", device_id=0)
+context.set_context(mode=0, device_target="Ascend", device_id=5)
 
 
-def main(args, repetition_times=1):
+def main(args, repetition_times=2):
     """main function."""
     # 环境初始化
     config = MindFormerConfig(os.path.realpath(args.config_path))
@@ -45,19 +45,18 @@ def main(args, repetition_times=1):
                  context_config=config.context,
                  parallel_config=config.parallel)
 
-    glm32k_config = ChatGLM32kConfig(**config.model.model_config)
+    glm32k_config = ChatGLM2Config(**config.model.model_config)
     glm32k_config.parallel_config = TransformerOpParallelConfig(**config.parallel_config)
     glm32k_config.batch_size = args.batch_size
     glm32k_config.use_past = args.use_past
     glm32k_config.seq_length = args.max_length
-    glm32k_config.run_mode = 'predict'
 
     if args.checkpoint_path and not config.use_parallel:
         glm32k_config.checkpoint_name_or_path = args.checkpoint_path
 
     print("starting ......")
-    tokenizer = ChatGLM32kTokenizer(config.processor.tokenizer.vocab_file)
-    glm32k_model = ChatGLM32kForConditionalGeneration(glm32k_config)
+    tokenizer = ChatGLM3Tokenizer(config.processor.tokenizer.vocab_file)
+    glm32k_model = ChatGLM2ForConditionalGeneration(glm32k_config)
     glm32k_model.set_train(False)
 
     # if use parallel, load distributed checkpoints
@@ -80,7 +79,6 @@ def main(args, repetition_times=1):
         outputs = glm32k_model.generate(input_ids=inputs["input_ids"],
                                         use_past=args.use_past,
                                         max_length=args.max_length)
-        print('---------------------------------------------------------')
         print("output: ")
         print(tokenizer.decode(outputs[0]))
 
@@ -89,17 +87,17 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--config_path', default='run_glm32k.yaml', type=str,
                         help='config')
-    parser.add_argument('--max_length', default=32768, type=int,
+    parser.add_argument('--max_length', default=512, type=int,
                         help='max length')
     parser.add_argument('--batch_size', default=1, type=int,
                         help='batch_size')
     parser.add_argument('--device_id', default=5, type=int,
                         help='device_id')
-    parser.add_argument('--use_past', action="store_true",
+    parser.add_argument('--use_past', default=False, type=str2bool,
                         help="use past")
     parser.add_argument('--use_parallel', default=False, type=bool,
                         help="use parallel")
-    parser.add_argument('--checkpoint_path', default='/path/mindspore_models/glm32k.ckpt', type=str,
+    parser.add_argument('--checkpoint_path', default='/path/to/glm3_32k.ckpt', type=str,
                         help="checkpoint_path")
     parser.add_argument('--user_query',
                         default='使用python编写快速排序代码',
@@ -109,4 +107,4 @@ if __name__ == "__main__":
 
     main(opt)
 
-    # 启动命令： python infer_generate.py --user_query "使用python编写快速排序代码" --device_id 3
+    # 启动命令： python infer_generate.py --user_query "晚上睡不着应该怎么办" --device_id 0 --use_past True

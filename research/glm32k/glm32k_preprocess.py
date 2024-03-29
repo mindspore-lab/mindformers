@@ -42,7 +42,7 @@ if __name__ == "__main__":
     parser.add_argument("--data_path", type=str, default="./data")
     parser.add_argument("--output_path", type=str, default="./")
     parser.add_argument("--prompt_config_file", type=str, default="./dataset2prompt.json")
-    parser.add_argument("--is_longbench_e", type=bool, default=True)
+    parser.add_argument("--is_longbench_e", type=bool, default=False)
 
     args = parser.parse_args()
     data_path = args.data_path

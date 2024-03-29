@@ -13,10 +13,43 @@
 # limitations under the License.
 # ============================================================================
 """eval longbench metrics"""
+import os
 import json
 import argparse
 import jieba
 from rouge import Rouge
+from mindformers.tools import logger
+
+
+def read_json_file(dataset_file):
+    r"""
+    Read original dataset
+
+    Args:
+       dataset_file (str): the dataset file.
+    """
+    raw_data = []
+    for line in open(dataset_file, 'r'):
+        raw_data.append(json.loads(line))
+    return raw_data
+
+
+def merge_result(args):
+    r"""
+    merge all results to a single file
+
+    Args:
+       args: input parameters
+    """
+    all_unmerged_files = os.listdir(args.need_merge_path)
+    final_file = os.path.join(args.merged_path, "dureader.jsonl")
+    for file in all_unmerged_files:
+        cur_path = os.path.join(args.need_merge_path, file)
+        for line in open(cur_path, 'r'):
+            cur_data = json.loads(line)
+            with open(final_file, "a", encoding="utf-8") as f:
+                json.dump(cur_data, f, ensure_ascii=False)
+                f.write('\n')
 
 
 def rouge_score(prediction, ground_truth):
@@ -44,9 +77,10 @@ def scorer(predictions, answers):
     """
     total_score = 0.
     for (prediction, ground_truths) in zip(predictions, answers):
+        print(f'prediction is {prediction}')
+        print(f'ground_truths is {ground_truths}')
         score = 0.
-        for ground_truth in ground_truths:
-            score = max(score, rouge_zh_score(prediction, ground_truth))
+        score = max(score, rouge_zh_score(prediction[0], ground_truths[0]))
         total_score += score
     return round(100 * total_score / len(predictions), 2)
 
@@ -72,10 +106,20 @@ def compute_metrics(input_file):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
+    parser.add_argument('--need_merge_path',
+                        default='/path/pred/',
+                        type=str, help="Original files")
+    parser.add_argument('--merged_path',
+                        default='/path/merged/',
+                        type=str, help="The final merged path")
     parser.add_argument('--predict_file',
                         default='/path/merged/dureader.jsonl',
                         type=str, help="predict_file")
-    opt_para = parser.parse_args()
 
+    opt_para = parser.parse_args()
+    if not os.path.exists(opt_para.merged_path):
+        os.makedirs(opt_para.merged_path)
+
+    merge_result(opt_para)
     res_score = compute_metrics(opt_para.predict_file)
-    print("evaluate score is: ", res_score)
+    logger.info(f"evaluate score is: {res_score}")
