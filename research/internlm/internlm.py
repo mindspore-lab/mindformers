@@ -13,10 +13,16 @@
 # limitations under the License.
 # ============================================================================
 """InternLM models' APIs."""
-from mindspore import nn
+import copy
 
+from mindspore import nn, ParallelMode
+from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
+import mindspore.common.dtype as mstype
+
+from mindformers import Linear, CrossEntropyLoss
 from mindformers.models import LlamaModel, LlamaForCausalLM
 from mindformers.models.llama.llama import layer_compute_dtype
+from mindformers.models.llama.llama_layer import LlamaEmbedding
 from mindformers.tools.register.register import MindFormerModuleType, MindFormerRegister
 from mindformers.models.utils import cell_reuse
 
@@ -34,6 +40,18 @@ class InternLMModel(LlamaModel):
 
     def __init__(self, config: InternLMConfig):
         super().__init__(config)
+        self.tok_embeddings = LlamaEmbedding(vocab_table_size=config.vocab_size,
+                                             embedding_size=config.hidden_size,
+                                             param_init_type=config.param_init_type,
+                                             parallel_optimizer=True)
+        if not (_get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation()):
+            self.tok_embeddings.pipeline_stage = 0
+            if config.parallel_config.pipeline_stage > 1:
+                self.tok_embeddings.set_comm_fusion(2)
+            else:
+                self.tok_embeddings.set_comm_fusion(config.parallel_config.gradient_aggregation_group)
+
+            self.tok_embeddings.shard(config.parallel_config)
         self.layers = nn.CellList()
         for layer_id in range(config.num_layers):
             layer = InternLMDecodeLayer(seq_length=config.seq_length,
@@ -78,5 +96,26 @@ class InternLMForCausalLM(LlamaForCausalLM):
         config.checkpoint_name_or_path = ""
         super().__init__(config)
         self.model = InternLMModel(config=config)
+        self.lm_head = Linear(in_channels=config.hidden_size,
+                              out_channels=config.vocab_size,
+                              has_bias=False,
+                              compute_dtype=config.compute_dtype,
+                              param_init_type=mstype.float16,
+                              skip_redistribution=config.is_dynamic,
+                              weight_init="normal")
+        vocab_size = config.vocab_size
+        dp = config.parallel_config.data_parallel
+        mp = config.parallel_config.model_parallel
+        if not (_get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation()):
+            if config.parallel_config.pipeline_stage > 1:
+                self.lm_head.pipeline_stage = config.parallel_config.pipeline_stage - 1
+            if config.parallel_config.vocab_emb_dp or (vocab_size % mp != 0):
+                self.lm_head.shard(strategy_matmul=((dp, 1), (1, 1)))
+            else:
+                self.lm_head.shard(strategy_matmul=((1, 1), (dp * mp, 1)))
+        loss_parallel_config = copy.deepcopy(config.parallel_config)
+        loss_parallel_config.model_parallel = dp * mp
+        loss_parallel_config.data_parallel = 1
+        self.loss = CrossEntropyLoss(parallel_config=loss_parallel_config)
         config.checkpoint_name_or_path = checkpoint_name_or_path
         self.load_checkpoint(config)

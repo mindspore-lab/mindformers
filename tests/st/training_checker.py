@@ -116,7 +116,7 @@ class TrainingChecker(Callback):
         if not self.pipeline_parallel or self.is_last_stage:
             assert abs(loss - self.loss_list_std[cur_step_num - 1]) < self.loss_error, \
                 f"The error between loss: {loss} and " \
-                f"loss_list_std: {self.loss_list_std} is larger than {self.loss_error}"
+                f"loss_list_std: {self.loss_list_std[cur_step_num - 1]} is larger than {self.loss_error}"
 
     def on_train_end(self, run_context):
         _ = run_context
