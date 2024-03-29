@@ -270,7 +270,7 @@ class GenerationMixin:
             model_inputs["init_reset"] = Tensor([False], mstype.bool_)  # init_reset (1,) bool False
             model_inputs["batch_valid_length"] = Tensor([valid_length_each_example], mstype.int32)
             if block_tables is not None:
-                model_inputs["block_tables"] = Tensor(block_tables, mstype.int64)
+                model_inputs["block_tables"] = Tensor(block_tables, mstype.int32)
                 model_inputs["slot_mapping"] = Tensor(slot_mapping, mstype.int32)
             # pylint: disable=E1102
             res = self(
@@ -286,7 +286,7 @@ class GenerationMixin:
             model_inputs["init_reset"] = Tensor([True], mstype.bool_)  # init_reset (1,) bool True
             model_inputs["batch_valid_length"] = Tensor([valid_length_each_example], mstype.int32)
             if block_tables is not None:
-                model_inputs["block_tables"] = Tensor(block_tables, mstype.int64)
+                model_inputs["block_tables"] = Tensor(block_tables, mstype.int32)
                 model_inputs["slot_mapping"] = Tensor(slot_mapping, mstype.int32)
             # pylint: disable=E1102
             res = self(
