@@ -58,7 +58,6 @@ llama2_70b：
 | [llama2_13b](../../configs/llama2/run_llama2_13b_910b.yaml)             | text_generation       | wiki      | 4096      | -      | [train](#预训练)  | -           | 1658  tks/s/p |
 | [llama2_70b](../../configs/llama2/run_llama2_70b_910b.yaml)             | text_generation       | wiki      | 4096      | -      | [train](#预训练)  | -         | 406 tks/s/p |
 
-
 ## 仓库介绍
 
 `Llama 2` 基于 `mindformers` 实现，主要涉及的文件有：
@@ -394,6 +393,9 @@ python llama_preprocess.py \
 --seq_length 4096 \
 --output_file /{path}/wiki4096.mindrecord
 ```
+
+数据处理时候注意bos，eos，pad等特殊ids要和yaml配置中model_config里保持一致，默认bos_token_id=1, eos_token_id=2, pad_token_id=0, 如果有所修改，yaml中对应的配置也需要修改；
+一般预训练的数据中不包含pad_token，此时建议pad_token_id设为-1。
 
 ### 脚本启动（Llama 2-7B为例）
 
