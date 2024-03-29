@@ -19,22 +19,31 @@ ChatGLM3-6B-32K在ChatGLM3-6B的基础上进一步强化了对于长文本的理
 
 `chatGLM3-6B-32K` 基于 `mindformers` 实现，主要涉及的文件有：
 
-1. 模型具体实现：`research/glm32k`
+1. 模型具体实现：`mindformers/models/glm2`, `mindformers/models/glm3`
 
     ```bash
-    glm32k
+    glm2
         ├── __init__.py
-        ├── glm32k.py                  # 模型实现
-        ├── glm32k_config.py           # 模型配置项
-        ├── glm32k_modules.py          # 模组实现
-        ├── glm32k_tokenizer.py        # tokenizer
-        └── glm32k_transformer.py      # transformer层实现
+        ├── glm2.py                  # 模型实现
+        ├── glm2_config.py           # 模型配置项
+        ├── glm2_modules.py          # 模组实现
+        ├── glm2_tokenizer.py        # glm2的tokenizer
+        └── glm2_transformer.py      # transformer层实现
+    ```
+
+   ```bash
+    glm3
+        ├── __init__.py
+        └── glm3_tokenizer.py       # glm3和glm32k共用的tokenizer
     ```
 
 2. 模型配置：`research/glm32k`
 
     ```bash
     glm32k
+        ├── export_glm32k_pa.yaml     # Atlas 800T A2的glm32k lite推理模型导出配置
+        ├── 910b_ge_prefill_pa.cfg    # 全量推理的ge配置文件
+        ├── 910b_ge_inc_pa.cfg        # 增量推理的ge配置文件
         └── run_glm32k.yaml           # Atlas 800T A2最佳性能全量微调启动配置
     ```
 
@@ -42,7 +51,8 @@ ChatGLM3-6B-32K在ChatGLM3-6B的基础上进一步强化了对于长文本的理
 
     ```bash
     glm32k
-        └── run_glm32k.py                  # glm32k高阶接口使用脚本
+        ├── run_glm32k.py                  # glm32k高阶接口使用脚本
+        ├── convert_weight.py              # 模型权重转换脚本
         └── glm32k_preprocess.py           # glm32k微调的数据前处理脚本
     ```
 
@@ -50,9 +60,10 @@ ChatGLM3-6B-32K在ChatGLM3-6B的基础上进一步强化了对于长文本的理
 
     ```bash
     glm32k
-        └── eval_longbench_multicards.sh        # 多卡执行评估的脚本
-        └── eval_longbench_generate.py          # 生成推理结果的脚本
-        └── eval_longbench_metrics.py           # 生成最终评估结果的脚本
+        ├── eval_start.sh                 # 多卡启动推理的脚本
+        ├── eval_end.sh                   # 多卡启动评估的脚本
+        ├── eval_gen_mslite.py            # 生成推理结果的脚本
+        └── eval_postprocess.py           # 生成最终评估结果的脚本
     ```
 
 ## 前期准备
@@ -355,16 +366,138 @@ output:
 如果以上方法都无法解决问题,建议咨询医生或专业睡眠专家,获得更具体的建议和治疗方案。
 ```
 
+### MindSpore Lite推理
+
+本章节提供ChatGLM3-6B-32K在MindSpore Lite上进行推理的基本使用流程，更多详细的特性介绍可以参考[Mindspore Lite特性文档](../../docs/feature_cards/Inference.md)
+
+#### 单卡导出与PA推理
+
+##### Step1. 模型导出MindIR
+
+修改模型导出相关的配置文件 export_glm3_32k_pa.yaml，其中需要关注以下几项：
+
+```yaml
+# model config
+model:
+  model_config:
+    seq_length: 32640
+    checkpoint_name_or_path: "/path/to/glm32k.ckpt"
+    use_past: True              # 开启增量推理
+    is_dynamic: True            # 使用PA推理时设置为True
+    use_paged_attention: True   # 使用PA推理时设置为True
+    block_size: 128             # PA推理的参数设置
+    num_blocks: 512             # PA推理的参数设置
+```
+
+执行run_glm32k.py，完成MindIR导出，得到全量minder_full_checkpoint/rank_0_graph.mindir和增量minder_inc_checkpoint/rank_0_graph.mindir两个MindIR图
+
+```bash
+python glm32k/run_glm32k.py
+--config glm32k/export_glm3_32k_pa.yaml
+--load_checkpoint /path/to/glm32k.ckpt
+--run_mode=export --use_parallel False --use_past True --batch_size 1 --device_id 0
+```
+
+##### Step2. 执行MS Lite推理
+
+新建推理配置文件，ChatGLM3-6B-32K在Atlas 800T A2上推荐的GE配置如下：
+
+- 全量mindir模型PA推理配置（910b_ge_prefill_pa.cfg）
+
+```ini
+[ascend_context]
+plugin_custom_ops=All
+provider=ge
+[ge_session_options]
+ge.exec.formatMode=1
+ge.exec.precision_mode=must_keep_origin_dtype
+ge.externalWeight=1
+ge.exec.atomicCleanPolicy=1
+ge.deterministic=1
+[ge_graph_options]
+ge.inputShape=batch_valid_length:1;tokens:1,32640;slot_mapping:32640
+[graph_kernel_param]
+opt_level=2
+disable_cluster_ops=MatMul,Reshape
+enable_cce_lib=true
+enable_cluster_ops_only="paged_attention"
+enable_expand_ops_only="paged_attention"
+disable_cce_lib_ops=MatMul
+```
+
+- 增量mindir模型PA推理配置（910b_ge_inc_pa.cfg）
+
+```ini
+[ascend_context]
+plugin_custom_ops=All
+provider=ge
+[ge_session_options]
+ge.exec.formatMode=1
+ge.exec.precision_mode=must_keep_origin_dtype
+ge.externalWeight=1
+ge.exec.atomicCleanPolicy=1
+ge.deterministic=1
+[ge_graph_options]
+ge.inputShape=batch_valid_length:-1;block_tables:-1,128;slot_mapping:-1;tokens:-1,1
+ge.dynamicDims=1,1,1,1;2,2,2,2;4,4,4,4
+ge.dynamicNodeType=1
+[graph_kernel_param]
+opt_level=2
+disable_cluster_ops=MatMul,Reshape
+enable_cce_lib=true
+enable_cluster_ops_only="paged_attention"
+enable_expand_ops_only="paged_attention"
+disable_cce_lib_ops=MatMul
+```
+
+执行run_infer_main.py脚本，修改相关配置启动推理：
+
+- PA推理执行命令如下：
+
+```bash
+python run_infer_main.py
+--batch_size 1
+--device_id 0
+--model_name glm3
+--prefill_model_path /path/to/mindir_full_checkpoint/rank_0_graph.mindir
+--increment_model_path /path/to/mindir_inc_checkpoint/rank_0_graph.mindir
+--tokenizer_path /path/to/tokenizer.model
+--config_path "/glm32k/910b_ge_prefill_pa.cfg,/glm32k/910b_ge_inc_pa.cfg"
+--seq_length 32640
+--max_length 32640
+--dynamic False
+--paged_attention True
+--pa_block_size 128
+--pa_num_blocks 512
+
+# 参数说明
+batch_size: 推理多batch设置
+device_id: 设备物理ID
+model_name: 模型名称
+prefill_model_path: 全量图路径
+increment_model_path: 增量图路径
+tokenizer_path: 模型tokenizer路径
+config_path: GE配置文件路径
+seq_length: 推理序列长度
+max_length: 能够生成的最大语句长度
+dynamic: 是否采用双动态推理,执行PA推理时设置为False
+paged_attention: 是否执行PA推理
+pa_block_size: PA推理的参数
+pa_num_blocks: PA推理的参数
+```
+
+**注：** 使用run_infer_main.py脚本执行推理时，需要安装tiktoken包，不然会出现报错。安装命令：pip install tiktoken
+
 ### 开源数据集评测
 
 #### 评测结果
 
 **注：** 评测结果基于开源的预训练模型
 
-|                                    | DuReader rouge |
-|------------------------------------|----------------|
-| Atlas 800T A2 + Mindspore (在线推理)            | 44.83          |
-| A100 + Pytorch                     | 44.59          |
+|                                 | DuReader rouge |
+|---------------------------------|----------------|
+| Atlas 800T A2 + Mindspore (PA推理) | 44.83          |
+| A100 + Pytorch                  | 44.59          |
 
 #### 评测流程
 
@@ -380,44 +513,11 @@ pip install rouge==1.0.1
 - step 1: 生成推理结果，多卡启动命令如下：
 
 ```shell
-input_dataset_file=/path/eval_dataset/dureader.jsonl  # 数据集文件夹路径
-output_file=pred                                      # 生成结果保存路径
-checkpoint_path=/path/mindspore_models/glm32k.ckpt    # 权重文件路径
-
-mkdir -p ${output_file}
-echo 'Output path: 'output_file
-
-# 200条测试数据，如果使用8卡，每张卡分配25条数据
-npu_num=8
-step=25
-for ((i = 0; i < $npu_num; i++)); do
-  start_index=$((i * step))
-  end_index=$(((i + 1) * step))
-  npu=$((i))
-  echo 'Running process #' ${i} 'from' $start_index 'to' $end_index 'on NPU' ${npu}
-  python eval_longbench_generate.py --start_index ${start_index} --end_index ${end_index} --output_file ${output_file} --input_dataset_file ${input_dataset_file} --device_id ${npu} --checkpoint_path ${checkpoint_path} &> longbench_$npu.log &
- done
+bash eval_start.sh
 ```
 
-- step 2: 将多张卡生成的结果汇总到一起，按照评估格式进行保存，命令如下：
+- step 2: 将多张卡生成的结果汇总到一起，生成测试分数，命令如下：
 
 ```shell
-python eval_longbench_merge.py --need_merge_path INPUT_PATH --merged_path OUTPUT_PATH
-```
-
-```text
-参数说明:
-need_merge_path：step 1中生成的多个结果文件地址
-merged_path：最终汇总的结果地址
-```
-
-- step 3: 生成测试分数，命令如下：
-
-```shell
-python eval_longbench_metrics.py --predict_file PREDICT_PATH
-```
-
-```text
-参数说明:
-predict_file：step 2输出的汇总结果地址
+bash eval_end.sh
 ```

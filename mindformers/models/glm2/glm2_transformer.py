@@ -14,22 +14,33 @@
 # ============================================================================
 """ChatGLM2 Transformer."""
 import math
-import numpy as np
 
 import mindspore.ops.functional as F
 import mindspore.ops.operations as P
-from mindspore import Parameter, Tensor, nn, ops
+from mindspore import Tensor, nn, ops
 from mindspore import dtype as mstype
+
 try:
     from mindspore.nn.layer.flash_attention import FlashAttention
+
     FLASHATTENTION_IMPORT_VALID = True
 except ImportError:
     FLASHATTENTION_IMPORT_VALID = False
+try:
+    from mindspore.ops.operations.nn_ops import PromptFlashAttention
 
-from mindformers.modules import LayerNorm
+    PROMPTFLASHATTENTION_VALID = True
+except ImportError:
+    PROMPTFLASHATTENTION_VALID = False
+
+from mindspore.context import ParallelMode
+from mindspore.parallel._utils import _get_parallel_mode
+
+from mindformers.modules import LayerNorm, KVCacheMgr
 from mindformers.modules.layers import Linear
 from mindformers.pet.tuners.ptuning2_adapter import Ptuning2Adapter
-from mindformers.version_control import get_dropout, check_valid_flash_attention, choose_flash_attention_dtype
+from mindformers.version_control import get_dropout, check_valid_flash_attention, choose_flash_attention_dtype, \
+    check_valid_paged_attention
 
 from .glm2_config import ChatGLM2Config
 from .glm2_modules import ChatGLM2MLP, ChatGLM2RMSNorm
@@ -37,6 +48,7 @@ from .glm2_modules import ChatGLM2MLP, ChatGLM2RMSNorm
 
 class CoreAttention(nn.Cell):
     """ChatGLM2 core attention."""
+
     def __init__(self, config: ChatGLM2Config, layer_number):
         super(CoreAttention, self).__init__()
         self.apply_query_key_layer_scaling = config.apply_query_key_layer_scaling
@@ -71,9 +83,22 @@ class CoreAttention(nn.Cell):
 
         self.merger_head_transpose = P.Transpose().shard(
             ((parallel_config.data_parallel, parallel_config.model_parallel, 1, 1),))
+
+        self.shape = P.Shape()
         self.reshape = P.Reshape()
+        if config.is_dynamic:
+            self.reshape.add_prim_attr("skip_redistribution", True)
+        self.expand_dim = P.ExpandDims()
+        self.use_prompt_flash_attention = config.use_prompt_flash_attention
+        self.use_past = config.use_past
 
         self.compute_dtype = config.compute_dtype
+
+        if parallel_config.recompute.select_recompute:
+            self.batch_matmul_q_k.recompute()
+            self.add.recompute()
+            self.softmax.recompute()
+            self.batch_matmul.recompute()
 
     def construct(self, query_layer, key_layer, value_layer, attention_mask):
         """
@@ -99,15 +124,11 @@ class CoreAttention(nn.Cell):
         # [b, heads, seq, seq]
         attention_scores = matmul_result
 
-        if attention_mask is None and attention_scores.shape[2] == attention_scores.shape[3]:
-            attention_mask = ops.ones((attention_scores.shape[0],
-                                       1,
-                                       attention_scores.shape[2],
-                                       attention_scores.shape[3]), dtype=mstype.bool_)
-            attention_mask.tril()
-            attention_mask = ~attention_mask
         if attention_mask is not None:
-            attention_mask = self.mul_mask(attention_mask, -10000)
+            if self.use_prompt_flash_attention and self.use_past:
+                attention_mask = F.cast(attention_mask, mstype.float16)
+                attention_mask = self.expand_dim(attention_mask, 1)
+                attention_mask = self.mul_mask(attention_mask, -10000)
             attention_scores = self.add(attention_scores, attention_mask)
 
         if self.attention_softmax_in_fp32:
@@ -137,21 +158,23 @@ class CoreAttention(nn.Cell):
             x_merge: the 2d output
         """
         x = self.merger_head_transpose(x, (0, 2, 1, 3))  # bs, seq_length, head, size_per_head
-        x_shape = x.shape
-        new_shape = (x_shape[0], x_shape[1], -1)
+        bs, seq_len, n_head, head_dim = self.shape(x)
+        new_shape = (bs, seq_len, n_head * head_dim)
         x_merge = self.reshape(x, new_shape)
         return x_merge
 
 
 class ChatGLM2SelfAttention(nn.Cell):
     """ChatGLM2 self-attention."""
+
     def __init__(self, config: ChatGLM2Config, layer_number):
         super(ChatGLM2SelfAttention, self).__init__()
         self.layer_number = max(1, layer_number)
-
         self.projection_size = config.kv_channels * config.num_attention_heads
         # Per attention head and per partition values.
         self.hidden_size_per_attention_head = self.projection_size // config.num_attention_heads
+        self.apply_query_key_layer_scaling = config.apply_query_key_layer_scaling
+        self.norm_factor = math.sqrt(self.hidden_size_per_attention_head)
         self.num_attention_heads_per_partition = config.num_attention_heads
         self.params_dtype = config.param_init_type
         self.compute_dtype = config.compute_dtype
@@ -164,33 +187,33 @@ class ChatGLM2SelfAttention(nn.Cell):
 
         if self.multi_query_attention:
             self.num_multi_query_groups_per_partition = config.multi_query_group_num
-            self.qkv_hidden_size = (
-                self.projection_size + 2 * self.hidden_size_per_attention_head * config.multi_query_group_num)
+            self.qkv_hidden_size = \
+                (self.projection_size + 2 * self.hidden_size_per_attention_head * config.multi_query_group_num)
+            self.tile_kv = P.Tile()
+            self.n_rep = self.num_attention_heads_per_partition // self.num_multi_query_groups_per_partition
 
         parallel_config = config.parallel_config
-        self.query_key_value = Linear(config.hidden_size,
-                                      self.qkv_hidden_size,
+        self.query_key_value = Linear(config.hidden_size, self.qkv_hidden_size,
                                       has_bias=config.add_bias_linear or config.add_qkv_bias,
-                                      param_init_type=self.params_dtype,
-                                      compute_dtype=self.compute_dtype)
-        self.query_key_value.shard(strategy_matmul=((parallel_config.data_parallel, 1),
-                                                    (parallel_config.model_parallel, 1)),
-                                   strategy_bias=((parallel_config.data_parallel, parallel_config.model_parallel),
-                                                  (parallel_config.model_parallel,))
-                                   )
+                                      param_init_type=self.params_dtype, compute_dtype=self.compute_dtype,
+                                      skip_redistribution=config.is_dynamic)
 
         self.core_attention = CoreAttention(config, self.layer_number)
 
-        self.dense = Linear(self.projection_size,
-                            config.hidden_size,
-                            has_bias=config.add_bias_linear,
-                            param_init_type=self.params_dtype,
-                            compute_dtype=self.compute_dtype)
-        self.dense.shard(strategy_matmul=((parallel_config.data_parallel, 1),
-                                          (parallel_config.model_parallel, 1)),
-                         strategy_bias=((parallel_config.data_parallel, 1), (1,)))
+        self.dense = Linear(self.projection_size, config.hidden_size, has_bias=config.add_bias_linear,
+                            param_init_type=self.params_dtype, compute_dtype=self.compute_dtype,
+                            skip_redistribution=config.is_dynamic)
 
+        self.shape = P.Shape()
         self.reshape = P.Reshape()
+        if config.is_dynamic:
+            self.reshape.add_prim_attr("skip_redistribution", True)
+        self.head_dim = config.hidden_size // config.num_attention_heads
+        self.use_paged_attention = config.use_paged_attention and check_valid_paged_attention()
+        self.slice = P.StridedSlice()
+        self.print = P.Print()
+        self.kv_channels = config.kv_channels
+
         self.stack = P.Stack(axis=-1)
         self.gather = P.Gather()
         self.index_0 = Tensor(0)
@@ -201,33 +224,70 @@ class ChatGLM2SelfAttention(nn.Cell):
         self.concat = P.Concat(axis=-1)
         self.split_3 = P.Split(axis=-1, output_num=3)
         self.transpose = P.Transpose()
+        self.merger_head_transpose = P.Transpose()
+        self.cast = P.Cast()
 
         self.use_past = config.use_past
         if self.use_past:
             self.is_first_iteration = True
-            total_seq_length = self.seq_length
-            if isinstance(config.pre_seq_len, int):
-                total_seq_length = total_seq_length + config.pre_seq_len
-            seq_range = np.arange(total_seq_length).reshape(1, 1, -1)
-            self.range = Tensor(
-                np.tile(seq_range, (self.batch_size, 1, 1)), mstype.int32)
-            self.less = P.Less()
-            self.mul1 = P.Mul().shard(((1, 1, 1, 1), (1, 1, 1, 1)))
-            self.expand_dims = P.ExpandDims().shard(((1, 1, 1),))
-            self.equal = P.Equal().shard(((1, 1, 1), (1, 1, 1)))
-            self.tile = P.Tile().shard(((1, 1, 1, 1),))
+            kv_num_partition = config.num_attention_heads
+            if config.multi_query_attention:
+                kv_num_partition = config.multi_query_group_num
+
+            if self.use_paged_attention:
+                from mindformers.modules import PagedAttentionMgr
+                self.paged_attention_mgr = PagedAttentionMgr(n_heads=config.num_attention_heads,
+                                                             head_dim=self.head_dim, hidden_size=config.hidden_size,
+                                                             n_kv_heads=kv_num_partition, block_size=config.block_size,
+                                                             num_blocks=config.num_blocks,
+                                                             compute_dtype=config.compute_dtype)
+                self.paged_attention_mgr.shard(parallel_config)
+            else:
+                self.kvcache_mgr = KVCacheMgr(kv_num_partition, self.head_dim,
+                                              max_batch_size=config.batch_size, max_seq_length=config.seq_length,
+                                              compute_dtype=config.compute_dtype, is_dynamic=config.is_dynamic,
+                                              use_kvcache_op=config.use_kvcache_op,
+                                              is_flexible_shape=config.is_flexible_shape)
+                self.kvcache_mgr.shard(parallel_config)
+
         self.use_flash_attention = config.use_flash_attention
+        self.use_prompt_flash_attention = config.use_prompt_flash_attention
+        self.flash_attention, self.prompt_flash_attention = self.init_flash_attention_func(config)
+
+        dp, mp = config.parallel_config.data_parallel, config.parallel_config.model_parallel
+        if _get_parallel_mode() not in (ParallelMode.AUTO_PARALLEL,):
+            if config.model_name.startswith("glm32k"):
+                mp = 1
+            self.merger_head_transpose.shard(((dp, mp, 1, 1),))
+            self.query_key_value.shard(strategy_matmul=((dp, 1), (mp, 1)), strategy_bias=((dp, mp), (mp,)))
+            self.dense.shard(strategy_matmul=((dp, 1), (mp, 1)), strategy_bias=((dp, 1), (1,)))
+
+            if parallel_config.recompute.select_recompute:
+                self.tile_kv.recompute()
+
+    def init_flash_attention_func(self, config):
+        """init the flash attention operator"""
+        dp, mp = config.parallel_config.data_parallel, config.parallel_config.model_parallel
+        fa_op, pfa_op = None, None
+
         if self.use_flash_attention:
             self.attention_mask_dtype = choose_flash_attention_dtype()
-            self.sub_attention = P.Sub().shard(((), (parallel_config.data_parallel, 1, 1)))
-            self.flash_attention = FlashAttention(head_dim=config.hidden_size // config.num_attention_heads,
-                                                  head_num=config.num_attention_heads,
-                                                  dropout_rate=config.attention_dropout, prev_block_num=65536,
-                                                  next_block_num=0, dp=parallel_config.data_parallel,
-                                                  mp=parallel_config.model_parallel,
-                                                  high_precision=True)
-            self.merger_head_transpose = P.Transpose().shard(((parallel_config.data_parallel,
-                                                               parallel_config.model_parallel, 1, 1),))
+            fa_op = FlashAttention(head_dim=config.hidden_size // config.num_attention_heads,
+                                   head_num=config.num_attention_heads,
+                                   dropout_rate=config.attention_dropout,
+                                   prev_block_num=65536, next_block_num=0,
+                                   dp=dp, mp=mp, high_precision=True)
+
+        if self.use_prompt_flash_attention:
+            self.attention_mask_dtype = choose_flash_attention_dtype()
+            pfa_op = PromptFlashAttention(num_heads=config.num_attention_heads,
+                                          scale_value=1 / self.norm_factor,
+                                          num_key_value_heads=0, input_layout='BNSD',
+                                          pre_tokens=65536, next_tokens=0)
+
+        return fa_op, pfa_op
+
+
     def _merge_heads(self, x):
         """
         convert a 4d input to a 2d output
@@ -238,33 +298,44 @@ class ChatGLM2SelfAttention(nn.Cell):
         Output:
             x_merge: the 2d output
         """
-        x = self.merger_head_transpose(x, (0, 2, 1, 3))  # bs, seq_length, head, size_per_head
-        x_shape = x.shape
-        new_shape = (x_shape[0], x_shape[1], -1)
+        x = self.merger_head_transpose(x, (0, 2, 1, 3))
+        bs, seq_len, n_head, head_dim = self.shape(x)
+        new_shape = (bs, seq_len, n_head * head_dim)
         x_merge = self.reshape(x, new_shape)
         return x_merge
+
+    def _repeat_kv(self, x, num_repeat):
+        if num_repeat == 1:
+            return x
+        bs, n_kv_head, seqlen, head_dim = self.shape(x)
+        x = self.reshape(x, (bs, n_kv_head, 1, seqlen * head_dim))
+        x = self.tile_kv(x, (1, 1, num_repeat, 1))
+        x = self.reshape(x, (bs, n_kv_head * num_repeat, seqlen, head_dim))
+        return x
 
     def apply_rotary_pos_emb(self, x: Tensor, rope_cache: Tensor) -> Tensor:
         """apply rotary position embedding to q,k."""
         # x: [b, heads, seq, hidden_size_per_head]
-        bs, num_heads, seq_len, _ = x.shape  # 1, 32，4, 128
+        bs, num_heads, seq_len, head_dim = self.shape(x)
         # rope_cache: first (seq_len, kv_channels//4, 2), other (1, kv_channels//4, 2)
-        rot_dim = rope_cache.shape[-2] * 2  # kv_channels // 2
-        x, x_pass = x[..., :rot_dim], x[..., rot_dim:]
+        rot_dim = self.kv_channels // 2
+        # rot_dim = rope_cache.shape[-2] * 2
+        x1 = self.slice(x, (0, 0, 0, 0), (bs, num_heads, seq_len, rot_dim), (1, 1, 1, 1))
+        x_pass = self.slice(x, (0, 0, 0, rot_dim), (bs, num_heads, seq_len, head_dim), (1, 1, 1, 1))
         # ms not support variable sizes
         # truncate to support variable sizes
-        # rope_cache = rope_cache[:sq]
         # [bs, nh, sq, kv_channels//4, 2]
-        xshaped = self.reshape(x, (bs, num_heads, seq_len, rot_dim // 2, 2))
+        xshaped = self.reshape(x1, (bs, num_heads, seq_len, rot_dim // 2, 2))
+        _, _, _, kv_shape, _ = self.shape(xshaped)
         # [bs, 1, sq, kv_channels//4, 2]
-        rope_cache = self.reshape(rope_cache, (-1, 1, seq_len, xshaped.shape[3], 2))
-
+        rope_cache = self.reshape(rope_cache, (-1, 1, seq_len, kv_shape, 2))
         xshaped_0, xshaped_1 = ops.split(xshaped, 1, -1)
         rope_cache_0, rope_cache_1 = ops.split(rope_cache, 1, -1)
         x_out1 = self.sub(self.mul(xshaped_0, rope_cache_0), self.mul(xshaped_1, rope_cache_1))
         x_out2 = self.add(self.mul(xshaped_1, rope_cache_0), self.mul(xshaped_0, rope_cache_1))
         x_out = self.stack((x_out1, x_out2))
-        x_out = self.reshape(x_out, (x_out.shape[0], x_out.shape[1], x_out.shape[2], -1))
+        bs_x, num_heads_x, seq_len_x, _, _, _ = self.shape(x_out)
+        x_out = self.reshape(x_out, (bs_x, num_heads_x, seq_len_x, -1))
         # [bs, sq, nh, hidden_size_per_head]
         return self.concat((x_out, x_pass))
 
@@ -292,8 +363,7 @@ class ChatGLM2SelfAttention(nn.Cell):
 
         return key_layer, value_layer, attention_mask
 
-    def construct(self, hidden_states, attention_mask, rotary_pos_emb, key_past=None, value_past=None,
-                  batch_valid_length=None, prefix_key_value=None):
+    def construct(self, hidden_states, attention_mask, rotary_pos_emb, kvcache_inputs=None, prefix_key_value=None):
         """Forward process of self-attention."""
         # hidden_states: [bs, seq_len, hidden_size]
         # attention_mask (bs, 1, seq_len, seq_len)
@@ -311,30 +381,33 @@ class ChatGLM2SelfAttention(nn.Cell):
                  ],
                 axis=-1,
             )
-            # [bs, seq_len, nh, hidden_size_per_attention_head] -> [bs, nh, seq_len, hidden_size_per_attention_head]
-            query_layer = query_layer.view(
-                query_layer.shape[:-1] + (self.num_attention_heads_per_partition, self.hidden_size_per_attention_head)
-            )
-            query_layer = self.transpose(query_layer, (0, 2, 1, 3))
-            # [bs, seq_len, multi_query_groups, hidden_size_per_attention_head]
-            # -> [bs, multi_query_groups, seq_len, hidden_size_per_attention_head]
-            key_layer = key_layer.view(
-                key_layer.shape[:-1] + (self.num_multi_query_groups_per_partition, self.hidden_size_per_attention_head)
-            )
-            key_layer = self.transpose(key_layer, (0, 2, 1, 3))
-            # [bs, seq_len, multi_query_groups, hidden_size_per_attention_head]
-            # -> [bs, multi_query_groups, seq_len, hidden_size_per_attention_head]
-            value_layer = value_layer.view(
-                value_layer.shape[:-1]
-                + (self.num_multi_query_groups_per_partition, self.hidden_size_per_attention_head)
-            )
-            value_layer = self.transpose(value_layer, (0, 2, 1, 3))
+            # [bs,seq_len,nh*hidden_size_per_attention_head]
+            bs, seq_len, _ = self.shape(query_layer)
+            if self.use_past and not self.is_first_iteration:
+                query_layer = self.reshape(query_layer, (
+                    bs, self.num_attention_heads_per_partition, 1, self.hidden_size_per_attention_head))
+                key_layer = self.reshape(key_layer, (
+                    bs, self.num_multi_query_groups_per_partition, 1, self.hidden_size_per_attention_head))
+                value_layer = self.reshape(value_layer, (
+                    bs, self.num_multi_query_groups_per_partition, 1, self.hidden_size_per_attention_head))
+            else:
+                query_layer = self.reshape(query_layer, (bs, seq_len, self.num_attention_heads_per_partition,
+                                                         self.hidden_size_per_attention_head))
+                key_layer = self.reshape(key_layer, (bs, seq_len, self.num_multi_query_groups_per_partition,
+                                                     self.hidden_size_per_attention_head))
+                value_layer = self.reshape(value_layer, (bs, seq_len, self.num_multi_query_groups_per_partition,
+                                                         self.hidden_size_per_attention_head))
+                # [bs, nh, seq_len, hidden_size_per_attention_head]
+                query_layer = self.transpose(query_layer, (0, 2, 1, 3))
+                # [bs, multi_query_groups, seq_len, hidden_size_per_attention_head]
+                key_layer = self.transpose(key_layer, (0, 2, 1, 3))
+                # [bs, multi_query_groups, seq_len, hidden_size_per_attention_head]
+                value_layer = self.transpose(value_layer, (0, 2, 1, 3))
         else:
             # [b, seq, (heads * 3 * hidden_size_per_head)] --> [b, seq, heads, 3 * hidden_size_per_head]
-            new_tensor_shape = mixed_raw_layer.shape[:-1] + (
-                self.num_attention_heads_per_partition, 3 * self.hidden_size_per_attention_head,
-            )
-            mixed_raw_layer = mixed_raw_layer.view(*new_tensor_shape)
+            bs, seq_len, _ = self.shape(mixed_raw_layer)
+            mixed_raw_layer = self.reshape(mixed_raw_layer, (bs, seq_len, self.num_attention_heads_per_partition,
+                                                             3 * self.hidden_size_per_attention_head))
             # [b, seq, heads, hidden_size_per_head]
             (query_layer, key_layer, value_layer) = self.split_3(mixed_raw_layer)
             # [b, seq, heads, hidden_size_per_head] -> [bs, num_heads, seq_len, hidden_size_per_head]
@@ -358,74 +431,50 @@ class ChatGLM2SelfAttention(nn.Cell):
 
         # key and value for current token(s)
         # [bs, heads, seq_len, hidden_size_per_head]
-        key_present = key_layer
-        value_present = value_layer
         if self.use_past:
-            # The first graph with the input size of (bs, seq_length)
-            if self.is_first_iteration:
-                # Get the valid input length without padding
-                valid_length_vector = F.cast(self.less(self.range, batch_valid_length.view(-1, 1, 1)),
-                                             self.params_dtype)  # [bs, 1, seq_len]
-                # Cover the key and value numbers corresponding to the padding position
-                key_present = self.mul1(key_present, self.expand_dims(valid_length_vector, 3))
-                value_present = self.mul1(value_present, self.expand_dims(valid_length_vector, 3))
-            # The second graph with the inpus size of (bs, 1)
-            # the shape of query is (bs, num_heads, 1, size_per_head)
-            # the shape of key is   (bs, multi_query_groups, 1, size_per_head)
-            # the shape of value is (bs, multi_query_groups, 1, size_per_head)
+            if self.use_paged_attention:
+                _, _, slot_mapping = kvcache_inputs
+                key_out = self.paged_attention_mgr(key_layer, value_layer, slot_mapping)
+                query_layer = ops.depend(query_layer, key_out)
             else:
-                # Get the current token position index
-                # key_past: [batch_size, multi_query_groups, seq_length, size_per_head]
-                valid_length = batch_valid_length - 1
-                valid_length = self.reshape(valid_length, (-1, 1, 1))  # [bs, 1, 1]
-                # self.range: [bs, 1, config.seq_len]
-                valid_length_vector = F.cast(self.equal(valid_length, self.range), self.params_dtype)
-                # Pad the key and value to seq_length with only the position index not zero
-                current_key = self.mul1(key_present, self.expand_dims(valid_length_vector, 3))
-                current_value = self.mul1(value_present, self.expand_dims(valid_length_vector, 3))
-                # Concat the previous saved state and current state
-                # [batch_size, multi_query_groups, seq_length, size_per_head]
-                key_present = self.add(key_past, current_key)
-                value_present = self.add(value_past, current_value)
-            # update k v for attention
-            # [batch_size, multi_query_groups, seq_length, size_per_head]
-            key_layer = key_present
-            # [batch_size, multi_query_groups, seq_length, size_per_head]
-            value_layer = value_present
-
-        layer_present = (key_present, value_present)
+                key_layer, value_layer = self.kvcache_mgr(key_layer, value_layer, kvcache_inputs)
 
         # tile k,v to num_heads
         if self.multi_query_attention:
-            bs, heads, _, hs_ph = key_layer.shape
-            key_layer = key_layer.view((bs, heads, -1))
+            key_layer = self._repeat_kv(key_layer, self.n_rep)
+            value_layer = self._repeat_kv(value_layer, self.n_rep)
 
-            key_layer = key_layer.unsqueeze(2)
-            key_layer = key_layer.tile(
-                (1, 1, self.num_attention_heads_per_partition // self.num_multi_query_groups_per_partition, 1))
-            # [b, heads, seq, hidden_size_per_head]
-            key_layer = key_layer.view((bs, self.num_attention_heads_per_partition, -1, hs_ph))
+        context_layer = \
+            self.compute_flash_attention_func(query_layer, key_layer, value_layer, attention_mask, kvcache_inputs)
 
-            value_layer = value_layer.view((bs, heads, -1))
-            value_layer = value_layer.unsqueeze(2)
-            value_layer = value_layer.tile(
-                (1, 1, self.num_attention_heads_per_partition // self.num_multi_query_groups_per_partition, 1))
-            # [b, heads, seq, hidden_size_per_head]
-            value_layer = value_layer.view((bs, self.num_attention_heads_per_partition, -1, hs_ph))
-
-        if self.use_flash_attention:
-            attention_mask = attention_mask.squeeze(1).to(self.attention_mask_dtype)
-            context_layer = self.flash_attention(query_layer, key_layer, value_layer, attention_mask)
-            context_layer = self._merge_heads(context_layer)
-        else:
-            context_layer = self.core_attention(query_layer, key_layer, value_layer, attention_mask)
-        # # =================
-        # # Output. [bs, seq_len, hidden_size]
-        # # =================
-
+        # Output. [bs, seq_len, hidden_size]
         output = self.dense(context_layer)
 
-        return output, layer_present
+        return output
+
+    def compute_flash_attention_func(self, query_layer, key_layer, value_layer, attention_mask, kvcache_inputs):
+        """compute context_layer_score with or without flash attention"""
+        if not self.training:
+            if self.use_prompt_flash_attention and \
+                    ((self.use_past and self.is_first_iteration) or (not self.use_past)):
+                attention_mask = attention_mask.to(self.attention_mask_dtype)
+                context_layer = self.prompt_flash_attention(query_layer, key_layer, value_layer, attention_mask,
+                                                            None, None, None, None, None, None, None, None)[0]
+                context_layer = self._merge_heads(context_layer)
+            elif self.use_paged_attention and (self.use_past and not self.is_first_iteration):
+                batch_valid_length, block_tables, _ = kvcache_inputs
+                context_layer = self.paged_attention_mgr.paged_attn(query_layer, batch_valid_length, block_tables)
+            else:
+                context_layer = self.core_attention(query_layer, key_layer, value_layer, attention_mask)
+
+        else:
+            if self.use_flash_attention:
+                attention_mask = attention_mask.to(self.attention_mask_dtype)
+                context_layer = self.flash_attention(query_layer, key_layer, value_layer, attention_mask)
+                context_layer = self._merge_heads(context_layer)
+            else:
+                context_layer = self.core_attention(query_layer, key_layer, value_layer, attention_mask)
+        return context_layer
 
 
 class ChatGLM2Block(nn.Cell):
@@ -445,6 +494,8 @@ class ChatGLM2Block(nn.Cell):
         self.layernorm_dtype = config.layernorm_compute_type
         self.compute_dtype = config.compute_dtype
         self.seq_length = config.seq_length
+        self.use_seq_parallel = config.parallel_config.use_seq_parallel
+        self.add = P.Add()
 
         layer_norm_func = ChatGLM2RMSNorm if config.rmsnorm else LayerNorm
         # Layernorm on the input data.
@@ -460,39 +511,30 @@ class ChatGLM2Block(nn.Cell):
         # Layernorm on the attention output
         self.post_attention_layernorm = layer_norm_func(config.hidden_size, eps=config.layernorm_epsilon,
                                                         param_init_type=self.layernorm_dtype)
-        # self.post_attention_layernorm.shard()
 
         # MLP
         self.mlp = ChatGLM2MLP(config)
 
         self.dropout = get_dropout(self.hidden_dropout)
-        self.dropout.dropout.shard(((config.parallel_config.data_parallel, 1, 1),))
 
         self.cast = P.Cast()
 
-        self.key_past = None
-        self.value_past = None
-        if self.use_past:
-            size_per_head = config.hidden_size // config.num_attention_heads
-            kv_num_partition = config.num_attention_heads
-            if config.multi_query_attention:
-                kv_num_partition = config.multi_query_group_num
+        dp = config.parallel_config.data_parallel
+        if _get_parallel_mode() not in (ParallelMode.AUTO_PARALLEL,):
+            self.mlp.shard(config.parallel_config)
+            self.input_layernorm.shard(((dp, 1, 1),))
+            self.post_attention_layernorm.shard(((dp, 1, 1),))
+            self.add.shard(((dp, 1, 1), (dp, 1, 1)))
+            self.dropout.dropout.shard(((dp, 1, 1),))
 
-            total_seq_length = self.seq_length
-            if isinstance(config.pre_seq_len, int):
-                total_seq_length = total_seq_length + config.pre_seq_len
+        if config.parallel_config.recompute.select_recompute:
+            self.input_layernorm.recompute(False)
+            self.post_attention_layernorm.recompute(False)
+            self.mlp.recompute()
+            self.dropout.dropout.recompute(False)
+            self.cast.recompute(False)
 
-            kv_shape = (config.batch_size, kv_num_partition, total_seq_length, size_per_head)
-            # parameters saving key and value states
-            self.key_past = Parameter(
-                Tensor(np.zeros(shape=kv_shape), self.params_dtype), name="key_past")
-            self.value_past = Parameter(
-                Tensor(np.zeros(shape=kv_shape), self.params_dtype), name="value_past")
-            self.mul = P.Mul().shard(((1, 1, 1, 1), (1,)))
-            self.assign = P.Assign().shard(((1, 1, 1, 1), (1, 1, 1, 1)))
-
-    def construct(self, hidden_states, attention_mask, rotary_pos_emb,
-                  init_reset=True, batch_valid_length=None, prefix_key_value=None):
+    def construct(self, hidden_states, attention_mask, rotary_pos_emb, kvcache_inputs=None, prefix_key_value=None):
         """Forward process of the transformer layer."""
         # hidden_states: [bs, seq_len, hidden_size]
         # attention_mask first: (bs, 1, seq_len, seq_len), after: (bs, 1, 1, seq_len)
@@ -503,27 +545,14 @@ class ChatGLM2Block(nn.Cell):
         layernorm_output = self.input_layernorm(hidden_states)
         # fp32 -> fp16
         layernorm_output = self.cast(layernorm_output, self.compute_dtype)
-
-        key_reset = None
-        value_reset = None
-        if self.use_past:
-            # reset states, init_reset True for reuse and False for reset
-            key_reset = self.assign(self.key_past, self.mul(
-                self.key_past, F.cast(init_reset, self.params_dtype)))
-            value_reset = self.assign(self.value_past, self.mul(
-                self.value_past, F.cast(init_reset, self.params_dtype)))
-            # add dependency for desired execution order
-            layernorm_output = F.depend(layernorm_output, key_reset)
-            layernorm_output = F.depend(layernorm_output, value_reset)
+        # print('layernorm_output: ', layernorm_output.shape)
 
         # Self attention.
-        attention_output, layer_present = self.self_attention(
+        attention_output = self.self_attention(
             layernorm_output,
             attention_mask,
             rotary_pos_emb,
-            self.key_past,
-            self.value_past,
-            batch_valid_length,
+            kvcache_inputs,
             prefix_key_value
         )
 
@@ -535,7 +564,7 @@ class ChatGLM2Block(nn.Cell):
             residual = hidden_states
 
         layernorm_input = self.dropout(attention_output)
-        layernorm_input = residual + layernorm_input
+        layernorm_input = self.add(residual, layernorm_input)
 
         # Layer norm post the self attention.
         layernorm_output = self.post_attention_layernorm(layernorm_input)
@@ -543,24 +572,6 @@ class ChatGLM2Block(nn.Cell):
 
         # MLP.
         mlp_output = self.mlp(layernorm_output)
-
-        value_update = None
-        key_update = None
-        if self.use_past:
-            # current key and value
-            key_present, value_present = layer_present
-            # update key and value calculated this step
-            self.assign(self.key_past, key_present)
-            key_update = self.key_past
-            self.assign(self.value_past, value_present)
-            value_update = self.value_past
-            # add dependency for desired execution order
-            key_update = F.depend(key_update, key_reset)
-            value_update = F.depend(value_update, value_reset)
-
-        # add dependency for desired execution order
-        mlp_output = F.depend(mlp_output, value_update)
-        mlp_output = F.depend(mlp_output, key_update)
 
         # Second residual connection.
         # False on default.
@@ -570,7 +581,7 @@ class ChatGLM2Block(nn.Cell):
             residual = layernorm_input
 
         output = self.dropout(mlp_output)
-        output = residual + output
+        output = self.add(residual, output)
 
         return output
 
@@ -586,7 +597,6 @@ def set_parallel_configure_for_layer(layer, layer_id, offset, parallel_config, n
             parallel_config(dict) - Parallel Config
             n_layers(int) - The total layers used for the model.
     """
-    _ = select_recompute
     pp_dis = max(int((n_layers + 1) / parallel_config.pipeline_stage), 1)
     if isinstance(offset, list):
         if len(offset) != parallel_config.pipeline_stage:
@@ -611,11 +621,12 @@ def set_parallel_configure_for_layer(layer, layer_id, offset, parallel_config, n
         layer.set_comm_fusion(int((layer_id + offset) / dis) + 1)
     # Used for enabling recomputation of the block
     if isinstance(parallel_config.recompute, bool):
-        if parallel_config.recompute:
+        if parallel_config.recompute and not select_recompute:
             layer.recompute()
     else:
-        if parallel_config.recompute.recompute:
-            layer.recompute(recompute_slice_activation=parallel_config.recompute.recompute_slice_activation)
+        if parallel_config.recompute.recompute and not select_recompute:
+            layer.recompute(
+                recompute_slice_activation=parallel_config.recompute.recompute_slice_activation)
 
 
 class ChatGLM2Transformer(nn.Cell):
@@ -631,8 +642,13 @@ class ChatGLM2Transformer(nn.Cell):
         self.num_layers = config.num_layers
 
         self.pre_seq_len = config.pre_seq_len
+
         if config.use_flash_attention:
             config.use_flash_attention = check_valid_flash_attention(FLASHATTENTION_IMPORT_VALID, 'FlashAttention')
+
+        if config.use_prompt_flash_attention:
+            config.use_prompt_flash_attention = check_valid_flash_attention(PROMPTFLASHATTENTION_VALID,
+                                                                            "PromptFlashAttention")
 
         # Transformer layers.
         def build_layer(layer_number):
@@ -641,9 +657,11 @@ class ChatGLM2Transformer(nn.Cell):
         self.layers = nn.CellList()
         for i in range(self.num_layers):
             layer = build_layer(i + 1)
+
             set_parallel_configure_for_layer(layer, layer_id=i, offset=0, n_layers=self.num_layers,
                                              parallel_config=config.parallel_config,
                                              select_recompute=config.parallel_config.recompute.select_recompute)
+
             self.layers.append(layer)
 
         if self.post_layer_norm:
@@ -651,23 +669,24 @@ class ChatGLM2Transformer(nn.Cell):
             # Final layer norm before output.
             self.final_layernorm = layer_norm_func(config.hidden_size, eps=config.layernorm_epsilon,
                                                    param_init_type=config.layernorm_compute_type)
-            # self.final_layernorm.shard()
-            self.final_layernorm.set_comm_fusion(config.parallel_config.gradient_aggregation_group)
+            if config.parallel_config.pipeline_stage > 1:
+                self.final_layernorm.pipeline_stage = config.parallel_config.pipeline_stage - 1
+                self.final_layernorm.set_comm_fusion(2)
+            else:
+                self.final_layernorm.set_comm_fusion(config.parallel_config.gradient_aggregation_group)
+
+            self.final_layernorm.shard(((config.parallel_config.data_parallel, 1, 1),))
 
     def construct(self,
                   hidden_states,
                   attention_mask,
                   rotary_pos_emb,
-                  init_reset=True,
-                  batch_valid_length=None,
+                  kvcache_inputs=None,
                   prefix_key_values=None):
         """Forward process of the transformer."""
         # hidden_states (bs, seq_len, hs)
         # attention_mask (bs, 1, seq_len, seq_len)
         # rotary_pos_emb: first: (sen length, kv_channels//2, 2)， after:[1, kv_channels // 2, 2]
-
-        if batch_valid_length is not None and isinstance(self.pre_seq_len, int):
-            batch_valid_length = batch_valid_length + self.pre_seq_len
 
         for i in range(self.num_layers):
             prefix_key_value = None
@@ -679,8 +698,7 @@ class ChatGLM2Transformer(nn.Cell):
                 hidden_states,
                 attention_mask,
                 rotary_pos_emb,
-                init_reset=init_reset,
-                batch_valid_length=batch_valid_length,
+                kvcache_inputs,
                 prefix_key_value=prefix_key_value
             )
 

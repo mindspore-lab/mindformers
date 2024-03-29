@@ -13,8 +13,8 @@
 # limitations under the License.
 # ============================================================================
 """glm3-32k Train/Finetune/Eval/Predict scripts."""
-import os
 import argparse
+import os
 
 from mindformers import Trainer, MindFormerConfig
 from mindformers import init_context, ContextConfig, ParallelContextConfig
@@ -22,9 +22,8 @@ from mindformers.tools.utils import str2bool
 from mindformers.core.context import build_context, build_profile_cb
 
 # pylint: disable=W0611
-import glm32k
-import glm32k_modules
-from glm32k_tokenizer import ChatGLM32kTokenizer
+from mindformers.models import glm2
+from mindformers.models import ChatGLM3Tokenizer
 
 
 def context_init(use_parallel=False, optimizer_parallel=False, device_id=0):
@@ -59,8 +58,12 @@ def main(task='text_generation',
          max_length=512,
          vocab_file=None,
          op=True,
-         device_id=0):
+         device_id=0,
+         use_past=False,
+         batch_size=None):
     """main function."""
+
+    # print('ckpt: ', ckpt)
 
     assert os.path.exists(config) and config.endswith(('.yaml', '.yml'))
 
@@ -73,6 +76,9 @@ def main(task='text_generation',
     if device_id is not None:
         config.context.device_id = device_id
     config.parallel.enable_parallel_optimizer = op
+    config.model.model_config.use_past = use_past
+    if batch_size:
+        config.model.model_config.batch_size = batch_size
     # init context
     build_context(config)
     # define callback and add profile callback
@@ -114,6 +120,10 @@ def main(task='text_generation',
         result = task.predict(input_data=prompt,
                               predict_checkpoint=ckpt, max_length=int(max_length))
         print(result)
+    elif run_mode == 'export':
+        trainer = Trainer(args=config,
+                          task=task)
+        trainer.export(predict_checkpoint=ckpt)
 
 
 if __name__ == "__main__":
@@ -146,6 +156,10 @@ if __name__ == "__main__":
                         help='ID of the target device, the value must be in [0, device_num_per_host-1]')
     parser.add_argument('--vocab_file', default=None, type=str,
                         help='tokenizer model')
+    parser.add_argument('--use_past', default=False, type=str2bool,
+                        help='whether use past. Default: False')
+    parser.add_argument('--batch_size', default=None, type=int,
+                        help='batch_size for export mindir.')
     args = parser.parse_args()
 
     main(task=args.task,
@@ -161,4 +175,6 @@ if __name__ == "__main__":
          max_length=args.predict_length,
          op=args.optimizer_parallel,
          device_id=args.device_id,
-         vocab_file=args.vocab_file)
+         vocab_file=args.vocab_file,
+         use_past=args.use_past,
+         batch_size=args.batch_size)

@@ -15,19 +15,22 @@
 """ChatGLM2 Modules."""
 import numpy as np
 
+import mindspore as ms
 import mindspore.common.dtype as mstype
 import mindspore.ops.operations as P
 from mindspore import nn, Parameter, Tensor
 from mindspore.common.initializer import initializer
 
 from mindformers.modules.layers import Linear
+from mindformers.tools.utils import is_version_ge
 
 from .glm2_config import ChatGLM2Config
 
 
-def precompute_rotary_emb_cache(seq_len: int, dim: int, dtype=np.float32, base: int = 10000):
+def precompute_rotary_emb_cache(seq_len: int, dim: int, dtype=np.float32, rope_ratio: int = 1, base: int = 10000):
     """pre compute rotary emb cache."""
     # $\Theta = {\theta_i = 10000^{\frac{2(i-1)}{d}}, i \in [1, 2, ..., \frac{d}{2}]}$
+    base = base * rope_ratio
     theta = 1.0 / (base ** (np.arange(0, dim, 2, dtype=dtype) / dim))
 
     # Create position indexes `[0, 1, ..., seq_len - 1]`
@@ -38,6 +41,40 @@ def precompute_rotary_emb_cache(seq_len: int, dim: int, dtype=np.float32, base: 
 
     cache = np.stack((np.cos(idx_theta), np.sin(idx_theta)), axis=-1).astype(dtype)
     return cache
+
+
+class RopeCache(nn.Cell):
+    r"""A self-defined RopeCache operation"""
+    def __init__(self, config, dim=None, dtype=np.float32, base=10000, is_dynamic=False):
+        super().__init__()
+        base = base * config.rope_ratio
+        theta = 1.0 / (base ** (np.arange(0, dim, 2, dtype=dtype) / dim))
+        seq_idx = np.arange(config.seq_length, dtype=dtype)
+        idx_theta = np.outer(seq_idx, theta).astype(np.float32)
+        self.is_dynamic = is_dynamic
+        self.use_past = config.use_past
+        self.seq_length = config.seq_length
+        self.dim = dim
+        self.rotary_pos_emb = np.stack((np.cos(idx_theta), np.sin(idx_theta)), axis=-1).astype(dtype)
+        self.rotary_pos_emb = Tensor(self.rotary_pos_emb, config.compute_dtype)
+
+        self.reshape = P.Reshape()
+        self.half_dim = dim // 2
+        if is_dynamic:
+            self.reshape.add_prim_attr("skip_redistribution", True)
+        self.slice = P.StridedSlice().shard(((1, 1),))
+        self.gather = P.Gather().shard(((1, 1), (1,)))
+
+    def construct(self, seq_len=None):
+        rotary_pos_emb = self.rotary_pos_emb
+        if self.is_dynamic and self.use_past:
+            rotary_pos_emb = self.slice(rotary_pos_emb, (0, 0, 0), (seq_len, self.half_dim, 2), (1, 1, 1))
+        return rotary_pos_emb
+
+    def increment(self, batch_valid_length, batch_size):
+        rotary_pos_emb = self.gather(self.rotary_pos_emb, batch_valid_length, 0)
+        rotary_pos_emb = self.reshape(rotary_pos_emb, (batch_size, 1, self.half_dim, 2))
+        return rotary_pos_emb
 
 
 class ChatGLM2RMSNorm(nn.Cell):
@@ -54,6 +91,7 @@ class ChatGLM2RMSNorm(nn.Cell):
         Outputs:
             Tensor of shape :math:`(batch, seq_length, hidden_size)`.
     """
+
     def __init__(self, dim, eps=1e-6, param_init_type=mstype.float32):
         super(ChatGLM2RMSNorm, self).__init__()
         self.eps = Tensor(float(eps), dtype=param_init_type)
@@ -88,6 +126,13 @@ class ChatGLM2RMSNorm(nn.Cell):
         self.mul.shard((strategy[0], strategy[0]))
         self.mul2.shard((strategy[0], (1,)))
 
+    def recompute(self, mode=True):
+        self.square.recompute(mode)
+        self.mean.recompute(mode)
+        self.rsqrt.recompute(mode)
+        self.add.recompute(mode)
+        self.mul.recompute(mode)
+        self.mul2.recompute(mode)
 
 class ChatGLM2SiLU(nn.Cell):
     r"""
@@ -140,21 +185,17 @@ class ChatGLM2MLP(nn.Cell):
     def __init__(self, config: ChatGLM2Config):
         super(ChatGLM2MLP, self).__init__()
         self.add_bias = config.add_bias_linear
+        self.model_name = config.model_name
         self.dense_h_to_4h = Linear(
             config.hidden_size,
             config.ffn_hidden_size * 2,
             has_bias=self.add_bias,
             param_init_type=config.param_init_type,
             compute_dtype=config.compute_dtype,
+            skip_redistribution=config.is_dynamic
         )
-        self.dense_h_to_4h.shard(
-            strategy_matmul=((config.parallel_config.data_parallel, 1), (config.parallel_config.model_parallel, 1)),
-            strategy_bias=((config.parallel_config.data_parallel, config.parallel_config.model_parallel),
-                           (config.parallel_config.model_parallel,)))
 
         self.activation_func = ChatGLM2SwiGLU()
-        # shard need to be checked.
-        self.activation_func.shard(((config.parallel_config.data_parallel, 1, 1),))
 
         # Project back to h.
         self.dense_4h_to_h = Linear(
@@ -163,11 +204,8 @@ class ChatGLM2MLP(nn.Cell):
             has_bias=self.add_bias,
             param_init_type=config.param_init_type,
             compute_dtype=config.compute_dtype,
+            skip_redistribution=config.is_dynamic
         )
-        self.dense_4h_to_h.shard(
-            strategy_matmul=((config.parallel_config.data_parallel, config.parallel_config.model_parallel),
-                             (1, config.parallel_config.model_parallel)),
-            strategy_bias=((config.parallel_config.data_parallel, 1), (1,)))
 
     def construct(self, hidden_states):
         # [bs, seq_len, 4 * hidden_size]
@@ -176,3 +214,27 @@ class ChatGLM2MLP(nn.Cell):
         # [bs, seq_len, hidden_size]
         output = self.dense_4h_to_h(intermediate_parallel)
         return output
+
+    def shard(self, parallel_config):
+        """sharding for feedforward"""
+        dp, mp = parallel_config.data_parallel, parallel_config.model_parallel
+        if self.model_name.startswith("glm32k"):
+            mp = 1
+        self.dense_h_to_4h.shard(strategy_matmul=((dp, 1), (mp, 1)),
+                                 strategy_bias=((dp, mp), (mp,)))
+        self.activation_func.shard(((dp, 1, 1),))
+        self.dense_4h_to_h.shard(strategy_matmul=((dp, mp), (1, mp)),
+                                 strategy_bias=((dp, 1), (1,)))
+
+
+# pylint: disable=R1703
+def check_promt_flash_attention_version():
+    """
+    the outputs of prompt flash attention are different when using 2.3 and ms version below 2.3
+    """
+    cur_ver = ms.__version__
+    if is_version_ge(cur_ver, "2.3"):
+        pfa_flag = True
+    else:
+        pfa_flag = False
+    return pfa_flag
