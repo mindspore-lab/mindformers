@@ -1339,7 +1339,7 @@ class MultiHeadAttention(Cell):
                     out_strategy_matmul=((parallel_config.data_parallel * parallel_config.model_parallel, 1),))
 
         self.use_flash_attention = use_flash_attention
-        if self.use_flash_attention and not check_valid_flash_attention(FLASHATTENTION_VALID):
+        if self.use_flash_attention and not check_valid_flash_attention(FLASHATTENTION_VALID, 'FlashAttention'):
             self.use_flash_attention = False
             log.info("Current MindSpore do not support flash attention, please upgrade to 2.2.0 or higher")
 
