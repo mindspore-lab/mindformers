@@ -379,6 +379,9 @@ python llama_preprocess.py \
 --output_file /{path}/wiki4096.mindrecord
 ```
 
+数据处理时候注意bos，eos，pad等特殊ids要和yaml配置中model_config里保持一致，默认bos_token_id=1, eos_token_id=2, pad_token_id=0, 如果有所修改，yaml中对应的配置也需要修改；
+一般预训练的数据中不包含pad_token，此时建议pad_token_id设为-1。
+
 ### 脚本启动（Llama 2-7B为例）
 
 多卡运行需要RANK_FILE_TABLE，请参考前期准备-[生成RANK_TABLE_FILE](#生成rank_table_file多卡运行必须环节)
