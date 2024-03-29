@@ -48,25 +48,35 @@ def _qwen_name_replace(name: str):
     return name
 
 
-def convert_qwen_attention_weight(name, value, ckpt_weights, dtype=ms.float16):
-    split_arr = np.array_split(value, 3)
-    attention_weight_names = ['attention.wq.weight', 'attention.wk.weight', 'attention.wv.weight']
+def convert_qwen_attention_weight(name, value, ckpt_weights, dtype=ms.float16, use_qkv_concat=False):
+    if not use_qkv_concat:
+        split_arr = np.array_split(value, 3)
+        attention_weight_names = ['attention.wq.weight', 'attention.wk.weight', 'attention.wv.weight']
 
-    for index in range(len(split_arr)):
-        cur_name = name.replace(QWEN_ATTENTION_WEIGHT_NAME, attention_weight_names[index])
-        ckpt_weights.append({'name': cur_name, 'data': ms.Tensor(split_arr[index], dtype=dtype)})
-
-
-def convert_qwen_attention_bias(name, value, ckpt_weights, dtype=ms.float16):
-    split_arr = np.array_split(value, 3)
-    attention_bias_names = ['attention.wq.bias', 'attention.wk.bias', 'attention.wv.bias']
-
-    for index in range(len(split_arr)):
-        cur_name = name.replace(QWEN_ATTENTION_BIAS_NAME, attention_bias_names[index])
-        ckpt_weights.append({'name': cur_name, 'data': ms.Tensor(split_arr[index], dtype=dtype)})
+        for index in range(len(split_arr)):
+            cur_name = name.replace(QWEN_ATTENTION_WEIGHT_NAME, attention_weight_names[index])
+            ckpt_weights.append({'name': cur_name, 'data': ms.Tensor(split_arr[index], dtype=dtype)})
+    else:
+        attention_weight_names = 'attention.w.weight'
+        cur_name = name.replace(QWEN_ATTENTION_WEIGHT_NAME, attention_weight_names)
+        ckpt_weights.append({'name': cur_name, 'data': ms.Tensor(value, dtype=dtype)})
 
 
-def convert_vit_attention(name, value, ckpt_weights, dtype=ms.float16):
+def convert_qwen_attention_bias(name, value, ckpt_weights, dtype=ms.float16, use_qkv_concat=False):
+    if not use_qkv_concat:
+        split_arr = np.array_split(value, 3)
+        attention_bias_names = ['attention.wq.bias', 'attention.wk.bias', 'attention.wv.bias']
+
+        for index in range(len(split_arr)):
+            cur_name = name.replace(QWEN_ATTENTION_BIAS_NAME, attention_bias_names[index])
+            ckpt_weights.append({'name': cur_name, 'data': ms.Tensor(split_arr[index], dtype=dtype)})
+    else:
+        attention_bias_names = 'attention.w.bias'
+        cur_name = name.replace(QWEN_ATTENTION_BIAS_NAME, attention_bias_names)
+        ckpt_weights.append({'name': cur_name, 'data': ms.Tensor(value, dtype=dtype)})
+
+
+def convert_vit_resampler_attention(name, value, ckpt_weights, dtype=ms.float16):
     if "ln" in name:
         ms_name = name.replace("weight", "gamma")
         ms_name = ms_name.replace("bias", "beta")
@@ -76,6 +86,32 @@ def convert_vit_attention(name, value, ckpt_weights, dtype=ms.float16):
     elif "in_proj_bias" in name:
         value = np.array_split(value, 3)
         ms_name = [name.replace("in_proj_bias", f"dense{i}.bias") for i in (1, 2, 3)]
+    elif "out_proj" in name:
+        if "weight" in name:
+            value = np.transpose(value, (1, 0))
+        ms_name = name.replace("out_proj", "projection")
+    else:
+        ms_name = name
+    if not isinstance(ms_name, (tuple, list)):
+        ms_name = (ms_name,)
+    if not isinstance(value, (tuple, list)):
+        value = (value,)
+    for n, p in zip(ms_name, value):
+        if n != name:
+            print(f'name:  {name}->{n}')
+        ckpt_weights.append({'name': n, 'data': ms.Tensor(p, dtype=dtype)})
+
+
+def convert_vit_transformer_attn(name, value, ckpt_weights, dtype=ms.float16, vit_num_head=16):
+    if "in_proj" in name:
+        assert value.shape[0] % (3 * vit_num_head) == 0, (f"The 3 * vit_num_head({3 * vit_num_head}) must be divisible "
+                                                          f"by value.shape[0]({value.shape[0]})")
+        value = np.array_split(value, 3 * vit_num_head)
+        if "weight" in name:
+            value = [np.vstack(value[i::3]) for i in range(3)]
+        else:   # bias
+            value = [np.concatenate(value[i::3]) for i in range(3)]
+        ms_name = [name.replace("in_proj", f"dense{i}") for i in (1, 2, 3)]
     elif "out_proj" in name:
         if "weight" in name:
             value = np.transpose(value, (1, 0))
@@ -105,11 +141,13 @@ def _vit_name_replace(name: str):
     return name
 
 
-def convert_vit_weight(name, value, ckpt_weights, dtype):
+def convert_vit_weight(name, value, ckpt_weights, dtype, vit_num_head):
     name = name.replace('transformer.visual.', '')
     name = "vision_encoder." + name
     if "attn_pool" in name:
-        convert_vit_attention(name, value, ckpt_weights, dtype)
+        convert_vit_resampler_attention(name, value, ckpt_weights, dtype)
+    elif "attn" in name:    # transformer in ViT
+        convert_vit_transformer_attn(name, value, ckpt_weights, dtype, vit_num_head)
     else:
         ms_name = _vit_name_replace(name)
         if ms_name != name:
@@ -117,7 +155,8 @@ def convert_vit_weight(name, value, ckpt_weights, dtype):
         ckpt_weights.append({'name': ms_name, 'data': ms.Tensor(value, dtype=dtype)})
 
 
-def convert_hf_ckpt(ckpt_dir, output_file_path, torch_dtype=torch.float16, dtype=ms.float16):
+def convert_hf_ckpt(ckpt_dir, output_file_path, torch_dtype=torch.float16, dtype=ms.float16, vit_num_head=16,
+                    use_qkv_concat=False):
     """Convert huggingface weights files to mindspore ckpt format."""
     model = AutoModelForCausalLM.from_pretrained(ckpt_dir, device_map="cpu", trust_remote_code=True)
 
@@ -131,18 +170,18 @@ def convert_hf_ckpt(ckpt_dir, output_file_path, torch_dtype=torch.float16, dtype
             print(f'dtype:  {param.dtype}->{value.dtype}')
 
         if 'visual' in name:
-            convert_vit_weight(name, value, ckpt_weights, dtype)
+            convert_vit_weight(name, value, ckpt_weights, dtype, vit_num_head)
             continue
         else:
             ms_name = _qwen_name_replace(name)
             if ms_name != name:
                 print(f'name:  {name}->{ms_name}')
             if QWEN_ATTENTION_WEIGHT_NAME in ms_name:
-                convert_qwen_attention_weight(ms_name, value, ckpt_weights, dtype)
+                convert_qwen_attention_weight(ms_name, value, ckpt_weights, dtype, use_qkv_concat)
                 continue
 
             if QWEN_ATTENTION_BIAS_NAME in ms_name:
-                convert_qwen_attention_bias(ms_name, value, ckpt_weights, dtype)
+                convert_qwen_attention_bias(ms_name, value, ckpt_weights, dtype, use_qkv_concat)
                 continue
         ckpt_weights.append({'name': ms_name, 'data': ms.Tensor(value, dtype=dtype)})
 
@@ -163,6 +202,13 @@ if __name__ == '__main__':
                         default="float32",
                         choices=["float16", "float32", "bfloat16"],
                         help="The data type of the converted weight.")
+    parser.add_argument("--vit_num_head",
+                        default=16,
+                        type=int,
+                        help="The number of head in ViT.")
+    parser.add_argument("--use_qkv_concat",
+                        default=False,
+                        help="Whether to use qkv concat in attention weight.")
 
     args = parser.parse_args()
 
@@ -177,4 +223,5 @@ if __name__ == '__main__':
         "bfloat16": ms.bfloat16
     }
 
-    convert_hf_ckpt(args.torch_ckpt_dir, output_path, torch_dtype=torch.float32, dtype=mapping[args.dtype])
+    convert_hf_ckpt(args.torch_ckpt_dir, output_path, torch_dtype=torch.float32, dtype=mapping[args.dtype],
+                    vit_num_head=args.vit_num_head, use_qkv_concat=args.use_qkv_concat)

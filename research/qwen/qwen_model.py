@@ -69,7 +69,7 @@ class QwenForCausalLM(BaseModel):
                               out_channels=config.vocab_size,
                               has_bias=False,
                               compute_dtype=config.compute_dtype,
-                              param_init_type=mstype.float16,
+                              param_init_type=config.param_init_type,
                               weight_init="normal")
         loss_parallel_config = copy.deepcopy(config.parallel_config)
         loss_parallel_config.model_parallel = loss_parallel_config.model_parallel * loss_parallel_config.data_parallel
@@ -257,7 +257,8 @@ class QwenModel(BaseModel):
                                     qkv_has_bias=True,
                                     use_past=config.use_past,
                                     use_flash_attention=config.use_flash_attention,
-                                    parallel_config=config.parallel_config)
+                                    parallel_config=config.parallel_config,
+                                    qkv_concat=config.qkv_concat)
 
             from mindformers.models.llama.llama import layer_compute_dtype
             layer_compute_dtype(layer, layer_id, config.offset,
@@ -380,9 +381,12 @@ class QwenDecodeLayer(LLamaDecodeLayer):
             self.feed_forward.w2.shard(((dp, mp), (1, mp)), out_strategy_matmul=((dp * mp, 1),))
 
         if not (_get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation()):
-            self.attention.wq.bias_add.shard(((dp, mp), (mp,)))
-            self.attention.wk.bias_add.shard(((dp, mp), (mp,)))
-            self.attention.wv.bias_add.shard(((dp, mp), (mp,)))
+            if kwargs.get('qkv_concat'):
+                self.attention.w.bias_add.shard(((dp, mp), (mp,)))
+            else:
+                self.attention.wq.bias_add.shard(((dp, mp), (mp,)))
+                self.attention.wk.bias_add.shard(((dp, mp), (mp,)))
+                self.attention.wv.bias_add.shard(((dp, mp), (mp,)))
 
 
 class QwenFeedForward(nn.Cell):
@@ -409,9 +413,9 @@ class QwenFeedForward(nn.Cell):
                     no_warning=_get_parallel_mode() in (ParallelMode.STAND_ALONE,))
     @_args_type_validator_check(dim=Validator.check_positive_int,
                                 intermediate_size=Validator.check_positive_int,
-                                compute_dtype=_valid_value_checks([mstype.float32, mstype.float16],
+                                compute_dtype=_valid_value_checks([mstype.float32, mstype.float16, mstype.bfloat16],
                                                                   "FeedForward"),
-                                param_init_type=_valid_value_checks([mstype.float32, mstype.float16],
+                                param_init_type=_valid_value_checks([mstype.float32, mstype.float16, mstype.bfloat16],
                                                                     "FeedForward"))
     def __init__(self, dim,
                  intermediate_size=0,
@@ -452,7 +456,7 @@ class QwenFeedForward(nn.Cell):
 
     def construct(self, x):
         """Forward process of the FeedForward"""
-        _check_input_dtype(F.dtype(x), "x", [mstype.float32, mstype.float16], self.cls_name)
+        _check_input_dtype(F.dtype(x), "x", [mstype.float32, mstype.float16, mstype.bfloat16], self.cls_name)
         x = self.cast(x, self.dtype)
         # [bs, seq, hidden_dim] or [bs * seq, hidden_dim]
         gate = self.w1(x)  # dp,1 -> dp, mp

@@ -263,11 +263,13 @@ text_transforms的参数解释：
 ```shell
 python convert_weights.py --torch_ckpt_dir /path/to/hf/ckpt \
 --mindspore_ckpt_path /path/to/qwenvl_ms.ckpt \
---dtype float32
+--dtype float32 \
+--vit_num_head 16
 ```
 
 `--torch_ckpt_dir` 传入从 `Huggingface` 下载好的权重路径，`--mindspore_ckpt_path`
 是用于存储转换后权重的路径。默认转换为 `float32` 的权重。
+`vit_num_head` 用于转换 `ViT` 中的 `Transformer` 中的 `Attention` 层权重，默认为 `16`。
 
 ## stage3训练：指令微调
 可以参考以下脚本执行QwenVL的微调流程。在执行前请按照上一章节所描述的修改数据集的位置。

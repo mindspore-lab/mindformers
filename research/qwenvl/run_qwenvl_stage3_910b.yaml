@@ -125,6 +125,9 @@ model:
     freeze_resampler: False
     freeze_llm: False
     micro_batch_interleave_num: *micro_batch_interleave_num
+    use_past: False
+    compute_dtype: "float16"
+    param_init_type: "float16"
 
     vision_config:
       type: CLIPVisionConfig
@@ -141,6 +144,8 @@ model:
       initializer_range: 0.02
       initializer_factor: 1.0
       mlp_ratio: 4.9231
+      use_flash_attention: True
+      enable_fas_pad: True
 
     text_config:
       type: QwenConfig
@@ -173,6 +178,7 @@ model:
       top_k: 0
       top_p: 0.8
       do_sample: False
+      qkv_concat: False
 
       # configuration items copied from Qwen
       rotary_pct: 1.0
