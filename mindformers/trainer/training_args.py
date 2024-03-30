@@ -967,6 +967,7 @@ class TrainingArguments:
             num_epochs: float = 3,
             gradient_accumulation_steps: int = 1,
             seed: int = 42,
+            **kwargs
     ):
         """
         A method that regroups all basic arguments linked to the training.
@@ -1022,13 +1023,15 @@ class TrainingArguments:
         self.num_train_epochs = num_epochs
         self.gradient_accumulation_steps = gradient_accumulation_steps
         self.seed = seed
+        self.print_kwargs_unused(**kwargs)
         return self
 
     def set_evaluate(
             self,
             strategy: Union[str, IntervalStrategy] = "no",
             steps: int = 500,
-            batch_size: int = 8
+            batch_size: int = 8,
+            **kwargs
     ):
         """
         A method that regroups all arguments linked to the evaluation.
@@ -1064,12 +1067,14 @@ class TrainingArguments:
         self.do_eval = self.evaluation_strategy != IntervalStrategy.NO
         self.eval_steps = steps
         self.per_device_eval_batch_size = batch_size
+        self.print_kwargs_unused(**kwargs)
         return self
 
     def set_testing(
             self,
             batch_size: int = 8,
             loss_only: bool = False,
+            **kwargs
     ):
         """
         A method that regroups all basic arguments linked to testing on a held-out dataset.
@@ -1100,6 +1105,7 @@ class TrainingArguments:
         self.do_predict = True
         self.per_device_eval_batch_size = batch_size
         self.prediction_loss_only = loss_only
+        self.print_kwargs_unused(**kwargs)
         return self
 
     def set_save(
@@ -1108,6 +1114,7 @@ class TrainingArguments:
             steps: int = 500,
             total_limit: Optional[int] = None,
             on_each_node: bool = True,
+            **kwargs
     ):
         """
         A method that regroups all arguments linked to the evaluation.
@@ -1149,12 +1156,14 @@ class TrainingArguments:
         self.save_steps = steps
         self.save_total_limit = total_limit
         self.save_on_each_node = on_each_node
+        self.print_kwargs_unused(**kwargs)
         return self
 
     def set_logging(
             self,
             strategy: Union[str, IntervalStrategy] = "steps",
             steps: int = 500,
+            **kwargs
     ):
         """
         A method that regroups all arguments linked to the evaluation.
@@ -1184,6 +1193,7 @@ class TrainingArguments:
         if self.logging_strategy == IntervalStrategy.STEPS and steps == 0:
             raise ValueError("Setting `strategy` as 'steps' requires a positive value for `steps`.")
         self.logging_steps = steps
+        self.print_kwargs_unused(**kwargs)
         return self
 
     def set_push_to_hub(
@@ -1193,6 +1203,7 @@ class TrainingArguments:
             token: Optional[str] = None,
             private_repo: bool = False,
             always_push: bool = False,
+            **kwargs
     ):
         """
         A method that regroups all arguments linked to synchronizing checkpoints with the Hub.
@@ -1253,6 +1264,7 @@ class TrainingArguments:
         self.hub_token = token
         self.hub_private_repo = private_repo
         self.hub_always_push = always_push
+        self.print_kwargs_unused(**kwargs)
         return self
 
     def set_optimizer(
@@ -1264,6 +1276,7 @@ class TrainingArguments:
             beta1: float = 0.9,
             beta2: float = 0.999,
             epsilon: float = 1e-8,
+            **kwargs
     ):
         """
         A method that regroups all arguments linked to the optimizer and its hyperparameters.
@@ -1303,6 +1316,7 @@ class TrainingArguments:
         self.adam_beta1 = beta1
         self.adam_beta2 = beta2
         self.adam_epsilon = epsilon
+        self.print_kwargs_unused(**kwargs)
         return self
 
     def set_lr_scheduler(
@@ -1313,6 +1327,7 @@ class TrainingArguments:
             warmup_epochs: Optional[int] = None,
             warmup_ratio: Optional[float] = None,
             warmup_steps: int = 0,
+            **kwargs
     ):
         """
         A method that regroups all arguments linked to the learning rate scheduler and its hyperparameters.
@@ -1348,6 +1363,7 @@ class TrainingArguments:
         self.warmup_epochs = warmup_epochs
         self.warmup_ratio = warmup_ratio
         self.warmup_steps = warmup_steps
+        self.print_kwargs_unused(**kwargs)
         return self
 
     def set_dataloader(
@@ -1358,6 +1374,7 @@ class TrainingArguments:
             num_workers: int = 0,
             ignore_data_skip: bool = False,
             sampler_seed: Optional[int] = None,
+            **kwargs
     ):
         """
         A method that regroups all arguments linked to the dataloaders creation.
@@ -1400,7 +1417,14 @@ class TrainingArguments:
         self.dataloader_num_workers = num_workers
         self.ignore_data_skip = ignore_data_skip
         self.data_seed = sampler_seed
+        self.print_kwargs_unused(**kwargs)
         return self
+
+    @staticmethod
+    def print_kwargs_unused(**kwargs):
+        if kwargs:
+            for k in kwargs:
+                logger.warning("the `%s` parameter is not supported.", k)
 
     def convert_args_to_mindformers_config(self, task_config: MindFormerConfig = None):
         """convert training arguments to mindformer config type for adapting hugging-face."""
