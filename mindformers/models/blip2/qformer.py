@@ -752,6 +752,8 @@ class BertEncoder(nn.Cell):
         self.num_hidden_layers = [
             i for i in range(self.config.num_hidden_layers)]
 
+        self.add_cross_attention = self.config.add_cross_attention
+
     def construct(
             self,
             hidden_states,
@@ -773,7 +775,7 @@ class BertEncoder(nn.Cell):
         all_hidden_states = () if output_hidden_states else None
         all_self_attentions = () if output_attentions else None
         all_cross_attentions = (
-            () if output_attentions and self.config.add_cross_attention else None
+            () if output_attentions and self.add_cross_attention else None
         )
 
         next_decoder_cache = () if use_cache else None
