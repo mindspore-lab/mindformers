@@ -1,0 +1,45 @@
+# model config
+model:
+  model_config:
+    type: LlamaConfig
+    batch_size: 1 # add for increase predict
+    seq_length: 512
+    hidden_size: 5120
+    num_layers: 40
+    num_heads: 40
+    vocab_size: 124792
+    multiple_of: 256
+    rms_norm_eps: 1.0e-5
+    bos_token_id: 1
+    eos_token_id: 2
+    pad_token_id: 0
+    ignore_token_id: -100
+    compute_dtype: "float16"
+    layernorm_compute_type: "float32"
+    softmax_compute_type: "float16"
+    rotary_dtype: "float16"
+    param_init_type: "float16"
+    use_past: True
+    scaling_factor: 1.0
+    extend_method: "None" # support "None", "PI", "NTK"
+    use_flash_attention: False # FA can accelerate training or finetune
+    offset: 0
+    checkpoint_name_or_path: ""
+    repetition_penalty: 1
+    max_decode_length: 512
+    top_k: 3
+    top_p: 1
+    do_sample: False
+  arch:
+    type: LlamaForCausalLM
+
+processor:
+  return_tensors: ms
+  tokenizer:
+    vocab_file: ''
+    unk_token: '<unk>'
+    bos_token: '<s>'
+    eos_token: '</s>'
+    pad_token: '<unk>'
+    type: LlamaTokenizer
+  type: LlamaProcessor
