@@ -161,10 +161,11 @@ def set_strategy_save_path(config):
     os.makedirs(strategy_ckpt_save_dir, exist_ok=True)
 
     strategy_ckpt_save_file = config.get('strategy_ckpt_save_file', "ckpt_strategy.ckpt")
-    strategy_name = os.path.basename(strategy_ckpt_save_file).replace(".ckpt", f"_rank_{rank_id}.ckpt")
-    config['strategy_ckpt_save_file'] = os.path.join(strategy_ckpt_save_dir, strategy_name)
-    context.set_auto_parallel_context(strategy_ckpt_save_file=config['strategy_ckpt_save_file'])
-    logger.info(f"set strategy path to '{config['strategy_ckpt_save_file']}'")
+    if not strategy_ckpt_save_file.endswith(f"_rank_{rank_id}.ckpt"):
+        strategy_name = os.path.basename(strategy_ckpt_save_file).replace(".ckpt", f"_rank_{rank_id}.ckpt")
+        config['strategy_ckpt_save_file'] = os.path.join(strategy_ckpt_save_dir, strategy_name)
+        context.set_auto_parallel_context(strategy_ckpt_save_file=config['strategy_ckpt_save_file'])
+        logger.info(f"set strategy path to '{config['strategy_ckpt_save_file']}'")
 
 
 def get_log_path():
