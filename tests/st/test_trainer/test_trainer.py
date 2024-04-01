@@ -25,6 +25,7 @@ from mindspore.dataset import GeneratorDataset
 
 from mindformers import GPT2LMHeadModel, GPT2Config
 from mindformers import Trainer, TrainingArguments
+from mindformers.core.callback import MFLossMonitor
 
 ms.set_context(mode=0)
 
@@ -248,3 +249,40 @@ class TestTrainer:
         trainer = Trainer(args=args, task='text_generation', model=model, model_name=model_name)
         trainer.predict(input_data='hello')
         trainer.export()
+
+    def test_trainer_add_callback(self):
+        """test trainer add_callback."""
+        trainer = Trainer(args=TRAINING_ARGUMENTS, model=MODEL)
+        callback = MFLossMonitor()
+
+        trainer.add_callback(callback)
+        assert trainer.callback_list == 'MFLossMonitor'
+
+        trainer.add_callback(MFLossMonitor)
+        assert trainer.callback_list == 'MFLossMonitor\nMFLossMonitor'
+
+    def test_trainer_remove_callback(self):
+        """test trainer remove_callback."""
+        trainer = Trainer(args=TRAINING_ARGUMENTS, model=MODEL)
+        callback = MFLossMonitor()
+
+        trainer.add_callback(callback)
+        trainer.remove_callback(callback)
+        assert trainer.callback_list == ''
+
+        trainer.add_callback(callback)
+        trainer.remove_callback(MFLossMonitor)
+        assert trainer.callback_list == ''
+
+    def test_trainer_pop_callback(self):
+        """test trainer pop_callback."""
+        trainer = Trainer(args=TRAINING_ARGUMENTS, model=MODEL)
+        callback = MFLossMonitor()
+
+        trainer.add_callback(callback)
+        callback1 = trainer.pop_callback(callback)
+        assert trainer.callback_list == ''
+
+        trainer.add_callback(callback)
+        callback2 = trainer.pop_callback(MFLossMonitor)
+        assert callback1 == callback2

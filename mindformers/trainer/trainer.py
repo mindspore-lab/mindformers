@@ -741,6 +741,45 @@ class Trainer:
                             network=self.model,
                             is_full_config=True)
 
+    def add_callback(self, callback):
+        """add callback."""
+        cb = callback() if isinstance(callback, type) else callback
+        cb_class = callback if isinstance(callback, type) else callback.__class__
+        if cb_class in [c.__class__ for c in self.callbacks]:
+            logger.warning(
+                f"You are adding a {cb_class.__name__} to the callbacks of this Trainer, but there is already one.\n"
+                f"The current list of callbacks is:\n{self.callback_list}"
+            )
+        self.callbacks.append(cb)
+
+    def pop_callback(self, callback):
+        """pop callback."""
+        if isinstance(callback, type):
+            for cb in self.callbacks:
+                if isinstance(cb, callback):
+                    self.callbacks.remove(cb)
+                    return cb
+        else:
+            for cb in self.callbacks:
+                if cb == callback:
+                    self.callbacks.remove(cb)
+                    return cb
+        return callback
+
+    def remove_callback(self, callback):
+        """remove callback."""
+        if isinstance(callback, type):
+            for cb in self.callbacks:
+                if isinstance(cb, callback):
+                    self.callbacks.remove(cb)
+                    return
+        else:
+            self.callbacks.remove(callback)
+
+    @property
+    def callback_list(self):
+        return "\n".join(cb.__class__.__name__ for cb in self.callbacks)
+
     @args_type_check(data_parallel=int, model_parallel=int, expert_parallel=int, pipeline_stage=int,
                      micro_batch_interleave_num=int, micro_batch_num=int, use_seq_parallel=bool, optimizer_shard=bool,
                      gradient_aggregation_group=int, vocab_emb_dp=bool)
