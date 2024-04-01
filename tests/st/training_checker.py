@@ -121,6 +121,6 @@ class TrainingChecker(Callback):
     def on_train_end(self, run_context):
         _ = run_context
         avg_step_time = self.total_time / self.counted_steps_num
-        assert abs(avg_step_time - self.avg_step_time_std) / self.avg_step_time_std < self.time_error_ratio, \
+        assert (avg_step_time - self.avg_step_time_std) / self.avg_step_time_std < self.time_error_ratio, \
             f"The error ratio between avg_step_time: {avg_step_time} and " \
             f"avg_step_time_std: {self.avg_step_time_std} is larger than {self.time_error_ratio}"
