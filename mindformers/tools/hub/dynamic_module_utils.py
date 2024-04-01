@@ -41,12 +41,12 @@ def init_mf_modules():
     Creates the cache directory for modules with an init, and adds it to the Python path.
     """
     # This function has already been executed if HF_MODULES_CACHE already is in the Python path.
-    if HubConstants.MS_MODULES_CACHE in sys.path:
+    if HubConstants.OM_MODULES_CACHE in sys.path:
         return
 
-    sys.path.append(HubConstants.MS_MODULES_CACHE)
-    os.makedirs(HubConstants.MS_MODULES_CACHE, exist_ok=True)
-    init_path = Path(HubConstants.MS_MODULES_CACHE) / "__init__.py"
+    sys.path.append(HubConstants.OM_MODULES_CACHE)
+    os.makedirs(HubConstants.OM_MODULES_CACHE, exist_ok=True)
+    init_path = Path(HubConstants.OM_MODULES_CACHE) / "__init__.py"
     if not init_path.exists():
         init_path.touch()
         importlib.invalidate_caches()
@@ -61,7 +61,7 @@ def create_dynamic_module(name: Union[str, os.PathLike]):
             The name of the dynamic module to create.
     """
     init_mf_modules()
-    dynamic_module_path = (Path(HubConstants.MS_MODULES_CACHE) / name).resolve()
+    dynamic_module_path = (Path(HubConstants.OM_MODULES_CACHE) / name).resolve()
     # If the parent module does not exist yet, recursively create it.
     if not dynamic_module_path.parent.exists():
         create_dynamic_module(dynamic_module_path.parent)
@@ -317,7 +317,7 @@ def get_cached_module_file(
     # Now we move the module inside our cached dynamic modules.
     full_submodule = OPENMIND_DYNAMIC_MODULE_NAME + os.path.sep + submodule
     create_dynamic_module(full_submodule)
-    submodule_path = Path(HubConstants.MS_MODULES_CACHE) / full_submodule
+    submodule_path = Path(HubConstants.OM_MODULES_CACHE) / full_submodule
     if submodule == os.path.basename(pretrained_model_name_or_path):
         # We copy local files to avoid putting too many folders in sys.path. This copy is done when the file is new or
         # has changed since last copy.
