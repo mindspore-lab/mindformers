@@ -37,9 +37,11 @@ class QwenConfig(LlamaConfig):
                  intermediate_size,
                  embedding_parallel_optimizer: bool = True,
                  enable_slice_dp: bool = True,
+                 enable_emb_opt: bool = False,
                  **kwargs):
         super(QwenConfig, self).__init__(**kwargs)
         self.intermediate_size = intermediate_size
         self.embedding_parallel_optimizer = embedding_parallel_optimizer
         self.enable_slice_dp = enable_slice_dp
+        self.enable_emb_opt = enable_emb_opt
 

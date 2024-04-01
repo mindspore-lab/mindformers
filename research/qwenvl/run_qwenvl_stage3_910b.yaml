@@ -179,6 +179,7 @@ model:
       top_p: 0.8
       do_sample: False
       qkv_concat: False
+      enable_emb_opt: False
 
       # configuration items copied from Qwen
       rotary_pct: 1.0
