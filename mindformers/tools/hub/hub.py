@@ -45,12 +45,12 @@ OPENMIND_CO_RESOLVE_ENDPOINT = os.environ.get("MDS_ENDPOINT", _default_endpoint)
 
 class HubConstants:
     try:
-        from openmind_hub import MDS_HOME, MDS_HUB_CACHE
+        from openmind_hub import OM_HOME, OM_HUB_CACHE
     except ImportError:
-        MDS_HOME = ""
-        MDS_HUB_CACHE = ""
-    MS_MODULES_CACHE = os.getenv("MS_MODULES_CACHE", os.path.join(MDS_HOME, "modules"))
-    OPENMIND_CACHE = os.getenv("OPENMIND_CACHE", MDS_HUB_CACHE)
+        OM_HOME = ""
+        OM_HUB_CACHE = ""
+    OM_MODULES_CACHE = os.getenv("OM_MODULES_CACHE", os.path.join(OM_HOME, "modules"))
+    OPENMIND_CACHE = os.getenv("OPENMIND_CACHE", OM_HUB_CACHE)
 
 
 def is_remote_url(url_or_filename):
@@ -141,7 +141,7 @@ def get_checkpoint_shard_files(
     path to the
     index (downloaded and cached if `pretrained_model_name_or_path` is a model ID on the Hub).
     """
-    from openmind_hub.utils import EntryNotFoundError, MdsHubHTTPError
+    from openmind_hub.utils import EntryNotFoundError, OmHubHTTPError
     from openmind_hub import try_to_load_from_cache
 
     import json
@@ -191,7 +191,7 @@ def get_checkpoint_shard_files(
                 f"{pretrained_model_name_or_path} does not appear to have a file named {shard_filename} which is "
                 "required according to the checkpoint index."
             )
-        except MdsHubHTTPError:
+        except OmHubHTTPError:
             raise EnvironmentError(
                 f"We couldn't connect to '{OPENMIND_CO_RESOLVE_ENDPOINT}' to load {shard_filename}. You should try"
                 " again after checking your internet connection."
@@ -280,11 +280,11 @@ def cached_file(
         RevisionNotFoundError,
         LocalEntryNotFoundError,
         EntryNotFoundError,
-        MdsHubHTTPError,
-        MDSValidationError
+        OmHubHTTPError,
+        OMValidationError
     )
 
-    from openmind_hub import _CACHED_NO_EXIST, mds_hub_download, try_to_load_from_cache
+    from openmind_hub import _CACHED_NO_EXIST, om_hub_download, try_to_load_from_cache
 
     if is_offline_mode() and not local_files_only:
         logger.info("Offline mode: forcing local_files_only=True")
@@ -330,7 +330,7 @@ def cached_file(
 
     try:
         # Load from URL or cache if already cached
-        resolved_file = mds_hub_download(
+        resolved_file = om_hub_download(
             path_or_repo_id,
             filename,
             subfolder=None if not subfolder else subfolder,
@@ -386,7 +386,7 @@ def cached_file(
             f"{path_or_repo_id} does not appear to have a file named {full_filename}. Checkout "
             f"'https://openmind.cn/{path_or_repo_id}/{revision}' for available files."
         ) from e
-    except MdsHubHTTPError as err:
+    except OmHubHTTPError as err:
         # First we try to see if we have a cached version (not up to date):
         resolved_file = try_to_load_from_cache(
             path_or_repo_id, full_filename, cache_dir=cache_dir, revision=revision
@@ -398,7 +398,7 @@ def cached_file(
         raise EnvironmentError(
             f"There was a specific connection error when trying to load {path_or_repo_id}:\n{err}"
         )
-    except MDSValidationError as e:
+    except OMValidationError as e:
         raise EnvironmentError(
             f"Incorrect path_or_model_id: '{path_or_repo_id}'. Please provide either the path to a "
             f"local folder or the repo_id of a model on the Hub."
@@ -557,20 +557,21 @@ def has_file(
     from openmind_hub.utils import (
         RepositoryNotFoundError,
         RevisionNotFoundError,
-        mds_raise_for_status,
+        om_raise_for_status,
         GatedRepoError
     )
-    from openmind_hub import mds_hub_url, build_mds_headers
+    from openmind_hub import om_hub_url
+    from openmind_hub.utils import build_om_headers
 
     if os.path.isdir(path_or_repo):
         return os.path.isfile(os.path.join(path_or_repo, filename))
 
-    url = mds_hub_url(path_or_repo, filename=filename, revision=revision)
-    headers = build_mds_headers(token=token, user_agent=http_user_agent())
+    url = om_hub_url(path_or_repo, filename=filename, revision=revision)
+    headers = build_om_headers(token=token, user_agent=http_user_agent())
 
     r = requests.head(url, headers=headers, allow_redirects=False, proxies=proxies, timeout=10)
     try:
-        mds_raise_for_status(r)
+        om_raise_for_status(r)
         return True
     except GatedRepoError as e:
         logger.error(e)
