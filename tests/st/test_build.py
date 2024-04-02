@@ -30,7 +30,7 @@ from mindformers.tools import logger
 from mindformers.tools import MindFormerConfig, MindFormerRegister, MindFormerModuleType
 from mindformers.core import build_lr, build_optim, build_loss, build_metric
 from mindformers.trainer import build_trainer, BaseTrainer
-from mindformers.models import build_model, build_processor
+from mindformers.models import build_model, build_processor, build_network
 from mindformers.models import PretrainedConfig, PreTrainedModel
 from mindformers.dataset import build_dataset, build_sampler, check_dataset_config, \
     build_dataset_loader, build_mask, build_transforms, BaseDataset
@@ -249,6 +249,10 @@ def test_build_from_config():
 
     # build model
     model = build_model(all_config.model)
+    logger.info("Test Build Model Success")
+
+    # build network
+    model = build_network(all_config.model)
     logger.info("Test Build Network Success")
 
     # build lr

@@ -42,7 +42,7 @@ from mindformers.core.callback.callback import EvalCallBack
 from mindformers.core.parallel_config import build_parallel_config
 from mindformers.dataset import build_dataset, check_dataset_config, \
     check_dataset_iterable, BaseDataset
-from mindformers.models import build_model, build_processor, build_tokenizer, \
+from mindformers.models import build_network, build_processor, build_tokenizer, \
     PreTrainedModel, PreTrainedTokenizerBase, BaseImageProcessor
 from mindformers.pipeline import pipeline
 from mindformers.wrapper import build_wrapper
@@ -51,7 +51,6 @@ from mindformers.tools.logger import logger
 from mindformers.tools.utils import count_params, get_output_subpath
 from mindformers.tools.check_rules import check_rules
 from mindformers.models.auto import AutoModel
-from mindformers.pet import get_pet_model, is_supported_pet_type
 from mindformers.tools.utils import get_real_rank, get_real_group_size
 from mindformers.core.callback.callback import ColdHotExpertMointor
 from .config_args import ConfigArguments
@@ -387,15 +386,7 @@ class BaseTrainer:
     def create_network(self, default_args: dict = None):
         """Create the network for task trainer."""
         logger.info(".........Build Network From Config..........")
-        ckpt_cfg = self.config.model.model_config.checkpoint_name_or_path
-        pet_config = self.config.model.model_config.pet_config
-        if pet_config and is_supported_pet_type(pet_config.pet_type):
-            self.config.model.model_config.checkpoint_name_or_path = None
-        network = build_model(self.config.model, default_args=default_args)
-        if pet_config:
-            network.config.checkpoint_name_or_path = ckpt_cfg
-            network = get_pet_model(network, pet_config)
-        return network
+        return build_network(self.config, default_args=default_args)
 
     def wrap_network_with_tool_cells(self, network):
         """For training process, warp the network with some tool cells."""

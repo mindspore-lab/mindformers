@@ -31,6 +31,7 @@ class TestPipeline:
         """setup method."""
         self.task_name = "text_generation"
         self.model_name = "gpt2"
+        self.lora_model_name = "gpt2_lora"
         self.batch_size = 1
         self.use_past = True
 
@@ -59,6 +60,22 @@ class TestPipeline:
         question = "An increasing sequence: one,"
         task_pipeline = pipeline(self.task_name,
                                  self.model_name,
+                                 use_past=self.use_past)
+        output = task_pipeline(question,
+                               max_new_tokens=32,
+                               do_sample=False)
+        print(output)
+        assert "An increasing sequence: one, two," in output[0]['text_generation_text'][0]
+
+    def test_lora_pipeline(self):
+        """
+        Feature: pipeline interface.
+        Description: Test basic function of pipeline api.
+        Expectation: TypeError, ValueError, RuntimeError
+        """
+        question = "An increasing sequence: one,"
+        task_pipeline = pipeline(self.task_name,
+                                 self.lora_model_name,
                                  use_past=self.use_past)
         output = task_pipeline(question,
                                max_new_tokens=32,

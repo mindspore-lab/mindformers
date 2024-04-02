@@ -18,7 +18,7 @@ from typing import Tuple
 import mindspore as ms
 import mindspore.ops as ops
 
-from mindformers.models.build_model import build_model
+from mindformers.models.build_model import build_network
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.mindformer_book import MindFormerBook
 from mindformers.models.modeling_utils import PreTrainedModel
@@ -47,9 +47,9 @@ class SamModel(SamPreTrainedModel):
     _support_list = MindFormerBook.get_model_support_list()['sam']
     def __init__(self, config) -> None:
         super().__init__(config)
-        self.image_encoder = build_model(config.image_encoder)
-        self.prompt_encoder = build_model(config.prompt_config)
-        self.mask_decoder = build_model(config.decoder_config)
+        self.image_encoder = build_network(config.image_encoder)
+        self.prompt_encoder = build_network(config.prompt_config)
+        self.mask_decoder = build_network(config.decoder_config)
 
         self.load_checkpoint(config)
 

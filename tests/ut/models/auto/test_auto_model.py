@@ -280,3 +280,13 @@ class TestAutoModel(unittest.TestCase):
         with self.assertRaises(TypeError):
             AutoModelForCausalLM.from_config(config)
         shutil.rmtree(LOCAL_DIR)
+
+    def test_automodel_load_from_lora_config(self):
+        """test AutoModel load from dir only yaml"""
+        from mindformers.pet.pet_config import LoraConfig
+        from mindformers.pet.models.lora import LoraModel
+        config = GPT2Config()
+        pet_config = LoraConfig(lora_rank=8, lora_alpha=16, lora_dropout=0.05, target_modules='.*dense1.*|.*dense3.*')
+        config.pet_config = pet_config
+        model = AutoModel.from_config(config)
+        self.assertTrue(isinstance(model, LoraModel))

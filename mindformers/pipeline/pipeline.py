@@ -30,11 +30,10 @@ from mindformers.models.auto import AutoConfig, AutoModel, AutoTokenizer
 from mindformers.mindformer_book import MindFormerBook
 from mindformers.models import (BaseAudioProcessor, BaseImageProcessor,
                                 PreTrainedModel, PreTrainedTokenizerBase,
-                                build_model, build_processor, build_tokenizer)
+                                build_processor, build_tokenizer, build_network)
 from mindformers.models.auto import TOKENIZER_MAPPING, IMAGE_PROCESSOR_MAPPING
 from mindformers.models.configuration_utils import PretrainedConfig
 from mindformers.models.utils import CONFIG_NAME
-from mindformers.pet import get_pet_model, is_supported_pet_type
 from mindformers.tools import logger
 from mindformers.tools.hub.dynamic_module_utils import \
     get_class_from_dynamic_module
@@ -144,14 +143,7 @@ def get_ms_pipeline(task, model, tokenizer, image_processor, audio_processor, **
         for build_name in build_names:
             if build_name in kwargs:
                 build_args[build_name] = kwargs.pop(build_name)
-        ckpt_cfg = pipeline_config.model.model_config.checkpoint_name_or_path
-        pet_config = pipeline_config.model.model_config.pet_config
-        if pet_config and is_supported_pet_type(pet_config.pet_type):
-            pipeline_config.model.model_config.checkpoint_name_or_path = None
-        model = build_model(pipeline_config.model, default_args=build_args)
-        if pet_config:
-            model.config.checkpoint_name_or_path = ckpt_cfg
-            model = get_pet_model(model, pet_config)
+        model = build_network(pipeline_config.model, default_args=build_args)
         if batch_size is not None:
             kwargs["batch_size"] = batch_size
     if image_processor is None and hasattr(pipeline_config.processor, 'image_processor'):

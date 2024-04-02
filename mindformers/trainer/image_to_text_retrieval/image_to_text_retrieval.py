@@ -21,7 +21,7 @@ from mindspore import dtype as mstype
 from mindspore.train import Callback
 
 from mindformers.dataset import build_dataset, check_dataset_config, BaseDataset
-from mindformers.models import build_model, PreTrainedModel
+from mindformers.models import build_network, PreTrainedModel
 from mindformers.core.callback import build_callback
 from mindformers.tools.logger import logger
 from mindformers.tools.utils import count_params, get_real_rank
@@ -93,7 +93,7 @@ class ImageToTextRetrievalTrainer(BaseTrainer):
         # build network
         logger.info(".........Build Net..........")
         if network is None:
-            network = build_model(config.model, default_args={
+            network = build_network(config.model, default_args={
                 "parallel_config": config.parallel_config,
                 "moe_config": config.moe_config,
                 "is_training": False})
