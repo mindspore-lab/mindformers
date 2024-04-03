@@ -386,7 +386,7 @@ class BaseTrainer:
     def create_network(self, default_args: dict = None):
         """Create the network for task trainer."""
         logger.info(".........Build Network From Config..........")
-        return build_network(self.config, default_args=default_args)
+        return build_network(self.config.model, default_args=default_args)
 
     def wrap_network_with_tool_cells(self, network):
         """For training process, warp the network with some tool cells."""
