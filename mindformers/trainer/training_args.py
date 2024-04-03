@@ -25,6 +25,7 @@ from collections import OrderedDict
 from typing import Optional, Union, List
 from dataclasses import asdict, dataclass, field, fields
 
+from mindformers.modules.transformer import TransformerRecomputeConfig, TransformerOpParallelConfig, MoEConfig
 from mindformers.tools.register import MindFormerConfig
 from mindformers.tools import logger
 from mindformers.tools.utils import get_real_rank, get_real_group_size
@@ -934,6 +935,42 @@ class TrainingArguments:
             self.warmup_steps if self.warmup_steps > 0 else math.ceil(num_training_steps * self.warmup_ratio)
         )
         return warmup_steps
+
+    def get_recompute_config(self):
+        """get recompute config"""
+        recompute_config = TransformerRecomputeConfig(
+            recompute=self.recompute,
+            select_recompute=self.select_recompute,
+            parallel_optimizer_comm_recompute=self.parallel_optimizer_comm_recompute,
+            mp_comm_recompute=self.mp_comm_recompute,
+            recompute_slice_activation=self.recompute_slice_activation
+        )
+        return recompute_config
+
+    def get_parallel_config(self):
+        """get parallel config"""
+        parallel_config = TransformerOpParallelConfig(
+            data_parallel=self.data_parallel,
+            model_parallel=self.model_parallel,
+            expert_parallel=self.expert_parallel,
+            pipeline_stage=self.pipeline_stage,
+            micro_batch_num=self.micro_batch_num,
+            recompute=self.get_recompute_config(),
+            use_seq_parallel=self.use_seq_parallel,
+            gradient_aggregation_group=self.gradient_aggregation_group,
+            vocab_emb_dp=self.vocab_emb_dp,
+        )
+        return parallel_config
+
+    def get_moe_config(self):
+        """get moe config"""
+        moe_config = MoEConfig(
+            expert_num=self.expert_num,
+            capacity_factor=self.capacity_factor,
+            aux_loss_factor=self.aux_loss_factor,
+            num_experts_chosen=self.num_experts_chosen
+        )
+        return moe_config
 
     def to_dict(self):
         """
