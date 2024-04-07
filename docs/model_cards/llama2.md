@@ -407,7 +407,7 @@ python llama_preprocess.py \
 
 - step 1. 修改模型对应的配置文件。
 
-在模型对应的配置文件`configs/llama/run_llama2_{7/13/70}b_910b_auto_parallel.yaml`中，用户可自行修改模型、训练相关参数(推荐开启flash_attention，可加速训练)
+在模型对应的配置文件`configs/llama2/run_llama2_{7/13/70}b_910b.yaml`中，用户可自行修改模型、训练相关参数(推荐开启flash_attention，可加速训练)
 通过配置中的`train_dataset`的`dataset_dir`参数，指定训练数据集的路径。
 
 如果是llama2 70b，可以将`qkv_concat`修改为True，`micro_batch_num`修改为256提升性能，还可以在train和finetune的yaml里开启并行加速：
@@ -445,7 +445,7 @@ export MS_ASCEND_CHECK_OVERFLOW_MODE="INFNAN_MODE"  # 推荐开启INFNAN模式�
 
 ```shell
 cd scripts
-bash run_distribute.sh hccl_xxxx.json ../configs/llama2/run_llama2_7b_910b_auto_parallel.yaml [0,8] train
+bash run_distribute.sh hccl_xxxx.json ../configs/llama2/run_llama2_7b_910b.yaml [0,8] train
 ```
 
 ```text
@@ -454,7 +454,7 @@ bash run_distribute.sh [RANK_TABLE_FILE] [CONFIG_PATH] [DEVICE_RANGE] [RUN_MODE]
 
 # 参数说明
 RANK_TABLE_FILE: 由mindformers/tools/hccl_tools.py生成的分布式json文件
-CONFIG_PATH: 为configs文件夹下面的llama/run_llama2_7b_910b_auto_parallel.yaml配置文件
+CONFIG_PATH: 为configs文件夹下面的llama2/run_llama2_7b_910b.yaml配置文件
 DEVICE_RANGE: 为单机分布式卡的范围，如[0,8]为8卡分布式，不包含8本身
 RUN_MODE: 为任务运行状态，支持关键字 train\finetune\eval\predict
 ```
@@ -469,7 +469,7 @@ RUN_MODE: 为任务运行状态，支持关键字 train\finetune\eval\predict
 
 ```yaml
 # 以llama2-13b模型两机训练为例，默认配置2机16卡，如果节点数有变，需要修改相应的配置。
-# 配置文件路径：../configs/llama2/run_llama2_13b_910b_auto_parallel.yaml
+# 配置文件路径：../configs/llama2/run_llama2_13b_910b.yaml
 parallel_config:
   data_parallel: 2
   model_parallel: 4
@@ -485,9 +485,9 @@ parallel_config:
 
 ```shell
 # 第一台机器
-bash run_distribute.sh {RANK_TABLE_FILE path of the first device} ../configs/llama2/run_llama2_13b_910b_auto_parallel.yaml [0,8] train 16
+bash run_distribute.sh {RANK_TABLE_FILE path of the first device} ../configs/llama2/run_llama2_13b_910b.yaml [0,8] train 16
 # 第二台机器
-bash run_distribute.sh {RANK_TABLE_FILE path of the second device} ../configs/llama2/run_llama2_13b_910b_auto_parallel.yaml [8,16] train 16
+bash run_distribute.sh {RANK_TABLE_FILE path of the second device} ../configs/llama2/run_llama2_13b_910b.yaml [8,16] train 16
 ```
 
 ## 微调
