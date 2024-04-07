@@ -410,7 +410,7 @@ python llama_preprocess.py \
 在模型对应的配置文件`configs/llama/run_llama2_{7/13/70}b_910b_auto_parallel.yaml`中，用户可自行修改模型、训练相关参数(推荐开启flash_attention，可加速训练)
 通过配置中的`train_dataset`的`dataset_dir`参数，指定训练数据集的路径。
 
-如果是llama2 70b，还可以在train和finetune的yaml里开启并行加速：
+如果是llama2 70b，可以将`qkv_concat`修改为True，`micro_batch_num`修改为256提升性能，还可以在train和finetune的yaml里开启并行加速：
 
 ```bash
 context:
