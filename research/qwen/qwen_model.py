@@ -49,6 +49,38 @@ from mindformers.models.llama.llama_transformer import LLamaDecodeLayer
 from mindformers.modules import KVCachePreprocess
 
 
+class MatMulPad(nn.Cell):
+    def __init__(self, matmul, vocab_size, align_size, enable_emb_opt=False):
+        super().__init__()
+        self.matmul = matmul
+        self.enable_emb_opt = enable_emb_opt
+        if self.enable_emb_opt:
+            matmul_in_strategy = self.matmul.attrs.get('in_strategy', None)
+            self.zeros = P.Zeros()
+            self.concat_weight = P.Concat(axis=0)
+            self.strided_slice = P.StridedSlice()
+            if matmul_in_strategy is not None and _get_parallel_mode() in ParallelMode.SEMI_AUTO_PARALLEL:
+                self.concat_weight.shard((matmul_in_strategy[1], matmul_in_strategy[1])).add_prim_attr("skip_redistribution", True)
+                self.strided_slice.shard(((matmul_in_strategy[0][0], matmul_in_strategy[1][0]),)).add_prim_attr("skip_redistribution", True)
+                align_size = align_size * matmul_in_strategy[1][0]
+            factor, remainder = divmod(vocab_size, align_size)
+            if remainder > 0:
+                self.pad_length = align_size - remainder
+            else:
+                self.enable_emb_opt = False
+                logger.warning("The vocab_size is already aligned, no need to pad.")
+
+    def construct(self, x, weight):
+        vocab_size, hidden_size = weight.shape
+        if self.enable_emb_opt:
+            pad_weight = self.zeros((self.pad_length, hidden_size), P.DType()(weight))
+            weight = self.concat_weight([weight, pad_weight])
+        output = self.matmul(x, weight)
+        if self.enable_emb_opt:
+            output = self.strided_slice(output, (0, 0), (x.shape[0], vocab_size), (1, 1))
+        return output
+
+
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
 class QwenForCausalLM(BaseModel):
     r"""
@@ -63,7 +95,6 @@ class QwenForCausalLM(BaseModel):
     @cell_reuse
     def __init__(self, config=None):
         super().__init__(config)
-
         self.transformer = QwenModel(config=config)
         self.lm_head = Linear(in_channels=config.hidden_size,
                               out_channels=config.vocab_size,
@@ -97,7 +128,9 @@ class QwenForCausalLM(BaseModel):
             self.shard(config.parallel_config)
             if config.parallel_config.pipeline_stage > 1:
                 self.lm_head.pipeline_stage = config.parallel_config.pipeline_stage - 1
-
+        if config.enable_emb_opt:
+            lm_head_matmul = self.lm_head.matmul
+            self.lm_head.matmul = MatMulPad(lm_head_matmul, config.vocab_size, 512, config.enable_emb_opt)
         self.load_checkpoint(config)
 
     # pylint: disable=W0613
