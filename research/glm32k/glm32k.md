@@ -438,7 +438,7 @@ ge.externalWeight=1
 ge.exec.atomicCleanPolicy=1
 ge.deterministic=1
 [ge_graph_options]
-ge.inputShape=batch_valid_length:-1;block_tables:-1,128;slot_mapping:-1;tokens:-1,1
+ge.inputShape=batch_valid_length:-1;block_tables:-1,255;slot_mapping:-1;tokens:-1,1
 ge.dynamicDims=1,1,1,1;2,2,2,2;4,4,4,4
 ge.dynamicNodeType=1
 [graph_kernel_param]
@@ -486,7 +486,121 @@ pa_block_size: PA推理的参数
 pa_num_blocks: PA推理的参数
 ```
 
-**注：** 使用run_infer_main.py脚本执行推理时，需要安装tiktoken包，不然会出现报错。安装命令：pip install tiktoken
+**注：** 使用run_infer_main.py脚本执行推理时需要安装tiktoken包，不然会出现报错；同时tiktoken包需要配套python=3.9的环境。安装命令：pip install tiktoken
+
+#### 多batch推理流程（以batch_size=2为例）
+
+##### Step1. 模型导出batch_size=2情况下的MindIR
+
+修改模型导出相关的配置文件 export_glm3_32k_pa.yaml，其中需要关注以下几项：
+
+```yaml
+# model config
+model:
+  model_config:
+    type: ChatGLM2Config
+    batch_size: 2         # 此处设置batch size值
+```
+
+执行run_glm32k.py，完成MindIR导出，得到全量minder_full_checkpoint/rank_0_graph.mindir和增量minder_inc_checkpoint/rank_0_graph.mindir两个MindIR图
+
+```bash
+python glm32k/run_glm32k.py \
+--config glm32k/export_glm3_32k_pa.yaml \
+--load_checkpoint /path/to/glm32k.ckpt \
+--run_mode=export --use_parallel False --use_past True --batch_size 2 --device_id 0
+```
+
+##### Step2. 执行MS Lite推理
+
+- 全量mindir模型PA推理配置（910b_ge_prefill_pa.cfg）：slot_mapping的值等于batch_size*seq_len=2*32640
+
+```ini
+[ascend_context]
+plugin_custom_ops=All
+provider=ge
+[ge_session_options]
+ge.exec.formatMode=1
+ge.exec.precision_mode=must_keep_origin_dtype
+ge.externalWeight=1
+ge.exec.atomicCleanPolicy=1
+ge.deterministic=1
+[ge_graph_options]
+ge.inputShape=batch_valid_length:2;tokens:2,32640;slot_mapping:65280
+[graph_kernel_param]
+opt_level=2
+disable_cluster_ops=MatMul,Reshape
+enable_cce_lib=true
+enable_cluster_ops_only="paged_attention"
+enable_expand_ops_only="paged_attention"
+disable_cce_lib_ops=MatMul
+```
+
+- 增量mindir模型PA推理配置（910b_ge_inc_pa.cfg）
+
+```ini
+[ascend_context]
+plugin_custom_ops=All
+provider=ge
+[ge_session_options]
+ge.exec.formatMode=1
+ge.exec.precision_mode=must_keep_origin_dtype
+ge.externalWeight=1
+ge.exec.atomicCleanPolicy=1
+ge.deterministic=1
+[ge_graph_options]
+ge.inputShape=batch_valid_length:-1;block_tables:-1,255;slot_mapping:-1;tokens:-1,1
+ge.dynamicDims=1,1,1,1;2,2,2,2;4,4,4,4
+ge.dynamicNodeType=1
+[graph_kernel_param]
+opt_level=2
+disable_cluster_ops=MatMul,Reshape
+enable_cce_lib=true
+enable_cluster_ops_only="paged_attention"
+enable_expand_ops_only="paged_attention"
+disable_cce_lib_ops=MatMul
+```
+
+执行run_infer_main.py脚本，修改相关配置启动推理：
+
+- PA推理执行命令如下：
+
+```bash
+python run_infer_main.py \
+--batch_size 2 \
+--device_id 0 \
+--model_name glm3 \
+--prefill_model_path /path/to/mindir_full_checkpoint/rank_0_graph.mindir \
+--increment_model_path /path/to/mindir_inc_checkpoint/rank_0_graph.mindir \
+--tokenizer_path /path/to/tokenizer.model \
+--config_path "/glm32k/910b_ge_prefill_pa.cfg,/glm32k/910b_ge_inc_pa.cfg" \
+--seq_length 32640 \
+--max_length 32640 \
+--dynamic False \
+--paged_attention True \
+--pa_block_size 128 \
+--pa_num_blocks 512
+
+# 参数说明
+batch_size: 推理多batch设置
+```
+
+**注：** 为适配batch_size=2，需要修改run_infer_main.py部分代码，如下所示：
+
+```python
+def infer_main(args_):
+    ...
+    if args_.distributed:
+        ...
+    else:
+        while True:
+        user_input = input("Please enter your predict data: \n")
+        if user_input == "exit":
+            print("Task is over.")
+            sys.exit()
+        user_input = [user_input] * args_.batch_size   # 此处新增一行代码，用于多batch推理
+        ...
+```
 
 ### 开源数据集评测
 

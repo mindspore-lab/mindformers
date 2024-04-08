@@ -80,7 +80,8 @@ def scorer(predictions, answers):
         print(f'prediction is {prediction}')
         print(f'ground_truths is {ground_truths}')
         score = 0.
-        score = max(score, rouge_zh_score(prediction[0], ground_truths[0]))
+        for ground_truth in ground_truths:
+            score = max(score, rouge_zh_score(prediction[0], ground_truth))
         total_score += score
     return round(100 * total_score / len(predictions), 2)
 

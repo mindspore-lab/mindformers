@@ -763,7 +763,9 @@ response, history = process_response(response, history)
 
    本章节提供ChatGLM3-6B在MindSpore Lite上进行推理的基本使用流程，更多详细的特性介绍可以参考[Mindspore Lite特性文档](../../docs/feature_cards/Inference.md)
 
-### MindIR 导出
+### 单卡导出与PA推理
+
+#### Step1. MindIR 导出
 
 1. 修改模型相关的配置文件 configs/glm3/export_glm3_6b_pa.yaml，其中需要关注这几项：
 
@@ -793,7 +795,7 @@ python run_mindformer.py
 --device_id 0
 ```
 
-### 执行推理
+#### Step2. 执行MS Lite推理
 
 新建推理配置文件，ChatGLM3-6B在Atlas 800T A2上推荐的GE配置如下：
 
@@ -810,7 +812,7 @@ ge.exec.formatMode=1
 ge.exec.precision_mode=must_keep_origin_dtype
 ge.externalWeight=1
 ge.exec.atomicCleanPolicy=1
-ge.deterministic=1
+ge.deterministic=1   # 注释此行，可以提升推理速度
 [ge_graph_options]
 ge.inputShape=batch_valid_length:1;tokens:1,2048;slot_mapping:2048
 [graph_kernel_param]
@@ -833,7 +835,7 @@ ge.exec.formatMode=1
 ge.exec.precision_mode=must_keep_origin_dtype
 ge.externalWeight=1
 ge.exec.atomicCleanPolicy=1
-ge.deterministic=1
+ge.deterministic=1   # 注释此行，可以提升推理速度
 [ge_graph_options]
 ge.inputShape=batch_valid_length:-1;block_tables:-1,128;slot_mapping:-1;tokens:-1,1
 ge.dynamicDims=1,1,1,1;2,2,2,2;4,4,4,4
@@ -903,3 +905,136 @@ Please enter your predict data:
 ```bash
 ['[gMASK]sop<|user|> \n 你好<|assistant|> \n 你好👋！我是人工智能助手 ChatGLM3-6B，很高兴见到你，欢迎问我任何问题。']
 ```
+
+### 多batch推理流程（以batch_size=4为例）
+
+#### Step1. MindIR 导出
+
+1. 修改模型相关的配置文件 configs/glm3/export_glm3_6b_pa.yaml，其中需要关注这几项：
+
+```yaml
+# model config
+model:
+  model_config:
+    type: ChatGLM2Config
+    batch_size: 4         # 此处设置batch size值
+```
+
+2. 执行run_mindformer.py，完成模型转换
+
+执行run_mindformer.py，完成MindIR导出，得到全量minder_full_checkpoint/rank_0_graph.mindir和增量minder_inc_checkpoint/rank_0_graph.mindir两个MindIR图
+
+```bash
+python run_mindformer.py \
+--config configs/glm3/export_glm3_6b_pa.yaml \
+--run_mode export \
+--use_parallel False \
+--batch_size 4 \
+--device_id 0
+```
+
+#### Step2. 执行MS Lite推理
+
+新建推理配置文件，ChatGLM3-6B在Atlas 800T A2上推荐的GE配置如下：
+
+1. 全量和增量的GE配置不同，如下所示
+
+- 全量mindir模型PA推理配置（910b_ge_prefill_pa.cfg）：slot_mapping的值等于batch_size*seq_len=4*2048
+
+```ini
+[ascend_context]
+plugin_custom_ops=All
+provider=ge
+[ge_session_options]
+ge.exec.formatMode=1
+ge.exec.precision_mode=must_keep_origin_dtype
+ge.externalWeight=1
+ge.exec.atomicCleanPolicy=1
+ge.deterministic=1   # 注释此行，可以提升推理速度
+[ge_graph_options]
+ge.inputShape=batch_valid_length:4;tokens:4,2048;slot_mapping:8192
+[graph_kernel_param]
+opt_level=2
+disable_cluster_ops=MatMul,Reshape
+enable_cce_lib=true
+enable_cluster_ops_only="paged_attention"
+enable_expand_ops_only="paged_attention"
+disable_cce_lib_ops=MatMul
+```
+
+- 增量mindir模型PA推理配置（910b_ge_inc_pa.cfg）
+
+```ini
+[ascend_context]
+plugin_custom_ops=All
+provider=ge
+[ge_session_options]
+ge.exec.formatMode=1
+ge.exec.precision_mode=must_keep_origin_dtype
+ge.externalWeight=1
+ge.exec.atomicCleanPolicy=1
+ge.deterministic=1   # 注释此行，可以提升推理速度
+[ge_graph_options]
+ge.inputShape=batch_valid_length:-1;block_tables:-1,128;slot_mapping:-1;tokens:-1,1
+ge.dynamicDims=1,1,1,1;2,2,2,2;4,4,4,4
+ge.dynamicNodeType=1
+[graph_kernel_param]
+opt_level=2
+disable_cluster_ops=MatMul,Reshape
+enable_cce_lib=true
+enable_cluster_ops_only="paged_attention"
+enable_expand_ops_only="paged_attention"
+disable_cce_lib_ops=MatMul
+```
+
+2. 执行run_infer_main.py脚本，修改相关配置启动推理：
+
+- PA推理执行命令如下：
+
+```bash
+python run_infer_main.py \
+--batch_size 4 \
+--device_id 0 \
+--model_name glm3 \
+--prefill_model_path /path/to/mindir_full_checkpoint/rank_0_graph.mindir \
+--increment_model_path /path/to/mindir_inc_checkpoint/rank_0_graph.mindir \
+--tokenizer_path /path/to/glm3_6b/tokenizer.model \
+--config_path "configs/glm3/910b_ge_prefill_pa.cfg,configs/glm3/910b_ge_inc_pa.cfg" \
+--seq_length 2048 \
+--max_length 2048 \
+--dynamic False \
+--paged_attention True \
+--pa_block_size 16 \
+--pa_num_blocks 224
+
+# 参数说明
+batch_size: 推理多batch设置
+```
+
+**注：** 为适配batch_size=4，需要修改run_infer_main.py部分代码，如下所示：
+
+```python
+def infer_main(args_):
+    ...
+    if args_.distributed:
+        ...
+    else:
+        while True:
+        user_input = input("Please enter your predict data: \n")
+        if user_input == "exit":
+            print("Task is over.")
+            sys.exit()
+        user_input = [user_input] * args_.batch_size   # 此处新增一行代码，用于多batch推理
+        ...
+```
+
+### CEVAL开源数据集评测
+
+#### 评测结果
+
+|                                 | Average Accuary |
+|---------------------------------|-----------------|
+| Atlas 800T A2 + Mindspore (PA推理) | 51.41           |
+| A100 + Pytorch                  | 51.43           |
+
+**注：** 评测结果是基于开源的预训练模型
