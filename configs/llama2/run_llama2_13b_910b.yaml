@@ -153,7 +153,7 @@ model:
     use_past: False
     scaling_factor: 1.0
     extend_method: "None" # support "None", "PI", "NTK"
-    use_flash_attention: False # FA can accelerate training or finetune
+    use_flash_attention: True # FA can accelerate training or finetune
     offset: 0
     checkpoint_name_or_path: "llama2_13b"
     repetition_penalty: 1
