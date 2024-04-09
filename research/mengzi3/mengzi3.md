@@ -32,7 +32,7 @@ python mindformers/models/llama/convert_weight.py \
 ```text
 # 参数说明
 torch_ckpt_dir: huggingface权重保存目录路径
-mindspore_ckpt_path: 权重保存文件名，可以指定自定义保存路径（输出文件格式要为*.ckpt)
+mindspore_ckpt_path: 权重保存文件名，可以指定自定义保存路径（输出文件格式要为*.ckpt）
 ```
 
 ## 推理

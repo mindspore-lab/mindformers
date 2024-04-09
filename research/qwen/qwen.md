@@ -53,8 +53,8 @@
 ### 环境要求
 
 - 硬件：Atlas 800T A2
-- MindSpore：2.2.0
-- MindFormers版本：dev
+- MindSpore：2.2.13
+- MindFormers版本：1.0
 - Python：3.8+
 
 注：

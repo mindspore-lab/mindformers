@@ -54,9 +54,9 @@ Code Llama是基于Llama 2的一系列大型代码语言模型，它在开源模
 ### 环境要求
 
 - 硬件：Atlas 800/Atlas 800T A2
-- MindSpore：2.2.0 以上
-- CANN: 7.0 以上
-- MindFormers版本：dev
+- MindSpore：2.2.13
+- CANN: 7.0
+- MindFormers版本：1.0
 
 > 注：34b推理使用Atlas 800T A2 至少使用2卡，全量微调至少需要2机16卡，建议4机32卡。
 

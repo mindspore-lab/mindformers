@@ -33,8 +33,8 @@ ChatGLM-6B 是一个开源的、支持中英双语的对话语言模型，基于
 ## 环境要求
 
 - 硬件：Atlas 800
-- MindSpore：2.0.0rc1 / 1.10.1
-- MindFormers版本：dev
+- MindSpore：2.2.13
+- MindFormers版本：1.0
 
 推理可在单机单卡上完成部署
 

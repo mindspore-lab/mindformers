@@ -82,7 +82,7 @@ iFlytekSpark-13B不仅具备通用任务处理能力如聊天、问答、文本�
 ### 环境要求
 
 - 硬件：Atlas 800/Atlas 800T A2
-- MindSpore：2.2.11
+- MindSpore：2.2.13
 - MindFormers版本：r1.0
 - 硬件支持矩阵如下
 
