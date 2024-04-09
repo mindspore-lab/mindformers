@@ -499,12 +499,6 @@ class LLamaDecodeLayer(nn.Cell):
             if moe_config is None or not moe_config.expert_num > 1:
                 self.feed_forward.w2.shard(((dp, mp), (1, mp)), out_strategy_matmul=((dp * mp, 1),))
 
-        if parallel_config.recompute.select_recompute:
-            self.feed_forward.mul.recompute()
-            self.feed_forward.w1.activation.silu.recompute()
-            self.attention_norm.cast.recompute()
-            self.ffn_norm.cast.recompute()
-
     def construct(self, x, freqs_cis, mask=None, batch_valid_length=None, block_tables=None, slot_mapping=None):
         """ Forward of transformer block. """
         if not self.use_past:

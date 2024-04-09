@@ -21,7 +21,7 @@ import mindspore.common.dtype as mstype
 
 from mindformers import Linear, CrossEntropyLoss
 from mindformers.models import LlamaModel, LlamaForCausalLM
-from mindformers.models.llama.llama import layer_compute_dtype
+from mindformers.models.utils import set_layer_stage_recompute
 from mindformers.models.llama.llama_layer import LlamaEmbedding
 from mindformers.tools.register.register import MindFormerModuleType, MindFormerRegister
 from mindformers.models.utils import cell_reuse
@@ -76,8 +76,7 @@ class InternLMModel(LlamaModel):
                                         is_dynamic=config.is_dynamic,
                                         use_rope_slice=config.use_rope_slice,
                                         parallel_config=config.parallel_config)
-            layer_compute_dtype(layer, layer_id, config.offset, config.parallel_config,
-                                config.num_layers, select_recompute=config.parallel_config.recompute.select_recompute)
+            set_layer_stage_recompute(layer, layer_id, config.offset, config.parallel_config, config.num_layers)
             self.layers.append(layer)
 
 

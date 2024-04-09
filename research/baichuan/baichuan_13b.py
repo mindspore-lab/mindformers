@@ -35,7 +35,7 @@ from mindformers.modules.transformer import AttentionMask, TransformerOpParallel
 from mindformers.modules.layers import Linear, _check_input_dtype, AlibiTensor
 from mindformers.tools.register.register import MindFormerModuleType, MindFormerRegister
 
-from mindformers.models.llama.llama import layer_compute_dtype
+from mindformers.models.utils import set_layer_stage_recompute
 from mindformers.models.llama.llama_config import LlamaConfig
 from mindformers.models.llama.llama_layer import LlamaEmbedding, LlamaFeedForward, LlamaRMSNorm
 from mindformers.tools.logger import logger
@@ -232,8 +232,7 @@ class Baichuan13BModel(BaichuanPreTrainedModel):
                                            compute_in_2d=config.compute_in_2d,
                                            use_past_shard=config.use_past_shard,
                                            parallel_config=config.parallel_config)
-            layer_compute_dtype(layer, layer_id, config.offset, config.parallel_config,
-                                config.num_layers, select_recompute=config.parallel_config.recompute.select_recompute)
+            set_layer_stage_recompute(layer, layer_id, config.offset, config.parallel_config, config.num_layers)
             self.layers.append(layer)
         self.norm_out = LlamaRMSNorm(config.hidden_size, config.rms_norm_eps,
                                      compute_type=config.layernorm_compute_type)

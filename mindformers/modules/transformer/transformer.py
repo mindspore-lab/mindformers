@@ -43,12 +43,14 @@ from mindspore.context import ParallelMode
 
 try:
     from mindspore.ops.operations.nn_ops import PromptFlashAttention
+
     PROMPTFLASHATTENTION_VALID = True
 except ImportError:
     PROMPTFLASHATTENTION_VALID = False
 
 try:
     from mindspore.ops.operations.nn_ops import IncreFlashAttention
+
     INCREFLASHATTENTION_VALID = True
 except ImportError:
     INCREFLASHATTENTION_VALID = False
@@ -194,15 +196,15 @@ class TransformerRecomputeConfig(_Config):
     """
 
     def __init__(self, recompute=False, select_recompute=False,
-                 parallel_optimizer_comm_recompute=False,
+                 parallel_optimizer_comm_recompute=False, select_comm_recompute=False,
                  mp_comm_recompute=True, recompute_slice_activation=False):
         Validator.check_bool(recompute, "recompute")
         Validator.check_bool(parallel_optimizer_comm_recompute, "parallel_optimizer_comm_recompute")
         Validator.check_bool(mp_comm_recompute, "mp_comm_recompute")
-        Validator.check_bool(select_recompute, "select_recompute")
         Validator.check_bool(recompute_slice_activation, "recompute_slice_activation")
         self._recompute = recompute
         self._select_recompute = select_recompute
+        self._select_comm_recompute = select_comm_recompute
         self._parallel_optimizer_comm_recompute = parallel_optimizer_comm_recompute
         self._mp_comm_recompute = mp_comm_recompute
         self._recompute_slice_activation = recompute_slice_activation
@@ -220,10 +222,19 @@ class TransformerRecomputeConfig(_Config):
     def select_recompute(self):
         return self._select_recompute
 
+    @property
+    def select_comm_recompute(self):
+        return self._select_comm_recompute
+
     @select_recompute.setter
     def select_recompute(self, value):
         Validator.check_bool(value, "select_recompute")
         self._select_recompute = value
+
+    @select_comm_recompute.setter
+    def select_comm_recompute(self, value):
+        Validator.check_bool(value, "select_comm_recompute")
+        self._select_comm_recompute = value
 
     @property
     def parallel_optimizer_comm_recompute(self):
@@ -877,6 +888,7 @@ class LowerTriangularMaskWithDynamic(Cell):
     r"""
             Get the Strictly Lower triangular matrix from the input_ids.
     """
+
     @_LogActionOnce(m_logger=logger, key='AttentionMask',
                     no_warning=_get_parallel_mode() in (ParallelMode.STAND_ALONE,))
     def __init__(self, seq_length, compute_type=mstype.float16,
