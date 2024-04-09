@@ -77,7 +77,7 @@ llama_13b / llama_65b 待补充
 ### 环境要求
 
 - 硬件：Atlas 800/Atlas 800T A2
-- MindSpore：2.2.0
+- MindSpore：2.2.13
 - MindFormers版本：r1.0
 
 > 注：推理可在单机单卡上完成部署；全量微调至少需要单机8卡，Lora微调至少需要单卡。

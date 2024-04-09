@@ -76,10 +76,10 @@ ChatGLM3-6B-32K在ChatGLM3-6B的基础上进一步强化了对于长文本的理
 ### 环境要求
 
 - 硬件: Atlas 800T A2
-- MindSpore: 2.2.10
-- MindSpore Lite: 2.2.10
-- MindFormers: dev
-- Mindpet: 1.0.2
+- MindSpore: 2.2.13
+- MindSpore Lite: 2.2.13
+- MindFormers: 1.0
+- Mindpet: 1.0.3
 
 ### 生成RANK_TABLE_FILE
 

@@ -58,8 +58,8 @@ Baichuan2 是由百川智能开发的开源可商用的大规模预训练语言�
 ### 环境要求
 
 - 硬件：Atlas 800/Atlas 800T A2
-- MindSpore：2.2
-- MindFormers版本：dev
+- MindSpore：2.2.13
+- MindFormers版本：1.0
 - 硬件支持矩阵
 
 |     模型      | 硬件 | 全量微调 | lora微调 | 推理 |

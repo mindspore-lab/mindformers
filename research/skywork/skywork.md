@@ -12,10 +12,10 @@
 ### 环境要求
 
 - 硬件: Ascend 910 64GB
-- MindSpore: 2.2.0
-- MindSpore Lite: 2.2.0
-- MindFormers: dev
-- Mindpet: 1.0.2
+- MindSpore: 2.2.13
+- MindSpore Lite: 2.2.13
+- MindFormers: 1.0
+- Mindpet: 1.0.3
 
 **注** skywork-13b推理可以在单卡上完成部署，全量微调至少需要8卡。
 
