@@ -54,6 +54,7 @@ model:
     param_init_type: "float16"
     compute_dtype: "float16"
     layernorm_compute_type: "float32"
+    mask_type: "float16"
     use_past: True
     use_flash_attention: False # when use FlashAttention, seq_length should be multiple of 16
     use_prompt_flash_attention: True
