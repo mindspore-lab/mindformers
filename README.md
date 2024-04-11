@@ -25,34 +25,35 @@ MindSpore Transformers套件基于MindSpore内置的并行技术和组件化设�
 
 目前支持的模型列表如下：
 
-|                         模型                         | model name                                                         |
-|:--------------------------------------------------:|:-------------------------------------------------------------------|
-|        [LLama2](docs/model_cards/llama2.md)        | llama2_7b, llama2_13b, llama2_7b_lora, llama2_13b_lora, llama2_70b |
-|          [GLM2](docs/model_cards/glm2.md)          | glm2_6b, glm2_6b_lora                                              |
-|     [CodeLlama](docs/model_cards/codellama.md)     | codellama_34b                                                      |
-|     [CodeGeex2](docs/model_cards/codegeex2.md)     | codegeex2_6b                                                       |
-|         [LLama](docs/model_cards/llama.md)         | llama_7b, llama_13b, llama_7b_lora                                 |
-|           [GLM](docs/model_cards/glm.md)           | glm_6b, glm_6b_lora                                                |
-|         [Bloom](docs/model_cards/bloom.md)         | bloom_560m, bloom_7.1b                                             |
-|          [GPT2](docs/model_cards/gpt2.md)          | gpt2, gpt2_13b                                                     |
-|    [PanGuAlpha](docs/model_cards/pangualpha.md)    | pangualpha_2_6_b, pangualpha_13b                                   |
-|         [BLIP2](docs/model_cards/blip2.md)         | blip2_stage1_vit_g                                                 |
-|          [CLIP](docs/model_cards/clip.md)          | clip_vit_b_32, clip_vit_b_16, clip_vit_l_14, clip_vit_l_14@336     |
-|            [T5](docs/model_cards/t5.md)            | t5_small                                                           |
-|           [sam](docs/model_cards/sam.md)           | sam_vit_b, sam_vit_l, sam_vit_h                                    |
-|           [MAE](docs/model_cards/mae.md)           | mae_vit_base_p16                                                   |
-|           [VIT](docs/model_cards/vit.md)           | vit_base_p16                                                       |
-|          [Swin](docs/model_cards/swin.md)          | swin_base_p4w7                                                     |
-|       [skywork](research/skywork/skywork.md)       | skywork_13b                                                        |
-|    [Baichuan2](research/baichuan2/baichuan2.md)    | baichuan2_7b, baichuan2_13b, baichuan2_7b_lora, baichuan2_13b_lora |
-|     [Baichuan](research/baichuan/baichuan.md)      | baichuan_7b, baichuan_13b                                          |
-|           [Qwen](research/qwen/qwen.md)            | qwen_7b, qwen_14b, qwen_7b_lora, qwen_14b_lora                     |
+|                          模型                           | model name                                                         |
+|:-----------------------------------------------------:|:-------------------------------------------------------------------|
+|         [LLama2](docs/model_cards/llama2.md)          | llama2_7b, llama2_13b, llama2_7b_lora, llama2_13b_lora, llama2_70b |
+|           [GLM2](docs/model_cards/glm2.md)            | glm2_6b, glm2_6b_lora                                              |
+|      [CodeLlama](docs/model_cards/codellama.md)       | codellama_34b                                                      |
+|      [CodeGeex2](docs/model_cards/codegeex2.md)       | codegeex2_6b                                                       |
+|          [LLama](docs/model_cards/llama.md)           | llama_7b, llama_13b, llama_7b_lora                                 |
+|            [GLM](docs/model_cards/glm.md)             | glm_6b, glm_6b_lora                                                |
+|          [Bloom](docs/model_cards/bloom.md)           | bloom_560m, bloom_7.1b                                             |
+|           [GPT2](docs/model_cards/gpt2.md)            | gpt2, gpt2_13b                                                     |
+|     [PanGuAlpha](docs/model_cards/pangualpha.md)      | pangualpha_2_6_b, pangualpha_13b                                   |
+|          [BLIP2](docs/model_cards/blip2.md)           | blip2_stage1_vit_g                                                 |
+|           [CLIP](docs/model_cards/clip.md)            | clip_vit_b_32, clip_vit_b_16, clip_vit_l_14, clip_vit_l_14@336     |
+|             [T5](docs/model_cards/t5.md)              | t5_small                                                           |
+|            [sam](docs/model_cards/sam.md)             | sam_vit_b, sam_vit_l, sam_vit_h                                    |
+|            [MAE](docs/model_cards/mae.md)             | mae_vit_base_p16                                                   |
+|            [VIT](docs/model_cards/vit.md)             | vit_base_p16                                                       |
+|           [Swin](docs/model_cards/swin.md)            | swin_base_p4w7                                                     |
+|        [skywork](research/skywork/skywork.md)         | skywork_13b                                                        |
+|     [Baichuan2](research/baichuan2/baichuan2.md)      | baichuan2_7b, baichuan2_13b, baichuan2_7b_lora, baichuan2_13b_lora |
+|       [Baichuan](research/baichuan/baichuan.md)       | baichuan_7b, baichuan_13b                                          |
+|             [Qwen](research/qwen/qwen.md)             | qwen_7b, qwen_14b, qwen_7b_lora, qwen_14b_lora                     |
 |        [Qwen1_5](research/qwen1_5/qwen1_5.md)         | qwen1_5_72b                                                        |
-| [Wizardcoder](research/wizardcoder/wizardcoder.md) | wizardcoder_15b                                                    |
-|     [Internlm](research/internlm/internlm.md)      | internlm_7b, internlm_20b, internlm_7b_lora                        |
-|           [ziya](research/ziya/ziya.md)            | ziya_13b                                                           |
-|    [VisualGLM](research/visualglm/visualglm.md)    | visualglm                                                          |
-|[iFlytekSpark](research/iflytekspark/iflytekspark.md)    | iflytekspark_13b, iflytekspark_13b_lora                                               |
+|  [Wizardcoder](research/wizardcoder/wizardcoder.md)   | wizardcoder_15b                                                    |
+|       [Internlm](research/internlm/internlm.md)       | internlm_7b, internlm_20b, internlm_7b_lora                        |
+|             [ziya](research/ziya/ziya.md)             | ziya_13b                                                           |
+|     [VisualGLM](research/visualglm/visualglm.md)      | visualglm                                                          |
+| [iFlytekSpark](research/iflytekspark/iflytekspark.md) | iflytekspark_13b, iflytekspark_13b_lora                            |
+|        [Mengzi3](research/mengzi3/mengzi3.md)         | mengzi3_13b                                                        |
 
 ## 二、mindformers安装
 
