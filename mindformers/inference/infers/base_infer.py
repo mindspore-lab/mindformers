@@ -142,10 +142,10 @@ class BaseInfer(metaclass=abc.ABCMeta):
         self.model_name = config.model_name
         self.seq_length = config.seq_length
         self.config_path = config.config_path
-        self.dynamic = config.dynamic
         self.paged_attention = config.paged_attention
         self.block_size = config.block_size
         self.num_blocks = config.num_blocks
+        self.dynamic = config.dynamic and not self.paged_attention
 
         self.context = build_context(config=self.config)
         self.tokenizer = tokenizer
