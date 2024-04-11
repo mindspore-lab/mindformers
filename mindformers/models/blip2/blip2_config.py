@@ -106,6 +106,8 @@ class Blip2Config(PretrainedConfig):
             qformer_config = QFormerConfig(**qformer_config)
         if isinstance(vision_config, dict):
             vision_config = ViTConfig(**vision_config)
+        if isinstance(text_config, dict):
+            text_config = LlamaConfig(**text_config)
         self.batch_size = batch_size
         self.freeze_vision = freeze_vision
         self.freeze_text = freeze_text
