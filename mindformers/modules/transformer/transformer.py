@@ -569,6 +569,8 @@ class FeedForward(Cell):
                                 dropout_rate=Validator.check_non_negative_float,
                                 param_init_type=_valid_value_checks([mstype.float32, mstype.bfloat16, mstype.float16],
                                                                     "FeedForward"),
+                                compute_dtype=_valid_value_checks([mstype.float32, mstype.bfloat16, mstype.float16],
+                                                                  "FeedForward"),
                                 parallel_config=_valid_type_checks([OpParallelConfig, MoEParallelConfig],
                                                                    "FeedForward"))
     def __init__(self, hidden_size,
@@ -578,7 +580,8 @@ class FeedForward(Cell):
                  expert_num=1,
                  expert_group_size=None,
                  param_init_type=mstype.float32,
-                 parallel_config=default_dpmp_config):
+                 parallel_config=default_dpmp_config,
+                 compute_dtype=mstype.float16):
         super(FeedForward, self).__init__()
         if hidden_act is None or not (isinstance(hidden_act, str) or issubclass(hidden_act, nn.Cell)):
             raise TypeError(f"For FeedForward cell, the hidden_act should str type or nn.Cell type, "
@@ -614,7 +617,8 @@ class FeedForward(Cell):
                                   expert_num=expert_num,
                                   expert_group_size=expert_group_size,
                                   outer_batch=dp,
-                                  param_init_type=param_init_type)
+                                  param_init_type=param_init_type,
+                                  compute_dtype=compute_dtype)
 
             # Project back to hidden_size
             self.projection = Linear(in_channels=output_size,
@@ -623,7 +627,8 @@ class FeedForward(Cell):
                                      expert_num=expert_num,
                                      expert_group_size=expert_group_size,
                                      outer_batch=dp,
-                                     param_init_type=param_init_type)
+                                     param_init_type=param_init_type,
+                                     compute_dtype=compute_dtype)
             if expert_num > 1:
                 self.projection.shard(strategy_matmul=((dp, ep, 1, mp), (ep, mp, 1)))
             else:
@@ -664,7 +669,8 @@ class FeedForward(Cell):
                                   expert_num=expert_num,
                                   expert_group_size=expert_group_size,
                                   outer_batch=dp,
-                                  param_init_type=param_init_type)
+                                  param_init_type=param_init_type,
+                                  compute_dtype=compute_dtype)
 
             if expert_num > 1:
                 self.mapping.shard(strategy_matmul=((dp, ep, 1, 1), (ep, 1, mp)),
@@ -681,7 +687,8 @@ class FeedForward(Cell):
                                      expert_num=expert_num,
                                      expert_group_size=expert_group_size,
                                      outer_batch=dp,
-                                     param_init_type=param_init_type)
+                                     param_init_type=param_init_type,
+                                     compute_dtype=compute_dtype)
             if expert_num > 1:
                 self.projection.shard(strategy_matmul=((dp, ep, 1, mp), (ep, mp, 1)),
                                       strategy_bias=((dp, ep, 1, 1), (1, ep, 1, 1)))
@@ -1831,6 +1838,8 @@ class TransformerEncoderLayer(Cell):
                 Should be mstype.float32 or mstype.float16. Default mstype.float32.
             param_init_type(dtype.Number): The parameter initialization type of the module.
                 Should be mstype.float32 or mstype.float16. Default mstype.float32.
+            compute_dtype(dtype.Number): The computation type of dense. Default mstype.float16.
+                Should be mstype.float32 or mstype.float16.
             hidden_act (str, nn.Cell): The activation of the internal feedforward layer. Supports 'relu',
                 'relu6', 'tanh', 'gelu', 'fast_gelu', 'elu', 'sigmoid', 'prelu', 'leakyrelu', 'hswish',
                 'hsigmoid', 'logsigmoid' and so on. User can provide custom activition to the argument.
@@ -1939,6 +1948,8 @@ class TransformerEncoderLayer(Cell):
                                                                          "TransformerEncoderLayer"),
                                 param_init_type=_valid_value_checks([mstype.float32, mstype.float16, mstype.bfloat16],
                                                                     "TransformerEncoderLayer"),
+                                compute_dtype=_valid_value_checks([mstype.float32, mstype.float16, mstype.bfloat16],
+                                                                  "TransformerEncoderLayer"),
                                 parallel_config=_valid_type_checks([OpParallelConfig, MoEParallelConfig],
                                                                    "TransformerEncoderLayer"),
                                 use_past=Validator.check_bool,
@@ -1963,7 +1974,8 @@ class TransformerEncoderLayer(Cell):
                  parallel_config=default_dpmp_config,
                  use_flash_attention=False,
                  use_prompt_flash_attention=False,
-                 use_incre_flash_attention=False):
+                 use_incre_flash_attention=False,
+                 compute_dtype=mstype.float16):
         super(TransformerEncoderLayer, self).__init__()
         if batch_size or use_past:
             Validator.check_positive_int(batch_size)
@@ -2023,6 +2035,7 @@ class TransformerEncoderLayer(Cell):
                                           dropout_rate=hidden_dropout_rate,
                                           ffn_hidden_size=ffn_hidden_size,
                                           param_init_type=param_init_type,
+                                          compute_dtype=compute_dtype,
                                           hidden_act=hidden_act,
                                           parallel_config=parallel_config)
             self.post_layernorm_residual = post_layernorm_residual
@@ -2118,6 +2131,7 @@ class TransformerEncoderLayer(Cell):
                                           dropout_rate=hidden_dropout_rate,
                                           ffn_hidden_size=ffn_hidden_size,
                                           param_init_type=param_init_type,
+                                          compute_dtype=compute_dtype,
                                           hidden_act=hidden_act,
                                           parallel_config=parallel_config)
             self.post_layernorm_residual = post_layernorm_residual

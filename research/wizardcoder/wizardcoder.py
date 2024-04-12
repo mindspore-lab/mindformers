@@ -22,7 +22,6 @@ import mindspore.common.dtype as mstype
 from mindspore.common.tensor import Tensor
 from mindspore.common.initializer import initializer
 from mindspore.ops import operations as P
-from mindspore.ops import functional as F
 
 from mindformers.models.utils import cell_reuse
 from mindformers.modules.transformer.moe import default_moe_config
@@ -35,6 +34,7 @@ from mindformers.models.modeling_utils import PreTrainedModel
 from mindformers.tools.logger import logger
 from wizardcoder_config import WizardCoderConfig
 from wizardcoder_modules import WizardCoderTransformerDecoderLayer, WizardCoderVocabEmbedding
+
 
 __all__ = ['WizardCoderLMHeadModel']
 
@@ -70,20 +70,26 @@ class WizardCoderLMHeadModel(WizardCoderPreTrainedModel):
         self.seq_length = config.seq_length
 
         parallel_config = self.config.parallel_config
-        self.stridedslice = P.StridedSlice().shard(((parallel_config.data_parallel, 1),))
-        self.not_equal = P.NotEqual().shard(((parallel_config.data_parallel, 1), ()))
+        dp, mp = parallel_config.data_parallel, parallel_config.model_parallel
+        self.stridedslice = P.StridedSlice().shard(((dp, 1),))
+        self.not_equal = P.NotEqual().shard(((dp, 1), ()))
 
+        # AttentionMask default compute_dtype is fp16
+        # if assign compute_dtype to fp32, loss will error
+        # if assign compute_dtype to bf16, lower_triangle_mask is fp32, will error
         self.get_attention_mask = AttentionMask(
             seq_length=config.seq_length, parallel_config=parallel_config.dp_mp_config).to_float(config.compute_dtype)
 
         self.backbone = WizardCoderModel(config)
-        self.head = WizardCoderHead(vocab_size=config.vocab_size, parallel_config=self.config.parallel_config)
+        self.dtype = config.compute_dtype
+        self.head = WizardCoderHead(vocab_size=config.vocab_size,
+                                    compute_dtype=self.dtype,
+                                    parallel_config=self.config.parallel_config)
 
         if parallel_config.pipeline_stage > 1:
             self.head.pipeline_stage = parallel_config.pipeline_stage - 1
             self.backbone.embedding.word_embedding.embedding_table.add_pipeline_stage(self.head.pipeline_stage)
 
-        mp = config.parallel_config.model_parallel
         vocab_size = config.vocab_size
         loss_parallel_config = copy.deepcopy(parallel_config)
 
@@ -95,14 +101,16 @@ class WizardCoderLMHeadModel(WizardCoderPreTrainedModel):
 
         self.loss = CrossEntropyLoss(parallel_config=loss_parallel_config, eps_const=1e-24)
         self.reshape = P.Reshape()
+        self.shape = P.Shape()
         self.cast = P.Cast()
         self.load_checkpoint(config)
-        self.add = P.Add().shard(((parallel_config.data_parallel, 1), ()))
-        self.mul = P.Mul().shard(((parallel_config.data_parallel, 1), (parallel_config.data_parallel, 1)))
+        self.add = P.Add().shard(((dp, 1), ()))
+        self.mul = P.Mul().shard(((dp, 1), (dp, 1)))
         self.tile = P.Tile()
         self.gather = P.Gather()
         self.concat = P.Concat(axis=-1)
         self.ones = P.Ones()
+        self.compute_dtype = config.compute_dtype
 
     def prepare_inputs_for_generation(self, input_ids, **kwargs):
         input_position = kwargs.get("current_index", None)
@@ -126,46 +134,51 @@ class WizardCoderLMHeadModel(WizardCoderPreTrainedModel):
                 logits (Tensor) or loss (mstype.float32): if is_training is False, directly return the logits,
                                                          otherwise, return the computed loss.
         """
-        batch_size, seq_length = input_ids.shape
+        batch_size, seq_length = self.shape(input_ids)
         if self.use_past:
             if not isinstance(init_reset, Tensor):
                 init_reset = Tensor([init_reset], mstype.bool_)
             if not isinstance(batch_valid_length, Tensor):
                 batch_valid_length = self.ones((batch_size, 1), mstype.int32)
 
-        if self.phase == "train":
+        if self.training:
             tokens = self.stridedslice(input_ids, (0, 0), (batch_size, seq_length - 1), (1, 1))
         else:
             tokens = input_ids
 
-        input_mask = self.cast(self.not_equal(tokens, self.pad_token), mstype.float16)
+        input_mask = self.cast(self.not_equal(tokens, self.pad_token), self.dtype)
         attention_mask = self.get_attention_mask(input_mask)
+        # if do not cast to bf16, loss will error
+        attention_mask = self.cast(attention_mask, self.dtype)
 
         # [batch_size, seq_length, vocab_size]
         output_states, table = self.backbone(tokens, attention_mask, input_position, init_reset=init_reset,
                                              batch_valid_length=batch_valid_length)
-
         logits = self.head(output_states, table)
 
-        if self.phase != 'train':
+        if not self.training:
             logits = self.reshape(logits, (-1, logits.shape[-1]))
             if (not self.use_past or self.is_first_iteration) and input_position is not None:
                 logits = self.gather(logits, input_position, 0)
             # makes cast effective to avoid allgather issue in Mindspore1.10
             input_mask = self.add(input_mask, 1)
+            # cast logits from bf16 to fp32 is caused by bf16 cannot asnumpy in text_generator.py
+            logits = self.cast(logits, mstype.float32)
             return logits, tokens, input_mask
 
         if labels is None:
             labels = self.stridedslice(input_ids, (0, 1), (batch_size, seq_length), (1, 1))
         else:
-            if self.phase == "train":
+            if self.training:
                 labels = self.stridedslice(labels, (0, 1), (batch_size, seq_length), (1, 1))
-            label_mask = self.cast(self.not_equal(labels, -100), mstype.float16)
+            label_mask = self.cast(self.not_equal(labels, -100), self.dtype)
             input_mask = self.mul(input_mask, label_mask)
 
         labels = self.reshape(labels, (-1,))
         input_mask = self.reshape(input_mask, (-1,))
-        loss = self.loss(logits, labels, input_mask)
+        # cast input_mask from bf16 to fp32 is caused by loss_reduce is fp32 in loss.py,
+        # if you do not change it, it will error in pynative mode, but it will run success in graph mode.
+        loss = self.loss(logits, labels, self.cast(input_mask, mstype.float32))
 
         return loss
 
@@ -188,7 +201,7 @@ class WizardCoderEmbeddingLayer(nn.Cell):
                                                         embedding_size=config.embedding_size,
                                                         param_init=initializer('normal',
                                                                                [vocab_size, config.embedding_size],
-                                                                               dtype=mstype.float32),
+                                                                               dtype=config.param_init_type),
                                                         parallel_config=parallel_config.embedding_dp_mp_config)
         self.word_embedding.embedding_table.parallel_optimizer = True
         new_parallel_config = copy.deepcopy(parallel_config)
@@ -199,13 +212,12 @@ class WizardCoderEmbeddingLayer(nn.Cell):
                                                             param_init=initializer('normal',
                                                                                    [config.n_position,
                                                                                     config.embedding_size],
-                                                                                   dtype=mstype.float32),
+                                                                                   dtype=config.param_init_type),
                                                             parallel_config=new_parallel_config.embedding_dp_mp_config)
-        self.add = P.Add().shard(
-            ((parallel_config.data_parallel, 1, 1), (parallel_config.data_parallel, 1, 1)))
-
+        dp = parallel_config.data_parallel
+        self.add = P.Add().shard(((dp, 1, 1), (dp, 1, 1)))
         self.dropout = get_dropout(config.dropout_prob)
-        self.dropout.dropout.shard(((parallel_config.data_parallel, 1, 1),))
+        self.dropout.dropout.shard(((dp, 1, 1),))
 
     def construct(self, input_ids, input_position):
         """The forward compute of Embedding Layer."""
@@ -227,20 +239,21 @@ def set_parallel_configure_for_layer(network, layer_id, offset, parallel_config,
             offset(int) - Means the layer_index needs a offset, if there are other modules in the net.
             layers(int) - The total layers used for the model.
     """
-    pp_dis = max(int(np.ceil((layers - 1) / parallel_config.pipeline_stage)), 1)
-    pp_remainder = layers % parallel_config.pipeline_stage
+    pp = parallel_config.pipeline_stage
+    pp_dis = max(int(np.ceil((layers - 1) / pp)), 1)
+    pp_remainder = layers % pp
     if pp_remainder > 0 and pp_dis != 1:
-        if layer_id < (parallel_config.pipeline_stage - pp_remainder) * (pp_dis - 1):
+        if layer_id < (pp - pp_remainder) * (pp_dis - 1):
             pp_dis = pp_dis - 1
         else:
-            layer_id = layer_id + parallel_config.pipeline_stage - pp_remainder
+            layer_id = layer_id + pp - pp_remainder
 
-    pp_id = min((layer_id + offset) // pp_dis, parallel_config.pipeline_stage - 1)
+    pp_id = min((layer_id + offset) // pp_dis, pp - 1)
     network.pipeline_stage = pp_id
 
     # Used for optimizer's fusion tag
     dis = max(int((layers + 1) / parallel_config.gradient_aggregation_group), 1)
-    if parallel_config.pipeline_stage > 1:
+    if pp > 1:
         network.set_comm_fusion(2)
     else:
         network.set_comm_fusion(int((layer_id + offset) / dis) + 1)
@@ -284,7 +297,7 @@ class WizardCoderModel(WizardCoderPreTrainedModel):
         self.is_first_iteration = True
         self.use_past = config.use_past
 
-        self.layernorm = LayerNorm((config.embedding_size,)).to_float(config.layernorm_dtype)
+        self.layernorm = LayerNorm((config.embedding_size,), param_init_type=config.layernorm_dtype)
         if config.parallel_config.pipeline_stage > 1:
             self.layernorm.set_comm_fusion(2)
         else:
@@ -311,6 +324,7 @@ class WizardCoderModel(WizardCoderPreTrainedModel):
                 hidden_dropout_rate=config.hidden_dropout_prob,
                 hidden_act=config.hidden_act,
                 use_past=config.use_past,
+                compute_dtype=config.compute_dtype,
                 param_init_type=config.param_init_type,
                 layernorm_compute_type=config.layernorm_dtype,
                 softmax_compute_type=config.softmax_dtype,
@@ -325,14 +339,17 @@ class WizardCoderModel(WizardCoderPreTrainedModel):
             self.blocks.append(block)
 
         self.tile = P.Tile().shard(((config.parallel_config.data_parallel,),))
-        self.dtype = mstype.float16
+        self.dtype = config.compute_dtype
         self.num_layers = config.num_layers
         self.input_position = Tensor(np.arange(config.seq_length), mstype.int32)
         self.bias = Tensor(np.arange(config.batch_size) * self.config.seq_length, mstype.int32)
+        self.shape = P.Shape()
+        self.reshape = P.Reshape()
+        self.sub = P.Sub()
 
     def construct(self, input_ids, attention_mask, input_position=None, init_reset=False, batch_valid_length=None):
         """wizardcoder model"""
-        batch_size, seq_length = F.shape(input_ids)
+        batch_size, seq_length = self.shape(input_ids)
         if input_position is None or self.is_first_iteration:
             if batch_size == 1:
                 input_position = self.reshape_rec(self.input_position, (1, seq_length))
@@ -340,12 +357,12 @@ class WizardCoderModel(WizardCoderPreTrainedModel):
                 input_position = self.tile(self.input_position, (batch_size, 1))
         else:
             bias = Tensor(np.arange(batch_size) * self.config.seq_length, mstype.int32)
-            input_position = F.sub(input_position, bias)
-            input_position = F.reshape(input_position, (batch_size, 1))
+            input_position = self.sub(input_position, bias)
+            input_position = self.reshape(input_position, (batch_size, 1))
         input_embedding, embedding_table = self.embedding(input_ids, input_position)
 
         hidden_states = self.cast_rec(input_embedding, self.dtype)
-        hidden_shape = F.shape(hidden_states)
+        hidden_shape = self.shape(hidden_states)
         hidden_states = self.reshape_rec(hidden_states, (-1, hidden_shape[-1]))
 
         for i in range(self.num_layers):
@@ -360,7 +377,7 @@ class WizardCoderHead(nn.Cell):
 
     def __init__(self,
                  vocab_size,
-                 compute_type=mstype.float16,
+                 compute_dtype,
                  parallel_config=None):
         super().__init__()
         copied_parallel_config = copy.deepcopy(parallel_config)
@@ -373,12 +390,12 @@ class WizardCoderHead(nn.Cell):
 
         if copied_parallel_config.pipeline_stage > 1:
             copied_parallel_config.vocab_emb_dp = False
+        dp, mp = copied_parallel_config.data_parallel, copied_parallel_config.model_parallel
         if copied_parallel_config.vocab_emb_dp:
-            self.matmul = P.MatMul(transpose_b=True).shard(((copied_parallel_config.data_parallel, 1), (1, 1)))
+            self.matmul = P.MatMul(transpose_b=True).shard(((dp, 1), (1, 1)))
         else:
-            self.matmul = P.MatMul(transpose_b=True).shard(((copied_parallel_config.data_parallel, 1), (
-                copied_parallel_config.model_parallel, 1)))
-        self.dtype = compute_type
+            self.matmul = P.MatMul(transpose_b=True).shard(((dp, 1), (mp, 1)))
+        self.dtype = compute_dtype
         self.cast = P.Cast()
 
     def construct(self, state, table):
