@@ -273,6 +273,8 @@ class MindFormerBook:
                 _PROJECT_PATH, "research/qwen/run_qwen_7b.yaml")),
             ("qwen_7b_lora", os.path.join(
                 _PROJECT_PATH, "research/qwen/run_qwen_7b_lora.yaml")),
+            ("yi_6b", os.path.join(
+                _PROJECT_PATH, "research/yi/run_yi_6b_text_generation.yaml")),
             ("common", os.path.join(
                 _PROJECT_PATH, "configs/gpt2/run_gpt2.yaml"))])
          ),
@@ -580,6 +582,11 @@ class MindFormerBook:
         ('qwen', [
             'qwen_7b',
         ]),
+        ('yi', [
+            'yi_6b_finetune',
+            'yi_6b_pretrain',
+            'yi_6b_text_generation',
+        ])
     ])
 
     _MODEL_SUPPORT_LIST = OrderedDict([
@@ -695,6 +702,9 @@ class MindFormerBook:
         ('internlm', [
             'internlm_7b',
             'internlm_7b_lora',
+        ]),
+        ('yi', [
+            'yi_6b',
         ]),
         ('sam', [
             'sam_vit_b',
@@ -877,6 +887,9 @@ class MindFormerBook:
         ('skywork', [
             'skywork_13b',
         ]),
+        ('yi', [
+            'yi_6b',
+        ])
     ])
 
     _MODEL_CONFIG_TO_NAME = OrderedDict([
