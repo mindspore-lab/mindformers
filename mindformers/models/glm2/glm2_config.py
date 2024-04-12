@@ -145,7 +145,7 @@ class ChatGLM2Config(BaseConfig):
         self.repetition_penalty = repetition_penalty
         self.parallel_config = parallel_config
         self.checkpoint_name_or_path = checkpoint_name_or_path
-        self.max_length = max_length
+        self.max_length = max_length if max_length else seq_length
         self.gmask_token_id = gmask_token_id
         self.bos_token_id = bos_token_id
         if batch_size * seq_length // self.block_size >= self.num_blocks:
