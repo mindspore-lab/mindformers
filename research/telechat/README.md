@@ -53,6 +53,8 @@ telechat_12b:
        ├── telechat.py                           # 模型实现
        ├── telechat_config.py                    # 模型配置项
        ├── telechat_layer.py                     # telechat网络层定义
+       ├── telechat_predict_utils.py             # telechat推理模块
+       ├── telechat_tokenizer.py                 # telechat tokenizer
        └── telechat_transformer.py               # transformer层实现
    ```
 
