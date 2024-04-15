@@ -71,7 +71,7 @@ bash build.sh
 docker下载命令
 
 ```shell
-docker pull swr.cn-central-221.ovaijisuan.com/mindformers/mindformers1.0.2_mindspore2.2.13:20240409
+docker pull swr.cn-central-221.ovaijisuan.com/mindformers/mindformers1.0.2_mindspore2.2.13:20240408
 ```
 
 创建容器
