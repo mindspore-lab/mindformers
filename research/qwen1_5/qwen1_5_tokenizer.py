@@ -18,12 +18,13 @@ import json
 import os
 import unicodedata
 from functools import lru_cache
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Union, List, Dict
+from packaging import version
 import regex as re
 from tokenizers import AddedToken
 
 from mindspore import log as logger
-from mindformers.models.base_tokenizer import Tokenizer
+from mindformers.models.base_tokenizer import Tokenizer, TensorType
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 
 VOCAB_FILES_NAMES = {
@@ -120,8 +121,8 @@ class Qwen2Tokenizer(Tokenizer):
             if isinstance(pad_token, str)
             else pad_token
         )
-        _ = AddedToken(IMSTART, lstrip=False, rstrip=False, special=True, normalized=False)
-        _ = AddedToken(IMEND, lstrip=False, rstrip=False, special=True, normalized=False)
+        im_start_token = AddedToken(IMSTART, lstrip=False, rstrip=False, special=True, normalized=False)
+        im_end_token = AddedToken(IMEND, lstrip=False, rstrip=False, special=True, normalized=False)
         self.special_tokens = {
             IMSTART: IMSTARTID,
             IMEND: IMENDID,
@@ -152,6 +153,8 @@ class Qwen2Tokenizer(Tokenizer):
                 "Qwen2Tokenizer does not support `add_prefix_space`, setting it to True has no effect."
             )
 
+        self.chat_template = kwargs.get("chat_template", None)
+
         super().__init__(
             errors=errors,
             bos_token=bos_token,
@@ -162,6 +165,8 @@ class Qwen2Tokenizer(Tokenizer):
             split_special_tokens=split_special_tokens,
             **kwargs,
         )
+        self.add_tokens(im_start_token, special_tokens=True)
+        self.add_tokens(im_end_token, special_tokens=True)
 
     @property
     def vocab_size(self) -> int:
@@ -288,3 +293,126 @@ class Qwen2Tokenizer(Tokenizer):
     def prepare_for_tokenization(self, text, **kwargs):
         text = unicodedata.normalize("NFC", text)
         return text, kwargs
+
+    def apply_chat_template(
+            self,
+            conversation: Union[List[Dict[str, str]], "Conversation"],
+            chat_template: Optional[str] = None,
+            add_generation_prompt: bool = False,
+            tokenize: bool = True,
+            padding: bool = False,
+            truncation: bool = False,
+            max_length: Optional[int] = None,
+            return_tensors: Optional[Union[str, TensorType]] = None,
+            **tokenizer_kwargs,
+    ) -> Union[str, List[int]]:
+        """
+                Converts a Conversation object or a list of dictionaries with `"role"` and `"content"` keys to a list
+                of token ids. This method is intended for use with chat models, and will read the tokenizer's
+                chat_template attribute to determine the format and control tokens to use when converting.
+                When chat_template is None, it will fall back to the default_chat_template specified at the class level.
+
+                    Args:
+                    conversation (Union[List[Dict[str, str]], "Conversation"]): A Conversation object or list of dicts
+                        with "role" and "content" keys, representing the chat history so far.
+                    chat_template (str, *optional*): A Jinja template to use for this conversion. If
+                        this is not passed, the model's default chat template will be used instead.
+                    add_generation_prompt (bool, *optional*): Whether to end the prompt with the token(s) that indicate
+                        the start of an assistant message. This is useful when you want to generate a response from
+                        the model. Note that this argument will be passed to the chat template, and so it must be
+                        supported in the template for this argument to have any effect.
+                    tokenize (`bool`, defaults to `True`):
+                        Whether to tokenize the output. If `False`, the output will be a string.
+                    padding (`bool`, defaults to `False`):
+                        Whether to pad sequences to the maximum length. Has no effect if tokenize is `False`.
+                    truncation (`bool`, defaults to `False`):
+                        Whether to truncate sequences at the maximum length. Has no effect if tokenize is `False`.
+                    max_length (`int`, *optional*):
+                        Maximum length (in tokens) to use for padding or truncation. Has no effect if tokenize
+                        is `False`. If not specified, the tokenizer's `max_length` attribute will be used as a default.
+                    return_tensors (`str` or [`~utils.TensorType`], *optional*):
+                        If set, will return tensors of a particular framework. Has no effect if tokenize is `False`.
+                        Acceptable values are:
+                            - `'tf'`: Return TensorFlow `tf.Tensor` objects.
+                            - `'pt'`: Return PyTorch `torch.Tensor` objects.
+                            - `'np'`: Return NumPy `np.ndarray` objects.
+                            - `'jax'`: Return JAX `jnp.ndarray` objects.
+                    **tokenizer_kwargs: Additional kwargs to pass to the tokenizer.
+
+                Returns:
+                    `List[int]`: A list of token ids representing the tokenized chat so far, including control tokens.
+                    This output is ready to pass to the model, either directly or via methods like `generate()`.
+                """
+
+        if hasattr(conversation, "messages"):
+            # Indicates it's a Conversation object
+            conversation = conversation.messages
+
+        # priority: `chat_template` argument > `tokenizer.chat_template` > `tokenizer.default_chat_template`
+        if chat_template is None:
+            if self.chat_template is not None:
+                chat_template = self.chat_template
+            else:
+                chat_template = self.default_chat_template
+
+        # Compilation function uses a cache to avoid recompiling the same template
+        compiled_template = self._compile_jinja_template(chat_template)
+
+        rendered = compiled_template.render(
+            messages=conversation, add_generation_prompt=add_generation_prompt, **self.special_tokens_map
+        )
+
+        if padding is True:
+            padding = "max_length"  # There's only one sequence here, so "longest" makes no sense
+        if tokenize:
+            return self.encode(
+                rendered,
+                add_special_tokens=False,
+                padding=padding,
+                truncation=truncation,
+                max_length=max_length,
+                return_tensors=return_tensors,
+                **tokenizer_kwargs,
+            )
+        return rendered
+
+    @lru_cache(128)
+    def _compile_jinja_template(self, chat_template):
+        """_compile_jinja_template"""
+        try:
+            import jinja2
+            from jinja2.exceptions import TemplateError
+            from jinja2.sandbox import ImmutableSandboxedEnvironment
+        except ImportError:
+            raise ImportError("apply_chat_template requires jinja2 to be installed.")
+
+        if version.parse(jinja2.__version__) <= version.parse("3.0.0"):
+            raise ImportError(
+                "apply_chat_template requires jinja2>=3.0.0 to be installed. Your version is " f"{jinja2.__version__}."
+            )
+
+        def raise_exception(message):
+            raise TemplateError(message)
+
+        jinja_env = ImmutableSandboxedEnvironment(trim_blocks=True, lstrip_blocks=True)
+        jinja_env.globals["raise_exception"] = raise_exception
+        return jinja_env.from_string(chat_template)
+
+    @property
+    def default_chat_template(self):
+        """
+        This template formats inputs in the standard ChatML format.
+        """
+        logger.warning(
+            "\nNo chat template is defined for this tokenizer - using a default chat template "
+            "that implements the ChatML format (without BOS/EOS tokens!). If the default is not appropriate for "
+            "your model, please set `tokenizer.chat_template` to an appropriate template. "
+        )
+        return (
+            "{% for message in messages %}"
+            "{{'<|im_start|>' + message['role'] + '\n' + message['content'] + '<|im_end|>' + '\n'}}"
+            "{% endfor %}"
+            "{% if add_generation_prompt %}"
+            "{{ '<|im_start|>assistant\n' }}"
+            "{% endif %}"
+        )
