@@ -256,7 +256,7 @@ class ChatGLM2SelfAttention(nn.Cell):
 
         dp, mp = config.parallel_config.data_parallel, config.parallel_config.model_parallel
         if _get_parallel_mode() not in (ParallelMode.AUTO_PARALLEL,):
-            if config.model_name.startswith("glm32k"):
+            if config.prefix_name.startswith("glm32k"):
                 mp = 1
             self.merger_head_transpose.shard(((dp, mp, 1, 1),))
             self.query_key_value.shard(strategy_matmul=((dp, 1), (mp, 1)), strategy_bias=((dp, mp), (mp,)))
