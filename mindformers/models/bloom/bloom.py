@@ -12,23 +12,25 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-
 """Bloom model"""
 import copy
 import os
 import numpy as np
+
 import mindspore.common.dtype as mstype
 from mindspore import nn
 from mindspore import Tensor
 from mindspore.common.initializer import initializer
 from mindspore.ops import operations as P
-from mindformers.modules.transformer import VocabEmbedding
-from mindformers.modules.layers import LayerNorm, AlibiTensor, AlibiTensorV2
-from mindformers.core.loss import CrossEntropyLoss
+
 from mindformers.models.modeling_utils import PreTrainedModel
+from mindformers.modules.transformer import VocabEmbedding
+from mindformers.modules.layers import LayerNorm, AlibiTensor
+from mindformers.core.loss import CrossEntropyLoss
 from mindformers.tools.logger import logger
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.mindformer_book import MindFormerBook
+
 from .layers import BloomBlocks, CausalMask
 from .bloom_config import BloomConfig
 from ..utils import convert_mstype, cell_reuse
@@ -46,17 +48,20 @@ class BloomPreTrainedModel(PreTrainedModel):
 
 def jit_inference_with_condition():
     """allow jit inference"""
+
     def decorator(func):
         if os.getenv("JIT_INFERENCE", "NOT_FOUND") == "NOT_FOUND":
             return func
         from mindspore import jit, JitConfig
         dec = jit(jit_config=JitConfig(jit_level="O2"))
         return dec(func)
+
     return decorator
 
 
 class BloomEmbeddingLayer(nn.Cell):
     """The Embedding Layer of Bloom network."""
+
     def __init__(self, config=None):
         super(BloomEmbeddingLayer, self).__init__(auto_prefix=False)
         parallel_config = copy.deepcopy(config.parallel_config)
@@ -141,13 +146,9 @@ class BloomModel(BloomPreTrainedModel):
         self.make_causal_attention = CausalMask(seq_length=config.seq_length,
                                                 parallel_config=config.parallel_config.dp_mp_config)
 
-        if config.use_past:
-            self.build_alibi_tensor = AlibiTensor(seq_length=config.seq_length,
-                                                  num_heads=config.num_heads,
-                                                  parallel_config=config.parallel_config)
-        else:
-            self.build_alibi_tensor = AlibiTensorV2(seq_length=config.seq_length,
-                                                    num_heads=config.num_heads)
+        self.build_alibi_tensor = AlibiTensor(seq_length=config.seq_length,
+                                              num_heads=config.num_heads,
+                                              parallel_config=config.parallel_config)
 
         self.blocks = BloomBlocks(hidden_size=config.hidden_size,
                                   batch_size=config.batch_size,
@@ -181,22 +182,25 @@ class BloomModel(BloomPreTrainedModel):
         self.mul_init_reset = P.Mul().shard(
             ((config.parallel_config.data_parallel, config.parallel_config.model_parallel, 1, 1), (1,)))
 
+        self.cast = P.Cast()
+        self.reshape = P.Reshape()
+
     def construct(self, input_ids, input_mask, init_reset=True, batch_valid_length=None):
         """Bloom model"""
-
         input_embedding, embedding_table = self.embedding(input_ids)
         hidden_states = input_embedding
         hidden_states_shape = hidden_states.shape
-        hidden_states = hidden_states.reshape((-1, hidden_states_shape[-1]))
+        hidden_states = self.reshape(hidden_states, (-1, hidden_states_shape[-1]))
 
         causal_mask = self.make_causal_attention(input_mask)
         alibi_tensor = self.build_alibi_tensor(input_mask, hidden_states.dtype)
 
         if self.use_past:
-            init_reset = self.mul_init_reset(self.blocks[0].key_past, init_reset.astype(self.dtype))
+            init_reset = self.cast(init_reset, self.dtype)
+            init_reset = self.mul_init_reset(self.blocks[0].key_past, init_reset)
         for i in range(self.num_layers):
             hidden_states, _ = self.blocks[i](hidden_states, alibi_tensor, causal_mask, init_reset, batch_valid_length)
-        hidden_states = hidden_states.reshape(hidden_states_shape)
+        hidden_states = self.reshape(hidden_states, hidden_states_shape)
         output_state = self.ln_f(hidden_states)
 
         return output_state, embedding_table
@@ -204,6 +208,7 @@ class BloomModel(BloomPreTrainedModel):
 
 class BloomHead(nn.Cell):
     """Head for Bloom to get the logits of each token in the vocab."""
+
     def __init__(self,
                  hidden_size,
                  vocab_size,
