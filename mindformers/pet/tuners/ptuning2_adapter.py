@@ -35,7 +35,9 @@ class Ptuning2Adapter:
             prefix_key = prefix_key_value[0]
             prefix_value = prefix_key_value[1]
             cat = P.Concat(seq_len_dim)
+            prefix_key = P.Cast()(prefix_key, key.dtype)
             key = cat([prefix_key, key])
+            prefix_value = P.Cast()(prefix_value, value.dtype)
             value = cat([prefix_value, value])
 
         return key, value
