@@ -261,7 +261,7 @@ def config2dict(config):
     return new_dict
 
 
-def load_distributed_checkpoint(checkpoint_dir, specify_prefix=None):
+def load_distributed_checkpoint(checkpoint_dir, choice_func=None):
     """Load Checkpoint in Parallel Mode."""
     if os.path.isdir(checkpoint_dir):
         logger.info(
@@ -276,7 +276,7 @@ def load_distributed_checkpoint(checkpoint_dir, specify_prefix=None):
         distribute_checkpoint_path = checkpoint_dir
     else:
         raise FileNotFoundError(f"{checkpoint_dir} is not found.")
-    checkpoint_dict = load_checkpoint(distribute_checkpoint_path, specify_prefix=specify_prefix)
+    checkpoint_dict = load_checkpoint(distribute_checkpoint_path, choice_func=choice_func)
     logger.info("Distribute load is success.")
     return checkpoint_dict
 
@@ -289,9 +289,11 @@ def load_resume_context_from_checkpoint(config, dataset):
                                 f"but get {config.load_checkpoint}")
 
     if os.path.isdir(config.load_checkpoint):
-        resume_dict = load_distributed_checkpoint(config.load_checkpoint, ["loss_scale", "epoch_num", "step_num"])
+        resume_dict = load_distributed_checkpoint(config.load_checkpoint,
+                                                  choice_func=lambda x: x in ["loss_scale", "epoch_num", "step_num"])
     else:
-        resume_dict = load_checkpoint(config.load_checkpoint, specify_prefix=["loss_scale", "epoch_num", "step_num"])
+        resume_dict = load_checkpoint(config.load_checkpoint,
+                                      choice_func=lambda x: x in ["loss_scale", "epoch_num", "step_num"])
 
     if "step_num" in resume_dict:
         config.runner_config.initial_step = int(resume_dict["step_num"])
