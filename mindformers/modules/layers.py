@@ -32,6 +32,7 @@ from mindspore.nn.cell import Cell
 from mindspore.ops import functional as F
 from mindspore.ops import operations as P
 from mindspore.ops.primitive import constexpr
+
 # MindSpore 2.0 has changed the APIs of _checkparam, the following try except is for compatibility
 try:
     from mindspore._checkparam import Validator
@@ -49,6 +50,7 @@ __all__ = [
     "Dropout",
     "LayerNorm",
     "Linear",
+    "AlibiTensor",
     "AlibiTensorV2"
 ]
 
@@ -790,6 +792,7 @@ class FixedSparseAttention(nn.Cell):
 
         return q, k, v
 
+
 class AlibiTensor(nn.Cell):
     """
     Link to paper: https://arxiv.org/abs/2108.12409 Alibi tensor is not causal as the original paper mentions, it
@@ -838,19 +841,19 @@ class AlibiTensor(nn.Cell):
             extra_powers = np.arange(1, 1 + 2 * num_remaining_heads, 2, dtype=np.int32)
             slopes = np.concatenate([slopes, np.power(extra_base, extra_powers)], axis=0)
 
-        self.slopes = Tensor(slopes[:, None], mstype.float32) # (num_heads, 1)
+        self.slopes = Tensor(slopes[:, None], mstype.float32)  # (num_heads, 1)
 
     def construct(self, attention_mask, dtype):
         """
         Note: alibi will added to the attention bias that will be applied to the query, key product of attention
         therefore alibi will have to be of shape (batch_size, num_heads, query_length, key_length)
         """
-        arange_tensor = self.cumsum(attention_mask, -1) # (batch_size, seq_len)
-        arange_tensor = self.add(arange_tensor, self.minus_one) # (batch_size, seq_len)
-        arange_tensor = self.mul(arange_tensor, attention_mask) # (batch_size, seq_len)
-        arange_tensor = self.expand_2d(arange_tensor, 1) # (batch_size, 1, seq_len)
-        alibi = self.mul_slope(self.slopes, arange_tensor) # (batch_size, num_heads, seq_len)
-        alibi = self.expand_3d(alibi, 2).astype(dtype) # (batch_size, num_heads, 1, seq_len)
+        arange_tensor = self.cumsum(attention_mask, -1)  # (batch_size, seq_len)
+        arange_tensor = self.add(arange_tensor, self.minus_one)  # (batch_size, seq_len)
+        arange_tensor = self.mul(arange_tensor, attention_mask)  # (batch_size, seq_len)
+        arange_tensor = self.expand_2d(arange_tensor, 1)  # (batch_size, 1, seq_len)
+        alibi = self.mul_slope(self.slopes, arange_tensor)  # (batch_size, num_heads, seq_len)
+        alibi = self.expand_3d(alibi, 2).astype(dtype)  # (batch_size, num_heads, 1, seq_len)
         return alibi
 
 
@@ -905,7 +908,7 @@ class AlibiTensorV2(nn.Cell):
             extra_powers = np.arange(1, 1 + 2 * num_remaining_heads, 2, dtype=np.int32)
             slopes = np.concatenate([slopes, np.power(extra_base, extra_powers)], axis=0)
 
-        self.slopes = Tensor(slopes[None, :, None, None], mstype.float32) # (num_heads, 1)
+        self.slopes = Tensor(slopes[None, :, None, None], mstype.float32)  # (num_heads, 1)
 
     def construct(self, attention_mask, dtype=mstype.float32):
         """
@@ -913,16 +916,16 @@ class AlibiTensorV2(nn.Cell):
         therefore alibi will have to be of shape (batch_size, num_heads, query_length, key_length)
         """
         bs, seqlen = attention_mask.shape
-        arange_tensor = self.cumsum(attention_mask, -1) # (batch_size, seq_len)
-        max_pos = -arange_tensor[:, -1:] # (batch_size, 1)
-        arange_tensor = self.add_2d(arange_tensor, max_pos) # (batch_size, seq_len)
-        arange_tensor = self.expand_2d(arange_tensor, 1) # (batch_size, 1, seq_len)
-        diag = -self.transpose(arange_tensor, (0, 2, 1)) # (batch_size, seq_len, 1)
-        arange_tensor = self.add_3d(arange_tensor, diag)    # (batch_size, seq_len, seq_len)
-        arange_tensor = self.expand_3d(arange_tensor, 1) # (batch_size, 1, seq_len, seq_len)
-        alibi = self.mul_slope(self.slopes, arange_tensor) # (batch_size, num_heads, seq_len, seq_len)
-        alibi_mask = self.mul_mask(alibi, self.reshape(attention_mask, (bs, 1, seqlen, 1))) # (batch_size, num_heads, seq_len, seq_len)
-        alibi_mask = self.mul_mask(alibi_mask, self.reshape(attention_mask, (bs, 1, 1, seqlen))) # (batch_size, num_heads, seq_len, seq_len)
+        arange_tensor = self.cumsum(attention_mask, -1)  # (batch_size, seq_len)
+        max_pos = -arange_tensor[:, -1:]  # (batch_size, 1)
+        arange_tensor = self.add_2d(arange_tensor, max_pos)  # (batch_size, seq_len)
+        arange_tensor = self.expand_2d(arange_tensor, 1)  # (batch_size, 1, seq_len)
+        diag = -self.transpose(arange_tensor, (0, 2, 1))  # (batch_size, seq_len, 1)
+        arange_tensor = self.add_3d(arange_tensor, diag)  # (batch_size, seq_len, seq_len)
+        arange_tensor = self.expand_3d(arange_tensor, 1)  # (batch_size, 1, seq_len, seq_len)
+        alibi = self.mul_slope(self.slopes, arange_tensor)  # (batch_size, num_heads, seq_len, seq_len)
+        alibi_mask = self.mul_mask(alibi, self.reshape(attention_mask, (bs, 1, seqlen, 1)))  # (batch_size, num_heads, seq_len, seq_len)
+        alibi_mask = self.mul_mask(alibi_mask, self.reshape(attention_mask, (bs, 1, 1, seqlen)))  # (batch_size, num_heads, seq_len, seq_len)
         return alibi_mask.astype(dtype)
 
     def shard(self, parallel_config):
@@ -943,6 +946,7 @@ class AlibiTensorV2(nn.Cell):
 
 def _get_interleave(n):
     """calculate slopes of alibi tensor"""
+
     def _get_interleave_power_of_2(n):
         start = (2 ** (-2 ** -(math.log2(n) - 3)))
         ratio = start
@@ -953,13 +957,13 @@ def _get_interleave(n):
 
     closest_power_of_2 = 2 ** math.floor(math.log2(n))
     return _get_interleave_power_of_2(closest_power_of_2) + \
-           _get_interleave(2 * closest_power_of_2)[0::2][:n - closest_power_of_2]
+        _get_interleave(2 * closest_power_of_2)[0::2][:n - closest_power_of_2]
 
 
 def build_alibi_tensor_v2(seq_len, num_heads, return_tensors='ms', dtype=mstype.float32):
     """build alibi tensor"""
-    assert return_tensors in ['np', 'ms'],\
-           f"return tensors must be 'np' or 'ms', {return_tensors} not support."
+    assert return_tensors in ['np', 'ms'], \
+        f"return tensors must be 'np' or 'ms', {return_tensors} not support."
     slopes = _get_interleave(num_heads)
     slopes = np.expand_dims(np.expand_dims(slopes, 1), 1)
     position_point = np.arange(seq_len) - seq_len + 1
