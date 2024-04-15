@@ -347,7 +347,7 @@ class LlamaRMSNorm(nn.Cell):
         super(LlamaRMSNorm, self).__init__()
         self.eps = eps
         self.compute_type = compute_type
-        self.weight = Parameter(initializer('ones', (dim,), dtype=self.compute_type), parallel_optimizer=False)
+        self.weight = Parameter(initializer('ones', (dim,), dtype=mstype.float32), parallel_optimizer=False)
 
         if check_rmsnorm_big_kernel_valid(is_dynamic):
             self.norm = P.RmsNorm(eps)
