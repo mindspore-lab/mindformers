@@ -377,6 +377,14 @@ def check_ckpt_for_transform(ckpt_dir):
     """check input ckpt_dir and transform it by using softlink"""
     soft_link_dir = os.path.join(get_output_root_path(), "softlink_ckpt")
     rank_id = get_real_rank()
+
+    if os.path.isdir(ckpt_dir) and not check_rank_folders(ckpt_dir, 0) and \
+        not check_ckpt_file_exist(ckpt_dir):
+        raise ValueError(f"No rank_0 folder or ckpt files are found under {ckpt_dir}.")
+    if os.path.isfile(ckpt_dir) and not ckpt_dir.endswith('.ckpt'):
+        raise ValueError(f"The value of load_checkpoint must be a folder or a file with suffix '.ckpt', "
+                         f"but got {ckpt_dir}")
+
     if (not rank_id) or (rank_id % 8 == 0 and check_in_modelarts()):
         if os.path.exists(soft_link_dir):
             shutil.rmtree(soft_link_dir)
@@ -396,22 +404,16 @@ def check_ckpt_for_transform(ckpt_dir):
                 else:
                     os.remove(soft_link)
                     os.symlink(ckpt_dir, soft_link)
-            elif check_ckpt_file_exist(ckpt_dir):
+            else:
                 for ckpt_file in os.listdir(ckpt_dir):
                     if ckpt_file.endswith('.ckpt'):
                         soft_link = os.path.join(soft_link_dir, os.path.splitext(ckpt_file)[0])
                         ckpt_file = os.path.join(ckpt_dir, ckpt_file)
                         make_softlink(soft_link, ckpt_file)
-            else:
-                raise ValueError(f"No rank_0 folder or ckpt files are found under {ckpt_dir}.")
         else:
-            if ckpt_dir.endswith('.ckpt'):
-                ckpt_file = ckpt_dir
-                soft_link = os.path.join(soft_link_dir, os.path.splitext(os.path.basename(ckpt_file))[0])
-                make_softlink(soft_link, ckpt_file)
-            else:
-                raise ValueError(f"The value of load_checkpoint must be a folder or a file with suffix '.ckpt', "
-                                 f"but got {ckpt_dir}")
+            ckpt_file = ckpt_dir
+            soft_link = os.path.join(soft_link_dir, os.path.splitext(os.path.basename(ckpt_file))[0])
+            make_softlink(soft_link, ckpt_file)
 
     wait_create_softlink(soft_link_dir)
 
