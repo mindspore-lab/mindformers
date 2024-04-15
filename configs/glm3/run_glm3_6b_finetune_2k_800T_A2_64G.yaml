@@ -49,8 +49,8 @@ model:
     quantization_bit: 0
     pre_seq_len: None
     prefix_projection: False
-    param_init_type: "float16"
-    compute_dtype: "float16"
+    param_init_type: "bfloat16"
+    compute_dtype: "bfloat16"
     layernorm_compute_type: "float32"
     use_past: False
     use_flash_attention: False # when use FlashAttention, seq_length should be multiple of 16

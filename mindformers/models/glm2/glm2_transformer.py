@@ -73,6 +73,7 @@ class CoreAttention(nn.Cell):
             self.qkv_hidden_size = (
                 projection_size + 2 * self.head_dim * config.multi_query_group_num)
         self.transpose = P.Transpose()
+        self.cast = P.Cast()
 
     def construct(self, query_layer, key_layer, value_layer, attention_mask):
         """
@@ -193,6 +194,7 @@ class ChatGLM2SelfAttention(nn.Cell):
         self.concat = P.Concat(axis=-1)
         self.split_3 = P.Split(axis=-1, output_num=3)
         self.transpose = P.Transpose()
+        self.cast = P.Cast()
         self.tile_kv = P.Tile()
         self.shape = P.Shape()
         self.use_flash_attention = config.use_flash_attention
@@ -266,6 +268,8 @@ class ChatGLM2SelfAttention(nn.Cell):
         # [bs, nh, sq, kv_channels//4, 2]
         xshaped = self.reshape(x, (bs, num_heads, seq_len, rot_dim // 2, 2))
         # [bs, 1, sq, kv_channels//4, 2]
+        if rope_cache.dtype == mstype.bfloat16:
+            rope_cache = self.cast(rope_cache, mstype.float32)
         rope_cache = self.reshape(rope_cache, (-1, 1, seq_len, xshaped.shape[3], 2))
 
         xshaped_0, xshaped_1 = ops.split(xshaped, 1, -1)
@@ -274,6 +278,7 @@ class ChatGLM2SelfAttention(nn.Cell):
         x_out2 = self.add(self.mul(xshaped_1, rope_cache_0), self.mul(xshaped_0, rope_cache_1))
         x_out = self.stack((x_out1, x_out2))
         x_out = self.reshape(x_out, (x_out.shape[0], x_out.shape[1], x_out.shape[2], -1))
+        x_out = self.cast(x_out, x_pass.dtype)
         # [bs, sq, nh, hidden_size_per_head]
         return self.concat((x_out, x_pass))
 
