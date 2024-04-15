@@ -72,7 +72,7 @@ class ChatGLM2Config(BaseConfig):
                  layernorm_compute_type: str = "float32",
                  embedding_type: str = "float32",
                  mask_type: str = "float32",
-                 model_name: str = "glm2",
+                 prefix_name: str = "glm2",
                  use_past=False,
                  use_flash_attention=False,
                  use_prompt_flash_attention=False,
@@ -128,7 +128,7 @@ class ChatGLM2Config(BaseConfig):
         self.layernorm_compute_type = convert_mstype(layernorm_compute_type)
         self.embedding_type = convert_mstype(embedding_type)
         self.mask_type = convert_mstype(mask_type)
-        self.model_name = model_name
+        self.prefix_name = prefix_name
         self.use_past = use_past
         self.use_flash_attention = use_flash_attention
         self.use_prompt_flash_attention = use_prompt_flash_attention
