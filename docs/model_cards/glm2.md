@@ -48,18 +48,20 @@ ChatGLM**2**-6B 是开源中英双语对话模型 [ChatGLM2-6B](https://github.c
 2. 模型配置：`configs/glm2`
 
     ```bash
-    glm2
-        ├── export_glm2_6b.yaml                # 导出mindir配置
-        ├── run_glm2_6b_finetune_2k_910b.yaml  # Atlas 800T A2最佳性能全量微调启动配置
-        ├── run_glm2_6b_finetune_2k.yaml       # Atlas 800最佳性能全量微调启动配置
-        ├── run_glm2_6b_finetune_910b.yaml     # Atlas 800T A2 ADGEN全量微调启动配置
-        ├── run_glm2_6b_finetune.yaml          # Atlas 800 ADGEN全量微调启动配置
-        ├── run_glm2_6b_finetune_eval.yaml     # 全量微调评估配置
-        ├── run_glm2_6b_lora_2k_910b.yaml      # Atlas 800T A2最佳性能lora微调启动配置
-        ├── run_glm2_6b_lora_2k.yaml           # Atlas 800最佳性能lora微调启动配置
-        ├── run_glm2_6b_lora_910b.yaml         # Atlas 800 ADGEN lora微调启动配置
-        ├── run_glm2_6b_lora.yaml              # Atlas 800 ADGEN lora微调启动配置
-        └── run_glm2_6b_lora_eval.yaml         # lora微调评估配置
+    configs/glm2
+      ├── export_glm2_6b.yaml
+      ├── run_glm2_6b.yaml
+      ├── run_glm2_6b_finetune_2k_800T_A2_64G.yaml  # Atlas 800T A2 最佳性能全量微调启动配置
+      ├── run_glm2_6b_finetune_2k_800_32G.yaml      # Atlas 800 最佳性能全量微调启动配置
+      ├── run_glm2_6b_finetune_800T_A2_64G.yaml     # Atlas 800T A2 ADGEN全量微调启动配置
+      ├── run_glm2_6b_finetune_800_32G.yaml         # Atlas 800 ADGEN全量微调启动配置
+      ├── run_glm2_6b_finetune_eval.yaml            # 全量微调后评估配置
+      ├── run_glm2_6b_lora_2k_800T_A2_64G.yaml      # Atlas 800T A2最佳性能 lora微调启动配置
+      ├── run_glm2_6b_lora_2k_800_32G.yaml          # Atlas 800 最佳性能 lora微调启动配置
+      ├── run_glm2_6b_lora_800T_A2_64G.yaml         # Atlas 800T A2 ADGEN lora微调启动配置
+      ├── run_glm2_6b_lora_800_32G.yaml             # Atlas 800 ADGEN lora微调启动配置
+      ├── run_glm2_6b_lora_eval.yaml                # lora微调评估配置
+      └── run_glm2_6b_ptuning2.yaml                 # Atlas 800 ADGEN ptuning微调启动配置
     ```
 
 ## 前期准备
@@ -357,11 +359,18 @@ print(predict_result)
 ### 基于Pipeline的快速推理
 
 ```python
-from mindformers import pipeline, TextGenerationPipeline
+import mindspore
+mindspore.set_context(mode=0, device_id=0)
+
+from mindformers import pipeline
 task_pipeline = pipeline(task='text_generation', model='glm2_6b', max_length=2048)
 task_pipeline('你好')
 # [{'text_generation_text': ['你好，我是 ChatGLM2-6B， 一个人工智能助手。我背后使用的模型是 GLM2-6B， 是一种大型语言模型， 具有超过 2000 亿参数，支持多种任务。']}]
-pipeline = TextGenerationPipeline(model='glm2_6b', max_length=2048)
+
+from mindformers import AutoModel, AutoTokenizer, TextGenerationPipeline
+model = AutoModel.from_pretrained('glm2_6b')
+tokenizer = AutoTokenizer.from_pretrained('glm2_6b')
+pipeline = TextGenerationPipeline(model=model, tokenizer=tokenizer)
 predict_result = pipeline("你好")
 print(predict_result)
 # [{'text_generation_text': ['你好，我是 ChatGLM2-6B， 一个人工智能助手。我背后使用的模型是 GLM2-6B， 是一种大型语言模型， 具有超过 2000 亿参数，支持多种任务。']}]
@@ -376,10 +385,7 @@ print(predict_result)
 ADGEN 数据集任务为根据输入（content）生成一段广告词（summary）。
 
 ```json
-{
-    "content": "类型#上衣*版型#宽松*版型#显瘦*图案#线条*衣样式#衬衫*衣袖型#泡泡袖*衣款式#抽绳",
-    "summary": "这件衬衫的款式非常的宽松，利落的线条可以很好的隐藏身材上的小缺点，穿在身上有着很好的显瘦效果。领口装饰了一个可爱的抽绳，漂亮的绳结展现出了十足的个性，配合时尚的泡泡袖型，尽显女性甜美可爱的气息。"
-}
+{"content": "类型#上衣*版型#宽松*版型#显瘦*图案#线条*衣样式#衬衫*衣袖型#泡泡袖*衣款式#抽绳", "summary": "这件衬衫的款式非常的宽松，利落的线条可以很好的隐藏身材上的小缺点，穿在身上有着很好的显瘦效果。领口装饰了一个可爱的抽绳，漂亮的绳结展现出了十足的个性，配合时尚的泡泡袖型，尽显女性甜美可爱的气息。"}
 ```
 
 从 [Google Drive](https://drive.google.com/file/d/13_vf0xRTQsyneRKdD1bZIr93vBGOczrk/view?usp=sharing) 或者 [Tsinghua Cloud](https://cloud.tsinghua.edu.cn/f/b3f119a008264b1cabd1/?dl=1) 下载处理好的 ADGEN 数据集，目录结构为
@@ -390,68 +396,32 @@ AdvertiseGen
   └── dev.json
 ```
 
-将任务配置文件 `configs/glm2/run_glm2_6b_*.yaml` 中的 `==== dataset config ====` 部分替换成：
+修改配置文件 `configs/glm2/run_glm2_6b_*.yaml` 中的以下项：
 
 ```yaml
 train_dataset: &train_dataset
-  data_loader:
-    type: ADGenDataLoader
     dataset_dir: "/path/to/AdvertiseGen/train.json"
-    shuffle: True
-    phase: "train"
-    version: 2
     origin_columns: ["content", "summary"]
   tokenizer:
-    type: ChatGLM2Tokenizer
     vocab_file: "/path/to/tokenizer.model"
   input_columns: ["input_ids", "labels"]
   max_source_length: 64
-  max_target_length: 128
-  ignore_pad_token_for_loss: True
-  num_parallel_workers: 8
-  python_multiprocessing: False
-  drop_remainder: True
-  batch_size: 1
-  repeat: 1
-  numa_enable: False
-  prefetch_size: 1
-  seed: 0
-
-train_dataset_task:
-  type: KeyWordGenDataset
-  dataset_config: *train_dataset
+  max_target_length: 127
 
 eval_dataset: &eval_dataset
   data_loader:
-    type: ADGenDataLoader
     dataset_dir: "/path/to/AdvertiseGen/dev.json"
-    shuffle: False
-    phase: "eval"
-    version: 2
     origin_columns: ["content", "summary"]
   tokenizer:
-    type: ChatGLM2Tokenizer
     vocab_file: "/path/to/tokenizer.model"
   max_source_length: 256
   max_target_length: 256
-  ignore_pad_token_for_loss: True
-  input_columns: ["input_ids", "labels"]
-  num_parallel_workers: 8
-  python_multiprocessing: False
-  drop_remainder: True
-  batch_size: 1
-  repeat: 1
-  numa_enable: False
-  prefetch_size: 1
-  seed: 0
-
-eval_dataset_task:
-  type: KeyWordGenDataset
-  dataset_config: *eval_dataset
 ```
 
-> 注意：微调时的模型`seq_length`需要等于微调数据集的`max_source_length + max_target_length + 1`。
-> yaml文件中默认的`seq_length: 193`以及`max_source_length: 64`和`max_target_length: 128`适用于ADGEN数据集
+**注意**：微调时的模型`seq_length`需要等于微调数据集的`max_source_length + max_target_length + 1`。
+yaml文件中默认的`seq_length: 192`以及`max_source_length: 64`和`max_target_length: 127`适用于ADGEN数据集，
+其他数据集的`seq_length`设置，可以遍历并将数据集转换为token_id，取token_id最大长度，`seq_length`太大影响训练性能，
+太小影响训练精度，需要做出权衡。
 
 ### 全参微调
 
@@ -739,6 +709,21 @@ python run_mindformer.py --config configs/glm2/run_glm2_6b_finetune_eval.yaml--r
 python run_mindformer.py --config configs/glm2/run_glm2_6b_lora_eval.yaml --run_mode eval --load_checkpoint /path/to/glm2_6b_lora.ckpt --device_id 0 --use_parallel False
 ```
 
+> 单卡评测时，应将yaml中 model:model_config:batch_size 修改为等于 runner_config:batch_size
+
+### 多卡评测
+
+执行脚本：
+
+```bash
+cd scripts
+bash run_distribute.sh /path/to/hccl_8p_01234567_127.0.1.1.json ../configs/glm2/run_glm2_6b_*_eval.yaml '[0,8]' eval
+```
+
+> 全参微调请选择 `configs/glm2/run_glm2_6b_finetune_eval.yaml`
+> lora微调请选择 `configs/glm2/run_glm2_6b_lora_eval.yaml`
+> 多卡评测时，应将yaml中 model:model_config:batch_size 修改为等于 global_batch_size。例如 bs8/dp4/mp2的配置, batch_size = 8 * 4 = 32
+
 ## 推理
 
 ### 基于generate的推理
@@ -746,7 +731,7 @@ python run_mindformer.py --config configs/glm2/run_glm2_6b_lora_eval.yaml --run_
 下面提供一个模型推理样例脚本 `infer.py`
 
 ```python
-from mindformers import AutoConfig, AutoModel, AutoTokenizer, AutoProcessor
+from mindformers import AutoConfig, AutoModel, AutoTokenizer, ChatGLM2Tokenizer
 import mindspore as ms
 
 ms.set_context(mode=ms.GRAPH_MODE, device_target="Ascend", device_id=0)
@@ -755,49 +740,67 @@ ms.set_context(mode=ms.GRAPH_MODE, device_target="Ascend", device_id=0)
 # **注意** P-Tuning 微调模型替换成 “glm2_6b_ptuning2”
 config = AutoConfig.from_pretrained("glm2_6b")
 # 可以在此使用下行代码指定自定义权重进行推理，默认使用自动从obs上下载的预训练权重
-# config.checkpoint_name_or_path = "/path/to/glm2_6b_finetune.ckpt"
+# config.checkpoint_name_or_path = "/path/to/your/chatglm2_6b.ckpt"
 config.use_past = True
+config.seq_length = 1024
 model = AutoModel.from_config(config)
 
 # 以下两种tokenizer实例化方式选其一即可
 # 1. 在线加载方式
 tokenizer = AutoTokenizer.from_pretrained("glm2_6b")
 # 2. 本地加载方式
-# tokenizer = AutoProcessor.from_pretrained("/path/to/your.yaml").tokenizer
+# tokenizer = ChatGLM2Tokenizer("/path/to/your/tokenizer.model")
 
-batch_size = config.batch_size
+kwargs={}
+gen_kwargs = {"max_length": config.seq_length, "num_beams": 1, "do_sample": False, "top_p": 3,"top_k": 0.7,
+              "temperature": 1, **kwargs}
 
-inputs = tokenizer(tokenizer.build_prompt("你好"))["input_ids"]
-outputs = model.generate([inputs]*batch_size, max_length=128)
-print(tokenizer.decode(outputs))
-# ['[Round 1]\n\n问：你好\n\n答： 你好👋！我是人工智能助手 ChatGLM2-6B，很高兴见到你，欢迎问我任何问题。']
-inputs = tokenizer(tokenizer.build_prompt("请介绍一下华为"))["input_ids"]
-outputs = model.generate([inputs]*batch_size, max_length=128)
-print(tokenizer.decode(outputs))
-# ['[Round 1]\n\n问：请介绍一下华为\n\n答： 华为是一家总部位于中国的全球知名科技公司,成立于1987年,是全球领先的信息与通信技术(ICT)解决方案供
-# 应商之一。\n\n华为的业务范围涵盖了网络、终端、云计算、软件、芯片等多个领域,旗下的智能手机、电脑、平板电脑等消费电子产品在国内外市场上都享有较高
-# 的声誉。此外,华为还在5G、人工智能、云计算等领域取得了重要的进展,为全球用户提供了更高效、更智能的科技体验。\n\n华为一直致力于技术创新,研发投入
-# 占公司总收入的比例超过']
-inputs = tokenizer(tokenizer.build_prompt("晚上睡不着应该怎么办"))["input_ids"]
-outputs = model.generate([inputs]*batch_size, max_length=128)
-print(tokenizer.decode(outputs))
-# ['[Round 1]\n\n问：晚上睡不着应该怎么办\n\n答： 以下是一些有助于晚上睡觉的技巧:\n\n1. 创建一个规律的睡眠时间表:每天在相同的时间上床并尽量
-# 在同一时间起床,有助于身体建立规律的生物钟。\n\n2. 创建一个舒适的睡眠环境:确保房间安静、黑暗、凉爽和舒适。如果需要,可以使用睡眠面罩、耳塞或空气
-# 净化器来帮助创造一个更舒适的睡眠环境。\n\n3. 避免使用电子设备:在睡觉前一两个小时内避免使用电子设备,如']
-inputs = tokenizer(tokenizer.build_prompt("类型#上衣*材质#牛仔布*颜色#白色*风格#简约*图案#刺绣*衣样式#外套*衣款式#破洞"))["input_ids"]
-outputs = model.generate([inputs]*batch_size, max_length=128)
-print(tokenizer.decode(outputs))
-# ['[Round 1]\n\n问：类型#上衣*材质#牛仔布*颜色#白色*风格#简约*图案#刺绣*衣样式#外套*衣款式#破洞\n\n答： 上衣 材质:牛仔布 颜色:白色 风格:
-# 简约 图案:刺绣 衣样式:外套 衣款式:破洞\n\n这件上衣由牛仔布制成,采用了简约的风格,图案为刺绣设计,衣样式为外套,衣款式为破洞。']
+queries = ["你好", "请介绍一下杭州", "那里有什么好吃的吗"]
+history = []
+for query in queries:
+    # 如果想关闭history，此处传入 `history=[]` 即可
+    prompt = tokenizer.build_prompt(query, history=history)
+    input_id = tokenizer(prompt)["input_ids"]
+
+    output = model.generate([input_id], **gen_kwargs)
+
+    # output 包括了[input_id, output]两个部分
+    output = output[0][len(input_id):]
+    response = tokenizer.decode(output)
+    print(response)
+    history += [(query, response)]
+
+    '''
+    response1:
+    你好👋！我是人工智能助手 ChatGLM2-6B，很高兴见到你，欢迎问我任何问题。
+
+    response2:
+    杭州是中国浙江省省会，位于浙江省东南部，地处浙江省北部，东临东海，南接福建省，北与江苏省毗邻，是中国著名的旅游城市之一。
+
+    杭州有着悠久的历史和文化，被誉为“人间天堂”，被誉为“南宋都城”，是中国南方著名的历史文化名城之一。杭州还被誉为“全国最具幸福感城市”，具有丰富的历史遗存、优美的自然风光和浓郁的文化氛围。
+
+    杭州的经济以服务业为主导产业，特别是交通运输、仓储和邮政业。同时，杭州也是中国重要的电子商务和互联网产业基地之一，被誉为“中国电子商务之都”。
+
+    杭州的著名景点包括西湖、灵隐寺、千岛湖、钱塘江等。西湖是中国著名的风景名胜区之一，被誉为“人间天堂”，灵隐寺是中国著名的佛教寺庙之一，千岛湖和钱塘江是中国著名的自然风景区之一。
+
+    杭州还拥有丰富的人文资源，被誉为“人间天堂”的杭州西湖、灵隐寺、千岛湖、钱塘江等景点，以及宋城、南宋御街等历史文化景点，都是游客前来杭州旅游的热门景点。
+
+    response3:
+    杭州是中国著名的美食城市之一，有许多特色美食和传统菜肴。以下是一些杭州的著名美食:
+
+    1. 西湖醋鱼：这是杭州最著名的菜肴之一，鱼肉鲜美，入口即化，佐以香醋、糖、姜丝等调料，口感酸甜适中。
+
+    2. 龙井虾仁：以当地特产的龙井茶为佐料，将鲜嫩的虾仁炒制而成，香气扑鼻，鲜嫩可口。
+
+    3. 灌汤包：又称小笼包，是杭州的传统点心之一。包子的皮薄馅多，汤汁鲜美，非常受欢迎。
+
+    4. 姜母鸭：这是一道杭帮菜，以鸭肉、姜母、葱等调料烹制而成，口感鲜美。
+
+    5. 老字号小吃：杭州还有很多老字号小吃店，如胡同口烤肉串、孔府家宴、宋嫂鱼羹等，是当地居民和游客的美食选择。
+
+    此外，杭州还有许多特色小吃，如粽子、臭豆腐、糯米鸡、肉夹馍、鸭血粉丝汤等，让人垂涎欲滴。
+    '''
 ```
-
-如果需要加载本地词表，请修改配置文件中以下项：
-
-  ```yaml
-  processor:
-    tokenizer:
-      vocab_file: "/path/to/tokenizer.model"
-  ```
 
 ### 脚本启动
 
@@ -826,26 +829,37 @@ python run_mindformer.py --config path/to/config.yaml --run_mode predict --predi
 
 ### MindIR 导出
 
-　　1. 修改模型相关的配置文件 configs/glm2/export_glm2_6b.yaml，其中需要关注这几项：
+　　1. 修改模型相关的配置文件 configs/glm2/export_glm2_6b.yaml（若源码未改，则可使用glm3下的配置文件,路径为configs/glm3/export_glm3_6b_pa.yaml，权重文件路径checkpoint_name_or_path改为glm2自身的），其中需要关注这几项：
 
 ```yaml
-# export
-infer:
-    prefill_model_path: "glm2_export/glm2_6b_prefill_seq512.mindir" # 保存mindir的位置
-    increment_model_path: "glm2_export/glm2_6b_inc_seq512.mindir"   # 保存mindir的位置
-    infer_seq_length: 512 # 需要保持跟 model-model_config-seq_length 一致
+# model config
+model:
+  model_config:
+    seq_length: 2048
+    checkpoint_name_or_path: "/path/to/your.ckpt"
+    use_past: True              # 开启增量推理
+    is_dynamic: True            # 使用PA推理时设置为True，静态shape推理设为False
+    use_paged_attention: True   # 使用PA推理时设置为True
+    block_size: 16             # PA推理的参数设置
+    num_blocks: 224             # PA推理的参数设置
 
 # ==== model config ====
 model:
   model_config:
     seq_length: 512
     checkpoint_name_or_path: "/path/to/your/*.ckpt"
+
 ```
 
-2. 执行export.py，完成模型转换
+2. 执行run_mindformer.py，完成模型转换
 
 ```bash
-python mindformers/tools/export.py --config_path configs/glm2/export_glm2_6b.yaml
+python run_mindformer.py
+--config configs/glm3/export_glm3_6b_pa.yaml
+--run_mode export
+--use_parallel False
+--batch_size 1
+--device_id 0
 ```
 
 ### int8 量化（可选）
@@ -875,21 +889,97 @@ python mindformers/tools/export.py --config_path configs/glm2/export_glm2_6b.yam
 
 ### 执行推理
 
-1. 新建推理配置文件：lite.ini
+新建推理配置文件，ChatGLM3-6B在Atlas 800T A2上推荐的GE配置如下：
 
-    ```ini
-    [ascend_context]
-    provider=ge
+1.全量和增量的GE配置不同，如下所示
 
-    [ge_session_options]
-    ge.exec.formatMode=1
-    ge.exec.precision_mode=must_keep_origin_dtype
-    ```
+全量mindir模型PA推理配置（910b_ge_prefill_pa.cfg）
 
-2. 执行命令：
+```config
+[ascend_context]
+plugin_custom_ops=All
+provider=ge
+[ge_session_options]
+ge.exec.formatMode=1
+ge.exec.precision_mode=must_keep_origin_dtype
+ge.externalWeight=1
+ge.exec.atomicCleanPolicy=1
+ge.deterministic=1   # 注释此行，可以提升推理速度
+[ge_graph_options]
+ge.inputShape=batch_valid_length:1;tokens:1,2048;slot_mapping:2048
+[graph_kernel_param]
+opt_level=2
+disable_cluster_ops=MatMul,Reshape
+enable_cce_lib=true
+enable_cluster_ops_only="paged_attention"
+enable_expand_ops_only="paged_attention"
+disable_cce_lib_ops=MatMul
+```
+
+增量mindir模型PA推理配置（910b_ge_inc_pa.cfg）
+
+```config
+[ascend_context]
+plugin_custom_ops=All
+provider=ge
+[ge_session_options]
+ge.exec.formatMode=1
+ge.exec.precision_mode=must_keep_origin_dtype
+ge.externalWeight=1
+ge.exec.atomicCleanPolicy=1
+ge.deterministic=1   # 注释此行，可以提升推理速度
+[ge_graph_options]
+ge.inputShape=batch_valid_length:-1;block_tables:-1,128;slot_mapping:-1;tokens:-1,1
+ge.dynamicDims=1,1,1,1;2,2,2,2;4,4,4,4
+ge.dynamicNodeType=1
+[graph_kernel_param]
+opt_level=2
+disable_cluster_ops=MatMul,Reshape
+enable_cce_lib=true
+enable_cluster_ops_only="paged_attention"
+enable_expand_ops_only="paged_attention"
+disable_cce_lib_ops=MatMul
+```
+
+2.执行run_infer_main.py脚本，修改相关配置启动推理：
+
+需要修改mindformers/inference/infers/text_generator_infer.py文件
+
+将class InputOfInfer中MAPPING变量下key为“glm2”的value值变更为LlamaInputsOflnfer
+
+PA推理执行命令如下：（其中tokenizer_path路径需要替换成glm2自身的文件，config_path不需要单独作修改，使用glm3即可）
 
 ```bash
-python run_infer_main.py --device_id 0 --model_name glm2_6b --prefill_model_path glm2_export/glm2_6b_prefill_seq512_graph.mindir --increment_model_path glm2_export/glm2_6b_inc_seq512_graph.mindir --config_path lite.ini --is_sample_acceleration False --seq_length 512 --add_special_tokens True
+python run_infer_main.py
+--batch_size 1
+--device_id 0
+--model_name glm2
+--prefill_model_path /path/to/mindir_full_checkpoint/rank_0_graph.mindir
+--increment_model_path /path/to/mindir_inc_checkpoint/rank_0_graph.mindir
+--tokenizer_path /path/to/glm3_6b/tokenizer.model
+--config_path "configs/glm3/910b_ge_prefill_pa.cfg,configs/glm3/910b_ge_inc_pa.cfg"
+--seq_length 2048
+--max_length 2048
+--dynamic False
+--paged_attention True
+--pa_block_size 16
+--pa_num_blocks 224
+
+# 参数说明
+
+batch_size: 推理多batch设置
+device_id: 设备物理ID
+model_name: 模型名称
+prefill_model_path: 全量图路径
+increment_model_path: 增量图路径
+tokenizer_path: 模型tokenizer路径
+config_path: GE配置文件路径
+seq_length: 推理序列长度
+max_length: 能够生成的最大语句长度
+dynamic: 是否采用双动态推理,执行PA推理时设置为False
+paged_attention: 是否执行PA推理
+pa_block_size: PA推理的参数
+pa_num_blocks: PA推理的参数
 ```
 
 > 注：如果是int8量化后推理，将 `prefill_model_path`​ 和 `increment_model_path`​ 修改为 int8 量化后的 MindIR 即可。
@@ -915,3 +1005,64 @@ Please enter your predict data:
 ```bash
 ['[Round 1]\n\n问：你好。\n\n答： 你好👋！我是人工智能助手 ChatGLM2-6B，很高兴见到你，欢迎问我任何问题。']
 ```
+
+## Q & A
+
+### Q1: 网络训练 loss 不下降、网络训练溢出、`overflow_cond=True` 怎么办？
+
+A1: 执行训练前设置环境变量：
+
+```bash
+export MS_ASCEND_CHECK_OVERFLOW_MODE="INFNAN_MODE"
+```
+
+重新启动训练。
+
+### Q2: 推理速度非常慢、Mindspore只能跑在CPU上、报错中含有 `te`、`tbe`、`tvm`等字样？
+
+A2: 一般是 Mindspore + Ascend 环境安装问题，确认环境安装过程参照
+[安装指南](https://www.mindspore.cn/install/#%E6%89%8B%E5%8A%A8%E5%AE%89%E8%A3%85)并且成功设置了环境变量。执行：
+
+```python
+python -c "import mindspore;mindspore.set_context(device_target='Ascend');mindspore.run_check()"
+```
+
+假如执行输出：
+
+```bash
+MindSpore version: 版本号
+The result of multiplication calculation is correct, MindSpore has been installed on platform [Ascend] successfully!
+```
+
+并且没有报错，则说明成功安装了环境。
+
+或许你想问，有没有更方便的环境安装方式？恭喜你，有的，我们还提供现成的
+[docker镜像](http://mirrors.cn-central-221.ovaijisuan.com/mirrors.html)，可以依据需求自行取用。
+
+### Q3: Sync stream Failed、exec graph xxx failed？
+
+A3:这类报错较为宽泛，可以打开昇腾host日志进一步定位。
+
+```bash
+export ASCEND_GLOBAL_EVENT_ENABLE=0
+export ASCEND_GLOBAL_LOG_LEVEL=2
+export ASCEND_SLOG_PRINT_TO_STDOUT=1
+```
+
+打开昇腾host日志后模型性能将明显下降，定位问题结束后需要取消昇腾日志：
+
+```bash
+unset ASCEND_GLOBAL_EVENT_ENABLE ASCEND_GLOBAL_LOG_LEVEL ASCEND_SLOG_PRINT_TO_STDOUT
+```
+
+### Q4: the strategy is xxxxxx, shape xxxx cannot be divisible by value x
+
+A4: 检查模型句长是否满足 `max_source_length + max_target_length + 1 = seq_length` 的要求。
+
+### 仍然有疑问？欢迎向我们提出issue，我们将尽快为您解决
+
+提问时麻烦提供以下信息：
+
+1. 执行命令
+2. 运行环境，包括硬件版本、CANN版本、Mindspore版本、Mindformers版本
+3. 报错完整日志
