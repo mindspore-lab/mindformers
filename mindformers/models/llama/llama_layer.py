@@ -348,6 +348,9 @@ class LlamaRMSNorm(nn.Cell):
             self.norm = P.RmsNorm(eps)
             self.rms_norm = self._rms_norm
             self.self_define = False
+            self.cast = P.Cast()
+            self.rcast = P.Cast()
+            self.cast.recompute()
         else:
             self.cast = P.Cast()
             self.mul = P.Mul()
@@ -371,7 +374,8 @@ class LlamaRMSNorm(nn.Cell):
 
     def _rms_norm(self, x):
         original_type = x.dtype
-        return self.norm(x, self.cast(self.weight, original_type))[0]
+        output = self.norm(self.cast(x, self.compute_type), self.weight)[0]
+        return self.rcast(output, original_type)
 
     def construct(self, x):
         """Forward of RMSNorm."""
