@@ -365,7 +365,7 @@ print(pipeline_result)
 
 以Wikitext2数据集为例:
 
-- 数据集下载：[WikiText2数据集](https://s3.amazonaws.com/research.metamind.io/wikitext/wikitext-2-v1.zip)
+- 数据集下载：[WikiText2数据集](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/dataset/wikitext-2/wikitext-2-v1.zip)
 
 - 分词模型下载：例如下载huggingface的[tokenizer.model](https://huggingface.co/openlm-research/open_llama_7b/blob/main/tokenizer.model)
 
@@ -629,7 +629,7 @@ Llama当前支持的评测任务如下：
 
 step 1. 获取数据集
 
-[WikiText2数据集](https://s3.amazonaws.com/research.metamind.io/wikitext/wikitext-2-v1.zip)是从维基百科上经过验证的优质文章集中提取的超过1亿个token的集合。
+[WikiText2数据集](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/dataset/wikitext-2/wikitext-2-v1.zip)是从维基百科上经过验证的优质文章集中提取的超过1亿个token的集合。
 
 step 2. 处理数据成mindrecord格式
 
