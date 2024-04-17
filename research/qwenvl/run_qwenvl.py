@@ -158,19 +158,22 @@ def main(config='run_qwenvl_910b.yaml',
     model_config = config.model.model_config
 
     if run_mode == 'predict':
-        model_config.text_config = QwenConfig(**model_config.text_config)
-        model_config.vision_config = CLIPVisionConfig(**model_config.vision_config)
-        model_config = QwenVLConfig(**model_config)
-        model = QwenVL(model_config)
-        model.load_checkpoint(model_config)
-        processor = build_processor(config.processor)
-
         query = []
         if image_path:
             query = [{'image': path} for path in image_path]
         if prompt:
             query.append({'text': prompt})
+
+        model_config.text_config.batch_size = len(query)
+        model_config.text_config = QwenConfig(**model_config.text_config)
+        model_config.vision_config = CLIPVisionConfig(**model_config.vision_config)
+        model_config = QwenVLConfig(**model_config)
+        model = QwenVL(model_config)
+        model.load_checkpoint(model_config)
+
+        processor = build_processor(config.processor)
         tokenizer = processor.tokenizer
+
         text_input = tokenizer.from_list_format(query)
         process_res = processor(text_input=text_input)
         input_id = np.expand_dims(process_res.get("text")[0], axis=0)

@@ -164,13 +164,13 @@ class QwenVLTransform:
                     img_start_temp.append(i + 1)
 
             if len(img_start_temp) == 0:
-                new_img_idx = [self.max_length - IMG_TOKEN_SPAN] * len(img_idx)
+                new_img_idx = [self.max_length - IMG_TOKEN_SPAN - 1] * len(img_idx)
             else:
                 for i, idx in enumerate(img_idx):
                     if idx != -1:
                         new_img_idx.append(img_start_temp[i])
                     else:
-                        new_img_idx.append(img_start_temp[0])
+                        new_img_idx.append(img_start_temp[self.max_length - IMG_TOKEN_SPAN - 1])
             coord = self._generate_coord(new_img_idx)
             return raw_input_ids, coord, raw_label
 
