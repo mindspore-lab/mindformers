@@ -46,38 +46,29 @@ class LlamaModelForBlip2(LlamaModel):
 
     # pylint: disable=W0221
     def construct(self, input_embeddings: Tensor, input_attention_masks: Tensor, batch_valid_length=None,
-                  batch_index=None, zactivate_len=None):
+                  batch_index=None, zactivate_len=None, block_tables=None, slot_mapping=None):
         """
         Forward of llama model with concat image and text embeddings
         """
         bs, seq_len, _ = self.shape(input_embeddings)
+        mask = None
         if not self.use_past:
             freqs_cis = self.freqs_mgr()
             mask = self.casual_mask(masks=input_attention_masks)  # mask: [bs, seq, seq]
-            kvcache_inputs = None
         else:
             if self.is_first_iteration:
                 freqs_cis = self.freqs_mgr(seq_len)
                 mask = self.casual_mask(masks=input_attention_masks)  # mask: [bs, seq, seq]
             else:
-                freqs_cis = self.freqs_mgr.increment(batch_valid_length, bs)
-                if self.is_dynamic and self.is_flexible_shape and not self.use_kvcache_op:
-                    mask = self.casual_mask.increment_slice(
-                        self.kvcache_preprocess.range,
-                        self.kvcache_preprocess.max_cache_length // bs,
-                        batch_valid_length,
-                        zactivate_len)
-                else:
-                    mask = self.casual_mask.increment(self.kvcache_preprocess.range, batch_valid_length, zactivate_len)
-
-            kvcache_inputs = self.kvcache_preprocess(bs, batch_valid_length, batch_index, zactivate_len)
+                freqs_cis = (self.freqs_mgr.freqs_cos, self.freqs_mgr.freqs_sin, self.freqs_mgr.swap_mask)
 
         # tokens: [bs, seq/1]
         h = input_embeddings
         h = self.reshape(h, (bs, seq_len, self.hidden_size))
         # h: [bs, seq/1, hidden_dim]
         for i in range(self.num_layers):
-            h = self.layers[i](h, freqs_cis, mask, kvcache_inputs=kvcache_inputs)
+            h = self.layers[i](h, freqs_cis, mask, batch_valid_length=batch_valid_length, block_tables=block_tables,
+                               slot_mapping=slot_mapping)
         output = self.norm_out(h)
         return output
 
@@ -147,7 +138,9 @@ class LlamaForBlip2(LlamaForCausalLM, ImageTextEmbeddingPreparationMixIn):
                   init_reset=True,
                   batch_valid_length=None,
                   batch_index=None,
-                  zactivate_len=None):
+                  zactivate_len=None,
+                  block_tables=None,
+                  slot_mapping=None):
         """LlamaForBlip2 forward."""
         if input_embeddings is None and input_ids is not None:  # for incremental infer
             input_embeddings = self.model.tok_embeddings(input_ids)
@@ -164,7 +157,11 @@ class LlamaForBlip2(LlamaForCausalLM, ImageTextEmbeddingPreparationMixIn):
 
         output = self.model(input_embeddings=input_embeddings,
                             input_attention_masks=attention_mask,
-                            batch_valid_length=batch_valid_length)
+                            batch_valid_length=batch_valid_length,
+                            batch_index=batch_index,
+                            zactivate_len=zactivate_len,
+                            block_tables=block_tables,
+                            slot_mapping=slot_mapping)
 
         pre_gather = (not self.use_past or self.is_first_iteration) and batch_valid_length is not None
         if pre_gather:

@@ -30,6 +30,7 @@ from mindformers.tools import *
 from mindformers import generation
 from mindformers.generation import *
 from mindformers.pet import *
+from mindformers import model_runner
 from mindformers.model_runner import *
 from .mindformer_book import MindFormerBook
 
