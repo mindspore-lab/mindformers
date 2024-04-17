@@ -71,7 +71,7 @@ bash build.sh
 docker下载命令
 
 ```shell
-docker pull swr.cn-central-221.ovaijisuan.com/mindformers/mindformers1.0.2_mindspore2.2.13:20240408
+docker pull swr.cn-central-221.ovaijisuan.com/mindformers/mindformers1.0.2_mindspore2.2.13:20240416
 ```
 
 创建容器
@@ -100,7 +100,7 @@ docker run -it -u root \
 -v /var/log/npu/:/usr/slog \
 -v /usr/local/bin/npu-smi:/usr/local/bin/npu-smi \
 --name {请手动输入容器名称} \
-swr.cn-central-221.ovaijisuan.com/mindformers/mindformers1.0.2_mindspore2.2.13:20240409 \
+swr.cn-central-221.ovaijisuan.com/mindformers/mindformers1.0.2_mindspore2.2.13:20240416 \
 /bin/bash
 ```
 
