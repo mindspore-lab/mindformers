@@ -602,7 +602,7 @@ def infer_main(args_):
         ...
 ```
 
-### 开源数据集评测
+### 评测
 
 #### 评测结果
 
@@ -615,7 +615,7 @@ def infer_main(args_):
 
 #### 评测流程
 
-所用数据集为长序列DuReader评测集，评测时需要安装`rouge`三方包来替换原环境中的`rouge-chinese`包
+评测中的推理过程使用MindSpore-Lite。所用数据集为长序列DuReader评测集，评测时需要安装`rouge`三方包来替换原环境中的`rouge-chinese`包
 
 安装命令如下：
 
@@ -624,14 +624,33 @@ pip uninstall rouge-chinese
 pip install rouge==1.0.1
 ```
 
-- step 1: 生成推理结果，多卡启动命令如下：
+- step 1: 模型导出MindIR
+
+参考[上一节模型导出部分](#step1-模型导出mindir)。
+
+- step 2: 多卡对评测数据集进行推理，生成结果：
+
+修改eval_start.sh中各文件路径：
+
+```bash
+input_dataset_file=/path/to/eval_dataset/dureader.jsonl  # 数据集文件路径
+checkpoint_path=/path/to/glm3_32k.ckpt  # 模型权重文件路径
+ge_config_path="/research/glm32k/910b_ge_prefill_pa.cfg,/research/glm32k/910b_ge_inc_pa.cfg"  # GE配置文件路径，注意第一个为全量（prefill）模型配置，第二个为增量（inc）模型配置
+tokenizer_path=/path/to/tokenizer.model  # 词表文件路径
+full_model_path=/research/output/mindir_full_checkpoint/rank_0_graph.mindir  # 全量模型MindIR路径
+inc_model_path=/research/output/mindir_inc_checkpoint/rank_0_graph.mindir  # 增量模型MindIR路径
+```
+
+运行eval_start.sh
 
 ```shell
 bash eval_start.sh
 ```
 
-- step 2: 将多张卡生成的结果汇总到一起，生成测试分数，命令如下：
+- step 3: 将多张卡生成的结果汇总到一起，生成测试分数，命令如下：
 
 ```shell
 bash eval_end.sh
+# - INFO - evaluate score is: 44.83
+# evaluation completed!
 ```

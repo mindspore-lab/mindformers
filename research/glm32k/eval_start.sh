@@ -38,10 +38,9 @@ mkdir -p ${merge_path}
 echo 'Output path: 'output_path
 
 # 200条测试数据，如果使用8卡，每张卡分配25条数据
-# 测试脚本，2条数，使用2卡，每张卡分配1条
-npu_num=5
-first_npu_id=3
-step=40
+npu_num=8
+first_npu_id=0
+step=25
 for ((i = 0; i < ${npu_num}; i++)); do
   start_index=$((i * step))
   end_index=$(((i + 1) * step))
