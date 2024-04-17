@@ -140,7 +140,7 @@ python research/qwen/alpaca_converter.py \
 python research/qwen/qwen_preprocess.py \
 --input_glob /path/alpaca-data-conversation.json \
 --model_file /path/qwen.tiktoken \
---seq_length 2048 \
+--seq_length 8192 \
 --output_file /path/alpaca.mindrecord
 ```
 
@@ -185,12 +185,12 @@ python mindformers/research/qwen/convert_weight.py \
 
 ## 全参微调
 
-全参微调性能（seq_length=2048，global_batch_size=8）：
+全参微调性能（seq_length=8192，global_batch_size=8）：
 
 | Model                | tokens/s |
 |:---------------------|:--------:|
-| Mindformers-Qwen-7B  |  2245.6  |
-| Mindformers-Qwen-14B |   1192   |
+| Mindformers-Qwen-7B  |  1512  |
+| Mindformers-Qwen-14B |   901  |
 
 请参照[数据集准备](#数据集准备)章节获取mindrecord格式的alpaca数据集，参照[模型权重准备](#模型权重准备)章节获取权重。
 
@@ -215,21 +215,16 @@ python mindformers/research/qwen/convert_weight.py \
    run_mode: 'finetune'
 
    model_config:
-      seq_length: 2048 # 与数据集长度保持相同
+      seq_length: 8192 # 与数据集长度保持相同
 
    train_dataset: &train_dataset
      data_loader:
        type: MindDataset
        dataset_dir: "/path/alpaca.mindrecord"  # 配置训练数据集文件夹路径
 
-   # 8卡分布式策略配置
-   parallel_config:
-     data_parallel: 8
-     model_parallel: 1
-     pipeline_stage: 1
-     micro_batch_num: 1
-     vocab_emb_dp: True
-     gradient_aggregation_group: 4
+   processor:
+    tokenizer:
+      vocab_file: "/path/qwen.tiktoken"  # 配置tiktoken文件夹路径
    ```
 
 5. 启动微调任务。

@@ -35,7 +35,7 @@ train_dataset_task:
 # runner config
 runner_config:
   epochs: 5
-  batch_size: 1
+  batch_size: 2
   sink_mode: True
   sink_size: 2
 runner_wrapper:
@@ -49,17 +49,18 @@ runner_wrapper:
 
 # optimizer
 optimizer:
-  type: FP32StateAdamWeightDecay
+  type: AdamWeightDecayX
   beta1: 0.9
   beta2: 0.95
-  eps: 1.e-6
+  eps: 1.e-8
   weight_decay: 0.1
 
 # lr sechdule
 lr_schedule:
   type: CosineWithWarmUpLR
   learning_rate: 1.e-5
-  warmup_ratio: 0.01
+  lr_end: 1.e-5
+  warmup_ratio: 0
   total_steps: -1 # -1 means it will load the total steps of the dataset
 
 # callbacks
@@ -75,14 +76,14 @@ callbacks:
 
 # default parallel of device num = 8 for Atlas 800T A2
 parallel_config:
-  data_parallel: 8
-  model_parallel: 1
+  data_parallel: 1
+  model_parallel: 8
   pipeline_stage: 1
   micro_batch_num: 1
   vocab_emb_dp: False
   gradient_aggregation_group: 4
 # when model parallel is greater than 1, we can set micro_batch_interleave_num=2, that may accelerate the train process.
-micro_batch_interleave_num: 1
+micro_batch_interleave_num: 4
 
 # recompute config
 recompute_config:
@@ -96,7 +97,7 @@ model:
   model_config:
     type: QwenConfig
     batch_size: 1
-    seq_length: 1024
+    seq_length: 8192
     hidden_size: 5120
     num_layers: 40
     num_heads: 40
@@ -108,11 +109,11 @@ model:
     pad_token_id: 151643
     compute_dtype: "float16"
     layernorm_compute_type: "float32"
-    softmax_compute_type: "float16"
-    rotary_dtype: "float16"
-    param_init_type: "float16"
-    use_past: True
-    use_flash_attention: False
+    softmax_compute_type: "float32"
+    rotary_dtype: "float32"
+    param_init_type: "float32"
+    use_past: False
+    use_flash_attention: True
     use_paged_attention: False  # only supported in mslite inference
     block_size: 32
     num_blocks: 128
@@ -150,7 +151,7 @@ context:
   ascend_config:
     precision_mode: "must_keep_origin_dtype"
   max_call_depth: 10000
-  max_device_memory: "59GB"
+  max_device_memory: "60GB"
   save_graphs: False
   save_graphs_path: "./graph"
   device_id: 0
