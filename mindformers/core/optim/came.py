@@ -193,10 +193,10 @@ class Came(Optimizer):
         learning_rate (Union[float, Tensor]): A value or a graph for the learning rate.
             When the learning_rate is a Tensor in a 1D dimension.
             If the type of `learning_rate` is int, it will be converted to float. Default: None.
-        eps (tuple): The regularization constans for square gradient, parameter scale and instability_matrix
-            respectively. default: (1e-30, 1e-3, 1e-16)
-        clip_threshold (Union[float, Tensor]): The threshold of root mean square of final gradient update. default: 1.0
-        decay_rate (Union[float, Tensor]): The coefficient used to compute running averages of square gradient.
+        eps (Union[list, tuple]): The regularization constans for square gradient, parameter scale and
+            instability_matrix respectively. default: (1e-30, 1e-3, 1e-16)
+        clip_threshold (float): The threshold of root mean square of final gradient update. default: 1.0
+        decay_rate (float): The coefficient used to compute running averages of square gradient.
             default: 0.8
         beta1 (float): The coefficient to computing running averages of gradient. Should be in range (0.0, 1.0).
                Default: 0.9.
@@ -210,11 +210,11 @@ class Came(Optimizer):
             initialization is being used. default: False
         compression (bool): If True, the data type of the running averages exponent will be compression to float16.
             default: False
-        loss_scale (float): A floating point value for the loss scale. Should be greater than 0. In general, use the
+        loss_scale (int): An integer point value for the loss scale. Should be greater than 0. In general, use the
             default value. Only when `FixedLossScaleManager` is used for training and the `drop_overflow_update` in
             `FixedLossScaleManager` is set to False, then this value needs to be the same as the `loss_scale` in
             `FixedLossScaleManager`. Refer to class :class:`mindspore.amp.FixedLossScaleManager` for more details.
-            Default: 1.0.
+            Default: 1.
 
     Inputs:
         - **gradients** (tuple[Tensor]) - The gradients of `params`, the shape is the same as `params`.
@@ -251,7 +251,7 @@ class Came(Optimizer):
                  relative_step=False,
                  warmup_init=False,
                  compression=False,
-                 loss_scale=1.0):
+                 loss_scale=1):
 
         if learning_rate is not None and relative_step:
             raise ValueError("Cannot combine manual lr and relative_step options", learning_rate)
@@ -268,6 +268,7 @@ class Came(Optimizer):
             if relative_step or scale_parameter:
                 logging.warning("When learning_rate is learning scheduler, it not support update learning rate!")
 
+        validator.check_value_type("loss_scale", loss_scale, [int], self.cls_name)
         super(Came, self).__init__(learning_rate, params, weight_decay, loss_scale)
         validator.check_value_type("eps", eps, [list, tuple], self.cls_name)
         if len(eps) != 3:
@@ -278,10 +279,11 @@ class Came(Optimizer):
         validator.check_value_type("clip_threshold", clip_threshold, [float], self.cls_name)
         validator.check_non_negative_float(clip_threshold, "clip_threshold", self.cls_name)
         validator.check_value_type("decay_rate", decay_rate, [float], self.cls_name)
-        validator.check_float_range(decay_rate, 0, 1, Rel.INC_NEITHER, "decay_rate", self.cls_name)
-        validator.check_float_range(weight_decay, 0, 1, Rel.INC_LEFT, "weight_decay", self.cls_name)
+        validator.check_float_range(decay_rate, 0, 1, Rel.INC_BOTH, "decay_rate", self.cls_name)
+        validator.check_float_range(weight_decay, 0, 1, Rel.INC_BOTH, "weight_decay", self.cls_name)
         validator.check_value_type("scale_parameter", scale_parameter, [bool], self.cls_name)
         validator.check_value_type("relative_step", relative_step, [bool], self.cls_name)
+        validator.check_value_type("warmup_init", warmup_init, [bool], self.cls_name)
         validator.check_value_type("compression", compression, [bool], self.cls_name)
         validator.check_value_type("beta1", beta1, [int, float], self.cls_name)
         validator.check_non_negative_float(float(beta1), "beta1", self.cls_name)
