@@ -52,6 +52,7 @@ model:
     pre_seq_len: None
     prefix_projection: False
     param_init_type: "float16"
+    mask_type: "float16"
     compute_dtype: "float16"
     layernorm_compute_type: "float32"
     use_past: False
