@@ -208,6 +208,8 @@ class ChatGLM2ForConditionalGeneration(GLM2PreTrainedModel):
             slot_mapping=slot_mapping
         )
         lm_logits = self.transformer.output_layer(hidden_states)
+        if lm_logits.dtype == mstype.bfloat16:
+            lm_logits = self.cast(lm_logits, mstype.float32)
         outputs = (lm_logits,)
 
         # train
