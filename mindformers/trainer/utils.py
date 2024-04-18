@@ -480,15 +480,7 @@ def get_src_and_dst_strategy(config):
 
     dst_strategy_path = None
     if (not rank_id) or (rank_id % 8 == 0 and check_in_modelarts()):
-        if config.src_strategy_path_or_dir and os.path.isdir(config.src_strategy_path_or_dir):
-            if config.parallel_config.pipeline_stage > 1:
-                src_strategy_path = get_strategy(config.src_strategy_path_or_dir)
-            elif config.parallel_config.pipeline_stage == 1:
-                src_strategy_paths = glob(os.path.join(config.src_strategy_path_or_dir, "*_rank_*.ckpt"))
-                src_strategy_paths.sort()
-                src_strategy_path = src_strategy_paths[0]
-        else:
-            src_strategy_path = get_strategy(config.src_strategy_path_or_dir)
+        src_strategy_path = get_strategy(config.src_strategy_path_or_dir)
     else:
         src_strategy_path = None
 
