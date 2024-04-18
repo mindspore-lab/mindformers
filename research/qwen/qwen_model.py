@@ -41,6 +41,7 @@ from mindformers.models.llama.llama_layer import LlamaEmbedding, FreqsMgr, Llama
 from mindformers.models.llama.llama_transformer import LLamaDecodeLayer
 from mindformers.models.llama.llama import layer_compute_dtype
 from mindformers.models.llama.llama_layer import LlamaRMSNorm
+from mindformers.version_control import check_valid_flash_attention
 
 from qwen_config import QwenConfig
 
@@ -199,11 +200,8 @@ class QwenModel(QwenPreTrainedModel):
         self.is_dynamic = config.is_dynamic
 
         self.is_first_iteration = True
-        self.use_flash_attention = config.use_flash_attention
-        if self.use_flash_attention:
-            logger.info("Enable flash attention.")
-        elif config.use_flash_attention:
-            logger.info("Current MindSpore do not support flash attention.")
+        self.use_flash_attention = config.use_flash_attention and check_valid_flash_attention(
+                        import_fa_valid=True, fa_type='FlashAttention')
 
         # 1. wte
         self.wte = LlamaEmbedding(self.vocab_size, self.embed_dim, param_init_type=config.param_init_type,
@@ -228,7 +226,7 @@ class QwenModel(QwenPreTrainedModel):
                                     param_init_type=config.param_init_type,
                                     qkv_has_bias=True,
                                     use_past=config.use_past,
-                                    use_flash_attention=config.use_flash_attention,
+                                    use_flash_attention=self.use_flash_attention,
                                     block_size=config.block_size,
                                     num_blocks=config.num_blocks,
                                     parallel_config=config.parallel_config)
@@ -250,7 +248,7 @@ class QwenModel(QwenPreTrainedModel):
                                              compute_type=config.compute_dtype,
                                              is_dynamic=config.is_dynamic,
                                              pad_token_id=config.pad_token_id,
-                                             use_flash_attention=config.use_flash_attention)
+                                             use_flash_attention=self.use_flash_attention)
 
         # 5. ln_f
         self.ln_f = LlamaRMSNorm(
@@ -370,9 +368,9 @@ class QwenFeedForward(nn.Cell):
                     no_warning=_get_parallel_mode() in (ParallelMode.STAND_ALONE,))
     @_args_type_validator_check(dim=Validator.check_positive_int,
                                 intermediate_size=Validator.check_positive_int,
-                                compute_dtype=_valid_value_checks([mstype.float32, mstype.float16],
+                                compute_dtype=_valid_value_checks([mstype.float32, mstype.float16, mstype.bfloat16],
                                                                   "FeedForward"),
-                                param_init_type=_valid_value_checks([mstype.float32, mstype.float16],
+                                param_init_type=_valid_value_checks([mstype.float32, mstype.float16, mstype.bfloat16],
                                                                     "FeedForward"))
     def __init__(self, dim,
                  intermediate_size=0,
@@ -413,7 +411,7 @@ class QwenFeedForward(nn.Cell):
 
     def construct(self, x):
         """Forward process of the FeedForward"""
-        _check_input_dtype(F.dtype(x), "x", [mstype.float32, mstype.float16], self.cls_name)
+        _check_input_dtype(F.dtype(x), "x", [mstype.float32, mstype.float16, mstype.bfloat16], self.cls_name)
         x = self.cast(x, self.dtype)
         # [bs, seq, hidden_dim] or [bs * seq, hidden_dim]
         gate = self.w1(x)  # dp,1 -> dp, mp

@@ -28,8 +28,9 @@ import qwen_model
 import qwen_tokenizer
 # pylint: disable=W0611
 import qwen_config
-
+# pylint: disable=W0611
 import optim
+
 
 if check_in_modelarts():
     import moxing as mox
@@ -72,8 +73,7 @@ def main(task='text_generation',
          device_id=0,
          do_sample=None,
          top_k=None,
-         top_p=None,
-         paged_attention=False):
+         top_p=None):
     """main function."""
 
     yaml_path = os.path.expanduser(config)
@@ -122,13 +122,6 @@ def main(task='text_generation',
     elif run_mode == 'finetune':
         trainer = Trainer(args=config, task=task, train_dataset=train_dataset)
         trainer.finetune(finetune_checkpoint=ckpt, auto_trans_ckpt=auto_trans_ckpt)
-    elif run_mode == 'export':
-        if paged_attention is not None:
-            config.model.model_config.use_paged_attention = paged_attention
-
-        trainer = Trainer(args=config,
-                          task=task)
-        trainer.export(predict_checkpoint=ckpt)
     else:
         raise NotImplementedError(f"run_mode '${run_mode}' not supported yet.")
 
@@ -139,7 +132,7 @@ if __name__ == "__main__":
                         help='set task type.')
     parser.add_argument('--config', default='run_qwen_7b.yaml', type=str,
                         help='config file path.')
-    parser.add_argument('--run_mode', default='predict', choices=['predict', 'finetune', 'export'],
+    parser.add_argument('--run_mode', default='predict', type=str,
                         help='set run mode for model.')
     parser.add_argument('--load_checkpoint', default=None, type=str,
                         help='checkpoint name or dir to load.')
@@ -174,10 +167,6 @@ if __name__ == "__main__":
     train_group.add_argument('--optimizer_parallel', default=False, type=str2bool,
                              help='whether use optimizer parallel. Default: False')
 
-    export_group = parser.add_argument_group(title="Export options")
-    export_group.add_argument('--paged_attention', default=None, type=str2bool,
-                              help='Enable paged attention for mslite exporting.')
-
     args = parser.parse_args()
 
     if args.device_id == -1:
@@ -198,5 +187,4 @@ if __name__ == "__main__":
          train_dataset=args.train_dataset,
          do_sample=args.do_sample,
          top_k=args.top_k,
-         top_p=args.top_p,
-         paged_attention=args.paged_attention)
+         top_p=args.top_p)

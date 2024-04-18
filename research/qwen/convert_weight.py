@@ -98,9 +98,14 @@ if __name__ == '__main__':
                         required=True,
                         help="The torch checkpoint path.")
     parser.add_argument("--mindspore_ckpt_path",
-                        default="./run/qwen_7b_ms.ckpt",
+                        required=True,
                         help="The output checkpoint path.")
+    parser.add_argument("--dtype", default=None, choices=['float16', 'float32', 'bfloat16'],
+                        help="Data type for output checkpoint file. Default: float16")
 
-    args = parser.parse_args()
+    _args = parser.parse_args()
 
-    convert_pt_to_ms(args.torch_ckpt_path, args.mindspore_ckpt_path)
+    from mindformers.models.utils import convert_mstype
+    _dtype = convert_mstype(_args.dtype)
+
+    convert_pt_to_ms(_args.torch_ckpt_path, _args.mindspore_ckpt_path, dtype=_dtype)
