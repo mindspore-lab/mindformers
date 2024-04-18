@@ -39,7 +39,8 @@ def make_context(
         history: HistoryType = None,
         system: str = '',
         max_window_size: int = 6144,
-        chat_format: str = 'chatml'
+        chat_format: str = 'chatml',
+        verbose: bool = False
 ) -> Tuple[str, TokensType]:
     """make chat context"""
     if not history:
@@ -100,6 +101,9 @@ def make_context(
 
         prompt_text = f"{im_start}{system_text}{im_end}" + history_text + \
                       f"\n{im_start}user\n{query}{im_end}\n{im_start}assistant\n"
+
+        if verbose:
+            print("\nInput: ", prompt_text)
 
         return prompt_text, prompt_tokens
     raise NotImplementedError(f"Unknown chat format {chat_format!r}")
@@ -231,6 +235,7 @@ def chat(
     max_window_size = kwargs.get('max_window_size',
                                  model.transformer.seq_length - max_new_tokens - 48)
     chat_format = kwargs.get('chat_format', 'chatml')
+    verbose = kwargs.get('verbose', False)
 
     prompt_text, prompt_tokens = make_context(
         tokenizer,
@@ -238,7 +243,8 @@ def chat(
         history=history,
         system=system,
         max_window_size=max_window_size,
-        chat_format=chat_format
+        chat_format=chat_format,
+        verbose=verbose
     )
     stop_words_ids.extend(get_stop_words_ids(chat_format, tokenizer))
 
@@ -253,7 +259,7 @@ def chat(
         raw_text_len=len(prompt_text),
         context_length=len(prompt_tokens),
         chat_format=chat_format,
-        verbose=False,
+        verbose=verbose,
         errors='replace'
     )
 
