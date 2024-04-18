@@ -29,6 +29,8 @@ import qwen_tokenizer
 # pylint: disable=W0611
 import qwen_config
 
+import optim
+
 if check_in_modelarts():
     import moxing as mox
 
