@@ -1,0 +1,27 @@
+import mindspore as ms
+from mindspore import Tensor, Parameter, ops
+
+class Accumulator():
+    def __init__(self, optimizer, accumulate_step, clip_norm=1.0):
+        self.optimizer = optimizer
+        self.clip_norm = clip_norm
+        self.inner_grads = optimizer.parameters.clone(prefix="accumulate_", init='zeros')
+        self.zeros = optimizer.parameters.clone(prefix="zeros_", init='zeros')
+        self.counter = Parameter(Tensor(1, ms.int32), 'counter_')
+        assert accumulate_step > 0
+        self.accumulate_step = accumulate_step
+        self.map = ops.HyperMap()
+
+    def __call__(self, grads):
+        # 将单步获得的梯度累加至Accumulator的inner_grads
+        self.map(ops.partial(ops.assign_add), self.inner_grads, grads)
+        if self.counter % self.accumulate_step == 0:
+            # 如果达到累加步数，进行参数优化更新
+            self.optimizer(self.inner_grads)
+            # 完成参数优化更新后，清零inner_grads
+            self.map(ops.partial(ops.assign), self.inner_grads, self.zeros)
+        # 计算步数加一
+        ops.assign_add(self.counter, Tensor(1, ms.int32))
+
+        return True
+
