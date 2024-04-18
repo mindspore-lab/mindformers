@@ -99,7 +99,7 @@ MODEL_FOR_IMAGE_CLASSIFICATION_MAPPING_NAMES = OrderedDict(
 
 MODEL_FOR_VISION_2_SEQ_MAPPING_NAMES = OrderedDict(
     [
-        ("blip2", "Blip2ForConditionalGeneration"),
+        ("blip2", "Blip2ImageToTextGeneration"),
     ]
 )
 
