@@ -251,7 +251,6 @@ text_transforms的参数解释：
 ```
 制作stage3数据集时，请按照如上格式。且stage3数据集中的`<img>xxx.jpeg</img>`必须为相对路径，存放位置和参数解释中提及的路径保持一致。
 
-
 ### 模型权重准备
 
 ## 权重转换
@@ -278,9 +277,7 @@ cd research
 bash run_singlenode.sh "python qwenvl/run_qwenvl.py --config /path/to/run_qwenvl_stage3_910b.yaml --use_parallel True --run_mode finetune --load_checkpoint /path/to/qwenvl.ckpt --vocab_file /path/to/qwen.tiktoken --seq_length 2048 --image_size 448" /path/to/hccl.json '[0,8]' 8
 ```
 
-
 ## 推理
-
 
 ### 基于高阶接口推理
 
@@ -325,5 +322,31 @@ Picture 1: <img>/path/to/demo.jpeg</img>
 Describe the image in English: A woman and a dog sitting on the beach.<|endoftext|>
 ```
 
-### Batch推理
+### 使用训练后权重推理
 
+1. 单卡训练得到权重
+
+当使用单卡训练时，参考前文基于Generate推理章节进行推理，在执行命令时传入`load_checkpoint`
+值为训练保存得到权重，保存的权重位于执行目录下`output/checkpoint_network`文件夹下。
+
+2. 多卡训练得到权重
+
+当使用多卡进行训练时，保存的权重为分布式权重，需要对分布式权重进行合并，当前需要进行两次合并。具体过程如下：
+
+- 参照[权重转换文档](https://mindformers.readthedocs.io/zh-cn/latest/docs/feature_cards/Transform_Ckpt.html)将
+  `output/checkpoint_network`文件夹下保存的分布式权重合并成完整权重；
+- 运行以下命令对上一步骤所得完整权重的`vision_encoder.positional_embedding`权重进行替换
+  ```bash
+    cd research/qwenvl
+    python merge_weights.py --shard_ckpt_dir /path/to/distributed/ckpt/dir --target_ckpt_path /path/to/target/ckpt
+
+    # 参数说明：
+    # shard_ckpt_dir: 分布式权重文件夹， 与第一步权重转换时所用分布式权重文件夹相同
+    # target_ckpt_path: 需要替换的`vision_encoder.positional_embedding`的权重，为第一步权重转换时得到的完整权重
+  ```
+  上述命令，可以将分布式权重的`vision_encoder.positional_embedding`
+  层权重进行合并，替换第一步合并的权重中的`vision_encoder.positional_embedding`
+  层权重，并在同路径下生成一个以`_merge_pos_embedding.ckpt`结尾的新的ckpt。
+
+完成以上权重合并过程后，可以参考前文基于Generate推理章节进行推理，在执行命令时传入`load_checkpoint`
+值为以`_merge_pos_embedding.ckpt`结尾的ckpt路径。
