@@ -20,7 +20,8 @@ import argparse
 from mindformers import Trainer, MindFormerConfig
 from mindformers.tools.utils import str2bool
 from mindformers.core.context import build_context
-
+# pylint: disable=W0611
+from optim import AdamWeightDecayX
 
 def main(task='text_generation',
          config='run_yi_6b_text_generation.yaml',
