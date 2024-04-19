@@ -123,7 +123,7 @@ context:
   enable_graph_kernel: False
   graph_kernel_flags: "--disable_expand_ops=Softmax,Dropout --enable_parallel_fusion=true --reduce_fuse_depth=8 --enable_auto_tensor_inplace=true"
   max_call_depth: 10000
-  max_device_memory: "58GB"
+  max_device_memory: "59GB"
   save_graphs: False
   save_graphs_path: "./graph"
   device_id: 0
