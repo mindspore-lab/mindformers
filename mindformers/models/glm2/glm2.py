@@ -87,8 +87,9 @@ class ChatGLM2Model(nn.Cell):
                                                           pad_token_id=config.pad_token_id,
                                                           use_flash_attention=use_flash_attention_flag)
 
+        max_seq_length = config.seq_length if not self.pre_seq_len else config.seq_length + self.pre_seq_len
         self.kvcache_preprocess = KVCachePreprocess(max_batch_size=config.batch_size,
-                                                    max_seq_length=config.seq_length,
+                                                    max_seq_length=max_seq_length,
                                                     is_dynamic=config.is_dynamic,
                                                     use_kvcache_op=config.use_kvcache_op,
                                                     is_flexible_shape=config.is_flexible_shape,

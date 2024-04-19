@@ -237,8 +237,9 @@ class ChatGLM2SelfAttention(nn.Cell):
                                                              compute_dtype=config.compute_dtype)
                 self.paged_attention_mgr.shard(parallel_config)
             else:
+                max_seq_length = config.seq_length if not self.pre_seq_len else config.seq_length + self.pre_seq_len
                 self.kvcache_mgr = KVCacheMgr(kv_num_partition, self.head_dim,
-                                              max_batch_size=config.batch_size, max_seq_length=config.seq_length,
+                                              max_batch_size=config.batch_size, max_seq_length=max_seq_length,
                                               compute_dtype=config.compute_dtype, is_dynamic=config.is_dynamic,
                                               use_kvcache_op=config.use_kvcache_op,
                                               is_flexible_shape=config.is_flexible_shape)
@@ -346,7 +347,7 @@ class ChatGLM2SelfAttention(nn.Cell):
             value_layer
         )
 
-        if attention_mask is not None:
+        if attention_mask is not None and getattr(self, "is_first_iteration", True):
             batch_size = attention_mask.shape[0]
             prefix_mask = attention_mask.new_zeros((batch_size, 1, seq_len, self.pre_seq_len))
             m_cat = P.Concat(3)
