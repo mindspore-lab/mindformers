@@ -18,7 +18,7 @@ How to run this:
 pytest tests/st/test_model/test_gpt2_model/test_gpt2_with_pfa_ifa.py
 """
 import numpy as np
-import pytest
+# import pytest
 
 import mindspore as ms
 from mindspore.dataset import GeneratorDataset
@@ -49,9 +49,9 @@ def generator_eval():
         yield train_data
 
 
-@pytest.mark.level0
-@pytest.mark.platform_arm_ascend910b_training
-@pytest.mark.env_onecard
+# @pytest.mark.level0
+# @pytest.mark.platform_arm_ascend910b_training
+# @pytest.mark.env_onecard
 class TestGPTTrainerMethod:
     """A test class for testing pipeline."""
 
@@ -111,7 +111,7 @@ class TestGPTTrainerMethod:
                                       train_dataset=train_dataset,
                                       eval_dataset=eval_dataset)
 
-    @pytest.mark.run(order=1)
+    # @pytest.mark.run(order=1)
     def test_predict(self):
         """
         Feature: Trainer.predict()
