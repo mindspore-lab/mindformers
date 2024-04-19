@@ -61,6 +61,7 @@
    docs/feature_cards/Auto_Parallel.md
    docs/feature_cards/Eval_While_Training.md
    docs/feature_cards/Transform_Ckpt.md
+   docs/feature_cards/Transform_Lorackpt.md
    docs/feature_cards/Text_Generator.md
    docs/feature_cards/Inference.md
    docs/feature_cards/Chat_Web.md
