@@ -33,6 +33,7 @@ from ..utils import cell_reuse
 from .glm2_config import ChatGLM2Config
 from .glm2_modules import precompute_rotary_emb_cache
 from .glm2_transformer import ChatGLM2Transformer
+from ...tools.logger import logger
 
 __all__ = ['ChatGLM2ForConditionalGeneration', 'ChatGLM2Model', 'ChatGLM2WithPtuning2']
 
@@ -81,6 +82,7 @@ class ChatGLM2Model(GLM2PreTrainedModel):
         self.rotary_pos_emb = precompute_rotary_emb_cache(
             seq_len=self.seq_length,
             dim=rotary_dim // 2,
+            rope_ratio=config.rope_ratio,
             dtype=config.compute_dtype
         )
 
@@ -186,6 +188,24 @@ class ChatGLM2ForConditionalGeneration(GLM2PreTrainedModel):
             "input_ids": Tensor(input_ids, mstype.int32),
             "input_position": input_position
         }
+
+    def prepare_inputs_for_predict_layout(self, input_ids):
+        """Get ChatGLM2 model input tuple for transform ckpt."""
+        input_ids = Tensor(input_ids, mstype.int32)
+        bs = input_ids.shape[0]
+        slot_mapping = Tensor(np.ones(shape=tuple([bs])), mstype.int32)
+        return input_ids, None, None, None, None, None, None, None, None, None, slot_mapping
+
+    def set_dynamic_inputs(self):
+        dynamic_input_ids = Tensor(shape=[None, None], dtype=mstype.int32)
+        dynamic_input_position = Tensor(shape=[None], dtype=mstype.int32)
+        dynamic_init_reset = Tensor([False], mstype.bool_)
+        dynamic_batch_valid_length = Tensor(shape=[None, None], dtype=mstype.int32)
+        dynamic_block_tables = Tensor(shape=[None, None], dtype=mstype.int32)
+        dynamic_slot_mapping = Tensor(shape=[None], dtype=mstype.int32)
+        self.set_inputs(dynamic_input_ids, None, dynamic_input_position, None, None, None, dynamic_init_reset,
+                        dynamic_batch_valid_length, None, dynamic_block_tables, dynamic_slot_mapping)
+        logger.info("Set dynamic input for glm.")
 
     # pylint: disable=W0613
     def construct(self, input_ids=None, labels=None, input_position=None, position_ids=None, attention_mask=None,

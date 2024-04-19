@@ -297,9 +297,10 @@ train_data: 训练数据集路径
 path/to/rank_table_file: 生成RANK_TABLE_FILE步骤中生成的hccl_***_json文件路径
 ```
 
-### 快速推理
+### 推理
 
-在启动前，请先行在配置文件run_glm32k.yaml中将processor.tokenizer.vocab_file的路径配置为实际路径；增量推理开关在配置文件中model.model_config.use_past位置。例如：
+大模型推理升级训推一体架构，实现脚本、分布式策略和运行时的统一，通过融合大算子降低推理时延，有效提升网络吞吐量。
+在启动前，请先行在配置文件run_glm32k.yaml中将processor.tokenizer.vocab_file的路径配置为实际路径；增量推理开关在配置文件中model.model_config.use_past位置；
 
 ```yaml
 processor:
@@ -312,30 +313,30 @@ model:
   model_config:
     ...
     use_past: True
+    is_dynamic: True
     ...
 ```
 
 相关文件的下载链接如下：[tokenizer.model](https://huggingface.co/THUDM/chatglm3-6b-32k/blob/main/tokenizer.model)
 
-#### 基于generate接口的推理
+#### 基于Trainer接口的推理
 
-- 代码见`research/glm32k/infer_generate.py`
+- 代码见`run_mindformer.py`
+
 - 启动命令：
 
 ```shell
-python infer_generate.py \
---checkpoint_path CKPT_PATH \
---device_id DEVICE_ID \
---use_past True \
---user_query "晚上睡不着应该怎么办"
+python run_mindformer.py \
+--config research/glm32k/predict_glm32k.yaml \
+--run_mode predict \
+--predict_data "晚上睡不着应该怎么办"
 ```
 
 ```text
 # 参数说明
-checkpoint_path: 权重文件夹路径
-device_id: NPU卡号
-use_past: 是否开启增量推理
-user_query: 用户输入问题
+config: yaml配置路径
+run_mode: 模式，predict执行推理
+predict_data: 输入的问题
 ```
 
 ```text

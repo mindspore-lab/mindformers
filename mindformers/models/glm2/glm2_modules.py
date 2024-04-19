@@ -26,8 +26,9 @@ from mindformers.version_control import check_rmsnorm_big_kernel_valid, check_va
 from .glm2_config import ChatGLM2Config
 
 
-def precompute_rotary_emb_cache(seq_len: int, dim: int, dtype=mstype.float32, base: int = 10000):
+def precompute_rotary_emb_cache(seq_len: int, dim: int, dtype=mstype.float32, rope_ratio=1, base: int = 10000):
     """pre compute rotary emb cache."""
+    base = base * rope_ratio
     # $\Theta = {\theta_i = 10000^{\frac{2(i-1)}{d}}, i \in [1, 2, ..., \frac{d}{2}]}$
     theta = 1.0 / (base ** (np.arange(0, dim, 2, dtype=np.float32) / dim))
 
