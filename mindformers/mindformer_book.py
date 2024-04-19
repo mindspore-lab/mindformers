@@ -274,9 +274,11 @@ class MindFormerBook:
             ("qwen_7b_lora", os.path.join(
                 _PROJECT_PATH, "research/qwen/run_qwen_7b_lora.yaml")),
             ("yi_6b", os.path.join(
-                _PROJECT_PATH, "research/yi/run_yi_6b_text_generation.yaml")),
+                _PROJECT_PATH, "research/yi/predict_yi_6b.yaml")),
             ("yi_34b", os.path.join(
-                _PROJECT_PATH, "research/yi/run_yi_34b_text_generation.yaml")),
+                _PROJECT_PATH, "research/yi/predict_yi_34b.yaml")),
+            ("deepseek_33b", os.path.join(
+                _PROJECT_PATH, "research/deepseek/predict_deepseek_33b.yaml")),
             ("common", os.path.join(
                 _PROJECT_PATH, "configs/gpt2/run_gpt2.yaml"))])
          ),
@@ -446,6 +448,8 @@ class MindFormerBook:
                 _PROJECT_PATH, "research/internlm/run_internlm_7b.yaml")),
             ("internlm_7b_lora", os.path.join(
                 _PROJECT_PATH, "research/internlm/run_internlm_7b_lora.yaml")),
+            ("deepseek_33b", os.path.join(
+                _PROJECT_PATH, "research/internlm/predict_deepseek_33b.yaml")),
             ("common", os.path.join(
                 _PROJECT_PATH, "configs/gpt2/run_gpt2.yaml"))
         ])),
