@@ -836,6 +836,7 @@ class MindFormerBook:
             'llama2_7b',
             'llama2_13b',
             'llama2_70b',
+            'llama3_8b',
             'llama_7b_lora',
             'baichuan_7b',
             'ziya_13b',
@@ -846,6 +847,9 @@ class MindFormerBook:
             'llama2_7b',
             'llama2_13b',
             'llama2_70b',
+        ]),
+        ('llama3', [
+            'llama3_8b',
         ]),
         ('codellama', [
             'codellama_34b',
