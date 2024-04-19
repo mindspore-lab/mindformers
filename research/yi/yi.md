@@ -175,7 +175,7 @@ bash run_singlenode.sh \
 
 ```text
 START_CMD：Python启动命令，其中
- config：为research/skywork文件夹下面的run_skywork_13b.yaml配置文件，配置文件参数请按需修改
+ config：为research/yi文件夹下面的run_yi_6b_*.yaml配置文件，配置文件参数请按需修改
  run_mode：任务运行状态，支持关键字train/finetune/eval/predict/export
  train_dataset：训练数据集路径
  auto_trans_ckpt：是否自动转换ckpt
@@ -220,14 +220,17 @@ DEVICE_RANGE：为单机分布式卡的范围，如 '[0,8]' 为8卡分布式，�
 DEVICE_NUM：使用的卡的个数
 ```
 
-## MindSpore推理
+## 推理
 
-> 接口说明请参考[API接口](https://gitee.com/mindspore/transformer/wikis/API/)  
-> 遵从Yi-6B的license，本模型需要用户自行下载权重进行处理，故使用时和llama存在一定区别，具体如下：
+大模型推理升级训推一体架构，实现脚本、分布式策略和运行时的统一，通过融合大算子降低推理时延，有效提升网络吞吐量。
 
-在启动前，请先行在配置文件run_yi_6b.yaml中将processor.tokenizer.vocab_file的路径配置为实际路径；如果使用增量推理，需要在配置文件中将model.model_config.use_past值设置为True。例如：
+### 设置推理配置
+
+以6b推理为例，在启动前，请先行在配置文件predict_yi_6b.yaml中将processor.tokenizer.vocab_file的路径配置为实际路径,
+model_config按如下配置
 
 ```yaml
+
 processor:
   return_tensors: ms
   tokenizer:
@@ -238,7 +241,9 @@ model:
   model_config:
     ...
     use_past: True
+    is_dynamic: True
     ...
+
 ```
 
 - generate接口推理：
@@ -253,7 +258,7 @@ context.set_context(device_id=0, mode=0)
 
 # init yi-6b-Base model
 yi_model_path = "/xxx/save_checkpoint/yi_6b.ckpt"  # 填写实际路径
-config_path = '/xxx/xxx/run_yi_6b_text_generation.yaml'  # 填写实际路径
+config_path = '/xxx/xxx/predict_yi_6b.yaml'  # 填写实际路径
 
 config = MindFormerConfig(config_path)
 config.model.model_config.checkpoint_name_or_path = yi_model_path
@@ -293,6 +298,7 @@ print(tokenizer.decode(outputs))
 - pipeline接口推理：
 
 ```python
+
 from mindspore import context
 from mindformers.pipeline import pipeline
 from mindformers.tools.register import MindFormerConfig
@@ -301,7 +307,7 @@ from mindformers import LlamaForCausalLM, LlamaConfig, LlamaTokenizer
 context.set_context(device_id=0, mode=0)
 
 yi_model_path = "/xxx/save_checkpoint/yi_6b.ckpt"  # 填写实际路径
-config_path = '/xxx/xxx/run_yi_6b_text_generation.yaml'  # 填写实际路径
+config_path = '/xxx/xxx/predict_yi_6b.yaml'  # 填写实际路径
 config = MindFormerConfig(config_path)
 config.model.model_config.checkpoint_name_or_path = yi_model_path
 yi_config = LlamaConfig(**config.model.model_config)
@@ -333,6 +339,22 @@ print(pipeline_result)
 
 # 运行结果
 [{'text_generation_text': ['以雷霆之力，将这股力量化为一道道剑气。\n“噗！”\n一柄长枪被斩断成两截后，那名大汉的脸上露出惊恐之色，他连忙向后退去，想要逃走。\n可是他的速度哪里比得上叶星辰的速度？\n只见叶星辰的身影出现在了他的面前，然后一脚踩在了这名大汉的手臂上，将他整个人都给踢飞了出去。\n这一脚的力量']}]
+
+```
+
+- 分布式推理：
+
+参数量较大的模型，如yi-34b，可能无法进行单卡推理，可使用多卡推理，如下脚本为4卡推理样例，
+msrun_launcher.sh在mindformers的scripts目录下
+
+```shell
+
+cd {mindformers根目录}
+bash scripts/msrun_launcher.sh "research/yi/run_yi.py --config research/yi/predict_yi_34b.yaml --run_mode=predict --predict_data "DNA分子具有双螺旋结构" --predict_length 4096 --use_parallel True --use_past True" 4
+
+# 运行结果
+[{'text_generation_text': ['DNA分子具有双螺旋结构，磷酸和脱氧核糖交替连接，排列在外侧，构成基本骨架，碱基排列在内侧，两条链上的碱基通过氢键连接起来，A与T配对，G与C配对，A、C、T、G、U五种碱基的排列顺序不同，构成了DNA分子的多样性．']}]
+
 ```
 
 ## 推理性能评测
