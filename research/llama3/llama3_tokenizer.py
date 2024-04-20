@@ -29,9 +29,6 @@ except ImportError:
     raise ImportError("Package 'tiktoken' required to run Llama3. please install it with pip.")
 
 PAT_STR = r"""(?i:'s|'t|'re|'ve|'m|'ll|'d)|[^\r\n\p{L}\p{N}]?\p{L}+|\p{N}| ?[^\s\p{L}\p{N}]+[\r\n]*|\s*[\r\n]+|\s+(?!\S)|\s+"""
-ENDOFTEXT = "<|endoftext|>"
-EXTRAS = tuple((f"<|extra_{i}|>" for i in range(205)))
-SPECIAL_TOKENS = (ENDOFTEXT,) + EXTRAS
 
 
 def _load_tiktoken_bpe(tiktoken_bpe_file: str) -> Dict[bytes, int]:
@@ -49,45 +46,65 @@ class Llama3Tokenizer(PreTrainedTokenizer):
     VOCAB_FILES = {'vocab_file': 'tokenizer.json'}
     FILE_LIST = []
     _support_list = MindFormerBook.get_tokenizer_support_list()['llama']
+    special_tokens: Dict[str, int]
 
     def __init__(self,
-                 vocab_file="tokenizer.json",
-                 errors="replace",
+                 vocab_file,
+                 bos_token="<|begin_of_text|>",
+                 eos_token="<|end_of_text|>",
                  pad_token="<|reserved_special_token_0|>",
+                 add_bos_token=True,
+                 add_eos_token=False,
+                 errors="replace",
+                 num_reserved_special_tokens=256,
                  **kwargs):
         pad_token = AddedToken(pad_token, lstrip=False, rstrip=False) if isinstance(pad_token, str) else pad_token
 
-        self.errors = errors  # how to handle errors in decoding
+        self.errors = errors
         self.vocab_file = vocab_file
+        self.add_bos_token = add_bos_token
+        self.add_eos_token = add_eos_token
         self.mergeable_ranks = _load_tiktoken_bpe(vocab_file)  # type: dict[bytes, int]
-
+        num_base_tokens = len(self.mergeable_ranks)
+        special_tokens = [
+            "<|begin_of_text|>",
+            "<|end_of_text|>",
+            "<|reserved_special_token_0|>",
+            "<|reserved_special_token_1|>",
+            "<|reserved_special_token_2|>",
+            "<|reserved_special_token_3|>",
+            "<|start_header_id|>",
+            "<|end_header_id|>",
+            "<|reserved_special_token_4|>",
+            "<|eot_id|>",  # end of turn
+        ] + [
+            f"<|reserved_special_token_{i}|>"
+            for i in range(5, num_reserved_special_tokens - 5)
+        ]
         self.special_tokens = {
-            token: index
-            for index, token in enumerate(
-                SPECIAL_TOKENS, start=len(self.mergeable_ranks)
-            )
+            token: num_base_tokens + i for i, token in enumerate(special_tokens)
         }
 
-        enc = tiktoken.Encoding(
+        self.tokenizer = tiktoken.Encoding(
             "Llama3",
             pat_str=PAT_STR,
             mergeable_ranks=self.mergeable_ranks,
             special_tokens=self.special_tokens,
         )
-        assert (len(self.mergeable_ranks) + len(
-            self.special_tokens) == enc.n_vocab), f"{len(self.mergeable_ranks) + len(self.special_tokens)} != " \
-                                                  f"{enc.n_vocab} in encoding"
 
         self.decoder = {
             v: k for k, v in self.mergeable_ranks.items()
         }  # type: dict[int, bytes|str]
         self.decoder.update({v: k for k, v in self.special_tokens.items()})
 
-        self.tokenizer = enc  # type: tiktoken.Encoding
+        bos_token = AddedToken(bos_token, lstrip=False, rstrip=False) if isinstance(bos_token, str) else bos_token
+        eos_token = AddedToken(eos_token, lstrip=False, rstrip=False) if isinstance(eos_token, str) else eos_token
+        pad_token = AddedToken(pad_token, lstrip=False, rstrip=False) if isinstance(pad_token, str) else pad_token
 
-        self.eod_id = self.tokenizer.eot_token
-
-        super().__init__(pad_token=pad_token, **kwargs)
+        super().__init__(bos_token=bos_token,
+                         eos_token=eos_token,
+                         pad_token=pad_token,
+                         **kwargs)
 
     @property
     def vocab_size(self):
@@ -181,12 +198,16 @@ class Llama3Tokenizer(PreTrainedTokenizer):
         """
         tokens = []
         text = unicodedata.normalize("NFC", text)
+        if self.add_bos_token:
+            tokens.insert(0, self.decoder[self.bos_token_id])
 
         # this implementation takes a detour: text -> token id -> token surface forms
         for t in self.tokenizer.encode(
                 text, allowed_special=allowed_special, disallowed_special=disallowed_special
         ):
             tokens.append(self.decoder[t])
+        if self.add_eos_token:
+            tokens.append(self.decoder[self.eos_token_id])
         return tokens
 
     # pylint: disable=W0613
