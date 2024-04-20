@@ -124,7 +124,6 @@ def preprocess(sources, tokenizer, seq_length):
         # pylint: disable=W0212
         d = tokenizer._pad(d, max_length=seq_length, padding_strategy='max_length')
         input_ids.append(d['input_ids'][:seq_length])
-        # attention_mask.append(d['attention_mask'])
 
         target = np.array(d['input_ids'])
         total_len = int(np.not_equal(target, tokenizer.pad_token_id).sum())
@@ -210,14 +209,14 @@ def tokenize_qa(tokenizer, file_path, seq_length):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--dataset_type', type=str, default='wiki')
-    parser.add_argument('--input_glob', type=str, default='/mnt/luolan/wikitext-2/wiki.train.tokens')
-    parser.add_argument('--output_file', type=str, default='./dataset/wiki2048/wiki2048')
-    parser.add_argument('--tokenizer', type=str, default='llama', choices=['llama'])
-    parser.add_argument('--model_file', type=str, default='/mnt/luolan/llama/tokenizer.model')
+    parser.add_argument('--dataset_type', type=str, default='wiki', choices=['wiki', 'qa'])
+    parser.add_argument('--input_glob', type=str, default='./dataset/wikitext-2/wiki.train.tokens')
+    parser.add_argument('--output_file', type=str, default='./dataset/wiki8192/wiki8192')
+    parser.add_argument('--tokenizer', type=str, default='llama3', choices=['llama3'])
+    parser.add_argument('--model_file', type=str, default='./ckpt/llama3/tokenizer.model')
     parser.add_argument('--file_partition', type=int, default=1)
     parser.add_argument('--repeat', type=int, default=1)
-    parser.add_argument('--seq_length', type=int, default=2048)
+    parser.add_argument('--seq_length', type=int, default=8192)
     args = parser.parse_args()
 
     out_dir, out_file = os.path.split(os.path.abspath(args.output_file))
