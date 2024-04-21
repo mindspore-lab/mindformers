@@ -51,6 +51,7 @@ class ChatGLM2Config(PretrainedConfig):
                  hidden_dropout=0.0,
                  attention_dropout=0.0,
                  layernorm_epsilon=1e-5,
+                 rope_ratio=1,
                  rmsnorm=True,
                  apply_residual_connection_post_layernorm=False,
                  post_layer_norm=True,
@@ -98,6 +99,7 @@ class ChatGLM2Config(PretrainedConfig):
         self.hidden_dropout = hidden_dropout
         self.attention_dropout = attention_dropout
         self.layernorm_epsilon = layernorm_epsilon
+        self.rope_ratio = rope_ratio
         self.rmsnorm = rmsnorm
         self.apply_residual_connection_post_layernorm = apply_residual_connection_post_layernorm
         self.post_layer_norm = post_layer_norm
@@ -129,3 +131,5 @@ class ChatGLM2Config(PretrainedConfig):
         self.block_size = block_size
         self.num_blocks = num_blocks
         self.is_dynamic = is_dynamic
+        self.num_heads = self.num_attention_heads
+        self.n_kv_heads = self.multi_query_group_num if self.multi_query_attention else None
