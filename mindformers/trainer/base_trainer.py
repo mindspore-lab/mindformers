@@ -34,7 +34,6 @@ try:
     GRAD_ACCUMULATION_VALID = True
 except ImportError:
     GRAD_ACCUMULATION_VALID = False
-from mindspore.common import initializer as init
 
 from mindformers.mindformer_book import MindFormerBook
 from mindformers.core import build_lr, build_optim, build_callback, build_metric
@@ -880,7 +879,6 @@ class BaseTrainer:
                     default_args={"parallel_config": config.parallel_config,
                                   "moe_config": config.moe_config})
             self.set_network(network, is_train=False)
-
             self.count_parameters()
 
             if tokenizer is None and config.processor.tokenizer:
@@ -903,10 +901,14 @@ class BaseTrainer:
                     else:
                         batch_size = config.model.model_config.batch_size
                         seq_length = config.model.model_config.seq_length
-                    infer_data = Tensor(shape=(batch_size, seq_length), dtype=ms.int32, init=init.One())
+                    input_ids = np.ones(shape=tuple([batch_size, seq_length]))
+                    infer_data = network.prepare_inputs_for_predict_layout(input_ids)
                     transform_and_load_checkpoint(config, model, network, infer_data, do_predict=True)
                 else:
                     transform_and_load_checkpoint(config, model, network, None, do_predict=True)
+
+            if network.config.use_past and network.config.is_dynamic:
+                network.set_dynamic_inputs()
 
             self.pipeline_task = pipeline(
                 task=task,

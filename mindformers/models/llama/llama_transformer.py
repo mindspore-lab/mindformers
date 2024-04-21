@@ -37,8 +37,6 @@ class LLamaAttention(nn.Cell):
     This is an implementation of multihead attention in LLaMA.
 
     Args:
-            - **src_seq_length** (int): The sequence length of the query vector.
-            - **tgt_seq_length** (int): The sequence length of the key and value vector.
             - **dim** (int): The hidden size of the input.
             - **head_dim** (int): The dim of head.
             - **n_heads** (int): The number of the heads.
@@ -70,7 +68,8 @@ class LLamaAttention(nn.Cell):
                 in softmax computation. Otherwise, the mask must be (batch_size, 1, tgt_seq_length)
             - **batch_valid_length** (Tensor) - Int32 tensor with shape (batch_size,) the past calculated the index.
                 Used for incremental prediction when the use_past is True. Default None.
-
+            - **block_tables** (Tensor[int64]) - Store mapping tables for each sequence.
+            - **slot_mapping** (Tensor[int32]) - Store token cache physical slot index.
     Outputs:
             Tuple, a tuple contains(`output`, `layer_present`)
 
@@ -84,7 +83,6 @@ class LLamaAttention(nn.Cell):
     """
 
     def __init__(self,
-                 seq_length,
                  dim: int = 512,
                  n_heads: int = 8,
                  n_kv_heads: Optional[int] = None,
@@ -102,7 +100,6 @@ class LLamaAttention(nn.Cell):
                  num_blocks: Optional[int] = None,
                  parallel_config=TransformerOpParallelConfig()):
         super().__init__()
-        self.seq_length = seq_length
         self.hidden_size = dim
         self.n_head = n_heads
         self.head_dim = dim // n_heads
@@ -128,24 +125,11 @@ class LLamaAttention(nn.Cell):
                              "'parallel_config.model_parallel', but got the n_kv_head is {} "
                              "and the parallel_config.model_parallel  is {}."
                              .format(self.n_kv_head, parallel_config.model_parallel))
-
-        self.inv_norm_factor = Tensor(1.0 / math.sqrt(self.head_dim), dtype=compute_dtype)
-
+        dp = parallel_config.data_parallel
+        mp = parallel_config.model_parallel
         self.shape = P.Shape()
-        self.reshape = P.Reshape().add_prim_attr("skip_redistribution", True)
-        self.transpose = P.Transpose()
-        self.merger_head_transpose = P.Transpose()
-        self.batch_matmul = P.BatchMatMul()
-        self.batch_matmul_q_k = P.BatchMatMul(transpose_b=True)
-        self.mul = P.Mul()
-        self.add = P.Add()
-        self.softmax = P.Softmax()
         self.cast = P.Cast()
-        self.cast_attn = P.Cast()
-        self.tile_kv = P.Tile()
-        self.slice_qkv = P.StridedSlice()
 
-        self.apply_rotary_emb = LlamaRotaryEmbedding(self.head_dim, rotary_dtype, use_rope_slice=use_rope_slice)
         if self.qkv_concat:
             self.w = Linear(in_channels=self.hidden_size,
                             out_channels=self.hidden_size + self.kv_dim * 2,
@@ -153,6 +137,8 @@ class LLamaAttention(nn.Cell):
                             compute_dtype=compute_dtype,
                             param_init_type=param_init_type,
                             skip_redistribution=is_dynamic)
+            self.w.shard(((dp, 1), (mp, 1)))
+
         else:
             self.wq = Linear(self.hidden_size,
                              self.hidden_size,
@@ -172,41 +158,7 @@ class LLamaAttention(nn.Cell):
                              compute_dtype=compute_dtype,
                              param_init_type=param_init_type,
                              skip_redistribution=is_dynamic)
-        self.wo = Linear(in_channels=self.hidden_size,
-                         out_channels=self.hidden_size,
-                         has_bias=False,
-                         compute_dtype=compute_dtype,
-                         param_init_type=param_init_type,
-                         skip_redistribution=is_dynamic)
-        if self.use_flash_attention:
-            self.flash_attention = FlashAttention(head_num=self.n_head,
-                                                  pre_tokens=65536,
-                                                  next_tokens=0,
-                                                  input_layout="BNSD",
-                                                  keep_prob=1.,
-                                                  scale_value=1. / math.sqrt(self.head_dim),
-                                                  sparse_mode=0,
-                                                  use_attention_mask=True,
-                                                  dp=parallel_config.data_parallel,
-                                                  mp=parallel_config.model_parallel)
-        dp = parallel_config.data_parallel
-        mp = parallel_config.model_parallel
-        if not (_get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation()):
-            self.transpose.shard(((dp, 1, mp, 1),))
-            self.merger_head_transpose.shard(((dp, mp, 1, 1),))
-            self.batch_matmul_q_k.shard(((dp, mp, 1, 1), (dp, mp, 1, 1)))
-            self.batch_matmul.shard(((dp, mp, 1, 1), (dp, mp, 1, 1)))
-            self.mul.shard(((dp, mp, 1, 1), ()))
-            self.add.shard(((dp, 1, 1, 1), (dp, mp, 1, 1)))
-            self.softmax.shard(((dp, mp, 1, 1),))
-            self.tile_kv.shard(((dp, mp, 1, 1),))
-            self.slice_qkv.shard(((dp, mp),))
-
-            self.apply_rotary_emb.shard((dp, mp, 1, 1))
-
-            if self.qkv_concat:
-                self.w.shard(((dp, 1), (mp, 1)))
-            elif qkv_has_bias:
+            if qkv_has_bias:
                 self.wq.shard(((dp, 1), (mp, 1)), ((dp, mp), (mp,)))
                 self.wk.shard(((dp, 1), (mp, 1)), ((dp, mp), (mp,)))
                 self.wv.shard(((dp, 1), (mp, 1)), ((dp, mp), (mp,)))
@@ -214,30 +166,78 @@ class LLamaAttention(nn.Cell):
                 self.wq.shard(((dp, 1), (mp, 1)))
                 self.wk.shard(((dp, 1), (mp, 1)))
                 self.wv.shard(((dp, 1), (mp, 1)))
-            self.wo.shard(((dp, mp), (1, mp)))
-            if parallel_config.use_seq_parallel and self.is_first_iteration:
-                self.wo.shard(((dp, mp), (1, mp)), out_strategy_matmul=((dp * mp, 1),))
-            if parallel_config.recompute.select_recompute and not self.use_flash_attention:
-                self.apply_rotary_emb.recompute()
-                self.tile_kv.recompute()
-                self.batch_matmul_q_k.recompute()
-                self.mul.recompute()
-                self.add.recompute()
-                self.cast_attn.recompute()
-                self.softmax.recompute()
-                self.batch_matmul.recompute()
+        self.wo = Linear(in_channels=self.hidden_size,
+                         out_channels=self.hidden_size,
+                         has_bias=False,
+                         compute_dtype=compute_dtype,
+                         param_init_type=param_init_type,
+                         skip_redistribution=is_dynamic)
+        self.wo.shard(((dp, mp), (1, mp)))
+
         if self.use_past:
             self.infer_attention = InferAttention(self.n_head,
                                                   self.head_dim,
-                                                  self.seq_length,
-                                                  self.hidden_size,
                                                   self.n_kv_head,
                                                   scale_value=1. / math.sqrt(self.head_dim),
                                                   pre_tokens=65536,
                                                   next_tokens=0,
                                                   block_size=self.block_size,
                                                   num_blocks=self.num_blocks,
+                                                  rotary_cos_format=2,
                                                   parallel_config=parallel_config)
+        else:
+            self.inv_norm_factor = Tensor(1.0 / math.sqrt(self.head_dim), dtype=compute_dtype)
+
+            self.reshape = P.Reshape().add_prim_attr("skip_redistribution", True)
+            self.transpose = P.Transpose()
+            self.merger_head_transpose = P.Transpose()
+            self.batch_matmul = P.BatchMatMul()
+            self.batch_matmul_q_k = P.BatchMatMul(transpose_b=True)
+            self.mul = P.Mul()
+            self.add = P.Add()
+            self.softmax = P.Softmax()
+            self.cast_attn = P.Cast()
+            self.tile_kv = P.Tile()
+            self.slice_qkv = P.StridedSlice()
+
+            self.apply_rotary_emb = LlamaRotaryEmbedding(self.head_dim, rotary_dtype, use_rope_slice=use_rope_slice)
+
+            if not (_get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation()):
+                self.transpose.shard(((dp, 1, mp, 1),))
+                self.merger_head_transpose.shard(((dp, mp, 1, 1),))
+                self.batch_matmul_q_k.shard(((dp, mp, 1, 1), (dp, mp, 1, 1)))
+                self.batch_matmul.shard(((dp, mp, 1, 1), (dp, mp, 1, 1)))
+                self.mul.shard(((dp, mp, 1, 1), ()))
+                self.add.shard(((dp, 1, 1, 1), (dp, mp, 1, 1)))
+                self.softmax.shard(((dp, mp, 1, 1),))
+                self.tile_kv.shard(((dp, mp, 1, 1),))
+                self.slice_qkv.shard(((dp, mp),))
+
+                self.apply_rotary_emb.shard((dp, mp, 1, 1))
+
+                if parallel_config.use_seq_parallel and self.is_first_iteration:
+                    self.wo.shard(((dp, mp), (1, mp)), out_strategy_matmul=((dp * mp, 1),))
+                if parallel_config.recompute.select_recompute and not self.use_flash_attention:
+                    self.apply_rotary_emb.recompute()
+                    self.tile_kv.recompute()
+                    self.batch_matmul_q_k.recompute()
+                    self.mul.recompute()
+                    self.add.recompute()
+                    self.cast_attn.recompute()
+                    self.softmax.recompute()
+                    self.batch_matmul.recompute()
+
+            if self.use_flash_attention:
+                self.flash_attention = FlashAttention(head_num=self.n_head,
+                                                      pre_tokens=65536,
+                                                      next_tokens=0,
+                                                      input_layout="BNSD",
+                                                      keep_prob=1.,
+                                                      scale_value=1. / math.sqrt(self.head_dim),
+                                                      sparse_mode=0,
+                                                      use_attention_mask=True,
+                                                      dp=parallel_config.data_parallel,
+                                                      mp=parallel_config.model_parallel)
 
     def construct(self, x: Tensor, freqs_cis: Tuple[Tensor, Tensor], mask=None, batch_valid_length=None,
                   block_tables=None, slot_mapping=None):
@@ -245,7 +245,6 @@ class LLamaAttention(nn.Cell):
         ori_dtype = x.dtype
         # [bs, seq/1, hidden_dim]
         bs, seq_len, _ = self.shape(x)
-        # [bs * seq/1, hidden_dim]
         if self.qkv_concat:
             x = self.reshape(x, (-1, x.shape[-1]))
             bs_seq = x.shape[0]
@@ -345,7 +344,6 @@ class LLamaDecodeLayer(nn.Cell):
         encoder layer, including multihead attention and feedward layer.
 
         Args:
-            seq_length(int): The input sequence length.
             layer_id(int): The layer id of current transformer block layer.
             dim(int): The hidden size of the input.
             num_heads(int): The number of the heads.
@@ -383,7 +381,8 @@ class LLamaDecodeLayer(nn.Cell):
               past value parameter used in the incremental prediction. Only valid when use_past is True. Default True.
             - **batch_valid_length** (Tensor) - Int32 tensor with shape [batch_size] the past calculated the index.
               Used for incremental prediction when the use_past is True. Default None.
-
+            - **block_tables** (Tensor[int64]) - Store mapping tables for each sequence.
+            - **slot_mapping** (Tensor[int32]) - Store token cache physical slot index.
         Outputs:
             Tuple, a tuple contains(`output`, `layer_present`).
 
@@ -398,7 +397,6 @@ class LLamaDecodeLayer(nn.Cell):
     """
 
     def __init__(self,
-                 seq_length,
                  layer_id,
                  dim: int = 512,
                  n_heads: int = 8,
@@ -423,7 +421,6 @@ class LLamaDecodeLayer(nn.Cell):
                  num_blocks: Optional[int] = None,
                  parallel_config=TransformerOpParallelConfig()):
         super().__init__()
-        self.seq_length = seq_length
         self.layer_id = layer_id
         self.hidden_size = dim
         self.n_head = n_heads
@@ -436,12 +433,9 @@ class LLamaDecodeLayer(nn.Cell):
         self.shape = P.Shape()
         self.reshape = P.Reshape().add_prim_attr("skip_redistribution", True)
         self.add = P.Add()
-        self.ffn_norm = LlamaRMSNorm(self.hidden_size, norm_eps, compute_type=layernorm_compute_dtype,
-                                     is_dynamic=is_dynamic)
-        self.attention_norm = LlamaRMSNorm(self.hidden_size, norm_eps, compute_type=layernorm_compute_dtype,
-                                           is_dynamic=is_dynamic)
-        self.attention = LLamaAttention(seq_length=seq_length,
-                                        dim=dim,
+        self.ffn_norm = LlamaRMSNorm(self.hidden_size, norm_eps, compute_type=layernorm_compute_dtype)
+        self.attention_norm = LlamaRMSNorm(self.hidden_size, norm_eps, compute_type=layernorm_compute_dtype)
+        self.attention = LLamaAttention(dim=dim,
                                         n_heads=n_heads,
                                         n_kv_heads=n_kv_heads,
                                         qkv_concat=qkv_concat,

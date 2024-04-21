@@ -322,6 +322,10 @@ hccl_xp_xxx.json [0,8] 8
 
 ### MindSpore推理
 
+　　MindFormers 定位打造训练->微调->部署的端到端大模型工具套件，为了更好性能地部署已经微调训练好的大模型，我们利用MindSpore打造了全新的训推一体高性能推理引擎，保证训练与推理使用同一套脚本，为用户提供了开箱即用的推理部署方案，为用户提供端到端的大模型解决方案，帮助用户使能大模型业务。
+
+　　MindSpore 大模型推理升级训推一体架构，实现脚本、分布式策略和运行时的统一，通过融合大算子降低推理时延，有效提升网络吞吐量。
+
 #### 基于高阶接口推理
 
 - 修改yaml配置文件设置
@@ -474,138 +478,4 @@ use_parallel: False                                           # 关闭并行模�
 
 ```bash
 python internlm/run_internlm_generate.py
-```
-
-### Mindspore-Lite 推理
-
-本章节提供InternLM-20B在MindSpore Lite上进行推理的基本使用流程，更多详细的特性介绍请参考[Mindspore Lite特性文档](../../docs/feature_cards/Inference.md)
-
-#### 单卡导出与推理
-
-##### Step1. 模型导出MindIR
-
-修改模型导出相关的配置文件 export_internlm_20b.yaml，其中需要关注以下几项：
-
-```yaml
-# model config
-model:
-  model_config:
-    batch_size: 1
-    seq_length: 512
-    checkpoint_name_or_path: "/path/to/InternLM-20B-Chat.ckpt"
-    use_past: True              # 开启增量推理
-    is_dynamic: False           # 使用双动态推理时设置为True
-    use_kvcache_op: True        # 是否使用kvcache融合算子，推荐设置为True
-    is_flexible_shape: False    # 是否固定kvcache大小为bs*seq
-    use_rope_slice: False       # 是否使用RoPE位置编码slice
-```
-
-**注：当前InternLM-20B单卡最大支持batch_size*seq_length=4096的双动态lite推理**
-
-执行run_internlm.py，完成MindIR导出，得到全量minder_full_checkpoint/rank_0_graph.mindir和增量minder_inc_checkpoint/rank_0_graph.mindir两个MindIR图
-
-```bash
-python run_internlm.py \
---config export_internlm_20b.yaml \
---run_mode export \
---use_parallel False \
---device_id 0
-```
-
-##### Step2. 执行MS Lite推理
-
-新建推理配置文件，InternLM-20B在Atlas 800T A2上推荐的GE配置如下：
-
-- 静态推理（910b_ge_default_ctx.ini）
-
-```ini
-[ascend_context]
-plugin_custom_ops=All
-provider=ge
-
-[ge_session_options]
-ge.exec.formatMode=1
-ge.exec.atomicCleanPolicy=1
-ge.exec.staticMemoryPolicy=2
-ge.exec.precision_mode=must_keep_origin_dtype
-
-# 参数说明
-# provider=ge：采用GE接口
-# ge.externalWeight=1：将网络中Const/Constant节点的权重保存在单独的文件中
-# ge.exec.atomicCleanPolicy=1：不集中清理网络中atomic算子占用的内存
-# ge.exec.staticMemoryPolicy=2：网络运行使用动态扩展内存方式
-# ge.exec.precision_mode=must_keep_origin_dtype：选择算子精度模式
-```
-
-- 双动态推理（910b_ge_default_inc.ini），以增量为例
-
-```ini
-[ascend_context]
-plugin_custom_ops=All
-provider=ge
-
-[ge_session_options]
-ge.exec.formatMode=1
-ge.exec.atomicCleanPolicy=1
-ge.exec.staticMemoryPolicy=2
-ge.exec.precision_mode=must_keep_origin_dtype
-
-[ge_graph_options]
-ge.inputShape=batch_index:-1;batch_valid_length:-1;tokens:-1,1;zactivate_len:-1
-ge.dynamicDims=1,1,1,256;2,2,2,256;4,4,4,256;1,1,1,512
-ge.dynamicNodeType=1
-
-# 参数说明
-# ge.inputShape：设置参数动态输入，-1表示动态入参
-# ge.dynamicDims：设置实际推理的batch size和activate length，与ge.inputShape中-1的位置依次对应
-```
-
-执行run_infer_main.py脚本，修改相关配置启动推理
-
-- 静态推理执行命令如下：
-
-```bash
-python run_infer_main.py \
---device_id 0 \
---model_name internlm_20b \
---seq_length 2048 \                           # 注意静态推理时需要与export导出的推理序列长度保持一致
---tokenizer_path path/to/tokenizer.model \    # 不设置时，以from_pretrained的方式自动加载tokenizer（research模型不支持）
---prefill_model_path /path/to/minder_full_checkpoint/rank_0_graph.mindir \
---increment_model_path /path/to/minder_inc_checkpoint/rank_0_graph.mindir \
---config_path /path/to/910b_ge_default_ctx.ini \
---do_sample False \
---top_k 1 \
---top_p 1.0 \
---repetition_penalty 1.0 \
---temperature 1.0 \
---max_length 2048 \
---is_sample_acceleration False \            # 后处理加速开关，当前internlm模型暂不支持，设置为False
---add_special_tokens True \
---dynamic False
-
-# 参数说明
-device_id: 设备物理ID
-model_name: 模型名称
-seq_length: 推理序列长度
-tokenizer_path: 模型tokenizer路径
-prefill_model_path: 全量图路径
-increment_model_path: 增量图路径
-config_path: GE配置文件路径
-do_sample: 是否对候选id进行采样
-top_k: 选择top_k个token id作为候选
-top_p: 将累积概率小于top_k的token id作为候选
-repetition_penalty: 生成单词的惩罚因子，设置为1时不打开
-temperature: 温度系数，用来调整下个token的概率
-max_length: 能够生成的最大语句长度
-is_sample_acceleration: 后处理加速开关
-add_special_tokens: 对输入token化时是否添加特殊字符
-dynamic: 是否采用双动态推理
-prompt: 输入中加入prompt的内容，Baichuan2可以选择不设置，按默认的prompt进行推理
-```
-
-- 双动态推理修改以下两个参数即可：
-
-```ini
---config_path /path/to/910b_ge_default_ctx.ini，/path/to/910b_ge_default_inc.ini
---dynamic True
 ```

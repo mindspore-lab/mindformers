@@ -21,6 +21,7 @@ import time
 from typing import Optional, List, Union
 
 import numpy as np
+import mindspore as ms
 from mindspore.ops import functional as F
 from mindspore.ops import operations as P
 import mindspore.common.dtype as mstype
@@ -73,7 +74,16 @@ class GenerationMixin:
     """Generator For the nlp models"""
 
     def __init__(self):
-        pass
+        self.block_mgr = None
+
+    def _set_block_mgr(self, batch_size):
+        """ Set model block table mgr function. """
+
+        if self._use_past() and not self.block_mgr:
+            self.block_mgr = BlockTables(self.config.num_blocks, self.config.block_size, self.config.seq_length)
+
+        if self.block_mgr:
+            self.block_mgr.init_cache_engine(batch_size)
 
     # pylint: disable=W0613
     def prepare_inputs_for_generation(self, input_ids, **kwargs):
@@ -260,11 +270,13 @@ class GenerationMixin:
         )
         return input_ids
 
+
     def _incremental_infer(self, model_inputs: dict, prefill, current_index, valid_length_each_example, block_tables,
                            slot_mapping):
         """model forward for incremental infer."""
         # Claim the first graph
         if prefill:
+            self.phase = "prefill"
             self.add_flags_recursive(is_first_iteration=True)
             model_inputs["input_position"] = Tensor(current_index, mstype.int32)
             model_inputs["init_reset"] = Tensor([False], mstype.bool_)  # init_reset (1,) bool False
@@ -276,8 +288,9 @@ class GenerationMixin:
             res = self(
                 **model_inputs,
             )
+            ms.hal.synchronize()
+            self.phase = "increment"
             # first iter done, go to other iters
-            self.is_first_iteration = False
             self.add_flags_recursive(is_first_iteration=False)
         else:
             # slice model inputs for incremental infer
@@ -292,6 +305,7 @@ class GenerationMixin:
             res = self(
                 **model_inputs,
             )
+            ms.hal.synchronize()
 
         return res
 
@@ -402,9 +416,6 @@ class GenerationMixin:
         # update model kwargs once, before go into generate loop.
         self.update_model_kwargs_before_generate(input_ids, model_kwargs)
 
-        # setup is_first_iteration flag for incremental infer
-        if generation_config.use_past:
-            self.is_first_iteration = True
         need_gather_logits = True
 
         is_first_token = True
@@ -634,6 +645,9 @@ class GenerationMixin:
                                       " and make sure the inputs are padded to same length.")
         input_ids = np.reshape(input_ids, (-1, np.shape(input_ids)[-1]))
         batch_size = input_ids.shape[0]
+
+        self._set_block_mgr(batch_size)
+
         seed = 0 if seed is None else seed
         np.random.seed(seed)
 
@@ -777,28 +791,19 @@ class GenerationMixin:
             # update model kwargs once, before go into generate loop.
             self.update_model_kwargs_before_generate(input_ids, model_kwargs)
 
-            # setup is_first_iteration flag for incremental infer
-            if generation_config.use_past:
-                self.is_first_iteration = True
-
             origin_len = np.sum(valid_length_each_example)
             prepare_time = time.time() - prepare_time
             logger.debug("forward prepare time: %s s", prepare_time)
 
-            if self._use_past():
-                block_mgr = BlockTables(self.config.num_blocks, self.config.block_size, self.config.seq_length)
-                block_mgr.init_cache_engine(batch_size)
-
+            prefill = True
+            model_kwargs["origin_inputs"] = origin_inputs
             while np.sum(is_finished) != batch_size:
                 block_tables = None
                 slot_mapping = None
                 if self._use_past():
-                    block_tables, slot_mapping = block_mgr.assemble_pa_inputs(self.is_first_iteration,
-                                                                              valid_length_each_example, is_finished)
-
-                prefill = True
-                if generation_config.use_past and not self.is_first_iteration:
-                    prefill = False
+                    block_tables, slot_mapping = self.block_mgr.assemble_pa_inputs(prefill,
+                                                                                   valid_length_each_example,
+                                                                                   is_finished)
 
                 target_list, is_finished = self.infer(input_ids=input_ids,
                                                       valid_length_each_example=valid_length_each_example,
@@ -813,7 +818,8 @@ class GenerationMixin:
                                                       encoder_output=encoder_output,
                                                       target_mask=target_mask,
                                                       **model_kwargs)
-
+                if generation_config.use_past:
+                    prefill = False
                 for i in range(batch_size):
                     if is_finished[i]:
                         continue
@@ -848,6 +854,10 @@ class GenerationMixin:
 
         # set to original phase
         self.set_train(origin_phase == "train")
+
+        if self.block_mgr:
+            self.block_mgr.clear_cache()
+
         return output_ids
 
     def infer(self,
@@ -997,6 +1007,15 @@ class GenerationMixin:
             model_kwargs["current_index"] = current_index
             # pylint: disable=E1111
             model_inputs = self.prepare_inputs_for_generation(input_ids, **model_kwargs)
+            real_input_ids = model_inputs["input_ids"]
+            batch_size = real_input_ids.shape[0]
+            seq_length = real_input_ids.shape[1]
+            current_index = [
+                valid_length_each_example[i] - 1 + i * seq_length
+                for i in range(batch_size)
+            ]
+            model_kwargs["current_index"] = current_index
+
             if generation_config.use_past:
                 res = self._incremental_infer(
                     model_inputs=model_inputs,

@@ -16,6 +16,7 @@
 from typing import Optional
 import math
 import copy
+import numpy as np
 import mindspore.common.dtype as mstype
 
 try:
@@ -67,13 +68,12 @@ class Baichuan13BV2ForCausalLM(Baichuan2PreTrainedModel):
             input_ids(Tensor): the tokenized inputs with datatype int32, Tensor of shape :math:`(batch, seq\_length)`.
             labels(Tensor): the tokenized labels with datatype int32, Tensor of shape :math:`(batch, seq\_length)`.
             input_position(Tensor): current position, used by model.predict.
-            position_ids(Tensor): Reserved param, not used.
-            attention_mask(Tensor): Reserved param, not used.
-            input_embeds(Tensor): Reserved param, not used.
             init_reset(bool, optional): A bool tensor with shape [1], used to clear the past key parameter and
               past value parameter used in the incremental prediction. Default True.
             batch_valid_length(Tensor): the past calculated the index with datatype int32, used for incremental
               prediction. Tensor of shape :math:`(batch_size,)`. Default None.
+            block_tables (Tensor[int64]): Store mapping tables for each sequence.
+            slot_mapping (Tensor[int32]): Store token cache physical slot index.
 
         Returns:
             Tensor, the loss or logits of the network.
@@ -149,9 +149,30 @@ class Baichuan13BV2ForCausalLM(Baichuan2PreTrainedModel):
 
     # pylint: disable=W0613
     def prepare_inputs_for_generation(self, input_ids, **kwargs):
+        if self.config.is_dynamic and self.is_first_iteration:
+            input_ids = kwargs["origin_inputs"]
         return {
             "input_ids": Tensor(input_ids, mstype.int32)
         }
+
+    def set_dynamic_inputs(self):
+        dynamic_input_ids = Tensor(shape=[None, None], dtype=mstype.int32)
+        dynamic_input_position = Tensor(shape=[None], dtype=mstype.int32)
+        dynamic_init_reset = Tensor([False], mstype.bool_)
+        dynamic_batch_valid_length = Tensor(shape=[None, None], dtype=mstype.int32)
+        dynamic_block_tables = Tensor(shape=[None, None], dtype=mstype.int32)
+        dynamic_slot_mapping = Tensor(shape=[None], dtype=mstype.int32)
+        self.set_inputs(dynamic_input_ids, None, dynamic_input_position, None, None, None, dynamic_init_reset,
+                        dynamic_batch_valid_length, None, None, dynamic_block_tables, dynamic_slot_mapping)
+        logger.info("Set dynamic input for baichuan2.")
+
+    # pylint: disable=W0613
+    def prepare_inputs_for_predict_layout(self, input_ids, **kwargs):
+        """Get Baichuan13BV2 model input tuple for transform ckpt."""
+        input_ids = Tensor(input_ids, mstype.int32)
+        bs = input_ids.shape[0]
+        slot_mapping = Tensor(np.ones(shape=tuple([bs])), mstype.int32)
+        return input_ids, None, None, None, None, None, slot_mapping
 
     # pylint: disable=W0613
     def construct(self, input_ids, labels=None, input_position=None, position_ids=None, attention_mask=None,
@@ -168,7 +189,7 @@ class Baichuan13BV2ForCausalLM(Baichuan2PreTrainedModel):
             tokens = input_ids
         if batch_valid_length is not None:
             batch_valid_length = self.reshape(batch_valid_length, (-1,))
-        output = self.model(tokens, batch_valid_length, batch_index, zactivate_len, block_tables, slot_mapping)
+        output = self.model(tokens, batch_valid_length, block_tables, slot_mapping)
         pre_gather = (not self.use_past or self.is_first_iteration) and batch_valid_length is not None
         if pre_gather:
             output = self.gather(output, self.sub_batch_valid_len(batch_valid_length, 1), 1)
@@ -185,11 +206,6 @@ class Baichuan13BV2ForCausalLM(Baichuan2PreTrainedModel):
                 input_mask = self.mul(input_mask, label_mask)
 
         if not self.training:
-            if not pre_gather:
-                logits = self.reshape(logits, (bsz, seqlen, -1))
-            logits = self.cast(logits, mstype.float32)
-            # makes cast effective to avoid allgather issue in Mindspore1.10
-            input_mask = self.add(input_mask, 1)
             return logits, tokens, input_mask
 
         if logits.ndim > 2:
@@ -288,7 +304,7 @@ class Baichuan13BV2Model(Baichuan2PreTrainedModel):
                                 config.num_layers, select_recompute=config.parallel_config.recompute.select_recompute)
             self.layers.append(layer)
         self.norm_out = LlamaRMSNorm(config.hidden_size, config.rms_norm_eps,
-                                     compute_type=config.layernorm_compute_type, is_dynamic=config.is_dynamic)
+                                     compute_type=config.layernorm_compute_type)
         self.alibi_tensor = build_alibi_tensor_v2(seq_len=config.seq_length,
                                                   num_heads=config.num_heads,
                                                   return_tensors='ms',
@@ -321,8 +337,7 @@ class Baichuan13BV2Model(Baichuan2PreTrainedModel):
             self.reshape.add_prim_attr("skip_redistribution", True)
 
     # pylint: disable=W0613
-    def construct(self, tokens: Tensor, batch_valid_length=None, batch_index=None, zactivate_len=None,
-                  block_tables=None, slot_mapping=None):
+    def construct(self, tokens: Tensor, batch_valid_length=None, block_tables=None, slot_mapping=None):
         """Forward of baichuan2_13b model."""
         # preprocess
         bs, seq_len = self.shape(tokens)
@@ -401,16 +416,10 @@ class Baichuan13BAttention(nn.Cell):
             - **mask** (Tensor) - If the use_past is False or is_first_iteration=True, the attention mask
                 matrix should ba (batch_size, src_seq_length, tgt_seq_length), or None. None means there will be no mask
                 in softmax computation. Otherwise, the mask must be (batch_size, 1, tgt_seq_length)
-            - **key_past** (Tensor) - Float16 tensor with shape (batch_size, num_heads, head_dim, tgt_seq_length).
-                The past calculated key vector. Used for incremental prediction when the use_past is True.
-                Default None.
-            - **value_past** (Tensor) - Float16 tensor with shape (batch_size, num_heads, tgt_seq_length,
-                head_dim).
-                The past calculated value vector. Used for incremental prediction when the use_past is True.
-                Default None.
             - **batch_valid_length** (Tensor) - Int32 tensor with shape (batch_size,) the past calculated the index.
                 Used for incremental prediction when the use_past is True. Default None.
-
+            - **block_tables** (Tensor[int64]) - Store mapping tables for each sequence.
+            - **slot_mapping** (Tensor[int32]) - Store token cache physical slot index.
     Outputs:
             Tuple, a tuple contains(`output`, `layer_present`)
 
@@ -547,8 +556,6 @@ class Baichuan13BAttention(nn.Cell):
         if self.use_past:
             self.infer_attention = InferAttention(self.n_head,
                                                   self.head_dim,
-                                                  self.seq_length,
-                                                  self.hidden_size,
                                                   self.n_kv_head,
                                                   scale_value=1. / math.sqrt(self.head_dim),
                                                   input_layout='BNSD',
@@ -560,8 +567,8 @@ class Baichuan13BAttention(nn.Cell):
                                                   use_rope_rotary_emb=False,
                                                   parallel_config=parallel_config)
 
-    def construct(self, x: Tensor, alibi_tensor: Tensor, mask=None, batch_valid_length=None,
-                  block_tables=None, slot_mapping=None):
+    def construct(self, x: Tensor, alibi_tensor: Tensor, mask=None, batch_valid_length=None, block_tables=None,
+                  slot_mapping=None):
         """Forward process of the MultiHeadAttention"""
         ori_dtype = x.dtype
         # [bs, seq/1, hidden_dim] or [bs * seq/1, hidden_dim]
@@ -694,10 +701,10 @@ class Baichuan13BDecodeLayer(nn.Cell):
             False or is_first_iteration=True,
               the attention mask matrix should ba [batch_size, seq_length, seq_length], or None. None means there will
               be no mask in softmax computation. Otherwise, should be [batch_size, 1, hidden_size]
-            - **init_reset** (Tensor) - A bool tensor with shape [1], used to clear the past key parameter and
-              past value parameter used in the incremental prediction. Only valid when use_past is True. Default True.
             - **batch_valid_length** (Tensor) - Int32 tensor with shape [batch_size] the past calculated the index.
               Used for incremental prediction when the use_past is True. Default None.
+            - **block_tables** (Tensor[int64]) - Store mapping tables for each sequence.
+            - **slot_mapping** (Tensor[int32]) - Store token cache physical slot index.
 
         Outputs:
             Tuple, a tuple contains(`output`, `layer_present`).
@@ -757,10 +764,8 @@ class Baichuan13BDecodeLayer(nn.Cell):
         if is_dynamic:
             self.reshape.add_prim_attr("skip_redistribution", True)
         self.add = P.Add()
-        self.attention_norm = LlamaRMSNorm(self.hidden_size, norm_eps, compute_type=layernorm_compute_dtype,
-                                           is_dynamic=is_dynamic)
-        self.ffn_norm = LlamaRMSNorm(self.hidden_size, norm_eps, compute_type=layernorm_compute_dtype,
-                                     is_dynamic=is_dynamic)
+        self.attention_norm = LlamaRMSNorm(self.hidden_size, norm_eps, compute_type=layernorm_compute_dtype)
+        self.ffn_norm = LlamaRMSNorm(self.hidden_size, norm_eps, compute_type=layernorm_compute_dtype)
         self.attention = Baichuan13BAttention(batch_size=batch_size,
                                               seq_length=seq_length,
                                               dim=dim,

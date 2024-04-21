@@ -51,6 +51,7 @@ class BlockTables:
         self.cache_engines = []
 
     def init_cache_engine(self, batch_size):
+        """Init cache engine, allocate block memory bool."""
         self.cache_engines.clear()
         if batch_size * self.seq_length // self.block_size > self.num_blocks:
             logger.warning(
@@ -68,27 +69,37 @@ class BlockTables:
     def _assemble_pa_full_inputs(self, batch_valid_length: np.array, is_finished: List[bool]):
         """Prepare prefill inputs for Paged Attention."""
         bs = batch_valid_length.shape[0]
-
+        max_valid_length = np.max(batch_valid_length)
         block_tables = []
-        slot_mapping = []
         for i in range(bs):
             if not is_finished[i]:
-                logger.info("prepare cache for full: %s", batch_valid_length[i])
-                self.cache_engines[i].prepare_cache(batch_valid_length[i] + self.block_size)
+                logger.debug("prepare cache for full: %s", batch_valid_length[i])
+                self.cache_engines[i].prepare_cache(batch_valid_length[i])
 
-            null_block_id = self.cache_engines[i].block_table[0]
-            block_table = self.cache_engines[i].block_table[1:]
+            block_table = self.cache_engines[i].block_table
             padded_table = block_table + [-1 for _ in range(
-                self.max_num_blocks_per_seq - len(self.cache_engines[i].block_table) + 1)]
+                self.max_num_blocks_per_seq - len(self.cache_engines[i].block_table))]
             block_tables.append(padded_table)
-
-            slots = [block_table[k // self.block_size] * self.block_size + k % self.block_size
-                     for k in range(batch_valid_length[i])]
-            null_slot_idx = null_block_id * self.block_size + null_block_id % self.block_size
-            slots = slots + [null_slot_idx for _ in range(self.seq_length - batch_valid_length[i])]
-            slot_mapping = slot_mapping + slots
         block_tables = np.array(block_tables, dtype=np.int32)
-        slot_mapping = np.array(slot_mapping, dtype=np.int32)
+
+        # new method to generate slot mapping, to improve the performance
+        batch_valid_np = -1 * np.ones((bs, max_valid_length), dtype=np.int32)
+        batch_valid_np[:] = np.arange(max_valid_length)
+        batch_valid_mask = batch_valid_np.copy()
+        for i in range(bs):
+            batch_valid_mask[i] = batch_valid_mask[i] < batch_valid_length[i]
+        batch_valid_mask = batch_valid_mask.astype(np.bool_)
+        valid_index_np = batch_valid_np.copy()
+        valid_index_np[batch_valid_mask] = batch_valid_np[batch_valid_mask] // self.block_size
+        block_tables_np = -1 * np.ones((bs, max_valid_length), dtype=np.int32)
+        min_block_table_length = min(block_tables_np.shape[1], block_tables.shape[1])
+        block_tables_np[:, :min_block_table_length] = block_tables[:, :min_block_table_length]
+        for i in range(bs):
+            block_tables_np[i] = block_tables_np[i, valid_index_np[i]]
+        block_tables_np[batch_valid_mask] *= self.block_size
+        batch_valid_np[batch_valid_mask] %= self.block_size
+        block_tables_np[batch_valid_mask] += batch_valid_np[batch_valid_mask]
+        slot_mapping = block_tables_np.flatten()
         return block_tables, slot_mapping
 
     def _assemble_pa_inc_inputs(self, batch_valid_length: np.array, is_finished: List[bool]):
@@ -99,12 +110,12 @@ class BlockTables:
         slot_mapping = []
         for i in range(bs):
             if not is_finished[i]:
-                logger.info("prepare cache for inc: %s", batch_valid_length[i])
+                logger.debug("prepare cache for inc: %s", batch_valid_length[i])
                 self.cache_engines[i].prepare_cache(1)
 
-            block_table = self.cache_engines[i].block_table[1:]
+            block_table = self.cache_engines[i].block_table
             padded_table = block_table + [-1 for _ in range(
-                self.max_num_blocks_per_seq - len(self.cache_engines[i].block_table) + 1)]
+                self.max_num_blocks_per_seq - len(self.cache_engines[i].block_table))]
             block_tables.append(padded_table)
 
             curent_idx = batch_valid_length[i] - 1
@@ -113,3 +124,8 @@ class BlockTables:
         block_tables = np.array(block_tables, dtype=np.int32)
         slot_mapping = np.array(slot_mapping, dtype=np.int32)
         return block_tables, slot_mapping
+
+    def clear_cache(self):
+        for cache_engine in self.cache_engines:
+            cache_engine.release_cache()
+        logger.info("Clear block table cache engines.")

@@ -103,7 +103,7 @@ model:
     use_flash_attention: False
     block_size: 16
     num_blocks: 512
-    is_dynamic: False
+    is_dynamic: True
     offset: 0
     use_rope_slice: False
     checkpoint_name_or_path: "llama2_70b"

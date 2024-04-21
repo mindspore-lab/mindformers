@@ -63,11 +63,11 @@ class ChatGLM2RMSNorm(nn.Cell):
             Tensor of shape :math:`(batch, seq_length, hidden_size)`.
     """
 
-    def __init__(self, dim, eps=1e-6, param_init_type=mstype.float32, is_dynamic=False):
+    def __init__(self, dim, eps=1e-6, param_init_type=mstype.float32):
         super(ChatGLM2RMSNorm, self).__init__()
         self.eps = Tensor(float(eps), dtype=param_init_type)
         self.weight = Parameter(initializer('ones', (dim,), dtype=param_init_type))
-        if not check_rmsnorm_big_kernel_valid(is_dynamic):
+        if not check_rmsnorm_big_kernel_valid():
             self.square = P.Square()
             self.mean = P.ReduceMean(keep_dims=True)
             self.add = P.Add()

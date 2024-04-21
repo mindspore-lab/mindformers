@@ -68,8 +68,8 @@ class PetModel(PreTrainedModel):
     def prepare_inputs_for_generation(self, input_ids, **kwargs):
         return self.pet_model.prepare_inputs_for_generation(input_ids, **kwargs)
 
-    def prepare_inputs_for_export(self, full_model=True):
-        return self.pet_model.prepare_inputs_for_export(full_model)
+    def prepare_inputs_for_predict_layout(self, input_ids, **kwargs):
+        return self.pet_model.prepare_inputs_for_predict_layout(input_ids, **kwargs)
 
     def slice_incremental_inputs(self, model_inputs: dict, current_index):
         return self.pet_model.slice_incremental_inputs(model_inputs, current_index)

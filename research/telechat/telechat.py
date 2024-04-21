@@ -140,8 +140,7 @@ class TelechatModel(TelechatPreTrainedModel):
                                   rotary_dtype=config.rotary_dtype,
                                   theta=config.theta,
                                   scaling_factor=config.scaling_factor,
-                                  extend_method=config.extend_method,
-                                  is_dynamic=config.is_dynamic)
+                                  extend_method=config.extend_method)
         self.casual_mask = LowerTriangularMaskWithDynamic(seq_length=config.seq_length,
                                                           compute_type=config.compute_dtype,
                                                           is_dynamic=config.is_dynamic,
@@ -180,7 +179,7 @@ class TelechatModel(TelechatPreTrainedModel):
                                 config.num_layers, select_recompute=config.parallel_config.recompute.select_recompute)
             self.layers.append(layer)
         self.norm_out = LlamaRMSNorm(config.hidden_size, config.rms_norm_eps,
-                                     compute_type=config.layernorm_compute_type, is_dynamic=config.is_dynamic)
+                                     compute_type=config.layernorm_compute_type)
         self.kvcache_preprocess = KVCachePreprocess(max_batch_size=config.batch_size,
                                                     max_seq_length=config.seq_length,
                                                     is_dynamic=config.is_dynamic,
@@ -221,15 +220,15 @@ class TelechatModel(TelechatPreTrainedModel):
         # preprocess
         bs, seq_len = self.shape(tokens)
         if not self.use_past:
-            freqs_cis = self.freqs_mgr()
+            freqs_cis = self.freqs_mgr(seq_len)
             mask = self.casual_mask(tokens) # mask: [bs, seq, seq]
             kvcache_inputs = None
         else:
             if self.is_first_iteration:
-                freqs_cis = self.freqs_mgr(seq_len)
+                freqs_cis = self.freqs_mgr.prefill(bs, seq_len)
                 mask = self.casual_mask(tokens) # mask: [bs, seq, seq]
             else:
-                freqs_cis = self.freqs_mgr.increment(batch_valid_length, bs)
+                freqs_cis = self.freqs_mgr.increment(batch_valid_length)
                 if self.is_dynamic and self.is_flexible_shape and not self.use_kvcache_op:
                     mask = self.casual_mask.increment_slice(
                         self.kvcache_preprocess.range,

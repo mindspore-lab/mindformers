@@ -98,6 +98,7 @@ class Blip2Config(PretrainedConfig):
                  parallel_config: Union[dict, TransformerOpParallelConfig] = default_transformer_config,
                  is_training: bool = True,
                  micro_batch_interleave_num=1,
+                 use_past=False,
                  **kwargs):
         super(Blip2Config, self).__init__(**kwargs)
         if isinstance(parallel_config, dict):
@@ -152,3 +153,4 @@ class Blip2Config(PretrainedConfig):
         self.vision_config.layernorm_compute_type = self.layernorm_compute_type
         self.vision_config.softmax_compute_type = self.softmax_compute_type
         self.vision_config.dtype = self.dtype
+        self.use_past = use_past

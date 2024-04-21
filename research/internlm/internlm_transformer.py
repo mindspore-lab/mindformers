@@ -26,18 +26,15 @@ class InternLMAttention(LLamaAttention):
     """Multi-head attention of InternLM inherited from LLamaAttention.
 
     Args:
-        seq_length (int): The sequence length of input_ids.
         o_has_bias (bool, optional): Whether O projection in attention has bias. Defaults to True.
         **kwargs: keyword arguments of [`LLamaAttention`].
 
     """
 
     def __init__(self,
-                 seq_length,
                  has_bias,
                  **kwargs):
-        super().__init__(seq_length=seq_length,
-                         **kwargs)
+        super().__init__(**kwargs)
         if has_bias:
             compute_dtype = kwargs.pop("compute_dtype", mstype.float16)
             param_init_type = kwargs.pop("param_init_type", mstype.float32)
@@ -86,7 +83,6 @@ class InternLMDecodeLayer(LLamaDecodeLayer):
     """InternLM Transformer Layer inherits from LLamaDecodeLayer.
 
     Args:
-        seq_length (int): The input sequence length.
         layer_id (int): The layer id of current transformer block layer.
         o_has_bias (bool, optional): Whether O projection in attention has bias. Defaults to True.
         **kwargs: keyword arguments of [`LLamaDecodeLayer`].
@@ -94,18 +90,14 @@ class InternLMDecodeLayer(LLamaDecodeLayer):
     """
 
     def __init__(self,
-                 seq_length,
                  layer_id,
                  has_bias,
                  **kwargs):
-        super().__init__(seq_length=seq_length,
-                         layer_id=layer_id,
+        super().__init__(layer_id=layer_id,
                          **kwargs)
         kwargs.pop("multiple_of")
         kwargs.pop("intermediate_size")
         kwargs.pop("ffn_dim_multiplier")
         kwargs.pop("norm_eps")
         kwargs.pop("layernorm_compute_dtype")
-        self.attention = InternLMAttention(seq_length=seq_length,
-                                           has_bias=has_bias,
-                                           **kwargs)
+        self.attention = InternLMAttention(has_bias=has_bias, **kwargs)

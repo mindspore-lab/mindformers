@@ -13,14 +13,11 @@
 # limitations under the License.
 # ============================================================================
 """visualglm language model."""
-import numpy as np
-
-import mindspore as ms
-from mindspore import dtype as mstype, Tensor
+from mindspore import dtype as mstype
 from mindspore import ops
 from mindspore.ops import operations as P
 
-from mindformers import logger, CrossEntropyLoss
+from mindformers import CrossEntropyLoss
 from mindformers.models.glm.attention import default_dpmp_config
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.models.glm.glm import GLMModel, GLMForPreTraining
@@ -211,29 +208,3 @@ class GLMForPreTrainingForBlip2(GLMForPreTraining, ImageTextEmbeddingPreparation
         loss = self.loss(logits_view, labels_view, input_mask)
         # loss = self.loss(logits_view, labels_view)
         return loss
-
-    def prepare_inputs_for_export(self, full_model):
-        """ prepare model input for export"""
-        seq_length = self.seq_length
-        if full_model:
-            logger.info('\nexporting with batch_size = %s, seq = %s ...', self.config.batch_size, seq_length)
-            input_embeddings = Tensor(np.ones([self.config.batch_size, seq_length, self.config.hidden_size]),
-                                      dtype=ms.float32)
-            input_ids = Tensor(np.ones([self.config.batch_size, seq_length]), dtype=ms.int32)
-            position_ids = ms.Tensor(np.ones([self.config.batch_size, 2, seq_length]), dtype=ms.int32)
-            attention_mask = ms.Tensor(np.ones([self.config.batch_size, 1, seq_length, seq_length]), dtype=ms.int32)
-            input_position = Tensor(np.ones([self.config.batch_size]), dtype=ms.int32)
-            init_reset = Tensor([False], ms.bool_)
-            batch_valid_length = Tensor(np.ones([self.config.batch_size, 1]), dtype=ms.int32)
-            return (input_embeddings, input_ids, None, position_ids, attention_mask, input_position, None,
-                    init_reset, batch_valid_length)
-
-        logger.info('\nexporting with batch_size = %s, seq = 1 ...', self.config.batch_size)
-        input_ids = Tensor(np.ones([self.config.batch_size, 1]), dtype=ms.int32)
-        position_ids = ms.Tensor(np.ones([self.config.batch_size, 2, 1]), dtype=ms.int32)
-        attention_mask = ms.Tensor(np.ones([self.config.batch_size, 1, 1, seq_length]), dtype=ms.int32)
-        input_position = Tensor(np.ones([self.config.batch_size]), dtype=ms.int32)
-        init_reset = Tensor([True], ms.bool_)
-        batch_valid_length = Tensor(np.ones([self.config.batch_size, 1]), dtype=ms.int32)
-        return (None, input_ids, None, position_ids, attention_mask, input_position, None, init_reset,
-                batch_valid_length)

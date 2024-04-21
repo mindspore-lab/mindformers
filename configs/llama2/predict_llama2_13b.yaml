@@ -79,9 +79,9 @@ model:
     use_flash_attention: False
     block_size: 16
     num_blocks: 512
-    is_dynamic: False
+    is_dynamic: True
     offset: 0
-    checkpoint_name_or_path: "{path}/llama2_13b.ckpt" # 导出任务这里必填
+    checkpoint_name_or_path: "{path}/llama2_13b.ckpt" # The export task must be filled in here
     repetition_penalty: 1
     max_decode_length: 512
     top_k: 3

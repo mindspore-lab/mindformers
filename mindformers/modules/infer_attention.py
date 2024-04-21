@@ -15,7 +15,6 @@
 """Infer Attention Layer"""
 import math
 
-import numpy as np
 import mindspore.common.dtype as mstype
 from mindspore import ops
 from mindspore.common.tensor import Tensor
@@ -42,8 +41,6 @@ class InferAttention(Cell):
     Args:
         n_head (int): The head num of query.
         head_dim (int): The dim of head.
-        seq_length (int): The sequence length of the query vector.
-        hidden_size (int): The hidden size of model.
         keep_prob (float): The keep probability of dropout. Default: 1.0.
         scale_value (float): The scale factor of score. Default: 1.0.
         pre_tokens (int): Parameter for sparse computation, represents how many tokens are counted forward.
@@ -92,6 +89,10 @@ class InferAttention(Cell):
           Used for incremental prediction when the use_past is True. Default None.
         - **block_tables** (Tensor[int64]) - Store mapping tables for each sequence.
         - **slot_mapping** (Tensor[int32]) - Store token cache physical slot index.
+        - **freqs_cos** (Tensor[float16, bfloat16]) - The precompute freqs cos for rotary position embedding used in
+          attention, shape is (seq_len, head_dim).
+        - **freqs_sin** (Tensor[float16, bfloat16]) - The precompute freqs sin for rotary position embedding used in
+          attention, shape is (seq_len, head_dim).
         - **attn_mask** (Union[Tensor[uint8], None]) - The attention mask tensor. For each element, 0 indicates
           retention and 1 indicates discard. Input tensor of shape :math:`(B, N1, S1, S2)`, `(B, 1, S1, S2)`, `(S1, S2)`
           or (2048, 2048).
@@ -125,11 +126,11 @@ class InferAttention(Cell):
         >>> batch_valid_length = Tensor(np.ones((bsz, 1)), mstype.int32)
         >>> block_tables = Tensor(np.ones((bsz, num_blocks)), mstype.int64)
         >>> slot_mapping = Tensor(np.ones((bsz,)), mstype.int32)
+        >>> freqs_cos = Tensor(np.ones((seq_len, head_dim)), mstype.float16)
+        >>> freqs_sin = Tensor(np.ones((seq_len, head_dim)), mstype.float16)
         >>> attn_mask = Tensor(np.ones((bsz, 1, seq_len, seq_len)), mstype.uint8)
         >>> infer_attention = InferAttention(head_num,
                                              head_dim,
-                                             seq_len,
-                                             hidden_size,
                                              n_kv_head,
                                              scale_value=1. / math.sqrt(head_dim),
                                              pre_tokens=65536,
@@ -144,8 +145,6 @@ class InferAttention(Cell):
     def __init__(self,
                  n_head,
                  head_dim,
-                 seq_length,
-                 hidden_size,
                  n_kv_head,
                  keep_prob=1.0,
                  scale_value=1.0,
@@ -165,8 +164,6 @@ class InferAttention(Cell):
         super(InferAttention, self).__init__()
         self.n_head = n_head
         self.head_dim = head_dim
-        self.seq_length = seq_length
-        self.hidden_size = hidden_size
         self.n_kv_head = n_kv_head
         self.keep_prob = keep_prob
         self.scale_value = scale_value
@@ -212,7 +209,6 @@ class InferAttention(Cell):
 
         self.paged_attention_mgr = PagedAttentionMgr(self.n_head,
                                                      self.head_dim,
-                                                     self.hidden_size,
                                                      n_kv_heads=self.n_kv_head,
                                                      block_size=self.block_size,
                                                      num_blocks=self.num_blocks,
@@ -220,7 +216,6 @@ class InferAttention(Cell):
         self.paged_attention_mgr.shard(parallel_config)
         self.apply_rotary_pos_emb = ops.ApplyRotaryPosEmb(self.rotary_cos_format)
         self.apply_rotary_pos_emb.shard(((dp, 1, mp), (dp, 1, mp), (1, 1), (1, 1), (dp,)))
-        self.context_position_ids = Tensor(np.arange(self.seq_length), dtype=mstype.int64)
 
     def _core_attention(self, query, key, value, attn_mask, alibi_mask=None):
         """
@@ -283,12 +278,8 @@ class InferAttention(Cell):
     def construct(self, query, key, value, batch_valid_length, block_tables, slot_mapping, freqs_cos=None,
                   freqs_sin=None, attn_mask=None, alibi_mask=None):
         """Forward process of the Infer Attention Cell"""
-        if self.is_first_iteration:
-            position_ids = self.context_position_ids
-        else:
-            position_ids = batch_valid_length
         if self.use_rope_rotary_emb:
-            query, key = self.apply_rotary_pos_emb(query, key, freqs_cos, freqs_sin, position_ids)
+            query, key = self.apply_rotary_pos_emb(query, key, freqs_cos, freqs_sin, batch_valid_length)
         key_out = self.paged_attention_mgr(key, value, slot_mapping)
         query = ops.depend(query, key_out)
 

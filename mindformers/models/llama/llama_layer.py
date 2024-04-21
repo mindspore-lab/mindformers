@@ -19,7 +19,7 @@ import numpy as np
 
 from mindspore.common.tensor import Tensor
 from mindspore.common.parameter import Parameter
-from mindspore import nn, ops
+from mindspore import nn
 import mindspore.common.dtype as mstype
 from mindspore.ops import operations as P
 from mindspore.ops import functional as F
@@ -33,8 +33,9 @@ from mindspore import log as logger
 from mindspore.common.initializer import initializer
 from mindspore.parallel._utils import _get_parallel_mode
 from mindspore.context import ParallelMode
-from mindformers.modules.layers import Linear, _check_input_dtype, _args_type_validator_check, _valid_value_checks
 from mindformers.version_control import check_valid_big_kernel
+from mindformers.modules.layers import Linear, _check_input_dtype, _args_type_validator_check, \
+    _valid_value_checks
 from mindformers.tools.logger import _LogActionOnce
 from mindformers.version_control import check_rmsnorm_big_kernel_valid
 
@@ -88,49 +89,10 @@ class LlamaSiLU(Cell):
             moe_strategy = ((strategy.data_parallel, strategy.expert_parallel, 1, strategy.model_parallel),)
             self.shard(moe_strategy)
 
-def get_swap_mask(head_dim):
-    """Swap matrix"""
-    zero_block = np.zeros((head_dim // 2, head_dim // 2), dtype=np.float32)
-    id_block = np.identity(head_dim // 2, dtype=np.float32)
-    return np.block([[zero_block, id_block], [-id_block, zero_block]])
-
-
-def precompute_freqs_cis(
-        dim: int,
-        end: int,
-        theta: float = 10000.0,
-        dtype=mstype.float32,
-        pretrain_seqlen=2048,
-        extend_method=SeqExtendMethod.NONE.value):
-    """
-    Precompute of freqs and mask for rotary embedding.
-    """
-    ratio = 1.
-    if extend_method != SeqExtendMethod.NONE.value and end > pretrain_seqlen:
-        ratio = end / pretrain_seqlen
-    if extend_method == SeqExtendMethod.NTK.value:
-        theta *= ratio
-    freqs_base = np.arange(0, dim, 2)[: (dim // 2)].astype(np.float32) # (head_dim // 2, )
-    freqs = 1.0 / (theta ** (freqs_base / dim)) # (head_dim // 2, )
-    if extend_method == SeqExtendMethod.PI.value:
-        t = np.arange(0, end / ratio, 1 / ratio).astype(np.float32)
-    else:
-        t = np.arange(0, end, 1).astype(np.float32)  # type: ignore # (seq_len,)
-    freqs = np.outer(t, freqs)  # type: ignore (seq_len, head_dim // 2)
-    emb = np.concatenate((freqs, freqs), axis=-1)
-    freqs_cos = np.cos(emb) # (seq_len, head_dim)
-    freqs_sin = np.sin(emb) # (seq_len, head_dim)
-    freqs_cos = Tensor(freqs_cos, dtype=dtype)
-    freqs_sin = Tensor(freqs_sin, dtype=dtype)
-
-    swap_mask = get_swap_mask(dim)
-    swap_mask = Tensor(swap_mask, dtype=dtype)
-
-    return freqs_cos, freqs_sin, swap_mask
-
 
 class FreqsMgr(Cell):
     r"""freqs_cis manager."""
+
     def __init__(self,
                  head_dim,
                  seq_length=None,
@@ -138,49 +100,47 @@ class FreqsMgr(Cell):
                  rotary_dtype=mstype.float16,
                  theta=10000,
                  scaling_factor=1.0,
-                 extend_method=SeqExtendMethod.NONE.value,
-                 is_dynamic=False):
+                 extend_method=SeqExtendMethod.NONE.value):
         super().__init__()
         if seq_length is not None and seq_length > max_position_embedding:
             max_position_embedding = seq_length
         if extend_method == SeqExtendMethod.NTK.value:
             theta *= scaling_factor
-        freqs_base = np.arange(0, head_dim, 2)[: (head_dim // 2)].astype(np.float32) # (head_dim // 2, )
-        freqs = 1.0 / (theta ** (freqs_base / head_dim)) # (head_dim // 2, )
+        freqs_base = np.arange(0, head_dim, 2)[: (head_dim // 2)].astype(np.float32)  # (head_dim // 2, )
+        freqs = 1.0 / (theta ** (freqs_base / head_dim))  # (head_dim // 2, )
         if extend_method == SeqExtendMethod.PI.value:
             t = np.arange(0, max_position_embedding / scaling_factor, 1 / scaling_factor).astype(np.float32)
         else:
             t = np.arange(0, max_position_embedding, 1).astype(np.float32)
         freqs = np.outer(t, freqs)  # (max_position_embedding, head_dim // 2)
         emb = np.concatenate((freqs, freqs), axis=-1)
-        freqs_cos = np.cos(emb) # (seq_len, head_dim)
-        freqs_sin = np.sin(emb) # (seq_len, head_dim)
+        freqs_cos = np.cos(emb)  # (seq_len, head_dim)
+        freqs_sin = np.sin(emb)  # (seq_len, head_dim)
         swap_mask = FreqsMgr.get_swap_mask(head_dim)
 
         self.head_dim = head_dim
-        self.seq_length = max_position_embedding if seq_length is None else seq_length
-        self.is_dynamic = is_dynamic
         self.freqs_cos = Tensor(freqs_cos, dtype=rotary_dtype)
         self.freqs_sin = Tensor(freqs_sin, dtype=rotary_dtype)
         self.swap_mask = Tensor(swap_mask, dtype=rotary_dtype)
 
-        self.reshape = P.Reshape()
-        if is_dynamic:
-            self.reshape.add_prim_attr("skip_redistribution", True)
         self.slice = P.StridedSlice().shard(((1, 1),))
-        self.sub = P.Sub()
         self.gather = P.Gather().shard(((1, 1), (1,)))
+        self.tile = P.Tile().shard(((1, 1),))
 
-    def construct(self, seq_length=None):
-        freqs_cos, freqs_sin = self.freqs_cos, self.freqs_sin
-        seqlen = seq_length if self.is_dynamic else self.seq_length
-        freqs_cos = self.slice(freqs_cos, (0, 0), (seqlen, self.head_dim), (1, 1))
-        freqs_sin = self.slice(freqs_sin, (0, 0), (seqlen, self.head_dim), (1, 1))
+    def construct(self, seq_length):
+        freqs_cos = self.slice(self.freqs_cos, (0, 0), (seq_length, self.head_dim), (1, 1))
+        freqs_sin = self.slice(self.freqs_sin, (0, 0), (seq_length, self.head_dim), (1, 1))
+
         return freqs_cos, freqs_sin, self.swap_mask
 
-    def increment(self, batch_valid_length, batch_size):
-        freqs_cos = self.reshape(self.gather(self.freqs_cos, batch_valid_length, 0), (batch_size, 1, 1, self.head_dim))
-        freqs_sin = self.reshape(self.gather(self.freqs_sin, batch_valid_length, 0), (batch_size, 1, 1, self.head_dim))
+    def prefill(self, batch_size, seq_length):
+        freqs_cos = self.tile(self.slice(self.freqs_cos, (0, 0), (seq_length, self.head_dim), (1, 1)), (batch_size, 1))
+        freqs_sin = self.tile(self.slice(self.freqs_sin, (0, 0), (seq_length, self.head_dim), (1, 1)), (batch_size, 1))
+        return freqs_cos, freqs_sin, self.swap_mask
+
+    def increment(self, batch_valid_length):
+        freqs_cos = self.gather(self.freqs_cos, batch_valid_length, 0)
+        freqs_sin = self.gather(self.freqs_sin, batch_valid_length, 0)
         return freqs_cos, freqs_sin, self.swap_mask
 
     @staticmethod
@@ -343,13 +303,13 @@ class LlamaRMSNorm(nn.Cell):
             Tensor of shape :math:`(batch, seq_length, hidden_size)`.
     """
 
-    def __init__(self, dim, eps=1e-6, compute_type=mstype.float32, is_dynamic=False):
+    def __init__(self, dim, eps=1e-6, compute_type=mstype.float32):
         super(LlamaRMSNorm, self).__init__()
         self.eps = eps
         self.compute_type = compute_type
         self.weight = Parameter(initializer('ones', (dim,), dtype=mstype.float32), parallel_optimizer=False)
 
-        if check_rmsnorm_big_kernel_valid(is_dynamic):
+        if check_rmsnorm_big_kernel_valid():
             self.norm = P.RmsNorm(eps)
             self.rms_norm = self._rms_norm
             self.self_define = False
@@ -379,7 +339,7 @@ class LlamaRMSNorm(nn.Cell):
 
     def _rms_norm(self, x):
         original_type = x.dtype
-        output = self.norm(self.cast(x, self.compute_type), self.weight)[0]
+        output = self.norm(self.cast(x, self.compute_type), self.cast(self.weight, self.compute_type))[0]
         return self.rcast(output, original_type)
 
     def construct(self, x):
@@ -451,7 +411,7 @@ class LlamaFeedForward(Cell):
                 hidden_dim = int((ffn_dim_multiplier + 0.01) * hidden_dim)
             hidden_dim = int(2 * hidden_dim / 3)
             hidden_dim = multiple_of * \
-                ((hidden_dim + multiple_of - 1) // multiple_of)
+                         ((hidden_dim + multiple_of - 1) // multiple_of)
 
         self.dtype = compute_dtype
         self.hidden_act = hidden_act
@@ -491,10 +451,10 @@ class LlamaFeedForward(Cell):
         _check_input_dtype(F.dtype(x), "x", [mstype.float32, mstype.float16, mstype.bfloat16], self.cls_name)
         x = self.cast(x, self.dtype)
         # [bs, seq, hidden_dim] or [bs * seq, hidden_dim]
-        gate = self.w1(x) # dp,1 -> dp, mp
-        hidden = self.w3(x) # dp,1 -> dp, mp
-        hidden = self.mul(hidden, gate) # dp,mp -> dp, mp
-        output = self.w2(hidden) # dp,mp -> dp, 1
+        gate = self.w1(x)  # dp,1 -> dp, mp
+        hidden = self.w3(x)  # dp,1 -> dp, mp
+        hidden = self.mul(hidden, gate)  # dp,mp -> dp, mp
+        output = self.w2(hidden)  # dp,mp -> dp, 1
         return output
 
     def shard(self, parallel_config):
@@ -524,97 +484,3 @@ class LlamaFeedForward(Cell):
             self.w2.shard(strategy_matmul=((dp, ep, 1, mp), (ep, 1, mp)))
             self.w3.shard(strategy_matmul=((dp, ep, 1, 1), (ep, mp, 1)))
             self.mul.shard(((dp * ep, mp), (dp * ep, mp)))
-
-
-class CausalMask(nn.Cell):
-    r""" Get the Lower triangular matrix from the input_ids. """
-    @_LogActionOnce(m_logger=logger, key='AttentionMask',
-                    no_warning=_get_parallel_mode() in (ParallelMode.STAND_ALONE,))
-    def __init__(self, seq_length, compute_type=mstype.float16,
-                 is_dynamic=False, pad_token_id=0, use_flash_attention=False):
-        super().__init__()
-        self.dtype = compute_type
-        self.is_dynamic = is_dynamic
-        self.pad_token_id = pad_token_id
-        self.use_flash_attention = use_flash_attention
-        self.multiply_data = Tensor([-10000.0], dtype=compute_type)
-        self.one = Tensor([1.0], dtype=compute_type)
-        self.lower_triangle_mask = ops.cast(Tensor(np.tril(np.ones(shape=(seq_length, seq_length))), mstype.float32),
-                                            compute_type)
-
-        self.shape = P.Shape()
-        self.cast = P.Cast()
-        self.reshape = P.Reshape()
-        self.not_equal = P.NotEqual()
-        self.less_equal = P.LessEqual()
-        self.bmm = P.BatchMatMul()
-        self.expand_dim = P.ExpandDims()
-        self.slice = P.StridedSlice()
-        self.mul = P.Mul()
-        self.sub = P.Sub()
-        self.mul_post = P.Mul()
-        self.expand_dim_post = P.ExpandDims()
-
-    def construct(self, tokens=None, masks=None):
-        """Forward process of the CausalMask"""
-        if tokens is not None:
-            bs = self.shape(tokens)[0]
-            seq_len = self.shape(tokens)[1]
-            input_mask = self.cast(self.not_equal(tokens, self.pad_token_id), self.dtype)
-        else:
-            bs = self.shape(masks)[0]
-            seq_len = self.shape(masks)[1]
-            input_mask = self.cast(masks, self.dtype)
-
-        shape_right = (bs, 1, seq_len)
-        # Mask the padded inputs
-        attention_mask = self.reshape(input_mask, shape_right)
-        if not self.is_dynamic:
-            lower_traiangle = self.expand_dim(self.lower_triangle_mask, 0)
-        else:
-            lower_triangle_mask = self.slice(self.lower_triangle_mask, (0, 0), (seq_len, seq_len), (1, 1))
-            lower_traiangle = self.expand_dim(lower_triangle_mask, 0)
-        # the returned shape is [bs, seq_length, seq_length]
-        attention_mask = self.mul(attention_mask, lower_traiangle)
-        attention_mask = self.sub(self.one, attention_mask)
-        attention_mask = self.expand_dim_post(attention_mask, 1)
-        if not self.use_flash_attention:
-            attention_mask = self.mul_post(attention_mask, self.multiply_data)
-        else:
-            attention_mask = self.cast(attention_mask, mstype.uint8)
-        return attention_mask
-
-    def increment(self, seq_range, batch_valid_length, zactivate_len=None):
-        "Get mask for incremental inference."
-        if zactivate_len is not None:
-            seq_range = self.slice(seq_range, (0, 0, 0), (1, 1, self.shape(zactivate_len)[0]), (1, 1, 1))
-        mask = self.less_equal(self.reshape(seq_range, (1, 1, -1)), self.reshape(batch_valid_length, (-1, 1, 1)))
-        mask = self.cast(mask, self.dtype)
-        mask = self.sub(self.one, mask)
-        mask = self.expand_dim_post(mask, 1)
-        mask = self.mul_post(mask, self.multiply_data)
-        return mask
-
-    def increment_slice(self, seq_range, seq_length, batch_valid_length, zactivate_len=None):
-        "Get mask for incremental inference and apply slice."
-        if zactivate_len is not None:
-            seq_range_mask = self.slice(seq_range, (0, 0, 0), (1, 1, self.shape(zactivate_len)[0]), (1, 1, 1))
-        else:
-            seq_range_mask = self.slice(seq_range, (0, 0, 0), (1, 1, seq_length), (1, 1, 1))
-        mask = self.less_equal(self.reshape(seq_range_mask, (1, 1, -1)), self.reshape(batch_valid_length, (-1, 1, 1)))
-        mask = self.cast(mask, self.dtype)
-        mask = self.sub(self.one, mask)
-        mask = self.expand_dim_post(mask, 1)
-        mask = self.mul_post(mask, self.multiply_data)
-        return mask
-
-    def shard(self, parallel_config):
-        dp = parallel_config.data_parallel
-        self.not_equal.shard(((dp, 1), ()))
-        self.bmm.shard(((dp, 1, 1), (dp, 1, 1)))
-        self.expand_dim.shard(((1, 1),))
-        self.mul.shard(((dp, 1, 1), (1, 1, 1)))
-        self.less_equal.shard(((1, 1, 1), (1, 1, 1)))
-        self.sub.shard(((1,), (dp, 1, 1)))
-        self.mul_post.shard(((dp, 1, 1, 1), (1,)))
-        self.expand_dim_post.shard(((dp, 1, 1),))
