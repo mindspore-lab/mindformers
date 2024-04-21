@@ -275,6 +275,8 @@ class MindFormerBook:
                 _PROJECT_PATH, "research/qwen/run_qwen_7b_lora.yaml")),
             ("yi_6b", os.path.join(
                 _PROJECT_PATH, "research/yi/run_yi_6b_text_generation.yaml")),
+            ("yi_34b", os.path.join(
+                _PROJECT_PATH, "research/yi/run_yi_34b_text_generation.yaml")),
             ("common", os.path.join(
                 _PROJECT_PATH, "configs/gpt2/run_gpt2.yaml"))])
          ),
@@ -586,6 +588,7 @@ class MindFormerBook:
             'yi_6b_finetune',
             'yi_6b_pretrain',
             'yi_6b_text_generation',
+            'yi_34b_text_generation',
         ])
     ])
 
@@ -705,6 +708,7 @@ class MindFormerBook:
         ]),
         ('yi', [
             'yi_6b',
+            'yi_34b',
         ]),
         ('sam', [
             'sam_vit_b',
@@ -893,6 +897,7 @@ class MindFormerBook:
         ]),
         ('yi', [
             'yi_6b',
+            'yi_34b',
         ])
     ])
 
