@@ -151,7 +151,7 @@ model:
     has_bias: False
     use_past: True
     block_size: 16
-    num_blocks: 512
+    num_blocks: 1024
     is_dynamic: True
     use_kvcache_op: True
     is_flexible_shape: False

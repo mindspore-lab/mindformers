@@ -79,7 +79,7 @@ class GenerationMixin:
     def _set_block_mgr(self, batch_size):
         """ Set model block table mgr function. """
 
-        if self._use_past() and not self.block_mgr:
+        if not self.block_mgr:
             self.block_mgr = BlockTables(self.config.num_blocks, self.config.block_size, self.config.seq_length)
 
         if self.block_mgr:
@@ -270,7 +270,6 @@ class GenerationMixin:
         )
         return input_ids
 
-
     def _incremental_infer(self, model_inputs: dict, prefill, current_index, valid_length_each_example, block_tables,
                            slot_mapping):
         """model forward for incremental infer."""
@@ -308,10 +307,6 @@ class GenerationMixin:
             ms.hal.synchronize()
 
         return res
-
-    def _use_past(self):
-        return hasattr(self.config, "use_past") and self.config.use_past and hasattr(self.config, "block_size") and \
-               hasattr(self.config, "num_blocks")
 
     def _beam_search(self,
                      origin_inputs,
@@ -646,8 +641,6 @@ class GenerationMixin:
         input_ids = np.reshape(input_ids, (-1, np.shape(input_ids)[-1]))
         batch_size = input_ids.shape[0]
 
-        self._set_block_mgr(batch_size)
-
         seed = 0 if seed is None else seed
         np.random.seed(seed)
 
@@ -715,6 +708,10 @@ class GenerationMixin:
             raise ValueError(
                 "`streamer` cannot be used with beam search yet. Make sure that `num_beams` is set to 1."
             )
+
+        if generation_config.use_past and self.config.is_dynamic:
+            self._set_block_mgr(batch_size)
+            self.set_dynamic_inputs()
 
         # beam search
         if generation_config.generation_mode == GenerationMode.BEAM_SEARCH:
@@ -800,10 +797,15 @@ class GenerationMixin:
             while np.sum(is_finished) != batch_size:
                 block_tables = None
                 slot_mapping = None
-                if self._use_past():
-                    block_tables, slot_mapping = self.block_mgr.assemble_pa_inputs(prefill,
-                                                                                   valid_length_each_example,
-                                                                                   is_finished)
+                if generation_config.use_past and self.config.is_dynamic:
+                    if prefill:
+                        max_input_length = len(origin_inputs[0])
+                        block_tables, slot_mapping = self.block_mgr.assemble_pa_full_inputs(max_input_length,
+                                                                                            valid_length_each_example,
+                                                                                            is_finished)
+                    else:
+                        block_tables, slot_mapping = self.block_mgr.assemble_pa_inc_inputs(valid_length_each_example,
+                                                                                           is_finished)
 
                 target_list, is_finished = self.infer(input_ids=input_ids,
                                                       valid_length_each_example=valid_length_each_example,

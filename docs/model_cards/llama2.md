@@ -883,15 +883,6 @@ bash run_distribute.sh RANK_TABLE_FILE configs/llama2/predict_llama2_70b_910b.ya
 
 　　MindSpore 大模型推理升级训推一体架构，实现脚本、分布式策略和运行时的统一，通过融合大算子降低推理时延，有效提升网络吞吐量。
 
-　　MindSpore 大模型推理大致分两步：设置环境变量 -> 执行推理，接下来分别描述上述两个过程。
-
-### 设置推理环境变量
-
-```bash
-export GRAPH_OP_RUN=1
-export MS_ENABLE_INTERNAL_KERNELS=on
-```
-
 推理时将配置文件中`param_init_type`修改为`float32`；若为Atlas 800T A2推理，则加入`ascend_config`配置。
 
 ```python

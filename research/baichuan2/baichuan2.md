@@ -1017,15 +1017,6 @@ Baichuan2-13B-Chat用于在线推理，输入按照`<reserved_106>question<reser
 python mindformers/tools/hccl_tools.py --device_num [0,2]
 ```
 
-　　MindSpore 大模型推理大致分两步：设置环境变量 -> 执行推理，接下来分别描述上述两个过程。
-
-#### 设置环境变量
-
-```bash
-export GRAPH_OP_RUN=1
-export MS_ENABLE_INTERNAL_KERNELS=on
-```
-
 #### 基于高阶接口推理
 
 - **单卡推理**

@@ -24,7 +24,7 @@ from typing import Dict, Optional, Union
 import yaml
 
 import mindspore as ms
-from mindspore import nn
+from mindspore import nn, JitConfig
 from mindspore import load_checkpoint, load_param_into_net
 
 from mindformers.tools.hub import (
@@ -265,6 +265,8 @@ class PreTrainedModel(nn.Cell, ModuleUtilsMixin, GenerationMixin, PushToHubMixin
         self.name_or_path = config.name_or_path
         self.warning_issued = {}
         self.generation_config = GenerationConfig.from_model_config(config) if self.can_generate() else None
+
+        self._set_model_predict_config()
 
     def post_init(self):
         """
@@ -577,6 +579,20 @@ class PreTrainedModel(nn.Cell, ModuleUtilsMixin, GenerationMixin, PushToHubMixin
                 val.__dict__.pop("type")
                 config.__dict__.update({key: val})
 
+    def _set_model_predict_config(self):
+        """
+        Set predict config for model.
+        """
+        if self.generation_config.use_past and self.config.is_dynamic:
+            # jit_level = "O0" indicates that the operator is executed in the form of kernel by kernel mode.
+            # infer_boost = "on" indicates that the high performance inference is enabled.
+            jit_level = "O0"
+            infer_boost = "on"
+            jit_config = JitConfig(jit_level=jit_level, infer_boost=infer_boost)
+            self.set_jit_config(jit_config)
+            logger.info(
+                "Set jit config for jit level:{} and infer boost:{}.".format(jit_level, infer_boost))
+
     def prepare_inputs_for_predict_layout(self, input_ids, **kwargs):
         """
         prepare inputs for transform ckpt.
@@ -596,7 +612,6 @@ class PreTrainedModel(nn.Cell, ModuleUtilsMixin, GenerationMixin, PushToHubMixin
             "A model class needs to define a `set_dynamic_inputs`"
             " method in order to use `model.set_inputs()`."
         )
-
 
     def prepare_inputs_for_export(self, full_model=True):
         """
