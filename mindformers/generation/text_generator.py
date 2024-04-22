@@ -819,6 +819,8 @@ class GenerationMixin:
                                                       target_mask=target_mask,
                                                       **model_kwargs)
                 if generation_config.use_past:
+                    if prefill and "origin_inputs" in model_kwargs:
+                        model_kwargs.pop("origin_inputs")
                     prefill = False
                 for i in range(batch_size):
                     if is_finished[i]:

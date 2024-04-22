@@ -294,7 +294,7 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
         self.load_checkpoint(config)
 
     def prepare_inputs_for_generation(self, input_ids, **kwargs):
-        if self.config.is_dynamic and self.is_first_iteration:
+        if self.config.is_dynamic and "origin_inputs" in kwargs:
             input_ids = kwargs["origin_inputs"]
         return {
             "input_ids": Tensor(input_ids, mstype.int32)
