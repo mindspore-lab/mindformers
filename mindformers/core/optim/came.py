@@ -197,12 +197,13 @@ class Came(Optimizer):
             instability_matrix respectively. default: (1e-30, 1e-3, 1e-16)
         clip_threshold (float): The threshold of root mean square of final gradient update. default: 1.0
         decay_rate (float): The coefficient used to compute running averages of square gradient.
-            default: 0.8
-        beta1 (float): The coefficient to computing running averages of gradient. Should be in range (0.0, 1.0).
+            Should be in range [0.0, 1.0]. default: 0.8.
+        beta1 (float): The coefficient to computing running averages of gradient. Should be in range [0.0, 1.0].
                Default: 0.9.
-        beta3 (float): The coefficient to computing running averages of gradient. Should be in range (0.0, 1.0).
+        beta3 (float): The coefficient to computing running averages of gradient. Should be in range [0.0, 1.0].
                Default: 0.99.
-        weight_decay (float): Weight decay (L2 penalty). It must be equal to or greater than 0. Default: 0.0.
+        weight_decay (float): Weight decay (L2 penalty). It must be equal to or greater than 0.
+            Should be in range [0.0, 1.0]. default: 0.0.
         scale_parameter (bool): If True, learning rate is scaled by root mean square of parameter. default: True
         relative_step (bool): If True, time-dependent learning rate is computed instead of external learning rate.
             default: True
@@ -225,12 +226,10 @@ class Came(Optimizer):
     Raises:
         TypeError: If `learning_rate` is not one of int, float, Tensor, Iterable, LearningRateSchedule.
         TypeError: If element of `parameters` is neither Parameter nor dict.
-        TypeError: If `beta1`, `beta3`, `eps` or `loss_scale` is not a float.
-        TypeError: If `weight_decay` is neither float nor int.
+        TypeError: If `decay_rate`, `weight_decay`, `beta1`, `beta3`, `eps` or `loss_scale` is not a float.
         TypeError: If `use_locking` or `use_nesterov` is not a bool.
         ValueError: If `loss_scale` or `eps` is less than or equal to 0.
-        ValueError: If `beta1`, `beta3` is not in range (0.0, 1.0).
-        ValueError: If `weight_decay` is less than 0.
+        ValueError: If `decay_rate`, `weight_decay`, `beta1` or `beta3` is not in range [0.0, 1.0].
 
     Supported Platforms:
         ``Ascend``
@@ -280,15 +279,16 @@ class Came(Optimizer):
         validator.check_non_negative_float(clip_threshold, "clip_threshold", self.cls_name)
         validator.check_value_type("decay_rate", decay_rate, [float], self.cls_name)
         validator.check_float_range(decay_rate, 0, 1, Rel.INC_BOTH, "decay_rate", self.cls_name)
+        validator.check_value_type("weight_decay", weight_decay, [float], self.cls_name)
         validator.check_float_range(weight_decay, 0, 1, Rel.INC_BOTH, "weight_decay", self.cls_name)
         validator.check_value_type("scale_parameter", scale_parameter, [bool], self.cls_name)
         validator.check_value_type("relative_step", relative_step, [bool], self.cls_name)
         validator.check_value_type("warmup_init", warmup_init, [bool], self.cls_name)
         validator.check_value_type("compression", compression, [bool], self.cls_name)
-        validator.check_value_type("beta1", beta1, [int, float], self.cls_name)
-        validator.check_non_negative_float(float(beta1), "beta1", self.cls_name)
-        validator.check_value_type("beta3", beta3, [int, float], self.cls_name)
-        validator.check_non_negative_float(float(beta3), "beta3", self.cls_name)
+        validator.check_value_type("beta1", beta1, [float], self.cls_name)
+        validator.check_float_range(beta1, 0, 1, Rel.INC_BOTH, "beta1", self.cls_name)
+        validator.check_value_type("beta3", beta3, [float], self.cls_name)
+        validator.check_float_range(beta3, 0, 1, Rel.INC_BOTH, "beta3", self.cls_name)
         self.eps = trans_to_tensor(eps)
         self.clip_threshold = trans_to_tensor(clip_threshold)
         self.decay_rate = trans_to_tensor(-decay_rate)
