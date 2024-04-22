@@ -14,4 +14,4 @@
 # ============================================================================
 """tests"""
 import os
-os.environ["OPENMIND_HUB_ENDPOINT"] = "https://modelfoundrysh.test.osinfra.cn"
+os.environ["OPENMIND_HUB_ENDPOINT"] = "https://openmind.test.osinfra.cn"
