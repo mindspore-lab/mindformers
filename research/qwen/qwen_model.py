@@ -112,6 +112,14 @@ class QwenForCausalLM(QwenPreTrainedModel):
             "input_ids": Tensor(input_ids, mstype.int32)
         }
 
+    def add_flags_custom(self, is_first_iteration):
+        """Add customized attributes for specific cells in the model."""
+        self.add_flags(is_first_iteration=is_first_iteration)
+        self.transformer.add_flags(is_first_iteration=is_first_iteration)
+        for layer in self.transformer.layers:
+            layer.add_flags(is_first_iteration=is_first_iteration)
+            layer.self_attention.infer_attention.add_flags(is_first_iteration=is_first_iteration)
+
     # pylint: disable=W0613
     def construct(self, input_ids, labels=None, input_position=None, position_ids=None, attention_mask=None,
                   input_embeds=None, init_reset=True, batch_valid_length=None, batch_index=None, zactivate_len=None,

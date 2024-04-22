@@ -100,6 +100,17 @@ class GenerationMixin:
             " method in order to use `.generate()`."
         )
 
+    def add_flags_custom(self, is_first_iteration):
+        """
+        Add customized attributes for specific cells in the model. If the model does not implement this method,
+        this will add customized attributes for all cells in the model recursively.
+
+        Args:
+            is_first_iteration (bool): Network configuration information.
+            Indicate whether current iteration is the first iteration in prediction.
+        """
+        self.add_flags_recursive(is_first_iteration=is_first_iteration)
+
     # pylint: disable=W0613
     def update_model_kwargs_before_generate(self, input_ids, model_kwargs: dict):
         """
@@ -277,7 +288,7 @@ class GenerationMixin:
         # Claim the first graph
         if prefill:
             self.phase = "prefill"
-            self.add_flags_recursive(is_first_iteration=True)
+            self.add_flags_custom(is_first_iteration=True)
             model_inputs["input_position"] = Tensor(current_index, mstype.int32)
             model_inputs["init_reset"] = Tensor([False], mstype.bool_)  # init_reset (1,) bool False
             model_inputs["batch_valid_length"] = Tensor([valid_length_each_example], mstype.int32)
@@ -291,7 +302,7 @@ class GenerationMixin:
             ms.hal.synchronize()
             self.phase = "increment"
             # first iter done, go to other iters
-            self.add_flags_recursive(is_first_iteration=False)
+            self.add_flags_custom(is_first_iteration=False)
         else:
             # slice model inputs for incremental infer
             self.slice_incremental_inputs(model_inputs, current_index)
