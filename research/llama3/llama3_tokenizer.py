@@ -16,7 +16,7 @@
 
 import base64
 from typing import Collection, Dict, List, Set, Union
-
+import json
 import unicodedata
 
 from mindformers.mindformer_book import MindFormerBook
@@ -37,6 +37,15 @@ def _load_tiktoken_bpe(tiktoken_bpe_file: str) -> Dict[bytes, int]:
     return {
         base64.b64decode(token): int(rank)
         for token, rank in (line.split() for line in contents.splitlines() if line)
+    }
+
+
+def _load_tokenizer_json(json_file):
+    with open(json_file, "rb") as f:
+        contents = json.loads(f.read())
+    return {
+        bytes(token, encoding='utf8'): int(rank)
+        for token, rank in contents['model']['vocab'].items()
     }
 
 
@@ -64,7 +73,10 @@ class Llama3Tokenizer(PreTrainedTokenizer):
         self.vocab_file = vocab_file
         self.add_bos_token = add_bos_token
         self.add_eos_token = add_eos_token
-        self.mergeable_ranks = _load_tiktoken_bpe(vocab_file)  # type: dict[bytes, int]
+        if vocab_file.split('.')[-1] == 'json':
+            self.mergeable_ranks = _load_tokenizer_json(vocab_file)
+        else:
+            self.mergeable_ranks = _load_tiktoken_bpe(vocab_file)  # type: dict[bytes, int]
         num_base_tokens = len(self.mergeable_ranks)
         special_tokens = [
             "<|begin_of_text|>",
@@ -222,5 +234,5 @@ class Llama3Tokenizer(PreTrainedTokenizer):
         if isinstance(token_ids, int):
             token_ids = [token_ids]
         if skip_special_tokens:
-            token_ids = [i for i in token_ids if i < self.eod_id]
+            token_ids = [i for i in token_ids if i != self.pad_token_id and i not in self.special_tokens.values()]
         return self.tokenizer.decode(token_ids, errors=errors or self.errors)
