@@ -24,6 +24,9 @@ from mindformers.core.context import build_context
 from mindformers.tools import get_output_root_path
 from mindformers.tools.utils import check_in_modelarts, str2bool
 
+# pylint: disable=W0611
+import qwen1_5_tokenizer
+
 
 def clear_auto_trans_output(config):
     """clear transformed_checkpoint and strategy"""
