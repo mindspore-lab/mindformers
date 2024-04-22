@@ -1,3 +1,27 @@
+# MindSpore Transformers 1.0.2 RELEASE NOTE
+
+以下为MindSpore Transformers (以下称为MindFormers) 套件 1.0.2 版本的变更日志，相较于1.0.1版本有以下关键新特性和bug fix修复。
+
+## 新特性
+
+- [GLM3](./model_cards/glm3.md)/[GLM3-32k](../research/glm32k/glm32k.md)新增支持Paged Attention推理。
+
+## 新模型
+
+以下为 research 模型：
+
+| 模型                                        | 规格          |
+|-------------------------------------------|-------------|
+| [Qwen1_5](../research/qwen1_5/qwen1_5.md) | qwen1_5_72b |
+| [Mengzi3](../research/mengzi3/mengzi3.md) | mengzi3_13b |
+
+## Bugfix
+
+在当前版本发布周期内，我们进行了模型/功能/文档等Bugfix，修复内容如下：
+
+- [#I9EWKI](https://gitee.com/mindspore/mindformers/issues/I9EWKI)：修复了离线推理启动脚本[run_infer_main.py](https://gitee.com/mindspore/mindformers/blob/r1.0/run_infer_main.py)中dynamic开关和paged attention开关同时开启时报错的问题。
+- [#I9G6BG](https://gitee.com/mindspore/mindformers/issues/I9G6BG)：修复了多卡权重自动转换Rank 0进程出错时，其他Rank进程不会自动终止的问题。
+
 # MindSpore Transformers 1.0.1 RELEASE NOTE
 
 以下为MindSpore Transformers (以下称为MindFormers) 套件 1.0.1 版本的变更日志，相较于1.0.0版本有以下关键bug fix修复。
