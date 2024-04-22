@@ -157,7 +157,6 @@ class ChatGLM2SelfAttention(nn.Cell):
         self.params_dtype = config.param_init_type
         self.compute_dtype = config.compute_dtype
         self.batch_size = config.batch_size
-        self.seq_length = config.seq_length
         self.pre_seq_len = config.pre_seq_len
         self.n_rep = self.n_head // config.multi_query_group_num
 
@@ -176,58 +175,48 @@ class ChatGLM2SelfAttention(nn.Cell):
                                       param_init_type=self.params_dtype,
                                       compute_dtype=self.compute_dtype)
         self.query_key_value.shard(strategy_matmul=((dp, 1), (mp, 1)), strategy_bias=((dp, mp), (mp,)))
-
-        self.core_attention = CoreAttention(config, self.layer_number)
-
+        self.shape = P.Shape()
         self.dense = Linear(self.projection_size,
                             config.hidden_size,
                             has_bias=config.add_bias_linear,
                             param_init_type=self.params_dtype,
                             compute_dtype=self.compute_dtype)
         self.dense.shard(strategy_matmul=((dp, 1), (mp, 1)), strategy_bias=((dp, 1), (1,)))
-
-        self.reshape = P.Reshape()
-        self.stack = P.Stack(axis=-1)
-        self.mul = P.Mul()
-        self.sub = P.Sub()
-        self.add = P.Add()
-        self.concat = P.Concat(axis=-1)
-        self.split_3 = P.Split(axis=-1, output_num=3)
-        self.transpose = P.Transpose()
-        self.cast = P.Cast()
-        self.tile_kv = P.Tile()
-        self.shape = P.Shape()
-        self.use_flash_attention = config.use_flash_attention
-
-        if self.use_flash_attention:
-            self.flash_attention = FlashAttention(head_num=config.num_attention_heads,
-                                                  scale_value=1. / math.sqrt(self.head_dim),
-                                                  input_layout='BNSD',
-                                                  keep_prob=1. - config.attention_dropout,
-                                                  pre_tokens=65536,
-                                                  next_tokens=0,
-                                                  dp=dp,
-                                                  mp=mp)
-
-        self.block_size = config.block_size
-        self.num_blocks = config.num_blocks
-        self.parallel_config = config.parallel_config
-
         self.use_past = config.use_past
-        self.merger_head_transpose = P.Transpose().shard(((dp, mp, 1, 1),))
         if self.use_past:
             self.infer_attention = InferAttention(self.n_head,
                                                   self.head_dim,
-                                                  self.seq_length,
-                                                  config.hidden_size,
                                                   self.n_kv_head,
                                                   scale_value=1. / math.sqrt(self.head_dim),
                                                   pre_tokens=65536,
                                                   next_tokens=0,
-                                                  block_size=self.block_size,
-                                                  num_blocks=self.num_blocks,
+                                                  block_size=config.block_size,
+                                                  num_blocks=config.num_blocks,
                                                   rotary_cos_format=1,
-                                                  parallel_config=self.parallel_config)
+                                                  parallel_config=config.parallel_config)
+        else:
+            self.core_attention = CoreAttention(config, self.layer_number)
+            self.reshape = P.Reshape()
+            self.stack = P.Stack(axis=-1)
+            self.mul = P.Mul()
+            self.sub = P.Sub()
+            self.add = P.Add()
+            self.concat = P.Concat(axis=-1)
+            self.transpose = P.Transpose()
+            self.cast = P.Cast()
+            self.tile_kv = P.Tile()
+            self.use_flash_attention = config.use_flash_attention
+
+            if self.use_flash_attention:
+                self.flash_attention = FlashAttention(head_num=config.num_attention_heads,
+                                                      scale_value=1. / math.sqrt(self.head_dim),
+                                                      input_layout='BNSD',
+                                                      keep_prob=1. - config.attention_dropout,
+                                                      pre_tokens=65536,
+                                                      next_tokens=0,
+                                                      dp=dp,
+                                                      mp=mp)
+            self.merger_head_transpose = P.Transpose().shard(((dp, mp, 1, 1),))
 
     def _repeat_kv(self, x, rep):
         if rep == 1:
@@ -373,12 +362,8 @@ class ChatGLM2Block(nn.Cell):
         super(ChatGLM2Block, self).__init__()
         self.layer_number = layer_number
         self.apply_residual_connection_post_layernorm = config.apply_residual_connection_post_layernorm
-        self.fp32_residual_connection = config.fp32_residual_connection
-        self.use_past = config.use_past
-        self.params_dtype = config.param_init_type
         self.layernorm_dtype = config.layernorm_compute_type
         self.compute_dtype = config.compute_dtype
-        self.seq_length = config.seq_length
 
         layer_norm_func = ChatGLM2RMSNorm if config.rmsnorm else LayerNorm
         # Layernorm on the input data.

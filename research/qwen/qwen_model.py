@@ -213,8 +213,7 @@ class QwenModel(QwenPreTrainedModel):
         # 4. h hidden layers for transformer
         self.layers = nn.CellList()
         for layer_id in range(config.num_layers):
-            layer = QwenDecodeLayer(config.seq_length,
-                                    layer_id,
+            layer = QwenDecodeLayer(layer_id,
                                     dim=config.hidden_size,
                                     n_heads=config.num_heads,
                                     intermediate_size=config.intermediate_size,
@@ -242,8 +241,7 @@ class QwenModel(QwenPreTrainedModel):
                                   rotary_dtype=config.rotary_dtype,
                                   theta=config.theta,
                                   scaling_factor=config.scaling_factor,
-                                  extend_method=config.extend_method,
-                                  is_dynamic=config.is_dynamic)
+                                  extend_method=config.extend_method)
         self.casual_mask = CausalMaskForQwen(seq_length=config.seq_length,
                                              compute_type=config.compute_dtype,
                                              is_dynamic=config.is_dynamic,
@@ -286,13 +284,17 @@ class QwenModel(QwenPreTrainedModel):
         hidden_states = self.drop(hidden_states)
 
         # 2. rotary_emb
-        if not self.use_past:
-            freqs_cis = self.freqs_mgr()
+        bs, seq_len = self.shape(input_ids)
+        mask = None
+        if self.use_past:
+            if self.is_first_iteration:
+                freqs_cis = self.freqs_mgr.prefill(bs, seq_len)
+            else:
+                freqs_cis = self.freqs_mgr.increment(batch_valid_length)
+        else:
+            freqs_cis = self.freqs_mgr(seq_len)
             mask = self.casual_mask(input_ids)
             mask = self.casual_mask.post_process(mask)  # mask: [bs, 1, seq, seq]
-        else:
-            freqs_cis = (self.freqs_mgr.freqs_cos, self.freqs_mgr.freqs_sin, self.freqs_mgr.swap_mask)
-            mask = None
 
         # 4. hidden_states
         for i in range(self.num_hidden_layers):
@@ -315,12 +317,11 @@ class QwenDecodeLayer(LLamaDecodeLayer):
     """Qwen decode layer"""
 
     def __init__(self,
-                 seq_length,
                  layer_id,
                  **kwargs):
         kwargs['qkv_has_bias'] = True
         intermediate_size = kwargs.pop('intermediate_size', 0)
-        super().__init__(seq_length, layer_id, **kwargs)
+        super().__init__(layer_id, **kwargs)
 
         compute_dtype = kwargs.get('compute_dtype', mstype.float16)
         param_init_type = kwargs.get('param_init_type', mstype.float32)

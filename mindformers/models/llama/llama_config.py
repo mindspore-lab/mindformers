@@ -98,7 +98,6 @@ class LlamaConfig(PretrainedConfig):
             The maximum number of tokens in one block can have when using paged attention.
         num_blocks (`int`, *optional*, defaults to 512):
             The maximum number of blocks when using paged attention.
-
         Returns:
             Class, LlamaConfig.
     """

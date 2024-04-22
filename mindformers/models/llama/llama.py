@@ -14,13 +14,9 @@
 # ============================================================================
 """LLaMA models' APIs."""
 import copy
+import numpy as np
 
 import mindspore.common.dtype as mstype
-
-try:
-    from mindspore._checkparam import Validator
-except ImportError:
-    import mindspore._checkparam as Validator
 from mindspore import Tensor, nn
 from mindspore.context import ParallelMode
 from mindspore.ops import operations as P
@@ -117,8 +113,6 @@ class LlamaModel(LlamaPreTrainedModel):
                  config: LlamaConfig = None):
         super().__init__(config, auto_prefix=True)
         _check_config(config.parallel_config)
-        if config.batch_size or config.use_past:
-            Validator.check_positive_int(config.batch_size)
         self.dtype = config.compute_dtype
         self.hidden_size = config.hidden_size
         self.num_layers = config.num_layers
@@ -126,26 +120,17 @@ class LlamaModel(LlamaPreTrainedModel):
         self.head_dim = self.hidden_size // self.n_head
         self.pad_token_id = config.pad_token_id
         self.is_first_iteration = True
-        self.seq_length = config.seq_length
         self.use_past = config.use_past
-        self.is_dynamic = config.is_dynamic
         self.use_flash_attention = config.use_flash_attention
         self.shape = P.Shape()
         self.reshape = P.Reshape().add_prim_attr("skip_redistribution", True)
-        self.cast = P.Cast()
-        self.tile = P.Tile()
-        self.expand_dims = P.ExpandDims()
-        self.gather = P.Gather()
-        self.slice = P.StridedSlice()
-
         self.freqs_mgr = FreqsMgr(head_dim=self.head_dim,
                                   seq_length=config.seq_length,
                                   max_position_embedding=config.max_position_embedding,
                                   rotary_dtype=config.rotary_dtype,
                                   theta=config.theta,
                                   scaling_factor=config.scaling_factor,
-                                  extend_method=config.extend_method,
-                                  is_dynamic=config.is_dynamic)
+                                  extend_method=config.extend_method)
         self.casual_mask = LowerTriangularMaskWithDynamic(seq_length=config.seq_length,
                                                           compute_type=config.compute_dtype,
                                                           is_dynamic=config.is_dynamic,
@@ -179,8 +164,7 @@ class LlamaModel(LlamaPreTrainedModel):
                                                    fine_grain_interleave=config.fine_grain_interleave,
                                                    parallel_config=config.parallel_config)
             else:
-                layer = LLamaDecodeLayer(config.seq_length,
-                                         layer_id,
+                layer = LLamaDecodeLayer(layer_id,
                                          dim=config.hidden_size,
                                          n_heads=config.num_heads,
                                          n_kv_heads=config.n_kv_heads,
@@ -207,7 +191,7 @@ class LlamaModel(LlamaPreTrainedModel):
                                 config.num_layers, select_recompute=config.parallel_config.recompute.select_recompute)
             self.layers.append(layer)
         self.norm_out = LlamaRMSNorm(config.hidden_size, config.rms_norm_eps,
-                                     compute_type=config.layernorm_compute_type, is_dynamic=config.is_dynamic)
+                                     compute_type=config.layernorm_compute_type)
         dp = config.parallel_config.data_parallel
         if not (_get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation()):
             self.tok_embeddings.pipeline_stage = 0
@@ -239,7 +223,8 @@ class LlamaModel(LlamaPreTrainedModel):
                 past value parameter used in the incremental prediction. Default True.
             batch_valid_length(Tensor): the past calculated the index with datatype int32, used for incremental
                 prediction. Tensor of shape :math:`(batch_size,)`. Default None.
-
+            block_tables (Tensor[int64]): Store mapping tables for each sequence.
+            slot_mapping (Tensor[int32]): Store token cache physical slot index.
         Returns:
             output: Tensor, the output of llama decoderlayer
         """
@@ -247,9 +232,12 @@ class LlamaModel(LlamaPreTrainedModel):
         bs, seq_len = self.shape(tokens)
         mask = None
         if self.use_past:
-            freqs_cis = (self.freqs_mgr.freqs_cos, self.freqs_mgr.freqs_sin, self.freqs_mgr.swap_mask)
+            if self.is_first_iteration:
+                freqs_cis = self.freqs_mgr.prefill(bs, seq_len)
+            else:
+                freqs_cis = self.freqs_mgr.increment(batch_valid_length)
         else:
-            freqs_cis = self.freqs_mgr()
+            freqs_cis = self.freqs_mgr(seq_len)
             mask = self.casual_mask(tokens)  # mask: [bs, seq, seq]
 
         # tokens: [bs, seq/1]
@@ -328,7 +316,6 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
             logger.warning("Now, the model_parallel num of Loss will be changed: mp = 1")
             loss_parallel_config.model_parallel = 1
         self.loss = CrossEntropyLoss(parallel_config=loss_parallel_config)
-        self.seq_length = config.seq_length
 
         dp = config.parallel_config.data_parallel
         mp = config.parallel_config.model_parallel
@@ -349,9 +336,30 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
         self.load_checkpoint(config)
 
     def prepare_inputs_for_generation(self, input_ids, **kwargs):
+        if self.config.is_dynamic and self.is_first_iteration:
+            input_ids = kwargs["origin_inputs"]
         return {
             "input_ids": Tensor(input_ids, mstype.int32)
         }
+
+    # pylint: disable=W0613
+    def prepare_inputs_for_predict_layout(self, input_ids, **kwargs):
+        """Get Llama model input tuple for transform ckpt."""
+        input_ids = Tensor(input_ids, mstype.int32)
+        bs = input_ids.shape[0]
+        slot_mapping = Tensor(np.ones(shape=tuple([bs])), mstype.int32)
+        return input_ids, None, None, None, None, None, None, None, None, None, None, slot_mapping
+
+    def set_dynamic_inputs(self):
+        dynamic_input_ids = Tensor(shape=[None, None], dtype=mstype.int32)
+        dynamic_input_position = Tensor(shape=[None], dtype=mstype.int32)
+        dynamic_init_reset = Tensor([False], mstype.bool_)
+        dynamic_batch_valid_length = Tensor(shape=[None, None], dtype=mstype.int32)
+        dynamic_block_tables = Tensor(shape=[None, None], dtype=mstype.int32)
+        dynamic_slot_mapping = Tensor(shape=[None], dtype=mstype.int32)
+        self.set_inputs(dynamic_input_ids, None, dynamic_input_position, None, None, None, dynamic_init_reset,
+                        dynamic_batch_valid_length, None, None, dynamic_block_tables, dynamic_slot_mapping)
+        logger.info("Set dynamic input for llama.")
 
     # pylint: disable=W0613
     def construct(self, input_ids, labels=None, input_position=None, position_ids=None, attention_mask=None,
@@ -371,7 +379,8 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
                 past value parameter used in the incremental prediction. Default True.
             batch_valid_length(Tensor): the past calculated the index with datatype int32, used for incremental
                 prediction. Tensor of shape :math:`(batch_size,)`. Default None.
-
+            block_tables (Tensor[int64]): Store mapping tables for each sequence.
+            slot_mapping (Tensor[int32]): Store token cache physical slot index.
         Returns:
             Tensor: The loss or (logits, tokens, input_mask) of the network.
         """
@@ -404,11 +413,7 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
                 input_mask = self.mul(input_mask, label_mask)
 
         if not self.training:
-            if not pre_gather:
-                logits = self.reshape(logits, (bsz, seqlen, -1))
             logits = self.cast(logits, mstype.float32)
-            # makes cast effective to avoid allgather issue in Mindspore1.10
-            input_mask = self.add(input_mask, 1)
             return logits, tokens, input_mask
 
         if logits.ndim > 2:

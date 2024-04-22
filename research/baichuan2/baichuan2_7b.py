@@ -109,8 +109,7 @@ class Baichuan7BV2Model(Baichuan2PreTrainedModel):
                                   rotary_dtype=config.rotary_dtype,
                                   theta=config.theta,
                                   scaling_factor=config.scaling_factor,
-                                  extend_method=config.extend_method,
-                                  is_dynamic=config.is_dynamic)
+                                  extend_method=config.extend_method)
         self.casual_mask = LowerTriangularMaskWithDynamic(seq_length=config.seq_length,
                                                           compute_type=config.compute_dtype,
                                                           is_dynamic=config.is_dynamic,
@@ -122,9 +121,7 @@ class Baichuan7BV2Model(Baichuan2PreTrainedModel):
                                              parallel_optimizer=True)
         self.layers = nn.CellList()
         for layer_id in range(config.num_layers):
-            layer = LLamaDecodeLayer(config.batch_size,
-                                     config.seq_length,
-                                     layer_id,
+            layer = LLamaDecodeLayer(layer_id,
                                      dim=config.hidden_size,
                                      n_heads=config.num_heads,
                                      n_kv_heads=config.n_kv_heads,
@@ -150,7 +147,7 @@ class Baichuan7BV2Model(Baichuan2PreTrainedModel):
                                 config.num_layers, select_recompute=config.parallel_config.recompute.select_recompute)
             self.layers.append(layer)
         self.norm_out = LlamaRMSNorm(config.hidden_size, config.rms_norm_eps,
-                                     compute_type=config.layernorm_compute_type, is_dynamic=config.is_dynamic)
+                                     compute_type=config.layernorm_compute_type)
         self.kvcache_preprocess = KVCachePreprocess(max_batch_size=config.batch_size,
                                                     max_seq_length=config.seq_length,
                                                     is_dynamic=config.is_dynamic,
@@ -195,15 +192,15 @@ class Baichuan7BV2Model(Baichuan2PreTrainedModel):
         # preprocess
         bs, seq_len = self.shape(tokens)
         if not self.use_past:
-            freqs_cis = self.freqs_mgr()
+            freqs_cis = self.freqs_mgr(seq_len)
             mask = self.casual_mask(tokens) # mask: [bs, 1, seq, seq]
             kvcache_inputs = None
         else:
             if self.is_first_iteration:
-                freqs_cis = self.freqs_mgr(seq_len)
+                freqs_cis = self.freqs_mgr.prefill(bs, seq_len)
                 mask = self.casual_mask(tokens) # mask: [bs, 1, seq, seq]
             else:
-                freqs_cis = self.freqs_mgr.increment(batch_valid_length, bs)
+                freqs_cis = self.freqs_mgr.increment(batch_valid_length)
                 if self.is_dynamic and self.is_flexible_shape and not self.use_kvcache_op:
                     mask = self.casual_mask.increment_slice(self.kvcache_preprocess.range,
                                                             self.kvcache_preprocess.max_cache_length // bs,
@@ -402,30 +399,13 @@ class Baichuan7BV2ForCausalLM(Baichuan2PreTrainedModel):
             "input_ids": Tensor(input_ids, mstype.int32)
         }
 
-    def prepare_inputs_for_export(self, full_model=True):
-        """prepare_inputs_for_export"""
-        dyn = self.config.is_dynamic
-        if dyn:
-            logger.info(f"Exporting dynamic MindIR...")
-        seq_length = self.seq_length
-        bs = None if dyn else self.config.batch_size
-        seq_len = None if dyn else self.seq_length
-
-        def dummy_tensor(shape, dtype):
-            if None in shape:
-                return Tensor(shape=shape, dtype=dtype)
-            return Tensor(np.ones(shape=tuple(shape)), dtype=dtype)
-
-        batch_valid_length = dummy_tensor(shape=[bs], dtype=mstype.int32)
-        batch_index = dummy_tensor(shape=[bs], dtype=mstype.int64)
-        zactivate_len = dummy_tensor(shape=[seq_len], dtype=mstype.int64)
-        if full_model:
-            logger.info('\nexporting with batch_size = %s, seq = %s ...', self.config.batch_size, seq_length)
-            input_ids = dummy_tensor(shape=[bs, seq_len], dtype=mstype.int32)
-        else:
-            logger.info('\nexporting with batch_size = %s, seq = 1 ...', self.config.batch_size)
-            input_ids = dummy_tensor(shape=[bs, 1], dtype=mstype.int32)
-        return input_ids, None, None, None, None, None, None, batch_valid_length, batch_index, zactivate_len
+    # pylint: disable=W0613
+    def prepare_inputs_for_predict_layout(self, input_ids, **kwargs):
+        """Get Llama model input tuple for transform ckpt."""
+        input_ids = Tensor(input_ids, mstype.int32)
+        bs = input_ids.shape[0]
+        slot_mapping = Tensor(np.ones(shape=tuple([bs])), mstype.int32)
+        return input_ids, None, None, None, None, None, None, None, None, None, None, slot_mapping
 
     # pylint: disable=W0613
     def construct(self, input_ids, labels=None, input_position=None, position_ids=None, attention_mask=None,

@@ -54,8 +54,7 @@ class InternLMModel(LlamaModel):
             self.tok_embeddings.shard(config.parallel_config)
         self.layers = nn.CellList()
         for layer_id in range(config.num_layers):
-            layer = InternLMDecodeLayer(seq_length=config.seq_length,
-                                        layer_id=layer_id,
+            layer = InternLMDecodeLayer(layer_id=layer_id,
                                         dim=config.hidden_size,
                                         n_heads=config.num_heads,
                                         n_kv_heads=config.n_kv_heads,

@@ -184,12 +184,14 @@ class ChatGLM2ForConditionalGeneration(GLM2PreTrainedModel):
         input_position = kwargs.get("current_index", None)
         if input_position is not None:
             input_position = Tensor(input_position, mstype.int32)
+        if self.config.is_dynamic and self.is_first_iteration:
+            input_ids = kwargs["origin_inputs"]
         return {
             "input_ids": Tensor(input_ids, mstype.int32),
             "input_position": input_position
         }
 
-    def prepare_inputs_for_predict_layout(self, input_ids):
+    def prepare_inputs_for_predict_layout(self, input_ids, **kwargs):
         """Get ChatGLM2 model input tuple for transform ckpt."""
         input_ids = Tensor(input_ids, mstype.int32)
         bs = input_ids.shape[0]

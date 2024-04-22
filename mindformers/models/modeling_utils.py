@@ -252,6 +252,7 @@ class PreTrainedModel(nn.Cell, ModuleUtilsMixin, GenerationMixin, PushToHubMixin
     # pylint: disable=W0613
     def __init__(self, config: PretrainedConfig, *inputs, **kwargs):
         super().__init__(**kwargs)
+        GenerationMixin.__init__(self)
         if not isinstance(config, PretrainedConfig):
             raise ValueError(
                 f"Parameter config in `{self.__class__.__name__}(config)` should be an instance of class "
@@ -575,6 +576,27 @@ class PreTrainedModel(nn.Cell, ModuleUtilsMixin, GenerationMixin, PushToHubMixin
             if isinstance(val, PretrainedConfig):
                 val.__dict__.pop("type")
                 config.__dict__.update({key: val})
+
+    def prepare_inputs_for_predict_layout(self, input_ids, **kwargs):
+        """
+        prepare inputs for transform ckpt.
+        """
+        raise RuntimeError(
+            "A model class needs to define a `prepare_inputs_for_predict_layout`"
+            " method in order to use parallel predict."
+        )
+
+    # pylint: disable=W0613
+    def set_dynamic_inputs(self):
+        """
+        Compile static graphs into dynamic shapes
+        """
+
+        raise RuntimeError(
+            "A model class needs to define a `set_dynamic_inputs`"
+            " method in order to use `model.set_inputs()`."
+        )
+
 
     def prepare_inputs_for_export(self, full_model=True):
         """

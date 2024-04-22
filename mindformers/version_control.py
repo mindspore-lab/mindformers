@@ -257,26 +257,8 @@ def is_version_python(cur_ver, tar_ver):
     return True
 
 
-def check_valid_paged_attention():
-    """check mindspore version is valid for paged attention"""
-    version_valid = is_version_ge(ms.__version__, "2.2.11")
-    # below ms 2.2.11 is not support
-    if not version_valid:
-        logger.warning("Current MindSpore do not support PagedAttention, please upgrade to 2.2.11 or later version.")
-        logger.warning("Now running on self-attention mode.")
-        result = False
-    else:
-        result = True
-    return result
-
-
-def is_paged_attention_v2():
-    """check whether the interface of paged attention is changed"""
-    return is_version_ge(ms.__version__, "2.3.0")
-
-
-def check_rmsnorm_big_kernel_valid(is_dynamic=False):
+def check_rmsnorm_big_kernel_valid():
     """check whether rmsnorm big kernel is valid"""
-    if check_valid_big_kernel() and not is_910a() and not is_dynamic:
+    if check_valid_big_kernel() and not is_910a():
         return True
     return False

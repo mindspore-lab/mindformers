@@ -1000,7 +1000,7 @@ parallel_config:
 
 　　MindFormers 定位打造训练->微调->部署的端到端大模型工具套件，为了更好性能地部署已经微调训练好的大模型，我们利用MindSpore打造了全新的训推一体高性能推理引擎，保证训练与推理使用同一套脚本，为用户提供了开箱即用的推理部署方案，为用户提供端到端的大模型解决方案，帮助用户使能大模型业务。
 
-　　MindSpore 大模型推理大致分两步：设置环境变量 -> 执行推理，接下来分别描述上述两个过程。
+　　MindSpore 大模型推理升级训推一体架构，实现脚本、分布式策略和运行时的统一，通过融合大算子降低推理时延，有效提升网络吞吐量。
 
 Baichuan2-13B-Chat用于在线推理，输入按照`<reserved_106>question<reserved_107>`的模板格式输入，**Atlas 800需要多卡推理，Atlas 800T A2支持单卡推理**，以下提供了四种推理方式，其中Pipeline/Generate推理提供了代码示例，仅供参考：
 
@@ -1016,6 +1016,8 @@ Baichuan2-13B-Chat用于在线推理，输入按照`<reserved_106>question<reser
 ```shell
 python mindformers/tools/hccl_tools.py --device_num [0,2]
 ```
+
+　　MindSpore 大模型推理大致分两步：设置环境变量 -> 执行推理，接下来分别描述上述两个过程。
 
 #### 设置环境变量
 
