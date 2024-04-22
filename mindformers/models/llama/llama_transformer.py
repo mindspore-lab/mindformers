@@ -433,6 +433,7 @@ class LLamaDecodeLayer(nn.Cell):
         self.shape = P.Shape()
         self.reshape = P.Reshape().add_prim_attr("skip_redistribution", True)
         self.add = P.Add()
+        self.batch_valid_length_add = P.Add()
         self.ffn_norm = LlamaRMSNorm(self.hidden_size, norm_eps, compute_type=layernorm_compute_dtype)
         self.attention_norm = LlamaRMSNorm(self.hidden_size, norm_eps, compute_type=layernorm_compute_dtype)
         self.attention = LLamaAttention(dim=dim,
@@ -481,6 +482,7 @@ class LLamaDecodeLayer(nn.Cell):
             else:
                 self.feed_forward.ffn.shard(parallel_config)
             self.add.shard(((dp, 1, 1), (dp, 1, 1)))
+            self.batch_valid_length_add.shard(((dp,), ()))
             self.attention_norm.shard((dp, 1, 1))
             self.ffn_norm.shard((dp, 1, 1))
             if moe_config is None or not moe_config.expert_num > 1:
@@ -498,7 +500,7 @@ class LLamaDecodeLayer(nn.Cell):
         if not self.use_past:
             self._check_input(x, freqs_cis, mask)
         if batch_valid_length is not None:
-            batch_valid_length = batch_valid_length + 1
+            self.batch_valid_length_add(batch_valid_length, 1)
         # [bs, seq/1, hidden_dim]
         input_x = self.attention_norm(x)
         # [bs, seq/1, hidden_dim]
