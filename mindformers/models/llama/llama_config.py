@@ -129,6 +129,7 @@ class LlamaConfig(PretrainedConfig):
                  softmax_compute_type: str = "float32",
                  rotary_dtype: str = "float32",
                  param_init_type: str = "float16",
+                 embedding_init_type=None,
                  qkv_has_bias: bool = False,
                  qkv_concat: bool = False,
                  parallel_config: Union[dict, TransformerOpParallelConfig] = default_transformer_config,
@@ -177,6 +178,10 @@ class LlamaConfig(PretrainedConfig):
         self.rms_norm_eps = rms_norm_eps
         self.qkv_concat = qkv_concat
         self.param_init_type = convert_mstype(param_init_type)
+        if embedding_init_type is not None:
+            self.embedding_init_type = convert_mstype(embedding_init_type)
+        else:
+            self.embedding_init_type = self.param_init_type
         self.qkv_has_bias = qkv_has_bias
         self.layernorm_compute_type = convert_mstype(layernorm_compute_type)
         self.softmax_compute_type = convert_mstype(softmax_compute_type)
