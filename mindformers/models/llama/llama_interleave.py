@@ -511,19 +511,6 @@ class LLamaDecodeLayerInterleave(nn.Cell):
             self.ffn_norm.shard((dp * mp, 1))
             self.feed_forward.w2.shard(((dp, mp), (1, mp)), out_strategy_matmul=((dp * mp, 1),))
 
-        if parallel_config.recompute.select_recompute or (
-                isinstance(parallel_config.recompute, bool) and not parallel_config.recompute
-            ) or not parallel_config.recompute.recompute and self.layer_id < (num_layers // 2):
-            self.feed_forward.mul.recompute()
-            self.feed_forward.w1.activation.silu.recompute()
-
-        if parallel_config.recompute.select_recompute:
-            if self.layer_id >= (num_layers // 2):
-                self.feed_forward.mul.recompute()
-                self.feed_forward.w1.activation.silu.recompute()
-            self.attention_norm.cast.recompute()
-            self.ffn_norm.cast.recompute()
-
         concat_stra1 = []
         concat_stra2 = []
         self.interleave1_inputs = nn.CellList()

@@ -62,7 +62,6 @@ class MoEParallelConfig(_Config):
         Validator.check_positive_int(model_parallel, "model_parallel")
         Validator.check_positive_int(expert_parallel, "expert_parallel")
         Validator.check_bool(use_seq_parallel, "use_seq_parallel")
-        Validator.check_bool(select_recompute, "select_recompute")
         self._dpmp = OpParallelConfig(data_parallel=data_parallel,
                                       model_parallel=model_parallel,
                                       use_seq_parallel=use_seq_parallel,
@@ -123,7 +122,6 @@ class OpParallelConfig(_Config):
         Validator.check_positive_int(data_parallel, "data_parallel")
         Validator.check_positive_int(model_parallel, "model_parallel")
         Validator.check_bool(use_seq_parallel, "use_seq_parallel")
-        Validator.check_bool(select_recompute, "select_recompute")
         self.data_parallel = data_parallel
         self.model_parallel = model_parallel
         self.use_seq_parallel = use_seq_parallel

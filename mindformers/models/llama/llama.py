@@ -25,6 +25,7 @@ from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagati
 from mindformers.core.loss.loss import CrossEntropyLoss
 from mindformers.mindformer_book import MindFormerBook
 from mindformers.models.modeling_utils import PreTrainedModel
+from mindformers.models.utils import set_layer_stage_recompute
 from mindformers.modules.layers import Linear
 from mindformers.modules.transformer import LowerTriangularMaskWithDynamic
 from mindformers.modules.transformer.op_parallel_config import _check_config
@@ -48,48 +49,6 @@ class LlamaPreTrainedModel(PreTrainedModel):
 
     config_class = LlamaConfig
     base_model_prefix = "llama"
-
-
-def layer_compute_dtype(layer, layer_id, offset, parallel_config, n_layers, select_recompute=False):
-    r"""
-        Default setting for the pipeline is: `(layer_id + offset) // (layers / pipeline_stage)`.
-
-        Args:
-            layer(Cell) - Represents the transformer block
-            parallel_config(dict) - Parallel Config
-            layer_id(int) - Means the layer index for the current module, counts from zero.
-            offset(Union[int, List[int]]) - Means the layer_index needs a offset, if there are other modules in the net.
-            n_layers(int) - The total layers used for the model.
-    """
-    pp = parallel_config.pipeline_stage
-    if isinstance(offset, (list, tuple)):
-        if len(offset) != pp:
-            raise ValueError(f"The length of `offset` {len(offset)} do not match `pipeline stage` {pp}.")
-        stage_layers_list = np.array([n_layers // pp] * pp) + np.array(offset)
-        layer_list = np.array([np.sum(stage_layers_list[:i + 1]) for i in range(len(stage_layers_list))])
-        pp_id = int(np.sum(layer_list < layer_id + 1))
-    elif isinstance(offset, int):
-        offset_layer = offset
-        pp_dis = max(int((n_layers + 1) / pp), 1)
-        pp_id = min((layer_id + offset_layer) // pp_dis, pp - 1)
-    else:
-        raise TypeError(f"`offset` must be `int` or list/tuple of `int`, but got {type(offset)}.")
-
-    layer.pipeline_stage = pp_id
-
-    # Used for optimizer's fusion tag
-    dis = max(int((n_layers + 1) / parallel_config.gradient_aggregation_group), 1)
-    if pp > 1:
-        layer.set_comm_fusion(2)
-    else:
-        layer.set_comm_fusion(int((layer_id + offset_layer) / dis) + 1)
-    if isinstance(parallel_config.recompute, bool):
-        if parallel_config.recompute and not select_recompute:
-            layer.recompute()
-    else:
-        if parallel_config.recompute.recompute and not select_recompute:
-            layer.recompute(
-                recompute_slice_activation=parallel_config.recompute.recompute_slice_activation)
 
 
 class LlamaModel(LlamaPreTrainedModel):
@@ -187,8 +146,7 @@ class LlamaModel(LlamaPreTrainedModel):
                                          use_rope_slice=config.use_rope_slice,
                                          moe_config=config.moe_config,
                                          parallel_config=config.parallel_config)
-            layer_compute_dtype(layer, layer_id, config.offset, config.parallel_config,
-                                config.num_layers, select_recompute=config.parallel_config.recompute.select_recompute)
+            set_layer_stage_recompute(layer, layer_id, config.offset, config.parallel_config, config.num_layers)
             self.layers.append(layer)
         self.norm_out = LlamaRMSNorm(config.hidden_size, config.rms_norm_eps,
                                      compute_type=config.layernorm_compute_type)
