@@ -18,7 +18,7 @@ How to run this:
 pytest tests/st/test_model/test_gpt2_model/test_gpt2_with_pfa_ifa.py
 """
 import numpy as np
-# import pytest
+import pytest
 
 import mindspore as ms
 from mindspore.dataset import GeneratorDataset
@@ -49,9 +49,9 @@ def generator_eval():
         yield train_data
 
 
-# @pytest.mark.level0
-# @pytest.mark.platform_arm_ascend910b_training
-# @pytest.mark.env_onecard
+@pytest.mark.level0
+@pytest.mark.platform_arm_ascend910b_training
+@pytest.mark.env_onecard
 class TestGPTTrainerMethod:
     """A test class for testing pipeline."""
 
@@ -69,10 +69,6 @@ class TestGPTTrainerMethod:
         # prompt flash attention model fully inference
         pfa_model_config = GPT2Config(num_layers=2, hidden_size=32, num_heads=2, seq_length=64,
                                       use_prompt_flash_attention=True, do_sample=False)
-        # prompt flash attention model + incre flash attention incremental inference
-        pfa_ifa_model_config = GPT2Config(num_layers=2, hidden_size=32, num_heads=2, seq_length=64, use_past=True,
-                                          use_prompt_flash_attention=True, use_incre_flash_attention=True,
-                                          do_sample=False)
         # prompt flash attention model + self attention incremental inference
         pfa_sa_model_config = GPT2Config(num_layers=2, hidden_size=32, num_heads=2, seq_length=64, use_past=True,
                                          use_prompt_flash_attention=True, do_sample=False)
@@ -80,11 +76,9 @@ class TestGPTTrainerMethod:
         baseline_full_model = GPT2LMHeadModel(baseline_full_model_config)
         params = baseline_full_model.trainable_params()
         pfa_model = GPT2LMHeadModel(pfa_model_config)
-        pfa_ifa_model = GPT2LMHeadModel(pfa_ifa_model_config)
         pfa_sa_model = GPT2LMHeadModel(pfa_sa_model_config)
         # load params
         self._load_params(pfa_model, params)
-        self._load_params(pfa_ifa_model, params)
         self._load_params(pfa_sa_model, params)
         self.baseline_full_trainer = Trainer(task='text_generation',
                                              model=baseline_full_model,
@@ -98,12 +92,6 @@ class TestGPTTrainerMethod:
                                          args=args,
                                          train_dataset=train_dataset,
                                          eval_dataset=eval_dataset)
-        self.pfa_ifa_trainer = Trainer(task='text_generation',
-                                       model=pfa_ifa_model,
-                                       model_name='gpt2',
-                                       args=args,
-                                       train_dataset=train_dataset,
-                                       eval_dataset=eval_dataset)
         self.pfa_sa_trainer = Trainer(task='text_generation',
                                       model=pfa_sa_model,
                                       model_name='gpt2',
@@ -120,13 +108,12 @@ class TestGPTTrainerMethod:
         """
         baseline_full_result = self.baseline_full_trainer.predict(input_data="hello world!", max_length=20)
         pfa_result = self.pfa_model_trainer.predict(input_data="hello world!", max_length=20)
-        pfa_ifa_result = self.pfa_ifa_trainer.predict(input_data="hello world!", max_length=20)
-        pfa_sa_reuslt = self.pfa_sa_trainer.predict(input_data="hello world!", max_length=20)
+        pfa_sa_result = self.pfa_sa_trainer.predict(input_data="hello world!", max_length=20)
         assert baseline_full_result == pfa_result
-        assert baseline_full_result == pfa_ifa_result
-        assert baseline_full_result == pfa_sa_reuslt
+        assert baseline_full_result == pfa_sa_result
 
-    def _load_params(self, model, params):
+    @staticmethod
+    def _load_params(model, params):
         """load params for model"""
         i = 0
         for param in model.get_parameters():

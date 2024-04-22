@@ -18,8 +18,6 @@ import mindspore as ms
 from mindspore import nn
 import mindspore.ops.operations as P
 import mindspore.ops.functional as F
-from mindspore.context import ParallelMode
-from mindspore.parallel._utils import _get_parallel_mode
 from .tools.utils import is_version_ge
 from .tools.logger import logger
 
@@ -180,11 +178,10 @@ def fix_optim_global_step_sig():
 
 def check_valid_flash_attention(import_fa_valid=True, fa_type=None):
     """check mindspore version is valid for input flash attention"""
-    version_map = {"IncreFlashAttention": "2.3.0",
-                   "PromptFlashAttention": "2.2.0",
+    version_map = {"PromptFlashAttention": "2.2.0",
                    "FlashAttention": "2.2.0"}
     valid_version = version_map.get(fa_type)
-    if not is_910b() and fa_type in ["PromptFlashAttention", "IncreFlashAttention"]:
+    if not is_910b() and fa_type in ["PromptFlashAttention"]:
         logger.warning(f"Current device {get_ascend_soc_version()} do not support {fa_type}, "
                        f"please use 910b device.")
         return False
@@ -199,10 +196,6 @@ def check_valid_flash_attention(import_fa_valid=True, fa_type=None):
     elif not import_fa_valid:
         logger.warning(f"Import {fa_type} ERROR, please upgrade your MindSpore to {valid_version} or later version. ")
         logger.warning("Now running on self-attention mode.")
-        result = False
-    elif fa_type == "IncreFlashAttention" and _get_parallel_mode() not in ParallelMode.STAND_ALONE:
-        logger.warning("Current IncreFlashAttention does not support parallel mode, "
-                       "incremental inference will run in self attention")
         result = False
     # both pass should return True
     else:

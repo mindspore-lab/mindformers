@@ -143,7 +143,6 @@ model:
     hidden_act: "fast_gelu"
     use_flash_attention: False
     use_prompt_flash_attention: False
-    use_incre_flash_attention: False
     hidden_dropout_rate: 0.1
     attention_dropout_rate: 0.1
     param_init_type: "float16"
@@ -161,7 +160,7 @@ model:
   arch:
     type: GPT2LMHeadModel
 
-# lr sechdule
+# lr schedule
 lr_schedule:
   type: polynomial
   learning_rate: 0.00005

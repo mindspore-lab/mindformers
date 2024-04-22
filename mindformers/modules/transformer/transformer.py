@@ -48,13 +48,6 @@ try:
 except ImportError:
     PROMPTFLASHATTENTION_VALID = False
 
-try:
-    from mindspore.ops.operations.nn_ops import IncreFlashAttention
-
-    INCREFLASHATTENTION_VALID = True
-except ImportError:
-    INCREFLASHATTENTION_VALID = False
-
 from mindformers.modules.flash_attention import FlashAttention
 from mindformers.modules.layers import LayerNorm, Linear, \
     _args_type_validator_check, _valid_type_checks, _valid_value_checks, \
@@ -1222,8 +1215,7 @@ class MultiHeadAttention(Cell):
                                                                    "MultiHeadAttention"),
                                 use_past=Validator.check_bool,
                                 use_flash_attention=Validator.check_bool,
-                                use_prompt_flash_attention=Validator.check_bool,
-                                use_incre_flash_attention=Validator.check_bool)
+                                use_prompt_flash_attention=Validator.check_bool)
     def __init__(self, batch_size,
                  src_seq_length,
                  tgt_seq_length,
@@ -1237,8 +1229,7 @@ class MultiHeadAttention(Cell):
                  use_past=False,
                  parallel_config=default_dpmp_config,
                  use_flash_attention=False,
-                 use_prompt_flash_attention=False,
-                 use_incre_flash_attention=False):
+                 use_prompt_flash_attention=False):
         super(MultiHeadAttention, self).__init__()
         self._is_ascend = context.get_context('device_target') in ["Ascend"]
         self.dp = parallel_config.data_parallel
@@ -1474,7 +1465,6 @@ class MultiHeadAttention(Cell):
 
         self.use_flash_attention = use_flash_attention
         self.use_prompt_flash_attention = use_prompt_flash_attention
-        self.use_incre_flash_attention = use_incre_flash_attention
 
         if self.use_flash_attention:
             self.flash_attention = FlashAttention(
@@ -1509,18 +1499,8 @@ class MultiHeadAttention(Cell):
                 ((1,), (parallel_config.data_parallel, 1, 1, 1)))
             self.one = Tensor([1.0], dtype=compute_dtype)
 
-        if self.use_incre_flash_attention and self.use_past:
-            self.incre_flash_attention = IncreFlashAttention(num_heads=num_heads,
-                                                             scale_value=1.0 / (math.sqrt(self.size_per_head)),
-                                                             input_layout='BNSD',
-                                                             num_key_value_heads=0)
-            self.incre_flash_attention.shard(((parallel_config.data_parallel, parallel_config.model_parallel, 1, 1),
-                                              (parallel_config.data_parallel, parallel_config.model_parallel, 1, 1),
-                                              (parallel_config.data_parallel, parallel_config.model_parallel, 1, 1),
-                                              (parallel_config.data_parallel, 1, 1, 1)))
-
         if parallel_config.select_recompute:
-            # _attn中涉及的关键算子使用重计算逻辑，通常配合序列并行使用，会有较好的性能提升效果
+            # recompute is used in _attn, usually with sequence parallel
             self.batch_matmul.recompute()
             self.sub.recompute()
             self.add.recompute()
@@ -1559,8 +1539,7 @@ class MultiHeadAttention(Cell):
         # FA: [bs, num_heads, seq_length, size_per_head] or [bs, num_heads, size_per_head, seq_length]
         if not self.training:
             do_different_shape = (self.use_flash_attention
-                                  or self.use_prompt_flash_attention
-                                  or self.use_incre_flash_attention)
+                                  or self.use_prompt_flash_attention)
         else:
             do_different_shape = self.use_flash_attention
 
@@ -1629,15 +1608,8 @@ class MultiHeadAttention(Cell):
         # the return shape is [bs * seq_length, hidden_size]
         if not self.training and self.use_prompt_flash_attention:
             if self.use_past and not self.is_first_iteration:
-                if self.use_incre_flash_attention:
-                    query, key, attention_mask = self._pfa_ifa_data_preprocess(query, key, attention_mask,
-                                                                               batch_valid_length)
-                    attention = self.incre_flash_attention(query, key, value, attention_mask,
-                                                           None, None, None, None, None, None, None, None)
-                    attention = self._merge_heads(attention)
-                else:
-                    key = self.transpose(key, (0, 1, 3, 2))
-                    attention = self._attn(query, key, value, attention_mask)
+                key = self.transpose(key, (0, 1, 3, 2))
+                attention = self._attn(query, key, value, attention_mask)
             else:
                 query, key, attention_mask = self._pfa_ifa_data_preprocess(query, key, attention_mask,
                                                                            batch_valid_length)
@@ -1967,8 +1939,7 @@ class TransformerEncoderLayer(Cell):
                                                                    "TransformerEncoderLayer"),
                                 use_past=Validator.check_bool,
                                 use_flash_attention=Validator.check_bool,
-                                use_prompt_flash_attention=Validator.check_bool,
-                                use_incre_flash_attention=Validator.check_bool)
+                                use_prompt_flash_attention=Validator.check_bool)
     def __init__(self,
                  batch_size,
                  hidden_size,
@@ -1987,7 +1958,6 @@ class TransformerEncoderLayer(Cell):
                  parallel_config=default_dpmp_config,
                  use_flash_attention=False,
                  use_prompt_flash_attention=False,
-                 use_incre_flash_attention=False,
                  compute_dtype=mstype.float16):
         super(TransformerEncoderLayer, self).__init__()
         if batch_size or use_past:
@@ -2032,8 +2002,7 @@ class TransformerEncoderLayer(Cell):
                                                 use_past=use_past,
                                                 parallel_config=attention_parallel_config,
                                                 use_flash_attention=use_flash_attention,
-                                                use_prompt_flash_attention=use_prompt_flash_attention,
-                                                use_incre_flash_attention=use_incre_flash_attention)
+                                                use_prompt_flash_attention=use_prompt_flash_attention)
             if self.use_moe:
                 self.output = MoE(hidden_size=hidden_size,
                                   dropout_rate=hidden_dropout_rate,
@@ -2099,11 +2068,6 @@ class TransformerEncoderLayer(Cell):
                 use_prompt_flash_attention = False
                 log.info("Current MindSpore or device do not support prompt flash attention, "
                          "please upgrade to 2.2.0 or higher or use 910B to run pfa")
-            if use_incre_flash_attention and \
-                    not check_valid_flash_attention(INCREFLASHATTENTION_VALID, "IncreFlashAttention"):
-                use_incre_flash_attention = False
-                log.info("Current MindSpore or device do not support prompt flash attention, "
-                         "please upgrade to 2.2.0 or higher or use 910B to run ifa")
 
             _check_moe_config(moe_config, parallel_config)
             self.use_moe = (moe_config.expert_num > 1)
@@ -2128,8 +2092,7 @@ class TransformerEncoderLayer(Cell):
                                                 use_past=use_past,
                                                 parallel_config=attention_parallel_config,
                                                 use_flash_attention=use_flash_attention,
-                                                use_prompt_flash_attention=use_prompt_flash_attention,
-                                                use_incre_flash_attention=use_incre_flash_attention)
+                                                use_prompt_flash_attention=use_prompt_flash_attention)
             if self.use_moe:
                 self.output = MoE(hidden_size=hidden_size,
                                   dropout_rate=hidden_dropout_rate,
@@ -3642,7 +3605,7 @@ class Transformer(Cell):
                   memory_mask=None,
                   init_reset=True,
                   batch_valid_length=None):
-        """process process"""
+        """forward process"""
         encoder_output = None
         output = None
         encoder_layer_present = None
@@ -3659,7 +3622,7 @@ class Transformer(Cell):
             output = encoder_output
 
         if self.decoder is not None:
-            # decoder mask should be created outside of the model
+            # decoder mask should be created outside the model
             if self.use_moe:
                 decoder_output, decoder_layer_present, decoder_aux_loss = self.decoder(decoder_inputs, decoder_masks,
                                                                                        encoder_output, memory_mask,
