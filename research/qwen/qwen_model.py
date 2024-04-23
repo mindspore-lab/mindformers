@@ -107,9 +107,33 @@ class QwenForCausalLM(QwenPreTrainedModel):
 
     # pylint: disable=W0613
     def prepare_inputs_for_generation(self, input_ids, **kwargs):
+        if self.config.is_dynamic and "origin_inputs" in kwargs:
+            input_ids = kwargs["origin_inputs"]
         return {
             "input_ids": Tensor(input_ids, mstype.int32)
         }
+
+    # pylint: disable=W0613
+    def prepare_inputs_for_predict_layout(self, input_ids, **kwargs):
+        """Get Qwen model input tuple for transform ckpt."""
+        input_ids = Tensor(input_ids, mstype.int32)
+        bs = input_ids.shape[0]
+        slot_mapping = Tensor(np.ones(shape=tuple([bs])), mstype.int32)
+        return input_ids, None, None, None, None, None, None, None, None, None, None, slot_mapping
+
+    # pylint: disable=W0613
+    def set_dynamic_inputs(self):
+        """Set inputs when is_dynamic=True."""
+        dynamic_input_ids = Tensor(shape=[None, None], dtype=mstype.int32)
+        dynamic_input_position = Tensor(shape=[None], dtype=mstype.int32)
+        dynamic_init_reset = Tensor([False], mstype.bool_)
+        dynamic_batch_valid_length = Tensor(shape=[None, None], dtype=mstype.int32)
+        dynamic_block_tables = Tensor(shape=[None, None], dtype=mstype.int32)
+        dynamic_slot_mapping = Tensor(shape=[None], dtype=mstype.int32)
+        self.set_inputs(dynamic_input_ids, None, dynamic_input_position, None, None,
+                        None, dynamic_init_reset, dynamic_batch_valid_length, None, None,
+                        dynamic_block_tables, dynamic_slot_mapping)
+        logger.info("Set dynamic input for Qwen.")
 
     def add_flags_custom(self, is_first_iteration):
         """Add customized attributes for specific cells in the model."""
@@ -117,15 +141,7 @@ class QwenForCausalLM(QwenPreTrainedModel):
         self.transformer.add_flags(is_first_iteration=is_first_iteration)
         for layer in self.transformer.layers:
             layer.add_flags(is_first_iteration=is_first_iteration)
-            layer.self_attention.infer_attention.add_flags(is_first_iteration=is_first_iteration)
-
-    # pylint: disable=W0613
-    def prepare_inputs_for_predict_layout(self, input_ids, **kwargs):
-        """Get Llama model input tuple for transform ckpt."""
-        input_ids = Tensor(input_ids, mstype.int32)
-        bs = input_ids.shape[0]
-        slot_mapping = Tensor(np.ones(shape=tuple([bs])), mstype.int32)
-        return input_ids, None, None, None, None, None, None, None, None, None, None, slot_mapping
+            layer.attention.infer_attention.add_flags(is_first_iteration=is_first_iteration)
 
     # pylint: disable=W0613
     def construct(self, input_ids, labels=None, input_position=None, position_ids=None, attention_mask=None,
