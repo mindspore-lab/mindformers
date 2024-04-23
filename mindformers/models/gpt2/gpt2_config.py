@@ -70,9 +70,9 @@ class GPT2Config(PretrainedConfig):
             the `activation_shard` function. Please see the examples of the
             class:`mindformers.modules.transformer.FeedForward`. Default: gelu.
         use_past (`bool`, *optional*, defaults to `False`):
-            Whether or not the model should use the past last key/values attentions
+            Whether the model should use the past last key/values attentions
             (if applicable to the model) to speed up decoding.
-        post_layernorm_residual(bool): Whether use post layernorm, defaylt False.
+        post_layernorm_residual(bool): Whether to use post layernorm, default False.
         offset(int): Offset of transformer layer when set pipeline stage number.
         checkpoint_name_or_path (Optional[str]):
             checkpoint path or name used to load to the network.
@@ -94,7 +94,7 @@ class GPT2Config(PretrainedConfig):
             If set to float < 1, only the smallest set of most probable tokens with probabilities
             that add up to `top_p` or higher are kept for generation.
         do_sample (`bool`, *optional*, defaults to `False`):
-            Whether or not to use sampling ; use greedy decoding otherwise.
+            Whether to use sampling ; use greedy decoding otherwise.
 
     Returns:
         Class, GPT2Config.
@@ -140,7 +140,6 @@ class GPT2Config(PretrainedConfig):
                  do_sample: bool = True,
                  use_flash_attention: bool = False,
                  use_prompt_flash_attention: bool = False,
-                 use_incre_flash_attention: bool = False,
                  is_dynamic=False,
                  **kwargs):
         super(GPT2Config, self).__init__(**kwargs)
@@ -184,5 +183,4 @@ class GPT2Config(PretrainedConfig):
         self.do_sample = do_sample
         self.use_flash_attention = use_flash_attention
         self.use_prompt_flash_attention = use_prompt_flash_attention
-        self.use_incre_flash_attention = use_incre_flash_attention
         self.is_dynamic = is_dynamic
