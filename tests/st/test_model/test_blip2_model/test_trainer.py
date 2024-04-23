@@ -209,13 +209,13 @@ class TestBlip2SecondStageTrainerMethod:
         Description: Test trainer for train.
         Expectation: TypeError, ValueError, RuntimeError
         """
-        # task_trainer = Trainer(task='contrastive_language_image_pretrain',
-        #                        model=self.blip2_llm,
-        #                        model_name='blip2_stage2_vit_g_llama_7b',
-        #                        args=self.training_args,
-        #                        tokenizer=self.tokenizer,
-        #                        train_dataset=self.train_dataset)
-        # task_trainer.train(train_checkpoint='')
+        task_trainer = Trainer(task='contrastive_language_image_pretrain',
+                               model=self.blip2_llm,
+                               model_name='blip2_stage2_vit_g_llama_7b',
+                               args=self.training_args,
+                               tokenizer=self.tokenizer,
+                               train_dataset=self.train_dataset)
+        task_trainer.train(train_checkpoint='')
 
     def test_predict(self):
         """
