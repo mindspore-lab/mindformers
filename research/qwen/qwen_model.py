@@ -37,10 +37,9 @@ from mindformers.tools.logger import _LogActionOnce
 from mindformers.tools.register.register import MindFormerModuleType, MindFormerRegister
 from mindformers.modules.layers import Linear, _check_input_dtype, _args_type_validator_check, _valid_value_checks
 from mindformers.modules.transformer import TransformerOpParallelConfig
-from mindformers.models.llama.llama_layer import LlamaEmbedding, FreqsMgr, LlamaSiLU
+from mindformers.models.llama.llama_layer import LlamaEmbedding, FreqsMgr, LlamaSiLU, LlamaRMSNorm
 from mindformers.models.llama.llama_transformer import LLamaDecodeLayer
 from mindformers.models.utils import set_layer_stage_recompute
-from mindformers.models.llama.llama_layer import LlamaRMSNorm
 from mindformers.version_control import check_valid_flash_attention
 
 from qwen_config import QwenConfig
@@ -119,6 +118,14 @@ class QwenForCausalLM(QwenPreTrainedModel):
         for layer in self.transformer.layers:
             layer.add_flags(is_first_iteration=is_first_iteration)
             layer.self_attention.infer_attention.add_flags(is_first_iteration=is_first_iteration)
+
+    # pylint: disable=W0613
+    def prepare_inputs_for_predict_layout(self, input_ids, **kwargs):
+        """Get Llama model input tuple for transform ckpt."""
+        input_ids = Tensor(input_ids, mstype.int32)
+        bs = input_ids.shape[0]
+        slot_mapping = Tensor(np.ones(shape=tuple([bs])), mstype.int32)
+        return input_ids, None, None, None, None, None, None, None, None, None, None, slot_mapping
 
     # pylint: disable=W0613
     def construct(self, input_ids, labels=None, input_position=None, position_ids=None, attention_mask=None,
