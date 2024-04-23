@@ -597,11 +597,11 @@ python run_qwen.py --run_mode export --config_path /path/run_qwen_7b.yaml
 
 ```ini
 [ascend_context]
-# plugin_custom_ops=All
+; plugin_custom_ops=All
 provider=ge
 
 [ge_session_options]
-ge.externalWeight=1
+;ge.externalWeight=1
 ge.exec.atomicCleanPolicy=1
 ge.event=notify
 ge.exec.staticMemoryPolicy=2
@@ -714,7 +714,6 @@ output
 │   └── ckpt_strategy_rank_1_rank_1.ckpt
 ├── mindir_full_checkpoint/
 │   ├── rank_0_graph.mindir
-│   ├── rank_0_graph.mindir.proto
 │   ├── rank_0_variables/
 │   │   └── data_0
 │   ├── rank_1_graph.mindir
@@ -722,7 +721,6 @@ output
 │       └── data_0
 ├── mindir_inc_checkpoint/
 │   ├── rank_0_graph.mindir
-│   ├── rank_0_graph.mindir.proto
 │   ├── rank_0_variables/
 │   │   └── data_0
 │   ├── rank_1_graph.mindir
@@ -810,7 +808,7 @@ provider=ge
 rank_table_file=<RANK_TABLE_FILE>
 
 [ge_session_options]
-ge.externalWeight=1
+;ge.externalWeight=1
 ge.exec.atomicCleanPolicy=1
 ge.event=notify
 ge.exec.staticMemoryPolicy=2
@@ -903,7 +901,7 @@ model:
 provider=ge
 
 [ge_session_options]
-ge.externalWeight=1
+;ge.externalWeight=1
 ge.exec.atomicCleanPolicy=1
 ge.event=notify
 ge.exec.staticMemoryPolicy=2
