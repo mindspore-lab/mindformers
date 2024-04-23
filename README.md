@@ -68,46 +68,6 @@ cd mindformers
 bash build.sh
 ```
 
-### 方式二：镜像方式安装
-
-docker下载命令：
-
-```shell
-docker pull swr.cn-central-221.ovaijisuan.com/mindformers/mindformers1.0_mindspore2.2.11:aarch_20240125
-```
-
-创建容器：
-
-```shell
-# --device用于控制指定容器的运行NPU卡号和范围
-# -v 用于映射容器外的目录
-# --name 用于自定义容器名称
-
-docker run -it -u root \
---ipc=host \
---network host \
---device=/dev/davinci0 \
---device=/dev/davinci1 \
---device=/dev/davinci2 \
---device=/dev/davinci3 \
---device=/dev/davinci4 \
---device=/dev/davinci5 \
---device=/dev/davinci6 \
---device=/dev/davinci7 \
---device=/dev/davinci_manager \
---device=/dev/devmm_svm \
---device=/dev/hisi_hdc \
--v /etc/localtime:/etc/localtime \
--v /usr/local/Ascend/driver:/usr/local/Ascend/driver \
--v /var/log/npu/:/usr/slog \
--v /usr/local/bin/npu-smi:/usr/local/bin/npu-smi \
---name {请手动输入容器名称} \
-swr.cn-central-221.ovaijisuan.com/mindformers/mindformers1.0_mindspore2.2.11:aarch_20240125 \
-/bin/bash
-```
-
-更多镜像版本请在[镜像仓库网](http://mirrors.cn-central-221.ovaijisuan.com/mirrors.html)中检索获取
-
 ## 三、版本匹配关系
 
 当前支持的硬件为Atlas 800训练服务器与[Atlas 800T A2](https://www.hiascend.com/hardware/ai-server?tag=900A2)训练服务器。
@@ -116,9 +76,7 @@ swr.cn-central-221.ovaijisuan.com/mindformers/mindformers1.0_mindspore2.2.11:aar
 
 | MindFormers | MindPet |                 MindSpore                  |                                                                                                                                               CANN                                                                                                                                               |                               驱动固件                               |                               镜像链接                               | 备注                 |
 | :---------: | :-----: | :----------------------------------------: | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------: | :------------------------------------------------------------------: | :------------------------------------------------------------------: | -------------------- |
-|     dev     |  1.0.3  | [2.2.11](https://www.mindspore.cn/install) |           7.0.0.beta1:<br> [aarch64](https://ascend-repo.obs.cn-east-2.myhuaweicloud.com/CANN/CANN%207.0.0/Ascend-cann-toolkit_7.0.0_linux-aarch64.run)<br> [x86_64](https://ascend-repo.obs.cn-east-2.myhuaweicloud.com/CANN/CANN%207.0.0/Ascend-cann-toolkit_7.0.0_linux-x86_64.run)           | [链接](https://www.hiascend.com/hardware/firmware-drivers/community) |                                  /                                   | 开发分支(非稳定版本) |
-|    r1.0     |  1.0.3  | [2.2.11](https://www.mindspore.cn/install) |           7.0.0.beta1:<br> [aarch64](https://ascend-repo.obs.cn-east-2.myhuaweicloud.com/CANN/CANN%207.0.0/Ascend-cann-toolkit_7.0.0_linux-aarch64.run)<br> [x86_64](https://ascend-repo.obs.cn-east-2.myhuaweicloud.com/CANN/CANN%207.0.0/Ascend-cann-toolkit_7.0.0_linux-x86_64.run)           | [链接](https://www.hiascend.com/hardware/firmware-drivers/community) | [链接](http://mirrors.cn-central-221.ovaijisuan.com/detail/118.html) | 发布版本             |
-|    r0.8     |  1.0.2  | [2.2.1](https://www.mindspore.cn/install)  | 7.0.RC1.3.beta1:<br> [aarch64](https://ascend-repo.obs.cn-east-2.myhuaweicloud.com/CANN/CANN%207.0.RC1.3/Ascend-cann-toolkit_7.0.RC1.3_linux-aarch64.run)<br> [x86_64](https://ascend-repo.obs.cn-east-2.myhuaweicloud.com/CANN/CANN%207.0.RC1.3/Ascend-cann-toolkit_7.0.RC1.3_linux-x86_64.run) | [链接](https://www.hiascend.com/hardware/firmware-drivers/community) |                                  /                                   | 历史发布版本                    |
+|     dev     |  1.0.4  | 2.3版本(尚未发布) | 尚未发布   | 尚未发布 |                                  /                                   | 开发分支(非稳定版本) |
 
 其中CANN，固件驱动的安装需与使用的机器匹配，请注意识别机器型号，选择对应架构的版本
 
