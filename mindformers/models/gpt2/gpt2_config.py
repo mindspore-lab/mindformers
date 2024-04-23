@@ -141,6 +141,8 @@ class GPT2Config(PretrainedConfig):
                  use_flash_attention: bool = False,
                  use_prompt_flash_attention: bool = False,
                  is_dynamic=False,
+                 block_size: int = 16,
+                 num_blocks: int = 512,
                  **kwargs):
         super(GPT2Config, self).__init__(**kwargs)
         if isinstance(parallel_config, dict):
@@ -184,3 +186,5 @@ class GPT2Config(PretrainedConfig):
         self.use_flash_attention = use_flash_attention
         self.use_prompt_flash_attention = use_prompt_flash_attention
         self.is_dynamic = is_dynamic
+        self.block_size = block_size
+        self.num_blocks = num_blocks

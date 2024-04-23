@@ -61,15 +61,9 @@ class BlockTables:
             self.cache_engines.append(CacheEngine(self.block_size, self.block_mem_pool))
         logger.info("init cache engine success.")
 
-    def assemble_pa_inputs(self, is_first_iteration, batch_valid_length: np.array, is_finished: List[bool]):
-        if is_first_iteration:
-            return self._assemble_pa_full_inputs(batch_valid_length, is_finished)
-        return self._assemble_pa_inc_inputs(batch_valid_length, is_finished)
-
-    def _assemble_pa_full_inputs(self, batch_valid_length: np.array, is_finished: List[bool]):
+    def assemble_pa_full_inputs(self, max_input_length, batch_valid_length: np.array, is_finished: List[bool]):
         """Prepare prefill inputs for Paged Attention."""
         bs = batch_valid_length.shape[0]
-        max_valid_length = np.max(batch_valid_length)
         block_tables = []
         for i in range(bs):
             if not is_finished[i]:
@@ -83,15 +77,15 @@ class BlockTables:
         block_tables = np.array(block_tables, dtype=np.int32)
 
         # new method to generate slot mapping, to improve the performance
-        batch_valid_np = -1 * np.ones((bs, max_valid_length), dtype=np.int32)
-        batch_valid_np[:] = np.arange(max_valid_length)
+        batch_valid_np = -1 * np.ones((bs, max_input_length), dtype=np.int32)
+        batch_valid_np[:] = np.arange(max_input_length)
         batch_valid_mask = batch_valid_np.copy()
         for i in range(bs):
             batch_valid_mask[i] = batch_valid_mask[i] < batch_valid_length[i]
         batch_valid_mask = batch_valid_mask.astype(np.bool_)
         valid_index_np = batch_valid_np.copy()
         valid_index_np[batch_valid_mask] = batch_valid_np[batch_valid_mask] // self.block_size
-        block_tables_np = -1 * np.ones((bs, max_valid_length), dtype=np.int32)
+        block_tables_np = -1 * np.ones((bs, max_input_length), dtype=np.int32)
         min_block_table_length = min(block_tables_np.shape[1], block_tables.shape[1])
         block_tables_np[:, :min_block_table_length] = block_tables[:, :min_block_table_length]
         for i in range(bs):
@@ -102,7 +96,7 @@ class BlockTables:
         slot_mapping = block_tables_np.flatten()
         return block_tables, slot_mapping
 
-    def _assemble_pa_inc_inputs(self, batch_valid_length: np.array, is_finished: List[bool]):
+    def assemble_pa_inc_inputs(self, batch_valid_length: np.array, is_finished: List[bool]):
         """Prepare incremental inputs for Paged Attention."""
         bs = batch_valid_length.shape[0]
 

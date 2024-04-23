@@ -907,9 +907,6 @@ class BaseTrainer:
                 else:
                     transform_and_load_checkpoint(config, model, network, None, do_predict=True)
 
-            if network.config.use_past and network.config.is_dynamic:
-                network.set_dynamic_inputs()
-
             self.pipeline_task = pipeline(
                 task=task,
                 model=network,

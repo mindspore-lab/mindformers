@@ -15,7 +15,7 @@
 """ test infer attention"""
 import os
 import math
-
+import pytest
 import numpy as np
 
 from mindspore import dtype as mstype
@@ -23,6 +23,9 @@ from mindspore import Tensor
 from mindformers.modules.infer_attention import InferAttention
 
 
+@pytest.mark.level0
+@pytest.mark.platform_arm_ascend910b_training
+@pytest.mark.env_onecard
 def test_infer_attention():
     """
     Feature: Test the infer attention.
@@ -31,6 +34,7 @@ def test_infer_attention():
     """
     os.environ['GRAPH_OP_RUN'] = '1'
     os.environ['MS_ENABLE_INTERNAL_KERNELS'] = "on"
+    os.environ['ASCEND_HOME_PATH'] = "/usr/local/Ascend/latest"
     bsz, head_num, seq_len, head_dim = 1, 16, 4096, 128
     n_kv_head = 16
     block_size = 1024
