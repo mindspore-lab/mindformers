@@ -10,21 +10,25 @@ run_mode: 'train'
 # trainer config
 trainer:
   type: CausalLanguageModelingTrainer
-  model_name: 'llama3_8b'
+  model_name: 'llama2_70b'
+# if True, do evaluate during the training process. if false, do nothing.
+# note that the task trainer should support _evaluate_in_training function.
+do_eval: False
+eval_step_interval: -1        # num of step intervals between each eval, -1 means no step end eval.
+eval_epoch_interval: 50        # num of epoch intervals between each eval, 1 means eval on every epoch end.
 
 # runner config
 runner_config:
-  epochs: 2
+  epochs: 3
   batch_size: 1
   sink_mode: True
   sink_size: 2
-
 # optimizer
 optimizer:
   type: FP32StateAdamWeightDecay
   beta1: 0.9
   beta2: 0.95
-  eps: 1.e-8
+  eps: 1.e-8 # 1e-8
 
 # lr sechdule
 lr_schedule:
@@ -40,20 +44,17 @@ train_dataset: &train_dataset
     type: MindDataset
     dataset_dir: ""
     shuffle: True
-  input_columns: ["input_ids", "labels"]  # "input_ids", "labels" , labels are used in instruction finetune.
+  input_columns: ["input_ids"]  # "input_ids", "labels" , labels are used in instruction finetune.
   num_parallel_workers: 8
   python_multiprocessing: False
   drop_remainder: True
-  batch_size: 6
+  batch_size: 1
   repeat: 1
   numa_enable: False
   prefetch_size: 1
 train_dataset_task:
   type: CausalLanguageModelDataset
   dataset_config: *train_dataset
-# if True, do evaluate during the training process. if false, do nothing.
-# note that the task trainer should support _evaluate_in_training function.
-do_eval: False
 
 # eval dataset
 eval_dataset: &eval_dataset
@@ -85,21 +86,21 @@ parallel:
   parallel_optimizer_config:
     gradient_accumulation_shard: False
     parallel_optimizer_threshold: 64
-# default parallel of device num = 8 for Atlas 800T A2
+# default parallel of device num = 32 for Atlas 800T A2
 parallel_config:
-  data_parallel: 8
-  model_parallel: 1
-  pipeline_stage: 1
-  use_seq_parallel: False
-  micro_batch_num: 1
-  vocab_emb_dp: True
+  data_parallel: 2
+  model_parallel: 4
+  pipeline_stage: 8
+  use_seq_parallel: True
+  micro_batch_num: 256
+  vocab_emb_dp: False
   gradient_aggregation_group: 4
 # when model parallel is greater than 1, we can set micro_batch_interleave_num=2, that may accelerate the train process.
 micro_batch_interleave_num: 1
 
 # recompute config
 recompute_config:
-  recompute: True
+  recompute: False
   select_recompute: False
   parallel_optimizer_comm_recompute: False
   mp_comm_recompute: True
@@ -109,8 +110,8 @@ recompute_config:
 callbacks:
   - type: MFLossMonitor
   - type: CheckpointMointor
-    prefix: "llama3_8b"
-    save_checkpoint_steps: 10000
+    prefix: "llama_70b"
+    save_checkpoint_steps: 1000
     integrated_save: False
     async_save: False
   - type: ObsMonitor
@@ -122,7 +123,7 @@ context:
   enable_graph_kernel: False
   graph_kernel_flags: "--disable_expand_ops=Softmax,Dropout --enable_parallel_fusion=true --reduce_fuse_depth=8 --enable_auto_tensor_inplace=true"
   max_call_depth: 10000
-  max_device_memory: "58GB"
+  max_device_memory: "53GB"
   save_graphs: False
   save_graphs_path: "./graph"
   device_id: 0
@@ -133,30 +134,31 @@ model:
   model_config:
     type: LlamaConfig
     batch_size: 1 # add for increase predict
-    seq_length: 8192
-    hidden_size: 4096
-    num_layers: 32
-    num_heads: 32
+    seq_length: 4096
+    hidden_size: 8192
+    num_layers: 80
+    num_heads: 64
+    vocab_size: 32000
+    multiple_of: 256
     n_kv_heads: 8
-    vocab_size: 128256
-    intermediate_size: 14336
+    ffn_dim_multiplier: 1.3
     rms_norm_eps: 1.0e-5
-    bos_token_id: 128000
-    eos_token_id: 128001
-    pad_token_id: 128002
+    bos_token_id: 1
+    eos_token_id: 2
+    pad_token_id: 0
     ignore_token_id: -100
     compute_dtype: "bfloat16"
     layernorm_compute_type: "float32"
-    softmax_compute_type: "float32"
+    softmax_compute_type: "float16"
     rotary_dtype: "float32"
     param_init_type: "bfloat16"
     use_past: False
     scaling_factor: 1.0
-    theta: 500000
     extend_method: "None" # support "None", "PI", "NTK"
-    use_flash_attention: True # FA can accelerate training or finetune
+    use_flash_attention: True
+    fine_grain_interleave: 2
+    qkv_concat: False
     offset: 0
-    fine_grain_interleave: 1
     checkpoint_name_or_path: ""
     repetition_penalty: 1
     max_decode_length: 512
@@ -166,6 +168,16 @@ model:
   arch:
     type: LlamaForCausalLM
 
+processor:
+  return_tensors: ms
+  tokenizer:
+    unk_token: '<unk>'
+    bos_token: '<s>'
+    eos_token: '</s>'
+    pad_token: '<unk>'
+    type: LlamaTokenizer
+  type: LlamaProcessor
+
 # metric
 metric:
   type: PerplexityMetric
@@ -173,8 +185,9 @@ metric:
 # wrapper cell config
 runner_wrapper:
   type: MFTrainOneStepCell
-  scale_sense: 1.0
+  scale_sense: 1
   use_clip_grad: True
+  enable_check_overflow: False
 
 eval_callbacks:
   - type: ObsMonitor
@@ -184,8 +197,8 @@ filepath_prefix: './autotune'
 autotune_per_step: 10
 
 profile: False
-profile_start_step: 4
-profile_stop_step: 8
+profile_start_step: 1
+profile_stop_step: 10
 init_start_profile: False
 profile_communication: False
 profile_memory: True

@@ -5,12 +5,12 @@ src_strategy_path_or_dir: ''
 auto_trans_ckpt: False  # If true, auto transform load_checkpoint to load in distributed model
 only_save_strategy: False
 resume_training: False
-run_mode: 'train'
+run_mode: 'finetune'
 
 # trainer config
 trainer:
   type: CausalLanguageModelingTrainer
-  model_name: 'llama3_8b'
+  model_name: 'llama2_7b'
 
 # runner config
 runner_config:
@@ -18,6 +18,7 @@ runner_config:
   batch_size: 1
   sink_mode: True
   sink_size: 2
+  gradient_accumulation_steps: 8
 
 # optimizer
 optimizer:
@@ -99,7 +100,7 @@ micro_batch_interleave_num: 1
 
 # recompute config
 recompute_config:
-  recompute: True
+  recompute: False
   select_recompute: False
   parallel_optimizer_comm_recompute: False
   mp_comm_recompute: True
@@ -109,8 +110,8 @@ recompute_config:
 callbacks:
   - type: MFLossMonitor
   - type: CheckpointMointor
-    prefix: "llama3_8b"
-    save_checkpoint_steps: 10000
+    prefix: "llama2_7b"
+    save_checkpoint_steps: 100
     integrated_save: False
     async_save: False
   - type: ObsMonitor
@@ -122,7 +123,7 @@ context:
   enable_graph_kernel: False
   graph_kernel_flags: "--disable_expand_ops=Softmax,Dropout --enable_parallel_fusion=true --reduce_fuse_depth=8 --enable_auto_tensor_inplace=true"
   max_call_depth: 10000
-  max_device_memory: "58GB"
+  max_device_memory: "59GB"
   save_graphs: False
   save_graphs_path: "./graph"
   device_id: 0
@@ -133,31 +134,29 @@ model:
   model_config:
     type: LlamaConfig
     batch_size: 1 # add for increase predict
-    seq_length: 8192
+    seq_length: 4096
     hidden_size: 4096
     num_layers: 32
     num_heads: 32
-    n_kv_heads: 8
-    vocab_size: 128256
-    intermediate_size: 14336
+    vocab_size: 32000
+    multiple_of: 256
     rms_norm_eps: 1.0e-5
-    bos_token_id: 128000
-    eos_token_id: 128001
-    pad_token_id: 128002
+    bos_token_id: 1
+    eos_token_id: 2
+    pad_token_id: 0
     ignore_token_id: -100
     compute_dtype: "bfloat16"
     layernorm_compute_type: "float32"
-    softmax_compute_type: "float32"
+    softmax_compute_type: "float16"
     rotary_dtype: "float32"
-    param_init_type: "bfloat16"
+    param_init_type: "float16"
+    embedding_init_type: "bfloat16"
     use_past: False
     scaling_factor: 1.0
-    theta: 500000
     extend_method: "None" # support "None", "PI", "NTK"
     use_flash_attention: True # FA can accelerate training or finetune
     offset: 0
-    fine_grain_interleave: 1
-    checkpoint_name_or_path: ""
+    checkpoint_name_or_path: "llama2_7b"
     repetition_penalty: 1
     max_decode_length: 512
     top_k: 3
@@ -165,6 +164,16 @@ model:
     do_sample: False
   arch:
     type: LlamaForCausalLM
+
+processor:
+  return_tensors: ms
+  tokenizer:
+    unk_token: '<unk>'
+    bos_token: '<s>'
+    eos_token: '</s>'
+    pad_token: '<unk>'
+    type: LlamaTokenizer
+  type: LlamaProcessor
 
 # metric
 metric:
@@ -184,8 +193,8 @@ filepath_prefix: './autotune'
 autotune_per_step: 10
 
 profile: False
-profile_start_step: 4
-profile_stop_step: 8
+profile_start_step: 1
+profile_stop_step: 10
 init_start_profile: False
 profile_communication: False
 profile_memory: True

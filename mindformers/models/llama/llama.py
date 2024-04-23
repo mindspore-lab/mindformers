@@ -97,7 +97,7 @@ class LlamaModel(LlamaPreTrainedModel):
                                                           use_flash_attention=config.use_flash_attention)
         self.tok_embeddings = LlamaEmbedding(vocab_table_size=config.vocab_size,
                                              embedding_size=config.hidden_size,
-                                             param_init_type=config.param_init_type)
+                                             param_init_type=config.embedding_init_type)
         self.layers = nn.CellList()
         for layer_id in range(config.num_layers):
             if config.fine_grain_interleave > 1 and config.parallel_config.model_parallel > 1:
