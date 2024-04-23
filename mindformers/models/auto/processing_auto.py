@@ -37,6 +37,9 @@ from ...mindformer_book import MindFormerBook, print_dict
 from ..build_processor import build_processor
 
 
+EXP_ERROR_MSG = "The input yaml_name_or_path should be a path to yaml file, or a " \
+                "path to directory which has yaml file, or a model name supported, e.g. llama2_7b."
+
 PROCESSOR_MAPPING_NAMES = OrderedDict(
     [
         ("bert", "BertProcessor"),
@@ -65,9 +68,9 @@ def is_experimental_mode(path):
     is_dir = os.path.isdir(path)
     if is_exists:
         if is_dir:
-            experimental_mode = True
-        else:  # file
-            if not (path.endswith(".yaml") or path.endswith(".yml")):
+            yaml_list = [file for file in os.listdir(path)
+                         if file.endswith(".yaml")]
+            if not yaml_list:
                 experimental_mode = True
     else:  # repo
         if "/" in path and path.split("/")[0] != "mindspore":
@@ -264,7 +267,7 @@ class AutoProcessor:
         return processor
 
     @classmethod
-    @experimental_mode_func_checker()
+    @experimental_mode_func_checker(EXP_ERROR_MSG)
     def from_pretrained_experimental(cls, pretrained_model_name_or_path, **kwargs):
         """Experimental features."""
         config = kwargs.pop("config", None)
