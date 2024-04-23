@@ -24,7 +24,6 @@ Llama 3，是开源Llama系列的最新产品，目前有二个版本：Llama3-8
 
    ```bash
    llama3
-       ├── convert_weight.py                        # 权重转换脚本
        ├── predict_llama3_8b_8k_800T_A2_64G.yaml    # 8B推理配置
        └── run_llama3_8b_8k_800T_A2_64G.yaml        # 8B全量微调Atlas 800 A2启动配置
    ```
@@ -33,7 +32,7 @@ Llama 3，是开源Llama系列的最新产品，目前有二个版本：Llama3-8
 
    ```bash
    llama3
-       ├── run_llama3.py           # 7B全量微调Atlas 800 A2启动配置
+       ├── run_llama3.py           # llama3启动脚本
        └── llama_preprocess.py     # llama模型的mindrecord数据处理脚本
    ```
 
@@ -48,160 +47,79 @@ Llama 3，是开源Llama系列的最新产品，目前有二个版本：Llama3-8
 - MindFormers版本：dev
 - 硬件支持矩阵
 
-|     模型      | 硬件 | 全量微调 | lora微调 | 推理 |
-| :-----------: | :--: | :------: | :------: | :--: |
-| Llama3-8b | Atlas 800T A2 |  单节点  |  单节点  | 单卡 |
-
-### RANK_TABLE_FILE准备
-
-- **单机8卡**
-
-运行`mindformers/tools/hccl_tools.py`，生成`RANK_TABLE_FILE`文件
-
-```shell
-# 运行如下命令，生成当前机器的RANK_TABLE_FILE的json文件
-python ./mindformers/tools/hccl_tools.py --device_num "[0,8)"
-```
-
-**注：若使用ModelArts的notebook环境，可从 `/user/config/jobstart_hccl.json` 路径下直接获取rank table，无需手动生成**
-
-RANK_TABLE_FILE 单机8卡参考样例:
-
-```json
-{
-    "version": "1.0",
-    "server_count": "1",
-    "server_list": [
-        {
-            "server_id": "xx.xx.xx.xx",
-            "device": [
-                {"device_id": "0","device_ip": "192.1.27.6","rank_id": "0"},
-                {"device_id": "1","device_ip": "192.2.27.6","rank_id": "1"},
-                {"device_id": "2","device_ip": "192.3.27.6","rank_id": "2"},
-                {"device_id": "3","device_ip": "192.4.27.6","rank_id": "3"},
-                {"device_id": "4","device_ip": "192.1.27.7","rank_id": "4"},
-                {"device_id": "5","device_ip": "192.2.27.7","rank_id": "5"},
-                {"device_id": "6","device_ip": "192.3.27.7","rank_id": "6"},
-                {"device_id": "7","device_ip": "192.4.27.7","rank_id": "7"}],
-             "host_nic_ip": "reserve"
-        }
-    ],
-    "status": "completed"
-}
-```
-
-- **2机16卡**
-
-1. 在每个机器上运行`mindformers/tools/hccl_tools.py`，生成各自的`RANK_TABLE_FILE`文件。
-
-```shell
-# 运行如下命令，生成当前机器的RANK_TABLE_FILE的json文件
-python ./mindformers/tools/hccl_tools.py --device_num "[0,8)" --server_ip xx.xx.xx.xx
-```
-
-**注：需要根据机器的ip地址指定 --server_ip，避免由于不同机器server_ip不同，导致多节点间通信失败。**
-
-2. 将不同机器的`RANK_TABLE_FILE`文件全部拷贝到同一台机器上，运行`mindformers/tools/merge_hccl.py`合并`RANK_TABLE_FILE`文件
-
-```shell
-# 运行如下命令，合并每个机器的RANK_TABLE_FILE文件。
-python ./mindformers/tools/merge_hccl.py hccl*.json
-```
-
-3. 将合并后的`RANK_TABLE_FILE`文件拷贝到所有机器中，保证不同机器上的`RANK_TABLE_FILE`相同。
-
-RANK_TABLE_FILE 双机16卡参考样例:
-
-```json
-{
-    "version": "1.0",
-    "server_count": "2",
-    "server_list": [
-        {
-            "server_id": "xx.xx.xx.xx",
-            "device": [
-                {
-                    "device_id": "0", "device_ip": "192.168.0.0", "rank_id": "0"
-                },
-                {
-                    "device_id": "1", "device_ip": "192.168.1.0", "rank_id": "1"
-                },
-                {
-                    "device_id": "2", "device_ip": "192.168.2.0", "rank_id": "2"
-                },
-                {
-                    "device_id": "3", "device_ip": "192.168.3.0", "rank_id": "3"
-                },
-                {
-                    "device_id": "4", "device_ip": "192.168.0.1", "rank_id": "4"
-                },
-                {
-                    "device_id": "5", "device_ip": "192.168.1.1", "rank_id": "5"
-                },
-                {
-                    "device_id": "6", "device_ip": "192.168.2.1", "rank_id": "6"
-                },
-                {
-                    "device_id": "7", "device_ip": "192.168.3.1", "rank_id": "7"
-                }
-            ],
-            "host_nic_ip": "reserve"
-        },
-        {
-            "server_id": "xx.xx.xx.xx",
-            "device": [
-                {
-                    "device_id": "0", "device_ip": "192.168.0.1", "rank_id": "8"
-                },
-                {
-                    "device_id": "1", "device_ip": "192.168.1.1", "rank_id": "9"
-                },
-                {
-                    "device_id": "2", "device_ip": "192.168.2.1", "rank_id": "10"
-                },
-                {
-                    "device_id": "3", "device_ip": "192.168.3.1", "rank_id": "11"
-                },
-                {
-                    "device_id": "4", "device_ip": "192.168.0.2", "rank_id": "12"
-                },
-                {
-                    "device_id": "5", "device_ip": "192.168.1.2", "rank_id": "13"
-                },
-                {
-                    "device_id": "6", "device_ip": "192.168.2.2", "rank_id": "14"
-                },
-                {
-                    "device_id": "7", "device_ip": "192.168.3.2", "rank_id": "15"
-                }
-            ],
-            "host_nic_ip": "reserve"
-        }
-    ],
-    "status": "completed"
-}
-```
-
-**注：多机多卡获取`RANK_TABLE_FILE`步骤同2机16卡。**
+|     模型      | 硬件 | 全量微调 | 推理 |
+| :-----------: | :--: | :------: | :--: |
+| Llama3-8b | Atlas 800T A2 |  单节点  | 单卡 |
 
 ### 数据集准备
 
-以Wikitext2数据集为例:
+目前提供alpaca数据集的预处理脚本用于全参微调任务。
 
-- 数据集下载：[WikiText2数据集](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/dataset/wikitext-2/wikitext-2-v1.zip)
+数据集下载链接如下：
 
-- 分词模型下载：例如下载申请通过后huggingface里对应Files 中的tokenizer.model
+- [alpaca_data](https://github.com/tatsu-lab/stanford_alpaca/blob/main/alpaca_data.json)
 
-- 使用以下预处理脚本生成mindrecord训练数据
+alpaca数据集原始格式样例：
+
+```text
+# alpaca examples:
+    {
+        "instruction": "Describe a time when you had to make a difficult decision.",
+        "input": "",
+        "output": "I had to make a difficult decision when I was working as a project manager at a construction company. I was in charge of a project that needed to be completed by a certain date in order to meet the client\u2019s expectations. However, due to unexpected delays, we were not able to meet the deadline and so I had to make a difficult decision. I decided to extend the deadline, but I had to stretch the team\u2019s resources even further and increase the budget. Although it was a risky decision, I ultimately decided to go ahead with it to ensure that the project was completed on time and that the client\u2019s expectations were met. The project was eventually successfully completed and this was seen as a testament to my leadership and decision-making abilities."
+    },
+    {
+        "instruction": "Identify the odd one out.",
+        "input": "Twitter, Instagram, Telegram",
+        "output": "Telegram"
+    },
+```
+
+- step 1. 执行`alpaca_converter.py`，使用fastchat工具添加prompts模板，将原始数据集转换为多轮对话格式。
+
+``` bash
+# 脚本路径：tools/dataset_preprocess/llama/alpaca_converter.py
+# 执行转换脚本
+python alpaca_converter.py \
+--data_path /{path}/alpaca_data.json \
+--output_path /{path}/alpaca-data-conversation.json
+```
+
+```text
+# 参数说明
+data_path: 存放alpaca数据的路径
+output_path: 输出转换后对话格式的数据路径
+```
+
+转换后格式样例：
+
+```text
+{
+    "id": "1",
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Below is an instruction that describes a task. Write a response that appropriately completes the request.\n\n### Instruction:\nGive three tips for staying healthy.\n\n### Response:"
+      },
+      {
+        "from": "gpt",
+        "value": "1.Eat a balanced diet and make sure to include plenty of fruits and vegetables. \n2. Exercise regularly to keep your body active and strong. \n3. Get enough sleep and maintain a consistent sleep schedule."
+      }
+    ]
+  },
+```
+
+- step 2. 执行`llama_preprocess.py`，进行数据预处理、Mindrecord数据生成，将带有prompt模板的数据转换为mindrecord格式。
 
 ```bash
-# 使用tools/dataset_preprocess/llama/llama_preprocess.py进行数据预处理+Mindrecord数据生成
+# 脚本路径：research/llama_preprocess.py
+# 由于此工具依赖fschat工具包解析prompt模板，请提前安装fschat >= 0.2.13 python = 3.9
 python llama_preprocess.py \
---dataset_type wiki \
---input_glob  /{path}/wiki.train.tokens \
+--dataset_type qa \
+--input_glob /{path}/alpaca-data-conversation.json \
 --model_file /{path}/tokenizer.model \
 --seq_length 8192 \
---output_file /{path}/wiki8192.mindrecord
+--output_file /{path}/alpaca-fastchat8192.mindrecord
 ```
 
 数据处理时候注意bos，eos，pad等特殊ids要和yaml配置中model_config里保持一致。
@@ -214,15 +132,14 @@ python llama_preprocess.py \
 
 **注**: 请安装transformers=4.40版本
 
-下载完成后，运行`mindformers/models/llama/convert_weight.py`转换脚本，将huggingface的权重转换为完整的ckpt权重。
+下载完成后，运行`mindformers/convert_weight.py`转换脚本，将huggingface的权重转换为完整的ckpt权重。
 
 ```shell
-python mindformers/models/llama/convert_weight.py \
---torch_ckpt_dir TORCH_CKPT_DIR \
---mindspore_ckpt_path {path}/MS_CKPT_NAME
+python convert_weight.py --model llama --input_path TORCH_CKPT_DIR --output_path {path}/MS_CKPT_NAME --dtype bf16
 # 参数说明
-torch_ckpt_dir: huggingface权重保存目录路径
-mindspore_ckpt_path: 权重保存文件名，可以指定自定义保存路径
+input_path: huggingface权重保存目录路径
+output_path: 权重保存文件名，可以指定自定义保存路径
+dtype: 转换权重的精度选择。
 ```
 
 ### [模型权重转换](../../docs/feature_cards/Transform_Ckpt.md)
@@ -240,23 +157,21 @@ Mindformer支持权重自动转换，详细教程请参考[权重转换文档](.
 
 ### 全参微调
 
-请参照[数据集准备](#数据集准备)章节获取mindrecord格式的wiki数据集，参照[模型权重准备](#模型权重准备)章节获取Baichuan2-7B-Base权重。
+请参照[数据集准备](#数据集准备)章节获取mindrecord格式的alpaca数据集，参照[模型权重准备](#模型权重准备)章节获取Llama3-8B权重。
 
 Llama3-8B在Atlas 800T A2上训练，支持**单机/多机训练**。
 
 当前模型已支持使用**Flash Attention算法**进行全参微调，请参考 [Flash Attention使用文档](../../docs/feature_cards/Training_Algorithms.md#flash-attention)：
 
-使用`run_llama3_8b.yaml`进行训练，或修改默认配置文件中的`model_config.seq_length`，使数据集与训练配置的`seq_length`保持一致。
+使用`run_llama3_8b_8k_800T_A2_64G.yaml`进行训练，或修改默认配置文件中的`model_config.seq_length`，使数据集与训练配置的`seq_length`保持一致。
 
 - **单机训练**
 
-Llama3-8B用于微调，seq_length默认为8192，分布式微调训练在Atlas 800T A2上单节点即可启动。以`wiki`数据集为例，给出了默认配置文件`run_llama3_8b.yaml`。
+Llama3-8B用于微调，seq_length默认为8192，分布式微调训练在Atlas 800T A2上单节点即可启动。以`alpaca`数据集为例，给出了默认配置文件`run_llama3_8b_8k_800T_A2_64G.yaml`。
 
 **步骤**：
 
-1. RANK_TABLE_FILE准备 ：请参照[RANK_TABLE_FILE准备](#RANK_TABLE_FILE准备)-单机8卡章节，获取单节点的`RANK_TABLE_FILE`文件。
-
-2. 修改`run_llama3_8b.yaml`中相关配置，默认开启自动权重转换，使用完整权重。
+2. 修改`run_llama3_8b_8k_800T_A2_64G.yaml`中相关配置，默认开启自动权重转换，使用完整权重。
 
 ```yaml
 load_checkpoint: 'model_dir/xxx.ckpt'  # 使用完整权重路径
@@ -269,8 +184,8 @@ train_dataset: &train_dataset
     type: MindDataset
     dataset_dir: "dataset_dir"  # 配置训练数据集文件夹路径
     shuffle: True
-  input_columns: ["input_ids"]
-# input_colums按照数据集中的字段指定（如wikitext2数据集），input_columns: ["input_ids"]
+  input_columns: ["input_ids", "labels"]
+# input_columns按照数据集中的字段指定（如alpaca数据集），input_columns: ["input_ids", "labels"]
 
 # 8卡分布式策略配置
 parallel_config:
@@ -282,19 +197,19 @@ parallel_config:
   gradient_aggregation_group: 4
 ```
 
-3. 启动微调任务，在单机上拉起任务。
+3. 启动微调任务，在单机上拉起任务。快速启动脚本指令msrun_launcher特性参见[msrun快速启动](../../README.md#方式一使用已有脚本启动)。
 
 ```shell
 cd mindformers/research
-bash run_singlenode.sh \
-"python llama3/run_llama3.py \
+# 单机8卡默认快速启动
+bash ../scripts/msrun_launcher.sh \
+"llama3/run_llama3.py \
 --config llama3/run_llama3_8b_8k_800T_A2_64G.yaml \
 --load_checkpoint model_dir/xxx.ckpt \
 --auto_trans_ckpt True \
 --use_parallel True \
 --run_mode finetune \
---train_data dataset_dir" \
-RANK_TABLE_FILE [0,8] 8
+--train_data dataset_dir"
 
 # 参数说明
 config: 配置文件路径
