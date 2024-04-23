@@ -214,6 +214,10 @@ class QwenForCausalLM(QwenPreTrainedModel):
         else:
             self.lm_head.shard(strategy_matmul=((1, 1), (dp * mp, 1)))
 
+    def kvcache(self, layer_idx):
+        key_cache = self.transformer.layers[layer_idx].attention.infer_attention.paged_attention_mgr.key_cache
+        value_cache = self.transformer.layers[layer_idx].attention.infer_attention.paged_attention_mgr.value_cache
+        return key_cache, value_cache
 
 class QwenModel(QwenPreTrainedModel):
     """transformer"""

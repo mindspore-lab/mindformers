@@ -1461,3 +1461,6 @@ class PreTrainedModel(nn.Cell, ModuleUtilsMixin, GenerationMixin, PushToHubMixin
     def get_support_list(cls):
         """get_support_list method"""
         return cls._support_list
+
+    def kvcache(self, layer_idx):
+        raise RuntimeError("Override the kvcache method to get key cache value cache for swap.")
