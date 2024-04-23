@@ -500,7 +500,7 @@ class LLamaDecodeLayer(nn.Cell):
         if not self.use_past:
             self._check_input(x, freqs_cis, mask)
         if batch_valid_length is not None:
-            self.batch_valid_length_add(batch_valid_length, 1)
+            batch_valid_length = self.batch_valid_length_add(batch_valid_length, 1)
         # [bs, seq/1, hidden_dim]
         input_x = self.attention_norm(x)
         # [bs, seq/1, hidden_dim]
