@@ -109,9 +109,9 @@ model:
     pad_token_id: 151643
     compute_dtype: "float16"
     layernorm_compute_type: "float32"
-    softmax_compute_type: "float32"
-    rotary_dtype: "float32"
-    param_init_type: "float32"
+    softmax_compute_type: "float16"
+    rotary_dtype: "float16"
+    param_init_type: "float16"
     use_past: False
     use_flash_attention: True
     use_paged_attention: False  # only supported in mslite inference
@@ -151,7 +151,7 @@ context:
   ascend_config:
     precision_mode: "must_keep_origin_dtype"
   max_call_depth: 10000
-  max_device_memory: "60GB"
+  max_device_memory: "59GB"
   save_graphs: False
   save_graphs_path: "./graph"
   device_id: 0
