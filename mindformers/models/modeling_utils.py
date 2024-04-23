@@ -597,7 +597,6 @@ class PreTrainedModel(nn.Cell, ModuleUtilsMixin, GenerationMixin, PushToHubMixin
             " method in order to use `model.set_inputs()`."
         )
 
-
     def prepare_inputs_for_export(self, full_model=True):
         """
         prepare inputs for export.

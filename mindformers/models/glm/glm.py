@@ -392,6 +392,14 @@ class GLMForPreTraining(GLMPreTrainedModel):
         model_inputs["position_ids"] = Tensor(position_ids_tmp, mstype.int32)
         model_inputs["attention_mask"] = Tensor(attention_mask_tmp, mstype.int32)
 
+    def add_flags_custom(self, is_first_iteration):
+        """Add customized attributes for specific cells in the model."""
+        self.add_flags(is_first_iteration=is_first_iteration)
+        self.transformer.add_flags(is_first_iteration=is_first_iteration)
+        for layer in self.transformer.layers:
+            layer.add_flags(is_first_iteration=is_first_iteration)
+            layer.attention.add_flags(is_first_iteration=is_first_iteration)
+
     # pylint: disable=W0613
     def construct(self, input_ids, labels=None, position_ids=None, attention_mask=None,
                   input_position=None, input_embeds=None, init_reset=True, batch_valid_length=None):

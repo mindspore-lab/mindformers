@@ -121,6 +121,14 @@ class WizardCoderLMHeadModel(WizardCoderPreTrainedModel):
             "input_position": input_position
         }
 
+    def add_flags_custom(self, is_first_iteration):
+        """Add customized attributes for specific cells in the model."""
+        self.add_flags(is_first_iteration=is_first_iteration)
+        self.model.add_flags(is_first_iteration=is_first_iteration)
+        for layer in self.backbone.blocks:
+            layer.add_flags(is_first_iteration=is_first_iteration)
+            layer.attention.add_flags(is_first_iteration=is_first_iteration)
+
     def construct(self, input_ids, labels=None, input_mask=None, input_position=None,
                   init_reset=True, batch_valid_length=None):
         r"""

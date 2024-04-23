@@ -304,6 +304,14 @@ class BloomLMHeadModel(BloomPreTrainedModel):
             "input_ids": Tensor(input_ids, mstype.int32)
         }
 
+    def add_flags_custom(self, is_first_iteration):
+        """Add customized attributes for specific cells in the model."""
+        self.add_flags(is_first_iteration=is_first_iteration)
+        self.transformer.add_flags(is_first_iteration=is_first_iteration)
+        for layer in self.transformer.blocks:
+            layer.add_flags(is_first_iteration=is_first_iteration)
+            layer.attention.add_flags(is_first_iteration=is_first_iteration)
+
     # pylint: disable=W0613
     @jit_inference_with_condition()
     def construct(self, input_ids, input_position=None, position_ids=None, attention_mask=None,

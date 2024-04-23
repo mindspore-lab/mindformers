@@ -203,6 +203,14 @@ class ChatGLM32kForConditionalGeneration(GLM32kPreTrainedModel):
             "input_position": input_position
         }
 
+    def add_flags_custom(self, is_first_iteration):
+        """Add customized attributes for specific cells in the model."""
+        self.add_flags(is_first_iteration=is_first_iteration)
+        self.transformer.add_flags(is_first_iteration=is_first_iteration)
+        for layer in self.transformer.encoder.layers:
+            layer.add_flags(is_first_iteration=is_first_iteration)
+            layer.self_attention.add_flags(is_first_iteration=is_first_iteration)
+
     def construct(self, input_ids=None, labels=None, input_position=None, position_ids=None, attention_mask=None,
                   input_embeds=None, init_reset=True, batch_valid_length=None, prefix_key_values=None):
         """ChatGLM32k for conditional generation model."""
