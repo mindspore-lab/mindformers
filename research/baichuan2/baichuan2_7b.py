@@ -31,17 +31,15 @@ from mindspore.common.initializer import initializer, HeUniform
 
 from mindformers.core.loss.loss import CrossEntropyLoss
 from mindformers.models.modeling_utils import PreTrainedModel
-from mindformers.models.utils import cell_reuse
+from mindformers.models.utils import cell_reuse, set_layer_stage_recompute
 from mindformers.modules.transformer.op_parallel_config import _check_config
 from mindformers.modules.transformer.transformer import LowerTriangularMaskWithDynamic
 from mindformers.tools.register.register import MindFormerModuleType, MindFormerRegister
 
-from mindformers.models.utils import set_layer_stage_recompute
 from mindformers.models.llama.llama_config import LlamaConfig
 from mindformers.models.llama.llama_layer import LlamaEmbedding, LlamaRMSNorm, FreqsMgr
 from mindformers.models.llama.llama_transformer import LLamaDecodeLayer
 from mindformers.tools.logger import logger
-from mindformers.modules import KVCachePreprocess
 
 __all__ = ['Baichuan7BV2ForCausalLM', 'Baichuan7BV2Model']
 
@@ -84,8 +82,6 @@ class Baichuan7BV2Model(Baichuan2PreTrainedModel):
         self.is_first_iteration = True
         self.use_past = config.use_past
         self.is_dynamic = config.is_dynamic
-        self.use_kvcache_op = config.use_kvcache_op
-        self.is_flexible_shape = config.is_flexible_shape
         self.use_flash_attention = config.use_flash_attention
         # only support flash attention in train and prefill predict process.
         if self.use_past:
@@ -139,19 +135,14 @@ class Baichuan7BV2Model(Baichuan2PreTrainedModel):
                                      use_past=config.use_past,
                                      use_flash_attention=self.use_flash_attention,
                                      is_dynamic=config.is_dynamic,
-                                     use_kvcache_op=config.use_kvcache_op,
-                                     is_flexible_shape=config.is_flexible_shape,
+                                     block_size=config.block_size,
+                                     num_blocks=config.num_blocks,
                                      use_rope_slice=config.use_rope_slice,
                                      parallel_config=config.parallel_config)
             set_layer_stage_recompute(layer, layer_id, config.offset, config.parallel_config, config.num_layers)
             self.layers.append(layer)
         self.norm_out = LlamaRMSNorm(config.hidden_size, config.rms_norm_eps,
                                      compute_type=config.layernorm_compute_type)
-        self.kvcache_preprocess = KVCachePreprocess(max_batch_size=config.batch_size,
-                                                    max_seq_length=config.seq_length,
-                                                    is_dynamic=config.is_dynamic,
-                                                    use_kvcache_op=config.use_kvcache_op,
-                                                    is_flexible_shape=config.is_flexible_shape)
 
         dp = config.parallel_config.data_parallel
         if not (_get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation()):
@@ -169,7 +160,8 @@ class Baichuan7BV2Model(Baichuan2PreTrainedModel):
             self.norm_out.shard((dp, 1, 1))
 
     # pylint: disable=W0613
-    def construct(self, tokens: Tensor, batch_valid_length=None, batch_index=None, zactivate_len=None):
+    def construct(self, tokens: Tensor, batch_valid_length=None, batch_index=None, zactivate_len=None,
+                  block_tables=None, slot_mapping=None):
         """
         Forward of llama model.
 
@@ -190,31 +182,23 @@ class Baichuan7BV2Model(Baichuan2PreTrainedModel):
         """
         # preprocess
         bs, seq_len = self.shape(tokens)
-        if not self.use_past:
-            freqs_cis = self.freqs_mgr(seq_len)
-            mask = self.casual_mask(tokens) # mask: [bs, 1, seq, seq]
-            kvcache_inputs = None
-        else:
+        mask = None
+        if self.use_past:
             if self.is_first_iteration:
                 freqs_cis = self.freqs_mgr.prefill(bs, seq_len)
-                mask = self.casual_mask(tokens) # mask: [bs, 1, seq, seq]
             else:
                 freqs_cis = self.freqs_mgr.increment(batch_valid_length)
-                if self.is_dynamic and self.is_flexible_shape and not self.use_kvcache_op:
-                    mask = self.casual_mask.increment_slice(self.kvcache_preprocess.range,
-                                                            self.kvcache_preprocess.max_cache_length // bs,
-                                                            batch_valid_length, zactivate_len)
-                else:
-                    mask = self.casual_mask.increment(self.kvcache_preprocess.range, batch_valid_length, zactivate_len)
-
-            kvcache_inputs = self.kvcache_preprocess(bs, batch_valid_length, batch_index, zactivate_len)
+        else:
+            freqs_cis = self.freqs_mgr(seq_len)
+            mask = self.casual_mask(tokens)  # mask: [bs, seq, seq]
 
         # tokens: [bs, seq/1]
         h = self.tok_embeddings(tokens)
         h = self.reshape(h, (bs, seq_len, self.hidden_size))
         # h: [bs, seq/1, hidden_dim]
         for i in range(self.num_layers):
-            h = self.layers[i](h, freqs_cis, mask, kvcache_inputs=kvcache_inputs)
+            h = self.layers[i](h, freqs_cis, mask, batch_valid_length=batch_valid_length, block_tables=block_tables,
+                               slot_mapping=slot_mapping)
         output = self.norm_out(h)
         return output
 
@@ -391,6 +375,7 @@ class Baichuan7BV2ForCausalLM(Baichuan2PreTrainedModel):
                 self.lm_head.set_comm_fusion(config.parallel_config.gradient_aggregation_group)
 
         self.load_checkpoint(config)
+        self.set_model_predict_config()
 
     # pylint: disable=W0613
     def prepare_inputs_for_generation(self, input_ids, **kwargs):
@@ -406,6 +391,17 @@ class Baichuan7BV2ForCausalLM(Baichuan2PreTrainedModel):
         slot_mapping = Tensor(np.ones(shape=tuple([bs])), mstype.int32)
         return input_ids, None, None, None, None, None, None, None, None, None, None, slot_mapping
 
+    def set_dynamic_inputs(self):
+        dynamic_input_ids = Tensor(shape=[None, None], dtype=mstype.int32)
+        dynamic_input_position = Tensor(shape=[None], dtype=mstype.int32)
+        dynamic_init_reset = Tensor([False], mstype.bool_)
+        dynamic_batch_valid_length = Tensor(shape=[None, None], dtype=mstype.int32)
+        dynamic_block_tables = Tensor(shape=[None, None], dtype=mstype.int32)
+        dynamic_slot_mapping = Tensor(shape=[None], dtype=mstype.int32)
+        self.set_inputs(dynamic_input_ids, None, dynamic_input_position, None, None, None, dynamic_init_reset,
+                        dynamic_batch_valid_length, None, None, dynamic_block_tables, dynamic_slot_mapping)
+        logger.info("Set dynamic input for baichuan2.")
+
     def add_flags_custom(self, is_first_iteration):
         """Add customized attributes for specific cells in the model."""
         self.add_flags(is_first_iteration=is_first_iteration)
@@ -416,7 +412,8 @@ class Baichuan7BV2ForCausalLM(Baichuan2PreTrainedModel):
 
     # pylint: disable=W0613
     def construct(self, input_ids, labels=None, input_position=None, position_ids=None, attention_mask=None,
-                  input_embeds=None, init_reset=True, batch_valid_length=None, batch_index=None, zactivate_len=None):
+                  input_embeds=None, init_reset=True, batch_valid_length=None, batch_index=None, zactivate_len=None,
+                  block_tables=None, slot_mapping=None):
         """Baichuan7BV2 ForCausalLM forward."""
         bsz, seqlen = self.shape(input_ids)
         if self.use_past:
@@ -430,7 +427,7 @@ class Baichuan7BV2ForCausalLM(Baichuan2PreTrainedModel):
             batch_valid_length = self.reshape(batch_valid_length, (-1,))
         if not self.is_first_iteration:
             batch_valid_length = self.sub_batch_valid_len(batch_valid_length, 1)
-        output = self.model(tokens, batch_valid_length, batch_index, zactivate_len)
+        output = self.model(tokens, batch_valid_length, batch_index, zactivate_len, block_tables, slot_mapping)
         pre_gather = (not self.use_past or self.is_first_iteration) and batch_valid_length is not None
         if pre_gather:
             output = self.gather(output, self.sub_batch_valid_len(batch_valid_length, 1), 1)
