@@ -15,7 +15,7 @@
 """test PretrainedModel using GPT2LMHeadModel"""
 
 import os
-os.environ["OPENMIND_HUB_ENDPOINT"] = "https://modelfoundrysh.test.osinfra.cn"
+os.environ["OPENMIND_HUB_ENDPOINT"] = "https://openmind.test.osinfra.cn"
 # pylint: disable=C0413
 import shutil
 import unittest

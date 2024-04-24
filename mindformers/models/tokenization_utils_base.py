@@ -2206,7 +2206,7 @@ class PreTrainedTokenizerBase(SpecialTokensMixin, PushToHubMixin):
         if all(full_file_name is None for full_file_name in resolved_vocab_files.values()):
             raise EnvironmentError(
                 f"Can't load tokenizer for '{pretrained_model_name_or_path}'. If you were trying to load it from "
-                "'https://modelfoundrysh.test.osinfra.cn/models', make sure you don't have a local directory with "
+                "'https://openmind.cn/models', make sure you don't have a local directory with "
                 f"the same name. Otherwise, make sure '{pretrained_model_name_or_path}' is the correct path "
                 f"to a directory containing all relevant files for a {cls.__name__} tokenizer."
             )
