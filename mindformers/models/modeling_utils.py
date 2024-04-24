@@ -266,8 +266,6 @@ class PreTrainedModel(nn.Cell, ModuleUtilsMixin, GenerationMixin, PushToHubMixin
         self.warning_issued = {}
         self.generation_config = GenerationConfig.from_model_config(config) if self.can_generate() else None
 
-        self._set_model_predict_config()
-
     def post_init(self):
         """
         A method executed at the end of each Transformer model initialization, to execute code that needs the model's
@@ -579,11 +577,11 @@ class PreTrainedModel(nn.Cell, ModuleUtilsMixin, GenerationMixin, PushToHubMixin
                 val.__dict__.pop("type")
                 config.__dict__.update({key: val})
 
-    def _set_model_predict_config(self):
+    def set_model_predict_config(self):
         """
         Set predict config for model.
         """
-        if self.generation_config.use_past and self.config.is_dynamic:
+        if self.config.use_past:
             # jit_level = "O0" indicates that the operator is executed in the form of kernel by kernel mode.
             # infer_boost = "on" indicates that the high performance inference is enabled.
             jit_level = "O0"

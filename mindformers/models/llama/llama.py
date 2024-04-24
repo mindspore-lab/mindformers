@@ -293,6 +293,7 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
                 self.lm_head.pipeline_stage = config.parallel_config.pipeline_stage - 1
 
         self.load_checkpoint(config)
+        self.set_model_predict_config()
 
     def prepare_inputs_for_generation(self, input_ids, **kwargs):
         if self.config.is_dynamic and "origin_inputs" in kwargs:

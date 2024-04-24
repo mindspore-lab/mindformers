@@ -75,6 +75,7 @@ class GenerationMixin:
 
     def __init__(self):
         self.block_mgr = None
+        self.use_kbk_infer = False
 
     def _set_block_mgr(self, batch_size):
         """ Set model block table mgr function. """
@@ -84,6 +85,13 @@ class GenerationMixin:
 
         if self.block_mgr:
             self.block_mgr.init_cache_engine(batch_size)
+
+    def _set_kbk_infer(self):
+        jit_level = self.jit_config_dict.get("jit_level")
+        infer_boost = self.jit_config_dict.get("infer_boost")
+        self.use_kbk_infer = (jit_level == "O0" and infer_boost == "on")
+        logger.info(
+            "Set kbk infer :{}".format(self.use_kbk_infer))
 
     # pylint: disable=W0613
     def prepare_inputs_for_generation(self, input_ids, **kwargs):
@@ -719,10 +727,12 @@ class GenerationMixin:
             raise ValueError(
                 "`streamer` cannot be used with beam search yet. Make sure that `num_beams` is set to 1."
             )
+        self._set_kbk_infer()
 
-        if generation_config.use_past and self.config.is_dynamic:
+        if generation_config.use_past and self.use_kbk_infer:
             self._set_block_mgr(batch_size)
-            self.set_dynamic_inputs()
+            if self.config.is_dynamic:
+                self.set_dynamic_inputs()
 
         # beam search
         if generation_config.generation_mode == GenerationMode.BEAM_SEARCH:
@@ -808,7 +818,7 @@ class GenerationMixin:
             while np.sum(is_finished) != batch_size:
                 block_tables = None
                 slot_mapping = None
-                if generation_config.use_past and self.config.is_dynamic:
+                if generation_config.use_past and self.use_kbk_infer:
                     if prefill:
                         max_input_length = len(origin_inputs[0])
                         block_tables, slot_mapping = self.block_mgr.assemble_pa_full_inputs(max_input_length,
