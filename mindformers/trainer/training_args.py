@@ -25,6 +25,7 @@ from collections import OrderedDict
 from typing import Optional, Union, List
 from dataclasses import asdict, dataclass, field, fields
 
+from mindformers.modules.transformer import TransformerRecomputeConfig, TransformerOpParallelConfig, MoEConfig
 from mindformers.tools.register import MindFormerConfig
 from mindformers.tools import logger
 from mindformers.tools.utils import get_real_rank, get_real_group_size
@@ -108,6 +109,10 @@ class TrainingArguments:
     src_strategy: Optional[str] = field(
         default=None,
         metadata={"help": "The strategy file used for transforming checkpoint when auto_trans_ckpt is True"}
+    )
+    transform_process_num: int = field(
+        default=1,
+        metadata={"help": "The number of processes responsible for checkpoint transform."},
     )
     resume_from_checkpoint: Optional[str] = field(
         default=None,
@@ -977,6 +982,42 @@ class TrainingArguments:
         )
         return warmup_steps
 
+    def get_recompute_config(self):
+        """get recompute config"""
+        recompute_config = TransformerRecomputeConfig(
+            recompute=self.recompute,
+            select_recompute=self.select_recompute,
+            parallel_optimizer_comm_recompute=self.parallel_optimizer_comm_recompute,
+            mp_comm_recompute=self.mp_comm_recompute,
+            recompute_slice_activation=self.recompute_slice_activation
+        )
+        return recompute_config
+
+    def get_parallel_config(self):
+        """get parallel config"""
+        parallel_config = TransformerOpParallelConfig(
+            data_parallel=self.data_parallel,
+            model_parallel=self.model_parallel,
+            expert_parallel=self.expert_parallel,
+            pipeline_stage=self.pipeline_stage,
+            micro_batch_num=self.micro_batch_num,
+            recompute=self.get_recompute_config(),
+            use_seq_parallel=self.use_seq_parallel,
+            gradient_aggregation_group=self.gradient_aggregation_group,
+            vocab_emb_dp=self.vocab_emb_dp,
+        )
+        return parallel_config
+
+    def get_moe_config(self):
+        """get moe config"""
+        moe_config = MoEConfig(
+            expert_num=self.expert_num,
+            capacity_factor=self.capacity_factor,
+            aux_loss_factor=self.aux_loss_factor,
+            num_experts_chosen=self.num_experts_chosen
+        )
+        return moe_config
+
     def to_dict(self):
         """
         Serializes this instance while replace `Enum` by their values (for JSON serialization support). It obfuscates
@@ -1009,6 +1050,7 @@ class TrainingArguments:
             num_epochs: float = 3,
             gradient_accumulation_steps: int = 1,
             seed: int = 42,
+            **kwargs
     ):
         """
         A method that regroups all basic arguments linked to the training.
@@ -1064,13 +1106,15 @@ class TrainingArguments:
         self.num_train_epochs = num_epochs
         self.gradient_accumulation_steps = gradient_accumulation_steps
         self.seed = seed
+        self.print_kwargs_unused(**kwargs)
         return self
 
     def set_evaluate(
             self,
             strategy: Union[str, IntervalStrategy] = "no",
             steps: int = 500,
-            batch_size: int = 8
+            batch_size: int = 8,
+            **kwargs
     ):
         """
         A method that regroups all arguments linked to the evaluation.
@@ -1106,12 +1150,14 @@ class TrainingArguments:
         self.do_eval = self.evaluation_strategy != IntervalStrategy.NO
         self.eval_steps = steps
         self.per_device_eval_batch_size = batch_size
+        self.print_kwargs_unused(**kwargs)
         return self
 
     def set_testing(
             self,
             batch_size: int = 8,
             loss_only: bool = False,
+            **kwargs
     ):
         """
         A method that regroups all basic arguments linked to testing on a held-out dataset.
@@ -1142,6 +1188,7 @@ class TrainingArguments:
         self.do_predict = True
         self.per_device_eval_batch_size = batch_size
         self.prediction_loss_only = loss_only
+        self.print_kwargs_unused(**kwargs)
         return self
 
     def set_save(
@@ -1150,6 +1197,7 @@ class TrainingArguments:
             steps: int = 500,
             total_limit: Optional[int] = None,
             on_each_node: bool = True,
+            **kwargs
     ):
         """
         A method that regroups all arguments linked to the evaluation.
@@ -1191,12 +1239,14 @@ class TrainingArguments:
         self.save_steps = steps
         self.save_total_limit = total_limit
         self.save_on_each_node = on_each_node
+        self.print_kwargs_unused(**kwargs)
         return self
 
     def set_logging(
             self,
             strategy: Union[str, IntervalStrategy] = "steps",
             steps: int = 500,
+            **kwargs
     ):
         """
         A method that regroups all arguments linked to the evaluation.
@@ -1226,6 +1276,7 @@ class TrainingArguments:
         if self.logging_strategy == IntervalStrategy.STEPS and steps == 0:
             raise ValueError("Setting `strategy` as 'steps' requires a positive value for `steps`.")
         self.logging_steps = steps
+        self.print_kwargs_unused(**kwargs)
         return self
 
     def set_push_to_hub(
@@ -1235,6 +1286,7 @@ class TrainingArguments:
             token: Optional[str] = None,
             private_repo: bool = False,
             always_push: bool = False,
+            **kwargs
     ):
         """
         A method that regroups all arguments linked to synchronizing checkpoints with the Hub.
@@ -1295,6 +1347,7 @@ class TrainingArguments:
         self.hub_token = token
         self.hub_private_repo = private_repo
         self.hub_always_push = always_push
+        self.print_kwargs_unused(**kwargs)
         return self
 
     def set_optimizer(
@@ -1306,6 +1359,7 @@ class TrainingArguments:
             beta1: float = 0.9,
             beta2: float = 0.999,
             epsilon: float = 1e-8,
+            **kwargs
     ):
         """
         A method that regroups all arguments linked to the optimizer and its hyperparameters.
@@ -1345,6 +1399,7 @@ class TrainingArguments:
         self.adam_beta1 = beta1
         self.adam_beta2 = beta2
         self.adam_epsilon = epsilon
+        self.print_kwargs_unused(**kwargs)
         return self
 
     def set_lr_scheduler(
@@ -1355,6 +1410,7 @@ class TrainingArguments:
             warmup_epochs: Optional[int] = None,
             warmup_ratio: Optional[float] = None,
             warmup_steps: int = 0,
+            **kwargs
     ):
         """
         A method that regroups all arguments linked to the learning rate scheduler and its hyperparameters.
@@ -1390,6 +1446,7 @@ class TrainingArguments:
         self.warmup_epochs = warmup_epochs
         self.warmup_ratio = warmup_ratio
         self.warmup_steps = warmup_steps
+        self.print_kwargs_unused(**kwargs)
         return self
 
     def set_dataloader(
@@ -1400,6 +1457,7 @@ class TrainingArguments:
             num_workers: int = 0,
             ignore_data_skip: bool = False,
             sampler_seed: Optional[int] = None,
+            **kwargs
     ):
         """
         A method that regroups all arguments linked to the dataloaders creation.
@@ -1442,7 +1500,14 @@ class TrainingArguments:
         self.dataloader_num_workers = num_workers
         self.ignore_data_skip = ignore_data_skip
         self.data_seed = sampler_seed
+        self.print_kwargs_unused(**kwargs)
         return self
+
+    @staticmethod
+    def print_kwargs_unused(**kwargs):
+        if kwargs:
+            for k in kwargs:
+                logger.warning("the `%s` parameter is not supported.", k)
 
     def convert_args_to_mindformers_config(self, task_config: MindFormerConfig = None):
         """convert training arguments to mindformer config type for adapting hugging-face."""
@@ -1478,6 +1543,8 @@ class TrainingArguments:
         task_config.only_save_strategy = _check_training_args(task_config.only_save_strategy, self.only_save_strategy)
         task_config.auto_trans_ckpt = _check_training_args(task_config.auto_trans_ckpt, self.auto_trans_ckpt)
         task_config.src_strategy_path_or_dir = _check_training_args(task_config.src_strategy, self.src_strategy)
+        task_config.transform_process_num = _check_training_args(
+            task_config.transform_process_num, self.transform_process_num)
         task_config.load_checkpoint = _check_training_args(task_config.load_checkpoint, self.resume_from_checkpoint)
         task_config.resume_training = _check_training_args(task_config.resume_training, self.resume_training)
         task_config.ignore_data_skip = _check_training_args(task_config.ignore_data_skip, self.ignore_data_skip)

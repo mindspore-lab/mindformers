@@ -461,19 +461,6 @@ def get_use_rope_self_define():
     return use_rope_self_define == "True"
 
 
-def create_flag_txt(path):
-    """Create a unique empty text file as a flag."""
-    if check_in_modelarts():
-        import moxing as mox
-        # pylint: disable=W0612
-        with mox.file.File(path, 'w') as f:
-            pass
-    else:
-        # pylint: disable=W0612
-        with open(path, 'w') as f:
-            pass
-
-
 def is_main_rank():
     return not get_real_rank() or (check_in_modelarts() and int(os.getenv('DEVICE_ID', '0')) == 0)
 
@@ -485,32 +472,76 @@ def has_shared_disk():
     return False
 
 
-def remake_folder(folder_path, permissions):
+def create_file(file_path):
+    """create file."""
+    if Validator.is_obs_url(file_path):
+        assert check_in_modelarts(), f"When create {file_path}, \
+            it is detected that it is not in the ModelArts platform."
+        import moxing as mox
+        with mox.file.File(file_path, 'w') as f:
+            f.write("Hugging ModelArts.")
+    else:
+        # pylint: disable=W0612
+        with open(file_path, 'w') as f:
+            pass
+
+
+def delete_file(file_path):
+    """delete file"""
+    if Validator.is_obs_url(file_path):
+        assert check_in_modelarts(), f"When create {file_path}, \
+            it is detected that it is not in the ModelArts platform."
+        import moxing as mox
+        if mox.file.exists(file_path):
+            mox.file.remove(file_path, recursive=False)
+    else:
+        if os.path.exists(file_path):
+            os.remove(file_path)
+
+
+def remake_folder(folder_path, permissions=None, rank_id=None):
     """make folder"""
     remaked_txt = os.path.join(folder_path, "remaked.txt")
-    if is_main_rank():
-        if os.path.exists(folder_path) and os.listdir(folder_path):
-            shutil.rmtree(folder_path)
-        os.makedirs(folder_path, exist_ok=True)
-        os.chmod(folder_path, permissions)
-        f = open(remaked_txt, "w")
-        f.close()
-    while True:
-        if os.path.exists(remaked_txt):
-            break
-
-
-def remove_folder(folder_path):
-    """delete folder"""
-    if check_in_modelarts():
+    rank_id = rank_id or get_real_rank()
+    if Validator.is_obs_url(folder_path):
+        assert check_in_modelarts(), f"When remaking {folder_path}, \
+            it is detected that it is not in the ModelArts platform."
         import moxing as mox
-        if mox.file.exists(folder_path) and not get_real_rank():
+        if not rank_id:
+            if mox.file.exists(folder_path):
+                mox.file.remove(folder_path, recursive=True)
+            mox.file.make_dirs(folder_path)
+            create_file(remaked_txt)
+        while True:
+            if mox.file.exists(remaked_txt):
+                break
+    else:
+        if not rank_id:
+            if os.path.exists(folder_path):
+                shutil.rmtree(folder_path)
+            os.makedirs(folder_path, exist_ok=True)
+            os.chmod(folder_path, permissions)
+            create_file(remaked_txt)
+        while True:
+            if os.path.exists(remaked_txt):
+                break
+    return remaked_txt
+
+
+def remove_folder(folder_path, rank_id=None):
+    """delete folder"""
+    rank_id = rank_id or get_real_rank()
+    if Validator.is_obs_url(folder_path):
+        assert check_in_modelarts(), f"When removing {folder_path}, \
+            it is detected that it is not in the ModelArts platform."
+        import moxing as mox
+        if mox.file.exists(folder_path) and not rank_id:
             mox.file.remove(folder_path, recursive=True)
         while True:
             if not mox.file.exists(folder_path):
                 break
     else:
-        if os.path.exists(folder_path) and not get_real_rank():
+        if os.path.exists(folder_path) and not rank_id:
             shutil.rmtree(folder_path)
         while True:
             if not os.path.exists(folder_path):
@@ -548,3 +579,16 @@ def replace_rank_id_in_ckpt_name(ckpt_file, dst_rank_id):
     ori_rank_id = get_rank_id_from_ckpt_name(ckpt_name)
     ckpt_name = ckpt_name.replace(f"_rank_{ori_rank_id}", f"_rank_{dst_rank_id}")
     return ckpt_name
+
+
+def clear_auto_trans_output():
+    """clear transformed_checkpoint and strategy"""
+    folder_list = ["strategy", "transformed_checkpoint"]
+    for folder in folder_list:
+        if check_in_modelarts():
+            folder_path = os.path.join(get_remote_save_url(), folder)
+        else:
+            folder_path = os.path.join(get_output_root_path(), folder)
+        if not get_real_rank():
+            remaked_txt = remake_folder(folder_path, permissions=0o777)
+            delete_file(remaked_txt)
