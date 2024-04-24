@@ -81,6 +81,7 @@ class LlamaModel(LlamaPreTrainedModel):
         self.is_first_iteration = True
         self.use_past = config.use_past
         self.use_flash_attention = config.use_flash_attention
+        self.cast = P.Cast()
         self.shape = P.Shape()
         self.reshape = P.Reshape().add_prim_attr("skip_redistribution", True)
         self.freqs_mgr = FreqsMgr(head_dim=self.head_dim,
@@ -199,7 +200,7 @@ class LlamaModel(LlamaPreTrainedModel):
             mask = self.casual_mask(tokens)  # mask: [bs, seq, seq]
 
         # tokens: [bs, seq/1]
-        h = self.tok_embeddings(tokens)
+        h = self.cast(self.tok_embeddings(tokens), self.dtype)
         h = self.reshape(h, (bs, seq_len, self.hidden_size))
         # h: [bs, seq/1, hidden_dim]
         for i in range(self.num_layers):
