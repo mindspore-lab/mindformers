@@ -28,8 +28,11 @@ from mindformers.tools import logger
 from mindformers.models.configuration_utils import PretrainedConfig
 from mindformers.models.image_processing_utils import ImageProcessingMixin
 from mindformers.models.auto.auto_factory import _LazyAutoMapping
+from mindformers.tools.generic import experimental_mode_func_checker
+
 from .configuration_auto import CONFIG_MAPPING_NAMES, AutoConfig
 
+EXP_ERROR_MSG = "AutoImageProcessor is in experimental, AutoProcessor is recommended."
 
 IMAGE_PROCESSOR_MAPPING_NAMES = OrderedDict(
     [
@@ -174,6 +177,7 @@ class AutoImageProcessor:
         )
 
     @classmethod
+    @experimental_mode_func_checker(EXP_ERROR_MSG)
     def from_pretrained(cls, pretrained_model_name_or_path, **kwargs):
         r"""
         Instantiate one of the image processor classes of the library from a pretrained model vocabulary.

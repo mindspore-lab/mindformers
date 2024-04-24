@@ -51,17 +51,15 @@ def experimental_mode_func_checker(custom_err_msg=None):
     """
 
     def wrapper(func):
-        def inner_wrapper(*args, **kwargs):
+        def inner_wrapper(cls, *args, **kwargs):
             try:
-                return func(*args, **kwargs)
-            except Exception as ex:
+                return func(cls, *args, **kwargs)
+            except Exception:
                 error_msg = f"Error occurred when executing function {func.__name__}."
 
                 if custom_err_msg:
-                    error_msg += f"\nCustom error message: {custom_err_msg}"
-
-                if str(ex):
-                    error_msg += f"\nOriginal error message: {ex}"
+                    error_msg += f"\n You are using {cls.__name__} in experimental mode, which is not available" \
+                                 f" now. Check the error message: {custom_err_msg}"
 
                 raise RuntimeError(error_msg)
 

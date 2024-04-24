@@ -23,6 +23,7 @@ import warnings
 import shutil
 from collections import OrderedDict
 from typing import Dict, Optional, Union
+from mindformers.tools.generic import experimental_mode_func_checker
 from ..tokenization_utils import PreTrainedTokenizer
 from ..tokenization_utils_base import TOKENIZER_CONFIG_FILE
 from ...tools import (
@@ -43,6 +44,8 @@ from ...mindformer_book import MindFormerBook, print_dict
 
 TOKENIZER_SUPPORT_LIST = MindFormerBook.get_tokenizer_support_list()
 
+EXP_ERROR_MSG = "The input yaml_name_or_path should be a path to directory which has " \
+                "yaml file, or a model name supported, e.g. llama2_7b."
 
 def is_experimental_mode(path):
     """Check whether AutoTokenizer.from_pretrained() should go into original or experimental mode
@@ -411,6 +414,7 @@ class AutoTokenizer:
         return instanced_class
 
     @classmethod
+    @experimental_mode_func_checker(EXP_ERROR_MSG)
     def get_class_from_experimental_mode(cls, pretrained_model_name_or_path, *inputs, **kwargs):
         r"""
         Instantiate one of the tokenizer classes of the library from a pretrained model vocabulary.

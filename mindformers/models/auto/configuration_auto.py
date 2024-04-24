@@ -70,6 +70,8 @@ MODEL_NAMES_MAPPING = OrderedDict(
     ]
 )
 
+EXP_ERROR_MSG = "The input yaml_name_or_path should be a path to yaml file, e.g. " \
+                "'run_xxx_model.yaml', or a model name supported, e.g. llama2_7b."
 
 def config_class_to_model_type(config):
     """Converts a config class name to the corresponding model type"""
@@ -363,7 +365,7 @@ class AutoConfig:
         return config
 
     @classmethod
-    @experimental_mode_func_checker()
+    @experimental_mode_func_checker(EXP_ERROR_MSG)
     def get_config_experimental_mode(cls, pretrained_model_name_or_path, **kwargs):
         """Get config object by from_pretrained with experimental mode
 

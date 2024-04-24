@@ -31,6 +31,7 @@ from mindformers.tools.hub import (
     cached_file,
     extract_commit_hash,
 )
+from mindformers.tools.generic import experimental_mode_func_checker
 from mindformers.models.auto.configuration_auto import (
     AutoConfig,
     replace_list_option_in_docstrings,
@@ -40,6 +41,8 @@ from mindformers.models.configuration_utils import PretrainedConfig
 from ...mindformer_book import MindFormerBook, print_dict
 from ..build_model import build_network
 
+EXP_ERROR_MSG = "Please use AutoModel.from_pretrained(), and the input pretrained_model_name_or_dir " \
+                "should be a path to directory which has yaml file, or a model name supported, e.g. llama2_7b."
 
 CLASS_DOCSTRING = """
     This is a generic model class that will be instantiated as one of the model classes of the library when created
@@ -534,6 +537,7 @@ class _BaseAutoModelClass:
         return cls.from_pretrained_origin_mode(pretrained_model_name_or_dir, **kwargs)
 
     @classmethod
+    @experimental_mode_func_checker(EXP_ERROR_MSG)
     def from_pretrained_experimental_mode(cls, pretrained_model_name_or_path, *model_args, **kwargs):
         """get models from_pretrained"""
         config = kwargs.pop("config", None)
