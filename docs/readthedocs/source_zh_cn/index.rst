@@ -66,6 +66,7 @@
    docs/feature_cards/Inference.md
    docs/feature_cards/Chat_Web.md
    docs/feature_cards/Dynamic_Cluster.md
+   docs/feature_cards/Offset_Recompute.md
 
 .. toctree::
    :glob:
