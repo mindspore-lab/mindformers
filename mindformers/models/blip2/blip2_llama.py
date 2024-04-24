@@ -50,7 +50,7 @@ class LlamaModelForBlip2(LlamaModel):
         """
         Forward of llama model with concat image and text embeddings
         """
-        bs, seq_len = self.shape(input_embeddings)
+        bs, seq_len, _ = self.shape(input_embeddings)
         mask = None
         if self.use_past:
             if self.is_first_iteration:
@@ -59,7 +59,7 @@ class LlamaModelForBlip2(LlamaModel):
                 freqs_cis = self.freqs_mgr.increment(batch_valid_length)
         else:
             freqs_cis = self.freqs_mgr(seq_len)
-            mask = self.casual_mask(input_embeddings, input_attention_masks)  # mask: [bs, seq, seq]
+            mask = self.casual_mask(masks=input_attention_masks)  # mask: [bs, seq, seq]
 
         # tokens: [bs, seq/1]
         h = input_embeddings
