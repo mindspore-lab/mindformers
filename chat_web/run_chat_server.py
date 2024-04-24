@@ -85,7 +85,6 @@ async def create_chat_completion(request: ChatCompletionRequest):
             message=ChatMessage(role="assistant", content=response),
             finish_reason='stop'
         )
-        sem.release()
         return ChatCompletionResponse(choices=[choice_data], object="chat.completion")
     except ValueError as e:
         if request.stream:
@@ -95,8 +94,9 @@ async def create_chat_completion(request: ChatCompletionRequest):
             message=repr(e),
             finish_reason="error"
         )
-        sem.release()
         return ChatErrorOutResponse(choices=[choice_data], object="chat.completion")
+    finally:
+        sem.release()
 
 
 def _streaming_predict():

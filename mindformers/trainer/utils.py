@@ -735,7 +735,8 @@ def load_ckpt(config, network, optimizer=None):
     # load checkpoint params into dict
     logger.info("............Start load checkpoint from checkpoint............")
     checkpoint_dict = {}
-    rank_id = get_real_rank() if get_real_rank() else 0
+    real_rank = get_real_rank()
+    rank_id = real_rank if real_rank else 0
     if config.auto_trans_ckpt:
         for checkpoint_name in os.listdir(config.load_checkpoint):
             checkpoint_path = os.path.join(config.load_checkpoint, checkpoint_name)
