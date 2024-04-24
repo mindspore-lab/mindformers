@@ -480,6 +480,10 @@ def get_src_and_dst_strategy(config):
     rank_id = get_real_rank()
     world_size = get_real_group_size()
 
+    if config.src_strategy_path_or_dir:
+        assert os.path.exists(config.src_strategy_path_or_dir), \
+            f'{config.src_strategy_path_or_dir} not found!'
+
     dst_strategy_path = None
     if (not rank_id) or (rank_id % 8 == 0 and check_in_modelarts()):
         src_strategy_path = get_strategy(config.src_strategy_path_or_dir)
