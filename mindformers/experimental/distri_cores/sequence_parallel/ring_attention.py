@@ -22,7 +22,7 @@ from mindspore.ops.operations._inner_ops import Send, Receive
 from mindspore.ops.operations.nn_ops import FlashAttentionScore
 from mindspore.communication import get_group_size
 
-from .utils import get_sequence_parallel_world_size, get_sequence_parallel_group, get_sequence_parallel_rank
+from utils import get_sequence_parallel_world_size, get_sequence_parallel_group, get_sequence_parallel_rank
 
 
 class RingAttention(nn.Cell):
@@ -143,10 +143,19 @@ class RingAttention(nn.Cell):
         if input_layout != "SBH":
             raise ValueError(f"Only input_layout = 'SBH' is supported")
 
-        world_size = get_group_size()
-        if dp * sp != world_size:
-            raise ValueError(f"The product of dp and sp should be equal to total device number,"
-                             f"but got dp = {dp}, sp = {sp} and total device number = {world_size}")
+        parallel_mode = ms.get_auto_parallel_context("parallel_mode")
+        if parallel_mode not in (ms.ParallelMode.STAND_ALONE, ms.ParallelMode.DATA_PARALLEL):
+            raise ValueError(f"The ring-attention only supports stand_alone and data_parallel,"
+                             f"but got the paralle mode of {parallel_mode}")
+        if parallel_mode == ms.ParallelMode.STAND_ALONE:
+            if dp != 1 or sp != 1:
+                raise ValueError(f"Current parallel mode is stand_alone, dp and sp must be 1",
+                                 f"but got the dp is f{dp}, sp is {sp}")
+        else:
+            world_size = get_group_size()
+            if dp * sp != world_size:
+                raise ValueError(f"The product of dp and sp should be equal to total device number,"
+                                 f"but got dp = {dp}, sp = {sp} and total device number = {world_size}")
 
         init_sp = get_sequence_parallel_world_size()
         if sp != init_sp:
@@ -176,7 +185,7 @@ class RingAttention(nn.Cell):
     def p2p_communicate(self, rank, send_tensor, send_dst,
                         recv_tensor, recv_src,
                         sp_group, stream_send, stream_recv):
-        """Point-to-point communications of KV and dKV in Attention with context parallelism"""
+        """Point-to-point communications of KV and dKV in Attention with sequence parallelism"""
 
         send_recv_ops = []
 

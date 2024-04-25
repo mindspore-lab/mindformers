@@ -73,11 +73,12 @@ def test_ring_attention():
     Expectation: Success.
     """
     ms.set_context(mode=ms.PYNATIVE_MODE, device_target="Ascend")
+    ms.set_auto_parallel_context(parallel_mode=ms.ParallelMode.DATA_PARALLEL)
     init()
 
     # Init parameter
-    dp = 1
-    sp = 8
+    dp = 2
+    sp = 4
     init_sp_group(sp)
 
     bs = 16

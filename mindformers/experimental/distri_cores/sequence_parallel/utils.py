@@ -1,4 +1,4 @@
-# Copyright 2023 Huawei Technologies Co., Ltd
+# Copyright 2024 Huawei Technologies Co., Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -30,6 +30,9 @@ def init_sp_group(
     if sp > world_size:
         raise ValueError(f"The sp must be smaller or equal to total device_num, but got the sp is {sp},"
                          f"the total device_num is {world_size}")
+    if sp&(sp-1) != 0:
+        raise ValueError(f"The sp value must be power of two, but got sp is {sp}")
+
     dp = world_size // sp
     # Build the context-parallel groups.
     global _SEQUENCE_PARALLEL_GROUP
