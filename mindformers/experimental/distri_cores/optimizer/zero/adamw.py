@@ -23,6 +23,7 @@ from mindspore.ops import functional as F
 from mindspore.nn.optim.optimizer import Optimizer
 from mindspore.common.initializer import initializer
 from mindspore.communication.management import GlobalComm, get_group_size, get_rank
+from mindspore.communication._comm_helper import _get_group_ranks
 import mindspore._checkparam as validator
 
 __all__ = ["AdamWeightDecayZeRO2"]
@@ -207,13 +208,16 @@ class AdamWeightDecayZeRO2(Optimizer):
 
     def _init_optimizer_shard_info(self):
         """Init optimizer parallel information."""
+        # pylint: disable=W0212
         if not self.use_parallel:
             self.shard_id = 0
             self.shard_size = 1
         else:
             self.shard_size = get_group_size(self.opt_parallel_group)
+            group_list = _get_group_ranks(self.opt_parallel_group)
+            group_list.sort()
             self.rank_id = get_rank()
-            self.shard_id = self.rank_id % self.shard_size
+            self.shard_id = group_list.index(self.rank_id)
 
     def _init_all_gather_ops(self, params):
         """Init allgather operations for each parameter."""
