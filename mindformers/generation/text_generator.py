@@ -820,7 +820,10 @@ class GenerationMixin:
                 slot_mapping = None
                 if generation_config.use_past and self.use_kbk_infer:
                     if prefill:
-                        max_input_length = len(origin_inputs[0])
+                        if self.config.is_dynamic:
+                            max_input_length = len(origin_inputs[0])
+                        else:
+                            max_input_length = self.config.seq_length
                         block_tables, slot_mapping = self.block_mgr.assemble_pa_full_inputs(max_input_length,
                                                                                             valid_length_each_example,
                                                                                             is_finished)
