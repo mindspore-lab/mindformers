@@ -1097,45 +1097,56 @@ class GenerationMixin:
         batch_size = input_ids.shape[0]
         target_list = [[] for _ in range(batch_size)]
 
-        if not self.config.is_sample_acceleration:
-            # convert to numpy for post process
-            logits = res[0] if isinstance(res, tuple) else res
-            if isinstance(logits, Tensor):
-                logits = logits.asnumpy()
-            logits = np.reshape(logits, (-1, logits.shape[-1]))
-            # need gather last seq logits using current_index
-            # compare length to determine if need gather; if not, gather should be done in model construct
-            if need_gather_logits and logits.shape[0] > len(current_index):
-                logits = logits[current_index]
-
-            probs = logits_processor(input_ids, logits, is_finished)
-            p_args = np.tile(np.arange(logits.shape[-1]), (batch_size, 1))
-        else:
-            probs, p_args = res
-            if isinstance(probs, Tensor):
-                probs = probs.asnumpy()
-            if isinstance(p_args, Tensor):
-                p_args = p_args.asnumpy()
-
         if not hasattr(generation_config, "generation_mode"):
             generation_config.generation_mode = self._get_generation_mode(generation_config)
         if generation_config.generation_mode == GenerationMode.GREEDY_SEARCH:
+            if not self.config.is_sample_acceleration:
+                logits = res[0] if isinstance(res, tuple) else res
+                logits = P.Reshape()(logits, (-1, logits.shape[-1]))
+                if need_gather_logits and logits.shape[0] > len(current_index):
+                    logits = logits[Tensor(current_index, dtype=mstype.int32)]
+                target_list = P.Argmax()(logits)
+                target_list = target_list.asnumpy().tolist()
+            else:
+                probs, p_args = res
+                if isinstance(p_args, Tensor):
+                    p_args = p_args.asnumpy()
+                target_index_list = P.Argmax()(probs)
+                target_index_list = target_index_list.asnumpy().tolist()
             # run greedy search
             for i in range(batch_size):
                 if is_finished[i]:
                     continue
-                target_index = np.argmax(probs[i])
-                # get target token id
-                target = p_args[i][target_index]
-                target_list[i] = target
+                if self.config.is_sample_acceleration:
+                    target_index = target_index_list[i]
+                    target = p_args[i][target_index]
+                    target_list[i] = target
                 # Stop judgment
-                if p_args[i][target_index] == generation_config.eos_token_id \
+                if target_list[i] == generation_config.eos_token_id \
                         or valid_length_each_example[i] == generation_config.max_length - 1:
                     is_finished[i] = True
 
         elif generation_config.generation_mode == GenerationMode.SAMPLE:
             if not self.config.is_sample_acceleration:
+                # convert to numpy for post process
+                logits = res[0] if isinstance(res, tuple) else res
+                if isinstance(logits, Tensor):
+                    logits = logits.asnumpy()
+                logits = np.reshape(logits, (-1, logits.shape[-1]))
+                # need gather last seq logits using current_index
+                # compare length to determine if need gather; if not, gather should be done in model construct
+                if need_gather_logits and logits.shape[0] > len(current_index):
+                    logits = logits[current_index]
+
+                probs = logits_processor(input_ids, logits, is_finished)
+                p_args = np.tile(np.arange(logits.shape[-1]), (batch_size, 1))
                 probs = logits_warper(input_ids, probs, is_finished)
+            else:
+                probs, p_args = res
+                if isinstance(probs, Tensor):
+                    probs = probs.asnumpy()
+                if isinstance(p_args, Tensor):
+                    p_args = p_args.asnumpy()
             p_norms = softmax_with_threads(probs, is_finished)
 
             for i in range(batch_size):
