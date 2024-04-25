@@ -279,6 +279,9 @@ class InferAttention(Cell):
                   freqs_sin=None, attn_mask=None, alibi_mask=None):
         """Forward process of the Infer Attention Cell"""
         if self.use_rope_rotary_emb:
+            # ROPE currently only supported float16 data type.
+            freqs_cos = self.cast(freqs_cos, mstype.float16)
+            freqs_sin = self.cast(freqs_sin, mstype.float16)
             query, key = self.apply_rotary_pos_emb(query, key, freqs_cos, freqs_sin, batch_valid_length)
         key_out = self.paged_attention_mgr(key, value, slot_mapping)
         query = ops.depend(query, key_out)

@@ -178,6 +178,7 @@ class ChatGLM2ForConditionalGeneration(GLM2PreTrainedModel):
         self.add = P.Add()
         self.load_checkpoint(config)
         self.vocab_size = config.padded_vocab_size
+        self.set_model_predict_config()
 
     def prepare_inputs_for_generation(self, input_ids, **kwargs):
         """prepare inputs for generation."""
