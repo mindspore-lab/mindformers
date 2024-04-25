@@ -98,7 +98,3 @@ class ContrastiveLanguageImagePretrainTrainer(BaseTrainer):
     def predict(self, **kwargs):
         raise NotImplementedError(
             "The contrastive language image pretrain task does not support predict.")
-
-    def export(self, **kwargs):
-        raise NotImplementedError(
-            "The contrastive language image pretrain task does not support export.")

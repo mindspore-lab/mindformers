@@ -1142,7 +1142,3 @@ python run_mindformer.py --config configs/blip2/run_blip2_stage2_vit_g_llama_7b_
 ```
 
 **注**：要提高推理速度，可在对应模型配置文件中`model.model_config.text_config.use_past`的值设为`True`。
-
-## mindspore-lite
-
-暂不支持

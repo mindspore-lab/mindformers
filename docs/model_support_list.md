@@ -80,23 +80,23 @@
 
 ## LLM大模型能力支持一览
 
-|    模型  \  特性    |    低参微调     |    边训边评    | Flash Attention | 并行推理 | 流式推理 | Chat | 多轮对话 | Lite推理 |
-| :-----------------: | :-------------: | :------------: | :-------------: | :------: | :------: | :--: | :------: | :------: |
-|    Llama-7B/13B     |      Lora       |      PPL       |        √        |  dp/mp   |    √     |  ×   |    ×     |    √     |
-|  Llama2-7B/13B/70B  |      Lora       |      PPL       |        √        |  dp/mp   |    √     |  √   |    √     |    √     |
-|       GLM-6B        |      Lora       |   Bleu/Rouge   |        √        |  dp/mp   |    √     |  √   |    √     |    √     |
-|       GLM2-6B       | Lora/P-TuningV2 | PPL/Bleu/Rouge |        √        |  dp/mp   |    √     |  √   |    √     |    √     |
-|       GLM3-6B       |        ×        |       ×        |        √        |  dp/mp   |    √     |  √   |    √     |    √     |
-|    CodeGeex2-6B     |        ×        | PPL/Bleu/Rouge |        √        |  dp/mp   |    √     |  √   |    √     |    √     |
-|   Bloom-560m/7.1B   |        ×        |      PPL       |        √        |  dp/mp   |    √     |  √   |    √     |    √     |
-|    GPT2-128m/13B    |      Lora       |      PPL       |        √        |  dp/mp   |    √     |  ×   |    ×     |    √     |
-| PanGuAlpha-2.6B/13B |        ×        |      PPL       |        ×        |  dp/mp   |    √     |  ×   |    ×     |    ×     |
-|        BILP2        |        ×        |       ×        |        ×        |    dp    |    √     |  ×   |    ×     |    ×     |
-|   BaiChuan-7B/13B   |        ×        |      PPL       |        ×        |  dp/mp   |    √     |  √   |    √     |    √     |
-|  BaiChuan2-7B/13B   |      Lora       |      PPL       |        √        |  dp/mp   |    √     |  √   |    √     |    √     |
-|     Qwen-7B/14B     |        √        |       ×        |        √        |  dp/mp   |    √     |  √   |    √     |    √     |
-|   InternLM-7B/20B   |      Lora       |      PPL       |        √        |  dp/mp   |    √     |  √   |    √     |    √     |
-|     Skywork-13B     |        ×        |       ×        |        ×        |  dp/mp   |    √     |  ×   |    ×     |    √     |
-|      ZiYa-13B       |        ×        |      PPL       |        √        |  dp/mp   |    √     |  ×   |    ×     |    ×     |
-|   Wizardcoder-15B   |        ×        |      PPL       |        ×        |  dp/mp   |    √     |  √   |    √     |    √     |
-|      VisualGLM      |      Lora       |       ×        |        ×        |    dp    |    √     |  ×   |    ×     |    √     |
+|    模型  \  特性    |    低参微调     |    边训边评    | Flash Attention | 并行推理 | 流式推理 | Chat | 多轮对话 |
+| :-----------------: | :-------------: | :------------: | :-------------: | :------: | :------: | :--: | :------: |
+|    Llama-7B/13B     |      Lora       |      PPL       |        √        |  dp/mp   |    √     |  ×   |    ×     |
+|  Llama2-7B/13B/70B  |      Lora       |      PPL       |        √        |  dp/mp   |    √     |  √   |    √     |
+|       GLM-6B        |      Lora       |   Bleu/Rouge   |        √        |  dp/mp   |    √     |  √   |    √     |
+|       GLM2-6B       | Lora/P-TuningV2 | PPL/Bleu/Rouge |        √        |  dp/mp   |    √     |  √   |    √     |
+|       GLM3-6B       |        ×        |       ×        |        √        |  dp/mp   |    √     |  √   |    √     |
+|    CodeGeex2-6B     |        ×        | PPL/Bleu/Rouge |        √        |  dp/mp   |    √     |  √   |    √     |
+|   Bloom-560m/7.1B   |        ×        |      PPL       |        √        |  dp/mp   |    √     |  √   |    √     |
+|    GPT2-128m/13B    |      Lora       |      PPL       |        √        |  dp/mp   |    √     |  ×   |    ×     |
+| PanGuAlpha-2.6B/13B |        ×        |      PPL       |        ×        |  dp/mp   |    √     |  ×   |    ×     |
+|        BILP2        |        ×        |       ×        |        ×        |    dp    |    √     |  ×   |    ×     |
+|   BaiChuan-7B/13B   |        ×        |      PPL       |        ×        |  dp/mp   |    √     |  √   |    √     |
+|  BaiChuan2-7B/13B   |      Lora       |      PPL       |        √        |  dp/mp   |    √     |  √   |    √     |
+|     Qwen-7B/14B     |        √        |       ×        |        √        |  dp/mp   |    √     |  √   |    √     |
+|   InternLM-7B/20B   |      Lora       |      PPL       |        √        |  dp/mp   |    √     |  √   |    √     |
+|     Skywork-13B     |        ×        |       ×        |        ×        |  dp/mp   |    √     |  ×   |    ×     |
+|      ZiYa-13B       |        ×        |      PPL       |        √        |  dp/mp   |    √     |  ×   |    ×     |
+|   Wizardcoder-15B   |        ×        |      PPL       |        ×        |  dp/mp   |    √     |  √   |    √     |
+|      VisualGLM      |      Lora       |       ×        |        ×        |    dp    |    √     |  ×   |    ×     |

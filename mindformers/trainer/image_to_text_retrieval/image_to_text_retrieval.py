@@ -168,7 +168,3 @@ class ImageToTextRetrievalTrainer(BaseTrainer):
         logger.info(eval_result)
         logger.info(".........Evaluate Over!.............")
         return eval_result
-
-    def export(self, **kwargs):
-        raise NotImplementedError(
-            "The image to text retrieval task does not support export, please customize pipeline inference.")

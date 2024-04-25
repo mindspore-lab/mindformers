@@ -47,7 +47,7 @@ from mindformers.pipeline import pipeline
 from mindformers.wrapper import build_wrapper
 from mindformers.tools.register import MindFormerConfig
 from mindformers.tools.logger import logger
-from mindformers.tools.utils import count_params, get_output_subpath
+from mindformers.tools.utils import count_params
 from mindformers.tools.check_rules import check_rules
 from mindformers.models.auto import AutoModel
 from mindformers.tools.utils import get_real_rank, get_real_group_size
@@ -955,60 +955,6 @@ class BaseTrainer:
         logger.info("output result is saved at: %s", save_file)
         logger.info(".........Predict Over!.............")
         return output_results
-
-    def export_process(self, config: Optional[Union[dict, MindFormerConfig, ConfigArguments, TrainingArguments]] = None,
-                       network: Optional[Union[Cell, PreTrainedModel]] = None,
-                       **kwargs):
-        '''Export for BaseTrainer in MindFormers'''
-        is_full_config = kwargs.get("is_full_config", False)
-        config = self.set_config(config, is_full_config)
-
-        # check rules
-        check_rules(config, mode='export', network=network, task=self.task)
-
-        # build network
-        if network is None:
-            network = self.create_network(
-                default_args={"parallel_config": config.parallel_config,
-                              "moe_config": config.moe_config})
-        self.set_network(network, is_train=False)
-
-        network.model_name = kwargs.get("model_name", None)
-        self.count_parameters()
-        model = Model(network)
-
-        if config.load_checkpoint or config.only_save_strategy:
-            if ms.context.get_auto_parallel_context('parallel_mode') in \
-                    ['semi_auto_parallel', 'auto_parallel', 'hybrid_parallel']:
-                if network.config:
-                    batch_size = network.config.batch_size
-                    seq_length = network.config.seq_length
-                else:
-                    batch_size = config.model.model_config.batch_size
-                    seq_length = config.model.model_config.seq_length
-                infer_data = Tensor(shape=(batch_size, seq_length), dtype=ms.int32, init=init.One())
-                transform_and_load_checkpoint(config, model, network, infer_data, do_predict=True)
-            else:
-                transform_and_load_checkpoint(config, model, network, None, do_predict=True)
-
-        rank_id = get_real_rank()
-
-        # 导出全量模型
-        logger.info("Start export full model...")
-        network.add_flags_recursive(is_first_iteration=True)
-        full_inputs = network.prepare_inputs_for_export(full_model=True)
-        save_path = get_output_subpath("mindir_full_checkpoint", rank_id)
-        ms.export(network, *full_inputs, file_name=save_path, file_format='MINDIR')
-
-        if network.config.use_past:
-            # 导出增量模型
-            logger.info("Start export inc model...")
-            network.add_flags_recursive(is_first_iteration=False)
-            inc_inputs = network.prepare_inputs_for_export(full_model=False)
-            save_path = get_output_subpath("mindir_inc_checkpoint", rank_id)
-            ms.export(network, *inc_inputs, file_name=save_path, file_format='MINDIR')
-
-        logger.info(".........Export Over!.............")
 
     def _evaluate_in_training(self, model: Model, eval_dataset: BaseDataset):
         origin_phase = model.eval_network.phase

@@ -116,8 +116,8 @@ def msrun_llama_8p_predict():
 
 def msrun_launch_llama_8p():
     """
-    Feature: Trainer.train() Trainer.predict() Trainer.export()
-    Description: Test trainer for train/predict/export on parallel mode.
+    Feature: Trainer.train() Trainer.predict()
+    Description: Test trainer for train/predict on parallel mode.
     Expectation: TypeError, ValueError, RuntimeError
     """
     parser = argparse.ArgumentParser()

@@ -690,54 +690,6 @@ class Trainer:
             **kwargs)
         return output_result
 
-    @args_type_check(predict_checkpoint=(str, bool), auto_trans_ckpt=bool)
-    def export(self,
-               predict_checkpoint: Optional[Union[str, bool]] = None,
-               auto_trans_ckpt: Optional[bool] = None,
-               src_strategy: Optional[str] = None):
-        """
-        The export API of Trainer. After setting custom settings, implement export by calling the
-        export method of task-trainer instance.
-
-        Args:
-            predict_checkpoint (Optional[Union[str, bool]]):
-                Used to predict the weight of the network.
-                It supports real checkpoint path or valid model name of mindformers or bool value.
-                if it's true, the last checkpoint file saved from the previous training round is automatically used.
-                Default: False.
-            auto_trans_ckpt:
-                auto transform checkpoint to load in distributed model
-            src_strategy (Optionalp[str]):
-                The strategy of `resume_from_checkpoint`. Effective only when auto_trans_ckpt is set to True,
-                used for automatic checkpoint transform.
-
-        Return:
-            None
-
-        Raises:
-            TypeError: if predict_checkpoint is not bool or str type.
-        """
-        if predict_checkpoint is not None and not isinstance(predict_checkpoint, (bool, str)):
-            raise TypeError(f"predict_checkpoint must be one of [None, string, bool], "
-                            f"but get {predict_checkpoint}")
-
-        if predict_checkpoint:
-            self.config.load_checkpoint = predict_checkpoint
-        if self.config.load_checkpoint is not None:
-            if self.config.load_checkpoint is True:
-                self.config.load_checkpoint = self.get_last_checkpoint()
-
-        if auto_trans_ckpt is not None:
-            self.config.auto_trans_ckpt = auto_trans_ckpt
-        if src_strategy is not None:
-            self.config.src_strategy_path_or_dir = src_strategy
-
-        self._check_config_rules()
-
-        self.trainer.export(config=self.config,
-                            network=self.model,
-                            is_full_config=True)
-
     @args_type_check(data_parallel=int, model_parallel=int, expert_parallel=int, pipeline_stage=int,
                      micro_batch_interleave_num=int, micro_batch_num=int, use_seq_parallel=bool, optimizer_shard=bool,
                      gradient_aggregation_group=int, vocab_emb_dp=bool)

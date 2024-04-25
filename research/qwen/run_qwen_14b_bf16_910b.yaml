@@ -115,7 +115,6 @@ model:
     param_init_type: "float32"
     use_past: True
     use_flash_attention: True
-    use_paged_attention: False  # only supported in mslite inference
     block_size: 32
     num_blocks: 128
     offset: 0
