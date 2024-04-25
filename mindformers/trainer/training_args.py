@@ -634,6 +634,14 @@ class TrainingArguments:
         },
     )
     # checkpoint
+    save_prefix: str = field(
+        default='CKP',
+        metadata={"help": "The prefix name of checkpoint files. Default: 'CKP'."}
+    )
+    save_directory: Optional[str] = field(
+        default=None,
+        metadata={"help": "The path of the folder which will be saved in the checkpoint file. Default: None."}
+    )
     save_strategy: Union[SaveIntervalStrategy, str] = field(
         default='steps',
         metadata={"help": "The checkpoint save strategy to use. Default: 'steps'."},
@@ -665,6 +673,15 @@ class TrainingArguments:
             )
         },
     )
+    keep_checkpoint_per_n_minutes: int = field(
+        default=0,
+        metadata={
+            "help": (
+                "Save the checkpoint file every `keep_checkpoint_per_n_minutes` minutes."
+                "Can't be used with keep_checkpoint_max at the same time. Default: 0."
+            )
+        },
+    )
     save_on_each_node: bool = field(
         default=True,
         metadata={
@@ -682,6 +699,18 @@ class TrainingArguments:
                 "in manual parallel. If set, `save_on_each_node` will become invalid. Default: None."
             )
         }
+    )
+    save_network_params: bool = field(
+        default=True,
+        metadata={"help": "Whether to only save network weights additionally. Default: True."}
+    )
+    save_trainable_params: bool = field(
+        default=False,
+        metadata={"help": "Whether to save fine-tuned weights additionally. Default: False."}
+    )
+    async_save: bool = field(
+        default=False,
+        metadata={"help": "Whether asynchronous execution saves the checkpoint to a file. Default: False."}
     )
     # evaluate
     evaluation_strategy: Union[IntervalStrategy, str] = field(
@@ -1420,7 +1449,7 @@ class TrainingArguments:
         self._adapt_metric_config(task_config)
         self._adapt_callback_config(task_config)
         self._adapt_eval_config(task_config)
-        self._adapt_profile_configl(task_config)
+        self._adapt_profile_config(task_config)
         self._adapt_auto_tune_config(task_config)
         self._adapt_hub_config(task_config)
 
@@ -1754,14 +1783,20 @@ class TrainingArguments:
 
         def _adapt_save_checkpoint_callback(callback):
             """adapt save checkpoint callback"""
+            _adapt_dict_args(callback, 'prefix', self.save_prefix)
+            _adapt_dict_args(callback, 'directory', self.save_directory)
             if self.save_strategy == SaveIntervalStrategy.STEPS:
                 _adapt_dict_args(callback, 'save_checkpoint_steps', self.save_steps)
             elif self.save_strategy == SaveIntervalStrategy.SECONDS:
                 _adapt_dict_args(callback, 'save_checkpoint_seconds', self.save_seconds)
             _adapt_dict_args(callback, 'keep_checkpoint_max', self.save_total_limit)
+            _adapt_dict_args(callback, 'keep_checkpoint_per_n_minutes', self.keep_checkpoint_per_n_minutes)
             integrated_save = self.integrated_save if self.integrated_save is not None \
                 else not self.save_on_each_node
             _adapt_dict_args(callback, 'integrated_save', integrated_save)
+            _adapt_dict_args(callback, 'save_network_params', self.save_network_params)
+            _adapt_dict_args(callback, 'save_trainable_params', self.save_trainable_params)
+            _adapt_dict_args(callback, 'async_save', self.async_save)
             return callback
 
         for i, callback in enumerate(task_config.callbacks):
@@ -1775,7 +1810,7 @@ class TrainingArguments:
         task_config.eval_step_interval = _check_training_args(task_config.eval_step_interval, self.eval_steps)
         task_config.eval_epoch_interval = _check_training_args(task_config.eval_epoch_interval, self.eval_epochs)
 
-    def _adapt_profile_configl(self, task_config):
+    def _adapt_profile_config(self, task_config):
         """adapt profile config."""
         task_config.profile = _check_training_args(task_config.profile, self.profile)
         task_config.profile_start_step = _check_training_args(task_config.profile_start_step, self.profile_start_step)
