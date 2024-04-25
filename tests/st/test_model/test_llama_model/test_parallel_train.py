@@ -21,13 +21,12 @@ import os
 import pytest
 
 
-@pytest.mark.level0
-@pytest.mark.platform_arm_ascend910b_training
-@pytest.mark.env_single
 class TestLlamaParallelTrain:
     """A test class for testing pipeline."""
 
-    @pytest.mark.run(order=1)
+    @pytest.mark.level0
+    @pytest.mark.platform_arm_ascend910b_training
+    @pytest.mark.env_single
     def test_train(self):
         """
         Feature: Trainer.train()
