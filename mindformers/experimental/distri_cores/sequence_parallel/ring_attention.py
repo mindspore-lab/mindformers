@@ -22,7 +22,7 @@ from mindspore.ops.operations._inner_ops import Send, Receive
 from mindspore.ops.operations.nn_ops import FlashAttentionScore
 from mindspore.communication import get_group_size
 
-from utils import get_sequence_parallel_world_size, get_sequence_parallel_group, get_sequence_parallel_rank
+from .utils import get_sequence_parallel_world_size, get_sequence_parallel_group, get_sequence_parallel_rank
 
 
 class RingAttention(nn.Cell):
