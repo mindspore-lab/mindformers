@@ -150,10 +150,10 @@ model:
     pad_token_id: 0
     ignore_token_id: -100
     theta: 5000000.0
-    compute_dtype: "bfloat16"
+    compute_dtype: "float16"
     layernorm_compute_type: "float32"
     softmax_compute_type: "float32"
-    rotary_dtype: "float32"
+    rotary_dtype: "float16"
     param_init_type: "bfloat16"
     use_past: True
     pretrain_seqlen: 4096 # seqlen of the pretrain checkpoint: 2048 for llama and 4096 for llama2
