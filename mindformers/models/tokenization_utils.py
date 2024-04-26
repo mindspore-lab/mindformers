@@ -553,6 +553,7 @@ class PreTrainedTokenizer(PreTrainedTokenizerBase):
                 token_index = current_vocab[token.content]
 
             if token.special and str(token) not in self.all_special_tokens:
+                self.reset_special_tokens_cache()
                 self._additional_special_tokens.append(token)
             # the setter automatically updates the reverse map
             self._added_tokens_decoder[token_index] = token
