@@ -112,7 +112,7 @@ output_path: 输出转换后对话格式的数据路径
 - step 2. 执行`llama_preprocess.py`，进行数据预处理、Mindrecord数据生成，将带有prompt模板的数据转换为mindrecord格式。
 
 ```bash
-# 脚本路径：research/llama_preprocess.py
+# 脚本路径：research/llama3/llama_preprocess.py
 # 由于此工具依赖fschat工具包解析prompt模板，请提前安装fschat >= 0.2.13 python = 3.9
 python llama_preprocess.py \
 --dataset_type qa \
