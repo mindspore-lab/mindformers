@@ -587,6 +587,7 @@ class FeedForward(Cell):
                  parallel_config=default_dpmp_config,
                  compute_dtype=mstype.float16):
         super(FeedForward, self).__init__()
+        self.dtype = compute_dtype
         if hidden_act is None or not (isinstance(hidden_act, str) or issubclass(hidden_act, nn.Cell)):
             raise TypeError(f"For FeedForward cell, the hidden_act should str type or nn.Cell type, "
                             f"but got {hidden_act}.")
@@ -711,7 +712,7 @@ class FeedForward(Cell):
     def construct(self, x):
         """Forward process of the FeedForward"""
         _check_input_dtype(F.dtype(x), "x", [mstype.float32, mstype.float16, mstype.bfloat16], self.cls_name)
-        x = self.cast(x, mstype.float16)
+        x = self.cast(x, self.dtype)
         # returned shape is [bs, seq_length, ffn_hidden_size] or [bs * seq_length, ffn_hidden_size]
         hidden = self.mapping(x)
         output = self.projection(hidden)
