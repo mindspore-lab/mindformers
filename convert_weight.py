@@ -41,7 +41,8 @@ convert_map = {
     'bloom': 'mindformers.models.bloom.convert_weight.convert_pt_to_ms',
     'blip': 'mindformers.models.blip2.convert_weight.convert_pt_to_ms',
     'wizardcoder': 'research.wizardcoder.convert_weight.convert_pt_to_ms',
-    'skywork': 'research.skywork.convert_weight.convert_pt_to_ms'
+    'skywork': 'research.skywork.convert_weight.convert_pt_to_ms',
+    'mixtral': 'research.mixtral.convert_weight.convert_pt_to_ms'
 }
 reversed_convert_map = {
     'llama': 'mindformers.models.llama.convert_reversed.convert_ms_to_pt',
@@ -53,7 +54,8 @@ reversed_convert_map = {
     'bloom': 'mindformers.models.bloom.convert_reversed.convert_ms_to_pt',
     'blip': 'mindformers.models.blip2.convert_reversed.convert_ms_to_pt',
     'wizardcoder': 'research.wizardcoder.convert_reversed.convert_ms_to_pt',
-    'skywork': 'research.skywork.convert_reversed.convert_ms_to_pt'
+    'skywork': 'research.skywork.convert_reversed.convert_ms_to_pt',
+    'mixtral': 'research.mixtral.convert_reversed.convert_ms_to_pt'
 }
 
 if __name__ == '__main__':

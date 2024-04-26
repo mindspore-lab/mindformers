@@ -65,21 +65,22 @@ def merge_ms_ckpt(ckpt_dir, strategy_dir, rank_id=0):
     return os.path.join(merge_ckpt_save_path, \
                         f'rank_{rank_id}/' + merge_ckpt_name + f'{rank_id}.ckpt')
 
-def convert_ms_ckpt(ckpt_dir, output_name, dtype=torch.bfloat16, strategy_dir=None):
+# pylint: disable=W0613
+def convert_ms_to_pt(input_path, output_path, dtype=None, strategy_dir=None, **kwargs):
     """convert ms weight to torch."""
-    is_single_ckpt_path = ckpt_dir.endswith(".ckpt")
-    single_ckpt_dir = sorted(Path(ckpt_dir).glob("*.ckpt"))
-    distributed_ckpt_dir = sorted(Path(ckpt_dir).glob("rank_*"))
+    is_single_ckpt_path = input_path.endswith(".ckpt")
+    single_ckpt_dir = sorted(Path(input_path).glob("*.ckpt"))
+    distributed_ckpt_dir = sorted(Path(input_path).glob("rank_*"))
     if is_single_ckpt_path or len(single_ckpt_dir) == 1:
-        ckpt_path = ckpt_dir if is_single_ckpt_path else single_ckpt_dir[0]
-        ms_ckpt_convertor(ckpt_path, output_name, dtype)
+        ckpt_path = input_path if is_single_ckpt_path else single_ckpt_dir[0]
+        ms_ckpt_convertor(ckpt_path, output_path, dtype)
     elif distributed_ckpt_dir:
         if len(distributed_ckpt_dir) == 1:
             ckpt_path = get_last_checkpoint(distributed_ckpt_dir[0])
-            ms_ckpt_convertor(ckpt_path, output_name, dtype)
+            ms_ckpt_convertor(ckpt_path, output_path, dtype)
         else:
-            ckpt_path = merge_ms_ckpt(ckpt_dir, strategy_dir)
-            ms_ckpt_convertor(ckpt_path, output_name, dtype)
+            ckpt_path = merge_ms_ckpt(input_path, strategy_dir)
+            ms_ckpt_convertor(ckpt_path, output_path, dtype)
     else:
         raise Exception("Invalid mindspore ckpt path, the path format can be:\n \
                         1.Specific path with ckpt name \n \
@@ -90,7 +91,7 @@ def convert_ms_ckpt(ckpt_dir, output_name, dtype=torch.bfloat16, strategy_dir=No
 
 def ms_ckpt_convertor(ckpt_path, output_name, dtype):
     """convert ms weight to hf."""
-    print("Trying to convert mindspore checkpoint in '{ckpt_path}'", flush=True)
+    print(f"Trying to convert mindspore checkpoint in '{ckpt_path}'", flush=True)
     param_dict = ms.load_checkpoint(ckpt_path)
     output_dict = {}
     for name, value in param_dict.items():
@@ -111,7 +112,7 @@ def ms_ckpt_convertor(ckpt_path, output_name, dtype):
                     new_name = name.split('experts.')[0] + "experts." + str(index) + name.split("experts")[1]
                     print(f"\rprocessing parameter: {new_name} {value[index].shape}   ", flush=True)
                     output_dict[new_name] = torch.from_numpy(value[index]).to(dtype)
-    if output_name.endswith(".ckpt"):
+    if output_name.endswith(".safetensors"):
         save_file(output_dict, output_name)
     else:
         if not os.path.exists(output_name):
@@ -122,8 +123,10 @@ def ms_ckpt_convertor(ckpt_path, output_name, dtype):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--torch_ckpt_dir', type=str, default='./mixtral/torch_ckpt/')
     parser.add_argument('--mindspore_ckpt_path', type=str, default='./mixtral/ms_ckpt/')
+    parser.add_argument('--torch_ckpt_dir', type=str, default='./mixtral/torch_ckpt/')
     parser.add_argument('--strategy_dir', type=str, default='None')
+    parser.add_argument('--dtype', default=None, choices=['fp16', 'fp32', 'bf16'])
     args = parser.parse_args()
-    convert_ms_ckpt(ckpt_dir=args.torch_ckpt_dir, output_name=args.mindspore_ckpt_path, strategy_dir=args.strategy_dir)
+    convert_ms_to_pt(input_path=args.mindspore_ckpt_path, output_path=args.torch_ckpt_dir,
+                     strategy_dir=args.strategy_dir, dtype=args.dtype, **extra_kwargs)

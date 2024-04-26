@@ -36,12 +36,12 @@ def name_replace(name: str):
     name = name.replace('.post_attention_layernorm.', '.ffn_norm.')
     return name
 
-
-def convert_hf_ckpt(ckpt_dir, output_name, dtype=ms.float16):
+# pylint: disable=W0613
+def convert_pt_to_ms(input_path, output_path, dtype=None, **kwargs):
     """convert hf weight to ms."""
-    print(f"Trying to convert huggingface checkpoint in '{ckpt_dir}'.", flush=True)
+    print(f"Trying to convert huggingface checkpoint in '{input_path}'.", flush=True)
     try:
-        ckpt_paths = sorted(Path(ckpt_dir).glob("*.safetensors"))
+        ckpt_paths = sorted(Path(input_path).glob("*.safetensors"))
         dict_all = {}
         for i in range(len(ckpt_paths)):
             state_dict = load_file(ckpt_paths[i], device='cpu')
@@ -49,7 +49,7 @@ def convert_hf_ckpt(ckpt_dir, output_name, dtype=ms.float16):
         model_hf = dict(sorted(dict_all.items(), key=lambda x: x[0]))
     # pylint: disable=W0703
     except Exception as e:
-        print(f"Do not find huggingface checkpoint in '{ckpt_dir}', Error {e.message}.", flush=True)
+        print(f"Do not find huggingface checkpoint in '{input_path}', Error {e.message}.", flush=True)
         return False
     ckpt_list = []
     count = 0
@@ -96,13 +96,15 @@ def convert_hf_ckpt(ckpt_dir, output_name, dtype=ms.float16):
                     list_w2 = []
                     list_w3 = []
 
-    ms.save_checkpoint(ckpt_list, output_name)
-    print(f"\rConvert finished, the mindspore ckpt is saved in '{output_name}'.", flush=True)
+    ms.save_checkpoint(ckpt_list, output_path)
+    print(f"\rConvert finished, the mindspore ckpt is saved in '{output_path}'.", flush=True)
     return True
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--torch_ckpt_dir', default='./mixtral/torch_ckpt/')
     parser.add_argument('--mindspore_ckpt_path', default='./mixtral/ms_ckpt/')
+    parser.add_argument('--dtype', default=None, choices=['fp16', 'fp32', 'bf16'])
     args = parser.parse_args()
-    convert_hf_ckpt(ckpt_dir=args.torch_ckpt_dir, output_name=args.mindspore_ckpt_path)
+    convert_pt_to_ms(input_path=args.torch_ckpt_dir, output_path=args.mindspore_ckpt_path,
+                     dtype=args.dtype, **extra_kwargs)
