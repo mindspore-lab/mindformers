@@ -45,7 +45,7 @@ train_dataset: &train_dataset
   input_columns: ["input_ids", "labels"]  # "input_ids", "labels" , labels are used in instruction finetune.
   num_parallel_workers: 8
   python_multiprocessing: False
-  drop_remainder: False
+  drop_remainder: True
   batch_size: 1
   repeat: 1
   numa_enable: False
