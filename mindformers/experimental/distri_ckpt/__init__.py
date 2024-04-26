@@ -17,9 +17,6 @@
 
 __version__ = "1.1"
 
-from .distri_cores import *
-from .distri_ckpt import *
+from .checkpointing import save_checkpoint, load_checkpoint
 
 __all__ = []
-__all__.extend(distri_cores.__all__)
-__all__.extend(distri_ckpt.__all__)
