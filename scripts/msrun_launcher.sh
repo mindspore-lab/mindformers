@@ -121,4 +121,4 @@ echo "Running Command: $EXECUTE_ORDER"
 echo "Please check log files in $LOG_DIR"
 
 mkdir -p ./output/log
-$EXECUTE_ORDER
+eval $EXECUTE_ORDER
