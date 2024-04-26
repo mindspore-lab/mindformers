@@ -835,7 +835,3 @@ top_k: 3
 top_p: 1
 do_sample: False
 ```
-
-## [mindspore-lite](../feature_cards/Inference.md)
-
-如需导出模型，使用mindspore-lite进行离线推理请参考[推理特性使用文档](../feature_cards/Inference.md)

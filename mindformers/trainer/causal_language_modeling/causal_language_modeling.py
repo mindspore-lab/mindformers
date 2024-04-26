@@ -342,15 +342,6 @@ class CausalLanguageModelingTrainer(BaseTrainer):
                                     tokenizer=tokenizer,
                                     **kwargs)
 
-    def export(self,
-               config: Optional[Union[dict, MindFormerConfig, ConfigArguments, TrainingArguments]] = None,
-               network: Optional[Union[Cell, PreTrainedModel]] = None,
-               **kwargs):
-
-        return self.export_process(config=config,
-                                   network=network,
-                                   **kwargs)
-
     def _evaluate_in_training(self, model, eval_dataset):
         logger.info('Starting Evaluate Model')
         metric_name_list = list(self.compute_metrics.keys())

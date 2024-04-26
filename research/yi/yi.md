@@ -176,7 +176,7 @@ bash run_singlenode.sh \
 ```text
 START_CMD：Python启动命令，其中
  config：为research/yi文件夹下面的run_yi_6b_*.yaml配置文件，配置文件参数请按需修改
- run_mode：任务运行状态，支持关键字train/finetune/eval/predict/export
+ run_mode：任务运行状态，支持关键字train/finetune/eval/predict
  train_dataset：训练数据集路径
  auto_trans_ckpt：是否自动转换ckpt
  use_parallel：是否使用并行模式
@@ -210,7 +210,7 @@ bash run_singlenode.sh \
 ```text
 START_CMD：Python启动命令，其中
  config：为research/yi文件夹下面的run_yi_6b_*.yaml配置文件，配置文件参数请按需修改
- run_mode：任务运行状态，支持关键字train/finetune/eval/predict/export
+ run_mode：任务运行状态，支持关键字train/finetune/eval/predict
  load_checkpoint：权重路径。例如路径形式为/path/ckpt/rank_0/yi_6b.ckpt，则参数填写为/path/ckpt
  train_dataset：训练数据集路径
  auto_trans_ckpt：是否自动转换ckpt

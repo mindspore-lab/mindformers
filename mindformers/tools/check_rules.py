@@ -61,13 +61,8 @@ def _check_mode(config, mode, **kwargs):
             _check_keyword_gen_dataset(config, mode, **kwargs)
 
         _rule_bs_divisible_by_dp(config, **kwargs)
-    elif mode == 'export':
-        _restore_net_type(config)
-        _rule_fa_only_for_train(config, mode)
-        _rule_pp_only_for_train(config, mode)
-        _rule_bs_divisible_by_dp(config, **kwargs)
     else:
-        raise ValueError(f"mode should be in ['train', 'predict', 'eval', 'export'], but get {mode}")
+        raise ValueError(f"mode should be in ['train', 'predict', 'eval'], but get {mode}")
 
 
 def _restore_net_type(config):
@@ -76,7 +71,7 @@ def _restore_net_type(config):
         config.model.model_config.param_init_type == 'float32':
         config.model.model_config.compute_dtype = 'float16'
         config.model.model_config.param_init_type = 'float16'
-        logger.warning("cast compute_dtype and param_init_type to float16 for predict/eval/export performance")
+        logger.warning("cast compute_dtype and param_init_type to float16 for predict/eval performance")
 
 
 def _rule_bs_divisible_by_dp(config, **kwargs):

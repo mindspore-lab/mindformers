@@ -227,7 +227,7 @@ class TestTrainer:
                                   AccessibleTrain(), AccessibleEval())])
     def test_trainer(self, args, task, model_name, train_dataset, eval_dataset):
         """
-        Feature: Trainer.train()/evaluate()/predict()/export()
+        Feature: Trainer.train()/evaluate()/predict()
         Description: Test trainer with valid arguments.
         Expectation: No errors
         """
@@ -247,4 +247,3 @@ class TestTrainer:
         model = GPT2LMHeadModel(model_config)
         trainer = Trainer(args=args, task='text_generation', model=model, model_name=model_name)
         trainer.predict(input_data='hello')
-        trainer.export()

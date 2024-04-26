@@ -189,18 +189,6 @@ class BaseModel(nn.Cell, GenerationMixin):
                 val.__dict__.pop("type")
                 config.__dict__.update({key: val})
 
-    def prepare_inputs_for_export(self, full_model=True):
-        """
-        prepare inputs for export.
-        A model class needs to define a `prepare_inputs_for_export` method
-
-        Raises:
-            RuntimeError: Not implemented in model but call `.prepare_inputs_for_export()`
-        """
-        raise RuntimeError(
-            "A model class needs to define a `prepare_inputs_for_export` method "
-        )
-
     def _inverse_parse_config(self, config):
         """
         Inverse parse config method, which builds yaml file content for model config.

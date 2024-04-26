@@ -42,8 +42,6 @@ def main(config):
     elif config.run_mode == 'predict':
         trainer.predict(predict_checkpoint=config.load_checkpoint, input_data=config.input_data,
                         batch_size=config.predict_batch_size)
-    elif config.run_mode == 'export':
-        trainer.export()
 
 
 if __name__ == "__main__":
@@ -206,8 +204,8 @@ if __name__ == "__main__":
         config_.profile = args_.profile
     if args_.options is not None:
         config_.merge_from_dict(args_.options)
-    assert config_.run_mode in ['train', 'eval', 'predict', 'finetune', 'export'], \
-        f"run status must be in {['train', 'eval', 'predict', 'finetune', 'export']}, but get {config_.run_mode}"
+    assert config_.run_mode in ['train', 'eval', 'predict', 'finetune'], \
+        f"run status must be in {['train', 'eval', 'predict', 'finetune']}, but get {config_.run_mode}"
     if args_.train_dataset_dir:
         config_.train_dataset.data_loader.dataset_dir = args_.train_dataset_dir
     if args_.eval_dataset_dir:
@@ -233,9 +231,6 @@ if __name__ == "__main__":
         config_.input_data = args_.predict_data
         if args_.predict_batch_size is not None:
             config_.predict_batch_size = args_.predict_batch_size
-    if config_.run_mode == 'export':
-        if args_.batch_size is not None:
-            config_.model.model_config.batch_size = args_.batch_size
     if args_.epochs is not None:
         config_.runner_config.epochs = args_.epochs
     if args_.batch_size is not None:

@@ -88,10 +88,6 @@ def main(task='text_generation',
         result = trainer.predict(predict_checkpoint=config_args.load_checkpoint, input_data=predict_data,
                                  max_length=int(max_length))
         print(result)
-    elif run_mode == 'export':
-        trainer = Trainer(args=config_args,
-                          task=task)
-        trainer.export(predict_checkpoint=config_args.load_checkpoint)
 
 
 if __name__ == "__main__":

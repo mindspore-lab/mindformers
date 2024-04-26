@@ -34,7 +34,7 @@ CodeGeeX**2**-6B 是多语言代码生成模型 CodeGeeX的第二代版本。不
     ```bash
     codegeex2
         ├── run_codegeex2_6b_fintune.yaml  # 全量微调启动配置
-        └── run_codegeex2_6b.yaml     # 推理和lite推理配置
+        └── run_codegeex2_6b.yaml     # 推理配置
     ```
 
 ## 前期准备
@@ -711,71 +711,4 @@ max_decode_length: 1024
 top_k: 1
 top_p: 1
 do_sample: True
-```
-
-## Mindspore-Lite 推理
-
-### 基本介绍
-
-　　MindFormers 定位打造训练->微调->部署的端到端大模型工具套件，为了更好性能地部署已经微调训练好的大模型，我们利用MindSpore打造的推理引擎 [MindSpore_lite](https://gitee.com/link?target=https%3A%2F%2Fwww.mindspore.cn%2Flite)，为用户提供了开箱即用的推理部署方案，为用户提供端到端的大模型解决方案，帮助用户使能大模型业务。
-
-　　Lite 推理大致分两步：权重转换导出 MindIR -> Lite 推理，接下来分别描述上述两个过程。
-
-### MindIR 导出
-
-1. 修改模型相关的配置文件 configs/codegeex2/run_codegeex2_6b.yaml，其中需要关注这几项：
-
-```yaml
-# export
-infer:
-    prefill_model_path: "codegeex2_export/codegeex2_6b_prefill_seq1024.mindir" # 保存mindir的位置
-    increment_model_path: "codegeex2_export/codegeex2_6b_inc_seq1024.mindir"   # 保存mindir的位置
-    infer_seq_length: 1024 # 需要保持跟 model-model_config-seq_length 一致
-    ge_config_path: "/path/ge_config.ini" # 需要保持跟下文lite.ini一致
-
-# ==== model config ====
-model:
-  model_config:
-    seq_length: 1024
-    checkpoint_name_or_path: "/path/to/your/checkpoint"
-```
-
-2. 执行export.py，完成模型转换
-
-```bash
-python mindformers/tools/export.py --config_path configs/codegeex2/run_codegeex2_6b.yaml
-```
-
-### 执行推理
-
-1. 新建推理配置文件：lite.ini
-
-    ```ini
-    [ascend_context]
-    plugin_custom_ops=All
-    provider=ge
-
-    [ge_session_options]
-    ge.exec.precision_mode=must_keep_origin_dtype
-
-    [ge_graph_options]
-    ge.exec.formatMode=1
-    ```
-
-2. 执行命令：
-
-```bash
-python run_infer_main.py --device_id 0 --model_name codegeex2_6b --prefill_model_path codegeex2_export/codegeex2_6b_prefill_seq1024_graph.mindir --increment_model_path codegeex2_export/codegeex2_6b_inc_seq1024_graph.mindir --config_path lite.ini --seq_length 1024 --max_length 512 --add_special_tokens True
-```
-
-　　输入：
-
-```bash
-#language: Python #write a bubble sort function
-```
-
-　　输出：
-
-```bash
- ['#language: Python\n# write a bubble sort function\n\ndef bubble_sort(list):\n for i in range(len(list) - 1):\n for j in range(len(list) - 1):\n if list[j] > list[j + 1]:\n list[j], list[j + 1] = list[j + 1], list[j]\n return list\n\n\n print(bubble_sort([5, 2, 1, 8, 4]))']}]
 ```
