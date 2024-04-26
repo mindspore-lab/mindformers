@@ -21,9 +21,12 @@ import numpy as np
 
 import mindspore as ms
 from mindspore.communication.management import init
+from mindspore.common.initializer import Zero
+from mindspore._c_expression import swap_cache
 
 from mindformers import build_context, logger, build_parallel_config, GenerationConfig, AutoModel
 from mindformers.models.build_config import build_model_config
+from mindformers.models.utils import convert_mstype
 from mindformers.tools.register.config import MindFormerConfig
 from mindformers.trainer.utils import transform_and_load_checkpoint
 from mindformers.generation import logits_process
@@ -86,10 +89,11 @@ class ModelRunner:
             self.num_layers = self.model_config.num_layers
             n_kv_heads = self.model_config.num_heads if self.model_config.n_kv_heads is None \
                 else self.model_config.n_kv_heads
+            n_kv_heads = n_kv_heads // world_size    # check the divisibility in model initialization.
             head_dim = self.model_config.hidden_size // self.model_config.num_heads
-            self.npu_num_blocks = world_size * (npu_mem_size * 1024 * 1024 * 1024) // \
+            self.npu_num_blocks = (npu_mem_size * 1024 * 1024 * 1024) // \
                                   (block_size * n_kv_heads * head_dim * 2 * 2 * self.num_layers)
-            self.cpu_num_blocks = world_size * (cpu_mem_size * 1024 * 1024 * 1024) // \
+            self.cpu_num_blocks = (cpu_mem_size * 1024 * 1024 * 1024) // \
                                   (block_size * n_kv_heads * head_dim * 2 * 2 * self.num_layers)
             self.model_config.num_blocks = self.npu_num_blocks
             self.config.model.model_config.num_blocks = self.npu_num_blocks
@@ -122,6 +126,13 @@ class ModelRunner:
         if self.model_config.is_dynamic:
             self.model.set_dynamic_inputs()
 
+        cpu_kv_shape = (self.cpu_num_blocks, block_size, n_kv_heads, head_dim)
+        compute_dtype = convert_mstype(self.model_config.compute_dtype)
+        self.key_host = [ms.Parameter(ms.Tensor(shape=cpu_kv_shape, dtype=compute_dtype, init=Zero()),
+                                      name=f"key_host_{i}", requires_grad=False) for i in range(self.num_layers)]
+        self.value_host = [ms.Parameter(ms.Tensor(shape=cpu_kv_shape, dtype=compute_dtype, init=Zero()),
+                                        name=f"value_host_{i}", requires_grad=False) for i in range(self.num_layers)]
+
     def forward(self, **kwargs):
         """
         Call self.model.infer() to do infer and return logits on next position, can choose do prefill or decode predict.
@@ -152,6 +163,21 @@ class ModelRunner:
             A list of the generated token ids.
         """
         return self.model.generate(**kwargs)
+
+    def swap(self, block_tables, swap_type):
+        """
+        Swap key/value cache between host and device, to support multi-batch and long-sequence inference.
+
+        Args:
+            block_tables:
+                A 2-D array contains src and dst blocks to swap.
+            swap_type:
+                A bool value indicating the data direction: "True" for device-to-host, and "False" for host-to-device.
+        """
+        for i in range(self.num_layers):
+            key_cache, value_cache = self.model.kvcache(i)
+            swap_cache(self.key_host[i], key_cache, ms.Tensor(block_tables), swap_type)
+            swap_cache(self.value_host[i], value_cache, ms.Tensor(block_tables), swap_type)
 
     @staticmethod
     def _merge_processor_list(default_list, custom_list):
