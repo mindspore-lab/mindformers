@@ -40,12 +40,6 @@ class ImageToTextRetrievalTrainer(BaseTrainer):
 
     Args:
         model_name (str): The model name of Task-Trainer. Default: None
-
-    Examples:
-        >>> from mindformers.trainer import ImageToTextRetrievalTrainer
-        >>> trainer = ImageToTextRetrievalTrainer(model_name="blip2_stage1_vit_g")
-        >>> type(trainer)
-        <class 'mindformers.trainer.image_to_text_retrieval.image_to_text_retrieval.ImageToTextRetrievalTrainer'>
     """
     def __init__(self, model_name: str = None):
         super(ImageToTextRetrievalTrainer, self).__init__("image_to_text_retrieval", model_name)

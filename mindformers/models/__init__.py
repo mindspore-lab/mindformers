@@ -19,7 +19,6 @@ from .bert import *
 from .mae import *
 from .vit import *
 from .swin import *
-from .blip2 import *
 from .clip import *
 from .t5 import *
 from .gpt2 import *
@@ -49,7 +48,6 @@ __all__ = ['BaseConfig', 'BaseModel', 'BaseProcessor', 'BaseImageProcessor',
            'BaseAudioProcessor', 'PreTrainedTokenizerFast']
 
 __all__.extend(auto.__all__)
-__all__.extend(blip2.__all__)
 __all__.extend(bert.__all__)
 __all__.extend(mae.__all__)
 __all__.extend(vit.__all__)
