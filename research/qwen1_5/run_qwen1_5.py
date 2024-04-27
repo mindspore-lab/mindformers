@@ -22,11 +22,14 @@ import shutil
 from mindformers import Trainer, MindFormerConfig
 from mindformers.core.context import build_context
 from mindformers.tools import get_output_root_path
-from mindformers.tools.utils import check_in_modelarts, str2bool
+from mindformers.tools.utils import check_in_modelarts, str2bool, set_remote_save_url
 
 # pylint: disable=W0611
+import optim
 import qwen1_5_tokenizer
 
+if check_in_modelarts():
+    import moxing as mox
 
 def clear_auto_trans_output(config):
     """clear transformed_checkpoint and strategy"""
@@ -64,10 +67,12 @@ def main(task='text_generation',
          predict_data='',
          seq_length=None,
          max_length=8192,
+         train_dataset='',
          device_id=0,
          do_sample=None,
          top_k=None,
          top_p=None,
+         remote_save_url=None,
          batch_size=1):
     """main function."""
 
@@ -88,6 +93,9 @@ def main(task='text_generation',
 
     # init context
     build_context(config)
+    if check_in_modelarts() and remote_save_url:
+        set_remote_save_url(remote_save_url)
+        config.remote_save_url = remote_save_url
 
     if auto_trans_ckpt is not None:
         config.auto_trans_ckpt = auto_trans_ckpt
@@ -104,6 +112,10 @@ def main(task='text_generation',
         config.model.model_config.top_k = top_k
     if top_p is not None:
         config.model.model_config.top_p = top_p
+    config.model.model_config.batch_size = batch_size
+
+    if run_mode in ['train', 'finetune']:
+        config.model.model_config.use_past = False
 
     if run_mode == 'predict':
         task = Trainer(args=config, task=task)
@@ -113,6 +125,12 @@ def main(task='text_generation',
         for input_prompt in batch_input:
             task.predict(input_data=input_prompt,
                          predict_checkpoint=ckpt, max_length=int(max_length), seq_length=max_length)
+    elif run_mode == 'finetune':
+        trainer = Trainer(args=config, task=task, train_dataset=train_dataset)
+        trainer.finetune(finetune_checkpoint=ckpt, auto_trans_ckpt=auto_trans_ckpt)
+    elif run_mode == 'train':
+        trainer = Trainer(args=config, task=task, train_dataset=train_dataset)
+        trainer.train(auto_trans_ckpt=auto_trans_ckpt)
     else:
         raise NotImplementedError(f"run_mode '${run_mode}' not supported yet.")
 
@@ -141,8 +159,6 @@ if __name__ == "__main__":
                         help='max length for predict output.')
     parser.add_argument('--use_parallel', default=False, type=str2bool,
                         help='open parallel for model.')
-    parser.add_argument('--optimizer_parallel', default=False, type=str2bool,
-                        help='whether use optimizer parallel. Default: False')
     parser.add_argument('--device_id', default=-1, type=int,
                         help='ID of the target device, the value must be in [0, device_num_per_host-1]')
     parser.add_argument('--use_past', default=None, type=str2bool,
@@ -155,8 +171,8 @@ if __name__ == "__main__":
                         help='top_p')
     parser.add_argument('--train_dataset', default='', type=str,
                         help='set train dataset.')
-    parser.add_argument('--eval_dataset', default=None, type=str,
-                        help='set eval dataset.')
+    parser.add_argument('--remote_save_url', default=None, type=str,
+                        help='remote save url.')
     parser.add_argument('--batch_size', default=1, type=int,
                         help='batch_size')
 
@@ -179,7 +195,9 @@ if __name__ == "__main__":
          seq_length=args.seq_length,
          max_length=args.predict_length,
          device_id=args.device_id,
+         train_dataset=args.train_dataset,
          do_sample=args.do_sample,
          top_k=args.top_k,
          top_p=args.top_p,
+         remote_save_url=args.remote_save_url,
          batch_size=args.batch_size)
