@@ -611,6 +611,14 @@ class TrainingArguments:
         default=1.0,
         metadata={"help": "Max gradient norm."}
     )
+    max_scale_window: int = field(
+        default=1000,
+        metadata={"help": "Maximum scale_window of the automatic scale window list. The default value is 1000."}
+    )
+    min_scale_window: int = field(
+        default=20,
+        metadata={"help": "Minimum scale_window of the automatic scale window list. The default value is 20."}
+    )
 
     # metric config
     metric_type: Optional[Union[List[str], str]] = field(
@@ -1736,6 +1744,11 @@ class TrainingArguments:
                 task_config.runner_wrapper.scale_sense.scale_factor, self.loss_scale_factor)
             task_config.runner_wrapper.scale_sense.scale_window = _check_training_args(
                 task_config.runner_wrapper.scale_sense.scale_window, self.loss_scale_window)
+            if self.scale_sense == "AdaptiveLossScaleUpdateCell":
+                task_config.runner_wrapper.scale_sense.max_scale_window = _check_training_args(
+                    task_config.runner_wrapper.scale_sense.max_scale_window, self.max_scale_window)
+                task_config.runner_wrapper.scale_sense.min_scale_window = _check_training_args(
+                    task_config.runner_wrapper.scale_sense.min_scale_window, self.min_scale_window)
         elif isinstance(self.scale_sense, (float, int)):
             task_config.runner_wrapper.scale_sense = int(self.scale_sense)
 
