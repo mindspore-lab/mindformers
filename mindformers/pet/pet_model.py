@@ -24,12 +24,10 @@ from mindformers.pet.pet_config import LoraConfig, PetConfig
 from mindformers.pet.tuners.pet_adapter import PetAdapter
 from mindformers.tools import logger
 
-
 # Mapping of pet models.
 PET_TYPE_TO_MODEL_MAPPING = {
     PetType.LORA.value: LoraModel,
 }
-
 
 # Mapping of pet configs.
 PET_TYPE_TO_CONFIG_MAPPING = {
@@ -45,6 +43,7 @@ class PetModel(PreTrainedModel):
         config(PetConfig): pet config,define parameters efficient tuning algorithm.
         base_model(PreTrainedModel): pretrained model for tuning.
     """
+
     @args_type_check(config=(dict, PetConfig))
     def __init__(self, config: Union[dict, PetConfig], base_model: PreTrainedModel):
         super().__init__(base_model.config, auto_prefix=False)
@@ -75,9 +74,11 @@ class PetModel(PreTrainedModel):
         return self.pet_model.slice_incremental_inputs(model_inputs, current_index)
 
     def construct(self, input_ids, labels=None, position_ids=None, attention_mask=None, input_position=None,
-                  input_embeds=None, init_reset=True, batch_valid_length=None):
-        return self.pet_model(input_ids, labels, input_position, position_ids,
-                              attention_mask, input_embeds, init_reset, batch_valid_length)
+                  input_embeds=None, init_reset=True, batch_valid_length=None, batch_index=None,
+                  zactivate_len=None, block_tables=None, slot_mapping=None):
+        return self.pet_model(input_ids, labels, input_position, position_ids, attention_mask, input_embeds,
+                              init_reset, batch_valid_length, batch_index, zactivate_len, block_tables, slot_mapping)
+
 
 @args_type_check(config=(dict, PetConfig))
 def get_pet_model(base_model: PreTrainedModel, config: Union[dict, PetConfig]):
@@ -98,6 +99,7 @@ def get_pet_model(base_model: PreTrainedModel, config: Union[dict, PetConfig]):
 
     # return pet model.
     return PetModel(config=config, base_model=base_model)
+
 
 def is_supported_pet_type(pet_type: str):
     """
