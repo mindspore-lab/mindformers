@@ -44,8 +44,8 @@ cls_trainer = Trainer(task='image_classification', # 已支持的任务名
                       train_dataset="/data/imageNet-1k/train", # 传入标准的训练数据集路径，默认支持ImageNet数据集格式
                       eval_dataset="/data/imageNet-1k/val") # 传入标准的评估数据集路径，默认支持ImageNet数据集格式
 
-cls_trainer.train(train_checkpoint="", resume_training=True) # 启动训练
-cls_trainer.finetune(finetune_checkpoint="", resume_training=True) # 启动微调
+cls_trainer.train(train_checkpoint="checkpoint_file_or_dir_path", resume_training=True) # 启动训练
+cls_trainer.finetune(finetune_checkpoint="checkpoint_file_or_dir_path", resume_training=True) # 启动微调
 ```
 
 - **方式2：在TrainingArguments中配置**
@@ -58,7 +58,7 @@ from mindformers import Trainer, TrainingArguments
 
 ms.set_context(mode=0) # 设定为图模式加速
 
-training_args = TrainingArguments(resume_from_checkpoint="", resume_training=True)
+training_args = TrainingArguments(resume_from_checkpoint="checkpoint_file_or_dir_path", resume_training=True)
 
 cls_trainer = Trainer(task='image_classification', # 已支持的任务名
                       args=training_args,
