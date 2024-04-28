@@ -27,11 +27,6 @@ from mindspore.common.tensor import Tensor
 from mindspore.context import ParallelMode
 from mindspore.ops import operations as P
 from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
-try:
-    from mindspore.nn.layer.flash_attention import FlashAttention
-    FLASHATTENTION_VALID = True
-except ImportError:
-    FLASHATTENTION_VALID = False
 
 from mindformers.models.llama.llama_layer import LlamaFeedForward, LlamaRMSNorm, LlamaRotaryEmbedding
 from mindformers.modules.layers import _check_input_dtype, Linear
@@ -40,6 +35,8 @@ from mindformers.modules import KVCacheMgr, PagedAttentionMgr
 
 from mindformers.tools.utils import is_version_ge
 from mindformers.tools.logger import logger
+
+from mindformers.version_control import choose_flash_attention_dtype, is_910a
 
 class LLamaAttention(nn.Cell):
     r"""
@@ -144,6 +141,7 @@ class LLamaAttention(nn.Cell):
         self.block_size = block_size
         self.num_blocks = num_blocks
         self.qkv_concat = qkv_concat
+        self.cast1 = P.Cast().shard(((parallel_config.data_parallel, 1, 1),))
 
         if self.hidden_size % self.n_head != 0:
             raise ValueError("For 'MultiHeadAttention', the class variable 'hidden_size' must be a multiple "
@@ -170,6 +168,7 @@ class LLamaAttention(nn.Cell):
         self.cast_attn = P.Cast()
         self.tile_kv = P.Tile()
         self.slice_qkv = P.StridedSlice()
+        self.is_910a = is_910a()
 
         self.apply_rotary_emb = LlamaRotaryEmbedding(self.head_dim, rotary_dtype, use_rope_slice=use_rope_slice)
         if self.qkv_concat:
@@ -257,8 +256,12 @@ class LLamaAttention(nn.Cell):
             self.use_flash_attention = False
             logger.info("Current MindSpore do not support flash attention, please upgrade to 2.2.0 or higher")
         if self.use_flash_attention:
-            self.flash_attention = FlashAttention(self.head_dim, n_heads, dp=dp, mp=mp, next_block_num=0,
-                                                  high_precision=True)
+            if self.is_910a:
+                from acctransformer.flash_attention.nn.layer.flash_attention import FlashAttention
+                self.attention_mask_dtype = choose_flash_attention_dtype()
+                # dropout_rate down, prev_block_num 65536 / 128
+                self.flash_attention = FlashAttention(self.head_dim, n_heads, 0.0, 65536, 0, dp=dp,
+                                                      mp=mp, high_precision=True)
 
         if self.use_past:
             if self.use_paged_attention:
@@ -326,7 +329,8 @@ class LLamaAttention(nn.Cell):
         value = self._repeat_kv(value, self.n_rep)
         # q, k, v: [bs, n_head, seq/1, head_dim], [bs, n_head, seq, head_dim], [bs, n_head, seq, head_dim]
         if self.use_flash_attention:
-            attention = self.flash_attention(query, key, value, mask)
+            attention_mask = self.cast1(mask, self.attention_mask_dtype)
+            attention = self.flash_attention(query, key, value, attention_mask)
             attention = self._merge_heads(attention)
         else:
             if not self.is_first_iteration and self.use_paged_attention:
