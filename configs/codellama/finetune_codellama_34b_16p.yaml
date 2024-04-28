@@ -4,7 +4,7 @@ load_checkpoint: ''
 auto_trans_ckpt: False  # If true, auto transform load_checkpoint to load in distributed model
 only_save_strategy: False
 resume_training: False
-run_mode: 'predict'
+run_mode: 'train'
 
 # trainer config
 trainer:
@@ -22,6 +22,54 @@ runner_config:
   batch_size: 1
   sink_mode: True
   sink_size: 4
+# optimizer
+optimizer:
+  type: FP32StateAdamWeightDecay
+  beta1: 0.9
+  beta2: 0.95
+  eps: 1.e-8 # 1e-8
+
+# lr sechdule
+lr_schedule:
+  type: CosineWithWarmUpLR
+  learning_rate: 1.e-5
+  lr_end: 0
+  warmup_ratio: 0.03
+  total_steps: -1 # -1 means it will load the total steps of the dataset
+
+# dataset
+train_dataset: &train_dataset
+  data_loader:
+    type: MindDataset
+    dataset_dir: ""
+    shuffle: True
+  input_columns: ["input_ids", "labels"]  # "input_ids", "labels" , labels are used in instruction finetune.
+  num_parallel_workers: 8
+  python_multiprocessing: False
+  drop_remainder: True
+  repeat: 1
+  numa_enable: False
+  prefetch_size: 1
+train_dataset_task:
+  type: CausalLanguageModelDataset
+  dataset_config: *train_dataset
+
+# eval dataset
+eval_dataset: &eval_dataset
+  data_loader:
+    type: MindDataset
+    dataset_dir: ""
+    shuffle: False
+  input_columns: ["input_ids"]
+  num_parallel_workers: 8
+  python_multiprocessing: False
+  drop_remainder: False
+  repeat: 1
+  numa_enable: False
+  prefetch_size: 1
+eval_dataset_task:
+  type: CausalLanguageModelDataset
+  dataset_config: *eval_dataset
 
 use_parallel: True
 # parallel context config
@@ -36,17 +84,25 @@ parallel:
   parallel_optimizer_config:
     gradient_accumulation_shard: False
     parallel_optimizer_threshold: 64
-# default parallel of device num = 8 for Atlas 800T A2
+# default parallel of device num = 32 for Atlas 800T A2
 parallel_config:
   data_parallel: 1
   model_parallel: 8
-  pipeline_stage: 1
-  use_seq_parallel: False
-  micro_batch_num: 1
+  pipeline_stage: 2
+  use_seq_parallel: True
+  micro_batch_num: 128
   vocab_emb_dp: True
   gradient_aggregation_group: 4
 # when model parallel is greater than 1, we can set micro_batch_interleave_num=2, that may accelerate the train process.
 micro_batch_interleave_num: 1
+
+# recompute config
+recompute_config:
+  recompute: False
+  select_recompute: False
+  parallel_optimizer_comm_recompute: False
+  mp_comm_recompute: True
+  recompute_slice_activation: True
 
 # callbacks
 callbacks:
@@ -64,13 +120,12 @@ context:
   device_target: "Ascend"
   enable_graph_kernel: False
   graph_kernel_flags: "--disable_expand_ops=Softmax,Dropout --enable_parallel_fusion=true --reduce_fuse_depth=8 --enable_auto_tensor_inplace=true"
-  ascend_config:
-    precision_mode: "must_keep_origin_dtype"
   max_call_depth: 10000
-  max_device_memory: "48GB"
+  max_device_memory: "57GB"
   save_graphs: False
   save_graphs_path: "./graph"
   device_id: 0
+  runtime_num_threads: 1
 
 # model config
 model:
@@ -96,16 +151,10 @@ model:
     rotary_dtype: "float16"
     param_init_type: "float16"
     use_past: False
-    scaling_factor: 1.0
     extend_method: "None" # support "None", "PI", "NTK"
-    use_flash_attention: False
-    block_size: 16
-    num_blocks: 512
-    is_dynamic: False
-    use_kvcache_op: False
-    is_flexible_shape: False
+    use_flash_attention: True
+    fine_grain_interleave: 2
     offset: 0
-    use_rope_slice: False
     checkpoint_name_or_path: ""
     repetition_penalty: 1
     max_decode_length: 512
@@ -123,12 +172,21 @@ processor:
     eos_token: '</s>'
     pad_token: '<unk>'
     type: LlamaTokenizer
-    vocab_file: "path/to/tokenizer.model"
   type: LlamaProcessor
 
 # metric
 metric:
   type: PerplexityMetric
+
+# wrapper cell config
+runner_wrapper:
+  type: MFTrainOneStepCell
+  scale_sense:
+    type: DynamicLossScaleUpdateCell
+    loss_scale_value: 65536
+    scale_factor: 2
+    scale_window: 1000
+  use_clip_grad: True
 
 eval_callbacks:
   - type: ObsMonitor

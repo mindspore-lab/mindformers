@@ -24,7 +24,6 @@ Code Llama是基于Llama 2的一系列大型代码语言模型，它在开源模
    ```bash
    llama
        ├── __init__.py
-       ├── convert_weight.py         # 权重转换脚本
        ├── llama.py                  # 模型实现
        ├── llama_config.py           # 模型配置项
        ├── llama_layer.py            # llama网络层定义
@@ -37,8 +36,10 @@ Code Llama是基于Llama 2的一系列大型代码语言模型，它在开源模
 
    ```bash
    llama
-       ├── run_codellama_34b_910b.yaml         # 34b模型全量微调启动配置
-       └── predict_codellama_34b_910b.yaml     # 34b模型推理配置
+       ├── pretrain_codellama_34b.yaml             # 34b模型预训练启动配置
+       ├── finetune_codellama_34b_16p.yaml         # 34b模型2机16p微调启动配置
+       ├── finetune_codellama_34b_32p.yaml         # 34b模型4机32p微调启动配置
+       └── predict_codellama_34b.yaml              # 34b模型推理配置
    ```
 
 3. 数据预处理脚本：
@@ -53,142 +54,14 @@ Code Llama是基于Llama 2的一系列大型代码语言模型，它在开源模
 
 ### 环境要求
 
-- 硬件：Atlas 800/Atlas 800T A2
-- MindSpore：2.2.0 以上
-- CANN: 7.0 以上
+- 硬件：Atlas 800T A2
+- MindSpore：2.3
+- CANN: 7.2及以上
 - MindFormers版本：dev
 
 > 注：34b推理使用Atlas 800T A2 至少使用2卡，全量微调至少需要2机16卡，建议4机32卡。
 
 ### [mindformers安装](../../README.md#二mindformers安装)
-
-### 生成RANK_TABLE_FILE(多卡运行必须环节)
-
-运行mindformers/tools/hccl_tools.py生成RANK_TABLE_FILE的json文件
-
-```bash
-# 运行如下命令，生成当前机器的RANK_TABLE_FILE的json文件
-python ./mindformers/tools/hccl_tools.py --device_num "[0,8)"
-```
-
-**注：若使用ModelArts的notebook环境，可从 `/user/config/jobstart_hccl.json` 路径下直接获取rank table，无需手动生成**
-
-RANK_TABLE_FILE 单机8卡参考样例:
-
-```json
-{
-    "version": "1.0",
-    "server_count": "1",
-    "server_list": [
-        {
-            "server_id": "xx.xx.xx.xx",
-            "device": [
-                {"device_id": "0","device_ip": "192.1.27.6","rank_id": "0"},
-                {"device_id": "1","device_ip": "192.2.27.6","rank_id": "1"},
-                {"device_id": "2","device_ip": "192.3.27.6","rank_id": "2"},
-                {"device_id": "3","device_ip": "192.4.27.6","rank_id": "3"},
-                {"device_id": "4","device_ip": "192.1.27.7","rank_id": "4"},
-                {"device_id": "5","device_ip": "192.2.27.7","rank_id": "5"},
-                {"device_id": "6","device_ip": "192.3.27.7","rank_id": "6"},
-                {"device_id": "7","device_ip": "192.4.27.7","rank_id": "7"}],
-             "host_nic_ip": "reserve"
-        }
-    ],
-    "status": "completed"
-}
-```
-
-### 多机RANK_TABLE_FILE合并(多机多卡必备环节)
-
-- step 1. 首先根据上章节内容，在每个机器上生成各自的`RANK_TABLE_FILE`文件，然后将不同机器上生成的`RANK_TABLE_FILE`文件全部拷贝到同一台机器上。
-
-```bash
-# 运行如下命令，生成当前机器的RANK_TABLE_FILE的json文件
-python ./mindformers/tools/hccl_tools.py --device_num "[0,8)" --server_ip xx.xx.xx.xx
-```
-
-**注：需要根据机器的ip地址指定 --server_ip，避免由于不同机器server_ip不同，导致多节点间通信失败。**
-
-- step 2. 运行mindformers/tools/merge_hccl.py将不同机器上生成的`RANK_TABLE_FILE`文件合并
-
-```bash
-# 运行如下命令，合并每个机器上的RANK_TABLE_FILE的json文件。
-python ./mindformers/tools/merge_hccl.py hccl*.json
-```
-
-- step 3. 将合并后的`RANK_TABLE_FILE`文件拷贝到所有机器中，保证不同机器上的`RANK_TABLE_FILE`相同。
-
-RANK_TABLE_FILE 双机16卡参考样例:
-
-```json
-{
-    "version": "1.0",
-    "server_count": "2",
-    "server_list": [
-        {
-            "server_id": "xx.xx.xx.xx",
-            "device": [
-                {
-                    "device_id": "0", "device_ip": "192.168.0.0", "rank_id": "0"
-                },
-                {
-                    "device_id": "1", "device_ip": "192.168.1.0", "rank_id": "1"
-                },
-                {
-                    "device_id": "2", "device_ip": "192.168.2.0", "rank_id": "2"
-                },
-                {
-                    "device_id": "3", "device_ip": "192.168.3.0", "rank_id": "3"
-                },
-                {
-                    "device_id": "4", "device_ip": "192.168.0.1", "rank_id": "4"
-                },
-                {
-                    "device_id": "5", "device_ip": "192.168.1.1", "rank_id": "5"
-                },
-                {
-                    "device_id": "6", "device_ip": "192.168.2.1", "rank_id": "6"
-                },
-                {
-                    "device_id": "7", "device_ip": "192.168.3.1", "rank_id": "7"
-                }
-            ],
-            "host_nic_ip": "reserve"
-        },
-        {
-            "server_id": "xx.xx.xx.xx",
-            "device": [
-                {
-                    "device_id": "0", "device_ip": "192.168.0.1", "rank_id": "8"
-                },
-                {
-                    "device_id": "1", "device_ip": "192.168.1.1", "rank_id": "9"
-                },
-                {
-                    "device_id": "2", "device_ip": "192.168.2.1", "rank_id": "10"
-                },
-                {
-                    "device_id": "3", "device_ip": "192.168.3.1", "rank_id": "11"
-                },
-                {
-                    "device_id": "4", "device_ip": "192.168.0.2", "rank_id": "12"
-                },
-                {
-                    "device_id": "5", "device_ip": "192.168.1.2", "rank_id": "13"
-                },
-                {
-                    "device_id": "6", "device_ip": "192.168.2.2", "rank_id": "14"
-                },
-                {
-                    "device_id": "7", "device_ip": "192.168.3.2", "rank_id": "15"
-                }
-            ],
-            "host_nic_ip": "reserve"
-        }
-    ],
-    "status": "completed"
-}
-```
 
 ### 模型权重下载与转换
 
@@ -214,19 +87,14 @@ RANK_TABLE_FILE 双机16卡参考样例:
 - [CodeLlama_13b-Instruct](https://huggingface.co/codellama/CodeLlama-13b-Instruct-hf)
 - [CodeLlama_34b-Instruct](https://huggingface.co/codellama/CodeLlama-34b-Instruct-hf)
 
-下载完成后，运行如下转换脚本，将huggingface的权重转换为完整的ckpt权重。
+下载完成后，运行转换脚本`mindformers/convert_weight.py`，将huggingface的权重转换为完整的ckpt权重。
 
 ```shell
 # 使用transformers = 4.34.0，torch>=2.0进行转换
-python mindformers/models/llama/convert_weight.py \
---torch_ckpt_dir TORCH_CKPT_DIR \
---mindspore_ckpt_path {path}/MS_CKPT_NAME
-```
-
-```text
+python convert_weight.py --model llama --input_path TORCH_CKPT_DIR --output_path {path}/MS_CKPT_NAME
 # 参数说明
-torch_ckpt_dir: huggingface权重保存目录路径
-mindspore_ckpt_path: 权重保存文件名，可以指定自定义保存路径
+input_path: huggingface权重保存目录路径
+output_path: 权重保存文件名，可以指定自定义保存路径
 ```
 
 ### [分布式训练/微调权重合并](../feature_cards/Transform_Ckpt.md)
@@ -283,47 +151,58 @@ python llama_preprocess.py \
 
 ### 脚本启动（Code Llama-34b为例）
 
-多卡运行需要RANK_FILE_TABLE，请参考前期准备-[生成RANK_TABLE_FILE](#生成rank_table_file多卡运行必须环节)
-
-Code Llama 34b至少使用4机32卡进行训练。
+Code Llama 34b至少使用2机16卡进行训练。
 
 当前模型已支持使用**Flash Attention算法**进行预训练，请参考 [Flash Attention使用文档](../feature_cards/Training_Algorithms.md#flash-attention)
+
+使用msrun快速启动命令启动训练，具体参见[msrun快速启动](../../README.md#方式一使用已有脚本启动)。
 
 #### 多卡训练
 
 ##### 多机多卡
 
-- step 1. 多机多卡运行需要合并不同机器的RANK_FILE_TABLE，参考前期准备-[多机RANK_TABLE_FILE合并](#多机rank_table_file合并多机多卡必备环节)
+- step 1. 将`config/codellama/pretrain_codellama_34b.yaml`中训练数据集路径为`wiki`数据集路径。
 
-> **注：需要保证执行的节点和RANK_TABLE_FIEL的节点顺序保持一致，即rank_id匹配。**
+```yaml
+train_dataset: &train_dataset
+  data_loader:
+    type: MindDataset
+    dataset_dir: "/{path}/wiki4096.mindrecord"
+    shuffle: True
+  input_columns: ["input_ids"]
+```
 
 - step 2. 根据服务器节点数等信息，修改相应的配置。
 
 ```yaml
-# 以codellama_34b模型四机训练为例，默认配置4机32卡，如果节点数有变，需要修改相应的配置。
-# 配置文件路径：../configs/codellama/run_codellama_34b_910b.yaml
+# 以codellama_34b模型四机训练为例，默认配置2机16卡，如果节点数有变，需要修改相应的配置。
+# 配置文件路径：../configs/codellama/pretrain_codellama_34b.yaml
 parallel_config:
-  data_parallel: 4
-  model_parallel: 4
+  data_parallel: 1
+  model_parallel: 8
   pipeline_stage: 2
-  micro_batch_num: 96
+  use_seq_parallel: True
+  micro_batch_num: 128
   vocab_emb_dp: True
   gradient_aggregation_group: 4
 ```
 
 - step 3. 执行运行脚本。
 
-在多机上同时拉起任务，每台机器拉起方式参考单机多卡启动方式。需注意，多机多卡的拉起方式，相对于单机多卡，多了一个总卡数`[RANK_SIZE]`的入参。
+多机多卡执行脚本进行分布式训练需要分别在不同节点运行脚本，并将参数MASTER_ADDR设置为主节点的ip地址，所有节点设置的ip地址相同，不同节点之间仅参数NODE_RANK不同。各个参数位置含义参见[msrun快速启动](../../README.md#方式一使用已有脚本启动)。
 
 ```shell
-# 第一台机器
-bash run_distribute.sh {RANK_TABLE_FILE path of the first device} ../configs/codellama/run_codellama_34b_910b.yaml [0,8] train 32
-# 第二台机器
-bash run_distribute.sh {RANK_TABLE_FILE path of the second device} ../configs/codellama/run_codellama_34b_910b.yaml [8,16] train 32
-# 第三台机器
-bash run_distribute.sh {RANK_TABLE_FILE path of the second device} ../configs/codellama/run_codellama_34b_910b.yaml [16,24] train 32
-# 第四台机器
-bash run_distribute.sh {RANK_TABLE_FILE path of the second device} ../configs/codellama/run_codellama_34b_910b.yaml [24,32] train 32
+# 节点0，节点ip为192.168.1.1，作为主节点，总共16卡且每个节点8卡
+bash scripts/msrun_launcher.sh "run_mindformer.py \
+ --config configs/codellama/pretrain_codellama_34b.yaml \
+ --run_mode train" \
+ 16 8 192.168.1.1 8118 0 output/msrun_log False 300
+
+# 节点1，节点ip为192.168.1.2，节点0与节点1启动命令仅参数NODE_RANK不同
+bash scripts/msrun_launcher.sh "run_mindformer.py \
+ --config configs/codellama/pretrain_codellama_34b.yaml \
+ --run_mode train" \
+ 16 8 192.168.1.1 8118 1 output/msrun_log False 300
 ```
 
 ## 微调
@@ -400,7 +279,7 @@ python llama_preprocess.py \
 
 当前模型已支持使用**Flash Attention算法**进行全参微调，请参考 [Flash Attention使用文档](../feature_cards/Training_Algorithms.md#flash-attention)
 
-- step 1. 将`config/codellama/run_codellama_34b_910b.yaml`中训练数据集路径为微调数据集路径，并在`input_columns`中添加`labels`。
+- step 1. 将`config/codellama/finetune_codellama_34b_16p.yaml`中训练数据集路径为微调数据集路径，并在`input_columns`中添加`labels`。
 
 ```python
 train_dataset: &train_dataset
@@ -435,15 +314,7 @@ context:
   runtime_num_threads: 1
 ```
 
-- step3. 设置环境变量，变量配置如下：
-
-```bash
-export MS_DEV_SIDE_EFFECT_LOAD_ELIM=3  # 去除TensorMove
-export MS_MEMORY_POOL_RECYCLE=1  # 内存优化
-export GE_NOT_CUT=1   # 内存优化
-```
-
-- step 4. 在需要进行训练的机器中**都导入权重**，添加预训练权重路径，修改配置文件中的`load_checkpoint`，配置预训练权重路径。参考[权重切分与合并](../feature_cards/Transform_Ckpt.md)的物理机训练案例，修改权重配置如下：
+- step 3. 在需要进行训练的机器中**都导入权重**，添加预训练权重路径，修改配置文件中的`load_checkpoint`，配置预训练权重路径。参考[权重切分与合并](../feature_cards/Transform_Ckpt.md)的物理机训练案例，修改权重配置如下：
 
   1). 有共享盘
 
@@ -463,18 +334,20 @@ load_checkpoint: path/to/transformed_checkpoint
 
 > 注：权重按照[权重切分与合并](../feature_cards/Transform_Ckpt.md)的教程先切成对应的份数，load_checkpoint填写到transformed_checkpoint，该文件夹下存放有rank_X的权重文件夹。
 
-- step 5. 启动微调任务，codellama-34b模型以四机32卡进行微调，命令如下：
+- step 4. 启动微调任务，codellama-34b模型以2机16卡进行微调，多机多卡执行脚本进行分布式训练需要分别在不同节点运行脚本，并将参数MASTER_ADDR设置为主节点的ip地址，所有节点设置的ip地址相同，不同节点之间仅参数NODE_RANK不同。各个参数位置含义参见[msrun快速启动](../../README.md#方式一使用已有脚本启动)：
 
 ```shell
-cd scripts
-# 第一台机器
-bash run_distribute.sh [RANK_TABLE_FILE] ../configs/codellama/run_codellama_34b_910b.yaml [0,8] finetune 32
-# 第二台机器
-bash run_distribute.sh [RANK_TABLE_FILE] ../configs/codellama/run_codellama_34b_910b.yaml [8,16] finetune 32
-# 第三台机器
-bash run_distribute.sh [RANK_TABLE_FILE] ../configs/codellama/run_codellama_34b_910b.yaml [16,24] finetune 32
-# 第四台机器
-bash run_distribute.sh [RANK_TABLE_FILE] ../configs/codellama/run_codellama_34b_910b.yaml [24,32] finetune 32
+# 节点0，节点ip为192.168.1.1，作为主节点，总共16卡且每个节点8卡
+bash scripts/msrun_launcher.sh "run_mindformer.py \
+ --config configs/codellama/finetune_codellama_34b_16p.yaml \
+ --run_mode finetune" \
+ 16 8 192.168.1.1 8118 0 output/msrun_log False 300
+
+# 节点1，节点ip为192.168.1.2，节点0与节点1启动命令仅参数NODE_RANK不同
+bash scripts/msrun_launcher.sh "run_mindformer.py \
+ --config finetune_codellama_34b_16p.yaml \
+ --run_mode finetune" \
+ 16 8 192.168.1.1 8118 1 output/msrun_log False 300
 ```
 
 ## 评测
@@ -652,43 +525,23 @@ if __name__ == "__main__":
 # ...
 ```
 
-以下为多卡运行自定义多batch推理的脚本
-
-```bash
-# >>> `run_predict.sh`文件
-export RANK_TABLE_FILE=$1
-CHECKPOINT_PATH=$2
-YAML_FILE=$3
-MODEL_TYPE=$4
-# define variable
-export RANK_SIZE=$5
-export START_RANK=$6 # this server start rank
-let END_RANK=START_RANK+RANK_SIZE # this server end rank
-
-# run
-for((i=${START_RANK}; i<${END_RANK}; i++));
-do
-    export RANK_ID=$((i-START_RANK))
-    export DEVICE_ID=$i
-    echo "Start distribute running for rank $RANK_ID, device $DEVICE_ID"
-    python3 ./predict_custom.py --checkpoint_path $CHECKPOINT_PATH --yaml_file ${YAML_FILE} --model_type ${MODEL_TYPE} &> mindformers_$RANK_ID.log &
-done
-```
-
 #### 多卡generate推理
 
 ```bash
-bash run_predict.sh RANK_TABLE_FILE path/to/checkpoint.ckpt path/to/config_yaml codellama_34b 8 0
+bash scripts/msrunlauncher.sh "predict_custom.py \
+--yaml_file path/to/predict_codellama_34b.yaml \
+--checkpoint_path path/to/checkpoint.ckpt \
+--model_type codellama_34b" 4
 ```
 
-> 注：几卡推理就要在yaml配置中将相应的parallel_config 中的model_parallel置为8，其余置为1。
+> 注：几卡推理就要在yaml配置中将相应的parallel_config 中的model_parallel置为几，其余置为1。
 
 ```python
 use_parallel: True
 # model config
 parallel_config:
   data_parallel: 1
-  model_parallel: 8  # 改为相应卡数。
+  model_parallel: 4  # 4表示有4卡进行推理。
   pipeline_stage: 1
 ```
 
@@ -785,64 +638,44 @@ if __name__ == "__main__":
 # ']
 ```
 
-以下为多卡运行自定义多batch推理的脚本
-
-```bash
-# >>> `run_predict.sh`文件
-export RANK_TABLE_FILE=$1
-CHECKPOINT_PATH=$2
-YAML_FILE=$3
-MODEL_TYPE=$4
-# define variable
-export RANK_SIZE=$5
-export START_RANK=$6 # this server start rank
-let END_RANK=START_RANK+RANK_SIZE # this server end rank
-
-# run
-for((i=${START_RANK}; i<${END_RANK}; i++));
-do
-    export RANK_ID=$((i-START_RANK))
-    export DEVICE_ID=$i
-    echo "Start distribute running for rank $RANK_ID, device $DEVICE_ID"
-    python3 ./predict_custom.py --checkpoint_path $CHECKPOINT_PATH --yaml_file ${YAML_FILE} --model_type ${MODEL_TYPE} &> mindformers_$RANK_ID.log &
-done
-```
-
 #### 多卡pipeline推理
 
 ```bash
-bash run_predict.sh RANK_TABLE_FILE path/to/checkpoint.ckpt path/to/config_yaml codellama_34b 8 0
+bash scripts/msrun_launcher.sh "predict_custom.py \
+--yaml_file path/to/predict_codellama_34b.yaml \
+--checkpoint_path path/to/checkpoint.ckpt \
+--model_type codellama_34b" 4
 ```
 
 > 注：config_yaml的配置也要和基于generate的多卡推理一样将model_parallel 修改为相应卡数，而data_parallel 和 pipeline_stage设置为1。
 
 ### 基于run_mindformer分布式推理
 
-**注**：要提高推理速度，可在对应模型配置文件中进行如下配置，设置增量推理`use_past`为True。
-
-```python
-# model config
-use_past: True          # 开启增量推理
-pretrain_seqlen: 4096
-extend_method: "None"
-offset: 0
-checkpoint_name_or_path: ""
-repetition_penalty: 1
-max_decode_length: 512
-top_k: 3
-top_p: 1
-do_sample: False
-max_new_tokens: 512      #设置最大生成长度
-```
-
 #### 多卡推理
 
-可参考[权重切分与合并](../feature_cards/Transform_Ckpt.md)中的分布式推理方法， 支持分布式推理
+可参考[权重切分与合并](../feature_cards/Transform_Ckpt.md)中的分布式推理方法，可参考推理案例三， 支持分布式推理
+
+step.1 在`predict_codellama_34b.yaml`中在`tokenizer`配置下增加`vocab_file`及其`tokenizer.model`路径；将模型完整权重放到`rank_0`文件夹中，将`rank_0`文件夹上一层目录写入`load_checkpoint`，将`auto_trans_ckpt`设为`True`。
+
+```yaml
+# 配置预训练权重路径，预训练权重需要按照model_dir/rank_0/xxx.ckpt格式存放，填写至model_dir
+load_checkpoint: "path/to/model_dir/"
+# 设置auto_trans_ckpt为True
+auto_trans_ckpt: True
+
+processor:
+  tokenizer:
+    vocab_file: "path/to/tokenizer.model"
+```
+
+step.2 执行命令
 
 ```bash
-# 参考推理案例三，使用完整权重推理8卡
-cd script
-bash run_distribute.sh rank_table_2.json ../configs/codellama/predict_codellama_34b_910b.yaml [0,8] predict "def quick_sort(arr):\n"
+# 参考推理案例三，使用完整权重推理4卡
+bash scripts/msrun_launcher.sh "run_mindformer.py \
+--config configs/codellama/predict_codellama_34b.yaml \
+--run_mode predict \
+--predict_data \"def quick_sort(arr):\n\"" 4
 
 # def quick_sort(arr):
 #    if len(arr) < 2:
