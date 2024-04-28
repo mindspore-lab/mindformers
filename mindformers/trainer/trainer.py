@@ -261,6 +261,14 @@ class Trainer:
                     "You are advised to pass instances such as optimizers, metric, tokenizer, and processor")
             self.model_name = 'common'
 
+        if (isinstance(self.args, (str, MindFormerConfig)) or \
+            (isinstance(self.args, TrainingArguments) and self.is_model_instance)) and \
+            self.task == 'general' and self.model_name != 'common':
+            logger.warning("When (`args` is MindformerConfig) or \
+                (`args` is TrainingArguments and a model instance is passed), \
+                    The `model_name` is invalid and set to 'common'.")
+            self.model_name = 'common'
+
         self._check_args_task_and_model()
 
         # config init
@@ -1212,36 +1220,44 @@ class Trainer:
 
     def _check_args_task_and_model(self):
         """Check args, task and model."""
+        # get support model names of task
+        model_name_support_list = list(MindFormerBook().get_model_name_support_list_for_task(self.task))
+        model_name_support_list.sort()
+        # if task is not general, model_name should be supported by task
+        if self.task != 'general' and self.model_name not in model_name_support_list:
+            raise ValueError(f"The `model_name`={self.model_name} is not support in task: {self.task},\n"
+                             f"Support model name of {self.task}: {model_name_support_list}.")
+
         if isinstance(self.args, (str, MindFormerConfig)) or \
             (isinstance(self.args, TrainingArguments) and self.is_model_instance):
-            if self.task == 'general' and self.model_name != 'common':
-                logger.warning("\n===================================================================\n"
-                               "The `model_name` is invalid.\n"
-                               "===================================================================\n")
-                self.model_name = 'common'
             return
 
         if self.task == 'general':
             if self.model_name != 'common':
-                task_list = list(SUPPORT_TASKS.keys())
-                task_list.sort()
-                raise ValueError(f"The `task` is needed, please select an appropriate task from {task_list}.")
+                # task is not defined but model name is defined, raise error
+                task_name_support_list = []
+                for task in list(SUPPORT_TASKS.keys()):
+                    if self.model_name in list(MindFormerBook().get_model_name_support_list_for_task(task)):
+                        task_name_support_list.append(task)
+                task_name_support_list.sort()
+                raise ValueError(f"The `task` is needed, \
+                    please select an appropriate task from {task_name_support_list}.")
             if self.args is None:
                 if self.is_model_instance:
+                    # only model instance is defined, need train args.
                     raise ValueError("The `args` is needed, it could be an instance of "
                                      "`TrainingArguments` or `MindFormerConfig` or `yaml path`.")
                 raise ValueError("Neither `task`, `model`, `model_name`, nor `args` are configured.\n")
             if isinstance(self.args, TrainingArguments) and not self.is_model_instance:
+                # only train args is defined, need model instance.
                 raise ValueError("A model instance is needed, which is passed through the `model` parameter.")
-        if self.task != 'general' and self.model_name == 'common':
-            model_name_support_list = list(MindFormerBook().get_model_name_support_list_for_task(self.task))
-            if 'common' in model_name_support_list:
-                model_name_support_list.remove('common')
-            model_name_support_list.sort()
+        elif self.model_name == 'common':
             if not self.is_model_instance:
+                # only task is defined, need model_name by raise error.
                 raise ValueError("A model name is needed, which is passed through the `model` or `model_name`.\n"
                                  f"Support model name of {self.task}: {model_name_support_list}.")
             if self.args is None:
+                # only task and model instance is defined, need model_name by warning.
                 logger.warning("\n===================================================================\n"
                                "Note that the `model_name` is not passed and it is defined as 'common'. "
                                "You'd better choose a suitable model name, otherwise you may end up using "
