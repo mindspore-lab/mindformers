@@ -29,6 +29,7 @@ class LoraModel(PreTrainedModel):
         config(LoraConfig): pet config,define parameters efficient tuning algorithm.
         base_model(PreTrainedModel): pretrained model for tuning.
     """
+
     def __init__(self, config: LoraConfig, base_model: PreTrainedModel):
         super().__init__(base_model.config, auto_prefix=False)
         self.config.pet_config = config
@@ -66,12 +67,17 @@ class LoraModel(PreTrainedModel):
         return self.lora_model.slice_incremental_inputs(model_inputs, current_index)
 
     def construct(self, input_ids, labels=None, input_position=None, position_ids=None, attention_mask=None,
-                  input_embeds=None, init_reset=True, batch_valid_length=None):
-        return  self.lora_model(input_ids=input_ids,
-                                labels=labels,
-                                input_position=input_position,
-                                position_ids=position_ids,
-                                attention_mask=attention_mask,
-                                input_embeds=input_embeds,
-                                init_reset=init_reset,
-                                batch_valid_length=batch_valid_length)
+                  input_embeds=None, init_reset=True, batch_valid_length=None, batch_index=None,
+                  zactivate_len=None, block_tables=None, slot_mapping=None):
+        return self.lora_model(input_ids=input_ids,
+                               labels=labels,
+                               input_position=input_position,
+                               position_ids=position_ids,
+                               attention_mask=attention_mask,
+                               input_embeds=input_embeds,
+                               init_reset=init_reset,
+                               batch_valid_length=batch_valid_length,
+                               batch_index=batch_index,
+                               zactivate_len=zactivate_len,
+                               block_tables=block_tables,
+                               slot_mapping=slot_mapping)

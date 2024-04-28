@@ -35,7 +35,6 @@ from mindformers.models.modeling_utils import PreTrainedModel
 from .glm_config import GLMConfig
 from .layers import DeepNormWithGLULayer
 
-
 #  Get MS backend: 0 vm 1 GE
 is_ge = os.getenv('MS_ENABLE_GE')
 if is_ge == '1':
@@ -86,6 +85,7 @@ def set_parallel_configure_for_layer(network, layer_id, offset, parallel_config,
         if parallel_config.recompute.recompute:
             network.recompute(recompute_slice_activation=parallel_config.recompute.recompute_slice_activation)
 
+
 class ProcessLogits(nn.Cell):
     r"""Process logits into probability distribution."""
 
@@ -118,6 +118,7 @@ class GLMModel(GLMPreTrainedModel):
         op_parallel_config (optional): Operator parallel strategy. Default: `OpParallelConfig()`.
         embed_parallel_config (optional): Operator parallel strategy. Default: `EmbeddingOpParallelConfig()`.
     """
+
     def __init__(self,
                  config,
                  op_parallel_config=default_dpmp_config,
@@ -174,7 +175,7 @@ class GLMModel(GLMPreTrainedModel):
 
         self.layers = nn.CellList()
         for i in range(config.num_layers):
-            layer = get_layer(i+1)
+            layer = get_layer(i + 1)
             set_parallel_configure_for_layer(layer, layer_id=i, layers=config.num_layers,
                                              offset=0, parallel_config=op_parallel_config)
             self.layers.append(layer)
@@ -185,7 +186,10 @@ class GLMModel(GLMPreTrainedModel):
             self.final_layernorm = layernorm(config.hidden_size, eps=config.layernorm_epsilon)
             self.final_layernorm.shard(((op_parallel_config.data_parallel, 1, 1),))
 
-    def construct(self, input_ids, position_ids, attention_mask, init_reset=True, batch_valid_length=None):
+    # pylint: disable=W0613
+    def construct(self, input_ids, position_ids, attention_mask, init_reset=True, batch_valid_length=None,
+                  labels=None, input_position=None, input_embeds=None, batch_index=None, zactivate_len=None,
+                  block_tables=None, slot_mapping=None):
         """
         Get output logits
 
@@ -382,7 +386,7 @@ class GLMForPreTraining(GLMPreTrainedModel):
                 int(index_value) - i * input_ids.shape[1]
             )  # multibatch
             # use numpy to slice array to avoid complie ascend slice op
-            inputs_tmp.append(input_ids[i][current_index_tmp : current_index_tmp + 1])
+            inputs_tmp.append(input_ids[i][current_index_tmp: current_index_tmp + 1])
             position_ids_tmp.append(position_ids[i][..., current_index_tmp:current_index_tmp + 1])
             attention_mask_tmp.append(attention_mask[i][:, current_index_tmp:current_index_tmp + 1, :])
         inputs_tmp = np.array(inputs_tmp, dtype=np.int32)
@@ -402,7 +406,8 @@ class GLMForPreTraining(GLMPreTrainedModel):
 
     # pylint: disable=W0613
     def construct(self, input_ids, labels=None, position_ids=None, attention_mask=None,
-                  input_position=None, input_embeds=None, init_reset=True, batch_valid_length=None):
+                  input_position=None, input_embeds=None, init_reset=True, batch_valid_length=None,
+                  batch_index=None, zactivate_len=None, block_tables=None, slot_mapping=None):
         """
         Extract logits and calculate loss
 
@@ -510,8 +515,9 @@ class GLMChatModel(GLMForPreTraining):
         return p, p_args
 
     # pylint:disable=arguments-differ,W0613
-    def construct(self, input_ids, position_ids=None, attention_mask=None, input_position=None,
-                  labels=None, input_embeds=None, init_reset=True, batch_valid_length=None):
+    def construct(self, input_ids, position_ids=None, attention_mask=None, init_reset=True, batch_valid_length=None,
+                  labels=None, input_position=None, input_embeds=None, batch_index=None, zactivate_len=None,
+                  block_tables=None, slot_mapping=None):
         """Get probs and p_args"""
         # model forward
         output_states, _ = self.transformer(input_ids, position_ids, attention_mask, init_reset, batch_valid_length)

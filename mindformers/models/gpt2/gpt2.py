@@ -120,7 +120,8 @@ class GPT2LMHeadModel(GPT2PreTrainedModel):
 
     # pylint: disable=W0613
     def construct(self, input_ids, attention_mask=None, input_embeds=None, labels=None, input_position=None,
-                  position_ids=None, init_reset=True, batch_valid_length=None):
+                  position_ids=None, init_reset=True, batch_valid_length=None, batch_index=None, zactivate_len=None,
+                  block_tables=None, slot_mapping=None):
         r"""
             construct function for Language Modeling
 
@@ -452,7 +453,10 @@ class GPT2Model(GPT2PreTrainedModel):
         if self.use_past:
             self.ones = P.Ones()
 
-    def construct(self, input_ids, attention_mask, input_position=None, init_reset=True, batch_valid_length=None):
+    # pylint: disable=W0613
+    def construct(self, input_ids, attention_mask=None, input_position=None, init_reset=True, batch_valid_length=None,
+                  labels=None, input_embeds=None, batch_index=None, zactivate_len=None, position_ids=None,
+                  block_tables=None, slot_mapping=None):
         """GPT model"""
         batch_size, seq_length = F.shape(input_ids)
         if self.use_past:

@@ -221,7 +221,7 @@ class ChatGLM2ForConditionalGeneration(GLM2PreTrainedModel):
     # pylint: disable=W0613
     def construct(self, input_ids=None, labels=None, input_position=None, position_ids=None, attention_mask=None,
                   input_embeds=None, init_reset=True, batch_valid_length=None, prefix_key_values=None,
-                  block_tables=None, slot_mapping=None):
+                  block_tables=None, slot_mapping=None, batch_index=None, zactivate_len=None):
         """ChatGLM2 for conditional generation model."""
         # input_ids: (bs, seq_len)
         # position_ids: (bs, seq_len)
@@ -322,10 +322,10 @@ class ChatGLM2WithPtuning2(ChatGLM2ForConditionalGeneration):
         # freeze pretrained model
         PetAdapter.freeze_pretrained_model(self, config.pet_config.pet_type)
 
+    # pylint: disable=W0613
     def construct(self, input_ids=None, labels=None, input_position=None, position_ids=None, attention_mask=None,
                   input_embeds=None, init_reset=True, batch_valid_length=None, prefix_key_values=None,
-                  block_tables=None, slot_mapping=None):
-
+                  block_tables=None, slot_mapping=None, batch_index=None, zactivate_len=None):
         if not self.use_past or self.is_first_iteration:
             batch_size = input_ids.shape[0]
             prefix_key_values = self.prefix_encoder(batch_size)
