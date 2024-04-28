@@ -1163,8 +1163,8 @@ class TopkRouterV2(Cell):
         k = self.num_experts_chosen
         tokens_per_group = self.shape(expert_index)[1]
         kn = k * tokens_per_group # this n refers to N
-        expert_capacity = calculate_expert_capacity(self.num_experts_chosen, tokens_per_group,
-                                                    self.capacity_factor, self.expert_dim)
+        expert_capacity = calculate_expert_capacity_v2(self.num_experts_chosen, tokens_per_group,
+                                                       self.capacity_factor, self.expert_dim, self.mp)
 
         # calculate combine_index from cumsum
         #S-drop(N,k)

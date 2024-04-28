@@ -18,6 +18,7 @@ ConvertWeight支持对torch权重和mindspore权重的格式互转
 | blip        | blip2               |
 | wizardcoder | wizardcoder         |
 | skywork     | skywork             |
+| mixtral     | mixtral             |
 
 ## 使用方式
 

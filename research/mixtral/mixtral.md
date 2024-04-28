@@ -36,9 +36,10 @@ Mixtral是MistralAI基于Mistral的更新版本，目前有4个版本：Mixtral-
 
    ```bash
    mixtral
-    ├── run_mixtral-8x7b_train.yaml       # 8x7b模型预训练启动配置
-    ├── run_mixtral-8x7b_finetune.yaml    # 8x7b模型全参微调启动配置
-    └── convert_weight.py                 # 权重转换脚本
+    ├── pretrain_mixtral-8x7b.yaml       # 8x7b模型预训练启动配置
+    ├── finetune_mixtral-8x7b.yaml    # 8x7b模型全参微调启动配置
+    ├── convert_weight.py                 # 权重转换脚本（torch_to_ms）
+    └── convert_reversed.py               # 权重反转脚本（ms_to_torch）
    ```
 
 3. 数据预处理脚本：
@@ -72,16 +73,22 @@ Mixtral是MistralAI基于Mistral的更新版本，目前有4个版本：Mixtral-
 
 下载完成后，运行如下转换脚本，将huggingface的权重转换为完整的ckpt权重。
 
+> **注：此处的convert_weight.py指mindformers下的统一权重转换脚本**
+
 ```shell
-python mindformers/research/mixtral/convert_weight.py \
---torch_ckpt_dir {path}/torch_ckpt_dir \
---mindspore_ckpt_path {path}/ms_ckpt_path
+python convert_weight.py \
+--model mixtral \
+--input_path {path}/torch_ckpt_dir \
+--output_path {path}/ms_ckpt_path/mixtral.ckpt \
+--dtype fp16
 ```
 
 ```text
 # 参数说明
-torch_ckpt_dir: huggingface权重保存目录路径,填写safetensors文件的保存路径。
-mindspore_ckpt_path: ms权重保存文件路径，可以指定自定义保存路径。
+model: 指明待转换权重的模型。
+input_path: huggingface权重保存目录路径,填写safetensors文件的保存路径即可。
+output_path: ms权重保存文件路径，需指定到保存权重的名称。
+dtype: 指定转换出的ms权重的数据类型。
 ```
 
 #### mindspore权重转torch权重
@@ -89,17 +96,43 @@ mindspore_ckpt_path: ms权重保存文件路径，可以指定自定义保存路
 在生成mindspore权重之后如需使用torch运行，可根据如下命令转换：
 
 ```shell
-python mindformers/research/mixtral/convert_reversed.py \
---mindspore_ckpt_path {path}/ms_ckpt_path \
---torch_ckpt_dir {path}/torch_ckpt_dir \
---strategy_dir {path}/strategy_dir \
+python convert_weight.py \
+--model mixtral \
+--reversed \
+--input_path {path}/ms_ckpt_path/mixtral.ckpt \
+--output_path {path}/torch_ckpt_dir/ \
+--dtype fp16
 ```
 
 ```text
 # 参数说明：
-mindspore_ckpt_path: 待转换的mindspore权重或分布式权重的文件夹路径，此参数必须。
-torch_ckpt_path: 转换后的输出文件存放路径，此参数必须。
-strategy_dir: 若为分布式权重，填写待转换mindspore权重的strategy文件路径。若为完整权重则无需此参数。
+model: 指明待转换权重的模型。
+reversed: 开启权重反转。
+input_path: 待转换的mindspore权重（完整权重），需指定到.ckpt文件。
+output_path: 转换后的torch权重存放路径，路径必须以'/'结尾。
+dtype: 指定转换出的torch权重的数据类型。
+```
+
+若待转换的ms权重是分布式权重，可根据如下命令转换：
+
+```shell
+python convert_weight.py \
+--model mixtral \
+--reversed \
+--input_path {path}/ms_ckpt_path/ \
+--output_path {path}/torch_ckpt_dir/ \
+--dtype fp16 \
+--strategy_dir {path}/strategy_dir
+```
+
+```text
+# 参数说明：
+model: 指明待转换权重的模型。
+reversed: 开启权重反转。
+input_path: 待转换的mindspore权重（分布式权重）存放路径。
+output_path: 转换后的torch权重存放路径，路径必须以'/'结尾。
+dtype: 指定转换出的torch权重的数据类型。
+strategy_dir: 待转换mindspore权重的strategy文件路径
 ```
 
 ### 模型权重切分和合并
@@ -172,13 +205,13 @@ python llama_preprocess.py \
 
 ##### 多机多卡
 
-- step 1. 在模型对应的配置文件`research/mixtral/run_mixtral-8x7b_train.yaml`中，用户可自行修改模型、训练相关参数(推荐开启flash_attention，可加速训练) 通过配置中的`train_dataset`的`dataset_dir`参数，指定训练数据集的路径。
+- step 1. 在模型对应的配置文件`research/mixtral/pretrain_mixtral-8x7b.yaml`中，用户可自行修改模型、训练相关参数(推荐开启flash_attention，可加速训练) 通过配置中的`train_dataset`的`dataset_dir`参数，指定训练数据集的路径。
 
 - step 2. 根据服务器节点数等信息，修改相应的配置。
 
 ``` bash
 # 以mixtral-8x7b模型两机训练为例，默认配置2机16卡，如果节点数有变，需要修改相应的配置。
-# 配置文件路径：../research/mixtral/run_mixtral-8x7b_train.yaml
+# 配置文件路径：../research/mixtral/pretrain_mixtral-8x7b.yaml
 parallel_config:
   data_parallel: 8
   model_parallel: 1
@@ -213,8 +246,8 @@ moe_config:
 ```shell
 # 节点0，节点ip为192.168.1.1，作为主节点，总共16卡且每个节点8卡
 cd mindformers/research
-bash ../scripts/msrun_launcher.sh "run_mindformer.py \
- --config mixtral/run_mixtral-8x7b_train.yaml \
+bash ../scripts/msrun_launcher.sh "../run_mindformer.py \
+ --config mixtral/pretrain_mixtral-8x7b.yaml \
  --run_mode train \
  --use_parallel True \
  --train_data dataset_dir" \
@@ -222,8 +255,8 @@ bash ../scripts/msrun_launcher.sh "run_mindformer.py \
 
 # 节点1，节点ip为192.168.1.2，节点0与节点1启动命令仅参数NODE_RANK不同
 cd mindformers/research
-bash ../scripts/msrun_launcher.sh "run_mindformer.py \
- --config mixtral/run_mixtral-8x7b_train.yaml \
+bash ../scripts/msrun_launcher.sh "../run_mindformer.py \
+ --config mixtral/pretrain_mixtral-8x7b.yaml \
  --run_mode train \
  --use_parallel True \
  --train_data dataset_dir" \
@@ -312,7 +345,7 @@ python llama_preprocess.py \
 
 当前模型已支持使用`Flash Attention`算法进行全参微调，推荐开启flash_attention，可加速训练。详请参考 [Flash Attention使用文档](https://gitee.com/mindspore/mindformers/blob/dev/docs/feature_cards/Training_Algorithms.md#flash-attention)
 
-- step 1. 将`../research/mixtral/run_mixtral-8x7b_finetune.yaml`中训练数据集路径为微调数据集路径。
+- step 1. 将`../research/mixtral/finetune_mixtral-8x7b.yaml`中训练数据集路径为微调数据集路径。
 
 ```bash
 train_dataset: &train_dataset
@@ -366,8 +399,8 @@ model:
 ```shell
 # 节点0，节点ip为192.168.1.1，作为主节点，总共16卡且每个节点8卡
 cd mindformers/research
-bash ../scripts/msrun_launcher.sh "run_mindformer.py \
- --config mixtral/run_mixtral-8x7b_finetune.yaml \
+bash ../scripts/msrun_launcher.sh "../run_mindformer.py \
+ --config mixtral/finetune_mixtral-8x7b.yaml \
  --load_checkpoint model_dir \
  --run_mode finetune \
  --use_parallel True \
@@ -375,8 +408,9 @@ bash ../scripts/msrun_launcher.sh "run_mindformer.py \
  16 8 192.168.1.1 8118 0 output/msrun_log False 300
 
 # 节点1，节点ip为192.168.1.2，节点0与节点1启动命令仅参数NODE_RANK不同
-bash scripts/msrun_launcher.sh "run_mindformer.py \
- --config mixtral/run_mixtral-8x7b_finetune.yaml \
+cd mindformers/research
+bash ../scripts/msrun_launcher.sh "../run_mindformer.py \
+ --config mixtral/finetune_mixtral-8x7b.yaml \
  --load_checkpoint model_dir \
  --run_mode finetune \
  --use_parallel True \
