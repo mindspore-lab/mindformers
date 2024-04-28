@@ -129,12 +129,6 @@ class TextGenerationPipeline(Pipeline):
         Return:
             Processed text.
         """
-        if (self.model_name is not None and self.model_name.startswith("glm32k")) or (
-                hasattr(self.tokenizer, "name") and self.tokenizer.name == "ChatGLM3Tokenizer"):
-            if isinstance(inputs, list):
-                return self.tokenizer.build_batch_input(inputs)
-            return self.tokenizer.build_chat_input(inputs)
-
         add_special_tokens = preprocess_params.get('add_special_tokens', True)
         if isinstance(inputs, dict):
             keys = preprocess_params.get('keys', None)

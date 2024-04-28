@@ -319,39 +319,125 @@ model:
 
 相关文件的下载链接如下：[tokenizer.model](https://huggingface.co/THUDM/chatglm3-6b-32k/blob/main/tokenizer.model)
 
-#### 基于Trainer接口的推理
+#### 基于generate的推理
 
-- 代码见`run_mindformer.py`
+以下为基于model.generate接口的自定义推理脚本。
 
-- 启动命令：
+```python
+# predict_custom.py 文件
+import os
+import argparse
 
-```shell
-python run_mindformer.py \
---config research/glm32k/predict_glm32k.yaml \
---run_mode predict \
---predict_data "晚上睡不着应该怎么办"
+import numpy as np
+import mindspore as ms
+from mindformers import MindFormerConfig, ChatGLM2Config, ChatGLM3Tokenizer, TransformerOpParallelConfig, ChatGLM2ForConditionalGeneration
+from mindformers import init_context
+from mindformers.tools.utils import str2bool
+
+
+def main(args):
+    """main function."""
+    # 多batch输入
+    inputs = ["晚上睡不着应该怎么办", "使用python编写快速排序代码"]
+
+    # set model config
+    config = MindFormerConfig(args.yaml_file)
+
+    # 初始化环境
+    init_context(use_parallel=False,
+                 context_config=config.context,
+                 parallel_config=config.parallel)
+
+    model_config = ChatGLM2Config(**config.model.model_config)
+    model_config.parallel_config = TransformerOpParallelConfig(**config.parallel_config)
+    model_config.batch_size = len(inputs)
+    model_config.seq_length = args.seq_length
+    if args.checkpoint_path:
+        model_config.checkpoint_name_or_path = args.checkpoint_path
+    print(f"config is: {model_config}")
+
+    # build tokenizer
+    tokenizer = ChatGLM3Tokenizer(args.tokenizer_path)
+    # build model from config
+    model = ChatGLM2ForConditionalGeneration(model_config)
+
+    if isinstance(inputs, list):
+        inputs_ids = tokenizer.build_batch_input(inputs)["input_ids"]
+    else:
+        inputs_ids = tokenizer.build_chat_input(inputs)["input_ids"]
+    outputs = model.generate(inputs_ids,
+                             max_length=model_config.max_decode_length,
+                             do_sample=model_config.do_sample,
+                             top_k=model_config.top_k,
+                             top_p=model_config.top_p)
+    for output in outputs:
+        print(tokenizer.decode(output))
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--tokenizer_path', default='/path/to/tokenizer.model', type=str,
+                        help='tokenizer model path.')
+    parser.add_argument('--checkpoint_path', default='', type=str,
+                        help='set checkpoint path.')
+    parser.add_argument('--yaml_file', default="", type=str,
+                        help='predict yaml path')
+    parser.add_argument('--seq_length', default=512, type=int,
+                        help='predict max length')
+    args = parser.parse_args()
+    main(args)
+
+# [gMASK]sop<|user|>
+# 晚上睡不着应该怎么办<|assistant|>
+# 晚上睡不着,可以参考下述建议:
+# 1. 建立规律的睡眠时间表:每天在相同的时间上床和起床,有助于身体建立规律的睡眠时间表,更容易入睡。
+# 2. 创造舒适的睡眠环境:确保睡眠环境舒适,安静,黑暗,凉爽,有助于入睡。
+# 3. 避免刺激性物质:避免饮用咖啡因和酒精等刺激性物质,这些物质会影响睡眠。
+# 4. 放松身心:在睡前放松身心,例如泡个热水澡,听些轻柔的音乐,读本书等,有助于入睡。
+# 5. 避免使用电子设备:在睡前避免使用电子设备,例如手机,平板电脑等,这些设备发出的蓝光会抑制睡眠激素的分泌,影响睡眠。
+# 6. 锻炼身体:适度的锻炼身体有助于睡眠,但避免在睡前进行剧烈运动。
+# 7. 寻求专业帮助:如果长期存在睡眠问题,建议寻求专业医生的帮助。
+#
+# 如果以上建议都无法解决问题,建议咨询医生,了解更具体的解决方案。
+# [gMASK]sop<|user|>
+# 使用python编写快速排序代码<|assistant|>
+# 快速排序（Quick Sort）是一种高效的排序算法，其基本思想是通过一趟排序将待排记录分隔成独立的两部分，其中一部分记录的关键字均比另一部分关键字小，然后分别对这两部分记录继续进行排序，以达到整个序列有序。
+#
+# 下面是使用 Python 编写的快速排序代码：
+#
+# ```python
+# def quick_sort(arr):
+#     if len(arr) <= 1:
+#         return arr
+#     pivot = arr[len(arr) // 2]
+#     left = [x for x in arr if x < pivot]
+#     middle = [x for x in arr if x == pivot]
+#     right = [x for x in arr if x > pivot]
+#     return quick_sort(left) + middle + quick_sort(right)
+#
+# arr = [3,6,8,10,1,2,1]
+# print("原始数组：", arr)
+# print("排序后的数组：", quick_sort(arr))
+# ```
+#
+# 这段代码首先定义了一个名为 `quick_sort` 的函数，该函数接受一个列表作为参数。然后，我们选择列表中间的元素作为基准值（pivot），并将列表中的元素分为三部分：小于基准值的元素（left）、等于基准值的元素（middle）和大于基准值的元素（right）。最后，我们递归地对左右两部分进行快速排序，并将排序后的结果合并在一起。
+#
+# 运行这段代码，输出结果如下：
+#
+# ```
+# 原始数组： [3, 6, 8, 10, 1, 2, 1]
+# 排序后的数组： [1, 1, 2, 3, 6, 8, 10]
+# ```
+#
+# 这就是使用 Python 编写的快速排序代码。
 ```
 
 ```text
 # 参数说明
-config: yaml配置路径
-run_mode: 模式，predict执行推理
-predict_data: 输入的问题
-```
-
-```text
-# 输出结果
-output:
-[gMASK]sop<|user|>
- 晚上睡不着应该怎么办<|assistant|>
- 晚上睡不着,可以参考下述建议:
-1. 建立规律的睡眠时间表:每天在相同的时间上床和起床,有助于身体建立规律的睡眠时间表,更容易入睡。
-2. 创造舒适的睡眠环境:确保睡眠环境舒适,安静,黑暗,凉爽,有助于入睡。
-3. 避免刺激性物质:避免饮用咖啡因和酒精等刺激性物质,这些物质会影响睡眠。
-4. 放松身心:在睡前放松身心,例如泡个热水澡,听些轻柔的音乐,读本书等,有助于入睡。
-5. 避免使用电子设备:在睡前避免使用电子设备,例如手机,平板电脑等,这些设备发出的蓝光会抑制睡眠激素的分泌,影响睡眠。
-6. 锻炼身体:适度的锻炼身体有助于睡眠,但避免在睡前进行剧烈运动。
-如果以上方法都无法解决问题,建议咨询医生或专业睡眠专家,获得更具体的建议和治疗方案。
+tokenizer_path: tokenizer.model路径
+checkpoint_path: 权重路径
+yaml_file: yaml配置路径
+seq_length: 模型的seq_length
 ```
 
 ### 开源数据集评测

@@ -215,7 +215,7 @@ class ChatGLM3Tokenizer(PreTrainedTokenizer):
         input_ids.extend([self.get_command("<|assistant|>")])
         return self.batch_encode_plus([input_ids], return_tensors="np", is_split_into_words=True)
 
-    def build_batch_input(self, queries, histories=None, roles="user"):
+    def build_batch_input(self, queries, histories=None, roles="user", padding=True):
         """build batch input with role."""
         if isinstance(queries, str):
             queries = [queries]
@@ -245,7 +245,7 @@ class ChatGLM3Tokenizer(PreTrainedTokenizer):
             input_ids.extend([self.get_command("<|assistant|>")])
             batch_inputs.append(input_ids)
 
-        return self.batch_encode_plus(batch_inputs, return_tensors="np", is_split_into_words=True)
+        return self.batch_encode_plus(batch_inputs, return_tensors="np", is_split_into_words=True, padding=padding)
 
 
     def tokenize(self, text, pair=None, add_special_tokens=True, **kwargs):
