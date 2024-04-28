@@ -406,7 +406,7 @@ python evaluate_ceval.py -d data/ceval/
    --predict_data '比较适合深度学习入门的书籍有' \
    --run_mode predict \
    --load_checkpoint /path/qwen_7b_base.ckpt \
-   --seq_length 1024 \
+   --seq_length 2048 \
    --device_id 0
    # 比较适合深度学习入门的书籍有《Python深度学习》、《深度学习入门》、《动手学深度学习》等。这些书籍都比较容易理解，适合初学者。
    ```
@@ -448,7 +448,7 @@ python evaluate_ceval.py -d data/ceval/
    --use_parallel True \
    --load_checkpoint /path/model_dir \
    --auto_trans_ckpt True \
-   --seq_length 1024 \
+   --seq_length 2048 \
    --predict_data 比较适合深度学习入门的书籍有" \
    RANK_TABLE_FILE [0,2] 2
 
