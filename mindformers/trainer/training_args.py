@@ -1474,6 +1474,7 @@ class TrainingArguments:
         task_config.auto_trans_ckpt = _check_training_args(task_config.auto_trans_ckpt, self.auto_trans_ckpt)
         task_config.src_strategy_path_or_dir = _check_training_args(task_config.src_strategy, self.src_strategy)
         task_config.load_checkpoint = _check_training_args(task_config.load_checkpoint, self.resume_from_checkpoint)
+        task_config.resume_training = _check_training_args(task_config.resume_training, self.resume_training)
         task_config.ignore_data_skip = _check_training_args(task_config.ignore_data_skip, self.ignore_data_skip)
         task_config.do_train = _check_training_args(task_config.do_train, self.do_train)
         task_config.do_eval = _check_training_args(task_config.do_eval, self.do_eval)
