@@ -853,6 +853,7 @@ class SpecialTokensMixin:
         self._pad_token_type_id = 0
         self._additional_special_tokens = []
         self.verbose = verbose
+        self.reset_special_tokens_cache()
 
         # We directly set the hidden value to allow initialization with special tokens
         # which are not yet in the vocabulary. Necessary for serialization/de-serialization
@@ -878,6 +879,10 @@ class SpecialTokensMixin:
         transformers v5.
         """
         return self.add_tokens(self.all_special_tokens_extended, special_tokens=True)
+
+    def reset_special_tokens_cache(self):
+        self._all_special_tokens = []
+        self._all_special_ids = []
 
     def add_special_tokens(
             self, special_tokens_dict: Dict[str, Union[str, AddedToken]], replace_additional_special_tokens=True
@@ -1347,7 +1352,11 @@ class SpecialTokensMixin:
 
         Convert tokens of `tokenizers.AddedToken` type to string.
         """
+        if self._all_special_tokens:
+            return self._all_special_tokens
+
         all_toks = [str(s) for s in self.all_special_tokens_extended]
+        self._all_special_tokens = all_toks
         return all_toks
 
     @property
@@ -1355,8 +1364,12 @@ class SpecialTokensMixin:
         """
         `List[int]`: List the ids of the special tokens(`'<unk>'`, `'<cls>'`, etc.) mapped to class attributes.
         """
+        if self._all_special_ids:
+            return self._all_special_ids
+
         all_toks = self.all_special_tokens
         all_ids = self.convert_tokens_to_ids(all_toks)
+        self._all_special_ids = all_ids
         return all_ids
 
 

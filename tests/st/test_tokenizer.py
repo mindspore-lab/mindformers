@@ -90,3 +90,46 @@ def test_all_tokenizers():
         # if not os.path.exists(path):
         #     os.mkdir(path)
         # tokenizer.save_vocabulary(path, tokenizer_item)
+
+@pytest.mark.level0
+@pytest.mark.platform_x86_cpu
+@pytest.mark.env_onecard
+def test_all_special_tokens():
+    """
+    Feature: Test special_tokens.
+    Description: Test all special_tokens and special_ids cache after add_tokens.
+    Expectation: No exception.
+    """
+
+    tokenizer_list = ["gpt2", "bert_base_uncased", "llama_7b", "bloom_560m",
+                      "pangualpha_2_6b", "clip_vit_b_32", "glm_6b", "t5_small", "glm2_6b", "llama2_7b"]
+    special_tokens_list = ["<s>", "</s>", "<unk>", "<pad>", "<cls>",
+                           "<extra_id_77>", "<extra_id_88>", "<extra_id_99>"]
+
+    for _, tokenizer_item in enumerate(tokenizer_list):
+        tokenizer = AutoTokenizer.from_pretrained(tokenizer_item)
+
+        default_all_special_tokens = tokenizer.all_special_tokens
+        default_all_special_ids = tokenizer.all_special_ids
+        cached_all_special_tokens = tokenizer.all_special_tokens
+        cached_all_special_ids = tokenizer.all_special_ids
+        assert default_all_special_tokens == cached_all_special_tokens
+        assert default_all_special_ids == cached_all_special_ids
+
+        print("{}: cached_special_tokens is {}, cached_special_ids is {}"
+              .format(tokenizer_item, cached_all_special_tokens, cached_all_special_ids))
+
+        tokenizer.add_tokens(special_tokens_list, special_tokens=True)
+
+        added_all_special_tokens = tokenizer.all_special_tokens
+        added_all_special_ids = tokenizer.all_special_ids
+        assert set(default_all_special_tokens) < set(added_all_special_tokens)
+        assert set(default_all_special_ids) < set(added_all_special_ids)
+
+        cached_all_special_tokens = tokenizer.all_special_tokens
+        cached_all_special_ids = tokenizer.all_special_ids
+        assert added_all_special_tokens == cached_all_special_tokens
+        assert added_all_special_ids == cached_all_special_ids
+
+        print("{}: after add_tokens {}, cached_special_tokens is {}, cached_special_ids is {}"
+              .format(tokenizer_item, special_tokens_list, cached_all_special_tokens, cached_all_special_ids))
