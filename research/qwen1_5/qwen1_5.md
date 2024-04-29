@@ -172,6 +172,7 @@ python qwen1_5/qwen1_5_preprocess.py \
 1. 当前支持模型已提供yaml文件，下文以Qwen-72B为例，即使用`finetune_qwen1_5_72b.yaml`配置文件进行介绍，请根据实际使用模型更改配置文件。
 
    当前模型已支持使用**Flash Attention算法**进行全参微调，请参考 [Flash Attention使用文档](../../docs/feature_cards/Training_Algorithms.md#flash-attention)
+   warning: [cann7.2, ms2.3, qwen1.5训练bf16, loss溢出问题规避方案](https://gitee.com/mindspore/mindformers/issues/I9KA3Z?from=project-issue)
 
 2. 设置如下环境变量：
 
