@@ -34,13 +34,17 @@ ms.set_context(mode=0, device_target='CPU')
 
 
 def build_model(config):
+    """build model from yaml"""
     model_config = MindFormerConfig(os.path.realpath(config))
     model_config = LlamaConfig(**model_config.model.model_config)
     model_config.num_layers = 2
     model_config.checkpoint_name_or_path = None
-    _ = LlamaForCausalLM(model_config)
-    logger.info(f"config path: {config}")
-    logger.info(f"config instance: {model_config}")
+    try:
+        _ = LlamaForCausalLM(model_config)
+    except Exception as e:
+        logger.error(e)
+        logger.error(f"Create Model with {config} Failed.")
+        raise AssertionError
 
 
 @pytest.mark.level0
@@ -58,6 +62,8 @@ def test_configs():
         if path.endswith('/site-packages'):
             config_path = os.path.join(path, 'configs/llama2/*.yaml')
             configs += glob(config_path)
+            if configs:
+                break
     assert configs
 
     with Pool(20) as pl:
