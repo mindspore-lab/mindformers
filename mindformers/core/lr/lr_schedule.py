@@ -90,7 +90,8 @@ class ConstantWarmUpLR(LearningRateSchedule):
     """
 
     @args_type_check(
-        learning_rate=float, warmup_steps=int, warmup_lr_init=float, warmup_ratio=float, total_steps=int
+        learning_rate=(int, float), warmup_steps=int, warmup_lr_init=(int, float), warmup_ratio=(int, float),
+        total_steps=int
     )
     def __init__(self, learning_rate: float, warmup_steps: int = None, warmup_lr_init: float = 0.,
                  warmup_ratio: float = None, total_steps: int = None, **kwargs):
@@ -136,7 +137,8 @@ class LinearWithWarmUpLR(LearningRateSchedule):
     """
 
     @args_type_check(
-        learning_rate=float, warmup_steps=int, warmup_lr_init=float, warmup_ratio=float, total_steps=int
+        learning_rate=(int, float), warmup_steps=int, warmup_lr_init=(int, float), warmup_ratio=(int, float),
+        total_steps=int
     )
     def __init__(self, learning_rate: float, total_steps: int, warmup_steps: int = None,
                  warmup_lr_init: float = 0., warmup_ratio: float = None,
@@ -196,8 +198,8 @@ class CosineWithWarmUpLR(LearningRateSchedule):
     """
 
     @args_type_check(
-        learning_rate=float, warmup_steps=int, warmup_lr_init=float, warmup_ratio=float, total_steps=int,
-        num_cycles=float, lr_end=float
+        learning_rate=(int, float), warmup_steps=int, warmup_lr_init=(int, float), warmup_ratio=(int, float),
+        total_steps=int, num_cycles=(int, float), lr_end=(int, float)
     )
     def __init__(self, learning_rate: float, warmup_steps: int = 0, total_steps: int = None,
                  num_cycles: float = 0.5, lr_end: float = 0., warmup_lr_init: float = 0.,
@@ -271,8 +273,8 @@ class CosineWithRestartsAndWarmUpLR(LearningRateSchedule):
     """
 
     @args_type_check(
-        learning_rate=float, warmup_steps=int, warmup_lr_init=float, warmup_ratio=float, total_steps=int,
-        num_cycles=float, lr_end=float
+        learning_rate=(int, float), warmup_steps=int, warmup_lr_init=(int, float), warmup_ratio=(int, float),
+        total_steps=int, num_cycles=(int, float), lr_end=(int, float)
     )
     def __init__(self, learning_rate: float, warmup_steps: int = None, total_steps: int = None,
                  num_cycles: float = 1., lr_end: float = 0., warmup_lr_init: float = 0.,
@@ -350,8 +352,8 @@ class PolynomialWithWarmUpLR(LearningRateSchedule):
     """
 
     @args_type_check(
-        learning_rate=float, warmup_steps=int, warmup_lr_init=float, warmup_ratio=float, total_steps=int,
-        lr_end=float, power=float
+        learning_rate=(int, float), warmup_steps=int, warmup_lr_init=(int, float), warmup_ratio=(int, float),
+        total_steps=int, lr_end=(int, float), power=(int, float)
     )
     def __init__(self, learning_rate: float, total_steps: int, warmup_steps: int = None,
                  lr_end: float = 1e-7, power: float = 1.0, warmup_lr_init: float = 0.,
@@ -460,7 +462,7 @@ class CosineAnnealingLR(LearningRateSchedule):
         https://arxiv.org/abs/1608.03983
     """
 
-    @args_type_check(base_lr=float, t_max=int, eta_min=float)
+    @args_type_check(base_lr=(int, float), t_max=int, eta_min=(int, float))
     def __init__(self, base_lr: float, t_max: int, eta_min: float = 0., **kwargs):
         super(CosineAnnealingLR, self).__init__()
         if t_max < 1 or not isinstance(t_max, int):
@@ -515,7 +517,7 @@ class CosineAnnealingWarmRestarts(LearningRateSchedule):
         https://arxiv.org/abs/1608.03983
     """
 
-    @args_type_check(base_lr=float, t_0=int, t_mult=int, eta_min=float)
+    @args_type_check(base_lr=(int, float), t_0=int, t_mult=int, eta_min=(int, float))
     def __init__(self, base_lr: float, t_0: int, t_mult: int = 1, eta_min: float = 0., **kwargs):
         super(CosineAnnealingWarmRestarts, self).__init__()
         if t_0 < 1 or not isinstance(t_0, int):
