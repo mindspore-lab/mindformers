@@ -405,3 +405,14 @@ class ChatGLM3Tokenizer(PreTrainedTokenizer):
             encoded_inputs[self.model_input_names[0]] = required_input + [self.pad_token_id] * difference
 
         return encoded_inputs
+
+
+    # pylint: disable=W0221
+    def apply_chat_template(self, conversation, **tokenizer_kwargs):
+        queries, roles = [], []
+        if isinstance(conversation, list):
+            for item in conversation:
+                if "content" in item and "role" in item:
+                    queries.append(item.get("content"))
+                    roles.append(item.get("role"))
+        return self.build_batch_input(queries=queries, roles=roles, padding=True)["input_ids"]
