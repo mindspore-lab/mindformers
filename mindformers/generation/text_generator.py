@@ -1123,7 +1123,7 @@ class GenerationMixin:
                     target_list[i] = target
                 # Stop judgment
                 if target_list[i] == generation_config.eos_token_id \
-                        or valid_length_each_example[i] == generation_config.max_length - 1:
+                        or valid_length_each_example[i] == generation_config.max_length:
                     is_finished[i] = True
 
         elif generation_config.generation_mode == GenerationMode.SAMPLE:
@@ -1159,7 +1159,7 @@ class GenerationMixin:
                 target_list[i] = target
                 # Stop judgment
                 if p_args[i][target_index] == generation_config.eos_token_id \
-                        or valid_length_each_example[i] == generation_config.max_length - 1:
+                        or valid_length_each_example[i] == generation_config.max_length:
                     is_finished[i] = True
 
         elif generation_config.generation_mode == GenerationMode.BEAM_SEARCH:
