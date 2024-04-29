@@ -145,10 +145,10 @@ model:
     initializer_range: 0.02
     eos_token: 0
     pad_token: 49152
-    param_init_type: "bfloat16"
+    param_init_type: "float16"
     layernorm_dtype: "float32"
     softmax_dtype: "float16"
-    compute_dtype: "bfloat16"
+    compute_dtype: "float16"
     use_past: False
     use_seq_parallel: True
     use_select_recompute: True
