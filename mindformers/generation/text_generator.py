@@ -851,6 +851,7 @@ class GenerationMixin:
                 for i in range(batch_size):
                     if is_finished[i]:
                         continue
+
                     input_ids[i, valid_length_each_example[i]] = target_list[i]
 
                     if self.config.is_encoder_decoder:
@@ -858,6 +859,11 @@ class GenerationMixin:
 
                     valid_length_each_example[i] += int(1)
                     input_mask[i][valid_length_each_example[i] - 1] = 1
+
+                    # Stop judgment
+                    if target_list[i] == generation_config.eos_token_id \
+                            or valid_length_each_example[i] == generation_config.max_length:
+                        is_finished[i] = True
 
                 if streamer is not None:
                     if batch_size == 1:
@@ -1121,10 +1127,6 @@ class GenerationMixin:
                     target_index = target_index_list[i]
                     target = p_args[i][target_index]
                     target_list[i] = target
-                # Stop judgment
-                if target_list[i] == generation_config.eos_token_id \
-                        or valid_length_each_example[i] == generation_config.max_length:
-                    is_finished[i] = True
 
         elif generation_config.generation_mode == GenerationMode.SAMPLE:
             if not self.config.is_sample_acceleration:
@@ -1157,10 +1159,6 @@ class GenerationMixin:
                 # get target token id
                 target = p_args[i][target_index]
                 target_list[i] = target
-                # Stop judgment
-                if p_args[i][target_index] == generation_config.eos_token_id \
-                        or valid_length_each_example[i] == generation_config.max_length:
-                    is_finished[i] = True
 
         elif generation_config.generation_mode == GenerationMode.BEAM_SEARCH:
             raise ValueError("sampler method doesn't support BEAM_SEARCH. ")
