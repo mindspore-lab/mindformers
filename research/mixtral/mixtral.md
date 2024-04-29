@@ -36,8 +36,9 @@ Mixtral是MistralAI基于Mistral的更新版本，目前有4个版本：Mixtral-
 
    ```bash
    mixtral
-    ├── pretrain_mixtral-8x7b.yaml       # 8x7b模型预训练启动配置
-    ├── finetune_mixtral-8x7b.yaml    # 8x7b模型全参微调启动配置
+    ├── pretrain_mixtral-8x7b.yaml        # 8x7b模型预训练启动配置
+    ├── finetune_mixtral-8x7b.yaml        # 8x7b模型全参微调启动配置
+    ├── predict_mixtral-8x7b.yaml         # 8x7b模型推理启动配置
     ├── convert_weight.py                 # 权重转换脚本（torch_to_ms）
     └── convert_reversed.py               # 权重反转脚本（ms_to_torch）
    ```
@@ -149,7 +150,7 @@ strategy_dir: 待转换mindspore权重的strategy文件路径
 
 分布式训练/微调后所得到的权重文件为根据策略切分后的权重，需要手动将切分权重合一，以用于评估和推理。
 
-涉及到ckpt的单卡，多卡转换，详细教程请参考特性文档模型[权重切分与合并](../feature_cards/Transform_Ckpt.md)
+涉及到ckpt的单卡，多卡转换，详细教程请参考特性文档模型[权重切分与合并](https://gitee.com/mindspore/mindformers/blob/dev/docs/feature_cards/Transform_Ckpt.md)
 
 - step 1. 获取模型切分策略文件：
 
@@ -262,7 +263,7 @@ bash ../scripts/msrun_launcher.sh "../run_mindformer.py \
  --train_data dataset_dir" \
  16 8 192.168.1.1 8118 1 output/msrun_log False 300
 
-# 参数说明
+# 参数说明，启动命令中的参数会覆盖yaml文件中的相同参数
 config: 配置文件路径
 run_mode: 运行模式，微调时设置为finetune
 train_data: 训练数据集文件夹路径
@@ -345,7 +346,7 @@ python llama_preprocess.py \
 
 当前模型已支持使用`Flash Attention`算法进行全参微调，推荐开启flash_attention，可加速训练。详请参考 [Flash Attention使用文档](https://gitee.com/mindspore/mindformers/blob/dev/docs/feature_cards/Training_Algorithms.md#flash-attention)
 
-- step 1. 将`../research/mixtral/finetune_mixtral-8x7b.yaml`中训练数据集路径为微调数据集路径。
+- step 1. 将`../research/mixtral/finetune_mixtral-8x7b.yaml`中训练数据集路径改为微调数据集路径。
 
 ```bash
 train_dataset: &train_dataset
@@ -392,7 +393,7 @@ model:
     seq_length: 4096
 ```
 
-- step 3. 添加预训练权重路径，修改配置文件中的`load_checkpoint`，配置预训练权重路径。若无共享磁盘，跨机需先手动切分权重，详细教程请参考特性文档模型[权重切分与合并](../feature_cards/Transform_Ckpt.md)
+- step 3. 添加预训练权重路径，修改配置文件中的`load_checkpoint`，配置预训练权重路径。若无共享磁盘，跨机需先手动切分权重，详细教程请参考特性文档模型[权重切分与合并](https://gitee.com/mindspore/mindformers/blob/dev/docs/feature_cards/Transform_Ckpt.md)
 
 - step 4. 启动微调任务，以两机16卡为例进行微调，命令如下：
 
@@ -417,9 +418,49 @@ bash ../scripts/msrun_launcher.sh "../run_mindformer.py \
  --train_data dataset_dir" \
  16 8 192.168.1.1 8118 1 output/msrun_log False 300
 
- # 参数说明
+ # 参数说明，启动命令中的参数会覆盖yaml文件中的相同参数
 config: 配置文件路径
 load_checkpoint: 切分好的分布式权重文件夹路径，权重按照model_dir/rank_x/xxx.ckpt格式，文件夹路径填写为model_dir
 run_mode: 运行模式，微调时设置为finetune
 train_data: 训练数据集文件夹路径
 ```
+
+## 推理
+
+微调后可通过以下命令进行单机多卡推理
+
+- step 1. 修改cann包安装路径下的fusion_config.json文件，路径为`/{path}/CANN-7.X/opp/built-in/fusion_pass/fusion_config.json`
+
+```txt
+{
+  "Switch":{
+    "GrapFusion":{
+      ......
+      "ZZMatMulToMatmulV3FusionPass":"off"    #在GrapFusion中添加该行,关闭该融合算子
+    }
+  }
+}
+```
+
+- step 2. 微调后可通过以下命令进行单机多卡推理
+
+```shell
+cd mindformers/research
+bash ../scripts/msrun_launcher.sh "../run_mindformer.py \
+ --config mixtral/predict_mixtral-8x7b.yaml \
+ --run_mode predict \
+ --use_parallel True \
+ --load_checkpoint model_dir \
+ --auto_trans_ckpt True \
+ --predict_data \"mixtral is a\"" \
+ 8 8118 output/msrun_log False 300
+
+# 参数说明，启动命令中的参数会覆盖yaml文件中的相同参数
+config: 配置文件路径
+run_mode: 运行模式，推理时设置为predict
+load_checkpoint: 权重路径
+auto_trans_ckpt: 是否开启自动权重转换
+predict_data：需要推理的问题
+ ```
+
+> **注：当前mindformers的MoE属于DropMoE（有token丢弃），推理需要DroplessMoE。当前推理仅支持`use_past=False`,开启`moe_config`中的`enable_sdrop`选项可以在BS=1场景下用DropMoE达到DroplessMoE的效果，但在多Batch场景暂不支持，DroplessMoE待后续训推一体支持。**
