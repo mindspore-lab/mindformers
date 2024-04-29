@@ -197,7 +197,7 @@ class ChatGLM2ForConditionalGeneration(GLM2PreTrainedModel):
         input_ids = Tensor(input_ids, mstype.int32)
         bs = input_ids.shape[0]
         slot_mapping = Tensor(np.ones(shape=tuple([bs])), mstype.int32)
-        return input_ids, None, None, None, None, None, None, None, None, None, slot_mapping
+        return input_ids, None, None, None, None, None, None, None, None, None, slot_mapping, None, None
 
     def set_dynamic_inputs(self):
         dynamic_input_ids = Tensor(shape=[None, None], dtype=mstype.int32)
@@ -207,7 +207,7 @@ class ChatGLM2ForConditionalGeneration(GLM2PreTrainedModel):
         dynamic_block_tables = Tensor(shape=[None, None], dtype=mstype.int32)
         dynamic_slot_mapping = Tensor(shape=[None], dtype=mstype.int32)
         self.set_inputs(dynamic_input_ids, None, dynamic_input_position, None, None, None, dynamic_init_reset,
-                        dynamic_batch_valid_length, None, dynamic_block_tables, dynamic_slot_mapping)
+                        dynamic_batch_valid_length, None, dynamic_block_tables, dynamic_slot_mapping, None, None)
         logger.info("Set dynamic input for glm.")
 
     def add_flags_custom(self, is_first_iteration):
@@ -338,7 +338,9 @@ class ChatGLM2WithPtuning2(ChatGLM2ForConditionalGeneration):
             attention_mask=attention_mask,
             input_embeds=input_embeds,
             batch_valid_length=batch_valid_length,
-            prefix_key_values=prefix_key_values
+            prefix_key_values=prefix_key_values,
+            block_tables=block_tables,
+            slot_mapping=slot_mapping
         )
 
     def kvcache(self, layer_idx):
