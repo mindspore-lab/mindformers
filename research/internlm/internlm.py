@@ -88,6 +88,9 @@ class InternLMForCausalLM(LlamaForCausalLM):
 
     """
 
+    config_class = InternLMConfig
+    base_model_prefix = "internlm"
+
     @cell_reuse
     def __init__(self, config: InternLMConfig):
         checkpoint_name_or_path = config.checkpoint_name_or_path

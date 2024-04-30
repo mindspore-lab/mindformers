@@ -90,6 +90,8 @@ class InternLMConfig(LlamaConfig):
             Class, LlamaConfig.
     """
 
+    model_type = "InternLMForCausalLM"
+
     def __init__(self,
                  batch_size: int = 1,
                  seq_length: int = 2048,
