@@ -515,8 +515,8 @@ run_generate()
 
 ### BF16 支持
 
-当前版本已经支持 bf16 数据类型的训练与推理。
+当前版本仅支持 bf16 数据类型的训练，暂不支持推理。
 
 - `convert_weight.py` 脚本默认的数据类型已经改为与原始权重一致（对于通义千问而言，即`bfloat16`）;
-- 推理时可将YAML配置中的`compute_dtype`和`param_init_type`改为`bfloat16`;
+- 推理时可将YAML配置中的`compute_dtype`和`param_init_type`改为`float16`;
 - 如果打算基于 bf16 进行训练，建议加载 bf16 格式的权重，以减少数据类型转换带来的消耗和精度损失;
