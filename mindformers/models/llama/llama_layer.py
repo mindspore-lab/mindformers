@@ -34,6 +34,7 @@ from mindspore.common.initializer import initializer
 from mindspore.parallel._utils import _get_parallel_mode
 from mindspore.context import ParallelMode
 from mindformers.version_control import check_valid_big_kernel
+from mindformers.modules.transformer.op_parallel_config import default_dpmp_config
 from mindformers.modules.layers import Linear, _check_input_dtype, _args_type_validator_check, \
     _valid_value_checks
 from mindformers.tools.logger import _LogActionOnce
@@ -397,7 +398,8 @@ class LlamaFeedForward(Cell):
                  ffn_dim_multiplier=None,
                  compute_dtype=mstype.float16,
                  param_init_type=mstype.float32,
-                 is_dynamic=False):
+                 is_dynamic=False,
+                 parallel_config=default_dpmp_config):
         super().__init__()
 
         if hidden_act is None or not (isinstance(hidden_act, str) or issubclass(hidden_act, nn.Cell)):
@@ -413,6 +415,11 @@ class LlamaFeedForward(Cell):
             hidden_dim = multiple_of * \
                          ((hidden_dim + multiple_of - 1) // multiple_of)
 
+        if expert_num > 1:
+            ep = parallel_config.expert_parallel
+            dp_moe = parallel_config.data_parallel // ep
+        else:
+            dp_moe = 1
         self.dtype = compute_dtype
         self.hidden_act = hidden_act
         self.dim = dim
@@ -424,6 +431,7 @@ class LlamaFeedForward(Cell):
         self.w1 = Linear(in_channels=dim,
                          out_channels=hidden_dim,
                          expert_num=expert_num,
+                         outer_batch=dp_moe,
                          activation=hidden_act,
                          has_bias=False,
                          compute_dtype=compute_dtype,
@@ -433,6 +441,7 @@ class LlamaFeedForward(Cell):
         self.w2 = Linear(in_channels=hidden_dim,
                          out_channels=dim,
                          expert_num=expert_num,
+                         outer_batch=dp_moe,
                          has_bias=False,
                          compute_dtype=compute_dtype,
                          param_init_type=param_init_type,
@@ -441,6 +450,7 @@ class LlamaFeedForward(Cell):
         self.w3 = Linear(in_channels=dim,
                          out_channels=hidden_dim,
                          expert_num=expert_num,
+                         outer_batch=dp_moe,
                          has_bias=False,
                          compute_dtype=compute_dtype,
                          param_init_type=param_init_type,
