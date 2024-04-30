@@ -121,7 +121,8 @@ class TextStreamer(BaseStreamer):
                     self.print_len = 0
                 self.token_cache.extend(value)
         else:
-            raise ValueError("TextStreamer only supports int, or 1 ~ 2 dim numpy.ndarray/list as inputs.")
+            raise ValueError(f"TextStreamer only supports int, or 1 ~ 2 dim numpy.ndarray/list as inputs, "
+                             f"but got {type(value)} with value {value}.")
 
         # Add the new token to the cache and decodes the entire thing.
         if self.batch_stream:
