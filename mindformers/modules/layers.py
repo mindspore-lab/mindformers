@@ -876,12 +876,9 @@ class AlibiTensorV2(nn.Cell):
         alibi(Tensor), ailibi tensor shaped (batch_size, num_heads, 1, max_seq_len)
     """
 
-    def __init__(self, seq_length, num_heads):
+    def __init__(self, num_heads):
         super(AlibiTensorV2, self).__init__()
-
-        self.seq_length = seq_length
         self.num_heads = num_heads
-        self.minus_one = Tensor(-np.ones(seq_length), mstype.float32)
 
         self.expand_2d = P.ExpandDims()
         self.expand_3d = P.ExpandDims()
