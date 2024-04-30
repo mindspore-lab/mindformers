@@ -141,9 +141,6 @@ def get_checkpoint_shard_files(
     path to the
     index (downloaded and cached if `pretrained_model_name_or_path` is a model ID on the Hub).
     """
-    from openmind_hub.utils import EntryNotFoundError, OmHubHTTPError
-    from openmind_hub import try_to_load_from_cache
-
     import json
     from tqdm import tqdm
     if not os.path.isfile(index_filename):
@@ -160,6 +157,9 @@ def get_checkpoint_shard_files(
     if os.path.isdir(pretrained_model_name_or_path):
         shard_filenames = [os.path.join(pretrained_model_name_or_path, subfolder, f) for f in shard_filenames]
         return shard_filenames, sharded_metadata
+
+    from openmind_hub.utils import EntryNotFoundError, OmHubHTTPError
+    from openmind_hub import try_to_load_from_cache
 
     # At this stage pretrained_model_name_or_path is a model identifier on the Hub
     cached_filenames = []
@@ -274,18 +274,6 @@ def cached_file(
     model_weights_file = cached_file("bert-base-uncased", "pytorch_model.bin")
     ```
     """
-    from openmind_hub.utils import (
-        GatedRepoError,
-        RepositoryNotFoundError,
-        RevisionNotFoundError,
-        LocalEntryNotFoundError,
-        EntryNotFoundError,
-        OmHubHTTPError,
-        OMValidationError
-    )
-
-    from openmind_hub import _CACHED_NO_EXIST, om_hub_download, try_to_load_from_cache
-
     if is_offline_mode() and not local_files_only:
         logger.info("Offline mode: forcing local_files_only=True")
         local_files_only = True
@@ -304,6 +292,19 @@ def cached_file(
                 )
             return None
         return resolved_file
+
+    from openmind_hub.utils import (
+        GatedRepoError,
+        RepositoryNotFoundError,
+        RevisionNotFoundError,
+        LocalEntryNotFoundError,
+        EntryNotFoundError,
+        OmHubHTTPError,
+        OMValidationError
+    )
+
+    from openmind_hub import _CACHED_NO_EXIST, om_hub_download, try_to_load_from_cache
+
 
     if cache_dir is None:
         cache_dir = HubConstants.OPENMIND_CACHE
@@ -441,8 +442,6 @@ def extract_commit_hash(resolved_file: Optional[str], commit_hash: Optional[str]
     """
     Extracts the commit hash from a resolved filename toward a cache file.
     """
-    from openmind_hub import REGEX_COMMIT_HASH
-
     if resolved_file is None or commit_hash is not None:
         return commit_hash
     resolved_file = str(Path(resolved_file).as_posix())
@@ -450,6 +449,7 @@ def extract_commit_hash(resolved_file: Optional[str], commit_hash: Optional[str]
     if search is None:
         return None
     commit_hash = search.groups()[0]
+    from openmind_hub import REGEX_COMMIT_HASH
     return commit_hash if REGEX_COMMIT_HASH.match(commit_hash) else None
 
 
