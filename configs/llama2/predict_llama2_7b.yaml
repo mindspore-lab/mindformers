@@ -174,7 +174,6 @@ processor:
     bos_token: '<s>'
     eos_token: '</s>'
     pad_token: '<unk>'
-    vocab_file: "path/to/tokenizer.model"
     type: LlamaTokenizer
   type: LlamaProcessor
 
