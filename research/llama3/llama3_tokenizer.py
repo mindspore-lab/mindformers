@@ -62,7 +62,7 @@ class Llama3Tokenizer(PreTrainedTokenizer):
                  bos_token="<|begin_of_text|>",
                  eos_token="<|end_of_text|>",
                  pad_token="<|reserved_special_token_0|>",
-                 add_bos_token=True,
+                 add_bos_token=False,
                  add_eos_token=False,
                  errors="replace",
                  num_reserved_special_tokens=256,
