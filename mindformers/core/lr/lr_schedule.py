@@ -374,13 +374,12 @@ class PolynomialWithWarmUpLR(LearningRateSchedule):
         self.decay_steps = Tensor(decay_steps, mstype.float32)
         self.total_steps = Tensor(total_steps, mstype.float32)
         self.greater = P.Greater()
-        self.greater_equal = P.GreaterEqual()
         self.cast = P.Cast()
 
     def construct(self, global_step):
         """compute current step lr."""
         global_step = self.cast(global_step, mstype.float32)
-        if self.greater_equal(global_step, self.total_steps):
+        if self.greater(global_step, self.total_steps):
             # Include global_step in computation to circumvent mindspore control flow issues
             return global_step - global_step + self.lr_end
 
