@@ -83,6 +83,7 @@ class ModelRunner:
                 self.model_config = build_model_config(self.config.model.model_config)
             elif json_list:
                 self.model_config = AutoConfig.from_pretrained(model_path, trust_remote_code=True)
+                self.model_config.block_size = block_size
                 self.experiment_mode = True
             else:
                 raise FileNotFoundError(f"There is no yaml file nor config.json file for model config in {model_path}.")
