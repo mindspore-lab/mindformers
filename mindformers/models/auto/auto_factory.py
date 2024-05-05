@@ -261,7 +261,7 @@ class _BaseAutoModelClass:
 
         local_model_names = local_model_list.keys()
         if len(pretrained_model_name_or_dir.split('_')) <= cls._model_name or \
-            not pretrained_model_name_or_dir.split('_')[cls._model_name] in local_model_names:
+                not pretrained_model_name_or_dir.split('_')[cls._model_name] in local_model_names:
             raise ValueError(f'\'{pretrained_model_name_or_dir}\' is not supported by \'{local_model_type}\', '
                              f'please select from {local_model_list}')
         local_model_name = pretrained_model_name_or_dir.split('_')[cls._model_name]
@@ -503,7 +503,7 @@ class _BaseAutoModelClass:
             return False
 
         if "/" in pretrained_model_name_or_dir and \
-            pretrained_model_name_or_dir.split("/")[0] != "mindspore":
+                pretrained_model_name_or_dir.split("/")[0] != "mindspore":
             return True
         return False
 
@@ -718,7 +718,9 @@ def auto_class_update(cls, checkpoint_for_example="bert-base-cased", head_doc=""
     from_config_docstring = from_config_docstring.replace("BaseAutoModelClass", name)
     from_config_docstring = from_config_docstring.replace("checkpoint_placeholder", checkpoint_for_example)
     from_config.__doc__ = from_config_docstring
-    from_config = replace_list_option_in_docstrings(model_mapping._model_mapping, use_model_types=False)(from_config)  # pylint: disable=W0212
+    from_config = replace_list_option_in_docstrings(
+        model_mapping._model_mapping,  # pylint: disable=W0212
+        use_model_types=False)(from_config)
     cls.from_config = classmethod(from_config)
 
     from_pretrained_docstring = FROM_PRETRAINED_MINDFORMERS_DOCSTRING
@@ -729,7 +731,8 @@ def auto_class_update(cls, checkpoint_for_example="bert-base-cased", head_doc=""
     shortcut = checkpoint_for_example.split("/")[-1].split("-")[0]
     from_pretrained_docstring = from_pretrained_docstring.replace("shortcut_placeholder", shortcut)
     from_pretrained.__doc__ = from_pretrained_docstring
-    from_pretrained = replace_list_option_in_docstrings(model_mapping._model_mapping)(from_pretrained)  # pylint: disable=W0212
+    from_pretrained = replace_list_option_in_docstrings(model_mapping._model_mapping)(  # pylint: disable=W0212
+        from_pretrained)
     cls.from_pretrained = classmethod(from_pretrained)
     return cls
 

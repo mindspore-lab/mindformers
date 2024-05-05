@@ -259,8 +259,6 @@ def get_cached_module_file(
     Returns:
         `str`: The path to the module inside the cache.
     """
-    from openmind_hub import try_to_load_from_cache
-
     use_auth_token = deprecated_kwargs.pop("use_auth_token", None)
     if use_auth_token is not None:
         warnings.warn(
@@ -283,6 +281,7 @@ def get_cached_module_file(
         submodule = os.path.basename(pretrained_model_name_or_path)
     else:
         submodule = pretrained_model_name_or_path.replace("/", os.path.sep)
+        from openmind_hub import try_to_load_from_cache
         cached_module = try_to_load_from_cache(
             pretrained_model_name_or_path, module_file, cache_dir=cache_dir, revision=_commit_hash
         )

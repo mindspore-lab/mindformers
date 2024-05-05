@@ -20,11 +20,12 @@ import os
 import numpy as np
 
 import mindspore as ms
+from mindspore import context
 from mindspore.communication.management import init
 from mindspore.common.initializer import Zero
 from mindspore._c_expression import swap_cache
 
-from mindformers import build_context, logger, build_parallel_config, GenerationConfig, AutoModel
+from mindformers import build_context, logger, build_parallel_config, GenerationConfig, AutoModel, AutoConfig
 from mindformers.models.build_config import build_model_config
 from mindformers.models.utils import convert_mstype
 from mindformers.tools.register.config import MindFormerConfig
@@ -60,6 +61,7 @@ class ModelRunner:
         self.config = None
         self.model_config = None
         self.generation_config = None
+        self.experiment_mode = False
 
         # parallel predict with dynamic cluster.
         if world_size > 1:
@@ -70,58 +72,71 @@ class ModelRunner:
                 init()
 
         if os.path.isdir(model_path):
+            json_list = [file for file in os.listdir(model_path)
+                         if file.endswith("config.json")]
             yaml_list = [file for file in os.listdir(model_path)
                          if file.endswith(".yaml")]
-            if not yaml_list:
-                raise FileNotFoundError(f"There is no yaml file for model config in {model_path}.")
-            yaml_path = os.path.join(model_path, yaml_list[0])
-            self.config = MindFormerConfig(yaml_path)
+            if yaml_list:
+                yaml_path = os.path.join(model_path, yaml_list[0])
+                self.config = MindFormerConfig(yaml_path)
+                self.config.model.model_config.block_size = block_size
+                self.model_config = build_model_config(self.config.model.model_config)
+            elif json_list:
+                self.model_config = AutoConfig.from_pretrained(model_path, trust_remote_code=True)
+                self.experiment_mode = True
+            else:
+                raise FileNotFoundError(f"There is no yaml file nor config.json file for model config in {model_path}.")
         else:
             raise ValueError(f"The path {model_path} is not exist.")
 
         if world_size > 1:
-            self.config.use_parallel = True
+            if not self.experiment_mode:
+                self.config.use_parallel = True
+            else:
+                raise SystemError(f"You are running in experiment mode. World size can only be 1, "
+                                  f"but got world_size = {world_size}")
 
-        if self.config and self.config.model.model_config:
-            self.config.model.model_config.block_size = block_size
-            self.model_config = build_model_config(self.config.model.model_config)
+        self.num_layers = self.model_config.num_layers
+        n_kv_heads = self.model_config.num_heads if self.model_config.n_kv_heads is None \
+            else self.model_config.n_kv_heads
+        n_kv_heads = n_kv_heads // world_size  # check the divisibility in model initialization.
+        head_dim = self.model_config.hidden_size // self.model_config.num_heads
+        self.npu_num_blocks = (npu_mem_size * 1024 * 1024 * 1024) // \
+                              (block_size * n_kv_heads * head_dim * 2 * 2 * self.num_layers)
+        self.cpu_num_blocks = (cpu_mem_size * 1024 * 1024 * 1024) // \
+                              (block_size * n_kv_heads * head_dim * 2 * 2 * self.num_layers)
+        self.model_config.num_blocks = self.npu_num_blocks
 
-            self.num_layers = self.model_config.num_layers
-            n_kv_heads = self.model_config.num_heads if self.model_config.n_kv_heads is None \
-                else self.model_config.n_kv_heads
-            n_kv_heads = n_kv_heads // world_size    # check the divisibility in model initialization.
-            head_dim = self.model_config.hidden_size // self.model_config.num_heads
-            self.npu_num_blocks = (npu_mem_size * 1024 * 1024 * 1024) // \
-                                  (block_size * n_kv_heads * head_dim * 2 * 2 * self.num_layers)
-            self.cpu_num_blocks = (cpu_mem_size * 1024 * 1024 * 1024) // \
-                                  (block_size * n_kv_heads * head_dim * 2 * 2 * self.num_layers)
-            self.model_config.num_blocks = self.npu_num_blocks
-            self.config.model.model_config.num_blocks = self.npu_num_blocks
+        self.generation_config = GenerationConfig.from_model_config(self.model_config)
 
+        if not self.experiment_mode:
             if self.config.use_parallel:
                 build_parallel_config(self.config)
                 self.config.model.model_config.checkpoint_name_or_path = None
                 self.config.model.model_config.parallel_config = self.config.parallel_config
 
-        self.generation_config = GenerationConfig.from_model_config(self.model_config)
+            if not self.config.use_parallel and npu_device_ids:
+                if len(npu_device_ids) != 1:
+                    raise ValueError("npu_device_ids should only contain one device_id")
+                self.config.context.device_id = npu_device_ids[0]
 
-        if not self.config.use_parallel and npu_device_ids:
-            if len(npu_device_ids) != 1:
-                raise ValueError("npu_device_ids should only contain one device_id")
-            self.config.context.device_id = npu_device_ids[0]
+            build_context(self.config)
+            logger.info(f"Build context finished.")
+            self.model = AutoModel.from_config(self.config)
+            logger.info(f"Create model finished.")
 
-        build_context(self.config)
-        logger.info(f"Build context finished.")
-        self.model = AutoModel.from_config(self.config)
-        logger.info(f"Create model finished.")
-
-        if self.config.use_parallel:
-            ms_model = ms.Model(self.model)
-            batch_size = self.model_config.batch_size
-            seq_length = self.model_config.seq_length
-            input_ids = np.ones(shape=tuple([batch_size, seq_length]))
-            inputs = self.model.prepare_inputs_for_predict_layout(input_ids)
-            transform_and_load_checkpoint(self.config, ms_model, self.model, inputs, do_predict=True)
+            if self.config.use_parallel:
+                ms_model = ms.Model(self.model)
+                batch_size = self.model_config.batch_size
+                seq_length = self.model_config.seq_length
+                input_ids = np.ones(shape=tuple([batch_size, seq_length]))
+                inputs = self.model.prepare_inputs_for_predict_layout(input_ids)
+                transform_and_load_checkpoint(self.config, ms_model, self.model, inputs, do_predict=True)
+        else:
+            context.set_context(mode=0, device_id=npu_device_ids[0])
+            logger.info(f"Build context finished.")
+            self.model = AutoModel.from_config(self.model_config, trust_remote_code=True)
+            logger.info(f"Create model finished.")
 
         if self.model_config.is_dynamic:
             self.model.set_dynamic_inputs()
