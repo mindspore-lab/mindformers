@@ -1111,6 +1111,10 @@ class GenerationMixin:
                 logits = P.Reshape()(logits, (-1, logits.shape[-1]))
                 if need_gather_logits and logits.shape[0] > len(current_index):
                     logits = logits[Tensor(current_index, dtype=mstype.int32)]
+                if logits_processor:
+                    if isinstance(logits, Tensor):
+                        logits = logits.asnumpy()
+                    logits = Tensor(logits_processor(input_ids, logits, is_finished))
                 target_list = P.Argmax()(logits)
                 target_list = target_list.asnumpy().tolist()
             else:
