@@ -321,7 +321,7 @@ model:
 
 #### 基于generate的推理
 
-以下为基于model.generate接口的自定义推理脚本。
+以下为基于model.generate接口的自定义推理脚本，glm32k当前仅支持单卡推理。
 
 ```python
 # predict_custom.py 文件
@@ -349,7 +349,6 @@ def main(args):
                  parallel_config=config.parallel)
 
     model_config = ChatGLM2Config(**config.model.model_config)
-    model_config.parallel_config = TransformerOpParallelConfig(**config.parallel_config)
     model_config.batch_size = len(inputs)
     model_config.seq_length = args.seq_length
     if args.checkpoint_path:
