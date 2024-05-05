@@ -40,6 +40,8 @@ def _get_warmup_steps(warmup_steps: int, warmup_ratio: float, total_steps: int):
             raise TypeError(f"The type of warmup_steps must be int, but got {type(warmup_steps)}")
         if warmup_steps < 0:
             raise ValueError(f"Warmup_steps must be >= 0, but got {warmup_steps}")
+        if warmup_steps > total_steps:
+            raise ValueError(f"Total_steps {total_steps} must be greater than warmup_steps {warmup_steps}")
         return warmup_steps
 
     if not isinstance(warmup_ratio, float):
@@ -49,7 +51,7 @@ def _get_warmup_steps(warmup_steps: int, warmup_ratio: float, total_steps: int):
         raise ValueError(f"Warmup_ratio's value range must be in [0,1], but got {warmup_ratio}")
 
     if total_steps is None:
-        raise ValueError(f"When warmup_ratio takes effect, total_steps must be set, but got {total_steps} ")
+        raise ValueError(f"When warmup_ratio takes effect, total_steps must be set, but got {total_steps}")
     if not isinstance(total_steps, int):
         raise TypeError(f"The type of total_steps must be int, but got {type(total_steps)}")
 
@@ -345,7 +347,8 @@ class PolynomialWithWarmUpLR(LearningRateSchedule):
         warmup_ratio (`float`, *optional*, defaults to None):
             Ratio of total training steps used for warmup.
         decay_steps (`int`, *optional*, defaults to None):
-            The number of decay steps. If the value is None, decay steps will be total_steps - warmup_steps.
+            The number of decay steps, which must be smaller than total_steps - warmup_steps.
+            If the value is None, decay steps will be total_steps - warmup_steps.
 
     Returns:
         Class, PolynomialWithWarmUpLR
@@ -363,6 +366,9 @@ class PolynomialWithWarmUpLR(LearningRateSchedule):
         warmup_steps = _get_warmup_steps(warmup_steps, warmup_ratio, total_steps)
         decay_steps = max(1, decay_steps) \
             if decay_steps is not None else max(1, total_steps - warmup_steps)
+        if decay_steps > total_steps - warmup_steps:
+            raise ValueError(f"decay_steps ({decay_steps}) must be be smaller than \
+                             steps interval ({total_steps - warmup_steps})")
         if not learning_rate > lr_end:
             raise ValueError(f"lr_end ({lr_end}) must be be smaller than initial lr ({learning_rate})")
         self.kwargs = kwargs
@@ -379,13 +385,13 @@ class PolynomialWithWarmUpLR(LearningRateSchedule):
     def construct(self, global_step):
         """compute current step lr."""
         global_step = self.cast(global_step, mstype.float32)
-        if self.greater(global_step, self.total_steps):
-            # Include global_step in computation to circumvent mindspore control flow issues
-            return global_step - global_step + self.lr_end
 
         if self.greater(self.warmup_steps, global_step):
             percent = global_step / self.warmup_steps
             learning_rate = self.warmup_lr_init + (self.learning_rate - self.warmup_lr_init) * percent
+        elif self.greater(global_step, self.total_steps):
+            # Include global_step in computation to circumvent mindspore control flow issues
+            return global_step - global_step + self.lr_end
         else:
             lr_range = self.learning_rate - self.lr_end
             pct_remaining = 1 - (global_step - self.warmup_steps) / self.decay_steps
