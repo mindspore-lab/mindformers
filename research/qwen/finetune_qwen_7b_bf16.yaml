@@ -5,8 +5,8 @@ src_strategy_path_or_dir: ''
 auto_trans_ckpt: False  # If true, auto transform load_checkpoint to load in distributed model
 only_save_strategy: False
 resume_training: False
-use_parallel: False
-run_mode: 'predict'
+use_parallel: True
+run_mode: 'fintune'
 
 # trainer config
 trainer:

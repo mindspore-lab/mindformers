@@ -5,9 +5,9 @@ src_strategy_path_or_dir: ''
 auto_trans_ckpt: False  # If true, auto transform load_checkpoint to load in distributed model
 only_save_strategy: False
 resume_training: False
-run_mode: 'predict'
+run_mode: 'finetune'
 
-use_parallel: False
+use_parallel: True
 
 # trainer config
 trainer:
@@ -28,7 +28,6 @@ train_dataset: &train_dataset
   repeat: 1
   numa_enable: False
   prefetch_size: 1
-
 train_dataset_task:
   type: CausalLanguageModelDataset
   dataset_config: *train_dataset
@@ -36,22 +35,21 @@ train_dataset_task:
 # runner config
 runner_config:
   epochs: 5
-  batch_size: 1
+  batch_size: 2
   sink_mode: True
   sink_size: 2
-
 runner_wrapper:
   type: MFTrainOneStepCell
   scale_sense:
     type: DynamicLossScaleUpdateCell
-    loss_scale_value: 1024
+    loss_scale_value: 65536
     scale_factor: 2
     scale_window: 1000
   use_clip_grad: True
 
 # optimizer
 optimizer:
-  type: FP32StateAdamWeightDecay
+  type: AdamWeightDecayX
   beta1: 0.9
   beta2: 0.95
   eps: 1.e-8
@@ -61,7 +59,8 @@ optimizer:
 lr_schedule:
   type: CosineWithWarmUpLR
   learning_rate: 1.e-5
-  warmup_ratio: 0.01
+  lr_end: 1.e-5
+  warmup_ratio: 0
   total_steps: -1 # -1 means it will load the total steps of the dataset
 
 # callbacks
@@ -77,14 +76,14 @@ callbacks:
 
 # default parallel of device num = 8 for Atlas 800T A2
 parallel_config:
-  data_parallel: 8
-  model_parallel: 1
+  data_parallel: 1
+  model_parallel: 8
   pipeline_stage: 1
   micro_batch_num: 1
   vocab_emb_dp: False
   gradient_aggregation_group: 4
 # when model parallel is greater than 1, we can set micro_batch_interleave_num=2, that may accelerate the train process.
-micro_batch_interleave_num: 1
+micro_batch_interleave_num: 4
 
 # recompute config
 recompute_config:
@@ -98,7 +97,7 @@ model:
   model_config:
     type: QwenConfig
     batch_size: 1
-    seq_length: 2048
+    seq_length: 8192
     hidden_size: 5120
     num_layers: 40
     num_heads: 40
@@ -108,13 +107,14 @@ model:
     emb_dropout_prob: 0.0
     eos_token_id: 151643
     pad_token_id: 151643
-    compute_dtype: "bfloat16"
+    compute_dtype: "float16"
     layernorm_compute_type: "float32"
     softmax_compute_type: "float16"
     rotary_dtype: "float16"
-    param_init_type: "float32"
+    param_init_type: "float16"
     use_past: True
     use_flash_attention: True
+    is_dynamic: True
     block_size: 32
     num_blocks: 128
     offset: 0
@@ -136,6 +136,7 @@ model:
 processor:
   return_tensors: ms
   tokenizer:
+    model_max_length: 8192
     vocab_file: "/path/qwen.tiktoken"
     pad_token: "<|endoftext|>"
     type: QwenTokenizer
