@@ -4,7 +4,7 @@
 
 Llama 2，是Meta基于LLaMA 1的更新版本，基于新的公开可用数据混合进行训练，同时将预训练语料库的大小增加了40%，最后将模型的上下文长度翻倍（由2048提高到4096），并采用了分组查询注意力机制。Llama 2模型是类GPT模型，是一个生成式的语言模型，主要是用于预测下一个单词。Llama 2按照参数量，目前有三个版本：Llama 2-7B（7B）、Llama 2-13B（13B）、Llama 2-70B（70B），本仓库已全部支持三版权重，权重文件来源于MetaLLama2。Llama 2 的7B和13B 模型结构与LLaMA 1一致，70B 则加入分组查询注意力（GQA）。
 
-[Llama 2: Open Foundation and Fine-Tuned Chat Models](https://arxiv.org/pdf/2307.09288.pdf%C3%82%C2%A0)
+[Llama 2: Open Foundation and Fine-Tuned Chat Models](https://arxiv.org/abs/2307.09288)
 
 ``` text
 @article{touvron2023llama,
@@ -410,7 +410,8 @@ python llama_preprocess.py \
 在模型对应的配置文件`configs/llama2/run_llama2_{7/13/70}b_910b.yaml`中，用户可自行修改模型、训练相关参数(推荐开启flash_attention，可加速训练)
 通过配置中的`train_dataset`的`dataset_dir`参数，指定训练数据集的路径。
 
-如果是llama2 70b，可以将`qkv_concat`修改为True，`micro_batch_num`修改为256提升性能，还可以在train和finetune的yaml里开启并行加速：
+如果是llama2 70b，可以将`qkv_concat`修改为True，`micro_batch_num`修改为256提升性能。如果报显存不足，将环境变量HCCL_BUFFSIZE下调到100。
+还可以在train和finetune的yaml里开启并行加速：
 
 ```bash
 context:
