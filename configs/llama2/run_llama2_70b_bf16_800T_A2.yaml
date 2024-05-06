@@ -157,7 +157,7 @@ model:
     extend_method: "None" # support "None", "PI", "NTK"
     use_flash_attention: True
     fine_grain_interleave: 2
-    qkv_concat: True
+    qkv_concat: False
     offset: 0
     checkpoint_name_or_path: ""
     repetition_penalty: 1

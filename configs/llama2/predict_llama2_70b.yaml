@@ -10,7 +10,7 @@ run_mode: 'predict'
 # trainer config
 trainer:
   type: CausalLanguageModelingTrainer
-  model_name: 'llama_70b'
+  model_name: 'llama2_70b'
 # if True, do evaluate during the training process. if false, do nothing.
 # note that the task trainer should support _evaluate_in_training function.
 do_eval: False
@@ -70,7 +70,7 @@ micro_batch_interleave_num: 1
 callbacks:
   - type: MFLossMonitor
   - type: CheckpointMointor
-    prefix: "llama_70b"
+    prefix: "llama2_70b"
     save_checkpoint_steps: 1000
     integrated_save: False
     async_save: False
