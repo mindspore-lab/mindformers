@@ -75,7 +75,6 @@
 |                 模型 <br> model                 | 模型规格<br/>type                                                        |                数据集 <br> dataset                 |                    评估指标 <br> metric                     |            评估得分 <br> score             |                                                        配置<br>config                                                         |
 | :---------------------------------------------: | ------------------------------------------------------------------------ | :------------------------------------------------: | :---------------------------------------------------------: | :----------------------------------------: | :---------------------------------------------------------------------------------------------------------------------------: |
 |           [clip](model_cards/clip.md)           | clip_vit_b_32<br/>clip_vit_b_16 <br/>clip_vit_l_14<br/>clip_vit_l_14@336 | Cifar100 <br> Cifar100 <br> Cifar100 <br> Cifar100 | Accuracy   <br>  Accuracy   <br>  Accuracy   <br>  Accuracy | 57.24% <br> 61.41% <br> 69.67% <br> 68.19% |       [configs](https://gitee.com/mindspore/mindformers/tree/dev/configs/clip/run_clip_vit_b_32_pretrain_flickr8k.yaml)       |
-|          [blip2](model_cards/blip2.md)          | blip2_vit_g                                                              |              - <br> flickr30k <br> -               |                      - <br> ITM <br> -                      |              - <br> - <br> -               |        [configs](https://gitee.com/mindspore/mindformers/tree/dev/configs/blip2/run_blip2_vit_g_qformer_pretrain.yaml)        |
 | [visualglm](../research/visualglm/visualglm.md) | visualglm                                                                |                    fewshot-data                    |                              -                              |                     -                      | [configs](https://gitee.com/mindspore/mindformers/tree/dev/research/visualglm/run_visualglm_6b_image_to_text_generation.yaml) |
 
 ## LLM大模型能力支持一览
@@ -91,7 +90,6 @@
 |   Bloom-560m/7.1B   |        ×        |      PPL       |        √        |  dp/mp   |    √     |  √   |    √     |
 |    GPT2-128m/13B    |      Lora       |      PPL       |        √        |  dp/mp   |    √     |  ×   |    ×     |
 | PanGuAlpha-2.6B/13B |        ×        |      PPL       |        ×        |  dp/mp   |    √     |  ×   |    ×     |
-|        BILP2        |        ×        |       ×        |        ×        |    dp    |    √     |  ×   |    ×     |
 |   BaiChuan-7B/13B   |        ×        |      PPL       |        ×        |  dp/mp   |    √     |  √   |    √     |
 |  BaiChuan2-7B/13B   |      Lora       |      PPL       |        √        |  dp/mp   |    √     |  √   |    √     |
 |     Qwen-7B/14B     |        √        |       ×        |        √        |  dp/mp   |    √     |  √   |    √     |

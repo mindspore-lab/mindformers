@@ -40,7 +40,6 @@ MindSpore Transformers套件基于MindSpore内置的并行技术和组件化设�
 |         [Bloom](docs/model_cards/bloom.md)         | bloom_560m, bloom_7.1b                                             |
 |          [GPT2](docs/model_cards/gpt2.md)          | gpt2, gpt2_13b                                                     |
 |    [PanGuAlpha](docs/model_cards/pangualpha.md)    | pangualpha_2_6_b, pangualpha_13b                                   |
-|         [BLIP2](docs/model_cards/blip2.md)         | blip2_stage1_vit_g                                                 |
 |          [CLIP](docs/model_cards/clip.md)          | clip_vit_b_32, clip_vit_b_16, clip_vit_l_14, clip_vit_l_14@336     |
 |            [T5](docs/model_cards/t5.md)            | t5_small                                                           |
 |           [sam](docs/model_cards/sam.md)           | sam_vit_b, sam_vit_l, sam_vit_h                                    |

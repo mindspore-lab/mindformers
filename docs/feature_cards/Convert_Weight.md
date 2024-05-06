@@ -15,7 +15,6 @@ ConvertWeight支持对torch权重和mindspore权重的格式互转
 | baichuan    | baichuan、baichuan2 |
 | gpt         | gpt2                |
 | bloom       | bloom               |
-| blip        | blip2               |
 | wizardcoder | wizardcoder         |
 | skywork     | skywork             |
 | mixtral     | mixtral             |
