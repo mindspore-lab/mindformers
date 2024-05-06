@@ -436,10 +436,13 @@ parallel_speed_up.json文件示例：
 
 配置文件中各参数含义详见[Config配置说明文档](https://gitee.com/mindspore/mindformers/blob/master/configs/README.md)。auto_parallel说明详见[自动并行](../docs/feature_cards/Auto_Parallel.md)。parallel_speed_up中各参数含义详见[parallel_speed_up说明](https://www.mindspore.cn/docs/zh-CN/r2.3/api_python/mindspore/mindspore.set_context.html#mindspore.set_context)。
 
-- step2. 设置环境变量，变量配置如下：
+- step2：启动msrun快速启动运行脚本，进行8卡分布式运行。各个参数位置含义参见[msrun快速启动](../../README.md#方式一使用已有脚本启动)。
 
-```bash
-export MS_ASCEND_CHECK_OVERFLOW_MODE="INFNAN_MODE"  # 推荐开启INFNAN模式，llama2_7b和70b 不用设置该项
+```shell
+# 单机多卡快速启动方式
+bash scripts/msrun_launcher.sh "run_mindformer.py \
+ --config configs/llama2/pretrain_llama2_{7/13/70}b.yaml \
+ --run_mode train" 8
 ```
 
 - step3：进入`scripts`文件夹，启动运行脚本，进行8卡分布式运行。
@@ -482,13 +485,20 @@ parallel_config:
 
 - step 3. 执行运行脚本。
 
-在多机上同时拉起任务，每台机器拉起方式参考单机多卡启动方式。需注意，多机多卡的拉起方式，相对于单机多卡，多了一个总卡数`[RANK_SIZE]`的入参。
+多机多卡执行脚本进行分布式训练需要分别在不同节点运行脚本，并将参数MASTER_ADDR设置为主节点的ip地址，所有节点设置的ip地址相同，不同节点之间仅参数NODE_RANK不同，各个参数位置含义参见[msrun快速启动](../../README.md#方式一使用已有脚本启动)。
 
 ```shell
-# 第一台机器
-bash run_distribute.sh {RANK_TABLE_FILE path of the first device} ../configs/llama2/run_llama2_13b_910b.yaml [0,8] train 16
-# 第二台机器
-bash run_distribute.sh {RANK_TABLE_FILE path of the second device} ../configs/llama2/run_llama2_13b_910b.yaml [8,16] train 16
+# 节点0，设0节点ip为192.168.1.1，作为主节点，总共8卡且每个节点8卡
+bash scripts/msrun_launcher.sh "run_mindformer.py \
+ --config {CONFIG_PATH} \
+ --run_mode {train}" \
+ 16 8 192.168.1.1 8118 0 output/msrun_log False 300
+
+# 节点1，设1节点ip为192.168.1.2，节点0与节点1启动命令仅参数NODE_RANK不同
+bash scripts/msrun_launcher.sh "run_mindformer.py \
+ --config {CONFIG_PATH} \
+ --run_mode {train}" \
+ 16 8 192.168.1.1 8118 1 output/msrun_log False 300
 ```
 
 ## 微调
@@ -637,8 +647,9 @@ export MS_ASCEND_CHECK_OVERFLOW_MODE="INFNAN_MODE"  # llama2_7b 不用设置该�
 - step 6. 启动微调任务，llama2-7b模型以单机八卡为例进行微调，命令如下：
 
 ```shell
-cd scripts
-bash run_distribute.sh [RANK_TABLE_FILE] ../configs/llama2/run_llama2_7b_910b_finetune.yaml [0,8] finetune
+bash scripts/msrun_launcher.sh "run_mindformer.py \
+--config configs/llama2/finetune_llama2_{7/13/70}b.yaml \
+--run_mode finetune" 8
 ```
 
 多机多卡微调任务启动参考[预训练章节](#预训练)，添加预训练权重，修改启动脚本中的`RUN_MODE`为`finetune`即可。
@@ -684,7 +695,9 @@ cd scripts
 # 单卡启动
 bash run_standalone.sh ../configs/llama2/run_llama2_7b_910b_lora.yaml [DEVICE_ID] finetune
 # 多卡启动（以单机八卡为例）
-bash run_distribute.sh [RANK_TABLE_FILE] ../configs/llama2/run_llama2_7b_910b_lora.yaml [0,8] finetune
+bash scripts/msrun_launcher.sh "run_mindformer.py \
+ --config configs/llama2/lora_llama2_7b.yaml \
+ --run_mode finetune" 8
 ```
 
 ## 评测
@@ -872,8 +885,9 @@ step 4. 参考[生成RANK_TABLE_FILE](#生成RANK_TABLE_FILE(多卡运行必须�
 step 5. 执行以下命令进行分布式评测
 
 ```shell
-cd script
-bash run_distribute.sh RANK_TABLE_FILE configs/llama2/predict_llama2_70b_910b.yaml [0,8] eval
+bash scripts/msrun_launcher.sh "run_mindformer.py \
+ --config configs/llama2/predict_llama2_70b.yaml \
+ --run_mode eval" 8
 ```
 
 ## 推理
@@ -1035,7 +1049,10 @@ python predict_custom.py --yaml_file path/to/config_yaml --checkpoint_path path/
 
 ```bash
 # 以llama2-7b 2卡推理为例,此时的checkpoint必须是已经切分好的ckpt,shard_checkpoint_dir文件夹下为rank_{}的文件夹。
-bash run_predict.sh RANK_TABLE_FILE path/to/shard_checkpoint_dir path/to/config_yaml llama2_7b 2 0
+bash scripts/msrun_launcher.sh "predict_custom.py \
+ --yaml_file path/to/config_yaml \
+ --checkpoint_path path/to/shard_checkpoint_dir \
+ --model_type llama2_7b" 2
 ```
 
 **注**：几卡推理就要在yaml配置中将相应的parallel_config 中的model_parallel置为2，其余置为1。
@@ -1068,7 +1085,7 @@ import os
 from mindspore import load_checkpoint, load_param_into_net
 from mindspore.train import Model
 
-from mindformers import MindFormerConfig, LlamaConfig, TransformerOpParallelConfig, AutoTokenizer, LlamaForCausalLM, pipeline
+from mindformers import MindFormerConfig, LlamaConfig, TransformerOpParallelConfig, LlamaTokenizer, LlamaForCausalLM, pipeline
 from mindformers import init_context, ContextConfig, ParallelContextConfig
 from mindformers.tools.utils import str2bool, get_real_rank
 from mindformers.trainer.utils import get_last_checkpoint
@@ -1094,11 +1111,11 @@ def main(args):
     model_config.use_past = args.use_past
     model_config.seq_length = args.seq_length
     if args.checkpoint_path and not config.use_parallel:
-        model_config.checkpoint_name_or_path = args.checkpoint_path
+        model_config.checkpoint_name_or_path = args.checkpoint_path # 如果本地已有ckpt，可加绝对路径：/path/to/model.ckpt
     print(f"config is: {model_config}")
 
     # build tokenizer
-    tokenizer = AutoTokenizer.from_pretrained(args.model_type)
+    tokenizer = LlamaTokenizer.from_pretrained(args.model_type) # 如果本地已有tokenizer.model，可加绝对路径：/path/to/tokenizer_directory/
 
     model = LlamaForCausalLM(model_config)
     model.set_train(False)
@@ -1194,7 +1211,10 @@ python predict_custom.py --yaml_file path/to/config_yaml --checkpoint_path path/
 
 ```bash
 # 以llama2-7b 2卡推理为例,此时的checkpoint必须是已经切分好的ckpt
-bash run_predict.sh RANK_TABLE_FILE path/to/shard_checkpoint_dir path/to/config_yaml llama2_7b 2 0
+bash scripts/msrun_launcher.sh "predict_custom.py \
+ --yaml_file path/to/config_yaml \
+ --checkpoint_path path/to/shard_checkpoint_dir \
+ --model_type llama2_7b" 2
 ```
 
 > 注：config_yaml的配置也要和基于generate的多卡推理一样将model_parallel 修改为相应卡数，而data_parallel 和 pipeline_stage设置为1。
@@ -1242,6 +1262,9 @@ processor:
 
 ```bash
 # 以llama2-7b 2卡推理为例,参考案例三，使用完整权重推理2卡
-cd script
-bash run_distribute.sh rank_table_2.json configs/llama2/predict_llama2_7b.yaml [0,2] predict "I love beijing, because"
+bash scripts/msrun_launcher.sh "run_mindformers.py \
+--config configs/llama2/predict_llama2_7b.yaml \
+--run_mode predict \
+--use_parallel True \
+--predict_data \"I love Beijing, because\"" 2
 ```
