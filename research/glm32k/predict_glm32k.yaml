@@ -94,6 +94,7 @@ processor:
     pad_token: '<pad>'
     unk_token: '<unk>'
     vocab_file: '/path/to/tokenizer.model'
+    chat_template: "{% for message in messages %}{% if loop.first %}[gMASK]sop<|{{ message['role'] }}|> \n {{ message['content'] }}{% else %}<|{{ message['role'] }}|> \n {{ message['content'] }}{% endif %}{% endfor %}{% if add_generation_prompt %}<|assistant|>{% endif %}"
   type: GLMProcessor
 
 # ==== dataset config ====
