@@ -10,7 +10,7 @@ run_mode: 'train'
 # trainer config
 trainer:
   type: CausalLanguageModelingTrainer
-  model_name: 'llama2_7b'
+  model_name: 'mixtral-8x7b'
 # if True, do evaluate during the training process. if false, do nothing.
 # note that the task trainer should support _evaluate_in_training function.
 do_eval: false
@@ -124,7 +124,7 @@ recompute_config:
 callbacks:
   - type: MFLossMonitor
   - type: CheckpointMointor
-    prefix: "llama_7b"
+    prefix: "mixtral-8x7b"
     save_checkpoint_steps: 1000
     integrated_save: False
     async_save: False
