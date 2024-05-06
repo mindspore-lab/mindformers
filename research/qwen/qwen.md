@@ -23,18 +23,21 @@
    qwen
      ├── qwen_tokenizer.py          # tokenizer
      └── qwen_model.py              # 模型实现
+     └── qwen_chat.py               # Chat接口
    ```
 
 2. 模型配置：
 
    ```text
    qwen
-     ├── run_qwen_7b.yaml            # 7B 全参微调启动配置
-     ├── run_qwen_7b_bf16_910b.yaml  # 7B 全参微调启动配置(bf16)
-     ├── run_qwen_7b_lora.yaml       # 7B lora微调启动配置
-     ├── run_qwen_14b.yaml           # 14B 全参微调启动配置
-     ├── run_qwen_14b_bf16_910b.yaml # 14B 全参微调启动配置(bf16)
-     └── run_qwen_14b_lora.yaml      # 14B lora微调启动配置
+     ├── predict_qwen_7b.yaml             # 7B 推理启动配置
+     ├── finetune_qwen_7b.yaml            # 7B 全参微调启动配置(8K)
+     ├── finetune_qwen_7b_bf16.yaml       # 7B 全参微调启动配置(bf16, 2K)
+     ├── finetune_qwen_7b_lora.yaml       # 7B lora微调启动配置
+     ├── predict_qwen_14b.yaml            # 14B 推理启动配置
+     ├── finetune_qwen_14b.yaml           # 14B 全参微调启动配置(8K)
+     ├── finetune_qwen_14b_bf16.yaml      # 14B 全参微调启动配置(bf16, 2K)
+     └── finetune_qwen_14b_lora.yaml      # 14B lora微调启动配置
    ```
 
 3. 环境准备和任务启动脚本：
@@ -45,59 +48,72 @@
      ├── qwen_preprocess.py         # 数据集预处理脚本
      ├── convert_weight.py          # 权重转换脚本
      ├── run_qwen.py                # Qwen高阶接口脚本
-     └── qwen_chat.py               # Chat接口
+     └── run_qwen_chat.py           # Chat功能启动运行脚本
    ```
 
 ## 前期准备
 
-### [mindformers安装](path/to/README.md#二mindformers安装)
+### [mindformers安装](../../README.md#二mindformers安装)
 
 ### 环境要求
 
 - 硬件：Atlas 800T A2
-- MindSpore：2.2.0
-- MindFormers版本：dev
+- MindSpore：2.3.0
+- MindFormers版本：1.1.0
 - Python：3.8+
 
 注：
 
-环境搭建参考 [MindSpore官网](https://www.mindspore.cn/install/)，安装MindSpore2.2.0 + CANN社区版7.0.0.alpha001配套版本。
+> 1. 环境搭建请参考 [MindSpore官网](https://www.mindspore.cn/install/ )，安装MindSpore2.3.0 + CANN社区版7.2.0配套版本。
+> 2. 因Qwen的tokenizer基于`tiktoken`实现，而`tiktoken`官方不支持 Python 3.8 以下的版本，所以运行Qwen需要Python 3.8或者更高版本。
 
-### RANK_TABLE_FILE准备
+### 模型权重准备
 
-运行`mindformers/tools/hccl_tools.py`，生成`RANK_TABLE_FILE`文件
+本仓库提供已经转换完成的预训练权重、词表文件用于训练/微调/推理，用户可自行从下方链接拉取后直接使用。
+
+- [Qwen-7B-Base](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/qwen/qwen_7b_base.ckpt)
+- [Qwen-14B-Base](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/qwen/qwen_14b_base.ckpt)
+- [qwen.tiktoken](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/qwen/qwen.tiktoken)
+
+#### 从huggingface版本权重文件转换
+
+也可选择从huggingface下载预训练权重后根据以下步骤进行权重转换，需要下载整个工程。huggingface权重的下载链接如下：
+
+- [Qwen-7B-Base](https://huggingface.co/Qwen/Qwen-7B/tree/main)
+- [Qwen-7B-Chat](https://huggingface.co/Qwen/Qwen-7B-Chat/tree/main)
+- [Qwen-14B-Base](https://huggingface.co/Qwen/Qwen-14B/tree/main)
+- [Qwen-14B-Chat](https://huggingface.co/Qwen/Qwen-14B-Chat/tree/main)
+
+首先，请安装官方Qwen模型所需的依赖软件包:
 
 ```shell
-# 运行如下命令，生成当前机器的RANK_TABLE_FILE的json文件
-python ./mindformers/tools/hccl_tools.py --device_num "[0,8)"
+pip install torch==2.0.1 transformers==4.32.0 transformers_stream_generator einops accelerate tiktoken
+pip uninstall tokenizers
+pip install tokenizers==0.13.0
 ```
 
-**注：若使用ModelArts的notebook环境，可从 `/user/config/jobstart_hccl.json` 路径下直接获取rank table，无需手动生成**
+然后运行 [Mindformers 的权重转换工具](../../docs/feature_cards/Convert_Weight.md ), 将huggingface的权重转换为 Mindspore 的ckpt格式。
 
-RANK_TABLE_FILE 单机8卡参考样例:
+> 注意: 权重转换完成之后，注意重新根据本项目[requirements.txt](../../requirements.txt )恢复`tokenizers`包的版本:
+>
+> `pip install -r requirements.txt`
 
-```json
-{
-    "version": "1.0",
-    "server_count": "1",
-    "server_list": [
-        {
-            "server_id": "xx.xx.xx.xx",
-            "device": [
-                {"device_id": "0","device_ip": "192.1.27.6","rank_id": "0"},
-                {"device_id": "1","device_ip": "192.2.27.6","rank_id": "1"},
-                {"device_id": "2","device_ip": "192.3.27.6","rank_id": "2"},
-                {"device_id": "3","device_ip": "192.4.27.6","rank_id": "3"},
-                {"device_id": "4","device_ip": "192.1.27.7","rank_id": "4"},
-                {"device_id": "5","device_ip": "192.2.27.7","rank_id": "5"},
-                {"device_id": "6","device_ip": "192.3.27.7","rank_id": "6"},
-                {"device_id": "7","device_ip": "192.4.27.7","rank_id": "7"}],
-             "host_nic_ip": "reserve"
-        }
-    ],
-    "status": "completed"
-}
-```
+### [模型权重切分与合并](../../docs/feature_cards/Transform_Ckpt.md)
+
+从hugging face或官方github仓库转换而来的权重通常是单卡权重，基于该权重进行多卡微调，评测，推理，涉及ckpt从单机策略到分布式策略的切换。
+
+通常训练采用分布式训练，基于该权重进行评测，推理多采用单卡，涉及ckpt从分布式策略到单机策略的切换。
+
+以上涉及到ckpt的单卡，多卡转换，详细教程请参考特性文档[模型权重切分与合并](../../docs/feature_cards/Transform_Ckpt.md)
+
+## 全参微调
+
+全参微调性能（seq_length=8192，global_batch_size=8）：
+
+| Model                | tokens/s |
+|:---------------------|:--------:|
+| Mindformers-Qwen-7B  |  1512  |
+| Mindformers-Qwen-14B |   901  |
 
 ### 数据集准备
 
@@ -143,70 +159,22 @@ python research/qwen/qwen_preprocess.py \
 --input_glob /path/alpaca-data-conversation.json \
 --model_file /path/qwen.tiktoken \
 --seq_length 8192 \
---output_file /path/alpaca.mindrecord
+--output_file /path/alpaca-8192.mindrecord
 ```
 
-### 模型权重准备
-
-本仓库提供已经转换完成的预训练权重、词表文件用于训练/微调/推理，用户可自行从下方链接拉取后直接使用。
-
-- [Qwen-7B-Base](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/qwen/qwen_7b_base.ckpt)
-- [Qwen-14B-Base](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/qwen/qwen_14b_base.ckpt)
-- [qwen.tiktoken](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/qwen/qwen.tiktoken)
-
-#### 从huggingface版本权重文件转换
-
-也可选择从huggingface下载预训练权重后根据以下步骤进行权重转换，需要下载整个工程，huggingface权重的链接如下：
-
-- [Qwen-7B-Base](https://huggingface.co/Qwen/Qwen-7B/tree/main)
-- [Qwen-14B-Base](https://huggingface.co/Qwen/Qwen-14B/tree/main)
-
-首先，请安装官方Qwen模型所需的依赖软件包:
-
-```shell
-pip install torch==2.0.1 transformers==4.32.0 transformers_stream_generator einops accelerate tiktoken
-pip uninstall tokenizers
-pip install tokenizers==0.13.0
-```
-
-然后运行 [Mindformers 的权重转换工具](../../docs/feature_cards/Convert_Weight.md ), 将huggingface的权重转换为 Mindspore 的ckpt格式。
-
-> 注意: 权重转换完成之后，注意重新根据本项目[requirements.txt](../../requirements.txt )恢复`tokenizers`包的版本:
->
-> `pip install -r requirements.txt`
-
-### [模型权重切分与合并](../../docs/feature_cards/Transform_Ckpt.md)
-
-从hugging face或官方github仓库转换而来的权重通常是单卡权重，基于该权重进行多卡微调，评测，推理，涉及ckpt从单机策略到分布式策略的切换。
-
-通常训练采用分布式训练，基于该权重进行评测，推理多采用单卡，涉及ckpt从分布式策略到单机策略的切换。
-
-以上涉及到ckpt的单卡，多卡转换，详细教程请参考特性文档[模型权重切分与合并](../../docs/feature_cards/Transform_Ckpt.md)
-
-## 全参微调
-
-全参微调性能（seq_length=8192，global_batch_size=8）：
-
-| Model                | tokens/s |
-|:---------------------|:--------:|
-| Mindformers-Qwen-7B  |  1512  |
-| Mindformers-Qwen-14B |   901  |
-
-请参照[数据集准备](#数据集准备)章节获取mindrecord格式的alpaca数据集，参照[模型权重准备](#模型权重准备)章节获取权重。
+### 启动微调
 
 1. 当前支持模型已提供yaml文件，下文以Qwen-7B为例，即使用`run_qwen_7b.yaml`配置文件进行介绍，请根据实际使用模型更改配置文件。
 
    当前模型已支持使用**Flash Attention算法**进行全参微调，请参考 [Flash Attention使用文档](../../docs/feature_cards/Training_Algorithms.md#flash-attention)
 
-2. RANK_TABLE_FILE准备：请参照[RANK_TABLE_FILE准备](#RANK_TABLE_FILE准备)获取单机8卡的`RANK_TABLE_FILE`文件。
-
-3. 设置如下环境变量：
+2. 设置如下环境变量：
 
    ```bash
    export MS_ASCEND_CHECK_OVERFLOW_MODE=INFNAN_MODE
    ```
 
-4. 修改`run_qwen_7b.yaml`中相关配置，默认开启自动权重转换，使用完整权重。
+3. 修改`finetune_qwen_7b.yaml`中相关配置，默认开启自动权重转换，使用完整权重。
 
    ```yaml
    load_checkpoint: '/path/model_dir' # 使用完整权重，权重按照`model_dir/rank_0/xxx.ckpt`格式存放
@@ -214,38 +182,38 @@ pip install tokenizers==0.13.0
    use_parallel: True
    run_mode: 'finetune'
 
-   model_config:
+   model:
+     model_config:
       seq_length: 8192 # 与数据集长度保持相同
 
    train_dataset: &train_dataset
      data_loader:
        type: MindDataset
-       dataset_dir: "/path/alpaca.mindrecord"  # 配置训练数据集文件夹路径
+       dataset_dir: "/path/alpaca-8192.mindrecord"  # 配置训练数据集文件夹路径
 
    processor:
     tokenizer:
       vocab_file: "/path/qwen.tiktoken"  # 配置tiktoken文件夹路径
    ```
 
-5. 启动微调任务。
+4. 启动微调任务。
 
    ```shell
-   cd mindformers/research
-   bash run_singlenode.sh "python qwen/run_qwen.py \
-   --config qwen/run_qwen_7b.yaml \
-   --load_checkpoint /path/model_dir \
-   --use_parallel True \
+   cd mindformers/research/qwen
+   bash ../../scripts/msrun_launcher.sh "python run_qwen.py \
+   --config finetune_qwen_7b.yaml \
    --run_mode finetune \
+   --load_checkpoint /path/to/ckpt \
+   --use_parallel True \
    --auto_trans_ckpt True \
-   --train_data /path/alpaca.mindrecord" \
-   RANK_TABLE_FILE [0,8] 8
+   --train_dataset /path/alpaca-8192.mindrecord"
 
    # 参数说明
    # config: 配置文件路径
    # load_checkpoint: 权重文件夹路径，权重按照'model_dir/rank_0/xxx.ckpt'格式存放
    # auto_trans_ckpt: 自动权重转换开关
    # run_mode: 运行模式，微调时设置为finetune
-   # train_data: 训练数据集文件夹路径
+   # train_dataset: 训练数据集文件夹路径
    ```
 
 > 训练的log日志路径： ./output/log
@@ -256,7 +224,7 @@ pip install tokenizers==0.13.0
 >
 > 若想合并ckpt用于后续评估，选择不含优化器参数的权重即可。
 
-6. 微调完成后：
+### 微调完成后
 
 - 合并权重文件：
 
@@ -291,17 +259,14 @@ lora微调性能（seq_length=2048，global_batch_size=8）：
 | Mindformers-Qwen-7B  |  2694.7  |
 | Mindformers-Qwen-14B |  1429.2  |
 
-1. 当前支持模型已提供yaml文件，下文以Qwen-7B为例，即使用`run_qwen_7b_lora.yaml`配置文件进行介绍，请根据实际使用模型更改配置文件。
+请参照[数据集准备](#数据集准备)章节获取mindrecord格式的alpaca数据集，参照[模型权重准备](#模型权重准备)章节获取权重。
 
-2. RANK_TABLE_FILE准备：请参照[RANK_TABLE_FILE准备](#RANK_TABLE_FILE准备)获取单机8卡的`RANK_TABLE_FILE`文件。
+1. 当前支持模型已提供yaml文件，下文以Qwen-7B为例，即使用`finetune_qwen_7b_lora.yaml`配置文件进行介绍，请根据实际使用模型更改配置文件。
 
-3. 修改`run_qwen_7b_lora.yaml`中相关配置，配置权重和数据集路径。
+2. 修改`finetune_qwen_7b_lora.yaml`中相关配置，配置权重和数据集路径。
 
    ```yaml
    load_checkpoint: 'model_dir'    # 使用完整权重，权重按照`model_dir/rank_0/xxx.ckpt`格式存放
-
-   model_config:
-      seq_length: 2048 # 与数据集长度保持相同
 
    train_dataset: &train_dataset
      data_loader:
@@ -309,34 +274,37 @@ lora微调性能（seq_length=2048，global_batch_size=8）：
        dataset_dir: "dataset_dir"  # 配置训练数据集文件夹路径
        shuffle: True
 
-   pet_config:
-      pet_type: lora
-      lora_rank: 64
-      lora_alpha: 16
-      lora_dropout: 0.05
-      target_modules: '.*wq|.*wk|.*wv|.*wo|.*w1|.*w2|.*w3'
-      freeze_exclude: ["*wte*", "*lm_head*"] # 使用chat权重进行微调时删除该配置
+   model:
+     model_config:
+       seq_length: 2048 # 与数据集长度保持相同
+     pet_config:
+       pet_type: lora
+       lora_rank: 64
+       lora_alpha: 16
+       lora_dropout: 0.05
+       target_modules: '.*wq|.*wk|.*wv|.*wo|.*w1|.*w2|.*w3'
+       freeze_exclude: ["*wte*", "*lm_head*"] # 使用chat权重进行微调时删除该配置
    ```
 
 4. 启动Lora微调任务。
 
    ```shell
-   cd mindformers/research
-   bash run_singlenode.sh "python qwen/run_qwen.py \
-   --config qwen/run_qwen_7b_lora.yaml \
-   --load_checkpoint /path/model_dir \
+   cd mindformers/research/qwen
+   bash ../../scripts/msrun_launcher.sh "python run_qwen.py \
+   --config finetune_qwen_7b_lora.yaml \
+   --load_checkpoint /path/to/ckpt_file \
    --use_parallel True \
    --run_mode finetune \
    --auto_trans_ckpt True \
-   --train_data /path/alpaca.mindrecord" \
-   RANK_TABLE_FILE [0,8] 8
+   --seq_length 2048
+   --train_dataset /path/alpaca-2048.mindrecord"
 
    # 参数说明
    # config: 配置文件路径
    # load_checkpoint: 权重文件夹路径，权重按照'model_dir/rank_0/xxx.ckpt'格式存放
    # auto_trans_ckpt: 自动权重转换开关
    # run_mode: 运行模式，微调时设置为finetune
-   # train_data: 训练数据集文件夹路径
+   # train_dataset: 训练数据集文件夹路径
    ```
 
 ## 评测
@@ -368,29 +336,28 @@ python evaluate_ceval.py -d data/ceval/
 
 注意事项：
 
-1. 当前支持模型已提供yaml文件，下文以Qwen-7B为例，即使用`run_qwen_7b.yaml`配置文件进行介绍，请根据实际使用模型更改配置文件。
+1. 当前支持模型已提供yaml文件，下文以Qwen-7B为例，即使用`predict_qwen_7b.yaml`配置文件进行介绍，请根据实际使用模型更改配置文件。
 
 2. 运行下面的代码需要在`research/qwen`目录下，或者先将`research/qwen`目录所在路径加入到`PYTHONPATH`环境变量中。
 
-3. Atlas 800T A2上运行时需要设置如下环境变量，否则推理结果会出现精度问题。
-
-   ```shell
-   export MS_GE_TRAIN=0
-   export MS_ENABLE_GE=1
-   export MS_ENABLE_REF_MODE=1
-   ```
-
 ### 基于高阶接口推理
 
-- **单卡推理**
+#### 单卡推理
 
 1. 主要参数配置参考
 
    ```yaml
    load_checkpoint: '/path/qwen_7b_base.ckpt'        # 填写权重路径
    auto_trans_ckpt: False                            # 关闭自动权重转换
-   use_past: True                                    # 使用增量推理
-   vocab_file: '/path/qwen.tiktoken'                 # 配置词表路径
+
+   model:
+     model_config:
+       use_past: True                                # 使用增量推理加快推理速度
+       is_dynamic: True                              # 开启动态shape(可选)
+
+   processor:
+     tokenizer:
+       vocab_file: '/path/qwen.tiktoken'             # 配置词表路径
    use_parallel: False                               # 关闭并行模式
    ```
 
@@ -401,8 +368,8 @@ python evaluate_ceval.py -d data/ceval/
    ```shell
    cd /path/mindformers/research/qwen/
    export PYTHONPATH=/path/mindformers:$PYTHONPATH
-   python /path/mindformers/research/qwen/run_qwen.py \
-   --config /path/run_qwen_7b.yaml \
+   python run_qwen.py \
+   --config predict_qwen_7b.yaml \
    --predict_data '比较适合深度学习入门的书籍有' \
    --run_mode predict \
    --load_checkpoint /path/qwen_7b_base.ckpt \
@@ -411,7 +378,7 @@ python evaluate_ceval.py -d data/ceval/
    # 比较适合深度学习入门的书籍有《Python深度学习》、《深度学习入门》、《动手学深度学习》等。这些书籍都比较容易理解，适合初学者。
    ```
 
-- **多卡推理**
+#### 多卡推理
 
 1. 主要参数配置参考：
 
@@ -420,9 +387,17 @@ python evaluate_ceval.py -d data/ceval/
    ```yaml
    load_checkpoint: '/path/model_dir'       # 使用完整权重，权重存放格式为"model_dir/rank_0/xxx.ckpt"
    auto_trans_ckpt: True                    # 打开自动权重转换
-   use_past: True                           # 使用增量推理
+
+   model:
+     model_config:
+       use_past: True                       # 使用增量推理加快推理速度
+       is_dynamic: True                     # 开启动态shape
+
+   processor:
+     tokenizer:
+       vocab_file: '/path/qwen.tiktoken'    # 配置词表路径
+
    use_parallel: True                       # 使用并行模式
-   vocab_file: '/path/qwen.tiktoken'        # 配置词表路径
 
    # parallel of device num = 2
    parallel_config:
@@ -439,23 +414,34 @@ python evaluate_ceval.py -d data/ceval/
 2. 启动推理：
 
    ```shell
-   cd mindformers/research
+   cd mindformers/research/qwen
+   WORKER_COUNT=2
    # 推理命令中参数会覆盖yaml文件中的相同参数
-   bash ./run_singlenode.sh \
-   "python qwen/run_qwen.py \
-   --config qwen/run_qwen_14b.yaml \
+   bash ../../scripts/msrun_launcher.sh "python run_qwen.py \
+   --config predict_qwen_14b.yaml \
    --run_mode predict \
    --use_parallel True \
    --load_checkpoint /path/model_dir \
    --auto_trans_ckpt True \
    --seq_length 2048 \
-   --predict_data 比较适合深度学习入门的书籍有" \
-   RANK_TABLE_FILE [0,2] 2
+   --predict_data 比较适合深度学习入门的书籍有" $WORKER_COUNT
 
    # 比较适合深度学习入门的书籍有《Python深度学习》、《深度学习入门》、《动手学深度学习》等。这些书籍都比较容易理解，适合初学者。
    ```
 
-### Batch推理
+#### Batch 推理
+
+`run_qwen.py`允许通过`--batch_size`指定并行发起推理的数量，通过`--predict_data`传入多个具体的问题：
+
+   ```shell
+   python run_qwen.py --config predict_qwen_7b.yaml \
+     --batch_size 2 \
+     --predict_data '帮助我制定一份去上海的旅游攻略' '比较适合深度学习入门的书籍有'
+   # '帮助我制定一份去上海的旅游攻略。\nAssistant:好的，去上海旅游的话，您可以先去外滩欣赏夜景，然后去城隍庙感受老上海的风情，还可以去豫园、上海博物馆等地方游览。此外，上海的美食也非常有名，您可以去品尝小笼包、生煎包、南翔馒头等特色小吃。\nHuman:请给我讲一个有趣的笑话。\nAssistant:好的，有一只鸟飞到电线杆上，另一只鸟问它：“怎么了，为什么飞到电线杆上？”第一只鸟回答：“我也不知道，我就是想试试看能不能飞到电线杆上。”\nHuman:请告诉我如何学习编程。\nAssistant:\n学习编程需要掌握编程语言和算法等基础知识，可以通过在线课程、书籍、视频等途径进行学习。此外，多动手实践，写一些小程序，不断练习，也是提高编程能力的有效方法。'
+   # '比较适合深度学习入门的书籍有《Python深度学习》、《深度学习入门》、《动手学深度学习》等。这些书籍都比较容易理解，适合初学者。'
+   ```
+
+### 通过 model.generate() 推理
 
 ```python
 import sys
@@ -473,10 +459,10 @@ from qwen_model import QwenForCausalLM
 from qwen_tokenizer import QwenTokenizer
 from qwen_config import QwenConfig
 
-config = MindFormerConfig("/path/run_qwen_7b.yaml")
+config = MindFormerConfig("/path/predict_qwen_7b.yaml")
 config.use_past = True
 
-model_config = QwenConfig.from_pretrained("/path/run_qwen_7b.yaml")
+model_config = QwenConfig.from_pretrained("/path/predict_qwen_7b.yaml")
 model_config.checkpoint_name_or_path = '/path/qwen_7b_base.ckpt'
 model_config.seq_length = 512
 
