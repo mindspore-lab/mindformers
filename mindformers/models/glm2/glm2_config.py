@@ -65,7 +65,7 @@ class ChatGLM2Config(BaseConfig):
                  attention_softmax_in_fp32=True,
                  fp32_residual_connection=False,
                  quantization_bit=0,
-                 pre_seq_len=None,
+                 pre_seq_len=0,
                  prefix_projection=False,
                  param_init_type: str = "float16",
                  compute_dtype: str = "float16",
