@@ -54,6 +54,7 @@ class TrainingDataLoader:
                 samples_num: int = 10000,
                 skip_num: int = 0,
                 file_limit: int = 1,
+                process_num: int = 64,
                 **kwargs):
         r"""
         Training DataLoader API.
@@ -105,7 +106,8 @@ class TrainingDataLoader:
         training_dataset = TrainingDataset(dataset_dir, column_names=column_names, tokenizer=tokenizer,
                                            dataset_name=dataset_name, is_align=is_align, max_length=max_length,
                                            text_col=text_col, file_format=file_format, read_function=read_function,
-                                           shuffle=shuffle, samples_num=samples_num, file_limit=file_limit)
+                                           shuffle=shuffle, samples_num=samples_num, file_limit=file_limit,
+                                           process_num=process_num)
 
         kwargs["num_shards"] = None
         kwargs["shard_id"] = None
@@ -171,7 +173,8 @@ class TrainingDataset:
                  read_function: Callable = None,
                  shuffle: bool = True,
                  samples_num: int = 10000,
-                 file_limit: int = 1):
+                 file_limit: int = 1,
+                 process_num: int = 64):
         self.dataset_dir = dataset_dir
         self.dataset_name = dataset_name.lower() if dataset_name else None
         self.format = file_format
@@ -182,6 +185,7 @@ class TrainingDataset:
         self.shuffle = shuffle
         self.sample_number = samples_num
         self.file_limit = file_limit
+        self.process_num = process_num if process_num != -1 else os.cpu_count()
         self.current_index = self.file_limit
         self.start_index = 0
         self.files = []
@@ -338,13 +342,15 @@ class TrainingDataset:
             for token in input_list:
                 token_item.extend(token)
                 if len(token_item) >= self.max_length:
+                    stop_idx = 0
                     for idx in range(0, len(token_item) - self.max_length, self.max_length):
                         token_list.append(np.array(token_item[idx:idx + self.max_length]))
-                    token_item = token_item[idx + self.max_length:]
+                        stop_idx = idx
+                    token_item = token_item[stop_idx + self.max_length:]
             return token_list
 
         logger.info("Start Tokenizer sample")
-        pool = Pool(processes=os.cpu_count())
+        pool = Pool(processes=self.process_num)
         encoded_sentences = pool.map(self._tokenizer_func, iterable)
         pool.close()
         pool.join()
