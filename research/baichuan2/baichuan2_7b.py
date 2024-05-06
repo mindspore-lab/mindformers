@@ -379,6 +379,8 @@ class Baichuan7BV2ForCausalLM(Baichuan2PreTrainedModel):
 
     # pylint: disable=W0613
     def prepare_inputs_for_generation(self, input_ids, **kwargs):
+        if self.config.is_dynamic and "origin_inputs" in kwargs:
+            input_ids = kwargs["origin_inputs"]
         return {
             "input_ids": Tensor(input_ids, mstype.int32)
         }
