@@ -30,6 +30,8 @@ from .glm2_config import ChatGLM2Config
 from .glm2_modules import ChatGLM2MLP, ChatGLM2RMSNorm
 
 
+
+
 class CoreAttention(nn.Cell):
     """ChatGLM2 core attention."""
 
@@ -388,6 +390,15 @@ class ChatGLM2Block(nn.Cell):
 
         self.cast = P.Cast()
 
+
+    def set_select_recompute(self):
+        self.input_layernorm.recompute(False)
+        self.post_attention_layernorm.recompute(False)
+        self.self_attention.recompute()
+        self.mlp.recompute()
+        self.dropout.dropout.recompute(False)
+        self.cast.recompute(False)
+
     def construct(self, hidden_states, attention_mask, rotary_pos_emb, batch_valid_length=None, prefix_key_value=None,
                   block_tables=None, slot_mapping=None):
         """Forward process of the transformer layer."""
@@ -443,7 +454,7 @@ class ChatGLM2Block(nn.Cell):
         return output
 
 
-def set_parallel_configure_for_layer(layer, layer_id, offset, parallel_config, n_layers, select_recompute=False):
+def set_parallel_configure_for_layer(layer, layer_id, offset, parallel_config, n_layers, no_recompute_layers=None):
     r"""
         Default setting for the pipeline is: `(layer_id + offset) // (layers / pipeline_stage)`.
 
@@ -453,8 +464,8 @@ def set_parallel_configure_for_layer(layer, layer_id, offset, parallel_config, n
             offset(int) - Means the layer_index needs a offset, if there are other modules in the net.
             parallel_config(dict) - Parallel Config
             n_layers(int) - The total layers used for the model.
+            no_recompute_layers(Union[list, None]) - layer not use recompute
     """
-    _ = select_recompute
     pp_dis = max(int((n_layers + 1) / parallel_config.pipeline_stage), 1)
     if isinstance(offset, list):
         if len(offset) != parallel_config.pipeline_stage:
@@ -478,12 +489,21 @@ def set_parallel_configure_for_layer(layer, layer_id, offset, parallel_config, n
     else:
         layer.set_comm_fusion(int((layer_id + offset) / dis) + 1)
     # Used for enabling recomputation of the block
-    if isinstance(parallel_config.recompute, bool):
-        if parallel_config.recompute:
-            layer.recompute()
+    if not parallel_config.recompute.select_recompute:
+        if isinstance(parallel_config.recompute, bool):
+            if parallel_config.recompute:
+                layer.recompute()
+        else:
+            if parallel_config.recompute.recompute:
+                layer.recompute(recompute_slice_activation=parallel_config.recompute.recompute_slice_activation)
     else:
-        if parallel_config.recompute.recompute:
-            layer.recompute(recompute_slice_activation=parallel_config.recompute.recompute_slice_activation)
+        if not no_recompute_layers:
+            layer.set_select_recompute()
+        elif layer_id not in no_recompute_layers:
+            if parallel_config.recompute.recompute:
+                layer.recompute()
+            else:
+                layer.recompute(recompute_slice_activation=parallel_config.recompute.recompute_slice_activation)
 
 
 class ChatGLM2Transformer(nn.Cell):
@@ -509,7 +529,7 @@ class ChatGLM2Transformer(nn.Cell):
             layer = build_layer(i + 1)
             set_parallel_configure_for_layer(layer, layer_id=i, offset=0, n_layers=self.num_layers,
                                              parallel_config=config.parallel_config,
-                                             select_recompute=config.parallel_config.recompute.select_recompute)
+                                             no_recompute_layers=config.no_recompute_layers)
             self.layers.append(layer)
 
         if self.post_layer_norm:
