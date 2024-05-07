@@ -113,7 +113,10 @@ class BlockTables:
             block_tables.append(padded_table)
 
             curent_idx = batch_valid_length[i] - 1
-            slots = [block_table[curent_idx // self.block_size] * self.block_size + curent_idx % self.block_size]
+            index = curent_idx // self.block_size
+            if index >= len(block_table):
+                index = len(block_table) - 1
+            slots = [block_table[index] * self.block_size + curent_idx % self.block_size]
             slot_mapping = slot_mapping + slots
         block_tables = np.array(block_tables, dtype=np.int32)
         slot_mapping = np.array(slot_mapping, dtype=np.int32)
