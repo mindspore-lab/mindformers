@@ -328,7 +328,7 @@ hccl_xp_xxx.json [0,8] 8
 
 #### 基于高阶接口推理
 
-- 修改yaml配置文件设置
+- 修改predict_internlm_20b.yaml配置文件设置
 
 ```bash
 auto_trans_ckpt: False                              # 关闭自动权重转换
@@ -342,7 +342,7 @@ InternLM-20B的高阶接口使用脚本已集成在run_internlm.py脚本中，�
 
 ```bash
 python run_internlm.py \
---config 'run_internlm_20b_910b.yaml' \
+--config 'predict_internlm_20b.yaml' \
 --run_mode predict \
 --use_parallel False \
 --load_checkpoint '/path/to/InternLM-20B-Chat.ckpt' \
@@ -372,7 +372,7 @@ from internlm_tokenizer import InternLMTokenizer
 context.set_context(device_id=0, mode=0)
 
 # init config
-internlm_config_path = "/path/to/run_internlm_20b.yaml"
+internlm_config_path = "/path/to/predict_internlm_20b.yaml"
 config = MindFormerConfig(internlm_config_path)
 internlm_config = InternLMConfig(**config.model.model_config)
 internlm_model = InternLMForCausalLM(
@@ -397,7 +397,7 @@ print(pipeline_result)
 # [{'text_generation_text': ['<|User|>:你是谁？<eoh>\n<|Bot|>:我是一个名叫书生·浦语的人工智能助手，由上海人工智能实验室开发。我使用了Transformer模型和深度学习技术，并使用语言模型作为预训练任务。我的设计理念是有用、诚实并且无害。我能够回答问题、提供定义和解释、将文本从一种语言翻译成另一种语言、总结文本、生成文本、编写故事、分析情感、提供推荐、开发算法、编写代码以及其他任何基于语言的任务。但我不能看、听、尝、触摸、闻、移动、与物理世界交互、感受情感或体验感官输入、执行需要身体能力的任务。<eoa>\n']}]
 ```
 
-- 修改yaml配置文件，以下为主要参数设置参考：
+- 修改predict_internlm_20b.yaml配置文件，以下为主要参数设置参考：
 
 ```yaml
 load_checkpoint: ''                                           # 单卡推理时，只需配置checkpoint_name_or_path
@@ -433,7 +433,7 @@ from internlm_tokenizer import InternLMTokenizer
 context.set_context(device_id=0, mode=0)
 
 # init config
-internlm_config_path = "/path/to/run_internlm_20b.yaml"
+internlm_config_path = "/path/to/predict_internlm_20b.yaml"
 config = MindFormerConfig(internlm_config_path)
 internlm_config = InternLMConfig(**config.model.model_config)
 internlm_model = InternLMForCausalLM(
@@ -463,7 +463,7 @@ print(generate_result)
 # [{'text_generation_text': ['<|User|>:你是谁？<eoh>\n<|Bot|>:我是一个名叫书生·浦语的人工智能助手，由上海人工智能实验室开发。我使用了Transformer模型和深度学习技术，并使用语言模型作为预训练任务。我的设计理念是有用、诚实并且无害。我能够回答问题、提供定义和解释、将文本从一种语言翻译成另一种语言、总结文本、生成文本、编写故事、分析情感、提供推荐、开发算法、编写代码以及其他任何基于语言的任务。但我不能看、听、尝、触摸、闻、移动、与物理世界交互、感受情感或体验感官输入、执行需要身体能力的任务。<eoa>\n']}]
 ```
 
-- 修改yaml配置文件，以下为主要参数设置参考：
+- 修改predict_internlm_20b.yaml配置文件，以下为主要参数设置参考：
 
 ```yaml
 load_checkpoint: ''                                           # 单卡推理时，只需配置checkpoint_name_or_path
