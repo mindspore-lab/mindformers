@@ -462,7 +462,8 @@ class LLamaDecodeLayer(nn.Cell):
                                ffn_dim_multiplier=ffn_dim_multiplier,
                                compute_dtype=compute_dtype,
                                param_init_type=param_init_type,
-                               is_dynamic=is_dynamic)
+                               is_dynamic=is_dynamic,
+                               parallel_config=parallel_config)
         if self.expert_num == 1:
             logger.warning("MoE config is None, use normal FFN")
             self.feed_forward = ffn

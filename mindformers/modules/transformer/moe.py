@@ -583,6 +583,7 @@ class MoEV2(Cell):
         self.ep = parallel_config.expert_parallel
         self.mp = parallel_config.model_parallel
         self.group_wise_a2a = moe_config.group_wise_a2a
+        self.dp_moe = self.dp // self.ep
         self.dp_range = Tensor(np.arange(self.dp_group).reshape(-1, 1), mstype.int32) # (dp, 1) = [[0],[1],[2]...[dp]]
 
         self.ffn = ffn
@@ -598,6 +599,7 @@ class MoEV2(Cell):
         self.cast = P.Cast()
         self.transpose_4dim_dp1 = P.Transpose().shard(((1, self.dp, 1, 1),))
         self.transpose_4dim_dp0 = P.Transpose().shard(((self.dp, 1, 1, 1),))
+        self.transpose_5dim_ep2 = P.Transpose().shard(((self.dp_moe, 1, self.ep, 1, 1),))
         self.concat_dp = P.Concat(2).shard(((1, self.dp, 1, 1), (1, self.dp, 1, 1)))
         self.stride_slice = P.StridedSlice().shard(((self.dp, 1, 1, 1),))
         self.stride_slice_dp = P.StridedSlice().shard(((1, self.dp, 1, 1),))
@@ -609,38 +611,63 @@ class MoEV2(Cell):
         """
         Computing the FFN.
         """
-        if self.group_wise_a2a:
-            # capacity shard by mp
-            expert_input = self.stride_slice_dp_mp(expert_input, (0, 0, 0, 0),
-                                                   (self.expert_dim, self.dp_group, capacity, self.hidden_size),
-                                                   (1, 1, 1, 1))
-            # group-wise alltoall
-            expert_input = self.stride_slice_ep_mp(expert_input, (0, 0, 0, 0),
-                                                   (self.expert_dim, self.dp_group, capacity, self.hidden_size),
-                                                   (1, 1, 1, 1))
-            # allgather
-            expert_input = self.stride_slice_ep(expert_input, (0, 0, 0, 0),
-                                                (self.expert_dim, self.dp_group, capacity, self.hidden_size),
-                                                (1, 1, 1, 1))
-
-        expert_input = self.reshape(expert_input, (-1, self.hidden_size)) # (E*dp*n, h) <-- (E, dp, n, h) #<<<<<<<<<
-        expert_output = self.ffn(expert_input) # (E, dp*n, h) <-- (E*dp*n, h)
-        expert_output = self.reshape(expert_output, (self.expert_dim, self.dp_group, -1, self.hidden_size)) # (E, dp, n, h) <-- (E, dp*n, h)
-
-        if self.group_wise_a2a:
-            # capacity shard by mp
-            expert_output = self.stride_slice_ep_mp(expert_output, (0, 0, 0, 0),
+        if self.dp_moe == 1:
+            if self.group_wise_a2a:
+                expert_input = self.transpose_4dim_dp0(expert_input, (1, 0, 2, 3)) # (E, dp, n ,h) <-- (dp, E, n, h)
+                # capacity shard by mp
+                expert_input = self.stride_slice_dp_mp(expert_input, (0, 0, 0, 0),
+                                                       (self.expert_dim, self.dp_group, capacity, self.hidden_size),
+                                                       (1, 1, 1, 1))
+                # group-wise alltoall
+                expert_input = self.stride_slice_ep_mp(expert_input, (0, 0, 0, 0),
+                                                       (self.expert_dim, self.dp_group, capacity, self.hidden_size),
+                                                       (1, 1, 1, 1))
+                # allgather
+                expert_input = self.stride_slice_ep(expert_input, (0, 0, 0, 0),
                                                     (self.expert_dim, self.dp_group, capacity, self.hidden_size),
                                                     (1, 1, 1, 1))
-            # group-wise alltoall
-            expert_output = self.stride_slice_dp_mp(expert_output, (0, 0, 0, 0),
-                                                    (self.expert_dim, self.dp_group, capacity, self.hidden_size),
-                                                    (1, 1, 1, 1))
-            # allgather
-            expert_output = self.stride_slice_dp(expert_output, (0, 0, 0, 0),
-                                                 (self.expert_dim, self.dp_group, capacity, self.hidden_size),
-                                                 (1, 1, 1, 1))
+            else:
+                # (E, dp, n, h) <-- (dp, E, n, h)
+                expert_input = self.transpose_4dim_dp1(expert_input, (1, 0, 2, 3))
+        else:
+            #reshape for expert_input,(dp_moe, E, ep*n, h) <-- (dp, E, n, h)
+            # (dp_moe, ep, E, n, h) <-- (dp, E, n, h)
+            expert_input = self.reshape(expert_input, (self.dp_moe, self.ep, self.expert_dim, -1, self.hidden_size))
+            # (dp_moe, E, ep, n, h) <-- (dp_moe, ep, E, n, h)
+            expert_input = self.transpose_5dim_ep2(expert_input, (0, 2, 1, 3, 4))
+            # (dp_moe, E, ep*n, h) <-- (dp_moe, E, ep, n, h)
+            expert_input = self.reshape(expert_input, (self.dp_moe, self.expert_dim, -1, self.hidden_size))
 
+        expert_input = self.reshape(expert_input, (-1, self.hidden_size))
+        expert_output = self.ffn(expert_input)
+
+        if self.dp_moe == 1:
+            # (E, dp, n, h) <-- (E, dp*n, h)
+            expert_output = self.reshape(expert_output, (self.expert_dim, self.dp_group, -1, self.hidden_size))
+            if self.group_wise_a2a:
+                # capacity shard by mp
+                expert_output = self.stride_slice_ep_mp(expert_output, (0, 0, 0, 0),
+                                                        (self.expert_dim, self.dp_group, capacity, self.hidden_size),
+                                                        (1, 1, 1, 1))
+                # group-wise alltoall
+                expert_output = self.stride_slice_dp_mp(expert_output, (0, 0, 0, 0),
+                                                        (self.expert_dim, self.dp_group, capacity, self.hidden_size),
+                                                        (1, 1, 1, 1))
+                # allgather
+                expert_output = self.stride_slice_dp(expert_output, (0, 0, 0, 0),
+                                                     (self.expert_dim, self.dp_group, capacity, self.hidden_size),
+                                                     (1, 1, 1, 1))
+            else:
+                # (dp, E, n, h) <-- (E, dp, n, h)
+                expert_output = self.transpose_4dim_dp1(expert_output, (1, 0, 2, 3))
+        else:
+            #reshape for expert_output, (E, dp, n, h) <-- (dp_moe, E, ep*n, h)
+            # (dp_moe, E, ep, n, h) <-- (dp_moe, E, ep*n, h)
+            expert_output = self.reshape(expert_output, (self.dp_moe, self.expert_dim, self.ep, -1, self.hidden_size))
+            # (dp_moe, ep, E, n, h) <-- (dp_moe, E, ep, n, h)
+            expert_output = self.transpose_5dim_ep2(expert_output, (0, 2, 1, 3, 4))
+            # (dp, E, n, h) <-- (dp_moe, ep, E, n, h)
+            expert_output = self.reshape(expert_output, (self.dp, self.expert_dim, -1, self.hidden_size))
         return expert_output
 
 
@@ -664,12 +691,7 @@ class MoEV2(Cell):
         expert_input = self.router.router.dispatch(input_tensor, dispatch_policy) # (dp, E, n, h) <-- (dp, N, h), (dp, E, n)
 
         # ffn
-        if self.group_wise_a2a:
-            expert_input = self.transpose_4dim_dp0(expert_input, (1, 0, 2, 3)) # (E, dp, n, h) <-- (dp, E, n, h)
-        else:
-            expert_input = self.transpose_4dim_dp1(expert_input, (1, 0, 2, 3)) # (E, dp, n, h) <-- (dp, E, n, h)
         expert_output = self.ffn_infer(expert_input, expert_capacity) # (E, dp, n, h) <-- (E, dp, n, h)
-        expert_output = self.transpose_4dim_dp1(expert_output, (1, 0, 2, 3)) # (dp, E, n, h) <-- (E, dp, n, h)
 
         # combine
         output_tensor = self.router.router.combine(expert_output, combine_policy, router_coeff) # (dp, N, k, h) <-- (dp, E*(1+n), h), (dp, N, k)
