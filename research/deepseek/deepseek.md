@@ -93,6 +93,8 @@ mindspore_ckpt_path: mindspore权重文件保存路径
 
 ```yaml
 
+load_checkpoint: '/path/to/ckpt_dir'  # 填写切分权重文件所在文件夹
+auto_trans_ckpt: False                # 关闭自动权重转换
 processor:
   return_tensors: ms
   tokenizer:
@@ -117,7 +119,7 @@ msrun_launcher.sh在mindformers的scripts目录下
 ```shell
 
 cd {mindformers根目录}
-bash scripts/msrun_launcher.sh "run_mindformer.py --config research/deepseek/predict_deepseek_33b.yaml --run_mode=predict --predict_data "#write a quick sort algorithm" --predict_length 100 --use_parallel True --use_past True" 4
-#运行结果：[{'text_generation_text': ['#write a quick sort algorithm\ndef quick_sort(arr):\n    if len(arr) <= 1:\n        return arr\n    pivot = arr[len(arr) // 2]\n    left = [x for x in arr if x < pivot]\n    middle = [x for x in arr if x == pivot]\n    right = [x for x in arr if x > pivot]\n    return quick_sort(left) + middle + quick_sort(right)\n\nprint(quick_sort([3,6,8,10,1,2,1]))\n# Prints "[1, 1, 2, 3, 6, 8, 10]"\n\n#write a merge sort algorithm\ndef merge_sort(arr):\n    if len(arr) <= 1:\n        return arr\n    mid = len(arr) // 2\n    left = merge_sort(arr[:mid])\n    right = merge_sort(arr[mid:])\n    return merge(left, right)\n\ndef merge(left, right):\n    result = []\n    i = j = 0\n    while i < len(left) and j < len(right):\n        if left[i] < right[j]:\n            result.append(left[i])\n            i += 1\n        else:\n            result.append(right[j])\n            j += 1\n    result += left[i:]\n    result += right[j:]\n    return result\n\nprint(merge_sort([3,6,8,10,1,2,1]))\n# Prints "[1, 1, 2, 3, 6, 8, 10]"\n\n#write a bubble sort algorithm\ndef bubble_sort(arr):\n    for i in range(len(arr)):\n        for j in range(len(arr) - 1):\n            if arr[j] > arr[j + 1]:\n                arr[j], arr[j + 1] = arr[j + 1], arr[j]\n    return arr\n\nprint(bubble_sort([3,6,8,10,1,2,1]))\n# Prints "[1, 1, 2, 3, '']}]
+bash scripts/msrun_launcher.sh "run_mindformer.py --config research/deepseek/predict_deepseek_33b.yaml --run_mode=predict --predict_data '#write a quick sort algorithm' --predict_length 100 --use_parallel True --use_past True" 4
+# 运行结果：[{'text_generation_text': ['#write a quick sort algorithm\ndef quick_sort(arr):\n    if len(arr) <= 1:\n        return arr\n    pivot = arr[len(arr) // 2]\n    left = [x for x in arr if x < pivot]\n    middle = [x for x in arr if x == pivot]\n    right = [x for x in arr if x > pivot]\n    return quick_sort(left) + middle + quick_sort(right)\n\nprint(quick_sort([3,6,8,10,1,2,1]))\n# Prints "[1, 1, 2, 3, 6, 8, 10]"\n\n#write a merge sort algorithm\ndef merge_sort(arr):\n    if len(arr) <= 1:\n        return arr\n    mid = len(arr) // 2\n    left = merge_sort(arr[:mid])\n    right = merge_sort(arr[mid:])\n    return merge(left, right)\n\ndef merge(left, right):\n    result = []\n    i = j = 0\n    while i < len(left) and j < len(right):\n        if left[i] < right[j]:\n            result.append(left[i])\n            i += 1\n        else:\n            result.append(right[j])\n            j += 1\n    result += left[i:]\n    result += right[j:]\n    return result\n\nprint(merge_sort([3,6,8,10,1,2,1]))\n# Prints "[1, 1, 2, 3, 6, 8, 10]"\n\n#write a bubble sort algorithm\ndef bubble_sort(arr):\n    for i in range(len(arr)):\n        for j in range(len(arr) - 1):\n            if arr[j] > arr[j + 1]:\n                arr[j], arr[j + 1] = arr[j + 1], arr[j]\n    return arr\n\nprint(bubble_sort([3,6,8,10,1,2,1]))\n# Prints "[1, 1, 2, 3, '']}]
 
 ```
