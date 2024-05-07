@@ -173,7 +173,7 @@ class Baichuan13BV2ForCausalLM(Baichuan2PreTrainedModel):
         input_ids = Tensor(input_ids, mstype.int32)
         bs = input_ids.shape[0]
         slot_mapping = Tensor(np.ones(shape=tuple([bs])), mstype.int32)
-        return input_ids, None, None, None, None, None, slot_mapping
+        return input_ids, None, None, None, None, None, None, None, None, None, None, slot_mapping
 
     def add_flags_custom(self, is_first_iteration):
         """Add customized attributes for specific cells in the model."""
