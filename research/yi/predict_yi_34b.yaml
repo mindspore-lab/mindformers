@@ -83,7 +83,7 @@ parallel:
   enable_alltoall: False
   full_batch: True
   search_mode: "sharding_propagation"
-  enable_parallel_optimizer: True
+  enable_parallel_optimizer: False
   strategy_ckpt_save_file: "./ckpt_strategy.ckpt"
   parallel_optimizer_config:
     gradient_accumulation_shard: False
@@ -159,10 +159,12 @@ model:
     extend_method: "None" # support "None", "PI", "NTK"
     compute_in_2d: False
     use_flash_attention: True # FA can accelerate training or finetune
+    block_size: 128
+    num_blocks: 2048
     offset: 0
     use_past_shard: False
     checkpoint_name_or_path: ""
-    repetition_penalty: 1.3
+    repetition_penalty: 1.0
     max_decode_length: 4096
     top_k: 40
     top_p: 0.8
