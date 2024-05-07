@@ -17,10 +17,11 @@
 For text generation
 """
 import os
+from typing import Optional, List, Union
 import numpy as np
 
 import mindspore as ms
-from mindspore import context
+from mindspore import context, Tensor
 from mindspore.communication.management import init
 from mindspore.common.initializer import Zero
 from mindspore._c_expression import swap_cache
@@ -30,7 +31,6 @@ from mindformers.models.build_config import build_model_config
 from mindformers.models.utils import convert_mstype
 from mindformers.tools.register.config import MindFormerConfig
 from mindformers.trainer.utils import transform_and_load_checkpoint
-from mindformers.generation import logits_process
 
 __all__ = ["ModelRunner"]
 
@@ -123,6 +123,7 @@ class ModelRunner:
 
             build_context(self.config)
             logger.info(f"Build context finished.")
+            self.config.model.model_config.num_blocks = self.npu_num_blocks
             self.model = AutoModel.from_config(self.config)
             logger.info(f"Create model finished.")
 
@@ -149,23 +150,111 @@ class ModelRunner:
         self.value_host = [ms.Parameter(ms.Tensor(shape=cpu_kv_shape, dtype=compute_dtype, init=Zero()),
                                         name=f"value_host_{i}", requires_grad=False) for i in range(self.num_layers)]
 
-    def forward(self, **kwargs):
+    def forward(self, input_ids: [Union[List[int], List[List[int]]]],
+                valid_length_each_example: List[int],
+                is_finished: List[bool],
+                block_tables: Optional[Tensor] = None,
+                slot_mapping: Optional[Tensor] = None,
+                prefill: bool = True,
+                generation_config: [GenerationConfig] = None):
         """
-        Call self.model.infer() to do infer and return logits on next position, can choose do prefill or decode predict.
+        Call self.model.infer() or self.model.forward() to do infer and return logits on next position, \
+        can choose do prefill or decode predict.
 
         Args:
-            **kwargs:
-                Refers to GenerationMixin.infer().
+            input_ids (List(List(int))):
+                Input ids after padding.
+            valid_length_each_example (List(int)):
+                Valid input length except padding.
+            is_finished (List(bool)):
+                Whether each sequence is finished its generation.
+            block_tables (Tensor):
+                Params for page attention
+            slot_mapping (Tensor):
+                Params for page attention
+            prefill (bool):
+                Whether to do prefill predict or decode predict
+            generation_config (`GenerationConfig`):
+                The generation configuration to be used as base parametrization for the generation call.
 
         Returns:
             next_token, is_finished
         """
-        gen_conf = kwargs.get("generation_config")
-        if gen_conf is None:
-            logits_processor = kwargs.get("logits_processor")
-            process = self._get_logits_processor(logits_processor)
-            kwargs.update({"generation_config": self.generation_config, "logits_processor": process})
-        return self.model.infer(**kwargs)
+        seed = 0 if (self.config is None or self.config.seed is None) else self.config.seed
+        seed = seed if (generation_config is None or generation_config.get("seed") is None) else \
+            generation_config.get("seed")[0]
+        np.random.seed(seed)
+
+        input_ids_seq_length = max(valid_length_each_example)
+        logits_processor = self.model.get_logits_processor(self.generation_config, input_ids_seq_length, None)
+        logits_warper = self.model.get_logits_warper(self.generation_config)
+
+        kwargs = {"input_ids": input_ids,
+                  "valid_length_each_example": valid_length_each_example,
+                  "generation_config": self.generation_config,
+                  "logits_processor": logits_processor,
+                  "logits_warper": logits_warper,
+                  "block_tables": block_tables,
+                  "slot_mapping": slot_mapping,
+                  "prefill": prefill,
+                  "is_finished": is_finished}
+        if generation_config is None:
+            return self.model.infer(**kwargs)
+
+        input_ids = np.array(input_ids)
+        is_finished = np.array(is_finished)
+        do_sample = generation_config.get("do_sample")
+        repetition_penalty = generation_config.get("repetition_penalty")
+        batch_size = input_ids.shape[0]
+        batch_idx = np.arange(batch_size)
+        no_sample_batch_idx = batch_idx if do_sample is None else np.where(do_sample == 0)[0]
+        no_penalty_batch_idx = batch_idx if repetition_penalty is None else np.where(repetition_penalty == 1.0)[0]
+        if no_sample_batch_idx.size == batch_size and no_penalty_batch_idx.size == batch_size:
+            return self.model.infer(**kwargs)
+
+        res, current_idx = self.model.forward(**kwargs)
+        next_ids = np.array([self.model_config.eos_token_id] * batch_size)
+        no_post_batch_idx = np.intersect1d(no_sample_batch_idx, no_penalty_batch_idx).tolist()
+        if no_post_batch_idx:
+            next_ids_no_post, is_finished_no_post = \
+                self.model.postprocess(input_ids=input_ids[no_post_batch_idx],
+                                       is_finished=is_finished[no_post_batch_idx],
+                                       res=(res[0][no_post_batch_idx], res[1][no_post_batch_idx]),
+                                       generation_config=self.generation_config,
+                                       valid_length_each_example=None,
+                                       current_index=np.array(current_idx)[no_post_batch_idx].tolist(),
+                                       logits_processor=logits_processor,
+                                       logits_warper=logits_warper,
+                                       need_gather_logits=prefill)
+            next_ids[no_post_batch_idx] = np.array(next_ids_no_post)
+            is_finished[no_post_batch_idx] = np.array(is_finished_no_post)
+
+        temperature = generation_config.get("temperature")
+        top_k = generation_config.get("top_k")
+        top_p = generation_config.get("top_p")
+        post_batch_idx = np.setdiff1d(batch_idx, no_post_batch_idx).tolist()
+        for idx in post_batch_idx:
+            generation_config["do_sample"] = do_sample[idx]
+            generation_config["repetition_penalty"] = 1.0 if repetition_penalty is None else repetition_penalty[idx]
+            generation_config["temperature"] = 1.0 if temperature is None else temperature[idx]
+            generation_config["top_k"] = 0 if top_k is None else int(top_k[idx])
+            generation_config["top_p"] = 1.0 if top_p is None else top_p[idx]
+            self.generation_config.update(**generation_config)
+            logits_processor = self.model.get_logits_processor(self.generation_config, input_ids_seq_length, None)
+            logits_warper = self.model.get_logits_warper(self.generation_config)
+
+            next_ids_post, is_finished_post = self.model.postprocess(input_ids=np.array([input_ids[idx]]),
+                                                                     is_finished=[is_finished[idx]],
+                                                                     res=(res[0][int(idx)], res[1][int(idx)]),
+                                                                     generation_config=self.generation_config,
+                                                                     valid_length_each_example=None,
+                                                                     current_index=[current_idx[idx]],
+                                                                     logits_processor=logits_processor,
+                                                                     logits_warper=logits_warper,
+                                                                     need_gather_logits=prefill)
+            next_ids[idx] = np.array(next_ids_post)
+            is_finished[idx] = np.array(is_finished_post)
+        return next_ids, is_finished
 
     def generate(self, **kwargs):
         """
@@ -194,40 +283,3 @@ class ModelRunner:
             key_cache, value_cache = self.model.kvcache(i)
             swap_cache(self.key_host[i], key_cache, ms.Tensor(block_tables), swap_type)
             swap_cache(self.value_host[i], value_cache, ms.Tensor(block_tables), swap_type)
-
-    @staticmethod
-    def _merge_processor_list(default_list, custom_list):
-        """merge custom processor list with default list."""
-        if not custom_list:
-            return default_list
-        for default in default_list:
-            for custom in custom_list:
-                if type(custom) is type(default):
-                    object_type = "logits_processor"
-                    raise ValueError(
-                        f"A custom {object_type} of type {type(custom)} with values {custom} has been padded to"
-                        f" `.generate()`, but it has already been created with the values {default}."
-                        f" {default} has been created by passing the corresponding arguments to generate or"
-                        f" by the model's config default values. If you just want to change the default values"
-                        f" of {object_type} consider passing them as arguments to `.generate()`"
-                        f" instead of using a custom {object_type}."
-                    )
-        default_list.extend(custom_list)
-        return default_list
-
-    def _get_logits_processor(self, logits_processor):
-        """
-        This class returns a [`LogitsProcessorList`] list object that contains all relevant [`LogitsProcessor`]
-        instances used to modify the scores of the language model head.
-        """
-        # initialize processors list
-        processors = logits_process.LogitsProcessorList()
-
-        if self.generation_config.repetition_penalty is not None and self.generation_config.repetition_penalty != 1.0:
-            processors.append(logits_process.RepetitionPenaltyLogitsProcessor(
-                repetition_penalty=self.generation_config.repetition_penalty))
-        processors = self._merge_processor_list(processors, logits_processor)
-        # `LogitNormalization` should always be the last logits processor, when present
-        if self.generation_config.renormalize_logits is True:
-            processors.append(logits_process.LogitNormalization())
-        return processors

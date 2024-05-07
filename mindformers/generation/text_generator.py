@@ -156,10 +156,10 @@ class GenerationMixin:
         outputs = F.tensor_pow(np.e, outputs)
         return outputs
 
-    def _get_logits_processor(self,
-                              generation_config: GenerationConfig,
-                              input_ids_seq_length: int,
-                              logits_processor: Optional[LogitsProcessorList]):
+    def get_logits_processor(self,
+                             generation_config: GenerationConfig,
+                             input_ids_seq_length: int,
+                             logits_processor: Optional[LogitsProcessorList]):
         """
         This class returns a [`LogitsProcessorList`] list object that contains all relevant [`LogitsProcessor`]
         instances used to modify the scores of the language model head.
@@ -221,7 +221,7 @@ class GenerationMixin:
         default_list.extend(custom_list)
         return default_list
 
-    def _get_logits_warper(self, generation_config: GenerationConfig):
+    def get_logits_warper(self, generation_config: GenerationConfig):
         """
         This class returns a [`LogitsProcessorList`] list object that contains all relevant [`LogitsWarper`] instances
         used for multinomial sampling.
@@ -714,7 +714,7 @@ class GenerationMixin:
                 f"You shout set max_length to {input_ids_length}"
             )
 
-        logits_processor = self._get_logits_processor(
+        logits_processor = self.get_logits_processor(
             generation_config=generation_config,
             input_ids_seq_length=input_ids_length,
             logits_processor=logits_processor,
@@ -760,7 +760,7 @@ class GenerationMixin:
             prepare_time = time.time()
 
             origin_inputs = input_ids
-            logits_warper = self._get_logits_warper(generation_config) \
+            logits_warper = self.get_logits_warper(generation_config) \
                 if generation_config.generation_mode == GenerationMode.SAMPLE else None
 
             if streamer is not None:
