@@ -261,108 +261,6 @@ prefix: ckpt文件前缀名
 
 > 注：`transform_checkpoints` 接口当前仅mindspore 2.0以上版本支持，如当前硬件环境只支持2.0以下版本，可以新建conda环境安装mindspore 2.0的cpu版本以执行该脚本
 
-## 基于API的快速使用
-
-### 基于AutoClass的快速使用
-
-可以使用AutoClass接口，通过模型名称获取相应的model/preprocess/tokenizer等实例，并自动下载并加载权重
-
-`from_pretrained()` 接口会自动从云上下载预训练的模型，存储路径：`./checkpoint_download/glm3`
-
-```python
-import mindspore as ms
-from mindformers import AutoConfig, AutoModel, AutoTokenizer, AutoProcessor
-
-# 指定图模式，指定使用训练卡id
-ms.set_context(mode=ms.GRAPH_MODE, device_target="Ascend", device_id=0)
-
-# 以下两种tokenizer实例化方式选其一即可
-# 1. 在线加载方式
-tokenizer = AutoTokenizer.from_pretrained("glm3_6b")
-# 2. 本地加载方式
-# tokenizer = AutoProcessor.from_pretrained("/path/to/your.yaml").tokenizer
-
-# 以下两种model的实例化方式选其一即可
-# 1. 直接根据默认配置实例化
-# model = AutoModel.from_pretrained('glm3_6b')
-# 2. 自定义修改配置后实例化
-config = AutoConfig.from_pretrained('glm3_6b')
-config.use_past = True                  # 此处修改默认配置，开启增量推理能够加速推理性能
-config.seq_length = 2048                 # 根据需求自定义修改其余模型配置
-config.checkpoint_name_or_path = "/path/to/your.ckpt"
-model = AutoModel.from_config(config)   # 从自定义配置项中实例化模型
-
-role="user"
-
-inputs_list=["你好", "请介绍一下华为", "晚上睡不着应该怎么办", "写一个快排算法"]
-
-for input_item in inputs_list:
-    history=[]
-    inputs = tokenizer.build_chat_input(input_item, history=history, role=role)
-    inputs = inputs['input_ids']
-    # 首次调用model.generate()进行推理将包含图编译时间，推理性能显示不准确，多次重复调用以获取准确的推理性能
-    outputs = model.generate(inputs, do_sample=False, top_k=1, max_length=config.seq_length)
-    for i, output in enumerate(outputs):
-        output = output[len(inputs[i]):]
-        response = tokenizer.decode(output)
-        print(response)
-# answer 1:
-# 你好👋！我是人工智能助手 ChatGLM3-6B，很高兴见到你，欢迎问我任何问题。
-
-# answer 2:
-# 华为是一家总部位于中国深圳的多元化科技公司,成立于1987年,是全球最大的电信设备制造商之一。该公司也在智能手机、电脑、平板电脑、云计算等领域开展业务,其产品和服务覆盖全球170多个国家和地区。
-
-# 华为的主要业务包括电信网络设备、智能手机、电脑和消费电子产品。公司在全球范围内有超过190,000名员工,其中约一半以上从事研发工作。华为以其高品质的产品和服务赢得了全球客户的信任和好评,也曾因其领先技术和创新精神而获得多项国际奖项和认可。
-
-# 然而,华为也面临着来自一些国家政府的安全问题和政治压力,其中包括美国政府对其产品的禁令和限制。华为一直坚称自己的产品是安全的,并采取了一系列措施来确保其产品的安全性和透明度。
-
-# answer 3:
-#  晚上睡不着可以尝试以下方法:
-
-# 1. 尝试放松身心,比如深呼吸、冥想、瑜伽等。
-
-# 2. 避免饮用咖啡、茶、可乐等刺激性饮料。
-
-# 3. 避免过度兴奋,比如看惊悚电影、玩刺激游戏等。
-
-# 4. 保持规律的作息时间,尽量每天按时上床睡觉、按时起床。
-
-# 5. 睡前适当运动,比如散步、慢跑等。
-
-# 6. 睡前可以喝一杯温牛奶或者一些助眠的食品。
-
-# 7. 如果长时间睡不着可以考虑咨询医生或心理咨询师。
-
-# answer 4:
-# 快速排序（Quick Sort）是一种常用的排序算法，其基本思想是通过一趟排序将待排序的数据分割成独立的两部分，其中一部分的所有数据都比另一部分的所有数据要小，然后再按此方法对这两部分数据分别进行快速排序，整个排序过程可以递归进行，以此达到整个数据变成有序序列。
-
-# 下面是一个用Python实现的快速排序算法：
-
-# ```python
-# def quick_sort(arr):
-#     if len(arr) <= 1:
-#         return arr
-#     pivot = arr[len(arr) // 2]
-#     left = [x for x in arr if x < pivot]
-#     middle = [x for x in arr if x == pivot]
-#     right = [x for x in arr if x > pivot]
-#     return quick_sort(left) + middle + quick_sort(right)
-
-# arr = [3,6,8,10,1,2,1]
-# print(quick_sort(arr))
-# ```
-
-# 在这个实现中，我们首先判断输入数组的长度是否小于等于1，如果是，则直接返回数组，因为长度为1的数组本身就是有序的。否则，我们选择数组中间的元素作为基准值（pivot）。然后，我们将数组中的元素分成三部分：小于基准值的元素（left）、等于基准值的元素（middle）和大于基准值的元素（right）。接着，我们分别对left和right子数组进行递归调用quick_sort函数进行排序，并将排序后的结果与middle子数组连接起来，得到最终的排序结果。
-```
-
-如果需要加载本地词表，请修改配置文件中以下项：
-
-  ```yaml
-  processor:
-    tokenizer:
-      vocab_file: "/path/to/tokenizer.model"
-  ```
-
 ## 微调
 
 下面以 [ADGEN](https://aclanthology.org/D19-1321.pdf) (广告生成) 数据集为例介绍代码的使用方法
@@ -514,16 +412,13 @@ IP_LIST=("192.168.0.0", "192.168.0.1", ..., "192.168.0.11")
 
 ```python
 import mindspore as ms
-from mindformers import AutoConfig, AutoModel, AutoTokenizer, AutoProcessor
+from mindformers import AutoConfig, AutoModel, ChatGLM3Tokenizer
 
 # 指定图模式，指定使用训练卡id
 ms.set_context(mode=ms.GRAPH_MODE, device_target="Ascend", device_id=0)
 
-# 以下两种tokenizer实例化方式选其一即可
-# 1. 在线加载方式
-tokenizer = AutoTokenizer.from_pretrained("glm3_6b")
-# 2. 本地加载方式
-# tokenizer = AutoProcessor.from_pretrained("/path/to/your.yaml").tokenizer
+# 本地加载方式
+tokenizer = ChatGLM3Tokenizer("/path/to/tokenizer.model")
 
 # 以下两种model的实例化方式选其一即可
 # 1. 直接根据默认配置实例化
@@ -531,7 +426,7 @@ tokenizer = AutoTokenizer.from_pretrained("glm3_6b")
 # 2. 自定义修改配置后实例化
 config = AutoConfig.from_pretrained('glm3_6b')
 config.use_past = True                  # 此处修改默认配置，开启增量推理能够加速推理性能
-config.seq_length = 2048                      # 根据需求自定义修改其余模型配置
+config.seq_length = 2048                # 根据需求自定义修改其余模型配置
 config.checkpoint_name_or_path = "/path/to/your.ckpt"
 model = AutoModel.from_config(config)   # 从自定义配置项中实例化模型
 
@@ -562,7 +457,7 @@ for input_item in inputs_list:
 
 ```
 
-如果需要加载本地词表，请修改配置文件中以下项：
+如果需要加载本地词表，请修改配置文件中vocab_file（配置为权重下载章节获取的tokenizer文件）：
 
   ```yaml
   processor:
@@ -578,7 +473,7 @@ for input_item in inputs_list:
 from copy import deepcopy
 
 import mindspore as ms
-from mindformers import AutoConfig, AutoModel, AutoTokenizer, AutoProcessor
+from mindformers import AutoConfig, AutoModel, ChatGLM3Tokenizer
 
 
 def process_response(output, history):
@@ -606,11 +501,8 @@ def process_response(output, history):
 # 指定图模式，指定使用训练卡id
 ms.set_context(mode=ms.GRAPH_MODE, device_target="Ascend", device_id=0)
 
-# 以下两种tokenizer实例化方式选其一即可
-# 1. 在线加载方式
-tokenizer = AutoTokenizer.from_pretrained("glm3_6b")
-# 2. 本地加载方式
-# tokenizer = AutoProcessor.from_pretrained("/path/to/your.yaml").tokenizer
+# 本地加载方式
+tokenizer = ChatGLM3Tokenizer("/path/to/tokenizer.model")
 
 # 以下两种model的实例化方式选其一即可
 # 1. 直接根据默认配置实例化
@@ -732,29 +624,13 @@ response, history = process_response(response, history)
 
 ```
 
-如果需要加载本地词表，请修改配置文件中以下项：
+如果需要加载本地词表，请修改配置文件中以下项（配置为权重下载章节获取的tokenizer文件）：
 
   ```yaml
   processor:
     tokenizer:
       vocab_file: "/path/to/tokenizer.model"
   ```
-
-### 基于run_mindformer推理
-
-#### 单卡推理
-
-执行命令
-
-```bash
-python run_mindformer.py --use_parallel=False --config configs/glm3/predict_glm3_6b.yaml --run_mode predict --predict_data "[gMASK]sop<|user|> \n 你好<|assistant|> \n"
-```
-
-　　输出：
-
-```bash
-['[gMASK]sop<|user|> \n 你好<|assistant|> \n 你好👋！我是人工智能助手 ChatGLM3-6B，很高兴见到你，欢迎问我任何问题。']
-```
 
 ## Q & A
 
