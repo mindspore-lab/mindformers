@@ -4,8 +4,8 @@ load_checkpoint: './internlm.ckpt'
 auto_trans_ckpt: False  # If true, auto transform load_checkpoint to load in distributed model
 only_save_strategy: False
 resume_training: False
-use_parallel: True
-run_mode: 'finetune'
+use_parallel: False
+run_mode: 'predict'
 
 # trainer config
 trainer:
@@ -75,8 +75,8 @@ eval_dataset_task:
 
 # default parallel of device num = 8 for Atlas 800T A2
 parallel_config:
-  data_parallel: 8
-  model_parallel: 1
+  data_parallel: 1
+  model_parallel: 8
   pipeline_stage: 1
   micro_batch_num: 1
   vocab_emb_dp: True
@@ -95,7 +95,7 @@ recompute_config:
 callbacks:
   - type: MFLossMonitor
   - type: CheckpointMointor
-    prefix: "internlm_7b"
+    prefix: "internlm_20b"
     save_checkpoint_steps: 500
     keep_checkpoint_max: 3
     integrated_save: False
@@ -121,7 +121,7 @@ parallel:
   enable_alltoall: False
   full_batch: True
   search_mode: "sharding_propagation"
-  enable_parallel_optimizer: True
+  enable_parallel_optimizer: False
   strategy_ckpt_save_file: "./ckpt_strategy.ckpt"
   parallel_optimizer_config:
     gradient_accumulation_shard: False
@@ -151,7 +151,7 @@ model:
     has_bias: False
     use_past: True
     block_size: 16
-    num_blocks: 1024
+    num_blocks: 512
     is_dynamic: True
     use_kvcache_op: True
     is_flexible_shape: False
@@ -161,7 +161,7 @@ model:
     use_flash_attention: False
     offset: 0
     checkpoint_name_or_path: "internlm_20b"
-    repetition_penalty: 1.00
+    repetition_penalty: 1.0
     max_decode_length: 512
     top_k: 3
     top_p: 0.8
