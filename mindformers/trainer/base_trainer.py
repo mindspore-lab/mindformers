@@ -836,7 +836,7 @@ class BaseTrainer:
                 config.load_checkpoint = \
                     AutoModel.from_pretrained(config.load_checkpoint).default_checkpoint_download_path
             logger.info(".............Start load checkpoint for eval..................")
-            transform_and_load_checkpoint(config, model, network, dataset, do_eval=True)
+            transform_and_load_checkpoint(config, model, network, next(dataset.create_tuple_iterator()), do_eval=True)
 
         logger.info(".........Starting Evaluate Model..........")
         if get_real_rank() % 8 == 0:
