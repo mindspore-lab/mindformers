@@ -46,6 +46,12 @@ from mindformers.modules.transformer.op_parallel_config import default_moeparall
 __all__ = [
     "MoEConfig"]
 
+dtype_map = {
+    'float16': mstype.float32,
+    'float32': mstype.float32,
+    'bfloat16': mstype.bfloat16
+}
+
 
 class MoEConfig:
     r"""
@@ -85,7 +91,7 @@ class MoEConfig:
                  expert_group_size=None, group_wise_a2a=False, comp_comm_parallel=False, comp_comm_parallel_degree=2,
                  save_token_distribution=False, cur_layer=0, enable_cold_hot_expert=False, update_step=10000,
                  hot_expert_num=0, cold_token_percent=1.0, moe_module_name="", routing_policy="TopkRouterV1",
-                 enable_sdrop=False):
+                 enable_sdrop=False, router_dense_type="float32"):
         Validator.check_positive_int(expert_num, "expert_num")
         Validator.check_positive_float(capacity_factor, "capacity_factor")
         Validator.check_positive_float(aux_loss_factor, "aux_loss_factor")
@@ -99,6 +105,7 @@ class MoEConfig:
         Validator.check_positive_int(update_step, "update_step")
         Validator.check_non_negative_int(hot_expert_num, "hot_expert_num")
         Validator.check_non_negative_float(cold_token_percent, "cold_token_percent")
+        Validator.check_string(router_dense_type, ["float16", "float32", "bfloat16"], "router_dense_type")
         if expert_group_size is not None:
             Validator.check_positive_int(expert_group_size, "expert_group_size")
         if capacity_factor < 1.0:
@@ -134,6 +141,7 @@ class MoEConfig:
         self.moe_module_name = moe_module_name
         self.routing_policy = routing_policy
         self.enable_sdrop = enable_sdrop
+        self.router_dense_type = dtype_map.get(router_dense_type)
 
     def __eq__(self, other) -> bool:
         return isinstance(other, MoEConfig) and (self.to_dict() == other.to_dict())
@@ -681,7 +689,6 @@ class MoEV2(Cell):
         expert_capacity = calculate_expert_capacity_v2(self.num_experts_chosen, tokens_per_group,
                                                        self.capacity_factor, self.expert_dim, self.mp)
 
-        input_tensor = self.cast(input_tensor, mstype.float16)
         input_tensor = self.reshape(input_tensor, (self.dp_group, -1, self.hidden_size)) # (dp, N, h) <-- (B*S, h)
 
         # calculate router
@@ -729,6 +736,7 @@ class Router(Cell):
         super(Router, self).__init__()
         dp = parallel_config.data_parallel
         self.d_model = d_model
+        self.moe_config = moe_config
         self.expert_dim = moe_config.expert_num
         self.capacity_factor = moe_config.capacity_factor
         self.num_experts_chosen = moe_config.num_experts_chosen
@@ -738,7 +746,8 @@ class Router(Cell):
         self.noisy_epsilon = 1e-2
         self.noise = Tensor(np.random.uniform(1 - self.noisy_epsilon, 1 + self.noisy_epsilon, (d_model,)))
 
-        self.dense = Dense(in_channels=self.d_model, out_channels=self.expert_dim, has_bias=False)
+        self.dense = Dense(in_channels=self.d_model, out_channels=self.expert_dim,
+                           has_bias=False, dtype=moe_config.router_dense_type)
         self.dense.matmul.shard(((dp, 1), (1, 1)))
         self.mul = P.Mul()
         self.cast = P.Cast()
@@ -756,7 +765,7 @@ class Router(Cell):
             self.mul.shard(((dp, 1, 1), (dp,)))
 
     def construct(self, input_tensor):
-        input_tensor = self.cast(input_tensor, mstype.float32)
+        input_tensor = self.cast(input_tensor, self.moe_config.router_dense_type)
         if self.noisy_policy == "jitter" and self.training:
             # Here, we temporarily implement the multiplicative jitter this way,
             # for the lack of UniforReal parallel operator.
@@ -1101,7 +1110,7 @@ class TopkRouterV2(Cell):
                 - **expert_input** (Tensor) - Tensor of shape :math:`(data\_parallel, expert\_num,
                 expert\_capacity, hidden\_size)`.(dp, E, n, h).
         """
-        input_tensor_padded = self.concat_3d((self.zeros_3d, input_tensor)) # # (dp, 1+N, h) <-- (dp, N, h)
+        input_tensor_padded = self.concat_3d((self.cast(self.zeros_3d, F.dtype(input_tensor)), input_tensor)) # # (dp, 1+N, h) <-- (dp, N, h)
         expert_input = self.dispatch_gather(input_tensor_padded, dispatch_index, 1) # (dp, E, n, h) <-- (dp, N, h), (dp, E, n)
         return expert_input
 
@@ -1120,9 +1129,10 @@ class TopkRouterV2(Cell):
                 - **output_tensor** (Tensor) - Tensor of shape :math:`(data\_parallel, tokens\_per\_group,
                 hidden\_size)`.(dp, N, h).
         """
-        expert_output = self.concat((self.zeros, expert_output)) # (dp, E, 1+n, h) <-- (dp, E, n, h)
+        expert_output = self.concat((self.cast(self.zeros, F.dtype(expert_output)), expert_output)) # (dp, E, 1+n, h) <-- (dp, E, n, h)
         expert_output = self.reshape(expert_output, (expert_output.shape[0], expert_output.shape[1]*expert_output.shape[2], expert_output.shape[3])) # (dp, E*(1+n), h) <-- (dp, E, 1+n, h)
         output_tensor = self.combine_gather(expert_output, combine_index, 1) # (dp, N, k, h) <-- (dp, E*(1+n), h), (dp, N, k)
+        router_coeff = self.cast(router_coeff, F.dtype(expert_output))
         output_tensor = self.mul_router_coeff(output_tensor, self.reshape(router_coeff, (router_coeff.shape[0], router_coeff.shape[1], router_coeff.shape[2], 1))) # (dp, N, k, h) <-- (dp, N, k, h) (dp, N, k, 1)
         output_tensor = self.sum_router_coeff(output_tensor, 2) #reduce sum # (dp, N, h) <-- (dp, N, k, h)
         return output_tensor
@@ -1174,7 +1184,6 @@ class TopkRouterV2(Cell):
         combine_index = self.cast(combine_index, mstype.int32)
         router_coeff_raw = self.mul_3d(expert_gate, self.transpose_3d(self.reshape(within_capacity, (within_capacity.shape[0], k, tokens_per_group)), (0, 2, 1))) # apply within_capacity (dp, N, k) <-- (dp, N, k), (dp, N, k) <--  (dp, kN)
         router_coeff = self._normalize(router_coeff_raw) # (dp, N, k) <-- (dp, N, k)
-        router_coeff = self.cast(router_coeff, mstype.float16) # (dp, N, k) <-- (dp, N, k)
         return dispatch_index, combine_index, router_coeff # (dp, E, n), (dp, N, k), (dp, N, k)
 
     def _maskout_overflowed_tokens_sort_sdrop(self, expert_index, expert_gate):
@@ -1216,7 +1225,6 @@ class TopkRouterV2(Cell):
         within_capacity = self.reshape(within_capacity, (within_capacity.shape[0], tokens_per_group, k))
         router_coeff_raw = self.mul_3d(expert_gate, within_capacity)
         router_coeff = self._normalize(router_coeff_raw) # (dp, N, k) <-- (dp, N, k)
-        router_coeff = self.cast(router_coeff, mstype.float16) # (dp, N, k) <-- (dp, N, k)
         return dispatch_index, combine_index, router_coeff # (dp, E, n), (dp, N, k), (dp, N, k)
 
     def _normalize(self, router_coeff_raw):
