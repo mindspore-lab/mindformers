@@ -814,7 +814,8 @@ class GenerationMixin:
             logger.debug("forward prepare time: %s s", prepare_time)
 
             prefill = True
-            model_kwargs["origin_inputs"] = origin_inputs
+            if self.use_kbk_infer:
+                model_kwargs["origin_inputs"] = origin_inputs
             while np.sum(is_finished) != batch_size:
                 block_tables = None
                 slot_mapping = None
