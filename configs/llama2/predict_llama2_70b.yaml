@@ -143,7 +143,7 @@ processor:
 
 # metric
 metric:
-  type: PerplexityMetric
+  type: EmF1Metric
 
 eval_callbacks:
   - type: ObsMonitor

@@ -969,7 +969,12 @@ def main(args):
 
         # shard model and load sharded ckpt
         warm_up_model = Model(model)
-        warm_up_model.infer_predict_layout(ms.Tensor(np.ones(shape=(model_config.batch_size, model_config.seq_length)), ms.int32))
+        input_ids = ms.Tensor(np.ones(shape=(model_config.batch_size, model_config.seq_length)), ms.int32)
+        if model_config.use_past:
+            infer_data = model.prepare_inputs_for_predict_layout(input_ids)
+            warm_up_model.infer_predict_layout(*infer_data)
+        else:
+            warm_up_model.infer_predict_layout(input_ids)
         checkpoint_dict = load_checkpoint(ckpt_path)
         not_load_network_params = load_param_into_net(model, checkpoint_dict)
         print("Network parameters are not loaded: %s", str(not_load_network_params))
@@ -992,7 +997,7 @@ if __name__ == "__main__":
                         help='set device id.')
     parser.add_argument('--checkpoint_path', default='', type=str,
                         help='set checkpoint path.')
-    parser.add_argument('--use_past', default=False, type=str2bool,
+    parser.add_argument('--use_past', default=True, type=str2bool,
                         help='whether use past.')
     parser.add_argument('--yaml_file', default="", type=str,
                         help='predict yaml path')
@@ -1106,7 +1111,12 @@ def main(args):
 
         # shard model and load sharded ckpt
         warm_up_model = Model(model)
-        warm_up_model.infer_predict_layout(ms.Tensor(np.ones(shape=(1, model_config.seq_length)), ms.int32))
+        input_ids = ms.Tensor(np.ones(shape=(1, model_config.seq_length)), ms.int32)
+        if model_config.use_past:
+            infer_data = model.prepare_inputs_for_predict_layout(input_ids)
+            warm_up_model.infer_predict_layout(*infer_data)
+        else:
+            warm_up_model.infer_predict_layout(input_ids)
         checkpoint_dict = load_checkpoint(ckpt_path)
         not_load_network_params = load_param_into_net(model, checkpoint_dict)
         print("Network parameters are not loaded: %s", str(not_load_network_params))
@@ -1129,7 +1139,7 @@ if __name__ == "__main__":
                         help='set device id.')
     parser.add_argument('--checkpoint_path', default='', type=str,
                         help='set checkpoint path.')
-    parser.add_argument('--use_past', default=False, type=str2bool,
+    parser.add_argument('--use_past', default=True, type=str2bool,
                         help='whether use past.')
     parser.add_argument('--yaml_file', default="", type=str,
                         help='predict yaml path')

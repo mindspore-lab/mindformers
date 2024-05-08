@@ -179,7 +179,7 @@ processor:
 
 # metric
 metric:
-  type: PerplexityMetric
+  type: EmF1Metric
 
 # wrapper cell config
 runner_wrapper:
