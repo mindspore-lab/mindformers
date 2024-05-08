@@ -234,7 +234,7 @@ class CausalLanguageModelDataset(BaseDataset):
     def _process_mindrecord_data(cls, dataset_config):
         """Process the mindrecord data"""
         dataset_files = []
-        mind_compile = re.compile("mindrecord0*$")
+        mind_compile = re.compile(r"mindrecord\d*$")
         if dataset_config.data_loader.dataset_dir:
             data_dir = dataset_config.data_loader.pop("dataset_dir")
             if os.path.isdir(data_dir):

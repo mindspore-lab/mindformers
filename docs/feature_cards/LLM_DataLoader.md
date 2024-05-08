@@ -26,6 +26,7 @@ Mindformers大模型套件支持直接读取非mindrecord格式的数据，如js
   当已读取处理的样本数达到`samples_num`时，将停止读取。如果配置的`samples_num`超出实际的样本数量，为保持训练的连续性，将重新进行读取处理。
 - skip_num: 跳过指定数量的样本。
 - file_limit: 每次读取的文件数量。预训练数据可能包含很多同类型的文件，采用分批读取的方式，`file_limit`用于指定每个批次读取的文件数量。
+- process_num: 对文本进行tokenize时的进程数，默认为64。
 - kwargs: 支持MindSpore的GeneratorDataset类的所有参数。
 
 ### 脚本启动配置方式
