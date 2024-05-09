@@ -23,7 +23,7 @@ import re
 import numpy as np
 
 from mindspore.mindrecord import FileWriter
-
+from mindformers.dataset.dataloader.training_dataloader import TrainingDataset
 from mindformers.models.llama.llama_tokenizer import LlamaTokenizer
 
 from conversation import get_default_conv_template
@@ -201,6 +201,25 @@ def tokenize_wiki(tokenizer, file_path, seq_length, repeat):
             yield sample
 
 
+def tokenize_wikipedia(tokenizer, dataset_dir, seq_length, samples_num):
+    """tokenize wikipedia dataset with parquet format"""
+    dataset = TrainingDataset(dataset_dir=dataset_dir,
+                              column_names=["input_ids"],
+                              max_length=seq_length,
+                              file_format="parquet",
+                              tokenizer=tokenizer,
+                              is_align=True,
+                              samples_num=samples_num,
+                              shuffle=False)
+    for data in dataset:
+        input_id_list = data[0]
+        if len(input_id_list) == seq_length:
+            sample = {
+                'input_ids': np.array(input_id_list, dtype=np.int32)
+            }
+            yield sample
+
+
 def tokenize_qa(tokenizer, file_path, seq_length):
     raw_data = json.load(open(file_path, "r"))
     dataset_cls = SupervisedDataset(raw_data, tokenizer, seq_length)
@@ -217,6 +236,7 @@ if __name__ == '__main__':
     parser.add_argument('--model_file', type=str, default='/mnt/luolan/llama/tokenizer.model')
     parser.add_argument('--file_partition', type=int, default=1)
     parser.add_argument('--repeat', type=int, default=1)
+    parser.add_argument('--samples_num', type=int, default=10000)
     parser.add_argument('--seq_length', type=int, default=2048)
     args = parser.parse_args()
 
@@ -224,6 +244,8 @@ if __name__ == '__main__':
     if not os.path.exists(out_dir):
         os.mkdir(out_dir)
     if args.dataset_type == 'wiki':
+        schema = {'input_ids': {"type": "int32", "shape": [-1]},}
+    if args.dataset_type == 'wikipedia':
         schema = {'input_ids': {"type": "int32", "shape": [-1]},}
     elif args.dataset_type == 'qa':
         schema = {'input_ids': {"type": "int32", "shape": [-1]}, 'labels': {"type": "int32", "shape": [-1]}}
@@ -243,6 +265,11 @@ if __name__ == '__main__':
         word_tokenizer.add_eos_token = True
     if args.dataset_type == 'wiki':
         for x in tokenize_wiki(word_tokenizer, args.input_glob, args.seq_length + 1, args.repeat):
+            transforms_count += 1
+            writer.write_raw_data([x])
+        print("Transformed {} records.".format(transforms_count))
+    elif args.dataset_type == 'wikipedia':
+        for x in tokenize_wikipedia(word_tokenizer, args.input_glob, args.seq_length + 1, samples_num=args.samples_num):
             transforms_count += 1
             writer.write_raw_data([x])
         print("Transformed {} records.".format(transforms_count))
