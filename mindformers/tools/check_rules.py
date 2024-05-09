@@ -214,9 +214,18 @@ def _check_keyword_gen_dataset(config, mode, **kwargs):
             eval_dataset.data_loader.phase = 'train'
             config.eval_dataset_task.dataset_config.data_loader.phase = eval_dataset.data_loader.phase
 
+def _check_env(config):
+    """check environment"""
+    fine_grain_interleave = config.model.model_config.fine_grain_interleave
+    if fine_grain_interleave and fine_grain_interleave > 1:
+        if os.getenv("ENABLE_CELL_REUSE", "0") == 0:
+            os.environ["ENABLE_CELL_REUSE"] = '1'
+            logger.warning(f"ENABLE_CELL_REUSE must be set in environment when use fine_grain_interleave"
+                           f" (export ENABLE_CELL_REUSE=1)")
 
 def check_rules(config, mode='train', **kwargs):
     """check rules"""
     _check_mode(config, mode, **kwargs)
     _check_full_batch()
     _check_parallel(config)
+    _check_env(config)
