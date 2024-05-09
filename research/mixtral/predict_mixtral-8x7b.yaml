@@ -35,6 +35,7 @@ moe_config:
   num_experts_chosen: 2
   routing_policy: "TopkRouterV2"
   enable_sdrop: True
+  router_dense_type: "float32"
 
 # lr sechdule
 lr_schedule:
