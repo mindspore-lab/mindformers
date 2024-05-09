@@ -417,17 +417,11 @@ from mindformers import AutoConfig, AutoModel, ChatGLM3Tokenizer
 # 指定图模式，指定使用训练卡id
 ms.set_context(mode=ms.GRAPH_MODE, device_target="Ascend", device_id=0)
 
-# 本地加载方式
+# 本地加载方式，配置为权重下载章节的tokenizer文件
 tokenizer = ChatGLM3Tokenizer("/path/to/tokenizer.model")
 
-# 以下两种model的实例化方式选其一即可
-# 1. 直接根据默认配置实例化
-# model = AutoModel.from_pretrained('glm3_6b')
-# 2. 自定义修改配置后实例化
-config = AutoConfig.from_pretrained('glm3_6b')
-config.use_past = True                  # 此处修改默认配置，开启增量推理能够加速推理性能
-config.seq_length = 2048                # 根据需求自定义修改其余模型配置
-config.checkpoint_name_or_path = "/path/to/your.ckpt"
+# 自定义修改配置后实例化，配置为yaml文件路径，示例yaml文件为configs/glm3/predict_glm3_6b.yaml
+config = AutoConfig.from_pretrained("/path/to/your.yaml")
 model = AutoModel.from_config(config)   # 从自定义配置项中实例化模型
 
 role="user"
@@ -457,12 +451,12 @@ for input_item in inputs_list:
 
 ```
 
-如果需要加载本地词表，请修改配置文件中vocab_file（配置为权重下载章节获取的tokenizer文件）：
+如果需要进行推理，请修改配置文件中(推理脚本中/path/to/your.yaml)的checkpoint_name_or_path项，配置为权重下载章节下载的权重文件：
 
   ```yaml
-  processor:
-    tokenizer:
-      vocab_file: "/path/to/tokenizer.model"
+  model:
+    model_config:
+      checkpoint_name_or_path: "/path/to/glm3_6b.ckpt"
   ```
 
 ### 基于generate的多角色推理
@@ -501,17 +495,11 @@ def process_response(output, history):
 # 指定图模式，指定使用训练卡id
 ms.set_context(mode=ms.GRAPH_MODE, device_target="Ascend", device_id=0)
 
-# 本地加载方式
+# 本地加载方式，配置为权重下载章节的tokenizer文件
 tokenizer = ChatGLM3Tokenizer("/path/to/tokenizer.model")
 
-# 以下两种model的实例化方式选其一即可
-# 1. 直接根据默认配置实例化
-# model = AutoModel.from_pretrained('glm3_6b')
-# 2. 自定义修改配置后实例化
-config = AutoConfig.from_pretrained('glm3_6b')
-config.use_past = True                  # 此处修改默认配置，开启增量推理能够加速推理性能
-config.seq_length = 8192                      # 根据需求自定义修改其余模型配置
-config.checkpoint_name_or_path = "/path/to/your.ckpt"
+# 自定义修改配置后实例化，配置为yaml文件路径，示例yaml文件为configs/glm3/predict_glm3_6b.yaml
+config = AutoConfig.from_pretrained("/path/to/your.yaml")
 model = AutoModel.from_config(config)   # 从自定义配置项中实例化模型
 
 kwargs={}
@@ -624,12 +612,12 @@ response, history = process_response(response, history)
 
 ```
 
-如果需要加载本地词表，请修改配置文件中以下项（配置为权重下载章节获取的tokenizer文件）：
+如果需要进行推理，请修改配置文件中(推理脚本中/path/to/your.yaml)的checkpoint_name_or_path项，配置为权重下载章节下载的权重文件：
 
   ```yaml
-  processor:
-    tokenizer:
-      vocab_file: "/path/to/tokenizer.model"
+  model:
+    model_config:
+      checkpoint_name_or_path: "/path/to/glm3_6b.ckpt"
   ```
 
 ## Q & A
