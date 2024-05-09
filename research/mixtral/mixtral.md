@@ -238,6 +238,7 @@ moe_config:
   num_experts_chosen: 2
   routing_policy: "TopkRouterV2"
   enable_sdrop: True
+  router_dense_type: "float32"
 ```
 
 - step 4. 执行运行脚本。
@@ -368,6 +369,7 @@ moe_config:
   num_experts_chosen: 2
   routing_policy: "TopkRouterV2"
   enable_sdrop: True
+  router_dense_type: "float32"
 
 # optimizer
 optimizer:
