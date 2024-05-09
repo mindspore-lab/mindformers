@@ -235,7 +235,7 @@ if __name__ == '__main__':
         raise FileNotFoundError(f"file {args.model_file} do not exists.")
 
     transforms_count = 0
-    word_tokenizer = Llama3Tokenizer(vocab_file=args.model_file)
+    word_tokenizer = Llama3Tokenizer(vocab_file=args.model_file, add_bos_token=True)
     if hasattr(word_tokenizer, 'add_bos_token'):
         word_tokenizer.add_bos_token = True
     if hasattr(word_tokenizer, 'add_eos_token'):
