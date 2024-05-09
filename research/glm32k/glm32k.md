@@ -19,40 +19,32 @@ ChatGLM3-6B-32K在ChatGLM3-6B的基础上进一步强化了对于长文本的理
 
 `chatGLM3-6B-32K` 基于 `mindformers` 实现，主要涉及的文件有：
 
-1. 模型具体实现：`research/glm32k`
+1. 模型具体实现：`mindformers/models/glm2`
+   glm32k复用glm2的代码实现
 
-    ```bash
-    glm32k
+    ```text
+    glm2
         ├── __init__.py
-        ├── glm32k.py                  # 模型实现
-        ├── glm32k_config.py           # 模型配置项
-        ├── glm32k_modules.py          # 模组实现
-        ├── glm32k_tokenizer.py        # tokenizer
-        └── glm32k_transformer.py      # transformer层实现
+        ├── glm2.py                  # 模型实现
+        ├── glm2_config.py           # 模型配置项
+        ├── glm2_modules.py          # 模组实现
+        ├── glm2_tokenizer.py        # tokenizer
+        └── glm2_transformer.py      # transformer层实现
     ```
 
 2. 模型配置：`research/glm32k`
 
     ```bash
     glm32k
-        └── run_glm32k.yaml           # Atlas 800T A2最佳性能全量微调启动配置
+        └── finetune_glm32k.yaml           # Atlas 800T A2最佳性能全量微调启动配置
+        └── predict_glm32k.yaml           # Atlas 800T A2推理配置
     ```
 
 3. 数据处理脚本和任务启动脚本：`research/glm32k`
 
     ```bash
     glm32k
-        └── run_glm32k.py                  # glm32k高阶接口使用脚本
         └── glm32k_preprocess.py           # glm32k微调的数据前处理脚本
-    ```
-
-4. 评测脚本：`research/glm32k`
-
-    ```bash
-    glm32k
-        └── eval_longbench_multicards.sh        # 多卡执行评估的脚本
-        └── eval_longbench_generate.py          # 生成推理结果的脚本
-        └── eval_longbench_metrics.py           # 生成最终评估结果的脚本
     ```
 
 ## 前期准备
@@ -65,8 +57,7 @@ ChatGLM3-6B-32K在ChatGLM3-6B的基础上进一步强化了对于长文本的理
 ### 环境要求
 
 - 硬件: Atlas 800T A2
-- MindSpore: 2.2.10
-- MindSpore Lite: 2.2.10
+- MindSpore: 2.3
 - MindFormers: dev
 - Mindpet: 1.0.2
 
@@ -112,11 +103,12 @@ pip install torch==1.11.0 -i https://pypi.tuna.tsinghua.edu.cn/simple
 pip install transformers==4.30.2 -i https://pypi.tuna.tsinghua.edu.cn/simple
 ```
 
-下载完成后，运行`/research/glm32k/convert_weight.py`转换脚本，将huggingface的权重转换为完整的ckpt权重。
+下载完成后，运行`mindformers/models/glm2/convert_weight.py`转换脚本，将huggingface的权重转换为完整的ckpt权重。
 
 ```shell
 #!/bin/bash
-python ./research/glm32k/convert_weight.py --torch_path TORCH_CKPT_DIR --mindspore_path MS_CKPT_NAME
+cd {mindformers根目录}
+python mindformers/models/glm2/convert_weight.py --torch_path TORCH_CKPT_DIR --mindspore_path MS_CKPT_NAME
 ```
 
 ```text
@@ -141,7 +133,7 @@ MS_CKPT_NAME: mindspore格式的权重保存文件名，如'saved_dir/glm32k.ckp
 
 | config                               | task              | Datasets  | SeqLength | metric | phase             | score     | performance(tokens/s/p) |
 |--------------------------------------|-------------------|-----------|-----------| ------ | ----------------- | --------- |-------------------------|
-| [ChatGLM3-6B-32K](./run_glm32k.yaml) | text_generation   | longbench | 32768     | -      | [finetune](#微调)  | -         | 906.98                  |
+| [ChatGLM3-6B-32K](./run_glm32k.yaml) | text_generation   | longbench | 32768     | -      | [finetune](#微调)  | -         | 777.91                  |
 
 ### 微调
 
@@ -191,11 +183,11 @@ PROMPT_PATH：longbench中不同数据对应的prompt
 
 #### 全参微调
 
-全参微调需要多卡启动，以`LongBench`数据集为例，给出了默认配置文件`research/glm32k/run_glm32k.yaml`。
+全参微调需要多卡启动，以`LongBench`数据集为例，给出了默认配置文件`research/glm32k/finetune_glm32k.yaml`。
 
 当前模型已支持使用**Flash Attention算法**进行全参微调，请参考 [Flash Attention使用文档](../../docs/feature_cards/Training_Algorithms.md#flash-attention)
 
-- step 1. 修改`research/glm32k/run_glm32k.yaml`中相关配置
+- step 1. 修改`research/glm32k/finetune_glm32k.yaml`中相关配置
 
 ```text
 output_dir: './output' # path to save checkpoint/strategy
@@ -229,12 +221,12 @@ train_dataset: &train_dataset
 
 ```shell
 # 以glm-6b-32k模型为例，默认配置单机8卡，如果节点数有变，需要修改相应的配置。
-# 配置文件路径：./research/glm32k/run_glm32k.yaml
+# 配置文件路径：./research/glm32k/finetune_glm32k.yaml
 parallel_config:
-  data_parallel: 2
-  model_parallel: 1
+  data_parallel: 1
+  model_parallel: 2
   pipeline_stage: 4
-  micro_batch_num: 8
+  micro_batch_num: 16
   vocab_emb_dp: True
   gradient_aggregation_group: 4
 ```
@@ -242,29 +234,20 @@ parallel_config:
 -[x] 2: 执行运行脚本。
 
 ```shell
-cd research
-bash run_singlenode.sh \
-"python glm32k/run_glm32k.py \
---config glm32k/run_glm32k.yaml \
---run_mode finetune \
---train_dataset /path/to/train.json \
---use_parallel True" \
-path/to/rank_table_file [0,8] 8
+cd {mindformers根目录}
+bash scripts/msrun_launcher.sh "run_mindformer.py --config research/finetune_glm32k.yaml --run_mode finetune"
 ```
 
 ```text
 # 参数说明
 config: 配置文件路径
-load_checkpoint: 权重文件夹路径
 run_mode: 运行模式，微调时设置为finetune
-train_data: 训练数据集路径
-path/to/rank_table_file: 生成RANK_TABLE_FILE步骤中生成的hccl_***_json文件路径
 ```
 
 ### 推理
 
 大模型推理升级训推一体架构，实现脚本、分布式策略和运行时的统一，通过融合大算子降低推理时延，有效提升网络吞吐量。
-在启动前，请先行在配置文件run_glm32k.yaml中将processor.tokenizer.vocab_file的路径配置为实际路径；增量推理开关在配置文件中model.model_config.use_past位置；
+在启动前，请先行在配置文件predict_glm32k.yaml中将processor.tokenizer.vocab_file的路径配置为实际路径；增量推理开关在配置文件中model.model_config.use_past位置；
 
 ```yaml
 processor:
@@ -401,71 +384,4 @@ tokenizer_path: tokenizer.model路径
 checkpoint_path: 权重路径
 yaml_file: yaml配置路径
 seq_length: 模型的seq_length
-```
-
-### 开源数据集评测
-
-#### 评测结果
-
-**注：** 评测结果基于开源的预训练模型
-
-|                                    | DuReader rouge |
-|------------------------------------|----------------|
-| Atlas 800T A2 + Mindspore (在线推理)            | 44.83          |
-| A100 + Pytorch                     | 44.59          |
-
-#### 评测流程
-
-所用数据集为长序列DuReader评测集，评测时需要安装`rouge`三方包来替换原环境中的`rouge-chinese`包
-
-安装命令如下：
-
-```shell
-pip uninstall rouge-chinese
-pip install rouge==1.0.1
-```
-
-- step 1: 生成推理结果，多卡启动命令如下：
-
-```shell
-input_dataset_file=/path/eval_dataset/dureader.jsonl  # 数据集文件夹路径
-output_file=pred                                      # 生成结果保存路径
-checkpoint_path=/path/mindspore_models/glm32k.ckpt    # 权重文件路径
-
-mkdir -p ${output_file}
-echo 'Output path: 'output_file
-
-# 200条测试数据，如果使用8卡，每张卡分配25条数据
-npu_num=8
-step=25
-for ((i = 0; i < $npu_num; i++)); do
-  start_index=$((i * step))
-  end_index=$(((i + 1) * step))
-  npu=$((i))
-  echo 'Running process #' ${i} 'from' $start_index 'to' $end_index 'on NPU' ${npu}
-  python eval_longbench_generate.py --start_index ${start_index} --end_index ${end_index} --output_file ${output_file} --input_dataset_file ${input_dataset_file} --device_id ${npu} --checkpoint_path ${checkpoint_path} &> longbench_$npu.log &
- done
-```
-
-- step 2: 将多张卡生成的结果汇总到一起，按照评估格式进行保存，命令如下：
-
-```shell
-python eval_longbench_merge.py --need_merge_path INPUT_PATH --merged_path OUTPUT_PATH
-```
-
-```text
-参数说明:
-need_merge_path：step 1中生成的多个结果文件地址
-merged_path：最终汇总的结果地址
-```
-
-- step 3: 生成测试分数，命令如下：
-
-```shell
-python eval_longbench_metrics.py --predict_file PREDICT_PATH
-```
-
-```text
-参数说明:
-predict_file：step 2输出的汇总结果地址
 ```
