@@ -1,5 +1,5 @@
 seed: 0
-run_mode: 'train'
+run_mode: 'predcit'
 output_dir: './output' # path to save checkpoint/strategy
 load_checkpoint: ''
 auto_trans_ckpt: False  # If true, auto transform load_checkpoint to load in distributed model
@@ -32,7 +32,7 @@ model:
     ffn_hidden_size: 13696
     kv_channels: 128
     num_attention_heads: 32
-    seq_length: 32768
+    seq_length: 8192
     hidden_dropout: 0.0
     attention_dropout: 0.0
     layernorm_epsilon: 1e-5
@@ -56,12 +56,14 @@ model:
     layernorm_compute_type: "float32"
     use_past: True
     is_dynamic: True
+    block_size: 16
+    num_blocks: 2048
     use_flash_attention: False # when use FlashAttention, seq_length should be multiple of 16
     use_prompt_flash_attention: True
-    no_recompute_layers: [20]
     eos_token_id: 2
     pad_token_id: 0
     repetition_penalty: 1.0
+    max_length: 8192
     max_decode_length: 512
     checkpoint_name_or_path: ""
     top_k: 1
