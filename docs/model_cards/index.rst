@@ -9,28 +9,17 @@
    :glob:
    :maxdepth: 1
 
-   ../../research/skywork/skywork
-   ../../research/baichuan/baichuan
-   ../../research/baichuan2/baichuan2
-   ../../research/qwen/qwen
    llama2
-   llama
-   glm3
    glm2
-   glm
+   glm3
    codegeex2
-   ../../research/wizardcoder/wizardcoder
-   ../../research/ziya/ziya
-   ../../research/internlm/internlm
-   bloom
    gpt2
-   pangualpha
-   bilip2
-   clip
-   ../../research/visualglm/visualglm
-   sam
-   t5
-   bert
-   mae
-   swin
-   vit
+   codellama
+   ../../research/baichuan2/baichuan2
+   ../../research/deepseek/deepseek
+   ../../research/internlm/internlm
+   ../../research/mixtral/mixtral
+   ../../research/qwen/qwen
+   ../../research/qwen1_5/qwen1_5
+   ../../research/wizardcoder/wizardcoder
+   ../../research/yi/yi
