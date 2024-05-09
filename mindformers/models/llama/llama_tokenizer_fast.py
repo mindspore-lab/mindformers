@@ -91,7 +91,9 @@ class LlamaTokenizerFast(PreTrainedTokenizerFast):
     FILE_LIST = ['tokenizer_config.json']
     _support_list = MindFormerBook.get_tokenizer_support_list()['llama']
     slow_tokenizer_class = LlamaTokenizer
-    padding_side = "left"
+
+    # Currently, the llama_tokenizer_fast process supports only the 'right' padding mode.
+    padding_side = "right"
 
     def __init__(
             self,
