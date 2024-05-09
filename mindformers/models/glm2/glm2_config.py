@@ -83,6 +83,7 @@ class ChatGLM2Config(PretrainedConfig):
                  repetition_penalty=1.0,
                  checkpoint_name_or_path=None,
                  parallel_config: Union[dict, TransformerOpParallelConfig] = default_transformer_config,
+                 no_recompute_layers=None,
                  **kwargs):
         super().__init__(**kwargs)
         if isinstance(parallel_config, dict):
@@ -133,3 +134,4 @@ class ChatGLM2Config(PretrainedConfig):
         self.is_dynamic = is_dynamic
         self.num_heads = self.num_attention_heads
         self.n_kv_heads = self.multi_query_group_num if self.multi_query_attention else None
+        self.no_recompute_layers = no_recompute_layers

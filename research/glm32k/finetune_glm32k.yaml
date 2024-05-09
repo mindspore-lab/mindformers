@@ -1,7 +1,7 @@
 seed: 0
-run_mode: 'train'
+run_mode: 'finetune'
 output_dir: './output' # path to save checkpoint/strategy
-load_checkpoint: ''
+load_checkpoint: '/path/to/ckpt'
 auto_trans_ckpt: False  # If true, auto transform load_checkpoint to load in distributed model
 only_save_strategy: False
 resume_training: False
@@ -24,7 +24,7 @@ remote_save_url: "Please input obs url on AICC platform."
 # ==== model config ====
 model:
   model_config:
-    type: ChatGLM32kConfig
+    type: ChatGLM2Config
     batch_size: 1  # only for incremental infer
     num_layers: 28
     padded_vocab_size: 65024
@@ -55,7 +55,7 @@ model:
     compute_dtype: "float16"
     layernorm_compute_type: "float32"
     use_past: True
-    use_flash_attention: False # when use FlashAttention, seq_length should be multiple of 16
+    use_flash_attention: True # when use FlashAttention, seq_length should be multiple of 16
     use_prompt_flash_attention: True
     no_recompute_layers: [20]
     eos_token_id: 2
@@ -67,7 +67,7 @@ model:
     top_p: 1
     do_sample: False
   arch:
-    type: ChatGLM32kForConditionalGeneration
+    type: ChatGLM2ForConditionalGeneration
 
 trainer:
   type: CausalLanguageModelingTrainer
@@ -84,7 +84,7 @@ metric:
 processor:
   return_tensors: ms
   tokenizer:
-    type: ChatGLM32kTokenizer
+    type: ChatGLM3Tokenizer
     bos_token: '<sop>'
     eos_token: '<eop>'
     end_token: '</s>'
@@ -105,7 +105,7 @@ train_dataset: &train_dataset
     version: 3
     origin_columns: ["content", "summary"]
   tokenizer:
-    type: ChatGLM32kTokenizer
+    type: ChatGLM3Tokenizer
     vocab_file: "/path/to/tokenizer.model"
   input_columns: ["input_ids", "labels"]
   max_source_length: 30720
@@ -133,7 +133,7 @@ eval_dataset: &eval_dataset
     version: 2
     origin_columns: ["content", "summary"]
   tokenizer:
-    type: ChatGLM32kTokenizer
+    type: ChatGLM3Tokenizer
     vocab_file: "/path/tokenizer.model"
   max_source_length: 256
   max_target_length: 256
@@ -202,8 +202,8 @@ parallel:
   strategy_ckpt_config:
     save_file: "./ckpt_strategy.ckpt"
 parallel_config:
-  data_parallel: 2
-  model_parallel: 1
+  data_parallel: 1
+  model_parallel: 2
   pipeline_stage: 4
   expert_parallel: 1
   micro_batch_num: 16
