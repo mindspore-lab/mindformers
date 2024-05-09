@@ -144,7 +144,7 @@ configs统一在run_xxx.yaml中，排序按照修改频率的顺序和一般的�
         - min_new_tokens: 文本新生成最小长度（输入长度不统计在内），与min_length同时设置时，以min_new_tokens为准
         - repetition_penalty: 重复文本惩罚系数，该值不小于1，等于1时不惩罚
         - block_size: 使用Paged Attention推理时需设置，每块block的大小
-        - num_blocks: 使用Paged Attention推理时需设置，blocks的总数
+        - num_blocks: 使用Paged Attention推理时需设置，blocks的总数。当前配置需要保证batch_size*seq_length<=block_size*num_blocks，否则运行过程中会提示PA的内存池不足
 - lr_schedule: 学习率配置
     - type: 学习率类
 - layer_scale: 是否开启层衰减

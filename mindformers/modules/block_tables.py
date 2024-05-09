@@ -56,7 +56,8 @@ class BlockTables:
         if batch_size * self.seq_length // self.block_size > self.num_blocks:
             logger.warning(
                 f"Argument `num blocks` is less than the maximum possible block numbers. "
-                f"May cause `block pool is out of memory` error")
+                f"May cause `block pool is out of memory` error. "
+                f"Please make sure batch_size * seq_length <= block_size * num_blocks. ")
         for _ in range(batch_size):
             self.cache_engines.append(CacheEngine(self.block_size, self.block_mem_pool))
         logger.info("init cache engine success.")

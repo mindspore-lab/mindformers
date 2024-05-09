@@ -467,7 +467,7 @@ def build_model(config, model, dataset, do_eval=False, do_predict=False):
         if not config.runner_config.sink_mode:
             raise ValueError("When distributed loads are sliced weights, sink_mode must be set True.")
         if do_eval:
-            model.infer_predict_layout(*next(dataset.create_tuple_iterator()))
+            model.infer_predict_layout(*dataset)
         elif do_predict:
             model.infer_predict_layout(*dataset)
         else:
