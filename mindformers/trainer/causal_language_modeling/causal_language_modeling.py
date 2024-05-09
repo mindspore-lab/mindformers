@@ -226,7 +226,12 @@ class CausalLanguageModelingTrainer(BaseTrainer):
                 config.load_checkpoint = \
                     AutoModel.from_pretrained(config.load_checkpoint).default_checkpoint_download_path
             logger.info(".............Start load checkpoint for eval..................")
-            transform_and_load_checkpoint(config, model, network, dataset, do_eval=True)
+
+            dataset_dict = next(dataset.create_dict_iterator())
+            input_ids = dataset_dict['input_ids'].asnumpy()
+            labels = dataset_dict['labels'].asnumpy()
+            infer_data = network.prepare_inputs_for_predict_layout(input_ids, labels=labels)
+            transform_and_load_checkpoint(config, model, network, infer_data, do_eval=True)
 
         logger.info('.........Starting Evaluate Model..........')
         if get_real_rank() % 8 == 0:

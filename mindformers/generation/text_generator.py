@@ -943,6 +943,12 @@ class GenerationMixin:
         Returns:
             next_token, is_finished
         """
+        max_valid_length = max(valid_length_each_example)
+        if not self.config.is_encoder_decoder and max_valid_length > self.config.seq_length:
+            raise ValueError(
+                f"The input length:{max_valid_length} is longer than the seq_length:{self.config.seq_length}, "
+                "which is not allowed."
+            )
 
         start_time = time.time()
 

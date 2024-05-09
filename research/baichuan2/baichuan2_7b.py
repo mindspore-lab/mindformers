@@ -389,9 +389,10 @@ class Baichuan7BV2ForCausalLM(Baichuan2PreTrainedModel):
     def prepare_inputs_for_predict_layout(self, input_ids, **kwargs):
         """Get Llama model input tuple for transform ckpt."""
         input_ids = Tensor(input_ids, mstype.int32)
+        labels = Tensor(kwargs["labels"]) if "labels" in kwargs else None
         bs = input_ids.shape[0]
         slot_mapping = Tensor(np.ones(shape=tuple([bs])), mstype.int32)
-        return input_ids, None, None, None, None, None, None, None, None, None, None, slot_mapping
+        return input_ids, labels, None, None, None, None, None, None, None, None, None, slot_mapping
 
     def set_dynamic_inputs(self):
         dynamic_input_ids = Tensor(shape=[None, None], dtype=mstype.int32)
