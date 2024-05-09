@@ -465,10 +465,10 @@ class LLamaDecodeLayer(nn.Cell):
                                is_dynamic=is_dynamic,
                                parallel_config=parallel_config)
         if self.expert_num == 1:
-            logger.warning("MoE config is None, use normal FFN")
+            logger.info("MoE config is None, use normal FFN")
             self.feed_forward = ffn
         else:
-            logger.warning("MoE config is provided, use MoE FFN")
+            logger.info("MoE config is provided, use MoE FFN")
             self.feed_forward = MoEV2(
                 ffn=ffn,
                 dim=self.hidden_size,

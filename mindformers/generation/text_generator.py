@@ -687,10 +687,13 @@ class GenerationMixin:
                            "due to the current beam search does not support sampling.")
             generation_config.do_sample = False
         if not generation_config.do_sample:
-            logger.warning("When do_sample is set to False, top_k will be set to 1 and top_p will be set to 0, "
-                           "making them inactive.")
-            generation_config.top_p = 1.0
-            generation_config.top_k = 0
+            if generation_config.top_p != 1.0:
+                logger.warning("When do_sample is set to False, top_p will be set to 1, making them inactive.")
+                generation_config.top_p = 1.0
+
+            if generation_config.top_k != 0:
+                logger.warning("When do_sample is set to False, top_k will be set to 0, making them inactive.")
+                generation_config.top_k = 0
         logger.info("Generation Config is: %s", generation_config)
 
         if generation_config.pad_token_id is None:
