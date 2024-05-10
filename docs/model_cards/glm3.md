@@ -40,134 +40,6 @@ ChatGLM3 是智谱AI和清华大学 KEG 实验室联合发布的新一代对话�
 
 ## 前期准备
 
-### 生成RANK_TABLE_FILE
-
-运行mindformers/tools/hccl_tools.py生成RANK_TABLE_FILE的json文件
-
-```bash
-# 运行如下命令，生成当前机器的RANK_TABLE_FILE的json文件
-python ./mindformers/tools/hccl_tools.py --device_num "[0,8)"
-```
-
-**注：若使用ModelArts的notebook环境，可从 `/user/config/jobstart_hccl.json` 路径下直接获取rank table，无需手动生成**
-
-RANK_TABLE_FILE 单机8卡参考样例:
-
-```json
-{
-    "version": "1.0",
-    "server_count": "1",
-    "server_list": [
-        {
-            "server_id": "xx.xx.xx.xx",
-            "device": [
-                {"device_id": "0","device_ip": "192.1.27.6","rank_id": "0"},
-                {"device_id": "1","device_ip": "192.2.27.6","rank_id": "1"},
-                {"device_id": "2","device_ip": "192.3.27.6","rank_id": "2"},
-                {"device_id": "3","device_ip": "192.4.27.6","rank_id": "3"},
-                {"device_id": "4","device_ip": "192.1.27.7","rank_id": "4"},
-                {"device_id": "5","device_ip": "192.2.27.7","rank_id": "5"},
-                {"device_id": "6","device_ip": "192.3.27.7","rank_id": "6"},
-                {"device_id": "7","device_ip": "192.4.27.7","rank_id": "7"}],
-             "host_nic_ip": "reserve"
-        }
-    ],
-    "status": "completed"
-}
-```
-
-### 多机RANK_TABLE_FILE合并
-
-- step 1. 首先根据上章节内容，在每个机器上生成各自的`RANK_TABLE_FILE`文件，然后将不同机器上生成的`RANK_TABLE_FILE`文件全部拷贝到同一台机器上。
-
-```bash
-# 运行如下命令，生成当前机器的RANK_TABLE_FILE的json文件
-python ./mindformers/tools/hccl_tools.py --device_num "[0,8)" --server_ip xx.xx.xx.xx
-```
-
-**注：需要根据机器的ip地址指定 --server_ip，避免由于不同机器server_ip不同，导致多节点间通信失败。**
-
-- step 2. 运行mindformers/tools/merge_hccl.py将不同机器上生成的`RANK_TABLE_FILE`文件合并
-
-```bash
-# 运行如下命令，合并每个机器上的RANK_TABLE_FILE的json文件。
-python ./mindformers/tools/merge_hccl.py hccl*.json
-```
-
-- step 3. 将合并后的`RANK_TABLE_FILE`文件拷贝到所有机器中，保证不同机器上的`RANK_TABLE_FILE`相同。
-
-RANK_TABLE_FILE 双机16卡参考样例:
-
-```json
-{
-    "version": "1.0",
-    "server_count": "2",
-    "server_list": [
-        {
-            "server_id": "xx.xx.xx.xx",
-            "device": [
-                {
-                    "device_id": "0", "device_ip": "192.168.0.0", "rank_id": "0"
-                },
-                {
-                    "device_id": "1", "device_ip": "192.168.1.0", "rank_id": "1"
-                },
-                {
-                    "device_id": "2", "device_ip": "192.168.2.0", "rank_id": "2"
-                },
-                {
-                    "device_id": "3", "device_ip": "192.168.3.0", "rank_id": "3"
-                },
-                {
-                    "device_id": "4", "device_ip": "192.168.0.1", "rank_id": "4"
-                },
-                {
-                    "device_id": "5", "device_ip": "192.168.1.1", "rank_id": "5"
-                },
-                {
-                    "device_id": "6", "device_ip": "192.168.2.1", "rank_id": "6"
-                },
-                {
-                    "device_id": "7", "device_ip": "192.168.3.1", "rank_id": "7"
-                }
-            ],
-            "host_nic_ip": "reserve"
-        },
-        {
-            "server_id": "xx.xx.xx.xx",
-            "device": [
-                {
-                    "device_id": "0", "device_ip": "192.168.0.1", "rank_id": "8"
-                },
-                {
-                    "device_id": "1", "device_ip": "192.168.1.1", "rank_id": "9"
-                },
-                {
-                    "device_id": "2", "device_ip": "192.168.2.1", "rank_id": "10"
-                },
-                {
-                    "device_id": "3", "device_ip": "192.168.3.1", "rank_id": "11"
-                },
-                {
-                    "device_id": "4", "device_ip": "192.168.0.2", "rank_id": "12"
-                },
-                {
-                    "device_id": "5", "device_ip": "192.168.1.2", "rank_id": "13"
-                },
-                {
-                    "device_id": "6", "device_ip": "192.168.2.2", "rank_id": "14"
-                },
-                {
-                    "device_id": "7", "device_ip": "192.168.3.2", "rank_id": "15"
-                }
-            ],
-            "host_nic_ip": "reserve"
-        }
-    ],
-    "status": "completed"
-}
-```
-
 ### 模型权重下载与转换
 
 开发者可以下载获取官方权重后，通过下面提供的**权重转换脚本**，将官方权重转换为MindSpore权重；或直接使用MindFormers提供的**已转换权重**
@@ -345,57 +217,13 @@ python mindformers/tools/format_tool_alpaca.py --path ToolAlpaca/data/train_data
 
 - 单机多卡
 
-多卡运行需要RANK_FILE_TABLE，请参考前期准备——[生成RANK_TABLE_FILE](#生成ranktablefile)
-
-```shell
-cd scripts
-# Usage Help: bash run_distribute.sh [RANK_TABLE_FILE] [CONFIG_PATH] [DEVICE_RANGE] [RUN_STATUS]
-bash run_distribute.sh /path/to/hccl_8p_01234567_127.0.1.1.json ../configs/glm3/run_glm3_6b_finetune*.yaml '[0,8]' finetune
-# 将此处rank_table_file替换为实际路径
-```
-
-参数说明
-
-```text
-RANK_TABLE_FILE: 由mindformers/tools/hccl_tools.py生成的分布式json文件
-CONFIG_PATH: 为configs文件夹下面的glm3/run_glm3_6b_finetune*.yaml配置文件
-DEVICE_RANGE: 为单机分布式卡的范围，如 '[0,8]' 为8卡分布式，不包含8本身
-RUN_STATUS: 为任务运行状态，支持关键字 train\finetune\eval\predict
-```
-
-训练的log日志路径：mindformers/output/log
-
-checkpoint存储路径：mindformers/output/checkpoint
-
-- 多机多卡
-
-多机多卡运行需要合并不同机器的RANK_FILE_TABLE，参考前期准备——[多机RANK_TABLE_FILE合并](#多机ranktablefile合并)
-
-在每台机器上启动`bash run_distribute.sh`。
+推荐使用msrun方式启动
 
 ```bash
-server_count=12
-device_num=8*$server_count
-# launch ranks in the 0th server
-cd scripts
-bash run_distribute.sh $RANK_TABLE_FILE path/to/config.yaml [0,8] finetune $device_num
-
-# launch ranks in the 1-11 server via ssh
-for idx in {1..11}
-do
-    let rank_start=8*$idx
-    let rank_end=$rank_start+8
-    ssh ${IP_LIST[$idx]} "cd scripts; bash run_distribute.sh $RANK_TABLE_FILE path/to/config.yaml [$rank_start,$rank_end] finetune $device_num"
-done
-```
-
-其中
-
-- `RANK_TABLE_FILE`为上一步汇总并分发的总rank table文件；
-- `IP_LIST`为12台服务器的IP地址。如192.168.0.[0-11]
-
-```bash
-IP_LIST=("192.168.0.0", "192.168.0.1", ..., "192.168.0.11")
+cd {mindformers根目录}
+bash scripts/msrun_launcher.sh "run_mindformer.py \
+    --config configs/glm3/run_glm3_6b_finetune_2k_800T_A2_64G.yaml \
+    --run_mode finetune"
 ```
 
 ## 推理
@@ -531,19 +359,21 @@ outputs = model.generate(inputs, **gen_kwargs) #, eos_token_id=eos_token_id)
 outputs =outputs[0][len(inputs[0]):-1]
 response = tokenizer.decode(outputs)
 print(response, flush=True)
-# 1月份去海南旅游，正好是冬季，海南的气候相对较凉爽，而且这个季节海南岛上的风景也很美。以下是一些建议供您参考：
+#  当然可以！海南是一个风景优美、气候宜人的热带海洋省份，拥有丰富的旅游资源和美食。以下是一些您可能会感兴趣的景点和美食：
 
-# 好玩的景点：
+# 1. 景点：
+# - 海南岛：这是海南最著名的景点之一，拥有美丽的沙滩和热带雨林。
+# - 亚龙湾：这是海南最著名的海滩之一，拥有柔软的沙滩和清澈的海水。
+# - 南山寺：这是海南最著名的佛教寺庙之一，拥有精美的建筑和悠久的历史。
+# - 博鳌亚洲论坛永久会址：这是中国最著名的国际会议中心，位于海南岛东海岸。
 
-# 三亚：作为海南的著名旅游胜地，三亚的海滩、椰子树和热带雨林都非常值得一游。此外，还可以参观南山寺、大小洞天等景点。
-# 陵水黎族自治县：这个地区的黎族文化非常丰富，可以参观吊脚楼、体验黎族风情等。
-# 兴隆县：兴隆县有世界上最大的热带植物园，您可以欣赏到各种热带植物。
-# 好吃的美食：
+# 2. 美食：
+# - 海南鸡饭：这是海南最著名的美食之一，由鸡肉、米饭和椰汁组成。
+# - 海鲜：海南岛周围的海域拥有丰富的海鲜资源，包括螃蟹、龙虾、鱼类等。
+# - 椰子饭：这是海南最著名的传统美食之一，由椰子肉和糯米组成。
+# - 海南粉：这是海南的一种传统小吃，由米粉和各种肉类、海鲜、蔬菜组成。
 
-# 海南鸡饭：这是海南当地非常有名的一道美食，鸡肉与米饭的搭配非常美味。
-# 海南椰子鸡：椰子鸡是海南的传统美食，以椰子肉、鸡肉和声名远扬的海南酒为原料，味道鲜美。
-# 海南粉：海南粉以米粉为主要原料，搭配猪肉、花生、葱、香菜等食材，味道鲜美可口。
-# 希望这些建议对您有所帮助，祝您旅途愉快！
+# 希望这些信息对您有所帮助，如果您还有其他问题，请随时问我。
 response, history = process_response(response, history)
 
 role="user"
@@ -557,13 +387,17 @@ outputs = model.generate(inputs, **gen_kwargs)
 outputs =outputs[0][len(inputs[0]):-1]
 response = tokenizer.decode(outputs)
 print(response, flush=True)
-# 在海南，冲浪和潜水的主要景点集中在三亚和陵水黎族自治县。
+#  在海南岛，冲浪和潜水的好去处有很多。以下是一些建议：
 
-# 三亚：三亚的冲浪和潜水活动非常受欢迎，尤其是著名的“大东海”和“小东海”海域。这里的海水清澈，浪头适中，非常适合冲浪和潜水。此外，还可以参观南山寺、大小洞天等景点。
+# 1. 冲浪：
+# - 莺歌海：位于海南岛西南部，是冲浪爱好者的天堂。这里的海浪适中，沙滩漂亮，非常适合冲浪。
+# - 三亚：位于海南岛南端，拥有许多优质的冲浪场地，如蜈支洲岛、大小洞天等。
 
-# 陵水黎族自治县：这个地区的黎族文化非常丰富，可以参观吊脚楼、体验黎族风情等。此外，陵水黎族自治县的海域也是冲浪和潜水的好去处，例如：分界洲岛、蜈支洲岛等。
+# 2. 潜水：
+# - 蜈支洲岛：位于海南岛东南部，是潜水爱好者的天堂。这里的潜水条件优越，拥有丰富的珊瑚礁和海洋生物。
+# - 莺歌海：位于海南岛西南部，这里的海水清澈，潜水 visibility 很高，非常适合潜水。
 
-# 需要注意的是，冲浪和潜水活动需要专业教练指导，确保安全。希望这些建议对您有所帮助，祝您旅途愉快！
+# 当然，还有其他一些景点也适合冲浪和潜水，如海南岛的东海岸、西海岸等。具体选择取决于您的兴趣和经验。希望这些建议对您有所帮助！
 response, history = process_response(response, history)
 
 role="user"
@@ -575,35 +409,33 @@ outputs = model.generate(inputs, **gen_kwargs)
 outputs =outputs[0][len(inputs[0]):-1]
 response = tokenizer.decode(outputs)
 print(response, flush=True)
-# 当然可以！以下是一份关于海南的旅游攻略，希望对您有所帮助：
+#  当然可以！以下是一份简要的海南旅游攻略，供您参考：
 
-# 【旅行时间】：1月份是冬季，此时气候相对较凉爽，但风景依然美丽。
+# 一、行程安排：
+# 建议行程为 4-5 天，具体行程可以根据您的需求和时间进行调整。
 
-# 【旅行路线】：可以考虑分为东线和西线两条路线。
+# 1. 第一天：抵达三亚，入住酒店，适应一下当地的气候和环境。
+# 2. 第二天：游览亚龙湾，享受阳光和沙滩，晚上品尝当地的美食。
+# 3. 第三天：游览南山寺，感受佛教文化的魅力，晚上可以在三亚市区品尝当地的美食。
+# 4. 第四天：前往蜈支洲岛，享受潜水和冲浪的乐趣，晚上返回三亚。
+# 5. 第五天：前往博鳌亚洲论坛永久会址，游览博鳌 town，晚上返回三亚，结束行程。
 
-# 【东线】：
+# 二、景点推荐：
+# 1. 海南岛：这是海南最著名的景点之一，拥有美丽的沙滩和热带雨林。
+# 2. 亚龙湾：这是海南最著名的海滩之一，拥有柔软的沙滩和清澈的海水。
+# 3. 南山寺：这是海南最著名的佛教寺庙之一，拥有精美的建筑和悠久的历史。
+# 4. 博鳌亚洲论坛永久会址：这是中国最著名的国际会议中心，位于海南岛东海岸。
 
-# 三亚：作为海南的著名旅游胜地，三亚的海滩、椰子树和热带雨林都非常值得一游。此外，还可以参观南山寺、大小洞天等景点。
-# 陵水黎族自治县：这个地区的黎族文化非常丰富，可以参观吊脚楼、体验黎族风情等。
-# 琼海：琼海市有著名的博鳌亚洲论坛永久会址，可以参观博鳌港、博鳌亚洲论坛永久会址等景点。
-# 【西线】：
+# 三、美食推荐：
+# 1. 海南鸡饭：这是海南最著名的美食之一，由鸡肉、米饭和椰汁组成。
+# 2. 海鲜：海南岛周围的海域拥有丰富的海鲜资源，包括螃蟹、龙虾、鱼类等。
+# 3. 椰子饭：这是海南最著名的传统美食之一，由椰子肉和糯米组成。
+# 4. 海南粉：这是海南的一种传统小吃，由米粉和各种肉类、海鲜、蔬菜组成。
 
-# 海口：海口市作为海南省的省会，有丰富的旅游资源。可以参观海口市博物馆、万绿园等景点。
-# 临高县：临高县有悠久的历史文化，可以参观临高古城、临高角等景点。
-# 【美食】：
+# 四、住宿推荐：
+# 建议选择三亚市区的酒店，这样可以方便您游览市区和品尝当地的美食。
 
-# 海南鸡饭：这是海南当地非常有名的一道美食，鸡肉与米饭的搭配非常美味。
-# 海南椰子鸡：椰子鸡是海南的传统美食，以椰子肉、鸡肉和声名远扬的海南酒为原料，味道鲜美。
-# 海南粉：海南粉以米粉为主要原料，搭配猪肉、花生、葱、香菜等食材，味道鲜美可口。
-# 【住宿】：
-# 海南的旅游资源丰富，您可以选择在三亚、海口、陵水黎族自治县等地住宿。
-
-# 【交通】：
-
-# 飞机：您可以选择从家乡出发，抵达海南的机场。
-# 火车：海南有丰富的火车资源，您可以选择从广州、深圳等地乘坐火车抵达海南。
-# 自驾游：如果您喜欢自驾游，可以租一辆车，自驾游遍历海南的各个景点。
-# 希望这份旅游攻略对您有所帮助，祝您旅途愉快！
+# 希望这份攻略对您有所帮助，如果您还有其他问题，请随时问我。
 response, history = process_response(response, history)
 
 ```
