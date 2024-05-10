@@ -1113,8 +1113,7 @@ class GenerationMixin:
         batch_size = input_ids.shape[0]
         target_list = [[] for _ in range(batch_size)]
 
-        if not hasattr(generation_config, "generation_mode"):
-            generation_config.generation_mode = self._get_generation_mode(generation_config)
+        generation_config.generation_mode = self._get_generation_mode(generation_config)
         if generation_config.generation_mode == GenerationMode.GREEDY_SEARCH:
             if not self.config.is_sample_acceleration:
                 logits = res[0] if isinstance(res, tuple) else res
