@@ -210,6 +210,13 @@ class ModelRunner:
         no_sample_batch_idx = batch_idx if do_sample is None else np.where(do_sample == 0)[0]
         no_penalty_batch_idx = batch_idx if repetition_penalty is None else np.where(repetition_penalty == 1.0)[0]
         if no_sample_batch_idx.size == batch_size and no_penalty_batch_idx.size == batch_size:
+            generation_config = {"do_sample": do_sample[0], "temperature": 1.0, "top_k": 0, "top_p": 1.0,
+                                 "repetition_penalty": repetition_penalty[0]}
+            self.generation_config.update(**generation_config)
+            logits_processor = self.model.get_logits_processor(self.generation_config, input_ids_seq_length, None)
+            logits_warper = self.model.get_logits_warper(self.generation_config)
+            kwargs["logits_processor"] = logits_processor
+            kwargs["logits_warper"] = logits_warper
             return self.model.infer(**kwargs)
 
         res, current_idx = self.model.forward(**kwargs)
