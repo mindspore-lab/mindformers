@@ -35,9 +35,6 @@ def modify_batch_size(net, batch_size):
         modify_batch_size(cell, batch_size)
 
 
-@pytest.mark.level0
-@pytest.mark.platform_arm_ascend910b_training
-@pytest.mark.env_onecard
 class TestGeneratorUseT5:
     """A test class for testing Model classes"""
     def setup_class(self):

@@ -34,7 +34,6 @@ from mindformers.tools import MindFormerConfig, logger
 
 @pytest.mark.level0
 @pytest.mark.platform_x86_cpu
-@pytest.mark.platform_x86_gpu_training  # add for ci
 @pytest.mark.env_onecard
 def test_yaml():
     """
@@ -43,7 +42,7 @@ def test_yaml():
     Expectation: TypeError
     """
     yaml_path = os.path.join(
-        MindFormerBook.get_project_path(), 'configs', 'clip', 'run_clip_vit_b_32_pretrain_flickr8k.yaml')
+        MindFormerBook.get_project_path(), 'configs', 'llama2', 'predict_llama2_7b.yaml')
     yaml_content = MindFormerConfig(yaml_path)
 
     logger.info(yaml_content)

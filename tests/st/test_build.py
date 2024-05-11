@@ -228,7 +228,7 @@ class TestProcessor:
 @MindFormerRegister.register(MindFormerModuleType.TRAINER)
 class TestTaskTrainer(BaseTrainer):
     """Test TimeMonitor API For Register."""
-    def __init__(self, model_name='vit'):
+    def __init__(self, model_name='gpt2'):
         super(TestTaskTrainer, self).__init__(model_name=model_name)
 
 
