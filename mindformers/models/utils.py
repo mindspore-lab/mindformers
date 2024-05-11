@@ -14,9 +14,11 @@
 # ============================================================================
 """Check Model Input Config."""
 import json
+import re
 import numpy as np
 import mindspore.common.dtype as mstype
 from ..version_control import get_cell_reuse, get_predict_cell_reuse
+from ..tools.logger import logger
 
 CONFIG_NAME = "config.json"
 WEIGHTS_NAME = "mindspore_model.ckpt"
@@ -61,15 +63,66 @@ def is_json_serializable(obj):
     except TypeError:
         return False
 
-
-def check_recompute_rule(select_recompute, pp_id, layer_id, layer_list):
-    if isinstance(select_recompute, bool):
-        return select_recompute
-    if isinstance(select_recompute, (list, tuple)):
-        layer_list = np.insert(layer_list, 0, 0)
-        if layer_id < layer_list[pp_id] + select_recompute[pp_id]:
-            return True
+def _check_layer_rule(layer_id, accu_layer, stage_layer, pp_id):
+    diff = stage_layer[pp_id] - (accu_layer[pp_id + 1] -accu_layer[pp_id]) // 2
+    full_range = diff * 2 if diff > 0 else 0
+    if layer_id < full_range:
+        return True
+    if layer_id % 2 == 0 and (layer_id - accu_layer[pp_id]) //2 < stage_layer[pp_id]:
+        return True
     return False
+
+# pylint: disable=W0212
+def _set_pattern_recompute(layer, p_list, add_prim_attr=False, info='layer'):
+    """Set recompute pattern to layer."""
+    if not p_list:
+        return
+    p = p_list.pop(0)
+    if p_list:
+        for name, cell in layer._cells.items():
+            if re.fullmatch(p, name):
+                _set_pattern_recompute(cell, p_list, add_prim_attr, info + f'.{name}')
+    else:
+        for attr in dir(layer):
+            if re.fullmatch(p, attr):
+                operator = getattr(layer, attr)
+                if add_prim_attr:
+                    operator.add_prim_attr("recompute_comm_op", True)
+                    logger.info(f"Set select comm recompute: {info}.{attr}")
+                elif hasattr(operator, "recompute"):
+                    operator.recompute()
+                    logger.info(f"Set select recompute: {info}.{attr}")
+        for name, cell in layer._cells.items():
+            if re.fullmatch(p, name):
+                if not add_prim_attr:
+                    cell.recompute()
+                    logger.info(f"Set select recompute: {info}.{name}")
+    p_list.insert(0, p)
+
+
+def _set_select_recompute(layer, select_recompute, pp_id, layer_id, layer_list, default_patterns, add_prim_attr=False):
+    """Set select recompute."""
+    layer_list_mod = np.insert(layer_list, 0, 0)
+    if isinstance(select_recompute, bool):
+        if select_recompute:
+            for p in default_patterns:
+                _set_pattern_recompute(layer, p.split(r'\.'), add_prim_attr, f'layer_{layer_id}')
+    elif isinstance(select_recompute, (list, tuple)):
+        if all(isinstance(item, int) for item in select_recompute):
+            if layer_id < layer_list_mod[pp_id] + select_recompute[pp_id]:
+                for p in default_patterns:
+                    _set_pattern_recompute(layer, p.split(r'\.'), add_prim_attr, f'layer_{layer_id}')
+        elif all(isinstance(item, str) for item in select_recompute):
+            for p in select_recompute:
+                _set_pattern_recompute(layer, p.split(r'\.'), add_prim_attr, f'layer_{layer_id}')
+        else:
+            raise ValueError(f"Illegal input format for select_recompute: {select_recompute}")
+    elif isinstance(select_recompute, dict):
+        for k, v in select_recompute.items():
+            if not all(isinstance(item, int) for item in v):
+                raise ValueError(f"Illegal input format for select_recompute: {k}: {v}")
+            if layer_id < layer_list_mod[pp_id] + v[pp_id]:
+                _set_pattern_recompute(layer, k.split(r'\.'), add_prim_attr, f'layer_{layer_id}')
 
 
 def set_layer_stage_recompute(layer, layer_id, offset, parallel_config, n_layers):
@@ -110,18 +163,30 @@ def set_layer_stage_recompute(layer, layer_id, offset, parallel_config, n_layers
         if parallel_config.recompute:
             layer.recompute()
             return
-    if parallel_config.recompute.recompute and not parallel_config.recompute.select_recompute:
-        layer.recompute(
-            recompute_slice_activation=parallel_config.recompute.recompute_slice_activation
-        )
+    select_recompute = parallel_config.recompute.select_recompute
+    select_comm_recompute = parallel_config.recompute.select_comm_recompute
+    if parallel_config.recompute.recompute:
+        if isinstance(parallel_config.recompute.recompute, bool):
+            layer.recompute(recompute_slice_activation=parallel_config.recompute.recompute_slice_activation)
+        elif isinstance(parallel_config.recompute.recompute, (list, tuple)):
+            layer_list_mod = np.insert(layer_list, 0, 0)
+            if _check_layer_rule(layer_id, layer_list_mod, parallel_config.recompute.recompute, pp_id):
+                layer.recompute()
+                logger.info(f"Set layer recompute: layer_{layer_id}")
+            else:
+                default_patterns = [r'feed_forward\.mul', r'feed_forward\.w1\.activation\.silu']
+                default_comm_patterns = [r'.*\.norm']
+                _set_select_recompute(layer, select_recompute, pp_id, layer_id, layer_list, default_patterns, False)
+                _set_select_recompute(layer, select_comm_recompute, pp_id, layer_id, layer_list, default_comm_patterns,
+                                      True)
+        else:
+            raise ValueError(f"reompute.recompute should be bool/list/tuple, but got: "
+                             f"{type(parallel_config.recompute.recompute)} ({parallel_config.recompute.recompute})")
     else:
-        if check_recompute_rule(parallel_config.recompute.select_comm_recompute, pp_id, layer_id, layer_list):
-            if not layer.attention_norm.self_define:
-                layer.attention_norm.norm.add_prim_attr("recompute_comm_op", True)
-                layer.ffn_norm.norm.add_prim_attr("recompute_comm_op", True)
-        if check_recompute_rule(parallel_config.recompute.select_recompute, pp_id, layer_id, layer_list):
-            layer.feed_forward.mul.recompute()
-            layer.feed_forward.w1.activation.silu.recompute()
+        default_patterns = [r'feed_forward\.mul', r'feed_forward\.w1\.activation\.silu']
+        default_comm_patterns = [r'.*\.norm']
+        _set_select_recompute(layer, select_recompute, pp_id, layer_id, layer_list, default_patterns, False)
+        _set_select_recompute(layer, select_comm_recompute, pp_id, layer_id, layer_list, default_comm_patterns, True)
 
 
 def check_fine_grain_interleave_valid(fine_grain_interleave, parallel_config):
