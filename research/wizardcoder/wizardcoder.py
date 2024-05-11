@@ -121,10 +121,16 @@ class WizardCoderLMHeadModel(WizardCoderPreTrainedModel):
             "input_position": input_position
         }
 
+    def prepare_inputs_for_predict_layout(self, input_ids, **kwargs):
+        """Get Wizardcoder model input tuple for transform ckpt."""
+        input_ids = Tensor(input_ids, mstype.int32)
+        labels = Tensor(kwargs["labels"]) if "labels" in kwargs else None
+        return input_ids, labels, None, None, None, None
+
     def add_flags_custom(self, is_first_iteration):
         """Add customized attributes for specific cells in the model."""
         self.add_flags(is_first_iteration=is_first_iteration)
-        self.model.add_flags(is_first_iteration=is_first_iteration)
+        self.backbone.add_flags(is_first_iteration=is_first_iteration)
         for layer in self.backbone.blocks:
             layer.add_flags(is_first_iteration=is_first_iteration)
             layer.attention.add_flags(is_first_iteration=is_first_iteration)
