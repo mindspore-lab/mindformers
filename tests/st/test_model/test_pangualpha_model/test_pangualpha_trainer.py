@@ -18,7 +18,6 @@ How to run this:
 pytest tests/st/test_model/test_llm_model/test_pangualpha_trainer.py
 """
 import numpy as np
-import pytest
 
 import mindspore as ms
 
@@ -51,9 +50,6 @@ def generator_eval():
         yield train_data
 
 
-@pytest.mark.level0
-@pytest.mark.platform_arm_ascend910b_training
-@pytest.mark.env_onecard
 class TestPanguAlphaTrainerMethod:
     """A test class for testing pipeline."""
 
