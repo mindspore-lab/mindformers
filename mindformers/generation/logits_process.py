@@ -18,12 +18,117 @@ from threading import Thread
 from typing import Union, List
 import numpy as np
 
+import mindspore as ms
+from mindspore import ops, Tensor
 from .utils import log_softmax, softmax, topk
 from ..tools import logger
 
 __all__ = ["LogitsProcessor", "LogitsWarper", "LogitsProcessorList", "RepetitionPenaltyLogitsProcessor",
            "LogitNormalization", "TemperatureLogitsWarper", "TopKLogitsWarper", "TopPLogitsWarper",
-           "MinLengthLogitsProcessor", "MinNewTokensLengthLogitsProcessor"]
+           "MinLengthLogitsProcessor", "MinNewTokensLengthLogitsProcessor", "LogitsProcessorAcceleration"]
+
+class LogitsProcessorAcceleration:
+    """
+    LogitsProcessor: PostProcess for logits.
+    """
+
+    def temperature_process(self, logits, temperature):
+        """
+        Do temperature postprocess.
+
+        Args:
+            logits (Tensor):
+                Logits from model's output, with shape of [batch_size, vocab_size].
+            temperature (List(int)):
+                The temperature argument.
+
+        Returns:
+            logits, with shape of [batch_size, vocab_size].
+        """
+
+        if np.any(temperature <= 0):
+            logger.warning(f"The temperature {temperature} must be positive value.")
+            return logits
+
+        return logits / Tensor(temperature).reshape(-1, 1)
+
+    def top_k_process(self, logits, top_k, filter_value=-10000.0):
+        """
+        Do top_k postprocess.
+
+        Args:
+            logits (Tensor):
+                Logits from model's output, with shape of [batch_size, vocab_size].
+            top_k (List(int)):
+                The top_k argument.
+            filter_value (float):
+                The filter value used to replace the extra-value.
+
+        Returns:
+            logits, with shape of [batch_size, vocab_size].
+        """
+
+        if np.any(top_k <= 0):
+            logger.warning(f"The top_k {top_k} must be positive value.")
+            return logits
+
+        max_top_k = max(top_k)
+        scores, _ = ops.topk(logits, max_top_k, 1)
+        kth_scores = ops.gather(scores, Tensor(top_k - 1), 1, 1).reshape(-1, 1)
+        logits = ops.where(logits < kth_scores, filter_value, logits)
+        return logits
+
+    def top_p_process(self, logits, top_p, filter_value=-10000.0, candidate_token_num=200):
+        """
+        Do top_k postprocess.
+
+        Args:
+            logits (Tensor):
+                Logits from model's output, with shape of [batch_size, vocab_size].
+            top_p (List(float)):
+                The top_p argument.
+            filter_value (float):
+                The filter value used to replace the extra-value.
+            candidate_token_num (int):
+                Used to choose the candidate scores.
+
+        Returns:
+            logits, with shape of [batch_size, vocab_size].
+        """
+
+        if np.any(top_p <= 0):
+            logger.warning(f"The top_p {top_p} must be in (0, 1).")
+            return logits
+
+        candidate_logits, candidate_indices = ops.topk(logits, candidate_token_num)
+        cumulative_probs = ops.softmax(candidate_logits)
+        cumulative_probs = ops.cumsum(cumulative_probs, axis=-1)
+
+        # Remove tokens with cumulative top_p above the threshold (token with 0 are kept)
+        sorted_indices_to_keep = cumulative_probs < Tensor(top_p).reshape(-1, 1)
+        sorted_indices_to_keep = ops.slice(sorted_indices_to_keep, (0, 0), (-1, candidate_token_num - 1))
+        sorted_indices_to_keep = ops.cat((ops.ones((logits.shape[0], 1)).astype("bool"), sorted_indices_to_keep),
+                                         axis=-1).astype("int32")
+
+        # set remove indices, filter negative value
+        indices_to_keep = ops.zeros_like(logits, dtype=ms.int32)
+        indices_to_keep = ops.scatter(indices_to_keep, axis=-1, index=candidate_indices, src=sorted_indices_to_keep)
+        logits = ops.where(indices_to_keep.astype("bool"), logits, filter_value)
+        return logits
+
+    def logits_normalization(self, logits):
+        """
+        Do normalization postprocess.
+
+        Args:
+            logits (Tensor):
+                Logits from model's output, with shape of [batch_size, vocab_size].
+
+        Returns:
+            logits, with shape of [batch_size, vocab_size].
+        """
+
+        return ops.log_softmax(logits, axis=-1)
 
 
 class LogitsProcessor:
