@@ -21,7 +21,7 @@ from typing import Optional, List, Union
 import numpy as np
 
 import mindspore as ms
-from mindspore import context, Tensor
+from mindspore import context, ops, Tensor
 from mindspore.communication.management import init
 from mindspore.common.initializer import Zero
 from mindspore._c_expression import swap_cache
@@ -33,6 +33,113 @@ from mindformers.tools.register.config import MindFormerConfig
 from mindformers.trainer.utils import transform_and_load_checkpoint
 
 __all__ = ["ModelRunner"]
+
+
+class LogitsProcessor:
+    """
+    LogitsProcessor: PostProcess for logits.
+    """
+
+    def __init__(self):
+        pass
+
+    def temperature_process(self, logits, temperature):
+        """
+        Do temperature postprocess.
+
+        Args:
+            logits (Tensor):
+                Logits from model's output.
+            temperature (List(int)):
+                The temperature argument.
+
+        Returns:
+            logits
+        """
+
+        if np.any(temperature <= 0):
+            logger.warning(f"The temperature {temperature} must be positive value.")
+            return logits
+
+        return logits / Tensor(temperature).reshape(-1, 1)
+
+    def top_k_process(self, logits, top_k, filter_value=-10000.0):
+        """
+        Do top_k postprocess.
+
+        Args:
+            logits (Tensor):
+                Logits from model's output.
+            top_k (List(int)):
+                The top_k argument.
+            filter_value (float):
+                The filter value used to replace the extra-value.
+
+        Returns:
+            logits
+        """
+
+        if np.any(top_k <= 0):
+            logger.warning(f"The top_k {top_k} must be positive value.")
+            return logits
+
+        max_top_k = max(top_k)
+        scores, _ = ops.topk(logits, max_top_k, 1)
+        kth_scores = ops.gather(scores, Tensor(top_k - 1), 1, 1).reshape(-1, 1)
+        logits = ops.where(logits < kth_scores, filter_value, logits)
+        return logits
+
+    def top_p_process(self, logits, top_p, filter_value=-10000.0, candidate_token_num=200):
+        """
+        Do top_k postprocess.
+
+        Args:
+            logits (Tensor):
+                Logits from model's output.
+            top_p (List(float)):
+                The top_p argument.
+            filter_value (float):
+                The filter value used to replace the extra-value.
+            candidate_token_num (int):
+                Used to choose the candidate scores.
+
+        Returns:
+            logits
+        """
+
+        if np.any(top_p <= 0):
+            logger.warning(f"The top_p {top_p} must be in (0, 1).")
+            return logits
+
+        candidate_logits, candidate_indices = ops.topk(logits, candidate_token_num)
+        cumulative_probs = ops.softmax(candidate_logits)
+        cumulative_probs = ops.cumsum(cumulative_probs, axis=-1)
+
+        # Remove tokens with cumulative top_p above the threshold (token with 0 are kept)
+        sorted_indices_to_keep = cumulative_probs < Tensor(top_p).reshape(-1, 1)
+        sorted_indices_to_keep = ops.slice(sorted_indices_to_keep, (0, 0), (-1, candidate_token_num - 1))
+        sorted_indices_to_keep = ops.cat((ops.ones((logits.shape[0], 1)).astype("bool"), sorted_indices_to_keep),
+                                         axis=-1).astype("int32")
+
+        # set remove indices, filter negative value
+        indices_to_keep = ops.zeros_like(logits, dtype=ms.int32)
+        indices_to_keep = ops.scatter(indices_to_keep, axis=-1, index=candidate_indices, src=sorted_indices_to_keep)
+        logits = ops.where(indices_to_keep.astype("bool"), logits, filter_value)
+        return logits
+
+    def logits_normalization(self, logits):
+        """
+        Do normalization postprocess.
+
+        Args:
+            logits (Tensor):
+                Logits from model's output.
+
+        Returns:
+            logits
+        """
+
+        return ops.log_softmax(logits, axis=-1)
 
 
 class ModelRunner:
@@ -62,6 +169,7 @@ class ModelRunner:
         self.model_config = None
         self.generation_config = None
         self.experiment_mode = False
+        self.post_processor = LogitsProcessor()
 
         # parallel predict with dynamic cluster.
         if world_size > 1:
@@ -201,66 +309,54 @@ class ModelRunner:
         if generation_config is None:
             return self.model.infer(**kwargs)
 
-        input_ids = np.array(input_ids)
-        is_finished = np.array(is_finished)
         do_sample = generation_config.get("do_sample")
+        temperature = generation_config.get("temperature")
+        top_k = generation_config.get("top_k")
+        top_p = generation_config.get("top_p")
         repetition_penalty = generation_config.get("repetition_penalty")
-        batch_size = input_ids.shape[0]
-        batch_idx = np.arange(batch_size)
-        no_sample_batch_idx = batch_idx if do_sample is None else np.where(do_sample == 0)[0]
-        no_penalty_batch_idx = batch_idx if repetition_penalty is None else np.where(repetition_penalty == 1.0)[0]
-        if no_sample_batch_idx.size == batch_size and no_penalty_batch_idx.size == batch_size:
-            generation_config = {"do_sample": do_sample[0], "temperature": 1.0, "top_k": 0, "top_p": 1.0,
-                                 "repetition_penalty": repetition_penalty[0]}
+        if np.all(do_sample == do_sample[0]) and np.all(temperature == temperature[0]) and np.all(top_k == top_k[0]) \
+            and np.all(top_p == top_p[0]) and np.all(repetition_penalty == repetition_penalty[0]):
+            generation_config = {"do_sample": do_sample[0], "temperature": temperature[0], "top_k": int(top_k[0]),
+                                 "top_p": top_p[0], "repetition_penalty": repetition_penalty[0]}
             self.generation_config.update(**generation_config)
             logits_processor = self.model.get_logits_processor(self.generation_config, input_ids_seq_length, None)
             logits_warper = self.model.get_logits_warper(self.generation_config)
+            kwargs["generation_config"] = self.generation_config
             kwargs["logits_processor"] = logits_processor
             kwargs["logits_warper"] = logits_warper
             return self.model.infer(**kwargs)
 
         res, current_idx = self.model.forward(**kwargs)
-        next_ids = np.array([self.model_config.eos_token_id] * batch_size)
-        no_post_batch_idx = np.intersect1d(no_sample_batch_idx, no_penalty_batch_idx).tolist()
-        if no_post_batch_idx:
-            next_ids_no_post, is_finished_no_post = \
-                self.model.postprocess(input_ids=input_ids[no_post_batch_idx],
-                                       is_finished=is_finished[no_post_batch_idx],
-                                       res=(res[0][no_post_batch_idx], res[1][no_post_batch_idx]),
-                                       generation_config=self.generation_config,
-                                       valid_length_each_example=None,
-                                       current_index=np.array(current_idx)[no_post_batch_idx].tolist(),
-                                       logits_processor=logits_processor,
-                                       logits_warper=logits_warper,
-                                       need_gather_logits=prefill)
-            next_ids[no_post_batch_idx] = np.array(next_ids_no_post)
-            is_finished[no_post_batch_idx] = np.array(is_finished_no_post)
+        logits = ops.reshape(res[0], (-1, res[0].shape[-1]))
+        if prefill and logits.shape[0] > len(current_idx):
+            logits = logits[Tensor(current_idx)]
 
-        temperature = generation_config.get("temperature")
-        top_k = generation_config.get("top_k")
-        top_p = generation_config.get("top_p")
-        post_batch_idx = np.setdiff1d(batch_idx, no_post_batch_idx).tolist()
-        for idx in post_batch_idx:
-            generation_config["do_sample"] = do_sample[idx]
-            generation_config["repetition_penalty"] = 1.0 if repetition_penalty is None else repetition_penalty[idx]
-            generation_config["temperature"] = 1.0 if temperature is None else temperature[idx]
-            generation_config["top_k"] = 0 if top_k is None else int(top_k[idx])
-            generation_config["top_p"] = 1.0 if top_p is None else top_p[idx]
-            self.generation_config.update(**generation_config)
-            logits_processor = self.model.get_logits_processor(self.generation_config, input_ids_seq_length, None)
-            logits_warper = self.model.get_logits_warper(self.generation_config)
+        ori_logits = logits
+        if np.any(temperature != 1.0):
+            logits = self.post_processor.temperature_process(logits, temperature)
+        if np.any(top_k != 1):
+            logits = self.post_processor.top_k_process(logits, top_k)
+        if np.any(top_p != 1.0):
+            logits = self.post_processor.top_p_process(logits, top_p)
+        if self.generation_config.renormalize_logits:
+            logits = self.post_processor.logits_normalization(logits)
 
-            next_ids_post, is_finished_post = self.model.postprocess(input_ids=np.array([input_ids[idx]]),
-                                                                     is_finished=[is_finished[idx]],
-                                                                     res=(res[0][int(idx)], res[1][int(idx)]),
-                                                                     generation_config=self.generation_config,
-                                                                     valid_length_each_example=None,
-                                                                     current_index=[current_idx[idx]],
-                                                                     logits_processor=logits_processor,
-                                                                     logits_warper=logits_warper,
-                                                                     need_gather_logits=prefill)
-            next_ids[idx] = np.array(next_ids_post)
-            is_finished[idx] = np.array(is_finished_post)
+        p_norms = ops.softmax(logits).asnumpy()
+        batch_size = np.array(input_ids).shape[0]
+        length = logits.shape[1]
+
+        next_ids = [None] * batch_size
+        for i in range(batch_size):
+            if is_finished[i]:
+                continue
+            if do_sample[i]:
+                p_norm = p_norms[i]
+                target = np.random.choice(length, p=p_norm)
+            else:
+                p_norm = ori_logits[i]
+                target = ops.argmax(p_norm)
+            next_ids[i] = int(target)
+
         return next_ids, is_finished
 
     def generate(self, **kwargs):
