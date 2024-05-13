@@ -153,7 +153,7 @@ model:
     softmax_compute_type: "float32"
     rotary_dtype: "float32"
     param_init_type: "bfloat16"
-    use_past: True
+    use_past: False
     scaling_factor: 1.0
     extend_method: "None" # support "None", "PI", "NTK"
     use_flash_attention: True # FA can accelerate training or finetune
